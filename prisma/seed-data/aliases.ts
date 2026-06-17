@@ -611,5 +611,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
 
     // ===== HUNGARY ===== (first Hungary kennel; bare "BH3"/"BHHH" omitted — globally taken)
     "budapest-h3": ["Budapest H3", "Budapest Hash", "Budapest HHH", "BPH3", "Budapest, Hungary"],
+
+    // ===== POLAND ===== (first Poland kennel; bare "WH3" omitted — global collision risk)
+    "warsaw-h3": ["Warsaw HHH", "Warsaw Hash", "Warsaw Hash House Harriers", "WH3 Warsaw"],
   };
 

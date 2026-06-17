@@ -112,6 +112,7 @@ import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
 import { BoiseH3Adapter } from "./html-scraper/boiseh3";
 import { NSWHHHAdapter } from "./html-scraper/nswhhh";
 import { ManilaH3Adapter } from "./html-scraper/manila-h3";
+import { WarsawH3Adapter } from "./html-scraper/warsaw-h3";
 import { SeoulH3Adapter } from "./html-scraper/seoul-h3";
 import { VictoriaH3Adapter } from "./html-scraper/victoria-h3";
 import { Ch4DkAdapter } from "./html-scraper/ch4-dk";
@@ -283,6 +284,10 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // Manila H3 (Monday men's, "since 1972") — Google Sites SSR home page; a single
   // current "next run" block keyed on the bilingual labels ano/kailan/sino/saan.
   { pattern: /sites\.google\.com\/site\/manilah3/i, name: "ManilaH3Adapter", factory: () => new ManilaH3Adapter() },
+  // Warsaw H3 (HashTracks' first Poland kennel, est. 1983) — warsawh3.com static
+  // Mobirise home page: a single <p> SSRs the next run (full detail) + an
+  // upcoming-runs list, merged by run number.
+  { pattern: /warsawh3\.com/i, name: "WarsawH3Adapter", factory: () => new WarsawH3Adapter() },
   // Seoul H3 ("Korea's Mother Hash", men-only, since 1972) — seoulhash.com PHP
   // SSR; index.php renders a single current run in semantically-classed divs.
   { pattern: /seoulhash\.com/i, name: "SeoulH3Adapter", factory: () => new SeoulH3Adapter() },
