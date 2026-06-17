@@ -564,6 +564,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Philippines — bare "MH3" intentionally OMITTED (global collision with
     // Miami/Minneapolis/Montreal/Munich/Memphis).
     "mh3-ph": ["Manila Hash House Harriers", "Manila Monday Hash", "MH3 Manila", "Manila Men's Hash"],
+    // South Korea — bare "SH3" OMITTED (taken by summit/salemh3/sh3-wa).
+    "sh3-kr": ["Seoul Hash", "Seoul H3", "Seoul Hash House Harriers", "SHHH", "Korea's Mother Hash"],
     // Nevada + Utah
     "lv-h3": ["Las Vegas H3", "Las Vegas Hash", "LVHHH", "Las Vegas HHH", "LV H3"],
     "ass-h3": ["ASS H3", "ASSH3", "Atomic Shit Show", "Atomic Shit Show H3", "Atomic Shit Show HHH"],
