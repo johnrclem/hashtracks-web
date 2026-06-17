@@ -3530,7 +3530,11 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(austria|osterreich|vienna|wien|vindobona)\b|(?:^|\W)österreich\b/, "Austria"],
   [/\b(france|paris|ile-de-france)\b|(?:^|\W)île-de-france\b/, "France"],
   [/\b(hungary|budapest|magyar|magyarorszag|magyarország)\b/, "Hungary"],
-  [/\b(poland|warsaw|warszawa|polska)\b/, "Poland"],
+  // NB: bare "warsaw" is intentionally excluded — it's also a common US place
+  // name (Warsaw, IN/NY/MO), and inferCountry() is first-match with USA as the
+  // default fallthrough. "Warsaw, Poland" still matches via the "poland" token;
+  // the Polish-only "warszawa"/"polska" are unambiguous. (#2234, Codex review)
+  [/\b(poland|warszawa|polska)\b/, "Poland"],
   [/\b(portugal|lisbon|lisboa|estoril|cascais|oporto|invicta)\b/, "Portugal"],
   [/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/, "Netherlands"],
   [/\b(denmark|copenhagen|københavn|aarhus)\b/, "Denmark"],
