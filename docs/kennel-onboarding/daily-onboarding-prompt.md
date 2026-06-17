@@ -22,10 +22,12 @@ whole file is the brief.
 
 **Do not** attempt `git commit`/`branch`/`push`, or a hard `git checkout`/`rebase` of the working
 tree, in this run — Claude Code handles all git after the handoff. **Do** write files (the handoff,
-queue updates, run log) — plain file writes work fine. **The ONE git you must run is the read-only
-sync in Step 0** (`git fetch` + `git show origin/main:…` + `git log/rev-list`, plus an OPTIONAL
-non-forcing `git merge --ff-only`). Reading `origin/main` does not mutate the tree and is what keeps
-a stale checkout from causing duplicate work — see Step 0.
+queue updates, run log) — plain file writes work fine. **Before you pick today's target, refresh your
+view of `main`:** `git fetch` + `git show origin/main:…` + `git log/rev-list` are **inspection-only**
+(they do not mutate the working tree) and are what keep a stale checkout from causing duplicate work —
+run them and dedup (Step 2) against `origin/main`, never your local files. If the checkout is clean and
+you want it current, a non-forcing `git merge --ff-only` is an **optional, separate** step — that one
+*does* update the tree (the only mutation allowed in this run).
 
 ---
 
