@@ -729,7 +729,7 @@ and precise DOM must be re-captured with `curl -s <url> | iconv -f BIG5 -t UTF-8
 built from that verbatim markup). The queued **Kaohsiung** (Wix) and **Taoyuan** (Wix) siblings are a
 DIFFERENT platform (Wix, not legacy `.htm`) — don't assume this Big5 recipe applies to them.
 
-## Mobirise static sites — SSR home page, "next run" block + "Upcoming runs" list (learned from Warsaw H3, 2026-06-17)
+## Mobirise static sites — SSR home page, "next run" block + "Upcoming runs" list (learned from Warsaw H3, 2026-06-17, SHIPPED [PR #2234])
 
 [Mobirise](https://mobirise.com) is a drag-and-drop **static HTML** site builder (output is plain SSR
 HTML — no JS-rendered run data, no CMS/API). Warsaw H3 (`warsawh3.com`, first Poland kennel) is the
@@ -753,8 +753,13 @@ exit 56 — so the raw wrapper markup must be re-captured at build; the *content
   churning utility classes) → **key the parser on visible text**, not selectors. `stripHtmlTags(html,"\n")`
   → split into lines → find the `Run #` line → walk to the "Upcoming runs"/end sentinel (same approach as
   the Manila/NSWHHH Google-Sites parsers).
-- **Hare placeholders** are common jokes — strip to `undefined`: `???`, `It Could Be You!`, `TBA`,
-  `Hare needed`.
+- **🔴 Hare placeholders → `null` (explicit clear), NOT `undefined`.** Common jokes — `???`, `It Could Be
+  You!`, `TBA`, `Hare needed`. The merge pipeline treats `hares: undefined` as *preserve-existing* and
+  `null` as *explicit clear* (#2032); emitting `undefined` for a placeholder lets a stale hare survive a
+  source correction (Codex caught this on Warsaw). Use the reference shape `placeholder ? null : value ||
+  undefined` (`stripPlaceholder` from `adapters/utils.ts` handles the universal ones — `???`/`TBA`/`Hare
+  needed` — keep only a kennel-specific in-joke like "It Could Be You!" local). A genuinely *missing* hare
+  field stays `undefined`.
 - **No per-run coords / no archive.** Venue is free text only (no lat/lng, no Maps link) → leave coords
   undefined, merge geocodes the venue or falls back to the region centroid. The other nav pages
   (`Events.html` = special events, `news.html` = prose, `picsdocs.html` = photos) carry **no run history**
@@ -766,10 +771,28 @@ exit 56 — so the raw wrapper markup must be re-captured at build; the *content
 - **Effort:** small new ~120–180 LoC Cheerio adapter + tests. Model on `manila-h3.ts` (single SSR block +
   guard) and `bangkok-monday-hash.ts` (next-run-block ⊕ list merge — but simpler: one page, no inference).
 
-**UNVERIFIED — confirm at implementation time:** the exact `<section>`/`<div>`/`<p>`/`<br>` nesting of the
-"next run" and "Upcoming runs" blocks (the content above is from a `web_fetch` text render; the sandbox
-`curl` was allowlist-blocked, so the verbatim Mobirise DOM must be re-captured with a real
-`fetchHTMLPage`/`curl` at build and the test fixture built from that markup).
+**✅ CONFIRMED AT BUILD (Warsaw H3):** the entire forward feed is **one** `<p class="mbr-text mbr-fonts-style
+display-7">` with `<br>` separators (next-run block + "Upcoming runs" list all inside it). There's a *second*
+`display-7` paragraph above it (a generic welcome blurb) → **anchor the parser on the `WH3 Run #` marker, not
+"first display-7 paragraph".** `stripHtmlTags(html, "\n")` linearizes the `<br>`s to lines cleanly. The
+sandbox `curl` block (exit 56) was **sandbox-local** — `curl`/`fetchHTMLPage` worked immediately from the
+Claude Code build env (HTTP 200, 10.6 KB); always capture the verbatim DOM at build (it confirmed the research
+guess here).
+
+**Cross-cutting build learnings (Warsaw H3 — apply to any new small-adapter onboard, not just Mobirise):**
+- **Same-run merge = tri-state field-merge, never `??`.** When merging the next-run block ⊕ a list row for the
+  same run number, do `{ ...existing, ...Object.fromEntries(Object.entries(event).filter(([,v]) => v !==
+  undefined)) }` — a defined value wins (incl. an explicit `null`), `undefined` preserves. Winner-take-all
+  drops the richer row's fields; `event.x ?? existing.x` reverts a `null` clear back to stale data.
+- **New-country `inferCountry` rule = unambiguous tokens only.** Omit a bare city token that's also a common
+  US/other place name (e.g. `warsaw` → Warsaw, IN; `inferCountry` defaults to USA on the free-form research
+  path). Keep the country name + native spellings (`warszawa`/`polska`); "City, Country" input still matches
+  via the country token. Add a disambiguation test (mirror the Victoria-BC/Australia one).
+- **Biweekly / `INTERVAL` > 1 `scheduleRules` need an `anchorDate`** (a known real run date) — `INTERVAL=2` is
+  phase-ambiguous without one.
+- **New regexes — backtracking-safe (S5852):** bound a leading `+`/`*` on an *unanchored* pattern
+  (`[A-Za-z]{3,9}` for month names), and never put `\s*`/`\s+` adjacent to `.+`/`.*` (drop it, trim in code).
+  Rewrite clean rather than marking the hotspot SAFE when the rewrite is cheap.
 
 ## Plain-PHP SSR single-current-run, semantically-classed labeled blocks + PII-in-hares (learned from Seoul H3, 2026-06-16, SHIPPED)
 

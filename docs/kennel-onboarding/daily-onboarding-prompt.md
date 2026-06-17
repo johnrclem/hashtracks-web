@@ -421,7 +421,14 @@ Kennel profile (maps to the `Kennel` model): `fullName`, `shortName`, `kennelCod
   4. **`COUNTRY_CODE_TO_NAME`** — ISO code → country name (e.g. `"ID": "Indonesia"`).
   5. **`COUNTRY_INFERENCE_RULES`** — regex → country (e.g. `/\bbali\b|\bindonesia\b/i` → "Indonesia").
      **Without this, `inferCountry()` falls through to `"USA"`** for any text mentioning the new
-     country. THE one that bit ONH3 in CI; do not omit.
+     country. THE one that bit ONH3 in CI; do not omit. 🔴 **But use UNAMBIGUOUS tokens only** — the
+     country name + native spellings + city names that are NOT also common US/other place names. **Omit a
+     bare city token that doubles as a US/other place name** (`warsaw` → Warsaw, IN; `berlin`, `paris`,
+     `moscow`, `cambridge`, …) — `inferCountry()` is first-match with a USA default and runs on free-form
+     research input, so a bare `warsaw` would misclassify "Warsaw, IN" as Poland (Warsaw retro, Codex P3).
+     The country-name token still catches "City, Country" input; add a disambiguation test (mirror the
+     Victoria-BC/Australia one). The seed kennel carries an explicit `country`, so this only protects the
+     research path.
 
 > 🔴 **New metro under an existing country ALSO needs `COUNTRY_INFERENCE_RULES` extended.** This
 > is the WSH3 retro Gap G — Switzerland's `COUNTRY_INFERENCE_RULES` regex already covered
@@ -451,9 +458,14 @@ Kennel profile (maps to the `Kennel` model): `fullName`, `shortName`, `kennelCod
   ```ts
   // scheduleDayOfWeek/scheduleTime kept as fallback; scheduleRules is authoritative.
   scheduleDayOfWeek: "Saturday",
-  scheduleTime: "16:00",
+  scheduleTime: "4:00 PM", // 🔴 12-hr "H:MM AM/PM" — NOT 24-hr (sh3-kr/Warsaw retros). scheduleRules.startTime + RawEventData.startTime stay 24-hr "16:00".
   scheduleRules: [ ... ],
   ```
+  > 🔴 **`Kennel.scheduleTime` is 12-hour `"4:00 PM"`** (the seed profile field; every value in
+  > `kennels.ts` is 12-hour) — but **`scheduleRules.startTime` and the adapter's `RawEventData.startTime`
+  > are 24-hour `"16:00"`.** Different fields, different formats; never put `"16:00"` in `scheduleTime`
+  > (sh3-kr retro Gap B; held on Warsaw). Also: **any `scheduleRules` rule with `INTERVAL` > 1 needs an
+  > `anchorDate`** (a known real run date) — `INTERVAL=2` is phase-ambiguous without one (Warsaw retro).
 - **Schedule with more than one pattern → suggest `scheduleRules`, not just `scheduleDayOfWeek`.**
   If the kennel runs e.g. "weekly Wednesday + occasional Saturday," a single `scheduleDayOfWeek`
   miscategorizes the rest in Travel Mode. Propose an RRULE array, e.g.:
