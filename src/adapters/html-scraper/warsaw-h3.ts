@@ -68,10 +68,22 @@ function cleanText(value: string | undefined): string | undefined {
   return value?.trim() || undefined;
 }
 
-/** Real hare name, or undefined for placeholders (`???`, `It Could Be You!`, `TBA`…). */
-function cleanHare(value: string | undefined): string | undefined {
-  const hare = stripPlaceholder(value);
-  if (!hare || WARSAW_HARE_PLACEHOLDER_RE.test(hare)) return undefined;
+/**
+ * Resolve a hare cell to the merge pipeline's tri-state (#2032):
+ *  - real hare name → the string
+ *  - a RECOGNIZED placeholder (`???`, `It Could Be You!`, `TBA`, `Hare needed`)
+ *    → `null` (explicit clear — the source is saying "no hare yet", so any hare
+ *    previously stored on the canonical event must be cleared, not preserved)
+ *  - genuinely absent (no hare field at all) → `undefined` (no signal, preserve)
+ *
+ * Returning `undefined` for a placeholder would let a stale hare survive a
+ * source correction, since merge treats `undefined` as preserve-existing.
+ */
+function cleanHare(value: string | undefined): string | null | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  const hare = stripPlaceholder(trimmed);
+  if (!hare || WARSAW_HARE_PLACEHOLDER_RE.test(hare)) return null;
   return hare;
 }
 
@@ -133,7 +145,7 @@ function parseNextRunBlock(
   const location = whereIdx === -1 ? undefined : cleanText(block[whereIdx + 1]);
 
   const whoIdx = block.findIndex((l) => WHO_RE.test(l));
-  let hares: string | undefined;
+  let hares: string | null | undefined;
   if (whoIdx !== -1) {
     const hareLines = block
       .slice(whoIdx + 1)

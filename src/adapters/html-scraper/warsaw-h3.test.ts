@@ -72,12 +72,23 @@ describe("parseWarsawH3Page", () => {
     }
   });
 
-  it("keeps real hares but strips placeholders (??? / It Could Be You!) to undefined", () => {
+  it("keeps real hares but clears placeholders (??? / It Could Be You!) with null (#2032)", () => {
+    // null = explicit clear (the source says "no hare yet") so a stale hare on
+    // the canonical event is cleared, not preserved. undefined = no signal.
     const { byRun } = eventsByRun(FIXTURE);
     expect(byRun.get(1643)?.hares).toBe("Stiff Pointer");
     expect(byRun.get(1644)?.hares).toBe("Chasing Yanks");
-    expect(byRun.get(1645)?.hares).toBeUndefined();
-    expect(byRun.get(1646)?.hares).toBeUndefined();
+    expect(byRun.get(1645)?.hares).toBeNull();
+    expect(byRun.get(1646)?.hares).toBeNull();
+  });
+
+  it("distinguishes placeholder hare (null = clear) from a missing Hare: line (undefined = preserve)", () => {
+    // Placeholder present → explicit clear.
+    const placeholder = FIXTURE.replace("Hare: Chasing Yanks", "Hare: ???");
+    expect(eventsByRun(placeholder).byRun.get(1644)?.hares).toBeNull();
+    // No Hare: line at all for #1644 → no signal, preserve existing.
+    const missing = FIXTURE.replace("<br>Hare: Chasing Yanks", "");
+    expect(eventsByRun(missing).byRun.get(1644)?.hares).toBeUndefined();
   });
 
   it("leaves title undefined (merge synthesizes 'Warsaw H3 Trail #N') and tags warsaw-h3", () => {
