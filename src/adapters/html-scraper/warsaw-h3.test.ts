@@ -114,6 +114,21 @@ describe("parseWarsawH3Page", () => {
     expect(byRun.get(1644)?.hares).toBe("Chasing Yanks");
   });
 
+  it("merges a run appearing in both shapes field-by-field, preserving tri-state", () => {
+    // Same run (#1643) in the next-run block (venue + time + named hare) AND the
+    // upcoming list (placeholder hare, no venue/time). Field-merge must keep the
+    // richer venue/time and let the list's explicit null hare-clear win — not
+    // winner-take-all (which would drop venue/time or revert the clear).
+    const dup = `<html><body>
+<p class="mbr-text mbr-fonts-style display-7">WH3 Run #1643<br>Sat 20 June 2026, 14h00<br><br><strong>Where?</strong><br>Presidential Hotel<br><br><strong>Who?</strong><br>The trail will be set by:<br>Stiff Pointer<br><br><strong>Upcoming runs</strong><br><br>#1643 June 20, 2026<br>Hare: ???<br></p>
+</body></html>`;
+    const { byRun, events } = eventsByRun(dup);
+    expect(events).toHaveLength(1);
+    expect(byRun.get(1643)?.location).toBe("Presidential Hotel");
+    expect(byRun.get(1643)?.startTime).toBe("14:00");
+    expect(byRun.get(1643)?.hares).toBeNull();
+  });
+
   it("returns no events when the run block is absent (drift)", () => {
     const { events } = parseWarsawH3Page(
       "<html><body><p>Site under construction</p></body></html>",

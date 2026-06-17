@@ -44,12 +44,15 @@ const NEXT_RUN_RE = /WH3 Run #(\d{2,5})/i;
 const LIST_ENTRY_RE = /#(\d{2,5})\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/;
 // "Sat 20 June 2026, 14h00" → day / month word / year.
 const DMY_DATE_RE = /(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/;
-// "July 4, 2026" → month word / day / year.
-const MDY_DATE_RE = /([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})/;
+// "July 4, 2026" → month word / day / year. Month bounded to 3–9 letters (the
+// length range of English month names) and single `\s` separators so the
+// leading group can't backtrack super-linearly (S5852).
+const MDY_DATE_RE = /([A-Za-z]{3,9})\s(\d{1,2}),\s(\d{4})/;
 // "14h00" → hour / minute (Mobirise time format).
 const TIME_RE = /(\d{1,2})h(\d{2})/;
-// "Hare: Chasing Yanks" → hare name.
-const HARE_LINE_RE = /^Hare:\s*(.+)$/i;
+// "Hare: Chasing Yanks" → hare name. No leading `\s*` (it would overlap the
+// `.+` and trip S5852); the captured value is trimmed in cleanHare.
+const HARE_LINE_RE = /^Hare:(.+)$/i;
 const WHERE_RE = /^where\??$/i;
 const WHO_RE = /^who\??$/i;
 const UPCOMING_RE = /^upcoming runs$/i;
@@ -185,7 +188,18 @@ function parseUpcomingList(lines: string[], sourceUrl: string): RawEventData[] {
   return events;
 }
 
-/** Keep the more-complete of two rows for the same run (prefer one with a venue). */
+/** Defined incoming value wins (incl. an explicit `null` clear); `undefined` keeps existing. */
+function keep<T>(next: T | undefined, prev: T | undefined): T | undefined {
+  return next !== undefined ? next : prev;
+}
+
+/**
+ * Merge two rows for the same run (the next-run detail block vs an upcoming-list
+ * row). Field-by-field rather than winner-take-all, preserving the merge
+ * pipeline's tri-state so neither shape's data is dropped: a richer next-run
+ * row's venue/time survive a later list row that omits them, and a list row's
+ * explicit `null` hare clear still wins.
+ */
 function upsertEvent(map: Map<number, RawEventData>, event: RawEventData): void {
   const runNumber = event.runNumber;
   if (typeof runNumber !== "number") return;
@@ -194,7 +208,13 @@ function upsertEvent(map: Map<number, RawEventData>, event: RawEventData): void 
     map.set(runNumber, event);
     return;
   }
-  if (!existing.location && event.location) map.set(runNumber, event);
+  map.set(runNumber, {
+    ...existing,
+    hares: keep(event.hares, existing.hares),
+    location: keep(event.location, existing.location),
+    startTime: keep(event.startTime, existing.startTime),
+    sourceUrl: keep(event.sourceUrl, existing.sourceUrl),
+  });
 }
 
 /**
