@@ -4756,6 +4756,25 @@ export const KENNELS: KennelSeed[] = [
       description:
         "The drinking club with a running problem — Manila's original Monday men's hash, trailing throughout Metro Manila and beyond since 1972 (first numbered trail 28 Apr 1975). Founded out of Jakarta H3 by 'Ratcatcher' from the Manila Nomad Sports Club.",
     },
+    // ── South Korea (first 🇰🇷 kennel: Seoul H3) ──
+    {
+      // "Korea's Mother Hash", men-only, est. 1972 (~run #2897 Jun 2026). Bare
+      // "SH3" alias omitted (taken by summit/salemh3/sh3-wa); slug pinned to
+      // dodge the `sh3` slug collision. toSlug("Seoul H3") = "seoul-h3".
+      kennelCode: "sh3-kr", shortName: "Seoul H3", fullName: "Seoul Hash House Harriers",
+      slug: "seoul-h3",
+      region: "Seoul", country: "South Korea",
+      website: "https://seoulhash.com",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "4:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes:
+        "Korea's Mother Hash, men-only. Historically a Wednesday-evening hash (1979 Arirang article); current runs are Saturday afternoon (~16:00) with a seasonally-shifting start time. Run #2898 as of Jun 2026.",
+      foundedYear: 1972,
+      hashCash: "₩10,000",
+      logoUrl: "/kennel-logos/sh3-kr.png",
+      latitude: 37.5665, longitude: 126.978,
+      description:
+        "Korea's Mother Hash — the original Seoul men's hash, \"Only Half A Mind\" on Freedom's Frontier, trailing the hills and rice paddies around Seoul since 1972. A drinking club with a running problem.",
+    },
     // ── Nevada + Utah (US gap fill) ──
     {
       kennelCode: "lv-h3", shortName: "Las Vegas H3", fullName: "Las Vegas Hash House Harriers",

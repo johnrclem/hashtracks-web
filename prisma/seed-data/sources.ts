@@ -6013,6 +6013,21 @@ export const SOURCES = [
       kennelCodes: ["mh3-ph"],
     },
 
+    // Seoul H3 — seoulhash.com renders one current run on index.php (no
+    // pagination); archive.php carries deep history (backfilled separately).
+    // upcomingOnly protects reconcile as the run ages off; the adapter fails
+    // loud on parse drift.
+    {
+      name: "Seoul H3 Website",
+      url: "https://seoulhash.com/index.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["sh3-kr"],
+    },
+
     // ── Nevada + Utah (US gap fill) ──
 
     // Las Vegas H3 — Tribe Events Calendar REST API at lvh3.org

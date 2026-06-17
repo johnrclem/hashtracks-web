@@ -2723,6 +2723,30 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 120.9842,
     aliases: ["Manila, Philippines", "Metro Manila", "Maynila"],
   },
+  // ── South Korea (first 🇰🇷 kennel: Seoul H3) ──
+  {
+    name: "South Korea",
+    country: "South Korea",
+    level: "COUNTRY",
+    timezone: "Asia/Seoul",
+    abbrev: "KR",
+    colorClasses: "bg-emerald-200 text-emerald-800",
+    pinColor: "#059669",
+    centroidLat: 36.5,
+    centroidLng: 127.85,
+    aliases: ["KR", "Korea", "Republic of Korea"],
+  },
+  {
+    name: "Seoul",
+    country: "South Korea",
+    timezone: "Asia/Seoul",
+    abbrev: "SEL",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#10b981",
+    centroidLat: 37.5665,
+    centroidLng: 126.978,
+    aliases: ["Seoul, South Korea", "Seoul, Korea", "서울"],
+  },
   // ── Hong Kong ──
   {
     name: "Hong Kong",
@@ -3496,6 +3520,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // Include the venue city (Parañaque) so venue-derived inference resolves;
   // without this, "Manila"/"Philippines" text falls through to "USA".
   [/\b(philippines|manila|maynila|para[ñn]aque)\b/, "Philippines"],
+  // seoulhash.com is all-English so the ASCII rule suffices; the Hangul branch
+  // (서울/한국/대한민국) is defensive (`\b` is ASCII-only, can't bound CJK). No
+  // North Korea kennels, so the bare "korea" token is safe.
+  [/\b(south korea|korea|seoul)\b|서울|한국|대한민국/, "South Korea"],
   [/\b(hong kong|kowloon|lantau|new territories|wan\s?chai|sai kung|sek kong)\b/, "Hong Kong"],
   // Placed AFTER Hong Kong / Taiwan so HK and Taiwan tokens resolve to their own
   // regions first. "Republic of China" (=Taiwan) contains "China" and would match
@@ -3703,6 +3731,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Krabi": "Thailand",
   // Philippines
   "Manila": "Philippines",
+  // South Korea
+  "Seoul": "South Korea",
   // Belgium
   "Brussels": "Belgium",
   // Spain
@@ -3957,6 +3987,8 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Krabi": "Thailand",
   "Philippines": "Philippines",
   "Manila": "Philippines",
+  "South Korea": "South Korea",
+  "Seoul": "South Korea",
   "Hong Kong": "Hong Kong",
   // Malaysia — state groups (per feedback_country_group_map memory: both
   // state names AND metro names need explicit entries).
@@ -4066,6 +4098,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   CN: "China",
   TH: "Thailand",
   PH: "Philippines",
+  KR: "South Korea",
   HK: "Hong Kong",
   MY: "Malaysia",
   NZ: "New Zealand",

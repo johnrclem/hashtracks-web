@@ -1,0 +1,4828 @@
+[
+  {
+    "date": "2015-06-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "title": "43rd Hangover Run",
+    "startTime": "16:00",
+    "location": "Jichuk Station, Line: 3, Exit: 2",
+    "hares": "Hymen",
+    "cost": "W10 000",
+    "locationUrl": "https://www.google.com/maps/place/37.647889+126.914607",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2015-06-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "title": "A Tired GM Sleeps (The GM Changeover)",
+    "startTime": "16:00",
+    "location": "Namteryoung Station, Line: 4, Exit: 2",
+    "hares": "Vagabond",
+    "locationUrl": "https://www.google.com/maps/place/37.456571+126.990082",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2015-07-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "title": "British Thanksgiving Run",
+    "startTime": "16:00",
+    "location": "Honje Station and leave by exit 3 (Geoun Middle School)",
+    "hares": "Our Very Own Farty Breath",
+    "cost": "10,000 KRW or 10 USD",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2015-07-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "title": "\"Yankee go Home\" The Big Bug Out II -- Victoria's Secret On Out",
+    "startTime": "16:00",
+    "location": "Dongnimmun Park (near Library), Line 3, Exit 4",
+    "hares": "Victoria's Secret",
+    "cost": "10,000 KRW or 10 USD",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2018-11-03",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2502,
+    "title": "Sleazey Rider's Muddy Rivers Run",
+    "startTime": "15:00",
+    "location": "Yeoungdeungpo Station 1, Exit 1",
+    "hares": "Sleazey Rider",
+    "cost": "10000 Won",
+    "locationUrl": "https://www.google.com/maps/place/37.514993+126.907959",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2018-11-10",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2503,
+    "title": "EM Farty Breath Memorial Run",
+    "startTime": "15:00",
+    "location": "Oksu Station Exit 7 on Orange Line 3 (Gyeonggui Jungang Line)",
+    "hares": "EM Blank Space",
+    "cost": "10000 Won",
+    "locationUrl": "https://www.google.com/maps/place/ 37.542526+127.016940",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2018-11-17",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2504,
+    "title": "Mockery's Secret Garden Gadabouts",
+    "startTime": "15:00",
+    "location": "Hyehwa Station Exit 3 on Ice Blue Line No. 4",
+    "hares": "Mockery",
+    "cost": "10000 Won",
+    "locationUrl": "https://www.google.com/maps/place/37.581290+127.001809",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2018-11-24",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2505,
+    "title": "Up a Mountain; Down a Beer",
+    "startTime": "15:00",
+    "location": "Dokbawi Station Exit 1 on Beige Line No. 6",
+    "hares": "He's Huge, I'm Tiny (HHIT)",
+    "cost": "10000 Won",
+    "locationUrl": "https://www.google.com/maps/place/37.618360+126.932843",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2018-12-01",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2506,
+    "title": "Squishy's Arts & Recce-reation Run",
+    "startTime": "15:00",
+    "location": "NAMBU BUS TERMINAL STATION EXIT 1 ON ORANGE LINE NO. 3",
+    "hares": "Squishy",
+    "cost": "10000 Won",
+    "locationUrl": "https://www.google.com/maps/place/37.485327+127.016229",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2018-12-08",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2507,
+    "title": "Dr. Joo Dog's Longfellow Birthday Rehab Run",
+    "startTime": "15:00",
+    "location": "Yongmasan Station Exit 2 on Olive Green Line No. 7",
+    "hares": "Joo Dog, Mystery Hare",
+    "cost": "10000 Won",
+    "locationUrl": "https://www.google.com/maps/place/37.573823+127.087009",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2018-12-15",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2508,
+    "title": "ASBO'S Ninja Turtles Run",
+    "startTime": "15:00",
+    "location": "Gimpo International Airport Station Exit 4 on Lines 5/9/Airport Express",
+    "hares": "ASBO",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2018-12-22",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2509,
+    "title": "Snake's Nutcracker Trail",
+    "startTime": "15:00",
+    "location": "Samgakji Station Exit 8 on Ice Blue Line No. 4 and Beige Line No. 6",
+    "hares": "Just Call Me Snake",
+    "cost": "10000 Won",
+    "locationUrl": "https://www.google.com/maps/place/37.536410+126.971522",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2018-12-29",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2510,
+    "title": "Lord of the Flies: Winter Wonderland Special",
+    "startTime": "15:00",
+    "location": "Hwajeon Station Exit 1 on Gyeongui Jungang Line",
+    "hares": "Choopa Cabroan",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-01-05",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2511,
+    "title": "Pigs From a Gun Run",
+    "startTime": "15:00",
+    "location": "Seoul Racecourse Park Exit 6 on Ice Blue Line No. 4",
+    "hares": "Blank Space & Ultraman",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-01-12",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2512,
+    "title": "Raiders of the Lost Beer Run",
+    "startTime": "15:00",
+    "location": "Hapjeong Station Exit 2 on Beige Line No. 6 & Pea Green Line No. 2",
+    "hares": "Just Call Me Snake",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-01-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2513,
+    "title": "Lepercon's One Thing or Another (If Not One Thing, It's Another) Romp",
+    "startTime": "15:00",
+    "location": "Gyeongbokgung Station Exit 3 on Orange Line 3 (See below for further, more detailed directions)",
+    "hares": "EM Lepercon",
+    "cost": "10000 Won",
+    "locationUrl": "https://www.google.com/maps/place/37.585530+126.966066",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-01-26",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2514,
+    "title": "When the GM's Away, ASBO's at Play",
+    "startTime": "15:00",
+    "location": "Magongnaru Station Exit 4 on Line No. 9 & Airport Line",
+    "hares": "ASBO",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-02-02",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2515,
+    "title": "Baggo...Shit is Back Again",
+    "startTime": "15:00",
+    "location": "Jichuk Station Exit 1 on Orange Line No. 3",
+    "hares": "Baggo...Shit",
+    "cost": "10000 Won",
+    "locationUrl": "https://www.google.com/maps/place/37.6480101+126.9135958",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-02-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2516,
+    "title": "Squishy's Birthday Run",
+    "startTime": "15:00",
+    "location": "Sunae Station Exit 1 on the Bundang Line",
+    "hares": "Squishy",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-02-16",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2517,
+    "title": "EM Blank Space & the Return (?) to The Isle of Death",
+    "startTime": "15:00",
+    "location": "Sinyongsan Station Exit 5 on Ice Blue Line No. 4",
+    "hares": "EM Blank Space",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-02-23",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2518,
+    "title": "HHIT Schools the Hares",
+    "startTime": "15:00",
+    "location": "Yangcheon-gu Office Station Exit 2 on Green Line No. 2",
+    "hares": "He's Huge, I'm Tiny (HHIT)",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-03-02",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2519,
+    "title": "Choopa Cabroan's Escape from L.A.",
+    "startTime": "15:00",
+    "location": "Suseo Station Exits 4 or 5 (take your pick) on the Yellow Bundang Line and Orange Line No. 3",
+    "hares": "Choopa Cabroan",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-03-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2520,
+    "title": "Shooting BLANKs in a SQUISHY SPACE",
+    "startTime": "15:00",
+    "location": "Samgakji Station Exit 8 on Blue Line No. 4 and Beige Line No. 6",
+    "hares": "Blank Space & Squishy",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-03-16",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2521,
+    "title": "The Yangjae Citizens' Arrest Run",
+    "startTime": "15:00",
+    "location": "Yangjae Citizens Forest Station Exit 2 on the Shinbundang Line",
+    "hares": "Longfellow",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-03-23",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2522,
+    "title": "Feel the Sleaze",
+    "startTime": "15:00",
+    "location": "Nakseongdae Station Exit 4 on Green Line No. 2",
+    "hares": "Sleazey Rider",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-03-30",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2523,
+    "title": "Spring Open Run WOMEN WELCOME THIS WEEK ONLY",
+    "startTime": "15:00",
+    "location": "Suwon Station Exit 2 on Line No. 1 & Bundang Line",
+    "hares": "Dodic",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-04-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2524,
+    "title": "Choopa Cabroan: The Lone Hare",
+    "startTime": "15:00",
+    "location": "Nambu Bus Terminal Station Exit 5 on Orange Line No. 3",
+    "hares": "Choopa Cabroan",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-04-13",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2525,
+    "title": "Lepercon's ROKy Mountain High (not for the vertigo challenged)",
+    "startTime": "15:00",
+    "location": "(Gyeongbokkung Station Exit 3 on Orange Line 3; go straight ahead for 15 mins and turn left up Jahamunro 33 Gil)",
+    "hares": "LeperCon",
+    "cost": "10000",
+    "locationUrl": "https://www.google.com/maps/place/37.585530+126.966066",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-04-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2526,
+    "title": "Kiwi Wee-Wee's Weturn Wun",
+    "startTime": "15:00",
+    "location": "Nambu Bus Terminal Station Exit 5 on Orange Line No. 3",
+    "hares": "Kiwi Wee-Wee & Choopa Cabroan",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-04-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2527,
+    "title": "The St George's Day Run",
+    "startTime": "15:00",
+    "location": "Bucheon Stadium Station Exit 1 on Dark Green Line No. 7",
+    "hares": "Longfellow & ASBO",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-05-04",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2528,
+    "title": "Snake's Birthday Trail Starring EM Blank Space",
+    "startTime": "16:00",
+    "location": "Gwanghwamun Station Exit 6 on Purple Line No. 5",
+    "hares": "Blank Space & Just Call Me Snake",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-05-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2529,
+    "title": "Never Mind the Mystery Hare",
+    "startTime": "16:00",
+    "location": "Gaehwa Station Exit 1 on Brown Line No. 9",
+    "hares": "ASBO & Mystery Hare",
+    "cost": "10000",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-05-18",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2530,
+    "title": "HHIT'S Drink Your Own Piss Run",
+    "startTime": "16:00",
+    "location": "Hwajeon Station Exit 2 on Gyeongui-Jungang Line",
+    "hares": "He's Huge, I'm Tiny (HHIT)",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-05-25",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2531,
+    "title": "Hash Out of Hell",
+    "startTime": "16:00",
+    "location": "Sungkyungwan University Station Exits 1 & 2 (both exits will be marked)",
+    "hares": "Choopa Cabraon",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-06-01",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2532,
+    "title": "Squishy's Fast Transfer from Gangnam",
+    "startTime": "16:00",
+    "location": "Yangjae Citizens Forest Station Exit 5 on the Shin Bundang Line",
+    "hares": "Squishy",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-06-08",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2533,
+    "title": "The Triumphant Return of E.M. Blank Space",
+    "startTime": "16:00",
+    "location": "Samgakji Station Exit 8 on Blue Line No. 4 & Beige Line No. 6",
+    "hares": "E.M. Blank Space",
+    "cost": "10000",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-06-14",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "title": "The Seoul Hash House Harriers 47th Anniversary Dinner",
+    "startTime": "17:00",
+    "location": "Fundoori Bar at 5 P.M. (Samgakji Station Exit 7)/ Dorakaneun Kalbi Restaurant at 7P.M. (Samgakji Station Exit 14)",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-06-15",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2534,
+    "title": "The Grand Grand Master Changeover",
+    "startTime": "16:00",
+    "location": "Jichuk Exit 1 on Orange Line No. 3",
+    "hares": "Joo Dog & Longfellow",
+    "cost": "10000",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-06-22",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2535,
+    "title": "Choopa's Wiiiiiiine Trail",
+    "startTime": "16:00",
+    "location": "Samseong Station, Line 2 Exit 8",
+    "hares": "Choopa Cabroan",
+    "cost": "10,000 won",
+    "locationUrl": "https://www.google.com/maps/place/37.509422+127.064296",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-06-29",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2536,
+    "title": "EM LeperCon's Blood, Sweat and Even More Sweat Run",
+    "startTime": "16:00",
+    "location": "Wall of Whines - Anguk Station",
+    "hares": "EM Lepercon",
+    "cost": "10,000 won",
+    "locationUrl": "https://www.google.com/maps/place/37.589528+126.991428",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-07-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2537,
+    "title": "HHIT's SNARE THE HARE IF YOU DARE Trail",
+    "startTime": "16:00",
+    "location": "World Cup Stadium Exit 3",
+    "hares": "He's Huge I'm Tiny (HHIT)",
+    "cost": "10,000",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-07-13",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2538,
+    "title": "ASBO's Go WEST Tribute Run",
+    "startTime": "16:00",
+    "location": "Gyeyang Station Exit 1",
+    "hares": "ASBO",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-07-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2539,
+    "title": "Mr. Blister's Lament to Lost Tradition Run",
+    "startTime": "16:00",
+    "location": "Sindap Station, Green Line 2",
+    "hares": "Mr. Blister, Esquire",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-07-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2540,
+    "title": "The Seoul Hash Eviction Run",
+    "startTime": "16:00",
+    "location": "Guil Station Exit 1 (Dark Blue Line)",
+    "hares": "Longfellow",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-08-03",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2541,
+    "title": "EM Shitonya Memorial Run",
+    "startTime": "16:00",
+    "location": "Hyochang Park Exit 2",
+    "hares": "EM Blank Space, EM Seoul Ultraman",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-08-10",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2542,
+    "title": "Squishy's Express Bus Terminal Adventure",
+    "startTime": "16:00",
+    "location": "Express Bus Terminal Exit 5",
+    "hares": "Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-08-17",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2543,
+    "title": "Choopa's Escape From LA",
+    "startTime": "16:00",
+    "location": "Dongnimmun Station Exit 5",
+    "hares": "Choopa Cabroan",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-08-24",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2544,
+    "title": "ASBO's Baseball Run",
+    "startTime": "15:00",
+    "location": "Jamsillaru Station Exit 1",
+    "hares": "ASBO",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-08-31",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2545,
+    "title": "EM LeperCon's Romp On The Backside!",
+    "startTime": "16:00",
+    "location": "Bugaksan (Read For Directions)",
+    "hares": "EM LeperCon",
+    "cost": "10,00 won",
+    "locationUrl": "https://www.google.com/maps/place/37.595847+126.966725",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-09-07",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2546,
+    "title": "Seoul Hash House Harriers Hashathon Family Run",
+    "startTime": "16:00",
+    "location": "Seoul Grand Park Station (Line 4) Exit #3",
+    "hares": "RUFUS and Joo Dog",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-09-14",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2547,
+    "title": "EM Blank Space's Hunt For Good View",
+    "startTime": "16:00",
+    "location": "Oksu Station Exit 3",
+    "hares": "EM Blank Space",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-09-21",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2548,
+    "title": "Seoul Ultraman's Autumn Experience",
+    "startTime": "16:00",
+    "location": "Dongjak Station Exit 2 (Line 4 / Line 9)",
+    "hares": "EM Seoul Ultraman",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-09-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2549,
+    "title": "Joo Dog's \"Where The Fuck Is Hymen\" Run",
+    "startTime": "16:00",
+    "location": "Seoul Station Exit 15",
+    "hares": "Joo Dog",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-10-05",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "title": "Snake's \"Call Out For Woody\" Run",
+    "startTime": "16:00",
+    "location": "Suseo Station Exit 4 or 5 on the yellow Bundang Line and Orange Line #3",
+    "hares": "Just Call Me Snake",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-10-12",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2550,
+    "title": "Seoul Hash House Harriers 2550th Nth R*n \"The Lasht Line Of Defense\"",
+    "startTime": "12:00",
+    "location": "Noon bus at the Grand Hyatt",
+    "hares": "Longfellow and Squishy",
+    "cost": "70,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-10-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2551,
+    "title": "Boulders and Buddhas and Beers (Oh, My!) Run",
+    "startTime": "16:00",
+    "location": "Below Bongwonsa temple and above Yonsei University - hidden badminton court across the road from temple parking lot (Read below for more details)",
+    "hares": "EM LeperCon",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-10-26",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2552,
+    "title": "Snake's Don't Like Cool Weather Run (so he'll warm your blood)",
+    "startTime": "15:00",
+    "location": "Hyatt Pagoda",
+    "hares": "Just Call Me Snake",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-11-02",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2553,
+    "title": "Merchant Wanker's Beer & Biryani Run",
+    "startTime": "15:00",
+    "location": "India House, Itaewon Station",
+    "hares": "Merchant Wanker",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-11-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2554,
+    "title": "EM Farty Breath's Memorial R*n",
+    "startTime": "15:00",
+    "location": "Hongje Station (Orange Line #3) Exit 3 - Goeun Middle School Garden",
+    "hares": "HHIT",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-11-16",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2555,
+    "title": "EM Seoul Ultraman's Birthday Run",
+    "startTime": "15:00",
+    "location": "Hyochang Park (Line 6 / G-J Line) Exit 1",
+    "hares": "Seoul Ultraman, Blank Space",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-11-23",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2556,
+    "title": "Ode To The Fibonacci Sequence Run",
+    "startTime": "15:00",
+    "location": "Oksu Station (Line 3 / G-J Line) Exit 7",
+    "hares": "EM Blank Space, EM Seoul Ultraman",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-11-30",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2557,
+    "title": "All The Fun Of The Birthday Fayre",
+    "startTime": "15:00",
+    "location": "Bucheon Stadium Station Exit 1 on Line 7",
+    "hares": "Longfellow",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-12-07",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2558,
+    "title": "A Hash Which Will Live In Infamy",
+    "startTime": "15:00",
+    "location": "Macheon Station (Line 5 / Purple Line) Exit 2",
+    "hares": "Bare Shitter, Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-12-14",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2559,
+    "title": "Snake's At It Again",
+    "startTime": "15:00",
+    "location": "Indian Ambassador's Residence, Itaewon Station Exit 1, Line 6",
+    "hares": "Just Call Me Snake",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-12-21",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2560,
+    "title": "Grand Christmas Run",
+    "startTime": "15:00",
+    "location": "Seoul Grand Park Station Exit 4 (Light Blue Subway Line 4)",
+    "hares": "ASBO, Eyes Only",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2019-12-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2561,
+    "title": "Long Of Fellow, Short Of Time",
+    "startTime": "15:00",
+    "location": "Hapjeong Station Exit 2",
+    "hares": "Longfellow",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-01-04",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2562,
+    "title": "I*MAK*U",
+    "startTime": "15:00",
+    "location": "Suseo Station Exit 4 or 5 (Line 3/Bundang Line)",
+    "hares": "Choopa Cabroan, MoM, Fighting Paul Bunyan",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-01-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2563,
+    "title": "The Races Are Off!",
+    "startTime": "15:00",
+    "location": "Ichon Station Exit 2 (Line 4 / G-J Line)",
+    "hares": "Seoul Ultraman, Blank Space",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-01-18",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2564,
+    "title": "Lord of the Flies: A Family Run",
+    "startTime": "15:00",
+    "location": "Hwajeon Station Exit 1 Gyeonggui-Jungang Line",
+    "hares": "Longfellow",
+    "cost": "10000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-01-25",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2565,
+    "title": "What About Bob?",
+    "startTime": "15:00",
+    "location": "Nambu Bus Terminal Station Exit 4",
+    "hares": "Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-02-01",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2566,
+    "title": "Ex-GM Dildo's Memorial Run",
+    "startTime": "15:00",
+    "location": "Namtaeryeong Station Exit 2 (Double Pagoda)",
+    "hares": "EM Blank Space",
+    "cost": "10,000 won",
+    "locationUrl": "https://www.google.com/maps/place/37.456571+126.990082",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-02-08",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2567,
+    "title": "Sleazey & Son's Re-do",
+    "startTime": "15:00",
+    "location": "Nakseongdae Station Exit 4",
+    "hares": "Sleazey Rider & Son",
+    "cost": "10,000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-02-15",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2568,
+    "title": "ASBO's Valentine's Day Recovery",
+    "startTime": "15:00",
+    "location": "Gaehwasan Station Exit 2 on the Purple Line 5",
+    "hares": "ASBO",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-02-22",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2569,
+    "title": "Quest For Bare's Cave",
+    "startTime": "15:00",
+    "location": "Cheonggyesan Station Exit 1",
+    "hares": "Bare Shitter",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-02-29",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2570,
+    "title": "Wyoming Boyz February Birthday Run",
+    "startTime": "15:00",
+    "location": "Dokbawi Station Exit 1",
+    "hares": "HHIT, Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-03-07",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2571,
+    "title": "Joo Dog's Quarantine Contingency Plan",
+    "startTime": "15:00",
+    "location": "Hyochang Park Station Exit 1",
+    "hares": "Joo Dog (?)",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-03-14",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2572,
+    "title": "EM Blank Space's Neighborhood Watch",
+    "startTime": "15:00",
+    "location": "Ichon Station Exit 2",
+    "hares": "EM Blank Space",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-03-21",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2573,
+    "title": "ASBO's Airport Assault",
+    "startTime": "15:00",
+    "location": "Yangcheon Hyanggyo Station Exit 8 (Line 9)",
+    "hares": "ASBO",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-03-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2574,
+    "title": "Circle Is Just Social Distancing Beers",
+    "startTime": "15:00",
+    "location": "World Cup Stadium Exit 3 (bring shiggy socks)",
+    "hares": "Hymen",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-04-04",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2575,
+    "title": "Longfellow's Cancellation Compensation Run",
+    "startTime": "15:00",
+    "location": "Guil Station Exit 1 (all-stop)",
+    "hares": "Longfellow",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-04-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2576,
+    "title": "Isolated Protest",
+    "startTime": "15:00",
+    "location": "Yangjae Station Exit TBD",
+    "hares": "Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-04-18",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2577,
+    "title": "Shots Fired Run",
+    "startTime": "15:00",
+    "location": "Dongjak Station Exit 5 (Line 9) or Exit 2 (Line 4)",
+    "hares": "Blank Space",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-04-25",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2578,
+    "title": "St. George's Day Family Run",
+    "startTime": "15:00",
+    "location": "Bucheon Stadium Station Exit 1, Line 7",
+    "hares": "Longfellow, ASBO",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-05-02",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2579,
+    "title": "Just Call Me Snake's Birthday Trail",
+    "startTime": "15:00",
+    "location": "Grand Hyatt Pagoda - Itaewon Station Exit 1",
+    "hares": "Just Call Me Snake",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-05-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2580,
+    "title": "MILE HIGH #5280 Cinco De Mayo Trail",
+    "startTime": "15:00",
+    "location": "Sungkyunkwan University Station (Line 1)",
+    "hares": "Choopa Cabroan, Joo Dog, Squishy",
+    "cost": "10,000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-05-16",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2581,
+    "title": "National Museum Perusal",
+    "startTime": "15:00",
+    "location": "Ichon Station Exit 2 (Line 4)",
+    "hares": "Blank Space",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-05-23",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2582,
+    "title": "LeperCon's 'Parasite' Scramble",
+    "startTime": "15:00",
+    "location": "The Lair of the LeperCon",
+    "hares": "LeperCon",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-05-30",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2583,
+    "title": "The Breakfast Club *un",
+    "startTime": "10:00",
+    "location": "Guro Station Exit 3 (Line 1)",
+    "hares": "ASBO, Mystery Hare",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-06-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2584,
+    "title": "Seoul Hash Invades Osan Bulgogi: A Family Run",
+    "startTime": "15:00",
+    "location": "Jije Station Exit 2 on Blue Line No. 1",
+    "hares": "Choopa Cabroan, Angry Dolphin & No Name Jake",
+    "cost": "5000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-06-13",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2585,
+    "title": "The 58th Grand Master Changeover",
+    "startTime": "15:00",
+    "location": "Sungkyungwan Station Exit 2 on Blue Line No. 1",
+    "hares": "Longfellow & Hymen",
+    "cost": "20000 Won",
+    "locationUrl": "https://www.google.com/maps/place/37.301953+126.961175",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-06-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2586,
+    "title": "Setting Expectations",
+    "startTime": "16:00",
+    "location": "Nambu Bus Terminal Station Exit 4-1 (Orange Line 3)",
+    "hares": "Hymen",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-06-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2587,
+    "title": "The Joint Master Trail (Return to Brokearm Mountain)",
+    "startTime": "15:00",
+    "location": "Namtaeryeong Station Exit 2, 15 min walk",
+    "hares": "Longfellow",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-07-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2589,
+    "title": "EM Ultraman's Memorial *un",
+    "startTime": "16:00",
+    "location": "Geomam Station Exit 1 (Airport Line)",
+    "hares": "RA HHIT, EM LeperCon",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-07-18",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2590,
+    "title": "Bare Shitter's ON-OUT",
+    "startTime": "16:00",
+    "location": "Seoksu Station Exit 2",
+    "hares": "Bare Shitter",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-07-25",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2591,
+    "title": "Pre-Chuncheon Ride Warm-up",
+    "startTime": "16:00",
+    "location": "Yangjae Station Exit 9 (Red/Orange Lines)",
+    "hares": "Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-08-01",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2592,
+    "title": "Full Sturgeon Moon, aka Et Tu Dryads?",
+    "startTime": "16:00",
+    "location": "Beottigogae Station Exit 1 (Brown Line 6)",
+    "hares": "EM Blank Space",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-08-08",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2593,
+    "title": "2008 Olympics Anniversary",
+    "startTime": "16:00",
+    "location": "Jamsillaru Station Exit 1, Green Line 2",
+    "hares": "Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-08-15",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2594,
+    "title": "Korean Independence Day",
+    "startTime": "16:00",
+    "location": "Hyochang Park Exit 1, Brown Line 6",
+    "hares": "Hymen",
+    "cost": "10,000 woin",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-08-22",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2595,
+    "title": "Annexation Run",
+    "startTime": "16:00",
+    "location": "Downtown Seoul: Gwanghwamun Station Exit 6 on the Purple Line 5 OR City Hall Station Exit 3 on Dark Blue Line 1",
+    "hares": "Blank Space, Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-08-29",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2596,
+    "title": "Choopa's Post-Typhoon Run",
+    "startTime": "16:00",
+    "location": "Seojeong-ri Station Exit 1, Dark Blue Line 1",
+    "hares": "Choopa Cabroan",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-09-05",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2597,
+    "title": "ASBO's Stag Hash",
+    "startTime": "16:00",
+    "location": "Songtan Station Exit 5, Dark Blue Line (10 min walk)",
+    "hares": "ASBO",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-09-12",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2598,
+    "title": "Return to the Triangle",
+    "startTime": "16:00",
+    "location": "Samgakji Station Exit 8 Brown Line 6 & Light Blue Line 4 (5-10min walk)",
+    "hares": "EM Blank Space",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-09-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2599,
+    "title": "Foreign Soil Trail",
+    "startTime": "16:00",
+    "location": "India House, Itaewon Station Exit 1",
+    "hares": "Merchant Wanker",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-09-26",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2601,
+    "title": "Circumnavigation Trail",
+    "startTime": "16:00",
+    "location": "Gaehwa Station Exit 1, end of Light Brown Line 9",
+    "hares": "ASBO",
+    "cost": "10,000 Won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-10-03",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2602,
+    "title": "Seoul Hash Invades OB, a Disney-themed Family affair",
+    "startTime": "15:00",
+    "location": "Songtan Station Exit #1 on Dark Blue Line 1 (10-15 min walk)",
+    "hares": "Catalina Piss Mixer, Triple Stuffed, Champagne Supernova",
+    "cost": "5,000 won or $5",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-10-10",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2603,
+    "title": "GM Birthday Trail (Hashathon)",
+    "startTime": "15:00",
+    "location": "Uiwang Station Exit 1 (Dark Blue Line 1) 10 min walk",
+    "hares": "Hymen, Joo Dog",
+    "cost": "10,000 wib",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-10-17",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2604,
+    "title": "Battle of Trafalgar Run",
+    "startTime": "15:00",
+    "location": "Guil Station Exit 1 on Blue Line 1, 15 min walk",
+    "hares": "Longfellow",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-10-24",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2605,
+    "title": "Anniversary of the Founding of the UN",
+    "startTime": "15:00",
+    "location": "Samgakji Station Exit 8 Brown Line 6 & Light Blue Line 4 (5-10min walk)",
+    "hares": "EM Blank Space",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-10-31",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2606,
+    "title": "Trick or Treat?",
+    "startTime": "15:00",
+    "location": "Hyochang Park Exit 1",
+    "hares": "Hymen",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-11-07",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2607,
+    "title": "KBO Semi-Playoff Trail",
+    "startTime": "15:00",
+    "location": "Sports Complex Station Exit 5 on Green Line 2 & Brown Line 9 (10 min walk)",
+    "hares": "ASBO",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-11-14",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2600,
+    "title": "2600 Nth *un",
+    "startTime": "15:00",
+    "location": "Jije Station, Dark Blue Line 1 Exit 2 (10 min walk)",
+    "hares": "Hymen",
+    "cost": "30,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-11-21",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2608,
+    "title": "Double EM Run",
+    "startTime": "15:00",
+    "location": "Beottigogae Station Exit 2 on Brown Line 6 (10-15 min walk)",
+    "hares": "EM Blank Space, EM LeperCon",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-11-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2609,
+    "title": "Longfellow's On-out",
+    "startTime": "15:00",
+    "location": "India House (Read email for directions)",
+    "hares": "Longfellow",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-12-05",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2610,
+    "title": "Pearl Harbor Memorial and Blue Whale's On-Out",
+    "startTime": "15:00",
+    "location": "Sema Station Exit 2 on Dark Blue Line 1 (2 minute walk)",
+    "hares": "Sleeping with the Bloodfish, Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-12-12",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2611,
+    "title": "Dia de la Virgin de Guadalupe trail",
+    "startTime": "15:00",
+    "location": "Seoul Station Exit 15 on Dark Blue, Light Blue, Purple lines (10-20 min walk, huge station)",
+    "hares": "Hymen",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-12-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2612,
+    "title": "How It All Began Trail",
+    "startTime": "15:00",
+    "location": "National Museum, Ichon Station Exit 2 (5 min walk)",
+    "hares": "EM Blank Space",
+    "cost": "70 HKD or 10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-12-26",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2613,
+    "title": "Ceremonial Trail and Merry Christmas",
+    "startTime": "15:00",
+    "location": "Seojeong-Ri, down south",
+    "hares": "Joo Dog",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2020-12-26",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2613,
+    "title": "Ceremonial Trail and Merry Christmas",
+    "startTime": "15:00",
+    "location": "Seojeong-Ri, down south",
+    "hares": "Joo Dog",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-01-02",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2614,
+    "title": "Betting On The Vaccine Trail",
+    "startTime": "15:00",
+    "location": "Seoul Racecourse Park Exit 6",
+    "hares": "ASBO, EM Blank Space",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-01-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2615,
+    "title": "Choopa's Pre-Vacation Trail",
+    "startTime": "15:00",
+    "location": "The Crack House",
+    "hares": "Choopa Cabroan",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-01-16",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2616,
+    "title": "Searching For A Deadbeat Dad",
+    "startTime": "15:00",
+    "location": "Gaehwasan Station Exit 2 on the Purple Line 5",
+    "hares": "ASBO",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-01-23",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2617,
+    "title": "They Built It, But No One Came",
+    "startTime": "15:00",
+    "location": "Dongtan New City, No Subway",
+    "hares": "Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-01-30",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2618,
+    "title": "ORANGE LINE BEST LINE!",
+    "startTime": "15:00",
+    "location": "Nambu Bus Terminal Exit 4-2 on the Orange Line 3",
+    "hares": "Hymen",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-02-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2619,
+    "title": "Way Down South Away Trail",
+    "startTime": "15:00",
+    "location": "Jeju City, Jeju",
+    "hares": "ASBO",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-02-13",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2620,
+    "title": "February Birthday Extraordinaire",
+    "startTime": "15:00",
+    "location": "Oksu Station Exit 7 on the Orange Line 3 and Teal G-J Lines",
+    "hares": "Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-02-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2621,
+    "title": "Repeal of the 18th Amendment Anniversary",
+    "startTime": "15:00",
+    "location": "Pyeongtaek Station Exit 1 on Dark Blue Line 1",
+    "hares": "Joo Dog, Sleeping with the Bloodfish",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-02-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2622,
+    "title": "Anniversary of the Discovery of the Neutron",
+    "startTime": "15:00",
+    "location": "Pyeongtaek Station Exit 1 on Dark Blue Line 1",
+    "hares": "Joo Dog",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-03-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2623,
+    "title": "Float Like a Butterfly, Sting Like a Bee",
+    "startTime": "15:00",
+    "location": "Seojeong-Ri Exit 1 on the Dark Blue Line 1",
+    "hares": "Choopa Cabroan",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-03-13",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2624,
+    "title": "Planetary Discovery Trail",
+    "startTime": "15:00",
+    "location": "Yongsan Exit 1/ShinYongsan Exit 3 on the Dark and Light Blue Lines 1 & 4",
+    "hares": "EM Blank Space",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-03-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2625,
+    "title": "Founding of the Republican Party",
+    "startTime": "15:00",
+    "location": "Yangcheon Hyanggyo Station Exit 8, Brown Line 9",
+    "hares": "ASBO",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-03-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2626,
+    "title": "Eruption Trail",
+    "startTime": "15:00",
+    "location": "Nambu Bus Terminal Station Exit 5 on the Orange Line 3",
+    "hares": "Hymen",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-04-03",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2627,
+    "title": "Easter Weekend Trail",
+    "startTime": "15:00",
+    "location": "Sema Station Exit 2, Dark Blue Line 1",
+    "hares": "Joo Dog, Choopa Cabroan",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-04-10",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2628,
+    "title": "Ping Pong Diplomacy",
+    "startTime": "15:00",
+    "location": "Dongjak Station Exit 2",
+    "hares": "Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-04-17",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2629,
+    "title": "Bataan Death March (14 miles, Family Trail)",
+    "startTime": "13:00",
+    "location": "Yeongdeungpo Station Exit 1 on Blue Line 1",
+    "hares": "Joo Dog",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-04-24",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2630,
+    "title": "Library of Congress",
+    "startTime": "15:00",
+    "location": "India House, Itaewon",
+    "hares": "EM Blank Space",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-05-08",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2632,
+    "title": "Ocho de Mayo",
+    "startTime": "15:00",
+    "location": "Jeungmi (line 9) exit 4",
+    "hares": "ASBO",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-05-15",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2633,
+    "title": "Ellen Church Trail",
+    "startTime": "15:00",
+    "location": "Nambu Bus Terminal (Orange Line 3) Exit 5",
+    "hares": "Hymen",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-05-29",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2635,
+    "title": "Hash Hell Family Affair",
+    "startTime": "15:00",
+    "location": "Jije Station Exit 2 (Dark Blue Line 1)",
+    "hares": "Choopa Cabroan",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-06-05",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2636,
+    "title": "Normandy 6/6",
+    "startTime": "15:00",
+    "location": "Banghwa Station Exit 2 if open, Exit 3 if not (purple line 5)",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-06-12",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2637,
+    "title": "Tear Down This Wall! Trail",
+    "startTime": "15:00",
+    "location": "Hyatt Pagoda Adjacent, Itaewon Exit 1 Diarrhea Brown Line 6",
+    "hares": "EM Blank Space",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-06-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2638,
+    "title": "GM Changeover",
+    "startTime": "15:00",
+    "location": "Jichuk Station Exit 2, Orange Line 3",
+    "hares": "Hymen, Merchant Wanker",
+    "cost": "30,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-06-26",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2639,
+    "title": "Ultraman Memorial trail",
+    "startTime": "16:00",
+    "location": "Namtaeryong (Line 4 exit 2)",
+    "hares": "Blank Space and Joo-dog",
+    "cost": "10,000",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-07-03",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2640,
+    "title": "Independence Day Trail!!!",
+    "startTime": "16:00",
+    "location": "Express Bus Terminal (Exit 5)",
+    "hares": "Squishy",
+    "cost": "10,000",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-07-10",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2641,
+    "title": "Zootopia Run",
+    "startTime": "15:00",
+    "location": "Seoul Grand Park (line 4) exit 4",
+    "hares": "Bloodfish",
+    "cost": "10,000",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-07-17",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2642,
+    "title": "It's coming home!!!",
+    "startTime": "15:00",
+    "location": "Gangmae (exit 2)",
+    "hares": "ASBO",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-07-24",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2643,
+    "title": "It's FUVKING HOT!!!",
+    "startTime": "15:00",
+    "location": "Jinwi Station (exit 2) @16;00",
+    "hares": "Joo-Dog",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-07-31",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2664,
+    "title": "Trojan Games",
+    "startTime": "16:00",
+    "location": "Jujjeon station",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-08-07",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2665,
+    "title": "Fairdinkum Trail",
+    "startTime": "16:00",
+    "location": "Jichuk",
+    "hares": "Hynen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-08-14",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2666,
+    "title": "VJ day trail",
+    "startTime": "16:00",
+    "location": "Sema",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-08-21",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2667,
+    "title": "Joo-Dog's On-out",
+    "startTime": "15:00",
+    "location": "Jije",
+    "hares": "Joo-Dog",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-08-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2667,
+    "title": "Battle of Bosworth Feild",
+    "startTime": "15:00",
+    "location": "Sinmokdong station, line 9 (exit 3)",
+    "hares": "ASBO",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-09-04",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2668,
+    "title": "Return to Seoul",
+    "startTime": "16:00",
+    "location": "Samgakji station, line 4 (exit 8)",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-09-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2669,
+    "title": "9/11 Rememberance Run",
+    "startTime": "15:00",
+    "location": "Ichon Station, line 4 (exit 2)",
+    "hares": "Blank Space",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-09-25",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2671,
+    "title": "Hashathon",
+    "startTime": "15:00",
+    "location": "Sungkyunkwan station (exit 2)",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-09-25",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2670,
+    "title": "Seoul invades OB",
+    "startTime": "15:00",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-10-02",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2654,
+    "title": "Peanuts Anniversary",
+    "startTime": "15:00",
+    "location": "Jeungmi station (line 9, exit 2)",
+    "hares": "ASBO",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-10-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2655,
+    "title": "한글날",
+    "startTime": "15:00",
+    "location": "Naksongdae Exit #4",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-10-16",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2656,
+    "title": "Fiunding of Disney",
+    "startTime": "15:00",
+    "location": "India House (Itaewn exit 1)",
+    "hares": "Blankspace/Mercant",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-10-23",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2657,
+    "title": "Belated Birthday run",
+    "startTime": "15:00",
+    "location": "Jichuck exit 1",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-10-30",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2658,
+    "title": "The Halloween Trail",
+    "startTime": "15:00",
+    "location": "DONGJAK station. Light Blue Line 4 Exit 2 (10 minute walk), or Brown Line 9 Exit 5 (2 minute walk)",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-11-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2660,
+    "title": "EM Farty Breath Memorial Trail",
+    "startTime": "15:00",
+    "location": "Jeungmi station, line 9, exit 2 (5-10 min walk)",
+    "hares": "ASBO",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-11-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2659,
+    "title": "Bonfire Night",
+    "startTime": "15:00",
+    "location": "Hyochang park, exit 1, line 6 (5-10 min walk)",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-11-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2661,
+    "title": "1st successful tank use in battle",
+    "startTime": "15:00",
+    "location": "Ichon station, line 4, exit 2 (5-10 min walk)",
+    "hares": "Blank Space/Cheery Ho",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-11-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2662,
+    "title": "Hashy thanks giving",
+    "startTime": "15:00",
+    "location": "Beotigogae station, line 6, exit 3 (5-10 min walk)",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-12-04",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2663,
+    "title": "91 years of the rhythm method",
+    "startTime": "15:00",
+    "location": "Jichuck station, line 3, exit 1 (10-15 min walk)",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-12-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2664,
+    "title": "Festive Fun",
+    "startTime": "15:00",
+    "location": "Dangsan station, line 9/2, exit 4 (5-10 min walk)",
+    "hares": "ASBO",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2021-12-18",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2650,
+    "title": "Nth run",
+    "startTime": "15:00",
+    "location": "India house",
+    "hares": "Merchant W$nker",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-01-01",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2667,
+    "title": "Hashy new year",
+    "startTime": "15:00",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-01-08",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2670,
+    "title": "Battle of Rorke's Drift",
+    "startTime": "15:00",
+    "hares": "Blankspace",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-01-29",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2671,
+    "title": "Eye of the Tiger",
+    "startTime": "15:00",
+    "location": "Gangnam station exit 12 line 2/red line, or line 9 Sinnonhyeon exit 5.",
+    "hares": "Choopa Cabroan",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-01-29",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2671,
+    "title": "Eye of the Tiger",
+    "startTime": "15:00",
+    "location": "Gangnam station exit 12 line 2/red line, or line 9 Sinnonhyeon exit 5.",
+    "hares": "Choopa Cabroan",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-02-05",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2672,
+    "title": "Winter Olympics",
+    "startTime": "15:00",
+    "location": "Pyongtaek",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-02-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2674,
+    "title": "Battle of the Herring",
+    "startTime": "15:00",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-03-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2678,
+    "startTime": "15:00",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-03-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "startTime": "15:00",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-03-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2676,
+    "title": "Choopa on out",
+    "startTime": "15:00",
+    "hares": "Choopa Cabroan",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-03-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2675,
+    "title": "Carpe Diem",
+    "startTime": "15:00",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-03-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2675,
+    "title": "Squisy bday",
+    "startTime": "15:00",
+    "hares": "Squishy bday",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-03-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2675,
+    "title": "Squisy bday",
+    "startTime": "15:00",
+    "hares": "Squishy bday",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-04-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2680,
+    "title": "50th Anniversary dry run",
+    "startTime": "15:00",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-07-02",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2693,
+    "title": "Freedom Trail (Family Fundraiser for Ukraine)",
+    "startTime": "16:00",
+    "location": "Sungkyunkwon University Station Exit 2, Dark Blue Line 1 (15 min walk)",
+    "hares": "Squishy, Bloodfish",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-07-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2694,
+    "title": "The Sweaty Hymen",
+    "startTime": "16:00",
+    "location": "Jichuk Station exit 2",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-07-16",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2695,
+    "title": "Bloodfish's Apollo Rocket",
+    "startTime": "15:00",
+    "location": "Namtaeryeong Station exit 2",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-07-23",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2696,
+    "title": "Asbo's Gorgeous Grandma Day Run",
+    "startTime": "16:00",
+    "location": "Margongnaru",
+    "hares": "Asbo",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-07-30",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2697,
+    "title": "Merchant Wankers Lament",
+    "startTime": "16:00",
+    "location": "Samgakji Station Exit 8",
+    "hares": "EM Blank Space",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-08-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2698,
+    "title": "Find the Northwest Passage",
+    "startTime": "16:00",
+    "location": "Guui Station Line 2, Exit 2",
+    "hares": "Double Deuce",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-08-13",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2699,
+    "title": "Merchant Wankers Actual On-Out",
+    "startTime": "16:00",
+    "location": "India House, Itaewon station exit 1",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-08-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2701,
+    "title": "Covid Didn't Kill Me",
+    "startTime": "16:00",
+    "location": "Nambu Bus Terminal line 3, Exit 5",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-08-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2702,
+    "title": "Choopa's Return",
+    "startTime": "16:00",
+    "location": "Sungkyunkwan Univ Line 1 exit 2 or 3",
+    "hares": "Choopa",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-09-03",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2703,
+    "title": "EM Blank Space's Labor Day Trail",
+    "startTime": "16:00",
+    "location": "Bottigogae Station Line 6, Exit 1.",
+    "hares": "EM Blank Space",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-09-10",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2704,
+    "title": "Squishy's Chuseok Surprise",
+    "startTime": "16:00",
+    "location": "Express Bus Terminal (Line 3, 7, 9) Exit 5",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-09-17",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2705,
+    "title": "Hymen's Constitution Day Run",
+    "startTime": "14:30",
+    "location": "Samgakji Station (Line 6, 4) Exit 8",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-09-24",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2706,
+    "title": "Welcome to Fall",
+    "startTime": "16:00",
+    "location": "Dorimcheon (Line 2, Exit 2)",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-10-01",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2707,
+    "title": "Seoul Hash Invades OB: The Wizard Staff",
+    "startTime": "16:00",
+    "location": "Seojeong-ri Station Exit 2 (Dark Blue Line 1)",
+    "hares": "Rolling in the Deep",
+    "cost": "W7,000",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-10-08",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2708,
+    "title": "Hymen's Hashy Birthday",
+    "startTime": "16:00",
+    "location": "World Cup Stadium (Line 6, Exit 3)",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-10-15",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2709,
+    "title": "EM Blank Space's Adventure",
+    "startTime": "16:00",
+    "location": "Bottigogae Station Line 6, Exit 1.",
+    "hares": "EM Blank Space",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-10-22",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2710,
+    "title": "Asbo's Been Released",
+    "startTime": "16:00",
+    "location": "Sinbangwha Station (Line 9, exit 2)",
+    "hares": "Asbo",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-10-29",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2700,
+    "title": "2700",
+    "startTime": "15:00",
+    "location": "Jeongja Station exit 1 (yellow or red lines)",
+    "hares": "Squishy",
+    "cost": "15,000",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-11-05",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2711,
+    "title": "Guy Fawkes Run",
+    "startTime": "15:00",
+    "location": "Namtaeryeong Station Line 4 exit 2",
+    "hares": "EM Blank Space",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-11-12",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2712,
+    "startTime": "15:00",
+    "location": "Hyochang Park (Line 6, exit 1)",
+    "hares": "EM Blank Space",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-11-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2713,
+    "title": "International Men's Day",
+    "startTime": "15:00",
+    "location": "Samgakji Station (Line 6, 4) Exit 8",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-11-26",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2714,
+    "title": "Squishy New Fang",
+    "startTime": "15:00",
+    "location": "Sungkyunkwan Univ Line 1 exit 2 or 3",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-12-03",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2715,
+    "title": "Winter has Come!",
+    "startTime": "15:00",
+    "location": "Nambu Bus Terminal line 3, Exit 5",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-12-10",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2716,
+    "title": "Nobel Prize Day",
+    "startTime": "15:00",
+    "location": "Sinyongsan Line 4, exit 4 or Yongsan stn Line 1 exit 1.",
+    "hares": "Cheeri Ho",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-12-17",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2717,
+    "title": "I have a great sense of direction",
+    "startTime": "15:00",
+    "location": "World Cup Stadium (Line 6, Exit 3)",
+    "hares": "Professor D'rections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-12-24",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2718,
+    "title": "Family Christmas Run (Open Run)",
+    "startTime": "15:00",
+    "location": "Sinyongsan Line 4, exit 4 or Yongsan stn Line 1 exit 1.",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2022-12-31",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2719,
+    "title": "New Year's resolutions trail",
+    "startTime": "15:00",
+    "location": "Samgakji exit 8, line 4/line 6 (5-10 min walk depending on your subway line)",
+    "hares": "EM Blank Space & Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-01-07",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2720,
+    "title": "Welcome to 2023",
+    "startTime": "15:00",
+    "location": "Seoul Racecourse Park Station (Line 4, exit 6)",
+    "hares": "EM Blank Space, Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-01-14",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2721,
+    "title": "Return to Seoul Station",
+    "startTime": "15:00",
+    "location": "Seoul Station (Line 1,4) exit 15",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-01-21",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2722,
+    "title": "The Year of the Rabbit",
+    "startTime": "15:00",
+    "location": "Grand Hyatt, Namsan",
+    "hares": "EM Blank Space",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-01-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2723,
+    "title": "The Frozen Bloodfish",
+    "startTime": "15:00",
+    "location": "Yangjae Station (Line 3, exit 9)",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-02-04",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2724,
+    "title": "The Return of the Sleazy Rider",
+    "startTime": "15:00",
+    "location": "Noksondae station line 2 Exit 4",
+    "hares": "Sleazy Rider",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-02-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2725,
+    "title": "GM's Hashy Birthday",
+    "startTime": "15:00",
+    "location": "Suseo Station Line 3, Exit 4 or 5",
+    "hares": "GM Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-02-18",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2726,
+    "title": "National Wine Day",
+    "startTime": "15:00",
+    "location": "Guui Station Line 2, Exit 2",
+    "hares": "Double Deuce",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-02-25",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2727,
+    "title": "Hymen's Lazy Trail",
+    "startTime": "15:00",
+    "location": "World Cup Stadium (Line 6, Exit 3)",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-03-04",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2728,
+    "title": "Spring is in the Air",
+    "startTime": "15:00",
+    "location": "Bottigogae Station Line 6, Exit 1",
+    "hares": "EM Blank Space, Professor D'erection",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-03-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2729,
+    "title": "Squishy's Spring Surprise",
+    "startTime": "15:00",
+    "location": "Dongjak (Line 4 exit 2, Line 9 exit 5)",
+    "hares": "GM Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-03-18",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2730,
+    "title": "Professor's St. Patrick Day Hyo Chang Park Maze",
+    "startTime": "15:00",
+    "location": "Hyochang Park (Line 6, exit 1)",
+    "hares": "Professor D'rections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-03-25",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2731,
+    "title": "Bloodfish's Returns",
+    "startTime": "15:00",
+    "location": "Dorimcheon Station (Line 2, exit 2)",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-04-01",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2732,
+    "title": "Seoul Hash Family Trail",
+    "startTime": "15:00",
+    "location": "Samgakji Station (Line 6, 4) Exit 8",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-04-08",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2733,
+    "title": "Jesus Can't Go Hashing",
+    "startTime": "15:00",
+    "location": "Samgakji Station (Line 6, 4) Exit 8",
+    "hares": "EM Blank Space",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-04-15",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2734,
+    "title": "Choopa's Arraignment",
+    "startTime": "15:00",
+    "location": "Hyochang Park (Line 6, exit 1)",
+    "hares": "Choopa",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-04-22",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2735,
+    "title": "ANZAC Trail",
+    "startTime": "15:00",
+    "location": "Jichuk Station (Line 3, Exit 2)",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-04-29",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2736,
+    "title": "Choopa's Wedding",
+    "startTime": "15:00",
+    "location": "King Sejong Great Memorial Hall",
+    "hares": "GM Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-05-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2737,
+    "title": "Revenge of the Sixth",
+    "startTime": "15:00",
+    "location": "Yangjae Station (Line 3, exit 9)",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-05-13",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2738,
+    "title": "World Cocktail Day",
+    "startTime": "15:00",
+    "location": "Beotigogae Station (Line 6, Exit 3)",
+    "hares": "Cheeri Ho",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-05-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2739,
+    "title": "EM Blank Space Day (On-Out?)",
+    "startTime": "15:30",
+    "location": "Beotigogae Station (Line 6, Exit 3)",
+    "hares": "EM Blank Space",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-05-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2740,
+    "title": "Seoul Hash Hell Trail",
+    "startTime": "15:00",
+    "location": "Sema Station (Line 1, Exit 2)",
+    "hares": "Squishy and Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-06-03",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2741,
+    "title": "Best Trail of the Month",
+    "startTime": "15:00",
+    "location": "Gwacheon Station exit 3, line 4 (6 minute walk)",
+    "hares": "Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-06-10",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2742,
+    "title": "Choopa's SeoulLost Trail",
+    "startTime": "15:00",
+    "location": "Seoul Station exit 15 (west side of station, anticipate a hike to on-site)",
+    "hares": "Choopa Cabroan",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-06-17",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2743,
+    "title": "GM Changeover Trail!",
+    "startTime": "15:00",
+    "location": "Ground Zero, near Itaewon Grand Hyatt (follow marks from Hangangjin Exit 1)",
+    "hares": "GM Squishy, and one other",
+    "cost": "40,000won (shirt, patch, cold beer, hot pizza)",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-06-24",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2744,
+    "title": "EM Ultraman / GM Robbie Douglass (1973-74) Memorial Run",
+    "startTime": "16:00",
+    "location": "Namtaeryeong Station exit 2",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-07-01",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2745,
+    "title": "Professor's Canada Day Slip n Slide",
+    "startTime": "16:00",
+    "location": "Jichuk Station exit 2",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-07-08",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2746,
+    "title": "Hymen's Summer Time Skirt Meat Shuffle",
+    "startTime": "16:00",
+    "location": "Yangjae Station line 3, exit 10",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-07-15",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2747,
+    "title": "Hwaseo Rodeo Run",
+    "startTime": "16:00",
+    "location": "Hwaseo Station line 1, exit 2",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-07-22",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2748,
+    "title": "Dub Deuce's Seoul Safari",
+    "startTime": "16:00",
+    "location": "Children's Grand Park Station line 7, exit 5",
+    "hares": "Double Deuce",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-07-29",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2749,
+    "title": "National Chicken Wing Day",
+    "startTime": "16:00",
+    "location": "Muakjae Station, Line 3, Orange Line, Exit 1",
+    "hares": "Cheeri Ho!",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-08-05",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2751,
+    "title": "Bloodfish's Birthday Trail",
+    "startTime": "16:00",
+    "location": "Samgakji Station, Line 4, Light Blue Line, Exit 8",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-08-12",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2752,
+    "title": "Squish Embraces The Dog Days",
+    "startTime": "16:00",
+    "location": "Seoul Grand Park Station (Line 4) Exit #3",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-08-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2753,
+    "title": "Professor's Preferred Trail",
+    "startTime": "16:00",
+    "location": "World Cup Stadium Station (Line 6) Exit 2",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-08-26",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2754,
+    "title": "EM OB's National Toilet Paper Trail",
+    "startTime": "16:00",
+    "location": "Saetgang Station (Line 9) Exit 3",
+    "hares": "EM OB",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-09-02",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2755,
+    "title": "Howling Hymen And The Big Blue Moon",
+    "startTime": "16:00",
+    "location": "Yangjae Station (Line 3) Exit 10",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-09-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2756,
+    "title": "GM Over There (1995-1996) Memorial Run",
+    "startTime": "16:00",
+    "location": "Hyochang Park (Line 6, exit 1)",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-09-16",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2757,
+    "title": "Mayflower Day Trail",
+    "startTime": "16:00",
+    "location": "Dangsan Station, Line 2, Exit 4 (10 min walk)",
+    "hares": "Cheeri Ho!",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-09-23",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2758,
+    "title": "Squish & The Fish Double Team The Double Pagoda",
+    "startTime": "16:00",
+    "location": "Namtaeryeong Station, Line 4, Exit 2 (15 min walk)",
+    "hares": "Bloodfish / Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-09-30",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2759,
+    "title": "Shillae's Chuseok Gift",
+    "startTime": "16:00",
+    "location": "Yangpyeong Station, Exit 1",
+    "hares": "Shillae",
+    "locationUrl": "https://www.google.com/maps/place/37.492100+127.489870",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-10-07",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2760,
+    "title": "Hymen's Birthday Blowout",
+    "startTime": "16:00",
+    "location": "Seoul Station (Line 1,4), Exit 15",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-10-14",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2750,
+    "title": "2750th Nth *un \"GM's Bang Bus Heads South\"",
+    "startTime": "14:00",
+    "location": "Pyeongtaek Station, Exit 1 (A to B Trail)",
+    "hares": "Bloodfish / Squishy",
+    "cost": "$50 U.S. or 65,000W",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-10-21",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2761,
+    "title": "Professor's Mad Dash Hash",
+    "startTime": "15:00",
+    "location": "Hyochang Park (Line 6, exit 2)",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-10-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2762,
+    "title": "Squishy's cavity trail",
+    "startTime": "15:00",
+    "location": "Suwon City Hall station exit 5 3 minutes walk",
+    "hares": "Squishy",
+    "cost": "10,000 won",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-11-04",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2763,
+    "title": "Squishy's Stag Do Trail",
+    "startTime": "15:00",
+    "location": "Samgakji exit 8, line 4/line 6 (5-10 min walk depending on your subway line)",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-11-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2764,
+    "title": "Veterans Day Run",
+    "startTime": "15:00",
+    "location": "Hyochang Park (Line 6, exit 1)",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-11-18",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2765,
+    "title": "Steamboat Willie",
+    "startTime": "15:00",
+    "location": "Hyatt Pagoda / Noksapyeong Station (Brown Line) Exit 4",
+    "hares": "EM OB",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-11-25",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2766,
+    "title": "GM's Evacuation Day Run",
+    "startTime": "15:00",
+    "location": "Yongsan Station Exit 1, or Sinyongsan Exit 3",
+    "hares": "Cheeri Ho! and PokeHerCuntA$$",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-12-02",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2767,
+    "title": "Bhopal Disaster Trail",
+    "startTime": "15:00",
+    "location": "Ichon Station, Exit 2",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-12-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2768,
+    "title": "Spanish Republic Trail",
+    "startTime": "15:00",
+    "location": "Samgakji Station, Light Blue Line, Exit 8",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-12-16",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2769,
+    "title": "Quest 4 Rape Chair",
+    "startTime": "15:00",
+    "location": "Seoul Station (Line 1,4), Exit 15",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-12-23",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "title": "Cheeri Hashmas Trail for All",
+    "startTime": "15:00",
+    "location": "Yongsan Station Exit 1, or Sinyongsan Exit 3",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2023-12-30",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2770,
+    "title": "Bacon Day",
+    "startTime": "15:00",
+    "location": "Noksapyeong Station Exit 1",
+    "hares": "Cheeri Ho!",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-01-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2771,
+    "title": "Best Trail of 2024!",
+    "startTime": "15:00",
+    "location": "Seoul Racecourse Park / Line 4, Exit 6",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-01-13",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2772,
+    "title": "Korean American Day Trail",
+    "startTime": "15:00",
+    "location": "Dongjak Station Line 4 or Line 9 (Exit 2)",
+    "hares": "EM OB",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-01-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2773,
+    "title": "Professors' Pearl Harbor Lesson",
+    "startTime": "15:00",
+    "location": "Hyochang Park (Line 6, exit 2)",
+    "hares": "Prof D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-01-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2774,
+    "title": "Sleazy's Mtn Voyage",
+    "startTime": "15:00",
+    "location": "Nakseongdae Station Exit 4",
+    "hares": "Sleazy Rider",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-02-03",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2775,
+    "title": "Groundhog Day Follow Up",
+    "startTime": "15:00",
+    "location": "Seoul Station (Line 1,4), Exit 15",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-02-10",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2776,
+    "title": "Year of the Dragon!",
+    "startTime": "15:00",
+    "location": "Beotigogae Station (Line 6, Exit 3)",
+    "hares": "Prof D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-02-17",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2777,
+    "title": "Squishy's Birthday Return",
+    "startTime": "15:00",
+    "location": "Yangjae Station (Line 3) Exit 9",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-02-24",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2778,
+    "title": "Bloodfish and Bourbon Trail",
+    "startTime": "15:00",
+    "location": "Namtaeryeong, Line 4, Exit 2 (15 min walk)",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-03-02",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2779,
+    "title": "Texas Independence Trail",
+    "startTime": "15:00",
+    "location": "Nambu Bus Terminal / Line 3, Exit 5",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-03-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2780,
+    "title": "Return of the Wanker",
+    "startTime": "15:00",
+    "location": "Hyatt Pagoda / Noksapyeong Station (Brown Line) Exit 4",
+    "hares": "EM OB",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-03-16",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2781,
+    "title": "Last Saturday of Winter",
+    "startTime": "15:00",
+    "location": "Ichon Station (Light Blue) Line #4, Exit 2",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-03-23",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2782,
+    "title": "GM Springs Back",
+    "startTime": "15:00",
+    "location": "Seoul Grand Park Line 4 (Exit 4)",
+    "hares": "Cheeri Ho!",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-03-30",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2783,
+    "title": "The 3 B's",
+    "startTime": "15:00",
+    "location": "Samgakji Station, Brown Line / Exit 8",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-04-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2784,
+    "title": "Lost Dog Finds Home",
+    "startTime": "15:00",
+    "location": "Oksu Station (Line 3) Exit 7",
+    "hares": "Joo Dog",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-04-13",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2785,
+    "title": "EM's Songkran Kickoff",
+    "startTime": "15:00",
+    "location": "Eungam Station, Exit 4",
+    "hares": "EM OB",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-04-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2786,
+    "title": "High Times at Hyochang Park",
+    "startTime": "15:00",
+    "location": "Hyochang Park (Line 6, exit 1)",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-04-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2787,
+    "title": "South African Freedom Day",
+    "startTime": "15:00",
+    "location": "Bulgwang Station (Line 6, Exit1) / Professor's Home",
+    "hares": "Professor D'Erections",
+    "locationUrl": "https://www.google.com/maps/place/281-22+-+601",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-05-04",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2788,
+    "title": "Tour de Han",
+    "startTime": "15:00",
+    "location": "Dangsan Station, Line 2, Exit 4 (10 min walk)",
+    "hares": "Cheeri Ho!",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-05-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2789,
+    "title": "Plug N Plays Peculiar Plodding",
+    "startTime": "15:00",
+    "location": "Sunae Station (Yellow Line) Exit 3",
+    "hares": "Plug N Play",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-05-18",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2790,
+    "title": "Free Bread Day",
+    "startTime": "15:00",
+    "location": "Ichon Station Line 4, Exit 2",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-05-25",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2791,
+    "title": "Seoul Hash Hell Family *un",
+    "startTime": "14:00",
+    "location": "Osan University Station Line 1, Exit 1",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-06-01",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2800,
+    "title": "GM Changeover",
+    "startTime": "16:00",
+    "location": "Ground Zero, near Itaewon Grand Hyatt (follow marks from Hangangjin Exit 1)",
+    "hares": "Cheeri Ho!, and one other",
+    "cost": "35,000won (shirt, cold beer, hot pizza)",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-06-08",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2792,
+    "title": "Changeover Recovery Run",
+    "startTime": "16:00",
+    "location": "Oksu Station, Line 3, Exit 7",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-06-15",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2794,
+    "title": "Summer Solstice",
+    "startTime": "16:00",
+    "location": "Sinyongsan Line 4, exit 3 or Yongsan Line 1, Exit 1",
+    "hares": "Cheeri Ho",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-06-15",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2793,
+    "title": "Cheeri Ho's Roasting Trail",
+    "startTime": "16:00",
+    "location": "Sinyongsan Line 4, exit 3 or Yongsan Line 1, Exit 1",
+    "hares": "Cheeri Ho",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-06-22",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2794,
+    "title": "Summer Solstice",
+    "startTime": "16:00",
+    "location": "Namtaeryeong Line 4, Exit 2 Double Pagoda",
+    "hares": "GM Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-06-29",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2795,
+    "title": "Family Trail",
+    "startTime": "16:00",
+    "location": "Seoul Station Line 1, Line 4, exit 15",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-07-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2796,
+    "title": "Belated Independence Day Trail",
+    "startTime": "16:00",
+    "location": "World Cup Stadium Station, Exit 2 or 3 (Line 6)",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-07-13",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2797,
+    "title": "EM Choopa Returns",
+    "startTime": "16:00",
+    "location": "Suseo Station Line 3, Exit 4",
+    "hares": "EM Choopa",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-07-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2798,
+    "title": "Moon Landing",
+    "startTime": "16:00",
+    "location": "Nakseongdae Station Line 2, Exit 4",
+    "hares": "GM Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-07-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2799,
+    "title": "Nut n Bones Family Trail",
+    "startTime": "16:00",
+    "location": "Seoul Grand Park Station Line 4, Exit 4",
+    "hares": "Nut n Bone, Cheeri Ho",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-08-03",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2801,
+    "title": "Squishy's Troll Trail",
+    "startTime": "16:00",
+    "location": "Samgakji Station Line 4 or 6, exit 8",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-08-10",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2802,
+    "title": "Sweaty Butt Trail",
+    "startTime": "16:00",
+    "location": "Saejeol Station Line 6, Exit 3",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-08-17",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2803,
+    "title": "BMD Day Trail",
+    "startTime": "15:00",
+    "location": "Oksu Station, Line 3, Exit 7",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-08-24",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2804,
+    "title": "The GM is Back",
+    "startTime": "15:00",
+    "location": "Seoksu Station Line 1, Exit 2",
+    "hares": "GM Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-08-31",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2805,
+    "title": "End of Korean Summer - Family Trail",
+    "startTime": "16:00",
+    "location": "Yangjae station, Line 3, exit 10",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-09-07",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2806,
+    "title": "National Beer Lover's Day",
+    "startTime": "16:00",
+    "location": "Hyochang Park station, Line 6 exit 1",
+    "hares": "GM Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-09-14",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2807,
+    "title": "Seoul Hash Invades OB Hash",
+    "startTime": "15:00",
+    "location": "Seobinggo Station, Gyeongui-Jungeng Line, Exit 1",
+    "hares": "Lick me up Before You Go Go",
+    "cost": "7,000",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-09-21",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2808,
+    "title": "Hymen's Hashathon Trail",
+    "startTime": "15:00",
+    "location": "Samgakji Station Line 4 or 6, exit 8",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-09-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2809,
+    "title": "Ask a Stupid Question Day Trail",
+    "startTime": "16:00",
+    "location": "Hapjeong Station Line 6 and 2, exit 2",
+    "hares": "GM Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-10-05",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2810,
+    "title": "Way down south",
+    "startTime": "16:00",
+    "location": "Yeongdungpo Line 1, Exit 1",
+    "hares": "EM OB1",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-10-12",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2811,
+    "title": "Hymen's Hashy Bday Trail",
+    "startTime": "16:00",
+    "location": "Oksu Station, Line 3, Exit 7",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-10-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2812,
+    "title": "Seoul Invades WWH3",
+    "startTime": "15:00",
+    "location": "Wolgok Station line 6, exit 1",
+    "hares": "Statutory Ape & Thornberry Must Die",
+    "cost": "7,000",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-10-26",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2850,
+    "title": "Seoul Hash House Harriers 2850th Nth R*n",
+    "startTime": "15:00",
+    "location": "Jichuk Station Line 3, Exit 2",
+    "hares": "HonSec Hymen",
+    "cost": "30,000",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-11-02",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2813,
+    "title": "The Day of the Dead trail",
+    "startTime": "15:00",
+    "location": "Sadang Station Line 2, 4, exit 14",
+    "hares": "Cheeri Ho",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-11-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2814,
+    "title": "Abdication Day",
+    "startTime": "15:00",
+    "location": "World Cup Stadium Station, Exit 2 or 3 (Line 6)",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-11-16",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2815,
+    "title": "Hymen's Olympic Run",
+    "startTime": "15:00",
+    "location": "Sports Complex Line 2, 9 exit 8",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-11-23",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2816,
+    "title": "Pre Thanksgiving Trot",
+    "startTime": "15:00",
+    "location": "Seobinggo Station, Gyeongui-Jungeng Line, Exit 1",
+    "hares": "GM Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-11-30",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2817,
+    "title": "Squishy's Family Run and OB invasion",
+    "startTime": "15:00",
+    "location": "Gwacheon Station Line 4, Exit 1",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-12-07",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2818,
+    "title": "Cheeri Ho's Christmas",
+    "startTime": "15:00",
+    "location": "Sinyongsan Line 4, exit 3 or Yongsan Line 1, Exit 1",
+    "hares": "Cheeri Ho",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-12-14",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2819,
+    "title": "South Pole Day",
+    "startTime": "15:00",
+    "location": "Samgakji Station Line 4 or 6, exit 8",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-12-21",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2820,
+    "title": "Pre Christmas trot",
+    "startTime": "15:00",
+    "location": "Jichuk Station Line 3, Exit 1",
+    "hares": "HonSec Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2024-12-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2821,
+    "title": "End of 2024 Trail",
+    "startTime": "15:00",
+    "location": "Seoksu Station Line 1, Exit 2",
+    "hares": "GM Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-01-04",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2822,
+    "title": "First Trail Of 2025",
+    "startTime": "15:00",
+    "location": "Seoul Racecourse Park Line 4, exit 6",
+    "hares": "Joo Dog",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-01-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2823,
+    "title": "Anti-Smoking Day",
+    "startTime": "15:00",
+    "location": "Bulgwang Station Line 3 and 6, exit 1",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-01-18",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2824,
+    "title": "Hymen's Scenic Trail",
+    "startTime": "15:00",
+    "location": "Jichuk Station Line 3, Exit 1",
+    "hares": "HonSec Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-01-25",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2825,
+    "title": "Solo's pre-Seollal Shit Show Hash",
+    "startTime": "15:00",
+    "location": "Seobinggo Station, Exit 1 + 10 minute walk",
+    "hares": "Solo Bukkake",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-02-01",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2826,
+    "title": "Joo Dog's Beerday trail",
+    "startTime": "15:00",
+    "location": "Suseo Station Line 3, exit 4",
+    "hares": "GM Bloodfish and Joo Dog",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-02-08",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2827,
+    "title": "Double Deuce's Scrotum Scruncher",
+    "startTime": "15:00",
+    "location": "Guui Station Line 2, Exit 2",
+    "hares": "Double Deuce",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-02-15",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2828,
+    "title": "Valentine's Day Trail",
+    "startTime": "15:00",
+    "location": "Seoul Staton Line 1, 4, Exit 15",
+    "hares": "HonSec Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-02-22",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2829,
+    "title": "National Margarita Day trail (Family Trail)",
+    "startTime": "15:00",
+    "location": "Dogok Station (Line 3, Exit 3)",
+    "hares": "HonSec Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-03-01",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2830,
+    "title": "GM's March First Movement Day trail",
+    "startTime": "15:00",
+    "location": "Samgakji Station Line 4 or 6, exit 8",
+    "hares": "GM Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-03-08",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2831,
+    "title": "Joo Dog Lost in the Woods",
+    "startTime": "15:00",
+    "location": "Irwon Station Line 3, Exit 4",
+    "hares": "Joo Dog",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-03-15",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2832,
+    "title": "St. Patrick's Day Trail",
+    "startTime": "15:00",
+    "location": "Sports Complex Line 2, 9 exit 8",
+    "hares": "HonSec Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-03-22",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2833,
+    "title": "Contraceptive Day",
+    "startTime": "15:00",
+    "location": "Samgakji Station Line 4 or 6, exit 8",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-03-29",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2834,
+    "title": "Double Deuce's Spring Vistas",
+    "startTime": "15:00",
+    "location": "Misa Station Line 5, Exit 1",
+    "hares": "Double Deuce",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-04-05",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2835,
+    "title": "Reindeer's Pre Birthday Run",
+    "startTime": "15:00",
+    "location": "Saetgang Station Line 9, exit 4",
+    "hares": "Hymen stepping in for Reindeer",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-04-12",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2836,
+    "title": "The Grand Old Duke of York Run",
+    "startTime": "15:00",
+    "location": "Sadang Station Line 2, 4, exit 11",
+    "hares": "Longfellow and Squishy",
+    "cost": "Pay at the bar",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-04-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2837,
+    "title": "The Bataan Death March Memorial (Family Trail)",
+    "startTime": "15:00",
+    "location": "Yeonuinaru Station Line 5, Exit 2",
+    "hares": "Joo Dog",
+    "cost": "Pay as you go",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-04-26",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2838,
+    "title": "ANZAC Trail",
+    "startTime": "15:00",
+    "location": "Saejeol Station Line 6, Exit 3",
+    "hares": "HonSec Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-05-03",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2839,
+    "title": "Reindeer's Gyeongbok Palace Trail",
+    "startTime": "15:00",
+    "location": "Gyeongbokgung Station, Line 3, Exit 7",
+    "hares": "Reindeer",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-05-10",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2840,
+    "title": "Mother's Day Trail",
+    "startTime": "15:00",
+    "location": "Bulgwang Station Line 3 and 6, exit 1",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-05-17",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2841,
+    "title": "World Whisky Day",
+    "startTime": "15:00",
+    "location": "Dogok Station (Line 3, Exit 3)",
+    "hares": "HonSec Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-05-24",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2842,
+    "title": "Squishy's Hash Hell Trail",
+    "startTime": "14:00",
+    "location": "Seojeong-ri Station Line 1 exit 2",
+    "hares": "Squishy",
+    "cost": "Pay OB Hash Cash",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-05-31",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2843,
+    "title": "GM's Back From His Busan Ride",
+    "startTime": "15:00",
+    "location": "Hapjeong Line 2 or 6, exit 2",
+    "hares": "GM Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-06-07",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2844,
+    "title": "Joo Dog's Day at the Lake",
+    "startTime": "15:00",
+    "location": "Uiwang Station Line 1, Exit 1",
+    "hares": "Joo Dog",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-06-14",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2845,
+    "title": "Pre GM Changeover Trail",
+    "startTime": "15:00",
+    "location": "Yangjae Station Line 3 exit 10",
+    "hares": "HonSec Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-06-21",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2846,
+    "title": "GM Changeover",
+    "startTime": "15:00",
+    "location": "Ground Zero, near Itaewon Grand Hyatt (follow marks from Hangangjin line 6 Exit 1)",
+    "hares": "Bloodfish and ******",
+    "cost": "W35,000 (Beer, Shirt, Food)",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-06-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2847,
+    "title": "Reindeers On Out",
+    "startTime": "16:00",
+    "location": "Gwangwhamun Station Line 5, exit 1",
+    "hares": "Reindeer and EM Leprechaun",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-06-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2847,
+    "title": "Reindeers On Out",
+    "startTime": "16:00",
+    "location": "Gwangwhamun Station Line 5, exit 1",
+    "hares": "Reindeer and EM Leprechaun",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-07-05",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2848,
+    "title": "Excitement Calls!",
+    "startTime": "16:00",
+    "location": "Uiwang Station Line 1, exit 1",
+    "hares": "Junior Hare Joo Dog",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-07-12",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2849,
+    "title": "The Heat Is On",
+    "startTime": "16:00",
+    "location": "Oksu Station, Line 3, Exit 7",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-07-19",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2851,
+    "title": "GPS Day",
+    "startTime": "16:00",
+    "location": "World Cup Stadium Station Line 6, Exit 3",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-07-26",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2852,
+    "title": "Bloodfish Schools the Pack",
+    "startTime": "16:00",
+    "location": "Nakseongdae Station Line 2, Exit 4",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-08-02",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2853,
+    "title": "To Lair of the LeperCon & Beyond",
+    "startTime": "16:00",
+    "location": "Gyeongbokgung station Line 3, Exit 7",
+    "hares": "EM LeperCon",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-08-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2854,
+    "title": "Chuckin G's at Jichuk",
+    "startTime": "16:00",
+    "location": "Jichuk station Line 3, Exit 2",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-08-16",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2855,
+    "title": "Joo Dog's Prison Scramble",
+    "startTime": "16:00",
+    "location": "Dongnimmun station Line 3, Exit 4",
+    "hares": "Joo Dog",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-08-23",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2856,
+    "title": "Sweaty Joo Dog",
+    "startTime": "16:00",
+    "location": "Balsan Station Line 5, Exit 3",
+    "hares": "Joo Dog",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-08-30",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2857,
+    "title": "OB Goes Back to Basics",
+    "startTime": "16:00",
+    "location": "Hyatt Pagoda; Noksapyeong Station (Brown Line) Exit 4",
+    "hares": "EM OB",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-09-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2858,
+    "title": "Circumnavigation Day",
+    "startTime": "16:00",
+    "location": "Seoul Station Line 1, 4, exit 15",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-09-13",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2859,
+    "title": "Rainy Pyeongtaek",
+    "startTime": "16:00",
+    "location": "Pyeongtaek Station Line 1, Exit 1",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-09-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2860,
+    "title": "LeperCon's Mountain Troll Trail",
+    "startTime": "16:00",
+    "location": "Gyeongbokgung Line 3, exit 7",
+    "hares": "EM Lepercon",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-09-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2861,
+    "title": "Seoul Hash Gone Gucci",
+    "startTime": "16:00",
+    "location": "Dogok Station Line 3, exit 3",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-10-04",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2863,
+    "title": "Hashathon-Osan Bulgogi Invasion",
+    "startTime": "16:00",
+    "location": "Hyochang Park Station Line 6, exit 5",
+    "hares": "Thornberry Must Die",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-10-04",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2862,
+    "title": "Get Your Rocks Off",
+    "startTime": "16:00",
+    "location": "Yeongdeungpo Station Line 1, exit 1",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-10-18",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2864,
+    "title": "Alaska Day",
+    "startTime": "16:00",
+    "location": "Samgakji Station Line 4, Exit 8",
+    "hares": "Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-10-25",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "title": "The Unth Run... The REAL 2850th",
+    "startTime": "15:00",
+    "location": "Gupabal Station Line 3, Exit 4",
+    "hares": "Hymen",
+    "cost": "W20,000",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-11-01",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2865,
+    "title": "Port Call in Munsan",
+    "startTime": "15:00",
+    "location": "Munsan Station Gyeongui-JungangLine, Exit 2",
+    "hares": "Bloodfish & Joo Dog",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-11-08",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2866,
+    "title": "The Hash Gets Some Culture",
+    "startTime": "15:00",
+    "location": "Dongdaemun History & Culture Park, Line 2, 4, 5 Exit 5",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-11-15",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2867,
+    "title": "Joo Dog Late Again",
+    "startTime": "15:00",
+    "location": "Euljiro 3-ga Station, Line 2 or 3, exit 11",
+    "hares": "Joo Dog and Blower",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-11-22",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2868,
+    "title": "A Feast for the Tongue at Jichuk",
+    "startTime": "15:00",
+    "location": "Jichuk Station, Line 3, exit 1",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-11-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2869,
+    "title": "Squishy's Thanksgiving Hangover",
+    "startTime": "15:00",
+    "location": "Sindorim Station, Line 2, exit 1",
+    "hares": "Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-12-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2870,
+    "title": "Longfellow Celebrates Ten Years in Korea",
+    "startTime": "15:00",
+    "location": "Wang's Pub @ Gangnam Station, Line 2, exit 11",
+    "hares": "Longfellow",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-12-13",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2871,
+    "title": "Up We Go!",
+    "startTime": "15:00",
+    "location": "Anyang Station, Line 1, exit 2",
+    "hares": "Bloodfish",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-12-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2872,
+    "title": "Pre-Christmas Jingle Hash",
+    "startTime": "15:00",
+    "location": "Noksapyeong Station, Line 6, exit 3",
+    "hares": "Solo Bukkake",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2025-12-27",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2873,
+    "title": "Franco Gets Tanked-o",
+    "startTime": "15:00",
+    "location": "Gyeongbokgung Station, Line 3, exit 7",
+    "hares": "Professor D'Erections (GM)",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-01-03",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2874,
+    "title": "This is the New Year",
+    "startTime": "15:00",
+    "location": "Seoul Racecourse Park Station, Line 4, exit 6",
+    "hares": "Joo Dog & Squishy",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-01-10",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2875,
+    "title": "Hymen's Seoul Station Memories",
+    "startTime": "15:00",
+    "location": "Seoul Station (KTX) Exit 15",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-01-17",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2876,
+    "title": "Last Minute Shit Hash",
+    "startTime": "15:00",
+    "location": "Namyeong Station Line 1, Exit 1",
+    "hares": "Solo Bukkake",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-01-24",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2877,
+    "title": "Longfellow Grows a Pair",
+    "startTime": "15:00",
+    "location": "Dongjak Station, Lines 4 & 9, Exit 5",
+    "hares": "Longfellow",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-01-31",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2878,
+    "title": "Joo Dog's Birthday Run",
+    "startTime": "15:00",
+    "location": "Hongje Station Line 3, Exit 3",
+    "hares": "Joo Dog",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-02-07",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2879,
+    "title": "Hymen's Winter Blast",
+    "startTime": "15:00",
+    "location": "Jichuk Station, Line 3, Exit 1",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-02-14",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2880,
+    "title": "Valentine's Day On-Out! (Family Run)",
+    "startTime": "15:00",
+    "location": "Gwacheon Station Line 4, Exit 5",
+    "hares": "Joo Dog, Squishy, Catfish, 1 2 3 4",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-02-21",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2881,
+    "title": "NASCAR Day",
+    "startTime": "15:00",
+    "location": "Bulgwang Station Line 3 Exit 1",
+    "hares": "GM Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-02-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2882,
+    "title": "EM OB's Namsan Adventure",
+    "startTime": "15:00",
+    "location": "The Hyatt Pagoda Naksapyong Stn Line 6, exit 4",
+    "hares": "EM OB",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-03-07",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2883,
+    "title": "It's Spring isn't it??",
+    "startTime": "15:00",
+    "location": "Sports Complex Line 2, 9 exit 8",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-03-14",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2884,
+    "title": "TFB's Virgin Hash Haring",
+    "startTime": "15:00",
+    "location": "Ahyeon Station, Line 2, Exit 1",
+    "hares": "TFB",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-03-21",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2885,
+    "title": "OB channeling Sleazy Rider",
+    "startTime": "15:00",
+    "location": "Nakseongdae Stn Line 2, Exit 4",
+    "hares": "EM OB",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-03-28",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2886,
+    "title": "Springtime Shenanigans and Questionable Life Choices",
+    "startTime": "15:00",
+    "location": "Ichon Station Line 4, Exit 4",
+    "hares": "Solo Bukkake",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-04-04",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2887,
+    "title": "Easter Hash",
+    "startTime": "15:00",
+    "location": "World Cup Stadium Line 6, Exit 3",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-04-11",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2888,
+    "title": "Housing Justice Day",
+    "startTime": "15:00",
+    "location": "Hapjeong Station, Line 6, 2 Exit 2",
+    "hares": "GM Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-04-18",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2889,
+    "title": "Ahyeon Part 2: Journey to the West",
+    "startTime": "15:00",
+    "location": "Ahyeon Station, Line 2, Exit 1",
+    "hares": "TFB",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-04-25",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2890,
+    "title": "ANZAC Day Trail",
+    "startTime": "15:00",
+    "location": "Jichuk Station, Line 3, Exit 1",
+    "hares": "Hymen",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-05-02",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2891,
+    "title": "(Almost) Summer in the City (Hall)",
+    "startTime": "15:00",
+    "location": "City Hall Station Line 1 or 2, exit 9",
+    "hares": "TFB",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-05-09",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2892,
+    "title": "I ain't afraid of no Oksu station ghost",
+    "startTime": "15:00",
+    "location": "Oksu Station, Line 3, Exit 3",
+    "hares": "No Name Luke",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-05-16",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2893,
+    "title": "OB's Hyochang Park Adventure",
+    "startTime": "15:00",
+    "location": "Hyochang Park Line 6, exit 4",
+    "hares": "EM OB",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-05-23",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2894,
+    "title": "Hash Hell",
+    "startTime": "16:00",
+    "location": "Sungkyunkwan Univ Station Line 1, Exit 3",
+    "hares": "Double Deuce",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-05-30",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2895,
+    "title": "Peasants' Revolt Day",
+    "startTime": "16:00",
+    "location": "Seoul Station (KTX) Exit 15 or 3",
+    "hares": "GM Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-06-06",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2896,
+    "title": "The Hash Contributes to Gentrification",
+    "startTime": "16:00",
+    "location": "Mullae Station, Line 2, Exit 7",
+    "hares": "TFB",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-06-13",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2897,
+    "title": "Anti-Celibacy Day",
+    "startTime": "16:00",
+    "location": "Samgakji Station Line 4, exit 8",
+    "hares": "GM Professor D'Erections",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  },
+  {
+    "date": "2026-06-20",
+    "kennelTags": [
+      "sh3-kr"
+    ],
+    "runNumber": 2898,
+    "title": "GM Changeover",
+    "startTime": "15:00",
+    "location": "Ground Zero, near Itaewon Grand Hyatt",
+    "hares": "A GM",
+    "cost": "W50,000 or $35 USD",
+    "sourceUrl": "https://seoulhash.com/archive.php"
+  }
+]
