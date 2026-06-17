@@ -14,6 +14,10 @@ describe("scrubHarePii", () => {
     ["NA dashed", "Captain Hash 415-555-1212", "Captain Hash"],
     ["NA in parens, co-hare rescued", "Alice (415) 555-1212 & Bob", "Alice & Bob"],
     ["NA bare 10-digit", "Hares 4155551212", "Hares"],
+    // Parenthesized area code with NO separator after ")" — the audit's
+    // PHONE_NUMBER_RE misses this; PAREN_NA_PHONE_RE covers it (Codex #2248).
+    ["NA paren, no space after )", "Alice (415)555-1212", "Alice"],
+    ["NA paren, fully unseparated", "Alice (415)5551212", "Alice"],
     // Paren artifacts: the NA pattern's "\(?" eats the open paren, leaving a
     // dangling ")"; the email pattern leaves an empty "()". Both get tidied.
     ["orphan close paren (phone in parens)", "Just Jorge (973-760-5774)", "Just Jorge"],
@@ -51,6 +55,7 @@ describe("containsHarePii", () => {
     expect(containsHarePii("ASBO 010-2354-1741")).toBe(true);
     expect(containsHarePii("Captain Hash 415-555-1212")).toBe(true);
     expect(containsHarePii("Hares 4155551212")).toBe(true);
+    expect(containsHarePii("Alice (415)555-1212")).toBe(true);
     expect(containsHarePii("Slippery +44 7911 123456")).toBe(true);
     expect(containsHarePii("Hymen hymen@example.com")).toBe(true);
   });

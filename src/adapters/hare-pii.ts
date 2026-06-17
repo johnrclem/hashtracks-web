@@ -40,12 +40,21 @@ const DOMESTIC_MOBILE_RE = /\b01\d[-\s.]*\d{3,4}[-\s.]*\d{4}\b/g;
 // eslint-disable-next-line -- security/detect-non-literal-regexp + security-node/non-literal-reg-expr (Codacy ESLint plugins not loaded locally); source is a hard-coded constant
 const NA_PHONE_GLOBAL_RE = new RegExp(PHONE_NUMBER_RE.source, "g"); // NOSONAR nosemgrep
 
-export { EMAIL_RE, INTL_PHONE_RE, DOMESTIC_MOBILE_RE, NA_PHONE_GLOBAL_RE };
+// Parenthesized area code with NO separator after the close paren, e.g.
+// "(415)555-1212" / "(415)5551212". The audit's PHONE_NUMBER_RE requires a
+// `[-.\s]` after the optional `\)?`, so it misses this common US shape — the
+// scrubber covers it as a superset (scrub ⊇ detect keeps selfHeal convergent).
+const PAREN_NA_PHONE_RE = /\(\d{3}\)[-.\s]?\d{3}[-.\s]?\d{4}(?!\d)/g;
 
+// NOTE: the individual regexes are intentionally NOT exported — only the
+// `containsHarePii` / `scrubHarePii` functions and `HARE_PII_RES` are public.
+// Exporting the live module-level `/g` objects would invite a caller to use
+// `.test()`/`.exec()` and trip the shared `lastIndex` non-determinism trap.
 export const HARE_PII_RES = [
   EMAIL_RE,
   INTL_PHONE_RE,
   NA_PHONE_GLOBAL_RE,
+  PAREN_NA_PHONE_RE,
   DOMESTIC_MOBILE_RE,
 ];
 

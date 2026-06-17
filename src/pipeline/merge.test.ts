@@ -2821,6 +2821,9 @@ describe("sanitizeHares", () => {
     // Co-hare after a mid-string phone is rescued — the boilerplate "(\\d{3})"
     // truncation would otherwise drop "Bob".
     expect(sanitizeHares("Alice (415) 555-1212 & Bob")).toBe("Alice & Bob");
+    // No separator after the area-code paren — covered by PAREN_NA_PHONE_RE
+    // (the audit's PHONE_NUMBER_RE misses it). Codex review on #2248.
+    expect(sanitizeHares("Captain Hash (415)555-1212")).toBe("Captain Hash");
   });
 
   it("strips an email embedded in the hare field", () => {
