@@ -56,7 +56,7 @@ function labelKey(label: string): string {
 
 /** Date (UTC noon) + "HH:MM" from "2026/06/13 16:00", or null on drift. */
 function parseMeetingTime(value: string): { date: string; startTime: string } | null {
-  const m = value.trim().match(MEETING_TIME_RE);
+  const m = MEETING_TIME_RE.exec(value.trim());
   if (!m) return null;
   const year = Number.parseInt(m[1], 10);
   const month = Number.parseInt(m[2], 10);
