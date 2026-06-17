@@ -9,6 +9,7 @@ import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, resolveKennelTags, clearResolverCache } from "./kennel-resolver";
 import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
 import { isPlaceholder, isThemelessPlaceholderTitle, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
+import { containsHarePii, scrubHarePii } from "@/adapters/hare-pii";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
 import { levenshtein } from "@/lib/fuzzy";
 import { createEventWithKennel } from "@/lib/event-write";
@@ -167,6 +168,20 @@ export function sanitizeHares(hares: string | undefined | null): string | null {
 
   // Truncate at trailing logistics clauses (e.g., ", we are still taking applications...")
   h = h.replace(/,\s*(?:and we |we |still |also |please |but )\b.*/i, "").trim();
+
+  // Strip phone numbers / emails embedded mid-string so PII never reaches a
+  // canonical public event (#2227 — Seoul H3, generalized to every adapter).
+  // Gated on containsHarePii so non-PII hares pass through byte-identical (no
+  // separator normalization → no fingerprint/audit churn across the corpus).
+  // Runs before the boilerplate search so co-hares are rescued after a mid-string
+  // phone (e.g. "Alice (415) 555-1212 & Bob" → "Alice & Bob"), which the
+  // boilerplate `(\d{3})` truncation would otherwise drop. Sits after
+  // decodeEntities (in sanitizeRawFields) so HTML-encoded "+"/digits are seen decoded.
+  if (containsHarePii(h)) {
+    const scrubbed = scrubHarePii(h);
+    if (!scrubbed) return null;
+    h = scrubbed;
+  }
 
   // Truncate at boilerplate markers (description text leaked into hares).
   // If the whole value matches (idx === 0), drop it entirely — e.g. "On On Q"

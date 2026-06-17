@@ -2802,6 +2802,53 @@ describe("sanitizeHares", () => {
   it("does not filter names containing 'sign' as substring", () => {
     expect(sanitizeHares("Stop Sign Steve")).toBe("Stop Sign Steve");
   });
+
+  // ── mid-string PII scrubbing (#2227, generalized to every adapter) ──
+
+  it("strips a mid-string international phone, keeping co-hares", () => {
+    expect(sanitizeHares("EM Blank Space +82 10-7152-6362, EM Seoul Ultraman")).toBe(
+      "EM Blank Space, EM Seoul Ultraman",
+    );
+    expect(sanitizeHares("Slippery +44 7911 123456")).toBe("Slippery");
+  });
+
+  it("strips a Korean domestic mobile from the hare field", () => {
+    expect(sanitizeHares("ASBO 010-2354-1741")).toBe("ASBO");
+  });
+
+  it("strips a North American phone (dashed and parenthesized)", () => {
+    expect(sanitizeHares("Captain Hash 415-555-1212")).toBe("Captain Hash");
+    // Co-hare after a mid-string phone is rescued — the boilerplate "(\\d{3})"
+    // truncation would otherwise drop "Bob".
+    expect(sanitizeHares("Alice (415) 555-1212 & Bob")).toBe("Alice & Bob");
+    // No separator after the area-code paren — covered by PAREN_NA_PHONE_RE
+    // (the audit's PHONE_NUMBER_RE misses it). Codex review on #2248.
+    expect(sanitizeHares("Captain Hash (415)555-1212")).toBe("Captain Hash");
+  });
+
+  it("strips an email embedded in the hare field", () => {
+    expect(sanitizeHares("Hymen hymen@example.com")).toBe("Hymen");
+  });
+
+  it("returns null when the hare field is only PII", () => {
+    expect(sanitizeHares("+82 10-9397-6199")).toBeNull();
+    expect(sanitizeHares("415-555-1212")).toBeNull();
+  });
+
+  it("leaves non-PII hares byte-identical — no separator normalization (gate)", () => {
+    // The containsHarePii gate means a hare with no phone/email never hits the
+    // scrub's tidy pass, so its separators (here a semicolon) survive unchanged.
+    // This is what keeps the corpus from churning on every merge.
+    expect(sanitizeHares("Just Tip; Slippery When Wet")).toBe("Just Tip; Slippery When Wet");
+    expect(sanitizeHares("Mudflap & Trail Blazer")).toBe("Mudflap & Trail Blazer");
+  });
+
+  it("does not strip legit numerics that look phone-ish (no false positives)", () => {
+    expect(sanitizeHares("GM Over There (1995-1996) Memorial Run")).toBe(
+      "GM Over There (1995-1996) Memorial Run",
+    );
+    expect(sanitizeHares("3-5 milers welcome")).toBe("3-5 milers welcome");
+  });
 });
 
 // ── friendlyKennelName ──
