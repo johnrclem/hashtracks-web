@@ -770,3 +770,56 @@ exit 56 — so the raw wrapper markup must be re-captured at build; the *content
 "next run" and "Upcoming runs" blocks (the content above is from a `web_fetch` text render; the sandbox
 `curl` was allowlist-blocked, so the verbatim Mobirise DOM must be re-captured with a real
 `fetchHTMLPage`/`curl` at build and the test fixture built from that markup).
+
+## Plain-PHP SSR single-current-run, semantically-classed labeled blocks + PII-in-hares (learned from Seoul H3, 2026-06-16, SHIPPED)
+
+`seoulhash.com` (Seoul H3, "Korea's Mother Hash", est. 1972) is a hand-rolled PHP site that server-renders
+**one** current run on `index.php` plus a deep `archive.php`. Three reusable learnings:
+
+- **🟢 `web_fetch` flattens labels — the real DOM is often cleanly classed; capture it before choosing a
+  parser.** The handoff's `web_fetch` sample showed the labels as a run-together blob
+  (`Title:`/`Meeting Time:`/`Location:`/… on one line) and proposed a flattened-text scanner. The real
+  `index.php` is semantically classed:
+  ```html
+  <div class="event">
+    <div class="number">2897</div><div class="title">Anti-Celibacy Day</div>
+    <div class="section">
+      <div class="label_value"><div class="label">Meeting Time:</div><div class="value">2026/06/13 16:00</div></div>
+      …Location / Geo Coordinates / Hares / Apres Trail / Hash Cash…
+    </div>
+  </div>
+  ```
+  The flattening was a **render artifact, not the DOM.** `curl` the page, build a `.label`/`.value`
+  **`Map` keyed on visible label text** (`Map.get`, not `obj[key]` — Codacy object-injection), read
+  run#/title from `.number`/`.title`. `Meeting Time` carries a full `YYYY/MM/DD HH:MM` → date to UTC noon +
+  `startTime "HH:MM"`, **no year inference.** Same single-block `upcomingOnly` + fail-loud guard as Manila.
+  The `Geo Coordinates` value is a bare `…/maps/place/` stub (no coords) → leave lat/lng undefined, never
+  fabricate. `archive.php` = the same `.event` block × ~380 → frozen `scripts/data/<code>-history.json` +
+  `runBackfillScript` loader (drop `description` from historical rows — bulky prose + where emails hide).
+
+- **🔴 `sanitizeHares` does NOT strip mid-string phone numbers — scrub PII yourself, in BOTH the live
+  adapter AND the backfill.** The merge pipeline's `sanitizeHares` only truncates **trailing**
+  logistics/boilerplate; a phone embedded *inside* a hare line (`"EM Blank Space +82 10-7152-6362, EM Seoul
+  Ultraman"`, `"ASBO 010-2354-1741"`) survives into public canonical events. Korean mobiles appear in **both**
+  the domestic `010-XXXX-XXXX` and the international `+82 10-XXXX-XXXX` form (the leading 0 drops), with
+  **inconsistent spacing** (`+82  10-…` double space). Match both (anchor on `01x`/`+82` so `1995-1996` and
+  "Line 1 (10-15 min walk)" survive; tolerate multi-space separators), plus emails. Put the scrubber in
+  `src/` so the **live adapter and the freeze share it**, and guard the committed dataset with a regression
+  test using the same patterns. The Codex adversarial review caught the `+82` form a domestic-only first pass
+  missed — **a forward-config/backfill fix is not enough; the live daily scrape must scrub too.**
+
+- **🔴 `Kennel.scheduleTime` is 12-hour `"4:00 PM"`, NOT 24-hour.** Every `scheduleTime` in `kennels.ts` is
+  12-hour `"H:MM AM/PM"`; a `"16:00"` (which the handoff shipped, by analogy with the adapter's `startTime`)
+  would be the sole 24-hour value and break the display formatter. The adapter's per-event
+  `RawEventData.startTime` IS 24-hour `"HH:MM"` — **two different fields, two different formats.**
+
+- **New regex-heavy modules (PII scrubbers etc.):** author them Sonar/Codacy-clean from the first write —
+  regex **literals** (not `new RegExp(str)` → Codacy non-literal flag), **one regex per type** (a combined
+  alternation trips S5843 complexity > 20), `\d` not `[0-9]` (S6353), `RegExp.exec()` not `String.match()`
+  (S6594), a backtracking-safe email `[\w.+-]+@[\w-]+(?:\.[\w-]+)+`, and **string ops over `\s*`-heavy
+  cleanup regexes**; a genuinely-linear pattern S5852 still flags → mark the hotspot SAFE via the API.
+  (Full detail: `handoffs/retros/2026-06-16-sh3-kr-retro.md`.)
+
+- **Collision check = EVERY bare initialism** in the proposed alias list, not just the kennelCode-shaped one:
+  Seoul correctly omitted bare `SH3` (Summit/Salem/Seattle) but `SHHH` *also* collided (Secession/Singapore
+  Harriets) and had to be dropped too.
