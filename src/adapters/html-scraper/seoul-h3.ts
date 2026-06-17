@@ -116,7 +116,7 @@ function parseEventBlock($: CheerioAPI, el: Element, sourceUrl: string): RawEven
     const text = $(sub).text().trim().replace(/\s+/g, " ");
     if (text) proseParts.push(text);
   });
-  const description = proseParts.length > 0 ? proseParts.join("\n\n") : undefined;
+  const description = proseParts.join("\n\n") || undefined;
 
   return {
     date: dt.date,

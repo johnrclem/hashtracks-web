@@ -45,7 +45,6 @@ export function scrubHarePii(value: string | null | undefined): string | undefin
     .replace(/\s+([,;])/g, "$1") // no space before comma/semicolon
     .replace(/([,;])\s*(?=[,;&])/g, "") // collapse a leftover separator run
     .replace(/\s{2,}/g, " ")
-    .replace(/^[\s,;&]+|[\s,;&]+$/g, "")
-    .trim();
+    .replace(/^[\s,;&]+|[\s,;&]+$/g, ""); // also strips leading/trailing whitespace
   return out || undefined;
 }
