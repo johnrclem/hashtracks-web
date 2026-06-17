@@ -20,8 +20,12 @@ in a local terminal where git works and where the NAS / live DB are reachable, t
 end-to-end through PR creation. The handoff file leads with a `▶ FOR CLAUDE CODE` directive so the
 whole file is the brief.
 
-**Do not** attempt `git checkout`/`branch`/`commit`/`push` in this run. **Do** write files
-(the handoff, queue updates, run log) — plain file writes work fine.
+**Do not** attempt `git commit`/`branch`/`push`, or a hard `git checkout`/`rebase` of the working
+tree, in this run — Claude Code handles all git after the handoff. **Do** write files (the handoff,
+queue updates, run log) — plain file writes work fine. **The ONE git you must run is the read-only
+sync in Step 0** (`git fetch` + `git show origin/main:…` + `git log/rev-list`, plus an OPTIONAL
+non-forcing `git merge --ff-only`). Reading `origin/main` does not mutate the tree and is what keeps
+a stale checkout from causing duplicate work — see Step 0.
 
 ---
 

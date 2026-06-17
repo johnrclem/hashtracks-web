@@ -33,6 +33,15 @@ Add a new section when you discover non-obvious behavior on a platform.
 - **Parse the richest single surface, skip redundant ones.** Kaohsiung's home page carried the *same* two runs as `/run-information` and only introduced the cross-page run-# drift — parsing `/run-information` alone removed the discrepancy with zero loss. Only merge a second surface when it demonstrably adds runs the first lacks (match by date, prefer the detail page's number).
 - **Bare run-type titles → leave `title` undefined.** "Saturday Night Run" / "Sunday Family Run" are not themes; leave `title` undefined so `merge.ts` synthesizes "Kaohsiung H3 Trail #N" (verified end-to-end: #2732 → "Kaohsiung H3 Trail #2732"). Keep only descriptive themes ("7-eleven Joint Night Run").
 
+#### 🔴 Home-page SSR is per-tenant — do NOT assume it (Taiwan Wix siblings, 2026-06-16)
+
+The "Wix SSRs the current event on the home page" behavior above is **tenant-dependent — confirm it per site, never assume it.** Three Taiwan Wix kennels, three different outcomes:
+- **Kaohsiung H3** (`kaohsiunghash.com`, already live) — home page AND `/run-information` **fully SSR the upcoming runs** as text headings (`#2732 - June 27 - Saturday Night Run`) + rich per-run detail (hares, cost, Maps `maps.app.goo.gl` pin, time, prose). A plain `web_fetch`/Cheerio parse works; no browserRender. Its `/run-schedule` page is a **PNG image** (the full year) — useless for scraping; the home + `/run-information` surfaces are the real source. Note: home heading run# can disagree with `/run-information` (Kaohsiung's `#2733 Jul 11` home vs `#2734 Jul 11` run-info) — a source inconsistency, not a parse bug.
+- **Taoyuan Metro H3** (`tymh3.com`) — home AND `/upcoming-run` SSR carry **NO run data** (only nav, logo, tagline, email, FB link); the run list is a fully JS-rendered Wix Events widget → **needs browserRender**.
+- **Taichung H3** (`taichunghash.com`) — returns an **empty body** to a plain fetch (JS-rendered/anti-bot) → needs browserRender.
+
+So for any new Wix kennel: `web_fetch` the home page first; if the runs appear as SSR text → small static Cheerio scraper (Kaohsiung/Boise pattern). If empty/nav-only → browserRender (northboro pattern), and from the research sandbox you likely **cannot verify the sample** (no browserRender; Chrome MCP auto-denies the brand-new domain with no user present) → write a `handed-off (needs live-verify)` handoff or leave it `verify-live-first` and flag for Claude Code.
+
 ---
 
 ## WordPress.com hosted blogs (learned from ONH3, 2026-05-29)
@@ -714,5 +723,50 @@ adapter + tests: `src/adapters/html-scraper/new-taipei-hash.ts`.
 - **http-only** → 7 Sonar S5332 hotspots on the `http://` literals (kennel website, source URL, adapter
   default base, test fixtures); mark SAFE (the origin serves no https).
 
-**Siblings:** the queued **Kaohsiung** and **Taoyuan** kennels are **Wix**, NOT this legacy `.htm` recipe
-— don't assume the Big5 recipe applies to them.
+**UNVERIFIED — confirm at implementation time:** the exact `<table>`/`<tr>`/`<td>` nesting and whether
+mobile "card" duplicates exist (the structure above is from a UTF-8-mangled fetch; the Chinese columns
+and precise DOM must be re-captured with `curl -s <url> | iconv -f BIG5 -t UTF-8` and the test fixture
+built from that verbatim markup). The queued **Kaohsiung** (Wix) and **Taoyuan** (Wix) siblings are a
+DIFFERENT platform (Wix, not legacy `.htm`) — don't assume this Big5 recipe applies to them.
+
+## Mobirise static sites — SSR home page, "next run" block + "Upcoming runs" list (learned from Warsaw H3, 2026-06-17)
+
+[Mobirise](https://mobirise.com) is a drag-and-drop **static HTML** site builder (output is plain SSR
+HTML — no JS-rendered run data, no CMS/API). Warsaw H3 (`warsawh3.com`, first Poland kennel) is the
+reference. Confirmed via `web_fetch` (the research sandbox could NOT `curl` the domain — allowlist-blocked,
+exit 56 — so the raw wrapper markup must be re-captured at build; the *content* below is verified):
+
+- **Detection:** `<meta name="generator" content="Mobirise vN.N.N, mobirise.com">` in the page head;
+  assets under `/assets/images/` with Mobirise's `…-WIDTHxHEIGHT.<ext>` resized-variant suffix; a
+  `mobiri.se/<id>` "Made with Mobirise" footer badge.
+- **Fully server-rendered → plain Cheerio, no browserRender.** The home page (`index.html`) carries the
+  run data as static text.
+- **Two shapes on ONE page, merge by run number:** (a) a **"next run" detail block** under a heading like
+  *"WH3 meets every second Saturday. The next run is:"* → `WH3 Run #NNNN`, a `D Month YYYY, 14h00` line,
+  a `Where?` label then the venue line, a `Who?` label then the hare line; and (b) an **"Upcoming runs"
+  list** where each run is two lines: `#NNNN Month D, YYYY` then `Hare: <name>`. The list rows carry only
+  date + hare (no venue/time). Parse both, merge by run#, prefer the detail block's venue/time.
+- **🟢 Dates CARRY THE YEAR** (`Sat 20 June 2026`, `July 4, 2026`) → **no year inference** (unlike Bangkok
+  Monday / Taipei). Parse straight to UTC noon. Note the **`14h00` time format** (`h` separator, not `:`)
+  → normalize to `"14:00"`.
+- **Rotating opaque inner classes** (Mobirise wraps each block in `<section class="mbr-section …">` with
+  churning utility classes) → **key the parser on visible text**, not selectors. `stripHtmlTags(html,"\n")`
+  → split into lines → find the `Run #` line → walk to the "Upcoming runs"/end sentinel (same approach as
+  the Manila/NSWHHH Google-Sites parsers).
+- **Hare placeholders** are common jokes — strip to `undefined`: `???`, `It Could Be You!`, `TBA`,
+  `Hare needed`.
+- **No per-run coords / no archive.** Venue is free text only (no lat/lng, no Maps link) → leave coords
+  undefined, merge geocodes the venue or falls back to the region centroid. The other nav pages
+  (`Events.html` = special events, `news.html` = prose, `picsdocs.html` = photos) carry **no run history**
+  → no backfill source even for a 1600+-run kennel. Set `config.upcomingOnly: true` (the home block rolls
+  forward) + a **fail-loud `rows.length === 0` guard** (single-page source, brand-new baseline).
+- **Logos are Mobirise-resized variants** (`/assets/images/<name>.jpg-96x96.jpg`) — small + path-tokenized
+  → self-host to `public/kennel-logos/<code>.<ext>`; try the **un-suffixed original** (`<name>.jpg`) for a
+  larger asset, confirm extension by magic bytes.
+- **Effort:** small new ~120–180 LoC Cheerio adapter + tests. Model on `manila-h3.ts` (single SSR block +
+  guard) and `bangkok-monday-hash.ts` (next-run-block ⊕ list merge — but simpler: one page, no inference).
+
+**UNVERIFIED — confirm at implementation time:** the exact `<section>`/`<div>`/`<p>`/`<br>` nesting of the
+"next run" and "Upcoming runs" blocks (the content above is from a `web_fetch` text render; the sandbox
+`curl` was allowlist-blocked, so the verbatim Mobirise DOM must be re-captured with a real
+`fetchHTMLPage`/`curl` at build and the test fixture built from that markup).
