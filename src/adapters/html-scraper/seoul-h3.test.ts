@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { parseSeoulH3Events, SeoulH3Adapter } from "./seoul-h3";
+import { parseSeoulH3Events, parseSeoulHareline, SeoulH3Adapter } from "./seoul-h3";
 import type { Source } from "@/generated/prisma/client";
 
 // Mock safeFetch (used by fetchHTMLPage) + structure hash for the adapter path.
@@ -133,6 +133,98 @@ describe("parseSeoulH3Events (archive.php)", () => {
   });
 });
 
+/**
+ * Verbatim shape of the live index.php (captured 2026-06-17): the featured run
+ * #2898 plus the forward "Hareline" as the THIRD `.subsection` (date/hare pairs
+ * separated by empty `<p></p>`).
+ */
+const HARELINE_FIXTURE = `<!DOCTYPE html><html><body>
+<div class="content"><div class="group">
+  <div class="event">
+    <div class="number">2898</div>
+    <div class="title">GM Changeover</div>
+    <div class="section">
+      <div class="label_value"><div class="label">Meeting Time:</div><div class="value">2026/06/20 15:00</div></div>
+      <div class="label_value"><div class="label">Location: </div><div class="value">Ground Zero, near Itaewon Grand Hyatt</div></div>
+      <div class="label_value"><div class="label">Hares: </div><div class="value">A GM</div></div>
+    </div>
+    <div class="section">
+      <div class="subsection"><p>The time has come for the annual GM Changeover.</p><p></p><p>Hymen: 010-4244-1928</p></div>
+      <div class="subsection"><p>Go out Hangangjin Line 6, Exit 1 and follow the pack marks to Ground Zero.</p></div>
+      <div class="subsection"><p>Hareline</p><p></p><p>June 27 - Hare needed</p><p></p><p>July 4 - Hare needed</p><p></p><p>July 11 - Hymen</p><p></p><p>July 18 - Longfellow</p></div>
+    </div>
+  </div>
+</div></div>
+</body></html>`;
+
+describe("parseSeoulHareline (#2239)", () => {
+  it("emits one event per Hareline line, year-resolved off the featured run date", () => {
+    const events = parseSeoulHareline(HARELINE_FIXTURE, "2026-06-20", SOURCE_URL);
+    expect(events.map((e) => e.date)).toEqual([
+      "2026-06-27",
+      "2026-07-04",
+      "2026-07-11",
+      "2026-07-18",
+    ]);
+    expect(events.every((e) => e.kennelTags[0] === "sh3-kr")).toBe(true);
+    expect(events.every((e) => e.sourceUrl === SOURCE_URL)).toBe(true);
+  });
+
+  it("captures real hare names and clears 'Hare needed' placeholders to null (#2239)", () => {
+    const events = parseSeoulHareline(HARELINE_FIXTURE, "2026-06-20", SOURCE_URL);
+    expect(events[0].hares).toBeNull(); // "Hare needed" → explicit clear (not preserve)
+    expect(events[1].hares).toBeNull(); // "Hare needed"
+    expect(events[2].hares).toBe("Hymen");
+    expect(events[3].hares).toBe("Longfellow");
+  });
+
+  it("leaves run number, title, and start time undefined (merge fills them later)", () => {
+    const events = parseSeoulHareline(HARELINE_FIXTURE, "2026-06-20", SOURCE_URL);
+    for (const e of events) {
+      expect(e.runNumber).toBeUndefined();
+      expect(e.title).toBeUndefined();
+      expect(e.startTime).toBeUndefined();
+    }
+  });
+
+  it("rolls a Dec→Jan hareline date into the next year off a late-December anchor", () => {
+    const decFixture = HARELINE_FIXTURE.replace(
+      "<p>June 27 - Hare needed</p>",
+      "<p>January 3 - Hare needed</p>",
+    );
+    const events = parseSeoulHareline(decFixture, "2026-12-27", SOURCE_URL);
+    expect(events[0].date).toBe("2027-01-03");
+  });
+
+  it("resolves a leap day (Feb 29) to the next leap year, not null, off a non-leap anchor (#2239)", () => {
+    const leapFixture = HARELINE_FIXTURE.replace(
+      "<p>June 27 - Hare needed</p>",
+      "<p>February 29 - Hymen</p>",
+    );
+    // Anchor 2027 (non-leap): Date.UTC(2027,1,29) rolls to Mar 1, so the naive
+    // path would drop it; validate-first rolls to the next leap year (2028).
+    const events = parseSeoulHareline(leapFixture, "2027-02-01", SOURCE_URL);
+    expect(events[0].date).toBe("2028-02-29");
+    expect(events[0].hares).toBe("Hymen");
+  });
+
+  it("returns [] when the page has no Hareline subsection", () => {
+    expect(parseSeoulHareline(INDEX_FIXTURE, "2026-06-13", SOURCE_URL)).toEqual([]);
+  });
+});
+
+describe("parseSeoulH3Events excludes the Hareline subsection from description (#2239)", () => {
+  it("keeps prose + directions but drops the Hareline list from the featured run", () => {
+    const [event] = parseSeoulH3Events(HARELINE_FIXTURE, SOURCE_URL);
+    expect(event.runNumber).toBe(2898);
+    expect(event.description).toContain("GM Changeover");
+    expect(event.description).toContain("follow the pack marks");
+    expect(event.description).not.toContain("Hareline");
+    expect(event.description).not.toContain("Longfellow");
+    expect(event.description).not.toContain("Hare needed");
+  });
+});
+
 describe("SeoulH3Adapter.fetch", () => {
   const source = { url: SOURCE_URL } as Source;
 
@@ -146,6 +238,22 @@ describe("SeoulH3Adapter.fetch", () => {
     expect(result.errors).toEqual([]);
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({ runNumber: 2897, date: "2026-06-13", kennelTags: ["sh3-kr"] });
+  });
+
+  it("emits the featured run plus the forward Hareline schedule (#2239)", async () => {
+    mockedSafeFetch.mockResolvedValue(htmlResponse(HARELINE_FIXTURE));
+    const result = await new SeoulH3Adapter().fetch(source);
+    expect(result.errors).toEqual([]);
+    // featured #2898 + 4 Hareline entries
+    expect(result.events).toHaveLength(5);
+    expect(result.events[0]).toMatchObject({ runNumber: 2898, date: "2026-06-20" });
+    expect(result.events.slice(1).map((e) => e.date)).toEqual([
+      "2026-06-27",
+      "2026-07-04",
+      "2026-07-11",
+      "2026-07-18",
+    ]);
+    expect(result.diagnosticContext).toMatchObject({ eventsParsed: 5, harelineEvents: 4 });
   });
 
   it("fails loud (errors[], not empty events[]) when no run block parses", async () => {

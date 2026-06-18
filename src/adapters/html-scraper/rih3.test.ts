@@ -409,18 +409,55 @@ describe("parseHarelineRow", () => {
     }
   });
 
-  it("falls back to run number title when no H2", () => {
+  it("emits the synthesized default title when no H2 (concrete, to overwrite a stale canonical, #2211)", () => {
     const cells = ["Mon April 6", "6:30 PM", "2093"];
     const result = parseHarelineRow(cells, HARE_SINGLE, "", SOURCE_URL);
 
-    expect(result?.title).toBe("RIH3 #2093");
+    // Concrete "RIH3 Trail #N" — merge's rewriteStaleDefaultTitle normalizes the
+    // kennelCode prefix to "Rhode Island H3 Trail #N" AND (unlike undefined)
+    // overwrites a stale non-placeholder title already on the canonical.
+    expect(result?.title).toBe("RIH3 Trail #2093");
   });
 
-  it("falls back to generic title when no H2 and no run number", () => {
+  it("emits the synthesized default title when no H2 and no run number (#2211)", () => {
     const cells = ["Mon April 6", "6:30 PM", ""];
     const result = parseHarelineRow(cells, HARE_SINGLE, "", SOURCE_URL);
 
-    expect(result?.title).toBe("RIH3 Monday Trail");
+    expect(result?.title).toBe("RIH3 Trail");
+  });
+
+  it("rejects a narrative-intro h2 that leads with the hare name, and captures only the venue+address (#2211)", () => {
+    // Verbatim shape from live rih3.com Run #2103: the directions <h2> is a
+    // multi-line narrative starting with the hare name, and the venue address
+    // sits at the end of a prose sentence in the <p> body.
+    const dirHtml = `
+      <br/><p><strong></strong></p>
+      <h2>Hym Wrng Gye is setting 2 trails for Rhode Island<br>
+      The first will be a RISKY Hash on Sunday afternoon<br>
+      And the second will be for the RIH3 on Monday at 6-tirdy</h2>
+      <p>In his most efficient manner, he'll be starting from the same location for both trails. The Wamsutta Middel School, 300 Locust St, Attleboro, MA. I'm guessing if you want a shortcut to the beer stop, join the RISKY Hash.</p>
+    `;
+    const cells = ["Mon June 15", "6:30 PM", "2103"];
+    const hareHtml = `<strong><span style="FONT-SIZE: large">Hym Wrng Gye</span></strong>`;
+    const result = parseHarelineRow(cells, hareHtml, dirHtml, SOURCE_URL);
+
+    expect(result?.hares).toBe("Hym Wrng Gye");
+    // Concrete default overwrites the stale narrative on the canonical; merge
+    // normalizes "RIH3 Trail #2103" → "Rhode Island H3 Trail #2103".
+    expect(result?.title).toBe("RIH3 Trail #2103");
+    // Location is the venue + address only — not the leading narrative sentence.
+    expect(result?.location).toBe(
+      "The Wamsutta Middel School, 300 Locust St, Attleboro, MA",
+    );
+  });
+
+  it("keeps a title where the hare name is only a prefix of the first word (word-boundary guard, #2211)", () => {
+    // Hare "John" must NOT suppress the real title "Johnathan's Big Trail" —
+    // the rejection only fires on a true leading name, not a prefix match.
+    const dirHtml = `<h2>Johnathan's Big Trail</h2>`;
+    const hareHtml = `<strong><span style="FONT-SIZE: large">John</span></strong>`;
+    const result = parseHarelineRow(["Mon June 15", "6:30 PM", "2110"], hareHtml, dirHtml, SOURCE_URL);
+    expect(result?.title).toBe("Johnathan's Big Trail");
   });
 
   it("strips day-of-week prefix from time", () => {

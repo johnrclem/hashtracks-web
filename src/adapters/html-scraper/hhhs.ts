@@ -12,11 +12,15 @@
  * Paired with a lower-trust STATIC_SCHEDULE fallback so a Wix outage does not
  * black out coverage for a founder kennel.
  *
- * Title policy: always synthesized as `"HHHS Trail #<runNumber>"` (or
- * `"HHHS Run"` if the run number is missing). The Notes column is routed
- * to `description`, NOT `title`, because Notes mixes real event names
- * with logistics-only blurbs ("Pizza on site") that would publish as ugly
- * card titles and churn the raw-event fingerprint on every harmless edit.
+ * Title policy: the Notes column carries the run name (no dedicated column
+ * exists), but it mixes real run names ("The King's Birthday Run", "Memorial
+ * Run") with logistics-only blurbs ("Pizza on site", "Indian Delights on
+ * site"). We promote Notes to `title` ONLY when a `" - "`-delimited segment
+ * reads like a run name (contains the whole word "Run"/"Hash"); otherwise the
+ * title is synthesized as `"HHHS Trail #<runNumber>"` (or `"HHHS Run"` if the
+ * run number is missing). This keeps logistics blurbs out of card titles while
+ * surfacing the real run name (#2212). The full Notes text is always preserved
+ * in `description`.
  */
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
@@ -131,11 +135,31 @@ export function parseHHHSRow(
 // ---------------------------------------------------------------------------
 
 /**
- * Synthesize a stable title (see file-header title policy). Explicit so we
- * side-step `friendlyKennelName()` expanding HHHS to
- * `"Hash House Harriers Singapore H3 Trail #N"` when notes are blank.
+ * A Notes cell reads like a run name when one of its `" - "`-delimited segments
+ * contains the whole word "Run" or "Hash". Returns that segment (trimming any
+ * trailing logistics, e.g. "AGM and Gisbert Memorial Run - T-Shirts" →
+ * "AGM and Gisbert Memorial Run"), or undefined for logistics-only notes
+ * ("Pizza on site", "Indian Delights on site"). See file-header title policy.
+ */
+const RUN_NAME_RE = /\b(?:run|hash)\b/i;
+export function extractRunName(notes?: string): string | undefined {
+  if (!notes) return undefined;
+  const segment = notes
+    .split(" - ")
+    .map((s) => s.trim())
+    .find((s) => RUN_NAME_RE.test(s));
+  return segment || undefined;
+}
+
+/**
+ * Title: the run name from Notes when present (see file-header title policy),
+ * else a synthesized `"HHHS Trail #<runNumber>"`. The explicit `DISPLAY_NAME`
+ * prefix side-steps `friendlyKennelName()` expanding HHHS to
+ * `"Hash House Harriers Singapore H3 Trail #N"` when there is no run name.
  */
 export function buildTitle(parsed: ParsedHHHSRun): string {
+  const runName = extractRunName(parsed.notes);
+  if (runName) return runName;
   // Number.isFinite (not truthiness) so a hypothetical runNumber: 0 still
   // renders as `"HHHS Trail #0"` — matches the contract in parseHHHSRow.
   return Number.isFinite(parsed.runNumber)

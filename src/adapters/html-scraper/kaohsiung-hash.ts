@@ -130,21 +130,6 @@ function parseHeadingDate(afterRun: string, now: Date): { date: string; title?: 
   return { date, title: title || undefined };
 }
 
-/**
- * A bare run-type label ("Saturday Night Run", "Sunday Family Run") carries no
- * real theme — leave `title` undefined so merge.ts synthesizes
- * "Kaohsiung H3 Trail #N". Descriptive titles ("7-eleven Joint Night Run") are
- * kept.
- */
-function isBareRunLabel(title: string): boolean {
-  let t = title.trim().toLowerCase();
-  if (!t.endsWith("run")) return false;
-  t = t.slice(0, -3).trim();
-  t = t.replace(/^(?:mon|tues|wednes|thurs|fri|satur|sun)day\b/i, "").trim();
-  if (t === "") return true;
-  return ["night", "afternoon", "morning", "evening", "family", "day"].includes(t);
-}
-
 function parseStartTime(prose: string, title: string | undefined): string | undefined {
   const m12 = TIME_12H_RE.exec(prose);
   if (m12) {
@@ -275,7 +260,11 @@ function buildRun(
     run: {
       runNumber,
       date: dateParsed.date,
-      title: rawTitle && !isBareRunLabel(rawTitle) ? rawTitle : undefined,
+      // Trust the source-provided title — the heading after the date is the
+      // run's real name ("Saturday Night Run", "7-eleven Joint Night Run"),
+      // single- or multi-line. Headings with no text after the date leave
+      // rawTitle undefined → merge synthesizes "Kaohsiung H3 Trail #N" (#2225).
+      title: rawTitle,
       hares,
       location: parseLocation(prose),
       locationUrl,

@@ -3,6 +3,7 @@ import {
   parseHHHSRow,
   buildColumnMap,
   buildTitle,
+  extractRunName,
   HHHSAdapter,
 } from "./hhhs";
 import type { Source } from "@/generated/prisma/client";
@@ -137,20 +138,40 @@ describe("HHHSAdapter", () => {
       expect(buildTitle({ date: "2026-02-16", runNumber: 0 })).toBe("HHHS Trail #0");
     });
 
-    it("ignores notes — title is always synthesized, not promoted", () => {
-      // Codex flagged the earlier code that mapped Notes -> title. Both
-      // logistics blurbs and real-event-name shapes must collapse to the
-      // synthesized title; Notes belongs in description.
-      expect(
-        buildTitle({ date: "2026-02-16", runNumber: 3290, notes: "Pizza on site" }),
-      ).toBe("HHHS Trail #3290");
+    it("promotes a run-name-shaped Notes cell to the title (#2212)", () => {
+      // The Notes column is the only place HHHS carries a run name. Promote it
+      // when a segment reads like a run name (contains "Run"/"Hash")…
       expect(
         buildTitle({
           date: "2026-03-16",
           runNumber: 3294,
           notes: "St Patrick's Day Run",
         }),
-      ).toBe("HHHS Trail #3294");
+      ).toBe("St Patrick's Day Run");
+      // …trimming trailing logistics after the " - " separator.
+      expect(
+        buildTitle({
+          date: "2026-02-09",
+          runNumber: 3289,
+          notes: "AGM and Gisbert Memorial Run - T-Shirts",
+        }),
+      ).toBe("AGM and Gisbert Memorial Run");
+    });
+
+    it("leaves logistics-only Notes synthesized, not promoted (#2212)", () => {
+      // "Pizza on site" / "Indian Delights on site" carry no "Run"/"Hash"
+      // token — they stay in description, never the title (the case a prior
+      // Codex review flagged when Notes was blindly mapped to title).
+      expect(
+        buildTitle({ date: "2026-02-16", runNumber: 3290, notes: "Pizza on site" }),
+      ).toBe("HHHS Trail #3290");
+      expect(
+        buildTitle({
+          date: "2026-02-02",
+          runNumber: 3288,
+          notes: "Indian Delights on site",
+        }),
+      ).toBe("HHHS Trail #3288");
     });
 
     it("never emits the un-shortened 'Hash House Harriers Singapore' prefix (#2025)", () => {
@@ -163,6 +184,27 @@ describe("HHHSAdapter", () => {
       const title = buildTitle({ date: "2026-07-06", runNumber: 3310 });
       expect(title).toBe("HHHS Trail #3310");
       expect(title).not.toContain("Hash House Harriers");
+    });
+  });
+
+  describe("extractRunName", () => {
+    it.each([
+      ["The King's Birthday Run", "The King's Birthday Run"],
+      ["Memorial Run", "Memorial Run"],
+      ["Woodleigh Wack & Wail run", "Woodleigh Wack & Wail run"],
+      ["Chong Birthday Run - OnOn - Brewhouse next door", "Chong Birthday Run"],
+      ["AGM and Gisbert Memorial Run - T-Shirts", "AGM and Gisbert Memorial Run"],
+    ])("promotes run-name notes %s → %s", (notes, expected) => {
+      expect(extractRunName(notes)).toBe(expected);
+    });
+
+    it.each([
+      ["Pizza on site"],
+      ["Indian Delights on site"],
+      [""],
+      [undefined],
+    ])("returns undefined for logistics-only / empty notes %s", (notes) => {
+      expect(extractRunName(notes)).toBeUndefined();
     });
   });
 
@@ -258,11 +300,13 @@ describe("HHHSAdapter", () => {
       expect(depotLane?.location).toBe("118 Depot Lane");
     });
 
-    it("synthesizes title for an event-name-shaped Notes row (still not promoted)", async () => {
+    it("promotes the run name from an event-name-shaped Notes row to the title (#2212)", async () => {
       const result = await runFetch();
 
       const agm = result.events.find((e) => e.runNumber === 3289);
-      expect(agm?.title).toBe("HHHS Trail #3289");
+      // Run name promoted to title (trailing "- T-Shirts" logistics trimmed);
+      // the full Notes text is preserved verbatim in description.
+      expect(agm?.title).toBe("AGM and Gisbert Memorial Run");
       expect(agm?.description).toBe("AGM and Gisbert Memorial Run - T-Shirts");
     });
 

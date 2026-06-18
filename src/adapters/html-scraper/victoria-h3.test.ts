@@ -28,7 +28,7 @@ ${p("Location/Emplacement: Songhees Point Park - 45 Songhees Road off/hors de Ty
 ${p("Hare/Lièvre & Host/Hôte: Mustapha & Turkish Delight")}
 ${p("Cost/Prix: $7.00 +$ donation for dinner")}
 ${p("Next page")}
-${p("VH3 #930")}
+${p("VH3 #930 - Cum and celebrate the start of summer with a String Theory or BS Run.")}
 ${p("Saturday, June 20, 2:30 pm Hares needed.")}
 ${p("Next page")}
 ${p("VH3 #938 The AGPU")}
@@ -146,9 +146,11 @@ describe("VictoriaH3Adapter parser", () => {
     expect(e?.date).toBe("2026-06-12");
   });
 
-  it("titles a bare run from its run number and flags placeholder hares as null (#2013)", () => {
+  it("strips the leading dash from a themed card title and flags placeholder hares as null (#2215)", () => {
     const e = eventFor("vh3", 930);
-    expect(e?.title).toBe("Run #930");
+    expect(e?.title).toBe(
+      "Cum and celebrate the start of summer with a String Theory or BS Run.",
+    );
     expect(e?.hares).toBeNull();
   });
 

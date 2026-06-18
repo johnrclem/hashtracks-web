@@ -3,7 +3,7 @@ import type { CheerioAPI } from "cheerio";
 import type { Element } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
-import { fetchHTMLPage } from "../utils";
+import { fetchHTMLPage, MONTHS } from "../utils";
 import { scrubHarePii } from "./sh3-pii";
 
 /**
@@ -31,13 +31,20 @@ import { scrubHarePii } from "./sh3-pii";
  * `.label` text via a `Map` (`.get()` avoids object-injection sinks) rather than
  * on the rotating-class flattened-text approach used by manila-h3.ts.
  *
- * `archive.php` carries deep history in the SAME `.event` markup — the exported
- * `parseSeoulH3Events` is reused by the one-shot historical backfill.
+ * The featured run's final `.subsection` is the forward "Hareline" schedule
+ * (`<p>Hareline</p>` + year-less "<Month> <Day> - <hare>" lines). `fetch` emits
+ * those as separate upcoming events (#2239), year-resolved off the featured run;
+ * each carries only date + (optional) hares — the authoritative run number,
+ * title, and time arrive when it later becomes the featured run.
  *
- * Single current-run page → `config.upcomingOnly: true` protects reconcile as
- * the run ages off, and a mandatory fail-loud guard surfaces markup drift
- * instead of silently emitting `events: []` (the zero-event health alert can't
- * catch that on a brand-new source whose baseline is already 0).
+ * `archive.php` carries deep history in the SAME `.event` markup — the exported
+ * `parseSeoulH3Events` is reused by the one-shot historical backfill (which does
+ * not emit Hareline events).
+ *
+ * Forward-only page → `config.upcomingOnly: true` protects reconcile as runs
+ * age off, and a mandatory fail-loud guard surfaces markup drift instead of
+ * silently emitting `events: []` (the zero-event health alert can't catch that
+ * on a brand-new source whose baseline is already 0).
  */
 
 const KENNEL_TAG = "sh3-kr";
@@ -48,6 +55,16 @@ const DEFAULT_HASH_CASH = "W10,000";
 const MEETING_TIME_RE = /^(\d{4})\/(\d{2})\/(\d{2})\s+(\d{1,2}):(\d{2})/;
 // A bare "…/maps/place/" link with no place id/coords → not worth storing.
 const BARE_MAPS_RE = /\/maps\/place\/?$/i;
+
+// Homepage "Hareline" forward schedule (#2239): a `.subsection` whose first
+// paragraph is "Hareline", followed by year-less "<Month> <Day> - <hare>" lines.
+// `\b` (not `$`) tolerates a future "Hareline:" / "Hareline (…)" header variant
+// rather than silently emitting zero forward events.
+const HARELINE_HEADER_RE = /^hareline\b/i;
+const HARELINE_DATE_RE = /^([A-Za-z]+)\s+(\d{1,2})\b/;
+// "Hare needed" / "Hares needed" / "TBD" / "TBA" → no hare assigned yet.
+const HARELINE_NO_HARE_RE = /^(?:hares?\s+needed|tb[ad])$/i;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** "Meeting Time:" / "Location: " → "meeting time" (lowercased, colon stripped). */
 function labelKey(label: string): string {
@@ -71,6 +88,20 @@ function parseMeetingTime(value: string): { date: string; startTime: string } | 
     date: utc.toISOString().slice(0, 10),
     startTime: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
   };
+}
+
+/** The first non-empty `<p>` text inside a subsection (its header line). */
+function firstSubsectionText($: CheerioAPI, sub: Element): string {
+  for (const p of $(sub).find("p").toArray()) {
+    const text = $(p).text().trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+/** A subsection is the forward "Hareline" schedule when its header is "Hareline". */
+function isHarelineSubsection($: CheerioAPI, sub: Element): boolean {
+  return HARELINE_HEADER_RE.test(firstSubsectionText($, sub));
 }
 
 /** Parse one `.event` block into a RawEventData, or null on unparseable date. */
@@ -116,6 +147,9 @@ function parseEventBlock($: CheerioAPI, el: Element, sourceUrl: string): RawEven
   const apres = labels.get("apres trail");
   if (apres) proseParts.push(`Apres: ${apres}`);
   $ev.find(".section .subsection").each((_i, sub) => {
+    // The forward "Hareline" schedule is emitted as its own events (#2239),
+    // not folded into this run's description.
+    if (isHarelineSubsection($, sub)) return;
     const text = $(sub).text().trim().replace(/\s+/g, " ");
     if (text) proseParts.push(text);
   });
@@ -150,6 +184,88 @@ export function parseSeoulH3Events(html: string, sourceUrl: string): RawEventDat
   return events;
 }
 
+/** Resolve a year-less month/day to `YYYY-MM-DD`, choosing the year that keeps
+ *  the date on/after the anchor (handles the Dec→Jan wrap). Returns null for an
+ *  impossible calendar date (e.g. Feb 30). */
+function resolveForwardFromAnchor(
+  month1: number,
+  day: number,
+  anchorMs: number,
+): string | null {
+  const anchorYear = new Date(anchorMs).getUTCFullYear();
+  let ms = Date.UTC(anchorYear, month1 - 1, day, 12, 0, 0);
+  let d = new Date(ms);
+  // Roll to next year when the date is INVALID in the anchor year (e.g. Feb 29
+  // off a non-leap anchor, which Date.UTC silently rolls to Mar 1) OR already
+  // safely in the past — validate-first so a leap day resolves to the next leap
+  // year instead of being dropped (Gemini review).
+  const validInAnchorYear =
+    d.getUTCMonth() === month1 - 1 && d.getUTCDate() === day;
+  if (!validInAnchorYear || ms < anchorMs - DAY_MS) {
+    ms = Date.UTC(anchorYear + 1, month1 - 1, day, 12, 0, 0);
+    d = new Date(ms);
+  }
+  if (d.getUTCMonth() !== month1 - 1 || d.getUTCDate() !== day) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+/** Parse one "<Month> <Day> - <hare>" hareline line into a RawEventData, or null. */
+function parseHarelineLine(
+  line: string,
+  anchorMs: number,
+  sourceUrl: string,
+): RawEventData | null {
+  const sepIdx = line.indexOf(" - ");
+  const datePart = sepIdx >= 0 ? line.slice(0, sepIdx).trim() : line.trim();
+  const harePart = sepIdx >= 0 ? line.slice(sepIdx + 3).trim() : "";
+  const dm = HARELINE_DATE_RE.exec(datePart);
+  if (!dm) return null;
+  const month1 = MONTHS[dm[1].toLowerCase()]; // 1-indexed; undefined when not a month
+  if (month1 === undefined) return null;
+  const date = resolveForwardFromAnchor(month1, Number.parseInt(dm[2], 10), anchorMs);
+  if (!date) return null;
+  // A real name is scrubbed for PII; a placeholder ("Hare needed" / "TBD")
+  // emits null (explicit clear) — NOT undefined — so a hare previously assigned
+  // to this forward date is wiped rather than preserved by the merge tri-state
+  // when the assignment reverts to "Hare needed" (Codex review, #2239).
+  const hares =
+    harePart && !HARELINE_NO_HARE_RE.test(harePart)
+      ? scrubHarePii(harePart)
+      : null;
+  // title / runNumber / startTime are left undefined: they arrive when the run
+  // becomes the featured run, and the merge pipeline keys on kennel + date.
+  return { date, kennelTags: [KENNEL_TAG], hares, sourceUrl };
+}
+
+/**
+ * Parse the homepage "Hareline" forward schedule (index.php) into upcoming
+ * RawEvents. The Hareline is a `.subsection` whose first paragraph is "Hareline"
+ * followed by year-less "<Month> <Day> - <hare>" lines; the year is resolved
+ * forward off `anchorDate` (the featured run's date). Returns [] when absent.
+ */
+export function parseSeoulHareline(
+  html: string,
+  anchorDate: string,
+  sourceUrl: string,
+): RawEventData[] {
+  const anchorMs = Date.parse(`${anchorDate}T12:00:00Z`);
+  if (Number.isNaN(anchorMs)) return [];
+  const $ = cheerio.load(html);
+  const events: RawEventData[] = [];
+  $(".content .event .section .subsection").each((_i, sub) => {
+    if (!isHarelineSubsection($, sub)) return;
+    $(sub)
+      .find("p")
+      .each((_j, p) => {
+        const line = $(p).text().trim();
+        if (!line || HARELINE_HEADER_RE.test(line)) return;
+        const event = parseHarelineLine(line, anchorMs, sourceUrl);
+        if (event) events.push(event);
+      });
+  });
+  return events;
+}
+
 /**
  * Seoul H3 HTML scraper. Fetches index.php (static SSR — no browser render),
  * parses the single current run, and fails loud on markup/format drift.
@@ -157,8 +273,8 @@ export function parseSeoulH3Events(html: string, sourceUrl: string): RawEventDat
 export class SeoulH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
-  // `options.days` is intentionally ignored: index.php renders exactly one
-  // event (the current week's run) with no date-range concept to filter.
+  // `options.days` is intentionally ignored: index.php renders the current run
+  // plus a short forward "Hareline" — both already within any sane window.
   async fetch(source: Source, _options?: { days?: number }): Promise<ScrapeResult> {
     const url = source.url || "https://seoulhash.com/index.php";
     const page = await fetchHTMLPage(url);
@@ -176,12 +292,22 @@ export class SeoulH3Adapter implements SourceAdapter {
       };
     }
 
-    // index.php exposes only the current run; take the first defensively.
+    // index.php exposes the current featured run plus a forward "Hareline"
+    // schedule (#2239). Emit the featured run + the upcoming Hareline entries,
+    // year-resolved off the featured run's date.
+    const featured = events[0];
+    const hareline = parseSeoulHareline(html, featured.date, url);
+    const all = [featured, ...hareline];
+
     return {
-      events: [events[0]],
+      events: all,
       errors: [],
       structureHash,
-      diagnosticContext: { eventsParsed: 1, fetchDurationMs },
+      diagnosticContext: {
+        eventsParsed: all.length,
+        harelineEvents: hareline.length,
+        fetchDurationMs,
+      },
     };
   }
 }
