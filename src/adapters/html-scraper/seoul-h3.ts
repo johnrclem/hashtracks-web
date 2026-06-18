@@ -194,8 +194,17 @@ function resolveForwardFromAnchor(
 ): string | null {
   const anchorYear = new Date(anchorMs).getUTCFullYear();
   let ms = Date.UTC(anchorYear, month1 - 1, day, 12, 0, 0);
-  if (ms < anchorMs - DAY_MS) ms = Date.UTC(anchorYear + 1, month1 - 1, day, 12, 0, 0);
-  const d = new Date(ms);
+  let d = new Date(ms);
+  // Roll to next year when the date is INVALID in the anchor year (e.g. Feb 29
+  // off a non-leap anchor, which Date.UTC silently rolls to Mar 1) OR already
+  // safely in the past — validate-first so a leap day resolves to the next leap
+  // year instead of being dropped (Gemini review).
+  const validInAnchorYear =
+    d.getUTCMonth() === month1 - 1 && d.getUTCDate() === day;
+  if (!validInAnchorYear || ms < anchorMs - DAY_MS) {
+    ms = Date.UTC(anchorYear + 1, month1 - 1, day, 12, 0, 0);
+    d = new Date(ms);
+  }
   if (d.getUTCMonth() !== month1 - 1 || d.getUTCDate() !== day) return null;
   return d.toISOString().slice(0, 10);
 }
@@ -215,9 +224,14 @@ function parseHarelineLine(
   if (month1 === undefined) return null;
   const date = resolveForwardFromAnchor(month1, Number.parseInt(dm[2], 10), anchorMs);
   if (!date) return null;
-  // "Hare needed" / "TBD" → no hare yet; otherwise scrub mid-string PII.
+  // A real name is scrubbed for PII; a placeholder ("Hare needed" / "TBD")
+  // emits null (explicit clear) — NOT undefined — so a hare previously assigned
+  // to this forward date is wiped rather than preserved by the merge tri-state
+  // when the assignment reverts to "Hare needed" (Codex review, #2239).
   const hares =
-    harePart && !HARELINE_NO_HARE_RE.test(harePart) ? scrubHarePii(harePart) : undefined;
+    harePart && !HARELINE_NO_HARE_RE.test(harePart)
+      ? scrubHarePii(harePart)
+      : null;
   // title / runNumber / startTime are left undefined: they arrive when the run
   // becomes the featured run, and the merge pipeline keys on kennel + date.
   return { date, kennelTags: [KENNEL_TAG], hares, sourceUrl };

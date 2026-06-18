@@ -409,18 +409,21 @@ describe("parseHarelineRow", () => {
     }
   });
 
-  it("leaves title undefined when no H2 so merge synthesizes the standard title (#2211)", () => {
+  it("emits the synthesized default title when no H2 (concrete, to overwrite a stale canonical, #2211)", () => {
     const cells = ["Mon April 6", "6:30 PM", "2093"];
     const result = parseHarelineRow(cells, HARE_SINGLE, "", SOURCE_URL);
 
-    expect(result?.title).toBeUndefined();
+    // Concrete "RIH3 Trail #N" — merge's rewriteStaleDefaultTitle normalizes the
+    // kennelCode prefix to "Rhode Island H3 Trail #N" AND (unlike undefined)
+    // overwrites a stale non-placeholder title already on the canonical.
+    expect(result?.title).toBe("RIH3 Trail #2093");
   });
 
-  it("leaves title undefined when no H2 and no run number (#2211)", () => {
+  it("emits the synthesized default title when no H2 and no run number (#2211)", () => {
     const cells = ["Mon April 6", "6:30 PM", ""];
     const result = parseHarelineRow(cells, HARE_SINGLE, "", SOURCE_URL);
 
-    expect(result?.title).toBeUndefined();
+    expect(result?.title).toBe("RIH3 Trail");
   });
 
   it("rejects a narrative-intro h2 that leads with the hare name, and captures only the venue+address (#2211)", () => {
@@ -439,8 +442,9 @@ describe("parseHarelineRow", () => {
     const result = parseHarelineRow(cells, hareHtml, dirHtml, SOURCE_URL);
 
     expect(result?.hares).toBe("Hym Wrng Gye");
-    // Title falls through to merge's synthesized "Rhode Island H3 Trail #2103".
-    expect(result?.title).toBeUndefined();
+    // Concrete default overwrites the stale narrative on the canonical; merge
+    // normalizes "RIH3 Trail #2103" → "Rhode Island H3 Trail #2103".
+    expect(result?.title).toBe("RIH3 Trail #2103");
     // Location is the venue + address only — not the leading narrative sentence.
     expect(result?.location).toBe(
       "The Wamsutta Middel School, 300 Locust St, Attleboro, MA",

@@ -170,10 +170,10 @@ describe("parseSeoulHareline (#2239)", () => {
     expect(events.every((e) => e.sourceUrl === SOURCE_URL)).toBe(true);
   });
 
-  it("captures real hare names and leaves 'Hare needed' placeholders unset", () => {
+  it("captures real hare names and clears 'Hare needed' placeholders to null (#2239)", () => {
     const events = parseSeoulHareline(HARELINE_FIXTURE, "2026-06-20", SOURCE_URL);
-    expect(events[0].hares).toBeUndefined(); // "Hare needed"
-    expect(events[1].hares).toBeUndefined(); // "Hare needed"
+    expect(events[0].hares).toBeNull(); // "Hare needed" → explicit clear (not preserve)
+    expect(events[1].hares).toBeNull(); // "Hare needed"
     expect(events[2].hares).toBe("Hymen");
     expect(events[3].hares).toBe("Longfellow");
   });
@@ -194,6 +194,18 @@ describe("parseSeoulHareline (#2239)", () => {
     );
     const events = parseSeoulHareline(decFixture, "2026-12-27", SOURCE_URL);
     expect(events[0].date).toBe("2027-01-03");
+  });
+
+  it("resolves a leap day (Feb 29) to the next leap year, not null, off a non-leap anchor (#2239)", () => {
+    const leapFixture = HARELINE_FIXTURE.replace(
+      "<p>June 27 - Hare needed</p>",
+      "<p>February 29 - Hymen</p>",
+    );
+    // Anchor 2027 (non-leap): Date.UTC(2027,1,29) rolls to Mar 1, so the naive
+    // path would drop it; validate-first rolls to the next leap year (2028).
+    const events = parseSeoulHareline(leapFixture, "2027-02-01", SOURCE_URL);
+    expect(events[0].date).toBe("2028-02-29");
+    expect(events[0].hares).toBe("Hymen");
   });
 
   it("returns [] when the page has no Hareline subsection", () => {

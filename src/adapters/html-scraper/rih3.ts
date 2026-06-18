@@ -106,18 +106,31 @@ function startsWithHareName(text: string, hares: string | undefined): boolean {
   // Require a word boundary after the hare name so a name that is merely a
   // prefix of a longer word ("John" in "Johnathan Trail") doesn't suppress a
   // real title — only a true leading name ("John is setting …") counts.
+  // Unicode-aware (`\p{L}`/`\p{N}`) so an accented next char (René) is still
+  // treated as a word char rather than a false boundary (Gemini review).
   const nextChar = lower.charAt(first.length);
-  return nextChar === "" || !/[a-z0-9]/.test(nextChar);
+  return nextChar === "" || !/[\p{L}\p{N}]/u.test(nextChar);
+}
+
+/** Synthesized default title for a RIH3 row with no usable headline. Emitted as
+ *  a concrete string (NOT `undefined`) so merge's resolveUpdatedTitle actively
+ *  OVERWRITES a stale narrative title on an existing canonical — `undefined`
+ *  would preserve any non-placeholder existing title, leaving #2103's narrative
+ *  title stuck in production (Codex review). The `RIH3 Trail #N` shape is
+ *  normalized to `Rhode Island H3 Trail #N` by merge's rewriteStaleDefaultTitle. */
+function defaultRih3Title(runNumber: number | undefined): string {
+  return runNumber ? `RIH3 Trail #${runNumber}` : "RIH3 Trail";
 }
 
 /** Extract the H2 title from a RIH3 directions cell, collapsing multi-segment
- *  bleed (#816). Returns `undefined` — so `merge.ts` synthesizes
- *  "Rhode Island H3 Trail #N" — when there is no headline OR when the headline
- *  is a narrative intro that leads with the hare name (#2211). */
+ *  bleed (#816). Falls back to the synthesized default — overwriting any stale
+ *  title — when there is no headline OR when the headline is a narrative intro
+ *  that leads with the hare name (#2211). */
 function extractRih3Title(
   dir$: cheerio.CheerioAPI,
   hares: string | undefined,
-): string | undefined {
+  runNumber: number | undefined,
+): string {
   // Normalize raw CRLF/LF in the HTML source to spaces so formatting line
   // wraps don't get mistaken for <br>-delimited segments. CodeRabbit PR #824.
   const h2Html = (dir$("h2").first().html() ?? "").replace(/\r?\n/g, " ");
@@ -130,8 +143,8 @@ function extractRih3Title(
     h2Joined.length > MAX_H2_TITLE_LEN && h2Segments[0]
       ? h2Segments[0]
       : h2Joined;
-  if (!h2Text) return undefined;
-  if (startsWithHareName(h2Text, hares)) return undefined;
+  if (!h2Text) return defaultRih3Title(runNumber);
+  if (startsWithHareName(h2Text, hares)) return defaultRih3Title(runNumber);
   return h2Text;
 }
 
@@ -390,7 +403,7 @@ export function parseHarelineRow(
 
   // --- Directions cell: title, location, description ---
   const dir$ = cheerio.load(directionHtml);
-  const title = extractRih3Title(dir$, hares);
+  const title = extractRih3Title(dir$, hares, runNumber);
   const mapsLink = dir$(
     'a[href*="google.com/maps"], a[href*="maps.google"]',
   ).first();
