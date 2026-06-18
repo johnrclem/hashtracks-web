@@ -6111,12 +6111,12 @@ describe("Thirstday H3 — empty 'Hares:' label must not capture next-line 'Note
 });
 
 describe('normalizeGCalDescription — Pandoc inline-math span $ restoration (#2217 LDS H3)', () => {
-  it('restores $ from a <span class="math inline"> \\( \\) cost artifact', () => {
+  it("restores $ from a Pandoc inline-math span cost artifact", () => {
     const { rawDescription, description } = normalizeGCalDescription(
-      'Hash cash: <span class="math inline">\\(5 (or \\)</span>1 and BYOB)',
+      String.raw`Hash cash: <span class="math inline">\(5 (or \)</span>1 and BYOB)`,
     );
     expect(rawDescription).toContain("$5 (or $1 and BYOB)");
-    expect(rawDescription).not.toContain("\\(");
+    expect(rawDescription).not.toContain(String.raw`\(`);
     expect(description).toContain("$5 (or $1 and BYOB)");
   });
 

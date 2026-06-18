@@ -1368,7 +1368,7 @@ export function normalizeGCalDescription(rawDesc: string | undefined): { rawDesc
   // on the span marker so unaffected descriptions are untouched; plain-string
   // replaceAll keeps it off the Sonar regex radar.
   if (rawDesc.includes("math inline")) {
-    rawDescription = rawDescription.replaceAll("\\(", "$").replaceAll("\\)", "$");
+    rawDescription = rawDescription.replaceAll(String.raw`\(`, "$").replaceAll(String.raw`\)`, "$");
   }
   // Strip mailto: link artifacts: "text (mailto:email)" → "text"
   rawDescription = rawDescription.replace(/\s*\(mailto:[^)]+\)/g, "");
@@ -2123,7 +2123,7 @@ export function buildRawEventFromGCalItem(
   // Some kennels paste the event name into the GCal LOCATION field instead of an
   // address ("Juneteenth parade downtown" in both summary and location); drop
   // the duplicate so it doesn't masquerade as a geocodable location.
-  if (location && finalTitle && location.trim().toLowerCase() === finalTitle.trim().toLowerCase()) {
+  if (location && location.trim().toLowerCase() === finalTitle?.trim().toLowerCase()) {
     location = undefined;
   }
 
