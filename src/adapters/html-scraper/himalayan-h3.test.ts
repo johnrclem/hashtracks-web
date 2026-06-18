@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vitest";
 import * as cheerio from "cheerio";
 import {
   parseHimalayanPage,
@@ -161,6 +162,13 @@ describe("parseRecedingDate", () => {
 
   it("returns null for an unparseable cell", () => {
     expect(parseRecedingDate("Undecided", NOW)).toBeNull();
+  });
+
+  it("rolls a just-past December run back a year when scraped in early January", () => {
+    // A "27th December" run scraped on 2 Jan is last year's just-past run, not
+    // next December — resolve it to the previous year so the horizon keeps it.
+    const earlyJan = new Date("2027-01-02T12:00:00Z");
+    expect(parseRecedingDate("27th December", earlyJan)).toBe("2026-12-27");
   });
 });
 

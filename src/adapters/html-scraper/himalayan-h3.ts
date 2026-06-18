@@ -86,13 +86,21 @@ function isWithinHareHorizon(date: string, now: Date): boolean {
   return diffMs >= -PAST_GRACE_DAYS * DAY_MS && diffMs <= FUTURE_HORIZON_DAYS * DAY_MS;
 }
 
-/** Resolve a year-less month/day to the nearest upcoming "YYYY-MM-DD" (UTC noon). */
+/** Resolve a year-less month/day to the nearest in-season "YYYY-MM-DD" (UTC noon). */
 function resolveForwardDate(monthIdx: number, day: number, now: Date): string {
   const PAST_GRACE_MS = 60 * 24 * 3600 * 1000;
+  // Mirror bangkok-monday-hash's `inferYear`: roll a current-year candidate
+  // more than ~8 months ahead back a year. This handles the year-boundary case
+  // — a just-past "Dec 27" run scraped on Jan 2 would otherwise resolve to next
+  // December (~12 months out); rolling it back to last year's Dec 27 (a few days
+  // ago) lets the near-term horizon keep it instead of dropping a real run.
+  const FUTURE_MAX_MS = 240 * 24 * 3600 * 1000;
   const year = now.getUTCFullYear();
   let ms = Date.UTC(year, monthIdx, day, 12, 0, 0);
   if (ms < now.getTime() - PAST_GRACE_MS) {
     ms = Date.UTC(year + 1, monthIdx, day, 12, 0, 0);
+  } else if (ms > now.getTime() + FUTURE_MAX_MS) {
+    ms = Date.UTC(year - 1, monthIdx, day, 12, 0, 0);
   }
   return new Date(ms).toISOString().slice(0, 10);
 }
@@ -137,8 +145,10 @@ function cleanVenue(raw: string): string | undefined {
 export function extractW3wUrl(href: string | undefined): string | undefined {
   if (!href) return undefined;
   try {
-    const parsed = new URL(href);
-    return W3W_HOSTS.has(parsed.hostname.toLowerCase()) ? href : undefined;
+    // Resolve against the source origin so protocol-relative ("//w3w.co/…") and
+    // relative hrefs parse instead of throwing; return the normalized absolute URL.
+    const parsed = new URL(href, "https://himalayanhash.run/");
+    return W3W_HOSTS.has(parsed.hostname.toLowerCase()) ? parsed.href : undefined;
   } catch {
     return undefined;
   }
