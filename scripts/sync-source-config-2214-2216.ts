@@ -48,9 +48,7 @@ void runOneShot(async ({ prisma, apply }) => {
       where: { name: "Charm City H3 iCal Feed" },
       select: { id: true, config: true },
     });
-    if (!s) {
-      console.log(`\n#2216: "Charm City H3 iCal Feed" not found.`);
-    } else {
+    if (s) {
       const config = (s.config ?? {}) as Record<string, unknown>;
       if (config.stripTitleHareSuffix === true) {
         console.log(`\n#2216 CCH3 stripTitleHareSuffix already true — no change.`);
@@ -64,6 +62,8 @@ void runOneShot(async ({ prisma, apply }) => {
           console.log(`   ✏️  updated`);
         }
       }
+    } else {
+      console.log(`\n#2216: "Charm City H3 iCal Feed" not found.`);
     }
   }
 

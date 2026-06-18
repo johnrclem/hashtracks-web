@@ -620,6 +620,33 @@ function resolveLocationFields(
   };
 }
 
+/** Resolve the merged hares string for a sheet row. The hares column is always
+ *  configured, so a blank/placeholder cell yields an explicit `null` (clear),
+ *  never `undefined` — a row that loses its hares must scrub the stale canonical
+ *  `haresText`, not inherit the neighbouring row's value (#2237). */
+function resolveHares(row: string[], config: GoogleSheetsConfig): string | null {
+  const primaryHare = stripPlaceholder(row[config.columns.hares]);
+  const extraHareCols = config.columns.extraHares ?? [];
+  if (extraHareCols.length === 0) return primaryHare ?? null;
+  const all = [primaryHare, ...extraHareCols.map((idx) => stripPlaceholder(row[idx]))]
+    .filter((h): h is string => Boolean(h));
+  if (all.length === 0) return null;
+  // Deterministic sort so column-order changes don't churn fingerprints.
+  all.sort((a, b) => a.localeCompare(b));
+  return all.join(" / ");
+}
+
+/** Resolve the description for a sheet row. Tri-state: an unconfigured column →
+ *  `undefined` (preserve existing); a configured-but-blank cell → `null` (clear
+ *  the stale canonical value, #2237); otherwise the trimmed cell capped at 2000
+ *  chars. */
+function resolveDescription(row: string[], config: GoogleSheetsConfig): string | null | undefined {
+  if (config.columns.description == null) return undefined;
+  const writeUp = row[config.columns.description]?.trim();
+  if (!writeUp) return null;
+  return writeUp.substring(0, 2000) || null;
+}
+
 /** Build a RawEventData from a sheet row. Returns null if the row should be skipped.
  *
  * `eventLabel` (#1624) is surfaced by `processRows` when the Group cell matched
@@ -639,23 +666,7 @@ export function buildEventFromSheetRow(
   const resolved = resolveKennelTagFromSheetRow(row, config);
   if (!resolved) return null;
 
-  // Strip placeholder values (TBD, TBA, N/A, etc.). The hares column is always
-  // configured, so a blank/placeholder cell emits an explicit `null` (clear)
-  // rather than `undefined` (preserve): a row that loses its hares between
-  // scrapes must scrub the stale canonical `haresText`, not inherit the
-  // neighbouring row's value (the Sek Kong #2501 leak, #2237).
-  const primaryHare = stripPlaceholder(row[config.columns.hares]);
-  const extraHareCols = config.columns.extraHares ?? [];
-  const hares = extraHareCols.length === 0
-    ? (primaryHare ?? null)
-    : (() => {
-        const all = [primaryHare, ...extraHareCols.map((idx) => stripPlaceholder(row[idx]))]
-          .filter((h): h is string => Boolean(h));
-        if (all.length === 0) return null;
-        // Deterministic sort so column-order changes don't churn fingerprints.
-        all.sort((a, b) => a.localeCompare(b));
-        return all.join(" / ");
-      })();
+  const hares = resolveHares(row, config);
   const { location, locationStreet, locationUrl } = resolveLocationFields(row, config);
   let title = config.columns.title != null ? stripPlaceholder(row[config.columns.title]) : undefined;
 
@@ -676,15 +687,7 @@ export function buildEventFromSheetRow(
       : config.defaultTitle;
   }
 
-  const writeUp = config.columns.description != null
-    ? row[config.columns.description]?.trim()
-    : undefined;
-  // Configured-but-blank description emits an explicit `null` (clear) so a row
-  // that drops its notes between scrapes scrubs the stale canonical value
-  // instead of preserving it (#2237). Unconfigured column stays `undefined`.
-  const description = config.columns.description == null
-    ? undefined
-    : (writeUp ? (writeUp.substring(0, 2000) || null) : null);
+  const description = resolveDescription(row, config);
   // #923: prefer an explicit startTime cell when configured, fall back to
   // day-of-week inference. Cell may be "HH:MM", "H:MM am/pm", or empty/TBD.
   const startTimeCell = config.columns.startTime == null ? undefined : row[config.columns.startTime];

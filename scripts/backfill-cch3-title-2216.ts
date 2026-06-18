@@ -24,9 +24,21 @@
  */
 import { runOneShot } from "./lib/one-shot";
 
-// Mirrors the CCH3 source's titleHarePattern ("~\s*(.+)$"): capture everything
-// after the first tilde so the comparison matches the adapter's extraction.
-const TILDE_SUFFIX_RE = /~\s*(.+)$/;
+/**
+ * Mirror the CCH3 source's titleHarePattern ("~\s*(.+)$") with plain string ops
+ * (no regex — avoids the ReDoS hotspot, per the repo's `\s*`-adjacent guidance):
+ * split on the FIRST tilde, the trimmed remainder is the hare suffix. Returns the
+ * cleaned title only when that suffix equals `haresText` (proving it's the hare
+ * suffix, not an incidental tilde); otherwise null (leave untouched).
+ */
+function strippedTitle(title: string, haresText: string): string | null {
+  const idx = title.indexOf("~");
+  if (idx < 0) return null;
+  if (title.slice(idx + 1).trim() !== haresText.trim()) return null;
+  // Fall back to the synthesized default if stripping leaves nothing (none of the
+  // known leaks do, but stay safe rather than write an empty title).
+  return title.slice(0, idx).trim() || "Charm City H3 Trail";
+}
 
 void runOneShot(async ({ prisma, apply }) => {
   const events = await prisma.event.findMany({
@@ -41,14 +53,9 @@ void runOneShot(async ({ prisma, apply }) => {
   });
 
   const leaked = events.flatMap((e) => {
-    const title = e.title;
-    if (!title) return [];
-    const m = TILDE_SUFFIX_RE.exec(title);
-    if (!m || m[1].trim() !== (e.haresText ?? "").trim()) return [];
-    // Fall back to the synthesized default if stripping leaves nothing (none of
-    // the known leaks do, but stay safe rather than write an empty title).
-    const newTitle = title.replace(TILDE_SUFFIX_RE, "").trim() || "Charm City H3 Trail";
-    return [{ id: e.id, oldTitle: title, newTitle, dateUtc: e.dateUtc }];
+    const newTitle = e.title && e.haresText ? strippedTitle(e.title, e.haresText) : null;
+    if (e.title == null || newTitle == null) return [];
+    return [{ id: e.id, oldTitle: e.title, newTitle, dateUtc: e.dateUtc }];
   });
 
   console.log(`\n#2216 CCH3 title "~ <hares>" suffix → stripped: ${leaked.length} event(s)`);

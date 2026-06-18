@@ -55,11 +55,10 @@ void runOneShot(async ({ prisma, apply }) => {
 
   console.log(`\n#2214 PSH3 haresText weekday leak → correct hares: ${events.length} event(s)`);
 
-  let cleared = 0;
-  let corrected = 0;
+  // Plan: each weekday-leak event → the correct hares from its latest sheet raw
+  // (the col-4 value, or null when the sheet row has no hares).
+  const plan = [];
   for (const e of events) {
-    // Latest PSH3-sheet raw linked to this canonical event carries the correct
-    // col-4 hares (or no hares at all, in which case the weekday is just wrong).
     const raw = await prisma.rawEvent.findFirst({
       where: { eventId: e.id, sourceId: source.id },
       orderBy: { scrapedAt: "desc" },
@@ -67,24 +66,28 @@ void runOneShot(async ({ prisma, apply }) => {
     });
     const rawHares = (raw?.rawData as { hares?: unknown } | null)?.hares;
     const fixed = sanitizeHares(typeof rawHares === "string" ? rawHares : null); // string | null
-
     const date = e.dateUtc?.toISOString().slice(0, 10) ?? "?";
-    console.log(`   - #${e.runNumber ?? "?"} ${date}: "${e.haresText}" → ${fixed === null ? "null" : `"${fixed}"`}`);
+    plan.push({ id: e.id, runNumber: e.runNumber, oldHares: e.haresText, fixed, date });
+  }
 
-    if (apply) {
-      // Optimistic guard: only rewrite while the stale weekday is still present.
-      const res = await prisma.event.updateMany({
-        where: { id: e.id, haresText: e.haresText },
-        data: { haresText: fixed },
-      });
-      if (res.count) {
-        if (fixed === null) cleared += res.count;
-        else corrected += res.count;
-      }
-    }
+  for (const p of plan) {
+    const target = p.fixed === null ? "null" : JSON.stringify(p.fixed);
+    console.log(`   - #${p.runNumber ?? "?"} ${p.date}: "${p.oldHares}" → ${target}`);
   }
 
   if (apply) {
+    let corrected = 0;
+    let cleared = 0;
+    for (const p of plan) {
+      // Optimistic guard: only rewrite while the stale weekday is still present.
+      const res = await prisma.event.updateMany({
+        where: { id: p.id, haresText: p.oldHares },
+        data: { haresText: p.fixed },
+      });
+      if (!res.count) continue;
+      if (p.fixed === null) cleared += res.count;
+      else corrected += res.count;
+    }
     console.log(`   ✏️  corrected ${corrected}, cleared ${cleared}`);
   }
   console.log(`\n${apply ? "Applied." : "Dry run complete — re-run with --apply to write."}`);
