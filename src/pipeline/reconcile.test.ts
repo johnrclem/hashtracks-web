@@ -99,6 +99,31 @@ describe("reconcileStaleEvents", () => {
     expect(mockEventUpdateMany).not.toHaveBeenCalled();
   });
 
+  it("#2233 — a merged calendar+sheet canonical survives when one source stops emitting it", async () => {
+    // After the cross-source merge fix, a calendar stub and a sheet run collapse
+    // onto ONE canonical carrying RawEvents from BOTH sources. When the CALENDAR
+    // source's scrape no longer lists that date, reconcile sees the canonical as
+    // orphaned for the calendar — but the sheet RawEvent keeps it alive. (Without
+    // the multi-source guard a dedup change could false-cancel the shared event.)
+    const calendarScrape = [
+      buildRawEvent({ date: "2026-02-14", kennelTags: ["BoBBH3"] }),
+    ];
+
+    mockEventFindMany.mockResolvedValueOnce([
+      mockEvent("evt_present", "kennel_1", "2026-02-14"),
+      mockEvent("evt_merged", "kennel_1", "2026-02-21"), // calendar dropped this date
+    ] as never);
+
+    // evt_merged still has a RawEvent from the hareline sheet source.
+    mockRawEventGroupBy.mockResolvedValueOnce([{ eventId: "evt_merged" }] as never);
+
+    const result = await reconcileStaleEvents("src_calendar", calendarScrape, 90);
+
+    expect(result.cancelled).toBe(0);
+    expect(result.multiSourcePreserved).toBe(1);
+    expect(mockEventUpdateMany).not.toHaveBeenCalled();
+  });
+
   it("does not cancel events that match scraped dates", async () => {
     const scrapedEvents = [
       buildRawEvent({ date: "2026-02-14", kennelTags: ["BoBBH3" ]}),

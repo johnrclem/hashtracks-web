@@ -962,12 +962,21 @@ interface TitleKennelData {
 /**
  * Resolve the title to write when updating an existing canonical Event.
  *
- * Priority: (1) a real incoming title; (2) the existing title — UNLESS it's a
+ * Priority: (1) a *real* incoming title; (2) the existing title — UNLESS it's a
  * stale placeholder shell ("SH3 #? (TBD)") that a pre-#2065 scrape persisted, in
  * which case we (3) re-synthesize the "<Kennel> Trail #N" default. Without (3) an
  * incoming empty title (the #2065 adapter clears placeholder titles to "") would
  * fall back to `existingEvent.title` and the stale placeholder would stick
  * forever, since the lower-trust enrichment branch never backfills titles.
+ *
+ * #2233 — the incoming title is only allowed to *overwrite* when it's a real,
+ * human-authored theme (`!isReplaceableDefaultTitle`). The WA Hash Google
+ * Calendar out-trusts the hareline sheet and emits content-free stubs
+ * ("SH3 #?", synthesized "Seattle H3 Trail") on the same date as the sheet's
+ * themed run; without this gate the higher-trust stub takes the full-update
+ * branch and clobbers the real theme ("Gender Blender" → "SH3 #?"). A stub
+ * incoming now falls through to preserve the existing real title (or synthesize
+ * the default when the existing is itself a placeholder).
  */
 export function resolveUpdatedTitle(
   incomingTitle: string | undefined,
@@ -977,7 +986,7 @@ export function resolveUpdatedTitle(
   fallbackTag: string,
 ): string {
   const incoming = sanitizeTitle(incomingTitle);
-  if (incoming) {
+  if (incoming && !isReplaceableDefaultTitle(incoming, kennelData)) {
     return rewriteStaleDefaultTitle(incoming, kennelData.kennelCode, kennelData.shortName, kennelData.fullName, kennelData.aliases);
   }
   if (existingTitle && !isThemelessPlaceholderTitle(existingTitle)) {
@@ -1020,6 +1029,61 @@ export function isReplaceableDefaultTitle(
   // trailing " #<run>" is a no-op on the bare default, so this one comparison
   // covers both.
   return normalized.replace(/\s+#\d+$/, "") === base;
+}
+
+/**
+ * Normalize a title to its bare "theme" for cross-source same-day matching
+ * (#2233). Drops a leading run of co-hosting kennel-code tokens (`SH3`,
+ * `SH3/NBH3`), the connector word "and", and placeholder run markers (`#?`),
+ * then lowercases. Returns `""` for content-free stubs so the normalized-theme
+ * match tier never welds two unrelated placeholders together — stubs are handled
+ * by the placeholder-absorption tier instead.
+ *
+ *   "Gender Blender"            → "gender blender"
+ *   "SH3 Hashmas"               → "hashmas"
+ *   "SH3/NBH3 Gender Blender"   → "gender blender"            (co-host prefix stripped)
+ *   "SH3 #? (TBD)" / "SH3 #?"   → ""                          (stub)
+ *   "SH3 (Catholic School Girl)" → "catholic school girl"
+ *   "2nd Annual Red Dress Run"  → "2nd annual red dress run"  (ordinal NOT a code)
+ *
+ * Tokenized with plain string splits (no `\s*`-adjacent alternation) so it can't
+ * regress into a ReDoS shape.
+ */
+export function normalizeThemeTitle(
+  title: string | null,
+  kennelData: TitleKennelData,
+): string {
+  const sanitized = sanitizeTitle(title ?? undefined);
+  if (!sanitized) return "";
+  const known = new Set(
+    [kennelData.kennelCode, kennelData.shortName, ...kennelData.aliases]
+      .filter((s): s is string => !!s)
+      .map((s) => s.toLowerCase()),
+  );
+  // A leading token is strippable when it's the connector "and", one of this
+  // kennel's known identifiers, a "#…" run marker, or a kennel-code-shaped token
+  // — starts with a LETTER and carries a digit ("SH3"/"NBH3" yes; the ordinal
+  // "2nd" no, since it starts with a digit; a plain word like "Gender" no).
+  const isStrippable = (token: string): boolean => {
+    const lower = token.toLowerCase();
+    if (lower === "and") return true;
+    if (known.has(lower)) return true;
+    if (token.startsWith("#")) return true;
+    return token.length <= 8 && /^[A-Za-z]/.test(token) && /\d/.test(token) && /^[A-Za-z0-9]+$/.test(token);
+  };
+  // Split on whitespace + co-host separators, then drop leading kennel/marker
+  // tokens. `(...)`-wrapped themes keep their inner words once the prefix is gone.
+  const tokens = sanitized.split(/[\s/&,+]+/).filter(Boolean);
+  let i = 0;
+  while (i < tokens.length && isStrippable(tokens[i])) i++;
+  const theme = tokens
+    .slice(i)
+    .join(" ")
+    .replace(/[()]/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  if (!theme || isPlaceholder(theme)) return "";
+  return theme.toLowerCase();
 }
 
 /** Abbreviation map for address normalization (used by deduplicateAddressPrefix). */
@@ -1376,6 +1440,11 @@ async function upsertCanonicalEvent(
   await ensureKennelEventCache(kennelId, ctx);
   const sameDayEvents = getSameDayEvents(kennelId, eventDate, ctx);
 
+  // Resolved up-front (cheap, per-batch cached) so the cross-source match tiers
+  // below (#2233) can use the kennel's identifiers + default-title shape to
+  // recognise content-free placeholder rows.
+  const kennelData = await resolveKennelData(kennelId, ctx);
+
   // Match strategy:
   // 1. Zero existing → create new
   // 2. Exactly one → match unless already matched in this batch (double-header)
@@ -1443,6 +1512,74 @@ async function upsertCanonicalEvent(
     if (!existingEvent && urlMatches.length > 1
         && event.runNumber == null && !event.startTime && !event.title) {
       existingEvent = urlMatches[0];
+    }
+  }
+
+  // #2233 — cross-source same-day reconciliation. The WA Hash Google Calendar
+  // publishes the regular run as several content-free stubs ("SH3 #?",
+  // "SH3 #? (TBD)", an empty summary → synthesized "Seattle H3 Trail") AND a
+  // themed entry that re-prefixes the kennel code ("SH3/NBH3 Gender Blender"),
+  // while the hareline sheet carries the numbered/themed run. None of the signal
+  // tiers above connect these to the real run (different sourceUrl, no
+  // runNumber/startTime on the stub, kennel-prefixed titles), so without these
+  // two fallback tiers they survive as duplicate cards. Both tiers are strict:
+  // they only fire on a UNIQUE match, leaving genuine same-day double-headers
+  // (two real runs, distinct themes/run numbers) untouched.
+  //
+  // Scope: only PRE-EXISTING canonicals — siblings NOT created/matched earlier in
+  // THIS batch — are eligible. A same-batch double-header (one source emitting two
+  // runs on a date) already cleared the Case-2 reject above; re-merging it here
+  // would undo that. So we operate on cross-batch siblings (prior scrapes / other
+  // sources), which is exactly the cross-source duplicate class this targets.
+  // Series events are skipped (they're matched by seriesId, like the fuzzy probe).
+  const batchMatched = ctx.batchMatchedEvents.get(batchKey);
+  const crossSourceSiblings = batchMatched
+    ? sameDayEvents.filter((e) => !batchMatched.has(e.id))
+    : sameDayEvents;
+  if (!existingEvent && !event.seriesId && crossSourceSiblings.length > 0) {
+    // A same-themed sibling that carries a CONFLICTING runNumber or startTime is
+    // a distinct event, not a duplicate — e.g. a recurring "Red Dress Run" where
+    // #939 and #940 share a theme. Reject those so Tier C never welds two real
+    // runs together or lets an equal/higher-trust update overwrite the sibling's
+    // run number (Codex review on #2233).
+    const conflictsWithIncoming = (e: (typeof sameDayEvents)[number]): boolean =>
+      (e.runNumber != null && event.runNumber != null && e.runNumber !== event.runNumber)
+      || (e.startTime != null && event.startTime != null && e.startTime !== event.startTime);
+
+    // Tier C — normalized theme equality. Strip the kennel-code prefix from both
+    // sides ("SH3 Hashmas" ⇄ "Hashmas") and merge on an exact, unique theme
+    // match. Stubs normalize to "" and are skipped here (Tier B owns them).
+    const incomingTheme = normalizeThemeTitle(event.title ?? null, kennelData);
+    if (incomingTheme) {
+      const themeMatches = crossSourceSiblings.filter(
+        (e) => normalizeThemeTitle(e.title, kennelData) === incomingTheme && !conflictsWithIncoming(e),
+      );
+      if (themeMatches.length === 1) existingEvent = themeMatches[0];
+    }
+
+    // Tier B — content-free placeholder absorption. A placeholder carries no
+    // runNumber, no hares, and a default/themeless title; a "real" row has a
+    // runNumber or a genuine title. A stub never stands as its own card beside
+    // the real run.
+    if (!existingEvent) {
+      const rowIsPlaceholder = (e: (typeof sameDayEvents)[number]): boolean =>
+        e.runNumber == null && !e.haresText && isReplaceableDefaultTitle(e.title, kennelData);
+      const incomingIsPlaceholder =
+        event.runNumber == null
+        && !sanitizeHares(event.hares)
+        && isReplaceableDefaultTitle(sanitizeTitle(event.title), kennelData);
+      if (incomingIsPlaceholder) {
+        // Incoming stub → merge into the unique real sibling (prefer the
+        // run-numbered one; fall back to a sole real row).
+        const reals = crossSourceSiblings.filter((e) => !rowIsPlaceholder(e));
+        const numbered = reals.filter((e) => e.runNumber != null);
+        if (numbered.length === 1) existingEvent = numbered[0];
+        else if (reals.length === 1) existingEvent = reals[0];
+      } else {
+        // Incoming real run → absorb the unique content-free placeholder sibling.
+        const placeholders = crossSourceSiblings.filter(rowIsPlaceholder);
+        if (placeholders.length === 1) existingEvent = placeholders[0];
+      }
     }
   }
 
@@ -1537,7 +1674,6 @@ async function upsertCanonicalEvent(
     }
   }
 
-  const kennelData = await resolveKennelData(kennelId, ctx);
   const region = kennelData.region;
 
   const timezone = regionTimezone(region);

@@ -49,7 +49,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, isReplaceableDefaultTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, isReplaceableDefaultTitle, normalizeThemeTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -3100,6 +3100,20 @@ describe("resolveUpdatedTitle", () => {
   it("synthesizes when both incoming and existing are absent", () => {
     expect(resolveUpdatedTitle(undefined, null, sh3, 7, "sh3-wa")).toBe("Seattle H3 Trail #7");
   });
+
+  // #2233 — a higher-trust source's placeholder title must NOT clobber a real
+  // theme already on the canonical. The WA Hash Google Calendar (trust 7) emits
+  // "SH3 #?" / "Seattle H3 Trail" stubs on the same date as the sheet's themed
+  // run; pre-fix the stub took the full-update branch and overwrote the theme.
+  it("does not let a themeless placeholder incoming clobber a real existing title", () => {
+    expect(resolveUpdatedTitle("SH3 #?", "Gender Blender", sh3, 1020, "sh3-wa")).toBe("Gender Blender");
+    expect(resolveUpdatedTitle("SH3 #? (TBD)", "Hashmas", sh3, 1025, "sh3-wa")).toBe("Hashmas");
+  });
+
+  it("does not let a synthesized-default incoming clobber a real existing title", () => {
+    expect(resolveUpdatedTitle("Seattle H3 Trail", "Gender Blender", sh3, 1020, "sh3-wa")).toBe("Gender Blender");
+    expect(resolveUpdatedTitle("sh3-wa Trail #1020", "Gender Blender", sh3, 1020, "sh3-wa")).toBe("Gender Blender");
+  });
 });
 
 // ── sanitizeLocation ──
@@ -5599,6 +5613,201 @@ describe("lower-trust enrichment title/runNumber backfill (#2130 / #2145)", () =
     expect(data).not.toHaveProperty("title");
     // runNumber already present on the canonical → not backfilled.
     expect(data).not.toHaveProperty("runNumber");
+  });
+});
+
+// ── #2233 — cross-source duplicate events. A kennel fed by BOTH a calendar and
+// a hareline sheet got 2–3 cards per Saturday: the calendar's content-free stubs
+// ("SH3 #?", "Seattle H3 Trail") and kennel-prefixed themed entries
+// ("SH3/NBH3 Gender Blender") never merged with the sheet's numbered themed run.
+describe("normalizeThemeTitle (#2233)", () => {
+  const sh3 = { kennelCode: "sh3-wa", shortName: "SH3", fullName: "Seattle Hash House Harriers", aliases: [] };
+
+  it("returns the bare lowercased theme for a plain title", () => {
+    expect(normalizeThemeTitle("Gender Blender", sh3)).toBe("gender blender");
+  });
+
+  it("strips a leading kennel-code prefix", () => {
+    expect(normalizeThemeTitle("SH3 Hashmas", sh3)).toBe("hashmas");
+    expect(normalizeThemeTitle("SH3 Red Dress Run", sh3)).toBe("red dress run");
+  });
+
+  it("strips a leading co-host kennel-code run", () => {
+    // "NBH3" is a different kennel (co-host); the digit-bearing code-token
+    // heuristic strips it even though it isn't one of sh3-wa's identifiers.
+    expect(normalizeThemeTitle("SH3/NBH3 Gender Blender", sh3)).toBe("gender blender");
+  });
+
+  it("returns '' for content-free stubs (placeholder tier owns them)", () => {
+    expect(normalizeThemeTitle("SH3 #? (TBD)", sh3)).toBe("");
+    expect(normalizeThemeTitle("SH3 #?", sh3)).toBe("");
+    expect(normalizeThemeTitle("", sh3)).toBe("");
+    expect(normalizeThemeTitle(null, sh3)).toBe("");
+  });
+
+  it("does NOT strip a plain leading theme word that merely looks capitalized", () => {
+    // "Gender" has no digit and isn't a known identifier → never a kennel code.
+    expect(normalizeThemeTitle("Gender Blender", sh3)).toBe("gender blender");
+    // The synthesized default normalizes to itself (Tier B, not C, handles it).
+    expect(normalizeThemeTitle("Seattle H3 Trail", sh3)).toBe("seattle h3 trail");
+  });
+
+  it("does NOT strip a leading ordinal token (starts with a digit, not a kennel code)", () => {
+    // Kennel codes start with a letter; ordinals start with a digit. Stripping
+    // "2nd"/"3rd" would let distinct "Nth Annual" events collapse (claude review).
+    expect(normalizeThemeTitle("2nd Annual Red Dress Run", sh3)).toBe("2nd annual red dress run");
+    expect(normalizeThemeTitle("3rd Annual Red Dress Run", sh3)).not.toBe(
+      normalizeThemeTitle("2nd Annual Red Dress Run", sh3),
+    );
+  });
+});
+
+describe("cross-source same-day merge (#2233)", () => {
+  // resolveKennelData reads prisma.kennel.findUnique; the Seattle identity makes
+  // isReplaceableDefaultTitle recognize the synthesized "Seattle H3 Trail" default.
+  beforeEach(() => {
+    vi.mocked(prisma.kennel.findUnique).mockResolvedValue({
+      kennelCode: "sh3-wa",
+      shortName: "SH3",
+      fullName: "Seattle Hash House Harriers",
+      region: "Seattle, WA",
+      latitude: null,
+      longitude: null,
+      country: "United States",
+      regionRef: null,
+      aliases: [],
+    } as unknown as Awaited<ReturnType<typeof prisma.kennel.findUnique>>);
+  });
+
+  it("Tier B: absorbs a content-free calendar stub into the same-day numbered run", async () => {
+    // Calendar (trust 7) publishes a generic "SH3 #? (TBD)" stub AND a themed
+    // special; the sheet (trust 5) carries the real numbered run. The stub must
+    // merge into the run, not survive as its own card — and must NOT clobber the
+    // run's theme (Fix A).
+    mockSourceFind.mockResolvedValue(sourceRow({
+      trustLevel: 7, type: "GOOGLE_CALENDAR", kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_run", trustLevel: 5, runNumber: 1020, title: "Gender Blender", haresText: "NB H3", sourceUrl: "https://sheet", status: "CONFIRMED", createdAt: new Date("2026-01-01") },
+      { id: "evt_special", trustLevel: 7, runNumber: null, title: "SH3/NBH3 Gender Blender", haresText: null, sourceUrl: "https://cal/special", status: "CONFIRMED", createdAt: new Date("2026-01-02") },
+    ] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_run"));
+
+    const result = await processRawEvents("src_cal", [
+      buildRawEvent({ kennelTags: ["sh3-wa"], runNumber: undefined, title: "SH3 #? (TBD)", hares: undefined, location: undefined, startTime: undefined, sourceUrl: "https://cal/stub" }),
+    ]);
+
+    expect(result.created).toBe(0);
+    expect(mockEventCreate).not.toHaveBeenCalled();
+    const call = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_run",
+    );
+    expect(call).toBeDefined();
+    const data = (call![0] as { data: Record<string, unknown> }).data;
+    expect(data.title).toBe("Gender Blender"); // stub did not clobber the theme
+    // The stub's URL is recorded as an EventLink on the run.
+    expect(vi.mocked(prisma.eventLink.createMany)).toHaveBeenCalled();
+  });
+
+  it("Tier B: works regardless of order — sheet run incoming absorbs an existing calendar stub", async () => {
+    // Reverse order: the calendar stub canonical exists first; the sheet's
+    // numbered themed run arrives and must absorb the stub rather than fork.
+    mockSourceFind.mockResolvedValue(sourceRow({
+      trustLevel: 5, type: "GOOGLE_SHEETS", kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_stub", trustLevel: 7, runNumber: null, title: "Seattle H3 Trail", haresText: null, sourceUrl: "https://cal/stub", status: "CONFIRMED", createdAt: new Date("2026-01-01") },
+      { id: "evt_special", trustLevel: 7, runNumber: null, title: "SH3 Red Dress Run", haresText: null, sourceUrl: "https://cal/special", status: "CONFIRMED", createdAt: new Date("2026-01-02") },
+    ] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_stub"));
+
+    const result = await processRawEvents("src_sheet", [
+      buildRawEvent({ kennelTags: ["sh3-wa"], runNumber: 1028, title: "Erections", hares: "HFU", sourceUrl: "https://sheet", startTime: undefined }),
+    ]);
+
+    expect(result.created).toBe(0);
+    expect(mockEventCreate).not.toHaveBeenCalled();
+    // The real run merged into the stub canonical (evt_stub), backfilling title +
+    // run number via the lower-trust enrich branch (#2130 / #2145).
+    const call = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_stub",
+    );
+    expect(call).toBeDefined();
+    const data = (call![0] as { data: Record<string, unknown> }).data;
+    expect(data.title).toBe("Erections");
+    expect(data.runNumber).toBe(1028);
+  });
+
+  it("Tier C: merges a kennel-prefixed themed calendar entry into the sheet run by normalized theme", async () => {
+    // Calendar "SH3 Hashmas" ↔ sheet "Hashmas" #1025 are the same trail; they
+    // collapse to one card once the kennel-code prefix is normalized away.
+    mockSourceFind.mockResolvedValue(sourceRow({
+      trustLevel: 7, type: "GOOGLE_CALENDAR", kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_run", trustLevel: 5, runNumber: 1025, title: "Hashmas", haresText: null, sourceUrl: "https://sheet", status: "CONFIRMED", createdAt: new Date("2026-01-01") },
+      { id: "evt_stub", trustLevel: 7, runNumber: null, title: "Seattle H3 Trail", haresText: null, sourceUrl: "https://cal/stub", status: "CONFIRMED", createdAt: new Date("2026-01-02") },
+    ] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_run"));
+
+    const result = await processRawEvents("src_cal", [
+      buildRawEvent({ kennelTags: ["sh3-wa"], runNumber: undefined, title: "SH3 Hashmas", hares: undefined, location: undefined, startTime: undefined, sourceUrl: "https://cal/hashmas" }),
+    ]);
+
+    expect(result.created).toBe(0);
+    expect(mockEventCreate).not.toHaveBeenCalled();
+    expect(mockEventUpdate.mock.calls.some(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_run",
+    )).toBe(true);
+  });
+
+  it("does NOT merge a genuine distinct same-day run (no placeholder, no theme match)", async () => {
+    // Three real runs on one Saturday: the new #940 shares neither a theme nor a
+    // run number with #938/#939, and none is a content-free placeholder — so it
+    // must create its own canonical (Tier B/C must not weld real runs together).
+    mockSourceFind.mockResolvedValue(sourceRow({
+      trustLevel: 5, type: "GOOGLE_SHEETS", kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_938", trustLevel: 5, runNumber: 938, title: "Trail A", haresText: "Y", sourceUrl: "https://sheet", status: "CONFIRMED", createdAt: new Date("2026-01-01") },
+      { id: "evt_939", trustLevel: 5, runNumber: 939, title: "Trail B", haresText: "Z", sourceUrl: "https://sheet", status: "CONFIRMED", createdAt: new Date("2026-01-02") },
+    ] as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_940"));
+
+    const result = await processRawEvents("src_sheet", [
+      buildRawEvent({ kennelTags: ["sh3-wa"], runNumber: 940, title: "Third Trail", hares: "Q", location: undefined, startTime: undefined, sourceUrl: "https://sheet" }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(mockEventCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("Tier C does NOT merge a same-theme sibling that carries a conflicting run number", async () => {
+    // Recurring "Red Dress Run": existing #939 vs incoming #940 share a normalized
+    // theme but are distinct runs. The run-number conflict guard must keep them
+    // split — without it, Tier C would weld #940 onto #939 and a higher/equal-trust
+    // update could overwrite #939's run number (Codex review on #2233).
+    mockSourceFind.mockResolvedValue(sourceRow({
+      trustLevel: 5, type: "GOOGLE_SHEETS", kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_939", trustLevel: 5, runNumber: 939, title: "SH3 Red Dress Run", haresText: null, sourceUrl: "https://cal", status: "CONFIRMED", createdAt: new Date("2026-01-01") },
+      { id: "evt_other", trustLevel: 5, runNumber: 7, title: "Some Other Trail", haresText: "Q", sourceUrl: "https://cal2", status: "CONFIRMED", createdAt: new Date("2026-01-02") },
+    ] as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_940"));
+
+    const result = await processRawEvents("src_sheet", [
+      buildRawEvent({ kennelTags: ["sh3-wa"], runNumber: 940, title: "Red Dress Run", hares: undefined, location: undefined, startTime: undefined, sourceUrl: "https://sheet" }),
+    ]);
+
+    // #940 must create its own canonical, not merge onto #939.
+    expect(result.created).toBe(1);
+    expect(mockEventCreate).toHaveBeenCalledTimes(1);
   });
 });
 
