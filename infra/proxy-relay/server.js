@@ -44,6 +44,14 @@ const FORWARDED_HEADERS = [
   "etag",
 ];
 
+// Headers dropped when a redirect crosses to a different origin, so caller
+// credentials can't leak to an untrusted host (lowercase for case-insensitive match).
+const SENSITIVE_REDIRECT_HEADERS = new Set([
+  "authorization",
+  "cookie",
+  "proxy-authorization",
+]);
+
 /**
  * Check if a hostname resolves to a private/reserved IP range.
  * Blocks SSRF through the proxy.
@@ -139,9 +147,23 @@ function fetchUrl(targetUrl, method, headers, body, redirectCount) {
         res.statusCode < 400 &&
         res.headers.location
       ) {
-        const nextUrl = new URL(res.headers.location, targetUrl).toString();
+        const nextParsed = new URL(res.headers.location, targetUrl);
         res.resume(); // drain response
-        return resolve(fetchUrl(nextUrl, method, headers, body, redirectCount + 1));
+        // Strip sensitive headers when the redirect crosses to a different
+        // origin, so a redirect to an untrusted host can't exfiltrate
+        // caller-supplied credentials.
+        let nextHeaders = headers;
+        if (nextParsed.origin !== parsed.origin) {
+          nextHeaders = { ...headers };
+          for (const k of Object.keys(nextHeaders)) {
+            if (SENSITIVE_REDIRECT_HEADERS.has(k.toLowerCase())) {
+              delete nextHeaders[k];
+            }
+          }
+        }
+        return resolve(
+          fetchUrl(nextParsed.toString(), method, nextHeaders, body, redirectCount + 1),
+        );
       }
 
       const chunks = [];

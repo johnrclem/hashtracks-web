@@ -24,11 +24,11 @@ interface PhoenixHHHConfig {
   defaultKennelTag: string;
   pageId?: number; // defaults to 21
   /**
-   * Max number of forward calendar months to fetch per scrape (default 3).
-   * Each month page is an ~30s AJAX POST, so fetching the full ±365d window
-   * (~25 months) blew the 120s cron budget and timed out (#2242). The fetch is
-   * forward-only (past months never change); the date window still bounds which
-   * parsed events are kept.
+   * Max number of forward calendar months to fetch per scrape (default 4 —
+   * covers a 90-day `scrapeDays` window, which spans up to four calendar
+   * months). Fetching the full ±365d window (~25 months) blew the 120s cron
+   * budget and timed out (#2242). The fetch is forward-only (past months never
+   * change); the date window still bounds which parsed events are kept.
    */
   maxForwardMonths?: number;
   /**
@@ -424,16 +424,25 @@ export class PhoenixHHHAdapter implements SourceAdapter {
     ]);
 
     // Calculate the FETCH month range. Forward-only: past calendar months never
-    // change, and re-fetching ~12 of them every day (each an ~30s AJAX POST)
-    // blew the 120s cron budget and timed out (#2242). Start at the current
-    // month and cap the span via `maxForwardMonths` (default 3), never going
-    // past the date window's natural end. The [minDate, maxDate] window from
-    // buildDateWindow still governs which parsed events are KEPT below.
+    // change, and re-fetching ~12 of them every day (each a slow AJAX POST) blew
+    // the 120s cron budget and timed out (#2242). Start at the current month and
+    // cap the span via `maxForwardMonths` (default 4), never going past the date
+    // window's natural end. The default of 4 covers a 90-day `scrapeDays` window,
+    // which spans up to four calendar months (e.g. Jun 18 → Sep 16) — a 3-month
+    // cap dropped the last partial month's events. The [minDate, maxDate] window
+    // from buildDateWindow still governs which parsed events are KEPT below.
     const now = new Date();
     const startMonth = now.getUTCMonth() + 1;
     const startYear = now.getUTCFullYear();
 
-    const maxForwardMonths = Math.max(1, config.maxForwardMonths ?? 3);
+    // Defensive parse: a misconfigured non-numeric `maxForwardMonths` must not
+    // NaN-poison the index math and silently skip the whole loop.
+    const rawMax =
+      typeof config.maxForwardMonths === "number"
+        ? config.maxForwardMonths
+        : Number(config.maxForwardMonths);
+    const maxForwardMonths =
+      Number.isFinite(rawMax) && rawMax >= 1 ? Math.floor(rawMax) : 4;
     const startIndex = startYear * 12 + (startMonth - 1);
     const capEndIndex = startIndex + (maxForwardMonths - 1);
     const windowEndIndex = maxDate.getUTCFullYear() * 12 + maxDate.getUTCMonth();
