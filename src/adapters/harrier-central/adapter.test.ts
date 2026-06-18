@@ -245,6 +245,45 @@ describe("applyTitleFallback (#1166)", () => {
     );
     expect(applyTitleFallback("Hashmas Eve", 2590, config)).toBe("Hashmas Eve");
   });
+
+  // #2194 — Shanghai H3's eventName carries a dangling " |" when a title
+  // subfield is blank. Strip trailing |/-/: separators (the #756/#1060 family).
+  it("strips a dangling trailing pipe separator (#2194 Shanghai H3)", () => {
+    expect(
+      applyTitleFallback(
+        "26th All China Nash Hash + 40th Shanghai Hash House Harriers Anniversary |",
+        0,
+        { defaultTitle: "Shanghai H3" },
+      ),
+    ).toBe("26th All China Nash Hash + 40th Shanghai Hash House Harriers Anniversary");
+  });
+
+  it("strips trailing dash/colon and surrounding whitespace too (#756/#1060)", () => {
+    expect(applyTitleFallback("Trail Name -", 100, {})).toBe("Trail Name");
+    expect(applyTitleFallback("Trail Name : ", 100, {})).toBe("Trail Name");
+    expect(applyTitleFallback("Trail Name  |  ", 100, {})).toBe("Trail Name");
+  });
+
+  it("preserves terminal !/? — they are not separators", () => {
+    expect(applyTitleFallback("Saturday Trail!", 100, {})).toBe("Saturday Trail!");
+    expect(applyTitleFallback("Why?", 100, {})).toBe("Why?");
+  });
+
+  it("only strips TRAILING separators — a mid-title comma/colon survives", () => {
+    // Guards the comma in the separator class: a meaningful mid-title comma
+    // (not the trailing char) must not be truncated.
+    expect(applyTitleFallback("Trail Name, Special Edition", 100, {})).toBe(
+      "Trail Name, Special Edition",
+    );
+    expect(applyTitleFallback("Run #5: The Sequel", 100, {})).toBe("Run #5: The Sequel");
+  });
+
+  it("treats a separators-only eventName as stale (synthesizes when possible)", () => {
+    const config = { defaultTitle: "Shanghai H3" };
+    expect(applyTitleFallback(" | ", 42, config)).toBe("Shanghai H3 #42");
+    // eventNumber 0 (social) can't synthesize → undefined (UI run-number fallback)
+    expect(applyTitleFallback(" | ", 0, config)).toBeUndefined();
+  });
 });
 
 describe("hcGeocodeFailed", () => {
@@ -372,6 +411,33 @@ describe("HarrierCentralAdapter", () => {
       expect(result.events).toHaveLength(1);
       expect(result.events[0].hares).toBeUndefined();
       expect(result.events[0].location).toBeUndefined();
+    });
+
+    it("strips the HC 'Placeholder user for visitors / virgins' boilerplate hare (#2220 Lisbon)", async () => {
+      // Lisbon H3 run #1017: HC appends a system placeholder entry after the
+      // real hare. Only "Depth Charge" should survive.
+      mockApiResponse([
+        buildHCEvent({
+          hares: "Depth Charge , Placeholder user for visitors / virgins for Lisbon H3",
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "lh3-pt" }));
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0].hares).toBe("Depth Charge");
+    });
+
+    it("returns undefined hares when only the placeholder entry is present (#2220)", async () => {
+      mockApiResponse([
+        buildHCEvent({ hares: "Placeholder user for visitors / virgins for Lisbon H3" }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "lh3-pt" }));
+      expect(result.events[0].hares).toBeUndefined();
+    });
+
+    it("keeps ordinary multi-hare lists intact (no placeholder)", async () => {
+      mockApiResponse([buildHCEvent({ hares: "Alice, Bob" })]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+      expect(result.events[0].hares).toBe("Alice, Bob");
     });
 
     it("nulls hares (but keeps location) when the source pasted the same value into both slots (#521)", async () => {

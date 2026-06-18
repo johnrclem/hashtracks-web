@@ -157,7 +157,7 @@ export class HarrierCentralAdapter implements SourceAdapter {
       const timeMatch = hcEvent.eventStartDatetime.match(/T(\d{2}:\d{2})/);
       const startTime = timeMatch ? timeMatch[1] : undefined;
 
-      let hares = stripTba(hcEvent.hares);
+      let hares = stripPlaceholderHares(hcEvent.hares);
       const location = composeHcLocation(
         hcEvent.locationOneLineDesc,
         hcEvent.resolvableLocation,
@@ -246,6 +246,29 @@ export class HarrierCentralAdapter implements SourceAdapter {
 function stripTba(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   return trimmed && !/^tba$/i.test(trimmed) ? trimmed : undefined;
+}
+
+// Harrier Central appends a system entry — "Placeholder user for visitors /
+// virgins for <KennelName>" — to the comma-joined hares string for kennels that
+// pre-create biweekly slots (Lisbon H3 #1017, #2220). It is not a real hare and
+// must not leak into haresText. Split the comma-joined value, drop placeholder
+// entries, and rejoin; returns undefined when nothing real remains.
+const PLACEHOLDER_HARE_RE = /\bplaceholder user\b/i;
+function stripPlaceholderHares(value: string | undefined): string | undefined {
+  const trimmed = stripTba(value);
+  if (!trimmed) return undefined;
+  // Fast path: no placeholder present → return the trimmed value byte-for-byte
+  // (identical to the old stripTba behavior). Re-joining unconditionally would
+  // normalize comma spacing ("A,B" → "A, B") and re-fingerprint every HC
+  // multi-hare event on the first post-deploy scrape (hares is in the RawEvent
+  // fingerprint — see pipeline/fingerprint.ts). Only the rare placeholder case
+  // pays the split/rejoin.
+  if (!PLACEHOLDER_HARE_RE.test(trimmed)) return trimmed;
+  const kept = trimmed
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s && !PLACEHOLDER_HARE_RE.test(s));
+  return kept.length ? kept.join(", ") : undefined;
 }
 
 // Placeholder location strings that HC surfaces when a kennel hasn't set a real
@@ -395,12 +418,22 @@ export function hcGeocodeFailed(
  * eventName; this lets the source seed a fixed list of placeholder strings
  * to substitute without touching adapter code each time a new one appears.
  */
+// Trim trailing separators a source occasionally leaves when a title subfield is
+// blank: "…Anniversary |" (Shanghai H3 #2194), the trailing-dash (#756) and
+// trailing-colon (#1060) family. Single char class + `+` anchored to `$` →
+// linear in input length. Terminal-only: titles ending in "!"/"?" are untouched.
+const TITLE_SEPARATOR_TAIL_RE = /[\s|,:–—-]+$/; // NOSONAR S5852 — single char class anchored to `$`, no alternation
+function stripTrailingTitleSeparators(value: string | undefined): string | undefined {
+  if (!value) return value;
+  return value.replace(TITLE_SEPARATOR_TAIL_RE, "").trim() || undefined;
+}
+
 export function applyTitleFallback(
   eventName: string | undefined,
   eventNumber: number | undefined | null,
   config: HarrierCentralConfig,
 ): string | undefined {
-  const trimmed = eventName?.trim();
+  const trimmed = stripTrailingTitleSeparators(eventName);
   const aliases = config.staleTitleAliases;
   const isStale =
     !trimmed ||
