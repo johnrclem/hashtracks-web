@@ -6948,6 +6948,12 @@ export const SOURCES = [
         // literal "R*n" → "#" so the shared extractHashRunNumber helper parses it.
         extractRunNumber: true,
         runNumberPrefix: "R*n",
+        // Both kennels publish the same emoji-structured run template
+        // ("🐰 Hares: TBD / 👣 Trail / 💶 Hash Cash: 5 €") verbatim on every
+        // event; the default boilerplate-block stripper would treat it as a
+        // standing club template and leave only a title-echo (#2228). Keep the
+        // full description body for these sibling kennels.
+        keepRepeatedDescription: true,
         kennelPatterns: [
           ["^Paris H3", "paris-h3"],
           ["^Sans Clue H3", "sans-clue-h3"],

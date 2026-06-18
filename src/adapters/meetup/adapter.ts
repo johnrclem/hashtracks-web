@@ -104,6 +104,18 @@ export interface MeetupConfig {
    * not mint run #15.
    */
   anchorTrailRunNumber?: boolean;
+  /**
+   * Opt out of the structural boilerplate-block stripping (#2058/#2059/#2062).
+   * The default detector treats any paragraph block that repeats verbatim across
+   * >= 2 events as a standing club template and strips it. That misfires when a
+   * kennel's genuine per-event body IS a shared run template — Paris H3 +
+   * Sans Clue H3 (#2228) publish the same emoji-structured stanza
+   * ("🐰 Hares: TBD / 👣 Trail / 💶 Hash Cash: 5 €") on every event, so the
+   * detector strips the whole body and leaves only a title-echo. Set this on
+   * those sources so the full description is kept. Off (default) for everyone
+   * else — Savannah/Hogtown/Montreal still get their generic blurbs stripped.
+   */
+  keepRepeatedDescription?: boolean;
 }
 
 /** Shape of an event entry in Meetup's __NEXT_DATA__ Apollo state. */
@@ -956,7 +968,14 @@ export class MeetupAdapter implements SourceAdapter {
       if (!ev.dateTime) return true; // keep for downstream skip
       const d = new Date(ev.dateTime);
       if (pastOnlyIds.has(ev.id)) return d <= maxDate;
-      return d >= minDate && d <= maxDate;
+      // Upcoming-page events: keep ALL scheduled future runs. Clipping the future
+      // side (maxDate) silently dropped far-future events (#2195 Rubber City: 22
+      // scheduled through Dec 31, only ~12 within the 90-day window survived). The
+      // upcoming feed is self-bounding (only events the kennel created), and
+      // returning the full set every scrape keeps reconcile consistent so the
+      // far-future rows are never re-cancelled. Keep the minDate floor to drop a
+      // stale upcoming row dated in the deep past.
+      return d >= minDate;
     });
 
     // Enrich recurring events with detail page data (mutates in-place)
@@ -983,7 +1002,13 @@ export class MeetupAdapter implements SourceAdapter {
     const cleanedDescriptions = allApolloEvents.map((ev) =>
       cleanMeetupDescription(ev.description, mergedState),
     );
-    const boilerplateBlocks = detectBoilerplateBlocks(cleanedDescriptions);
+    // Strict-boolean opt-out (#2228): kennels whose real per-event body is a
+    // shared run template (Paris/Sans Clue) skip boilerplate stripping entirely,
+    // so the full description survives instead of collapsing to a title-echo.
+    const boilerplateBlocks =
+      config.keepRepeatedDescription === true
+        ? new Set<string>()
+        : detectBoilerplateBlocks(cleanedDescriptions);
 
     const compiledPatterns = compileKennelPatterns(config.kennelPatterns);
     const anchorTrailRunNumber = config.anchorTrailRunNumber === true;

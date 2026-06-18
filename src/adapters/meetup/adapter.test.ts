@@ -643,6 +643,74 @@ describe("MeetupAdapter", () => {
     expect(result.diagnosticContext?.boilerplateDescriptionsDropped).toBe(0);
   });
 
+  // ── #2228: keepRepeatedDescription opt-out ──
+  // Paris H3 / Sans Clue H3 publish the SAME emoji run template on every event;
+  // the default detector would strip it as boilerplate and leave only a
+  // title-echo. With the opt-out, the full body is kept verbatim.
+  it("keeps repeated template descriptions when keepRepeatedDescription is set (#2228 Sans Clue)", async () => {
+    const TEMPLATE =
+      "🐰 Hares: TBD\n👣 Trail: A-to-B trail, no bag drop\n💶 Hash Cash: 5 €";
+    const html = buildMeetupHtml({
+      "Event:1193": buildApolloEvent({
+        id: "1193",
+        title: "Sans Clue H3 R*n 1193 | TBD",
+        dateTime: isoDaysFromNow(14, "14:00", "+02:00"),
+        description: `**Sans Clue H3 R\\*n 1193 \\| TBD**\n\n${TEMPLATE}`,
+      }),
+      "Event:1194": buildApolloEvent({
+        id: "1194",
+        title: "Sans Clue H3 R*n 1194 | TBD",
+        dateTime: isoDaysFromNow(28, "14:00", "+02:00"),
+        description: `**Sans Clue H3 R\\*n 1194 \\| TBD**\n\n${TEMPLATE}`,
+      }),
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "parish3-schhh", kennelTag: "sans-clue-h3", keepRepeatedDescription: true }),
+      { days: 365 },
+    );
+
+    expect(result.events).toHaveLength(2);
+    // The full emoji body survives (not stripped to a title-echo).
+    for (const ev of result.events) {
+      expect(ev.description).toContain("Hash Cash: 5 €");
+      expect(ev.description).toContain("Hares: TBD");
+    }
+    expect(result.diagnosticContext?.boilerplateDescriptionsDropped).toBe(0);
+  });
+
+  it("still strips repeated boilerplate when keepRepeatedDescription is absent (default unchanged)", async () => {
+    const TEMPLATE = "🐰 Hares: TBD\n👣 Trail: A-to-B trail\n💶 Hash Cash: 5 €";
+    const html = buildMeetupHtml({
+      "Event:x1": buildApolloEvent({
+        id: "x1",
+        title: "Run #1",
+        dateTime: isoDaysFromNow(14, "14:00"),
+        description: TEMPLATE,
+      }),
+      "Event:x2": buildApolloEvent({
+        id: "x2",
+        title: "Run #2",
+        dateTime: isoDaysFromNow(28, "14:00"),
+        description: TEMPLATE,
+      }),
+      "Venue:123": VENUE_ENTRY,
+    });
+    mockHtmlResponse(html);
+
+    const adapter = new MeetupAdapter();
+    const result = await adapter.fetch(
+      makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(2);
+    for (const ev of result.events) expect(ev.description).toBeNull();
+    expect(result.diagnosticContext?.boilerplateDescriptionsDropped).toBe(2);
+  });
+
   it("strips a shared club paragraph but keeps the per-event logistics stanza (#2059 Hogtown)", async () => {
     // Hogtown prepends the same club blurb to a per-event Date/Cost stanza, so
     // the WHOLE description differs per event but the club paragraph repeats.
@@ -883,7 +951,7 @@ describe("MeetupAdapter", () => {
     expect(result.events[0].description).toBeUndefined();
   });
 
-  it("filters events outside the lookback window", async () => {
+  it("keeps far-future upcoming events beyond the forward window (#2195 Rubber City)", async () => {
     const futureDate = new Date(Date.now() + 200 * 24 * 60 * 60 * 1000);
     const futureIso = futureDate.toISOString().slice(0, 19) + "-05:00";
 
@@ -904,9 +972,10 @@ describe("MeetupAdapter", () => {
       makeSource({ groupUrlname: "test-hash", kennelTag: "NYCH3" }),
       { days: 90 },
     );
-    // far-future event is >90 days out and should be excluded
-    expect(result.events).toHaveLength(1);
-    expect(result.events[0].title).toBe("Trail #42 — Central Park");
+    // The far-future (200-day) upcoming event is NO LONGER clipped by maxDate —
+    // the upcoming feed is self-bounding and reconcile-safe (#2195).
+    expect(result.events).toHaveLength(2);
+    expect(result.events.map((e) => e.title)).toContain("Far Future Run");
   });
 
   it("skips events without dateTime", async () => {
@@ -1295,21 +1364,22 @@ describe("MeetupAdapter", () => {
     expect(result.errorDetails).toBeUndefined();
   });
 
-  it("past events exempt from minDate but upcoming still filtered by full window", async () => {
-    const veryOldDate = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-    const veryOldIso = veryOldDate.toISOString().slice(0, 19) + "-05:00";
-    const farFutureDate = new Date(Date.now() + 200 * 24 * 60 * 60 * 1000);
-    const farFutureIso = farFutureDate.toISOString().slice(0, 19) + "-05:00";
-    const nearFutureDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
-    const nearFutureIso = nearFutureDate.toISOString().slice(0, 19) + "-05:00";
+  it("past exempt from minDate; upcoming exempt from maxDate but keeps its minDate floor (#2195)", async () => {
+    const veryOldIso = new Date(Date.now() - 365 * 86_400_000).toISOString().slice(0, 19) + "-05:00";
+    const farFutureIso = new Date(Date.now() + 200 * 86_400_000).toISOString().slice(0, 19) + "-05:00";
+    const nearFutureIso = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 19) + "-05:00";
 
     const pastEvent = buildApolloEvent({ id: "past-365", title: "Year Old Event", dateTime: veryOldIso });
     const farFutureEvent = buildApolloEvent({ id: "far-future", title: "Far Future", dateTime: farFutureIso, eventUrl: "https://www.meetup.com/test-hash/events/far-future/" });
     const nearFutureEvent = buildApolloEvent({ id: "near-future", title: "Near Future", dateTime: nearFutureIso, eventUrl: "https://www.meetup.com/test-hash/events/near-future/" });
+    // Contrived: a deep-past event surfaced on the UPCOMING page — must be
+    // dropped by the upcoming-side minDate floor (the one bound still enforced).
+    const stalePastUpcoming = buildApolloEvent({ id: "stale-up", title: "Stale Upcoming", dateTime: veryOldIso, eventUrl: "https://www.meetup.com/test-hash/events/stale-up/" });
 
     const upcomingHtml = buildMeetupHtml({
       "Event:far-future": farFutureEvent,
       "Event:near-future": nearFutureEvent,
+      "Event:stale-up": stalePastUpcoming,
       "Venue:123": VENUE_ENTRY,
     });
     const pastHtml = buildMeetupHtml({
@@ -1325,10 +1395,11 @@ describe("MeetupAdapter", () => {
       { days: 90 },
     );
     const titles = result.events.map((e) => e.title);
-    expect(titles).toContain("Year Old Event");  // past: exempt from minDate
-    expect(titles).toContain("Near Future");      // upcoming: within 90-day window
-    expect(titles).not.toContain("Far Future");   // upcoming: beyond maxDate
-    expect(result.events).toHaveLength(2);
+    expect(titles).toContain("Year Old Event");  // past page: exempt from minDate
+    expect(titles).toContain("Near Future");      // upcoming: within window
+    expect(titles).toContain("Far Future");       // upcoming: beyond maxDate, now KEPT (#2195)
+    expect(titles).not.toContain("Stale Upcoming"); // upcoming: below minDate floor → dropped
+    expect(result.events).toHaveLength(3);
   });
 
   it("maxDate still applies to past events (sanity check)", async () => {
