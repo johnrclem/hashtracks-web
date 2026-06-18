@@ -553,6 +553,68 @@ the established HC kennels survive reconciliation without it; do not add it.
   group → `[灣北中南]`. Reach for a char class, not `(a|b|c)`, for any all-single-char alternation (same rule
   that prefers `[-:]` over `(?:-|:)`).
 
+### 🔑 `hashruns.org/api/global-runs` — the public web enumeration of ALL Harrier Central kennels (learned 2026-06-18)
+
+The cleanest way to discover HC kennels (better than the Azure `getEvents` token sweep below):
+`harriercentral.com` has **no public web directory** — its kennel/run DB is app-only (`/index.php/kennels/`
+renders empty). But **`hashruns.org` is the public web front-end for the same Harrier Central data**
+("Powered by Harrier Central" footer), a Next.js app with a clean read-only JSON endpoint:
+
+```
+https://hashruns.org/api/global-runs?isFuture={0|1}&minEventDate=YYYY-MM-DD&maxEventDate=YYYY-MM-DD
+```
+
+Each record carries **`PublicKennelId` (GUID)**, `KennelSlug`, `KennelShortName`, `KennelName`,
+`KennelContinent`, `KennelIANATimezone`, plus per-event number/name/datetime/hares/location/lat-lng/
+fees/tags. The `PublicKennelId` is exactly the `publicKennelId` our HARRIER_CENTRAL adapter config keys
+off — so this endpoint hands you ready-to-paste config-only source rows.
+
+- **Enumeration recipe:** pull `isFuture=1` plus a trailing 12-month `isFuture=0` window, collect distinct
+  `(PublicKennelId, KennelName, KennelSlug, KennelIANATimezone, continent/city)`, then dedup against the
+  hashtracks sitemap. A 2026-06-18 pull = ~2,924 events → **128 distinct kennels active in the past year**,
+  overwhelmingly in already-covered regions (US/UK/DE/PT/FR/BE/NL/NO/TW/JP/SG/TH/CN/BR/Barbados/Hawaii).
+- **It only surfaces kennels that have POSTED runs** (past or future) — which is exactly the filter we want
+  (a source needs dated runs to be useful). A kennel that exists in the app but never posted won't appear.
+- **0-upcoming is normal** (HC `getEvents` is future-only). A kennel with recent past runs but 0 upcoming on
+  HC is still a valid recently-active config-only onboard; BUT if the same kennel posts FUTURE runs on its own
+  website (e.g. Dubai's Desert/Creek do), prefer the website as the live source and treat HC as optional
+  secondary.
+- **Timezone data quirk:** some records carry a wrong `KennelIANATimezone` (Bandung HHH 2 = `Asia/Bangkok`
+  for a city that's `Asia/Jakarta`) — set the METRO timezone from the real city, not the HC field.
+- **Reachable from the research sandbox?** `hashruns.org` is a normal HTTPS site — try `web_fetch` on the
+  `/api/global-runs` URL first; if it's allowlist-blocked, run it from the Claude-in-Chrome extension
+  (page-context `fetch`). Either way it beats replicating the Azure `generateAccessToken` token below.
+- 🔑 **`global-runs` ALSO returns PAST events** (`isFuture=0` with a date window) with full
+  number/name/hares/location/lat-lng/fees — so it's a **one-shot historical-backfill source for any HC
+  kennel**, not just a discovery tool (the Azure `getEvents` adapter path is future-only). 2026-06-18 pulls:
+  Bandung 56 runs, Moonshine Dubai 17, Barbados 130 — each enough for a frozen `scripts/data/<code>-history.json`
+  backfill. Window caps: `isFuture=1` ~200 rows; each `isFuture=0` request ~2 MB → page it in ≤6-month windows
+  and dedup by `PublicEventId`. **Source-data quirks survive into the feed** — extract faithfully, don't
+  "fix": e.g. Bandung reuses run# 2292 and skips 2273/2289, and its `Hares` field sometimes carries the
+  *location* (data-entry bleed) → treat HC `Hares` as unreliable per-kennel; verify before trusting.
+
+## Supabase / PostgREST JSON backend behind a React SPA (learned from Riyadh H3, 2026-06-18)
+
+Some modern hash sites are a **client-rendered React/Vite SPA whose run data comes from a Supabase
+(PostgREST) REST API** — the cleanest possible source (true JSON, full history in one query), but the page
+HTML is empty so you MUST use the API, not a scrape. Riyadh H3 (`riyadhhash.com`) is the reference.
+
+- **Detection:** `index.html` is a near-empty `<div id="root">` + `/assets/index-*.js` (Vite), no
+  `__NEXT_DATA__`; the Network tab shows XHR to `https://<projectref>.supabase.co/rest/v1/<table>?select=...`
+  with `apikey:` + `Authorization: Bearer <jwt>` headers.
+- **The `anon` key is publishable, not a secret.** The JWT in the JS bundle has `"role":"anon"` — Supabase's
+  public client key (RLS-gated), the same class as a `NEXT_PUBLIC_*` Maps key. Safe to read/use for ingest.
+  ⚠️ Re-extract it at build (decode the JWT from the current `/assets/index-*.js`); it can rotate.
+- **Query shape (PostgREST):** `?select=*&order=date.desc` for the list; filter soft-deletes with
+  `&deleted_at=is.null`; date-range with `&date=gte.YYYY-MM-DD&date=lte.YYYY-MM-DD`. **One query = full
+  history + future** (Riyadh: 58 rows back to 2025-01-03), so the adapter is future-window-filtered and the
+  backfill is the same table with `date < today`.
+- **Adapter:** a lightweight JSON client (NOT Cheerio/browserRender). Map columns straight: `run_number`,
+  `title`, `date` (→ UTC noon), `location`, `gathering_time`/`circle_time` (→ `startTime "HH:MM"`),
+  `difficulty` (→ Shiggy?), `registration_status`. No coord-default trap (Riyadh carries text locations only).
+- **Effort:** small (~120–180 LoC) — closer to the Meetup/HC config-shaped adapters than a scraper, but it
+  needs a new adapter since the endpoint/columns are bespoke. Store the project ref + table in source config.
+
 ### HC `getEvents` is a live-kennel FINDER — city-name sweep (learned from Shanghai H3, 2026-06-11)
 
 When the queue runs dry, turn the existing HARRIER_CENTRAL adapter into a discovery tool. Replicate the
@@ -857,3 +919,61 @@ guess here).
 - **Collision check = EVERY bare initialism** in the proposed alias list, not just the kennelCode-shaped one:
   Seoul correctly omitted bare `SH3` (Summit/Salem/Seattle) but `SHHH` *also* collided (Secession/Singapore
   Harriets) and had to be dropped too.
+
+## WordPress (Avada/Fusion) + TablePress "Receding Hareline" SSR table + What3Words / Fusion-map coords (Himalayan H3, 2026-06-18 — SHIPPED, [PR #2255](https://github.com/johnrclem/hashtracks-web/pull/2255))
+
+`himalayanhash.run` (Himalayan H3, Kathmandu — Nepal's first kennel, est. 1979, run #2521) is a
+**WordPress 6.5.8 / Avada (Fusion-builder)** single-page site whose **home page SSRs a "Receding
+Hareline" table** (the rolling forward schedule: current run + next ~2). Confirmed via `curl` (no JS) —
+static Cheerio, no browserRender. The shipped adapter (`himalayan-h3.ts`) models
+`kaohsiung-hash.ts` / `bangkok-monday-hash.ts` (table ⊕ detail-block merge by run number).
+
+- **🟢 It's a clean TablePress table, NOT raw Fusion markup** (the research note feared a bespoke
+  `fusion-text` block — the build `curl` resolved it *simpler*): `<table id="tablepress-5"
+  class="tablepress tablepress-id-5">` with a real `<thead>`/`<tbody class="row-hover">` and semantic
+  `td.column-1`…`column-6` cells. Read cells by **position** (`$row.find("td").eq(n)`), robust to class
+  drift. Columns: `Hash# | Date | Time | On-In | Hares | What3Words`. The On-In cell is
+  `<strong>Area</strong><br/><em>Venue</em>` → render `<br>` as `" / "` → `"Chobhar / Adinath School"`.
+- **🔴 "No decimal coords" was the research note's biggest miss — the source HAS real venue coordinates.**
+  The featured run's detail block (a `HASH NNNN` heading below the table) carries a Fusion Google-Map
+  shortcode whose inline `<script>` embeds **`addresses:[{"latitude":"27.666559","longitude":" 85.293534"}]`**
+  (note the leading space inside the longitude quotes; the value appears twice — take the first). Capture
+  these for the matching run → a precise pin, far better than geocoding the venue text or the Kathmandu
+  centroid. **Lesson: when a page shows only a w3w/Maps *link*, still grep the detail-block / map-embed
+  inline scripts** — Avada/Fusion (and Leaflet / WP Google-Maps plugins generally) stash decimal lat/lng
+  in the shortcode JSON even when the visible UI hides it. Regex `/"latitude":"(-?\d+\.\d+)","longitude":"\s*(-?\d+\.\d+)"/`,
+  validate the bounds, attach by run number.
+- **🟡 Location fallback is What3Words.** The On-In cell links a `w3w.co/<addr>` (`shed.code.squirted`) —
+  a 3-word geocode. Prefer the detail-block `maps.app.goo.gl` link, else the `w3w.co/<addr>`, in
+  `locationUrl` (`extractW3wUrl` validates the host; pass a **base URL** to `new URL(href, origin)` so
+  protocol-relative/relative hrefs parse instead of throwing, and return the normalized `parsed.href`).
+- **🔴 The WP REST archive is a red herring.** `/wp-json/wp/v2/posts?per_page=100` returned **exactly
+  1 post** (an old 2017 "run directions" page) — per-run posting was abandoned ~2017. A high run number
+  (#2521) does NOT mean a structured archive exists. **Probe the REST API before assuming a backfill** —
+  here there's none. Set `config.upcomingOnly: true` (rolling table) + a fail-loud `events.length === 0`
+  guard (single surface, brand-new baseline 0).
+- **🔴 Year-less dates on a rolling table need three guards, not a naive forward roll** (the research
+  note's *"only ~3 near-term rows, so no bidirectional rule needed"* was wrong — the year boundary and
+  source abandonment both bite). For `13th June`: strip the ordinal, look up the month via a **`Map`**
+  (`new Map(Object.entries(MONTHS_ZERO))` — `.get()`, not `Record[var]`), build a UTC-noon date, then:
+  1. **Bidirectional year roll** (mirror bangkok `inferYear`): `>60d` past → next year; `>8mo` future →
+     prior year. The backward roll is what keeps a just-past `27 Dec` run scraped on `2 Jan` (Gemini catch).
+  2. **Impossible-date rejection** (Codex catch): `Date.UTC(y,5,31)` silently rolls `31 June` → `1 Jul`;
+     round-trip the constructed date against the requested month/day and return `null` on mismatch
+     (leap-aware — `29 Feb` kept only in a leap year). A `day <= 31` guard is not enough.
+  3. **Tight near-term horizon** (Codex adversarial catch — the *fail-open* fix): a receding hareline only
+     ever shows current + the next few weekly runs, but an **abandoned/frozen table republishes last
+     year's rows as phantom FUTURE events** once "now" wraps back within `filterEventsByWindow`'s ±90d of
+     their month — and `upcomingOnly` reconcile (future-only) + the zero-event health alert are both blind
+     to it (valid date, present every scrape). Gate accepted rows to `now-14d .. now+42d`; stale rows drop
+     → 0 events → the existing fail-loud fires. (Shared exposure across every year-less `upcomingOnly`
+     adapter — see the `reference_yearless_rolling_table_phantom_future` memory.)
+- **🟡 Placeholder hygiene:** `Needed` (hares) → `null` (explicit clear, #2032 tri-state — the Warsaw fix);
+  `Check.Back.Later` (w3w) → undefined. **⚠️ `Undecided` (venue) is NOT in the shared `stripPlaceholder`
+  list** (which covers TBD/TBA/TBC/Needed/N-A/… but not "Undecided") → add an explicit per-source guard
+  or it leaks as a venue.
+- **`title` undefined → merge synthesizes "Himalayan H3 Trail #N"** (`friendlyKennelName` short-circuits on
+  the 12-char shortName). Never set `title` to the hare/venue/run-id string.
+- **Logo:** `wp-content/uploads/2017/08/trans_logo1.png` — a **stable** (non-tokenized) wp-content path,
+  `http`-only → self-host (`trans_logo1` is the 117×120 RGBA `og:image`, the cleanest of three variants) +
+  magic-byte the extension (`\x89PNG`) per convention.
