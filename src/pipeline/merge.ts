@@ -1032,27 +1032,22 @@ export function isReplaceableDefaultTitle(
 }
 
 /**
- * Leading kennel-code / placeholder-marker token at the start of a title.
- * Bounded length, single char class — ReDoS-safe (no nested quantifiers).
- */
-const LEADING_TITLE_TOKEN_RE = /^[\s/&,+]*(?:and\s+)?([A-Za-z0-9#?.'-]{1,12})/i;
-
-/**
  * Normalize a title to its bare "theme" for cross-source same-day matching
- * (#2233). Strips a leading run of co-hosting kennel-code tokens (`SH3`,
- * `SH3/NBH3`) and placeholder run markers (`#?`), then lowercases + collapses
- * whitespace. Returns `""` for content-free stubs so the normalized-theme match
- * tier never welds two unrelated placeholders together — stubs are handled by
- * the placeholder-absorption tier instead.
+ * (#2233). Drops a leading run of co-hosting kennel-code tokens (`SH3`,
+ * `SH3/NBH3`), the connector word "and", and placeholder run markers (`#?`),
+ * then lowercases. Returns `""` for content-free stubs so the normalized-theme
+ * match tier never welds two unrelated placeholders together — stubs are handled
+ * by the placeholder-absorption tier instead.
  *
- *   "Gender Blender"           → "gender blender"
- *   "SH3 Hashmas"              → "hashmas"
- *   "SH3/NBH3 Gender Blender"  → "gender blender"   (co-host prefix stripped)
- *   "SH3 #? (TBD)" / "SH3 #?"  → ""                 (stub)
+ *   "Gender Blender"            → "gender blender"
+ *   "SH3 Hashmas"               → "hashmas"
+ *   "SH3/NBH3 Gender Blender"   → "gender blender"            (co-host prefix stripped)
+ *   "SH3 #? (TBD)" / "SH3 #?"   → ""                          (stub)
  *   "SH3 (Catholic School Girl)" → "catholic school girl"
+ *   "2nd Annual Red Dress Run"  → "2nd annual red dress run"  (ordinal NOT a code)
  *
- * Deterministic, ReDoS-safe: one bounded leading-token regex applied in a loop
- * with monotonic progress (`rest` strictly shrinks; capped iterations).
+ * Tokenized with plain string splits (no `\s*`-adjacent alternation) so it can't
+ * regress into a ReDoS shape.
  */
 export function normalizeThemeTitle(
   title: string | null,
@@ -1065,23 +1060,26 @@ export function normalizeThemeTitle(
       .filter((s): s is string => !!s)
       .map((s) => s.toLowerCase()),
   );
-  // A leading token is strippable when it's one of this kennel's known
-  // identifiers, a code-shaped token carrying a digit (SH3, NBH3 — never a
-  // plain word like "Gender"), or a "#…" run marker.
+  // A leading token is strippable when it's the connector "and", one of this
+  // kennel's known identifiers, a "#…" run marker, or a kennel-code-shaped token
+  // — starts with a LETTER and carries a digit ("SH3"/"NBH3" yes; the ordinal
+  // "2nd" no, since it starts with a digit; a plain word like "Gender" no).
   const isStrippable = (token: string): boolean => {
-    if (known.has(token.toLowerCase())) return true;
+    const lower = token.toLowerCase();
+    if (lower === "and") return true;
+    if (known.has(lower)) return true;
     if (token.startsWith("#")) return true;
-    return /\d/.test(token) && /^[A-Za-z0-9]{2,8}$/.test(token);
+    return token.length <= 8 && /^[A-Za-z]/.test(token) && /\d/.test(token) && /^[A-Za-z0-9]+$/.test(token);
   };
-  let rest = sanitized;
-  for (let guard = 0; guard < 8; guard++) {
-    const m = LEADING_TITLE_TOKEN_RE.exec(rest);
-    if (!m || !isStrippable(m[1])) break;
-    rest = rest.slice(m[0].length);
-  }
-  const theme = rest
-    .replace(/^[\s:.\-–—/()]+/, "")
-    .replace(/[\s)(]+$/, "")
+  // Split on whitespace + co-host separators, then drop leading kennel/marker
+  // tokens. `(...)`-wrapped themes keep their inner words once the prefix is gone.
+  const tokens = sanitized.split(/[\s/&,+]+/).filter(Boolean);
+  let i = 0;
+  while (i < tokens.length && isStrippable(tokens[i])) i++;
+  const theme = tokens
+    .slice(i)
+    .join(" ")
+    .replace(/[()]/g, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
   if (!theme || isPlaceholder(theme)) return "";
@@ -1539,13 +1537,22 @@ async function upsertCanonicalEvent(
     ? sameDayEvents.filter((e) => !batchMatched.has(e.id))
     : sameDayEvents;
   if (!existingEvent && !event.seriesId && crossSourceSiblings.length > 0) {
+    // A same-themed sibling that carries a CONFLICTING runNumber or startTime is
+    // a distinct event, not a duplicate — e.g. a recurring "Red Dress Run" where
+    // #939 and #940 share a theme. Reject those so Tier C never welds two real
+    // runs together or lets an equal/higher-trust update overwrite the sibling's
+    // run number (Codex review on #2233).
+    const conflictsWithIncoming = (e: (typeof sameDayEvents)[number]): boolean =>
+      (e.runNumber != null && event.runNumber != null && e.runNumber !== event.runNumber)
+      || (e.startTime != null && event.startTime != null && e.startTime !== event.startTime);
+
     // Tier C — normalized theme equality. Strip the kennel-code prefix from both
     // sides ("SH3 Hashmas" ⇄ "Hashmas") and merge on an exact, unique theme
     // match. Stubs normalize to "" and are skipped here (Tier B owns them).
     const incomingTheme = normalizeThemeTitle(event.title ?? null, kennelData);
     if (incomingTheme) {
       const themeMatches = crossSourceSiblings.filter(
-        (e) => normalizeThemeTitle(e.title, kennelData) === incomingTheme,
+        (e) => normalizeThemeTitle(e.title, kennelData) === incomingTheme && !conflictsWithIncoming(e),
       );
       if (themeMatches.length === 1) existingEvent = themeMatches[0];
     }

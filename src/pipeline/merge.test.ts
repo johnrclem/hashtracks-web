@@ -5651,6 +5651,15 @@ describe("normalizeThemeTitle (#2233)", () => {
     // The synthesized default normalizes to itself (Tier B, not C, handles it).
     expect(normalizeThemeTitle("Seattle H3 Trail", sh3)).toBe("seattle h3 trail");
   });
+
+  it("does NOT strip a leading ordinal token (starts with a digit, not a kennel code)", () => {
+    // Kennel codes start with a letter; ordinals start with a digit. Stripping
+    // "2nd"/"3rd" would let distinct "Nth Annual" events collapse (claude review).
+    expect(normalizeThemeTitle("2nd Annual Red Dress Run", sh3)).toBe("2nd annual red dress run");
+    expect(normalizeThemeTitle("3rd Annual Red Dress Run", sh3)).not.toBe(
+      normalizeThemeTitle("2nd Annual Red Dress Run", sh3),
+    );
+  });
 });
 
 describe("cross-source same-day merge (#2233)", () => {
@@ -5667,7 +5676,7 @@ describe("cross-source same-day merge (#2233)", () => {
       country: "United States",
       regionRef: null,
       aliases: [],
-    } as never);
+    } as unknown as Awaited<ReturnType<typeof prisma.kennel.findUnique>>);
   });
 
   it("Tier B: absorbs a content-free calendar stub into the same-day numbered run", async () => {
@@ -5773,6 +5782,30 @@ describe("cross-source same-day merge (#2233)", () => {
       buildRawEvent({ kennelTags: ["sh3-wa"], runNumber: 940, title: "Third Trail", hares: "Q", location: undefined, startTime: undefined, sourceUrl: "https://sheet" }),
     ]);
 
+    expect(result.created).toBe(1);
+    expect(mockEventCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("Tier C does NOT merge a same-theme sibling that carries a conflicting run number", async () => {
+    // Recurring "Red Dress Run": existing #939 vs incoming #940 share a normalized
+    // theme but are distinct runs. The run-number conflict guard must keep them
+    // split — without it, Tier C would weld #940 onto #939 and a higher/equal-trust
+    // update could overwrite #939's run number (Codex review on #2233).
+    mockSourceFind.mockResolvedValue(sourceRow({
+      trustLevel: 5, type: "GOOGLE_SHEETS", kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_939", trustLevel: 5, runNumber: 939, title: "SH3 Red Dress Run", haresText: null, sourceUrl: "https://cal", status: "CONFIRMED", createdAt: new Date("2026-01-01") },
+      { id: "evt_other", trustLevel: 5, runNumber: 7, title: "Some Other Trail", haresText: "Q", sourceUrl: "https://cal2", status: "CONFIRMED", createdAt: new Date("2026-01-02") },
+    ] as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_940"));
+
+    const result = await processRawEvents("src_sheet", [
+      buildRawEvent({ kennelTags: ["sh3-wa"], runNumber: 940, title: "Red Dress Run", hares: undefined, location: undefined, startTime: undefined, sourceUrl: "https://sheet" }),
+    ]);
+
+    // #940 must create its own canonical, not merge onto #939.
     expect(result.created).toBe(1);
     expect(mockEventCreate).toHaveBeenCalledTimes(1);
   });

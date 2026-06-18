@@ -163,6 +163,96 @@ function isStub(e: EventRow, meta: TitleMeta): boolean {
 }
 
 interface GroupResult { merged: number; healed: number; keptSeparate: number; skippedDelete: number; }
+interface Heal { title?: string; hares?: string }
+
+/** Survivor rank: run-numbered (2) beats a real row (1) beats a content-free stub (0). */
+function survivorScore(e: EventRow, meta: TitleMeta): number {
+  if (e.runNumber != null) return 2;
+  return isStub(e, meta) ? 0 : 1;
+}
+
+/** The actual trail anchor: highest rank, then most complete, then oldest. */
+function pickSurvivor(group: EventRow[], meta: TitleMeta): EventRow {
+  return [...group].sort((a, b) =>
+    survivorScore(b, meta) - survivorScore(a, meta)
+    || completeness(b) - completeness(a)
+    || a.createdAt.getTime() - b.createdAt.getTime(),
+  )[0];
+}
+
+/** Title/hares to write onto the survivor when it currently holds a stub/default. */
+async function planHeal(survivor: EventRow, meta: TitleMeta, kennelCode: string): Promise<Heal> {
+  const { title: bestTitle, hares: bestHares } = await bestThemeFromRaws([survivor.id], meta);
+  const stubby = isReplaceableDefaultTitle(survivor.title, meta) || normalizeThemeTitle(survivor.title, meta) === "";
+  let title: string | undefined;
+  if (bestTitle && stubby) {
+    const next = resolveUpdatedTitle(bestTitle, survivor.title, meta, survivor.runNumber, kennelCode);
+    if (next !== survivor.title) title = next;
+  }
+  // Run hares through the same sanitizer the merge pipeline uses — drops
+  // placeholders ("TBD") and scrubs PII so the heal can't leak either.
+  const hares = survivor.haresText || !bestHares ? undefined : (sanitizeHares(bestHares) ?? undefined);
+  return { title, hares };
+}
+
+/** Split the group's non-survivor rows: a row folds in ONLY when it is the same
+ *  trail (content-free stub, SAME run number, or EXACT normalized-theme match);
+ *  everything else is a genuinely distinct event left as its own card. */
+function classifyGroup(group: EventRow[], survivor: EventRow, effectiveTheme: string, meta: TitleMeta) {
+  const merges: EventRow[] = [];
+  const keep: EventRow[] = [];
+  for (const e of group) {
+    if (e.id === survivor.id) continue;
+    const sameRun = survivor.runNumber != null && e.runNumber === survivor.runNumber;
+    const themeMatch = effectiveTheme !== "" && normalizeThemeTitle(e.title, meta) === effectiveTheme;
+    if (isStub(e, meta) || sameRun || themeMatch) merges.push(e);
+    else keep.push(e);
+  }
+  return { merges, keep };
+}
+
+/** `"Title A", "Title B"` — avoids nested template literals in log lines. */
+function titleList(rows: EventRow[]): string {
+  return rows.map((r) => `"${r.title ?? ""}"`).join(", ");
+}
+
+/** Re-point a loser's RawEvents / EventLinks / co-host EventKennels onto the
+ *  survivor, then race-safe-delete it. Returns whether the delete succeeded. */
+async function foldLoserIntoSurvivor(survivorId: string, loserId: string): Promise<boolean> {
+  await prisma.rawEvent.updateMany({ where: { eventId: loserId }, data: { eventId: survivorId } });
+
+  const survivorUrls = new Set(
+    (await prisma.eventLink.findMany({ where: { eventId: survivorId }, select: { url: true } })).map((l) => l.url),
+  );
+  const loserLinks = await prisma.eventLink.findMany({ where: { eventId: loserId }, select: { id: true, url: true } });
+  for (const link of loserLinks) {
+    if (survivorUrls.has(link.url)) continue;
+    await prisma.eventLink.update({ where: { id: link.id }, data: { eventId: survivorId } });
+    survivorUrls.add(link.url);
+  }
+
+  const survivorKennelIds = new Set(
+    (await prisma.eventKennel.findMany({ where: { eventId: survivorId }, select: { kennelId: true } })).map((k) => k.kennelId),
+  );
+  const loserSecondaries = await prisma.eventKennel.findMany({
+    where: { eventId: loserId, isPrimary: false },
+    select: { kennelId: true },
+  });
+  for (const ek of loserSecondaries) {
+    if (survivorKennelIds.has(ek.kennelId)) continue;
+    await prisma.eventKennel.create({ data: { eventId: survivorId, kennelId: ek.kennelId, isPrimary: false } });
+    survivorKennelIds.add(ek.kennelId);
+  }
+
+  // Race-safe: throws if hares/attendance/raws sneak in after the re-point above.
+  try {
+    await deleteLeakedEvent(prisma, loserId, ["hares", "attendances", "kennelAttendances", "rawEvents"]);
+    return true;
+  } catch (err) {
+    console.error(`      ⚠️  refused to delete loser ${loserId} — left intact:`, (err as Error).message);
+    return false;
+  }
+}
 
 async function collapseGroup(
   kennel: KennelMeta,
@@ -171,110 +261,39 @@ async function collapseGroup(
   apply: boolean,
   res: GroupResult,
 ): Promise<void> {
-  const titleMeta: TitleMeta = { kennelCode: kennel.kennelCode, shortName: kennel.shortName, fullName: kennel.fullName, aliases: kennel.aliases };
+  const meta: TitleMeta = { kennelCode: kennel.kennelCode, shortName: kennel.shortName, fullName: kennel.fullName, aliases: kennel.aliases };
+  const survivor = pickSurvivor(group, meta);
+  if (!survivor) return; // unreachable (group.length > 1) — guards the sort()[0] access
 
-  // SURVIVOR: prefer run-numbered, then a real (non-stub) row, then completeness,
-  // then oldest — the actual trail anchor for this date.
-  const survivor = [...group].sort((a, b) =>
-    (b.runNumber != null ? 1 : 0) - (a.runNumber != null ? 1 : 0)
-    || (isStub(a, titleMeta) ? 1 : 0) - (isStub(b, titleMeta) ? 1 : 0)
-    || completeness(b) - completeness(a)
-    || a.createdAt.getTime() - b.createdAt.getTime(),
-  )[0];
+  const heal = await planHeal(survivor, meta, kennel.kennelCode);
+  const effectiveTheme = normalizeThemeTitle(heal.title ?? survivor.title, meta);
+  const { merges, keep } = classifyGroup(group, survivor, effectiveTheme, meta);
 
-  // HEAL the survivor's title from its OWN raws when it holds a stub/default.
-  const { title: bestTitle, hares: bestHares } = await bestThemeFromRaws([survivor.id], titleMeta);
-  let healedTitle: string | undefined;
-  const survivorTitleIsStubby =
-    isReplaceableDefaultTitle(survivor.title, titleMeta) || normalizeThemeTitle(survivor.title, titleMeta) === "";
-  if (bestTitle && survivorTitleIsStubby) {
-    const next = resolveUpdatedTitle(bestTitle, survivor.title, titleMeta, survivor.runNumber, kennel.kennelCode);
-    if (next !== survivor.title) healedTitle = next;
-  }
-  // Run hares through the same sanitizer the merge pipeline uses — drops
-  // placeholders ("TBD") and scrubs PII so the heal can't leak either.
-  const healedHares = !survivor.haresText && bestHares ? (sanitizeHares(bestHares) ?? undefined) : undefined;
-
-  // A loser folds in ONLY if it is unmistakably the same trail: a content-free
-  // stub, the SAME run number, or an EXACT normalized-theme match. Everything
-  // else is a genuinely distinct event on the same date and is left as its own card.
-  const effectiveTheme = normalizeThemeTitle(healedTitle ?? survivor.title, titleMeta);
-  const merges: EventRow[] = [];
-  const keep: EventRow[] = [];
-  for (const e of group) {
-    if (e.id === survivor.id) continue;
-    const sameRun = survivor.runNumber != null && e.runNumber === survivor.runNumber;
-    const themeMatch = effectiveTheme !== "" && normalizeThemeTitle(e.title, titleMeta) === effectiveTheme;
-    if (isStub(e, titleMeta) || sameRun || themeMatch) merges.push(e);
-    else keep.push(e);
-  }
-
-  if (merges.length === 0) {
-    res.keptSeparate += keep.length;
-    return; // nothing collapses on this date (all rows distinct)
-  }
+  res.keptSeparate += keep.length;
+  if (merges.length === 0) return; // nothing collapses on this date (all rows distinct)
 
   console.log(
     `  MERGE ${kennel.kennelCode} ${day}: keep ${survivor.id} ` +
-      `(#${survivor.runNumber ?? "—"} "${survivor.title ?? ""}") ← ${merges.length} loser(s): ` +
-      merges.map((l) => `"${l.title ?? ""}"`).join(", "),
+      `(#${survivor.runNumber ?? "—"} "${survivor.title ?? ""}") ← ${merges.length} loser(s): ${titleList(merges)}`,
   );
-  if (keep.length > 0) console.log(`      keep separate: ${keep.map((k) => `"${k.title ?? ""}"`).join(", ")}`);
-  if (healedTitle) console.log(`      heal title: "${survivor.title ?? ""}" → "${healedTitle}"`);
-  if (healedHares) console.log(`      heal hares: → "${healedHares}"`);
+  if (keep.length > 0) console.log(`      keep separate: ${titleList(keep)}`);
+  if (heal.title) console.log(`      heal title: "${survivor.title ?? ""}" → "${heal.title}"`);
+  if (heal.hares) console.log(`      heal hares: → "${heal.hares}"`);
 
-  res.keptSeparate += keep.length;
   if (!apply) {
     res.merged += merges.length;
-    if (healedTitle || healedHares) res.healed++;
+    if (heal.title || heal.hares) res.healed++;
     return;
   }
 
-  const loserIds = merges.map((l) => l.id);
-
-  // 1. Re-point loser RawEvents onto the survivor (preserve the audit trail).
-  await prisma.rawEvent.updateMany({ where: { eventId: { in: loserIds } }, data: { eventId: survivor.id } });
-
-  // 2. Move loser EventLinks (dedup by url; remaining dup-url links cascade on delete).
-  const survivorUrls = new Set(
-    (await prisma.eventLink.findMany({ where: { eventId: survivor.id }, select: { url: true } })).map((l) => l.url),
-  );
-  const loserLinks = await prisma.eventLink.findMany({ where: { eventId: { in: loserIds } }, select: { id: true, url: true } });
-  for (const link of loserLinks) {
-    if (survivorUrls.has(link.url)) continue;
-    await prisma.eventLink.update({ where: { id: link.id }, data: { eventId: survivor.id } });
-    survivorUrls.add(link.url);
+  for (const loser of merges) {
+    if (await foldLoserIntoSurvivor(survivor.id, loser.id)) res.merged++;
+    else res.skippedDelete++;
   }
 
-  // 3. Move loser SECONDARY EventKennels (co-hosts) that the survivor lacks.
-  const survivorKennelIds = new Set(
-    (await prisma.eventKennel.findMany({ where: { eventId: survivor.id }, select: { kennelId: true } })).map((k) => k.kennelId),
-  );
-  const loserSecondaries = await prisma.eventKennel.findMany({
-    where: { eventId: { in: loserIds }, isPrimary: false },
-    select: { kennelId: true },
-  });
-  for (const ek of loserSecondaries) {
-    if (survivorKennelIds.has(ek.kennelId)) continue;
-    await prisma.eventKennel.create({ data: { eventId: survivor.id, kennelId: ek.kennelId, isPrimary: false } });
-    survivorKennelIds.add(ek.kennelId);
-  }
-
-  // 4. Delete the now-zero-raw losers (race-safe; throws if hares/attendance/raws sneak in).
-  for (const loserId of loserIds) {
-    try {
-      await deleteLeakedEvent(prisma, loserId, ["hares", "attendances", "kennelAttendances", "rawEvents"]);
-      res.merged++;
-    } catch (err) {
-      console.error(`      ⚠️  refused to delete loser ${loserId} — left intact:`, (err as Error).message);
-      res.skippedDelete++;
-    }
-  }
-
-  // 5. Heal the survivor's clobbered/stub title + missing hares.
   const healData: Record<string, unknown> = {};
-  if (healedTitle) healData.title = healedTitle;
-  if (healedHares) healData.haresText = healedHares;
+  if (heal.title) healData.title = heal.title;
+  if (heal.hares) healData.haresText = heal.hares;
   if (Object.keys(healData).length > 0) {
     await prisma.event.update({ where: { id: survivor.id }, data: healData });
     res.healed++;
@@ -304,18 +323,20 @@ async function main() {
       list.push(e);
       byDay.set(d, list);
     }
-    for (const [day, group] of [...byDay.entries()].sort()) {
+    const days = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    for (const [day, group] of days) {
       if (group.length <= 1) continue;
       dupeGroups++;
       await collapseGroup(kennel, day, group, apply, res);
     }
   }
 
+  const verb = apply ? "Applied" : "Would apply";
+  const refused = res.skippedDelete ? `, ${res.skippedDelete} delete(s) refused by safety guard` : "";
   console.log(
-    `\n${apply ? "Applied" : "Would apply"}: ${dupeGroups} multi-row date-group(s) → ` +
+    `\n${verb}: ${dupeGroups} multi-row date-group(s) → ` +
       `${res.merged} stub/same-trail row(s) merged, ${res.healed} survivor title/hares heal(s), ` +
-      `${res.keptSeparate} distinct event(s) kept separate` +
-      (res.skippedDelete ? `, ${res.skippedDelete} delete(s) refused by safety guard` : ""),
+      `${res.keptSeparate} distinct event(s) kept separate${refused}`,
   );
 
   if (apply && res.merged > 0) {
