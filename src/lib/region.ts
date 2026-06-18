@@ -1909,6 +1909,31 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 21.0122,
     aliases: ["Warsaw, Poland", "Warszawa"],
   },
+  // ── Nepal (first 🇳🇵 kennel: Himalayan H3, Kathmandu) — 2-level COUNTRY→METRO,
+  //    mirrors the Poland precedent (no seed.ts stateMetroLinks needed). ──
+  {
+    name: "Nepal",
+    country: "Nepal",
+    level: "COUNTRY",
+    timezone: "Asia/Kathmandu",
+    abbrev: "NP",
+    colorClasses: "bg-violet-200 text-violet-800",
+    pinColor: "#7c3aed",
+    centroidLat: 28.39,
+    centroidLng: 84.12,
+    aliases: ["NP", "नेपाल"],
+  },
+  {
+    name: "Kathmandu",
+    country: "Nepal",
+    timezone: "Asia/Kathmandu",
+    abbrev: "KTM",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 27.7172,
+    centroidLng: 85.324,
+    aliases: ["Kathmandu, Nepal", "Kathmandu Valley"],
+  },
   // ── Portugal ──
   {
     name: "Portugal",
@@ -3541,6 +3566,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/, "Sweden"],
   [/\b(norway|oslo|bergen|stavanger)\b/, "Norway"],
   [/\b(singapore)\b/, "Singapore"],
+  // Nepal — country + the two unambiguous Nepali cities. Bare "himalayan" is
+  // excluded: the Himalaya span India/Bhutan/Tibet too, and inferCountry() is
+  // first-match with USA as the default fallthrough.
+  [/\b(nepal|kathmandu|katmandu|pokhara)\b/, "Nepal"],
   // CJK branch: `\b` is ASCII-only, so Chinese-only location text (e.g. the
   // "新北市, 台灣" venue field on TwH3 events) needs explicit token matching.
   // `[台臺]` unifies the common/formal Tai- forms (台灣/臺灣, 台北/臺北, etc.).
@@ -3772,6 +3801,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Hungary
   "Budapest": "Hungary",
   "Warsaw": "Poland",
+  // Nepal
+  "Kathmandu": "Nepal",
   // Portugal
   "Lisbon": "Portugal",
   "Porto": "Portugal",
@@ -3995,6 +4026,9 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Poland — metro "Warsaw" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Poland" is reachable here (mirrors the Hungary precedent).
   "Poland": "Poland",
+  // Nepal — metro "Kathmandu" resolves via STATE_GROUP_MAP first, so only the
+  // country-group key "Nepal" is reachable here (mirrors the Poland precedent).
+  "Nepal": "Nepal",
   // Portugal — metro "Lisbon" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Portugal" is reachable here (mirrors the Spain/France precedent).
   "Portugal": "Portugal",
@@ -4118,6 +4152,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   FR: "France",
   HU: "Hungary",
   PL: "Poland",
+  NP: "Nepal",
   PT: "Portugal",
   NL: "Netherlands",
   DK: "Denmark",

@@ -6049,6 +6049,24 @@ export const SOURCES = [
       kennelCodes: ["sh3-kr"],
     },
 
+    // ── Nepal ──
+    // --- Himalayan H3 (himalayanhash.run TablePress "Receding Hareline" — NEW
+    // HimalayanHashAdapter) --- WordPress 6.5.8 SSR home page renders a rolling
+    // 3-row table (current + next ~2) plus a single featured-run detail block
+    // (Google Map link + venue coords + directions). No archive/pagination.
+    // upcomingOnly protects reconcile as runs age off; the adapter fails loud on
+    // parse drift.
+    {
+      name: "Himalayan H3 Website",
+      url: "https://himalayanhash.run/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["himalayan-h3"],
+    },
+
     // ── Nevada + Utah (US gap fill) ──
 
     // Las Vegas H3 — Tribe Events Calendar REST API at lvh3.org

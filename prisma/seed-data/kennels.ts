@@ -4791,6 +4791,29 @@ export const KENNELS: KennelSeed[] = [
       description:
         "Korea's Mother Hash — the original Seoul men's hash, \"Only Half A Mind\" on Freedom's Frontier, trailing the hills and rice paddies around Seoul since 1972. A drinking club with a running problem.",
     },
+    // ── Nepal (first 🇳🇵 kennel: Himalayan H3, Kathmandu) ──
+    {
+      // "Nepal's only hash" (ECS Nepal feature), est. 1979 (~run #2521 Jun 2026).
+      // Bare "HHHH" alias OMITTED (taken by h6 Hollyweird) and bare "H4" OMITTED
+      // (collides with kennelCode h4 Hangover + hockessin/h4-tx aliases); used the
+      // qualified "HHHH Nepal" instead. toSlug("Himalayan H3") = "himalayan-h3".
+      kennelCode: "himalayan-h3", shortName: "Himalayan H3", fullName: "Himalayan Hash House Harriers",
+      slug: "himalayan-h3",
+      region: "Kathmandu", country: "Nepal",
+      website: "https://himalayanhash.run/",
+      facebookUrl: "https://www.facebook.com/groups/337430216422725/",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Weekly",
+      foundedYear: 1979,
+      // 2010 ECS Nepal figure (Rs 250 beer / Rs 100 soft) — current site publishes
+      // no fee; may be dated.
+      hashCash: "NPR 250 (beer drinkers) / NPR 100 (soft drinkers)",
+      dogFriendly: true,
+      walkersWelcome: true,
+      logoUrl: "/kennel-logos/himalayan-h3.png",
+      latitude: 27.7172, longitude: 85.324,
+      description:
+        "Nepal's original (and, per local press, only) hash — \"a drinking club with a running problem\" founded in Kathmandu in 1979. The Himalayan Hash House Harriers (HHHH / H4) run every Saturday afternoon at outlying venues around the Kathmandu Valley, walkers and dogs welcome.",
+    },
     // ── Nevada + Utah (US gap fill) ──
     {
       kennelCode: "lv-h3", shortName: "Las Vegas H3", fullName: "Las Vegas Hash House Harriers",
