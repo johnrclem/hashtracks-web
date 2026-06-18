@@ -6079,3 +6079,174 @@ describe("Colorado Springs H3 Calendar — PPH4 description-hare preference (#21
     expect(result!.hares).toBe("Slug");
   });
 });
+
+// ── Quick Win bundle: six GOOGLE_CALENDAR audit bugs ──────────────────────────
+
+describe("Thirstday H3 — empty 'Hares:' label must not capture next-line 'Notes:' (#2213)", () => {
+  const source = SOURCES.find((s) => s.name === "Chicagoland Hash Calendar");
+  if (!source?.config) throw new Error("Chicagoland Hash Calendar seed config missing");
+  const config = source.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+
+  it("yields no hare when the description is 'Hares: <br>Notes: <br>…'", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Thirstday H3",
+        description:
+          'Hares: <br>Notes: <br><br><a href="http://www.chicagoth3.com/">http://www.chicagoth3.com/</a>',
+      }),
+      config,
+    );
+    expect(result?.kennelTags[0]).toBe("th3");
+    expect(result?.hares).not.toBe("Notes:");
+    expect(result?.hares).toBeFalsy();
+  });
+
+  it("still captures a real same-line 'Hare: Name' (no #2122 regression)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Thirstday H3", description: "Iron Girth with your Hare: NIPS" }),
+      config,
+    );
+    expect(result?.hares).toBe("NIPS");
+  });
+});
+
+describe('normalizeGCalDescription — Pandoc inline-math span $ restoration (#2217 LDS H3)', () => {
+  it('restores $ from a <span class="math inline"> \\( \\) cost artifact', () => {
+    const { rawDescription, description } = normalizeGCalDescription(
+      'Hash cash: <span class="math inline">\\(5 (or \\)</span>1 and BYOB)',
+    );
+    expect(rawDescription).toContain("$5 (or $1 and BYOB)");
+    expect(rawDescription).not.toContain("\\(");
+    expect(description).toContain("$5 (or $1 and BYOB)");
+  });
+
+  it("leaves descriptions without the math-span marker untouched", () => {
+    const { rawDescription } = normalizeGCalDescription("Meet at 6pm, $5 hash cash");
+    expect(rawDescription).toBe("Meet at 6pm, $5 hash cash");
+  });
+});
+
+describe("SEH3 — '(special location)' qualifier is not a hare (#2235)", () => {
+  const source = SOURCES.find((s) => s.name === "WA Hash Google Calendar");
+  if (!source?.config) throw new Error("WA Hash Google Calendar seed config missing");
+  const config = source.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+
+  it("strips '(special location)' from the title and leaves hares empty", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "South End H3 Happy Hour (special location)",
+        location: "8505 S 124th St, Seattle, WA 98178, USA",
+        start: { dateTime: "2026-06-25T17:00:00-07:00" },
+      }),
+      config,
+    );
+    expect(result?.kennelTags[0]).toBe("seh3-wa");
+    expect(result?.hares).not.toBe("special location");
+    expect(result?.hares).toBeFalsy();
+    expect(result?.title).toBe("South End H3 Happy Hour");
+  });
+
+  it("still promotes a real trailing '(Hare Name)' (no paren-hare regression)", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "South End H3 Happy Hour (Just Bob)",
+        start: { dateTime: "2026-06-25T17:00:00-07:00" },
+      }),
+      config,
+    );
+    expect(result?.hares).toBe("Just Bob");
+  });
+});
+
+describe("Larryville H3 — location identical to title is dropped (#2231)", () => {
+  const source = SOURCES.find((s) => s.name === "Larryville H3 Google Calendar");
+  if (!source?.config) throw new Error("Larryville H3 Google Calendar seed config missing");
+  const config = source.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+
+  it("drops a location that is a verbatim copy of the title", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Juneteenth parade downtown",
+        location: "Juneteenth parade downtown",
+        start: { dateTime: "2026-06-20T14:00:00-05:00" },
+      }),
+      config,
+    );
+    expect(result?.kennelTags[0]).toBe("lh3-ks");
+    expect(result?.title).toBe("Juneteenth parade downtown");
+    expect(result?.location).toBeUndefined();
+  });
+
+  it("keeps a real address location", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "LH3 #687 - Dumpster Diving",
+        location: "The Wheel, 507 W 14th St, Lawrence, KS 66044, USA",
+        start: { dateTime: "2026-06-27T14:00:00-05:00" },
+      }),
+      config,
+    );
+    expect(result?.location).toContain("507 W 14th St");
+  });
+});
+
+describe("Kimchi — bare 'Kimchi #' placeholder gets a readable default title (#2218)", () => {
+  const source = SOURCES.find((s) => s.name === "Colorado Springs H3 Calendar");
+  if (!source?.config) throw new Error("Colorado Springs H3 Calendar seed config missing");
+  const config = source.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+
+  it.each([
+    ["Kimchi #", "Kimchi H3 Trail", "bare placeholder master"],
+    ["Kimchi", "Kimchi H3 Trail", "bare kennel name"],
+    ["Kimchi #606", "Kimchi H3 Trail #606", "bare numbered run"],
+  ])("title %j → %j (%s)", (summary, expectedTitle) => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ summary, start: { dateTime: "2026-06-20T14:00:00-06:00" } }),
+      config,
+    );
+    expect(result?.kennelTags[0]).toBe("kimchi-h3");
+    expect(result?.title).toBe(expectedTitle);
+  });
+
+  it("leaves a themed Kimchi title untouched", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "Kimchi #608: Kentucky Derby Hash",
+        start: { dateTime: "2026-06-20T14:00:00-06:00" },
+      }),
+      config,
+    );
+    expect(result?.title).toBe("Kimchi #608: Kentucky Derby Hash");
+  });
+});
+
+describe("Salem H3 — all-day events admitted, placeholder stubs skipped (#2209)", () => {
+  const source = SOURCES.find((s) => s.name === "Salem H3 Calendar");
+  if (!source?.config) throw new Error("Salem H3 Calendar seed config missing");
+  const config = source.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+  const skipOpts = { compiledSkipPatterns: compilePatterns(config?.skipPatterns ?? [], "i") };
+
+  it("admits an all-day named trail", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "🌤️SalemH3 Solstice Hash", start: { date: "2026-06-20" }, status: "confirmed" },
+      config,
+      skipOpts,
+    );
+    expect(result).not.toBeNull();
+    expect(result?.kennelTags[0]).toBe("salemh3");
+    expect(result?.date).toBe("2026-06-20");
+  });
+
+  it("skips the recurring 'SalemH3 Placeholder' stubs", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "🐇SalemH3 Placeholder (1st & 3rd Saturdays)",
+        start: { date: "2026-07-04" },
+        status: "confirmed",
+      },
+      config,
+      skipOpts,
+    );
+    expect(result).toBeNull();
+  });
+});

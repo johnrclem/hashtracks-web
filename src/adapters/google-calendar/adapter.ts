@@ -557,6 +557,11 @@ function isEventTypeOrThemeParen(inner: string): boolean {
 // reliable signal — real hare names never contain slash-separated date
 // tokens. Mirrors the same DATE_RANGE_RE in hare-extraction.ts.
 const DATE_RANGE_PAREN_RE = /\b\d{1,2}\s*\/\s*\d{1,2}\b/;
+// #2235 SEH3: a trailing parenthetical venue qualifier — "(special location)",
+// "(new location)", "(location TBD)" — is a location note, never a hare name.
+// Treated as instructional so it's stripped from the title and never promoted
+// to hares. Joins the same global reject family as NON_NAME / ACRONYM / etc.
+const LOCATION_QUALIFIER_PAREN_RE = /\blocation\b/i;
 const MAX_HARE_PAREN_LENGTH = 40;
 
 /**
@@ -975,7 +980,11 @@ export function extractCostFromDescription(description: string): string | undefi
  * (cleanAndFilterHares passes "TBD" through; this rejects it). A null/undefined
  * cleaner result means "no usable hare" → undefined.
  */
-const INLINE_HARE_LABEL_RE = /(?:^|[\s(])Hares?\s*:\s*([A-Z*][^\n]*)/;
+// #2213 Thirstday — `[ \t]*` (not `\s*`) after the label so an empty `Hares:`
+// label can't let the post-colon whitespace match cross a newline and capture
+// the NEXT line's label (`Hares: \nNotes:` → "Notes:"). This is a mid-line
+// `Hare: Name` extractor by design, so same-line whitespace is correct.
+const INLINE_HARE_LABEL_RE = /(?:^|[\s(])Hares?[ \t]*:[ \t]*([A-Z*][^\n]*)/;
 export function extractInlineHareFromDescription(description: string): string | undefined {
   const match = INLINE_HARE_LABEL_RE.exec(description);
   if (!match?.[1]) return undefined;
@@ -1352,6 +1361,15 @@ function extractDateTimeFromGCalItem(
 export function normalizeGCalDescription(rawDesc: string | undefined): { rawDescription: string | undefined; description: string | undefined } {
   if (!rawDesc) return { rawDescription: undefined, description: undefined };
   let rawDescription = stripHtmlTags(decodeEntities(rawDesc), "\n");
+  // #2217 LDS H3 — some kennels paste cost text copied from a Markdown/MathJax
+  // page where "$5 (or $1…" was rendered as a Pandoc inline-math span
+  // (<span class="math inline">\(5 (or \)</span>1…). After tag-stripping, the
+  // LaTeX \( / \) delimiters survive as garbled cost. Restore them to $. Gated
+  // on the span marker so unaffected descriptions are untouched; plain-string
+  // replaceAll keeps it off the Sonar regex radar.
+  if (rawDesc.includes("math inline")) {
+    rawDescription = rawDescription.replaceAll("\\(", "$").replaceAll("\\)", "$");
+  }
   // Strip mailto: link artifacts: "text (mailto:email)" → "text"
   rawDescription = rawDescription.replace(/\s*\(mailto:[^)]+\)/g, "");
   // Strip Harrier Central auto-generated header from GCal-synced events:
@@ -1842,6 +1860,7 @@ export function buildRawEventFromGCalItem(
       inner.length > MAX_HARE_PAREN_LENGTH ||
       INSTRUCTIONAL_PAREN_RE.test(inner) ||
       DATE_RANGE_PAREN_RE.test(inner) ||
+      LOCATION_QUALIFIER_PAREN_RE.test(inner) ||
       isEventTypeOrThemeParen(inner);
     // #1444 — three independent reject checks. NON_NAME catches descriptive
     // and status words; ACRONYM catches CTAs/units; isInitialsWordplay
@@ -2099,6 +2118,14 @@ export function buildRawEventFromGCalItem(
   const isRunDescriptor =
     sourceConfig?.mergeAllDayRunDescriptor === true && isAllDay && typeof runNumber === "number";
   const finalTitle = isRunDescriptor ? (extractRunDescriptorTheme(summary) || undefined) : title;
+
+  // #2231 Larryville — a venue is never a verbatim copy of the event title.
+  // Some kennels paste the event name into the GCal LOCATION field instead of an
+  // address ("Juneteenth parade downtown" in both summary and location); drop
+  // the duplicate so it doesn't masquerade as a geocodable location.
+  if (location && finalTitle && location.trim().toLowerCase() === finalTitle.trim().toLowerCase()) {
+    location = undefined;
+  }
 
   const event: RawEventData = {
     date: dateISO,
