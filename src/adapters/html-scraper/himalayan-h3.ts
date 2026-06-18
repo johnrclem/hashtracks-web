@@ -11,7 +11,10 @@
  *
  * Date cells are `Dth Month` with NO year — inferred forward from today (Dec→Jan
  * rollover). The table is a rolling window (current + next ~2 runs, mostly
- * placeholders), so the source is `upcomingOnly`.
+ * placeholders), so the source is `upcomingOnly`. Rows are gated to a tight
+ * near-term horizon (see `isWithinHareHorizon`) so an abandoned/frozen table
+ * fails closed (zero events → loud error) instead of republishing last year's
+ * runs as phantom future events when the calendar wraps back to their month.
  *
  * Below the table a single featured-run detail block (`HASH NNNN` heading) carries
  * a Google Maps button (`maps.app.goo.gl`) plus a Fusion-map shortcode with the
@@ -61,6 +64,27 @@ const W3W_HOSTS = new Set(["w3w.co", "what3words.com", "www.what3words.com"]);
 // computed lookup is `.get()` (no object-key injection — Codacy/Gemini flag
 // `Record[var]`). Keyed by full name and abbreviation.
 const MONTH_INDEX = new Map<string, number>(Object.entries(MONTHS_ZERO));
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+// A "Receding Hareline" only ever lists the current run plus the next few weekly
+// ones, so a legitimate row is always within a tight near-term window. We bound
+// acceptance accordingly to fail CLOSED on an abandoned/frozen table: a year-less
+// row that nobody updates resolves to the SAME month next year, which would
+// otherwise land inside the ±90d scrape window and publish as a phantom future
+// run that reconcile/health can't catch (valid-looking date, present every
+// scrape). Out-of-horizon rows are dropped; when EVERY row is stale the adapter
+// emits zero events and fails loud instead (see fetch). The narrow residual — a
+// fully-frozen table scraped within ~FUTURE_HORIZON_DAYS of its frozen month —
+// is irreducible without a page-freshness signal and is shared by every
+// year-less upcomingOnly adapter.
+const PAST_GRACE_DAYS = 14;
+const FUTURE_HORIZON_DAYS = 42;
+
+/** True if a resolved date falls inside the receding-hareline near-term horizon. */
+function isWithinHareHorizon(date: string, now: Date): boolean {
+  const diffMs = new Date(`${date}T12:00:00Z`).getTime() - now.getTime();
+  return diffMs >= -PAST_GRACE_DAYS * DAY_MS && diffMs <= FUTURE_HORIZON_DAYS * DAY_MS;
+}
 
 /** Resolve a year-less month/day to the nearest upcoming "YYYY-MM-DD" (UTC noon). */
 function resolveForwardDate(monthIdx: number, day: number, now: Date): string {
@@ -141,7 +165,10 @@ export function parseHarelineRow(
   const runNumber = Number.parseInt(runMatch[1], 10);
 
   const date = parseRecedingDate($tds.eq(1).text().trim(), now);
-  if (!date) return null;
+  // Drop unparseable rows AND stale rows outside the near-term horizon (a frozen
+  // year-less row resolves to next year's same month — fail closed, don't
+  // publish a phantom future run).
+  if (!date || !isWithinHareHorizon(date, now)) return null;
 
   const startTime = parseRecedingTime($tds.eq(2).text().trim());
   const location = cleanVenue(venueCellText($, $tds.eq(3).get(0) as Element));

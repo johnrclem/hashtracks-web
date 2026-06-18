@@ -126,6 +126,21 @@ describe("parseHimalayanPage", () => {
   });
 });
 
+describe("parseHimalayanPage (stale-table fail-closed)", () => {
+  it("drops frozen rows once the source is abandoned (no phantom future runs)", () => {
+    // Same fixture scraped the FOLLOWING spring: the year-less June rows resolve
+    // to ~2.5 months out — beyond the near-term horizon — so nothing is emitted
+    // and fetch() will fail loud instead of publishing last year's runs.
+    const nextSpring = new Date("2027-04-01T12:00:00Z");
+    const { events } = parseHimalayanPage(
+      FIXTURE,
+      nextSpring,
+      "https://himalayanhash.run/",
+    );
+    expect(events).toHaveLength(0);
+  });
+});
+
 describe("parseHarelineRow (row-level w3w fallback)", () => {
   it("captures the w3w link as locationUrl before the detail-block merge", () => {
     const $ = cheerio.load(FIXTURE);
