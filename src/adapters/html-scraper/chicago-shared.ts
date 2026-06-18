@@ -46,12 +46,18 @@ export function parseTimeString(text: string): string | null {
   return null;
 }
 
-/** Fetch a URL and return its HTML text, or an error detail. */
+/** Fetch a URL and return its HTML text, or an error detail.
+ *
+ * chicagohash.org + chicagoth3.com sit behind Cloudflare, which 403s Vercel's
+ * datacenter IP (#2244 / #2246). Route through the NAS residential proxy so the
+ * request egresses from a residential IP. The pages are plain server-rendered
+ * WordPress HTML (no JS challenge), so a proxied GET is sufficient. */
 export async function fetchAndParseHtmlPage(url: string): Promise<{ html: string; error?: never } | { html?: never; error: { url: string; status?: number; message: string } }> {
   try {
     const response = await safeFetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
       signal: AbortSignal.timeout(30_000),
+      useResidentialProxy: true,
     });
     if (!response.ok) {
       return { error: { url, status: response.status, message: `HTTP ${response.status}: ${response.statusText}` } };

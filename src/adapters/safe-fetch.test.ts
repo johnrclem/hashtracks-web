@@ -56,3 +56,56 @@ describe("safeFetch direct-fetch timeout", () => {
     expect(second).toBe(first); // same object reused across the chain
   });
 });
+
+describe("safeFetch residential-proxy body forwarding", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  const prevUrl = process.env.RESIDENTIAL_PROXY_URL;
+  const prevKey = process.env.RESIDENTIAL_PROXY_KEY;
+
+  beforeEach(() => {
+    process.env.RESIDENTIAL_PROXY_URL = "https://proxy.example";
+    process.env.RESIDENTIAL_PROXY_KEY = "k".repeat(32);
+    fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("ok", { status: 200 }));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    process.env.RESIDENTIAL_PROXY_URL = prevUrl;
+    process.env.RESIDENTIAL_PROXY_KEY = prevKey;
+  });
+
+  function proxyPayload(): { url: string; method: string; headers: Record<string, string>; body?: string } {
+    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined;
+    return JSON.parse(init?.body as string);
+  }
+
+  it("forwards a string POST body to the proxy (e.g. Bangkok's PHP hareline API)", async () => {
+    await safeFetch("https://bangkokhash.com/api", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: '{"hashclub":"BTH3"}',
+      useResidentialProxy: true,
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://proxy.example/proxy",
+      expect.anything(),
+    );
+    const payload = proxyPayload();
+    expect(payload.method).toBe("POST");
+    expect(payload.url).toBe("https://bangkokhash.com/api");
+    expect(payload.body).toBe('{"hashclub":"BTH3"}');
+  });
+
+  it("omits body for a proxied GET (no regression for body-less requests)", async () => {
+    await safeFetch("https://bangkokhash.com/page", {
+      useResidentialProxy: true,
+    });
+
+    const payload = proxyPayload();
+    expect(payload.method).toBe("GET");
+    expect(payload).not.toHaveProperty("body");
+  });
+});

@@ -86,9 +86,12 @@ function isPrivateTarget(hostname) {
 
 /**
  * Fetch a URL using Node built-in http/https, following redirects.
+ * `body` (optional string) is sent for POST/PUT/etc. requests — adapters
+ * that proxy a POST (e.g. Bangkok's PHP hareline API) need their request
+ * body forwarded to the upstream.
  * Returns { statusCode, headers, body (Buffer) }.
  */
-function fetchUrl(targetUrl, method, headers, redirectCount) {
+function fetchUrl(targetUrl, method, headers, body, redirectCount) {
   return new Promise((resolve, reject) => {
     if (redirectCount > MAX_REDIRECTS) {
       return reject(new Error(`Too many redirects (>${MAX_REDIRECTS})`));
@@ -112,9 +115,20 @@ function fetchUrl(targetUrl, method, headers, redirectCount) {
     }
 
     const client = parsed.protocol === "https:" ? https : http;
+    const mergedHeaders = { ...DEFAULT_HEADERS, ...headers };
+    const hasBody = typeof body === "string" && body.length > 0;
+    if (hasBody) {
+      // Recompute Content-Length and send unchunked — PHP/nginx endpoints
+      // often reject chunked transfer-encoding on POST. Strip any caller-
+      // supplied content-length (any case) so we don't emit a duplicate.
+      for (const k of Object.keys(mergedHeaders)) {
+        if (k.toLowerCase() === "content-length") delete mergedHeaders[k];
+      }
+      mergedHeaders["Content-Length"] = Buffer.byteLength(body);
+    }
     const options = {
       method: method || "GET",
-      headers: { ...DEFAULT_HEADERS, ...headers },
+      headers: mergedHeaders,
       timeout: REQUEST_TIMEOUT_MS,
     };
 
@@ -127,7 +141,7 @@ function fetchUrl(targetUrl, method, headers, redirectCount) {
       ) {
         const nextUrl = new URL(res.headers.location, targetUrl).toString();
         res.resume(); // drain response
-        return resolve(fetchUrl(nextUrl, method, headers, redirectCount + 1));
+        return resolve(fetchUrl(nextUrl, method, headers, body, redirectCount + 1));
       }
 
       const chunks = [];
@@ -157,6 +171,7 @@ function fetchUrl(targetUrl, method, headers, redirectCount) {
       reject(new Error(`Request timed out after ${REQUEST_TIMEOUT_MS}ms`));
     });
     req.on("error", reject);
+    if (hasBody) req.write(body);
     req.end();
   });
 }
@@ -225,16 +240,19 @@ const server = http.createServer(async (req, res) => {
       return jsonResponse(res, 400, { error: "Invalid JSON body" });
     }
 
-    const { url, method, headers } = parsed;
+    const { url, method, headers, body } = parsed;
     if (!url || typeof url !== "string") {
       return jsonResponse(res, 400, { error: "Missing or invalid 'url' field" });
+    }
+    if (body !== undefined && typeof body !== "string") {
+      return jsonResponse(res, 400, { error: "'body' field must be a string" });
     }
 
     console.log(
       `[${new Date().toISOString()}] Proxying ${method || "GET"} ${url}`,
     );
 
-    const result = await fetchUrl(url, method || "GET", headers || {}, 0);
+    const result = await fetchUrl(url, method || "GET", headers || {}, body, 0);
 
     // Forward select response headers
     const responseHeaders = {};

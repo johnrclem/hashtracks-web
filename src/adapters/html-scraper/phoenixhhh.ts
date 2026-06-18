@@ -24,6 +24,14 @@ interface PhoenixHHHConfig {
   defaultKennelTag: string;
   pageId?: number; // defaults to 21
   /**
+   * Max number of forward calendar months to fetch per scrape (default 3).
+   * Each month page is an ~30s AJAX POST, so fetching the full ±365d window
+   * (~25 months) blew the 120s cron budget and timed out (#2242). The fetch is
+   * forward-only (past months never change); the date window still bounds which
+   * parsed events are kept.
+   */
+  maxForwardMonths?: number;
+  /**
    * Per-kennel standard hash cash (Two-Tier Hash Cash Model). Keyed by
    * kennelCode. The detail page carries a `Hash Cash:` line on every event;
    * we only promote it to `Event.cost` when it DIFFERS from the kennel's
@@ -415,11 +423,23 @@ export class PhoenixHHHAdapter implements SourceAdapter {
       config.kennelPatterns[i][1],
     ]);
 
-    // Calculate month range from date window
-    const startMonth = minDate.getUTCMonth() + 1;
-    const startYear = minDate.getUTCFullYear();
-    const endMonth = maxDate.getUTCMonth() + 1;
-    const endYear = maxDate.getUTCFullYear();
+    // Calculate the FETCH month range. Forward-only: past calendar months never
+    // change, and re-fetching ~12 of them every day (each an ~30s AJAX POST)
+    // blew the 120s cron budget and timed out (#2242). Start at the current
+    // month and cap the span via `maxForwardMonths` (default 3), never going
+    // past the date window's natural end. The [minDate, maxDate] window from
+    // buildDateWindow still governs which parsed events are KEPT below.
+    const now = new Date();
+    const startMonth = now.getUTCMonth() + 1;
+    const startYear = now.getUTCFullYear();
+
+    const maxForwardMonths = Math.max(1, config.maxForwardMonths ?? 3);
+    const startIndex = startYear * 12 + (startMonth - 1);
+    const capEndIndex = startIndex + (maxForwardMonths - 1);
+    const windowEndIndex = maxDate.getUTCFullYear() * 12 + maxDate.getUTCMonth();
+    const endIndex = Math.min(capEndIndex, windowEndIndex);
+    const endYear = Math.floor(endIndex / 12);
+    const endMonth = (endIndex % 12) + 1;
 
     const allEvents: RawEventData[] = [];
     const seenKeys = new Set<string>(); // dedup month boundary spillover

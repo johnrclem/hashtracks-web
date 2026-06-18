@@ -207,12 +207,17 @@ export class SOH4Adapter implements SourceAdapter {
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
-    // Phase 1: Fetch RSS feed
+    // Phase 1: Fetch RSS feed.
+    // soh4.com sits behind Cloudflare, which 403s Vercel's datacenter IP
+    // (#2243). Route the feed + every trail page through the NAS residential
+    // proxy so requests egress from a residential IP. Both endpoints are plain
+    // server-rendered XML/HTML (no JS challenge), so proxied GETs suffice.
     const fetchStart = Date.now();
     let rssResponse: Response;
     try {
       rssResponse = await safeFetch(feedUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+        useResidentialProxy: true,
       });
     } catch (err) {
       const message = `Fetch failed: ${err}`;
@@ -240,6 +245,7 @@ export class SOH4Adapter implements SourceAdapter {
           const trailUrl = item.url.endsWith("/") ? item.url : `${item.url}/`;
           const response = await safeFetch(trailUrl, {
             headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+            useResidentialProxy: true,
           });
           if (!response.ok) {
             throw new Error(`HTTP ${response.status} for ${trailUrl}`);

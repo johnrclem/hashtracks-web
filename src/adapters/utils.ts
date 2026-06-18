@@ -628,12 +628,23 @@ export type FetchHTMLResult = FetchHTMLSuccess | FetchHTMLError;
 /**
  * Fetch a URL, validate via safeFetch, compute structureHash, and load Cheerio.
  * Returns a discriminated union: check `result.ok` before accessing fields.
+ *
+ * Pass `useResidentialProxy: true` to egress through the NAS residential proxy
+ * for datacenter-IP-blocked domains (e.g. bangkokhash.com 403s Vercel — #2247).
+ * Pass `userAgent` to override the default "HashTracks-Scraper" UA — some WAFs
+ * (e.g. bangkokhash.com) 403 the bot UA but allow a normal browser UA.
  */
-export async function fetchHTMLPage(url: string): Promise<FetchHTMLResult> {
+export async function fetchHTMLPage(
+  url: string,
+  options?: { useResidentialProxy?: boolean; userAgent?: string },
+): Promise<FetchHTMLResult> {
   const fetchStart = Date.now();
   try {
     const response = await safeFetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+      headers: {
+        "User-Agent": options?.userAgent ?? "Mozilla/5.0 (compatible; HashTracks-Scraper)",
+      },
+      useResidentialProxy: options?.useResidentialProxy,
     });
     if (!response.ok) {
       const message = `HTTP ${response.status}: ${response.statusText}`;

@@ -242,7 +242,11 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // ── Malaysia (Phase 1: KL + Penang founder pack) ──
   { pattern: /motherhash\.org/i, name: "MotherHashAdapter", factory: () => new MotherHashAdapter() },
   { pattern: /ph3\.org/i, name: "YiiHarelineAdapter", factory: () => new YiiHarelineAdapter() },
-  { pattern: /klfullmoonhash\.com/i, name: "YiiHarelineAdapter", factory: () => new YiiHarelineAdapter() },
+  // KL Full Moon migrated off Yii to the goHash.app platform (#2241) — the old
+  // /index.php?r=site/hareline route now 404s. The relaunched site SSRs
+  // window.__INITIAL_STATE__ at /hareline/upcoming, so it shares the GoHash
+  // adapter with Penang H3 / Harriets Penang. (Petaling H3 stays on Yii.)
+  { pattern: /klfullmoonhash\.com/i, name: "GoHashAdapter", factory: () => new GoHashAdapter() },
   { pattern: /kljhhh\.org/i, name: "KljH3Adapter", factory: () => new KljH3Adapter() },
   { pattern: /penanghash3\.org/i, name: "GoHashAdapter", factory: () => new GoHashAdapter() },
   { pattern: /hashhouseharrietspenang\.com/i, name: "GoHashAdapter", factory: () => new GoHashAdapter() },

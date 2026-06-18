@@ -43,6 +43,12 @@ import {
  *   { "subSite": "thursday", "hashClub": "BTH3", "apiBase": "/H222k3" }
  */
 
+// bangkokhash.com's WAF 403s the default "HashTracks-Scraper" UA (#2247/#2245),
+// even via the residential proxy — it only allows a normal browser UA. Mirror
+// the UA the enfield/norfolk proxied adapters use.
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+
 interface BangkokHashConfig {
   subSite: string;     // "thursday" | "fullmoon" | "siamsunday"
   hashClub: string;    // "BTH3" | "BFMH3" | "S2H3"
@@ -340,8 +346,16 @@ export class BangkokHashAdapter implements SourceAdapter {
     let structureHash: string | undefined;
     let fetchDurationMs = 0;
 
+    // bangkokhash.com 403s Vercel's datacenter IP (#2247 / #2245), so both the
+    // main Joomla page and the PHP hareline API must egress through the NAS
+    // residential proxy. The PHP API is a POST whose JSON body the proxy now
+    // forwards (residential-proxy body support added alongside this fix).
+
     // 1. Fetch the main Joomla page for the next run article
-    const page = await fetchHTMLPage(baseUrl);
+    const page = await fetchHTMLPage(baseUrl, {
+      useResidentialProxy: true,
+      userAgent: BROWSER_UA,
+    });
     if (page.ok) {
       structureHash = page.structureHash;
       fetchDurationMs = page.fetchDurationMs;
@@ -359,8 +373,12 @@ export class BangkokHashAdapter implements SourceAdapter {
       const apiStart = Date.now();
       const response = await safeFetch(apiUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json; charset=UTF-8" },
+        headers: {
+          "Content-Type": "application/json; charset=UTF-8",
+          "User-Agent": BROWSER_UA,
+        },
         body: JSON.stringify({ usewamp: 0, hashclub: hashClub, viewoption: "0" }),
+        useResidentialProxy: true,
       });
       const apiDurationMs = Date.now() - apiStart;
 
