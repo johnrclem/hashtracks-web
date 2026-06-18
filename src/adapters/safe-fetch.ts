@@ -60,17 +60,30 @@ export async function safeFetch(
       );
     } else {
       const headerRecord = headersToRecord(init.headers);
+      // Forward the request body so proxied POSTs work (e.g. Bangkok's PHP
+      // hareline API needs its JSON body). Only string bodies are forwarded —
+      // the JSON envelope can't carry Blob/FormData/stream bodies, and every
+      // adapter that proxies a POST already serializes to a string.
+      const proxyPayload: {
+        url: string;
+        method: string;
+        headers: Record<string, string>;
+        body?: string;
+      } = {
+        url,
+        method: init.method || "GET",
+        headers: headerRecord,
+      };
+      if (typeof init.body === "string") {
+        proxyPayload.body = init.body;
+      }
       const proxyResponse = await fetch(`${proxyUrl}/proxy`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "X-Proxy-Key": proxyKey,
         },
-        body: JSON.stringify({
-          url,
-          method: init.method || "GET",
-          headers: headerRecord,
-        }),
+        body: JSON.stringify(proxyPayload),
         signal: init.signal ?? AbortSignal.timeout(45_000), // caller can override; default = 30s proxy + 15s tunnel
       });
 

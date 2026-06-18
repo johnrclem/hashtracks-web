@@ -24,6 +24,14 @@ interface PhoenixHHHConfig {
   defaultKennelTag: string;
   pageId?: number; // defaults to 21
   /**
+   * Max number of forward calendar months to fetch per scrape (default 4 —
+   * covers a 90-day `scrapeDays` window, which spans up to four calendar
+   * months). Fetching the full ±365d window (~25 months) blew the 120s cron
+   * budget and timed out (#2242). The fetch is forward-only (past months never
+   * change); the date window still bounds which parsed events are kept.
+   */
+  maxForwardMonths?: number;
+  /**
    * Per-kennel standard hash cash (Two-Tier Hash Cash Model). Keyed by
    * kennelCode. The detail page carries a `Hash Cash:` line on every event;
    * we only promote it to `Event.cost` when it DIFFERS from the kennel's
@@ -415,11 +423,32 @@ export class PhoenixHHHAdapter implements SourceAdapter {
       config.kennelPatterns[i][1],
     ]);
 
-    // Calculate month range from date window
-    const startMonth = minDate.getUTCMonth() + 1;
-    const startYear = minDate.getUTCFullYear();
-    const endMonth = maxDate.getUTCMonth() + 1;
-    const endYear = maxDate.getUTCFullYear();
+    // Calculate the FETCH month range. Forward-only: past calendar months never
+    // change, and re-fetching ~12 of them every day (each a slow AJAX POST) blew
+    // the 120s cron budget and timed out (#2242). Start at the current month and
+    // cap the span via `maxForwardMonths` (default 4), never going past the date
+    // window's natural end. The default of 4 covers a 90-day `scrapeDays` window,
+    // which spans up to four calendar months (e.g. Jun 18 → Sep 16) — a 3-month
+    // cap dropped the last partial month's events. The [minDate, maxDate] window
+    // from buildDateWindow still governs which parsed events are KEPT below.
+    const now = new Date();
+    const startMonth = now.getUTCMonth() + 1;
+    const startYear = now.getUTCFullYear();
+
+    // Defensive parse: a misconfigured non-numeric `maxForwardMonths` must not
+    // NaN-poison the index math and silently skip the whole loop.
+    const rawMax =
+      typeof config.maxForwardMonths === "number"
+        ? config.maxForwardMonths
+        : Number(config.maxForwardMonths);
+    const maxForwardMonths =
+      Number.isFinite(rawMax) && rawMax >= 1 ? Math.floor(rawMax) : 4;
+    const startIndex = startYear * 12 + (startMonth - 1);
+    const capEndIndex = startIndex + (maxForwardMonths - 1);
+    const windowEndIndex = maxDate.getUTCFullYear() * 12 + maxDate.getUTCMonth();
+    const endIndex = Math.min(capEndIndex, windowEndIndex);
+    const endYear = Math.floor(endIndex / 12);
+    const endMonth = (endIndex % 12) + 1;
 
     const allEvents: RawEventData[] = [];
     const seenKeys = new Set<string>(); // dedup month boundary spillover

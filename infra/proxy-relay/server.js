@@ -44,6 +44,14 @@ const FORWARDED_HEADERS = [
   "etag",
 ];
 
+// Headers dropped when a redirect crosses to a different origin, so caller
+// credentials can't leak to an untrusted host (lowercase for case-insensitive match).
+const SENSITIVE_REDIRECT_HEADERS = new Set([
+  "authorization",
+  "cookie",
+  "proxy-authorization",
+]);
+
 /**
  * Check if a hostname resolves to a private/reserved IP range.
  * Blocks SSRF through the proxy.
@@ -86,9 +94,12 @@ function isPrivateTarget(hostname) {
 
 /**
  * Fetch a URL using Node built-in http/https, following redirects.
+ * `body` (optional string) is sent for POST/PUT/etc. requests — adapters
+ * that proxy a POST (e.g. Bangkok's PHP hareline API) need their request
+ * body forwarded to the upstream.
  * Returns { statusCode, headers, body (Buffer) }.
  */
-function fetchUrl(targetUrl, method, headers, redirectCount) {
+function fetchUrl(targetUrl, method, headers, body, redirectCount) {
   return new Promise((resolve, reject) => {
     if (redirectCount > MAX_REDIRECTS) {
       return reject(new Error(`Too many redirects (>${MAX_REDIRECTS})`));
@@ -112,9 +123,20 @@ function fetchUrl(targetUrl, method, headers, redirectCount) {
     }
 
     const client = parsed.protocol === "https:" ? https : http;
+    const mergedHeaders = { ...DEFAULT_HEADERS, ...headers };
+    const hasBody = typeof body === "string" && body.length > 0;
+    if (hasBody) {
+      // Recompute Content-Length and send unchunked — PHP/nginx endpoints
+      // often reject chunked transfer-encoding on POST. Strip any caller-
+      // supplied content-length (any case) so we don't emit a duplicate.
+      for (const k of Object.keys(mergedHeaders)) {
+        if (k.toLowerCase() === "content-length") delete mergedHeaders[k];
+      }
+      mergedHeaders["Content-Length"] = Buffer.byteLength(body);
+    }
     const options = {
       method: method || "GET",
-      headers: { ...DEFAULT_HEADERS, ...headers },
+      headers: mergedHeaders,
       timeout: REQUEST_TIMEOUT_MS,
     };
 
@@ -125,9 +147,23 @@ function fetchUrl(targetUrl, method, headers, redirectCount) {
         res.statusCode < 400 &&
         res.headers.location
       ) {
-        const nextUrl = new URL(res.headers.location, targetUrl).toString();
+        const nextParsed = new URL(res.headers.location, targetUrl);
         res.resume(); // drain response
-        return resolve(fetchUrl(nextUrl, method, headers, redirectCount + 1));
+        // Strip sensitive headers when the redirect crosses to a different
+        // origin, so a redirect to an untrusted host can't exfiltrate
+        // caller-supplied credentials.
+        let nextHeaders = headers;
+        if (nextParsed.origin !== parsed.origin) {
+          nextHeaders = { ...headers };
+          for (const k of Object.keys(nextHeaders)) {
+            if (SENSITIVE_REDIRECT_HEADERS.has(k.toLowerCase())) {
+              delete nextHeaders[k];
+            }
+          }
+        }
+        return resolve(
+          fetchUrl(nextParsed.toString(), method, nextHeaders, body, redirectCount + 1),
+        );
       }
 
       const chunks = [];
@@ -157,6 +193,7 @@ function fetchUrl(targetUrl, method, headers, redirectCount) {
       reject(new Error(`Request timed out after ${REQUEST_TIMEOUT_MS}ms`));
     });
     req.on("error", reject);
+    if (hasBody) req.write(body);
     req.end();
   });
 }
@@ -225,16 +262,19 @@ const server = http.createServer(async (req, res) => {
       return jsonResponse(res, 400, { error: "Invalid JSON body" });
     }
 
-    const { url, method, headers } = parsed;
+    const { url, method, headers, body } = parsed;
     if (!url || typeof url !== "string") {
       return jsonResponse(res, 400, { error: "Missing or invalid 'url' field" });
+    }
+    if (body !== undefined && typeof body !== "string") {
+      return jsonResponse(res, 400, { error: "'body' field must be a string" });
     }
 
     console.log(
       `[${new Date().toISOString()}] Proxying ${method || "GET"} ${url}`,
     );
 
-    const result = await fetchUrl(url, method || "GET", headers || {}, 0);
+    const result = await fetchUrl(url, method || "GET", headers || {}, body, 0);
 
     // Forward select response headers
     const responseHeaders = {};

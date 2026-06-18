@@ -3194,7 +3194,12 @@ export const SOURCES = [
       type: "HTML_SCRAPER" as const,
       trustLevel: 8,
       scrapeFreq: "daily",
-      scrapeDays: 365,
+      // #2242: each month page is an ~30s AJAX POST; the old ±365d window meant
+      // ~25 sequential month fetches that blew the 120s cron budget and timed
+      // out. The adapter now fetches forward-only (capped at maxForwardMonths,
+      // default 3); 90d keeps the event-retention window aligned with that. The
+      // iCal feed source remains primary — this calendar is enrichment.
+      scrapeDays: 90,
       config: {
         kennelPatterns: [
           ["^LBH\\b|Lost Boobs", "lbh-phx"],
@@ -4658,10 +4663,13 @@ export const SOURCES = [
       kennelCodes: ["ph3-my"],
     },
 
-    // 3. KL Full Moon H3 — Yii Framework hareline (same shape as PH3)
+    // 3. KL Full Moon H3 — migrated off Yii to the goHash.app platform (#2241).
+    // The old /index.php?r=site/hareline route now 404s; the relaunched site
+    // SSRs window.__INITIAL_STATE__ at /hareline/upcoming (shared GoHash adapter,
+    // same platform as Penang H3 / Harriets Penang).
     {
       name: "KL Full Moon H3 Hareline",
-      url: "https://klfullmoonhash.com/index.php?r=site/hareline",
+      url: "https://www.klfullmoonhash.com",
       type: "HTML_SCRAPER" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
@@ -4669,6 +4677,7 @@ export const SOURCES = [
       config: {
         kennelTag: "klfmh3",
         startTime: "18:00",
+        harelinePath: "/hareline/upcoming",
       },
       kennelCodes: ["klfmh3"],
     },
