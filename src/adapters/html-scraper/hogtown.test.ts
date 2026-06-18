@@ -56,10 +56,14 @@ describe("parseHogtownEvents", () => {
     expect(events[2].hares).toBe("TBD - Hare needed!");
   });
 
-  it("captures location text and drops TBD placeholders", () => {
+  it("clears an explicit 'Start Location: TBD' to null and keeps the hare (#2219)", () => {
     const events = parseHogtownEvents(FIXTURE, "https://www.hogtownh3.com/upcoming-trails");
     expect(events[0].location).toContain("Samara Brewery");
-    expect(events[1].location).toBeUndefined(); // TBD → undefined
+    // TWAT #582: the source carried "Start Location: TBD" → emit null (explicit
+    // clear) so the merge pipeline wipes any stale canonical venue; the hare is
+    // still captured from "Hares:". (#2219)
+    expect(events[1].location).toBeNull();
+    expect(events[1].hares).toBe("Around the World in Naughty Ways");
     expect(events[2].location).toBe("Bloor and Bathurst");
   });
 

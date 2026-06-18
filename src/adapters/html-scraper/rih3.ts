@@ -92,12 +92,32 @@ export function extractHares(hareHtml: string): string | undefined {
   return names.length > 0 ? names.join(", ") : undefined;
 }
 
+/** True when `text` opens with the (first) hare name — a sign the directions
+ *  cell led with a narrative intro ("Hym Wrng Gye is setting 2 trails …")
+ *  rather than a real title. The hare name belongs in the hare cell, never the
+ *  title. Case-insensitive; ignores hare tokens under 3 chars to avoid spurious
+ *  matches. (#2211) */
+function startsWithHareName(text: string, hares: string | undefined): boolean {
+  if (!hares) return false;
+  const first = hares.split(",")[0]?.trim().toLowerCase();
+  if (!first || first.length < 3) return false;
+  const lower = text.trim().toLowerCase();
+  if (!lower.startsWith(first)) return false;
+  // Require a word boundary after the hare name so a name that is merely a
+  // prefix of a longer word ("John" in "Johnathan Trail") doesn't suppress a
+  // real title — only a true leading name ("John is setting …") counts.
+  const nextChar = lower.charAt(first.length);
+  return nextChar === "" || !/[a-z0-9]/.test(nextChar);
+}
+
 /** Extract the H2 title from a RIH3 directions cell, collapsing multi-segment
- *  bleed (#816) and falling back to a synthetic "RIH3 #N" / "RIH3 Monday Trail". */
+ *  bleed (#816). Returns `undefined` — so `merge.ts` synthesizes
+ *  "Rhode Island H3 Trail #N" — when there is no headline OR when the headline
+ *  is a narrative intro that leads with the hare name (#2211). */
 function extractRih3Title(
   dir$: cheerio.CheerioAPI,
-  runNumber: number | undefined,
-): string {
+  hares: string | undefined,
+): string | undefined {
   // Normalize raw CRLF/LF in the HTML source to spaces so formatting line
   // wraps don't get mistaken for <br>-delimited segments. CodeRabbit PR #824.
   const h2Html = (dir$("h2").first().html() ?? "").replace(/\r?\n/g, " ");
@@ -110,7 +130,9 @@ function extractRih3Title(
     h2Joined.length > MAX_H2_TITLE_LEN && h2Segments[0]
       ? h2Segments[0]
       : h2Joined;
-  return h2Text || (runNumber ? `RIH3 #${runNumber}` : "RIH3 Monday Trail");
+  if (!h2Text) return undefined;
+  if (startsWithHareName(h2Text, hares)) return undefined;
+  return h2Text;
 }
 
 /** Scan a RIH3 directions body (with `<h2>` and `<a>` text removed) for an
@@ -124,7 +146,15 @@ function findAddressInBody(dir$: cheerio.CheerioAPI): string | undefined {
   const bodyText = bodyForAddress.text().replace(/\s+/g, " ").trim();
   const match = ADDRESS_PATTERN_RE.exec(bodyText);
   if (!match) return undefined;
-  const candidate = match[1].replace(ADDRESS_LEADIN_RE, "").trim();
+  // Drop a leading narrative sentence so only the venue + address survives. The
+  // ", City, ST" anchor often sits at the end of a paragraph that opens with
+  // prose ("In his most efficient manner … The Wamsutta Middel School, 300
+  // Locust St, Attleboro, MA") — keep only the text after the last sentence
+  // period (abbreviation-aware, so "St. Mary's" is preserved). (#2211) */
+  let core = match[1];
+  const sentenceEnd = lastSentencePeriod(core);
+  if (sentenceEnd >= 0) core = core.slice(sentenceEnd + 2);
+  const candidate = core.replace(ADDRESS_LEADIN_RE, "").trim();
   const valid =
     candidate.length >= 8 &&
     candidate.length <= 150 &&
@@ -200,6 +230,20 @@ function firstSentencePeriod(s: string): number {
     from = dot + 2;
   }
   return -1;
+}
+
+/** Index of the LAST sentence-ending "." (abbreviation-aware, via
+ *  {@link firstSentencePeriod}), or -1. Used to strip a leading narrative
+ *  sentence off a captured address candidate (#2211). */
+function lastSentencePeriod(s: string): number {
+  let idx = -1;
+  let offset = 0;
+  for (;;) {
+    const next = firstSentencePeriod(s.slice(offset));
+    if (next < 0) return idx;
+    idx = offset + next;
+    offset = idx + 2; // advance past the matched ". "
+  }
 }
 
 /** Trim a captured start-venue at the first sentence/time terminator: a
@@ -346,7 +390,7 @@ export function parseHarelineRow(
 
   // --- Directions cell: title, location, description ---
   const dir$ = cheerio.load(directionHtml);
-  const title = extractRih3Title(dir$, runNumber);
+  const title = extractRih3Title(dir$, hares);
   const mapsLink = dir$(
     'a[href*="google.com/maps"], a[href*="maps.google"]',
   ).first();

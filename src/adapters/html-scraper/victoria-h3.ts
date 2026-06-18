@@ -109,6 +109,11 @@ const TBA_RE = /\b(?:TBA|TBD)\b/i;
 const WRITEUP_HEAD_RE = /^Hash\s*#\s*(\d+)\s+/i;
 const SUBTITLE_RE = /^\(.*\)$/;
 const SECTION_BREAK_RE = /^(?:next page|back to)/i;
+// A themed card heading reads "VH3 #930 - Cum and celebrate…" — the run-number
+// prefix strips to a remainder that still carries the "- " separator. Drop a
+// leading hyphen/en-dash/em-dash so the theme (and the title it becomes) is
+// clean (#2215).
+const LEADING_DASH_RE = /^[-–—]\s*/;
 
 // Card-body fields are detected by their `Label: value` prefix. DSMH3 publishes
 // bilingual slash-labels (`Location/Emplacement:`, `Hare/Lièvre & Host/Hôte:`,
@@ -406,7 +411,7 @@ function buildCard(
   venueUrlMap: Map<string, string>,
 ): CardData {
   const card: CardData = { tag, runNumber, haresNeeded: false };
-  const theme = headingRest.trim();
+  const theme = headingRest.trim().replace(LEADING_DASH_RE, "").trim();
   if (theme && !haresNeededIn(theme)) card.theme = theme;
 
   const descParts: string[] = [];

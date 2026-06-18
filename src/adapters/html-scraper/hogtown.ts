@@ -265,13 +265,23 @@ function finalizeEntry(
   // Drop TBD/TBA placeholder locations through the shared helper — keeps
   // canonical location fields free of "TBD" until the kennel posts the
   // real venue (typically a few days before the trail).
-  let cleanLocation = stripPlaceholder(d.location);
+  let cleanLocation: string | null | undefined = stripPlaceholder(d.location);
 
   // #1932: campout/special entries point at the Special Events page instead
   // of carrying a Start Location line. Adopt the venue from that page whose
   // date span contains this entry's date.
-  if (!cleanLocation && d.needsSpecialEvents) {
+  if (cleanLocation === undefined && d.needsSpecialEvents) {
     cleanLocation = resolveSpecialLocation(dateStr, specialLocations);
+  }
+
+  // #2219: an explicit "Start Location: TBD" must CLEAR a stale canonical venue,
+  // not preserve it. stripPlaceholder collapses TBD→undefined (= "preserve" in
+  // the merge tri-state); when the source DID carry a Start Location line we
+  // emit null instead (= "explicit clear"). A campout with no Start Location
+  // line (d.location === undefined) keeps undefined so its pending venue, or a
+  // later-resolved Special Events venue, is preserved.
+  if (cleanLocation === undefined && d.location !== undefined) {
+    cleanLocation = null;
   }
 
   return {

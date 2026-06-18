@@ -36,11 +36,11 @@ describe("parseKaohsiungHashPage", () => {
     expect(runs[1].date).toBe("2026-07-11");
   });
 
-  it("leaves bare run-type labels undefined but keeps descriptive titles", () => {
+  it("keeps the source title for single-line and multi-line headings (#2225)", () => {
     const { runs } = parseKaohsiungHashPage(FIXTURE, NOW);
-    // "Saturday Night Run" → bare → undefined (merge synthesizes the title)
-    expect(runs[0].title).toBeUndefined();
-    // "7-eleven Joint Night Run" → descriptive → kept
+    // Single-line "#2732 June 27 Saturday Night Run" → the source's real title.
+    expect(runs[0].title).toBe("Saturday Night Run");
+    // Multi-line "#2734 July 11 <br> 7-eleven Joint Night Run" → kept as before.
     expect(runs[1].title).toBe("7-eleven Joint Night Run");
   });
 
