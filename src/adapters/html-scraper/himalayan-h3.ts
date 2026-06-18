@@ -86,8 +86,8 @@ function isWithinHareHorizon(date: string, now: Date): boolean {
   return diffMs >= -PAST_GRACE_DAYS * DAY_MS && diffMs <= FUTURE_HORIZON_DAYS * DAY_MS;
 }
 
-/** Resolve a year-less month/day to the nearest in-season "YYYY-MM-DD" (UTC noon). */
-function resolveForwardDate(monthIdx: number, day: number, now: Date): string {
+/** Resolve a year-less month/day to the nearest in-season "YYYY-MM-DD" (UTC noon), or null if the day is impossible for the month. */
+function resolveForwardDate(monthIdx: number, day: number, now: Date): string | null {
   const PAST_GRACE_MS = 60 * 24 * 3600 * 1000;
   // Mirror bangkok-monday-hash's `inferYear`: roll a current-year candidate
   // more than ~8 months ahead back a year. This handles the year-boundary case
@@ -102,7 +102,14 @@ function resolveForwardDate(monthIdx: number, day: number, now: Date): string {
   } else if (ms > now.getTime() + FUTURE_MAX_MS) {
     ms = Date.UTC(year - 1, monthIdx, day, 12, 0, 0);
   }
-  return new Date(ms).toISOString().slice(0, 10);
+  // Date.UTC silently rolls impossible calendar dates ("31 June" → 1 Jul,
+  // "29 Feb" in a non-leap year → 1 Mar). Reject so a typo'd cell trips the
+  // fail-loud path instead of publishing a wrong run date.
+  const resolved = new Date(ms);
+  if (resolved.getUTCMonth() !== monthIdx || resolved.getUTCDate() !== day) {
+    return null;
+  }
+  return resolved.toISOString().slice(0, 10);
 }
 
 /** Parse a year-less "13th June" cell to "YYYY-MM-DD", or null if unparseable. */

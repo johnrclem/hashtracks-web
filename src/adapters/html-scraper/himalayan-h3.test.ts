@@ -164,6 +164,11 @@ describe("parseRecedingDate", () => {
     expect(parseRecedingDate("Undecided", NOW)).toBeNull();
   });
 
+  it("rejects an impossible calendar date instead of normalizing it", () => {
+    // "31st June" would Date.UTC-normalize to 1 July — reject it (fail closed).
+    expect(parseRecedingDate("31st June", NOW)).toBeNull();
+  });
+
   it("rolls a just-past December run back a year when scraped in early January", () => {
     // A "27th December" run scraped on 2 Jan is last year's just-past run, not
     // next December — resolve it to the previous year so the horizon keeps it.
