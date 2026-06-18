@@ -909,6 +909,9 @@ export const SOURCES = [
         // #2175: a `#TBD` placeholder run with a junk 03:02 DTSTART trips the
         // event-improbable-time audit — clear the throwaway time.
         dropImprobablePlaceholderTime: true,
+        // #2216: titleHarePattern extracts the "~ <hares>" suffix into haresText
+        // but left it in the title too. Strip the matched suffix from the title.
+        stripTitleHareSuffix: true,
       },
       kennelCodes: ["cch3"],
     },
@@ -2874,7 +2877,12 @@ export const SOURCES = [
       name: "Puget Sound H3 Hareline Sheet",
       url: "https://docs.google.com/spreadsheets/d/1XTN-ivc5NClSt4Z1HVYf0ddEzF3aXcnd1ZH0JFpLXm4",
       type: "GOOGLE_SHEETS" as const,
-      trustLevel: 5,
+      // #2214: trust 7 (= WA Hash GCal) so the dedicated hareline is authoritative
+      // for its own kennel. At trust 5 the aggregator GCal out-trusted the sheet,
+      // forcing the sheet through the merge enrich branch (fill-NULL-only) — so a
+      // stale `haresText` (the col-3 "Thursday" left by a pre-#2130 mapping) could
+      // never be overwritten by the sheet's real col-4 hares.
+      trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {

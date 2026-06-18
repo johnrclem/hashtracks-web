@@ -242,13 +242,32 @@ describe("buildEventFromSheetRow", () => {
     expect(event!.title).toBeUndefined();
   });
 
-  it("strips TBD hares and location", () => {
+  it("strips TBD hares and location to null (configured cols → explicit clear, #2237)", () => {
     const row = ["100", "3/11/26", "tbd", "TBA", "Real Title"];
     const event = buildEventFromSheetRow(row, baseConfig, "https://example.com", "2026-03-11");
     expect(event).not.toBeNull();
-    expect(event!.hares).toBeUndefined();
-    expect(event!.location).toBeUndefined();
+    // #2237: a blank/placeholder cell in a CONFIGURED column emits `null`
+    // (explicit clear) so the merge pipeline scrubs a stale value rather than
+    // preserving it. (`undefined` is reserved for unconfigured columns.)
+    expect(event!.hares).toBeNull();
+    expect(event!.location).toBeNull();
     expect(event!.title).toBe("Real Title");
+  });
+
+  it("emits null for a blank configured description column (#2237)", () => {
+    // Sek Kong #2501 scenario: a present row whose Hares/Location/Notes cells
+    // are blank must clear those fields, not inherit the neighbouring row's.
+    const config = {
+      sheetId: "sekkong",
+      columns: { runNumber: 0, date: 2, hares: 3, location: 4, description: 5 },
+      kennelTagRules: { default: "sekkong-h3" },
+    } as GoogleSheetsConfig;
+    const row = ["2501", "Sun.", "20-Dec-2026", "", "", ""];
+    const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-12-20")!;
+    expect(event.runNumber).toBe(2501);
+    expect(event.hares).toBeNull();
+    expect(event.location).toBeNull();
+    expect(event.description).toBeNull();
   });
 
   it("emits runNumber: undefined when columns.runNumber is not configured (Hibiscus pattern)", () => {
@@ -468,18 +487,19 @@ describe("buildEventFromSheetRow", () => {
       kennelTagRules: { default: "okissme-h3" },
     };
 
-    it("location only → location populated, locationStreet undefined", () => {
+    it("location only → location populated, locationStreet null (configured-blank, #2237)", () => {
       const row = ["53", "5/22/26", "Fire in the Hole", "Orlando", ""];
       const event = buildEventFromSheetRow(row, okConfig, "https://example.com", "2026-05-22");
       expect(event!.location).toBe("Orlando");
-      expect(event!.locationStreet).toBeUndefined();
+      // address column is configured but blank → explicit clear (#2237).
+      expect(event!.locationStreet).toBeNull();
       expect(event!.locationUrl).toContain("Orlando");
     });
 
-    it("address only → locationStreet populated, location undefined", () => {
+    it("address only → locationStreet populated, location null (configured-blank, #2237)", () => {
       const row = ["52", "5/15/26", "Slip", "", "West Oaks Mall-West, Ocoee, FL 34761"];
       const event = buildEventFromSheetRow(row, okConfig, "https://example.com", "2026-05-15");
-      expect(event!.location).toBeUndefined();
+      expect(event!.location).toBeNull();
       expect(event!.locationStreet).toBe("West Oaks Mall-West, Ocoee, FL 34761");
       // googleMapsSearchUrl percent-encodes the query, so spaces → %20.
       expect(event!.locationUrl).toContain("West%20Oaks%20Mall-West");
@@ -495,19 +515,19 @@ describe("buildEventFromSheetRow", () => {
       expect(event!.locationUrl).toContain("Orlando%2C%20123%20Lake%20Eola%20Dr");
     });
 
-    it("both blank → both undefined, no maps URL", () => {
+    it("both blank → both null (configured cols), no maps URL", () => {
       const row = ["55", "6/5/26", "Hare", "", ""];
       const event = buildEventFromSheetRow(row, okConfig, "https://example.com", "2026-06-05");
-      expect(event!.location).toBeUndefined();
-      expect(event!.locationStreet).toBeUndefined();
+      expect(event!.location).toBeNull();
+      expect(event!.locationStreet).toBeNull();
       expect(event!.locationUrl).toBeUndefined();
     });
 
-    it("address column strips TBD/TBA placeholders", () => {
+    it("address column strips TBD/TBA placeholders to null", () => {
       const row = ["56", "6/12/26", "Hare", "Orlando", "TBD"];
       const event = buildEventFromSheetRow(row, okConfig, "https://example.com", "2026-06-12");
       expect(event!.location).toBe("Orlando");
-      expect(event!.locationStreet).toBeUndefined();
+      expect(event!.locationStreet).toBeNull();
     });
   });
 
@@ -632,7 +652,7 @@ describe("buildEventFromSheetRow", () => {
     expect(event!.hares).toBe("TIMBITS");
   });
 
-  it("returns undefined hares when both primary and extra cells empty", () => {
+  it("returns null hares when both primary and extra cells empty (configured col → clear, #2237)", () => {
     const config = {
       sheetId: "test",
       columns: { runNumber: 0, date: 1, hares: 2, extraHares: [3], location: 4, title: 5 },
@@ -641,7 +661,7 @@ describe("buildEventFromSheetRow", () => {
     const row = ["102", "3/25/26", "", "", "", ""];
     const event = buildEventFromSheetRow(row, config as GoogleSheetsConfig, "https://example.com", "2026-03-25");
     expect(event).not.toBeNull();
-    expect(event!.hares).toBeUndefined();
+    expect(event!.hares).toBeNull();
   });
 
   it("strips placeholder values from extraHares cells", () => {
@@ -1042,8 +1062,10 @@ describe("GoogleSheetsAdapter.fetch — Munich row alignment, two runs/date (#21
     expect(r938.hares).toBe("Loose Nutz & Motörmouth");
     expect(r938.startTime).toBe("17:00");
     // The whole point of #2157: a blank Location cell must NOT borrow the
-    // neighbouring row's value.
-    expect(r938.location).toBeUndefined();
+    // neighbouring row's value. Post-#2237 a configured-but-blank Location
+    // emits `null` (explicit clear) rather than `undefined` — still not the
+    // borrowed value, and now also scrubs any stale canonical venue.
+    expect(r938.location).toBeNull();
     expect(r938.date).toBe(parseDate(dSame)!);
 
     const r939 = result.events.find((e) => e.runNumber === 939)!;

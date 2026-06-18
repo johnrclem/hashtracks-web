@@ -593,17 +593,23 @@ function resolveKennelTagFromSheetRow(
 function resolveLocationFields(
   row: string[],
   config: GoogleSheetsConfig,
-): { location: string | undefined; locationStreet: string | undefined; locationUrl: string | undefined } {
+): { location: string | null | undefined; locationStreet: string | null | undefined; locationUrl: string | undefined } {
   const locationIdx = config.columns.location;
-  let location = locationIdx == null ? undefined : stripPlaceholder(row[locationIdx]);
+  // A configured-but-blank location cell emits an explicit `null` (clear stale
+  // venue) rather than `undefined` (preserve): a row that loses its venue
+  // between scrapes must scrub the canonical `locationName`, not inherit the
+  // previous value (#2237). An UNCONFIGURED column stays `undefined` so a
+  // sibling source can still enrich it (#1579).
+  let location = locationIdx == null ? undefined : (stripPlaceholder(row[locationIdx]) ?? null);
   // Drop all-lowercase single-token "city shorthand" values (e.g. "sheperdstown")
-  // that aren't real venue names. The merge pipeline still has the kennel's
-  // region/country bias for geocoding. See #893.
+  // that aren't real venue names. This is a "don't use as venue but don't clear"
+  // signal, so leave it `undefined` (preserve) — the merge pipeline still has the
+  // kennel's region/country bias for geocoding. See #893.
   if (location && isCityShorthand(location)) location = undefined;
   const addressIdx = config.columns.address;
   const locationStreet = addressIdx == null
     ? undefined
-    : stripPlaceholder(row[addressIdx]);
+    : (stripPlaceholder(row[addressIdx]) ?? null);
   const mapsQuery = location && locationStreet
     ? `${location}, ${locationStreet}`
     : (locationStreet || location);
@@ -633,15 +639,19 @@ export function buildEventFromSheetRow(
   const resolved = resolveKennelTagFromSheetRow(row, config);
   if (!resolved) return null;
 
-  // Strip placeholder values (TBD, TBA, N/A, etc.)
+  // Strip placeholder values (TBD, TBA, N/A, etc.). The hares column is always
+  // configured, so a blank/placeholder cell emits an explicit `null` (clear)
+  // rather than `undefined` (preserve): a row that loses its hares between
+  // scrapes must scrub the stale canonical `haresText`, not inherit the
+  // neighbouring row's value (the Sek Kong #2501 leak, #2237).
   const primaryHare = stripPlaceholder(row[config.columns.hares]);
   const extraHareCols = config.columns.extraHares ?? [];
   const hares = extraHareCols.length === 0
-    ? primaryHare
+    ? (primaryHare ?? null)
     : (() => {
         const all = [primaryHare, ...extraHareCols.map((idx) => stripPlaceholder(row[idx]))]
           .filter((h): h is string => Boolean(h));
-        if (all.length === 0) return undefined;
+        if (all.length === 0) return null;
         // Deterministic sort so column-order changes don't churn fingerprints.
         all.sort((a, b) => a.localeCompare(b));
         return all.join(" / ");
@@ -669,9 +679,12 @@ export function buildEventFromSheetRow(
   const writeUp = config.columns.description != null
     ? row[config.columns.description]?.trim()
     : undefined;
-  const description = writeUp
-    ? writeUp.substring(0, 2000) || undefined
-    : undefined;
+  // Configured-but-blank description emits an explicit `null` (clear) so a row
+  // that drops its notes between scrapes scrubs the stale canonical value
+  // instead of preserving it (#2237). Unconfigured column stays `undefined`.
+  const description = config.columns.description == null
+    ? undefined
+    : (writeUp ? (writeUp.substring(0, 2000) || null) : null);
   // #923: prefer an explicit startTime cell when configured, fall back to
   // day-of-week inference. Cell may be "HH:MM", "H:MM am/pm", or empty/TBD.
   const startTimeCell = config.columns.startTime == null ? undefined : row[config.columns.startTime];

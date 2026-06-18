@@ -1093,6 +1093,10 @@ END:VCALENDAR`;
     const phantom = result.events.find((e) => e.runNumber === 2927);
     expect(phantom).toBeDefined();
     expect(phantom!.hares).toBe("Phantom");
+    // #2216 regression guard: Perth's titleHarePattern is a FULL-LINE match, so
+    // stripping it would blank the whole title. Perth does NOT opt into
+    // stripTitleHareSuffix, so the title is left intact (the strip never runs).
+    expect(phantom!.title).toBeTruthy();
 
     const noSpaceDash = result.events.find((e) => e.runNumber === 2931);
     expect(noSpaceDash).toBeDefined();
@@ -1761,6 +1765,18 @@ DTSTART;TZID=America/New_York:20260911T030200
 SUMMARY:CCH3 #TBD- A phone Gerbile  and. around the world in 80 lays
 DTSTAMP:20260201T000000Z
 END:VEVENT
+BEGIN:VEVENT
+UID:ai1ec-1601@charmcityh3.com
+DTSTART;TZID=America/New_York:20260822T160000
+SUMMARY:CCH3# TBD~ MoreMen Pukes Tonight
+DTSTAMP:20260201T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:ai1ec-1602@charmcityh3.com
+DTSTART;TZID=America/New_York:20260808T160000
+SUMMARY:CCH3 Trail TBD ~ Paint the Goat and Spewart Little
+DTSTAMP:20260201T000000Z
+END:VEVENT
 END:VCALENDAR`;
 
 function buildCharmCitySource(): Source {
@@ -1780,6 +1796,7 @@ function buildCharmCitySource(): Source {
       ],
       cleanDescriptionLocation: true,
       dropImprobablePlaceholderTime: true,
+      stripTitleHareSuffix: true,
     },
   });
 }
@@ -1875,6 +1892,55 @@ END:VCALENDAR`;
     // venue (tri-state), NOT undefined (which would preserve a prior venue).
     expect(e!.location).toBeNull();
     expect(e!.hares).toBe("Just Someone");
+  });
+
+  // #2216 — titleHarePattern pulls the "~ <hares>" suffix into haresText, but
+  // it was left embedded in the title too. stripTitleHareSuffix removes it.
+  it("strips the '~ <hares>' suffix from the title (#2216, kennel-prefixed)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHARM_CITY_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildCharmCitySource(), { days: 9999 });
+
+    const e = result.events.find((x) => x.date === "2026-08-22");
+    expect(e).toBeDefined();
+    expect(e!.hares).toBe("MoreMen Pukes Tonight");
+    // The hares must NOT also appear in the title, and the "~" separator is gone.
+    expect(e!.title).toBe("CCH3# TBD");
+  });
+
+  it("strips the '~ <hares>' suffix from a 'Trail #' kennel title (#2216, live shape)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHARM_CITY_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildCharmCitySource(), { days: 9999 });
+
+    const e = result.events.find((x) => x.date === "2026-08-08");
+    expect(e).toBeDefined();
+    expect(e!.hares).toBe("Paint the Goat and Spewart Little");
+    expect(e!.title).toBe("CCH3 Trail TBD");
+  });
+
+  it("does NOT strip the title when hares come from the DESCRIPTION, not the summary (negative)", async () => {
+    // The Brewery Bike Tour event's hares live in the DESCRIPTION ("Hares~ …"),
+    // so hareFromTitle is false and the SUMMARY title is left untouched even
+    // though stripTitleHareSuffix is on.
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHARM_CITY_ICS, { status: 200 }));
+    const result = await adapter.fetch(buildCharmCitySource(), { days: 9999 });
+
+    const e = result.events.find((x) => x.date === "2026-09-07");
+    expect(e!.hares).toBe("Facial Profiling and Just Mike");
+    expect(e!.title).toBe("CCH3 Brewery Bike Tour");
+  });
+
+  it("leaves the '~ <hares>' suffix in the title when stripTitleHareSuffix is off (opt-in guard)", async () => {
+    // Other titleHarePattern feeds must be untouched: without the opt-in flag the
+    // suffix stays in the title (the pre-#2216 behaviour), while hares are still
+    // extracted.
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHARM_CITY_ICS, { status: 200 }));
+    const source = buildCharmCitySource();
+    (source.config as Record<string, unknown>).stripTitleHareSuffix = false;
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    const e = result.events.find((x) => x.date === "2026-08-22");
+    expect(e!.hares).toBe("MoreMen Pukes Tonight");
+    expect(e!.title).toContain("MoreMen Pukes Tonight");
   });
 });
 
