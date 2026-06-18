@@ -2739,6 +2739,12 @@ export const SOURCES = [
       config: {
         calendarId: "0f125fcba18bfeca585fe7d3592c70159df9c97d620dfd68fd65a73fcd063d8c@group.calendar.google.com",
         defaultKennelTag: "salemh3",
+        // #2209: every future SalemH3 trail is published as an all-day
+        // (VALUE=DATE) event, so the default all-day filter dropped all of them
+        // (0 upcoming vs 39 in source). Admit all-day events, but drop the
+        // recurring "SalemH3 Placeholder (1st & 3rd Saturdays)" stubs.
+        includeAllDayEvents: true,
+        skipPatterns: ["SalemH3 Placeholder"],
       },
       kennelCodes: ["salemh3"],
     },
@@ -3069,6 +3075,12 @@ export const SOURCES = [
           ["^DIM", "dim-h3"],
         ],
         defaultKennelTag: "pph4",
+        // #2218: Kimchi's active recurring master is the bare placeholder
+        // "Kimchi #" (no run number / hares / location until the kennel fills in
+        // a per-week override). Substitute a readable trail name for the bare
+        // kennel-code/placeholder forms. Per-kennel keys leave pph4/dim-h3 alone.
+        defaultTitles: { "kimchi-h3": "Kimchi H3 Trail" },
+        staleTitleAliases: { "kimchi-h3": ["Kimchi #", "Kimchi"] },
       },
       kennelCodes: ["pph4", "kimchi-h3", "dim-h3"],
     },
