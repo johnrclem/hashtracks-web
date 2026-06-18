@@ -269,6 +269,15 @@ describe("applyTitleFallback (#1166)", () => {
     expect(applyTitleFallback("Why?", 100, {})).toBe("Why?");
   });
 
+  it("only strips TRAILING separators — a mid-title comma/colon survives", () => {
+    // Guards the comma in the separator class: a meaningful mid-title comma
+    // (not the trailing char) must not be truncated.
+    expect(applyTitleFallback("Trail Name, Special Edition", 100, {})).toBe(
+      "Trail Name, Special Edition",
+    );
+    expect(applyTitleFallback("Run #5: The Sequel", 100, {})).toBe("Run #5: The Sequel");
+  });
+
   it("treats a separators-only eventName as stale (synthesizes when possible)", () => {
     const config = { defaultTitle: "Shanghai H3" };
     expect(applyTitleFallback(" | ", 42, config)).toBe("Shanghai H3 #42");

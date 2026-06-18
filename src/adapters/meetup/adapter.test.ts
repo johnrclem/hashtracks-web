@@ -952,8 +952,7 @@ describe("MeetupAdapter", () => {
   });
 
   it("keeps far-future upcoming events beyond the forward window (#2195 Rubber City)", async () => {
-    const futureDate = new Date(Date.now() + 200 * 24 * 60 * 60 * 1000);
-    const futureIso = futureDate.toISOString().slice(0, 19) + "-05:00";
+    const futureIso = isoDaysFromNow(200);
 
     const html = buildMeetupHtml({
       "Event:1": buildApolloEvent(),
@@ -1365,9 +1364,9 @@ describe("MeetupAdapter", () => {
   });
 
   it("past exempt from minDate; upcoming exempt from maxDate but keeps its minDate floor (#2195)", async () => {
-    const veryOldIso = new Date(Date.now() - 365 * 86_400_000).toISOString().slice(0, 19) + "-05:00";
-    const farFutureIso = new Date(Date.now() + 200 * 86_400_000).toISOString().slice(0, 19) + "-05:00";
-    const nearFutureIso = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 19) + "-05:00";
+    const veryOldIso = isoDaysFromNow(-365);
+    const farFutureIso = isoDaysFromNow(200);
+    const nearFutureIso = isoDaysFromNow(10);
 
     const pastEvent = buildApolloEvent({ id: "past-365", title: "Year Old Event", dateTime: veryOldIso });
     const farFutureEvent = buildApolloEvent({ id: "far-future", title: "Far Future", dateTime: farFutureIso, eventUrl: "https://www.meetup.com/test-hash/events/far-future/" });
