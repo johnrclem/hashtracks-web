@@ -37,6 +37,7 @@
  */
 
 import "dotenv/config";
+import { prisma } from "@/lib/db";
 import { runBackfillScript } from "./lib/backfill-runner";
 import {
   fetchSeletarRows,
@@ -67,12 +68,42 @@ async function fetchEvents(): Promise<RawEventData[]> {
   return grouped.events;
 }
 
-runBackfillScript({
-  sourceName: SOURCE_NAME,
-  kennelTimezone: KENNEL_TIMEZONE,
-  label: "Walking Seletar H3 HashController.php archive (1980→present)",
-  fetchEvents,
-}).catch((err) => {
+/**
+ * Apply-mode guard: the recurring adapter is future-only, so the reconciler
+ * will CANCEL backfilled events inside the source's scrape window unless the
+ * source is configured `upcomingOnly: true`. Warn loudly (non-fatal) when the
+ * live source row isn't yet configured so the operator sets it before the next
+ * scrape. Only checked in apply mode — dry runs stay DB-free.
+ */
+async function warnIfReconcileHazard(): Promise<void> {
+  const source = await prisma.source.findFirst({
+    where: { name: SOURCE_NAME },
+    select: { config: true },
+  });
+  const config = (source?.config ?? null) as { upcomingOnly?: boolean } | null;
+  if (config?.upcomingOnly !== true) {
+    console.warn(
+      `⚠ WARNING: source "${SOURCE_NAME}" is not config.upcomingOnly=true in the DB. ` +
+        `The future-only adapter means reconcile may CANCEL backfilled events within ` +
+        `the source's scrape window on the next scrape. Set config.upcomingOnly:true ` +
+        `(prisma/seed-data/sources.ts) and re-seed prod before relying on recent history.`,
+    );
+  }
+}
+
+async function main(): Promise<void> {
+  if (process.env.BACKFILL_APPLY === "1") {
+    await warnIfReconcileHazard();
+  }
+  await runBackfillScript({
+    sourceName: SOURCE_NAME,
+    kennelTimezone: KENNEL_TIMEZONE,
+    label: "Walking Seletar H3 HashController.php archive (1980→present)",
+    fetchEvents,
+  });
+}
+
+main().catch((err) => {
   console.error(err);
   process.exit(1);
 });

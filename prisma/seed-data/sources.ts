@@ -4767,6 +4767,12 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      // Recurring adapter is future-only (UPCOMING_SQL = `hl_datetime >= CURDATE()`).
+      // Without upcomingOnly the reconciler scans `now ± scrapeDays` and would
+      // CANCEL the historical Events the one-shot backfill creates (they're
+      // sole-source and absent from the future-only scrape). See
+      // scripts/backfill-seletar-h3-history.ts.
+      config: { upcomingOnly: true },
       kennelCodes: ["seletar-h3"],
     },
 
