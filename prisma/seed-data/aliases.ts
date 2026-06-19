@@ -570,6 +570,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Nepal — bare "HHHH" OMITTED (alias of h6 Hollyweird) and bare "H4" OMITTED
     // (kennelCode h4 Hangover + hockessin/h4-tx aliases); qualified "HHHH Nepal" used.
     "himalayan-h3": ["Himalayan H3", "Himalayan Hash", "Himalayan Hash House Harriers", "Kathmandu Hash", "HHHH Nepal"],
+    // Cambodia — "PPH3" OMITTED (already a pph4/Pikes Peak alias); "P2H3" is free.
+    "phnom-penh-h3": ["Phnom Penh", "Phnom Penh H3", "P2H3", "Phnom Penh Hash House Harriers"],
     // Nevada + Utah
     "lv-h3": ["Las Vegas H3", "Las Vegas Hash", "LVHHH", "Las Vegas HHH", "LV H3"],
     "ass-h3": ["ASS H3", "ASSH3", "Atomic Shit Show", "Atomic Shit Show H3", "Atomic Shit Show HHH"],

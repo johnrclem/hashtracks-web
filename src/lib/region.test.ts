@@ -283,3 +283,14 @@ describe("inferCountry — Warsaw, Poland vs Warsaw, USA", () => {
     expect(inferCountry(name)).toBe(country);
   });
 });
+
+describe("inferCountry — Cambodia (first 🇰🇭 kennel)", () => {
+  it.each([
+    ["Phnom Penh", "Cambodia"],
+    ["Phnom Penh, Cambodia", "Cambodia"],
+    ["Cambodia", "Cambodia"],
+    ["Pothiprek Pagoda, Phnom Penh", "Cambodia"],
+  ])("infers %s → Cambodia", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
