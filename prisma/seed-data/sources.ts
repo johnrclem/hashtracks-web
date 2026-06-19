@@ -4767,6 +4767,15 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      config: {
+        // The adapter fetches UPCOMING_SQL (hl_datetime >= CURDATE()), so it is
+        // future-only. Without upcomingOnly the reconciler would cancel
+        // sole-source CONFIRMED past events inside the now±90d window that the
+        // live scrape never re-emits — including the ~13 recent rows from the
+        // 1980→present historical backfill (#2238). Restrict cancellation to
+        // FUTURE dates, the correct posture for a future-only adapter.
+        upcomingOnly: true,
+      },
       kennelCodes: ["seletar-h3"],
     },
 
