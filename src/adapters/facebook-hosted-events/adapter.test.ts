@@ -57,6 +57,24 @@ function htmlResponse(body: string): Response {
   } as Response;
 }
 
+/** Minimal valid hosted_events SSR document with the envelope markers + one
+ *  rich/time event pair (the shape `parseFacebookHostedEventsWithStats` reads). */
+function fbListing(id: string, name: string, tsSeconds: number): string {
+  return (
+    `<html><body>` +
+    `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+    `<script type="application/json">{` +
+    `"rich":{"__typename":"Event","id":"${id}","name":"${name}"},` +
+    `"time":{"id":"${id}","start_timestamp":${tsSeconds}}` +
+    `}</script>` +
+    `</body></html>`
+  );
+}
+
+/** A checkpoint/login wall: 200 OK, no SSR envelope markers, checkpoint URL. */
+const CHECKPOINT_HTML =
+  `<html><body><a href="https://www.facebook.com/checkpoint/?next">content isn't available</a></body></html>`;
+
 describe("FacebookHostedEventsAdapter — fetch", () => {
   // Freeze the clock so the date-window assertions don't drift as calendar
   // time advances past the May 9 2026 fixture event. Without this, tests
@@ -285,12 +303,12 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     expect(result.diagnosticContext?.totalBeforeFilter).toBe(1);
   });
 
-  it("returns an HTTP-status error when FB responds non-2xx", async () => {
-    mockedFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 429,
-      text: async () => "rate limited",
-    } as Response);
+  it("retries via the residential proxy on a non-2xx, then errors when the proxy also fails (#1939)", async () => {
+    // Direct datacenter fetch 429s; the proxy retry also fails. Both reasons
+    // surface in the error and the scrape is FAILED (0 events, no reconcile).
+    mockedFetch
+      .mockResolvedValueOnce({ ok: false, status: 429, text: async () => "rate limited" } as Response)
+      .mockResolvedValueOnce({ ok: false, status: 503, text: async () => "proxy down" } as Response);
     const adapter = new FacebookHostedEventsAdapter();
     const result = await adapter.fetch(
       makeSource({
@@ -302,10 +320,16 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     );
     expect(result.events).toHaveLength(0);
     expect(result.errors[0]).toMatch(/HTTP 429/);
+    expect(result.errors[0]).toMatch(/residential-proxy|both failed/);
+    // The second attempt was routed through the residential proxy.
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
+    expect(mockedFetch.mock.calls[1][1]?.useResidentialProxy).toBe(true);
   });
 
-  it("returns a fetch-error envelope when the network throws", async () => {
-    mockedFetch.mockRejectedValueOnce(new Error("ECONNRESET"));
+  it("retries via the residential proxy when the direct fetch throws, then errors when the proxy also throws (#1939)", async () => {
+    mockedFetch
+      .mockRejectedValueOnce(new Error("ECONNRESET"))
+      .mockRejectedValueOnce(new Error("proxy ETIMEDOUT"));
     const adapter = new FacebookHostedEventsAdapter();
     const result = await adapter.fetch(
       makeSource({
@@ -317,6 +341,8 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     );
     expect(result.events).toHaveLength(0);
     expect(result.errors[0]).toMatch(/ECONNRESET|fetch error/);
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
+    expect(mockedFetch.mock.calls[1][1]?.useResidentialProxy).toBe(true);
   });
 
   it("returns 0 events silently for an empty FB Page that ships SSR envelope markers (legit no-events case)", async () => {
@@ -725,5 +751,259 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     );
     expect(result.events).toEqual([]);
     expect(result.errors).toEqual([]);
+  });
+});
+
+describe("FacebookHostedEventsAdapter — residential proxy fallback (#1939)", () => {
+  beforeEach(() => {
+    mockedFetch.mockReset();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-07T12:00:00Z"));
+  });
+  afterEach(() => {
+    mockedFetch.mockReset();
+    vi.useRealTimers();
+  });
+
+  it("retries a checkpoint-blocked direct fetch through the residential proxy and surfaces the proxy's events", async () => {
+    // Direct fetch returns a checkpoint wall (no envelope markers); the proxy
+    // returns the real listing. Events surface, no error, and the proxy was
+    // used for BOTH the retried listing fetch and the detail-page fetch.
+    mockedFetch
+      .mockResolvedValueOnce(htmlResponse(CHECKPOINT_HTML)) // direct listing → blocked
+      .mockResolvedValueOnce(htmlResponse(FIXTURE_HTML)) // proxy listing → real
+      .mockResolvedValueOnce(htmlResponse("<html></html>")); // detail page (via proxy)
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+      { days: 365 },
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({ kennelTags: ["gsh3"], date: "2026-05-09" });
+    // Direct attempt had no proxy flag; the retry + detail used the proxy.
+    expect(mockedFetch.mock.calls[0][1]?.useResidentialProxy).toBeUndefined();
+    expect(mockedFetch.mock.calls[1][1]?.useResidentialProxy).toBe(true);
+    expect(mockedFetch.mock.calls[2][1]?.useResidentialProxy).toBe(true);
+    expect(result.diagnosticContext?.usedResidentialProxy).toBe(true);
+  });
+
+  it("with useResidentialProxy: true, the first listing fetch already goes through the proxy (no wasted direct attempt)", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(htmlResponse(FIXTURE_HTML)) // proxy listing (first call)
+      .mockResolvedValueOnce(htmlResponse("<html></html>")); // detail page
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+        useResidentialProxy: true,
+      }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(1);
+    expect(mockedFetch.mock.calls[0][1]?.useResidentialProxy).toBe(true);
+    expect(result.diagnosticContext?.usedResidentialProxy).toBe(true);
+  });
+
+  it("emits a checkpoint error (FAILED scrape, 0 events) when the proxy retry is also blocked", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(htmlResponse(CHECKPOINT_HTML)) // direct → blocked
+      .mockResolvedValueOnce(htmlResponse(CHECKPOINT_HTML)); // proxy → still blocked
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/checkpoint\/login wall|shape change/i);
+    expect(result.errors[0]).toMatch(/residential-proxy retry did not clear it/);
+  });
+
+  it("does NOT retry via proxy for a genuinely-empty healthy Page (envelope present, 0 events)", async () => {
+    const emptyPageHtml =
+      `<html><body>` +
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `<div data-bbox='{"__bbox":{"complete":true,"result":{"data":null}}}'></div>` +
+      `</body></html>`;
+    mockedFetch.mockResolvedValueOnce(htmlResponse(emptyPageHtml));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors).toEqual([]);
+    // Exactly one fetch — no proxy retry, no detail fetch (0 events).
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+    expect(result.diagnosticContext?.usedResidentialProxy).toBe(false);
+  });
+});
+
+describe("FacebookHostedEventsAdapter — past events (#1940)", () => {
+  // April 1 2026 18:00 UTC = 14:00 EDT → local date 2026-04-01 (before the
+  // frozen "today" of 2026-05-07), so it's a genuine past event.
+  const PAST_TS = Math.floor(Date.UTC(2026, 3, 1, 18, 0, 0) / 1000);
+
+  beforeEach(() => {
+    mockedFetch.mockReset();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-07T12:00:00Z"));
+  });
+  afterEach(() => {
+    mockedFetch.mockReset();
+    vi.useRealTimers();
+  });
+
+  it("fetches /past_hosted_events and merges genuinely-past events with rich titles", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(htmlResponse(FIXTURE_HTML)) // upcoming listing (1 future event)
+      .mockResolvedValueOnce(htmlResponse("<html></html>")) // upcoming detail
+      .mockResolvedValueOnce(htmlResponse(fbListing("220000000000099", "Past Trail #99", PAST_TS))); // past listing
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+        includePastEvents: true,
+      }),
+      { days: 365 },
+    );
+    // Past tab targeted with the right URL.
+    expect(mockedFetch.mock.calls[2][0]).toBe(
+      "https://www.facebook.com/GrandStrandHashing/past_hosted_events",
+    );
+    const past = result.events.find((e) => e.date === "2026-04-01");
+    expect(past).toBeDefined();
+    expect(past?.title).toBe("Past Trail #99");
+    expect(past?.runNumber).toBe(99);
+    // Upcoming event still present.
+    expect(result.events.some((e) => e.date === "2026-05-09")).toBe(true);
+    expect(result.diagnosticContext?.pastFetch).toMatchObject({ kept: 1, parsed: 1 });
+    // Past events are listing-only — no detail fetch for the past row.
+    expect(mockedFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("isolates a past-tab failure: no top-level error, upcoming events preserved", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(htmlResponse(FIXTURE_HTML)) // upcoming listing
+      .mockResolvedValueOnce(htmlResponse("<html></html>")) // upcoming detail
+      .mockRejectedValueOnce(new Error("past tab ECONNRESET")) // past listing (direct)
+      .mockRejectedValueOnce(new Error("past tab proxy down")); // past listing (proxy retry)
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+        includePastEvents: true,
+      }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(1); // upcoming only
+    expect(result.events[0].date).toBe("2026-05-09");
+    expect(result.errors).toEqual([]); // past failure never becomes a scrape error
+    expect(result.diagnosticContext?.pastFetch).toMatchObject({
+      error: expect.stringMatching(/ECONNRESET|both failed/),
+    });
+  });
+
+  it("dedupes an event that appears on both tabs by FB event id, keeping the upcoming copy", async () => {
+    // Same id on the past listing as the fixture's upcoming event. Dedup keeps
+    // the upcoming (future-dated) copy; the past duplicate is dropped.
+    const sharedId = "1012210268147290"; // the GSH3 fixture event id
+    mockedFetch
+      .mockResolvedValueOnce(htmlResponse(FIXTURE_HTML)) // upcoming listing
+      .mockResolvedValueOnce(htmlResponse("<html></html>")) // upcoming detail
+      .mockResolvedValueOnce(htmlResponse(fbListing(sharedId, "Stale Past Copy", PAST_TS))); // past listing, same id
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+        includePastEvents: true,
+      }),
+      { days: 365 },
+    );
+    // Only one event for that id — the upcoming (future) one wins.
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].date).toBe("2026-05-09");
+    // The past tab still parsed + kept its row before dedup.
+    expect(result.diagnosticContext?.pastFetch).toMatchObject({ kept: 1 });
+  });
+
+  it("does NOT fetch the past tab when the upcoming tab is empty (reconcile-safety gate)", async () => {
+    // A healthy-but-empty upcoming tab (envelope present, 0 events). Past
+    // events must NOT be appended — otherwise the combined array would be
+    // non-empty and flip scrape.ts's reconcile guard back on while zero future
+    // events were scraped, risking a false-cancel of dropped future canonicals.
+    const emptyUpcoming =
+      `<html><body>` +
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `</body></html>`;
+    mockedFetch.mockResolvedValueOnce(htmlResponse(emptyUpcoming));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+        includePastEvents: true,
+      }),
+      { days: 365 },
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors).toEqual([]);
+    expect(result.diagnosticContext?.pastFetch).toBeUndefined();
+    // Only the upcoming listing was fetched — the past tab was skipped.
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+    for (const call of mockedFetch.mock.calls) {
+      expect(call[0]).not.toContain("/past_hosted_events");
+    }
+  });
+
+  it("does not fetch the past tab when includePastEvents is unset", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(htmlResponse(FIXTURE_HTML))
+      .mockResolvedValueOnce(htmlResponse("<html></html>"));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+      { days: 365 },
+    );
+    expect(result.events).toHaveLength(1);
+    expect(result.diagnosticContext?.pastFetch).toBeUndefined();
+    // upcoming listing + its detail page only — no past tab.
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
+    for (const call of mockedFetch.mock.calls) {
+      expect(call[0]).not.toContain("/past_hosted_events");
+    }
   });
 });

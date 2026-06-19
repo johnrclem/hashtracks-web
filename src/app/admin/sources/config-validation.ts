@@ -295,6 +295,20 @@ function validateFacebookHostedEventsConfig(obj: Record<string, unknown>, errors
       'Facebook hosted_events config requires `upcomingOnly: true` (the /upcoming_hosted_events feed drops past events; reconcile must not cancel them)',
     );
   }
+  // Optional resilience / backfill knobs (#1939, #1940). Type-check only when
+  // present so legacy single-kennel configs stay valid unchanged.
+  if (obj.useResidentialProxy !== undefined && typeof obj.useResidentialProxy !== "boolean") {
+    errors.push("Facebook hosted_events `useResidentialProxy` must be a boolean when set");
+  }
+  if (obj.includePastEvents !== undefined && typeof obj.includePastEvents !== "boolean") {
+    errors.push("Facebook hosted_events `includePastEvents` must be a boolean when set");
+  }
+  if (
+    obj.pastWindowDays !== undefined &&
+    (typeof obj.pastWindowDays !== "number" || !Number.isFinite(obj.pastWindowDays) || obj.pastWindowDays <= 0)
+  ) {
+    errors.push("Facebook hosted_events `pastWindowDays` must be a positive number when set");
+  }
 }
 
 /** RRULE-style two-letter weekday codes (RFC 5545 §3.3.10). */
