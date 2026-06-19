@@ -85,8 +85,9 @@ const RUN_CELL_RE = /^\d{2,5}$/;
 const NEWS_LINK_RE = /\/news\/\d+/;
 // "...meeting at 13.15 for 13.30 departure" → capture the departure clock.
 const DEPARTURE_RE = /\bfor (\d{1,2})[.:](\d{2}) departure\b/i;
-// "5km" / "10 km" / "6.2km".
-const KM_RE = /(\d+(?:\.\d+)?)\s?km\b/i;
+// "5km" / "10 km" / "6.2km". Digit counts are bounded ({1,4} / {1,2}) so the
+// match stays strictly linear — no super-linear backtracking (Sonar S5852).
+const KM_RE = /(\d{1,4}(?:\.\d{1,2})?)\s?km\b/i;
 // Strip an ordinal suffix from a day number ("21st" → "21").
 const ORDINAL_RE = /\b(\d{1,2})(?:st|nd|rd|th)\b/gi;
 // Separators that follow a field label ("Location:", "Date/Time:-", "Run No.").
