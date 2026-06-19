@@ -1,116 +1,106 @@
 /**
  * One-shot historical backfill for Seletar H3 (Singapore).
  *
- * Per `feedback_historical_backfill` memory: the recurring SeletarH3Adapter
- * pulls only future events (`hl_datetime >= CURDATE()`); this script reaches
- * back to 1980-06-24 (the kennel's founding) and inserts every historical
- * trail in one shot. The two queries are strictly disjoint by date, so the
- * backfill cannot overlap or duplicate what the recurring adapter writes.
+ * The recurring SeletarH3Adapter pulls only future events via UPCOMING_SQL
+ * (`hl_datetime >= CURDATE()`); this script reaches back to 1980-06-24 (the
+ * kennel's founding) via HISTORICAL_SQL (`hl_datetime < CURDATE()`) and ingests
+ * every historical trail in one shot. The two queries are strictly disjoint by
+ * date, so the backfill cannot overlap or duplicate what the recurring adapter
+ * writes.
+ *
+ * Refactor history:
+ *   The original script (PR #543) inserted RawEvents directly via
+ *   `prisma.rawEvent.createMany()` with `processed: false`. That left the rows
+ *   orphaned — `scrapeSource` only merges the live adapter's fetch results, so
+ *   pre-inserted historical RawEvents never became canonical Events (the same
+ *   trap documented in `backfill-runner.ts` and the kljh3 refactor). This
+ *   version routes through `runBackfillScript` → `reportAndApplyBackfill` →
+ *   `processRawEvents`, which:
+ *     - partitions strictly to `date < today-in-Asia/Singapore`,
+ *     - dedupes by `(sourceId, fingerprint)` (idempotent re-runs), and
+ *     - upserts canonical Events in the same pass.
+ *
+ * Reconcile note: the recurring adapter is future-only and the "Seletar H3 PWA"
+ * source is not `upcomingOnly`, so reconcile would cancel sole-source events in
+ * its `now±scrapeDays` window that the live scrape doesn't re-emit. The deep
+ * archive (older than the window) is unaffected; the most-recent runs are made
+ * reconcile-safe by setting `upcomingOnly: true` on the source config (tracked
+ * separately — that lives in prisma/seed-data/sources.ts).
+ *
+ * Shared logic: fetch + grouping live in src/adapters/html-scraper/seletar-h3.ts
+ * (`fetchSeletarRows`, `groupSeletarRows`) so this script and the recurring
+ * adapter agree on the API contract, PII filtering, and field mapping.
  *
  * Usage:
- *   1. Dry run first:  npx tsx scripts/backfill-seletar-h3-history.ts
- *   2. Execute:        BACKFILL_APPLY=1 npx tsx scripts/backfill-seletar-h3-history.ts
- *
- * Idempotency: HISTORICAL_SQL uses `hl_datetime < CURDATE()` and the
- * adapter uses `>= CURDATE()`, so re-running this script can never insert
- * a row that the adapter has produced. Within a re-run of the script
- * itself, the pre-fetch + filter pattern still dedupes against existing
- * rows for the same source via fingerprint matching, then a single
- * createMany inserts the rest.
+ *   Dry run:  npx tsx scripts/backfill-seletar-h3-history.ts
+ *   Execute:  BACKFILL_APPLY=1 npx tsx scripts/backfill-seletar-h3-history.ts
  */
 
-import { PrismaClient, type Prisma } from "@/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { createScriptPool } from "./lib/db-pool";
+import "dotenv/config";
+import { prisma } from "@/lib/db";
+import { runBackfillScript } from "./lib/backfill-runner";
 import {
   fetchSeletarRows,
   groupSeletarRows,
   HISTORICAL_SQL,
   SELETAR_API_URL_DEFAULT,
 } from "@/adapters/html-scraper/seletar-h3";
-import { generateFingerprint } from "@/pipeline/fingerprint";
 import type { RawEventData } from "@/adapters/types";
 
-const KENNEL_CODE = "seletar-h3";
 const SOURCE_NAME = "Seletar H3 PWA";
+const KENNEL_TIMEZONE = "Asia/Singapore";
 
-async function main() {
-  const apply = process.env.BACKFILL_APPLY === "1";
-  console.log(`Mode: ${apply ? "APPLY (will write to DB)" : "DRY RUN (no writes)"}`);
-
-  // One-shot script uses the default API endpoint. The recurring adapter
-  // reads source.url from the DB, but that requires opening a DB connection
-  // before the dry-run fetch — not worth the extra round trip for a URL
-  // that hasn't changed since the kennel was founded. If the endpoint ever
-  // moves, update SELETAR_API_URL_DEFAULT in the adapter.
-  const apiUrl = SELETAR_API_URL_DEFAULT;
-  const result = await fetchSeletarRows(apiUrl, HISTORICAL_SQL);
-  if (result.error) throw new Error(`HashController API failed: ${result.error.message}`);
-  console.log(`Fetched ${result.rows.length} historical rows (hl_datetime < CURDATE) from ${apiUrl}`);
+async function fetchEvents(): Promise<RawEventData[]> {
+  // The one-shot script uses the default API endpoint (unchanged since the
+  // kennel was founded). If it ever moves, update SELETAR_API_URL_DEFAULT in
+  // the adapter so both this script and the recurring scrape follow.
+  console.log(`Fetching historical rows from ${SELETAR_API_URL_DEFAULT} …`);
+  const result = await fetchSeletarRows(SELETAR_API_URL_DEFAULT, HISTORICAL_SQL);
+  if (result.error) {
+    throw new Error(`HashController API failed: ${result.error.message}`);
+  }
+  console.log(`  Fetched ${result.rows.length} historical rows (hl_datetime < CURDATE).`);
 
   const grouped = groupSeletarRows(result.rows);
-  const allEvents: RawEventData[] = grouped.events;
-  console.log(`Grouped into ${allEvents.length} unique runs (skipped ${grouped.skippedRows} malformed rows)`);
-  if (allEvents.length === 0) {
-    console.log("No events to insert. Exiting.");
-    return;
-  }
-  console.log(`Date range: ${allEvents[0].date} → ${allEvents.at(-1)!.date}`);
+  console.log(
+    `  Grouped into ${grouped.events.length} unique runs (skipped ${grouped.skippedRows} malformed rows).`,
+  );
+  return grouped.events;
+}
 
-  console.log("\nFirst 3 sample events:");
-  for (const e of allEvents.slice(0, 3)) {
-    console.log(`  #${e.runNumber} ${e.date} | ${e.title} | hares=${e.hares ?? "-"} | loc=${e.location ?? "-"}`);
-  }
-  console.log("\nLast 3 sample events:");
-  for (const e of allEvents.slice(-3)) {
-    console.log(`  #${e.runNumber} ${e.date} | ${e.title} | hares=${e.hares ?? "-"} | loc=${e.location ?? "-"}`);
-  }
-
-  if (!apply) {
-    console.log("\nDry run complete. Re-run with BACKFILL_APPLY=1 to write to DB.");
-    return;
-  }
-
-  const pool = createScriptPool();
-  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
-
-  const kennel = await prisma.kennel.findUnique({ where: { kennelCode: KENNEL_CODE } });
-  if (!kennel) throw new Error(`Kennel ${KENNEL_CODE} not found in DB. Run prisma db seed first.`);
-  const source = await prisma.source.findFirst({ where: { name: SOURCE_NAME } });
-  if (!source) throw new Error(`Source ${SOURCE_NAME} not found in DB. Run prisma db seed first.`);
-
-  // Compute fingerprints once, then dedup against the DB in a single round trip.
-  const allFingerprints = allEvents.map((event) => ({
-    event,
-    fingerprint: generateFingerprint(event),
-  }));
-  const fingerprintList = allFingerprints.map((x) => x.fingerprint);
-  const existingRows = await prisma.rawEvent.findMany({
-    where: { sourceId: source.id, fingerprint: { in: fingerprintList } },
-    select: { fingerprint: true },
+/**
+ * Apply-mode guard: the recurring adapter is future-only, so the reconciler
+ * will CANCEL backfilled events inside the source's scrape window unless the
+ * source is configured `upcomingOnly: true`. Warn loudly (non-fatal) when the
+ * live source row isn't yet configured so the operator sets it before the next
+ * scrape. Only checked in apply mode — dry runs stay DB-free.
+ */
+async function warnIfReconcileHazard(): Promise<void> {
+  const source = await prisma.source.findFirst({
+    where: { name: SOURCE_NAME },
+    select: { config: true },
   });
-  const existingSet = new Set(existingRows.map((r) => r.fingerprint));
-  const toInsert = allFingerprints.filter(({ fingerprint }) => !existingSet.has(fingerprint));
-  console.log(`\nPre-existing rows: ${existingSet.size}. New rows to insert: ${toInsert.length}.`);
-
-  if (toInsert.length === 0) {
-    console.log("Nothing new to insert. Exiting.");
-    await prisma.$disconnect();
-    return;
+  const config = (source?.config ?? null) as { upcomingOnly?: boolean } | null;
+  if (config?.upcomingOnly !== true) {
+    console.warn(
+      `⚠ WARNING: source "${SOURCE_NAME}" is not config.upcomingOnly=true in the DB. ` +
+        `The future-only adapter means reconcile may CANCEL backfilled events within ` +
+        `the source's scrape window on the next scrape. Set config.upcomingOnly:true ` +
+        `(prisma/seed-data/sources.ts) and re-seed prod before relying on recent history.`,
+    );
   }
+}
 
-  // Single createMany — much faster than the per-row insert loop.
-  await prisma.rawEvent.createMany({
-    data: toInsert.map(({ event, fingerprint }) => ({
-      sourceId: source.id,
-      rawData: event as unknown as Prisma.InputJsonValue,
-      fingerprint,
-      processed: false,
-    })),
+async function main(): Promise<void> {
+  if (process.env.BACKFILL_APPLY === "1") {
+    await warnIfReconcileHazard();
+  }
+  await runBackfillScript({
+    sourceName: SOURCE_NAME,
+    kennelTimezone: KENNEL_TIMEZONE,
+    label: "Walking Seletar H3 HashController.php archive (1980→present)",
+    fetchEvents,
   });
-
-  console.log(`\nDone. Inserted ${toInsert.length} new RawEvents from ${apiUrl}.`);
-  await prisma.$disconnect();
 }
 
 main().catch((err) => {
