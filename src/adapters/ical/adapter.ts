@@ -25,6 +25,7 @@ export interface ICalSourceConfig {
   keepNonKennelTitlePrefix?: boolean;  // #1955: only strip a "Prefix:" from the SUMMARY title when the prefix identifies the kennel (run marker or matching tag); keep event-type prefixes like "Hash Lunch:". Off by default — most feeds (e.g. the Reading regional Localendar) use full kennel-name prefixes that SHOULD be stripped.
   coalesceEndpointDuplicates?: boolean; // collapse a same-date all-day /events/{n} VEVENT into its timed /runs/{m} twin, enriching hares/description/etc. — Oslo H3 publishes each run on both endpoints (#1828)
   rejectTitleHareThemeSuffix?: boolean; // #2004 Perth: drop a titleHarePattern capture that ends in an event-type word ("West Coast 4 seasons run") — it's a trail theme, not a hare. Opt-in so it never touches other titleHarePattern sources whose hares can legitimately end in such words.
+  stripTitleHareSuffix?: boolean;      // #2216 Charm City: after extracting hares from the SUMMARY via titleHarePattern, remove the matched suffix (e.g. "~ <hares>") from the resolved title so hare names don't appear in both `title` and `haresText`. Opt-in (and gated on hareFromTitle) — full-line titleHarePattern sources (Perth's "^Run N - hares") would blank the whole title, and a rejected theme suffix must keep its title intact.
   titleStripPrefixAliases?: string[];  // #2148 Reading / #2160 ICH3: kennel-label variants ("RH3"/"ReadingH3", "ICH3") to strip from the START of the resolved title together with an immediately-following run marker ("#1203:", "# 60"). Opt-in per source — the run number is already extracted into its own field, so the prefix is pure noise. See stripTitleKennelRunPrefix.
   cleanDescriptionLocation?: boolean;  // #2159 Charm City: run a DESCRIPTION-derived location (not the VEVENT LOCATION field) through cleanLocationName — strips URLs/labels/CTA residue and rejects placeholders. Opt-in so feeds whose On-On venue path already emits clean names are untouched.
   dropImprobablePlaceholderTime?: boolean; // #2175 Charm City: clear startTime/endTime when a `#TBD`-style placeholder run also carries a junk late-night DTSTART (23:00–03:59) — the hare entered a throwaway time before the trail was scheduled. Opt-in so a legitimately late/early-morning trail on another feed that still uses a placeholder run number keeps its time.
@@ -713,6 +714,18 @@ function buildRawEventFromVEvent(
   // source bakes into the title ("RH3: #1203:", "ICH3# 60"). Opt-in per source.
   if (title && config?.titleStripPrefixAliases?.length) {
     title = stripTitleKennelRunPrefix(title, config.titleStripPrefixAliases);
+  }
+  // #2216 Charm City — when the hare was pulled from the SUMMARY via
+  // `titleHarePattern`, the matched "~ <hares>" suffix is still embedded in the
+  // title ("CCH3# TBD~ MoreMen Pukes Tonight"). Strip it so the hares don't
+  // appear in both `title` and `haresText`. Opt-in (`stripTitleHareSuffix`):
+  // CCH3's pattern is a suffix match, but full-line patterns (Perth's
+  // "^Run N - hares") would blank the entire title, so other sources are left
+  // untouched. Also gated on `hareFromTitle`, so a rejected theme suffix
+  // (rejectTitleHareThemeSuffix) keeps its full title. Empty remainder falls
+  // back to `undefined` so merge synthesizes "<Kennel> Trail #N".
+  if (config?.stripTitleHareSuffix && hareFromTitle && title && compiledTitleHarePattern) {
+    title = title.replace(compiledTitleHarePattern, "").trim() || undefined;
   }
   // #2160 hard rule — the title must NEVER be the hare name. When the hare was
   // pulled from the SUMMARY (titleHarePattern) and the stripped title is just
