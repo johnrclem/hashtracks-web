@@ -37,6 +37,7 @@ import {
   extractFieldsFromFbDescription,
   looksLikeFbBlock,
   FB_SSR_ENVELOPE_MARKERS,
+  type FbBagRejectReason,
 } from "./parser";
 import { FB_PAGE_HANDLE_RE, isReservedFacebookHandle } from "./constants";
 import type { KennelPattern } from "../kennel-patterns";
@@ -218,50 +219,10 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
     });
     const allEvents = parseResult.events;
     const filteredCounts = parseResult.filtered;
-    // Only `admin-notice` and `placeholder` reflect content-quality drops
-    // ("this Page admin posts non-trails on the events feed"). The other
-    // reject reasons (missing-half, no-title, invalid-time, cancelled)
-    // reflect shape drift or normal cancellations and must NOT raise the
-    // coverage-gap signal — those would create false alerts on Pages with
-    // legitimate cancelled events or partial graph payloads (Codex P1).
-    const contentFilteredTotal = filteredCounts["admin-notice"] + filteredCounts.placeholder;
 
-    // Block / shape-break heuristic on the FINAL html (after any proxy retry).
-    // 0 parsed events AND the page `looksLikeFbBlock` (envelope markers absent
-    // — a rotated GraphQL shape or a checkpoint wall — or a checkpoint marker
-    // present) → surface a non-fatal error so the SCRAPE_FAILURE / health path
-    // catches it on first scrape and reconcile is skipped (events.length is 0
-    // anyway). A genuinely-empty but healthy Page ships the envelope and trips
-    // neither, so this stays silent there (#1939). When the proxy retry was
-    // attempted and still blocked, the message says so.
-    const errors: string[] = [];
-    const hasEnvelopeMarker = FB_SSR_ENVELOPE_MARKERS.some((m) => html.includes(m));
-    const blocked = looksLikeFbBlock(html);
-    if (allEvents.length === 0 && blocked) {
-      // Name the proxy outcome: it threw (proxyError), or it ran and stayed
-      // blocked (usedProxy), or it wasn't attempted.
-      const proxySuffix = proxyError
-        ? `; residential-proxy retry failed: ${proxyError}`
-        : usedProxy
-          ? "; residential-proxy retry did not clear it"
-          : "";
-      errors.push(
-        `FB hosted_events page returned ${html.length} chars but parser found 0 events and the page looks like a checkpoint/login wall or a GraphQL shape change (SSR envelope markers ${hasEnvelopeMarker ? "present" : "absent"})${proxySuffix}. Treat as a fetch failure, not 0 events — verify the Page is reachable / refresh the parser fixture.`,
-      );
-    } else if (allEvents.length === 0 && hasEnvelopeMarker && contentFilteredTotal > 0) {
-      // Coverage-gap signal (#1496, #1499): SSR envelope intact AND at least
-      // one event candidate was content-filtered (admin notices, placeholder
-      // rows) and zero real events made it through. Distinct from "Page
-      // genuinely has nothing scheduled" — worth surfacing so an operator can
-      // re-evaluate the FB source vs. switching to MEETUP / website / static.
-      const reasonSummary = (["admin-notice", "placeholder"] as const)
-        .filter((reason) => filteredCounts[reason] > 0)
-        .map((reason) => `${reason}=${filteredCounts[reason]}`)
-        .join(", ");
-      errors.push(
-        `FB hosted_events page returned ${contentFilteredTotal} candidate events but all were content-filtered (${reasonSummary}). Source likely does not use FB Hosted Events for runs — consider replacing with a website / Meetup source.`,
-      );
-    }
+    // Non-fatal block / coverage-gap signals (extracted to keep fetch() within
+    // the cognitive-complexity budget — see buildListingSignalErrors).
+    const errors = buildListingSignalErrors(html, allEvents.length, filteredCounts, usedProxy, proxyError);
 
     // Honor options.days via the shared `applyDateWindow` so diagnostic
     // counts stay consistent with other adapters. Returns a new result
@@ -278,7 +239,7 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
           htmlBytes: html.length,
           parserFiltered: filteredCounts,
           usedResidentialProxy: usedProxy,
-          ...(proxyError !== undefined ? { proxyError } : {}),
+          ...(proxyError ? { proxyError } : {}),
         },
       },
       days,
@@ -331,6 +292,59 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
       },
     };
   }
+}
+
+/**
+ * Non-fatal signal errors for a parsed listing (#1939 block/checkpoint, #1496
+ * coverage-gap). Extracted from `fetch()` to keep the hot path within the
+ * cognitive-complexity budget. Computed on the FINAL html (after any proxy
+ * retry). Returns `[]` for a healthy page — events present, or a genuinely-
+ * empty page that still ships the SSR envelope and trips no checkpoint marker.
+ */
+function buildListingSignalErrors(
+  html: string,
+  allEventsCount: number,
+  filteredCounts: Record<FbBagRejectReason, number>,
+  usedProxy: boolean,
+  proxyError: string | undefined,
+): string[] {
+  if (allEventsCount > 0) return [];
+
+  // Block / shape-break: 0 events AND `looksLikeFbBlock` (SSR envelope markers
+  // absent — a rotated GraphQL shape or a checkpoint wall — or a checkpoint
+  // marker present). Surface non-fatally so SCRAPE_FAILURE fires and reconcile
+  // is skipped (events.length is 0 anyway) — a FAILED scrape, not "0 events".
+  const hasEnvelopeMarker = FB_SSR_ENVELOPE_MARKERS.some((m) => html.includes(m));
+  if (looksLikeFbBlock(html)) {
+    return [
+      `FB hosted_events page returned ${html.length} chars but parser found 0 events and the page looks like a checkpoint/login wall or a GraphQL shape change (SSR envelope markers ${hasEnvelopeMarker ? "present" : "absent"})${proxyRetrySuffix(usedProxy, proxyError)}. Treat as a fetch failure, not 0 events — verify the Page is reachable / refresh the parser fixture.`,
+    ];
+  }
+
+  // Coverage-gap (#1496, #1499): SSR envelope intact AND every candidate was
+  // content-filtered (admin notices / placeholders), zero real events through.
+  // Only `admin-notice` and `placeholder` count — the other reject reasons
+  // (missing-half, no-title, invalid-time, cancelled) are shape drift / normal
+  // cancellations and must NOT raise a coverage-gap alert (Codex P1).
+  const contentFilteredTotal = filteredCounts["admin-notice"] + filteredCounts.placeholder;
+  if (hasEnvelopeMarker && contentFilteredTotal > 0) {
+    const reasonSummary = (["admin-notice", "placeholder"] as const)
+      .filter((reason) => filteredCounts[reason] > 0)
+      .map((reason) => `${reason}=${filteredCounts[reason]}`)
+      .join(", ");
+    return [
+      `FB hosted_events page returned ${contentFilteredTotal} candidate events but all were content-filtered (${reasonSummary}). Source likely does not use FB Hosted Events for runs — consider replacing with a website / Meetup source.`,
+    ];
+  }
+  return [];
+}
+
+/** Describe the proxy-retry outcome for the checkpoint error message. An
+ *  if/return chain rather than a nested ternary (Sonar S3358). */
+function proxyRetrySuffix(usedProxy: boolean, proxyError: string | undefined): string {
+  if (proxyError) return `; residential-proxy retry failed: ${proxyError}`;
+  if (usedProxy) return "; residential-proxy retry did not clear it";
+  return "";
 }
 
 interface EnrichmentResult {

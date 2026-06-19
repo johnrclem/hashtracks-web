@@ -307,8 +307,8 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     // Direct datacenter fetch 429s; the proxy retry also fails. Both reasons
     // surface in the error and the scrape is FAILED (0 events, no reconcile).
     mockedFetch
-      .mockResolvedValueOnce({ ok: false, status: 429, text: async () => "rate limited" } as Response)
-      .mockResolvedValueOnce({ ok: false, status: 503, text: async () => "proxy down" } as Response);
+      .mockResolvedValueOnce(new Response("rate limited", { status: 429 }))
+      .mockResolvedValueOnce(new Response("proxy down", { status: 503 }));
     const adapter = new FacebookHostedEventsAdapter();
     const result = await adapter.fetch(
       makeSource({
