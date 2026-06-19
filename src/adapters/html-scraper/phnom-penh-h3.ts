@@ -65,10 +65,17 @@ const MAPS_HOSTS = new Set([
   "maps.google.com",
 ]);
 
-// Placeholder cell values the source uses for "not yet decided". Trimmed +
-// whitespace-collapsed before testing. Single-`\s+` alternation, no
-// `\s*`-adjacent-`.+` shape (Sonar S5852/S5843 safe).
-const PLACEHOLDER_RE = /^(?:tbc|tba|tbd|n\/a|\/n\/a|hares?\s+needed!?)$/i;
+// Placeholder cell values the source uses for "not yet decided". A Set lookup on
+// the normalized (lower-cased, whitespace-collapsed) value avoids a regex
+// alternation entirely (no Sonar S5852/S5843 backtracking concern).
+const PLACEHOLDER_VALUES = new Set([
+  "tbc", "tba", "tbd", "n/a", "/n/a",
+  "hare needed", "hare needed!", "hares needed", "hares needed!",
+]);
+
+function isPlaceholder(normalized: string): boolean {
+  return PLACEHOLDER_VALUES.has(normalized.toLowerCase());
+}
 
 // Home table date: DD.MM.YYYY (dots).
 const HOME_DATE_RE = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/;
@@ -91,17 +98,28 @@ function normalizeText(raw: string): string {
 
 function isValidMapsUrl(href: string): boolean {
   try {
-    const parsed = new URL(href);
+    // Resolve against the source origin so protocol-relative ("//maps.app.goo.gl")
+    // and relative hrefs don't throw; non-Maps hosts still fail the allowlist.
+    const parsed = new URL(href, DEFAULT_URL);
     return parsed.protocol === "https:" && MAPS_HOSTS.has(parsed.hostname.toLowerCase());
   } catch {
     return false;
   }
 }
 
-/** Map a placeholder/empty cell to undefined; otherwise return the trimmed value. */
-function cleanField(value: string | undefined): string | undefined {
-  const v = normalizeText(value ?? "");
-  if (!v || PLACEHOLDER_RE.test(v)) return undefined;
+/**
+ * Tri-state cell cleaner for per-event text fields (hares, remarks):
+ *   - `undefined` arg (cell absent)         → undefined (merge preserves existing)
+ *   - present placeholder / empty cell      → null (merge explicitly clears)
+ *   - real value                            → the trimmed value
+ * Returning `null` (not `undefined`) for a present placeholder is what lets a
+ * run that flips from a real hare back to "Hares Needed!"/"TBC" clear the stale
+ * value through the merge pipeline (atomic-bundle semantics).
+ */
+function cleanField(value: string | undefined): string | null | undefined {
+  if (value === undefined) return undefined;
+  const v = normalizeText(value);
+  if (!v || isPlaceholder(v)) return null;
   return v;
 }
 
@@ -137,6 +155,9 @@ export function parseNewsDate(text: string): string | null {
   // weekday word is ignored by chrono. Full month name + 4-digit year is
   // unambiguous, so no year inference and no "D MMM YY" pitfall.
   const cleaned = text.replace(ORDINAL_RE, "$1").replaceAll(/\s+/g, " ").trim();
+  // Require an explicit 4-digit year — fail loud rather than let chrono infer a
+  // missing year (which would silently produce a wrong date if the source drops it).
+  if (!/\b\d{4}\b/.test(cleaned)) return null;
   return chronoParseDate(cleaned, "en-GB");
 }
 
@@ -207,7 +228,7 @@ export interface NewsDetail {
   startTime?: string;
   location?: string;
   locationUrl?: string;
-  hares?: string;
+  hares?: string | null;
   trailLengthText?: string;
   trailLengthMinMiles?: number;
   trailLengthMaxMiles?: number;
@@ -227,6 +248,61 @@ function firstMapsHref($: CheerioAPI, el: Element): string | undefined {
   return found;
 }
 
+/** Parse a "...for 13.30 departure" clause into an "HH:MM" start time. */
+function parseDeparture(text: string): string | undefined {
+  const dm = DEPARTURE_RE.exec(text);
+  if (!dm) return undefined;
+  const h = Number.parseInt(dm[1], 10);
+  const min = Number.parseInt(dm[2], 10);
+  if (h < 0 || h > 23 || min < 0 || min > 59) return undefined;
+  return `${String(h).padStart(2, "0")}:${dm[2]}`;
+}
+
+/** Mutable accumulator threaded through the label handlers. */
+interface NewsParseCtx {
+  detail: NewsDetail;
+  walkKm?: number;
+  runKm?: number;
+}
+
+type LabelHandler = (rest: string, ctx: NewsParseCtx, $: CheerioAPI, el: Element) => void;
+
+// Ordered label → handler dispatch. The loop in parseNewsDetail tries each label
+// against the paragraph text and runs the first match, keeping the parse body
+// flat (one match → one tiny handler) instead of a deeply-nested if-chain.
+const NEWS_LABEL_HANDLERS: ReadonlyArray<readonly [string, LabelHandler]> = [
+  ["Run No", (rest, ctx) => {
+    const n = Number.parseInt(rest, 10);
+    if (!Number.isNaN(n)) ctx.detail.runNumber = n;
+  }],
+  ["Date/Time", (rest, ctx) => { ctx.detail.date = parseNewsDate(rest) ?? undefined; }],
+  ["Meeting Point", (rest, ctx) => {
+    const t = parseDeparture(rest);
+    if (t) ctx.detail.startTime = t;
+  }],
+  ["Location", (rest, ctx, $, el) => {
+    ctx.detail.location = rest;
+    ctx.detail.locationUrl = firstMapsHref($, el);
+  }],
+  ["Walking", (rest, ctx) => { ctx.walkKm = parseKm(rest); }],
+  ["Running", (rest, ctx) => { ctx.runKm = parseKm(rest); }],
+  ["On On", (rest, ctx) => { ctx.detail.onOn = rest; }],
+  ["Hares", (rest, ctx) => { ctx.detail.hares = cleanField(rest); }],
+];
+
+/** Compose trailLengthText + min/max miles from the accumulated walk/run km. */
+function applyTrailLength(ctx: NewsParseCtx): void {
+  const { walkKm, runKm, detail } = ctx;
+  if (walkKm === undefined && runKm === undefined) return;
+  const parts: string[] = [];
+  if (runKm !== undefined) parts.push(`${runKm} km run`);
+  if (walkKm !== undefined) parts.push(`${walkKm} km walk`);
+  detail.trailLengthText = parts.join(" / ");
+  const miles = [walkKm, runKm].filter((v): v is number => v !== undefined).map(kmToMiles);
+  detail.trailLengthMinMiles = Math.min(...miles);
+  detail.trailLengthMaxMiles = Math.max(...miles);
+}
+
 /**
  * Parse a `/news/<n>` detail page. Grav renders the post body as a sequence of
  * `<p>` blocks (some nested in `<ul><li>`) inside `#body-wrapper`, each a
@@ -236,80 +312,22 @@ function firstMapsHref($: CheerioAPI, el: Element): string | undefined {
  */
 export function parseNewsDetail(html: string): NewsDetail {
   const $ = cheerio.load(html);
-  const detail: NewsDetail = {};
-  let walkKm: number | undefined;
-  let runKm: number | undefined;
+  const ctx: NewsParseCtx = { detail: {} };
 
   $("#body-wrapper p").each((_i, el) => {
     const text = normalizeText($(el).text());
     if (!text) return;
-
-    const runRest = stripLabel(text, "Run No");
-    if (runRest) {
-      const n = Number.parseInt(runRest, 10);
-      if (!Number.isNaN(n)) detail.runNumber = n;
-      return;
-    }
-
-    const dateRest = stripLabel(text, "Date/Time");
-    if (dateRest) {
-      detail.date = parseNewsDate(dateRest) ?? undefined;
-      return;
-    }
-
-    const meetingRest = stripLabel(text, "Meeting Point");
-    if (meetingRest) {
-      const dm = DEPARTURE_RE.exec(meetingRest);
-      if (dm) {
-        const h = Number.parseInt(dm[1], 10);
-        const min = Number.parseInt(dm[2], 10);
-        if (h >= 0 && h <= 23 && min >= 0 && min <= 59) {
-          detail.startTime = `${String(h).padStart(2, "0")}:${dm[2]}`;
-        }
+    for (const [label, handler] of NEWS_LABEL_HANDLERS) {
+      const rest = stripLabel(text, label);
+      if (rest !== undefined) {
+        handler(rest, ctx, $, el);
+        return;
       }
-      return;
     }
-
-    const locationRest = stripLabel(text, "Location");
-    if (locationRest) {
-      detail.location = locationRest;
-      detail.locationUrl = firstMapsHref($, el);
-      return;
-    }
-
-    const walkRest = stripLabel(text, "Walking");
-    if (walkRest) {
-      walkKm = parseKm(walkRest);
-      return;
-    }
-
-    const runDistRest = stripLabel(text, "Running");
-    if (runDistRest) {
-      runKm = parseKm(runDistRest);
-      return;
-    }
-
-    const onOnRest = stripLabel(text, "On On");
-    if (onOnRest) {
-      detail.onOn = onOnRest;
-      return;
-    }
-
-    const haresRest = stripLabel(text, "Hares");
-    if (haresRest) detail.hares = cleanField(haresRest);
   });
 
-  if (walkKm !== undefined || runKm !== undefined) {
-    const parts: string[] = [];
-    if (runKm !== undefined) parts.push(`${runKm} km run`);
-    if (walkKm !== undefined) parts.push(`${walkKm} km walk`);
-    detail.trailLengthText = parts.join(" / ");
-    const miles = [walkKm, runKm].filter((v): v is number => v !== undefined).map(kmToMiles);
-    detail.trailLengthMinMiles = Math.min(...miles);
-    detail.trailLengthMaxMiles = Math.max(...miles);
-  }
-
-  return detail;
+  applyTrailLength(ctx);
+  return ctx.detail;
 }
 
 /** Build a full RawEventData from a `/news` detail (used by the history backfill). */
@@ -336,7 +354,12 @@ function mergeDetail(event: RawEventData, detail: NewsDetail): void {
   if (detail.location) event.location = detail.location;
   if (detail.locationUrl) event.locationUrl = detail.locationUrl;
   if (detail.startTime) event.startTime = detail.startTime;
-  if (detail.hares) event.hares = detail.hares;
+  // hares is tri-state (null = explicit clear); propagate any present signal so
+  // a real→placeholder transition still clears the stale value.
+  if (detail.hares !== undefined) event.hares = detail.hares;
+  // Surface the On-On venue only when the home Remarks didn't already provide a
+  // description (the Remarks column, when present, is richer than the venue name).
+  if (detail.onOn && !event.description) event.description = `On On: ${detail.onOn}`;
   if (detail.trailLengthText) {
     event.trailLengthText = detail.trailLengthText;
     event.trailLengthMinMiles = detail.trailLengthMinMiles;
@@ -413,10 +436,8 @@ export class PhnomPenhH3Adapter implements SourceAdapter {
     for (const target of enrichTargets.slice(0, MAX_ENRICH)) {
       const detailPage = await fetchHTMLPage(target.newsUrl);
       if (!detailPage.ok) {
-        (errorDetails.fetch ??= []).push({
-          url: target.newsUrl,
-          message: "news detail fetch failed",
-        });
+        errorDetails.fetch ??= [];
+        errorDetails.fetch.push({ url: target.newsUrl, message: "news detail fetch failed" });
         continue;
       }
       mergeDetail(target.event, parseNewsDetail(detailPage.html));

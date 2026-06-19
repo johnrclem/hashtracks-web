@@ -61,6 +61,14 @@ async function fetchHistory(): Promise<RawEventData[]> {
       console.warn(`  /news/${n}: ${err}`);
     }
   }
+  // Fail loud: if every fetch failed (network outage, all redirected to home),
+  // an empty array would let the backfill "succeed" with nothing — surface it.
+  if (events.length === 0) {
+    throw new Error(
+      `No historical events fetched from p2h3.com/news/${START_RUN}-${END_RUN} ` +
+        `(all requests failed or returned no run detail).`,
+    );
+  }
   return events;
 }
 

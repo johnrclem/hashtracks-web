@@ -103,6 +103,9 @@ describe("parseNewsDate", () => {
     expect(parseNewsDate("Sunday 21st June 2026")).toBe("2026-06-21");
     expect(parseNewsDate("Sunday 7th June 2026")).toBe("2026-06-07");
   });
+  it("returns null when no explicit year is present (fail loud, no inference)", () => {
+    expect(parseNewsDate("Sunday 21st June")).toBeNull();
+  });
 });
 
 describe("parseHomeRow", () => {
@@ -134,17 +137,17 @@ describe("parseHomeRow", () => {
     const cells = ["1842", "27.06.2026", "Bus", "TBC", "TBC", "TBC", "Saturday Hash!"];
     const event = parseHomeRow(cells, [], SOURCE_URL);
     expect(event).not.toBeNull();
-    expect(event!.hares).toBeUndefined(); // "TBC" stripped
+    expect(event!.hares).toBeNull(); // "TBC" present-placeholder → explicit clear
     expect(event!.description).toBe("Saturday Hash!");
     expect(event!.sourceUrl).toBe(SOURCE_URL); // no /news link on upcoming rows
   });
 
-  it("strips placeholder hares and remarks", () => {
+  it("clears placeholder hares and remarks to null (explicit clear)", () => {
     const cells = ["1843", "05.07.2026", "TBC", "Hares Needed!", "TBC", "TBC", "/N/A"];
     const event = parseHomeRow(cells, [], SOURCE_URL);
     expect(event).not.toBeNull();
-    expect(event!.hares).toBeUndefined();
-    expect(event!.description).toBeUndefined();
+    expect(event!.hares).toBeNull();
+    expect(event!.description).toBeNull();
     expect(event!.locationUrl).toBeUndefined();
   });
 
@@ -238,7 +241,7 @@ describe("PhnomPenhH3Adapter.fetch", () => {
 
     const up = result.events.find((e) => e.runNumber === 1842);
     expect(up).toBeDefined();
-    expect(up!.hares).toBeUndefined(); // "Hares Needed!" stripped
+    expect(up!.hares).toBeNull(); // "Hares Needed!" present-placeholder → explicit clear
     expect(up!.description).toBe("Saturday Hash!");
     expect(up!.startTime).toBe("13:30"); // kennel default (not enriched)
   });
