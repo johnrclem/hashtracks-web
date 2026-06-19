@@ -909,6 +909,9 @@ export const SOURCES = [
         // #2175: a `#TBD` placeholder run with a junk 03:02 DTSTART trips the
         // event-improbable-time audit — clear the throwaway time.
         dropImprobablePlaceholderTime: true,
+        // #2216: titleHarePattern extracts the "~ <hares>" suffix into haresText
+        // but left it in the title too. Strip the matched suffix from the title.
+        stripTitleHareSuffix: true,
       },
       kennelCodes: ["cch3"],
     },
@@ -2874,7 +2877,12 @@ export const SOURCES = [
       name: "Puget Sound H3 Hareline Sheet",
       url: "https://docs.google.com/spreadsheets/d/1XTN-ivc5NClSt4Z1HVYf0ddEzF3aXcnd1ZH0JFpLXm4",
       type: "GOOGLE_SHEETS" as const,
-      trustLevel: 5,
+      // #2214: trust 7 (= WA Hash GCal) so the dedicated hareline is authoritative
+      // for its own kennel. At trust 5 the aggregator GCal out-trusted the sheet,
+      // forcing the sheet through the merge enrich branch (fill-NULL-only) — so a
+      // stale `haresText` (the col-3 "Thursday" left by a pre-#2130 mapping) could
+      // never be overwritten by the sheet's real col-4 hares.
+      trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
@@ -4767,12 +4775,15 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      // Recurring adapter is future-only (UPCOMING_SQL = `hl_datetime >= CURDATE()`).
-      // Without upcomingOnly the reconciler scans `now ± scrapeDays` and would
-      // CANCEL the historical Events the one-shot backfill creates (they're
-      // sole-source and absent from the future-only scrape). See
-      // scripts/backfill-seletar-h3-history.ts.
-      config: { upcomingOnly: true },
+      config: {
+        // The adapter fetches UPCOMING_SQL (hl_datetime >= CURDATE()), so it is
+        // future-only. Without upcomingOnly the reconciler would cancel
+        // sole-source CONFIRMED past events inside the now±90d window that the
+        // live scrape never re-emits — including the ~13 recent rows from the
+        // 1980→present historical backfill (#2238). Restrict cancellation to
+        // FUTURE dates, the correct posture for a future-only adapter.
+        upcomingOnly: true,
+      },
       kennelCodes: ["seletar-h3"],
     },
 
@@ -6055,6 +6066,24 @@ export const SOURCES = [
       kennelCodes: ["sh3-kr"],
     },
 
+    // ── Nepal ──
+    // --- Himalayan H3 (himalayanhash.run TablePress "Receding Hareline" — NEW
+    // HimalayanHashAdapter) --- WordPress 6.5.8 SSR home page renders a rolling
+    // 3-row table (current + next ~2) plus a single featured-run detail block
+    // (Google Map link + venue coords + directions). No archive/pagination.
+    // upcomingOnly protects reconcile as runs age off; the adapter fails loud on
+    // parse drift.
+    {
+      name: "Himalayan H3 Website",
+      url: "https://himalayanhash.run/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["himalayan-h3"],
+    },
+
     // ── Nevada + Utah (US gap fill) ──
 
     // Las Vegas H3 — Tribe Events Calendar REST API at lvh3.org
@@ -6954,6 +6983,12 @@ export const SOURCES = [
         // literal "R*n" → "#" so the shared extractHashRunNumber helper parses it.
         extractRunNumber: true,
         runNumberPrefix: "R*n",
+        // Both kennels publish the same emoji-structured run template
+        // ("🐰 Hares: TBD / 👣 Trail / 💶 Hash Cash: 5 €") verbatim on every
+        // event; the default boilerplate-block stripper would treat it as a
+        // standing club template and leave only a title-echo (#2228). Keep the
+        // full description body for these sibling kennels.
+        keepRepeatedDescription: true,
         kennelPatterns: [
           ["^Paris H3", "paris-h3"],
           ["^Sans Clue H3", "sans-clue-h3"],
