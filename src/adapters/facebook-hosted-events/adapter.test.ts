@@ -832,6 +832,26 @@ describe("FacebookHostedEventsAdapter — residential proxy fallback (#1939)", (
     expect(result.errors[0]).toMatch(/residential-proxy retry did not clear it/);
   });
 
+  it("names the proxy failure in the checkpoint error when the direct fetch is blocked and the proxy throws", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(htmlResponse(CHECKPOINT_HTML)) // direct → 200 blocked
+      .mockRejectedValueOnce(new Error("NAS unreachable")); // proxy retry throws
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/residential-proxy retry failed: NAS unreachable/);
+    expect(result.diagnosticContext?.proxyError).toBe("NAS unreachable");
+    expect(result.diagnosticContext?.usedResidentialProxy).toBe(false);
+  });
+
   it("does NOT retry via proxy for a genuinely-empty healthy Page (envelope present, 0 events)", async () => {
     const emptyPageHtml =
       `<html><body>` +

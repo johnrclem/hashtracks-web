@@ -192,10 +192,14 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
     // an unreachable Page must not be read as "0 upcoming events".
     let html: string;
     let usedProxy: boolean;
+    // Set when a proxy retry was attempted but threw, and we fell back to the
+    // (blocked) direct body — so the checkpoint error can name the proxy cause.
+    let proxyError: string | undefined;
     try {
       const fetched = await fetchFbListing(url, { forceProxy });
       html = fetched.html;
       usedProxy = fetched.usedProxy;
+      proxyError = fetched.proxyError;
     } catch (err) {
       return errorResult(`Facebook hosted_events fetch error: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -234,8 +238,15 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
     const hasEnvelopeMarker = FB_SSR_ENVELOPE_MARKERS.some((m) => html.includes(m));
     const blocked = looksLikeFbBlock(html);
     if (allEvents.length === 0 && blocked) {
+      // Name the proxy outcome: it threw (proxyError), or it ran and stayed
+      // blocked (usedProxy), or it wasn't attempted.
+      const proxySuffix = proxyError
+        ? `; residential-proxy retry failed: ${proxyError}`
+        : usedProxy
+          ? "; residential-proxy retry did not clear it"
+          : "";
       errors.push(
-        `FB hosted_events page returned ${html.length} chars but parser found 0 events and the page looks like a checkpoint/login wall or a GraphQL shape change (SSR envelope markers ${hasEnvelopeMarker ? "present" : "absent"})${usedProxy ? "; residential-proxy retry did not clear it" : ""}. Treat as a fetch failure, not 0 events — verify the Page is reachable / refresh the parser fixture.`,
+        `FB hosted_events page returned ${html.length} chars but parser found 0 events and the page looks like a checkpoint/login wall or a GraphQL shape change (SSR envelope markers ${hasEnvelopeMarker ? "present" : "absent"})${proxySuffix}. Treat as a fetch failure, not 0 events — verify the Page is reachable / refresh the parser fixture.`,
       );
     } else if (allEvents.length === 0 && hasEnvelopeMarker && contentFilteredTotal > 0) {
       // Coverage-gap signal (#1496, #1499): SSR envelope intact AND at least
@@ -267,6 +278,7 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
           htmlBytes: html.length,
           parserFiltered: filteredCounts,
           usedResidentialProxy: usedProxy,
+          ...(proxyError !== undefined ? { proxyError } : {}),
         },
       },
       days,
@@ -502,6 +514,13 @@ interface FbListingFetch {
   html: string;
   /** Whether the returned HTML came back through the residential proxy. */
   usedProxy: boolean;
+  /**
+   * Set only when a proxy retry was attempted and THREW, but we fell back to a
+   * (blocked) direct 200 body so the adapter can still emit a precise
+   * checkpoint error. Lets that error name the proxy failure instead of
+   * silently swallowing it (#2267 review).
+   */
+  proxyError?: string;
 }
 
 /**
@@ -549,8 +568,8 @@ async function fetchFbListing(url: string, opts: { forceProxy: boolean }): Promi
     // Proxy failed too. If the direct attempt at least gave us a (blocked) 200
     // body, return it so the adapter emits the checkpoint error; otherwise
     // there's nothing to parse — throw with both failure reasons.
-    if (directHtml !== null) return { html: directHtml, usedProxy: false };
     const detail = proxyErr instanceof Error ? proxyErr.message : String(proxyErr);
+    if (directHtml !== null) return { html: directHtml, usedProxy: false, proxyError: detail };
     throw new Error(`direct (${directErr}) and residential-proxy (${detail}) both failed`);
   }
 }
