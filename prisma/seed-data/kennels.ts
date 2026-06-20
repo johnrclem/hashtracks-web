@@ -4814,6 +4814,26 @@ export const KENNELS: KennelSeed[] = [
       description:
         "Nepal's original (and, per local press, only) hash — \"a drinking club with a running problem\" founded in Kathmandu in 1979. The Himalayan Hash House Harriers (HHHH / H4) run every Saturday afternoon at outlying venues around the Kathmandu Valley, walkers and dogs welcome.",
     },
+    // ── Cambodia (first 🇰🇭 kennel) ──
+    {
+      // First Cambodia kennel. kennelCode == slug == "phnom-penh-h3" (descriptive
+      // city slug; toSlug("P2H3") would be the ambiguous "p2h3"). "PPH3" alias
+      // OMITTED — already a pph4 (Pikes Peak) alias. foundedYear left blank
+      // (unverifiable; do not infer from run #1841). dogFriendly not stated.
+      kennelCode: "phnom-penh-h3", shortName: "P2H3", fullName: "Phnom Penh Hash House Harriers",
+      slug: "phnom-penh-h3",
+      region: "Phnom Penh", country: "Cambodia",
+      website: "https://www.p2h3.com/",
+      facebookUrl: "https://www.facebook.com/groups/p2h3cambodia/",
+      twitterHandle: "phnompenhh3",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "1:30 PM", scheduleFrequency: "Weekly",
+      hashCash: "USD10 (expats) / USD7 (Khmer) — includes transport & beverages",
+      walkersWelcome: true,
+      logoUrl: "/kennel-logos/phnom-penh-h3.png",
+      latitude: 11.5564, longitude: 104.9282,
+      description:
+        "The Phnom Penh Hash House Harriers (P2H3) are a \"drinking club with a running problem\" that runs and walks the countryside around Phnom Penh every Sunday — a country bus departs Villa Grange (~1:30 pm) to rural trails (run ~6-10 km / walk ~4-6 km), then a circle and the On-On. Family-friendly; walkers and non-drinkers welcome.",
+    },
     // ── Nevada + Utah (US gap fill) ──
     {
       kennelCode: "lv-h3", shortName: "Las Vegas H3", fullName: "Las Vegas Hash House Harriers",

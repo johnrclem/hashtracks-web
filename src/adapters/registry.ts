@@ -106,6 +106,7 @@ import { BangkokMondayHashAdapter } from "./html-scraper/bangkok-monday-hash";
 import { TaipeiHashAdapter } from "./html-scraper/taipei-hash";
 import { NewTaipeiHashAdapter } from "./html-scraper/new-taipei-hash";
 import { KaohsiungHashAdapter } from "./html-scraper/kaohsiung-hash";
+import { PhnomPenhH3Adapter } from "./html-scraper/phnom-penh-h3";
 import { VindobonaH3Adapter } from "./html-scraper/vindobona-h3";
 import { LVH3Adapter } from "./html-scraper/lvh3";
 import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
@@ -278,6 +279,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /^https?:\/\/(?:[^/]+\.)?taipeihash\.com\.tw(?:[/?#:]|$)/i, name: "TaipeiHashAdapter", factory: () => new TaipeiHashAdapter() },
   { pattern: /^https?:\/\/(?:[^/]+\.)?newtaipeihash\.com(?:[/?#:]|$)/i, name: "NewTaipeiHashAdapter", factory: () => new NewTaipeiHashAdapter() },
   { pattern: /^https?:\/\/(?:[^/]+\.)?kaohsiunghash\.com(?:[/?#:]|$)/i, name: "KaohsiungHashAdapter", factory: () => new KaohsiungHashAdapter() },
+  // ── Cambodia ──
+  { pattern: /^https?:\/\/(?:[^/]+\.)?p2h3\.com(?:[/?#:]|$)/i, name: "PhnomPenhH3Adapter", factory: () => new PhnomPenhH3Adapter() },
   // ── Nepal ──
   { pattern: /^https?:\/\/(?:[^/]+\.)?himalayanhash\.run(?:[/?#:]|$)/i, name: "HimalayanHashAdapter", factory: () => new HimalayanHashAdapter() },
   // ── Austria ──

@@ -6085,6 +6085,25 @@ export const SOURCES = [
       kennelCodes: ["himalayan-h3"],
     },
 
+    // ── Cambodia (first 🇰🇭 kennel) ──
+
+    // Phnom Penh H3 (p2h3.com — NEW PhnomPenhH3Adapter) --- Grav CMS SSR home
+    // page renders two pipe-tables ("This week's Hash" + "Upcoming Hashes", the
+    // next ~6 runs) plus per-run /news/<n> detail pages (venue + Maps + distances
+    // + departure time), merged by run number. Shallow archive (no pagination).
+    // upcomingOnly protects reconcile as the forward feed ages off; the adapter
+    // fails loud on zero rows + per-run parse drift.
+    {
+      name: "Phnom Penh H3 Website",
+      url: "https://www.p2h3.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["phnom-penh-h3"],
+    },
+
     // ── Nevada + Utah (US gap fill) ──
 
     // Las Vegas H3 — Tribe Events Calendar REST API at lvh3.org
