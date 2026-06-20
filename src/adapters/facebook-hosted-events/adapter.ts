@@ -6,13 +6,21 @@
  * The tab serves an SSR'd HTML page that includes the GraphQL event payload
  * inline — see `parser.ts` for the JSON-island walker that extracts events.
  *
- * Logged-out fetches from server IPs return 200 with the full payload
- * (verified during planning research, 2026-05-06). The adapter therefore
- * doesn't need the residential proxy. If FB starts geo-blocking or
- * shape-rotating, the parser surfaces a 0-event result; the existing
- * EVENT_COUNT_ANOMALY health alert catches that drift after the rolling
- * baseline accrues, and the in-adapter shape-break heuristic (below)
- * catches it on first scrape before a baseline exists.
+ * Logged-out fetches from server IPs USED to return 200 with the full
+ * payload, but FB now serves a checkpoint / "content isn't available"
+ * interstitial to some Pages from datacenter IPs (Vercel) — HTTP 200, zero
+ * event nodes (#1939). The adapter therefore fetches direct first and, when
+ * the response `looksLikeFbBlock`, retries once through the NAS residential
+ * proxy (residential IPs aren't checkpointed). A source can also set
+ * `useResidentialProxy: true` to skip the wasted direct attempt. If both the
+ * direct and proxy attempts are blocked the adapter surfaces a shape-break /
+ * checkpoint error (a FAILED scrape, not "0 events") so reconcile won't run.
+ *
+ * `includePastEvents: true` additionally fetches `/past_hosted_events` to
+ * backfill rich title/venue for events that aged off the upcoming tab before
+ * they were ever scraped (#1940). Past events are reconcile-safe because
+ * reconcile clamps its cancellation window to the future under
+ * `upcomingOnly: true` (see reconcile.ts); they are enrichment-only.
  *
  * Trust level (set on the Source row in seed): 8 — official kennel
  * posting surface, above STATIC_SCHEDULE (3).
@@ -22,11 +30,14 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, ScrapeResult, RawEventData } from "../types";
 import { validateSourceConfig, applyDateWindow } from "../utils";
 import { safeFetch } from "../safe-fetch";
-import { isValidTimezone } from "@/lib/timezone";
+import { isValidTimezone, formatYmdInTimezone } from "@/lib/timezone";
 import {
   parseFacebookHostedEventsWithStats,
   parseFacebookEventDetail,
   extractFieldsFromFbDescription,
+  looksLikeFbBlock,
+  FB_SSR_ENVELOPE_MARKERS,
+  type FbBagRejectReason,
 } from "./parser";
 import { FB_PAGE_HANDLE_RE, isReservedFacebookHandle } from "./constants";
 import type { KennelPattern } from "../kennel-patterns";
@@ -55,23 +66,18 @@ const FB_REQUEST_HEADERS = {
 const DEFAULT_WINDOW_DAYS = 90;
 
 /**
- * SSR markers FB ships in every hosted_events response when the GraphQL
- * shape we know is intact — both in pages with events and in empty pages.
- * If the response carries neither marker, the SSR shape has rotated and
- * our parser surface is stale; if at least one is present and we still
- * parse 0 events, the Page just genuinely has no events on this tab.
- *
- * Both markers are matched in their quoted JSON-token form so a Page
- * coincidentally mentioning either string in plain text or a comment
- * can't false-negative the shape-break check. Tightening per Gemini
- * review on PR #1295.
- *
- * Replaces the earlier byte-count heuristic (#1294 audit), which wrongly
- * flagged every 600KB+ empty-Page response as a shape break — empty FB
- * Pages still ship the full SSR bundle (Page UI, comments, photos, etc.),
- * not a stub.
+ * Default backward window for `includePastEvents` (#1940). FB's logged-out
+ * past tab is itself shallow (typically the most recent page of events), so
+ * this generous bound mostly just guards against a Page with an unusually
+ * deep past feed; tune per-source via `config.pastWindowDays`.
  */
-const FB_SSR_ENVELOPE_MARKERS = ['"RelayPrefetchedStreamCache"', '"__bbox"'] as const;
+const DEFAULT_PAST_WINDOW_DAYS = 365;
+
+/**
+ * SSR envelope markers + the `looksLikeFbBlock` checkpoint heuristic now live
+ * in `parser.ts` (imported above) so the shape-break error logic here and the
+ * residential-proxy retry heuristic share one source of truth.
+ */
 
 /**
  * Cap on detail-page fetches per scrape. FB doesn't aggressively rate-limit
@@ -116,6 +122,31 @@ export interface FacebookHostedEventsConfig {
    */
   upcomingOnly: true;
   /**
+   * Force the listing + detail fetches through the NAS residential proxy
+   * from the first attempt, skipping the direct fetch (#1939). Set for Pages
+   * known to be checkpoint-blocked from datacenter IPs (Survivor H3, Von
+   * Tramp). When omitted/false the adapter still falls back to the proxy
+   * automatically if the direct fetch `looksLikeFbBlock` — this flag just
+   * avoids the wasted round-trip for chronically-blocked Pages.
+   */
+  useResidentialProxy?: boolean;
+  /**
+   * Also fetch `/past_hosted_events` and merge those events in (#1940).
+   * Backfills rich title/venue for events that aged off the upcoming tab
+   * before they were ever scraped (their canonical otherwise shows the
+   * STATIC_SCHEDULE placeholder). Reconcile-safe: `upcomingOnly: true` keeps
+   * reconcile's cancellation window in the future, so past events are
+   * enrichment-only and never cancelled. Past events use listing-tab fields
+   * only — no per-event detail-page enrichment. Default false.
+   */
+  includePastEvents?: boolean;
+  /**
+   * Backward window (days) for `includePastEvents`. Past events older than
+   * this are dropped. Defaults to {@link DEFAULT_PAST_WINDOW_DAYS}. No-op
+   * without `includePastEvents`.
+   */
+  pastWindowDays?: number;
+  /**
    * Optional per-event kennel routing (#1996) for FB Pages that host a
    * sister kennel's events. Each event's name is matched against these
    * patterns via the shared `matchKennelPatterns` engine (same grammar
@@ -154,12 +185,22 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
 
     const url = `https://www.facebook.com/${config.pageHandle}/upcoming_hosted_events`;
     const days = options?.days ?? DEFAULT_WINDOW_DAYS;
+    const forceProxy = config.useResidentialProxy === true;
 
+    // Fetch the upcoming tab, falling back to the residential proxy when the
+    // direct attempt is blocked / fails (#1939). A terminal failure here is a
+    // FAILED scrape (reconcile won't run), which is the correct behavior —
+    // an unreachable Page must not be read as "0 upcoming events".
     let html: string;
+    let usedProxy: boolean;
+    // Set when a proxy retry was attempted but threw, and we fell back to the
+    // (blocked) direct body — so the checkpoint error can name the proxy cause.
+    let proxyError: string | undefined;
     try {
-      const res = await safeFetch(url, { headers: FB_REQUEST_HEADERS });
-      if (!res.ok) return errorResult(`Facebook hosted_events fetch failed: HTTP ${res.status}`, res.status);
-      html = await res.text();
+      const fetched = await fetchFbListing(url, { forceProxy });
+      html = fetched.html;
+      usedProxy = fetched.usedProxy;
+      proxyError = fetched.proxyError;
     } catch (err) {
       return errorResult(`Facebook hosted_events fetch error: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -167,7 +208,7 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
     // Parse all events from the SSR payload. The parser is resilient to
     // shape drift (returns [] rather than throwing) so a 0-event result
     // here means EITHER the page genuinely has no upcoming events OR FB's
-    // SSR shape changed.
+    // SSR shape changed OR a checkpoint/login wall slipped through.
     const parseResult = parseFacebookHostedEventsWithStats(html, {
       kennelTag: config.kennelTag,
       timezone: config.timezone,
@@ -178,46 +219,10 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
     });
     const allEvents = parseResult.events;
     const filteredCounts = parseResult.filtered;
-    // Only `admin-notice` and `placeholder` reflect content-quality drops
-    // ("this Page admin posts non-trails on the events feed"). The other
-    // reject reasons (missing-half, no-title, invalid-time, cancelled)
-    // reflect shape drift or normal cancellations and must NOT raise the
-    // coverage-gap signal — those would create false alerts on Pages with
-    // legitimate cancelled events or partial graph payloads (Codex P1).
-    const contentFilteredTotal = filteredCounts["admin-notice"] + filteredCounts.placeholder;
 
-    // Shape-break heuristic: 0 parsed events AND none of FB's SSR envelope
-    // markers present → the GraphQL shape rotated. If at least one marker
-    // is there and we still got 0 events, the Page genuinely has nothing
-    // scheduled (and that's not an alert condition). Surface as non-fatal
-    // so the existing SCRAPE_FAILURE alert path catches a real shape
-    // change on first scrape, without false-positive-firing on empty Pages.
-    const errors: string[] = [];
-    const hasEnvelopeMarker = FB_SSR_ENVELOPE_MARKERS.some((m) => html.includes(m));
-    if (allEvents.length === 0 && !hasEnvelopeMarker) {
-      errors.push(
-        `FB hosted_events page returned ${html.length} chars but parser found 0 events and the SSR envelope markers are absent — likely a GraphQL shape change. Refresh the parser fixture and re-test.`,
-      );
-    }
-
-    // Coverage-gap signal (#1496, #1499): SSR envelope intact AND at least
-    // one event candidate was content-filtered (admin notices, placeholder
-    // rows) and zero real events made it through. This is distinct from
-    // "Page genuinely has nothing scheduled" and worth surfacing so an
-    // operator can re-evaluate the FB source vs. switching to MEETUP /
-    // website / static schedule. EVENT_COUNT_ANOMALY only fires once a
-    // baseline accrues — this signal fires on first scrape too. Routed
-    // via the standard `errors[]` channel so the existing SCRAPE_FAILURE /
-    // health pipeline can pick it up.
-    if (allEvents.length === 0 && hasEnvelopeMarker && contentFilteredTotal > 0) {
-      const reasonSummary = (["admin-notice", "placeholder"] as const)
-        .filter((reason) => filteredCounts[reason] > 0)
-        .map((reason) => `${reason}=${filteredCounts[reason]}`)
-        .join(", ");
-      errors.push(
-        `FB hosted_events page returned ${contentFilteredTotal} candidate events but all were content-filtered (${reasonSummary}). Source likely does not use FB Hosted Events for runs — consider replacing with a website / Meetup source.`,
-      );
-    }
+    // Non-fatal block / coverage-gap signals (extracted to keep fetch() within
+    // the cognitive-complexity budget — see buildListingSignalErrors).
+    const errors = buildListingSignalErrors(html, allEvents.length, filteredCounts, usedProxy, proxyError);
 
     // Honor options.days via the shared `applyDateWindow` so diagnostic
     // counts stay consistent with other adapters. Returns a new result
@@ -233,6 +238,8 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
           windowDays: days,
           htmlBytes: html.length,
           parserFiltered: filteredCounts,
+          usedResidentialProxy: usedProxy,
+          ...(proxyError ? { proxyError } : {}),
         },
       },
       days,
@@ -240,10 +247,38 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
 
     // The listing tab carries structured fields but no post body; the
     // hash-run blurb (hares, shiggy, parking) lives on `/events/{id}/`.
-    const enriched = await enrichWithDetails(windowed.events);
+    // Detail + past fetches reuse the proxy when the listing needed it.
+    // `usedProxy` already implies `forceProxy` (the forceProxy branch of
+    // fetchFbListing returns usedProxy:true), so it's the single source of
+    // truth for "did this scrape need the proxy?".
+    const enriched = await enrichWithDetails(windowed.events, { useProxy: usedProxy });
+
+    // Past-events backfill (#1940). Best-effort and isolated: a past-tab
+    // failure is recorded in diagnostics only — never added to top-level
+    // `errors[]`, which would (wrongly) disable reconcile of future events.
+    // Past events use listing-tab fields only.
+    //
+    // GATE on the upcoming tab having ≥1 in-window event. scrape.ts skips
+    // reconcile entirely when a scrape returns 0 events (the transient-empty
+    // protection for upcoming-only feeds). If past events flipped that scrape
+    // from empty→non-empty while the upcoming tab was momentarily empty,
+    // reconcile would run with zero future events scraped and false-cancel a
+    // sole-source future canonical that FB just briefly dropped. Only
+    // backfilling past events when there's at least one upcoming event keeps
+    // the reconcile guard behaving exactly as it did pre-#1940 (and past data
+    // is historical, so deferring it to the next non-empty scrape is harmless).
+    const past =
+      config.includePastEvents && enriched.events.length > 0
+        ? await fetchPastEvents(config, usedProxy)
+        : { events: [], diagnostic: undefined };
+
+    // Merge upcoming + past, deduping by FB event id so an event appearing on
+    // both tabs (e.g. "today") keeps its enriched upcoming copy.
+    const combinedEvents = dedupeByEventId([...enriched.events, ...past.events]);
+
     return {
       ...windowed,
-      events: enriched.events,
+      events: combinedEvents,
       errors: [...windowed.errors, ...enriched.errors],
       diagnosticContext: {
         ...windowed.diagnosticContext,
@@ -253,9 +288,63 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
         ...(enriched.errorSample.length > 0
           ? { detailFetchErrorSample: enriched.errorSample }
           : {}),
+        ...(past.diagnostic ? { pastFetch: past.diagnostic } : {}),
       },
     };
   }
+}
+
+/**
+ * Non-fatal signal errors for a parsed listing (#1939 block/checkpoint, #1496
+ * coverage-gap). Extracted from `fetch()` to keep the hot path within the
+ * cognitive-complexity budget. Computed on the FINAL html (after any proxy
+ * retry). Returns `[]` for a healthy page — events present, or a genuinely-
+ * empty page that still ships the SSR envelope and trips no checkpoint marker.
+ */
+function buildListingSignalErrors(
+  html: string,
+  allEventsCount: number,
+  filteredCounts: Record<FbBagRejectReason, number>,
+  usedProxy: boolean,
+  proxyError: string | undefined,
+): string[] {
+  if (allEventsCount > 0) return [];
+
+  // Block / shape-break: 0 events AND `looksLikeFbBlock` (SSR envelope markers
+  // absent — a rotated GraphQL shape or a checkpoint wall — or a checkpoint
+  // marker present). Surface non-fatally so SCRAPE_FAILURE fires and reconcile
+  // is skipped (events.length is 0 anyway) — a FAILED scrape, not "0 events".
+  const hasEnvelopeMarker = FB_SSR_ENVELOPE_MARKERS.some((m) => html.includes(m));
+  if (looksLikeFbBlock(html)) {
+    return [
+      `FB hosted_events page returned ${html.length} chars but parser found 0 events and the page looks like a checkpoint/login wall or a GraphQL shape change (SSR envelope markers ${hasEnvelopeMarker ? "present" : "absent"})${proxyRetrySuffix(usedProxy, proxyError)}. Treat as a fetch failure, not 0 events — verify the Page is reachable / refresh the parser fixture.`,
+    ];
+  }
+
+  // Coverage-gap (#1496, #1499): SSR envelope intact AND every candidate was
+  // content-filtered (admin notices / placeholders), zero real events through.
+  // Only `admin-notice` and `placeholder` count — the other reject reasons
+  // (missing-half, no-title, invalid-time, cancelled) are shape drift / normal
+  // cancellations and must NOT raise a coverage-gap alert (Codex P1).
+  const contentFilteredTotal = filteredCounts["admin-notice"] + filteredCounts.placeholder;
+  if (hasEnvelopeMarker && contentFilteredTotal > 0) {
+    const reasonSummary = (["admin-notice", "placeholder"] as const)
+      .filter((reason) => filteredCounts[reason] > 0)
+      .map((reason) => `${reason}=${filteredCounts[reason]}`)
+      .join(", ");
+    return [
+      `FB hosted_events page returned ${contentFilteredTotal} candidate events but all were content-filtered (${reasonSummary}). Source likely does not use FB Hosted Events for runs — consider replacing with a website / Meetup source.`,
+    ];
+  }
+  return [];
+}
+
+/** Describe the proxy-retry outcome for the checkpoint error message. An
+ *  if/return chain rather than a nested ternary (Sonar S3358). */
+function proxyRetrySuffix(usedProxy: boolean, proxyError: string | undefined): string {
+  if (proxyError) return `; residential-proxy retry failed: ${proxyError}`;
+  if (usedProxy) return "; residential-proxy retry did not clear it";
+  return "";
 }
 
 interface EnrichmentResult {
@@ -331,10 +420,10 @@ interface DetailFetchOutcome {
 }
 
 /** Fetch one event's detail page, parse the description, and merge fields. */
-async function fetchAndMergeDetail(event: RawEventData): Promise<DetailFetchOutcome> {
+async function fetchAndMergeDetail(event: RawEventData, useProxy: boolean): Promise<DetailFetchOutcome> {
   const id = extractEventIdFromSourceUrl(event.sourceUrl);
   if (!id) return { event, attempted: 0, enriched: 0, failed: 0 };
-  const outcome = await fetchOneEventDescription(id);
+  const outcome = await fetchOneEventDescription(id, useProxy);
   if (outcome.kind === "enriched") {
     return { event: applyDetailDescription(event, outcome.description), attempted: 1, enriched: 1, failed: 0 };
   }
@@ -350,7 +439,10 @@ async function fetchAndMergeDetail(event: RawEventData): Promise<DetailFetchOutc
   };
 }
 
-async function enrichWithDetails(events: RawEventData[]): Promise<EnrichmentResult> {
+async function enrichWithDetails(
+  events: RawEventData[],
+  opts: { useProxy: boolean },
+): Promise<EnrichmentResult> {
   const errors: string[] = [];
   const targets = events.slice(0, MAX_DETAIL_FETCHES);
   if (events.length > MAX_DETAIL_FETCHES) {
@@ -365,7 +457,7 @@ async function enrichWithDetails(events: RawEventData[]): Promise<EnrichmentResu
   let failed = 0;
   for (let i = 0; i < targets.length; i++) {
     if (i > 0) await sleep(DETAIL_FETCH_DELAY_MS);
-    const outcome = await fetchAndMergeDetail(targets[i]);
+    const outcome = await fetchAndMergeDetail(targets[i], opts.useProxy);
     out.push(outcome.event);
     attempted += outcome.attempted;
     enrichedCount += outcome.enriched;
@@ -386,9 +478,9 @@ type DetailOutcome =
 /** Fetch + parse one detail page. Listing data integrity wins — any failure
  *  becomes a `failed` outcome rather than a thrown exception, so the caller
  *  always emits the listing event even when the detail page is gone. */
-async function fetchOneEventDescription(eventId: string): Promise<DetailOutcome> {
+async function fetchOneEventDescription(eventId: string, useProxy: boolean): Promise<DetailOutcome> {
   try {
-    const html = await fetchEventDetailHtml(eventId);
+    const html = await fetchEventDetailHtml(eventId, useProxy);
     const detail = parseFacebookEventDetail(html);
     if (detail.description) return { kind: "enriched", description: detail.description };
     return { kind: "no-description" };
@@ -414,12 +506,174 @@ function extractEventIdFromSourceUrl(sourceUrl: string | undefined): string | nu
 
 /** Fetch a single event detail page. Throws on network errors or non-2xx
  *  responses so the caller can tally a failure without injecting a malformed
- *  HTML string into the parser. */
-async function fetchEventDetailHtml(eventId: string): Promise<string> {
+ *  HTML string into the parser. Routes through the residential proxy when the
+ *  listing fetch needed it (#1939). */
+async function fetchEventDetailHtml(eventId: string, useProxy: boolean): Promise<string> {
   const url = `https://www.facebook.com/events/${eventId}/`;
-  const res = await safeFetch(url, { headers: FB_REQUEST_HEADERS });
+  return fetchVia(url, useProxy);
+}
+
+/** Single GET with the FB headers, optionally through the residential proxy.
+ *  Throws on network errors or non-2xx so callers fail loud. */
+async function fetchVia(url: string, useResidentialProxy: boolean): Promise<string> {
+  const res = await safeFetch(url, {
+    headers: FB_REQUEST_HEADERS,
+    ...(useResidentialProxy ? { useResidentialProxy: true } : {}),
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();
+}
+
+interface FbListingFetch {
+  html: string;
+  /** Whether the returned HTML came back through the residential proxy. */
+  usedProxy: boolean;
+  /**
+   * Set only when a proxy retry was attempted and THREW, but we fell back to a
+   * (blocked) direct 200 body so the adapter can still emit a precise
+   * checkpoint error. Lets that error name the proxy failure instead of
+   * silently swallowing it (#2267 review).
+   */
+  proxyError?: string;
+}
+
+/**
+ * Fetch a hosted_events listing tab (upcoming or past), falling back to the
+ * NAS residential proxy when the direct attempt is blocked (#1939).
+ *
+ * FB serves a checkpoint / "content isn't available" wall to some Pages from
+ * datacenter IPs — HTTP 200 with zero event nodes — and also occasionally a
+ * hard 403/timeout. We detect both:
+ *   - a direct 200 whose body `looksLikeFbBlock` (envelope markers absent or a
+ *     checkpoint marker present), or
+ *   - a non-2xx / network error,
+ * and retry once through the residential proxy (residential IPs aren't
+ * checkpointed). `forceProxy` skips the wasted direct attempt for Pages known
+ * to be chronically blocked.
+ *
+ * Throws only when there is no usable HTML to return (both attempts failed and
+ * we never got a 200 body). A direct 200-but-blocked body is returned as a
+ * last resort when the proxy also fails, so the caller can surface the precise
+ * checkpoint error rather than an opaque fetch throw.
+ */
+async function fetchFbListing(url: string, opts: { forceProxy: boolean }): Promise<FbListingFetch> {
+  if (opts.forceProxy) {
+    return { html: await fetchVia(url, true), usedProxy: true };
+  }
+
+  let directHtml: string | null = null;
+  let directErr = "blocked";
+  try {
+    const res = await safeFetch(url, { headers: FB_REQUEST_HEADERS });
+    if (res.ok) {
+      directHtml = await res.text();
+      if (!looksLikeFbBlock(directHtml)) return { html: directHtml, usedProxy: false };
+      // 200 but a checkpoint/login wall — fall through to the proxy retry.
+    } else {
+      directErr = `HTTP ${res.status}`;
+    }
+  } catch (err) {
+    directErr = err instanceof Error ? err.message : String(err);
+  }
+
+  try {
+    return { html: await fetchVia(url, true), usedProxy: true };
+  } catch (proxyErr) {
+    // Proxy failed too. If the direct attempt at least gave us a (blocked) 200
+    // body, return it so the adapter emits the checkpoint error; otherwise
+    // there's nothing to parse — throw with both failure reasons.
+    const detail = proxyErr instanceof Error ? proxyErr.message : String(proxyErr);
+    if (directHtml !== null) return { html: directHtml, usedProxy: false, proxyError: detail };
+    throw new Error(`direct (${directErr}) and residential-proxy (${detail}) both failed`);
+  }
+}
+
+interface PastEventsResult {
+  events: RawEventData[];
+  diagnostic?: Record<string, unknown>;
+}
+
+/**
+ * Fetch + parse `/past_hosted_events` for the backward-window backfill (#1940).
+ * Best-effort: any failure is captured in the returned diagnostic and the
+ * events list stays empty — the caller must NOT promote a past-tab failure to
+ * a top-level scrape error (that would disable reconcile of future events).
+ *
+ * Past events use listing-tab fields only (title/venue/run#/coords) — the
+ * #1940 symptom is the placeholder title/venue, which the listing tab carries.
+ * Skipping detail-page enrichment keeps this to one extra GET per scrape.
+ *
+ * `forceProxy` is the upcoming fetch's `usedProxy`: when the upcoming tab
+ * already needed the residential proxy, the past tab is blocked from the same
+ * IP too, so skip the guaranteed-to-fail direct attempt. When false, the past
+ * fetch still falls back to the proxy on its own if it `looksLikeFbBlock`.
+ */
+async function fetchPastEvents(
+  config: FacebookHostedEventsConfig,
+  forceProxy: boolean,
+): Promise<PastEventsResult> {
+  const url = `https://www.facebook.com/${config.pageHandle}/past_hosted_events`;
+  const pastWindowDays =
+    typeof config.pastWindowDays === "number" && config.pastWindowDays > 0
+      ? config.pastWindowDays
+      : DEFAULT_PAST_WINDOW_DAYS;
+  try {
+    const { html, usedProxy } = await fetchFbListing(url, { forceProxy });
+    const parsed = parseFacebookHostedEventsWithStats(html, {
+      kennelTag: config.kennelTag,
+      timezone: config.timezone,
+      kennelPatterns: config.kennelPatterns,
+      defaultKennelTag: config.defaultKennelTag,
+      titleStripPatterns: config.titleStripPatterns,
+    });
+    // Explicit BACKWARD-only window [earliest, today) in the kennel's zone.
+    // The upcoming tab owns today + future, so strictly-before `today` avoids
+    // double-counting (dedup-by-id is the backstop); `earliest` bounds how far
+    // back we backfill. Computed directly rather than via the symmetric
+    // `filterEventsByWindow` so the asymmetric intent can't silently regress.
+    const today = formatYmdInTimezone(new Date(), config.timezone);
+    const earliest = formatYmdInTimezone(
+      new Date(Date.now() - pastWindowDays * 24 * 60 * 60 * 1000),
+      config.timezone,
+    );
+    const pastOnly = parsed.events.filter((e) => e.date >= earliest && e.date < today);
+    return {
+      events: pastOnly,
+      diagnostic: {
+        url,
+        usedResidentialProxy: usedProxy,
+        htmlBytes: html.length,
+        parsed: parsed.events.length,
+        kept: pastOnly.length,
+        windowDays: pastWindowDays,
+      },
+    };
+  } catch (err) {
+    return {
+      events: [],
+      diagnostic: { url, error: err instanceof Error ? err.message : String(err) },
+    };
+  }
+}
+
+/**
+ * Dedup events by FB event id (from sourceUrl), keeping the first occurrence.
+ * Callers pass upcoming events first so an event present on both the upcoming
+ * and past tabs keeps its (possibly detail-enriched) upcoming copy. Events
+ * with no extractable id are all kept (can't tell them apart).
+ */
+function dedupeByEventId(events: RawEventData[]): RawEventData[] {
+  const seen = new Set<string>();
+  const out: RawEventData[] = [];
+  for (const event of events) {
+    const id = extractEventIdFromSourceUrl(event.sourceUrl);
+    if (id) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+    }
+    out.push(event);
+  }
+  return out;
 }
 
 function sleep(ms: number): Promise<void> {

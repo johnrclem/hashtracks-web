@@ -2428,6 +2428,7 @@ export const SOURCES = [
         pageHandle: "GrandStrandHashing",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["gsh3"],
     },
@@ -6190,6 +6191,7 @@ export const SOURCES = [
         pageHandle: "HollyweirdH6",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
         // #2158: the Page prefixes every event name with its full kennel name
         // and appends a redundant trailing run marker ("~ aka: H6#311" in the
         // current form; bare "~ H6#308" / "~ H6 #308" in older captures). Strip
@@ -6214,6 +6216,7 @@ export const SOURCES = [
         pageHandle: "MemphisH3",
         timezone: "America/Chicago",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
         // #1996: the Memphis FB page hosts sister-kennel GyNO H3 events. Route
         // them to `gynoh3` (they dedup against GyNO's own GCal source by
         // kennel+date in the merge pipeline) and everything else to `mh3-tn`.
@@ -6239,6 +6242,7 @@ export const SOURCES = [
         pageHandle: "soh4onon",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["soh4"],
     },
@@ -6254,6 +6258,7 @@ export const SOURCES = [
         pageHandle: "PCH3FL",
         timezone: "America/Chicago",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["pch3"],
     },
@@ -6269,6 +6274,7 @@ export const SOURCES = [
         pageHandle: "DaytonHash",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["dh4"],
     },
@@ -6285,6 +6291,7 @@ export const SOURCES = [
         pageHandle: "adelaidehash",
         timezone: "Australia/Adelaide",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["ah3-au"],
     },
@@ -6300,6 +6307,7 @@ export const SOURCES = [
         pageHandle: "AlohaH3",
         timezone: "Pacific/Honolulu",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["ah3-hi"],
     },
@@ -6315,6 +6323,7 @@ export const SOURCES = [
         pageHandle: "augustaundergroundH3",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["augh3"],
     },
@@ -6341,6 +6350,7 @@ export const SOURCES = [
         pageHandle: "BerlinHashHouseHarriers",
         timezone: "Europe/Berlin",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["berlinh3", "bh3fm"],
     },
@@ -6356,6 +6366,7 @@ export const SOURCES = [
         pageHandle: "BurlingtonH3",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["burlyh3"],
     },
@@ -6371,6 +6382,7 @@ export const SOURCES = [
         pageHandle: "CapeFearH3",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["cfh3"],
     },
@@ -6391,6 +6403,7 @@ export const SOURCES = [
         pageHandle: "chiangmaihashhouseharriershhh",
         timezone: "Asia/Bangkok",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["ch3-cm", "ch4-cm", "csh3", "cbh3-cm"],
     },
@@ -6406,6 +6419,7 @@ export const SOURCES = [
         pageHandle: "CharmCityH3",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["cch3"],
     },
@@ -6421,6 +6435,7 @@ export const SOURCES = [
         pageHandle: "charlestonheretics",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["chh3"],
     },
@@ -6436,6 +6451,7 @@ export const SOURCES = [
         pageHandle: "clevelandhash",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["cleh4"],
     },
@@ -6451,6 +6467,7 @@ export const SOURCES = [
         pageHandle: "FWBAreaHHH",
         timezone: "America/Chicago",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["ech3-fl"],
     },
@@ -6466,6 +6483,7 @@ export const SOURCES = [
         pageHandle: "FoothillH3",
         timezone: "America/Los_Angeles",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["fth3"],
     },
@@ -6481,6 +6499,7 @@ export const SOURCES = [
         pageHandle: "h4hongkonghash",
         timezone: "Asia/Hong_Kong",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["hkh3"],
     },
@@ -6496,6 +6515,7 @@ export const SOURCES = [
         pageHandle: "Licking-Valley-Hash-House-Harriers-841860922532429",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["lvh3-cin"],
     },
@@ -6511,6 +6531,7 @@ export const SOURCES = [
         pageHandle: "madisonHHH",
         timezone: "America/Chicago",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["madisonh3"],
     },
@@ -6529,6 +6550,7 @@ export const SOURCES = [
         pageHandle: "MileHighH3",
         timezone: "America/Denver",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["mihi-huha"],
     },
@@ -6544,6 +6566,7 @@ export const SOURCES = [
         pageHandle: "MOA2H3",
         timezone: "America/Detroit",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["moa2h3"],
     },
@@ -6562,6 +6585,7 @@ export const SOURCES = [
         pageHandle: "HashNarwhal",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["narwhal-h3"],
     },
@@ -6578,6 +6602,7 @@ export const SOURCES = [
         pageHandle: "NorfolkH3",
         timezone: "Europe/London",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["norfolkh3"],
     },
@@ -6597,6 +6622,7 @@ export const SOURCES = [
         pageHandle: "rh3columbus",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["renh3"],
     },
@@ -6611,7 +6637,10 @@ export const SOURCES = [
         kennelTag: "survivor-h3",
         pageHandle: "SurvivorH3",
         timezone: "America/Chicago",
+        // #1939: checkpoint-blocked from datacenter IPs — fetch via residential proxy first.
+        useResidentialProxy: true,
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["survivor-h3"],
     },
@@ -6631,6 +6660,7 @@ export const SOURCES = [
         pageHandle: "sirwaltersh3",
         timezone: "America/New_York",
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["swh3"],
     },
@@ -6645,7 +6675,10 @@ export const SOURCES = [
         kennelTag: "vth3",
         pageHandle: "vontramph3",
         timezone: "America/New_York",
+        // #1939: checkpoint-blocked from datacenter IPs — fetch via residential proxy first.
+        useResidentialProxy: true,
         upcomingOnly: true,
+        includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
       kennelCodes: ["vth3"],
     },

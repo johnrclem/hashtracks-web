@@ -783,5 +783,38 @@ describe("validateSourceConfig", () => {
       const errors = validateSourceConfig("FACEBOOK_HOSTED_EVENTS", partial);
       expect(errors.some((e) => /upcomingOnly/.test(e))).toBe(true);
     });
+
+    it("accepts the optional #1939/#1940 knobs when well-typed", () => {
+      const errors = validateSourceConfig("FACEBOOK_HOSTED_EVENTS", {
+        ...valid,
+        useResidentialProxy: true,
+        includePastEvents: true,
+        pastWindowDays: 180,
+      });
+      expect(errors).toEqual([]);
+    });
+
+    it("rejects a non-boolean useResidentialProxy", () => {
+      const errors = validateSourceConfig("FACEBOOK_HOSTED_EVENTS", { ...valid, useResidentialProxy: "yes" });
+      expect(errors.some((e) => /useResidentialProxy/.test(e))).toBe(true);
+    });
+
+    it("rejects a non-boolean includePastEvents", () => {
+      const errors = validateSourceConfig("FACEBOOK_HOSTED_EVENTS", { ...valid, includePastEvents: 1 });
+      expect(errors.some((e) => /includePastEvents/.test(e))).toBe(true);
+    });
+
+    it("rejects a non-positive pastWindowDays", () => {
+      expect(
+        validateSourceConfig("FACEBOOK_HOSTED_EVENTS", { ...valid, pastWindowDays: 0 }).some((e) =>
+          /pastWindowDays/.test(e),
+        ),
+      ).toBe(true);
+      expect(
+        validateSourceConfig("FACEBOOK_HOSTED_EVENTS", { ...valid, pastWindowDays: "lots" }).some((e) =>
+          /pastWindowDays/.test(e),
+        ),
+      ).toBe(true);
+    });
   });
 });

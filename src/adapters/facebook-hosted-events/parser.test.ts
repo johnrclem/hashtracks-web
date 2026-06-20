@@ -7,6 +7,7 @@ import {
   parseFacebookEventDetail,
   facebookEventToRawEvent,
   extractFieldsFromFbDescription,
+  looksLikeFbBlock,
 } from "./parser";
 
 /**
@@ -991,5 +992,44 @@ describe("parseFacebookHostedEventsWithStats — counts", () => {
     expect(result.filtered["admin-notice"]).toBe(1);
     expect(result.filtered.placeholder).toBe(1);
     expect(result.filtered.cancelled).toBe(1);
+  });
+});
+
+describe("looksLikeFbBlock (#1939)", () => {
+  const ENVELOPE =
+    `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>`;
+
+  it("returns false for a healthy page that ships the SSR envelope (even with no events)", () => {
+    expect(looksLikeFbBlock(`<html><body>${ENVELOPE}</body></html>`)).toBe(false);
+  });
+
+  it("returns true when the SSR envelope markers are entirely absent", () => {
+    expect(looksLikeFbBlock("<html><body>nothing useful here</body></html>")).toBe(true);
+  });
+
+  it("returns true when a /checkpoint/ marker is present despite an envelope", () => {
+    expect(
+      looksLikeFbBlock(
+        `<html><body>${ENVELOPE}<a href="https://www.facebook.com/checkpoint/?next">x</a></body></html>`,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not false-positive on prose like \"content isn't available\" when the envelope is present", () => {
+    // Prose appears in ordinary Page chrome (deleted-photo cards, etc.); only
+    // the structural /checkpoint/ route counts as a block. A healthy page that
+    // happens to contain such prose must NOT be treated as blocked, or it would
+    // FAIL the scrape and trigger a wasted proxy retry.
+    expect(
+      looksLikeFbBlock(`<html><body>${ENVELOPE}This content isn't available right now</body></html>`),
+    ).toBe(false);
+  });
+
+  it("does not false-positive on a normal page that merely renders generic login chrome", () => {
+    // A public hosted_events page always has "Log in" chrome — that alone must
+    // NOT count as a block, or every healthy scrape would retry via the proxy.
+    expect(
+      looksLikeFbBlock(`<html><body>${ENVELOPE}<button>Log in</button></body></html>`),
+    ).toBe(false);
   });
 });

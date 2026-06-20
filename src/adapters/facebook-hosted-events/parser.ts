@@ -36,6 +36,51 @@ import {
   type CompiledKennelPattern,
 } from "../kennel-patterns";
 
+/**
+ * SSR markers FB ships in every hosted_events response when the GraphQL
+ * shape we know is intact — present both on pages with events AND on
+ * genuinely-empty Pages (FB still renders the full Page UI bundle). They are
+ * ABSENT on a checkpoint / login-wall interstitial, which is a different
+ * document entirely. Matched in their quoted JSON-token form so a Page
+ * coincidentally mentioning either string in prose can't false-match (the
+ * tightening from PR #1295).
+ *
+ * Lives here (not in the adapter) so the adapter's shape-break logic and the
+ * `looksLikeFbBlock` retry heuristic share one source of truth.
+ */
+export const FB_SSR_ENVELOPE_MARKERS = ['"RelayPrefetchedStreamCache"', '"__bbox"'] as const;
+
+/**
+ * High-signal substrings that appear on FB's logged-out checkpoint / bot-wall
+ * interstitials but not on a normal public hosted_events SSR document (#1939).
+ * Pinned to the structural `/checkpoint/` route only — prose like "content
+ * isn't available" / "log in" appears in ordinary Page chrome (deleted-photo
+ * cards, login buttons) and would false-positive a healthy Page into a FAILED
+ * scrape (and trigger a wasted proxy retry). The `/checkpoint/` path is a FB
+ * security route that does not appear in event/Page content, so it's safe to
+ * match as a substring. The primary block signal is the absence of the SSR
+ * envelope markers (below); this is the belt-and-suspenders secondary.
+ */
+export const FB_BLOCK_MARKERS = ["/checkpoint/"] as const;
+
+/**
+ * Heuristic (#1939): does this HTML look like a FB block / checkpoint /
+ * login-wall page rather than a real hosted_events document? FB serves these
+ * from datacenter IPs (e.g. Vercel) for some Pages — HTTP 200, zero
+ * `__typename:"Event"` nodes — so a direct fetch silently yields 0 events.
+ *
+ * True when the events SSR envelope markers are entirely absent (the primary
+ * signal — a checkpoint wall is a different document) OR a checkpoint /
+ * unavailable-content marker is present. A genuinely-empty but healthy Page
+ * still ships the envelope and trips neither marker, so it returns false (no
+ * wasted residential-proxy retry, no false "fetch failure").
+ */
+export function looksLikeFbBlock(html: string): boolean {
+  const hasEnvelope = FB_SSR_ENVELOPE_MARKERS.some((m) => html.includes(m));
+  if (!hasEnvelope) return true;
+  return FB_BLOCK_MARKERS.some((m) => html.includes(m));
+}
+
 export interface ParseFacebookOptions {
   /**
    * Default kennelTag (kennelCode). Used for every event when no
