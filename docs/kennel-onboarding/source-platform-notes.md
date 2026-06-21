@@ -82,6 +82,31 @@ ASU H3 (`asuncionh3.wordpress.com`) is the *cleanest* WP.com case so far — **a
 - **`safeFetch`'s direct-fetch path has no default timeout** (only the residential-proxy branch does). Pass `signal: AbortSignal.timeout(30_000)` so a hung WP.com connection can't block the scrape indefinitely (matches `chicago-shared`/`phoenixhhh`).
 - **Site/logo metadata** lives at `public-api.wordpress.com/rest/v1.1/sites/<host>` (`name`, `description`, `logo.url`, `icon`) — handy when the site's About page is on a brand-new domain Chrome won't auto-approve. ASU's `logo.url` is a stable non-tokenized `wp-content/uploads/.../wp-banner-1-1280x426-1.png` (a 3.9 MB PNG — self-hosted to `public/kennel-logos/asu-h3.png`).
 
+#### Hanoi H3 addenda (researched 2026-06-21) — WordPress.com **single-current-run PAGE** variant (NOT the REST-blog pattern)
+
+Not every WP.com kennel is a REST-blog (ONH3/ASU). `hanoih3.com` (Traditional Hanoi H3) is WP.com-hosted
+(DNS → `192.0.78.24/25` Automattic block; `meta-generator: WordPress.com`) but the **runs are NOT posts** —
+the committee hand-maintains a single **"## Upcoming runs"** section on the **home page** carrying the
+**current run only** as a `#### No.NNNN on <date> (<run-type>)` heading + emoji-labeled detail lines
+(`📌 Location:`, `📍 First pick up: … maps.app.goo.gl/…`, `🐇 Hares: …`). This is the
+**single-current-run SSR page** pattern (same shape as Manila/Warsaw), NOT a REST feed:
+
+- **Adapter target = the home-page block, parsed with static Cheerio** — content-keyed traversal (heading
+  text + labels), since WP.com **rotates the wrapper class names** (same caveat as the REST-blog detection,
+  but here you're parsing rendered HTML, not JSON). `config.upcomingOnly: true` + a fail-loud zero-row guard
+  (the page advances week-over-week, overwriting the prior run → reconcile would false-cancel without it).
+- **Date string is IRREGULAR but year-bearing** (`"saturday, June,20th,2026"` — lowercase weekday, stray
+  commas, ordinal). Normalize (strip ordinal, commas→spaces, collapse) → `chronoParseDate` → **no year
+  inference** (year is present). No month-name alternation needed → no S5843/S5852 date risk.
+- **The WP.com REST archive (`/wp/v2/sites/<host>/posts`) may still exist for backfill** — but on a
+  single-current-run-PAGE site the run-report posts are often **sporadic free-form recaps**, not the clean
+  per-run blocks the REST-blog kennels have. **Pull a sample (`?per_page=20`) before deciding** — don't
+  assume the ONH3-grade structured archive. (From the research sandbox the REST JSON returned **empty to
+  `web_fetch`** — non-allowlisted machine body; verify at build.)
+- **Watch for a published "Run Stats" Google Sheet** in the nav — it's usually a **per-hasher attendance
+  matrix**, not a per-run event log (low backfill value; the cells are JS-loaded so `web_fetch` on the
+  `pubhtml` shows only the title).
+
 ---
 
 ## Meetup — verifying upcoming events from the sandbox (learned from Paris/SCHHH + ZH3, 2026-05-29; corrected 2026-06-02 after Paris shipped)
@@ -977,3 +1002,83 @@ static Cheerio, no browserRender. The shipped adapter (`himalayan-h3.ts`) models
 - **Logo:** `wp-content/uploads/2017/08/trans_logo1.png` — a **stable** (non-tokenized) wp-content path,
   `http`-only → self-host (`trans_logo1` is the 117×120 RGBA `og:image`, the cleanest of three variants) +
   magic-byte the extension (`\x89PNG`) per convention.
+
+---
+
+## Grav CMS — flat-file PHP CMS, markdown tables → SSR `<table>` + shallow `/news` collection (researched from Phnom Penh H3, 2026-06-19)
+
+Grav (`getgrav.org`) is a flat-file PHP CMS some old-school clubs use (Phnom Penh H3 / `p2h3.com`).
+Confirmed via real `web_fetch` of every page (the site is **fully server-rendered** — no JS, no
+browserRender; a plain fetch returns complete content):
+
+- **Detection:** theme/asset paths under `/user/themes/<theme>/…` and content under `/user/pages/…`;
+  pages authored in Markdown render **pipe tables into real `<table>` HTML** and a blog collection at
+  `/news` with Atom/RSS at `/news.atom` + `/news.rss`.
+- **Run data lives in markdown tables on the home page.** P2H3's home renders two tables — "This week's
+  Hash" (1 row, richest: `A-Site`/`B-Site` Maps links + a `Remarks` cell carrying the meeting/departure
+  time) and "Upcoming Hashes" (≤5 rows, sparse — venues/hares often `TBC`). Columns:
+  `Number | Date | By | Hares | A-Site | B-Site | Remarks`. Iterate `$("table tr")`, require a numeric
+  first cell **and** `cells.length >= 4` to drop header/decorative rows. The `Number` cell is an
+  `<a href="/news/<runNumber>">` → use it to follow the detail page.
+- **🔴 The `/news` collection is the rich per-run surface, but SHALLOW.** Each `/news/<runNumber>` page
+  (and the `/news` index, which SSRs the latest ~3 in full) carries a labeled block:
+  `Run No. NNNN` / `Date/Time:- Sunday 21st June 2026` / `Meeting Point: <venue> (Maps), meeting at
+  HH.MM for HH.MM departure` / `Location: <venue> (Maps)` / `Walking : Nkm` / `Running : Nkm` /
+  `On On: <venue> (Maps)` / `Hares: …`. **But the archive is shallow** — only the most recent ~13 runs
+  are published; **an out-of-range `/news/<n>` (e.g. `/news/1000`) 302-redirects to the home page**, so
+  a high run number (#1841) ≠ archive depth. Probe an out-of-range number to size the real archive
+  before assuming a deep backfill exists.
+- **🔴 Multiple surfaces carry different date formats — all YEAR-BEARING (no inference):** home tables
+  `DD.MM.YYYY` (dots); `/news` detail `Weekday Dth Month YYYY` (`Sunday 21st June 2026`); a separate
+  `/hare_line` page `DD-MM-YYYY` (dashes). Parse each surface's own format.
+- **🔴 `/hare_line` is stale + sparser than the home page — don't parse it.** P2H3's Hare Line showed a
+  different (outdated) hare for the current run than both the home table and `/news` detail, and listed
+  fewer rows. The home page (forward backbone) + `/news` (detail) are authoritative; cross-surface
+  data can disagree (hares, departure time) — prefer the richest/most-current surface and don't hard-fail
+  on a mismatch.
+- **Venues are `maps.app.goo.gl` shortlinks → `locationUrl` only** (no extractable decimal coords; no
+  default-pin corruption trap). Leave lat/lng undefined → merge geocodes the venue text / metro centroid.
+- **Placeholders:** `TBC` / `TBA` / `Hares Needed!` / `N/A` / `/N/A` → undefined/null. A `By` column
+  value like `Bus` is a logistics note, not a hare.
+- **Logo:** Grav theme logos sit at a **stable** `/user/themes/<theme>/images/logo/…png` path (NOT a
+  tokenized CDN URL) — durable, but self-host per convention and magic-byte the extension.
+- **Effort:** small new static Cheerio scraper (~180–260 LoC + tests) — dual-surface merge by run number
+  (home tables as backbone, `/news` detail as enrichment). Model on `dublin-hash.ts` + `bangkok-monday-hash.ts`.
+
+---
+
+## Bespoke SSR hash-club site — markdown tables + JS-rendered stats pages (researched from Saigon H3, 2026-06-20)
+
+`saigonhashers.com` (Saigon H3 / Ho Chi Minh City, est. 1990) is a custom server-rendered hash-club site —
+distinct from Grav (no `/user/themes` paths; assets live under `/assets/images/`, content under clean
+nav paths `/home`, `/hareline`, `/runs`, `/reports`, `/hashers`, `/trails`). Confirmed via real `web_fetch`
+of every page:
+
+- **Detection:** clean single-segment nav routes (`/hareline`, `/runs`, `/reports`); a hash-specific nav
+  ("Receding Hairline", "Run Stats", "Hasher Records", "Run Reports", "Map of Previous Trails") that
+  signals a hash-management backend; logo at a **stable** `/assets/images/<name>.png` path.
+- **🔴 SSR is per-page — confirm each surface, don't assume.** The **home page AND `/hareline`** SSR their
+  run tables fully (a plain fetch returns complete `<table>` markup — markdown pipe tables rendered to
+  real `<table>`). But the **`/runs` (stats) and `/reports` (recaps) pages do NOT SSR their content** —
+  `/runs` timed out and `/reports` returned **nav + logo only** (JS-rendered DataTables, almost certainly
+  an AJAX/JSON endpoint behind them). So the **forward feed is sandbox-reachable but the archive is not.**
+- **`/hareline` ("Receding Hairline") is the deep forward backbone** — one SSR `<table>`, columns
+  `numbers | Date | Name/Occasion | Hares | A-Site | On-On`, ~24 forward runs (the home page repeats a
+  ~6-row subset). Parse `/hareline` alone; the home page adds nothing the hareline lacks.
+- **🔴 Dates are ISO `YYYY-MM-DD` (year-bearing) → NO inference** — straight to UTC noon. Much simpler
+  than the `DD MMM` / `Weekday Dth Month` SE-Asia variants (Bangkok Monday, Phnom Penh, Kaohsiung).
+- **`Name/Occasion` is usually a run-TYPE, not a theme.** Most rows are `"Bus Trip/City Run"` (logistics)
+  → leave `title` undefined (merge synthesizes `"<Kennel> Trail #N"`); keep it only for real occasions
+  (`"William of Orange Run"`, `"<Kennel> 36th Birthday Run"`). `Hares` placeholder = `"Hares Needed!"` →
+  undefined; real hares carry a trailing `"& Co"` — keep verbatim.
+- **A-Site / On-On columns hold `maps.app.goo.gl` links when populated** (→ `locationUrl`), but were
+  **empty on every current row** — the trail venue isn't published in the table; the only Maps links are
+  prose-level (the weekly bus-departure point). No decimal coords, no default-pin trap → lat/lng undefined.
+- **`upcomingOnly: true` + per-run fail-loud zero guard** (receding hareline ages out; single surface).
+- **Founded-year corroboration via a milestone run row:** the hareline carried a `"… 36th Birthday Run"`
+  whose date (2026) confirmed the history page's 1990 founding — the milestone-row trick works in a
+  forward hareline, not just an archive.
+- **Effort:** small new static Cheerio scraper (~120–180 LoC + tests) — single-surface table parse, ISO
+  dates, run-type-vs-theme title discrimination, placeholder strip. Model on `dublin-hash.ts` +
+  `phnom-penh-h3.ts`. Archive backfill (if `/runs`/`/reports` expose a clean JSON endpoint) = a separate
+  low-priority follow-up.
