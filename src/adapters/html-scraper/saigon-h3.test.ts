@@ -91,6 +91,7 @@ describe("SaigonH3Adapter.parseHarelineRow", () => {
     expect(event!.title).toBeUndefined();
     expect(event!.hares).toBeNull(); // "Hares Needed!" placeholder cleared
     expect(event!.kennelTags[0]).toBe("saigon-h3");
+    expect(event!.startTime).toBe("13:30"); // fixed Sunday bus departure
   });
 
   it("drops the run-type even with whitespace around the slash", () => {
@@ -243,11 +244,23 @@ describe("parseRunsArchive (/runs history backfill)", () => {
     expect(e1833.date).toBe("2026-06-14");
     expect(e1833.title).toBeUndefined(); // "Bus Trip" run-type dropped
     expect(e1833.hares).toBe("Cock-a-Leeky & Co"); // col 4, not the Pack Size col 3
-    expect(e1833.locationUrl).toBe("https://maps.app.goo.gl/abc123"); // A-Site col 5
+    expect(e1833.locationUrl).toBe("https://maps.app.goo.gl/abc123"); // A-Site col 5, absolute
     expect(e1833.kennelTags[0]).toBe("saigon-h3");
+    expect(e1833.startTime).toBe("13:30"); // fixed departure on archive rows too
 
     const e1820 = events.find((e) => e.runNumber === 1820)!;
     expect(e1820.title).toBe("Saigon H3 Anniversary Run"); // real theme kept
     expect(e1820.hares).toBeNull(); // "Hares Needed!" cleared
+  });
+
+  it("resolves a protocol-relative A-Site Maps link to an absolute URL", () => {
+    const protoRelHtml = `<html><body><table>
+  <thead><tr><th>numbers</th><th>Date</th><th>Name/Occasion</th><th>Pack Size</th><th>Hares</th><th>A-Site</th><th>On-On</th></tr></thead>
+  <tbody>
+    <tr><td>1800</td><td>2026-01-04</td><td>Bus Trip</td><td>30</td><td>Hare</td><td><a href="//maps.app.goo.gl/relrel">Start</a></td><td></td></tr>
+  </tbody>
+</table></body></html>`;
+    const events = parseRunsArchive(protoRelHtml, "https://saigonhashers.com/runs");
+    expect(events[0].locationUrl).toBe("https://maps.app.goo.gl/relrel");
   });
 });

@@ -37,6 +37,14 @@ import { fetchHTMLPage, filterEventsByWindow, isPlaceholder } from "../utils";
 
 const KENNEL_TAG = "saigon-h3";
 const DEFAULT_URL = "https://saigonhashers.com/hareline";
+/**
+ * Fixed Sunday departure: the live site banner ("Bus now departs from the
+ * Caravelle Hotel at 1:30 pm!") + FAQ ("the bus leaves promptly at 1:30 pm")
+ * apply to every run. The table carries no per-event time, so stamp the known
+ * departure on every row (mirrors phnom-penh-h3.ts's DEFAULT_START_TIME) rather
+ * than leaving trails untimed/sorted-after-timed same-day runs.
+ */
+const DEFAULT_START_TIME = "13:30";
 
 // Run-number-shaped first cell ("1834"). Decorative / header rows are skipped.
 const RUN_CELL_RE = /^\d{2,5}$/;
@@ -57,15 +65,22 @@ const MAPS_HOSTS = new Set([
   "maps.google.com",
 ]);
 
-function isValidMapsUrl(href: string): boolean {
+/**
+ * Validate an href against the https + Maps-host allowlist and return the
+ * fully-qualified absolute URL (or null). Resolving against the source origin
+ * means a protocol-relative ("//maps.app.goo.gl/…") or relative href is stored
+ * as an absolute URL the UI can render, never the raw fragment.
+ */
+function getAbsoluteMapsUrl(href: string): string | null {
   try {
-    // Resolve against the source origin so protocol-relative ("//maps.app.goo.gl")
-    // and relative hrefs don't throw; non-Maps hosts still fail the allowlist.
     const parsed = new URL(href, DEFAULT_URL);
-    return parsed.protocol === "https:" && MAPS_HOSTS.has(parsed.hostname.toLowerCase());
+    if (parsed.protocol === "https:" && MAPS_HOSTS.has(parsed.hostname.toLowerCase())) {
+      return parsed.href;
+    }
   } catch {
-    return false;
+    /* malformed href → not a valid Maps URL */
   }
+  return null;
 }
 
 /** Parse an ISO `YYYY-MM-DD` cell to a UTC-noon `YYYY-MM-DD` string. */
@@ -124,10 +139,12 @@ function cleanHares(value: string | undefined): string | null | undefined {
   return v;
 }
 
-/** First valid Maps shortlink among the candidate hrefs (in order). */
+/** First valid Maps link among the candidate hrefs (in order), as an absolute URL. */
 function firstMapsUrl(candidates: (string | undefined)[]): string | undefined {
   for (const href of candidates) {
-    if (href && isValidMapsUrl(href)) return href;
+    if (!href) continue;
+    const absolute = getAbsoluteMapsUrl(href);
+    if (absolute) return absolute;
   }
   return undefined;
 }
@@ -175,6 +192,7 @@ export function buildSaigonRawEvent(input: SaigonRowInput): RawEventData {
     title: discriminateTitle(input.occasion),
     hares: cleanHares(input.hares),
     locationUrl: input.locationUrl,
+    startTime: DEFAULT_START_TIME,
     sourceUrl: input.sourceUrl,
   };
 }
