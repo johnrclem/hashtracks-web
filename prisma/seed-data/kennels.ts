@@ -4834,6 +4834,25 @@ export const KENNELS: KennelSeed[] = [
       description:
         "The Phnom Penh Hash House Harriers (P2H3) are a \"drinking club with a running problem\" that runs and walks the countryside around Phnom Penh every Sunday — a country bus departs Villa Grange (~1:30 pm) to rural trails (run ~6-10 km / walk ~4-6 km), then a circle and the On-On. Family-friendly; walkers and non-drinkers welcome.",
     },
+    {
+      // First Vietnam kennel. kennelCode == slug == "saigon-h3" (descriptive city
+      // slug; bare "SH3" is globally taken by summit / sh3-wa / salemh3, so it is
+      // OMITTED from the aliases too). Founded 26 Aug 1990 (history page +
+      // corroborated by run #1844 = "Saigon H3 36th Birthday Run" on 2026-08-30).
+      // dogFriendly not stated.
+      kennelCode: "saigon-h3", shortName: "Saigon H3", fullName: "Saigon Hash House Harriers",
+      region: "Ho Chi Minh City", country: "Vietnam",
+      website: "https://saigonhashers.com/",
+      facebookUrl: "https://www.facebook.com/groups/saigonhash/",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "1:30 PM", scheduleFrequency: "Weekly",
+      foundedYear: 1990,
+      hashCash: "VND 300,000 (bus trip) / VND 150,000 (city run); Vietnamese VND 200,000 - includes transport, beverages & snack",
+      walkersWelcome: true,
+      logoUrl: "/kennel-logos/saigon-h3.png",
+      latitude: 10.7769, longitude: 106.7009,
+      description:
+        "The Saigon Hash House Harriers (est. 1990) are a \"drinking club with a running problem\" welcoming Vietnamese, expats and tourists of all abilities. Most Sundays a Hash bus departs the Caravelle Hotel in District 1 at 1:30 pm sharp for running (6-10 km) and walking (4-5 km) trails in the countryside around Ho Chi Minh City, then a circle and the On-On. Family-friendly; non-drinkers and walkers welcome.",
+    },
     // ── Nevada + Utah (US gap fill) ──
     {
       kennelCode: "lv-h3", shortName: "Las Vegas H3", fullName: "Las Vegas Hash House Harriers",

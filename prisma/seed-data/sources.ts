@@ -6104,6 +6104,27 @@ export const SOURCES = [
       kennelCodes: ["phnom-penh-h3"],
     },
 
+    // ── Vietnam (first 🇻🇳 kennel) ──
+
+    // Saigon H3 (saigonhashers.com — NEW SaigonH3Adapter) --- bespoke SSR site
+    // whose "Receding Hairline" (/hareline) renders a markdown pipe-table of all
+    // ~24 forward runs (numbers | Date(ISO) | Name/Occasion | Hares | A-Site |
+    // On-On). ISO year-bearing dates (no inference); run-type "Bus Trip/City Run"
+    // titles dropped to the synthesized default; "Hares Needed!" placeholder
+    // cleared. scrapeDays 365 since the feed reaches ~5 months ahead. upcomingOnly
+    // protects reconcile as the hareline recedes; the adapter fails loud on zero
+    // rows + per-run parse drift.
+    {
+      name: "Saigon H3 Website",
+      url: "https://saigonhashers.com/hareline",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { upcomingOnly: true },
+      kennelCodes: ["saigon-h3"],
+    },
+
     // ── Nevada + Utah (US gap fill) ──
 
     // Las Vegas H3 — Tribe Events Calendar REST API at lvh3.org
