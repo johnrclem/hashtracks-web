@@ -4,6 +4,7 @@ vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     auditLog: {
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       groupBy: vi.fn(),
       create: vi.fn(),
@@ -16,6 +17,7 @@ vi.mock("@/lib/db", () => ({
     },
     kennel: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
       count: vi.fn(),
     },
     auditIssue: {
@@ -74,6 +76,8 @@ import {
   getCloseReasonRatiosByStream,
   getDeepDiveQueueToken,
   recordDeepDive,
+  recordDeepDiveManual,
+  lookupKennelForDeepDive,
   getAuditSyncFreshness,
   resyncAuditIssues,
 } from "./actions";
@@ -384,12 +388,16 @@ describe("getDeepDiveCoverage", () => {
 
 describe("recordDeepDive", () => {
   const mockLogCreate = vi.mocked(prisma.auditLog.create);
+  const mockLogFindFirst = vi.mocked(prisma.auditLog.findFirst);
   const mockKennelFind = vi.mocked(prisma.kennel.findMany);
   const mockLogGroupBy = vi.mocked(prisma.auditLog.groupBy);
 
   const ORIGINAL_SECRET = process.env.AUDIT_QUEUE_TOKEN_SECRET;
   beforeEach(() => {
     process.env.AUDIT_QUEUE_TOKEN_SECRET = "test-secret-for-queue-tokens";
+    // No prior dive by default — the idempotency guard finds nothing
+    // and the create path runs. Replay tests override this.
+    mockLogFindFirst.mockResolvedValue(null as never);
     // Default queue: a stable list with NYCH3 present so the
     // happy-path test can mint and verify a real token. Tests that
     // exercise removed/changed-snapshot paths override.
@@ -512,10 +520,16 @@ describe("recordDeepDive", () => {
     expect(mockLogCreate).not.toHaveBeenCalled();
   });
 
-  it("returns queueChanged when the snapshot diverges (409-shape)", async () => {
-    // Token was minted with snapshot of [nych3, agnews], but the
-    // queue now also has philly-h3 added. NYCH3 still present, so
-    // we want a refresh-and-retry rather than a hard error.
+  it("persists the dive when the rest of the queue churned but the kennel is still present (#2261 — no false queueChanged)", async () => {
+    // Token was minted with snapshot of [nych3, agnews]; by submit
+    // time the live queue also has philly-h3 (a daily cron ingest or
+    // a parallel admin shifted the top-20). NYCH3 is still in the
+    // queue and the token is cryptographically bound to it, so the
+    // credit is unambiguous — the dive MUST persist rather than
+    // silently no-op. The full-queue snapshot adds no misattribution
+    // safety beyond the kennelCode binding, so its divergence here is
+    // benign.
+    mockLogCreate.mockResolvedValue({ id: "log_churn" } as never);
     mockKennelFind.mockResolvedValue([
       {
         kennelCode: "nych3",
@@ -548,7 +562,35 @@ describe("recordDeepDive", () => {
       summary: "test",
       queueToken: freshToken("nych3"),
     });
-    expect(result).toEqual({ ok: false, error: "queueChanged" });
+    expect(result).toEqual({ ok: true, id: "log_churn" });
+    expect(mockLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          type: "KENNEL_DEEP_DIVE",
+          kennelCode: "nych3",
+          findingsCount: 1,
+        }),
+      }),
+    );
+  });
+
+  it("rejects an expired token as invalidToken (no row written)", async () => {
+    // The page-render-minted token is good for QUEUE_TOKEN_TTL_MS; an
+    // idle dashboard whose token aged out before submit must fail
+    // closed, not silently no-op. Snapshot + kennel are otherwise
+    // valid, so `expired` is the only failing dimension.
+    const expiredToken = signQueueToken({
+      kennelCode: "nych3",
+      queueSnapshotId: computeQueueSnapshotId(["nych3", "agnews"]),
+      expiresAt: Date.now() - 1_000,
+    });
+    const result = await recordDeepDive({
+      kennelCode: "nych3",
+      findingsCount: 1,
+      summary: "test",
+      queueToken: expiredToken,
+    });
+    expect(result).toEqual({ ok: false, error: "invalidToken" });
     expect(mockLogCreate).not.toHaveBeenCalled();
   });
 
@@ -571,6 +613,159 @@ describe("recordDeepDive", () => {
         }),
       }),
     );
+  });
+
+  it("is idempotent: replaying the same valid token returns the existing row without writing a duplicate (#2261 Codex review)", async () => {
+    // A KENNEL_DEEP_DIVE row for nych3 already exists at/after this
+    // token's mint time — i.e. a prior submit with the same token
+    // already succeeded. A retry / double-submit / replayed payload
+    // must NOT create a second row (which would corrupt audit history
+    // and advance lastDeepDiveAt without a real second review).
+    mockLogFindFirst.mockResolvedValue({ id: "log_first" } as never);
+    const result = await recordDeepDive({
+      kennelCode: "nych3",
+      findingsCount: 1,
+      summary: "replayed submit",
+      queueToken: freshToken("nych3"),
+    });
+    expect(result).toEqual({ ok: true, id: "log_first" });
+    expect(mockLogCreate).not.toHaveBeenCalled();
+    // The dedupe is scoped to this kennel and bounded by the token's
+    // mint window (derived from expiresAt − TTL), not "any dive ever".
+    expect(mockLogFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          type: "KENNEL_DEEP_DIVE",
+          kennelCode: "nych3",
+          createdAt: expect.objectContaining({ gte: expect.any(Date) }),
+        }),
+      }),
+    );
+  });
+});
+
+describe("recordDeepDiveManual", () => {
+  const mockLogCreate = vi.mocked(prisma.auditLog.create);
+  const mockKennelFindUnique = vi.mocked(prisma.kennel.findUnique);
+
+  beforeEach(() => {
+    mockKennelFindUnique.mockResolvedValue({ shortName: "SFFMH3" } as never);
+    mockLogCreate.mockResolvedValue({ id: "log_manual" } as never);
+  });
+
+  it("requires admin", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(
+      recordDeepDiveManual({
+        kennelCode: "sffmh3",
+        findingsCount: 1,
+        summary: "manual backfill",
+      }),
+    ).rejects.toThrow("Unauthorized");
+  });
+
+  it("rejects an empty kennelCode", async () => {
+    await expect(
+      recordDeepDiveManual({
+        kennelCode: "   ",
+        findingsCount: 1,
+        summary: "manual backfill",
+      }),
+    ).rejects.toThrow("kennelCode is required");
+  });
+
+  it("rejects a negative findings count", async () => {
+    await expect(
+      recordDeepDiveManual({
+        kennelCode: "sffmh3",
+        findingsCount: -1,
+        summary: "manual backfill",
+      }),
+    ).rejects.toThrow("findingsCount must be ≥ 0");
+  });
+
+  it("fails loud with kennelNotFound when the code doesn't resolve (no row written)", async () => {
+    mockKennelFindUnique.mockResolvedValue(null as never);
+    const result = await recordDeepDiveManual({
+      kennelCode: "does-not-exist",
+      findingsCount: 1,
+      summary: "manual backfill",
+    });
+    expect(result).toEqual({ ok: false, error: "kennelNotFound" });
+    expect(mockLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("writes a KENNEL_DEEP_DIVE row (marked manual) for the explicit kennel — #2261 SFFMH3 backfill", async () => {
+    const result = await recordDeepDiveManual({
+      kennelCode: "sffmh3",
+      findingsCount: 1,
+      summary: "historical FMH3 events backfill (ref #2260)",
+    });
+    expect(result).toEqual({ ok: true, id: "log_manual", shortName: "SFFMH3" });
+    expect(mockKennelFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { kennelCode: "sffmh3" } }),
+    );
+    expect(mockLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          type: "KENNEL_DEEP_DIVE",
+          kennelCode: "sffmh3",
+          findingsCount: 1,
+          issuesFiled: 1,
+          summary: { note: "historical FMH3 events backfill (ref #2260)", manual: true },
+        }),
+      }),
+    );
+  });
+
+  it("trims a padded kennelCode before lookup and write", async () => {
+    await recordDeepDiveManual({
+      kennelCode: "  sffmh3  ",
+      findingsCount: 0,
+      summary: "x",
+    });
+    expect(mockKennelFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { kennelCode: "sffmh3" } }),
+    );
+    expect(mockLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ kennelCode: "sffmh3" }),
+      }),
+    );
+  });
+});
+
+describe("lookupKennelForDeepDive", () => {
+  const mockKennelFindUnique = vi.mocked(prisma.kennel.findUnique);
+
+  it("requires admin", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(lookupKennelForDeepDive("sffmh3")).rejects.toThrow(
+      "Unauthorized",
+    );
+  });
+
+  it("returns the kennel identity for the echo confirmation", async () => {
+    mockKennelFindUnique.mockResolvedValue({
+      kennelCode: "sffmh3",
+      shortName: "SFFMH3",
+      region: "San Francisco, CA",
+    } as never);
+    const result = await lookupKennelForDeepDive("  sffmh3 ");
+    expect(result).toEqual({
+      kennelCode: "sffmh3",
+      shortName: "SFFMH3",
+      region: "San Francisco, CA",
+    });
+    expect(mockKennelFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { kennelCode: "sffmh3" } }),
+    );
+  });
+
+  it("returns null for an unknown / empty kennelCode", async () => {
+    expect(await lookupKennelForDeepDive("   ")).toBeNull();
+    mockKennelFindUnique.mockResolvedValue(null as never);
+    expect(await lookupKennelForDeepDive("nope")).toBeNull();
   });
 });
 
