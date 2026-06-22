@@ -149,7 +149,7 @@ Phnom Penh `cleanField` tri-state (`undefined` arg → `undefined` preserve; pre
    Write/Edit calls used **main-repo** absolute paths (the CLAUDE.md context header advertises them), so the
    adapter/test/registry edits landed in the MAIN checkout instead of the worktree branch. Caught at the
    first test run (vitest found the file "missing"); relocated cleanly (`cp` → worktree,
-   `git checkout -- ` + `rm` in main, re-verify). **In a worktree session, target the worktree-prefixed
+   `git checkout -- <file>` + `rm` in main, re-verify). **In a worktree session, target the worktree-prefixed
    absolute path for every Write/Edit** — and conversely, this docs-sync PR's edits belong in the **main**
    checkout (where the daily-routine changes live), so the right target flips per task.
 2. **🔴 `vitest.config.ts` excludes `**/.claude/worktrees/**`** → `npm test`/`vitest` finds **0 test files**
