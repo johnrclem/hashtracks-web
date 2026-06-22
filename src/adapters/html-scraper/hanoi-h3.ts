@@ -42,12 +42,12 @@ const DEFAULT_URL = "https://hanoih3.com/";
 const HEADING_RE = /^No\.?\s*(\d{3,5})\b/i;
 // Trailing "(…)" run-type / theme on the heading.
 const PAREN_RE = /\(([^)]+)\)\s*$/;
-// An optional leading "on" and/or weekday word before the date.
-const DATE_PREFIX_RE = /^\s*(?:on\b\s*)?(?:(?:sun|mon|tue|wed|thu|fri|sat)[a-z]*\b)?\s*/i;
 // Ordinal suffix on a day number ("20th" → "20").
 const ORDINAL_RE = /(\d)(?:st|nd|rd|th)\b/gi;
-// A Google Maps shortlink (the first one in the block is the first pickup).
-const MAPS_URL_RE = /https?:\/\/maps\.app\.goo\.gl\/[A-Za-z0-9]+/i;
+// A Google Maps shortlink (the first one in the block is the first pickup). No
+// `i` flag: the scheme + host are always lowercase, and `[A-Za-z0-9]` under `/i`
+// would duplicate the class (Sonar S5869). The shortcode itself is mixed-case.
+const MAPS_URL_RE = /https?:\/\/maps\.app\.goo\.gl\/[A-Za-z0-9]+/;
 
 // Run-TYPE descriptors that are NOT themes → drop so merge.ts synthesizes
 // "Hanoi H3 Trail #N". A Set (not object indexing) per Codacy eslint-plugin-security.
@@ -117,12 +117,16 @@ function titleFromHeading(heading: string): string | undefined {
   return candidate || undefined;
 }
 
-/** Date (UTC-noon "YYYY-MM-DD") from the heading, or null on parse drift. Year-bearing → no inference. */
+/**
+ * Date (UTC-noon "YYYY-MM-DD") from the heading, or null on parse drift.
+ * Year-bearing → no inference. The leading "on" and weekday word are left for
+ * chrono to ignore (it locks onto the explicit "Month D YYYY" even when the
+ * source weekday disagrees with the date), so no fragile prefix-stripping regex.
+ */
 function dateFromHeading(heading: string): string | null {
   const normalized = heading
     .replace(HEADING_RE, "")
     .replace(PAREN_RE, "")
-    .replace(DATE_PREFIX_RE, "")
     .replace(ORDINAL_RE, "$1")
     .replaceAll(",", " ")
     .replace(/\s+/g, " ")
