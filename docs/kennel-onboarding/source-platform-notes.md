@@ -1082,3 +1082,38 @@ of every page:
   dates, run-type-vs-theme title discrimination, placeholder strip. Model on `dublin-hash.ts` +
   `phnom-penh-h3.ts`. Archive backfill (if `/runs`/`/reports` expose a clean JSON endpoint) = a separate
   low-priority follow-up.
+
+## Custom Next.js single-current-run site + PLACEHOLDER state (researched Colombo Harriettes, 2026-06-22)
+
+`hashcolombo.com` (Colombo Hash House Harriettes, Sri Lanka — est. 1984) is a bespoke **Next.js** site
+(`/_next/image` asset URLs, custom build by a local agency — NOT Wix/Squarespace/WordPress) that
+renders a **single "Next run" block on the home page, fully SSR'd**. Confirmed by a plain `web_fetch`
+returning the block in the server HTML → **static Cheerio, no browserRender** (despite the modern SPA
+look — verify per site, the JS-heavy frame doesn't mean the content is client-rendered). No JSON
+API/feed; the filled block embeds a Google Map. Same shape as Manila/Warsaw single-current-run sites,
+plus one new gotcha:
+
+- **🔴 The "Next run" block has a between-postings PLACEHOLDER state.** When no run is posted, the block
+  reads literally **"Next run / We will announce soon"** (no run number, no date) and reverts to it after
+  each Saturday run. The adapter MUST treat this as a **legitimate 0-event state** (`events:[]`,
+  `errors:[]`) — NOT a parse failure. Only push to `errors[]` when a run block IS present (a `#NNNN` or a
+  date-like line) but fails to fully parse, OR when neither the placeholder phrase nor a parseable block
+  is found (the committee reworded the placeholder / markup drifted). This three-way discriminator is the
+  difference between a clean between-postings scrape and a silent zero on real drift. Detect the
+  placeholder on a whitespace-collapsed, lowercased copy (`includes("wewillannouncesoon")`), not a strict
+  selector.
+- **Research consequence:** such a site is often in the placeholder state at research time (caught Colombo
+  4 days after its last run), so you can't capture the FILLED-state wrapper DOM — flag for Claude Code to
+  capture it at build when a run is posted, and onboard on **recently-active** evidence (last posted run +
+  weekly cadence) per the daily prompt's Step 3, not as `blocked`.
+- **Coords:** filled state embeds a Google **Map** → almost certainly a `maps/embed?pb=…!2d<lng>!3d<lat>`
+  iframe → in-adapter parse (`!2d`=lng, `!3d`=lat; `extractCoordsFromMapsUrl` does NOT match embeds —
+  Asunción lesson). Single venue per run → no default-pin trap, but verify the embed isn't a fixed office
+  pin across runs.
+- **No archive.** Single-block sites have no on-site history; a legacy marketing domain (here
+  `colomboharriettes.com`) is usually a brochure page, not a per-run list (its `wp-json` was empty) → no
+  backfill collection. `config.upcomingOnly: true` + a 1-row optional seed of the last known run.
+- **Logo:** stable `/_next/image?url=%2Flogomain.png` / `/logomain.png` path (og:image type PNG) — still
+  self-host + magic-byte the ext (Next.js `/_next/image` is a resizer proxy, not the raw asset).
+- **Effort:** small new static Cheerio scraper (~120–170 LoC + tests). Model on `warsaw-h3.ts` /
+  `manila-h3.ts`.
