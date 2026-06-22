@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription, cleanMeetupTitle, detectBoilerplateBlocks, stripBoilerplateBlocks, extractRunNumberFromMeetupDescription } from "./adapter";
+import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription, cleanMeetupTitle, detectBoilerplateBlocks, stripBoilerplateBlocks, extractRunNumberFromMeetupDescription, extractMeetupCost, extractMeetupTrailType } from "./adapter";
 import { normalizeDescriptionKey } from "../utils";
 import { SOURCES } from "../../../prisma/seed-data/sources";
 import type { Source } from "@/generated/prisma/client";
@@ -1630,6 +1630,83 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
     const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3");
     expect(event.startTime).toBe("22:00");
     expect(event.endTime).toBeUndefined();
+  });
+
+  // ── #2229 cost + trailType extraction (Paris H3 / Sans Clue H3) ──
+  it("emits typed cost + trailType from emoji-labelled body, keeping the prose", () => {
+    const ev = {
+      __typename: "Event",
+      id: "paris",
+      title: "Paris H3 R*n 1140 | TBD",
+      dateTime: "2026-08-08T18:30:00+02:00",
+      description:
+        "🐰 Hares: TBD\n👣 Trail: A-to-B trail, no bag drop\n💶 Hash Cash: 5 € (Hash cash is collected to keep our club active.)",
+    };
+    const event = buildRawEventFromApollo(ev as never, emptyState, "paris-h3");
+    // Parenthetical boilerplate stripped from the cost chip…
+    expect(event.cost).toBe("5 €");
+    expect(event.trailType).toBe("A-to-B trail, no bag drop");
+    // …but the full labelled text is still present in the description (duplicate OK).
+    expect(event.description).toContain("Hash Cash: 5 €");
+    expect(event.description).toContain("👣 Trail: A-to-B trail, no bag drop");
+  });
+
+  it("leaves cost/trailType undefined when the body has no such labels", () => {
+    const ev = {
+      __typename: "Event",
+      id: "plain",
+      title: "Saturday Trail!",
+      dateTime: "2026-04-01T10:00:00-04:00",
+      description: "Just show up and run. Meet at the trailhead.",
+    };
+    const event = buildRawEventFromApollo(ev as never, emptyState, "rvah3");
+    expect(event.cost).toBeUndefined();
+    expect(event.trailType).toBeUndefined();
+  });
+
+  describe("extractMeetupCost / extractMeetupTrailType (#2229)", () => {
+  it("strips a leading emoji and a trailing parenthetical from cost", () => {
+    expect(extractMeetupCost("💶 Hash Cash: 10 € (cash to the hare)")).toBe("10 €");
+    expect(extractMeetupCost("Cost: $10")).toBe("$10");
+  });
+
+  it("keeps a short cost qualifier when there is no parenthetical", () => {
+    expect(extractMeetupCost("Hash Cash: $5 cash / $10 card")).toBe("$5 cash / $10 card");
+  });
+
+  it("matches Trail and Trail type labels", () => {
+    expect(extractMeetupTrailType("👣 Trail: A-to-A’ trail, no bag drop")).toBe(
+      "A-to-A’ trail, no bag drop",
+    );
+    expect(extractMeetupTrailType("Trail type: Live hare")).toBe("Live hare");
+  });
+
+  it("returns undefined for an unlabelled body", () => {
+    expect(extractMeetupCost("no structured fields here")).toBeUndefined();
+    expect(extractMeetupTrailType("no structured fields here")).toBeUndefined();
+    expect(extractMeetupCost(undefined)).toBeUndefined();
+  });
+
+  it("does not promote a mid-sentence 'cost'/'trail' mention to a typed field", () => {
+    expect(extractMeetupCost("There is no cost: just bring yourself")).toBeUndefined();
+    expect(extractMeetupTrailType("Meet at the trailhead by the lake")).toBeUndefined();
+  });
+
+  it("rejects a monetary value mis-filed under a Trail label (#2229 Narwhal)", () => {
+    expect(extractMeetupTrailType("Trail: $6.69")).toBeUndefined();
+  });
+
+  it("rejects a prose paragraph filed under Trail Type (Charlotte/Miami)", () => {
+    const prose =
+      "Trail Type: Man I been cooped up in the house for weeks and we need to hash, so this will be fun!";
+    expect(extractMeetupTrailType(prose)).toBeUndefined();
+  });
+
+  it("still accepts a short layout descriptor with a mileage note", () => {
+    expect(extractMeetupTrailType("**Trail Type: Pavement! Approx 3.6 miles**")).toBe(
+      "Pavement! Approx 3.6 miles",
+    );
+  });
   });
 
   it("routes event to matched kennel pattern", () => {
