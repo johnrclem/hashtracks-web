@@ -20,9 +20,16 @@ export async function POST(request: Request): Promise<NextResponse> {
     const jsonResponse = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async () => {
+      onBeforeGenerateToken: async (pathname) => {
         const user = await getOrCreateUser();
         if (!user) throw new Error("Not authorized");
+        // Bind every uploaded object to this user's namespace. The client sends
+        // `avatars/<id>/<file>`; rejecting any other prefix means a forged client
+        // pathname can't write outside the caller's own folder. updateProfile
+        // re-checks this prefix (+ caps) via head() before persisting the URL.
+        if (!pathname.startsWith(`avatars/${user.id}/`)) {
+          throw new Error("Invalid upload path");
+        }
         return {
           // No SVG — next/image can't optimize it (dangerouslyAllowSVG is off)
           // and it carries an XSS surface. Raster only, 2 MB cap.

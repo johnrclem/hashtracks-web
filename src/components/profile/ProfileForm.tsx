@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 interface ProfileFormProps {
   user: {
+    id: string;
     email: string;
     hashName: string | null;
     nerdName: string | null;
@@ -60,7 +61,9 @@ export function ProfileForm({ user }: ProfileFormProps) {
     setUploading(true);
     try {
       // Streams directly to Vercel Blob; the route only mints a scoped token.
-      const blob = await upload(file.name, file, {
+      // Namespace under avatars/<userId>/ so the route can bind the object to
+      // this user (verified again server-side in updateProfile via head()).
+      const blob = await upload(`avatars/${user.id}/${file.name}`, file, {
         access: "public",
         handleUploadUrl: "/api/user/avatar/upload",
       });

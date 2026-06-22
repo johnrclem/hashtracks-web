@@ -1,9 +1,14 @@
 "use server";
 
+import { head } from "@vercel/blob";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isOptimizableLogo } from "@/lib/image-remote-patterns";
 import { revalidatePath } from "next/cache";
+
+// Mirrors the limits enforced by /api/user/avatar/upload's onBeforeGenerateToken.
+const AVATAR_ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 
 export async function updateProfile(
   _prevState: { success?: boolean; error?: string } | null,
@@ -25,12 +30,29 @@ export async function updateProfile(
   if (nerdName && nerdName.trim().length > 100) return { error: "Nerd name is too long (max 100 characters)" };
   if (bio && bio.trim().length > 500) return { error: "Bio is too long (max 500 characters)" };
 
-  // Avatar URL must come from our own Blob upload endpoint (first-party only) —
-  // reject any pasted/tampered value so an arbitrary URL can never be stored.
-  // Empty clears the photo (falls back to the Clerk image or foot mark).
+  // Avatar URL: it must be a blob in OUR store, under this user's own
+  // `avatars/<id>/` namespace, within the image-type/size caps. `isOptimizableLogo`
+  // alone is insufficient — it matches ANY `*.public.blob.vercel-storage.com`
+  // host, so a user could POST a URL from their own Blob store and bypass the
+  // upload route's caps. `head()` is token-scoped: a foreign or forged URL throws,
+  // and it returns the real size/contentType so the caps are re-enforced
+  // server-side regardless of how the URL was obtained. Empty clears the photo.
   let avatarUrl: string | null = null;
   if (avatarRaw) {
     if (!isOptimizableLogo(avatarRaw)) {
+      return { error: "Profile photo must be uploaded through HashTracks" };
+    }
+    try {
+      const meta = await head(avatarRaw);
+      if (
+        !meta.pathname.startsWith(`avatars/${user.id}/`) ||
+        meta.size > AVATAR_MAX_BYTES ||
+        !AVATAR_ALLOWED_TYPES.includes(meta.contentType)
+      ) {
+        return { error: "Profile photo must be uploaded through HashTracks" };
+      }
+    } catch {
+      // Not found in our store (foreign/forged URL) or a transient Blob error.
       return { error: "Profile photo must be uploaded through HashTracks" };
     }
     avatarUrl = avatarRaw;

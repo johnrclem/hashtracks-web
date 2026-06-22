@@ -14,9 +14,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@vercel/blob", () => ({ head: vi.fn() }));
 
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { head } from "@vercel/blob";
 import {
   updateProfile,
   getMyKennelLinks,
@@ -30,11 +32,28 @@ const mockUserUpdate = vi.mocked(prisma.user.update);
 const mockLinkFindMany = vi.mocked(prisma.kennelHasherLink.findMany);
 const mockLinkFindUnique = vi.mocked(prisma.kennelHasherLink.findUnique);
 const mockLinkUpdate = vi.mocked(prisma.kennelHasherLink.update);
+const mockHead = vi.mocked(head);
+
+// A valid head() result for a blob in our store, under user_1's namespace.
+function validAvatarHead(over: Record<string, unknown> = {}) {
+  return {
+    pathname: "avatars/user_1/avatar-x.png",
+    size: 12345,
+    contentType: "image/png",
+    url: "",
+    downloadUrl: "",
+    contentDisposition: "",
+    cacheControl: "",
+    uploadedAt: new Date("2026-01-01"),
+    ...over,
+  } as never;
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuth.mockResolvedValue(mockUser as never);
   mockUserUpdate.mockResolvedValue({} as never);
+  mockHead.mockResolvedValue(validAvatarHead());
 });
 
 describe("updateProfile", () => {
@@ -138,6 +157,45 @@ describe("updateProfile", () => {
   it("rejects a non-first-party avatar URL without writing", async () => {
     const fd = new FormData();
     fd.set("avatarUrl", "https://evil.example.com/x.png");
+    const result = await updateProfile(null, fd);
+    expect(result).toEqual({ error: "Profile photo must be uploaded through HashTracks" });
+    expect(mockHead).not.toHaveBeenCalled(); // rejected by the cheap host pre-check
+    expect(mockUserUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Vercel Blob URL that is not in our store (head throws)", async () => {
+    // Forged URL on someone else's *.public.blob.vercel-storage.com store —
+    // head() is token-scoped, so it 404s/throws for blobs outside our store.
+    mockHead.mockRejectedValueOnce(new Error("BlobNotFoundError"));
+    const fd = new FormData();
+    fd.set("avatarUrl", "https://attacker.public.blob.vercel-storage.com/avatars/user_1/x.png");
+    const result = await updateProfile(null, fd);
+    expect(result).toEqual({ error: "Profile photo must be uploaded through HashTracks" });
+    expect(mockUserUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a blob over the 2 MB size cap", async () => {
+    mockHead.mockResolvedValueOnce(validAvatarHead({ size: 3 * 1024 * 1024 }));
+    const fd = new FormData();
+    fd.set("avatarUrl", "https://store.public.blob.vercel-storage.com/avatars/user_1/big.png");
+    const result = await updateProfile(null, fd);
+    expect(result).toEqual({ error: "Profile photo must be uploaded through HashTracks" });
+    expect(mockUserUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-image blob", async () => {
+    mockHead.mockResolvedValueOnce(validAvatarHead({ contentType: "application/pdf" }));
+    const fd = new FormData();
+    fd.set("avatarUrl", "https://store.public.blob.vercel-storage.com/avatars/user_1/x.pdf");
+    const result = await updateProfile(null, fd);
+    expect(result).toEqual({ error: "Profile photo must be uploaded through HashTracks" });
+    expect(mockUserUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a blob under another user's namespace", async () => {
+    mockHead.mockResolvedValueOnce(validAvatarHead({ pathname: "avatars/other_user/x.png" }));
+    const fd = new FormData();
+    fd.set("avatarUrl", "https://store.public.blob.vercel-storage.com/avatars/other_user/x.png");
     const result = await updateProfile(null, fd);
     expect(result).toEqual({ error: "Profile photo must be uploaded through HashTracks" });
     expect(mockUserUpdate).not.toHaveBeenCalled();
