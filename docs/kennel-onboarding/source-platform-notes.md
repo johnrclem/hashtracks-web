@@ -107,6 +107,29 @@ the committee hand-maintains a single **"## Upcoming runs"** section on the **ho
   matrix**, not a per-run event log (low backfill value; the cells are JS-loaded so `web_fetch` on the
   `pubhtml` shows only the title).
 
+**Build confirmations (shipped 2026-06-21, [PR #2272](https://github.com/johnrclem/hashtracks-web/pull/2272)):**
+
+- **🔴 Scope to the run block's own `wp-block-column`, NOT a whole-page text scan.** The home page's second
+  column is a Jetpack **slideshow** whose `figcaption` reads `No. 1763 Cold bia hoi run` (a *past* run's
+  photo). A naive `lines.find(/^No\.?\s*\d+/)` matches whichever `No.NNNN` is first in document order — it
+  works today only because the text column precedes the slideshow. Find the `<h2>` containing "Upcoming runs"
+  → `.closest(".wp-block-column")` → `stripHtmlTags` *that* column; the gallery caption drops out. (Any
+  single-current-run page with a photo gallery has this trap — past-run captions reuse the `No.NNNN` shape.)
+- **🔴 The bare first-pickup maps shortlink can have the next run's `No.` template glued onto it**
+  (`https://maps.app.goo.gl/FTavtwpc4hAoQTik7No.` — no `<a href>`, no separator). A greedy
+  `…/[A-Za-z0-9]+` capture swallows the `No`. goo.gl shortcodes never contain a period, so the clean
+  discriminator is: a captured shortcode ending in `No` that's **immediately followed by `.` in the source**
+  is the artifact → strip the trailing `No`. (The second-pickup link, followed by `<`, is clean.)
+- **🔴 SonarCloud's regex rules are NOT covered by local `lint`/`tsc`/CI-`test`.** A "strip leading
+  `on`/weekday before chrono" regex (nested optional `\s*` next to an alternation) tripped **S5852 (ReDoS)**;
+  `[A-Za-z0-9]` under `/i` tripped **S5869**. Fix: delete the prefix-strip entirely (`chronoParseDate` already
+  ignores `on`/weekday and locks onto the explicit `Month D YYYY`, even when the source weekday disagrees),
+  and drop the `/i` flag. Expect a post-push SonarCloud pass on any new adapter regex.
+- **🟢 Same-weekday seasonal `scheduleRules`** (Sat 14:00 summer / 13:30 winter) shipped as two HIGH
+  `SEED_DATA` rules with **disjoint `BYMONTH`** (`4..10` vs `11,12,1,2,3`) + `validFrom`/`validUntil` +
+  `displayOrder`, mirroring `kennels.ts:5305`. `parseRRule` accepts `BYMONTH`; the disjointness is what keeps
+  the two same-`BYDAY` rules distinct on the `(kennelId, rrule, source)` upsert key.
+
 ---
 
 ## Meetup — verifying upcoming events from the sandbox (learned from Paris/SCHHH + ZH3, 2026-05-29; corrected 2026-06-02 after Paris shipped)
