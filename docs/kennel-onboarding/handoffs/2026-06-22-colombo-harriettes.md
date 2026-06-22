@@ -197,23 +197,21 @@ Import `ColomboHarriettesAdapter` at the top alongside `WarsawH3Adapter` (~line 
 ### Region — Sri Lanka COUNTRY + Colombo METRO (5 `region.ts` edits — first Sri Lanka kennel)
 
 Mirror the Cambodia/Vietnam/Nepal country→metro precedent (no state-province intermediate).
-**Cyan** palette (distinct from teal=Indonesia, red=Japan/Singapore/China, orange=Thailand,
-sky=Taiwan). Country = darker `-200`/`text-…-800`, metro = lighter `-100`/`text-…-700`, different
-pin hexes. Adjust the palette if cyan collides with anything newly added.
+**Rose** palette. 🔴 **NOT cyan** — Vietnam shipped cyan via [PR #2269](https://github.com/johnrclem/hashtracks-web/pull/2269) (COUNTRY `bg-cyan-200`/`#0e7490`, HCMC METRO `bg-cyan-100`/`#0891b2`), so cyan would put two nearby Asian groups on indistinguishable colors. Rose is distinct from **every** Asian neighbour (teal=Indonesia, red=Japan/Singapore/China, orange=Thailand, sky=Taiwan, cyan=Vietnam, violet=Nepal, purple=Cambodia, green=Malaysia, fuchsia=Philippines) — rose's owners are all US/Europe. Country = darker `-200`/`text-…-800`, metro = lighter `-100`/`text-…-700`, different pin hexes. 🔴 Re-grep `REGION_SEED_DATA` at build and swap if rose now collides with a nearer region.
 
 1. **`REGION_SEED_DATA`** (add a COUNTRY + a METRO record):
    ```ts
    // ── Sri Lanka (first Sri Lankan country; country → metro, no state-province
-   // intermediate, mirroring Cambodia/Nepal). Cyan palette — distinct from teal
-   // (Indonesia) and red (Japan/Singapore/China) used by other Asian regions. ──
+   // intermediate, mirroring Cambodia/Nepal). Rose palette — NOT cyan (Vietnam,
+   // #2269); rose is unused by any Asian region (its owners are US/Europe). ──
    {
      name: "Sri Lanka",
      country: "Sri Lanka",
      level: "COUNTRY",
      timezone: "Asia/Colombo",
      abbrev: "LK",
-     colorClasses: "bg-cyan-200 text-cyan-800",
-     pinColor: "#0891b2",
+     colorClasses: "bg-rose-200 text-rose-800",
+     pinColor: "#e11d48",
      centroidLat: 7.8731,
      centroidLng: 80.7718,
      aliases: ["LK", "Ceylon", "Democratic Socialist Republic of Sri Lanka"],
@@ -223,8 +221,8 @@ pin hexes. Adjust the palette if cyan collides with anything newly added.
      country: "Sri Lanka",
      timezone: "Asia/Colombo",
      abbrev: "CMB",
-     colorClasses: "bg-cyan-100 text-cyan-700",
-     pinColor: "#06b6d4",
+     colorClasses: "bg-rose-100 text-rose-700",
+     pinColor: "#f43f5e",
      centroidLat: 6.9271,
      centroidLng: 79.8612,
      aliases: ["Colombo, Sri Lanka", "Colombo, LK"],
