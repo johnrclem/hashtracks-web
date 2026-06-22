@@ -1989,6 +1989,20 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 106.7009,
     aliases: ["Ho Chi Minh City, Vietnam", "Saigon"],
   },
+  // Hanoi METRO — Vietnam's second metro (Hanoi H3, #2271 sibling of Saigon H3
+  // #2269). Cyan family to match the Vietnam COUNTRY, lighter -100 shade; pin
+  // distinct from the HCMC metro's #0891b2 so the two metros differ on the map.
+  {
+    name: "Hanoi",
+    country: "Vietnam",
+    timezone: "Asia/Ho_Chi_Minh",
+    abbrev: "HAN",
+    colorClasses: "bg-cyan-100 text-cyan-700",
+    pinColor: "#06b6d4",
+    centroidLat: 21.0278,
+    centroidLng: 105.8342,
+    aliases: ["Hanoi, Vietnam", "Hà Nội"],
+  },
   // ── Portugal ──
   {
     name: "Portugal",
@@ -3869,6 +3883,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Phnom Penh": "Cambodia",
   // Vietnam
   "Ho Chi Minh City": "Vietnam",
+  "Hanoi": "Vietnam",
   // Portugal
   "Lisbon": "Portugal",
   "Porto": "Portugal",

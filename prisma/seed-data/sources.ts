@@ -6125,6 +6125,25 @@ export const SOURCES = [
       kennelCodes: ["saigon-h3"],
     },
 
+    // Hanoi H3 (hanoih3.com — NEW HanoiH3Adapter) --- WordPress.com club home page
+    // that SSRs a single hand-maintained "Upcoming runs" block (current run only:
+    // run #NNNN heading + 📌 Location / 📍 pickups / 🐇 Hares paragraphs). Parsing
+    // is scoped to the Upcoming-runs column (a stray "No. 1763" gallery caption
+    // lives in the slideshow column). Year-bearing irregular date → normalize-then-
+    // chrono, no inference; run-type "(A-B Run)" dropped to the synthesized default.
+    // upcomingOnly protects reconcile as the committee overwrites the block weekly;
+    // the adapter fails loud on a missing heading / unparseable date.
+    {
+      name: "Hanoi H3 Website",
+      url: "https://hanoih3.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["hanoi-h3"],
+    },
+
     // ── Nevada + Utah (US gap fill) ──
 
     // Las Vegas H3 — Tribe Events Calendar REST API at lvh3.org
