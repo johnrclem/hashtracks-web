@@ -702,6 +702,11 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/sfhash",
       twitterHandle: "sfh3",
       discordUrl: "https://discord.gg/eGRZMFfHtC",
+      // #2256: stable, token-free logo from the source header (verified 200 image/png).
+      logoUrl: "https://www.sfh3.com/local/images/newlogo-square-172-sharpened.png",
+      // #2256: the source's only public contact is the hare-line raiser address
+      // (per-run "I want to hare" mailto links). Used as the kennel contact.
+      contactEmail: "hareraiser@sfh3.com",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:15 PM", scheduleFrequency: "Weekly",
       description: "The flagship Bay Area kennel (est. 1982). Weekly Monday evening runs in San Francisco. Hosts the sfh3.com Bay Area kennel directory.",
     },
@@ -1526,16 +1531,21 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "swh3", shortName: "SWH3", fullName: "Sir Walter's Hash House Harriers", region: "Raleigh, NC",
       website: "https://swh3.wordpress.com/",
       facebookUrl: "https://www.facebook.com/sirwaltersh3/",
-      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Weekly", scheduleTime: "2:00 PM",
-      // Saturday confirmed dominant against event history (#2181): 22 Sat vs 11
-      // Sun non-cancelled, winter 18 Sat / 6 Sun. The Sunday cluster that tripped
-      // the drift detector (mid-May–early-Jun 2026) reverted to Saturday by
-      // mid-June. Pinned as an explicit HIGH rule rather than a seasonal slot.
-      scheduleRules: [
-        { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "14:00", displayOrder: 0 },
-      ],
+      // #2270 re-fire after the #2181 single-Saturday HIGH pin: SWH3 is genuinely a
+      // mixed-weekend kennel (18mo non-cancelled Sat 21 / Sun 12; recent 6mo Sat 12 /
+      // Sun 9 — runs roughly weekly but the day alternates Sat/Sun with no clean
+      // shift). A single HIGH Saturday rule keeps tripping the 42-day drift detector
+      // during Sunday clusters, and two HIGH weekly rules would over-project ~2/wk and
+      // pollute the prediction ledger. Switch to weekend-varies so backfill Pass-2
+      // derives LOW "possible activity" Sat/Sun CADENCE sentinels (empty predictedDays
+      // → judgeDrift clears, no over-projection). Frequency bucketed "Biweekly" because
+      // that's the only flat-field value that yields LOW sentinels rather than dated
+      // weekly rules; the note carries the real ~weekly cadence. No scheduleRules here
+      // (declaring them would opt the kennel OUT of Pass-2).
+      scheduleDayOfWeek: "Saturday / Sunday", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Runs most weekends; the trail day alternates between Saturday and Sunday week to week. Watch swh3.wordpress.com / Facebook for the next trail.",
       hashCash: "$5",
-      description: "The Triangle's main hash kennel. Weekly Saturday runs in the Raleigh-Durham-Chapel Hill area.",
+      description: "The Triangle's main hash kennel. Weekend trails (Saturday or Sunday, week to week) in the Raleigh-Durham-Chapel Hill area.",
       latitude: 35.78, longitude: -78.64,
     },
     {
@@ -2063,7 +2073,12 @@ export const KENNELS: KennelSeed[] = [
     // --- Atlanta Metro ---
     {
       kennelCode: "ah4", shortName: "Atlanta H4", fullName: "Atlanta Hash House Harriers & Harriettes", region: "Atlanta, GA",
-      website: "https://board.atlantahash.com",
+      // #1416: the https://board.atlantahash.com forum subdomain hangs from every
+      // network we test (cloud egress + NAS) though it reportedly loads over HTTP on
+      // residential connections. Point the public website at the HTTP root, which is
+      // the canonical reachable surface for end users (plain <a href> HTTP links carry
+      // no mixed-content risk). The board source is tracked separately in #2054.
+      website: "http://atlantahash.com",
       scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Weekly",
       hashCash: "$10", foundedYear: 1978,
       contactEmail: "info@atlantahash.com",
@@ -2231,6 +2246,17 @@ export const KENNELS: KennelSeed[] = [
       website: "https://www.meetup.com/charlestonheretics/",
       facebookUrl: "https://www.facebook.com/charlestonheretics",
       instagramHandle: "charleston_hereticsh3",
+      // #1723: same cadence (2nd & 4th Saturday) but seasonal start time (2 PM winter /
+      // 4 PM summer — observed 16:00 in June, 14:00 Sep–May). The naive encoding (same
+      // rrule, two startTimes) collides on @@unique([kennelId,rrule,source]); disjoint
+      // BYMONTH keeps the four rrules distinct so each carries its own startTime
+      // (mirrors Budapest #2096). generateOccurrences filters dates by BYMONTH.
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=2SA;BYMONTH=6,7,8", startTime: "16:00", label: "Summer (Jun–Aug)", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=4SA;BYMONTH=6,7,8", startTime: "16:00", label: "Summer (Jun–Aug)", displayOrder: 1 },
+        { rrule: "FREQ=MONTHLY;BYDAY=2SA;BYMONTH=1,2,3,4,5,9,10,11,12", startTime: "14:00", label: "Winter (Sep–May)", displayOrder: 2 },
+        { rrule: "FREQ=MONTHLY;BYDAY=4SA;BYMONTH=1,2,3,4,5,9,10,11,12", startTime: "14:00", label: "Winter (Sep–May)", displayOrder: 3 },
+      ],
       hashCash: "$5", foundedYear: 1997,
       description: "Biweekly Saturday runs in Charleston. Free for virgins.",
     },
@@ -2243,9 +2269,23 @@ export const KENNELS: KennelSeed[] = [
     // --- Columbia ---
     {
       kennelCode: "colh3", shortName: "ColH3", fullName: "Columbian Hash House Harriers", region: "Columbia, SC",
+      scheduleDayOfWeek: "Sunday",
       scheduleFrequency: "Biweekly", scheduleNotes: "1st & 3rd Sundays, 3:00 PM winter / 5:00 PM summer.",
       facebookUrl: "https://www.facebook.com/groups/columbianh3/",
       hashCash: "$6", foundedYear: 1986,
+      // #1723: 1st & 3rd Sunday year-round, but 3 PM winter / 5 PM summer. Disjoint
+      // BYMONTH keeps the four rrules distinct so each carries its own startTime
+      // (the naive same-rrule encoding collides on @@unique([kennelId,rrule,source])).
+      // These rrules match the four seasonal STATIC_SCHEDULE source configs exactly, so
+      // backfill Pass-3 absorbs the Pass-1 rows cleanly — no duplicate projection
+      // (mirrors Budapest #2096 line ~5305). The STATIC sources generate the actual
+      // events at the correct seasonal time; these rules drive projection + display.
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1SU;BYMONTH=4,5,6,7,8,9", startTime: "17:00", label: "Summer (Apr–Sep)", validFrom: "04-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SU;BYMONTH=4,5,6,7,8,9", startTime: "17:00", label: "Summer (Apr–Sep)", validFrom: "04-01", validUntil: "09-30", displayOrder: 1 },
+        { rrule: "FREQ=MONTHLY;BYDAY=1SU;BYMONTH=1,2,3,10,11,12", startTime: "15:00", label: "Winter (Oct–Mar)", validFrom: "10-01", validUntil: "03-31", displayOrder: 2 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SU;BYMONTH=1,2,3,10,11,12", startTime: "15:00", label: "Winter (Oct–Mar)", validFrom: "10-01", validUntil: "03-31", displayOrder: 3 },
+      ],
       description: "Oldest kennel in South Carolina (1986). 1st & 3rd Sunday runs in Columbia. 21+ only.",
     },
     {
@@ -2799,6 +2839,18 @@ export const KENNELS: KennelSeed[] = [
       latitude: 21.31, longitude: -157.86,
     },
     {
+      // #644: Fool Moon H3 runs its own full-moon trails (own run numbering, e.g.
+      // "Fool Moon H3 #409") that are posted to the shared Aloha H3 Google Calendar.
+      // Previously these landed under ah3-hi (the calendar's default kennel); routed
+      // here via the Aloha source's `["Fool Moon","fool-moon-h3"]` kennelPattern.
+      kennelCode: "fool-moon-h3", shortName: "Fool Moon H3", fullName: "Fool Moon Hash House Harriers",
+      region: "Honolulu, HI", slug: "fool-moon-h3",
+      scheduleFrequency: "Full Moon",
+      scheduleNotes: "Monthly full-moon trail on Oahu. Run details posted on the Aloha H3 community calendar.",
+      description: "Oahu's full-moon hash — monthly trails timed to the full moon, with its own run numbering. Events appear on the shared Aloha H3 calendar.",
+      latitude: 21.31, longitude: -157.86,
+    },
+    {
       kennelCode: "h5-hi", shortName: "H5", fullName: "Honolulu Hash House Harriers", region: "Honolulu, HI",
       website: "https://hawaii.gotothehash.net",
       facebookUrl: "https://www.facebook.com/groups/231670710187037/",
@@ -2899,6 +2951,16 @@ export const KENNELS: KennelSeed[] = [
       website: "https://akronhash.weebly.com/",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
       scheduleNotes: "2nd & 4th Saturday 3 PM + 1st & 3rd Thursday 6:30 PM (summer).",
+      // #1724: verified against 12 months of prod events — 2nd & 4th Saturday @ 3 PM
+      // run year-round, plus 1st & 3rd Thursday @ 6:30 PM in summer (Thu events seen
+      // Jul–Sep). Monthly-ordinal rules self-anchor (no anchorDate). Replaces the LOW
+      // CADENCE=BIWEEKLY sentinel Pass-2 derived from the flat fields.
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=2SA", startTime: "15:00", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=4SA", startTime: "15:00", displayOrder: 1 },
+        { rrule: "FREQ=MONTHLY;BYDAY=1TH", startTime: "18:30", label: "Summer", validFrom: "05-01", validUntil: "09-30", displayOrder: 2 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3TH", startTime: "18:30", label: "Summer", validFrom: "05-01", validUntil: "09-30", displayOrder: 3 },
+      ],
       hashCash: "$15", foundedYear: 2004,
       description: "Akron's hash kennel with a 1,000+ member community. Also runs summer Thursday evening trails.",
       latitude: 41.08, longitude: -81.52,
@@ -4139,10 +4201,13 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "sh3-au", shortName: "Sydney H3", fullName: "Sydney Hash House Harriers (Posh Hash)",
       region: "Sydney, NSW", country: "Australia",
       website: "https://www.sh3.link",
-      scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly Tuesday hash around the Sydney metro. Often called 'Posh Hash' — Sydney's senior mixed kennel, founded 1967. Trail list posted at sh3.link.",
+      // #2270: live source (sh3.link) states "every Monday … 6:30pm" and prod events
+      // are Monday-dominant (recent Mon 6 / Tue 3). The previous "Tuesday" was stale;
+      // the occasional Tuesday is a holiday shift, not a second cadence.
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Monday hash around the Sydney metro. Often called 'Posh Hash' — Sydney's senior mixed kennel, founded 1967. Trail list posted at sh3.link.",
       foundedYear: 1967,
-      description: "Sydney's senior mixed hash kennel, founded in 1967. Runs every Tuesday evening across the Sydney metro and northern beaches. Known affectionately as 'Posh Hash'.",
+      description: "Sydney's senior mixed hash kennel, founded in 1967. Runs every Monday evening across the Sydney metro and northern beaches. Known affectionately as 'Posh Hash'.",
       latitude: -33.8688, longitude: 151.2093,
     },
     {
@@ -4324,6 +4389,13 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "jb-h3", shortName: "JB H3", fullName: "Johor Bahru Hash House Harriers",
       region: "Johor Bahru, MY", country: "Malaysia",
       facebookUrl: "https://www.facebook.com/tjbhhh",
+      // #1942: the Saturday 17:00 slot has NO verifiable live provenance. The only
+      // source (facebook.com/tjbhhh) is login-walled and no Malaysian hash directory
+      // reachable from here lists JB H3's current cadence. Conflicting historical
+      // evidence points to Wednesday (a 2010 JBHHH circular + colahhh.blogspot.com,
+      // last updated 2012, both list Wednesday runs). Kept as Saturday 17:00 —
+      // accepted-as-documented (triage PR #1512) — until a Johor-area hasher or a
+      // logged-in FB session confirms the current day/time. Low priority.
       scheduleDayOfWeek: "Saturday", scheduleTime: "5:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Saturday runs around Johor Bahru, just across the causeway from Singapore. Founded 1969.",
       foundedYear: 1969,

@@ -2220,6 +2220,13 @@ export const SOURCES = [
       },
       kennelCodes: ["budh3"],
     },
+    // #1723: ColH3 runs 1st & 3rd Sunday year-round but at 3 PM in winter / 5 PM in
+    // summer. STATIC_SCHEDULE sources carry a single startTime each, so the seasonal
+    // time is expressed as four sources — winter (Oct–Mar @ 15:00) + summer (Apr–Sep @
+    // 17:00) for each ordinal — disjoint via BYMONTH so a date generates from exactly
+    // one. The four rrules match the kennel's seed scheduleRules exactly, so the
+    // schedule-rule backfill's Pass-3 absorbs these Pass-1 rows cleanly (no dup
+    // projection). The two original (un-suffixed) sources are the WINTER pair.
     {
       name: "Columbian H3 Static Schedule (1st Sunday)",
       url: "https://www.facebook.com/groups/columbianh3/#1st-sunday",
@@ -2229,7 +2236,7 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelTag: "colh3",
-        rrule: "FREQ=MONTHLY;BYDAY=1SU",
+        rrule: "FREQ=MONTHLY;BYDAY=1SU;BYMONTH=1,2,3,10,11,12",
         anchorDate: "2026-03-01",
         startTime: "15:00",
         titleTemplate: "ColH3 — 1st Sunday Hash",
@@ -2247,9 +2254,45 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelTag: "colh3",
-        rrule: "FREQ=MONTHLY;BYDAY=3SU",
+        rrule: "FREQ=MONTHLY;BYDAY=3SU;BYMONTH=1,2,3,10,11,12",
         anchorDate: "2026-03-15",
         startTime: "15:00",
+        titleTemplate: "ColH3 — 3rd Sunday Hash",
+        defaultLocation: "Columbia, SC",
+        defaultDescription: "1st & 3rd Sunday trail. Check Facebook for start location.",
+      },
+      kennelCodes: ["colh3"],
+    },
+    {
+      name: "Columbian H3 Static Schedule (1st Sunday, Summer)",
+      url: "https://www.facebook.com/groups/columbianh3/#1st-sunday-summer",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "colh3",
+        rrule: "FREQ=MONTHLY;BYDAY=1SU;BYMONTH=4,5,6,7,8,9",
+        anchorDate: "2026-04-05",
+        startTime: "17:00",
+        titleTemplate: "ColH3 — 1st Sunday Hash",
+        defaultLocation: "Columbia, SC",
+        defaultDescription: "1st & 3rd Sunday trail. Check Facebook for start location.",
+      },
+      kennelCodes: ["colh3"],
+    },
+    {
+      name: "Columbian H3 Static Schedule (3rd Sunday, Summer)",
+      url: "https://www.facebook.com/groups/columbianh3/#3rd-sunday-summer",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 3,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "colh3",
+        rrule: "FREQ=MONTHLY;BYDAY=3SU;BYMONTH=4,5,6,7,8,9",
+        anchorDate: "2026-04-19",
+        startTime: "17:00",
         titleTemplate: "ColH3 — 3rd Sunday Hash",
         defaultLocation: "Columbia, SC",
         defaultDescription: "1st & 3rd Sunday trail. Check Facebook for start location.",
@@ -3314,6 +3357,10 @@ export const SOURCES = [
           // typo ("…ChristmasPau Hana Hui") that a leading boundary would drop.
           [String.raw`\bPHH\b|Pau Hana Hui\b`, "phh-hi"],
           ["\\bH5\\b|Honolulu H[45]", "h5-hi"],
+          // #644: Fool Moon H3 full-moon trails ("Fool Moon H3 #409") have their own
+          // run numbering and kennel page; route them off the ah3-hi default. Distinct
+          // from PHH / H5, so order vs. those doesn't matter.
+          ["Fool Moon", "fool-moon-h3"],
         ],
         defaultKennelTag: "ah3-hi",
         // Upcoming AH3 events encode hares in the title as the last
@@ -3325,7 +3372,7 @@ export const SOURCES = [
         // Closes #575.
         titleHarePattern: "^AH3\\s*#\\d+.*-\\s+(.+)$",
       },
-      kennelCodes: ["ah3-hi", "h5-hi", "phh-hi"],
+      kennelCodes: ["ah3-hi", "h5-hi", "phh-hi", "fool-moon-h3"],
     },
     {
       name: "Honolulu H5 Google Calendar",
@@ -5520,6 +5567,10 @@ export const SOURCES = [
       kennelCodes: ["ipoh-h3"],
     },
     {
+      // #1942: Saturday 17:00 is UNVERIFIED — facebook.com/tjbhhh is login-walled and
+      // no reachable Malaysian directory confirms the current cadence. Conflicting
+      // historical evidence (a 2010 circular + colahhh.blogspot.com) says Wednesday.
+      // Kept as documented in triage PR #1512 until a Johor-area hasher confirms.
       name: "JB H3 Static Schedule",
       url: "https://www.facebook.com/tjbhhh",
       type: "STATIC_SCHEDULE" as const,
