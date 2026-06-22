@@ -119,7 +119,19 @@ function scrapeCurrentTrail(
 
   const location = whereText ?? undefined;
   const hares = hareText ?? undefined;
-  const description = extractFunPart(bodyText.slice(trailMatch.index));
+  // #766: fold the "Bring:" checklist and the gather/chalk-talk timing into the
+  // description alongside the existing "The Fun Part:" prose. Neither has a typed
+  // home. The "When:" line is folded only when it carries a chalk-talk time
+  // (BFM's "7:00 PM gather, 7:30 PM chalk talk" convention) — that two-time split
+  // is the nuance the typed date/startTime can't express; a plain "7:00 PM
+  // gather" line is just the start time and is left out to avoid noise.
+  const bringText = extractBfmField(bodyText, /Bring:\s*/i);
+  const funPart = extractFunPart(bodyText.slice(trailMatch.index));
+  const descParts: string[] = [];
+  if (whenText && /chalk/i.test(whenText)) descParts.push(`When: ${whenText}`);
+  if (bringText) descParts.push(`Bring: ${bringText}`);
+  if (funPart) descParts.push(funPart);
+  const description = descParts.length > 0 ? descParts.join("\n\n") : undefined;
 
   let locationUrl: string | undefined;
   $("a[href]").each((_i, el) => {

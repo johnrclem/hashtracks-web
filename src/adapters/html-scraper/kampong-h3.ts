@@ -43,6 +43,18 @@ export interface KampongFields {
   onAfter?: string;
 }
 
+/**
+ * Per-run logistics the source publishes in `<p>`/`<div>` blocks below the
+ * `<h2>` header (deliberately kept out of `location` — see
+ * collectNextRunHeaderText). MRT/bus + parking fold into the description; a
+ * cleanly-labelled "Hash Cash" amount becomes the typed `cost` (#1365).
+ */
+export interface KampongDetails {
+  directions: string[]; // verbatim "Nearest MRT: …" / "Bus: …" lines
+  parking?: string; // verbatim "Limited parking …" line
+  cost?: string; // value after a "Hash Cash:" label
+}
+
 // `\s` already includes NBSP and all Unicode whitespace runs in JS regex.
 const NORMALIZE_WS_RE = /\s+/g;
 const RUN_NUMBER_RE = /Run\s+(\d{1,4})/i;
@@ -134,6 +146,43 @@ export function parseKampongNextRun(rawText: string): KampongFields {
   }
 
   return result;
+}
+
+// Per-run logistics labels (#1365). Anchored / single-class quantifiers keep
+// them clear of Sonar's ReDoS heuristics. Lines longer than DETAIL_LINE_MAX are
+// treated as boilerplate/promo prose and skipped — the labelled logistics lines
+// the source publishes are short ("Nearest MRT: …", "Bus: 77, 156, 970").
+const DIRECTIONS_LINE_RE = /^(?:nearest\s+)?(?:mrt|bus)\b/i;
+const PARKING_LINE_RE = /\bparking\b/i;
+const HASH_CASH_RE = /hash ?cash[:\s]+(.+)/i;
+const DETAIL_LINE_MAX = 120;
+
+/**
+ * Extract per-run logistics from the Next Run detail blocks (the `<p>`/`<div>`
+ * prose below the `<h2>` header). Only short, clearly-labelled lines are
+ * promoted — MRT/bus + parking fold into the description; a "Hash Cash:" amount
+ * becomes the typed cost. The standing membership/guest-fee/club boilerplate on
+ * the homepage is left untouched (it carries none of these labels and the long
+ * promo paragraphs exceed DETAIL_LINE_MAX). Exported for unit testing.
+ */
+export function extractKampongDetails(blocks: string[]): KampongDetails {
+  const directions: string[] = [];
+  let parking: string | undefined;
+  let cost: string | undefined;
+  for (const block of blocks) {
+    if (block.length > DETAIL_LINE_MAX) continue;
+    const hc = HASH_CASH_RE.exec(block);
+    if (hc) {
+      if (!cost && hc[1].trim()) cost = hc[1].trim();
+      continue;
+    }
+    if (DIRECTIONS_LINE_RE.test(block)) {
+      directions.push(block);
+    } else if (PARKING_LINE_RE.test(block) && !parking) {
+      parking = block;
+    }
+  }
+  return { directions, parking, cost };
 }
 
 export interface KampongArchiveRow {
@@ -257,6 +306,44 @@ function collectNextRunHeaderText($: CheerioAPI): string | null {
   return parts.filter(Boolean).join(" | ");
 }
 
+/**
+ * Collect the Next Run "detail" prose — the `<p>`/`<div>` siblings between the
+ * `<h1>Next Run…</h1>` heading and the Hareline anchor. Unlike
+ * collectNextRunHeaderText (which walks only `<h2>` so MRT/bus/parking prose
+ * can't leak into `location`), this captures those blocks so the labelled
+ * logistics lines can be folded into the description / cost. A `<div>` wrapper
+ * is descended into so nested `<p>`/`<li>` lines survive as individual blocks.
+ */
+function collectNextRunDetailBlocks($: CheerioAPI): string[] {
+  const h1 = $("h1")
+    .filter((_, el) => NEXT_RUN_HEADING_RE.test($(el).text()))
+    .first();
+  if (h1.length === 0) return [];
+
+  const blocks: string[] = [];
+  const pushText = (raw: string) => {
+    const txt = raw.replaceAll(NORMALIZE_WS_RE, " ").trim();
+    if (txt) blocks.push(txt);
+  };
+
+  let cur = h1.next();
+  while (cur.length > 0) {
+    if (cur.find("a#Hareline").length > 0) break;
+    const tag = cur.prop("tagName")?.toLowerCase();
+    if (tag === "p" || tag === "li") {
+      pushText(cur.text());
+    } else if (tag === "div" || tag === "ul" || tag === "ol") {
+      // Descend into container/list siblings so directions published as a
+      // <ul>/<ol> list (or wrapped in a <div>) survive as individual blocks.
+      const inner = cur.find("p, li");
+      if (inner.length > 0) inner.each((_, p) => pushText($(p).text()));
+      else pushText(cur.text());
+    }
+    cur = cur.next();
+  }
+  return blocks;
+}
+
 function buildNextRunEvent($: CheerioAPI, sourceUrl: string): {
   event?: RawEventData;
   fields?: KampongFields;
@@ -267,7 +354,16 @@ function buildNextRunEvent($: CheerioAPI, sourceUrl: string): {
   const fields = parseKampongNextRun(headerText);
   if (!fields.date) return { error: "Could not parse date from Next Run block", fields };
 
-  const description = fields.onAfter ? `On On: ${fields.onAfter}` : undefined;
+  // Fold per-run logistics (MRT/bus directions, parking) into the description
+  // and lift a labelled hash-cash amount into the typed cost (#1365). Append
+  // only — the existing "On On:" line is preserved, and nothing is stripped.
+  const details = extractKampongDetails(collectNextRunDetailBlocks($));
+  const descParts: string[] = [];
+  if (fields.onAfter) descParts.push(`On On: ${fields.onAfter}`);
+  descParts.push(...details.directions);
+  if (details.parking) descParts.push(details.parking);
+  const description = descParts.length > 0 ? descParts.join("\n") : undefined;
+
   const event: RawEventData = {
     date: fields.date,
     startTime: fields.startTime,
@@ -276,6 +372,7 @@ function buildNextRunEvent($: CheerioAPI, sourceUrl: string): {
     title: fields.runNumber ? `Kampong H3 Run ${fields.runNumber}` : "Kampong H3 Monthly Run",
     hares: fields.hares,
     location: fields.location,
+    cost: details.cost,
     description,
     sourceUrl,
   };

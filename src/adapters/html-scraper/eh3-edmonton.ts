@@ -236,6 +236,10 @@ export function parseEh3EventBlock(
     const h = extractField(line, "Hares?", "Hare", "Hostess(?: and hare)?", "Host");
     if (h) { hares = h; continue; }
 
+    // Scribe credit (#1046) — no typed column, so fold into the description.
+    const scribe = extractField(line, "Scribe");
+    if (scribe) { descParts.push(`Scribe: ${scribe}`); continue; }
+
     // OSH3 (page 425) labels the meeting point "Address: …" rather than
     // "Location:"/"Start:" (#1899). Only the OSH3 page uses "Address:" — the
     // other six EH3 pages use "Location"/"Start", so this is purely additive.

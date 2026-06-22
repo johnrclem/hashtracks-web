@@ -202,6 +202,10 @@ function buildRawEvent(parsed: ParsedSamuraiRun, sourceUrl: string): RawEventDat
 
   const descParts: string[] = [];
   if (parsed.train) descParts.push(`Train: ${parsed.train}`);
+  // Fee is now emitted as the typed `cost` field (#2222). We intentionally keep
+  // it in the description too — the source presents Fee inline with Train/Note,
+  // and duplicating it preserves the table's look/feel while giving the UI a
+  // structured cost chip.
   if (parsed.fee) descParts.push(`Fee: ${parsed.fee}`);
   if (parsed.note) descParts.push(`Note: ${parsed.note}`);
 
@@ -213,6 +217,9 @@ function buildRawEvent(parsed: ParsedSamuraiRun, sourceUrl: string): RawEventDat
     hares: parsed.hares,
     location: parsed.location,
     startTime: parsed.startTime,
+    // Typed cost from the "Fee" column (#2222). `undefined` when the column is
+    // empty so the merge pipeline preserves any previously stored value.
+    cost: parsed.fee,
     sourceUrl,
     description: descParts.length > 0 ? descParts.join("\n") : undefined,
   };

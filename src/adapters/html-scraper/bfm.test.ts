@@ -161,6 +161,58 @@ describe("BFMAdapter.fetch", () => {
     expect(current!.description).not.toMatch(/Upcoming/i);
   });
 
+  it("#766: folds Bring list + chalk-talk timing into the description", async () => {
+    const html = `
+      <html><body>
+      <h2>Trail #1166: The Fruit Hash</h2>
+      <p>When: Thursday, 6/25 at 7:00 PM gather, 7:30 PM chalk talk</p>
+      <p>Where: Paine's Park</p>
+      <p>Bring: Cranium lamp, $10 hash cash</p>
+      <p>Hare: Bananass</p>
+      <p>The Fun Part: Join Bananass for his eponymous yearly fruit hash. Trail will be A-A.</p>
+      <h3>Upcoming Hares</h3>
+      <p>July 2 – CUNTsultant</p>
+      </body></html>
+    `;
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(html, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new BFMAdapter();
+    const result = await adapter.fetch({ id: "test", url: "https://benfranklinmob.com" } as never);
+    const current = result.events.find((e) => e.runNumber === 1166);
+    expect(current).toBeDefined();
+    // Start time still parsed from the gather time.
+    expect(current!.startTime).toBe("19:00");
+    // Bring list + chalk-talk split folded in, Fun Part preserved.
+    expect(current!.description).toContain("Bring: Cranium lamp, $10 hash cash");
+    expect(current!.description).toContain("7:30 PM chalk talk");
+    expect(current!.description).toContain("eponymous yearly fruit hash");
+  });
+
+  it("#766: a plain gather-only When line is NOT folded (no chalk talk → typed time only)", async () => {
+    const html = `
+      <html><body>
+      <h2>Trail #1167: Plain Trail</h2>
+      <p>When: Thursday, 7/2 at 7:00 PM gather</p>
+      <p>Where: Some Park</p>
+      <p>Bring: ID and hash cash</p>
+      <p>Hare: Someone</p>
+      </body></html>
+    `;
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(html, { status: 200 }))
+      .mockResolvedValueOnce(new Response("<html><body></body></html>", { status: 200 }));
+
+    const adapter = new BFMAdapter();
+    const result = await adapter.fetch({ id: "test", url: "https://benfranklinmob.com" } as never);
+    const current = result.events.find((e) => e.runNumber === 1167);
+    expect(current).toBeDefined();
+    // Bring is still folded, but the plain "When:" line is not (just the start time).
+    expect(current!.description).toBe("Bring: ID and hash cash");
+    expect(current!.description).not.toContain("When:");
+  });
+
   it("leaves description undefined when Fun Part section is absent", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(new Response(SAMPLE_HTML, { status: 200 }))

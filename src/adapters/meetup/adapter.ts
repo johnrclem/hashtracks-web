@@ -746,6 +746,87 @@ export function extractRunNumberFromMeetupDescription(
   return undefined;
 }
 
+// #2229: structured field labels many hash kennels embed in their Meetup body.
+// Anchored at the start of a line AFTER leading emoji/markdown/space are stripped
+// procedurally (see firstLabeledValue), so the patterns themselves stay simple +
+// ReDoS-safe (single `\s*` runs, no nested quantifiers under an alternation).
+//   "💶 Hash Cash: 5 € (…)"            -> cost
+//   "👣 Trail: A-to-B trail, no bag drop" -> trailType
+const MEETUP_COST_LABEL_RE = /^(?:hash ?cash|cost)\s*:\s*(.+)$/i;
+const MEETUP_TRAIL_TYPE_LABEL_RE = /^trail(?: type)?\s*:\s*(.+)$/i;
+
+/**
+ * Scan a (resolved, HTML-stripped) description line-by-line for a field label.
+ * Leading non-letters (emoji prefixes like "💶"/"👣", markdown "**", whitespace)
+ * are stripped before matching so the label can be anchored at `^`. Returns the
+ * first non-empty captured value with markdown bold removed, else undefined.
+ */
+function firstLabeledValue(
+  desc: string | undefined,
+  labelRe: RegExp,
+): string | undefined {
+  if (!desc) return undefined;
+  for (const rawLine of desc.split("\n")) {
+    // Strip markdown bold FIRST so a "**Label**:" form (bold on the label word,
+    // colon outside the bold) still anchors, then drop the leading emoji/space.
+    const line = rawLine.replace(/\*\*/g, "").replace(/^[^A-Za-z]+/, "");
+    const m = labelRe.exec(line);
+    if (m) {
+      const v = m[1].trim();
+      if (v) return v;
+    }
+  }
+  return undefined;
+}
+
+/** Drop a trailing parenthetical so a cost chip stays tight ("5 € (Hash cash is
+ *  collected…)" → "5 €"). The full text survives verbatim in `description`, so
+ *  no information is lost. Falls back to the trimmed original if stripping would
+ *  empty the value (the whole value was a parenthetical). */
+function stripTrailingParenthetical(s: string): string {
+  const stripped = s.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  return stripped || s.trim();
+}
+
+/** Reject a value that carries structural remnants of a line where the field
+ *  bled into adjacent markdown content — a stray "*" (single markdown marker),
+ *  an ellipsis, or a trailing ":" (a following label leaking in). Stripping
+ *  "**" can merge a bold label with the next bold segment on the same source
+ *  line (AVL H3 #855: "Cost: $40…*INCLUDES*:"); such values aren't a clean
+ *  mapping, so we leave them in the description only. No clean cost/trail type
+ *  ("$8", "5 €", "A to B") trips this. */
+function looksBledTogether(v: string): boolean {
+  return v.includes("*") || v.includes("…") || v.endsWith(":");
+}
+
+/** Extract a typed cost from a Meetup description ("Hash Cash:"/"Cost:" label).
+ *  Runaway-guard: a "Cost:" label that introduces a whole prose paragraph
+ *  (> 100 chars after parenthetical trim) or a bled-together markdown line is
+ *  rejected as not-a-cost. */
+export function extractMeetupCost(desc: string | undefined): string | undefined {
+  const raw = firstLabeledValue(desc, MEETUP_COST_LABEL_RE);
+  if (!raw) return undefined;
+  const cost = stripTrailingParenthetical(raw);
+  if (cost.length > 100 || looksBledTogether(cost)) return undefined;
+  return cost;
+}
+
+/** Extract a typed trail type from a Meetup description ("Trail:"/"Trail type:").
+ *  A trail TYPE is a short layout descriptor ("A to B", "Live Hare", "Pavement").
+ *  Reject (a) monetary amounts some kennels mis-file under a "Trail:" label
+ *  ("Trail: $6.69") and (b) prose paragraphs (> 50 chars) — both stay captured in
+ *  the description, we just don't promote them to the typed field. */
+export function extractMeetupTrailType(desc: string | undefined): string | undefined {
+  const raw = firstLabeledValue(desc, MEETUP_TRAIL_TYPE_LABEL_RE);
+  if (!raw) return undefined;
+  if (raw.length > 50) return undefined;
+  // Reject monetary amounts mis-filed under a "Trail:" label, including
+  // non-Latin currency symbols (this adapter is global): $ € £ ¥ ₩ ₹ ₽ ₪ ₫ ฿ ₱.
+  if (/[$€£¥₩₹₽₪₫฿₱]/.test(raw)) return undefined;
+  if (looksBledTogether(raw)) return undefined;
+  return raw;
+}
+
 /** Build a RawEventData from an Apollo event entry. */
 export function buildRawEventFromApollo(
   ev: ApolloEvent,
@@ -802,6 +883,15 @@ export function buildRawEventFromApollo(
       ? stripBoilerplateBlocks(cleanedDesc, blocks)
       : cleanedDesc;
 
+  // #2229: lift the structured "Hash Cash"/"Cost" and "Trail"/"Trail type"
+  // labels into typed fields. Read from cleanedDesc (the resolved description
+  // BEFORE boilerplate stripping) so a templated Hash-Cash line — which is a
+  // perfectly valid recurring cost — still yields a value even when the block is
+  // stripped from the stored prose. The text also remains in `description`
+  // (duplicate is fine). undefined when no label is present → merge preserves.
+  const cost = extractMeetupCost(cleanedDesc);
+  const trailType = extractMeetupTrailType(cleanedDesc);
+
   return {
     date,
     kennelTags: [resolvedKennelTag],
@@ -815,6 +905,8 @@ export function buildRawEventFromApollo(
     runNumber: resolveRunNumber(ev.title, finalDesc, extractRunNumber, runNumberPrefix, opts?.anchorTrail),
     description: finalDesc,
     hares,
+    cost,
+    trailType,
     location: venueInfo.location,
     latitude: venueInfo.latitude,
     longitude: venueInfo.longitude,
