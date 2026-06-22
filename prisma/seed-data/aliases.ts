@@ -575,6 +575,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Vietnam — bare "SH3" OMITTED (global collision: summit / sh3-wa / salemh3).
     // The "Ho Chi Minh …" forms are the kennel's original 1990 name.
     "saigon-h3": ["Saigon", "Saigon H3", "Saigon Hash House Harriers", "Ho Chi Minh City H3", "Ho Chi Minh Hash House Harriers"],
+    // Bare "HH3"/"HHH" omitted (collision-prone). "Hanoi Hash House Harriers" aliases the city's
+    // hashing name generally — reassign/disambiguate if the original hanoihash.com kennel is onboarded later.
+    "hanoi-h3": ["Hanoi", "Hanoi H3", "Traditional Hanoi H3", "Traditional Hanoi Hash House Harriers", "Hanoi Hash House Harriers"],
     // Nevada + Utah
     "lv-h3": ["Las Vegas H3", "Las Vegas Hash", "LVHHH", "Las Vegas HHH", "LV H3"],
     "ass-h3": ["ASS H3", "ASSH3", "Atomic Shit Show", "Atomic Shit Show H3", "Atomic Shit Show HHH"],

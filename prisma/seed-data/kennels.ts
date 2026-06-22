@@ -4853,6 +4853,33 @@ export const KENNELS: KennelSeed[] = [
       description:
         "The Saigon Hash House Harriers (est. 1990) are a \"drinking club with a running problem\" welcoming Vietnamese, expats and tourists of all abilities. Most Sundays a Hash bus departs the Caravelle Hotel in District 1 at 1:30 pm sharp for running (6-10 km) and walking (4-5 km) trails in the countryside around Ho Chi Minh City, then a circle and the On-On. Family-friendly; non-drinkers and walkers welcome.",
     },
+    {
+      // Vietnam's second kennel (sibling of Saigon H3). The "Traditional" Hanoi
+      // H3 (est. 1991) — a breakaway from the original Hanoi Hash (hanoihash.com,
+      // not yet onboarded). kennelCode == slug == "hanoi-h3" (descriptive city
+      // slug; bare "HH3"/"HHH" omitted as collision-prone). dogFriendly not stated.
+      // Day is constant (Saturday); only the bus time shifts seasonally, so the
+      // two scheduleRules MUST keep disjoint BYMONTH to stay distinct on the
+      // (kennelId, rrule, source) upsert key (same-weekday seasonal precedent).
+      kennelCode: "hanoi-h3", shortName: "Hanoi H3", fullName: "Traditional Hanoi Hash House Harriers",
+      region: "Hanoi", country: "Vietnam",
+      website: "https://hanoih3.com/",
+      facebookUrl: "https://www.facebook.com/share/g/15MXBsKKkM/",
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "2:00 PM", // 12-hr seed fallback (summer); scheduleRules is authoritative
+      scheduleFrequency: "Weekly",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=SA;BYMONTH=4,5,6,7,8,9,10", startTime: "14:00", label: "Summer", validFrom: "04-01", validUntil: "10-31", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SA;BYMONTH=11,12,1,2,3", startTime: "13:30", label: "Winter", validFrom: "11-01", validUntil: "03-31", displayOrder: 1 },
+      ],
+      foundedYear: 1991,
+      hashCash: "200,000 VND (first-timer's patch included; covers transport, beers, water, soft drinks & finger food; children under 5 free)",
+      walkersWelcome: true,
+      logoUrl: "/kennel-logos/hanoi-h3.png", // self-hosted from hanoih3.com/wp-content/uploads/2024/08/header-for-web-1-1.png; ext confirmed by magic bytes
+      latitude: 21.0278, longitude: 105.8342,
+      description:
+        "The Traditional Hanoi Hash House Harriers (est. 1991) are a \"drinking club with a running problem\" meeting every Saturday afternoon in Hanoi. A bus departs central pickup points (Hoan Kiem old quarter + Ba Dinh) - 14:00 in summer, 13:30 in winter - for running (~8 km) and walking (~6 km) trails in the green countryside around Hanoi, then a participatory circle, hash songs and the On-On. Family-friendly; walkers and non-drinkers welcome.",
+    },
     // ── Nevada + Utah (US gap fill) ──
     {
       kennelCode: "lv-h3", shortName: "Las Vegas H3", fullName: "Las Vegas Hash House Harriers",
