@@ -84,6 +84,23 @@ describe("parseEh3EventBlock", () => {
       expect(result!.description).toContain("Hash Hold: Cherry Poppins");
     });
 
+    it("folds a Scribe credit into the description (#1046)", () => {
+      // Mirrors live EH3 Run #1857 (verified 2026-06-22).
+      const lines = [
+        "EH3 Run # 1857 Monday Jun 29 – 1st Whack Off Memorial Run",
+        "Hares: Free Woody, Gobble Me and PissUp",
+        "Scribe: Rearendee",
+        "Location: Old Alberta Museum parking lot – 12845 102 Ave NW",
+        "On On: Rosario's 11715 108Ave Nw",
+      ];
+      const result = parseEh3EventBlock(lines, "eh3-ab", "18:30");
+      expect(result).not.toBeNull();
+      // Scribe is not a hare and not a typed column — it folds into description.
+      expect(result!.hares).toBe("Free Woody, Gobble Me and PissUp");
+      expect(result!.description).toContain("Scribe: Rearendee");
+      expect(result!.description).toContain("On On: Rosario's");
+    });
+
     it("emits 'EH3 Run #NNNN' title for untitled numbered runs (#1044)", () => {
       const lines = [
         "EH3 Run # 1847 Monday April 20",
