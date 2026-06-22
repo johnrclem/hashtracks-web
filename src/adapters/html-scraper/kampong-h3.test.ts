@@ -5,6 +5,7 @@ import {
   KampongH3Adapter,
   parseKampongNextRun,
   parseKampongArchiveTable,
+  extractKampongDetails,
 } from "./kampong-h3";
 
 vi.mock("@/adapters/safe-fetch", () => ({
@@ -174,6 +175,83 @@ describe("parseKampongArchiveTable", () => {
     expect(out.skipped).toEqual([
       { runNumber: 18, cellText: "February 2001 - SOIXANTE NEUF and PONTIANAK", reason: "no-leading-date" },
     ]);
+  });
+});
+
+describe("extractKampongDetails (#1365)", () => {
+  it("folds MRT/bus directions + parking and lifts hash cash to cost", () => {
+    const blocks = [
+      "Limited parking - please park in side streets.",
+      "Nearest MRT: Bukit Timah (DT7) and King Albert Park (DT6)",
+      "Bus: 77, 156, 970",
+      "Hash Cash: S$20",
+    ];
+    const d = extractKampongDetails(blocks);
+    expect(d.directions).toEqual([
+      "Nearest MRT: Bukit Timah (DT7) and King Albert Park (DT6)",
+      "Bus: 77, 156, 970",
+    ]);
+    expect(d.parking).toBe("Limited parking - please park in side streets.");
+    expect(d.cost).toBe("S$20");
+  });
+
+  it("ignores standing membership / guest-fee / club boilerplate", () => {
+    const blocks = [
+      "The Kampong HHH runs once a month on the 3rd Saturday.",
+      "Membership fees (including insurance) are S$130 per year for women and S$190 per year for men.",
+      "Guest fees for non-members are normally S$20 for women and S$25 for men.",
+      "Contact us at kampong@hash.org.sg",
+    ];
+    expect(extractKampongDetails(blocks)).toEqual({ directions: [] });
+  });
+
+  it("skips a long promo paragraph that merely mentions parking", () => {
+    const longParking = `Parking ${"x".repeat(200)}`; // exceeds DETAIL_LINE_MAX
+    expect(extractKampongDetails([longParking]).parking).toBeUndefined();
+  });
+
+  it("keeps only the first parking line", () => {
+    const d = extractKampongDetails(["Limited parking here", "More parking there"]);
+    expect(d.parking).toBe("Limited parking here");
+  });
+});
+
+describe("KampongH3Adapter — Next Run detail fold (#1365)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-12-01T00:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("folds parking + MRT/bus into description, lifts hash cash to cost, keeps location clean", async () => {
+    const html = `<!DOCTYPE html><html><body>
+<h1>Next Run<br>Run 305</h1>
+<h2>Date: Saturday, 16<sup>th</sup> January 2027<br>Run starts 5:30PM</h2>
+<h2>Hares: Test Hare</h2>
+<h2>Run site: Some Park</h2>
+<p>Limited parking - please park in side streets.</p>
+<p>Nearest MRT: Bukit Timah (DT7)</p>
+<p>Bus: 77, 156, 970</p>
+<p>Hash Cash: S$20</p>
+<h2>On On: The Red Lantern</h2>
+<h2><a id="Hareline">Hare Line</a></h2>
+<table>
+<tr><th>Run</th><th>Date</th></tr>
+<tr><td>305</td><td>16 January 2027 - Test Hare</td></tr>
+</table>
+</body></html>`;
+    mockFetchResponse(html);
+    const result = await new KampongH3Adapter().fetch(makeSource());
+    const run305 = result.events.find((e) => e.runNumber === 305);
+    expect(run305).toBeDefined();
+    expect(run305!.cost).toBe("S$20");
+    expect(run305!.location).toBe("Some Park"); // parking/MRT prose must NOT leak into location
+    expect(run305!.description).toContain("On On: The Red Lantern");
+    expect(run305!.description).toContain("Nearest MRT: Bukit Timah (DT7)");
+    expect(run305!.description).toContain("Bus: 77, 156, 970");
+    expect(run305!.description).toContain("Limited parking - please park in side streets.");
   });
 });
 
