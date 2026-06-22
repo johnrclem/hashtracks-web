@@ -227,6 +227,10 @@ describe("SamuraiH3Adapter", () => {
       expect(run123!.title).toBe("Samurai H3 #123");
       expect(run123!.kennelTags[0]).toBe("samurai-h3");
       expect(run123!.hares).toBe("Hashimoto, Sake Bomb");
+      // #2222: Fee column surfaces as the typed `cost` field…
+      expect(run123!.cost).toBe("1500 yen");
+      // …and is intentionally still present in the description (duplicate OK).
+      expect(run123!.description).toContain("Fee: 1500 yen");
 
       const run124 = result.events.find((e) => e.runNumber === 124);
       expect(run124).toBeDefined();
