@@ -535,6 +535,38 @@ describe("runKennelSeedPass", () => {
     });
   });
 
+  it("emits #1723 same-weekday seasonal rules as distinct BYMONTH rrules (no unique-key collision)", async () => {
+    // chh3 runs 2nd & 4th Saturday year-round but 4 PM summer / 2 PM winter. The naive
+    // encoding (same rrule, two startTimes) would collide on (kennelId, rrule, source);
+    // disjoint BYMONTH keeps the four rrules distinct while each carries its own startTime.
+    const planned: Parameters<typeof runKennelSeedPass>[1] = [];
+    const prisma = fakePrismaForSeed([{ id: "k_chh3", kennelCode: "chh3", shortName: "CHH3" }]);
+    const seeds = [
+      {
+        kennelCode: "chh3",
+        scheduleRules: [
+          { rrule: "FREQ=MONTHLY;BYDAY=2SA;BYMONTH=6,7,8", startTime: "16:00", label: "Summer (Jun–Aug)", displayOrder: 0 },
+          { rrule: "FREQ=MONTHLY;BYDAY=4SA;BYMONTH=6,7,8", startTime: "16:00", label: "Summer (Jun–Aug)", displayOrder: 1 },
+          { rrule: "FREQ=MONTHLY;BYDAY=2SA;BYMONTH=1,2,3,4,5,9,10,11,12", startTime: "14:00", label: "Winter (Sep–May)", displayOrder: 2 },
+          { rrule: "FREQ=MONTHLY;BYDAY=4SA;BYMONTH=1,2,3,4,5,9,10,11,12", startTime: "14:00", label: "Winter (Sep–May)", displayOrder: 3 },
+        ] satisfies KennelScheduleRuleSeed[],
+      },
+    ];
+    const result = await runKennelSeedPass(prisma, planned, {}, seeds);
+
+    // All four validate + emit — the BYMONTH rrules pass seed validation.
+    expect(result.count).toBe(4);
+    expect(result.skippedRules).toBe(0);
+    // The 2SA-summer/2SA-winter (and 4SA) pairs must normalize to DISTINCT rrules so
+    // they don't overwrite each other on the (kennelId, rrule, source) upsert key.
+    expect(new Set(planned.map((r) => r.rrule)).size).toBe(4);
+    // Per-rule startTime threads through: summer 16:00, winter 14:00.
+    const summer = planned.filter((r) => r.rrule.includes("BYMONTH=6,7,8"));
+    const winter = planned.filter((r) => !r.rrule.includes("BYMONTH=6,7,8"));
+    expect(summer.map((r) => r.startTime)).toEqual(["16:00", "16:00"]);
+    expect(winter.map((r) => r.startTime)).toEqual(["14:00", "14:00"]);
+  });
+
   it("emits one rule per Hebe-style single-slot seed (no seasonality metadata)", async () => {
     const planned: Parameters<typeof runKennelSeedPass>[1] = [];
     const prisma = fakePrismaForSeed([
