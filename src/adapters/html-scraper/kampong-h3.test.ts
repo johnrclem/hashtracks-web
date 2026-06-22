@@ -253,6 +253,29 @@ describe("KampongH3Adapter — Next Run detail fold (#1365)", () => {
     expect(run305!.description).toContain("Bus: 77, 156, 970");
     expect(run305!.description).toContain("Limited parking - please park in side streets.");
   });
+
+  it("collects directions published as a <ul>/<li> list (gemini review)", async () => {
+    const html = `<!DOCTYPE html><html><body>
+<h1>Next Run<br>Run 306</h1>
+<h2>Date: Saturday, 16<sup>th</sup> January 2027<br>Run starts 5:30PM</h2>
+<h2>Run site: Some Park</h2>
+<ul>
+  <li>Nearest MRT: Botanic Gardens (CC19)</li>
+  <li>Bus: 7, 105, 123</li>
+</ul>
+<h2><a id="Hareline">Hare Line</a></h2>
+<table>
+<tr><th>Run</th><th>Date</th></tr>
+<tr><td>306</td><td>16 January 2027 - Test Hare</td></tr>
+</table>
+</body></html>`;
+    mockFetchResponse(html);
+    const result = await new KampongH3Adapter().fetch(makeSource());
+    const run306 = result.events.find((e) => e.runNumber === 306);
+    expect(run306).toBeDefined();
+    expect(run306!.description).toContain("Nearest MRT: Botanic Gardens (CC19)");
+    expect(run306!.description).toContain("Bus: 7, 105, 123");
+  });
 });
 
 describe("KampongH3Adapter.fetch", () => {

@@ -1696,6 +1696,22 @@ describe("buildRawEventFromApollo — kennelPatterns", () => {
     expect(extractMeetupTrailType("Trail: $6.69")).toBeUndefined();
   });
 
+  it("matches a bold-label form and rejects non-Latin currency (gemini review)", () => {
+    // "**Cost**: $10" — bold on the label word, colon outside the bold.
+    expect(extractMeetupCost("**Cost**: $10")).toBe("$10");
+    expect(extractMeetupCost("**Hash Cash**: 5 €")).toBe("5 €");
+    // Global adapter: a yen amount mis-filed under "Trail:" must not become a trail type.
+    expect(extractMeetupTrailType("Trail: ¥1000")).toBeUndefined();
+    expect(extractMeetupTrailType("**Trail Type**: A to B")).toBe("A to B");
+  });
+
+  it("rejects a value that bled into adjacent markdown (AVL #855)", () => {
+    // "**Cost**: $40…*INCLUDES*: ..." → "$40…*INCLUDES*:" after ** strip — not clean.
+    expect(extractMeetupCost("**Cost**: $40…*INCLUDES*: rego, beer, food")).toBeUndefined();
+    // A clean value next to it still extracts.
+    expect(extractMeetupCost("**Cost**: $8")).toBe("$8");
+  });
+
   it("rejects a prose paragraph filed under Trail Type (Charlotte/Miami)", () => {
     const prose =
       "Trail Type: Man I been cooped up in the house for weeks and we need to hash, so this will be fun!";

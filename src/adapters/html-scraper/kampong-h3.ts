@@ -332,7 +332,9 @@ function collectNextRunDetailBlocks($: CheerioAPI): string[] {
     const tag = cur.prop("tagName")?.toLowerCase();
     if (tag === "p" || tag === "li") {
       pushText(cur.text());
-    } else if (tag === "div") {
+    } else if (tag === "div" || tag === "ul" || tag === "ol") {
+      // Descend into container/list siblings so directions published as a
+      // <ul>/<ol> list (or wrapped in a <div>) survive as individual blocks.
       const inner = cur.find("p, li");
       if (inner.length > 0) inner.each((_, p) => pushText($(p).text()));
       else pushText(cur.text());

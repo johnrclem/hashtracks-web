@@ -767,10 +767,12 @@ function firstLabeledValue(
 ): string | undefined {
   if (!desc) return undefined;
   for (const rawLine of desc.split("\n")) {
-    const line = rawLine.replace(/^[^A-Za-z]+/, "");
+    // Strip markdown bold FIRST so a "**Label**:" form (bold on the label word,
+    // colon outside the bold) still anchors, then drop the leading emoji/space.
+    const line = rawLine.replace(/\*\*/g, "").replace(/^[^A-Za-z]+/, "");
     const m = labelRe.exec(line);
     if (m) {
-      const v = m[1].replace(/\*\*/g, "").trim();
+      const v = m[1].trim();
       if (v) return v;
     }
   }
@@ -786,14 +788,27 @@ function stripTrailingParenthetical(s: string): string {
   return stripped || s.trim();
 }
 
+/** Reject a value that carries structural remnants of a line where the field
+ *  bled into adjacent markdown content — a stray "*" (single markdown marker),
+ *  an ellipsis, or a trailing ":" (a following label leaking in). Stripping
+ *  "**" can merge a bold label with the next bold segment on the same source
+ *  line (AVL H3 #855: "Cost: $40…*INCLUDES*:"); such values aren't a clean
+ *  mapping, so we leave them in the description only. No clean cost/trail type
+ *  ("$8", "5 €", "A to B") trips this. */
+function looksBledTogether(v: string): boolean {
+  return v.includes("*") || v.includes("…") || v.endsWith(":");
+}
+
 /** Extract a typed cost from a Meetup description ("Hash Cash:"/"Cost:" label).
  *  Runaway-guard: a "Cost:" label that introduces a whole prose paragraph
- *  (> 100 chars after parenthetical trim) is rejected as not-a-cost. */
+ *  (> 100 chars after parenthetical trim) or a bled-together markdown line is
+ *  rejected as not-a-cost. */
 export function extractMeetupCost(desc: string | undefined): string | undefined {
   const raw = firstLabeledValue(desc, MEETUP_COST_LABEL_RE);
   if (!raw) return undefined;
   const cost = stripTrailingParenthetical(raw);
-  return cost.length <= 100 ? cost : undefined;
+  if (cost.length > 100 || looksBledTogether(cost)) return undefined;
+  return cost;
 }
 
 /** Extract a typed trail type from a Meetup description ("Trail:"/"Trail type:").
@@ -805,7 +820,10 @@ export function extractMeetupTrailType(desc: string | undefined): string | undef
   const raw = firstLabeledValue(desc, MEETUP_TRAIL_TYPE_LABEL_RE);
   if (!raw) return undefined;
   if (raw.length > 50) return undefined;
-  if (/[$€£]/.test(raw)) return undefined;
+  // Reject monetary amounts mis-filed under a "Trail:" label, including
+  // non-Latin currency symbols (this adapter is global): $ € £ ¥ ₩ ₹ ₽ ₪ ₫ ฿ ₱.
+  if (/[$€£¥₩₹₽₪₫฿₱]/.test(raw)) return undefined;
+  if (looksBledTogether(raw)) return undefined;
   return raw;
 }
 
