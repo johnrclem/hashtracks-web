@@ -22,12 +22,30 @@ export async function getOrCreateUser(): Promise<User | null> {
   const clerkUser = await safeCurrentUser();
   if (!clerkUser) return null;
 
+  // Clerk's account photo (Google/OAuth). `hasImage` is false for users with
+  // only Clerk's generated default — store null in that case so the avatar
+  // falls back to the HHH foot mark rather than a generic initials image.
+  const clerkImageUrl = clerkUser.hasImage ? clerkUser.imageUrl : null;
+
   // Step 1: look up by clerkId (fast path)
   const existingUser = await prisma.user.findUnique({
     where: { clerkId: clerkUser.id },
   });
 
-  if (existingUser) return existingUser;
+  if (existingUser) {
+    // Keep the synced Clerk image fresh (e.g. the user changed their Google
+    // photo), but only write when it actually changed — avoids a DB write on
+    // every authenticated request. Never clear a stored image when `hasImage`
+    // flips false.
+    const next = clerkImageUrl ?? existingUser.clerkImageUrl;
+    if (next !== existingUser.clerkImageUrl) {
+      return prisma.user.update({
+        where: { id: existingUser.id },
+        data: { clerkImageUrl: next },
+      });
+    }
+    return existingUser;
+  }
 
   // Step 2: email-based lookup (handles Clerk instance migration — same
   // person, same email, new clerkId from production instance)
@@ -43,7 +61,11 @@ export async function getOrCreateUser(): Promise<User | null> {
     if (emailMatch) {
       return prisma.user.update({
         where: { id: emailMatch.id },
-        data: { clerkId: clerkUser.id, nerdName: emailMatch.nerdName ?? nerdName },
+        data: {
+          clerkId: clerkUser.id,
+          nerdName: emailMatch.nerdName ?? nerdName,
+          clerkImageUrl: clerkImageUrl ?? emailMatch.clerkImageUrl,
+        },
       });
     }
   }
@@ -56,6 +78,7 @@ export async function getOrCreateUser(): Promise<User | null> {
         email,
         hashName: null,
         nerdName,
+        clerkImageUrl,
       },
     });
 

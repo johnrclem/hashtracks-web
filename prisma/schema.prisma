@@ -19,6 +19,10 @@ model User {
   nerdName            String? // Real name (private by default)
   email               String               @unique
   bio                 String?
+  avatarUrl           String? // User-uploaded profile photo (Vercel Blob URL); overrides the Clerk image
+  clerkImageUrl       String? // Mirror of Clerk's OAuth/account image, synced on sign-in (fallback avatar)
+  hideClerkImage      Boolean              @default(false) // Suppress the account photo; show the generic HHH foot mark instead
+  attendanceVisibility ProfileVisibility   @default(PRIVATE) // Opt-in: list this hasher on past events they attended
   timeDisplayPref     TimeDisplayPref      @default(EVENT_LOCAL)
   homeKennels         UserKennel[]
   attendances         Attendance[]
@@ -46,6 +50,13 @@ model User {
 enum TimeDisplayPref {
   EVENT_LOCAL
   USER_LOCAL
+}
+
+/// Controls whether a hasher's attendance is publicly listed on past events.
+/// PRIVATE (default) hides them unless they hared; PUBLIC lists them.
+enum ProfileVisibility {
+  PRIVATE
+  PUBLIC
 }
 
 model UserKennel {

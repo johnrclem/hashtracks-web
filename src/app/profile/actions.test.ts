@@ -54,7 +54,7 @@ describe("updateProfile", () => {
     expect(result).toEqual({ success: true });
     expect(mockUserUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { hashName: "Mudflap", nerdName: "John Doe", bio: "I love hashing" },
+        data: expect.objectContaining({ hashName: "Mudflap", nerdName: "John Doe", bio: "I love hashing" }),
       }),
     );
   });
@@ -67,7 +67,7 @@ describe("updateProfile", () => {
     await updateProfile(null, fd);
     expect(mockUserUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { hashName: "Mudflap", nerdName: null, bio: null },
+        data: expect.objectContaining({ hashName: "Mudflap", nerdName: null, bio: null }),
       }),
     );
   });
@@ -83,6 +83,64 @@ describe("updateProfile", () => {
         data: expect.objectContaining({ hashName: null }),
       }),
     );
+  });
+
+  it("defaults visibility to PRIVATE and hideClerkImage to false when absent", async () => {
+    const fd = new FormData();
+    fd.set("hashName", "Mudflap");
+    await updateProfile(null, fd);
+    expect(mockUserUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          attendanceVisibility: "PRIVATE",
+          hideClerkImage: false,
+          avatarUrl: null,
+        }),
+      }),
+    );
+  });
+
+  it("persists PUBLIC visibility and a hidden Clerk image", async () => {
+    const fd = new FormData();
+    fd.set("attendanceVisibility", "PUBLIC");
+    fd.set("hideClerkImage", "true");
+    await updateProfile(null, fd);
+    expect(mockUserUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          attendanceVisibility: "PUBLIC",
+          hideClerkImage: true,
+        }),
+      }),
+    );
+  });
+
+  it("stores a first-party Blob avatar URL", async () => {
+    const blob = "https://abc123.public.blob.vercel-storage.com/avatar-x.png";
+    const fd = new FormData();
+    fd.set("avatarUrl", blob);
+    const result = await updateProfile(null, fd);
+    expect(result).toEqual({ success: true });
+    expect(mockUserUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ avatarUrl: blob }) }),
+    );
+  });
+
+  it("clears the avatar when avatarUrl is empty", async () => {
+    const fd = new FormData();
+    fd.set("avatarUrl", "");
+    await updateProfile(null, fd);
+    expect(mockUserUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ avatarUrl: null }) }),
+    );
+  });
+
+  it("rejects a non-first-party avatar URL without writing", async () => {
+    const fd = new FormData();
+    fd.set("avatarUrl", "https://evil.example.com/x.png");
+    const result = await updateProfile(null, fd);
+    expect(result).toEqual({ error: "Profile photo must be uploaded through HashTracks" });
+    expect(mockUserUpdate).not.toHaveBeenCalled();
   });
 });
 

@@ -58,6 +58,10 @@ export default async function ProfilePage() {
           hashName: user.hashName,
           nerdName: user.nerdName,
           bio: user.bio,
+          avatarUrl: user.avatarUrl,
+          clerkImageUrl: user.clerkImageUrl,
+          hideClerkImage: user.hideClerkImage,
+          attendanceVisibility: user.attendanceVisibility,
         }}
       />
 

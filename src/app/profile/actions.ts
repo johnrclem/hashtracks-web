@@ -2,6 +2,7 @@
 
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { isOptimizableLogo } from "@/lib/image-remote-patterns";
 import { revalidatePath } from "next/cache";
 
 export async function updateProfile(
@@ -14,11 +15,26 @@ export async function updateProfile(
   const hashName = formData.get("hashName") as string | null;
   const nerdName = formData.get("nerdName") as string | null;
   const bio = formData.get("bio") as string | null;
+  const avatarRaw = ((formData.get("avatarUrl") as string | null) ?? "").trim();
+  const hideClerkImage = formData.get("hideClerkImage") === "true";
+  const attendanceVisibility =
+    formData.get("attendanceVisibility") === "PUBLIC" ? "PUBLIC" : "PRIVATE";
 
   // Input length validation
   if (hashName && hashName.trim().length > 100) return { error: "Hash name is too long (max 100 characters)" };
   if (nerdName && nerdName.trim().length > 100) return { error: "Nerd name is too long (max 100 characters)" };
   if (bio && bio.trim().length > 500) return { error: "Bio is too long (max 500 characters)" };
+
+  // Avatar URL must come from our own Blob upload endpoint (first-party only) —
+  // reject any pasted/tampered value so an arbitrary URL can never be stored.
+  // Empty clears the photo (falls back to the Clerk image or foot mark).
+  let avatarUrl: string | null = null;
+  if (avatarRaw) {
+    if (!isOptimizableLogo(avatarRaw)) {
+      return { error: "Profile photo must be uploaded through HashTracks" };
+    }
+    avatarUrl = avatarRaw;
+  }
 
   await prisma.user.update({
     where: { id: user.id },
@@ -26,6 +42,9 @@ export async function updateProfile(
       hashName: hashName?.trim() || null,
       nerdName: nerdName?.trim() || null,
       bio: bio?.trim() || null,
+      avatarUrl,
+      hideClerkImage,
+      attendanceVisibility,
     },
   });
 
