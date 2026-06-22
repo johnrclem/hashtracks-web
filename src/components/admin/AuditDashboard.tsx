@@ -32,6 +32,8 @@ import {
   getSuppressionImpact,
   getDeepDiveQueueToken,
   recordDeepDive,
+  recordDeepDiveManual,
+  lookupKennelForDeepDive,
   type TrendPoint,
   type TopOffender,
   type RecentRun,
@@ -888,6 +890,7 @@ function DeepDiveCard({
 }) {
   const [selectedCode, setSelectedCode] = useState(queue[0]?.kennelCode ?? "");
   const [completeOpen, setCompleteOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -975,12 +978,24 @@ function DeepDiveCard({
             <span className="font-mono tabular-nums">{coverage.total}</span> active kennels (
             {coverage.percent}%)
           </div>
-          {coverage.projectedFullCycleDate && (
-            <div>
-              Full cycle by{" "}
-              <span className="font-mono tabular-nums">{coverage.projectedFullCycleDate}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {coverage.projectedFullCycleDate && (
+              <span>
+                Full cycle by{" "}
+                <span className="font-mono tabular-nums">{coverage.projectedFullCycleDate}</span>
+              </span>
+            )}
+            {/* Escape hatch for a deep dive the normal token-bound flow
+                missed (e.g. #2261). Records an explicit, echoed kennel —
+                no position-based dropdown to go stale (#1160). */}
+            <button
+              type="button"
+              className="underline underline-offset-2 hover:text-foreground"
+              onClick={() => setManualOpen(true)}
+            >
+              Manually record a deep dive
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1065,7 +1080,216 @@ function DeepDiveCard({
           onCompleted();
         }}
       />
+
+      <ManualDeepDiveDialog
+        open={manualOpen}
+        onOpenChange={setManualOpen}
+        defaultKennelCode={currentKennel.kennelCode}
+        onCompleted={() => {
+          setManualOpen(false);
+          onCompleted();
+        }}
+      />
     </>
+  );
+}
+
+/**
+ * Manual deep-dive backfill dialog. For a completion the normal
+ * token-bound flow missed (e.g. #2261, where benign queue churn
+ * stranded the SFFMH3 completion). The operator types/confirms an
+ * explicit kennelCode, looks it up, and the dialog ECHOES the resolved
+ * kennel ("SFFMH3 — San Francisco, CA") before any write — preserving
+ * the #1160 anti-misattribution property without a queue token, since
+ * there's no position-based dropdown index that can go stale. The
+ * "Record" button stays disabled until the echoed kennel matches the
+ * current input, so what's confirmed is exactly what's written.
+ */
+function ManualDeepDiveDialog({
+  open,
+  onOpenChange,
+  defaultKennelCode,
+  onCompleted,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  defaultKennelCode: string;
+  onCompleted: () => void;
+}) {
+  const [kennelCode, setKennelCode] = useState(defaultKennelCode);
+  const [resolved, setResolved] = useState<{
+    kennelCode: string;
+    shortName: string;
+    region: string;
+  } | null>(null);
+  const [findingsCount, setFindingsCount] = useState(0);
+  const [summary, setSummary] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [looking, setLooking] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  // Reset to a clean slate each time the dialog opens, seeded with the
+  // currently-selected queue kennel for convenience.
+  useEffect(() => {
+    if (!open) return;
+    setKennelCode(defaultKennelCode);
+    setResolved(null);
+    setFindingsCount(0);
+    setSummary("");
+    setError(null);
+    setLooking(false);
+  }, [open, defaultKennelCode]);
+
+  const trimmedCode = kennelCode.trim();
+  // The echo is only valid while the input still matches what we
+  // resolved — editing the code after a lookup invalidates the echo so
+  // the operator can't confirm one kennel and submit another.
+  const echoValid = resolved !== null && resolved.kennelCode === trimmedCode;
+
+  async function handleLookup() {
+    setError(null);
+    setResolved(null);
+    if (!trimmedCode) {
+      setError("Enter a kennelCode to look up.");
+      return;
+    }
+    setLooking(true);
+    try {
+      const result = await lookupKennelForDeepDive(trimmedCode);
+      if (!result) {
+        setError(`No kennel found for code “${trimmedCode}”.`);
+        return;
+      }
+      setResolved(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Lookup failed.");
+    } finally {
+      setLooking(false);
+    }
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (!echoValid || !resolved) {
+      setError("Look up and confirm the kennel before recording.");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const result = await recordDeepDiveManual({
+          kennelCode: resolved.kennelCode,
+          findingsCount,
+          summary: summary.trim() || "(manual backfill — no notes)",
+        });
+        if (result.ok) {
+          onCompleted();
+          return;
+        }
+        // kennelNotFound (raced deletion) or any future error value —
+        // surface it; never swallow.
+        setError(
+          result.error === "kennelNotFound"
+            ? `${resolved.shortName} no longer exists. Nothing was saved.`
+            : `Could not record the deep dive (${String(result.error)}). Nothing was saved.`,
+        );
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to record deep dive",
+        );
+      }
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Manually record a deep dive</DialogTitle>
+          <DialogDescription>
+            Backfill a completion the normal flow missed. Look up the
+            kennel by its code, confirm the echoed name, then record.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="manual-dd-code">Kennel code</Label>
+            <div className="flex gap-2">
+              <Input
+                id="manual-dd-code"
+                value={kennelCode}
+                onChange={(e) => {
+                  setKennelCode(e.target.value);
+                  setResolved(null);
+                }}
+                placeholder="e.g. sffmh3"
+                data-kennel-code={trimmedCode}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleLookup}
+                disabled={looking || !trimmedCode}
+              >
+                {looking ? "Looking…" : "Look up"}
+              </Button>
+            </div>
+          </div>
+          {echoValid && resolved && (
+            <div className="rounded-md border border-border/50 bg-accent/30 px-3 py-2 text-sm">
+              Will record:{" "}
+              <strong data-kennel-code={resolved.kennelCode}>
+                {resolved.shortName}
+              </strong>{" "}
+              <span className="text-xs text-muted-foreground">
+                ({resolved.region})
+              </span>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="manual-dd-findings">Findings filed</Label>
+            <Input
+              id="manual-dd-findings"
+              type="number"
+              min={0}
+              value={findingsCount}
+              onChange={(e) =>
+                setFindingsCount(Math.max(0, Number(e.target.value)))
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="manual-dd-summary">One-line summary</Label>
+            <Textarea
+              id="manual-dd-summary"
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
+              rows={2}
+              placeholder='e.g. "historical FMH3 events backfill (ref #2260)"'
+            />
+          </div>
+          {error && <div className="text-xs text-destructive">{error}</div>}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" size="sm" disabled={pending || !echoValid}>
+              {pending
+                ? "Saving…"
+                : echoValid && resolved
+                  ? `Record ${resolved.shortName}`
+                  : "Record deep dive"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1213,39 +1437,36 @@ function DeepDiveCompleteDialog({
           onCompleted();
           return;
         }
-        if (result.error === "queueChanged") {
-          // Refresh the token + show a one-shot warning. If the
-          // operator submits again with the fresh token and the
-          // queue still matches, it'll succeed. On refetch
-          // failure, refetchToken has already set its own error
-          // (kennelGone) — don't overwrite it (Gemini PR #1203).
+        // Every failure mode must surface a clear, persistent message —
+        // a silent {ok:false} is exactly the #2261 no-op. The server no
+        // longer rejects benign full-queue churn (it relies on the
+        // signed kennelCode binding for anti-misattribution), so the
+        // remaining failures are genuine and actionable.
+        if (result.error === "kennelGone") {
+          setError(
+            `${dialogKennel.shortName} is no longer an active deep-dive target. Cancel and refresh; if it still needs recording, use “Manually record a deep dive”.`,
+          );
+          return;
+        }
+        if (result.error === "invalidToken") {
+          // Session expired or tampered. Refetch in-place — the
+          // page-render-minted token expires after QUEUE_TOKEN_TTL_MS,
+          // and an idle dashboard would otherwise need a full refresh.
+          // On success prompt one explicit re-submit with the fresh
+          // token; on failure, refetchToken already set its own error.
           const fresh = await refetchToken();
           if (fresh) {
             setError(
-              "The deep-dive queue was edited by someone else. Confirm by submitting again.",
+              "Submission token expired — refreshed automatically. Submit again to confirm.",
             );
           }
           return;
         }
-        if (result.error === "kennelGone") {
-          setError(
-            `${dialogKennel.shortName} was removed from the queue. Cancel and refresh the page.`,
-          );
-          return;
-        }
-        // invalidToken: session expired or tampered. Try refetching
-        // in-place — the page-render-minted prefetched token expires
-        // after QUEUE_TOKEN_TTL_MS, and an idle dashboard would
-        // otherwise need a full refresh to recover. If the refetch
-        // succeeds, prompt the operator to submit again with the
-        // fresh token. If it fails, refetchToken already set its
-        // own error.
-        const fresh = await refetchToken();
-        if (fresh) {
-          setError(
-            "Submission token expired — refreshed automatically. Submit again to confirm.",
-          );
-        }
+        // Catch-all: an error value this dialog doesn't recognize (a new
+        // server branch, etc.). Never swallow it.
+        setError(
+          `Could not record the deep dive (${String(result.error)}). Nothing was saved — try again or use “Manually record a deep dive”.`,
+        );
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to record deep dive");
       }

@@ -19,6 +19,7 @@ import {
   computeQueueTokenExpiresAt,
   signQueueToken,
   verifyQueueToken,
+  QUEUE_TOKEN_TTL_MS,
 } from "@/lib/queue-snapshot-token";
 
 /** All audit dashboard actions are admin-only — server actions are POST endpoints anyone can hit. */
@@ -538,14 +539,24 @@ export type RecordDeepDiveResult =
       ok: false;
       error:
         | "invalidToken" // tampered, expired, or mismatched kennel
-        | "queueChanged" // kennel still in queue but snapshot diverged
         | "kennelGone"; // kennel no longer in queue
     };
 
 /** Record that a deep dive has been completed for a kennel. Requires
  *  a valid queue token from `getDeepDiveQueueToken` so a queue change
  *  between dialog-open and submit can't misattribute the credit
- *  (issue #1160). */
+ *  (issue #1160).
+ *
+ *  The anti-misattribution guarantee is the signed `kennelCode`
+ *  binding: the token cryptographically pins which kennel gets credit,
+ *  we verify `token.kennelCode === input.kennelCode`, and the row is
+ *  written with `input.kennelCode`. We do NOT additionally gate on a
+ *  full-queue snapshot match: a benign churn of the *other* top-20
+ *  kennels (a daily cron ingest, a parallel admin) between dialog-open
+ *  and submit can't change which kennel is credited, so rejecting it
+ *  only stranded legitimate completions as a silent no-op (#2261). The
+ *  snapshot id stays in the signed payload as tamper-proofing but no
+ *  longer blocks the write. */
 export async function recordDeepDive(input: {
   kennelCode: string;
   findingsCount: number;
@@ -568,16 +579,38 @@ export async function recordDeepDive(input: {
     return { ok: false, error: "invalidToken" };
   }
 
-  // Recompute snapshot from the live queue and decide. Use the
+  // The kennel must still be a current deep-dive target. Use the
   // lightweight kennelCode-only query to match what the token mint
-  // path captured.
+  // path captured. (Full-queue snapshot equality is intentionally NOT
+  // enforced here — see the doc comment above.)
   const liveCodes = await getDeepDiveQueueKennelCodes();
   if (!liveCodes.includes(input.kennelCode)) {
     return { ok: false, error: "kennelGone" };
   }
-  const liveSnapshot = computeQueueSnapshotId(liveCodes);
-  if (liveSnapshot !== verification.payload.queueSnapshotId) {
-    return { ok: false, error: "queueChanged" };
+
+  // Idempotent token consumption (Codex adversarial review, #2261).
+  // A signed token represents ONE dialog-open completion. Without the
+  // old snapshot gate, a still-valid token could otherwise be replayed
+  // (network retry, React double-fire, double-click) to write duplicate
+  // KENNEL_DEEP_DIVE rows — corrupting history and advancing
+  // lastDeepDiveAt without a real second review. If a row for this
+  // kennel already exists at or after this token was minted, the same
+  // completion already landed: return it instead of writing again.
+  // mintedAt is derived from expiresAt — both mint paths
+  // (getDeepDiveQueueToken, mintQueueTokens) use the default TTL, so
+  // `expiresAt - QUEUE_TOKEN_TTL_MS` is exactly the mint time.
+  const mintedAt = new Date(verification.payload.expiresAt - QUEUE_TOKEN_TTL_MS);
+  const existing = await prisma.auditLog.findFirst({
+    where: {
+      type: "KENNEL_DEEP_DIVE",
+      kennelCode: input.kennelCode,
+      createdAt: { gte: mintedAt },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (existing) {
+    return { ok: true, id: existing.id };
   }
 
   const log = await prisma.auditLog.create({
@@ -594,6 +627,75 @@ export async function recordDeepDive(input: {
     select: { id: true },
   });
   return { ok: true, id: log.id };
+}
+
+/** Resolve a kennelCode to its display identity so the manual
+ *  deep-dive dialog can echo the kennel ("SFFMH3 — San Francisco, CA")
+ *  for last-chance confirmation before a write. Returns null when no
+ *  kennel matches. Admin-only. */
+export async function lookupKennelForDeepDive(
+  kennelCode: string,
+): Promise<{ kennelCode: string; shortName: string; region: string } | null> {
+  await requireAdmin();
+  const trimmed = kennelCode.trim();
+  if (!trimmed) return null;
+  const kennel = await prisma.kennel.findUnique({
+    where: { kennelCode: trimmed },
+    select: { kennelCode: true, shortName: true, region: true },
+  });
+  return kennel ?? null;
+}
+
+/** Result shape for `recordDeepDiveManual`. */
+export type RecordDeepDiveManualResult =
+  | { ok: true; id: string; shortName: string }
+  | { ok: false; error: "kennelNotFound" };
+
+/** Admin-only manual backfill for a deep-dive completion the normal
+ *  token-bound flow missed — e.g. #2261, where a benign queue churn
+ *  stranded the SFFMH3 completion as a silent no-op.
+ *
+ *  Unlike `recordDeepDive`, this takes an EXPLICIT kennelCode and no
+ *  queue token. The #1160 anti-misattribution property is preserved a
+ *  different way: the caller supplies (and the dialog echoes back) the
+ *  exact kennelCode, so there is no position-based dropdown index that
+ *  can go stale between selection and submit. Fails loud with
+ *  `kennelNotFound` rather than writing a dangling row. */
+export async function recordDeepDiveManual(input: {
+  kennelCode: string;
+  findingsCount: number;
+  summary: string;
+}): Promise<RecordDeepDiveManualResult> {
+  await requireAdmin();
+  const kennelCode = input.kennelCode.trim();
+  if (!kennelCode) throw new Error("kennelCode is required");
+  if (input.findingsCount < 0) throw new Error("findingsCount must be ≥ 0");
+
+  const kennel = await prisma.kennel.findUnique({
+    where: { kennelCode },
+    select: { shortName: true },
+  });
+  if (!kennel) {
+    return { ok: false, error: "kennelNotFound" };
+  }
+
+  const log = await prisma.auditLog.create({
+    data: {
+      type: "KENNEL_DEEP_DIVE",
+      kennelCode,
+      eventsScanned: 0,
+      findingsCount: input.findingsCount,
+      groupsCount: 0,
+      issuesFiled: input.findingsCount,
+      findings: [],
+      // `manual: true` marks the provenance so a backfilled completion
+      // is distinguishable from a normal token-bound one in the row's
+      // JSON summary (useful when auditing #2261 cleanup later).
+      summary: { note: input.summary, manual: true },
+    },
+    select: { id: true },
+  });
+  return { ok: true, id: log.id, shortName: kennel.shortName };
 }
 
 // ── Stream Trends (audit-issue mirror) ──────────────────────────────
