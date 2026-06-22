@@ -224,4 +224,70 @@ describe("parseIndyDetail", () => {
     const result = parseIndyDetail(html);
     expect(result.location).toBe("Canonical address");
   });
+
+  // ── #1354 detail fold + trail length ──
+  it("folds the body into description and lifts a mileage token to trail length", () => {
+    const result = parseIndyDetail(sampleDetailHtml);
+    expect(result.trailLengthText).toBe("~3.69mi");
+    expect(result.trailLengthMinMiles).toBeCloseTo(3.69);
+    expect(result.trailLengthMaxMiles).toBeCloseTo(3.69);
+    expect(result.description).toContain("Trail: ~3.69mi");
+    // Jokey Shiggy value stays in the description — never forced into difficulty.
+    expect(result.description).toContain("Shiggy level: 0.69");
+  });
+
+  it("folds the div-based body, stripping byline + chrome + inline script", () => {
+    // Mirrors the current live X/Cornerstone layout (hash-1126, 2026-06-22).
+    const html = `
+      <article class="ht_hash_event">
+        <h1>Hash #1126: HAH Hash – 2026</h1>
+        <p>by <a href="#">Did We Fuck?</a> · March 27, 2026</p>
+        <div><strong>📅 Date:</strong> Saturday, May 23, 2026</div>
+        <div><strong>🐇 Hares:</strong> 13&quot; Cocktower</div>
+        <div><a href="#">🗺️ Get Directions</a></div>
+        <div>Trail will traverse through human shiggy. Wear redneck attire! (Note: Not historically a K9-friendly trail.)</div>
+        <div><strong>How?</strong> In the greatest redneck attire!</div>
+        <div><strong>Where?</strong> Leonard Park – Speedway, Indiana</div>
+        <div>ON-AFTER!</div>
+        <div>There is an On-After at Tosser&#8217;s place.</div>
+        <div><a href="#">Share</a></div>
+        <script>var x = "ran 3 miles of junk";</script>
+      </article>`;
+    const result = parseIndyDetail(html);
+    expect(result.location).toBe("Leonard Park – Speedway, Indiana");
+    expect(result.description).toContain("Trail will traverse through human shiggy");
+    expect(result.description).toContain("ON-AFTER!");
+    expect(result.description).toContain("There is an On-After at Tosser’s place.");
+    // K9/dog status preserved in prose (not promoted to a typed field).
+    expect(result.description).toContain("Not historically a K9-friendly trail");
+    // Byline, chrome links, title echo, and inline script are excluded.
+    expect(result.description).not.toContain("Did We Fuck?");
+    expect(result.description).not.toContain("Get Directions");
+    expect(result.description).not.toContain("Share");
+    expect(result.description).not.toContain("Hash #1126:");
+    expect(result.description).not.toContain("var x");
+    // The "3 miles" in the stripped <script> must NOT become a trail length.
+    expect(result.trailLengthText).toBeUndefined();
+  });
+
+  it("parses a mileage range and rejects implausible distances", () => {
+    const range = parseIndyDetail(`<div>Trail: 3-5 miles of shiggy</div>`);
+    expect(range.trailLengthText).toBe("3-5 miles");
+    expect(range.trailLengthMinMiles).toBe(3);
+    expect(range.trailLengthMaxMiles).toBe(5);
+    // 50 miles is implausible for a trail (> 15) — not promoted.
+    expect(parseIndyDetail(`<div>We have run 50 miles total this year</div>`).trailLengthText).toBeUndefined();
+  });
+
+  it("returns no description for a skeleton event (only filtered metadata)", () => {
+    const html = `
+      <article class="ht_hash_event">
+        <h1>Hash #1130: NASH Hash</h1>
+        <p>by Someone · March 27, 2026</p>
+        <div><strong>📅 Date:</strong> Thursday, July 2, 2026</div>
+        <div><strong>⏰ Time:</strong> 6:30 PM</div>
+        <div><strong>🐇 Hares:</strong> TBD</div>
+      </article>`;
+    expect(parseIndyDetail(html).description).toBeUndefined();
+  });
 });
