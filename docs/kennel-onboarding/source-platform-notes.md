@@ -37,7 +37,7 @@ Add a new section when you discover non-obvious behavior on a platform.
 
 The "Wix SSRs the current event on the home page" behavior above is **tenant-dependent — confirm it per site, never assume it.** Three Taiwan Wix kennels, three different outcomes:
 - **Kaohsiung H3** (`kaohsiunghash.com`, already live) — home page AND `/run-information` **fully SSR the upcoming runs** as text headings (`#2732 - June 27 - Saturday Night Run`) + rich per-run detail (hares, cost, Maps `maps.app.goo.gl` pin, time, prose). A plain `web_fetch`/Cheerio parse works; no browserRender. Its `/run-schedule` page is a **PNG image** (the full year) — useless for scraping; the home + `/run-information` surfaces are the real source. Note: home heading run# can disagree with `/run-information` (Kaohsiung's `#2733 Jul 11` home vs `#2734 Jul 11` run-info) — a source inconsistency, not a parse bug.
-- **Taoyuan Metro H3** (`tymh3.com`) — home AND `/upcoming-run` SSR carry **NO run data** (only nav, logo, tagline, email, FB link); the run list is a fully JS-rendered Wix Events widget → **needs browserRender**.
+- **Taoyuan Metro H3** (`tymh3.com`) — home AND `/upcoming-run` SSR carry **NO run data** (only nav, logo, tagline, email, FB link); the run list is a fully JS-rendered Wix Events widget → **needs browserRender**. *(Re-confirmed 2026-06-23 via real `web_fetch`; handed off `handoffs/2026-06-23-tymh3-tw.md`. 🔴 Refinement: the **content/info pages ARE fully SSR'd** — `/about-tymh3` gave founded date "27 Dec 2019", the full schedule prose [1st & 3rd + occasional 5th Friday, 7:30 PM; holiday Fridays → afternoon], run-type descriptions, email, FB — it's specifically the **Wix Events run widget** that's JS-only. Lesson: on a Wix-Events kennel, harvest metadata from the SSR About/info pages even when the run feed needs browserRender. DNS: apex `185.230.63.x` (Wix), `www`→`wixdns.net`. Tell Claude Code to first inspect the Wix Events viewer JSON XHR before falling back to browserRender, and set `timezoneId:"Asia/Taipei"`.)*
 - **Taichung H3** (`taichunghash.com`) — returns an **empty body** to a plain fetch (JS-rendered/anti-bot) → needs browserRender.
 
 So for any new Wix kennel: `web_fetch` the home page first; if the runs appear as SSR text → small static Cheerio scraper (Kaohsiung/Boise pattern). If empty/nav-only → browserRender (northboro pattern), and from the research sandbox you likely **cannot verify the sample** (no browserRender; Chrome MCP auto-denies the brand-new domain with no user present) → write a `handed-off (needs live-verify)` handoff or leave it `verify-live-first` and flag for Claude Code.
@@ -1140,3 +1140,31 @@ plus one new gotcha:
   self-host + magic-byte the ext (Next.js `/_next/image` is a resizer proxy, not the raw asset).
 - **Effort:** small new static Cheerio scraper (~120–170 LoC + tests). Model on `warsaw-h3.ts` /
   `manila-h3.ts`.
+
+#### Colombo Harriettes addenda (build-time, SHIPPED 2026-06-22, [PR #2278](https://github.com/johnrclem/hashtracks-web/pull/2278))
+
+The site stayed in its **placeholder state from research through merge** — so the FILLED-state DOM was never
+observable and the run-detail parser + test fixtures are **constructed** from the documented #2223 sample.
+Two consequences worth pre-empting next time:
+
+- **🔴 Build the run-detail parse for BOTH render shapes, not just the one you sampled.** When you can't see
+  the filled block, you don't know if the committee renders fields as separate `<p>`s or as a single
+  dash-joined line (`Run #2223 — 2026-06-20 — KK's Crib — 17:00 — No.5, …`). The review bots caught the
+  single-line case dropping venue/street (the whole line became the date line). Robust pattern: read the
+  heading's parent block, then split each line into per-field **segments** on em/en-dash, pipe, bullet,
+  middot **and a space-padded hyphen** — but **exclude a bare hyphen** so ISO dates (`2026-06-20`) survive.
+  Do it with **two linear string passes** (`split(" - ")` then a char-class split), NOT a
+  `/\s*[…]\s*|\s+-\s+/` alternation regex — that one backtracks and SonarCloud fails it (S8786 ReDoS).
+- **🔴 Exclude street lines from date detection.** A worded address can carry a month token (`12 May Road`,
+  `June Street`) and be mis-read as the run date — short-circuit `isDateLine` to return `false` on any
+  street-hint line *before* the ISO / month-token checks.
+- **🔴 Scope the Google-Maps-embed lookup to the run block's `<section>`, not the whole document** — an
+  unrelated map iframe elsewhere on the page would otherwise mis-populate the event's coords (a wrong pin is
+  worse than no pin; missing coords fall back to the kennel centroid).
+- **🟡 Constrain time regexes** — a 12-hour `(\d{1,2}):(\d{2})\s*(am|pm)` accepts `5:99 PM` → `17:99`; bound
+  hours `1–12` and minutes `00–59` so a malformed token is rejected, not emitted.
+- **🟢 Geocode the street, not the venue name.** The #2223 backfill's `location: "KK's Crib"` geocoded
+  **4543 km off** → the merge distance-sanity gate skipped it (centroid fallback). `locationStreet` is the
+  safer geocode input.
+- The placeholder three-way guard **held live**: build live-verify and the post-merge prod scrape both
+  returned `events: 0, errors: []` (and `cancelled: 0`, so `upcomingOnly` kept the backfilled past #2223).
