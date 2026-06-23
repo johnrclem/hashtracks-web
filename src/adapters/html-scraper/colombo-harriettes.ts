@@ -61,16 +61,19 @@ const STREET_HINT_RE = /\b(?:street|road|lane|mawatha|avenue|terrace|cross|junct
 // Google Maps embed coords: !2d<lng>!3d<lat>. `extractCoordsFromMapsUrl` does
 // NOT match embed (`/maps/embed?pb=…`) URLs, so parse them here (Asunción lesson).
 const EMBED_COORDS_RE = /!2d(-?\d+(?:\.\d+)?)!3d(-?\d+(?:\.\d+)?)/;
-// Field separators for a single-line, dash-joined run. Excludes a BARE hyphen so
-// ISO dates ("2026-06-20") stay intact — only a space-padded hyphen separates.
-const SEGMENT_SPLIT_RE = /\s*[—–|•·]\s*|\s+-\s+/;
+// Field separators for a single-line, dash-joined run: em/en dash, pipe, bullet,
+// middot (char class) plus a space-padded hyphen (string). A BARE hyphen is
+// excluded so ISO dates ("2026-06-20") stay intact. Normalize-then-split keeps
+// it linear — a `\s*[…]\s*|\s+-\s+` alternation backtracks super-linearly (S8786).
+const SEGMENT_SEPARATORS_RE = /[—–|•·]/g;
+const SPACED_HYPHEN = " - ";
 
 // Sri Lanka bounding box — reject a default/garbage embed pin (lat ~5.9–9.9 N,
 // lng ~79.6–81.9 E) before trusting per-event coords.
 const LK_LAT_MIN = 5.7;
-const LK_LAT_MAX = 10.0;
+const LK_LAT_MAX = 10;
 const LK_LNG_MIN = 79.5;
-const LK_LNG_MAX = 82.0;
+const LK_LNG_MAX = 82;
 
 /** Collapsed (single-spaced, lowercased) copy of a string. */
 function collapse(value: string): string {
@@ -91,8 +94,11 @@ function hasMonthToken(line: string): boolean {
 
 /** Split a line into per-field segments (handles single-line, dash-joined runs). */
 function splitSegments(line: string): string[] {
+  // Two linear passes (string split on " - ", then char-class split) — no
+  // quantifier-adjacent alternation, so no super-linear backtracking (S8786).
   return line
-    .split(SEGMENT_SPLIT_RE)
+    .split(SPACED_HYPHEN)
+    .flatMap((part) => part.split(SEGMENT_SEPARATORS_RE))
     .map((segment) => segment.trim())
     .filter(Boolean);
 }
