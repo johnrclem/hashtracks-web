@@ -199,28 +199,84 @@ export default async function EventDetailPage({
   );
   const showRoster = event.date.getTime() < todayNoonMs && !event.isSeriesParent;
 
-  // Only opted-in (PUBLIC) hashers who checked in; hares are always shown.
-  const rosterAttendees = showRoster
-    ? await prisma.attendance.findMany({
-        where: { eventId, status: "CONFIRMED", user: { attendanceVisibility: "PUBLIC" } },
-        select: {
-          userId: true,
-          user: {
-            select: { hashName: true, avatarUrl: true, clerkImageUrl: true, hideClerkImage: true },
+  // Only opted-in (PUBLIC) hashers are listed; hares are always shown.
+  // Two attribution sources, both gated on the user's own PUBLIC visibility:
+  //   - self check-ins (Attendance — always tied to a User)
+  //   - misman-recorded (KennelAttendance), but ONLY when the roster entry is
+  //     linked to a registered User via a CONFIRMED link. An unlinked roster
+  //     name has no account and never had a way to opt in, so it's never shown.
+  // Both queries are independent — run them in parallel (one round-trip).
+  const [rosterAttendees, mismanAttendees] = showRoster
+    ? await Promise.all([
+        prisma.attendance.findMany({
+          where: { eventId, status: "CONFIRMED", user: { attendanceVisibility: "PUBLIC" } },
+          select: {
+            userId: true,
+            user: {
+              select: { hashName: true, avatarUrl: true, clerkImageUrl: true, hideClerkImage: true },
+            },
           },
-        },
-      })
-    : [];
+        }),
+        prisma.kennelAttendance.findMany({
+          where: {
+            eventId,
+            kennelHasher: {
+              userLink: {
+                status: "CONFIRMED",
+                user: {
+                  attendanceVisibility: "PUBLIC",
+                  // Exclude anyone who explicitly declined this misman record
+                  // ("I wasn't there") — declineMismanAttendance writes a
+                  // DECLINED Attendance, which must suppress the public listing.
+                  attendances: { none: { eventId, status: "DECLINED" } },
+                },
+              },
+            },
+          },
+          select: {
+            kennelHasher: {
+              select: {
+                userLink: {
+                  select: {
+                    user: {
+                      select: {
+                        id: true,
+                        hashName: true,
+                        avatarUrl: true,
+                        clerkImageUrl: true,
+                        hideClerkImage: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+      ])
+    : [[], []];
 
   const rosterEntries = showRoster
     ? assemblePastEventRoster({
-        attendees: rosterAttendees.map((a) => ({
-          userId: a.userId,
-          hashName: a.user.hashName,
-          avatarUrl: a.user.avatarUrl,
-          clerkImageUrl: a.user.clerkImageUrl,
-          hideClerkImage: a.user.hideClerkImage,
-        })),
+        attendees: [
+          ...rosterAttendees.map((a) => ({
+            userId: a.userId,
+            hashName: a.user.hashName,
+            avatarUrl: a.user.avatarUrl,
+            clerkImageUrl: a.user.clerkImageUrl,
+            hideClerkImage: a.user.hideClerkImage,
+          })),
+          ...mismanAttendees
+            .map((ka) => ka.kennelHasher.userLink?.user)
+            .filter((u): u is NonNullable<typeof u> => u != null)
+            .map((u) => ({
+              userId: u.id,
+              hashName: u.hashName,
+              avatarUrl: u.avatarUrl,
+              clerkImageUrl: u.clerkImageUrl,
+              hideClerkImage: u.hideClerkImage,
+            })),
+        ],
         hares: event.hares.map((h) => ({
           userId: h.userId,
           hareName: h.hareName,
