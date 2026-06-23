@@ -11,13 +11,13 @@ import { Button } from "@/components/ui/button";
  * capture, the reset() retry, and the digest for support triage (#1711). The
  * root-layout-level fallback lives in global-error.tsx.
  */
-export default function Error({
+export default function RouteError({
   error,
   reset,
-}: {
+}: Readonly<{
   error: Error & { digest?: string };
   reset: () => void;
-}) {
+}>) {
   useEffect(() => {
     Sentry.captureException(error);
   }, [error]);

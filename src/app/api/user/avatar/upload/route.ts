@@ -14,9 +14,10 @@ import { getOrCreateUser } from "@/lib/auth";
  * form degrades gracefully — the rest of the form still saves.
  */
 export async function POST(request: Request): Promise<NextResponse> {
-  const body = (await request.json()) as HandleUploadBody;
-
   try {
+    // Inside the try so a malformed/empty body returns 400, not an unhandled 500.
+    const body = (await request.json()) as HandleUploadBody;
+
     const jsonResponse = await handleUpload({
       body,
       request,
@@ -24,10 +25,11 @@ export async function POST(request: Request): Promise<NextResponse> {
         const user = await getOrCreateUser();
         if (!user) throw new Error("Not authorized");
         // Bind every uploaded object to this user's namespace. The client sends
-        // `avatars/<id>/<file>`; rejecting any other prefix means a forged client
-        // pathname can't write outside the caller's own folder. updateProfile
-        // re-checks this prefix (+ caps) via head() before persisting the URL.
-        if (!pathname.startsWith(`avatars/${user.id}/`)) {
+        // `avatars/<id>/<file>`; rejecting any other prefix (and any `..`
+        // traversal segment) means a forged client pathname can't write outside
+        // the caller's own folder. updateProfile re-checks this prefix (+ caps)
+        // via head() before persisting the URL.
+        if (!pathname.startsWith(`avatars/${user.id}/`) || pathname.includes("..")) {
           throw new Error("Invalid upload path");
         }
         return {

@@ -7,8 +7,10 @@ import { isOptimizableLogo } from "@/lib/image-remote-patterns";
 import { revalidatePath } from "next/cache";
 
 // Mirrors the limits enforced by /api/user/avatar/upload's onBeforeGenerateToken.
-const AVATAR_ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const AVATAR_ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+// Blob URLs are well under this; bound the input before any URL parse / head().
+const AVATAR_URL_MAX_LEN = 1024;
 
 export async function updateProfile(
   _prevState: { success?: boolean; error?: string } | null,
@@ -39,7 +41,7 @@ export async function updateProfile(
   // server-side regardless of how the URL was obtained. Empty clears the photo.
   let avatarUrl: string | null = null;
   if (avatarRaw) {
-    if (!isOptimizableLogo(avatarRaw)) {
+    if (avatarRaw.length > AVATAR_URL_MAX_LEN || !isOptimizableLogo(avatarRaw)) {
       return { error: "Profile photo must be uploaded through HashTracks" };
     }
     try {
@@ -47,7 +49,7 @@ export async function updateProfile(
       if (
         !meta.pathname.startsWith(`avatars/${user.id}/`) ||
         meta.size > AVATAR_MAX_BYTES ||
-        !AVATAR_ALLOWED_TYPES.includes(meta.contentType)
+        !AVATAR_ALLOWED_TYPES.has(meta.contentType)
       ) {
         return { error: "Profile photo must be uploaded through HashTracks" };
       }

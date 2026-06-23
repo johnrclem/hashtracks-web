@@ -76,6 +76,10 @@ export function ProfileForm({ user }: ProfileFormProps) {
     }
   }
 
+  let uploadLabel = "Upload photo";
+  if (uploading) uploadLabel = "Uploading…";
+  else if (avatarUrl) uploadLabel = "Change photo";
+
   return (
     <form action={formAction} className="space-y-4">
       {/* Controlled values submitted to the action (deterministic, always present). */}
@@ -95,7 +99,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
               disabled={uploading}
               onClick={() => fileRef.current?.click()}
             >
-              {uploading ? "Uploading…" : avatarUrl ? "Change photo" : "Upload photo"}
+              {uploadLabel}
             </Button>
             {avatarUrl && (
               <Button type="button" variant="ghost" size="sm" onClick={() => setAvatarUrl("")}>
@@ -118,7 +122,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
             onChange={(e) => setHideClerkImage(e.target.checked)}
             className="h-4 w-4 rounded border-input"
           />
-          Hide my account (Google) photo — show a generic hash logo instead
+          <span>Hide my account (Google) photo — show a generic hash logo instead</span>
         </label>
       </div>
 

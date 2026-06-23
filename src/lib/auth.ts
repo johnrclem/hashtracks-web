@@ -17,6 +17,23 @@ async function safeCurrentUser() {
   }
 }
 
+/**
+ * Whether two image URLs differ in their stable part (origin + pathname),
+ * ignoring query strings. Used to decide if the synced Clerk image is worth a
+ * DB write — a changed rotation/resolution query param alone should not be.
+ */
+function clerkImageBaseChanged(a: string | null, b: string | null): boolean {
+  if (a === b) return false;
+  if (!a || !b) return true;
+  try {
+    const ua = new URL(a);
+    const ub = new URL(b);
+    return ua.origin !== ub.origin || ua.pathname !== ub.pathname;
+  } catch {
+    return true;
+  }
+}
+
 /** Get the current user from DB, creating a record on first sign-in (Clerk → DB sync). */
 export async function getOrCreateUser(): Promise<User | null> {
   const clerkUser = await safeCurrentUser();
@@ -34,11 +51,12 @@ export async function getOrCreateUser(): Promise<User | null> {
 
   if (existingUser) {
     // Keep the synced Clerk image fresh (e.g. the user changed their Google
-    // photo), but only write when it actually changed — avoids a DB write on
-    // every authenticated request. Never clear a stored image when `hasImage`
-    // flips false.
+    // photo), but only write when the stable part of the URL changed — this
+    // runs on nearly every authenticated request, so comparing origin+pathname
+    // (ignoring volatile query params like rotation/resolution tokens) avoids
+    // write amplification. Never clear a stored image when `hasImage` is false.
     const next = clerkImageUrl ?? existingUser.clerkImageUrl;
-    if (next !== existingUser.clerkImageUrl) {
+    if (clerkImageBaseChanged(next, existingUser.clerkImageUrl)) {
       return prisma.user.update({
         where: { id: existingUser.id },
         data: { clerkImageUrl: next },
