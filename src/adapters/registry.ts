@@ -114,6 +114,7 @@ import { BoiseH3Adapter } from "./html-scraper/boiseh3";
 import { NSWHHHAdapter } from "./html-scraper/nswhhh";
 import { ManilaH3Adapter } from "./html-scraper/manila-h3";
 import { WarsawH3Adapter } from "./html-scraper/warsaw-h3";
+import { ColomboHarriettesAdapter } from "./html-scraper/colombo-harriettes";
 import { SeoulH3Adapter } from "./html-scraper/seoul-h3";
 import { HimalayanHashAdapter } from "./html-scraper/himalayan-h3";
 import { SaigonH3Adapter } from "./html-scraper/saigon-h3";
@@ -306,6 +307,10 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // Seoul H3 ("Korea's Mother Hash", men-only, since 1972) — seoulhash.com PHP
   // SSR; index.php renders a single current run in semantically-classed divs.
   { pattern: /seoulhash\.com/i, name: "SeoulH3Adapter", factory: () => new SeoulH3Adapter() },
+  // Colombo Harriettes (HashTracks' first Sri Lanka kennel, est. 1984) —
+  // hashcolombo.com custom Next.js SSR; a single "Next run" block holds either a
+  // placeholder ("We will announce soon") or the current Saturday run.
+  { pattern: /hashcolombo\.com/i, name: "ColomboHarriettesAdapter", factory: () => new ColomboHarriettesAdapter() },
   // ── Colorado ──
   { pattern: /boulderh3\.com/i, name: "BoulderH3Adapter", factory: () => new BoulderH3Adapter() },
   // ── Denmark ──

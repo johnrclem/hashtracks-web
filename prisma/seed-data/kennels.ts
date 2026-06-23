@@ -5448,5 +5448,27 @@ export const KENNELS: KennelSeed[] = [
       latitude: 52.2297,
       longitude: 21.0122,
     },
+    // HashTracks' first Sri Lanka kennel — Colombo Hash House Harriettes,
+    // mixed-gender, est. 20 June 1984. Weekly Saturday; custom Next.js site.
+    {
+      kennelCode: "colombo-harriettes",
+      shortName: "Colombo Harriettes",
+      fullName: "Colombo Hash House Harriettes",
+      region: "Colombo",
+      country: "Sri Lanka",
+      website: "https://hashcolombo.com/",
+      facebookUrl: "https://www.facebook.com/p/Colombo-Hash-House-Harriettes-61563456704517/",
+      twitterHandle: "CHHHarriettes",
+      foundedYear: 1984, // 20 June 1984 — hashcolombo.com/about + colomboharriettes.com agree
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "5:00 PM", // 12-hr seed format; RawEventData.startTime stays 24-hr "17:00"
+      scheduleFrequency: "Weekly",
+      // hashCash omitted — unverifiable (no published amount); enrich later.
+      description:
+        "Colombo Hash House Harriettes (est. 20 June 1984) — Sri Lanka's mixed-gender hash, 'a drinking club with a running problem.' Saturday hare-and-hound trails across Colombo and beyond, ending in a circle of beer, snacks and song. All adults welcome.",
+      logoUrl: "/kennel-logos/colombo-harriettes.png", // self-hosted; ext confirmed by magic bytes (PNG)
+      latitude: 6.9271,
+      longitude: 79.8612,
+    },
   ];
 

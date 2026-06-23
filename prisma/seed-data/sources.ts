@@ -7276,5 +7276,22 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["warsaw-h3"],
     },
+
+    // ── Sri Lanka ──
+
+    // Colombo Harriettes (first Sri Lanka kennel, est. 1984) — custom Next.js home
+    // page that SSRs a single "Next run" block (placeholder or the current Saturday
+    // run). ColomboHarriettesAdapter; `upcomingOnly` protects reconcile as the
+    // single current-run feed ages off (no on-site archive).
+    {
+      name: "Colombo Harriettes Website",
+      url: "https://hashcolombo.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["colombo-harriettes"],
+    },
   ];
 

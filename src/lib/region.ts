@@ -2003,6 +2003,35 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 105.8342,
     aliases: ["Hanoi, Vietnam", "Hà Nội"],
   },
+  // ── Sri Lanka (first Sri Lankan country; country → metro, no state-province
+  //    intermediate, mirroring Cambodia/Vietnam/Nepal). Rose palette — distinct
+  //    from every Asian neighbour (Vietnam=cyan, Nepal=violet, Cambodia=purple,
+  //    Thailand=orange, Malaysia=green, Indonesia=teal, Taiwan=sky,
+  //    Singapore/HK/Japan=red, Philippines=fuchsia); rose's other owners (UK,
+  //    US-east) are nowhere near it on the map. ──
+  {
+    name: "Sri Lanka",
+    country: "Sri Lanka",
+    level: "COUNTRY",
+    timezone: "Asia/Colombo",
+    abbrev: "LK",
+    colorClasses: "bg-rose-200 text-rose-800",
+    pinColor: "#e11d48",
+    centroidLat: 7.8731,
+    centroidLng: 80.7718,
+    aliases: ["LK", "Ceylon", "Democratic Socialist Republic of Sri Lanka"],
+  },
+  {
+    name: "Colombo",
+    country: "Sri Lanka",
+    timezone: "Asia/Colombo",
+    abbrev: "CMB",
+    colorClasses: "bg-rose-100 text-rose-700",
+    pinColor: "#f43f5e",
+    centroidLat: 6.9271,
+    centroidLng: 79.8612,
+    aliases: ["Colombo, Sri Lanka", "Colombo, LK"],
+  },
   // ── Portugal ──
   {
     name: "Portugal",
@@ -3646,6 +3675,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // common US place names; inferCountry() is first-match with USA as the default
   // fallthrough. Including "hanoi" also serves the Hanoi H3 sibling onboarding.
   [/\b(vietnam|viet\s*nam|saigon|ho\s*chi\s*minh|hanoi)\b/, "Vietnam"],
+  // Sri Lanka — country + capital. Both tokens are unambiguous (no notable US
+  // "Colombo"); inferCountry() is first-match with USA as the default fallthrough.
+  // "Ceylon" deliberately excluded — Ceylon, MN collides; kept only as a region alias.
+  [/\b(sri\s*lanka|colombo)\b/, "Sri Lanka"],
   // CJK branch: `\b` is ASCII-only, so Chinese-only location text (e.g. the
   // "新北市, 台灣" venue field on TwH3 events) needs explicit token matching.
   // `[台臺]` unifies the common/formal Tai- forms (台灣/臺灣, 台北/臺北, etc.).
@@ -3884,6 +3917,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Vietnam
   "Ho Chi Minh City": "Vietnam",
   "Hanoi": "Vietnam",
+  // Sri Lanka
+  "Colombo": "Sri Lanka",
   // Portugal
   "Lisbon": "Portugal",
   "Porto": "Portugal",
@@ -4116,6 +4151,9 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Vietnam — metro "Ho Chi Minh City" resolves via STATE_GROUP_MAP first, so only
   // the country-group key "Vietnam" is reachable here (mirrors the Cambodia precedent).
   "Vietnam": "Vietnam",
+  // Sri Lanka — metro "Colombo" resolves via STATE_GROUP_MAP first, so only the
+  // country-group key "Sri Lanka" is reachable here (mirrors the Vietnam precedent).
+  "Sri Lanka": "Sri Lanka",
   // Portugal — metro "Lisbon" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Portugal" is reachable here (mirrors the Spain/France precedent).
   "Portugal": "Portugal",
@@ -4242,6 +4280,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   NP: "Nepal",
   KH: "Cambodia",
   VN: "Vietnam",
+  LK: "Sri Lanka",
   PT: "Portugal",
   NL: "Netherlands",
   DK: "Denmark",
