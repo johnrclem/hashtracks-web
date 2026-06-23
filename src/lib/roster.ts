@@ -54,8 +54,13 @@ export function assemblePastEventRoster(input: {
     });
   }
 
+  // Attendees may arrive from more than one source (self check-in + misman-
+  // recorded), so dedup by userId here too — not just against hares.
+  const seenAttendee = new Set<string>();
   for (const att of input.attendees) {
     if (hareUserIds.has(att.userId)) continue; // hare credit already covers them
+    if (seenAttendee.has(att.userId)) continue;
+    seenAttendee.add(att.userId);
     entries.push({
       key: `u:${att.userId}`,
       userId: att.userId,

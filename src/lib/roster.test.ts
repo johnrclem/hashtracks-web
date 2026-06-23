@@ -45,6 +45,21 @@ describe("assemblePastEventRoster", () => {
     expect(roster[0].hareRole).toBe("CO_HARE");
   });
 
+  it("dedupes attendees by userId (same user from two sources appears once)", () => {
+    // Self check-in (Attendance) + misman-recorded (KennelAttendance) resolve to
+    // the same user — concatenated by the caller, deduped here.
+    const roster = assemblePastEventRoster({
+      attendees: [
+        { userId: "u1", hashName: "Mudflap", avatarUrl: null, clerkImageUrl: null },
+        { userId: "u1", hashName: "Mudflap", avatarUrl: null, clerkImageUrl: null },
+      ],
+      hares: [],
+    });
+    expect(roster).toHaveLength(1);
+    expect(roster[0].userId).toBe("u1");
+    expect(roster[0].isHare).toBe(false);
+  });
+
   it("dedupes: a user who both hared and checked in appears once, as a hare", () => {
     const roster = assemblePastEventRoster({
       attendees: [{ userId: "u1", hashName: "Trailblazer", avatarUrl: null, clerkImageUrl: null }],
