@@ -11,6 +11,7 @@
 
 import { HASHTRACKS_REPO } from "@/lib/github-repo";
 import {
+  AUDIT_AUTHORIZATION_PREAMBLE,
   AUDIT_SUPPRESSIONS_URL,
   SCHEMA_GAP_FIELDS_MD,
   renderFilingInstructions,
@@ -75,6 +76,8 @@ export function buildHarelinePrompt(inputs: HarelinePromptInputs): string {
 > **How to use:** Copy this entire prompt and paste it into Claude in Chrome. The "Copy daily prompt" button on \`/admin/audit\` does this for you.
 >
 > **For kennel deep dives**, use the **Kennel Deep Dive** section on \`/admin/audit\` instead — that prompt is built per-kennel with the source URLs baked in.
+
+${AUDIT_AUTHORIZATION_PREAMBLE}
 
 ## Instructions
 

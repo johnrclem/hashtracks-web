@@ -1,5 +1,6 @@
 import type { DeepDiveCandidate } from "@/app/admin/audit/actions";
 import {
+  AUDIT_AUTHORIZATION_PREAMBLE,
   AUDIT_SUPPRESSIONS_URL,
   SCHEMA_GAP_FIELDS_MD,
   renderFilingInstructions,
@@ -31,6 +32,8 @@ export function buildDeepDivePrompt(kennel: DeepDiveCandidate): string {
   return `# HashTracks Kennel Deep Dive — ${kennel.shortName}
 
 You are auditing a single kennel end-to-end. Compare what HashTracks has stored against the live source pages and file findings as GitHub issues.
+
+${AUDIT_AUTHORIZATION_PREAMBLE}
 
 **Kennel:** ${kennel.shortName} (${kennel.kennelCode})
 **Region:** ${kennel.region}
