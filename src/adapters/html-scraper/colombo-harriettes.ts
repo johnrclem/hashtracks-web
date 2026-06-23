@@ -50,8 +50,10 @@ const PLACEHOLDER_RE = /we\s+will\s+announce\s+soon/i;
 const RUN_NUMBER_RE = /#\s*(\d{3,5})\b/;
 // ISO date, anchored to plausible 20xx years (the documented filled format).
 const ISO_DATE_RE = /\b20\d{2}-\d{2}-\d{2}\b/;
-// "5:00 PM" / "5 PM" → 12-hour time (the kennel publishes "5:00 PM").
-const TIME_12H_RE = /\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i;
+// "5:00 PM" / "5 PM" → 12-hour time (the kennel publishes "5:00 PM"). Hours are
+// constrained to 1–12 and minutes to 00–59 so a malformed "5:99 PM" is rejected
+// rather than emitted as "17:99" (CodeRabbit review).
+const TIME_12H_RE = /\b(0?[1-9]|1[0-2])(?::([0-5]\d))?\s*(am|pm)\b/i;
 // "17:00" → 24-hour time (the documented filled sample).
 const TIME_24H_RE = /\b([01]?\d|2[0-3]):([0-5]\d)\b/;
 // A single time token on its own line (for venue exclusion).
@@ -159,13 +161,20 @@ function parseVenue(
   return { location, locationStreet };
 }
 
-/** First Google Maps embed iframe → URL + (LK-bounded) coords. */
+/**
+ * First Google Maps embed iframe within the "Next run" block → URL + (LK-bounded)
+ * coords. Scoped to `scopeHtml` (the run section), NOT the whole document, so an
+ * unrelated maps iframe elsewhere on the page can't mis-populate the event's
+ * coordinates (CodeRabbit review). A wrong pin is worse than no pin — when the
+ * scope has no map, coords fall through to the merge geocoder.
+ */
 function extractEmbedCoords(
-  $: cheerio.CheerioAPI,
+  scopeHtml: string,
 ): { url: string; lat?: number; lng?: number } | undefined {
-  const src = $("iframe")
+  const $scope = cheerio.load(scopeHtml);
+  const src = $scope("iframe")
     .toArray()
-    .map((el) => $(el).attr("src") ?? "")
+    .map((el) => $scope(el).attr("src") ?? "")
     .find((s) => /google\.com\/maps\/embed/i.test(s));
   if (!src) return undefined;
   const m = EMBED_COORDS_RE.exec(src);
@@ -204,11 +213,18 @@ export function parseColomboHarriettesPage(
 
   // The heading <p> and the run/placeholder <p> share an immediate parent <div>,
   // which bounds the block exactly — no fragile boundary guessing needed.
-  const blockLines = stripHtmlTags($(headingEl).parent().html() ?? "", "\n")
+  const heading = $(headingEl);
+  const blockLines = stripHtmlTags(heading.parent().html() ?? "", "\n")
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
     .filter((line) => collapse(line) !== "next run");
+
+  // Scope the Google Maps lookup to the enclosing run <section> (falling back to
+  // the parent <div>) so an unrelated map iframe elsewhere on the page can't
+  // mis-populate coords — the map may be a sibling of the content div, so use the
+  // section rather than the tighter blockLines scope.
+  const scopeHtml = heading.closest("section").html() ?? heading.parent().html() ?? "";
 
   // Split each line on dash/pipe/bullet separators so a single-line, dash-joined
   // run ("Run #2223 — 2026-06-20 — KK's Crib — 17:00 — No.5, …") yields the same
@@ -250,7 +266,7 @@ export function parseColomboHarriettesPage(
   }
 
   const { location, locationStreet } = parseVenue(segments, dateLine);
-  const coords = extractEmbedCoords($);
+  const coords = extractEmbedCoords(scopeHtml);
 
   const event: RawEventData = {
     date,

@@ -98,6 +98,35 @@ describe("parseColomboHarriettesPage", () => {
     expect(events[0].locationUrl).toContain("google.com/maps/embed");
   });
 
+  it("rejects an invalid 12-hour minute instead of emitting it (CodeRabbit review)", () => {
+    // "5:99 PM" must not become startTime "17:99" — it is rejected entirely.
+    const html = FILLED.replace(">17:00<", ">5:99 PM<");
+    const { events } = parseColomboHarriettesPage(html, SOURCE_URL, NOW);
+    expect(events[0].startTime).toBeUndefined();
+  });
+
+  it("ignores a Google Maps iframe outside the 'Next run' section (CodeRabbit review)", () => {
+    // The map lives in an unrelated section — it must not populate this event's coords.
+    const html = `<!DOCTYPE html><html><body>
+<section class="bg-white"><div><div>
+<p class="bg-ch-light-yellow">Next run</p>
+<p class="text-2xl">Run #2240</p>
+<p class="text-2xl">2026-09-05</p>
+<p class="text-2xl">The Clubhouse</p>
+<p class="text-2xl">17:00</p>
+</div></div></section>
+<section class="bg-white"><div>
+<iframe src="https://www.google.com/maps/embed?pb=!1m18!2d79.99!3d6.99"></iframe>
+</div></section>
+</body></html>`;
+    const { events, errors } = parseColomboHarriettesPage(html, SOURCE_URL, NOW);
+    expect(errors).toEqual([]);
+    expect(events[0]).toMatchObject({ date: "2026-09-05", runNumber: 2240, location: "The Clubhouse" });
+    expect(events[0].latitude).toBeUndefined();
+    expect(events[0].longitude).toBeUndefined();
+    expect(events[0].locationUrl).toBeUndefined();
+  });
+
   it("recovers venue/street from a single dash-joined line (Codex review)", () => {
     // If the committee renders the run as one em-dash-separated line, the whole
     // line must still split into per-field segments so venue/street survive.
