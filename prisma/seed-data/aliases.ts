@@ -625,5 +625,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
 
     // ===== POLAND ===== (first Poland kennel; bare "WH3" omitted — global collision risk)
     "warsaw-h3": ["Warsaw HHH", "Warsaw Hash", "Warsaw Hash House Harriers", "WH3 Warsaw"],
+
+    // ===== SRI LANKA ===== (first Sri Lanka kennel; bare "Harriettes" omitted —
+    // taken by harriettes-nyc; "Colombo Hash"/"Colombo H3" belong to the men's sibling)
+    "colombo-harriettes": ["Colombo Harriettes", "Colombo Hash House Harriettes", "CHHH"],
   };
 
