@@ -84,6 +84,19 @@ describe("AUDIT_AUTHORIZATION_PREAMBLE", () => {
     expect(AUDIT_AUTHORIZATION_PREAMBLE).toContain("Scope is narrow");
   });
 
+  // The deep-dive prompt requires marking a kennel complete on /admin/audit
+  // after filing. That admin state change must be inside the authorized scope,
+  // or an unattended deep dive files findings but refuses the completion step,
+  // leaving the kennel stuck in the queue (Codex review on PR #2279).
+  it("authorizes recording audit progress in the admin UI (deep-dive completion)", () => {
+    expect(AUDIT_AUTHORIZATION_PREAMBLE).toContain(
+      "Record audit progress in the HashTracks admin UI",
+    );
+    expect(AUDIT_AUTHORIZATION_PREAMBLE).toContain(
+      "mark a kennel deep-dive complete",
+    );
+  });
+
   // Embedded into both prompts as raw markdown — a stray code fence would make
   // the whole block render literally instead of as prose.
   it("is plain markdown, not wrapped in a code fence", () => {
