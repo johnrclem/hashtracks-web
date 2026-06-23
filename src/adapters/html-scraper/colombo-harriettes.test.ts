@@ -98,6 +98,42 @@ describe("parseColomboHarriettesPage", () => {
     expect(events[0].locationUrl).toContain("google.com/maps/embed");
   });
 
+  it("recovers venue/street from a single dash-joined line (Codex review)", () => {
+    // If the committee renders the run as one em-dash-separated line, the whole
+    // line must still split into per-field segments so venue/street survive.
+    const html = wrap(
+      `<p class="mt-5 pl-7 text-2xl">Run #2223 — 2026-06-20 — KK's Crib — 17:00 — No.5, 1st Cross Street, Kandawala Road, Ratmalana</p>`,
+    );
+    const { events, errors } = parseColomboHarriettesPage(html, SOURCE_URL, NOW);
+    expect(errors).toEqual([]);
+    expect(events[0]).toMatchObject({
+      date: "2026-06-20",
+      runNumber: 2223,
+      startTime: "17:00",
+      location: "KK's Crib",
+      locationStreet: "No.5, 1st Cross Street, Kandawala Road, Ratmalana",
+    });
+  });
+
+  it("does not mistake a month-bearing street for the date (Gemini review)", () => {
+    // "12 May Road" carries a month token but must NOT be read as the run date;
+    // the real worded date follows it.
+    const html = wrap(`
+<p class="mt-5 pl-7">Run #2230</p>
+<p class="text-2xl">12 May Road, Colombo 04</p>
+<p class="text-2xl">Saturday, 15 August 2026</p>
+<p class="text-2xl">The Clubhouse</p>
+<p class="text-2xl">17:00</p>`);
+    const { events, errors } = parseColomboHarriettesPage(html, SOURCE_URL, NOW);
+    expect(errors).toEqual([]);
+    expect(events[0]).toMatchObject({
+      date: "2026-08-15",
+      runNumber: 2230,
+      location: "The Clubhouse",
+      locationStreet: "12 May Road, Colombo 04",
+    });
+  });
+
   it("fails loud when the 'Next run' heading is missing (markup drift)", () => {
     const { events, errors } = parseColomboHarriettesPage(
       "<html><body><p>Welcome to the Colombo Harriettes</p></body></html>",

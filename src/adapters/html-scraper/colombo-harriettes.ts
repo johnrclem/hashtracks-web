@@ -61,6 +61,9 @@ const STREET_HINT_RE = /\b(?:street|road|lane|mawatha|avenue|terrace|cross|junct
 // Google Maps embed coords: !2d<lng>!3d<lat>. `extractCoordsFromMapsUrl` does
 // NOT match embed (`/maps/embed?pb=…`) URLs, so parse them here (Asunción lesson).
 const EMBED_COORDS_RE = /!2d(-?\d+(?:\.\d+)?)!3d(-?\d+(?:\.\d+)?)/;
+// Field separators for a single-line, dash-joined run. Excludes a BARE hyphen so
+// ISO dates ("2026-06-20") stay intact — only a space-padded hyphen separates.
+const SEGMENT_SPLIT_RE = /\s*[—–|•·]\s*|\s+-\s+/;
 
 // Sri Lanka bounding box — reject a default/garbage embed pin (lat ~5.9–9.9 N,
 // lng ~79.6–81.9 E) before trusting per-event coords.
@@ -86,8 +89,21 @@ function hasMonthToken(line: string): boolean {
     .some((token) => token !== "" && Object.hasOwn(MONTHS, token));
 }
 
-/** A line that looks like a run date (ISO, or a worded date with a month + digit). */
+/** Split a line into per-field segments (handles single-line, dash-joined runs). */
+function splitSegments(line: string): string[] {
+  return line
+    .split(SEGMENT_SPLIT_RE)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
+
+/**
+ * A line that looks like a run date (ISO, or a worded date with a month + digit).
+ * Street lines are excluded first so an address carrying a month name ("12 May
+ * Road", "June Street") is never mistaken for the date (Gemini review).
+ */
 function isDateLine(line: string): boolean {
+  if (STREET_HINT_RE.test(line)) return false;
   if (ISO_DATE_RE.test(line)) return true;
   return hasMonthToken(line) && /\d/.test(line);
 }
@@ -188,7 +204,13 @@ export function parseColomboHarriettesPage(
     .filter(Boolean)
     .filter((line) => collapse(line) !== "next run");
 
-  const collapsed = collapse(blockLines.join(" "));
+  // Split each line on dash/pipe/bullet separators so a single-line, dash-joined
+  // run ("Run #2223 — 2026-06-20 — KK's Crib — 17:00 — No.5, …") yields the same
+  // per-field segments as a multi-<p> render. Without this, the whole line became
+  // `dateLine` and `parseVenue` skipped it, dropping venue/street (Codex review).
+  const segments = blockLines.flatMap(splitSegments);
+
+  const collapsed = collapse(segments.join(" "));
 
   // (1) Between-postings placeholder → clean empty.
   if (PLACEHOLDER_RE.test(collapsed)) {
@@ -196,7 +218,7 @@ export function parseColomboHarriettesPage(
   }
 
   const runMatch = RUN_NUMBER_RE.exec(collapsed);
-  const dateLine = blockLines.find(isDateLine);
+  const dateLine = segments.find(isDateLine);
 
   // (3b) Neither the placeholder nor any run signal → reworded placeholder or drift.
   if (!runMatch && !dateLine) {
@@ -221,7 +243,7 @@ export function parseColomboHarriettesPage(
     };
   }
 
-  const { location, locationStreet } = parseVenue(blockLines, dateLine);
+  const { location, locationStreet } = parseVenue(segments, dateLine);
   const coords = extractEmbedCoords($);
 
   const event: RawEventData = {
@@ -235,7 +257,7 @@ export function parseColomboHarriettesPage(
     locationUrl: coords?.url,
     latitude: coords?.lat,
     longitude: coords?.lng,
-    startTime: parseStartTime(blockLines),
+    startTime: parseStartTime(segments),
     sourceUrl,
   };
 
