@@ -221,7 +221,16 @@ export default async function EventDetailPage({
           where: {
             eventId,
             kennelHasher: {
-              userLink: { status: "CONFIRMED", user: { attendanceVisibility: "PUBLIC" } },
+              userLink: {
+                status: "CONFIRMED",
+                user: {
+                  attendanceVisibility: "PUBLIC",
+                  // Exclude anyone who explicitly declined this misman record
+                  // ("I wasn't there") — declineMismanAttendance writes a
+                  // DECLINED Attendance, which must suppress the public listing.
+                  attendances: { none: { eventId, status: "DECLINED" } },
+                },
+              },
             },
           },
           select: {
