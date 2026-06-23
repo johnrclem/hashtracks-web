@@ -13,6 +13,8 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { CheckInButton } from "@/components/logbook/CheckInButton";
+import { PastEventRoster } from "@/components/hareline/PastEventRoster";
+import { assemblePastEventRoster } from "@/lib/roster";
 import { CalendarExportButton } from "@/components/hareline/CalendarExportButton";
 import { ShareButton } from "@/components/shared/ShareButton";
 import { EventLocationMap } from "@/components/hareline/EventLocationMap";
@@ -107,7 +109,14 @@ export default async function EventDetailPage({
           userId: true,
           role: true,
           sourceType: true,
-          user: { select: { hashName: true } },
+          user: {
+            select: {
+              hashName: true,
+              avatarUrl: true,
+              clerkImageUrl: true,
+              hideClerkImage: true,
+            },
+          },
         },
         orderBy: { hareName: "asc" },
       },
@@ -176,6 +185,53 @@ export default async function EventDetailPage({
   const isMisman = !!mismanResult;
   const mismanKennelSlug = mismanResult?.kennelSlug ?? null;
   const isAdmin = !!adminUser;
+
+  // #110 — public attendee roster on PAST events only. "Past" = the event date
+  // is before today's UTC noon (matches the date-storage convention, App. F.4).
+  const nowForRoster = new Date();
+  const todayNoonMs = Date.UTC(
+    nowForRoster.getUTCFullYear(),
+    nowForRoster.getUTCMonth(),
+    nowForRoster.getUTCDate(),
+    12,
+    0,
+    0,
+  );
+  const showRoster = event.date.getTime() < todayNoonMs && !event.isSeriesParent;
+
+  // Only opted-in (PUBLIC) hashers who checked in; hares are always shown.
+  const rosterAttendees = showRoster
+    ? await prisma.attendance.findMany({
+        where: { eventId, status: "CONFIRMED", user: { attendanceVisibility: "PUBLIC" } },
+        select: {
+          userId: true,
+          user: {
+            select: { hashName: true, avatarUrl: true, clerkImageUrl: true, hideClerkImage: true },
+          },
+        },
+      })
+    : [];
+
+  const rosterEntries = showRoster
+    ? assemblePastEventRoster({
+        attendees: rosterAttendees.map((a) => ({
+          userId: a.userId,
+          hashName: a.user.hashName,
+          avatarUrl: a.user.avatarUrl,
+          clerkImageUrl: a.user.clerkImageUrl,
+          hideClerkImage: a.user.hideClerkImage,
+        })),
+        hares: event.hares.map((h) => ({
+          userId: h.userId,
+          hareName: h.hareName,
+          hashName: h.user?.hashName ?? null,
+          avatarUrl: h.user?.avatarUrl ?? null,
+          clerkImageUrl: h.user?.clerkImageUrl ?? null,
+          hideClerkImage: h.user?.hideClerkImage ?? null,
+          role: h.role,
+        })),
+      })
+    : [];
 
   // Fetch weather forecast for upcoming events (0–10 days out).
   // Compare at the calendar-day level (midnight UTC) to avoid off-by-one from UTC noon storage.
@@ -438,6 +494,8 @@ export default async function EventDetailPage({
           </p>
         </div>
       )}
+
+      {showRoster && <PastEventRoster entries={rosterEntries} />}
 
       {/* Side-by-side: detail fields + description (left) | map (right).
           #1560 PR E.6 — on a series-parent page we drop the entire <dl>

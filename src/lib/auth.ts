@@ -17,17 +17,53 @@ async function safeCurrentUser() {
   }
 }
 
+/**
+ * Whether two image URLs differ in their stable part (origin + pathname),
+ * ignoring query strings. Used to decide if the synced Clerk image is worth a
+ * DB write — a changed rotation/resolution query param alone should not be.
+ */
+function clerkImageBaseChanged(a: string | null, b: string | null): boolean {
+  if (a === b) return false;
+  if (!a || !b) return true;
+  try {
+    const ua = new URL(a);
+    const ub = new URL(b);
+    return ua.origin !== ub.origin || ua.pathname !== ub.pathname;
+  } catch {
+    return true;
+  }
+}
+
 /** Get the current user from DB, creating a record on first sign-in (Clerk → DB sync). */
 export async function getOrCreateUser(): Promise<User | null> {
   const clerkUser = await safeCurrentUser();
   if (!clerkUser) return null;
+
+  // Clerk's account photo (Google/OAuth). `hasImage` is false for users with
+  // only Clerk's generated default — store null in that case so the avatar
+  // falls back to the HHH foot mark rather than a generic initials image.
+  const clerkImageUrl = clerkUser.hasImage ? clerkUser.imageUrl : null;
 
   // Step 1: look up by clerkId (fast path)
   const existingUser = await prisma.user.findUnique({
     where: { clerkId: clerkUser.id },
   });
 
-  if (existingUser) return existingUser;
+  if (existingUser) {
+    // Keep the synced Clerk image fresh (e.g. the user changed their Google
+    // photo), but only write when the stable part of the URL changed — this
+    // runs on nearly every authenticated request, so comparing origin+pathname
+    // (ignoring volatile query params like rotation/resolution tokens) avoids
+    // write amplification. Never clear a stored image when `hasImage` is false.
+    const next = clerkImageUrl ?? existingUser.clerkImageUrl;
+    if (clerkImageBaseChanged(next, existingUser.clerkImageUrl)) {
+      return prisma.user.update({
+        where: { id: existingUser.id },
+        data: { clerkImageUrl: next },
+      });
+    }
+    return existingUser;
+  }
 
   // Step 2: email-based lookup (handles Clerk instance migration — same
   // person, same email, new clerkId from production instance)
@@ -43,7 +79,11 @@ export async function getOrCreateUser(): Promise<User | null> {
     if (emailMatch) {
       return prisma.user.update({
         where: { id: emailMatch.id },
-        data: { clerkId: clerkUser.id, nerdName: emailMatch.nerdName ?? nerdName },
+        data: {
+          clerkId: clerkUser.id,
+          nerdName: emailMatch.nerdName ?? nerdName,
+          clerkImageUrl: clerkImageUrl ?? emailMatch.clerkImageUrl,
+        },
       });
     }
   }
@@ -56,6 +96,7 @@ export async function getOrCreateUser(): Promise<User | null> {
         email,
         hashName: null,
         nerdName,
+        clerkImageUrl,
       },
     });
 

@@ -54,10 +54,15 @@ export default async function ProfilePage() {
 
       <ProfileForm
         user={{
+          id: user.id,
           email: user.email,
           hashName: user.hashName,
           nerdName: user.nerdName,
           bio: user.bio,
+          avatarUrl: user.avatarUrl,
+          clerkImageUrl: user.clerkImageUrl,
+          hideClerkImage: user.hideClerkImage,
+          attendanceVisibility: user.attendanceVisibility,
         }}
       />
 

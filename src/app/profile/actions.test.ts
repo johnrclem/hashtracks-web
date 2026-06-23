@@ -14,9 +14,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@vercel/blob", () => ({ head: vi.fn() }));
 
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { head } from "@vercel/blob";
 import {
   updateProfile,
   getMyKennelLinks,
@@ -30,11 +32,28 @@ const mockUserUpdate = vi.mocked(prisma.user.update);
 const mockLinkFindMany = vi.mocked(prisma.kennelHasherLink.findMany);
 const mockLinkFindUnique = vi.mocked(prisma.kennelHasherLink.findUnique);
 const mockLinkUpdate = vi.mocked(prisma.kennelHasherLink.update);
+const mockHead = vi.mocked(head);
+
+// A valid head() result for a blob in our store, under user_1's namespace.
+function validAvatarHead(over: Record<string, unknown> = {}) {
+  return {
+    pathname: "avatars/user_1/avatar-x.png",
+    size: 12345,
+    contentType: "image/png",
+    url: "",
+    downloadUrl: "",
+    contentDisposition: "",
+    cacheControl: "",
+    uploadedAt: new Date("2026-01-01"),
+    ...over,
+  } as never;
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockAuth.mockResolvedValue(mockUser as never);
   mockUserUpdate.mockResolvedValue({} as never);
+  mockHead.mockResolvedValue(validAvatarHead());
 });
 
 describe("updateProfile", () => {
@@ -54,7 +73,7 @@ describe("updateProfile", () => {
     expect(result).toEqual({ success: true });
     expect(mockUserUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { hashName: "Mudflap", nerdName: "John Doe", bio: "I love hashing" },
+        data: expect.objectContaining({ hashName: "Mudflap", nerdName: "John Doe", bio: "I love hashing" }),
       }),
     );
   });
@@ -67,7 +86,7 @@ describe("updateProfile", () => {
     await updateProfile(null, fd);
     expect(mockUserUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { hashName: "Mudflap", nerdName: null, bio: null },
+        data: expect.objectContaining({ hashName: "Mudflap", nerdName: null, bio: null }),
       }),
     );
   });
@@ -83,6 +102,103 @@ describe("updateProfile", () => {
         data: expect.objectContaining({ hashName: null }),
       }),
     );
+  });
+
+  it("defaults visibility to PRIVATE and hideClerkImage to false when absent", async () => {
+    const fd = new FormData();
+    fd.set("hashName", "Mudflap");
+    await updateProfile(null, fd);
+    expect(mockUserUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          attendanceVisibility: "PRIVATE",
+          hideClerkImage: false,
+          avatarUrl: null,
+        }),
+      }),
+    );
+  });
+
+  it("persists PUBLIC visibility and a hidden Clerk image", async () => {
+    const fd = new FormData();
+    fd.set("attendanceVisibility", "PUBLIC");
+    fd.set("hideClerkImage", "true");
+    await updateProfile(null, fd);
+    expect(mockUserUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          attendanceVisibility: "PUBLIC",
+          hideClerkImage: true,
+        }),
+      }),
+    );
+  });
+
+  it("stores a first-party Blob avatar URL", async () => {
+    const blob = "https://abc123.public.blob.vercel-storage.com/avatar-x.png";
+    const fd = new FormData();
+    fd.set("avatarUrl", blob);
+    const result = await updateProfile(null, fd);
+    expect(result).toEqual({ success: true });
+    expect(mockUserUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ avatarUrl: blob }) }),
+    );
+  });
+
+  it("clears the avatar when avatarUrl is empty", async () => {
+    const fd = new FormData();
+    fd.set("avatarUrl", "");
+    await updateProfile(null, fd);
+    expect(mockUserUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ avatarUrl: null }) }),
+    );
+  });
+
+  it("rejects a non-first-party avatar URL without writing", async () => {
+    const fd = new FormData();
+    fd.set("avatarUrl", "https://evil.example.com/x.png");
+    const result = await updateProfile(null, fd);
+    expect(result).toEqual({ error: "Profile photo must be uploaded through HashTracks" });
+    expect(mockHead).not.toHaveBeenCalled(); // rejected by the cheap host pre-check
+    expect(mockUserUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a Vercel Blob URL that is not in our store (head throws)", async () => {
+    // Forged URL on someone else's *.public.blob.vercel-storage.com store —
+    // head() is token-scoped, so it 404s/throws for blobs outside our store.
+    mockHead.mockRejectedValueOnce(new Error("BlobNotFoundError"));
+    const fd = new FormData();
+    fd.set("avatarUrl", "https://attacker.public.blob.vercel-storage.com/avatars/user_1/x.png");
+    const result = await updateProfile(null, fd);
+    expect(result).toEqual({ error: "Profile photo must be uploaded through HashTracks" });
+    expect(mockUserUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a blob over the 2 MB size cap", async () => {
+    mockHead.mockResolvedValueOnce(validAvatarHead({ size: 3 * 1024 * 1024 }));
+    const fd = new FormData();
+    fd.set("avatarUrl", "https://store.public.blob.vercel-storage.com/avatars/user_1/big.png");
+    const result = await updateProfile(null, fd);
+    expect(result).toEqual({ error: "Profile photo must be uploaded through HashTracks" });
+    expect(mockUserUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a non-image blob", async () => {
+    mockHead.mockResolvedValueOnce(validAvatarHead({ contentType: "application/pdf" }));
+    const fd = new FormData();
+    fd.set("avatarUrl", "https://store.public.blob.vercel-storage.com/avatars/user_1/x.pdf");
+    const result = await updateProfile(null, fd);
+    expect(result).toEqual({ error: "Profile photo must be uploaded through HashTracks" });
+    expect(mockUserUpdate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a blob under another user's namespace", async () => {
+    mockHead.mockResolvedValueOnce(validAvatarHead({ pathname: "avatars/other_user/x.png" }));
+    const fd = new FormData();
+    fd.set("avatarUrl", "https://store.public.blob.vercel-storage.com/avatars/other_user/x.png");
+    const result = await updateProfile(null, fd);
+    expect(result).toEqual({ error: "Profile photo must be uploaded through HashTracks" });
+    expect(mockUserUpdate).not.toHaveBeenCalled();
   });
 });
 
