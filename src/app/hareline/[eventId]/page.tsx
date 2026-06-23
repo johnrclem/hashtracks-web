@@ -205,47 +205,47 @@ export default async function EventDetailPage({
   //   - misman-recorded (KennelAttendance), but ONLY when the roster entry is
   //     linked to a registered User via a CONFIRMED link. An unlinked roster
   //     name has no account and never had a way to opt in, so it's never shown.
-  const rosterAttendees = showRoster
-    ? await prisma.attendance.findMany({
-        where: { eventId, status: "CONFIRMED", user: { attendanceVisibility: "PUBLIC" } },
-        select: {
-          userId: true,
-          user: {
-            select: { hashName: true, avatarUrl: true, clerkImageUrl: true, hideClerkImage: true },
+  // Both queries are independent — run them in parallel (one round-trip).
+  const [rosterAttendees, mismanAttendees] = showRoster
+    ? await Promise.all([
+        prisma.attendance.findMany({
+          where: { eventId, status: "CONFIRMED", user: { attendanceVisibility: "PUBLIC" } },
+          select: {
+            userId: true,
+            user: {
+              select: { hashName: true, avatarUrl: true, clerkImageUrl: true, hideClerkImage: true },
+            },
           },
-        },
-      })
-    : [];
-
-  const mismanAttendees = showRoster
-    ? await prisma.kennelAttendance.findMany({
-        where: {
-          eventId,
-          kennelHasher: {
-            userLink: { status: "CONFIRMED", user: { attendanceVisibility: "PUBLIC" } },
+        }),
+        prisma.kennelAttendance.findMany({
+          where: {
+            eventId,
+            kennelHasher: {
+              userLink: { status: "CONFIRMED", user: { attendanceVisibility: "PUBLIC" } },
+            },
           },
-        },
-        select: {
-          kennelHasher: {
-            select: {
-              userLink: {
-                select: {
-                  user: {
-                    select: {
-                      id: true,
-                      hashName: true,
-                      avatarUrl: true,
-                      clerkImageUrl: true,
-                      hideClerkImage: true,
+          select: {
+            kennelHasher: {
+              select: {
+                userLink: {
+                  select: {
+                    user: {
+                      select: {
+                        id: true,
+                        hashName: true,
+                        avatarUrl: true,
+                        clerkImageUrl: true,
+                        hideClerkImage: true,
+                      },
                     },
                   },
                 },
               },
             },
           },
-        },
-      })
-    : [];
+        }),
+      ])
+    : [[], []];
 
   const rosterEntries = showRoster
     ? assemblePastEventRoster({
