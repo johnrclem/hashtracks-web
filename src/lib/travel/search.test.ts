@@ -120,8 +120,8 @@ function createMockPrisma(
         // Production includes `eventKennels: { select: { kennelId: true } }`
         // so the result-builder can pivot to the matching co-host,
         // `parentEvent: { select: { title: true } }` for the series tie, and
-        // `_count: { select: { childEvents: true } }` for the bare-umbrella
-        // filter. Mirror all three on each returned row.
+        // `childEvents: { select: { date: true } }` for the synthetic-umbrella
+        // filter (a parent shares its date with a child). Mirror all three.
         return Promise.resolve(
           filtered.map((e) => ({
             ...e,
@@ -133,9 +133,9 @@ function createMockPrisma(
             parentEvent: e.parentEventId
               ? { title: events.find((p) => p.id === e.parentEventId)?.title ?? null }
               : null,
-            _count: {
-              childEvents: events.filter((c) => c.parentEventId === e.id).length,
-            },
+            childEvents: events
+              .filter((c) => c.parentEventId === e.id)
+              .map((c) => ({ date: c.date })),
           })),
         );
       }),
@@ -261,14 +261,15 @@ describe("executeTravelSearch", () => {
     expect(result.destinations[0].broaderRadiusKm).toBeUndefined();
   });
 
-  it("hides bare (detail-less) series umbrellas and ties child legs to the series", async () => {
-    // Mirrors the "5-boro Pub Crawl" bug: the umbrella parent has no per-day
-    // detail and must not render as a bare card; only the dated child leg shows,
-    // tagged "Part of: <series>".
-    const seriesParent: MockEvent = {
+  it("hides a synthetic umbrella that overlays a same-day child, tying legs to the series", async () => {
+    // SFH3-style explicit umbrella: an EXTRA detail-less parent row that shares
+    // its date with a real same-day child (merge.ts: "an umbrella + a same-day
+    // child both fall on the same day"). The umbrella must not render as a bare
+    // card; the real same-day child + later children show, tagged "Part of".
+    const umbrella: MockEvent = {
       ...testEvent,
-      id: "e-series-parent",
-      title: "5-boro Pub Crawl 2026",
+      id: "e-umbrella",
+      title: "Bay 2 Blackout 2026",
       runNumber: null,
       startTime: null,
       haresText: null,
@@ -276,34 +277,78 @@ describe("executeTravelSearch", () => {
       isSeriesParent: true,
       date: utcNoon("2026-04-18"),
     };
-    const seriesChild: MockEvent = {
+    const sameDayChild: MockEvent = {
       ...testEvent,
-      id: "e-series-child",
-      title: "5-boro Pub Crawl - Special #252",
-      runNumber: 252,
-      date: utcNoon("2026-04-19"),
-      parentEventId: "e-series-parent",
+      id: "e-umbrella-day1",
+      title: "Bay 2 Blackout - Day 1",
+      runNumber: 1,
+      date: utcNoon("2026-04-18"), // same date as the umbrella → synthetic signal
+      parentEventId: "e-umbrella",
     };
-    const prisma = createMockPrisma([testKennel], [seriesParent, seriesChild], []);
+    const day2Child: MockEvent = {
+      ...testEvent,
+      id: "e-umbrella-day2",
+      title: "Bay 2 Blackout - Day 2",
+      runNumber: 2,
+      date: utcNoon("2026-04-19"),
+      parentEventId: "e-umbrella",
+    };
+    const prisma = createMockPrisma([testKennel], [umbrella, sameDayChild, day2Child], []);
     const result = await executeTravelSearch(prisma, baseParams);
 
-    // Bare umbrella dropped; only the dated child leg renders.
-    expect(result.confirmed).toHaveLength(1);
-    expect(result.confirmed[0].eventId).toBe("e-series-child");
-    expect(result.confirmed[0].seriesParentTitle).toBe("5-boro Pub Crawl 2026");
+    // Umbrella dropped; both real child legs render, tied to the series.
+    expect(result.confirmed.map((r) => r.eventId).sort()).toEqual([
+      "e-umbrella-day1",
+      "e-umbrella-day2",
+    ]);
+    expect(result.confirmed.every((r) => r.seriesParentTitle === "Bay 2 Blackout 2026")).toBe(true);
   });
 
-  it("keeps a real dated leg that the merge promoted to series parent", async () => {
-    // Regression guard (Codex finding): the merge can make the EARLIEST real
-    // leg the series parent (Hash Rego "earliest by date wins"). It has
-    // children but also carries per-day detail, so it must NOT be hidden — a
-    // blunt `childEvents: { none: {} }` filter would delete this day-1 leg.
+  it("keeps a SPARSE promoted day-1 leg of a consecutive cluster (no same-day child)", async () => {
+    // Regression guard (Codex P2 on PR #2305): same-title-cluster.ts promotes
+    // the EARLIEST real trail of a consecutive cluster to series parent, keeping
+    // its title verbatim. That day-1 leg is often sparse (title + date only) but
+    // is a REAL trail — a content-only filter would delete it. It shares its
+    // date with NO child (children are later distinct days), so it must survive.
+    const sparseParent: MockEvent = {
+      ...testEvent,
+      id: "e-cluster-day1",
+      title: "Belgian Nash Hash 2026",
+      runNumber: null,
+      startTime: null, // sparse: no per-day detail at all
+      haresText: null,
+      locationName: null,
+      isSeriesParent: true,
+      date: utcNoon("2026-04-18"),
+    };
+    const day2: MockEvent = {
+      ...testEvent,
+      id: "e-cluster-day2",
+      title: "Belgian Nash Hash 2026 Pub Crawl",
+      runNumber: null,
+      date: utcNoon("2026-04-19"),
+      parentEventId: "e-cluster-day1",
+    };
+    const prisma = createMockPrisma([testKennel], [sparseParent, day2], []);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    // Sparse day-1 leg is preserved; both days render.
+    expect(result.confirmed.map((r) => r.eventId).sort()).toEqual([
+      "e-cluster-day1",
+      "e-cluster-day2",
+    ]);
+  });
+
+  it("keeps a real dated leg (with detail) that the merge promoted to series parent", async () => {
+    // The merge can make the EARLIEST real leg the series parent (Hash Rego
+    // "earliest by date wins"). It has children but carries per-day detail and
+    // a unique date, so it must NOT be hidden.
     const realLegParent: MockEvent = {
       ...testEvent,
       id: "e-realleg-parent",
       title: "Weekender Day 1",
       runNumber: 900,
-      startTime: "10:00", // has per-day detail → real leg, not a bare umbrella
+      startTime: "10:00", // has per-day detail → real leg
       haresText: "Just Pat",
       locationName: "Day 1 Park",
       isSeriesParent: true,

@@ -425,30 +425,44 @@ function matchedNearbyKennelIds(
 }
 
 /**
- * A synthetic, detail-less multi-day series umbrella: a series parent WITH
- * children that carries no per-day detail (no time / hares / venue). These must
- * not render as bare cards beside their real legs in Travel Mode. A real day-1
- * leg the merge promoted to parent (Hash Rego "earliest by date wins") carries
- * detail and is NOT a bare umbrella; standalone umbrellas have no children.
+ * A SYNTHETIC, detail-less multi-day series umbrella that must not render as a
+ * bare card beside its real legs in Travel Mode.
+ *
+ * The distinguishing signal is NOT "is a series parent with no detail" — the
+ * merge promotes a REAL trail to series parent in two ways (`merge.ts`
+ * earliest-by-date Hash Rego fallback, and `same-title-cluster.ts` which
+ * promotes the earliest day of a same-title consecutive cluster, keeping its
+ * title verbatim). Those promoted legs are real days and are frequently sparse
+ * (title + date only), so a content-only check would delete them (Codex P2 on
+ * PR #2305).
+ *
+ * A genuinely synthetic umbrella (SFH3-style explicit `seriesParent`) is an
+ * EXTRA row that overlays a real same-day child — `merge.ts` notes "an umbrella
+ * + a same-day child both fall on the same day". A promoted real leg occupies a
+ * date no child shares (consecutive distinct days). So we hide a parent only
+ * when it is content-less AND a child shares its date — preserving sparse
+ * promoted day-1 legs while still dropping the redundant SFH3 umbrella. A
+ * content-rich same-day parent (e.g. a morning trail with an evening child) is
+ * also preserved.
+ *
  * Travel-local on purpose — the Hareline deliberately shows umbrellas (their
  * expandable "weekend at a glance"), the opposite of what Travel wants.
  */
-function isBareSeriesUmbrella(event: {
+function isSyntheticSeriesUmbrella(event: {
   isSeriesParent: boolean;
-  _count: { childEvents: number };
+  date: Date;
+  childEvents: { date: Date }[];
   startTime: string | null;
   haresText: string | null;
   locationName: string | null;
   locationStreet: string | null;
 }): boolean {
-  return (
-    event.isSeriesParent &&
-    event._count.childEvents > 0 &&
-    !event.startTime &&
-    !event.haresText &&
-    !event.locationName &&
-    !event.locationStreet
-  );
+  if (!event.isSeriesParent) return false;
+  const contentLess =
+    !event.startTime && !event.haresText && !event.locationName && !event.locationStreet;
+  if (!contentLess) return false;
+  const dayKey = event.date.toISOString().slice(0, 10);
+  return event.childEvents.some((c) => c.date.toISOString().slice(0, 10) === dayKey);
 }
 
 async function runStopSearch(
@@ -552,13 +566,12 @@ async function runStopSearch(
         // Series tie: a child leg surfaces its parent's title as
         // "Part of: <series>" so the legs read as one multi-day event.
         parentEvent: { select: { title: true } },
-        // Child count drives the bare-umbrella filter below. We must NOT use a
-        // blunt `childEvents: { none: {} }` WHERE clause: the merge pipeline can
-        // promote a REAL dated leg to series parent (Hash Rego "earliest by date
-        // wins", merge.ts) — that parent has children but carries genuine per-day
-        // detail and must still render. Only the synthetic, detail-less umbrella
-        // (SFH3-style explicit `seriesParent`) should be hidden.
-        _count: { select: { childEvents: true } },
+        // Child dates drive the synthetic-umbrella filter below (see
+        // isSyntheticSeriesUmbrella). We must NOT use a blunt
+        // `childEvents: { none: {} }` WHERE clause: the merge promotes REAL
+        // trails to series parent (merge.ts earliest-by-date; same-title-cluster.ts
+        // earliest-of-cluster) — those legs have children but must still render.
+        childEvents: { select: { date: true } },
       },
       orderBy: { date: "asc" },
       take: CONFIRMED_EVENT_ROW_CAP,
@@ -612,6 +625,9 @@ async function runStopSearch(
   // kennel its card actually renders under (not just the primary).
   const confirmedRefs = confirmedEvents.flatMap((e) => {
     const matchedNearby = matchedNearbyKennelIds(e.eventKennels, nearbyIdsSet);
+    // `matchedNearby` is non-empty in practice (the query requires an
+    // `eventKennels` member in `nearbyIds`); the `[e.kennelId]` fallback is
+    // defensive against a future query change that relaxes that guarantee.
     const refKennelIds = matchedNearby.length > 0 ? matchedNearby : [e.kennelId];
     return refKennelIds.map((kennelId) => ({
       kennelId,
@@ -642,10 +658,10 @@ async function runStopSearch(
   // multi-stop search shares one bounded MAX_WEATHER_API_CALLS batch.
   const weatherInputs: WeatherInput[] = [];
 
-  // Step 12: Drop synthetic, detail-less multi-day series umbrellas so they
-  // don't render as bare cards beside their real legs (see isBareSeriesUmbrella).
+  // Step 12: Drop synthetic multi-day series umbrellas so they don't render as
+  // bare cards beside their real legs (see isSyntheticSeriesUmbrella).
   const displayConfirmedEvents = confirmedEvents.filter(
-    (event) => !isBareSeriesUmbrella(event),
+    (event) => !isSyntheticSeriesUmbrella(event),
   );
 
   // Step 13: Assign distance tiers + build result objects

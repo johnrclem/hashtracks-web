@@ -57,6 +57,10 @@ export interface KennelContext {
 }
 
 export interface ConfirmedEventRef {
+  /** The kennel the confirmed event renders under. May be a CO-HOST pivot
+   *  kennel (set by the caller via `matchedNearbyKennelIds` in search.ts),
+   *  not necessarily the event's primary `kennelId` — so dedup suppresses
+   *  projections for the kennel the card actually shows under. */
   kennelId: string;
   date: Date; // UTC noon
   startTime?: string | null;
