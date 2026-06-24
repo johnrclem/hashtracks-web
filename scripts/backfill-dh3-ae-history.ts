@@ -9,54 +9,49 @@
  *   <h3><a href="?p=NNNN">Run NNNN – 29th August 2021 – Kickers Sports Bar</a></h3>
  *   <div class="excerpt"><p>Date: Sunday 29th August 2021 Time: 18:30 Run No: 2205 Location: …</p></div>
  *
- * This script walks the paginated `?cat=3&paged=N` archive and inserts each
- * historical run as a RawEvent (venue → `location`). A later scrape of the
- * "Desert H3 Website" source merges the unprocessed RawEvents into canonical
- * Events (same pattern as backfill-bfmh3-history.ts).
+ * This script walks the paginated `?cat=3&paged=N` archive and routes the parsed
+ * runs through the live merge pipeline (`runBackfillScript` → `reportAndApplyBackfill`
+ * → `processRawEvents`), which creates RawEvents AND upserts canonical Events in
+ * one pass. (Pre-inserting RawEvents and "triggering a scrape" does NOT merge
+ * them — `scrapeSource` only processes the live adapter's fetch results. See
+ * `scripts/lib/backfill-runner.ts`.) Idempotent: re-runs dedupe by fingerprint,
+ * and an orphaned RawEvent from a prior direct-insert run is adopted + linked.
  *
- * Partition (per `.claude/rules/adapter-patterns.md`):
- *   - Adapter handles dates >= today (the rolling Hare Line + home card)
- *   - This script handles dates <  today (the pre-rolling-window blog archive)
- * The two never overlap, so this is safe to re-run.
+ * Partition (handled by `reportAndApplyBackfill`, Asia/Dubai): only `date < today`
+ * is merged; the adapter owns `date >= today`. The two never overlap.
  *
  * STRAY-SERIES GUARD: the archive interleaves a *different* low-numbered series
  * with the main 4-digit DH3 sequence — the COVID-era "Virtual DH3" runs #1–22
- * (Mar 2020 – Jan 2021), which are online socials, not numbered DH3 trails. Any
- * run number below MAIN_SERIES_MIN is excluded (and logged). The real `?cat=3`
- * trail series stays in the ~2055–2205 band (May 2018 – Aug 2021), so the
- * threshold cleanly separates the stray sub-series. (A "Run 304" also appears in
- * the page's sidebar "recent posts" widget, not as a main post title, so the
+ * (Mar 2020 – Jan 2021), online socials, not numbered DH3 trails. Any run number
+ * below MAIN_SERIES_MIN is excluded (and logged). The real `?cat=3` trail series
+ * stays in the ~2055–2205 band (May 2018 – Aug 2021). (A "Run 304" also appears
+ * in the page's sidebar "recent posts" widget, not as a main post title, so the
  * h3/h2-title selector never picks it up.)
  *
  * TITLE: left undefined so the merge pipeline synthesizes "Desert H3 Trail #N"
  * (never set title = venue/hares — see the title-fallback rule).
  *
  * Usage:
- *   1. Dry run first:  npx tsx scripts/backfill-dh3-ae-history.ts
- *   2. Execute:        BACKFILL_APPLY=1 BACKFILL_ALLOW_SELF_SIGNED_CERT=1 \
- *                        npx tsx scripts/backfill-dh3-ae-history.ts
- *
- * Idempotency: fingerprint-based dedup against existing RawEvents for the
- * source, so re-running only inserts new rows.
+ *   Dry run:  npx tsx scripts/backfill-dh3-ae-history.ts
+ *   Execute:  BACKFILL_APPLY=1 BACKFILL_ALLOW_SELF_SIGNED_CERT=1 \
+ *               npx tsx scripts/backfill-dh3-ae-history.ts
  */
 
 import "dotenv/config";
 import * as cheerio from "cheerio";
-import { PrismaClient, type Prisma } from "@/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { createScriptPool } from "./lib/db-pool";
+import { runBackfillScript } from "./lib/backfill-runner";
 import { safeFetch } from "@/adapters/safe-fetch";
 import { chronoParseDate } from "@/adapters/utils";
 import { parseClock } from "@/adapters/html-scraper/desert-hash";
-import { generateFingerprint } from "@/pipeline/fingerprint";
 import type { RawEventData } from "@/adapters/types";
 
 const KENNEL_TAG = "dh3-ae";
 const SOURCE_NAME = "Desert H3 Website";
+const KENNEL_TIMEZONE = "Asia/Dubai";
 const ARCHIVE_BASE = "https://www.deserthash.org/?cat=3";
 const ARCHIVE_ORIGIN = "https://www.deserthash.org";
 const MAX_PAGES = 30; // ~9 real pages today; generous safety cap against runaway walks
-const MAIN_SERIES_MIN = 1000; // exclude the stray sub-series (e.g. "Run 304")
+const MAIN_SERIES_MIN = 1000; // exclude the stray "Virtual DH3" #1–22 sub-series
 const FETCH_DELAY_MS = 500;
 const USER_AGENT = "Mozilla/5.0 (compatible; HashTracksBackfill/1.0; +https://hashtracks.com)";
 
@@ -168,93 +163,26 @@ async function fetchArchive(): Promise<ParsedPost[]> {
   return [...byRun.values()];
 }
 
-async function main() {
-  const apply = process.env.BACKFILL_APPLY === "1";
-  console.log(`Mode: ${apply ? "APPLY (will write to DB)" : "DRY RUN (no writes)"}`);
+/** Walk the archive, drop the stray sub-series, and return the main DH3 runs. */
+async function fetchEvents(): Promise<RawEventData[]> {
   console.log(`Walking ${ARCHIVE_BASE} (paged) …`);
-
   const parsed = await fetchArchive();
-  console.log(`\nParsed ${parsed.length} unique run posts.`);
-  if (parsed.length === 0) {
-    console.log("No posts found — the archive markup may have changed. Exiting.");
-    return;
-  }
-
-  // Split into main series vs stray sub-series (logged, excluded).
-  const stray = parsed.filter((p) => p.runNumber < MAIN_SERIES_MIN).sort((a, b) => a.runNumber - b.runNumber);
-  const today = new Date().toISOString().slice(0, 10);
-  const futureish = parsed.filter((p) => p.runNumber >= MAIN_SERIES_MIN && p.event.date >= today);
-
-  const events = parsed
-    .filter((p) => p.runNumber >= MAIN_SERIES_MIN && p.event.date < today)
-    .map((p) => p.event)
-    .sort((a, b) => a.date.localeCompare(b.date));
-
+  const stray = parsed
+    .filter((p) => p.runNumber < MAIN_SERIES_MIN)
+    .sort((a, b) => a.runNumber - b.runNumber);
   if (stray.length > 0) {
-    console.log(`\nExcluded ${stray.length} stray sub-series post(s) (runNumber < ${MAIN_SERIES_MIN}):`);
+    console.log(`\nExcluding ${stray.length} stray sub-series post(s) (runNumber < ${MAIN_SERIES_MIN}; COVID "Virtual DH3"):`);
     for (const s of stray) console.log(`  - Run ${s.runNumber} (${s.event.date}) ${s.event.location ?? ""}`);
   }
-  if (futureish.length > 0) {
-    console.log(`\nExcluded ${futureish.length} run(s) dated >= today (${today}) — adapter territory.`);
-  }
-
-  console.log(`\n${events.length} historical events to insert.`);
-  if (events.length === 0) {
-    console.log("Nothing to insert. Exiting.");
-    return;
-  }
-  console.log(`Date range: ${events[0].date} → ${events.at(-1)?.date}`);
-  const withVenue = events.filter((e) => e.location).length;
-  const withTime = events.filter((e) => e.startTime).length;
-  console.log(`Venue filled: ${withVenue}/${events.length} | startTime filled: ${withTime}/${events.length}`);
-  console.log("\nFirst 3:");
-  for (const e of events.slice(0, 3)) console.log(`  #${e.runNumber} ${e.date} ${e.startTime ?? "-"} | ${e.location ?? "-"}`);
-  console.log("Last 3:");
-  for (const e of events.slice(-3)) console.log(`  #${e.runNumber} ${e.date} ${e.startTime ?? "-"} | ${e.location ?? "-"}`);
-
-  if (!apply) {
-    console.log("\nDry run complete. Re-run with BACKFILL_APPLY=1 BACKFILL_ALLOW_SELF_SIGNED_CERT=1 to write.");
-    return;
-  }
-
-  const pool = createScriptPool();
-  const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
-  try {
-    const sources = await prisma.source.findMany({ where: { name: SOURCE_NAME }, select: { id: true } });
-    if (sources.length === 0) throw new Error(`Source "${SOURCE_NAME}" not found. Run prisma db seed first.`);
-    if (sources.length > 1) throw new Error(`Multiple sources named "${SOURCE_NAME}" — aborting.`);
-    const source = sources[0];
-
-    const withFp = events.map((event) => ({ event, fingerprint: generateFingerprint(event) }));
-    const existing = await prisma.rawEvent.findMany({
-      where: { sourceId: source.id, fingerprint: { in: withFp.map((x) => x.fingerprint) } },
-      select: { fingerprint: true },
-    });
-    const existingSet = new Set(existing.map((r) => r.fingerprint));
-    const toInsert = withFp.filter(({ fingerprint }) => !existingSet.has(fingerprint));
-    console.log(`\nPre-existing: ${existingSet.size}. New rows: ${toInsert.length}.`);
-    if (toInsert.length === 0) {
-      console.log("Nothing new to insert. Exiting.");
-      return;
-    }
-
-    await prisma.rawEvent.createMany({
-      data: toInsert.map(({ event, fingerprint }) => ({
-        sourceId: source.id,
-        rawData: event as unknown as Prisma.InputJsonValue,
-        fingerprint,
-        processed: false,
-      })),
-    });
-    console.log(`\nInserted ${toInsert.length} RawEvents for "${SOURCE_NAME}".`);
-    console.log("Trigger a scrape of this source from /admin/sources to merge them into canonical Events.");
-  } finally {
-    await prisma.$disconnect();
-    await pool.end();
-  }
+  return parsed.filter((p) => p.runNumber >= MAIN_SERIES_MIN).map((p) => p.event);
 }
 
-main().catch((err) => {
+runBackfillScript({
+  sourceName: SOURCE_NAME,
+  kennelTimezone: KENNEL_TIMEZONE,
+  label: "Walking deserthash.org ?cat=3 archive",
+  fetchEvents,
+}).catch((err) => {
   console.error(err);
   process.exit(1);
 });
