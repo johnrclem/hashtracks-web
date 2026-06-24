@@ -256,7 +256,7 @@ function collectSurface(
   } catch (err) {
     errors.push(`${label} parse error: ${err}`);
     errorDetails.parse ??= [];
-    errorDetails.parse.push({ row: 0, section: label.toLowerCase().replace(/ /g, ""), error: String(err) });
+    errorDetails.parse.push({ row: 0, section: label.toLowerCase().replaceAll(" ", ""), error: String(err) });
   }
   return { structureHash: page.structureHash, fetchDurationMs: page.fetchDurationMs };
 }

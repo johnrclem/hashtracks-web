@@ -85,7 +85,10 @@ export function parseWpRunPost(
   if (!runM) return null;
   const runNumber = Number.parseInt(runM[1], 10);
 
-  const segs = text.split(/\s+[–—-]\s+/); // space-surrounded dash/hyphen only
+  // `text` is already whitespace-collapsed to single spaces above, so split on
+  // a literal single-spaced dash/hyphen — no `\s+` quantifier (avoids regex
+  // backtracking) while keeping hyphenated venue names ("Al-Habtoor") intact.
+  const segs = text.split(/ [–—-] /);
   const dateText = segs[1]?.trim() ?? "";
   const date = chronoParseDate(dateText, "en-GB");
   if (!date) return null;
