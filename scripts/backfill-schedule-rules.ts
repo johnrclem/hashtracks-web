@@ -887,13 +887,17 @@ function validateMonthDayAnchor(raw: string | undefined): string | null {
  * Travel Mode's projection engine silently falls back to "possible activity".
  */
 /**
- * A non-projectable cadence sentinel — `CADENCE=WEEKLY|BIWEEKLY|MONTHLY;BYDAY=XX`
- * or `FREQ=LUNAR`. These are LOW-confidence "possible activity" markers the
- * projection engine renders without ever calling parseRRule (which would throw).
+ * A non-projectable cadence sentinel the projection engine knows how to render —
+ * `CADENCE=BIWEEKLY|MONTHLY|WEEKLY;BYDAY=XX` or `FREQ=LUNAR`. These are
+ * LOW-confidence "possible activity" markers fed past parseRRule (which would
+ * throw). Kept deliberately NARROW + aligned with `CADENCE_EXPLANATIONS` /
+ * `explainSentinel` in `src/lib/travel/projections.ts`: an unknown `CADENCE=…`
+ * value is NOT blessed here — it falls through to parseRRule and is rejected as
+ * unparseable (fail-loud) rather than silently stored with generic copy.
  */
 function isCadenceSentinel(rrule: string): boolean {
   const up = rrule.toUpperCase();
-  return up.startsWith("CADENCE=") || up === "FREQ=LUNAR";
+  return /^CADENCE=(BIWEEKLY|MONTHLY|WEEKLY)\b/.test(up) || up === "FREQ=LUNAR";
 }
 
 function normalizeAndValidateSeedRrule(

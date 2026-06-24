@@ -1459,4 +1459,20 @@ describe("planSeedRule — per-rule confidence + CADENCE sentinels", () => {
     );
     expect(planned[0].confidence).toBe("LOW");
   });
+
+  it("rejects an UNKNOWN CADENCE variant as unparseable (not silently blessed)", () => {
+    // Only BIWEEKLY/MONTHLY/WEEKLY are rendered by the projection engine; an
+    // unknown CADENCE value must fail loud (skipped-unparseable), not get stored
+    // as a generic-copy LOW sentinel.
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    const result = planSeedRule(
+      { rrule: "CADENCE=QUARTERLY;BYDAY=SU" },
+      dbKennel,
+      "dh3-ae",
+      planned,
+      {},
+    );
+    expect(result).toBe("skipped-unparseable");
+    expect(planned).toHaveLength(0);
+  });
 });
