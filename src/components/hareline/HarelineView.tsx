@@ -728,7 +728,7 @@ export function HarelineView({
   // is the oldest event — exactly the cursor `loadMorePastEvents` needs. We
   // dedupe by id on append (defensive against a shifted cursor boundary) and
   // bump `visibleCount` so the freshly loaded rows reveal immediately.
-  const loadOlderPastEvents = useCallback(() => {
+  const loadOlderPastEvents = useCallback(async () => {
     if (timeFilter !== "past" || pastServerLoading || !pastServerHasMore) return;
     const buffer = pastEvents;
     if (!buffer || buffer.length === 0) return;
@@ -736,20 +736,18 @@ export function HarelineView({
 
     setPastServerLoading(true);
     setPastServerError(null);
-    loadMorePastEvents(cursorId, pastFetchKennelIds)
-      .then(({ events: older, hasMore }) => {
-        setPastEvents((prev) => mergeOlderPastEvents(prev, older));
-        // `hasMore` is computed server-side from the raw page size (robust to
-        // series-child dedup); the client just trusts it.
-        setPastServerHasMore(hasMore);
-        setVisibleCount((c) => c + PAGE_SIZE);
-      })
-      .catch((err: unknown) => {
-        setPastServerError(err instanceof Error ? err.message : "Failed to load older events");
-      })
-      .finally(() => {
-        setPastServerLoading(false);
-      });
+    try {
+      const { events: older, hasMore } = await loadMorePastEvents(cursorId, pastFetchKennelIds);
+      setPastEvents((prev) => mergeOlderPastEvents(prev, older));
+      // `hasMore` is computed server-side from the raw page size (robust to
+      // series-child dedup); the client just trusts it.
+      setPastServerHasMore(hasMore);
+      setVisibleCount((c) => c + PAGE_SIZE);
+    } catch (err: unknown) {
+      setPastServerError(err instanceof Error ? err.message : "Failed to load older events");
+    } finally {
+      setPastServerLoading(false);
+    }
   }, [timeFilter, pastServerLoading, pastServerHasMore, pastEvents, pastFetchKennelIds]);
 
   // Active event list for the current time mode. Returns an empty array
@@ -1118,7 +1116,7 @@ export function HarelineView({
       <Button
         variant="outline"
         size="sm"
-        onClick={loadOlderPastEvents}
+        onClick={() => { void loadOlderPastEvents(); }}
         disabled={pastServerLoading}
       >
         {pastServerLoading ? "Loading older events…" : "Load older events"}

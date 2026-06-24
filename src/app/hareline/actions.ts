@@ -445,10 +445,11 @@ const fetchSlimEventsCached = unstable_cache(
     const hasMore = rows.length >= queryLimit;
     return { events: dedupeSeriesChildren(rows).map(mapRowToCachedEvent), hasMore };
   },
-  // Include limit values + a payload-shape version in the static key so a
-  // constant change OR a return-shape change (array → { events, hasMore })
-  // auto-busts stale cache entries rather than serving an incompatible payload.
-  [`hareline:events:v2:g${UPCOMING_GLOBAL_LIMIT}k${UPCOMING_KENNEL_LIMIT}`],
+  // Include ALL limit values + a payload-shape version in the static key so any
+  // limit change (incl. the past page size) OR a return-shape change
+  // (array → { events, hasMore }) auto-busts stale cache entries rather than
+  // serving an incompatible/old-sized payload (CodeRabbit review).
+  [`hareline:events:v2:g${UPCOMING_GLOBAL_LIMIT}k${UPCOMING_KENNEL_LIMIT}p${PAST_EVENTS_LIMIT}`],
   { tags: [HARELINE_EVENTS_TAG], revalidate: 3600 },
 );
 
