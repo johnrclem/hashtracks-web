@@ -17,12 +17,16 @@
  */
 
 import { unstable_cache } from "next/cache";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
+import { DISPLAY_EVENT_WHERE, DISPLAYABLE_EVENT_NO_PARENT_WHERE } from "@/lib/event-filters";
 // Tag constant lives in a plain module — a `"use server"` file can only
 // export async functions, so any non-function export (even a string)
 // makes Next strip all exports and fail the build at import sites.
 import { HARELINE_EVENTS_TAG } from "@/lib/cache-tags";
+// PAST_EVENTS_LIMIT lives in a plain module for the same reason — both this
+// `"use server"` file and the client component import it.
+import { PAST_EVENTS_LIMIT } from "./constants";
 
 /** Matches the slim shape rendered by EventCard's list view. */
 interface HarelineKennelLite {
@@ -103,11 +107,9 @@ export interface HarelineChildEvent {
 
 export type TimeMode = "upcoming" | "past";
 
-/**
- * Past events are capped server-side to keep the payload bounded — 200 is
- * enough to fill several scroll pages while staying under ~400 KB wire.
- */
-const PAST_EVENTS_LIMIT = 200;
+// PAST_EVENTS_LIMIT (the server-side cap on the first past payload and the
+// cursor page size for `loadMorePastEvents`) is imported from `./constants`
+// so the client component can share the exact value.
 
 /**
  * Global (unfiltered) upcoming events cap. The full upcoming set exceeds
@@ -155,6 +157,209 @@ interface CachedHarelineChildEvent extends Omit<HarelineChildEvent, "dateUtc"> {
 }
 
 /**
+ * Slim field set rendered by EventCard's list view. Extracted to a module
+ * const (typed via `satisfies`) so the cached first-page query and the
+ * cursor-paginated `loadMorePastEvents` query share an identical projection —
+ * the two paths can't drift, and `mapRowToCachedEvent` types its input off
+ * this exact shape.
+ */
+const HARELINE_EVENT_SELECT = {
+  id: true,
+  date: true,
+  dateUtc: true,
+  timezone: true,
+  kennelId: true,
+  runNumber: true,
+  title: true,
+  eventLabel: true,
+  haresText: true,
+  startTime: true,
+  endTime: true,
+  locationName: true,
+  locationCity: true,
+  status: true,
+  latitude: true,
+  longitude: true,
+  trailLengthText: true,
+  trailLengthMinMiles: true,
+  trailLengthMaxMiles: true,
+  difficulty: true,
+  trailType: true,
+  dogFriendly: true,
+  prelube: true,
+  cost: true,
+  // #1560 — multi-day series metadata + inline children list.
+  isSeriesParent: true,
+  parentEventId: true,
+  endDate: true,
+  childEvents: {
+    where: {
+      // Mirror DISPLAY_EVENT_WHERE's visibility predicates on the
+      // child set (parentEventId stays unset here — children all have
+      // it pointing to this row).
+      status: { not: "CANCELLED" },
+      isManualEntry: { not: true },
+      isCanonical: true,
+      kennel: { isHidden: false },
+    },
+    orderBy: { date: "asc" },
+    select: {
+      id: true,
+      date: true,
+      dateUtc: true,
+      timezone: true,
+      title: true,
+      haresText: true,
+      startTime: true,
+      status: true,
+      locationName: true,
+      runNumber: true,
+    },
+  },
+  kennel: {
+    select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
+  },
+  // Co-hosts (#1023 step 5) — drives the EventCard conjunction
+  // ("Cherry City × OH3"). Empty array for single-kennel events,
+  // which is the common case.
+  eventKennels: {
+    where: { isPrimary: false },
+    select: {
+      kennel: { select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true } },
+    },
+    orderBy: { kennel: { shortName: "asc" } },
+  },
+} satisfies Prisma.EventSelect;
+
+/** Row type produced by `HARELINE_EVENT_SELECT`. */
+type HarelineEventRow = Prisma.EventGetPayload<{ select: typeof HARELINE_EVENT_SELECT }>;
+
+/**
+ * Normalize a kennel-filter list into the stable, bounded form used both for
+ * cache keys and Prisma `IN` clauses (#1560 PR F):
+ *  - trim each ID (URL decoders leave stray whitespace)
+ *  - drop empties (`?kennels=a,,b`) and dedupe (`?kennels=a&kennels=a`)
+ *  - sort with `localeCompare` so `[a,b]` and `[b,a]` canonicalize equal
+ *  - cap at `MAX_KENNEL_FILTER_IDS` (sort BEFORE slice so the dropped tail is
+ *    deterministic regardless of input order)
+ */
+function normalizeKennelIds(kennelIds?: ReadonlyArray<string>): string[] {
+  return [
+    ...new Set((kennelIds ?? []).map((id) => id.trim()).filter(Boolean)),
+  ]
+    .sort((a, b) => a.localeCompare(b))
+    .slice(0, MAX_KENNEL_FILTER_IDS);
+}
+
+/**
+ * Build the Hareline visibility `where` for a given date bound + kennel filter.
+ *
+ * #1560 PR F — kennel-scoped fetches must include series children whose primary
+ * kennel matches the filter (e.g. GGFM Friday Strawberry Moon, a child of
+ * NYCH3's 5-Boro umbrella). When unfiltered, the `parentEventId: null`
+ * exclusion (baked into `DISPLAY_EVENT_WHERE`) keeps children inside their
+ * parent's expanded timeline only. When filtered, swap to the predicate set
+ * without that exclusion (`DISPLAYABLE_EVENT_NO_PARENT_WHERE`) and OR-match on
+ * kennel so parents AND children whose own kennel matches both surface.
+ */
+function buildHarelineWhere(
+  dateFilter: Prisma.EventWhereInput["date"],
+  kennelIds: string[],
+): Prisma.EventWhereInput {
+  if (kennelIds.length === 0) {
+    return { ...DISPLAY_EVENT_WHERE, date: dateFilter };
+  }
+  return {
+    ...DISPLAYABLE_EVENT_NO_PARENT_WHERE,
+    date: dateFilter,
+    OR: [
+      { kennelId: { in: kennelIds } },
+      { eventKennels: { some: { kennelId: { in: kennelIds } } } },
+    ],
+  };
+}
+
+/**
+ * #1560 PR F — when both a series parent AND its children land in the result
+ * (kennel-filtered query where the umbrella's host kennel matches, e.g. NYCH3
+ * viewing `/hareline?kennels=nych3-id` sees the 5-Boro umbrella + its Sat/Sun
+ * children), drop the children from the top-level list. They still appear in
+ * the parent's expanded timeline via `childEvents`; without this the same
+ * trail renders twice on one scroll page (Gemini PR #1712 review). When the
+ * parent is NOT in the result (GGFM viewing `?kennels=ggfm-id` sees only
+ * Friday's child of the NYCH3-hosted umbrella), the child correctly stays at
+ * the top level since the set doesn't contain its parentEventId.
+ */
+function dedupeSeriesChildren(events: HarelineEventRow[]): HarelineEventRow[] {
+  const idsInResult = new Set(events.map((e) => e.id));
+  return events.filter((e) => !e.parentEventId || !idsInResult.has(e.parentEventId));
+}
+
+/** Map a Prisma row into the JSON-safe cache shape (dates → ISO strings). */
+function mapRowToCachedEvent(e: HarelineEventRow): CachedHarelineEvent {
+  return {
+    id: e.id,
+    date: e.date.toISOString(),
+    dateUtc: e.dateUtc ? e.dateUtc.toISOString() : null,
+    timezone: e.timezone,
+    kennelId: e.kennelId,
+    kennel: e.kennel,
+    coHosts: e.eventKennels.map((ek) => ek.kennel),
+    runNumber: e.runNumber,
+    title: e.title,
+    eventLabel: e.eventLabel,
+    haresText: e.haresText,
+    startTime: e.startTime,
+    endTime: e.endTime,
+    locationName: e.locationName,
+    locationCity: e.locationCity,
+    status: e.status,
+    latitude: e.latitude ?? null,
+    longitude: e.longitude ?? null,
+    trailLengthText: e.trailLengthText,
+    trailLengthMinMiles: e.trailLengthMinMiles,
+    trailLengthMaxMiles: e.trailLengthMaxMiles,
+    difficulty: e.difficulty,
+    trailType: e.trailType,
+    dogFriendly: e.dogFriendly,
+    prelube: e.prelube,
+    cost: e.cost,
+    isSeriesParent: e.isSeriesParent,
+    parentEventId: e.parentEventId,
+    endDate: e.endDate ? e.endDate.toISOString() : null,
+    childEvents: e.childEvents.map((c) => ({
+      id: c.id,
+      date: c.date.toISOString(),
+      dateUtc: c.dateUtc ? c.dateUtc.toISOString() : null,
+      timezone: c.timezone,
+      title: c.title,
+      haresText: c.haresText,
+      startTime: c.startTime,
+      status: c.status,
+      locationName: c.locationName,
+      runNumber: c.runNumber,
+    })),
+  };
+}
+
+/**
+ * Rehydrate `dateUtc` from ISO string back to `Date` at the cache boundary.
+ * Keeps `HarelineListEvent` stable across the project so consumers
+ * (EventCard/EventDetailPanel/CalendarView/kennel page) don't learn about the
+ * cache shape. Used by both the cached path and the uncached load-more path.
+ */
+function rehydrateCachedEvent(e: CachedHarelineEvent): HarelineListEvent {
+  return {
+    ...e,
+    dateUtc: e.dateUtc ? new Date(e.dateUtc) : null,
+    childEvents: e.childEvents.map((c) => ({
+      ...c,
+      dateUtc: c.dateUtc ? new Date(c.dateUtc) : null,
+    })),
+  };
+}
+
+/**
  * Cached inner: pure function of `(mode, todayDateStr)`.
  *
  * Cache key parts, chosen so hit/miss behavior matches user intent:
@@ -183,7 +388,7 @@ const fetchSlimEventsCached = unstable_cache(
     mode: TimeMode,
     todayDateStr: string,
     kennelIdsKey: string,
-  ): Promise<CachedHarelineEvent[]> => {
+  ): Promise<{ events: CachedHarelineEvent[]; hasMore: boolean }> => {
     // Reconstruct UTC boundaries from the date string so the cached function
     // is a pure function of its args. (No reading Date.now() here —
     // that would invalidate the cache contract.)
@@ -205,30 +410,12 @@ const fetchSlimEventsCached = unstable_cache(
     const tomorrowUtc = new Date(startOfTodayUtc.getTime() + 24 * 60 * 60 * 1000);
     const isPast = mode === "past";
 
-    // #1560 PR F — kennel-scoped fetches must include series children whose
-    // primary kennel matches the filter (e.g. GGFM Friday Strawberry Moon,
-    // a child of NYCH3's 5-Boro umbrella). When unfiltered, the original
-    // `parentEventId: null` exclusion stays so children only render inside
-    // their parent's expanded timeline. When filtered, swap the exclusion
-    // for a kennel OR-match: parents whose own kennel matches AND children
-    // whose own kennel matches both surface.
-    //
-    // Destructure `parentEventId` out of `DISPLAY_EVENT_WHERE` and reuse the
-    // remaining visibility predicates verbatim so the two branches can't drift
-    // (mirrors `getEventDetail` below). Gemini PR review #1712.
+    // The kennel filter is already normalized into the cache key, so split it
+    // back into an array here. `buildHarelineWhere` handles the unfiltered vs
+    // kennel-scoped visibility predicates (#1560 PR F).
     const kennelIds = kennelIdsKey ? kennelIdsKey.split(",") : [];
     const dateFilter = isPast ? { lt: tomorrowUtc } : { gte: yesterdayUtc };
-    const { parentEventId: _excluded, ...visibilityWhere } = DISPLAY_EVENT_WHERE;
-    const where = kennelIds.length === 0
-      ? { ...DISPLAY_EVENT_WHERE, date: dateFilter }
-      : {
-          ...visibilityWhere,
-          date: dateFilter,
-          OR: [
-            { kennelId: { in: kennelIds } },
-            { eventKennels: { some: { kennelId: { in: kennelIds } } } },
-          ],
-        };
+    const where = buildHarelineWhere(dateFilter, kennelIds);
 
     let queryLimit: number;
     if (isPast) {
@@ -239,141 +426,29 @@ const fetchSlimEventsCached = unstable_cache(
       queryLimit = UPCOMING_KENNEL_LIMIT;
     }
 
-    const events = await prisma.event.findMany({
+    // Past mode paginates backward by cursor (`loadMorePastEvents`), which
+    // requires a deterministic, unique tiebreak so "everything after this id"
+    // is well-defined. Add `id desc` for past; upcoming keeps `date asc`.
+    const rows = await prisma.event.findMany({
       where,
-      select: {
-        id: true,
-        date: true,
-        dateUtc: true,
-        timezone: true,
-        kennelId: true,
-        runNumber: true,
-        title: true,
-        eventLabel: true,
-        haresText: true,
-        startTime: true,
-        endTime: true,
-        locationName: true,
-        locationCity: true,
-        status: true,
-        latitude: true,
-        longitude: true,
-        trailLengthText: true,
-        trailLengthMinMiles: true,
-        trailLengthMaxMiles: true,
-        difficulty: true,
-        trailType: true,
-        dogFriendly: true,
-        prelube: true,
-        cost: true,
-        // #1560 — multi-day series metadata + inline children list.
-        isSeriesParent: true,
-        parentEventId: true,
-        endDate: true,
-        childEvents: {
-          where: {
-            // Mirror DISPLAY_EVENT_WHERE's visibility predicates on the
-            // child set (parentEventId stays unset here — children all have
-            // it pointing to this row).
-            status: { not: "CANCELLED" },
-            isManualEntry: { not: true },
-            isCanonical: true,
-            kennel: { isHidden: false },
-          },
-          orderBy: { date: "asc" },
-          select: {
-            id: true,
-            date: true,
-            dateUtc: true,
-            timezone: true,
-            title: true,
-            haresText: true,
-            startTime: true,
-            status: true,
-            locationName: true,
-            runNumber: true,
-          },
-        },
-        kennel: {
-          select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
-        },
-        // Co-hosts (#1023 step 5) — drives the EventCard conjunction
-        // ("Cherry City × OH3"). Empty array for single-kennel events,
-        // which is the common case.
-        eventKennels: {
-          where: { isPrimary: false },
-          select: {
-            kennel: { select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true } },
-          },
-          orderBy: { kennel: { shortName: "asc" } },
-        },
-      },
-      orderBy: { date: isPast ? "desc" : "asc" },
+      select: HARELINE_EVENT_SELECT,
+      orderBy: isPast ? [{ date: "desc" }, { id: "desc" }] : { date: "asc" },
       take: queryLimit,
     });
 
-    // #1560 PR F — when both a series parent AND its children are returned
-    // (kennel-filtered query where the umbrella's host kennel matches the
-    // filter, e.g. NYCH3 viewing `/hareline?kennels=nych3-id` sees the 5-Boro
-    // umbrella + its Sat/Sun children), drop the children from the top-level
-    // list. They still appear in the parent's expanded timeline via
-    // `childEvents`. Without this dedup, the same trail renders twice on the
-    // same scroll page (Gemini PR #1712 review). When the parent is NOT in
-    // the result (GGFM viewing /hareline?kennels=ggfm-id sees only Friday's
-    // child of the NYCH3-hosted umbrella), the child correctly stays at the
-    // top level since `parentIdsInResult` doesn't contain its parentEventId.
-    const idsInResult = new Set(events.map((e) => e.id));
-    const visibleEvents = events.filter(
-      (e) => !e.parentEventId || !idsInResult.has(e.parentEventId),
-    );
-
-    return visibleEvents.map((e) => ({
-      id: e.id,
-      date: e.date.toISOString(),
-      dateUtc: e.dateUtc ? e.dateUtc.toISOString() : null,
-      timezone: e.timezone,
-      kennelId: e.kennelId,
-      kennel: e.kennel,
-      coHosts: e.eventKennels.map((ek) => ek.kennel),
-      runNumber: e.runNumber,
-      title: e.title,
-      eventLabel: e.eventLabel,
-      haresText: e.haresText,
-      startTime: e.startTime,
-      endTime: e.endTime,
-      locationName: e.locationName,
-      locationCity: e.locationCity,
-      status: e.status,
-      latitude: e.latitude ?? null,
-      longitude: e.longitude ?? null,
-      trailLengthText: e.trailLengthText,
-      trailLengthMinMiles: e.trailLengthMinMiles,
-      trailLengthMaxMiles: e.trailLengthMaxMiles,
-      difficulty: e.difficulty,
-      trailType: e.trailType,
-      dogFriendly: e.dogFriendly,
-      prelube: e.prelube,
-      cost: e.cost,
-      isSeriesParent: e.isSeriesParent,
-      parentEventId: e.parentEventId,
-      endDate: e.endDate ? e.endDate.toISOString() : null,
-      childEvents: e.childEvents.map((c) => ({
-        id: c.id,
-        date: c.date.toISOString(),
-        dateUtc: c.dateUtc ? c.dateUtc.toISOString() : null,
-        timezone: c.timezone,
-        title: c.title,
-        haresText: c.haresText,
-        startTime: c.startTime,
-        status: c.status,
-        locationName: c.locationName,
-        runNumber: c.runNumber,
-      })),
-    }));
+    // `hasMore` is derived from the RAW page size (before series-child dedup) so
+    // a full DB page that dedup shrinks below the limit — possible only in the
+    // kennel-filtered branch, where children can be fetched — still signals that
+    // older events remain. Without this, the client's first-page "Load older"
+    // affordance could be hidden mid-archive (Codex review). The flag is only
+    // consumed for past mode; for upcoming it just reflects cap saturation.
+    const hasMore = rows.length >= queryLimit;
+    return { events: dedupeSeriesChildren(rows).map(mapRowToCachedEvent), hasMore };
   },
-  // Include limit values in the static key so a constant change automatically
-  // busts stale cache entries rather than serving old-sized payloads until TTL.
-  [`hareline:events:g${UPCOMING_GLOBAL_LIMIT}k${UPCOMING_KENNEL_LIMIT}`],
+  // Include limit values + a payload-shape version in the static key so a
+  // constant change OR a return-shape change (array → { events, hasMore })
+  // auto-busts stale cache entries rather than serving an incompatible payload.
+  [`hareline:events:v2:g${UPCOMING_GLOBAL_LIMIT}k${UPCOMING_KENNEL_LIMIT}`],
   { tags: [HARELINE_EVENTS_TAG], revalidate: 3600 },
 );
 
@@ -400,47 +475,94 @@ const fetchSlimEventsCached = unstable_cache(
  * Uses `select` (not `include`) so heavy fields (description, sourceUrl,
  * locationStreet, locationAddress, eventLinks) never leave Postgres — they
  * stream lazily via `getEventDetail` when a card is expanded.
+ *
+ * Returns `{ events, hasMore }`. `hasMore` reflects raw page fullness (see
+ * `fetchSlimEventsCached`); the client uses it to seed past-tab back-pagination
+ * so the "Load older events" affordance survives series-child dedup shrinkage.
+ * It is meaningless for upcoming (no back-pagination there).
  */
 export async function loadEventsForTimeMode(
   mode: TimeMode,
   nowMs?: number,
   kennelIds?: ReadonlyArray<string>,
-): Promise<HarelineListEvent[]> {
+): Promise<{ events: HarelineListEvent[]; hasMore: boolean }> {
   // YYYY-MM-DD in UTC — the cache key that rotates at UTC midnight.
   const todayDateStr = new Date(nowMs ?? Date.now()).toISOString().slice(0, 10);
 
-  // #1560 PR F — normalize the kennel filter into a stable cache key.
-  // - Trim each ID (URL decoders sometimes leave stray whitespace)
-  // - Drop empties (e.g. `?kennels=a,,b`)
-  // - Dedupe (e.g. `?kennels=a&kennels=a`) so the cache key is canonical
-  //   regardless of how callers compose the URL
-  // - Cap at MAX_KENNEL_FILTER_IDS to bound cache cardinality + Prisma `IN`
-  //   list size against pathological inputs (CodeRabbit PR #1712 review)
-  // - Sort with `localeCompare` so [a,b] and [b,a] hit the same cache entry
-  //   (Sonar S2871). Empty string when no filter — a distinct cache entry
-  //   from any kennel-filtered key (the 3-arg signature is new in PR F, so
-  //   the unfiltered path cold-starts once on deploy regardless).
-  // Sort BEFORE slice so the canonical first-N is stable regardless of
-  // input order — [z,a] and [a,z] with 51 IDs must drop the same 51st element.
-  const normalizedKennelIds = [
-    ...new Set((kennelIds ?? []).map((id) => id.trim()).filter(Boolean)),
-  ].sort((a, b) => a.localeCompare(b)).slice(0, MAX_KENNEL_FILTER_IDS);
-  const kennelIdsKey = normalizedKennelIds.join(",");
+  // #1560 PR F — normalize the kennel filter into a stable cache key
+  // (trim / drop-empty / dedupe / sort / cap). See `normalizeKennelIds`.
+  const kennelIdsKey = normalizeKennelIds(kennelIds).join(",");
 
-  const cached = await fetchSlimEventsCached(mode, todayDateStr, kennelIdsKey);
+  const { events, hasMore } = await fetchSlimEventsCached(mode, todayDateStr, kennelIdsKey);
 
-  // Rehydrate `dateUtc` from ISO string back to `Date` at the cache
-  // boundary. Keeps `HarelineListEvent` stable across the project so
-  // EventCard/EventDetailPanel/CalendarView/kennel page don't need to
-  // learn about the cache shape.
-  return cached.map((e) => ({
-    ...e,
-    dateUtc: e.dateUtc ? new Date(e.dateUtc) : null,
-    childEvents: e.childEvents.map((c) => ({
-      ...c,
-      dateUtc: c.dateUtc ? new Date(c.dateUtc) : null,
-    })),
-  }));
+  // Rehydrate `dateUtc` from ISO string back to `Date` at the cache boundary.
+  return { events: events.map(rehydrateCachedEvent), hasMore };
+}
+
+/**
+ * Cursor-paginated "load older past events" — lets the Hareline past tab scroll
+ * back beyond the first `PAST_EVENTS_LIMIT` page.
+ *
+ * The first past page is served (and cached) by `loadEventsForTimeMode("past")`,
+ * newest-first. To look further back, the client passes the id of the oldest
+ * event it currently holds (`cursorId`); this returns the next
+ * `PAST_EVENTS_LIMIT` older events strictly after that cursor.
+ *
+ * Uncached on purpose: deep-history pages are cold, and a per-cursor cache key
+ * would explode the key space for no hit-rate benefit. The hot first page stays
+ * cached. Ordering MUST match the first page (`[date desc, id desc]`) so the
+ * cursor boundary lines up exactly with where the buffer ends.
+ *
+ * `kennelIds` MUST match the scoping that produced the client's buffer — the
+ * URL `?kennels=` filter for an SSR-loaded past buffer, or empty for a buffer
+ * loaded by the lazy tab-toggle (which fetches unfiltered). The client tracks
+ * which one applies and passes it through so the cursor and the appended page
+ * share a single ordering.
+ *
+ * Returns `{ events, hasMore }`. `hasMore` is derived from the **raw** page
+ * size (before series-child dedup) so a full DB page that dedup shrinks below
+ * `PAST_EVENTS_LIMIT` (a parent + child collapsing to one, possible only in the
+ * kennel-filtered branch) doesn't prematurely report end-of-list.
+ *
+ * A genuinely vanished cursor row (hard-deleted between fetches) yields an empty
+ * result naturally — Prisma's cursor is a correlated subquery, so a missing id
+ * matches no rows → `{ events: [], hasMore: false }`. Real failures (DB timeout,
+ * connectivity, schema drift) are intentionally NOT caught: they propagate so
+ * the client's `pastServerError` retry UI engages instead of disguising a
+ * dependency failure as a normal archive boundary (Codex review).
+ */
+export async function loadMorePastEvents(
+  cursorId: string,
+  kennelIds?: ReadonlyArray<string>,
+): Promise<{ events: HarelineListEvent[]; hasMore: boolean }> {
+  if (!cursorId) return { events: [], hasMore: false };
+
+  // Past ceiling `< tomorrow 00:00 UTC` mirrors the first-page bound. The
+  // cursor already restricts results to events older than it, so this is a
+  // belt-and-suspenders ceiling that keeps the `where` identical to page one.
+  const todayDateStr = new Date().toISOString().slice(0, 10);
+  const startOfTodayUtc = new Date(`${todayDateStr}T00:00:00.000Z`);
+  const tomorrowUtc = new Date(startOfTodayUtc.getTime() + 24 * 60 * 60 * 1000);
+
+  const normalizedKennelIds = normalizeKennelIds(kennelIds);
+  const where = buildHarelineWhere({ lt: tomorrowUtc }, normalizedKennelIds);
+
+  // No try/catch: a missing cursor row returns [] (correlated-subquery cursor),
+  // and genuine failures must surface to the client's retry UI rather than be
+  // swallowed as end-of-list (Codex review).
+  const rows = await prisma.event.findMany({
+    where,
+    select: HARELINE_EVENT_SELECT,
+    orderBy: [{ date: "desc" }, { id: "desc" }],
+    cursor: { id: cursorId },
+    skip: 1, // exclude the cursor row itself (already shown by the client)
+    take: PAST_EVENTS_LIMIT,
+  });
+  // `hasMore` off the raw count — a full page implies older events remain,
+  // even if dedup trims this page's returned length.
+  const hasMore = rows.length >= PAST_EVENTS_LIMIT;
+  const events = dedupeSeriesChildren(rows).map(mapRowToCachedEvent).map(rehydrateCachedEvent);
+  return { events, hasMore };
 }
 
 export interface EventDetailFields {
