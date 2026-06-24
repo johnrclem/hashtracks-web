@@ -107,6 +107,13 @@ const NO_RUNS_HTML = `<html><body>
   ${agendaDay("Saturday", "June 20", "20:00", "22:00", "Moonshine H3 &#8211; Run 15", "moonshine-15")}
 </body></html>`;
 
+// A divider with NO data-toggle-divider attribute — year must fall back to the
+// "<h5>Month YYYY</h5>" heading text (exercises dividerYear's YEAR_RE branch).
+const HARELINE_HEADING_ONLY = `<html><body>
+  <div class="mec-month-divider"><h5>April 2026</h5></div>
+  ${agendaDay("Sunday", "April 19", "15:00", "22:00", "DH3 &#8211; Run 2447", "dh3-run-2447")}
+</body></html>`;
+
 // ── Pure helper tests ─────────────────────────────────────────────────────────
 
 describe("parseClock", () => {
@@ -137,6 +144,10 @@ describe("parseMonthDay", () => {
   it("parses Month Day", () => {
     expect(parseMonthDay("June 22")).toEqual({ month: 6, day: 22 });
     expect(parseMonthDay("January 4")).toEqual({ month: 1, day: 4 });
+  });
+  it("tolerates stray punctuation and ordinals", () => {
+    expect(parseMonthDay("June, 22")).toEqual({ month: 6, day: 22 });
+    expect(parseMonthDay("June 22nd")).toEqual({ month: 6, day: 22 });
   });
 });
 
@@ -213,6 +224,11 @@ describe("parseHareLine", () => {
   });
   it("keeps a trailing theme as the title", () => {
     expect(byRun.get(2440)?.title).toBe("The War Edition");
+  });
+  it("falls back to the <h5> heading year when the toggle attr is absent", () => {
+    const events = parseHareLine(cheerio.load(HARELINE_HEADING_ONLY));
+    expect(events).toHaveLength(1);
+    expect(events[0].date).toBe("2026-04-19"); // year 2026 from "April 2026" heading
   });
 });
 

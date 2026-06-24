@@ -40,7 +40,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, applyDateWindow } from "../utils";
+import { fetchHTMLPage, applyDateWindow, type FetchHTMLResult } from "../utils";
 
 const HOME_URL = "https://www.deserthash.org/";
 const HARELINE_PATH = "?page_id=5152";
@@ -55,8 +55,8 @@ const MONTHS = new Map<string, number>([
 
 // Title filter: "DH3 – Run NNNN" tolerating hyphen / en-dash / em-dash.
 const RUN_TITLE_RE = /^DH3\s*[-–—]\s*Run\s+(\d+)/i;
-// Trailing theme after the run number (kept as the event title when present).
-const RUN_THEME_RE = /^DH3\s*[-–—]\s*Run\s+\d+\s*[-–—]\s*(.+)$/i;
+// Leading separator + whitespace before a trailing theme (stripped, not split).
+const LEADING_SEP_RE = /^[\s\-–—]+/;
 const TIME_RE = /(\d{1,2}):(\d{2})/;
 // Non-anchored: tolerate surrounding text in `.mec-event-date` (DD/MM/YYYY, UAE locale).
 const DMY_RE = /(\d{1,2})\/(\d{1,2})\/(\d{4})/;
@@ -106,8 +106,10 @@ export function parseRunTitle(linkText: string): { runNumber: number; title?: st
   const m = RUN_TITLE_RE.exec(text);
   if (!m) return null;
   const runNumber = Number.parseInt(m[1], 10);
-  const theme = RUN_THEME_RE.exec(text)?.[1]?.trim();
-  const title = theme && theme.length > 1 ? theme : undefined;
+  // Anything after the matched "DH3 – Run N" prefix is a trailing theme. Slice
+  // (rather than a second backtracking regex) and strip the leading separator.
+  const theme = text.slice(m[0].length).replace(LEADING_SEP_RE, "").trim();
+  const title = theme.length > 1 ? theme : undefined;
   return { runNumber, title };
 }
 
@@ -115,7 +117,10 @@ export function parseRunTitle(linkText: string): { runNumber: number; title?: st
 export function parseMonthDay(text: string): { month?: number; day?: number } {
   let month: number | undefined;
   let day: number | undefined;
-  for (const tok of text.trim().split(/\s+/)) {
+  for (const rawTok of text.trim().split(/\s+/)) {
+    // Strip stray punctuation ("June," / "22," / "22nd") so the lookup + parse
+    // are robust to minor MEC formatting variations.
+    const tok = rawTok.replace(/[^a-zA-Z0-9]/g, "");
     const mm = MONTHS.get(tok.toLowerCase());
     if (mm) {
       month = mm;
@@ -222,11 +227,49 @@ export function parseHareLine($: cheerio.CheerioAPI): RawEventData[] {
   return [...byRun.values()];
 }
 
+/**
+ * Merge one fetched surface into `byRun`, recording fetch/parse errors. Returns
+ * the page's structureHash + fetch duration (0 for a failed fetch). Extracted
+ * from fetch() so each surface is handled by one small, low-complexity unit.
+ */
+function collectSurface(
+  page: FetchHTMLResult,
+  parser: ($: cheerio.CheerioAPI) => RawEventData[],
+  label: string,
+  byRun: Map<number, RawEventData>,
+  errors: string[],
+  errorDetails: ErrorDetails,
+): { structureHash?: string; fetchDurationMs: number } {
+  if (!page.ok) {
+    errors.push(...page.result.errors.map((e) => `${label}: ${e}`));
+    const fetchErrs = page.result.errorDetails?.fetch;
+    if (fetchErrs) {
+      errorDetails.fetch ??= [];
+      errorDetails.fetch.push(...fetchErrs);
+    }
+    return { fetchDurationMs: 0 };
+  }
+  try {
+    for (const e of parser(page.$)) {
+      if (e.runNumber != null) byRun.set(e.runNumber, e);
+    }
+  } catch (err) {
+    errors.push(`${label} parse error: ${err}`);
+    errorDetails.parse ??= [];
+    errorDetails.parse.push({ row: 0, section: label.toLowerCase().replace(/ /g, ""), error: String(err) });
+  }
+  return { structureHash: page.structureHash, fetchDurationMs: page.fetchDurationMs };
+}
+
 export class DesertHashAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
   async fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
-    const baseUrl = source.url || HOME_URL;
+    // Normalize the base URL so `new URL()` never throws on a protocol-relative
+    // or relative `source.url`; fall back to the canonical host.
+    let baseUrl = source.url || HOME_URL;
+    if (baseUrl.startsWith("//")) baseUrl = `https:${baseUrl}`;
+    else if (!/^https?:\/\//i.test(baseUrl)) baseUrl = HOME_URL;
     const harelineUrl = new URL(HARELINE_PATH, baseUrl).href;
 
     const [homePage, harelinePage] = await Promise.all([
@@ -236,47 +279,14 @@ export class DesertHashAdapter implements SourceAdapter {
 
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
-    let structureHash: string | undefined;
-    let fetchDurationMs = 0;
     const byRun = new Map<number, RawEventData>();
 
-    const absorbFetchError = (page: { ok: false; result: ScrapeResult }, label: string) => {
-      errors.push(...page.result.errors.map((e) => `${label}: ${e}`));
-      const fetchErrs = page.result.errorDetails?.fetch;
-      if (fetchErrs) (errorDetails.fetch ??= []).push(...fetchErrs);
-    };
-
-    // Hare Line — primary surface (recent ~50 runs).
-    if (harelinePage.ok) {
-      structureHash = harelinePage.structureHash;
-      fetchDurationMs += harelinePage.fetchDurationMs;
-      try {
-        for (const e of parseHareLine(harelinePage.$)) {
-          if (e.runNumber != null) byRun.set(e.runNumber, e);
-        }
-      } catch (err) {
-        errors.push(`Hare Line parse error: ${err}`);
-        (errorDetails.parse ??= []).push({ row: 0, section: "hareline", error: String(err) });
-      }
-    } else {
-      absorbFetchError(harelinePage, "Hare Line");
-    }
-
-    // Home — upcoming run(s). Wins on run-number conflict (it's the live next run).
-    if (homePage.ok) {
-      structureHash ??= homePage.structureHash;
-      fetchDurationMs += homePage.fetchDurationMs;
-      try {
-        for (const e of parseHomeUpcoming(homePage.$)) {
-          if (e.runNumber != null) byRun.set(e.runNumber, e);
-        }
-      } catch (err) {
-        errors.push(`Home parse error: ${err}`);
-        (errorDetails.parse ??= []).push({ row: 0, section: "home", error: String(err) });
-      }
-    } else {
-      absorbFetchError(homePage, "Home");
-    }
+    // Hare Line (primary, recent ~50) first; Home (upcoming) second so it wins
+    // on a run-number conflict (it's the live next run).
+    const hare = collectSurface(harelinePage, parseHareLine, "Hare Line", byRun, errors, errorDetails);
+    const home = collectSurface(homePage, parseHomeUpcoming, "Home", byRun, errors, errorDetails);
+    const structureHash = hare.structureHash ?? home.structureHash;
+    const fetchDurationMs = hare.fetchDurationMs + home.fetchDurationMs;
 
     const events = [...byRun.values()];
 
@@ -288,7 +298,8 @@ export class DesertHashAdapter implements SourceAdapter {
       const message =
         "Desert H3 scraper parsed 0 DH3 runs — possible MEC format drift or title-filter regression";
       errors.push(message);
-      (errorDetails.parse ??= []).push({ row: 0, error: message });
+      errorDetails.parse ??= [];
+      errorDetails.parse.push({ row: 0, error: message });
     }
 
     const result: ScrapeResult = {

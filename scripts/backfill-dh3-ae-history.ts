@@ -47,6 +47,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { createScriptPool } from "./lib/db-pool";
 import { safeFetch } from "@/adapters/safe-fetch";
 import { chronoParseDate } from "@/adapters/utils";
+import { parseClock } from "@/adapters/html-scraper/desert-hash";
 import { generateFingerprint } from "@/pipeline/fingerprint";
 import type { RawEventData } from "@/adapters/types";
 
@@ -67,21 +68,11 @@ async function fetchText(url: string): Promise<string> {
   return res.text();
 }
 
-/** "18:30" / "6:30" → "18:30" / "06:30", or undefined. */
-function padClock(text: string | undefined): string | undefined {
-  if (!text) return undefined;
-  const m = /(\d{1,2}):(\d{2})/.exec(text);
-  if (!m) return undefined;
-  const h = Number.parseInt(m[1], 10);
-  const min = Number.parseInt(m[2], 10);
-  if (h < 0 || h > 23 || min < 0 || min > 59) return undefined;
-  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
-}
-
 /**
  * Parse one "DH3 Runs" blog post into a RawEventData. Title carries
- * `Run NNNN – <date> – <venue>` (segments split on EN/EM dash only, so
- * hyphenated venue names stay intact); the excerpt carries `Time: HH:MM`.
+ * `Run NNNN – <date> – <venue>`; the excerpt carries `Time: HH:MM`. Segments
+ * split on a *space-surrounded* dash/hyphen, so hyphenated venue names
+ * ("Al-Habtoor") stay intact while WP posts that use " - " separate correctly.
  * Returns null when it isn't a parseable run post.
  */
 export function parseWpRunPost(
@@ -94,13 +85,13 @@ export function parseWpRunPost(
   if (!runM) return null;
   const runNumber = Number.parseInt(runM[1], 10);
 
-  const segs = text.split(/\s*[–—]\s*/); // en/em dash only — NOT hyphen
+  const segs = text.split(/\s+[–—-]\s+/); // space-surrounded dash/hyphen only
   const dateText = segs[1]?.trim() ?? "";
   const date = chronoParseDate(dateText, "en-GB");
   if (!date) return null;
 
   const venue = segs.slice(2).join(" – ").trim() || undefined;
-  const startTime = padClock(/Time:\s*(\d{1,2}:\d{2})/i.exec(excerptText ?? "")?.[1]);
+  const startTime = parseClock(/Time:\s*(\d{1,2}:\d{2})/i.exec(excerptText ?? "")?.[1]);
 
   return {
     date,
@@ -125,15 +116,31 @@ function parsePage(html: string): ParsedPost[] {
   $("h3 a, h2 a").each((_i, el) => {
     const $a = $(el);
     const href = $a.attr("href") ?? undefined;
-    if (href && !href.startsWith(ARCHIVE_ORIGIN) && !href.startsWith("/") && !href.startsWith("?")) return;
+    // Keep on-site links only — tolerant of http/https and the optional www.
+    // subdomain (older WP installs); relative (`/`, `?`) links are on-site too.
+    const isLocal = !href || href.startsWith("/") || href.startsWith("?") ||
+      /^https?:\/\/(?:www\.)?deserthash\.org/i.test(href);
+    if (!isLocal) return;
     const titleText = $a.text();
     if (!/^\s*Run\s+\d+/i.test(titleText)) return;
     // The excerpt div is the next element sibling of the <h3>.
     const excerpt = $a.closest("h3, h2").nextAll(".excerpt").first().text();
     const event = parseWpRunPost(titleText, excerpt, href ? new URL(href, ARCHIVE_ORIGIN).toString() : undefined);
-    if (event && event.runNumber != null) out.push({ event, runNumber: event.runNumber });
+    if (event?.runNumber != null) out.push({ event, runNumber: event.runNumber });
   });
   return out;
+}
+
+/** Add posts not already seen (by run number) to `byRun`; return how many were new. */
+function mergeNewPosts(byRun: Map<number, ParsedPost>, posts: ParsedPost[]): number {
+  let added = 0;
+  for (const p of posts) {
+    if (!byRun.has(p.runNumber)) {
+      byRun.set(p.runNumber, p);
+      added++;
+    }
+  }
+  return added;
 }
 
 async function fetchArchive(): Promise<ParsedPost[]> {
@@ -151,13 +158,7 @@ async function fetchArchive(): Promise<ParsedPost[]> {
       console.log(`  page ${page}: 0 run posts — end of archive`);
       break;
     }
-    let added = 0;
-    for (const p of posts) {
-      if (!byRun.has(p.runNumber)) {
-        byRun.set(p.runNumber, p);
-        added++;
-      }
-    }
+    const added = mergeNewPosts(byRun, posts);
     console.log(`  page ${page}: ${posts.length} posts (${added} new) — runs ${posts.at(-1)?.runNumber}–${posts[0]?.runNumber}`);
     if (page < MAX_PAGES) await sleep(FETCH_DELAY_MS);
   }
