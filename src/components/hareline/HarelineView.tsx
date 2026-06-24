@@ -274,6 +274,22 @@ function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
   return true;
 }
 
+/**
+ * Drop series children whose parent is also present in the buffer — they render
+ * inside the parent's expanded timeline, not as standalone top-level cards.
+ * Mirrors the server's per-page dedup, but applied over the cumulative
+ * (multi-page) past buffer so a parent + child that land on DIFFERENT cursor
+ * pages don't surface the child twice (Codex review). A child whose parent is
+ * NOT loaded stays top-level. Fast-path returns the input untouched when no
+ * children are present — the common case for the unfiltered global view, where
+ * the server excludes children at the query level entirely.
+ */
+function dropLoadedSeriesChildren(events: HarelineEvent[]): HarelineEvent[] {
+  if (!events.some((e) => e.parentEventId)) return events;
+  const ids = new Set(events.map((e) => e.id));
+  return events.filter((e) => !e.parentEventId || !ids.has(e.parentEventId));
+}
+
 /** Sort events by date (direction depends on timeFilter) then by startTime. */
 function sortEvents(events: HarelineEvent[], timeFilter: TimeFilter): HarelineEvent[] {
   const descending = timeFilter === "past";
@@ -364,6 +380,13 @@ export function HarelineView({
   // the current past buffer was loaded with so `loadMorePastEvents` continues
   // with the same cursor ordering (SSR-past buffers are kennel-scoped; lazily
   // toggled-in buffers are unfiltered).
+  //
+  // NOTE: `pastFetchKennelIds` deliberately tracks the buffer's *load-time*
+  // scoping, NOT the live client kennel filter — the past buffer doesn't
+  // re-fetch when the user changes the kennel chips. Older pages therefore
+  // arrive in the original scope and are narrowed client-side. Do not "fix"
+  // this by syncing it to `selectedKennels`; that would desync the cursor
+  // ordering from the buffer it continues.
   const [pastServerHasMore, setPastServerHasMore] = useState<boolean>(
     // Seed from the server's raw-page-fullness flag, NOT the (possibly
     // dedup-shrunk) `events.length` — otherwise a kennel-filtered first page
@@ -726,8 +749,12 @@ export function HarelineView({
   // produce false empty states or hide subscribed events during the
   // brief window before the lazy fetch resolves.
   const currentEvents = useMemo((): HarelineEvent[] => {
-    if (timeFilter === "past") return pastEvents ?? [];
-    return upcomingEvents ?? [];
+    // Dedupe series children whose parent is anywhere in the cumulative buffer
+    // (handles cross-page splits from cursor pagination). The raw `pastEvents`
+    // buffer is left intact for cursor derivation; only this display-facing
+    // view is deduped.
+    const buffer = timeFilter === "past" ? pastEvents : upcomingEvents;
+    return dropLoadedSeriesChildren(buffer ?? []);
   }, [timeFilter, pastEvents, upcomingEvents]);
 
   // True while the current mode's list is being fetched for the first
@@ -903,10 +930,10 @@ export function HarelineView({
   // reveal). `canLoadOlderPast`: the server may hold still-older past events
   // beyond the loaded buffer (server-side back-pagination). The "Show more"
   // button does the first while it can, then transparently switches to the
-  // second so users can page indefinitely back through the archive.
+  // "Load older events" control so users can page indefinitely back through
+  // the archive.
   const revealMore = visibleCount < sortedEvents.length;
   const canLoadOlderPast = timeFilter === "past" && pastServerHasMore;
-  const hasMore = revealMore || canLoadOlderPast;
   const remaining = sortedEvents.length - visibleCount;
 
   function clearAllFilters() {
@@ -1071,10 +1098,42 @@ export function HarelineView({
     />
   );
 
+  // Standalone "load older" control. Shown both at the end of a non-empty list
+  // and inside the empty state — so a past filter with zero matches in the
+  // loaded range can still page deeper into the archive instead of dead-ending
+  // on EmptyState while older matching events exist (Codex review).
+  const loadOlderControl = (
+    <div className="flex flex-col items-center gap-2 py-4">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={loadOlderPastEvents}
+        disabled={pastServerLoading}
+      >
+        {pastServerLoading ? "Loading older events…" : "Load older events"}
+      </Button>
+      {pastServerError && (
+        <p className="text-xs text-destructive" role="alert">
+          {pastServerError}. Tap again to retry.
+        </p>
+      )}
+    </div>
+  );
+
   const listContent = (
     <>
       {sortedEvents.length === 0 ? (
-        emptyState
+        <>
+          {emptyState}
+          {canLoadOlderPast && (
+            <>
+              <p className="pt-2 text-center text-xs text-muted-foreground">
+                No matches in the loaded range — older trails may match your filters.
+              </p>
+              {loadOlderControl}
+            </>
+          )}
+        </>
       ) : (
         <div>
           {dateGroups.map((group) => (
@@ -1098,35 +1157,21 @@ export function HarelineView({
               </div>
             </div>
           ))}
-          {hasMore && (
-            <div className="flex flex-col items-center gap-2 py-4">
-              {revealMore ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                >
-                  Show {Math.min(PAGE_SIZE, remaining)} more ({remaining} remaining)
-                </Button>
-              ) : (
-                // Loaded buffer exhausted for the current filters — fetch the
-                // next page of older past events from the server.
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadOlderPastEvents}
-                  disabled={pastServerLoading}
-                >
-                  {pastServerLoading ? "Loading older events…" : "Load older events"}
-                </Button>
-              )}
-              {pastServerError && (
-                <p className="text-xs text-destructive" role="alert">
-                  {pastServerError}. Tap again to retry.
-                </p>
-              )}
+          {revealMore ? (
+            <div className="flex justify-center py-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+              >
+                Show {Math.min(PAGE_SIZE, remaining)} more ({remaining} remaining)
+              </Button>
             </div>
-          )}
+          ) : canLoadOlderPast ? (
+            // Loaded buffer exhausted for the current filters — fetch the next
+            // page of older past events from the server.
+            loadOlderControl
+          ) : null}
         </div>
       )}
     </>

@@ -524,12 +524,16 @@ export async function loadEventsForTimeMode(
  * `PAST_EVENTS_LIMIT` (a parent + child collapsing to one, possible only in the
  * kennel-filtered branch) doesn't prematurely report end-of-list.
  *
- * A genuinely vanished cursor row (hard-deleted between fetches) yields an empty
- * result naturally — Prisma's cursor is a correlated subquery, so a missing id
- * matches no rows → `{ events: [], hasMore: false }`. Real failures (DB timeout,
- * connectivity, schema drift) are intentionally NOT caught: they propagate so
- * the client's `pastServerError` retry UI engages instead of disguising a
- * dependency failure as a normal archive boundary (Codex review).
+ * Error handling is deliberately narrow. Prisma's `cursor` does a lookup on the
+ * cursor row and throws `P2025` when it is missing OR filtered out by `where` —
+ * the latter is routine here, since `reconcile` flips a removed event to
+ * CANCELLED (excluded by `DISPLAY_EVENT_WHERE`) and the cursor is the client's
+ * oldest-held event. Both cases mean "no defined position to continue from", so
+ * they resolve to `{ events: [], hasMore: false }` (a clean archive boundary;
+ * the user can refresh for a fresh buffer). Every OTHER error (DB timeout,
+ * connectivity, schema drift) propagates so the client's `pastServerError`
+ * retry UI engages instead of disguising a dependency failure as end-of-list
+ * (Gemini / Codex review).
  */
 export async function loadMorePastEvents(
   cursorId: string,
@@ -547,17 +551,24 @@ export async function loadMorePastEvents(
   const normalizedKennelIds = normalizeKennelIds(kennelIds);
   const where = buildHarelineWhere({ lt: tomorrowUtc }, normalizedKennelIds);
 
-  // No try/catch: a missing cursor row returns [] (correlated-subquery cursor),
-  // and genuine failures must surface to the client's retry UI rather than be
-  // swallowed as end-of-list (Codex review).
-  const rows = await prisma.event.findMany({
-    where,
-    select: HARELINE_EVENT_SELECT,
-    orderBy: [{ date: "desc" }, { id: "desc" }],
-    cursor: { id: cursorId },
-    skip: 1, // exclude the cursor row itself (already shown by the client)
-    take: PAST_EVENTS_LIMIT,
-  });
+  let rows: HarelineEventRow[];
+  try {
+    rows = await prisma.event.findMany({
+      where,
+      select: HARELINE_EVENT_SELECT,
+      orderBy: [{ date: "desc" }, { id: "desc" }],
+      cursor: { id: cursorId },
+      skip: 1, // exclude the cursor row itself (already shown by the client)
+      take: PAST_EVENTS_LIMIT,
+    });
+  } catch (err) {
+    // Cursor row missing or filtered out of `where` (e.g. it became CANCELLED
+    // between fetches) → P2025. Treat as a clean end-of-list, not an error.
+    if (err && typeof err === "object" && "code" in err && err.code === "P2025") {
+      return { events: [], hasMore: false };
+    }
+    throw err; // genuine DB failures still surface to the retry UI
+  }
   // `hasMore` off the raw count — a full page implies older events remain,
   // even if dedup trims this page's returned length.
   const hasMore = rows.length >= PAST_EVENTS_LIMIT;

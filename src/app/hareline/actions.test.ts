@@ -353,17 +353,18 @@ describe("loadMorePastEvents cursor back-pagination", () => {
   });
 
   it("propagates real query failures (so the client's retry UI engages, not a false end-of-list)", async () => {
-    // A genuinely missing cursor returns [] (correlated-subquery cursor), but a
-    // real dependency failure must surface — it must NOT be disguised as a
+    // A genuine dependency failure must surface — it must NOT be disguised as a
     // normal archive boundary (Codex review).
     mockFindMany.mockRejectedValueOnce(new Error("db timeout"));
 
     await expect(loadMorePastEvents("cursor-id")).rejects.toThrow("db timeout");
   });
 
-  it("returns end-of-list naturally when the cursor row matches nothing (empty result)", async () => {
-    // Missing/hard-deleted cursor → correlated subquery matches no rows → [].
-    mockFindMany.mockResolvedValueOnce([] as never);
+  it("treats a missing/filtered cursor row (P2025) as a clean end-of-list", async () => {
+    // Prisma throws P2025 when the cursor row is missing OR filtered out of
+    // `where` (e.g. it became CANCELLED between fetches) — not a real failure.
+    const err = Object.assign(new Error("Record to constrain not found"), { code: "P2025" });
+    mockFindMany.mockRejectedValueOnce(err);
 
     const res = await loadMorePastEvents("ghost-id");
     expect(res).toEqual({ events: [], hasMore: false });
