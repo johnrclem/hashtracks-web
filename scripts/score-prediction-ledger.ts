@@ -10,6 +10,12 @@
  * actual events vs snapshot coverage, not from snapshot rows, and needs matured cohorts
  * to be meaningful. See the pipeline doc.
  *
+ * NOTE for the future recall implementation: a real event on a weekday covered by an
+ * active LOW `CADENCE=…` sentinel (an occasional secondary day, e.g. Desert H3's
+ * cooler-months Sunday) is intentionally NOT date-predicted — it must be counted as
+ * "cadence-covered", NOT a recall false-negative, or the honest possible-activity model
+ * gets penalised. See docs/prediction-mixed-cadence-proposal.md (Change 2).
+ *
  * Until cohorts mature (~weeks/months after the cron starts) most rows are PENDING, so
  * precision is sparse by design. Output: docs/audits/prediction-ledger-<date>.md.
  *

@@ -18,6 +18,16 @@
  */
 export interface KennelScheduleRuleSeed {
   rrule: string;             // e.g. "FREQ=WEEKLY;BYDAY=WE", "FREQ=MONTHLY;BYDAY=1SA"
+  /**
+   * Confidence override. Defaults to HIGH for a parseable RRULE (the seed author
+   * wrote it explicitly). Set LOW for a non-projectable CADENCE sentinel
+   * (`CADENCE=WEEKLY|BIWEEKLY|MONTHLY;BYDAY=XX`, `FREQ=LUNAR`) — Pass 3 stores it
+   * verbatim and the projection engine renders it as "possible activity"
+   * (date=null), never a specific date. Lets a kennel carry a dominant dated day
+   * PLUS an occasional secondary weekday on the same kennel (e.g. Desert H3:
+   * MEDIUM Monday + LOW occasional-Sunday). See docs/prediction-mixed-cadence-proposal.md.
+   */
+  confidence?: "HIGH" | "MEDIUM" | "LOW";
   startTime?: string;        // "HH:MM" 24h
   label?: string;            // "Summer", "Winter", "Full Moon Special"
   validFrom?: string;        // "MM-DD"
@@ -5479,15 +5489,23 @@ export const KENNELS: KennelSeed[] = [
       country: "United Arab Emirates", // canonical NAME (convention) — code "AE" lives in region.ts
       website: "https://www.deserthash.org/",
       foundedYear: 1979, // March 1979 — gotothehash "In the Spotlight UAE" + run-# corroboration; medium-high confidence, flag
-      // Flat schedule (NOT scheduleRules): the real cadence is weekly but the run-DAY
-      // alternates Monday-evening ⇄ Sunday-afternoon by season/daylight (verified from
-      // the Hare Line: 29 Mondays / 20 Sundays over 12 months, no clean season boundary).
-      // A HIGH Monday scheduleRule would overstate confidence AND opt the kennel out of
-      // the Pass-2 observed-history derivation we want to leverage; flat fields keep it in
-      // Pass 2 (MEDIUM Monday weekly). See docs/prediction-mixed-cadence-proposal.md.
+      // Mixed per-weekday cadence (docs/prediction-mixed-cadence-proposal.md): the
+      // run is weekly but the DAY alternates Monday-evening ⇄ Sunday-afternoon by
+      // season/daylight (Hare Line: 29 Mondays / 20 Sundays over 12 months, no clean
+      // season boundary). Modeled as a dominant MEDIUM dated Monday + an occasional
+      // LOW Sunday CADENCE sentinel: the Monday projects specific (verify-closer) dates;
+      // the Sunday renders as "possible activity" (date=null) and is NEVER snapshotted,
+      // so it can't pollute prediction precision. Flat fields below remain for legacy
+      // kennel-page display fallback.
       scheduleDayOfWeek: "Monday",
       scheduleTime: "7:00 PM", // 12-hr seed format; RawEventData.startTime stays 24-hr "19:00"
       scheduleFrequency: "Weekly",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "19:00", confidence: "MEDIUM", label: "Monday evening (most weeks)", displayOrder: 0 },
+        // Occasional cooler-months Sunday — start varies 14:00–18:00 by daylight, so no
+        // startTime. LOW sentinel → possible-activity, never a dated/snapshotted prediction.
+        { rrule: "CADENCE=WEEKLY;BYDAY=SU", confidence: "LOW", label: "Sunday afternoon (cooler months)", displayOrder: 1 },
+      ],
       scheduleNotes:
         "Mondays at 7:00 PM (arrive 6:45). Switches to the occasional Sunday afternoon in the cooler months, with the start time shifting earlier by daylight (≈2:00–6:00 PM). Walks ~3km year-round.",
       hashCash:

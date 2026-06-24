@@ -469,6 +469,16 @@ function explainSentinel(
       ? `Monthly on a ${dayName}${timeSuffix(startTime)} — specific week unknown`
       : "Monthly schedule — timing varies";
   }
+  if (rrule.startsWith("CADENCE=WEEKLY")) {
+    // An occasional SECONDARY weekday (e.g. Desert H3's cooler-months Sunday)
+    // alongside a dominant dated day — runs some weeks, not every week, so it's
+    // surfaced as possible activity rather than a specific date.
+    const day = extractDayFromSentinel(rrule);
+    const dayName = day ? RRULE_DAY_TO_NAME[day] : null;
+    return dayName
+      ? `Sometimes runs on ${dayName}s${timeSuffix(startTime)} — verify closer to your trip`
+      : "Occasional additional runs — verify closer to your trip";
+  }
   return null;
 }
 

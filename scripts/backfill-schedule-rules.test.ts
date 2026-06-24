@@ -7,6 +7,7 @@ import {
   runKennelSeedPass,
   runKennelDisplayPass,
   applyUpserts,
+  planSeedRule,
 } from "./backfill-schedule-rules";
 import type { KennelScheduleRuleSeed } from "../prisma/seed-data/kennels";
 
@@ -1407,5 +1408,55 @@ describe("applyUpserts — lastValidatedAt update semantics", () => {
     ]);
     expect(upsertCalls).toHaveLength(1);
     expect(upsertCalls[0].update).toHaveProperty("lastValidatedAt", validatedAt);
+  });
+});
+
+describe("planSeedRule — per-rule confidence + CADENCE sentinels", () => {
+  const dbKennel = { id: "k1", kennelCode: "dh3-ae", shortName: "Desert H3" };
+
+  it("accepts a CADENCE=WEEKLY sentinel verbatim at LOW (never fed to parseRRule)", () => {
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    const result = planSeedRule(
+      { rrule: "CADENCE=WEEKLY;BYDAY=SU", confidence: "LOW", label: "Sunday afternoon" },
+      dbKennel,
+      "dh3-ae",
+      planned,
+      {},
+    );
+    expect(result).toBe("emitted");
+    expect(planned).toHaveLength(1);
+    expect(planned[0].rrule).toBe("CADENCE=WEEKLY;BYDAY=SU");
+    expect(planned[0].confidence).toBe("LOW");
+  });
+
+  it("honors an explicit MEDIUM confidence on a parseable rule", () => {
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    planSeedRule(
+      { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "19:00", confidence: "MEDIUM" },
+      dbKennel,
+      "dh3-ae",
+      planned,
+      {},
+    );
+    expect(planned[0].rrule).toBe("FREQ=WEEKLY;BYDAY=MO");
+    expect(planned[0].confidence).toBe("MEDIUM");
+  });
+
+  it("defaults a parseable rule to HIGH when confidence is omitted", () => {
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    planSeedRule({ rrule: "FREQ=WEEKLY;BYDAY=MO" }, dbKennel, "dh3-ae", planned, {});
+    expect(planned[0].confidence).toBe("HIGH");
+  });
+
+  it("forces LOW on a sentinel even if a non-LOW confidence is declared", () => {
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    planSeedRule(
+      { rrule: "CADENCE=MONTHLY;BYDAY=SA", confidence: "HIGH" },
+      dbKennel,
+      "dh3-ae",
+      planned,
+      {},
+    );
+    expect(planned[0].confidence).toBe("LOW");
   });
 });

@@ -146,6 +146,18 @@ describe("projectTrails", () => {
     expect(results[0].confidence).toBe("low");
   });
 
+  it("CADENCE=WEEKLY sentinel emits date=null (occasional secondary weekday, never snapshotted)", () => {
+    const rules = [makeRule({
+      rrule: "CADENCE=WEEKLY;BYDAY=SU",
+      confidence: "LOW",
+    })];
+    const results = projectTrails(rules, windowStart, windowEnd);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].date).toBeNull();
+    expect(results[0].confidence).toBe("low");
+  });
+
   it("unparseable RRULE falls back to LOW with date=null instead of crashing", () => {
     const rules = [makeRule({
       rrule: "FREQ=YEARLY;BYDAY=SA",
@@ -451,6 +463,15 @@ describe("generateExplanationFromRule", () => {
     expect(explanation).toContain("Monthly");
     expect(explanation).toContain("Saturday");
     expect(explanation).toContain("specific week unknown");
+  });
+
+  it("CADENCE=WEEKLY → 'Sometimes runs Sundays' (occasional secondary weekday)", () => {
+    const explanation = generateExplanationFromRule(makeRule({
+      rrule: "CADENCE=WEEKLY;BYDAY=SU",
+      confidence: "LOW",
+    }));
+    expect(explanation).toContain("Sometimes");
+    expect(explanation).toContain("Sunday");
   });
 
   it("includes startTime when present", () => {

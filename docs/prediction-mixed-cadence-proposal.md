@@ -1,7 +1,7 @@
 # Proposal: model a "mixed per-weekday cadence" in Travel-Mode prediction
 
-**Status:** proposal (design only — implementation deferred to a follow-up PR).
-**Motivating data:** Desert H3 (Dubai), onboarded in the same PR as this doc.
+**Status:** **Change 1 SHIPPED** (per-rule confidence + Pass-3 CADENCE sentinels + projection rendering + Desert H3 re-seed). **Change 2 (recall) remains deferred** — it depends on a recall computation that does not exist yet (`scripts/score-prediction-ledger.ts` computes precision only; recall is an explicit deferred follow-up there). Precision is already protected by Change 1 (see below).
+**Motivating data:** Desert H3 (Dubai), onboarded in #2294.
 **Owner area:** `src/lib/travel/projections.ts`, `scripts/backfill-schedule-rules.ts`, `src/pipeline/prediction-ledger.ts`, `scripts/score-prediction-ledger.ts`, `prisma/seed-data/kennels.ts`.
 
 ---
@@ -76,72 +76,77 @@ Three mechanisms, each verified against the code:
 
 And on the scoring side: the ledger only snapshots **date-bearing** HIGH/MEDIUM projections
 (`src/pipeline/prediction-ledger.ts:250` skips `!proj.date`), so a LOW `CADENCE=…` sentinel —
-which projects "possible activity" with `date: null` (`projections.ts:212`) — never enters the
-precision metric. Good. **But recall** is computed from actual events lacking a covering
-snapshot (`scripts/score-prediction-ledger.ts`), so the ~41% of runs that land on the
-unmodelled secondary day count as **recall false-negatives** even though we deliberately chose
-not to predict specific dates for them. The metric punishes the honest choice.
+which projects "possible activity" with `date: null` (`projections.ts`) — never enters the
+precision metric. **This is the key protection, and Change 1 alone secures it.** A recall metric
+(real runs we failed to predict) *would* otherwise count the ~41% of runs on the unmodelled
+secondary day as false-negatives — but recall is **not implemented today** (`score-prediction-ledger.ts`
+computes precision only and flags recall as a deferred follow-up), so there is no denominator to
+fix yet. Change 2 is the design note for when recall is built.
 
 ---
 
 ## 4. Proposal
 
-### Change 1 — *express* the mixed cadence
+### Change 1 — *express* the mixed cadence  ✅ SHIPPED
 
-- Add an optional `confidence?: ScheduleConfidence` to `KennelScheduleRuleSeed`
-  (`prisma/seed-data/kennels.ts`). Default stays `HIGH` (current behaviour) so no existing seed
-  changes.
-- Teach **Pass 3** (`runKennelSeedPass`) to accept `CADENCE=…` sentinel rrules: when the rule's
-  rrule is a sentinel, **skip `parseRRule` validation** (which throws on `CADENCE=…` today) and
-  honour the rule's `confidence` (LOW for sentinels) — mirroring how Pass 2 already emits them.
+- ✅ Added optional `confidence?: "HIGH" | "MEDIUM" | "LOW"` to `KennelScheduleRuleSeed`
+  (`prisma/seed-data/kennels.ts`). Defaults to `HIGH` for a parseable RRULE (no existing seed changes).
+- ✅ **Pass 3** (`planSeedRule` in `scripts/backfill-schedule-rules.ts`) now detects `CADENCE=…` /
+  `FREQ=LUNAR` sentinels (`isCadenceSentinel`), stores them **verbatim** (never `normalizeRRule`,
+  which would reorder `CADENCE` to the tail and break the engine's `startsWith` checks), and forces
+  LOW confidence; parseable rules honour `rule.confidence ?? "HIGH"`.
+- ✅ `projections.ts:explainSentinel` renders `CADENCE=WEEKLY;BYDAY=XX` as
+  "Sometimes runs on {Day}s — verify closer to your trip" (projected as a single `date: null`
+  possible-activity entry, like the other sentinels).
 
-This lets a kennel seed a dominant weekday at HIGH **and** a secondary weekday as a LOW
-sentinel on the same row set, e.g.:
+A kennel can now carry a dominant dated day **and** an occasional LOW secondary weekday on the
+same row set. Desert H3 ships as:
 
 ```ts
 scheduleRules: [
-  { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "19:00", confidence: "HIGH", label: "Monday evening" },
-  // NEW LOW sentinel: "also runs some Sundays" — projects "possible activity", never a fixed date.
+  { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "19:00", confidence: "MEDIUM", label: "Monday evening (most weeks)" },
+  // LOW sentinel: "sometimes Sundays" — possible activity, never a fixed/snapshotted date.
   { rrule: "CADENCE=WEEKLY;BYDAY=SU", confidence: "LOW", label: "Sunday afternoon (cooler months)" },
 ],
 ```
 
-`CADENCE=WEEKLY;BYDAY=SU` is a small addition to the sentinel family
-(`CADENCE=BIWEEKLY`/`CADENCE=MONTHLY`) handled in `projections.ts:explainSentinel` — rendered as
-"Sometimes runs Sundays — verify closer to your trip", projected as a single `date: null`
-possible-activity entry. Because LOW sentinels are never date-scored, the secondary day adds
-**zero** false MISSes to precision.
+Monday is **MEDIUM, not HIGH** — it's the plurality (59%) but not every week, so HIGH would
+overstate it. End-to-end projection (verified): four dated MEDIUM Mondays over four weeks +
+one `date: null` "Sometimes runs on Sundays" possible-activity. Because LOW sentinels are never
+date-scored, the Sunday adds **zero** false MISSes to precision.
 
 *Alternative considered (Design B):* a single multi-`BYDAY` "one run per week on MO **or** SU"
-rule where the engine picks the day per week (by season or most-recent-observed). More
-expressive but materially more engine complexity; Design A reuses existing LOW-sentinel
-plumbing and is the recommended first step.
+rule where the engine picks the day per week. More expressive but materially more engine
+complexity; Design A reuses the existing LOW-sentinel plumbing and is what shipped.
 
-### Change 2 — *measure* it fairly
+### Change 2 — *measure* it fairly  ⏸ DEFERRED (blocked on recall existing)
 
-In the recall computation (`scripts/score-prediction-ledger.ts`): when a kennel has an active
-LOW `CADENCE=…` sentinel covering weekday *W*, **exclude actual events on weekday *W* from the
-recall false-negative denominator** (or bucket them as "cadence-covered, intentionally not
-date-predicted"). Optionally add a lightweight **cadence-confirmation** rate — how often the
-sentinel's weekday actually saw a run — so the secondary cadence is *observed* without being
-*date-scored*. This stops the honest "don't guess the Sunday date" choice from tanking recall.
+Recall is **not implemented** — `scripts/score-prediction-ledger.ts` computes precision only and
+explicitly flags recall as a deferred follow-up. There is no recall denominator to fix today, so
+building this now would be speculative against non-existent code. Precision is already protected
+by Change 1 (LOW sentinels never snapshotted), which was the actual pollution risk.
+
+When recall **is** built, it must treat a real event on a weekday covered by an active LOW
+`CADENCE=…` sentinel as **"cadence-covered", not a false-negative** (optionally tracking a
+lightweight cadence-confirmation rate). A forward-looking note to that effect is left in
+`scripts/score-prediction-ledger.ts` so the future implementer sees it where recall will live.
 
 ---
 
-## 5. What ships now (interim) vs the follow-up
+## 5. Status & history
 
-**Now (this PR):** Desert H3 is seeded with **flat fields only** — `scheduleDayOfWeek: "Monday"`,
-`scheduleFrequency: "Weekly"`, plus a `scheduleNotes` line describing the seasonal Sunday-afternoon
-shift. Deliberately **no `scheduleRules` array**, because (a) a HIGH Monday rule would overstate
-confidence given Monday is only 59% of runs, and (b) seeding `scheduleRules` would opt the kennel
-**out** of the Pass-2 derivation this proposal wants to build on. Flat fields keep it in Pass 2
-(a MEDIUM Monday-weekly rule) — clean, no over-projection, the Sunday simply isn't date-predicted
-yet. The full 2018–2021 venue history is backfilled so the empirical pattern is in the DB.
+**Onboarding (#2294):** Desert H3 shipped with **flat fields only** (Pass-2 MEDIUM Monday rule), the
+Sunday shift in `scheduleNotes`, and the full 2018–2021 venue history backfilled — a clean interim
+that didn't over-project while this enhancement was designed.
 
-**Follow-up (greenlit separately):** implement Change 1 + Change 2, then re-seed Desert H3 with the
-explicit `[HIGH Monday, LOW Sunday-sentinel]` pair. Scope/risk: touches `KennelScheduleRuleSeed`,
-Pass 3, and the ledger recall path — all of which feed the whole kennel corpus, so it warrants its
-own focused PR with its own tests (Pass-3 sentinel acceptance, recall-denominator exclusion).
+**This change:** Change 1 implemented (per-rule confidence + Pass-3 sentinel acceptance + projection
+rendering) with TDD (`planSeedRule` + `projectTrails`/`explainSentinel` tests), and Desert H3
+re-seeded with the explicit `[MEDIUM Monday, LOW Sunday-sentinel]` pair. The kennel page + Travel
+Mode now surface "usually Mondays 7 PM" as dated MEDIUM projections plus "sometimes Sundays" as
+possible activity. **Post-merge: `npx prisma db seed` re-runs Pass 3** to write the two rules to prod
+(replacing the interim single Pass-2 Monday rule).
+
+**Still open:** Change 2 (recall) — deferred until a recall metric is built (see §4).
 
 ---
 
