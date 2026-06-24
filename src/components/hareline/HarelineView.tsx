@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -288,6 +288,22 @@ function dropLoadedSeriesChildren(events: HarelineEvent[]): HarelineEvent[] {
   if (!events.some((e) => e.parentEventId)) return events;
   const ids = new Set(events.map((e) => e.id));
   return events.filter((e) => !e.parentEventId || !ids.has(e.parentEventId));
+}
+
+/**
+ * Append a freshly fetched older-past page onto the existing buffer, dropping
+ * any ids already present (defensive against a shifted cursor boundary).
+ * Extracted to a module helper so the `setPastEvents` updater stays shallow
+ * (avoids deeply nested callbacks — SonarCloud S2004).
+ */
+function mergeOlderPastEvents(
+  prev: HarelineEvent[] | null,
+  older: HarelineEvent[],
+): HarelineEvent[] {
+  const base = prev ?? [];
+  const seen = new Set(base.map((e) => e.id));
+  const fresh = older.filter((e) => !seen.has(e.id));
+  return fresh.length > 0 ? [...base, ...fresh] : base;
 }
 
 /** Sort events by date (direction depends on timeFilter) then by startTime. */
@@ -722,12 +738,7 @@ export function HarelineView({
     setPastServerError(null);
     loadMorePastEvents(cursorId, pastFetchKennelIds)
       .then(({ events: older, hasMore }) => {
-        setPastEvents((prev) => {
-          const base = prev ?? [];
-          const seen = new Set(base.map((e) => e.id));
-          const fresh = older.filter((e) => !seen.has(e.id));
-          return fresh.length > 0 ? [...base, ...fresh] : base;
-        });
+        setPastEvents((prev) => mergeOlderPastEvents(prev, older));
         // `hasMore` is computed server-side from the raw page size (robust to
         // series-child dedup); the client just trusts it.
         setPastServerHasMore(hasMore);
@@ -1120,6 +1131,28 @@ export function HarelineView({
     </div>
   );
 
+  // List footer: client-side "Show more" while loaded rows remain to reveal,
+  // then the server-side "Load older events" control once the buffer is
+  // exhausted. Computed with if/else rather than a nested ternary (S3358).
+  let listFooter: ReactNode = null;
+  if (revealMore) {
+    listFooter = (
+      <div className="flex justify-center py-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+        >
+          Show {Math.min(PAGE_SIZE, remaining)} more ({remaining} remaining)
+        </Button>
+      </div>
+    );
+  } else if (canLoadOlderPast) {
+    // Loaded buffer exhausted for the current filters — fetch the next page of
+    // older past events from the server.
+    listFooter = loadOlderControl;
+  }
+
   const listContent = (
     <>
       {sortedEvents.length === 0 ? (
@@ -1157,21 +1190,7 @@ export function HarelineView({
               </div>
             </div>
           ))}
-          {revealMore ? (
-            <div className="flex justify-center py-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-              >
-                Show {Math.min(PAGE_SIZE, remaining)} more ({remaining} remaining)
-              </Button>
-            </div>
-          ) : canLoadOlderPast ? (
-            // Loaded buffer exhausted for the current filters — fetch the next
-            // page of older past events from the server.
-            loadOlderControl
-          ) : null}
+          {listFooter}
         </div>
       )}
     </>
