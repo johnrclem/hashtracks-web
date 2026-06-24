@@ -4,8 +4,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     auditFindingDraft: {
       findMany: vi.fn(),
-      updateMany: vi.fn(),
-      update: vi.fn(),
+      updateMany: vi.fn(), // used for both the claim and markDraft
     },
   },
 }));
@@ -28,9 +27,16 @@ import { promoteAuditDrafts } from "./audit-draft-promoter";
 
 const mockFindMany = vi.mocked(prisma.auditFindingDraft.findMany);
 const mockUpdateMany = vi.mocked(prisma.auditFindingDraft.updateMany);
-const mockUpdate = vi.mocked(prisma.auditFindingDraft.update);
 const mockFile = vi.mocked(fileAuditFinding);
 const mockSuppressions = vi.mocked(loadSuppressions);
+
+/** Asserts at least one updateMany call carried `data` matching the given fields
+ *  (markDraft uses updateMany; the claim call carries promoteAttempts, not status). */
+function expectMarkedWith(data: Record<string, unknown>) {
+  expect(mockUpdateMany).toHaveBeenCalledWith(
+    expect.objectContaining({ data: expect.objectContaining(data) }),
+  );
+}
 
 function draft(overrides: Record<string, unknown> = {}) {
   return {
@@ -49,8 +55,7 @@ function draft(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockSuppressions.mockResolvedValue(new Set<string>());
-  mockUpdateMany.mockResolvedValue({ count: 1 } as never); // CAS claim wins by default
-  mockUpdate.mockResolvedValue({} as never);
+  mockUpdateMany.mockResolvedValue({ count: 1 } as never); // CAS claim + marks succeed by default
   mockFile.mockResolvedValue({ action: "created", issueNumber: 42, htmlUrl: "https://x/42" } as never);
 });
 
@@ -60,10 +65,7 @@ describe("promoteAuditDrafts", () => {
     const summary = await promoteAuditDrafts();
     expect(summary.filed).toBe(1);
     expect(mockFile).toHaveBeenCalledTimes(1);
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: "d1" },
-      data: expect.objectContaining({ status: "FILED", issueNumber: 42 }),
-    });
+    expectMarkedWith({ status: "FILED", issueNumber: 42 });
   });
 
   it("marks a recurred outcome RECURRED with the filer tier", async () => {
@@ -77,10 +79,7 @@ describe("promoteAuditDrafts", () => {
     } as never);
     const summary = await promoteAuditDrafts();
     expect(summary.recurred).toBe(1);
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: "d1" },
-      data: expect.objectContaining({ status: "RECURRED", issueNumber: 7, filerTier: "strict" }),
-    });
+    expectMarkedWith({ status: "RECURRED", issueNumber: 7, filerTier: "strict" });
   });
 
   it("suppresses a kennel+rule draft at promotion time without filing", async () => {
@@ -89,10 +88,7 @@ describe("promoteAuditDrafts", () => {
     const summary = await promoteAuditDrafts();
     expect(summary.suppressed).toBe(1);
     expect(mockFile).not.toHaveBeenCalled();
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: "d1" },
-      data: expect.objectContaining({ status: "SUPPRESSED" }),
-    });
+    expectMarkedWith({ status: "SUPPRESSED" });
   });
 
   it("honors a global (null-kennel) suppression", async () => {
@@ -108,10 +104,7 @@ describe("promoteAuditDrafts", () => {
     mockFile.mockResolvedValue({ action: "error", reason: "create-failed" } as never);
     const summary = await promoteAuditDrafts();
     expect(summary.errored).toBe(1);
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: "d1" },
-      data: expect.objectContaining({ status: "ERROR", errorReason: "create-failed" }),
-    });
+    expectMarkedWith({ status: "ERROR", errorReason: "create-failed" });
   });
 
   it("rejects a draft whose kennel was deleted (kennelCode null), never files", async () => {
@@ -159,10 +152,7 @@ describe("promoteAuditDrafts", () => {
     const summary = await promoteAuditDrafts();
     expect(summary.errored).toBe(1);
     expect(summary.filed).toBe(1); // the second draft still got filed
-    expect(mockUpdate).toHaveBeenCalledWith({
-      where: { id: "x" },
-      data: expect.objectContaining({ status: "ERROR", errorReason: "boom" }),
-    });
+    expectMarkedWith({ status: "ERROR", errorReason: "boom" });
   });
 
   it("caps the scan at MAX_PROMOTIONS_PER_RUN", async () => {

@@ -94,4 +94,17 @@ describe("buildDeepDivePrompt", () => {
     });
     expect(promptWithNoSources).toContain("no enabled sources");
   });
+
+  // The completion + finding payload examples must be valid JSON — a placeholder
+  // like `"findingsCount": <number>` would make the agent's copied body malformed
+  // before it reaches the endpoint (CodeRabbit #2298). Substring checks miss this.
+  it("emits valid JSON in every payload example", () => {
+    const jsonBlocks = prompt.match(/```json\n([\s\S]*?)\n```/g);
+    expect(jsonBlocks).not.toBeNull();
+    expect(jsonBlocks?.length ?? 0).toBeGreaterThanOrEqual(2); // finding + completion
+    for (const block of jsonBlocks ?? []) {
+      const inner = block.replace(/^```json\n/, "").replace(/\n```$/, "");
+      expect(() => JSON.parse(inner)).not.toThrow();
+    }
+  });
 });

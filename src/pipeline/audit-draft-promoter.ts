@@ -130,9 +130,12 @@ export async function promoteAuditDrafts(): Promise<PromotionSummary> {
       // the whole batch and strand every later draft. (Gemini high #2298.)
       console.error(`[promote-audit] Unexpected error on draft ${draft.id}:`, err);
       summary.errored += 1;
-      await markDraft(draft.id, "ERROR", {
-        errorReason: err instanceof Error ? err.message : String(err),
-      }).catch((markErr: unknown) => {
+      await markDraft(
+        draft.id,
+        "ERROR",
+        { errorReason: err instanceof Error ? err.message : String(err) },
+        draft.status,
+      ).catch((markErr: unknown) => {
         console.error(`[promote-audit] Failed to mark draft ${draft.id} ERROR:`, markErr);
       });
     }
@@ -225,20 +228,23 @@ async function promoteOneDraft(
 
   if (outcome.action === "created") {
     processedKeys.add(dedupKey);
-    await markDraft(draft.id, "FILED", {
-      issueNumber: outcome.issueNumber,
-      issueUrl: outcome.htmlUrl,
-    });
+    await markDraft(
+      draft.id,
+      "FILED",
+      { issueNumber: outcome.issueNumber, issueUrl: outcome.htmlUrl },
+      draft.status,
+    );
     console.log(`[promote-audit] Filed draft ${draft.id} → issue #${outcome.issueNumber}`);
     return "filed";
   }
   if (outcome.action === "recurred") {
     processedKeys.add(dedupKey);
-    await markDraft(draft.id, "RECURRED", {
-      issueNumber: outcome.issueNumber,
-      issueUrl: outcome.htmlUrl,
-      filerTier: outcome.tier,
-    });
+    await markDraft(
+      draft.id,
+      "RECURRED",
+      { issueNumber: outcome.issueNumber, issueUrl: outcome.htmlUrl, filerTier: outcome.tier },
+      draft.status,
+    );
     console.log(
       `[promote-audit] Recurred (${outcome.tier}) draft ${draft.id} → issue #${outcome.issueNumber}`,
     );
@@ -246,7 +252,7 @@ async function promoteOneDraft(
   }
   // Filer error: leave ERROR (retryable until the cap). Don't add to processedKeys
   // — no issue exists, so a sibling may still legitimately file.
-  await markDraft(draft.id, "ERROR", { errorReason: outcome.reason });
+  await markDraft(draft.id, "ERROR", { errorReason: outcome.reason }, draft.status);
   console.error(`[promote-audit] Filer error on draft ${draft.id}: ${outcome.reason}`);
   return "errored";
 }
@@ -262,9 +268,14 @@ async function markDraft(
   id: string,
   status: "FILED" | "RECURRED" | "SUPPRESSED" | "REJECTED" | "ERROR",
   fields: DraftOutcomeFields,
+  // When set, only transition if the row is STILL in this status. Post-claim
+  // marks pass the claimed status so an admin reject (or any change) that lands
+  // between the claim and the GitHub write is honored — we don't overwrite it
+  // back to FILED/ERROR. (Codex P2 / CodeRabbit Major #2298.)
+  expectedStatus?: "PENDING" | "ERROR",
 ): Promise<void> {
-  await prisma.auditFindingDraft.update({
-    where: { id },
+  const { count } = await prisma.auditFindingDraft.updateMany({
+    where: expectedStatus ? { id, status: expectedStatus } : { id },
     data: {
       status,
       promotedAt: new Date(),
@@ -274,4 +285,9 @@ async function markDraft(
       errorReason: fields.errorReason ?? null,
     },
   });
+  if (expectedStatus && count === 0) {
+    console.warn(
+      `[promote-audit] Draft ${id} changed status during promotion (likely rejected by an admin) — not overwriting to ${status}.`,
+    );
+  }
 }

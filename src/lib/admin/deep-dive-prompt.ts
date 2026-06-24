@@ -31,7 +31,7 @@ export function buildDeepDivePrompt(kennel: DeepDiveCandidate): string {
 
   return `# HashTracks Kennel Deep Dive — ${kennel.shortName}
 
-You are auditing a single kennel end-to-end. Compare what HashTracks has stored against the live source pages and file findings as GitHub issues.
+You are auditing a single kennel end-to-end. Compare what HashTracks has stored against the live source pages and submit verified findings to HashTracks' internal review queue (a trusted server job files the reviewed ones later).
 
 ${AUDIT_AUTHORIZATION_PREAMBLE}
 
@@ -84,7 +84,7 @@ ${renderFilingInstructions({ stream: "chrome-kennel", kennelLabel: kennel.kennel
 
 ## When done
 
-Submit a completion marker to the internal queue — the same non-publishing endpoint you used for findings. You do **not** need to visit \`/admin/audit\` or click anything in the UI.
+Submit a completion marker to the internal queue — the same non-publishing endpoint you used for findings. You do **not** need to visit \`/admin/audit\` or click anything in the UI. Replace the example \`findingsCount\` (3) and \`summary\` below with the real count you submitted for ${kennel.shortName} and a one-line summary.
 
 **POST** \`/api/audit/submit-finding\`
 
@@ -92,8 +92,8 @@ Submit a completion marker to the internal queue — the same non-publishing end
 {
   "kind": "completion",
   "kennelCode": "${kennel.kennelCode}",
-  "findingsCount": <number of findings you submitted for ${kennel.shortName}>,
-  "summary": "<one-line summary of this deep dive>"
+  "findingsCount": 3,
+  "summary": "Checked sources; 3 findings submitted (2 missing hares, 1 stale title)."
 }
 \`\`\`
 

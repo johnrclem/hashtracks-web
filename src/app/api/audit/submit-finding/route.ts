@@ -75,7 +75,8 @@ function isCompletionRequest(v: Record<string, unknown>): v is CompletionRequest
 }
 
 function badRequest(message: string, status = 400): NextResponse {
-  return NextResponse.json({ error: message }, { status });
+  // Consistent API envelope { data, error } for success + failure (CLAUDE.md).
+  return NextResponse.json({ data: null, error: message }, { status });
 }
 
 /** Reject obviously-malformed findings before touching the DB. */
@@ -173,7 +174,9 @@ async function handleCompletion(req: CompletionRequest): Promise<NextResponse> {
       eventsScanned: 0,
       findingsCount: req.findingsCount,
       groupsCount: 0,
-      issuesFiled: req.findingsCount,
+      // This endpoint only QUEUES findings — nothing is filed here. The promotion
+      // cron files them later. Counting them as filed would overstate the metric.
+      issuesFiled: 0,
       findings: [],
       summary: { note: req.summary, viaSubmitEndpoint: true },
     },
