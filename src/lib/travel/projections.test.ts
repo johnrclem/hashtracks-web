@@ -316,7 +316,7 @@ describe("deduplicateAgainstConfirmed", () => {
     expect(result.find((r) => r.kennelId === "k2")).toBeDefined();
   });
 
-  it("keeps null-date projections (possible activity) even if kennel has confirmed events", () => {
+  it("suppresses null-date cadence projections when the kennel has a confirmed event", () => {
     const projections = [
       { kennelId: "k1", date: null, confidence: "low" as const, startTime: null, scheduleRuleId: "r1", explanation: "", evidenceWindow: "" },
     ];
@@ -325,7 +325,22 @@ describe("deduplicateAgainstConfirmed", () => {
     ];
 
     const result = deduplicateAgainstConfirmed(projections, confirmed);
-    expect(result).toHaveLength(1); // null-date should survive
+    // The concrete confirmed run makes the vague "usually runs" hint redundant
+    // (GGFM full-moon possible vs the confirmed Strawberry Moon GGFM run).
+    expect(result).toHaveLength(0);
+  });
+
+  it("keeps null-date cadence projections when the kennel has no confirmed event", () => {
+    const projections = [
+      { kennelId: "k1", date: null, confidence: "low" as const, startTime: null, scheduleRuleId: "r1", explanation: "", evidenceWindow: "" },
+    ];
+    // Confirmed events exist for a DIFFERENT kennel only.
+    const confirmedOtherKennel: ConfirmedEventRef[] = [
+      { kennelId: "k2", date: utcNoon("2026-04-05") },
+    ];
+    expect(deduplicateAgainstConfirmed(projections, confirmedOtherKennel)).toHaveLength(1);
+    // ...and survives when there are no confirmed events at all.
+    expect(deduplicateAgainstConfirmed(projections, [])).toHaveLength(1);
   });
 
   it("handles empty confirmed events array", () => {

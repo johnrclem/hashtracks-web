@@ -59,6 +59,12 @@ interface MockEvent {
   status: string;
   kennel: { latitude: number | null; longitude: number | null } | null;
   eventLinks: { url: string; label: string }[];
+  /** Multi-day series linkage. A child leg sets `parentEventId`; a series
+   *  parent sets `isSeriesParent`. Used to exercise the bare-umbrella filter
+   *  (synthetic detail-less parent vs real promoted leg) + the
+   *  `parentEvent.title` series tie. */
+  parentEventId?: string | null;
+  isSeriesParent?: boolean;
 }
 
 interface MockScheduleRule {
@@ -112,15 +118,24 @@ function createMockPrisma(
           filtered = filtered.filter((e: MockEvent) => e.date <= where.date.lte);
         }
         // Production includes `eventKennels: { select: { kennelId: true } }`
-        // so the result-builder can pivot to the matching co-host. Mirror
-        // that in the mock by attaching the kennel-set on each row.
+        // so the result-builder can pivot to the matching co-host,
+        // `parentEvent: { select: { title: true } }` for the series tie, and
+        // `_count: { select: { childEvents: true } }` for the bare-umbrella
+        // filter. Mirror all three on each returned row.
         return Promise.resolve(
           filtered.map((e) => ({
             ...e,
+            isSeriesParent: e.isSeriesParent ?? false,
             eventKennels: [
               { kennelId: e.kennelId },
               ...(e.coHostKennelIds ?? []).map((id) => ({ kennelId: id })),
             ],
+            parentEvent: e.parentEventId
+              ? { title: events.find((p) => p.id === e.parentEventId)?.title ?? null }
+              : null,
+            _count: {
+              childEvents: events.filter((c) => c.parentEventId === e.id).length,
+            },
           })),
         );
       }),
@@ -239,9 +254,116 @@ describe("executeTravelSearch", () => {
     expect(result.confirmed[0].kennelName).toBe("Atlanta H3");
     expect(result.confirmed[0].distanceTier).toBe("nearby");
     expect(result.emptyState).toBe("none"); // has confirmed results
+    // A normal (non-series) event carries no series tie.
+    expect(result.confirmed[0].seriesParentTitle).toBeNull();
     // broaderRadiusKm must be undefined on primary-only searches or
     // TripSummary will render the "routing revised" expanded-radius UI.
     expect(result.destinations[0].broaderRadiusKm).toBeUndefined();
+  });
+
+  it("hides bare (detail-less) series umbrellas and ties child legs to the series", async () => {
+    // Mirrors the "5-boro Pub Crawl" bug: the umbrella parent has no per-day
+    // detail and must not render as a bare card; only the dated child leg shows,
+    // tagged "Part of: <series>".
+    const seriesParent: MockEvent = {
+      ...testEvent,
+      id: "e-series-parent",
+      title: "5-boro Pub Crawl 2026",
+      runNumber: null,
+      startTime: null,
+      haresText: null,
+      locationName: null,
+      isSeriesParent: true,
+      date: utcNoon("2026-04-18"),
+    };
+    const seriesChild: MockEvent = {
+      ...testEvent,
+      id: "e-series-child",
+      title: "5-boro Pub Crawl - Special #252",
+      runNumber: 252,
+      date: utcNoon("2026-04-19"),
+      parentEventId: "e-series-parent",
+    };
+    const prisma = createMockPrisma([testKennel], [seriesParent, seriesChild], []);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    // Bare umbrella dropped; only the dated child leg renders.
+    expect(result.confirmed).toHaveLength(1);
+    expect(result.confirmed[0].eventId).toBe("e-series-child");
+    expect(result.confirmed[0].seriesParentTitle).toBe("5-boro Pub Crawl 2026");
+  });
+
+  it("keeps a real dated leg that the merge promoted to series parent", async () => {
+    // Regression guard (Codex finding): the merge can make the EARLIEST real
+    // leg the series parent (Hash Rego "earliest by date wins"). It has
+    // children but also carries per-day detail, so it must NOT be hidden — a
+    // blunt `childEvents: { none: {} }` filter would delete this day-1 leg.
+    const realLegParent: MockEvent = {
+      ...testEvent,
+      id: "e-realleg-parent",
+      title: "Weekender Day 1",
+      runNumber: 900,
+      startTime: "10:00", // has per-day detail → real leg, not a bare umbrella
+      haresText: "Just Pat",
+      locationName: "Day 1 Park",
+      isSeriesParent: true,
+      date: utcNoon("2026-04-18"),
+    };
+    const realLegChild: MockEvent = {
+      ...testEvent,
+      id: "e-realleg-child",
+      title: "Weekender Day 2",
+      runNumber: 901,
+      date: utcNoon("2026-04-19"),
+      parentEventId: "e-realleg-parent",
+    };
+    const prisma = createMockPrisma([testKennel], [realLegParent, realLegChild], []);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    // Both legs render; neither is dropped.
+    expect(result.confirmed).toHaveLength(2);
+    expect(result.confirmed.map((r) => r.eventId).sort()).toEqual([
+      "e-realleg-child",
+      "e-realleg-parent",
+    ]);
+  });
+
+  it("suppresses a cadence possible for a co-hosted confirmed event (pivot kennel)", async () => {
+    // Confirmed event's PRIMARY kennel is far (London); the nearby kennel is a
+    // co-host. The confirmed card renders under the co-host, so the co-host's
+    // dateless cadence projection must be suppressed even though it is not the
+    // event's primary kennelId.
+    const londonKennel: MockKennel = {
+      ...testKennel,
+      id: "k-london",
+      slug: "london-h3",
+      shortName: "London H3",
+      latitude: 51.5,
+      longitude: -0.13,
+    };
+    const coHostEvent: MockEvent = {
+      ...testEvent,
+      id: "e-cohost-confirmed",
+      kennelId: "k-london", // primary far from Atlanta
+      coHostKennelIds: ["k-atl"], // co-host in range
+    };
+    // A LOW/cadence rule for the Atlanta co-host → dateless "possible".
+    const cadenceRule: MockScheduleRule = {
+      ...testRule,
+      id: "r-cadence",
+      kennelId: "k-atl",
+      rrule: "FREQ=MONTHLY;BYDAY=1FR",
+      confidence: "LOW",
+      notes: "Full moon schedule",
+    };
+    const prisma = createMockPrisma([testKennel, londonKennel], [coHostEvent], [cadenceRule]);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    // Confirmed renders under the Atlanta co-host…
+    expect(result.confirmed).toHaveLength(1);
+    expect(result.confirmed[0].kennelId).toBe("k-atl");
+    // …and the co-host's vague cadence "possible" is deduped away.
+    expect(result.possible.some((p) => p.kennelId === "k-atl")).toBe(false);
   });
 
   it("pivots co-host events onto the matching nearby kennel (#1023 step 5)", async () => {

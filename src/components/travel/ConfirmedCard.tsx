@@ -10,6 +10,7 @@ import {
   MapPin,
   Users,
   CornerDownRight,
+  CalendarRange,
 } from "lucide-react";
 import { getConditionEmoji, cToF } from "@/lib/weather-display";
 import { formatDistanceWithWalk } from "@/lib/travel/format";
@@ -67,6 +68,7 @@ interface ConfirmedCardProps {
       precipProbability: number;
     } | null;
     attendance: { status: string; participationLevel: string } | null;
+    seriesParentTitle?: string | null;
   };
 }
 
@@ -167,6 +169,16 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
             )}
           </div>
         </div>
+
+        {/* Series tie: this leg belongs to a multi-day event (parent umbrella
+            is hidden in Travel Mode) — surface the connection so adjacent legs
+            read as one event rather than near-duplicate cards. */}
+        {result.seriesParentTitle && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
+            <CalendarRange className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">Part of: {result.seriesParentTitle}</span>
+          </div>
+        )}
 
         {/* Row 2: attribution (kennel · region · run#) + source icons */}
         <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground/80">
