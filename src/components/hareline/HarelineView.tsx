@@ -1116,7 +1116,7 @@ export function HarelineView({
       <Button
         variant="outline"
         size="sm"
-        onClick={() => { void loadOlderPastEvents(); }}
+        onClick={loadOlderPastEvents}
         disabled={pastServerLoading}
       >
         {pastServerLoading ? "Loading older events…" : "Load older events"}
