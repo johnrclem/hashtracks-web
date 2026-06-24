@@ -167,12 +167,18 @@ async function fetchArchive(): Promise<ParsedPost[]> {
 async function fetchEvents(): Promise<RawEventData[]> {
   console.log(`Walking ${ARCHIVE_BASE} (paged) …`);
   const parsed = await fetchArchive();
+  // Fail loud on a zero parse (markup drift / first-page fetch failure) — the
+  // check is on the RAW parsed array, before the stray filter, so an empty
+  // result throws (non-zero exit) instead of a silent "0 events" success.
+  if (parsed.length === 0) {
+    throw new Error("No run posts parsed — the ?cat=3 archive markup may have changed or the fetch failed.");
+  }
   const stray = parsed
     .filter((p) => p.runNumber < MAIN_SERIES_MIN)
     .sort((a, b) => a.runNumber - b.runNumber);
   if (stray.length > 0) {
-    console.log(`\nExcluding ${stray.length} stray sub-series post(s) (runNumber < ${MAIN_SERIES_MIN}; COVID "Virtual DH3"):`);
-    for (const s of stray) console.log(`  - Run ${s.runNumber} (${s.event.date}) ${s.event.location ?? ""}`);
+    console.warn(`\nExcluding ${stray.length} stray sub-series post(s) (runNumber < ${MAIN_SERIES_MIN}; COVID "Virtual DH3"):`);
+    for (const s of stray) console.warn(`  - Run ${s.runNumber} (${s.event.date}) ${s.event.location ?? ""}`);
   }
   return parsed.filter((p) => p.runNumber >= MAIN_SERIES_MIN).map((p) => p.event);
 }
