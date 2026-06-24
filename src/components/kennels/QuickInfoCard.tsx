@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { formatSchedule, displayDomain, type ScheduleSlot } from "@/lib/format";
 import { SocialLinks } from "@/components/kennels/SocialLinks";
 import {
@@ -11,7 +10,6 @@ import {
   Landmark,
   Dog,
   Footprints,
-  ChevronDown,
   Crown,
   Megaphone,
   PartyPopper,
@@ -57,8 +55,6 @@ interface QuickInfoCardProps {
   regionColor?: string;
 }
 
-const DESC_TRUNCATE_LENGTH = 200;
-
 function ProfileInfoRow({ icon: Icon, label, value }: Readonly<{ icon: LucideIcon; label: string; value: string }>) {
   return (
     <div className="flex items-center gap-2.5 text-sm">
@@ -69,7 +65,6 @@ function ProfileInfoRow({ icon: Icon, label, value }: Readonly<{ icon: LucideIco
 }
 
 export function QuickInfoCard({ kennel, parentKennel, regionColor }: Readonly<QuickInfoCardProps>) {
-  const [descExpanded, setDescExpanded] = useState(false);
   const schedule = formatSchedule(kennel);
 
   const hasInfoData =
@@ -96,8 +91,6 @@ export function QuickInfoCard({ kennel, parentKennel, regionColor }: Readonly<Qu
     kennel.contactName;
 
   const hasDescription = !!kennel.description;
-  const descIsLong =
-    kennel.description && kennel.description.length > DESC_TRUNCATE_LENGTH;
 
   if (!hasInfoData && !hasSocialData && !hasDescription) return null;
 
@@ -218,25 +211,9 @@ export function QuickInfoCard({ kennel, parentKennel, regionColor }: Readonly<Qu
             {hasInfoData && (
               <hr className="border-border/40" />
             )}
-            <div>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {descIsLong && !descExpanded
-                  ? kennel.description!.slice(0, DESC_TRUNCATE_LENGTH) + "..."
-                  : kennel.description}
-              </p>
-              {descIsLong && (
-                <button
-                  type="button"
-                  className="mt-1 inline-flex items-center gap-0.5 text-xs font-medium text-primary hover:underline"
-                  onClick={() => setDescExpanded(!descExpanded)}
-                >
-                  {descExpanded ? "Show less" : "Read more"}
-                  <ChevronDown
-                    className={`h-3 w-3 transition-transform ${descExpanded ? "rotate-180" : ""}`}
-                  />
-                </button>
-              )}
-            </div>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {kennel.description}
+            </p>
           </>
         )}
 
