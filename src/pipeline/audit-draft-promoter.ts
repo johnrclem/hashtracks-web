@@ -18,7 +18,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import { fileAuditFinding } from "./audit-filer";
+import { fileAuditFinding, type FilerActions } from "./audit-filer";
 import { buildCronActions } from "./audit-issue";
 import { loadSuppressions } from "./audit-runner";
 import { buildCanonicalBlock } from "@/lib/audit-canonical";
@@ -113,118 +113,23 @@ export async function promoteAuditDrafts(): Promise<PromotionSummary> {
     deferred: 0,
   };
 
-  // In-run dedup guard. Two PENDING drafts that map to the SAME GitHub issue —
-  // same fingerprint, or same kennel+rule for non-fingerprintable rules — can't
-  // both be filed in one batch: the first creates an issue that isn't in the
-  // AuditIssue mirror yet (the sync cron hasn't run), so `fileAuditFinding`'s
-  // strict tier would miss it and the second draft would fork a DUPLICATE issue.
-  // Defer the sibling to a later run, by which point the sync has mirrored the
-  // first issue and the filer routes it to a recurrence instead. (Codex P2 #2298.)
+  // In-run dedup guard (mutated by promoteOneDraft). Two PENDING drafts that map
+  // to the SAME GitHub issue — same fingerprint, or same kennel+rule for
+  // non-fingerprintable rules — can't both be filed in one batch: the first
+  // creates an issue that isn't in the AuditIssue mirror yet (the sync cron hasn't
+  // run), so `fileAuditFinding`'s strict tier would miss it and the second draft
+  // would fork a DUPLICATE. Defer the sibling to a later run. (Codex P2 #2298.)
   const processedKeys = new Set<string>();
 
   for (const draft of drafts) {
     try {
-      // A draft with no kennel (kennel deleted → FK SET NULL) can't be filed.
-      if (!draft.kennelCode) {
-        await markDraft(draft.id, "REJECTED", { errorReason: "missing-kennel" });
-        summary.rejected++;
-        continue;
-      }
-
-      // Suppression filter at promotion time — the enforcement point. A suppressed
-      // kennel+rule (or global rule) draft is marked SUPPRESSED and never filed,
-      // strictly safer than the old path where the agent filed directly.
-      if (
-        suppressions.has(`${draft.kennelCode}::${draft.ruleSlug}`) ||
-        suppressions.has(`::${draft.ruleSlug}`)
-      ) {
-        await markDraft(draft.id, "SUPPRESSED", {});
-        summary.suppressed++;
-        continue;
-      }
-
-      // Dedup key: the filer fingerprint when the rule is fingerprintable, else a
-      // coarse kennel+rule key (matches what fileAuditFinding's coarse tier would
-      // collapse). If a sibling was already processed this run, defer this one.
-      const canonical = buildCanonicalBlock({
-        stream: draft.stream,
-        kennelCode: draft.kennelCode,
-        ruleSlug: draft.ruleSlug,
-      });
-      const dedupKey =
-        canonical?.fingerprint ?? `coarse:${draft.kennelCode}:${draft.ruleSlug}`;
-      if (processedKeys.has(dedupKey)) {
-        summary.deferred++;
-        continue; // leave PENDING; next run (post-sync) routes it as a recurrence
-      }
-
-      // Optimistic-lock claim: guard on the observed (status, promoteAttempts) so
-      // (a) two concurrent promoters can't both process this row (promoteAttempts
-      // changes, so the loser's WHERE no longer matches), and (b) a draft an admin
-      // rejected between our read and this claim is no longer PENDING → claim
-      // misses → we skip it instead of publishing a rejected finding. (Codex P2 #2298.)
-      const claim = await prisma.auditFindingDraft.updateMany({
-        where: {
-          id: draft.id,
-          status: draft.status,
-          promoteAttempts: draft.promoteAttempts,
-        },
-        data: { promoteAttempts: { increment: 1 } },
-      });
-      if (claim.count === 0) continue; // lost the race / rejected — skip
-
-      const labels = [
-        AUDIT_LABEL,
-        ALERT_LABEL,
-        streamLabel(draft.stream),
-        kennelLabel(draft.kennelCode),
-      ];
-
-      const outcome = await fileAuditFinding(
-        {
-          stream: draft.stream,
-          kennelCode: draft.kennelCode,
-          ruleSlug: draft.ruleSlug,
-          title: draft.title,
-          bodyMarkdown: draft.bodyMarkdown,
-          labels,
-        },
-        actions,
-      );
-
-      if (outcome.action === "created") {
-        processedKeys.add(dedupKey);
-        await markDraft(draft.id, "FILED", {
-          issueNumber: outcome.issueNumber,
-          issueUrl: outcome.htmlUrl,
-        });
-        summary.filed++;
-        console.log(`[promote-audit] Filed draft ${draft.id} → issue #${outcome.issueNumber}`);
-      } else if (outcome.action === "recurred") {
-        processedKeys.add(dedupKey);
-        await markDraft(draft.id, "RECURRED", {
-          issueNumber: outcome.issueNumber,
-          issueUrl: outcome.htmlUrl,
-          filerTier: outcome.tier,
-        });
-        summary.recurred++;
-        console.log(
-          `[promote-audit] Recurred (${outcome.tier}) draft ${draft.id} → issue #${outcome.issueNumber}`,
-        );
-      } else {
-        // Filer error: leave the draft as ERROR (retryable next run until the cap).
-        // Do NOT roll back promoteAttempts — the increment is what enforces the cap.
-        // Don't add to processedKeys — no issue exists, so a sibling may still file.
-        await markDraft(draft.id, "ERROR", { errorReason: outcome.reason });
-        summary.errored++;
-        console.error(`[promote-audit] Filer error on draft ${draft.id}: ${outcome.reason}`);
-      }
+      const kind = await promoteOneDraft(draft, actions, suppressions, processedKeys);
+      if (kind !== "skipped") summary[kind] += 1;
     } catch (err) {
       // Failure isolation: an unexpected throw (network/DB hiccup) must not abort
-      // the whole batch and strand every later draft. Record it and move on.
-      // (Gemini high #2298.)
+      // the whole batch and strand every later draft. (Gemini high #2298.)
       console.error(`[promote-audit] Unexpected error on draft ${draft.id}:`, err);
-      summary.errored++;
+      summary.errored += 1;
       await markDraft(draft.id, "ERROR", {
         errorReason: err instanceof Error ? err.message : String(err),
       }).catch((markErr: unknown) => {
@@ -234,6 +139,116 @@ export async function promoteAuditDrafts(): Promise<PromotionSummary> {
   }
 
   return summary;
+}
+
+/** The tallyable outcome of promoting one draft. `skipped` increments nothing
+ *  (CAS claim lost / draft rejected out from under us). */
+type PromotionOutcomeKind =
+  | "filed"
+  | "recurred"
+  | "suppressed"
+  | "rejected"
+  | "errored"
+  | "deferred"
+  | "skipped";
+
+/**
+ * Promote a single draft through the suppression → dedup → claim → file pipeline.
+ * Extracted from the loop to keep `promoteAuditDrafts`' cognitive complexity in
+ * check (Sonar S3776). Mutates `processedKeys` for the in-run dedup guard and
+ * returns the outcome the caller tallies. Unexpected throws propagate to the
+ * caller's per-draft try/catch.
+ */
+async function promoteOneDraft(
+  draft: PromotableDraft,
+  actions: FilerActions,
+  suppressions: Set<string>,
+  processedKeys: Set<string>,
+): Promise<PromotionOutcomeKind> {
+  // A draft with no kennel (kennel deleted → FK SET NULL) can't be filed.
+  if (!draft.kennelCode) {
+    await markDraft(draft.id, "REJECTED", { errorReason: "missing-kennel" });
+    return "rejected";
+  }
+
+  // Suppression filter at promotion time — the enforcement point. A suppressed
+  // kennel+rule (or global rule) draft is marked SUPPRESSED and never filed.
+  if (
+    suppressions.has(`${draft.kennelCode}::${draft.ruleSlug}`) ||
+    suppressions.has(`::${draft.ruleSlug}`)
+  ) {
+    await markDraft(draft.id, "SUPPRESSED", {});
+    return "suppressed";
+  }
+
+  // Dedup key: filer fingerprint when fingerprintable, else a coarse kennel+rule
+  // key. A sibling already processed this run is deferred (left PENDING).
+  const canonical = buildCanonicalBlock({
+    stream: draft.stream,
+    kennelCode: draft.kennelCode,
+    ruleSlug: draft.ruleSlug,
+  });
+  const dedupKey =
+    canonical?.fingerprint ?? `coarse:${draft.kennelCode}:${draft.ruleSlug}`;
+  if (processedKeys.has(dedupKey)) return "deferred";
+
+  // Optimistic-lock claim on (status, promoteAttempts): a concurrent promoter or
+  // an admin reject between our read and here flips one of them, so the claim
+  // misses and we skip rather than double-process / publish a rejected finding.
+  const claim = await prisma.auditFindingDraft.updateMany({
+    where: {
+      id: draft.id,
+      status: draft.status,
+      promoteAttempts: draft.promoteAttempts,
+    },
+    data: { promoteAttempts: { increment: 1 } },
+  });
+  if (claim.count === 0) return "skipped";
+
+  const labels = [
+    AUDIT_LABEL,
+    ALERT_LABEL,
+    streamLabel(draft.stream),
+    kennelLabel(draft.kennelCode),
+  ];
+  const outcome = await fileAuditFinding(
+    {
+      stream: draft.stream,
+      kennelCode: draft.kennelCode,
+      ruleSlug: draft.ruleSlug,
+      title: draft.title,
+      bodyMarkdown: draft.bodyMarkdown,
+      labels,
+    },
+    actions,
+  );
+
+  if (outcome.action === "created") {
+    processedKeys.add(dedupKey);
+    await markDraft(draft.id, "FILED", {
+      issueNumber: outcome.issueNumber,
+      issueUrl: outcome.htmlUrl,
+    });
+    console.log(`[promote-audit] Filed draft ${draft.id} → issue #${outcome.issueNumber}`);
+    return "filed";
+  }
+  if (outcome.action === "recurred") {
+    processedKeys.add(dedupKey);
+    await markDraft(draft.id, "RECURRED", {
+      issueNumber: outcome.issueNumber,
+      issueUrl: outcome.htmlUrl,
+      filerTier: outcome.tier,
+    });
+    console.log(
+      `[promote-audit] Recurred (${outcome.tier}) draft ${draft.id} → issue #${outcome.issueNumber}`,
+    );
+    return "recurred";
+  }
+  // Filer error: leave ERROR (retryable until the cap). Don't add to processedKeys
+  // — no issue exists, so a sibling may still legitimately file.
+  await markDraft(draft.id, "ERROR", { errorReason: outcome.reason });
+  console.error(`[promote-audit] Filer error on draft ${draft.id}: ${outcome.reason}`);
+  return "errored";
 }
 
 interface DraftOutcomeFields {
