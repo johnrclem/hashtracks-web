@@ -1,0 +1,307 @@
+/**
+ * Desert Hash House Harriers (Dubai, UAE) — "DH3" — HTML Scraper
+ *
+ * HashTracks' first United Arab Emirates source. deserthash.org is a
+ * WordPress/Elementor site whose events are published through a Modern Events
+ * Calendar (MEC) widget. The whole WP REST surface (wp-json), The Events
+ * Calendar REST, and the MEC REST endpoint are all disabled, so there is no
+ * config-only path — this is a static Cheerio scrape of two SSR'd surfaces:
+ *
+ *   1. Home page (https://www.deserthash.org/) — the MEC "next event" card(s),
+ *      i.e. the upcoming run(s). One `.mec-event-article` per run, carrying
+ *      `.mec-start-date-label` (DD/MM/YYYY), `.mec-event-time` ("HH:MM - HH:MM"),
+ *      and a title link `?mec-events=dh3-run-NNNN`.
+ *   2. Hare Line (?page_id=5152) — a MEC "agenda" of the last ~50 runs, grouped
+ *      by `.mec-month-divider` blocks that carry the YEAR (via the
+ *      `mec-toggle-YYYYMM` toggle id and a `<h5>Month YYYY</h5>` heading). Each
+ *      agenda day has `.mec-agenda-date` ("Month Day", no year),
+ *      `.mec-start-time`/`.mec-end-time`, and the same run-link shape.
+ *
+ * Both surfaces are YEAR-BEARING (home: DD/MM/YYYY; Hare Line: year from the
+ * month divider) — no year inference. Dates are stored UTC-noon; times "HH:MM".
+ *
+ * TITLE FILTER (mandatory): the same calendar also carries Moonshine H3 runs (a
+ * separate Dubai kennel), and one-off non-runs ("Interhash 2026 – Indonesia").
+ * Only entries whose link text matches `^DH3 – Run NNNN` are ingested under
+ * `dh3-ae`. Numbered runs that happen to be virtual ("… – The War Edition –
+ * ONLINE") are real DH3 runs and are kept (with their trailing theme as title).
+ *
+ * No per-event venue/hares/coords are published for current-era runs (they are
+ * distributed off-site via WhatsApp), and the per-run contact-hare phone number
+ * is PII and deliberately NOT scraped.
+ */
+
+import type { Source } from "@/generated/prisma/client";
+import * as cheerio from "cheerio";
+import type {
+  SourceAdapter,
+  RawEventData,
+  ScrapeResult,
+  ErrorDetails,
+} from "../types";
+import { hasAnyErrors } from "../types";
+import { fetchHTMLPage, applyDateWindow } from "../utils";
+
+const HOME_URL = "https://www.deserthash.org/";
+const HARELINE_PATH = "?page_id=5152";
+const KENNEL_TAG = "dh3-ae";
+const DEFAULT_SCRAPE_DAYS = 365;
+
+const MONTHS = new Map<string, number>([
+  ["january", 1], ["february", 2], ["march", 3], ["april", 4],
+  ["may", 5], ["june", 6], ["july", 7], ["august", 8],
+  ["september", 9], ["october", 10], ["november", 11], ["december", 12],
+]);
+
+// Title filter: "DH3 – Run NNNN" tolerating hyphen / en-dash / em-dash.
+const RUN_TITLE_RE = /^DH3\s*[-–—]\s*Run\s+(\d+)/i;
+// Trailing theme after the run number (kept as the event title when present).
+const RUN_THEME_RE = /^DH3\s*[-–—]\s*Run\s+\d+\s*[-–—]\s*(.+)$/i;
+const TIME_RE = /(\d{1,2}):(\d{2})/;
+// Non-anchored: tolerate surrounding text in `.mec-event-date` (DD/MM/YYYY, UAE locale).
+const DMY_RE = /(\d{1,2})\/(\d{1,2})\/(\d{4})/;
+const TOGGLE_YEAR_RE = /mec-toggle-(\d{4})\d{2}/;
+const YEAR_RE = /(20\d{2})/;
+
+// ---------------------------------------------------------------------------
+// Pure parse helpers (exported for unit testing)
+// ---------------------------------------------------------------------------
+
+/** Normalize a single clock string ("7:05" / "19:00") to "HH:MM", or undefined. */
+export function parseClock(text: string | null | undefined): string | undefined {
+  if (!text) return undefined;
+  const m = TIME_RE.exec(text);
+  if (!m) return undefined;
+  const h = Number.parseInt(m[1], 10);
+  const min = Number.parseInt(m[2], 10);
+  if (h < 0 || h > 23 || min < 0 || min > 59) return undefined;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+/** Split a "HH:MM - HH:MM" range into start/end. End omitted when absent. */
+export function parseTimeRange(
+  text: string | null | undefined,
+): { startTime?: string; endTime?: string } {
+  if (!text) return {};
+  const parts = text.split(/[-–—]/);
+  const startTime = parseClock(parts[0]);
+  const endTime = parts.length > 1 ? parseClock(parts.slice(1).join("-")) : undefined;
+  return { startTime, endTime };
+}
+
+/** Build a UTC-noon "YYYY-MM-DD" string from numeric components, or null. */
+export function isoDate(year: number, month: number, day: number): string | null {
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/**
+ * Title-filter + run number + optional trailing theme from a link's text.
+ * Returns null when the text is not a "DH3 – Run NNNN" entry (drops Moonshine,
+ * Interhash, and any non-run cards). Leaves `title` undefined unless a real
+ * theme trails the run number — merge.ts then synthesizes "Desert H3 Trail #N".
+ */
+export function parseRunTitle(linkText: string): { runNumber: number; title?: string } | null {
+  const text = linkText.replace(/\s+/g, " ").trim();
+  const m = RUN_TITLE_RE.exec(text);
+  if (!m) return null;
+  const runNumber = Number.parseInt(m[1], 10);
+  const theme = RUN_THEME_RE.exec(text)?.[1]?.trim();
+  const title = theme && theme.length > 1 ? theme : undefined;
+  return { runNumber, title };
+}
+
+/** Parse "Month Day" (e.g. "June 22") into numeric month + day. */
+export function parseMonthDay(text: string): { month?: number; day?: number } {
+  let month: number | undefined;
+  let day: number | undefined;
+  for (const tok of text.trim().split(/\s+/)) {
+    const mm = MONTHS.get(tok.toLowerCase());
+    if (mm) {
+      month = mm;
+      continue;
+    }
+    const n = Number.parseInt(tok, 10);
+    if (!Number.isNaN(n) && n >= 1 && n <= 31) day = n;
+  }
+  return { month, day };
+}
+
+function buildEvent(
+  parsed: { runNumber: number; title?: string },
+  date: string,
+  startTime: string | undefined,
+  endTime: string | undefined,
+  href: string | undefined,
+): RawEventData {
+  return {
+    date,
+    kennelTags: [KENNEL_TAG],
+    runNumber: parsed.runNumber,
+    title: parsed.title,
+    startTime,
+    endTime,
+    sourceUrl: href || HOME_URL,
+  };
+}
+
+/**
+ * Parse the home-page MEC card(s) — the upcoming run(s). Each `.mec-event-article`
+ * carries DD/MM/YYYY in `.mec-event-date`, a "HH:MM - HH:MM" `.mec-event-time`,
+ * and a `.mec-event-title` run link.
+ */
+export function parseHomeUpcoming($: cheerio.CheerioAPI): RawEventData[] {
+  const events: RawEventData[] = [];
+  $(".mec-event-article").each((_i, el) => {
+    const $card = $(el);
+    const $link = $card.find(".mec-event-title a").first();
+    const parsed = parseRunTitle($link.text());
+    if (!parsed) return; // title filter
+
+    const dateText = $card.find(".mec-event-date").first().text().trim();
+    const dm = DMY_RE.exec(dateText);
+    if (!dm) return; // year-bearing DD/MM/YYYY required
+    const date = isoDate(
+      Number.parseInt(dm[3], 10),
+      Number.parseInt(dm[2], 10),
+      Number.parseInt(dm[1], 10),
+    );
+    if (!date) return;
+
+    const { startTime, endTime } = parseTimeRange($card.find(".mec-event-time").first().text());
+    events.push(buildEvent(parsed, date, startTime, endTime, $link.attr("href")));
+  });
+  return events;
+}
+
+/** Extract the 4-digit year from a `.mec-month-divider` (toggle id, then heading). */
+function dividerYear(toggleAttr: string | undefined, dividerText: string): number | undefined {
+  const toggle = TOGGLE_YEAR_RE.exec(toggleAttr ?? "");
+  if (toggle) return Number.parseInt(toggle[1], 10);
+  const heading = YEAR_RE.exec(dividerText);
+  return heading ? Number.parseInt(heading[1], 10) : undefined;
+}
+
+/**
+ * Parse the Hare Line agenda — the last ~50 past runs. Month dividers carry the
+ * YEAR; each agenda day block carries "Month Day" + a start/end time + run link.
+ * MEC renders some rows in duplicate skins, so events are deduped by run number.
+ */
+export function parseHareLine($: cheerio.CheerioAPI): RawEventData[] {
+  const byRun = new Map<number, RawEventData>();
+  let currentYear: number | undefined;
+
+  // Walk dividers and day-blocks in document order; a day belongs to the most
+  // recent preceding divider's year.
+  $(".mec-month-divider, .mec-events-agenda").each((_i, el) => {
+    const $el = $(el);
+    if ($el.hasClass("mec-month-divider")) {
+      currentYear = dividerYear($el.attr("data-toggle-divider"), $el.text());
+      return;
+    }
+    if (currentYear == null) return;
+
+    const { month, day } = parseMonthDay($el.find(".mec-agenda-date").first().text());
+    if (!month || !day) return;
+    const date = isoDate(currentYear, month, day);
+    if (!date) return;
+
+    $el.find(".mec-agenda-event").each((_j, row) => {
+      const $row = $(row);
+      const $link = $row.find('a[href*="mec-events="]').first();
+      if ($link.length === 0) return;
+      const parsed = parseRunTitle($link.text());
+      if (!parsed) return; // title filter (drops Moonshine)
+      if (byRun.has(parsed.runNumber)) return; // dedup duplicate skins
+      const startTime = parseClock($row.find(".mec-start-time").first().text());
+      const endTime = parseClock($row.find(".mec-end-time").first().text());
+      byRun.set(parsed.runNumber, buildEvent(parsed, date, startTime, endTime, $link.attr("href")));
+    });
+  });
+
+  return [...byRun.values()];
+}
+
+export class DesertHashAdapter implements SourceAdapter {
+  type = "HTML_SCRAPER" as const;
+
+  async fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
+    const baseUrl = source.url || HOME_URL;
+    const harelineUrl = new URL(HARELINE_PATH, baseUrl).href;
+
+    const [homePage, harelinePage] = await Promise.all([
+      fetchHTMLPage(baseUrl),
+      fetchHTMLPage(harelineUrl),
+    ]);
+
+    const errors: string[] = [];
+    const errorDetails: ErrorDetails = {};
+    let structureHash: string | undefined;
+    let fetchDurationMs = 0;
+    const byRun = new Map<number, RawEventData>();
+
+    const absorbFetchError = (page: { ok: false; result: ScrapeResult }, label: string) => {
+      errors.push(...page.result.errors.map((e) => `${label}: ${e}`));
+      const fetchErrs = page.result.errorDetails?.fetch;
+      if (fetchErrs) (errorDetails.fetch ??= []).push(...fetchErrs);
+    };
+
+    // Hare Line — primary surface (recent ~50 runs).
+    if (harelinePage.ok) {
+      structureHash = harelinePage.structureHash;
+      fetchDurationMs += harelinePage.fetchDurationMs;
+      try {
+        for (const e of parseHareLine(harelinePage.$)) {
+          if (e.runNumber != null) byRun.set(e.runNumber, e);
+        }
+      } catch (err) {
+        errors.push(`Hare Line parse error: ${err}`);
+        (errorDetails.parse ??= []).push({ row: 0, section: "hareline", error: String(err) });
+      }
+    } else {
+      absorbFetchError(harelinePage, "Hare Line");
+    }
+
+    // Home — upcoming run(s). Wins on run-number conflict (it's the live next run).
+    if (homePage.ok) {
+      structureHash ??= homePage.structureHash;
+      fetchDurationMs += homePage.fetchDurationMs;
+      try {
+        for (const e of parseHomeUpcoming(homePage.$)) {
+          if (e.runNumber != null) byRun.set(e.runNumber, e);
+        }
+      } catch (err) {
+        errors.push(`Home parse error: ${err}`);
+        (errorDetails.parse ??= []).push({ row: 0, section: "home", error: String(err) });
+      }
+    } else {
+      absorbFetchError(homePage, "Home");
+    }
+
+    const events = [...byRun.values()];
+
+    // Zero-row fail-loud guard: brand-new single source, baseline fill-rate 0.
+    // Without it a silent `events: []` would let reconcile.ts proceed on partial
+    // data and false-CANCEL live runs. Only fire when no fetch/parse error
+    // already surfaced (those make the scrape fail loud on their own).
+    if (events.length === 0 && !hasAnyErrors(errorDetails)) {
+      const message =
+        "Desert H3 scraper parsed 0 DH3 runs — possible MEC format drift or title-filter regression";
+      errors.push(message);
+      (errorDetails.parse ??= []).push({ row: 0, error: message });
+    }
+
+    const result: ScrapeResult = {
+      events,
+      errors,
+      structureHash,
+      errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
+      diagnosticContext: {
+        eventsParsed: events.length,
+        fetchDurationMs,
+      },
+    };
+
+    return applyDateWindow(result, options?.days ?? source.scrapeDays ?? DEFAULT_SCRAPE_DAYS);
+  }
+}

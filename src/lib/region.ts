@@ -2032,6 +2032,35 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 79.8612,
     aliases: ["Colombo, Sri Lanka", "Colombo, LK"],
   },
+  // ── United Arab Emirates (first UAE country: Desert H3, Dubai's oldest hash,
+  //    est. 1979). 2-level COUNTRY → METRO, no state-province intermediate,
+  //    mirroring Nepal/Sri Lanka/Cambodia. Amber palette — distinct from every
+  //    Asian/Gulf neighbour (Nepal=violet, Sri Lanka=rose, Thailand=orange,
+  //    Malaysia=green); amber's other owners (Belgium, Kenya, Colorado, Nevada,
+  //    New Mexico, US-east) are nowhere near the Gulf on the map. ──
+  {
+    name: "United Arab Emirates",
+    country: "United Arab Emirates",
+    level: "COUNTRY",
+    timezone: "Asia/Dubai",
+    abbrev: "AE",
+    colorClasses: "bg-amber-200 text-amber-800",
+    pinColor: "#d97706",
+    centroidLat: 23.42,
+    centroidLng: 53.85,
+    aliases: ["AE", "UAE", "الإمارات"],
+  },
+  {
+    name: "Dubai",
+    country: "United Arab Emirates",
+    timezone: "Asia/Dubai",
+    abbrev: "DXB",
+    colorClasses: "bg-amber-100 text-amber-700",
+    pinColor: "#f59e0b",
+    centroidLat: 25.2048,
+    centroidLng: 55.2708,
+    aliases: ["Dubai, UAE", "Dubai, United Arab Emirates"],
+  },
   // ── Portugal ──
   {
     name: "Portugal",
@@ -3679,6 +3708,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // "Colombo"); inferCountry() is first-match with USA as the default fallthrough.
   // "Ceylon" deliberately excluded — Ceylon, MN collides; kept only as a region alias.
   [/\b(sri\s*lanka|colombo)\b/, "Sri Lanka"],
+  // United Arab Emirates — country + emirates. All tokens are unambiguous (no
+  // notable US "Dubai"/"Emirates"); inferCountry() is first-match with USA as
+  // the default fallthrough. Maps to the canonical country NAME, not "AE".
+  [/\b(united arab emirates|uae|dubai|abu dhabi|emirates)\b/, "United Arab Emirates"],
   // CJK branch: `\b` is ASCII-only, so Chinese-only location text (e.g. the
   // "新北市, 台灣" venue field on TwH3 events) needs explicit token matching.
   // `[台臺]` unifies the common/formal Tai- forms (台灣/臺灣, 台北/臺北, etc.).
@@ -3919,6 +3952,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Hanoi": "Vietnam",
   // Sri Lanka
   "Colombo": "Sri Lanka",
+  // United Arab Emirates
+  "Dubai": "United Arab Emirates",
   // Portugal
   "Lisbon": "Portugal",
   "Porto": "Portugal",
@@ -4154,6 +4189,9 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Sri Lanka — metro "Colombo" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Sri Lanka" is reachable here (mirrors the Vietnam precedent).
   "Sri Lanka": "Sri Lanka",
+  // United Arab Emirates — metro "Dubai" resolves via STATE_GROUP_MAP first, so
+  // only the country-group key is reachable here (mirrors the Sri Lanka precedent).
+  "United Arab Emirates": "United Arab Emirates",
   // Portugal — metro "Lisbon" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Portugal" is reachable here (mirrors the Spain/France precedent).
   "Portugal": "Portugal",
@@ -4281,6 +4319,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   KH: "Cambodia",
   VN: "Vietnam",
   LK: "Sri Lanka",
+  AE: "United Arab Emirates",
   PT: "Portugal",
   NL: "Netherlands",
   DK: "Denmark",

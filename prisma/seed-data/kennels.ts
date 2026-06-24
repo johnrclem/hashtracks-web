@@ -5470,5 +5470,34 @@ export const KENNELS: KennelSeed[] = [
       latitude: 6.9271,
       longitude: 79.8612,
     },
+    // ── United Arab Emirates (first 🇦🇪 kennel: Desert H3, Dubai's oldest hash) ──
+    {
+      kennelCode: "dh3-ae", // bare "dh3" is taken (Dublin kennelCode; Denver slug); also dh3-tx / dh3-co
+      shortName: "Desert H3",
+      fullName: "Desert Hash House Harriers",
+      region: "Dubai",
+      country: "United Arab Emirates", // canonical NAME (convention) — code "AE" lives in region.ts
+      website: "https://www.deserthash.org/",
+      foundedYear: 1979, // March 1979 — gotothehash "In the Spotlight UAE" + run-# corroboration; medium-high confidence, flag
+      // Flat schedule (NOT scheduleRules): the real cadence is weekly but the run-DAY
+      // alternates Monday-evening ⇄ Sunday-afternoon by season/daylight (verified from
+      // the Hare Line: 29 Mondays / 20 Sundays over 12 months, no clean season boundary).
+      // A HIGH Monday scheduleRule would overstate confidence AND opt the kennel out of
+      // the Pass-2 observed-history derivation we want to leverage; flat fields keep it in
+      // Pass 2 (MEDIUM Monday weekly). See docs/prediction-mixed-cadence-proposal.md.
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "7:00 PM", // 12-hr seed format; RawEventData.startTime stays 24-hr "19:00"
+      scheduleFrequency: "Weekly",
+      scheduleNotes:
+        "Mondays at 7:00 PM (arrive 6:45). Switches to the occasional Sunday afternoon in the cooler months, with the start time shifting earlier by daylight (≈2:00–6:00 PM). Walks ~3km year-round.",
+      hashCash:
+        "50 AED (villa/desert — includes all beer, wine, cocktails, soft drinks & food) / 10 AED (pub/bar — pay-as-you-go)",
+      walkersWelcome: true, // home page: "The Monday run AND walk start at 19:00"; "Walks are about 3km all year round"
+      logoUrl: "/kennel-logos/dh3-ae.jpg", // self-hosted; ext confirmed by magic bytes (JPEG/JFIF, 512x512)
+      description:
+        "Dubai's family-friendly hash, established 1979 — the emirate's oldest Hash House Harriers. Meets most Monday evenings (19:00, arrive 18:45) and shifts to the occasional Sunday afternoon in the cooler months, at changing locations across Dubai. Runs are under 5km (summer) / 7km (winter); walks ~3km. Villa/desert runs 50 AED (all food & drink included), pub runs 10 AED pay-as-you-go.",
+      latitude: 25.2048, // Dubai centroid (no per-event coords published)
+      longitude: 55.2708,
+    },
   ];
 

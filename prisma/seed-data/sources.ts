@@ -7293,5 +7293,21 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["colombo-harriettes"],
     },
+    // Desert H3 (first UAE kennel, Dubai's oldest hash, est. 1979) — deserthash.org
+    // WordPress/Elementor + Modern Events Calendar, fully SSR'd; wp-json + MEC/Tribe
+    // REST all disabled → DesertHashAdapter (static Cheerio) reads the home MEC card
+    // (upcoming) + the Hare Line agenda (last ~50 runs). Title-filter keeps Moonshine /
+    // Interhash out. `upcomingOnly`: both surfaces are rolling windows, so reconcile
+    // must not cancel aged-off runs. scrapeDays 365 keeps the ~1yr Hare Line in-window.
+    {
+      name: "Desert H3 Website",
+      url: "https://www.deserthash.org/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { upcomingOnly: true },
+      kennelCodes: ["dh3-ae"],
+    },
   ];
 
