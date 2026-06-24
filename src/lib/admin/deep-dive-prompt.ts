@@ -84,8 +84,19 @@ ${renderFilingInstructions({ stream: "chrome-kennel", kennelLabel: kennel.kennel
 
 ## When done
 
-Return to https://hashtracks.xyz/admin/audit and click **Mark ${kennel.shortName} complete** with a count of findings filed and a one-line summary.
+Submit a completion marker to the internal queue — the same non-publishing endpoint you used for findings. You do **not** need to visit \`/admin/audit\` or click anything in the UI.
 
-**After clicking Submit:** hard-reload the page and confirm \`${kennel.shortName}\` is no longer in the queue. If it still appears, the submit was misattributed to a different kennel (issue #1160) — stop, file an admin-tooling issue, and do **not** re-submit.
+**POST** \`/api/audit/submit-finding\`
+
+\`\`\`json
+{
+  "kind": "completion",
+  "kennelCode": "${kennel.kennelCode}",
+  "findingsCount": <number of findings you submitted for ${kennel.shortName}>,
+  "summary": "<one-line summary of this deep dive>"
+}
+\`\`\`
+
+A \`{ "data": { "recorded": true } }\` response means the deep dive is recorded server-side and ${kennel.shortName} advances in the rotation. (A \`"deepDive": "already-recorded"\` response just means it was already credited today — that's fine, don't resubmit.)
 `;
 }

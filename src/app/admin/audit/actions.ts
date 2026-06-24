@@ -8,6 +8,10 @@ import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import { KNOWN_AUDIT_RULES, type AuditFinding } from "@/pipeline/audit-checks";
 import { syncAuditIssues, type SyncResult } from "@/pipeline/audit-issue-sync";
+import {
+  promoteAuditDrafts,
+  type PromotionSummary,
+} from "@/pipeline/audit-draft-promoter";
 import { DASHBOARD_STREAMS } from "@/lib/audit-stream-meta";
 import type {
   HarelinePromptInputs,
@@ -1120,4 +1124,65 @@ export async function resyncAuditIssues(): Promise<ResyncAuditIssuesResult> {
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: sanitizeResyncError(message) };
   }
+}
+
+// ── Chrome audit finding queue (decoupled filing) ───────────────────
+
+/** One PENDING draft row for the admin review queue. */
+export interface PendingDraftRow {
+  id: string;
+  stream: AuditStream;
+  kennelCode: string | null;
+  kennelShortName: string | null;
+  ruleSlug: string;
+  title: string;
+  submittedAt: string; // ISO
+}
+
+const PENDING_DRAFTS_LIMIT = 100;
+
+/** Pending chrome-stream findings awaiting promotion to GitHub issues. Admin-only. */
+export async function getPendingDrafts(): Promise<PendingDraftRow[]> {
+  await requireAdmin();
+  const drafts = await prisma.auditFindingDraft.findMany({
+    where: { status: "PENDING" },
+    orderBy: { submittedAt: "asc" },
+    take: PENDING_DRAFTS_LIMIT,
+    select: {
+      id: true,
+      stream: true,
+      kennelCode: true,
+      ruleSlug: true,
+      title: true,
+      submittedAt: true,
+      kennel: { select: { shortName: true } },
+    },
+  });
+  return drafts.map((d) => ({
+    id: d.id,
+    stream: d.stream,
+    kennelCode: d.kennelCode,
+    kennelShortName: d.kennel?.shortName ?? null,
+    ruleSlug: d.ruleSlug,
+    title: d.title,
+    submittedAt: d.submittedAt.toISOString(),
+  }));
+}
+
+/** Reject a pending draft so it's never filed. Idempotent (PENDING-only). Admin-only. */
+export async function rejectDraft(id: string): Promise<void> {
+  await requireAdmin();
+  await prisma.auditFindingDraft.updateMany({
+    where: { id, status: "PENDING" },
+    data: { status: "REJECTED", promotedAt: new Date() },
+  });
+  revalidatePath("/admin/audit");
+}
+
+/** Promote all eligible queued drafts to GitHub issues now (same path the cron runs). Admin-only. */
+export async function promoteDraftsNow(): Promise<PromotionSummary> {
+  await requireAdmin();
+  const summary = await promoteAuditDrafts();
+  revalidatePath("/admin/audit");
+  return summary;
 }

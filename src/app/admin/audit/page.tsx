@@ -12,6 +12,7 @@ import {
   getRecentOpenIssues,
   getHarelinePromptInputs,
   getAuditSyncFreshness,
+  getPendingDrafts,
 } from "./actions";
 import { KNOWN_AUDIT_RULES } from "@/pipeline/audit-checks";
 import { AuditDashboard } from "@/components/admin/AuditDashboard";
@@ -55,6 +56,7 @@ export default async function AuditPage() {
     streamCloseReasonRatiosResult,
     recentOpenIssuesResult,
     syncFreshnessResult,
+    pendingDraftsResult,
   ] = await Promise.all([
     getAuditTrends().catch(() => []),
     getTopOffenders().catch(() => []),
@@ -79,6 +81,7 @@ export default async function AuditPage() {
     // renders the loud "status unavailable" state rather than masking a
     // broken probe behind a false all-clear.
     getAuditSyncFreshness().catch(() => null),
+    getPendingDrafts().catch(() => []),
   ]);
 
   // Pre-mint a queue token per candidate at page render so the dialog
@@ -109,6 +112,7 @@ export default async function AuditPage() {
         streamOpenCounts={streamOpenCountsResult}
         streamCloseReasonRatios={streamCloseReasonRatiosResult}
         recentOpenIssues={recentOpenIssuesResult}
+        pendingDrafts={pendingDraftsResult}
       />
     </>
   );

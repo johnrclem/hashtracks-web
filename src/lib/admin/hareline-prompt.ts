@@ -163,7 +163,7 @@ ${renderFocusAreas(inputs.focusAreas)}
 
 ## Output: Filing Issues
 
-**Finding the kennelCode:** it is the last URL segment on the kennel's HashTracks page — e.g. \`agnews\` for \`https://www.hashtracks.xyz/kennels/agnews\`, \`ah3-hi\` for \`https://www.hashtracks.xyz/kennels/ah3-hi\`. If the URL is ambiguous (e.g. two kennels share the "AH3" shortName), open the kennel page and verify the slug in the address bar before filing — do not guess. Substitute the resolved value for \`{KENNEL_CODE}\` in the URL below.
+**Finding the kennelCode:** it is the last URL segment on the kennel's HashTracks page — e.g. \`agnews\` for \`https://www.hashtracks.xyz/kennels/agnews\`, \`ah3-hi\` for \`https://www.hashtracks.xyz/kennels/ah3-hi\`. If the URL is ambiguous (e.g. two kennels share the "AH3" shortName), open the kennel page and verify the slug in the address bar before filing — do not guess. Substitute the resolved value for \`{KENNEL_CODE}\` in the request body below.
 
 ${renderFilingInstructions({ stream: "chrome-event", kennelLabel: "{KENNEL_CODE}" })}
 `;

@@ -76,7 +76,7 @@ function githubPostInit(token: string, body: unknown): RequestInit {
   };
 }
 
-function buildCronActions(): FilerActions {
+export function buildCronActions(): FilerActions {
   return {
     createIssue: async ({ title, body, labels }) => {
       const token = process.env.GITHUB_TOKEN;

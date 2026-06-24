@@ -34,6 +34,8 @@ import {
   recordDeepDive,
   recordDeepDiveManual,
   lookupKennelForDeepDive,
+  promoteDraftsNow,
+  rejectDraft,
   type TrendPoint,
   type TopOffender,
   type RecentRun,
@@ -44,6 +46,7 @@ import {
   type StreamOpenCounts,
   type StreamCloseReasonRatio,
   type RecentOpenIssue,
+  type PendingDraftRow,
 } from "@/app/admin/audit/actions";
 import { AuditStreamPanel } from "@/components/admin/AuditStreamPanel";
 import { buildDeepDivePrompt } from "@/lib/admin/deep-dive-prompt";
@@ -118,6 +121,7 @@ interface Props {
    *  an explicit "metric unavailable" line instead of fake zeros. */
   streamCloseReasonRatios: StreamCloseReasonRatio[] | null;
   recentOpenIssues: RecentOpenIssue[];
+  pendingDrafts: PendingDraftRow[];
 }
 
 const CATEGORY_LINES: { key: keyof TrendPoint; label: string; color: string }[] = [
@@ -145,6 +149,7 @@ export function AuditDashboard({
   streamOpenCounts,
   streamCloseReasonRatios,
   recentOpenIssues,
+  pendingDrafts,
 }: Props) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -185,6 +190,9 @@ export function AuditDashboard({
         closeReasonRatios={streamCloseReasonRatios}
         recentOpenIssues={recentOpenIssues}
       />
+
+      {/* ── Chrome finding review queue ────────────────────────── */}
+      <PendingDraftsCard drafts={pendingDrafts} />
 
       {/* ── Overview ───────────────────────────────────────────── */}
       <section className="space-y-5">
@@ -872,6 +880,98 @@ function CopyHarelinePromptButton({ prompt }: Readonly<{ prompt: string }>) {
       {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
       {label}
     </Button>
+  );
+}
+
+// ── Chrome Finding Review Queue ─────────────────────────────────────
+
+/**
+ * Pending chrome-stream findings the agent deposited via /api/audit/submit-finding,
+ * awaiting promotion to GitHub issues. The daily promotion cron files them
+ * automatically; "Promote now" runs the same path on demand, and "Reject"
+ * drops a draft so it's never filed.
+ */
+function PendingDraftsCard({ drafts }: Readonly<{ drafts: PendingDraftRow[] }>) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [summary, setSummary] = useState<
+    Awaited<ReturnType<typeof promoteDraftsNow>> | null
+  >(null);
+
+  function handlePromote() {
+    startTransition(async () => {
+      const result = await promoteDraftsNow();
+      setSummary(result);
+      router.refresh();
+    });
+  }
+
+  function handleReject(id: string) {
+    startTransition(async () => {
+      await rejectDraft(id);
+      router.refresh();
+    });
+  }
+
+  return (
+    <section className="space-y-5">
+      <div className="flex items-center justify-between gap-4">
+        <SectionHeader
+          icon={Activity}
+          title="Chrome Finding Review Queue"
+          color="bg-purple-500/10 text-purple-500"
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handlePromote}
+          disabled={pending || drafts.length === 0}
+        >
+          {pending ? "Working…" : "Promote now"}
+        </Button>
+      </div>
+
+      <div className="rounded-xl border border-border/50 bg-card p-5">
+        {summary && (
+          <p className="mb-3 text-sm text-muted-foreground">
+            Last promotion: {summary.filed} filed, {summary.recurred} recurred,{" "}
+            {summary.suppressed} suppressed, {summary.rejected} rejected,{" "}
+            {summary.errored} errored.
+          </p>
+        )}
+        {drafts.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No findings awaiting review. The Chrome audit deposits findings here;
+            the daily promotion cron files them as GitHub issues.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border/50">
+            {drafts.map((d) => (
+              <li
+                key={d.id}
+                className="flex items-center justify-between gap-4 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{d.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {d.kennelShortName ?? d.kennelCode ?? "—"} ·{" "}
+                    <code>{d.ruleSlug}</code> · {d.submittedAt.slice(0, 10)}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleReject(d.id)}
+                  disabled={pending}
+                >
+                  Reject
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
   );
 }
 

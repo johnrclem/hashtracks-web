@@ -93,6 +93,41 @@ export function computePayloadHash(payload: FilingPayload): string {
 }
 
 /**
+ * Canonical content hash for an audit-finding-draft queue row. Used by
+ * `/api/audit/submit-finding` to dedupe same-run re-submits of the same
+ * finding (one PENDING row per identical content).
+ *
+ * Deliberately EXCLUDES `title` (unlike {@link computePayloadHash}): the
+ * agent may re-narrate the same finding with slightly different prose across
+ * a retry, but `(stream, kennelCode, ruleSlug, eventIds, body)` is the
+ * finding's identity. Hashing the title too would let a re-worded retry
+ * create a second queue row that the filer would then fingerprint-collapse
+ * into one recurrence — silently inflating `recurrenceCount`.
+ *
+ * Same fixed-key-array + sorted-eventIds discipline as `computePayloadHash`
+ * so the two can't drift on serialization.
+ */
+export interface DraftContentParts {
+  stream: string;
+  kennelCode: string;
+  ruleSlug: string;
+  eventIds: readonly string[];
+  bodyMarkdown: string;
+}
+
+export function computeDraftContentHash(parts: DraftContentParts): string {
+  const sortedEventIds = [...parts.eventIds].sort((a, b) => a.localeCompare(b));
+  const canonical = JSON.stringify([
+    parts.stream,
+    parts.kennelCode,
+    parts.ruleSlug,
+    sortedEventIds,
+    parts.bodyMarkdown,
+  ]);
+  return createHash("sha256").update(canonical).digest("hex");
+}
+
+/**
  * Validate that the request originated from the configured app
  * origin. Defends against CSRF attacks where a malicious page in the
  * admin's browser tries to mint or consume nonces by riding the

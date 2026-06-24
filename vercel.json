@@ -14,6 +14,10 @@
       "schedule": "30 12 * * *"
     },
     {
+      "path": "/api/cron/promote-audit-findings",
+      "schedule": "0 14 * * *"
+    },
+    {
       "path": "/api/cron/travel-draft-gc",
       "schedule": "0 3 * * *"
     },
