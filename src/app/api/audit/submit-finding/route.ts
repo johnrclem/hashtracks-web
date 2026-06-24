@@ -67,7 +67,9 @@ function isCompletionRequest(v: Record<string, unknown>): v is CompletionRequest
   return (
     v.kind === "completion" &&
     typeof v.kennelCode === "string" &&
-    typeof v.findingsCount === "number" &&
+    // Number.isInteger (not typeof "number") so NaN / Infinity / floats are
+    // rejected before they hit the Prisma INTEGER column (Gemini/Sonar #2298).
+    Number.isInteger(v.findingsCount) &&
     typeof v.summary === "string"
   );
 }

@@ -952,10 +952,18 @@ function PendingDraftsCard({ drafts }: Readonly<{ drafts: PendingDraftRow[] }>) 
                 className="flex items-center justify-between gap-4 py-2"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{d.title}</p>
+                  <p className="truncate text-sm font-medium">
+                    {d.status === "ERROR" && (
+                      <Badge variant="destructive" className="mr-2 align-middle text-[10px]">
+                        ERROR
+                      </Badge>
+                    )}
+                    {d.title}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {d.kennelShortName ?? d.kennelCode ?? "—"} ·{" "}
                     <code>{d.ruleSlug}</code> · {d.submittedAt.slice(0, 10)}
+                    {d.status === "ERROR" && d.errorReason ? ` · ${d.errorReason}` : ""}
                   </p>
                 </div>
                 <Button

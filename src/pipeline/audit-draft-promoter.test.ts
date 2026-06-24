@@ -14,6 +14,12 @@ vi.mock("@/pipeline/audit-issue", () => ({
   buildCronActions: vi.fn(() => ({ createIssue: vi.fn(), postComment: vi.fn() })),
 }));
 vi.mock("@/pipeline/audit-runner", () => ({ loadSuppressions: vi.fn() }));
+// Deterministic fingerprint per (kennel, rule) so same-finding siblings collide.
+vi.mock("@/lib/audit-canonical", () => ({
+  buildCanonicalBlock: ({ kennelCode, ruleSlug }: { kennelCode: string; ruleSlug: string }) => ({
+    fingerprint: `fp:${kennelCode}:${ruleSlug}`,
+  }),
+}));
 
 import { prisma } from "@/lib/db";
 import { fileAuditFinding } from "@/pipeline/audit-filer";
@@ -115,12 +121,48 @@ describe("promoteAuditDrafts", () => {
     expect(mockFile).not.toHaveBeenCalled();
   });
 
-  it("skips a draft when the CAS claim is lost (concurrent promoter)", async () => {
+  it("skips a draft when the CAS claim is lost (concurrent promoter / rejected)", async () => {
     mockFindMany.mockResolvedValue([draft()] as never);
     mockUpdateMany.mockResolvedValue({ count: 0 } as never);
     const summary = await promoteAuditDrafts();
     expect(mockFile).not.toHaveBeenCalled();
     expect(summary.filed).toBe(0);
+  });
+
+  it("guards the claim on status so a rejected draft isn't published", async () => {
+    mockFindMany.mockResolvedValue([draft()] as never);
+    await promoteAuditDrafts();
+    expect(mockUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ status: "PENDING" }) }),
+    );
+  });
+
+  it("defers a same-fingerprint sibling to a later run (no in-batch duplicate create)", async () => {
+    mockFindMany.mockResolvedValue([
+      draft({ id: "a" }),
+      draft({ id: "b", title: "different wording, same kennel+rule" }),
+    ] as never);
+    const summary = await promoteAuditDrafts();
+    expect(mockFile).toHaveBeenCalledTimes(1); // only the first sibling is filed
+    expect(summary.filed).toBe(1);
+    expect(summary.deferred).toBe(1);
+  });
+
+  it("isolates a thrown error to one draft and keeps processing the rest", async () => {
+    mockFindMany.mockResolvedValue([
+      draft({ id: "x" }),
+      draft({ id: "y", kennelCode: "other", ruleSlug: "location-url" }),
+    ] as never);
+    mockFile
+      .mockRejectedValueOnce(new Error("boom") as never)
+      .mockResolvedValueOnce({ action: "created", issueNumber: 9, htmlUrl: "https://x/9" } as never);
+    const summary = await promoteAuditDrafts();
+    expect(summary.errored).toBe(1);
+    expect(summary.filed).toBe(1); // the second draft still got filed
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: "x" },
+      data: expect.objectContaining({ status: "ERROR", errorReason: "boom" }),
+    });
   });
 
   it("caps the scan at MAX_PROMOTIONS_PER_RUN", async () => {

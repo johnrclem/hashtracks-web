@@ -136,4 +136,13 @@ describe("POST /api/audit/submit-finding — completion", () => {
     expect(res.status).toBe(422);
     expect(mockLogCreate).not.toHaveBeenCalled();
   });
+
+  it.each([Infinity, NaN, 2.5])(
+    "400 on a non-integer findingsCount (%s) — never reaches Prisma",
+    async (bad) => {
+      const res = await POST(buildApiPostRequest(URL, { ...COMPLETION, findingsCount: bad }));
+      expect(res.status).toBe(400);
+      expect(mockLogCreate).not.toHaveBeenCalled();
+    },
+  );
 });
