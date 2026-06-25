@@ -886,6 +886,25 @@ function validateMonthDayAnchor(raw: string | undefined): string | null {
  * Fail-loud guard: better to skip at backfill time than to persist a value
  * Travel Mode's projection engine silently falls back to "possible activity".
  */
+/**
+ * A non-projectable cadence sentinel that Pass 3 stores verbatim at LOW
+ * confidence — `CADENCE=BIWEEKLY|MONTHLY|WEEKLY;BYDAY=XX`. These are
+ * "possible activity" markers fed past parseRRule (which would throw). Kept
+ * deliberately NARROW + aligned with `CADENCE_EXPLANATIONS` / `explainSentinel`
+ * in `src/lib/travel/projections.ts`: an unknown `CADENCE=…` value is NOT
+ * blessed here — it falls through to parseRRule and is rejected as unparseable
+ * (fail-loud) rather than silently stored with generic copy.
+ *
+ * `FREQ=LUNAR` is intentionally EXCLUDED: lunar cadences need phase + timezone
+ * metadata not representable on a seed `scheduleRules` entry, so they belong on a
+ * STATIC_SCHEDULE source (`Source.config.lunar`). Pass 3 therefore keeps
+ * rejecting `FREQ=LUNAR` from seed rules — matching the `KennelScheduleRuleSeed`
+ * doc. (Pass 1 still emits real `FREQ=LUNAR` rules from STATIC_SCHEDULE sources.)
+ */
+function isCadenceSentinel(rrule: string): boolean {
+  return /^CADENCE=(BIWEEKLY|MONTHLY|WEEKLY)\b/.test(rrule.toUpperCase());
+}
+
 function normalizeAndValidateSeedRrule(
   rawRrule: string,
   kennelCode: string,
@@ -943,7 +962,7 @@ interface SeedKennelMeta {
  * shape because it carries the seed author's explicit metadata
  * (`label`, `validFrom`/`validUntil`, `displayOrder`).
  */
-function planSeedRule(
+export function planSeedRule(
   rule: KennelScheduleRuleSeed,
   dbKennel: SeedKennelMeta,
   kennelCode: string,
@@ -957,8 +976,30 @@ function planSeedRule(
     }
     return "skipped-empty";
   }
-  const normalizedRrule = normalizeAndValidateSeedRrule(rrule, kennelCode);
-  if (!normalizedRrule) return "skipped-unparseable";
+  // Sentinel rrules (CADENCE=…, FREQ=LUNAR) are non-projectable "possible
+  // activity" markers. Accept them VERBATIM (never normalizeRRule — it reorders
+  // CADENCE to the tail and breaks the projection engine's startsWith() checks)
+  // and force LOW confidence. Parseable rules are validated via parseRRule and
+  // honor an explicit per-rule confidence (default HIGH — the seed author wrote
+  // a concrete RRULE). This lets a kennel carry a dominant dated day PLUS an
+  // occasional LOW secondary weekday (see docs/prediction-mixed-cadence-proposal.md).
+  let normalizedRrule: string;
+  let confidence: ScheduleConfidence;
+  if (isCadenceSentinel(rrule)) {
+    normalizedRrule = rrule.toUpperCase();
+    confidence = "LOW";
+    if (rule.confidence && rule.confidence !== "LOW") {
+      console.warn(
+        `  ⚠ ${kennelCode} — sentinel rrule ${JSON.stringify(rrule)} must be LOW confidence ` +
+          `(got ${rule.confidence}); forcing LOW`,
+      );
+    }
+  } else {
+    const validated = normalizeAndValidateSeedRrule(rrule, kennelCode);
+    if (!validated) return "skipped-unparseable";
+    normalizedRrule = validated;
+    confidence = rule.confidence ?? "HIGH";
+  }
   const { validFrom, validUntil } = resolveSeasonAnchors(rule, kennelCode);
   const seedRow: PlannedRule = {
     kennelId: dbKennel.id,
@@ -966,7 +1007,7 @@ function planSeedRule(
     rrule: normalizedRrule,
     anchorDate: rule.anchorDate?.trim() || null,
     startTime: rule.startTime?.trim() || null,
-    confidence: "HIGH",
+    confidence,
     source: "SEED_DATA",
     sourceReference: SOURCE_REF.kennelSeed(kennelCode),
     // First-create timestamp. applyUpserts excludes lastValidatedAt from

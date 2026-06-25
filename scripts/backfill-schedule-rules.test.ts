@@ -7,6 +7,7 @@ import {
   runKennelSeedPass,
   runKennelDisplayPass,
   applyUpserts,
+  planSeedRule,
 } from "./backfill-schedule-rules";
 import type { KennelScheduleRuleSeed } from "../prisma/seed-data/kennels";
 
@@ -1407,5 +1408,87 @@ describe("applyUpserts — lastValidatedAt update semantics", () => {
     ]);
     expect(upsertCalls).toHaveLength(1);
     expect(upsertCalls[0].update).toHaveProperty("lastValidatedAt", validatedAt);
+  });
+});
+
+describe("planSeedRule — per-rule confidence + CADENCE sentinels", () => {
+  const dbKennel = { id: "k1", kennelCode: "dh3-ae", shortName: "Desert H3" };
+
+  it("accepts a CADENCE=WEEKLY sentinel verbatim at LOW (never fed to parseRRule)", () => {
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    const result = planSeedRule(
+      { rrule: "CADENCE=WEEKLY;BYDAY=SU", confidence: "LOW", label: "Sunday afternoon" },
+      dbKennel,
+      "dh3-ae",
+      planned,
+      {},
+    );
+    expect(result).toBe("emitted");
+    expect(planned).toHaveLength(1);
+    expect(planned[0].rrule).toBe("CADENCE=WEEKLY;BYDAY=SU");
+    expect(planned[0].confidence).toBe("LOW");
+  });
+
+  it("honors an explicit MEDIUM confidence on a parseable rule", () => {
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    planSeedRule(
+      { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "19:00", confidence: "MEDIUM" },
+      dbKennel,
+      "dh3-ae",
+      planned,
+      {},
+    );
+    expect(planned[0].rrule).toBe("FREQ=WEEKLY;BYDAY=MO");
+    expect(planned[0].confidence).toBe("MEDIUM");
+  });
+
+  it("defaults a parseable rule to HIGH when confidence is omitted", () => {
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    planSeedRule({ rrule: "FREQ=WEEKLY;BYDAY=MO" }, dbKennel, "dh3-ae", planned, {});
+    expect(planned[0].confidence).toBe("HIGH");
+  });
+
+  it("forces LOW on a sentinel even if a non-LOW confidence is declared", () => {
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    planSeedRule(
+      { rrule: "CADENCE=MONTHLY;BYDAY=SA", confidence: "HIGH" },
+      dbKennel,
+      "dh3-ae",
+      planned,
+      {},
+    );
+    expect(planned[0].confidence).toBe("LOW");
+  });
+
+  it("rejects an UNKNOWN CADENCE variant as unparseable (not silently blessed)", () => {
+    // Only BIWEEKLY/MONTHLY/WEEKLY are rendered by the projection engine; an
+    // unknown CADENCE value must fail loud (skipped-unparseable), not get stored
+    // as a generic-copy LOW sentinel.
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    const result = planSeedRule(
+      { rrule: "CADENCE=QUARTERLY;BYDAY=SU" },
+      dbKennel,
+      "dh3-ae",
+      planned,
+      {},
+    );
+    expect(result).toBe("skipped-unparseable");
+    expect(planned).toHaveLength(0);
+  });
+
+  it("does NOT bless FREQ=LUNAR in seed scheduleRules — lunar belongs on a STATIC_SCHEDULE source", () => {
+    // The KennelScheduleRuleSeed contract routes lunar cadences to Source.config.lunar
+    // (phase + timezone aware). Pass 3 must keep rejecting FREQ=LUNAR rather than
+    // storing a phase-less LOW sentinel.
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    const result = planSeedRule({ rrule: "FREQ=LUNAR" }, dbKennel, "dh3-ae", planned, {});
+    expect(result).toBe("skipped-unparseable");
+    expect(planned).toHaveLength(0);
+  });
+
+  it("requires a word boundary after the CADENCE variant (CADENCE=WEEKLYISH is not blessed)", () => {
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    const result = planSeedRule({ rrule: "CADENCE=WEEKLYISH;BYDAY=SU" }, dbKennel, "dh3-ae", planned, {});
+    expect(result).toBe("skipped-unparseable");
   });
 });

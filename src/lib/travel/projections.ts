@@ -248,6 +248,13 @@ function deduplicateProjectionsByKennelDate(
 ): ProjectedTrail[] {
   const best = new Map<string, ProjectedTrail>();
   for (const proj of projections) {
+    // KNOWN LIMITATION: all date-null ("possible activity") projections for a
+    // kennel share the `__possible__` key, so a kennel with TWO distinct LOW
+    // sentinels (e.g. CADENCE=BIWEEKLY;BYDAY=SA + CADENCE=MONTHLY;BYDAY=SU)
+    // collapses to one blurb (first by confidence/insertion order). No seeded
+    // kennel hits this today (mixed-cadence kennels carry one LOW sentinel); if
+    // that changes, widen the null-date key (e.g. include the rrule) so distinct
+    // occasional days each surface.
     const key = proj.date
       ? `${proj.kennelId}:${proj.date.toISOString().slice(0, 10)}:${proj.startTime ?? ""}`
       : `${proj.kennelId}:__possible__`;
@@ -457,6 +464,32 @@ function parseLunarPhaseFromNotes(notes: string | null | undefined): "full" | "n
   return null;
 }
 
+/**
+ * Per-cadence explanation templates for the non-parseable CADENCE sentinels.
+ * `withDay` is used when the BYDAY token resolves to a weekday name; `withoutDay`
+ * is the generic fallback. Data-driven so `explainSentinel` stays one branch per
+ * sentinel family (keeps cognitive complexity low). The WEEKLY entry is the
+ * occasional SECONDARY weekday (e.g. Desert H3's cooler-months Sunday) alongside
+ * a dominant dated day — surfaced as possible activity, never a specific date.
+ */
+const CADENCE_EXPLANATIONS: Record<
+  "BIWEEKLY" | "MONTHLY" | "WEEKLY",
+  { withDay: (dayName: string, ts: string) => string; withoutDay: string }
+> = {
+  BIWEEKLY: {
+    withDay: (d, ts) => `Usually runs on alternating ${d}s${ts} — verify closer to your trip`,
+    withoutDay: "Alternating schedule — verify closer to your trip",
+  },
+  MONTHLY: {
+    withDay: (d, ts) => `Monthly on a ${d}${ts} — specific week unknown`,
+    withoutDay: "Monthly schedule — timing varies",
+  },
+  WEEKLY: {
+    withDay: (d, ts) => `Sometimes runs on ${d}s${ts} — verify closer to your trip`,
+    withoutDay: "Occasional additional runs — verify closer to your trip",
+  },
+};
+
 /** Explanation strings for the non-parseable CADENCE / LUNAR sentinels. */
 function explainSentinel(
   rrule: string,
@@ -472,19 +505,12 @@ function explainSentinel(
     const phaseLabel = phase === "new" ? "New moon" : "Full moon";
     return `${phaseLabel} schedule — check kennel sources for exact dates`;
   }
-  if (rrule.startsWith("CADENCE=BIWEEKLY")) {
+  const cadence = /^CADENCE=(BIWEEKLY|MONTHLY|WEEKLY)\b/.exec(rrule);
+  const template = cadence ? CADENCE_EXPLANATIONS[cadence[1] as keyof typeof CADENCE_EXPLANATIONS] : undefined;
+  if (template) {
     const day = extractDayFromSentinel(rrule);
     const dayName = day ? RRULE_DAY_TO_NAME[day] : null;
-    return dayName
-      ? `Usually runs on alternating ${dayName}s${timeSuffix(startTime)} — verify closer to your trip`
-      : "Alternating schedule — verify closer to your trip";
-  }
-  if (rrule.startsWith("CADENCE=MONTHLY")) {
-    const day = extractDayFromSentinel(rrule);
-    const dayName = day ? RRULE_DAY_TO_NAME[day] : null;
-    return dayName
-      ? `Monthly on a ${dayName}${timeSuffix(startTime)} — specific week unknown`
-      : "Monthly schedule — timing varies";
+    return dayName ? template.withDay(dayName, timeSuffix(startTime)) : template.withoutDay;
   }
   return null;
 }
