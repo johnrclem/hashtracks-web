@@ -76,7 +76,7 @@ logbook + kennel directory.
 - GITHUB_TOKEN=           # GitHub PAT with repo scope (for filing issues from alerts, user feedback, auto-issue dedup + rate limiting)
 - STRAVA_CLIENT_ID=      # Strava OAuth app client ID
 - STRAVA_CLIENT_SECRET=  # Strava OAuth app client secret
-- NEXT_PUBLIC_APP_URL=    # Base URL for invite links (e.g., https://hashtracks.com)
+- NEXT_PUBLIC_APP_URL=    # Base URL for invite links (production: https://www.hashtracks.xyz)
 - RESIDENTIAL_PROXY_URL=  # NAS residential proxy URL (for WAF-blocked scrape targets)
 - RESIDENTIAL_PROXY_KEY=  # API key for residential proxy auth
 - BROWSER_RENDER_URL=    # NAS browser render service URL (for JS-rendered sites + iframe extraction via frameUrl)
