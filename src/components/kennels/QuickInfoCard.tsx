@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import { formatSchedule, displayDomain, type ScheduleSlot } from "@/lib/format";
 import { SocialLinks } from "@/components/kennels/SocialLinks";
@@ -211,7 +209,7 @@ export function QuickInfoCard({ kennel, parentKennel, regionColor }: Readonly<Qu
             {hasInfoData && (
               <hr className="border-border/40" />
             )}
-            <p className="text-sm leading-relaxed text-muted-foreground">
+            <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
               {kennel.description}
             </p>
           </>
