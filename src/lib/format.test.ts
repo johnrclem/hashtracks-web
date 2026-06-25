@@ -635,6 +635,58 @@ describe("collectKennelWeekdays", () => {
   it("returns empty array when nothing is populated", () => {
     expect(collectKennelWeekdays({})).toEqual([]);
   });
+
+  it("includes the weekday from a LOW CADENCE sentinel (#2310 follow-up)", () => {
+    expect(
+      collectKennelWeekdays({
+        scheduleRules: [{ rrule: "CADENCE=WEEKLY;BYDAY=SU" }],
+      }),
+    ).toEqual(["Sunday"]);
+  });
+
+  it("unions a dated MEDIUM rule with a LOW CADENCE sentinel (Desert H3 mixed cadence)", () => {
+    expect(
+      collectKennelWeekdays({
+        scheduleRules: [
+          { rrule: "FREQ=WEEKLY;BYDAY=MO" },
+          { rrule: "CADENCE=WEEKLY;BYDAY=SU" },
+        ],
+      }),
+    ).toEqual(["Monday", "Sunday"]);
+  });
+
+  it("matches BIWEEKLY/MONTHLY CADENCE sentinels too", () => {
+    expect(
+      collectKennelWeekdays({
+        scheduleRules: [{ rrule: "CADENCE=BIWEEKLY;BYDAY=TH" }],
+      }),
+    ).toEqual(["Thursday"]);
+  });
+
+  it("ignores the FREQ=LUNAR sentinel (no BYDAY)", () => {
+    expect(
+      collectKennelWeekdays({
+        scheduleRules: [{ rrule: "FREQ=LUNAR" }],
+      }),
+    ).toEqual([]);
+  });
+
+  it("rejects a multi-day CADENCE sentinel (BYDAY=SA,SU) for lockstep", () => {
+    expect(
+      collectKennelWeekdays({
+        scheduleRules: [{ rrule: "CADENCE=WEEKLY;BYDAY=SA,SU" }],
+      }),
+    ).toEqual([]);
+  });
+
+  it("deduplicates when the flat field equals a CADENCE sentinel weekday", () => {
+    expect(
+      collectKennelWeekdays({
+        scheduleDayOfWeek: "Sunday",
+        scheduleRules: [{ rrule: "CADENCE=WEEKLY;BYDAY=SU" }],
+      }),
+    ).toEqual(["Sunday"]);
+  });
 });
 
 describe("collectKennelFrequencies", () => {
@@ -681,5 +733,41 @@ describe("collectKennelFrequencies", () => {
 
   it("returns empty array when nothing is populated", () => {
     expect(collectKennelFrequencies({})).toEqual([]);
+  });
+
+  it("derives a frequency from a CADENCE sentinel so it stays in lockstep with the day facet (#2310)", () => {
+    expect(
+      collectKennelFrequencies({ scheduleRules: [{ rrule: "CADENCE=WEEKLY;BYDAY=SU" }] }),
+    ).toEqual(["Weekly"]);
+  });
+
+  it("maps each CADENCE keyword to its FilterBar frequency label", () => {
+    expect(
+      collectKennelFrequencies({ scheduleRules: [{ rrule: "CADENCE=BIWEEKLY;BYDAY=TH" }] }),
+    ).toEqual(["Biweekly"]);
+    expect(
+      collectKennelFrequencies({ scheduleRules: [{ rrule: "CADENCE=MONTHLY;BYDAY=SA" }] }),
+    ).toEqual(["Monthly"]);
+  });
+
+  it("ignores the FREQ=LUNAR sentinel (no cadence keyword)", () => {
+    expect(
+      collectKennelFrequencies({ scheduleRules: [{ rrule: "FREQ=LUNAR" }] }),
+    ).toEqual([]);
+  });
+});
+
+describe("CADENCE sentinel day + frequency stay in lockstep (#2310 adversarial-review)", () => {
+  // A sentinel-only kennel whose Saturday activity is monthly must pass BOTH the
+  // "Saturday" day filter and the "Monthly" frequency filter — otherwise
+  // "Saturday + Monthly" would drop a kennel that "Saturday" alone includes.
+  const sentinelOnlyKennel = { scheduleRules: [{ rrule: "CADENCE=MONTHLY;BYDAY=SA" }] };
+
+  it("contributes Saturday to the day facet", () => {
+    expect(collectKennelWeekdays(sentinelOnlyKennel)).toEqual(["Saturday"]);
+  });
+
+  it("contributes Monthly to the frequency facet", () => {
+    expect(collectKennelFrequencies(sentinelOnlyKennel)).toEqual(["Monthly"]);
   });
 });

@@ -28,6 +28,27 @@ export const WEEKDAY_NAMES = [
 ] as const;
 
 /**
+ * RRULE 2-char BYDAY token → weekday name. Mirrors the private map in
+ * `@/lib/travel/projections.ts`; duplicated here deliberately because
+ * projections.ts imports from this module, so importing it back would create a
+ * circular dependency. Used to surface CADENCE sentinel weekdays (see
+ * `extractSentinelWeekday`).
+ */
+const RRULE_DAY_TO_NAME: Record<string, string> = {
+  SU: "Sunday", MO: "Monday", TU: "Tuesday", WE: "Wednesday",
+  TH: "Thursday", FR: "Friday", SA: "Saturday",
+};
+
+/**
+ * CADENCE sentinel keyword → FilterBar frequency label. Keeps the sentinel
+ * frequency facet aligned with the parsed-rule path (`FREQ=WEEKLY` interval 1/2 →
+ * Weekly/Biweekly, `FREQ=MONTHLY` → Monthly).
+ */
+const CADENCE_TO_FREQUENCY: Record<string, string> = {
+  WEEKLY: "Weekly", BIWEEKLY: "Biweekly", MONTHLY: "Monthly",
+};
+
+/**
  * One schedule slot for display. Built from a `Kennel.scheduleRules` row when
  * present; the legacy flat fields collapse to a single ScheduleSlot when not.
  */
@@ -214,6 +235,13 @@ function formatMonthRange(from: MonthDay | null, until: MonthDay | null): string
  * Rejects multi-day BYDAY (`BYDAY=SA,SU`) so it stays in lockstep with
  * `formatSchedule`'s RRULE renderer — only single-weekday slots round-trip
  * through the UI.
+ *
+ * Also includes the weekday from LOW-confidence `CADENCE=…` sentinels (#2310
+ * follow-up). These aren't RFC-5545 parseable, so `safeParseRrule` returns null,
+ * but they encode a real occasional weekday the kennel runs (e.g. Desert H3's
+ * occasional Sunday) — so they should still surface in the directory/region
+ * weekday facets. See `parseCadenceSentinel` (whose frequency half keeps
+ * `collectKennelFrequencies` in lockstep with this facet).
  */
 export function collectKennelWeekdays(k: {
   scheduleDayOfWeek?: string | null;
@@ -223,14 +251,48 @@ export function collectKennelWeekdays(k: {
   if (k.scheduleDayOfWeek) days.add(k.scheduleDayOfWeek);
   for (const rule of k.scheduleRules ?? []) {
     const parsed = safeParseRrule(rule.rrule);
-    if (parsed?.byDay) days.add(WEEKDAY_NAMES[parsed.byDay.day]);
+    if (parsed?.byDay) {
+      days.add(WEEKDAY_NAMES[parsed.byDay.day]);
+      continue;
+    }
+    const sentinelDay = parseCadenceSentinel(rule.rrule)?.dayName;
+    if (sentinelDay) days.add(sentinelDay);
   }
   return [...days];
 }
 
 /**
+ * Parse a LOW-confidence CADENCE sentinel
+ * (`CADENCE=WEEKLY|BIWEEKLY|MONTHLY;BYDAY=XX`) into the weekday + frequency it
+ * encodes. These aren't RFC-5545 parseable (no FREQ), so `parseRRule` rejects
+ * them — but they encode real occasional activity that BOTH the directory day
+ * filter AND the frequency filter should see, so the two facets stay in lockstep
+ * (#2310 follow-up; without symmetric handling a kennel could match the "Sunday"
+ * day filter yet be dropped by "Sunday + Weekly").
+ *
+ * Returns null for non-sentinels (incl. `FREQ=LUNAR`). `dayName` is null for
+ * multi-day BYDAY (kept in lockstep with the single-weekday parsed path) or an
+ * unrecognized token; `frequency` mirrors the parsed-rule path, which derives a
+ * frequency label independent of BYDAY.
+ */
+function parseCadenceSentinel(
+  rrule: string,
+): { frequency: string; dayName: string | null } | null {
+  const cadence = /^CADENCE=(WEEKLY|BIWEEKLY|MONTHLY)\b/.exec(rrule);
+  if (!cadence) return null;
+  const byDay = /BYDAY=([A-Z,]+)/.exec(rrule);
+  // length !== 2 rejects multi-day "SA,SU"; unknown tokens fall through to null.
+  const dayName = byDay && byDay[1].length === 2 ? RRULE_DAY_TO_NAME[byDay[1]] ?? null : null;
+  return { frequency: CADENCE_TO_FREQUENCY[cadence[1]], dayName };
+}
+
+/**
  * Derive legacy-style frequency labels (Weekly / Biweekly / Monthly) this
  * kennel matches, considering both `scheduleFrequency` and any `scheduleRules`.
+ *
+ * Includes LOW-confidence `CADENCE=…` sentinels (#2310 follow-up) so the
+ * frequency facet stays symmetric with `collectKennelWeekdays`'s day facet —
+ * see `parseCadenceSentinel`.
  */
 export function collectKennelFrequencies(k: {
   scheduleFrequency?: string | null;
@@ -240,7 +302,11 @@ export function collectKennelFrequencies(k: {
   if (k.scheduleFrequency) labels.add(k.scheduleFrequency);
   for (const rule of k.scheduleRules ?? []) {
     const parsed = safeParseRrule(rule.rrule);
-    if (!parsed) continue;
+    if (!parsed) {
+      const sentinel = parseCadenceSentinel(rule.rrule);
+      if (sentinel) labels.add(sentinel.frequency);
+      continue;
+    }
     if (parsed.freq === "WEEKLY") {
       // Map only interval=1 → Weekly and interval=2 → Biweekly. Higher
       // intervals (triweekly, quadweekly, etc.) aren't part of the
