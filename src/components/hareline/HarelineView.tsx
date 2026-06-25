@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -32,7 +32,7 @@ import { haversineDistance, getEventCoords } from "@/lib/geo";
 import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib/region";
 import { LocationPrompt } from "./LocationPrompt";
 import { getLocationPref, resolveLocationDefault, clearLocationPref, FILTER_PARAMS } from "@/lib/location-pref";
-import { loadEventsForTimeMode, getEventDetail, type EventDetailFields, type TimeMode } from "@/app/hareline/actions";
+import { loadEventsForTimeMode, loadMorePastEvents, getEventDetail, type EventDetailFields, type TimeMode } from "@/app/hareline/actions";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -83,6 +83,21 @@ interface HarelineViewProps {
    * to re-fetch them when the user stays on the "past" tab.
    */
   initialTimeMode?: TimeMode;
+  /**
+   * Kennel IDs the SSR `events` payload was scoped to (the URL `?kennels=`
+   * filter). Only meaningful when `initialTimeMode === "past"`: it records
+   * how the initial past buffer was scoped on the server so cursor-based
+   * "load older" (`loadMorePastEvents`) can continue with the same scoping.
+   * Empty for the unfiltered global view.
+   */
+  initialKennelIds?: string[];
+  /**
+   * Whether the SSR `events` payload was a full raw page (server-computed from
+   * the pre-dedup row count). Seeds past-tab back-pagination so the "Load older
+   * events" affordance shows even when series-child dedup shrank the initial
+   * past page below the limit. Only meaningful when `initialTimeMode === "past"`.
+   */
+  initialHasMore?: boolean;
   /**
    * Server's `Date.now()` at render time. Used to seed the client's
    * upcoming/past bucket boundary so SSR and initial client render agree
@@ -259,6 +274,38 @@ function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
   return true;
 }
 
+/**
+ * Drop series children whose parent is also present in the buffer — they render
+ * inside the parent's expanded timeline, not as standalone top-level cards.
+ * Mirrors the server's per-page dedup, but applied over the cumulative
+ * (multi-page) past buffer so a parent + child that land on DIFFERENT cursor
+ * pages don't surface the child twice (Codex review). A child whose parent is
+ * NOT loaded stays top-level. Fast-path returns the input untouched when no
+ * children are present — the common case for the unfiltered global view, where
+ * the server excludes children at the query level entirely.
+ */
+function dropLoadedSeriesChildren(events: HarelineEvent[]): HarelineEvent[] {
+  if (!events.some((e) => e.parentEventId)) return events;
+  const ids = new Set(events.map((e) => e.id));
+  return events.filter((e) => !e.parentEventId || !ids.has(e.parentEventId));
+}
+
+/**
+ * Append a freshly fetched older-past page onto the existing buffer, dropping
+ * any ids already present (defensive against a shifted cursor boundary).
+ * Extracted to a module helper so the `setPastEvents` updater stays shallow
+ * (avoids deeply nested callbacks — SonarCloud S2004).
+ */
+function mergeOlderPastEvents(
+  prev: HarelineEvent[] | null,
+  older: HarelineEvent[],
+): HarelineEvent[] {
+  const base = prev ?? [];
+  const seen = new Set(base.map((e) => e.id));
+  const fresh = older.filter((e) => !seen.has(e.id));
+  return fresh.length > 0 ? [...base, ...fresh] : base;
+}
+
 /** Sort events by date (direction depends on timeFilter) then by startTime. */
 function sortEvents(events: HarelineEvent[], timeFilter: TimeFilter): HarelineEvent[] {
   const descending = timeFilter === "past";
@@ -317,6 +364,8 @@ export function computeInitialScope(
 export function HarelineView({
   events,
   initialTimeMode = "upcoming",
+  initialKennelIds = [],
+  initialHasMore = false,
   serverNowMs,
   subscribedKennelIds,
   isAuthenticated,
@@ -340,6 +389,31 @@ export function HarelineView({
   const [upcomingError, setUpcomingError] = useState<string | null>(null);
   const [pastLoading, setPastLoading] = useState(false);
   const [pastError, setPastError] = useState<string | null>(null);
+
+  // Server-side back-pagination of past events (look further back than the
+  // first PAST_EVENTS_LIMIT page). `pastServerHasMore` is true while the
+  // server may hold older events; `pastFetchKennelIds` records the scoping
+  // the current past buffer was loaded with so `loadMorePastEvents` continues
+  // with the same cursor ordering (SSR-past buffers are kennel-scoped; lazily
+  // toggled-in buffers are unfiltered).
+  //
+  // NOTE: `pastFetchKennelIds` deliberately tracks the buffer's *load-time*
+  // scoping, NOT the live client kennel filter — the past buffer doesn't
+  // re-fetch when the user changes the kennel chips. Older pages therefore
+  // arrive in the original scope and are narrowed client-side. Do not "fix"
+  // this by syncing it to `selectedKennels`; that would desync the cursor
+  // ordering from the buffer it continues.
+  const [pastServerHasMore, setPastServerHasMore] = useState<boolean>(
+    // Seed from the server's raw-page-fullness flag, NOT the (possibly
+    // dedup-shrunk) `events.length` — otherwise a kennel-filtered first page
+    // with a series parent+child could hide "Load older" mid-archive.
+    initialTimeMode === "past" && initialHasMore,
+  );
+  const [pastServerLoading, setPastServerLoading] = useState(false);
+  const [pastServerError, setPastServerError] = useState<string | null>(null);
+  const [pastFetchKennelIds, setPastFetchKennelIds] = useState<string[]>(
+    initialTimeMode === "past" ? initialKennelIds : [],
+  );
 
   // Live clock for bucket boundaries. Seeded with the server's render-time
   // `Date.now()` so the first client render matches SSR (no hydration
@@ -578,6 +652,10 @@ export function HarelineView({
   function resetListState() {
     setSelectedEvent(null);
     setVisibleCount(PAGE_SIZE);
+    // Clear any stale "load older" error so the affordance is fresh after a
+    // filter/tab change. The loaded buffer + server-has-more flag persist —
+    // only the transient error resets.
+    setPastServerError(null);
   }
   function setTimeFilter(v: TimeFilter) {
     setTimeFilterState(v);
@@ -622,8 +700,20 @@ export function HarelineView({
     let cancelled = false;
     setLoading(true);
     setError(null);
+    // The lazy tab-toggle fetch is intentionally unfiltered (kennel filtering
+    // happens client-side over the buffer). So when this populates the past
+    // buffer, record its scoping as unfiltered and seed the server-has-more
+    // flag from the server's raw-page-fullness signal, mirroring the SSR path.
     loadEventsForTimeMode(mode)
-      .then((fetched) => { if (!cancelled) setEvents(fetched); })
+      .then(({ events: fetched, hasMore }) => {
+        if (cancelled) return;
+        setEvents(fetched);
+        if (isPast) {
+          setPastFetchKennelIds([]);
+          setPastServerHasMore(hasMore);
+          setPastServerError(null);
+        }
+      })
       .catch((err: unknown) => {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : "Failed to load events");
@@ -633,6 +723,33 @@ export function HarelineView({
     return () => { cancelled = true; };
   }, [timeFilter, pastEvents, upcomingEvents, pastLoading, pastError, upcomingLoading, upcomingError]);
 
+  // Fetch the next page of older past events (cursor = oldest loaded event).
+  // The buffer is held in server order (`[date desc, id desc]`), so its tail
+  // is the oldest event — exactly the cursor `loadMorePastEvents` needs. We
+  // dedupe by id on append (defensive against a shifted cursor boundary) and
+  // bump `visibleCount` so the freshly loaded rows reveal immediately.
+  const loadOlderPastEvents = useCallback(async () => {
+    if (timeFilter !== "past" || pastServerLoading || !pastServerHasMore) return;
+    const buffer = pastEvents;
+    if (!buffer || buffer.length === 0) return;
+    const cursorId = buffer[buffer.length - 1].id;
+
+    setPastServerLoading(true);
+    setPastServerError(null);
+    try {
+      const { events: older, hasMore } = await loadMorePastEvents(cursorId, pastFetchKennelIds);
+      setPastEvents((prev) => mergeOlderPastEvents(prev, older));
+      // `hasMore` is computed server-side from the raw page size (robust to
+      // series-child dedup); the client just trusts it.
+      setPastServerHasMore(hasMore);
+      setVisibleCount((c) => c + PAGE_SIZE);
+    } catch (err: unknown) {
+      setPastServerError(err instanceof Error ? err.message : "Failed to load older events");
+    } finally {
+      setPastServerLoading(false);
+    }
+  }, [timeFilter, pastServerLoading, pastServerHasMore, pastEvents, pastFetchKennelIds]);
+
   // Active event list for the current time mode. Returns an empty array
   // when the cache for the current mode hasn't resolved — DO NOT fall
   // back to the opposite mode's cache. Doing so makes downstream
@@ -641,8 +758,12 @@ export function HarelineView({
   // produce false empty states or hide subscribed events during the
   // brief window before the lazy fetch resolves.
   const currentEvents = useMemo((): HarelineEvent[] => {
-    if (timeFilter === "past") return pastEvents ?? [];
-    return upcomingEvents ?? [];
+    // Dedupe series children whose parent is anywhere in the cumulative buffer
+    // (handles cross-page splits from cursor pagination). The raw `pastEvents`
+    // buffer is left intact for cursor derivation; only this display-facing
+    // view is deduped.
+    const buffer = timeFilter === "past" ? pastEvents : upcomingEvents;
+    return dropLoadedSeriesChildren(buffer ?? []);
   }, [timeFilter, pastEvents, upcomingEvents]);
 
   // True while the current mode's list is being fetched for the first
@@ -814,7 +935,14 @@ export function HarelineView({
     return groupEventsByDate(visibleEvents);
   }, [visibleEvents]);
 
-  const hasMore = visibleCount < sortedEvents.length;
+  // `revealMore`: loaded+filtered events not yet sliced into view (client-side
+  // reveal). `canLoadOlderPast`: the server may hold still-older past events
+  // beyond the loaded buffer (server-side back-pagination). The "Show more"
+  // button does the first while it can, then transparently switches to the
+  // "Load older events" control so users can page indefinitely back through
+  // the archive.
+  const revealMore = visibleCount < sortedEvents.length;
+  const canLoadOlderPast = timeFilter === "past" && pastServerHasMore;
   const remaining = sortedEvents.length - visibleCount;
 
   function clearAllFilters() {
@@ -979,10 +1107,64 @@ export function HarelineView({
     />
   );
 
+  // Standalone "load older" control. Shown both at the end of a non-empty list
+  // and inside the empty state — so a past filter with zero matches in the
+  // loaded range can still page deeper into the archive instead of dead-ending
+  // on EmptyState while older matching events exist (Codex review).
+  const loadOlderControl = (
+    <div className="flex flex-col items-center gap-2 py-4">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={loadOlderPastEvents}
+        disabled={pastServerLoading}
+      >
+        {pastServerLoading ? "Loading older events…" : "Load older events"}
+      </Button>
+      {pastServerError && (
+        <p className="text-xs text-destructive" role="alert">
+          {pastServerError}. Tap again to retry.
+        </p>
+      )}
+    </div>
+  );
+
+  // List footer: client-side "Show more" while loaded rows remain to reveal,
+  // then the server-side "Load older events" control once the buffer is
+  // exhausted. Computed with if/else rather than a nested ternary (S3358).
+  let listFooter: ReactNode = null;
+  if (revealMore) {
+    listFooter = (
+      <div className="flex justify-center py-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+        >
+          Show {Math.min(PAGE_SIZE, remaining)} more ({remaining} remaining)
+        </Button>
+      </div>
+    );
+  } else if (canLoadOlderPast) {
+    // Loaded buffer exhausted for the current filters — fetch the next page of
+    // older past events from the server.
+    listFooter = loadOlderControl;
+  }
+
   const listContent = (
     <>
       {sortedEvents.length === 0 ? (
-        emptyState
+        <>
+          {emptyState}
+          {canLoadOlderPast && (
+            <>
+              <p className="pt-2 text-center text-xs text-muted-foreground">
+                No matches in the loaded range — older trails may match your filters.
+              </p>
+              {loadOlderControl}
+            </>
+          )}
+        </>
       ) : (
         <div>
           {dateGroups.map((group) => (
@@ -1006,17 +1188,7 @@ export function HarelineView({
               </div>
             </div>
           ))}
-          {hasMore && (
-            <div className="flex justify-center py-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-              >
-                Show {Math.min(PAGE_SIZE, remaining)} more ({remaining} remaining)
-              </Button>
-            </div>
-          )}
+          {listFooter}
         </div>
       )}
     </>
@@ -1214,7 +1386,7 @@ export function HarelineView({
       {/* Results count (hidden for calendar — it shows its own count) */}
       {(view === "list" || view === "map") && (
         <p className="text-sm text-muted-foreground" aria-hidden="true">
-          {view === "list" && hasMore
+          {view === "list" && revealMore
             ? `Showing ${visibleCount} of ${sortedEvents.length} `
             : `${filteredEvents.length} `}
           {timeLabel} {filteredEvents.length === 1 ? "event" : "events"}

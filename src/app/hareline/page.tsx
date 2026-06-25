@@ -106,7 +106,7 @@ async function HarelineData({
   // primary kennel matches the filter (excluded from the default unfiltered
   // payload because the global hareline still uses `parentEventId: null`)
   // never reached the client.
-  const [events, user] = await Promise.all([
+  const [{ events, hasMore: initialHasMore }, user] = await Promise.all([
     loadEventsForTimeMode(initialTimeMode, nowMs, initialKennelIds),
     getOrCreateUser(),
   ]);
@@ -152,6 +152,8 @@ async function HarelineData({
     <HarelineView
       events={events}
       initialTimeMode={initialTimeMode}
+      initialKennelIds={initialKennelIds}
+      initialHasMore={initialHasMore}
       serverNowMs={nowMs}
       subscribedKennelIds={subscribedKennelIds}
       isAuthenticated={!!user}
