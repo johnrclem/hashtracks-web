@@ -1475,4 +1475,20 @@ describe("planSeedRule — per-rule confidence + CADENCE sentinels", () => {
     expect(result).toBe("skipped-unparseable");
     expect(planned).toHaveLength(0);
   });
+
+  it("does NOT bless FREQ=LUNAR in seed scheduleRules — lunar belongs on a STATIC_SCHEDULE source", () => {
+    // The KennelScheduleRuleSeed contract routes lunar cadences to Source.config.lunar
+    // (phase + timezone aware). Pass 3 must keep rejecting FREQ=LUNAR rather than
+    // storing a phase-less LOW sentinel.
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    const result = planSeedRule({ rrule: "FREQ=LUNAR" }, dbKennel, "dh3-ae", planned, {});
+    expect(result).toBe("skipped-unparseable");
+    expect(planned).toHaveLength(0);
+  });
+
+  it("requires a word boundary after the CADENCE variant (CADENCE=WEEKLYISH is not blessed)", () => {
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    const result = planSeedRule({ rrule: "CADENCE=WEEKLYISH;BYDAY=SU" }, dbKennel, "dh3-ae", planned, {});
+    expect(result).toBe("skipped-unparseable");
+  });
 });

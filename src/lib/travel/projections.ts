@@ -244,6 +244,13 @@ function deduplicateProjectionsByKennelDate(
 ): ProjectedTrail[] {
   const best = new Map<string, ProjectedTrail>();
   for (const proj of projections) {
+    // KNOWN LIMITATION: all date-null ("possible activity") projections for a
+    // kennel share the `__possible__` key, so a kennel with TWO distinct LOW
+    // sentinels (e.g. CADENCE=BIWEEKLY;BYDAY=SA + CADENCE=MONTHLY;BYDAY=SU)
+    // collapses to one blurb (first by confidence/insertion order). No seeded
+    // kennel hits this today (mixed-cadence kennels carry one LOW sentinel); if
+    // that changes, widen the null-date key (e.g. include the rrule) so distinct
+    // occasional days each surface.
     const key = proj.date
       ? `${proj.kennelId}:${proj.date.toISOString().slice(0, 10)}:${proj.startTime ?? ""}`
       : `${proj.kennelId}:__possible__`;

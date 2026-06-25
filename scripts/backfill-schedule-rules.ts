@@ -887,17 +887,22 @@ function validateMonthDayAnchor(raw: string | undefined): string | null {
  * Travel Mode's projection engine silently falls back to "possible activity".
  */
 /**
- * A non-projectable cadence sentinel the projection engine knows how to render —
- * `CADENCE=BIWEEKLY|MONTHLY|WEEKLY;BYDAY=XX` or `FREQ=LUNAR`. These are
- * LOW-confidence "possible activity" markers fed past parseRRule (which would
- * throw). Kept deliberately NARROW + aligned with `CADENCE_EXPLANATIONS` /
- * `explainSentinel` in `src/lib/travel/projections.ts`: an unknown `CADENCE=…`
- * value is NOT blessed here — it falls through to parseRRule and is rejected as
- * unparseable (fail-loud) rather than silently stored with generic copy.
+ * A non-projectable cadence sentinel that Pass 3 stores verbatim at LOW
+ * confidence — `CADENCE=BIWEEKLY|MONTHLY|WEEKLY;BYDAY=XX`. These are
+ * "possible activity" markers fed past parseRRule (which would throw). Kept
+ * deliberately NARROW + aligned with `CADENCE_EXPLANATIONS` / `explainSentinel`
+ * in `src/lib/travel/projections.ts`: an unknown `CADENCE=…` value is NOT
+ * blessed here — it falls through to parseRRule and is rejected as unparseable
+ * (fail-loud) rather than silently stored with generic copy.
+ *
+ * `FREQ=LUNAR` is intentionally EXCLUDED: lunar cadences need phase + timezone
+ * metadata not representable on a seed `scheduleRules` entry, so they belong on a
+ * STATIC_SCHEDULE source (`Source.config.lunar`). Pass 3 therefore keeps
+ * rejecting `FREQ=LUNAR` from seed rules — matching the `KennelScheduleRuleSeed`
+ * doc. (Pass 1 still emits real `FREQ=LUNAR` rules from STATIC_SCHEDULE sources.)
  */
 function isCadenceSentinel(rrule: string): boolean {
-  const up = rrule.toUpperCase();
-  return /^CADENCE=(BIWEEKLY|MONTHLY|WEEKLY)\b/.test(up) || up === "FREQ=LUNAR";
+  return /^CADENCE=(BIWEEKLY|MONTHLY|WEEKLY)\b/.test(rrule.toUpperCase());
 }
 
 function normalizeAndValidateSeedRrule(
