@@ -81,7 +81,7 @@ ${AUDIT_AUTHORIZATION_PREAMBLE}
 
 ## Instructions
 
-You are an automated QA bot auditing the HashTracks "hareline" (event list) at **https://www.hashtracks.xyz/hareline?scope=all**. The \`scope=all\` query string is important — without it the page is filtered to the signed-in user's preferred kennels and you'd miss everything else. Your goal is to find data extraction errors and file them as GitHub issues.
+You are an automated QA bot auditing the HashTracks "hareline" (event list) at **https://www.hashtracks.xyz/hareline?scope=all**. The \`scope=all\` query string is important — without it the page is filtered to the signed-in user's preferred kennels and you'd miss everything else. Your goal is to find data extraction errors and submit verified findings to HashTracks' internal review queue (a trusted server job files the reviewed ones as GitHub issues later).
 
 Scroll through the hareline page and audit event cards for data quality issues.
 
@@ -163,7 +163,7 @@ ${renderFocusAreas(inputs.focusAreas)}
 
 ## Output: Filing Issues
 
-**Finding the kennelCode:** it is the last URL segment on the kennel's HashTracks page — e.g. \`agnews\` for \`https://www.hashtracks.xyz/kennels/agnews\`, \`ah3-hi\` for \`https://www.hashtracks.xyz/kennels/ah3-hi\`. If the URL is ambiguous (e.g. two kennels share the "AH3" shortName), open the kennel page and verify the slug in the address bar before filing — do not guess. Substitute the resolved value for \`{KENNEL_CODE}\` in the URL below.
+**Finding the kennelCode:** it is the last URL segment on the kennel's HashTracks page — e.g. \`agnews\` for \`https://www.hashtracks.xyz/kennels/agnews\`, \`ah3-hi\` for \`https://www.hashtracks.xyz/kennels/ah3-hi\`. If the URL is ambiguous (e.g. two kennels share the "AH3" shortName), open the kennel page and verify the slug in the address bar before filing — do not guess. Substitute the resolved value for \`{KENNEL_CODE}\` in the request body below.
 
 ${renderFilingInstructions({ stream: "chrome-event", kennelLabel: "{KENNEL_CODE}" })}
 `;

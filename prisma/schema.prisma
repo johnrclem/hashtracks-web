@@ -187,6 +187,7 @@ model Kennel {
   auditLogs         AuditLog[]          @relation("AuditLogKennel")
   auditSuppressions AuditSuppression[]  @relation("AuditSuppressionKennel")
   auditIssues       AuditIssue[]        @relation("AuditIssueKennel")
+  auditFindingDrafts AuditFindingDraft[] @relation("AuditFindingDraftKennel")
   // Travel Mode
   scheduleRules       ScheduleRule[]
   predictionSnapshots PredictionSnapshot[]
@@ -1064,6 +1065,58 @@ model AuditFilingNonce {
   //
   // Shape: `{ action: "created" | "coalesced", issueNumber, issueUrl }`.
   filingResultJson Json?
+}
+
+// ── AUDIT FINDING DRAFT QUEUE ──
+//
+// First-party, non-publishing review queue for chrome-stream audit findings.
+// The Claude-in-Chrome agent deposits PENDING drafts via /api/audit/submit-finding
+// (a low-stakes internal insert — it never creates a GitHub issue or publishes
+// anything). The /api/cron/promote-audit-findings cron later promotes PENDING
+// drafts into GitHub issues through the shared fileAuditFinding() filer with
+// server credentials. This decouples the external publish (refused by an
+// unattended interactive agent) from the agent's read-only audit work.
+enum AuditDraftStatus {
+  PENDING // awaiting promotion
+  FILED // promoted → fresh GitHub issue created
+  RECURRED // promoted → matched an existing open issue (filer commented)
+  SUPPRESSED // kennel+rule suppressed at promotion time; never filed
+  REJECTED // admin rejected in the review UI
+  ERROR // promotion attempted, filer returned an error; retryable under a cap
+}
+
+model AuditFindingDraft {
+  id                String           @id @default(cuid())
+  stream            AuditStream // CHROME_EVENT | CHROME_KENNEL in practice
+  // Nullable + SET NULL on kennel delete, matching AuditLog/AuditIssue — the submit
+  // endpoint validates a real kennelCode, so in practice this is always populated.
+  kennelCode        String?
+  kennel            Kennel?          @relation("AuditFindingDraftKennel", fields: [kennelCode], references: [kennelCode])
+  ruleSlug          String
+  title             String
+  bodyMarkdown      String
+  affectedEventIds  String[]         @default([])
+  labels            String[]         @default([]) // captured at submit; promotion re-derives if empty
+  // sha256 over (stream, kennelCode, ruleSlug, sorted eventIds, bodyMarkdown) — deliberately
+  // EXCLUDES title so a re-worded retry of the same finding is idempotent. A partial unique
+  // index `WHERE status = 'PENDING'` lives in the migration SQL (Prisma can't express a
+  // filtered unique index): it dedupes same-run re-submits while letting a genuinely-recurring
+  // finding re-queue once a prior draft has left PENDING (the filer then turns it into a
+  // recurrence comment).
+  contentHash       String
+  status            AuditDraftStatus @default(PENDING)
+  submittedByUserId String // Clerk user.id of the admin running the agent session
+  submittedAt       DateTime         @default(now())
+  // Promotion bookkeeping — null until the cron/manual promoter touches the row.
+  promotedAt        DateTime?
+  issueNumber       Int?
+  issueUrl          String?
+  filerTier         String? // "strict" | "bridging" | "coarse" (RECURRED only)
+  errorReason       String? // FilerErrorReason when status = ERROR
+  promoteAttempts   Int              @default(0)
+
+  @@index([status, submittedAt])
+  @@index([kennelCode])
 }
 
 // Audit rule version history. Records the (ruleVersion, semanticHash) that

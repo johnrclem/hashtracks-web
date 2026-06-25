@@ -2,12 +2,20 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { revalidatePath } from "next/cache";
-import { AuditStream, AuditIssueEventType } from "@/generated/prisma/client";
+import {
+  AuditStream,
+  AuditIssueEventType,
+  AuditDraftStatus,
+} from "@/generated/prisma/client";
 import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import { KNOWN_AUDIT_RULES, type AuditFinding } from "@/pipeline/audit-checks";
 import { syncAuditIssues, type SyncResult } from "@/pipeline/audit-issue-sync";
+import {
+  promoteAuditDrafts,
+  type PromotionSummary,
+} from "@/pipeline/audit-draft-promoter";
 import { DASHBOARD_STREAMS } from "@/lib/audit-stream-meta";
 import type {
   HarelinePromptInputs,
@@ -1120,4 +1128,74 @@ export async function resyncAuditIssues(): Promise<ResyncAuditIssuesResult> {
     const message = err instanceof Error ? err.message : String(err);
     return { ok: false, error: sanitizeResyncError(message) };
   }
+}
+
+// ── Chrome audit finding queue (decoupled filing) ───────────────────
+
+/** One reviewable draft row for the admin queue (PENDING awaiting promotion,
+ *  or ERROR stuck after the retry cap). */
+export interface PendingDraftRow {
+  id: string;
+  stream: AuditStream;
+  status: AuditDraftStatus;
+  kennelCode: string | null;
+  kennelShortName: string | null;
+  ruleSlug: string;
+  title: string;
+  errorReason: string | null;
+  submittedAt: string; // ISO
+}
+
+const PENDING_DRAFTS_LIMIT = 100;
+
+/** Reviewable chrome-stream findings: PENDING (awaiting promotion) + ERROR
+ *  (stuck after the retry cap, so they don't accumulate invisibly). Admin-only. */
+export async function getPendingDrafts(): Promise<PendingDraftRow[]> {
+  await requireAdmin();
+  const drafts = await prisma.auditFindingDraft.findMany({
+    where: { status: { in: ["PENDING", "ERROR"] } },
+    // PENDING before ERROR, then oldest-first within each.
+    orderBy: [{ status: "asc" }, { submittedAt: "asc" }],
+    take: PENDING_DRAFTS_LIMIT,
+    select: {
+      id: true,
+      stream: true,
+      status: true,
+      kennelCode: true,
+      ruleSlug: true,
+      title: true,
+      errorReason: true,
+      submittedAt: true,
+      kennel: { select: { shortName: true } },
+    },
+  });
+  return drafts.map((d) => ({
+    id: d.id,
+    stream: d.stream,
+    status: d.status,
+    kennelCode: d.kennelCode,
+    kennelShortName: d.kennel?.shortName ?? null,
+    ruleSlug: d.ruleSlug,
+    title: d.title,
+    errorReason: d.errorReason,
+    submittedAt: d.submittedAt.toISOString(),
+  }));
+}
+
+/** Reject a draft so it's never filed. Works on PENDING or stuck-ERROR rows. Admin-only. */
+export async function rejectDraft(id: string): Promise<void> {
+  await requireAdmin();
+  await prisma.auditFindingDraft.updateMany({
+    where: { id, status: { in: ["PENDING", "ERROR"] } },
+    data: { status: "REJECTED", promotedAt: new Date() },
+  });
+  revalidatePath("/admin/audit");
+}
+
+/** Promote all eligible queued drafts to GitHub issues now (same path the cron runs). Admin-only. */
+export async function promoteDraftsNow(): Promise<PromotionSummary> {
+  await requireAdmin();
+  const summary = await promoteAuditDrafts();
+  revalidatePath("/admin/audit");
+  return summary;
 }
