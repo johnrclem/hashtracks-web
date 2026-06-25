@@ -113,6 +113,10 @@ export interface ConfirmedResult extends DestinationTag {
   distanceTier: DistanceTier;
   sourceLinks: SourceLink[];
   weather: DailyWeather | null;
+  /** Title of this leg's multi-day series parent, when the row is a child
+   *  leg — rendered as "Part of: <series>" so legs read as one event.
+   *  Null for normal events and standalone umbrellas. */
+  seriesParentTitle: string | null;
 }
 
 export interface LikelyResult extends DestinationTag {
@@ -406,6 +410,61 @@ interface StopOutcome {
   weatherInputs: WeatherInput[];
 }
 
+/**
+ * The nearby kennel(s) a confirmed event renders under, in row order (first =
+ * the display pivot). A co-hosted event's primary `kennelId` may sit outside
+ * the search radius while a co-host is in range, so Travel pivots metadata —
+ * and dedup keys — onto the matching nearby kennel(s). Shared by the dedup-ref
+ * builder and the result builder so the pivot contract lives in one place.
+ */
+function matchedNearbyKennelIds(
+  eventKennels: { kennelId: string }[],
+  nearbyIdsSet: Set<string>,
+): string[] {
+  return eventKennels.map((ek) => ek.kennelId).filter((id) => nearbyIdsSet.has(id));
+}
+
+/**
+ * A SYNTHETIC, detail-less multi-day series umbrella that must not render as a
+ * bare card beside its real legs in Travel Mode.
+ *
+ * The distinguishing signal is NOT "is a series parent with no detail" — the
+ * merge promotes a REAL trail to series parent in two ways (`merge.ts`
+ * earliest-by-date Hash Rego fallback, and `same-title-cluster.ts` which
+ * promotes the earliest day of a same-title consecutive cluster, keeping its
+ * title verbatim). Those promoted legs are real days and are frequently sparse
+ * (title + date only), so a content-only check would delete them (Codex P2 on
+ * PR #2305).
+ *
+ * A genuinely synthetic umbrella (SFH3-style explicit `seriesParent`) is an
+ * EXTRA row that overlays a real same-day child — `merge.ts` notes "an umbrella
+ * + a same-day child both fall on the same day". A promoted real leg occupies a
+ * date no child shares (consecutive distinct days). So we hide a parent only
+ * when it is content-less AND a child shares its date — preserving sparse
+ * promoted day-1 legs while still dropping the redundant SFH3 umbrella. A
+ * content-rich same-day parent (e.g. a morning trail with an evening child) is
+ * also preserved.
+ *
+ * Travel-local on purpose — the Hareline deliberately shows umbrellas (their
+ * expandable "weekend at a glance"), the opposite of what Travel wants.
+ */
+function isSyntheticSeriesUmbrella(event: {
+  isSeriesParent: boolean;
+  date: Date;
+  childEvents: { date: Date }[];
+  startTime: string | null;
+  haresText: string | null;
+  locationName: string | null;
+  locationStreet: string | null;
+}): boolean {
+  if (!event.isSeriesParent) return false;
+  const contentLess =
+    !event.startTime && !event.haresText && !event.locationName && !event.locationStreet;
+  if (!contentLess) return false;
+  const dayKey = event.date.toISOString().slice(0, 10);
+  return event.childEvents.some((c) => c.date.toISOString().slice(0, 10) === dayKey);
+}
+
 async function runStopSearch(
   prisma: PrismaClient,
   stop: DestinationParams,
@@ -479,6 +538,7 @@ async function runStopSearch(
 
   const runPipelineFor = async (kennels: NearbyKennel[]) => {
     const nearbyIds = kennels.map((k) => k.id);
+    const nearbyIdsSet = new Set(nearbyIds);
     const kennelMap = new Map(kennels.map((k) => [k.id, k]));
 
     // Steps 3–5 + 8: Three independent DB queries run in parallel (saves ~2 round-trips)
@@ -503,6 +563,15 @@ async function runStopSearch(
       include: {
         eventLinks: { select: { url: true, label: true } },
         eventKennels: { select: { kennelId: true } },
+        // Series tie: a child leg surfaces its parent's title as
+        // "Part of: <series>" so the legs read as one multi-day event.
+        parentEvent: { select: { title: true } },
+        // Child dates drive the synthetic-umbrella filter below (see
+        // isSyntheticSeriesUmbrella). We must NOT use a blunt
+        // `childEvents: { none: {} }` WHERE clause: the merge promotes REAL
+        // trails to series parent (merge.ts earliest-by-date; same-title-cluster.ts
+        // earliest-of-cluster) — those legs have children but must still render.
+        childEvents: { select: { date: true } },
       },
       orderBy: { date: "asc" },
       take: CONFIRMED_EVENT_ROW_CAP,
@@ -548,12 +617,24 @@ async function runStopSearch(
   // close to the 90-day window the scoring function expects)
   const scoredProjections = scoreProjections(projections, kennelMap, scheduleRules, evidenceEvents);
 
-  // Step 9: Deduplicate projections against confirmed events
-  const confirmedRefs = confirmedEvents.map((e) => ({
-    kennelId: e.kennelId,
-    date: e.date,
-    startTime: e.startTime,
-  }));
+  // Step 9: Deduplicate projections against confirmed events.
+  // A confirmed event renders under whichever NEARBY kennel matched (the
+  // pivot below), which may be a co-host rather than the event's primary
+  // `kennelId`. Key the dedup refs off the same matched-nearby kennels so a
+  // co-hosted confirmed event suppresses dated + cadence projections for the
+  // kennel its card actually renders under (not just the primary).
+  const confirmedRefs = confirmedEvents.flatMap((e) => {
+    const matchedNearby = matchedNearbyKennelIds(e.eventKennels, nearbyIdsSet);
+    // `matchedNearby` is non-empty in practice (the query requires an
+    // `eventKennels` member in `nearbyIds`); the `[e.kennelId]` fallback is
+    // defensive against a future query change that relaxes that guarantee.
+    const refKennelIds = matchedNearby.length > 0 ? matchedNearby : [e.kennelId];
+    return refKennelIds.map((kennelId) => ({
+      kennelId,
+      date: e.date,
+      startTime: e.startTime,
+    }));
+  });
   const dedupedProjections = deduplicateAgainstConfirmed(scoredProjections, confirmedRefs);
   const horizonFilteredProjections = filterProjectionsByHorizon(dedupedProjections, horizonTier);
 
@@ -577,17 +658,22 @@ async function runStopSearch(
   // multi-stop search shares one bounded MAX_WEATHER_API_CALLS batch.
   const weatherInputs: WeatherInput[] = [];
 
+  // Step 12: Drop synthetic multi-day series umbrellas so they don't render as
+  // bare cards beside their real legs (see isSyntheticSeriesUmbrella).
+  const displayConfirmedEvents = confirmedEvents.filter(
+    (event) => !isSyntheticSeriesUmbrella(event),
+  );
+
   // Step 13: Assign distance tiers + build result objects
   // #1023 step 5: when an event matches because a CO-HOST kennel is in
   // `nearbyIds` (the primary `event.kennelId` may not be), pivot the
   // result's kennel metadata onto that nearby kennel — otherwise we'd
   // emit empty kennelSlug/kennelName/distance for the user's intended
   // destination kennel.
-  const nearbyIdsSet = new Set(nearbyIds);
-  const confirmedResults: ConfirmedResult[] = confirmedEvents.map((event) => {
+  const confirmedResults: ConfirmedResult[] = displayConfirmedEvents.map((event) => {
     const pivotKennelId = nearbyIdsSet.has(event.kennelId)
       ? event.kennelId
-      : (event.eventKennels.find((ek) => nearbyIdsSet.has(ek.kennelId))?.kennelId ?? event.kennelId);
+      : (matchedNearbyKennelIds(event.eventKennels, nearbyIdsSet)[0] ?? event.kennelId);
     const kennel = kennelMap.get(pivotKennelId);
     const eventLat = event.latitude ?? kennel?.latitude;
     const eventLng = event.longitude ?? kennel?.longitude;
@@ -628,6 +714,7 @@ async function runStopSearch(
       distanceTier: distanceTier(distanceKm),
       sourceLinks: buildSourceLinks(kennel, event.eventLinks, event.sourceUrl),
       weather: null,
+      seriesParentTitle: event.parentEvent?.title ?? null,
     };
   });
 

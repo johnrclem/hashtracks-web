@@ -57,6 +57,10 @@ export interface KennelContext {
 }
 
 export interface ConfirmedEventRef {
+  /** The kennel the confirmed event renders under. May be a CO-HOST pivot
+   *  kennel (set by the caller via `matchedNearbyKennelIds` in search.ts),
+   *  not necessarily the event's primary `kennelId` — so dedup suppresses
+   *  projections for the kennel the card actually shows under. */
   kennelId: string;
   date: Date; // UTC noon
   startTime?: string | null;
@@ -324,12 +328,19 @@ export function scoreConfidence(
 
 /**
  * Remove projected trails where a CONFIRMED event already exists for the
- * same kennel + date (+ startTime when available).
+ * same kennel.
  *
- * Strategy: when BOTH the confirmed event and the projection have a startTime,
- * use (kennelId, date, startTime) so a confirmed afternoon run doesn't suppress
- * a projected evening run. When either side lacks a startTime, fall back to
- * (kennelId, date) — conservative, since we can't distinguish time slots.
+ * Two granularities:
+ *   - DATED projections (HIGH/MEDIUM, and LOW projections that carry a date):
+ *     dedup by (kennelId, date, startTime) when BOTH sides have a startTime —
+ *     so a confirmed afternoon run doesn't suppress a projected evening run —
+ *     falling back to (kennelId, date) when either side lacks a startTime.
+ *   - CADENCE projections (`date: null` — e.g. "Full moon schedule",
+ *     biweekly/monthly sentinels): these are a vague "this kennel usually
+ *     runs" hint with no specific occurrence, so suppress them whenever the
+ *     kennel has ANY confirmed event in the window. A concrete confirmed run
+ *     makes the hint redundant (e.g. a confirmed Strawberry Moon GGFM run
+ *     should hide the "GGFM — Full moon schedule" possible).
  *
  * Only deduplicates against events with status=CONFIRMED (not TENTATIVE).
  */
@@ -340,7 +351,11 @@ export function deduplicateAgainstConfirmed(
   // Two key sets: one with startTime for precise matching, one date-only for fallback
   const confirmedWithTime = new Set<string>();
   const confirmedDateOnly = new Set<string>();
+  // Kennel-level set: any kennel with ≥1 confirmed event in the window, used to
+  // suppress its dateless cadence projections.
+  const confirmedKennelIds = new Set<string>();
   for (const evt of confirmedEvents) {
+    confirmedKennelIds.add(evt.kennelId);
     const dateKey = evt.date.toISOString().slice(0, 10);
     if (evt.startTime) {
       confirmedWithTime.add(`${evt.kennelId}:${dateKey}:${evt.startTime}`);
@@ -351,7 +366,9 @@ export function deduplicateAgainstConfirmed(
   }
 
   return projections.filter((proj) => {
-    if (!proj.date) return true;
+    // Cadence sentinel (no specific date): redundant once the kennel has a
+    // concrete confirmed run anywhere in the window.
+    if (!proj.date) return !confirmedKennelIds.has(proj.kennelId);
     const dateKey = proj.date.toISOString().slice(0, 10);
     const kennelDate = `${proj.kennelId}:${dateKey}`;
 
