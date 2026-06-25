@@ -667,12 +667,15 @@ HTML is empty so you MUST use the API, not a scrape. Riyadh H3 (`riyadhhash.com`
   chunk** (the one imported by the data hooks, e.g. `useVisitorBlockManagement-*` / `secure-registration-*`),
   so grepping the entry returns nothing. `web_fetch` also **truncates** the entry's long minified lines, a
   cross-origin `fetch` of the bundle is CORS-blocked, and Chrome MCP auto-denies the brand-new SPA domain
-  when no user is present. **Liveness can still be fully proven without the key:** a keyless
-  `fetch('https://<ref>.supabase.co/rest/v1/<table>?select=...')` returns **HTTP 401 `{"message":"No API key
-  found in request"}`** with an open CORS header — that confirms the project, the table path, and CORS are
-  all live (positive result for "project up", and the documented prior recon sample stands). Flag the actual
-  row pull + current-key decode as a build-time step (Claude Code reads the live Network-tab `apikey:` header
-  or decodes the chunk's `role:anon` JWT).
+  when no user is present. **Project reachability can be proven without the key — but NOT the table path:** a
+  keyless `fetch('https://<ref>.supabase.co/rest/v1/<table>?select=...')` returns **HTTP 401 `{"message":"No
+  API key found in request"}`** with an open CORS header — that confirms the **project + CORS** are live, but
+  Supabase rejects a keyless request at the gateway *before* PostgREST resolves the relation, so an
+  arbitrary/misspelled `<table>` returns the **same** 401 (Codex review, #2317). 🔴 **Table existence +
+  columns stay unverified until the authenticated row pull** — gate "source verified" on that, not the 401
+  (the documented recon sample is the only standing evidence of the table shape). Flag the actual row pull +
+  current-key decode as a build-time step (Claude Code reads the live Network-tab `apikey:` header or decodes
+  the chunk's `role:anon` JWT).
 
 ### HC `getEvents` is a live-kennel FINDER — city-name sweep (learned from Shanghai H3, 2026-06-11)
 
