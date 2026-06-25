@@ -662,6 +662,17 @@ HTML is empty so you MUST use the API, not a scrape. Riyadh H3 (`riyadhhash.com`
   `difficulty` (→ Shiggy?), `registration_status`. No coord-default trap (Riyadh carries text locations only).
 - **Effort:** small (~120–180 LoC) — closer to the Meetup/HC config-shaped adapters than a scraper, but it
   needs a new adapter since the endpoint/columns are bespoke. Store the project ref + table in source config.
+- **Re-extracting the `anon` key from the research sandbox is hard — don't block on it (2026-06-25 Riyadh
+  re-verify).** The key is NOT in the Vite **entry** bundle (`/assets/index-*.js`) — it's in a **code-split
+  chunk** (the one imported by the data hooks, e.g. `useVisitorBlockManagement-*` / `secure-registration-*`),
+  so grepping the entry returns nothing. `web_fetch` also **truncates** the entry's long minified lines, a
+  cross-origin `fetch` of the bundle is CORS-blocked, and Chrome MCP auto-denies the brand-new SPA domain
+  when no user is present. **Liveness can still be fully proven without the key:** a keyless
+  `fetch('https://<ref>.supabase.co/rest/v1/<table>?select=...')` returns **HTTP 401 `{"message":"No API key
+  found in request"}`** with an open CORS header — that confirms the project, the table path, and CORS are
+  all live (positive result for "project up", and the documented prior recon sample stands). Flag the actual
+  row pull + current-key decode as a build-time step (Claude Code reads the live Network-tab `apikey:` header
+  or decodes the chunk's `role:anon` JWT).
 
 ### HC `getEvents` is a live-kennel FINDER — city-name sweep (learned from Shanghai H3, 2026-06-11)
 
@@ -1168,3 +1179,49 @@ Two consequences worth pre-empting next time:
   safer geocode input.
 - The placeholder three-way guard **held live**: build live-verify and the post-merge prod scrape both
   returned `events: 0, errors: []` (and `cancelled: 0`, so `upcomingOnly` kept the backfilled past #2223).
+
+---
+
+## WordPress + Modern Events Calendar (MEC) + Elementor — SSR calendar/Hare-Line (researched from Desert H3 / Dubai, 2026-06-23)
+
+`deserthash.org` (Desert H3, Dubai's oldest hash, est. 1979) runs WordPress with **Elementor**
+(`meta-generator: Elementor …`) and **Modern Events Calendar (MEC)**, NOT "The Events Calendar"
+(Tribe). All pages are **fully server-rendered** → static Cheerio, no browserRender. Two surfaces:
+
+- **Detection:** `meta-generator: Elementor`; event permalinks are `?mec-events=<slug>` (MEC's CPT)
+  and the home calendar grid carries `id="mec-calendar-…"` / `mec1-…` anchors. (The Tribe equivalent
+  would be `/event/<slug>` + a `tribe_events` REST API — different plugin.)
+- **🔴 No REST feed — verify, don't assume config-only.** `wp-json/wp/v2/posts`, `wp-json/wp/v2/types`,
+  AND `wp-json/tribe/events/v1/events` ALL returned **empty bodies** on this LiteSpeed/HostGator host
+  (whole WP REST disabled). MEC has no public collection `.ics`/JSON either. So an MEC/Elementor kennel
+  is **NOT config-only** — it needs a Cheerio scraper of the SSR HTML. (The queue had guessed "The
+  Events Calendar → probe `/wp-json/tribe/events/v1/events`"; the probe returned empty. Always HEAD/GET
+  the actual REST path before claiming a WordPress kennel is config-only.)
+- **Upcoming surface = the home page** — MEC SSRs the next run(s) as a calendar grid + an "Events" card
+  block: a date (`DD/MM/YYYY`), a time range (`HH:MM - HH:MM`), and a heading `<Kennel> – Run NNNN`
+  linking `?mec-events=…`. The per-event **detail page is sparse** for future runs ("Details TBC" —
+  no venue/hares/map; details go out via WhatsApp/email). 🟡 Inspect the raw HTML for a JSON-LD
+  `<script type="application/ld+json">` `@type:Event` block first (MEC often emits one — cleaner than
+  scraping grid cells); `web_fetch` strips `<script>`, so confirm at build.
+- **Recent-past surface = a "Hare Line" content page** (here `?page_id=5152`, "the last 50 runs"): month
+  `##### Month YYYY` headings, then rows of `Weekday Month D` + `HH:MM - HH:MM` + `[<Kennel> – Run NNNN](…)`.
+  **Year comes from the month heading → dates are year-bearing, no inference.** A "Load More" button
+  pages older via admin-ajax. NOTE: current-era rows carry **date/time/run# only — no venue/hares**.
+- **🔴 Deeper history lives in pre-migration WP posts** (`?cat=<DH3-Runs-id>`, `?m=YYYYMM`) with venues
+  in the post titles (`Run 2202 – 8 Aug 2021 – Trade Centre Apartments`) — but the WP-post era often
+  **stopped when the kennel switched to MEC** (~2021 here). So recent runs = sparse (date/time/run#);
+  only old runs carry venues. Backfill value is therefore low for the MEC era.
+- **🔴 The MEC calendar mixes kennels/series — TITLE-FILTER on `<Kennel> – Run NNNN`.** Desert H3's
+  calendar also carries **Moonshine** (a separate kennel/series), **Virtual/online** runs, and one-off
+  non-runs (`Interhash 2026 – Indonesia`, All Day). Filter to `/^<KennelShort>\s*[–-]\s*Run\s+\d+/i`
+  so siblings don't ingest under the wrong kennelCode. Keep a trailing theme as `title` only when one
+  follows the run number (`Run 2440 – The War Edition – ONLINE`); else leave `title` undefined.
+- **No per-event coords** (venues distributed off-site) → lat/lng undefined, merge geocodes the metro
+  centroid; no default-pin trap. **`config.upcomingOnly: true`** (rolling last-50 + calendar window age
+  out → reconcile would false-cancel). **Zero-row fail-loud guard** (brand-new single source, baseline 0).
+- **Logo:** `wp-content/uploads/.../<name>.jpg` (stable, non-tokenized) → still self-host + magic-byte
+  the extension (WordPress/Elementor can mislabel; the camel-roundel og:image here is served `.jpg`).
+- **Effort:** new ~150–250 LoC Cheerio adapter (two SSR surfaces, year-bearing dates, title filter,
+  per-event time parse). Handoff: `handoffs/2026-06-23-dh3-ae.md`. 🟡 UNVERIFIED until built: the exact
+  MEC home-calendar DOM (JSON-LD vs event-card markup) — `web_fetch` confirmed the SSR *text* (date,
+  time, run#, detail link all present) but strips `<script>`; capture the real markup for the fixture.
