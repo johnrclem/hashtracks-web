@@ -1203,9 +1203,13 @@ Two consequences worth pre-empting next time:
 - **Upcoming surface = the home page** — MEC SSRs the next run(s) as a calendar grid + an "Events" card
   block: a date (`DD/MM/YYYY`), a time range (`HH:MM - HH:MM`), and a heading `<Kennel> – Run NNNN`
   linking `?mec-events=…`. The per-event **detail page is sparse** for future runs ("Details TBC" —
-  no venue/hares/map; details go out via WhatsApp/email). 🟡 Inspect the raw HTML for a JSON-LD
-  `<script type="application/ld+json">` `@type:Event` block first (MEC often emits one — cleaner than
-  scraping grid cells); `web_fetch` strips `<script>`, so confirm at build.
+  no venue/hares/map; details go out via WhatsApp/email). 🔴 **Parse the rendered DOM
+  first** — select `.mec-event-time` / `.mec-start-time` from the Cheerio-loaded HTML for
+  dates and times. MEC does emit a JSON-LD `<script type="application/ld+json">` `@type:Event`
+  block, but its `startDate` encodes **local time as if it were UTC** (e.g. `19:00+00:00`
+  instead of `19:00+04:00`) — confirmed broken on Desert H3. Treat JSON-LD as **optional
+  metadata only** (title, run number); never use `startDate` for time. `web_fetch` also
+  strips `<script>` tags, so JSON-LD isn't accessible without `fetchHTMLPage` / curl anyway.
 - **Recent-past surface = a "Hare Line" content page** (here `?page_id=5152`, "the last 50 runs"): month
   `##### Month YYYY` headings, then rows of `Weekday Month D` + `HH:MM - HH:MM` + `[<Kennel> – Run NNNN](…)`.
   **Year comes from the month heading → dates are year-bearing, no inference.** A "Load More" button
