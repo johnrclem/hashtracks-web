@@ -7087,13 +7087,11 @@ export const SOURCES = [
         // empty or a known placeholder appears (mirrors Taiwan H3 / Shanghai H3).
         defaultTitle: "Bandung H3",
         staleTitleAliases: ["Placeholder event for BHHH2"],
-        // upcomingOnly:true — UNLIKE the no-backfill HC convention. This kennel
-        // carries a one-shot historical backfill (scripts/backfill-bandung-h3-
-        // history.ts, 56 past runs) attributed to THIS source; the HC getEvents
-        // API is future-only, so without this guard reconcile.ts would
-        // false-CANCEL every backfilled past run inside the 365-day window as it
-        // stops being re-scraped (timeMin guard — same contract as Asunción /
-        // nth3-tw future-only-adapter-plus-backfill sources).
+        // upcomingOnly:true — UNLIKE the no-backfill HC convention. The HC
+        // getEvents API is future-only and this source owns a 56-run historical
+        // backfill (scripts/backfill-bandung-h3-history.ts); without this guard
+        // reconcile.ts would false-CANCEL those past runs as they age off the
+        // 365-day window (timeMin guard — same contract as Asunción / nth3-tw).
         upcomingOnly: true,
       },
       kennelCodes: ["bandung-h3"],
