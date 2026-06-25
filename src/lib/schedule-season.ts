@@ -280,9 +280,14 @@ function parseCadenceSentinel(
 ): { frequency: string; dayName: string | null } | null {
   const cadence = /^CADENCE=(WEEKLY|BIWEEKLY|MONTHLY)\b/.exec(rrule);
   if (!cadence) return null;
-  const byDay = /BYDAY=([A-Z,]+)/.exec(rrule);
-  // length !== 2 rejects multi-day "SA,SU"; unknown tokens fall through to null.
-  const dayName = byDay && byDay[1].length === 2 ? RRULE_DAY_TO_NAME[byDay[1]] ?? null : null;
+  // Capture the BYDAY value up to the next param, then accept an optional
+  // nth-weekday ordinal prefix (e.g. "1SA", "-1FR" on monthly sentinels) before
+  // the 2-letter token. The `$` anchor rejects multi-day values ("SA,SU"); an
+  // unrecognized token falls through to null — keeping the single-weekday
+  // lockstep the parsed path enforces.
+  const byDay = /BYDAY=([^;]+)/.exec(rrule);
+  const token = byDay ? /^(-?\d+)?([A-Z]{2})$/.exec(byDay[1]) : null;
+  const dayName = token ? RRULE_DAY_TO_NAME[token[2]] ?? null : null;
   return { frequency: CADENCE_TO_FREQUENCY[cadence[1]], dayName };
 }
 

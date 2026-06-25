@@ -663,6 +663,19 @@ describe("collectKennelWeekdays", () => {
     ).toEqual(["Thursday"]);
   });
 
+  it("matches monthly nth-weekday CADENCE sentinels (e.g. 1SA, -1FR)", () => {
+    expect(
+      collectKennelWeekdays({
+        scheduleRules: [{ rrule: "CADENCE=MONTHLY;BYDAY=1SA" }],
+      }),
+    ).toEqual(["Saturday"]);
+    expect(
+      collectKennelWeekdays({
+        scheduleRules: [{ rrule: "CADENCE=MONTHLY;BYDAY=-1FR" }],
+      }),
+    ).toEqual(["Friday"]);
+  });
+
   it("ignores the FREQ=LUNAR sentinel (no BYDAY)", () => {
     expect(
       collectKennelWeekdays({
