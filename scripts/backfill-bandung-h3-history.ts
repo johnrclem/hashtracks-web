@@ -3,7 +3,7 @@
  *
  * The Harrier Central adapter (src/adapters/harrier-central/adapter.ts) is
  * future-only — HC's getEvents API returns only upcoming runs — so BHHH2's
- * past runs (#2253 2025-06 → #2308 2026-06, 56 rows incl. two un-numbered
+ * past runs (#2253 2025-06 → #2308 2026-06, 55 rows incl. two un-numbered
  * special runs) would never reach canonical Events from the live scrape.
  *
  * The archive was extracted once from the HC public front-end
@@ -16,12 +16,19 @@
  * HC address parts, coords dropped on geocode-fail sentinels, HC `Hares`
  * deliberately omitted — it carries location-bleed for this kennel).
  *
- * Structural/identity quirks are preserved, NOT "fixed": BHHH2 reuses run# 2292
- * (two dates), skips 2273 and 2289, and one title says "Run 2231" on event #2301.
- * The ONE corrected value: runs #2283/#2286/#2288 were entered in HC at 02:30
- * local (a clerical AM/PM typo — exactly 12h off, GMT field agrees, every other
- * row + the kennel's stated "2:30pm sharp" schedule say 14:30), normalized to
- * 14:30 so the frozen archive shows the real run time, not a 2:30 AM artifact.
+ * Structural quirks are preserved, NOT "fixed": BHHH2 skips run #2273 and #2289,
+ * and one title says "Run 2231" on event #2301.
+ *
+ * Two HC data-entry errors WERE corrected — preserving them would ship broken
+ * data, not a faithful quirk:
+ *   1. Runs #2283/#2286/#2288 were entered at 02:30 local — a clerical AM/PM typo
+ *      (exactly 12h off, the GMT field agrees, every other row + the kennel's
+ *      stated "2:30pm sharp" schedule say 14:30) — normalized to 14:30.
+ *   2. Run #2292 appeared twice (2026-02-20 AND 2026-02-27, same venue). The
+ *      02-20 copy collides with the real #2291 on (kennel, date, startTime), so
+ *      processRawEvents folds it into #2291's canonical and mislabels that run
+ *      (merge.ts same-day match). Dropped the 02-20 duplicate, leaving the true
+ *      weekly schedule #2291@02-20, #2292@02-27.
  *
  * The rows bind to the live "Bandung H3 Harrier Central" source for provenance.
  * That source sets `upcomingOnly: true`, so reconcile never false-cancels these
