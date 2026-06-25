@@ -3390,6 +3390,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 115.19,
     aliases: ["Bali, Indonesia", "Denpasar", "Denpasar, Bali", "Bali, ID"],
   },
+  {
+    name: "Bandung",
+    country: "Indonesia",
+    timezone: "Asia/Jakarta", // WIB / UTC+7 — NOT Asia/Makassar (that's Bali) and NOT the HC quirk Asia/Bangkok
+    abbrev: "BDO",
+    colorClasses: "bg-teal-100 text-teal-700",
+    pinColor: "#2dd4bf", // teal-400, distinct from Bali's #14b8a6
+    centroidLat: -6.9175,
+    centroidLng: 107.6191,
+    aliases: ["Bandung, Indonesia", "Bandung, ID", "Lembang"],
+  },
   // ── South America — Paraguay (first South American country; country → metro,
   // no state-province intermediate, mirroring Kenya/Indonesia). Purple palette
   // keeps South America visually distinct from every other continent. ──
@@ -3735,7 +3746,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(new zealand|aotearoa|christchurch|otepoti|tokoroa|whangarei|whakatane|invercargill|dunedin|tauranga|rotorua|hibiscus coast|coromandel|manawat[uū])\b/, "New Zealand"],
   [/\b(auckland|wellington|hamilton|nelson|napier|hastings|palmerston north|new plymouth),\s*nz\b/, "New Zealand"],
   [/\b(kenya|nairobi|mombasa|kisumu)\b/, "Kenya"],
-  [/\b(bali|indonesia|denpasar)\b/, "Indonesia"],
+  [/\b(bali|indonesia|denpasar|bandung|lembang)\b/, "Indonesia"],
   [/\b(paraguay|asuncion|asunción|luque)\b/, "Paraguay"],
   [/\b(brazil|brasil|bras[ií]lia)\b/, "Brazil"],
   // Mexico — guard "New Mexico" (US state, Albuquerque) to USA BEFORE the Mexico rule
@@ -4052,6 +4063,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Nairobi": "Kenya",
   // Indonesia — country → metro (no state-province intermediate)
   "Bali": "Indonesia",
+  "Bandung": "Indonesia",
   // Paraguay — country → metro (no state-province intermediate)
   "Asunción": "Paraguay",
   // Brazil — country → metro (no state-province intermediate)
@@ -4263,6 +4275,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Indonesia — both the country-level region and its metro map to "Indonesia"
   "Indonesia": "Indonesia",
   "Bali": "Indonesia",
+  "Bandung": "Indonesia",
   // Paraguay — both the country-level region and its metro map to "Paraguay"
   "Paraguay": "Paraguay",
   "Asunción": "Paraguay",

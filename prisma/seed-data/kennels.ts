@@ -5220,6 +5220,31 @@ export const KENNELS: KennelSeed[] = [
       description: "World-famous Bali kennel — 'a drinking club with a running problem.' Weekly Saturday-afternoon trails through rice paddies, temples and villages across Bali. Runs start promptly at 4:00 PM; run number ~1,747 as of mid-2026.",
       latitude: -8.41, longitude: 115.19,
     },
+    // Second Indonesia kennel — Bandung (BHHH2). kennelCode/slug `bandung-h3`
+    // per the onboarding queue; the kennel's own shortcode BHHH2 is preserved
+    // as an alias. latitude/longitude is the Bandung city centroid; per-run GPS
+    // comes from the Harrier Central feed (venues cluster ~ -6.81, 107.62 around
+    // Lembang, north of the city).
+    {
+      kennelCode: "bandung-h3",
+      shortName: "Bandung H3",
+      fullName: "Bandung Hash House Harriers 2",
+      region: "Bandung",
+      country: "Indonesia",
+      website: "https://bandung-hash.com/",
+      facebookUrl: "https://www.facebook.com/bhhh2/",
+      scheduleDayOfWeek: "Friday",
+      scheduleTime: "2:30 PM",
+      scheduleFrequency: "Weekly",
+      foundedYear: 1984,
+      hashCash: "Rp25,000",
+      walkersWelcome: true,
+      logoUrl: "/kennel-logos/bandung-h3.png",
+      description:
+        "One of Bandung's largest hashes (est. 1984). Runs every Friday afternoon on mountain trails around Lembang, Dago, Cikole, Tangkuban Perahu and Maribaya, with Short (4km), Medium (6km) and Long (10km) courses, followed by a karaoke-and-beer On-In.",
+      latitude: -6.9175,
+      longitude: 107.6191,
+    },
     // Spain — first Spain kennel
     {
       kennelCode: "mijash3",

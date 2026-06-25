@@ -7069,6 +7069,35 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["bali-hash-2"],
     },
+    // --- Bandung (BHHH2) — Harrier Central public API ---
+    {
+      name: "Bandung H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live via the HC adapter +
+        // hashruns.org/api/global-runs 2026-06-25 — run #2309, weekly Fri 14:30).
+        publicKennelId: "05907d91-8972-4447-8f33-fdf11f948a2e",
+        defaultKennelTag: "bandung-h3",
+        // BHHH2 names events "BHHH2 Run <N>: <venue>" (real names, kept verbatim).
+        // defaultTitle synthesizes "Bandung H3 #N" only when an event name is
+        // empty or a known placeholder appears (mirrors Taiwan H3 / Shanghai H3).
+        defaultTitle: "Bandung H3",
+        staleTitleAliases: ["Placeholder event for BHHH2"],
+        // upcomingOnly:true — UNLIKE the no-backfill HC convention. This kennel
+        // carries a one-shot historical backfill (scripts/backfill-bandung-h3-
+        // history.ts, 56 past runs) attributed to THIS source; the HC getEvents
+        // API is future-only, so without this guard reconcile.ts would
+        // false-CANCEL every backfilled past run inside the 365-day window as it
+        // stops being re-scraped (timeMin guard — same contract as Asunción /
+        // nth3-tw future-only-adapter-plus-backfill sources).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["bandung-h3"],
+    },
     // Spain — first Spain kennel
     {
       name: "Mijas H3 Hareline",
