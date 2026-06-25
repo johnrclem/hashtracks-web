@@ -143,8 +143,11 @@ that didn't over-project while this enhancement was designed.
 rendering) with TDD (`planSeedRule` + `projectTrails`/`explainSentinel` tests), and Desert H3
 re-seeded with the explicit `[MEDIUM Monday, LOW Sunday-sentinel]` pair. The kennel page + Travel
 Mode now surface "usually Mondays 7 PM" as dated MEDIUM projections plus "sometimes Sundays" as
-possible activity. **Post-merge: `npx prisma db seed` re-runs Pass 3** to write the two rules to prod
-(replacing the interim single Pass-2 Monday rule).
+possible activity. **Prod application:** a companion DATA migration
+(`prisma/migrations/20260625120000_dh3ae_mixed_cadence_schedule_rules`) upserts the two rows
+idempotently — Vercel's `prisma migrate deploy` applies it automatically (no manual `db seed`
+dependency), mirroring `kennels.ts` so a future seed converges. (Schedule-rule data changes need a
+migration because Vercel never runs `db seed`; same pattern as the #2270/#1724/#1723 corrections.)
 
 **Still open:** Change 2 (recall) — deferred until a recall metric is built (see §4).
 
