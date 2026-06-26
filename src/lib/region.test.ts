@@ -307,3 +307,15 @@ describe("inferCountry — Vietnam (first 🇻🇳 kennel)", () => {
     expect(inferCountry(name)).toBe(country);
   });
 });
+
+describe("inferCountry — India (first 🇮🇳 kennel)", () => {
+  it.each([
+    ["Mumbai", "India"],
+    ["Mumbai, India", "India"],
+    ["Bombay", "India"],
+    ["Bombay H3, Mumbai", "India"],
+    ["India", "India"],
+  ])("infers %s → India", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});

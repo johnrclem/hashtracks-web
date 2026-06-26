@@ -2032,6 +2032,35 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 79.8612,
     aliases: ["Colombo, Sri Lanka", "Colombo, LK"],
   },
+  // ── India (first India country: Bombay H3, Mumbai's hash since 1983). 2-level
+  //    COUNTRY → METRO, no state-province intermediate, mirroring Sri Lanka /
+  //    Nepal / UAE. Blue palette — distinct from every Asian neighbour on the map
+  //    (Nepal=violet, Sri Lanka=rose, Thailand=orange, Malaysia=green,
+  //    Indonesia=teal, Taiwan=sky, Vietnam=cyan, UAE=amber, Singapore/HK/Japan=red,
+  //    Philippines=fuchsia); blue's other owners (US/Europe) are nowhere near it. ──
+  {
+    name: "India",
+    country: "India",
+    level: "COUNTRY",
+    timezone: "Asia/Kolkata",
+    abbrev: "IN",
+    colorClasses: "bg-blue-200 text-blue-800",
+    pinColor: "#2563eb",
+    centroidLat: 22.5937,
+    centroidLng: 78.9629,
+    aliases: ["IN", "Republic of India", "भारत"],
+  },
+  {
+    name: "Mumbai",
+    country: "India",
+    timezone: "Asia/Kolkata",
+    abbrev: "BOM",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#3b82f6",
+    centroidLat: 19.076,
+    centroidLng: 72.8777,
+    aliases: ["Mumbai, India", "Bombay", "Bombay, India"],
+  },
   // ── United Arab Emirates (first UAE country: Desert H3, Dubai's oldest hash,
   //    est. 1979). 2-level COUNTRY → METRO, no state-province intermediate,
   //    mirroring Nepal/Sri Lanka/Cambodia. Amber palette — distinct from every
@@ -3747,6 +3776,11 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // "Colombo"); inferCountry() is first-match with USA as the default fallthrough.
   // "Ceylon" deliberately excluded — Ceylon, MN collides; kept only as a region alias.
   [/\b(sri\s*lanka|colombo)\b/, "Sri Lanka"],
+  // India — country + Mumbai. "mumbai" has no US namesake; "bombay" overwhelmingly
+  // means the Indian city (the obscure Bombay Beach, CA / Bombay, NY are dwarfed),
+  // and the kennel brands as "Bombay H3", so it is included. inferCountry() is
+  // first-match with USA as the default fallthrough.
+  [/\b(india|mumbai|bombay)\b/, "India"],
   // United Arab Emirates — country + emirates. All tokens are unambiguous (no
   // notable US "Dubai"/"Emirates"); inferCountry() is first-match with USA as
   // the default fallthrough. Maps to the canonical country NAME, not "AE".
@@ -3992,6 +4026,9 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Hanoi": "Vietnam",
   // Sri Lanka
   "Colombo": "Sri Lanka",
+  // India — metro "Mumbai" resolves via STATE_GROUP_MAP first (2-level
+  // COUNTRY → METRO), so the country-group key "India" is reachable below.
+  "Mumbai": "India",
   // United Arab Emirates
   "Dubai": "United Arab Emirates",
   "Riyadh": "Saudi Arabia",
@@ -4231,6 +4268,9 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Sri Lanka — metro "Colombo" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Sri Lanka" is reachable here (mirrors the Vietnam precedent).
   "Sri Lanka": "Sri Lanka",
+  // India — metro "Mumbai" resolves via STATE_GROUP_MAP first, so only the
+  // country-group key "India" is reachable here (mirrors the Sri Lanka precedent).
+  "India": "India",
   // United Arab Emirates — metro "Dubai" resolves via STATE_GROUP_MAP first, so
   // only the country-group key is reachable here (mirrors the Sri Lanka precedent).
   "United Arab Emirates": "United Arab Emirates",
@@ -4363,6 +4403,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   KH: "Cambodia",
   VN: "Vietnam",
   LK: "Sri Lanka",
+  IN: "India",
   AE: "United Arab Emirates",
   SA: "Saudi Arabia",
   PT: "Portugal",

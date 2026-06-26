@@ -633,6 +633,16 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // taken by harriettes-nyc; "Colombo Hash"/"Colombo H3" belong to the men's sibling)
     "colombo-harriettes": ["Colombo Harriettes", "Colombo Hash House Harriettes", "CHHH"],
 
+    // ===== INDIA ===== (first India kennel; bare "BH3"/"BHHH" omitted — globally
+    // taken: boh3/bh3=Buffalo/bristolh3/bh3-co all alias them)
+    "bombay-h3": [
+      "Bombay Hash House Harriers",
+      "Mumbai Hash House Harriers",
+      "Mumbai H3",
+      "Bombay Hash",
+      "Mumbai Hash",
+    ],
+
     // ===== UNITED ARAB EMIRATES ===== (first UAE kennel; bare "DH3" omitted —
     // global collision: dh3=Dublin, dh3-tx=Dallas, dh3-co=Denver, dh4=Dayton)
     "dh3-ae": ["Desert Hash", "Desert H3", "Desert Hash House Harriers", "DH3 Dubai"],

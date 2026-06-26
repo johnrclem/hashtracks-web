@@ -7320,6 +7320,30 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["colombo-harriettes"],
     },
+
+    // ── India (first 🇮🇳 kennel) ──
+
+    // Bombay H3 (first India kennel, Mumbai, est. 1983) — NEW BombayHashAdapter.
+    // WordPress 6.9.4 (Astra/Spectra) home page that SSRs all current run blocks
+    // ("RUN #NNN" heading + emoji-anchored 📅 date / 🕘 time / 📍 venue jammed into
+    // run-together paragraph text), ~5 runs (#627–#631), no archive. Year-bearing
+    // ordinal dates (no inference). Heavy emoji prose + PII (phone/payee) in the rego
+    // lines — the adapter reads only the dated fields, never the prose, so PII never
+    // enters a field; it fails loud per-run on date drift + on zero rows. `upcomingOnly`
+    // protects the already-run blocks (#627–#630) from reconcile as they age off.
+    // scrapeDays 365: the page is a tiny rolling set spanning several months, so a wide
+    // window keeps every currently-posted run in-scope (the symmetric ±days filter would
+    // otherwise clip the oldest still on the page).
+    {
+      name: "Bombay H3 Website",
+      url: "https://bombayhash.org/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { upcomingOnly: true },
+      kennelCodes: ["bombay-h3"],
+    },
     // Desert H3 (first UAE kennel, Dubai's oldest hash, est. 1979) — deserthash.org
     // WordPress/Elementor + Modern Events Calendar, fully SSR'd; wp-json + MEC/Tribe
     // REST all disabled → DesertHashAdapter (static Cheerio) reads the home MEC card
