@@ -28,7 +28,7 @@ import "dotenv/config";
 import { runBackfillScript } from "./lib/backfill-runner";
 import type { RawEventData } from "@/adapters/types";
 import { safeFetch } from "@/adapters/safe-fetch";
-import { DEFAULT_ANON_KEY, mapHikeRow, type HikeRow } from "@/adapters/html-scraper/riyadh-h3";
+import { DEFAULT_ANON_KEY, HIKES_SELECT, mapHikeRow, type HikeRow } from "@/adapters/html-scraper/riyadh-h3";
 
 const SOURCE_NAME = "Riyadh H3 Supabase API";
 const KENNEL_TIMEZONE = "Asia/Riyadh";
@@ -40,7 +40,7 @@ async function fetchEvents(): Promise<RawEventData[]> {
   // re-partitions to date < today(kennel TZ) as a safety net, but querying the
   // past directly keeps the payload small and the intent explicit.
   const today = new Date().toISOString().slice(0, 10);
-  const url = `https://${PROJECT_REF}.supabase.co/rest/v1/${TABLE}?select=*&order=date.asc&deleted_at=is.null&date=lt.${today}`;
+  const url = `https://${PROJECT_REF}.supabase.co/rest/v1/${TABLE}?select=${HIKES_SELECT}&order=date.asc&deleted_at=is.null&date=lt.${today}`;
 
   const res = await safeFetch(url, {
     headers: { apikey: DEFAULT_ANON_KEY, Authorization: `Bearer ${DEFAULT_ANON_KEY}` },

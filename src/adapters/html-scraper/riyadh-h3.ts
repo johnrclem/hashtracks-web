@@ -2,7 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
-import { buildDateWindow, filterEventsByWindow, validateSourceConfig } from "../utils";
+import { filterEventsByWindow, validateSourceConfig } from "../utils";
 import { parseDMSFromLocation } from "@/lib/geo";
 
 /**
@@ -34,6 +34,11 @@ export const DEFAULT_ANON_KEY =
 
 const KENNEL_TAG = "riyadh-h3";
 
+/** Columns consumed by mapHikeRow — explicit `select` so the wire payload never
+ *  carries unused (or future large) columns. Shared with the history backfill. */
+export const HIKES_SELECT =
+  "run_number,date,title,location,gathering_time,location_gps,map_link,description";
+
 export interface RiyadhH3Config {
   /** Supabase project ref, e.g. "uleyjftvdnpniabomdpi" → <ref>.supabase.co */
   supabaseProjectRef: string;
@@ -41,7 +46,8 @@ export interface RiyadhH3Config {
   supabaseTable: string;
   /** Publishable role:anon JWT. Falls back to DEFAULT_ANON_KEY when omitted. */
   supabaseAnonKey?: string;
-  upcomingOnly?: boolean;
+  // NOTE: `upcomingOnly` lives in source.config but is read by reconcile.ts, not
+  // this adapter, so it is intentionally not declared here.
 }
 
 /** Shape of a single row from the `hikes` PostgREST table (subset consumed). */
@@ -132,7 +138,7 @@ export class RiyadhH3Adapter implements SourceAdapter {
     // excluded by the strictly-less-than backfill, so there is no gap.
     const today = new Date().toISOString().slice(0, 10);
     const base = `https://${config.supabaseProjectRef}.supabase.co/rest/v1/${config.supabaseTable}`;
-    const url = `${base}?select=*&order=date.desc&deleted_at=is.null&date=gte.${today}`;
+    const url = `${base}?select=${HIKES_SELECT}&order=date.desc&deleted_at=is.null&date=gte.${today}`;
 
     let rows: HikeRow[];
     try {
@@ -170,7 +176,6 @@ export class RiyadhH3Adapter implements SourceAdapter {
 
     // Honor options.days (forward cap; the lower bound is moot post date=gte).
     const days = options?.days ?? source.scrapeDays ?? 90;
-    const { maxDate } = buildDateWindow(days);
     const filtered = filterEventsByWindow(events, days);
 
     // Single-surface source whose healthy baseline is small: a zero result
@@ -192,7 +197,6 @@ export class RiyadhH3Adapter implements SourceAdapter {
         rowsFetched: rows.length,
         eventsParsed: filtered.length,
         windowDays: days,
-        windowMaxDate: maxDate.toISOString().slice(0, 10),
       },
     };
   }
