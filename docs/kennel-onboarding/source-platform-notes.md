@@ -535,12 +535,21 @@ The `HARRIER_CENTRAL` adapter already exists (`src/adapters/harrier-central/adap
 existing HC source (Hamburg H7 `sources.ts`): `publicKennelId` GUID filter (more stable than
 `kennelUniqueShortName` or `cityNames`), `defaultKennelTag`, `defaultTitle` + `staleTitleAliases` for
 the kennel's placeholder-title rows, `trustLevel:8`, `scrapeFreq:"daily"`, `scrapeDays:365`, single
-`kennelCodes`. **`upcomingOnly` is OMITTED on every HC source** — HC `getEvents` returns future-only and
-the established HC kennels survive reconciliation without it; do not add it.
+`kennelCodes`. **`upcomingOnly` is OMITTED on a LIVE-ONLY HC source** — HC `getEvents` returns future-only
+and the established HC kennels survive reconciliation without it.
+- 🔴 **EXCEPTION — set `upcomingOnly:true` whenever the HC source ALSO carries a one-shot backfill (Bandung
+  #2340).** The adapter is future-only, so reconcile's `timeMin` guard (`= now - days*86_400_000` when
+  omitted; candidate query filters by `kennelId`+`date` with **no sourceId filter** — `reconcile.ts:144`,
+  `:162-185`) makes every backfilled past row a sole-source cancellation candidate the live scrape never
+  re-confirms → it **false-CANCELs the whole archive** inside the 365-day window (Bandung: ~52 of 55 rows).
+  Matches Asunción / `nth3-tw` (future-only adapter + backfill ⇒ `upcomingOnly:true`). Only live-only HC
+  kennels omit it; the "omit on every HC source" line does NOT survive a backfill.
 
-- **`getEvents` is future-only — no backfill from HC.** The API exposes only upcoming events (earliest is
-  ~6 days out). A high run number (LH3's #1016) implies a deep history, but HC won't serve it — check for
-  a separate archive (Blogspot/WordPress/Sheet); if none, there is no backfill (LH3 had none).
+- **`getEvents` (the adapter path) is future-only** — the API exposes only upcoming events (earliest ~6
+  days out). A high run number (LH3's #1016) implies deep history the *adapter* won't serve. **But
+  `hashruns.org/api/global-runs?isFuture=0` DOES serve the HC archive** (see the global-runs backfill note
+  below) — so an HC kennel's history is recoverable from its HC-join date forward even without a separate
+  Blogspot/WordPress/Sheet archive (LH3 predated that discovery).
 - **Sandbox can't resolve the Azure host.** `harriercentralpublicapi.azurewebsites.net` is allowlist-blocked
   from the research sandbox (`EAI_AGAIN`); the daily run captures the verbatim event sample via a **browser
   page-context fetch** (Chrome MCP) and flags "Claude Code: reconfirm `adapter.fetch(source)` from local
@@ -632,14 +641,32 @@ off — so this endpoint hands you ready-to-paste config-only source rows.
 - **Reachable from the research sandbox?** `hashruns.org` is a normal HTTPS site — try `web_fetch` on the
   `/api/global-runs` URL first; if it's allowlist-blocked, run it from the Claude-in-Chrome extension
   (page-context `fetch`). Either way it beats replicating the Azure `generateAccessToken` token below.
-- 🔑 **`global-runs` ALSO returns PAST events** (`isFuture=0` with a date window) with full
-  number/name/hares/location/lat-lng/fees — so it's a **one-shot historical-backfill source for any HC
-  kennel**, not just a discovery tool (the Azure `getEvents` adapter path is future-only). 2026-06-18 pulls:
-  Bandung 56 runs, Moonshine Dubai 17, Barbados 130 — each enough for a frozen `scripts/data/<code>-history.json`
-  backfill. Window caps: `isFuture=1` ~200 rows; each `isFuture=0` request ~2 MB → page it in ≤6-month windows
-  and dedup by `PublicEventId`. **Source-data quirks survive into the feed** — extract faithfully, don't
-  "fix": e.g. Bandung reuses run# 2292 and skips 2273/2289, and its `Hares` field sometimes carries the
-  *location* (data-entry bleed) → treat HC `Hares` as unreliable per-kennel; verify before trusting.
+- 🔑 **`global-runs` ALSO returns PAST events** — a **one-shot historical-backfill source for any HC
+  kennel**, not just a discovery tool (the Azure `getEvents` adapter path is future-only). 🔴 **Endpoint
+  mechanics (verified at the Bandung build #2340):** `isFuture=0` **REQUIRES** `minEventDate`+`maxEventDate`
+  (HTTP 400 "minEventDate and maxEventDate are required for past runs" without them), and **`publicKennelId`
+  is IGNORED** — the feed returns ALL kennels' past runs in the window, so filter **client-side** by
+  `PublicKennelId`. Rows are **PascalCase** (`LocationOneLineDesc` + `LocationStreet`/`City`/`PostCode`/
+  `Region`/`Country` — join with `", "` to byte-match the adapter's `composeHcLocation`). Window caps:
+  `isFuture=1` ~200 rows; each `isFuture=0` request ~2 MB → page ≤6-month windows, dedup by `PublicEventId`.
+  **Coverage is from the kennel's HC-join date forward, not its lifetime** (Bandung: 55 rows back to #2253
+  2025-06, NOT to its 1984 founding — the LH3/PIH3 caveat). Bind the backfill to the live HC source AND set
+  `upcomingOnly:true` (the EXCEPTION above). 2026-06-18 pulls: Bandung 55, Moonshine Dubai 17, Barbados 130.
+- 🔴 **Curated-backfill discipline — preserve STRUCTURAL quirks, FIX value errors that corrupt on load
+  (Bandung #2340).** "Extract faithfully" applies to real identity facts (a genuine run-number reuse across
+  two *distinct* events, gaps like Bandung's 2273/2289, a verbatim title typo like #2301's "Run 2231") — NOT
+  to value errors. Two of Bandung's handoff-listed "quirks" were actually broken data: (a) the "#2292 reuse"
+  was a **mis-dated duplicate** (same venue on 02-20 AND 02-27) that collides with the real #2291 on
+  `(kennel,date,startTime)` and **folds into it** via the merge same-day match (`merge.ts:1463-1473`,
+  `looksLikeSameEvent`) → mislabels #2291; drop the duplicate. (b) Three `02:30` start times were a **clerical
+  AM/PM typo** (12h off 14:30, the GMT field agrees, contradicts the kennel's "2:30pm sharp") → normalize to
+  14:30. **Dry-run the frozen JSON through the merge and scan for same-`(kennel,date,startTime)` collisions +
+  12h-off / impossible times BEFORE trusting a "preserve quirks" line.** HC `Hares` remains unreliable
+  per-kennel (location-bleed) → omit when it looks like a venue.
+- 🔴 **DNS/HTTP-verify the seeded `website` + socials, not just the source (Bandung #2340).** The handoff's
+  `bandung-hash.com` was **NXDOMAIN** (a dead `website` renders a broken card link). Drop a dead `website`;
+  do NOT substitute `hashruns.org/<slug>` — no HC kennel uses the platform front-end as its `website` (own
+  site or none). The live FB page (`facebookUrl`) is the external presence.
 
 ## Supabase / PostgREST JSON backend behind a React SPA (learned from Riyadh H3, 2026-06-18)
 
