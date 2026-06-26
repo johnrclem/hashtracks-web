@@ -79,11 +79,18 @@ const PILL_TO_KENNEL: Record<string, string> = {
 };
 
 const KENNEL_NAME_TO_KENNEL: Record<string, string> = {
+  // Full names as the feed currently emits them, plus the short "H3" display
+  // variants (mirrors aliases.ts) so a relabel doesn't fall through to unmapped.
   "tidewater hash house harriers": "twh3",
+  "tidewater h3": "twh3",
   "tuesday tuesday tuesday hash house harriers": "t3h3-va",
+  "tuesday tuesday tuesday h3": "t3h3-va",
   "hobo hash house harriers": "hoboh3",
+  "hobo h3": "hoboh3",
   "virginia beach full moon h3": "vbfmh3",
+  "vb full moon h3": "vbfmh3",
   "men of shenanigans h3": "mosh3",
+  "men of shenanigans": "mosh3",
   tkdh3: "tkdh3",
 };
 
@@ -98,8 +105,14 @@ function unknownKennelTag(pill?: string, kennelName?: string): string {
 
 /** Decimal "lat, lng" pair (the feed's coordinate-style locationAddress). */
 const DECIMAL_COORDS_RE = /^(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)$/;
-/** A run number following the word "Trail" when no `#NNN` marker is present. */
-const TRAIL_NUMBER_RE = /\bTrail\s+#?(\d{2,5})\b/i;
+/** A run number following the word "Trail" when no `#NNN` marker is present.
+ * 1–5 digits so single-/double-digit runs (new sub-kennels) aren't missed; the
+ * "Trail" anchor already prevents matching a stray year like "ShiggyFest 2026". */
+const TRAIL_NUMBER_RE = /\bTrail\s+#?(\d{1,5})\b/i;
+
+/** Link-button texts that share the special-event "Details" label with the
+ * prose blurb — excluded when picking the description. */
+const DETAIL_LINK_LABELS = new Set(["view event details", "view details", "view on hashrego"]);
 
 /** Shape of one entry in the inline `trailCalendarEvents` array (partial). */
 interface CalendarEntry {
@@ -430,9 +443,11 @@ export function parseSpecialEvents(
       stripPlaceholder(fields["address"]?.[0] ?? fields["location"]?.[0]),
     );
 
-    // Longest "details" value is the prose blurb (short ones are link labels).
+    // The prose blurb shares the "Details" label with link buttons; drop the
+    // known link labels (not a length heuristic, so short blurbs survive) and
+    // take the longest remaining.
     const detailsProse = (fields["details"] ?? [])
-      .filter((v) => v.length > 40)
+      .filter((v) => !DETAIL_LINK_LABELS.has(v.toLowerCase()))
       .sort((a, b) => b.length - a.length)[0];
     const description =
       [subtitle, detailsProse].filter(Boolean).join(" — ") || undefined;
