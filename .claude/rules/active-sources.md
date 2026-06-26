@@ -175,7 +175,7 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Fort Eustis H3 Google Calendar** -> GOOGLE_CALENDAR -> feh3
 - **Fort Eustis H3 Meetup** -> MEETUP -> feh3
 - **BDSM H3 Meetup** -> MEETUP -> bdsmh3
-- **Tidewater H3 Static Schedule** -> STATIC_SCHEDULE -> twh3
+- **Tidewater H3 Website Calendar** -> HTML_SCRAPER -> twh3, t3h3-va, hoboh3, vbfmh3, mosh3, tkdh3
 
 ### Harrisburg, PA (1)
 - **H5 Google Calendar** -> GOOGLE_CALENDAR -> h5-hash

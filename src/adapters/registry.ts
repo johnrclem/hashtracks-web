@@ -27,6 +27,7 @@ import { WCFHCalendarAdapter } from "./html-scraper/wcfh-calendar";
 import { AtlantaHashBoardAdapter } from "./html-scraper/atlanta-hash-board";
 import { NorthboroHashAdapter } from "./html-scraper/northboro-hash";
 import { DublinHashAdapter } from "./html-scraper/dublin-hash";
+import { TidewaterH3Adapter } from "./html-scraper/tidewater-h3";
 import { DesertHashAdapter } from "./html-scraper/desert-hash";
 import { BurlingtonHashAdapter } from "./html-scraper/burlington-hash";
 import { RIH3Adapter } from "./html-scraper/rih3";
@@ -189,6 +190,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /board\.atlantahash\.com/i,     name: "AtlantaHashBoardAdapter", factory: () => new AtlantaHashBoardAdapter() },
   { pattern: /northboroh3\.com/i,             name: "NorthboroHashAdapter",    factory: () => new NorthboroHashAdapter() },
   { pattern: /dublinhhh\.com/i,              name: "DublinHashAdapter",       factory: () => new DublinHashAdapter() },
+  { pattern: /tidewaterh3\.org/i,            name: "TidewaterH3Adapter",      factory: () => new TidewaterH3Adapter() },
   // Desert H3 (HashTracks' first UAE kennel, Dubai's oldest hash, est. 1979) — deserthash.org
   // WordPress/Elementor + Modern Events Calendar, fully SSR'd; wp-json + MEC/Tribe REST all
   // disabled → static Cheerio of the home MEC calendar (upcoming) + Hare Line page (recent).

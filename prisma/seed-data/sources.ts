@@ -1609,11 +1609,37 @@ export const SOURCES = [
       },
       kennelCodes: ["fuh3"],
     },
-    // --- Tidewater (Static Schedule — main Sunday trail only) ---
+    // --- Tidewater H3 family — official website calendar (tidewaterh3.org) ---
+    // The /calendar page inlines a FullCalendar feed (trailCalendarEvents) with
+    // real run numbers, hares, locations, and themed titles, plus a forward
+    // placeholder skeleton for the weekly kennels. The adapter also pulls
+    // /upcoming-events for multi-day campouts/Dining-Ins (endDate + HashRego
+    // registration links). One source feeds the whole Tidewater family (host +
+    // 5 sub-kennels). Replaces the retired STATIC_SCHEDULE source below (#2416).
+    {
+      name: "Tidewater H3 Website Calendar",
+      url: "https://tidewaterh3.org/calendar",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 120,
+      config: {
+        upcomingOnly: true,
+      },
+      kennelCodes: ["twh3", "t3h3-va", "hoboh3", "vbfmh3", "mosh3", "tkdh3"],
+    },
+    // --- Tidewater (Static Schedule) — RETIRED, superseded by the website
+    // calendar above (#2416). Kept with `enabled: false` (seeder identity is
+    // name+type; deleting orphans it). Disabled atomically by the same manual
+    // prod `db seed` that creates the calendar source + sub-kennels — so the
+    // old source stays live until its replacement exists (no blackout gap).
+    // No companion migration: a migrate-deploy-only disable would retire the
+    // old feed before `db seed` provisions the new one. ---
     {
       name: "Tidewater H3 Static Schedule",
       url: "https://www.facebook.com/groups/SEVAHHH",
       type: "STATIC_SCHEDULE" as const,
+      enabled: false,
       trustLevel: 3,
       scrapeFreq: "weekly",
       scrapeDays: 90,

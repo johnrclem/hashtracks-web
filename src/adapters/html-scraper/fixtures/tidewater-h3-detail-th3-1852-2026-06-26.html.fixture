@@ -1,0 +1,186 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TH3 Trail #1852 - 2K BDay Trail - Tidewater H3</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicons/favicon-32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/images/favicons/apple-touch-icon.png">
+    <link rel="stylesheet" href="/assets/css/style.css?v=1782446155">
+    </head>
+<body>
+
+<header>
+    <div class="header-inner">
+        <img src="/header.png" alt="Tidewater Hash House Harriers">
+
+        <button
+            class="menu-toggle"
+            id="menuToggle"
+            type="button"
+            aria-label="Toggle navigation"
+            aria-controls="navMenu"
+            aria-expanded="false"
+        >
+            <span class="menu-toggle-icon">☰</span>
+        </button>
+    </div>
+
+    <div class="site-tagline">
+        A Drinking Club with a Running Problem
+    </div>
+</header>
+
+<nav class="main-nav">
+    <div class="nav-container" id="navMenu">
+        <a href="/" class="">Home</a>
+        <a href="/calendar" class="">Calendar</a>
+        <a href="/upcoming-events" class="">Upcoming Events</a>
+        <a href="/what-is-hashing" class="">What is Hashing?</a>
+        <a href="/how-to-lay-trail" class="">How to Lay Trail</a>
+        <a href="/misman" class="">Misman</a>
+        <a href="/song-book" class="">Song Book</a>
+        <a href="/nearby-kennels" class="">Nearby Kennels</a>
+    </div>
+</nav>
+
+
+<main class="container">
+
+<article class="special-event-card trail-detail-card">
+    <div class="special-event-layout">
+                    <div class="kennel-logo-wrap special-event-logo-wrap">
+                <img
+                    class="kennel-logo"
+                    src="/assets/images/kennels/th3.png"
+                    alt="Tidewater Hash House Harriers logo"
+                >
+            </div>
+        
+        <div class="special-event-body">
+            <h1 class="special-event-title">
+                TH3 Trail #1852 - 2K BDay Trail            </h1>
+
+            
+            <div class="special-event-kennel">
+                Hosted by Tidewater Hash House Harriers            </div>
+
+            <div class="special-event-details">
+                <div class="event-field">
+                    <div class="event-label">Start</div>
+                    <div class="event-value">
+                        Sunday, June 28, 2026 2:00 PM                    </div>
+                </div>
+
+                                    <div class="event-field">
+                        <div class="event-label">Gather</div>
+                        <div class="event-value">
+                            1:30 PM                        </div>
+                    </div>
+                
+                
+                
+                                                                                    <div class="event-field">
+                            <div class="event-label">Trail Number</div>
+                            <div class="event-value">
+                                                                    1852                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">Start Location</div>
+                            <div class="event-value">
+                                                                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=Loch%20Haven%20Park" data-apple-map-url="https://maps.apple.com/?q=Loch%20Haven%20Park" data-google-map-url="https://www.google.com/maps/search/?api=1&amp;query=Loch%20Haven%20Park" target="_blank" rel="noopener noreferrer">Loch Haven Park</a>                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">Location</div>
+                            <div class="event-value">
+                                                                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=36.905459%2C%20-76.098743" data-apple-map-url="https://maps.apple.com/?q=36.905459%2C%20-76.098743" data-google-map-url="https://www.google.com/maps/search/?api=1&amp;query=36.905459%2C%20-76.098743" target="_blank" rel="noopener noreferrer">36.905459, -76.098743</a>                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">Address</div>
+                            <div class="event-value">
+                                                                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=36.905459%2C%20-76.098743" data-apple-map-url="https://maps.apple.com/?q=36.905459%2C%20-76.098743" data-google-map-url="https://www.google.com/maps/search/?api=1&amp;query=36.905459%2C%20-76.098743" target="_blank" rel="noopener noreferrer">36.905459, -76.098743</a>                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">Hares/Organizer</div>
+                            <div class="event-value">
+                                                                    I Would Walk 2,000 Miles... for Dick                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">Cost</div>
+                            <div class="event-value">
+                                                                    $5                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">Beer Checks</div>
+                            <div class="event-value">
+                                                                    2+OTF                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">Length</div>
+                            <div class="event-value">
+                                                                    2-4 Miles                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">Shiggy</div>
+                            <div class="event-value">
+                                                                    3.69                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">Water Crossing</div>
+                            <div class="event-value">
+                                                                    Yes                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">Walker/Runner Splits</div>
+                            <div class="event-value">
+                                                                    Yes                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">Dog/Stroller Friendly</div>
+                            <div class="event-value">
+                                                                    Yes                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">Trail Type</div>
+                            <div class="event-value">
+                                                                    A to A                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">Down Downs</div>
+                            <div class="event-value">
+                                                                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=Start" data-apple-map-url="https://maps.apple.com/?q=Start" data-google-map-url="https://www.google.com/maps/search/?api=1&amp;query=Start" target="_blank" rel="noopener noreferrer">Start</a>                                                            </div>
+                        </div>
+                                                                                                        <div class="event-field">
+                            <div class="event-label">On-Afters</div>
+                            <div class="event-value">
+                                                                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=Buckeheads" data-apple-map-url="https://maps.apple.com/?q=Buckeheads" data-google-map-url="https://www.google.com/maps/search/?api=1&amp;query=Buckeheads" target="_blank" rel="noopener noreferrer">Buckeheads</a>                                                            </div>
+                        </div>
+                                    
+                                    <div class="event-field special-event-description">
+                        <div class="event-label">Details</div>
+                        <div class="event-value">
+                            Cum on out for a wet and wild trail that is guaranteed to leave you dripping wet and your liver satisfied. Expect chicken/eagle splits, water crossings, and delicious beer. Bring a swimsuit or an extra pair of clothes. Start map: https://maps.app.goo.gl/1zj8Gzd6uUPeRL3c9 On-after map: https://maps.app.goo.gl/ZLq8KwrhtkC9SmvM9                        </div>
+                    </div>
+                
+                            </div>
+
+            <p class="detail-back-link">
+                <a href="/">
+                    Back to Home                </a>
+            </p>
+        </div>
+    </div>
+</article>
+
+</main>
+
+<footer>
+    &copy; 2026 Tidewater Hash House Harriers
+</footer>
+
+<script src="/assets/js/main.js?v=1782446155"></script>
+
+</body>
+</html>

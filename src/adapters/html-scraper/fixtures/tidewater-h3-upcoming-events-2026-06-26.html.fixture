@@ -1,0 +1,465 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Upcoming Events - Tidewater H3</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicons/favicon-32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/images/favicons/apple-touch-icon.png">
+    <link rel="stylesheet" href="/assets/css/style.css?v=1782446155">
+    </head>
+<body>
+
+<header>
+    <div class="header-inner">
+        <img src="/header.png" alt="Tidewater Hash House Harriers">
+
+        <button
+            class="menu-toggle"
+            id="menuToggle"
+            type="button"
+            aria-label="Toggle navigation"
+            aria-controls="navMenu"
+            aria-expanded="false"
+        >
+            <span class="menu-toggle-icon">☰</span>
+        </button>
+    </div>
+
+    <div class="site-tagline">
+        A Drinking Club with a Running Problem
+    </div>
+</header>
+
+<nav class="main-nav">
+    <div class="nav-container" id="navMenu">
+        <a href="/" class="">Home</a>
+        <a href="/calendar" class="">Calendar</a>
+        <a href="/upcoming-events" class="active">Upcoming Events</a>
+        <a href="/what-is-hashing" class="">What is Hashing?</a>
+        <a href="/how-to-lay-trail" class="">How to Lay Trail</a>
+        <a href="/misman" class="">Misman</a>
+        <a href="/song-book" class="">Song Book</a>
+        <a href="/nearby-kennels" class="">Nearby Kennels</a>
+    </div>
+</nav>
+
+
+<main class="container">
+
+
+
+    
+    <article class="special-event-card">
+
+        <div class="special-event-layout">
+
+            
+                <div class="kennel-logo-wrap special-event-logo-wrap">
+
+                    <img
+                        class="kennel-logo"
+                        src="/assets/images/kennels/MoSH3.png"
+                        alt="Men of Shenanigans H3 logo"
+                    >
+
+                </div>
+
+            
+            <div class="special-event-body">
+
+                <h2 class="special-event-title">
+                    MoSH3 Lingerie ShiggyFest 2026                </h2>
+
+                
+                    <div class="event-subtitle">
+                        Third Weekend in August                    </div>
+
+                
+                <div class="special-event-kennel">
+                    Hosted by Men of Shenanigans H3                </div>
+
+                <div class="special-event-details">
+
+                    <div class="event-field">
+                        <div class="event-label">Start</div>
+                        <div class="event-value">
+                            Friday, August 14, 2026 2:00 PM                        </div>
+                    </div>
+
+                    
+                        <div class="event-field">
+                            <div class="event-label">End</div>
+                            <div class="event-value">
+                                Sunday, August 16, 2026 11:00 AM                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field">
+                            <div class="event-label">Location</div>
+                            <div class="event-value">
+                                <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=5002%20Cartersville%20Rd%2C%20Powhatan%2C%20VA%2023139" data-apple-map-url="https://maps.apple.com/?q=5002%20Cartersville%20Rd%2C%20Powhatan%2C%20VA%2023139" data-google-map-url="https://www.google.com/maps/search/?api=1&amp;query=5002%20Cartersville%20Rd%2C%20Powhatan%2C%20VA%2023139" target="_blank" rel="noopener noreferrer">5002 Cartersville Rd, Powhatan, VA 23139</a>                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field">
+                            <div class="event-label">Address</div>
+                            <div class="event-value">
+                                <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=5002%20Cartersville%20Rd%2C%20Powhatan%2C%20VA%2023139" data-apple-map-url="https://maps.apple.com/?q=5002%20Cartersville%20Rd%2C%20Powhatan%2C%20VA%2023139" data-google-map-url="https://www.google.com/maps/search/?api=1&amp;query=5002%20Cartersville%20Rd%2C%20Powhatan%2C%20VA%2023139" target="_blank" rel="noopener noreferrer">5002 Cartersville Rd, Powhatan, VA 23139</a>                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field">
+                            <div class="event-label">Organizer</div>
+                            <div class="event-value">
+                                I&#039;m Gay!, I&#039;m Gay!, I&#039;m Gay!, I&#039;m Gay!                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field">
+                            <div class="event-label">Cost</div>
+                            <div class="event-value">
+                                $99                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field special-event-description">
+                            <div class="event-label">Details</div>
+                            <div class="event-value">
+                                HashRego lists MoSH3 Lingerie ShiggyFest 2026 as a MoSH3 hash campout from Friday, August 14, 2026 at 2:00 PM through Sunday, August 16, 2026 at 11:00 AM. New location near Richmond: The Wilderness at Belmead, 5002 Cartersville Rd, Powhatan, VA 23139. Rego cost is $99; RV hookups are $60 if available. Rego opens April 20, 2026 at 7:00 PM EDT.                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field special-event-description">
+
+                            <div class="event-label">
+                                Registration
+                            </div>
+
+                            <div class="event-value">
+
+                                <a
+                                    href="https://hashrego.com/events/mosh3-lingerie-shiggyfest-2026"
+                                    class="registration-button"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    View on HashRego                                </a>
+
+                            </div>
+
+                        </div>
+
+                                        <div class="event-field special-event-description">
+
+                        <div class="event-label">
+                            Details
+                        </div>
+
+                        <div class="event-value">
+
+                            <a
+                                href="/event/mosh3-lingerie-shiggyfest-2026"
+                                class="registration-button"
+                            >
+                                View Event Details
+                            </a>
+
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </article>
+
+
+    
+    <article class="special-event-card">
+
+        <div class="special-event-layout">
+
+            
+                <div class="kennel-logo-wrap special-event-logo-wrap">
+
+                    <img
+                        class="kennel-logo"
+                        src="/assets/images/kennels/kdh3.png"
+                        alt="TKDH3 logo"
+                    >
+
+                </div>
+
+            
+            <div class="special-event-body">
+
+                <h2 class="special-event-title">
+                    TKDH3 Presents Dead ELVIS 18                </h2>
+
+                
+                    <div class="event-subtitle">
+                        Dead Elvis 18 Were Legal                    </div>
+
+                
+                <div class="special-event-kennel">
+                    Hosted by TKDH3                </div>
+
+                <div class="special-event-details">
+
+                    <div class="event-field">
+                        <div class="event-label">Start</div>
+                        <div class="event-value">
+                            Saturday, August 22, 2026 12:00 PM                        </div>
+                    </div>
+
+                    
+                        <div class="event-field">
+                            <div class="event-label">End</div>
+                            <div class="event-value">
+                                Sunday, August 23, 2026 12:01 AM                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field">
+                            <div class="event-label">Location</div>
+                            <div class="event-value">
+                                <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=36.62267314403483%2C%20-76.59815328372675" data-apple-map-url="https://maps.apple.com/?q=36.62267314403483%2C%20-76.59815328372675" data-google-map-url="https://www.google.com/maps/search/?api=1&amp;query=36.62267314403483%2C%20-76.59815328372675" target="_blank" rel="noopener noreferrer">36.62267314403483, -76.59815328372675</a>                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field">
+                            <div class="event-label">Address</div>
+                            <div class="event-value">
+                                <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=36.62267314403483%2C%20-76.59815328372675" data-apple-map-url="https://maps.apple.com/?q=36.62267314403483%2C%20-76.59815328372675" data-google-map-url="https://www.google.com/maps/search/?api=1&amp;query=36.62267314403483%2C%20-76.59815328372675" target="_blank" rel="noopener noreferrer">36.62267314403483, -76.59815328372675</a>                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field">
+                            <div class="event-label">Organizer</div>
+                            <div class="event-value">
+                                Cavity Search and Menage                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field">
+                            <div class="event-label">Cost</div>
+                            <div class="event-value">
+                                $30                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field special-event-description">
+                            <div class="event-label">Details</div>
+                            <div class="event-value">
+                                HashRego lists TKDH3 Presents Dead ELVIS 18 as a Tidewater Knuckledraggers trail from Saturday, August 22, 2026 at 12:00 PM through Sunday, August 23, 2026 at 12:01 AM. Schedule includes 12:30 gather, 1:00 circle, 1:15 Dead Elvis, 5:00 circle and beer, 5:30 splashing time, and sunset fire.                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field special-event-description">
+
+                            <div class="event-label">
+                                Registration
+                            </div>
+
+                            <div class="event-value">
+
+                                <a
+                                    href="https://hashrego.com/events/tkdh3-presents-dead-elvis-18"
+                                    class="registration-button"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    View on HashRego                                </a>
+
+                            </div>
+
+                        </div>
+
+                                        <div class="event-field special-event-description">
+
+                        <div class="event-label">
+                            Details
+                        </div>
+
+                        <div class="event-value">
+
+                            <a
+                                href="/event/tkdh3-dead-elvis-18-2026"
+                                class="registration-button"
+                            >
+                                View Event Details
+                            </a>
+
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </article>
+
+
+    
+    <article class="special-event-card">
+
+        <div class="special-event-layout">
+
+            
+                <div class="kennel-logo-wrap special-event-logo-wrap">
+
+                    <img
+                        class="kennel-logo"
+                        src="/assets/images/kennels/th3.png"
+                        alt="Tidewater Hash House Harriers logo"
+                    >
+
+                </div>
+
+            
+            <div class="special-event-body">
+
+                <h2 class="special-event-title">
+                    TH3 Hashy Dining-In Round III 2026                </h2>
+
+                
+                    <div class="event-subtitle">
+                        Hasher &amp; Veteran Appreciation Weekend                    </div>
+
+                
+                <div class="special-event-kennel">
+                    Hosted by Tidewater Hash House Harriers                </div>
+
+                <div class="special-event-details">
+
+                    <div class="event-field">
+                        <div class="event-label">Start</div>
+                        <div class="event-value">
+                            Friday, November 13, 2026 4:00 PM                        </div>
+                    </div>
+
+                    
+                        <div class="event-field">
+                            <div class="event-label">End</div>
+                            <div class="event-value">
+                                Sunday, November 15, 2026 11:00 AM                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field">
+                            <div class="event-label">Location</div>
+                            <div class="event-value">
+                                <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=725%20Woodlake%20Drive%20Chesapeake%2C%20VA%2023320" data-apple-map-url="https://maps.apple.com/?q=725%20Woodlake%20Drive%20Chesapeake%2C%20VA%2023320" data-google-map-url="https://www.google.com/maps/search/?api=1&amp;query=725%20Woodlake%20Drive%20Chesapeake%2C%20VA%2023320" target="_blank" rel="noopener noreferrer">725 Woodlake Drive Chesapeake, VA 23320</a>                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field">
+                            <div class="event-label">Address</div>
+                            <div class="event-value">
+                                <a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query=725%20Woodlake%20Drive%20Chesapeake%2C%20VA%2023320" data-apple-map-url="https://maps.apple.com/?q=725%20Woodlake%20Drive%20Chesapeake%2C%20VA%2023320" data-google-map-url="https://www.google.com/maps/search/?api=1&amp;query=725%20Woodlake%20Drive%20Chesapeake%2C%20VA%2023320" target="_blank" rel="noopener noreferrer">725 Woodlake Drive Chesapeake, VA 23320</a>                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field">
+                            <div class="event-label">Organizer</div>
+                            <div class="event-value">
+                                Penis Land and A Kosher Dick Burger Named Steve                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field">
+                            <div class="event-label">Cost</div>
+                            <div class="event-value">
+                                $150                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field special-event-description">
+                            <div class="event-label">Details</div>
+                            <div class="event-value">
+                                HashRego lists TH3 Hashy Dining-In Round III 2026 as a TH3 hash weekend from Friday, November 13, 2026 through Sunday, November 15, 2026 at 11:00 AM. Check-in starts Friday at 4:00 PM at Delta Hotels Marriott Chesapeake/Norfolk, 725 Woodlake Drive, Chesapeake, VA 23320. Schedule includes Friday check-in and shiggy trail, Saturday dining-in events and Shooting Star trail, and Sunday FAT BOI/FEP before the normal local Sunday trail.                            </div>
+                        </div>
+
+                    
+                    
+                        <div class="event-field special-event-description">
+
+                            <div class="event-label">
+                                Registration
+                            </div>
+
+                            <div class="event-value">
+
+                                <a
+                                    href="https://hashrego.com/events/th3-th3-hashy-dining-in-round-iii-2026-2026"
+                                    class="registration-button"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    View on HashRego                                </a>
+
+                            </div>
+
+                        </div>
+
+                                        <div class="event-field special-event-description">
+
+                        <div class="event-label">
+                            Details
+                        </div>
+
+                        <div class="event-value">
+
+                            <a
+                                href="/event/th3-hashy-dining-in-round-iii-2026"
+                                class="registration-button"
+                            >
+                                View Event Details
+                            </a>
+
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </article>
+
+
+</main>
+
+<footer>
+    &copy; 2026 Tidewater Hash House Harriers
+</footer>
+
+<script src="/assets/js/main.js?v=1782446155"></script>
+
+</body>
+</html>
