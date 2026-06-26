@@ -192,7 +192,7 @@ export const KENNELS: KennelSeed[] = [
       contactEmail: "syracusehashruns@gmail.com",
       scheduleDayOfWeek: "Monday", scheduleFrequency: "Weekly", scheduleTime: "6:09 PM",
       scheduleNotes: "Mondays 6:09 PM (Apr-Sep); Saturdays 1:00 PM (Oct-Mar).",
-      hashCash: "$5", foundedYear: 2012,
+      hashCash: "$7", foundedYear: 2012,
       description: "Weekly hash in Central New York with seasonal schedule: Monday evenings in summer, Saturday afternoons in winter.",
       latitude: 43.05, longitude: -76.15,
     },
@@ -574,6 +574,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "shith3", shortName: "SHITH3", fullName: "So Happy It's Tuesday Hash House Harriers", region: "Northern Virginia",
       website: "https://shith3.com", foundedYear: 2002,
+      logoUrl: "https://shith3.com/img/sohappyits.png",
       facebookUrl: "https://www.facebook.com/groups/756148277731360/",
       scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       description: "Weekly Tuesday evening hash in Northern Virginia / DC Metro. All live trails (est. 2002).",
@@ -743,6 +744,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "svh3", shortName: "SVH3", fullName: "Silicone Valley Hash House Harriers", region: "San Jose, CA",
       website: "https://svh3.com",
+      logoUrl: "https://svh3.com/local/images/svh3/svh3-color-logo-scaled-trimmed.png",
       facebookUrl: "https://www.facebook.com/SIliconeValleyHash",
       twitterHandle: "SiliconValleyH3",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
@@ -882,6 +884,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "suph3", shortName: "SUPH3", fullName: "Stand Up Paddling Hash House Harriers", region: "Long Beach, CA",
       scheduleFrequency: "Irregular", scheduleNotes: "A few paddle events per year",
+      foundedYear: 2023,
       description: "Stand-up paddleboard hash in the Long Beach/Newport Beach area.",
       latitude: 33.77, longitude: -118.19,
     },
@@ -1019,6 +1022,9 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "sloh3", shortName: "SLOH3", fullName: "San Luis Obispo Hash House Harriers", region: "San Luis Obispo, CA",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:15 PM", scheduleFrequency: "Biweekly",
       scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-05-30", startTime: "14:15" }],
+      logoUrl: "https://sloh3.com/wp-content/uploads/2020/02/sloh3-header-logo-110401b.jpg",
+      facebookUrl: "https://www.facebook.com/pages/San-Luis-Obispo-Hash-House-Harriers/147387341995817",
+      contactEmail: "webmeister@sloh3.com",
       description: "San Luis Obispo biweekly Saturday afternoon hash.",
       latitude: 35.28, longitude: -120.66,
     },
@@ -1232,6 +1238,7 @@ export const KENNELS: KennelSeed[] = [
       website: "https://www.stuttgarthash.de",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
       scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU", anchorDate: "2026-05-31", startTime: "14:00" }],
+      logoUrl: "https://www.stuttgarthash.de/images/favicon.png",
       description: "Stuttgart's biweekly Sunday afternoon hash.",
       latitude: 48.78, longitude: 9.18,
     },
@@ -1246,6 +1253,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "fm-stgt", shortName: "Stuttgart FM", fullName: "Stuttgart Full Moon Hash House Harriers", region: "Stuttgart", country: "Germany",
       website: "https://www.stuttgarthash.de",
       scheduleFrequency: "Monthly", scheduleTime: "7:00 PM",
+      logoUrl: "https://www.stuttgarthash.de/images/favicon.png",
       description: "Stuttgart monthly full moon hash.",
       latitude: 48.78, longitude: 9.18,
     },
@@ -1470,6 +1478,9 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "tmfmh3", shortName: "TMFMH3", fullName: "Titanic Memorial Full Moon Hash House Harriers", region: "Richmond, VA",
+      website: "https://www.rh3.run/",
+      scheduleDayOfWeek: "Friday", scheduleTime: "6:30 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "Monthly full-moon Friday trail.",
       description: "Richmond's full moon hash.",
       latitude: 37.54, longitude: -77.44,
     },
@@ -1514,6 +1525,8 @@ export const KENNELS: KennelSeed[] = [
     // --- Hampton Roads (Tidewater) ---
     {
       kennelCode: "twh3", shortName: "Tidewater H3", fullName: "Tidewater Hash House Harriers", region: "Hampton Roads, VA",
+      website: "https://tidewaterh3.org/",
+      logoUrl: "https://tidewaterh3.org/assets/images/kennels/th3.png",
       facebookUrl: "https://www.facebook.com/groups/SEVAHHH",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly", scheduleTime: "2:00 PM",
       scheduleNotes: "Sundays year-round. Gather 1:30 PM, start 2:00 PM (spring/fall). Summer 3:30 PM, winter 1:00 PM. 11 sub-kennels run other days.",
@@ -1525,6 +1538,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "t3h3-va", slug: "t3h3-va", shortName: "T3H3", fullName: "Tuesday Tuesday Tuesday Hash House Harriers", region: "Hampton Roads, VA",
       website: "https://tidewaterh3.org/", parentKennelCode: "twh3",
+      logoUrl: "https://tidewaterh3.org/assets/images/kennels/t3h3.png",
       scheduleDayOfWeek: "Tuesday", scheduleFrequency: "Biweekly", scheduleTime: "6:30 PM",
       scheduleNotes: "Tuesday-evening Tidewater sub-kennel. Gather 6:00 PM, start 6:30 PM.",
       hashCash: "$5",
@@ -1534,6 +1548,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "hoboh3", shortName: "HOBO H3", fullName: "HOBO Hash House Harriers", region: "Hampton Roads, VA",
       website: "https://tidewaterh3.org/", parentKennelCode: "twh3",
+      logoUrl: "https://tidewaterh3.org/assets/images/kennels/hobo.png",
       scheduleDayOfWeek: "Thursday", scheduleFrequency: "Biweekly", scheduleTime: "6:30 PM",
       scheduleNotes: "Thursday-evening Tidewater sub-kennel. Gather 6:00 PM, start 6:30 PM.",
       hashCash: "$5",
@@ -1543,6 +1558,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "vbfmh3", shortName: "VBFMH3", fullName: "Virginia Beach Full Moon H3", region: "Hampton Roads, VA",
       website: "https://tidewaterh3.org/", parentKennelCode: "twh3",
+      logoUrl: "https://tidewaterh3.org/assets/images/kennels/vbfmh3.png",
       scheduleDayOfWeek: "Friday", scheduleFrequency: "Monthly", scheduleTime: "7:00 PM",
       scheduleNotes: "Monthly full-moon trail. Gather 6:30 PM, start 7:00 PM.",
       hashCash: "$5",
@@ -1552,6 +1568,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "mosh3", shortName: "MoSH3", fullName: "Men of Shenanigans H3", region: "Hampton Roads, VA",
       website: "https://tidewaterh3.org/", parentKennelCode: "twh3",
+      logoUrl: "https://tidewaterh3.org/assets/images/kennels/MoSH3.png",
       scheduleNotes: "Occasional Tidewater special-event sub-kennel (e.g. Lingerie ShiggyFest).",
       description: "Tidewater-area Men of Shenanigans special-event hash.",
       latitude: 36.85, longitude: -76.13,
@@ -1559,6 +1576,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "tkdh3", shortName: "TKDH3", fullName: "TKDH3", region: "Hampton Roads, VA",
       website: "https://tidewaterh3.org/", parentKennelCode: "twh3",
+      logoUrl: "https://tidewaterh3.org/assets/images/kennels/kdh3.png",
       scheduleNotes: "Occasional Tidewater special-event sub-kennel (e.g. Dead Elvis).",
       description: "Tidewater-area TKDH3 special-event hash.",
       latitude: 36.85, longitude: -76.13,
@@ -1967,6 +1985,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "sph3-fl", shortName: "St Pete H3", fullName: "St Pete Hash House Harriers", region: "Tampa Bay, FL",
       website: "https://sph3.com",
+      logoUrl: "https://www.jollyrogerh3.com/St%20Pete%20H3%20Black%20BR.jpg",
       facebookUrl: "https://www.facebook.com/groups/stpetehashhouseharriers/",
       scheduleDayOfWeek: "Friday", scheduleFrequency: "Biweekly",
       description: "Every other Friday evening runs in St. Petersburg.",
@@ -2017,6 +2036,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "sbh3", shortName: "Spring Brooks H3", fullName: "Spring Brooks Hash House Harriers", region: "Tampa Bay, FL",
+      logoUrl: "https://www.jollyrogerh3.com/SpringBooksH3Logo.jpg",
       facebookUrl: "https://www.facebook.com/groups/1704337600123871",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
       scheduleNotes: "Saturdays opposite TBH3 or BARFH3.",
@@ -2365,6 +2385,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleFrequency: "Biweekly", scheduleNotes: "Alternating Sundays & Saturdays (~4x/month).",
       website: "https://www.upstatehashers.com/",
       facebookUrl: "https://www.facebook.com/p/Upstate-Hash-House-Harriers-100087329174970/",
+      logoUrl: "https://static1.squarespace.com/static/571ea6bb40261d7789831023/t/6567e6afcef58d79816747c1/1701308079290/UHHH%2BLogo.jpg?format=1500w",
       foundedYear: 1998,
       description: "Most established Greenville kennel (~700 runs). 21+ only.",
     },
@@ -2959,6 +2980,7 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/groups/114560698574609/",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "3:00 PM",
       scheduleNotes: "Every other Saturday 3-4 PM + 3rd Thursday 7 PM.",
+      foundedYear: 1995,
       description: "Cincinnati's primary hash kennel with 1,450+ trails.",
       latitude: 39.10, longitude: -84.51,
     },
@@ -3187,6 +3209,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "sumo-h3", shortName: "Sumo H3", fullName: "Sumo Hash House Harriers", region: "Tokyo", country: "Japan",
       website: "https://sumoh3.gotothehash.net",
+      logoUrl: "https://sumoh3.gotothehash.net/wp-content/uploads/2015/08/Sumo_71x100.jpg",
       facebookUrl: "https://www.facebook.com/groups/397839143619015",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
       hashCash: "¥500", foundedYear: 2002,
@@ -3409,6 +3432,8 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "voodoo-h3", shortName: "Voodoo H3", fullName: "Voodoo Hash House Harriers", region: "New Orleans, LA",
       website: "https://www.voodoohash.com",
       logoUrl: "https://www.voodoohash.com/wp-content/uploads/2021/01/137578367_224746102522330_3582023749093073621_n.png",
+      facebookUrl: "https://www.facebook.com/groups/95805992682",
+      instagramHandle: "voodooh3",
       contactEmail: "voodoohash@gmail.com",
       scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       description: "New Orleans' Thursday evening hash. Rain or shine through the city and surrounding areas.",
@@ -3514,6 +3539,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "stlh3", shortName: "STLH3", fullName: "St. Louis Hash House Harriers", region: "St. Louis, MO",
       website: "https://www.stlh3.com",
+      logoUrl: "https://substackcdn.com/image/fetch/$s_!40rR!,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fsubstack-post-media.s3.amazonaws.com%2Fpublic%2Fimages%2F15a0fce8-e997-43ff-a213-1dd9c50bc650%2Fapple-touch-icon-57x57.png",
       facebookUrl: "https://www.facebook.com/groups/1665303950422211",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
       scheduleNotes: "3 PM winter, 5 PM summer",
@@ -3527,6 +3553,9 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "tah3", shortName: "TAH3", fullName: "Tornado Alley Hash House Harriers", region: "Wichita, KS",
       website: "https://www.tah3.com",
+      logoUrl: "https://www.tah3.com/uploads/8/6/6/9/86698234/published/pngwing-com.png?1659321440",
+      facebookUrl: "https://facebook.com/TornadoAlleyHashHouseHarriers",
+      contactEmail: "tornadoalleyhashers@gmail.com",
       scheduleFrequency: "Weekly",
       scheduleNotes: "Wednesdays and Saturdays",
       foundedYear: 1997,
@@ -3621,7 +3650,10 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "suh3", shortName: "SUH3", fullName: "Stockholm Underground Hash House Harriers", region: "Stockholm", country: "Sweden",
       website: "https://www.hash.se",
+      logoUrl: "https://hash.se/local/images/apple-touch-icon-sxh3.png",
+      contactEmail: "gms@hash.se",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      foundedYear: 1994,
       description: "Stockholm's weekly Wednesday evening hash. 6-8 km trails with shorter walker option.",
       latitude: 59.33, longitude: 18.07,
     },
@@ -4031,6 +4063,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "sgharriets", shortName: "SG Harriets", fullName: "Singapore Hash House Harriets",
       region: "Singapore", country: "Singapore",
+      logoUrl: "https://www.singaporeharriets.com/wp-content/uploads/2026/05/Harriets-Logo-without-background.png",
       facebookUrl: "https://www.facebook.com/groups/49667691372/",
       scheduleDayOfWeek: "Wednesday",
       scheduleFrequency: "Weekly",
@@ -4075,6 +4108,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "sh3-sg", shortName: "Singapore Sunday H3", fullName: "Singapore Sunday Hash House Harriers",
       region: "Singapore", country: "Singapore",
       website: "https://sundayhash.com",
+      logoUrl: "https://www.sundayhash.com/wp-content/uploads/2019/08/cropped-S2H3-Logo-New-1-e1565763457227-1.png",
       facebookUrl: "https://www.facebook.com/groups/singaporesundayhash/",
       scheduleDayOfWeek: "Sunday",
       scheduleFrequency: "Biweekly",
@@ -4253,6 +4287,9 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "sh3-au", shortName: "Sydney H3", fullName: "Sydney Hash House Harriers (Posh Hash)",
       region: "Sydney, NSW", country: "Australia",
       website: "https://www.sh3.link",
+      logoUrl: "https://sh3.link/wp-content/uploads/2010/06/cropped-2500.png",
+      facebookUrl: "https://www.facebook.com/pages/Sydney-Hash-House-Harriers-SH3-The-POSH-Hash/416144158445",
+      contactEmail: "onsecposh@gmail.com",
       // #2270: live source (sh3.link) states "every Monday … 6:30pm" and prod events
       // are Monday-dominant (recent Mon 6 / Tue 3). The previous "Tuesday" was stale;
       // the occasional Tuesday is a holiday shift, not a second cadence.
@@ -4293,6 +4330,9 @@ export const KENNELS: KennelSeed[] = [
       region: "Sydney, NSW", country: "Australia",
       website: "https://sydney.larrikins.org",
       logoUrl: "https://sydney.larrikins.org/wp-content/uploads/2022/09/Larrikins-S2H4-Logo-transparent.gif",
+      facebookUrl: "https://www.facebook.com/groups/sydneylarrikins",
+      contactEmail: "scribe@larrikins.org",
+      hashCash: "$10",
       scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Tuesday Larrikin Run. Trail list posted on sydney.larrikins.org.",
       description: "Sydney South Harbour HHH 'Larrikins' — the Tuesday Beers chapter. Weekly Tuesday runs around southern Sydney, currently around Run #2492+.",
@@ -4520,6 +4560,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "wanchai-h3", shortName: "Wanchai H3", fullName: "Wanchai Hash House Harriers",
       region: "Hong Kong", country: "Hong Kong",
+      foundedYear: 1988,
       scheduleDayOfWeek: "Sunday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       description: "One of Hong Kong's longest-running hash kennels, based in the Wan Chai district. Weekly Sunday evening runs.",
       latitude: 22.2783, longitude: 114.1747,
@@ -5000,6 +5041,7 @@ export const KENNELS: KennelSeed[] = [
       hashCash: "200,000 VND (first-timer's patch included; covers transport, beers, water, soft drinks & finger food; children under 5 free)",
       walkersWelcome: true,
       logoUrl: "/kennel-logos/hanoi-h3.png", // self-hosted from hanoih3.com/wp-content/uploads/2024/08/header-for-web-1-1.png; ext confirmed by magic bytes
+      contactEmail: "truongnhungr1981@yahoo.com",
       latitude: 21.0278, longitude: 105.8342,
       description:
         "The Traditional Hanoi Hash House Harriers (est. 1991) are a \"drinking club with a running problem\" meeting every Saturday afternoon in Hanoi. A bus departs central pickup points (Hoan Kiem old quarter + Ba Dinh) - 14:00 in summer, 13:30 in winter - for running (~8 km) and walking (~6 km) trails in the green countryside around Hanoi, then a participatory circle, hash songs and the On-On. Family-friendly; walkers and non-drinkers welcome.",
@@ -5076,9 +5118,12 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "slosh-h3", shortName: "SLOSH H3", fullName: "Salt Lake Old School Hash House Harriers",
       region: "Salt Lake City, UT",
       website: "https://www.whoremanh3.com",
+      logoUrl: "https://www.whoremanh3.com/wp-content/uploads/2024/02/SLOSH-300x286.jpg",
+      facebookUrl: "https://facebook.com/groups/UtahH3",
+      hashCash: "$7 cash or $6.90 Venmo (virgins free)",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Monthly",
-      scheduleTime: "11:00 AM",
-      scheduleNotes: "Monthly Sunday runs at 11 AM. Part of the Whoreman H3 umbrella.",
+      scheduleTime: "10:00 AM",
+      scheduleNotes: "Monthly Sunday runs at 10 AM. Part of the Whoreman H3 umbrella.",
       description: "SLOSH — Salt Lake Old School Hash. Monthly Sunday morning trails.",
       latitude: 40.76, longitude: -111.89,
     },
@@ -5631,6 +5676,8 @@ export const KENNELS: KennelSeed[] = [
       scheduleNotes:
         "Weekly Friday desert hikes with online registration. Gathering time shifts with the season (earlier in the summer heat, late afternoon — ~4:30 PM — in cooler months); the circle follows ~1 hour later.",
       logoUrl: "/kennel-logos/riyadh-h3.jpg", // self-hosted; ext confirmed by magic bytes (JPEG/JFIF, 610x517) despite the .png source URL
+      contactEmail: "info@riyadhhash.com",
+      whatsappUrl: "https://wa.me/966549222200",
       description:
         "Riyadh Hash House Harriers (R3H4) — a hiking-focused hash in Riyadh, Saudi Arabia. Weekly Friday desert hikes across varied desert landscapes, with online hike registration.",
       latitude: 24.7136, // Riyadh centroid (per-event GPS published on ~half of trails)
