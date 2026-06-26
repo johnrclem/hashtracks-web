@@ -81,6 +81,7 @@ logbook + kennel directory.
 - RESIDENTIAL_PROXY_KEY=  # API key for residential proxy auth
 - BROWSER_RENDER_URL=    # NAS browser render service URL (for JS-rendered sites + iframe extraction via frameUrl)
 - BROWSER_RENDER_KEY=    # API key for browser render service auth
+- RIYADH_H3_SUPABASE_ANON_KEY= # Riyadh H3 (R3H4) Supabase publishable `anon` JWT (role:anon, RLS-gated — server-only, kept out of code). Re-extract from riyadhhash.com /assets/*.js if it rotates; required for the Riyadh H3 scrape + history backfill.
 - NEXT_PUBLIC_POSTHOG_KEY= # PostHog project API key (browser-exposed, used by client SDK)
 - POSTHOG_API_KEY=       # PostHog project API key (server-side event capture)
 - NEXT_PUBLIC_SENTRY_DSN= # Sentry DSN (client + server error tracking)

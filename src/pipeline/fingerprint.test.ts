@@ -43,6 +43,22 @@ describe("generateFingerprint", () => {
     expect(a).not.toBe(b);
   });
 
+  it("corrected coordinates produce different fingerprints", () => {
+    // A pin-only correction (e.g. Riyadh H3's DMS location_gps) must re-fingerprint
+    // so the canonical Event picks up the new lat/lng. (#2387 adversarial review)
+    const a = generateFingerprint(buildRawEvent({ latitude: 24.7215, longitude: 46.4128 }));
+    const b = generateFingerprint(buildRawEvent({ latitude: 24.8, longitude: 46.5 }));
+    expect(a).not.toBe(b);
+  });
+
+  it("coord-less events are unaffected by the gated coordinate token", () => {
+    // Gating keeps the pre-coord fingerprint stable: an event with no coords must
+    // hash identically whether or not the coord branch exists.
+    const a = generateFingerprint(buildRawEvent({ latitude: undefined, longitude: undefined }));
+    const b = generateFingerprint(buildRawEvent());
+    expect(a).toBe(b);
+  });
+
   // #1579 follow-up — locationStreet is independent of location. Without
   // this field in the fingerprint, OKissMe-style adapters that newly emit a
   // street address would dedup against the prior RawEvent row and the

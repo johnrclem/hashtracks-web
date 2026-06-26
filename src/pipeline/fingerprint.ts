@@ -127,6 +127,21 @@ export function generateFingerprint(data: RawEventData): string {
     ...(data.eventLabel === undefined
       ? []
       : [`eventLabel=${triStateStringToken(data.eventLabel)}`]),
+    // Coordinates participate so a corrected lat/lng reaches the canonical Event.
+    // Adapters that emit per-event coordinates from a mutable source field (Riyadh
+    // H3's DMS `location_gps`; Harrier Central's syncLat/syncLong) can change the
+    // pin while every other field stays identical — date/run/title/location/
+    // locationUrl/startTime all unchanged. Without a coord token the RawEvent
+    // fingerprint matches the prior row, the scrape dedups it, and
+    // handleDuplicateFingerprint → refreshExistingEvent only touches dateUtc/
+    // timezone, so the corrected coordinates are silently dropped (adversarial
+    // review on #2387). Same gated-spread pattern as locationStreet/endDate above:
+    // coord-less events fingerprint identically pre/post-deploy, so only
+    // coord-bearing rows re-fingerprint once (a distributed, per-source, idempotent
+    // re-merge — cf. the #1316 hareline-field wave).
+    ...(data.latitude === undefined && data.longitude === undefined
+      ? []
+      : [`geo=${data.latitude ?? ""},${data.longitude ?? ""}`]),
   ].join("|");
 
   return createHash("sha256").update(input).digest("hex");

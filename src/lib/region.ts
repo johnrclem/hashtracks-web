@@ -2061,6 +2061,34 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 55.2708,
     aliases: ["Dubai, UAE", "Dubai, United Arab Emirates"],
   },
+  // ── Saudi Arabia (first KSA country: Riyadh H3 / R3H4). 2-level COUNTRY → METRO,
+  //    no state-province intermediate, mirroring UAE/Nepal/Sri Lanka. Teal palette —
+  //    distinct from UAE (amber) and every Asian/Gulf neighbour; teal's other owners
+  //    (Austria, Indonesia, Christchurch, US metros) are nowhere near the Gulf. NOTE:
+  //    abbrev is "KSA" not "SA" — South Australia owns the bare "SA" alias. ──
+  {
+    name: "Saudi Arabia",
+    country: "Saudi Arabia",
+    level: "COUNTRY",
+    timezone: "Asia/Riyadh",
+    abbrev: "KSA",
+    colorClasses: "bg-teal-200 text-teal-800",
+    pinColor: "#0d9488",
+    centroidLat: 24,
+    centroidLng: 45,
+    aliases: ["KSA", "Saudi Arabia", "السعودية"], // no bare "SA" — collides with South Australia
+  },
+  {
+    name: "Riyadh",
+    country: "Saudi Arabia",
+    timezone: "Asia/Riyadh",
+    abbrev: "RUH",
+    colorClasses: "bg-teal-100 text-teal-700",
+    pinColor: "#14b8a6",
+    centroidLat: 24.7136,
+    centroidLng: 46.6753,
+    aliases: ["Riyadh, Saudi Arabia", "Riyadh, KSA"],
+  },
   // ── Portugal ──
   {
     name: "Portugal",
@@ -3723,6 +3751,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // notable US "Dubai"/"Emirates"); inferCountry() is first-match with USA as
   // the default fallthrough. Maps to the canonical country NAME, not "AE".
   [/\b(united arab emirates|uae|dubai|abu dhabi|emirates)\b/, "United Arab Emirates"],
+  [/\b(saudi arabia|saudi|riyadh|ksa)\b/, "Saudi Arabia"], // unambiguous tokens only — NOT bare "sa" (South Australia)
   // CJK branch: `\b` is ASCII-only, so Chinese-only location text (e.g. the
   // "新北市, 台灣" venue field on TwH3 events) needs explicit token matching.
   // `[台臺]` unifies the common/formal Tai- forms (台灣/臺灣, 台北/臺北, etc.).
@@ -3965,6 +3994,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Colombo": "Sri Lanka",
   // United Arab Emirates
   "Dubai": "United Arab Emirates",
+  "Riyadh": "Saudi Arabia",
   // Portugal
   "Lisbon": "Portugal",
   "Porto": "Portugal",
@@ -4204,6 +4234,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // United Arab Emirates — metro "Dubai" resolves via STATE_GROUP_MAP first, so
   // only the country-group key is reachable here (mirrors the Sri Lanka precedent).
   "United Arab Emirates": "United Arab Emirates",
+  "Saudi Arabia": "Saudi Arabia", // metro "Riyadh" resolves via STATE_GROUP_MAP first, so only the country key is needed
   // Portugal — metro "Lisbon" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Portugal" is reachable here (mirrors the Spain/France precedent).
   "Portugal": "Portugal",
@@ -4333,6 +4364,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   VN: "Vietnam",
   LK: "Sri Lanka",
   AE: "United Arab Emirates",
+  SA: "Saudi Arabia",
   PT: "Portugal",
   NL: "Netherlands",
   DK: "Denmark",
