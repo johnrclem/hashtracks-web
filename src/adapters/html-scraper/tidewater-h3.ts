@@ -315,8 +315,15 @@ export function parseCalendarEntry(
 
   const detailUrl = entry.url ? new URL(entry.url, sourceUrl).href : undefined;
 
+  // Multi-day entries (the special events) carry a later `end`; preserve it as
+  // endDate so the fallback path (when /upcoming-events is unavailable) still
+  // records the weekend range instead of collapsing to a single day.
+  const endMatch = entry.end ? /^(\d{4}-\d{2}-\d{2})/.exec(entry.end) : null;
+  const endDate = endMatch && endMatch[1] !== date ? endMatch[1] : undefined;
+
   const event: RawEventData = {
     date,
+    endDate,
     kennelTags: [code],
     title,
     runNumber,
@@ -552,6 +559,12 @@ export class TidewaterH3Adapter implements SourceAdapter {
     const now = new Date();
     const days = options?.days;
     const errors: string[] = [];
+    // Non-fatal fetch failures (secondary events page, detail pages) surface
+    // here for operator visibility. Deliberately NOT pushed to `errors[]`:
+    // scrape.ts gates reconcile + FAILED status on `errors.length`, and a
+    // transient secondary-page outage must not block reconcile of the good
+    // calendar events (best-effort contract).
+    const errorDetails: ErrorDetails = {};
 
     // Fetch the calendar and the (best-effort) /upcoming-events page
     // concurrently — they are independent. fetchHTMLPage never throws; it
@@ -576,6 +589,7 @@ export class TidewaterH3Adapter implements SourceAdapter {
       specialUnknown = parsed.unknownKennels;
     } else {
       specialFetchError = `HTTP error fetching ${eventsUrl}`;
+      (errorDetails.fetch ??= []).push({ url: eventsUrl, message: specialFetchError });
     }
     // Suppress the calendar's single-date copies of events the events page owns.
     const suppressEventKeys = new Set(special.map((e) => `${e.kennelTags[0]}|${e.date}`));
@@ -622,6 +636,7 @@ export class TidewaterH3Adapter implements SourceAdapter {
         const detail = await fetchHTMLPage(url);
         if (!detail.ok) {
           detailFailures.push(url);
+          (errorDetails.fetch ??= []).push({ url, message: `HTTP error fetching detail page ${url}` });
           return;
         }
         const grid = parseDetailGrid(detail.html);
@@ -643,6 +658,7 @@ export class TidewaterH3Adapter implements SourceAdapter {
     return {
       events: allEvents,
       errors,
+      errorDetails: errorDetails.fetch?.length ? errorDetails : undefined,
       structureHash,
       diagnosticContext: {
         rawCount,

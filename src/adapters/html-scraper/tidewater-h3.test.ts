@@ -362,4 +362,31 @@ describe("TidewaterH3Adapter.fetch", () => {
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.errors[0]).toMatch(/No trailCalendarEvents feed/);
   });
+
+  it("falls back to calendar specials (with endDate) when /upcoming-events fails", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    mockedSafeFetch.mockImplementation(async (url: string | URL) => {
+      const u = String(url);
+      if (u.includes("/upcoming-events")) {
+        return new Response("err", { status: 500, headers: { "content-type": "text/html" } });
+      }
+      const body = u.includes("/trail/") || u.includes("/event/") ? DETAIL_HTML : CALENDAR_HTML;
+      return new Response(body, { status: 200, headers: { "content-type": "text/html" } });
+    });
+
+    const result = await new TidewaterH3Adapter().fetch(makeSource(), { days: 120 });
+
+    // Best-effort failure must not block the scrape: errors[] stays empty (so
+    // reconcile still runs), the failure surfaces via errorDetails + diagnostics.
+    expect(result.errors).toEqual([]);
+    expect(result.diagnosticContext?.specialEvents).toBe(0);
+    expect(result.diagnosticContext?.specialFetchError).toMatch(/upcoming-events/);
+    expect(result.errorDetails?.fetch?.some((f) => f.url?.includes("/upcoming-events"))).toBe(true);
+
+    // The calendar's type:"event" copy is retained AND keeps its multi-day range.
+    const dining = result.events.filter((e) => e.title?.includes("Dining-In"));
+    expect(dining).toHaveLength(1);
+    expect(dining[0].endDate).toBe("2026-11-15");
+  });
 });
