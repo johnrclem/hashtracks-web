@@ -704,6 +704,33 @@ HTML is empty so you MUST use the API, not a scrape. Riyadh H3 (`riyadhhash.com`
   current-key decode as a build-time step (Claude Code reads the live Network-tab `apikey:` header or decodes
   the chunk's `role:anon` JWT).
 
+**Build corrections (Riyadh H3 SHIPPED 2026-06-25, [PR #2387](https://github.com/johnrclem/hashtracks-web/pull/2387) — see the retro):**
+- 🔴 **The `anon` JWT goes in an ENV VAR, not a committed constant or `Source.config` literal.** It's
+  publishable (RLS-gated) so it's not a *security* risk — but **Codacy's secret scanner fails the PR gate on
+  the hardcoded JWT** (SonarCloud passed; Codacy is stricter), and excluding the whole adapter via `.codacy.yml`
+  is too broad. Seed it as `RIYADH_H3_SUPABASE_ANON_KEY`, read by both the adapter and the backfill via a shared
+  `resolveRiyadhAnonKey(configKey?)` (optional `config.supabaseAnonKey` override), failing loud if unset.
+  Document it in CLAUDE.md and **set it in Vercel (Production) before merge** or the cron scrape fails loud
+  (no events) until it's present.
+- 🔴 **The recon's documented sample row is a FLOOR, not the schema.** Riyadh's live `hikes` rows carried three
+  more populated columns than the 2026-06-18 recon captured: `map_link` (Google Maps shortlink → `locationUrl`),
+  `location_gps` (DMS → lat/lng via `parseDMSFromLocation`), and a real `description`. Build-time `adapter.fetch`
+  must `select=*` once and map **every** user-visible field present, not just the recon's columns.
+- 🔴 **Single-sample premises about a field are unreliable — tally the whole column.** The recon said "weekly
+  Thursday" and "titles are place-name dups (drop them)." The full 59-row feed showed **58 Friday / 1 Sat / 0
+  Thursday** (the `date` column is authoritative over the card) and **56/59 real theme titles** ("Dead Camel
+  Rage") — kept verbatim. Verify weekday + field-shape across the archive, not one row.
+- 🔴 **Forward/past split uses the kennel's LOCAL date, not UTC.** Compute "today" via `Intl.DateTimeFormat
+  ('en-CA', {timeZone: '<kennel zone>'})` (a shared `riyadhToday()` here), shared by the adapter (`date=gte`)
+  and the backfill (`date=lt`) — `toISOString()` (UTC) misfiles rows around local midnight (≤3h for Riyadh).
+- 🔴 **Per-event coords now participate in the RawEvent fingerprint (shared-infra, #2387).** Adapters that emit
+  `latitude`/`longitude` from a mutable source column (Riyadh's `location_gps`, HC's `syncLat/syncLong`) get a
+  gated coord token in `generateFingerprint`, so a corrected pin re-merges instead of being dropped at dedup.
+  No per-adapter action needed.
+- 🟡 **`tsx -e` DB probes need `import "dotenv/config"`** or `@/lib/db` connects to a phantom local DB
+  ("database <user> does not exist"); backfill *scripts* already import it. Prefer `psql "$DATABASE_URL"` for
+  quick prod reads. The kennel page URL uses the **slug** (`r3h4`, from shortName), not the kennelCode.
+
 ### HC `getEvents` is a live-kennel FINDER — city-name sweep (learned from Shanghai H3, 2026-06-11)
 
 When the queue runs dry, turn the existing HARRIER_CENTRAL adapter into a discovery tool. Replicate the
