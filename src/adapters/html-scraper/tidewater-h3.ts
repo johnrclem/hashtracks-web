@@ -61,6 +61,7 @@ const EVENTS_PATH = "/upcoming-events";
 const DEFAULT_PLACEHOLDER_WINDOW_DAYS = 120;
 const REAL_EVENT_WINDOW_DAYS = 365;
 const MAX_DETAIL_ENRICHMENTS = 15;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Pill code (uppercased `entry.title`) → kennelCode. `extendedProps.kennel`
@@ -99,7 +100,9 @@ const KENNEL_NAME_TO_KENNEL: Record<string, string> = {
  * being misattributed to the host kennel. */
 function unknownKennelTag(pill?: string, kennelName?: string): string {
   const raw = (pill || kennelName || "unknown").trim().toLowerCase();
-  const slug = raw.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  // Runs of non-alphanumerics already collapse to a single "-", so at most one
+  // edge dash remains — `^-|-$` (no `+`) trims it without backtracking (S8786).
+  const slug = raw.replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return slug ? `unmapped-${slug}` : "unmapped-kennel";
 }
 
@@ -143,26 +146,16 @@ interface CalendarEntry {
  * ~88 KB page and the risk of an inner `];` truncating a non-greedy match.
  * Returns the parsed array, or null if the island is absent / malformed.
  */
-export function extractCalendarArray(html: string): CalendarEntry[] | null {
-  const marker = "trailCalendarEvents";
-  const markerIdx = html.indexOf(marker);
-  if (markerIdx === -1) return null;
-
-  const start = html.indexOf("[", markerIdx);
-  if (start === -1) return null;
-
+/** Index of the `]` closing the array opened at `start`, or -1. String-aware. */
+function findArrayEndIndex(html: string, start: number): number {
   let depth = 0;
   let inString = false;
   let quote = "";
-  let end = -1;
   for (let i = start; i < html.length; i++) {
     const ch = html[i];
     if (inString) {
-      if (ch === "\\") {
-        i++; // skip escaped char
-      } else if (ch === quote) {
-        inString = false;
-      }
+      if (ch === "\\") i++; // skip escaped char
+      else if (ch === quote) inString = false;
       continue;
     }
     if (ch === '"' || ch === "'") {
@@ -170,14 +163,19 @@ export function extractCalendarArray(html: string): CalendarEntry[] | null {
       quote = ch;
     } else if (ch === "[") {
       depth++;
-    } else if (ch === "]") {
-      depth--;
-      if (depth === 0) {
-        end = i;
-        break;
-      }
+    } else if (ch === "]" && --depth === 0) {
+      return i;
     }
   }
+  return -1;
+}
+
+export function extractCalendarArray(html: string): CalendarEntry[] | null {
+  const markerIdx = html.indexOf("trailCalendarEvents");
+  if (markerIdx === -1) return null;
+  const start = html.indexOf("[", markerIdx);
+  if (start === -1) return null;
+  const end = findArrayEndIndex(html, start);
   if (end === -1) return null;
 
   try {
@@ -359,12 +357,6 @@ export function parseTidewaterCalendar(
   if (!arr) return { events: [], rawCount: 0, unknownKennels: [] };
   const suppress = opts.suppressEventKeys ?? new Set<string>();
 
-  const now = opts.now;
-  const minMs = now.getTime() - 1 * 24 * 60 * 60 * 1000; // include today
-  const placeholderMaxMs =
-    now.getTime() + (opts.days ?? DEFAULT_PLACEHOLDER_WINDOW_DAYS) * 24 * 60 * 60 * 1000;
-  const realMaxMs = now.getTime() + REAL_EVENT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-
   const events: RawEventData[] = [];
   const unknownKennels = new Set<string>();
 
@@ -377,11 +369,7 @@ export function parseTidewaterCalendar(
     // endDate + HashRego links). Drop the calendar's bare single-date copy when
     // the events page already supplied this kennel+date.
     if (isSpecialEvent && suppress.has(`${event.kennelTags[0]}|${event.date}`)) continue;
-
-    const eventMs = new Date(event.date + "T12:00:00Z").getTime();
-    if (eventMs < minMs) continue;
-    if (isPlaceholder && eventMs > placeholderMaxMs) continue;
-    if (!isPlaceholder && eventMs > realMaxMs) continue;
+    if (!isWithinWindow(event.date, isPlaceholder, opts.now, opts.days)) continue;
 
     if (!resolveKennel(entry).known) {
       unknownKennels.add(`${entry.title ?? "?"} / ${entry.extendedProps?.kennel ?? "?"}`);
@@ -390,6 +378,17 @@ export function parseTidewaterCalendar(
   }
 
   return { events, rawCount: arr.length, unknownKennels: [...unknownKennels] };
+}
+
+/**
+ * Window gate: drop past events; cap placeholders to `days` (default) and real
+ * events to the wider {@link REAL_EVENT_WINDOW_DAYS} horizon.
+ */
+function isWithinWindow(date: string, isPlaceholder: boolean, now: Date, days?: number): boolean {
+  const ms = new Date(date + "T12:00:00Z").getTime();
+  if (ms < now.getTime() - DAY_MS) return false; // include today
+  const maxDays = isPlaceholder ? (days ?? DEFAULT_PLACEHOLDER_WINDOW_DAYS) : REAL_EVENT_WINDOW_DAYS;
+  return ms <= now.getTime() + maxDays * DAY_MS;
 }
 
 /**
@@ -427,7 +426,8 @@ export function parseSpecialEvents(
       const label = $(fe).find(".event-label").first().text().trim().toLowerCase();
       if (!label) return;
       const value = $(fe).find(".event-value").first().text().replace(/\s+/g, " ").trim();
-      (fields[label] ??= []).push(value);
+      fields[label] ??= [];
+      fields[label].push(value);
     });
 
     const startRaw = fields["start"]?.[0];
@@ -472,7 +472,7 @@ export function parseSpecialEvents(
       hares: stripPlaceholder(fields["organizer"]?.[0]),
       location,
       locationStreet,
-      locationUrl: mapUrl ? mapUrl.replace(/&amp;/g, "&") : undefined,
+      locationUrl: mapUrl ? mapUrl.replaceAll("&amp;", "&") : undefined,
       latitude,
       longitude,
       cost: stripPlaceholder(fields["cost"]?.[0]),
@@ -495,13 +495,14 @@ export function parseTrailLength(raw: string | undefined): {
 } {
   const text = stripPlaceholder(raw);
   if (!text) return { text: null, min: null, max: null };
-  const range = /(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)/.exec(text);
-  if (range) {
-    return { text, min: Number.parseFloat(range[1]), max: Number.parseFloat(range[2]) };
+  // Match the numbers, then use a plain `includes("-")` to detect a range —
+  // avoids the backtracking-prone `\d+...\s*-\s*\d+...` pattern (S8786).
+  const nums = text.match(/\d+(?:\.\d+)?/g);
+  if (nums && nums.length >= 2 && text.includes("-")) {
+    return { text, min: Number.parseFloat(nums[0]), max: Number.parseFloat(nums[1]) };
   }
-  const single = /(\d+(?:\.\d+)?)/.exec(text);
-  if (single) {
-    const v = Number.parseFloat(single[1]);
+  if (nums && nums.length >= 1) {
+    const v = Number.parseFloat(nums[0]);
     return { text, min: v, max: v };
   }
   // Unparseable (e.g. "Yes") — keep verbatim text, clear bounds (atomic bundle).
@@ -589,7 +590,8 @@ export class TidewaterH3Adapter implements SourceAdapter {
       specialUnknown = parsed.unknownKennels;
     } else {
       specialFetchError = `HTTP error fetching ${eventsUrl}`;
-      (errorDetails.fetch ??= []).push({ url: eventsUrl, message: specialFetchError });
+      errorDetails.fetch ??= [];
+      errorDetails.fetch.push({ url: eventsUrl, message: specialFetchError });
     }
     // Suppress the calendar's single-date copies of events the events page owns.
     const suppressEventKeys = new Set(special.map((e) => `${e.kennelTags[0]}|${e.date}`));
@@ -636,7 +638,8 @@ export class TidewaterH3Adapter implements SourceAdapter {
         const detail = await fetchHTMLPage(url);
         if (!detail.ok) {
           detailFailures.push(url);
-          (errorDetails.fetch ??= []).push({ url, message: `HTTP error fetching detail page ${url}` });
+          errorDetails.fetch ??= [];
+          errorDetails.fetch.push({ url, message: `HTTP error fetching detail page ${url}` });
           return;
         }
         const grid = parseDetailGrid(detail.html);

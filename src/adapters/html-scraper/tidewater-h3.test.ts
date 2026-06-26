@@ -66,7 +66,7 @@ describe("extractCalendarArray", () => {
   it("extracts the inline trailCalendarEvents feed", () => {
     const arr = extractCalendarArray(CALENDAR_HTML);
     expect(arr).not.toBeNull();
-    expect(arr!.length).toBe(143);
+    expect(arr!).toHaveLength(143);
   });
 
   it("returns null when the island is absent", () => {
@@ -254,7 +254,7 @@ describe("parseSpecialEvents", () => {
       now: NOW,
       sourceUrl: SOURCE_URL,
     });
-    expect(events.length).toBe(3);
+    expect(events).toHaveLength(3);
     expect(unknownKennels).toEqual([]);
 
     const dining = events.find((e) => e.title?.includes("Dining-In"))!;
@@ -338,7 +338,7 @@ describe("TidewaterH3Adapter.fetch", () => {
     // The Dining-In special appears exactly once — the rich multi-day card from
     // /upcoming-events, not a duplicate of the calendar's bare type:event entry.
     const dining = result.events.filter((e) => e.title?.includes("Dining-In"));
-    expect(dining.length).toBe(1);
+    expect(dining).toHaveLength(1);
     expect(dining[0].endDate).toBe("2026-11-15");
     expect(dining[0].externalLinks?.[0].label).toBe("Hash Rego");
 
