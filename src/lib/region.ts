@@ -2074,8 +2074,8 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     abbrev: "KSA",
     colorClasses: "bg-teal-200 text-teal-800",
     pinColor: "#0d9488",
-    centroidLat: 24.0,
-    centroidLng: 45.0,
+    centroidLat: 24,
+    centroidLng: 45,
     aliases: ["KSA", "Saudi Arabia", "السعودية"], // no bare "SA" — collides with South Australia
   },
   {

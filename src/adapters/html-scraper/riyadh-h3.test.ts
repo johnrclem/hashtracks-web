@@ -14,6 +14,7 @@ const SOURCE = {
     upcomingOnly: true,
     supabaseProjectRef: "uleyjftvdnpniabomdpi",
     supabaseTable: "hikes",
+    supabaseAnonKey: "test-anon-key", // override so fetch() doesn't depend on the env var
   },
 } as unknown as Source;
 
@@ -48,7 +49,7 @@ const REAL_ROW: HikeRow = {
 
   registration_status: "active",
   deleted_at: null,
-} as HikeRow;
+};
 
 describe("mapHikeRow", () => {
   it("maps a full row with all fields", () => {
@@ -158,6 +159,23 @@ describe("RiyadhH3Adapter.fetch", () => {
     const result = await new RiyadhH3Adapter().fetch(SOURCE);
     expect(result.events).toEqual([]);
     expect(result.errors.some((e) => e.includes("401"))).toBe(true);
+  });
+
+  it("fails loud (without fetching) when no anon key is configured", async () => {
+    const noKeySource = {
+      ...SOURCE,
+      config: { supabaseProjectRef: "uleyjftvdnpniabomdpi", supabaseTable: "hikes" },
+    } as unknown as Source;
+    const prev = process.env.RIYADH_H3_SUPABASE_ANON_KEY;
+    delete process.env.RIYADH_H3_SUPABASE_ANON_KEY;
+    try {
+      const result = await new RiyadhH3Adapter().fetch(noKeySource);
+      expect(result.events).toEqual([]);
+      expect(result.errors.some((e) => e.includes("anon key"))).toBe(true);
+      expect(safeFetch).not.toHaveBeenCalled();
+    } finally {
+      if (prev !== undefined) process.env.RIYADH_H3_SUPABASE_ANON_KEY = prev;
+    }
   });
 
   it("fails loud when the fetch throws", async () => {

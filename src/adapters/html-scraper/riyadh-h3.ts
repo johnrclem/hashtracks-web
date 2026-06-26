@@ -27,12 +27,28 @@ import { parseDMSFromLocation } from "@/lib/geo";
  * rotate; re-extract from the live `/assets/*.js` bundle if the API starts 401ing.
  */
 
-/** Default publishable `anon` JWT (role:anon, RLS-gated). Overridable via config.
- *  Exported so the one-shot history backfill reuses the same key + column map. */
-export const DEFAULT_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVsZXlqZnR2ZG5wbmlhYm9tZHBpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxODM3MTUsImV4cCI6MjA2Mzc1OTcxNX0.PnrMtWRot-kj7XXe4j3PZhcsGZJ4lbv3O7BXGJNUIj8";
+/**
+ * Env var holding the publishable `anon` JWT (`role:anon`, RLS-gated — same class
+ * as a NEXT_PUBLIC_* key). Kept out of committed code (no secret-shaped literal in
+ * git) and read by both the adapter and the history backfill, so a key rotation is
+ * a one-place change. Re-extract from the live `/assets/*.js` bundle if it rotates.
+ */
+export const RIYADH_ANON_ENV = "RIYADH_H3_SUPABASE_ANON_KEY";
+
+/** Resolve the anon key: explicit source-config override → env var. */
+export function resolveRiyadhAnonKey(configKey?: string): string | undefined {
+  return configKey ?? process.env[RIYADH_ANON_ENV];
+}
 
 const KENNEL_TAG = "riyadh-h3";
+
+/** Today's date ("YYYY-MM-DD") in the kennel's local zone (Asia/Riyadh, UTC+3).
+ *  Used as the forward/past split boundary so a row is classified by the kennel's
+ *  calendar day, not UTC — avoids misfiling around midnight Riyadh time. Shared
+ *  with the history backfill so both sides split on the same instant. */
+export function riyadhToday(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+}
 
 /** Columns consumed by mapHikeRow — explicit `select` so the wire payload never
  *  carries unused (or future large) columns. Shared with the history backfill. */
@@ -44,7 +60,7 @@ export interface RiyadhH3Config {
   supabaseProjectRef: string;
   /** PostgREST table name, e.g. "hikes" */
   supabaseTable: string;
-  /** Publishable role:anon JWT. Falls back to DEFAULT_ANON_KEY when omitted. */
+  /** Publishable role:anon JWT override. Falls back to the RIYADH_ANON_ENV env var. */
   supabaseAnonKey?: string;
   // NOTE: `upcomingOnly` lives in source.config but is read by reconcile.ts, not
   // this adapter, so it is intentionally not declared here.
@@ -62,6 +78,8 @@ export interface HikeRow {
   location_gps?: string | null; // DMS, e.g. 24°43'17.4"N 46°24'46.2"E
   map_link?: string | null; // Google Maps shortlink
   description?: string | null;
+  // Present in the API but intentionally not mapped (no RawEventData analog):
+  difficulty?: string | null; // free-text hike rating ("moderate") — NOT the 1–5 Shiggy scale
   registration_status?: string | null;
   deleted_at?: string | null;
 }
@@ -128,16 +146,23 @@ export class RiyadhH3Adapter implements SourceAdapter {
       supabaseProjectRef: "string",
       supabaseTable: "string",
     });
-    const anonKey = config.supabaseAnonKey ?? DEFAULT_ANON_KEY;
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
     const fetchStart = Date.now();
 
-    // Forward window only: the backfill owns `date < today`. Use UTC "today" as
-    // the lower bound; today's event (gte) is included by the adapter and
-    // excluded by the strictly-less-than backfill, so there is no gap.
-    const today = new Date().toISOString().slice(0, 10);
     const base = `https://${config.supabaseProjectRef}.supabase.co/rest/v1/${config.supabaseTable}`;
+
+    const anonKey = resolveRiyadhAnonKey(config.supabaseAnonKey);
+    if (!anonKey) {
+      const msg = `Riyadh H3: missing anon key — set the ${RIYADH_ANON_ENV} env var (or config.supabaseAnonKey)`;
+      errorDetails.fetch = [{ url: base, message: msg }];
+      return { events: [], errors: [msg], errorDetails };
+    }
+
+    // Forward window only: the backfill owns `date < today`. Boundary is the
+    // kennel's local day (Asia/Riyadh); today's event (gte) is included by the
+    // adapter and excluded by the strictly-less-than backfill, so there is no gap.
+    const today = riyadhToday();
     const url = `${base}?select=${HIKES_SELECT}&order=date.desc&deleted_at=is.null&date=gte.${today}`;
 
     let rows: HikeRow[];

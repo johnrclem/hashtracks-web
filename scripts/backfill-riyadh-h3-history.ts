@@ -28,7 +28,14 @@ import "dotenv/config";
 import { runBackfillScript } from "./lib/backfill-runner";
 import type { RawEventData } from "@/adapters/types";
 import { safeFetch } from "@/adapters/safe-fetch";
-import { DEFAULT_ANON_KEY, HIKES_SELECT, mapHikeRow, type HikeRow } from "@/adapters/html-scraper/riyadh-h3";
+import {
+  HIKES_SELECT,
+  RIYADH_ANON_ENV,
+  mapHikeRow,
+  resolveRiyadhAnonKey,
+  riyadhToday,
+  type HikeRow,
+} from "@/adapters/html-scraper/riyadh-h3";
 
 const SOURCE_NAME = "Riyadh H3 Supabase API";
 const KENNEL_TIMEZONE = "Asia/Riyadh";
@@ -36,21 +43,26 @@ const PROJECT_REF = "uleyjftvdnpniabomdpi";
 const TABLE = "hikes";
 
 async function fetchEvents(): Promise<RawEventData[]> {
+  const anonKey = resolveRiyadhAnonKey();
+  if (!anonKey) {
+    throw new Error(`Set the ${RIYADH_ANON_ENV} env var before running this backfill`);
+  }
   // Past slice only — the recurring adapter owns `date >= today`. The runner
   // re-partitions to date < today(kennel TZ) as a safety net, but querying the
-  // past directly keeps the payload small and the intent explicit.
-  const today = new Date().toISOString().slice(0, 10);
+  // past directly keeps the payload small and the intent explicit. Same
+  // Asia/Riyadh boundary as the adapter so the split is consistent.
+  const today = riyadhToday();
   const url = `https://${PROJECT_REF}.supabase.co/rest/v1/${TABLE}?select=${HIKES_SELECT}&order=date.asc&deleted_at=is.null&date=lt.${today}`;
 
   const res = await safeFetch(url, {
-    headers: { apikey: DEFAULT_ANON_KEY, Authorization: `Bearer ${DEFAULT_ANON_KEY}` },
+    headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
   });
   if (!res.ok) {
     throw new Error(`Riyadh H3 Supabase API returned HTTP ${res.status}: ${await res.text()}`);
   }
   const json = (await res.json()) as unknown;
   if (!Array.isArray(json)) {
-    throw new Error("Riyadh H3 Supabase API: expected a JSON array of rows");
+    throw new TypeError("Riyadh H3 Supabase API: expected a JSON array of rows");
   }
 
   const rows = json as HikeRow[];

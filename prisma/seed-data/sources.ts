@@ -7344,7 +7344,9 @@ export const SOURCES = [
     // backfilled from the same table by scripts/backfill-riyadh-h3-history.ts. `upcomingOnly`:
     // the table holds 2025+ history on every scrape, so reconcile must clamp to the future or it
     // would false-cancel the backfilled past rows. The anon JWT is publishable (role:anon,
-    // RLS-gated); it has a default constant in the adapter but is overridable here in case it rotates.
+    // RLS-gated) but lives in the RIYADH_H3_SUPABASE_ANON_KEY env var, not in committed code,
+    // so it stays out of git history and the secret-scanners; the adapter reads it (or an
+    // optional config.supabaseAnonKey override). Re-extract from /assets/*.js if it rotates.
     {
       name: "Riyadh H3 Supabase API",
       url: "https://uleyjftvdnpniabomdpi.supabase.co/rest/v1/hikes",
@@ -7356,8 +7358,6 @@ export const SOURCES = [
         upcomingOnly: true,
         supabaseProjectRef: "uleyjftvdnpniabomdpi",
         supabaseTable: "hikes",
-        supabaseAnonKey:
-          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVsZXlqZnR2ZG5wbmlhYm9tZHBpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxODM3MTUsImV4cCI6MjA2Mzc1OTcxNX0.PnrMtWRot-kj7XXe4j3PZhcsGZJ4lbv3O7BXGJNUIj8",
       },
       kennelCodes: ["riyadh-h3"],
     },
