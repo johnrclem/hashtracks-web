@@ -5508,6 +5508,29 @@ export const KENNELS: KennelSeed[] = [
       latitude: 6.9271,
       longitude: 79.8612,
     },
+    // ===== INDIA ===== (first 🇮🇳 kennel; bare "BH3"/"BHHH" omitted — globally taken)
+    // HashTracks' first India kennel — Bombay Hash House Harriers, Mumbai,
+    // est. 6 Feb 1983. Monthly Sunday 9:30 AM; fresh WordPress site (bombayhash.org).
+    {
+      kennelCode: "bombay-h3",
+      shortName: "Bombay H3", // >4 chars → friendlyKennelName short-circuits to "Bombay H3 Trail #N"
+      fullName: "Bombay Hash House Harriers",
+      region: "Mumbai, India",
+      country: "India",
+      website: "https://bombayhash.org/",
+      instagramHandle: "bombayhash",
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "9:30 AM", // 12-hr seed format; RawEventData.startTime stays 24-hr "09:30"
+      scheduleFrequency: "Monthly",
+      hashCash: "₹250 (advance) / ₹400 (late)", // anniversary runs (e.g. #630 ₹2100) are per-event specials
+      foundedYear: 1983, // 6 Feb 1983 — bombayhash.org About; corroborated by "Over 43 years…" (2026−43)
+      walkersWelcome: true, // "Runners, joggers, walkers — everyone is a hasher"
+      logoUrl: "/kennel-logos/bombay-h3.png", // self-hosted; ext confirmed by magic bytes (PNG 590×591)
+      description:
+        "A drinking club with a running problem. Bombay Hash House Harriers, est. 1983 — monthly Sunday-morning trails across Mumbai, from the city's beaches to the Western Ghats.",
+      latitude: 19.076, // Mumbai centroid (no per-event coords published)
+      longitude: 72.8777,
+    },
     // ── United Arab Emirates (first 🇦🇪 kennel: Desert H3, Dubai's oldest hash) ──
     {
       kennelCode: "dh3-ae", // bare "dh3" is taken (Dublin kennelCode; Denver slug); also dh3-tx / dh3-co

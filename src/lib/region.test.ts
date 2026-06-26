@@ -307,3 +307,29 @@ describe("inferCountry — Vietnam (first 🇻🇳 kennel)", () => {
     expect(inferCountry(name)).toBe(country);
   });
 });
+
+describe("inferCountry — India (first 🇮🇳 kennel)", () => {
+  it.each([
+    ["Mumbai", "India"],
+    ["Mumbai, India", "India"],
+    ["Bombay H3", "India"], // kennel-brand form, no "mumbai"/"india" token
+    ["Bombay Hash House Harriers", "India"],
+    ["Bombay H3, Mumbai", "India"],
+    ["India", "India"],
+  ])("infers %s → India", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+
+  it.each([
+    // Bare "bombay" must NOT infer India — US namesakes exist and inferCountry
+    // defaults to USA. Only the kennel-brand forms above match.
+    ["Bombay Beach", "USA"],
+    ["Bombay, NY", "USA"],
+  ])("does not mis-attribute %s to India (→ USA)", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+
+  it("resolves the ISO code IN → India (separate from region aliases)", () => {
+    expect(resolveCountryName("IN")).toBe("India");
+  });
+});
