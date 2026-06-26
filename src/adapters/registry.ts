@@ -140,6 +140,7 @@ import { StaticScheduleAdapter } from "./static-schedule/adapter";
 import { HarrierCentralAdapter } from "./harrier-central/adapter";
 import { FacebookHostedEventsAdapter } from "./facebook-hosted-events/adapter";
 import { HashStatsAdapter } from "./hashstats/adapter";
+import { RiyadhH3Adapter } from "./html-scraper/riyadh-h3";
 
 const adapters: Partial<Record<SourceType, () => SourceAdapter>> = {
   HTML_SCRAPER: () => new HashNYCAdapter(), // default HTML scraper
@@ -192,6 +193,11 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // disabled → static Cheerio of the home MEC calendar (upcoming) + Hare Line page (recent).
   // Title-filters to "DH3 – Run NNNN" so Moonshine / Interhash entries never ingest under dh3-ae.
   { pattern: /deserthash\.org/i,             name: "DesertHashAdapter",       factory: () => new DesertHashAdapter() },
+  // Riyadh H3 / R3H4 (HashTracks' first Saudi Arabia kennel) — riyadhhash.com is a
+  // Lovable React/Vite SPA whose run data is a public Supabase (PostgREST) JSON API.
+  // Anchored on the full project-ref subdomain (not bare supabase.co) to avoid
+  // substring collisions if another Supabase-backed source is ever added.
+  { pattern: /uleyjftvdnpniabomdpi\.supabase\.co/i, name: "RiyadhH3Adapter",  factory: () => new RiyadhH3Adapter() },
   { pattern: /burlingtonh3\.com/i,          name: "BurlingtonHashAdapter",   factory: () => new BurlingtonHashAdapter() },
   { pattern: /rih3\.com/i,                 name: "RIH3Adapter",             factory: () => new RIH3Adapter() },
   { pattern: /teambrassmonkey\.blogspot/i, name: "BrassMonkeyAdapter",      factory: () => new BrassMonkeyAdapter() },

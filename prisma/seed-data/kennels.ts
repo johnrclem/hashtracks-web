@@ -5545,5 +5545,31 @@ export const KENNELS: KennelSeed[] = [
       latitude: 25.2048, // Dubai centroid (no per-event coords published)
       longitude: 55.2708,
     },
+    // ── Saudi Arabia (first 🇸🇦 kennel: Riyadh H3 / R3H4) ──
+    {
+      kennelCode: "riyadh-h3", // bare "r3h4" also free; "riyadh-h3" reads cleaner as a slug
+      shortName: "R3H4",
+      fullName: "Riyadh Hash House Harriers",
+      region: "Riyadh",
+      country: "Saudi Arabia", // canonical NAME (convention) — code "SA" lives in region.ts
+      website: "https://riyadhhash.com/",
+      // foundedYear: omitted — no citable founding year (run #2492 is a large cumulative
+      //   counter but not a citable founding date; the SPA About/FAQ + bundle carry none).
+      // hashCash: omitted — registration-based ("50 spots"), no fee published in the API or shell.
+      // Schedule is data-driven: the live `hikes` table shows 58/59 Fridays (1 Saturday outlier),
+      // NOT the Thursday the onboarding queue assumed. Friday is the Saudi weekend day. Gathering
+      // time varies seasonally (early morning in summer heat → late afternoon in winter); 16:30 is
+      // the current-season value (runs #2491–#2493).
+      scheduleDayOfWeek: "Friday",
+      scheduleTime: "4:30 PM", // 12-hr seed format; RawEventData.startTime stays 24-hr "16:30"
+      scheduleFrequency: "Weekly",
+      scheduleNotes:
+        "Weekly Friday desert hikes with online registration. Gathering time shifts with the season (earlier in the summer heat, late afternoon — ~4:30 PM — in cooler months); the circle follows ~1 hour later.",
+      logoUrl: "/kennel-logos/riyadh-h3.jpg", // self-hosted; ext confirmed by magic bytes (JPEG/JFIF, 610x517) despite the .png source URL
+      description:
+        "Riyadh Hash House Harriers (R3H4) — a hiking-focused hash in Riyadh, Saudi Arabia. Weekly Friday desert hikes across varied desert landscapes, with online hike registration.",
+      latitude: 24.7136, // Riyadh centroid (per-event GPS published on ~half of trails)
+      longitude: 46.6753,
+    },
   ];
 

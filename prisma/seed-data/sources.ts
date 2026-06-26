@@ -7336,5 +7336,30 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["dh3-ae"],
     },
+    // ── Saudi Arabia ──
+    // Riyadh H3 / R3H4 (first Saudi Arabia kennel) — riyadhhash.com is a Lovable React/Vite
+    // SPA (empty HTML shell), so run data must come from its public Supabase (PostgREST) `anon`
+    // JSON API, not a DOM scrape. RiyadhH3Adapter (lightweight JSON client) fetches the forward
+    // window (`date >= today`) from the `hikes` table; the ~58-row 2025+ history is one-shot
+    // backfilled from the same table by scripts/backfill-riyadh-h3-history.ts. `upcomingOnly`:
+    // the table holds 2025+ history on every scrape, so reconcile must clamp to the future or it
+    // would false-cancel the backfilled past rows. The anon JWT is publishable (role:anon,
+    // RLS-gated); it has a default constant in the adapter but is overridable here in case it rotates.
+    {
+      name: "Riyadh H3 Supabase API",
+      url: "https://uleyjftvdnpniabomdpi.supabase.co/rest/v1/hikes",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7, // first-party JSON API (Meetup/Sheets-class), cleaner than an HTML scrape
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        upcomingOnly: true,
+        supabaseProjectRef: "uleyjftvdnpniabomdpi",
+        supabaseTable: "hikes",
+        supabaseAnonKey:
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVsZXlqZnR2ZG5wbmlhYm9tZHBpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgxODM3MTUsImV4cCI6MjA2Mzc1OTcxNX0.PnrMtWRot-kj7XXe4j3PZhcsGZJ4lbv3O7BXGJNUIj8",
+      },
+      kennelCodes: ["riyadh-h3"],
+    },
   ];
 
