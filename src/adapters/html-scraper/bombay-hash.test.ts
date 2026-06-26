@@ -75,10 +75,10 @@ describe("parseBombayHashPage", () => {
     expect(byRun.get(630)?.location).toContain("NESCO Gate 3"); // leading 🍻 stripped
   });
 
-  it("never stores the '???' placeholder or prose as hares", () => {
-    expect(byRun.get(631)?.hares).toBeUndefined();
-    expect(byRun.get(630)?.hares).toBeUndefined();
-    expect(byRun.get(628)?.hares).toBeUndefined();
+  it("clears placeholder hares (label present) but preserves absent ones", () => {
+    expect(byRun.get(631)?.hares).toBeNull(); // "HARES: ???" → label seen → explicit clear
+    expect(byRun.get(630)?.hares).toBeUndefined(); // no HARES label → preserve existing
+    expect(byRun.get(628)?.hares).toBeUndefined(); // no HARES label → preserve existing
   });
 
   it("emits a special per-event cost only when it exceeds the standard fee", () => {

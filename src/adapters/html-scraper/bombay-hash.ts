@@ -18,7 +18,7 @@ const DEFAULT_URL = "https://bombayhash.org/";
 // Run headings vary: "RUN #631", "BH3 RUN #629", "BOMBAY HASH RUN #628",
 // "# Run 627 yeoor hill thane". One is an <h2>, others <h3> — so we key on the
 // heading TEXT, not the tag level. 3–4 digit run numbers (#627 → #631 today).
-const RUN_HEADING_RE = /\bRUN\s*#?\s*(\d{3,4})\b/i;
+const RUN_HEADING_RE = /\bRUN\s*(?:#\s*)?(\d{3,4})\b/i;
 
 // The run date is the ONLY date carrying a 4-digit year on the page. Rego
 // deadlines ("till Friday, 26th June") and discounts ("since Jan") never carry
@@ -42,7 +42,7 @@ const SPECIAL_REGO_FLOOR = 1000;
 // beer emoji (🍻/🍺) — Run #630's venue is prefixed with 🍻 ("🍻 SOCIAL – NESCO …").
 // Single-codepoint glyphs only so the character class is well-formed.
 const FIELD_END_RE = /[🐇💰📲⚠📅🕘🕤⏰🕐🐾🤔]/u;
-const VENUE_LABEL_RE = /^\s*(?:venue)\s*:?\s*/i;
+const VENUE_LABEL_RE = /^\s*venue\s*(?::\s*)?/i;
 // Leading decoration to strip from a captured venue: any run of non-letter,
 // non-digit characters (emoji, dashes, colons, spaces) so "🍻 SOCIAL – …" → "SOCIAL – …".
 const LEADING_DECORATION_RE = /^[^\p{L}\p{N}]+/u;
@@ -144,7 +144,10 @@ function parseVenue(text: string): string | undefined {
   return cleaned && cleaned.length >= 3 ? cleaned : undefined;
 }
 
-function parseHares(text: string): string | undefined {
+// Tri-state return: `undefined` = HARES field ABSENT (preserve any existing
+// canonical value); `null` = field PRESENT but unusable ("???"/TBA/empty or
+// PII-only) → explicit clear so the merge pipeline drops stale hares on re-scrape.
+function parseHares(text: string): string | null | undefined {
   const labelMatch = HARES_LABEL_RE.exec(text);
   if (!labelMatch) return undefined;
   // Cut at the next field marker BEFORE trimming so the "???" placeholder is
@@ -153,9 +156,9 @@ function parseHares(text: string): string | undefined {
   const endMatch = FIELD_END_RE.exec(rest);
   if (endMatch && endMatch.index > 0) rest = rest.slice(0, endMatch.index);
   rest = rest.trim();
-  if (isPlaceholder(rest)) return undefined;
+  if (isPlaceholder(rest)) return null;
   const cleaned = scrubHarePii(rest);
-  return cleaned && cleaned.length >= 2 ? cleaned : undefined;
+  return cleaned && cleaned.length >= 2 ? cleaned : null;
 }
 
 /** Emit a special rego price only when it clearly exceeds the standard fee. */

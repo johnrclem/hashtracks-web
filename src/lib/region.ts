@@ -2048,7 +2048,10 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     pinColor: "#2563eb",
     centroidLat: 22.5937,
     centroidLng: 78.9629,
-    aliases: ["IN", "Republic of India", "भारत"],
+    // "IN" intentionally omitted as a region alias — it collides with Indiana's
+    // abbrev and findCanonicalRegionName is first-match by seed order. ISO-code
+    // "IN" → India is handled separately in COUNTRY_CODE_TO_NAME.
+    aliases: ["Republic of India", "भारत"],
   },
   {
     name: "Mumbai",
@@ -3776,11 +3779,11 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // "Colombo"); inferCountry() is first-match with USA as the default fallthrough.
   // "Ceylon" deliberately excluded — Ceylon, MN collides; kept only as a region alias.
   [/\b(sri\s*lanka|colombo)\b/, "Sri Lanka"],
-  // India — country + Mumbai. "mumbai" has no US namesake; "bombay" overwhelmingly
-  // means the Indian city (the obscure Bombay Beach, CA / Bombay, NY are dwarfed),
-  // and the kennel brands as "Bombay H3", so it is included. inferCountry() is
-  // first-match with USA as the default fallthrough.
-  [/\b(india|mumbai|bombay)\b/, "India"],
+  // India — country + Mumbai. "india"/"mumbai" have no US namesake. Bare "bombay"
+  // is NOT matched (Bombay Beach, CA / Bombay, NY would mis-resolve since
+  // inferCountry defaults to USA); only the kennel-brand forms "Bombay H3" /
+  // "Bombay Hash" do. inferCountry() is first-match with USA as the fallthrough.
+  [/\b(india|mumbai)\b|\bbombay\s+(?:h3|hash|hhh)\b/, "India"],
   // United Arab Emirates — country + emirates. All tokens are unambiguous (no
   // notable US "Dubai"/"Emirates"); inferCountry() is first-match with USA as
   // the default fallthrough. Maps to the canonical country NAME, not "AE".
