@@ -43,6 +43,14 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "bdsmh3": ["BDSMH3", "BDSM Hash", "Bad Decisions Hash", "Bad Decisions Start Monday"],
     "cvilleh3": ["CvilleH3", "Charlottesville Hash", "Harlots", "cHARLOTtesville Hash", "Cville Hash"],
     "twh3": ["TH3", "Tidewater Hash", "Tidewater", "Tidewater HHH", "TH3 VA"],
+    // Tidewater sub-kennels (tidewaterh3.org). Bare "T3H3" omitted — globally
+    // taken (Minneapolis t3h3 / Wellington t3h3-nz); the adapter routes by
+    // kennelCode so no bare alias is needed for ingest.
+    "t3h3-va": ["Tuesday Tuesday Tuesday H3", "Tuesday Tuesday Tuesday Hash House Harriers", "Tuesday Hash Norfolk"],
+    "hoboh3": ["HOBO H3", "HOBO Hash House Harriers"],
+    "vbfmh3": ["VB Full Moon H3", "Virginia Beach Full Moon H3", "VBFM H3"],
+    "mosh3": ["Men of Shenanigans H3", "Men of Shenanigans"],
+    "tkdh3": ["TKDH3 Hash"],
     "7h4": ["7H4", "Seven Hills Hash", "Seven Hills", "7 Hills Hash"],
     // North Carolina
     "swh3": ["SWH3", "Sir Walter's", "Sir Walters", "Sir Walter's Hash", "Sir Walters Hash"],

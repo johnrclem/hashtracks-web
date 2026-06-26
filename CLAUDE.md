@@ -475,7 +475,7 @@ logbook + kennel directory.
 - **BDSM H3 Meetup** → MEETUP → BDSMH3 (Hampton Roads)
 - **cHARLOTtesville H3 Meetup** → MEETUP → CvilleH3 (Charlottesville)
 - **FUH3 Static Schedule** → STATIC_SCHEDULE → FUH3 (Fredericksburg)
-- **Tidewater H3 Static Schedule** → STATIC_SCHEDULE → TH3 (Hampton Roads)
+- **Tidewater H3 Website Calendar** → HTML_SCRAPER → TWH3 + 5 sub-kennels (T3H3-VA, HOBOH3, VBFMH3, MoSH3, TKDH3) via tidewaterh3.org/calendar JSON feed (Hampton Roads; STATIC_SCHEDULE retired #2416)
 - **Seven Hills H3 Static Schedule** → STATIC_SCHEDULE → 7H4 (Lynchburg)
 
 ### North Carolina (6 sources)

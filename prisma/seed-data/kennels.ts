@@ -1521,6 +1521,48 @@ export const KENNELS: KennelSeed[] = [
       description: "Hampton Roads' main hash kennel with 1,836+ trails and 11 sub-kennels across the Virginia Beach/Norfolk/Chesapeake area.",
       latitude: 36.85, longitude: -76.13,
     },
+    // --- Hampton Roads (Tidewater) sub-kennels — fed by tidewaterh3.org/calendar ---
+    {
+      kennelCode: "t3h3-va", slug: "t3h3-va", shortName: "T3H3", fullName: "Tuesday Tuesday Tuesday Hash House Harriers", region: "Hampton Roads, VA",
+      website: "https://tidewaterh3.org/", parentKennelCode: "twh3",
+      scheduleDayOfWeek: "Tuesday", scheduleFrequency: "Biweekly", scheduleTime: "6:30 PM",
+      scheduleNotes: "Tuesday-evening Tidewater sub-kennel. Gather 6:00 PM, start 6:30 PM.",
+      hashCash: "$5",
+      description: "Tuesday-night Tidewater H3 sub-kennel running around Norfolk, VA.",
+      latitude: 36.86, longitude: -76.27,
+    },
+    {
+      kennelCode: "hoboh3", shortName: "HOBO H3", fullName: "HOBO Hash House Harriers", region: "Hampton Roads, VA",
+      website: "https://tidewaterh3.org/", parentKennelCode: "twh3",
+      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Biweekly", scheduleTime: "6:30 PM",
+      scheduleNotes: "Thursday-evening Tidewater sub-kennel. Gather 6:00 PM, start 6:30 PM.",
+      hashCash: "$5",
+      description: "Thursday-night Tidewater H3 sub-kennel running around Norfolk, VA.",
+      latitude: 36.87, longitude: -76.29,
+    },
+    {
+      kennelCode: "vbfmh3", shortName: "VBFMH3", fullName: "Virginia Beach Full Moon H3", region: "Hampton Roads, VA",
+      website: "https://tidewaterh3.org/", parentKennelCode: "twh3",
+      scheduleDayOfWeek: "Friday", scheduleFrequency: "Monthly", scheduleTime: "7:00 PM",
+      scheduleNotes: "Monthly full-moon trail. Gather 6:30 PM, start 7:00 PM.",
+      hashCash: "$5",
+      description: "Virginia Beach full-moon Tidewater H3 sub-kennel.",
+      latitude: 36.91, longitude: -76.09,
+    },
+    {
+      kennelCode: "mosh3", shortName: "MoSH3", fullName: "Men of Shenanigans H3", region: "Hampton Roads, VA",
+      website: "https://tidewaterh3.org/", parentKennelCode: "twh3",
+      scheduleNotes: "Occasional Tidewater special-event sub-kennel (e.g. Lingerie ShiggyFest).",
+      description: "Tidewater-area Men of Shenanigans special-event hash.",
+      latitude: 36.85, longitude: -76.13,
+    },
+    {
+      kennelCode: "tkdh3", shortName: "TKDH3", fullName: "TKDH3", region: "Hampton Roads, VA",
+      website: "https://tidewaterh3.org/", parentKennelCode: "twh3",
+      scheduleNotes: "Occasional Tidewater special-event sub-kennel (e.g. Dead Elvis).",
+      description: "Tidewater-area TKDH3 special-event hash.",
+      latitude: 36.85, longitude: -76.13,
+    },
     // --- Lynchburg ---
     {
       kennelCode: "7h4", shortName: "7H4", fullName: "Seven Hills Hash House Harriers", region: "Lynchburg, VA",
