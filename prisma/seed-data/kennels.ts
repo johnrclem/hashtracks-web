@@ -5231,7 +5231,10 @@ export const KENNELS: KennelSeed[] = [
       fullName: "Bandung Hash House Harriers 2",
       region: "Bandung",
       country: "Indonesia",
-      website: "https://bandung-hash.com/",
+      // No website: the handoff's bandung-hash.com is NXDOMAIN (dead), and HC
+      // kennels use their own real site or none — never hashruns.org as a stand-
+      // in. The live external presence is the Facebook page below; HC run data
+      // already flows in via the Harrier Central source.
       facebookUrl: "https://www.facebook.com/bhhh2/",
       scheduleDayOfWeek: "Friday",
       scheduleTime: "2:30 PM",
