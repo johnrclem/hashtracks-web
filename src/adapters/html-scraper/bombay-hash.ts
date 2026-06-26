@@ -3,7 +3,13 @@ import type { CheerioAPI } from "cheerio";
 import type { Element } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ParseError } from "../types";
-import { fetchHTMLPage, filterEventsByWindow, formatAmPmTime, chronoParseDate } from "../utils";
+import {
+  fetchHTMLPage,
+  filterEventsByWindow,
+  formatAmPmTime,
+  chronoParseDate,
+  isPlaceholder,
+} from "../utils";
 import { scrubHarePii } from "../hare-pii";
 
 const KENNEL_TAG = "bombay-h3";
@@ -19,9 +25,7 @@ const RUN_HEADING_RE = /\bRUN\s*#?\s*(\d{3,4})\b/i;
 // a year, so requiring "20YY" cleanly isolates the run date from the noise.
 // Three simple capture groups, no alternation-adjacent quantifiers (Sonar
 // S5852/S5843 safe). The optional leading weekday is left for chrono to ignore.
-const DATE_RE = /\b(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\.?\s+(20\d{2})\b/;
-// Strip the ordinal suffix as a SEPARATE literal replace before chrono.
-const ORDINAL_RE = /(\d)(?:st|nd|rd|th)\b/gi;
+const DATE_RE = /\b\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\.?\s+20\d{2}\b/;
 
 // The sole AM/PM wall-clock on the page is the assembly time ("9:30 AM",
 // "09:30 AM"). Markers vary (🕘 Time:, ⏰ Assembly:, TIME:), so we ignore the
@@ -45,9 +49,9 @@ const LEADING_DECORATION_RE = /^[^\p{L}\p{N}]+/u;
 
 // A real hares field is the "🐇 HARES:" label — the COLON is mandatory so the
 // jokey prose ("Unless You're the Hare!", "Hares will disappear 🐇") never
-// matches. Placeholder values ("???", "TBA", empty) must NEVER be stored.
+// matches. Placeholder values ("???", "TBA", …) are rejected via the shared
+// isPlaceholder() helper; empty values fall through to the length guard below.
 const HARES_LABEL_RE = /\bhares?\s*:/i;
-const HARES_PLACEHOLDER_RE = /^(?:\?+|tba|tbd|n\/a|none)?$/i;
 
 interface RunBlock {
   runNumber: number;
@@ -90,8 +94,9 @@ function collectRunBlocks($: CheerioAPI): RunBlock[] {
       // every run's text, so a dateless block (markup drift) would otherwise
       // match a SIBLING run's date here and silently mis-date itself.
       if ((tag && STOP_TAGS.has(tag)) || cls.includes("entry-content")) break;
-      if (DATE_RE.test(node.text())) {
-        blockText = node.text();
+      const nodeText = node.text(); // recursive subtree concat — compute once
+      if (DATE_RE.test(nodeText)) {
+        blockText = nodeText;
         break;
       }
       node = node.parent();
@@ -109,9 +114,9 @@ function collectRunBlocks($: CheerioAPI): RunBlock[] {
 function parseDate(text: string): string | null {
   const m = DATE_RE.exec(text);
   if (!m) return null;
-  const cleaned = m[0].replaceAll(ORDINAL_RE, "$1");
-  // chronoParseDate returns "YYYY-MM-DD"; the year is explicit so no inference.
-  return chronoParseDate(cleaned, "en-GB");
+  // chronoParseDate parses the ordinal ("28th June 2026") natively and returns
+  // "YYYY-MM-DD"; the year is explicit so there is no inference.
+  return chronoParseDate(m[0], "en-GB");
 }
 
 function parseTime(text: string): string | undefined {
@@ -148,7 +153,7 @@ function parseHares(text: string): string | undefined {
   const endMatch = FIELD_END_RE.exec(rest);
   if (endMatch && endMatch.index > 0) rest = rest.slice(0, endMatch.index);
   rest = rest.trim();
-  if (HARES_PLACEHOLDER_RE.test(rest)) return undefined;
+  if (isPlaceholder(rest)) return undefined;
   const cleaned = scrubHarePii(rest);
   return cleaned && cleaned.length >= 2 ? cleaned : undefined;
 }
