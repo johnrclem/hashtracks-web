@@ -1286,3 +1286,68 @@ Two consequences worth pre-empting next time:
   per-event time parse). Handoff: `handoffs/2026-06-23-dh3-ae.md`. 🟡 UNVERIFIED until built: the exact
   MEC home-calendar DOM (JSON-LD vs event-card markup) — `web_fetch` confirmed the SSR *text* (date,
   time, run#, detail link all present) but strips `<script>`; capture the real markup for the fixture.
+
+---
+
+## Self-hosted WordPress — runs live in ONE PAGE's content blocks, not posts (learned from Bombay H3, 2026-06-26)
+
+`bombayhash.org` (Bombay H3 / Mumbai, est. 1983) is a **self-hosted WordPress 6.9.4** (Astra theme)
+site where the committee hand-maintains every run as a **content block on the home page** (a single WP
+`page`, id 930) — there is **no event post type and no per-run posts**. The `wp/v2/posts` collection
+holds **only the WordPress default "Hello world!" post**. This is distinct from the WordPress.com
+REST-blog pattern (ONH3/ASU = one post per run) and from the single-current-run PAGE pattern
+(Hanoi/Manila = one run on the page) — here the page carries **several** runs (the last ~5: #627–#631)
+as stacked blocks.
+
+- **Two equivalent targets, both fetchable from the sandbox via plain `web_fetch`:**
+  - **Home page SSR** (`https://bombayhash.org/`) — the run blocks render as headings + `<p>` text.
+    **Recommended primary** (no hardcoded page-id dependency).
+  - **WP REST page** (`/wp-json/wp/v2/pages/930?_fields=content,modified`) — returns the **same**
+    blocks as `content.rendered` JSON, plus a `modified` timestamp. Useful as a cross-check, but the
+    numeric page id can change; prefer the home page. (The whole REST response is ~55 KB — fetch with
+    `_fields` to trim, and it'll save to a file you can `grep`.)
+- **🔴 Run heading text is INCONSISTENT and the tag level varies** — `RUN #631` (h3), `BH3 RUN #629`,
+  `BOMBAY HASH RUN #628` (h2), `Run 627 yeoor hill thane`. **Key on heading TEXT
+  (`/\bRUN\s*(?:#\s*)?(\d{3,4})\b/i`), never the tag level.**
+- **✅ AS-BUILT CORRECTION — the heading body is NOT a sibling; do NOT `nextUntil`.** In the Astra/Spectra
+  markup the heading sits in its own nested container and the body `<p>`s are in a *different* container —
+  `heading.nextUntil(...)` returns an empty set. The working mechanism: **climb from the heading to the
+  nearest ancestor whose text already contains the run's year-bearing date** (that ancestor is the per-run
+  block), capped at ~6 levels. 🔴 **Stop the climb *before* `.entry-content`** (the page-content wrapper
+  holds *every* run's text) — else a dateless drift block (a `RUN #N` heading whose date won't parse)
+  matches a *sibling*'s date there and silently mis-dates itself. The stop check must run *before* the
+  date check.
+- **Dates are year-bearing + ordinal** (`Sunday, 28th June 2026`, `Sunday, 29 March 2026`,
+  `Sunday, 22nd Feb 2026` — note the abbreviated month variant). **✅ AS-BUILT: `chronoParseDate` parses
+  the ordinal natively** (no manual `28th→28` strip needed); isolate the date by **requiring a 4-digit
+  year** (`/\b\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\.?\s+20\d{2}\b/`) — that cleanly excludes the rego
+  deadlines ("till Friday, 26th June") and "since Jan" noise. **NO year inference** (year is present). UTC noon.
+- **🔴 AS-BUILT CORRECTION — the labeled fields are NOT on separate lines; line-scan FAILS.** The emoji
+  labels (`📅 Date:`, `🕘 Time:`/`⏰ Assembly:`, `📍 Venue:`, `💰 REGO:`) are **jammed into one
+  run-together `<p>` with no whitespace between fields** (`…the Hare!" 😂🐇📅 Date: Sunday, 28th June
+  2026🕘 Time: 9:30 AM…📍 Venue: Shivaji Park Gymkhana`). `web_fetch`'d SSR *text* collapses whitespace and
+  hides this. **Parse by splitting on the marker emoji** — find `📅`, capture until the next field-marker
+  emoji; markers vary per run (`🕘`/`⏰`/bare `TIME:`; `📍 Venue:`/`📍 VENUE:`/bare `📍`). One run (#630)
+  prefixes its venue with `🍻` that must be stripped AND excluded from the field-terminator set, or the
+  venue comes back empty. `title` stays **undefined** (themes are unreliable in the emoji soup) → merge
+  synthesizes `"<Kennel> Trail #N"`. Hares are tri-state: a present-but-`???` label → **`null`** (clear),
+  label absent → `undefined` (preserve).
+- **🔴 PII + a live waiver `<form>` on the same page.** Rego lines carry **phone numbers + payee names**
+  (`+91 …`, "GPay/Paytm: <number> (<name>)"); the page embeds a join/waiver form (Name/Mobile/DOB/Email/
+  SUBMIT); and the **WP author meta in `wp/v2/posts` leaks the developer's email**. The adapter must read
+  run blocks only — strip phone/payee from stored fields, never submit the form.
+- **No per-event coords / no Maps embed** (venue free-text + occasional written directions) → lat/lng
+  undefined, merge geocodes the venue / metro centroid. **No default-pin trap.**
+- **No archive** when the site is freshly built (Bombay's WP install is Feb 2026; run #631 implies ~630
+  historical runs since 1983, but the source publishes none). **`config.upcomingOnly: true`** (rolling
+  current-runs page — past blocks age off → reconcile would false-cancel) + **per-run AND zero-row
+  fail-loud guards**. No backfill.
+- **Effort:** ~270 LoC Cheerio adapter as-built (climb-to-dated-ancestor block parse, emoji-marker field
+  split, year-bearing dates, PII strip, per-run + zero-row fail-loud). Reference: `kaohsiung-hash.ts`
+  (multi-run heading blocks) + `himalayan-h3.ts` (single-page WordPress shape). **✅ SHIPPED**
+  [PR #2406](https://github.com/johnrclem/hashtracks-web/pull/2406) · handoff
+  `handoffs/2026-06-26-bombay-h3.md` · retro `handoffs/retros/2026-06-26-bombay-h3-retro.md` (the two
+  structural gaps above + the `scrapeDays`-vs-run-span clip were all caught at live-verify; see retro).
+- **`scrapeDays` must exceed the run span.** The 5 posted runs span ~126 days and `filterEventsByWindow`
+  is **symmetric (±days)**, so a too-tight window clips the oldest run (120 dropped #627). For a small
+  archive-less rolling page, default to **365** — `upcomingOnly` still protects reconcile.
