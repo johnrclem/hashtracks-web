@@ -88,6 +88,12 @@ describe("isoDate", () => {
   it("rejects an out-of-range month", () => {
     expect(isoDate(2026, 13, 1)).toBeNull();
   });
+  it("rejects impossible calendar dates rather than rolling them over", () => {
+    expect(isoDate(2026, 6, 31)).toBeNull(); // June has 30 days
+    expect(isoDate(2026, 2, 30)).toBeNull(); // February
+    expect(isoDate(2025, 2, 29)).toBeNull(); // non-leap year
+    expect(isoDate(2024, 2, 29)).toBe("2024-02-29"); // leap year is valid
+  });
 });
 
 describe("parseTitleDate", () => {
@@ -101,6 +107,9 @@ describe("parseTitleDate", () => {
   it("returns null when no year-bearing date is present", () => {
     expect(parseTitleDate("Run 2307")).toBeNull();
   });
+  it("returns null for an impossible day (source typo) instead of rolling over", () => {
+    expect(parseTitleDate("31st June 2026")).toBeNull();
+  });
 });
 
 describe("parseClock", () => {
@@ -111,6 +120,10 @@ describe("parseClock", () => {
   it("returns undefined for non-times", () => {
     expect(parseClock("TBD")).toBeUndefined();
     expect(parseClock(undefined)).toBeUndefined();
+  });
+  it("rejects out-of-range hours and minutes", () => {
+    expect(parseClock("25:00")).toBeUndefined();
+    expect(parseClock("12:60")).toBeUndefined();
   });
 });
 
@@ -174,6 +187,12 @@ describe("parseHomeSlides", () => {
       detailUrl: "https://www.creekhash.org/?p=22658",
     });
   });
+
+  it("resolves a relative detail href against the base URL", () => {
+    const $ = cheerio.load(HOME_HTML.replace("https://www.creekhash.org/?p=22658", "?p=22658"));
+    const slides = parseHomeSlides($, "https://www.creekhash.org/");
+    expect(slides[0].detailUrl).toBe("https://www.creekhash.org/?p=22658");
+  });
 });
 
 describe("parseDetailFields", () => {
@@ -217,6 +236,22 @@ describe("CreekHashAdapter.fetch", () => {
     expect(ev.hares).toBe("Vomit");
     expect(ev.locationUrl).toBe("https://goo.gl/maps/4pNpRtWQua42");
     expect(JSON.stringify(ev)).not.toContain("5011504");
+  });
+
+  it("still emits a leaner event (slide data only) when the detail fetch fails", async () => {
+    mockedSafeFetch
+      .mockResolvedValueOnce(htmlResponse(HOME_HTML)) // home OK
+      .mockRejectedValueOnce(new Error("detail timeout")); // detail fetch fails
+
+    const result = await new CreekHashAdapter().fetch(makeSource(), { days: 365 });
+
+    expect(result.events).toHaveLength(1);
+    const ev = result.events[0];
+    expect(ev.date).toBe("2026-06-25");
+    expect(ev.runNumber).toBe(2307);
+    expect(ev.location).toBe("The Vomitorium"); // venue from the title, no detail Location:
+    expect(ev.startTime).toBeUndefined(); // detail-only field absent
+    expect(result.errors.length).toBeGreaterThan(0);
   });
 
   it("fails loud (errors) when the meet-point block parses 0 runs", async () => {

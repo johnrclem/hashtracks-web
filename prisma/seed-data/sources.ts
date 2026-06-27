@@ -7393,7 +7393,9 @@ export const SOURCES = [
     // the year-bearing post title (the body Date: line carries weekday typos); the contact-hare
     // phone PII is never scraped. `upcomingOnly`: the home block carries only the current run
     // (rolls weekly), so reconcile must not cancel the backfilled archive once it ages off.
-    // The ~601-run "Creek Runs" archive (2001→present) is one-shot backfilled by
+    // The "Creek Runs" category (~601 posts, 2001→present) yields 545 main-series
+    // "Run N" runs (Run 1000 @ 2001 → present) once Spit Roast / virtual-Creek
+    // specials are filtered; those are one-shot backfilled by
     // scripts/backfill-ch3-ae-history.ts. scrapeDays 365 kept generous.
     {
       name: "Creek H3 Website",
