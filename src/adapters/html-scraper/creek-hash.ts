@@ -138,15 +138,18 @@ export interface DetailFields {
  * "Google Maps Link" anchor's href becomes `locationUrl`.
  */
 export function parseDetailFields($: cheerio.CheerioAPI): DetailFields {
+  // Collapse whitespace runs (incl. non-breaking spaces: WordPress/TinyMCE emit
+  // `&nbsp;` around labels). JS `\s` matches U+00A0, so `\s+` normalizes them too.
+  const clean = (t: string) => t.replace(/\s+/g, " ").trim();
   const labels = new Map<string, string>();
   $(".entry-content p").each((_i, el) => {
     const $p = $(el);
     const $strong = $p.find("strong").first();
     if ($strong.length === 0) return;
-    const label = $strong.text().replace(/:\s*$/, "").replace(/\s+/g, " ").trim().toLowerCase();
+    const label = clean($strong.text()).replace(/:\s*$/, "").toLowerCase();
     if (!DETAIL_LABELS_TO_READ.has(label)) return;
-    const full = $p.text().replace(/\s+/g, " ").trim();
-    const strongText = $strong.text().replace(/\s+/g, " ").trim();
+    const full = clean($p.text());
+    const strongText = clean($strong.text());
     const value = (full.startsWith(strongText) ? full.slice(strongText.length) : full)
       .replace(/^:?\s*/, "")
       .trim();
@@ -156,13 +159,16 @@ export function parseDetailFields($: cheerio.CheerioAPI): DetailFields {
   const haresRaw = labels.get("hares");
   const hares = haresRaw ? stripContactPII(haresRaw) : undefined;
 
+  // Match any Google Maps host (goo.gl/maps, maps.app.goo.gl, google.com/maps —
+  // all contain "maps") by href, or a "maps" anchor label, first one wins.
   let locationUrl: string | undefined;
   $(".entry-content a").each((_i, el) => {
     if (locationUrl) return;
     const href = $(el).attr("href");
     if (!href) return;
-    const text = $(el).text().toLowerCase();
-    if (/maps/i.test(href) || text.includes("google maps")) locationUrl = href;
+    if (/maps/i.test(href) || clean($(el).text()).toLowerCase().includes("maps")) {
+      locationUrl = href;
+    }
   });
 
   return {
