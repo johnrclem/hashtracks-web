@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseBombayHashPage } from "./bombay-hash";
+import { parseBombayHashPage, parseTitle } from "./bombay-hash";
 
 // Faithful slice of the bombayhash.org SSR home page. Each run is a Spectra
 // "root container" whose heading sits one level deeper than the body paragraphs,
@@ -118,5 +118,35 @@ describe("parseBombayHashPage", () => {
     const drift = result.parseErrors.find((p) => /#999/.test(p.error));
     expect(drift).toBeDefined();
     expect(drift?.field).toBe("date");
+  });
+});
+
+describe("parseTitle", () => {
+  it("returns the clean headline before a CTA emoji", () => {
+    expect(parseTitle("🔥 THE MADHNESS MAYHEM RUN 🔥✅ Attendance is STRONGLY ENCOURAGED")).toBe(
+      "THE MADHNESS MAYHEM RUN",
+    );
+  });
+
+  it("returns undefined when the terminator is at index 0 (paragraph is pure CTA)", () => {
+    // Prior to the fix (term.index > 0), this returned the full string instead
+    // of slicing to 0 → an empty string that correctly falls through to undefined.
+    expect(parseTitle("✅ Attendance / ❌ Excuses")).toBeUndefined();
+    expect(parseTitle("📅 Date: Sunday, 28th June 2026")).toBeUndefined();
+  });
+
+  it("returns undefined for undefined input", () => {
+    expect(parseTitle(undefined)).toBeUndefined();
+  });
+
+  it("strips ⚠ emoji wrappers without treating ⚠ as a terminator", () => {
+    expect(parseTitle("⚠️ THIS IS NOT JUST ANOTHER RUN ⚠️📅 DATE: Sunday")).toBe(
+      "THIS IS NOT JUST ANOTHER RUN",
+    );
+  });
+
+  it("returns undefined for a too-short or placeholder result", () => {
+    expect(parseTitle("AB")).toBeUndefined();
+    expect(parseTitle("TBA")).toBeUndefined();
   });
 });
