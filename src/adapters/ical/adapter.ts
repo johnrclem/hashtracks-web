@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix, isPlaceholder, extractHashRunNumber, hasPlaceholderRunNumber, cleanLocationName, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE } from "../utils";
+import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix, isPlaceholder, extractHashRunNumber, hasPlaceholderRunNumber, cleanLocationName, eqTrimLc, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { enrichSFH3Events, markSFH3SeriesMembership } from "../html-scraper/sfh3-detail-enrichment";
 import { enrichBerlinH3Events } from "../html-scraper/berlin-h3-detail-enrichment";
@@ -12,6 +12,7 @@ import type { VEvent, ParameterValue, DateWithTimeZone } from "node-ical";
 export interface ICalSourceConfig {
   kennelPatterns?: [string, string][]; // [[regex, kennelTag], ...] — same as Google Calendar
   defaultKennelTag?: string;           // fallback for unrecognized events
+  strictKennelRouting?: boolean;       // #2355 Stockholm HHH: a shared multi-series feed (SUH3, SAH3, BASH, SPOR&DIC, LYH3…) where only some series are tracked. When set, an event whose SUMMARY matches NO kennelPattern is SKIPPED rather than falling through to defaultKennelTag — otherwise every untracked series welds onto the default kennel. Reconcile-safe: every real tracked-series event still matches its own pattern. Mirrors Google Calendar's strictKennelRouting.
   skipPatterns?: string[];             // SUMMARY patterns to skip (e.g., "Hand Pump Workday")
   harePatterns?: string[];             // regex strings to extract hares from descriptions
   runNumberPatterns?: string[];        // regex strings to extract run numbers from descriptions
@@ -56,7 +57,7 @@ export function parseICalSummary(
   kennelPatterns?: [string, string][],
   defaultKennelTag?: string,
   keepNonKennelTitlePrefix = false,
-): { kennelTag: string; runNumber?: number; title?: string } {
+): { kennelTag: string; runNumber?: number; title?: string; matchedPattern: boolean } {
   let kennelTag: string | undefined;
   // Match against config patterns
   if (kennelPatterns) {
@@ -69,6 +70,10 @@ export function parseICalSummary(
     }
   }
 
+  // matchedPattern tells the caller whether an explicit kennelPattern hit (vs a
+  // defaultKennelTag fallback) — strictKennelRouting uses it to drop untracked
+  // series on shared feeds (#2355).
+  const matchedPattern = kennelTag != null;
   if (!kennelTag) {
     kennelTag = defaultKennelTag ?? "UNKNOWN";
   }
@@ -114,7 +119,7 @@ export function parseICalSummary(
     }
   }
 
-  return { kennelTag, runNumber, title };
+  return { kennelTag, runNumber, title, matchedPattern };
 }
 
 /** Normalize a kennel token for loose comparison: lowercase, drop everything
@@ -197,10 +202,6 @@ export function stripTitleKennelRunPrefix(
   return s.trim() || undefined;
 }
 
-/** Loose equality for the #2160 title-is-hare check: trimmed, case-insensitive. */
-function titleEqualsHare(title: string, hares: string): boolean {
-  return title.trim().toLowerCase() === hares.trim().toLowerCase();
-}
 
 // #2175 Charm City: a `#TBD` placeholder VEVENT carries a junk DTSTART time
 // (03:02) — the audit's `event-improbable-time` window is 23:00–04:00. Used
@@ -218,10 +219,16 @@ const HARE_PATTERNS = [
   /(?:^|\n)\s*Hares?:\s*([^\n]+)/im,
   /(?:^|\n)\s*Hare\(s\):\s*([^\n]+)/im,
 ];
+// #2312 Phoenix LBH: the whitespace AFTER the label must be horizontal-only
+// (`[^\S\n]*`, not `\s*`). Events Manager emits an empty venue as
+// "Where:\n\n\nWhy: Monday is a hashing day" — a `\s*` after "Where:" greedily
+// eats the blank lines and the capture grabs the *next* field's line ("Why:
+// Monday is a hashing day"). Horizontal-only whitespace stops at the newline, so
+// an empty label yields no capture and the venue stays unset.
 const LOCATION_PATTERNS = [
-  /(?:^|\n)\s*Where:\s*([^\n]+)/im,
-  /(?:^|\n)\s*Location:\s*([^\n]+)/im,
-  /(?:^|\n)\s*Start(?:ing)?\s*(?:Location)?:\s*([^\n]+)/im,
+  /(?:^|\n)\s*Where:[^\S\n]*([^\n]+)/im,
+  /(?:^|\n)\s*Location:[^\S\n]*([^\n]+)/im,
+  /(?:^|\n)\s*Start(?:ing)?\s*(?:Location)?:[^\S\n]*([^\n]+)/im,
 ];
 const COST_PATTERNS = [
   /(?:^|\n)\s*Hash\s*Cash:\s*([^\n]+)/im,
@@ -596,6 +603,11 @@ function buildRawEventFromVEvent(
     config?.keepNonKennelTitlePrefix,
   );
 
+  // #2355 Stockholm HHH: on a shared multi-series feed, an event matching no
+  // kennelPattern must be dropped, not routed to defaultKennelTag — otherwise
+  // every untracked series (BASH, SPOR&DIC, LYH3…) welds onto SUH3.
+  if (config?.strictKennelRouting && !parsed.matchedPattern) return null;
+
   // Computed once and reused across the run-number, junk-time, and title
   // branches below (the summary doesn't change within this event).
   const hasPlaceholderRun = hasPlaceholderRunNumber(summary);
@@ -731,7 +743,13 @@ function buildRawEventFromVEvent(
   // pulled from the SUMMARY (titleHarePattern) and the stripped title is just
   // that hare (ICH3 "ICH3# 60 Plea Barkin" → title "Plea Barkin" == hare), drop
   // the title so merge synthesizes "<Kennel> Trail #N" instead.
-  if (hareFromTitle && title && hares && titleEqualsHare(title, hares)) {
+  if (hareFromTitle && title && hares && eqTrimLc(title, hares)) {
+    title = undefined;
+  }
+  // #2316 hard rule — the title must NEVER be the venue. Oslo "OH3: Ommen" has
+  // title "Ommen" == location "Ommen"; drop the title so merge synthesizes the
+  // default and the venue still renders from `location`.
+  if (title && location && eqTrimLc(title, location)) {
     title = undefined;
   }
 

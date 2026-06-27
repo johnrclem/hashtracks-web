@@ -245,6 +245,16 @@ describe("parseICalSummary", () => {
     const kept = parseICalSummary("Lehigh Valley HHH: Mayfair Hash", [], "rh3", true);
     expect(kept.title).toBeUndefined();
   });
+
+  // #2355 — matchedPattern signals an explicit pattern hit (vs a default fallback)
+  // so strictKennelRouting can drop untracked series on a shared feed.
+  it("reports matchedPattern true on an explicit kennelPattern hit", () => {
+    expect(parseICalSummary("SFH3 #2285: X", patterns).matchedPattern).toBe(true);
+  });
+
+  it("reports matchedPattern false when falling back to defaultKennelTag", () => {
+    expect(parseICalSummary("BASH #38: Malibog's Beerthday", patterns, "suh3").matchedPattern).toBe(false);
+  });
 });
 
 describe("stripTitleKennelRunPrefix (#2148 Reading / #2160 ICH3)", () => {
@@ -2026,5 +2036,124 @@ describe("ICalAdapter — Iron City (ICH3) title prefix strip (#2160)", () => {
     // No aliases → verbatim summary title, no hare extracted.
     expect(e!.title).toBe("ICH3# 60 Plea Barkin");
     expect(e!.hares).toBeUndefined();
+  });
+
+  // #2355 Stockholm HHH — strictKennelRouting drops untracked series instead of
+  // welding them onto the (now removed) defaultKennelTag.
+  it("skips events matching no kennelPattern when strictKennelRouting is set", async () => {
+    const stockholmIcs = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Test//EN",
+      "BEGIN:VEVENT",
+      "UID:suh3-1667",
+      "DTSTART;TZID=Europe/Stockholm:20260705T140000",
+      "SUMMARY:SUH3 #1667",
+      "DTSTAMP:20260201T000000Z",
+      "END:VEVENT",
+      "BEGIN:VEVENT",
+      "UID:sah3-1017",
+      "DTSTART;TZID=Europe/Stockholm:20260711T140000",
+      "SUMMARY:SAH3 #1017",
+      "DTSTAMP:20260201T000000Z",
+      "END:VEVENT",
+      "BEGIN:VEVENT",
+      "UID:bash-38",
+      "DTSTART;TZID=Europe/Stockholm:20260708T180000",
+      "SUMMARY:BASH #38: Malibog's Beerthday",
+      "DTSTAMP:20260201T000000Z",
+      "END:VEVENT",
+      "BEGIN:VEVENT",
+      "UID:spordic-100",
+      "DTSTART;TZID=Europe/Stockholm:20260709T180000",
+      "SUMMARY:SPOR&DIC #100",
+      "DTSTAMP:20260201T000000Z",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(stockholmIcs, { status: 200 }));
+
+    const source = buildMockSource({
+      name: "Stockholm HHH iCal Feed",
+      url: "https://www.hash.se/calendar.ics",
+      config: {
+        kennelPatterns: [
+          ["^SUH3\\b", "suh3"],
+          ["^SAH3\\b", "sah3-se"],
+        ],
+        strictKennelRouting: true,
+      },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    expect(result.events.map((e) => e.kennelTags[0]).sort()).toEqual(["sah3-se", "suh3"]);
+    // The untracked series must NOT be welded onto suh3.
+    expect(result.events.some((e) => e.runNumber === 38)).toBe(false);
+    expect(result.events.some((e) => e.runNumber === 100)).toBe(false);
+  });
+
+  // #2312 Phoenix LBH — an empty "Where:" label in the DESCRIPTION must not bleed
+  // the next field's line ("Why: Monday is a hashing day") into the location.
+  it("does not capture the next field line when the Where: label is empty", async () => {
+    const lbhIcs = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Test//EN",
+      "BEGIN:VEVENT",
+      "UID:lbh-751",
+      "DTSTART;TZID=America/Phoenix:20260706T183000",
+      "SUMMARY:LBH #751",
+      String.raw`DESCRIPTION:Hare(s): You?\n\nWho: 21+\n\nWhere:\n\n\nWhy: Monday is a hashing day\n\nWhen: Monday\, 7/6/2026`,
+      "DTSTAMP:20260201T000000Z",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(lbhIcs, { status: 200 }));
+
+    const source = buildMockSource({
+      name: "Phoenix H3 Events",
+      url: "https://www.phoenixhhh.org/?plugin=events-manager&page=events.ics",
+      config: { defaultKennelTag: "lbh-phx" },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    const lbh = result.events.find((e) => e.runNumber === 751);
+    expect(lbh).toBeDefined();
+    expect(lbh!.location).toBeFalsy();
+  });
+
+  // #2316 Oslo — the title must never be the venue. "OH3: Ommen" + LOCATION "Ommen"
+  // drops the title so merge synthesizes "<Kennel> Trail".
+  it("drops a title that byte-equals the location", async () => {
+    const osloIcs = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Test//EN",
+      "BEGIN:VEVENT",
+      "UID:run-28373",
+      "DTSTART;TZID=Europe/Stockholm:20260704T143000",
+      "DESCRIPTION:Hare: Altar Boy",
+      "LOCATION:Ommen",
+      "SUMMARY:OH3: Ommen",
+      "DTSTAMP:20260201T000000Z",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    ].join("\r\n");
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(osloIcs, { status: 200 }));
+
+    const source = buildMockSource({
+      name: "Oslo H3 iCal Feed",
+      url: "https://www.oh3.no/calendar.ics",
+      config: { defaultKennelTag: "oh3-no" },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+
+    const e = result.events.find((x) => x.kennelTags[0] === "oh3-no");
+    expect(e).toBeDefined();
+    expect(e!.location).toBe("Ommen");
+    expect(e!.title).toBeUndefined();
   });
 });

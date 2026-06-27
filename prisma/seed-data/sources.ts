@@ -785,6 +785,21 @@ export const SOURCES = [
           String.raw`Hare:?\s+(.+?)(?:(?=[-\u2013\u2014]\s*\S)|\s*$)`,
           String.raw`^DST\s*#?\s*\d*\s*-\s*(.+)$`,
         ],
+        // #2349: SH3 frequently omits the "#" ("SH3 871 Anni Tua", "SH3 879
+        // Lone Thrills") so the shared #-parser misses the run number. Pull it
+        // from the summary (anchored to the SH3 prefix so a digit in a theme
+        // can't false-match). Events that DO carry "#" ("SH3 #859") are already
+        // handled by the shared parser before this runs.
+        summaryRunNumberPatterns: [String.raw`^SH3\s*#?\s*(\d{2,4})\b`],
+        // #2349 / #2351: strip the redundant "SH3 [#] NNN" / "FM #NNN -" run
+        // prefix that leaks into the title (the run number is already in its own
+        // field). Leaves the theme ("Fit Squirter", "Photo Bleibt") or an empty
+        // title that the default/merge synthesis fills. DST is intentionally
+        // omitted \u2014 its post-dash text is the hare (titleHarePattern handles it).
+        titleStripPatterns: [
+          String.raw`^SH3\s*#?\s*\d+\s*-?\s*`,
+          String.raw`^FM\s*#?\s*\d+\s*-?\s*`,
+        ],
       },
       kennelCodes: ["sh3-de", "dst-h3", "fm-stgt", "super-h3"],
     },
@@ -3419,7 +3434,11 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 90,
-      config: { defaultKennelTag: "sch3-ca" },
+      // #2388: the Wharf-to-Barf weekend (#1424–#1426, multi-day) is published as
+      // all-day events, which the adapter drops by default. Surf City publishes
+      // regular weekly trails with explicit times, so these all-day rows are
+      // genuine special events to admit, not noise.
+      config: { defaultKennelTag: "sch3-ca", includeAllDayEvents: true },
       kennelCodes: ["sch3-ca"],
     },
     // --- Sacramento (HTML_SCRAPER, Squarespace events ?format=json) ---
@@ -3487,7 +3506,12 @@ export const SOURCES = [
       type: "GOOGLE_CALENDAR" as const,
       trustLevel: 7,
       scrapeFreq: "every_6h",
-      scrapeDays: 90,
+      // #2382: the GCal future window is min(scrapeDays, futureHorizonDays), so
+      // scrapeDays:90 silently capped the FORWARD horizon at 90 days and dropped
+      // SUPH3's late-2026 trails (the calendar carries events out to Dec 2026).
+      // 365 restores the full forward window (and ~1yr of recent history); deeper
+      // 2023–2024 backfill is tracked separately.
+      scrapeDays: 365,
       config: { defaultKennelTag: "suph3" },
       kennelCodes: ["suph3"],
     },
@@ -4419,11 +4443,18 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // #2355: hash.se publishes one shared feed for the whole Stockholm scene
+        // (SUH3 Sunday, SAH3 Saturday, plus BASH, SPOR&DIC, LYH3, SMH3,
+        // Cocktails@3, Absolut, Harriettes specials…). We only track SUH3 + SAH3;
+        // every real run of those two is prefix-tagged ("SUH3 #1667", "SAH3
+        // #1017: …"), so anchor the patterns and drop the defaultKennelTag.
+        // strictKennelRouting then SKIPS the untracked series instead of welding
+        // them onto SUH3. Reconcile-safe: all real SUH3/SAH3 events still match.
         kennelPatterns: [
-          ["SUH3", "suh3"],
-          ["SAH3", "sah3-se"],
+          ["^SUH3\\b", "suh3"],
+          ["^SAH3\\b", "sah3-se"],
         ],
-        defaultKennelTag: "suh3",
+        strictKennelRouting: true,
       },
       kennelCodes: ["suh3", "sah3-se"],
     },

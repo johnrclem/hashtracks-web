@@ -3,7 +3,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 import { hasAnyErrors } from "../types";
 import { generateAccessToken, PUBLIC_HASHER_ID } from "./token";
 import { safeFetch } from "../safe-fetch";
-import { buildDateWindow } from "../utils";
+import { buildDateWindow, eqTrimLc } from "../utils";
 
 const API_URL = "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/";
 
@@ -181,6 +181,13 @@ export class HarrierCentralAdapter implements SourceAdapter {
       if (hares && location && haresLooksLikeLocation(hares, location)) {
         hares = undefined;
       }
+      // #2408 Tokyo #2591: the hare slot byte-equals the raw venue/neighborhood
+      // ("Azabujuban"). The composed-location check above misses it (a single
+      // word with no address signals isn't caught once ", Tokyo, Japan" is
+      // appended), so compare against the raw place text too.
+      if (hares && haresEqualsRawPlace(hares, hcEvent.locationOneLineDesc, hcEvent.resolvableLocation)) {
+        hares = undefined;
+      }
 
       // When HC's geocoder fails it returns the placeName verbatim as
       // resolvableLocation and falls back to a region-default lat/lng (e.g.
@@ -199,10 +206,26 @@ export class HarrierCentralAdapter implements SourceAdapter {
       // (#706, #725). The REST API still serves the UUIDs so scrapes succeed,
       // but the user-facing detail page is dead. Event detail pages fall back
       // to the kennel website / other EventLinks when sourceUrl is null.
+      let title = applyTitleFallback(hcEvent.eventName, hcEvent.eventNumber, config);
+      // #2409 Tokyo #2583: the source stored the hare's hash name ("Back Door
+      // Hoe") as BOTH the title and the hares field; #2591 stored the
+      // neighborhood ("Azabujuban") as both title and venue. A title that
+      // byte-equals the hares or the raw venue is never a real run title —
+      // re-route through the stale-title fallback ("<defaultTitle> #N", or
+      // undefined → merge synthesizes "<Kennel> Trail #N"). hares is kept.
+      if (
+        title &&
+        (eqTrimLc(title, hares) ||
+          eqTrimLc(title, hcEvent.locationOneLineDesc) ||
+          eqTrimLc(title, hcEvent.resolvableLocation))
+      ) {
+        title = staleTitleFallback(hcEvent.eventNumber, config);
+      }
+
       const raw: RawEventData = {
         date: dateStr,
         kennelTags: [kennelTag],
-        title: applyTitleFallback(hcEvent.eventName, hcEvent.eventNumber, config),
+        title,
         // Socials / "drinking practices" come back as eventNumber=0. Map that
         // sentinel to null (explicit clear) and positive values to the number;
         // anything else stays undefined so the merge UPDATE path preserves an
@@ -428,6 +451,33 @@ function stripTrailingTitleSeparators(value: string | undefined): string | undef
   return value.replace(TITLE_SEPARATOR_TAIL_RE, "").trim() || undefined;
 }
 
+/**
+ * #2408 Tokyo #2591: the source pasted the neighborhood/station name into the
+ * hares slot, byte-equal to the raw venue ("Azabujuban" in hares, title AND
+ * location). `haresLooksLikeLocation` compares against the *composed* location
+ * ("Azabujuban, Tokyo, Japan"), which a bare single-word place doesn't trip (no
+ * address signals). Catch the exact-match-to-raw-place case here.
+ */
+function haresEqualsRawPlace(
+  hares: string,
+  placeName: string | undefined,
+  resolvable: string | undefined,
+): boolean {
+  return eqTrimLc(hares, placeName) || eqTrimLc(hares, resolvable);
+}
+
+/** Stale-title fallback — "<defaultTitle> #N" when configured, else undefined.
+ *  Shared by applyTitleFallback and the #2409 title-equals-hares/place guard. */
+function staleTitleFallback(
+  eventNumber: number | undefined | null,
+  config: HarrierCentralConfig,
+): string | undefined {
+  if (config.defaultTitle && typeof eventNumber === "number" && eventNumber > 0) {
+    return `${config.defaultTitle} #${eventNumber}`;
+  }
+  return undefined;
+}
+
 export function applyTitleFallback(
   eventName: string | undefined,
   eventNumber: number | undefined | null,
@@ -441,10 +491,7 @@ export function applyTitleFallback(
 
   if (!isStale) return trimmed || undefined;
 
-  if (config.defaultTitle && typeof eventNumber === "number" && eventNumber > 0) {
-    return `${config.defaultTitle} #${eventNumber}`;
-  }
-  return undefined;
+  return staleTitleFallback(eventNumber, config);
 }
 
 /**
@@ -466,6 +513,19 @@ export function applyTitleFallback(
  * "JR Keihintohoku line, Akabane station, North Exit" to the correct city
  * instead of falling back to a region-default pin (#1167).
  */
+// #2376 Bandung: some kennels paste the run title into HC's free-text venue
+// field ("BHHH2 Run 2288 at Gd. Abadi, Lembang", "BHHH2 Run 2292: Gd. BHHH2,
+// Panorama, Lembang") — sometimes with a WRONG run number glued on (#2298 stored
+// "Run 2292" on run #2298). Strip a leading "[code] Run <digits> at|:" prefix so
+// only the venue remains. Only fires when the place literally starts with that
+// shape, so a real venue is untouched. ReDoS-safe: no `\s*` adjacent to the
+// at/colon alternation.
+const RUN_TITLE_LOCATION_PREFIX_RE = /^(?:\S+\s+)?run\s+\d+(?:\s+at\b|:)\s*/i; // NOSONAR S5852/S5843 — bounded, single quantifiers, no overlapping alternation
+function stripRunTitleLocationPrefix(place: string | undefined): string | undefined {
+  if (!place) return place;
+  return place.replace(RUN_TITLE_LOCATION_PREFIX_RE, "").trim() || place;
+}
+
 export function composeHcLocation(
   placeName: string | undefined,
   resolvable: string | undefined,
@@ -475,7 +535,7 @@ export function composeHcLocation(
   // so a non-venue never reaches event.location — otherwise the merge path
   // stores it verbatim and the geocoder treats it as meaningless text (the
   // Lisbon H3 case). Leaving it undefined lets the event render unlocated.
-  const place = stripPlaceholderLocation(placeName);
+  const place = stripRunTitleLocationPrefix(stripPlaceholderLocation(placeName));
   const full = stripPlaceholderLocation(resolvable);
 
   // resolvableLocation is a bare coordinate pair for venues Harrier Central

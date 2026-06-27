@@ -163,6 +163,10 @@ export function sanitizeHares(hares: string | undefined | null): string | null {
   // Reject single-character values (no real hash name is 1 char — likely a scraping artifact)
   if (h.length === 1) return null;
 
+  // #2392 Tacoma H3 — a bare 4-digit year leaked from an "… Analversary (1987)"
+  // title parenthetical is never a hare name. Reject as an explicit clear.
+  if (/^(?:19|20)\d{2}$/.test(h)) return null;
+
   // Strip "Hare is " / "Hare: " prefix (some calendars embed the label in the value)
   h = h.replace(/^Hares?\s+(?:is|are|=)\s+/i, "").trim();
 
@@ -942,6 +946,11 @@ export function sanitizeTitle(title: string | undefined): string | null {
   // google-calendar/adapter.ts (#756/#1060) but applied universally for
   // adapters that don't pre-strip.
   cleaned = cleaned.replace(/[\s,:\-–—]+$/, "").trim(); // NOSONAR S5852 — single char class + `+` anchored to `$`, linear in input length
+  // #2393 Tacoma H3 — a "TH3 #653" summary whose run number was pulled into its
+  // own field can leave a dangling "#" once the digits are gone ("TH3 #"). Strip
+  // a trailing orphan "#" (same artifact family as the dash/colon strip above);
+  // a real "#653" still ends in a digit, so this only fires on the bare marker.
+  cleaned = cleaned.replace(/\s*#\s*$/, "").trim(); // NOSONAR S5852 — anchored to `$`, single quantifiers
   // Collapse multiple spaces from stripping and trim
   cleaned = cleaned.replace(/\s{2,}/g, " ").trim();
   // Strip embedded email addresses
@@ -1347,6 +1356,28 @@ function timeDiffMinutes(a: string, b: string): number {
   const bv = timeToMinutes(b);
   if (av == null || bv == null) return Infinity;
   return Math.abs(av - bv);
+}
+
+/**
+ * #2395 SWH3 #1791 — an `endTime` that lands implausibly *before* `startTime`
+ * is a cross-source merge artifact (WordPress 1:30 PM start paired with a stray
+ * 9:00 AM end from a co-dated GCal row → "1:30 PM – 9:00 AM"). startTime and
+ * endTime can come from different sources (the lower-trust enrich + the update
+ * tri-state both write endTime independently of startTime), so the pair must be
+ * validated where it's joined. A genuine overnight trail (22:00 → 01:00) is
+ * preserved; only an inverted span longer than 12h is rejected as bogus.
+ */
+export function isImplausibleEndTime(
+  startTime: string | null | undefined,
+  endTime: string | null | undefined,
+): boolean {
+  if (!startTime || !endTime) return false;
+  const s = timeToMinutes(startTime);
+  const e = timeToMinutes(endTime);
+  if (s == null || e == null) return false;
+  if (e >= s) return false; // forward same-day range — always fine
+  // end < start: legitimate only as a short cross-midnight overnight trail.
+  return (e + 1440) - s > 12 * 60;
 }
 
 
@@ -1789,6 +1820,15 @@ async function upsertCanonicalEvent(
         locationStreetUpdate = { locationStreet: null };
       }
 
+      // #2395 — endTime can arrive from a different source than the effective
+      // startTime (incoming start, or the preserved existing start). A bogus
+      // inverted end ("1:30 PM – 9:00 AM") is bad source data, so treat it as
+      // no-signal: skip the write entirely (below) so it neither stores the bad
+      // value NOR clears an existing valid endTime. A genuine clear (incoming
+      // `null`, which is not "implausible") still flows through.
+      const effectiveStartTime = event.startTime !== undefined ? event.startTime : existingEvent.startTime;
+      const skipInvertedEndTime = isImplausibleEndTime(effectiveStartTime, event.endTime);
+
       const updated = await prisma.event.update({
         where: { id: existingEvent.id },
         data: {
@@ -1834,7 +1874,7 @@ async function upsertCanonicalEvent(
           ...(event.startTime !== undefined
             ? { startTime: event.startTime ?? null }
             : {}),
-          ...(event.endTime !== undefined
+          ...(event.endTime !== undefined && !skipInvertedEndTime
             ? { endTime: event.endTime ?? null }
             : {}),
           ...(event.cost !== undefined
@@ -2066,7 +2106,7 @@ async function upsertCanonicalEvent(
       // the tri-state clear stays owned by the higher-trust branch. endTime is
       // a plain display string with no dateUtc coupling (only startTime anchors
       // dateUtc), so no recompose is needed.
-      if (!existingEvent.endTime && event.endTime) {
+      if (!existingEvent.endTime && event.endTime && !isImplausibleEndTime(existingEvent.startTime, event.endTime)) {
         enrichData.endTime = event.endTime;
       }
       if (!existingEvent.cost && event.cost) {
@@ -2173,7 +2213,9 @@ async function upsertCanonicalEvent(
       locationStreet: event.locationStreet ?? null,
       locationAddress: sanitizeLocationUrl(event.locationUrl),
       startTime: event.startTime,
-      endTime: event.endTime,
+      // #2395 — defensive on create too: a single source emitting an inverted
+      // 1:30 PM → 9:00 AM span is bogus; store the start, drop the bad end.
+      endTime: isImplausibleEndTime(event.startTime, event.endTime) ? null : event.endTime,
       cost: event.cost,
       trailLengthText: event.trailLengthText,
       trailLengthMinMiles: event.trailLengthMinMiles,

@@ -179,6 +179,21 @@ describe("composeHcLocation", () => {
   ])("drops placeholder sentinel from location: %s", (_label, place, resolvable, cityCountry) => {
     expect(composeHcLocation(place, resolvable, cityCountry)).toBeUndefined();
   });
+
+  // #2376 Bandung: the kennel pastes the run title into HC's venue field. Strip
+  // the "[code] Run <digits> at|:" prefix so only the venue text survives.
+  it.each([
+    ["BHHH2 Run 2288 at Gd. Abadi, Lembang", "Gd. Abadi, Lembang"],
+    ["BHHH2 Run 2292: Gd. BHHH2, Panorama, Lembang", "Gd. BHHH2, Panorama, Lembang"],
+    ["Run 2298 at Gd. BHHH2", "Gd. BHHH2"],
+  ])("strips a run-title prefix from the location: %s", (place, expected) => {
+    // resolvable is a coords-only sentinel, so output is the stripped place verbatim.
+    expect(composeHcLocation(place, "35.713, 139.704")).toBe(expected);
+  });
+
+  it("leaves a real venue that merely contains the word 'Run' untouched", () => {
+    expect(composeHcLocation("Run River Cafe, 5 Mill St", "35.713, 139.704")).toBe("Run River Cafe, 5 Mill St");
+  });
 });
 
 describe("applyTitleFallback (#1166)", () => {
@@ -467,6 +482,49 @@ describe("HarrierCentralAdapter", () => {
       const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
       expect(result.events[0].hares).toBe("Blue Job");
       expect(result.events[0].location).toBe("Nishiogikubo");
+    });
+
+    it("nulls a single-word neighborhood hare that equals the raw venue (#2408 Tokyo #2591)", async () => {
+      // Source pasted the neighborhood into hares, title AND venue. The composed
+      // location is "Azabujuban, Tokyo, Japan" (city appended), which the
+      // substring/address-signal check misses — the raw-place match catches it.
+      mockApiResponse([
+        buildHCEvent({
+          eventNumber: 2591,
+          eventName: "Azabujuban",
+          hares: "Azabujuban",
+          locationOneLineDesc: "Azabujuban",
+          resolvableLocation: "Azabujuban",
+          eventCityAndCountry: "Tokyo, Japan",
+        }),
+      ]);
+      const result = await adapter.fetch(
+        makeSource({ defaultKennelTag: "tokyo-h3", defaultTitle: "Tokyo H3 Trail" }),
+      );
+      expect(result.events[0].hares).toBeUndefined();
+      expect(result.events[0].location).toBe("Azabujuban, Tokyo, Japan");
+      // Title also equalled the venue → synthesized default.
+      expect(result.events[0].title).toBe("Tokyo H3 Trail #2591");
+    });
+
+    it("re-synthesizes the title when it byte-equals the hares, keeping the hare (#2409 Tokyo #2583)", async () => {
+      // Source stored the hare's hash name "Back Door Hoe" as BOTH title and hares.
+      mockApiResponse([
+        buildHCEvent({
+          eventNumber: 2583,
+          eventName: "Back Door Hoe",
+          hares: "Back Door Hoe",
+          locationOneLineDesc: "Shibuya St. C2 exit",
+          resolvableLocation: "35.659, 139.700",
+          eventCityAndCountry: "Tokyo, Japan",
+        }),
+      ]);
+      const result = await adapter.fetch(
+        makeSource({ defaultKennelTag: "tokyo-h3", defaultTitle: "Tokyo H3 Trail" }),
+      );
+      expect(result.events[0].title).toBe("Tokyo H3 Trail #2583");
+      expect(result.events[0].hares).toBe("Back Door Hoe");
+      expect(result.events[0].location).toBe("Shibuya St. C2 exit");
     });
 
     it("nulls hares when address-shaped haresText is a prefix of location (#1642)", async () => {

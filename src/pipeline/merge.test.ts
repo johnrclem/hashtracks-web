@@ -49,7 +49,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, isReplaceableDefaultTitle, normalizeThemeTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, isReplaceableDefaultTitle, normalizeThemeTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked, isImplausibleEndTime } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -2268,6 +2268,27 @@ describe("time/cost field clearing on update (#530)", () => {
     expect(updateCall.data.endTime).toBeNull();
   });
 
+  // #2395 — an implausibly-inverted incoming endTime is bad source data: it must
+  // be treated as no-signal (skip the write), NOT written as a bad range AND NOT
+  // clearing an existing valid endTime (Codex adversarial review).
+  it("preserves an existing valid endTime when the incoming endTime is implausibly inverted", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, startTime: "13:30", endTime: "16:00" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    // Incoming 13:30 → 09:00 is a >12h inverted span (SWH3 #1791 shape).
+    await processRawEvents("src_1", [
+      buildRawEvent({ startTime: "13:30", endTime: "09:00" }),
+    ]);
+
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    // The bad end is neither stored nor cleared — the field is left untouched so
+    // the existing valid "16:00" survives.
+    expect(updateCall.data).not.toHaveProperty("endTime");
+  });
+
   // cost
   it("preserves existing cost when new source has undefined cost", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
@@ -2484,6 +2505,15 @@ describe("sanitizeTitle", () => {
     expect(sanitizeTitle("The Pre-Saint Patrick's Day Trail")).toBe("The Pre-Saint Patrick's Day Trail");
   });
 
+  // #2393 Tacoma H3 — a "TH3 #653" whose run number was pulled out can leave a
+  // dangling "TH3 #". Strip the orphan "#" but keep a real "#653".
+  it("strips a trailing orphan '#' (#2393)", () => {
+    expect(sanitizeTitle("TH3 #")).toBe("TH3");
+    expect(sanitizeTitle("TH3 # ")).toBe("TH3");
+    expect(sanitizeTitle("TH3 #653")).toBe("TH3 #653");
+    expect(sanitizeTitle("C# Jam Session")).toBe("C# Jam Session");
+  });
+
   it("returns null for 'hares needed' admin text", () => {
     expect(sanitizeTitle("Hares needed! Email the Hare Razor")).toBeNull();
   });
@@ -2667,6 +2697,15 @@ describe("sanitizeHares", () => {
     expect(sanitizeHares("Needed")).toBeNull();
   });
 
+  // #2392 Tacoma H3 — a bare 4-digit year ("1987") leaked from the
+  // "TH3 Analversary (1987)" title parenthetical is never a hare.
+  it("returns null for a bare 4-digit year (#2392)", () => {
+    expect(sanitizeHares("1987")).toBeNull();
+    expect(sanitizeHares("2011")).toBeNull();
+    // A year embedded in a real name is preserved.
+    expect(sanitizeHares("Class of 1987")).toBe("Class of 1987");
+  });
+
   it("returns null for hare-needed phrasings ('Hare required!', 'Hares wanted') — WS6 #1521/#1523", () => {
     // Capital H3 emits "Hare required!" for unstaffed runs. Without WS6, this
     // text persisted in `haresText` because sanitizeHares didn't recognize it
@@ -2848,6 +2887,30 @@ describe("sanitizeHares", () => {
       "GM Over There (1995-1996) Memorial Run",
     );
     expect(sanitizeHares("3-5 milers welcome")).toBe("3-5 milers welcome");
+  });
+});
+
+// ── isImplausibleEndTime (#2395) ──
+
+describe("isImplausibleEndTime", () => {
+  it("rejects an inverted afternoon→morning range (SWH3 #1791)", () => {
+    expect(isImplausibleEndTime("13:30", "09:00")).toBe(true);
+  });
+
+  it("keeps a normal forward range", () => {
+    expect(isImplausibleEndTime("13:30", "16:00")).toBe(false);
+    expect(isImplausibleEndTime("18:30", "21:00")).toBe(false);
+  });
+
+  it("preserves a genuine short cross-midnight overnight trail", () => {
+    expect(isImplausibleEndTime("22:00", "01:00")).toBe(false);
+    expect(isImplausibleEndTime("23:30", "00:30")).toBe(false);
+  });
+
+  it("returns false when either time is missing or unparseable", () => {
+    expect(isImplausibleEndTime(undefined, "09:00")).toBe(false);
+    expect(isImplausibleEndTime("13:30", null)).toBe(false);
+    expect(isImplausibleEndTime("13:30", "garbage")).toBe(false);
   });
 });
 

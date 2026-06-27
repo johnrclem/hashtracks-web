@@ -487,6 +487,15 @@ function compileKennelPatterns(
 const TITLE_TRAIL_RUN_ANCHOR_RE = /(?:^\s*[A-Za-z0-9]{2,8}\s*#|\btrail\b\s*#)/i; // NOSONAR S5852/S5843 — literal, bounded {2,8}, no overlapping quantifiers
 
 /**
+ * #2414 TMFMH3: a no-`#` "Trail <N>" run number ("TMFMH3 Trail 299: Squishberries
+ * And Cream Strawberry Moon"). Only consulted (under `anchorTrailRunNumber`) when
+ * the `#`-anchored locator above finds nothing, so a `#`-style run still wins.
+ * The digits must sit immediately after the word "trail" + whitespace — "trail
+ * option 2" / "trail, 5 miles" / "trail to 2026" don't match (intervening word or
+ * punctuation). Module-level literal, ReDoS-safe: single capture, bounded {1,6}. */
+const TITLE_TRAIL_RUN_NOHASH_RE = /\btrail\s+(\d{1,6})\b/i; // NOSONAR S5852 — literal, single bounded quantifier, no alternation
+
+/**
  * Meetup-style hare-line fallback: scan the first few description lines for
  * `Hare(s)` followed by a colon or dash separator.
  *
@@ -681,7 +690,15 @@ function runNumberFromTitle(
 ): number | undefined {
   if (anchorTrail) {
     const anchor = title ? TITLE_TRAIL_RUN_ANCHOR_RE.exec(title) : null;
-    return anchor ? extractHashRunNumber(title!.slice(anchor.index)) : undefined;
+    if (anchor) return extractHashRunNumber(title!.slice(anchor.index));
+    // #2414: fall back to the no-"#" "Trail <N>" form (TMFMH3) — only after the
+    // "#"-anchored form misses, so a "#"-style run number still takes precedence.
+    const noHash = title ? TITLE_TRAIL_RUN_NOHASH_RE.exec(title) : null;
+    if (noHash) {
+      const n = Number.parseInt(noHash[1], 10);
+      if (n > 0) return n;
+    }
+    return undefined;
   }
   const normalized = runNumberPrefix && title ? title.replaceAll(runNumberPrefix, "#") : title;
   return extractHashRunNumber(normalized);

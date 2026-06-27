@@ -2112,6 +2112,23 @@ describe("buildRawEventFromApollo — runNumber (Richmond H3 rvah3, anchored)", 
     expect(build("Chain Gang Trail #42", "chain-gang-hhh").runNumber).toBe(42);
   });
 
+  // #2414 TMFMH3 — "Trail <N>" with NO "#". The "#"-anchored locator misses, so
+  // the no-"#" fallback parses the number that follows "Trail".
+  it.each([
+    ["TMFMH3 Trail 299: Squishberries And Cream Strawberry Moon", 299],
+    ["TMFMH3 Trail 298", 298],
+  ])("extracts the no-# 'Trail N' run number from %j", (title, expected) => {
+    expect(build(title, "tmfmh3").runNumber).toBe(expected);
+  });
+
+  it.each([
+    "Trail option 2 starts at the gate",   // intervening word
+    "A-to-B trail, 5 miles tonight",       // punctuation after 'trail'
+    "Bring your best trail to 2026 vibes", // 'trail to <year>' — no immediate digit
+  ])("does NOT mint a no-# run number from non-run 'trail' prose: %j", (title) => {
+    expect(build(title, "tmfmh3").runNumber).toBeUndefined();
+  });
+
   it.each([
     "RH3 #1704TBD",   // placeholder suffix glued to digits
     "RH3 Trail #30X?", // explicit unknown-run marker
