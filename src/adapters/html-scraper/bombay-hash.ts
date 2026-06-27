@@ -196,7 +196,7 @@ export function parseTitle(headlineText: string | undefined): string | undefined
   if (!headlineText) return undefined;
   const normalized = normalize(headlineText);
   const term = TITLE_TERMINATOR_RE.exec(normalized);
-  const head = term && term.index > 0 ? normalized.slice(0, term.index) : normalized;
+  const head = term ? normalized.slice(0, term.index) : normalized;
   const title = trimEdgeChars(normalize(head.replace(EMOJI_RE, " ")), TITLE_EDGE_CHARS);
   if (title.length < 3 || title.length > 70) return undefined;
   if (isPlaceholder(title)) return undefined;
