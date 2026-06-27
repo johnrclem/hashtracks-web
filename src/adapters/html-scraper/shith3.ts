@@ -21,6 +21,9 @@ export interface DetailItem {
   LOCATION?: string;
   hashdate?: string;
   hares?: string[];
+  /** Free-text hare string the API actually returns (often null — the hares
+   *  are then only in the TIDBIT body, see #2284). */
+  harestr?: string | null;
   TIDBIT?: string;
   ONONON?: string;
   NOTES?: string;
@@ -103,6 +106,23 @@ function parseDistances(notes: string): string | undefined {
 }
 
 /**
+ * Recover the hares from the body text when the structured fields are empty.
+ * SHITH3's API frequently returns an empty `hares` array + null `harestr`, with
+ * the real hares only in the TIDBIT body, e.g. "…Hares: Horse with No Name,
+ * Just Balaji…" (#2284). cleanHtml turns the `<br>`s into newlines, so the line
+ * is isolated and `[^\n]+` captures just the names.
+ */
+export function extractHaresFromBody(detail: DetailItem): string | undefined {
+  for (const src of [detail.TIDBIT, detail.NOTES]) {
+    if (!src) continue;
+    const m = /Hares?\s*:\s*([^\n]+)/i.exec(cleanHtml(src));
+    const hares = m?.[1]?.trim();
+    if (hares) return hares;
+  }
+  return undefined;
+}
+
+/**
  * Build a full RawEventData from a detail API response + listing item.
  * Detail fields take precedence; listing provides start time.
  */
@@ -111,9 +131,15 @@ export function buildEventFromDetail(detail: DetailItem, listing: ListingItem): 
   if (!date) throw new Error(`No date for event ${listing.lookup_id}`);
 
   const runNumber = detail.TRAIL ? parseInt(detail.TRAIL, 10) : undefined;
-  const hares = detail.hares && detail.hares.length > 0
+  // Prefer the structured `hares` array, then the `harestr` field, then the
+  // body fallback — the array + harestr are usually empty/null (#2284).
+  const haresFromArray = detail.hares && detail.hares.length > 0
     ? detail.hares.join(", ")
     : undefined;
+  const haresFromStr = typeof detail.harestr === "string" && detail.harestr.trim()
+    ? detail.harestr.trim()
+    : undefined;
+  const hares = haresFromArray ?? haresFromStr ?? extractHaresFromBody(detail);
   const location = detail.LOCATION || detail.ADDRESS || undefined;
 
   let locationUrl: string | undefined;

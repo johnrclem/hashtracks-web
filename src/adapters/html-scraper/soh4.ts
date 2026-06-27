@@ -31,6 +31,7 @@ export function parseTrailPageHtml(html: string): {
   title?: string;
   date?: string;
   startTime?: string;
+  endTime?: string;
   description?: string;
   location?: string;
   locationUrl?: string;
@@ -90,6 +91,12 @@ export function parseTrailPageHtml(html: string): {
   // other dates, so we target the specific SOH4 date format and stop before
   // labels, the trail list, or the calendar section.
   let date: string | undefined;
+  // The SOH4 date line is "DayOfWeek - Month DD, YYYY - H:MM pm[ - H:MM pm]".
+  // The trailing time(s) are the *clean* real start/end (the labeled "Start
+  // Time" field carries a joke value like "1:69PM"), so capture them here as a
+  // reliable source for #2328 (start fallback) and #2329 (end time).
+  let dateLineStart: string | undefined;
+  let dateLineEnd: string | undefined;
   const descParagraphs: string[] = [];
   container.find("h1, h2, h3, h4, p").each((_i, el) => {
     const pText = decodeEntities($(el).text().replace(/\s+/g, " ").trim());
@@ -97,6 +104,11 @@ export function parseTrailPageHtml(html: string): {
     const dateMatch = !date ? DATE_LINE_RE.exec(pText) : null;
     if (dateMatch) {
       date = chronoParseDate(dateMatch[1], "en-US") ?? undefined;
+      const times = [...pText.matchAll(/(\d{1,2}:\d{2}\s*[ap]m)/gi)]
+        .map((m) => parse12HourTime(m[1]))
+        .filter((t): t is string => Boolean(t));
+      if (times[0]) dateLineStart = times[0];
+      if (times[1]) dateLineEnd = times[1];
       return; // skip date <p> from description
     }
     // Stop at structured labels, upcumming trails list, or calendar widget
@@ -125,6 +137,11 @@ export function parseTrailPageHtml(html: string): {
       startTime = parse12HourTime(timeText);
     }
   }
+  // Fall back to the clean date-line time when the labeled field is missing or
+  // unparseable — without this, an early-start trail loses its time and merge
+  // applies the kennel's default 6:09 PM (#2328).
+  if (!startTime) startTime = dateLineStart;
+  const endTime = dateLineEnd;
   // Clean description
   if (description) {
     description = description
@@ -145,6 +162,7 @@ export function parseTrailPageHtml(html: string): {
     title: rawTitle,
     date,
     startTime,
+    endTime,
     description,
     location: location && !isPlaceholder(location) ? location : undefined,
     locationUrl: location && !isPlaceholder(location) ? locationUrl : undefined,
@@ -290,12 +308,17 @@ export class SOH4Adapter implements SourceAdapter {
           if (title) {
             title = title.replace(/^Trail\s*#?\d+\s*[-–:]\s*/i, "").trim() || undefined;
           }
+          // An unannounced trail's heading is literally "Trail #NNN: TBD" — drop
+          // the placeholder so merge synthesizes "<Kennel> Trail #N" instead of
+          // storing "TBD" as the title (#2327).
+          if (title && isPlaceholder(title)) title = undefined;
 
-          // Build description with extra metadata
+          // Build description with extra prose metadata. Cost (Hash Cash) and the
+          // end time now live in their own Event columns (#2329), so they are no
+          // longer folded into the description text.
           const descParts: string[] = [];
           if (fields.description) descParts.push(fields.description);
           if (fields.theme) descParts.push(`Theme: ${fields.theme}`);
-          if (fields.hashCash) descParts.push(`Hash Cash: ${fields.hashCash}`);
           if (fields.onAfter) descParts.push(`On-After: ${fields.onAfter}`);
 
           const event: RawEventData = {
@@ -308,6 +331,8 @@ export class SOH4Adapter implements SourceAdapter {
             locationUrl: fields.locationUrl,
             hares: fields.hares,
             startTime: fields.startTime,
+            endTime: fields.endTime,
+            cost: fields.hashCash,
             sourceUrl: trailUrl,
           };
 

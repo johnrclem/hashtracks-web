@@ -127,12 +127,24 @@ describe("parseTaipeiHash", () => {
     expect(current.kennelTags).toEqual(["taipei-h3"]);
     expect(current.title).toBeUndefined(); // merge.ts synthesizes "Taipei H3 Trail #N"
     expect(current.hares).toBe("Engels Adolf Medina Ruiz 2nd Man In");
-    expect(current.location).toBe("猴硐 Houtong");
+    // Precise 集合地點 (meeting point) + English place, with the district in
+    // parens (#2399).
+    expect(current.location).toBe(
+      "猴硐里活動中心 Houtong Village Activity Center (猴硐 Houtong)",
+    );
     expect(current.locationUrl).toBe("https://maps.app.goo.gl/VtWk5MTYusyPA2P48");
     // No phone digits leak into any hare field.
     for (const e of events) {
       expect(e.hares ?? "").not.toMatch(/\d{6,}/);
     }
+  });
+
+  it("captures the 集合地點 meeting point even without an English Place span (#2399)", () => {
+    const $ = cheerio.load(FIXTURE);
+    const { events } = parseTaipeiHash($, "https://www.taipeihash.com.tw/run_site.php", REF);
+    const byRun = new Map(events.map((e) => [e.runNumber, e]));
+    // #2780: marks cell is just "集合地點：<a>📍大華農路六分福德宮</a>" (no Place span).
+    expect(byRun.get(2780)?.location).toBe("大華農路六分福德宮 (平溪 Pingxi)");
   });
 
   it("rejects a non-Maps / non-https locationUrl", () => {

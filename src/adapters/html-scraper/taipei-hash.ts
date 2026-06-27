@@ -9,7 +9,7 @@ import type {
   ParseError,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, filterEventsByWindow, normalizeHaresField } from "../utils";
+import { fetchHTMLPage, filterEventsByWindow, normalizeHaresField, EMOJI_RE } from "../utils";
 
 // Taipei Hash House Harriers (台北捷兔) — Taiwan's oldest hash (founded 1973).
 // Static Cheerio scrape of the server-rendered PHP hareline at
@@ -33,6 +33,10 @@ const NOON_HOUR = 12;
 
 const DATE_RE = /(\d{1,2})\/(\d{1,2})/; // MM/DD — ignores any trailing event tag
 const RUN_RE = /(\d+)/;
+// 集合地點 (meeting-point) label + its English "Place：" counterpart, stripped
+// off the assembly-point anchor text (#2399).
+const MEETING_POINT_LABEL_RE = /^\s*集合地點\s*[:：]\s*/;
+const PLACE_LABEL_RE = /^\s*Place\s*[:：]\s*/i;
 // Strip a trailing phone number if the dedicated <span class="phone"> was absent
 // (markup-drift fallback). Single char class, bounded — ReDoS-safe.
 const PHONE_RE = /0\d[\d\s-]{6,15}/g;
@@ -111,6 +115,45 @@ function parseMapsUrl(marksCell: Cheerio<Element>): string | undefined {
   }
 }
 
+/**
+ * The specific meeting/assembly point (集合地點) from the 記號起點 cell (#2399).
+ * The cell carries the flour-start address AND a maps-linked assembly point —
+ * "集合地點： <a>📍萬壽橋 橋下休息區</a> <span class="english">Place：Wanshou
+ * Bridge Rest Area</span>" — which is where hashers actually gather and is more
+ * precise than the 地點/Run Site district. We return the anchor's Chinese text
+ * (📍 stripped) plus the trailing English "Place：…", matching the bilingual
+ * "中文 English" shape of the district cell.
+ */
+function parseMeetingPoint(marksCell: Cheerio<Element>): string | undefined {
+  const anchor = marksCell.find(MAPS_HREF).first();
+  if (anchor.length === 0) return undefined;
+  const zh = anchor
+    .text()
+    .replace(EMOJI_RE, " ")
+    .replace(MEETING_POINT_LABEL_RE, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const enSpan = anchor.nextAll("span.english").first();
+  const en = enSpan.length > 0
+    ? enSpan.text().replace(PLACE_LABEL_RE, "").replace(/\s+/g, " ").trim()
+    : "";
+  const combined = [zh, en].filter(Boolean).join(" ").trim();
+  return combined.length >= 2 ? combined : undefined;
+}
+
+/**
+ * Combine the precise meeting point with the district context. When both are
+ * present: "<meeting point> (<district>)". Falls back to whichever exists
+ * (district-only is the pre-#2399 behavior when no assembly link is published).
+ */
+function buildLocation(
+  district: string | undefined,
+  meetingPoint: string | undefined,
+): string | undefined {
+  if (meetingPoint && district) return `${meetingPoint} (${district})`;
+  return meetingPoint ?? district;
+}
+
 /** Round-trip-validated UTC-noon ms for a given year, or null if impossible. */
 function utcNoonMs(year: number, month: number, day: number): number | null {
   const ms = Date.UTC(year, month - 1, day, NOON_HOUR, 0, 0);
@@ -177,7 +220,9 @@ function parseRows(
           runNumber,
           startTime: START_TIME,
           hares: parseHares(tds.eq(2)),
-          location: cellText(tds.eq(3)) || undefined,
+          // Prefer the precise 集合地點 (meeting point) from the marks cell;
+          // keep the 地點/Run Site district as parenthetical context (#2399).
+          location: buildLocation(cellText(tds.eq(3)) || undefined, parseMeetingPoint(tds.eq(4))),
           locationUrl: parseMapsUrl(tds.eq(4)),
           sourceUrl,
         },

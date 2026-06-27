@@ -9,6 +9,7 @@ import {
   parseTimeRange,
   parseMonthDay,
   isoDate,
+  parseDetailPage,
 } from "./desert-hash";
 import * as cheerio from "cheerio";
 
@@ -81,6 +82,65 @@ function agendaDay(day: string, agendaDate: string, start: string, end: string, 
 
 function monthDivider(yyyymm: string, label: string): string {
   return `<div class="mec-month-divider" data-toggle-divider="mec-toggle-${yyyymm}-mec1"><h5>${label}</h5><i class="mec-sl-arrow-down"></i></div>`;
+}
+
+/** One MEC run detail page — faithful to the live organizer + description + gmap markup. */
+function detailPage(opts: { hares?: string[]; bodyHtml: string; lat?: string; lng?: string }): string {
+  const organizer = opts.hares?.length
+    ? `<div class="mec-event-meta"><div class="mec-single-event-organizer">
+         <div class="mec-events-single-section-title">Hare(s)</div>
+         ${opts.hares.map((h) => `<dd class="mec-organizer"><i class="mec-sl-people"></i><span class="mec-meta-label">${h}</span></dd>`).join("")}
+         <dd class="mec-organizer-tel"><i class="mec-sl-phone"></i><span class="mec-meta-label">Phone</span><a href="tel:+971 56 770 2627">+971 56 770 2627</a></dd>
+       </div></div>`
+    : "";
+  const gmap = opts.lat && opts.lng
+    ? `<div class="mec-events-meta-group mec-events-meta-group-gmap"><script>
+         p1 = jQuery("#m").mecGoogleMaps({ latitude: "${opts.lat}", longitude: "${opts.lng}", autoinit: true, zoom: 15 });
+       </script></div>`
+    : "";
+  return `<html><body>${organizer}${gmap}
+    <div class="mec-single-event-description mec-events-content ">${opts.bodyHtml}</div>
+  </body></html>`;
+}
+
+// 2456-style: structured location (coords present) → venue-first body.
+const DETAIL_VENUE = detailPage({
+  hares: ["Thighs Wide Open"],
+  lat: "25.054545",
+  lng: "55.207260",
+  bodyHtml: `<p>Goose Island Tap House, JVC</p>
+    <p><a href="https://maps.app.goo.gl/x1MbEGtWCutGho2B7">Google Map Link</a></p>`,
+});
+
+// 2455-style: no coords → body is free-form notes; phone present but must be skipped.
+const DETAIL_NOTES = detailPage({
+  hares: ["Dyke"],
+  bodyHtml: `<p>Note: This is a Sunday run, there will be no hash on the Monday immediately following.</p>
+    <p><a href="https://maps.app.goo.gl/RK2tAK8tNURUcS3a8?g_st=iwb">Google Map Link</a></p>
+    <p>Park in the car park and walk a few mins down the hill to the circle site.</p>
+    <p><a href="https://www.deserthash.org/wp-content/uploads/2025/09/alqudracycle.jpeg"><img src="x" alt="" /></a></p>`,
+});
+
+/** Route base→home, page_id=5152→hareline, and any `mec-events=<slug>`→detail HTML. */
+function mockSurfacesWithDetails(homeHtml: string, hareHtml: string, details: Record<string, string>) {
+  mockedSafeFetch.mockImplementation((url: string) => {
+    const u = String(url);
+    let html = homeHtml;
+    if (u.includes("page_id=5152")) {
+      html = hareHtml;
+    } else {
+      for (const [slug, h] of Object.entries(details)) {
+        if (u.includes(slug)) { html = h; break; }
+      }
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      text: () => Promise.resolve(html),
+      headers: new Headers({ "content-type": "text/html" }),
+    } as Response);
+  });
 }
 
 // Home: the upcoming DH3 run + a Moonshine card + an Interhash one-off (both must be filtered out).
@@ -232,6 +292,37 @@ describe("parseHareLine", () => {
   });
 });
 
+// ── Detail-page parser ─────────────────────────────────────────────────────────
+
+describe("parseDetailPage", () => {
+  it("extracts hares, venue, maps link, and coords when MEC carries a location", () => {
+    const d = parseDetailPage(DETAIL_VENUE);
+    expect(d.hares).toBe("Thighs Wide Open");
+    expect(d.location).toBe("Goose Island Tap House, JVC");
+    expect(d.locationUrl).toContain("maps.app.goo.gl");
+    expect(d.latitude).toBeCloseTo(25.054545);
+    expect(d.longitude).toBeCloseTo(55.20726);
+    // Venue-only body → no leftover notes.
+    expect(d.description).toBeUndefined();
+  });
+
+  it("treats a coord-less body as free-form notes (no venue) and never reads the phone", () => {
+    const d = parseDetailPage(DETAIL_NOTES);
+    expect(d.hares).toBe("Dyke");
+    expect(d.location).toBeUndefined(); // no coords → first paragraph is a note, not a venue
+    expect(d.description).toContain("Park in the car park");
+    expect(d.description).toContain("Sunday run");
+    expect(d.description).not.toContain("+971"); // contact phone is PII, never scraped
+    expect(d.description).not.toMatch(/Google Map Link/); // maps anchor stripped from notes
+    expect(d.locationUrl).toContain("maps.app.goo.gl");
+    expect(d.latitude).toBeUndefined();
+  });
+
+  it("returns {} for a listing page with no detail markup", () => {
+    expect(parseDetailPage(HOME_HTML)).toEqual({});
+  });
+});
+
 // ── Adapter integration (fetch) ────────────────────────────────────────────────
 
 describe("DesertHashAdapter.fetch", () => {
@@ -245,6 +336,67 @@ describe("DesertHashAdapter.fetch", () => {
     expect(runs).toEqual([2440, 2452, 2456, 2457]); // upcoming + 3 deduped/filtered recent
     expect(result.errors).toHaveLength(0);
     expect(result.events.every((e) => e.kennelTags[0] === "dh3-ae")).toBe(true);
+  });
+
+  it("enriches the upcoming run with detail-page hares / venue / maps / coords", async () => {
+    mockSurfacesWithDetails(HOME_HTML, HARELINE_HTML, { "dh3-run-2457": DETAIL_VENUE });
+    const result = await new DesertHashAdapter().fetch(makeSource(), { days: 40000 });
+    const e = result.events.find((ev) => ev.runNumber === 2457);
+    expect(e?.hares).toBe("Thighs Wide Open");
+    expect(e?.location).toBe("Goose Island Tap House, JVC");
+    expect(e?.locationUrl).toContain("maps.app.goo.gl");
+    expect(e?.latitude).toBeCloseTo(25.054545);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("captures coord-less notes as description and never leaks the phone", async () => {
+    mockSurfacesWithDetails(HOME_HTML, HARELINE_HTML, { "dh3-run-2457": DETAIL_NOTES });
+    const result = await new DesertHashAdapter().fetch(makeSource(), { days: 40000 });
+    const e = result.events.find((ev) => ev.runNumber === 2457);
+    expect(e?.hares).toBe("Dyke");
+    expect(e?.description).toContain("Park in the car park");
+    expect(e?.location).toBeUndefined();
+    expect(e?.description).not.toContain("+971");
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("survives a detail-page fetch failure without failing the scrape, but surfaces systemic loss", async () => {
+    // Detail fetches 503 while listing surfaces succeed → events still returned,
+    // just un-enriched; reconcile must NOT be suppressed (errors[] stays empty),
+    // but the total enrichment loss is surfaced via errorDetails (Codex review).
+    let call = 0;
+    mockedSafeFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      const isListing = u === "https://www.deserthash.org/" || u.includes("page_id=5152");
+      call++;
+      if (isListing) {
+        const html = u.includes("page_id=5152") ? HARELINE_HTML : HOME_HTML;
+        return Promise.resolve({
+          ok: true, status: 200, statusText: "OK",
+          text: () => Promise.resolve(html), headers: new Headers(),
+        } as Response);
+      }
+      return Promise.resolve({
+        ok: false, status: 503, statusText: "Service Unavailable",
+        text: () => Promise.resolve(""), headers: new Headers(),
+      } as Response);
+    });
+    const result = await new DesertHashAdapter().fetch(makeSource(), { days: 40000 });
+    expect(result.events.length).toBeGreaterThan(0);
+    // errors[] empty → status SUCCESS, reconcile of the healthy listing runs.
+    expect(result.errors).toHaveLength(0);
+    expect(call).toBeGreaterThan(2); // listing + at least one detail attempt
+    // …but the all-detail-failure is recorded in errorDetails for the audit pipeline.
+    expect(result.errorDetails?.parse?.some((p) => /enrichment failed for all/.test(p.error))).toBe(true);
+    expect(result.diagnosticContext?.detailFetchFailures).toBeGreaterThan(0);
+  });
+
+  it("does not flag systemic failure when detail enrichment succeeds", async () => {
+    mockSurfacesWithDetails(HOME_HTML, HARELINE_HTML, { "dh3-run-2457": DETAIL_VENUE });
+    const result = await new DesertHashAdapter().fetch(makeSource(), { days: 40000 });
+    expect(result.errors).toHaveLength(0);
+    expect(result.errorDetails?.parse?.some((p) => /enrichment failed for all/.test(p.error)))
+      .toBeFalsy();
   });
 
   it("fail-loud guard: 0 DH3 runs parsed → errors[]", async () => {

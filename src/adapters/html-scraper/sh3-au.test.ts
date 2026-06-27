@@ -28,6 +28,59 @@ describe("sh3-au parseSh3Paragraph", () => {
     expect(e!.description).toBeUndefined();
   });
 
+  // Live format (#2360/#2361/#2362): "On On :" carries a space before the
+  // colon, the Date cell ends with "@ 6:30pm", and the Start field runs into
+  // "CLICK HERE FOR MAP" before the On-On.
+  it("handles the live 'On On :' / '@ time' shape: start time, clean location, On-On description", () => {
+    const text =
+      "Run #3081 Date: 29th June 2026 @ 6:30pm Hares: Beep Beep & Ferret Start: Gordon Station Carpark, off Park Rd, Gordon CLICK HERE FOR MAP On On : Greengate Hotel, Cnr Greengate Rd & Pacific Hwy";
+    const e = parseSh3Paragraph(text, URL, REF);
+    expect(e).not.toBeNull();
+    expect(e!.runNumber).toBe(3081);
+    expect(e!.startTime).toBe("18:30");
+    expect(e!.hares).toBe("Beep Beep & Ferret");
+    // CTA stripped AND On-On no longer leaks into the location.
+    expect(e!.location).toBe("Gordon Station Carpark, off Park Rd, Gordon");
+    expect(e!.location).not.toMatch(/CLICK HERE/i);
+    expect(e!.location).not.toMatch(/Greengate/);
+    // On-On captured into description despite the "On On :" space-colon.
+    expect(e!.description).toBe("Greengate Hotel, Cnr Greengate Rd & Pacific Hwy");
+  });
+
+  it("parses '@ 6:30 pm' and bare '@ 7pm' start times from the Date cell (#2361)", () => {
+    expect(
+      parseSh3Paragraph("Run #3090 Date: 6th July @ 6:30 pm Hares: X Start: Park", URL, REF)!.startTime,
+    ).toBe("18:30");
+    expect(
+      parseSh3Paragraph("Run #3091 Date: 6th July @ 7pm Hares: X Start: Park", URL, REF)!.startTime,
+    ).toBe("19:00");
+    // No "@ time" → no start time emitted.
+    expect(
+      parseSh3Paragraph("Run #3092 Date: 6th July Hares: X Start: Park", URL, REF)!.startTime,
+    ).toBeUndefined();
+  });
+
+  it("strips a leading 'Posh –' nickname prefix from hares (#2363)", () => {
+    const e = parseSh3Paragraph(
+      "Run #3093 Date: 20th July Hares: Posh – Beep Beep & Ferret Start: Park", URL, REF,
+    );
+    expect(e!.hares).toBe("Beep Beep & Ferret");
+    // A hare literally named "Posh" (no separator) survives.
+    expect(
+      parseSh3Paragraph("Run #3094 Date: 20th July Hares: Posh Start: Park", URL, REF)!.hares,
+    ).toBe("Posh");
+  });
+
+  it("yields empty hares (not the Start value) when an un-hared run reads 'Hares: Start:' (#2360)", () => {
+    const text =
+      "Run #3082 Date: 6th July @ 6:30 pm Hares: Start: CLICK HERE FOR MAP On On :";
+    const e = parseSh3Paragraph(text, URL, REF);
+    expect(e).not.toBeNull();
+    expect(e!.hares).toBeUndefined();
+    expect(e!.location).toBeNull();
+    expect(e!.startTime).toBe("18:30");
+  });
+
   it("returns null when Run # is missing", () => {
     expect(parseSh3Paragraph("Next Few Weeks", URL, REF)).toBeNull();
   });

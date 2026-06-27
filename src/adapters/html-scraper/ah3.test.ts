@@ -184,6 +184,54 @@ describe("parseEventSection — DOM-based event parsing", () => {
   });
 });
 
+// ── #2311: teaser-banner conflation (current ah3.nl markup, no <p id>) ──
+
+describe("parseEventSection — teaser/run-block binding (#2311)", () => {
+  // A section that over-collects a teaser block (its own date + venue, NO
+  // "Run №") followed by the real numbered run, with NO <p id> (current markup).
+  const SECTION_HTML = `<div class="sec"><div>
+    <p><font size=5><b>We Have A Run Tomorrow &#8211; Just Another BirthDay Party</b></font></p>
+    <p>by <b>Dick In The Dyke</b><br/>
+    <b>Saturday 27 June, 2026</b> at <b>17:00</b> hrs<br/>
+    <b>Her Place</b><br/>24 Seranggracht, Amsterdam, 1019 PM</p>
+    <p><font size=5><b>Bubbles &#038; Beers</b></font></p>
+    <p>Run № <b>1486</b> by <b>Middle Spoon &#038; Off The Rails</b><br/>
+    <b>Sunday 28 June, 2026</b> at <b>15:00</b> hrs<br/>
+    <b>Rooseveltlaan 164, Amsterdam</b></p>
+  </div></div>`;
+
+  it("does NOT let the teaser block borrow the next run's number + hares", () => {
+    const $ = cheerio.load(SECTION_HTML);
+    const event = parseEventSection($("div.sec"), $, SOURCE_URL);
+    expect(event).not.toBeNull();
+    // Teaser owns the FIRST date/venue; it has no Run № of its own → undefined.
+    expect(event!.runNumber).toBeUndefined();
+    expect(event!.date).toBe("2026-06-27");
+    expect(event!.startTime).toBe("17:00");
+    expect(event!.location).toBe("Her Place");
+    expect(event!.hares).toBeUndefined(); // must NOT be "Middle Spoon..."
+    // Teaser banner prefix stripped from the title.
+    expect(event!.title).toBe("Just Another BirthDay Party");
+  });
+
+  it("binds title/location/start-time to the Run № block when the section starts with it", () => {
+    const RUN_HTML = `<div class="sec"><div>
+      <p><font size=5><b>Bubbles &#038; Beers</b></font></p>
+      <p>Run № <b>1486</b> by <b>Middle Spoon &#038; Off The Rails</b><br/>
+      <b>Sunday 28 June, 2026</b> at <b>15:00</b> hrs<br/>
+      <b>Rooseveltlaan 164, Amsterdam</b></p>
+    </div></div>`;
+    const $ = cheerio.load(RUN_HTML);
+    const event = parseEventSection($("div.sec"), $, SOURCE_URL);
+    expect(event!.runNumber).toBe(1486);
+    expect(event!.title).toBe("AH3 #1486 — Bubbles & Beers");
+    expect(event!.date).toBe("2026-06-28");
+    expect(event!.startTime).toBe("15:00");
+    expect(event!.location).toBe("Rooseveltlaan 164, Amsterdam");
+    expect(event!.hares).toBe("Middle Spoon & Off The Rails");
+  });
+});
+
 // ── extractEventsFromDOM ──
 
 describe("extractEventsFromDOM", () => {

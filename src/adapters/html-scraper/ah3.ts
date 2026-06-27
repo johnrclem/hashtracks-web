@@ -56,6 +56,27 @@ const DATE_TIME_RE =
  *  (Bag Drop, BeerMeister, Hash Cash, On After) not event description. */
 const GOOD_TO_KNOW_RE = /___good_to_know/i;
 
+/** Imminent-run teaser banner prefix ("We Have A Run Tomorrow – …") that the
+ *  editors prepend to the next run's name. Stripped so the event keeps its real
+ *  title rather than the banner (#2311). */
+const TEASER_BANNER_RE = /^We Have A Run\b[^–—\-]*[–—-]\s*/i;
+
+/**
+ * The run-name heading line of a block: the first pre-date line that is neither
+ * the "Run №" line nor a "by <hares>" line. Used when the page omits the
+ * `<p id="NNNN">` title element (current ah3.nl markup), so the title comes
+ * from the same block as the run number rather than a sibling banner (#2311).
+ */
+function pickHeadingTitle(preDateLines: string[]): string | undefined {
+  for (const l of preDateLines) {
+    if (/^Run\s*[№#]/i.test(l)) continue;
+    if (/^by\s+/i.test(l)) continue;
+    if (l.length < 3) continue;
+    return l;
+  }
+  return undefined;
+}
+
 // ── Exported helpers (for unit testing) ──
 
 /**
@@ -88,8 +109,20 @@ export function parseEventSection(
   const sectionHtml = $section.toArray().map((n) => $.html(n)).join("");
   const text = stripHtmlTags(sectionHtml, "\n").replaceAll("\u00a0", " ");
 
-  // ── Run number + hares from "Run №" line ──
-  const runMatch = RUN_NUMBER_RE.exec(text);
+  // Split into lines once; the extractors below are line-anchored. The live
+  // DOM nests each run in wrapping <div>s, so the <hr>-sibling walk
+  // over-collects into the following runs. The first DATE_TIME line marks the
+  // end of THIS block's header — everything the parser binds to this event
+  // (run number, hares, title heading) lives at or above it (#2311).
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const dateLineIdx = lines.findIndex((l) => DATE_TIME_RE.test(l));
+
+  // ── Run number + hares from the "Run №" line that PRECEDES this block's
+  // date. Scoping to the pre-date lines stops a teaser block (its own date +
+  // venue but NO "Run №") from borrowing the next block's run number + hares
+  // out of the over-collected section text (#2311).
+  const preDateLines = dateLineIdx >= 0 ? lines.slice(0, dateLineIdx) : lines;
+  const runMatch = RUN_NUMBER_RE.exec(preDateLines.join("\n"));
   let runNumber: number | undefined;
   let hares: string | undefined;
   if (runMatch) {
@@ -131,11 +164,9 @@ export function parseEventSection(
   const startTime = `${hours.padStart(2, "0")}:${minutes}`;
 
   // ── Location: first bold text after the date line ──
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   let location: string | undefined;
   let locationStreet: string | undefined;
 
-  const dateLineIdx = lines.findIndex((l) => DATE_TIME_RE.test(l));
   if (dateLineIdx >= 0) {
     const venueLine = lines[dateLineIdx + 1];
     if (venueLine && !/Map\s*$/.test(venueLine) && !/Let us know/.test(venueLine)) {
@@ -165,7 +196,13 @@ export function parseEventSection(
   const goodToKnowIdx = lines.findIndex((l) => GOOD_TO_KNOW_RE.test(l));
   const descStartIdx = dateLineIdx >= 0 ? dateLineIdx + 1 : -1;
   if (descStartIdx > 0) {
-    const descEndIdx = goodToKnowIdx > descStartIdx ? goodToKnowIdx : lines.length;
+    // Bound the description at the next block boundary too — the next run's
+    // "Run №" or date line — so an over-collected section doesn't fold the
+    // following events' prose into this one's description (#2311).
+    const nextRunIdx = lines.findIndex((l, i) => i > descStartIdx && RUN_NUMBER_RE.test(l));
+    const nextDateIdx = lines.findIndex((l, i) => i > descStartIdx && DATE_TIME_RE.test(l));
+    const bounds = [goodToKnowIdx, nextRunIdx, nextDateIdx].filter((x) => x > descStartIdx);
+    const descEndIdx = bounds.length > 0 ? Math.min(...bounds) : lines.length;
     const descLines = lines.slice(descStartIdx, descEndIdx).filter((l) => {
       // Skip venue name (already captured as location)
       if (location && l === location) return false;
@@ -192,10 +229,17 @@ export function parseEventSection(
   }
 
   // ── Build event title ──
-  const eventTitle = title
+  // Prefer the <p id> title (legacy markup); fall back to the block's heading
+  // line (current markup omits <p id>). Strip the imminent-run teaser banner so
+  // the title is the run name, not "We Have A Run Tomorrow – …" (#2311).
+  const rawTitle = title ?? pickHeadingTitle(preDateLines);
+  const cleanTitle = rawTitle
+    ? rawTitle.replace(TEASER_BANNER_RE, "").trim() || rawTitle
+    : undefined;
+  const eventTitle = cleanTitle
     ? runNumber
-      ? `AH3 #${runNumber} — ${title}`
-      : title
+      ? `AH3 #${runNumber} — ${cleanTitle}`
+      : cleanTitle
     : runNumber
       ? `AH3 #${runNumber}`
       : undefined;
