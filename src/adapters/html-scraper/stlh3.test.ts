@@ -102,6 +102,15 @@ describe("extractLocationFromMapsUrl", () => {
     const html = `<a href="javascript:share.google/x">Google Map</a>`;
     expect(findMapsLink(html)).toBeUndefined();
   });
+
+  it("rejects hosts where 'google' is not the registrable domain", () => {
+    // Subdomain-injection bypasses must NOT be treated as Google hosts.
+    expect(findMapsLink(`<a href="https://google.evil.com/maps/place/X/">m</a>`)).toBeUndefined();
+    expect(findMapsLink(`<a href="https://evil.google.attacker.com/maps">m</a>`)).toBeUndefined();
+    // Genuine Google hosts still pass.
+    expect(findMapsLink(`<a href="https://www.google.co.uk/maps/place/Big+Ben/">m</a>`)?.href)
+      .toContain("google.co.uk");
+  });
 });
 
 describe("cleanPostTitle (#808)", () => {

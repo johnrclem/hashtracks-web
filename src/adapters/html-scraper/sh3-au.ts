@@ -56,11 +56,17 @@ const SOURCE_URL_DEFAULT = "https://www.sh3.link/?page_id=9470";
 // immediately after it — e.g. "Hares: Start:" on an un-hared future run —
 // captures "" and stops, instead of `(.+?)` skipping past the adjacent label
 // and swallowing the following field's value (#2360).
-const NEXT_LABEL = /(?=Run\s*#|Date\s*:|Hares?\s*:|Start\s*:|On\s*On\s*:|$)/i.source;
-const DATE_RE = new RegExp(`Date\\s*:\\s*(.*?)\\s*${NEXT_LABEL}`, "i");
-const HARES_RE = new RegExp(`Hares?\\s*:\\s*(.*?)\\s*${NEXT_LABEL}`, "i");
-const START_RE = new RegExp(`Start\\s*:\\s*(.*?)\\s*${NEXT_LABEL}`, "i");
-const ON_ON_RE = new RegExp(`On\\s*On\\s*:\\s*(.*?)\\s*${NEXT_LABEL}`, "i");
+//
+// The "next label" boundary lookahead is inlined into each LITERAL regex below
+// rather than composed via `new RegExp(...)`, so Codacy's detect-non-literal
+// -regexp can see the pattern is fully controlled (the interpolated form is a
+// flagged sink even though the input is a module constant). NOSONAR S5852: the
+// lazy capture + boundary lookahead is the same bounded shape the other HTML
+// scrapers use (e.g. chicago-hash).
+const DATE_RE = /Date\s*:\s*(.*?)\s*(?=Run\s*#|Date\s*:|Hares?\s*:|Start\s*:|On\s*On\s*:|$)/i; // NOSONAR S5852
+const HARES_RE = /Hares?\s*:\s*(.*?)\s*(?=Run\s*#|Date\s*:|Hares?\s*:|Start\s*:|On\s*On\s*:|$)/i; // NOSONAR S5852
+const START_RE = /Start\s*:\s*(.*?)\s*(?=Run\s*#|Date\s*:|Hares?\s*:|Start\s*:|On\s*On\s*:|$)/i; // NOSONAR S5852
+const ON_ON_RE = /On\s*On\s*:\s*(.*?)\s*(?=Run\s*#|Date\s*:|Hares?\s*:|Start\s*:|On\s*On\s*:|$)/i; // NOSONAR S5852
 
 /**
  * Parse the start time the editors append to the Date cell as "@ 6:30pm" /

@@ -66,9 +66,29 @@ export function parseSubtitleTime(subtitle?: string | null): string {
 // the redirect (#2338). `goo.gl`/`maps.app.goo.gl` are Maps short URLs;
 // `share.google` is Google's share shim that lands on a `google.*/search?q=`.
 const MAPS_SHORTLINK_HOSTS = new Set(["share.google", "goo.gl", "maps.app.goo.gl"]);
-// Any `google.<tld>` host (google.com, www.google.com, maps.google.com,
-// google.co.uk, …) — the direct `/maps/...` + resolved `/search?q=` surfaces.
-const GOOGLE_HOST_RE = /^(?:[a-z0-9-]+\.)*google(?:\.[a-z]{2,})+$/;
+
+/**
+ * True when `host` is (a subdomain of) a Google registrable domain —
+ * `google.com`, `www.google.com`, `maps.google.com`, `google.co.uk`, etc.
+ * Label-based (not a regex) so it can't be ReDoS-flagged and, crucially, so
+ * "google" must be the registrable-domain label: `google.evil.com` and
+ * `evil.google.attacker.com` are correctly REJECTED (the substring/loose-regex
+ * forms would let them through — Codex/Codacy review).
+ */
+function isGoogleHost(host: string): boolean {
+  const labels = host.split(".");
+  const n = labels.length;
+  if (n < 2) return false;
+  // google.<tld>  /  *.google.<tld>   (google.com, www.google.com)
+  if (labels[n - 2] === "google") return true;
+  // google.<2-letter-sld>.<2-letter-cctld>  (google.co.uk, www.google.co.uk)
+  return (
+    n >= 3 &&
+    labels[n - 3] === "google" &&
+    labels[n - 1].length === 2 &&
+    labels[n - 2].length <= 3
+  );
+}
 const MAPS_DIR_RE = /\/maps\/dir\/\/([^/@?]+)/i;
 const MAPS_PLACE_RE = /\/maps\/place\/([^/@?]+)/i;
 // A coordinate-only / numeric query value ("38.6,-90.2") that is not a venue.
@@ -98,7 +118,7 @@ function httpHost(href: string): string | undefined {
 function isMapsHost(href: string): boolean {
   const host = httpHost(href);
   if (!host) return false;
-  return MAPS_SHORTLINK_HOSTS.has(host) || GOOGLE_HOST_RE.test(host);
+  return MAPS_SHORTLINK_HOSTS.has(host) || isGoogleHost(host);
 }
 
 /** A Google shortlink host whose venue can only be recovered by following the redirect. */
