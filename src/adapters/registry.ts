@@ -29,6 +29,7 @@ import { NorthboroHashAdapter } from "./html-scraper/northboro-hash";
 import { DublinHashAdapter } from "./html-scraper/dublin-hash";
 import { TidewaterH3Adapter } from "./html-scraper/tidewater-h3";
 import { DesertHashAdapter } from "./html-scraper/desert-hash";
+import { CreekHashAdapter } from "./html-scraper/creek-hash";
 import { BurlingtonHashAdapter } from "./html-scraper/burlington-hash";
 import { RIH3Adapter } from "./html-scraper/rih3";
 import { BrassMonkeyAdapter } from "./html-scraper/brass-monkey";
@@ -196,6 +197,11 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // disabled → static Cheerio of the home MEC calendar (upcoming) + Hare Line page (recent).
   // Title-filters to "DH3 – Run NNNN" so Moonshine / Interhash entries never ingest under dh3-ae.
   { pattern: /deserthash\.org/i,             name: "DesertHashAdapter",       factory: () => new DesertHashAdapter() },
+  // Creek H3 (HashTracks' second UAE kennel, Desert H3's sister) — creekhash.org is a
+  // self-hosted WordPress site with WP REST disabled (404) → static Cheerio of the home
+  // "This Week's Meet Point" flexslider + per-run detail page (labeled fields). Date parsed
+  // from the year-bearing post title; the contact-hare phone PII is never scraped.
+  { pattern: /creekhash\.org/i,              name: "CreekHashAdapter",        factory: () => new CreekHashAdapter() },
   // Riyadh H3 / R3H4 (HashTracks' first Saudi Arabia kennel) — riyadhhash.com is a
   // Lovable React/Vite SPA whose run data is a public Supabase (PostgREST) JSON API.
   // Anchored on the full project-ref subdomain (not bare supabase.co) to avoid

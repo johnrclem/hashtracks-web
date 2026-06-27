@@ -7386,6 +7386,25 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["dh3-ae"],
     },
+    // Creek H3 (second UAE kennel, Desert H3's sister, est. 1983) — creekhash.org is a
+    // self-hosted WordPress site with WP REST disabled (404) → CreekHashAdapter (static
+    // Cheerio) reads the home "This Week's Meet Point" flexslider (the current run) and its
+    // per-run detail page (Time/Location/Hares/Maps labeled fields). The date is parsed from
+    // the year-bearing post title (the body Date: line carries weekday typos); the contact-hare
+    // phone PII is never scraped. `upcomingOnly`: the home block carries only the current run
+    // (rolls weekly), so reconcile must not cancel the backfilled archive once it ages off.
+    // The ~601-run "Creek Runs" archive (2001→present) is one-shot backfilled by
+    // scripts/backfill-ch3-ae-history.ts. scrapeDays 365 kept generous.
+    {
+      name: "Creek H3 Website",
+      url: "https://www.creekhash.org/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { upcomingOnly: true },
+      kennelCodes: ["ch3-ae"],
+    },
     // ── Saudi Arabia ──
     // Riyadh H3 / R3H4 (first Saudi Arabia kennel) — riyadhhash.com is a Lovable React/Vite
     // SPA (empty HTML shell), so run data must come from its public Supabase (PostgREST) `anon`

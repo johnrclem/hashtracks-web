@@ -1,0 +1,4907 @@
+[
+  {
+    "date": "2001-04-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1000,
+    "location": "Beach Bash",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2002-03-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1050,
+    "location": "Jebel Ali Beach",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2003-02-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1100,
+    "location": "Desert Springs Spectacular",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2004-02-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1150,
+    "location": "Greens near Jebel Ali Racecourse",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2005-01-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1200,
+    "location": "Back of the Autodrome",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2006-12-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1300,
+    "location": "Near Jebel Ali Village",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2007-12-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1350,
+    "location": "Meadows 1",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2008-09-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1389,
+    "location": "Off Al Khail Road",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2008-11-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1399,
+    "location": "Legends",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2008-11-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1400,
+    "location": "Behind Mall of the Emirates",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-06-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1743,
+    "location": "Off Umm Suqeim near Al Khail",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-06-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1744,
+    "location": "Dingbat’s Cave",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-07-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1745,
+    "location": "Pad Pisto",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-07-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1746,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-07-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1747,
+    "location": "Brownieboxxx’s",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-07-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1748,
+    "location": "Jabba’s Palace",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-07-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1749,
+    "location": "Shagemall’s Shagpad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-08-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1750,
+    "location": "Pedopan’s Nursery",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-10-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1759,
+    "location": "Chopitoff’s Helipad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-10-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1760,
+    "location": "Nad Al Sheba Vet’s Hospital",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-10-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1761,
+    "location": "Bar Pompooi, Al Safa.",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-10-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1762,
+    "location": "Jabba’s Palace",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-11-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1763,
+    "location": "PedoPan’s Nursery",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-11-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1764,
+    "location": "Shagemall’s Shagpad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-11-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1765,
+    "location": "PedoPan’s Nursery",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2005-11-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1766,
+    "location": "Dubai National Sports Day Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-12-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1767,
+    "location": "Castle McFlux, The Haggis Bash",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-12-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1768,
+    "location": "Nad Al Sheba Vets Hospital",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-12-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1769,
+    "location": "The Christmas Run – Nad Al Sheba DEWA Substation",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-12-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1770,
+    "location": "Jabba’s Palace",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2015-12-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1771,
+    "location": "Nad al Sheba, Behind Emirates Villas",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-01-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1772,
+    "location": "Brownieboxxx’s BrownieBoxxx",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-01-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1773,
+    "location": "PedoPan’s Nursery",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-01-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1774,
+    "location": "Jabba’s Palace – The Oscars",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-01-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1775,
+    "location": "Nad Al Sheba Vets Hospital, The Committee Handover Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-02-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1776,
+    "location": "Pad Pisto",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-02-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1777,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-02-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1778,
+    "location": "Pad Pisto – Mega T-Shirt Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-02-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1779,
+    "location": "PedoPan’s Nursery",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-03-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1780,
+    "location": "Dingbat’s Bat Cave",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-03-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1781,
+    "location": "Nad Al Sheba Vets Hospital",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-03-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1782,
+    "location": "Behind the Al Ain Way – T-Shirt Run!!",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-03-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1783,
+    "location": "Pad Pisto",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-03-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1784,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-04-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1785,
+    "location": "Grannytranny’s Nursing Home",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-04-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1786,
+    "location": "Shagemall’s Shagpad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-04-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1787,
+    "location": "Nad Al Sheba Vets Hospital",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-04-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1788,
+    "location": "Fellatio’s Favela",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-05-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1789,
+    "location": "Toremearse Towers",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-05-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1790,
+    "location": "Jabba’s Palace",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-05-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1791,
+    "location": "Nad al Sheba Vets Hospital",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-05-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1792,
+    "location": "Chopitoff’s Helipad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-06-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1793,
+    "location": "Nad al Sheba Vets Hospital",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-06-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1794,
+    "location": "Pad Pisto",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-06-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1795,
+    "location": "Behind the Al Ain Way",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-06-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1796,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-06-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1797,
+    "location": "Nad al Sheba Vets Hospital",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-07-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1798,
+    "location": "Nad al Sheba, Behind Emirates Villas",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-07-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1799,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-07-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1800,
+    "location": "Pad Pisto *** NOT THE 1800TH RUN ;-) ***",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-07-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1801,
+    "location": "Nad Al Sheba Vets Hospital",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-08-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1802,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-08-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1803,
+    "location": "Shagemall’s Shagpad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-08-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1804,
+    "location": "Bar Pompooi",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-08-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1805,
+    "location": "Behind the Al Ain Way",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-09-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1807,
+    "location": "Kamikaze’s Dojo",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-09-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1808,
+    "location": "Nad Al Sheba Vets Hospital",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-09-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1809,
+    "location": "Kate’s Castle, The Battle of Britain Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-09-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1810,
+    "location": "Shagemall’s Shagpad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-10-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1811,
+    "location": "Chopitoff’s Helipad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-10-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1812,
+    "location": "Chopitoff’s Helipad (again!)",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-10-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1813,
+    "location": "Nad Al Sheba Vets Hospital",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-10-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1814,
+    "location": "Dingbat’s Bat Cave",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-11-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1815,
+    "location": "The New Pad Pisto",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-11-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1816,
+    "location": "Trolley Towers",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-11-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1817,
+    "location": "Shagemall’s Shagpad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-11-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1818,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-11-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1819,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-12-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1820,
+    "location": "Behind the Al Ain Way",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-12-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1821,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-12-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1822,
+    "location": "The Christmas Run – Bar Pompooi",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2016-12-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1823,
+    "location": "Shagemall’s Shagpad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-01-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1824,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-01-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1825,
+    "location": "Trolley Towers",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-01-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1826,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-01-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1827,
+    "location": "Nad al Sheba, Behind Emirates Villas",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-02-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1828,
+    "location": "Breaking Wind’s Gas Plant, JVC",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-02-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1829,
+    "location": "Chopitoff’s Helipad – The Oscars",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-02-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1830,
+    "location": "Dingbat’s Bat Cave",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-02-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1831,
+    "location": "Nad Al Sheba Vet’s Hospital",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-03-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1832,
+    "location": "Academic City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-03-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1833,
+    "location": "Trolley Towers",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-03-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1834,
+    "location": "Nad Al Sheba",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-03-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1835,
+    "location": "Chopitoff’s Helipad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-03-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1836,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-04-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1837,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-04-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1838,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-04-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1839,
+    "location": "Academic City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-04-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1840,
+    "location": "Nad Al Sheba Vets Hospital",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-05-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1841,
+    "location": "Nad Al Sheba Xmas Site – MIXED RUN",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-05-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1842,
+    "location": "Pad Pisto",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-05-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1843,
+    "location": "Academic City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-05-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1844,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-05-31",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1845,
+    "location": "Chopitoff’s Helipad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-06-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1846,
+    "location": "Shagemall’s Shagpad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-06-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1847,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-06-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1848,
+    "location": "Heidbanger’s Jebel Ali Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-06-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1849,
+    "location": "Trolley Towers",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-07-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1850,
+    "location": "Pad Pisto – Mixed Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-07-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1851,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-07-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1852,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-07-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1853,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-08-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1855,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-08-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1856,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-08-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1857,
+    "location": "Nad Al Sheba, Behind Emirates Villas",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-08-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1858,
+    "location": "Trolley Towers",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-09-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1859,
+    "location": "Dingbat’s Bat Cave",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-09-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1860,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-09-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1861,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-10-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1863,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-10-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1864,
+    "location": "Pad Pisto",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-10-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1865,
+    "location": "Behind the Al Ain Way",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-10-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1866,
+    "location": "Tormey Towers",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-11-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1867,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-11-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1869,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-11-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1870,
+    "location": "Behind the Al Ain Way Curry House",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-11-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1871,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-12-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1872,
+    "location": "Royal Barsha",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-12-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1873,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-12-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1874,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2017-12-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1875,
+    "location": "Shagemall’s Shagpad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-01-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1876,
+    "location": "Nad Al Sheba, Behind Emirates Gulag",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-01-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1877,
+    "location": "Behind the Al Ain Way",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-01-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1878,
+    "location": "Academic City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-01-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1879,
+    "location": "Dingbat’s Bat Cave",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-01-31",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1880,
+    "location": "The Oscars and Committee Handover at Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-02-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1881,
+    "location": "Pad Pisto – Committee Handover",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-02-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1882,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-02-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1883,
+    "location": "TOGA’s Crash Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-02-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1884,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-03-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1885,
+    "location": "Nad Al Sheba, Behind the Emirates Council Estate",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-03-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1886,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-03-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1887,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-03-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1888,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-04-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1889,
+    "location": "Pad Pisto",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-04-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1890,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-04-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1891,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-04-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1892,
+    "location": "Pad Pisto, Anzac Day Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-05-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1893,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-05-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1894,
+    "location": "Shagemall’s Shagpad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-05-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1895,
+    "location": "The Dingbat Cave",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-05-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1896,
+    "location": "TOGA’s Crash Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-05-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1897,
+    "location": "Pad Pisto",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-06-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1898,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-06-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1899,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-06-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1900,
+    "location": "Pad Pisto – The 1900th Run!",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-06-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1901,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-07-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1902,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-07-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1903,
+    "location": "The Dingbat Cave",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-07-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1904,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-07-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1905,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-08-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1906,
+    "location": "Nad Al Sheba, Behind the Emirates Council Estate",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-08-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1907,
+    "location": "Kate’s Castle",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-08-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1908,
+    "location": "The Dingbat Cave",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-08-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1909,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-08-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1910,
+    "location": "Pad Pisto",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-09-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1911,
+    "location": "Shagemall’s Shagpad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-09-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1912,
+    "location": "Pisto’s Pad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-09-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1913,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-10-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1916,
+    "location": "TOGA’s Crash Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-10-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1917,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-10-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1918,
+    "location": "Pisto’s Pad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-10-31",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1919,
+    "location": "The (new!) Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-11-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1920,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-11-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1921,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-11-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1922,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-11-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1923,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-12-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1924,
+    "location": "The Vomitorium – Tugger’s 18th",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-12-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1925,
+    "location": "The Dingbat Cave",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-12-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1926,
+    "location": "Pisto’s Pad – The Xmas Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2018-12-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1927,
+    "location": "Pisto’s Kandy Oddysey",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-01-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1928,
+    "location": "The Dingbat Cave",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-01-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1929,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-01-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1930,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-01-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1931,
+    "location": "The Oscars at Ah Pisto’s Pad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-01-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1932,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-02-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1933,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-02-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1934,
+    "location": "KKK’s Klavern",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-02-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1935,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-02-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1936,
+    "location": "Pisto’s Pad – Mixed Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-03-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1937,
+    "location": "The Vomitorium – Mixed Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-03-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1938,
+    "location": "Kate’s Castle",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-03-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1939,
+    "location": "Nad Al Sheba, Behind the Emirates Council Estate",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-03-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1940,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-04-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1941,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-04-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1942,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-04-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1943,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-04-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1944,
+    "location": "Pisto’s Pad – ANZAC Day Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-05-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1945,
+    "location": "KKK’s Klavern",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-05-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1946,
+    "location": "TOGA’s Crash Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-05-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1947,
+    "location": "Pisto’s Pad – The Pensioners’ Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-05-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1948,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-05-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1949,
+    "location": "Nad Al Sheba, Behind the Emirates Council Estate",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-06-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1950,
+    "location": "Pisto’s Pad – It’s a TUESDAY + MIXED RUN",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-06-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1951,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-06-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1952,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-06-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1953,
+    "location": "The Dingbat Cave",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-07-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1954,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-07-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1955,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-07-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1957,
+    "location": "Kate’s Castle",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-07-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1958,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-07-31",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1959,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-08-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1960,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-08-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1961,
+    "location": "TOGA’s Crash Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-08-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1963,
+    "location": "The UK Creek Hash 2019 Main Event",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-08-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1964,
+    "location": "The UK Creek Hash Recovery Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-08-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1965,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-08-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1966,
+    "location": "KKK’s Klavern, The World Cup Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-09-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1967,
+    "location": "Pisto’s Pad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-09-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1968,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-09-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1969,
+    "location": "Khasab Recovery Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-09-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1970,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-09-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1971,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-10-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1972,
+    "location": "Nad Al Sheba Xmas Site – CF’s 60th Birthday Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-10-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1973,
+    "location": "Pisto’s Pad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-10-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1974,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-10-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1975,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-10-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1976,
+    "location": "Kate’s Castle",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-11-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1977,
+    "location": "Pisto’s Pad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-11-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1978,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-11-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1979,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-11-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1980,
+    "location": "Behind the Emirate’s Gulag",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-12-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1981,
+    "location": "Kate’s Castle",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-12-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1982,
+    "location": "KKK’s Klavern",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-12-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1983,
+    "location": "Pisto’s Pad – The Xmas Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-12-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1984,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2019-12-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1985,
+    "location": "Pisto’s Pad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-01-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1986,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-01-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1987,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-01-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1988,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-01-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1989,
+    "location": "Ras Al Khaimah",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-01-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1990,
+    "location": "Ras Al Khaimah",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-01-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1991,
+    "location": "The Oscars at Ah Pisto’s Pad",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-02-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1992,
+    "location": "KKK’s Klavern",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-02-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1993,
+    "location": "Kate’s Castle",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-02-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1994,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-02-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1995,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-03-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1996,
+    "location": "KKK’s Klavern",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-03-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1997,
+    "location": "Behind the Emirates Gulag",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-08-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1998,
+    "location": "Rose and Crown",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-08-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 1999,
+    "location": "Jebel Ali Recreational Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-08-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2002,
+    "location": "Kicker’s Sports Bar",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-09-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2003,
+    "location": "Mr Toad’s, DIP",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-09-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2004,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-09-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2005,
+    "location": "Neighbourhood Bar, Green Community",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-09-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2006,
+    "location": "Jebel Ali Recreational Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-09-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2007,
+    "location": "McGettigans JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-10-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2008,
+    "location": "Champs at The Occidental, Production City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-10-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2009,
+    "location": "Jebel Ali Recreational Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-10-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2010,
+    "location": "Jebel Ali Recreation Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-10-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2011,
+    "location": "Virtual Creek Hash House Harriers",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-11-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2012,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-11-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2013,
+    "location": "Kate’s Castle",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-11-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2014,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-11-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2015,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-12-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2016,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-12-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2017,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-12-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2018,
+    "location": "Bowel Trowel Towers",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-12-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2019,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-12-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2020,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-01-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2021,
+    "location": "Murky Mirdiff",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-01-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2022,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-01-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2023,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-01-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2024,
+    "location": "The Oscars at Fingering’s Pussy Palace",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-02-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2025,
+    "location": "The Aloft Hotel, Production City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-02-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2026,
+    "location": "Neighbourhood Bar, Green Community",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-02-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2027,
+    "location": "McGettigan’s JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-02-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2028,
+    "location": "Dubliner’s",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-03-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2029,
+    "location": "Premier Inn, Ibn Battuta",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-03-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2030,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-03-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2031,
+    "location": "Dubliner’s",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-03-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2032,
+    "location": "Jebel Ali Recreation Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-03-31",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2033,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-04-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2034,
+    "location": "Rose and Crown, Al Habtoor",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-04-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2035,
+    "location": "Bar Nasty",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-04-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2036,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-04-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2037,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-05-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2038,
+    "location": "Jebel Ali Recreation Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-05-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2039,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-05-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2040,
+    "location": "Kicker’s Sports Bar",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-05-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2041,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-06-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2042,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-06-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2043,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-06-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2044,
+    "location": "F*cking Dipstick’s Pussy Palace",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-06-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2045,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-06-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2046,
+    "location": "Nad al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-07-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2047,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-07-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2048,
+    "location": "Long’s Bar, Towers Rotana Hotel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-07-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2049,
+    "location": "Radisson Blu Media City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-07-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2050,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-08-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2051,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-08-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2052,
+    "location": "McGettigan’s JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-08-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2053,
+    "location": "Towers Rotana, Long’s Bar",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-08-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2054,
+    "location": "Fat Gandhi’s Mahal",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-09-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2055,
+    "location": "Kicker’s Sports Bar",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-09-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2056,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-09-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2057,
+    "location": "Jebel Ali Recreation Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-09-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2058,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-09-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2059,
+    "location": "Premier Inn, Ibn Batutta",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-10-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2060,
+    "location": "Jon’s Place, Dubai Marina",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-10-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2061,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-10-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2062,
+    "location": "Kate’s Castle",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-10-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2063,
+    "location": "Premier Inn, Ibn Battuta",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-11-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2064,
+    "location": "F*cking Dipstick’s Oil Dump",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-11-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2065,
+    "location": "Kate’s Castle",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-11-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2066,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-12-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2068,
+    "location": "McCafferty’s JVC",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-12-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2069,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-12-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2070,
+    "location": "Jebel Ali Recreation Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2021-12-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2071,
+    "location": "The Vomitorium – Xmas Carols-oke",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-01-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2073,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-01-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2074,
+    "location": "Jebel Ali Recreation Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-01-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2075,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-01-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2076,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-02-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2077,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-02-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2079,
+    "location": "TJ’s Sports Bar, JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-02-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2080,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-03-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2081,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-03-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2082,
+    "location": "Towers Rotana, Long’s Bar",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-03-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2083,
+    "location": "Dubliner’s",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-03-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2084,
+    "location": "Nad Al Sheba Xmas Site",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-03-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2085,
+    "location": "Creek Mystery Pub Crawl",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-03-31",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2086,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-04-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2087,
+    "location": "F*cking Dipstick’s Oil Dump",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-04-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2088,
+    "location": "Dirty Ranches",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-04-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2089,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-04-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2090,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-05-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2092,
+    "location": "Mr Toad’s, Ibn Battuta",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-05-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2093,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-05-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2094,
+    "location": "McGettigan’s DWTC",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-06-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2095,
+    "location": "Heidbanger’s Hovel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-06-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2096,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-06-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2097,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-06-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2098,
+    "location": "Dirty Ranches",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-06-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2099,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-07-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2100,
+    "location": "The Vomitorium – Mixed Run",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-07-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2101,
+    "location": "KKK’s Klavern",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-07-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2102,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-07-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2103,
+    "location": "Kate’s Castle",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-08-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2104,
+    "location": "Kate’s Castle Again",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-08-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2105,
+    "location": "McCafferty’s JVC",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-08-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2106,
+    "location": "KKK’s Klavern",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-08-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2107,
+    "location": "Ranches Golf Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-09-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2108,
+    "location": "F*cking Dipstick’s Scrap Yard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-09-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2109,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-09-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2110,
+    "location": "Jebel Ali Village",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-09-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2111,
+    "location": "Garden On 8",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-09-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2112,
+    "location": "Mr Toad’s, Premier Inn Ibn Battuta",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-10-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2113,
+    "location": "Kate’s Castle",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2020-10-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2114,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-10-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2115,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-10-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2116,
+    "location": "Kicker’s Sports Bar",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-11-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2117,
+    "location": "Novotel Barsha",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-11-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2118,
+    "location": "McGettigan’s DWTC",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-11-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2119,
+    "location": "Mr Toad’s, Ibn Battuta",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-11-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2120,
+    "location": "Kate’s Castle",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-12-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2121,
+    "location": "Trade Center Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-12-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2122,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-12-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2123,
+    "location": "Jebel Ali Recreation Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-12-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2124,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-12-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2125,
+    "location": "McCafferty’s JVC",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-01-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2126,
+    "location": "Trade Center Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-01-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2127,
+    "location": "Dirty Ranches",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-01-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2128,
+    "location": "Mr Toads, Ibn Battuta",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-01-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2129,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-02-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2130,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-02-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2131,
+    "location": "F*cking Dipstick’s Scrap Yard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-02-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2132,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-02-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2133,
+    "location": "Mr Toads, Ibn Battuta",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-03-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2134,
+    "location": "Brownieboxxx’s Tragical Mystery Tour",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-03-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2135,
+    "location": "Kate’s Castle",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-03-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2136,
+    "location": "Mr Toad’s DIP",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-03-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2137,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-03-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2138,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-04-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2139,
+    "location": "Nad Al Sheba",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-04-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2140,
+    "location": "Sips and Taps, Courtyard by Marriott DWTC",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-04-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2141,
+    "location": "Blacksmith Bar and Eatery",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-04-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2142,
+    "location": "Nad al Sheba",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-05-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2143,
+    "location": "F*cking Dipstick’s Scrap Yard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-05-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2144,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-05-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2145,
+    "location": "Breaking Wind’s Gas Plant",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-05-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2146,
+    "location": "Dirty Ranches",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-06-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2147,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-06-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2148,
+    "location": "Sips and Taps, Courtyard by Marriott DWTC",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-06-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2149,
+    "location": "F*cking Dipstick’s Scrapyard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-06-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2150,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-07-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2152,
+    "location": "The JVC Ditch",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-07-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2153,
+    "location": "McGettigans JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-07-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2154,
+    "location": "OCP’s Place, Al Manara",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-07-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2155,
+    "location": "Blacksmith’s, Dubai Marina",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-08-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2156,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-08-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2157,
+    "location": "Cheeky Camel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-08-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2159,
+    "location": "Mr Toad’s Ibn Battuta",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-08-31",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2160,
+    "location": "Dirty Ranches",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-09-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2161,
+    "location": "F*cking Dipstick’s Scrap Yard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-09-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2162,
+    "location": "Paraplegic’s Wheelchair Boneyard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-09-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2163,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-09-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2164,
+    "location": "Mr Toad’s Ibn Battuta",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-10-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2165,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-10-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2166,
+    "location": "TJ’s Sports Bar, Taj Hotel, JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-10-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2167,
+    "location": "F*cking Dipstick’s Scrapyard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-10-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2168,
+    "location": "Mr Toad’s Ibn Battuta",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-11-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2169,
+    "location": "ICON Bar, Radisson Blu Medial City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-11-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2170,
+    "location": "McCafferty’s Al Furjan",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-11-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2171,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-11-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2172,
+    "location": "Mr Toad’s, Premier Inn, DIP",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-11-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2173,
+    "location": "McGettigan’s JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-12-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2174,
+    "location": "Novotel Barsha",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-12-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2175,
+    "location": "Le Petit Belge, Motor City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-12-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2176,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-12-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2177,
+    "location": "The JVC Ditch",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-01-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2178,
+    "location": "The Cheeky Camel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-01-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2180,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-01-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2181,
+    "location": "The JVC Ditch",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-02-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2182,
+    "location": "F*cking Dipstick’s Scrapyard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-02-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2183,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-02-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2184,
+    "location": "McCafferty’s Al Furjan",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-02-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2185,
+    "location": "Dirty Ranches",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-02-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2186,
+    "location": "BrownieBoxxx’s New Hole",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-03-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2187,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-03-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2189,
+    "location": "Lake View Tower, JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-03-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2190,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-04-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2191,
+    "location": "F*cking Dipstick’s Scrapyard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-04-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2192,
+    "location": "McCafferty’s Al Furjan",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-04-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2193,
+    "location": "Novotel Barsha",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-04-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2194,
+    "location": "Blacksmith’s, Dubai Marina",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-05-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2195,
+    "location": "Toilet Brush’s Desert Bog",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-05-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2196,
+    "location": "Jebel Ali Village Desert",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-05-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2197,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-05-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2198,
+    "location": "F*cking Dipstick’s Scrapyard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-05-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2199,
+    "location": "Orra Tower, Dubai Marina",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-06-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2200,
+    "location": "BrownieBoxxx’s Hole",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-06-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2201,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-06-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2202,
+    "location": "The Bad Bakery",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-06-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2203,
+    "location": "ICON Bar, Radisson Blu Media City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-07-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2204,
+    "location": "Ranches Golf Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-07-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2205,
+    "location": "The Vomitarium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-07-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2206,
+    "location": "Toad’s Ibn Battuta",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-07-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2207,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-08-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2208,
+    "location": "Towers Rotana, Long’s Bar",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-08-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2209,
+    "location": "Urban Bar and Kitchen",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-08-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2210,
+    "location": "McGettigan’s Dubai Science Park",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-08-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2211,
+    "location": "The Els Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-08-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2212,
+    "location": "F*cking Dipstick’s Scrapyard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-09-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2213,
+    "location": "Blacksmith’s, Dubai Marina",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-09-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2215,
+    "location": "Dirty Ranches",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-09-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2216,
+    "location": "McGettigan’s JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-10-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2217,
+    "location": "BrownieBoxxx’s Hole",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-10-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2218,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-10-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2219,
+    "location": "F*cking Dipstick’s Scrapyard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-10-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2220,
+    "location": "Urban Bar and Kitchen",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-10-31",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2221,
+    "location": "The Vomitarium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-11-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2222,
+    "location": "Icon Bar, Radisson Blu Media City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-11-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2223,
+    "location": "Lake View Tower, JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-11-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2224,
+    "location": "Rex Bar, Intercontinental JBR",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-11-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2225,
+    "location": "Dirty Ranchez",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-12-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2227,
+    "location": "MAG 218 Dubai Marina",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-12-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2228,
+    "location": "Lake View Tower, JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-12-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2229,
+    "location": "Blacksmiths, Dubai Marina",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-01-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2230,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-01-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2232,
+    "location": "Remraan",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-01-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2233,
+    "location": "The Vomitarium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-01-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2234,
+    "location": "F*cking Dipstick’s Scrapyard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-02-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2235,
+    "location": "The Vomitarium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-02-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2236,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-02-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2237,
+    "location": "Dirty Ranchez",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-02-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2238,
+    "location": "World Trade Centres Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-03-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2239,
+    "location": "Rex Bar, Intercontinental JBR",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-03-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2240,
+    "location": "McCafferty’s Al Furjan",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-03-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2241,
+    "location": "F*cking Dipstick’s Scrapyard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-03-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2242,
+    "location": "The Vomitarium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-04-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2243,
+    "location": "Pieter’s Place",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-04-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2244,
+    "location": "Over the Hill(s and far away)",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-04-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2245,
+    "location": "Bridgewater Tavern",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-04-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2246,
+    "location": "Rex Bar, Intercontinental JBR",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-05-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2247,
+    "location": "Dirty Ranchez",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-05-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2248,
+    "location": "McCafferty’s Al Furjan",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-05-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2249,
+    "location": "Icon Bar, Radisson Blu Media City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-05-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2250,
+    "location": "Remraan",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-05-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2251,
+    "location": "Over the Hill(s and far away)",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-06-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2252,
+    "location": "McGettingan’s Production City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-06-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2253,
+    "location": "Bridgewater Tavern, Business Bay",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-06-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2255,
+    "location": "Icon Bar, Radisson Blu Media City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-07-03",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2256,
+    "location": "Nezesaussi Bar, Ranches Golf Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-07-10",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2257,
+    "location": "Blacksmith’s, First Collection Marina",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-07-17",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2258,
+    "location": "Swiss Butter, Sofitel Downtown",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-07-24",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2259,
+    "location": "World Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-07-31",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2260,
+    "location": "World Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-08-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2261,
+    "location": "Mr Toad’s, Ibn Battuta",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-08-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2262,
+    "location": "Brownieboxxx’s Hole",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-08-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2263,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-08-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2264,
+    "location": "Blacksmith’s Business Bay",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-09-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2265,
+    "location": "UBK, JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-09-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2266,
+    "location": "Desert near Town Square",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-09-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2267,
+    "location": "ICON Bar, Media City",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-09-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2268,
+    "location": "Swiss Butter, Sofitel Downtown",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-10-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2269,
+    "location": "Mr Toad’s DIP",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-10-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2270,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-10-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2271,
+    "location": "59th Street Bar and Kitchen, Donatello Hotel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-10-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2272,
+    "location": "OCP’s Place, Barsha 2",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2024-10-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2273,
+    "location": "Blacksmith’s, First Collection Hotel, Marina",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-11-06",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2274,
+    "location": "Lake View Tower, JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-11-13",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2275,
+    "location": "Desert near Town Square",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-11-20",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2276,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-11-27",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2277,
+    "location": "F*cking Dipstick’s Scrapyard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-12-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2278,
+    "location": "59th Street Bar and Kitchen, Donatello Hotel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-12-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2279,
+    "location": "World Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-12-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2280,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-12-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2281,
+    "location": "Christmas Hash!",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-01-01",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2282,
+    "location": "Miracle Gardens",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-01-08",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2283,
+    "location": "Dirty Ranches",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-01-15",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2284,
+    "location": "Rex Bar, Intercontinental JBR",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-01-22",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2285,
+    "location": "Mayfair Tower DIP",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-01-29",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2286,
+    "location": "Brownie Boxxx’s Hole",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-02-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2287,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-02-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2288,
+    "location": "McCafferty’s Al Furjan",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-02-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2289,
+    "location": "59th Street Bar and Kitchen, Donatello Hotel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-02-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2290,
+    "location": "59th Street Bar and Kitchen, Donatello Hotel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-03-05",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2291,
+    "location": "59th Street Bar and Kitchen, Donatello Hotel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-03-12",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2292,
+    "location": "Mayfair DIP",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-03-19",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2293,
+    "location": "UKB, JLT",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-03-26",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2294,
+    "location": "World Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-04-02",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2295,
+    "location": "F*cking Dipstick’s Scrapyard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-04-09",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2296,
+    "location": "Dubai Offshore Sailing Club",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-04-16",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2297,
+    "location": "59th Street Bar and Kitchen, Donatello Hotel",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-04-23",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2298,
+    "location": "JamJars, Marina",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-04-30",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2299,
+    "location": "Dirty Ranches",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-05-07",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2300,
+    "location": "Sticky Wicket in DIP",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-05-14",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2301,
+    "location": "Lighthouse Terrace, Millennium Central Downtown",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-05-21",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2302,
+    "location": "F*cking Dipstick’s Scrapyard",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-05-28",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2303,
+    "location": "Bridgewater Tavern, Business Bay",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-06-04",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2304,
+    "location": "Miracle Gardens",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-06-11",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2305,
+    "location": "Le Petite Belge",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-06-18",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2306,
+    "location": "Trade Centre Apartments",
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-06-25",
+    "kennelTags": [
+      "ch3-ae"
+    ],
+    "runNumber": 2307,
+    "location": "The Vomitorium",
+    "startTime": "19:00"
+  }
+]

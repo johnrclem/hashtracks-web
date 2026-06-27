@@ -5610,6 +5610,27 @@ export const KENNELS: KennelSeed[] = [
       latitude: 25.2048, // Dubai centroid (no per-event coords published)
       longitude: 55.2708,
     },
+    // ── United Arab Emirates (second 🇦🇪 kennel: Creek H3, Desert H3's sister) ──
+    {
+      kennelCode: "ch3-ae", // bare "ch3" is taken (Chicago); also ch3-dk (Copenhagen) / ch3-nc / ch3-sc / ch3-cm
+      shortName: "Creek H3",
+      fullName: "Creek Hash House Harriers",
+      region: "Dubai",
+      country: "United Arab Emirates", // canonical NAME; code "AE" lives in region.ts (already seeded via Desert H3)
+      website: "https://www.creekhash.org/",
+      facebookUrl: "https://www.facebook.com/creekhash/",
+      foundedYear: 1983, // 31 Jan 1983 (Phil 'Noballs' Knoble) — gotothehash "In the Spotlight UAE" + run-# corroboration; medium-high confidence, flag
+      scheduleDayOfWeek: "Thursday",
+      scheduleTime: "7:00 PM", // 12-hr seed format; RawEventData.startTime stays 24-hr "19:00"
+      scheduleFrequency: "Weekly", // single Thursday pattern → flat fields (no scheduleRules, unlike Desert's mixed cadence)
+      hashCash: "60 AED (drinkers) / 40 AED (non-drinking)",
+      walkersWelcome: true, // home page: "We welcome all new runners/walkers/sitters and visitors"
+      logoUrl: "/kennel-logos/ch3-ae.png", // self-hosted from creekhash.org header banner; ext confirmed by magic bytes (PNG, 2186x336)
+      description:
+        "Dubai's men-only hash, established 1983 — a sister kennel to Desert H3. Meets every Thursday evening (19:00) at changing locations across Dubai. Runs are under 5km in summer / under 7km in winter; walks ~3km. 'A drinking club with a running problem.' Hash cash 60 AED (drinkers) / 40 AED (non-drinkers), food provided.",
+      latitude: 25.2048, // Dubai centroid (no per-event coords published)
+      longitude: 55.2708,
+    },
     // ── Saudi Arabia (first 🇸🇦 kennel: Riyadh H3 / R3H4) ──
     {
       kennelCode: "riyadh-h3", // bare "r3h4" also free; "riyadh-h3" reads cleaner as a slug
