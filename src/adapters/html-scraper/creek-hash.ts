@@ -38,7 +38,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, applyDateWindow } from "../utils";
+import { fetchHTMLPage, applyDateWindow, type FetchHTMLResult } from "../utils";
 
 const HOME_URL = "https://www.creekhash.org/";
 const KENNEL_TAG = "ch3-ae";
@@ -50,10 +50,11 @@ const MONTHS = new Map<string, number>([
   ["september", 9], ["october", 10], ["november", 11], ["december", 12],
 ]);
 
-// Title segments are separated by a spaced en-dash/em-dash (`&#8211;` → "–").
-// Splitting on a spaced dash only (never a bare hyphen) preserves hyphenated
-// place names like "Al-Quoz" inside the venue segment.
-const SEGMENT_SEP_RE = /\s+[–—]\s+/;
+// Title segments are separated by an en-dash/em-dash (`&#8211;` → "–"). Splitting
+// on the bare dash only (never an ASCII hyphen) preserves hyphenated place names
+// like "Al-Quoz" inside the venue segment; segments are trimmed after the split,
+// so no surrounding-whitespace quantifiers are needed (avoids regex backtracking).
+const SEGMENT_SEP_RE = /[–—]/;
 // Strip an ordinal suffix off a day number ("25th" → "25") before date parse.
 const ORDINAL_RE = /(\d)(?:st|nd|rd|th)\b/gi;
 // Loose "D Month YYYY" — month validated via Map, not a 12-way alternation.
@@ -62,8 +63,10 @@ const RUN_SEGMENT_RE = /^run\s+(\d+)$/i;
 const TIME_RE = /(\d{1,2}):(\d{2})/;
 // A trailing "– 055 5011504" phone fragment (dash-led digit run). Used only to
 // scrub the hares value; never applied to fields that legitimately carry digits
-// (e.g. a "Villa 3B" location).
-const PHONE_TAIL_RE = /\s*[–—-]\s*\d[\d\s().+-]{5,}$/;
+// (e.g. a "Villa 3B" location). The leading space is bounded (` ?`) and the only
+// unbounded repetition is the final digit class, so there is no super-linear
+// backtracking (the class deliberately excludes `\s`; phone inner spaces are " ").
+const PHONE_TAIL_RE = /[–—-] ?\d[\d ()+.-]{4,}$/;
 
 const DETAIL_LABELS_TO_READ = new Set(["time", "location", "hares"]);
 
@@ -108,11 +111,11 @@ export function parseRunTitle(
   text: string,
 ): { date: string; runNumber: number; venue?: string } | null {
   const clean = text.replace(/\s+/g, " ").trim();
-  const segs = clean.split(SEGMENT_SEP_RE);
+  const segs = clean.split(SEGMENT_SEP_RE).map((s) => s.trim());
   if (segs.length < 2) return null;
   const date = parseTitleDate(segs[0]);
   if (!date) return null;
-  const runMatch = RUN_SEGMENT_RE.exec(segs[1].trim());
+  const runMatch = RUN_SEGMENT_RE.exec(segs[1]);
   if (!runMatch) return null;
   const runNumber = Number.parseInt(runMatch[1], 10);
   const venue = segs.slice(2).join(" – ").trim();
@@ -221,6 +224,36 @@ function buildEvent(slide: HomeSlide, detail: DetailFields): RawEventData {
   };
 }
 
+/**
+ * Fetch + parse one slide's detail page. A detail-fetch failure or parse error is
+ * recorded but non-fatal: the slide title already carries date+run#+venue, so the
+ * event still emits (leaner). Extracted from fetch() to keep its complexity low.
+ */
+function collectDetail(
+  detailPage: FetchHTMLResult,
+  slide: HomeSlide,
+  errors: string[],
+  errorDetails: ErrorDetails,
+): { detail: DetailFields; fetchDurationMs: number } {
+  if (!detailPage.ok) {
+    errors.push(...detailPage.result.errors.map((e) => `Detail ${slide.runNumber}: ${e}`));
+    const fetchErrs = detailPage.result.errorDetails?.fetch;
+    if (fetchErrs) {
+      errorDetails.fetch ??= [];
+      errorDetails.fetch.push(...fetchErrs);
+    }
+    return { detail: {}, fetchDurationMs: 0 };
+  }
+  try {
+    return { detail: parseDetailFields(detailPage.$), fetchDurationMs: detailPage.fetchDurationMs };
+  } catch (err) {
+    errors.push(`Detail ${slide.runNumber} parse error: ${err}`);
+    errorDetails.parse ??= [];
+    errorDetails.parse.push({ row: slide.runNumber, section: "detail", error: String(err) });
+    return { detail: {}, fetchDurationMs: detailPage.fetchDurationMs };
+  }
+}
+
 export class CreekHashAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -240,27 +273,9 @@ export class CreekHashAdapter implements SourceAdapter {
     const slides = parseHomeSlides(homePage.$, baseUrl);
     for (const slide of slides) {
       const detailPage = await fetchHTMLPage(slide.detailUrl);
-      let detail: DetailFields = {};
-      if (detailPage.ok) {
-        fetchDurationMs += detailPage.fetchDurationMs;
-        try {
-          detail = parseDetailFields(detailPage.$);
-        } catch (err) {
-          errors.push(`Detail ${slide.runNumber} parse error: ${err}`);
-          errorDetails.parse ??= [];
-          errorDetails.parse.push({ row: slide.runNumber, section: "detail", error: String(err) });
-        }
-      } else {
-        // The title already carries date+run#+venue, so a detail-fetch failure
-        // still yields a usable (if leaner) event — record the error but emit.
-        errors.push(...detailPage.result.errors.map((e) => `Detail ${slide.runNumber}: ${e}`));
-        const fetchErrs = detailPage.result.errorDetails?.fetch;
-        if (fetchErrs) {
-          errorDetails.fetch ??= [];
-          errorDetails.fetch.push(...fetchErrs);
-        }
-      }
-      events.push(buildEvent(slide, detail));
+      const collected = collectDetail(detailPage, slide, errors, errorDetails);
+      fetchDurationMs += collected.fetchDurationMs;
+      events.push(buildEvent(slide, collected.detail));
     }
 
     // Zero-row fail-loud guard: brand-new single source, baseline fill-rate 0.
