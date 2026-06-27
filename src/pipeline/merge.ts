@@ -2106,7 +2106,13 @@ async function upsertCanonicalEvent(
       // the tri-state clear stays owned by the higher-trust branch. endTime is
       // a plain display string with no dateUtc coupling (only startTime anchors
       // dateUtc), so no recompose is needed.
-      if (!existingEvent.endTime && event.endTime && !isImplausibleEndTime(existingEvent.startTime, event.endTime)) {
+      // #2395 / Codex review — screen the incoming endTime against the start that
+      // will actually be persisted: the start enriched just above (when the
+      // existing one was null), else the existing one. Using existingEvent.startTime
+      // alone misses an inverted pair when THIS pass also backfills startTime
+      // (e.g. a lower-trust source filling both 13:30 + 09:00).
+      const enrichEffectiveStart = (enrichData.startTime as string | undefined) ?? existingEvent.startTime;
+      if (!existingEvent.endTime && event.endTime && !isImplausibleEndTime(enrichEffectiveStart, event.endTime)) {
         enrichData.endTime = event.endTime;
       }
       if (!existingEvent.cost && event.cost) {

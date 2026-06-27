@@ -707,6 +707,38 @@ describe("processRawEvents", () => {
     expect(data).not.toHaveProperty(field);
   });
 
+  // #2395 / Codex review — when a lower-trust source backfills BOTH a missing
+  // startTime and an endTime in one pass, the endTime guard must screen against
+  // the just-enriched start (13:30), not the still-null existing start. An
+  // inverted 13:30 → 09:00 pair must be rejected for endTime while startTime fills.
+  it("rejects an enriched endTime that inverts the same-pass enriched startTime (#2395)", async () => {
+    mockSourceFind.mockResolvedValueOnce(sourceRow({
+      trustLevel: 5,
+      type: "HTML_SCRAPER",
+      kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    // Higher-trust owner left BOTH startTime and endTime NULL.
+    mockEventFindMany.mockResolvedValueOnce([{
+      id: "evt_inv",
+      trustLevel: 8,
+      startTime: null,
+      endTime: null,
+    }] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_inv"));
+
+    await processRawEvents("src_low", [buildRawEvent({ startTime: "13:30", endTime: "09:00" })]);
+
+    const update = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_inv",
+    );
+    expect(update).toBeDefined();
+    const data = (update![0] as { data: Record<string, unknown> }).data;
+    // startTime backfills, but the inverted endTime is rejected.
+    expect(data).toHaveProperty("startTime", "13:30");
+    expect(data).not.toHaveProperty("endTime");
+  });
+
   it("lower-trust enrichment does NOT clobber an earlier same-batch fill (#1950 shared-cache patch)", async () => {
     // Two lower-trust raws in ONE batch both match the same canonical (shared
     // runNumber + startTime → the matcher re-matches the second onto the first).
