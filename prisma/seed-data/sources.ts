@@ -790,15 +790,15 @@ export const SOURCES = [
         // from the summary (anchored to the SH3 prefix so a digit in a theme
         // can't false-match). Events that DO carry "#" ("SH3 #859") are already
         // handled by the shared parser before this runs.
-        summaryRunNumberPatterns: [String.raw`^SH3\s*#?\s*(\d{2,4})\b`],
+        summaryRunNumberPatterns: [String.raw`^SH3\s*(?:#\s*)?(\d{2,4})\b`],
         // #2349 / #2351: strip the redundant "SH3 [#] NNN" / "FM #NNN -" run
         // prefix that leaks into the title (the run number is already in its own
         // field). Leaves the theme ("Fit Squirter", "Photo Bleibt") or an empty
         // title that the default/merge synthesis fills. DST is intentionally
         // omitted \u2014 its post-dash text is the hare (titleHarePattern handles it).
         titleStripPatterns: [
-          String.raw`^SH3\s*#?\s*\d+\s*-?\s*`,
-          String.raw`^FM\s*#?\s*\d+\s*-?\s*`,
+          String.raw`^SH3\s*(?:#\s*)?\d+\s*(?:-\s*)?`,
+          String.raw`^FM\s*(?:#\s*)?\d+\s*(?:-\s*)?`,
         ],
       },
       kennelCodes: ["sh3-de", "dst-h3", "fm-stgt", "super-h3"],

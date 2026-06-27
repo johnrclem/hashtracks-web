@@ -505,16 +505,16 @@ describe("extractRunNumber", () => {
     ["SH3 879  Lone Thrills", 879],
     ["SH3 873", 873],
   ])("extracts a no-# summary run number via summaryRunNumberPatterns: %j", (summary, expected) => {
-    expect(extractRunNumber(summary, undefined, undefined, [String.raw`^SH3\s*#?\s*(\d{2,4})\b`])).toBe(expected);
+    expect(extractRunNumber(summary, undefined, undefined, [String.raw`^SH3\s*(?:#\s*)?(\d{2,4})\b`])).toBe(expected);
   });
 
   it("the shared #-parser still wins over summaryRunNumberPatterns", () => {
     // "SH3 #859" — the "#" form is parsed first; the summary pattern is never reached.
-    expect(extractRunNumber("SH3 #859 Fit Squirter", undefined, undefined, [String.raw`^SH3\s*#?\s*(\d{2,4})\b`])).toBe(859);
+    expect(extractRunNumber("SH3 #859 Fit Squirter", undefined, undefined, [String.raw`^SH3\s*(?:#\s*)?(\d{2,4})\b`])).toBe(859);
   });
 
   it("summaryRunNumberPatterns are anchored — a digit in a non-SH3 theme is ignored", () => {
-    expect(extractRunNumber("SUGAR H3 - Bye Bye 39", undefined, undefined, [String.raw`^SH3\s*#?\s*(\d{2,4})\b`])).toBeUndefined();
+    expect(extractRunNumber("SUGAR H3 - Bye Bye 39", undefined, undefined, [String.raw`^SH3\s*(?:#\s*)?(\d{2,4})\b`])).toBeUndefined();
   });
 
   // #1009 Bushman H3: source description starts "What: Bushman HHH No. 251" —
@@ -6277,8 +6277,8 @@ describe("Stuttgart SH3/FM run-prefix strip + summary run number (#2349/#2351)",
   // titleStripPatterns (the production fetch path compiles these from config and
   // passes them in the options bag).
   const opts = {
-    compiledSummaryRunNumberPatterns: [/^SH3\s*#?\s*(\d{2,4})\b/i],
-    compiledTitleStripPatterns: [/^SH3\s*#?\s*\d+\s*-?\s*/i, /^FM\s*#?\s*\d+\s*-?\s*/i],
+    compiledSummaryRunNumberPatterns: [/^SH3\s*(?:#\s*)?(\d{2,4})\b/i],
+    compiledTitleStripPatterns: [/^SH3\s*(?:#\s*)?\d+\s*(?:-\s*)?/i, /^FM\s*(?:#\s*)?\d+\s*(?:-\s*)?/i],
   };
   const config = { defaultKennelTag: "sh3-de" };
   const build = (summary: string) =>

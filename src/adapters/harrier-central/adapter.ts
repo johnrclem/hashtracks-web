@@ -523,7 +523,10 @@ export function applyTitleFallback(
 const RUN_TITLE_LOCATION_PREFIX_RE = /^(?:\S+\s+)?run\s+\d+(?:\s+at\b|:)\s*/i; // NOSONAR S5852/S5843 — bounded, single quantifiers, no overlapping alternation
 function stripRunTitleLocationPrefix(place: string | undefined): string | undefined {
   if (!place) return place;
-  return place.replace(RUN_TITLE_LOCATION_PREFIX_RE, "").trim() || place;
+  // When the venue was ONLY the run-title prefix (nothing after it), return
+  // undefined rather than the original bad string — composeHcLocation then falls
+  // back to the resolvable address instead of storing "Run 2288 at".
+  return place.replace(RUN_TITLE_LOCATION_PREFIX_RE, "").trim() || undefined;
 }
 
 export function composeHcLocation(
