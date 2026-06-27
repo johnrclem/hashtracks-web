@@ -198,10 +198,16 @@ export function parseEventSection(
   if (descStartIdx > 0) {
     // Bound the description at the next block boundary too — the next run's
     // "Run №" or date line — so an over-collected section doesn't fold the
-    // following events' prose into this one's description (#2311).
+    // following events' prose into this one's description (#2311). The next run's
+    // HEADING sits one line ABOVE its "Run №" line, so also stop at `nextRunIdx
+    // - 1` to keep that heading ("Bubbles & Beers") out of this description
+    // (CodeRabbit review).
     const nextRunIdx = lines.findIndex((l, i) => i > descStartIdx && RUN_NUMBER_RE.test(l));
+    const nextRunHeadingIdx = nextRunIdx > descStartIdx ? nextRunIdx - 1 : -1;
     const nextDateIdx = lines.findIndex((l, i) => i > descStartIdx && DATE_TIME_RE.test(l));
-    const bounds = [goodToKnowIdx, nextRunIdx, nextDateIdx].filter((x) => x > descStartIdx);
+    const bounds = [goodToKnowIdx, nextRunHeadingIdx, nextRunIdx, nextDateIdx].filter(
+      (x) => x > descStartIdx,
+    );
     const descEndIdx = bounds.length > 0 ? Math.min(...bounds) : lines.length;
     const descLines = lines.slice(descStartIdx, descEndIdx).filter((l) => {
       // Skip venue name (already captured as location)

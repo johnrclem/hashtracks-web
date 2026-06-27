@@ -66,8 +66,36 @@ const TOGGLE_YEAR_RE = /mec-toggle-(\d{4})\d{2}/;
 const YEAR_RE = /(20\d{2})/;
 
 // ── Detail-page enrichment (issues #2323-#2326) ──────────────────────────────
-// A Google-Maps link in the run-notes body, in any of the host forms MEC emits.
-const MAPS_URL_RE = /maps\.app\.goo\.gl|google\.[a-z.]+\/maps|goo\.gl\/maps|maps\.google/i;
+// Validate a run-notes anchor as a Google Maps link by HOSTNAME, not substring
+// — a hostile href that merely contains "maps.app.goo.gl" in a path/query must
+// not be persisted as `locationUrl` (CodeRabbit review). Label-based google
+// check so "google" must be the registrable-domain label (google.evil.com is
+// rejected), mirroring the stlh3 host allowlist.
+function isGoogleHostLabel(host: string): boolean {
+  const labels = host.split(".");
+  const n = labels.length;
+  if (n >= 2 && labels[n - 2] === "google") return true;
+  return (
+    n >= 3 &&
+    labels[n - 3] === "google" &&
+    labels[n - 1].length === 2 &&
+    labels[n - 2].length <= 3
+  );
+}
+function isMapsUrl(href: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(href);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+  const host = u.hostname.toLowerCase();
+  if (host === "maps.app.goo.gl" || host === "maps.google.com") return true;
+  const path = u.pathname.toLowerCase();
+  if (host === "goo.gl") return path.startsWith("/maps");
+  return isGoogleHostLabel(host) && path.startsWith("/maps");
+}
 // The event's coordinates, embedded in the gmap widget's `mecGoogleMaps({…})`
 // init block. Only present when MEC carries a structured location.
 const DETAIL_LAT_RE = /latitude:\s*"(-?\d+(?:\.\d+)?)"/;
@@ -329,7 +357,7 @@ export function parseDetailPage(html: string): DesertDetail {
       if (!text) return; // image-only / empty paragraph
       const $maps = $p
         .find("a[href]")
-        .filter((_j, a) => MAPS_URL_RE.test($(a).attr("href") ?? ""))
+        .filter((_j, a) => isMapsUrl($(a).attr("href") ?? ""))
         .first();
       if ($maps.length > 0 && !detail.locationUrl) detail.locationUrl = $maps.attr("href");
       // A paragraph that is ONLY a maps anchor ("Google Map Link") is not content.
@@ -449,21 +477,28 @@ export class DesertHashAdapter implements SourceAdapter {
       detailsEnriched: 0,
       detailFetchFailures: 0,
     };
-    await this.enrichWithDetails(windowed.events, detailDiag);
+    // Per-detail fetch/parse failures are preserved here (structured, for the
+    // audit pipeline) but deliberately kept OUT of `errors[]`.
+    const detailErrors: ErrorDetails = windowed.errorDetails ?? {};
+    await this.enrichWithDetails(windowed.events, detailDiag, detailErrors);
     windowed.diagnosticContext = { ...windowed.diagnosticContext, ...detailDiag };
 
-    // Surface SYSTEMIC enrichment failure (every detail fetch failed) so the
-    // health/audit pipeline can flag a detail-page block or markup drift — but
-    // via `errorDetails` only, NOT `errors[]`, so the healthy listing still
-    // reconciles instead of leaving stale runs uncancelled (Codex review).
-    if (detailDiag.detailTargets > 0 && detailDiag.detailFetchFailures === detailDiag.detailTargets) {
+    // Surface SYSTEMIC enrichment loss — every in-window run came back with ZERO
+    // enriched fields, whether the detail fetch failed OR the page returned 200
+    // but parsed to {} under MEC markup drift (gating on `detailsEnriched === 0`
+    // catches both; `detailFetchFailures === detailTargets` would miss the
+    // parse-empty drift — Codex/CodeRabbit review). `errorDetails` only, NOT
+    // `errors[]`, so the healthy listing still reconciles instead of leaving
+    // stale runs uncancelled.
+    if (detailDiag.detailTargets > 0 && detailDiag.detailsEnriched === 0) {
       const message =
-        `Desert H3: detail-page enrichment failed for all ${detailDiag.detailTargets} in-window runs ` +
-        `(hares/venue/notes unavailable — detail-page block or MEC markup drift?)`;
-      const ed: ErrorDetails = windowed.errorDetails ?? {};
-      (ed.parse ??= []).push({ row: -1, section: "detail", error: message });
-      windowed.errorDetails = ed;
+        `Desert H3: detail-page enrichment produced no fields for all ${detailDiag.detailTargets} ` +
+        `in-window runs (hares/venue/notes unavailable — detail-page block or MEC markup drift?)`;
+      const parseErrors = detailErrors.parse ?? [];
+      parseErrors.push({ row: -1, section: "detail", error: message });
+      detailErrors.parse = parseErrors;
     }
+    if (hasAnyErrors(detailErrors)) windowed.errorDetails = detailErrors;
 
     return windowed;
   }
@@ -472,6 +507,7 @@ export class DesertHashAdapter implements SourceAdapter {
   private async enrichWithDetails(
     events: RawEventData[],
     diagnostics: DetailDiagnostics,
+    errorDetails: ErrorDetails,
   ): Promise<void> {
     const targets = events
       .filter((e) => e.sourceUrl?.includes("mec-events="))
@@ -481,19 +517,25 @@ export class DesertHashAdapter implements SourceAdapter {
     for (let i = 0; i < targets.length; i += DETAIL_FETCH_CONCURRENCY) {
       const batch = targets.slice(i, i + DETAIL_FETCH_CONCURRENCY);
       // Sequential by design: bounded batches keep the fan-out polite.
-      await Promise.all(batch.map((e) => this.enrichOne(e, diagnostics)));
+      await Promise.all(batch.map((e) => this.enrichOne(e, diagnostics, errorDetails)));
     }
   }
 
   private async enrichOne(
     e: RawEventData,
     diagnostics: DetailDiagnostics,
+    errorDetails: ErrorDetails,
   ): Promise<void> {
     const url = e.sourceUrl;
     if (!url) return;
     const page = await fetchHTMLPage(url);
     if (!page.ok) {
       diagnostics.detailFetchFailures++;
+      // Preserve the structured fetch failure (url/status/message) for audits.
+      const fetchErrs = page.result.errorDetails?.fetch;
+      errorDetails.fetch ??= [];
+      if (fetchErrs && fetchErrs.length > 0) errorDetails.fetch.push(...fetchErrs);
+      else errorDetails.fetch.push({ url, message: page.result.errors[0] ?? "Detail fetch failed" });
       return;
     }
     try {
@@ -509,8 +551,14 @@ export class DesertHashAdapter implements SourceAdapter {
         enriched = true;
       }
       if (enriched) diagnostics.detailsEnriched++;
-    } catch {
+    } catch (err) {
       diagnostics.detailFetchFailures++;
+      errorDetails.parse ??= [];
+      errorDetails.parse.push({
+        row: e.runNumber ?? -1,
+        section: "detail",
+        error: `Detail parse failed: ${err instanceof Error ? err.message : String(err)}`,
+      });
     }
   }
 }

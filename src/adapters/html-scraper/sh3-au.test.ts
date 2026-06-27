@@ -60,6 +60,15 @@ describe("sh3-au parseSh3Paragraph", () => {
     ).toBeUndefined();
   });
 
+  it("tolerates a 'Start :' label with whitespace before the colon", () => {
+    const e = parseSh3Paragraph(
+      "Run #3092 Date: 6th July @ 6:30 pm Hares: X Start : Park On On : Pub", URL, REF,
+    );
+    expect(e!.location).toBe("Park");
+    expect(e!.startTime).toBe("18:30");
+    expect(e!.description).toBe("Pub");
+  });
+
   it("strips a leading 'Posh –' nickname prefix from hares (#2363)", () => {
     const e = parseSh3Paragraph(
       "Run #3093 Date: 20th July Hares: Posh – Beep Beep & Ferret Start: Park", URL, REF,

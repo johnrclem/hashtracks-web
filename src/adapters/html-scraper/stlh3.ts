@@ -97,13 +97,13 @@ const COORDS_ONLY_RE = /^[-\d.,\s]+$/;
 const GENERIC_MAP_LABEL_RE = /^(?:google\s*map|view\s*map|map|directions?|location)s?$/i;
 
 /**
- * The validated lowercase hostname of an http(s) URL, or undefined when the
- * href is unparseable / non-HTTP. Used to gate maps-link detection on the
- * actual HOST rather than a substring match — a hostile body link like
- * `https://evil.example/?next=share.google/x` must NOT be treated as a maps
- * link, persisted as `locationUrl`, or followed as a shortlink (Codex review).
+ * The parsed http(s) URL, or undefined when unparseable / non-HTTP. Used to
+ * gate maps-link detection on the actual HOST (+ path) rather than a substring
+ * match — a hostile body link like `https://evil.example/?next=share.google/x`
+ * must NOT be treated as a maps link, persisted as `locationUrl`, or followed
+ * as a shortlink (Codex review).
  */
-function httpHost(href: string): string | undefined {
+function httpUrl(href: string): URL | undefined {
   let u: URL;
   try {
     u = new URL(href);
@@ -111,14 +111,33 @@ function httpHost(href: string): string | undefined {
     return undefined;
   }
   if (u.protocol !== "https:" && u.protocol !== "http:") return undefined;
-  return u.hostname.toLowerCase();
+  return u;
 }
 
-/** A trustworthy Google Maps / share host (allowlisted by hostname). */
+function httpHost(href: string): string | undefined {
+  return httpUrl(href)?.hostname.toLowerCase();
+}
+
+/**
+ * A trustworthy Google Maps / share link. Shortlink hosts (share.google etc.)
+ * pass on host alone (they're resolved later); direct Google hosts must ALSO
+ * point at a Maps/search SURFACE (`/maps…` or `/search?q=`), so a generic
+ * `google.com/<anything>` link can't be persisted as a location (CodeRabbit
+ * review). The same predicate re-validates a resolved shortlink before parsing.
+ */
 function isMapsHost(href: string): boolean {
-  const host = httpHost(href);
-  if (!host) return false;
-  return MAPS_SHORTLINK_HOSTS.has(host) || isGoogleHost(host);
+  const u = httpUrl(href);
+  if (!u) return false;
+  const host = u.hostname.toLowerCase();
+  if (MAPS_SHORTLINK_HOSTS.has(host)) return true;
+  if (!isGoogleHost(host)) return false;
+  const path = u.pathname.toLowerCase();
+  return (
+    host.startsWith("maps.google.") ||
+    path === "/maps" ||
+    path.startsWith("/maps/") ||
+    (path === "/search" && u.searchParams.has("q"))
+  );
 }
 
 /** A Google shortlink host whose venue can only be recovered by following the redirect. */
@@ -399,10 +418,11 @@ export class StlH3Adapter implements SourceAdapter {
             locationUrl = link.href;
             location = parseVenueFromMapsPath(link.href);
             // Shortlinks (share.google etc.) hide the venue behind a redirect —
-            // resolve once and re-parse the destination URL (#2338).
+            // resolve once, re-validate the destination is still a Maps/search
+            // surface, then parse it (#2338; CodeRabbit review).
             if (!location && isMapsShortlink(link.href)) {
               const resolved = await resolveMapsShortlink(link.href);
-              if (resolved) {
+              if (resolved && isMapsHost(resolved)) {
                 location =
                   parseVenueFromMapsPath(resolved) ?? parseVenueFromMapsQuery(resolved);
               }

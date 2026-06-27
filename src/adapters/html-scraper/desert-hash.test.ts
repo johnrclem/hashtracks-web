@@ -386,16 +386,41 @@ describe("DesertHashAdapter.fetch", () => {
     // errors[] empty → status SUCCESS, reconcile of the healthy listing runs.
     expect(result.errors).toHaveLength(0);
     expect(call).toBeGreaterThan(2); // listing + at least one detail attempt
-    // …but the all-detail-failure is recorded in errorDetails for the audit pipeline.
-    expect(result.errorDetails?.parse?.some((p) => /enrichment failed for all/.test(p.error))).toBe(true);
+    // …but the all-detail-failure is recorded in errorDetails for the audit pipeline,
+    // both as the systemic summary AND the structured per-fetch failure records.
+    expect(result.errorDetails?.parse?.some((p) => /produced no fields for all/.test(p.error))).toBe(true);
+    expect(result.errorDetails?.fetch?.length).toBeGreaterThan(0);
     expect(result.diagnosticContext?.detailFetchFailures).toBeGreaterThan(0);
+  });
+
+  it("surfaces systemic loss when detail pages 200-OK but parse to nothing (markup drift)", async () => {
+    // Every detail fetch returns a 200 page with NO detail markup (parses to {}):
+    // detailFetchFailures stays 0, but detailsEnriched === 0 → still flagged.
+    mockedSafeFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      const html = u.includes("page_id=5152")
+        ? HARELINE_HTML
+        : u.includes("mec-events=")
+          ? "<html><body><div>no detail markup here</div></body></html>"
+          : HOME_HTML;
+      return Promise.resolve({
+        ok: true, status: 200, statusText: "OK",
+        text: () => Promise.resolve(html), headers: new Headers(),
+      } as Response);
+    });
+    const result = await new DesertHashAdapter().fetch(makeSource(), { days: 40000 });
+    expect(result.events.length).toBeGreaterThan(0);
+    expect(result.errors).toHaveLength(0); // reconcile not suppressed
+    expect(result.diagnosticContext?.detailFetchFailures).toBe(0); // no HTTP failures
+    expect(result.diagnosticContext?.detailsEnriched).toBe(0);
+    expect(result.errorDetails?.parse?.some((p) => /produced no fields for all/.test(p.error))).toBe(true);
   });
 
   it("does not flag systemic failure when detail enrichment succeeds", async () => {
     mockSurfacesWithDetails(HOME_HTML, HARELINE_HTML, { "dh3-run-2457": DETAIL_VENUE });
     const result = await new DesertHashAdapter().fetch(makeSource(), { days: 40000 });
     expect(result.errors).toHaveLength(0);
-    expect(result.errorDetails?.parse?.some((p) => /enrichment failed for all/.test(p.error)))
+    expect(result.errorDetails?.parse?.some((p) => /produced no fields for all/.test(p.error)))
       .toBeFalsy();
   });
 
