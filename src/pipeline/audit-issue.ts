@@ -26,6 +26,7 @@ import {
   ALERT_LABEL,
   STREAM_LABELS,
   kennelLabel,
+  isValidKennelCode,
 } from "@/lib/audit-labels";
 import { prisma } from "@/lib/db";
 import { AUDIT_STREAM } from "@/lib/audit-stream-meta";
@@ -147,6 +148,59 @@ export function buildCronActions(): FilerActions {
         console.error("[audit-issue] Comment threw:", err);
         reportAuditFilerFailure("cron", "postComment", { error: err, issueNumber });
         return false;
+      }
+    },
+    listOpenIssuesByKennel: async (kennelCode) => {
+      const token = process.env.GITHUB_TOKEN;
+      if (!token) {
+        reportAuditFilerFailure("cron", "createIssue", {
+          error: "GITHUB_TOKEN not set (listOpenIssuesByKennel)",
+        });
+        return [];
+      }
+      // The kennelCode is interpolated into the `labels` query param; reject
+      // anything that isn't GitHub-label-safe so the gate never builds a
+      // malformed query (also matches the kennel labels actually filed).
+      if (!isValidKennelCode(kennelCode)) return [];
+      const repo = getValidatedRepo();
+      try {
+        // SSRF-safe: URL constructor anchors the request to api.github.com.
+        const url = new URL(`/repos/${repo}/issues`, "https://api.github.com");
+        url.searchParams.set("state", "open");
+        url.searchParams.set("labels", `${AUDIT_LABEL},${kennelLabel(kennelCode)}`);
+        url.searchParams.set("per_page", "100");
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github+json",
+          },
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        });
+        if (!res.ok) {
+          console.error(
+            `[audit-issue] listOpenIssuesByKennel ${res.status} for ${kennelCode}`,
+          );
+          return [];
+        }
+        const issues = (await res.json()) as Array<{
+          number: number;
+          html_url: string;
+          title: string;
+          body: string | null;
+          pull_request?: unknown;
+        }>;
+        // The /issues endpoint returns PRs too — drop them.
+        return issues
+          .filter((i) => !i.pull_request)
+          .map((i) => ({
+            number: i.number,
+            htmlUrl: i.html_url,
+            title: i.title,
+            body: i.body ?? "",
+          }));
+      } catch (err) {
+        console.error("[audit-issue] listOpenIssuesByKennel threw:", err);
+        return [];
       }
     },
   };

@@ -42,6 +42,7 @@ import {
   type FilerActions,
 } from "./audit-filer";
 import { AuditStream } from "@/generated/prisma/client";
+import { emitIdentityMarker } from "@/lib/audit-canonical";
 
 const mockFindFirst = vi.mocked(prisma.auditIssue.findFirst);
 const mockFindUnique = vi.mocked(prisma.auditIssue.findUnique);
@@ -56,6 +57,9 @@ function buildActions(overrides: Partial<FilerActions> = {}): FilerActions {
       htmlUrl: "https://github.com/x/y/issues/999",
     }),
     postComment: vi.fn().mockResolvedValue(true),
+    // Default: no open issues for the kennel → the GitHub-search dedup gate
+    // misses and the create path runs. Gate tests override this.
+    listOpenIssuesByKennel: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
@@ -548,7 +552,11 @@ describe("fileAuditFinding — recurrence escalation", () => {
       htmlUrl: "https://github.com/x/y/issues/555",
     });
     const postComment = vi.fn().mockResolvedValue(true);
-    const actions: FilerActions = { createIssue, postComment };
+    const actions: FilerActions = {
+      createIssue,
+      postComment,
+      listOpenIssuesByKennel: vi.fn().mockResolvedValue([]),
+    };
 
     const out = await fileAuditFinding(BASE_INPUT, actions);
     if (out.action !== "recurred") throw new Error("expected recurred");
@@ -737,7 +745,11 @@ describe("fileAuditFinding — recurrence escalation", () => {
       htmlUrl: "https://github.com/x/y/issues/777",
     });
     const postComment = vi.fn().mockResolvedValue(true);
-    const actions: FilerActions = { createIssue, postComment };
+    const actions: FilerActions = {
+      createIssue,
+      postComment,
+      listOpenIssuesByKennel: vi.fn().mockResolvedValue([]),
+    };
 
     const out = await fileAuditFinding(BASE_INPUT, actions);
     if (out.action !== "recurred") throw new Error("expected recurred");
@@ -760,6 +772,7 @@ describe("fileAuditFinding — recurrence escalation", () => {
         htmlUrl: "https://github.com/x/y/issues/777",
       }),
       postComment,
+      listOpenIssuesByKennel: vi.fn().mockResolvedValue([]),
     };
 
     const out = await fileAuditFinding(BASE_INPUT, actions);
@@ -1150,5 +1163,140 @@ describe("fileAuditFinding — coarse-dedup tier (non-fingerprintable rules)", (
     expect(mockFindMany).toHaveBeenCalledTimes(1);
     const callArgs = mockFindMany.mock.calls[0][0] as { where: Record<string, unknown> };
     expect(callArgs.where).not.toHaveProperty("stream");
+  });
+});
+
+describe("fileAuditFinding — GitHub-search dedup gate (#2308)", () => {
+  beforeEach(() => {
+    // All mirror tiers miss by default so the cascade reaches the gate.
+    mockFindFirst.mockResolvedValue(null as never);
+    mockFindMany.mockResolvedValue([] as never);
+  });
+
+  it("dedups against an open GitHub issue carrying a matching identity marker when the mirror missed", async () => {
+    // The stale-mirror / free-form-title case: coarse-dedup found nothing in
+    // the mirror, but an open issue for this kennel already covers the same
+    // (stream, kennelCode, ruleSlug). The gate must comment-and-recur, never
+    // fork a duplicate.
+    const candidateBody = `Bombay H3 placeholder titles…\n\n${emitIdentityMarker(
+      {
+        stream: COARSE_INPUT.stream,
+        kennelCode: COARSE_INPUT.kennelCode,
+        ruleSlug: COARSE_INPUT.ruleSlug,
+      },
+    )}`;
+    const actions = buildActions({
+      listOpenIssuesByKennel: vi.fn().mockResolvedValue([
+        {
+          number: 964,
+          htmlUrl: "https://github.com/x/y/issues/964",
+          title: "C2H3 — some free-form chrome title that won't match by text",
+          body: candidateBody,
+        },
+      ]),
+    });
+
+    const out = await fileAuditFinding(COARSE_INPUT, actions);
+
+    expect(out).toMatchObject({
+      action: "recurred",
+      issueNumber: 964,
+      htmlUrl: "https://github.com/x/y/issues/964",
+      tier: "github-search",
+    });
+    expect(actions.createIssue).not.toHaveBeenCalled();
+    expect(actions.postComment).toHaveBeenCalledWith(
+      964,
+      expect.stringContaining("Still recurring"),
+    );
+  });
+
+  it("matches a marker-less candidate by exact title (transition before every issue carries a marker)", async () => {
+    // #2425≡#2421 shape: two identical-title chrome findings, the open one
+    // filed before the identity marker existed (no marker in its body).
+    const input = {
+      ...COARSE_INPUT,
+      title: "Bombay H3 — Stale placeholder titles across all events (#627–#631)",
+    };
+    const actions = buildActions({
+      listOpenIssuesByKennel: vi.fn().mockResolvedValue([
+        {
+          number: 2421,
+          htmlUrl: "https://github.com/x/y/issues/2421",
+          title: input.title,
+          body: "free-form chrome body, no identity marker",
+        },
+      ]),
+    });
+
+    const out = await fileAuditFinding(input, actions);
+
+    expect(out).toMatchObject({ action: "recurred", issueNumber: 2421, tier: "github-search" });
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("is stream-scoped — an AUTOMATED issue does not absorb a CHROME_KENNEL finding for the same kennel + rule", async () => {
+    const input = { ...COARSE_INPUT, stream: AuditStream.CHROME_KENNEL };
+    const candidateBody = emitIdentityMarker({
+      stream: AuditStream.AUTOMATED, // different stream
+      kennelCode: COARSE_INPUT.kennelCode,
+      ruleSlug: COARSE_INPUT.ruleSlug,
+    });
+    const actions = buildActions({
+      listOpenIssuesByKennel: vi.fn().mockResolvedValue([
+        {
+          number: 964,
+          htmlUrl: "https://github.com/x/y/issues/964",
+          title: "different title",
+          body: candidateBody,
+        },
+      ]),
+    });
+
+    const out = await fileAuditFinding(input, actions);
+
+    // No identity match (stream differs) and no title match → fresh create.
+    expect(out.action).toBe("created");
+    expect(actions.createIssue).toHaveBeenCalled();
+  });
+
+  it("surfaces comment-failed-github (not a duplicate) when the recur comment fails on a gate hit", async () => {
+    const candidateBody = emitIdentityMarker({
+      stream: COARSE_INPUT.stream,
+      kennelCode: COARSE_INPUT.kennelCode,
+      ruleSlug: COARSE_INPUT.ruleSlug,
+    });
+    const actions = buildActions({
+      postComment: vi.fn().mockResolvedValue(false),
+      listOpenIssuesByKennel: vi.fn().mockResolvedValue([
+        {
+          number: 964,
+          htmlUrl: "https://github.com/x/y/issues/964",
+          title: "x",
+          body: candidateBody,
+        },
+      ]),
+    });
+
+    const out = await fileAuditFinding(COARSE_INPUT, actions);
+
+    expect(out).toEqual({
+      action: "error",
+      reason: "comment-failed-github",
+      existingIssueNumber: 964,
+    });
+    expect(actions.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("embeds the always-on identity marker on a fresh create so future re-files can match", async () => {
+    const actions = buildActions(); // listOpenIssuesByKennel → [] (gate miss)
+
+    const out = await fileAuditFinding(COARSE_INPUT, actions);
+
+    expect(out.action).toBe("created");
+    const createCall = vi.mocked(actions.createIssue).mock.calls[0][0];
+    expect(createCall.body).toContain("<!-- audit-identity:");
+    expect(createCall.body).toContain('"kennelCode":"c2h3"');
+    expect(createCall.body).toContain('"ruleSlug":"hare-cta-text"');
   });
 });

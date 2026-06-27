@@ -333,6 +333,22 @@ describe("formatSchedule", () => {
       ).toBe("Mondays at 6:00 PM / Mondays at 7:00 PM");
     });
 
+    it("drops a day-less sentinel-RRULE slot instead of rendering a bare 'at <time>' fragment (#2373 t3h3-nz)", () => {
+      // t3h3-nz has two ScheduleRule rows: a real STATIC_SCHEDULE rule
+      // (FREQ=MONTHLY;BYDAY=2TH → "2nd Thursday") and a CADENCE=… sentinel
+      // (Pass-2 backfill) that describeRruleDay can't summarize. The sentinel
+      // must NOT render as a standalone "at 6:30 PM" fragment appended after
+      // the real rule.
+      expect(
+        formatSchedule({
+          scheduleRules: [
+            { rrule: "FREQ=MONTHLY;BYDAY=2TH", startTime: "18:30", displayOrder: 0 },
+            { rrule: "CADENCE=MONTHLY;BYDAY=TH", startTime: "18:30", displayOrder: 1 },
+          ],
+        }),
+      ).toBe("2nd Thursday at 6:30 PM");
+    });
+
     it("falls through to flat fields when scheduleRules is an empty array", () => {
       expect(
         formatSchedule({

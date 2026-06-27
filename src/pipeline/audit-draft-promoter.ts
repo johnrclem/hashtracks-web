@@ -260,7 +260,7 @@ async function promoteOneDraft(
 interface DraftOutcomeFields {
   issueNumber?: number;
   issueUrl?: string;
-  filerTier?: "strict" | "bridging" | "coarse";
+  filerTier?: "strict" | "bridging" | "coarse" | "github-search";
   errorReason?: string;
 }
 

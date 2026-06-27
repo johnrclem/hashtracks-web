@@ -587,12 +587,21 @@ export async function recordDeepDive(input: {
     return { ok: false, error: "invalidToken" };
   }
 
-  // The kennel must still be a current deep-dive target. Use the
-  // lightweight kennelCode-only query to match what the token mint
-  // path captured. (Full-queue snapshot equality is intentionally NOT
-  // enforced here — see the doc comment above.)
-  const liveCodes = await getDeepDiveQueueKennelCodes();
-  if (!liveCodes.includes(input.kennelCode)) {
+  // The kennel must still exist. We deliberately do NOT re-check live
+  // top-20 deep-dive-queue membership here (#2282): a benign churn of the
+  // *other* queued kennels (a daily ingest, a parallel admin, a kennel
+  // ranked at the #20 boundary) between dialog-open and submit could drop
+  // this kennel out of the displayed window while it remains a perfectly
+  // valid dive target — and rejecting the write then stranded a legitimate
+  // completion as a silent no-op (the same churn-fragility #2261 removed for
+  // the snapshot gate, reintroduced as a position gate). The signed
+  // kennelCode binding already supplies the anti-misattribution guarantee,
+  // so an existence check is sufficient — matching `recordDeepDiveManual`.
+  const kennel = await prisma.kennel.findUnique({
+    where: { kennelCode: input.kennelCode },
+    select: { id: true },
+  });
+  if (!kennel) {
     return { ok: false, error: "kennelGone" };
   }
 
@@ -634,6 +643,9 @@ export async function recordDeepDive(input: {
     },
     select: { id: true },
   });
+  // Refresh the dashboard so the completed kennel leaves the never-dived queue
+  // and coverage advances without a hard reload (#2282).
+  revalidatePath("/admin/audit");
   return { ok: true, id: log.id };
 }
 
@@ -703,6 +715,7 @@ export async function recordDeepDiveManual(input: {
     },
     select: { id: true },
   });
+  revalidatePath("/admin/audit");
   return { ok: true, id: log.id, shortName: kennel.shortName };
 }
 

@@ -390,6 +390,7 @@ describe("recordDeepDive", () => {
   const mockLogCreate = vi.mocked(prisma.auditLog.create);
   const mockLogFindFirst = vi.mocked(prisma.auditLog.findFirst);
   const mockKennelFind = vi.mocked(prisma.kennel.findMany);
+  const mockKennelFindUnique = vi.mocked(prisma.kennel.findUnique);
   const mockLogGroupBy = vi.mocked(prisma.auditLog.groupBy);
 
   const ORIGINAL_SECRET = process.env.AUDIT_QUEUE_TOKEN_SECRET;
@@ -398,9 +399,13 @@ describe("recordDeepDive", () => {
     // No prior dive by default — the idempotency guard finds nothing
     // and the create path runs. Replay tests override this.
     mockLogFindFirst.mockResolvedValue(null as never);
-    // Default queue: a stable list with NYCH3 present so the
-    // happy-path test can mint and verify a real token. Tests that
-    // exercise removed/changed-snapshot paths override.
+    // The kennel exists by default — the #2282 gate is now an existence
+    // check, not top-20 queue membership. The "kennel no longer exists"
+    // test overrides this to null.
+    mockKennelFindUnique.mockResolvedValue({ id: "k_nych3" } as never);
+    // Default queue (used by getDeepDiveQueueToken on the mint side). The
+    // submit-side gate no longer reads this, so a churned/removed list here
+    // is benign — see the #2282 test below.
     mockKennelFind.mockResolvedValue([
       {
         kennelCode: "nych3",
@@ -497,19 +502,11 @@ describe("recordDeepDive", () => {
     expect(mockLogCreate).not.toHaveBeenCalled();
   });
 
-  it("returns kennelGone when the kennel is no longer in the queue (410-shape)", async () => {
-    // Token was minted when NYCH3 was in the queue. Now NYCH3 has
-    // been removed (e.g. another admin already marked it complete).
-    mockKennelFind.mockResolvedValue([
-      {
-        kennelCode: "agnews",
-        shortName: "AGNEWS",
-        slug: "agnews",
-        region: "Atlanta, GA",
-        sources: [],
-        _count: { events: 3 },
-      },
-    ] as never);
+  it("returns kennelGone when the kennel no longer exists (410-shape)", async () => {
+    // Token was minted for NYCH3, but the kennel record has since been
+    // deleted/merged. The existence check fails closed rather than writing a
+    // dangling KENNEL_DEEP_DIVE row.
+    mockKennelFindUnique.mockResolvedValue(null as never);
     const result = await recordDeepDive({
       kennelCode: "nych3",
       findingsCount: 1,
@@ -518,6 +515,34 @@ describe("recordDeepDive", () => {
     });
     expect(result).toEqual({ ok: false, error: "kennelGone" });
     expect(mockLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("persists the dive when the kennel dropped out of the displayed top-20 queue but still exists (#2282)", async () => {
+    // The #2282 regression: Fool Moon H3 was a valid never-dived target at
+    // dialog-open but a benign queue churn pushed it past the displayed
+    // top-20 window by submit time. The old gate re-checked top-20 membership
+    // and returned kennelGone — a silent no-op. The kennel still EXISTS, the
+    // token is bound to it, so the completion MUST persist.
+    mockLogCreate.mockResolvedValue({ id: "log_2282" } as never);
+    // Simulate the submit-side mint-queue no longer containing nych3.
+    mockKennelFind.mockResolvedValue([] as never);
+    // ...but the kennel record itself is alive.
+    mockKennelFindUnique.mockResolvedValue({ id: "k_nych3" } as never);
+    const result = await recordDeepDive({
+      kennelCode: "nych3",
+      findingsCount: 1,
+      summary: "boundary kennel completion",
+      queueToken: freshToken("nych3"),
+    });
+    expect(result).toEqual({ ok: true, id: "log_2282" });
+    expect(mockLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          type: "KENNEL_DEEP_DIVE",
+          kennelCode: "nych3",
+        }),
+      }),
+    );
   });
 
   it("persists the dive when the rest of the queue churned but the kennel is still present (#2261 — no false queueChanged)", async () => {

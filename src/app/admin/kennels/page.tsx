@@ -30,6 +30,7 @@ export default async function AdminKennelsPage() {
 
   const serialized = kennels.map((k) => ({
     id: k.id,
+    slug: k.slug,
     shortName: k.shortName,
     fullName: k.fullName,
     region: k.region,
