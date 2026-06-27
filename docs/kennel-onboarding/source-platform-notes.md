@@ -1351,3 +1351,43 @@ as stacked blocks.
 - **`scrapeDays` must exceed the run span.** The 5 posted runs span ~126 days and `filterEventsByWindow`
   is **symmetric (±days)**, so a too-tight window clips the oldest run (120 dropped #627). For a small
   archive-less rolling page, default to **365** — `upcomingOnly` still protects reconcile.
+
+---
+
+## Self-hosted WordPress club site — "This Week's Meet Point" current-run block + `?cat=N` post archive (researched 2026-06-27, Creek H3 Dubai)
+
+Old-school expat hash club sites on **self-hosted WordPress** (Creek H3 / `creekhash.org`, men-only Dubai,
+est. 1983 — `meta-generator: WooCommerce`, Azure-hosted) follow a clean two-surface shape. **Fully SSR'd**
+(plain `web_fetch`/`fetchHTMLPage` returns the run text) → static Cheerio, no browserRender. Confirmed by
+real fetches of home + detail + category pages:
+
+- **Forward/current surface = the home page's "This Week's Meet Point" block** — a single `<a href="?p=NNNNN">`
+  whose text is the post title `<ordinal> <Month> <YYYY> – Run <N> – <venue>` (en-dash `–` separated). It
+  carries only the **current/most-recent run** (rolls weekly) → `config.upcomingOnly: true` + a fail-loud
+  zero-row guard. Follow the link to the **detail post** for the labeled fields: `Date:` / `Time:` (→ `HH:MM`
+  startTime) / `Run No:` / `Location:` (venue + street) / `Hares:` / a "Google Maps Link" `<a>` (→ `locationUrl`;
+  a `goo.gl/maps/…` shortlink → no extractable coords) / `Directions:` (prose).
+- **🔴 Date: trust the post TITLE, not the body `Date:` field.** Creek's #2307 detail page titled "25th June
+  2026" (a Thursday, matches the weekly cadence) carried a body `Date: Thursday 26th June 2026` (26 Jun = a
+  Friday — internal weekday/day-number typo). The title's `<ordinal> Month YYYY` is year-bearing, identical
+  across the listing pages, and cadence-consistent → parse the date from the **title**; treat the body `Date:`
+  as enrichment/cross-check only.
+- **🔴 PII in the body.** A `Contact if lost: <hash-name> – <phone>` line carries a real phone number → strip
+  it in-adapter; never store it. Add a regression test asserting no digits leak into any field.
+- **Deep archive = a WordPress category page** (`/?cat=N` — Creek's "Creek Runs" = `?cat=4`, **601 posts back
+  to 2001**), clean `?cat=N&paged=1..M` pagination ("Next »" + numbered, ~16 posts/page). **Each listing entry
+  is just a heading `### [<ordinal> <Month> <YYYY> – Run <N> – <venue>](?p=NNNNN)`** → date + run# + venue are
+  available **from the listing titles alone** (no need to fetch every detail page for a lean backfill). Drive a
+  one-shot `scripts/backfill-<code>-history.ts` (freeze + dumb loader per H7); set the source `upcomingOnly`.
+- **🔴 Title middle-segment is NOT always `Run <N>`** — special runs use a different label in the number slot
+  (`Spit Roast 3`, `Spit Roast 1`, …) and appear in the runs category alongside the weekly runs. Extract a
+  numeric runNumber **only** when the segment matches `Run <N>`; skip the rest. Older eras can be **sparse
+  milestone-only** (Creek pre-2015 = round-number Run 1000/1050/…/1389 + Spit Roasts; the dense weekly archive
+  starts ~Jun 2015). Profanity appears in real venue names (`F*cking Dipstick's Scrapyard`) → keep verbatim.
+- **Title 3rd segment = the venue**, not a theme → leave `title` undefined (merge synthesizes
+  `"<Kennel> Trail #N"`); put the venue in `location`.
+- **WP REST may be disabled.** `/wp-json/wp/v2/posts` returned **empty** to the research sandbox (machine JSON
+  not rendered, or REST off — same as Desert H3's LiteSpeed host). Don't assume a clean REST path; the static
+  Cheerio scrape of the SSR pages is the reliable surface. Confirm REST at build only as an optional upgrade.
+- **Logos** are stable `wp-content/uploads/.../<name>.<ext>` URLs (not tokenized) but still self-host per
+  convention; confirm the extension by **magic bytes**, not the URL.
