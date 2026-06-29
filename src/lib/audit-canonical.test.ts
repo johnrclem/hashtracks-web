@@ -2,6 +2,8 @@ import {
   emitCanonicalBlock,
   parseCanonicalBlock,
   buildCanonicalBlock,
+  emitIdentityMarker,
+  parseAuditIdentity,
   CANONICAL_SCHEMA_VERSION,
   type CanonicalBlock,
 } from "./audit-canonical";
@@ -180,5 +182,73 @@ describe("parseCanonicalBlock", () => {
       emitCanonicalBlock({ ...SAMPLE, kennelCode: "different-kennel" }),
     ].join("\n");
     expect(parseCanonicalBlock(body)?.kennelCode).toBe("nych3");
+  });
+});
+
+describe("identity marker (#2308 dedup hardening)", () => {
+  const IDENTITY = {
+    stream: "CHROME_KENNEL" as const,
+    kennelCode: "bombay-h3",
+    ruleSlug: "stale-placeholder-titles",
+  };
+
+  it("round-trips emit → parse losslessly", () => {
+    const marker = emitIdentityMarker(IDENTITY);
+    expect(marker.startsWith("<!-- audit-identity:")).toBe(true);
+    expect(marker.endsWith("-->")).toBe(true);
+    expect(parseAuditIdentity(marker)).toEqual(IDENTITY);
+  });
+
+  it("extracts the identity when surrounded by other markdown", () => {
+    const body = ["## Finding", "Some prose.", emitIdentityMarker(IDENTITY)].join("\n");
+    expect(parseAuditIdentity(body)).toEqual(IDENTITY);
+  });
+
+  it("escapes `-->` so the comment envelope can't be terminated early", () => {
+    const marker = emitIdentityMarker({ ...IDENTITY, kennelCode: "weird-->code" });
+    expect(marker.split("-->")).toHaveLength(2);
+    expect(parseAuditIdentity(marker)?.kennelCode).toBe("weird-->code");
+  });
+
+  it("falls back to the canonical block when no identity marker is present", () => {
+    // Issues filed before the identity marker existed only carry the canonical
+    // block (fingerprintable rules). The gate must still recover their identity.
+    const body = `prose\n\n${emitCanonicalBlock(SAMPLE)}`;
+    expect(parseAuditIdentity(body)).toEqual({
+      stream: SAMPLE.stream,
+      kennelCode: SAMPLE.kennelCode,
+      ruleSlug: SAMPLE.ruleSlug,
+    });
+  });
+
+  it("prefers the identity marker over the canonical block when both are present", () => {
+    const body = [
+      emitCanonicalBlock(SAMPLE), // kennelCode nych3 / hare-url
+      emitIdentityMarker(IDENTITY), // kennelCode bombay-h3 / stale-placeholder-titles
+    ].join("\n");
+    expect(parseAuditIdentity(body)).toEqual(IDENTITY);
+  });
+
+  it("returns null when the body carries neither marker nor canonical block", () => {
+    expect(parseAuditIdentity("just markdown")).toBeNull();
+    expect(parseAuditIdentity(null)).toBeNull();
+    expect(parseAuditIdentity(undefined)).toBeNull();
+    expect(parseAuditIdentity("")).toBeNull();
+  });
+
+  it("fails closed on a malformed identity payload", () => {
+    expect(parseAuditIdentity("<!-- audit-identity: { not json } -->")).toBeNull();
+  });
+
+  it("fails closed on a schema-version mismatch", () => {
+    const future =
+      '<!-- audit-identity: {"v":99,"stream":"AUTOMATED","kennelCode":"nych3","ruleSlug":"hare-url"} -->';
+    expect(parseAuditIdentity(future)).toBeNull();
+  });
+
+  it("fails closed when stream is not a known AuditStream value", () => {
+    const bad =
+      '<!-- audit-identity: {"v":1,"stream":"NOPE","kennelCode":"nych3","ruleSlug":"hare-url"} -->';
+    expect(parseAuditIdentity(bad)).toBeNull();
   });
 });

@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { upload } from "@vercel/blob/client";
 import { createKennel, updateKennel } from "@/app/admin/kennels/actions";
 import {
@@ -803,7 +803,21 @@ export function KennelForm({ kennel, regions, trigger }: Readonly<KennelFormProp
             </div>
           </FormSection>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex items-center justify-end gap-2 pt-2">
+              {/* Edit-mode only: jump to the live public page to verify a
+                  profile change (e.g. a new logo) without recalling the URL (#2396). */}
+              {kennel && (
+                <Button type="button" variant="ghost" size="sm" className="mr-auto" asChild>
+                  <a
+                    href={`/kennels/${kennel.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View public page
+                    <ExternalLink className="ml-1.5 size-3.5" />
+                  </a>
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"

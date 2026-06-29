@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteKennel, toggleKennelVisibility } from "@/app/admin/kennels/actions";
-import { MoreHorizontal, Eye, EyeOff, AlertTriangle } from "lucide-react";
+import { MoreHorizontal, Eye, EyeOff, AlertTriangle, ExternalLink } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -209,6 +209,17 @@ function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[
       <TableCell className="hidden sm:table-cell text-center">{kennel._count.aliases}</TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" asChild>
+            <a
+              href={`/kennels/${kennel.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="View public page"
+              aria-label={`View public page for ${kennel.shortName}`}
+            >
+              <ExternalLink className="size-4" />
+            </a>
+          </Button>
           <KennelForm
             kennel={kennel}
             regions={regions}

@@ -10,7 +10,11 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/pipeline/audit-filer", () => ({ fileAuditFinding: vi.fn() }));
 vi.mock("@/pipeline/audit-issue", () => ({
-  buildCronActions: vi.fn(() => ({ createIssue: vi.fn(), postComment: vi.fn() })),
+  buildCronActions: vi.fn(() => ({
+    createIssue: vi.fn(),
+    postComment: vi.fn(),
+    listOpenIssuesByKennel: vi.fn().mockResolvedValue([]),
+  })),
 }));
 vi.mock("@/pipeline/audit-runner", () => ({ loadSuppressions: vi.fn() }));
 // Deterministic fingerprint per (kennel, rule) so same-finding siblings collide.

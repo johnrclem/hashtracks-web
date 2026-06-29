@@ -5,6 +5,8 @@
  */
 export type AdminKennelData = {
   id: string;
+  /** URL slug for the public kennel page (`/kennels/<slug>`). #2396 */
+  slug: string;
   shortName: string;
   fullName: string;
   region: string;

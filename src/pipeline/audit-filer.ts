@@ -65,6 +65,8 @@ import { prisma } from "@/lib/db";
 import {
   buildCanonicalBlock,
   emitCanonicalBlock,
+  emitIdentityMarker,
+  parseAuditIdentity,
 } from "@/lib/audit-canonical";
 import { toIsoDateString } from "@/lib/date";
 import {
@@ -127,7 +129,7 @@ export type FileFindingOutcome =
       issueNumber: number;
       htmlUrl: string;
       recurrenceCount: number;
-      tier: "strict" | "bridging" | "coarse";
+      tier: "strict" | "bridging" | "coarse" | "github-search";
       /** Set when this recur crossed the escalation threshold and a
        *  meta-issue was filed (or had previously been filed for this
        *  base lifecycle). Lets callers surface a link to the meta in
@@ -148,6 +150,7 @@ export type FilerErrorReason =
   | "comment-failed-strict"
   | "comment-failed-bridging"
   | "comment-failed-coarse"
+  | "comment-failed-github"
   | "create-failed"
   | "db-update-failed";
 
@@ -169,6 +172,18 @@ export interface FilerActions {
   }) => Promise<{ number: number; htmlUrl: string } | null>;
   /** Returns true on successful 2xx comment, false on any failure. */
   postComment: (issueNumber: number, body: string) => Promise<boolean>;
+  /**
+   * List OPEN audit issues carrying the `kennel:<code>` label, with their
+   * bodies, for the final GitHub-search dedup gate. Returns `[]` on any failure
+   * (missing token, invalid code, network/HTTP error) so a list failure can
+   * never block filing — the gate just falls through to create. The body is
+   * needed so the gate can read the embedded dedup identity marker.
+   */
+  listOpenIssuesByKennel: (
+    kennelCode: string,
+  ) => Promise<
+    Array<{ number: number; htmlUrl: string; title: string; body: string }>
+  >;
 }
 
 /**
@@ -784,6 +799,64 @@ async function tryCoarseDedup(
 }
 
 /**
+ * Final, mirror-independent dedup gate: search OPEN GitHub issues carrying this
+ * finding's `kennel:<code>` label and match a re-file to an already-open issue
+ * by its embedded dedup identity (stream, kennelCode, ruleSlug) — falling back
+ * to exact-title equality for issues filed before the identity marker existed.
+ *
+ * Runs only after the mirror-backed tiers (strict/bridging/coarse) all miss, so
+ * it catches the cases those tiers structurally can't: a stale/delayed mirror
+ * (the issue is open on GitHub but not yet mirrored) and non-fingerprintable
+ * chrome findings with free-form titles (no fingerprint, no parseable
+ * title-slug). Returns the recurred outcome on a hit, an error on comment
+ * failure, or null to fall through to a fresh create.
+ *
+ * `recurrenceCount` is reported as 0 on this path: we deliberately do NOT touch
+ * the mirror row's counter here (the row may not be mirrored yet, and the whole
+ * point of the gate is to avoid trusting the mirror). The next sync reconciles
+ * the open issue into the mirror; subsequent recurrences then increment
+ * normally via the strict/coarse tiers.
+ */
+async function tryGitHubSearchDedup(
+  input: FileFindingInput,
+  actions: FilerActions,
+): Promise<FileFindingOutcome | null> {
+  const candidates = await actions.listOpenIssuesByKennel(input.kennelCode);
+  if (candidates.length === 0) return null;
+
+  const match = candidates.find((issue) => {
+    // Exact-title match catches marker-less identical-title re-files (the
+    // #2425≡#2421 shape) during the transition before every open issue carries
+    // an identity marker.
+    if (issue.title === input.title) return true;
+    const identity = parseAuditIdentity(issue.body);
+    return (
+      identity !== null &&
+      identity.stream === input.stream &&
+      identity.kennelCode === input.kennelCode &&
+      identity.ruleSlug === input.ruleSlug
+    );
+  });
+  if (!match) return null;
+
+  const ok = await actions.postComment(match.number, formatRecurComment(input));
+  if (!ok) {
+    return {
+      action: "error",
+      reason: "comment-failed-github",
+      existingIssueNumber: match.number,
+    };
+  }
+  return {
+    action: "recurred",
+    issueNumber: match.number,
+    htmlUrl: match.htmlUrl,
+    recurrenceCount: 0,
+    tier: "github-search",
+  };
+}
+
+/**
  * File an audit finding through the dedup cascade.
  *   - Fingerprintable (canonical !== null): strict → bridging → create.
  *   - Non-fingerprintable (canonical === null): coarse-dedup → create.
@@ -791,6 +864,10 @@ async function tryCoarseDedup(
  * Coarse-dedup is gated to the canonical-null branch on purpose:
  * bridging already handles the (kennelCode, ruleSlug) match for
  * fingerprintable rules and additionally backfills the fingerprint.
+ *
+ * Before any fresh create — for BOTH branches — a final GitHub-search dedup
+ * gate (`tryGitHubSearchDedup`) checks the live open issues for the kennel, so
+ * a stale mirror or a free-form chrome title can't fork a duplicate (#2308).
  */
 export async function fileAuditFinding(
   input: FileFindingInput,
@@ -815,13 +892,24 @@ export async function fileAuditFinding(
     if (coarse) return coarse;
   }
 
+  // Final mirror-independent gate before creating fresh.
+  const gitHubDedup = await tryGitHubSearchDedup(input, actions);
+  if (gitHubDedup) return gitHubDedup;
+
   // Embedding the canonical block on fresh creates lets the next
   // sync round populate AuditIssue.fingerprint without a registry
   // round-trip; the bridging tier above is the safety net for rows
-  // that were created before this PR.
+  // that were created before this PR. The identity marker is ALWAYS
+  // embedded (even for non-fingerprintable rules) so the GitHub-search
+  // gate can recognize a future re-file regardless of title drift.
+  const identityMarker = emitIdentityMarker({
+    stream: input.stream,
+    kennelCode: input.kennelCode,
+    ruleSlug: input.ruleSlug,
+  });
   const finalBody = canonical
-    ? `${input.bodyMarkdown}\n\n${emitCanonicalBlock(canonical)}`
-    : input.bodyMarkdown;
+    ? `${input.bodyMarkdown}\n\n${emitCanonicalBlock(canonical)}\n${identityMarker}`
+    : `${input.bodyMarkdown}\n\n${identityMarker}`;
   const created = await actions.createIssue({
     title: input.title,
     body: finalBody,

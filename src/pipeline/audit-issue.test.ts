@@ -112,13 +112,16 @@ describe("fileAuditIssues", () => {
 
     const result = await fileAuditIssues([buildGroup()]);
     expect(result).toEqual(["https://github.com/test/42"]);
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    // The GitHub-search dedup gate issues a GET before the create POST, so
+    // locate the create call by method rather than by index.
+    const createCall = mockFetch.mock.calls.find(
+      (c) => (c[1] as { method?: string } | undefined)?.method === "POST",
+    )!;
     // fetch now receives a URL object (the cron path's
     // tainted-URL Codacy fix); stringify before assertion.
-    const url = String(mockFetch.mock.calls[0][0]);
+    const url = String(createCall[0]);
     expect(url).toContain("/issues");
-    const init = mockFetch.mock.calls[0][1] as { method: string };
-    expect(init.method).toBe("POST");
+    expect((createCall[1] as { method: string }).method).toBe("POST");
   });
 
   it("falls back to GitHub API and still creates issues when mirror query fails", async () => {
@@ -129,7 +132,12 @@ describe("fileAuditIssues", () => {
         ok: true,
         json: async () => [],
       })
-      // Second call: create issue
+      // Second call: GitHub-search dedup gate (no open issues for the kennel)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+      // Third call: create issue
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ html_url: "https://github.com/test/1", number: 1 }),
@@ -137,8 +145,8 @@ describe("fileAuditIssues", () => {
 
     const result = await fileAuditIssues([buildGroup()]);
     expect(result).toEqual(["https://github.com/test/1"]);
-    // First fetch = GH API fallback for titles, second = issue creation
-    expect(mockFetch).toHaveBeenCalledTimes(2);
+    // titles fallback + dedup-gate list + issue creation.
+    expect(mockFetch).toHaveBeenCalledTimes(3);
   });
 
   it("falls back to GitHub API when mirror is stale", async () => {
@@ -146,6 +154,11 @@ describe("fileAuditIssues", () => {
     const staleDate = new Date(Date.now() - 26 * 60 * 60 * 1000);
     mockAggregate.mockResolvedValue({ _max: { syncedAt: staleDate } });
     mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+      // GitHub-search dedup gate (no open issues for the kennel).
       .mockResolvedValueOnce({
         ok: true,
         json: async () => [],
@@ -166,7 +179,8 @@ describe("fileAuditIssues", () => {
     // create. The mirror-bypass invariant is observed via mockAggregate
     // returning a stale date and the GH API receiving the title fetch.
     expect(mockAggregate).toHaveBeenCalled();
-    expect(mockFetch).toHaveBeenCalledTimes(2);
+    // titles fallback + dedup-gate list + issue creation.
+    expect(mockFetch).toHaveBeenCalledTimes(3);
   });
 
   it("embeds the canonical block for fingerprintable rules", async () => {
@@ -181,7 +195,10 @@ describe("fileAuditIssues", () => {
 
     await fileAuditIssues([buildGroup({ rule: "hare-url", category: "hares" })]);
 
-    const fetchCall = mockFetch.mock.calls[0];
+    // Locate the create POST (the GitHub-search dedup gate GETs first).
+    const fetchCall = mockFetch.mock.calls.find(
+      (c) => (c[1] as { method?: string } | undefined)?.method === "POST",
+    )!;
     const requestBody = JSON.parse(fetchCall[1].body) as { body: string };
     expect(requestBody.body).toContain("<!-- audit-canonical:");
     expect(requestBody.body).toContain('"stream":"AUTOMATED"');
@@ -199,7 +216,10 @@ describe("fileAuditIssues", () => {
 
     await fileAuditIssues([buildGroup({ rule: "hare-cta-text", category: "hares" })]);
 
-    const fetchCall = mockFetch.mock.calls[0];
+    // Locate the create POST (the GitHub-search dedup gate GETs first).
+    const fetchCall = mockFetch.mock.calls.find(
+      (c) => (c[1] as { method?: string } | undefined)?.method === "POST",
+    )!;
     const requestBody = JSON.parse(fetchCall[1].body) as { body: string };
     expect(requestBody.body).not.toContain("<!-- audit-canonical:");
   });
@@ -276,10 +296,17 @@ describe("fileAuditIssues", () => {
 
   it("caps issues at MAX_ISSUES_PER_RUN (3)", async () => {
     let issueNum = 1;
-    mockFetch.mockImplementation(async () => ({
-      ok: true,
-      json: async () => ({ html_url: `https://github.com/test/${issueNum}`, number: issueNum++ }),
-    }));
+    // URL-aware: the GitHub-search dedup gate GETs the kennel-labelled list
+    // (return none) before each create POST.
+    mockFetch.mockImplementation(async (input: unknown, init?: { method?: string }) => {
+      if (init?.method !== "POST") {
+        return { ok: true, json: async () => [] };
+      }
+      return {
+        ok: true,
+        json: async () => ({ html_url: `https://github.com/test/${issueNum}`, number: issueNum++ }),
+      };
+    });
 
     const groups = Array.from({ length: 5 }, (_, i) =>
       buildGroup({ kennelCode: `k${i}`, kennelShortName: `K${i}H3` }),
@@ -287,6 +314,11 @@ describe("fileAuditIssues", () => {
 
     const result = await fileAuditIssues(groups);
     expect(result).toHaveLength(3);
-    expect(mockFetch).toHaveBeenCalledTimes(3);
+    // Only 3 create POSTs despite 5 groups (MAX_ISSUES_PER_RUN). The dedup-gate
+    // GETs aren't create calls.
+    const createCalls = mockFetch.mock.calls.filter(
+      (c) => (c[1] as { method?: string } | undefined)?.method === "POST",
+    );
+    expect(createCalls).toHaveLength(3);
   });
 });

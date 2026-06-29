@@ -330,7 +330,16 @@ function formatScheduleRules(rules: ScheduleSlot[]): string | null {
 function formatScheduleSlot(slot: ScheduleSlot): string | null {
   const dayLabel = describeRruleDay(slot.rrule);
   const timeText = slot.startTime ? formatTime(slot.startTime) : null;
-  const head = [dayLabel, timeText ? `at ${timeText}` : null].filter(Boolean).join(" ");
+  // A slot whose RRULE has no describable weekday (e.g. a `CADENCE=…` or
+  // `FREQ=LUNAR` sentinel rule that Pass-2 backfill emits alongside a real
+  // rule) must NOT contribute a bare "at <time>" fragment — that produced the
+  // "2nd Thursday at 6:30 PM / at 6:30 PM" double-render in #2373. Without a
+  // day the time isn't independently meaningful here (the legacy flat-field
+  // path handles a bare time separately), so suppress the head and fall back
+  // to a season hint if the slot has one, else drop the slot entirely.
+  const head = dayLabel
+    ? [dayLabel, timeText ? `at ${timeText}` : null].filter(Boolean).join(" ")
+    : null;
   const seasonHint = formatSeasonHint(slot.label, slot.validFrom, slot.validUntil);
   if (!head && !seasonHint) return null;
   if (head && seasonHint) return `${head} (${seasonHint})`;

@@ -349,10 +349,14 @@ describe("POST /api/audit/file-finding", () => {
     expect(json.action).toBe("created");
     expect(json.issueNumber).toBe(77);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const url = String(fetchMock.mock.calls[0][0]);
+    // The GitHub-search dedup gate GETs the kennel-labelled open issues before
+    // the create POST, so locate the create call by method rather than index.
+    const createCall = fetchMock.mock.calls.find(
+      (c) => (c[1] as { method?: string } | undefined)?.method === "POST",
+    )!;
+    const url = String(createCall[0]);
     expect(url).toContain("/issues");
-    const init = fetchMock.mock.calls[0][1] as { body: string };
+    const init = createCall[1] as { body: string };
     const requestBody = JSON.parse(init.body) as {
       title: string;
       body: string;
@@ -495,9 +499,12 @@ describe("POST /api/audit/file-finding", () => {
 
     expect(mockFindIssue).not.toHaveBeenCalled();
     // Body should NOT contain a canonical block since the rule isn't
-    // fingerprintable (registry returned undefined).
-    const init = fetchMock.mock.calls[0][1] as { body: string };
-    const reqBody = JSON.parse(init.body) as { body: string };
+    // fingerprintable (registry returned undefined). Locate the create POST —
+    // the GitHub-search dedup gate GETs first.
+    const createCall = fetchMock.mock.calls.find(
+      (c) => (c[1] as { method?: string } | undefined)?.method === "POST",
+    )!;
+    const reqBody = JSON.parse((createCall[1] as { body: string }).body) as { body: string };
     expect(reqBody.body).not.toContain("<!-- audit-canonical:");
   });
 });

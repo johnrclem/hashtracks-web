@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { toSlug } from "@/lib/kennel-utils";
 import { formatSchedule, stripMarkdown } from "@/lib/format";
 import { SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
 import { getOrCreateUser } from "@/lib/auth";
@@ -21,6 +22,25 @@ import { FadeInSection } from "@/components/home/HeroAnimations";
 import { buildKennelJsonLd, buildBreadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { ShareButton } from "@/components/shared/ShareButton";
+
+/**
+ * When an incoming slug doesn't resolve directly, normalize it the same way
+ * `toSlug` builds slugs from short names and look the kennel up under that
+ * canonical form. Catches legacy/malformed slugs — most importantly ones with a
+ * comma or other char outside `[a-z0-9-]` that the route can't otherwise match
+ * (#2308 `sl,ut-discovery` → `sl-ut-discovery`). Returns the canonical slug to
+ * redirect to, or null when no normalization helps. `toSlug` is idempotent on a
+ * clean slug, so this is a no-op for the common path.
+ */
+async function resolveCanonicalKennelSlug(slug: string): Promise<string | null> {
+  const normalized = toSlug(slug);
+  if (!normalized || normalized === slug) return null;
+  const match = await prisma.kennel.findUnique({
+    where: { slug: normalized },
+    select: { slug: true, isHidden: true },
+  });
+  return match && !match.isHidden ? match.slug : null;
+}
 
 export async function generateMetadata({
   params,
@@ -82,7 +102,14 @@ export default async function KennelDetailPage({
     },
   });
 
-  if (!kennel || kennel.isHidden) notFound();
+  if (!kennel) {
+    // Legacy / malformed slug (e.g. a comma-containing slug, #2308) — redirect
+    // to the canonical normalized slug if one resolves, else 404.
+    const canonical = await resolveCanonicalKennelSlug(slug);
+    if (canonical) redirect(`/kennels/${canonical}`);
+    notFound();
+  }
+  if (kennel.isHidden) notFound();
 
   const baseUrl = getCanonicalSiteUrl();
   const kennelJsonLd = buildKennelJsonLd({
@@ -259,13 +286,16 @@ export default async function KennelDetailPage({
   // Stats — use unique date count for resilience against duplicate canonical events
   const uniqueDates = new Set(events.map(e => e.date.toISOString().split("T")[0]));
   const totalEvents = uniqueDates.size;
-  // "Latest Run" = highest run number among recent events (upcoming + the most
-  // recent past), so a low-numbered side-series ("Sloppy Trail #46") doesn't
-  // override the main sequence ("Trail 802") just by being the most recent date
-  // (#2184). Windowed to bound stale-outlier risk; CANCELLED events are already
-  // excluded by the events query above.
+  // "Latest Run" = highest run number among the most recent COMPLETED runs
+  // (date < today). Past-only on purpose (#2385): kennels like T3H3 pre-populate
+  // weekly placeholders far into the future (e.g. "#500 - Hare TBD" in 2027), so
+  // including `upcoming` made Math.max report a run that hasn't happened. Taking
+  // the max over a recent-past window still preserves the #2184 intent — a
+  // low-numbered side-series ("Sloppy Trail #46") can't override the main
+  // sequence ("Trail 802") just by being the most recent date. CANCELLED events
+  // are already excluded by the events query above.
   const RECENT_PAST_FOR_RUN = 12;
-  const recentRunNumbers = [...upcoming, ...past.slice(0, RECENT_PAST_FOR_RUN)]
+  const recentRunNumbers = past.slice(0, RECENT_PAST_FOR_RUN)
     .map((e) => e.runNumber)
     .filter((n): n is number => n != null);
   const currentRunNumber = recentRunNumbers.length ? Math.max(...recentRunNumbers) : null;
