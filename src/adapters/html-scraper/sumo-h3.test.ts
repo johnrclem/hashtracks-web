@@ -183,7 +183,20 @@ describe("SumoH3Adapter", () => {
         "Lost in Translation",
       ];
       const result = parseHarelineRow(cells, 1059, sourceUrl, ref);
-      expect(result?.startTime).toBe("11:00");
+      expect(result?.startTime).toBe("11:00"); // 11 stays AM (morning special)
+    });
+
+    it("treats a 1–6 'HH:MMstart' as PM for the afternoon hash (12-hour fallback)", () => {
+      const cells = [
+        "1061(click here)",
+        "5 Jul ",
+        "Special early 2:00start", // afternoon → 14:00, not 02:00
+        "Okutama",
+        "JR Ome Line",
+        "Some Hare",
+      ];
+      const result = parseHarelineRow(cells, 1061, sourceUrl, ref);
+      expect(result?.startTime).toBe("14:00");
     });
 
     it("keeps the 2:00 pm default when no 'start'-anchored time is present", () => {

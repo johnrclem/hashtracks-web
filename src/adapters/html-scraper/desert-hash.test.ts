@@ -121,6 +121,36 @@ const DETAIL_NOTES = detailPage({
     <p><a href="https://www.deserthash.org/wp-content/uploads/2025/09/alqudracycle.jpeg"><img src="x" alt="" /></a></p>`,
 });
 
+// 2452-style: coords present BUT the body leads with a decorative title/theme
+// line (not a venue) — the lead line must NOT be taken as the location.
+const DETAIL_TITLE_LED = detailPage({
+  hares: ["Slow Crack Whore"],
+  lat: "25.106101",
+  lng: "55.300000",
+  bodyHtml: `<p>DH3 Run #2452 – Desert Shenanigans 🏜️🍻</p>
+    <p>This Sunday from the Truck Stop on Emirates Rd into the half desert.</p>
+    <p><a href="https://maps.app.goo.gl/n3E9JHNFbHn29JBP8">Google Maps Link</a></p>`,
+});
+
+// A verbose but explicitly-labelled venue ("Location: …") must be captured even
+// though it exceeds the bare-line length guard.
+const DETAIL_LABELLED = detailPage({
+  hares: ["Just Balls"],
+  bodyHtml: `<p>Note: This is a Sunday run, there will be no hash on the Monday.</p>
+    <p>Location: Meet in Car Park P5 at the back of the Trade Centre building, Dubai</p>
+    <p><a href="https://maps.app.goo.gl/abc123">Google Maps Link</a></p>`,
+});
+
+// A real venue whose words start with a 3-letter month prefix ("Market" → mar,
+// "Junction" → jun) must NOT be rejected as a date by the lead-line guard.
+const DETAIL_MONTHISH_VENUE = detailPage({
+  hares: ["Just Balls"],
+  lat: "25.1",
+  lng: "55.2",
+  bodyHtml: `<p>10 Market Street, Junction Mall, JVC</p>
+    <p><a href="https://maps.app.goo.gl/zzz">Google Map Link</a></p>`,
+});
+
 /** Route base→home, page_id=5152→hareline, and any `mec-events=<slug>`→detail HTML. */
 function mockSurfacesWithDetails(homeHtml: string, hareHtml: string, details: Record<string, string>) {
   mockedSafeFetch.mockImplementation((url: string) => {
@@ -304,6 +334,31 @@ describe("parseDetailPage", () => {
     expect(d.longitude).toBeCloseTo(55.20726);
     // Venue-only body → no leftover notes.
     expect(d.description).toBeUndefined();
+  });
+
+  it("does NOT take a title/theme-led body line as the venue, even with coords present", () => {
+    const d = parseDetailPage(DETAIL_TITLE_LED);
+    expect(d.hares).toBe("Slow Crack Whore");
+    expect(d.latitude).toBeCloseTo(25.106101);
+    // The lead "DH3 Run #2452 – Desert Shenanigans 🏜️🍻" is a title, not a venue.
+    expect(d.location).toBeUndefined();
+    expect(d.locationUrl).toContain("maps.app.goo.gl"); // map pin still captured
+    expect(d.description).toContain("Desert Shenanigans");
+    expect(d.description).toContain("Truck Stop on Emirates Rd");
+  });
+
+  it("does not reject a venue whose words start with a month prefix (Market/Junction)", () => {
+    const d = parseDetailPage(DETAIL_MONTHISH_VENUE);
+    expect(d.location).toBe("10 Market Street, Junction Mall, JVC");
+  });
+
+  it("captures an explicit 'Location:'-labelled venue (verbose) without repeating it in the description", () => {
+    const d = parseDetailPage(DETAIL_LABELLED);
+    expect(d.location).toBe("Meet in Car Park P5 at the back of the Trade Centre building, Dubai");
+    expect(d.hares).toBe("Just Balls");
+    // The labelled line is spliced out of the body, so it isn't duplicated.
+    expect(d.description ?? "").not.toContain("Car Park P5");
+    expect(d.description).toContain("Sunday run"); // the Note line remains
   });
 
   it("treats a coord-less body as free-form notes (no venue) and never reads the phone", () => {

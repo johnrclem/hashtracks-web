@@ -241,6 +241,9 @@ async function resolveMapsShortlink(url: string): Promise<string | undefined> {
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
       },
     });
+    // A failed redirect (404/503) can still expose an error-page `.url`; only
+    // trust the resolved URL on a 2xx (Gemini review).
+    if (!res.ok) return undefined;
     const finalUrl = res.url;
     return finalUrl && finalUrl !== url ? finalUrl : undefined;
   } catch {

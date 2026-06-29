@@ -35,8 +35,11 @@ const DEFAULT_START_TIME = "14:00"; // Site default: "Sumo Hashers meet every Su
  * Recover a non-default start time when the event description tightly anchors a
  * time to the word "start" — e.g. "11:00start!!", "10:30 start" (#2379). The
  * "start" anchor (only `\s*` between it and the time, no am/pm) keeps this
- * conservative: incidental numbers elsewhere in the prose never fire. Bare
- * times are taken at face value (Sumo's early starts are morning times).
+ * conservative: incidental numbers elsewhere in the prose never fire.
+ *
+ * These are bare 12-hour clock times. Sumo is an afternoon hash (2:00 pm
+ * default), so an hour of 1–6 means PM (a "2:00start" is 14:00, not 02:00),
+ * while 7–12 stay as written (morning specials / noon) — Gemini review.
  * Returns undefined when no anchored time is present, leaving the caller to use
  * the 2:00 pm default.
  */
@@ -45,9 +48,10 @@ export function parseStartFromDescription(desc: string | undefined): string | un
   if (!desc) return undefined;
   const m = SUMO_START_RE.exec(desc);
   if (!m) return undefined;
-  const h = Number.parseInt(m[1], 10);
+  let h = Number.parseInt(m[1], 10);
   const min = Number.parseInt(m[2], 10);
   if (h > 23 || min > 59) return undefined;
+  if (h >= 1 && h <= 6) h += 12; // afternoon-hash 12-hour fallback
   return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
 }
 

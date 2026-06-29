@@ -294,6 +294,54 @@ function collapseWs(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+// An explicitly-labelled venue line ("Location: …" / "Location is …") is the
+// most reliable signal — the text after the label IS the gathering spot, even
+// when it's verbose. Captured ahead of the first-line heuristic below.
+const VENUE_LABEL_RE = /^location\s*(?:is|:)\s*(.+)/i;
+
+// When there's no label, the lead description line is only trusted as the venue
+// when it reads like one: short, not a notes/blurb prefix, with no run-number /
+// "DH3" title marker and no embedded calendar date (those signal a decorative
+// title or dated prose, not a gathering spot).
+const VENUE_TITLE_MARKER_RE = /\bDH3\b|\bRun\s*(?:#\s*)?\d/i;
+const NON_VENUE_PREFIX_RE = /^(?:note|promises?|this\s+sunday|join|come)\b/i;
+
+// Month names (abbrev + full) as a Set, matched against the word that follows a
+// "<day>" number via a SIMPLE regex. This is far under SonarCloud's regex
+// complexity budget (S5843) vs a 12-way alternation with optional suffixes, and
+// still avoids the "10 Market Street" false positive (Market ∉ MONTH_WORDS) —
+// see memory feedback_codacy_non_literal_regexp / Set-over-complex-regex.
+const MONTH_WORDS = new Set([
+  "jan", "january", "feb", "february", "mar", "march", "apr", "april",
+  "may", "jun", "june", "jul", "july", "aug", "august",
+  "sep", "sept", "september", "oct", "october", "nov", "november", "dec", "december",
+]);
+const DAY_NUMBER_WORD_RE = /\b\d{1,2}\s+([a-z]+)/gi;
+/** True when the line embeds a "<day> <month>" calendar date (a dated blurb, not a venue). */
+function hasEmbeddedDate(line: string): boolean {
+  for (const m of line.matchAll(DAY_NUMBER_WORD_RE)) {
+    if (MONTH_WORDS.has(m[1].toLowerCase())) return true;
+  }
+  return false;
+}
+
+function looksLikeVenue(line: string): boolean {
+  if (line.length > 60 || NON_VENUE_PREFIX_RE.test(line)) return false;
+  return !VENUE_TITLE_MARKER_RE.test(line) && !hasEmbeddedDate(line);
+}
+
+/** A "Location: <venue>"-labelled line's venue text + its index, if any. */
+function findLabelledVenue(paras: string[]): { venue: string; index: number } | undefined {
+  for (let i = 0; i < paras.length; i++) {
+    const m = VENUE_LABEL_RE.exec(paras[i]);
+    if (m) {
+      const v = m[1].trim();
+      if (v) return { venue: v, index: i };
+    }
+  }
+  return undefined;
+}
+
 /**
  * Extract the event's coordinates from the gmap widget's `mecGoogleMaps({…})`
  * init block. Returns {} when either component is missing/non-finite, or when
@@ -364,8 +412,18 @@ export function parseDetailPage(html: string): DesertDetail {
       if ($maps.length > 0 && text === collapseWs($maps.text())) return;
       contentParas.push(text);
     });
-    // First body line is the venue only when MEC supplied structured coords.
-    if (coords.latitude != null && contentParas.length > 0) {
+    // Venue resolution, most-reliable first:
+    //  1. an explicit "Location: …" label anywhere in the body, else
+    //  2. the lead line when coords are present AND it looks like a venue.
+    // Some runs lead with a decorative TITLE/theme ("DH3 Run #2452 – Desert
+    // Shenanigans 🏜️🍻"), a dated blurb, or a "Note: …" — treating those as the
+    // location is worse than leaving it to the maps link + coords. When neither
+    // path yields a venue the lines stay in the description.
+    const labelled = findLabelledVenue(contentParas);
+    if (labelled) {
+      detail.location = labelled.venue;
+      contentParas.splice(labelled.index, 1); // don't repeat the venue line in the description
+    } else if (coords.latitude != null && contentParas.length > 0 && looksLikeVenue(contentParas[0])) {
       detail.location = contentParas.shift();
     }
     const body = contentParas.join("\n").trim();
