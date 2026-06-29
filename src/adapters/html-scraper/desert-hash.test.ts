@@ -352,10 +352,13 @@ describe("parseDetailPage", () => {
     expect(d.location).toBe("10 Market Street, Junction Mall, JVC");
   });
 
-  it("captures an explicit 'Location:'-labelled venue even when verbose, skipping the Note line", () => {
+  it("captures an explicit 'Location:'-labelled venue (verbose) without repeating it in the description", () => {
     const d = parseDetailPage(DETAIL_LABELLED);
     expect(d.location).toBe("Meet in Car Park P5 at the back of the Trade Centre building, Dubai");
     expect(d.hares).toBe("Just Balls");
+    // The labelled line is spliced out of the body, so it isn't duplicated.
+    expect(d.description ?? "").not.toContain("Car Park P5");
+    expect(d.description).toContain("Sunday run"); // the Note line remains
   });
 
   it("treats a coord-less body as free-form notes (no venue) and never reads the phone", () => {

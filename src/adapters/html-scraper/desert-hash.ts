@@ -303,24 +303,40 @@ const VENUE_LABEL_RE = /^location\s*(?:is|:)\s*(.+)/i;
 // when it reads like one: short, not a notes/blurb prefix, with no run-number /
 // "DH3" title marker and no embedded calendar date (those signal a decorative
 // title or dated prose, not a gathering spot).
-const VENUE_TITLE_MARKER_RE = /\bDH3\b|\bRun\s*#?\s*\d/i;
-// "<day> <month>" — month bounded by `\b` + full-name suffixes so a venue like
-// "10 Market Street" / "4 Junction Road" isn't misread as a date (Gemini review).
-const VENUE_DATE_MARKER_RE =
-  /\b\d{1,2}\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i;
+const VENUE_TITLE_MARKER_RE = /\bDH3\b|\bRun\s*(?:#\s*)?\d/i;
 const NON_VENUE_PREFIX_RE = /^(?:note|promises?|this\s+sunday|join|come)\b/i;
-function looksLikeVenue(line: string): boolean {
-  if (line.length > 60 || NON_VENUE_PREFIX_RE.test(line)) return false;
-  return !VENUE_TITLE_MARKER_RE.test(line) && !VENUE_DATE_MARKER_RE.test(line);
+
+// Month names (abbrev + full) as a Set, matched against the word that follows a
+// "<day>" number via a SIMPLE regex. This is far under SonarCloud's regex
+// complexity budget (S5843) vs a 12-way alternation with optional suffixes, and
+// still avoids the "10 Market Street" false positive (Market ∉ MONTH_WORDS) —
+// see memory feedback_codacy_non_literal_regexp / Set-over-complex-regex.
+const MONTH_WORDS = new Set([
+  "jan", "january", "feb", "february", "mar", "march", "apr", "april",
+  "may", "jun", "june", "jul", "july", "aug", "august",
+  "sep", "sept", "september", "oct", "october", "nov", "november", "dec", "december",
+]);
+const DAY_NUMBER_WORD_RE = /\b\d{1,2}\s+([a-z]+)/gi;
+/** True when the line embeds a "<day> <month>" calendar date (a dated blurb, not a venue). */
+function hasEmbeddedDate(line: string): boolean {
+  for (const m of line.matchAll(DAY_NUMBER_WORD_RE)) {
+    if (MONTH_WORDS.has(m[1].toLowerCase())) return true;
+  }
+  return false;
 }
 
-/** A "Location: <venue>"-labelled line's venue text, if any paragraph carries one. */
-function labelledVenue(paras: string[]): string | undefined {
-  for (const p of paras) {
-    const m = VENUE_LABEL_RE.exec(p);
+function looksLikeVenue(line: string): boolean {
+  if (line.length > 60 || NON_VENUE_PREFIX_RE.test(line)) return false;
+  return !VENUE_TITLE_MARKER_RE.test(line) && !hasEmbeddedDate(line);
+}
+
+/** A "Location: <venue>"-labelled line's venue text + its index, if any. */
+function findLabelledVenue(paras: string[]): { venue: string; index: number } | undefined {
+  for (let i = 0; i < paras.length; i++) {
+    const m = VENUE_LABEL_RE.exec(paras[i]);
     if (m) {
       const v = m[1].trim();
-      if (v) return v;
+      if (v) return { venue: v, index: i };
     }
   }
   return undefined;
@@ -403,9 +419,10 @@ export function parseDetailPage(html: string): DesertDetail {
     // Shenanigans 🏜️🍻"), a dated blurb, or a "Note: …" — treating those as the
     // location is worse than leaving it to the maps link + coords. When neither
     // path yields a venue the lines stay in the description.
-    const labelled = labelledVenue(contentParas);
+    const labelled = findLabelledVenue(contentParas);
     if (labelled) {
-      detail.location = labelled;
+      detail.location = labelled.venue;
+      contentParas.splice(labelled.index, 1); // don't repeat the venue line in the description
     } else if (coords.latitude != null && contentParas.length > 0 && looksLikeVenue(contentParas[0])) {
       detail.location = contentParas.shift();
     }
