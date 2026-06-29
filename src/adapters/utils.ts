@@ -1431,3 +1431,12 @@ export async function fetchBrowserRenderedPage(
     return { ok: false, result: { events: [], errors: [message], errorDetails } };
   }
 }
+
+/**
+ * Trimmed, case-insensitive equality; false when either side is empty/nullish.
+ * Shared by the "title/hares must never equal X" guards across adapters
+ * (HC #2408/#2409, iCal #2160/#2316).
+ */
+export function eqTrimLc(a: string | undefined | null, b: string | undefined | null): boolean {
+  return !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+}

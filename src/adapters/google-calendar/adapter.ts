@@ -88,6 +88,7 @@ export function extractRunNumber(
   summary: string,
   description?: string,
   customPatterns?: string[] | RegExp[],
+  summaryPatterns?: string[] | RegExp[],
 ): number | null | undefined {
   // 1. Check summary first (e.g., "Beantown #255: ...", "BH3: ... #2781", "Cunth # 40: ...").
   // Shared `extractHashRunNumber` enforces the delimiter guard (#1147) — "#30X?"
@@ -101,6 +102,14 @@ export function extractRunNumber(
   const fromSummary = extractHashRunNumber(summary)
     ?? (summary.includes("!") ? extractHashRunNumber(summary.replaceAll("!", " ")) : undefined);
   if (fromSummary !== undefined) return fromSummary;
+
+  // 1a. Per-source SUMMARY run-number patterns (#2349 Stuttgart "SH3 871"): only
+  // reached when the shared `#`-delimited parser found nothing, so a `#`-style
+  // number always wins. Anchored, capture-group patterns from source config.
+  if (summaryPatterns?.length) {
+    const fromSummaryPattern = extractRunNumberFromDescription(summary, summaryPatterns);
+    if (fromSummaryPattern !== undefined) return fromSummaryPattern;
+  }
 
   // 1b/1c. Leading "<word> NNNN:" run markers that omit the `#`, colon-anchored
   // so a year-shaped digit run in prose can't false-match: "Hash NNNN:" (#2007
@@ -1055,6 +1064,12 @@ interface CalendarSourceConfig {
   skipPatterns?: string[];              // regex strings — skip events whose summary matches
   harePatterns?: string[];              // regex strings to extract hares from descriptions
   runNumberPatterns?: string[];         // regex strings to extract run numbers from descriptions
+  /** #2349 Stuttgart SH3: regex(es) (capture group = digits) to pull a run
+   *  number from the SUMMARY when it omits the `#` ("SH3 871", "SH3 879 Lone
+   *  Thrills"). Distinct from `runNumberPatterns` (description-only) — these
+   *  scan the summary, tried only after the shared `#`-delimited parser misses.
+   *  Anchor them (`^SH3\s*#?\s*(\d{2,4})`) so a digit run in a theme can't win. */
+  summaryRunNumberPatterns?: string[];
   /** Regex(es) to extract hare names from summary when description has none.
    *  Accepts a single pattern string or an array tried in order — first
    *  capture-group hit wins (#1208 DST + Stuttgart SH3 share a source;
@@ -1428,6 +1443,7 @@ function parseCalendarSourceConfig(config: unknown): CalendarSourceConfig | null
 export interface BuildRawEventFromGCalItemOptions {
   compiledHarePatterns?: RegExp[];
   compiledRunNumberPatterns?: RegExp[];
+  compiledSummaryRunNumberPatterns?: RegExp[];
   compiledSkipPatterns?: RegExp[];
   compiledTitleHarePatterns?: RegExp[];
   compiledTitleLocationPatterns?: RegExp[];
@@ -1463,6 +1479,7 @@ export function buildRawEventFromGCalItem(
   const {
     compiledHarePatterns,
     compiledRunNumberPatterns,
+    compiledSummaryRunNumberPatterns,
     compiledSkipPatterns,
     compiledTitleHarePatterns,
     compiledTitleLocationPatterns,
@@ -2027,7 +2044,7 @@ export function buildRawEventFromGCalItem(
   // #1761 — a run number promoted from a placeholder summary's description
   // header overrides the cleared placeholder (extractRunNumber returns null
   // for "#?"). Otherwise fall back to the normal summary/description scan.
-  const runNumber = promotedRunNumber ?? extractRunNumber(summary, rawDescription, compiledRunNumberPatterns);
+  const runNumber = promotedRunNumber ?? extractRunNumber(summary, rawDescription, compiledRunNumberPatterns, compiledSummaryRunNumberPatterns);
 
   // #1426 — sport-domain title (e.g. "Lansing Crisis Rugby Game") with no
   // hash-confirming signal. Three signals override: runNumber, hares, or
@@ -2178,6 +2195,9 @@ function compileSourceConfigPatterns(sourceConfig: CalendarSourceConfig | null) 
       : undefined,
     compiledRunNumberPatterns: sourceConfig?.runNumberPatterns?.length
       ? compilePatterns(sourceConfig.runNumberPatterns)
+      : undefined,
+    compiledSummaryRunNumberPatterns: sourceConfig?.summaryRunNumberPatterns?.length
+      ? compilePatterns(sourceConfig.summaryRunNumberPatterns, "i")
       : undefined,
     compiledSkipPatterns: sourceConfig?.skipPatterns?.length
       ? compilePatterns(sourceConfig.skipPatterns, "i")

@@ -498,6 +498,25 @@ describe("extractRunNumber", () => {
     ).toBeUndefined();
   });
 
+  // #2349 Stuttgart SH3 — summaryRunNumberPatterns (4th arg) pull the run number
+  // from the SUMMARY when "#" is omitted.
+  it.each([
+    ["SH3 871 Anni Tua", 871],
+    ["SH3 879  Lone Thrills", 879],
+    ["SH3 873", 873],
+  ])("extracts a no-# summary run number via summaryRunNumberPatterns: %j", (summary, expected) => {
+    expect(extractRunNumber(summary, undefined, undefined, [String.raw`^SH3\s*(?:#\s*)?(\d{2,4})\b`])).toBe(expected);
+  });
+
+  it("the shared #-parser still wins over summaryRunNumberPatterns", () => {
+    // "SH3 #859" — the "#" form is parsed first; the summary pattern is never reached.
+    expect(extractRunNumber("SH3 #859 Fit Squirter", undefined, undefined, [String.raw`^SH3\s*(?:#\s*)?(\d{2,4})\b`])).toBe(859);
+  });
+
+  it("summaryRunNumberPatterns are anchored — a digit in a non-SH3 theme is ignored", () => {
+    expect(extractRunNumber("SUGAR H3 - Bye Bye 39", undefined, undefined, [String.raw`^SH3\s*(?:#\s*)?(\d{2,4})\b`])).toBeUndefined();
+  });
+
   // #1009 Bushman H3: source description starts "What: Bushman HHH No. 251" —
   // matched by per-source `runNumberPatterns` config in the Chicagoland Hash
   // Calendar entry. Also handles the bare "Bushman No. 251" variant.
@@ -6248,5 +6267,79 @@ describe("Salem H3 — all-day events admitted, placeholder stubs skipped (#2209
       skipOpts,
     );
     expect(result).toBeNull();
+  });
+});
+
+// ── #2349 / #2351 Stuttgart SH3 / FM run-prefix leak + no-# run number ──
+
+describe("Stuttgart SH3/FM run-prefix strip + summary run number (#2349/#2351)", () => {
+  // Inline-compiled equivalents of the seed config's summaryRunNumberPatterns +
+  // titleStripPatterns (the production fetch path compiles these from config and
+  // passes them in the options bag).
+  const opts = {
+    compiledSummaryRunNumberPatterns: [/^SH3\s*(?:#\s*)?(\d{2,4})\b/i],
+    compiledTitleStripPatterns: [/^SH3\s*(?:#\s*)?\d+\s*(?:-\s*)?/i, /^FM\s*(?:#\s*)?\d+\s*(?:-\s*)?/i],
+  };
+  const config = { defaultKennelTag: "sh3-de" };
+  const build = (summary: string) =>
+    buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-04-15T19:00:00+02:00" }, status: "confirmed" },
+      config,
+      opts,
+    );
+
+  it.each([
+    // [summary, expected runNumber, expected title]
+    ["SH3 #859 Fit Squirter", 859, "Fit Squirter"],   // "#" form: shared parser + prefix strip
+    ["SH3 871 Anni Tua", 871, "Anni Tua"],             // no-# form: summary pattern + prefix strip
+    ["SH3 # 874", 874, undefined],                     // bare run → title cleared → default/merge synth
+  ])("strips the SH3 prefix and extracts the run from %j", (summary, run, title) => {
+    const r = build(summary);
+    expect(r?.runNumber).toBe(run);
+    expect(r?.title || undefined).toBe(title);
+  });
+
+  it("strips the FM run prefix, keeping the theme (#2351)", () => {
+    const r = build("FM #179 - Motel Six");
+    expect(r?.runNumber).toBe(179);
+    expect(r?.title).toBe("Motel Six");
+  });
+
+  it("the Stuttgart seed source carries the run/strip config", () => {
+    const cfg = (SOURCES.find((s) => s.name === "Stuttgart H3 Google Calendar")?.config ?? {}) as {
+      summaryRunNumberPatterns?: string[];
+      titleStripPatterns?: string[];
+    };
+    expect(cfg.summaryRunNumberPatterns?.length).toBeGreaterThan(0);
+    expect(cfg.titleStripPatterns?.length).toBeGreaterThan(0);
+  });
+});
+
+// ── #2388 Surf City admits all-day events (Wharf to Barf weekend) ──
+
+describe("Surf City all-day events (#2388)", () => {
+  it("the Surf City seed source opts into all-day events", () => {
+    const cfg = (SOURCES.find((s) => s.name === "Surf City H3 Google Calendar")?.config ?? {}) as {
+      includeAllDayEvents?: boolean;
+    };
+    expect(cfg.includeAllDayEvents).toBe(true);
+  });
+
+  it("admits an all-day event when includeAllDayEvents is set", () => {
+    const r = buildRawEventFromGCalItem(
+      { summary: "Surf City Hash 1424 - Wharf to Barf Pub Crawl", start: { date: "2026-07-24" }, status: "confirmed" },
+      { defaultKennelTag: "sch3-ca", includeAllDayEvents: true },
+    );
+    expect(r).not.toBeNull();
+    expect(r?.date).toBe("2026-07-24");
+    expect(r?.startTime).toBeUndefined();
+  });
+
+  it("still drops the all-day event without the opt-in (regression guard)", () => {
+    const r = buildRawEventFromGCalItem(
+      { summary: "Surf City Hash 1424 - Wharf to Barf Pub Crawl", start: { date: "2026-07-24" }, status: "confirmed" },
+      { defaultKennelTag: "sch3-ca" },
+    );
+    expect(r).toBeNull();
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractHares } from "./hare-extraction";
+import { extractHares, cleanAndFilterHares } from "./hare-extraction";
 
 type ExpectedRow = readonly [label: string, desc: string, expected: string];
 type UndefinedRow = readonly [label: string, desc: string];
@@ -478,5 +478,27 @@ describe("extractHares — Co-Hare merge + annotation strip (#1212 GLH3)", () =>
     { name: "unrelated description text — primary only", desc: "Hare: Alice\nLocation: 123 Main St", expected: "Alice" },
   ])("$name", ({ desc, expected }) => {
     expect(extractHares(desc)).toBe(expected);
+  });
+});
+
+// ── cleanAndFilterHares — hash ROLE-label strip (#2368 StumpH3) ──
+
+describe("cleanAndFilterHares — role labels (#2368 StumpH3)", () => {
+  it.each([
+    ["Hare-Deaf Dick. Jedi-Premature Evacuation", "Deaf Dick, Premature Evacuation"],
+    ["Hare- Just Jessie", "Just Jessie"],
+    ["Hares- I'm Gonna Cum and Cum Squadron, Jedi- I'm Gonna Cum", "I'm Gonna Cum and Cum Squadron, I'm Gonna Cum"],
+    ["Hare-Big Shitter Jedi-I'm Gonna Cum", "Big Shitter, I'm Gonna Cum"],
+    ["Hare and Jedi: Mouthful.", "Mouthful"],
+    ["Hare/Jedi double doody: RPM", "RPM"],
+    ["Knotty By Nature. Jedi: Just Val", "Knotty By Nature, Just Val"],
+    ["Hared by Purdy Mouth, the W.T.F.", "Purdy Mouth, the W.T.F"],
+  ])("strips role labels: %j → %j", (raw, expected) => {
+    expect(cleanAndFilterHares(raw)).toBe(expected);
+  });
+
+  it("leaves a plain hare name untouched (no labels)", () => {
+    expect(cleanAndFilterHares("Khuming Rouge")).toBe("Khuming Rouge");
+    expect(cleanAndFilterHares("Mudflap & Trail Blazer")).toBe("Mudflap & Trail Blazer");
   });
 });

@@ -106,6 +106,32 @@ const DATE_RANGE_RE = /\b\d{1,2}\s*\/\s*\d{1,2}\b/;
 // can capture the label along with the value. Strip a residual
 // "Hares:/Hare:/Who:/Sweep:/Hare Raiser:" prefix so it never surfaces.
 const LEADING_HARE_LABEL_RE = /^(?:hares?|who|sweep|hare\s*raiser)\s*:\s*/i; // NOSONAR — anchored, bounded literal alternation
+// #2368 StumpH3 — descriptions wrap the hashers in hash ROLE labels with a dash
+// OR colon: "Hare-Deaf Dick. Jedi-Premature Evacuation", "Hares- A and B, Jedi-
+// C", plus the combined "Hare and Jedi:" / "Hare/Jedi double doody:" forms. The
+// labels are roles, not names. Strip the combined + leading labels, and turn a
+// mid-string role label into a comma so the two co-hares read as one list:
+// "Hare-Deaf Dick. Jedi-Premature Evacuation" → "Deaf Dick, Premature Evacuation".
+// Gate: does the value carry any hash role label at all? Non-global (no lastIndex
+// state) so the fast-path test is stable. When it misses, stripHareRoleLabels is
+// a byte-identical no-op — preserving fingerprint stability for the ~all hares
+// that have no role label (no separator/punctuation normalization → no churn).
+const HAS_ROLE_LABEL_RE = /\b(?:hares?\s*[-:]|jedi\s*[-:]|hared\s+by|hare\s*(?:and|\/)\s*jedi)/i; // NOSONAR S5852 — single quantifiers, char class
+const COMBINED_HARE_JEDI_LABEL_RE = /\bhare\s*(?:and|\/)\s*jedi\b[^:]{0,30}:\s*/gi; // NOSONAR S5852 — bounded {0,30}, single quantifiers
+const LEADING_ROLE_LABEL_RE = /^\s*(?:hares?\s*[-:]|hared\s+by)\s*/i; // NOSONAR S5852 — anchored, single quantifiers
+const JEDI_ROLE_LABEL_RE = /[\s.,/]*\bjedi\s*[-:]\s*/gi; // NOSONAR S5852 — single quantifiers, char class not alternation
+const MID_HARE_ROLE_LABEL_RE = /[\s.,/]+hares?\s*[-:]\s*/gi; // NOSONAR S5852 — leading separator required, single quantifiers
+function stripHareRoleLabels(value: string): string {
+  if (!HAS_ROLE_LABEL_RE.test(value)) return value;
+  return value
+    .replace(COMBINED_HARE_JEDI_LABEL_RE, "")
+    .replace(LEADING_ROLE_LABEL_RE, "")
+    .replace(JEDI_ROLE_LABEL_RE, ", ")
+    .replace(MID_HARE_ROLE_LABEL_RE, ", ")
+    .replace(/^[\s,]+/, "")
+    .replace(/[\s,.]+$/, "")
+    .trim();
+}
 // #2008 PGH H3 — a bare kennel code ("Who: PGHH3") is the kennel name, never a
 // hash name. Rejected via the shared BARE_KENNEL_CODE_RE (imported from utils).
 // #2008 PGH H3 row 4 — a conversational "…and you, of course" tail is not part
@@ -217,7 +243,7 @@ function collectContinuationLines(normalized: string, match: RegExpExecArray): s
  * re-implementing a weaker subset of its passes.
  */
 export function cleanAndFilterHares(raw: string): string | null | undefined {
-  let hares = raw
+  let hares = stripHareRoleLabels(raw)
     .replace(LEADING_HARE_LABEL_RE, "")
     .trim()
     .replace(ASTERISK_TAIL_RE, "")
