@@ -98,11 +98,12 @@ async function fetchEvent(id: number): Promise<RawEventData | null> {
   const titleMatch = TITLE_RUN_RE.exec(html);
   const nameNum = typeof ld.name === "number" ? ld.name : Number.parseInt(String(ld.name), 10);
   // Number.isInteger guards the integer runNumber column against NaN/float.
-  const runNumber = titleMatch
-    ? Number.parseInt(titleMatch[1], 10)
-    : Number.isInteger(nameNum) && nameNum > 0
-      ? nameNum
-      : undefined;
+  let runNumber: number | undefined;
+  if (titleMatch) {
+    runNumber = Number.parseInt(titleMatch[1], 10);
+  } else if (Number.isInteger(nameNum) && nameNum > 0) {
+    runNumber = nameNum;
+  }
 
   const startTime = TIME_RE.exec(ld.startDate)?.[1];
   const locationName = typeof ld.location === "string" ? ld.location : ld.location?.name;
@@ -130,7 +131,8 @@ async function fetchEvents(): Promise<RawEventData[]> {
   const byRun = new Map<string, RawEventData>();
   for (const e of found) {
     const k = e.runNumber != null ? `r${e.runNumber}` : `d${e.date}`;
-    if (!byRun.has(k)) byRun.set(k, e);
+    if (byRun.has(k)) continue;
+    byRun.set(k, e);
   }
   return [...byRun.values()].sort((a, b) => a.date.localeCompare(b.date));
 }

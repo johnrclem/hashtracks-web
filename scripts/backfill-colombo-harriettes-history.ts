@@ -71,8 +71,7 @@ function normalizeTime(raw: string | undefined): string | undefined {
 }
 
 function clean(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
+  return value?.trim() || undefined;
 }
 
 async function fetchEvents(): Promise<RawEventData[]> {
@@ -82,7 +81,7 @@ async function fetchEvents(): Promise<RawEventData[]> {
   if (!res.ok) throw new Error(`Colombo API returned HTTP ${res.status}`);
   const data: unknown = await res.json();
   if (!Array.isArray(data)) {
-    throw new Error("Colombo API: expected a JSON array of runs");
+    throw new TypeError("Colombo API: expected a JSON array of runs");
   }
 
   const events: RawEventData[] = [];

@@ -135,8 +135,7 @@ const TBA_RE = /^tba$/i;
 const PLACEHOLDER_HARE_RE = /\bplaceholder (?:user|event)\b/i;
 
 function clean(value: string | undefined): string | undefined {
-  const t = value?.trim();
-  return t ? t : undefined;
+  return value?.trim() || undefined;
 }
 
 /** EventNumber → runNumber tri-state, matching the live adapter (0 → null).
@@ -187,7 +186,7 @@ export function mapRunToRawEvent(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
 
   const startTime = TIME_RE.exec(start)?.[1];
-  const location = composeHcLocation(run.LocationOneLineDesc, undefined, undefined);
+  const location = composeHcLocation(run.LocationOneLineDesc, undefined);
   const hares = cleanHares(run.Hares, location);
   let title = applyTitleFallback(run.EventName, run.EventNumber, config);
   // #2408/#2409 parity: a title that byte-equals the hares or the raw venue is
