@@ -294,6 +294,38 @@ function collapseWs(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+// An explicitly-labelled venue line ("Location: …" / "Location is …") is the
+// most reliable signal — the text after the label IS the gathering spot, even
+// when it's verbose. Captured ahead of the first-line heuristic below.
+const VENUE_LABEL_RE = /^location\s*(?:is|:)\s*(.+)/i;
+
+// When there's no label, the lead description line is only trusted as the venue
+// when it reads like one: short, not a notes/blurb prefix, with no run-number /
+// "DH3" title marker and no embedded calendar date (those signal a decorative
+// title or dated prose, not a gathering spot).
+const VENUE_TITLE_MARKER_RE = /\bDH3\b|\bRun\s*#?\s*\d/i;
+// "<day> <month>" — month bounded by `\b` + full-name suffixes so a venue like
+// "10 Market Street" / "4 Junction Road" isn't misread as a date (Gemini review).
+const VENUE_DATE_MARKER_RE =
+  /\b\d{1,2}\s+(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i;
+const NON_VENUE_PREFIX_RE = /^(?:note|promises?|this\s+sunday|join|come)\b/i;
+function looksLikeVenue(line: string): boolean {
+  if (line.length > 60 || NON_VENUE_PREFIX_RE.test(line)) return false;
+  return !VENUE_TITLE_MARKER_RE.test(line) && !VENUE_DATE_MARKER_RE.test(line);
+}
+
+/** A "Location: <venue>"-labelled line's venue text, if any paragraph carries one. */
+function labelledVenue(paras: string[]): string | undefined {
+  for (const p of paras) {
+    const m = VENUE_LABEL_RE.exec(p);
+    if (m) {
+      const v = m[1].trim();
+      if (v) return v;
+    }
+  }
+  return undefined;
+}
+
 /**
  * Extract the event's coordinates from the gmap widget's `mecGoogleMaps({…})`
  * init block. Returns {} when either component is missing/non-finite, or when
@@ -364,8 +396,17 @@ export function parseDetailPage(html: string): DesertDetail {
       if ($maps.length > 0 && text === collapseWs($maps.text())) return;
       contentParas.push(text);
     });
-    // First body line is the venue only when MEC supplied structured coords.
-    if (coords.latitude != null && contentParas.length > 0) {
+    // Venue resolution, most-reliable first:
+    //  1. an explicit "Location: …" label anywhere in the body, else
+    //  2. the lead line when coords are present AND it looks like a venue.
+    // Some runs lead with a decorative TITLE/theme ("DH3 Run #2452 – Desert
+    // Shenanigans 🏜️🍻"), a dated blurb, or a "Note: …" — treating those as the
+    // location is worse than leaving it to the maps link + coords. When neither
+    // path yields a venue the lines stay in the description.
+    const labelled = labelledVenue(contentParas);
+    if (labelled) {
+      detail.location = labelled;
+    } else if (coords.latitude != null && contentParas.length > 0 && looksLikeVenue(contentParas[0])) {
       detail.location = contentParas.shift();
     }
     const body = contentParas.join("\n").trim();

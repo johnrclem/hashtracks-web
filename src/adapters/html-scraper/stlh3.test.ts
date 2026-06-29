@@ -311,6 +311,33 @@ describe("StlH3Adapter", () => {
     expect(result.events[0].locationUrl).toBe("https://share.google/B9WpajhNuORHjuQ5L");
   });
 
+  it("ignores a shortlink resolution that returns a non-2xx response (Gemini review)", async () => {
+    const archiveResponse = {
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue([
+        {
+          title: "Upcumming Hash: Sunday Mar 22nd 2026",
+          subtitle: "Meet @ 5PM",
+          slug: "dead-link",
+          post_date: "2026-03-21T10:00:00Z",
+          canonical_url: "https://www.stlh3.com/p/dead-link",
+          body_html: '<a href="https://share.google/DeadLink">Google Map</a>',
+        },
+      ]),
+    };
+    // Dead shortlink → 404 whose .url is an error page; must not become a location.
+    const resolveResponse = { ok: false, status: 404, url: "https://share.google/error" };
+    vi.mocked(safeFetchModule.safeFetch)
+      .mockResolvedValueOnce(archiveResponse as never)
+      .mockResolvedValueOnce(resolveResponse as never);
+
+    const result = await adapter.fetch(mockSource);
+    expect(result.events[0].location).toBeUndefined();
+    // The (validated) shortlink href is still stored as the clickable map URL.
+    expect(result.events[0].locationUrl).toBe("https://share.google/DeadLink");
+  });
+
   it("does not store or fetch a hostile body link as a location (Codex review)", async () => {
     const archiveResponse = {
       ok: true,
