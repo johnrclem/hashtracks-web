@@ -9,6 +9,8 @@ import {
   formatAmPmTime,
   chronoParseDate,
   isPlaceholder,
+  EMOJI_RE,
+  trimEdgeChars,
 } from "../utils";
 import { scrubHarePii } from "../hare-pii";
 
@@ -53,9 +55,19 @@ const LEADING_DECORATION_RE = /^[^\p{L}\p{N}]+/u;
 // isPlaceholder() helper; empty values fall through to the length guard below.
 const HARES_LABEL_RE = /\bhares?\s*:/i;
 
+// The run's headline lives at the START of its body paragraph
+// (`p.has-text-color`), e.g. "🔥 THE MADHNESS MAYHEM RUN 🔥" before the
+// "✅ Attendance / ❌ Excuses" CTA block. These markers terminate the headline
+// (✅/❌/😱/💀 are CTA; 📅/🕘/📍/🐇/⏰/🤔 are field markers). ⚠ is deliberately
+// EXCLUDED — it WRAPS some headlines ("⚠️ THIS IS NOT JUST ANOTHER RUN ⚠️").
+const TITLE_TERMINATOR_RE = /[✅❌😱💀📅🕘📍🐇⏰🤔]|\bAttendance\b|\bExcuses\b/u;
+const TITLE_EDGE_CHARS = " \"'“”‘’-–—:.";
+
 interface RunBlock {
   runNumber: number;
   text: string;
+  /** First body paragraph (`p.has-text-color`) — the run's headline source. */
+  headlineText?: string;
   rawHeading: string;
   row: number;
 }
@@ -87,6 +99,7 @@ function collectRunBlocks($: CheerioAPI): RunBlock[] {
     // Climb to the block container that holds this run's dated body.
     let node = $(el).parent();
     let blockText: string | null = null;
+    let headlineText: string | undefined;
     for (let depth = 0; depth < 6 && node.length > 0; depth++) {
       const tag = (node[0] as Element).tagName?.toLowerCase();
       const cls = node.attr("class") ?? "";
@@ -97,6 +110,8 @@ function collectRunBlocks($: CheerioAPI): RunBlock[] {
       const nodeText = node.text(); // recursive subtree concat — compute once
       if (DATE_RE.test(nodeText)) {
         blockText = nodeText;
+        // The run's headline is the first colored body paragraph in this block.
+        headlineText = node.find("p.has-text-color").first().text() || undefined;
         break;
       }
       node = node.parent();
@@ -105,7 +120,7 @@ function collectRunBlocks($: CheerioAPI): RunBlock[] {
     seen.add(runNumber);
     // No dated ancestor → record the run with the heading text only; date
     // parsing below fails loud (per-run drift), it is NOT silently dropped.
-    blocks.push({ runNumber, text: normalize(blockText ?? heading), rawHeading: heading, row });
+    blocks.push({ runNumber, text: normalize(blockText ?? heading), headlineText, rawHeading: heading, row });
   });
 
   return blocks;
@@ -128,7 +143,7 @@ function parseTime(text: string): string | undefined {
   return formatAmPmTime(hour, minute, m[3]);
 }
 
-function parseVenue(text: string): string | undefined {
+function parseVenueFromPin(text: string): string | undefined {
   const pin = text.indexOf("📍");
   if (pin < 0) return undefined;
   // Drop the "Venue:" label, then strip leading decoration (emoji/dashes) so a
@@ -142,6 +157,50 @@ function parseVenue(text: string): string | undefined {
   // it terminates before the 💰/📲 rego markers, but belt-and-suspenders).
   const cleaned = scrubHarePii(rest);
   return cleaned && cleaned.length >= 3 ? cleaned : undefined;
+}
+
+/**
+ * Fallback venue extraction for runs that omit the 📍 marker (run #629): the
+ * venue sits as plain text immediately before the 📅 Date marker, after the
+ * prose's trailing emoji ("…mast tha!" after 😜🔥 Rao Bungalow Madh Marve Road
+ * … 📅 Sunday …"). Take the run of text between the last emoji before 📅 and 📅.
+ */
+function parseVenueBeforeDate(text: string): string | undefined {
+  const dateIdx = text.indexOf("📅");
+  if (dateIdx <= 0) return undefined;
+  const before = text.slice(0, dateIdx);
+  let lastEmojiEnd = 0;
+  for (const m of before.matchAll(EMOJI_RE)) {
+    lastEmojiEnd = (m.index ?? 0) + m[0].length;
+  }
+  let venue = before.slice(lastEmojiEnd).replace(VENUE_LABEL_RE, "");
+  venue = venue.replace(LEADING_DECORATION_RE, "").trim();
+  const cleaned = scrubHarePii(venue);
+  // Guard against grabbing prose: require a plausible venue length.
+  if (!cleaned || cleaned.length < 5 || cleaned.length > 80) return undefined;
+  return cleaned;
+}
+
+function parseVenue(text: string): string | undefined {
+  return parseVenueFromPin(text) ?? parseVenueBeforeDate(text);
+}
+
+/**
+ * Extract a clean run headline from the first body paragraph (#2421/#2425).
+ * The headline is the leading phrase before the "✅ Attendance / ❌ Excuses"
+ * CTA or any field marker; emoji + wrapping quotes are stripped. Returns
+ * undefined for prose-led blocks (no clean headline) or placeholders so merge
+ * synthesizes the "Bombay H3 Trail #N" default rather than storing garbage.
+ */
+export function parseTitle(headlineText: string | undefined): string | undefined {
+  if (!headlineText) return undefined;
+  const normalized = normalize(headlineText);
+  const term = TITLE_TERMINATOR_RE.exec(normalized);
+  const head = term ? normalized.slice(0, term.index) : normalized;
+  const title = trimEdgeChars(normalize(head.replace(EMOJI_RE, " ")), TITLE_EDGE_CHARS);
+  if (title.length < 3 || title.length > 70) return undefined;
+  if (isPlaceholder(title)) return undefined;
+  return title;
 }
 
 // Tri-state return: `undefined` = HARES field ABSENT (preserve any existing
@@ -201,7 +260,9 @@ export function parseBombayHashPage(html: string): {
       date,
       kennelTags: [KENNEL_TAG],
       runNumber: block.runNumber,
-      // title left undefined → merge synthesizes "Bombay H3 Trail #N".
+      // Real headline when one is cleanly extractable; else undefined → merge
+      // synthesizes "Bombay H3 Trail #N" (#2421/#2425).
+      title: parseTitle(block.headlineText),
       startTime: parseTime(block.text),
       location: parseVenue(block.text),
       hares: parseHares(block.text),

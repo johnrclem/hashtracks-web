@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   parseSubtitleTime,
   extractLocationFromMapsUrl,
+  findMapsLink,
   parseTitleDate,
   cleanPostTitle,
   StlH3Adapter,
@@ -73,6 +74,42 @@ describe("extractLocationFromMapsUrl", () => {
   it("returns undefined for short link text", () => {
     const html = `<a href="https://www.google.com/maps?q=x">Map</a>`;
     expect(extractLocationFromMapsUrl(html)).toBeUndefined();
+  });
+
+  it("extracts the address from a maps ?daddr= query (#2338)", () => {
+    const html = `<a href="http://google.com/maps?um=1&daddr=2200+W+Port+Plaza+Dr,+St.+Louis,+MO+63146">Google Map</a>`;
+    expect(extractLocationFromMapsUrl(html)).toBe(
+      "2200 W Port Plaza Dr, St. Louis, MO 63146",
+    );
+  });
+
+  it("returns undefined for a bare share.google shortlink (needs async resolve)", () => {
+    // No inline venue — the sync helper can't resolve the redirect, so the
+    // adapter's fetch() path handles it.
+    const html = `<a href="https://share.google/B9WpajhNuORHjuQ5L">Google Map</a>`;
+    expect(extractLocationFromMapsUrl(html)).toBeUndefined();
+  });
+
+  it("rejects a hostile href that only CONTAINS a maps host as a substring (Codex review)", () => {
+    // evil.example merely embeds "share.google" in a query param — must not be
+    // treated as a maps link, persisted, or followed.
+    const html = `<a href="https://evil.example/?next=share.google/foo">Google Map</a>`;
+    expect(findMapsLink(html)).toBeUndefined();
+    expect(extractLocationFromMapsUrl(html)).toBeUndefined();
+  });
+
+  it("rejects a non-http(s) maps-shaped href", () => {
+    const html = `<a href="javascript:share.google/x">Google Map</a>`;
+    expect(findMapsLink(html)).toBeUndefined();
+  });
+
+  it("rejects hosts where 'google' is not the registrable domain", () => {
+    // Subdomain-injection bypasses must NOT be treated as Google hosts.
+    expect(findMapsLink(`<a href="https://google.evil.com/maps/place/X/">m</a>`)).toBeUndefined();
+    expect(findMapsLink(`<a href="https://evil.google.attacker.com/maps">m</a>`)).toBeUndefined();
+    // Genuine Google hosts still pass.
+    expect(findMapsLink(`<a href="https://www.google.co.uk/maps/place/Big+Ben/">m</a>`)?.href)
+      .toContain("google.co.uk");
   });
 });
 
@@ -238,6 +275,64 @@ describe("StlH3Adapter", () => {
     expect(result.events[0].startTime).toBe("14:00");
     expect(result.events[0].location).toBe("Tower Grove Park");
     // Should NOT have fetched detail since body_html was present
+    expect(safeFetchModule.safeFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves a share.google shortlink to recover the venue (#2338)", async () => {
+    const archiveResponse = {
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue([
+        {
+          title: "Upcumming Hash: Sunday Mar 22nd 2026",
+          subtitle: "Meet @ 5PM",
+          slug: "upcumming-hash-sunday-mar-22nd-2026",
+          post_date: "2026-03-21T10:00:00Z",
+          canonical_url: "https://www.stlh3.com/p/upcumming-hash-sunday-mar-22nd-2026",
+          body_html: '<a href="https://share.google/B9WpajhNuORHjuQ5L">Google Map</a>',
+        },
+      ]),
+    };
+    // The shortlink resolution call returns a response whose .url is the final
+    // google.com/search?q= destination.
+    const resolveResponse = {
+      ok: true,
+      status: 200,
+      url: "https://www.google.com/search?q=Whitecliff+Park&kgmid=/g/11g6q30mfm",
+    };
+
+    vi.mocked(safeFetchModule.safeFetch)
+      .mockResolvedValueOnce(archiveResponse as never)
+      .mockResolvedValueOnce(resolveResponse as never);
+
+    const result = await adapter.fetch(mockSource);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].location).toBe("Whitecliff Park");
+    expect(result.events[0].locationUrl).toBe("https://share.google/B9WpajhNuORHjuQ5L");
+  });
+
+  it("does not store or fetch a hostile body link as a location (Codex review)", async () => {
+    const archiveResponse = {
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue([
+        {
+          title: "Upcumming Hash: Sunday Mar 22nd 2026",
+          subtitle: "Meet @ 5PM",
+          slug: "evil",
+          post_date: "2026-03-21T10:00:00Z",
+          canonical_url: "https://www.stlh3.com/p/evil",
+          body_html: '<a href="https://evil.example/?next=share.google/foo">Google Map</a>',
+        },
+      ]),
+    };
+    vi.mocked(safeFetchModule.safeFetch).mockResolvedValueOnce(archiveResponse as never);
+
+    const result = await adapter.fetch(mockSource);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].location).toBeUndefined();
+    expect(result.events[0].locationUrl).toBeUndefined();
+    // Only the archive listing was fetched — no resolve fetch to evil.example.
     expect(safeFetchModule.safeFetch).toHaveBeenCalledTimes(1);
   });
 

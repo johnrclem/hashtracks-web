@@ -5,6 +5,7 @@ import {
   chronoParseDate,
   cleanLocationName,
   fetchHTMLPage,
+  formatAmPmTime,
   stripClickHereForMap,
 } from "../utils";
 
@@ -46,11 +47,42 @@ const SOURCE_URL_DEFAULT = "https://www.sh3.link/?page_id=9470";
  * the next known label anchor so the parser remains robust when the
  * WordPress innerText collapses every labeled field onto a single line.
  */
-const NEXT_LABEL = /(?=Run\s*#|Date:|Hares?:|Start:|On\s*On:|$)/i.source;
-const DATE_RE = new RegExp(`Date:\\s*(.+?)\\s*${NEXT_LABEL}`, "i");
-const HARES_RE = new RegExp(`Hares?:\\s*(.+?)\\s*${NEXT_LABEL}`, "i");
-const START_RE = new RegExp(`Start:\\s*(.+?)\\s*${NEXT_LABEL}`, "i");
-const ON_ON_RE = new RegExp(`On\\s*On:\\s*(.+?)\\s*${NEXT_LABEL}`, "i");
+// Each label tolerates whitespace before its colon — the live page writes
+// "On On :" (and occasionally "Start :") with a space, which the old
+// colon-tight patterns missed. When "On On :" failed to match, the Start
+// capture spilled to end-of-string, leaking the On-On venue + CTA into the
+// location and dropping the On-On entirely (#2360 / #2362).
+// Captures use `(.*?)` (zero-or-more) so an empty field whose next label sits
+// immediately after it — e.g. "Hares: Start:" on an un-hared future run —
+// captures "" and stops, instead of `(.+?)` skipping past the adjacent label
+// and swallowing the following field's value (#2360).
+//
+// The "next label" boundary lookahead is inlined into each LITERAL regex below
+// rather than composed via `new RegExp(...)`, so Codacy's detect-non-literal
+// -regexp can see the pattern is fully controlled (the interpolated form is a
+// flagged sink even though the input is a module constant). NOSONAR S5852: the
+// lazy capture + boundary lookahead is the same bounded shape the other HTML
+// scrapers use (e.g. chicago-hash).
+const DATE_RE = /Date\s*:\s*(.*?)\s*(?=Run\s*#|Date\s*:|Hares?\s*:|Start\s*:|On\s*On\s*:|$)/i; // NOSONAR S5852
+const HARES_RE = /Hares?\s*:\s*(.*?)\s*(?=Run\s*#|Date\s*:|Hares?\s*:|Start\s*:|On\s*On\s*:|$)/i; // NOSONAR S5852
+const START_RE = /Start\s*:\s*(.*?)\s*(?=Run\s*#|Date\s*:|Hares?\s*:|Start\s*:|On\s*On\s*:|$)/i; // NOSONAR S5852
+const ON_ON_RE = /On\s*On\s*:\s*(.*?)\s*(?=Run\s*#|Date\s*:|Hares?\s*:|Start\s*:|On\s*On\s*:|$)/i; // NOSONAR S5852
+
+/**
+ * Parse the start time the editors append to the Date cell as "@ 6:30pm" /
+ * "@ 6:30 pm" / "@ 6pm" (#2361). Returns "HH:MM" or undefined when absent or
+ * out of range. chrono parses the date and ignores this "@ time" suffix, so it
+ * has to be recovered separately.
+ */
+const SH3_AT_TIME_RE = /@\s*(\d{1,2})(?::(\d{2}))?\s*([ap]m)/i;
+function parseStartTimeFromDate(dateField: string): string | undefined {
+  const m = SH3_AT_TIME_RE.exec(dateField);
+  if (!m) return undefined;
+  const h = Number.parseInt(m[1], 10);
+  const min = m[2] ? Number.parseInt(m[2], 10) : 0;
+  if (h < 1 || h > 12 || min > 59) return undefined;
+  return formatAmPmTime(h, min, m[3]);
+}
 
 function captureLabel(text: string, re: RegExp): string | undefined {
   const m = re.exec(text);
@@ -141,14 +173,21 @@ const TRAILING_PUNCT = new Set(["-", "–", "—", " "]);
 // trail-setters, so there are no real hares to recover — drop the whole field.
 const JOINT_RUN_RE = /\bjoint\s+run\b/i;
 
+// "Posh –" / "Posh -" / "Posh:" / "Posh Hash –" lead-in some scribes prefix to
+// the hare line ("Posh" is the kennel's nickname, not a hare). Stripped only
+// when a separator + more content follows, so a hare literally named "Posh"
+// survives (#2363).
+const POSH_PREFIX_RE = /^posh(?:\s+hash)?\s*[-–—:]\s*(?=\S)/i;
+
 function cleanHares(raw: string | undefined): string | null | undefined {
   if (!raw) return undefined;
   // Recognized non-hare content → null (explicit clear), so a stale hare stored
   // for this run from an earlier scrape is wiped rather than preserved. The
   // merge tri-state reads undefined as "keep existing", null as "clear" (#2056).
   if (JOINT_RUN_RE.test(raw)) return null;
-  const cutoff = findFirstPromoIndex(raw);
-  let cleaned = (cutoff !== -1 ? raw.slice(0, cutoff) : raw).trimEnd();
+  const deprefixed = raw.replace(POSH_PREFIX_RE, "");
+  const cutoff = findFirstPromoIndex(deprefixed);
+  let cleaned = (cutoff !== -1 ? deprefixed.slice(0, cutoff) : deprefixed).trimEnd();
   // Collapse trailing punctuation left behind by truncation (en-dash, hyphen).
   while (cleaned.length > 0 && TRAILING_PUNCT.has(cleaned[cleaned.length - 1])) {
     cleaned = cleaned.slice(0, -1).trimEnd();
@@ -182,6 +221,7 @@ export function parseSh3Paragraph(
   const date = chronoParseDate(dateField, "en-GB", referenceDate, { forwardDate: true });
   if (!date) return null;
 
+  const startTime = parseStartTimeFromDate(dateField);
   const hares = cleanHares(captureLabel(text, HARES_RE));
   // Run the captured Start: value through the shared location cleaner so a
   // blank Start: (which lets the non-greedy capture spill into the trailing
@@ -201,6 +241,7 @@ export function parseSh3Paragraph(
     kennelTags: [KENNEL_TAG],
     runNumber,
     hares,
+    startTime,
     location: start,
     description: onOn,
     sourceUrl,

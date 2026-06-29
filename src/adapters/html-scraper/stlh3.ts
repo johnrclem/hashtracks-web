@@ -62,40 +62,190 @@ export function parseSubtitleTime(subtitle?: string | null): string {
   return `${hours.toString().padStart(2, "0")}:${minutes}`;
 }
 
+// Google-owned shortlink hosts whose venue can only be recovered by following
+// the redirect (#2338). `goo.gl`/`maps.app.goo.gl` are Maps short URLs;
+// `share.google` is Google's share shim that lands on a `google.*/search?q=`.
+const MAPS_SHORTLINK_HOSTS = new Set(["share.google", "goo.gl", "maps.app.goo.gl"]);
+
 /**
- * Extract location from Google Maps URLs in body HTML.
+ * True when `host` is (a subdomain of) a Google registrable domain —
+ * `google.com`, `www.google.com`, `maps.google.com`, `google.co.uk`, etc.
+ * Label-based (not a regex) so it can't be ReDoS-flagged and, crucially, so
+ * "google" must be the registrable-domain label: `google.evil.com` and
+ * `evil.google.attacker.com` are correctly REJECTED (the substring/loose-regex
+ * forms would let them through — Codex/Codacy review).
+ */
+function isGoogleHost(host: string): boolean {
+  const labels = host.split(".");
+  const n = labels.length;
+  if (n < 2) return false;
+  // google.<tld>  /  *.google.<tld>   (google.com, www.google.com)
+  if (labels[n - 2] === "google") return true;
+  // google.<2-letter-sld>.<2-letter-cctld>  (google.co.uk, www.google.co.uk)
+  return (
+    n >= 3 &&
+    labels[n - 3] === "google" &&
+    labels[n - 1].length === 2 &&
+    labels[n - 2].length <= 3
+  );
+}
+const MAPS_DIR_RE = /\/maps\/dir\/\/([^/@?]+)/i;
+const MAPS_PLACE_RE = /\/maps\/place\/([^/@?]+)/i;
+// A coordinate-only / numeric query value ("38.6,-90.2") that is not a venue.
+const COORDS_ONLY_RE = /^[-\d.,\s]+$/;
+// Generic map anchor labels that carry no venue ("Google Map", "Directions").
+const GENERIC_MAP_LABEL_RE = /^(?:google\s*map|view\s*map|map|directions?|location)s?$/i;
+
+/**
+ * The parsed http(s) URL, or undefined when unparseable / non-HTTP. Used to
+ * gate maps-link detection on the actual HOST (+ path) rather than a substring
+ * match — a hostile body link like `https://evil.example/?next=share.google/x`
+ * must NOT be treated as a maps link, persisted as `locationUrl`, or followed
+ * as a shortlink (Codex review).
+ */
+function httpUrl(href: string): URL | undefined {
+  let u: URL;
+  try {
+    u = new URL(href);
+  } catch {
+    return undefined;
+  }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return undefined;
+  return u;
+}
+
+function httpHost(href: string): string | undefined {
+  return httpUrl(href)?.hostname.toLowerCase();
+}
+
+/**
+ * A trustworthy Google Maps / share link. Shortlink hosts (share.google etc.)
+ * pass on host alone (they're resolved later); direct Google hosts must ALSO
+ * point at a Maps/search SURFACE (`/maps…` or `/search?q=`), so a generic
+ * `google.com/<anything>` link can't be persisted as a location (CodeRabbit
+ * review). The same predicate re-validates a resolved shortlink before parsing.
+ */
+function isMapsHost(href: string): boolean {
+  const u = httpUrl(href);
+  if (!u) return false;
+  const host = u.hostname.toLowerCase();
+  if (MAPS_SHORTLINK_HOSTS.has(host)) return true;
+  if (!isGoogleHost(host)) return false;
+  const path = u.pathname.toLowerCase();
+  return (
+    host.startsWith("maps.google.") ||
+    path === "/maps" ||
+    path.startsWith("/maps/") ||
+    (path === "/search" && u.searchParams.has("q"))
+  );
+}
+
+/** A Google shortlink host whose venue can only be recovered by following the redirect. */
+function isMapsShortlink(href: string): boolean {
+  const host = httpHost(href);
+  return host !== undefined && MAPS_SHORTLINK_HOSTS.has(host);
+}
+
+/** Decode a `+`-delimited Google Maps path/param segment to plain text. */
+function decodeMapsSegment(s: string): string {
+  try {
+    return decodeURIComponent(s.replace(/\+/g, " ")).trim();
+  } catch {
+    return s.replace(/\+/g, " ").trim();
+  }
+}
+
+/** Venue from the path forms `/maps/dir//VENUE` or `/maps/place/VENUE`. */
+function parseVenueFromMapsPath(url: string): string | undefined {
+  const dir = MAPS_DIR_RE.exec(url);
+  if (dir) return decodeMapsSegment(dir[1]);
+  const place = MAPS_PLACE_RE.exec(url);
+  if (place) return decodeMapsSegment(place[1]);
+  return undefined;
+}
+
+/** Venue from the query forms `?daddr=…`, `?q=…`, or `?destination=…`. */
+function parseVenueFromMapsQuery(url: string): string | undefined {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return undefined;
+  }
+  const raw =
+    u.searchParams.get("daddr") ??
+    u.searchParams.get("q") ??
+    u.searchParams.get("destination");
+  if (!raw) return undefined;
+  const v = decodeMapsSegment(raw);
+  // Reject coordinate-only or too-short values ("x", "38.6,-90.2").
+  if (v.length <= 3 || COORDS_ONLY_RE.test(v)) return undefined;
+  return v;
+}
+
+/** A descriptive anchor label, rejecting generic "Google Map" / "Directions" text. */
+function realLinkText(text: string): string | undefined {
+  const t = text.trim();
+  if (t.length <= 3) return undefined;
+  if (GENERIC_MAP_LABEL_RE.test(t)) return undefined;
+  return t;
+}
+
+/**
+ * The first anchor whose HOST is an allowlisted Google Maps / share host, with
+ * its href + visible text. Host-gated (not substring-matched) so untrusted post
+ * HTML can't smuggle a hostile href through a `share.google` query fragment.
+ */
+export function findMapsLink(bodyHtml: string): { href: string; text: string } | undefined {
+  const $ = cheerio.load(bodyHtml);
+  const a = $("a[href]")
+    .filter((_i, el) => isMapsHost($(el).attr("href") ?? ""))
+    .first();
+  if (!a.length) return undefined;
+  return { href: a.attr("href") ?? "", text: a.text().trim() };
+}
+
+/**
+ * Extract a venue/location string from the first Google-Maps link in body HTML.
  *
- * Pattern: google.com/maps/dir//VenueName+Address/@lat,lng
- * The part after /dir// and before /@ is the venue name/address (URL-encoded with +).
- *
- * Also matches: google.com/maps/place/VenueName+Address/
+ * Precedence: structured path (`/dir//`, `/place/`) → descriptive link text →
+ * query param (`daddr`/`q`/`destination`). Shortlinks (`share.google`,
+ * `goo.gl`, `maps.app.goo.gl`) carry no inline venue and need the async
+ * `fetch()` path's redirect resolution — this sync helper returns undefined for
+ * them (the adapter then resolves + re-parses). #2338.
  */
 export function extractLocationFromMapsUrl(
   bodyHtml: string,
 ): string | undefined {
-  const $ = cheerio.load(bodyHtml);
+  const link = findMapsLink(bodyHtml);
+  if (!link) return undefined;
+  return (
+    parseVenueFromMapsPath(link.href) ??
+    realLinkText(link.text) ??
+    parseVenueFromMapsQuery(link.href)
+  );
+}
 
-  // Find Google Maps links
-  const mapsLinks = $('a[href*="google.com/maps"]');
-  if (!mapsLinks.length) return undefined;
-
-  const href = mapsLinks.first().attr("href") ?? "";
-
-  // Pattern 1: /maps/dir//VenueName+Address/@lat,lng
-  const dirMatch = /\/maps\/dir\/\/([^/@]+)/i.exec(href);
-  if (dirMatch) {
-    return decodeURIComponent(dirMatch[1].replace(/\+/g, " ")).trim();
+/**
+ * Follow a Google Maps shortlink (share.google / goo.gl / maps.app.goo.gl) to
+ * its resolved destination URL. `safeFetch` follows redirects manually with
+ * per-hop SSRF re-validation; the final response's `.url` is the resolved
+ * target (e.g. `google.com/search?q=Whitecliff+Park`). Returns undefined on any
+ * failure so a dead shortlink never breaks the scrape.
+ */
+async function resolveMapsShortlink(url: string): Promise<string | undefined> {
+  try {
+    const res = await safeFetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+      },
+    });
+    const finalUrl = res.url;
+    return finalUrl && finalUrl !== url ? finalUrl : undefined;
+  } catch {
+    return undefined;
   }
-
-  // Pattern 2: /maps/place/VenueName+Address/
-  const placeMatch = /\/maps\/place\/([^/@]+)/i.exec(href);
-  if (placeMatch) {
-    return decodeURIComponent(placeMatch[1].replace(/\+/g, " ")).trim();
-  }
-
-  // Fallback: link text
-  const linkText = mapsLinks.first().text().trim();
-  return linkText && linkText.length > 3 ? linkText : undefined;
 }
 
 /**
@@ -261,8 +411,24 @@ export class StlH3Adapter implements SourceAdapter {
           }
         }
 
+        let locationUrl: string | undefined;
         if (bodyHtml) {
-          location = extractLocationFromMapsUrl(bodyHtml);
+          const link = findMapsLink(bodyHtml);
+          if (link) {
+            locationUrl = link.href;
+            location = parseVenueFromMapsPath(link.href);
+            // Shortlinks (share.google etc.) hide the venue behind a redirect —
+            // resolve once, re-validate the destination is still a Maps/search
+            // surface, then parse it (#2338; CodeRabbit review).
+            if (!location && isMapsShortlink(link.href)) {
+              const resolved = await resolveMapsShortlink(link.href);
+              if (resolved && isMapsHost(resolved)) {
+                location =
+                  parseVenueFromMapsPath(resolved) ?? parseVenueFromMapsQuery(resolved);
+              }
+            }
+            location ??= realLinkText(link.text) ?? parseVenueFromMapsQuery(link.href);
+          }
         }
 
         events.push({
@@ -270,6 +436,7 @@ export class StlH3Adapter implements SourceAdapter {
           kennelTags: ["stlh3"],
           title: cleanPostTitle(post.title),
           location,
+          locationUrl,
           startTime,
           sourceUrl: post.canonical_url || `${baseUrl}/p/${post.slug}`,
         });

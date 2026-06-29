@@ -26,9 +26,11 @@
  * `dh3-ae`. Numbered runs that happen to be virtual ("… – The War Edition –
  * ONLINE") are real DH3 runs and are kept (with their trailing theme as title).
  *
- * No per-event venue/hares/coords are published for current-era runs (they are
- * distributed off-site via WhatsApp), and the per-run contact-hare phone number
- * is PII and deliberately NOT scraped.
+ * Each run also has a DETAIL page (?mec-events=dh3-run-NNNN) that publishes the
+ * hare(s), the venue + Google Maps link, optional lat/lng, and a free-form
+ * run-notes body. fetch() follows the in-window runs' detail links and enriches
+ * each event with those fields (see `parseDetailPage`). The per-run contact-hare
+ * phone number is PII and is deliberately NOT scraped.
  */
 
 import type { Source } from "@/generated/prisma/client";
@@ -62,6 +64,53 @@ const TIME_RE = /(\d{1,2}):(\d{2})/;
 const DMY_RE = /(\d{1,2})\/(\d{1,2})\/(\d{4})/;
 const TOGGLE_YEAR_RE = /mec-toggle-(\d{4})\d{2}/;
 const YEAR_RE = /(20\d{2})/;
+
+// ── Detail-page enrichment (issues #2323-#2326) ──────────────────────────────
+// Validate a run-notes anchor as a Google Maps link by HOSTNAME, not substring
+// — a hostile href that merely contains "maps.app.goo.gl" in a path/query must
+// not be persisted as `locationUrl` (CodeRabbit review). Label-based google
+// check so "google" must be the registrable-domain label (google.evil.com is
+// rejected), mirroring the stlh3 host allowlist.
+function isGoogleHostLabel(host: string): boolean {
+  const labels = host.split(".");
+  const n = labels.length;
+  if (n >= 2 && labels[n - 2] === "google") return true;
+  return (
+    n >= 3 &&
+    labels[n - 3] === "google" &&
+    labels[n - 1].length === 2 &&
+    labels[n - 2].length <= 3
+  );
+}
+function isMapsUrl(href: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(href);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return false;
+  const host = u.hostname.toLowerCase();
+  if (host === "maps.app.goo.gl" || host === "maps.google.com") return true;
+  const path = u.pathname.toLowerCase();
+  if (host === "goo.gl") return path.startsWith("/maps");
+  return isGoogleHostLabel(host) && path.startsWith("/maps");
+}
+// The event's coordinates, embedded in the gmap widget's `mecGoogleMaps({…})`
+// init block. Only present when MEC carries a structured location.
+const DETAIL_LAT_RE = /latitude:\s*"(-?\d+(?:\.\d+)?)"/;
+const DETAIL_LNG_RE = /longitude:\s*"(-?\d+(?:\.\d+)?)"/;
+// Bound the detail-page fan-out: enrich only the in-window runs, batched +
+// capped so a future MEC format change can't trigger hundreds of fetches.
+const DETAIL_FETCH_CONCURRENCY = 4;
+const MAX_DETAIL_FETCHES = 60;
+
+/** Per-run detail-enrichment tallies (surfaced in diagnosticContext). */
+interface DetailDiagnostics {
+  detailTargets: number;
+  detailsEnriched: number;
+  detailFetchFailures: number;
+}
 
 // ---------------------------------------------------------------------------
 // Pure parse helpers (exported for unit testing)
@@ -227,6 +276,105 @@ export function parseHareLine($: cheerio.CheerioAPI): RawEventData[] {
   return [...byRun.values()];
 }
 
+// ---------------------------------------------------------------------------
+// Detail-page parse (per-run hares / venue / maps / notes / coords)
+// ---------------------------------------------------------------------------
+
+export interface DesertDetail {
+  hares?: string;
+  location?: string;
+  locationUrl?: string;
+  description?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+/** Collapse internal whitespace runs to single spaces and trim. */
+function collapseWs(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Extract the event's coordinates from the gmap widget's `mecGoogleMaps({…})`
+ * init block. Returns {} when either component is missing/non-finite, or when
+ * both are 0 (MEC's no-location placeholder marker).
+ */
+function parseDetailCoords(html: string): { latitude?: number; longitude?: number } {
+  const lat = DETAIL_LAT_RE.exec(html);
+  const lng = DETAIL_LNG_RE.exec(html);
+  if (!lat || !lng) return {};
+  const latitude = Number.parseFloat(lat[1]);
+  const longitude = Number.parseFloat(lng[1]);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return {};
+  if (latitude === 0 && longitude === 0) return {};
+  return { latitude, longitude };
+}
+
+/**
+ * Parse a run's MEC detail page into the enrichment fields the listing surfaces
+ * lack. The body (`.mec-single-event-description`) is free-form: some runs lead
+ * with the venue line (2456 "Goose Island Tap House, JVC"), others lead with a
+ * note ("Note: this is a Sunday run …"). Coordinates are only emitted when MEC
+ * carries a *structured* location, so their presence is the signal that the
+ * first body paragraph is a trustworthy venue; without coords the body is
+ * treated as notes only and no venue text is fabricated.
+ *
+ * The contact-hare phone number lives in a separate `dd.mec-organizer-tel` and
+ * is PII — it is never read here.
+ */
+export function parseDetailPage(html: string): DesertDetail {
+  const $ = cheerio.load(html);
+  const detail: DesertDetail = {};
+
+  // Hares — the organizer section titled "Hare(s)". Names sit in
+  // `dd.mec-organizer .mec-meta-label` (the phone's `dd.mec-organizer-tel` is a
+  // distinct class and is not matched here).
+  const hareNames: string[] = [];
+  $(".mec-single-event-organizer").each((_i, sec) => {
+    const $sec = $(sec);
+    const title = $sec.find(".mec-events-single-section-title").first().text().toLowerCase();
+    if (!title.includes("hare")) return;
+    $sec.find("dd.mec-organizer .mec-meta-label").each((_j, el) => {
+      const name = collapseWs($(el).text());
+      if (name && !/^phone$/i.test(name)) hareNames.push(name);
+    });
+  });
+  if (hareNames.length > 0) detail.hares = hareNames.join(", ");
+
+  const coords = parseDetailCoords(html);
+  if (coords.latitude != null && coords.longitude != null) {
+    detail.latitude = coords.latitude;
+    detail.longitude = coords.longitude;
+  }
+
+  // Venue / Maps link / notes from the free-form description body.
+  const $desc = $(".mec-single-event-description").first();
+  if ($desc.length > 0) {
+    const contentParas: string[] = [];
+    $desc.find("p").each((_i, p) => {
+      const $p = $(p);
+      const text = collapseWs($p.text());
+      if (!text) return; // image-only / empty paragraph
+      const $maps = $p
+        .find("a[href]")
+        .filter((_j, a) => isMapsUrl($(a).attr("href") ?? ""))
+        .first();
+      if ($maps.length > 0 && !detail.locationUrl) detail.locationUrl = $maps.attr("href");
+      // A paragraph that is ONLY a maps anchor ("Google Map Link") is not content.
+      if ($maps.length > 0 && text === collapseWs($maps.text())) return;
+      contentParas.push(text);
+    });
+    // First body line is the venue only when MEC supplied structured coords.
+    if (coords.latitude != null && contentParas.length > 0) {
+      detail.location = contentParas.shift();
+    }
+    const body = contentParas.join("\n").trim();
+    if (body) detail.description = body;
+  }
+
+  return detail;
+}
+
 /**
  * Merge one fetched surface into `byRun`, recording fetch/parse errors. Returns
  * the page's structureHash + fetch duration (0 for a failed fetch). Extracted
@@ -313,6 +461,104 @@ export class DesertHashAdapter implements SourceAdapter {
       },
     };
 
-    return applyDateWindow(result, options?.days ?? source.scrapeDays ?? DEFAULT_SCRAPE_DAYS);
+    const windowed = applyDateWindow(
+      result,
+      options?.days ?? source.scrapeDays ?? DEFAULT_SCRAPE_DAYS,
+    );
+
+    // Enrich the in-window runs with detail-page hares / venue / maps / notes /
+    // coords (issues #2323-#2326). Best-effort: an individual detail fetch/parse
+    // failure is recorded in diagnostics but never pushed to `errors[]`, so it
+    // can't turn a successful listing scrape into a FAILED run (which would skip
+    // reconcile of genuinely-removed runs — the listing surfaces still produced
+    // valid date/run#/time for every event).
+    const detailDiag: DetailDiagnostics = {
+      detailTargets: 0,
+      detailsEnriched: 0,
+      detailFetchFailures: 0,
+    };
+    // Per-detail fetch/parse failures are preserved here (structured, for the
+    // audit pipeline) but deliberately kept OUT of `errors[]`.
+    const detailErrors: ErrorDetails = windowed.errorDetails ?? {};
+    await this.enrichWithDetails(windowed.events, detailDiag, detailErrors);
+    windowed.diagnosticContext = { ...windowed.diagnosticContext, ...detailDiag };
+
+    // Surface SYSTEMIC enrichment loss — every in-window run came back with ZERO
+    // enriched fields, whether the detail fetch failed OR the page returned 200
+    // but parsed to {} under MEC markup drift (gating on `detailsEnriched === 0`
+    // catches both; `detailFetchFailures === detailTargets` would miss the
+    // parse-empty drift — Codex/CodeRabbit review). `errorDetails` only, NOT
+    // `errors[]`, so the healthy listing still reconciles instead of leaving
+    // stale runs uncancelled.
+    if (detailDiag.detailTargets > 0 && detailDiag.detailsEnriched === 0) {
+      const message =
+        `Desert H3: detail-page enrichment produced no fields for all ${detailDiag.detailTargets} ` +
+        `in-window runs (hares/venue/notes unavailable — detail-page block or MEC markup drift?)`;
+      const parseErrors = detailErrors.parse ?? [];
+      parseErrors.push({ row: -1, section: "detail", error: message });
+      detailErrors.parse = parseErrors;
+    }
+    if (hasAnyErrors(detailErrors)) windowed.errorDetails = detailErrors;
+
+    return windowed;
+  }
+
+  /** Follow each in-window run's detail link and merge enrichment fields. */
+  private async enrichWithDetails(
+    events: RawEventData[],
+    diagnostics: DetailDiagnostics,
+    errorDetails: ErrorDetails,
+  ): Promise<void> {
+    const targets = events
+      .filter((e) => e.sourceUrl?.includes("mec-events="))
+      .slice(0, MAX_DETAIL_FETCHES);
+    diagnostics.detailTargets = targets.length;
+
+    for (let i = 0; i < targets.length; i += DETAIL_FETCH_CONCURRENCY) {
+      const batch = targets.slice(i, i + DETAIL_FETCH_CONCURRENCY);
+      // Sequential by design: bounded batches keep the fan-out polite.
+      await Promise.all(batch.map((e) => this.enrichOne(e, diagnostics, errorDetails)));
+    }
+  }
+
+  private async enrichOne(
+    e: RawEventData,
+    diagnostics: DetailDiagnostics,
+    errorDetails: ErrorDetails,
+  ): Promise<void> {
+    const url = e.sourceUrl;
+    if (!url) return;
+    const page = await fetchHTMLPage(url);
+    if (!page.ok) {
+      diagnostics.detailFetchFailures++;
+      // Preserve the structured fetch failure (url/status/message) for audits.
+      const fetchErrs = page.result.errorDetails?.fetch;
+      errorDetails.fetch ??= [];
+      if (fetchErrs && fetchErrs.length > 0) errorDetails.fetch.push(...fetchErrs);
+      else errorDetails.fetch.push({ url, message: page.result.errors[0] ?? "Detail fetch failed" });
+      return;
+    }
+    try {
+      const d = parseDetailPage(page.html);
+      let enriched = false;
+      if (d.hares) { e.hares = d.hares; enriched = true; }
+      if (d.location) { e.location = d.location; enriched = true; }
+      if (d.locationUrl) { e.locationUrl = d.locationUrl; enriched = true; }
+      if (d.description) { e.description = d.description; enriched = true; }
+      if (d.latitude != null && d.longitude != null) {
+        e.latitude = d.latitude;
+        e.longitude = d.longitude;
+        enriched = true;
+      }
+      if (enriched) diagnostics.detailsEnriched++;
+    } catch (err) {
+      diagnostics.detailFetchFailures++;
+      errorDetails.parse ??= [];
+      errorDetails.parse.push({
+        row: e.runNumber ?? -1,
+        section: "detail",
+        error: `Detail parse failed: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
   }
 }

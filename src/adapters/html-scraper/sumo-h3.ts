@@ -29,6 +29,28 @@ import {
   isPlaceholder,
 } from "../utils";
 
+const DEFAULT_START_TIME = "14:00"; // Site default: "Sumo Hashers meet every Sunday at 2:00 pm"
+
+/**
+ * Recover a non-default start time when the event description tightly anchors a
+ * time to the word "start" — e.g. "11:00start!!", "10:30 start" (#2379). The
+ * "start" anchor (only `\s*` between it and the time, no am/pm) keeps this
+ * conservative: incidental numbers elsewhere in the prose never fire. Bare
+ * times are taken at face value (Sumo's early starts are morning times).
+ * Returns undefined when no anchored time is present, leaving the caller to use
+ * the 2:00 pm default.
+ */
+const SUMO_START_RE = /\b(\d{1,2}):(\d{2})\s*start\b/i;
+export function parseStartFromDescription(desc: string | undefined): string | undefined {
+  if (!desc) return undefined;
+  const m = SUMO_START_RE.exec(desc);
+  if (!m) return undefined;
+  const h = Number.parseInt(m[1], 10);
+  const min = Number.parseInt(m[2], 10);
+  if (h > 23 || min > 59) return undefined;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
 /** Parse "DD Mon" into "YYYY-MM-DD" using current (or reference) year. */
 export function parseSumoDate(
   text: string,
@@ -92,6 +114,9 @@ export function parseHarelineRow(
   // Build description from event description field (if not placeholder)
   const description = isPlaceholderDesc ? undefined : descText;
 
+  // A description-embedded "HH:MMstart" overrides the 2:00 pm default (#2379).
+  const startTime = parseStartFromDescription(descText) ?? DEFAULT_START_TIME;
+
   return {
     date,
     kennelTags: ["sumo-h3"],
@@ -99,7 +124,7 @@ export function parseHarelineRow(
     runNumber,
     hares,
     location: station,
-    startTime: "14:00", // Default per site: "Sumo Hashers meet every Sunday at 2:00 pm"
+    startTime,
     sourceUrl,
     description,
   };

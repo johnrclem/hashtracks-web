@@ -184,6 +184,25 @@ describe("buildEventFromDetail", () => {
     expect(event.hares).toBeUndefined();
   });
 
+  it("falls back to harestr when the hares array is empty", () => {
+    const detail = { ...baseDetail, hares: [], harestr: "Solo Hare" };
+    const event = buildEventFromDetail(detail, baseListing);
+    expect(event.hares).toBe("Solo Hare");
+  });
+
+  it("recovers hares from the TIDBIT body when array + harestr are empty (#2284)", () => {
+    // Real shape from lookup_id 10071 (Trail #1212): hares only in the TIDBIT.
+    const detail = {
+      ...baseDetail,
+      hares: [],
+      harestr: null,
+      TIDBIT:
+        "<div>WE LOVE RESTON<br><br>Hares:  Horse with No Name, Just Balaji, Dog with 69 Names <br><br>Runners: 4.69 miles<br><br>Prelube: Kalypsos</div>",
+    };
+    const event = buildEventFromDetail(detail, baseListing);
+    expect(event.hares).toBe("Horse with No Name, Just Balaji, Dog with 69 Names");
+  });
+
   it("falls back to ADDRESS when LOCATION is missing", () => {
     const detail = { ...baseDetail, LOCATION: undefined, ADDRESS: "123 Main St" };
     const event = buildEventFromDetail(detail, baseListing);

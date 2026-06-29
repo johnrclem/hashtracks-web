@@ -173,6 +173,32 @@ describe("SumoH3Adapter", () => {
       expect(result).toBeNull();
     });
 
+    it("overrides the 2:00 pm default with a 'HH:MMstart' time in the description (#2379)", () => {
+      const cells = [
+        "1059(click here)",
+        "21 Jun ",
+        "Father's Day Special 11:00start!!",
+        "Okutama",
+        "JR Ome Line",
+        "Lost in Translation",
+      ];
+      const result = parseHarelineRow(cells, 1059, sourceUrl, ref);
+      expect(result?.startTime).toBe("11:00");
+    });
+
+    it("keeps the 2:00 pm default when no 'start'-anchored time is present", () => {
+      const cells = [
+        "1060(click here)",
+        "28 Jun ",
+        "Meet at gate 2 then run", // incidental number must NOT fire
+        "Tokyo",
+        "JR",
+        "Some Hare",
+      ];
+      const result = parseHarelineRow(cells, 1060, sourceUrl, ref);
+      expect(result?.startTime).toBe("14:00");
+    });
+
     it("returns null for fewer than 6 cells", () => {
       const result = parseHarelineRow(
         ["1038", "05 Apr"],

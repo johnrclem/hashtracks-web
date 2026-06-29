@@ -1,5 +1,31 @@
-import { describe, it, expect } from "vitest";
-import { parseTrailPageHtml, parseRssItems, extractTrailNumber } from "./soh4";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Source } from "@/generated/prisma/client";
+import { SOH4Adapter, parseTrailPageHtml, parseRssItems, extractTrailNumber } from "./soh4";
+
+vi.mock("@/adapters/safe-fetch", () => ({ safeFetch: vi.fn() }));
+vi.mock("@/pipeline/structure-hash", () => ({
+  generateStructureHash: vi.fn(() => "mock-hash-soh4"),
+}));
+
+const { safeFetch } = await import("@/adapters/safe-fetch");
+const mockedSafeFetch = vi.mocked(safeFetch);
+
+function soh4Source(): Source {
+  return {
+    id: "src-soh4",
+    name: "SOH4 Website",
+    url: "https://www.soh4.com/trails/feed/",
+    type: "HTML_SCRAPER",
+    trustLevel: 6,
+    scrapeFreq: "daily",
+    scrapeDays: 365,
+    config: {},
+    isActive: true,
+    lastScrapedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as unknown as Source;
+}
 
 // ── HTML fixtures ──
 
@@ -7,7 +33,7 @@ import { parseTrailPageHtml, parseRssItems, extractTrailNumber } from "./soh4";
 const COMPLETE_TRAIL_HTML = `<html><body>
 <div class="em-item em-item-single em-event em-event-single em-event-617">
   <h1>Trail #822: Spring Flours</h1>
-  <h4>Saturday - March 21, 2026 - 2:09 pm</h4>
+  <h4>Saturday - March 21, 2026 - 2:09 pm - 5:09 pm</h4>
   <p>March weather has been at times both warm enough to start us thinking
   spring flowers and STRAWBERRY(s) but then cold enough for snow's return to
   crush our spirits to ZERO. Cum to Geddes and encourage Mother Nature to bring
@@ -92,6 +118,22 @@ describe("parseTrailPageHtml", () => {
   it("parses 'AKA' start time format (hash humor)", () => {
     const result = parseTrailPageHtml(COMPLETE_TRAIL_HTML);
     expect(result.startTime).toBe("14:09");
+  });
+
+  it("extracts the end time from the date line (#2329)", () => {
+    const result = parseTrailPageHtml(COMPLETE_TRAIL_HTML);
+    expect(result.endTime).toBe("17:09");
+  });
+
+  it("falls back to the date-line time when the labeled field is absent (#2328)", () => {
+    const html = `<div class="em-event-single">
+      <h1>Trail #840: Early Bird</h1>
+      <h4>Monday - June 8, 2026 - 11:00 am - 1:00 pm</h4>
+      <p><strong>Hares:</strong> Early Riser </br></p>
+    </div>`;
+    const result = parseTrailPageHtml(html);
+    expect(result.startTime).toBe("11:00");
+    expect(result.endTime).toBe("13:00");
   });
 
   it("parses standard start time", () => {
@@ -223,5 +265,52 @@ describe("extractTrailNumber", () => {
 
   it("returns undefined for non-trail URL", () => {
     expect(extractTrailNumber("https://www.soh4.com/about/")).toBeUndefined();
+  });
+});
+
+// ── SOH4Adapter.fetch (title placeholder + endTime/cost routing) ──
+
+describe("SOH4Adapter.fetch", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  function mockFeedAndTrails(items: Array<{ url: string; html: string }>) {
+    const rss = `<?xml version="1.0"?><rss><channel>${items
+      .map((i) => `<item><title>Trail</title><link>${i.url}</link></item>`)
+      .join("")}</channel></rss>`;
+    mockedSafeFetch.mockImplementation((url: string) => {
+      const u = String(url);
+      let html = rss;
+      if (u.includes("/feed/")) {
+        html = rss;
+      } else {
+        const hit = items.find((i) => u.startsWith(i.url));
+        html = hit ? hit.html : "";
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        text: () => Promise.resolve(html),
+        headers: new Headers({ "content-type": "text/html" }),
+      } as Response);
+    });
+  }
+
+  it("populates endTime + cost on Event fields, not in description (#2329)", async () => {
+    mockFeedAndTrails([{ url: "https://www.soh4.com/trails/822/", html: COMPLETE_TRAIL_HTML }]);
+    const result = await new SOH4Adapter().fetch(soh4Source());
+    const e = result.events.find((ev) => ev.runNumber === 822);
+    expect(e?.startTime).toBe("14:09");
+    expect(e?.endTime).toBe("17:09");
+    expect(e?.cost).toBe("$7 (Virgins/first timers are free!)");
+    expect(e?.description).not.toContain("Hash Cash");
+    expect(e?.title).toBe("Spring Flours");
+  });
+
+  it("synthesizes the default title when the source title is a placeholder (#2327)", async () => {
+    mockFeedAndTrails([{ url: "https://www.soh4.com/trails/825/", html: TBD_TRAIL_HTML }]);
+    const result = await new SOH4Adapter().fetch(soh4Source());
+    const e = result.events.find((ev) => ev.runNumber === 825);
+    expect(e?.title).toBe("SOH4 Trail #825"); // not "TBD"
   });
 });
