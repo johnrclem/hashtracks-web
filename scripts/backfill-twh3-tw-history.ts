@@ -17,16 +17,8 @@
  */
 
 import "dotenv/config";
-import { runBackfillScript } from "./lib/backfill-runner";
-import { sweepGlobalRuns, mapRunToRawEvent } from "./lib/hc-global-runs";
+import { runHcKennelBackfill } from "./lib/hc-global-runs";
 import type { HarrierCentralConfig } from "@/adapters/harrier-central/adapter";
-import type { RawEventData } from "@/adapters/types";
-
-const SOURCE_NAME = "Taiwan H3 Harrier Central";
-const KENNEL_TAG = "twh3-tw";
-const PUBLIC_KENNEL_ID = "f1330d14-e3b4-427a-9bea-639f18218804";
-const KENNEL_TIMEZONE = "Asia/Taipei";
-const HISTORY_START = "2021-01-01"; // HC era begins ~2021-12
 
 // Mirrors prisma/seed-data/sources.ts "Taiwan H3 Harrier Central".config.
 const CONFIG: HarrierCentralConfig = {
@@ -34,21 +26,12 @@ const CONFIG: HarrierCentralConfig = {
   staleTitleAliases: ["Placeholder event for TwH3"],
 };
 
-async function fetchEvents(): Promise<RawEventData[]> {
-  const today = new Date().toISOString().slice(0, 10);
-  const runs = await sweepGlobalRuns(HISTORY_START, today);
-  const mine = runs.filter((r) => r.PublicKennelId === PUBLIC_KENNEL_ID);
-  return mine
-    .map((r) => mapRunToRawEvent(r, KENNEL_TAG, CONFIG))
-    .filter((e): e is RawEventData => e !== null);
-}
-
-runBackfillScript({
-  sourceName: SOURCE_NAME,
-  kennelTimezone: KENNEL_TIMEZONE,
+runHcKennelBackfill({
+  sourceName: "Taiwan H3 Harrier Central",
+  kennelTag: "twh3-tw",
+  publicKennelId: "f1330d14-e3b4-427a-9bea-639f18218804",
+  kennelTimezone: "Asia/Taipei",
+  historyStart: "2021-01-01", // HC era begins ~2021-12
+  config: CONFIG,
   label: "Sweeping Taiwan H3 Harrier Central global-runs archive",
-  fetchEvents,
-}).catch((err) => {
-  console.error(err);
-  process.exit(1);
 });

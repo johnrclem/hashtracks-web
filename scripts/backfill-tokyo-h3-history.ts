@@ -21,16 +21,8 @@
  */
 
 import "dotenv/config";
-import { runBackfillScript } from "./lib/backfill-runner";
-import { sweepGlobalRuns, mapRunToRawEvent } from "./lib/hc-global-runs";
+import { runHcKennelBackfill } from "./lib/hc-global-runs";
 import type { HarrierCentralConfig } from "@/adapters/harrier-central/adapter";
-import type { RawEventData } from "@/adapters/types";
-
-const SOURCE_NAME = "Tokyo H3 Harrier Central";
-const KENNEL_TAG = "tokyo-h3";
-const PUBLIC_KENNEL_ID = "57f5b2c6-8d8f-41e0-8dbf-d03a0a9aa10e";
-const KENNEL_TIMEZONE = "Asia/Tokyo";
-const HISTORY_START = "2021-01-01"; // HC era begins ~2021-09; start earlier to be safe
 
 // Mirrors prisma/seed-data/sources.ts "Tokyo H3 Harrier Central".config.
 const CONFIG: HarrierCentralConfig = {
@@ -43,21 +35,12 @@ const CONFIG: HarrierCentralConfig = {
   ],
 };
 
-async function fetchEvents(): Promise<RawEventData[]> {
-  const today = new Date().toISOString().slice(0, 10);
-  const runs = await sweepGlobalRuns(HISTORY_START, today);
-  const mine = runs.filter((r) => r.PublicKennelId === PUBLIC_KENNEL_ID);
-  return mine
-    .map((r) => mapRunToRawEvent(r, KENNEL_TAG, CONFIG))
-    .filter((e): e is RawEventData => e !== null);
-}
-
-runBackfillScript({
-  sourceName: SOURCE_NAME,
-  kennelTimezone: KENNEL_TIMEZONE,
+runHcKennelBackfill({
+  sourceName: "Tokyo H3 Harrier Central",
+  kennelTag: "tokyo-h3",
+  publicKennelId: "57f5b2c6-8d8f-41e0-8dbf-d03a0a9aa10e",
+  kennelTimezone: "Asia/Tokyo",
+  historyStart: "2021-01-01", // HC era begins ~2021-09; start earlier to be safe
+  config: CONFIG,
   label: "Sweeping Tokyo H3 Harrier Central global-runs archive",
-  fetchEvents,
-}).catch((err) => {
-  console.error(err);
-  process.exit(1);
 });

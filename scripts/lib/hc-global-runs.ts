@@ -35,7 +35,9 @@ import {
   composeHcLocation,
   type HarrierCentralConfig,
 } from "@/adapters/harrier-central/adapter";
+import { eqTrimLc } from "@/adapters/utils";
 import type { RawEventData } from "@/adapters/types";
+import { runBackfillScript } from "./backfill-runner";
 
 const GLOBAL_RUNS_URL = "https://hashruns.org/api/global-runs";
 
@@ -130,16 +132,12 @@ function clean(value: string | undefined): string | undefined {
   return t ? t : undefined;
 }
 
-/** EventNumber → runNumber tri-state, matching the live adapter (0 → null). */
+/** EventNumber → runNumber tri-state, matching the live adapter (0 → null).
+ * Uses Number.isInteger so a NaN/Infinity/float never reaches the integer column. */
 function normalizeRunNumber(n: number | undefined): number | null | undefined {
   if (n === 0) return null;
-  if (typeof n === "number" && n > 0) return n;
+  if (Number.isInteger(n) && (n as number) > 0) return n;
   return undefined;
-}
-
-function eqTrimLc(a: string | undefined, b: string | undefined): boolean {
-  if (!a || !b) return false;
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
 /** Stale-title fallback — "<defaultTitle> #N" when configured, else undefined.
@@ -209,4 +207,50 @@ export function mapRunToRawEvent(
     longitude: hasVenue && typeof run.Longitude === "number" ? run.Longitude : undefined,
     description: clean(run.EventDescription),
   };
+}
+
+export interface HcKennelBackfillOptions {
+  /** Source row name (must exist + be linked to the kennel). */
+  sourceName: string;
+  /** Target kennelCode the runs are routed to. */
+  kennelTag: string;
+  /** HC PublicKennelId used to filter the global feed client-side. */
+  publicKennelId: string;
+  /** IANA timezone for the past/future partition. */
+  kennelTimezone: string;
+  /** Earliest date to sweep (YYYY-MM-DD); pre-HC-adoption windows return nothing. */
+  historyStart: string;
+  /** Source config (defaultTitle + staleTitleAliases) for adapter-faithful titles. */
+  config: HarrierCentralConfig;
+  /** `[1/2]` header label. */
+  label: string;
+}
+
+/**
+ * One-call HC kennel backfill: sweep the global-runs feed from `historyStart` to
+ * today, keep this kennel's runs, map them to the live adapter's shape, and route
+ * the past slice through the merge pipeline. Shared by every HARRIER_CENTRAL
+ * backfill wrapper so the per-kennel scripts are pure config (no duplicated
+ * fetch/filter/map/run boilerplate). Logs + exits non-zero on failure.
+ */
+export function runHcKennelBackfill(opts: HcKennelBackfillOptions): void {
+  runBackfillScript({
+    sourceName: opts.sourceName,
+    kennelTimezone: opts.kennelTimezone,
+    label: opts.label,
+    fetchEvents: async () => {
+      // UTC `today` is the sweep endpoint only — reportAndApplyBackfill
+      // re-partitions with todayInTimezone(kennelTimezone), so a ≤1-day-wide
+      // sweep here is harmless.
+      const today = new Date().toISOString().slice(0, 10);
+      const runs = await sweepGlobalRuns(opts.historyStart, today);
+      return runs
+        .filter((r) => r.PublicKennelId === opts.publicKennelId)
+        .map((r) => mapRunToRawEvent(r, opts.kennelTag, opts.config))
+        .filter((e): e is RawEventData => e !== null);
+    },
+  }).catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  });
 }

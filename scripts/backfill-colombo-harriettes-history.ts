@@ -37,6 +37,7 @@
 
 import "dotenv/config";
 import { runBackfillScript } from "./lib/backfill-runner";
+import { safeFetch } from "@/adapters/safe-fetch";
 import type { RawEventData } from "@/adapters/types";
 
 const SOURCE_NAME = "Colombo Harriettes Website";
@@ -64,7 +65,7 @@ function clean(value: string | undefined): string | undefined {
 }
 
 async function fetchEvents(): Promise<RawEventData[]> {
-  const res = await fetch(API_URL, {
+  const res = await safeFetch(API_URL, {
     headers: { "User-Agent": "Mozilla/5.0 (HashTracks historical backfill)" },
   });
   if (!res.ok) throw new Error(`Colombo API returned HTTP ${res.status}`);
@@ -77,10 +78,13 @@ async function fetchEvents(): Promise<RawEventData[]> {
   for (const row of data as ColomboRun[]) {
     const date = clean(row.run_date);
     if (!date || !DATE_RE.test(date)) continue;
-    if (typeof row.run_number !== "number" || row.run_number <= 0) continue;
+    // Number.isInteger guards the integer runNumber column against NaN/float.
+    if (!Number.isInteger(row.run_number) || (row.run_number as number) <= 0) continue;
 
+    // Pad single-digit hours so startTime is always zero-padded "HH:MM".
     const startTimeRaw = clean(row.starting_time);
-    const startTime = startTimeRaw && TIME_RE.test(startTimeRaw) ? startTimeRaw : undefined;
+    const startTime =
+      startTimeRaw && TIME_RE.test(startTimeRaw) ? startTimeRaw.padStart(5, "0") : undefined;
 
     events.push({
       date,

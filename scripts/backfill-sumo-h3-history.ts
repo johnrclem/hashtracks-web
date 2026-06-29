@@ -44,6 +44,7 @@ const KENNEL_TIMEZONE = "Asia/Tokyo";
 const BASE = "https://sumoh3.gotothehash.net/events";
 // Event post ids are scattered up to the current upcoming pages (~1061); the
 // id space is sparse (many 404 gaps) so we walk the whole range and keep hits.
+// Bump this before re-running once the site publishes ids beyond the ceiling.
 const MAX_ID = 1100;
 const BATCH = 12;
 
@@ -92,9 +93,10 @@ async function fetchEvent(id: number): Promise<RawEventData | null> {
 
   const titleMatch = TITLE_RUN_RE.exec(html);
   const nameNum = typeof ld.name === "number" ? ld.name : Number.parseInt(String(ld.name), 10);
+  // Number.isInteger guards the integer runNumber column against NaN/float.
   const runNumber = titleMatch
     ? Number.parseInt(titleMatch[1], 10)
-    : Number.isFinite(nameNum) && nameNum > 0
+    : Number.isInteger(nameNum) && nameNum > 0
       ? nameNum
       : undefined;
 
