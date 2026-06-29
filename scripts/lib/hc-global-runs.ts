@@ -74,10 +74,17 @@ async function fetchWindow(minDate: string, maxDate: string): Promise<GlobalRun[
   if (res.status === 500) return null; // window too wide → caller halves
   if (!res.ok) throw new Error(`global-runs ${minDate}..${maxDate} → HTTP ${res.status}`);
   const json = (await res.json()) as GlobalRunsResponse;
-  if (!Array.isArray(json.runs)) {
-    throw new Error(`global-runs ${minDate}..${maxDate}: unexpected shape (no runs[])`);
+  const runs = json.runs;
+  if (!Array.isArray(runs)) {
+    throw new TypeError(`global-runs ${minDate}..${maxDate}: unexpected shape (no runs[])`);
   }
-  return json.runs;
+  // A capped response (server returned fewer than it claims to match) would
+  // silently drop history — treat it like a too-wide window so the caller halves
+  // and retries instead of accepting a truncated page as complete.
+  if (typeof json.totalMatchingEvents === "number" && json.totalMatchingEvents > runs.length) {
+    return null;
+  }
+  return runs;
 }
 
 /** Recursively fetch [startMs, endMs], halving any sub-window that 500s. */
@@ -152,11 +159,15 @@ function staleTitleFallback(
   return undefined;
 }
 
-/** Trim + drop TBA / placeholder hares; null when the hare is just the venue. */
+/**
+ * Trim + drop TBA / placeholder / venue-equal hares. Clears to `undefined`
+ * (NOT null) to match the live HC adapter, which uses undefined for exactly
+ * these cases — so a backfilled row fingerprints identically to a live scrape.
+ */
 function cleanHares(raw: string | undefined, location: string | undefined): string | undefined {
   const t = clean(raw);
   if (!t || TBA_RE.test(t) || PLACEHOLDER_HARE_RE.test(t)) return undefined;
-  if (location && t.trim().toLowerCase() === location.trim().toLowerCase()) return undefined;
+  if (eqTrimLc(t, location)) return undefined;
   return t;
 }
 

@@ -81,10 +81,14 @@ async function fetchEvent(id: number): Promise<RawEventData | null> {
   let res: Response;
   try {
     res = await safeFetch(url, { headers: { "User-Agent": "Mozilla/5.0 (HashTracks backfill)" } });
-  } catch {
-    return null;
+  } catch (err) {
+    // Network/proxy/timeout failure is NOT an expected sparse-id miss — fail
+    // loud so the run can be retried instead of completing a partial archive.
+    throw new Error(`Sumo event fetch failed for ${url}`, { cause: err });
   }
-  if (!res.ok) return null;
+  // Sparse id space: 404/410 are the expected "no event at this id" gaps → skip.
+  if (res.status === 404 || res.status === 410) return null;
+  if (!res.ok) throw new Error(`Sumo event ${url} returned HTTP ${res.status}`);
   const html = await res.text();
   const ld = extractLdEvent(html);
   if (!ld?.startDate) return null;

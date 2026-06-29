@@ -57,7 +57,18 @@ interface ColomboRun {
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_RE = /^\d{1,2}:\d{2}$/;
+const TIME_RE = /^(\d{1,2}):(\d{2})$/;
+
+/** Normalize a source time to strict zero-padded "HH:MM", or undefined when it's
+ * not a valid 24h clock value (rejects "29:99" etc. that the regex alone allows). */
+function normalizeTime(raw: string | undefined): string | undefined {
+  const m = raw ? TIME_RE.exec(raw) : null;
+  if (!m) return undefined;
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return undefined;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
 
 function clean(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
@@ -81,10 +92,8 @@ async function fetchEvents(): Promise<RawEventData[]> {
     // Number.isInteger guards the integer runNumber column against NaN/float.
     if (!Number.isInteger(row.run_number) || (row.run_number as number) <= 0) continue;
 
-    // Pad single-digit hours so startTime is always zero-padded "HH:MM".
-    const startTimeRaw = clean(row.starting_time);
-    const startTime =
-      startTimeRaw && TIME_RE.test(startTimeRaw) ? startTimeRaw.padStart(5, "0") : undefined;
+    // Normalize to strict zero-padded "HH:MM"; reject out-of-range values.
+    const startTime = normalizeTime(clean(row.starting_time));
 
     events.push({
       date,
