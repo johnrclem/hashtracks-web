@@ -294,6 +294,17 @@ function collapseWs(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
+// A lead description line is only trusted as the venue when it reads like one:
+// short, with no run-number / "DH3" title marker and no embedded calendar date
+// (those signal a decorative title or a dated blurb, not a gathering spot).
+const VENUE_TITLE_MARKER_RE = /\bDH3\b|\bRun\s*#?\s*\d/i;
+const VENUE_DATE_MARKER_RE =
+  /\b\d{1,2}\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i;
+function looksLikeVenue(line: string): boolean {
+  if (line.length > 60) return false;
+  return !VENUE_TITLE_MARKER_RE.test(line) && !VENUE_DATE_MARKER_RE.test(line);
+}
+
 /**
  * Extract the event's coordinates from the gmap widget's `mecGoogleMaps({…})`
  * init block. Returns {} when either component is missing/non-finite, or when
@@ -364,8 +375,14 @@ export function parseDetailPage(html: string): DesertDetail {
       if ($maps.length > 0 && text === collapseWs($maps.text())) return;
       contentParas.push(text);
     });
-    // First body line is the venue only when MEC supplied structured coords.
-    if (coords.latitude != null && contentParas.length > 0) {
+    // First body line is the venue only when MEC supplied structured coords AND
+    // that line actually looks like a venue. Some runs lead their body with a
+    // decorative TITLE/theme ("DH3 Run #2452 – Desert Shenanigans 🏜️🍻") or a
+    // dated blurb ("The Qudra Lake Trail & BBQ – Sunday 19 April …") rather than
+    // a bare venue, and treating those as the location is worse than leaving it
+    // to the maps link + coords (a wrong venue is worse than none). When the
+    // lead line isn't venue-like it stays in the description.
+    if (coords.latitude != null && contentParas.length > 0 && looksLikeVenue(contentParas[0])) {
       detail.location = contentParas.shift();
     }
     const body = contentParas.join("\n").trim();

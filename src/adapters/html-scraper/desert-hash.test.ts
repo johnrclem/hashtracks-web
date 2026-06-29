@@ -121,6 +121,17 @@ const DETAIL_NOTES = detailPage({
     <p><a href="https://www.deserthash.org/wp-content/uploads/2025/09/alqudracycle.jpeg"><img src="x" alt="" /></a></p>`,
 });
 
+// 2452-style: coords present BUT the body leads with a decorative title/theme
+// line (not a venue) — the lead line must NOT be taken as the location.
+const DETAIL_TITLE_LED = detailPage({
+  hares: ["Slow Crack Whore"],
+  lat: "25.106101",
+  lng: "55.300000",
+  bodyHtml: `<p>DH3 Run #2452 – Desert Shenanigans 🏜️🍻</p>
+    <p>This Sunday from the Truck Stop on Emirates Rd into the half desert.</p>
+    <p><a href="https://maps.app.goo.gl/n3E9JHNFbHn29JBP8">Google Maps Link</a></p>`,
+});
+
 /** Route base→home, page_id=5152→hareline, and any `mec-events=<slug>`→detail HTML. */
 function mockSurfacesWithDetails(homeHtml: string, hareHtml: string, details: Record<string, string>) {
   mockedSafeFetch.mockImplementation((url: string) => {
@@ -304,6 +315,17 @@ describe("parseDetailPage", () => {
     expect(d.longitude).toBeCloseTo(55.20726);
     // Venue-only body → no leftover notes.
     expect(d.description).toBeUndefined();
+  });
+
+  it("does NOT take a title/theme-led body line as the venue, even with coords present", () => {
+    const d = parseDetailPage(DETAIL_TITLE_LED);
+    expect(d.hares).toBe("Slow Crack Whore");
+    expect(d.latitude).toBeCloseTo(25.106101);
+    // The lead "DH3 Run #2452 – Desert Shenanigans 🏜️🍻" is a title, not a venue.
+    expect(d.location).toBeUndefined();
+    expect(d.locationUrl).toContain("maps.app.goo.gl"); // map pin still captured
+    expect(d.description).toContain("Desert Shenanigans");
+    expect(d.description).toContain("Truck Stop on Emirates Rd");
   });
 
   it("treats a coord-less body as free-form notes (no venue) and never reads the phone", () => {
