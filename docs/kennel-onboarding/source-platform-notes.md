@@ -132,6 +132,37 @@ the committee hand-maintains a single **"## Upcoming runs"** section on the **ho
 
 ---
 
+## Self-hosted WordPress — "This Week's Meet Point" flexslider + paged `/?cat=N` archive (learned from Creek H3, 2026-06-29, SHIPPED)
+
+A common self-hosted-WordPress club shape (distinct from the WordPress.com REST blogs above): one home
+**current-run block** + a deep **paged category archive** of past runs. `creekhash.org` (WP + WooCommerce):
+
+- **WP REST disabled** (`/wp-json/wp/v2/posts` → **HTTP 404**) → static Cheerio, no API path. (Confirm at
+  build with a single `curl`; the handoff's sandbox got an empty body, but 404 was the build-time truth.)
+- **Home current run** = a `ml-slider`/flexslider: `.flexslider li.slide` → `<a href="?p=NNNNN">` (the
+  detail page) + `.flex-caption h3` title `<ordinal> Month YYYY – Run <N> – <venue>` (spaced en-dash `–`).
+  Split on the **spaced dash only** (never a bare hyphen — preserves "Al-Quoz" venue names), trim segments.
+- **Detail page** = `.entry-content` `<p><strong>Label:</strong> value</p>` rows (Time/Location/Hares + a
+  "Google Maps Link" `<a href>`). Read by an **allowlist of labels** so a "Contact if lost: <name> – <phone>"
+  PII row is structurally never parsed.
+- 🔴 **Date from the post TITLE, not the body `Date:` line** — the body weekday/day-number can be a source
+  typo; the title's `<ordinal> Month YYYY` is year-bearing and cadence-consistent. And **validate it**:
+  round-trip (y,m,d) through `Date.UTC` and return `null` on overflow, or merge's `parseUtcNoonDate` rolls
+  an impossible "31st June" onto Jul 1 (Codex P2).
+- **Deep archive** = `/?cat=N&paged=1..M` (clean WP `paged` pagination); listing titles alone give
+  date+run#+venue (year-bearing → NO inference). Walk all pages once → freeze to `scripts/data/<code>-history.json`.
+- 🔑 **A `Run <N>` archive can hide a restart-numbered sub-series.** Creek's `/?cat=4` carried a COVID-era
+  **"Virtual Creek" (VCH3)** series renumbered **1–20** (2020) while the main series paused #1997→#1998 —
+  also titled `Run N`, so a naïve filter ingests them as bogus low-numbered trails. Sort the frozen set by
+  date, spot the restart, and filter by the **documented run-number floor** (here `< 1000`), NOT venue text
+  (one real main-series run was also held virtually). See `reference_runn_archive_hidden_restart_subseries`.
+- **`BACKFILL_ALLOW_SELF_SIGNED_CERT` is a no-op** (appears only in script doc comments, never read by code);
+  the real Railway-TLS lever is `db.ts`'s `NODE_ENV` check + `DATABASE_URL` being present. An inline
+  `npx tsx -e` DB probe needs `set -a && source .env && set +a` first (committed backfill scripts self-load via
+  `import "dotenv/config"`).
+
+---
+
 ## Meetup — verifying upcoming events from the sandbox (learned from Paris/SCHHH + ZH3, 2026-05-29; corrected 2026-06-02 after Paris shipped)
 
 `MeetupAdapter` is config-only (`groupUrlname` + `kennelTag`, optional `kennelPatterns`/`extractRunNumber`), but **verifying that a Meetup group actually has upcoming events is the trap** — the dynamic-source rule lives or dies here. Two lessons:
@@ -649,6 +680,13 @@ off — so this endpoint hands you ready-to-paste config-only source rows.
   `PublicKennelId`. Rows are **PascalCase** (`LocationOneLineDesc` + `LocationStreet`/`City`/`PostCode`/
   `Region`/`Country` — join with `", "` to byte-match the adapter's `composeHcLocation`). Window caps:
   `isFuture=1` ~200 rows; each `isFuture=0` request ~2 MB → page ≤6-month windows, dedup by `PublicEventId`.
+  ⚠️ **Response shape is NOT always a bare array (verified Moonshine Dubai, 2026-06-29):** `isFuture=1`
+  returns a **wrapper object `{ totalMatchingEvents, runs: [...] }`** (read `.runs`), while `isFuture=0`
+  returns the rows under `.runs` too — code defensively (`const arr = raw.runs ?? (Array.isArray(raw) ? raw : [])`)
+  so a `.filter is not a function` doesn't silently zero out the pull. Per-event fields on `isFuture=1`:
+  `PublicKennelId`, `EventNumber`, `EventName`, `EventStartDatetime` (local) + `EventStartDatetimeGmt`,
+  `EventPriceForMembers`/`EventCurrencyType`, `Hares`, `LocationOneLineDesc`, `Latitude`/`Longitude`,
+  `EventDescription`, `KennelSlug`/`KennelShortName`/`KennelName`/`KennelLogo`/`KennelIANATimezone`.
   **Coverage is from the kennel's HC-join date forward, not its lifetime** (Bandung: 55 rows back to #2253
   2025-06, NOT to its 1984 founding — the LH3/PIH3 caveat). Bind the backfill to the live HC source AND set
   `upcomingOnly:true` (the EXCEPTION above). 2026-06-18 pulls: Bandung 55, Moonshine Dubai 17, Barbados 130.
