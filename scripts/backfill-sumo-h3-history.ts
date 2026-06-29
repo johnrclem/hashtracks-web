@@ -130,7 +130,7 @@ async function fetchEvents(): Promise<RawEventData[]> {
   // Dedupe by run number (republished "-2" slugs share a run#); keep first.
   const byRun = new Map<string, RawEventData>();
   for (const e of found) {
-    const k = e.runNumber != null ? `r${e.runNumber}` : `d${e.date}`;
+    const k = e.runNumber == null ? `d${e.date}` : `r${e.runNumber}`;
     if (byRun.has(k)) continue;
     byRun.set(k, e);
   }
