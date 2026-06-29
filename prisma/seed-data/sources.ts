@@ -7463,5 +7463,33 @@ export const SOURCES = [
       },
       kennelCodes: ["riyadh-h3"],
     },
+    // Barbados — first Caribbean kennel; Harrier Central public API (config-only).
+    {
+      name: "Barbados H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (KennelSlug/ShortName "BH3" resolves the
+        // same set). Verified live 2026-06-28 via hashruns.org/api/global-runs —
+        // 4 upcoming weekly Saturday runs (16:00 local), run #2342.
+        publicKennelId: "78da30cc-66f5-4c9f-bd7b-ec3b0f54f8d0",
+        defaultKennelTag: "barbados-h3",
+        // Events are named generically "Barbados H3 Run#NNNN" (kept verbatim) and
+        // one is the malformed "Barbados H3 Run#" (no number) — defaultTitle
+        // synthesizes "Barbados H3 #N" for that placeholder/malformed case.
+        defaultTitle: "Barbados H3",
+        staleTitleAliases: ["Placeholder event for BH3", "Barbados H3 Run#"],
+        // upcomingOnly:true — UNLIKE the no-backfill HC convention. The HC getEvents
+        // API is future-only and this source owns a historical backfill
+        // (scripts/backfill-barbados-h3-history.ts); without this guard reconcile.ts
+        // would false-CANCEL those past runs as they age off the 365-day window
+        // (same contract as Bandung / Asunción).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["barbados-h3"],
+    },
   ];
 
