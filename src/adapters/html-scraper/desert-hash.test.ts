@@ -132,6 +132,15 @@ const DETAIL_TITLE_LED = detailPage({
     <p><a href="https://maps.app.goo.gl/n3E9JHNFbHn29JBP8">Google Maps Link</a></p>`,
 });
 
+// A verbose but explicitly-labelled venue ("Location: …") must be captured even
+// though it exceeds the bare-line length guard.
+const DETAIL_LABELLED = detailPage({
+  hares: ["Just Balls"],
+  bodyHtml: `<p>Note: This is a Sunday run, there will be no hash on the Monday.</p>
+    <p>Location: Meet in Car Park P5 at the back of the Trade Centre building, Dubai</p>
+    <p><a href="https://maps.app.goo.gl/abc123">Google Maps Link</a></p>`,
+});
+
 /** Route base→home, page_id=5152→hareline, and any `mec-events=<slug>`→detail HTML. */
 function mockSurfacesWithDetails(homeHtml: string, hareHtml: string, details: Record<string, string>) {
   mockedSafeFetch.mockImplementation((url: string) => {
@@ -326,6 +335,12 @@ describe("parseDetailPage", () => {
     expect(d.locationUrl).toContain("maps.app.goo.gl"); // map pin still captured
     expect(d.description).toContain("Desert Shenanigans");
     expect(d.description).toContain("Truck Stop on Emirates Rd");
+  });
+
+  it("captures an explicit 'Location:'-labelled venue even when verbose, skipping the Note line", () => {
+    const d = parseDetailPage(DETAIL_LABELLED);
+    expect(d.location).toBe("Meet in Car Park P5 at the back of the Trade Centre building, Dubai");
+    expect(d.hares).toBe("Just Balls");
   });
 
   it("treats a coord-less body as free-form notes (no venue) and never reads the phone", () => {
