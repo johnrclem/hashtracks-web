@@ -5704,5 +5704,37 @@ export const KENNELS: KennelSeed[] = [
       latitude: 24.7136, // Riyadh centroid (per-event GPS published on ~half of trails)
       longitude: 46.6753,
     },
+    // ── Barbados (first 🇧🇧 / first Caribbean kennel: Barbados H3, est. 1985) ──
+    {
+      kennelCode: "barbados-h3", // bare "bh3" is taken (Boulder/Buffalo) — descriptive code
+      shortName: "Barbados H3",
+      fullName: "Barbados Hash House Harriers",
+      region: "Bridgetown",
+      country: "Barbados", // canonical NAME — code "BB" lives in region.ts
+      website: "https://www.barbadoshash.com",
+      facebookUrl: "https://www.facebook.com/BarbadosHash/",
+      instagramHandle: "barbadosh3",
+      foundedYear: 1985, // Nov 1985 — barbadoshash.com "BH3 40th Anniversary" (15 Nov 2025) + run-# corroboration; high confidence
+      // Single Saturday cadence with a seasonal start-time shift (winter 3:30 PM / summer 4:00 PM;
+      // 10:00 AM on public holidays). HC ingests the actual per-event start, so these rules are
+      // kennel-profile metadata for Travel Mode. Season boundaries approximate (Caribbean winter
+      // ≈ Nov–Apr, summer ≈ May–Oct). Flat fields below remain for legacy display fallback.
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "4:00 PM", // 12-hr seed format (current summer start); scheduleRules.startTime stays 24-hr
+      scheduleFrequency: "Weekly",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "16:00", label: "Summer", validFrom: "05-01", validUntil: "10-31", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "15:30", label: "Winter", validFrom: "11-01", validUntil: "04-30", displayOrder: 1 },
+      ],
+      hashCash: "BDS $4",
+      walkersWelcome: true, // home page: "open to all – runners, hikers, walkers, young, and old"
+      logoUrl: "/kennel-logos/barbados-h3.png", // self-hosted from Harrier Central blob; ext confirmed by magic bytes (PNG, 400x400)
+      description:
+        "The Barbados Hash House Harriers — 'a drinking club with a running (or hiking) problem.' " +
+        "Open to all: runners, hikers and walkers follow flour trails all over the island, then gather " +
+        "for down-downs and a proper Bajan lime. Weekly Saturday runs island-wide. Founded 1985.",
+      latitude: 13.0975, // Bridgetown / capital anchor (runs are island-wide; no per-event coords published)
+      longitude: -59.6167,
+    },
   ];
 

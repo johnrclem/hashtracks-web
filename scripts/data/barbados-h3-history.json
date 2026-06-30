@@ -1,0 +1,2524 @@
+[
+  {
+    "date": "2023-02-04",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2127,
+    "startTime": "15:30",
+    "hares": "Bull a Horn",
+    "location": "Dash Valley Pavilion",
+    "latitude": 13.107433535530653,
+    "longitude": -59.5708520933672
+  },
+  {
+    "date": "2023-02-11",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2128,
+    "hares": "Pussycat & Nasty Santa",
+    "location": "Just Grilling, Holetown",
+    "latitude": 13.1828264,
+    "longitude": -59.6382959
+  },
+  {
+    "date": "2023-02-18",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2129,
+    "startTime": "15:30",
+    "location": "Fairy Valley",
+    "latitude": 13.06870127442979,
+    "longitude": -59.49866557249047
+  },
+  {
+    "date": "2023-02-25",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2130,
+    "startTime": "15:30",
+    "hares": "Karin Haulass",
+    "location": "St Elizabeth Primary School, St Josephs",
+    "latitude": 13.20995990693515,
+    "longitude": -59.528491481249915
+  },
+  {
+    "date": "2023-03-04",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2131,
+    "startTime": "15:30",
+    "hares": "Prickled Pork.  Kuntpuss",
+    "location": "Lears Road, St Michael",
+    "latitude": 13.1473054,
+    "longitude": -59.5881065
+  },
+  {
+    "date": "2023-03-11",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2132,
+    "startTime": "15:30",
+    "hares": "Hersey Buns & Wild Woman",
+    "location": "Opposite Sandra Dookie House",
+    "latitude": 13.1761819,
+    "longitude": -59.4633981
+  },
+  {
+    "date": "2023-03-18",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2133,
+    "startTime": "15:30",
+    "hares": "Choke-a-Bitch",
+    "location": "Vaucluse Raceway",
+    "latitude": 13.1761116,
+    "longitude": -59.5957671
+  },
+  {
+    "date": "2023-03-25",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2134,
+    "startTime": "16:00",
+    "hares": "Glyne Griffith",
+    "location": "Haggatts Old Factory Yard",
+    "latitude": 13.2375695,
+    "longitude": -59.5659415
+  },
+  {
+    "date": "2023-04-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2135,
+    "startTime": "16:00",
+    "hares": "Phillip Nanton, Meredith",
+    "location": "Fisher Pond House",
+    "latitude": 13.1677828,
+    "longitude": -59.5561765
+  },
+  {
+    "date": "2023-04-08",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2136,
+    "startTime": "16:00",
+    "hares": "Adrain Henri",
+    "location": "Shorey Village",
+    "latitude": 13.265858,
+    "longitude": -59.5672471
+  },
+  {
+    "date": "2023-04-10",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2137,
+    "hares": "Two Carlos",
+    "location": "Drill Hall Beach",
+    "latitude": 13.0772921,
+    "longitude": -59.6079094
+  },
+  {
+    "date": "2023-04-15",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2138,
+    "startTime": "16:00",
+    "hares": "Monkey's Ass Hornshiner",
+    "location": "Earthworks",
+    "latitude": 13.16214,
+    "longitude": -59.59998
+  },
+  {
+    "date": "2023-04-22",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2139,
+    "startTime": "16:00",
+    "hares": "Jamarly",
+    "location": "Botanical Gardens",
+    "latitude": 13.1231754,
+    "longitude": -59.6040903
+  },
+  {
+    "date": "2023-04-23",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2140,
+    "startTime": "10:00",
+    "hares": "Haulass, Nasty Santa",
+    "location": "Finally Michaels",
+    "latitude": 13.0913738,
+    "longitude": -59.609753
+  },
+  {
+    "date": "2023-04-28",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2141,
+    "startTime": "10:00",
+    "location": "Six Mens, St. Peter",
+    "latitude": 13.269557233186761,
+    "longitude": -59.64473522383326
+  },
+  {
+    "date": "2023-04-29",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2142,
+    "startTime": "16:00",
+    "hares": "Bull Pilot  & Daniel",
+    "location": "Bottom Bay",
+    "latitude": 13.1359809,
+    "longitude": -59.4261912
+  },
+  {
+    "date": "2023-05-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2143,
+    "startTime": "10:00",
+    "hares": "Check Mate",
+    "location": "Drill Hall, St. Michael",
+    "latitude": 13.0776799,
+    "longitude": -59.6083757
+  },
+  {
+    "date": "2023-05-06",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2144,
+    "startTime": "16:00",
+    "hares": "The Enforcer",
+    "location": "Brandons Beach",
+    "latitude": 13.1162913,
+    "longitude": -59.6275444
+  },
+  {
+    "date": "2023-05-13",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2145,
+    "startTime": "16:00",
+    "hares": "Jason",
+    "location": "St. Thomas Post Office",
+    "latitude": 13.185175,
+    "longitude": -59.581448
+  },
+  {
+    "date": "2023-05-20",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2146,
+    "startTime": "16:00",
+    "hares": "Strap On & Charlie",
+    "location": "Ruby Plantation",
+    "latitude": 13.1275051,
+    "longitude": -59.4460728
+  },
+  {
+    "date": "2023-05-27",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2147,
+    "startTime": "12:00",
+    "hares": "Kathryn  Holopainen , Scott Gray",
+    "location": "Silver Sands",
+    "latitude": 13.0496468,
+    "longitude": -59.5152466
+  },
+  {
+    "date": "2023-05-29",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2148,
+    "startTime": "10:00",
+    "hares": "Checkmate",
+    "location": "Folkestone Marina Park and Beach",
+    "latitude": 13.191870869377787,
+    "longitude": -59.63911477163393
+  },
+  {
+    "date": "2023-06-03",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2149,
+    "startTime": "16:00",
+    "hares": "Ed Drayton",
+    "location": "Rotissierie City, Mile and a Quarter",
+    "latitude": 13.2631501,
+    "longitude": -59.6231437
+  },
+  {
+    "date": "2023-06-10",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2150,
+    "startTime": "16:00",
+    "hares": "Dave the Plumber",
+    "location": "Bath Beach Facility",
+    "latitude": 13.186879,
+    "longitude": -59.476502
+  },
+  {
+    "date": "2023-06-17",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2151,
+    "startTime": "16:00",
+    "hares": "Shawn & Meredith",
+    "location": "Simpson Motors Playing Field",
+    "latitude": 13.1458273,
+    "longitude": -59.6083731
+  },
+  {
+    "date": "2023-06-24",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2152,
+    "startTime": "16:00",
+    "hares": "Pussycat & Prickled Pork",
+    "location": "SuSu Maru, Cattlewash",
+    "latitude": 13.2234911,
+    "longitude": -59.5344852
+  },
+  {
+    "date": "2023-07-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2153,
+    "startTime": "16:00",
+    "hares": "Flour Duck & The Big O",
+    "location": "Pool Woods, St John",
+    "latitude": 13.1755241,
+    "longitude": -59.5138722
+  },
+  {
+    "date": "2023-07-08",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2154,
+    "startTime": "16:00",
+    "hares": "Kenny & Amaris",
+    "location": "Searles Factory Yard",
+    "latitude": 13.0903375,
+    "longitude": -59.5096074
+  },
+  {
+    "date": "2023-07-15",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2155,
+    "startTime": "16:00",
+    "hares": "Cunnilinguist, Daniel Rosentreter",
+    "location": "North Point Surf Resort.... signs from St Lucy Church",
+    "latitude": 13.3283871,
+    "longitude": -59.6032182
+  },
+  {
+    "date": "2023-07-22",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2156,
+    "startTime": "16:00",
+    "hares": "Pork Mout",
+    "location": "Simpson Motors playing field",
+    "latitude": 13.146255850026161,
+    "longitude": -59.60847722850934
+  },
+  {
+    "date": "2023-07-29",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2157,
+    "startTime": "16:00",
+    "hares": "Paprika Pooch",
+    "location": "Better Life Pharmacy, Manor Lodge",
+    "latitude": 13.139157618792545,
+    "longitude": -59.606324539983156
+  },
+  {
+    "date": "2023-07-31",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2158,
+    "startTime": "10:00",
+    "hares": "Mahogany Bird",
+    "location": "Surf Side Beach, Holetown, St. James",
+    "latitude": 13.185840910724513,
+    "longitude": -59.63831623801752
+  },
+  {
+    "date": "2023-08-05",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2159,
+    "startTime": "16:00",
+    "hares": "Mike & Gayati",
+    "location": "Harrison Point Light House",
+    "latitude": 13.3084182,
+    "longitude": -59.6482553
+  },
+  {
+    "date": "2023-08-12",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2160,
+    "startTime": "16:00",
+    "hares": "Hersey Buns",
+    "location": "Hershey Bun's house, Coral Drive , Atlantic Shores",
+    "latitude": 13.0526269,
+    "longitude": -59.5331897
+  },
+  {
+    "date": "2023-08-19",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2161,
+    "startTime": "16:00",
+    "hares": "Reggie & Michelle",
+    "location": "Slam Radio Car Park, Haggett Hall",
+    "latitude": 13.1062547,
+    "longitude": -59.5805567
+  },
+  {
+    "date": "2023-08-26",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2162,
+    "startTime": "16:00",
+    "hares": "Master Shafter",
+    "location": "MIle & a Quarter pavillion"
+  },
+  {
+    "date": "2023-09-02",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2163,
+    "startTime": "16:00",
+    "hares": "Checkmate and Hello Pussy Galore",
+    "location": "Banks Holdings Limited Car Park, Newton, Ch. Ch.",
+    "latitude": 13.081414409258326,
+    "longitude": -59.53871263661522
+  },
+  {
+    "date": "2023-09-09",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2164,
+    "startTime": "16:00",
+    "hares": "Dark Dick",
+    "location": "Min of Agriculture, Graham Hall",
+    "latitude": 13.0750598,
+    "longitude": -59.5695282
+  },
+  {
+    "date": "2023-09-16",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2165,
+    "startTime": "16:00",
+    "hares": "Prickled Pork, Pussycat",
+    "location": "Locust Hall Terrace, St George",
+    "latitude": 13.150923,
+    "longitude": -59.5777457
+  },
+  {
+    "date": "2023-09-23",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2166,
+    "startTime": "16:00",
+    "hares": "Choke-A-Bitch",
+    "location": "Hillaby Turner's Hall Playing Field",
+    "latitude": 13.2045311,
+    "longitude": -59.5970769
+  },
+  {
+    "date": "2023-09-30",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2167,
+    "startTime": "16:00",
+    "hares": "Choke-A-Bitch",
+    "location": "Vegco Farm Shop, St Phillip",
+    "latitude": 13.1165657,
+    "longitude": -59.4700067
+  },
+  {
+    "date": "2023-10-07",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2168,
+    "startTime": "16:00",
+    "hares": "Damian & Rosanne",
+    "location": "South Ridge",
+    "latitude": 13.08845,
+    "longitude": -59.5569047
+  },
+  {
+    "date": "2023-10-14",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2169,
+    "startTime": "16:00",
+    "hares": "Bull Pilot",
+    "location": "Rendezvous",
+    "latitude": 13.0820046,
+    "longitude": -59.5784207
+  },
+  {
+    "date": "2023-10-21",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2170,
+    "startTime": "16:00",
+    "hares": "Loverman, Nasty Santa",
+    "location": "4 Roads St John",
+    "latitude": 13.1704361,
+    "longitude": -59.5217938
+  },
+  {
+    "date": "2023-10-28",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2171,
+    "startTime": "15:30",
+    "hares": "concrete sex",
+    "location": "Hackleton's Cliff",
+    "latitude": 13.2006463,
+    "longitude": -59.5231934
+  },
+  {
+    "date": "2023-11-04",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2172,
+    "startTime": "15:30",
+    "hares": "Pork Mout",
+    "location": "Bagatelle Yard",
+    "latitude": 13.1651117,
+    "longitude": -59.6162348
+  },
+  {
+    "date": "2023-11-11",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2173,
+    "startTime": "15:30",
+    "hares": "Short Cummings",
+    "location": "Bayley's Primary School. St Phillip",
+    "latitude": 13.1443385,
+    "longitude": -59.4303812
+  },
+  {
+    "date": "2023-11-18",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2174,
+    "startTime": "15:30",
+    "hares": "Cum-Cream, Pimp",
+    "location": "Harrison Point Medical Facility",
+    "latitude": 13.3040254,
+    "longitude": -59.6482916
+  },
+  {
+    "date": "2023-11-25",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2175,
+    "startTime": "15:30",
+    "hares": "All Aboard , Fill Her Up , Tamarind Balls",
+    "location": "Exclusive Cottobns",
+    "latitude": 13.1592035,
+    "longitude": -59.5535151
+  },
+  {
+    "date": "2023-11-30",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2176,
+    "startTime": "10:00",
+    "hares": "Sir Shit & Piss a Lot & Karin",
+    "location": "Massy Oistins",
+    "latitude": 13.0646084,
+    "longitude": -59.5458902
+  },
+  {
+    "date": "2023-12-02",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2177,
+    "startTime": "15:30",
+    "hares": "Jim Boots & Tarzan",
+    "location": "Bay Street Esplanade",
+    "latitude": 13.0859383,
+    "longitude": -59.6092366
+  },
+  {
+    "date": "2023-12-09",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2178,
+    "startTime": "15:30",
+    "hares": "Ram Goat Milk",
+    "location": "Grantley Adams Memorial School, St Joseph",
+    "latitude": 13.1883131,
+    "longitude": -59.5434771
+  },
+  {
+    "date": "2023-12-16",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2179,
+    "startTime": "15:30",
+    "hares": "Nasty Santa, Prickled Pork, Pussycat",
+    "location": "White Rabbit, Greens Pavillion",
+    "latitude": 13.1477254,
+    "longitude": -59.5316449
+  },
+  {
+    "date": "2023-12-23",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2180,
+    "startTime": "15:30",
+    "hares": "Anna Didier",
+    "location": "Gymnasium, opposite artificial turf",
+    "latitude": 13.0922749,
+    "longitude": -59.573675
+  },
+  {
+    "date": "2023-12-26",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2181,
+    "startTime": "10:00",
+    "hares": "Checkmate & Pussy Galore",
+    "location": "Foul Bay",
+    "latitude": 13.1011952,
+    "longitude": -59.4505506
+  },
+  {
+    "date": "2023-12-30",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2182,
+    "startTime": "15:30",
+    "hares": "Adrian Cashman, Philip Nanton",
+    "location": "Hunte's Gardens St. Joseph",
+    "latitude": 13.193606917628133,
+    "longitude": -59.55224202340563
+  },
+  {
+    "date": "2024-01-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2183,
+    "startTime": "10:00",
+    "hares": "Nasty Santa, Pussycat",
+    "location": "Payne's Bay",
+    "latitude": 13.1594304,
+    "longitude": -59.6366148
+  },
+  {
+    "date": "2024-01-06",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2184,
+    "startTime": "15:30",
+    "hares": "Hershey Buns",
+    "location": "Pearl Avenue, Atlantic Shores",
+    "latitude": 13.0493635,
+    "longitude": -59.5317246
+  },
+  {
+    "date": "2024-01-13",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2185,
+    "startTime": "15:30",
+    "hares": "Cheryl, Mahogany Bird, Sandra  Haynes",
+    "location": "Opposite Combermere School",
+    "latitude": 13.118004616824237,
+    "longitude": -59.601995346133954
+  },
+  {
+    "date": "2024-01-20",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2186,
+    "startTime": "15:30",
+    "hares": "ABC, Cherry-Ann Greene , Floyd Griffith, Keith Brewster",
+    "location": "Dash Valley Pavillion",
+    "latitude": 13.1073922,
+    "longitude": -59.5708586
+  },
+  {
+    "date": "2024-01-22",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2187,
+    "startTime": "10:00",
+    "hares": "Cheryl, Mahogany Bird, Sandra  Haynes",
+    "location": "Brandons Beach",
+    "latitude": 13.117275610623828,
+    "longitude": -59.62810698006794
+  },
+  {
+    "date": "2024-01-27",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2188,
+    "startTime": "15:30",
+    "hares": "Jim Callender, Keith Brewster",
+    "location": "Applewaites Plantation",
+    "latitude": 13.1606442,
+    "longitude": -59.5736393
+  },
+  {
+    "date": "2024-02-03",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2189,
+    "startTime": "15:30",
+    "hares": "Kiran & Haulass",
+    "location": "Three Houses Park",
+    "latitude": 13.1581908,
+    "longitude": -59.4598472
+  },
+  {
+    "date": "2024-02-10",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2190,
+    "startTime": "15:30",
+    "hares": "Floyd Griffith",
+    "location": "Fair Valley",
+    "latitude": 13.0685605,
+    "longitude": -59.4987545
+  },
+  {
+    "date": "2024-02-17",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2191,
+    "startTime": "15:30",
+    "hares": "Dark Dick, Prickled Pork",
+    "location": "Rear of Trimart Rendezvous",
+    "latitude": 13.072114,
+    "longitude": -59.5815752
+  },
+  {
+    "date": "2024-02-24",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2192,
+    "startTime": "15:30",
+    "hares": "Curtis & Jutta",
+    "location": "NCF Car Park, Wanstead",
+    "latitude": 13.1434142,
+    "longitude": -59.6314201
+  },
+  {
+    "date": "2024-03-02",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2193,
+    "startTime": "15:30",
+    "hares": "Prickled Pork, Raymond Mangray",
+    "location": "Godson Builders, Lower Estate",
+    "latitude": 13.1297335,
+    "longitude": -59.5833679
+  },
+  {
+    "date": "2024-03-09",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2194,
+    "startTime": "15:30",
+    "hares": "Hershey Buns, mighty dimple , Wild Woman",
+    "location": "Bath Beach Lookout",
+    "latitude": 13.1840838,
+    "longitude": -59.4762837
+  },
+  {
+    "date": "2024-03-16",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2195,
+    "startTime": "15:30",
+    "hares": "All Aboard , Fill Her Up , Tamarind Balls",
+    "location": "Usain Bolt Sports Complex",
+    "latitude": 13.1378327,
+    "longitude": -59.6332776
+  },
+  {
+    "date": "2024-03-23",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2196,
+    "startTime": "15:30",
+    "hares": "Glyne Griffith, Luther  Jones, Michelle  Bentham , Reginald Forde",
+    "location": "Gun Hill Signal Station",
+    "latitude": 13.1437208,
+    "longitude": -59.5565305
+  },
+  {
+    "date": "2024-03-30",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2197,
+    "startTime": "15:30",
+    "hares": "Checkmate, Hello Pussy Galore",
+    "location": "Silver Sands Beach Facility",
+    "latitude": 13.049067,
+    "longitude": -59.5152163
+  },
+  {
+    "date": "2024-04-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2198,
+    "startTime": "10:00",
+    "hares": "Nasty Santa",
+    "location": "Carib Beach Bar, Worthing Beach",
+    "latitude": 13.0693572,
+    "longitude": -59.5784577
+  },
+  {
+    "date": "2024-04-06",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2199,
+    "startTime": "16:00",
+    "hares": "Geoff Heseltine, highly recommended , mighty dimple",
+    "location": "Playing field, Six Mens, St Peter",
+    "latitude": 13.269221,
+    "longitude": -59.6447489
+  },
+  {
+    "date": "2024-04-13",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2200,
+    "startTime": "16:00",
+    "hares": "Anne Desrochers , Emil Valles Desrochers, Henri Valles, Liam Valles Desrochers , Ralf Luther",
+    "location": "Haggatts, Old Factory Yard, St. Andrew",
+    "latitude": 13.238186861101829,
+    "longitude": -59.566005356561966
+  },
+  {
+    "date": "2024-04-20",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2201,
+    "startTime": "16:00",
+    "location": "Skeetes Bay, St. Philip",
+    "latitude": 13.169020411530152,
+    "longitude": -59.447772930347014
+  },
+  {
+    "date": "2024-04-27",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2202,
+    "startTime": "16:00",
+    "hares": "Orville \"Flour Duck\" and Robert-O \"Big O\"",
+    "location": "Model Aeroplane Club, Dash Valley, St. Michael",
+    "latitude": 13.111033498429164,
+    "longitude": -59.56204508526716
+  },
+  {
+    "date": "2024-04-29",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2203,
+    "startTime": "10:00",
+    "hares": "Barry Wilson, Sandra Fitzpatrick",
+    "location": "Drill Hall Beach, St. Michael",
+    "latitude": 13.07784037005093,
+    "longitude": -59.6085213347539
+  },
+  {
+    "date": "2024-05-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2204,
+    "startTime": "10:00",
+    "hares": "Checkmate, Hello Pussy Galore",
+    "location": "Worthing Beach, Christ Church",
+    "latitude": 13.069184204031545,
+    "longitude": -59.577860098292305
+  },
+  {
+    "date": "2024-05-04",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2205,
+    "startTime": "16:00",
+    "hares": "Edward  Drayton , xchecker",
+    "location": "Welchtown Plantation, St. Peter, Opp. Farley Hill",
+    "latitude": 13.268595938618624,
+    "longitude": -59.59688045084254
+  },
+  {
+    "date": "2024-05-11",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2206,
+    "startTime": "16:00",
+    "hares": "Mareah Knight, Paprika Pooch, Ralf Luther",
+    "location": "Grantley Adams Memorial School, Car Park, Bonwell, St. Joseph",
+    "latitude": 13.188930146421376,
+    "longitude": -59.54226418333436
+  },
+  {
+    "date": "2024-05-18",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2207,
+    "startTime": "16:00",
+    "hares": "R U, Tracy Loy",
+    "location": "Peg Farm",
+    "latitude": 13.196176762697966,
+    "longitude": -59.529925319838725
+  },
+  {
+    "date": "2024-05-20",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2208,
+    "startTime": "10:00",
+    "hares": "concrete sex, Edward  Drayton",
+    "location": "Behind Holetown police station",
+    "latitude": 13.185946509045111,
+    "longitude": -59.63841725082455
+  },
+  {
+    "date": "2024-05-25",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2209,
+    "startTime": "16:00",
+    "hares": "Checkmate",
+    "location": "Chickmont Roundabout",
+    "latitude": 13.08038351845353,
+    "longitude": -59.52915603454521
+  },
+  {
+    "date": "2024-06-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2210,
+    "startTime": "16:00",
+    "hares": "Monkey’s Ass, Ram Goat Milk",
+    "location": "Earthworks Pottery",
+    "latitude": 13.161899328932378,
+    "longitude": -59.59998277722784
+  },
+  {
+    "date": "2024-06-08",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2211,
+    "startTime": "16:00",
+    "hares": "Keisha Merritt and Neal Shepherd",
+    "location": "Lodge Shool",
+    "latitude": 13.166860908975249,
+    "longitude": -59.487988795943735
+  },
+  {
+    "date": "2024-06-15",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2212,
+    "startTime": "16:00",
+    "hares": "Penny Johnson & Maria Troulan",
+    "location": "The Ridge Top, Black Bess, St. Peter",
+    "latitude": 13.230234478839455,
+    "longitude": -59.62071804761809
+  },
+  {
+    "date": "2024-06-22",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2213,
+    "startTime": "16:00",
+    "hares": "Reginald and Philip",
+    "location": "Redland Estate, St. George",
+    "latitude": 13.175384378910712,
+    "longitude": -59.54013535236174
+  },
+  {
+    "date": "2024-06-29",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2214,
+    "startTime": "16:00",
+    "hares": "Jimmy & Tarzan",
+    "location": "Silver Sands Car Park, Christ Church",
+    "latitude": 13.050170353034904,
+    "longitude": -59.5153762491337
+  },
+  {
+    "date": "2024-07-06",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2215,
+    "startTime": "16:00",
+    "hares": "Big O & Flour Duck",
+    "location": "Boarded Hall Christ Church",
+    "latitude": 13.107800732865574,
+    "longitude": -59.538793440483666
+  },
+  {
+    "date": "2024-07-13",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2216,
+    "startTime": "16:00",
+    "hares": "Andrew Jackson, Hershey Buns",
+    "location": "Cottage Crest, St. George",
+    "latitude": 13.157680931557655,
+    "longitude": -59.55346648471056
+  },
+  {
+    "date": "2024-07-20",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2217,
+    "startTime": "16:00",
+    "hares": "Marisha Browne, Raymond Mangray, Sharon Manning",
+    "location": "Aeroplane Lookout spot, Parish Land, Christ Church",
+    "latitude": 13.071130074658399,
+    "longitude": -59.510492934785255
+  },
+  {
+    "date": "2024-07-27",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2218,
+    "startTime": "12:00",
+    "hares": "Damien Reeves, Ernesto Lefeld, Victoria De Aramburu",
+    "location": "Rendezvous Ridge Christ Church",
+    "latitude": 13.081988683072728,
+    "longitude": -59.57808130736579
+  },
+  {
+    "date": "2024-08-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2219,
+    "startTime": "10:00",
+    "hares": "Enforcer, Nasty Santa",
+    "location": "Beach Opposite Massy Oistins",
+    "latitude": 13.064520655201184,
+    "longitude": -59.54591099404405
+  },
+  {
+    "date": "2024-08-03",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2220,
+    "startTime": "16:00",
+    "hares": "Enforcer, Nasty Santa, Ricardo Shallow",
+    "location": "Bay Street, Bridgetown",
+    "latitude": 13.094697692000391,
+    "longitude": -59.61464755829315
+  },
+  {
+    "date": "2024-08-10",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2221,
+    "startTime": "16:00",
+    "hares": "Prickled Pork, Pussycat",
+    "location": "West Of Jack In The Box Gully",
+    "latitude": 13.171676551331528,
+    "longitude": -59.5787445783538
+  },
+  {
+    "date": "2024-08-17",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2222,
+    "startTime": "16:00",
+    "hares": "Jim Boots",
+    "location": "Hastings Rock, Hastings Christ Church",
+    "latitude": 13.07399219769554,
+    "longitude": -59.59711786983277
+  },
+  {
+    "date": "2024-08-24",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2223,
+    "startTime": "16:00",
+    "hares": "Jutta and Jerk Pussy",
+    "location": "Friendly Hall Road, St. Lucy",
+    "latitude": 13.300905673906259,
+    "longitude": -59.64499102479832
+  },
+  {
+    "date": "2024-08-31",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2224,
+    "startTime": "16:00",
+    "hares": "Dark Dick, Small Tits, Sylvia Dohnert",
+    "location": "Barclays Park, St. Andrew",
+    "latitude": 13.236328964609502,
+    "longitude": -59.543342387990116
+  },
+  {
+    "date": "2024-09-07",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2225,
+    "startTime": "16:00",
+    "hares": "Adrian Cashman, Sir Shit and Piss Alot",
+    "location": "Inch Cape Motors Car Park - Warrens, St. Michael",
+    "latitude": 13.144227752175858,
+    "longitude": -59.60944192144513
+  },
+  {
+    "date": "2024-09-14",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2226,
+    "startTime": "16:00",
+    "hares": "Choke-A-Bitch & Kuntarian",
+    "location": "Salters, St. George",
+    "latitude": 13.11702872042925,
+    "longitude": -59.574027379362235
+  },
+  {
+    "date": "2024-09-21",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2227,
+    "startTime": "16:00",
+    "hares": "Dave Layne, Marisha Browne, Stephen Aston",
+    "location": "Sir Garfield Sobers Gymnasium, Opp. Hockey Playing field",
+    "latitude": 13.092265421026092,
+    "longitude": -59.57546852406895
+  },
+  {
+    "date": "2024-09-28",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2228,
+    "startTime": "16:00",
+    "hares": "ABC, Cherry-Ann Greene , Dark Dick",
+    "location": "Old Miniture Golf Course, Bridgefield, St. Thomas",
+    "latitude": 13.162008386302178,
+    "longitude": -59.595961361024365
+  },
+  {
+    "date": "2024-10-05",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2229,
+    "startTime": "16:00",
+    "hares": "Amaris  Chase , Kalani Chase, Kenny Renee",
+    "location": "Barbados Ninja Throwdown, Featherbed Lane, St. John",
+    "latitude": 13.140310325208054,
+    "longitude": -59.5039177016816
+  },
+  {
+    "date": "2024-10-12",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2230,
+    "startTime": "16:00",
+    "hares": "Caleb Niles, Donna Thorne, Shawn Niles",
+    "location": "Welchman Hall, St Thomas Close to Holy Innocent School",
+    "latitude": 13.18192640368095,
+    "longitude": -59.58107726911126
+  },
+  {
+    "date": "2024-10-19",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2231,
+    "startTime": "16:00",
+    "hares": "Biafran & Two Screws",
+    "location": "Old Long Beach Hotel site - Overlooking Long Beach, Christ Church",
+    "latitude": 13.065440688091707,
+    "longitude": -59.4972832461429
+  },
+  {
+    "date": "2024-10-26",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2232,
+    "startTime": "15:30",
+    "hares": "Robert O & Flour Duck",
+    "location": "Ebenezer Saint Philip",
+    "latitude": 13.128138055993603,
+    "longitude": -59.50338853386546
+  },
+  {
+    "date": "2024-11-02",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2233,
+    "startTime": "15:30",
+    "hares": "Donna Thorne, xchecker",
+    "location": "J&S Fitness - #6 Holder's Hill, St. James",
+    "latitude": 13.161155426176014,
+    "longitude": -59.6284644437023
+  },
+  {
+    "date": "2024-11-09",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2234,
+    "startTime": "15:30",
+    "hares": "Bull Pilot , Daniel Rosentreter",
+    "location": "Cove Bay, St. Lucy",
+    "latitude": 13.299540524830924,
+    "longitude": -59.57513529551823
+  },
+  {
+    "date": "2024-11-16",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2235,
+    "startTime": "15:30",
+    "hares": "Beer Tits, mighty dimple",
+    "location": "Speightstown, Near Bus Terminal",
+    "latitude": 13.252375619031934,
+    "longitude": -59.64232178911271
+  },
+  {
+    "date": "2024-11-23",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2236,
+    "startTime": "15:30",
+    "hares": "Drez Choke-A-Bitch",
+    "location": "Lears Court East, St. Michael,  Close to Derrick Smith School",
+    "latitude": 13.139297542271587,
+    "longitude": -59.59393309721138
+  },
+  {
+    "date": "2024-11-30",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2237,
+    "startTime": "15:30",
+    "hares": "Checkmate, Hello Pussy Galore",
+    "location": "Foul Bay beach, St. Philip",
+    "latitude": 13.101362075711009,
+    "longitude": -59.45050315439987
+  },
+  {
+    "date": "2024-12-07",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2238,
+    "startTime": "16:00",
+    "hares": "Adrian Cashman, Anne Desrochers , Emil Valles Desrochers, Henri Valles, Liam Valles Desrochers"
+  },
+  {
+    "date": "2024-12-14",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2239,
+    "startTime": "15:30",
+    "hares": "Checkmate, Hello Pussy Galore",
+    "location": "Pickwick Cricket Club, St. Philip",
+    "latitude": 13.105261559933739,
+    "longitude": -59.48560982824988
+  },
+  {
+    "date": "2024-12-21",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2240,
+    "startTime": "15:30",
+    "hares": "Juliette Eversley, June Boyce",
+    "location": "St. Luke's Church, Brighton, St. George",
+    "latitude": 13.134145124622162,
+    "longitude": -59.5340813711904
+  },
+  {
+    "date": "2024-12-26",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2241,
+    "startTime": "10:00",
+    "hares": "Nasty Santa  11th/05/ 2002",
+    "location": "Dover Beach,  Christ Church",
+    "latitude": 13.066845517286374,
+    "longitude": -59.56937201730247
+  },
+  {
+    "date": "2024-12-28",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2242,
+    "startTime": "15:30",
+    "hares": "Nasty Santa  11th/05/ 2002, Ricardo Shallow",
+    "location": "Fitts Village, St. James",
+    "latitude": 13.145915722676998,
+    "longitude": -59.637905980514745
+  },
+  {
+    "date": "2025-01-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2243,
+    "startTime": "10:00",
+    "hares": "Barry Wilson, concrete sex",
+    "location": "Grill Hall, St. Michael",
+    "latitude": 13.077202987311466,
+    "longitude": -59.60680688685323
+  },
+  {
+    "date": "2025-01-04",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2244,
+    "startTime": "15:30",
+    "hares": "Bull Pilot , Daniel Rosentreter",
+    "location": "Just off Ermy Bourne Highway, Bellplaine, St. Andrew",
+    "latitude": 13.246108623045378,
+    "longitude": -59.5572200307122
+  },
+  {
+    "date": "2025-01-11",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2245,
+    "startTime": "15:30",
+    "hares": "Kenny Renee",
+    "location": "Milton Lynch Boy's Primary School, Ch. Ch.",
+    "latitude": 13.071356456061219,
+    "longitude": -59.543586169977175
+  },
+  {
+    "date": "2025-01-18",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2246,
+    "startTime": "15:30",
+    "hares": "Bull-a-Horn & Pepper Sauce",
+    "location": "Chelston Park (RBC car park), Culloden Road, St. Michael",
+    "latitude": 13.092511654079575,
+    "longitude": -59.60108922080135
+  },
+  {
+    "date": "2025-01-21",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2247,
+    "startTime": "10:00",
+    "hares": "June 'Hershey Buns'",
+    "location": "Silver Sand Hotel, Ch. Ch.",
+    "latitude": 13.047923877215666,
+    "longitude": -59.51647815476035
+  },
+  {
+    "date": "2025-01-25",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2248,
+    "startTime": "15:30",
+    "hares": "Dic Doc, John Hanschell",
+    "location": "St. Mark's, St. John, pasture opp. Dookie's house",
+    "latitude": 13.176359222731953,
+    "longitude": -59.46322078007252
+  },
+  {
+    "date": "2025-02-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2249,
+    "startTime": "15:30",
+    "hares": "Dark Dick, menage a trois (three some), Small Tits",
+    "location": "Miami Beach, Ch. Ch.",
+    "latitude": 13.06167523866868,
+    "longitude": -59.5399774526481
+  },
+  {
+    "date": "2025-02-08",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2250,
+    "startTime": "15:30",
+    "hares": "Geoff \"HHH\"",
+    "location": "North end of Port St. Charles, St. Peter",
+    "latitude": 13.263606289770081,
+    "longitude": -59.64206134207039
+  },
+  {
+    "date": "2025-02-15",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2251,
+    "startTime": "15:30",
+    "hares": "Checkmate, highly recommended , mighty dimple",
+    "location": "Folkestone Park,, St. James",
+    "latitude": 13.191849277675708,
+    "longitude": -59.6398422380756
+  },
+  {
+    "date": "2025-02-22",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2252,
+    "startTime": "15:30",
+    "hares": "Floyd Griffith",
+    "location": "BADMC Pilgram Road (Old Airport Road), Christ Church - next to DHL Express",
+    "latitude": 13.078663115691283,
+    "longitude": -59.5073582339272
+  },
+  {
+    "date": "2025-03-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2253,
+    "startTime": "15:30",
+    "hares": "Big O & Diane",
+    "location": "Martin's Bay",
+    "latitude": 13.197910715956203,
+    "longitude": -59.49621848923088
+  },
+  {
+    "date": "2025-03-08",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2254,
+    "startTime": "15:30",
+    "hares": "Pickled Pork & Cuntpuss",
+    "location": "FRIENDSHIP, St. MICHAEL",
+    "latitude": 13.130896047748754,
+    "longitude": -59.59492825190759
+  },
+  {
+    "date": "2025-03-15",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2255,
+    "startTime": "15:30",
+    "hares": "Reggie and Samantha \" Jam Puff\"",
+    "location": "Oldbury Woods",
+    "latitude": 13.088016674607267,
+    "longitude": -59.47499276159852
+  },
+  {
+    "date": "2025-03-22",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2256,
+    "startTime": "15:30",
+    "location": "Three Houses, Thicket St. Philip",
+    "latitude": 13.15919144999437,
+    "longitude": -59.46026358763234
+  },
+  {
+    "date": "2025-03-29",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2257,
+    "startTime": "16:00",
+    "hares": "David Dasilva, Social Distancing",
+    "location": "Collection Factory Yard, St. John",
+    "latitude": 13.176318177910257,
+    "longitude": -59.49445493573843
+  },
+  {
+    "date": "2025-04-05",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2258,
+    "startTime": "16:00",
+    "hares": "John \"Concrete Sex\" & Christina \"Checkmate\"",
+    "location": "Netball Stadium, St. Michael (near Combermere School)",
+    "latitude": 13.118411044762109,
+    "longitude": -59.60450837789846
+  },
+  {
+    "date": "2025-04-06",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2259,
+    "startTime": "10:00",
+    "hares": "Nasty Santa  11th/05/ 2002, Ricardo Shallow",
+    "location": "Brandon's Beach, St. Michael",
+    "latitude": 13.116319032883753,
+    "longitude": -59.627257746935776
+  },
+  {
+    "date": "2025-04-12",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2260,
+    "startTime": "16:00",
+    "hares": "Ting 1 & Ting 2",
+    "location": "Bushy Park, St. Philip",
+    "latitude": 13.136127132115636,
+    "longitude": -59.46642746954744
+  },
+  {
+    "date": "2025-04-19",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2261,
+    "startTime": "16:00",
+    "hares": "Kerry &  Dave the Plumber",
+    "location": "The Lodge, Salters, St. George",
+    "latitude": 13.127471490266892,
+    "longitude": -59.57023991398609
+  },
+  {
+    "date": "2025-04-21",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2262,
+    "startTime": "10:00",
+    "hares": "Dave Waithe, Kerry  Hope",
+    "location": "Brownes Beach, Esplanade, St. Michael Park by Government Information Service car park",
+    "latitude": 13.092378377257766,
+    "longitude": -59.611804426443605
+  },
+  {
+    "date": "2025-04-26",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2263,
+    "startTime": "16:00",
+    "hares": "Andrea Austin, Checkmate, Sir Shit and Piss Alot",
+    "location": "Inchape Car Park, Warren, St. Michael",
+    "latitude": 13.14413966330426,
+    "longitude": -59.60881119876777
+  },
+  {
+    "date": "2025-04-28",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2264,
+    "startTime": "10:00",
+    "hares": "Kerry  Hope & Dave the Plumber",
+    "location": "Brandon's Beach, St. Michael",
+    "latitude": 13.115743066283075,
+    "longitude": -59.62730687562252
+  },
+  {
+    "date": "2025-05-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2265,
+    "startTime": "10:00",
+    "hares": "Gillian and Ryder",
+    "location": "Surfside Beach, Holetown, St. James (park at Massy)",
+    "latitude": 13.185862824145717,
+    "longitude": -59.6385374606845
+  },
+  {
+    "date": "2025-05-03",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2266,
+    "startTime": "16:00",
+    "hares": "Kerry & Dave the Plumber",
+    "location": "Ellco Rentals, St. George",
+    "latitude": 13.132532799670665,
+    "longitude": -59.53852003425836
+  },
+  {
+    "date": "2025-05-10",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2267,
+    "startTime": "16:00",
+    "hares": "Linda Moore",
+    "location": "Bagatelle Yard, St  Thomas",
+    "latitude": 13.165136619209887,
+    "longitude": -59.61613051317048
+  },
+  {
+    "date": "2025-05-17",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2268,
+    "startTime": "16:00",
+    "hares": "Curtis, Lisa and Cayla",
+    "location": "Husband's Hard Court, St. James",
+    "latitude": 13.147124448062039,
+    "longitude": -59.62913020702684
+  },
+  {
+    "date": "2025-05-24",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2269,
+    "startTime": "16:00",
+    "hares": "concrete sex, Donna Thorne",
+    "location": "Bathsheba Community Centre, St. Joesph",
+    "latitude": 13.211624727808072,
+    "longitude": -59.51655557568182
+  },
+  {
+    "date": "2025-05-31",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2270,
+    "startTime": "16:00",
+    "hares": "Oneale \"Kuntsultant\", Dennis \"Ram Goat Milk\" & David \"Monkey's Ass\"",
+    "location": "Martin's Bay, St. John",
+    "latitude": 13.194864794847703,
+    "longitude": -59.497103566655895
+  },
+  {
+    "date": "2025-06-07",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2271,
+    "startTime": "16:00",
+    "hares": "Dave Waithe, Kerry  Hope",
+    "location": "Bath St. John",
+    "latitude": 13.186793807400571,
+    "longitude": -59.476803677361666
+  },
+  {
+    "date": "2025-06-09",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2272,
+    "startTime": "10:00",
+    "hares": "Triple H, Pork Mouth, Susan",
+    "location": "Beach at the end of Port St. Charles, St. Peter",
+    "latitude": 13.264428792495444,
+    "longitude": -59.642993163221696
+  },
+  {
+    "date": "2025-06-14",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2273,
+    "startTime": "16:00",
+    "hares": "Ram Goat Milk",
+    "location": "Consett Bay",
+    "latitude": 13.179836688723935,
+    "longitude": -59.46632382734687
+  },
+  {
+    "date": "2025-06-21",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2274,
+    "startTime": "16:00",
+    "hares": "Amelia Geary, Maurice Geary, Pork Mout",
+    "location": "Mount, Boscobelle, St. Andrew",
+    "latitude": 13.281243903488877,
+    "longitude": -59.584528222494235
+  },
+  {
+    "date": "2025-06-28",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2275,
+    "startTime": "16:00",
+    "hares": "Jimmy Boots",
+    "location": "King George V Park, St. Philip",
+    "latitude": 13.132595956262788,
+    "longitude": -59.45411796720232
+  },
+  {
+    "date": "2025-07-05",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2276,
+    "startTime": "16:00",
+    "hares": "Big O and Flour Duck",
+    "location": "Lower Burney, St. Michael",
+    "latitude": 13.102666427323877,
+    "longitude": -59.57084250223085
+  },
+  {
+    "date": "2025-07-12",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2277,
+    "startTime": "16:00",
+    "hares": "Dave the Plumber and Kerry",
+    "location": "Haggatts Old Factory Yard, St. Andrew",
+    "latitude": 13.237819796324398,
+    "longitude": -59.56597359039884
+  },
+  {
+    "date": "2025-07-19",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2278,
+    "startTime": "16:00",
+    "hares": "Pork Mouth & Zero Fox",
+    "location": "Aventa Car Park, Warrens, industrial Park",
+    "latitude": 13.146791649787046,
+    "longitude": -59.60835010809354
+  },
+  {
+    "date": "2025-07-26",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2279,
+    "startTime": "16:00",
+    "hares": "Pepper Sauce, Dark Dick & Doubles",
+    "location": "Foul Bay, St. Philip",
+    "latitude": 13.101357795734462,
+    "longitude": -59.45051449038792
+  },
+  {
+    "date": "2025-08-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2280,
+    "startTime": "10:00",
+    "hares": "Checkmate, Jamie Burke",
+    "location": "Bridgetown, St. Michael",
+    "latitude": 13.094734453896734,
+    "longitude": -59.61461262943409
+  },
+  {
+    "date": "2025-08-02",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2281,
+    "startTime": "16:00",
+    "hares": "Peter Sandiford, Pussycat",
+    "location": "Grantley Adams School",
+    "latitude": 13.188396631614685,
+    "longitude": -59.5434672430144
+  },
+  {
+    "date": "2025-08-09",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2282,
+    "startTime": "16:00",
+    "hares": "June Hershey Buns and Sandra Wild Woman",
+    "location": "Atlantic Shores, Christ Church",
+    "latitude": 13.04937096481754,
+    "longitude": -59.53102625260713
+  },
+  {
+    "date": "2025-08-16",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2283,
+    "startTime": "16:00",
+    "hares": "Nasty Santa  26/12/2019, Ricardo Shallow",
+    "location": "Orange Hill Pavilion, above Lancaster Cheffete., St. James",
+    "latitude": 13.202525526017528,
+    "longitude": -59.61208902434169
+  },
+  {
+    "date": "2025-08-23",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2284,
+    "startTime": "16:00",
+    "hares": "Lidia 'RU' and Hollis 'Haulass'",
+    "location": "Valley Hill Farm, St. Patrick's, Ch. Ch.",
+    "latitude": 13.103746253441269,
+    "longitude": -59.50365003377622
+  },
+  {
+    "date": "2025-08-30",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2285,
+    "startTime": "16:00",
+    "hares": "Ceelo, Lock Jaw, Teezing Stud",
+    "location": "Ministry of Education Car Park, B'town",
+    "latitude": 13.097723566167693,
+    "longitude": -59.60893195728183
+  },
+  {
+    "date": "2025-09-06",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2286,
+    "startTime": "16:00",
+    "hares": "Dave the Plumber & Haulass",
+    "location": "St. Elizabeth Primary School, St. Joseph",
+    "latitude": 13.209360711540965,
+    "longitude": -59.52889180298656
+  },
+  {
+    "date": "2025-09-13",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2287,
+    "startTime": "16:00",
+    "hares": "concrete sex, Donna Thorne, Feria Wilson",
+    "location": "Haggatts, St. Andrew",
+    "latitude": 13.23788042246475,
+    "longitude": -59.56590154198217
+  },
+  {
+    "date": "2025-09-20",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2288,
+    "startTime": "16:00",
+    "hares": "Cheryl Thompson, Mahogany Bird, Sandra  Haynes",
+    "location": "The Clock Tower, Garrison, St. Michael",
+    "latitude": 13.07986766409311,
+    "longitude": -59.606562331411155
+  },
+  {
+    "date": "2025-09-27",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2289,
+    "startTime": "16:00",
+    "hares": "Claudia Reig, Daniel Rosentreter, Henri Valles",
+    "location": "Hacklestons Cliff,",
+    "latitude": 13.201458865972977,
+    "longitude": -59.52421246271629
+  },
+  {
+    "date": "2025-10-04",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2290,
+    "startTime": "16:00",
+    "hares": "Amaris  Chase , Kalani Chase, Kenny Renee",
+    "location": "Bushy Park, St. Philip",
+    "latitude": 13.13752846191784,
+    "longitude": -59.466385300735986
+  },
+  {
+    "date": "2025-10-11",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2291,
+    "startTime": "16:00",
+    "hares": "Checkmate",
+    "location": "Miami Beach",
+    "latitude": 13.061206227062877,
+    "longitude": -59.540464394575935
+  },
+  {
+    "date": "2025-10-18",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2292,
+    "startTime": "16:00",
+    "hares": "Cherry-Ann Greene , Teezing Stud, xchecker",
+    "location": "Holders House Farmers Market",
+    "latitude": 13.16510953999505,
+    "longitude": -59.62915452651636
+  },
+  {
+    "date": "2025-10-25",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2293,
+    "startTime": "16:00",
+    "hares": "Floyd Griffith, Pepper Sauce, Stone",
+    "location": "The Horticultural Society of Barbados, Ch. Ch.",
+    "latitude": 13.07848307172266,
+    "longitude": -59.5262626602209
+  },
+  {
+    "date": "2025-11-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2294,
+    "startTime": "16:00",
+    "hares": "Jerome & Shequille,  Junior (Drinksman) & Jnr. Jnr.",
+    "location": "Brandons Beach, St. Michael",
+    "latitude": 13.116841831667495,
+    "longitude": -59.627375665168785
+  },
+  {
+    "date": "2025-11-08",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2295,
+    "startTime": "15:30",
+    "hares": "Checkmate, Feria Wilson, Hello Pussy Galore",
+    "location": "St. Thomas Parish Church",
+    "latitude": 13.185912146491793,
+    "longitude": -59.61263355730039
+  },
+  {
+    "date": "2025-11-14",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2296,
+    "startTime": "19:00",
+    "hares": "ABC, Barry Wilson, Dark Dick, Hershey Buns, Hollist Webb",
+    "location": "DreadHop Brewing, Gibbons Industrial Park, Gibbons, Ch. Ch.",
+    "latitude": 13.066642935022651,
+    "longitude": -59.52715030019219
+  },
+  {
+    "date": "2025-11-15",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2297,
+    "startTime": "15:30",
+    "hares": "Barry Wilson, Dark Dick, Hershey Buns, Hollist Webb",
+    "location": "The Little Shack, Martin's Bay, St. John",
+    "latitude": 13.194779301521478,
+    "longitude": -59.49718612223684
+  },
+  {
+    "date": "2025-11-16",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2298,
+    "startTime": "10:00",
+    "hares": "Barry Wilson, Dark Dick, Hershey Buns, Hollist Webb",
+    "location": "Bridgetown Heliport, St. Michael"
+  },
+  {
+    "date": "2025-11-22",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2299,
+    "startTime": "15:30",
+    "location": "St. George Parish Church",
+    "latitude": 13.130921677536174,
+    "longitude": -59.56393608888049
+  },
+  {
+    "date": "2025-11-29",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2300,
+    "startTime": "15:30",
+    "hares": "Checkmate, Hello Pussy Galore",
+    "location": "Ministry of Agriculture, Christ Church",
+    "latitude": 13.076152270211123,
+    "longitude": -59.571228694291285
+  },
+  {
+    "date": "2025-12-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2301,
+    "startTime": "10:00",
+    "hares": "Dave Waithe, Kerry  Hope",
+    "location": "Sam Lord's Castle, St. Philip",
+    "latitude": 13.12583815298691,
+    "longitude": -59.431205681035685
+  },
+  {
+    "date": "2025-12-06",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2302,
+    "startTime": "15:30",
+    "hares": "Cum Cream",
+    "location": "Carmichael St. George",
+    "latitude": 13.119093986557974,
+    "longitude": -59.542590133491984
+  },
+  {
+    "date": "2025-12-13",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2303,
+    "startTime": "15:30",
+    "hares": "Checkmate",
+    "location": "Little Shack Martin's Bay St John",
+    "latitude": 13.194882106004629,
+    "longitude": -59.497094015708534
+  },
+  {
+    "date": "2025-12-20",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2304,
+    "startTime": "15:30",
+    "hares": "Bull Pilot , Daniel Rosentreter",
+    "location": "Fortescue, St. Philip",
+    "latitude": 13.174926902910972,
+    "longitude": -59.452177046912894
+  },
+  {
+    "date": "2025-12-26",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2305,
+    "startTime": "10:00",
+    "hares": "Chris Peachment, Sandra Fitzpatrick",
+    "location": "Foul Bay Beach, St. Philip",
+    "latitude": 13.101383536658208,
+    "longitude": -59.45056369972297
+  },
+  {
+    "date": "2025-12-27",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2306,
+    "startTime": "15:30",
+    "hares": "Jim Boots",
+    "location": "Dover, Christ Church, Opp. Playing Field",
+    "latitude": 13.066886484661858,
+    "longitude": -59.56791631235936
+  },
+  {
+    "date": "2026-01-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2307,
+    "startTime": "10:00",
+    "hares": "Nasty Santa  26/12/2019, Ricardo Shallow",
+    "location": "Batts Rock Beach",
+    "latitude": 13.135137619108637,
+    "longitude": -59.63589541178795
+  },
+  {
+    "date": "2026-01-03",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2308,
+    "startTime": "15:30",
+    "hares": "Checkmate, Dave Waithe, Kerry  Hope , Samantha Doyle , Samantha Moore",
+    "location": "Hothersal Playing Field, St. John",
+    "latitude": 13.190968383785833,
+    "longitude": -59.512393421482564
+  },
+  {
+    "date": "2026-01-10",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2309,
+    "startTime": "15:30",
+    "hares": "Cayla Roberts",
+    "location": "Husbands Hard Court, St. James",
+    "latitude": 13.146716859914063,
+    "longitude": -59.629307659387116
+  },
+  {
+    "date": "2026-01-17",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2310,
+    "startTime": "15:30",
+    "hares": "Tricia, Beer Tits and Ce-lo",
+    "location": "St. Lucy Parish Church, St. Lucy",
+    "latitude": 13.292497403234998,
+    "longitude": -59.62357522778191
+  },
+  {
+    "date": "2026-01-21",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2311,
+    "startTime": "10:00",
+    "hares": "Hershey Buns",
+    "location": "Sands Street,Speightstown, St. Peter",
+    "latitude": 13.254570367128126,
+    "longitude": -59.644185228783414
+  },
+  {
+    "date": "2026-01-24",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2312,
+    "startTime": "15:30",
+    "hares": "Checkmate and Feria Cat and Hello Pussy Galore"
+  },
+  {
+    "date": "2026-01-31",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2313,
+    "startTime": "15:30",
+    "hares": "Horny Horn Horner (Triple H), Pork Mout",
+    "location": "Indian Ground, St. Peter",
+    "latitude": 13.255079560898093,
+    "longitude": -59.59842498177158
+  },
+  {
+    "date": "2026-02-07",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2314,
+    "startTime": "15:30",
+    "hares": "Floyd Griffith, Pepper Sauce",
+    "location": "BADMC Agricultural, Fairy Valley, Ch\n Ch. Close to DHL",
+    "latitude": 13.078687935731388,
+    "longitude": -59.50565728245483
+  },
+  {
+    "date": "2026-02-14",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2315,
+    "startTime": "15:30",
+    "hares": "Zero Fox, Pork Mouth and Peter Sandiford",
+    "location": "Greens Pavilions, Greens, St. George",
+    "latitude": 13.148202669488338,
+    "longitude": -59.53113000795246
+  },
+  {
+    "date": "2026-02-21",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2316,
+    "startTime": "15:30",
+    "hares": "Big O, Checkmate, Nasty Santa  26/12/2019, Ricardo Shallow",
+    "location": "Ansa Merchant Bank - Hastings, Christ Church",
+    "latitude": 13.07439532879213,
+    "longitude": -59.592335790082345
+  },
+  {
+    "date": "2026-02-28",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2317,
+    "startTime": "15:30",
+    "hares": "Checkmate, Lock Jaw, Rene Brathwaite",
+    "location": "Manor Lodge, Green Hill, St. Michael",
+    "latitude": 13.138704316498103,
+    "longitude": -59.60638295829555
+  },
+  {
+    "date": "2026-03-07",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2318,
+    "startTime": "15:30",
+    "hares": "Hollist Webb, Prickled Pork, Pussycat",
+    "location": "Chez Melville, Locust Hall, St George",
+    "latitude": 13.15090427955789,
+    "longitude": -59.57772230525491
+  },
+  {
+    "date": "2026-03-14",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2319,
+    "startTime": "15:30",
+    "hares": "Checkmate, Hello Pussy Galore, Tony Soudatt",
+    "location": "Enterprise Beach (Miami Beach), Christ Church",
+    "latitude": 13.060428906768394,
+    "longitude": -59.53996740137576
+  },
+  {
+    "date": "2026-03-21",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2320,
+    "startTime": "15:30",
+    "hares": "Philip Nanton"
+  },
+  {
+    "date": "2026-03-28",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2321,
+    "startTime": "16:00",
+    "hares": "Neil and Kerry",
+    "location": "Three Houses Park, St. Philip",
+    "latitude": 13.158136886306679,
+    "longitude": -59.45973392233139
+  },
+  {
+    "date": "2026-04-04",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2322,
+    "startTime": "16:00",
+    "hares": "Hawkeye, Claudia and Connor",
+    "location": "Bawdens, St. Andrew",
+    "latitude": 13.246897861704662,
+    "longitude": -59.58216761208581
+  },
+  {
+    "date": "2026-04-06",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2323,
+    "startTime": "10:00",
+    "hares": "Checkmate, Nasty Santa  26/12/2019",
+    "location": "Esplanade, Bay Street, St. Michael",
+    "latitude": 13.085920529752029,
+    "longitude": -59.609408771966365
+  },
+  {
+    "date": "2026-04-11",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2324,
+    "startTime": "16:00",
+    "hares": "xchecker",
+    "location": "Royal Westmoreland, St. James",
+    "latitude": 13.212067527496671,
+    "longitude": -59.63124400208006
+  },
+  {
+    "date": "2026-04-18",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2325,
+    "startTime": "16:00",
+    "hares": "Amaris & Kenny",
+    "location": "LOOKOUT POINT, BATH, ST JOHN",
+    "latitude": 13.1843567,
+    "longitude": -59.476064
+  },
+  {
+    "date": "2026-04-25",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2326,
+    "startTime": "16:00",
+    "hares": "Pussy Pimp",
+    "location": "Portvale Sugar Factory, St. James",
+    "latitude": 13.195239847324,
+    "longitude": -59.615843901127484
+  },
+  {
+    "date": "2026-04-28",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2327,
+    "startTime": "10:00",
+    "hares": "ABC, Aysun Connor, Clive Connor, Dark Dick",
+    "location": "Fitts Village, St James",
+    "latitude": 13.1458807630826,
+    "longitude": -59.63835848453783
+  },
+  {
+    "date": "2026-05-01",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2328,
+    "startTime": "10:00",
+    "hares": "Tavio Gaskin",
+    "location": "Brandon's Beach, Brandon's, St Michael",
+    "latitude": 13.116225631177407,
+    "longitude": -59.62730618533459
+  },
+  {
+    "date": "2026-05-02",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2329,
+    "startTime": "16:00",
+    "hares": "Horny Horn Horner (Triple H), Pork Mout",
+    "location": "Playing Field in Six Men's, St Peter",
+    "latitude": 13.269304432024256,
+    "longitude": -59.64499568871634
+  },
+  {
+    "date": "2026-05-09",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2330,
+    "startTime": "16:00",
+    "hares": "Mahogany Bird & Sandra",
+    "location": "Sanitation Service Authority Office, Vauclause, St Thomas",
+    "latitude": 13.17259980307304,
+    "longitude": -59.59970550265908
+  },
+  {
+    "date": "2026-05-16",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2331,
+    "startTime": "16:00",
+    "hares": "TBD",
+    "location": "Desmond Haynes Sports Complex, Holders Hill, St James",
+    "latitude": 13.159459628605303,
+    "longitude": -59.62802931948852
+  },
+  {
+    "date": "2026-05-23",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2332,
+    "startTime": "16:00",
+    "hares": "China Brush",
+    "location": "Highclere, St Thomas",
+    "latitude": 13.203656335431292,
+    "longitude": -59.59168915121643
+  },
+  {
+    "date": "2026-05-25",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2333,
+    "startTime": "10:00",
+    "hares": "TBD",
+    "location": "Saint Peter Speightstown",
+    "latitude": 13.26207,
+    "longitude": -59.63919
+  },
+  {
+    "date": "2026-05-30",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2334,
+    "startTime": "16:00",
+    "hares": "TBD",
+    "location": "Earthworks Pottery , St Thomas"
+  },
+  {
+    "date": "2026-06-06",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2335,
+    "startTime": "16:00",
+    "hares": "Reginald Forde",
+    "location": "NUPW Headquarters, Dalkeith Road, St Michael",
+    "latitude": 13.08574,
+    "longitude": -59.60137
+  },
+  {
+    "date": "2026-06-13",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2336,
+    "startTime": "16:00",
+    "hares": "Mona Lisa and Curtis",
+    "location": "Grazettes Primary School, St Michael (Parking via the back gate)",
+    "latitude": 13.13079,
+    "longitude": -59.61823
+  },
+  {
+    "date": "2026-06-20",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2337,
+    "startTime": "16:00",
+    "hares": "Daniel Hagghheye",
+    "location": "The Savannah, St Andrew",
+    "latitude": 13.2676444,
+    "longitude": -59.5667949
+  },
+  {
+    "date": "2026-06-27",
+    "kennelTags": [
+      "barbados-h3"
+    ],
+    "runNumber": 2338,
+    "startTime": "16:00",
+    "hares": "Debbie Best & Flour Duck",
+    "location": "The Arthur Lewis Institute opposite UWI, Cave Hill",
+    "latitude": 13.13745,
+    "longitude": -59.6303
+  }
+]

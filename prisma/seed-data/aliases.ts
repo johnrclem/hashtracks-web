@@ -659,5 +659,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "ch3-ae": ["Creek Hash", "Creek H3", "Creek Hash House Harriers", "Creek HHH", "CH3 Dubai"],
     // ===== SAUDI ARABIA ===== (first Saudi kennel)
     "riyadh-h3": ["Riyadh H3", "R3H4", "Riyadh Hash House Harriers", "Riyadh Hash"],
+    // ===== BARBADOS ===== (first Caribbean kennel; bare "BH3" omitted —
+    // global collision: bh3=Boulder/Buffalo)
+    "barbados-h3": ["Barbados H3", "Barbados Hash House Harriers", "Barbados Hash"],
   };
 
