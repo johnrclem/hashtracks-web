@@ -28,9 +28,7 @@ interface AtlantaHashBoardConfig {
    * Route fetches through the NAS residential proxy. The origin WAF blocks
    * cloud-egress IPs entirely; this flag opts a source into proxy routing.
    * Not a guaranteed bypass — some residential IPs (including the NAS at
-   * times) are also blocked. (#633)
-   * @deprecated Prefer `egress`; retained as a back-compat alias for
-   * `egress: "residential"`.
+   * times) are also blocked. (#633) Convenience alias for `egress: "residential"`.
    */
   useResidentialProxy?: boolean;
   /**

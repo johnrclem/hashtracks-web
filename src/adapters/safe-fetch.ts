@@ -28,8 +28,9 @@ export type ProxyEgress = "residential" | "vpn";
 
 export interface SafeFetchOptions extends RequestInit {
   /**
-   * Route through the NAS residential proxy. Use for WAF-blocked domains.
-   * @deprecated Prefer `egress: "residential"`; kept as a back-compat alias.
+   * Route through the NAS residential proxy (for WAF-blocked domains).
+   * Convenience alias for `egress: "residential"`; an explicit `egress` takes
+   * precedence when both are set.
    */
   useResidentialProxy?: boolean;
   /**
