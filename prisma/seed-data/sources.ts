@@ -3992,6 +3992,29 @@ export const SOURCES = [
       kennelCodes: ["pih3"],
     },
     {
+      name: "Algarve H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID verified live 2026-06-30 via hashruns.org/api/global-runs (run #2178, biweekly Sun 14:00).
+        publicKennelId: "0d70e48a-1bd5-42ba-996f-2654a35bc3f6",
+        defaultKennelTag: "a3h",
+        // A3H names events "Run NNNN - <hare/theme> - <village>" (real names, kept verbatim).
+        // defaultTitle synthesizes "Algarve H3 #N" only for empty/placeholder names (mirrors Bandung/Taiwan).
+        defaultTitle: "Algarve H3",
+        staleTitleAliases: ["Placeholder event for A3H"],
+        // upcomingOnly:true — REQUIRED because this source ships a one-shot historical backfill
+        // (scripts/backfill-a3h-history.ts). HC getEvents is future-only, so without this guard
+        // reconcile.ts false-CANCELs the backfilled past rows as they age off the 365-day window
+        // (same contract as Bandung #2340 / Asunción / nth3-tw).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["a3h"],
+    },
+    {
       name: "Taiwan H3 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
       type: "HARRIER_CENTRAL" as const,

@@ -3184,6 +3184,25 @@ export const KENNELS: KennelSeed[] = [
       latitude: 41.15, longitude: -8.62,
     },
 
+    // ── Portugal: Algarve ──
+    {
+      kennelCode: "a3h", shortName: "Algarve H3", fullName: "Algarve Hash House Harriers", region: "Algarve", country: "Portugal",
+      foundedYear: 1984, // 40th anniversary Feb 2024 → started Almancil 1984; renamed Algarve ~2014 (theportugalnews.com 2024-02-03)
+      // Flat schedule fields only — the day/time genuinely varies seasonally (Sun afternoon Oct–Apr;
+      // summer Mon evening Jul–Sep), so a single RRULE would misrepresent it. Per-run times come
+      // from the live Harrier Central feed regardless, so the adapter is correct either way.
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Fortnightly. Sunday afternoon (~2 PM) Oct–Apr; shifts to Monday evening (~5:30 PM) in summer (Jul–Sep). Per-run villages around the central Algarve (Faro district) announced day-of by the hares.",
+      description: "Algarve Hash House Harriers (A3H) is a 'drinking club with a running problem' founded in 1984 (originally the Almancil Hash House Harriers, renamed to represent the wider Algarve ~2014). It runs fortnightly across the hills and villages of the central Algarve — a ~12 km runners' loop and ~8 km walkers' trail marked in flour by a volunteer hare, followed by a beer stop and social circle. Largely an expat community; runners run, walkers walk, everyone's warmly welcomed. On On!",
+      hashCash: "€5", // HC EventPriceForMembers=5; currency not in feed → EUR (Portugal)
+      walkersWelcome: true,
+      // dogFriendly intentionally omitted (unverified)
+      logoUrl: "/kennel-logos/a3h.png", // self-hosted from HC blob; extension verified by magic bytes
+      website: "https://www.algarvehashhouseharriers.com/",
+      facebookUrl: "https://www.facebook.com/groups/algarvehashhouseharriers",
+      latitude: 37.1, longitude: -8,
+    },
+
     // ── Japan: Tokyo ──
     {
       kennelCode: "tokyo-h3", shortName: "Tokyo H3", fullName: "Tokyo Hash House Harriers", region: "Tokyo", country: "Japan",

@@ -2183,6 +2183,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -8.6291,
     aliases: ["Porto, Portugal", "Oporto"],
   },
+  {
+    name: "Algarve",
+    country: "Portugal",
+    timezone: "Europe/Lisbon", // real city tz — NOT the HC feed's incorrect "Europe/London"
+    abbrev: "FAO",
+    colorClasses: "bg-green-100 text-green-700",
+    pinColor: "#22c55e",
+    centroidLat: 37.1,
+    centroidLng: -8,
+    aliases: ["Faro", "Algarve, Portugal"],
+  },
   // ── Switzerland ──
   {
     name: "Switzerland",
@@ -3785,7 +3796,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // default fallthrough. "Warsaw, Poland" still matches via the "poland" token;
   // the Polish-only "warszawa"/"polska" are unambiguous. (#2234, Codex review)
   [/\b(poland|warszawa|polska)\b/, "Poland"],
-  [/\b(portugal|lisbon|lisboa|estoril|cascais|oporto|invicta)\b/, "Portugal"],
+  [/\b(portugal|lisbon|lisboa|estoril|cascais|oporto|invicta|algarve|faro|loule|almancil)\b/, "Portugal"],
   [/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/, "Netherlands"],
   [/\b(denmark|copenhagen|københavn|aarhus)\b/, "Denmark"],
   [/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/, "Sweden"],
@@ -4070,6 +4081,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Portugal
   "Lisbon": "Portugal",
   "Porto": "Portugal",
+  "Algarve": "Portugal",
   // Louisiana
   "New Orleans, LA": "Louisiana",
   // Tennessee

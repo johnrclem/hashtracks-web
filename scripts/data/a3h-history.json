@@ -1,0 +1,281 @@
+[
+  {
+    "date": "2025-07-14",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2155 - Dope Peddlar - Bordeira",
+    "runNumber": 2155,
+    "startTime": "17:30",
+    "latitude": 37.127291647628596,
+    "longitude": -7.92580729077465,
+    "cost": "€5"
+  },
+  {
+    "date": "2025-07-28",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2156 - Diesel Dyke - Benafim",
+    "runNumber": 2156,
+    "startTime": "17:30",
+    "hares": "Diesel Dyke",
+    "latitude": 37.2329078617852,
+    "longitude": -8.119095259359712,
+    "cost": "€5"
+  },
+  {
+    "date": "2025-08-11",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2157 - Skid Mark - Alcaria",
+    "runNumber": 2157,
+    "startTime": "18:00",
+    "latitude": 37.1866933364659,
+    "longitude": -8.194085736081218,
+    "cost": "€5"
+  },
+  {
+    "date": "2025-08-25",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2158 - Beep Beep - Sao Bras",
+    "runNumber": 2158,
+    "startTime": "17:30",
+    "hares": "Beep Beep",
+    "latitude": 37.156834105649075,
+    "longitude": -7.882381654423384,
+    "cost": "€5"
+  },
+  {
+    "date": "2025-09-08",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2159 - Cyclopath- Bordeira",
+    "runNumber": 2159,
+    "startTime": "17:30",
+    "hares": "Cyclopath",
+    "latitude": 37.12727745481197,
+    "longitude": -7.925760795630595,
+    "cost": "€5"
+  },
+  {
+    "date": "2025-09-22",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2160 - Just Stu - Monte Seco, Loulé",
+    "runNumber": 2160,
+    "startTime": "17:30",
+    "cost": "€5",
+    "dropCachedCoords": true
+  },
+  {
+    "date": "2025-10-05",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2161 Oktoberfest- Just don't call me Shurley - Palmeiros, Salir",
+    "runNumber": 2161,
+    "startTime": "13:30",
+    "latitude": 37.22986098042321,
+    "longitude": -8.023283739026699,
+    "cost": "€5"
+  },
+  {
+    "date": "2025-10-19",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2162 - Mamamaratona - Quarteira",
+    "runNumber": 2162,
+    "startTime": "10:00",
+    "location": "Passeio das Dunas, Quarteira",
+    "latitude": 37.07109096150821,
+    "longitude": -8.111144118325136,
+    "cost": "€5"
+  },
+  {
+    "date": "2025-11-02",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2163 -  Summer Cummer hosts the Jolly Storks 1 year Anniversary Hangover Hash - Albufeira Marina",
+    "runNumber": 2163,
+    "startTime": "12:00",
+    "latitude": 37.08427843679962,
+    "longitude": -8.26975846212738,
+    "cost": "€5"
+  },
+  {
+    "date": "2025-11-16",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2164 - Nozzle Jockey - Luz de Tavira",
+    "runNumber": 2164,
+    "startTime": "14:00",
+    "latitude": 37.092495611330804,
+    "longitude": -7.734434287067716,
+    "cost": "€5"
+  },
+  {
+    "date": "2025-11-30",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2165 - Comes too much - Santa Cantarina",
+    "runNumber": 2165,
+    "startTime": "14:00",
+    "hares": "Comes Now and Then",
+    "latitude": 37.15152076856685,
+    "longitude": -7.789125878480428,
+    "cost": "€5"
+  },
+  {
+    "date": "2025-12-13",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2166 - Xmas Hash - Beep Beep & Breaking Glass - Loulé",
+    "runNumber": 2166,
+    "startTime": "10:00",
+    "latitude": 37.140716083459395,
+    "longitude": -8.028632937239696,
+    "cost": "€5"
+  },
+  {
+    "date": "2026-01-11",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2167 - Methane - Fuseta",
+    "runNumber": 2167,
+    "startTime": "11:00",
+    "latitude": 37.05259034825893,
+    "longitude": -7.743991776902251,
+    "cost": "€5"
+  },
+  {
+    "date": "2026-02-08",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2168 - Beep Beep, Fonte Ferrea",
+    "runNumber": 2168,
+    "startTime": "14:00",
+    "latitude": 37.18523838054884,
+    "longitude": -7.91396875721397,
+    "cost": "€5"
+  },
+  {
+    "date": "2026-03-08",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2169 - Le Generale- Olhos D'Agua",
+    "runNumber": 2169,
+    "startTime": "14:00",
+    "cost": "€5",
+    "dropCachedCoords": true
+  },
+  {
+    "date": "2026-03-22",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2170 - Lord Exoshite - Alcantarilha Gare",
+    "runNumber": 2170,
+    "startTime": "14:00",
+    "latitude": 37.17769052233995,
+    "longitude": -8.351544434425016,
+    "cost": "€5"
+  },
+  {
+    "date": "2026-04-05",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2171 - Easter Hash - KSSJ - Alportel",
+    "runNumber": 2171,
+    "startTime": "11:00",
+    "hares": "King Sir Sir James",
+    "latitude": 37.175684269968826,
+    "longitude": -7.909070161241613,
+    "cost": "€5"
+  },
+  {
+    "date": "2026-04-19",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2172 - Tight Lips - Pego do Inferno, Santa Estavao, Tavira",
+    "runNumber": 2172,
+    "startTime": "14:00",
+    "latitude": 37.1577855906619,
+    "longitude": -7.69881974234022,
+    "cost": "€5"
+  },
+  {
+    "date": "2026-05-03",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2173 - Dope Peddlar - venue tbc",
+    "runNumber": 2173,
+    "startTime": "14:00",
+    "cost": "€5",
+    "dropCachedCoords": true
+  },
+  {
+    "date": "2026-05-17",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2174 - Beep Beep - Juncais, Alportal",
+    "runNumber": 2174,
+    "startTime": "14:00",
+    "cost": "€5"
+  },
+  {
+    "date": "2026-05-31",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2175 - Comes Now & Then - Salir",
+    "runNumber": 2175,
+    "startTime": "10:00",
+    "hares": "Comes Now and Then",
+    "latitude": 37.24161073494416,
+    "longitude": -8.046046504308519,
+    "cost": "€5"
+  },
+  {
+    "date": "2026-06-14",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2176 - All the Way - Fonte Filipe",
+    "runNumber": 2176,
+    "startTime": "09:30",
+    "hares": "All The Way",
+    "latitude": 37.18250295977143,
+    "longitude": -7.963514167596968,
+    "cost": "€5"
+  },
+  {
+    "date": "2026-06-28",
+    "kennelTags": [
+      "a3h"
+    ],
+    "title": "Run 2177 - Hurry Curry - Loule",
+    "runNumber": 2177,
+    "startTime": "09:30",
+    "latitude": 37.13529191051404,
+    "longitude": -8.03080824978465,
+    "cost": "€5"
+  }
+]
