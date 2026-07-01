@@ -354,6 +354,11 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // alias would be ambiguous. The HC source routes via defaultKennelTag.
     "lh3-pt": ["LH3-PT", "Lisbon Hash House Harriers", "Lisboa Hash House Harriers", "Lisboa H3"],
     "pih3": ["PIH3", "Porto Invicta Hash House Harriers", "Porto Invicta H3", "Invicta H3"],
+    // "AHHH" omitted — already maps to Atlanta H4 (ah4, line ~221); a shared
+    // alias would make the global findFirst fallback order-dependent. The HC
+    // source routes via defaultKennelTag, so the omission is safe.
+    // "Almancil …" = the kennel's original name (1984 → ~2014), a legit historical alias.
+    "a3h": ["A3H", "Algarve Hash House Harriers", "Algarve H3", "Almancil Hash House Harriers", "Almancil H3"],
 
     // ===== JAPAN =====
     // Tokyo
