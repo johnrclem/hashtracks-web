@@ -405,29 +405,27 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   // ── Compact density ──
   if (density === "compact") {
     return (
-      <div
-        role="button"
-        tabIndex={0}
-        className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
-        aria-label={buildAriaLabel(event, attendance)}
-      >
-        {/* Crawlable link to the event's own detail page. The card itself is a
+      <>
+        {/* Crawlable link to the event's own detail page, rendered as a
+            display:none sibling of the interactive card (NOT a child of the
+            role="button" wrapper — nesting an <a> in a button is invalid HTML,
+            and it must not bubble into handleClick). The card itself is a
             synthetic button (click opens the desktop panel or navigates on
-            mobile — see handleClick above), so this real, visually-hidden
-            anchor is what lets Googlebot discover /hareline/{id} without
-            executing JS. Not part of the real-user interaction model:
-            tabIndex={-1}/aria-hidden keep it out of the tab order and a11y
-            tree since the role="button" wrapper already provides that. */}
-        <Link
-          href={`/hareline/${event.id}`}
-          tabIndex={-1}
-          aria-hidden="true"
-          className="sr-only"
-        >
+            mobile — see handleClick above); this real anchor is purely how
+            Googlebot discovers /hareline/{id} without executing JS. `hidden`
+            (display:none) keeps it out of the tab order and a11y tree while
+            the href stays in the SSR HTML for crawlers to follow. */}
+        <Link href={`/hareline/${event.id}`} className="hidden">
           {buildAriaLabel(event, attendance)}
         </Link>
+        <div
+          role="button"
+          tabIndex={0}
+          className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+          onClick={handleClick}
+          onKeyDown={handleKeyDown}
+          aria-label={buildAriaLabel(event, attendance)}
+        >
         <div
           className={`group relative flex items-center gap-3 rounded-lg border px-3 py-2 text-sm transition-all duration-200 hover:shadow-md active:scale-[0.995] ${
             isSelected
@@ -556,7 +554,8 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
             {event.kennel && <RegionBadge region={event.kennel.region} size="sm" />}
           </div>
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 
@@ -566,24 +565,22 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   const { title: displayTitle } = getDisplayTitle({ ...event, kennel: event.kennel ?? { shortName: "", fullName: "" } });
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
-      onClick={handleClick}
-      onKeyDown={handleKeyDown}
-      aria-label={buildAriaLabel(event, attendance)}
-    >
+    <>
       {/* Crawlable link — see the identical comment in the compact-density
-          branch above. */}
-      <Link
-        href={`/hareline/${event.id}`}
-        tabIndex={-1}
-        aria-hidden="true"
-        className="sr-only"
-      >
+          branch above. Sibling of the card, `hidden` (display:none), so it's
+          valid HTML (no <a> nested in a role="button"), stays out of the tab
+          order + a11y tree, and can't bubble into handleClick. */}
+      <Link href={`/hareline/${event.id}`} className="hidden">
         {buildAriaLabel(event, attendance)}
       </Link>
+      <div
+        role="button"
+        tabIndex={0}
+        className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        aria-label={buildAriaLabel(event, attendance)}
+      >
       <div
         className={`group relative overflow-hidden rounded-xl border transition-all duration-250 ease-out ${
           isSelected
@@ -926,7 +923,8 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

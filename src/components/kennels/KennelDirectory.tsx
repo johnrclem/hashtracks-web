@@ -574,13 +574,13 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
           kennels — either way, a crawler landing on this page with no query
           params would otherwise never see a real `<a href="/kennels/{slug}">`
           for most kennels. Real users already reach every kennel via the
-          visible grid/map, so this list is `aria-hidden` (screen readers
-          shouldn't announce ~400 duplicate entries) and each link is
-          `tabIndex={-1}` (keyboard users shouldn't have to tab past them) —
-          it exists purely as an SSR crawl signal, not a real UI surface. */}
-      <div className="sr-only" aria-hidden="true">
+          visible grid/map, so this list is `hidden` (display:none): the
+          hrefs stay in the SSR HTML for crawlers to follow, while it's
+          naturally out of the tab order and a11y tree (no aria-hidden /
+          tabIndex needed). Purely an SSR crawl signal, not a UI surface. */}
+      <div className="hidden">
         {kennels.map((kennel) => (
-          <Link key={kennel.id} href={`/kennels/${kennel.slug}`} tabIndex={-1}>
+          <Link key={kennel.id} href={`/kennels/${kennel.slug}`}>
             {kennel.shortName}
           </Link>
         ))}

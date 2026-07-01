@@ -75,11 +75,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .map((kennel) => regionNameToSlug(kennel.region))
       .filter((slug): slug is string => slug !== null),
   );
-  const regionPages: MetadataRoute.Sitemap = [...regionSlugs].map((slug) => ({
-    url: `${baseUrl}/kennels/region/${slug}`,
-    changeFrequency: "weekly",
-    priority: 0.7,
-  }));
+  // Sort so the emitted order is stable across regenerations — the kennels
+  // query has no `orderBy`, so without this the Set's insertion order (and
+  // thus the sitemap output) could vary between builds, producing noisy
+  // sitemap diffs / cache churn even when the URL set is unchanged.
+  const regionPages: MetadataRoute.Sitemap = [...regionSlugs]
+    .sort((a, b) => a.localeCompare(b))
+    .map((slug) => ({
+      url: `${baseUrl}/kennels/region/${slug}`,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    }));
 
   return [...staticPages, ...kennelPages, ...eventPages, ...regionPages];
 }
