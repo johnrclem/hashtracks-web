@@ -2150,7 +2150,7 @@ export const KENNELS: KennelSeed[] = [
       // residential connections. Point the public website at the HTTP root, which is
       // the canonical reachable surface for end users (plain <a href> HTTP links carry
       // no mixed-content risk). The board source is tracked separately in #2054.
-      website: "http://atlantahash.com",
+      website: "http://atlantahash.com", // NOSONAR — see #1416 above: HTTPS hangs from every network tested; HTTP is the reachable surface
       scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Weekly",
       hashCash: "$10", foundedYear: 1978,
       contactEmail: "info@atlantahash.com",
