@@ -18,7 +18,10 @@
  * mirror the live HC adapter (which emits neither); the flat 10 AED hash cash
  * lives on the Kennel record.
  *
- * Three verified data-quality decisions are baked into the frozen JSON:
+ * Four verified data-quality decisions are baked into the frozen JSON:
+ *   0. #351 (2025-06-13) — HC location was the literal placeholder "TBD" with no
+ *      hares/coords. Location omitted (the live adapter's stripPlaceholderLocation
+ *      drops "TBD" the same way); the event renders unlocated → Dubai centroid.
  *   1. #360 (2026-03-06) — an online/Zoom run ("Online due to current security
  *      climate in Dubai…", fee 0, no coords). Kept for run-# continuity; coords
  *      omitted so it can't geocode the long sentence (merge falls back to the
@@ -57,8 +60,19 @@ runBackfillScript({
   sourceName: SOURCE_NAME,
   kennelTimezone: KENNEL_TIMEZONE,
   label: "Loading frozen Moonshine H3 Dubai (MH3D) Harrier Central archive",
-  fetchEvents: async () => mh3DxbHistory as RawEventData[],
+  fetchEvents: async () => {
+    const events = mh3DxbHistory as RawEventData[];
+    // Fail loud on an empty/corrupt archive — a one-shot backfill that loads
+    // zero rows is never correct, and the shared runner would otherwise log
+    // "Total parsed: 0" and exit 0, masking the breakage.
+    if (events.length === 0) {
+      throw new Error(
+        "mh3-dxb-history.json is empty — expected 17 frozen runs (#347–#363). Aborting.",
+      );
+    }
+    return events;
+  },
 }).catch((err) => {
   console.error(err);
-  process.exit(1);
+  process.exitCode = 1;
 });
