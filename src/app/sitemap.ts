@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { regionNameToSlug, regionBySlug } from "@/lib/region";
 
 // Regenerate at most once per hour. Avoids hitting the DB on every crawler request.
 export const revalidate = 3600;
@@ -23,7 +24,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [kennels, upcomingEvents] = await Promise.all([
     prisma.kennel.findMany({
       where: { isHidden: false },
-      select: { slug: true, lastEventDate: true, updatedAt: true },
+      select: { slug: true, region: true, lastEventDate: true, updatedAt: true },
     }),
     prisma.event.findMany({
       where: {
@@ -64,5 +65,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...kennelPages, ...eventPages];
+  // Region landing pages (`/kennels/region/{slug}`) — derived from the
+  // kennels query above rather than a separate query. Two guards:
+  //  1. Not every `region` string resolves to a slug (`regionNameToSlug`
+  //     returns null for freeform/legacy values) — those are skipped.
+  //  2. The region page filters kennels by the EXACT canonical name
+  //     (`where: { region: region.name }` in kennels/region/[slug]/page.tsx),
+  //     but `regionNameToSlug` also maps ALIAS strings to the canonical slug
+  //     (e.g. "Brasília, Brazil" → "brasilia"). A kennel stored under an
+  //     alias-only region would advertise a slug whose page renders zero
+  //     kennels — a thin/empty page, the opposite of what this sitemap is
+  //     for. So only emit a slug when a visible kennel actually stores the
+  //     canonical name the page queries by (`regionBySlug(slug).name`).
+  const storedRegionNames = new Set(kennels.map((kennel) => kennel.region));
+  const regionSlugs = new Set<string>();
+  for (const name of storedRegionNames) {
+    const slug = regionNameToSlug(name);
+    if (slug && regionBySlug(slug)?.name === name) {
+      regionSlugs.add(slug);
+    }
+  }
+  // Sort so the emitted order is stable across regenerations — the kennels
+  // query has no `orderBy`, so without this the Set's insertion order (and
+  // thus the sitemap output) could vary between builds, producing noisy
+  // sitemap diffs / cache churn even when the URL set is unchanged.
+  const regionPages: MetadataRoute.Sitemap = [...regionSlugs]
+    .sort((a, b) => a.localeCompare(b))
+    .map((slug) => ({
+      url: `${baseUrl}/kennels/region/${slug}`,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    }));
+
+  return [...staticPages, ...kennelPages, ...eventPages, ...regionPages];
 }
