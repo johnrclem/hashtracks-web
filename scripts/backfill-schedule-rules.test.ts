@@ -13,23 +13,23 @@ import type { KennelScheduleRuleSeed } from "../prisma/seed-data/kennels";
 import { KENNELS } from "../prisma/seed-data/kennels";
 
 describe("seed-data invariant — no colliding scheduleRules", () => {
-  it("no kennel declares two scheduleRules that share a normalized rrule", () => {
+  it("every kennel's scheduleRules survive planSeedRule without a collision throw", () => {
     // The ScheduleRule upsert key is (kennelId, rrule, source=SEED_DATA), so two seed
-    // rules with the same rrule silently collapse to one row on seed. This asserts the
-    // seed data never authors that footgun (see planSeedRule's fail-loud guard).
-    const norm = (r: string) => r.trim().toUpperCase().replace(/\s+/g, "");
-    const offenders: string[] = [];
+    // rules that resolve to the same stored rrule silently collapse to one row. Rather
+    // than reimplement the keying (normalizeRRule for parseable rules, verbatim for
+    // CADENCE/LUNAR sentinels — easy to drift from the guard), run each kennel's rules
+    // through the real planSeedRule guard and assert none throws. This exercises the
+    // exact collision key the upsert uses.
     for (const k of KENNELS) {
       const rules = k.scheduleRules;
       if (!rules || rules.length < 2) continue;
-      const seen = new Set<string>();
-      for (const r of rules) {
-        const key = norm(r.rrule);
-        if (seen.has(key)) offenders.push(`${k.kennelCode}: duplicate rrule ${JSON.stringify(r.rrule)}`);
-        seen.add(key);
-      }
+      const dbKennel = { id: k.kennelCode, kennelCode: k.kennelCode, shortName: k.shortName };
+      const planned: Parameters<typeof planSeedRule>[3] = [];
+      expect(
+        () => rules.forEach((r) => planSeedRule(r, dbKennel, k.kennelCode, planned, {})),
+        `${k.kennelCode} authors colliding scheduleRules`,
+      ).not.toThrow();
     }
-    expect(offenders).toEqual([]);
   });
 });
 
