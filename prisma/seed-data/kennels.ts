@@ -5715,19 +5715,22 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/BarbadosHash/",
       instagramHandle: "barbadosh3",
       foundedYear: 1985, // Nov 1985 — barbadoshash.com "BH3 40th Anniversary" (15 Nov 2025) + run-# corroboration; high confidence
-      // Single Saturday cadence with a seasonal start-time shift. A same-day seasonal
-      // split (both seasons BYDAY=SA, only the time differs) can't be modeled as two
-      // ScheduleRules — they collapse on the (kennelId, rrule, source) upsert key (the
-      // schedule-rule backfill now fails loud on this). One rule carries the current
-      // summer start; the winter/holiday variation lives in scheduleNotes. HC ingests
-      // the actual per-event start anyway, so this is Travel-Mode profile metadata.
+      // Same-day seasonal start-time shift (both seasons run Saturday, only the time
+      // differs). Kept as two structured rules made distinct by disjoint BYMONTH — this
+      // avoids the (kennelId, rrule, source) upsert collapse (a bare BYDAY=SA on both
+      // would collide; the schedule-rule backfill now fails loud on that) while letting
+      // both seasons project with their real time (generateOccurrences filters by BYMONTH
+      // AND validFrom/validUntil gates the season). Season boundaries approximate
+      // (Caribbean summer ≈ May–Oct, winter ≈ Nov–Apr). Public-holiday 10 AM starts
+      // aren't representable as a weekly rrule → scheduleNotes. HC supplies the real
+      // per-event start regardless.
       scheduleDayOfWeek: "Saturday",
       scheduleTime: "4:00 PM", // 12-hr seed format (current summer start); scheduleRules.startTime stays 24-hr
       scheduleFrequency: "Weekly",
-      scheduleNotes:
-        "Saturdays at 4:00 PM in summer (≈May–Oct) and 3:30 PM in winter (≈Nov–Apr); 10:00 AM on public holidays.",
+      scheduleNotes: "10:00 AM starts on public holidays.",
       scheduleRules: [
-        { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "16:00", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SA;BYMONTH=5,6,7,8,9,10", startTime: "16:00", label: "Summer", validFrom: "05-01", validUntil: "10-31", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SA;BYMONTH=11,12,1,2,3,4", startTime: "15:30", label: "Winter", validFrom: "11-01", validUntil: "04-30", displayOrder: 1 },
       ],
       hashCash: "BDS $4",
       walkersWelcome: true, // home page: "open to all – runners, hikers, walkers, young, and old"
