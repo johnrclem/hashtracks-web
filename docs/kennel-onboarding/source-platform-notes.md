@@ -720,7 +720,24 @@ off — so this endpoint hands you ready-to-paste config-only source rows.
   and 2026-01-11 — a real renumber, not a mis-date like Bandung's #2292). When the two rows are on genuinely
   different dates, **keep both and dedup the backfill by DATE, not run number** (the merge fingerprint
   `kennelTag+date` separates them); only drop a dup when it's the SAME event mis-dated (Bandung). `console.warn`
-  either way so it's visible.
+  either way so it's visible. 🔴 **SHIPPED correction (Algarve #2486):** at build the 2025-12-28 #2167 turned
+  out to be a **cancelled slot** — `EventName` literally `"HASH CANCELLED"`, `IsCountedRun=0`, venue `"Tbc"` —
+  NOT a second real trail, so it was **dropped** (see the cancelled-row rule below), leaving a single clean
+  #2167 and no dedup collision at all. The handoff's "keep both distinct dates" premise was written before the
+  ground-truth pull; **check each dup row's `EventName`/`IsCountedRun` before assuming both are real.**
+- 🔴 **Drop cancelled / uncounted HC rows (`IsCountedRun=0`, `EventName` like "HASH CANCELLED") — they are
+  scrubbed slots, not trails (Algarve #2167 @ 2025-12-28, 2026-07-01).** Ingesting one produces a past
+  "HASH CANCELLED" event card. Filter them out in the extractor (`IsCountedRun === 0` + a `/^hash cancelled$/i`
+  name guard). Mirrors the Bandung/#2292 posture (drop non-events), and often resolves an apparent run-number
+  "duplicate" for free.
+- 🔴 **NEVER populate `description` from HC `EventDescription` — it frequently carries PII (Algarve, 2026-07-01;
+  cf. Hua Hin FM #45 bank-account note).** A3H's `EventDescription` on real runs was a free-text blob with hare
+  **emails and phone numbers** (the handoff's "description 0/28" field-fill was wrong — the field was full, just
+  of PII). The live `HarrierCentralAdapter` emits **no `description`** at all, so omitting it in the backfill is
+  both faithful and PII-safe. (The ONE documented exception — an online/virtual note moved to `description` —
+  is a hand-authored string, never a copy of `EventDescription`.) Corollary quirk: A3H stores raw **coords AS
+  the venue text** (`LocationOneLineDesc` = `"37.1, -8.0"`) on most runs, so `composeHcLocation`'s coords-only
+  drop correctly leaves `location` empty while the village survives in the title — expected, not a parsing miss.
 - 🔴 **HC `global-runs` PAST rows carry region-default geocode-fail pins on real venues (Barbados #2162,
   2026-06-30).** #2162's venue "MIle & a Quarter pavillion" (St Peter, Barbados) came back with
   **Tokyo/Roppongi coords `35.66, 139.73`** — HC's fallback pin. The live `HarrierCentralAdapter` drops
