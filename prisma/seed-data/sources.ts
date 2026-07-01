@@ -4826,6 +4826,9 @@ export const SOURCES = [
         defaultStartTime: "18:00", // Wed 6pm, matches the static schedule
         maxPastDays: 7,
         maxFutureDays: 120,
+        // Forward-only rolling hareline — past runs fall off the page, so the
+        // reconciler must not cancel them when they disappear from the scrape.
+        upcomingOnly: true,
       },
       kennelCodes: ["sgharriets"],
     },
