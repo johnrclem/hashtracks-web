@@ -5676,6 +5676,28 @@ export const KENNELS: KennelSeed[] = [
       latitude: 25.2048, // Dubai centroid (no per-event coords published)
       longitude: 55.2708,
     },
+    // ── United Arab Emirates (third 🇦🇪 kennel: Moonshine H3, Desert H3's monthly full-moon offshoot) ──
+    {
+      kennelCode: "mh3-dxb", // bare "mh3"/"MH3" globally taken (Munich/Montreal/Minneapolis/Miami/Madrid/Memphis/Morgantown/Manila) → -dxb (Dubai)
+      shortName: "Moonshine H3 Dubai",
+      fullName: "Moonshine Hash House Harriers Dubai",
+      region: "Dubai",
+      country: "United Arab Emirates", // canonical NAME; code "AE" lives in region.ts (already seeded via Desert H3)
+      website: "https://www.deserthash.org/?page_id=50", // Moonshine page on the parent DH3 site
+      // foundedYear OMITTED — unverifiable (no founding date on-site or in HC; run-# soft-signals ~1990s, not committed)
+      // Lunar full-moon cadence: run DAY varies (sampled Mon/Wed/Fri), so no scheduleDayOfWeek and no
+      // scheduleRules — the dated Harrier Central feed is authoritative; a fixed-weekday RRULE would mis-project.
+      scheduleTime: "8:00 PM", // 12-hr seed format; RawEventData.startTime stays 24-hr "20:00"
+      scheduleFrequency: "Monthly",
+      scheduleNotes:
+        "Every full moon: meet at a Dubai pub around 7:00 PM for drinks, run sets off around 8:00 PM. Locations rotate monthly. Moonshine is the Desert Hash House Harriers (DH3) full-moon hash.",
+      hashCash: "10 AED", // HC EventPriceForMembers across all in-person runs (the online run was free)
+      logoUrl: "/kennel-logos/mh3-dxb.jpg", // self-hosted; ext confirmed by magic bytes
+      description:
+        "Dubai's full-moon hash, run by the Desert Hash House Harriers (DH3). Meets every full moon at a rotating Dubai pub — drinks around 7:00 PM, run sets off around 8:00 PM, hash cash 10 AED. A relaxed monthly evening trail under the full moon.",
+      latitude: 25.2048, // Dubai centroid (venues rotate; per-event coords come from HC)
+      longitude: 55.2708,
+    },
     // ── Saudi Arabia (first 🇸🇦 kennel: Riyadh H3 / R3H4) ──
     {
       kennelCode: "riyadh-h3", // bare "r3h4" also free; "riyadh-h3" reads cleaner as a slug

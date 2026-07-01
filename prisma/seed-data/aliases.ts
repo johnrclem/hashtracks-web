@@ -657,6 +657,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Creek H3 (second UAE kennel; bare "CH3" omitted — global collision:
     // ch3=Chicago, ch3-dk=Copenhagen, ch3-nc=Charlotte, ch3-sc=Charleston, ch3-cm=Chiang Mai)
     "ch3-ae": ["Creek Hash", "Creek H3", "Creek Hash House Harriers", "Creek HHH", "CH3 Dubai"],
+    // Moonshine H3 Dubai (third UAE kennel; bare "MH3" omitted — global collision:
+    // mh3-de=Munich, mh3-ca=Montreal, mh3-mn=Minneapolis, mia-h3=Miami, Madrid/Memphis/Morgantown/Manila)
+    "mh3-dxb": ["MH3D", "Moonshine H3", "Moonshine Hash Dubai", "Moonshine HHH Dubai"],
     // ===== SAUDI ARABIA ===== (first Saudi kennel)
     "riyadh-h3": ["Riyadh H3", "R3H4", "Riyadh Hash House Harriers", "Riyadh Hash"],
     // ===== BARBADOS ===== (first Caribbean kennel; bare "BH3" omitted —

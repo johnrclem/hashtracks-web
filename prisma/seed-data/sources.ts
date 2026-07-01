@@ -7438,6 +7438,35 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["ch3-ae"],
     },
+    // Moonshine H3 Dubai (third UAE kennel, Desert H3's monthly full-moon offshoot) — Harrier
+    // Central public API. Config-only (the HARRIER_CENTRAL adapter already exists). Lunar cadence:
+    // the run DAY varies with the full moon (sampled Mon/Wed/Fri), so the dated HC feed is
+    // authoritative — no scheduleRules on the kennel. Verified live 2026-06-29 via
+    // hashruns.org/api/global-runs (upcoming #364 2026-07-03 20:00; monthly full-moon cadence).
+    {
+      name: "Moonshine H3 Dubai Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live via hashruns.org/api/global-runs 2026-06-29).
+        publicKennelId: "d5f74649-a19c-4ffb-b55c-bcbc7caeb09e",
+        defaultKennelTag: "mh3-dxb",
+        // HC names events "Moonshine Run <N>" / "MH3D Run <N>" (real names, kept verbatim).
+        // defaultTitle synthesizes "Moonshine H3 Dubai #N" only when an event name is empty or a
+        // known placeholder appears (mirrors Bandung H3 / Taiwan H3 / Shanghai H3).
+        defaultTitle: "Moonshine H3 Dubai",
+        staleTitleAliases: ["Placeholder event for MH3D"],
+        // upcomingOnly:true — REQUIRED (NOT the no-backfill HC convention): the HC getEvents API is
+        // future-only and this source owns a 17-run historical backfill
+        // (scripts/backfill-mh3-dxb-history.ts); without this guard reconcile.ts would false-CANCEL
+        // those past runs as they age off the 365-day window (Bandung #2340 contract).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["mh3-dxb"],
+    },
     // ── Saudi Arabia ──
     // Riyadh H3 / R3H4 (first Saudi Arabia kennel) — riyadhhash.com is a Lovable React/Vite
     // SPA (empty HTML shell), so run data must come from its public Supabase (PostgREST) `anon`

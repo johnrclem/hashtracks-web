@@ -1,0 +1,64 @@
+/**
+ * One-shot historical backfill for Moonshine H3 Dubai (mh3-dxb).
+ *
+ * The Harrier Central adapter (src/adapters/harrier-central/adapter.ts) is
+ * future-only — HC's getEvents API returns only upcoming runs — so Moonshine's
+ * past runs (#347 2025-02 → #363 2026-05, 17 rows) would never reach canonical
+ * Events from the live scrape.
+ *
+ * The archive was extracted once from the HC public front-end
+ * (`hashruns.org/api/global-runs?isFuture=0&minEventDate=…&maxEventDate=…`,
+ * windowed and filtered client-side to PublicKennelId
+ * d5f74649-a19c-4ffb-b55c-bcbc7caeb09e — the global feed ignores the kennel
+ * param) and frozen into `scripts/data/mh3-dxb-history.json` — committed as
+ * data, no parser, per the H7 / Bandung lesson. Each row's fields are mapped
+ * to match the live adapter's output: title verbatim (EventName), location from
+ * LocationOneLineDesc, coords from Latitude/Longitude (dropped where HC has
+ * none), hares from HC `Hares`. Cost/description are intentionally omitted to
+ * mirror the live HC adapter (which emits neither); the flat 10 AED hash cash
+ * lives on the Kennel record.
+ *
+ * Three verified data-quality decisions are baked into the frozen JSON:
+ *   1. #360 (2026-03-06) — an online/Zoom run ("Online due to current security
+ *      climate in Dubai…", fee 0, no coords). Kept for run-# continuity; coords
+ *      omitted so it can't geocode the long sentence (merge falls back to the
+ *      Dubai centroid).
+ *   2. #361 (2026-04-03) — an outlier 08:00 morning run. The GMT field agrees
+ *      (04:00Z), so this is internally consistent, NOT a 12h AM/PM typo — the
+ *      "20:00" it does NOT collide with any other row. Preserved verbatim.
+ *   3. #363 (2026-05-29) — HC `Hares` byte-equals the venue string (HC
+ *      location-bleed). Hares dropped (the live adapter's haresEqualsRawPlace
+ *      guard does the same); the venue still populates `location`.
+ *
+ * The rows bind to the live "Moonshine H3 Dubai Harrier Central" source for
+ * provenance. That source sets `upcomingOnly: true`, so reconcile never
+ * false-cancels these past rows when the future-only adapter stops returning
+ * them (reconcile.ts timeMin guard; same contract as Bandung / nth3-tw).
+ *
+ * Re-runnable: `reportAndApplyBackfill` dedupes by fingerprint on every row and
+ * loads only past events (date < today in kennel timezone).
+ *
+ * Usage:
+ *   Dry run:  npx tsx scripts/backfill-mh3-dxb-history.ts
+ *   Apply:    BACKFILL_APPLY=1 npx tsx scripts/backfill-mh3-dxb-history.ts
+ *
+ * Requires the "Moonshine H3 Dubai Harrier Central" source to exist (run
+ * `npx prisma db seed`).
+ */
+import "dotenv/config";
+import { runBackfillScript } from "./lib/backfill-runner";
+import type { RawEventData } from "@/adapters/types";
+import mh3DxbHistory from "./data/mh3-dxb-history.json";
+
+const SOURCE_NAME = "Moonshine H3 Dubai Harrier Central";
+const KENNEL_TIMEZONE = "Asia/Dubai";
+
+runBackfillScript({
+  sourceName: SOURCE_NAME,
+  kennelTimezone: KENNEL_TIMEZONE,
+  label: "Loading frozen Moonshine H3 Dubai (MH3D) Harrier Central archive",
+  fetchEvents: async () => mh3DxbHistory as RawEventData[],
+}).catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
