@@ -556,6 +556,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Thailand
     "bssh3": ["BSSH3", "Bangkok Sabai Saturday", "Bangkok Saturday Hash", "Bangkok Weekend Walk Run"],
     "cah3": ["Cha-Am H3", "Cha-Am Hash", "ChaAm H3", "CAH3", "Cha-Am HHH", "H2H3", "Hua Hin H3", "Hua Hin Hash", "Hua Hin HHH", "H2H3-CAH3"],
+    "h2fmh3": ["Hua Hin Full Moon H3", "H2FMH3", "Hua Hin Full Moon Hash", "Hua Hin Full Moon HHH"],
     "crh3": ["Chiang Rai H3", "Chiang Rai Hash", "CRH3", "Chiang Rai HHH"],
     "bkk-harriettes": ["BKK Harriettes", "Bangkok Harriettes", "Bangkok Harriettes H3", "Bangkok Harriets"],
     "bth3": ["BTH3", "Bangkok Thursday", "Bangkok Thursday Hash", "Bangkok Thursday H3"],

@@ -1,0 +1,144 @@
+[
+  {
+    "date": "2025-11-07",
+    "kennelTags": [
+      "h2fmh3"
+    ],
+    "title": "7/11 Hash",
+    "runNumber": 1,
+    "startTime": "16:30",
+    "hares": "Penny Lame",
+    "location": "Patio Night Market",
+    "latitude": 12.5704855,
+    "longitude": 99.9565518
+  },
+  {
+    "date": "2025-11-23",
+    "kennelTags": [
+      "h2fmh3"
+    ],
+    "title": "Sunday Bush Hash",
+    "runNumber": 2,
+    "startTime": "15:30",
+    "location": "Sweetheart Cafe",
+    "latitude": 12.480161560203054,
+    "longitude": 99.91278021908126
+  },
+  {
+    "date": "2025-11-30",
+    "kennelTags": [
+      "h2fmh3"
+    ],
+    "title": "Hua Hin pre Christmas Full moon",
+    "runNumber": 3,
+    "startTime": "15:44",
+    "location": "Aunt jaews restaurant"
+  },
+  {
+    "date": "2025-12-19",
+    "kennelTags": [
+      "h2fmh3"
+    ],
+    "title": "Hua Hin Christmas Full moon run #37",
+    "runNumber": 37,
+    "startTime": "17:00",
+    "location": "Le pub Hua Hin",
+    "latitude": 12.558799,
+    "longitude": 99.95499
+  },
+  {
+    "date": "2026-01-18",
+    "kennelTags": [
+      "h2fmh3"
+    ],
+    "title": "Hua Hin Full Moon Hash #39 soi 102",
+    "runNumber": 39,
+    "startTime": "16:30",
+    "location": "soi 102",
+    "latitude": 12.5448483,
+    "longitude": 99.9520773
+  },
+  {
+    "date": "2026-01-25",
+    "kennelTags": [
+      "h2fmh3"
+    ],
+    "title": "Pranburi Hash #1",
+    "runNumber": 40,
+    "startTime": "15:30",
+    "location": "pranburi scenic route",
+    "latitude": 12.4240753,
+    "longitude": 99.9560736
+  },
+  {
+    "date": "2026-02-15",
+    "kennelTags": [
+      "h2fmh3"
+    ],
+    "title": "Hua Hin Full Moon Hash #40",
+    "runNumber": 39,
+    "startTime": "17:00",
+    "location": "Chainat soi 2",
+    "latitude": 12.6285327,
+    "longitude": 99.9469031
+  },
+  {
+    "date": "2026-03-01",
+    "kennelTags": [
+      "h2fmh3"
+    ],
+    "title": "Pranburi Hash 1st March #2",
+    "runNumber": 40,
+    "startTime": "15:30",
+    "hares": "penny lame, Dessert island D",
+    "location": "grandma & grandma restaurant",
+    "latitude": 12.42421,
+    "longitude": 99.95624
+  },
+  {
+    "date": "2026-03-15",
+    "kennelTags": [
+      "h2fmh3"
+    ],
+    "title": "Hua Hin Full Moon St Patricks day",
+    "runNumber": 41,
+    "startTime": "16:30",
+    "hares": "penny lame, knockout neptune",
+    "location": "soi 112 hua hin",
+    "latitude": 12.53139,
+    "longitude": 99.95569
+  },
+  {
+    "date": "2026-04-26",
+    "kennelTags": [
+      "h2fmh3"
+    ],
+    "title": "Hua Hin Full Moon Sunset run",
+    "runNumber": 42,
+    "startTime": "16:30",
+    "location": "Tam som restaurant",
+    "latitude": 12.590647629884396,
+    "longitude": 99.93139135696214
+  },
+  {
+    "date": "2026-05-24",
+    "kennelTags": [
+      "h2fmh3"
+    ],
+    "title": "Hua Hin Full Moon Hash #44",
+    "runNumber": 43,
+    "location": "Navypirom"
+  },
+  {
+    "date": "2026-06-28",
+    "kennelTags": [
+      "h2fmh3"
+    ],
+    "title": "Pre Birthday Full Moon Hash",
+    "runNumber": 44,
+    "startTime": "17:00",
+    "location": "Kow takieb",
+    "latitude": 12.513837932695159,
+    "longitude": 99.97989888301103
+  }
+]
