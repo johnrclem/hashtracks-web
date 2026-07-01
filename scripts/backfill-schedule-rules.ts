@@ -1024,6 +1024,31 @@ export function planSeedRule(
     validUntil,
     displayOrder: typeof rule.displayOrder === "number" ? rule.displayOrder : 0,
   };
+  // Fail-loud guard: the ScheduleRule upsert key is (kennelId, rrule, source), so
+  // two SEED_DATA rules for the same kennel that share a normalized rrule collapse
+  // to a single row — the second silently OVERWRITES the first on upsert. This was
+  // the Barbados H3 footgun: two seasonal rules both `FREQ=WEEKLY;BYDAY=SA`, differing
+  // only by startTime (Summer 16:00 / Winter 15:30), so only the last-applied season
+  // survived. Keep seasonal rules DISTINCT so their rrule (and thus the upsert key)
+  // differs: by weekday (`BYDAY`, e.g. LBH3 Thu↔Sun) or by month (`BYMONTH`, e.g.
+  // Barbados H3 summer/winter Saturdays — generateOccurrences filters by BYMONTH so each
+  // still projects only its season). Carry anything a weekly rrule can't express (e.g.
+  // public-holiday times) in `scheduleNotes`. Fail rather than drop a rule on the floor.
+  const collision = planned.find(
+    (p) =>
+      p.source === "SEED_DATA" &&
+      p.kennelId === seedRow.kennelId &&
+      p.rrule === seedRow.rrule,
+  );
+  if (collision) {
+    throw new Error(
+      `${kennelCode}: two SEED_DATA scheduleRules share rrule ${JSON.stringify(seedRow.rrule)} ` +
+        `(startTimes ${JSON.stringify(collision.startTime)} vs ${JSON.stringify(seedRow.startTime)}, ` +
+        `labels ${JSON.stringify(collision.label)} vs ${JSON.stringify(seedRow.label)}). They collapse ` +
+        `to one row on the (kennelId, rrule, source) upsert key — keep seasonal rules distinct by ` +
+        `BYDAY or BYMONTH, or move the variation into scheduleNotes.`,
+    );
+  }
   absorbOverlappingPass1Rule(seedRow, planned, options);
   planned.push(seedRow);
   return "emitted";
