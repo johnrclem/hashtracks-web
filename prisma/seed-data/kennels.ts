@@ -5715,16 +5715,19 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/BarbadosHash/",
       instagramHandle: "barbadosh3",
       foundedYear: 1985, // Nov 1985 — barbadoshash.com "BH3 40th Anniversary" (15 Nov 2025) + run-# corroboration; high confidence
-      // Single Saturday cadence with a seasonal start-time shift (winter 3:30 PM / summer 4:00 PM;
-      // 10:00 AM on public holidays). HC ingests the actual per-event start, so these rules are
-      // kennel-profile metadata for Travel Mode. Season boundaries approximate (Caribbean winter
-      // ≈ Nov–Apr, summer ≈ May–Oct). Flat fields below remain for legacy display fallback.
+      // Single Saturday cadence with a seasonal start-time shift. A same-day seasonal
+      // split (both seasons BYDAY=SA, only the time differs) can't be modeled as two
+      // ScheduleRules — they collapse on the (kennelId, rrule, source) upsert key (the
+      // schedule-rule backfill now fails loud on this). One rule carries the current
+      // summer start; the winter/holiday variation lives in scheduleNotes. HC ingests
+      // the actual per-event start anyway, so this is Travel-Mode profile metadata.
       scheduleDayOfWeek: "Saturday",
       scheduleTime: "4:00 PM", // 12-hr seed format (current summer start); scheduleRules.startTime stays 24-hr
       scheduleFrequency: "Weekly",
+      scheduleNotes:
+        "Saturdays at 4:00 PM in summer (≈May–Oct) and 3:30 PM in winter (≈Nov–Apr); 10:00 AM on public holidays.",
       scheduleRules: [
-        { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "16:00", label: "Summer", validFrom: "05-01", validUntil: "10-31", displayOrder: 0 },
-        { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "15:30", label: "Winter", validFrom: "11-01", validUntil: "04-30", displayOrder: 1 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "16:00", displayOrder: 0 },
       ],
       hashCash: "BDS $4",
       walkersWelcome: true, // home page: "open to all – runners, hikers, walkers, young, and old"

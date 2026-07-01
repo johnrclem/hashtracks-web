@@ -10,6 +10,28 @@ import {
   planSeedRule,
 } from "./backfill-schedule-rules";
 import type { KennelScheduleRuleSeed } from "../prisma/seed-data/kennels";
+import { KENNELS } from "../prisma/seed-data/kennels";
+
+describe("seed-data invariant — no colliding scheduleRules", () => {
+  it("no kennel declares two scheduleRules that share a normalized rrule", () => {
+    // The ScheduleRule upsert key is (kennelId, rrule, source=SEED_DATA), so two seed
+    // rules with the same rrule silently collapse to one row on seed. This asserts the
+    // seed data never authors that footgun (see planSeedRule's fail-loud guard).
+    const norm = (r: string) => r.trim().toUpperCase().replace(/\s+/g, "");
+    const offenders: string[] = [];
+    for (const k of KENNELS) {
+      const rules = k.scheduleRules;
+      if (!rules || rules.length < 2) continue;
+      const seen = new Set<string>();
+      for (const r of rules) {
+        const key = norm(r.rrule);
+        if (seen.has(key)) offenders.push(`${k.kennelCode}: duplicate rrule ${JSON.stringify(r.rrule)}`);
+        seen.add(key);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});
 
 describe("parseScheduleTime", () => {
   it("parses PM times to 24-hour", () => {
@@ -1440,6 +1462,39 @@ describe("planSeedRule — per-rule confidence + CADENCE sentinels", () => {
     );
     expect(planned[0].rrule).toBe("FREQ=WEEKLY;BYDAY=MO");
     expect(planned[0].confidence).toBe("MEDIUM");
+  });
+
+  it("throws when two SEED_DATA rules for one kennel share a normalized rrule (same-day seasonal collapse)", () => {
+    // The (kennelId, rrule, source) upsert key means the second rule would silently
+    // overwrite the first (the Barbados H3 footgun: Summer 16:00 + Winter 15:30, both
+    // FREQ=WEEKLY;BYDAY=SA). Fail loud instead of dropping a rule.
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    planSeedRule(
+      { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "16:00", label: "Summer" },
+      dbKennel,
+      "barbados-h3",
+      planned,
+      {},
+    );
+    expect(() =>
+      planSeedRule(
+        { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "15:30", label: "Winter" },
+        dbKennel,
+        "barbados-h3",
+        planned,
+        {},
+      ),
+    ).toThrow(/share rrule .*BYDAY=SA/);
+    // The first rule stays intact — the throw happens before the second is pushed.
+    expect(planned).toHaveLength(1);
+    expect(planned[0].startTime).toBe("16:00");
+  });
+
+  it("does NOT throw for two SEED_DATA rules that differ by weekday (LBH3-style seasonal split)", () => {
+    const planned: Parameters<typeof planSeedRule>[3] = [];
+    planSeedRule({ rrule: "FREQ=WEEKLY;BYDAY=TH", startTime: "18:30" }, dbKennel, "lbh3", planned, {});
+    planSeedRule({ rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "10:00" }, dbKennel, "lbh3", planned, {});
+    expect(planned).toHaveLength(2);
   });
 
   it("defaults a parseable rule to HIGH when confidence is omitted", () => {
