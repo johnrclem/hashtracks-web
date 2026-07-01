@@ -705,6 +705,33 @@ off — so this endpoint hands you ready-to-paste config-only source rows.
   `bandung-hash.com` was **NXDOMAIN** (a dead `website` renders a broken card link). Drop a dead `website`;
   do NOT substitute `hashruns.org/<slug>` — no HC kennel uses the platform front-end as its `website` (own
   site or none). The live FB page (`facebookUrl`) is the external presence.
+- 🔴 **`<shortcode>.org` resolving ≠ the kennel's site — a DNS Status 0 can be an UNRELATED org that owns
+  the abbreviation (Algarve H3 2026-06-30).** A3H's queue-proposed `a3h.org` resolved (Status 0) but is the
+  **"Activities & Attractions Association of Hawaii"** — same three-letter abbreviation, different entity.
+  The DNS check passes, so the WSH3 NXDOMAIN guard does NOT catch this. **Fetch the page and confirm the
+  CONTENT is the hash** (hash vocabulary: "On On", "hares", "kennel", trail) before citing it for any field.
+  The real site is found by name-search, not by guessing `<code>.org`. (For A3H: `algarvehashhouseharriers.com`,
+  while `a3h.org`/`algarvehhh.org` were a Hawaii trade body / NXDOMAIN respectively.)
+- **HC `global-runs` has NO currency field** (only `EventPriceForMembers`/`EventPriceForNonMembers` numbers).
+  Infer the currency from the kennel's country (Algarve → €5, not £5 — even though the HC `KennelIANATimezone`
+  said `Europe/London`). State the inference + flag "confirm at build" in the handoff; never assert a currency
+  the feed didn't carry.
+- **HC kennels can carry a duplicate run number across two DISTINCT dates** (Algarve #2167 on both 2025-12-28
+  and 2026-01-11 — a real renumber, not a mis-date like Bandung's #2292). When the two rows are on genuinely
+  different dates, **keep both and dedup the backfill by DATE, not run number** (the merge fingerprint
+  `kennelTag+date` separates them); only drop a dup when it's the SAME event mis-dated (Bandung). `console.warn`
+  either way so it's visible.
+- 🔴 **HC `global-runs` PAST rows carry region-default geocode-fail pins on real venues (Barbados #2162,
+  2026-06-30).** #2162's venue "MIle & a Quarter pavillion" (St Peter, Barbados) came back with
+  **Tokyo/Roppongi coords `35.66, 139.73`** — HC's fallback pin. The live `HarrierCentralAdapter` drops
+  these via `hcGeocodeFailed`/`dropApiCoords`, but that code does NOT run on the `global-runs` backfill
+  path — so the extractor needs its own guard: a **country bounding-box** filter (drop lat/lng outside the
+  kennel's country → merge re-geocodes from the venue text). Both Gemini and Codex flag this if missed.
+- 🔴 **HC past archives contain AM/PM `startTime` typos (Barbados #2137 @ 22:00, #2128 @ 03:30).** #2137
+  was an Easter-Monday holiday run (kennel does 10:00 holidays) stored at 22:00; #2128 at 03:30 amid 15:30
+  neighbours. In the extractor, keep only plausible hash hours (**`06:00`–`20:00`**) and **drop**
+  out-of-range to `undefined` rather than fabricate a corrected time (preserves legit 10:00 holiday +
+  19:00 evening runs). Same faithful-but-safe posture as the coord scrub above.
 
 ## Supabase / PostgREST JSON backend behind a React SPA (learned from Riyadh H3, 2026-06-18)
 
