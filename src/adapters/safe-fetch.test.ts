@@ -109,3 +109,91 @@ describe("safeFetch residential-proxy body forwarding", () => {
     expect(payload).not.toHaveProperty("body");
   });
 });
+
+describe("safeFetch egress selection (residential vs vpn)", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  const prev = {
+    resUrl: process.env.RESIDENTIAL_PROXY_URL,
+    resKey: process.env.RESIDENTIAL_PROXY_KEY,
+    vpnUrl: process.env.VPN_PROXY_URL,
+    vpnKey: process.env.VPN_PROXY_KEY,
+  };
+
+  beforeEach(() => {
+    process.env.RESIDENTIAL_PROXY_URL = "https://residential.example";
+    process.env.RESIDENTIAL_PROXY_KEY = "r".repeat(32);
+    process.env.VPN_PROXY_URL = "https://vpn.example";
+    process.env.VPN_PROXY_KEY = "v".repeat(32);
+    fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("ok", { status: 200 }));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    process.env.RESIDENTIAL_PROXY_URL = prev.resUrl;
+    process.env.RESIDENTIAL_PROXY_KEY = prev.resKey;
+    process.env.VPN_PROXY_URL = prev.vpnUrl;
+    process.env.VPN_PROXY_KEY = prev.vpnKey;
+  });
+
+  function targetUrl(): string {
+    return fetchSpy.mock.calls[0]?.[0] as string;
+  }
+  function proxyKeyHeader(): string | undefined {
+    const init = fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined;
+    return (init?.headers as Record<string, string> | undefined)?.["X-Proxy-Key"];
+  }
+
+  it('routes egress:"vpn" through the VPN relay', async () => {
+    await safeFetch("https://board.atlantahash.com/feed", { egress: "vpn" });
+
+    expect(targetUrl()).toBe("https://vpn.example/proxy");
+    expect(proxyKeyHeader()).toBe("v".repeat(32));
+  });
+
+  it('routes egress:"residential" through the residential relay', async () => {
+    await safeFetch("https://example.com/feed", { egress: "residential" });
+
+    expect(targetUrl()).toBe("https://residential.example/proxy");
+    expect(proxyKeyHeader()).toBe("r".repeat(32));
+  });
+
+  it("treats useResidentialProxy:true as the residential alias", async () => {
+    await safeFetch("https://example.com/feed", { useResidentialProxy: true });
+
+    expect(targetUrl()).toBe("https://residential.example/proxy");
+  });
+
+  it("lets egress take precedence over the useResidentialProxy alias", async () => {
+    await safeFetch("https://board.atlantahash.com/feed", {
+      egress: "vpn",
+      useResidentialProxy: true,
+    });
+
+    expect(targetUrl()).toBe("https://vpn.example/proxy");
+  });
+
+  it("fails closed when an explicit vpn egress is requested but its env is unset", async () => {
+    delete process.env.VPN_PROXY_URL;
+    delete process.env.VPN_PROXY_KEY;
+
+    await expect(
+      safeFetch("https://board.atlantahash.com/feed", { egress: "vpn" }),
+    ).rejects.toThrow(/VPN_PROXY_URL\/KEY not configured/);
+    // Must NOT silently fall back to a direct fetch of the known-blocked origin.
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("legacy useResidentialProxy still falls back to a direct fetch when env is unset", async () => {
+    delete process.env.RESIDENTIAL_PROXY_URL;
+    delete process.env.RESIDENTIAL_PROXY_KEY;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    await safeFetch("https://example.com/feed", { useResidentialProxy: true });
+
+    // Legacy alias keeps its graceful dev fallback: direct fetch to the target URL.
+    expect(targetUrl()).toBe("https://example.com/feed");
+    expect(warn).toHaveBeenCalled();
+  });
+});
