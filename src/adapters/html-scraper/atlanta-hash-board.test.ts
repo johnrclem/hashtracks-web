@@ -535,33 +535,47 @@ describe("AtlantaHashBoardAdapter", () => {
     await expect(adapter.fetch(source)).rejects.toThrow("source.config is null");
   });
 
-  // Per-source useResidentialProxy flag — origin WAF blocks cloud-egress IPs (#633);
-  // adapter forwards the flag to safeFetch when the source row opts in, else defaults false.
+  // Per-source proxy egress — board.atlantahash.com is behind OVH anti-DDoS that
+  // blocks datacenter AND the home residential range, so it needs the VPN egress
+  // (#2054). The adapter forwards config.egress + config.useResidentialProxy RAW;
+  // safeFetch owns precedence + the legacy-alias resolution (covered in
+  // safe-fetch.test.ts). Here we only assert the adapter plumbs both through.
   it.each([
-    { configValue: true, expectedForwarded: true, label: "true forwards through" },
-    { configValue: undefined, expectedForwarded: false, label: "undefined defaults to false" },
-  ])("useResidentialProxy: $label", async ({ configValue, expectedForwarded }) => {
+    { config: {}, egress: undefined, proxy: undefined, label: "no proxy config" },
+    { config: { useResidentialProxy: true }, egress: undefined, proxy: true, label: "useResidentialProxy:true forwarded raw" },
+    { config: { useResidentialProxy: false }, egress: undefined, proxy: false, label: "useResidentialProxy:false forwarded raw" },
+    { config: { egress: "residential" }, egress: "residential", proxy: undefined, label: 'egress:"residential"' },
+    { config: { egress: "vpn" }, egress: "vpn", proxy: undefined, label: 'egress:"vpn"' },
+    { config: { egress: "vpn", useResidentialProxy: true }, egress: "vpn", proxy: true, label: "both forwarded raw" },
+  ])("forwards proxy config to safeFetch: $label", async ({ config: extra, egress, proxy }) => {
     mockSafeFetch.mockResolvedValue(mockResponse({
       ok: true,
       text: () => Promise.resolve(SAMPLE_ATOM_FEED),
     }));
 
     const adapter = new AtlantaHashBoardAdapter();
-    const config: Record<string, unknown> = {
-      forums: { "2": { kennelTag: "ah4", hashDay: "Saturday" } },
-    };
-    if (configValue !== undefined) config.useResidentialProxy = configValue;
     const source = {
       id: "test-source",
       url: "https://board.atlantahash.com",
-      config,
+      config: { forums: { "2": { kennelTag: "ah4", hashDay: "Saturday" } }, ...extra },
     } as never;
 
     await adapter.fetch(source);
 
     expect(mockSafeFetch).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ useResidentialProxy: expectedForwarded }),
+      expect.objectContaining({ egress, useResidentialProxy: proxy }),
     );
+  });
+
+  it("rejects an invalid egress value", async () => {
+    const adapter = new AtlantaHashBoardAdapter();
+    const source = {
+      id: "test-source",
+      url: "https://board.atlantahash.com",
+      config: { forums: { "2": { kennelTag: "ah4", hashDay: "Saturday" } }, egress: "carrier" },
+    } as never;
+
+    await expect(adapter.fetch(source)).rejects.toThrow(/config\.egress must be/);
   });
 });

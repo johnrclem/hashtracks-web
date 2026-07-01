@@ -14,9 +14,32 @@ export { validateSourceUrl } from "./utils";
 
 const MAX_REDIRECTS = 5;
 
+/**
+ * Which NAS proxy-relay egress to route a request through instead of fetching
+ * directly from the app's own (datacenter) IP:
+ *  - "residential" — the NAS's home residential IP (`RESIDENTIAL_PROXY_URL/KEY`).
+ *    For origins that block datacenter IPs but allow residential ones.
+ *  - "vpn" — a VPN-routed relay egress (`VPN_PROXY_URL/KEY`). For origins that
+ *    block BOTH datacenter and the home residential range — e.g. OVH's
+ *    anti-DDoS firewall on board.atlantahash.com, which drops Vercel and the
+ *    home Spectrum IP alike but lets a VPN exit through (#2054).
+ */
+export type ProxyEgress = "residential" | "vpn";
+
 export interface SafeFetchOptions extends RequestInit {
-  /** Route through NAS residential proxy. Use for WAF-blocked domains. */
+  /**
+   * Route through the NAS residential proxy. Use for WAF-blocked domains.
+   * @deprecated Prefer `egress: "residential"`; kept as a back-compat alias.
+   */
   useResidentialProxy?: boolean;
+  /**
+   * Route through a named NAS proxy-relay egress. Takes precedence over
+   * `useResidentialProxy`. Fails CLOSED (throws) when the corresponding proxy
+   * env vars are unset — an explicit egress must not silently degrade to a
+   * direct fetch, because the caller depends on that specific exit (e.g. the
+   * origin blocks direct datacenter traffic).
+   */
+  egress?: ProxyEgress;
 }
 
 /**
@@ -43,20 +66,65 @@ function headersToRecord(
   return { ...headers };
 }
 
+/**
+ * Resolve the proxy-relay endpoint + auth key for a named egress. Both the
+ * residential and VPN egresses speak the same `/proxy` JSON envelope; they only
+ * differ in which NAS relay (and therefore which outbound IP) handles the request.
+ */
+function resolveProxyEgress(egress: ProxyEgress): {
+  proxyUrl: string | undefined;
+  proxyKey: string | undefined;
+  envLabel: string;
+} {
+  switch (egress) {
+    case "vpn":
+      return {
+        proxyUrl: process.env.VPN_PROXY_URL,
+        proxyKey: process.env.VPN_PROXY_KEY,
+        envLabel: "VPN_PROXY_URL/KEY",
+      };
+    case "residential":
+      return {
+        proxyUrl: process.env.RESIDENTIAL_PROXY_URL,
+        proxyKey: process.env.RESIDENTIAL_PROXY_KEY,
+        envLabel: "RESIDENTIAL_PROXY_URL/KEY",
+      };
+    default: {
+      // Exhaustiveness guard: a new ProxyEgress value fails to compile here
+      // rather than silently resolving to the residential defaults.
+      const unknown: never = egress;
+      throw new Error(`Unknown proxy egress: ${String(unknown)}`);
+    }
+  }
+}
+
 export async function safeFetch(
   url: string,
   init?: SafeFetchOptions,
 ): Promise<Response> {
-  // Residential proxy path
-  if (init?.useResidentialProxy) {
+  // Proxy-relay egress path. An explicit `egress` wins and fails CLOSED when its
+  // env vars are missing (the caller depends on that exit — e.g. Atlanta's origin
+  // blocks direct datacenter traffic, so a silent direct fetch would just hammer
+  // the known-bad path). `useResidentialProxy` is the legacy alias and keeps a
+  // graceful direct-fetch fallback so dev environments (no proxy env) work unchanged.
+  const explicitEgress = init?.egress;
+  const egress: ProxyEgress | undefined =
+    explicitEgress ?? (init?.useResidentialProxy ? "residential" : undefined);
+  // `egress` can only be set when `init` is defined; the `&& init` restores that
+  // narrowing for TS inside the block (init.headers/method/body/signal below).
+  if (egress && init) {
     await validateSourceUrlWithDns(url); // Defense-in-depth: validate even when proxying
 
-    const proxyUrl = process.env.RESIDENTIAL_PROXY_URL;
-    const proxyKey = process.env.RESIDENTIAL_PROXY_KEY;
+    const { proxyUrl, proxyKey, envLabel } = resolveProxyEgress(egress);
 
     if (!proxyUrl || !proxyKey) {
+      if (explicitEgress) {
+        throw new Error(
+          `safeFetch: egress "${egress}" requested but ${envLabel} not configured — refusing to fall back to a direct fetch`,
+        );
+      }
       console.warn(
-        "Residential proxy requested but RESIDENTIAL_PROXY_URL/KEY not set — falling back to direct fetch",
+        `Residential proxy requested but ${envLabel} not set — falling back to direct fetch`,
       );
     } else {
       const headerRecord = headersToRecord(init.headers);
@@ -90,7 +158,7 @@ export async function safeFetch(
       if (!proxyResponse.ok) {
         const body = await proxyResponse.text();
         throw new Error(
-          `Residential proxy error (${proxyResponse.status}): ${body}`,
+          `${egress} proxy error (${proxyResponse.status}): ${body}`,
         );
       }
 

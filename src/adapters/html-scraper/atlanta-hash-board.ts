@@ -12,7 +12,7 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
-import { safeFetch } from "../safe-fetch";
+import { safeFetch, type ProxyEgress } from "../safe-fetch";
 import { parse12HourTime, validateSourceConfig, decodeEntities, stripHtmlTags, chronoParseDate, buildDateWindow, cleanLocationName } from "../utils";
 
 // ── Config shape ──
@@ -29,8 +29,17 @@ interface AtlantaHashBoardConfig {
    * cloud-egress IPs entirely; this flag opts a source into proxy routing.
    * Not a guaranteed bypass — some residential IPs (including the NAS at
    * times) are also blocked. (#633)
+   * @deprecated Prefer `egress`; retained as a back-compat alias for
+   * `egress: "residential"`.
    */
   useResidentialProxy?: boolean;
+  /**
+   * Proxy-relay egress for feed fetches. board.atlantahash.com sits behind
+   * OVH's anti-DDoS firewall, which drops BOTH Vercel and the home residential
+   * range (so "residential" is insufficient) but lets a VPN exit through — set
+   * `egress: "vpn"` to route via the VPN-relay (#2054). Omit for direct fetch.
+   */
+  egress?: ProxyEgress;
 }
 
 // ── Atom feed types ──
@@ -447,13 +456,23 @@ export class AtlantaHashBoardAdapter implements SourceAdapter {
     );
 
     const baseUrl = source.url || "https://board.atlantahash.com";
-    const rawProxyFlag = config.useResidentialProxy;
-    if (rawProxyFlag !== undefined && typeof rawProxyFlag !== "boolean") {
+    const useResidentialProxy = config.useResidentialProxy;
+    if (
+      useResidentialProxy !== undefined &&
+      typeof useResidentialProxy !== "boolean"
+    ) {
       throw new Error(
-        `AtlantaHashBoardAdapter: config.useResidentialProxy must be a boolean, got ${typeof rawProxyFlag}`,
+        `AtlantaHashBoardAdapter: config.useResidentialProxy must be a boolean, got ${typeof useResidentialProxy}`,
       );
     }
-    const useResidentialProxy = rawProxyFlag ?? false;
+    const egress = config.egress;
+    if (egress !== undefined && egress !== "residential" && egress !== "vpn") {
+      throw new Error(
+        `AtlantaHashBoardAdapter: config.egress must be "residential" | "vpn", got ${JSON.stringify(egress)}`,
+      );
+    }
+    // Forward both raw; safeFetch resolves precedence + the legacy alias
+    // (explicit egress fails closed; useResidentialProxy falls back).
     const { minDate, maxDate } = buildDateWindow(options?.days);
 
     const allEvents: RawEventData[] = [];
@@ -471,6 +490,7 @@ export class AtlantaHashBoardAdapter implements SourceAdapter {
         try {
           const response = await safeFetch(feedUrl, {
             headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+            egress,
             useResidentialProxy,
           });
           if (!response.ok) {

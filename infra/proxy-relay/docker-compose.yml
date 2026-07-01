@@ -28,6 +28,35 @@ services:
         max-size: "5m"
         max-file: "3"
 
+  # --- VPN egress (for board.atlantahash.com / OVH anti-DDoS, #2054) ---
+  # Same zero-dep relay as `proxy-relay`, but its network is routed through the
+  # EXISTING standalone `gluetun` container (the one that already carries the
+  # torrent stack's ExpressVPN tunnel) via `network_mode: container:gluetun`.
+  # So it egresses from the VPN exit IP with no second tunnel. The app reaches
+  # it via VPN_PROXY_URL (→ safeFetch egress:"vpn").
+  #
+  # Prereqs (see README "VPN Egress"):
+  #   1. Revive the standalone gluetun container first (it's stopped) — this
+  #      compose does NOT manage it, so `depends_on` can't reference it.
+  #   2. Because proxy-relay-vpn shares gluetun's netns (not this compose's
+  #      network), publish 3101 on the gluetun container to the host and point
+  #      the Cloudflare tunnel ingress `proxy-vpn.hashtracks.xyz` at the NAS
+  #      host/LAN IP:3101 — NOT at a compose service name.
+  proxy-relay-vpn:
+    build: .
+    container_name: proxy-relay-vpn
+    restart: unless-stopped
+    network_mode: "container:gluetun" # reuse the standalone ExpressVPN tunnel
+    environment:
+      - PROXY_API_KEY=${VPN_PROXY_API_KEY}
+      - PORT=3101
+    mem_limit: 64m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared

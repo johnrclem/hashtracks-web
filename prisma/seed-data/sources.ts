@@ -1981,6 +1981,11 @@ export const SOURCES = [
         // posts scroll off as new posts arrive. Reconciler must skip past
         // events. (#1263)
         upcomingOnly: true,
+        // board.atlantahash.com sits behind OVH's anti-DDoS firewall, which
+        // drops both Vercel (datacenter) and the home residential range — so
+        // the residential relay can't reach it. Route via the VPN-relay egress
+        // (VPN_PROXY_URL/KEY → NAS proxy-relay-vpn → gluetun/ExpressVPN). (#2054)
+        egress: "vpn",
         forums: {
           "2": { kennelTag: "ah4", hashDay: "Saturday" },
           "4": { kennelTag: "ph3-atl", hashDay: "Saturday" },
