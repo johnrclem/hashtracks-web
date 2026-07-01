@@ -112,8 +112,12 @@ export async function safeFetch(
     explicitEgress ?? (init?.useResidentialProxy ? "residential" : undefined);
   // `egress` can only be set when `init` is defined; the `&& init` restores that
   // narrowing for TS inside the block (init.headers/method/body/signal below).
+  // Track whether the URL was already DNS-validated here so the direct-fetch
+  // fallback (legacy alias + no proxy env) doesn't redundantly re-resolve it.
+  let urlValidated = false;
   if (egress && init) {
     await validateSourceUrlWithDns(url); // Defense-in-depth: validate even when proxying
+    urlValidated = true;
 
     const { proxyUrl, proxyKey, envLabel } = resolveProxyEgress(egress);
 
@@ -166,8 +170,11 @@ export async function safeFetch(
     }
   }
 
-  // Direct fetch path (default)
-  await validateSourceUrlWithDns(url);
+  // Direct fetch path (default). Skip re-validation if the proxy branch already
+  // DNS-validated this URL (legacy-alias fallback with no proxy env configured).
+  if (!urlValidated) {
+    await validateSourceUrlWithDns(url);
+  }
   let currentUrl = url;
   let redirectCount = 0;
 
