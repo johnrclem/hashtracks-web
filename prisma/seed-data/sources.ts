@@ -1048,12 +1048,16 @@ export const SOURCES = [
       // `FCH3` is an overloaded code (Fog City / Flour City / Fort Collins) —
       // route it to `flour-city`. Fog City has no real Hash Rego presence (it's
       // fed by the SFH3 feeds), so dropping its Hash Rego link is correct.
-      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "flour-city", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm"],
+      // #2439 / #2434 — MoSH3 + TKDH3 (Tidewater sub-kennels) register their
+      // campout/special events on Hash Rego (e.g. mosh3-lingerie-shiggyfest-2026,
+      // tkdh3-presents-dead-elvis-18). Their only other source is the Tidewater
+      // HTML scraper; Hash Rego carries structured rego data these events need.
+      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "flour-city", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm", "mosh3", "tkdh3"],
       kennelSlugMap: {
         bfm: "BFMH3", ewh3: "EWH3", wh4: "WH4", gfh3: "GFH3",
         ch3: "CH3", dch4: "DCH4", dcfmh3: "DCFMH3", "flour-city": "FCH3", oh3: "OregonH3",
         wsh3: "WSH3", mrh3: "MRH3", bfh3: "BFH3", moa2h3: "MoA2H3",
-        nych3: "NYCH3", ggfm: "GGFM",
+        nych3: "NYCH3", ggfm: "GGFM", mosh3: "MoSH3", tkdh3: "TKDH3",
       },
       // Per-day kennel attribution config (PR D.5). Patterns matched
       // against each day's section text in a multi-day event's
@@ -1069,6 +1073,32 @@ export const SOURCES = [
           [String.raw`NYC\s*H3`, "nych3"],
         ],
       },
+    },
+    // --- White House H3 weekly hareline (#2481) ---
+    // whitehousehash.com embeds a published Google Sheet ("Upcoming Trails" tab)
+    // that Hash Rego (registration-only) doesn't cover — so regular weekly Sunday
+    // trails, incl. the next trail, were missing. Anonymous CSV export, no API key.
+    {
+      name: "White House H3 Hareline",
+      url: "https://whitehousehash.com/hareline",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      // Upcoming tab lists weekly Sunday trails #2224 (Mar 2026) → #2268 (Dec
+      // 2026). 180d symmetric window captures the full 2026 season as canonical.
+      // Historical tab (gid=377767908, 2023-back) is a separate one-shot (#2481).
+      scrapeDays: 180,
+      config: {
+        sheetId: "anonymous",
+        csvUrl:
+          "https://docs.google.com/spreadsheets/d/e/2PACX-1vSydTV1S3AL9iUCrZKfzd7r9PCXSjx8wep3GWwuRAaA4THOpHrSgP-VGb87ICMWPe3iFM9WdNIyGh4K/pub?gid=163010917&single=true&output=csv",
+        // Header row 0: #(0) Date(1) Theme/Notes→title(2) Start→location(3) Hares(4).
+        // Run time is seasonal (3pm winter / 5pm summer, see kennel scheduleNotes)
+        // with no per-row column, so startTime is intentionally omitted.
+        columns: { runNumber: 0, date: 1, title: 2, location: 3, hares: 4 },
+        kennelTagRules: { default: "wh4" },
+      },
+      kennelCodes: ["wh4"],
     },
     // ===== TEXAS =====
     // --- Austin (2 Google Calendars) ---

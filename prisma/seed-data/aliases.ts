@@ -50,7 +50,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "hoboh3": ["HOBO H3", "HOBO Hash House Harriers"],
     "vbfmh3": ["VB Full Moon H3", "Virginia Beach Full Moon H3", "VBFM H3"],
     "mosh3": ["Men of Shenanigans H3", "Men of Shenanigans"],
-    "tkdh3": ["TKDH3 Hash"],
+    "tkdh3": ["TKDH3 Hash", "Tidewater Knuckledraggers Hash House Harriers", "Tidewater Knuckledraggers"],
     "7h4": ["7H4", "Seven Hills Hash", "Seven Hills", "7 Hills Hash"],
     // North Carolina
     "swh3": ["SWH3", "Sir Walter's", "Sir Walters", "Sir Walter's Hash", "Sir Walters Hash"],
