@@ -4800,6 +4800,38 @@ export const SOURCES = [
       },
       kennelCodes: ["sgharriets"],
     },
+    // --- SG Harriets official hareline (#2299) ---
+    // singaporeharriets.com/hareline exposes per-run number + hares the FB
+    // STATIC_SCHEDULE above can't. Higher trust so the real run#/hares/title
+    // enrich the generic Wednesday placeholders; the static schedule stays for
+    // forward Wednesday coverage beyond the (short) hareline window.
+    {
+      name: "SG Harriets Hareline",
+      url: "https://www.singaporeharriets.com/hareline/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        // Clean semantic rows: .shhh-hareline-run-row > run-date/number/hares.
+        containerSelector: "body",
+        rowSelector: ".shhh-hareline-run-row",
+        columns: {
+          date: ".shhh-hareline-run-date", // "1 July 2026"
+          runNumber: ".shhh-hareline-run-number", // "Run #2663" -> 2663
+          hares: ".shhh-hareline-run-hares", // "Zipp, Big Head & Gypsy"
+        },
+        defaultKennelTag: "sgharriets",
+        dateLocale: "en-GB", // D Month YYYY
+        defaultStartTime: "18:00", // Wed 6pm, matches the static schedule
+        maxPastDays: 7,
+        maxFutureDays: 120,
+        // Forward-only rolling hareline — past runs fall off the page, so the
+        // reconciler must not cancel them when they disappear from the scrape.
+        upcomingOnly: true,
+      },
+      kennelCodes: ["sgharriets"],
+    },
 
     // 6. Hash House Horrors — children's hash, WordPress.com Public API hareline page
     {
