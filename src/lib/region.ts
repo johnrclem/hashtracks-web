@@ -3797,6 +3797,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // the Polish-only "warszawa"/"polska" are unambiguous. (#2234, Codex review)
   [/\b(poland|warszawa|polska)\b/, "Poland"],
   [/\b(portugal|lisbon|lisboa|estoril|cascais|oporto|invicta|algarve|faro|loule|almancil)\b/, "Portugal"],
+  // Accented "loulé" can't ride the \b-anchored ASCII group above (é is a
+  // non-word char, so the literal "loule" never matches the "loulé" spelling) —
+  // add it as a bare native token. Input is lowercased before matching, no `i` flag.
+  [/loulé/, "Portugal"],
   [/\b(netherlands|amsterdam|rotterdam|den haag|the hague|holland)\b/, "Netherlands"],
   [/\b(denmark|copenhagen|københavn|aarhus)\b/, "Denmark"],
   [/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/, "Sweden"],
