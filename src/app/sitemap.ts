@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { regionNameToSlug } from "@/lib/region";
 
 // Regenerate at most once per hour. Avoids hitting the DB on every crawler request.
 export const revalidate = 3600;
@@ -23,7 +24,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [kennels, upcomingEvents] = await Promise.all([
     prisma.kennel.findMany({
       where: { isHidden: false },
-      select: { slug: true, lastEventDate: true, updatedAt: true },
+      select: { slug: true, region: true, lastEventDate: true, updatedAt: true },
     }),
     prisma.event.findMany({
       where: {
@@ -64,5 +65,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...kennelPages, ...eventPages];
+  // Region landing pages (`/kennels/region/{slug}`) — derived from the
+  // kennels query above rather than a separate query. Not every `region`
+  // string resolves to a slug (`regionNameToSlug` returns null for
+  // freeform/legacy values), so unresolvable regions are skipped rather
+  // than emitting a 404 sitemap entry.
+  const regionSlugs = new Set(
+    kennels
+      .map((kennel) => regionNameToSlug(kennel.region))
+      .filter((slug): slug is string => slug !== null),
+  );
+  const regionPages: MetadataRoute.Sitemap = [...regionSlugs].map((slug) => ({
+    url: `${baseUrl}/kennels/region/${slug}`,
+    changeFrequency: "weekly",
+    priority: 0.7,
+  }));
+
+  return [...staticPages, ...kennelPages, ...eventPages, ...regionPages];
 }

@@ -413,6 +413,21 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
         onKeyDown={handleKeyDown}
         aria-label={buildAriaLabel(event, attendance)}
       >
+        {/* Crawlable link to the event's own detail page. The card itself is a
+            synthetic button (click opens the desktop panel or navigates on
+            mobile — see handleClick above), so this real, visually-hidden
+            anchor is what lets Googlebot discover /hareline/{id} without
+            executing JS. Not part of the real-user interaction model:
+            tabIndex={-1}/aria-hidden keep it out of the tab order and a11y
+            tree since the role="button" wrapper already provides that. */}
+        <Link
+          href={`/hareline/${event.id}`}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="sr-only"
+        >
+          {buildAriaLabel(event, attendance)}
+        </Link>
         <div
           className={`group relative flex items-center gap-3 rounded-lg border px-3 py-2 text-sm transition-all duration-200 hover:shadow-md active:scale-[0.995] ${
             isSelected
@@ -559,6 +574,16 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
       onKeyDown={handleKeyDown}
       aria-label={buildAriaLabel(event, attendance)}
     >
+      {/* Crawlable link — see the identical comment in the compact-density
+          branch above. */}
+      <Link
+        href={`/hareline/${event.id}`}
+        tabIndex={-1}
+        aria-hidden="true"
+        className="sr-only"
+      >
+        {buildAriaLabel(event, attendance)}
+      </Link>
       <div
         className={`group relative overflow-hidden rounded-xl border transition-all duration-250 ease-out ${
           isSelected
@@ -935,7 +960,6 @@ function SeriesChildRow({
   readonly regionColor: string;
   readonly displayTz: string;
 }) {
-  const router = useRouter();
   const childTime = computeChildTime(child, displayTz);
   const childDate = new Date(child.date);
   const dayChip = childDate.toLocaleDateString("en-US", { weekday: "short", day: "numeric", timeZone: "UTC" });
@@ -947,12 +971,9 @@ function SeriesChildRow({
         className="absolute -left-[14px] top-1.5 size-2 rounded-full"
         style={{ backgroundColor: isChildCancelled ? "#9ca3af" : regionColor }}
       />
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          router.push(`/hareline/${child.id}`);
-        }}
+      <Link
+        href={`/hareline/${child.id}`}
+        onClick={(e) => e.stopPropagation()}
         className={`group/child flex items-baseline gap-2 text-xs w-full text-left hover:text-foreground transition-colors ${
           isChildCancelled ? "opacity-50" : ""
         }`}
@@ -973,7 +994,7 @@ function SeriesChildRow({
             ({child.haresText})
           </span>
         )}
-      </button>
+      </Link>
     </li>
   );
 }

@@ -567,6 +567,24 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
           ))}
         </div>
       )}
+
+      {/* SEO: crawlable links to every kennel, independent of `displayView`
+          and the active filters above. The default view is the map
+          (client-only, `ssr: false`), and the default filters hide inactive
+          kennels — either way, a crawler landing on this page with no query
+          params would otherwise never see a real `<a href="/kennels/{slug}">`
+          for most kennels. Real users already reach every kennel via the
+          visible grid/map, so this list is `aria-hidden` (screen readers
+          shouldn't announce ~400 duplicate entries) and each link is
+          `tabIndex={-1}` (keyboard users shouldn't have to tab past them) —
+          it exists purely as an SSR crawl signal, not a real UI surface. */}
+      <div className="sr-only" aria-hidden="true">
+        {kennels.map((kennel) => (
+          <Link key={kennel.id} href={`/kennels/${kennel.slug}`} tabIndex={-1}>
+            {kennel.shortName}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
