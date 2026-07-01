@@ -22,10 +22,12 @@
  *   0. #351 (2025-06-13) — HC location was the literal placeholder "TBD" with no
  *      hares/coords. Location omitted (the live adapter's stripPlaceholderLocation
  *      drops "TBD" the same way); the event renders unlocated → Dubai centroid.
- *   1. #360 (2026-03-06) — an online/Zoom run ("Online due to current security
- *      climate in Dubai…", fee 0, no coords). Kept for run-# continuity; coords
- *      omitted so it can't geocode the long sentence (merge falls back to the
- *      Dubai centroid).
+ *   1. #360 (2026-03-06) — an online/Zoom run (HC location "Online due to current
+ *      security climate in Dubai…", fee 0, no coords). The note is moved to
+ *      `description` (which merge never geocodes) and `location` is omitted
+ *      entirely — otherwise merge's resolveCoords would geocode the "…Dubai…"
+ *      sentence and pin a virtual run to a real Dubai location (Codex P2). Kept
+ *      for run-# continuity; renders unlocated → Dubai centroid fallback.
  *   2. #361 (2026-04-03) — an outlier 08:00 morning run. The GMT field agrees
  *      (04:00Z), so this is internally consistent, NOT a 12h AM/PM typo — the
  *      "20:00" it does NOT collide with any other row. Preserved verbatim.
