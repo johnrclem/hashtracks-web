@@ -7181,6 +7181,32 @@ export const SOURCES = [
       },
       kennelCodes: ["bandung-h3"],
     },
+    // --- Hua Hin Full Moon (H2FMH3) — Harrier Central public API ---
+    {
+      name: "Hua Hin Full Moon H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live via the HC adapter +
+        // hashruns.org/api/global-runs 2026-07-01 — run #45, monthly full-moon Sat 16:30).
+        publicKennelId: "8f7cac29-e669-452d-8d19-218d9491567d",
+        defaultKennelTag: "h2fmh3",
+        // HC names events with real themes (e.g. "Hua Hin Full Moon 4th Anniversary run"),
+        // kept verbatim. defaultTitle synthesizes "Hua Hin Full Moon H3 #N" only when an
+        // event name is empty or a known placeholder appears (mirrors Bandung H3).
+        defaultTitle: "Hua Hin Full Moon H3",
+        staleTitleAliases: ["Placeholder event for H2FMH3"],
+        // upcomingOnly:true — this source owns a one-shot historical backfill
+        // (scripts/backfill-h2fmh3-history.ts). The HC getEvents API is future-only,
+        // so without this guard reconcile.ts would false-CANCEL the aged past runs as
+        // they age off the 365-day window (timeMin guard — same contract as Bandung).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["h2fmh3"],
+    },
     // Spain — first Spain kennel
     {
       name: "Mijas H3 Hareline",

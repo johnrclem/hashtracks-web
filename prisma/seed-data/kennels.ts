@@ -4699,6 +4699,20 @@ export const KENNELS: KennelSeed[] = [
       latitude: 12.8, longitude: 99.97,
     },
     {
+      kennelCode: "h2fmh3", shortName: "Hua Hin Full Moon H3", fullName: "Hua Hin Full Moon Hash House Harriers",
+      // No explicit slug — toSlug("Hua Hin Full Moon H3") = "hua-hin-full-moon-h3".
+      region: "Hua Hin", country: "Thailand",
+      // website/socials intentionally omitted — no verified dynamic own-site (Harrier Central-only).
+      // The day kennel cah3.net is a DIFFERENT kennel; do not attribute it here.
+      logoUrl: "/kennel-logos/h2fmh3.avif", // self-hosted from HC blob; ext confirmed by magic bytes
+      scheduleDayOfWeek: "Saturday", scheduleTime: "4:30 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "Monthly full-moon trail — the Saturday nearest each full moon, ~16:30. Full-moon sibling of the daytime Hua Hin & Cha-Am H3 (cah3).",
+      hashCash: "฿200", // from the HC anniversary event; standard fee may differ (sibling cah3 is ฿100 adults)
+      foundedYear: 2022, // inferred from the "4th Anniversary" run (Jul 2026)
+      description: "Hua Hin Full Moon Hash House Harriers runs monthly on the Saturday nearest each full moon along Thailand's Prachuap Khiri Khan / Phetchaburi coast (Hua Hin / Cha-Am area). The full-moon sibling of the daytime Hua Hin & Cha-Am H3.",
+      latitude: 12.59, longitude: 99.93,
+    },
+    {
       kennelCode: "crh3", shortName: "Chiang Rai H3", fullName: "Chiang Rai Hash House Harriers",
       region: "Chiang Rai", country: "Thailand",
       website: "https://chiangraihhh.blogspot.com",
