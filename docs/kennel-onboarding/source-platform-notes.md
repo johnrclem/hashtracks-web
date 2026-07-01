@@ -732,6 +732,26 @@ off — so this endpoint hands you ready-to-paste config-only source rows.
   neighbours. In the extractor, keep only plausible hash hours (**`06:00`–`20:00`**) and **drop**
   out-of-range to `undefined` rather than fabricate a corrected time (preserves legit 10:00 holiday +
   19:00 evening runs). Same faithful-but-safe posture as the coord scrub above.
+- 🔴 **An ONLINE/virtual backfill row must CLEAR `location`, not just omit coords (Moonshine Dubai #360,
+  2026-07-01).** #360's HC `LocationOneLineDesc` was a free-text sentence — "Online due to current security
+  climate in Dubai. Contact admin via chat for Zoom link." — with fee 0 and no coords. Omitting lat/lng is a
+  **half-fix**: `resolveCoords` (`merge.ts:~1290`) geocodes `event.location` whenever coords are absent and
+  the text is truthy, and a sentence containing a city name ("Dubai") geocodes to a **real pin** that passes
+  the 200 km kennel-proximity check → a virtual run shows a physical venue. This is DISTINCT from the
+  placeholder-sentinel handling above: `stripPlaceholderLocation` only drops exact sentinels (`TBD`/`TBA`/
+  "No location provided") — a free-text "Online due to…" sentence is NOT a sentinel and slips through. Fix
+  (Codex P2, shipped unlocated): put the note in **`description`** (which merge never geocodes) and **omit
+  `location`** entirely so the row renders unlocated (centroid fallback). Rule of thumb: for any
+  online/virtual/no-physical-venue row, clear `location`; the geocoder pins ANY truthy location text.
+- 🔴 **A literal placeholder venue (`"TBD"` etc.) in a frozen backfill row must be stripped to match
+  live-adapter output (Moonshine Dubai #351, 2026-07-01).** #351's `LocationOneLineDesc` was `"TBD"`; the
+  frozen JSON stored it verbatim, but the live adapter's `stripPlaceholderLocation` (`GEOCODE_FAIL_SENTINELS`
+  includes `tbd`) would emit `undefined`. CodeRabbit caught the divergence. Run each `LocationOneLineDesc`
+  through the same sentinel family the adapter uses and store `undefined`, not the placeholder — the frozen
+  row should match what a live scrape produces. (General principle across all HC-backfill fixes: **a frozen
+  row should be field-for-field what the live adapter would emit**, except where a documented data-quality
+  decision overrides. Corollary: the HC adapter emits no `cost`/`description`, so a backfill omits both —
+  kennel-level `hashCash` covers cost — the lone exception being an online note in `description` per above.)
 
 ## Supabase / PostgREST JSON backend behind a React SPA (learned from Riyadh H3, 2026-06-18)
 
