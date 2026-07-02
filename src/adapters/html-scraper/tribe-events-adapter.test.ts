@@ -1,3 +1,4 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TribeEventsAdapter, isTribeEventsConfig } from "./tribe-events-adapter";
 import type { Source } from "@/generated/prisma/client";
 

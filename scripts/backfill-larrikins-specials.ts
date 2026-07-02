@@ -42,10 +42,11 @@ runBackfillScript({
       config: { tribeEvents: true, kennelTag: "larrikins-au", startDate: "2026-01-01" },
     } as unknown as Source;
     const res = await new TribeEventsAdapter().fetch(source, { days: 9999 });
-    // Fail loud on a fetch/parse failure (errorDetails.fetch is the fatal path;
-    // the benign skippedCount soft-signal in res.errors is not fatal) — abort
-    // rather than backfilling an empty/partial slice as if it were complete.
-    if (res.errorDetails?.fetch?.length) {
+    // Fail loud on ANY error — for a one-shot backfill completeness is the whole
+    // point, so a fetch failure, a maxEvents truncation (capReached → errors[]),
+    // or skipped/un-normalizable rows all mean an incomplete slice and must abort
+    // rather than backfill a partial slice as if it were the full archive.
+    if (res.errors.length > 0) {
       throw new Error(`TribeEventsAdapter failed: ${res.errors.join("; ")}`);
     }
     return res.events; // runner keeps only date < today (drops the future City 2 Surf)
