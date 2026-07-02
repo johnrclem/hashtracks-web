@@ -42,6 +42,12 @@ interface TribeEventRaw {
     hour: string;
     minutes: string;
   };
+  end_date?: string; // "YYYY-MM-DD HH:MM:SS" — only the date part is used
+  end_date_details?: {
+    year: string;
+    month: string;
+    day: string;
+  };
   timezone?: string;
   categories?: TribeEventCategoryRaw[];
   venue?: TribeEventVenueRaw | TribeEventVenueRaw[];
@@ -63,6 +69,8 @@ export interface TribeEvent {
   url?: string;
   date: string; // "YYYY-MM-DD"
   startTime?: string; // "HH:MM" (24h)
+  /** Last day (YYYY-MM-DD) for a MULTI-DAY event; omitted when single-day. */
+  endDate?: string;
   timezone?: string;
   categorySlugs: string[];
   venue?: string;
@@ -129,6 +137,21 @@ export function parseTribeStartDate(
   return null;
 }
 
+/**
+ * Parse just the end DATE (YYYY-MM-DD) from a raw tribe event, preferring
+ * `end_date_details` and falling back to the `end_date` string. Time-of-day is
+ * intentionally ignored — a multi-day event is defined by its calendar span, not
+ * its closing time. Returns null when no end date can be derived.
+ */
+export function parseTribeEndDate(raw: TribeEventRaw): string | null {
+  const details = raw.end_date_details;
+  if (details?.year && details.month && details.day) {
+    return `${details.year}-${details.month.padStart(2, "0")}-${details.day.padStart(2, "0")}`;
+  }
+  const m = raw.end_date ? /^(\d{4})-(\d{2})-(\d{2})/.exec(raw.end_date) : null;
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+}
+
 /** Normalize a single raw tribe event into our shape. Returns null if required fields are missing. */
 export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
   const parsed = parseTribeStartDate(raw);
@@ -151,6 +174,12 @@ export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
     .filter((s): s is string => Boolean(s));
   const location = addressParts.length ? addressParts.join(", ") : undefined;
 
+  // Multi-day span only (e.g. an interstate campout weekend). Same-day events —
+  // the norm for Tribe, where end_date just carries the closing time — omit
+  // endDate, matching the RawEventData "single-day events omit endDate" contract.
+  const endDateParsed = parseTribeEndDate(raw);
+  const endDate = endDateParsed && endDateParsed > parsed.date ? endDateParsed : undefined;
+
   return {
     id: raw.id,
     title,
@@ -158,6 +187,7 @@ export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
     url: raw.url,
     date: parsed.date,
     startTime: parsed.startTime,
+    endDate,
     timezone: raw.timezone,
     categorySlugs,
     venue,

@@ -91,6 +91,9 @@ export class TribeEventsAdapter implements SourceAdapter {
       if (asDate < minDate || asDate > maxDate) continue;
       events.push({
         date: e.date,
+        // Multi-day span (campout weekend) — undefined for single-day events,
+        // which merge.ts treats as "no endDate" (its gated-spread convention).
+        endDate: e.endDate,
         // All-day events carry a meaningless 00:00 from the API; drop it (or use
         // the configured fallback) so the card doesn't render "midnight".
         startTime: e.allDay ? config.defaultStartTime : (e.startTime ?? config.defaultStartTime),

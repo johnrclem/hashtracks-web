@@ -74,6 +74,28 @@ describe("normalizeTribeEvent", () => {
     expect(out?.location).toBe("1 Bridge Rd, Glebe");
   });
 
+  it("sets endDate for a multi-day span (campout weekend)", () => {
+    const out = normalizeTribeEvent({
+      title: "Interstate Campout",
+      start_date: "2026-04-04 17:00:00",
+      start_date_details: { year: "2026", month: "04", day: "04", hour: "17", minutes: "00" },
+      end_date: "2026-04-06 12:00:00",
+      end_date_details: { year: "2026", month: "04", day: "06" },
+    });
+    expect(out?.date).toBe("2026-04-04");
+    expect(out?.endDate).toBe("2026-04-06");
+  });
+
+  it("omits endDate for a same-day event (end_date only carries the closing time)", () => {
+    const out = normalizeTribeEvent({
+      title: "Long Lunch",
+      start_date: "2026-02-06 13:30:00",
+      end_date: "2026-02-06 17:00:00",
+      end_date_details: { year: "2026", month: "02", day: "06" },
+    });
+    expect(out?.endDate).toBeUndefined();
+  });
+
   it("preserves the allDay flag", () => {
     const out = normalizeTribeEvent({
       title: "All-day event",

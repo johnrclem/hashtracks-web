@@ -116,6 +116,24 @@ describe("TribeEventsAdapter.fetch", () => {
     });
   });
 
+  it("carries a multi-day span through as RawEventData.endDate", async () => {
+    const d = isoDate(20);
+    const end = isoDate(22);
+    mockedSafeFetch.mockResolvedValue(jsonResponse({
+      events: [{
+        id: 7, title: "Campout Weekend",
+        start_date: `${d} 17:00:00`, start_date_details: details(d, "17", "00"),
+        end_date: `${end} 12:00:00`,
+        end_date_details: { year: end.slice(0, 4), month: end.slice(5, 7), day: end.slice(8, 10) },
+      }],
+      total: 1, total_pages: 1,
+    }));
+    const res = await new TribeEventsAdapter().fetch(
+      mkSource({ tribeEvents: true, kennelTag: "larrikins-au", upcomingOnly: true }), { days: 400 },
+    );
+    expect(res.events[0]).toMatchObject({ date: d, endDate: end });
+  });
+
   it("filters out events beyond the date window", async () => {
     const far = isoDate(9000);
     mockedSafeFetch.mockResolvedValue(jsonResponse({
