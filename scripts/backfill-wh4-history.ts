@@ -31,7 +31,7 @@ const SHEET =
   "2PACX-1vSydTV1S3AL9iUCrZKfzd7r9PCXSjx8wep3GWwuRAaA4THOpHrSgP-VGb87ICMWPe3iFM9WdNIyGh4K";
 const HISTORICAL_CSV = `https://docs.google.com/spreadsheets/d/e/${SHEET}/pub?gid=377767908&single=true&output=csv`;
 
-void runBackfillScript({
+runBackfillScript({
   sourceName: "White House H3 Hareline",
   kennelTimezone: "America/New_York",
   label: "Fetching WH4 historical hareline tab (gid=377767908)",
@@ -57,4 +57,7 @@ void runBackfillScript({
     }
     return res.events;
   },
+}).catch((err) => {
+  console.error(err);
+  process.exit(1);
 });
