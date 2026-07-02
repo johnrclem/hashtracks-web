@@ -18,15 +18,12 @@ import { prisma } from "@/lib/db";
 export const SCRAPE_LOG_KEEP_PER_SOURCE = 30;
 
 /**
- * Rows deleted per statement. The delete is batched (rather than one ~40k-row
- * statement) so each transaction's WAL burst stays small — important when the GC
- * is unblocking a near-full disk, where a single huge delete can itself fail to
- * extend WAL.
+ * Rows deleted per `deleteMany` call. Batched (rather than one huge IN-list
+ * statement) so each transaction's WAL burst stays small — important when the
+ * GC is unblocking a near-full disk, where a single huge delete can itself
+ * fail to extend WAL.
  */
 export const SCRAPE_LOG_GC_BATCH_SIZE = 2000;
-
-/** Backstop so a mis-sized batch can never loop forever. */
-const MAX_BATCHES = 1000;
 
 export interface ScrapeLogGcResult {
   deleted: number;
@@ -38,32 +35,34 @@ export interface ScrapeLogGcResult {
  * Delete all but the `SCRAPE_LOG_KEEP_PER_SOURCE` most-recent ScrapeLogs per
  * source (ordered by `startedAt` desc), in batches of `SCRAPE_LOG_GC_BATCH_SIZE`.
  * Returns the total rows deleted.
+ *
+ * The surplus-row `row_number()` ranking runs ONCE (a single full sort of
+ * ScrapeLog), not once per batch — re-running that window function inside a
+ * delete loop would sort the whole table again on every iteration (O(batches
+ * × N log N) instead of O(N log N)), which is exactly the wrong tradeoff on a
+ * disk that's already under pressure. The resulting ids are then deleted via
+ * plain indexed-PK `deleteMany` batches.
  */
 export async function runScrapeLogGc(
   keepPerSource: number = SCRAPE_LOG_KEEP_PER_SOURCE,
   batchSize: number = SCRAPE_LOG_GC_BATCH_SIZE,
 ): Promise<ScrapeLogGcResult> {
+  const surplus = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT "id" FROM (
+      SELECT "id", row_number() OVER (
+        PARTITION BY "sourceId" ORDER BY "startedAt" DESC
+      ) AS rn
+      FROM "ScrapeLog"
+    ) ranked
+    WHERE ranked.rn > ${keepPerSource}`;
+
   let deleted = 0;
   let batches = 0;
-
-  for (let i = 0; i < MAX_BATCHES; i++) {
-    // row_number() partitions by source, newest first; anything ranked beyond
-    // `keepPerSource` is surplus. LIMIT bounds each statement's WAL footprint.
-    const n = await prisma.$executeRaw`
-      DELETE FROM "ScrapeLog"
-      WHERE "id" IN (
-        SELECT "id" FROM (
-          SELECT "id", row_number() OVER (
-            PARTITION BY "sourceId" ORDER BY "startedAt" DESC
-          ) AS rn
-          FROM "ScrapeLog"
-        ) ranked
-        WHERE ranked.rn > ${keepPerSource}
-        LIMIT ${batchSize}
-      )`;
-    deleted += n;
+  for (let i = 0; i < surplus.length; i += batchSize) {
+    const ids = surplus.slice(i, i + batchSize).map((r) => r.id);
+    const { count } = await prisma.scrapeLog.deleteMany({ where: { id: { in: ids } } });
+    deleted += count;
     batches++;
-    if (n < batchSize) break; // last (or empty) batch
   }
 
   return { deleted, keptPerSource: keepPerSource, batches };
