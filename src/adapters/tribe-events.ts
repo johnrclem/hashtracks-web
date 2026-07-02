@@ -92,6 +92,13 @@ export interface FetchTribeEventsResult {
   rawCount: number;
   /** Count of normalized events excluded by `categorySlugs` filter. */
   categoryFilteredCount: number;
+  /**
+   * True when paging stopped because the `maxEvents` cap was hit — the result
+   * is TRUNCATED (more events exist upstream). Callers driving reconcile must
+   * treat this as a hard incomplete signal, else stale-event reconciliation
+   * could cancel valid events that were never fetched.
+   */
+  capReached: boolean;
 }
 
 /**
@@ -136,7 +143,12 @@ export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
 
   const venueRaw = Array.isArray(raw.venue) ? raw.venue[0] : raw.venue;
   const venue = venueRaw?.venue?.trim() || undefined;
-  const addressParts = [venueRaw?.address, venueRaw?.city].filter(Boolean);
+  // Trim a trailing comma off each part before joining — some sites store the
+  // street with a dangling "," (e.g. "1 Bridge Rd,") which would otherwise
+  // double up as "1 Bridge Rd,, Glebe".
+  const addressParts = [venueRaw?.address, venueRaw?.city]
+    .map((s) => s?.trim().replace(/,\s*$/, "").trim())
+    .filter((s): s is string => Boolean(s));
   const location = addressParts.length ? addressParts.join(", ") : undefined;
 
   return {
@@ -183,6 +195,7 @@ export async function fetchTribeEvents(
   let rawCount = 0;
   let skippedCount = 0;
   let categoryFilteredCount = 0;
+  let capReached = false;
   let page = 1;
 
   while (true) {
@@ -203,6 +216,7 @@ export async function fetchTribeEvents(
         rawCount,
         skippedCount,
         categoryFilteredCount,
+      capReached,
         error: { message: `Fetch error: ${err instanceof Error ? err.message : String(err)}` },
         fetchDurationMs: Date.now() - fetchStart,
       };
@@ -216,6 +230,7 @@ export async function fetchTribeEvents(
         rawCount,
         skippedCount,
         categoryFilteredCount,
+      capReached,
         error: { message: `HTTP ${res.status} from ${urlString}`, status: res.status },
         fetchDurationMs: Date.now() - fetchStart,
       };
@@ -230,6 +245,7 @@ export async function fetchTribeEvents(
         rawCount,
         skippedCount,
         categoryFilteredCount,
+      capReached,
         error: {
           message: `Invalid JSON from ${urlString}: ${err instanceof Error ? err.message : String(err)}`,
         },
@@ -258,7 +274,10 @@ export async function fetchTribeEvents(
         break;
       }
     }
-    if (reachedCap) break;
+    if (reachedCap) {
+      capReached = true;
+      break;
+    }
 
     // Keep paging until we get a short/empty response or a 404 — don't trust
     // total_pages to bound us (some plugin versions omit it).
@@ -271,6 +290,7 @@ export async function fetchTribeEvents(
     rawCount,
     skippedCount,
     categoryFilteredCount,
+    capReached,
     fetchDurationMs: Date.now() - fetchStart,
   };
 }

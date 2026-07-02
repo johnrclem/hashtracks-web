@@ -133,6 +133,7 @@ import { GeriatrixH3Adapter } from "./html-scraper/geriatrix-h3";
 import { HogtownAdapter } from "./html-scraper/hogtown";
 import { MhhhCaAdapter } from "./html-scraper/mhhh-ca";
 import { SquarespaceEventsAdapter } from "./html-scraper/squarespace-events";
+import { TribeEventsAdapter, isTribeEventsConfig } from "./html-scraper/tribe-events-adapter";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
 import { ICalAdapter } from "./ical/adapter";
@@ -409,6 +410,14 @@ export function getAdapter(
   sourceUrl?: string,
   sourceConfig?: Record<string, unknown> | null,
 ): SourceAdapter {
+  // Config-routed Tribe ("The Events Calendar") sources take priority over URL
+  // routing: the shared TribeEventsAdapter is dispatched by config so it can
+  // coexist with a URL-routed adapter on the same host (Sydney Larrikins has a
+  // weekly HTML scraper AND a Tribe specials feed on sydney.larrikins.org). (#2391)
+  if (sourceType === "HTML_SCRAPER" && isTribeEventsConfig(sourceConfig)) {
+    return new TribeEventsAdapter();
+  }
+
   // For HTML scrapers, check URL-based routing first (named adapters take priority)
   if (sourceType === "HTML_SCRAPER" && sourceUrl) {
     for (const [pattern, factory] of htmlScrapersByUrl) {

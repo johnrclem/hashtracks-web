@@ -64,6 +64,16 @@ describe("normalizeTribeEvent", () => {
     expect(out?.location).toBe("Chattanooga");
   });
 
+  it("trims a trailing comma off the address so parts don't double up", () => {
+    const out = normalizeTribeEvent({
+      title: "Long Lunch",
+      start_date: "2026-02-06 13:30:00",
+      // Sydney Larrikins' Tribe install stores the street with a dangling comma.
+      venue: { venue: "Sydney Fish Markets", address: "1 Bridge Rd,", city: "Glebe" },
+    });
+    expect(out?.location).toBe("1 Bridge Rd, Glebe");
+  });
+
   it("preserves the allDay flag", () => {
     const out = normalizeTribeEvent({
       title: "All-day event",
