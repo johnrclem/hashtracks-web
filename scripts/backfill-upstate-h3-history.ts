@@ -29,6 +29,7 @@
  */
 
 import "dotenv/config";
+import { pathToFileURL } from "node:url";
 import * as cheerio from "cheerio";
 import { runBackfillScript } from "./lib/backfill-runner";
 import { safeFetch } from "@/adapters/safe-fetch";
@@ -75,7 +76,7 @@ export function parseRecedingHareline(html: string): RawEventData[] {
   return [...byRun.values()].sort((a, b) => (a.runNumber ?? 0) - (b.runNumber ?? 0));
 }
 
-const isMain = import.meta.url === new URL(`file://${process.argv[1]}`).href;
+const isMain = import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   runBackfillScript({
     sourceName: "Upstate H3 Website",
