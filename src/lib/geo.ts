@@ -206,6 +206,30 @@ export function getEventCoordsFromRegionData(
 const GOOGLE_GEOCODE_BASE = "https://maps.googleapis.com/maps/api/geocode/json";
 
 /**
+ * Half-width (degrees) of the geocoding viewport bias box. ~0.5° ≈ 55km — wide
+ * enough to cover a metro + its suburbs, tight enough to prefer the local
+ * landmark over a same-named place in another city.
+ */
+export const GEOCODE_VIEWPORT_DELTA_DEG = 0.5;
+
+/**
+ * Build a SW|NE viewport box centered on a point, for `geocodeAddress`'s
+ * `bounds` option (soft-biases results toward the local area).
+ */
+export function boundingBoxFromCenter(
+  centerLat: number,
+  centerLng: number,
+  halfWidthDeg: number = GEOCODE_VIEWPORT_DELTA_DEG,
+): { swLat: number; swLng: number; neLat: number; neLng: number } {
+  return {
+    swLat: centerLat - halfWidthDeg,
+    swLng: centerLng - halfWidthDeg,
+    neLat: centerLat + halfWidthDeg,
+    neLng: centerLng + halfWidthDeg,
+  };
+}
+
+/**
  * Geocode a text address using the Google Maps Geocoding API.
  * Returns the first result's coordinates, or null on failure.
  * Uses GOOGLE_CALENDAR_API_KEY (server-only, no HTTP referrer restrictions).

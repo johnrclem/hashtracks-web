@@ -7,7 +7,7 @@ import { regionTimezone, getLabelForUrl, stripUrlsFromText, timeToMinutes } from
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, resolveKennelTags, clearResolverCache } from "./kennel-resolver";
-import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
+import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, boundingBoxFromCenter, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
 import { isPlaceholder, isThemelessPlaceholderTitle, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
 import { containsHarePii, scrubHarePii } from "@/adapters/hare-pii";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
@@ -1245,11 +1245,6 @@ function sanitizeLocationUrl(url: string | undefined): string | null {
 /** Detect non-English geographic terms in a location string (e.g., French "État de New York"). */
 export const NON_ENGLISH_GEO_RE = /\b(?:États?[ -]Unis|État de|Bundesland|Straße|Vereinigte Staaten|Provincia de|Comunidad de|Préfecture)\b/i;
 
-// Half-width (degrees) of the viewport used to soft-bias geocoding toward the
-// kennel's metro. ~0.5° ≈ 55km — big enough to cover a metro + its suburbs,
-// tight enough to prefer the local landmark over a same-named place elsewhere.
-const GEOCODE_VIEWPORT_DELTA_DEG = 0.5;
-
 async function resolveCoords(
   event: RawEventData,
   existingCoords?: { latitude: number | null; longitude: number | null; locationAddress: string | null },
@@ -1293,31 +1288,27 @@ async function resolveCoords(
   }
 
   if (event.location) {
-    // Bias point = kennel coords, else the region centroid. Used both to
-    // viewport-bias the geocode toward the kennel's metro (so terse local
-    // landmarks like "Union Station" resolve to the right city) and to validate
-    // the result below. Skip the viewport bias for `countryOverride` events
-    // (deliberate far-away trips) so we don't drag an overseas venue home.
+    // Bias point = kennel coords, else the region centroid. When we have one and
+    // this isn't a deliberate far-away trip (`countryOverride`), treat the event
+    // as local: viewport-bias the geocode toward it (so terse landmarks like
+    // "Union Station" resolve to the right city) AND validate the result against
+    // it below. The object form keeps the non-null lat/lng available in both spots.
     const biasLat = kennelCoords?.latitude ?? kennelCoords?.regionCentroidLat;
     const biasLng = kennelCoords?.longitude ?? kennelCoords?.regionCentroidLng;
-    const bounds =
+    const biasCenter =
       event.countryOverride === undefined && biasLat != null && biasLng != null
-        ? {
-            swLat: biasLat - GEOCODE_VIEWPORT_DELTA_DEG,
-            swLng: biasLng - GEOCODE_VIEWPORT_DELTA_DEG,
-            neLat: biasLat + GEOCODE_VIEWPORT_DELTA_DEG,
-            neLng: biasLng + GEOCODE_VIEWPORT_DELTA_DEG,
-          }
-        : undefined;
-    const geocoded = await geocodeAddress(event.location, { regionBias, bounds });
+        ? { lat: biasLat, lng: biasLng }
+        : null;
+    const geocoded = await geocodeAddress(event.location, {
+      regionBias,
+      bounds: biasCenter ? boundingBoxFromCenter(biasCenter.lat, biasCenter.lng) : undefined,
+    });
     if (geocoded) {
-      // Validate geocoded result against kennel coords or region centroid (if available)
-      // Skip geocode if result is >200km from reference point — likely wrong city/state.
-      // Adapters set `countryOverride` on per-event overseas trips (e.g. NTKH4 annual
-      // Taoyuan run) to opt out of the kennel-proximity check, which would otherwise
-      // reject the correct far-away pin.
-      if (biasLat != null && biasLng != null && event.countryOverride === undefined) {
-        const dist = haversineDistance(geocoded.lat, geocoded.lng, biasLat, biasLng);
+      // Validate against the bias point: skip the geocode if it resolved >200km
+      // away — likely the wrong city/state. (countryOverride trips have no bias
+      // point, so they're never rejected here — e.g. NTKH4's annual Taoyuan run.)
+      if (biasCenter) {
+        const dist = haversineDistance(geocoded.lat, geocoded.lng, biasCenter.lat, biasCenter.lng);
         if (dist > 200) {
           console.warn(`Geocode validation: "${event.location}" resolved ${dist.toFixed(0)}km from kennel — skipping`);
           return {};
