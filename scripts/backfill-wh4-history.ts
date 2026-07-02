@@ -49,7 +49,12 @@ void runBackfillScript({
       },
     } as unknown as Source;
     const res = await new GoogleSheetsAdapter().fetch(source, { days: 9999 });
-    if (res.errors.length > 0) console.warn("  adapter errors:", res.errors);
+    // Fail loud: a fetch/parse failure returns errors alongside a partial or
+    // empty event set — abort rather than silently backfilling an incomplete
+    // slice as if it were the whole archive.
+    if (res.errors.length > 0) {
+      throw new Error(`GoogleSheetsAdapter failed: ${res.errors.join("; ")}`);
+    }
     return res.events;
   },
 });
