@@ -40,8 +40,11 @@ import type { Source } from "@/generated/prisma/client";
 const SITE_URL = "https://www.upstatehashers.com";
 const HARELINE_URL = `${SITE_URL}/receding-hareline`;
 
-/** Verbatim summary-link text: "M/D/YY #NNN Title". */
-const ROW_RE = /^(\d{1,2})\/(\d{1,2})\/(\d{2})\s+#(\d{2,3})\s+(.+)$/;
+/** Verbatim summary-link text: "M/D/YY #NNN Title". The title capture is
+ *  `(\S.*)` (not `.+`): requiring a non-space first char makes the `\s+` before
+ *  it a deterministic boundary, so the match is linear — no backtracking
+ *  (Sonar S8786). Text is single-spaced + trimmed before matching. */
+const ROW_RE = /^(\d{1,2})\/(\d{1,2})\/(\d{2})\s+#(\d{2,3})\s+(\S.*)$/;
 
 /**
  * Parse the receding-hareline HTML into one RawEventData per run. Each run is an
