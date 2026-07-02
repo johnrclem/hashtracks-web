@@ -214,18 +214,25 @@ export const GEOCODE_VIEWPORT_DELTA_DEG = 0.5;
 
 /**
  * Build a SW|NE viewport box centered on a point, for `geocodeAddress`'s
- * `bounds` option (soft-biases results toward the local area).
+ * `bounds` option (soft-biases results toward the local area). Returns
+ * `undefined` for non-finite inputs (NaN/Infinity) so a junk center silently
+ * drops the bias rather than emitting a malformed `&bounds=` param. Corners are
+ * clamped to valid lat/lng ranges (a center near a pole/antimeridian would
+ * otherwise overflow ±90/±180 and be rejected by the Geocoding API).
  */
 export function boundingBoxFromCenter(
   centerLat: number,
   centerLng: number,
   halfWidthDeg: number = GEOCODE_VIEWPORT_DELTA_DEG,
-): { swLat: number; swLng: number; neLat: number; neLng: number } {
+): { swLat: number; swLng: number; neLat: number; neLng: number } | undefined {
+  if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng) || !Number.isFinite(halfWidthDeg)) {
+    return undefined;
+  }
   return {
-    swLat: centerLat - halfWidthDeg,
-    swLng: centerLng - halfWidthDeg,
-    neLat: centerLat + halfWidthDeg,
-    neLng: centerLng + halfWidthDeg,
+    swLat: Math.max(-90, centerLat - halfWidthDeg),
+    swLng: Math.max(-180, centerLng - halfWidthDeg),
+    neLat: Math.min(90, centerLat + halfWidthDeg),
+    neLng: Math.min(180, centerLng + halfWidthDeg),
   };
 }
 

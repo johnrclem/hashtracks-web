@@ -1293,12 +1293,19 @@ async function resolveCoords(
     // as local: viewport-bias the geocode toward it (so terse landmarks like
     // "Union Station" resolve to the right city) AND validate the result against
     // it below. The object form keeps the non-null lat/lng available in both spots.
-    const biasLat = kennelCoords?.latitude ?? kennelCoords?.regionCentroidLat;
-    const biasLng = kennelCoords?.longitude ?? kennelCoords?.regionCentroidLng;
-    const biasCenter =
-      event.countryOverride === undefined && biasLat != null && biasLng != null
-        ? { lat: biasLat, lng: biasLng }
+    // Pair lat+lng from the SAME source — kennel latitude/longitude are separately
+    // nullable, so mixing a real kennel lat with a region-centroid lng (or vice
+    // versa) would fabricate a nonsensical center that also self-validates below.
+    const kennelPoint =
+      kennelCoords?.latitude != null && kennelCoords?.longitude != null
+        ? { lat: kennelCoords.latitude, lng: kennelCoords.longitude }
         : null;
+    const centroidPoint =
+      kennelCoords?.regionCentroidLat != null && kennelCoords?.regionCentroidLng != null
+        ? { lat: kennelCoords.regionCentroidLat, lng: kennelCoords.regionCentroidLng }
+        : null;
+    const biasCenter =
+      event.countryOverride === undefined ? (kennelPoint ?? centroidPoint) : null;
     const geocoded = await geocodeAddress(event.location, {
       regionBias,
       bounds: biasCenter ? boundingBoxFromCenter(biasCenter.lat, biasCenter.lng) : undefined,

@@ -305,6 +305,21 @@ describe("geocodeAddress", () => {
         swLat: 9, swLng: 19, neLat: 11, neLng: 21,
       });
     });
+
+    it("returns undefined for non-finite inputs", () => {
+      expect(boundingBoxFromCenter(Number.NaN, -77.0)).toBeUndefined();
+      expect(boundingBoxFromCenter(38.9, Number.POSITIVE_INFINITY)).toBeUndefined();
+      expect(boundingBoxFromCenter(38.9, -77.0, Number.NaN)).toBeUndefined();
+    });
+
+    it("clamps corners to valid lat/lng ranges near the poles/antimeridian", () => {
+      expect(boundingBoxFromCenter(89.8, 179.8)).toEqual({
+        swLat: 89.8 - GEOCODE_VIEWPORT_DELTA_DEG,
+        swLng: 179.8 - GEOCODE_VIEWPORT_DELTA_DEG,
+        neLat: 90,
+        neLng: 180,
+      });
+    });
   });
 
   it("does not include &region= when no options provided (backward compatible)", async () => {
