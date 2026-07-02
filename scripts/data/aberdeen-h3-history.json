@@ -1,0 +1,2993 @@
+[
+  {
+    "date": "2021-08-16",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1986 - Scolty - Hares: Shaky",
+    "runNumber": 1,
+    "startTime": "19:00",
+    "location": "Scolty",
+    "latitude": 57.130616,
+    "longitude": -2.080406
+  },
+  {
+    "date": "2021-08-23",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1987 - ?? - Hares: Panty Pockets & BagOBones",
+    "runNumber": 1987,
+    "startTime": "19:00",
+    "location": "??"
+  },
+  {
+    "date": "2021-08-29",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1988 - AGPU - Hares: Twizzle & JC",
+    "runNumber": 1988,
+    "startTime": "11:00",
+    "hares": "Twizzle & JC",
+    "location": "Knockburn Loch",
+    "latitude": 57.1717,
+    "longitude": -2.1025
+  },
+  {
+    "date": "2021-09-05",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1989 - Torry Battery - Hare: The Penguin",
+    "runNumber": 1989,
+    "startTime": "11:00",
+    "hares": "The Penguin",
+    "location": "Torry Battery",
+    "latitude": 57.14215390320801,
+    "longitude": -2.058816335932206
+  },
+  {
+    "date": "2021-09-12",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1990 - Gairnhill, Kingsmill  Blacktop - Hare: Hillary",
+    "runNumber": 1990,
+    "startTime": "11:00",
+    "hares": "Hill-Ary",
+    "location": "Gairnhill, Kingsmill  Blacktop",
+    "latitude": 57.13187286738263,
+    "longitude": -2.246970619843205
+  },
+  {
+    "date": "2021-09-19",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1991 - Kintore - Hare: T-Rex Cock",
+    "runNumber": 1991,
+    "startTime": "11:00",
+    "hares": "T-Rex Cock",
+    "location": "Kintore"
+  },
+  {
+    "date": "2021-09-26",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1992 - Drum Castle - Hare: Sergio & Cinders",
+    "runNumber": 1992,
+    "startTime": "11:00",
+    "hares": "Sergio, Cinders",
+    "location": "Drum Castle",
+    "latitude": 57.095306594435264,
+    "longitude": -2.339407120196551
+  },
+  {
+    "date": "2021-10-03",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1993 - Rowantree, Bennachie - Hare: Centrefold & Hippo",
+    "runNumber": 1993,
+    "startTime": "11:00",
+    "hares": "Hippo",
+    "location": "Bennachie, Rowentree",
+    "latitude": 57.30988054482256,
+    "longitude": -2.511986680447729
+  },
+  {
+    "date": "2021-10-10",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1994 - Drumtochty Glen - Hare: Pink Panther & Bungee Finger",
+    "runNumber": 1994,
+    "startTime": "11:00",
+    "hares": "Bungee Finger, Pink Panther",
+    "location": "Drumtochty Glen",
+    "latitude": 56.90913862560742,
+    "longitude": -2.499023457315155
+  },
+  {
+    "date": "2021-10-17",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1995 - Bridge Of Bogendreip - Hare: Binliner",
+    "runNumber": 1995,
+    "startTime": "11:00",
+    "hares": "Binliner",
+    "location": "Bridge of Bogendeip",
+    "latitude": 57.00865496846204,
+    "longitude": -2.55719246596495
+  },
+  {
+    "date": "2021-10-24",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1996 - Potarch Green - Hare: Muff Diver",
+    "runNumber": 1996,
+    "startTime": "11:00",
+    "hares": "Muff Diver",
+    "location": "Potarch Green",
+    "latitude": 57.06401225273357,
+    "longitude": -2.650375575409867
+  },
+  {
+    "date": "2021-10-31",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1997 - Millbank, Tillyfourie - Hare: JC",
+    "runNumber": 1997,
+    "startTime": "11:00",
+    "hares": "JC",
+    "location": "MIllbank, Tillyfourie",
+    "latitude": 57.187975635456674,
+    "longitude": -2.565638125215826
+  },
+  {
+    "date": "2021-11-07",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1998 - Brathens - Hares: Shaky & 4 Fingers",
+    "runNumber": 1998,
+    "startTime": "11:00",
+    "hares": "4Fingers, Shaky",
+    "location": "Brathens",
+    "latitude": 57.075562742928845,
+    "longitude": -2.534632970746992
+  },
+  {
+    "date": "2021-11-14",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 1999 - Collieston - Hares: Underlay & Roger Me More",
+    "runNumber": 1999,
+    "startTime": "11:00",
+    "hares": "Roger Me More, Underlay",
+    "location": "Colieston",
+    "latitude": 57.34848288912732,
+    "longitude": -1.930870937865461
+  },
+  {
+    "date": "2021-11-20",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2000 - Methick - Hares: Toy Boy Tom & Underlay",
+    "runNumber": 2000,
+    "startTime": "11:00",
+    "hares": "Toy Boy Tom, Underlay",
+    "location": "Methlick"
+  },
+  {
+    "date": "2021-11-21",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2001 - Kirkhill - Tonto & Hippo",
+    "runNumber": 2001,
+    "startTime": "11:00",
+    "hares": "Hippo, Tonto",
+    "location": "Kirkhill",
+    "latitude": 57.20452905189874,
+    "longitude": -2.224310740107967
+  },
+  {
+    "date": "2021-11-28",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2002 - Sunhoney - hare: It's All Because",
+    "runNumber": 2002,
+    "startTime": "11:00",
+    "hares": "It's All Because",
+    "location": "Sunhoney Farm",
+    "latitude": 57.1362206132415,
+    "longitude": -2.470587215003677
+  },
+  {
+    "date": "2021-12-05",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2003 - Potarch Green - Short'n'Thick & Wee Willie",
+    "runNumber": 2003,
+    "startTime": "11:00",
+    "hares": "Short'n'Thick, Wee Willie",
+    "location": "Potarch Green",
+    "latitude": 57.064035542918255,
+    "longitude": -2.650442672955787
+  },
+  {
+    "date": "2021-12-12",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2004 - Bennachie - Hares: Blagger & Barbarella",
+    "runNumber": 2004,
+    "startTime": "11:00",
+    "hares": "Barbarella , Blagger",
+    "location": "Bennachie",
+    "latitude": 57.28533247518776,
+    "longitude": -2.502088533733809
+  },
+  {
+    "date": "2021-12-19",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2005 - Peterculter - Hares: Numbskull",
+    "runNumber": 2005,
+    "startTime": "11:00",
+    "hares": "Numbskull",
+    "location": "Peterculter",
+    "latitude": 57.094664763060265,
+    "longitude": -2.263611874382319
+  },
+  {
+    "date": "2021-12-26",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2006 - Monymusk - Hare: Hippo",
+    "runNumber": 2006,
+    "startTime": "11:00",
+    "hares": "Hippo",
+    "location": "Monymusk"
+  },
+  {
+    "date": "2022-01-02",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2007 - Tullohill Wood - Hare: Bag'O'Bones",
+    "runNumber": 2007,
+    "startTime": "11:00",
+    "hares": "Biggles",
+    "location": "Tullohill Woods",
+    "latitude": 57.11134480058259,
+    "longitude": -2.127681018709391
+  },
+  {
+    "date": "2022-01-09",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2008 - Craibstone - Hare: Barbarella & Diona",
+    "runNumber": 2008,
+    "startTime": "11:00",
+    "hares": "Barbarella",
+    "location": "Craibstone",
+    "latitude": 57.19258372952517,
+    "longitude": -2.213455697394169
+  },
+  {
+    "date": "2022-01-16",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2009 - Johnston Gardens - Hare: Rats & Tickbait",
+    "runNumber": 2009,
+    "startTime": "11:00",
+    "hares": "Rats & Tickbait",
+    "location": "Johnston Gardens",
+    "latitude": 57.136097105811984,
+    "longitude": -2.146620892298486
+  },
+  {
+    "date": "2022-01-23",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2010 - Durris - Little Shit & Sharnie",
+    "runNumber": 2010,
+    "startTime": "11:00",
+    "hares": "Little Shit, Sharnie",
+    "location": "Duris",
+    "latitude": 57.017572735805025,
+    "longitude": -2.37583378549298
+  },
+  {
+    "date": "2022-01-30",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2011 - Stonehaven - Hares: Splash'n'Dash & Fire Flaps",
+    "runNumber": 2011,
+    "startTime": "11:00",
+    "hares": "Fireflaps",
+    "location": "Stonehaven",
+    "latitude": 56.97253182646963,
+    "longitude": -2.217523264864214
+  },
+  {
+    "date": "2022-02-06",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2012 - Kincorth - Hares: Aids & Cinders",
+    "runNumber": 2012,
+    "startTime": "11:00",
+    "hares": "Aids",
+    "location": "Kincorth"
+  },
+  {
+    "date": "2022-02-20",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2014 - Blackburn",
+    "runNumber": 2014,
+    "hares": "Tonto",
+    "location": "Blackburn"
+  },
+  {
+    "date": "2022-02-27",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2015 - Peterculter",
+    "runNumber": 2015,
+    "startTime": "11:00",
+    "hares": "IceBreaker, Red Stripe",
+    "location": "Peterculter"
+  },
+  {
+    "date": "2022-03-06",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2016 - Persley Walled Garden",
+    "runNumber": 2016,
+    "startTime": "11:00",
+    "hares": "Oneliner, Skinny Witch",
+    "location": "Parsley Walled Garden"
+  },
+  {
+    "date": "2022-03-13",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2017 - Golden Square",
+    "runNumber": 2017,
+    "startTime": "11:00",
+    "hares": "Red Stripe",
+    "location": "Golden Square"
+  },
+  {
+    "date": "2022-03-20",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2018 - Newtonhill",
+    "runNumber": 2018,
+    "startTime": "11:00",
+    "hares": "Thrupenny Bits",
+    "location": "Newtonhill"
+  },
+  {
+    "date": "2022-03-27",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2019 - Hazlehead Park",
+    "runNumber": 2019,
+    "startTime": "11:00",
+    "hares": "Ballerina, The Penguin",
+    "location": "Hazlehead Park"
+  },
+  {
+    "date": "2022-04-03",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2020 - Aboyne",
+    "runNumber": 2020,
+    "startTime": "11:00",
+    "hares": "Prickly Bush",
+    "location": "Aboyne"
+  },
+  {
+    "date": "2022-04-18",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2022 - The Gramps",
+    "runNumber": 2022,
+    "startTime": "19:00",
+    "hares": "Olymprick",
+    "location": "The Gramps"
+  },
+  {
+    "date": "2022-04-25",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2023 - Tillyfourie - Hare: Hippo & Mrs T",
+    "runNumber": 2023,
+    "startTime": "19:00",
+    "hares": "Hippo, Mrs T",
+    "location": "Tillyfourie"
+  },
+  {
+    "date": "2022-05-02",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2024 - Duthie Park - Hare: Toy Boy Tom",
+    "runNumber": 2024,
+    "startTime": "19:00",
+    "hares": "Toy Boy Tom",
+    "location": "Duthie Park",
+    "latitude": 57.1297569658545,
+    "longitude": -2.099126505665745
+  },
+  {
+    "date": "2022-05-09",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2025-Gairnhill Woods",
+    "runNumber": 2025,
+    "startTime": "19:00",
+    "hares": "Sauerkraut",
+    "location": "Gairnhill Woods"
+  },
+  {
+    "date": "2022-05-16",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2026 - Ellon",
+    "runNumber": 2026,
+    "startTime": "19:00",
+    "hares": "Biggles, Gingervitis",
+    "location": "Schoolhill Road, Ellon",
+    "latitude": 57.3669018,
+    "longitude": -2.0719677
+  },
+  {
+    "date": "2022-05-23",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2027 - Bridge of Bogedreip",
+    "runNumber": 2027,
+    "startTime": "19:00",
+    "hares": "Short'n'Thick, Wee Willy",
+    "location": "Bridge of Bogendreip",
+    "latitude": 57.0086364,
+    "longitude": -2.5573098
+  },
+  {
+    "date": "2022-05-30",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2026 North Kirkton Wood, Echt of B9119 - Hares: Twizzle & Ballarina",
+    "runNumber": 2028,
+    "startTime": "19:00",
+    "hares": "Ballerina, Twizzle"
+  },
+  {
+    "date": "2022-06-06",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2029 -  Countesswells - Hares: Stalker & The Bitchhh",
+    "runNumber": 2029,
+    "startTime": "19:00",
+    "hares": "Stalker, The Bitchhh"
+  },
+  {
+    "date": "2022-06-13",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2030 - Kintore - Hares: JC & FiFi",
+    "runNumber": 2030,
+    "startTime": "19:00",
+    "hares": "FiFi , JC"
+  },
+  {
+    "date": "2022-06-20",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2031 - Kemnay - Pink Panther & Bungee Finger",
+    "runNumber": 2031,
+    "startTime": "19:00",
+    "hares": "Bungee Finger, Pink Panther"
+  },
+  {
+    "date": "2022-06-27",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2032 - Banchory- Hares: Panty Pockets & Bag'O'Bones",
+    "runNumber": 2032,
+    "startTime": "19:00",
+    "hares": "Bag'O'Bones, Panty Pockets"
+  },
+  {
+    "date": "2022-07-04",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2033 Kirkhill, East Woodlands - Hares: Tonto & Eggfoo",
+    "runNumber": 2033,
+    "startTime": "19:00",
+    "hares": "Tonguelasher, Tonto"
+  },
+  {
+    "date": "2022-07-11",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2034 Drumoak - Hares: Numbskull & The Dutchess",
+    "runNumber": 2034,
+    "startTime": "19:00",
+    "hares": "Numbskull"
+  },
+  {
+    "date": "2022-07-18",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2035 Bridge of Dee - Hare: Goldenshower",
+    "runNumber": 2035,
+    "startTime": "19:00",
+    "hares": "Golden Shower"
+  },
+  {
+    "date": "2022-07-25",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2036 Banchory Business Center - Hare: Shaky",
+    "runNumber": 2036,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2022-08-01",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2037 - Den of Maidencraig - Hares: Jetslag & Toy Boy Tom",
+    "runNumber": 2037,
+    "startTime": "19:00",
+    "hares": "Jetslag, Toy Boy Tom"
+  },
+  {
+    "date": "2022-08-08",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2038 Millstone Hill, Donview Carpark Hares Sir Deadman Hillary & Glasgow",
+    "runNumber": 2038,
+    "startTime": "19:00",
+    "hares": "Glasgow , Hill-Ary"
+  },
+  {
+    "date": "2022-08-15",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2039 - Stonehaven - Hare: FireFlaps",
+    "runNumber": 2039,
+    "startTime": "19:00",
+    "hares": "Fireflaps"
+  },
+  {
+    "date": "2022-08-22",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2040 Torphins - Hare: Red Stripe",
+    "runNumber": 2040,
+    "startTime": "19:00",
+    "hares": "Red Stripe"
+  },
+  {
+    "date": "2022-08-29",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2041 Netherton Business Center, Kemnay - Hares: Express Chicken & Tiger Feet",
+    "runNumber": 2041,
+    "startTime": "19:00",
+    "hares": "Tiger Feet"
+  },
+  {
+    "date": "2022-09-05",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2042 Woodbank Hotel - Hare: Binliner",
+    "runNumber": 2042,
+    "startTime": "19:00",
+    "hares": "Binliner"
+  },
+  {
+    "date": "2022-09-12",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2043 Balmedie Beach - Hares: Mad Cyclist & Bog Brush",
+    "runNumber": 2043,
+    "startTime": "19:00",
+    "hares": "Mad Cyclist"
+  },
+  {
+    "date": "2022-09-18",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2044 & AGPU Knockburn Loch - Hare: Twizzle & Red Stripe",
+    "runNumber": 2044,
+    "startTime": "11:00",
+    "hares": "Red Stripe , Shaky"
+  },
+  {
+    "date": "2022-09-25",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2045 - Kingswells Park & Ride - hare: Toy Boy Tom",
+    "runNumber": 2045,
+    "startTime": "11:00",
+    "hares": "Toy Boy Tom, Underlay"
+  },
+  {
+    "date": "2022-10-02",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2046 - Aboyne - Hares: Twizzle",
+    "runNumber": 2046,
+    "startTime": "11:00",
+    "hares": "Twizzle"
+  },
+  {
+    "date": "2022-10-09",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2047 - Drumtochtie Glen - Hares: Pink Panther & Bungee Finger",
+    "runNumber": 2047,
+    "startTime": "11:00",
+    "hares": "Bungee Finger, Pink Panther"
+  },
+  {
+    "date": "2022-10-16",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2048 - Inverbervie - Hares: 4Fingers & Chantal",
+    "runNumber": 2048,
+    "startTime": "11:00",
+    "hares": "4Fingers, Ten Brûlée"
+  },
+  {
+    "date": "2022-10-23",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2049 Donmouth Road, Bridge of Don - Hare: Barbarella",
+    "runNumber": 2049,
+    "startTime": "11:00",
+    "hares": "Barbarella"
+  },
+  {
+    "date": "2022-10-30",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2050 Mary Culter Woods - Hares: Tickbait & Skippy",
+    "runNumber": 2050,
+    "startTime": "11:00",
+    "hares": "Skippy, TickBait"
+  },
+  {
+    "date": "2022-11-06",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2051 Bridge of Bogendeip _ Hares: Short&Thick & WeeWillie",
+    "runNumber": 2051,
+    "startTime": "10:00",
+    "hares": "Short'n'Thick, Wee Willy"
+  },
+  {
+    "date": "2022-11-13",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2052 - Deeside Activity Park - Hares: PantyPockets & BagOBones",
+    "runNumber": 2052,
+    "startTime": "11:00",
+    "hares": "Deleted User, Deleted User",
+    "location": "Deeside Activity Park",
+    "latitude": 57.050411790014934,
+    "longitude": -2.50134523444533
+  },
+  {
+    "date": "2022-11-20",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 run 2053 - Tollohill Woods - Hares: Cinders & Aids",
+    "runNumber": 2053,
+    "startTime": "11:00",
+    "hares": "Aids, Cinders"
+  },
+  {
+    "date": "2022-11-27",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2054 - Johnston Gardens - Hare: Rats",
+    "runNumber": 2054,
+    "startTime": "11:00",
+    "hares": "Pink Panther"
+  },
+  {
+    "date": "2022-12-04",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2055 - Aboyne - Hares: Twizzle",
+    "runNumber": 2055,
+    "startTime": "11:00",
+    "hares": "Red Stripe , Twizzle"
+  },
+  {
+    "date": "2022-12-11",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 run 2056 - Grandholm Bridge, North side  - Hares: OneLiner & Skinny Witch",
+    "runNumber": 2056,
+    "startTime": "11:00",
+    "hares": "Oneliner, Skinny Witch"
+  },
+  {
+    "date": "2022-12-18",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2057 - Portlethen Station - Hares: Thrupenny Bits",
+    "runNumber": 2057,
+    "startTime": "11:00",
+    "hares": "Thruppenny Bits"
+  },
+  {
+    "date": "2022-12-25",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2058 - Stonehaven - Hare: FireFlaps",
+    "runNumber": 2058,
+    "startTime": "11:00",
+    "hares": "Fireflaps"
+  },
+  {
+    "date": "2023-01-02",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2059 - Kemnay, Dalmadilly Ponds - Hares: JC & FiFi",
+    "runNumber": 2059,
+    "startTime": "11:00",
+    "hares": "FiFi , JC"
+  },
+  {
+    "date": "2023-01-08",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2060 - Kingswells Park & Ride - Hares: Not Dot & Biggles",
+    "runNumber": 2060,
+    "startTime": "11:00",
+    "hares": "Biggles, NotDot"
+  },
+  {
+    "date": "2023-01-15",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2061 - Stonehaven- Hare: Toy Boy Tom",
+    "runNumber": 2061,
+    "startTime": "11:00",
+    "hares": "Toy Boy Tom",
+    "location": "Minerwell Park",
+    "latitude": 56.97253779823735,
+    "longitude": -2.217363782605036
+  },
+  {
+    "date": "2023-01-22",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2063 - Station Hotel, Aberdeen - Hares: Little Shit & Sharnie",
+    "runNumber": 2063,
+    "startTime": "11:00",
+    "hares": "Little Shit, Sharnie"
+  },
+  {
+    "date": "2023-01-29",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2064 - Bridge of Feugh - Hares: Prickly Bush",
+    "runNumber": 2064,
+    "startTime": "11:00",
+    "hares": "Prickly Bush"
+  },
+  {
+    "date": "2023-02-05",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2065- Dyce - Hares: Tonto & Eggfoo",
+    "runNumber": 2065,
+    "startTime": "11:00",
+    "hares": "Tonto"
+  },
+  {
+    "date": "2023-02-12",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2066 Cults Primary School - Hares: Underlay & Roger Me More",
+    "runNumber": 2066,
+    "startTime": "11:00",
+    "hares": "Roger Me More, Underlay"
+  },
+  {
+    "date": "2023-02-19",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2067 Altens - Hares: The Bitchhh & Stalker",
+    "runNumber": 2067,
+    "startTime": "11:00",
+    "hares": "Stalker, The Bitchhh"
+  },
+  {
+    "date": "2023-02-26",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2068 Bridge of Don - Hares: IceBreaker & Gingervitis",
+    "runNumber": 2068,
+    "startTime": "11:00",
+    "hares": "Gingervitis, IceBreaker"
+  },
+  {
+    "date": "2023-03-05",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2069 Port Elphinstone - Hares: T-Rex Cock & Express Chicken",
+    "runNumber": 2069,
+    "startTime": "11:00",
+    "hares": "T-Rex Cock"
+  },
+  {
+    "date": "2023-03-12",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2070 - Slug Road A957 Hare: Tia",
+    "runNumber": 2070,
+    "startTime": "11:00",
+    "hares": "Muff Diver"
+  },
+  {
+    "date": "2023-03-26",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2072 - Insch Rail Station - Hares: Blagger",
+    "runNumber": 2072,
+    "startTime": "11:00"
+  },
+  {
+    "date": "2023-04-02",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2073 - Potarch Green - Hare: Short'n'Thick",
+    "runNumber": 2073,
+    "startTime": "11:00",
+    "hares": "Short'n'Thick"
+  },
+  {
+    "date": "2023-04-10",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2074 - Cove/Portlethen - Hare: Eveready",
+    "runNumber": 2074,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-04-17",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2075 - Banchory, Burnet Park - Hare: Shaky",
+    "runNumber": 2075,
+    "startTime": "19:00",
+    "hares": "Shaky"
+  },
+  {
+    "date": "2023-04-24",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2076, Newburgh Hares Doina and Barbarella",
+    "runNumber": 2076,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-05-01",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2077 - Persley Walled Garden - Hare:  Tèn-brûlée",
+    "runNumber": 2077,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-05-08",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2078 - Northfield - Hares: Not Dot & Biggles",
+    "runNumber": 2078,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-05-22",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2080 Brimond Hill - Hares: Pink Panther & Bungee Finger",
+    "runNumber": 2080,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-05-29",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2081 -  Foggieton Wood - Hare: Toy Boy Tom",
+    "runNumber": 2081,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-06-05",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2082 Bennachie, Rowantree carpark - Hares: Express Chicken & T-Rex Cock",
+    "runNumber": 2082,
+    "startTime": "19:00",
+    "hares": "T-Rex Cock"
+  },
+  {
+    "date": "2023-06-12",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2083 - Shakkin Briggie, Burnhervie - Hares: JC & Fifi",
+    "runNumber": 2083,
+    "startTime": "19:00",
+    "hares": "Hill-Ary"
+  },
+  {
+    "date": "2023-06-19",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2084 Drumoak - Hares: Numbskull & The Dutchess",
+    "runNumber": 2084,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-06-26",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2085 - Banchory - Hares: PantyPockets & Bag O'Bones",
+    "runNumber": 2085,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-07-03",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2086 - Grandholm - Hares: 4Fingers & Innes",
+    "runNumber": 2086,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-07-10",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2087 - East Woodlands, Kirlhill- Hares: Tonto & EggFoo",
+    "runNumber": 2087,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-07-17",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2088 - Stonehaven - Hare: Fire Flaps",
+    "runNumber": 2088,
+    "startTime": "19:00",
+    "hares": "Fireflaps"
+  },
+  {
+    "date": "2023-07-24",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2089 -  Brimond Hill - Hares: Cinders & Aids",
+    "runNumber": 2089,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-07-31",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2090 - Kemnay - Little Shit & Sharnie",
+    "runNumber": 2090,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-08-07",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2091 - Banchory - Hare: Shaky",
+    "runNumber": 2091,
+    "startTime": "19:00",
+    "hares": "Shaky",
+    "location": "Burn O'Bennie Road, Banchory, AB31 5, United Kingdom",
+    "latitude": 57.062756,
+    "longitude": -2.47691
+  },
+  {
+    "date": "2023-08-14",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2092 - Beach Esplanade - Hare: Smurf",
+    "runNumber": 2092,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-08-21",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2093 Scolty Hill - Hares: Wee Willy & Smiler",
+    "runNumber": 2093,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-08-28",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2094 -  Seaton Park - Hare:  Mad Cyclist",
+    "runNumber": 2094,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-09-04",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2095 - Crathes - Hare:  Prickly Bush",
+    "runNumber": 2095,
+    "startTime": "19:00",
+    "hares": "Prickly Bush"
+  },
+  {
+    "date": "2023-09-11",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2096 - Brathens - Hare:  Red Stripe",
+    "runNumber": 2096,
+    "startTime": "19:00",
+    "hares": "Red Stripe"
+  },
+  {
+    "date": "2023-09-17",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2097 and AGPU at Knockburn Loch - Hares: Little Shit & Sharnie",
+    "runNumber": 2097,
+    "startTime": "11:00",
+    "hares": "Little Shit"
+  },
+  {
+    "date": "2023-09-24",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2098 - Riverside Drive, Bridge of Dee - Hares: The Bitchhh & Stalker",
+    "runNumber": 2098,
+    "startTime": "11:00"
+  },
+  {
+    "date": "2023-10-01",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2099 - Don View - Hares: Mrs T & Hippo",
+    "runNumber": 2099,
+    "startTime": "11:00",
+    "hares": "H ah3, M T ah3"
+  },
+  {
+    "date": "2023-10-08",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2100 - Scolty Wood - Hare: Struth",
+    "runNumber": 2100,
+    "startTime": "11:00",
+    "hares": "Ballerina, Struth"
+  },
+  {
+    "date": "2023-10-15",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2101 - Garlogie - Hares: JC & FiFi",
+    "runNumber": 2101,
+    "startTime": "11:00"
+  },
+  {
+    "date": "2023-10-22",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH2 Run 2102 - Johnston Gardens - Hares: Express Chicken & Rats",
+    "runNumber": 2102,
+    "startTime": "11:00"
+  },
+  {
+    "date": "2023-10-29",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH2 Run 2103 - Seaton Park - Hares: Bungee Finger & Pink Panther",
+    "runNumber": 2103,
+    "startTime": "11:00",
+    "hares": "Bungee Finger & Pink Panther",
+    "location": "Seaton Park Carpark",
+    "latitude": 57.17230265576557,
+    "longitude": -2.098554917126765
+  },
+  {
+    "date": "2023-11-05",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2104 - Finzean - Hares: Tickbait & Ding Dong",
+    "runNumber": 2104,
+    "startTime": "11:00",
+    "hares": "TickBait"
+  },
+  {
+    "date": "2023-11-12",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2105 - Banchory, Burnett Park - Shaky & Premature",
+    "runNumber": 2105,
+    "startTime": "11:00",
+    "hares": "Premature, Shaky"
+  },
+  {
+    "date": "2023-11-19",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2106 - kirkton of Skene - Hares: Ballerina & StonAa",
+    "runNumber": 2106,
+    "startTime": "11:00",
+    "location": "Kirkhill Forest",
+    "latitude": 57.15983908608096,
+    "longitude": -2.327001190292202
+  },
+  {
+    "date": "2023-11-26",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2107 - Kirkhill Forest - Hares: Wee Willie & Scrungebucket",
+    "runNumber": 2107,
+    "startTime": "11:00",
+    "hares": "Bungee Finger, Wee Willie",
+    "location": "Kirkhill Forest",
+    "latitude": 57.19487871694039,
+    "longitude": -2.243302170676367
+  },
+  {
+    "date": "2023-12-03",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2108 _ Scotstown Moor - Hares: Oneliner & Skinny Witch",
+    "runNumber": 2108,
+    "startTime": "11:00"
+  },
+  {
+    "date": "2023-12-10",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2109 at Johnston Gardens- - Hare: Harlequine",
+    "runNumber": 2109,
+    "startTime": "11:00"
+  },
+  {
+    "date": "2023-12-16",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Christmas Party",
+    "runNumber": 2104,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2023-12-17",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2110 at Duthie Park - Hared by Toy Boy Tom",
+    "runNumber": 2110,
+    "startTime": "11:00",
+    "hares": "Thruppenny Bits, Toy Boy Tom",
+    "location": "Duthie Park, Riverside carpark",
+    "latitude": 57.12988523932729,
+    "longitude": -2.099228103153908
+  },
+  {
+    "date": "2023-12-24",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2111 - Alten's Farm Rd - Hare: Twizzle",
+    "runNumber": 2111,
+    "startTime": "11:00",
+    "hares": "Twizzle",
+    "location": "Altens Farm Rd Carpark",
+    "latitude": 57.118545,
+    "longitude": -2.088113
+  },
+  {
+    "date": "2023-12-31",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2112 - Rosewell Drive - Hares: High Maintenance, Muff Diver",
+    "runNumber": 2112,
+    "startTime": "11:00",
+    "hares": "High Maintenance, Muff Diver",
+    "location": "Rosewell Drive, Aberdeen, AB15 6",
+    "latitude": 57.14610733453706,
+    "longitude": -2.149449105953357
+  },
+  {
+    "date": "2024-01-07",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2113 Haddo House, Hares: Eggfoo & Tonto",
+    "runNumber": 2113,
+    "startTime": "11:00",
+    "hares": "Eggfoo & Tonto",
+    "location": "Haddo House",
+    "latitude": 57.400327782815076,
+    "longitude": -2.223013814310311
+  },
+  {
+    "date": "2024-01-14",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2114 - Hill of 3 Stones, Slug Road - Hares: Skippy & Nutcracker",
+    "runNumber": 2114,
+    "startTime": "11:00",
+    "hares": "Skippy & Nutcracker",
+    "location": "Hill of 3 Stones, Slug Road",
+    "latitude": 56.99454398797564,
+    "longitude": -2.345367036685579
+  },
+  {
+    "date": "2024-01-21",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2115 - Potarch Green - Hares: Short'n'Thick & Underlay",
+    "runNumber": 2115,
+    "hares": "Short'nThick & Underlay",
+    "location": "Potarch Green",
+    "latitude": 57.063718271112215,
+    "longitude": -2.650257999951598
+  },
+  {
+    "date": "2024-01-26",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Burns Supper",
+    "runNumber": null,
+    "startTime": "19:00",
+    "location": "O'Neill's",
+    "latitude": 57.14688918054113,
+    "longitude": -2.100153216968222
+  },
+  {
+    "date": "2024-01-28",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2116 - Tollohill Wood - Hares: Not Dot & Biggles",
+    "runNumber": 2116,
+    "startTime": "11:00",
+    "hares": "Not Dot & Biggles",
+    "location": "Tollohill Wood Carpark",
+    "latitude": 57.11137722923111,
+    "longitude": -2.127735705883121
+  },
+  {
+    "date": "2024-02-04",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 RUN 2117 - Brathens- Hares: Bag'O'Bones & Panty Pockets",
+    "runNumber": 2117,
+    "startTime": "11:00",
+    "hares": "MM ah3",
+    "location": "Brathens Eco Business Park",
+    "latitude": 57.07537095038974,
+    "longitude": -2.534704001709583
+  },
+  {
+    "date": "2024-02-11",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2118 - Riverside Drive - Hare: Golden Shower",
+    "runNumber": 2118,
+    "startTime": "11:00",
+    "hares": "Golden Shower",
+    "location": "Riverside Drive, near Bridge of Dee",
+    "latitude": 57.12432304188305,
+    "longitude": -2.119889128889628
+  },
+  {
+    "date": "2024-02-18",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2119 - Cults - Hares: Mum  Mum & Todger",
+    "runNumber": 2119,
+    "startTime": "11:00",
+    "hares": "Mum Mum & Todger",
+    "location": "Cults Primary School",
+    "latitude": 57.12010396794312,
+    "longitude": -2.198026089314261
+  },
+  {
+    "date": "2024-02-25",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2120 - Brimond Hill -Hares: Cinders & Aids",
+    "runNumber": 2120,
+    "startTime": "11:00",
+    "hares": "Cinders & Aids",
+    "location": "Brimond Hill Carpark",
+    "latitude": 57.181859673974806,
+    "longitude": -2.233438446673588
+  },
+  {
+    "date": "2024-03-03",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2121 - Torry - Hares: Fetus Envy & Barbarella",
+    "runNumber": 2121,
+    "startTime": "11:00",
+    "hares": "Fetus Envy & Barbarella",
+    "location": "The White Cockade Bar, Torry",
+    "latitude": 57.13567804309407,
+    "longitude": -2.086164439966701
+  },
+  {
+    "date": "2024-03-10",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2122 - International School Aberdeen - Hares: Gingervitis & Patsy",
+    "runNumber": 2122,
+    "startTime": "11:00",
+    "hares": "Gingervitis & Patsy",
+    "location": "International School Aberdeen",
+    "latitude": 57.12450980119694,
+    "longitude": -2.153150079388973
+  },
+  {
+    "date": "2024-03-17",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2123 - Brathens - Hare: Redstripe",
+    "runNumber": 2123,
+    "startTime": "11:00",
+    "hares": "Redstripe",
+    "location": "Brathens Eco Business Park",
+    "latitude": 57.07553432013892,
+    "longitude": -2.534703658776701
+  },
+  {
+    "date": "2024-03-24",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2124 - Hill of 3 Stanes - Hares: Hazukashii & Fire Flaps",
+    "runNumber": 2124,
+    "startTime": "11:00",
+    "hares": "Hazukashii & Fire Flaps",
+    "location": "Hill of 3 Stanes, Slug Rd",
+    "latitude": 57.003213596064064,
+    "longitude": -2.358078033017188
+  },
+  {
+    "date": "2024-03-31",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2125 - Burnett Park, Banchory - Hare: Shaky",
+    "runNumber": 2125,
+    "startTime": "11:00",
+    "hares": "Shaky",
+    "location": "Burnett Park, Banchory",
+    "latitude": 57.05685704706275,
+    "longitude": -2.522366992565233
+  },
+  {
+    "date": "2024-04-07",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2126 - Deeside Activity Park - Hares: JC & FiFi",
+    "runNumber": 2126,
+    "startTime": "11:00",
+    "hares": "JC & FiFi",
+    "location": "Deeside Activity Park",
+    "latitude": 57.10320528493962,
+    "longitude": -2.71434629189979
+  },
+  {
+    "date": "2024-04-15",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2127 - Clochandighter Woods - Hares: Sharnie & Little Shit",
+    "runNumber": 2127,
+    "startTime": "19:00",
+    "hares": "Little Shit",
+    "location": "Clochandighter Woods",
+    "latitude": 57.07930953289413,
+    "longitude": -2.1824807814236
+  },
+  {
+    "date": "2024-04-22",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2128 - Tarland - Hares: Glasgow & Hillary",
+    "runNumber": 2128,
+    "startTime": "19:00",
+    "hares": "Glasgow , Sir Deadmund Hill-Ary",
+    "location": "Mauritania Wood, B9119, Tarland",
+    "latitude": 57.133581407048425,
+    "longitude": -2.852297732773075
+  },
+  {
+    "date": "2024-04-29",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2129 - Peterculter - Hares: Harlequine & Mario's Chuff",
+    "runNumber": 2129,
+    "startTime": "19:00",
+    "hares": "Harlequine & Marrio's Chuff",
+    "location": "Peterculter",
+    "latitude": 57.094816009093535,
+    "longitude": -2.263944895885473
+  },
+  {
+    "date": "2024-05-06",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2130 - Westburn Park- Hare: Ten Brulee",
+    "runNumber": 2130,
+    "startTime": "19:00",
+    "hares": "Ten Brulee",
+    "location": "Westburn Park",
+    "latitude": 57.15436766165847,
+    "longitude": -2.123078182275933
+  },
+  {
+    "date": "2024-05-13",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2131 - Netherton Business Park - Hares: Bungee Finger & Pink z",
+    "runNumber": 2131,
+    "startTime": "19:00",
+    "hares": "Bungee Finger & Pink Panther",
+    "location": "Netherton Business Park, Kemnay",
+    "latitude": 57.242886988340814,
+    "longitude": -2.469347077881883
+  },
+  {
+    "date": "2024-05-20",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2132 - Mains if Drum- Hares: Premature & Skippy",
+    "runNumber": 2132,
+    "startTime": "19:00",
+    "hares": "Premature & Skippy",
+    "location": "AH3 Run 2132 - Mains of Drum",
+    "latitude": 57.08953502278163,
+    "longitude": -2.323634576080293
+  },
+  {
+    "date": "2024-05-27",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2133 - Woodend Barn, Banchory - Hare: Smurf",
+    "runNumber": 2133,
+    "startTime": "19:00",
+    "hares": "Smurf",
+    "location": "The Barn / Deeside RFC, Banchory"
+  },
+  {
+    "date": "2024-06-03",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2134 - Stonehaven - Hare: Twizzle",
+    "runNumber": 2134,
+    "startTime": "19:00",
+    "hares": "Twizzle",
+    "location": "OnOn at Stonehaven, Picknick area at Mains of Cowie\nhttps://maps.app.goo.gl/d8EE4ukFJxm61Dsz8?g_st=ic\n(56.9723505, -2.2009885)",
+    "latitude": 56.97226556418164,
+    "longitude": -2.201268609305949
+  },
+  {
+    "date": "2024-06-10",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2135 - Cults - Hare: Prickly Bush",
+    "runNumber": 2135,
+    "startTime": "19:00",
+    "hares": "Prickly Bush",
+    "location": "Craigton Rd, Cults, Aberdeen AB15 9QD",
+    "latitude": 57.12647387889619,
+    "longitude": -2.182540123557906
+  },
+  {
+    "date": "2024-06-24",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2137 - Drumoak- Hares: Numbskull & TheDutchess",
+    "runNumber": 2137,
+    "startTime": "19:00",
+    "hares": "Numbskull & TheDutchess",
+    "location": "5 Sunnyside Lane, Drumoak",
+    "latitude": 57.08277886837535,
+    "longitude": -2.343451400227259
+  },
+  {
+    "date": "2024-07-01",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2138 - Milton of Crathes - Hares: BagOBones & PantyPockets",
+    "runNumber": 2138,
+    "startTime": "19:00",
+    "hares": "BagOBones & PantyPockets",
+    "location": "Milton Park & Banchory St Ternan playing fields",
+    "latitude": 57.05582734555564,
+    "longitude": -2.441662221228878
+  },
+  {
+    "date": "2024-07-08",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2139 - East Woodlands - Hares: Tonto, Eggfoo & TongueLasher",
+    "runNumber": 2139,
+    "startTime": "19:00",
+    "hares": "Ton ah3, Tonguelasher",
+    "location": "East Woodlands House",
+    "latitude": 57.22082288361035,
+    "longitude": -2.241975978260942
+  },
+  {
+    "date": "2024-07-15",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2140 - Gairnhill Wood - Hare: Sauerkraut",
+    "runNumber": 2140,
+    "startTime": "19:00",
+    "hares": "Sauerkraut",
+    "location": "Gairnhill Wood",
+    "latitude": 57.130897341517574,
+    "longitude": -2.24720377592159
+  },
+  {
+    "date": "2024-07-22",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2141 - Kirkton of Skene - Hares: Ballerina & StonAa",
+    "runNumber": 2141,
+    "startTime": "19:00",
+    "hares": "Ballerina",
+    "location": "Kirkton of Skene",
+    "latitude": 57.1599522069165,
+    "longitude": -2.327379979824962
+  },
+  {
+    "date": "2024-07-29",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2142 - Brathens Eco Business Park - Shaky",
+    "runNumber": 2142,
+    "startTime": "19:00",
+    "hares": "Shaky",
+    "location": "Brathens Eco Business Park",
+    "latitude": 57.075976607550324,
+    "longitude": -2.534656711838863
+  },
+  {
+    "date": "2024-08-05",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2143 - Tollohill Woods - Stalker & The Bitchhh",
+    "runNumber": 2143,
+    "startTime": "19:00",
+    "hares": "Stalker & The Bitchhh",
+    "location": "Tollohill Woods",
+    "latitude": 57.111593422778334,
+    "longitude": -2.127735137971463
+  },
+  {
+    "date": "2024-08-12",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2144 - Airyhall Rd, Aberdeen - It’s All Because & Ioanna",
+    "runNumber": 2144,
+    "startTime": "19:00",
+    "hares": "It's Allbecause & Ioanna",
+    "location": "Airyhall Rd, Aberdeen",
+    "latitude": 57.125542880190686,
+    "longitude": -2.153618984161902
+  },
+  {
+    "date": "2024-08-19",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2145 - Chapelton, Patey Park - Hares: 4Fingers & GetaRoom",
+    "runNumber": 2145,
+    "startTime": "19:00",
+    "hares": "4Finger & GetaRoom",
+    "location": "Chapelton, Patey Park",
+    "latitude": 57.0351135157041,
+    "longitude": -2.178437711073427
+  },
+  {
+    "date": "2024-08-26",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2146 - Inverurie  Harlaw Drive - Hare: T-RexCock",
+    "runNumber": 2146,
+    "startTime": "19:00",
+    "hares": "T-RexCock",
+    "location": "Inverurie, Harlaw Drive",
+    "latitude": 57.2910784711555,
+    "longitude": -2.382025625816247
+  },
+  {
+    "date": "2024-09-02",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2147 - Riverside Drive - Hares: Cinders & Aids",
+    "runNumber": 2147,
+    "startTime": "19:00",
+    "hares": "Cinders & Aids",
+    "location": "Riverside Drive",
+    "latitude": 57.12441934730604,
+    "longitude": -2.119783835329796
+  },
+  {
+    "date": "2024-09-08",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2148 - AGPU Midmar area - JC & Shaky",
+    "runNumber": 2148,
+    "startTime": "11:00",
+    "hares": "Shaky",
+    "location": "Midmar Area.",
+    "latitude": 57.1616762545937,
+    "longitude": -2.522263094062411
+  },
+  {
+    "date": "2024-09-15",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2149 - The Bin Forest, Huntly - Blagger",
+    "runNumber": 2149,
+    "startTime": "11:00",
+    "hares": "Blagger",
+    "location": "The Bin Forest, Huntly",
+    "latitude": 57.4655079505735,
+    "longitude": -2.826099374542484
+  },
+  {
+    "date": "2024-09-22",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2150 - Kirkhill Forest - Little Shit & Sharnie",
+    "runNumber": 2150,
+    "startTime": "11:00",
+    "hares": "Little Shit & Sharnie",
+    "location": "Kirkhill Forest",
+    "latitude": 57.193351102541364,
+    "longitude": -2.242270000626836
+  },
+  {
+    "date": "2024-09-29",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2151 - Kirkton of Oyne (B9002) - Hares: JC & FiFi",
+    "runNumber": 2151,
+    "startTime": "11:00",
+    "hares": "FiFi, JC",
+    "location": "Kirkton of Oyne (B9002)",
+    "latitude": 57.32132461908188,
+    "longitude": -2.531975154993309
+  },
+  {
+    "date": "2024-10-06",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2152 -Nigg Way (west) - Hares: Guinness & JetSlag",
+    "runNumber": 2152,
+    "startTime": "11:00",
+    "hares": "Guinness, JetSlag",
+    "location": "Nigg Way carpark",
+    "latitude": 57.11274041870608,
+    "longitude": -2.113231450796503
+  },
+  {
+    "date": "2024-10-13",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2153 - Buntyairds Wood Carpark (Witches Tit) - Hares: MuffDiver",
+    "runNumber": 2153,
+    "startTime": "11:00",
+    "hares": "Muff Diver",
+    "location": "Buntyairds Wood Carpark (Witches Tit)",
+    "latitude": 57.04126641727151,
+    "longitude": -2.319805635841624
+  },
+  {
+    "date": "2024-10-20",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2154 - Pitfichie Forest - Hares: SkinnyWitch & OneLiner",
+    "runNumber": 2154,
+    "startTime": "11:00",
+    "hares": "One Liner, Skinny Witch",
+    "location": "Pitfichie Forest",
+    "latitude": 57.209626225338965,
+    "longitude": -2.572057702819306
+  },
+  {
+    "date": "2024-10-27",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2155 - Potarch - Hares: NotDot & Biggles",
+    "runNumber": 2155,
+    "startTime": "11:00",
+    "hares": "Biggles, NotDot",
+    "location": "Potarch",
+    "latitude": 57.06416794207877,
+    "longitude": -2.651335406430811
+  },
+  {
+    "date": "2024-11-03",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2156 - Dunnottar Woods - Hares: Twizzle",
+    "runNumber": 2156,
+    "startTime": "11:00",
+    "hares": "Twizzle",
+    "location": "Dunnottar Woods, Stonehaven",
+    "latitude": 56.95057918914427,
+    "longitude": -2.226578312500623
+  },
+  {
+    "date": "2024-11-10",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2157 - Bridge of Bogendriep - Hares: BungeeFinger & WeeWillie",
+    "runNumber": 2157,
+    "startTime": "11:00",
+    "hares": "Bungee Finger, Rats",
+    "location": "Bridge of Bogendriep",
+    "latitude": 57.00865585132067,
+    "longitude": -2.557270941759793
+  },
+  {
+    "date": "2024-11-17",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2158 - Castle Fraser - Hares: Hippo & MrsT",
+    "runNumber": 2158,
+    "startTime": "11:00",
+    "hares": "Hippo & MrsT",
+    "location": "Castle Fraser",
+    "latitude": 57.20555527060224,
+    "longitude": -2.460590365924416
+  },
+  {
+    "date": "2024-11-24",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2159 - Souterhead Road - Hares: ThrupennyBits",
+    "runNumber": 2159,
+    "startTime": "11:00",
+    "hares": "ThrupennyBits",
+    "location": "Souterhead Industrial Estate",
+    "latitude": 57.10981858491895,
+    "longitude": -2.080673901807595
+  },
+  {
+    "date": "2024-12-01",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2160 - Den of Maidencraig - Hares: CannaeBArsed & Billy",
+    "runNumber": 2160,
+    "startTime": "11:00",
+    "hares": "CannaeBeArsed & Billy",
+    "location": "Den of Maidencraig",
+    "latitude": 57.145922437556656,
+    "longitude": -2.180647869502879
+  },
+  {
+    "date": "2024-12-08",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2161 - Cults - Hares: SirDeadmundHillary & Glasgow",
+    "runNumber": 2161,
+    "startTime": "11:00",
+    "hares": "Sir Deadmund Hill-Ary",
+    "location": "North Deeside Road  Cults"
+  },
+  {
+    "date": "2024-12-15",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2162 - Westburn Park - Hares: Ioanna & Skippy",
+    "runNumber": 2162,
+    "startTime": "11:00",
+    "hares": "Skippy",
+    "location": "Westburn Park",
+    "latitude": 57.1541993872369,
+    "longitude": -2.123607819277509
+  },
+  {
+    "date": "2024-12-22",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2163 - Burnett Park,  Banchory - Hare: Shaky",
+    "runNumber": 2163,
+    "startTime": "11:00",
+    "hares": "Shaky",
+    "location": "Burnett Park, Banchory",
+    "latitude": 57.056858813098174,
+    "longitude": -2.522438641769982
+  },
+  {
+    "date": "2024-12-29",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2164 - Pitmedden - Hares: Tonto & Eggfoo",
+    "runNumber": 2164,
+    "startTime": "11:00",
+    "hares": "Tonto & Eggfoo",
+    "location": "Pitmedden",
+    "latitude": 57.338236900255794,
+    "longitude": -2.196855731778876
+  },
+  {
+    "date": "2025-01-05",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2165 - Kirkton of Fetteresso - Hare: FireFlaps",
+    "runNumber": 2165,
+    "startTime": "11:00",
+    "hares": "Fireflaps",
+    "location": "Kirkton of Fetteresso Cemetery",
+    "latitude": 56.96559826264926,
+    "longitude": -2.245352382608233
+  },
+  {
+    "date": "2025-01-12",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2166 - Bridge of Don, Park & Ride - Mario'sChuff  & Harlequine",
+    "runNumber": 2166,
+    "startTime": "11:00",
+    "hares": "Mario's Chuff",
+    "location": "Bridge of Don Park & Ride",
+    "latitude": 57.18367366846303,
+    "longitude": -2.089203261094992
+  },
+  {
+    "date": "2025-01-19",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2167 - Blackhall Forest - Hare: Stalker",
+    "runNumber": 2167,
+    "startTime": "11:00",
+    "hares": "Stalker & TheBitchhh",
+    "location": "Blackhall Forest, Scolty Woodland Carpark.",
+    "latitude": 57.04302341668056,
+    "longitude": -2.517218828780918
+  },
+  {
+    "date": "2025-01-26",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2168 - Oneil's, Aberdeen - Hare: LittleShit",
+    "runNumber": 2168,
+    "startTime": "11:00",
+    "hares": "Little Shit"
+  },
+  {
+    "date": "2025-02-02",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2169 - Bridge of Bigendriep - Hare: WeeWillie & Short'n'Thick",
+    "runNumber": 2169,
+    "startTime": "11:00",
+    "hares": "WeeWillie & Short'n'Thick",
+    "location": "Bridge of Bogendriep",
+    "latitude": 57.00865170981897,
+    "longitude": -2.557220822124591
+  },
+  {
+    "date": "2025-02-09",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2170 - Middleton Park - Hares: Barbarella , NoBalls & BowTorch",
+    "runNumber": 2170,
+    "startTime": "11:00",
+    "hares": "Barbarella",
+    "location": "Middleton Park",
+    "latitude": 57.187935942668474,
+    "longitude": -2.136349993730022
+  },
+  {
+    "date": "2025-02-16",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2171 - Bennachie Visitor Center - Hares: ExpressChicken & T-RexCock",
+    "runNumber": 2171,
+    "startTime": "11:00",
+    "hares": "ExpressChicken & T-RexCock",
+    "location": "Bennachie Visitor Centre",
+    "latitude": 57.284512311783644,
+    "longitude": -2.501587255622529
+  },
+  {
+    "date": "2025-02-23",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2172 - Drum Castle- Hares: MumMum & HerrMuttiMutti",
+    "runNumber": 2172,
+    "startTime": "11:00",
+    "hares": "MumMum & HerrMuttiMutti",
+    "location": "Drum Castle",
+    "latitude": 57.09525622262822,
+    "longitude": -2.339097514848872
+  },
+  {
+    "date": "2025-03-02",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2173 - Pitfichie - Hare: Hippo",
+    "runNumber": 2173,
+    "startTime": "11:00",
+    "hares": "Hippo",
+    "location": "Pitfichie Downhill Track",
+    "latitude": 57.23987965922197,
+    "longitude": -2.545558205496333
+  },
+  {
+    "date": "2025-03-09",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2174 - Gairnhill Woods - Hares: Cinders & Aids",
+    "runNumber": 2174,
+    "startTime": "11:00",
+    "hares": "Cinders & Aids",
+    "location": "Gairnhill Woods",
+    "latitude": 57.13127023761076,
+    "longitude": -2.247138561452144
+  },
+  {
+    "date": "2025-03-16",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2175 - Riverside Drive - Hare: Eveready",
+    "runNumber": 2175,
+    "startTime": "11:00",
+    "hares": "Eveready",
+    "location": "Riverside Drive, Bridge of Dee",
+    "latitude": 57.12432374244772,
+    "longitude": -2.11988490197367
+  },
+  {
+    "date": "2025-03-23",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2176 - The Gramps - Hare: Ballerina",
+    "runNumber": 2176,
+    "startTime": "11:00",
+    "hares": "Ballerina, Hippo",
+    "location": "The Gamps, Nigg Way East",
+    "latitude": 57.11862317651171,
+    "longitude": -2.09257007165242
+  },
+  {
+    "date": "2025-03-30",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2177 - Bridge of Feugh - Hares: Prickly Bush",
+    "runNumber": 2177,
+    "startTime": "11:00",
+    "hares": "Prickly Bush",
+    "location": "Bridge of Feugh carpark",
+    "latitude": 57.045610302923215,
+    "longitude": -2.491139403115863
+  },
+  {
+    "date": "2025-04-06",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2178 - Corrennie Wood - Hares: JC & FiFi",
+    "runNumber": 2178,
+    "startTime": "11:00",
+    "hares": "JC",
+    "location": "Corrennie Wood",
+    "latitude": 57.16749655266303,
+    "longitude": -2.617446540079432
+  },
+  {
+    "date": "2025-04-13",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2179 - Kenmay - Hares: PinkPanther & BungeeFinger",
+    "runNumber": 2179,
+    "startTime": "11:00",
+    "hares": "Bungee Finger, Rats",
+    "location": "Netherton Business Centre, Kemnay.",
+    "latitude": 57.242542753162574,
+    "longitude": -2.469801878481124
+  },
+  {
+    "date": "2025-04-21",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2180 - Blackburn - Hares: Eggfoo & Tonto",
+    "runNumber": 2180,
+    "startTime": "19:00",
+    "hares": "Eggfoo  & Tonto",
+    "location": "Blackburn village Carpark.",
+    "latitude": 57.20435490555131,
+    "longitude": -2.289857671106724
+  },
+  {
+    "date": "2025-04-28",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2181 - Collieston - Hares: Stalker & TheBitchhh",
+    "runNumber": 2181,
+    "startTime": "19:00",
+    "hares": "Stalker & TheBitchhh",
+    "location": "Collieston, Cransdale view point parking",
+    "latitude": 57.34846045747665,
+    "longitude": -1.93087504257863
+  },
+  {
+    "date": "2025-05-05",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2182 - Dunnottar - Hares: NotDot & Biggles",
+    "runNumber": 2182,
+    "startTime": "19:00",
+    "hares": "Biggles",
+    "location": "Dunnottar",
+    "latitude": 56.95057601930834,
+    "longitude": -2.226577181920653
+  },
+  {
+    "date": "2025-05-12",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2183 - Duthie Park - Hares: Skippy & NoBalls",
+    "runNumber": 2183,
+    "startTime": "19:00",
+    "hares": "NoBalls",
+    "location": "Duthie Park, Riverside Drive carpark",
+    "latitude": 57.12978675805618,
+    "longitude": -2.099162880264039
+  },
+  {
+    "date": "2025-05-19",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2184 - Cults - Hares: ItsAllBecause & Digit",
+    "runNumber": 2184,
+    "startTime": "19:00",
+    "hares": "ItsAllBecause & Digit",
+    "location": "Cults",
+    "latitude": 57.120168232510416,
+    "longitude": -2.198009809034856
+  },
+  {
+    "date": "2025-05-26",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2185 - Milton of Crathes - Hares: Shaky",
+    "runNumber": 2185,
+    "startTime": "19:00",
+    "hares": "Shaky",
+    "location": "Milton of Crathes",
+    "latitude": 57.05604605754311,
+    "longitude": -2.425193933732313
+  },
+  {
+    "date": "2025-06-02",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2186 - Portlethen - Hare: Twizzle & Eveready",
+    "runNumber": 2186,
+    "startTime": "19:00",
+    "hares": "Twizzle & Eveready",
+    "location": "Portlethen, Bourtree Hall Carpark",
+    "latitude": 57.055756278134695,
+    "longitude": -2.139094081709807
+  },
+  {
+    "date": "2025-06-09",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2187 - Tyrebagger - Hares: T-RexCock & ExpressChicken",
+    "runNumber": 2187,
+    "startTime": "19:00",
+    "hares": "ExpressChicken, T-Rex Cock",
+    "location": "Tyrebagger",
+    "latitude": 57.19006505399109,
+    "longitude": -2.252859314013212
+  },
+  {
+    "date": "2025-06-16",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2188 - Gairnhill Woods- Hare: Sauerkraut",
+    "runNumber": 2188,
+    "startTime": "19:00",
+    "hares": "Sauerkraut",
+    "location": "Gairnhill Woods",
+    "latitude": 57.13144122497176,
+    "longitude": -2.247320513283946
+  },
+  {
+    "date": "2025-06-23",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2189 - Den Woods - Hares: Oneliner & SkinnyWitch",
+    "runNumber": 2189,
+    "startTime": "19:00",
+    "hares": "Oneliner & SkinnyWitch",
+    "location": "Den Wood",
+    "latitude": 57.131096510219535,
+    "longitude": -2.179340440155593
+  },
+  {
+    "date": "2025-06-30",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 RUN 2190 - Woodend Barn - Hares: PantyPockets & Bag'O'Bones",
+    "runNumber": 2190,
+    "startTime": "19:00",
+    "hares": "PantyPockets & Bag'O'Bones",
+    "location": "Woodend Barn",
+    "latitude": 57.06291412547951,
+    "longitude": -2.464038226652179
+  },
+  {
+    "date": "2025-07-07",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2191 - East Woodlands - Hares: Tonto & Eggfoo",
+    "runNumber": 2191,
+    "startTime": "19:00",
+    "hares": "Tongue Lasher",
+    "location": "East Woodlands",
+    "latitude": 57.22066424114704,
+    "longitude": -2.241932687708499
+  },
+  {
+    "date": "2025-07-14",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2192 - Balmedie Country Park - Hares: LittleShit",
+    "runNumber": 2192,
+    "startTime": "19:00",
+    "hares": "LittleShit",
+    "location": "Balmedie Country Park",
+    "latitude": 57.25413773122194,
+    "longitude": -2.042091925406476
+  },
+  {
+    "date": "2025-07-28",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2194 -Mains of Ury, Stonehaven - Hares: Eveready & Twizzle",
+    "runNumber": 2194,
+    "startTime": "19:00",
+    "hares": "Eveready & Twizzle",
+    "location": "Mains of Ury, Stonehaven",
+    "latitude": 56.97818099016455,
+    "longitude": -2.213212676964749
+  },
+  {
+    "date": "2025-08-05",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2195 - Bridge of Bogendriep - Hare: FireFlaps",
+    "runNumber": 2195,
+    "startTime": "19:00",
+    "hares": "FireFlaps",
+    "location": "Bridge of Bogendriep",
+    "latitude": 57.00867396790377,
+    "longitude": -2.557358263243477
+  },
+  {
+    "date": "2025-08-11",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2196 - Peterculter - Hares: Scrungebucket",
+    "runNumber": 2196,
+    "startTime": "19:00",
+    "hares": "Scrungebucket",
+    "location": "Peterculter, Howie Lane",
+    "latitude": 57.09464193127086,
+    "longitude": -2.263620001432472
+  },
+  {
+    "date": "2025-08-18",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2197 - Slewdrum Forest, Shooting Greens - Hares: SirDeadmundHillary & Glasgow",
+    "runNumber": 2197,
+    "startTime": "19:00",
+    "hares": "SirDeadmundHillary & Glasgow",
+    "location": "Slewdrum Forest",
+    "latitude": 57.039087982691775,
+    "longitude": -2.60717762306451
+  },
+  {
+    "date": "2025-08-25",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2198 - Cults - Hares: Underlay & RogerMeMore",
+    "runNumber": 2198,
+    "startTime": "19:00",
+    "hares": "Underlay & RogerMeMore",
+    "location": "Cults Primary School",
+    "latitude": 57.119878595966014,
+    "longitude": -2.195193099417208
+  },
+  {
+    "date": "2025-09-01",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2199 - Cove - Hares: Digit & BlowTorch",
+    "runNumber": 2199,
+    "startTime": "19:00",
+    "hares": "Digit & BlowTorch",
+    "location": "Cove Coastal Path",
+    "latitude": 57.123008942231735,
+    "longitude": -2.056818422455947
+  },
+  {
+    "date": "2025-09-08",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2200 - Hazelhead - Hares: Cinders & Aids",
+    "runNumber": 2200,
+    "startTime": "19:00",
+    "hares": "Cinders & Aids",
+    "location": "Hazelhead Park",
+    "latitude": 57.14021081293006,
+    "longitude": -2.17257773895148
+  },
+  {
+    "date": "2025-09-14",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2201 - A > B AGPU - Hares: Twizzle, Hippo & MrsT",
+    "runNumber": 2201,
+    "startTime": "11:00",
+    "hares": "Twizzle, Hippo & MrsT"
+  },
+  {
+    "date": "2025-09-21",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2202 - Buntyairds Wood - Hares: MuffDiver",
+    "runNumber": 2202,
+    "startTime": "11:00",
+    "hares": "MuffDiver",
+    "location": "Buntyairds Wood",
+    "latitude": 57.04091155158622,
+    "longitude": -2.320472258901257
+  },
+  {
+    "date": "2025-09-28",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2203 - Millstone Hill - Hares: PinkPanther & BungeeFinger",
+    "runNumber": 2203,
+    "startTime": "11:00",
+    "hares": "PinkPanther & BungeeFinger",
+    "location": "Millstone Hill",
+    "latitude": 57.26037618865998,
+    "longitude": -2.544812503155996
+  },
+  {
+    "date": "2025-10-05",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2204 - Methlick - Hare: Barbarella & CaffeCorrupto",
+    "runNumber": 2204,
+    "startTime": "11:00",
+    "hares": "Barbarella & CaffeCorrupto",
+    "location": "Methlick",
+    "latitude": 57.423397067507516,
+    "longitude": -2.24281588056329
+  },
+  {
+    "date": "2025-10-12",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2205 - Tyrebagger - Hare: SkinnyWitch & OneLiner",
+    "runNumber": 2205,
+    "startTime": "11:00",
+    "hares": "SkinnyWitch & OneLiner",
+    "location": "Tyrebagger",
+    "latitude": 57.18997365773392,
+    "longitude": -2.252775107157184
+  },
+  {
+    "date": "2025-10-19",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2206 - Hill of 3 Stones - Hares: UnderTheInfluence & EggChaser",
+    "runNumber": 2206,
+    "hares": "UnderTheInfluence & EggChaser",
+    "location": "Slug Road,  Hill of 3 Stones",
+    "latitude": 56.99453112273353,
+    "longitude": -2.345372007633873
+  },
+  {
+    "date": "2025-10-26",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2207 - Woods of Garlogie - Hares: JC & FiFi",
+    "runNumber": 2207,
+    "hares": "JC & FiFi",
+    "location": "Garlogie Woods",
+    "latitude": 57.13997806963852,
+    "longitude": -2.337225944714881
+  },
+  {
+    "date": "2025-11-02",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2208 - Banchory Devenick - HerrMuttiMutti & Cheetah",
+    "runNumber": 2208,
+    "startTime": "11:00",
+    "hares": "HerrMuttiMutti & Cheetah",
+    "location": "Banchory Devenick",
+    "latitude": 57.08075839648719,
+    "longitude": -2.183502788793513
+  },
+  {
+    "date": "2025-11-09",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2209 - Kirkton of Fetteresso- Threesome & Woodick",
+    "runNumber": 2209,
+    "startTime": "11:00",
+    "hares": "Threesome & Woodick",
+    "location": "Kirkton of Fetteresso",
+    "latitude": 56.965679437103894,
+    "longitude": -2.245362686762303
+  },
+  {
+    "date": "2025-11-16",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2210 - Bridge of Don - Hares: MadCyclist",
+    "runNumber": 2210,
+    "startTime": "11:00",
+    "hares": "MadCyclist",
+    "location": "Bridge of Don",
+    "latitude": 57.178177394726454,
+    "longitude": -2.109750157156201
+  },
+  {
+    "date": "2025-11-23",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2211 - Clune Wood - Hares: Stalker & TheBitchhh",
+    "runNumber": 2211,
+    "startTime": "11:00",
+    "hares": "Stalker & TheBitchhh",
+    "location": "Clune Wood",
+    "latitude": 57.05179126561473,
+    "longitude": -2.340554563470707
+  },
+  {
+    "date": "2025-11-30",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2212 - Johnston Gardens  - Hare: Rats",
+    "runNumber": 2212,
+    "startTime": "11:00",
+    "hares": "Bungee Finger, Rats",
+    "location": "Johnstone Gardens, Mannofield",
+    "latitude": 57.1361059254619,
+    "longitude": -2.146633547142558
+  },
+  {
+    "date": "2025-12-07",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2213 - Banchory - Hares: Shaky",
+    "runNumber": 2213,
+    "startTime": "11:00",
+    "hares": "Shaky",
+    "location": "Banchory Lawn Tennis Club",
+    "latitude": 57.05709810931738,
+    "longitude": -2.522835802176784
+  },
+  {
+    "date": "2025-12-14",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2214 - Duthie Park - Hares: GoldenShower",
+    "runNumber": 2214,
+    "startTime": "11:00",
+    "hares": "GoldenShower",
+    "location": "Duthie Park",
+    "latitude": 57.129836772795066,
+    "longitude": -2.099192435535969
+  },
+  {
+    "date": "2025-12-21",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2215 - Mineralwell Park, Stonehaven  - Hares: Threesome & Woodick",
+    "runNumber": 2215,
+    "startTime": "11:00",
+    "hares": "Threesome & Woodick",
+    "location": "Mineralwell Park, Stonehaven",
+    "latitude": 56.97244131633535,
+    "longitude": -2.217569255936025
+  },
+  {
+    "date": "2025-12-28",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2216 - Banchory - Hares: PantyPockets & BagOBones",
+    "runNumber": 2216,
+    "startTime": "11:00",
+    "hares": "PantyPockets & BagOBones",
+    "location": "The Barn, Banchory",
+    "latitude": 57.06266228645857,
+    "longitude": -2.464395078328928
+  },
+  {
+    "date": "2026-01-04",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2217 - Hazelhead Park- Hares",
+    "runNumber": 2217,
+    "startTime": "11:00",
+    "hares": "FireFlaps",
+    "location": "Hazelhead Park",
+    "latitude": 57.14027580444421,
+    "longitude": -2.17263562198021
+  },
+  {
+    "date": "2026-01-11",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2218 - Dyce Library - Hares: Tonto & Eggfoo",
+    "runNumber": 2218,
+    "startTime": "11:00",
+    "hares": "Tonto & Eggfoo",
+    "location": "Dyce Library",
+    "latitude": 57.20609816448149,
+    "longitude": -2.183473643175953
+  },
+  {
+    "date": "2026-01-18",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2219 - Kirkhill Forest - Hares: Twizzle & Eveready",
+    "runNumber": 2219,
+    "startTime": "11:00",
+    "hares": "Eveready",
+    "location": "Kirkhill Forest",
+    "latitude": 57.194706396200104,
+    "longitude": -2.244069218716472
+  },
+  {
+    "date": "2026-01-25",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2220 - O'Neil's Bar, Aberdeen - Hares: Skippy & BlowTorch",
+    "runNumber": 2220,
+    "startTime": "11:00",
+    "hares": "Skippy & BlowTorch",
+    "location": "O'Neil's, Back Wynd",
+    "latitude": 57.14687278261123,
+    "longitude": -2.100110441824535
+  },
+  {
+    "date": "2026-02-01",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2221 - Hazlehead Park - Hares: Cinders & Aids",
+    "runNumber": 2221,
+    "startTime": "11:00",
+    "hares": "Cinders & Aids",
+    "location": "Hazlehead Park",
+    "latitude": 57.13981139101108,
+    "longitude": -2.172561508847739
+  },
+  {
+    "date": "2026-02-08",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2223 - Rowantree Carpark - Hares: ExpressChicken & T-RexCock",
+    "runNumber": 2223,
+    "startTime": "11:00",
+    "hares": "ExpressChicken & T-RexCock",
+    "location": "Rovantree Carpark, Bennachie",
+    "latitude": 57.30978552521597,
+    "longitude": -2.511981343293331
+  },
+  {
+    "date": "2026-02-15",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2224 - Persley Walled Garden - LittleShit & Sharnie",
+    "runNumber": 2224,
+    "startTime": "11:00",
+    "hares": "Little Shit & Sharnie",
+    "location": "Persley Walled Garden",
+    "latitude": 57.17491489077945,
+    "longitude": -2.14949985855206
+  },
+  {
+    "date": "2026-02-21",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2222 - Celebration Trail - Hares: Hippo & MrsT",
+    "runNumber": 2222,
+    "hares": "Hippo & MrsT",
+    "location": "Rural Aberdeenshire"
+  },
+  {
+    "date": "2026-02-22",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2225 - Riverside Drive - Hares: Stalker",
+    "runNumber": 2225,
+    "startTime": "11:00",
+    "hares": "Stalker",
+    "location": "Riverside Drive",
+    "latitude": 57.123962710271954,
+    "longitude": -2.120265380607969
+  },
+  {
+    "date": "2026-03-01",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2226 - Tollohill Wood - Hares: ThrupennyBits",
+    "runNumber": 2226,
+    "startTime": "11:00",
+    "hares": "ThrupennyBits",
+    "location": "Tollohill Wood",
+    "latitude": 57.11125704162641,
+    "longitude": -2.127666577706538
+  },
+  {
+    "date": "2026-03-08",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2227 - Brimond Hill - Hares: Biggles & NotDot",
+    "runNumber": 2227,
+    "startTime": "11:00",
+    "hares": "Biggles & NotDot",
+    "location": "Brimond Hill",
+    "latitude": 57.181945216426094,
+    "longitude": -2.233261920341457
+  },
+  {
+    "date": "2026-03-15",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2228 - Collieston - Hare: T-RexCock",
+    "runNumber": 2228,
+    "startTime": "11:00",
+    "hares": "T-RexCock",
+    "location": "Collieston, Cransdale Viewpoint",
+    "latitude": 57.34851492116522,
+    "longitude": -1.930881314511364
+  },
+  {
+    "date": "2026-03-22",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2229 - Foggieton - Hare: MumMum",
+    "runNumber": 2229,
+    "startTime": "11:00",
+    "hares": "MumMum",
+    "location": "Foggieton Wood",
+    "latitude": 57.12679800364188,
+    "longitude": -2.218369223272479
+  },
+  {
+    "date": "2026-03-29",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2230 - Peterculter - Hare:  Harlequine & Mario’sChuff",
+    "runNumber": 2230,
+    "startTime": "11:00",
+    "hares": "Harlequine & Mario’sChuff",
+    "location": "Peterculter, Howie Lane. Heritage Center",
+    "latitude": 57.09461828120867,
+    "longitude": -2.263558921409473
+  },
+  {
+    "date": "2026-04-05",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2231 - Kirkton of Skene - Hare: Ballerina",
+    "runNumber": 2231,
+    "startTime": "11:00",
+    "hares": "Ballerina",
+    "location": "Kirkton of Skene",
+    "latitude": 57.15997686936479,
+    "longitude": -2.327342029027557
+  },
+  {
+    "date": "2026-04-12",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2232 - Westhill - Hares: JC & FiFi",
+    "runNumber": 2232,
+    "startTime": "11:00",
+    "hares": "FiFi, JC",
+    "location": "Westhill, Lawsondale Play Park",
+    "latitude": 57.150192453195075,
+    "longitude": -2.267705730804
+  },
+  {
+    "date": "2026-04-19",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2233 - Finzean - Hares: Eveready & Twizzle",
+    "runNumber": 2233,
+    "startTime": "11:00",
+    "hares": "Eveready & Twizzle",
+    "location": "Finzean"
+  },
+  {
+    "date": "2026-04-27",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2234 - Johnston Gardens - Hare: Struth",
+    "runNumber": 2234,
+    "startTime": "19:00",
+    "hares": "Struth",
+    "location": "Johnston Gardens",
+    "latitude": 57.13613628750438,
+    "longitude": -2.146663602030257
+  },
+  {
+    "date": "2026-05-04",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2235 - Drumoak - Hares: HerrMuttiMutti & Cheetah",
+    "runNumber": 2235,
+    "startTime": "19:00",
+    "hares": "HerrMuttiMutti & Cheetah",
+    "location": "Drumoak",
+    "latitude": 57.07530667907191,
+    "longitude": -2.340391819968333
+  },
+  {
+    "date": "2026-05-11",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2236 - Kemnay - Hares: PinkPanther & BungeeFinger",
+    "runNumber": 2236,
+    "startTime": "19:00",
+    "hares": "PinkPanther & BungeeFinger",
+    "location": "Kemnay",
+    "latitude": 57.24298774766605,
+    "longitude": -2.469234094362423
+  },
+  {
+    "date": "2026-05-18",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2237 - Potarch Green - Hare: Shaky",
+    "runNumber": 2237,
+    "startTime": "19:00",
+    "hares": "Shaky",
+    "location": "Potarch Green",
+    "latitude": 57.06367794660289,
+    "longitude": -2.649931664258809
+  },
+  {
+    "date": "2026-05-25",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2238 - Brimond Hill - Hare: SirDeadmundHillary",
+    "runNumber": 2238,
+    "startTime": "19:00",
+    "hares": "Sir Deadmund Hill-Ary",
+    "location": "Brimond Hill",
+    "latitude": 57.18195,
+    "longitude": -2.23326
+  },
+  {
+    "date": "2026-06-01",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2239 - Blackburn - Hares: Barbarella",
+    "runNumber": 2239,
+    "startTime": "19:00",
+    "hares": "Barbarella",
+    "location": "Blackburn, Woodburn Road",
+    "latitude": 57.20304,
+    "longitude": -2.2951
+  },
+  {
+    "date": "2026-06-08",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2240 - Milton of Crathes - Hares: PricklyBush",
+    "runNumber": 2240,
+    "startTime": "19:00",
+    "hares": "Pricklybush",
+    "location": "Milton of Crathies",
+    "latitude": 57.05653,
+    "longitude": -2.42437
+  },
+  {
+    "date": "2026-06-15",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2241 - Den of Maidencraig - Hares: Rats & Jetslag",
+    "runNumber": 2241,
+    "startTime": "19:00",
+    "hares": "Rats",
+    "location": "Den of Maidencraig",
+    "latitude": 57.14567302720265,
+    "longitude": -2.180757568700564
+  },
+  {
+    "date": "2026-06-22",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2242 - Bridge of Bogendriep - Hares: Threesome & Woodick",
+    "runNumber": 2242,
+    "startTime": "19:00",
+    "hares": "Threesome & Woodick",
+    "location": "Bridge of Bogendriep",
+    "latitude": 57.00866,
+    "longitude": -2.55727
+  },
+  {
+    "date": "2026-06-29",
+    "kennelTags": [
+      "aberdeen-h3"
+    ],
+    "title": "AH3 Run 2243 - Deeside ActivityCenter - Hares: PantyPockets & BagOBones",
+    "runNumber": 2243,
+    "startTime": "19:00",
+    "hares": "PantyPockets & BagOBones",
+    "location": "Deeside Activity Centre",
+    "latitude": 57.10261692039927,
+    "longitude": -2.715276762500239
+  }
+]

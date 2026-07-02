@@ -1559,6 +1559,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -4.25,
     aliases: ["Glasgow, Scotland"],
   },
+  {
+    name: "Aberdeen",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "ABZ",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#3b82f6",
+    centroidLat: 57.1497,
+    centroidLng: -2.0943,
+    aliases: ["Aberdeen, Scotland"],
+  },
   // ── UK — England (outside London) ──
   {
     name: "Bristol",
@@ -1570,6 +1581,28 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 51.45,
     centroidLng: -2.59,
     aliases: ["Bristol, England"],
+  },
+  {
+    name: "Newcastle",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "NCL",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 54.9783,
+    centroidLng: -1.6178,
+    aliases: ["Newcastle upon Tyne", "Newcastle, England"],
+  },
+  {
+    name: "Plymouth",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "PLY",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 50.3755,
+    centroidLng: -4.1427,
+    aliases: ["Plymouth, England", "Plympton"],
   },
   {
     name: "Norfolk",
@@ -1638,6 +1671,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 48.78,
     centroidLng: 9.18,
     aliases: ["Stuttgart, Germany"],
+  },
+  {
+    name: "Kaiserslautern",
+    country: "Germany",
+    timezone: "Europe/Berlin",
+    abbrev: "KL",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#eab308",
+    centroidLat: 49.4401,
+    centroidLng: 7.7491,
+    aliases: ["Kaiserslautern, Germany", "Sembach", "KMC", "Ramstein"],
   },
   {
     name: "Munich",
@@ -1860,6 +1904,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 48.8566,
     centroidLng: 2.3522,
     aliases: ["Paris, France", "Île-de-France"],
+  },
+  {
+    name: "Toulouse",
+    country: "France",
+    timezone: "Europe/Paris",
+    abbrev: "TLS",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#3b82f6",
+    centroidLat: 43.6047,
+    centroidLng: 1.4442,
+    aliases: ["Toulouse, France"],
   },
   // ── Hungary ──
   {
@@ -3551,6 +3606,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -47.882,
     aliases: ["Brasilia", "Brasília, Brazil"],
   },
+  {
+    name: "São Paulo",
+    country: "Brazil",
+    timezone: "America/Sao_Paulo",
+    abbrev: "SAO",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#10b981",
+    centroidLat: -23.5558,
+    centroidLng: -46.6396,
+    aliases: ["Sao Paulo", "São Paulo, Brazil"],
+  },
   // ── North America — Mexico (first Mexican country; country → metro, no
   // state-province intermediate, mirroring Kenya/Indonesia/Paraguay). Fuchsia
   // palette keeps it distinct from South-America purple and the US/Canada hues. ──
@@ -3781,7 +3847,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(british columbia|victoria,? bc|saanich|vancouver island)\b/, "Canada"],
   [/\b(australia|sydney|melbourne|brisbane|perth|adelaide|canberra|darwin|hobart|gold coast|newcastle|wollongong|geelong|tasmania|queensland|victoria|western australia|northern territory|australian capital territory|new south wales)\b/, "Australia"],
   [/\b(canada|toronto|vancouver|montreal|calgary|edmonton|ottawa|winnipeg)\b/, "Canada"],
-  [/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt)\b/, "Germany"],
+  [/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt|kaiserslautern|sembach)\b/, "Germany"],
   [/\b(japan|tokyo|osaka)\b/, "Japan"],
   [/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/, "Belgium"],
   [/\b(spain|españa|espana|costa del sol|mijas|malaga|málaga|marbella|fuengirola|andalucia|andalucía|madrid|barcelona)\b/, "Spain"],
@@ -3789,7 +3855,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // `\b` is ASCII-only, so a leading `\bösterreich` boundary never matches the
   // non-ASCII `ö`; anchor the diacritic form explicitly (mirrors île-de-france).
   [/\b(austria|osterreich|vienna|wien|vindobona)\b|(?:^|\W)österreich\b/, "Austria"],
-  [/\b(france|paris|ile-de-france)\b|(?:^|\W)île-de-france\b/, "France"],
+  [/\b(france|paris|ile-de-france|toulouse)\b|(?:^|\W)île-de-france\b/, "France"],
   [/\b(hungary|budapest|magyar|magyarorszag|magyarország)\b/, "Hungary"],
   // NB: bare "warsaw" is intentionally excluded — it's also a common US place
   // name (Warsaw, IN/NY/MO), and inferCountry() is first-match with USA as the
@@ -3859,7 +3925,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(kenya|nairobi|mombasa|kisumu)\b/, "Kenya"],
   [/\b(bali|indonesia|denpasar|bandung|lembang)\b/, "Indonesia"],
   [/\b(paraguay|asuncion|asunción|luque)\b/, "Paraguay"],
-  [/\b(brazil|brasil|bras[ií]lia)\b/, "Brazil"],
+  [/\b(brazil|brasil|bras[ií]lia|são paulo|sao paulo)\b/, "Brazil"],
   // Mexico — guard "New Mexico" (US state, Albuquerque) to USA BEFORE the Mexico rule
   // fires (first-match-wins), since \bmexico\b would otherwise match "New Mexico".
   [/\bnew mexico\b/, "USA"],
@@ -4020,8 +4086,11 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Scotland
   "Edinburgh": "Scotland",
   "Glasgow": "Scotland",
+  "Aberdeen": "Scotland",
   // England (outside London)
   "Bristol": "United Kingdom",
+  "Newcastle": "United Kingdom",
+  "Plymouth": "United Kingdom",
   "Norfolk": "United Kingdom",
   "Liverpool": "United Kingdom",
   "Birmingham": "United Kingdom",
@@ -4030,6 +4099,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Germany
   "Berlin": "Germany",
   "Stuttgart": "Germany",
+  "Kaiserslautern": "Germany",
   "Munich": "Germany",
   "Frankfurt": "Germany",
   "Hamburg": "Germany",
@@ -4062,6 +4132,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Madrid": "Spain",
   // France
   "Paris": "France",
+  "Toulouse": "France",
   // Hungary
   "Budapest": "Hungary",
   "Warsaw": "Poland",
@@ -4186,6 +4257,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Asunción": "Paraguay",
   // Brazil — country → metro (no state-province intermediate)
   "Brasília": "Brazil",
+  "São Paulo": "Brazil",
   // Mexico — country → metro (no state-province intermediate)
   "Mexico City": "Mexico",
 };

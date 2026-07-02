@@ -1,0 +1,595 @@
+[
+  {
+    "date": "2019-02-23",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 12",
+    "runNumber": 12,
+    "startTime": "12:00",
+    "hares": "DMC / Doris Made Me Come",
+    "location": "Bristo Square",
+    "latitude": 55.94534,
+    "longitude": -3.18834
+  },
+  {
+    "date": "2019-03-23",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 13",
+    "runNumber": 13,
+    "startTime": "12:00",
+    "location": "Railway Inn, West Calder",
+    "latitude": 55.85109,
+    "longitude": -3.5729
+  },
+  {
+    "date": "2019-04-13",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 14: Scavenger Hunt",
+    "runNumber": 14,
+    "startTime": "12:00",
+    "location": "Edinburgh Beer Factory",
+    "latitude": 55.92803,
+    "longitude": -3.29814
+  },
+  {
+    "date": "2019-05-11",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 15",
+    "runNumber": 15,
+    "startTime": "12:00",
+    "hares": "Kipper",
+    "location": "Esqire House",
+    "latitude": 55.8884253,
+    "longitude": -4.3214349
+  },
+  {
+    "date": "2019-06-29",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 16",
+    "runNumber": 16,
+    "startTime": "12:00",
+    "hares": "Run2Eat",
+    "location": "Cross Borders Brewing",
+    "latitude": 55.88351,
+    "longitude": -3.08167
+  },
+  {
+    "date": "2019-07-20",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 17",
+    "runNumber": 17,
+    "startTime": "12:00",
+    "location": "6 Degrees North",
+    "latitude": 55.9563061,
+    "longitude": -3.2025328
+  },
+  {
+    "date": "2019-08-03",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Canal Ride Out West",
+    "runNumber": 18,
+    "startTime": "12:00",
+    "location": "Kilted Pig",
+    "latitude": 55.92811,
+    "longitude": -3.22955
+  },
+  {
+    "date": "2019-09-08",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Pedal For Scotland",
+    "runNumber": 19,
+    "startTime": "12:00",
+    "location": "Glasgow Green",
+    "latitude": 55.85162,
+    "longitude": -4.24256
+  },
+  {
+    "date": "2019-10-26",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "World Peace Through Beer",
+    "runNumber": 20,
+    "startTime": "12:00",
+    "hares": "Assaulty Dog, Run2Eat",
+    "location": "Not in the Book"
+  },
+  {
+    "date": "2019-11-16",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 21",
+    "runNumber": 21,
+    "startTime": "12:00",
+    "hares": "Run2Eat, Sharko",
+    "location": "Belfield Brewery",
+    "latitude": 55.9558,
+    "longitude": -3.16439
+  },
+  {
+    "date": "2020-01-25",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Burns Bash",
+    "runNumber": 22,
+    "startTime": "12:00",
+    "hares": "Audrey",
+    "location": "Burns Brewery",
+    "latitude": 55.85092,
+    "longitude": -4.23387
+  },
+  {
+    "date": "2021-10-23",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 23",
+    "runNumber": 23,
+    "startTime": "12:00",
+    "hares": "DMC / Doris Made Me Come",
+    "location": "Haymarket Station",
+    "latitude": 55.9457396,
+    "longitude": -3.2203444
+  },
+  {
+    "date": "2021-12-04",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 24",
+    "runNumber": 24,
+    "startTime": "12:00",
+    "hares": "Glaury Hole",
+    "location": "Croy station",
+    "latitude": 55.955469270307454,
+    "longitude": -4.03624602640715
+  },
+  {
+    "date": "2022-02-26",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 25",
+    "runNumber": 25,
+    "startTime": "12:00",
+    "hares": "Septic Sporran",
+    "location": "Dunblane Station",
+    "latitude": 56.18568,
+    "longitude": -3.96543
+  },
+  {
+    "date": "2022-04-09",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 26",
+    "runNumber": 26,
+    "startTime": "12:00",
+    "location": "Livingston South Station",
+    "latitude": 55.87164,
+    "longitude": -3.50173
+  },
+  {
+    "date": "2022-05-14",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 27",
+    "runNumber": 27,
+    "startTime": "12:00",
+    "hares": "Red Jumper",
+    "location": "Waverley Station",
+    "latitude": 55.9519838,
+    "longitude": -3.1916777
+  },
+  {
+    "date": "2022-09-03",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 28",
+    "runNumber": 28,
+    "startTime": "12:00",
+    "hares": "DMC / Doris Made Me Come"
+  },
+  {
+    "date": "2022-10-22",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 29",
+    "runNumber": 29,
+    "startTime": "12:15",
+    "hares": "Assaulty Dog"
+  },
+  {
+    "date": "2022-11-19",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 30 Bike Hash",
+    "runNumber": 30,
+    "startTime": "12:00",
+    "hares": "Blade Runner"
+  },
+  {
+    "date": "2023-03-18",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Red Jumper to the Rescue",
+    "runNumber": 31,
+    "startTime": "11:00",
+    "hares": "Jemima Pedalduck, Red Jumper",
+    "location": "Outside The Doctors pub, Forrest Road"
+  },
+  {
+    "date": "2023-04-15",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 32",
+    "runNumber": 32,
+    "startTime": "11:00",
+    "hares": "DMC / Doris Made Me Come"
+  },
+  {
+    "date": "2023-05-13",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke",
+    "runNumber": 33,
+    "startTime": "11:20",
+    "hares": "Septic Sporran",
+    "location": "Polmont Station",
+    "latitude": 55.98511,
+    "longitude": -3.71451
+  },
+  {
+    "date": "2023-06-10",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 34",
+    "runNumber": 34,
+    "startTime": "11:30",
+    "location": "Entrance near Platform 7 at Glasgow Queen Street station.",
+    "latitude": 55.862384,
+    "longitude": -4.250383
+  },
+  {
+    "date": "2023-07-08",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 35",
+    "runNumber": 35,
+    "startTime": "11:20",
+    "hares": "Audrey",
+    "location": "Breich Station",
+    "latitude": 55.826864950917056,
+    "longitude": -3.668446745849903
+  },
+  {
+    "date": "2023-08-12",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 36",
+    "runNumber": 36,
+    "startTime": "11:50",
+    "hares": "Audrey, Sharko",
+    "location": "Kinghorn Station",
+    "latitude": 56.06912904065735,
+    "longitude": -3.175005637590432
+  },
+  {
+    "date": "2023-09-30",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 37",
+    "runNumber": 37,
+    "location": "Stirling",
+    "latitude": 56.119713,
+    "longitude": -3.935176
+  },
+  {
+    "date": "2023-11-25",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 38",
+    "runNumber": 38,
+    "startTime": "11:30",
+    "hares": "Blind Doug",
+    "location": "Curriehill Station",
+    "latitude": 55.9006055,
+    "longitude": -3.3190379
+  },
+  {
+    "date": "2024-03-02",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 39",
+    "runNumber": 39,
+    "startTime": "11:00",
+    "hares": "DMC / Doris Made Me Come",
+    "location": "Haymarket Station",
+    "latitude": 55.9456983,
+    "longitude": -3.218164
+  },
+  {
+    "date": "2024-04-20",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 40",
+    "runNumber": 40,
+    "startTime": "12:10",
+    "hares": "Septic Sporran",
+    "location": "Falkirk High Station",
+    "latitude": 55.9919988,
+    "longitude": -3.7926073
+  },
+  {
+    "date": "2024-05-18",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 41",
+    "runNumber": 41,
+    "startTime": "11:15",
+    "hares": "Pickmeup and Hash Drunk",
+    "location": "Drem Station (NOT Dunbar)",
+    "latitude": 56.0051238,
+    "longitude": -2.7862856
+  },
+  {
+    "date": "2024-07-20",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 42",
+    "runNumber": 42,
+    "startTime": "11:00",
+    "hares": "DMC / Doris Made Me Come",
+    "location": "Haymarket",
+    "latitude": 55.9457518,
+    "longitude": -3.2185657
+  },
+  {
+    "date": "2024-08-24",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 43",
+    "runNumber": 43,
+    "startTime": "11:00",
+    "hares": "McPlod and Lost in Station.",
+    "location": "Livingston South Station",
+    "latitude": 55.8716941,
+    "longitude": -3.5014362
+  },
+  {
+    "date": "2024-09-28",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "44 - Falkirk Grahamston Station",
+    "runNumber": 44,
+    "startTime": "11:15",
+    "hares": "Septic Sporran",
+    "location": "Falkirk Grahamston Station",
+    "latitude": 56.0024551,
+    "longitude": -3.7850731
+  },
+  {
+    "date": "2024-11-02",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 45 -- Shale Trail",
+    "runNumber": 45,
+    "startTime": "11:00",
+    "hares": "FDT",
+    "location": "West Calder Station Car Park",
+    "latitude": 55.85368,
+    "longitude": -3.5668235
+  },
+  {
+    "date": "2025-03-22",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "46 - The start of 2025",
+    "runNumber": 46,
+    "hares": "DMC / Doris Made Me Come",
+    "location": "St Andrew Square (NE Corner)"
+  },
+  {
+    "date": "2025-04-12",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "47 - Lenzie Station",
+    "runNumber": 47,
+    "startTime": "11:00",
+    "hares": "Assaulty Dog",
+    "location": "Lenzie Station",
+    "latitude": 55.921305,
+    "longitude": -4.15388
+  },
+  {
+    "date": "2025-05-10",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "44 - Uphall Railway Station",
+    "runNumber": 48,
+    "startTime": "11:15",
+    "hares": "Septic Sporran",
+    "location": "Uphall Railway Station",
+    "latitude": 55.9186909,
+    "longitude": -3.50308
+  },
+  {
+    "date": "2025-06-21",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 49",
+    "runNumber": 49,
+    "startTime": "11:00",
+    "hares": "Assaulty Dog",
+    "location": "Dumbarton Centrail Station",
+    "latitude": 55.9469264,
+    "longitude": -4.5658121
+  },
+  {
+    "date": "2025-07-12",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 50",
+    "runNumber": 50,
+    "startTime": "12:00",
+    "hares": "Pick Me Up  and Hash Drunk",
+    "location": "Musselburgh Railway Station",
+    "latitude": 55.9337008,
+    "longitude": -3.0736901
+  },
+  {
+    "date": "2025-08-30",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 51",
+    "runNumber": 1908,
+    "startTime": "11:00",
+    "hares": "None",
+    "location": "Roseburn Bar",
+    "latitude": 55.9453352,
+    "longitude": -3.2337404
+  },
+  {
+    "date": "2025-09-20",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 52",
+    "runNumber": 1909,
+    "startTime": "11:00",
+    "hares": "Blind Doug"
+  },
+  {
+    "date": "2025-10-11",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 53",
+    "runNumber": 1905,
+    "startTime": "11:00",
+    "hares": "Sharko",
+    "location": "Markinch Station",
+    "latitude": 56.2005093,
+    "longitude": -3.13135
+  },
+  {
+    "date": "2025-11-08",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 54",
+    "runNumber": 54,
+    "startTime": "11:00",
+    "hares": "Used to Be Nice",
+    "location": "Prestonpans Station",
+    "latitude": 55.9531888,
+    "longitude": -2.9747789
+  },
+  {
+    "date": "2026-03-07",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 55 -- Social from Inverkeithing",
+    "runNumber": 55,
+    "startTime": "11:00",
+    "hares": "DMC / Doris Made Me Come",
+    "location": "Inverkeithing Station",
+    "latitude": 56.0345128,
+    "longitude": -3.395562
+  },
+  {
+    "date": "2026-03-28",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 56",
+    "runNumber": 56,
+    "startTime": "11:30",
+    "hares": "Blind Doug",
+    "location": "Edinburgh Park Station",
+    "latitude": 55.9277,
+    "longitude": -3.3079
+  },
+  {
+    "date": "2026-04-25",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 57 - Glasgow Queen Street",
+    "runNumber": 57,
+    "startTime": "11:15",
+    "hares": "Assaulty Dog",
+    "location": "Entrance near Platform 7 at Glasgow Queen Street station.",
+    "latitude": 55.86238,
+    "longitude": -4.25038
+  },
+  {
+    "date": "2026-05-23",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 58",
+    "runNumber": 58,
+    "startTime": "11:30",
+    "hares": "Pick Me Up and Hash Drunk",
+    "location": "Musselburgh Railway Station",
+    "latitude": 55.93323,
+    "longitude": -3.07128
+  },
+  {
+    "date": "2026-06-27",
+    "kennelTags": [
+      "beerspoke-h3"
+    ],
+    "title": "Beerspoke 59",
+    "runNumber": 59,
+    "startTime": "11:00",
+    "hares": "Catwoman and Prick Tweezer",
+    "location": "Edinburgh Gateway Station",
+    "latitude": 55.94079,
+    "longitude": -3.3203
+  }
+]

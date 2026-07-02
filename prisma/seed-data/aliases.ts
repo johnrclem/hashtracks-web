@@ -159,6 +159,13 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== UK — SCOTLAND =====
     "edinburghh3": ["Edinburgh Hash", "EH3", "Edinburgh HHH"],
     "glasgowh3": ["Glasgow Hash", "GH3", "Glasgow HHH"],
+    // HC batch (bare NH3/AH3/PH3/BSH3 omitted — collide with AU/Aloha/Petaling/Black Sheep)
+    "aberdeen-h3": ["Aberdeen H3", "Aberdeen Hash House Harriers", "AH3-GB"],
+    "tnth3": ["The New Town Hash", "TNTH3", "New Town H3", "Big Bang Hash"],
+    "dafth3": ["DAFT H3", "DAFTH3", "Dunfermline and Fife Tuesday H3"],
+    "beerspoke-h3": ["BeerSpoke H3", "BeerSpoke Hash House Harriers", "BSH3-EDI"],
+    "newcastle-h3": ["Newcastle H3", "Newcastle Hash House Harriers", "Newcastle upon Tyne H3", "NH3-GB"],
+    "plympton-h3": ["Plympton H3", "Plympton Hash House Harriers", "PH3-GB"],
     // ===== UK — NORFOLK =====
     "norfolkh3": ["Norfolk Hash", "Norfolk HHH", "Norfolk H3"],
     // ===== UK — LIVERPOOL =====
@@ -334,6 +341,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Berlin
     "berlinh3": ["Berlin Hash", "Berlin H3", "Berlin HHH"],
     "bh3fm": ["Berlin Full Moon Hash", "Berlin Full Moon H3", "BH3FM"],
+    "sembach-h3": ["Sembach H3", "Sembach Hash House Harriers", "SH3-KL"],
     // Stuttgart
     "sh3-de": ["Stuttgart Hash", "Stuttgart H3", "SH3 Stuttgart"],
     "dst-h3": ["DST Hash", "DST H3", "Stuttgart Tuesday Hash"],
@@ -416,6 +424,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
 
     // ===== NETHERLANDS =====
     "ah3-nl": ["AH3", "Amsterdam Hash", "Amsterdam HHH", "Amsterdam H3"],
+    "filth-h3": ["FILTH H3", "FILTH", "FILTH Hash House Harriers"],
     "hagueh3": ["Hague H3", "The Hague Hash", "The Hague HHH", "Den Haag Hash", "HHH Den Haag"],
 
     // ===== DENMARK =====
@@ -627,12 +636,14 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "asu-h3": ["Asunción H3", "Asuncion H3", "ASU H3", "ASUH3", "Asuncion Hash", "Asunción Hash House Harriers"],
     // Brazil — first Brazil kennel ("BH3" omitted: globally taken by Boston/Buffalo/Bristol/Boulder)
     "brasilia-h3": ["Brasilia H3", "Brasília H3", "Brasilia Hash", "Brasilia HHH"],
+    "bnh3": ["Brazil Nuts H3", "BNH3", "Brazil Nuts Hash", "Brazil Nuts Hash House Harriers"],
     // Spain — first Spain kennel ("MH3" alone collides with Memphis/Munich/Montreal)
     "mijash3": ["Mijas", "Mijas HHH", "MijasH3", "MH3 Spain", "Burro Hash", "Mijas Hash House Harriers"],
     // Madrid — 2nd Spain kennel (bare "MH3" omitted: collides with Memphis/Munich/Montreal/Miami/Minneapolis)
     "madrid-h3": ["Madrid H3", "Madrid Hash", "Madrid HHH", "Madrid Hash House Harriers"],
     // France — bare "PH3" omitted (collides with ph3-my/pattaya-h3); bare "SCH3" omitted (collides with sch3-atl/sch3-ca)
     "paris-h3": ["Paris H3", "Paris Hash", "Paris Hash House Harriers"],
+    "toulouse-h3": ["Toulouse H3", "Toulouse Hash House Harriers", "TH3-FR"],
     "sans-clue-h3": ["Sans Clue H3", "Sans Clue Hash", "Sans Clue Hash House Harriers", "SCHHH"],
     // ===== MEXICO ===== (first Mexico kennel; "MCH3"/"CDMX H3" self-styled in the kennel's own copy)
     "mch3": ["MCH3", "CDMX H3", "Mexico City Hash", "Hash House Harriers Mexico City"],
