@@ -3,9 +3,9 @@
  *
  * The live "White House H3 Hareline" GOOGLE_SHEETS source reads the sheet's
  * "Upcoming Trails" tab (gid=163010917 = the 2026 season). The same published
- * sheet has a separate historical tab (gid=377767908) with ~82 older runs
- * (2019 + 2022 + 2023, run# 1880–2101, gappy — no 2020/2021). Those pre-2026
- * runs are on a tab the live source never reads, so they need a one-shot.
+ * sheet has a separate historical tab (gid=377767908) with ~297 older runs
+ * (2016–2023, run# 1717–2101, gappy — no 2021, and 2024–25 absent). Those
+ * pre-2026 runs are on a tab the live source never reads, so they need a one-shot.
  *
  * Reuses GoogleSheetsAdapter for parsing (same column layout as the live tab),
  * binds to the "White House H3 Hareline" source for correct provenance, and
@@ -13,7 +13,7 @@
  * created in one pass; idempotent; strict date<today partition so it never
  * collides with the live 2026 source).
  *
- * The deeper archive (1987→2019, run #1–#1879) + the 2024–25 gap are not on the
+ * The deeper archive (1987→2016, run #1–#1716) + the 2024–25 gap are not on the
  * sheet — recoverable only from the kennel's own records (cf. #2053).
  *
  * Usage:
