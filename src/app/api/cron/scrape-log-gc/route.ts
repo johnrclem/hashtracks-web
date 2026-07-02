@@ -5,7 +5,9 @@ import { runScrapeLogGc } from "@/pipeline/scrape-log-gc";
 
 /**
  * Daily GC for ScrapeLog retention — keeps the most-recent
- * SCRAPE_LOG_KEEP_PER_SOURCE logs per source and deletes the rest.
+ * SCRAPE_LOG_KEEP_PER_SOURCE logs per source (plus a SCRAPE_LOG_KEEP_SUCCESS_PER_SOURCE
+ * SUCCESS-only floor so a long outage can't wipe a source's health baseline) and
+ * deletes the rest.
  *
  * Every scrape writes a ScrapeLog (src/pipeline/scrape.ts); without retention the
  * table grows unbounded and bloats the DB volume. Health analysis only needs the
@@ -22,12 +24,13 @@ export async function POST(request: Request) {
   try {
     const result = await runScrapeLogGc();
     console.log(
-      `[scrape-log-gc] deleted ${result.deleted} logs in ${result.batches} batch(es), keeping ${result.keptPerSource} per source`,
+      `[scrape-log-gc] deleted ${result.deleted} logs in ${result.batches} batch(es), keeping ${result.keptPerSource} per source (+ ${result.keptSuccessPerSource} SUCCESS floor)`,
     );
     return NextResponse.json({
       data: {
         deleted: result.deleted,
         keptPerSource: result.keptPerSource,
+        keptSuccessPerSource: result.keptSuccessPerSource,
         batches: result.batches,
       },
     });
