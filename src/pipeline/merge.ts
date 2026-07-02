@@ -1245,6 +1245,11 @@ function sanitizeLocationUrl(url: string | undefined): string | null {
 /** Detect non-English geographic terms in a location string (e.g., French "État de New York"). */
 export const NON_ENGLISH_GEO_RE = /\b(?:États?[ -]Unis|État de|Bundesland|Straße|Vereinigte Staaten|Provincia de|Comunidad de|Préfecture)\b/i;
 
+// Half-width (degrees) of the viewport used to soft-bias geocoding toward the
+// kennel's metro. ~0.5° ≈ 55km — big enough to cover a metro + its suburbs,
+// tight enough to prefer the local landmark over a same-named place elsewhere.
+const GEOCODE_VIEWPORT_DELTA_DEG = 0.5;
+
 async function resolveCoords(
   event: RawEventData,
   existingCoords?: { latitude: number | null; longitude: number | null; locationAddress: string | null },
@@ -1288,17 +1293,31 @@ async function resolveCoords(
   }
 
   if (event.location) {
-    const geocoded = await geocodeAddress(event.location, regionBias ? { regionBias } : undefined);
+    // Bias point = kennel coords, else the region centroid. Used both to
+    // viewport-bias the geocode toward the kennel's metro (so terse local
+    // landmarks like "Union Station" resolve to the right city) and to validate
+    // the result below. Skip the viewport bias for `countryOverride` events
+    // (deliberate far-away trips) so we don't drag an overseas venue home.
+    const biasLat = kennelCoords?.latitude ?? kennelCoords?.regionCentroidLat;
+    const biasLng = kennelCoords?.longitude ?? kennelCoords?.regionCentroidLng;
+    const bounds =
+      event.countryOverride === undefined && biasLat != null && biasLng != null
+        ? {
+            swLat: biasLat - GEOCODE_VIEWPORT_DELTA_DEG,
+            swLng: biasLng - GEOCODE_VIEWPORT_DELTA_DEG,
+            neLat: biasLat + GEOCODE_VIEWPORT_DELTA_DEG,
+            neLng: biasLng + GEOCODE_VIEWPORT_DELTA_DEG,
+          }
+        : undefined;
+    const geocoded = await geocodeAddress(event.location, { regionBias, bounds });
     if (geocoded) {
       // Validate geocoded result against kennel coords or region centroid (if available)
       // Skip geocode if result is >200km from reference point — likely wrong city/state.
       // Adapters set `countryOverride` on per-event overseas trips (e.g. NTKH4 annual
       // Taoyuan run) to opt out of the kennel-proximity check, which would otherwise
       // reject the correct far-away pin.
-      const valLat = kennelCoords?.latitude ?? kennelCoords?.regionCentroidLat;
-      const valLng = kennelCoords?.longitude ?? kennelCoords?.regionCentroidLng;
-      if (valLat != null && valLng != null && event.countryOverride === undefined) {
-        const dist = haversineDistance(geocoded.lat, geocoded.lng, valLat, valLng);
+      if (biasLat != null && biasLng != null && event.countryOverride === undefined) {
+        const dist = haversineDistance(geocoded.lat, geocoded.lng, biasLat, biasLng);
         if (dist > 200) {
           console.warn(`Geocode validation: "${event.location}" resolved ${dist.toFixed(0)}km from kennel — skipping`);
           return {};

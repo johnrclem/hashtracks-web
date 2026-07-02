@@ -274,6 +274,22 @@ describe("geocodeAddress", () => {
     expect(calledUrl).toContain("&region=us");
   });
 
+  it("appends &bounds= (SW|NE viewport) when bounds option is provided", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [{ geometry: { location: { lat: 38.9, lng: -77.0 } } }],
+      }),
+    } as Response);
+    await geocodeAddress("Union Station", {
+      bounds: { swLat: 38.4, swLng: -77.5, neLat: 39.4, neLng: -76.5 },
+    });
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const calledUrl = fetchSpy.mock.calls[0][0] as string;
+    expect(calledUrl).toContain("&bounds=38.4,-77.5|39.4,-76.5");
+  });
+
   it("does not include &region= when no options provided (backward compatible)", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
       ok: true,

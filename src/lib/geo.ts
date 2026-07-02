@@ -212,7 +212,17 @@ const GOOGLE_GEOCODE_BASE = "https://maps.googleapis.com/maps/api/geocode/json";
  */
 export async function geocodeAddress(
   address: string,
-  options?: { regionBias?: string },
+  options?: {
+    regionBias?: string;
+    /**
+     * Viewport (SW|NE corners) to soft-bias results toward. `region` only
+     * disambiguates by country; `bounds` disambiguates *within* a country so
+     * terse local landmarks ("Union Station", "Clarendon") resolve to the
+     * kennel's metro instead of a same-named place elsewhere. Soft bias — Google
+     * still returns better out-of-viewport matches, so legit suburbs survive.
+     */
+    bounds?: { swLat: number; swLng: number; neLat: number; neLng: number };
+  },
 ): Promise<{ lat: number; lng: number; formattedAddress?: string } | null> {
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
   if (!apiKey || !address.trim()) return null;
@@ -221,6 +231,10 @@ export async function geocodeAddress(
     let url = `${GOOGLE_GEOCODE_BASE}?address=${encodeURIComponent(address)}&language=en&key=${apiKey}`;
     if (options?.regionBias) {
       url += `&region=${encodeURIComponent(options.regionBias)}`;
+    }
+    if (options?.bounds) {
+      const b = options.bounds;
+      url += `&bounds=${b.swLat},${b.swLng}|${b.neLat},${b.neLng}`;
     }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
