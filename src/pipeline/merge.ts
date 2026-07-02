@@ -7,7 +7,7 @@ import { regionTimezone, getLabelForUrl, stripUrlsFromText, timeToMinutes } from
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, resolveKennelTags, clearResolverCache } from "./kennel-resolver";
-import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
+import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, boundingBoxFromCenter, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
 import { isPlaceholder, isThemelessPlaceholderTitle, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
 import { containsHarePii, scrubHarePii } from "@/adapters/hare-pii";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
@@ -1288,17 +1288,34 @@ async function resolveCoords(
   }
 
   if (event.location) {
-    const geocoded = await geocodeAddress(event.location, regionBias ? { regionBias } : undefined);
+    // Bias point = kennel coords, else the region centroid. When we have one and
+    // this isn't a deliberate far-away trip (`countryOverride`), treat the event
+    // as local: viewport-bias the geocode toward it (so terse landmarks like
+    // "Union Station" resolve to the right city) AND validate the result against
+    // it below. The object form keeps the non-null lat/lng available in both spots.
+    // Pair lat+lng from the SAME source — kennel latitude/longitude are separately
+    // nullable, so mixing a real kennel lat with a region-centroid lng (or vice
+    // versa) would fabricate a nonsensical center that also self-validates below.
+    const kennelPoint =
+      kennelCoords?.latitude != null && kennelCoords?.longitude != null
+        ? { lat: kennelCoords.latitude, lng: kennelCoords.longitude }
+        : null;
+    const centroidPoint =
+      kennelCoords?.regionCentroidLat != null && kennelCoords?.regionCentroidLng != null
+        ? { lat: kennelCoords.regionCentroidLat, lng: kennelCoords.regionCentroidLng }
+        : null;
+    const biasCenter =
+      event.countryOverride === undefined ? (kennelPoint ?? centroidPoint) : null;
+    const geocoded = await geocodeAddress(event.location, {
+      regionBias,
+      bounds: biasCenter ? boundingBoxFromCenter(biasCenter.lat, biasCenter.lng) : undefined,
+    });
     if (geocoded) {
-      // Validate geocoded result against kennel coords or region centroid (if available)
-      // Skip geocode if result is >200km from reference point — likely wrong city/state.
-      // Adapters set `countryOverride` on per-event overseas trips (e.g. NTKH4 annual
-      // Taoyuan run) to opt out of the kennel-proximity check, which would otherwise
-      // reject the correct far-away pin.
-      const valLat = kennelCoords?.latitude ?? kennelCoords?.regionCentroidLat;
-      const valLng = kennelCoords?.longitude ?? kennelCoords?.regionCentroidLng;
-      if (valLat != null && valLng != null && event.countryOverride === undefined) {
-        const dist = haversineDistance(geocoded.lat, geocoded.lng, valLat, valLng);
+      // Validate against the bias point: skip the geocode if it resolved >200km
+      // away — likely the wrong city/state. (countryOverride trips have no bias
+      // point, so they're never rejected here — e.g. NTKH4's annual Taoyuan run.)
+      if (biasCenter) {
+        const dist = haversineDistance(geocoded.lat, geocoded.lng, biasCenter.lat, biasCenter.lng);
         if (dist > 200) {
           console.warn(`Geocode validation: "${event.location}" resolved ${dist.toFixed(0)}km from kennel — skipping`);
           return {};

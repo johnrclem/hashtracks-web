@@ -1,4 +1,4 @@
-import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress, reverseGeocode, cityFromTimezone, resolveShortMapsUrl, parseDMSFromLocation, stripDMSFromLocation } from "./geo";
+import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress, boundingBoxFromCenter, GEOCODE_VIEWPORT_DELTA_DEG, reverseGeocode, cityFromTimezone, resolveShortMapsUrl, parseDMSFromLocation, stripDMSFromLocation } from "./geo";
 
 describe("extractCoordsFromMapsUrl", () => {
   it("parses @lat,lng,zoom path segment", () => {
@@ -272,6 +272,54 @@ describe("geocodeAddress", () => {
     expect(fetchSpy).toHaveBeenCalledOnce();
     const calledUrl = fetchSpy.mock.calls[0][0] as string;
     expect(calledUrl).toContain("&region=us");
+  });
+
+  it("appends &bounds= (SW|NE viewport) when bounds option is provided", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [{ geometry: { location: { lat: 38.9, lng: -77.0 } } }],
+      }),
+    } as Response);
+    await geocodeAddress("Union Station", {
+      bounds: { swLat: 38.4, swLng: -77.5, neLat: 39.4, neLng: -76.5 },
+    });
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const calledUrl = fetchSpy.mock.calls[0][0] as string;
+    expect(calledUrl).toContain("&bounds=38.4,-77.5|39.4,-76.5");
+  });
+
+  describe("boundingBoxFromCenter", () => {
+    it("builds a symmetric SW|NE box around the center using the default delta", () => {
+      expect(boundingBoxFromCenter(38.9, -77.0)).toEqual({
+        swLat: 38.9 - GEOCODE_VIEWPORT_DELTA_DEG,
+        swLng: -77.0 - GEOCODE_VIEWPORT_DELTA_DEG,
+        neLat: 38.9 + GEOCODE_VIEWPORT_DELTA_DEG,
+        neLng: -77.0 + GEOCODE_VIEWPORT_DELTA_DEG,
+      });
+    });
+
+    it("honors an explicit half-width", () => {
+      expect(boundingBoxFromCenter(10, 20, 1)).toEqual({
+        swLat: 9, swLng: 19, neLat: 11, neLng: 21,
+      });
+    });
+
+    it("returns undefined for non-finite inputs", () => {
+      expect(boundingBoxFromCenter(Number.NaN, -77.0)).toBeUndefined();
+      expect(boundingBoxFromCenter(38.9, Number.POSITIVE_INFINITY)).toBeUndefined();
+      expect(boundingBoxFromCenter(38.9, -77.0, Number.NaN)).toBeUndefined();
+    });
+
+    it("clamps corners to valid lat/lng ranges near the poles/antimeridian", () => {
+      expect(boundingBoxFromCenter(89.8, 179.8)).toEqual({
+        swLat: 89.8 - GEOCODE_VIEWPORT_DELTA_DEG,
+        swLng: 179.8 - GEOCODE_VIEWPORT_DELTA_DEG,
+        neLat: 90,
+        neLng: 180,
+      });
+    });
   });
 
   it("does not include &region= when no options provided (backward compatible)", async () => {

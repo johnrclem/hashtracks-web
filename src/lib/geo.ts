@@ -206,13 +206,54 @@ export function getEventCoordsFromRegionData(
 const GOOGLE_GEOCODE_BASE = "https://maps.googleapis.com/maps/api/geocode/json";
 
 /**
+ * Half-width (degrees) of the geocoding viewport bias box. ~0.5° ≈ 55km — wide
+ * enough to cover a metro + its suburbs, tight enough to prefer the local
+ * landmark over a same-named place in another city.
+ */
+export const GEOCODE_VIEWPORT_DELTA_DEG = 0.5;
+
+/**
+ * Build a SW|NE viewport box centered on a point, for `geocodeAddress`'s
+ * `bounds` option (soft-biases results toward the local area). Returns
+ * `undefined` for non-finite inputs (NaN/Infinity) so a junk center silently
+ * drops the bias rather than emitting a malformed `&bounds=` param. Corners are
+ * clamped to valid lat/lng ranges (a center near a pole/antimeridian would
+ * otherwise overflow ±90/±180 and be rejected by the Geocoding API).
+ */
+export function boundingBoxFromCenter(
+  centerLat: number,
+  centerLng: number,
+  halfWidthDeg: number = GEOCODE_VIEWPORT_DELTA_DEG,
+): { swLat: number; swLng: number; neLat: number; neLng: number } | undefined {
+  if (!Number.isFinite(centerLat) || !Number.isFinite(centerLng) || !Number.isFinite(halfWidthDeg)) {
+    return undefined;
+  }
+  return {
+    swLat: Math.max(-90, centerLat - halfWidthDeg),
+    swLng: Math.max(-180, centerLng - halfWidthDeg),
+    neLat: Math.min(90, centerLat + halfWidthDeg),
+    neLng: Math.min(180, centerLng + halfWidthDeg),
+  };
+}
+
+/**
  * Geocode a text address using the Google Maps Geocoding API.
  * Returns the first result's coordinates, or null on failure.
  * Uses GOOGLE_CALENDAR_API_KEY (server-only, no HTTP referrer restrictions).
  */
 export async function geocodeAddress(
   address: string,
-  options?: { regionBias?: string },
+  options?: {
+    regionBias?: string;
+    /**
+     * Viewport (SW|NE corners) to soft-bias results toward. `region` only
+     * disambiguates by country; `bounds` disambiguates *within* a country so
+     * terse local landmarks ("Union Station", "Clarendon") resolve to the
+     * kennel's metro instead of a same-named place elsewhere. Soft bias — Google
+     * still returns better out-of-viewport matches, so legit suburbs survive.
+     */
+    bounds?: { swLat: number; swLng: number; neLat: number; neLng: number };
+  },
 ): Promise<{ lat: number; lng: number; formattedAddress?: string } | null> {
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
   if (!apiKey || !address.trim()) return null;
@@ -221,6 +262,10 @@ export async function geocodeAddress(
     let url = `${GOOGLE_GEOCODE_BASE}?address=${encodeURIComponent(address)}&language=en&key=${apiKey}`;
     if (options?.regionBias) {
       url += `&region=${encodeURIComponent(options.regionBias)}`;
+    }
+    if (options?.bounds) {
+      const b = options.bounds;
+      url += `&bounds=${b.swLat},${b.swLng}|${b.neLat},${b.neLng}`;
     }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
