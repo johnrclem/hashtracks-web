@@ -2488,6 +2488,30 @@ export const SOURCES = [
       kennelCodes: ["uh3"],
     },
     {
+      // Themed special events (multi-day campouts, dress-run weekends) live in
+      // the /new-events-1 Squarespace events collection — richer than the
+      // recurring STATIC_SCHEDULE placeholders above. The shared
+      // SquarespaceEventsAdapter reads both `upcoming` and `past`; `upcomingOnly`
+      // keeps reconcile future-clamped so a recently-past special isn't cancelled
+      // when Squarespace rotates it out of `past`. This source is FORWARD-ONLY:
+      // ALL historical data — the two known Sep-2024 specials AND the static
+      // /receding-hareline archive (#122–#334, 2008–2016) — is loaded by the
+      // one-shot backfill, so the live window stays a normal forward horizon
+      // rather than reaching years back. (#2420)
+      name: "Upstate H3 Website",
+      url: "https://www.upstatehashers.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "weekly",
+      scrapeDays: 365,
+      config: {
+        kennelTag: "uh3",
+        collectionPath: "/new-events-1",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["uh3"],
+    },
+    {
       name: "GOTH3 Static Schedule",
       url: "https://gothh3.com/",
       type: "STATIC_SCHEDULE" as const,
