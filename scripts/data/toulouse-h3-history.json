@@ -1,0 +1,48 @@
+[
+  {
+    "date": "2026-03-15",
+    "kennelTags": [
+      "toulouse-h3"
+    ],
+    "title": "Hash #290",
+    "runNumber": 290,
+    "startTime": "15:00",
+    "hares": "Cheesy Lollipop",
+    "location": "Location tbc - likely NW of Toulouse"
+  },
+  {
+    "date": "2026-04-19",
+    "kennelTags": [
+      "toulouse-h3"
+    ],
+    "title": "Sparkling Sunday Hangover Run in Carcassonne",
+    "runNumber": 291,
+    "startTime": "10:30",
+    "hares": "Cheesy Lollipop, Hoppy Pussy",
+    "location": "In front of Tribe Hotel in Carcassonne",
+    "latitude": 43.21034,
+    "longitude": 2.35771
+  },
+  {
+    "date": "2026-05-24",
+    "kennelTags": [
+      "toulouse-h3"
+    ],
+    "title": "TH3 24 May 2026",
+    "runNumber": 292,
+    "startTime": "14:30",
+    "hares": "Dicken Cider & E.T.",
+    "location": "Cimetière Paysager du Bassac, Colomiers",
+    "latitude": 43.6299,
+    "longitude": 1.31671
+  },
+  {
+    "date": "2026-06-14",
+    "kennelTags": [
+      "toulouse-h3"
+    ],
+    "title": "TH3 Run 293",
+    "runNumber": 293,
+    "location": "Parking du Parc de Gagnac, Gagnac-sur-Garonne"
+  }
+]

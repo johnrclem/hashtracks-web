@@ -1,0 +1,1325 @@
+[
+  {
+    "date": "2024-09-01",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1835",
+    "runNumber": 1,
+    "startTime": "11:30",
+    "hares": "Mary Poppins, Tweeny, Inncontinence",
+    "location": "Petros"
+  },
+  {
+    "date": "2024-09-04",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1837",
+    "runNumber": 1837,
+    "startTime": "19:00",
+    "hares": "Wild Rover",
+    "location": "Woodman Inn, Durham",
+    "latitude": 54.77863731117507,
+    "longitude": -1.570084111527097
+  },
+  {
+    "date": "2024-09-11",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1838",
+    "runNumber": 1838,
+    "startTime": "19:00",
+    "hares": "Floppy After Effort",
+    "location": "Sheepfold, something a bit different",
+    "latitude": 54.91206634335935,
+    "longitude": -1.38815546375529
+  },
+  {
+    "date": "2024-09-18",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1839",
+    "runNumber": 1839,
+    "startTime": "12:00",
+    "hares": "Treasure Chest",
+    "location": "Platform 2, Tynemouth",
+    "latitude": 55.01719526013456,
+    "longitude": -1.428175837494048
+  },
+  {
+    "date": "2024-09-25",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1840",
+    "runNumber": 1840,
+    "startTime": "19:00",
+    "hares": "Poppins",
+    "location": "The Yard, Blaydon",
+    "latitude": 54.964239870613646,
+    "longitude": -1.7126824616965
+  },
+  {
+    "date": "2024-09-27",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "AGPU",
+    "runNumber": null,
+    "startTime": "19:00",
+    "location": "The Strawberry",
+    "latitude": 54.97488850292084,
+    "longitude": -1.61944543771245
+  },
+  {
+    "date": "2024-10-02",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1841",
+    "runNumber": 1841,
+    "startTime": "19:00",
+    "hares": "Knickerless Bollocks",
+    "location": "The Falcon, Prudhoe",
+    "latitude": 54.96108672798857,
+    "longitude": -1.831709194948912
+  },
+  {
+    "date": "2024-10-06",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "The Victory, South Gosforth",
+    "runNumber": 1842,
+    "startTime": "11:30",
+    "hares": "Slippery When Wet",
+    "location": "South Gosforth",
+    "latitude": 55.00764770798638,
+    "longitude": -1.601118673614273
+  },
+  {
+    "date": "2024-10-16",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1844",
+    "runNumber": 1844,
+    "startTime": "19:00",
+    "hares": "Octopushy, Headbanger, Straight to the Bottom",
+    "location": "Left Luggage, Monkseaton",
+    "latitude": 55.0423440804553,
+    "longitude": -1.457607847996849
+  },
+  {
+    "date": "2024-10-23",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1845",
+    "runNumber": 1845,
+    "startTime": "19:00",
+    "hares": "Inncontinence",
+    "location": "The Tynesider, Gateshead",
+    "latitude": 54.96038232925568,
+    "longitude": -1.599845790571584
+  },
+  {
+    "date": "2024-10-30",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1846",
+    "runNumber": 1846,
+    "startTime": "19:00",
+    "hares": "Counterfit, Malteaser",
+    "location": "The Duke of Wellington,  Kenton",
+    "latitude": 55.00415280906733,
+    "longitude": -1.641719759403897
+  },
+  {
+    "date": "2024-11-03",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1847",
+    "runNumber": 1847,
+    "startTime": "11:30",
+    "hares": "Knickerless, Let's Do It",
+    "location": "The Swan, Heddon-on-the-Wall",
+    "latitude": 54.99567537072862,
+    "longitude": -1.792269804419395
+  },
+  {
+    "date": "2024-11-06",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1848",
+    "runNumber": 1848,
+    "startTime": "19:00",
+    "hares": "Misled, #Sab",
+    "location": "The Carriage, Jesmond",
+    "latitude": 54.98194420844067,
+    "longitude": -1.604826373998907
+  },
+  {
+    "date": "2024-11-13",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1849",
+    "runNumber": 1849,
+    "startTime": "19:00",
+    "hares": "Mindphuck, Chafing",
+    "location": "The Lost Wanderer, Leazes",
+    "latitude": 54.975774842139735,
+    "longitude": -1.618279072668003
+  },
+  {
+    "date": "2024-11-20",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1850",
+    "runNumber": 1850,
+    "startTime": "19:00",
+    "hares": "Inncontinence",
+    "location": "The Waggon, Eighton Banks",
+    "latitude": 54.91466680988634,
+    "longitude": -1.560686930240058
+  },
+  {
+    "date": "2024-11-27",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1851",
+    "runNumber": 1851,
+    "startTime": "12:00",
+    "hares": "Chafing Bollocks",
+    "location": "Cosy Dove, Spital Tongues",
+    "latitude": 54.98369250564337,
+    "longitude": -1.630841057437962
+  },
+  {
+    "date": "2024-12-01",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1852",
+    "runNumber": 1852,
+    "startTime": "11:30",
+    "hares": "OP/HB/SttB/Chafing",
+    "location": "The Sandpiper, Cullercoats",
+    "latitude": 55.032584908328275,
+    "longitude": -1.443659619590849
+  },
+  {
+    "date": "2024-12-04",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1853",
+    "runNumber": 1853,
+    "startTime": "19:00",
+    "hares": "Totem, Brewdog, Inncontinence.",
+    "location": "The Beggar's Bridge, East Boldon",
+    "latitude": 54.947035081026584,
+    "longitude": -1.420568938832876
+  },
+  {
+    "date": "2024-12-11",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1854",
+    "runNumber": 1854,
+    "startTime": "19:00",
+    "hares": "Omm",
+    "location": "The Bonny Social",
+    "latitude": 54.93651745363525,
+    "longitude": -1.599872675351866
+  },
+  {
+    "date": "2024-12-14",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1855",
+    "runNumber": 1855,
+    "startTime": "11:30",
+    "hares": "Various",
+    "location": "Robin Hood's Bay",
+    "latitude": 54.43097893090454,
+    "longitude": -0.53414153098829
+  },
+  {
+    "date": "2024-12-15",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1856",
+    "runNumber": 1856,
+    "startTime": "12:00",
+    "hares": "??",
+    "location": "Church Road Car Park, Whitby",
+    "latitude": 54.486063604683395,
+    "longitude": -0.610945058564865
+  },
+  {
+    "date": "2024-12-18",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash Office Party",
+    "runNumber": 1857,
+    "startTime": "19:00",
+    "hares": "The Hash Girls",
+    "location": "Billy Bootleggers, Ouseburn",
+    "latitude": 54.97501173090641,
+    "longitude": -1.594673629480168
+  },
+  {
+    "date": "2024-12-29",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "100 Pub R*n",
+    "runNumber": 1858,
+    "startTime": "12:30",
+    "hares": "Counterfit, IceQueen",
+    "location": "Strawberry to see 100 Pubs of Toon",
+    "latitude": 54.974711946899895,
+    "longitude": -1.619524181084373
+  },
+  {
+    "date": "2025-01-05",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1859 - Guinness R*un",
+    "runNumber": 1859,
+    "startTime": "11:30",
+    "hares": "Floppy After Effort",
+    "location": "Tyneside Irish Centre,  Gallowgate, Newcastle",
+    "latitude": 54.97344061480453,
+    "longitude": -1.619349959718539
+  },
+  {
+    "date": "2025-01-08",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1860",
+    "runNumber": 1860,
+    "startTime": "19:00",
+    "hares": "Loch Ness Jobbie",
+    "location": "Friki Tiki, Nelson Street (Grainger Market)",
+    "latitude": 55.03583214471989,
+    "longitude": -1.625472398162602
+  },
+  {
+    "date": "2025-01-15",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1861",
+    "runNumber": 1861,
+    "startTime": "19:00",
+    "hares": "Misled",
+    "location": "Falcon's Nest",
+    "latitude": 55.035811333867976,
+    "longitude": -1.625492961348696
+  },
+  {
+    "date": "2025-01-22",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1862",
+    "runNumber": 1862,
+    "startTime": "19:00",
+    "hares": "InnConts",
+    "location": "Station East",
+    "latitude": 54.965166686276284,
+    "longitude": -1.604571415357607
+  },
+  {
+    "date": "2025-01-29",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "The Burns Night Hash",
+    "runNumber": 1863,
+    "startTime": "19:00",
+    "hares": "Counterfit",
+    "location": "Newcastle Cricket Club, Jesmond",
+    "latitude": 54.98747883892416,
+    "longitude": -1.598594460772984
+  },
+  {
+    "date": "2025-02-02",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1864",
+    "runNumber": 1864,
+    "startTime": "11:30",
+    "hares": "Knickerless & Let's Do It.",
+    "location": "The Punchbowl, Coast Road.",
+    "latitude": 54.98561348744267,
+    "longitude": -1.596672570407692
+  },
+  {
+    "date": "2025-02-05",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1865",
+    "runNumber": 1865,
+    "startTime": "12:00",
+    "hares": "Floppy After Effort",
+    "location": "Sunderland",
+    "latitude": 54.90533822625564,
+    "longitude": -1.388568018423937
+  },
+  {
+    "date": "2025-02-12",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1866",
+    "runNumber": 1866,
+    "startTime": "19:00",
+    "hares": "Misled",
+    "location": "Lowlights Tavern",
+    "latitude": 55.010756807970736,
+    "longitude": -1.434719592004266
+  },
+  {
+    "date": "2025-02-15",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "2025 Red Dress R*n",
+    "runNumber": 1867,
+    "startTime": "14:00",
+    "hares": "Slippery When Wet,  Chafing Bollocks",
+    "location": "Sportsman's Inn, Carlisle",
+    "latitude": 54.893482340989934,
+    "longitude": -2.936788130661583
+  },
+  {
+    "date": "2025-02-19",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1868",
+    "runNumber": 1868,
+    "startTime": "19:00",
+    "hares": "Loch Ness Jobbie",
+    "location": "House Bar,  Heaton",
+    "latitude": 54.983832055654034,
+    "longitude": -1.581732842598152
+  },
+  {
+    "date": "2025-02-26",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1869",
+    "runNumber": 1869,
+    "startTime": "19:00",
+    "hares": "InnConts",
+    "location": "The Lakeside, Wardley",
+    "latitude": 54.953787710370605,
+    "longitude": -1.501863938549382
+  },
+  {
+    "date": "2025-03-02",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1870",
+    "runNumber": 1870,
+    "startTime": "11:30",
+    "hares": "InnContinance",
+    "location": "Black Bull, Corbridge",
+    "latitude": 54.97396379114609,
+    "longitude": -2.018668463870867
+  },
+  {
+    "date": "2025-03-05",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1871",
+    "runNumber": 1871,
+    "startTime": "19:00",
+    "hares": "BakSaknCrak",
+    "location": "The Blue Bell, Fulwell",
+    "latitude": 54.9293379,
+    "longitude": -1.3817336
+  },
+  {
+    "date": "2025-03-12",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1872",
+    "runNumber": 1872,
+    "startTime": "19:00",
+    "hares": "Octopushy & TC",
+    "location": "Seven Stars, North Shields",
+    "latitude": 55.01010472634184,
+    "longitude": -1.450176983949403
+  },
+  {
+    "date": "2025-03-19",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1873",
+    "runNumber": 1873,
+    "startTime": "19:00",
+    "hares": "Wild Rover",
+    "location": "Station House, Durham",
+    "latitude": 54.77834108540589,
+    "longitude": -1.583486482021725
+  },
+  {
+    "date": "2025-03-26",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1874",
+    "runNumber": 1874,
+    "startTime": "07:00",
+    "hares": "Hash Saboteur",
+    "location": "The Hastings Arms",
+    "latitude": 55.075633836801565,
+    "longitude": -1.534865602212625
+  },
+  {
+    "date": "2025-04-02",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1875",
+    "runNumber": 1873,
+    "startTime": "12:00",
+    "hares": "Floppy After Effort",
+    "location": "Tyne Bar",
+    "latitude": 54.97164,
+    "longitude": -1.58827
+  },
+  {
+    "date": "2025-04-06",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1876",
+    "runNumber": 1876,
+    "startTime": "12:00",
+    "hares": "Rectum, FishFlaps",
+    "location": "Lumley Castle",
+    "latitude": 54.853506035397814,
+    "longitude": -1.553567878647528
+  },
+  {
+    "date": "2025-04-09",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1877",
+    "runNumber": 1877,
+    "startTime": "19:00",
+    "hares": "Omm",
+    "location": "The Beer Drop, Low Fell",
+    "latitude": 54.935505599053506,
+    "longitude": -1.599395882076585
+  },
+  {
+    "date": "2025-04-16",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Run 1878",
+    "runNumber": 1878,
+    "startTime": "19:00",
+    "hares": "BakSaknCrak",
+    "location": "The Blue Bell",
+    "latitude": 54.9293,
+    "longitude": -1.3818
+  },
+  {
+    "date": "2025-04-23",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1879",
+    "runNumber": 1879,
+    "startTime": "19:00",
+    "hares": "Floppy After Effort",
+    "location": "Black Bull, Benton",
+    "latitude": 55.01020567733704,
+    "longitude": -1.574913484530458
+  },
+  {
+    "date": "2025-04-30",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1880",
+    "runNumber": 1880,
+    "startTime": "19:00",
+    "hares": "Knickerless, let's Do It",
+    "location": "Washington Arts Centre",
+    "latitude": 54.89515687245869,
+    "longitude": -1.516248020849139
+  },
+  {
+    "date": "2025-05-04",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1881",
+    "runNumber": 1881,
+    "startTime": "12:00"
+  },
+  {
+    "date": "2025-05-07",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "hash 1882",
+    "runNumber": 1882,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2025-05-14",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1883",
+    "runNumber": 1883,
+    "startTime": "19:00",
+    "hares": "Mindphug",
+    "location": "Alum Ale House",
+    "latitude": 54.99771089813996,
+    "longitude": -1.439368825075456
+  },
+  {
+    "date": "2025-05-21",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1884",
+    "runNumber": 1883,
+    "startTime": "19:00",
+    "hares": "Knickerless, Let's Do It"
+  },
+  {
+    "date": "2025-05-28",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1885",
+    "runNumber": 1884,
+    "startTime": "19:00",
+    "location": "Fiddlers Three, High Heworth",
+    "latitude": 54.942,
+    "longitude": -1.5627
+  },
+  {
+    "date": "2025-06-01",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1886",
+    "runNumber": 1886,
+    "startTime": "11:30",
+    "hares": "Treasure Chest",
+    "location": "The Hawk, Ponteland",
+    "latitude": 55.07620057640286,
+    "longitude": -1.798508278830393
+  },
+  {
+    "date": "2025-06-04",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1887",
+    "runNumber": 1887,
+    "startTime": "19:00",
+    "hares": "Pimp",
+    "location": "Hop 77, Front Street, Ashington",
+    "latitude": 55.18342146759624,
+    "longitude": -1.575666900530506
+  },
+  {
+    "date": "2025-07-05",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "CAYPers",
+    "runNumber": null,
+    "startTime": "12:00",
+    "location": "Kirkby Stephen"
+  },
+  {
+    "date": "2025-07-06",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "CAYPers",
+    "runNumber": null,
+    "startTime": "12:00"
+  },
+  {
+    "date": "2025-07-16",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1896",
+    "runNumber": 1896,
+    "startTime": "19:00",
+    "hares": "Counterfit",
+    "location": "The Boathouse, Wylam",
+    "latitude": 54.97467549869289,
+    "longitude": -1.814461733045632
+  },
+  {
+    "date": "2025-07-30",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1898",
+    "runNumber": 1898,
+    "startTime": "19:00",
+    "hares": "Floppy After Effort",
+    "location": "The Last Resort, Heaton",
+    "latitude": 54.98351873882164,
+    "longitude": -1.581699046710523
+  },
+  {
+    "date": "2025-08-03",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1899",
+    "runNumber": 1899,
+    "startTime": "11:30",
+    "hares": "Shattered Balls, Nutcracker",
+    "location": "Bird and Bush, Elsdon",
+    "latitude": 55.232802922450226,
+    "longitude": -2.102970475790811
+  },
+  {
+    "date": "2025-08-27",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1904",
+    "runNumber": 1904,
+    "startTime": "19:00",
+    "hares": "Floppy After Effort,  Counterfit",
+    "location": "Head of Steam, QUAYSIDE",
+    "latitude": 54.96955089917672,
+    "longitude": -1.604058702805074
+  },
+  {
+    "date": "2025-09-03",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Beat the Metro",
+    "runNumber": 1905,
+    "startTime": "07:00",
+    "location": "Monument-ish"
+  },
+  {
+    "date": "2025-09-07",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "F.U.C.K.I.T.",
+    "runNumber": 1906,
+    "startTime": "15:00",
+    "location": "Sundial, South Shields",
+    "latitude": 55.00029713055639,
+    "longitude": -1.415851828132549
+  },
+  {
+    "date": "2025-09-10",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1906",
+    "runNumber": 1907,
+    "startTime": "19:00",
+    "location": "The Beer Drop, Low Fell",
+    "latitude": 54.935287997622176,
+    "longitude": -1.599225903984203
+  },
+  {
+    "date": "2025-09-17",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1907",
+    "runNumber": 1907,
+    "startTime": "19:00",
+    "hares": "Knickerless, Let's Do It",
+    "location": "Engine Inn, Walbottle",
+    "latitude": 54.99409691094302,
+    "longitude": -1.738251994188032
+  },
+  {
+    "date": "2025-09-24",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1908",
+    "runNumber": 1908,
+    "startTime": "19:00",
+    "hares": "Treasure Chest",
+    "location": "The Uncommon, North Shields",
+    "latitude": 55.007700486411444,
+    "longitude": -1.446697021164987
+  },
+  {
+    "date": "2025-10-01",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1909",
+    "runNumber": 1909,
+    "startTime": "19:00",
+    "hares": "Bleeding Nips",
+    "location": "The Carriage, Jesmond",
+    "latitude": 54.98189158408155,
+    "longitude": -1.604825922193794
+  },
+  {
+    "date": "2025-10-05",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1910",
+    "runNumber": 1910,
+    "startTime": "11:00",
+    "location": "??"
+  },
+  {
+    "date": "2025-10-08",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1911",
+    "runNumber": 1911,
+    "startTime": "19:00",
+    "hares": "Pimp",
+    "location": "The Raven, Cleadon",
+    "latitude": 54.95432898097991,
+    "longitude": -1.399653219247146
+  },
+  {
+    "date": "2025-10-29",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hallowe'en Hash",
+    "runNumber": 1914,
+    "startTime": "19:00",
+    "hares": "Chafing Bollocks",
+    "location": "The Bridge Hotel, Newcastle",
+    "latitude": 54.9684074547895,
+    "longitude": -1.610190439751085
+  },
+  {
+    "date": "2025-11-05",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1916",
+    "runNumber": 1916,
+    "startTime": "19:00",
+    "hares": "TC & Misled",
+    "location": "Apperture Ale House, North Shields",
+    "latitude": 55.00899387082661,
+    "longitude": -1.450002537365825
+  },
+  {
+    "date": "2025-11-19",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1918",
+    "runNumber": 1918,
+    "startTime": "19:00",
+    "location": "Clousden Hill",
+    "latitude": 55.02652884986156,
+    "longitude": -1.559674849683097
+  },
+  {
+    "date": "2025-11-26",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1919",
+    "runNumber": 1919,
+    "startTime": "19:00",
+    "location": "The Cosy Dove, Spital Tongues",
+    "latitude": 54.98366329555556,
+    "longitude": -1.630796629315281
+  },
+  {
+    "date": "2025-12-03",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1920",
+    "runNumber": 1920,
+    "startTime": "19:00",
+    "hares": "Bleedin'Nips Murphy/ Counterfit",
+    "location": "Platform 2, Tynemouth",
+    "latitude": 55.01718000295372,
+    "longitude": -1.428304699641201
+  },
+  {
+    "date": "2025-12-10",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1924",
+    "runNumber": 1923,
+    "startTime": "19:00",
+    "hares": "Pimp",
+    "location": "Front Street, Monkseaton",
+    "latitude": 55.04131293065623,
+    "longitude": -1.461957599983348
+  },
+  {
+    "date": "2025-12-17",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Christmas Party Hash",
+    "runNumber": 1924,
+    "startTime": "19:00",
+    "hares": "The Hash Girls",
+    "location": "The Telegraph, Forth Street",
+    "latitude": 54.96817276062165,
+    "longitude": -1.614097871290734
+  },
+  {
+    "date": "2025-12-28",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "100 Pub R*n",
+    "runNumber": 1926,
+    "startTime": "11:30",
+    "hares": "CounterFit",
+    "location": "The Strawberry",
+    "latitude": 54.97482154226065,
+    "longitude": -1.619586622721634
+  },
+  {
+    "date": "2026-01-04",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1927",
+    "runNumber": 1927,
+    "startTime": "11:30",
+    "hares": "Wild Rover",
+    "location": "The Cartologist, Durham",
+    "latitude": 54.783074251680695,
+    "longitude": -1.585613183243793
+  },
+  {
+    "date": "2026-01-14",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1928",
+    "runNumber": 1928,
+    "startTime": "19:00",
+    "hares": "Omm",
+    "location": "Black Horse, Low Fell",
+    "latitude": 54.93521546342608,
+    "longitude": -1.597159643832944
+  },
+  {
+    "date": "2026-01-21",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1929",
+    "runNumber": 1929,
+    "startTime": "19:00",
+    "hares": "Bleeding Nips Murphy",
+    "location": "Twin Farms, Kingston Park",
+    "latitude": 55.01541153025148,
+    "longitude": -1.678021186899837
+  },
+  {
+    "date": "2026-01-28",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Burn's Night Hash",
+    "runNumber": 1930,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-02-01",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1931",
+    "runNumber": 1931,
+    "startTime": "11:30",
+    "hares": "Counterfit",
+    "location": "The Badger, Ponteland",
+    "latitude": 55.041980159823666,
+    "longitude": -1.723356869469712
+  },
+  {
+    "date": "2026-02-04",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1932",
+    "runNumber": 1932,
+    "startTime": "19:00",
+    "hares": "Pimp",
+    "location": "Front Street Tap House,  Monkseaton",
+    "latitude": 55.041620675939676,
+    "longitude": -1.461165803480025
+  },
+  {
+    "date": "2026-02-11",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1933",
+    "runNumber": 1933,
+    "startTime": "19:00",
+    "hares": "Misled"
+  },
+  {
+    "date": "2026-02-18",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1934",
+    "runNumber": 1934,
+    "startTime": "19:00",
+    "hares": "5 Kuai",
+    "location": "Barca Art Bar, Gosforth",
+    "latitude": 55.006472478670055,
+    "longitude": -1.619695653257434
+  },
+  {
+    "date": "2026-02-25",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1935",
+    "runNumber": 1935,
+    "startTime": "19:00",
+    "hares": "LDI, Knickerless",
+    "location": "Luckies, Cradlewell",
+    "latitude": 54.985835626019174,
+    "longitude": -1.596243037216496
+  },
+  {
+    "date": "2026-03-01",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Placeholder event for NH3",
+    "runNumber": 1936,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-03-04",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1937",
+    "runNumber": 1837,
+    "startTime": "19:00",
+    "hares": "BoobJob, Counterfit",
+    "location": "The Northumbrian Piper, Fawdon",
+    "latitude": 55.02039876909464,
+    "longitude": -1.647647139419451
+  },
+  {
+    "date": "2026-03-11",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1938",
+    "runNumber": 1938,
+    "startTime": "19:00",
+    "hares": "SttB, Octopushy & Headbanger",
+    "location": "Low Lights Tavern, North Shields",
+    "latitude": 55.01072615041243,
+    "longitude": -1.434699009749065
+  },
+  {
+    "date": "2026-03-14",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "NH3 - Red Dress Run",
+    "runNumber": 1939,
+    "startTime": "13:00",
+    "hares": "Slippery When Wet & Chafing Bollocks",
+    "location": "Red Dress Run in aid of Morpeth Food Bank",
+    "latitude": 55.168443746343065,
+    "longitude": -1.687576980081494
+  },
+  {
+    "date": "2026-03-18",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1940",
+    "runNumber": 1940,
+    "startTime": "19:00",
+    "hares": "Pimp",
+    "location": "Beggars Bridge, East Boldon",
+    "latitude": 54.94697345131537,
+    "longitude": -1.420543716358467
+  },
+  {
+    "date": "2026-03-25",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1941",
+    "runNumber": 1941,
+    "startTime": "19:00",
+    "hares": "Regressa",
+    "location": "Elderbeer Cafe, Heaton",
+    "latitude": 54.988658598508664,
+    "longitude": -1.57765221695924
+  },
+  {
+    "date": "2026-04-01",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Placeholder event for NH3",
+    "runNumber": 1942,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-04-05",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Placeholder event for NH3",
+    "runNumber": 1943,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-04-08",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1943",
+    "runNumber": 1943,
+    "startTime": "19:00",
+    "hares": "No Releif, Counterfit",
+    "location": "The Anson, Wallsend",
+    "latitude": 54.991360671017574,
+    "longitude": -1.534360071626053
+  },
+  {
+    "date": "2026-04-12",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1944",
+    "runNumber": 1944,
+    "startTime": "11:30",
+    "hares": "Chafing Bollocks",
+    "location": "The Derwent Walk",
+    "latitude": 54.887306467039195,
+    "longitude": -1.834912532899429
+  },
+  {
+    "date": "2026-04-15",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Beer Festival Run",
+    "runNumber": 1945,
+    "startTime": "19:00",
+    "hares": "Floppy After Effort",
+    "location": "Newcastle Beer Fest, Northumbria University",
+    "latitude": 54.97849354388616,
+    "longitude": -1.607730583235245
+  },
+  {
+    "date": "2026-04-22",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1946",
+    "runNumber": 1946,
+    "startTime": "19:00",
+    "hares": "Brewdog, Totem, Wild Rover",
+    "location": "Durham, TBC",
+    "latitude": 54.77449758128916,
+    "longitude": -1.575801627735498
+  },
+  {
+    "date": "2026-04-29",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1947",
+    "runNumber": 1947,
+    "startTime": "19:00",
+    "hares": "Pimp",
+    "location": "The Keel Row, Seaton Delavel",
+    "latitude": 55.083084775281186,
+    "longitude": -1.54368770954217
+  },
+  {
+    "date": "2026-05-03",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1948",
+    "runNumber": 1948,
+    "startTime": "11:30",
+    "hares": "TC",
+    "location": "Alum House / Harbour Lights",
+    "latitude": 54.99770595918247,
+    "longitude": -1.439425352686108
+  },
+  {
+    "date": "2026-05-06",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1949 - Pimp's 500th",
+    "runNumber": 1949,
+    "startTime": "07:00",
+    "hares": "Pimp",
+    "location": "The KEELMAN, Newburn",
+    "latitude": 54.9845288658318,
+    "longitude": -1.752135641688248
+  },
+  {
+    "date": "2026-05-13",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1950",
+    "runNumber": 1950,
+    "startTime": "19:00",
+    "hares": "Mindphug",
+    "location": "The Old Fox, Felling",
+    "latitude": 54.95284060130577,
+    "longitude": -1.568791132475811
+  },
+  {
+    "date": "2026-05-20",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Placeholder event for NH3",
+    "runNumber": 1951,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-05-27",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Placeholder event for NH3",
+    "runNumber": 1952,
+    "startTime": "19:00"
+  },
+  {
+    "date": "2026-06-03",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1953 - Shiremoor House Farm",
+    "runNumber": 1953,
+    "startTime": "19:00",
+    "location": "Shiremoor House Farm"
+  },
+  {
+    "date": "2026-06-07",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "June Sunday Hash",
+    "runNumber": 1954,
+    "startTime": "11:30",
+    "location": "The Old Ash Dene, Ashington"
+  },
+  {
+    "date": "2026-06-10",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1955",
+    "runNumber": 1955,
+    "startTime": "19:00",
+    "location": "Runhead, Ryton"
+  },
+  {
+    "date": "2026-06-17",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1956",
+    "runNumber": 1956,
+    "startTime": "19:00",
+    "hares": "Regressa",
+    "location": "The Grove, Byker",
+    "latitude": 54.97269137186223,
+    "longitude": -1.58374510418521
+  },
+  {
+    "date": "2026-06-24",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1957",
+    "runNumber": 1957,
+    "startTime": "19:00",
+    "hares": "InnConts, BenNehBear, H3O",
+    "location": "Bertie's Shirts",
+    "latitude": 54.96586228641624,
+    "longitude": -1.607033860999701
+  },
+  {
+    "date": "2026-07-01",
+    "kennelTags": [
+      "newcastle-h3"
+    ],
+    "title": "Hash 1958",
+    "runNumber": 1958,
+    "startTime": "19:00",
+    "hares": "Regressa",
+    "location": "Cumberland Arms / City Stadium",
+    "latitude": 54.97291129515128,
+    "longitude": -1.588475471147386
+  }
+]

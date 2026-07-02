@@ -1134,6 +1134,32 @@ export const KENNELS: KennelSeed[] = [
       description: "Founded on 26 August 1985 by Roger McIlroy, Glasgow Hash House Harriers (GH3) was the first Scottish hash to have a website. They run every Monday at 7 PM from pubs and locations in and around Glasgow. Notable hosted events include UK Nash Hash 99 and the Commonwealth Hash 2014.",
       latitude: 55.86, longitude: -4.25,
     },
+    // HC batch (config-only Harrier Central) — Aberdeen + 3 Edinburgh-area kennels
+    { kennelCode: "aberdeen-h3", shortName: "Aberdeen H3", fullName: "Aberdeen Hash House Harriers",
+      region: "Aberdeen", country: "UK", website: "https://www.aberdeenhhh.com",
+      logoUrl: "/kennel-logos/aberdeen-h3.png", scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM",
+      scheduleFrequency: "Weekly", scheduleNotes: "Weekly Monday-evening trail around Aberdeen.",
+      hashCash: "£3", foundedYear: 1983,
+      description: "Aberdeen's weekly Monday-evening hash, running since 23 January 1983.",
+      latitude: 57.1497, longitude: -2.0943 },
+    { kennelCode: "tnth3", shortName: "The New Town Hash", fullName: "The New Town Hash (Big Bang Hash)",
+      region: "Edinburgh", country: "UK", logoUrl: "/kennel-logos/tnth3.png",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Wednesday-evening Edinburgh trail. Also known as the Big Bang Hash.",
+      hashCash: "£1", description: "Edinburgh's weekly Wednesday-evening New Town / Big Bang hash.",
+      latitude: 55.9533, longitude: -3.1883 },
+    { kennelCode: "dafth3", shortName: "DAFT H3", fullName: "Dunfermline and Fife Tuesday Hash House Harriers",
+      region: "Edinburgh", country: "UK", logoUrl: "/kennel-logos/dafth3.png",
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Tuesday-evening hash based in Dunfermline / Fife; trails around Fife and West Edinburgh (e.g. South Queensferry).",
+      hashCash: "£1", description: "The Dunfermline and Fife Tuesday hash.",
+      latitude: 56.0719, longitude: -3.4393 },
+    { kennelCode: "beerspoke-h3", shortName: "BeerSpoke H3", fullName: "BeerSpoke Hash House Harriers",
+      region: "Edinburgh", country: "UK", logoUrl: "/kennel-logos/beerspoke-h3.png",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "11:15 AM", scheduleFrequency: "Monthly",
+      scheduleNotes: "Edinburgh cycling hash — roughly monthly Saturday-morning bike trails from rail stations around Edinburgh.",
+      hashCash: "£2", description: "Edinburgh's BeerSpoke cycling hash — a bike-borne kennel.",
+      latitude: 55.9533, longitude: -3.1883 },
     // ===== UK — BRISTOL =====
     {
       kennelCode: "bristolh3", shortName: "Bristol H3", fullName: "Bristol Hash House Harriers", region: "Bristol", country: "UK",
@@ -1207,6 +1233,19 @@ export const KENNELS: KennelSeed[] = [
       logoUrl: "https://static.wixstatic.com/media/34cc15_ecd0357636b34c3ca9043967d49cdc50%7Emv2.png/v1/fit/w_2500,h_1330,al_c/34cc15_ecd0357636b34c3ca9043967d49cdc50%7Emv2.png",
       latitude: 52.49, longitude: -1.89,
     },
+    // ===== UK — NEWCASTLE / PLYMOUTH (HC batch) =====
+    { kennelCode: "newcastle-h3", shortName: "Newcastle H3", fullName: "Newcastle Hash House Harriers",
+      region: "Newcastle", country: "UK", website: "https://www.nhhh.co.uk", facebookUrl: "https://www.facebook.com/NewcastleH3",
+      logoUrl: "/kennel-logos/newcastle-h3.png", scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM",
+      scheduleFrequency: "Weekly", scheduleNotes: "Weekly Wednesday evening trail around Newcastle upon Tyne.",
+      hashCash: "£2.50", description: "Newcastle upon Tyne's weekly Wednesday-evening hash.",
+      latitude: 54.9783, longitude: -1.6178 },
+    { kennelCode: "plympton-h3", shortName: "Plympton H3", fullName: "Plympton Hash House Harriers",
+      region: "Plymouth", country: "UK", logoUrl: "/kennel-logos/plympton-h3.png",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Sunday-evening trail around Plymouth and Dartmoor.",
+      hashCash: "£1.50", description: "Plymouth / Dartmoor weekly Sunday-evening hash.",
+      latitude: 50.3755, longitude: -4.1427 },
     // ===== GERMANY =====
     // Berlin
     {
@@ -1264,6 +1303,14 @@ export const KENNELS: KennelSeed[] = [
       description: "Stuttgart special occasions hash.",
       latitude: 48.78, longitude: 9.18,
     },
+    // Kaiserslautern (HC batch)
+    { kennelCode: "sembach-h3", shortName: "Sembach H3", fullName: "Sembach Hash House Harriers",
+      region: "Kaiserslautern", country: "Germany", website: "https://www.sembach-hash.de", facebookUrl: "https://www.facebook.com/HashingInTheKMC",
+      logoUrl: "/kennel-logos/sembach-h3.png", scheduleDayOfWeek: "Saturday", scheduleTime: "4:20 PM",
+      scheduleFrequency: "Biweekly", scheduleNotes: "Roughly biweekly Saturday-afternoon trail serving the Kaiserslautern Military Community (Sembach / Ramstein).",
+      hashCash: "€5", foundedYear: 1999,
+      description: "A drinking club with a running problem serving the Kaiserslautern Military Community, founded 1999.",
+      latitude: 49.4401, longitude: 7.7491 },
     // ===== SWITZERLAND =====
     {
       kennelCode: "zh3", shortName: "ZH3", fullName: "Zurich Hash House Harriers",
@@ -3606,6 +3653,13 @@ export const KENNELS: KennelSeed[] = [
       description: "Amsterdam's weekly hash, usually Sundays at 14:45. Trails through parks, streets, and hidden gems, 6-10 km. Annual Canal Hash on boats through UNESCO canals.",
       latitude: 52.37, longitude: 4.90,
     },
+    // FILTH H3 (Haarlem / Heemstede — greater-Amsterdam commuter belt) — HC batch
+    { kennelCode: "filth-h3", shortName: "FILTH H3", fullName: "FILTH Hash House Harriers",
+      region: "Amsterdam", country: "Netherlands", logoUrl: "/kennel-logos/filth-h3.png",
+      scheduleFrequency: "Monthly", scheduleTime: "7:30 PM",
+      scheduleNotes: "Monthly evening trail in the Haarlem / Heemstede area west of Amsterdam (day varies).",
+      hashCash: "€7", description: "A monthly hash in the Haarlem / Heemstede area of the Netherlands.",
+      latitude: 52.3593, longitude: 4.6059 },
 
     // ── Netherlands: The Hague ──
     {
@@ -5467,6 +5521,14 @@ export const KENNELS: KennelSeed[] = [
       latitude: 48.8566,
       longitude: 2.3522,
     },
+    // Toulouse (first Toulouse kennel) — HC batch
+    { kennelCode: "toulouse-h3", shortName: "Toulouse H3", fullName: "Toulouse Hash House Harriers",
+      region: "Toulouse", country: "France", website: "https://toulousehash.com", facebookUrl: "https://www.facebook.com/ToulouseHHH",
+      logoUrl: "/kennel-logos/toulouse-h3.avif", scheduleDayOfWeek: "Sunday", scheduleFrequency: "Monthly",
+      scheduleNotes: "Monthly, second Sunday (date can shift). Family-oriented — runners and walkers of all ages.",
+      hashCash: "€5", foundedYear: 2002,
+      description: "Toulouse's family-oriented monthly hash, founded October 2002.",
+      latitude: 43.6047, longitude: 1.4442 },
     // ===== SOUTH AMERICA =====
     // First South American kennel — Asunción, Paraguay. latitude/longitude is the
     // Asunción city centroid; per-run start coords come from the adapter's embed-map parse.
@@ -5509,6 +5571,13 @@ export const KENNELS: KennelSeed[] = [
       latitude: -15.793,
       longitude: -47.882,
     },
+    // Brazil's 2nd kennel — São Paulo (HC batch)
+    { kennelCode: "bnh3", shortName: "Brazil Nuts H3", fullName: "Brazil Nuts Hash House Harriers",
+      region: "São Paulo", country: "Brazil", logoUrl: "/kennel-logos/bnh3.avif",
+      scheduleFrequency: "Monthly", scheduleTime: "11:00 AM",
+      scheduleNotes: "Monthly São Paulo trail (gotothehash: ~3rd Saturday; observed run days vary). Details on Harrier Central.",
+      hashCash: "R$35", description: "São Paulo's monthly English-speaking hash — the second Brazilian kennel after Brasília.",
+      latitude: -23.5558, longitude: -46.6396 },
     // ===== MEXICO =====
     // First Mexico kennel — Mexico City H3 ("CDMX H3"), hashing since Oct 1983.
     // foundedYear 1983 is the kennel founding (Mexico News Daily + Half-Mind), NOT the
