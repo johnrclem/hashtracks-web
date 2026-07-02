@@ -17,10 +17,31 @@ import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
 import { SFH3Adapter } from "./html-scraper/sfh3";
 import { HHHSAdapter } from "./html-scraper/hhhs";
 import { SquarespaceEventsAdapter } from "./html-scraper/squarespace-events";
+import { TribeEventsAdapter } from "./html-scraper/tribe-events-adapter";
+import { LarrikinsAdapter } from "./html-scraper/larrikins";
 import { RssAdapter } from "./rss/adapter";
 import { StaticScheduleAdapter } from "./static-schedule/adapter";
 
 describe("getAdapter", () => {
+  it("routes a Tribe-config HTML_SCRAPER source to TribeEventsAdapter (config wins over URL)", () => {
+    // Same host as the URL-routed LarrikinsAdapter — the config discriminator
+    // must take priority so the two sources coexist on sydney.larrikins.org (#2391).
+    const adapter = getAdapter("HTML_SCRAPER", "https://sydney.larrikins.org", {
+      tribeEvents: true,
+      kennelTag: "larrikins-au",
+    });
+    expect(adapter).toBeInstanceOf(TribeEventsAdapter);
+  });
+
+  it("keeps the URL-routed LarrikinsAdapter when no Tribe config is present", () => {
+    const adapter = getAdapter(
+      "HTML_SCRAPER",
+      "https://sydney.larrikins.org/sydney-south-habour-hhh-tuesday-beers/upcoming-larrikin-runs/",
+    );
+    expect(adapter).toBeInstanceOf(LarrikinsAdapter);
+    expect(adapter).not.toBeInstanceOf(TribeEventsAdapter);
+  });
+
   it("returns HashNYCAdapter for HTML_SCRAPER (default)", () => {
     expect(getAdapter("HTML_SCRAPER")).toBeInstanceOf(HashNYCAdapter);
   });

@@ -5528,6 +5528,29 @@ export const SOURCES = [
       kennelCodes: ["larrikins-au"],
     },
     {
+      // The kennel's special / milestone events (Larrikin Long Lunch,
+      // Friday-the-13th runs, milestone #2500, interstate campouts) live in a
+      // "The Events Calendar" (Tribe) install on the same site — separate from
+      // the weekly numbered-trail table the URL-routed LarrikinsAdapter reads
+      // (#2391). Config-routed to the shared TribeEventsAdapter (registry.ts)
+      // so both sources coexist on sydney.larrikins.org. The Tribe REST API is a
+      // complete-window feed, so a wide pull is safe. Forward-only (start_date
+      // defaults to today) → `upcomingOnly` so a passed one-off freezes instead
+      // of being cancelled by reconcile when it drops off the upcoming list.
+      name: "Sydney Larrikins Special Events",
+      url: "https://sydney.larrikins.org",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 400,
+      config: {
+        tribeEvents: true,
+        kennelTag: "larrikins-au",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["larrikins-au"],
+    },
+    {
       name: "Sydney Thirsty H3 Upcoming Runs",
       url: "https://www.sth3.org/upcoming-runs",
       type: "HTML_SCRAPER" as const,

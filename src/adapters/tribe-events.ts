@@ -42,6 +42,12 @@ interface TribeEventRaw {
     hour: string;
     minutes: string;
   };
+  end_date?: string; // "YYYY-MM-DD HH:MM:SS" — only the date part is used
+  end_date_details?: {
+    year: string;
+    month: string;
+    day: string;
+  };
   timezone?: string;
   categories?: TribeEventCategoryRaw[];
   venue?: TribeEventVenueRaw | TribeEventVenueRaw[];
@@ -63,6 +69,8 @@ export interface TribeEvent {
   url?: string;
   date: string; // "YYYY-MM-DD"
   startTime?: string; // "HH:MM" (24h)
+  /** Last day (YYYY-MM-DD) for a MULTI-DAY event; omitted when single-day. */
+  endDate?: string;
   timezone?: string;
   categorySlugs: string[];
   venue?: string;
@@ -92,6 +100,13 @@ export interface FetchTribeEventsResult {
   rawCount: number;
   /** Count of normalized events excluded by `categorySlugs` filter. */
   categoryFilteredCount: number;
+  /**
+   * True when paging stopped because the `maxEvents` cap was hit — the result
+   * is TRUNCATED (more events exist upstream). Callers driving reconcile must
+   * treat this as a hard incomplete signal, else stale-event reconciliation
+   * could cancel valid events that were never fetched.
+   */
+  capReached: boolean;
 }
 
 /**
@@ -122,6 +137,21 @@ export function parseTribeStartDate(
   return null;
 }
 
+/**
+ * Parse just the end DATE (YYYY-MM-DD) from a raw tribe event, preferring
+ * `end_date_details` and falling back to the `end_date` string. Time-of-day is
+ * intentionally ignored — a multi-day event is defined by its calendar span, not
+ * its closing time. Returns null when no end date can be derived.
+ */
+export function parseTribeEndDate(raw: TribeEventRaw): string | null {
+  const details = raw.end_date_details;
+  if (details?.year && details.month && details.day) {
+    return `${details.year}-${details.month.padStart(2, "0")}-${details.day.padStart(2, "0")}`;
+  }
+  const m = raw.end_date ? /^(\d{4})-(\d{2})-(\d{2})/.exec(raw.end_date) : null;
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
+}
+
 /** Normalize a single raw tribe event into our shape. Returns null if required fields are missing. */
 export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
   const parsed = parseTribeStartDate(raw);
@@ -136,8 +166,19 @@ export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
 
   const venueRaw = Array.isArray(raw.venue) ? raw.venue[0] : raw.venue;
   const venue = venueRaw?.venue?.trim() || undefined;
-  const addressParts = [venueRaw?.address, venueRaw?.city].filter(Boolean);
+  // Trim a trailing comma off each part before joining — some sites store the
+  // street with a dangling "," (e.g. "1 Bridge Rd,") which would otherwise
+  // double up as "1 Bridge Rd,, Glebe".
+  const addressParts = [venueRaw?.address, venueRaw?.city]
+    .map((s) => s?.trim().replace(/,\s*$/, "").trim())
+    .filter((s): s is string => Boolean(s));
   const location = addressParts.length ? addressParts.join(", ") : undefined;
+
+  // Multi-day span only (e.g. an interstate campout weekend). Same-day events —
+  // the norm for Tribe, where end_date just carries the closing time — omit
+  // endDate, matching the RawEventData "single-day events omit endDate" contract.
+  const endDateParsed = parseTribeEndDate(raw);
+  const endDate = endDateParsed && endDateParsed > parsed.date ? endDateParsed : undefined;
 
   return {
     id: raw.id,
@@ -146,6 +187,7 @@ export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
     url: raw.url,
     date: parsed.date,
     startTime: parsed.startTime,
+    endDate,
     timezone: raw.timezone,
     categorySlugs,
     venue,
@@ -183,6 +225,7 @@ export async function fetchTribeEvents(
   let rawCount = 0;
   let skippedCount = 0;
   let categoryFilteredCount = 0;
+  let capReached = false;
   let page = 1;
 
   while (true) {
@@ -203,6 +246,7 @@ export async function fetchTribeEvents(
         rawCount,
         skippedCount,
         categoryFilteredCount,
+      capReached,
         error: { message: `Fetch error: ${err instanceof Error ? err.message : String(err)}` },
         fetchDurationMs: Date.now() - fetchStart,
       };
@@ -216,6 +260,7 @@ export async function fetchTribeEvents(
         rawCount,
         skippedCount,
         categoryFilteredCount,
+      capReached,
         error: { message: `HTTP ${res.status} from ${urlString}`, status: res.status },
         fetchDurationMs: Date.now() - fetchStart,
       };
@@ -230,6 +275,7 @@ export async function fetchTribeEvents(
         rawCount,
         skippedCount,
         categoryFilteredCount,
+      capReached,
         error: {
           message: `Invalid JSON from ${urlString}: ${err instanceof Error ? err.message : String(err)}`,
         },
@@ -258,7 +304,10 @@ export async function fetchTribeEvents(
         break;
       }
     }
-    if (reachedCap) break;
+    if (reachedCap) {
+      capReached = true;
+      break;
+    }
 
     // Keep paging until we get a short/empty response or a 404 — don't trust
     // total_pages to bound us (some plugin versions omit it).
@@ -271,6 +320,7 @@ export async function fetchTribeEvents(
     rawCount,
     skippedCount,
     categoryFilteredCount,
+    capReached,
     fetchDurationMs: Date.now() - fetchStart,
   };
 }
