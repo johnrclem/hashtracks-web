@@ -341,7 +341,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Berlin
     "berlinh3": ["Berlin Hash", "Berlin H3", "Berlin HHH"],
     "bh3fm": ["Berlin Full Moon Hash", "Berlin Full Moon H3", "BH3FM"],
-    "sembach-h3": ["Sembach H3", "Sembach Hash House Harriers", "SH3-DE"],
+    "sembach-h3": ["Sembach H3", "Sembach Hash House Harriers", "SH3-KL"],
     // Stuttgart
     "sh3-de": ["Stuttgart Hash", "Stuttgart H3", "SH3 Stuttgart"],
     "dst-h3": ["DST Hash", "DST H3", "Stuttgart Tuesday Hash"],
