@@ -381,6 +381,13 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // default `/events`. Seeded as the rich primary source while the FB Hosted
   // Events source is blocked (#1939) and the Meetup source is dead (#1144/#1459).
   { pattern: /vontramph3\.com/i, name: "SquarespaceEventsAdapter", factory: () => new SquarespaceEventsAdapter() },
+  // ── Upstate H3 (Greenville, SC) ──
+  // UH3 — same shared SquarespaceEventsAdapter against the `/new-events-1`
+  // events collection (config.collectionPath). Carries the kennel's themed
+  // special events (multi-day campouts, dress runs); the recurring cadence
+  // stays on the STATIC_SCHEDULE source. The static `/receding-hareline`
+  // archive (#122–#334, 2008–2016) is a one-shot, not a scrape target (#2420).
+  { pattern: /upstatehashers\.com/i, name: "SquarespaceEventsAdapter", factory: () => new SquarespaceEventsAdapter() },
   // HashStats — multi-kennel historical stats archive served as JSON over
   // POST {host}/{SLUG}/listhashes2 (DataTables shape). JSON-over-HTML_SCRAPER,
   // like SHITH3/Seletar. Kennel slugs come from config.kennelSlugMap, so one
