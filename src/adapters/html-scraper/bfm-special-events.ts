@@ -29,9 +29,10 @@ const KENNEL_TAG = "bfm";
  *  the prose is sometimes a typo, e.g. the AGM's "2027 Date: … 2026"). */
 const YEAR_PREFIX_RE = /^\s*(\d{4})\s+Date\s*:/i;
 /** `<word> <day>[st|nd|rd|th]` pairs; the word is filtered through MONTHS so the
- *  weekday ("Thursday") is ignored and only real month names count. Simple shape
- *  (no month alternation, single `\s+`, tiny ordinal group) — ReDoS-safe. */
-const WORD_DAY_RE = /([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?/gi;
+ *  weekday ("Thursday") is ignored and only real month names count. The word is
+ *  bounded `{3,9}` (every month + weekday name fits, "may"–"september") so the
+ *  quantifier is linear — no super-linear backtracking (Sonar S8786). */
+const WORD_DAY_RE = /([a-z]{3,9})\s+(\d{1,2})(?:st|nd|rd|th)?/gi;
 
 /** Parse "YYYY Date: Weekday, Month Day[ – Weekday, Month Day]" → start (+ end
  *  for a multi-day span). Returns null for "No Current Date" / unparseable. */
@@ -56,7 +57,8 @@ export function parseBfmDate(dateText: string): { date: string; endDate?: string
   };
   const date = iso(monthDays[0]);
   if (!date) return null;
-  const end = monthDays.length > 1 ? iso(monthDays[monthDays.length - 1]) : null;
+  const last = monthDays.at(-1);
+  const end = monthDays.length > 1 && last ? iso(last) : null;
   return { date, endDate: end && end > date ? end : undefined };
 }
 
