@@ -53,6 +53,14 @@ describe("parseBfmDate", () => {
   it("omits endDate when the range end is not after the start", () => {
     expect(parseBfmDate("2026 Date: August 8th")).toEqual({ date: "2026-08-08", endDate: undefined });
   });
+
+  it("does not mistake a trailing month + 4-digit year for an end date", () => {
+    // "August 2026" must NOT be read as "August 20" (a bogus endDate).
+    expect(parseBfmDate("2026 Date: Saturday, August 8th, August 2026")).toEqual({
+      date: "2026-08-08",
+      endDate: undefined,
+    });
+  });
 });
 
 const FIXTURE = `

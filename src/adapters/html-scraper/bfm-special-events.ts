@@ -31,8 +31,10 @@ const YEAR_PREFIX_RE = /^\s*(\d{4})\s+Date\s*:/i;
 /** `<word> <day>[st|nd|rd|th]` pairs; the word is filtered through MONTHS so the
  *  weekday ("Thursday") is ignored and only real month names count. The word is
  *  bounded `{3,9}` (every month + weekday name fits, "may"–"september") so the
- *  quantifier is linear — no super-linear backtracking (Sonar S8786). */
-const WORD_DAY_RE = /([a-z]{3,9})\s+(\d{1,2})(?:st|nd|rd|th)?/gi;
+ *  quantifier is linear — no super-linear backtracking (Sonar S8786). The `(?!\d)`
+ *  stops the day from swallowing the first 2 digits of a 4-digit year, so a
+ *  trailing "Month YYYY" (e.g. "August 2026") is NOT read as "August 20". */
+const WORD_DAY_RE = /([a-z]{3,9})\s+(\d{1,2})(?!\d)(?:st|nd|rd|th)?/gi;
 
 /** Parse "YYYY Date: Weekday, Month Day[ – Weekday, Month Day]" → start (+ end
  *  for a multi-day span). Returns null for "No Current Date" / unparseable. */
@@ -69,9 +71,13 @@ export function parseBfmSpecialEvents(html: string): RawEventData[] {
   const $ = cheerio.load(html);
   const events: RawEventData[] = [];
   $("p.has-medium-font-size").each((_i, el) => {
-    const title = $(el).find("strong").text().replace(/\s+/g, " ").trim();
+    // Prefer the bold title, but fall back to the paragraph text if a title
+    // isn't wrapped in <strong> (CSS-styled / un-bolded).
+    const title = ($(el).find("strong").text() || $(el).text()).replace(/\s+/g, " ").trim();
     if (!title) return;
-    const dateText = $(el).nextAll("p").first().text().replace(/\s+/g, " ").trim();
+    // Only look for the date WITHIN this event's section (up to the next title
+    // paragraph) so an event with no date can't borrow the next event's date.
+    const dateText = $(el).nextUntil("p.has-medium-font-size", "p").first().text().replace(/\s+/g, " ").trim();
     const parsed = parseBfmDate(dateText);
     if (!parsed) return;
     events.push({ date: parsed.date, endDate: parsed.endDate, title, kennelTags: [KENNEL_TAG] });
