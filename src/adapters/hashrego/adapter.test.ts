@@ -2420,10 +2420,14 @@ describe("HashRegoAdapter", () => {
     // how we prove the 9 good Step 2b rows actually emit events end-to-end.
     fetchSpy.mockImplementation(async () => new Response("", { status: 404 }));
 
+    // Future-relative date so the row stays inside the fetch's forward window and
+    // the test never ages out (a hardcoded past date silently drops all 9 rows and
+    // fails on kennelPageEventsFound). ~30 days ahead is well within `days: 365`.
+    const goodStart = `${new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10)}T19:00:00-04:00`;
     const rows: HashRegoKennelEvent[] = Array.from({ length: 10 }, (_, i) =>
       buildApiRow({
         slug: `nych3-row-${i}`,
-        start_time: i === 4 ? "garbage" : "2026-06-27T19:00:00-04:00",
+        start_time: i === 4 ? "garbage" : goodStart,
       }),
     );
     mockedFetchKennelEvents.mockResolvedValueOnce(rows);
