@@ -237,8 +237,12 @@ const COST_PATTERNS = [
 // ("West Coast 4 seasons run") is a trail theme, not a hare. "hash"/"trail" are
 // deliberately omitted so legit names like "Captain Hash" pass.
 const TITLE_HARE_THEME_SUFFIX_RE = /\b(?:run|walk|jog|ride|bike|hike)$/i;
+// `maps.app.goo.gl` is the modern Google Maps share-link host (hashnyc.com's
+// iCal feed emits these in both the DESCRIPTION "Map:" line and the URL
+// property); `goo.gl/maps` is the legacy short form. Both recognized so the
+// map pin surfaces as locationUrl.
 const MAPS_URL_PATTERN =
-  /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.com|goo\.gl\/maps)\S*/i;
+  /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.com|maps\.app\.goo\.gl|goo\.gl\/maps)\S*/i;
 
 /** Normalize ICS escape sequences in a description string. */
 function normalizeIcsDescription(description: string): string {
@@ -560,11 +564,18 @@ function parseIcsCalendar(
   }
 }
 
-/** Resolve a locationUrl from GEO field, description Maps URL, or location name search. */
+/**
+ * Resolve a locationUrl from GEO field, description Maps URL, a maps-shaped
+ * event URL property, or a location-name search — most precise first. An exact
+ * map pin (`eventMapUrl`, e.g. hashnyc's `URL:https://maps.app.goo.gl/…`) beats
+ * the name-search fallback, which is why it's threaded through here rather than
+ * left in `sourceUrl`.
+ */
 function resolveLocationUrl(
   geo: VEvent["geo"],
   location: string | undefined,
   description: string | undefined,
+  eventMapUrl?: string,
 ): string | undefined {
   if (geo) {
     const { lat, lon } = geo;
@@ -576,6 +587,7 @@ function resolveLocationUrl(
     const descUrl = extractMapsUrlFromDescription(description);
     if (descUrl) return descUrl;
   }
+  if (eventMapUrl) return eventMapUrl;
   if (location) return mapsUrl(location);
   return undefined;
 }
@@ -682,7 +694,18 @@ function buildRawEventFromVEvent(
     }
   }
 
-  const locationUrl = resolveLocationUrl(vevent.geo, location ?? undefined, description);
+  // A URL property that is itself a Google Maps link (hashnyc.com's feed) is a
+  // map pin, not an event page — route it to locationUrl and keep it out of
+  // sourceUrl. Real event-page URLs (EBH3 `URL:https://www.ebh3.com/runs/…`)
+  // don't match, so their sourceUrl behavior is unchanged.
+  const eventUrl = paramValue(vevent.url) ?? undefined;
+  const eventUrlIsMap = eventUrl ? MAPS_URL_PATTERN.test(eventUrl) : false;
+  const locationUrl = resolveLocationUrl(
+    vevent.geo,
+    location ?? undefined,
+    description,
+    eventUrlIsMap ? eventUrl : undefined,
+  );
 
   // Run number: prefer the shared `#`-delimited summary extraction (parsed),
   // then custom patterns.
@@ -765,7 +788,7 @@ function buildRawEventFromVEvent(
     startTime,
     endTime,
     cost,
-    sourceUrl: paramValue(vevent.url) ?? undefined,
+    sourceUrl: eventUrlIsMap ? undefined : eventUrl,
     endDate,
   };
 }

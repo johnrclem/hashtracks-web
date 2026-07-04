@@ -17,5 +17,6 @@ globs:
 - `docs/test-coverage-analysis.md` -- Test coverage gap analysis and priorities
 - `docs/self-healing-automation-plan.md` -- Self-healing automation loop architecture, confidence scoring, roadmap
 - `docs/residential-proxy-spec.md` -- Architecture and deployment guide for residential proxy
+- `docs/hashnyc-ical-cutover.md` -- DEFERRED cutover: HashNYC HTML scraper -> iCal feed (ready-to-apply seed + migration; resume when hashnyc.com re-launches the .ics)
 - `infra/proxy-relay/` -- NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `infra/browser-render/` -- NAS-hosted Playwright rendering service (Dockerfile + server.js)
