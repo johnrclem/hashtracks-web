@@ -376,6 +376,24 @@ export const SOURCES = [
       kennelCodes: ["bfm"],
     },
     {
+      // BFM's marquee annual events (Train Hash, Mayor's Cup, Fearadelphia
+      // campout, Marathon Beer Check, AGM) live on a separate WordPress.com page,
+      // NOT the weekly-Thursday-runs scraper above (#765). Routed to
+      // BfmSpecialEventsAdapter via the more-specific /bfm-special-events/ URL
+      // pattern (registry). `upcomingOnly` — the page shows just-passed events
+      // until the kennel resets them, so reconcile must stay future-clamped. Wide
+      // scrapeDays so a recently-past special (e.g. the June Train Hash) still
+      // ingests without the far-future AGM being clipped.
+      name: "BFM Special Events",
+      url: "https://benfranklinmob.com/bfm-special-events/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { upcomingOnly: true },
+      kennelCodes: ["bfm"],
+    },
+    {
       name: "Philly H3 Website",
       url: "https://hashphilly.com/nexthash/",
       type: "HTML_SCRAPER" as const,

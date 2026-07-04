@@ -3,6 +3,7 @@ import type { SourceAdapter } from "./types";
 import { GenericHtmlAdapter, isGenericHtmlConfig } from "./html-scraper/generic";
 import { HashNYCAdapter } from "./html-scraper/hashnyc";
 import { BFMAdapter } from "./html-scraper/bfm";
+import { BfmSpecialEventsAdapter } from "./html-scraper/bfm-special-events";
 import { HashPhillyAdapter } from "./html-scraper/hashphilly";
 import { CityHashAdapter } from "./html-scraper/city-hash";
 import { WestLondonHashAdapter } from "./html-scraper/west-london-hash";
@@ -167,6 +168,10 @@ interface HtmlScraperEntry {
 }
 
 const htmlScraperEntries: HtmlScraperEntry[] = [
+  // MORE-SPECIFIC first: the /bfm-special-events/ page is a separate WordPress.com
+  // page (marquee annual events) with its own parser; the generic benfranklinmob
+  // entry below handles the weekly Thursday runs. (#765)
+  { pattern: /benfranklinmob\.com\/bfm-special-events/i, name: "BfmSpecialEventsAdapter", factory: () => new BfmSpecialEventsAdapter() },
   { pattern: /benfranklinmob/i,          name: "BFMAdapter",          factory: () => new BFMAdapter() },
   { pattern: /hashphilly/i,              name: "HashPhillyAdapter",   factory: () => new HashPhillyAdapter() },
   { pattern: /makesweat\.com\/cityhash/i, name: "CityHashAdapter",     factory: () => new CityHashAdapter() },

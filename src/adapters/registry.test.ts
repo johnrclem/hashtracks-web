@@ -3,6 +3,7 @@ import { getAdapter } from "./registry";
 import { GenericHtmlAdapter } from "./html-scraper/generic";
 import { HashNYCAdapter } from "./html-scraper/hashnyc";
 import { BFMAdapter } from "./html-scraper/bfm";
+import { BfmSpecialEventsAdapter } from "./html-scraper/bfm-special-events";
 import { HashPhillyAdapter } from "./html-scraper/hashphilly";
 import { GoogleCalendarAdapter } from "./google-calendar/adapter";
 import { GoogleSheetsAdapter } from "./google-sheets/adapter";
@@ -52,6 +53,12 @@ describe("getAdapter", () => {
 
   it("returns BFMAdapter for benfranklinmob.com URL", () => {
     expect(getAdapter("HTML_SCRAPER", "https://benfranklinmob.com")).toBeInstanceOf(BFMAdapter);
+  });
+
+  it("routes the /bfm-special-events/ page to BfmSpecialEventsAdapter (more-specific wins)", () => {
+    const adapter = getAdapter("HTML_SCRAPER", "https://benfranklinmob.com/bfm-special-events/");
+    expect(adapter).toBeInstanceOf(BfmSpecialEventsAdapter);
+    expect(adapter).not.toBeInstanceOf(BFMAdapter);
   });
 
   it("returns HashPhillyAdapter for hashphilly.com URL", () => {
