@@ -44,7 +44,6 @@ Config-only HARRIER_CENTRAL, last run recent enough to pass the recently-active 
 | **Rio Full Moon H3** | RFMH3 | `98a6791b-0514-4d0b-969c-f43d24e83413` | Brazil — Rio sibling (same metro as above) | 2026-05-30 | 1 | Onboard with/after Rio H3; 0 extra region edits. |
 | **Cairneyhill H3** | CH3-GB | `6108b51b-123e-4568-8d68-ea295bac0789` | Scotland/Fife (Edinburgh live) | 2026-04-12 | 6 | Likely reuse a Fife/Edinburgh metro. 🔴 code `ch3` taken → suffix. |
 | **Nuremberg H3** | NH3-DE | `5d397fbf-0b8a-46a1-83a5-b3e34435170b` | Germany — new Nuremberg METRO | 2026-03-14 | 10 | 🔴 code `nh3` taken (Newcastle) → suffix. Confirm cadence. |
-| **Yorkshire H3** | YH3 | `5ee2d8ec-57a4-4461-ae5c-bcf0de3f4ce0` | England — new Yorkshire/Leeds METRO | 2026-02-22 | 5 | ~4.5mo since last run → **confirm recently-active at handoff**. |
 
 ## Bucket B — Genuine, but STALE (re-check recency before onboarding)
 
@@ -75,6 +74,7 @@ Many are **new countries** and worth re-checking on every refill.
 | Bow Valley H3 | BVH3 | `641fb4ec-887a-4ae9-bca9-c7e3f33d0963` | Canada — Alberta (Calgary live) | 2024-09-14 | 1 |
 | Mengo H3 | MH3-UG | `a74266de-b164-40c3-a365-65f7c09e0022` | **Uganda** (= the Kampala verify-first lead's country; Mengo = Kampala) | 2024-11-22 | 2 |
 | CoMoTION H3 | CoMoH3 | `1d7ebbe8-641c-4c91-8d32-32a536ecc81e` | US — Columbia MO (new metro) | 2025-06-27 | 1 |
+| Yorkshire H3 | YH3 | `5ee2d8ec-57a4-4461-ae5c-bcf0de3f4ce0` | England — new Yorkshire/Leeds METRO | 2026-02-22 | 5 |
 
 ## Bucket C — UK/Ireland regional (well-covered region; lower priority)
 
@@ -122,7 +122,7 @@ Pranburi (`PSH3-TH`, handed off) · Belgrade EER (`BEERH3`) · Lune Valley (`LVH
 
 ## Recommended next move
 
-Instead of one kennel/day, run a **single batch PR** for Bucket A (7 config-only HC kennels, all
+Instead of one kennel/day, run a **single batch PR** for Bucket A (6 config-only HC kennels, all
 recently active, mirroring the 2026-07-01 batch-of-10 pattern) — Prague is a new country, the rest are
 new metros in covered countries. Then sweep Bucket B on each refill (re-checking recency), prioritising
 the **new countries** (Czechia already in A; then DR, Sierra Leone, Suriname, Antigua, Ethiopia, Nigeria,
