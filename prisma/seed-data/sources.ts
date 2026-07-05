@@ -4112,6 +4112,33 @@ export const SOURCES = [
       },
       kennelCodes: ["twh3-tw"],
     },
+    // --- Fengyuan (FISHHH) — Harrier Central public API (Taichung) ---
+    {
+      name: "Fengyuan H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live via the HC adapter +
+        // hashruns.org/api/global-runs 2026-07-03 — last run #22 2026-06-19,
+        // irregular cadence, first run #1 2022-08-07).
+        publicKennelId: "b66324a8-80a1-41b6-8c78-3a86111a4de0",
+        defaultKennelTag: "fishhh",
+        // FISHHH names events "FISHHH #N - <theme>" (real names, kept verbatim).
+        // defaultTitle synthesizes "Fengyuan H3 #N" only when an event name is
+        // empty or a known placeholder appears (mirrors Bandung / Taiwan H3).
+        defaultTitle: "Fengyuan H3",
+        staleTitleAliases: ["Placeholder event for FISHHH"],
+        // upcomingOnly:true — this source owns a one-shot 20-run historical backfill
+        // (scripts/backfill-fishhh-history.ts). The HC getEvents API is future-only,
+        // so without this guard reconcile.ts would false-CANCEL the aged past runs as
+        // they age off the 365-day window (timeMin guard — same contract as Bandung).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["fishhh"],
+    },
     {
       name: "Taipei Hash Run List",
       url: "https://www.taipeihash.com.tw/run_site.php",
