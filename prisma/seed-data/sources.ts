@@ -7846,5 +7846,33 @@ export const SOURCES = [
       },
       kennelCodes: ["barbados-h3"],
     },
+    // Serbia — first 🇷🇸 kennel; Harrier Central public API (config-only).
+    {
+      name: "BEER H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live 2026-07-04 via
+        // hashruns.org/api/global-runs — upcoming #571 "Libeerators of Belgrade",
+        // 2026-07-04 15:00 Belgrade). HC's KennelIANATimezone is Europe/Warsaw for
+        // this kennel — a data quirk; the seeded Belgrade metro is Europe/Belgrade.
+        publicKennelId: "3dc748a7-1d2a-4b7f-9478-8bab10817477",
+        defaultKennelTag: "beerh3",
+        // BEER H3 names events with real themes ("Libeerators of Belgrade",
+        // "Pan Jugo Hash 2026") kept verbatim; defaultTitle synthesizes "BEER H3 #N"
+        // only for empty/placeholder names (mirrors Bandung / Barbados).
+        defaultTitle: "BEER H3",
+        staleTitleAliases: ["Placeholder event for BEER H3"],
+        // upcomingOnly:true — this source owns a one-shot 2-run historical backfill
+        // (scripts/backfill-beerh3-history.ts). The HC getEvents API is future-only,
+        // so without this guard reconcile.ts would false-CANCEL the aged past runs as
+        // they age off the 365-day window (timeMin guard — same contract as Bandung).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["beerh3"],
+    },
   ];
 

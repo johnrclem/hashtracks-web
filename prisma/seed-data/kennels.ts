@@ -5866,5 +5866,22 @@ export const KENNELS: KennelSeed[] = [
       latitude: 13.0975, // Bridgetown / capital anchor (runs are island-wide; no per-event coords published)
       longitude: -59.6167,
     },
+    {
+      kennelCode: "beerh3", // bare code clear; only unrelated beerspoke-h3 exists
+      shortName: "BEER H3", // >4 chars → toSlug("BEER H3") = "beer-h3"; a backronym (Belgrade Eastern European Revival)
+      fullName: "Belgrade Eastern European Revival Hash House Harriers",
+      region: "Belgrade",
+      country: "Serbia", // canonical NAME — code "RS" lives in region.ts
+      // No website/socials: Harrier Central-only kennel (KennelWebsiteDomain empty). The only
+      // Belgrade FB group found belongs to a DIFFERENT Belgrade kennel. Blank + flagged.
+      // Schedule varies per run (Sat/Fri/Sun across the sampled runs) — flat fields omitted;
+      // per-run times flow from the Harrier Central feed.
+      scheduleNotes: "Day and time vary per run; announced by the hares via Harrier Central.",
+      // foundedYear intentionally omitted (unverifiable — deep run # but no primary source year).
+      hashCash: "RSD 350 (members) / RSD 500 (non-members)", // HC EventPrice fields; currency inferred RSD — flagged
+      logoUrl: "/kennel-logos/beerh3.avif", // self-hosted from HC blob; ext confirmed by magic bytes (ftypavif)
+      latitude: 44.8125,
+      longitude: 20.4612,
+    },
   ];
 

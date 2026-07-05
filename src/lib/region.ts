@@ -2042,6 +2042,34 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -59.6167,
     aliases: ["Bridgetown, Barbados"],
   },
+  // ── Serbia (first 🇷🇸 kennel: BEER H3, Belgrade) — 2-level COUNTRY→METRO,
+  //    mirrors the Barbados/Cambodia precedent (no seed.ts stateMetroLinks). Red
+  //    palette (Serbian flag) — no adjacent seeded country uses red (Germany=yellow,
+  //    Austria=teal, Hungary=orange). tz Europe/Belgrade (HC feed's Europe/Warsaw
+  //    is a data quirk — same offset, canonical zone must be Belgrade). ──
+  {
+    name: "Serbia",
+    country: "Serbia",
+    level: "COUNTRY",
+    timezone: "Europe/Belgrade",
+    abbrev: "RS",
+    colorClasses: "bg-red-200 text-red-800",
+    pinColor: "#dc2626",
+    centroidLat: 44.02,
+    centroidLng: 21.01,
+    aliases: ["Serbia", "Srbija"],
+  },
+  {
+    name: "Belgrade",
+    country: "Serbia",
+    timezone: "Europe/Belgrade",
+    abbrev: "BEG",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 44.8125,
+    centroidLng: 20.4612,
+    aliases: ["Belgrade, Serbia", "Beograd"],
+  },
   // ── Vietnam (first 🇻🇳 kennel: Saigon H3, Ho Chi Minh City) — 2-level
   //    COUNTRY→METRO, mirrors the Poland/Nepal/Cambodia precedent (no seed.ts
   //    stateMetroLinks needed). Cyan palette — distinct from every SE-Asia
@@ -3882,6 +3910,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // Barbados — country + capital. Both tokens are unambiguous; inferCountry() is
   // first-match with USA as the default fallthrough.
   [/\b(barbados|bridgetown)\b/, "Barbados"],
+  // Serbia — country name + native spelling only. "belgrade" is OMITTED because it
+  // doubles as US place names (Belgrade, MT / Belgrade, ME); "serbia"/"beograd" are
+  // unambiguous. inferCountry() is first-match with USA as the default fallthrough.
+  [/\b(serbia|srbija|beograd)\b/, "Serbia"],
   // Vietnam — country (+ native) + the two unambiguous metros. None collide with
   // common US place names; inferCountry() is first-match with USA as the default
   // fallthrough. Including "hanoi" also serves the Hanoi H3 sibling onboarding.
@@ -4142,6 +4174,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Phnom Penh": "Cambodia",
   // Barbados
   "Bridgetown": "Barbados",
+  // Serbia
+  "Belgrade": "Serbia",
   // Vietnam
   "Ho Chi Minh City": "Vietnam",
   "Hanoi": "Vietnam",
@@ -4388,6 +4422,9 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Barbados — metro "Bridgetown" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Barbados" is reachable here (mirrors the Cambodia precedent).
   "Barbados": "Barbados",
+  // Serbia — metro "Belgrade" resolves via STATE_GROUP_MAP first, so only the
+  // country-group key "Serbia" is reachable here (mirrors the Barbados precedent).
+  "Serbia": "Serbia",
   // Vietnam — metro "Ho Chi Minh City" resolves via STATE_GROUP_MAP first, so only
   // the country-group key "Vietnam" is reachable here (mirrors the Cambodia precedent).
   "Vietnam": "Vietnam",
@@ -4528,6 +4565,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   NP: "Nepal",
   KH: "Cambodia",
   BB: "Barbados",
+  RS: "Serbia",
   VN: "Vietnam",
   LK: "Sri Lanka",
   IN: "India",
