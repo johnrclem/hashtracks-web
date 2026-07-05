@@ -7334,6 +7334,32 @@ export const SOURCES = [
       },
       kennelCodes: ["h2fmh3"],
     },
+    // --- Pranburi (PSH3-TH) — Harrier Central public API (Hua Hin cluster) ---
+    {
+      name: "Pranburi H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live via the HC adapter +
+        // hashruns.org/api/global-runs 2026-07-02 — #5 Sun 2026-06-07 16:30, monthly).
+        publicKennelId: "e717ca00-fdc4-4e3f-a90d-7faab04adbe9",
+        defaultKennelTag: "psh3-th",
+        // HC names events "Pranburi hash #N" (kennel-name + run-number, inconsistent case),
+        // kept verbatim. defaultTitle synthesizes "Pranburi H3 #N" only when an event name
+        // is empty or a known placeholder appears (mirrors Bandung/h2fmh3).
+        defaultTitle: "Pranburi H3",
+        staleTitleAliases: ["Placeholder event for PSH3-TH"],
+        // upcomingOnly:true — this source owns a one-shot historical backfill
+        // (scripts/backfill-psh3-th-history.ts). The HC getEvents API is future-only,
+        // so without this guard reconcile.ts would false-CANCEL the aged past runs as
+        // they age off the 365-day window (timeMin guard — same contract as Bandung).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["psh3-th"],
+    },
     // ─── HC config-only batch (10 kennels) — mirror Bandung/h2fmh3 ───
     // All carry upcomingOnly:true: the HC getEvents API is future-only, so without
     // it reconcile.ts false-CANCELs each kennel's past runs as they age off the

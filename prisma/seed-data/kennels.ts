@@ -4767,6 +4767,20 @@ export const KENNELS: KennelSeed[] = [
       latitude: 12.59, longitude: 99.93,
     },
     {
+      kennelCode: "psh3-th", shortName: "Pranburi H3", fullName: "Pranburi Hash House Harriers",
+      // No explicit slug — toSlug("Pranburi H3") = "pranburi-h3". Bare "psh3" is Puget Sound H3
+      // (Seattle) — this is region-suffixed to avoid it; do NOT set shortName to HC's "PSH3".
+      region: "Hua Hin", country: "Thailand", // Pranburi ~25km south of Hua Hin — grouped under the Hua Hin metro (as h2fmh3).
+      // website/socials intentionally omitted — no verified dynamic own-site (Harrier Central-only).
+      logoUrl: "/kennel-logos/psh3-th.avif", // self-hosted from HC blob; ext confirmed by magic bytes (ftypavif)
+      scheduleDayOfWeek: "Sunday", scheduleTime: "4:30 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "Monthly Sunday afternoon trail (~16:15 gather for 16:30 start) in Pranburi, just south of Hua Hin.",
+      hashCash: "฿200 members / ฿100 non-members", // HC #4 & #5 (members>non-members is unusual — flagged, sibling cah3 is ฿100)
+      foundedYear: 2026, // inferred from run #5 (Jun 2026) on a monthly cadence — new kennel
+      description: "Pranburi Hash House Harriers runs monthly on Sunday afternoons in Pranburi, just south of Hua Hin on Thailand's Prachuap Khiri Khan coast — bamboo trails, pineapple fields and sea-view viewpoints, with an on-after at a local lakeside restaurant. A new kennel started in 2026 by the same full-moon 'Moonies' crew behind the area's other trails.",
+      latitude: 12.36, longitude: 99.97,
+    },
+    {
       kennelCode: "crh3", shortName: "Chiang Rai H3", fullName: "Chiang Rai Hash House Harriers",
       region: "Chiang Rai", country: "Thailand",
       website: "https://chiangraihhh.blogspot.com",
