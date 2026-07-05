@@ -3424,6 +3424,22 @@ export const KENNELS: KennelSeed[] = [
       website: "https://www.kaohsiunghash.com",
       latitude: 22.6273, longitude: 120.3014,
     },
+    {
+      kennelCode: "fishhh", shortName: "Fengyuan H3", fullName: "Fengyuan Irregular Sunday Hash House Harriers",
+      // No explicit slug — toSlug("Fengyuan H3") = "fengyuan-h3". The HC acronym "FISHHH" is
+      // kept as an alias (Bandung "BHHH2" → "Bandung H3" precedent). Taiwan's 5th metro (Taichung).
+      region: "Taichung", country: "Taiwan",
+      foundedYear: 2022, // verified: HC run #1 = 2022-08-07
+      scheduleDayOfWeek: "Sunday", // nominal ("Irregular Sunday"); actual days/times genuinely vary
+      scheduleFrequency: "Irregular",
+      scheduleNotes: "Irregular cadence — nominally Sunday but actual run days and times vary (roughly monthly, with gaps of 1–6 months). Per-run details flow from Harrier Central.",
+      hashCash: "NT$300", // HC fee field 300/300; currency inferred TWD (Taiwan). Occasional FREE specials.
+      // website/socials: none found (Harrier Central-only kennel). The older Taichung H3
+      // (taichunghash.com, Saturdays, est. 1998) is a DIFFERENT kennel — do not attribute here.
+      logoUrl: "/kennel-logos/fishhh.png", // self-hosted from HC blob; ext confirmed by magic bytes (PNG)
+      description: "An irregular-cadence Hash House Harriers kennel in Fengyuan, Taichung, Taiwan — running roughly monthly on Sundays (times vary) since 2022.",
+      latitude: 24.2545, longitude: 120.7188,
+    },
 
     // ── China: Shanghai (HashTracks' first mainland-China kennel) ──
     {

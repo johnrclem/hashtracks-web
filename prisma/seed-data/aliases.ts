@@ -394,6 +394,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "nth3-tw": ["New Taipei Hash", "New Taipei Hash House Harriers", "New Taipei HHH", "NTH3", "NewTaipei Hash House Harriers", "新北捷兔"],
     // Omit bare "KHHH" (= kampong-h3, Singapore) and "KH3" (= kowloon-h3, HK) — both taken in the global resolver namespace.
     "kaohsiung-h3": ["Kaohsiung Hash", "Kaohsiung Hash House Harriers", "Kaohsiung HHH", "高雄捷兔"],
+    "fishhh": ["FISHHH", "Fengyuan Irregular Sunday H3", "Fengyuan Irregular H3"],
 
     // ===== CHINA =====
     // Bare "SHH3" omitted — already claimed by Singapore Harriets (sgharriets) and would
