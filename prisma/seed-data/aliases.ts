@@ -685,5 +685,6 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== BARBADOS ===== (first Caribbean kennel; bare "BH3" omitted —
     // global collision: bh3=Boulder/Buffalo)
     "barbados-h3": ["Barbados H3", "Barbados Hash House Harriers", "Barbados Hash"],
+    "beerh3": ["BEER H3", "BEERH3", "Belgrade EER H3", "Belgrade Eastern European Revival H3", "Belgrade Hash", "Beograd Hash"],
   };
 

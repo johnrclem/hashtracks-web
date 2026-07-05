@@ -306,6 +306,26 @@ describe("inferCountry — Barbados (first 🇧🇧 / first Caribbean kennel)", 
   });
 });
 
+describe("inferCountry — Serbia (first 🇷🇸 kennel: BEER H3, Belgrade)", () => {
+  it.each([
+    ["Serbia", "Serbia"],
+    ["Belgrade, Serbia", "Serbia"],
+    ["Beograd", "Serbia"],
+    ["Srbija", "Serbia"],
+  ])("infers %s → Serbia", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+
+  it.each([
+    // bare "belgrade" doubles as US towns (Belgrade, MT / Belgrade, ME) — it is
+    // deliberately OMITTED from the Serbia rule, so these fall through to the USA default.
+    ["Belgrade, MT"],
+    ["Belgrade, Maine"],
+  ])("does NOT misroute bare US Belgrade %s → USA", (name) => {
+    expect(inferCountry(name)).toBe("USA");
+  });
+});
+
 describe("inferCountry — Vietnam (first 🇻🇳 kennel)", () => {
   it.each([
     ["Ho Chi Minh City", "Vietnam"],

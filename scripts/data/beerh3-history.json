@@ -1,0 +1,35 @@
+[
+  {
+    "date": "2026-03-01",
+    "kennelTags": ["beerh3"],
+    "title": "Sausage Fest Aftermath",
+    "runNumber": 550,
+    "startTime": "14:00",
+    "hares": "Gary Fists Patrick",
+    "location": "Belgrade",
+    "latitude": 44.799162,
+    "longitude": 20.450218
+  },
+  {
+    "date": "2026-05-01",
+    "kennelTags": ["beerh3"],
+    "title": "Pan Jugo Hash 2026",
+    "runNumber": 570,
+    "startTime": "18:30",
+    "hares": "Gary Fists Patrick and more...",
+    "location": "Belgrade, Serbia",
+    "latitude": 44.81936,
+    "longitude": 20.47416
+  },
+  {
+    "date": "2026-07-04",
+    "kennelTags": ["beerh3"],
+    "title": "Libeerators of Belgrade",
+    "runNumber": 571,
+    "startTime": "15:00",
+    "hares": "Gary Fists Patrick",
+    "location": "Liberating beers in Belgrade, Serbia",
+    "latitude": 44.81107907086622,
+    "longitude": 20.4853002282959
+  }
+]
