@@ -1,0 +1,21 @@
+[
+  {
+    "date": "2026-05-10",
+    "kennelTags": ["psh3-th"],
+    "title": "Pranburi Hash #4",
+    "runNumber": 4,
+    "startTime": "16:30",
+    "hares": "Penny lame, knockout neptune",
+    "location": "Pranburi central",
+    "latitude": 12.359534671365676,
+    "longitude": 99.9666479856192
+  },
+  {
+    "date": "2026-06-07",
+    "kennelTags": ["psh3-th"],
+    "title": "Pranburi hash #5",
+    "runNumber": 5,
+    "startTime": "16:30",
+    "location": "Tap Thai lake"
+  }
+]
