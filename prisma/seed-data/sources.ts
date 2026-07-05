@@ -7421,6 +7421,27 @@ export const SOURCES = [
       kennelCodes: ["newcastle-h3"],
     },
     {
+      name: "Lune Valley H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8, scrapeFreq: "daily", scrapeDays: 365,
+      config: {
+        // GUID verified live 2026-07-05 via hashruns.org/api/global-runs —
+        // upcoming #944 "LVH3 #944: Ings" 2026-07-12 11:00, Watermill Inn, Ings.
+        publicKennelId: "400f5862-2279-416e-970f-96143165e924",
+        defaultKennelTag: "lvh3-gb",
+        // HC event names are shortcode-form ("LVH3 #944: Ings") kept verbatim;
+        // defaultTitle synthesizes "Lune Valley H3 #N" only for empty/placeholder names.
+        defaultTitle: "Lune Valley H3",
+        staleTitleAliases: ["Placeholder event for LVH3"],
+        // upcomingOnly:true — this source owns a deep historical backfill
+        // (scripts/backfill-lvh3-gb-history.ts). The HC getEvents API is future-only,
+        // so without this guard reconcile.ts would false-CANCEL the aged past runs.
+        upcomingOnly: true,
+      },
+      kennelCodes: ["lvh3-gb"],
+    },
+    {
       name: "Aberdeen H3 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
       type: "HARRIER_CENTRAL" as const,

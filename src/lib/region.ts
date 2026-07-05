@@ -1594,6 +1594,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     aliases: ["Newcastle upon Tyne", "Newcastle, England"],
   },
   {
+    name: "Lancaster",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "LNC", // "LAN" is taken by Lansing, MI
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 54.05,
+    centroidLng: -2.8,
+    aliases: ["Lancaster, England", "Lune Valley", "South Cumbria"],
+  },
+  {
     name: "Plymouth",
     country: "UK",
     timezone: "Europe/London",
@@ -4134,6 +4145,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Bristol": "United Kingdom",
   "Newcastle": "United Kingdom",
   "Plymouth": "United Kingdom",
+  "Lancaster": "United Kingdom",
   "Norfolk": "United Kingdom",
   "Liverpool": "United Kingdom",
   "Birmingham": "United Kingdom",

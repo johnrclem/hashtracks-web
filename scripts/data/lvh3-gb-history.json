@@ -1,0 +1,2781 @@
+[
+  {
+    "date": "2020-01-10",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #728: Carnforth",
+    "runNumber": 729,
+    "startTime": "19:00",
+    "hares": "Large Package",
+    "location": "Pine Lake, Carnforth",
+    "latitude": 54.140888,
+    "longitude": -2.752074
+  },
+  {
+    "date": "2020-01-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #729: Scout Scar",
+    "runNumber": 730,
+    "startTime": "11:00",
+    "hares": "Lurch, Morticia",
+    "location": "Car park below Cunswick Scar on the Kendal to Underbarrow Road, Underbarrow",
+    "latitude": 54.324567,
+    "longitude": -2.787762
+  },
+  {
+    "date": "2020-01-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #730: Giggleswick",
+    "runNumber": 731,
+    "startTime": "11:00",
+    "hares": "Minor Twat, Sir Tom Tom, Wears the Soap",
+    "location": "Craven Arms, Giggleswick",
+    "latitude": 54.061934,
+    "longitude": -2.301283
+  },
+  {
+    "date": "2020-02-09",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #731: Caton-on-Lune",
+    "runNumber": 732,
+    "startTime": "11:00",
+    "hares": "Antiseptic, Cyberseptic",
+    "location": "Septics, Caton",
+    "latitude": 54.073967,
+    "longitude": -2.715372
+  },
+  {
+    "date": "2020-02-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #732: Caton",
+    "runNumber": 733,
+    "startTime": "11:00",
+    "hares": "Baldbrick",
+    "location": "Station Hotel, Caton",
+    "latitude": 54.076022,
+    "longitude": -2.717496
+  },
+  {
+    "date": "2020-03-08",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #733: Hale",
+    "runNumber": 734,
+    "startTime": "11:00",
+    "hares": "Antiseptic, Cyberseptic",
+    "location": "The Tavern, Hale",
+    "latitude": 54.200982,
+    "longitude": -2.760851
+  },
+  {
+    "date": "2020-03-09",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #734: Bare",
+    "runNumber": 735,
+    "startTime": "19:00",
+    "hares": "Large Package",
+    "location": "Dog & Partridge, Morecambe",
+    "latitude": 54.077207,
+    "longitude": -2.83804
+  },
+  {
+    "date": "2020-03-22",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #735: Calder Vale",
+    "runNumber": 736,
+    "startTime": "11:00",
+    "hares": "Bitter, Twisted",
+    "location": "Calder Vale Club Car Park, Calder Vale",
+    "latitude": 53.903998,
+    "longitude": -2.716655
+  },
+  {
+    "date": "2020-07-05",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #736: Littledale",
+    "runNumber": 737,
+    "startTime": "11:00",
+    "hares": "Antiseptic, Cyberseptic",
+    "location": "The Cross, Littledale",
+    "latitude": 54.062424,
+    "longitude": -2.68704
+  },
+  {
+    "date": "2020-07-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #737: Sandside",
+    "runNumber": 738,
+    "startTime": "09:30",
+    "hares": "Hard Astern, Ready About",
+    "location": "Roadside parking just near the Tarmac Quarry, Sandside",
+    "latitude": 54.222583,
+    "longitude": -2.796398
+  },
+  {
+    "date": "2020-08-09",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #738: Dolphinholme",
+    "runNumber": 739,
+    "startTime": "10:00",
+    "hares": "Lurch, Morticia",
+    "location": "Village Hall, Dolphinholme",
+    "latitude": 53.973474,
+    "longitude": -2.739016
+  },
+  {
+    "date": "2020-08-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #739: Bentham",
+    "runNumber": 740,
+    "startTime": "09:30",
+    "hares": "Sir Tom Tom, Wears the Soap",
+    "location": "Main Car Park, High Bentham",
+    "latitude": 54.118758,
+    "longitude": -2.510596
+  },
+  {
+    "date": "2020-09-13",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #740: Aughton",
+    "runNumber": 741,
+    "startTime": "11:00",
+    "hares": "Major Twit, Minor Twat",
+    "location": "Aughton Village Hall Car Park, Aughton, Lancaster",
+    "latitude": 54.102003,
+    "longitude": -2.690379
+  },
+  {
+    "date": "2020-11-04",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #741: Cinderbarrow",
+    "runNumber": 742,
+    "startTime": "11:00",
+    "hares": "First Class Stomp, Large Package",
+    "location": "Cinderbarrow picnic site, Yealand Redmayne",
+    "latitude": 54.175954,
+    "longitude": -2.745772
+  },
+  {
+    "date": "2020-11-22",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #742: Overton",
+    "runNumber": 743,
+    "startTime": "08:00",
+    "hares": "Forever Blowing",
+    "location": "Globe, Overton",
+    "latitude": 54.014147,
+    "longitude": -2.865959
+  },
+  {
+    "date": "2020-12-13",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #743: Carnforth",
+    "runNumber": 744,
+    "startTime": "08:00",
+    "hares": "Antiseptic, Cyberseptic",
+    "location": "Carnforth Cenotaph, Carnforth",
+    "latitude": 54.129244,
+    "longitude": -2.769441
+  },
+  {
+    "date": "2020-12-27",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #744: Witherslack",
+    "runNumber": 745,
+    "startTime": "11:00",
+    "hares": "Dormouse, Speedbump",
+    "location": "Derby Arms, Witherslack",
+    "latitude": 54.2394,
+    "longitude": -2.858661
+  },
+  {
+    "date": "2020-12-30",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #745: Nether Kellet",
+    "runNumber": 746,
+    "startTime": "15:58",
+    "hares": "Hard Astern, Ready About",
+    "location": "Parking area next to M6 (we've used it for a number of beer stops), Nether Kellet",
+    "latitude": 54.106271,
+    "longitude": -2.765622
+  },
+  {
+    "date": "2021-03-29",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #746: Morecambe",
+    "runNumber": 747,
+    "startTime": "11:00",
+    "hares": "Large Package",
+    "location": "Happy Mount Car Park, Morecambe",
+    "latitude": 54.082365,
+    "longitude": -2.834704
+  },
+  {
+    "date": "2021-04-04",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #747: Silverdale",
+    "runNumber": 748,
+    "startTime": "10:00",
+    "hares": "Bedside Manner, Cotside Manner, Thunder Dick",
+    "location": "Eaves Wood National Trust Car Park, Silverdale",
+    "latitude": 54.17649,
+    "longitude": -2.811592
+  },
+  {
+    "date": "2021-04-11",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #748: Littledale",
+    "runNumber": 749,
+    "startTime": "11:00",
+    "hares": "Upperskirt",
+    "location": "The Cross, Littledale",
+    "latitude": 54.062424,
+    "longitude": -2.68704
+  },
+  {
+    "date": "2021-04-25",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #749: Leasgill",
+    "runNumber": 750,
+    "startTime": "11:00",
+    "hares": "Chapped Lips, Late Cummer",
+    "location": "Athenaeum car park, Leasgill",
+    "latitude": 54.24973,
+    "longitude": -2.774307
+  },
+  {
+    "date": "2021-04-27",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #750: Priest Hutton",
+    "runNumber": 751,
+    "startTime": "06:00",
+    "hares": "Fiddler on the Hoof, Sir Tom Tom",
+    "location": "Borwick & Priest Hutton Memorial Hall car park, Priest Hutton",
+    "latitude": 54.154881,
+    "longitude": -2.721479
+  },
+  {
+    "date": "2021-05-09",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #751: High Bentham",
+    "runNumber": 752,
+    "startTime": "10:30",
+    "hares": "Sir Tom Tom, Wears the Soap",
+    "location": "Town Hall car park, High Bentham",
+    "latitude": 54.117538,
+    "longitude": -2.509557
+  },
+  {
+    "date": "2021-05-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #752: Grange-over-Sands",
+    "runNumber": 753,
+    "startTime": "11:00",
+    "hares": "Large Package",
+    "location": "Berners Close Car Park, Grange over Sands",
+    "latitude": 54.187356,
+    "longitude": -2.914272
+  },
+  {
+    "date": "2021-05-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #753: Halton",
+    "runNumber": 754,
+    "startTime": "19:00",
+    "hares": "Antiseptic, Cyberseptic",
+    "location": "Denny Beck car park, Denny Beck",
+    "latitude": 54.074742,
+    "longitude": -2.761216
+  },
+  {
+    "date": "2021-06-13",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #754: Brock",
+    "runNumber": 755,
+    "startTime": "11:00",
+    "hares": "Bitter, Twisted",
+    "location": "Rockform Tiles & Interiors, Brock",
+    "latitude": 53.857642,
+    "longitude": -2.74457
+  },
+  {
+    "date": "2021-06-24",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #755: Lancaster",
+    "runNumber": 756,
+    "startTime": "19:00",
+    "hares": "Sharp Intake, Special Delivery",
+    "location": "Williamson Park Quernmore Road, Lancaster",
+    "latitude": 54.047833,
+    "longitude": -2.781749
+  },
+  {
+    "date": "2021-06-27",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #756: Botton",
+    "runNumber": 757,
+    "startTime": "11:00",
+    "hares": "Forever Blowing, Major Twit, Racey Miss",
+    "location": "Lower House Farm, Botton-near-Wray",
+    "latitude": 54.087132,
+    "longitude": -2.555483
+  },
+  {
+    "date": "2021-07-11",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #757: Leasgill",
+    "runNumber": 758,
+    "startTime": "11:00",
+    "hares": "Chapped Lips, Late Cummer",
+    "location": "Athenaeum car park, Leasgill",
+    "latitude": 54.24973,
+    "longitude": -2.774307
+  },
+  {
+    "date": "2021-07-24",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #758: Ingleton",
+    "runNumber": 759,
+    "startTime": "16:00",
+    "hares": "Sir Tom Tom",
+    "location": "Low Demesne, Ingleton",
+    "latitude": 54.150499,
+    "longitude": -2.469124
+  },
+  {
+    "date": "2021-07-25",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #759: Kirkby Lonsdale",
+    "runNumber": 760,
+    "startTime": "11:00",
+    "hares": "Baldbrick",
+    "location": "Car park north side of Devils Bridge, Kirkby Lonsdale",
+    "latitude": 54.198625,
+    "longitude": -2.592124
+  },
+  {
+    "date": "2021-08-08",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #760: Oxen Park",
+    "runNumber": 761,
+    "startTime": "11:00",
+    "hares": "Bubbles, Forever Blowing",
+    "location": "Oxen Park Reading Room, Oxen Park",
+    "latitude": 54.277278,
+    "longitude": -3.049759
+  },
+  {
+    "date": "2021-08-22",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #761: Sizergh",
+    "runNumber": 762,
+    "startTime": "11:00",
+    "hares": "Hard Astern, Ready About, Sir Tom Tom",
+    "location": "Sizergh Castle car park, Sizergh",
+    "latitude": 54.282478,
+    "longitude": -2.773348
+  },
+  {
+    "date": "2021-09-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #762: Beetham",
+    "runNumber": 763,
+    "startTime": "11:00",
+    "hares": "Antiseptic, Cyberseptic",
+    "location": "War Memorial, Beetham",
+    "latitude": 54.2096,
+    "longitude": -2.7732
+  },
+  {
+    "date": "2021-09-21",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #763: Burton in Lonsdale",
+    "runNumber": 764,
+    "startTime": "18:30",
+    "hares": "Sir Tom Tom, Wears the Soap",
+    "location": "Bentham Moor Rd., Burton-in-Lonsdale",
+    "latitude": 54.142603,
+    "longitude": -2.529738
+  },
+  {
+    "date": "2021-09-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #764: Orton",
+    "runNumber": 765,
+    "startTime": "11:00",
+    "hares": "Racey Miss, Willy Wonky",
+    "location": "Kennedy's Chocolates, Orton",
+    "latitude": 54.467948,
+    "longitude": -2.584662
+  },
+  {
+    "date": "2021-10-10",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #765: Jubilee Tower",
+    "runNumber": 766,
+    "startTime": "11:00",
+    "hares": "Major Twit, Minor Twat",
+    "location": "Jubilee Tower car park, Abbeystead",
+    "latitude": 54.009998,
+    "longitude": -2.699917
+  },
+  {
+    "date": "2021-10-20",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #766: Lancaster",
+    "runNumber": 767,
+    "startTime": "19:00",
+    "hares": "Forever Blowing, Major Twit",
+    "location": "Dalton Square, Lancaster",
+    "latitude": 54.047851,
+    "longitude": -2.7977
+  },
+  {
+    "date": "2021-10-22",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #767: Eskdale",
+    "runNumber": 768,
+    "startTime": "19:00",
+    "hares": "Wears the Soap",
+    "location": "YHA Eskdale, Holmrook, Boot",
+    "latitude": 54.398814,
+    "longitude": -3.241396
+  },
+  {
+    "date": "2021-10-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #768: Eskdale",
+    "runNumber": 769,
+    "startTime": "11:00",
+    "hares": "Lurch, Morticia",
+    "location": "Layby on south side of Forge Bridge, near Eskdale Green",
+    "latitude": 54.38396,
+    "longitude": -3.312104
+  },
+  {
+    "date": "2021-10-24",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #769: Grizebeck AGPU",
+    "runNumber": 770,
+    "startTime": "11:00",
+    "hares": "Large Package",
+    "location": "The Greyhound Inn, Grizebeck",
+    "latitude": 54.25519,
+    "longitude": -3.170205
+  },
+  {
+    "date": "2021-11-14",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #770: Winster",
+    "runNumber": 771,
+    "startTime": "11:00",
+    "hares": "Cyberseptic, Fiddler on the Hoof",
+    "location": "Brown Horse, Winster",
+    "latitude": 54.334046,
+    "longitude": -2.89593
+  },
+  {
+    "date": "2021-11-19",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #771: Halton",
+    "runNumber": 772,
+    "startTime": "19:00",
+    "hares": "Major Twit, Racey Miss, Upperskirt",
+    "location": "The Greyhound, Halton",
+    "latitude": 54.07687266745517,
+    "longitude": -2.76124681320028
+  },
+  {
+    "date": "2021-11-28",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #772: Levens",
+    "runNumber": 773,
+    "startTime": "11:00",
+    "hares": "Chapped Lips, Late Cummer",
+    "location": "Blue Bell Woods, Levens",
+    "latitude": 54.28163678444154,
+    "longitude": -2.786505155117943
+  },
+  {
+    "date": "2021-12-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #773: Hornby",
+    "runNumber": 774,
+    "startTime": "11:00",
+    "hares": "Exhibitionist, Glassy Lady",
+    "location": "Royal Oak, Hornby",
+    "latitude": 54.112764792338005,
+    "longitude": -2.637362743718312
+  },
+  {
+    "date": "2021-12-19",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #774: Leasgill",
+    "runNumber": 775,
+    "startTime": "11:00",
+    "hares": "Chapped Lips, Late Cummer",
+    "location": "Chapped Lips & Late Cummer's place, Leasgill",
+    "latitude": 54.2496218153263,
+    "longitude": -2.774602539577061
+  },
+  {
+    "date": "2021-12-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #775: Churchtown",
+    "runNumber": 776,
+    "startTime": "11:00",
+    "hares": "Bitter, Twisted",
+    "location": "Horns Inn, Churchtown",
+    "latitude": 53.880560917715805,
+    "longitude": -2.787548568888807
+  },
+  {
+    "date": "2022-01-09",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #776: High Bentham",
+    "runNumber": 777,
+    "startTime": "11:00",
+    "hares": "Sir Tom Tom, Wears the Soap",
+    "location": "Town Hall car park, High Bentham",
+    "latitude": 54.11755988418482,
+    "longitude": -2.509350859678841
+  },
+  {
+    "date": "2022-01-17",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #777: Brookhouse",
+    "runNumber": 778,
+    "startTime": "19:00",
+    "hares": "Off His Trolley & White Noise",
+    "location": "Fishermen's car park, Holme Lane, Brookhouse",
+    "latitude": 54.078304804717234,
+    "longitude": -2.706313064589275
+  },
+  {
+    "date": "2022-01-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #778: Staveley",
+    "runNumber": 779,
+    "startTime": "11:00",
+    "hares": "Hard Astern & Ready About",
+    "location": "Eagle & Child, Staveley",
+    "latitude": 54.374871668881056,
+    "longitude": -2.814227875511251
+  },
+  {
+    "date": "2022-02-13",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #779: Galgate",
+    "runNumber": 780,
+    "startTime": "11:00",
+    "hares": "First Class Stomp & Large Package",
+    "location": "Ellel Village Hall, Galgate",
+    "latitude": 53.99001718903664,
+    "longitude": -2.792217625578024
+  },
+  {
+    "date": "2022-02-16",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #780: Hest Bank",
+    "runNumber": 781,
+    "startTime": "19:00",
+    "hares": "Lurch & Morticia",
+    "location": "Shore car park, Hest Bank",
+    "latitude": 54.092315243574525,
+    "longitude": -2.814494606834839
+  },
+  {
+    "date": "2022-02-27",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #781: Haverthwaite",
+    "runNumber": 782,
+    "startTime": "11:00",
+    "hares": "Dormouse & Speedbump",
+    "location": "Angler's Arms, Haverthwaite",
+    "latitude": 54.24791557838963,
+    "longitude": -3.002579748860122
+  },
+  {
+    "date": "2022-03-13",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #782: Bowland Bridge",
+    "runNumber": 783,
+    "startTime": "11:00",
+    "hares": "Hard Astern & Ready About",
+    "location": "Hare & Hounds, Bowland Bridge",
+    "latitude": 54.2986663573715,
+    "longitude": -2.895804218832271
+  },
+  {
+    "date": "2022-03-18",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #783: Silverdale",
+    "runNumber": 784,
+    "startTime": "19:00",
+    "hares": "Lurch",
+    "location": "Silverdale Hotel, Silverdale",
+    "latitude": 54.166846869026045,
+    "longitude": -2.828849756452765
+  },
+  {
+    "date": "2022-03-27",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #784: Low Bentham",
+    "runNumber": 785,
+    "startTime": "11:00",
+    "hares": "Sir Tom Tom & Wears the Soap",
+    "location": "Harley Bank car park, Low Bentham",
+    "latitude": 54.118700481701765,
+    "longitude": -2.535718502762548
+  },
+  {
+    "date": "2022-04-10",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #785: Littledale",
+    "runNumber": 786,
+    "startTime": "11:00",
+    "hares": "Baldbrick",
+    "location": "Baine's Crag, Littledale",
+    "latitude": 54.050200407724745,
+    "longitude": -2.695913151753702
+  },
+  {
+    "date": "2022-04-16",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #786: Ingleton",
+    "runNumber": 787,
+    "startTime": "16:00",
+    "hares": "Sir Tom Tom",
+    "location": "Low Desmesne",
+    "latitude": 54.150531987031385,
+    "longitude": -2.469132474667944
+  },
+  {
+    "date": "2022-04-24",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #787: River Lune",
+    "runNumber": 788,
+    "startTime": "11:00",
+    "hares": "Bubbles & Forever Blowing",
+    "location": "Bubbles & Forever Blowing's place, Caton Green",
+    "latitude": 54.08141133251643,
+    "longitude": -2.688839231367484
+  },
+  {
+    "date": "2022-05-08",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #788: Nether Burrow",
+    "runNumber": 789,
+    "startTime": "11:00",
+    "hares": "Antiseptic & Cyberseptic",
+    "location": "The Highwayman, Nether Burrow",
+    "latitude": 54.17121778013983,
+    "longitude": -2.593216972820272
+  },
+  {
+    "date": "2022-05-16",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #789: Kirkby Lonsdale",
+    "runNumber": 790,
+    "startTime": "19:00",
+    "hares": "Exhibitionist & Glassy Lady",
+    "location": "Booth's car park, Kirkby Lonsdale",
+    "latitude": 54.20135650037489,
+    "longitude": -2.60044392160754
+  },
+  {
+    "date": "2022-05-22",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #790: Underbarrow",
+    "runNumber": 791,
+    "startTime": "11:00",
+    "hares": "Chapped Lips & Late Cummer",
+    "location": "Car park below Cunswick Scar on the Underbarrow road.",
+    "latitude": 54.3249216115024,
+    "longitude": -2.787837235114191
+  },
+  {
+    "date": "2022-06-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #791: Windermere",
+    "runNumber": 792,
+    "startTime": "11:00",
+    "hares": "Off His Trolley, White Noise",
+    "location": "Brookside Inn, Windermere",
+    "latitude": 54.373889869738186,
+    "longitude": -2.907020777466767
+  },
+  {
+    "date": "2022-06-14",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #792: Abbeystead",
+    "runNumber": 793,
+    "startTime": "18:30",
+    "hares": "First Class Stomp & Large Package",
+    "location": "Car park at the junction of Strait Lane and Doeholme Road",
+    "latitude": 53.983444018936595,
+    "longitude": -2.667100597574537
+  },
+  {
+    "date": "2022-06-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #793: Winmarleigh",
+    "runNumber": 794,
+    "startTime": "11:00",
+    "hares": "Pleasant, Plucker, Twisted",
+    "location": "Patten Arms, Winmarleigh",
+    "latitude": 53.935055772076666,
+    "longitude": -2.795131583497464
+  },
+  {
+    "date": "2022-07-10",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #794: Leasgill",
+    "runNumber": 795,
+    "startTime": "11:00",
+    "hares": "Chapped Lips & Late Cummer",
+    "location": "CL and LC's place, Leasgill.",
+    "latitude": 54.2496214213473,
+    "longitude": -2.774606346105133
+  },
+  {
+    "date": "2022-07-13",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #795: Hest Bank",
+    "runNumber": 796,
+    "startTime": "19:00",
+    "hares": "Hard Astern, Ready About",
+    "location": "Hest Bank Hotel",
+    "latitude": 54.090115063055045,
+    "longitude": -2.811887783211656
+  },
+  {
+    "date": "2022-07-24",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #796: Wennington",
+    "runNumber": 797,
+    "startTime": "11:00",
+    "hares": "Baldbrick & Upperskirt",
+    "location": "Station car park, Wennington",
+    "latitude": 54.1237353,
+    "longitude": -2.5878552
+  },
+  {
+    "date": "2022-08-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #797: Hornby",
+    "runNumber": 798,
+    "startTime": "18:30",
+    "hares": "Sir Tom Tom",
+    "location": "Main car park in Hornby",
+    "latitude": 54.1094158,
+    "longitude": -2.6361202
+  },
+  {
+    "date": "2022-08-14",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #798: Sedbergh",
+    "runNumber": 799,
+    "startTime": "11:00",
+    "hares": "Antiseptic, Cyberseptic",
+    "location": "Picnic site layby, Sedbergh",
+    "latitude": 54.3222947,
+    "longitude": -2.5167049
+  },
+  {
+    "date": "2022-08-28",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #799: Over Kellet",
+    "runNumber": 800,
+    "startTime": "11:00",
+    "hares": "Exhibitionist, Glassy Lady",
+    "location": "Village green near the crossroads at Over Kellet",
+    "latitude": 54.1239896,
+    "longitude": -2.7356593
+  },
+  {
+    "date": "2022-09-10",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #800: High Bentham",
+    "runNumber": 801,
+    "startTime": "16:00",
+    "hares": "Wears the Soap",
+    "location": "Town Hall Car Park, Station Road, High Bentham"
+  },
+  {
+    "date": "2022-09-11",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH #801: Barbon",
+    "runNumber": 802,
+    "startTime": "11:00",
+    "hares": "Fiddler on the Hoof, Large Package",
+    "location": "Barbon Village Hall",
+    "latitude": 54.2353356,
+    "longitude": -2.5721633
+  },
+  {
+    "date": "2022-09-16",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #803: Weekend away: Sandyhills",
+    "runNumber": 803,
+    "startTime": "16:45",
+    "hares": "Chapped Lips, Late Cummer",
+    "location": "Barend Holiday Lodge 9, Sandyhills",
+    "latitude": 54.885016870303204,
+    "longitude": -3.742344749098224
+  },
+  {
+    "date": "2022-09-17",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #804: Weekend away: Kippford",
+    "runNumber": 804,
+    "startTime": "09:30",
+    "hares": "Chapped Lips & Late Cummer",
+    "location": "Barend Holiday Lodge 9, Sandyhills",
+    "latitude": 54.88494604892656,
+    "longitude": -3.742372166034545
+  },
+  {
+    "date": "2022-09-18",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #805: Weekend away: Colvend",
+    "runNumber": 805,
+    "startTime": "10:00",
+    "hares": "Chapped Lips & Late Cummer",
+    "location": "Barend Holiday Lodge 9, Sandyhills",
+    "latitude": 54.884949526332534,
+    "longitude": -3.742400933773556
+  },
+  {
+    "date": "2022-09-25",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #806: Milnthorpe AGPU",
+    "runNumber": 806,
+    "startTime": "11:00",
+    "hares": "Chapped Lips, Late Cummer",
+    "location": "The Square, Milnthorpe",
+    "latitude": 54.2267456,
+    "longitude": -2.7721786
+  },
+  {
+    "date": "2022-10-09",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #807: Silverdale",
+    "runNumber": 807,
+    "startTime": "11:00",
+    "hares": "Lurch, Morticia",
+    "location": "The Silverdale Hotel, Shore Road, Silverdale",
+    "latitude": 54.1667814,
+    "longitude": -2.8289218
+  },
+  {
+    "date": "2022-10-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #808: Force Mills",
+    "runNumber": 808,
+    "startTime": "11:00",
+    "hares": "Dormouse, Speedbump",
+    "location": "Blind Lane Car Park, Force Mills"
+  },
+  {
+    "date": "2022-11-08",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #809: Garstang",
+    "runNumber": 809,
+    "startTime": "19:00",
+    "hares": "Bitter, Plucker, Twisted",
+    "location": "Royal Oak Hotel, Garstang"
+  },
+  {
+    "date": "2022-11-13",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #810: Gressingham",
+    "runNumber": 810,
+    "startTime": "11:00",
+    "hares": "Forever Blowing, Major Twit",
+    "location": "Loyne Bridge, near Gressingham",
+    "latitude": 54.121841918068604,
+    "longitude": -2.642450459496566
+  },
+  {
+    "date": "2022-11-27",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #811: Burton in Kendal",
+    "runNumber": 811,
+    "startTime": "11:00",
+    "hares": "First Class Stomp, Large Package",
+    "location": "Plain Quarry car park, Burton-in-Kendal",
+    "latitude": 54.1792797,
+    "longitude": -2.6875083
+  },
+  {
+    "date": "2022-12-08",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #812: Bolton-le-Sands",
+    "runNumber": 812,
+    "startTime": "18:30",
+    "hares": "Antiseptic, Cyberseptic",
+    "location": "Royal Hotel, Bolton-le-Sands",
+    "latitude": 54.1085843,
+    "longitude": -2.7884505
+  },
+  {
+    "date": "2022-12-11",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #813: Conder Green",
+    "runNumber": 813,
+    "startTime": "11:00",
+    "hares": "Fiddler on the Hoof, Sir Tom Tom",
+    "location": "The Stork, Conder Green",
+    "latitude": 53.9972672,
+    "longitude": -2.8258116
+  },
+  {
+    "date": "2022-12-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #814: Garstang",
+    "runNumber": 814,
+    "startTime": "12:30",
+    "hares": "Bitter, Twisted",
+    "location": "Bellflower, Garstang",
+    "latitude": 53.9001668,
+    "longitude": -2.7880219
+  },
+  {
+    "date": "2023-01-06",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #815: Lancaster",
+    "runNumber": 815,
+    "startTime": "19:00",
+    "hares": "Wears the Soap",
+    "location": "Aqueduct car park, Caton Road, Lancaster",
+    "latitude": 54.06682843437163,
+    "longitude": -2.784932028894196
+  },
+  {
+    "date": "2023-01-08",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #816: Scotforth",
+    "runNumber": 816,
+    "startTime": "11:00",
+    "hares": "Off His Trolley, White Noise",
+    "location": "Boot & Shoe, Scotforth",
+    "latitude": 54.027741975352484,
+    "longitude": -2.79508054755641
+  },
+  {
+    "date": "2023-01-22",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #817: Langcliffe",
+    "runNumber": 817,
+    "startTime": "11:00",
+    "hares": "Exhibitionist, Glassy Lady",
+    "location": "Pike Lane car park, Langcliffe",
+    "latitude": 54.0813391,
+    "longitude": -2.2719891
+  },
+  {
+    "date": "2023-02-05",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #818: Oxenholme",
+    "runNumber": 818,
+    "startTime": "11:00",
+    "hares": "Hard Astern, Ready About",
+    "location": "Station Inn, Oxenholme",
+    "latitude": 54.3035103,
+    "longitude": -2.7150037
+  },
+  {
+    "date": "2023-02-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #819: Whitbarrow",
+    "runNumber": 819,
+    "startTime": "11:00",
+    "hares": "Chapped Lips, Late Cummer",
+    "location": "Raven's Lodge, Whitbarrow",
+    "latitude": 54.2610577,
+    "longitude": -2.8286606
+  },
+  {
+    "date": "2023-02-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #820: Warton",
+    "runNumber": 820,
+    "startTime": "11:00",
+    "hares": "Bedside Manner, Cotside Manner, Thunder Dick",
+    "location": "Warton Crag Car Park",
+    "latitude": 54.1443338311967,
+    "longitude": -2.779363604892795
+  },
+  {
+    "date": "2023-03-07",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #821: Lancaster",
+    "runNumber": 821,
+    "startTime": "18:30",
+    "hares": "Off His Trolley & White Noise",
+    "location": "Fox & Goose, Lancaster",
+    "latitude": 54.03106167720459,
+    "longitude": -2.78190822390078
+  },
+  {
+    "date": "2023-03-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #822: Hornby",
+    "runNumber": 822,
+    "startTime": "11:00",
+    "hares": "Baldbrick",
+    "location": "Main Car Park, Hornby",
+    "latitude": 54.1094033,
+    "longitude": -2.6361397
+  },
+  {
+    "date": "2023-03-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #823: Caton",
+    "runNumber": 823,
+    "startTime": "11:00",
+    "hares": "Antiseptic & Cyberseptic",
+    "location": "The Septic's, Caton",
+    "latitude": 54.074019340051734,
+    "longitude": -2.715407715922805
+  },
+  {
+    "date": "2023-04-06",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #824: Conder Green",
+    "runNumber": 824,
+    "startTime": "18:30",
+    "hares": "Sir Tom Tom",
+    "location": "Stork Inn, Conder Green",
+    "latitude": 53.9971985,
+    "longitude": -2.8258094
+  },
+  {
+    "date": "2023-04-09",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #825: Lawkland/Feizor",
+    "runNumber": 825,
+    "startTime": "11:00",
+    "hares": "Wears the Soap",
+    "location": "What Three Words location - pronouns.pines.salt",
+    "latitude": 54.0890488,
+    "longitude": -2.3191486
+  },
+  {
+    "date": "2023-04-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #826: Garstang",
+    "runNumber": 826,
+    "startTime": "11:00",
+    "hares": "Big Dibber & Motor Gnome",
+    "location": "High Street car park, Garstang",
+    "latitude": 53.9025627,
+    "longitude": -2.773392
+  },
+  {
+    "date": "2023-05-05",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #827: Cabus",
+    "runNumber": 827,
+    "startTime": "18:15",
+    "hares": "Bitter & Twisted",
+    "location": "Claylands Caravan Park, Garstang",
+    "latitude": 53.9301408723063,
+    "longitude": -2.768662240089614
+  },
+  {
+    "date": "2023-05-14",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #828: Farleton & Holme",
+    "runNumber": 828,
+    "startTime": "11:00",
+    "location": "TBA"
+  },
+  {
+    "date": "2023-05-28",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #829: Clapham",
+    "runNumber": 829,
+    "startTime": "11:00",
+    "location": "TBA",
+    "latitude": 54.12406903356475,
+    "longitude": -2.422700540396552
+  },
+  {
+    "date": "2023-06-04",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #830: Tewitfield",
+    "runNumber": 830,
+    "startTime": "17:00",
+    "hares": "Exhibitionist, Glassy Lady",
+    "location": "Longlands Hotel, Tewitfield",
+    "latitude": 54.1567245,
+    "longitude": -2.7367992
+  },
+  {
+    "date": "2023-06-11",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #831: Sedgwick",
+    "runNumber": 831,
+    "startTime": "11:00",
+    "hares": "Dormouse, Speedbump",
+    "location": "Near bridge on Nannypie Lane, Sedgwick",
+    "latitude": 54.2746061,
+    "longitude": -2.7582868
+  },
+  {
+    "date": "2023-06-25",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #832: Chipping",
+    "runNumber": 832,
+    "startTime": "11:00",
+    "hares": "First Class Stomp & Large Package",
+    "location": "Chipping Car Park, Chipping",
+    "latitude": 53.884585,
+    "longitude": -2.5776497
+  },
+  {
+    "date": "2023-07-03",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #833: Caton Green",
+    "runNumber": 833,
+    "startTime": "19:00",
+    "hares": "Bubbles & Forever Blowing",
+    "location": "Bubbles & Forever Blowing's, Caton Green.",
+    "latitude": 54.0815017079143,
+    "longitude": -2.688785723004743
+  },
+  {
+    "date": "2023-07-09",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #834: Leasgill",
+    "runNumber": 834,
+    "startTime": "11:00",
+    "hares": "Chapped Lips, Late Cummer",
+    "location": "CL and LC's place, Leasgill",
+    "latitude": 54.249676693366546,
+    "longitude": -2.774564283507088
+  },
+  {
+    "date": "2023-07-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #835: Lindale",
+    "runNumber": 835,
+    "startTime": "11:00",
+    "hares": "Hard Astern, Ready About",
+    "location": "The Royal Oak, Lindale",
+    "latitude": 54.2179889,
+    "longitude": -2.9014122
+  },
+  {
+    "date": "2023-08-01",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #836: Helsington",
+    "runNumber": 836,
+    "startTime": "18:00",
+    "hares": "Sir Tom Tom & Wears the Soap",
+    "location": "St John's Church, Helsington",
+    "latitude": 54.2934412,
+    "longitude": -2.7873638
+  },
+  {
+    "date": "2023-08-13",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #837: St Michael's on Wyre",
+    "runNumber": 837,
+    "startTime": "11:00",
+    "hares": "Bitter & Twisted",
+    "location": "The Grapes, St Michael's on Wyre",
+    "latitude": 53.8641660414831,
+    "longitude": -2.820476346727452
+  },
+  {
+    "date": "2023-08-27",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #838: High Bentham",
+    "runNumber": 838,
+    "startTime": "11:00",
+    "hares": "Sir Tom Tom, Wears the Soap",
+    "location": "1922 Bar at Bentham Golf Club",
+    "latitude": 54.12420839364137,
+    "longitude": -2.507693324863458
+  },
+  {
+    "date": "2023-08-31",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #839: Halton",
+    "runNumber": 839,
+    "startTime": "18:00",
+    "hares": "Upperskirt",
+    "location": "TBA",
+    "latitude": 54.07686318723395,
+    "longitude": -2.761369407479148
+  },
+  {
+    "date": "2023-09-10",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #840: Beetham",
+    "runNumber": 840,
+    "startTime": "11:00",
+    "hares": "Chapped Lips, Late Cummer",
+    "location": "Heron Corn Mill, Beetham",
+    "latitude": 54.21311408712505,
+    "longitude": -2.77416241643379
+  },
+  {
+    "date": "2023-09-24",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #841: Caton",
+    "runNumber": 841,
+    "startTime": "11:00",
+    "hares": "Baldbrick",
+    "location": "Station Hotel, Caton",
+    "latitude": 54.07598070239647,
+    "longitude": -2.717766886082152
+  },
+  {
+    "date": "2023-09-29",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #842: Caton",
+    "runNumber": 842,
+    "startTime": "18:30",
+    "hares": "Sir Tom Tom",
+    "location": "Station Hotel, Caton",
+    "latitude": 54.07601217882758,
+    "longitude": -2.717800718667385
+  },
+  {
+    "date": "2023-10-08",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #843: Gressingham",
+    "runNumber": 843,
+    "startTime": "11:00",
+    "hares": "Forever Blowing",
+    "location": "Loyne Bridge, Gressingham",
+    "latitude": 54.1218559,
+    "longitude": -2.6424517
+  },
+  {
+    "date": "2023-10-22",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #844: Melling",
+    "runNumber": 844,
+    "startTime": "11:00",
+    "hares": "Exhibitionist, Glassy Lady",
+    "location": "Layby at Melling Primary School",
+    "latitude": 54.1349596,
+    "longitude": -2.6101558
+  },
+  {
+    "date": "2023-10-28",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #845: Bolton-le-Sands",
+    "runNumber": 845,
+    "startTime": "17:00",
+    "hares": "Hard Astern, Ready About",
+    "location": "Royal Hotel, Bolton-le-Sands",
+    "latitude": 54.10853618637372,
+    "longitude": -2.788338081315183
+  },
+  {
+    "date": "2023-11-03",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #846: Hawes",
+    "runNumber": 846,
+    "startTime": "15:00",
+    "hares": "Lurch, Morticia",
+    "location": "YHA, Hawes",
+    "latitude": 54.303582754664454,
+    "longitude": -2.203835348234129
+  },
+  {
+    "date": "2023-11-04",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #847: Hawes",
+    "runNumber": 847,
+    "startTime": "11:00",
+    "hares": "First Class Stomp, Large Package",
+    "location": "Market Place, Hawes",
+    "latitude": 54.30416949250885,
+    "longitude": -2.199101521657099
+  },
+  {
+    "date": "2023-11-05",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #848: Bainbridge",
+    "runNumber": 848,
+    "startTime": "11:00",
+    "hares": "Dormouse, Speedbump",
+    "location": "Village Green, Bainbridge",
+    "latitude": 54.30707749812982,
+    "longitude": -2.103266353260576
+  },
+  {
+    "date": "2023-11-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #849: Pilling",
+    "runNumber": 849,
+    "startTime": "11:00",
+    "hares": "First Class Stomp, Large Package",
+    "location": "Lane Ends Amenity Area, Pilling",
+    "latitude": 53.9376633,
+    "longitude": -2.8925995
+  },
+  {
+    "date": "2023-11-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH #850: Wray",
+    "runNumber": 850,
+    "startTime": "11:00",
+    "hares": "Antiseptic, Cyberseptic",
+    "location": "Hindburn Bridge, Wray",
+    "latitude": 54.1062949,
+    "longitude": -2.6065022
+  },
+  {
+    "date": "2023-11-27",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #851: Bolton-le-Sands",
+    "runNumber": 851,
+    "startTime": "19:00",
+    "hares": "Off His Trolley, White Noise",
+    "location": "TBA",
+    "latitude": 54.104795760256636,
+    "longitude": -2.79211796951784
+  },
+  {
+    "date": "2023-12-10",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH #852: Whitbarrow AGPU",
+    "runNumber": 852,
+    "startTime": "11:00",
+    "hares": "Dormouse, Speedbump",
+    "location": "Raven's Lodge, Whitbarrow",
+    "latitude": 54.2606916,
+    "longitude": -2.8290689
+  },
+  {
+    "date": "2023-12-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #853: Garstang",
+    "runNumber": 853,
+    "startTime": "11:00",
+    "hares": "Bitter, Twisted",
+    "location": "Th'Owd Tithebarn, Garstang.",
+    "latitude": 53.8985152,
+    "longitude": -2.7779292
+  },
+  {
+    "date": "2024-01-14",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #854: Hale",
+    "runNumber": 854,
+    "startTime": "11:00",
+    "hares": "Bedtime Stories, Big Fish, Spare Bed, Spare Rib",
+    "location": "The Tavern, Hale",
+    "latitude": 54.2008833,
+    "longitude": -2.7608225
+  },
+  {
+    "date": "2024-01-25",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #855: Ingleton",
+    "runNumber": 855,
+    "startTime": "18:45",
+    "hares": "Sir Tom Tom",
+    "location": "Low Demesne, Ingleton",
+    "latitude": 54.1505554,
+    "longitude": -2.4691736
+  },
+  {
+    "date": "2024-01-28",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #856: Fulwood",
+    "runNumber": 856,
+    "startTime": "11:00",
+    "hares": "Big Dibber, Motor Gnome",
+    "location": "Anderton Arms, Fulwood",
+    "latitude": 53.7865535,
+    "longitude": -2.6730386
+  },
+  {
+    "date": "2024-02-11",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #857: Bouth",
+    "runNumber": 857,
+    "startTime": "11:00",
+    "hares": "Hard Astern, Ready About",
+    "location": "White Hart, Bouth",
+    "latitude": 54.2617509,
+    "longitude": -3.0322657
+  },
+  {
+    "date": "2024-02-24",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #858: Ingleton",
+    "runNumber": 858,
+    "startTime": "16:00",
+    "hares": "Sir Tom Tom, Wears the Soap",
+    "location": "Low Demesne, Ingleton",
+    "latitude": 54.15047,
+    "longitude": -2.4691409
+  },
+  {
+    "date": "2024-02-25",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH #859: Abbeystead",
+    "runNumber": 859,
+    "startTime": "11:00",
+    "hares": "Fiddler on the Hoof, Large Package",
+    "location": "Car park by Stoops Bridge, Strait Lane, Abbeystead",
+    "latitude": 53.9836001,
+    "longitude": -2.6669035
+  },
+  {
+    "date": "2024-03-10",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #860: Leasgill",
+    "runNumber": 860,
+    "startTime": "11:00",
+    "hares": "Chapped Lips, Late Cummer",
+    "location": "Athenaeum car park, Leasgill",
+    "latitude": 54.2498682,
+    "longitude": -2.7743905
+  },
+  {
+    "date": "2024-03-24",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #861: Lancaster",
+    "runNumber": 861,
+    "startTime": "11:00",
+    "hares": "Antiseptic, Cyberseptic",
+    "location": "Lancaster Brewery, Wyresdale Road",
+    "latitude": 54.0394087,
+    "longitude": -2.7811395
+  },
+  {
+    "date": "2024-03-25",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #862: Halton",
+    "runNumber": 862,
+    "startTime": "18:30",
+    "hares": "Off His Trolley, White Noise",
+    "location": "Denny Beck Car Park",
+    "latitude": 54.0747766,
+    "longitude": -2.7609624
+  },
+  {
+    "date": "2024-04-14",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #863: Underbarrow",
+    "runNumber": 863,
+    "startTime": "11:00",
+    "hares": "Hard Astern, Ready About",
+    "location": "Underbarrow Road car park",
+    "latitude": 54.3247166,
+    "longitude": -2.786033
+  },
+  {
+    "date": "2024-04-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #864: Silverdale",
+    "runNumber": 864,
+    "startTime": "18:30",
+    "hares": "Lurch, Morticia",
+    "location": "Shore Road, Silverdale",
+    "latitude": 54.1666064,
+    "longitude": -2.8296789
+  },
+  {
+    "date": "2024-04-28",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #865: Barton",
+    "runNumber": 865,
+    "startTime": "11:00",
+    "hares": "Big Dibber",
+    "location": "Barton Village Hall, A6, Barton",
+    "latitude": 53.8363927,
+    "longitude": -2.7382446
+  },
+  {
+    "date": "2024-05-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #866: Caton",
+    "runNumber": 866,
+    "startTime": "11:00",
+    "hares": "Major Twit, Upperskirt",
+    "location": "Station Hotel, Caton",
+    "latitude": 54.07599847696593,
+    "longitude": -2.717668934297748
+  },
+  {
+    "date": "2024-05-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #867: Winmarleigh",
+    "runNumber": 867,
+    "startTime": "18:30",
+    "hares": "Pleasant, Twisted",
+    "location": "Patten Arms, Winmarleigh",
+    "latitude": 53.9350366,
+    "longitude": -2.7950916
+  },
+  {
+    "date": "2024-05-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #868: Bowston",
+    "runNumber": 868,
+    "startTime": "11:00",
+    "hares": "First Class Stomp, Large Package",
+    "location": "On road parking",
+    "latitude": 54.360161,
+    "longitude": -2.7931432
+  },
+  {
+    "date": "2024-06-09",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #869: Caton",
+    "runNumber": 869,
+    "startTime": "11:00",
+    "hares": "Baldbrick, Upperskirt",
+    "location": "Station Hotel, Caton",
+    "latitude": 54.0760514,
+    "longitude": -2.7172716
+  },
+  {
+    "date": "2024-06-22",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #870: High Bentham",
+    "runNumber": 870,
+    "startTime": "16:30",
+    "hares": "Sir Tom Tom, Wears the Soap",
+    "location": "Black Bull car park, High Bentham",
+    "latitude": 54.1175025,
+    "longitude": -2.5094975
+  },
+  {
+    "date": "2024-06-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #871: Knott End",
+    "runNumber": 871,
+    "startTime": "11:00",
+    "hares": "Large Package",
+    "location": "Knott End car park",
+    "latitude": 53.9276906,
+    "longitude": -2.9969328
+  },
+  {
+    "date": "2024-07-14",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #872: Melling",
+    "runNumber": 872,
+    "startTime": "11:00",
+    "hares": "Forever Blowing, Major Twit",
+    "location": "Gillison Close, Melling",
+    "latitude": 54.1352142,
+    "longitude": -2.6151708
+  },
+  {
+    "date": "2024-07-21",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #873: Lancaster",
+    "runNumber": 873,
+    "startTime": "11:00",
+    "hares": "Off His Trolley, White Noise",
+    "location": "White Cross, Lancaster",
+    "latitude": 54.04475541777837,
+    "longitude": -2.797360521521036
+  },
+  {
+    "date": "2024-07-28",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #874: Crooklands",
+    "runNumber": 874,
+    "startTime": "11:00",
+    "hares": "Hard Astern, Ready About",
+    "location": "Layby on A65 by the canal bridge near Crooklands, Crooklands",
+    "latitude": 54.2377685,
+    "longitude": -2.7095698
+  },
+  {
+    "date": "2024-08-11",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #875: Leasgill",
+    "runNumber": 875,
+    "startTime": "11:00",
+    "hares": "Chapped Lips, Late Cummer",
+    "location": "TBA"
+  },
+  {
+    "date": "2024-08-19",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #876: Sizergh",
+    "runNumber": 876,
+    "startTime": "18:30",
+    "hares": "Lurch, Morticia",
+    "location": "Strickland Arms, Sizergh",
+    "latitude": 54.2785817,
+    "longitude": -2.7688189
+  },
+  {
+    "date": "2024-08-25",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #877: Hutton Roof",
+    "runNumber": 877,
+    "startTime": "11:00",
+    "hares": "First Class Stomp, Large Package",
+    "location": "Village Hall, Hutton Roof",
+    "latitude": 54.2017012,
+    "longitude": -2.6604415
+  },
+  {
+    "date": "2024-09-08",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #878: Littledale",
+    "runNumber": 878,
+    "startTime": "11:00",
+    "hares": "Major Twit, Upperskirt",
+    "location": "Baines Crag car parking",
+    "latitude": 54.05000382769975,
+    "longitude": -2.69361000962365
+  },
+  {
+    "date": "2024-09-18",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #879: Galgate",
+    "runNumber": 879,
+    "startTime": "18:30",
+    "hares": "Sir Tom Tom",
+    "location": "The Plough, Galgate",
+    "latitude": 53.9895239,
+    "longitude": -2.790132
+  },
+  {
+    "date": "2024-09-22",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #880: Tewitfield",
+    "runNumber": 880,
+    "startTime": "11:00",
+    "hares": "Bedtime Stories, Big Fish, Spare Bed, Spare Rib",
+    "location": "Longlands Hotel, Tewitfield",
+    "latitude": 54.1569064,
+    "longitude": -2.7359511
+  },
+  {
+    "date": "2024-10-13",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #881: Clapham",
+    "runNumber": 881,
+    "startTime": "11:00",
+    "hares": "Baldbrick",
+    "location": "National Park Car Park, Clapham",
+    "latitude": 54.1183708,
+    "longitude": -2.3908151
+  },
+  {
+    "date": "2024-10-17",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #882: Torrisholme",
+    "runNumber": 882,
+    "startTime": "18:00",
+    "hares": "First Class Stomp, Large Package",
+    "location": "Torrisholme Square, Torrisholme",
+    "latitude": 54.0667997,
+    "longitude": -2.8305955
+  },
+  {
+    "date": "2024-10-27",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #883: Warton AGPU",
+    "runNumber": 883,
+    "startTime": "16:00",
+    "hares": "Antiseptic, Cyberseptic, Feels on Wheels",
+    "location": "George Washington, Warton",
+    "latitude": 54.1449879,
+    "longitude": -2.7693047
+  },
+  {
+    "date": "2024-11-10",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #884: Over Kellet",
+    "runNumber": 884,
+    "startTime": "13:00",
+    "hares": "Forever Blowing",
+    "location": "Eagles Head, Over Kellet",
+    "latitude": 54.1229012,
+    "longitude": -2.735825
+  },
+  {
+    "date": "2024-11-17",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #885: Warton Crag",
+    "runNumber": 885,
+    "startTime": "11:00",
+    "hares": "Lurch, Morticia",
+    "location": "Warton Crag car park",
+    "latitude": 54.1443862,
+    "longitude": -2.7794306
+  },
+  {
+    "date": "2024-11-24",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #886: Force Mills",
+    "runNumber": 886,
+    "startTime": "11:00",
+    "hares": "Dormouse, Speedbump",
+    "location": "Blind Lane Car Park, Force Mills",
+    "latitude": 54.3125482,
+    "longitude": -3.0109714
+  },
+  {
+    "date": "2024-12-08",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #887: Holme",
+    "runNumber": 887,
+    "startTime": "11:00",
+    "hares": "Hard Astern, Ready About",
+    "location": "Layby on Moss Lane, Holme",
+    "latitude": 54.2018333,
+    "longitude": -2.73603
+  },
+  {
+    "date": "2024-12-15",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #888: Brookhouse",
+    "runNumber": 888,
+    "startTime": "12:30",
+    "hares": "Fiddler on the Hoof, Sir Tom Tom",
+    "location": "Fiddlers House, 14 Moorside Road, Brookhouse",
+    "latitude": 54.073527,
+    "longitude": -2.7003388
+  },
+  {
+    "date": "2024-12-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #889: St Michael's on Wyre",
+    "runNumber": 889,
+    "startTime": "12:00",
+    "hares": "Bitter, Twisted",
+    "location": "The Grapes, St Michael's on Wyre",
+    "latitude": 53.8641524,
+    "longitude": -2.8204817
+  },
+  {
+    "date": "2025-01-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #890: Ingleton",
+    "runNumber": 890,
+    "startTime": "11:00",
+    "hares": "Lurch, Morticia",
+    "location": "Quarry parking on B6255 on the road to Ribblehead",
+    "latitude": 54.1558916,
+    "longitude": -2.4562395
+  },
+  {
+    "date": "2025-01-13",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #891: Brookhouse",
+    "runNumber": 891,
+    "startTime": "19:00",
+    "hares": "Off His Trolley, White Noise",
+    "location": "Car park at the junction of Holme Lane and the A683, Brookhouse.",
+    "latitude": 54.0783131,
+    "longitude": -2.7063214
+  },
+  {
+    "date": "2025-01-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #892: Arnside",
+    "runNumber": 892,
+    "startTime": "11:00",
+    "hares": "Bedtime Stories, Big Fish, Spare Bed, Spare Rib",
+    "location": "Ye Olde Fighting Cocks, Arnside",
+    "latitude": 54.203384123161136,
+    "longitude": -2.833000167088058
+  },
+  {
+    "date": "2025-02-09",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #893: Dalton",
+    "runNumber": 893,
+    "startTime": "11:00",
+    "hares": "Hard Astern, Ready About",
+    "location": "Plain Quarry car park, Dalton Lane near Burton in Kendal",
+    "latitude": 54.17960904478309,
+    "longitude": -2.687328082531599
+  },
+  {
+    "date": "2025-02-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #894: Halton",
+    "runNumber": 894,
+    "startTime": "18:00",
+    "hares": "Baldbrick, Upperskirt",
+    "location": "The Greyhound, Halton",
+    "latitude": 54.07685812058398,
+    "longitude": -2.761350322497014
+  },
+  {
+    "date": "2025-02-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #895: Holme",
+    "runNumber": 895,
+    "startTime": "11:00",
+    "hares": "Bedtime Stories, Big Fish, Spare Bed, Spare Rib",
+    "location": "Motorway flyover on the Burton Road (B6384)",
+    "latitude": 54.198819553783395,
+    "longitude": -2.723727479408686
+  },
+  {
+    "date": "2025-03-09",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #896: Caton",
+    "runNumber": 896,
+    "startTime": "11:00",
+    "hares": "None",
+    "location": "Station Hotel, Caton"
+  },
+  {
+    "date": "2025-03-14",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #897: Hest Bank",
+    "runNumber": 897,
+    "startTime": "18:30",
+    "hares": "Sir Tom Tom",
+    "location": "The Hest Bank",
+    "latitude": 54.0900040069899,
+    "longitude": -2.811828438971833
+  },
+  {
+    "date": "2025-03-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #898: Ayside",
+    "runNumber": 898,
+    "startTime": "11:00",
+    "hares": "First Class Stomp, Large Package",
+    "location": "Meet at Dead end section of old road near Staveley-in-Cartmel",
+    "latitude": 54.2566582,
+    "longitude": -2.9474057
+  },
+  {
+    "date": "2025-04-13",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #899: Wray",
+    "runNumber": 899,
+    "startTime": "11:00",
+    "hares": "Fiddler on the Hoof, Sir Tom Tom",
+    "location": "Meal Bank Bridge, Wray",
+    "latitude": 54.105871008886346,
+    "longitude": -2.606376136251492
+  },
+  {
+    "date": "2025-04-27",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #900: Nicky Nook",
+    "runNumber": 900,
+    "startTime": "11:00",
+    "hares": "First Class Stomp, Large Package, Special Delivery",
+    "location": "Applestore Cafe, Scorton"
+  },
+  {
+    "date": "2025-05-11",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #901: Hurst Green",
+    "runNumber": 901,
+    "startTime": "11:00",
+    "hares": "Hard Astern, Ready About",
+    "location": "Village Hall car park, Hurst Green",
+    "latitude": 53.83913498463184,
+    "longitude": -2.481064041882904
+  },
+  {
+    "date": "2025-05-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #902: Kirkby Lonsdale",
+    "runNumber": 902,
+    "startTime": "19:00",
+    "hares": "Off His Trolley, White Noise",
+    "location": "Booths car park, Kirkby Lonsdale",
+    "latitude": 54.20135364480443,
+    "longitude": -2.600394580817487
+  },
+  {
+    "date": "2025-05-25",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #903: Caton",
+    "runNumber": 903,
+    "startTime": "11:00",
+    "hares": "Lurch, Morticia",
+    "location": "Baine's Crag car park, Littledale",
+    "latitude": 54.0500928,
+    "longitude": -2.6943339
+  },
+  {
+    "date": "2025-06-08",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #904: Caton",
+    "runNumber": 904,
+    "startTime": "11:00",
+    "hares": "Baldbrick",
+    "location": "Station Hotel, Caton",
+    "latitude": 54.0759848,
+    "longitude": -2.7177603
+  },
+  {
+    "date": "2025-06-11",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #905: Bolton-le-Sands",
+    "runNumber": 905,
+    "startTime": "18:30",
+    "hares": "Lurch",
+    "location": "A6 lay-by between Bolton-le-Sands and Crag Bank",
+    "latitude": 54.1171084,
+    "longitude": -2.7850409
+  },
+  {
+    "date": "2025-06-22",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #906: Cinderbarrow",
+    "runNumber": 906,
+    "startTime": "11:00",
+    "hares": "Bedtime Stories, Big Fish, Spare Bed, Spare Rib",
+    "location": "Cinderbarrow Picnic Site, Yealand Redmayne",
+    "latitude": 54.17596182307287,
+    "longitude": -2.746033198634906
+  },
+  {
+    "date": "2025-07-10",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #907: Bentham",
+    "runNumber": 907,
+    "startTime": "18:00",
+    "hares": "Sir Tom Tom",
+    "location": "Town Hall/Black Bull car park, Bentham",
+    "latitude": 54.1175677,
+    "longitude": -2.5095431
+  },
+  {
+    "date": "2025-07-13",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #908: Bessy Bank",
+    "runNumber": 908,
+    "startTime": "11:00",
+    "hares": "Dormouse, Speedbump",
+    "location": "Bessie Bank Lane near Oxen Park",
+    "latitude": 54.27346053963151,
+    "longitude": -3.066861761691889
+  },
+  {
+    "date": "2025-07-27",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #909: Eldroth",
+    "runNumber": 909,
+    "startTime": "11:00",
+    "hares": "First Class Stomp, Large Package",
+    "location": "Eldroth Village Hall",
+    "latitude": 54.083134781873895,
+    "longitude": -2.363572115082082
+  },
+  {
+    "date": "2025-08-09",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #910: Ingleton",
+    "runNumber": 910,
+    "startTime": "16:30",
+    "hares": "Sir Tom Tom",
+    "location": "Low Demesne, Ingleton",
+    "latitude": 54.1505135,
+    "longitude": -2.4691517
+  },
+  {
+    "date": "2025-08-10",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #911: Low Bentham",
+    "runNumber": 911,
+    "startTime": "11:00",
+    "hares": "Baldbrick",
+    "location": "Punch Bowl, Low Bentham",
+    "latitude": 54.1185185,
+    "longitude": -2.5426711
+  },
+  {
+    "date": "2025-08-24",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #912: Beetham",
+    "runNumber": 912,
+    "startTime": "11:00",
+    "hares": "Large Package, No More Cum",
+    "location": "The Wheatsheaf, Beetham",
+    "latitude": 54.208830197284655,
+    "longitude": -2.773905814632383
+  },
+  {
+    "date": "2025-09-07",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #913: Bolton le Sands",
+    "runNumber": 913,
+    "startTime": "11:00",
+    "hares": "Hard Astern, Ready About",
+    "location": "A6 lay-by between Bolton-le-Sands and Crag Bank",
+    "latitude": 54.1169643,
+    "longitude": -2.7851907
+  },
+  {
+    "date": "2025-09-14",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #914: Lancaster",
+    "runNumber": 914,
+    "startTime": "11:00",
+    "hares": "Baldbrick, Sir Tom Tom",
+    "location": "Lancaster Brewery Car Park, Wyresdale Road, Lancaster",
+    "latitude": 54.0394453,
+    "longitude": -2.7812697
+  },
+  {
+    "date": "2025-09-28",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #915: Kirkby Lonsdale",
+    "runNumber": 915,
+    "startTime": "11:00",
+    "hares": "Bedtime Stories, Big Fish, Spare Bed, Spare Rib",
+    "location": "Parking area on east side of Devils bridge, Kirkby Lonsdale.",
+    "latitude": 54.1983499,
+    "longitude": -2.5893308
+  },
+  {
+    "date": "2025-10-07",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #916: Halton",
+    "runNumber": 916,
+    "startTime": "18:00",
+    "hares": "Upperskirt",
+    "location": "The Greyhound, Halton",
+    "latitude": 54.0768616,
+    "longitude": -2.7613238
+  },
+  {
+    "date": "2025-10-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #917: Austwick",
+    "runNumber": 917,
+    "startTime": "11:00",
+    "hares": "Lurch & Morticia",
+    "location": "Park on road near Austwick Bridge",
+    "latitude": 54.1099772,
+    "longitude": -2.3547924
+  },
+  {
+    "date": "2025-10-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #918: Kendal",
+    "runNumber": 918,
+    "startTime": "11:00",
+    "hares": "First Class Stomp & Large Package",
+    "location": "Layby on A6 Shap Road, Kendal",
+    "latitude": 54.3465141,
+    "longitude": -2.7349955
+  },
+  {
+    "date": "2025-11-05",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #919: Scotforth",
+    "runNumber": 919,
+    "startTime": "18:00",
+    "hares": "Fiddler on the Hoof",
+    "location": "Boot & Shoe, Scotforth",
+    "latitude": 54.02764648339078,
+    "longitude": -2.795043752704185
+  },
+  {
+    "date": "2025-11-09",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #920: Sandside",
+    "runNumber": 920,
+    "startTime": "11:00",
+    "hares": "Bedtime Stories, Big Fish, Spare Bed & Spare Rib",
+    "location": "Ship Inn car park, Sandside",
+    "latitude": 54.2195285,
+    "longitude": -2.8023807
+  },
+  {
+    "date": "2025-11-23",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #921: Spark Bridge",
+    "runNumber": 921,
+    "startTime": "11:00",
+    "hares": "Dormouse & Speedbump",
+    "location": "The Royal Oak, Spark Bridge",
+    "latitude": 54.2552042,
+    "longitude": -3.0676733
+  },
+  {
+    "date": "2025-12-04",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #922: Conder Green",
+    "runNumber": 922,
+    "startTime": "18:00",
+    "hares": "Sir Tom Tom",
+    "location": "The Stork, Conder Green",
+    "latitude": 53.9972071,
+    "longitude": -2.8257139
+  },
+  {
+    "date": "2025-12-14",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #923: Witherslack",
+    "runNumber": 923,
+    "startTime": "11:00",
+    "hares": "Hard Astern & Ready About",
+    "location": "Layby near Derby Arms, Witherslack",
+    "latitude": 54.23939065589176,
+    "longitude": -2.859007964750145
+  },
+  {
+    "date": "2025-12-28",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #924: Abbeystead",
+    "runNumber": 924,
+    "startTime": "11:00",
+    "hares": "Fiddler on the Hoof, Neighbourlee",
+    "location": "Stoops Bridge car park at junction of Strait Lane and Doeholme Rake, Abbeystead",
+    "latitude": 53.9835162,
+    "longitude": -2.6671202
+  },
+  {
+    "date": "2026-01-03",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #925: Caton",
+    "runNumber": 925,
+    "startTime": "16:00",
+    "hares": "Off His Trolley, White Noise",
+    "location": "Station Hotel, Caton",
+    "latitude": 54.07600160691806,
+    "longitude": -2.717789829064306
+  },
+  {
+    "date": "2026-01-11",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #926: Sizergh",
+    "runNumber": 926,
+    "startTime": "11:00",
+    "hares": "Bedtime Stories, Big Fish, Spare Bed, Spare Rib",
+    "location": "Strickland Arms, Sizergh",
+    "latitude": 54.27859214787672,
+    "longitude": -2.768814781072659
+  },
+  {
+    "date": "2026-01-25",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #927: Beetham",
+    "runNumber": 927,
+    "startTime": "11:00",
+    "hares": "Lurch, Morticia",
+    "location": "Heron Corn Mill, Beetham",
+    "latitude": 54.21293227140322,
+    "longitude": -2.774573511105534
+  },
+  {
+    "date": "2026-02-01",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #928: Galgate",
+    "runNumber": 928,
+    "startTime": "16:00",
+    "hares": "Baldbrick, Upperskirt",
+    "location": "The Plough at Galgate",
+    "latitude": 53.98956462367487,
+    "longitude": -2.790119267065117
+  },
+  {
+    "date": "2026-02-08",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #929: Warton",
+    "runNumber": 929,
+    "startTime": "11:00",
+    "hares": "First Class Stomp, Large Package, Special Delivery",
+    "location": "South end of Hyning Scout Wood, Warton",
+    "latitude": 54.15105171051683,
+    "longitude": -2.761650531874492
+  },
+  {
+    "date": "2026-02-22",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #930: Stainton",
+    "runNumber": 930,
+    "startTime": "11:00",
+    "hares": "Bedtime Stories, Big Fish, Spare Bed, Spare Rib",
+    "location": "Car park on the Lancaster Canal near the Stainton aqueduct",
+    "latitude": 54.26237356993456,
+    "longitude": -2.737594092283853
+  },
+  {
+    "date": "2026-03-03",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #931: Halton",
+    "runNumber": 931,
+    "startTime": "18:00",
+    "hares": "Off His Trolley, White Noise",
+    "location": "The Greyhound, Halton",
+    "latitude": 54.07686254969901,
+    "longitude": -2.761291901727612
+  },
+  {
+    "date": "2026-03-08",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #932: Wray",
+    "runNumber": 932,
+    "startTime": "11:00",
+    "hares": "Lurch, Morticia",
+    "location": "Lay-by on the Wray to Lowgill Road, Wray",
+    "latitude": 54.10174,
+    "longitude": -2.59091
+  },
+  {
+    "date": "2026-03-22",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #933: Crook",
+    "runNumber": 933,
+    "startTime": "11:00",
+    "hares": "Hard Astern, Ready About",
+    "location": "Sun Inn, Crook",
+    "latitude": 54.34879,
+    "longitude": -2.82542
+  },
+  {
+    "date": "2026-04-02",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #934: Caton",
+    "runNumber": 934,
+    "startTime": "18:00",
+    "hares": "Sir Tom Tom",
+    "location": "Station Hotel, Caton",
+    "latitude": 54.07601,
+    "longitude": -2.71781
+  },
+  {
+    "date": "2026-04-12",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #935: Silverdale",
+    "runNumber": 935,
+    "startTime": "11:00",
+    "hares": "Bedtime Stories, Big Fish, Fiddler on the Hoof, Spare Bed, Spare Rib",
+    "location": "Silverdale Hotel, Silverdale",
+    "latitude": 54.16675,
+    "longitude": -2.82895
+  },
+  {
+    "date": "2026-04-26",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #936: Warton",
+    "runNumber": 936,
+    "startTime": "15:30",
+    "hares": "First Class Stomp, Large Package",
+    "location": "Warton Crag Car Park",
+    "latitude": 54.14455,
+    "longitude": -2.77953
+  },
+  {
+    "date": "2026-05-01",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #937: Kirkby Lonsdale",
+    "runNumber": 937,
+    "startTime": "18:00",
+    "hares": "Baldbrick, Upperskirt",
+    "location": "Car park on north side of Devils Bridge",
+    "latitude": 54.19859898756049,
+    "longitude": -2.592064910229326
+  },
+  {
+    "date": "2026-05-10",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #938: Burton-in-Kendal",
+    "runNumber": 938,
+    "startTime": "11:00",
+    "hares": "Bedtime Stories, Big Fish, Spare Bed, Spare Rib",
+    "location": "Royal Oak, Burton-in-Kendal",
+    "latitude": 54.181791144949756,
+    "longitude": -2.721291203430469
+  },
+  {
+    "date": "2026-05-24",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #939: Lancaster",
+    "runNumber": 939,
+    "startTime": "11:00",
+    "hares": "Baldbrick",
+    "location": "The Lancaster Brewery, Lancaster",
+    "latitude": 54.04011,
+    "longitude": -2.7811
+  },
+  {
+    "date": "2026-05-31",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #940: High Bentham",
+    "runNumber": 940,
+    "startTime": "11:00",
+    "hares": "Sir Tom Tom, Wears the Soap",
+    "location": "Black Bull, High Bentham",
+    "latitude": 54.11792,
+    "longitude": -2.51001
+  },
+  {
+    "date": "2026-06-14",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #941: Backbarrow",
+    "runNumber": 941,
+    "startTime": "11:00",
+    "hares": "Dormouse, Speedbump",
+    "location": "Outside Leven Valley Church of England Primary School, Backbarrow",
+    "latitude": 54.25129,
+    "longitude": -2.99335
+  },
+  {
+    "date": "2026-06-28",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #942: Hest Bank",
+    "runNumber": 942,
+    "startTime": "11:00",
+    "hares": "Baldbrick, Fiddler on the Hoof",
+    "location": "Cheyette Fitness & Coffee Bar, The Shore, Hest Bank, LA2 6EQ",
+    "latitude": 54.0872,
+    "longitude": -2.82097
+  },
+  {
+    "date": "2026-06-30",
+    "kennelTags": [
+      "lvh3-gb"
+    ],
+    "title": "LVH3 #943: Heysham",
+    "runNumber": 943,
+    "startTime": "18:00",
+    "hares": "Off His Trolley, White Noise",
+    "location": "Royal Hotel, Heysham",
+    "latitude": 54.04642,
+    "longitude": -2.9009
+  }
+]

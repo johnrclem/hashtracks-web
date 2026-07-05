@@ -1246,6 +1246,17 @@ export const KENNELS: KennelSeed[] = [
       scheduleNotes: "Weekly Sunday-evening trail around Plymouth and Dartmoor.",
       hashCash: "£1.50", description: "Plymouth / Dartmoor weekly Sunday-evening hash.",
       latitude: 50.3755, longitude: -4.1427 },
+    { kennelCode: "lvh3-gb", // bare "lvh3" = Lehigh Valley (PA), "lvh3-cin" = Licking Valley (OH) → region-suffixed
+      shortName: "Lune Valley H3", // slug → lune-valley-h3 (NOT "LVH3", which slugifies to the taken "lvh3")
+      fullName: "Lune Valley Hash House Harriers",
+      region: "Lancaster", country: "UK", website: "https://www.lvh3.org.uk/", facebookUrl: "https://www.facebook.com/lunevalleyh3/",
+      logoUrl: "/kennel-logos/lvh3-gb.png", scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM",
+      scheduleFrequency: "Twice monthly", // 2nd & 4th Sundays — not a strict 14-day "Biweekly" cadence
+      scheduleNotes: "2nd & 4th Sundays at 11:00, plus a Full Moon evening run (~16:00 winter / 18:00 summer). Per-run times flow from Harrier Central.",
+      hashCash: "£3", // Sunday runs £3; Full Moon evening runs £2 (HC eventPriceForMembers)
+      foundedYear: 2000, // lvh3.org.uk: "running since October 2000"
+      description: "Lune Valley Hash House Harriers (est. October 2000) run in North Lancashire, South Cumbria and the southern Lake District — 2nd & 4th Sundays at 11am plus a Full Moon evening run.",
+      latitude: 54.05, longitude: -2.8 },
     // ===== GERMANY =====
     // Berlin
     {
