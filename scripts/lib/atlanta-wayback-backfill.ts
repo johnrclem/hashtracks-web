@@ -272,12 +272,30 @@ function dumpEvents(events: RawEventData[]): void {
  * (partitions to `date < today(America/New_York)`, dedupes by fingerprint,
  * enforces the SourceKennel guard). Bound to the "Atlanta Hash Board" source.
  */
-export function runAtlantaForumBackfill(opts: {
+export interface AtlantaForumBackfillOpts {
   forumId: number;
   kennelTag: string;
   hashDay: string;
   label: string;
-}): Promise<void> {
+}
+
+/**
+ * CLI wrapper: run the backfill only when invoked as `opts.scriptName` (so
+ * importing the entry file for tests doesn't fire it), with the standard
+ * FAILED-and-exit handler. Keeps every per-forum entry script to a single call
+ * (avoids duplicated argv-guard + catch boilerplate across the entry files).
+ */
+export function runAtlantaForumBackfillCli(
+  opts: AtlantaForumBackfillOpts & { scriptName: string },
+): void {
+  if (!process.argv[1]?.endsWith(opts.scriptName)) return;
+  runAtlantaForumBackfill(opts).catch((err: unknown) => {
+    console.error("FAILED:", err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  });
+}
+
+export function runAtlantaForumBackfill(opts: AtlantaForumBackfillOpts): Promise<void> {
   return runBackfillScript({
     sourceName: SOURCE_NAME,
     kennelTimezone: KENNEL_TIMEZONE,
