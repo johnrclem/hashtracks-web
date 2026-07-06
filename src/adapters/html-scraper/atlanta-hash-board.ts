@@ -248,13 +248,25 @@ function parseLooseTime(token: string): string | undefined {
  * so it must accept the no-meridiem form too (that's still not a location).
  */
 const TIME_TOKEN_RE = /^\d{1,2}(?::\d{2})?\s*(?:[ap]m)?$/i;
-// Leading connective words a scribe wraps a bare time in ("Meet at 7pm",
-// "gather at 1:30", "hares away at 7", "show up at 7pm"). Stripped before the
-// token test. Procedural-friendly single alternation, no nested `\s*` adjacent
-// to the group (Sonar S5852).
-const TIME_LEAD_RE = /^(?:meet(?:ing)?|gather|show(?:\s+up)?|hares?\s+away)\s+(?:up\s+)?(?:at\s+)?/i;
-// Trailing "out" instruction ("7pm, out", "12:30 out at 1:00", "on out").
-const TIME_OUT_SUFFIX_RE = /[,\s]+(?:on\s+)?out\b.*$/i;
+// Leading connective words a scribe wraps a bare time in. Split into two small
+// regexes (each well under the Sonar complexity budget) applied in sequence:
+// first the verb phrase ("Meet"/"gather"/"show"/"hares away"), then any residual
+// "up at" / "at" — so "show up at 7pm" and "hares away at 7" both reduce to the
+// bare time without a single high-complexity alternation.
+const TIME_LEAD_WORD_RE = /^(?:meet(?:ing)?|gather|show|hares?\s+away)\s+/i;
+const TIME_LEAD_AT_RE = /^(?:up\s+)?at\s+/i;
+// Trailing "out" instruction ("7pm, out", "12:30 out at 1:00", "on out"). Found
+// by index + slice rather than a greedy `.*$` (which trips Sonar S8786).
+const TIME_OUT_MARKER_RE = /[\s,]+(?:on\s)?out\b/i;
+
+function stripTimeLead(value: string): string {
+  return value.replace(TIME_LEAD_WORD_RE, "").replace(TIME_LEAD_AT_RE, "");
+}
+
+function stripOutSuffix(value: string): string {
+  const m = TIME_OUT_MARKER_RE.exec(value);
+  return m ? value.slice(0, m.index) : value;
+}
 
 /**
  * Decide whether a labeled value is really a time/"out" instruction rather than
@@ -266,7 +278,7 @@ const TIME_OUT_SUFFIX_RE = /[,\s]+(?:on\s+)?out\b.*$/i;
  * location). Returns `null` when the value is a genuine venue.
  */
 function classifyTimeInstruction(value: string): { time?: string } | null {
-  const core = value.replace(TIME_LEAD_RE, "").replace(TIME_OUT_SUFFIX_RE, "").trim();
+  const core = stripOutSuffix(stripTimeLead(value)).trim();
   if (!core || !TIME_TOKEN_RE.test(core)) return null;
   return { time: parseLooseTime(core) };
 }
@@ -295,7 +307,7 @@ export function extractEventFields(
   // Strip markdown bold/italic asterisks the scribes wrap names in (#1640).
   const hareMatch =
     /\bHares?\s*:\s*([^\n]*)/i.exec(text) ??
-    /^[\s*]*Hares?\s+(?:is|are)\s+([^\n]*)/im.exec(text);
+    /^[ \t*]*Hares?\s+(?:is|are)\s+([^\n]*)/im.exec(text);
   if (hareMatch) {
     const cleaned = stripMarkdownEmphasis(hareMatch[1]);
     if (cleaned) fields.hares = cleaned;
@@ -336,7 +348,7 @@ export function extractEventFields(
   // Line-anchored (`^`, multiline) so prose like "the start is a mystery" can't
   // leak into location (mirrors the anchored hare fallback above).
   if (!locationCandidate) {
-    const startIs = /^[\s*]*Start\s+is\s+([^\n]+)/im.exec(text);
+    const startIs = /^[ \t*]*Start\s+is\s+([^\n]+)/im.exec(text);
     if (startIs) {
       const v = stripMarkdownEmphasis(startIs[1]);
       if (v && !classifyTimeInstruction(v)) locationCandidate = v;

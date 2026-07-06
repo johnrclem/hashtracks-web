@@ -26,12 +26,26 @@
  *   Apply:   … npx tsx scripts/backfill-atlanta-fixups.ts --apply
  *   Env:     DATABASE_URL, NEXT_PUBLIC_GOOGLE_MAPS_API_KEY (geocode)
  */
+import type { PrismaClient } from "@/generated/prisma/client";
 import { geocodeAddress, haversineDistance } from "@/lib/geo";
 import { runOneShot, findKennelId } from "./lib/one-shot";
+
+/** The event fields the fix guard reads. */
+interface FixTargetEvent {
+  id: string;
+  runNumber: number | null;
+  title: string | null;
+  locationName: string | null;
+  startTime: string | null;
+  haresText: string | null;
+}
 
 // Atlanta metro centroid — geocode results must land within this radius.
 const ATLANTA = { lat: 33.749, lng: -84.388 };
 const MAX_KM = 150;
+
+/** A canonical field value (or explicit clear). */
+type FixValue = number | string | null;
 
 interface EventFix {
   kennelCode: string;
@@ -39,9 +53,9 @@ interface EventFix {
   note: string;
   source: string; // board post the corrected values came from
   /** Known-bad current values that must all match before we overwrite. */
-  expect: Partial<Record<"runNumber" | "title" | "locationName" | "startTime" | "haresText", number | string | null>>;
+  expect: Partial<Record<"runNumber" | "title" | "locationName" | "startTime" | "haresText", FixValue>>;
   /** Fields to set (null = explicit clear). */
-  set: Record<string, number | string | null>;
+  set: Record<string, FixValue>;
   /** Address to geocode into latitude/longitude (best-effort). */
   geocode?: string;
 }
@@ -177,6 +191,74 @@ function dayRange(date: string): { gte: Date; lt: Date } {
   return { gte, lt };
 }
 
+/** Best-effort re-geocode of a corrected address, merged into `data`. */
+async function addGeocode(data: Record<string, FixValue>, address: string): Promise<void> {
+  try {
+    const geo = await geocodeAddress(address, { regionBias: "us" });
+    if (!geo) return;
+    const dist = haversineDistance(geo.lat, geo.lng, ATLANTA.lat, ATLANTA.lng);
+    if (dist <= MAX_KM) {
+      data.latitude = geo.lat;
+      data.longitude = geo.lng;
+    } else {
+      console.log(`   ⚠️ geocode ${JSON.stringify(address)} → ${dist.toFixed(0)}km from ATL (>${MAX_KM}) — leaving coords untouched.`);
+    }
+  } catch (err) {
+    console.log(`   ⚠️ geocode failed for ${JSON.stringify(address)}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+/** The single event on `fix.date` for the kennel, or null (logs why). */
+async function findFixTarget(
+  prisma: PrismaClient,
+  kennelId: string,
+  fix: EventFix,
+): Promise<FixTargetEvent | null> {
+  const { gte, lt } = dayRange(fix.date);
+  const events = await prisma.event.findMany({
+    where: { kennelId, dateUtc: { gte, lt } },
+    select: { id: true, runNumber: true, title: true, locationName: true, startTime: true, haresText: true },
+  });
+  if (events.length !== 1) {
+    console.log(`⚠️  ${fix.kennelCode} ${fix.date} [${fix.note}]: expected 1 event, found ${events.length} — skipping.`);
+    return null;
+  }
+  return events[0];
+}
+
+/** Known-bad values that no longer match (empty → safe to apply). */
+function guardMismatches(event: FixTargetEvent, fix: EventFix): [string, unknown][] {
+  const row = event as unknown as Record<string, unknown>;
+  return Object.entries(fix.expect).filter(([k, v]) => row[k] !== v);
+}
+
+/** Process one fix: find → guard → (geocode) → update. Returns whether applied. */
+async function processFix(
+  prisma: PrismaClient,
+  kennelId: string,
+  fix: EventFix,
+  apply: boolean,
+): Promise<boolean> {
+  const event = await findFixTarget(prisma, kennelId, fix);
+  if (!event) return false;
+
+  const mismatched = guardMismatches(event, fix);
+  if (mismatched.length > 0) {
+    const row = event as unknown as Record<string, unknown>;
+    const current = Object.fromEntries(mismatched.map(([k]) => [k, row[k]]));
+    console.log(`↩️  ${fix.kennelCode} ${fix.date} [${fix.note}]: current ${JSON.stringify(current)} != expected — already fixed / changed upstream, skipping.`);
+    return false;
+  }
+
+  const data: Record<string, FixValue> = { ...fix.set };
+  if (fix.geocode) await addGeocode(data, fix.geocode);
+
+  console.log(`✏️  ${fix.kennelCode} ${fix.date} [${fix.note}] ← ${JSON.stringify(data)}`);
+  console.log(`     source: ${fix.source}`);
+  if (apply) await prisma.event.update({ where: { id: event.id }, data });
+  return true;
+}
+
 void runOneShot(async ({ prisma, apply }) => {
   const kennelIds = new Map<string, string>();
   let applied = 0;
@@ -190,61 +272,11 @@ void runOneShot(async ({ prisma, apply }) => {
       kennelId = id;
       kennelIds.set(fix.kennelCode, id);
     }
-
-    const { gte, lt } = dayRange(fix.date);
-    const events = await prisma.event.findMany({
-      where: { kennelId, dateUtc: { gte, lt } },
-      select: { id: true, runNumber: true, title: true, locationName: true, startTime: true, haresText: true },
-    });
-    if (events.length !== 1) {
-      console.log(`⚠️  ${fix.kennelCode} ${fix.date} [${fix.note}]: expected 1 event, found ${events.length} — skipping.`);
-      skipped++;
-      continue;
-    }
-    const e = events[0];
-
-    // Guard: every known-bad value must still match, else it's already fixed.
-    const mismatched = Object.entries(fix.expect).filter(
-      ([k, v]) => (e as Record<string, unknown>)[k] !== v,
-    );
-    if (mismatched.length > 0) {
-      console.log(
-        `↩️  ${fix.kennelCode} ${fix.date} [${fix.note}]: current value(s) ` +
-          `${JSON.stringify(Object.fromEntries(mismatched.map(([k]) => [k, (e as Record<string, unknown>)[k]])))} ` +
-          `!= expected — already fixed or changed upstream, skipping.`,
-      );
-      skipped++;
-      continue;
-    }
-
-    const data: Record<string, number | string | null> = { ...fix.set };
-
-    // Best-effort re-geocode of the corrected address.
-    if (fix.geocode) {
-      try {
-        const geo = await geocodeAddress(fix.geocode, { regionBias: "us" });
-        if (geo) {
-          const dist = haversineDistance(geo.lat, geo.lng, ATLANTA.lat, ATLANTA.lng);
-          if (dist <= MAX_KM) {
-            data.latitude = geo.lat;
-            data.longitude = geo.lng;
-          } else {
-            console.log(`   ⚠️ geocode ${JSON.stringify(fix.geocode)} → ${dist.toFixed(0)}km from ATL (>${MAX_KM}) — leaving coords untouched.`);
-          }
-        }
-      } catch (err) {
-        console.log(`   ⚠️ geocode failed for ${JSON.stringify(fix.geocode)}: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
-
-    console.log(`✏️  ${fix.kennelCode} ${fix.date} [${fix.note}] ← ${JSON.stringify(data)}`);
-    console.log(`     source: ${fix.source}`);
-    if (apply) {
-      await prisma.event.update({ where: { id: e.id }, data });
-      applied++;
-    }
+    const ok = await processFix(prisma, kennelId, fix, apply);
+    if (ok) applied++;
+    else skipped++;
   }
 
-  console.log(`\n${apply ? "✓ Applied" : "Would apply"} ${apply ? applied : FIXES.length - skipped} fix(es); skipped ${skipped}.`);
+  console.log(`\n${apply ? "✓ Applied" : "Would apply"} ${applied} fix(es); skipped ${skipped}.`);
   if (!apply) console.log("Run with --apply to commit.");
 });

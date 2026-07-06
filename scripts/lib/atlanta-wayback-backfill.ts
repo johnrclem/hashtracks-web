@@ -136,8 +136,11 @@ export function extractTopicTitle(htmlOr$: string | cheerio.CheerioAPI): string 
  * `extractEventDate` steps 1-2 exactly. Exported for testing.
  */
 export function hasExplicitEventDate(title: string, body: string, refDate: Date): boolean {
+  // `[^\n<]*` already stops at the newline / tag that the live adapter's
+  // trailing `(?:\n|<br|$)` matched, so group[1] is identical — dropping that
+  // (unused) anchor keeps the capture the same while avoiding Sonar S8786.
   const bodyPatterns = [
-    /(?:When|Date|Day)\s*:\s*([^\n<]*)(?:\n|<br|$)/i,
+    /(?:When|Date|Day)\s*:\s*([^\n<]*)/i,
     /(\d{1,2}\/\d{1,2}\/\d{2,4})/,
   ];
   for (const pattern of bodyPatterns) {
