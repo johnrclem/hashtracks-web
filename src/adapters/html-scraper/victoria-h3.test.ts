@@ -3,12 +3,13 @@ import { parseVictoriaH3Page } from "./victoria-h3";
 
 const SOURCE_URL = "https://vh3.ca/";
 
-// Faithful to the live Gamma markup: every text block is wrapped in a
-// `data-node-view-content-inner="paragraph"` node-view div, and venue links are
-// `maps.app.goo.gl` anchors whose text is the venue (verified against the real
-// 2026-06-04 capture of vh3.ca).
+// Faithful to the live Gamma markup: every text block is a leaf
+// `<p class="gml-paragraph__content">` inside a `gml-paragraph block-paragraph`
+// wrapper (verified against the 2026-07-05 capture of vh3.ca — Gamma dropped the
+// older `data-node-view-content-inner="paragraph"` attribute, #2555). Venue links
+// are `maps.app.goo.gl` anchors whose text is the venue.
 const p = (inner: string) =>
-  `<div data-node-view-content-inner="paragraph" style="whitespace:inherit">${inner}</div>`;
+  `<div contentEditable="false" class="gml-paragraph block-paragraph"><p class="gml-paragraph__content" dir="auto">${inner}</p></div>`;
 const mapLink = (venue: string, url: string) =>
   `<a class="chakra-text link css-0" rel="noopener nofollow" href="${url}"><span>${venue}</span></a>`;
 
