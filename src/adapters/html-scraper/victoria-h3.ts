@@ -27,9 +27,9 @@ import {
  *
  * Gamma wraps every block in deeply nested divs, so a whole-document `.text()`
  * stack-overflows (domutils recursion). Instead we select the leaf text-block
- * node-view wrappers and read each one's (shallow) text, keying entirely on
- * visible content — the same content-keyed strategy the Wix/Google-Sites
- * scrapers use.
+ * elements (`p.gml-paragraph__content`) and read each one's (shallow) text,
+ * keying entirely on visible content — the same content-keyed strategy the
+ * Wix/Google-Sites scrapers use.
  *
  * Maps venues are `maps.app.goo.gl` shortlinks (no extractable lat/lng), so
  * coords are left undefined and the merge pipeline falls back to the Victoria, BC
@@ -81,10 +81,17 @@ function fragmentUrl(anchor: string, baseUrl: string): string {
   return `${baseUrl.split("#")[0]}#${anchor}`;
 }
 
-// Gamma renders each text block inside a node-view content wrapper. Selecting
-// these leaves and reading their text avoids a full-document `.text()`.
-const TEXT_BLOCK_SELECTOR =
-  '[data-node-view-content-inner="paragraph"],[data-node-view-content-inner="heading"],[data-node-view-content-inner="title"]';
+// Gamma renders each text block as a leaf `<p class="gml-paragraph__content">`
+// (headings included — they're paragraphs with a bold run, not <h*>). Selecting
+// these leaves and reading each one's shallow text avoids a full-document
+// `.text()`. NOTE (#2555): Gamma dropped the older
+// `data-node-view-content-inner="paragraph"|"title"` attributes — the run lines
+// now live only in `gml-paragraph__content`, so the previous attribute selector
+// matched nothing and every kennel parsed 0 runs. We key on the leaf content
+// class; `.gml-heading__content` is kept as a forward-compatible fallback in
+// case Gamma reintroduces a distinct heading leaf. Both are leaves, so there is
+// no ancestor/child double-count (and the parse passes dedupe by run key anyway).
+const TEXT_BLOCK_SELECTOR = "p.gml-paragraph__content,.gml-heading__content";
 
 // A schedule-list run line carries its date inline, and the remainder after the
 // run number starts (after an optional colon) with a weekday: "VH3 #918:
