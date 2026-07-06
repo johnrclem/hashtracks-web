@@ -255,18 +255,33 @@ const TIME_TOKEN_RE = /^\d{1,2}(?::\d{2})?\s*(?:[ap]m)?$/i;
 // bare time without a single high-complexity alternation.
 const TIME_LEAD_WORD_RE = /^(?:meet(?:ing)?|gather|show|hares?\s+away)\s+/i;
 const TIME_LEAD_AT_RE = /^(?:up\s+)?at\s+/i;
-// Trailing "out" instruction ("7pm, out", "12:30 out at 1:00"). Found by index +
-// slice rather than a greedy `.*$` (which trips Sonar S8786). Kept to a single
-// quantifier + literal — no optional group adjacent to `+`, which S8786 flags.
-const TIME_OUT_MARKER_RE = /[\s,]+out\b/i;
-
 function stripTimeLead(value: string): string {
   return value.replace(TIME_LEAD_WORD_RE, "").replace(TIME_LEAD_AT_RE, "");
 }
 
+/** Separator that legitimately precedes a trailing "out" instruction. */
+function isOutSeparator(c: string): boolean {
+  return c === " " || c === "," || c === "\t";
+}
+
+/**
+ * Strip a trailing "out" instruction ("7pm, out", "12:30 out at 1:00") by cutting
+ * from the separator run before a standalone `out` token. Procedural (indexOf +
+ * boundary checks) rather than a `[\s,]+out` regex — Sonar S8786 flags any
+ * `+`-quantified char class adjacent to a literal as backtracking-prone, even
+ * though it's linear here (Memory: beat S8786 with string ops, not regex).
+ */
 function stripOutSuffix(value: string): string {
-  const m = TIME_OUT_MARKER_RE.exec(value);
-  return m ? value.slice(0, m.index) : value;
+  const lower = value.toLowerCase();
+  for (let i = lower.indexOf("out"); i > 0; i = lower.indexOf("out", i + 1)) {
+    if (!isOutSeparator(value[i - 1])) continue;
+    const after = value[i + 3];
+    if (after !== undefined && /[a-z0-9]/i.test(after)) continue; // not a whole word
+    let start = i - 1;
+    while (start > 0 && isOutSeparator(value[start - 1])) start--;
+    return value.slice(0, start);
+  }
+  return value;
 }
 
 /**
