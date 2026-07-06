@@ -2588,6 +2588,9 @@ export const SOURCES = [
         kennelTag: "gsh3",
         pageHandle: "GrandStrandHashing",
         timezone: "America/New_York",
+        // #1939/#2561: FB serves a datacenter-IP checkpoint wall to this Page from
+        // Vercel — fetch via residential proxy first (skips the wasted direct hit).
+        useResidentialProxy: true,
         upcomingOnly: true,
         includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
@@ -4473,7 +4476,8 @@ export const SOURCES = [
     // ===== NETHERLANDS =====
     {
       name: "Amsterdam H3 Website",
-      url: "https://ah3.nl/nextruns/",
+      // Site renamed the upcoming page /nextruns/ → /nextrun/ (#2564: old path 404s).
+      url: "https://ah3.nl/nextrun/",
       type: "HTML_SCRAPER" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
@@ -6590,6 +6594,9 @@ export const SOURCES = [
         kennelTag: "soh4",
         pageHandle: "soh4onon",
         timezone: "America/New_York",
+        // #1939/#2556: FB serves a datacenter-IP checkpoint wall to this Page from
+        // Vercel — fetch via residential proxy first (skips the wasted direct hit).
+        useResidentialProxy: true,
         upcomingOnly: true,
         includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },
@@ -6622,6 +6629,9 @@ export const SOURCES = [
         kennelTag: "dh4",
         pageHandle: "DaytonHash",
         timezone: "America/New_York",
+        // #1939/#2559: FB serves a datacenter-IP checkpoint wall to this Page from
+        // Vercel — fetch via residential proxy first (skips the wasted direct hit).
+        useResidentialProxy: true,
         upcomingOnly: true,
         includePastEvents: true, // #1940: backfill rich title/venue from /past_hosted_events (reconcile-safe under upcomingOnly)
       },

@@ -48,6 +48,8 @@ interface AnalyzeInput {
   currentConfigHash?: string;
   /** Optional manual baseline boundary (`Source.baselineResetAt`). Health checks ignore scrape rows older than this when computing rolling averages. Use after a code-led adapter improvement that doesn't change `Source.config`. */
   baselineResetAt?: Date;
+  /** Adapter-declared "an empty scrape is expected this run" signal (e.g. a seasonal STATIC_SCHEDULE whose forward window doesn't overlap any active month). Suppresses the zero-event anomaly alert so off-season dormancy doesn't file recurring false-positives (#2557). */
+  expectedZero?: boolean;
 }
 
 /** Type alias for the shape of recent scrape log rows used across checks. */
@@ -92,6 +94,26 @@ function checkConsecutiveFailures(
       "Multiple consecutive scrapes have failed. The source may be down or its format may have changed.",
     context: { errorMessages: input.errors.slice(0, 10), consecutiveCount: prevFailures + 1 },
   };
+}
+
+/**
+ * A zero-event scrape that is *expected*, not a break — so the event-dependent
+ * trend checks (event-count anomaly, field-fill drop, structure change) must all
+ * be skipped. Two causes:
+ *   - the adapter declared it (`expectedZero`, e.g. a seasonal STATIC_SCHEDULE
+ *     whose forward window doesn't overlap any active month) — #2557; or
+ *   - the source is a very-low-baseline future-only feed (Harrier Central for a
+ *     lunar/low-volume kennel) that legitimately has empty windows between runs,
+ *     i.e. its rolling average rounds to ≤1 — #2560/#2563.
+ * Suppressing only the count anomaly (and not field-fill) would still leave the
+ * source degraded/noisy: `computeFillRates([])` is all-zero, so `checkFieldFillDrops`
+ * would compare 0% against the in-season baseline and fire WARNINGs every scrape.
+ * The >50%-drop count WARNING (gated `avgEvents > 5`) never applies here since the
+ * baseline is ≤1 or the scrape is adapter-declared empty.
+ */
+function isBenignEmptyScrape(input: AnalyzeInput, avgEvents: number): boolean {
+  if (input.eventsFound !== 0) return false;
+  return input.expectedZero === true || Math.round(avgEvents) <= 1;
 }
 
 /** Alert if event count dropped >50% vs rolling average, or hit zero. */
@@ -456,13 +478,23 @@ export async function analyzeHealth(
     checkedTypes.add("UNMATCHED_TAGS");
 
     if (recentSuccessful.length > 0) {
-      const countAlert = checkEventCountAnomaly(input, recentSuccessful);
-      if (countAlert) alerts.push(countAlert);
+      const avgEvents =
+        recentSuccessful.reduce((sum, l) => sum + l.eventsFound, 0) /
+        recentSuccessful.length;
+      // On a benign expected-empty scrape (seasonal off-season / low-baseline
+      // dormancy) the event-dependent trend checks compare an all-zero current
+      // state against an in-season baseline and fire false positives. Skip them
+      // as a group (#2557/#2560/#2563) — still registered in checkedTypes above,
+      // so any stale prior alert still auto-resolves.
+      if (!isBenignEmptyScrape(input, avgEvents)) {
+        const countAlert = checkEventCountAnomaly(input, recentSuccessful);
+        if (countAlert) alerts.push(countAlert);
 
-      alerts.push(...checkFieldFillDrops(input, recentSuccessful));
+        alerts.push(...checkFieldFillDrops(input, recentSuccessful));
 
-      const structureAlert = await checkStructuralChange(sourceId, input, recentSuccessful);
-      if (structureAlert) alerts.push(structureAlert);
+        const structureAlert = await checkStructuralChange(sourceId, input, recentSuccessful);
+        if (structureAlert) alerts.push(structureAlert);
+      }
 
       const unmatchedAlert = checkUnmatchedTags(input, recentSuccessful);
       if (unmatchedAlert) alerts.push(unmatchedAlert);

@@ -22,7 +22,7 @@ vi.mock("@/pipeline/structure-hash", () => ({
 const { safeFetch } = await import("@/adapters/safe-fetch");
 const mockedSafeFetch = vi.mocked(safeFetch);
 
-const SOURCE_URL = "https://ah3.nl/nextruns/";
+const SOURCE_URL = "https://ah3.nl/nextrun/";
 const PREVIOUS_URL = "https://ah3.nl/previous/";
 
 function makeSource(overrides?: Partial<Source>): Source {
@@ -60,7 +60,7 @@ function mockFetchResponses(upcomingHtml: string, previousHtml: string) {
   });
 }
 
-// Real HTML fixture — mirrors the structure of ah3.nl/nextruns/
+// Real HTML fixture — mirrors the structure of ah3.nl/nextrun/
 const FIXTURE_HTML = `<html><body><div class="entry-content">
 <style>mark { background-color: lightgrey; color: black; }</style>
 <hr class="wp-block-separator"/>
@@ -391,6 +391,20 @@ describe("AH3Adapter", () => {
     // Run 1475 only in previous
     const run1475 = result.events.filter((e) => e.runNumber === 1475);
     expect(run1475).toHaveLength(1);
+  });
+
+  it.each([
+    { url: "https://ah3.nl/nextrun/", label: "current /nextrun/" },
+    { url: "https://ah3.nl/nextruns/", label: "legacy /nextruns/" },
+  ])("derives previousUrl → /previous/ from $label when config.previousUrl is unset", async ({ url }) => {
+    // Fallback path (no config.previousUrl). The derivation regex must be
+    // anchored + plural-aware so the legacy `/nextruns/` doesn't yield
+    // `/previous/s/` (#2573 review).
+    mockFetchResponses("<html><body></body></html>", "<html><body></body></html>");
+    await adapter.fetch(makeSource({ url, config: {} }));
+    const requestedUrls = mockedSafeFetch.mock.calls.map((c) => c[0]);
+    expect(requestedUrls[0]).toBe(url); // upcoming fetched first
+    expect(requestedUrls[1]).toBe("https://ah3.nl/previous/"); // derived previous
   });
 
   it("handles fetch failure on upcoming page", async () => {

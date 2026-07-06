@@ -2,7 +2,7 @@
  * Amsterdam Hash House Harriers (AH3) Website Adapter
  *
  * Scrapes ah3.nl for hash events from two pages:
- *   1. /nextruns/  — upcoming events
+ *   1. /nextrun/   — upcoming events
  *   2. /previous/  — historical/past events
  *
  * DOM-based parsing: each event sits between consecutive `<hr>` elements
@@ -426,12 +426,15 @@ export class AH3Adapter implements SourceAdapter {
     source: Source,
     options?: { days?: number },
   ): Promise<ScrapeResult> {
-    const upcomingUrl = source.url || "https://ah3.nl/nextruns/";
+    const upcomingUrl = source.url || "https://ah3.nl/nextrun/";
     const days = options?.days ?? source.scrapeDays ?? 365;
     const config = (source.config ?? {}) as Record<string, unknown>;
     const previousUrl =
       (config.previousUrl as string) ??
-      upcomingUrl.replace(/nextruns\/?/, "previous/");
+      // Anchored + plural-aware so a legacy `/nextruns/` URL also derives
+      // `/previous/` (an unanchored `/nextrun\/?/` would leave the stray `s`
+      // → `/previous/s/`). Only the trailing segment is rewritten.
+      upcomingUrl.replace(/nextruns?\/?$/, "previous/");
 
     const allEvents: RawEventData[] = [];
     const allErrors: string[] = [];

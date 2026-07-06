@@ -598,6 +598,9 @@ export async function scrapeSource(
       cancelledCount,
       reconcileEvaluated,
       reconcileSuppressedKennels,
+      // Adapter-declared expected-empty scrape (e.g. seasonal STATIC_SCHEDULE
+      // off-season window) — suppresses the zero-event anomaly alert (#2557).
+      expectedZero: scrapeResult.diagnosticContext?.expectedZero === true,
       ...regimeContext,
     });
 
