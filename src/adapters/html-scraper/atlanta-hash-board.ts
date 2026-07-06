@@ -255,9 +255,10 @@ const TIME_TOKEN_RE = /^\d{1,2}(?::\d{2})?\s*(?:[ap]m)?$/i;
 // bare time without a single high-complexity alternation.
 const TIME_LEAD_WORD_RE = /^(?:meet(?:ing)?|gather|show|hares?\s+away)\s+/i;
 const TIME_LEAD_AT_RE = /^(?:up\s+)?at\s+/i;
-// Trailing "out" instruction ("7pm, out", "12:30 out at 1:00", "on out"). Found
-// by index + slice rather than a greedy `.*$` (which trips Sonar S8786).
-const TIME_OUT_MARKER_RE = /[\s,]+(?:on\s)?out\b/i;
+// Trailing "out" instruction ("7pm, out", "12:30 out at 1:00"). Found by index +
+// slice rather than a greedy `.*$` (which trips Sonar S8786). Kept to a single
+// quantifier + literal — no optional group adjacent to `+`, which S8786 flags.
+const TIME_OUT_MARKER_RE = /[\s,]+out\b/i;
 
 function stripTimeLead(value: string): string {
   return value.replace(TIME_LEAD_WORD_RE, "").replace(TIME_LEAD_AT_RE, "");
