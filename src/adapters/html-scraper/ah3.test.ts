@@ -22,7 +22,7 @@ vi.mock("@/pipeline/structure-hash", () => ({
 const { safeFetch } = await import("@/adapters/safe-fetch");
 const mockedSafeFetch = vi.mocked(safeFetch);
 
-const SOURCE_URL = "https://ah3.nl/nextruns/";
+const SOURCE_URL = "https://ah3.nl/nextrun/";
 const PREVIOUS_URL = "https://ah3.nl/previous/";
 
 function makeSource(overrides?: Partial<Source>): Source {
@@ -60,7 +60,7 @@ function mockFetchResponses(upcomingHtml: string, previousHtml: string) {
   });
 }
 
-// Real HTML fixture — mirrors the structure of ah3.nl/nextruns/
+// Real HTML fixture — mirrors the structure of ah3.nl/nextrun/
 const FIXTURE_HTML = `<html><body><div class="entry-content">
 <style>mark { background-color: lightgrey; color: black; }</style>
 <hr class="wp-block-separator"/>

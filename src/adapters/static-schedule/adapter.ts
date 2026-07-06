@@ -416,6 +416,9 @@ export class StaticScheduleAdapter implements SourceAdapter {
           windowStart: window.start.toISOString(),
           windowEnd: window.end.toISOString(),
           note: "off-season: window does not overlap any BYMONTH month",
+          // Health-check signal: this empty scrape is expected (seasonal dormancy),
+          // so the zero-event anomaly alert is suppressed (#2557).
+          expectedZero: true,
         },
       };
     }

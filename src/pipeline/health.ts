@@ -48,6 +48,8 @@ interface AnalyzeInput {
   currentConfigHash?: string;
   /** Optional manual baseline boundary (`Source.baselineResetAt`). Health checks ignore scrape rows older than this when computing rolling averages. Use after a code-led adapter improvement that doesn't change `Source.config`. */
   baselineResetAt?: Date;
+  /** Adapter-declared "an empty scrape is expected this run" signal (e.g. a seasonal STATIC_SCHEDULE whose forward window doesn't overlap any active month). Suppresses the zero-event anomaly alert so off-season dormancy doesn't file recurring false-positives (#2557). */
+  expectedZero?: boolean;
 }
 
 /** Type alias for the shape of recent scrape log rows used across checks. */
@@ -102,6 +104,18 @@ function checkEventCountAnomaly(
   const avgEvents =
     recentSuccessful.reduce((sum, l) => sum + l.eventsFound, 0) /
     recentSuccessful.length;
+
+  // Adapter declared this empty scrape expected (e.g. seasonal off-season window).
+  // Not a break — skip the anomaly entirely (#2557).
+  if (input.expectedZero) return null;
+
+  // Very-low-baseline sources (future-only feeds like Harrier Central for a lunar
+  // or low-volume kennel) legitimately have empty forward windows between runs.
+  // A drop from a rolling average of ~1 to 0 is dormancy, not a scraper break —
+  // suppress the CRITICAL zero-event alert rather than filing a recurring
+  // false-positive (#2560, #2563). The >50%-drop WARNING branch below (gated on
+  // avgEvents > 5) is unaffected.
+  if (input.eventsFound === 0 && Math.round(avgEvents) <= 1) return null;
 
   const aiNote = input.aiRecovery
     ? ` AI recovery: ${input.aiRecovery.succeeded}/${input.aiRecovery.attempted} parse errors recovered.${input.aiRecovery.failed > 0 ? ` ${input.aiRecovery.failed} could not be recovered — may need code changes.` : ""}`

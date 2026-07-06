@@ -74,6 +74,46 @@ describe("analyzeHealth", () => {
     expect(result.alerts.some(a => a.type === "EVENT_COUNT_ANOMALY")).toBe(true);
   });
 
+  it("suppresses zero-event anomaly when adapter declares expectedZero (#2557)", async () => {
+    // Seasonal STATIC_SCHEDULE off-season window: 0 events is expected, not a break.
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      eventsFound: 0,
+      expectedZero: true,
+    }));
+    expect(result.alerts.find(a => a.type === "EVENT_COUNT_ANOMALY")).toBeUndefined();
+    // Still marked checked so any stale prior alert auto-resolves.
+    expect(result.checkedTypes).toContain("EVENT_COUNT_ANOMALY");
+  });
+
+  it("suppresses zero-event anomaly for very-low-baseline sources (#2560/#2563)", async () => {
+    // A future-only feed (e.g. Harrier Central) averaging ~1 event legitimately
+    // has empty forward windows between runs — dormancy, not a scraper break.
+    mockScrapeLogFind.mockReset();
+    mockScrapeLogFind
+      .mockResolvedValueOnce(
+        baselineEntries.map(e => ({ ...e, eventsFound: 1 })) as never,
+      )
+      .mockResolvedValueOnce([] as never);
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      eventsFound: 0,
+    }));
+    expect(result.alerts.find(a => a.type === "EVENT_COUNT_ANOMALY")).toBeUndefined();
+  });
+
+  it("still fires zero-event anomaly for healthy-baseline sources", async () => {
+    // Guard against over-suppression: an 8-event source dropping to 0 is a real break.
+    mockScrapeLogFind.mockReset();
+    mockScrapeLogFind
+      .mockResolvedValueOnce(
+        baselineEntries.map(e => ({ ...e, eventsFound: 8 })) as never,
+      )
+      .mockResolvedValueOnce([] as never);
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      eventsFound: 0,
+    }));
+    expect(result.alerts.some(a => a.type === "EVENT_COUNT_ANOMALY")).toBe(true);
+  });
+
   it("generates UNMATCHED_TAGS for novel tags", async () => {
     const result = await analyzeHealth("src_1", "log_1", baseInput({
       unmatchedTags: ["NewKennel"],
