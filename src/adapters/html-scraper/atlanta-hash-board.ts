@@ -13,7 +13,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { safeFetch, type ProxyEgress } from "../safe-fetch";
-import { parse12HourTime, validateSourceConfig, decodeEntities, stripHtmlTags, chronoParseDate, buildDateWindow, cleanLocationName } from "../utils";
+import { parse12HourTime, validateSourceConfig, decodeEntities, stripHtmlTags, chronoParseDate, buildDateWindow, cleanLocationName, extractHashRunNumber } from "../utils";
 
 // ── Config shape ──
 
@@ -179,10 +179,24 @@ function isBannerLine(line: string): boolean {
     FOUR_DIGIT_YEAR_RE.test(line)
   );
 }
+
+/**
+ * phpBB "Last edited by <user> on <date> <time>, edited N time(s) in total."
+ * notice. Unlike the author banner it uses "on" (not `»`), so `isBannerLine`
+ * misses it — and its trailing edit timestamp (e.g. `3:48 am`) is a real
+ * `H:MM am/pm` token that can leak into startTime, producing improbable pre-dawn
+ * start times on evening hashes (soco-h3 6/19 stored `03:48`; suppression #2054).
+ * Keyed on the phpBB-fixed "edited … in total" phrasing so it can't match event
+ * copy.
+ */
+const EDIT_NOTICE_RE = /\bedited\s+\d+\s+times?\s+in\s+total\b/i;
+function isEditNoticeLine(line: string): boolean {
+  return EDIT_NOTICE_RE.test(line);
+}
 export function stripPhpBbBanners(text: string): string {
   return text
     .split("\n")
-    .filter((line) => !isBannerLine(line))
+    .filter((line) => !isBannerLine(line) && !isEditNoticeLine(line))
     .join("\n")
     .replace(/\n{2,}/g, "\n")
     .trim();
@@ -211,13 +225,51 @@ function stripMarkdownEmphasis(s: string): string {
     .trim();
 }
 
-/** Detect a value that is purely a time pattern (e.g. "1:30 PM", "1:30 pm",
- *  "1:30 Am"). Case-insensitive on AM/PM to match `parse12HourTime`'s own
- *  contract (mixed-case scribes — the cycle-12 issue used uppercase, but
- *  lowercase "pm" is just as common in scribe-typed phpBB posts). Used to
- *  redirect a `Start: 1:30 PM` capture into `startTime` instead of
- *  `location` (#1640). */
-const TIME_ONLY_RE = /^\s*(\d{1,2}:\d{2}\s*[ap]m)\s*$/i;
+/**
+ * Parse a loose time token into "HH:MM". Handles the colon form ("1:30 PM")
+ * AND the bare-hour form ("7pm", "7 pm") that scribes type for round hours —
+ * `parse12HourTime` alone requires a colon, so `7pm` slips through. A time with
+ * NO meridiem ("12:30", "1:30") is intentionally rejected (undefined): guessing
+ * AM/PM would risk a wrong start time, and blank beats wrong.
+ */
+function parseLooseTime(token: string): string | undefined {
+  const t = token.trim();
+  // Colon + meridiem → shared parser (also normalizes overflow minutes).
+  if (/\d{1,2}:\d{2,3}\s*[ap]m/i.test(t)) return parse12HourTime(t);
+  // Bare hour + meridiem ("7pm", "7 pm") → pad to ":00" then reuse the parser.
+  const bare = /^(\d{1,2})\s*([ap]m)$/i.exec(t);
+  if (bare) return parse12HourTime(`${bare[1]}:00 ${bare[2]}`);
+  return undefined;
+}
+
+/**
+ * A time TOKEN on its own: "1:30 PM", "7pm", "12:30" (bare, no meridiem).
+ * Used only inside `classifyTimeInstruction` after connective/suffix stripping,
+ * so it must accept the no-meridiem form too (that's still not a location).
+ */
+const TIME_TOKEN_RE = /^\d{1,2}(?::\d{2})?\s*(?:[ap]m)?$/i;
+// Leading connective words a scribe wraps a bare time in ("Meet at 7pm",
+// "gather at 1:30", "hares away at 7", "show up at 7pm"). Stripped before the
+// token test. Procedural-friendly single alternation, no nested `\s*` adjacent
+// to the group (Sonar S5852).
+const TIME_LEAD_RE = /^(?:meet(?:ing)?|gather|show(?:\s+up)?|hares?\s+away)\s+(?:up\s+)?(?:at\s+)?/i;
+// Trailing "out" instruction ("7pm, out", "12:30 out at 1:00", "on out").
+const TIME_OUT_SUFFIX_RE = /[,\s]+(?:on\s+)?out\b.*$/i;
+
+/**
+ * Decide whether a labeled value is really a time/"out" instruction rather than
+ * a venue (e.g. `Start: Meet at 7pm, out`, `Meet: 12:30 out`, `Start: 1:30 PM`).
+ * Such values must NOT become `location` (#2518 soco-h3 stored `7pm, out`;
+ * SLUT 1/1 stored `12:30 out`; PH3 5/23 stored `** 1:30 PM`). Returns the parsed
+ * start time when recoverable so the caller can promote it, or `{}` when the
+ * value is a time instruction but the time can't be pinned (still drop it as a
+ * location). Returns `null` when the value is a genuine venue.
+ */
+function classifyTimeInstruction(value: string): { time?: string } | null {
+  const core = value.replace(TIME_LEAD_RE, "").replace(TIME_OUT_SUFFIX_RE, "").trim();
+  if (!core || !TIME_TOKEN_RE.test(core)) return null;
+  return { time: parseLooseTime(core) };
+}
 
 /**
  * Extract structured event fields from pre-parsed content.
@@ -234,9 +286,16 @@ export function extractEventFields(
   // timestamps like "Sat Mar 28, 2026 3:19 pm" can't leak into startTime (#1588).
   const text = stripPhpBbBanners(precomputedText ?? stripHtmlTags(htmlContent, "\n"));
 
-  // Hares — strip markdown bold/italic asterisks the scribes wrap names in
-  // (#1640: "Hares: ** *Debbie Does Digits*" → "Debbie Does Digits").
-  const hareMatch = /Hares?\s*:\s*([^\n]*)(?:\n|$)/i.exec(text);
+  // Hares — accept the colon label ("Hares: …") and, as a fallback, the
+  // colon-less "HARE IS <name>" / "Hares are <name>" dialect some Atlanta
+  // scribes type (#2495 Pinelake body was "HARE IS BAAA", dropped by the
+  // colon-only matcher). The IS/ARE form is anchored to the START of a line
+  // (`^`, multiline) so mid-sentence prose like "the Red Hare is celebrating…"
+  // can't be mistaken for a hare name (caught in the Wayback backfill dry-run).
+  // Strip markdown bold/italic asterisks the scribes wrap names in (#1640).
+  const hareMatch =
+    /\bHares?\s*:\s*([^\n]*)/i.exec(text) ??
+    /^[\s*]*Hares?\s+(?:is|are)\s+([^\n]*)/im.exec(text);
   if (hareMatch) {
     const cleaned = stripMarkdownEmphasis(hareMatch[1]);
     if (cleaned) fields.hares = cleaned;
@@ -263,15 +322,25 @@ export function extractEventFields(
     if (!LOC_LABELS.has(label)) continue;
     const value = stripMarkdownEmphasis(rawLine.slice(colonIdx + 1));
     if (!value) continue;
-    const timeOnly = TIME_ONLY_RE.exec(value);
-    if (timeOnly) {
-      if (!fields.startTime) {
-        const parsed = parse12HourTime(timeOnly[1]);
-        if (parsed) fields.startTime = parsed;
-      }
+    // Time/"out" instructions mislabeled as a location ("Start: Meet at 7pm,
+    // out", "Meet: 12:30 out", "Start: 1:30 PM") must not become the venue —
+    // promote a recoverable time to startTime, drop the rest (#2518 / #1640).
+    const timeInstr = classifyTimeInstruction(value);
+    if (timeInstr) {
+      if (!fields.startTime && timeInstr.time) fields.startTime = timeInstr.time;
       continue;
     }
     if (!locationCandidate) locationCandidate = value;
+  }
+  // Colon-less "START IS <venue>" dialect fallback (#2495 Pinelake post body).
+  // Line-anchored (`^`, multiline) so prose like "the start is a mystery" can't
+  // leak into location (mirrors the anchored hare fallback above).
+  if (!locationCandidate) {
+    const startIs = /^[\s*]*Start\s+is\s+([^\n]+)/im.exec(text);
+    if (startIs) {
+      const v = stripMarkdownEmphasis(startIs[1]);
+      if (v && !classifyTimeInstruction(v)) locationCandidate = v;
+    }
   }
   if (locationCandidate) {
     let loc = locationCandidate;
@@ -334,21 +403,35 @@ export function extractEventFields(
   return fields;
 }
 
-/** Extract run number from Atom entry title. */
-function extractRunNumberFromTitle(title: string): number | undefined {
-  const match = /#(\d{2,})/.exec(title);
-  return match ? Number.parseInt(match[1], 10) : undefined;
+/**
+ * Extract run number from Atom entry title.
+ *
+ * Delegates to the shared `extractHashRunNumber` (utils.ts) so the space-
+ * separated (`SLUT # 271`) and single-digit (`SoCo #9`) forms parse — the old
+ * `/#(\d{2,})/` required no space and ≥2 digits, silently dropping run numbers
+ * on both shapes (#2504 / #2519). The shared helper's delimiter guard
+ * (`(?=$|[\s:\-–—,.()/])`) is safe here: topic titles never carry street/suite
+ * `#NNN` numbers (those live in post bodies, guarded separately below).
+ */
+export function extractRunNumberFromTitle(title: string): number | undefined {
+  return extractHashRunNumber(title);
 }
 
 /** Extract a clean trail name from the Atom title. */
-function extractTitleName(title: string): string | undefined {
+export function extractTitleName(title: string): string | undefined {
   // Titles look like: "Atlanta Hash (Saturdays) • Trail Name Here" (• or · separator)
   const normalized = title.replace(/·/g, "•");
   const afterBullet = normalized.includes("•") ? normalized.split("•").pop()!.trim() : null;
   if (!afterBullet) return undefined;
 
-  // Strip "Re: " prefix (shouldn't get here but just in case)
-  const cleaned = afterBullet.replace(/^Re:\s*/i, "").trim();
+  // Strip "Re: " prefix (shouldn't get here but just in case), then peel any
+  // leading connector punctuation so a title can never surface as
+  // "- Murphey Candler Park Pool" (#2495 — the leading dash on a
+  // "Date - Venue" topic when an upstream step dropped the date half).
+  const cleaned = afterBullet
+    .replace(/^Re:\s*/i, "")
+    .replace(/^[\s:.\-–—/]+/, "")
+    .trim();
   return cleaned || undefined;
 }
 

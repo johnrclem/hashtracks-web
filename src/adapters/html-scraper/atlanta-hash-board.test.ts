@@ -8,6 +8,8 @@ import {
   isReplyEntry,
   extractEventDate,
   extractEventFields,
+  extractRunNumberFromTitle,
+  extractTitleName,
   stripPhpBbBanners,
   AtlantaHashBoardAdapter,
 } from "./atlanta-hash-board";
@@ -440,6 +442,130 @@ describe("stripPhpBbBanners", () => {
     // banner. Switching MONTH_NAME_RE from `[a-z]*` to specific suffixes
     // (Jan(uary)?, Feb(ruary)?, ...) closes the false-positive window.
     const text = "Quote: \"the Marching Band 2026 was epic\" » she said";
+    expect(stripPhpBbBanners(text)).toBe(text);
+  });
+});
+
+// ── Atlanta cluster Deep Dive: run#, time-in-location, title, hares, edit-notice ──
+// Inputs are derived verbatim from real prod board payloads (viewtopic p=768/887/
+// 920/1073/1098/1109) recovered during the #2495/#2504/#2518/#2519 investigation.
+
+describe("extractRunNumberFromTitle (#2504 / #2519)", () => {
+  it.each([
+    { title: "SLUT # 271 Happy SLUTty SOCO", expected: 271 }, // space-separated
+    { title: "SLUT # 277 Dixie & Cockpit 4/2/26", expected: 277 },
+    { title: "SoCo #9 on 11/21: No Nut November", expected: 9 }, // single digit
+    { title: "SLUT #281 - July 2 - FIFA Friendly", expected: 281 }, // no space (regression)
+    { title: "Moonlite H3 • Moonlite #1638 March 10th", expected: 1638 },
+    { title: "Saturday, June 20, McClatchey Park", expected: undefined }, // no run number
+  ])("extracts $expected from '$title'", ({ title, expected }) => {
+    expect(extractRunNumberFromTitle(title)).toBe(expected);
+  });
+});
+
+describe("extractTitleName leading-dash hygiene (#2495)", () => {
+  it("keeps the full date-prefixed title (no ' - ' split)", () => {
+    expect(
+      extractTitleName("Pinelake Hash (Saturdays) • Saturday April 25 - Murphey Candler Park Pool"),
+    ).toBe("Saturday April 25 - Murphey Candler Park Pool");
+  });
+
+  it("peels a leading dash so a title never surfaces as '- Venue'", () => {
+    expect(
+      extractTitleName("Pinelake Hash (Saturdays) • - Murphey Candler Park Pool"),
+    ).toBe("Murphey Candler Park Pool");
+  });
+});
+
+describe("extractEventFields — time text must not leak into location (#2518)", () => {
+  it("keeps the real venue when a Start: label holds a bare-hour 'out' instruction", () => {
+    // soco-h3 11/21: stored `Meet at 7pm, out` as location (bare hour, no colon,
+    // escaped the old time strip). Real venue is on the Where: line.
+    const fields = extractEventFields(
+      "Start: Meet at 7pm, out<br>Where: Leila Mason Park, Stone Mountain GA",
+    );
+    expect(fields.location).toBe("Leila Mason Park, Stone Mountain GA");
+    expect(fields.location).not.toContain("7pm");
+  });
+
+  it("promotes a bare-hour 'out' instruction to startTime when no time set yet", () => {
+    const fields = extractEventFields("Start: Meet at 7pm, out");
+    expect(fields.startTime).toBe("19:00");
+    expect(fields.location).toBeUndefined();
+  });
+
+  it("drops '12:30 out at 1:00' from location, keeps the venue (SLUT 1/1)", () => {
+    const fields = extractEventFields(
+      "Meet: 12:30 out at 1:00<br>Where: Gotham Park 1996 Gotham Way NE, Atlanta, GA 30324",
+    );
+    expect(fields.location).toContain("Gotham Park");
+    expect(fields.location).not.toContain("12:30");
+    // "12:30" carries no meridiem → not guessed into startTime (blank beats wrong).
+    expect(fields.startTime).toBeUndefined();
+  });
+
+  it("promotes a markdown time-only Start: value, never leaks '** 1:30 PM' (PH3 5/23)", () => {
+    const fields = extractEventFields("Start: ** 1:30 PM<br>Where: El Ranchero, Marietta, GA");
+    expect(fields.startTime).toBe("13:30");
+    expect(fields.location).toBe("El Ranchero, Marietta, GA");
+  });
+});
+
+describe("extractEventFields — colon-less IS/ARE dialect (#2495 Pinelake)", () => {
+  it("extracts hares from 'HARE IS <name>' and venue from 'START IS <venue>'", () => {
+    const fields = extractEventFields(
+      "HARE IS BAAA<br>START IS Murphy Chandler Park Pool<br>COST IS $10<br>GATHER AT 1:30",
+    );
+    expect(fields.hares).toBe("BAAA");
+    expect(fields.location).toBe("Murphy Chandler Park Pool");
+  });
+
+  it("still parses 'Hares are Foo and Bar'", () => {
+    const fields = extractEventFields("Hares are Foo and Bar<br>Where: Piedmont Park");
+    expect(fields.hares).toBe("Foo and Bar");
+  });
+
+  it("does not treat 'Hare out at 2:00' as a hare name", () => {
+    const fields = extractEventFields("Where: Some Park<br>Hare out at 2:00");
+    expect(fields.hares).toBeUndefined();
+  });
+
+  it("does not capture mid-sentence prose 'the Red Hare is celebrating…' as a hare (backfill regression)", () => {
+    // The IS/ARE fallback is line-anchored: a Pinelake post body line
+    // "The Red Hare is celebrating the closing of its Delk location…" must NOT
+    // become haresText (caught in the Wayback backfill dry-run).
+    const fields = extractEventFields(
+      "Pinelake Saturday 3/30 Red Hare Run<br>The Red Hare is celebrating the closing of its Delk location with a band.",
+    );
+    expect(fields.hares).toBeUndefined();
+  });
+
+  it("does not capture prose 'the start is a mystery' as a location", () => {
+    const fields = extractEventFields("Some trail info. The start is a mystery this week.");
+    expect(fields.location).toBeUndefined();
+  });
+});
+
+describe("extractEventFields — phpBB edit-notice must not leak into startTime (#2054 soco 6/19)", () => {
+  it("ignores 'Last edited by … 3:48 am, edited 1 time in total'", () => {
+    const fields = extractEventFields(
+      "Hares: Arf Arf and Pee Blossom of Power<br>" +
+        "Where: 2059 Lavista Rd NE, Atlanta, GA 30329<br>" +
+        "Last edited by HMATBITWArfArf on Fri Jun 19, 2026 3:48 am, edited 1 time in total.",
+    );
+    expect(fields.startTime).toBeUndefined();
+    expect(fields.location).toBe("2059 Lavista Rd NE, Atlanta, GA 30329");
+  });
+});
+
+describe("stripPhpBbBanners — edit-notice lines (#2054)", () => {
+  it("strips a 'Last edited by … edited N time in total' line", () => {
+    const text = "Real content\nLast edited by ArfArf on Fri Jun 19, 2026 3:48 am, edited 1 time in total.";
+    expect(stripPhpBbBanners(text)).toBe("Real content");
+  });
+
+  it("preserves prose that merely contains the word 'edited'", () => {
+    const text = "This trail was edited to add more shiggy";
     expect(stripPhpBbBanners(text)).toBe(text);
   });
 });
