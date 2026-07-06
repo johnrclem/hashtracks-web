@@ -89,11 +89,25 @@ describe("parseRunLine", () => {
     expect(parseRunLine("Upcoming Runs (visitors always welcome):", REF)).toBeNull();
   });
 
-  it("fails loud (null) on delimiter drift — a date-led row missing its tabs", () => {
-    // If the source ever switches tabs → spaces, chrono still finds the leading
-    // date; without the field-count guard the venue would mis-bind as the hare.
+  it("fails loud (null) on delimiter drift — single-space rows are unrecoverable", () => {
+    // Single spaces are ambiguous (a multi-word hare is indistinguishable from a
+    // hare+venue), so these stay null and the caller records an error rather than
+    // mis-binding the venue as the hare.
     expect(parseRunLine("8-Jun-26 Revs 29i James street, Glenfield", REF)).toBeNull();
     expect(parseRunLine("8-Jun-26\tRevs 29i James street", REF)).toBeNull();
+  });
+
+  it("recovers a space-delimited row when fields are separated by 2+ spaces (#2558)", () => {
+    // The source is hand-edited; some rows use runs of spaces instead of tabs.
+    // A 2+-space gap is an unambiguous field delimiter (multi-word hares use
+    // single spaces), so date/hare/venue must still resolve correctly.
+    const event = parseRunLine(
+      "24-Aug-26      Butcher  6 Waterstone Way, Henderson. Birthday Run",
+      REF,
+    );
+    expect(event).not.toBeNull();
+    expect(event!.hares).toBe("Butcher");
+    expect(event!.location).toBe("6 Waterstone Way, Henderson. Birthday Run");
   });
 });
 
@@ -117,9 +131,12 @@ describe("groupRunRows", () => {
 });
 
 // Faithful slice of the live Rocketspark homepage: the run list is a Draft.js
-// content block (`.public-DraftEditor-content`) whose text nodes are
-// TAB-delimited (`<date>\t<hare>\t<venue>`), with wrapped continuation lines
-// and trailing junk. A second decoy block proves the "Upcoming Runs" selector.
+// content block (`.public-DraftEditor-content`) whose text nodes are usually
+// TAB-delimited (`<date>\t<hare>\t<venue>`), with wrapped continuation lines and
+// trailing junk. The source is hand-edited, so some rows separate fields with
+// runs of spaces instead of tabs (the 24-Jun row below mirrors the live
+// "24-Aug-26      Butcher  6 Waterstone Way …" case from #2558). A second decoy
+// block proves the "Upcoming Runs" selector.
 const RUN_BLOCK = [
   "Upcoming Runs (visitors always welcome):",
   "1-Jun-26\t         POY\tKing's Birthday, 4pm Start. Pakuranga Sailing",
@@ -128,6 +145,7 @@ const RUN_BLOCK = [
   "8-Jun-26\tRevs\t29i James street, Glenfield",
   "15-Jun-26\tLoose Change\t37 Waimoko Glen, Swanson ",
   "22-Jun-26\tHard to Port\tVenue TBC",
+  "24-Jun-26      Butcher  6 Waterstone Way, Henderson. Birthday Run",
   "29-Jun-26\tTin Arse\tSpicy Bites Indian Restaurant: 7 Litten Road,  ",
   "                           Cockle Bay, Howick",
   "6-Jul-26\t         Hare Wanted\t",
@@ -160,14 +178,14 @@ describe("AucklandHashAdapter.fetch", () => {
     mockSafeFetch.mockReset();
   });
 
-  it("parses the 7 upcoming tab-delimited runs and resolves all to ah3-nz", async () => {
+  it("parses all upcoming runs (tab- and space-delimited) and resolves all to ah3-nz", async () => {
     mockSafeFetch.mockResolvedValueOnce(new Response(SAMPLE_HTML, { status: 200 }));
 
     const result = await runFetch();
 
     expect(result.errors).toHaveLength(0);
     expect(result.structureHash).toBeDefined();
-    expect(result.events).toHaveLength(7);
+    expect(result.events).toHaveLength(8);
     expect(result.events.every((e) => e.kennelTags[0] === "ah3-nz")).toBe(true);
 
     const byDate = Object.fromEntries(result.events.map((e) => [e.date, e]));
@@ -178,6 +196,8 @@ describe("AucklandHashAdapter.fetch", () => {
     expect(byDate["2026-06-08"].startTime).toBe("18:30"); // default
     expect(byDate["2026-06-15"].hares).toBe("Loose Change"); // multi-word hare
     expect(byDate["2026-06-22"].location).toBeNull(); // Venue TBC → explicit clear
+    expect(byDate["2026-06-24"].hares).toBe("Butcher"); // space-delimited row (#2558)
+    expect(byDate["2026-06-24"].location).toBe("6 Waterstone Way, Henderson. Birthday Run");
     expect(byDate["2026-07-06"].hares).toBeUndefined(); // Hare Wanted placeholder
   });
 

@@ -114,18 +114,31 @@ export function parseRunLine(
   referenceDate = new Date(),
   sourceUrl = DEFAULT_URL,
 ): RawEventData | null {
-  const parts = row.split("\t").map((p) => p.trim());
+  // Fields are normally tab-delimited, but the source is hand-edited and some
+  // rows separate fields with runs of spaces instead of tabs (#2558: the
+  // "24-Aug-26      Butcher  6 Waterstone Way …" row has no tabs at all, which
+  // used to null the row and FAIL the whole scrape). Treat a tab OR a run of
+  // 2+ spaces as one field delimiter — multi-word hares/venues use single
+  // spaces, so this stays unambiguous. Two ReDoS-safe passes (tab→spaces, then
+  // 2+ spaces→tab) avoid a tab/space alternation regex. `venue` below rejoins
+  // any over-split tail with a space, so a 2+-space run inside a venue (e.g. a
+  // folded continuation line) is harmless.
+  const parts = row
+    .replace(/\t/g, "  ")
+    .replace(/ {2,}/g, "\t")
+    .split("\t")
+    .map((p) => p.trim());
   const dateRaw = parts[0] ?? "";
   const date = chronoParseDate(dateRaw.replaceAll("-", " "), "en-GB", referenceDate, {
     forwardDate: true,
   });
   if (!date) return null;
 
-  // The source emits a fixed `<date>\t<hare>\t<venue>` shape — the venue tab is
-  // present even when the venue is blank ("Hare Wanted\t"). Fewer than three
-  // tab fields means the tab delimiters drifted; fail loud (null → caller
-  // records an error → reconcile suppressed) rather than silently mis-binding
-  // venue text as the hare.
+  // The source emits a fixed `<date> <hare> <venue>` shape — the venue delimiter
+  // is present even when the venue is blank ("Hare Wanted\t"). Fewer than three
+  // fields after delimiter normalization means the row is genuinely malformed
+  // (e.g. a lone date); fail loud (null → caller records an error → reconcile
+  // suppressed) rather than silently mis-binding venue text as the hare.
   if (parts.length < 3) return null;
 
   const hareRaw = parts[1] ?? "";
