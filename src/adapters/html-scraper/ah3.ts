@@ -431,7 +431,10 @@ export class AH3Adapter implements SourceAdapter {
     const config = (source.config ?? {}) as Record<string, unknown>;
     const previousUrl =
       (config.previousUrl as string) ??
-      upcomingUrl.replace(/nextrun\/?/, "previous/");
+      // Anchored + plural-aware so a legacy `/nextruns/` URL also derives
+      // `/previous/` (an unanchored `/nextrun\/?/` would leave the stray `s`
+      // → `/previous/s/`). Only the trailing segment is rewritten.
+      upcomingUrl.replace(/nextruns?\/?$/, "previous/");
 
     const allEvents: RawEventData[] = [];
     const allErrors: string[] = [];

@@ -85,9 +85,25 @@ describe("analyzeHealth", () => {
     expect(result.checkedTypes).toContain("EVENT_COUNT_ANOMALY");
   });
 
+  it("also suppresses FIELD_FILL_DROP on a benign expected-empty scrape (#2557)", async () => {
+    // Off-season scrape: 0 events → computeFillRates([]) is all-zero. That must
+    // NOT fire FIELD_FILL_DROP against the in-season baseline (title 100% etc.) —
+    // the whole benign-empty scrape is skipped, not just the count anomaly.
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      eventsFound: 0,
+      expectedZero: true,
+      fillRates: { title: 0, location: 0, hares: 0, startTime: 0, runNumber: 0 },
+    }));
+    expect(result.alerts.find(a => a.type === "EVENT_COUNT_ANOMALY")).toBeUndefined();
+    expect(result.alerts.find(a => a.type === "FIELD_FILL_DROP")).toBeUndefined();
+    // Still marked checked so any stale prior alert auto-resolves.
+    expect(result.checkedTypes).toContain("FIELD_FILL_DROP");
+  });
+
   it("suppresses zero-event anomaly for very-low-baseline sources (#2560/#2563)", async () => {
     // A future-only feed (e.g. Harrier Central) averaging ~1 event legitimately
     // has empty forward windows between runs — dormancy, not a scraper break.
+    // Its all-zero fill rates must not fire FIELD_FILL_DROP either.
     mockScrapeLogFind.mockReset();
     mockScrapeLogFind
       .mockResolvedValueOnce(
@@ -96,8 +112,10 @@ describe("analyzeHealth", () => {
       .mockResolvedValueOnce([] as never);
     const result = await analyzeHealth("src_1", "log_1", baseInput({
       eventsFound: 0,
+      fillRates: { title: 0, location: 0, hares: 0, startTime: 0, runNumber: 0 },
     }));
     expect(result.alerts.find(a => a.type === "EVENT_COUNT_ANOMALY")).toBeUndefined();
+    expect(result.alerts.find(a => a.type === "FIELD_FILL_DROP")).toBeUndefined();
   });
 
   it("still fires zero-event anomaly for healthy-baseline sources", async () => {
