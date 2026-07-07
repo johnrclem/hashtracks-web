@@ -103,8 +103,16 @@ async function fetchRecap(): Promise<RawEventData[]> {
       });
     }
 
-    // caption had a run# but no adjacent date → counts as an undated drop.
-    if (!matchedHere && ANY_RUN_RE.test(caption)) undatedCaptions++;
+    // Count as an undated drop only when the caption carries an IN-WINDOW run
+    // token (>= MIN_RUN) with no adjacent date. This excludes the out-of-window
+    // summary caption ("No.0232 … No.1667 … 740 times"), which is dated but
+    // deliberately skipped for a different reason (run# below MIN_RUN).
+    if (!matchedHere) {
+      const hasInWindowRun = [...caption.matchAll(/(?:No\.?|Run)\s?(\d{3,4})/gi)].some(
+        (t) => Number.parseInt(t[1], 10) >= MIN_RUN,
+      );
+      if (hasInWindowRun) undatedCaptions++;
+    }
   });
 
   const events = [...byRun.values()];

@@ -63,7 +63,10 @@ async function fetchArchive(): Promise<RawEventData[]> {
   const html = await res.text();
   const $ = cheerio.load(html);
 
-  const events: RawEventData[] = [];
+  // Keyed by run number (first occurrence wins) — matches the byFm/byRun guard in
+  // the sibling sheet/recap backfills and stays defensive if the archive table ever
+  // carries a duplicated/corrected row for the same run number.
+  const byRun = new Map<number, RawEventData>();
   let droppedNoDate = 0;
   let droppedNoRun = 0;
 
@@ -80,6 +83,7 @@ async function fetchArchive(): Promise<RawEventData[]> {
       return;
     }
     if (runNumber > MAX_RUN) return; // covered by the HC backfill
+    if (byRun.has(runNumber)) return; // first occurrence wins
 
     // cells: [R*n, Date, Type, Location, Hares, Scribe]
     const date = chronoParseDate(cells[1], "en-GB");
@@ -91,7 +95,7 @@ async function fetchArchive(): Promise<RawEventData[]> {
     const location = cells[3]?.trim() || undefined;
     const hares = cells[4]?.trim() || undefined;
 
-    events.push({
+    byRun.set(runNumber, {
       date,
       kennelTags: ["lvh3-gb"],
       runNumber,
@@ -101,6 +105,8 @@ async function fetchArchive(): Promise<RawEventData[]> {
       sourceUrl: ARCHIVE_URL,
     });
   });
+
+  const events = [...byRun.values()];
 
   console.log(
     `  Parsed ${events.length} rows (#1–#${MAX_RUN}); dropped ${droppedNoDate} undated, ${droppedNoRun} non-numeric-run`,
