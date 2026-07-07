@@ -24,7 +24,7 @@
  * Run (Railway proxy uses a self-signed cert):
  *   Dry-run: set -a && source .env && set +a && BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/backfill-atlanta-fixups.ts
  *   Apply:   … npx tsx scripts/backfill-atlanta-fixups.ts --apply
- *   Env:     DATABASE_URL, NEXT_PUBLIC_GOOGLE_MAPS_API_KEY (geocode)
+ *   Env:     DATABASE_URL, GOOGLE_CALENDAR_API_KEY (geocodeAddress reads this)
  */
 import type { PrismaClient } from "@/generated/prisma/client";
 import { geocodeAddress, haversineDistance } from "@/lib/geo";
