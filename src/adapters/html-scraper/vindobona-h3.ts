@@ -61,8 +61,11 @@ const MAX_TITLE_LEN = 120;
  */
 function titleFromComment(comment: string | undefined): string | undefined {
   if (!comment) return undefined;
-  return comment.length > MAX_TITLE_LEN
-    ? `${comment.slice(0, MAX_TITLE_LEN).trimEnd()}…`
+  // Slice by code points (Array.from) so a trailing emoji surrogate pair isn't
+  // split into a malformed character — hash comments often carry emoji.
+  const chars = Array.from(comment);
+  return chars.length > MAX_TITLE_LEN
+    ? `${chars.slice(0, MAX_TITLE_LEN).join("").trimEnd()}…`
     : comment;
 }
 

@@ -3503,7 +3503,7 @@ export const SOURCES = [
           // Moon" (which AH3 socials use as a theme word). Ordered AFTER PHH/H5 so
           // their co-hosted full-moon events ("PHH - Full Moon H3", "Pau Hana Hui
           // Frisky Full Moon") keep first-match priority.
-          [String.raw`Fool Moon|HFMH3|Hawai.i Full Moon|Full Moon H[34]|Full Moon Hash|Full Moon Run|Full Moon #\s*\d`, "fool-moon-h3"],
+          [String.raw`Fool Moon|HFMH3|Hawai.i Full Moon|Full Moon (?:H[34]|Hash|Run|#\s*\d)`, "fool-moon-h3"],
         ],
         defaultKennelTag: "ah3-hi",
         // Upcoming AH3 events encode hares in the title as the last
@@ -4669,7 +4669,11 @@ export const SOURCES = [
         // <hares>" variant the global strip misses. Hares already come from the
         // description body, so strip the trailing " by <hares>" span off the
         // title. Runs after the global "hared by" strip; scoped to Voodoo, whose
-        // titles reliably end in the hare attribution.
+        // titles reliably end in the hare attribution. Deliberately strips
+        // everything after " by " (no "by (?!the|a)" lookahead): Voodoo hare
+        // names can start with an article — e.g. "The Iceman" — so excluding
+        // "the/a/an" would leak those. Live-verified: 0 over-strips across 36
+        // events.
         titleStripPatterns: [String.raw`\s+by\s+.+$`],
       },
       kennelCodes: ["voodoo-h3"],
