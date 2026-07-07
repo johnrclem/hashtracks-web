@@ -3290,7 +3290,7 @@ export const SOURCES = [
         // events; skip the all-day "Travel Hash: <city>" trip announcements that
         // would otherwise flood the mh3-mn default.
         includeAllDayEvents: true,
-        skipPatterns: [String.raw`^Travel [Hh]ash`],
+        skipPatterns: ["^Travel [Hh]ash"],
         // #1884: title embeds the hare ("MH3 #1984 - B Knuckles") AND the
         // description carries the canonical "Hare : Butt Knuckles" line. The
         // description hare wins; alwaysStripTitleHareSpan still strips the
@@ -6530,7 +6530,7 @@ export const SOURCES = [
           // Whoreman umbrella events (campouts, RDRs, specials). Unanchored so
           // mid-title mentions ("… a Whoreman Campout", "CC Celebration Of Life
           // WH3 #1096") route explicitly rather than falling to the default.
-          ["\\bWH3\\b", "wasatch-h3"],
+          [String.raw`\bWH3\b`, "wasatch-h3"],
           ["[Ww]horeman", "wasatch-h3"],
         ],
         // #2461: Whoreman is the SLC umbrella hosted by Wasatch H3. Community
