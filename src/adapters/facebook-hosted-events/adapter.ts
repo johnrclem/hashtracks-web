@@ -348,20 +348,28 @@ function buildListingSignalErrors(
     ];
   }
 
-  // Soft-block / shape-break (#2589): 0 events, SSR envelope PRESENT, and no
-  // content-filtered candidates. FB serves a "soft block" from datacenter/
-  // residential IPs — HTTP 200 + a valid envelope + ZERO Event nodes — that is
-  // byte-for-byte structurally identical to a genuinely-empty Page (prod evidence:
-  // both ~610–630 KB, envelope present, no distinguishing marker). Since no HTML
-  // signal separates them, only fail loud for Pages FLAGGED known-blocked
-  // (`useResidentialProxy: true`, documented as "Pages known to be checkpoint-
-  // blocked from datacenter IPs"). Non-flagged Pages keep SUCCESS-0 so a genuinely-
-  // empty Page never false-fails (#2589 acceptance criterion). Emitting an error
-  // marks the scrape FAILED (reconcile is already skipped at 0 events) so a
-  // SCRAPE_FAILURE fires instead of a misleading "0 events" SUCCESS.
-  if (knownBlocked && hasEnvelopeMarker) {
+  // Soft-block / shape-break (#2589): 0 events, SSR envelope PRESENT, and the
+  // parser collected ZERO candidate nodes of ANY kind. FB serves a "soft block"
+  // from datacenter/residential IPs — HTTP 200 + a valid envelope + ZERO Event
+  // nodes — that is byte-for-byte structurally identical to a genuinely-empty Page
+  // (prod evidence: both ~610–630 KB, envelope present, no distinguishing marker).
+  // Since no HTML signal separates them, only fail loud for Pages FLAGGED
+  // known-blocked (`useResidentialProxy: true`, documented as "Pages known to be
+  // checkpoint-blocked from datacenter IPs"). Non-flagged Pages keep SUCCESS-0 so a
+  // genuinely-empty Page never false-fails (#2589 acceptance criterion).
+  //
+  // Require zero rejected candidates too: if the parser rejected ANY bag
+  // (cancelled / no-title / invalid-time / missing-half — the coverage-gap
+  // admin-notice/placeholder reasons already returned above), the events
+  // collection DID render, so it is not a block — a page whose sole upcoming event
+  // is cancelled must keep SUCCESS-0 (Codex P2 / CodeRabbit). A true soft-block has
+  // no nodes at all. Emitting an error marks the scrape FAILED (reconcile is
+  // already skipped at 0 events) so a SCRAPE_FAILURE fires instead of a misleading
+  // "0 events" SUCCESS.
+  const anyCandidateFiltered = Object.values(filteredCounts).some((n) => n > 0);
+  if (knownBlocked && hasEnvelopeMarker && !anyCandidateFiltered) {
     return [
-      `FB hosted_events page returned ${html.length} chars with the SSR envelope present but parser found 0 events and 0 content-filtered candidates. This Page is flagged useResidentialProxy (known datacenter-checkpoint-blocked); a 0-event envelope-present response is a probable soft-block (200 + envelope + no Event nodes) or a GraphQL shape change, not a genuinely-empty Page. Treating as a fetch failure so the scrape is FAILED (reconcile already skipped at 0 events), not a false SUCCESS-0${proxyRetrySuffix(usedProxy, proxyError)}.`,
+      `FB hosted_events page returned ${html.length} chars with the SSR envelope present but parser found 0 events and 0 candidate event nodes of any kind. This Page is flagged useResidentialProxy (known datacenter-checkpoint-blocked); a 0-event envelope-present response with no candidate nodes is a probable soft-block (200 + envelope + no Event nodes) or a GraphQL shape change, not a genuinely-empty Page. Treating as a fetch failure so the scrape is FAILED (reconcile already skipped at 0 events), not a false SUCCESS-0${proxyRetrySuffix(usedProxy, proxyError)}.`,
     ];
   }
   return [];

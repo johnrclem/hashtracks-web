@@ -802,6 +802,37 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     expect(result.errors).toEqual([]);
   });
 
+  it("does NOT flag a soft-block for a known-blocked Page whose only candidate is cancelled (Codex P2 / CodeRabbit)", async () => {
+    // A flagged Page that rendered a real Event node the parser rejected as
+    // cancelled proves the events collection DID render — it is NOT a soft-block.
+    // cancelled is not an admin-notice/placeholder, so contentFilteredTotal is 0,
+    // but the presence of ANY rejected candidate must keep this SUCCESS-0.
+    const cancelledOnlyHtml =
+      `<html><body>` +
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"123456789012345","name":"Real Trail #42","is_canceled":true},
+        "time":{"id":"123456789012345","start_timestamp":1778353200}
+      }</script>` +
+      `</body></html>`;
+    mockedFetch.mockResolvedValueOnce(htmlResponse(cancelledOnlyHtml));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "vth3",
+        pageHandle: "vontramph3",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+        useResidentialProxy: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors).toEqual([]);
+    expect(result.diagnosticContext).toMatchObject({
+      parserFiltered: expect.objectContaining({ cancelled: 1 }),
+    });
+  });
+
   it("prefers the coverage-gap error over the soft-block error for a known-blocked Page (#2589 ordering)", async () => {
     // A known-blocked Page whose only candidate is an admin notice must surface the
     // coverage-gap message, not the soft-block message — content-filtering is the
