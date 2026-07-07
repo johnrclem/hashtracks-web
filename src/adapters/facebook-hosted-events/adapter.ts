@@ -128,6 +128,14 @@ export interface FacebookHostedEventsConfig {
    * Tramp). When omitted/false the adapter still falls back to the proxy
    * automatically if the direct fetch `looksLikeFbBlock` — this flag just
    * avoids the wasted round-trip for chronically-blocked Pages.
+   *
+   * DUAL PURPOSE (#2589): this flag also doubles as the "Page is known to be
+   * datacenter-checkpoint-blocked" signal. `buildListingSignalErrors` treats a
+   * `0 events + SSR envelope present + no candidate nodes` response as a probable
+   * soft-block (→ FAILED) ONLY for flagged Pages, because that response is
+   * byte-for-byte identical to a genuinely-empty Page and no HTML marker separates
+   * them. If a future source ever needs proxy-first WITHOUT the stricter fail-loud
+   * semantics, split this into a second flag rather than overloading it further.
    */
   useResidentialProxy?: boolean;
   /**
@@ -221,8 +229,18 @@ export class FacebookHostedEventsAdapter implements SourceAdapter {
     const filteredCounts = parseResult.filtered;
 
     // Non-fatal block / coverage-gap signals (extracted to keep fetch() within
-    // the cognitive-complexity budget — see buildListingSignalErrors).
-    const errors = buildListingSignalErrors(html, allEvents.length, filteredCounts, usedProxy, proxyError);
+    // the cognitive-complexity budget — see buildListingSignalErrors). The
+    // `useResidentialProxy` flag doubles as the "known datacenter-checkpoint-blocked
+    // Page" signal (#2589): its 0-event-but-envelope-present responses are treated
+    // as soft-blocks rather than genuine emptiness.
+    const errors = buildListingSignalErrors(
+      html,
+      allEvents.length,
+      filteredCounts,
+      usedProxy,
+      proxyError,
+      config.useResidentialProxy === true,
+    );
 
     // Honor options.days via the shared `applyDateWindow` so diagnostic
     // counts stay consistent with other adapters. Returns a new result
@@ -307,6 +325,7 @@ function buildListingSignalErrors(
   filteredCounts: Record<FbBagRejectReason, number>,
   usedProxy: boolean,
   proxyError: string | undefined,
+  knownBlocked: boolean,
 ): string[] {
   if (allEventsCount > 0) return [];
 
@@ -334,6 +353,31 @@ function buildListingSignalErrors(
       .join(", ");
     return [
       `FB hosted_events page returned ${contentFilteredTotal} candidate events but all were content-filtered (${reasonSummary}). Source likely does not use FB Hosted Events for runs — consider replacing with a website / Meetup source.`,
+    ];
+  }
+
+  // Soft-block / shape-break (#2589): 0 events, SSR envelope PRESENT, and the
+  // parser collected ZERO candidate nodes of ANY kind. FB serves a "soft block"
+  // from datacenter/residential IPs — HTTP 200 + a valid envelope + ZERO Event
+  // nodes — that is byte-for-byte structurally identical to a genuinely-empty Page
+  // (prod evidence: both ~610–630 KB, envelope present, no distinguishing marker).
+  // Since no HTML signal separates them, only fail loud for Pages FLAGGED
+  // known-blocked (`useResidentialProxy: true`, documented as "Pages known to be
+  // checkpoint-blocked from datacenter IPs"). Non-flagged Pages keep SUCCESS-0 so a
+  // genuinely-empty Page never false-fails (#2589 acceptance criterion).
+  //
+  // Require zero rejected candidates too: if the parser rejected ANY bag
+  // (cancelled / no-title / invalid-time / missing-half — the coverage-gap
+  // admin-notice/placeholder reasons already returned above), the events
+  // collection DID render, so it is not a block — a page whose sole upcoming event
+  // is cancelled must keep SUCCESS-0 (Codex P2 / CodeRabbit). A true soft-block has
+  // no nodes at all. Emitting an error marks the scrape FAILED (reconcile is
+  // already skipped at 0 events) so a SCRAPE_FAILURE fires instead of a misleading
+  // "0 events" SUCCESS.
+  const anyCandidateFiltered = Object.values(filteredCounts).some((n) => n > 0);
+  if (knownBlocked && hasEnvelopeMarker && !anyCandidateFiltered) {
+    return [
+      `FB hosted_events page returned ${html.length} chars with the SSR envelope present but parser found 0 events and 0 candidate event nodes of any kind. This Page is flagged useResidentialProxy (known datacenter-checkpoint-blocked); a 0-event envelope-present response with no candidate nodes is a probable soft-block (200 + envelope + no Event nodes) or a GraphQL shape change, not a genuinely-empty Page. Treating as a fetch failure so the scrape is FAILED (reconcile already skipped at 0 events), not a false SUCCESS-0${proxyRetrySuffix(usedProxy, proxyError)}.`,
     ];
   }
   return [];

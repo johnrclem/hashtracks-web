@@ -752,6 +752,115 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     expect(result.events).toEqual([]);
     expect(result.errors).toEqual([]);
   });
+
+  // #2589 — FB soft-block: HTTP 200 + valid SSR envelope + ZERO Event nodes.
+  // Byte-for-byte structurally identical to a genuinely-empty Page (prod evidence:
+  // both ~620 KB, envelope present, no distinguishing marker), so the adapter can
+  // only fail loud for Pages FLAGGED known-blocked (`useResidentialProxy: true`).
+  const SOFT_BLOCK_HTML =
+    `<html><body>` +
+    `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+    `<div data-bbox='{"__bbox":{"complete":true,"result":{"data":null}}}'></div>` +
+    `</body></html>`;
+
+  it("flags a soft-block error (FAILED) for a known-blocked Page: envelope present, 0 events, 0 content-filtered (#2589)", async () => {
+    // useResidentialProxy: true → the single listing fetch goes straight through the
+    // proxy and returns the envelope-present-but-eventless soft-block body.
+    mockedFetch.mockResolvedValueOnce(htmlResponse(SOFT_BLOCK_HTML));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "vth3",
+        pageHandle: "vontramph3",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+        useResidentialProxy: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/soft-block|shape change/i);
+    // Only the proxy listing fetch — no detail/past fetch at 0 events.
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+    expect(result.diagnosticContext?.usedResidentialProxy).toBe(true);
+  });
+
+  it("does NOT flag a soft-block for a NON-flagged Page with envelope + 0 events (genuinely-empty stays SUCCESS-0, #2589 config-gate)", async () => {
+    // Same eventless envelope body, but no useResidentialProxy flag → the adapter
+    // gives the Page the benefit of the doubt (genuinely-empty) and records SUCCESS-0.
+    mockedFetch.mockResolvedValueOnce(htmlResponse(SOFT_BLOCK_HTML));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "gsh3",
+        pageHandle: "GrandStrandHashing",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("does NOT flag a soft-block for a known-blocked Page whose only candidate is cancelled (Codex P2 / CodeRabbit)", async () => {
+    // A flagged Page that rendered a real Event node the parser rejected as
+    // cancelled proves the events collection DID render — it is NOT a soft-block.
+    // cancelled is not an admin-notice/placeholder, so contentFilteredTotal is 0,
+    // but the presence of ANY rejected candidate must keep this SUCCESS-0.
+    const cancelledOnlyHtml =
+      `<html><body>` +
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"123456789012345","name":"Real Trail #42","is_canceled":true},
+        "time":{"id":"123456789012345","start_timestamp":1778353200}
+      }</script>` +
+      `</body></html>`;
+    mockedFetch.mockResolvedValueOnce(htmlResponse(cancelledOnlyHtml));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "vth3",
+        pageHandle: "vontramph3",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+        useResidentialProxy: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors).toEqual([]);
+    expect(result.diagnosticContext).toMatchObject({
+      parserFiltered: expect.objectContaining({ cancelled: 1 }),
+    });
+  });
+
+  it("prefers the coverage-gap error over the soft-block error for a known-blocked Page (#2589 ordering)", async () => {
+    // A known-blocked Page whose only candidate is an admin notice must surface the
+    // coverage-gap message, not the soft-block message — content-filtering is the
+    // more specific explanation and takes precedence.
+    const adminNoticeHtml =
+      `<html><body>` +
+      `<script type="application/json">{"require":[["RelayPrefetchedStreamCache","next",[],[]]]}</script>` +
+      `<script type="application/json">{
+        "rich":{"__typename":"Event","id":"123456789012345","name":"Moving to a new website site - Last day in Meetup is March 10th"},
+        "time":{"id":"123456789012345","start_timestamp":1778353200}
+      }</script>` +
+      `</body></html>`;
+    mockedFetch.mockResolvedValueOnce(htmlResponse(adminNoticeHtml));
+    const adapter = new FacebookHostedEventsAdapter();
+    const result = await adapter.fetch(
+      makeSource({
+        kennelTag: "vth3",
+        pageHandle: "vontramph3",
+        timezone: "America/New_York",
+        upcomingOnly: true,
+        useResidentialProxy: true,
+      }),
+    );
+    expect(result.events).toEqual([]);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/all were content-filtered/i);
+    expect(result.errors[0]).not.toMatch(/soft-block/i);
+  });
 });
 
 describe("FacebookHostedEventsAdapter — residential proxy fallback (#1939)", () => {
