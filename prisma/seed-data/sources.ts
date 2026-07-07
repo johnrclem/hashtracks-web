@@ -224,6 +224,36 @@ export const SOURCES = [
       },
       kennelCodes: ["summit", "sfm", "asssh3"],
     },
+    // --- Summit Full Moon archive (#2335) — provenance-only, NEVER scraped ---
+    // The live "Summit H3 Spreadsheet" source above only parses the modern,
+    // consistently-laid-out season tabs, so it never returns FM #1–#157 (the
+    // shifted pre-2013 tabs). Those runs were recovered by
+    // scripts/backfill-sfm-history.ts. Because the live Summit source runs with
+    // scrapeDays:9999 and no upcomingOnly, its reconcile window reaches back to
+    // 1999 and would CANCEL those sole-source historical events on the next daily
+    // scrape. Binding the backfill's RawEvents to THIS separate source instead
+    // gives those events an "other source" so reconcile spares them
+    // (reconcile.ts other-source guard). `enabled: false` so it's never scraped
+    // (no reconcile of its own); `upcomingOnly: true` is belt-and-suspenders if
+    // it were ever enabled. Seeder identity is name+type — provision it via a
+    // targeted prod upsert alongside the backfill, do not delete it.
+    {
+      name: "Summit Full Moon H3 Archive",
+      url: "https://docs.google.com/spreadsheets/d/1wG-BNb5ekMHM5euiPJT1nxQXZ3UxNqFZMdQtCBbYaMk",
+      type: "GOOGLE_SHEETS" as const,
+      enabled: false,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: {
+        // Provenance-only: the historical rows are inserted by the one-shot
+        // backfill script, not by scraping this source. upcomingOnly keeps
+        // reconcile future-only in the event this is ever enabled.
+        upcomingOnly: true,
+        sheetId: "1wG-BNb5ekMHM5euiPJT1nxQXZ3UxNqFZMdQtCBbYaMk",
+      },
+      kennelCodes: ["sfm"],
+    },
     {
       name: "Rumson H3 Static Schedule",
       url: "https://www.facebook.com/p/Rumson-H3-100063637060523/",
