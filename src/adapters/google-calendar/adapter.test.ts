@@ -446,6 +446,165 @@ describe("resolveKennelTagFromSummary with no config", () => {
   });
 });
 
+// ── #2461 Whoreman — unmatched community specials route to the host kennel ──
+
+describe("Whoreman H3 — unmatched community specials route to wasatch-h3 (#2461)", () => {
+  const src = SOURCES.find((s) => s.name === "Whoreman H3 Calendar");
+  if (!src?.config) throw new Error("Whoreman H3 Calendar seed config missing");
+  const config = src.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+
+  it.each([
+    "White Trash American Penis - a Whoreman Campout",
+    "easter trail",
+    "World Peace Through Beer",
+    "Missionary Position Bash #67",
+    "CC Celebration Of Life    WH3 #1096",
+    "Two Pumps 7th ANAuaL Leggings Trail",
+  ])("routes unmatched Whoreman-calendar special %j to wasatch-h3", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-08-15T18:00:00-06:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags).toEqual(["wasatch-h3"]);
+  });
+
+  it.each([
+    ["LDSH3 # 634", "lds-h3"],
+    ["SLOSH Trail #5", "slosh-h3"],
+    ["SL,UT-D #177 - Buck Moon", "slut-h3"],
+    ["wasatch#1152", "wasatch-h3"],
+  ])("still routes the kennel-prefixed title %j to %s", (summary, tag) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-08-15T18:00:00-06:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags).toEqual([tag]);
+  });
+});
+
+// ── #2281 Aloha — "Full Moon" title variants route to fool-moon-h3 ──
+
+describe("Aloha H3 — Full Moon title variants route to fool-moon-h3 (#2281)", () => {
+  const src = SOURCES.find((s) => s.name === "Aloha H3 Google Calendar");
+  if (!src?.config) throw new Error("Aloha H3 Google Calendar seed config missing");
+  const config = src.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+
+  it.each([
+    "Hawaii Full Moon H3 Run #380 - The Full Hunter Moon Hash",
+    "Hawai‘i Full Moon H3 Run #381 - The Full Beaver Moon Hash",
+    "Hawaii Full Moon Hash #329 - The Christmas Full Moon Hash",
+    "Hawaii Full Moon Run #319 - The March New Moon Hash",
+    "Full Moon Hash ",
+    "Full Moon #410",
+    "HFMH3 Run #300",
+    "Fool Moon H3 #409",
+  ])("routes %j to fool-moon-h3", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2026-05-31T18:30:00-10:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags).toEqual(["fool-moon-h3"]);
+  });
+
+  it("keeps PHH-prefixed co-hosted full-moon events on phh-hi (PHH ordered first)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "PHH - Full Moon H3 - First Trail of the Year", start: { dateTime: "2026-01-03T18:30:00-10:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags).toEqual(["phh-hi"]);
+  });
+
+  it("keeps Pau Hana Hui socials on phh-hi even when they mention full moon", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "Pau Hana Hui Frisky Full Moon", start: { dateTime: "2026-02-13T17:00:00-10:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags).toEqual(["phh-hi"]);
+  });
+
+  it("does not misroute a plain AH3 run to fool-moon-h3", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "AH3 #1833 - Ala Moana - Some Hare", start: { dateTime: "2026-03-01T16:00:00-10:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags).toEqual(["ah3-hi"]);
+  });
+});
+
+// ── #2442 Voodoo — bare " by <hares>" suffix stripped from the title ──
+
+describe("Voodoo H3 — bare 'by' hare suffix stripped from title (#2442)", () => {
+  const src = SOURCES.find((s) => s.name === "Voodoo H3 Google Calendar");
+  if (!src?.config) throw new Error("Voodoo H3 Google Calendar seed config missing");
+  const config = src.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+  const cfg = src.config as { titleStripPatterns?: string[] };
+  const compiledTitleStripPatterns = compilePatterns(cfg.titleStripPatterns ?? [], "i");
+
+  it("strips the bare ' by <hares>' variant (#1044)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "Voodoo Trail #1044 by YMBJ", start: { dateTime: "2026-07-10T19:00:00-05:00" }, status: "confirmed" },
+      config,
+      { compiledTitleStripPatterns },
+    );
+    expect(result?.title).toBe("Voodoo Trail #1044");
+  });
+
+  it("still strips the 'hared by <hares>' variant (regression, global TITLE_HARED_BY_RE)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "Voodoo Trail #1045 hared by Tits Don't Fit", start: { dateTime: "2026-07-17T19:00:00-05:00" }, status: "confirmed" },
+      config,
+      { compiledTitleStripPatterns },
+    );
+    expect(result?.title).toBe("Voodoo Trail #1045");
+  });
+});
+
+// ── #2384/#2394/#2344 — all-day admission for the affected sources ──
+
+describe("Minneapolis H3 — all-day T3H3 specials admitted, travel-hash skipped (#2384)", () => {
+  const src = SOURCES.find((s) => s.name === "Minneapolis H3 Calendar");
+  if (!src?.config) throw new Error("Minneapolis H3 Calendar seed config missing");
+  const config = src.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+  const cfg = src.config as { skipPatterns?: string[] };
+  const compiledSkipPatterns = compilePatterns(cfg.skipPatterns ?? [], "i");
+
+  it("admits the all-day 'T3H3 Pink Dress!' special and routes it to t3h3", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "T3H3 Pink Dress!", start: { date: "2026-10-02" }, status: "confirmed" },
+      config,
+      { compiledSkipPatterns },
+    );
+    expect(result).not.toBeNull();
+    expect(result?.kennelTags).toEqual(["t3h3"]);
+  });
+
+  it("skips all-day 'Travel Hash: <city>' trip announcements", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "Travel Hash: NOLA RDR", start: { date: "2026-08-07" }, status: "confirmed" },
+      config,
+      { compiledSkipPatterns },
+    );
+    expect(result).toBeNull();
+  });
+});
+
+describe("SWH3 sources — all-day events admitted (#2394 Raleigh, #2344 Portland)", () => {
+  it.each([
+    ["SWH3 Google Calendar", "SWH3 Bike Hash- Scrub Jay", "2026-09-05", "swh3"],
+    ["SWH3 Calendar", "SWH3 #140 - Pick Up Hash", "2025-11-15", "swh3-or"],
+  ])("%s admits an all-day event and routes to %s", (name, summary, date, tag) => {
+    const src = SOURCES.find((s) => s.name === name);
+    if (!src?.config) throw new Error(`${name} seed config missing`);
+    const config = src.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { date }, status: "confirmed" },
+      config,
+    );
+    expect(result).not.toBeNull();
+    expect(result?.kennelTags).toEqual([tag]);
+  });
+});
+
 // ── extractRunNumber ──
 
 describe("extractRunNumber", () => {

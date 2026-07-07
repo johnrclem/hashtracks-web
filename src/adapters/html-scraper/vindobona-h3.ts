@@ -51,6 +51,21 @@ function cleanText(value: string | undefined): string | undefined {
   return cleaned.length > 0 ? cleaned : undefined;
 }
 
+/** Max characters for a comment promoted to a title (#2440). */
+const MAX_TITLE_LEN = 120;
+
+/**
+ * #2440: promote the Comments note to a title for unfinalized runs (a label
+ * like "FMH #30?" yields no run number, so merge would emit the bare
+ * "<Kennel> Trail" placeholder). Truncated so an over-long note stays tidy.
+ */
+function titleFromComment(comment: string | undefined): string | undefined {
+  if (!comment) return undefined;
+  return comment.length > MAX_TITLE_LEN
+    ? `${comment.slice(0, MAX_TITLE_LEN).trimEnd()}…`
+    : comment;
+}
+
 /** Route a run label to its kennel by prefix; null for header/decorative rows. */
 function routeKennel(label: string): string | null {
   const upper = label.toUpperCase();
@@ -88,14 +103,20 @@ export function parseFutureRow(cells: string[]): RawEventData | null {
 
   // extractHashRunNumber rejects trailing-`?` tokens (#30?, #23??) → undefined,
   // so the dated event still emits and merge synthesizes "<Kennel> Trail #N".
+  const runNumber = extractHashRunNumber(label);
+  // The Comments column is a free-form note (run type / theme / sometimes a
+  // town). It is NOT a reliable venue, so it feeds description, never location.
+  const description = cleanText(cells[3]);
   return {
     date,
     kennelTags: [kennelTag],
-    runNumber: extractHashRunNumber(label),
+    runNumber,
     hares: cleanText(cells[2]),
-    // The Comments column is a free-form note (run type / theme / sometimes a
-    // town). It is NOT a reliable venue, so it feeds description, never location.
-    description: cleanText(cells[3]),
+    // #2440: an unfinalized run has no run number, so merge would fall back to
+    // the bare "<Kennel> Trail" placeholder. Promote the Comments note to the
+    // title. Numbered runs keep the synthesized "<Kennel> Trail #N".
+    title: runNumber === undefined ? titleFromComment(description) : undefined,
+    description,
   };
 }
 

@@ -112,22 +112,22 @@ describe("parseFutureRow", () => {
     [
       "Hash # routes to vindobona-h3 with a clean run number",
       ["2026-06-08", "Hash #2363", "Miss Piss", ""],
-      { date: "2026-06-08", kennel: "vindobona-h3", runNumber: 2363, hares: "Miss Piss" },
+      { date: "2026-06-08", kennel: "vindobona-h3", runNumber: 2363, hares: "Miss Piss", title: undefined },
     ],
     [
-      "FMH # routes to vienna-fmh3 and rejects the trailing-? run number",
+      "FMH # routes to vienna-fmh3, rejects the trailing-? run number, promotes the comment to title (#2440)",
       ["2026-08-01", "FMH #30?", "Casting Couch", "Full Moon run"],
-      { date: "2026-08-01", kennel: "vienna-fmh3", runNumber: undefined, hares: "Casting Couch" },
+      { date: "2026-08-01", kennel: "vienna-fmh3", runNumber: undefined, hares: "Casting Couch", title: "Full Moon run" },
     ],
     [
-      "Hash #23?? keeps the dated event but drops the unfinalized run number",
+      "Hash #23?? keeps the dated event, drops the run number, promotes the comment to title (#2440)",
       ["2026-12-13", "Hash #23??", "Oh Fardolena & Whoppa", "Finlandia run"],
-      { date: "2026-12-13", kennel: "vindobona-h3", runNumber: undefined, hares: "Oh Fardolena & Whoppa" },
+      { date: "2026-12-13", kennel: "vindobona-h3", runNumber: undefined, hares: "Oh Fardolena & Whoppa", title: "Finlandia run" },
     ],
     [
       "blank hares cell maps to undefined",
       ["2026-07-06", "Hash #2367", "", ""],
-      { date: "2026-07-06", kennel: "vindobona-h3", runNumber: 2367, hares: undefined },
+      { date: "2026-07-06", kennel: "vindobona-h3", runNumber: 2367, hares: undefined, title: undefined },
     ],
   ])("%s", (_label, cells, expected) => {
     const ev = parseFutureRow(cells);
@@ -136,8 +136,34 @@ describe("parseFutureRow", () => {
     expect(ev?.kennelTags).toEqual([expected.kennel]);
     expect(ev?.runNumber).toBe(expected.runNumber);
     expect(ev?.hares).toBe(expected.hares);
-    // Titles are always synthesized downstream — never set by the adapter.
+    // #2440: a numbered run leaves title undefined (merge synthesizes "#N"); an
+    // unfinalized run (no run number) promotes the Comments note to the title.
+    expect(ev?.title).toBe(expected.title);
+  });
+
+  it("#2440: promotes the real futureruns comment to the title for an unfinalized FMH run", () => {
+    const ev = parseFutureRow([
+      "2026-08-01",
+      "FMH #30?",
+      "Casting Couch",
+      "Summer afternoon Full Moon run, Gruess di a Gott Wirt",
+    ]);
+    expect(ev?.title).toBe("Summer afternoon Full Moon run, Gruess di a Gott Wirt");
+    // Description still carries the note too.
+    expect(ev?.description).toBe("Summer afternoon Full Moon run, Gruess di a Gott Wirt");
+  });
+
+  it("#2440: an unfinalized run with no comment leaves title undefined (merge synthesizes the placeholder)", () => {
+    const ev = parseFutureRow(["2026-08-01", "FMH #31?", "Casting Couch", ""]);
+    expect(ev?.runNumber).toBeUndefined();
     expect(ev?.title).toBeUndefined();
+  });
+
+  it("#2440: a promoted comment longer than the cap is truncated with an ellipsis", () => {
+    const longComment = "A".repeat(200);
+    const ev = parseFutureRow(["2026-08-01", "FMH #32?", "Hare", longComment]);
+    expect(ev?.title).toBe(`${"A".repeat(120)}…`);
+    expect(ev?.description).toBe(longComment);
   });
 
   it("collapses doubled whitespace in the hares cell", () => {

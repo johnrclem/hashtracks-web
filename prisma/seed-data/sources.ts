@@ -1757,6 +1757,12 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "swh3",
+        // #2394: ~200 SWH3 runs (Bike Hash, Geezer trails, Hare Raising Party,
+        // XXXMas Market, etc.) are published as all-day (VALUE=DATE) events,
+        // which the default filter dropped. Admit them so upcoming specials
+        // ingest. (~440 older-than-365d historical events are recovered by a
+        // one-shot wide re-scrape, not a permanent scrapeDays bump.)
+        includeAllDayEvents: true,
         // #1881: hare follows the LAST dash, with or without a run number:
         // "SWH3 #1794 -Pukey", "SWH3- I Do Greek and Frau Farter",
         // "SWH3- Bad Beer Hash- PITA" (→ PITA). Single-kennel source, so the
@@ -2894,6 +2900,11 @@ export const SOURCES = [
       config: {
         calendarId: "898ddb527b83d7944c788bfbdb4074be5ee3c5ddf380acbdb206abd2861d6dc2@group.calendar.google.com",
         defaultKennelTag: "swh3-or",
+        // #2344: run #140 "Pick Up Hash" is published as an all-day event and
+        // was dropped by the default filter. Admit all-day events. (Run #130
+        // sits >365d back and is recovered by a bounded one-shot re-scrape that
+        // stops short of the bogus 2018-04-07 placeholder rows.)
+        includeAllDayEvents: true,
       },
       kennelCodes: ["swh3-or"],
     },
@@ -3274,6 +3285,12 @@ export const SOURCES = [
           ["\\bMH3\\b", "mh3-mn"]
         ],
         defaultKennelTag: "mh3-mn",
+        // #2384: T3H3 off-cadence specials (Pink Dress weekends, Hot Mess) are
+        // published as multi-day all-day events and were dropped. Admit all-day
+        // events; skip the all-day "Travel Hash: <city>" trip announcements that
+        // would otherwise flood the mh3-mn default.
+        includeAllDayEvents: true,
+        skipPatterns: [String.raw`^Travel [Hh]ash`],
         // #1884: title embeds the hare ("MH3 #1984 - B Knuckles") AND the
         // description carries the canonical "Hare : Butt Knuckles" line. The
         // description hare wins; alwaysStripTitleHareSpan still strips the
@@ -3478,10 +3495,15 @@ export const SOURCES = [
           // typo ("…ChristmasPau Hana Hui") that a leading boundary would drop.
           [String.raw`\bPHH\b|Pau Hana Hui\b`, "phh-hi"],
           ["\\bH5\\b|Honolulu H[45]", "h5-hi"],
-          // #644: Fool Moon H3 full-moon trails ("Fool Moon H3 #409") have their own
-          // run numbering and kennel page; route them off the ah3-hi default. Distinct
-          // from PHH / H5, so order vs. those doesn't matter.
-          ["Fool Moon", "fool-moon-h3"],
+          // #644 / #2281: Fool Moon H3 (aka Hawaii Full Moon H3 / HFMH3) full-moon
+          // trails have their own run numbering + kennel page. Titles are wildly
+          // inconsistent across years — "Fool Moon H3 #409", "Hawaii Full Moon H3
+          // Run #380", "Hawai'i Full Moon H3", "HFMH3 Run #300", "Full Moon Hash",
+          // "Full Moon #410" — so match the kennel signatures, NOT bare "Full
+          // Moon" (which AH3 socials use as a theme word). Ordered AFTER PHH/H5 so
+          // their co-hosted full-moon events ("PHH - Full Moon H3", "Pau Hana Hui
+          // Frisky Full Moon") keep first-match priority.
+          [String.raw`Fool Moon|HFMH3|Hawai.i Full Moon|Full Moon H[34]|Full Moon Hash|Full Moon Run|Full Moon #\s*\d`, "fool-moon-h3"],
         ],
         defaultKennelTag: "ah3-hi",
         // Upcoming AH3 events encode hares in the title as the last
@@ -4642,6 +4664,13 @@ export const SOURCES = [
       config: {
         calendarId: "voodoohash@gmail.com",
         defaultKennelTag: "voodoo-h3",
+        // #2442: titles arrive as "Voodoo Trail #NNNN hared by <hares>" (stripped
+        // by the global TITLE_HARED_BY_RE) OR the bare "Voodoo Trail #1044 by
+        // <hares>" variant the global strip misses. Hares already come from the
+        // description body, so strip the trailing " by <hares>" span off the
+        // title. Runs after the global "hared by" strip; scoped to Voodoo, whose
+        // titles reliably end in the hare attribution.
+        titleStripPatterns: [String.raw`\s+by\s+.+$`],
       },
       kennelCodes: ["voodoo-h3"],
     },
@@ -6494,13 +6523,18 @@ export const SOURCES = [
           ["^SLOSH", "slosh-h3"],
           // Match both "SL, UT" and escaped "SL\\, UT" from Google Calendar
           ["^SL[,\\\\]+\\s*UT", "slut-h3"],
-          // Whoreman umbrella events (campouts, RDRs, specials)
-          ["^WH3", "wasatch-h3"],
-          ["^[Ww]horeman", "wasatch-h3"],
+          // Whoreman umbrella events (campouts, RDRs, specials). Unanchored so
+          // mid-title mentions ("… a Whoreman Campout", "CC Celebration Of Life
+          // WH3 #1096") route explicitly rather than falling to the default.
+          ["\\bWH3\\b", "wasatch-h3"],
+          ["[Ww]horeman", "wasatch-h3"],
         ],
-        // null default — unmatched events are skipped rather than
-        // silently misrouted to wasatch-h3
-        defaultKennelTag: null,
+        // #2461: Whoreman is the SLC umbrella hosted by Wasatch H3. Community
+        // specials on this calendar (campouts, dress runs, Missionary Position
+        // Bashes, "easter trail", "World Peace Through Beer") match no kennel
+        // prefix; with a null default each leaked as its own UNMATCHED_TAG.
+        // Route unmatched events to the host kennel instead.
+        defaultKennelTag: "wasatch-h3",
         // #796: Wasatch titles arrive as bare "wasatch #1144" — substitute a
         // readable trail name when the adapter matches the kennel-code-only
         // pattern. Per-kennel keys so lds/slosh/slut keep pattern routing.
