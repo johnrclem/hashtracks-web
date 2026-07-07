@@ -486,6 +486,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "th3", shortName: "Thirstday H3", fullName: "Thirstday Hash House Harriers", region: "Chicago, IL",
       website: "https://chicagoth3.com", foundedYear: 2003,
+      logoUrl: "/kennel-logos/th3.png", // self-hosted from chicagoth3.com header (th3-logo.png)
       scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
       description: "Weekly Thursday evening hash. 7 PM meet, 7:30 on-out. Urban trails accessible via public transit.",
     },
@@ -608,6 +609,8 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "wh4", shortName: "White House H3", fullName: "White House Hash House Harriers", region: "Washington, DC",
       website: "https://whitehousehash.com", foundedYear: 1987,
+      facebookUrl: "https://www.facebook.com/groups/1719732354904792",
+      hashCash: "$10", // regular weekly trail fee (hashrego.com/kennels/WH4); the $160 campout rego is separate
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
       scheduleNotes: "3:00 PM Labor Day–Memorial Day, 5:00 PM Memorial Day–Labor Day",
       description: "Weekly Sunday hash in the DC/NoVA area (est. 1987). 2100+ trails.",
@@ -1137,8 +1140,9 @@ export const KENNELS: KennelSeed[] = [
     // HC batch (config-only Harrier Central) — Aberdeen + 3 Edinburgh-area kennels
     { kennelCode: "aberdeen-h3", shortName: "Aberdeen H3", fullName: "Aberdeen Hash House Harriers",
       region: "Aberdeen", country: "UK", website: "https://www.aberdeenhhh.com",
+      contactEmail: "aberdeenh3@gmail.com",
       logoUrl: "/kennel-logos/aberdeen-h3.png", scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM",
-      scheduleFrequency: "Weekly", scheduleNotes: "Weekly Monday-evening trail around Aberdeen.",
+      scheduleFrequency: "Weekly", scheduleNotes: "Seasonal: Mondays 7:00 PM in summer, Sundays 11:00 AM in winter.",
       hashCash: "£3", foundedYear: 1983,
       description: "Aberdeen's weekly Monday-evening hash, running since 23 January 1983.",
       latitude: 57.1497, longitude: -2.0943 },
@@ -1150,12 +1154,16 @@ export const KENNELS: KennelSeed[] = [
       latitude: 55.9533, longitude: -3.1883 },
     { kennelCode: "dafth3", shortName: "DAFT H3", fullName: "Dunfermline and Fife Tuesday Hash House Harriers",
       region: "Edinburgh", country: "UK", logoUrl: "/kennel-logos/dafth3.png",
-      scheduleDayOfWeek: "Tuesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Tuesday-evening hash based in Dunfermline / Fife; trails around Fife and West Edinburgh (e.g. South Queensferry).",
+      website: "https://www.edinburghh3.com/dunfermline--fife-daft-h3.html",
+      founder: "Rod 'Animal' Nisbit", foundedYear: 1994, // genealogy.gotothehash.net: First Run 08 Nov 1994
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "7:00 PM", scheduleFrequency: "Monthly", // first Tuesday monthly, not weekly (#2571)
+      scheduleNotes: "Monthly first-Tuesday-evening hash based in Dunfermline / Fife; trails around Fife and West Edinburgh (e.g. South Queensferry).",
       hashCash: "£1", description: "The Dunfermline and Fife Tuesday hash.",
       latitude: 56.0719, longitude: -3.4393 },
     { kennelCode: "beerspoke-h3", shortName: "BeerSpoke H3", fullName: "BeerSpoke Hash House Harriers",
       region: "Edinburgh", country: "UK", logoUrl: "/kennel-logos/beerspoke-h3.png",
+      facebookUrl: "https://www.facebook.com/groups/beerspokehashhouseharriers/",
+      foundedYear: 2017, // best available: FB group created 18 Nov 2017 (no explicit "since" text)
       scheduleDayOfWeek: "Saturday", scheduleTime: "11:15 AM", scheduleFrequency: "Monthly",
       scheduleNotes: "Edinburgh cycling hash — roughly monthly Saturday-morning bike trails from rail stations around Edinburgh.",
       hashCash: "£2", description: "Edinburgh's BeerSpoke cycling hash — a bike-borne kennel.",
@@ -1238,7 +1246,8 @@ export const KENNELS: KennelSeed[] = [
       region: "Newcastle", country: "UK", website: "https://www.nhhh.co.uk", facebookUrl: "https://www.facebook.com/NewcastleH3",
       logoUrl: "/kennel-logos/newcastle-h3.png", scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM",
       scheduleFrequency: "Weekly", scheduleNotes: "Weekly Wednesday evening trail around Newcastle upon Tyne.",
-      hashCash: "£2.50", description: "Newcastle upon Tyne's weekly Wednesday-evening hash.",
+      hashCash: "£2.50", foundedYear: 1994, // nhhh.co.uk: "every week since 1994"
+      description: "Newcastle upon Tyne's weekly Wednesday-evening hash.",
       latitude: 54.9783, longitude: -1.6178 },
     { kennelCode: "plympton-h3", shortName: "Plympton H3", fullName: "Plympton Hash House Harriers",
       region: "Plymouth", country: "UK", logoUrl: "/kennel-logos/plympton-h3.png",
@@ -1253,7 +1262,7 @@ export const KENNELS: KennelSeed[] = [
       logoUrl: "/kennel-logos/lvh3-gb.png", scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM",
       scheduleFrequency: "Twice monthly", // 2nd & 4th Sundays — not a strict 14-day "Biweekly" cadence
       scheduleNotes: "2nd & 4th Sundays at 11:00, plus a Full Moon evening run (~16:00 winter / 18:00 summer). Per-run times flow from Harrier Central.",
-      hashCash: "£3", // Sunday runs £3; Full Moon evening runs £2 (HC eventPriceForMembers)
+      hashCash: "£3 adults (daytime) / £2 full moon / £1 juniors; first run free", // lvh3.org.uk verbatim rates
       foundedYear: 2000, // lvh3.org.uk: "running since October 2000"
       description: "Lune Valley Hash House Harriers (est. October 2000) run in North Lancashire, South Cumbria and the southern Lake District — 2nd & 4th Sundays at 11am plus a Full Moon evening run.",
       latitude: 54.05, longitude: -2.8 },
@@ -2217,7 +2226,9 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "ph3-atl", shortName: "Pinelake H3", fullName: "Pinelake Hash House Harriers", region: "Atlanta, GA",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Gather 1:30 PM, on-out 2:00 PM.",
       scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-06-06", startTime: "14:00" }],
+      hashCash: "$10",
       description: "Alternate Saturday runs in the Atlanta metro area.",
     },
     {
@@ -2254,6 +2265,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "sluth3", shortName: "SLUT H3", fullName: "Short Lazy Urban Thursday H3", region: "Atlanta, GA",
       scheduleFrequency: "Monthly", scheduleNotes: "1st Thursday, 7:00 PM.",
+      hashCash: "$10", // $10 all-inclusive (beer, food, trail) — consistent across Atlanta Hash Board posts
       description: "Monthly Thursday evening urban trail in Atlanta.",
     },
     {
@@ -2264,6 +2276,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "soco-h3", shortName: "SoCo", fullName: "Southern Coven Hash House Harriers", region: "Atlanta, GA",
       scheduleFrequency: "Monthly", scheduleNotes: "3rd Friday.",
+      hashCash: "$10 / $15", foundedYear: 2023, // active since Jul 2023 (earlier than the shown first-run year)
       description: "Monthly Friday hashing in Atlanta.",
     },
     {
@@ -2676,6 +2689,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "taint-h3", shortName: "Taint", fullName: "Taint Hash House Harriers", region: "Seattle, WA",
       website: "https://wh3.org",
+      hashCash: "$5 (unless otherwise posted)", // wh3.org Taint section: "Trails are all $5 unless otherwise posted."
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Monthly",
       scheduleNotes: "4th Saturday. Between Seattle and Tacoma, along the Hwy 18 corridor.",
       description: "It t'aint Seattle and it t'aint Tacoma. Monthly Saturday hash along the Highway 18 corridor between Seattle and Tacoma.",
@@ -3982,6 +3996,11 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "tth3-ab", shortName: "TTH3", fullName: "True Trail Hash House Harriers", region: "Edmonton, AB", country: "Canada",
       website: "https://truetrailh3.com",
+      facebookUrl: "https://www.facebook.com/groups/TrueTrailH3",
+      contactEmail: "truetrailh3@gmail.com", // e-transfer address per the hareline
+      paymentLink: "https://www.paypal.me/truetrailh3",
+      logoUrl: "/kennel-logos/tth3-ab.jpg", // self-hosted from truetrailh3.com (logobetterborder-1024x1024.jpg)
+      foundedYear: 2019, // truetrailh3.com/about: "kicked off the Kennel with Sexy Earth Day in April of 2019"
       scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
       hashCash: "$8",
       description: "Edmonton's biweekly Thursday hash. Pack gathers 6:30, hare off 6:45, on out 7:00.",
@@ -4442,6 +4461,8 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "sth3-au", shortName: "Sydney Thirsty H3", fullName: "Sydney Thirsty Hash House Harriers",
       region: "Sydney, NSW", country: "Australia",
       website: "https://www.sth3.org",
+      facebookUrl: "https://www.facebook.com/groups/sydneythirsty",
+      instagramHandle: "sydneythirsty",
       scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Thursday hash around inner Sydney. Trail list posted on sth3.org/upcoming-runs.",
       description: "Sydney Thirsty H3 — the Thursday inner-city kennel. Weekly Thursday evening runs around Redfern, Camperdown, and the inner suburbs. Currently around Run #1842+.",
@@ -4783,8 +4804,12 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "h2fmh3", shortName: "Hua Hin Full Moon H3", fullName: "Hua Hin Full Moon Hash House Harriers",
       // No explicit slug — toSlug("Hua Hin Full Moon H3") = "hua-hin-full-moon-h3".
       region: "Hua Hin", country: "Thailand",
-      // website/socials intentionally omitted — no verified dynamic own-site (Harrier Central-only).
+      // Own site + socials verified via #2579 (h2fm.site.pro links back to the FB page / IG handle).
       // The day kennel cah3.net is a DIFFERENT kennel; do not attribute it here.
+      website: "https://h2fm.site.pro/",
+      facebookUrl: "https://www.facebook.com/HHFMHHH",
+      instagramHandle: "hua_hin_full_moon_hash",
+      contactEmail: "huahin.fullmoon@gmail.com",
       logoUrl: "/kennel-logos/h2fmh3.avif", // self-hosted from HC blob; ext confirmed by magic bytes
       scheduleDayOfWeek: "Saturday", scheduleTime: "4:30 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "Monthly full-moon trail — the Saturday nearest each full moon, ~16:30. Full-moon sibling of the daytime Hua Hin & Cha-Am H3 (cah3).",
@@ -5615,6 +5640,9 @@ export const KENNELS: KennelSeed[] = [
     // Brazil's 2nd kennel — São Paulo (HC batch)
     { kennelCode: "bnh3", shortName: "Brazil Nuts H3", fullName: "Brazil Nuts Hash House Harriers",
       region: "São Paulo", country: "Brazil", logoUrl: "/kennel-logos/bnh3.avif",
+      website: "https://sites.google.com/site/bnhhhsp", // kennel-owned Google Site (points at the FB group)
+      facebookUrl: "https://www.facebook.com/groups/bnhhh/",
+      foundedYear: 2000, // hashrego.com/kennels/BrazilNuts: "BrazilNuts (Est. 2000)"
       scheduleFrequency: "Monthly", scheduleTime: "11:00 AM",
       scheduleNotes: "Monthly São Paulo trail (gotothehash: ~3rd Saturday; observed run days vary). Details on Harrier Central.",
       hashCash: "R$35", description: "São Paulo's monthly English-speaking hash — the second Brazilian kennel after Brasília.",
@@ -5913,14 +5941,19 @@ export const KENNELS: KennelSeed[] = [
       fullName: "Belgrade Eastern European Revival Hash House Harriers",
       region: "Belgrade",
       country: "Serbia", // canonical NAME — code "RS" lives in region.ts
-      // No website/socials: Harrier Central-only kennel (KennelWebsiteDomain empty). The only
-      // Belgrade FB group found belongs to a DIFFERENT Belgrade kennel. Blank + flagged.
+      // FB group + founder + founding year verified via #2568 (linked from pivoslavija.com;
+      // genealogy.gotothehash.net: First Run 02 Oct 2004, Father John 'Overdrive' Miller).
+      facebookUrl: "https://www.facebook.com/groups/1765268473729733", // "Belgrade Hash House Harriers" group
+      founder: "John 'Overdrive' Miller",
+      foundedYear: 2004,
       // Schedule varies per run (Sat/Fri/Sun across the sampled runs) — flat fields omitted;
       // per-run times flow from the Harrier Central feed.
       scheduleNotes: "Day and time vary per run; announced by the hares via Harrier Central.",
-      // foundedYear intentionally omitted (unverifiable — deep run # but no primary source year).
       hashCash: "RSD 350 (members) / RSD 500 (non-members)", // HC EventPrice fields; currency inferred RSD — flagged
       logoUrl: "/kennel-logos/beerh3.avif", // self-hosted from HC blob; ext confirmed by magic bytes (ftypavif)
+      description:
+        "Belgrade's English-speaking hash — a drinking club with a running problem. " +
+        "Trails run roughly every second Sunday with a couple of drink stops and an on-after.",
       latitude: 44.8125,
       longitude: 20.4612,
     },
