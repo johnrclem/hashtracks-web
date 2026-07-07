@@ -46,10 +46,12 @@ const KENNEL_TIMEZONE = "Asia/Ho_Chi_Minh";
 const RECAP_URL = "https://hanoih3.com/run-on-31st-of-august/";
 const MIN_RUN = 1700; // recap gallery window; drops the "No.0232 … No.1667" summary
 
-// run# directly followed (within a few chars, optional comma/paren) by a date.
-const RUN_DATE_RE = /No\.?\s?(\d{3,4})\s*[,]?\s*\(?(\d{1,2})[/.](\d{1,2})[/.](\d{4})/g;
-// used to trim a caption's blurb at the next embedded "No.NNNN" token.
-const NEXT_RUN_RE = /No\.?\s?\d{3,4}/;
+// run# (labelled "No." OR "Run") directly followed by a date. The `(?:,\s*)?`
+// keeps the two whitespace quantifiers non-adjacent (no ReDoS backtracking).
+const RUN_DATE_RE = /(?:No\.?|Run)\s?(\d{3,4})\s*(?:,\s*)?\(?(\d{1,2})[/.](\d{1,2})[/.](\d{4})/gi;
+// matches any run-number token ("No.NNNN" / "Run NNNN") — used to detect an
+// undated caption and to trim a blurb at the next embedded token.
+const ANY_RUN_RE = /(?:No\.?|Run)\s?\d{3,4}/i;
 
 async function fetchRecap(): Promise<RawEventData[]> {
   const res = await safeFetch(RECAP_URL, {
@@ -85,9 +87,9 @@ async function fetchRecap(): Promise<RawEventData[]> {
         .toString()
         .padStart(2, "0")}-${dd.toString().padStart(2, "0")}`;
 
-      // blurb = text after the date, trimmed at the next embedded "No.NNNN"
+      // blurb = text after the date, trimmed at the next embedded run token
       let blurb = caption.slice(m.index + m[0].length).trim().replace(/^[,]+/, "").trim();
-      const next = NEXT_RUN_RE.exec(blurb);
+      const next = ANY_RUN_RE.exec(blurb);
       if (next) blurb = blurb.slice(0, next.index).trim();
       blurb = blurb.replace(/\s+/g, " ").trim();
 
@@ -102,7 +104,7 @@ async function fetchRecap(): Promise<RawEventData[]> {
     }
 
     // caption had a run# but no adjacent date → counts as an undated drop.
-    if (!matchedHere && /No\.?\s?\d{3,4}/.test(caption)) undatedCaptions++;
+    if (!matchedHere && ANY_RUN_RE.test(caption)) undatedCaptions++;
   });
 
   const events = [...byRun.values()];

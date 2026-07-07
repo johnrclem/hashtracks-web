@@ -75,7 +75,7 @@ async function fetchArchive(): Promise<RawEventData[]> {
     if (cells.length < 5) return; // header (<th>) rows / malformed
 
     const runNumber = Number.parseInt(cells[0], 10);
-    if (!Number.isFinite(runNumber) || runNumber <= 0) {
+    if (!Number.isInteger(runNumber) || runNumber <= 0) {
       droppedNoRun++;
       return;
     }

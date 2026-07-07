@@ -30,10 +30,15 @@
  *   - Rows whose Date cell won't parse (e.g. a stray photo URL where the date should
  *     be) are dropped and counted, never date-guessed.
  *
- * Rows bind to the live "Summit H3 Spreadsheet" source (already linked to sfm via
- * the numericSpecialTag rule). scrapeDays is 9999 there, but the live adapter still
- * only reads modern tabs — reconcile keys on what the adapter returns, and these
- * past rows are historical, so no false-cancel.
+ * Reconcile safety — rows bind to the dedicated "Summit Full Moon H3 Archive"
+ * source, NOT the live "Summit H3 Spreadsheet". The live Summit source runs with
+ * scrapeDays:9999 and no upcomingOnly, so its reconcile window reaches back to 1999
+ * and would CANCEL these sole-source 1999–2013 events on the next daily scrape (the
+ * live adapter only returns modern tabs, so it never re-emits #1–#157). Binding to a
+ * separate, disabled, upcomingOnly source gives each event an "other source"
+ * RawEvent, so the Summit reconcile's other-source guard spares them
+ * (src/pipeline/reconcile.ts). The archive source is `enabled: false` → never
+ * scraped → runs no reconcile of its own.
  *
  * Re-runnable: `reportAndApplyBackfill` dedupes by fingerprint and loads only past
  * events (date < today in America/New_York).
@@ -42,8 +47,9 @@
  *   Dry run:  npx tsx scripts/backfill-sfm-history.ts
  *   Apply:    BACKFILL_APPLY=1 npx tsx scripts/backfill-sfm-history.ts
  *
- * Requires GOOGLE_CALENDAR_API_KEY (tab enumeration) and the "Summit H3 Spreadsheet"
- * source linked to sfm.
+ * Requires GOOGLE_CALENDAR_API_KEY (tab enumeration) and the "Summit Full Moon H3
+ * Archive" source (seed it / targeted-upsert it into prod first — it must be linked
+ * to sfm).
  */
 import "dotenv/config";
 import { runBackfillScript } from "./lib/backfill-runner";
@@ -52,7 +58,7 @@ import { parseCSV } from "@/adapters/google-sheets/adapter";
 import { chronoParseDate } from "@/adapters/utils";
 import type { RawEventData } from "@/adapters/types";
 
-const SOURCE_NAME = "Summit H3 Spreadsheet";
+const SOURCE_NAME = "Summit Full Moon H3 Archive";
 const KENNEL_TIMEZONE = "America/New_York";
 const SHEET_ID = "1wG-BNb5ekMHM5euiPJT1nxQXZ3UxNqFZMdQtCBbYaMk";
 const MAX_FM = 157; // FM# >= 158 already covered by the live adapter
