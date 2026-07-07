@@ -2064,9 +2064,20 @@ export const SOURCES = [
       kennelCodes: ["ah4", "ph3-atl", "bsh3", "sobh3", "whh3", "mlh4", "duffh3", "sluth3", "soco-h3"],
     },
     // --- Georgia Static Schedule sources ---
+    // Southern Comfort H3 (sch3-atl) has NO live enrichable source: it has no
+    // forum on board.atlantahash.com (the old `viewforum.php?f=3` returns "forum
+    // does not exist" — #2514; f=11 is the DISTINCT Southern Coven), no Meetup,
+    // no HashRego kennel feed, and no active Facebook page (verified 2026-07-06,
+    // #2515). Its only genuine homepage is onin.com/sc — a static club page with
+    // no hareline. So this stays a STATIC_SCHEDULE generator; the url points at
+    // the real (live) club page rather than the dead forum, and the description
+    // no longer sends users to a non-existent board section. Recurring audit
+    // alerts (dead-source-url / stale-default-title / source-coverage-gap /
+    // location-geodata-not-backfilled) are suppressed in the companion migration
+    // 20260706170000_atlanta_sch3_retarget_and_soco_suppression.
     {
       name: "SCH3 Static Schedule",
-      url: "https://board.atlantahash.com/viewforum.php?f=3",
+      url: "https://onin.com/sc/",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 3,
       scrapeFreq: "weekly",
@@ -2078,7 +2089,7 @@ export const SOURCES = [
         startTime: "19:00",
         defaultTitle: "SCH3 Biweekly Run",
         defaultLocation: "Atlanta, GA",
-        defaultDescription: "Alternate Friday evening trail. Check Atlanta Hash Board for details.",
+        defaultDescription: "Alternate Friday evening trail in southwest Atlanta. Club info at onin.com/sc.",
       },
       kennelCodes: ["sch3-atl"],
     },
