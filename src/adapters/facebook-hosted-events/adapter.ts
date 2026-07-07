@@ -128,6 +128,14 @@ export interface FacebookHostedEventsConfig {
    * Tramp). When omitted/false the adapter still falls back to the proxy
    * automatically if the direct fetch `looksLikeFbBlock` — this flag just
    * avoids the wasted round-trip for chronically-blocked Pages.
+   *
+   * DUAL PURPOSE (#2589): this flag also doubles as the "Page is known to be
+   * datacenter-checkpoint-blocked" signal. `buildListingSignalErrors` treats a
+   * `0 events + SSR envelope present + no candidate nodes` response as a probable
+   * soft-block (→ FAILED) ONLY for flagged Pages, because that response is
+   * byte-for-byte identical to a genuinely-empty Page and no HTML marker separates
+   * them. If a future source ever needs proxy-first WITHOUT the stricter fail-loud
+   * semantics, split this into a second flag rather than overloading it further.
    */
   useResidentialProxy?: boolean;
   /**
