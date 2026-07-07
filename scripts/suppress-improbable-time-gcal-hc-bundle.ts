@@ -69,7 +69,9 @@ async function main(): Promise<void> {
   for (const { kennelCode, reason } of TARGETS) {
     const row = await prisma.auditSuppression.upsert({
       where: { kennelCode_rule: { kennelCode, rule: RULE } },
-      update: { reason, createdBy: CREATED_BY },
+      // Refresh only `reason` on rerun; keep `createdBy` on the create path so a
+      // pre-existing suppression retains its original creator provenance.
+      update: { reason },
       create: { kennelCode, rule: RULE, reason, createdBy: CREATED_BY },
       select: { id: true, kennelCode: true, rule: true, createdAt: true },
     });
