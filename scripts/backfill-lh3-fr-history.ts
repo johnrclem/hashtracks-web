@@ -8,7 +8,9 @@
  * 8b8aca36-a3c1-4867-adff-3ee24cac6822. Scrubs applied at freeze time:
  * clerical time typos normalized (#21 02:00 / #22 00:00 → 14:00), venue-as-hare
  * bleed dropped (#25 "Passerelle du Collège"), description omitted for
- * live-adapter parity; the 19/25 real coords kept, 6 nulls geocode on merge.
+ * live-adapter parity; 18/25 real coords kept (#12's geocode-fail Netherlands
+ * pin at 52.2,4.5 for a Vaulx-en-Velin/Lyon venue dropped on review), 7 nulls
+ * geocode from the venue text on merge.
  * Binds to "Lyon H3 Harrier Central" (upcomingOnly:true).
  *
  *   Dry run:  npx tsx scripts/backfill-lh3-fr-history.ts
