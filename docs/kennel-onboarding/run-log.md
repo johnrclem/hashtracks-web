@@ -34,12 +34,22 @@ Format:
 > `limahash.com` (Lima Extra Miércoles, WordPress) last real post is **2024-02-10 (~881 days)**; the
 > page's only "2026" string is today's date. No live Lima source → not onboarded (honors the handoff's
 > own "don't ship a dormant source" directive). **`tymh3-tw`** (Taoyuan, Taiwan) attempted 2026-07-09
-> but **blocked on infrastructure**: the run list is a fully JS-lazy-loaded Wix Events widget (SSR has
-> no event data, no `wix-events` app instance / JSON island → no XHR path), so it *requires*
-> browserRender — and the NAS render service is **down** (Tailscale host unreachable; render origin
-> returns Cloudflare **502**). Live-verification is impossible with the service down, so no
-> unverifiable adapter was shipped. Recon complete (browserRender is the only path); resume when the
-> NAS render service is back up.
+> — **blocked: the Wix Events *Calendar* widget has no extractable production fetch path.** Deep recon
+> (with the NAS render service confirmed UP — it rendered a control page fine): (1) **SSR** carries no
+> event data; (2) **browserRender** captures only the page shell — the widget hydrates + fetches
+> asynchronously, and forcing a wait for the event elements makes the NAS render **502** (the heavy
+> Wix Events Calendar JS destabilizes the headless render; the 30 s server cap + Wix's continuous
+> background requests never settle), so a browserRender-based adapter would FAIL almost every scrape;
+> (3) the **Wix Events viewer API** is reachable but gated — the site's access-tokens expose a valid
+> Wix Events instance JWT (`appDefId 13d21c63-b5ec-5912-8397-c3a5ddb27a97`, matching
+> `metaSiteId 8c5b5148…`), yet every viewer endpoint rejects a direct request (`/v1/events` → 428
+> `WIX_EVENTS_APP_NOT_INSTALLED / instanceIdOpt=None`; `/api/v1/events` → 404; query POST → 403) —
+> Wix's internal `_api` routing injects auth that raw requests can't reproduce. With **no working
+> fetch path**, shipping an adapter (even off a Chrome-captured fixture) would create a source that
+> fails every scrape — exactly what live-verification forbids. **Un-blocks** only when one of: the Wix
+> Events viewer-API auth is cracked (→ robust JSON adapter, the preferred shape), the NAS render
+> service gains a longer-timeout / retry / network-settle mode that can render this widget, or the
+> kennel republishes on a simpler surface.
 
 ## 2026-07-09 — KRASH H3 (Kaiserslautern, Germany)
 - Source: HARRIER_CENTRAL — `publicKennelId: c2a2b7ed-7717-49eb-9e0f-294086e15ef1` (HC uniqueShortName `KRASHH3`, `KennelName` "Kaiserslautern Ramstein Altenglan Sembach Hash"), verified by reproducing the adapter's exact `getEvents` POST + time-token in-browser (HTTP 200) AND sweeping `hashruns.org/api/global-runs?isFuture=0`
