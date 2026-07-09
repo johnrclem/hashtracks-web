@@ -978,7 +978,28 @@ export const SOURCES = [
       },
       kennelCodes: ["cch3"],
     },
-    // BAH3 iCal Feed — REMOVED: all-in-one-event-calendar plugin gone, endpoint returns HTML. Never successfully scraped.
+    // BAH3 iCal Feed — REMOVED: all-in-one-event-calendar plugin gone, endpoint
+    // returns HTML. BAH3 is now fed by the kennel's public Google Calendar.
+    {
+      name: "Baltimore Annapolis GCal",
+      url: "cee16fd6817286546f6b8e999e4b473d33aa1fd42f14f0d71969e994c05c22c1@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "every_6h",
+      scrapeDays: 365,
+      config: {
+        defaultKennelTag: "bah3",
+        // #2534: the kennel puts the HARE names in the event SUMMARY
+        // ("BAH3 #2034 - Dud, G-Spotify, Chia Head") — the real run name lives
+        // in the description body. Extract the post-dash span and strip it from
+        // the title (the hares themselves come from the description "Hares:"
+        // line), leaving a clean "BAH3 [Trail] #N" instead of a hare list.
+        // Mirrors the MH3-Mpls alwaysStripTitleHareSpan fix.
+        titleHarePattern: String.raw`[-–—]\s*(.+)$`,
+        alwaysStripTitleHareSpan: true,
+      },
+      kennelCodes: ["bah3"],
+    },
     // DC / DMV area — HTML scraper sources
     {
       name: "EWH3 WordPress Trail News",

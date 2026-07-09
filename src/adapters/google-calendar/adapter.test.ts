@@ -6502,3 +6502,40 @@ describe("Surf City all-day events (#2388)", () => {
     expect(r).toBeNull();
   });
 });
+
+// ── #2534 BAH3 — hare names in the summary stripped out of the title ──
+
+describe("Baltimore Annapolis GCal — hare names stripped from title (#2534)", () => {
+  const src = SOURCES.find((s) => s.name === "Baltimore Annapolis GCal");
+  if (!src?.config) throw new Error("Baltimore Annapolis GCal seed config missing");
+  const config = src.config as Parameters<typeof buildRawEventFromGCalItem>[1] & { titleHarePattern: string };
+  const compiledTitleHarePatterns = compilePatterns([config.titleHarePattern], "i");
+
+  it("strips the post-dash hare span; hares come from the description Hares: line", () => {
+    const result = buildRawEventFromGCalItem(
+      {
+        summary: "BAH3 #2034 - Dud, G-Spotify, Chia Head",
+        description: "BAH3 Trail #2034 – Red, White, and Blue (Balls)\nHares: Chia Head, G-Spotify, Dude w/o the e\nStart: 7:00 PM",
+        start: { dateTime: "2026-07-05T19:00:00-04:00" },
+        status: "confirmed",
+      },
+      config,
+      { compiledTitleHarePatterns },
+    );
+    expect(result?.kennelTags).toEqual(["bah3"]);
+    // Title must NOT be the hare list any more.
+    expect(result?.title ?? "").not.toMatch(/Chia Head|G-Spotify|Dud/);
+    // Hares are preserved from the description.
+    expect(result?.hares).toContain("Chia Head");
+  });
+
+  it("keeps a dash-less BAH3 tour title intact (no over-strip)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "TOUR DUH HASH: MVH3", start: { dateTime: "2026-08-01T14:00:00-04:00" }, status: "confirmed" },
+      config,
+      { compiledTitleHarePatterns },
+    );
+    expect(result?.kennelTags).toEqual(["bah3"]);
+    expect(result?.title).toBe("TOUR DUH HASH: MVH3");
+  });
+});
