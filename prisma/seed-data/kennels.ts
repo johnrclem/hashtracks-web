@@ -1266,6 +1266,14 @@ export const KENNELS: KennelSeed[] = [
       foundedYear: 2000, // lvh3.org.uk: "running since October 2000"
       description: "Lune Valley Hash House Harriers (est. October 2000) run in North Lancashire, South Cumbria and the southern Lake District — 2nd & 4th Sundays at 11am plus a Full Moon evening run.",
       latitude: 54.05, longitude: -2.8 },
+    // Cornwall (Callington / Tamar valley) — HC config-only
+    { kennelCode: "titsh3", shortName: "Try it Thursdays H3", fullName: "Try it Thursdays Hash House Harriers",
+      region: "Cornwall", country: "UK", logoUrl: "/kennel-logos/titsh3.png",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "7:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Thursday-evening trail around Callington, Cornwall and the Plymouth/Tamar-valley border. Per-run times flow from Harrier Central.",
+      // foundedYear / hashCash / website / socials: unverifiable (HC-only kennel) — left unset + flagged in the PR.
+      description: "A weekly Thursday-evening Hash House Harriers kennel based around Callington, Cornwall and the Plymouth/Tamar-valley border in south-west England.",
+      latitude: 50.503, longitude: -4.313 },
     // ===== GERMANY =====
     // Berlin
     {
@@ -1330,6 +1338,15 @@ export const KENNELS: KennelSeed[] = [
       scheduleFrequency: "Biweekly", scheduleNotes: "Roughly biweekly Saturday-afternoon trail serving the Kaiserslautern Military Community (Sembach / Ramstein).",
       hashCash: "€5", foundedYear: 1999,
       description: "A drinking club with a running problem serving the Kaiserslautern Military Community, founded 1999.",
+      latitude: 49.4401, longitude: 7.7491 },
+    // KRASH H3 — Kaiserslautern Military Community sibling of Sembach H3 (HC config-only)
+    { kennelCode: "krashh3", shortName: "KRASH H3", fullName: "Kaiserslautern Ramstein Altenglan Sembach Hash",
+      region: "Kaiserslautern", country: "Germany", logoUrl: "/kennel-logos/krashh3.avif",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Roughly biweekly Wednesday-evening trail serving the Kaiserslautern Military Community (Kaiserslautern / Ramstein / Altenglan / Sembach); seasonal, with winter drinking practices.",
+      foundedYear: 2024, // inferred from HC inaugural run #1 "Mayday Mayday" (2024-05-01) — flagged unverified
+      // hashCash omitted — HC prices are 0 and no kennel site confirms an amount (do NOT assume Sembach's €5). website/socials: HC-only kennel — unset + flagged.
+      description: "A drinking club with a running problem serving the Kaiserslautern Military Community (Ramstein / Altenglan / Sembach), founded 2024.",
       latitude: 49.4401, longitude: 7.7491 },
     // ===== SWITZERLAND =====
     {
@@ -5595,6 +5612,24 @@ export const KENNELS: KennelSeed[] = [
       hashCash: "€5", foundedYear: 2002,
       description: "Toulouse's family-oriented monthly hash, founded October 2002.",
       latitude: 43.6047, longitude: 1.4442 },
+    // Lyon (Rhône valley) — HC config-only
+    { kennelCode: "lh3-fr", // bare "lh3" = London H3, "lh3-fl" = Lakeland, "lh3-cin" = Licking Valley → region-suffixed
+      shortName: "Lyon H3", // slug → lyon-h3 (NOT "LH3", which slugifies to the taken "lh3")
+      fullName: "Lyon Hash House Harriers",
+      region: "Lyon", country: "France", website: "https://lyonh3.blogspot.com/",
+      logoUrl: "/kennel-logos/lh3-fr.png", scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM",
+      scheduleFrequency: "Biweekly", scheduleNotes: "Weekend afternoons, roughly biweekly (irregular). Per-run times flow from Harrier Central.",
+      hashCash: "5€", foundedYear: 2024, // HC run #1 "Inaugural run in Confluence" (2024-11-02)
+      description: "A drinking club with a running problem, running in and around Lyon, France.",
+      latitude: 45.764, longitude: 4.8357 },
+    // Montpellier / Hérault (Agde / Sète) — HC config-only
+    { kennelCode: "heraultics", shortName: "Heraultics H3", fullName: "Heraultics Hash House Harriers",
+      region: "Montpellier", country: "France", website: "https://heraulticsh3.blogspot.com/", facebookUrl: "https://www.facebook.com/HeraulticsH3/",
+      logoUrl: "/kennel-logos/heraultics.png", scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM",
+      scheduleFrequency: "Sporadic", scheduleNotes: "Runs sporadically (roughly quarterly) across the Hérault — Montpellier, Agde and Sète. Per-run times flow from Harrier Central.",
+      hashCash: "5€", foundedYear: 2020, // blog Run #1 report (Jan 2020)
+      description: "We are a drinking club with a running problem, running sporadically in the south of France Hérault region, through mountains, vineyards, valleys, to the beach!",
+      latitude: 43.6108, longitude: 3.8767 },
     // ===== SOUTH AMERICA =====
     // First South American kennel — Asunción, Paraguay. latitude/longitude is the
     // Asunción city centroid; per-run start coords come from the adapter's embed-map parse.

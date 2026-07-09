@@ -8037,5 +8037,109 @@ export const SOURCES = [
       },
       kennelCodes: ["beerh3"],
     },
+    // Cornwall — Try it Thursdays H3 (TITs); Harrier Central public API (config-only).
+    {
+      name: "Try it Thursdays H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live 2026-07-06 via
+        // hashruns.org/api/global-runs — 3 upcoming #1611–#1613, weekly Thursday 19:30).
+        publicKennelId: "2cc90a71-62e8-40ea-b26e-c79aed6fc417",
+        defaultKennelTag: "titsh3",
+        // TITs names events "#N <hare>" (kept verbatim); defaultTitle synthesizes
+        // "Try it Thursdays H3 #N" only for empty-name rows (mirrors Bandung).
+        defaultTitle: "Try it Thursdays H3",
+        staleTitleAliases: ["Placeholder event for TITs"],
+        // upcomingOnly:true — this source owns a ~115-run historical backfill
+        // (scripts/backfill-titsh3-history.ts). The HC getEvents API is future-only,
+        // so without this guard reconcile.ts would false-CANCEL the aged past runs as
+        // they age off the 365-day window (timeMin guard — same contract as Bandung).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["titsh3"],
+    },
+    // Lyon — Harrier Central public API (config-only).
+    {
+      name: "Lyon H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live 2026-07-07 via
+        // hashruns.org/api/global-runs — upcoming #26 "ArdèHash - Lyon H3 away weekend").
+        publicKennelId: "8b8aca36-a3c1-4867-adff-3ee24cac6822",
+        defaultKennelTag: "lh3-fr",
+        // Lyon H3 names events with real themes ("Run #N - <theme>"), kept verbatim;
+        // defaultTitle synthesizes "Lyon H3 #N" only for empty/placeholder names.
+        defaultTitle: "Lyon H3",
+        staleTitleAliases: ["Placeholder event for LH3-FR"],
+        // upcomingOnly:true — this source owns a 25-run historical backfill
+        // (scripts/backfill-lh3-fr-history.ts). The HC getEvents API is future-only,
+        // so without this guard reconcile.ts would false-CANCEL the aged past runs as
+        // they age off the 365-day window (timeMin guard — same contract as Bandung).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["lh3-fr"],
+    },
+    // Montpellier / Hérault — Heraultics H3; Harrier Central public API (config-only).
+    {
+      name: "Heraultics H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live 2026-07-08 via
+        // hashruns.org/api/global-runs — upcoming #12 "Return to Agde", 2026-09-26).
+        // HC's KennelIANATimezone is Europe/Berlin for this kennel — a data quirk;
+        // the seeded Montpellier metro is Europe/Paris.
+        publicKennelId: "dc7dc54b-422b-4c5b-b9fd-b29f265cef8a",
+        defaultKennelTag: "heraultics",
+        // Heraultics names events with real themes ("Run #N - <theme>"), kept verbatim;
+        // defaultTitle synthesizes "Heraultics H3 #N" only for empty/placeholder names.
+        defaultTitle: "Heraultics H3",
+        staleTitleAliases: ["Placeholder event for Heraultics"],
+        // upcomingOnly:true — this source owns a 6-run historical backfill
+        // (scripts/backfill-heraultics-history.ts). The HC getEvents API is future-only,
+        // so without this guard reconcile.ts would false-CANCEL the aged past runs as
+        // they age off the 365-day window (timeMin guard — same contract as Bandung).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["heraultics"],
+    },
+    // Kaiserslautern — KRASH H3; Harrier Central public API (config-only).
+    {
+      name: "KRASH H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live 2026-07-09 via the adapter's
+        // exact getEvents POST — returned #32 "K.R.A.S.H. #32" 2026-07-08; recently-active,
+        // 0 future runs posted yet). HC's KennelIANATimezone is Europe/Warsaw for this
+        // kennel — a data quirk; the Kaiserslautern metro is (correctly) Europe/Berlin.
+        publicKennelId: "c2a2b7ed-7717-49eb-9e0f-294086e15ef1",
+        defaultKennelTag: "krashh3",
+        // KRASH names events with real themes ("Mayday Mayday", "Season Start"), kept
+        // verbatim; defaultTitle synthesizes "KRASH H3 #N" only for empty/placeholder names.
+        defaultTitle: "KRASH H3",
+        staleTitleAliases: ["Placeholder event for KRASHH3"],
+        // upcomingOnly:true — this source owns a ~36-run historical backfill
+        // (scripts/backfill-krashh3-history.ts). The HC getEvents API is future-only,
+        // so without this guard reconcile.ts would false-CANCEL the aged past runs as
+        // they age off the 365-day window (timeMin guard — same contract as Bandung).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["krashh3"],
+    },
   ];
 
