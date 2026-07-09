@@ -27,6 +27,19 @@ Format:
 > `france` still catches "Lyon, France"), per the Warsaw/Belgrade discipline and the handoff's own
 > caveat. tsc + lint + 9959 tests green. Retro `handoffs/retros/2026-07-09-hc-batch-4-retro.md`.
 > SHIPPED flips below; post-merge = targeted seed + 4 backfill runs + scrape.
+>
+> **Same sweep — the two remaining un-onboarded handoffs were re-checked and stay BLOCKED (no PR):**
+> **`lima-h3`** (Peru) re-verified dormant 2026-07-09 — the primary blog `limahashash.blogspot.com`
+> newest post is **Hash 765 / 2023-09-07 (~1036 days stale, 8 posts total)**, and the sibling
+> `limahash.com` (Lima Extra Miércoles, WordPress) last real post is **2024-02-10 (~881 days)**; the
+> page's only "2026" string is today's date. No live Lima source → not onboarded (honors the handoff's
+> own "don't ship a dormant source" directive). **`tymh3-tw`** (Taoyuan, Taiwan) attempted 2026-07-09
+> but **blocked on infrastructure**: the run list is a fully JS-lazy-loaded Wix Events widget (SSR has
+> no event data, no `wix-events` app instance / JSON island → no XHR path), so it *requires*
+> browserRender — and the NAS render service is **down** (Tailscale host unreachable; render origin
+> returns Cloudflare **502**). Live-verification is impossible with the service down, so no
+> unverifiable adapter was shipped. Recon complete (browserRender is the only path); resume when the
+> NAS render service is back up.
 
 ## 2026-07-09 — KRASH H3 (Kaiserslautern, Germany)
 - Source: HARRIER_CENTRAL — `publicKennelId: c2a2b7ed-7717-49eb-9e0f-294086e15ef1` (HC uniqueShortName `KRASHH3`, `KennelName` "Kaiserslautern Ramstein Altenglan Sembach Hash"), verified by reproducing the adapter's exact `getEvents` POST + time-token in-browser (HTTP 200) AND sweeping `hashruns.org/api/global-runs?isFuture=0`
