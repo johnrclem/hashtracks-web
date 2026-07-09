@@ -690,6 +690,29 @@ off — so this endpoint hands you ready-to-paste config-only source rows.
   **Coverage is from the kennel's HC-join date forward, not its lifetime** (Bandung: 55 rows back to #2253
   2025-06, NOT to its 1984 founding — the LH3/PIH3 caveat). Bind the backfill to the live HC source AND set
   `upcomingOnly:true` (the EXCEPTION above). 2026-06-18 pulls: Bandung 55, Moonshine Dubai 17, Barbados 130.
+- 🔑 **The `isFuture=1` ~200-row cap is DATE-ORDERED — a specific kennel whose next run is more than ~a
+  week out (or which has 0 upcoming) will NOT appear in the global future feed, even though it's live
+  (learned KRASH H3, 2026-07-09).** So `global-runs?isFuture=1` is a *discovery/enumeration* tool, not a
+  reliable per-kennel liveness probe. To verify ONE specific kennel's upcoming slot, hit the adapter's
+  actual Azure `getEvents` path directly — it filters server-side by `publicKennelIds` and returns just
+  that kennel's current/next event. This is trivially reproducible **in-browser** (Claude-in-Chrome
+  page-context, no sandbox host-allowlist issue) by porting `src/adapters/harrier-central/token.ts` to
+  SubtleCrypto:
+  ```js
+  const PH="11111111-1111-1111-1111-111111111111", EP=Date.UTC(1963,7,15,9,52,28,0);
+  const s=Math.floor(Math.floor((Date.now()*1000-EP*1000)/1e6)/86469);
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(`${PH}#hcportal_getEvents#${s}`.toUpperCase()));
+  const accessToken=[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
+  const j=await fetch('https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({publicHasherId:PH,accessToken,queryType:'getEvents',publicKennelIds:'<GUID>'})}).then(r=>r.json());
+  // → [[ {eventNumber, eventName, eventStartDatetime, daysUntilEvent, hares, locationOneLineDesc, ...} ]]
+  ```
+  `getEvents` is future-only but returns the **most-recent slot even when it's just passed** (KRASH's #32
+  came back with `daysUntil: -1`) — so a negative `daysUntilEvent` on the sole returned event = "last run
+  already happened, no next run posted yet" = the recently-active signal. Pair it with the `isFuture=0`
+  past sweep for the cadence evidence. (This is cleaner than the city-name finder sweep below when you
+  already have the GUID from the queue.)
 - 🔴 **Curated-backfill discipline — preserve STRUCTURAL quirks, FIX value errors that corrupt on load
   (Bandung #2340).** "Extract faithfully" applies to real identity facts (a genuine run-number reuse across
   two *distinct* events, gaps like Bandung's 2273/2289, a verbatim title typo like #2301's "Run 2231") — NOT
@@ -769,6 +792,36 @@ off — so this endpoint hands you ready-to-paste config-only source rows.
   row should be field-for-field what the live adapter would emit**, except where a documented data-quality
   decision overrides. Corollary: the HC adapter emits no `cost`/`description`, so a backfill omits both —
   kennel-level `hashCash` covers cost — the lone exception being an online note in `description` per above.)
+
+#### Heraultics H3 addenda (config-only HC, Hérault/France, 2026-07-08)
+
+- 🔴 **A country-bounding-box coord scrub is for geocode-FAIL DEFAULT pins — NOT for a kennel that does
+  real international away-runs. Spot-check, don't blind-drop.** Heraultics (a Hérault kennel) has two
+  genuinely-foreign past coords: #7 Helgoland, Germany (`54.188, 7.885`) and #10 a Baltic ferry
+  Stockholm↔Turku (`59.469, 19.368`). Both are the **real venue** — the kennel travelled there
+  (blog run reports confirm). A blanket France-bbox filter (the Barbados/Bandung reflex) would erase
+  these true pins. Rule: apply the bbox scrub only when the out-of-country coord is a HC region-default
+  *fallback* on a run whose venue is clearly local (Barbados #2162 = Tokyo pin on a St-Peter venue);
+  when the venue TEXT itself is the foreign place (a named away-run), the foreign coord is correct —
+  keep it. Distinguish by reading `LocationOneLineDesc`, not by lat/lng alone.
+- 🟢 **The kennel's own blog is the tiebreaker for HC time typos AND for confirming out-of-range times
+  are REAL — don't apply the 06:00–20:00 hour-gate blindly when a corroborating source exists.**
+  Heraultics #6 HC-stored `00:30` was a 12h AM/PM typo → blog says "at **12:30**" (correct to 12:30,
+  Bandung-class fix). But #10 HC-stored `22:30` is a **genuine** late ferry run — blog says "March 5th
+  2026 - **22:30**" — so the Barbados hour-gate (which would drop >20:00) must NOT fire here. When a
+  Blogspot/WordPress run post exists, prefer its verbatim "When:" time over both the HC value and a
+  mechanical hour-gate; the gate is only a fallback for typos with no corroboration.
+- **A HC kennel can have a shallow HC archive but a deeper OWN-SITE archive.** Heraultics joined HC at
+  run #6 (2024-04) — `global-runs?isFuture=0` only reaches #6→#11 — but its Blogspot
+  (`heraulticsh3.blogspot.com`) holds #1–#5 (2019–2021). For low-volume kennels, check the blog archive
+  depth before declaring the HC window "full history"; a deeper one-shot Blogger backfill may be optional
+  but available (`fetchBloggerPosts`). foundedYear/hashCash that HC can't give (HC has no currency/founding
+  field) are usually on the blog verbatim ("Hashcash : 5€", Run #1 date).
+- **Sporadic/irregular kennels are onboardable when there's a posted upcoming run.** Heraultics runs
+  ~quarterly with 1–9-month gaps (blog literally says "running sporadically"), but a confirmed future
+  #12 with hares assigned + a counted run ~80d ago = clearly active. Don't confuse "low cadence" with
+  "stale" — the Step-3 recently-active bar is *last run within ~2× interval*; for a quarterly kennel an
+  80-day-old last run + a scheduled next run passes easily. Onboard (handed-off), never `blocked: stale`.
 
 ## Supabase / PostgREST JSON backend behind a React SPA (learned from Riyadh H3, 2026-06-18)
 
