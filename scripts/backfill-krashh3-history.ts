@@ -2,7 +2,7 @@
  * One-shot historical backfill for KRASH H3 (krashh3) — HC config-only.
  *
  * The Harrier Central adapter is future-only, so this Kaiserslautern Military
- * Community kennel's past runs (36 rows = 28 counted trails + 8 #0 "Drinking
+ * Community kennel's past runs (36 rows = 30 counted trails + 6 #0 "Drinking
  * Practice" socials, 2024-05-01 → 2026-07-08) would never reach canonical Events
  * from the live scrape. At build there were 0 future runs posted (recently-active:
  * last run #32 was the day before), so without this backfill the page would be
