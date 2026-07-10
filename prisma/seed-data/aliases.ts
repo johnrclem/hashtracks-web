@@ -168,6 +168,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "plympton-h3": ["Plympton H3", "Plympton Hash House Harriers", "PH3-GB"],
     // Bare "LVH3" intentionally OMITTED — it is an alias of both lvh3 (Lehigh Valley) and lvh3-cin (Licking Valley).
     "lvh3-gb": ["Lune Valley H3", "Lune Valley Hash", "Lune Valley Hash House Harriers", "LVH3 Lancaster"],
+    // ===== UK — CORNWALL =====
+    "titsh3": ["TITs", "TITS", "Try it Thursdays", "Try It Thursdays H3", "TIT H3"],
     // ===== UK — NORFOLK =====
     "norfolkh3": ["Norfolk Hash", "Norfolk HHH", "Norfolk H3"],
     // ===== UK — LIVERPOOL =====
@@ -344,6 +346,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "berlinh3": ["Berlin Hash", "Berlin H3", "Berlin HHH"],
     "bh3fm": ["Berlin Full Moon Hash", "Berlin Full Moon H3", "BH3FM"],
     "sembach-h3": ["Sembach H3", "Sembach Hash House Harriers", "SH3-KL"],
+    // Kaiserslautern — KRASH (bare "KH3" OMITTED — it is Kowloon H3, Hong Kong)
+    "krashh3": ["KRASH H3", "KRASH", "KRASHH3", "K.R.A.S.H.", "Kaiserslautern Ramstein Altenglan Sembach Hash"],
     // Stuttgart
     "sh3-de": ["Stuttgart Hash", "Stuttgart H3", "SH3 Stuttgart"],
     "dst-h3": ["DST Hash", "DST H3", "Stuttgart Tuesday Hash"],
@@ -649,6 +653,10 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // France — bare "PH3" omitted (collides with ph3-my/pattaya-h3); bare "SCH3" omitted (collides with sch3-atl/sch3-ca)
     "paris-h3": ["Paris H3", "Paris Hash", "Paris Hash House Harriers"],
     "toulouse-h3": ["Toulouse H3", "Toulouse Hash House Harriers", "TH3-FR"],
+    // Lyon — bare "LH3" OMITTED (maps to London H3 + Lakeland H3, a 3-way collision)
+    "lh3-fr": ["Lyon H3", "Lyon Hash House Harriers", "Lyon, France"],
+    // Heraultics (Montpellier / Hérault) — accented "Héraultics" kept as an alias
+    "heraultics": ["Heraultics H3", "Héraultics H3", "Heraultics", "Heraultics Hash House Harriers"],
     "sans-clue-h3": ["Sans Clue H3", "Sans Clue Hash", "Sans Clue Hash House Harriers", "SCHHH"],
     // ===== MEXICO ===== (first Mexico kennel; "MCH3"/"CDMX H3" self-styled in the kennel's own copy)
     "mch3": ["MCH3", "CDMX H3", "Mexico City Hash", "Hash House Harriers Mexico City"],

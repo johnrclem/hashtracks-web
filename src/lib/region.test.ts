@@ -326,6 +326,29 @@ describe("inferCountry — Serbia (first 🇷🇸 kennel: BEER H3, Belgrade)", (
   });
 });
 
+describe("inferCountry — France metros (Lyon H3, Heraultics H3)", () => {
+  it.each([
+    ["Lyon, France", "France"], // via the "france" token (bare "lyon" is omitted)
+    ["Montpellier, France", "France"],
+    ["Montpellier", "France"], // double-L token is unambiguously French
+    ["Hérault", "France"], // accented département anchored separately
+    ["Toulouse", "France"], // regression — pre-existing token still resolves
+  ])("infers %s → France", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+
+  it.each([
+    // bare "lyon" doubles as US Lyon County (KS/NV/IA/MN/KY) — it is deliberately
+    // OMITTED from the France rule, so a US-context string falls through to USA.
+    ["Lyon County, Kansas"],
+    // "Montpelier" (single-L) is the US spelling (Montpelier, VT/ID/OH) — the France
+    // rule matches only the double-L "Montpellier", so this must NOT route to France.
+    ["Montpelier, Vermont"],
+  ])("does NOT misroute US %s → USA", (name) => {
+    expect(inferCountry(name)).toBe("USA");
+  });
+});
+
 describe("inferCountry — Vietnam (first 🇻🇳 kennel)", () => {
   it.each([
     ["Ho Chi Minh City", "Vietnam"],

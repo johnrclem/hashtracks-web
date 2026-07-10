@@ -1616,6 +1616,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     aliases: ["Plymouth, England", "Plympton"],
   },
   {
+    name: "Cornwall",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "CWL",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 50.503,
+    centroidLng: -4.313, // Callington / Tamar valley
+    aliases: ["Cornwall, England", "Callington", "Kernow"],
+  },
+  {
     name: "Norfolk",
     country: "UK",
     timezone: "Europe/London",
@@ -1937,6 +1948,28 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 43.6047,
     centroidLng: 1.4442,
     aliases: ["Toulouse, France"],
+  },
+  {
+    name: "Lyon",
+    country: "France",
+    timezone: "Europe/Paris",
+    abbrev: "LYO",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#3b82f6",
+    centroidLat: 45.764,
+    centroidLng: 4.8357,
+    aliases: ["Lyon, France"],
+  },
+  {
+    name: "Montpellier",
+    country: "France",
+    timezone: "Europe/Paris", // NOT HC's Europe/Berlin quirk for Heraultics
+    abbrev: "MPL",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#3b82f6",
+    centroidLat: 43.6108,
+    centroidLng: 3.8767,
+    aliases: ["Montpellier, France", "Hérault"],
   },
   // ── Hungary ──
   {
@@ -3905,7 +3938,13 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // `\b` is ASCII-only, so a leading `\bösterreich` boundary never matches the
   // non-ASCII `ö`; anchor the diacritic form explicitly (mirrors île-de-france).
   [/\b(austria|osterreich|vienna|wien|vindobona)\b|(?:^|\W)österreich\b/, "Austria"],
-  [/\b(france|paris|ile-de-france|toulouse)\b|(?:^|\W)île-de-france\b/, "France"],
+  // "montpellier" (double-L) and "herault" (the département) are unambiguously French —
+  // "montpellier" does NOT collide with US "Montpelier" (single-L, VT/ID/OH). Bare "lyon"
+  // is intentionally EXCLUDED — it doubles as US Lyon County (KS/NV/IA/MN/KY) and
+  // inferCountry() is first-match with USA as the default fallthrough; "Lyon, France"
+  // still resolves via the "france" token. Accented "hérault" is anchored separately
+  // (\b is ASCII-only, so it can't bound the é — mirrors île-de-france/österreich).
+  [/\b(france|paris|ile-de-france|toulouse|montpellier|herault)\b|(?:^|\W)(?:île-de-france|hérault)\b/, "France"],
   [/\b(hungary|budapest|magyar|magyarorszag|magyarország)\b/, "Hungary"],
   // NB: bare "warsaw" is intentionally excluded — it's also a common US place
   // name (Warsaw, IN/NY/MO), and inferCountry() is first-match with USA as the
@@ -4146,6 +4185,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Newcastle": "United Kingdom",
   "Plymouth": "United Kingdom",
   "Lancaster": "United Kingdom",
+  "Cornwall": "United Kingdom",
   "Norfolk": "United Kingdom",
   "Liverpool": "United Kingdom",
   "Birmingham": "United Kingdom",
@@ -4189,6 +4229,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // France
   "Paris": "France",
   "Toulouse": "France",
+  "Lyon": "France",
+  "Montpellier": "France",
   // Hungary
   "Budapest": "Hungary",
   "Warsaw": "Poland",

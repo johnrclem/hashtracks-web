@@ -1,0 +1,80 @@
+[
+  {
+    "date": "2024-04-01",
+    "kennelTags": [
+      "heraultics"
+    ],
+    "title": "Héraultics H3 - Run #6 - Sète Viking Invasion- 01/04/2024",
+    "runNumber": 6,
+    "startTime": "12:30",
+    "hares": "John Cleese",
+    "location": "In front of Sète train station",
+    "latitude": 43.412427886881794,
+    "longitude": 3.696366853807605
+  },
+  {
+    "date": "2024-06-02",
+    "kennelTags": [
+      "heraultics"
+    ],
+    "title": "Run #7 - Go to Hell hangover run",
+    "runNumber": 7,
+    "startTime": "11:00",
+    "hares": "Hidden Asset, I Like Your Boobs",
+    "location": "In front of Helgoland Youth Hostel",
+    "latitude": 54.18791954388587,
+    "longitude": 7.884842597237155
+  },
+  {
+    "date": "2025-02-08",
+    "kennelTags": [
+      "heraultics"
+    ],
+    "title": "Run #8 - Agde",
+    "runNumber": 8,
+    "startTime": "15:00",
+    "hares": "John Cleese and Horny Tail",
+    "location": "25 rue d'Embonne, 34300 Agde",
+    "latitude": 43.31282234785059,
+    "longitude": 3.47020106541327
+  },
+  {
+    "date": "2025-06-08",
+    "kennelTags": [
+      "heraultics"
+    ],
+    "title": "Héraultics H3 Run #9 - Montpellier - 08/06/2025",
+    "runNumber": 9,
+    "startTime": "14:00",
+    "hares": "Hungjury",
+    "location": "Tram stop \"via Domitia\"",
+    "latitude": 43.64661029195185,
+    "longitude": 3.929617560416246
+  },
+  {
+    "date": "2026-03-05",
+    "kennelTags": [
+      "heraultics"
+    ],
+    "title": "Run #10 - Vikings on a vessel again...",
+    "runNumber": 10,
+    "startTime": "22:30",
+    "hares": "Horny tail, John Cleese",
+    "location": "M/S Viking Glory, somewhere between Stockholm and Turku.",
+    "latitude": 59.469349356356865,
+    "longitude": 19.367725802197004
+  },
+  {
+    "date": "2026-04-19",
+    "kennelTags": [
+      "heraultics"
+    ],
+    "title": "Run #11 Sparkling Sunday hangover run in Carcassonne",
+    "runNumber": 11,
+    "startTime": "10:30",
+    "hares": "Cheesy Lollipop, I Like Your Boobs",
+    "location": "In front of Tribe Hotel Carcassonne",
+    "latitude": 43.21017247140515,
+    "longitude": 2.357857705651117
+  }
+]

@@ -1,0 +1,310 @@
+[
+  {
+    "date": "2024-11-02",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Run #1 - Inaugural run in Confluence",
+    "runNumber": 1,
+    "startTime": "14:00",
+    "hares": "Hidden Asset",
+    "location": "MJC Confluence"
+  },
+  {
+    "date": "2024-11-24",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Run #2 - Beaujolais Hangover run",
+    "runNumber": 2,
+    "startTime": "14:00",
+    "hares": "Hidden Asset",
+    "location": "Parc de la Tête d'Or"
+  },
+  {
+    "date": "2024-12-15",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Run #3 - Christmas run",
+    "runNumber": 3,
+    "startTime": "14:00",
+    "hares": "Suzhou - Lazy Swinger",
+    "location": "Place Bellecour"
+  },
+  {
+    "date": "2025-01-12",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Run #4 - Parc Sisley",
+    "runNumber": 4,
+    "startTime": "14:00",
+    "hares": "Neglijected",
+    "location": "Parc Sisley"
+  },
+  {
+    "date": "2025-02-02",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Run #5 - Crêp run",
+    "runNumber": 5,
+    "startTime": "14:00",
+    "hares": "Jaime deBrebisson, Suzhou - Lazy Swinger",
+    "location": "36 Rue Jaboulay, 69007 Lyon",
+    "latitude": 45.748058,
+    "longitude": 4.83866
+  },
+  {
+    "date": "2025-02-23",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Run #6 - Parc de la tête d'or... reloaded",
+    "runNumber": 6,
+    "startTime": "14:00",
+    "hares": "Hidden Asset",
+    "location": "Parc de la Tête d'Or",
+    "latitude": 45.773201,
+    "longitude": 4.852069
+  },
+  {
+    "date": "2025-03-15",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Run #7 - St Patrick's run",
+    "runNumber": 7,
+    "startTime": "14:00",
+    "hares": "Suzhou - Lazy Swinger , TinTin",
+    "location": "Somewhere in Lyon 1"
+  },
+  {
+    "date": "2025-03-30",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Run #8 Ste Foy les Lyon",
+    "runNumber": 8,
+    "startTime": "14:00",
+    "hares": "You Chew Mine + Lazy Swinger",
+    "location": "Ste Foy les Lyon",
+    "latitude": 45.726327284846214,
+    "longitude": 4.806235628281197
+  },
+  {
+    "date": "2025-04-13",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Run #9 - Lyon Beer Festival",
+    "runNumber": 9,
+    "startTime": "12:00",
+    "hares": "Just Jaime, Neglijected",
+    "location": "La Doua",
+    "latitude": 45.7811,
+    "longitude": 4.8715
+  },
+  {
+    "date": "2025-05-18",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Lyon H3 run #10 - Technology in St Priest",
+    "runNumber": 10,
+    "startTime": "14:00",
+    "hares": "Hidden Asset",
+    "location": "Parc Technologique de St Priest",
+    "latitude": 45.71421740562206,
+    "longitude": 4.931676672980499
+  },
+  {
+    "date": "2025-06-12",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Lyon H3 run #11 - Lazy Cola 69th day run",
+    "runNumber": 11,
+    "startTime": "18:54",
+    "hares": "Lazy Swinger",
+    "location": "Quai Claude Bernard",
+    "latitude": 45.74935787384059,
+    "longitude": 4.834654775574135
+  },
+  {
+    "date": "2025-07-14",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Run #12 - A French man went to... the Lac de Miribel",
+    "runNumber": 12,
+    "startTime": "10:00",
+    "hares": "TinTin, You Chew Mine",
+    "location": "Lac de Miribel, In front of the public toilets\n plage du Morlet, Allée du Morlet, 69120 Vaulx-en-Velin  \nBetween Brasserie du Grand Parc and Parking de la Capitainerie"
+  },
+  {
+    "date": "2025-08-14",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Lyon H3 Run #13 - A brief but short Fairy Tale run",
+    "runNumber": 13,
+    "startTime": "18:30",
+    "hares": "Lazy Swinger",
+    "location": "Place Bellecour",
+    "latitude": 45.757836714160895,
+    "longitude": 4.834130377559363
+  },
+  {
+    "date": "2025-08-30",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Lyon H3 Run #14 - Froglegs and Knights in Vernaison",
+    "runNumber": 14,
+    "startTime": "14:00",
+    "location": "Vernaison train station",
+    "latitude": 45.645499194108694,
+    "longitude": 4.813407931664725
+  },
+  {
+    "date": "2025-11-02",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "1 year hashy beerday Wine fair run",
+    "runNumber": 15,
+    "startTime": "11:00",
+    "hares": "Hidden Asset",
+    "location": "Tram stop Tony Garnier",
+    "latitude": 45.73165591886289,
+    "longitude": 4.822829649599556
+  },
+  {
+    "date": "2025-11-23",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Lyon H3 run #16 - Déjà-bu - Beaujolais marathon hangover run",
+    "runNumber": 16,
+    "startTime": "12:00",
+    "location": "Parc de la Tête d'Or, entrée 49 bd des Belges",
+    "latitude": 45.77326444932096,
+    "longitude": 4.851512779873729
+  },
+  {
+    "date": "2025-12-14",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Lyon H3 - Christmas run",
+    "runNumber": 17,
+    "startTime": "14:00",
+    "hares": "NegliJected + Just Nadège",
+    "location": "Place Bellecour",
+    "latitude": 45.757786938217805,
+    "longitude": 4.834134756666719
+  },
+  {
+    "date": "2026-01-18",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Lyon H3 run#18 - Galette des rois run",
+    "runNumber": 18,
+    "startTime": "14:00",
+    "hares": "Just Lilah",
+    "location": "Aire de Jeu Moncey- Lyon 3",
+    "latitude": 45.76133439908723,
+    "longitude": 4.850029956356834
+  },
+  {
+    "date": "2026-02-22",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Lyon H3 run#19 the crap crêpes run",
+    "runNumber": 19,
+    "startTime": "14:00",
+    "hares": "You Chew Mine",
+    "location": "68 avenue Viviani, Vénissieux",
+    "latitude": 45.7239965646553,
+    "longitude": 4.872355878456328
+  },
+  {
+    "date": "2026-03-14",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Run #20 - Pie and Guinness run 14/03/2026",
+    "runNumber": 20,
+    "startTime": "14:00",
+    "hares": "Lazy Swinger + Just Vid",
+    "location": "15 place Bellecour",
+    "latitude": 45.75779755608047,
+    "longitude": 4.834141522820997
+  },
+  {
+    "date": "2026-04-04",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Lyon H3 Run #21 - Run around Ma Chatte",
+    "runNumber": 21,
+    "startTime": "14:00",
+    "hares": "Hidden Asset, Neglijected",
+    "location": "Place Ronde Montchat",
+    "latitude": 45.753514778051006,
+    "longitude": 4.89189707997869
+  },
+  {
+    "date": "2026-04-25",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Lyon Beer Festival",
+    "runNumber": 22,
+    "startTime": "14:00",
+    "hares": "Down for Anything + Neglijecred",
+    "location": "La Doua",
+    "latitude": 45.78086031911573,
+    "longitude": 4.86636247273761
+  },
+  {
+    "date": "2026-05-03",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Lyon H3 run #23 - the sausage party",
+    "runNumber": 23,
+    "startTime": "14:00",
+    "hares": "Just Like Me + Hidden Asset",
+    "location": "In front of Ninkasi La Soie, Metro/tram stop \"Vaulx en Velin La Soie\"",
+    "latitude": 45.76091611638608,
+    "longitude": 4.920207308285597
+  },
+  {
+    "date": "2026-05-23",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Lyon H3 run #24 - Sainte Foy, take 2",
+    "runNumber": 24,
+    "startTime": "14:00",
+    "hares": "Lazy Swinger",
+    "location": "Sainte Foy lès Lyon",
+    "latitude": 45.73810849668764,
+    "longitude": 4.806713137962434
+  },
+  {
+    "date": "2026-06-14",
+    "kennelTags": [
+      "lh3-fr"
+    ],
+    "title": "Lyon H3 Run #25 - The morning coffee to beer run - 14/06/2026",
+    "runNumber": 25,
+    "startTime": "14:00",
+    "location": "Passerelle du Collège"
+  }
+]
