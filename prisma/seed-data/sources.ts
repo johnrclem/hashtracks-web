@@ -2073,6 +2073,19 @@ export const SOURCES = [
       },
       kennelCodes: ["gatr-h3"],
     },
+    {
+      // Higher-trust dynamic source above the STATIC_SCHEDULE fallback (#static-only-audit):
+      // per-trail WordPress.com posts carry real run number/date/time/location/cost, so they
+      // replace the placeholder monthly events on any date the blog covers. Real cadence is
+      // ~monthly on varying Saturdays, not the static "3rd Saturday" guess.
+      name: "GATR H3 WordPress Trail Posts",
+      url: "https://gatrh3.wordpress.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      kennelCodes: ["gatr-h3"],
+    },
     // ===== GEORGIA =====
     // --- SavH3 Meetup (already in DB — ensure kennel link + bump trustLevel) ---
     {
