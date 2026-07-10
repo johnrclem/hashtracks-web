@@ -28,6 +28,18 @@ Format:
 > caveat. tsc + lint + 9959 tests green. Retro `handoffs/retros/2026-07-09-hc-batch-4-retro.md`.
 > SHIPPED flips below; post-merge = targeted seed + 4 backfill runs + scrape.
 >
+> **✅ POST-MERGE LIVE (2026-07-09/10, all prod-verified).** HC batch-4 seeded (targeted `seedKennels`
+> subset, never a full `db seed`) + `BACKFILL_APPLY=1` ×4 (**180 events created, 0 errors**) + scrape ×4
+> (**cancelled=0 on all** — the `upcomingOnly` contract held): **titsh3 116 · lh3-fr 26 · heraultics 7 ·
+> krashh3 36** canonical events, correct region badges, all 4 `/kennels/*` pages 200. **Taoyuan Metro H3**
+> ([PR #2636](https://github.com/johnrclem/hashtracks-web/pull/2636)) also LIVE: targeted seed + a
+> **scoped** ScheduleRule pass (only its 3 ordinal `BYDAY=1FR/3FR/5FR` HIGH rules — the global
+> `runScheduleRuleBackfill` would have touched all 462 rules, so `runKennelSeedPass` was called with a
+> 1-kennel filter + `applyUpserts`, skipping the global `deactivateStaleRules`) + scrape (**3 events,
+> cancelled=0**). Also fixed en route: the systemic **`.avif` kennel logos 404** (Clerk proxy matcher
+> intercepting `/kennel-logos/*.avif`) — [PR #2629](https://github.com/johnrclem/hashtracks-web/pull/2629),
+> now every avif logo serves.
+>
 > **Same sweep — the two remaining un-onboarded handoffs: one stays BLOCKED, one was later SHIPPED.**
 > **`lima-h3`** (Peru) is the one that stays blocked — re-verified dormant 2026-07-09: the primary blog `limahashash.blogspot.com`
 > newest post is **Hash 765 / 2023-09-07 (~1036 days stale, 8 posts total)**, and the sibling
