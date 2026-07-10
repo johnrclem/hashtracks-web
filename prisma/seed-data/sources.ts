@@ -2056,9 +2056,17 @@ export const SOURCES = [
       kennelCodes: ["pbh3"],
     },
     {
+      // DISABLED in favour of the WordPress source below (#static-only-audit).
+      // GATR's real cadence is ~monthly on VARYING Saturdays, so this fixed
+      // "3rd Saturday" RRULE rarely lands on a real trail date — the merge
+      // pipeline only replaces same-kennel/same-date rows, so keeping it enabled
+      // would leave a phantom 3rd-Saturday placeholder alongside every real
+      // trail. No fixed RRULE can safely fall back for this kennel; the blog is
+      // authoritative. Kept (disabled) so the row isn't resurrected.
       name: "GATR H3 Static Schedule",
       url: "https://gatrh3.wordpress.com",
       type: "STATIC_SCHEDULE" as const,
+      enabled: false,
       trustLevel: 3,
       scrapeFreq: "weekly",
       scrapeDays: 90,
@@ -2071,6 +2079,18 @@ export const SOURCES = [
         defaultLocation: "Gainesville, FL",
         defaultDescription: "Monthly Saturday trail run. Check WordPress blog for start location and details.",
       },
+      kennelCodes: ["gatr-h3"],
+    },
+    {
+      // Real GATR schedule (#static-only-audit): per-trail WordPress.com posts
+      // carry run number/date/time/location/cost. Replaces the disabled static
+      // placeholder above — real cadence is ~monthly on varying Saturdays.
+      name: "GATR H3 WordPress Trail Posts",
+      url: "https://gatrh3.wordpress.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
       kennelCodes: ["gatr-h3"],
     },
     // ===== GEORGIA =====
