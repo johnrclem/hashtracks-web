@@ -121,6 +121,18 @@ describe("BoomCalendarAdapter", () => {
     expect(res.events[0].date).toBe(inWindow.start.slice(0, 10));
   });
 
+  it("routes an individual unparseable row to errorDetails.parse (not errors[]) so good events still reconcile", async () => {
+    const bad = { ...SAMPLE_EVENT, id: 99, start: "not-a-date", end: "" };
+    const good = { ...SAMPLE_EVENT, id: 2, start: boomStart(10, "19:15"), end: boomStart(10, "22:45") };
+    mockSafeFetch
+      .mockResolvedValueOnce(jsonResponse(ACCESS_TOKENS))
+      .mockResolvedValueOnce(jsonResponse(boomCalendar([bad, good])));
+    const res = await new BoomCalendarAdapter().fetch(source());
+    expect(res.events).toHaveLength(1); // the good event survives
+    expect(res.errors).toEqual([]); // reconcile NOT suppressed by one bad row
+    expect(res.errorDetails?.parse?.[0].error).toMatch(/unparseable start/i);
+  });
+
   it("errors when config is missing boomCompId/kennelTag", async () => {
     const res = await new BoomCalendarAdapter().fetch(source({}));
     expect(res.events).toEqual([]);

@@ -28,8 +28,8 @@ Format:
 > caveat. tsc + lint + 9959 tests green. Retro `handoffs/retros/2026-07-09-hc-batch-4-retro.md`.
 > SHIPPED flips below; post-merge = targeted seed + 4 backfill runs + scrape.
 >
-> **Same sweep — the two remaining un-onboarded handoffs were re-checked and stay BLOCKED (no PR):**
-> **`lima-h3`** (Peru) re-verified dormant 2026-07-09 — the primary blog `limahashash.blogspot.com`
+> **Same sweep — the two remaining un-onboarded handoffs: one stays BLOCKED, one was later SHIPPED.**
+> **`lima-h3`** (Peru) is the one that stays blocked — re-verified dormant 2026-07-09: the primary blog `limahashash.blogspot.com`
 > newest post is **Hash 765 / 2023-09-07 (~1036 days stale, 8 posts total)**, and the sibling
 > `limahash.com` (Lima Extra Miércoles, WordPress) last real post is **2024-02-10 (~881 days)**; the
 > page's only "2026" string is today's date. No live Lima source → not onboarded (honors the handoff's

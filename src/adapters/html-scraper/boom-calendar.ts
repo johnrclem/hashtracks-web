@@ -249,21 +249,26 @@ export class BoomCalendarAdapter implements SourceAdapter {
     const maxStr = maxDate.toISOString().slice(0, 10);
 
     const events: RawEventData[] = [];
-    const errors: string[] = [];
+    const parseErrors: NonNullable<ErrorDetails["parse"]> = [];
     for (const ev of rawEvents) {
       const { event, error } = mapBoomEvent(ev, kennelTag, minStr, maxStr);
-      if (error) errors.push(error);
+      if (error) parseErrors.push({ row: typeof ev.id === "number" ? ev.id : 0, error });
       else if (event) events.push(event);
     }
 
-    // Fail loud on a parse break (raw events present but none survived parsing)
-    // so reconcile is suppressed; a genuinely-empty upcoming feed (0 raw events)
-    // returns cleanly and lets reconcile handle aged-out events.
-    if (rawEvents.length > 0 && events.length === 0 && errors.length === 0) {
+    // A single unparseable row goes to errorDetails.parse (surfaced for debugging)
+    // but does NOT populate `errors[]`, so the good events still reconcile — only a
+    // STRUCTURAL break (raw events present but none parsed at all) fails loud and
+    // suppresses reconcile. A genuinely-empty feed (0 raw events) returns cleanly.
+    if (rawEvents.length > 0 && events.length === 0) {
       const msg = `Boom calendar returned ${rawEvents.length} raw event(s) but none parsed into the ${days}-day window`;
-      return fail(msg, { parse: [{ row: 0, error: msg }] });
+      return fail(msg, { parse: [...parseErrors, { row: 0, error: msg }] });
     }
 
-    return { events, errors, errorDetails: undefined };
+    return {
+      events,
+      errors: [],
+      errorDetails: parseErrors.length ? { parse: parseErrors } : undefined,
+    };
   }
 }
