@@ -6539,3 +6539,45 @@ describe("Baltimore Annapolis GCal — hare names stripped from title (#2534)", 
     expect(result?.title).toBe("TOUR DUH HASH: MVH3");
   });
 });
+
+// ── Multi-day all-day events → inclusive endDate (Codex follow-up on #2607) ──
+
+describe("buildRawEventFromGCalItem — multi-day all-day endDate", () => {
+  const config = { defaultKennelTag: "t3h3", includeAllDayEvents: true };
+
+  it("emits an inclusive endDate for a multi-day all-day event (GCal DTEND is exclusive)", () => {
+    // "T3H3 Pink Dress!" weekend: DTSTART;VALUE=DATE:20261002 / DTEND;VALUE=DATE:20261005.
+    const result = buildRawEventFromGCalItem(
+      { summary: "T3H3 Pink Dress!", start: { date: "2026-10-02" }, end: { date: "2026-10-05" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.date).toBe("2026-10-02");
+    expect(result?.endDate).toBe("2026-10-04"); // 2026-10-05 exclusive − 1 day
+  });
+
+  it("does NOT emit endDate for a single-day all-day event (regression guard)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "T3H3 One-Day Special", start: { date: "2026-10-02" }, end: { date: "2026-10-03" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.date).toBe("2026-10-02");
+    expect(result?.endDate).toBeUndefined();
+  });
+
+  it("does NOT emit endDate for an all-day event with no end", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "T3H3 No-End", start: { date: "2026-10-02" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.endDate).toBeUndefined();
+  });
+
+  it("does NOT emit endDate for a timed event that crosses midnight (overnight run, not multi-day)", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "T3H3 #500", start: { dateTime: "2026-10-02T20:00:00-05:00" }, end: { dateTime: "2026-10-03T01:00:00-05:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.date).toBe("2026-10-02");
+    expect(result?.endDate).toBeUndefined();
+  });
+});
