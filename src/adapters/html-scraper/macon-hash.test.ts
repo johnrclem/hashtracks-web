@@ -1,10 +1,27 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import * as cheerio from "cheerio";
 import {
   parseMaconEntry,
   parseMaconTime,
   parseMaconLocation,
   parseMaconHares,
+  MaconHashAdapter,
 } from "./macon-hash";
+import { fetchHTMLPage } from "../utils";
+import type { Source } from "@/generated/prisma/client";
+
+// Keep every real util helper; only stub the network fetch.
+vi.mock("../utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../utils")>();
+  return { ...actual, fetchHTMLPage: vi.fn() };
+});
+
+const SOURCE = {
+  id: "s",
+  name: "MGH4 & W3H3 Next Hash",
+  url: "https://mgh4.com/page/next-hash",
+  type: "HTML_SCRAPER",
+} as unknown as Source;
 
 const SRC = "https://mgh4.com/page/next-hash";
 
@@ -39,6 +56,10 @@ describe("parseMaconLocation", () => {
     expect(parseMaconLocation("Meet at St. Andrews Park. In at 6")).toBe(
       "St. Andrews Park",
     );
+  });
+  it("returns null for a placeholder phrase (clear stale venue) and undefined when absent", () => {
+    expect(parseMaconLocation("Meet at TBA. In at 6")).toBeNull();
+    expect(parseMaconLocation("Weedeater is laying a trail")).toBeUndefined();
   });
 });
 
@@ -82,5 +103,51 @@ describe("parseMaconEntry", () => {
 
   it("returns null for a labeled paragraph with no parseable date", () => {
     expect(parseMaconEntry("W3H3 hareline: when we have hares", SRC)).toBeNull();
+  });
+});
+
+describe("MaconHashAdapter.fetch", () => {
+  const okPage = (html: string) => ({
+    ok: true as const,
+    html,
+    $: cheerio.load(html),
+    structureHash: "hash123",
+    fetchDurationMs: 5,
+  });
+
+  it("parses run paragraphs and ignores the intro, reporting diagnostics", async () => {
+    const html = `
+      <p>Note: we are having trouble getting hares.</p>
+      <p><strong>W3H3 Wednesday, October 29, 2025,</strong> Weedeater is laying a trail starting at Washington Park, Macon. In at 6:30, out at 7.</p>
+      <p><strong>MGH4, Saturday, July 19, 2025.</strong> Meet at 5650 Arkwright Rd. Congregate at 1:30, out at 2.</p>`;
+    vi.mocked(fetchHTMLPage).mockResolvedValue(okPage(html));
+
+    const res = await new MaconHashAdapter().fetch(SOURCE);
+
+    expect(res.errors).toEqual([]);
+    expect(res.events).toHaveLength(2);
+    expect(res.events.map((e) => e.kennelTags[0])).toEqual(["w3h3-ga", "mgh4"]);
+    expect(res.diagnosticContext).toMatchObject({
+      fetchMethod: "cheerio",
+      paragraphs: 3,
+      eventsParsed: 2,
+    });
+  });
+
+  it("returns the fetch failure result when the page fetch fails", async () => {
+    const failure = {
+      ok: false as const,
+      result: {
+        events: [],
+        errors: ["fetch boom"],
+        errorDetails: {},
+        diagnosticContext: { fetchMethod: "cheerio" },
+      },
+    };
+    vi.mocked(fetchHTMLPage).mockResolvedValue(failure);
+
+    const res = await new MaconHashAdapter().fetch(SOURCE);
+    expect(res).toBe(failure.result);
+    expect(res.errors).toEqual(["fetch boom"]);
   });
 });

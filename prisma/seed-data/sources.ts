@@ -2329,6 +2329,10 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      // Single current/next-hash page: once the site advances from run A to B,
+      // A stops appearing. upcomingOnly clamps reconcile to the future so a
+      // recently-past off-cadence Macon trail (only carried here) isn't cancelled.
+      config: { upcomingOnly: true },
       kennelCodes: ["mgh4", "w3h3-ga"],
     },
     {

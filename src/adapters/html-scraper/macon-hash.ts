@@ -76,8 +76,13 @@ const LOCATION_BOUNDARIES = [
   "on on",
 ];
 
-/** Extract the start location after "starting at" / "meet at" / "start at". */
-export function parseMaconLocation(text: string): string | undefined {
+/**
+ * Extract the start location after "starting at" / "meet at" / "start at".
+ * Returns `undefined` when there's no location phrase at all (no signal —
+ * merge preserves the existing value), and `null` when a phrase is present but
+ * resolves to a placeholder ("TBA"/"TBD"), so a stale venue/pin gets cleared.
+ */
+export function parseMaconLocation(text: string): string | null | undefined {
   const m = /(?:start(?:ing)? at|meet at)\s+(\S.*)/i.exec(text);
   if (!m) return undefined;
   const rest = m[1];
@@ -96,7 +101,7 @@ export function parseMaconLocation(text: string): string | undefined {
     .trim()
     .replace(/[.,;]+$/, "")
     .trim();
-  return loc && !isPlaceholder(loc) ? loc : undefined;
+  return loc && !isPlaceholder(loc) ? loc : null;
 }
 
 // Trailing run of Capitalized words (joined by space / "and" / "&" / comma),
