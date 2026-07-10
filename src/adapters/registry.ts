@@ -43,6 +43,7 @@ import { HockessinAdapter } from "./html-scraper/hockessin";
 import { RenegadeH3Adapter } from "./html-scraper/renegade-h3";
 import { SWH3Adapter } from "./html-scraper/swh3";
 import { GATRH3Adapter } from "./html-scraper/gatrh3";
+import { MaconHashAdapter } from "./html-scraper/macon-hash";
 import { ONH3Adapter } from "./html-scraper/onh3";
 import { AsuncionH3Adapter } from "./html-scraper/asuncion-h3";
 import { SDH3Adapter } from "./html-scraper/sdh3";
@@ -227,6 +228,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /renegadeh3\.com/i,       name: "RenegadeH3Adapter",        factory: () => new RenegadeH3Adapter() },
   { pattern: /swh3\.wordpress\.com/i, name: "SWH3Adapter",              factory: () => new SWH3Adapter() },
   { pattern: /gatrh3\.wordpress\.com/i, name: "GATRH3Adapter",           factory: () => new GATRH3Adapter() },
+  { pattern: /mgh4\.com/i,             name: "MaconHashAdapter",         factory: () => new MaconHashAdapter() },
   // `\b` anchor required: an unanchored `onh3\.wordpress\.com` matches the
   // SUBSTRING inside `asunci‹onh3›.wordpress.com` (and `secessi‹onh3›…`), so it
   // shadowed AsuncionH3Adapter — every Asunción cron scrape mis-routed to the
