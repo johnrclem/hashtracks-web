@@ -105,6 +105,11 @@ function clean(s: string | undefined | null): string | undefined {
   return t || undefined;
 }
 
+/** "HH:MM" from a Boom "YYYY-MM-DDTHH:MM" datetime string, or undefined. */
+function timeOf(dt: string | undefined): string | undefined {
+  return dt ? START_RE.exec(dt)?.[2] : undefined;
+}
+
 /** Pull a labelled value ("Hares:", "Place:") out of the HTML description body. */
 function extractDescField(descText: string, re: RegExp): string | undefined {
   const m = re.exec(descText);
@@ -197,7 +202,7 @@ function mapBoomEvent(
       title,
       runNumber: extractHashRunNumber(title),
       startTime: isAllDay ? undefined : m[2],
-      endTime: isAllDay ? undefined : (ev.end ? START_RE.exec(ev.end)?.[2] : undefined),
+      endTime: isAllDay ? undefined : timeOf(ev.end),
       hares: extractDescField(descText, HARES_RE),
       // Boom's structured venue.name is often blank; the readable place name
       // lives in the desc "Place/地點:" line. Prefer it, fall back to venue.name.
