@@ -40,15 +40,20 @@ Format:
 > asynchronously, and forcing a wait for the event elements makes the NAS render **502** (the heavy
 > Wix Events Calendar JS destabilizes the headless render; the 30 s server cap + Wix's continuous
 > background requests never settle), so a browserRender-based adapter would FAIL almost every scrape;
-> (3) the **Wix Events viewer API** is reachable but gated — the site's access-tokens expose a valid
-> Wix Events instance JWT (`appDefId 13d21c63-b5ec-5912-8397-c3a5ddb27a97`, matching
-> `metaSiteId 8c5b5148…`), yet every viewer endpoint rejects a direct request (`/v1/events` → 428
-> `WIX_EVENTS_APP_NOT_INSTALLED / instanceIdOpt=None`; `/api/v1/events` → 404; query POST → 403) —
-> Wix's internal `_api` routing injects auth that raw requests can't reproduce. With **no working
-> fetch path**, shipping an adapter (even off a Chrome-captured fixture) would create a source that
-> fails every scrape — exactly what live-verification forbids. **Un-blocks** only when one of: the Wix
-> Events viewer-API auth is cracked (→ robust JSON adapter, the preferred shape), the NAS render
-> service gains a longer-timeout / retry / network-settle mode that can render this widget, or the
+> (3) the **Wix Events viewer API** is reachable, and a **later same-day pass PARTLY CRACKED the auth**
+> (🔑 lead for next time): `GET /_api/v1/access-tokens` returns the Events app instance
+> (`appDefId 13d21c63-b5ec-5912-8397-c3a5ddb27a97`, matching `metaSiteId 8c5b5148…`, short-lived JWT),
+> and passing it as **`?instance=<jwt>`** (not the header) to `/_api/wix-events-web/v1/events…`
+> **authenticates** — it flips the 428 `instanceIdOpt=None` to a 400 "failed to deserialize protobuf"
+> (past auth, wrong request body). What's still unresolved is the exact list/query endpoint + proto-JSON
+> body: `/v1/events/{id}` is the single-event getter (wants a GUID), and the v3 `events/query` POST →
+> 403. A finished JSON adapter would fetch a fresh access-token per scrape then query events (robust, no
+> browserRender). A second browserRender attempt (NAS stable) still **timed out at 45 s / 429'd** on the
+> `events_calendar` widget. With **no working fetch path yet**, shipping an adapter (even off a
+> Chrome-captured fixture) would create a source that fails every scrape — exactly what
+> live-verification forbids. **Un-blocks** only when one of: the Wix Events viewer-API request shape is
+> finished (→ robust JSON adapter, the preferred path — start from the `?instance=` lead above), the NAS
+> render service gains a longer-timeout / retry / network-settle mode that can render this widget, or the
 > kennel republishes on a simpler surface.
 
 ## 2026-07-09 — KRASH H3 (Kaiserslautern, Germany)
