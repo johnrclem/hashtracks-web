@@ -2150,8 +2150,10 @@ export function buildRawEventFromGCalItem(
   // events that merely cross midnight (overnight runs) are single-day events
   // with a late end, NOT multi-day campouts — the `isAllDay` guard excludes them.
   let endDate: string | undefined;
-  if (isAllDay && item.end?.date) {
-    const startMs = Date.parse(`${dateISO}T00:00:00Z`);
+  if (isAllDay && item.start?.date && item.end?.date) {
+    // Use the raw all-day date strings (guaranteed YYYY-MM-DD) rather than the
+    // derived `dateISO`, so the parse can't break if `dateISO`'s shape changes.
+    const startMs = Date.parse(`${item.start.date}T00:00:00Z`);
     const endMs = Date.parse(`${item.end.date}T00:00:00Z`);
     if (endMs - startMs > 86_400_000) {
       endDate = new Date(endMs - 86_400_000).toISOString().slice(0, 10);
