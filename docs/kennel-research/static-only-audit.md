@@ -11,8 +11,9 @@ source-escalation probe: GCal > Meetup > iCal > Harrier Central > WordPress/Blog
 HTML page). Candidate sources were fetched live to confirm they return real events.
 Facebook/Instagram pages are activity evidence but **not** ingestable sources.
 
-> **Assessment only — no code, seed, or schema changes were made.** This document is the
-> input to onboarding/retirement decisions.
+> **This audit document itself makes no code, seed, or schema changes** — it's the input
+> to onboarding/retirement decisions. (The accompanying PR does act on one finding by
+> onboarding GATR H3; everything else here is assessment pending follow-up.)
 
 Query used (re-runnable):
 ```sql
@@ -34,10 +35,12 @@ HAVING bool_and(s.type = 'STATIC_SCHEDULE');   -- 32 rows
   **HIGH**), `mgh4` + `w3h3-ga` (one shared HTML page on mgh4.com, **MED**, currently
   dormant).
 - **Weak/fragile HTML only: 1** — `hvh3` (undated "upcumming runs" page).
-- **Ruled out on re-check: `budapest-h3`** — active club, but its `.org` has no DNS at all
-  (dead direct + residential + VPN); announces via a Google Group. Keep static.
-- **26 kennels are Facebook/Instagram-only** — no ingestable upgrade exists today; keep
-  STATIC_SCHEDULE.
+- **Ruled out on re-check: `budapest-h3`** — DORMANT (last signal Oct 2025, ~9 mo old);
+  its `.org` has no DNS at all (dead direct + residential + VPN) and it announces via a
+  Google Group. Keep static.
+- **24 kennels are Facebook/Instagram-only** — no ingestable upgrade exists today; keep
+  STATIC_SCHEDULE. (Plus `budapest-h3` — Google Group / dead DNS — and `hvh3`, whose only
+  machine-readable surface is a fragile undated HTML page; both also stay static.)
 - **Retirement candidates (dead web presence, activity unconfirmed): `r2h3`** (site
   abandoned ~2022) and **`pfh3`** (blog abandoned 2019) — verify via Facebook before
   cutting.
@@ -62,7 +65,7 @@ Action: **ONBOARD** (build the found source) · **KEEP** (static, no better opti
 | Atlanta, GA | HMH3 (Hog Mountain) | `hmh3` | UNCONFIRMED (board scene active 2026-07) | none — **confirmed not a board forum** (piggybacks Black Sheep Sunday; title search = 0, via VPN egress) | VERIFY / KEEP |
 | Augusta, GA | Peach Fuzz H3 | `pfh3` | UNCONFIRMED→DEAD | Blogger API exists but **abandoned Nov 2019** (LOW) | RETIRE? / VERIFY |
 | Boston, MA | PooFH3 (PooFlingers) | `poofh3` | UNCONFIRMED | NONE — Facebook-only | VERIFY / KEEP |
-| Budapest | Budapest H3 | `budapest-h3` | **ACTIVE** (runs through 2025, #1853 Oct 2025) | none usable — `budapesthashhouseharriers.org` **domain has no DNS** (dead direct + residential + VPN); announces via Google Group (not ingestable) | KEEP (recheck domain) |
+| Budapest | Budapest H3 | `budapest-h3` | **DORMANT** (last signal #1853 Oct 2025, ~9 mo old — no signal since Jan 2026) | none usable — `budapesthashhouseharriers.org` **domain has no DNS** (dead direct + residential + VPN); announces via Google Group (not ingestable) | KEEP (recheck domain) |
 | Butterworth, MY | Butterworth H3 | `butterworth-h3` | UNCONFIRMED | NONE — Facebook-only | VERIFY / KEEP |
 | Charleston, SC | BUDH3 | `budh3` | UNCONFIRMED | NONE — FB-only (old Yahoo group dead) | VERIFY / KEEP |
 | Charleston, SC | Charleston H3 | `ch3-sc` | UNCONFIRMED | NONE — `charlestonhash.com` DEAD; FB-only | VERIFY / KEEP |
@@ -86,7 +89,7 @@ Action: **ONBOARD** (build the found source) · **KEEP** (static, no better opti
 | Miami, FL | Wildcard H3 | `wildcard-h3` | UNCONFIRMED | NONE — Facebook-only | VERIFY / KEEP |
 | New Jersey | Rumson | `rumson` | **ACTIVE** (2,500th run Feb/Mar 2026) | NONE — FB-only (RunSignUp for annual events only) | KEEP |
 | North NJ | NOSE H3 | `nose-h3` | UNCONFIRMED (hashnj.com directory listed) | NONE — closed FB group | VERIFY / KEEP |
-| Orlando, FL | GATR H3 | `gatr-h3` | **ACTIVE** (run #343, Jun 2026) | ✅ **WordPress.com API** — `public-api.wordpress.com/rest/v1.1/sites/gatrh3.wordpress.com/posts/` — **HIGH (verified: 36 posts, structured date/time/location)** | **ONBOARD** |
+| Orlando, FL | GATR H3 | `gatr-h3` | **ACTIVE** (run #343, Jun 2026) | ✅ **WordPress.com API** — `public-api.wordpress.com/wp/v2/sites/gatrh3.wordpress.com/posts` — **HIGH (verified: API `found`=36, adapter parsed 18 events from the latest 20 posts)** | **ONBOARDED** (static disabled) |
 | Pioneer Valley, MA | HVH3 (Happy Valley) | `hvh3` | ACTIVE-ish (undated #401–402, likely 2025–26) | HTML — `happyvalleyh3.org/upcumming-runs/` — LOW (undated, fragile) | KEEP (or fragile scrape) |
 | Rome, GA | R2H3 (Rumblin' Roman) | `r2h3` | **DEAD/UNCONFIRMED** (site abandoned ~2022) | NONE — Facebook-only | RETIRE? / VERIFY |
 | Wellington, NZ | T3H3 | `t3h3-nz` | **ACTIVE** (Jul 2026 event; nzhhh.nz confirms) | NONE — Facebook-only | KEEP |
@@ -95,13 +98,14 @@ Action: **ONBOARD** (build the found source) · **KEEP** (static, no better opti
 
 ## Recommended onboarding queue (cheapest wins first)
 
-1. **GATR H3 (`gatr-h3`) — WordPress.com API — HIGH confidence.** The one clear upgrade.
-   `https://public-api.wordpress.com/rest/v1.1/sites/gatrh3.wordpress.com/posts/?number=10`
-   returns 36 posts, latest 2026-06-04, each with run number (in title `GATRH3 #NNN`),
-   date, start time, address, distance, and theme. Reuse `fetchWordPressComPosts` from
-   `src/adapters/wordpress-api.ts`. **Note:** real cadence is ~monthly on varying
-   Saturdays/times, not the seeded "3rd Saturday" — the live source will correct this.
-   Seed it at `trustLevel: 7–8` above the existing static fallback.
+1. **GATR H3 (`gatr-h3`) — WordPress.com API — HIGH confidence. ✅ DONE (this PR).**
+   `public-api.wordpress.com/wp/v2/sites/gatrh3.wordpress.com/posts` reports `found`=36
+   posts (latest 2026-06-04); the adapter requests the newest 20 and parsed 18 events,
+   each with run number (title `GATRH3 #NNN`), date, start time, address, length, cost.
+   Because the real cadence is ~monthly on **varying** Saturdays — not the seeded "3rd
+   Saturday" — a fixed static RRULE would phantom on the wrong dates, so the trust-3
+   static source was **disabled** rather than kept as a fallback (the blog is
+   authoritative). Seeded as a trust-7 HTML_SCRAPER.
 
 2. **MGH4 (`mgh4`) + W3H3 (`w3h3-ga`) — one HTML adapter on `mgh4.com` — MED.**
    `https://mgh4.com/page/next-hash` (and `/page/hareline`) is a BlogEngine.NET page

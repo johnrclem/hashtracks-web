@@ -126,7 +126,14 @@ export function parseGatrBody(html: string, publishDate: string): GatrBodyFields
 
   const whenText = grab("When");
   const hasWhenField = /\bWhen\s*:/i.test(text);
-  const refDate = new Date(publishDate);
+  // WordPress.com `date` is site-local without an offset ("2026-06-04T14:00:00").
+  // Anchor it to UTC before constructing Date so the year-inference reference
+  // can't skew across a midnight boundary (repo rule: no bare new Date()).
+  const utcPublish =
+    publishDate.endsWith("Z") || /[+-]\d{2}:?\d{2}$/.test(publishDate)
+      ? publishDate
+      : `${publishDate}Z`;
+  const refDate = new Date(utcPublish);
   const date = whenText
     ? chronoParseDate(whenText, "en-US", refDate) ?? undefined
     : undefined;

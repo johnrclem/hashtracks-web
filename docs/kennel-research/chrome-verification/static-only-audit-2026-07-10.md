@@ -1,9 +1,11 @@
 # Chrome verification — static-schedule-only audit (2026-07-10)
 
-Companion to `../static-only-audit.md`. These 22 kennels are **STATIC_SCHEDULE-only** and
-came back **UNCONFIRMED / needs-FB-check** from headless research: their schedules live in
-**closed Facebook groups/pages** that can't be read from a server. A Claude-in-Chrome
-session (logged into Facebook, with web search) can finish the job.
+Companion to `../static-only-audit.md`. This is a **22-kennel verification queue** — the
+**19 `UNCONFIRMED`** kennels plus dormant `pbh3` and the two retirement candidates
+(`pfh3`, `r2h3`) — all STATIC_SCHEDULE-only. Their schedules live in **closed Facebook
+groups/pages** that can't be read from a server, so headless research couldn't confirm
+current activity. A Claude-in-Chrome session (logged into Facebook, with web search) can
+finish the job (and, for `pfh3`/`r2h3`, confirm or reverse the retirement call).
 
 ## Paste-into-Chrome prompt
 
@@ -32,7 +34,7 @@ session (logged into Facebook, with web search) can finish the job.
 
 **Georgia / Atlanta**
 - `cunth3-atl` — CUNT H3, Atlanta GA — FB: search "Atlanta Area Hash Yap Yap Room" / CUNT H3 · believed 1st Tuesday 19:00 · dedicated site `ruacunt.beernear.com` DEAD; not on atlantahash.com board.
-- `hmh3` — Hog Mountain H3, N. Georgia — FB: tied to "Black Sheep H3 / Atlanta" scene · believed 1st Sunday 13:30 · schedule derives from Black Sheep; board unfetchable.
+- `hmh3` — Hog Mountain H3, N. Georgia — FB: tied to "Black Sheep H3 / Atlanta" scene · believed 1st Sunday 13:30 · schedule derives from Black Sheep; confirmed **not a matching forum** on atlantahash.com (checked via VPN egress).
 - `pfh3` — Peach Fuzz H3, Augusta GA — FB Page: facebook.com/peachfuzzh3 (+ group /groups/peachfuzzh3) · believed biweekly Wednesday 18:30 · **RETIRE CANDIDATE** — blog `pfh3.blogspot.com` abandoned Nov 2019. Is the FB Page still posting trails?
 - `cvh3` — Chattahoochee Valley H3, Columbus GA — FB: facebook.com/CVHHH · believed biweekly Saturday 11:00 · `cvh3.org` DEAD.
 - `r2h3` — Rumblin' Roman H3, Rome GA — FB: search "Rumblin Roman Hash" (group) · believed 2nd Saturday 14:30 · **RETIRE CANDIDATE** — Google Site abandoned ~2022, romehash.com cert error. (Note: "Rome Hash" #1050 on AllEvents is Rome, ITALY — ignore.)
