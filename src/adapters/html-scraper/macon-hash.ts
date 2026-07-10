@@ -65,20 +65,58 @@ export function parseMaconTime(text: string): string | undefined {
   return `${String(hour).padStart(2, "0")}:${min}`;
 }
 
+/** Boilerplate that follows the start location in the prose (times, "bring", on-after). */
+const LOCATION_BOUNDARIES = [
+  "in at",
+  "out at",
+  "congregate at",
+  "bring",
+  "pack off",
+  "on-on",
+  "on on",
+];
+
 /** Extract the start location after "starting at" / "meet at" / "start at". */
 export function parseMaconLocation(text: string): string | undefined {
-  // `[^.]+` is greedy and can't match a period, so it stops at the first "." or
-  // end of string with no backtracking — no lazy `+?`/`$` alternation needed.
-  const m = /(?:start(?:ing)? at|meet at)\s+([^.]+)/i.exec(text);
+  const m = /(?:start(?:ing)? at|meet at)\s+(\S.*)/i.exec(text);
   if (!m) return undefined;
-  const loc = m[1].replaceAll(/\s+/g, " ").trim();
+  const rest = m[1];
+  const lower = rest.toLowerCase();
+  // Cut at the first trailing boilerplate boundary rather than the first period,
+  // so mid-string abbreviations ("St." / "Rd.") aren't truncated.
+  let end = rest.length;
+  for (const b of LOCATION_BOUNDARIES) {
+    const idx = lower.indexOf(b);
+    if (idx !== -1 && idx < end) end = idx;
+  }
+  // Drop only trailing sentence punctuation (keeps a mid-string "St."/"Rd.").
+  const loc = rest
+    .slice(0, end)
+    .replaceAll(/\s+/g, " ")
+    .trim()
+    .replace(/[.,;]+$/, "")
+    .trim();
   return loc && !isPlaceholder(loc) ? loc : undefined;
 }
 
-/** Best-effort hare name: "X is laying" or a leading possessive "X's …". */
+// Trailing run of Capitalized words (joined by space / "and" / "&" / comma),
+// anchored at $. Bounded ({0,6}) and using char classes (not overlapping \s
+// quantifiers) so it can't backtrack catastrophically.
+const HARE_RUN_RE =
+  /(?:[A-Z][a-zA-Z]+)(?:[ ,&]+(?:and\s+)?[A-Z][a-zA-Z]+){0,6}$/;
+
+/**
+ * Best-effort hare name(s): the run of names before "is/are laying|haring|setting",
+ * or a leading possessive "X's …". Handles single, multi-word, and multi-hare
+ * lists ("Weedeater and Hash Trash").
+ */
 export function parseMaconHares(text: string): string | undefined {
-  const laying = /\b([A-Z][a-zA-Z]+)\s+(?:is|are)\s+(?:laying|haring|setting)/.exec(text);
-  if (laying) return laying[1];
+  const verb = /\b(?:is|are)\s+(?:laying|haring|setting)\b/i.exec(text);
+  if (verb) {
+    const before = text.slice(0, verb.index).trimEnd();
+    const run = HARE_RUN_RE.exec(before);
+    if (run) return run[0].replaceAll(/\s+/g, " ").trim();
+  }
   const poss = /\b([A-Z][a-zA-Z]+)'s\s+\w/.exec(text);
   return poss ? poss[1] : undefined;
 }

@@ -31,8 +31,13 @@ describe("parseMaconLocation", () => {
     expect(parseMaconLocation("starting at Washington Park, Macon. In at 6")).toBe(
       "Washington Park, Macon",
     );
-    expect(parseMaconLocation("Meet at 5650 Arkwright Rd. Congregate")).toBe(
+    expect(parseMaconLocation("Meet at 5650 Arkwright Rd. Congregate at 1:30")).toBe(
       "5650 Arkwright Rd",
+    );
+  });
+  it("does not truncate a mid-string abbreviation (St. / Rd.)", () => {
+    expect(parseMaconLocation("Meet at St. Andrews Park. In at 6")).toBe(
+      "St. Andrews Park",
     );
   });
 });
@@ -41,6 +46,11 @@ describe("parseMaconHares", () => {
   it("reads 'X is laying' and a leading possessive", () => {
     expect(parseMaconHares("Weedeater is laying a trail")).toBe("Weedeater");
     expect(parseMaconHares("Weedeater's birthday trail")).toBe("Weedeater");
+  });
+  it("captures a multi-hare list before 'are laying'", () => {
+    expect(parseMaconHares("Weedeater and Hash Trash are laying a trail")).toBe(
+      "Weedeater and Hash Trash",
+    );
   });
 });
 
