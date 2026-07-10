@@ -42,8 +42,11 @@ function kennelTagFor(label: string): string | undefined {
   return undefined;
 }
 
-const DATE_RE =
-  /(?:(?:Sun|Mon|Tues?|Wed(?:nes)?|Thur?s?|Fri|Satur?)[a-z]*,?\s+)?((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})/i;
+// A capitalized month word + day + year, e.g. "October 29, 2025" / "Jul. 19, 2025".
+// chronoParseDate validates the actual month name, so we don't need an explicit
+// month/weekday alternation here (keeps the pattern well under Sonar's complexity
+// budget and avoids catastrophic backtracking).
+const DATE_RE = /[A-Z][a-z]{2,8}\.?\s+\d{1,2},?\s+\d{4}/;
 
 /**
  * Extract a start time from the prose. Prefers the pack-off ("out at N"), then
@@ -55,7 +58,7 @@ export function parseMaconTime(text: string): string | undefined {
   const gather = /(?:\bin\s+at|congregate\s+at)\s+(\d{1,2})(?::(\d{2}))?/i.exec(text);
   const m = out ?? gather;
   if (!m) return undefined;
-  let hour = parseInt(m[1], 10);
+  let hour = Number.parseInt(m[1], 10);
   const min = m[2] ?? "00";
   if (hour < 12) hour += 12; // afternoon/evening hash assumption
   if (hour > 23) return undefined;
@@ -64,9 +67,11 @@ export function parseMaconTime(text: string): string | undefined {
 
 /** Extract the start location after "starting at" / "meet at" / "start at". */
 export function parseMaconLocation(text: string): string | undefined {
-  const m = /(?:starting at|start at|meet at)\s+([^.]+?)(?:\.|$)/i.exec(text);
+  // `[^.]+` is greedy and can't match a period, so it stops at the first "." or
+  // end of string with no backtracking — no lazy `+?`/`$` alternation needed.
+  const m = /(?:start(?:ing)? at|meet at)\s+([^.]+)/i.exec(text);
   if (!m) return undefined;
-  const loc = m[1].replace(/\s+/g, " ").trim();
+  const loc = m[1].replaceAll(/\s+/g, " ").trim();
   return loc && !isPlaceholder(loc) ? loc : undefined;
 }
 
@@ -83,8 +88,8 @@ export function parseMaconEntry(
   rawText: string,
   sourceUrl: string,
 ): RawEventData | null {
-  // Normalize NBSPs and collapse whitespace.
-  const text = rawText.replace(/ /g, " ").replace(/\s+/g, " ").trim();
+  // Collapse all whitespace (incl. the page’s &nbsp; runs — \s matches U+00A0).
+  const text = rawText.replaceAll(/\s+/g, " ").trim();
 
   const labelMatch = /^(MGH4|W3H3)\b/i.exec(text);
   if (!labelMatch) return null;
@@ -93,7 +98,7 @@ export function parseMaconEntry(
 
   const dateMatch = DATE_RE.exec(text);
   if (!dateMatch) return null;
-  const date = chronoParseDate(dateMatch[1], "en-US");
+  const date = chronoParseDate(dateMatch[0], "en-US");
   if (!date) return null;
 
   const location = parseMaconLocation(text);
