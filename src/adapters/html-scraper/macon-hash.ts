@@ -83,9 +83,11 @@ const LOCATION_BOUNDARIES = [
  * resolves to a placeholder ("TBA"/"TBD"), so a stale venue/pin gets cleared.
  */
 export function parseMaconLocation(text: string): string | null | undefined {
-  const m = /(?:start(?:ing)? at|meet at)\s+(\S.*)/i.exec(text);
-  if (!m) return undefined;
-  const rest = m[1];
+  // Find the "meet at" / "starting at" marker, then slice the rest procedurally
+  // (a capturing `\s+(.*)` would be a super-linear backtracking shape).
+  const marker = /(?:start(?:ing)? at|meet at)\s/i.exec(text);
+  if (!marker) return undefined;
+  const rest = text.slice(marker.index + marker[0].length).trimStart();
   const lower = rest.toLowerCase();
   // Cut at the first trailing boilerplate boundary rather than the first period,
   // so mid-string abbreviations ("St." / "Rd.") aren't truncated.
@@ -104,25 +106,34 @@ export function parseMaconLocation(text: string): string | null | undefined {
   return loc && !isPlaceholder(loc) ? loc : null;
 }
 
-// Trailing run of Capitalized words (joined by space / "and" / "&" / comma),
-// anchored at $. Bounded ({0,6}) and using char classes (not overlapping \s
-// quantifiers) so it can't backtrack catastrophically.
-const HARE_RUN_RE =
-  /(?:[A-Z][a-zA-Z]+)(?:[ ,&]+(?:and\s+)?[A-Z][a-zA-Z]+){0,6}$/;
+const HARE_VERB_RE = /\b(?:is|are)\s+(?:laying|haring|setting)\b/i;
+const NAME_TOKEN_RE = /^[A-Z][a-zA-Z]+$/;
 
 /**
  * Best-effort hare name(s): the run of names before "is/are laying|haring|setting",
  * or a leading possessive "X's …". Handles single, multi-word, and multi-hare
- * lists ("Weedeater and Hash Trash").
+ * lists ("Weedeater and Hash Trash"). Scans tokens backward (no complex regex)
+ * so there's no catastrophic-backtracking surface.
  */
 export function parseMaconHares(text: string): string | undefined {
-  const verb = /\b(?:is|are)\s+(?:laying|haring|setting)\b/i.exec(text);
+  const verb = HARE_VERB_RE.exec(text);
   if (verb) {
-    const before = text.slice(0, verb.index).trimEnd();
-    const run = HARE_RUN_RE.exec(before);
-    if (run) return run[0].replaceAll(/\s+/g, " ").trim();
+    const before = text.slice(0, verb.index).trim();
+    const tokens = before.split(/\s+/);
+    const names: string[] = [];
+    for (let i = tokens.length - 1; i >= 0; i--) {
+      const bare = tokens[i].replace(/,$/, "");
+      if (NAME_TOKEN_RE.test(bare)) {
+        names.unshift(bare);
+      } else if ((bare === "and" || bare === "&") && names.length > 0) {
+        names.unshift(bare);
+      } else {
+        break;
+      }
+    }
+    if (names.length > 0) return names.join(" ");
   }
-  const poss = /\b([A-Z][a-zA-Z]+)'s\s+\w/.exec(text);
+  const poss = /\b([A-Z][a-zA-Z]+)'s\s/.exec(text);
   return poss ? poss[1] : undefined;
 }
 
