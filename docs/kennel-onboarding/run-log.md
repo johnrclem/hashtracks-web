@@ -28,28 +28,27 @@ Format:
 > caveat. tsc + lint + 9959 tests green. Retro `handoffs/retros/2026-07-09-hc-batch-4-retro.md`.
 > SHIPPED flips below; post-merge = targeted seed + 4 backfill runs + scrape.
 >
-> **Same sweep — the two remaining un-onboarded handoffs were re-checked and stay BLOCKED (no PR):**
-> **`lima-h3`** (Peru) re-verified dormant 2026-07-09 — the primary blog `limahashash.blogspot.com`
+> **Same sweep — the two remaining un-onboarded handoffs: one stays BLOCKED, one was later SHIPPED.**
+> **`lima-h3`** (Peru) is the one that stays blocked — re-verified dormant 2026-07-09: the primary blog `limahashash.blogspot.com`
 > newest post is **Hash 765 / 2023-09-07 (~1036 days stale, 8 posts total)**, and the sibling
 > `limahash.com` (Lima Extra Miércoles, WordPress) last real post is **2024-02-10 (~881 days)**; the
 > page's only "2026" string is today's date. No live Lima source → not onboarded (honors the handoff's
-> own "don't ship a dormant source" directive). **`tymh3-tw`** (Taoyuan, Taiwan) attempted 2026-07-09
-> — **blocked: the Wix Events *Calendar* widget has no extractable production fetch path.** Deep recon
-> (with the NAS render service confirmed UP — it rendered a control page fine): (1) **SSR** carries no
-> event data; (2) **browserRender** captures only the page shell — the widget hydrates + fetches
-> asynchronously, and forcing a wait for the event elements makes the NAS render **502** (the heavy
-> Wix Events Calendar JS destabilizes the headless render; the 30 s server cap + Wix's continuous
-> background requests never settle), so a browserRender-based adapter would FAIL almost every scrape;
-> (3) the **Wix Events viewer API** is reachable but gated — the site's access-tokens expose a valid
-> Wix Events instance JWT (`appDefId 13d21c63-b5ec-5912-8397-c3a5ddb27a97`, matching
-> `metaSiteId 8c5b5148…`), yet every viewer endpoint rejects a direct request (`/v1/events` → 428
-> `WIX_EVENTS_APP_NOT_INSTALLED / instanceIdOpt=None`; `/api/v1/events` → 404; query POST → 403) —
-> Wix's internal `_api` routing injects auth that raw requests can't reproduce. With **no working
-> fetch path**, shipping an adapter (even off a Chrome-captured fixture) would create a source that
-> fails every scrape — exactly what live-verification forbids. **Un-blocks** only when one of: the Wix
-> Events viewer-API auth is cracked (→ robust JSON adapter, the preferred shape), the NAS render
-> service gains a longer-timeout / retry / network-settle mode that can render this widget, or the
-> kennel republishes on a simpler surface.
+> own "don't ship a dormant source" directive). **`tymh3-tw`** (Taoyuan, Taiwan) was blocked across two
+> headless attempts — then **SHIPPED 2026-07-09** ([PR #2636](https://github.com/johnrclem/hashtracks-web/pull/2636),
+> new `BoomCalendarAdapter`). 🔑 **The block was a platform MISID:** the "Calendar" widget is **not** Wix
+> Events (that collection is empty — `wix_events_list` → `{"events":[]}`) — it's a third-party **Boom
+> Calendar** Wix app (`appDefId 13b4a028-…`, iframe `calendar.boomte.ch`) with its own backend at
+> `calendar.apiboomtech.com`. Because the fetch is inside a cross-origin iframe it's invisible to SSR /
+> the parent network log, so browserRender (timed out / 429'd) and the Wix Events API (empty collection)
+> were both dead ends. Handing the live page to **Claude-in-Chrome** identified Boom Calendar and the
+> clean data path: `GET <site>/_api/v1/access-tokens` → `apps["13b4a028-…"].instance`, then
+> `GET calendar.apiboomtech.com/api/calendar?comp_id=<compId>&instance=<jwt>` returns all events with
+> venue coords in one call. Shipped as a reusable config-driven `BoomCalendarAdapter` (mints a fresh
+> instance per scrape) — Taiwan's 6th metro (Taoyuan). Live-verified 3 upcoming (#181–#183, biweekly Fri
+> 19:15). Retro `handoffs/retros/2026-07-09-tymh3-tw-retro.md`. **Lesson: live-verify against a real
+> browser before concluding a JS widget is un-scrapeable — and when a Wix calendar widget won't render
+> and Wix Events is empty, check the widget `appDefId` in `/_api/v1/access-tokens`; it may be a
+> third-party calendar app.**
 
 ## 2026-07-09 — KRASH H3 (Kaiserslautern, Germany)
 - Source: HARRIER_CENTRAL — `publicKennelId: c2a2b7ed-7717-49eb-9e0f-294086e15ef1` (HC uniqueShortName `KRASHH3`, `KennelName` "Kaiserslautern Ramstein Altenglan Sembach Hash"), verified by reproducing the adapter's exact `getEvents` POST + time-token in-browser (HTTP 200) AND sweeping `hashruns.org/api/global-runs?isFuture=0`

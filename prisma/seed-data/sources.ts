@@ -4269,6 +4269,27 @@ export const SOURCES = [
       kennelCodes: ["kaohsiung-h3"],
     },
     {
+      name: "Taoyuan Metro H3 Website",
+      url: "https://www.tymh3.com/upcoming-run",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // The "upcoming runs" calendar is a third-party Boom Calendar widget (Wix
+      // app 13b4a028-…, NOT Wix Events). BoomCalendarAdapter mints a fresh Boom
+      // `instance` from tymh3.com/_api/v1/access-tokens each scrape, then reads
+      // calendar.apiboomtech.com/api/calendar?comp_id=<compId>&instance=<jwt> —
+      // one GET returning all upcoming events with venue coords. The widget shows
+      // a recent-past + upcoming window; upcomingOnly keeps reconcile.ts from
+      // false-CANCELLing runs as they age off the feed.
+      config: {
+        boomCompId: "comp-mcofr70d",
+        kennelTag: "tymh3-tw",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["tymh3-tw"],
+    },
+    {
       name: "Shanghai H3 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
       type: "HARRIER_CENTRAL" as const,
