@@ -2144,6 +2144,22 @@ export function buildRawEventFromGCalItem(
     location = undefined;
   }
 
+  // Multi-day ALL-DAY events (#1560 parity with the iCal adapter): a GCal
+  // all-day DTEND is EXCLUSIVE (the day after the last day), so the inclusive
+  // last day is DTEND − 1. Emit only when genuinely multi-day (> 1 day); timed
+  // events that merely cross midnight (overnight runs) are single-day events
+  // with a late end, NOT multi-day campouts — the `isAllDay` guard excludes them.
+  let endDate: string | undefined;
+  if (isAllDay && item.start?.date && item.end?.date) {
+    // Use the raw all-day date strings (guaranteed YYYY-MM-DD) rather than the
+    // derived `dateISO`, so the parse can't break if `dateISO`'s shape changes.
+    const startMs = Date.parse(`${item.start.date}T00:00:00Z`);
+    const endMs = Date.parse(`${item.end.date}T00:00:00Z`);
+    if (endMs - startMs > 86_400_000) {
+      endDate = new Date(endMs - 86_400_000).toISOString().slice(0, 10);
+    }
+  }
+
   const event: RawEventData = {
     date: dateISO,
     // Pass the full multi-kennel set (#1023): for single-tag patterns this
@@ -2160,6 +2176,9 @@ export function buildRawEventFromGCalItem(
     startTime: resolvedStartTime,
     // endTime is HH:MM only, so cross-date end timestamps (overnight runs) are dropped.
     endTime: endParts && endParts.dateISO === dateISO ? endParts.startTime : undefined,
+    // Gated so single-day events never emit endDate — keeps their fingerprint
+    // stable (fingerprint.ts only tokenizes endDate when present).
+    ...(endDate ? { endDate } : {}),
     cost,
     sourceUrl: item.htmlLink,
   };
