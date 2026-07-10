@@ -3489,6 +3489,16 @@ export const KENNELS: KennelSeed[] = [
       region: "Taoyuan", country: "Taiwan",
       foundedYear: 2019, // founded 27 Dec 2019, inaugural run 3 Jan 2020 (tymh3.com/about-tymh3)
       scheduleDayOfWeek: "Friday", scheduleTime: "7:15 PM", scheduleFrequency: "Biweekly",
+      // Ordinal 1st/3rd/(occasional 5th) Friday — explicit rules so Travel Mode
+      // projects date-specific runs beyond the 90-day live-source window (a flat
+      // "Biweekly" would only yield a LOW-confidence CADENCE sentinel). Live data
+      // confirms the pattern: #181 Jul 3 (1st Fri), #182 Jul 17 (3rd Fri),
+      // #183 Jul 31 (5th Fri), all 19:15.
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1FR", startTime: "19:15", label: "1st Friday", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3FR", startTime: "19:15", label: "3rd Friday", displayOrder: 1 },
+        { rrule: "FREQ=MONTHLY;BYDAY=5FR", startTime: "19:15", label: "5th Friday (occasional)", displayOrder: 2 },
+      ],
       scheduleNotes: "Alternating Friday evenings (1st, 3rd & 5th Friday of the month); gather ~7:15 PM, hares off ~7:30 PM. Holiday Fridays may move to an afternoon start. Venues cluster around the Taoyuan / Guishan area near MRT / TRA stations. Hash cash not published online. Contact: tymh3beer@gmail.com.",
       logoUrl: "/kennel-logos/tymh3-tw.png",
       facebookUrl: "https://www.facebook.com/groups/TyMH3", website: "https://www.tymh3.com",
