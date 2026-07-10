@@ -84,10 +84,11 @@ function parseTrailLength(text: string): {
  * Extract the first http(s) URL following a "pin:" marker, minus tracking query.
  * Tolerates a `&nbsp;`/whitespace gap before the anchor ("pin:&nbsp;<a href…>").
  */
+const PIN_URL_RE =
+  /pin:(?:\s|&nbsp;|&#160;)*(?:<a[^>]+href=")?(https?:\/\/[^\s"<]+)/i;
+
 function extractPinUrl(html: string): string | undefined {
-  const m = html.match(
-    /pin:(?:\s|&nbsp;|&#160;)*(?:<a[^>]+href=")?(https?:\/\/[^\s"<]+)/i,
-  );
+  const m = PIN_URL_RE.exec(html);
   if (!m) return undefined;
   return m[1].split("?")[0];
 }
@@ -114,11 +115,11 @@ export function parseGatrBody(html: string, publishDate: string): GatrBodyFields
   const text = decodeEntities(stripHtmlTags(html, "\n"));
 
   // Lookahead terminating a field value: newline, end, or the next known label.
-  const stop =
-    "(?=\\n|(?:When|Location|Meet at|Where|Length|Shiggy|Hash Cash|Theme|What to bring|Things to bring|Bring|On[- ]After|pin)\\s*:|$)";
+  const stop = String.raw`(?=\n|(?:When|Location|Meet at|Where|Length|Shiggy|Hash Cash|Theme|What to bring|Things to bring|Bring|On[- ]After|pin)\s*:|$)`;
 
   const grab = (labels: string): string | undefined => {
-    const m = text.match(new RegExp(`(?:${labels})\\s*:\\s*(.+?)${stop}`, "i"));
+    const re = new RegExp(String.raw`(?:${labels})\s*:\s*(.+?)${stop}`, "i");
+    const m = re.exec(text);
     const v = m?.[1]?.trim();
     return v && !isPlaceholder(v) ? v : undefined;
   };
@@ -145,7 +146,7 @@ export function parseGatrBody(html: string, publishDate: string): GatrBodyFields
   // Hash cash: labeled "Hash Cash: $10" or a bare "$5 hash cash".
   let cost = grab("Hash Cash");
   if (!cost) {
-    const bare = text.match(/\$\s?\d+(?:\.\d+)?/);
+    const bare = /\$\s?\d+(?:\.\d+)?/.exec(text);
     if (bare && /hash cash/i.test(text)) cost = bare[0].replace(/\s/g, "");
   }
 
@@ -177,6 +178,23 @@ export function processPost(
   errors: string[],
   errorDetails: ErrorDetails,
 ): RawEventData | null {
+  // Don't trust the API payload's shape — a malformed post (non-object, or
+  // missing title/content/date) is skipped with a logged error rather than
+  // throwing and failing the whole scrape.
+  if (
+    !post ||
+    typeof post !== "object" ||
+    typeof post.title?.rendered !== "string" ||
+    typeof post.content?.rendered !== "string" ||
+    typeof post.date !== "string"
+  ) {
+    const msg = `Malformed post at index ${index}: missing title, content, or date`;
+    errors.push(msg);
+    const parse = (errorDetails.parse ??= []);
+    parse.push({ row: index, section: "post", field: "shape", error: msg });
+    return null;
+  }
+
   const titleText = decodeEntities(post.title.rendered);
 
   // Cancelled-trail posts ("(cancelled)" in the title) aren't real runs — skip
@@ -194,7 +212,8 @@ export function processPost(
     if (body.hasWhenField) {
       const msg = `Unparseable trail date in post: "${titleText}"`;
       errors.push(msg);
-      (errorDetails.parse ??= []).push({
+      const parse = (errorDetails.parse ??= []);
+      parse.push({
         row: index,
         section: "post",
         field: "date",
@@ -253,14 +272,16 @@ export class GATRH3Adapter implements SourceAdapter {
     } catch (err) {
       const msg = `Fetch failed: ${err}`;
       errors.push(msg);
-      (errorDetails.fetch ??= []).push({ url, message: msg });
+      const fetchErrs = (errorDetails.fetch ??= []);
+      fetchErrs.push({ url, message: msg });
       return { events, errors, errorDetails, diagnosticContext: { fetchMethod: "wpcom-api" } };
     }
 
     if (!resp.ok) {
       const msg = `WordPress.com API returned ${resp.status}`;
       errors.push(msg);
-      (errorDetails.fetch ??= []).push({ url, status: resp.status, message: msg });
+      const fetchErrs = (errorDetails.fetch ??= []);
+      fetchErrs.push({ url, status: resp.status, message: msg });
       return { events, errors, errorDetails, diagnosticContext: { fetchMethod: "wpcom-api" } };
     }
 

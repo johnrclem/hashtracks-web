@@ -127,6 +127,14 @@ describe("processPost", () => {
     expect(errorDetails.parse).toBeUndefined();
   });
 
+  it("skips a malformed post (missing content) with a logged error", () => {
+    const malformed = { id: 1, date: "2026-06-01T00:00:00", link: "x", title: { rendered: "x" } } as unknown as typeof POST_343;
+    const { event, errors } = run(malformed);
+    expect(event).toBeNull();
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatch(/malformed/i);
+  });
+
   it("logs a parse error when a When: field is present but undated", () => {
     const broken = {
       ...POST_343,
@@ -136,6 +144,6 @@ describe("processPost", () => {
     };
     const { event, errors } = run(broken);
     expect(event).toBeNull();
-    expect(errors.length).toBe(1);
+    expect(errors).toHaveLength(1);
   });
 });
