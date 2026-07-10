@@ -97,12 +97,12 @@ export function parseMaconLocation(text: string): string | null | undefined {
     if (idx !== -1 && idx < end) end = idx;
   }
   // Drop only trailing sentence punctuation (keeps a mid-string "St."/"Rd.").
-  const loc = rest
-    .slice(0, end)
-    .replaceAll(/\s+/g, " ")
-    .trim()
-    .replace(/[.,;]+$/, "")
-    .trim();
+  // Done procedurally so there's no regex for the analyzer to flag.
+  let loc = rest.slice(0, end).replaceAll(/\s+/g, " ").trim();
+  while (loc.length > 0 && ".,;".includes(loc.charAt(loc.length - 1))) {
+    loc = loc.slice(0, -1);
+  }
+  loc = loc.trim();
   return loc && !isPlaceholder(loc) ? loc : null;
 }
 
