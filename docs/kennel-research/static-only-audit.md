@@ -41,9 +41,9 @@ HAVING bool_and(s.type = 'STATIC_SCHEDULE');   -- 32 rows
 - **24 kennels are Facebook/Instagram-only** — no ingestable upgrade exists today; keep
   STATIC_SCHEDULE. (Plus `budapest-h3` — Google Group / dead DNS — and `hvh3`, whose only
   machine-readable surface is a fragile undated HTML page; both also stay static.)
-- **Retirement candidates — resolved by the Chrome pass (see below): none confirmed.**
-  `pfh3` is **active** (public FB Page, current posts) and `r2h3` is **unverifiable**
-  (hidden/deleted group) — neither should be cut without a member's confirmation.
+- **Retirement — resolved by the Chrome pass (see below): `pfh3` DEAD (retire confirmed;
+  last FB post Aug 2022).** `r2h3` **ambiguous** — private group exists but no posts in the
+  last month; needs a member's view before cutting.
 - **Bonus — schedule corrections** discovered for 3 HK kennels (see table notes).
 - **Facebook-only kennels were Chrome-verified 2026-07-10** — see the next section; many
   prior `UNCONFIRMED`/`DORMANT` rows are now confirmed **ACTIVE**.
@@ -52,36 +52,53 @@ HAVING bool_and(s.type = 'STATIC_SCHEDULE');   -- 32 rows
 
 ## Chrome verification (2026-07-10)
 
-Ran the companion Chrome prompt in a logged-in browser. Two things made closed groups
-verifiable **without membership**: a private-but-*visible* group's landing page exposes an
-**Activity** panel ("N posts in the last month") — a strong recency signal even though FB
-obfuscates exact post dates — and public Pages/profiles are readable directly. Only
-fully-hidden or deleted groups return "content isn't available" (still unverifiable here).
+Full Facebook + web pass over all 22 FB-only kennels in a logged-in browser — only
+publicly visible text, no private-group joins or privacy bypass, no photo collection. For
+private groups, FB's public **Activity** panel ("posts in the last month") is the liveness
+signal even when individual posts aren't visible.
 
-**Net: no kennel is a confirmed retirement target.** 13 confirmed **ACTIVE** (5 reclassified
-up from UNCONFIRMED/DORMANT), 6 still unverifiable (hidden groups), 6 not checked (no direct
-FB URL — need an FB search).
+> **Correction:** an earlier automated skim read `pfh3`'s *obfuscated* FB timestamps as
+> current-summer. A proper session shows its last post is **Aug 8 2022** — `pfh3` is
+> **DEAD (retire)**, not active. FB date obfuscation is why activity-panel counts (not
+> individual post dates) are the reliable signal.
 
-| kennel | Chrome finding | status change |
+**Retirements:** `pfh3` **DEAD** (last post Aug 2022) — **retire confirmed**. `r2h3`
+**ambiguous** — a private group exists (`/groups/781136165728313`, 115 members, "2nd
+Saturday of each month" in its description) but shows *no posts in the last month*; needs a
+member's view before cutting.
+
+**Confirmed ACTIVE (flip out of UNCONFIRMED/DORMANT):**
+
+| kennel | signal | notes |
 |---|---|---|
-| `pfh3` | public Page (866 followers), current-summer trail-hazard posts | RETIRE? → **ACTIVE** |
-| `pbh3` | private group, **800 posts/last month** (15 today) | DORMANT → **ACTIVE** |
-| `colh3` | private group, **628 posts/last month** | UNCONFIRMED → **ACTIVE** |
-| `fch3-hk` | private "FCH3", **407 posts/last month**; About confirms monthly Sat | UNCONFIRMED → **ACTIVE** |
-| `saintlyh3` | private group, **710 posts/last month** | UNCONFIRMED → **ACTIVE** |
-| `hkfh3` | private "HK Friday Hash", 43 posts/last month | UNCONFIRMED → **ACTIVE** |
-| `wildcard-h3` | "South Florida HHH" group, 108 posts/last month | UNCONFIRMED → **ACTIVE** |
-| `hebe-h3` | public group, June-2026 post; About: "one Saturday/month at 3pm" (Sai Kung) | UNCONFIRMED → **ACTIVE** (15:00 confirmed) |
-| `nose-h3` | private group, 2 posts/last month | UNCONFIRMED → **ACTIVE** (low activity) |
-| `butterworth-h3` | profile; "45th Anniversary Run 31-5-2025" featured | UNCONFIRMED → ACTIVE (≥ May 2025) |
-| `jb-h3` | active profile, 4.8K friends | UNCONFIRMED → **ACTIVE** |
-| `kuching-h3` | profile readable; scene active (Interhash 2028) | ACTIVE (confirmed) |
-| `r2h3` | group hidden/deleted (root + `/about` → "content isn't available") | RETIRE? → **UNVERIFIABLE** (needs a member) |
-| `poofh3`, `budh3`, `ch3-sc`, `cvh3` | group/vanity hidden or unavailable | still UNCONFIRMED |
-| `ipoh-h3`, `kluang-h3`, `kk-h3`, `cunth3-atl`, `hmh3`, `sech3` | no direct FB URL on file | not checked (FB search needed) |
+| `pbh3` | 15 today / **800 last month** (1.6K members) | was DORMANT → ACTIVE |
+| `colh3` | 6 today / **628 last month** | private, very active |
+| `saintlyh3` | 8 today / **710 last month** | private |
+| `sech3` | 11 last month (`/groups/SHHHCOLA`) | flip out of UNCONFIRMED |
+| `hkfh3` | 43 last month | HK Friday Hash; schedule 2nd/3rd Fri consistent |
+| `wildcard-h3` | 4 today / 108 last month | ⚠️ group is "**South Florida HHH**", not Wildcard-specific — verify identity |
+| `hebe-h3` | public group, comment ≈May 2026 | **schedule fix confirmed: monthly Saturday 15:00** (per About) |
+| `nose-h3` | 2 last month | low but alive |
+| `kluang-h3` | 1 last month (`/groups/Kluangh3`) | — |
+| `butterworth-h3` | last post ~Jun 19 2026 | weekly Wed not precisely confirmable |
+| `ipoh-h3` | 2026 committee + Jul-2026 album | bio **confirms "every Monday 6:00pm"** (matches seed) |
+| `jb-h3` | runs May 2026 + Oct/Nov 2025 (#2902/#2904) | ⚠️ **identity: original JBHHH (1968), runs WEDNESDAYS** — seed's "JB City Hash / Saturday 17:00" is a mismatch to fix |
+| `kk-h3` | K2 H4 tagged in Jun–Jul 2026 posts | ⚠️ old page ran **Fridays** (not seed's Monday 16:30); multiple KK kennels — needs confirmation |
+| `fch3-hk` | active per china.hash.cn | group not publicly visible this session |
+| `poofh3` | Von Tramp IG (~May 2026) hosted them; Happy Valley directory lists active | no direct FB group visible |
+| `kuching-h3` | scene active (Interhash 2028) | — |
 
-Follow-ups worth a member's eyes: `r2h3` (confirm dead vs hidden-but-alive before any
-retire), and the 6 not-checked kennels (a quick FB search each).
+**DEAD / unresolved:** `pfh3` (retire), `cvh3` (CVHHH page gone, HashRego empty, cvh3.org
+dead; cadence "biweekly Saturdays"), `budh3` (unfindable), `ch3-sc` (folded — the only
+active Charleston kennel is the excluded Heretics; charlestonhash.com dead), `cunth3-atl`
+(unfindable; site dead). `hmh3` remains **unconfirmed** — no dedicated page; activity only
+inferable from Black Sheep H3 (active).
+
+**Schedule corrections to apply** (independent of source changes): `hebe-h3` → monthly
+Saturday **15:00** (confirmed); `hkfh3` → **2nd/3rd Friday** 19:00 (consistent). **Flag for
+human confirmation before a schedule PR:** `jb-h3` (→ JBHHH / **Wednesday**, not Saturday
+17:00) and `kk-h3` (→ possibly **Friday**, not Monday 16:30) — both reverse what the seed
+notes currently claim.
 
 ---
 
@@ -92,11 +109,15 @@ Activity: **ACTIVE** (signal ≤6 mo) · **DORMANT** (6–24 mo) · **DEAD** (>2
 Action: **ONBOARD** (build the found source) · **KEEP** (static, no better option) ·
 **VERIFY** (needs Chrome/FB check) · **RETIRE?** (candidate for removal).
 
+> **Note:** the **Chrome verification (2026-07-10)** section above is the current status of
+> truth for the Facebook-only kennels — where a row below still reads `UNCONFIRMED`, that
+> section supersedes it (most flipped to **ACTIVE**; `pfh3` → **DEAD/RETIRE**).
+
 | Region | Kennel | code | Activity | Best dynamic source | Action |
 |---|---|---|---|---|---|
 | Atlanta, GA | CUNT H3 | `cunth3-atl` | UNCONFIRMED (board scene active 2026-07) | none — **confirmed not on atlantahash.com board** (no Tuesday forum; title search = 0, via VPN egress); dedicated site dead | VERIFY / KEEP |
 | Atlanta, GA | HMH3 (Hog Mountain) | `hmh3` | UNCONFIRMED (board scene active 2026-07) | none — **confirmed not a board forum** (piggybacks Black Sheep Sunday; title search = 0, via VPN egress) | VERIFY / KEEP |
-| Augusta, GA | Peach Fuzz H3 | `pfh3` | **ACTIVE** (Chrome: public Page, current-summer posts) | NONE — Blogger blog abandoned 2019; FB Page only | KEEP |
+| Augusta, GA | Peach Fuzz H3 | `pfh3` | **DEAD** (Chrome: FB Page last post Aug 8 2022; blog dead 2019) | NONE | **RETIRE** |
 | Boston, MA | PooFH3 (PooFlingers) | `poofh3` | UNCONFIRMED | NONE — Facebook-only | VERIFY / KEEP |
 | Budapest | Budapest H3 | `budapest-h3` | **DORMANT** (last signal #1853 Oct 2025, ~9 mo old — no signal since Jan 2026) | none usable — `budapesthashhouseharriers.org` **domain has no DNS** (dead direct + residential + VPN); announces via Google Group (not ingestable) | KEEP (recheck domain) |
 | Butterworth, MY | Butterworth H3 | `butterworth-h3` | UNCONFIRMED | NONE — Facebook-only | VERIFY / KEEP |
@@ -124,7 +145,7 @@ Action: **ONBOARD** (build the found source) · **KEEP** (static, no better opti
 | North NJ | NOSE H3 | `nose-h3` | UNCONFIRMED (hashnj.com directory listed) | NONE — closed FB group | VERIFY / KEEP |
 | Orlando, FL | GATR H3 | `gatr-h3` | **ACTIVE** (run #343, Jun 2026) | ✅ **WordPress.com API** — `public-api.wordpress.com/wp/v2/sites/gatrh3.wordpress.com/posts` — **HIGH (verified: API `found`=36, adapter parsed 18 events from the latest 20 posts)** | **ONBOARDED** (static disabled) |
 | Pioneer Valley, MA | HVH3 (Happy Valley) | `hvh3` | ACTIVE-ish (undated #401–402, likely 2025–26) | HTML — `happyvalleyh3.org/upcumming-runs/` — LOW (undated, fragile) | KEEP (or fragile scrape) |
-| Rome, GA | R2H3 (Rumblin' Roman) | `r2h3` | **UNVERIFIABLE** (site dead ~2022; FB group hidden/deleted — Chrome couldn't read root or `/about`) | NONE — Facebook-only | VERIFY (member) — do not auto-retire |
+| Rome, GA | R2H3 (Rumblin' Roman) | `r2h3` | **AMBIGUOUS** (Chrome: private group `/groups/781136165728313`, 115 members, "2nd Saturday" — but no posts in last month; site dead ~2022) | NONE — Facebook-only | VERIFY (member) — do not auto-retire |
 | Wellington, NZ | T3H3 | `t3h3-nz` | **ACTIVE** (Jul 2026 event; nzhhh.nz confirms) | NONE — Facebook-only | KEEP |
 
 ---
