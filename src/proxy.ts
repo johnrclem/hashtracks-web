@@ -40,8 +40,11 @@ export const proxy = clerkMiddleware(async (auth, request) => {
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and static files
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|xml|txt)).*)",
+    // Skip Next.js internals and static files. NOTE: any NEW static extension
+    // self-hosted under `public/` MUST be added to this alternation or requests
+    // for it run through Clerk instead of the static CDN and 404 (the file exists
+    // but never resolves) — that's why `.avif` kennel logos 404'd until added here.
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|avif|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|xml|txt)).*)",
     // Always run for API routes
     "/(api|trpc)(.*)",
   ],
