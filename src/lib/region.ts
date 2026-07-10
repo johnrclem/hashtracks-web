@@ -1831,6 +1831,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 120.6736,
     aliases: ["Taichung, Taiwan", "台中", "Fengyuan", "豐原"],
   },
+  {
+    name: "Taoyuan",
+    country: "Taiwan",
+    timezone: "Asia/Taipei",
+    abbrev: "TYN",
+    colorClasses: "bg-sky-100 text-sky-700",
+    pinColor: "#0ea5e9",
+    centroidLat: 24.9937,
+    centroidLng: 121.2969,
+    aliases: ["Taoyuan, Taiwan", "桃園"],
+  },
   // ── China (country → metro, like Singapore / Hong Kong / Taiwan; red palette) ──
   {
     name: "China",
@@ -4206,6 +4217,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Taipei": "Taiwan",
   "Kaohsiung": "Taiwan",
   "Taichung": "Taiwan",
+  "Taoyuan": "Taiwan",
   // China (country → metro)
   "Shanghai": "China",
   // Thailand

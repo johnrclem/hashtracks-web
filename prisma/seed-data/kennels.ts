@@ -3482,6 +3482,20 @@ export const KENNELS: KennelSeed[] = [
       description: "An irregular-cadence Hash House Harriers kennel in Fengyuan, Taichung, Taiwan — running roughly monthly on Sundays (times vary) since 2022.",
       latitude: 24.2545, longitude: 120.7188,
     },
+    // Taoyuan Metro H3 — Taiwan's 6th metro; Boom Calendar (Wix) live source
+    {
+      kennelCode: "tymh3-tw", shortName: "Taoyuan Metro H3", fullName: "Taoyuan Metro Hash House Harriers",
+      // slug → toSlug("Taoyuan Metro H3") = "taoyuan-metro-h3"; site shortcode "TyMH3" kept as alias.
+      region: "Taoyuan", country: "Taiwan",
+      foundedYear: 2019, // founded 27 Dec 2019, inaugural run 3 Jan 2020 (tymh3.com/about-tymh3)
+      scheduleDayOfWeek: "Friday", scheduleTime: "7:15 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Alternating Friday evenings (1st, 3rd & 5th Friday of the month); gather ~7:15 PM, hares off ~7:30 PM. Holiday Fridays may move to an afternoon start. Venues cluster around the Taoyuan / Guishan area near MRT / TRA stations. Hash cash not published online. Contact: tymh3beer@gmail.com.",
+      logoUrl: "/kennel-logos/tymh3-tw.png",
+      facebookUrl: "https://www.facebook.com/groups/TyMH3", website: "https://www.tymh3.com",
+      description: "Taoyuan Metro Hash House Harriers (桃園捷運兔, TyMH3) is Taoyuan's hash — a 'drinking club with a running problem' founded 27 December 2019, with its inaugural run on 3 January 2020. TyMH3 meets on alternating Friday evenings, gathering near Taoyuan's MRT / TRA stations and running trails through mountain paths, open fields and around the area's ponds. On On!",
+      latitude: 24.9937, longitude: 121.2969,
+      // hashCash omitted — not published online.
+    },
 
     // ── China: Shanghai (HashTracks' first mainland-China kennel) ──
     {
