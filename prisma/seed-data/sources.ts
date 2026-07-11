@@ -2317,6 +2317,25 @@ export const SOURCES = [
       kennelCodes: ["w3h3-ga"],
     },
     {
+      // One HTML page (mgh4.com/page/next-hash) carries the current/next run for
+      // BOTH Macon kennels (#static-only-audit): real date/location/time/hares.
+      // Enrichment above the two STATIC_SCHEDULE rows above — trust 7 so real
+      // runs win on merge. The page is low-activity (often stale) and has no
+      // future events today, so it can't phantom against the static placeholders;
+      // both static rows stay enabled as the forward-looking backbone.
+      name: "MGH4 & W3H3 Next Hash",
+      url: "https://mgh4.com/page/next-hash",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // Single current/next-hash page: once the site advances from run A to B,
+      // A stops appearing. upcomingOnly clamps reconcile to the future so a
+      // recently-past off-cadence Macon trail (only carried here) isn't cancelled.
+      config: { upcomingOnly: true },
+      kennelCodes: ["mgh4", "w3h3-ga"],
+    },
+    {
       name: "CVH3 Static Schedule",
       url: "https://www.facebook.com/groups/cvh3columbus",
       type: "STATIC_SCHEDULE" as const,
@@ -5946,10 +5965,11 @@ export const SOURCES = [
       kennelCodes: ["ipoh-h3"],
     },
     {
-      // #1942: Saturday 17:00 is UNVERIFIED — facebook.com/tjbhhh is login-walled and
-      // no reachable Malaysian directory confirms the current cadence. Conflicting
-      // historical evidence (a 2010 circular + colahhh.blogspot.com) says Wednesday.
-      // Kept as documented in triage PR #1512 until a Johor-area hasher confirms.
+      // #static-only-audit: corrected to WEDNESDAY, confirming the Wednesday
+      // suspicion #1942/#1512 flagged. facebook.com/tjbhhh run dates 29-Oct-2025,
+      // 12-Nov-2025 and 13-May-2026 all fall on Wednesdays (this is the original
+      // JBHHH, Johor's oldest kennel — not a Saturday "JB City Hash"). Evening
+      // start time kept as a placeholder pending a precise time from a member.
       name: "JB H3 Static Schedule",
       url: "https://www.facebook.com/tjbhhh",
       type: "STATIC_SCHEDULE" as const,
@@ -5958,11 +5978,11 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelTag: "jb-h3",
-        rrule: "FREQ=WEEKLY;BYDAY=SA",
+        rrule: "FREQ=WEEKLY;BYDAY=WE",
         startTime: "17:00",
         defaultTitle: "JB H3 Weekly Run",
         defaultLocation: "Johor Bahru, Johor, Malaysia",
-        defaultDescription: "Weekly Saturday evening trail. Founded 1969, the oldest hash kennel in Johor. See Facebook page at facebook.com/tjbhhh for trail details.",
+        defaultDescription: "Weekly Wednesday evening trail. Founded 1969, the oldest hash kennel in Johor (original JBHHH). See Facebook page at facebook.com/tjbhhh for trail details.",
       },
       kennelCodes: ["jb-h3"],
     },
@@ -6228,10 +6248,13 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         kennelTag: "hebe-h3",
-        // #1388 / #1390: canonical 1st-Saturday RRULE (was misleading BYSETPOS=3;
-        // parser silently ignored it and emitted 1st Saturdays anyway). No event-
-        // date change.
-        rrule: "FREQ=MONTHLY;BYDAY=1SA",
+        // #static-only-audit: restore the 3rd-Saturday intent. The original config
+        // was BYSETPOS=3 (3rd Sat); a parser bug ignored it and #1388/#1390
+        // "canonicalized" to 1SA to match the buggy 1st-Sat emission (not because
+        // 1st was verified). The china.hash.cn/hkmacao directory and the 2026 FB
+        // Activity check both confirm a live monthly Saturday at 15:00, and 3rd-Sat
+        // matches the original author intent.
+        rrule: "FREQ=MONTHLY;BYDAY=3SA",
         startTime: "15:00",
         defaultTitle: "Hebe H3 Monthly Run",
         defaultLocation: "Sai Kung, Hong Kong",

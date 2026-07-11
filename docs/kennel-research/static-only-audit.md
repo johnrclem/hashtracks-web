@@ -137,8 +137,8 @@ Action: **ONBOARD** (build the found source) · **KEEP** (static, no better opti
 | Kota Kinabalu, MY | KK H3 | `kk-h3` | UNCONFIRMED | NONE — Facebook-only | VERIFY / KEEP |
 | Kuching, MY | Kuching H3 | `kuching-h3` | **ACTIVE** (scene won Interhash 2028 bid, Jun 2026) | NONE — Facebook-only | KEEP |
 | Little Rock, AR | Little Rock H3 | `lrh3` | **ACTIVE** (Green Dress wknd Mar 2026) | NONE — `lrhash.com` static, weekly hareline on FB only | KEEP |
-| Macon, GA | MGH4 | `mgh4` | **DORMANT** (last run Jul 19 2025) | **HTML** — `mgh4.com/page/next-hash` — MED (verified live) | ONBOARD (shared w/ w3h3-ga) |
-| Macon, GA | W3H3 | `w3h3-ga` | **DORMANT** (last run Oct 29 2025) | **HTML** — `mgh4.com/page/next-hash` — MED (verified live) | ONBOARD (shared w/ mgh4) |
+| Macon, GA | MGH4 | `mgh4` | **DORMANT** (last run Jul 19 2025) | **HTML** — `mgh4.com/page/next-hash` — MED (verified live) | **ONBOARDED** (shared adapter; static kept) |
+| Macon, GA | W3H3 | `w3h3-ga` | **DORMANT** (last run Oct 29 2025) | **HTML** — `mgh4.com/page/next-hash` — MED (verified live) | **ONBOARDED** (shared adapter; static kept) |
 | Miami, FL | Palm Beach H3 | `pbh3` | **ACTIVE** (Chrome: private group, 800 posts/last month) | NONE — Facebook-only | KEEP |
 | Miami, FL | Wildcard H3 | `wildcard-h3` | UNCONFIRMED | NONE — Facebook-only | VERIFY / KEEP |
 | New Jersey | Rumson | `rumson` | **ACTIVE** (2,500th run Feb/Mar 2026) | NONE — FB-only (RunSignUp for annual events only) | KEEP |
@@ -161,13 +161,15 @@ Action: **ONBOARD** (build the found source) · **KEEP** (static, no better opti
    static source was **disabled** rather than kept as a fallback (the blog is
    authoritative). Seeded as a trust-7 HTML_SCRAPER.
 
-2. **MGH4 (`mgh4`) + W3H3 (`w3h3-ga`) — one HTML adapter on `mgh4.com` — MED.**
-   `https://mgh4.com/page/next-hash` (and `/page/hareline`) is a BlogEngine.NET page
-   carrying dated runs for **both** Macon kennels with time + location. One config-driven
-   or bespoke HTML scraper feeds both. **Caveat:** the site itself says "we are having
-   trouble getting people to hare trails" and the latest posted runs are stale
-   (MGH4 Jul 2025, W3H3 Oct 2025) — onboard, but expect thin/dormant output; keep the
-   static fallback beneath it.
+2. **MGH4 (`mgh4`) + W3H3 (`w3h3-ga`) — one HTML adapter on `mgh4.com` — MED. ✅ DONE.**
+   `https://mgh4.com/page/next-hash` (BlogEngine.NET) carries the current/next run for
+   **both** Macon kennels as prose paragraphs (kennel label + date + hares + location +
+   times). `MaconHashAdapter` parses both, routing by the leading label. Seeded as one
+   trust-7 source linked to both kennels. **Caveat:** the site says "we are having trouble
+   getting people to hare trails" and the latest runs are stale (MGH4 Jul 2025, W3H3 Oct
+   2025) — output is thin/dormant. Because the page has no future events, it can't phantom
+   against the static placeholders, so **both static rows stay enabled** as the
+   forward-looking backbone (unlike GATR, whose static was disabled).
 
 3. ~~**Budapest H3 (`budapest-h3`) — self-hosted WordPress.**~~ **Ruled out (2026-07-10).**
    `budapesthashhouseharriers.org` has **no DNS at all** — no A record, no NS record —
