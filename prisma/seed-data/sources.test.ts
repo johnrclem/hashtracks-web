@@ -56,6 +56,8 @@ describe("SOURCES seed data invariants (#817 regression guard)", () => {
     { name: "Kluang H3 Static Schedule", tag: "kluang-h3", rrule: "FREQ=WEEKLY;BYDAY=WE", startTime: "18:00", issue: 1431 },
     { name: "Kuching H3 Static Schedule", tag: "kuching-h3", rrule: "FREQ=WEEKLY;BYDAY=TU", startTime: "17:30", issue: 1535 },
     { name: "KK H3 Static Schedule", tag: "kk-h3", rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "16:30", issue: 1537 },
+    // #1942: JB H3 corrected SA→WE (FB run dates all Wednesdays; original JBHHH).
+    { name: "JB H3 Static Schedule", tag: "jb-h3", rrule: "FREQ=WEEKLY;BYDAY=WE", startTime: "17:00", issue: 1942 },
   ])("(#$issue) $name emits $rrule @ $startTime, not Saturday @ 17:00", ({ name, tag, rrule, startTime }) => {
     const src = SOURCES.find((s) => s.name === name);
     expect(src).toBeDefined();
