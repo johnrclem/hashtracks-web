@@ -2317,6 +2317,25 @@ export const SOURCES = [
       kennelCodes: ["w3h3-ga"],
     },
     {
+      // One HTML page (mgh4.com/page/next-hash) carries the current/next run for
+      // BOTH Macon kennels (#static-only-audit): real date/location/time/hares.
+      // Enrichment above the two STATIC_SCHEDULE rows above — trust 7 so real
+      // runs win on merge. The page is low-activity (often stale) and has no
+      // future events today, so it can't phantom against the static placeholders;
+      // both static rows stay enabled as the forward-looking backbone.
+      name: "MGH4 & W3H3 Next Hash",
+      url: "https://mgh4.com/page/next-hash",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // Single current/next-hash page: once the site advances from run A to B,
+      // A stops appearing. upcomingOnly clamps reconcile to the future so a
+      // recently-past off-cadence Macon trail (only carried here) isn't cancelled.
+      config: { upcomingOnly: true },
+      kennelCodes: ["mgh4", "w3h3-ga"],
+    },
+    {
       name: "CVH3 Static Schedule",
       url: "https://www.facebook.com/groups/cvh3columbus",
       type: "STATIC_SCHEDULE" as const,
