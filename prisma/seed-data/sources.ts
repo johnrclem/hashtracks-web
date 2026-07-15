@@ -4266,6 +4266,32 @@ export const SOURCES = [
       kennelCodes: ["fishhh"],
     },
     {
+      name: "Douliu H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live 2026-07-15 via
+        // hashruns.org/api/global-runs — last run #205 2026-05-30, 0 upcoming,
+        // monthly last-Saturday cadence, first HC run 2023-02-25).
+        // HC KennelIANATimezone = Asia/Taipei (correct, no quirk).
+        publicKennelId: "2b09b8c1-f236-4cce-8fcb-39114fd4f790",
+        defaultKennelTag: "douliu-h3",
+        // EventNames drift (bare numbers, "DH3 #N -" prefixes, mismatched numbers).
+        // defaultTitle synthesizes "Douliu H3 #N" when the name is empty/placeholder
+        // (mirrors Fengyuan / Bandung). No known placeholder strings to alias yet.
+        defaultTitle: "Douliu H3",
+        staleTitleAliases: [],
+        // upcomingOnly:true — this source owns a one-shot ~25-run historical backfill
+        // (scripts/backfill-douliu-h3-history.ts). HC getEvents is future-only, so
+        // without this guard reconcile.ts would false-CANCEL aged past runs (Bandung contract).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["douliu-h3"],
+    },
+    {
       name: "Taipei Hash Run List",
       url: "https://www.taipeihash.com.tw/run_site.php",
       type: "HTML_SCRAPER" as const,
@@ -8225,6 +8251,122 @@ export const SOURCES = [
         upcomingOnly: true,
       },
       kennelCodes: ["krashh3"],
+    },
+
+    // ===== HC batch-6 (2026-07-15) — config-only HARRIER_CENTRAL onboards =====
+    // Rio H3, Poznan H3, Divahhh, Steel City H3, Manchester H3. (Douliu H3 lives in
+    // the Taiwan block above.) Backfilled kennels carry upcomingOnly:true; the two
+    // live-only UK rows omit it (Lisbon/Taiwan contract).
+    {
+      name: "Rio H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live 2026-07-10 via the adapter's exact
+        // getEvents POST [0 future runs posted] + hashruns.org/api/global-runs [3 past #444–#446]).
+        // HC tz America/Sao_Paulo is correct — no quirk override (unlike Belgrade/KRASH).
+        publicKennelId: "8d230b92-a6e6-4d8b-8c13-fe004a260d25",
+        defaultKennelTag: "rioh3",
+        // Rio names events with real themes ("The Rites of Infertility Hash") kept verbatim;
+        // defaultTitle synthesizes "Rio H3 #N" only for empty/placeholder names.
+        defaultTitle: "Rio H3",
+        staleTitleAliases: ["Placeholder event for RIOH3"],
+        // upcomingOnly:true — REQUIRED (HC getEvents is future-only + this source owns a 3-run
+        // backfill; without it reconcile.ts false-CANCELs the past rows — Bandung #2340 contract).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["rioh3"],
+    },
+    {
+      name: "Poznan H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live 2026-07-11: future feed = 0,
+        // global-runs?isFuture=0 = 3 past runs #11–#13, monthly Sat 14:00).
+        // HC tz Europe/Warsaw is correct here (unlike Belgrade/KRASH, where it was wrong).
+        publicKennelId: "b193f2ad-a2b2-4f48-b8be-b7145423faaf",
+        defaultKennelTag: "ph3-pl",
+        // Poznan's HC EventNames are garbled placeholders ("POZH3 *UN #11", "PZNH3 ", "*un #13")
+        // — NOT themes. defaultTitle synthesizes "Poznan H3 #N"; staleTitleAliases catch them.
+        defaultTitle: "Poznan H3",
+        staleTitleAliases: ["POZH3 *UN #11", "PZNH3", "*un #13", "Placeholder event for PH3-PL"],
+        // upcomingOnly:true — REQUIRED (3-run backfill; Bandung #2340 contract).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["ph3-pl"],
+    },
+    {
+      name: "Divahhh Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live 2026-07-12 via the HC future feed [0 posted]
+        // + hashruns.org/api/global-runs [9 past runs #36–#44]). HC's KennelIANATimezone is
+        // Europe/Berlin for this kennel — a data quirk; the Brussels metro is (correctly)
+        // Europe/Brussels (same offset, so times are unaffected — no source override needed).
+        publicKennelId: "0ed7a8e6-3371-41cf-a539-753f3c07e944",
+        defaultKennelTag: "divahhh",
+        // Divahhh names events with real themes ("Bold Divas!", "Wine-a-thon!") kept verbatim;
+        // defaultTitle synthesizes "Divahhh #N" only for empty/placeholder names.
+        defaultTitle: "Divahhh",
+        staleTitleAliases: ["Placeholder event for Divahhh"],
+        // upcomingOnly:true — REQUIRED (9-run backfill; Bandung/KRASH contract).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["divahhh"],
+    },
+    {
+      name: "Steel City H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live 2026-07-13 via HC getEvents [1 upcoming #22]
+        // + hashruns.org/api/global-runs [0 past rows — kennel joined HC ~June 2026]).
+        // HC KennelIANATimezone = Europe/London (correct, no quirk).
+        publicKennelId: "dd9bdb87-bbf7-4b16-b458-fd0cb3059d8e",
+        defaultKennelTag: "sch3-gb",
+        // HC names events "Steel City H3 Run#N" (real name) → kept verbatim.
+        defaultTitle: "Steel City H3",
+        staleTitleAliases: ["Placeholder event for Steel City H3"],
+        // upcomingOnly OMITTED — LIVE-ONLY HC source (no backfill); established HC kennels
+        // survive reconciliation without it (Lisbon/Taiwan contract).
+      },
+      kennelCodes: ["sch3-gb"],
+    },
+    {
+      name: "Manchester H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID is the most stable filter (verified live 2026-07-14 via HC getEvents [3 upcoming]
+        // + hashruns.org/api/global-runs [0 past rows — kennel joined HC ~July 2026]).
+        // HC KennelIANATimezone = Europe/London (correct, no quirk).
+        // Quirk: the future feed returns the kennel's CURRENT run number (289) on every row —
+        // benign (all rows carry real eventNames); do not read it as a per-event number.
+        publicKennelId: "3e87bc76-a1cc-4b04-82ce-e893a3dad797",
+        defaultKennelTag: "mh3-gb",
+        // HC names events with real themes ("Try it Thursday", "R*n 289 - How do you do?") → kept verbatim.
+        defaultTitle: "Manchester H3",
+        staleTitleAliases: ["Placeholder event for Manchester H3"],
+        // upcomingOnly OMITTED — LIVE-ONLY HC source (no backfill); Lisbon/Taiwan/Steel City contract.
+      },
+      kennelCodes: ["mh3-gb"],
     },
   ];
 

@@ -1274,6 +1274,50 @@ export const KENNELS: KennelSeed[] = [
       // foundedYear / hashCash / website / socials: unverifiable (HC-only kennel) — left unset + flagged in the PR.
       description: "A weekly Thursday-evening Hash House Harriers kennel based around Callington, Cornwall and the Plymouth/Tamar-valley border in south-west England.",
       latitude: 50.503, longitude: -4.313 },
+    {
+      kennelCode: "sch3-gb", shortName: "Steel City H3", fullName: "Steel City Hash House Harriers",
+      region: "Sheffield", country: "UK",
+      website: "https://sites.google.com/view/steelcityh3/home",
+      logoUrl: "/kennel-logos/sch3-gb.avif",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=4SA", startTime: "12:00", label: "Monthly 4th Saturday" },
+      ],
+      foundedYear: 2025,
+      hashCash: "£3",
+      walkersWelcome: true,
+      // socials: no confirmed URL (press mentions a Facebook group but none verifiable) — left unset.
+      description:
+        "Steel City H3 is Sheffield's Hash House Harriers, founded in April 2025 — 'the drinking club with a running problem.' " +
+        "A friendly weekend hash for all-comers (runners, walkers, and hash virgins especially welcome), typically on the 4th " +
+        "Saturday of the month at noon around Sheffield and the Peak District, with at least two pub-stops. £3 per run; free for first-timers.",
+      latitude: 53.3811, longitude: -1.4701,
+    },
+    {
+      kennelCode: "mh3-gb", shortName: "Manchester H3", fullName: "Manchester Hash House Harriers",
+      region: "Manchester", country: "UK",
+      website: "https://www.manchesterh3.co.uk",
+      facebookUrl: "https://www.facebook.com/ManchesterH3",
+      instagramHandle: "manchesterh3",
+      logoUrl: "/kennel-logos/mh3-gb.jpg",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:30 PM", scheduleFrequency: "Biweekly",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=4SA", startTime: "14:30", label: "4th Saturday countryside trail" },
+        { rrule: "FREQ=MONTHLY;BYDAY=2SU", startTime: "14:30", label: "2nd Sunday countryside trail" },
+        // INTERVAL=2 needs an anchorDate for projection stability (#1123).
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=TH", startTime: "18:30", anchorDate: "2026-07-16", label: "Alternate Thursday city social (TITs)" },
+      ],
+      foundedYear: 2012,
+      hashCash: "£3 (free on Thursdays)",
+      dogFriendly: true,
+      walkersWelcome: true,
+      description:
+        "Manchester Hash House Harriers (MH3) — 'a drinking club with a running problem' — is Greater Manchester's hash, founded around 2012. " +
+        "Main ~10K trails run on the 2nd Sunday and 4th Saturday of the month (meet 14:00 for a 14:30 start) in green areas around Greater " +
+        "Manchester with good public-transport links; on alternate Thursdays there's a laid-back city-centre social ('TITs' — Try it Thursday) " +
+        "at 18:30. Dogs and children are usually welcome (venue dependent). Hash cash is £3 (free on Thursdays) — your first trail earns a free beer.",
+      latitude: 53.4808, longitude: -2.2426,
+    },
     // ===== GERMANY =====
     // Berlin
     {
@@ -3506,6 +3550,22 @@ export const KENNELS: KennelSeed[] = [
       latitude: 24.9937, longitude: 121.2969,
       // hashCash omitted — not published online.
     },
+    {
+      kennelCode: "douliu-h3", shortName: "Douliu H3", fullName: "Douliu Hash House Harriers",
+      // slug → toSlug("Douliu H3") = "douliu-h3" (ASCII). HC shortcode "DH3" is NOT used as an alias
+      // (global collision: Dublin dh3 / Dallas dh3-tx / Denver dh3-co / Dayton dh4 / Desert dh3-ae).
+      region: "Douliu", country: "Taiwan",
+      foundedYear: 2009, // china.hash.cn/taiwan/ — founded 27 June 2009; corroborated by HC #200 in Dec 2025
+      facebookUrl: "https://www.facebook.com/groups/DouliuHHH/", // FB group (not a Page) — social link only
+      scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Monthly",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=-1SA", startTime: "13:00", label: "Primary (last Saturday)" },
+      ],
+      hashCash: "NT$300", // HC fee 300/300; currency inferred TWD (Taiwan)
+      logoUrl: "/kennel-logos/douliu-h3.png",
+      description: "A monthly Hash House Harriers kennel in Douliu, Yunlin County, Taiwan (斗六捷兔) — running the last Saturday of every month (13:00, Douliu Baseball Stadium) since 2009. Trails range across the Yunlin / Chiayi / Changhua area of central-west Taiwan.",
+      latitude: 23.7075, longitude: 120.5439,
+    },
 
     // ── China: Shanghai (HashTracks' first mainland-China kennel) ──
     {
@@ -3531,6 +3591,20 @@ export const KENNELS: KennelSeed[] = [
     },
 
     // ── Belgium: Brussels ──
+    {
+      kennelCode: "divahhh", shortName: "Divahhh", fullName: "Divahhh — Brussels Women's Hash House Harriers",
+      // Edmonton's diva kennel is divah3-eh3 (distinct) — bare "DivaH3"/"Diva HHH" aliases OMITTED.
+      region: "Brussels", country: "Belgium", // Brussels METRO already seeded (0 region.ts edits)
+      website: "https://divahhh.webnode.page/",
+      logoUrl: "/kennel-logos/divahhh.avif",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "Brussels women's hash — 'Hash House Harriers who prefer the finer things in life.' Roughly monthly trails (day and time vary), often around the Forêt de Soignes, plus an annual 'bubbly weekend' away trip (2026: Carcassonne; past: Bairrada, Penina, Sekt, Cava, Prosecco, Champagne).",
+      hashCash: "€10 members / €20 non-members", // HC prices on home runs; away/ski events were free
+      walkersWelcome: true, // evidenced by run #39 "…- Walkers" split
+      foundedYear: 2009, // earliest documented 'bubbly weekend' (divahhh.webnode.page/events) — may predate; see PR caveat
+      description: "Divahhh — a Brussels-based women's Hash House Harriers 'who prefer the finer things in life.' Roughly monthly trails around Brussels with a champagne-and-fizz theme, plus a long-running annual 'bubbly weekend' that travels across Europe (Carcassonne, Bairrada, Kaprun, and more).",
+      latitude: 50.8503, longitude: 4.3517,
+    },
     {
       kennelCode: "bmph3-be", shortName: "BMPH3", fullName: "Brussels Manneke Piss Hash House Harriers", region: "Brussels", country: "Belgium",
       website: "https://www.bmph3.com",
@@ -5706,6 +5780,22 @@ export const KENNELS: KennelSeed[] = [
       scheduleNotes: "Monthly São Paulo trail (gotothehash: ~3rd Saturday; observed run days vary). Details on Harrier Central.",
       hashCash: "R$35", description: "São Paulo's monthly English-speaking hash — the second Brazilian kennel after Brasília.",
       latitude: -23.5558, longitude: -46.6396 },
+    // Brazil's 3rd kennel / first Rio de Janeiro (HC batch-6)
+    {
+      kennelCode: "rioh3", shortName: "Rio H3", fullName: "Rio Hash House Harriers",
+      region: "Rio de Janeiro", country: "Brazil", // NEW METRO — 4 region.ts edits
+      // No website: the only historical site (riohhh.multiply.com) is on defunct multiply.com;
+      // rioh3.com/riohhh.com don't resolve. The live external presence is the Facebook group.
+      facebookUrl: "https://www.facebook.com/groups/riohash/",
+      instagramHandle: "rioh3_official",
+      logoUrl: "/kennel-logos/rioh3.avif",
+      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "Monthly Saturday-afternoon trail (~3:00 PM) through Rio de Janeiro, often starting from a metro station (Leblon / São Conrado / Copacabana). See the Rio Full Moon H3 sibling for the full-moon runs.",
+      hashCash: "R$30", // HC price 30; currency inferred BRL
+      // foundedYear intentionally omitted — unverifiable (HC-only; deep run # but no primary founding source).
+      description: "The Rio de Janeiro Hash House Harriers — 'a drinking club with a running problem.' Monthly Saturday-afternoon trails around Rio, frequently starting from a metro station, with beer stops along the way.",
+      latitude: -22.9068, longitude: -43.1729,
+    },
     // ===== MEXICO =====
     // First Mexico kennel — Mexico City H3 ("CDMX H3"), hashing since Oct 1983.
     // foundedYear 1983 is the kennel founding (Mexico News Daily + Half-Mind), NOT the
@@ -5802,6 +5892,28 @@ export const KENNELS: KennelSeed[] = [
       logoUrl: "/kennel-logos/warsaw-h3.jpg", // self-hosted; ext confirmed by magic bytes
       latitude: 52.2297,
       longitude: 21.0122,
+    },
+    // Poland's 2nd kennel / first Poznań (HC batch-6). bare "PH3" alias OMITTED
+    // (collides with Petaling ph3-my / Pattaya / Pinelake ph3-atl).
+    {
+      kennelCode: "ph3-pl",
+      shortName: "Poznan H3",
+      fullName: "Poznan Hash House Harriers",
+      region: "Poznan", // NEW METRO — 3 region.ts edits
+      country: "Poland",
+      // No website/socials found — HC is the only confirmed live presence.
+      logoUrl: "/kennel-logos/ph3-pl.avif",
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "2:00 PM", // 12-hr seed format; RawEventData.startTime stays "14:00"
+      scheduleFrequency: "Monthly",
+      scheduleNotes: "Monthly Saturday-afternoon trail (~2:00 PM, beer hour from 1:00 PM) around Poznań, often starting near the main train station (Poznań Główny). A-to-B trails with beer stops en route; hound-friendly.",
+      hashCash: "20 zł", // from HC EventDescription (#11/#12); HC numeric price fields unreliable here
+      dogFriendly: true, // #12 description: "Hound friendly"
+      // foundedYear intentionally omitted — unverifiable (HC-only; run #13 Jun 2026).
+      description:
+        "The Poznań Hash House Harriers — 'a drinking club with a running problem.' Monthly Saturday-afternoon trails around Poznań, frequently starting near the train station, with beer stops along the way. Hound-friendly.",
+      latitude: 52.4064,
+      longitude: 16.9252,
     },
     // HashTracks' first Sri Lanka kennel — Colombo Hash House Harriettes,
     // mixed-gender, est. 20 June 1984. Weekly Saturday; custom Next.js site.

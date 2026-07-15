@@ -1,0 +1,115 @@
+[
+  {
+    "date": "2026-01-01",
+    "kennelTags": [
+      "divahhh"
+    ],
+    "title": "New Years Run!",
+    "runNumber": 36,
+    "startTime": "12:03",
+    "location": "Leiden",
+    "latitude": 52.16109,
+    "longitude": 4.49015
+  },
+  {
+    "date": "2026-02-14",
+    "kennelTags": [
+      "divahhh"
+    ],
+    "title": "Febrewery Valentines Run",
+    "runNumber": 37,
+    "startTime": "12:30",
+    "hares": "Cockatool",
+    "location": "Buizingen Station",
+    "latitude": 50.750628171319576,
+    "longitude": 4.258055964539201
+  },
+  {
+    "date": "2026-03-03",
+    "kennelTags": [
+      "divahhh"
+    ],
+    "title": "DIVA Invades SNONADS",
+    "runNumber": 38,
+    "startTime": "16:00",
+    "hares": "Joystick, Flaming Banana",
+    "location": "Das Alphenhaus Kaprun",
+    "latitude": 47.272803430466446,
+    "longitude": 12.760541226026499
+  },
+  {
+    "date": "2026-04-18",
+    "kennelTags": [
+      "divahhh"
+    ],
+    "title": "DIVA H3 Bubbly Weekend - Runners",
+    "runNumber": 40,
+    "startTime": "09:30",
+    "hares": "Horny Tail, John Cleese",
+    "location": "Tribe Carcassonne",
+    "latitude": 43.21034,
+    "longitude": 2.35771
+  },
+  {
+    "date": "2026-04-18",
+    "kennelTags": [
+      "divahhh"
+    ],
+    "title": "DIVA H3 Bubbly Weekend - Walkers",
+    "runNumber": 39,
+    "hares": "Horny Tail, John Cleese",
+    "location": "Tribe Carcassonne",
+    "latitude": 43.21034,
+    "longitude": 2.35771
+  },
+  {
+    "date": "2026-04-19",
+    "kennelTags": [
+      "divahhh"
+    ],
+    "title": "DIVA H3 Bubbly Hangover Trail",
+    "runNumber": 41,
+    "startTime": "10:00",
+    "hares": "Cheesy Lollipop, I Like your Boobs",
+    "location": "Tribe Carcassonne",
+    "latitude": 43.21034,
+    "longitude": 2.35771
+  },
+  {
+    "date": "2026-05-23",
+    "kennelTags": [
+      "divahhh"
+    ],
+    "title": "Bold Divas!",
+    "runNumber": 42,
+    "startTime": "15:00",
+    "hares": "Rack of Lamb",
+    "location": "Forêt De Soignes",
+    "latitude": 50.77575,
+    "longitude": 4.39037
+  },
+  {
+    "date": "2026-06-27",
+    "kennelTags": [
+      "divahhh"
+    ],
+    "title": "Wine-a-thon!",
+    "runNumber": 43,
+    "startTime": "08:00",
+    "location": "Avenue General Dossin de Saint-Georges",
+    "latitude": 50.8095471,
+    "longitude": 4.3875903
+  },
+  {
+    "date": "2026-07-09",
+    "kennelTags": [
+      "divahhh"
+    ],
+    "title": "Pick Up Hash",
+    "runNumber": 44,
+    "startTime": "19:30",
+    "location": "Leopold II Laan 55, 1080 Brussel",
+    "latitude": 50.85999,
+    "longitude": 4.34282
+  }
+]

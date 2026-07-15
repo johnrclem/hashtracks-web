@@ -1,0 +1,37 @@
+[
+  {
+    "date": "2026-04-18",
+    "kennelTags": [
+      "ph3-pl"
+    ],
+    "title": "Poznan H3 #11",
+    "runNumber": 11,
+    "startTime": "14:00",
+    "hares": "Go Speed Racist",
+    "location": "U GOSI Food and Pub",
+    "latitude": 52.40657765584752,
+    "longitude": 16.914254365558353
+  },
+  {
+    "date": "2026-05-16",
+    "kennelTags": [
+      "ph3-pl"
+    ],
+    "title": "Poznan H3 #12",
+    "runNumber": 12,
+    "startTime": "14:00",
+    "location": "Piwna Stopa",
+    "latitude": 52.41021,
+    "longitude": 16.93637
+  },
+  {
+    "date": "2026-06-13",
+    "kennelTags": [
+      "ph3-pl"
+    ],
+    "title": "Poznan H3 #13",
+    "runNumber": 13,
+    "startTime": "14:00",
+    "location": "Park Izabeli i Jarogniewa Drwęskich w Poznaniu"
+  }
+]

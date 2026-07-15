@@ -38,25 +38,9 @@ Add a new section when you discover non-obvious behavior on a platform.
 The "Wix SSRs the current event on the home page" behavior above is **tenant-dependent — confirm it per site, never assume it.** Three Taiwan Wix kennels, three different outcomes:
 - **Kaohsiung H3** (`kaohsiunghash.com`, already live) — home page AND `/run-information` **fully SSR the upcoming runs** as text headings (`#2732 - June 27 - Saturday Night Run`) + rich per-run detail (hares, cost, Maps `maps.app.goo.gl` pin, time, prose). A plain `web_fetch`/Cheerio parse works; no browserRender. Its `/run-schedule` page is a **PNG image** (the full year) — useless for scraping; the home + `/run-information` surfaces are the real source. Note: home heading run# can disagree with `/run-information` (Kaohsiung's `#2733 Jul 11` home vs `#2734 Jul 11` run-info) — a source inconsistency, not a parse bug.
 - **Taoyuan Metro H3** (`tymh3.com`) — home AND `/upcoming-run` SSR carry **NO run data** (only nav, logo, tagline, email, FB link); the run list is a fully JS-rendered Wix Events widget → **needs browserRender**. *(Re-confirmed 2026-06-23 via real `web_fetch`; handed off `handoffs/2026-06-23-tymh3-tw.md`. 🔴 Refinement: the **content/info pages ARE fully SSR'd** — `/about-tymh3` gave founded date "27 Dec 2019", the full schedule prose [1st & 3rd + occasional 5th Friday, 7:30 PM; holiday Fridays → afternoon], run-type descriptions, email, FB — it's specifically the **Wix Events run widget** that's JS-only. Lesson: on a Wix-Events kennel, harvest metadata from the SSR About/info pages even when the run feed needs browserRender. DNS: apex `185.230.63.x` (Wix), `www`→`wixdns.net`. Tell Claude Code to first inspect the Wix Events viewer JSON XHR before falling back to browserRender, and set `timezoneId:"Asia/Taipei"`.)*
-  - 🔴 **CORRECTION (SHIPPED 2026-07-09, [PR #2636](https://github.com/johnrclem/hashtracks-web/pull/2636)):** "needs browserRender" was **WRONG**. The Taoyuan run widget is **not** a Wix Events widget at all — it's a third-party **Boom Calendar** app, and browserRender genuinely *can't* render it (times out / 429s on the heavy cross-origin iframe). The real data path is a clean JSON GET — see the **Boom Calendar** section immediately below. Onboarded via the reusable `BoomCalendarAdapter`, no browserRender.
 - **Taichung H3** (`taichunghash.com`) — returns an **empty body** to a plain fetch (JS-rendered/anti-bot) → needs browserRender.
 
 So for any new Wix kennel: `web_fetch` the home page first; if the runs appear as SSR text → small static Cheerio scraper (Kaohsiung/Boise pattern). If empty/nav-only → browserRender (northboro pattern), and from the research sandbox you likely **cannot verify the sample** (no browserRender; Chrome MCP auto-denies the brand-new domain with no user present) → write a `handed-off (needs live-verify)` handoff or leave it `verify-live-first` and flag for Claude Code.
-
----
-
-## Boom Calendar — third-party Wix calendar widget (learned from Taoyuan Metro H3, SHIPPED 2026-07-09)
-
-**⚠️ This is NOT the native Wix Events widget above.** Some Wix sites embed a third-party **Boom Calendar** app (`calendar.boomte.ch`, `appDefId 13b4a028-00fa-7133-242f-4628106b8c91`) as their "calendar" instead of Wix Events. It blocked Taoyuan Metro H3 across two headless attempts — browserRender timed out / 429'd on the heavy widget, and the Wix Events viewer API returned an **empty collection** (the site has no Wix Events at all). Once identified, the data falls out of a single clean JSON GET.
-
-- **Detection.** The page has a `comp-*` "calendar" component but the native **Wix Events collection is empty** (`/_api/wix-events-web/v1/events` → `{"events":[]}`, or a 428). Confirm by checking `GET https://<site>/_api/v1/access-tokens` for an entry keyed on `13b4a028-…` — if present, it's Boom Calendar. The widget renders inside a **cross-origin `calendar.boomte.ch` iframe**, so its data fetch is INVISIBLE to the parent page's SSR and network log — only a real browser that can step into the frame (**Claude-in-Chrome**) reveals it; headless browserRender captures just the parent shell and destabilizes (timeout/429) on the heavy JS.
-- **Data path — one authenticated GET:**
-  1. `GET https://<site>/_api/v1/access-tokens` → `apps["13b4a028-00fa-7133-242f-4628106b8c91"].instance` (a short-lived JWT). **Mint a fresh one per scrape.**
-  2. `GET https://calendar.apiboomtech.com/api/calendar?comp_id=<compId>&instance=<jwt>` → `{ name, time_zone, country, events: [...] }`. No auth header needed — the `instance` in the query string is the only credential.
-- **`comp_id`** = the Wix component id of the widget placement (e.g. `comp-mcofr70d`), stable per site. Read it from the rendered `events_calendar` comp / the widget iframe `src`.
-- **Per-event fields:** `id`, `title` (incl. `#NNN` run number — parse via `extractHashRunNumber`), `start`/`end` (`"YYYY-MM-DDTHH:MM"` local, no offset → date + `startTime`/`endTime`), `time_zone`, `all_day`, `desc` (HTML — hares under `Hares/兔子:`, readable venue name under `Place/地點:`), `venue` (object **or** JSON-string: `address`, `lat`, `lng`, `name` [often blank → fall back to the desc Place line]). No `slug`; the "detail" is a modal keyed by event `id`. The feed shows a **recent-past + upcoming** window → `upcomingOnly: true`.
-- **Adapter:** reusable **`BoomCalendarAdapter`** (`src/adapters/html-scraper/boom-calendar.ts`, [PR #2636](https://github.com/johnrclem/hashtracks-web/pull/2636)). **Config-only** for any Boom-Calendar Wix site: `config: { boomCompId, kennelTag, upcomingOnly: true, boomAppDefId? }` on an `HTML_SCRAPER` source, plus a registry URL pattern. It mints the instance, GETs the calendar, and maps run#/times/hares/place/address/coords. Fail-loud on a shape/structural break; individual bad rows go to `errorDetails.parse[]` (not `errors[]`) so one glitch doesn't block reconcile of the good events.
-- **🔑 Lesson.** When a Wix "calendar/events" widget won't render headlessly **and** the native Wix Events collection is empty, **check the widget `appDefId` in `/_api/v1/access-tokens`** — it's likely a third-party calendar app (Boom Calendar, or another) with its own JSON backend behind a cross-origin iframe. Hand the live page to **Claude-in-Chrome** to identify the app + capture the real request; don't conclude a JS widget is un-scrapeable from headless tools alone.
 
 ---
 
@@ -1562,3 +1546,80 @@ real fetches of home + detail + category pages:
   Cheerio scrape of the SSR pages is the reliable surface. Confirm REST at build only as an optional upgrade.
 - **Logos** are stable `wp-content/uploads/.../<name>.<ext>` URLs (not tokenized) but still self-host per
   convention; confirm the extension by **magic bytes**, not the URL.
+
+### Harrier Central — "single logged run ≠ recently-active cadence" (learned from Rio Full Moon H3 hold, 2026-07-12)
+
+A newly-HC-joined kennel can have exactly **one** run on the `global-runs` feed. One data point is NOT a
+cadence — it cannot satisfy the Step 3 recently-active bar ("ran in ≥3 of the last 4 months"). Before
+onboarding such a kennel, **check whether the kennel's own expected next slot was ALSO logged.** For a
+**full-moon** hash this is decisive: full moons are ~29.5 days apart and well-run full-moon kennels
+(Berlin FM, Frankfurt FM, Hua Hin FM) post their next runs to HC **months ahead**. If the target's single
+run is 2026-05-30 (the May full moon) and the **June 29 full moon is absent** from HC with nothing
+upcoming, that's concrete evidence the HC feed is not (yet) a reliable ongoing source for it — hold as
+`verify-live-first`, re-check when a `#N+1` or an upcoming run appears. Contrast **Divahhh** (same day's
+run): 9 logged runs across every month Jan→Jul 2026 with the latest 3 days old = a real cadence → onboard.
+Rule: for a thin HC kennel, verify the *next expected occurrence* was logged, not just that the *last* one
+was within 2× interval.
+
+### Harrier Central — deep run # + ZERO `global-runs` archive = live-only, no backfill (learned from Steel City H3, 2026-07-13)
+
+A brand-new-to-HC kennel can show a **non-trivial run number** (Steel City H3 = **#22**) yet return
+**0 rows from `global-runs?isFuture=0`** across every past window, because it only just adopted HC — its
+runs #1…#(N−1) predate the HC join and are on **no** clean machine-readable feed. Two consequences:
+- **This is the "Run-number ≠ archive depth" case for HC** — the deep run # implies deep history, but the
+  *source* exposes none. Don't promise a backfill you can't extract; confirm the `isFuture=0` past sweep
+  actually returns rows for the `PublicKennelId` (filter client-side) before asserting "N-run backfill".
+- **Live-only ⇒ OMIT `upcomingOnly`** (Lisbon/Taiwan contract): with no backfill there are no aged past
+  rows for `reconcile.ts` to false-cancel. `upcomingOnly:true` is ONLY for HC sources that ALSO ship a
+  one-shot backfill (Bandung/KRASH/Divahhh). One genuine upcoming event (Steel City's #22) is enough to
+  onboard directly — this is NOT the "0-upcoming recently-active" path.
+
+🔴 **Don't trust the queue's "founded/hashCash/website/socials unverifiable (HC-only)" pre-mark — a web
+search often recovers them from the kennel's OWN site.** Steel City's queue row said all four were HC-only
+blanks; a single `WebSearch` surfaced the kennel's **Google Sites** (`sites.google.com/view/steelcityh3/home`)
+carrying an explicit founding weekend (11–13 Apr 2025 → `foundedYear 2025`, high confidence), the hash-cash
+sub ("£3 per run"), and the schedule — plus a **stale Meetup** (`steel-city-hash-house-harriers`, last event
+Aug 2025) that confirmed the observed 4th-Saturday cadence and held a thin early archive (#4–#7). HC gives you
+the live feed; the kennel's site/Meetup/press give you the metadata HC omits. Always do the web-search pass
+before writing "unverifiable" into a handoff. (A Meetup that a kennel has *abandoned* for HC is a metadata
+corroborator + marginal backfill candidate, not a live source — its Apollo `Event` collection will be past-only.)
+
+### Webnode-hosted kennel sites (`*.webnode.page`) — SSR HTML, fetch-friendly (Divahhh, 2026-07-12)
+
+`divahhh.webnode.page` returned full server-rendered HTML to a plain fetch (meta description, nav, events
+archive all present) — no browserRender needed. Useful metadata surfaces: `meta og:article:published_time`
+(page-publish date, NOT founding), an `/events/` archive (earliest listed weekend ≈ founding-year signal —
+flag as "earliest documented", may predate), `/contact/` + `/our-people/` sub-pages for socials/committee.
+Logos/images are on `*.cbaul-cdnwnd.com` (Webnode CDN). Treat like any static SSR site; confirm founding
+from the events archive rather than asserting.
+
+### Refill discovery sources beyond the HC upcoming feed (2026-07-15, Douliu H3 run)
+
+The HC config-only well is *upcoming-feed* exhausted (6+ consecutive runs found 0 genuinely-new in
+`global-runs?isFuture=1`). Two productive additions for the dedicated non-HC / deeper-HC pass:
+
+- **🔑 HC recent-past sweep (`global-runs?isFuture=0&minEventDate=…&maxEventDate=…`) finds the
+  0-upcoming-but-recently-active kennels the upcoming feed misses.** Pull a ~10-week window (covers monthly
+  kennels between postings), aggregate distinct `PublicKennelId`, diff vs the sitemap by **city-name
+  fragment** (NOT the HC slug — HC slugs like `BH3-DE`/`AMSH3` don't match hashtracks slugs, so a naive
+  slug-equality diff flags everything as "new"). This is how **Douliu H3** (Taiwan, 0 upcoming, last run
+  46d ago) surfaced on 2026-07-15. Most hits are tokenizer false-positives (already-live: Amsterdam=`ah3-nl`,
+  Frankfurt=`fh3`, Munich=`mh3-de`, etc.) or annual gatherings (Interscandi, Simmer Dim) / HC test kennels
+  (`A Harrier Central Testx`); the genuinely-new ones are usually thin/gappy → verify-first. **Per-kennel
+  history:** the global-runs response caps ~200 rows total, so pull several 6-month windows and filter by
+  `PublicKennelId` to reconstruct one kennel's full HC archive + judge cadence.
+- **🔴 HashRego (`hashrego.com/events`) is a POOR discovery source for NEW regular-trail kennels.** Its
+  public events browse (~74–86 kennels) is **overwhelmingly campouts / hash weekends / red-dress runs /
+  cruises / annual specials**, not regular weekly trails. A kennel appearing here for one campout does NOT
+  establish a live recurring dynamic source (fails the dynamic-source rule) — the kennels that DO post their
+  regular trails to HashRego (BFM, EWH3, O2H3…) are already seeded via the existing HASHREGO source. So
+  HashRego is useful for *enriching* already-known kennels' special events, not for finding new queueable
+  ones. Don't spend a refill budget enumerating it expecting regular-trail kennels.
+- **Session note:** this scheduled run's Chrome MCP **could navigate to brand-new domains** (hashrego.com,
+  china.hash.cn) without the auto-deny the queue header warns about — so non-HC website/directory
+  verification IS sometimes possible from a scheduled run. Still, machine-readable feeds on non-allowlisted
+  hosts and Meetup-Apollo extraction remain unreliable; treat per-session.
+- **`china.hash.cn/taiwan/` (All China H3 directory) is a fetch-friendly metadata source for Taiwan/China
+  kennels** — SSR HTML with per-kennel founding date, schedule (day/time/venue), and an "On On" link to the
+  kennel's FB group. Confirmed Douliu H3's "last Saturday monthly, 13:00 Douliu Baseball Stadium, founded
+  27 Jun 2009" verbatim. Good for HC-only kennels whose own site is FB-group-only.

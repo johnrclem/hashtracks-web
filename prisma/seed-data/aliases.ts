@@ -170,6 +170,10 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "lvh3-gb": ["Lune Valley H3", "Lune Valley Hash", "Lune Valley Hash House Harriers", "LVH3 Lancaster"],
     // ===== UK — CORNWALL =====
     "titsh3": ["TITs", "TITS", "Try it Thursdays", "Try It Thursdays H3", "TIT H3"],
+    // Bare "SCH3" OMITTED — claimed by sch3-atl (Southern Comfort) + sch3-ca (Surf City).
+    "sch3-gb": ["Steel City H3", "Steel City Hash House Harriers", "SCH3-GB"],
+    // Bare "MH3" OMITTED — globally taken (Munich/Montreal/Minneapolis/Miami/Madrid/Memphis/Morgantown/Manila/Dubai).
+    "mh3-gb": ["Manchester H3", "Manchester Hash House Harriers", "MH3-GB"],
     // ===== UK — NORFOLK =====
     "norfolkh3": ["Norfolk Hash", "Norfolk HHH", "Norfolk H3"],
     // ===== UK — LIVERPOOL =====
@@ -402,6 +406,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "kaohsiung-h3": ["Kaohsiung Hash", "Kaohsiung Hash House Harriers", "Kaohsiung HHH", "高雄捷兔"],
     "fishhh": ["FISHHH", "Fengyuan Irregular Sunday H3", "Fengyuan Irregular H3"],
     "tymh3-tw": ["Taoyuan Metro H3", "TyMH3", "桃園捷運兔", "Taoyuan Metro Hash House Harriers"],
+    // Omit bare "DH3" — globally taken (Dublin dh3 / Dallas dh3-tx / Denver dh3-co / Dayton dh4 / Desert dh3-ae).
+    "douliu-h3": ["Douliu H3", "Douliu Hash", "Douliu Hash House Harriers", "斗六捷兔", "斗六", "DouliuHHH"],
 
     // ===== CHINA =====
     // Bare "SHH3" omitted — already claimed by Singapore Harriets (sgharriets) and would
@@ -413,6 +419,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
 
     // ===== BELGIUM =====
     "bmph3-be": ["BMPH3", "Brussels Manneke Piss", "Manneke Piss Hash", "BMP H3"],
+    // Brussels women's hash. Bare "DivaH3"/"Diva HHH" OMITTED — both belong to Edmonton's divah3-eh3.
+    "divahhh": ["Divahhh", "Diva H3 Brussels", "Brussels Diva H3", "Diva Hash Brussels"],
     "bbmh3": ["BBMH3", "Brussels Blue Moon", "Blue Moon Hash", "Brussels Blue Moon H3"],
     "bruh3": ["BruH3", "Brussels Hash", "Brussels HHH", "Brussels Hash House Harriers", "BH3 Brussels"],
 
@@ -647,6 +655,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Brazil — first Brazil kennel ("BH3" omitted: globally taken by Boston/Buffalo/Bristol/Boulder)
     "brasilia-h3": ["Brasilia H3", "Brasília H3", "Brasilia Hash", "Brasilia HHH"],
     "bnh3": ["Brazil Nuts H3", "BNH3", "Brazil Nuts Hash", "Brazil Nuts Hash House Harriers"],
+    "rioh3": ["Rio H3", "RIOH3", "RioHHH", "Rio Hash", "Rio Hash House Harriers"],
     // Spain — first Spain kennel ("MH3" alone collides with Memphis/Munich/Montreal)
     "mijash3": ["Mijas", "Mijas HHH", "MijasH3", "MH3 Spain", "Burro Hash", "Mijas Hash House Harriers"],
     // Madrid — 2nd Spain kennel (bare "MH3" omitted: collides with Memphis/Munich/Montreal/Miami/Minneapolis)
@@ -667,6 +676,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
 
     // ===== POLAND ===== (first Poland kennel; bare "WH3" omitted — global collision risk)
     "warsaw-h3": ["Warsaw HHH", "Warsaw Hash", "Warsaw Hash House Harriers", "WH3 Warsaw"],
+    // Poland's 2nd kennel. Bare "PH3" OMITTED — taken by Petaling (ph3-my) / Pattaya / Pinelake (ph3-atl).
+    "ph3-pl": ["Poznan H3", "Poznań H3", "Poznan Hash", "Poznan Hash House Harriers", "PZNH3", "POZH3"],
 
     // ===== SRI LANKA ===== (first Sri Lanka kennel; bare "Harriettes" omitted —
     // taken by harriettes-nyc; "Colombo Hash"/"Colombo H3" belong to the men's sibling)
