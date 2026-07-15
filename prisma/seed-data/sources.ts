@@ -4279,11 +4279,16 @@ export const SOURCES = [
         // HC KennelIANATimezone = Asia/Taipei (correct, no quirk).
         publicKennelId: "2b09b8c1-f236-4cce-8fcb-39114fd4f790",
         defaultKennelTag: "douliu-h3",
-        // EventNames drift (bare numbers, "DH3 #N -" prefixes, mismatched numbers).
-        // defaultTitle synthesizes "Douliu H3 #N" when the name is empty/placeholder
-        // (mirrors Fengyuan / Bandung). No known placeholder strings to alias yet.
+        // EventNames drift badly (bare numbers "194"/"#159", "DH3 #N -" prefixes,
+        // numbers that disagree with EventNumber). defaultTitle synthesizes
+        // "Douliu H3 #N" for empty names (mirrors Fengyuan / Bandung).
+        // 🔴 staleTitleAliases can't fix the bare-number drift — it matches literals,
+        // and every future run number is a new literal. So the frozen backfill cleans
+        // its 31 past titles, but a future live run named "206" is stored verbatim.
+        // The durable fix is a `titleStripPatterns` regex knob on HarrierCentralConfig
+        // (as gcal / facebook-hosted-events already have) — deferred, see
+        // docs/kennel-onboarding/handoffs/retros/2026-07-15-hc-batch-6-retro.md §E.
         defaultTitle: "Douliu H3",
-        staleTitleAliases: [],
         // upcomingOnly:true — this source owns a one-shot ~25-run historical backfill
         // (scripts/backfill-douliu-h3-history.ts). HC getEvents is future-only, so
         // without this guard reconcile.ts would false-CANCEL aged past runs (Bandung contract).
@@ -8320,6 +8325,14 @@ export const SOURCES = [
         // defaultTitle synthesizes "Divahhh #N" only for empty/placeholder names.
         defaultTitle: "Divahhh",
         staleTitleAliases: ["Placeholder event for Divahhh"],
+        // 🔴 LIVE EXPOSURE — Walkers/Runners splits. This kennel splits one trail into two
+        // separately-numbered HC events at the SAME date+time (past: #39/#40, 2026-04-18 09:30).
+        // merge.ts `upsertCanonicalEvent` (~L1518) collapses same-date rows that share
+        // startTime OR runNumber, so a future split will silently lose one canonical — the
+        // frozen backfill worked around it by clearing the Walkers row's startTime, which
+        // only protects the PAST rows. The real fix is in merge.ts: treat two present-and-
+        // different runNumbers as a veto on the "same event" test. Until then, if a Divahhh
+        // trail goes missing around a "- Walkers"/"- Runners" pair, this is why.
         // upcomingOnly:true — REQUIRED (9-run backfill; Bandung/KRASH contract).
         upcomingOnly: true,
       },

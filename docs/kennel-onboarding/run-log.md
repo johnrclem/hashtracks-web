@@ -42,7 +42,17 @@ Format:
 > both survive; a collapse scanner now reports 0 unresolved pairs across all 4 backfills. (4) Douliu title
 > cleaning needed a fragment guard ("DH3 #160 in Douliu" → "in Douliu" is worse than the synth) → 14 real
 > themes kept, 17 synthesize. (5) Bandung anchor cited `:7443`/`:7463`, actually **`:7487`** — locate by
-> content. SHIPPED flips below; post-merge = targeted seed + 4 backfill runs + 6 scrapes.
+> content. (6) 🔴 **Steel City shipped FLAT schedule fields, dropping the handoff's `BYDAY=4SA`** — the
+> observed runs fit neither ordinal (2025-05-24 = 4th-not-last; 2025-08-30 = last-not-4th), so a
+> HIGH-confidence rule would mis-project every 5-Saturday month and the weekday-based rule-drift cron
+> couldn't catch it (Algarve/Lune Valley flat precedent).
+>
+> **Post-merge = targeted seed + 🔴 SCOPED Pass-3 + 4 backfill runs + 6 scrapes.** 🔴 A targeted
+> `seedKennels` does **NOT** create ScheduleRule rows — `runScheduleRuleBackfill` runs only from a full
+> `prisma db seed` (`prisma/seed.ts:755`), which we avoid (barbados #2471 config-revert). So mh3-gb (×3)
+> and douliu-h3 (×1) need a **scoped** Pass 3 — `runKennelSeedPass(prisma, planned, {}, <2-kennel filter>)`
+> + `applyUpserts`, never the global (it touches all 462 rules + `deactivateStaleRules`) — the Taoyuan
+> Metro precedent. Without it their rules land nowhere and nothing errors. SHIPPED flips below.
 >
 > **Also this sweep: `lima-h3` stays BLOCKED (re-verified today).** Local keyed `fetchBloggerPosts`
 > (blogId `4935356690439854808`): reachable but frozen at **Hash 765 · 2023-09-07 — 1042 days / 34.2
@@ -75,7 +85,7 @@ Format:
 
 ## 2026-07-13 — Steel City H3 (Sheffield, England)
 - Source: HARRIER_CENTRAL — `harriercentralpublicapi.azurewebsites.net/api/PortalApi/`, `publicKennelId dd9bdb87-bbf7-4b16-b458-fd0cb3059d8e` (HC KennelUniqueShortName "SCH3-GB"). Config-only (mirror a live-only HC row, e.g. Taiwan H3 / Lisbon H3).
-- Outcome: **SHIPPED — HC batch-6 PR (`onboard/hc-batch-6-20260715`)** · retro `handoffs/retros/2026-07-15-hc-batch-6-retro.md`. Config-only HC + **2 region.ts edits** (new Sheffield METRO; NO inference edit — bare `sheffield` collides with US MA/AL) + **no backfill** (live-only, `upcomingOnly` OMITTED — HC archive empty, kennel joined ~June 2026). 🔴 Shipped `country: "UK"` (handoff said "United Kingdom"). Live-verified **1 upcoming** (#22 2026-07-18 12:00, hares "Horse's Arse and Crooked Square") — exactly as predicted. Originally handed off → `handoffs/2026-07-13-sch3-gb.md`.
+- Outcome: **SHIPPED — HC batch-6 PR (`onboard/hc-batch-6-20260715`)** · retro `handoffs/retros/2026-07-15-hc-batch-6-retro.md`. Config-only HC + **2 region.ts edits** (new Sheffield METRO; NO inference edit — bare `sheffield` collides with US MA/AL) + **no backfill** (live-only, `upcomingOnly` OMITTED — HC archive empty, kennel joined ~June 2026). 🔴 Shipped `country: "UK"` (handoff said "United Kingdom"). Live-verified **1 upcoming** (#22 2026-07-18 12:00, hares "Horse's Arse and Crooked Square") — exactly as predicted. 🔴 **Shipped FLAT schedule fields — dropped the handoff's `BYDAY=4SA`**: the observed runs fit neither ordinal (2025-05-24 = 4th-not-last; 2025-08-30 = last-not-4th), so a HIGH-confidence rule would mis-project every 5-Saturday month (Algarve/Lune Valley flat precedent). Originally handed off → `handoffs/2026-07-13-sch3-gb.md`.
 - Events verified: **1 upcoming #22** via HC `getEvents` (in-browser SubtleCrypto token) — "Steel City H3 Run#22" Sat 2026-07-18 12:00, "Matlock (venue tbc)", hares "Horse's Arse and Crooked Squire", coords 53.14/−1.55 (real Matlock pin, `daysUntil:5`). `global-runs?isFuture=0` (2024→2026) → **0 past rows** (kennel joined HC ~Jun 2026). Dedup: Chrome sitemap 485 slugs, no `steel`/`sheffield`/`sch3` slug.
 - Historical backfill: **none** — 0 HC archive; real history (#1–#21) only on **stale Meetup** (`steel-city-hash-house-harriers`, #4–#7, last Aug 2025 — kennel moved to HC) + **Google Sites** inaugural page (#1–#2). Backfill skipped (marginal, multi-source, ~6 of 22 runs). → **LIVE-ONLY HC source → OMIT `upcomingOnly`** (Lisbon/Taiwan contract).
 - Follow-ups: **2 `region.ts` edits** (new Sheffield METRO under existing UK COUNTRY: METRO [violet palette, abbrev `SHF` confirmed free, centroid 53.3811/−1.4701, aliases "Sheffield, England"/"South Yorkshire"] + STATE_GROUP_MAP; **NO inference/COUNTRY_GROUP_MAP edit** — UK covers `england`, UK metros resolve via STATE_GROUP_MAP). tz `Europe/London` (correct, no HC quirk). kennelCode **`sch3-gb`** (bare `sch3`=sch3-atl/sch3-ca taken → suffix; **bare "SCH3" alias OMITTED**); slug `steel-city-h3`. Metadata verified off the kennel's own Google Sites (NOT HC-only): foundedYear **2025** (inaugural weekend 11–13 Apr 2025, Run #1 = 12 Apr), hashCash **£3** ("£3 per run sub"; free for virgins), website `sites.google.com/view/steelcityh3/home`, walkersWelcome true, schedule 4th-Sat monthly noon (`scheduleRules` FREQ=MONTHLY;BYDAY=4SA). Socials: FB group referenced in press but URL unconfirmed → blank+flag. Logo HC blob `SCH3-GB_*.avif` → self-host + magic-byte ext. No admin-seeded prod events (kennel not live). **Sheffield HHH** (blogspot/Strava) = separate older entity, not conflated.

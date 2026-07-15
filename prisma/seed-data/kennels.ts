@@ -1280,9 +1280,15 @@ export const KENNELS: KennelSeed[] = [
       website: "https://sites.google.com/view/steelcityh3/home",
       logoUrl: "/kennel-logos/sch3-gb.avif",
       scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
-      scheduleRules: [
-        { rrule: "FREQ=MONTHLY;BYDAY=4SA", startTime: "12:00", label: "Monthly 4th Saturday" },
-      ],
+      // Flat fields only — NO structured scheduleRules. The handoff proposed
+      // FREQ=MONTHLY;BYDAY=4SA, but the observed runs don't fit a single ordinal:
+      // in the two 5-Saturday months seen, 2025-05-24 was the 4th (not last) while
+      // 2025-08-30 was the last (5th, not 4th); 06-28 and 07-26 are both. So BYDAY=4SA
+      // misses the Aug-30-style runs and BYDAY=-1SA misses the May-24-style ones.
+      // A HIGH-confidence rule that's wrong whenever a month has 5 Saturdays is worse
+      // than none (the weekday-based rule-drift cron can't catch an ordinal error), so
+      // ship flat and let Pass 2 derive a LOW-confidence rule — the Algarve / Lune
+      // Valley precedent for ambiguous cadence. Revisit once HC has real history.
       foundedYear: 2025,
       hashCash: "£3",
       walkersWelcome: true,
@@ -3594,7 +3600,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "divahhh", shortName: "Divahhh", fullName: "Divahhh — Brussels Women's Hash House Harriers",
       // Edmonton's diva kennel is divah3-eh3 (distinct) — bare "DivaH3"/"Diva HHH" aliases OMITTED.
-      region: "Brussels", country: "Belgium", // Brussels METRO already seeded (0 region.ts edits)
+      region: "Brussels", country: "Belgium",
       website: "https://divahhh.webnode.page/",
       logoUrl: "/kennel-logos/divahhh.avif",
       scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Monthly",
@@ -5783,7 +5789,7 @@ export const KENNELS: KennelSeed[] = [
     // Brazil's 3rd kennel / first Rio de Janeiro (HC batch-6)
     {
       kennelCode: "rioh3", shortName: "Rio H3", fullName: "Rio Hash House Harriers",
-      region: "Rio de Janeiro", country: "Brazil", // NEW METRO — 4 region.ts edits
+      region: "Rio de Janeiro", country: "Brazil",
       // No website: the only historical site (riohhh.multiply.com) is on defunct multiply.com;
       // rioh3.com/riohhh.com don't resolve. The live external presence is the Facebook group.
       facebookUrl: "https://www.facebook.com/groups/riohash/",
@@ -5899,7 +5905,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "ph3-pl",
       shortName: "Poznan H3",
       fullName: "Poznan Hash House Harriers",
-      region: "Poznan", // NEW METRO — 3 region.ts edits
+      region: "Poznan",
       country: "Poland",
       // No website/socials found — HC is the only confirmed live presence.
       logoUrl: "/kennel-logos/ph3-pl.avif",

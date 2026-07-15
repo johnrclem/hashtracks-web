@@ -127,7 +127,32 @@ themes kept, 17 synthesize**, embedded newline in #182 collapsed.
 > **Platform note:** after a title-prefix strip, validate the *remainder* — if it isn't a theme (bare
 > number, or opens with a preposition), clear it and let merge synthesize. Never ship a fragment.
 
-### D. 🟡 `HarrierCentralConfig` has no title-strip knob → past/future title divergence
+### D. 🔴 Steel City's `BYDAY=4SA` fits neither ordinal — shipped flat instead
+
+The handoff prescribed `FREQ=MONTHLY;BYDAY=4SA` ("4th Saturday"), citing 4 observed runs as "all
+last/4th Saturday" — but those two descriptions **diverge in any 5-Saturday month**, and the observed
+data splits across both:
+
+| Run | Date | Saturdays that month | Ordinal |
+|---|---|---|---|
+| #4 | 2025-05-24 | 3, 10, 17, 24, **31** | 4th — **not** last |
+| #5 | 2025-06-28 | 7, 14, 21, 28 | 4th = last |
+| #6 | 2025-07-26 | 5, 12, 19, 26 | 4th = last |
+| #7 | 2025-08-30 | 2, 9, 16, 23, **30** | **last (5th) — not 4th** |
+
+So `BYDAY=4SA` would project 2025-08-23 and miss the real 08-30 run; `BYDAY=-1SA` would miss 05-24.
+**Neither ordinal is correct.** Because `scheduleRules` are HIGH-confidence and override the flat fields,
+this would feed Travel Mode a wrong date roughly whenever a month has five Saturdays — and the weekly
+rule-drift detector is **weekday**-based, so an ordinal error is invisible to it. Shipped **flat fields
+only** (Monthly / Saturday / 12:00), letting Pass 2 derive a LOW-confidence rule — the Algarve
+("seasonal shift → a single RRULE would misrepresent it") and Lune Valley ("shipped flat, skipped the
+optional BYSETPOS rules") precedent. Revisit once HC accumulates real history for the kennel.
+
+> **Prompt change:** "all last/4th Saturday" is not a cadence — those are two different RRULEs that only
+> coincide in 4-Saturday months. Before proposing an ordinal `BYDAY=NSA`, test the claim against every
+> observed date **in 5-Saturday months specifically**; if they split, ship flat.
+
+### E. 🟡 `HarrierCentralConfig` has no title-strip knob → past/future title divergence
 
 Douliu's title cleaning lives only in the backfill, so its 31 past runs get cleaned/synthesized titles
 while a future live run would keep HC's raw `eventName` (e.g. a bare `"206"`). There's **no fingerprint
@@ -139,6 +164,49 @@ support it. Deferred, not silently dropped.
 > the live adapter and the backfill share one cleaning rule.
 
 ---
+
+### F. 🔴 A targeted `seedKennels` post-merge does NOT create ScheduleRule rows
+
+`runScheduleRuleBackfill` (Pass 3, which is what reads `KennelSeed.scheduleRules`) is invoked **only from
+a full `prisma db seed`** — `prisma/seed.ts:755`. But the standing post-merge runbook deliberately uses a
+**targeted `seedKennels` subset** to avoid a full seed reverting other sources' prod config (barbados
+#2471). So a new kennel's `scheduleRules` would be **silently dropped**: kennel + source rows land, zero
+ScheduleRule rows, Travel Mode falls back to LOW-confidence sentinels, and nothing errors.
+
+This batch ships 4 rules across 2 kennels (mh3-gb ×3, douliu-h3 ×1), so the post-merge step must run a
+**scoped** Pass 3 — the Taoyuan Metro precedent (never the global, which touches all 462 rules and runs
+`deactivateStaleRules`):
+
+```ts
+const mine = KENNELS.filter((k) => ["mh3-gb", "douliu-h3"].includes(k.kennelCode));
+const planned: PlannedRule[] = [];
+await runKennelSeedPass(prisma, planned, {}, mine);  // 4th arg scopes the pass
+await applyUpserts(prisma, planned);                 // NOT runScheduleRuleBackfill
+```
+
+> **Runbook change:** any handoff whose kennel carries `scheduleRules` must spell out the scoped Pass-3
+> command in its post-merge section. "Targeted `seedKennels`" alone silently loses them.
+
+---
+
+## Deferred follow-ups (raised by the pre-PR review, deliberately out of scope here)
+
+1. **🔴 `merge.ts` — make a runNumber disagreement veto the same-event test.** The Divahhh
+   Walkers/Runners fix (clearing the Walkers row's `startTime`) only protects the **9 frozen past
+   rows**. Divahhh splits trails *as a practice*, so the next live split will hit
+   `upsertCanonicalEvent` (~L1518) with two future rows sharing a date and 09:30 and one canonical will
+   be silently lost. The deeper fix is ~5 lines: if both rows have a `runNumber` and they differ, treat
+   them as distinct regardless of `startTime`; fall back to today's startTime test only when a
+   runNumber is absent. That's strictly additive (`merge.test.ts:1377`'s no-runNumber case still
+   passes), but it changes collapse semantics for **every** source, so it needs its own PR + regression
+   sweep. A warning comment is on the Divahhh source row in the meantime; #39's real 09:30 should be
+   restored once merge lands.
+2. **🟡 `titleStripPatterns` on `HarrierCentralConfig`.** Douliu's bare-number titles can't be
+   expressed with `staleTitleAliases` (a literal list — every future run number is a new literal), so
+   the cleaning currently lives only in the frozen data and the live path will store "206" verbatim.
+   The gcal and facebook-hosted-events adapters already have a `titleStripPatterns` regex knob; adding
+   one to the HC config would let live + backfill share a single rule. Blast radius today is one
+   kennel, so this is a follow-up, not a blocker.
 
 ## TL;DR for the research prompt + platform notes
 
@@ -153,6 +221,10 @@ support it. Deferred, not silently dropped.
 5. **After a title-prefix strip, validate the remainder** — a fragment ("in Douliu", "with CBB") is worse
    than the synthesized default.
 6. **Cite anchors by content, not line number** (Bandung was :7443/:7463 in the handoffs, actually :7487).
+7. **"All last/4th Saturday" is two different RRULEs** — validate an ordinal `BYDAY` against dates in
+   5-Saturday months; if they split, ship flat fields (Steel City).
+8. **A handoff with `scheduleRules` must spell out the scoped Pass-3 post-merge command** — a targeted
+   `seedKennels` never creates ScheduleRule rows (only a full `db seed` does).
 7. **Keep:** the 0-upcoming-is-expected framing, the per-kennel `upcomingOnly` split, alias-collision
    discipline, the inference collision guards (never bare `rio`/`sheffield`/`manchester`), Divahhh's
    deliberate no-bbox exception, and faithful preservation of source quirks (Rio's "466" title typo,
