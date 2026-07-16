@@ -41,7 +41,7 @@ git status --short docs/kennel-onboarding/
 
 # Which handoffs are genuinely un-onboarded? A code must appear in BOTH seed files.
 for f in docs/kennel-onboarding/handoffs/[0-9]*.md; do
-  head -3 "$f" | grep -qi VOID && continue
+  head -5 "$f" | grep -qi VOID && continue  # VOID marker sits in the first ~5 lines
   for c in $(grep -oE 'kennelCode: *"[a-z0-9-]+"' "$f" | grep -oE '"[a-z0-9-]+"' | tr -d '"' | sort -u); do
     k=$(grep -c "kennelCode: \"$c\"" prisma/seed-data/kennels.ts)
     s=$(grep -cE "\"$c\"" prisma/seed-data/sources.ts)
@@ -50,8 +50,10 @@ for f in docs/kennel-onboarding/handoffs/[0-9]*.md; do
 done
 ```
 
-Run it against a **synced** tree (`git fetch && git status`) — auditing a stale checkout is what
-produced a confident, wrong "0 kennels left to onboard" while six live kennels sat unimplemented.
+Run it against a **synced** tree — `git fetch && git pull --ff-only` (or verify
+`git rev-parse HEAD` equals `git rev-parse origin/main` and abort otherwise; `git fetch` alone updates
+remote refs but leaves your checkout stale). Auditing a stale checkout is what produced a confident,
+wrong "0 kennels left to onboard" while six live kennels sat unimplemented.
 Config-only handoffs of the same type (e.g. several `HARRIER_CENTRAL` rows) are best shipped as **one
 batch PR** — see the hc-batch-4 / -6 / -10 precedent.
 

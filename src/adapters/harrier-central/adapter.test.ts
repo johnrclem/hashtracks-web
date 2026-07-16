@@ -414,6 +414,23 @@ describe("HarrierCentralAdapter", () => {
       expect(evt.sourceUrl).toBeUndefined();
     });
 
+    it("maps eventNumber to runNumber by default", async () => {
+      mockApiResponse([buildHCEvent({ eventNumber: 289 })]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "mh3-gb" }));
+      expect(result.events[0].runNumber).toBe(289);
+    });
+
+    it("suppressRunNumber:true leaves runNumber undefined but keeps the real title (#2654 Manchester)", async () => {
+      // Manchester's HC feed returns the kennel's current number (289) on every
+      // upcoming row; suppressing avoids stamping distinct trails with the same #N.
+      mockApiResponse([buildHCEvent({ eventNumber: 289, eventName: "Try it Thursday" })]);
+      const result = await adapter.fetch(
+        makeSource({ defaultKennelTag: "mh3-gb", suppressRunNumber: true }),
+      );
+      expect(result.events[0].runNumber).toBeUndefined();
+      expect(result.events[0].title).toBe("Try it Thursday");
+    });
+
     it("skips invisible events", async () => {
       mockApiResponse([buildHCEvent({ isVisible: 0 })]);
       const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));

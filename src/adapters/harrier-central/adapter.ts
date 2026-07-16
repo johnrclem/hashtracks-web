@@ -59,6 +59,18 @@ export interface HarrierCentralConfig {
    * or cleared to undefined when no defaultTitle is configured. (#1166)
    */
   staleTitleAliases?: readonly string[];
+  /**
+   * Suppress the HC `eventNumber → runNumber` mapping for this source. Some
+   * kennels (Manchester H3, #2654) haven't set per-event numbers in HC, so the
+   * API returns the kennel's *current* run number on every upcoming row — which
+   * would stamp several distinct trails with the same "#N" and display a wrong
+   * run number that accumulates on every scrape. When true, `runNumber` is left
+   * undefined (the merge preserves any real number from another source rather
+   * than asserting the stale one). Leave off for kennels whose HC numbers are
+   * genuine. Title synthesis still uses the raw eventNumber, which is harmless
+   * for such kennels because their events carry real names (no synthesis fires).
+   */
+  suppressRunNumber?: boolean;
 }
 
 /**
@@ -229,8 +241,12 @@ export class HarrierCentralAdapter implements SourceAdapter {
         // Socials / "drinking practices" come back as eventNumber=0. Map that
         // sentinel to null (explicit clear) and positive values to the number;
         // anything else stays undefined so the merge UPDATE path preserves an
-        // existing runNumber on partial HC payloads (#892).
-        runNumber: normalizeHcEventNumber(hcEvent.eventNumber),
+        // existing runNumber on partial HC payloads (#892). `suppressRunNumber`
+        // opts a kennel out entirely when HC returns a stale current-number on
+        // every row (Manchester, #2654) → undefined = preserve, never assert.
+        runNumber: config.suppressRunNumber
+          ? undefined
+          : normalizeHcEventNumber(hcEvent.eventNumber),
         startTime,
         hares,
         location,

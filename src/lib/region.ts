@@ -4018,8 +4018,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // name (Warsaw, IN/NY/MO), and inferCountry() is first-match with USA as the
   // default fallthrough. "Warsaw, Poland" still matches via the "poland" token;
   // the Polish-only "warszawa"/"polska" are unambiguous. (#2234, Codex review)
-  // `pozna[nń]` is unambiguous (no US collision), so unlike bare `warsaw` it is safe to include.
-  [/\b(poland|warszawa|polska|pozna[nń])\b/, "Poland"],
+  // `poznan` is unambiguous (no US collision), so unlike bare `warsaw` it is safe to include.
+  // The accented `poznań` can't ride the trailing `\b` (ń is a non-word char, so `pozna[nń]\b`
+  // never matches the "poznań" spelling) — add it as a bare native token, mirroring `loulé` below.
+  [/\b(poland|warszawa|polska|poznan)\b|poznań/, "Poland"],
   [/\b(portugal|lisbon|lisboa|estoril|cascais|oporto|invicta|algarve|faro|loule|almancil)\b/, "Portugal"],
   // Accented "loulé" can't ride the \b-anchored ASCII group above (é is a
   // non-word char, so the literal "loule" never matches the "loulé" spelling) —

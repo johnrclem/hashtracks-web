@@ -8370,13 +8370,17 @@ export const SOURCES = [
         // GUID is the most stable filter (verified live 2026-07-14 via HC getEvents [3 upcoming]
         // + hashruns.org/api/global-runs [0 past rows — kennel joined HC ~July 2026]).
         // HC KennelIANATimezone = Europe/London (correct, no quirk).
-        // Quirk: the future feed returns the kennel's CURRENT run number (289) on every row —
-        // benign (all rows carry real eventNames); do not read it as a per-event number.
+        // 🔴 Quirk: the future feed returns the kennel's CURRENT run number (289) on EVERY row
+        // (Manchester hasn't set per-event numbers in HC), so all 3 upcoming trails carry
+        // eventNumber 289. Titles are real and unaffected, but runNumber would render a wrong
+        // "Run #289" on 2 of 3 cards and accumulate on every scrape (#2654 Codex review) →
+        // suppressRunNumber drops the mapping for this source.
         publicKennelId: "3e87bc76-a1cc-4b04-82ce-e893a3dad797",
         defaultKennelTag: "mh3-gb",
         // HC names events with real themes ("Try it Thursday", "R*n 289 - How do you do?") → kept verbatim.
         defaultTitle: "Manchester H3",
         staleTitleAliases: ["Placeholder event for Manchester H3"],
+        suppressRunNumber: true,
         // upcomingOnly OMITTED — LIVE-ONLY HC source (no backfill); Lisbon/Taiwan/Steel City contract.
       },
       kennelCodes: ["mh3-gb"],
