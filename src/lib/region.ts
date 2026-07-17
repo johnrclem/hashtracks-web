@@ -1627,6 +1627,28 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     aliases: ["Cornwall, England", "Callington", "Kernow"],
   },
   {
+    name: "Sheffield",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "SHF",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 53.3811,
+    centroidLng: -1.4701,
+    aliases: ["Sheffield, England", "South Yorkshire"],
+  },
+  {
+    name: "Manchester",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "MCR",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 53.4808,
+    centroidLng: -2.2426,
+    aliases: ["Manchester, England", "Greater Manchester"],
+  },
+  {
     name: "Norfolk",
     country: "UK",
     timezone: "Europe/London",
@@ -1842,6 +1864,19 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 121.2969,
     aliases: ["Taoyuan, Taiwan", "桃園"],
   },
+  {
+    // Douliu (Yunlin County) is ~50 km SW of Taichung with its own county, so it gets
+    // its own METRO — unlike Fengyuan, which folds into the Taichung metro as an alias.
+    name: "Douliu",
+    country: "Taiwan",
+    timezone: "Asia/Taipei",
+    abbrev: "DOU",
+    colorClasses: "bg-sky-100 text-sky-700",
+    pinColor: "#0ea5e9",
+    centroidLat: 23.7075,
+    centroidLng: 120.5439,
+    aliases: ["Douliu, Taiwan", "斗六", "Yunlin"],
+  },
   // ── China (country → metro, like Singapore / Hong Kong / Taiwan; red palette) ──
   {
     name: "China",
@@ -2029,6 +2064,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 52.2297,
     centroidLng: 21.0122,
     aliases: ["Warsaw, Poland", "Warszawa"],
+  },
+  {
+    name: "Poznan",
+    country: "Poland",
+    timezone: "Europe/Warsaw",
+    abbrev: "POZ",
+    colorClasses: "bg-indigo-100 text-indigo-700",
+    pinColor: "#6366f1",
+    centroidLat: 52.4064,
+    centroidLng: 16.9252,
+    aliases: ["Poznan, Poland", "Poznań", "Poznań, Poland"],
   },
   // ── Nepal (first 🇳🇵 kennel: Himalayan H3, Kathmandu) — 2-level COUNTRY→METRO,
   //    mirrors the Poland precedent (no seed.ts stateMetroLinks needed). ──
@@ -3711,6 +3757,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -46.6396,
     aliases: ["Sao Paulo", "São Paulo, Brazil"],
   },
+  {
+    name: "Rio de Janeiro",
+    country: "Brazil",
+    timezone: "America/Sao_Paulo",
+    abbrev: "RIO",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#10b981",
+    centroidLat: -22.9068,
+    centroidLng: -43.1729,
+    aliases: ["Rio de Janeiro, Brazil", "Rio"],
+  },
   // ── North America — Mexico (first Mexican country; country → metro, no
   // state-province intermediate, mirroring Kenya/Indonesia/Paraguay). Fuchsia
   // palette keeps it distinct from South-America purple and the US/Canada hues. ──
@@ -3961,7 +4018,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // name (Warsaw, IN/NY/MO), and inferCountry() is first-match with USA as the
   // default fallthrough. "Warsaw, Poland" still matches via the "poland" token;
   // the Polish-only "warszawa"/"polska" are unambiguous. (#2234, Codex review)
-  [/\b(poland|warszawa|polska)\b/, "Poland"],
+  // `poznan` is unambiguous (no US collision), so unlike bare `warsaw` it is safe to include.
+  // The accented `poznań` can't ride the trailing `\b` (ń is a non-word char, so `pozna[nń]\b`
+  // never matches the "poznań" spelling) — add it as a bare native token, mirroring `loulé` below.
+  [/\b(poland|warszawa|polska|poznan)\b|poznań/, "Poland"],
   [/\b(portugal|lisbon|lisboa|estoril|cascais|oporto|invicta|algarve|faro|loule|almancil)\b/, "Portugal"],
   // Accented "loulé" can't ride the \b-anchored ASCII group above (é is a
   // non-word char, so the literal "loule" never matches the "loulé" spelling) —
@@ -4007,7 +4067,9 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // CJK branch: `\b` is ASCII-only, so Chinese-only location text (e.g. the
   // "新北市, 台灣" venue field on TwH3 events) needs explicit token matching.
   // `[台臺]` unifies the common/formal Tai- forms (台灣/臺灣, 台北/臺北, etc.).
-  [/\b(taiwan|taipei|new taipei|formosa|kaohsiung|taichung|tainan|taoyuan)\b|[台臺][灣北中南]|新北|高雄|桃園/, "Taiwan"],
+  // `douliu`/`yunlin` are unambiguous; the CJK 斗六 must ride the CJK alternation
+  // (\b is ASCII-only and can't bound CJK characters).
+  [/\b(taiwan|taipei|new taipei|formosa|kaohsiung|taichung|tainan|taoyuan|douliu|yunlin)\b|[台臺][灣北中南]|新北|高雄|桃園|斗六/, "Taiwan"],
   [/\b(thailand|bangkok|pattaya|chiang mai|chiang rai|phuket|hua hin|samui|krabi)\b/, "Thailand"],
   // Include the venue city (Parañaque) so venue-derived inference resolves;
   // without this, "Manila"/"Philippines" text falls through to "USA".
@@ -4029,7 +4091,8 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(kenya|nairobi|mombasa|kisumu)\b/, "Kenya"],
   [/\b(bali|indonesia|denpasar|bandung|lembang)\b/, "Indonesia"],
   [/\b(paraguay|asuncion|asunción|luque)\b/, "Paraguay"],
-  [/\b(brazil|brasil|bras[ií]lia|são paulo|sao paulo)\b/, "Brazil"],
+  // "rio de janeiro" only — bare `rio` would misroute US places (Rio WI / Rio Grande / Rio Rancho NM).
+  [/\b(brazil|brasil|bras[ií]lia|são paulo|sao paulo|rio de janeiro)\b/, "Brazil"],
   // Mexico — guard "New Mexico" (US state, Albuquerque) to USA BEFORE the Mexico rule
   // fires (first-match-wins), since \bmexico\b would otherwise match "New Mexico".
   [/\bnew mexico\b/, "USA"],
@@ -4197,6 +4260,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Plymouth": "United Kingdom",
   "Lancaster": "United Kingdom",
   "Cornwall": "United Kingdom",
+  "Sheffield": "United Kingdom",
+  "Manchester": "United Kingdom",
   "Norfolk": "United Kingdom",
   "Liverpool": "United Kingdom",
   "Birmingham": "United Kingdom",
@@ -4218,6 +4283,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Kaohsiung": "Taiwan",
   "Taichung": "Taiwan",
   "Taoyuan": "Taiwan",
+  "Douliu": "Taiwan",
   // China (country → metro)
   "Shanghai": "China",
   // Thailand
@@ -4246,6 +4312,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Hungary
   "Budapest": "Hungary",
   "Warsaw": "Poland",
+  "Poznan": "Poland",
   // Nepal
   "Kathmandu": "Nepal",
   // Cambodia
@@ -4370,6 +4437,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Brazil — country → metro (no state-province intermediate)
   "Brasília": "Brazil",
   "São Paulo": "Brazil",
+  "Rio de Janeiro": "Brazil",
   // Mexico — country → metro (no state-province intermediate)
   "Mexico City": "Mexico",
 };
