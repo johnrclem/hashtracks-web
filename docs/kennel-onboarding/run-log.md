@@ -31,7 +31,7 @@ Format:
 > creation**, so the blast radius was near-zero: only the 6 batch kennels were touched (no other kennel
 > profile overwritten), **zero** other source configs changed (the 17 other sources touched in the hour
 > were all routine scrape-cron), and `deactivateStaleRules` never ran (schedule rules 447→451 = only the
-> +4 mine, 78 inactive unchanged). **Fix follow-up: [PR #TBD] adds an entry-point guard to
+> +4 mine, 78 inactive unchanged). **Fix follow-up: [PR #2655](https://github.com/johnrclem/hashtracks-web/pull/2655) adds an entry-point guard to
 > `prisma/seed.ts`** so importing it is inert (mirrors `scripts/backfill-schedule-rules.ts`). Lesson:
 > never `import` from `prisma/seed.ts` in a one-shot; write self-contained upserts, or import from the
 > entry-point-guarded `scripts/backfill-schedule-rules.ts` for scoped Pass 3.

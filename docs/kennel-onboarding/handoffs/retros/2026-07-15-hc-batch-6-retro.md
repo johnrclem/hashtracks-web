@@ -221,7 +221,7 @@ The scoped one-shot's `process.exit(0)` killed the runaway `main()` right after 
 damage was near-zero (only the 6 batch kennels touched; no other configs; `deactivateStaleRules` never
 ran). But the trap is real and will recur.
 
-> **Fix (shipped as a follow-up PR):** add the entry-point guard `scripts/backfill-schedule-rules.ts`
+> **Fix ([PR #2655](https://github.com/johnrclem/hashtracks-web/pull/2655)):** add the entry-point guard `scripts/backfill-schedule-rules.ts`
 > already uses — `const entryPoint = (process.argv[1] ?? "").replace(/\\/g,"/"); if
 > (entryPoint.endsWith("/seed.ts")) main()...` — so importing `prisma/seed.ts` is inert and only
 > `npx prisma db seed` / direct exec runs it.
