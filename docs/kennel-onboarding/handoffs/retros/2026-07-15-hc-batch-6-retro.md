@@ -222,7 +222,7 @@ damage was near-zero (only the 6 batch kennels touched; no other configs; `deact
 ran). But the trap is real and will recur.
 
 > **Fix ([PR #2655](https://github.com/johnrclem/hashtracks-web/pull/2655)):** add the entry-point guard `scripts/backfill-schedule-rules.ts`
-> already uses — `const entryPoint = (process.argv[1] ?? "").replace(/\\/g,"/"); if
+> already uses — `const entryPoint = (process.argv[1] ?? "").replaceAll("\\","/"); if
 > (entryPoint.endsWith("/seed.ts")) main()...` — so importing `prisma/seed.ts` is inert and only
 > `npx prisma db seed` / direct exec runs it.
 >

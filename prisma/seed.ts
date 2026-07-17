@@ -771,7 +771,7 @@ async function main() {
 // full seed as an import side effect (overwriting every kennel/source + running
 // the global schedule-rule backfill). tsx sets process.argv[1] to the absolute
 // path of the invoked script. Mirrors the guard in scripts/backfill-schedule-rules.ts.
-const entryPoint = (process.argv[1] ?? "").replace(/\\/g, "/");
+const entryPoint = (process.argv[1] ?? "").replaceAll("\\", "/");
 if (entryPoint.endsWith("/seed.ts") || entryPoint.endsWith("prisma/seed.ts")) {
   main().catch((e) => {
     console.error(e);
