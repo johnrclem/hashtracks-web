@@ -764,7 +764,17 @@ async function main() {
   await prisma.$disconnect();
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+// Only run the full seed when this file is executed directly (via the Prisma
+// seed command `npx tsx prisma/seed.ts`), NOT when it is imported. Without this
+// guard, any `import { seedKennels, toSlug } from "./prisma/seed"` — e.g. a
+// scoped post-merge one-shot reusing seedKennels — silently fires the ENTIRE
+// full seed as an import side effect (overwriting every kennel/source + running
+// the global schedule-rule backfill). tsx sets process.argv[1] to the absolute
+// path of the invoked script. Mirrors the guard in scripts/backfill-schedule-rules.ts.
+const entryPoint = (process.argv[1] ?? "").replace(/\\/g, "/");
+if (entryPoint.endsWith("/seed.ts") || entryPoint.endsWith("prisma/seed.ts")) {
+  main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
+}

@@ -208,6 +208,30 @@ await applyUpserts(prisma, planned);                 // NOT runScheduleRuleBackf
    one to the HC config would let live + backfill share a single rule. Blast radius today is one
    kennel, so this is a follow-up, not a blocker.
 
+## Post-merge incident — importing `prisma/seed.ts` auto-runs the FULL seed
+
+The post-merge runbook says "targeted `seedKennels`". Reusing the *real* tested `seedKennels` means
+importing it — but **`prisma/seed.ts` has an unguarded top-level `main().catch()`**, so
+`import { seedKennels } from "./prisma/seed"` fired the entire full seed as an import side effect,
+running concurrently with the scoped call against prod. The tell was a string of misleading `P2002`
+"unique on (name)" errors on region names that didn't exist (two racing `create`s) — which looked like
+a driver / prepared-statement bug and cost real time to chase before the double `main()` was spotted.
+
+The scoped one-shot's `process.exit(0)` killed the runaway `main()` right after region creation, so the
+damage was near-zero (only the 6 batch kennels touched; no other configs; `deactivateStaleRules` never
+ran). But the trap is real and will recur.
+
+> **Fix (shipped as a follow-up PR):** add the entry-point guard `scripts/backfill-schedule-rules.ts`
+> already uses — `const entryPoint = (process.argv[1] ?? "").replace(/\\/g,"/"); if
+> (entryPoint.endsWith("/seed.ts")) main()...` — so importing `prisma/seed.ts` is inert and only
+> `npx prisma db seed` / direct exec runs it.
+>
+> **Rule for the runbook:** a scoped post-merge seed must **never** `import` from `prisma/seed.ts`.
+> Write self-contained upserts against the `@/lib/db` singleton, and for scoped Pass 3 import from the
+> already-guarded `scripts/backfill-schedule-rules.ts` (`runKennelSeedPass` + `applyUpserts`). Read the
+> prod `DATABASE_URL` from the **main repo** `.env` (the worktree's may point at the local dev DB) and
+> pass it explicitly with a host guard.
+
 ## TL;DR for the research prompt + platform notes
 
 1. **🔴 Commit the daily run's output.** Six kennels were invisible for six days because their handoffs
