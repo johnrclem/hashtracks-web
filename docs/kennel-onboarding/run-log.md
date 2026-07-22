@@ -12,6 +12,30 @@ Format:
 - Follow-ups: <anything deferred>
 ```
 
+> **✅ POST-MERGE LIVE (2026-07-16, all prod-verified) — HC BATCH-6.** [PR #2654](https://github.com/johnrclem/hashtracks-web/pull/2654)
+> merged (`71d5ca1f`); all 6 kennels live: **rio-h3 3 · poznan-h3 3 · divahhh 9 · steel-city-h3 1 ·
+> manchester-h3 3 · douliu-h3 31** canonical events (46 backfill + 4 live), **0 cancelled on every
+> source** (the `upcomingOnly` reconcile contract held), correct region badges, all 6 `/kennels/*` +
+> all 6 `/kennel-logos/*` serve 200. Scoped **Pass 3** created the 4 `scheduleRules` (mh3-gb 3 ·
+> douliu-h3 1) via `runKennelSeedPass` + `applyUpserts` (Taoyuan precedent — NOT the global
+> `runScheduleRuleBackfill`). Steel City & Manchester shipped **live-only** (0 backfill); the other 4
+> are backfill + 0-upcoming (recently-active, expected). Divahhh landed **9** — the same-day #39/#40
+> Walkers/Runners collapse guard held in the real merge (both survived, not 8).
+>
+> 🔴 **Incident during the post-merge seed — importing `prisma/seed.ts` auto-runs the FULL seed.** The
+> scoped-seed one-shot `import`ed `seedKennels` from `prisma/seed.ts`, whose **unguarded top-level
+> `main().catch()`** fired the entire full seed as an import side effect, running **concurrently** with
+> the scoped call against prod. That concurrency (two racing `region.create`s) produced misleading
+> `P2002` "unique on (name)" errors on names that didn't exist — not a driver bug, self-inflicted. The
+> one-shot's `process.exit(0)` then killed the runaway `main()` **very early, right after region
+> creation**, so the blast radius was near-zero: only the 6 batch kennels were touched (no other kennel
+> profile overwritten), **zero** other source configs changed (the 17 other sources touched in the hour
+> were all routine scrape-cron), and `deactivateStaleRules` never ran (schedule rules 447→451 = only the
+> +4 mine, 78 inactive unchanged). **Fix follow-up: [PR #2655](https://github.com/johnrclem/hashtracks-web/pull/2655) adds an entry-point guard to
+> `prisma/seed.ts`** so importing it is inert (mirrors `scripts/backfill-schedule-rules.ts`). Lesson:
+> never `import` from `prisma/seed.ts` in a one-shot; write self-contained upserts, or import from the
+> entry-point-guarded `scripts/backfill-schedule-rules.ts` for scoped Pass 3.
+
 > **2026-07-15 — HC BATCH-6 SHIPPED (Rio · Poznan · Divahhh · Steel City · Manchester · Douliu).** The
 > six config-only `HARRIER_CENTRAL` handoffs from the 2026-07-10→15 daily runs — **generated but never
 > implemented** — were built in **one batch PR** (hc-batch-4 #2622 / hc-batch-10 #2526 precedent). Zero
