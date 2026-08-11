@@ -106,6 +106,37 @@ falls back to 2026-02-22, re-run is a clean no-op, and running the real scrape +
 pipeline against the live feed afterwards leaves it at 1 — the `nah3` copy does not
 resurrect.
 
+### Second duplicate class: a trail that changed date (`20260811210000`)
+
+The cutover produced two *different* kinds of duplicate. The Friendsgiving one above was
+a **relabel** — the same trail carried a different kennel prefix on each site, so it
+landed on two kennels. The other is a **reschedule**: the relaunched site moved a trail
+to a different day but kept its run number.
+
+```text
+LIL #152   2026-09-12 (old HTML site)  ->  2026-09-05 (live feed)
+```
+
+Because merge keys on kennel + date, the moved trail is created as a new canonical event
+on the new date while the old row survives on the old one — same trail, listed twice, a
+week apart, and the stale copy can never be refreshed or reconciled away because its only
+source is the disabled HTML scraper.
+
+`20260811210000_hashnyc_date_shift_dedupe` deletes these. It is written as a **predicate**
+rather than a hard-coded row, so any sibling from the same cutover is caught: delete a
+future, non-manual, run-numbered event with no attendance/check-ins/links whose *only*
+provenance is the retired HTML scraper, **when a twin with the same kennel + run number
+exists on another date and that twin is backed by a live source**. The twin requirement
+is what makes it safe — the surviving copy is always the live one.
+
+**What it deliberately does not touch.** Six other HTML-only future orphans exist
+(`lil #154`/`#155`, `nych3 #2174`-`#2177`). Their run numbers appear *nowhere* in the
+feed, which currently stops at `LIL #153` / `NYC #2173` — the old site simply published
+further ahead than the new feed does. They are real trails, not duplicates; when the feed
+catches up, merge will match them on kennel + date and enrich them in place. Verified: after
+the migration all six survive and **zero** duplicate run numbers remain across the 12 NYC
+kennels.
+
 > ⚠️ **Vercel preview builds run `prisma migrate deploy` against the production
 > database.** A migration in an open PR is applied to prod at preview-build time, before
 > review or merge. Once that happens the file is immutable: editing it changes its
