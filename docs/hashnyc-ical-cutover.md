@@ -19,7 +19,7 @@ see any events. The feed is also far better structured than the HTML ever was: k
 is a reliable `SUMMARY` prefix, hares + hash cash are labelled lines in `DESCRIPTION`,
 venue is a first-class `LOCATION`, and map pins arrive as `maps.app.goo.gl` links.
 
-```
+```text
 SUMMARY:NYC #2154
 LOCATION:Malt & Mold, 362 Second Ave
 DESCRIPTION:Hares: Gabe the Babe\nHash Cash: $3\nMap: https://maps.app.goo.gl/…
@@ -35,10 +35,14 @@ DESCRIPTION:Hares: Gabe the Babe\nHash Cash: $3\nMap: https://maps.app.goo.gl/�
   provisions the ICAL_FEED row + its 12 `SourceKennel` links **and** disables the
   legacy row in one transaction. Vercel runs `migrate deploy`, never `db seed`, so a
   disable-only migration would have taken hashnyc dark until someone hand-seeded.
+- `prisma/migrations/20260811130000_hashnyc_friendsgiving_dedupe/` — deletes the
+  orphaned duplicate of the 2026-11-14 trail and adds the fail-loud post-state
+  assertion the first migration could no longer carry (see below).
 - `src/adapters/ical/adapter.ts` — `maps.app.goo.gl` in `MAPS_URL_PATTERN`, and a
   maps-shaped `URL:` property routes to `locationUrl` instead of `sourceUrl`
   (shipped earlier in #2541).
-- `src/adapters/ical/adapter.test.ts` — `describe("ICalAdapter — HashNYC …")`.
+- `src/adapters/ical/adapter.test.ts` — `describe("ICalAdapter — HashNYC …")`, covering
+  all 12 routed kennels including the five dormant ones.
 
 `src/adapters/html-scraper/hashnyc.ts` was **kept**: it is still the default
 HTML_SCRAPER factory in `src/adapters/registry.ts` for sources with no URL-pattern
@@ -70,29 +74,45 @@ and `^Queens Black Knights|^QBK` must precede the generic `^Queens`.
 The two New Amsterdam series are genuinely separate and both live:
 `nawwh3` = "NAWW #NNN" (monthly, #387-393), `nah3` = "NASS #NNN" (seasonal, #298-304).
 
-### Resolved in the same migration: the 2026-11-14 Friendsgiving duplicate
+### The 2026-11-14 Friendsgiving duplicate (fixed in a follow-up migration)
 
 Prod held `NASS #304` → `nah3` on 2026-11-14 (ingested from the old HTML scraper); the
 relaunched feed calls that same date + theme `NAWW #396` → `nawwh3`. Because the merge
-pipeline keys on kennel + date, leaving both would have surfaced the **same trail twice**,
-once per kennel page, with the `nah3` copy orphaned on a retired source.
-
-Step 4 of the cutover migration **re-homes** that row (`nah3` → `nawwh3`, run 304 → 396,
-title → "Friendsgiving 2026") rather than deleting it. Re-homing keeps the `Event` id, so
-the incoming iCal RawEvent merges into it and *enriches* it (hares, cost) instead of
-creating a second row — and there is never a window where the trail is missing. It
-carried no attendance, check-ins, or hares, so nothing was at risk; the migration still
-guards on all of those and skips with a NOTICE if any appear before deploy, if the row is
-a manual entry, or if `nawwh3` already holds an event that day. Both kennels'
-`lastEventDate` are recomputed.
+pipeline keys on kennel + date, the two labels produce two separate canonical events and
+2026-11-14 showed the **same trail on both kennel pages**, with the `nah3` copy orphaned
+on the retired source.
 
 Corroborating signals for treating it as one trail: identical date, identical theme, and
 a 14:00 start matching the NAWW series exactly. The feed carries no `NASS` events at all
 any more, so the series appears to have been consolidated upstream.
 
-Verified end-to-end on a prod-copy DB: after the migration, running the real
-scrape + merge pipeline against the live feed left **exactly one** event on 2026-11-14
-(`nawwh3 #396`, enriched with hares + cost, same `Event` id).
+**Why it took two migrations.** The plan was to *re-home* the `nah3` row onto `nawwh3`
+inside the cutover migration, preserving its `Event` id. That never happened, because
+`20260810120000` had **already been applied to production by a Vercel preview build of
+this PR** (`finished_at` 2026-08-11 00:56 UTC) before the re-home was written — see the
+warning below. By then the live feed had already created the `nawwh3` row on its own, so
+re-homing was moot and the correct cleanup became a *delete* of the orphan.
+
+`20260811130000_hashnyc_friendsgiving_dedupe` therefore deletes the `nah3` copy and
+recomputes both kennels' `lastEventDate`. The delete is heavily guarded and skips with a
+`NOTICE` unless all hold: the row is the expected non-manual nah3/2026-11-14/#304 event,
+it carries no attendance / check-ins / event links, **its only source is the retired HTML
+scraper**, and `nawwh3` already holds a live event that day — so the trail can never
+vanish from the site. Its two RawEvents are detached with `processed = true` (not
+`false`, which would re-queue them and re-create the row) and kept as audit trail.
+
+Verified on a prod-copy DB: 2 events → 1 (`nawwh3 #396`), `nah3.lastEventDate` correctly
+falls back to 2026-02-22, re-run is a clean no-op, and running the real scrape + merge
+pipeline against the live feed afterwards leaves it at 1 — the `nah3` copy does not
+resurrect.
+
+> ⚠️ **Vercel preview builds run `prisma migrate deploy` against the production
+> database.** A migration in an open PR is applied to prod at preview-build time, before
+> review or merge. Once that happens the file is immutable: editing it changes its
+> checksum and every later `migrate deploy` fails with a checksum mismatch, blocking all
+> deploys. That is exactly what happened here — the fix was to restore
+> `20260810120000` byte-for-byte to the applied version and move the follow-up work into
+> a new migration. **Never edit a migration after pushing it to an open PR.**
 
 ## Verification performed (2026-08-10)
 

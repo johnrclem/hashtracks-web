@@ -1605,6 +1605,46 @@ const HASHNYC_ICS = [
   "SUMMARY:NYC Beer Mile",
   "DTSTAMP:20260601T000000Z",
   "END:VEVENT",
+  // ── Dormant kennels ────────────────────────────────────────────────────────
+  // These five publish sporadically and had no event in the feed window when the
+  // cutover shipped, but they stay linked to the source and keep their patterns.
+  // Without a fixture row their routes could regress silently, so each gets one
+  // VEVENT here. Both the spelled-out and abbreviated spellings are exercised.
+  "BEGIN:VEVENT",
+  "UID:knick#175@hashnyc.com",
+  "DTSTART;TZID=America/New_York:20260905T140000",
+  "DURATION:PT2H",
+  "SUMMARY:Knickerbocker #175",
+  "DTSTAMP:20260601T000000Z",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:si#2@hashnyc.com",
+  "DTSTART;TZID=America/New_York:20260912T140000",
+  "DURATION:PT2H",
+  "SUMMARY:Staten Island #2: Ferry Tale",
+  "DTSTAMP:20260601T000000Z",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:columbia#130@hashnyc.com",
+  "DTSTART;TZID=America/New_York:20260919T140000",
+  "DURATION:PT2H",
+  "SUMMARY:Columbia #130",
+  "DTSTAMP:20260601T000000Z",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:harriettes#1335@hashnyc.com",
+  "DTSTART;TZID=America/New_York:20260926T140000",
+  "DURATION:PT2H",
+  "SUMMARY:Harriettes #1335",
+  "DTSTAMP:20260601T000000Z",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:dp#10@hashnyc.com",
+  "DTSTART;TZID=America/New_York:20261003T190000",
+  "DURATION:PT2H",
+  "SUMMARY:Drinking Practice #10",
+  "DTSTAMP:20260601T000000Z",
+  "END:VEVENT",
   "END:VCALENDAR",
 ].join("\r\n");
 
@@ -1663,11 +1703,19 @@ describe("ICalAdapter — HashNYC (relaunch iCal migration)", () => {
     expect(byTag("nah3")).toEqual([304]);
     // Both the spelled-out "Queens" and the "QBK" abbreviation → qbk.
     expect(byTag("qbk").sort((a, b) => Number(a) - Number(b))).toEqual([73, 249]);
+    // Dormant kennels: no events in the feed window at cutover, but still linked
+    // to the source — assert their routes so they can't regress unnoticed.
+    expect(byTag("knick")).toEqual([175]);
+    expect(byTag("si")).toEqual([2]);
+    expect(byTag("columbia")).toEqual([130]);
+    expect(byTag("harriettes-nyc")).toEqual([1335]);
+    expect(byTag("drinking-practice-nyc")).toEqual([10]);
     // Nothing falls through to the UNKNOWN sentinel or the default kennel.
     expect(result.events.every((e) => e.kennelTags[0] !== "UNKNOWN")).toBe(true);
-    // 3 nych3 + 1 each brh3/ggfm/lil/nawwh3/nah3 + 2 qbk — every fixture VEVENT
-    // is accounted for above, so nothing silently routed to the default kennel.
-    expect(result.events).toHaveLength(10);
+    // 3 nych3 + 2 qbk + 1 each brh3/ggfm/lil/nawwh3/nah3 + 5 dormant — every
+    // fixture VEVENT is accounted for above, so nothing silently routed to the
+    // default kennel (which is nych3, and would otherwise absorb a miss).
+    expect(result.events).toHaveLength(15);
   });
 
   it("extracts hares, hash cash, and venue from a full NYC VEVENT", async () => {

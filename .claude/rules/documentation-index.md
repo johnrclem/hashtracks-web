@@ -17,6 +17,6 @@ globs:
 - `docs/test-coverage-analysis.md` -- Test coverage gap analysis and priorities
 - `docs/self-healing-automation-plan.md` -- Self-healing automation loop architecture, confidence scoring, roadmap
 - `docs/residential-proxy-spec.md` -- Architecture and deployment guide for residential proxy
-- `docs/hashnyc-ical-cutover.md` -- SHIPPED cutover: HashNYC HTML scraper -> iCal feed (relaunch label changes, NAWW-vs-NASS routing rule, open 2026-11-14 duplicate)
+- `docs/hashnyc-ical-cutover.md` -- SHIPPED cutover: HashNYC HTML scraper -> iCal feed (relaunch label changes, NAWW-vs-NASS routing rule, 2026-11-14 Friendsgiving re-homed to nawwh3)
 - `infra/proxy-relay/` -- NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `infra/browser-render/` -- NAS-hosted Playwright rendering service (Dockerfile + server.js)
