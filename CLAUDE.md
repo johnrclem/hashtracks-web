@@ -281,7 +281,7 @@ logbook + kennel directory.
 ## Active Sources (155)
 
 ### NYC / NJ / Philly (8 sources)
-- **hashnyc.com** → HTML_SCRAPER → 11 NYC-area kennels
+- **hashnyc.com** → ICAL_FEED → 12 NYC-area kennels (moved off HTML_SCRAPER after the 2026 site relaunch — see `docs/hashnyc-ical-cutover.md`)
 - **Summit H3 Spreadsheet** → GOOGLE_SHEETS → 3 NJ kennels (Summit, SFM, ASSSH3)
 - **Rumson H3 Static Schedule** → STATIC_SCHEDULE → Rumson H3
 - **BFM Google Calendar** → GOOGLE_CALENDAR → BFM, Philly H3
