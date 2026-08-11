@@ -70,15 +70,29 @@ and `^Queens Black Knights|^QBK` must precede the generic `^Queens`.
 The two New Amsterdam series are genuinely separate and both live:
 `nawwh3` = "NAWW #NNN" (monthly, #387-393), `nah3` = "NASS #NNN" (seasonal, #298-304).
 
-### Known open item: 2026-11-14 Friendsgiving
+### Resolved in the same migration: the 2026-11-14 Friendsgiving duplicate
 
-Prod holds `NASS #304` → `nah3` on 2026-11-14 (ingested from the old HTML scraper).
-The relaunched feed calls that same date + theme `NAWW #396` → `nawwh3`. Because the
-merge pipeline keys on kennel + date, this surfaces as **two events on 2026-11-14**,
-one per kennel — the `nah3` copy now orphaned on a retired source. It is one event and
-does not block the cutover; resolve by deleting the stale `nah3` row if the kennels
-confirm the trail moved to the NAWW series. The feed carries no `NASS` events at all
-any more, which suggests the series may have been consolidated upstream.
+Prod held `NASS #304` → `nah3` on 2026-11-14 (ingested from the old HTML scraper); the
+relaunched feed calls that same date + theme `NAWW #396` → `nawwh3`. Because the merge
+pipeline keys on kennel + date, leaving both would have surfaced the **same trail twice**,
+once per kennel page, with the `nah3` copy orphaned on a retired source.
+
+Step 4 of the cutover migration **re-homes** that row (`nah3` → `nawwh3`, run 304 → 396,
+title → "Friendsgiving 2026") rather than deleting it. Re-homing keeps the `Event` id, so
+the incoming iCal RawEvent merges into it and *enriches* it (hares, cost) instead of
+creating a second row — and there is never a window where the trail is missing. It
+carried no attendance, check-ins, or hares, so nothing was at risk; the migration still
+guards on all of those and skips with a NOTICE if any appear before deploy, if the row is
+a manual entry, or if `nawwh3` already holds an event that day. Both kennels'
+`lastEventDate` are recomputed.
+
+Corroborating signals for treating it as one trail: identical date, identical theme, and
+a 14:00 start matching the NAWW series exactly. The feed carries no `NASS` events at all
+any more, so the series appears to have been consolidated upstream.
+
+Verified end-to-end on a prod-copy DB: after the migration, running the real
+scrape + merge pipeline against the live feed left **exactly one** event on 2026-11-14
+(`nawwh3 #396`, enriched with hares + cost, same `Event` id).
 
 ## Verification performed (2026-08-10)
 
