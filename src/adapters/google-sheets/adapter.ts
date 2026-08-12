@@ -130,6 +130,16 @@ export interface GoogleSheetsConfig {
   gid?: number;
   /** Direct CSV export URL for anonymous published sheets (e.g., /d/e/.../pub?output=csv). Bypasses tab discovery. */
   csvUrl?: string;
+  /**
+   * Opt-in: skip rows with no resolvable run number instead of emitting them
+   * with `runNumber: undefined` (the #1625 default). For sheets that mix
+   * numbered trails with un-numbered social/pub-meet rows (e.g. Mickleover
+   * H3's winter "social only" rows, which lack a Run # cell entirely) — the
+   * numbered-runs-only kennel wants those dropped, not ingested as blank
+   * events. Default `false` preserves existing behavior for sheets that
+   * legitimately mix numbered and unnumbered rows (MASS H3, MFMH3).
+   */
+  requireRunNumber?: boolean;
 }
 
 /** Month abbreviation → 1-based month number lookup. */
@@ -577,6 +587,7 @@ function resolveKennelTagFromSheetRow(
   // (#1625) Empty-# rows like MASS H3's 5th Birthday (#1639) and MFMH3's
   // 12-of-13 unnumbered rows (#1657) used to fall through here and get
   // silently filtered.
+  if (config.requireRunNumber) return null;
   return { kennelTag: config.kennelTagRules.default, runNumber: undefined };
 }
 

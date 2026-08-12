@@ -12,6 +12,19 @@ Format:
 - Follow-ups: <anything deferred>
 ```
 
+> **CONFIG BATCH C (2026-08-12) — 3 new kennels + 1 source-add, part of the 20-kennel backlog rescue.**
+> Built from four handoffs generated 2026-07-21 → 08-09 that sat uncommitted for weeks (see
+> `handoffs/retros/2026-08-11-backlog-rescue-retro.md`): **Devon Lunatics H3 (`dlh3-gb`, Exeter,
+> GOOGLE_CALENDAR) · Isca H3 (`isca-h3`, Exeter, GOOGLE_CALENDAR) · JaxH3 (`jax-h3`, Jacksonville FL,
+> ICAL_FEED source-add on an existing sourceless kennel) · Mickleover H3 (`mickleover-h3`, East
+> Midlands, GOOGLE_SHEETS).** Config-only across all four adapters, plus one small opt-in
+> `GoogleSheetsConfig.requireRunNumber` flag (~5 lines + 2 tests) to cleanly drop Mickleover's
+> unnumbered winter "social" rows. New Exeter METRO (shared by the two Devon kennels) + East Midlands
+> METRO (carried here since the sibling Quorn H3 handoff hasn't shipped). Re-verified all 4 sources
+> fresh at build time rather than trusting the stale handoffs — every archive had grown since
+> research (Isca 359→401 events, Mickleover #362→#364). 4 self-hosted logos, all magic-byte verified.
+> Full retro: `handoffs/retros/2026-08-09-config-batch-retro.md`.
+>
 > **✅ POST-MERGE LIVE (2026-07-16, all prod-verified) — HC BATCH-6.** [PR #2654](https://github.com/johnrclem/hashtracks-web/pull/2654)
 > merged (`71d5ca1f`); all 6 kennels live: **rio-h3 3 · poznan-h3 3 · divahhh 9 · steel-city-h3 1 ·
 > manchester-h3 3 · douliu-h3 31** canonical events (46 backfill + 4 live), **0 cancelled on every

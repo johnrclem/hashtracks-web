@@ -8444,5 +8444,100 @@ export const SOURCES = [
       },
       kennelCodes: ["mh3-gb"],
     },
+    // ===== CONFIG BATCH C =====
+    {
+      name: "Devon Lunatics H3 Google Calendar",
+      url: "devonlunaticshashhouseharriers@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 3300, // ~9 years -> reaches the 2018 floor; a full-archive calendar (no upcomingOnly needed)
+      config: {
+        defaultKennelTag: "dlh3-gb",
+        defaultTitle: "Devon Lunatics H3",
+        futureHorizonDays: 200, // upcoming events reach ~Dec (default cap 180 would just barely include them)
+        // Summaries jam venue + hare after "Devon Lunatics H3 - "; strip the
+        // prefix, then route the "vytbc" (venue+hare-to-be-confirmed)
+        // placeholder that remains to the default title.
+        titleStripPatterns: [String.raw`^Devon Lunatics H3\s*-\s*`],
+        staleTitleAliases: { "dlh3-gb": ["vytbc"] },
+        // No titleHarePattern — the post-strip venue/hare split is unreliable
+        // (silent-corruption caution); location/coords come from the GCal
+        // LOCATION field (full postal addresses), not the title.
+      },
+      kennelCodes: ["dlh3-gb"],
+    },
+    {
+      name: "Isca H3 Google Calendar",
+      url: "iscahareraiser@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 3600, // reach the 2017-07 floor; full-archive calendar (no upcomingOnly needed)
+      config: {
+        defaultKennelTag: "isca-h3",
+        includeAllDayEvents: true, // captures the multi-day "Roman Away Day" signature annual event
+        defaultTitle: "Isca H3 Trail",
+        defaultStartTime: "19:30",
+        // Summaries are "Isca H3 - {venue}[. {hare(s)}]"; strip the prefix.
+        // An all-empty remainder already falls back to defaultTitle. No
+        // titleHarePattern — the post-venue segment is inconsistently
+        // delimited (sometimes a hare, sometimes part of the venue); the
+        // structured LOCATION field is the reliable venue/geocode source.
+        titleStripPatterns: [String.raw`^Isca H3\s*-\s*`],
+      },
+      kennelCodes: ["isca-h3"],
+    },
+    {
+      name: "Mickleover H3 Run Log Sheet",
+      url: "https://docs.google.com/spreadsheets/d/1oZFMbkKFQp2rBM3x4LUt9vGOImCbsFOnyriQdO6xSCg/export?format=csv&gid=0",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 12500, // full-archive pull (1993-present); buildDateWindow is symmetric -> no upcomingOnly
+      config: {
+        sheetId: "1oZFMbkKFQp2rBM3x4LUt9vGOImCbsFOnyriQdO6xSCg",
+        // Direct CSV export of the "MH3 Full Run log" tab (gid=0) — anonymously
+        // fetchable. NOTE the gid inversion: gid=0 is the full log (this tab);
+        // gid=1624247485 is a single-cell "Next run" form, not a data source.
+        csvUrl: "https://docs.google.com/spreadsheets/d/1oZFMbkKFQp2rBM3x4LUt9vGOImCbsFOnyriQdO6xSCg/export?format=csv&gid=0",
+        // Header: Run # | Date | Pub Name | GoogleMaps | street | town/village | PostCode | Hares | Info | Pack Size | Pubs
+        columns: {
+          runNumber: 0,
+          date: 1, // "DD-MMM-YY" — natively parsed by parseDMonDate (2-digit pivot: 26->2026, 94->1994)
+          location: 2,
+          address: 6, // PostCode — best UK geocode key (street col 4 / town col 5 are partial)
+          hares: 7,
+          description: 8, // Info notes only, not a title
+        },
+        startTimeRules: { default: "19:15" }, // no time column; Monday 7:15pm confirmed on-site
+        kennelTagRules: { default: "mickleover-h3" },
+        // Winter "social only" rows carry a blank Run # cell (their "social"
+        // marker sits inconsistently in Info or the unmapped Pack Size column).
+        // requireRunNumber uniformly drops every blank-run# row regardless of
+        // where the marker lives, which a silentlySkipPatterns text match can't.
+        requireRunNumber: true,
+      },
+      kennelCodes: ["mickleover-h3"],
+    },
+    {
+      name: "Jacksonville H3 Timely iCal",
+      url: "https://events.timely.fun/api/calendars/54747312/export?format=ics",
+      type: "ICAL_FEED" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 400, // reach the ~9-month past archive; feed is full-archive (no upcomingOnly)
+      config: {
+        defaultKennelTag: "jax-h3",
+        // Titles are "Jax H3 - #NNNN Theme" / "Jax Urban H3 - #NNNN Theme"
+        // (hyphen, not colon); strip the kennel-label + run marker off the
+        // title, leaving just the theme. Longest-first ordering (the helper
+        // also sorts) so "Jax Urban H3 -" isn't half-stripped to "Urban H3 -".
+        titleStripPrefixAliases: ["Jax Urban H3", "Jax H3"],
+        // NO upcomingOnly — full-archive feed (returns the ~9-month past
+        // window on every scrape; nothing ages out for reconcile to false-cancel).
+      },
+      kennelCodes: ["jax-h3"],
+    },
   ];
 

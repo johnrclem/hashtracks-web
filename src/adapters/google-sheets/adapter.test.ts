@@ -325,6 +325,36 @@ describe("buildEventFromSheetRow", () => {
     expect(event!.runNumber).toBeUndefined();
   });
 
+  it("requireRunNumber: drops a blank-run# row instead of the #1625 default fallthrough (Mickleover winter socials)", () => {
+    // Opt-in flag for sheets that mix numbered trails with un-numbered
+    // social/pub-meet rows — the numbered-runs-only kennel wants those
+    // dropped, not ingested as blank events (contrast the #1625 tests above,
+    // whose sheets legitimately mix numbered and unnumbered rows).
+    const config = {
+      sheetId: "mickleover",
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3 },
+      kennelTagRules: { default: "mickleover-h3" },
+      requireRunNumber: true,
+    };
+    const row = ["", "12-Jan-26", "", "The Malt Shovel", ""];
+    const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-01-12");
+    expect(event).toBeNull();
+  });
+
+  it("requireRunNumber: still keeps a numbered row", () => {
+    const config = {
+      sheetId: "mickleover",
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3 },
+      kennelTagRules: { default: "mickleover-h3" },
+      requireRunNumber: true,
+    };
+    const row = ["362", "10-Aug-26", "Captain Oats", "White Lion Inn"];
+    const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-08-10");
+    expect(event).not.toBeNull();
+    expect(event!.runNumber).toBe(362);
+    expect(event!.kennelTags).toEqual(["mickleover-h3"]);
+  });
+
   it("drops all-lowercase single-token city shorthands like 'sheperdstown' (#893)", () => {
     // W3H3 sheet row 17 (run #359) has "sheperdstown" in column D — a typo'd
     // city name used as a venue placeholder. Without this fix the geocoder

@@ -708,5 +708,12 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // global collision: bh3=Boulder/Buffalo)
     "barbados-h3": ["Barbados H3", "Barbados Hash House Harriers", "Barbados Hash"],
     "beerh3": ["BEER H3", "BEERH3", "Belgrade EER H3", "Belgrade Eastern European Revival H3", "Belgrade Hash", "Beograd Hash"],
+    // ===== CONFIG BATCH C =====
+    // bare "DLH3" OMITTED — resolves to Duneland H3 (dlh3, South Shore, IN).
+    "dlh3-gb": ["Devon Lunatics", "Devon Lunatics HHH", "DLH3-GB"],
+    // bare "IH3" OMITTED — resolves to Ithaca H3 (live).
+    "isca-h3": ["Isca H3", "Isca HHH", "Isca Hash", "Isca Hash House Harriers"],
+    // bare "MH3" OMITTED — global collision (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai).
+    "mickleover-h3": ["Mickleover Hash House Harriers", "Mickleover HHH", "Mickleover"],
   };
 
