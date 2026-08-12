@@ -96,10 +96,17 @@ re-homing was moot and the correct cleanup became a *delete* of the orphan.
 `20260811130000_hashnyc_friendsgiving_dedupe` therefore deletes the `nah3` copy and
 recomputes both kennels' `lastEventDate`. The delete is heavily guarded and skips with a
 `NOTICE` unless all hold: the row is the expected non-manual nah3/2026-11-14/#304 event,
-it carries no attendance / check-ins / event links, **its only source is the retired HTML
-scraper**, and `nawwh3` already holds a live event that day — so the trail can never
-vanish from the site. Its two RawEvents are detached with `processed = true` (not
-`false`, which would re-queue them and re-create the row) and kept as audit trail.
+it carries no attendance / check-ins / event links, **no source other than the retired
+HTML scraper feeds it**, and `nawwh3` already holds a live event that day — so the trail
+can never vanish from the site. Its two RawEvents are detached with `processed = true`
+(not `false`, which would re-queue them and re-create the row) and kept as audit trail.
+
+That provenance guard is an *exclusion* (`NOT EXISTS` any non-retired source), which is
+also vacuously true for an event with no RawEvents at all. Harmless here because the
+predicate is pinned to one exact row (kennel + date + run number + non-manual + no user
+data), but the successor `20260811210000` tightens it to also require **positive**
+provenance — an `EXISTS` for at least one RawEvent from the retired scraper — since that
+migration matches by predicate rather than by a single known row.
 
 Verified on a prod-copy DB: 2 events → 1 (`nawwh3 #396`), `nah3.lastEventDate` correctly
 falls back to 2026-02-22, re-run is a clean no-op, and running the real scrape + merge
