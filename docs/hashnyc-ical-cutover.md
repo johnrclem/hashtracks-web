@@ -169,7 +169,9 @@ warning above.
 
 ## Verification performed
 
-Against the live feed and a prod-copy DB, before each migration was applied.
+The checks below include pre-apply validation against the live feed and a prod-copy
+DB, plus post-apply verification for each migration (re-runs and, for the cutover, a
+real scrape + merge against the live feed).
 
 **Cutover (`20260810120000`)**
 
