@@ -20,8 +20,11 @@ in a local terminal where git works and where the NAS / live DB are reachable, t
 end-to-end through PR creation. The handoff file leads with a `▶ FOR CLAUDE CODE` directive so the
 whole file is the brief.
 
-**Do not** attempt `git commit`/`branch`/`push`, or a hard `git checkout`/`rebase` of the working
-tree, in this run — Claude Code handles all git after the handoff. **Do** write files (the handoff,
+**One exception, added 2026-08-11:** the run **must attempt** `git add`/`commit`/`push` of its own
+`docs/kennel-onboarding/` output as its final step (Step 9), and must report loudly if that fails.
+Leaving handoffs untracked is what produced three separate backlogs (4 → 6 → 20 kennels). Everything
+below still applies to *code*: **do not** branch, open PRs, or hard `checkout`/`rebase` the working
+tree — Claude Code handles all of that after the handoff. **Do** write files (the handoff,
 queue updates, run log) — plain file writes work fine. **Before you pick today's target, refresh your
 view of `main`:** `git fetch` + `git show origin/main:…` + `git log/rev-list` are **inspection-only**
 (they do not mutate the working tree) and are what keep a stale checkout from causing duplicate work —
@@ -922,10 +925,59 @@ piped in whole by an automated runner.
    candidate in an already-populated region, only queue it after a positive slug check or a
    sitemap read proves it's not already live. Append rows with full columns + honest confidence.
 
-## Step 9 — Report
+## Step 9 — Commit and push this run's output (🔴 MANDATORY — do not skip)
+
+**A handoff that exists only as an untracked file in one working tree is invisible to every other
+checkout and to `git`.** Skipping this step is the single root cause of every onboarding backlog so
+far — 4 kennels (2026-07-05), 6 (2026-07-15), and **20** (2026-08-11). In each case the daily runs
+kept producing good handoffs, `origin/main` never moved, and a later session branching from
+`origin/main` saw a handoffs folder that looked complete.
+
+Attempt to commit **and push** everything this run touched — the handoff, `run-log.md`,
+`target-queue.md`, and any `source-platform-notes.md` additions — as one commit:
+
+```bash
+cd "$REPO"
+git pull --ff-only                      # never write onto a stale base (see the warning below)
+git add docs/kennel-onboarding/
+git commit -m "docs(kennel-onboarding): hand off <shortName> (<region>)"
+git push
+```
+
+🔴 **Pull FIRST.** The 2026-08-11 rescue found the daily run had been appending to `run-log.md` and
+`target-queue.md` on top of a **stale checkout**, so its copies were missing the hc-batch-6 blocks
+that had already landed on `origin/main`. Committing that file wholesale would have deleted real
+history; it took a hand-built 3-way merge to recover. If `git pull --ff-only` refuses because of
+local edits, stash (`git stash -u`), pull, then pop and reconcile — do not force.
+
+⚠️ **This may genuinely fail in the sandbox** — see *Why handoff, not direct PR*: the repo mount is
+often parked on a feature branch with uncommitted work, and `.git/` writes have historically been
+permission-blocked. That is expected, and it is **not** a reason to skip the attempt: the environment
+varies, and when it works it removes the failure mode entirely.
+
+**If any of those commands fails, say so LOUDLY and explicitly in the Step 10 report**, e.g.:
+
+> 🔴 **UNCOMMITTED — `git push` failed (`<error>`). `docs/kennel-onboarding/` holds N untracked
+> files that exist only in this working tree. A human must commit them or they are invisible to
+> every other checkout.**
+
+Do not report success while output sits untracked. A silent failure here is the exact shape of all
+three previous backlogs.
+
+This is the **only** git operation this run may perform: commit and push its own
+`docs/kennel-onboarding/` output. Never branch, never open a PR, never touch code or seed files —
+implementation stays with Claude Code.
+
+## Step 10 — Report
 
 Return a one-line summary: kennel, source type, adapter (config-only or new), handoff file path,
 events verified, and the backlog count remaining.
+
+Get the backlog count from the helper rather than guessing — it is the authoritative audit:
+
+```bash
+bash scripts/copy-newest-handoff.sh --list
+```
 
 ---
 
@@ -938,5 +990,8 @@ events verified, and the backlog count remaining.
 - **Source is JS-rendered and browserRender isn't available in this shell** → still write the
   handoff with everything you could gather, clearly flagging that Claude Code must pull/verify
   the live sample. Mark the queue row `handed-off (needs live-verify)`.
-- Never attempt git operations in this run. Never write outside `docs/kennel-onboarding/`.
+- **Commit + push this run's `docs/kennel-onboarding/` output (Step 9) — that is required, and is the
+  only git operation permitted.** Never branch, never open a PR, never write outside
+  `docs/kennel-onboarding/`. (This rule previously read "never attempt git operations", which is
+  precisely why three backlogs accumulated as untracked files.)
 - Never invent a logo/source URL — mark "none found / follow up" instead.
