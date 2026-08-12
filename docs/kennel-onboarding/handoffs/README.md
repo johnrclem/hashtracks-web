@@ -55,12 +55,19 @@ when it is in the seed **or** has its own retro (a documented live-verify block,
 `2026-06-09-lima-h3`). It fails loud if the seed files are missing rather than reporting everything
 as un-implemented.
 
-If you want the raw check by hand, **run it under `bash`, not zsh**, and iterate with `while read`:
+If you want the raw check by hand, **run it under `bash`, not zsh**, and iterate with `while read`.
+This mirrors `copy-newest-handoff.sh`'s two other checks too — it validates it's running from the
+repo root (the paths below are relative) and skips any handoff that already has its own retro (a
+documented live-verify block, e.g. `2026-06-09-lima-h3`), not just ones present in the seed:
 
 ```bash
 bash -c '
+[ -d docs/kennel-onboarding/handoffs ] || { echo "Run this from the repo root." >&2; exit 1; }
 for f in docs/kennel-onboarding/handoffs/[0-9]*.md; do
   head -8 "$f" | grep -qi VOID && continue
+  base="$(basename "$f")"; date_part="${base:0:10}"
+  code_for_retro="$(echo "$base" | sed -E "s/^[0-9]{4}-[0-9]{2}-[0-9]{2}-(.+)\.md\$/\1/")"
+  [ -f "docs/kennel-onboarding/handoffs/retros/${date_part}-${code_for_retro}-retro.md" ] && continue
   while IFS= read -r c; do
     [ -z "$c" ] && continue
     k=$(grep -c "kennelCode: \"$c\"" prisma/seed-data/kennels.ts)
