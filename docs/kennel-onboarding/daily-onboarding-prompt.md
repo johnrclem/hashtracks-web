@@ -934,21 +934,43 @@ kept producing good handoffs, `origin/main` never moved, and a later session bra
 `origin/main` saw a handoffs folder that looked complete.
 
 Attempt to commit **and push** everything this run touched — the handoff, `run-log.md`,
-`target-queue.md`, and any `source-platform-notes.md` additions — as one commit:
+`target-queue.md`, and any `source-platform-notes.md` additions:
 
 ```bash
 cd "$REPO"
-git pull --ff-only                      # never write onto a stale base (see the warning below)
-git add docs/kennel-onboarding/
+git fetch origin
+# Detach onto origin/main explicitly — do NOT `git pull`/`git push` on the ambient
+# branch. "Why handoff, not direct PR" above says the mount is often parked on a
+# feature branch; an unqualified pull+push would commit onto THAT branch's own
+# upstream, which can succeed while leaving the handoff invisible to every
+# origin/main-based checkout — recreating the exact backlog this step exists to
+# prevent (Codex review on the 2026-08-11 rescue PR caught this).
+git switch --detach origin/main
+# List only the paths THIS run touched — never `git add docs/kennel-onboarding/`,
+# which sweeps in any unrelated pre-existing edits already sitting in that
+# directory (e.g. another session's in-progress WIP).
+git add docs/kennel-onboarding/handoffs/<today's-handoff-file>.md \
+        docs/kennel-onboarding/run-log.md \
+        docs/kennel-onboarding/target-queue.md
+# Only if this run appended to it:
+# git add docs/kennel-onboarding/source-platform-notes.md
 git commit -m "docs(kennel-onboarding): hand off <shortName> (<region>)"
-git push
+git push origin HEAD:main
 ```
 
-🔴 **Pull FIRST.** The 2026-08-11 rescue found the daily run had been appending to `run-log.md` and
-`target-queue.md` on top of a **stale checkout**, so its copies were missing the hc-batch-6 blocks
-that had already landed on `origin/main`. Committing that file wholesale would have deleted real
-history; it took a hand-built 3-way merge to recover. If `git pull --ff-only` refuses because of
-local edits, stash (`git stash -u`), pull, then pop and reconcile — do not force.
+🔴 **`git switch --detach origin/main` is the fix, not a nicety.** The prior version of this step
+used a plain `git pull --ff-only` + `git push`, which is exactly what a feature-branch mount would
+silently mis-target. Detaching onto `origin/main` and pushing `HEAD:main` explicitly guarantees the
+commit lands where every other checkout will actually see it, regardless of what the mount's ambient
+branch happens to be.
+
+🔴 **The 2026-08-11 rescue separately found the daily run had been appending to `run-log.md` and
+`target-queue.md` on top of a stale checkout**, missing content that had already landed on
+`origin/main` (the hc-batch-6 blocks). Committing that file wholesale would have deleted real
+history; it took a hand-built 3-way merge to recover. Fetching fresh and detaching onto
+**`origin/main`** (not a locally-cached `main` ref) is what prevents this — if `docs/kennel-onboarding/run-log.md` differs
+between your working copy and `origin/main` in ways beyond your own appended entry, stop and
+reconcile by hand rather than committing over it.
 
 ⚠️ **This may genuinely fail in the sandbox** — see *Why handoff, not direct PR*: the repo mount is
 often parked on a feature branch with uncommitted work, and `.git/` writes have historically been

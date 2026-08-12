@@ -180,7 +180,7 @@
   scheduleTime: "7:15 PM",          // 🔴 12-hr in Kennel.scheduleTime; adapter/RawEventData startTime stays 24-hr "19:15"
   scheduleFrequency: "monthly",     // 2nd Monday; winter "socials" are non-trail (skipped by the source)
   description: "A sociable, mixed running club that starts and finishes at a pub — runners and walkers both welcome. Monthly Monday-evening trails at a different pub within ~30 minutes of Derby.",
-  logoUrl: "public/kennel-logos/mickleover-h3.<ext>", // ⚠️ self-host the tokenized Google-Sites sitesv logo; confirm <ext> by magic bytes
+  logoUrl: "/kennel-logos/mickleover-h3.<ext>", // ⚠️ self-host the tokenized Google-Sites sitesv logo; confirm <ext> by magic bytes
   // lat/lng optional: 52.923 / -1.526 (Mickleover, Derby)
 },
 
