@@ -12,6 +12,17 @@ Format:
 - Follow-ups: <anything deferred>
 ```
 
+> **HC BATCH-11 (2026-08-12) — 4 kennels, part of the 20-kennel backlog rescue.** Built from four
+> handoffs generated 2026-07-16 → 07-23 that sat uncommitted for weeks (see
+> `handoffs/retros/2026-08-11-backlog-rescue-retro.md`): **Prague H3 (`ph3-cz`, Czech Republic — first
+> Czech kennel) · EELS H3 (`eels-h3`, London) · SH2B (`sh2b`, Seattle) · Sierra H4 (`sierra-h4`,
+> Freetown — first Sierra Leone kennel, 2nd African country after Kenya, 1st West Africa).**
+> Config-only `HARRIER_CENTRAL`, zero new adapter code. Re-pulled live data fresh rather than trusting
+> the stale handoffs — Prague's real archive was 26 runs vs the handoff's sampled 11; SH2B's
+> predicted seasonal resumption (run #62) had already landed. 4 frozen-JSON backfills (135 rows
+> total), 2 new-country region.ts additions, 3 self-hosted logos (magic-byte verified PNG). Full
+> retro: `handoffs/retros/2026-07-23-hc-batch-11-retro.md`.
+>
 > **✅ POST-MERGE LIVE (2026-07-16, all prod-verified) — HC BATCH-6.** [PR #2654](https://github.com/johnrclem/hashtracks-web/pull/2654)
 > merged (`71d5ca1f`); all 6 kennels live: **rio-h3 3 · poznan-h3 3 · divahhh 9 · steel-city-h3 1 ·
 > manchester-h3 3 · douliu-h3 31** canonical events (46 backfill + 4 live), **0 cancelled on every

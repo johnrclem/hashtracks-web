@@ -8385,5 +8385,95 @@ export const SOURCES = [
       },
       kennelCodes: ["mh3-gb"],
     },
+    // ===== HC BATCH-11 ===== (4 config-only Harrier Central sources)
+    {
+      name: "Prague H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID verified live via hashruns.org/api/global-runs — 26 past runs 2023-06-03 to
+        // 2026-07-12, 0 upcoming (HC posts sporadically for this kennel).
+        publicKennelId: "e7a4700c-beb3-4a5f-a05e-9ce019e5a610",
+        defaultKennelTag: "ph3-cz",
+        // HC EventNames mix real themes with bare "PH3 #N" placeholders → synth "Prague H3 #N".
+        defaultTitle: "Prague H3",
+        staleTitleAliases: ["PH3 # 1485", "PH3 1498", "PH3#1506", "PH3 #1507", "PH3 #1509", "PH3# 1517"],
+        // upcomingOnly:true — this source owns a one-shot 26-run historical backfill
+        // (scripts/backfill-ph3-cz-history.ts). HC getEvents is future-only, so without this
+        // guard reconcile.ts false-CANCELs the backfilled past rows as they age off the
+        // 365-day window (same contract as Bandung / Douliu).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["ph3-cz"],
+    },
+    {
+      name: "EELS H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID verified live via hashruns.org/api/global-runs — 37 counted past runs
+        // #24 (2023-07-13) to #60 (2026-08-06), 0 upcoming (monthly first-Thursday,
+        // recently active).
+        publicKennelId: "15940f8a-517e-4a13-b289-6709aaa259e9",
+        defaultKennelTag: "eels-h3",
+        defaultTitle: "EELS H3", // merge fallback only — HC EventNames are all real, kept verbatim
+        // upcomingOnly:true — this source owns a one-shot 37-run historical backfill
+        // (scripts/backfill-eels-h3-history.ts). HC getEvents is future-only, so without this
+        // guard reconcile.ts false-CANCELs the backfilled past rows.
+        upcomingOnly: true,
+      },
+      kennelCodes: ["eels-h3"],
+    },
+    {
+      name: "Seattle Hash House Bikers Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID verified live via hashruns.org/api/global-runs — 19 past runs #43
+        // (2023-06-11) to #61 (2026-07-19). Seasonal bike hash (Apr-Oct); the 2026
+        // season resumed and run #62 (2026-08-16) is live on the future feed.
+        publicKennelId: "72a5b2f7-0942-4157-b301-557701eb242e",
+        defaultKennelTag: "sh2b",
+        defaultTitle: "Seattle Hash House Bikers", // merge fallback — HC EventNames are all real
+        // upcomingOnly:true — this source owns a one-shot 19-run historical backfill
+        // (scripts/backfill-sh2b-history.ts). HC getEvents is future-only, so without this
+        // guard reconcile.ts false-CANCELs the backfilled past rows. Seasonal winter dormancy
+        // is expected, not staleness.
+        upcomingOnly: true,
+      },
+      kennelCodes: ["sh2b"],
+    },
+    {
+      name: "Sierra H4 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID verified live via hashruns.org/api/global-runs — 53 counted past runs
+        // #15 (2024-08-21) to #130 (2026-06-03), 0 upcoming (documented annual
+        // May-August rainy-season pause; the 2025 season shows an identical ~84-day gap).
+        publicKennelId: "8f01a559-5c86-46de-8efa-18722dd7b7d0",
+        defaultKennelTag: "sierra-h4",
+        defaultTitle: "Sierra H4",
+        staleTitleAliases: ["Placeholder event for Sierra H4"],
+        // upcomingOnly:true — this source owns a one-shot 53-run historical backfill
+        // (scripts/backfill-sierra-h4-history.ts). HC getEvents is future-only, so without
+        // this guard reconcile.ts false-CANCELs the backfilled past rows (same contract
+        // as Bandung / Algarve / Fengyuan). The multi-month seasonal gap is expected.
+        upcomingOnly: true,
+      },
+      kennelCodes: ["sierra-h4"],
+    },
   ];
 
