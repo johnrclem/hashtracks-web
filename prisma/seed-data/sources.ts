@@ -164,20 +164,79 @@ function staticScheduleSource(params: {
 
 export const SOURCES = [
     {
+      // hashnyc.com relaunched (2026) on a new "hash-attendance" app; the old
+      // `table.past_hashes` / `table.future_hashes` layout the bespoke Cheerio
+      // HashNYCAdapter scraped is GONE (verified 2026-08-10 — neither table is in
+      // the homepage HTML any more), so that scraper can no longer see any events.
+      // The relaunched site publishes a structured iCal feed, so this source moves
+      // HTML_SCRAPER → ICAL_FEED on the shared ICalAdapter. Kennel is a reliable
+      // SUMMARY prefix ("NYC #2154", "Brooklyn #1185", "GGFM #441: Cold Moon");
+      // hares + hash cash live in DESCRIPTION; venue is LOCATION; map pins arrive
+      // as maps.app.goo.gl links. The legacy HTML_SCRAPER row is retired (disabled
+      // entry below + companion migration `cutover_hashnyc_html_to_ical`, which
+      // ALSO provisions THIS row + its SourceKennel links in prod — Vercel runs
+      // migrate deploy, not db seed, so a deploy must never leave hashnyc.com with
+      // no enabled source). See docs/hashnyc-ical-cutover.md.
       name: "HashNYC Website",
-      url: "https://hashnyc.com",
-      type: "HTML_SCRAPER" as const,
+      url: "https://hashnyc.com/public/hareline.ics",
+      type: "ICAL_FEED" as const,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      // "Receding Hareline (Next 30 Days)" — events fall off the page once they
-      // pass, so the reconciler must not interpret that as a cancellation. (#1263)
+      config: {
+        // Forward hareline — events fall off once they pass, so the reconciler
+        // must not read that as a cancellation. (#1263)
+        upcomingOnly: true,
+        // Ported from the old adapter's KENNEL_PATTERNS, anchored to the start of
+        // SUMMARY and ordered most-specific-first (first match wins). Verified
+        // against the live feed 2026-08-10 (62 events, 0 unrouted):
+        //   * "Queens Black Knights"/"QBK" MUST precede the generic "Queens" —
+        //     the feed carries both "QBK #73" and "Queens #249", and prod has
+        //     both series on `qbk`.
+        //   * "NAWW" MUST precede "New Amsterdam"/"NAH3"/"NASS" — they are
+        //     DISTINCT kennels (nawwh3 runs #387-393, nah3 runs "NASS" #298-304
+        //     in prod). The relaunched feed labels the monthly series "NAWW",
+        //     matching prod's existing attribution.
+        //   * The optional H3 suffixes matter: the relaunch dropped them
+        //     ("NYCH3 #2150" → "NYC #2154", "Brooklyn H3" → "Brooklyn"), so the
+        //     patterns deliberately match both spellings.
+        kennelPatterns: [
+          ["^Knickerbocker\\b|^Knick\\b", "knick"],
+          ["^Queens Black Knights\\b|^QBK\\b", "qbk"],
+          ["^NAWW(?:H3)?\\b", "nawwh3"],
+          ["^New Amsterdam\\b|^NAH3\\b|^NASS\\b", "nah3"],
+          ["^Long Island(?:\\s+Lunatics)?\\b|^LIL\\b", "lil"],
+          ["^Staten Island\\b|^SI\\b", "si"],
+          ["^Drinking Practice\\b", "drinking-practice-nyc"],
+          ["^Brooklyn(?:\\s+H3)?\\b|^BrH3\\b|^BKH3\\b", "brh3"],
+          ["^Harriettes\\b", "harriettes-nyc"],
+          ["^Columbia\\b", "columbia"],
+          ["^GGFM\\b", "ggfm"],
+          ["^Queens\\b", "qbk"],
+          ["^NYC(?:H3)?\\b", "nych3"],
+        ],
+        defaultKennelTag: "nych3",
+      },
+      // All 12 kennels the patterns route to stay linked even when a series is
+      // dormant in the current feed window (knick / si / columbia / harriettes /
+      // drinking-practice publish sporadically) — the merge guard blocks events
+      // for unlinked kennels as SOURCE_KENNEL_MISMATCH. (#1793 / Codex review)
+      kennelCodes: ["nych3", "brh3", "nah3", "knick", "lil", "qbk", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3", "drinking-practice-nyc"],
+    },
+    {
+      // Retired legacy HTML scraper for hashnyc.com — superseded by the ICAL_FEED
+      // row above after the 2026 site relaunch removed the tables it parsed. Kept
+      // as a disabled entry so re-seeds hold it disabled (seed identity is
+      // (name, type), so this is a distinct row) and it isn't flagged as a stale
+      // source. Prod is disabled by the companion migration.
+      name: "HashNYC Website",
+      url: "https://hashnyc.com",
+      type: "HTML_SCRAPER" as const,
+      enabled: false,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
       config: { upcomingOnly: true },
-      // `drinking-practice-nyc` is the 12th kennel the parser routes to
-      // (KENNEL_PATTERNS in hashnyc.ts) — hashnyc.com publishes its events, so
-      // the source must be linked or the merge guard blocks them as
-      // SOURCE_KENNEL_MISMATCH (and the archive backfill would partial-fail on
-      // the ~24 historical Drinking Practice rows). (#1793 / Codex review)
       kennelCodes: ["nych3", "brh3", "nah3", "knick", "lil", "qbk", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3", "drinking-practice-nyc"],
     },
     {

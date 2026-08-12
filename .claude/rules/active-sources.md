@@ -286,7 +286,7 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Hudson Valley H3 Meetup** -> MEETUP -> hvh3-ny
 
 ### New York City, NY (1)
-- **HashNYC Website** -> HTML_SCRAPER -> nych3, brh3, nah3, knick, lil, qbk, si, columbia, harriettes-nyc, ggfm, nawwh3
+- **HashNYC Website** -> ICAL_FEED -> nych3, brh3, nah3, knick, lil, qbk, si, columbia, harriettes-nyc, ggfm, nawwh3, drinking-practice-nyc
 
 ### North NJ (3)
 - **Summit H3 Spreadsheet** -> GOOGLE_SHEETS -> summit, sfm, asssh3
