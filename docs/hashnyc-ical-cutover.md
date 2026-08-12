@@ -152,7 +152,26 @@ kennels.
 > `20260810120000` byte-for-byte to the applied version and move the follow-up work into
 > a new migration. **Never edit a migration after pushing it to an open PR.**
 
-## Verification performed (2026-08-10)
+## Timeline
+
+Dates in prose are **US Eastern** (where the feed was inspected); `_prisma_migrations`
+timestamps are **UTC**, which is why the cutover reads as the 10th in one place and the
+11th in another — 2026-08-11 00:56 UTC is the evening of 2026-08-10 Eastern.
+
+| Migration | Applied to prod (UTC) | What it did |
+|---|---|---|
+| `20260810120000_cutover_hashnyc_html_to_ical` | 2026-08-11 00:56 | Provisioned the ICAL_FEED source + 12 kennel links, disabled the legacy scraper |
+| `20260811130000_hashnyc_friendsgiving_dedupe` | 2026-08-11 20:13 | Deleted the relabel duplicate (`NASS #304` on `nah3`) |
+| `20260811210000_hashnyc_date_shift_dedupe` | 2026-08-11 20:20 | Deleted the reschedule duplicate (`LIL #152` on the old date) |
+
+Each was applied by a **Vercel preview build of this PR**, not by the merge — see the
+warning above.
+
+## Verification performed
+
+Against the live feed and a prod-copy DB, before each migration was applied.
+
+**Cutover (`20260810120000`)**
 
 - **Live feed:** 62 events, 2026-06-14 → 2026-12-21, **0 errors, 0 unrouted**.
   Distribution nych3 26 / brh3 16 / ggfm 7 / nawwh3 6 / lil 5 / qbk 2 — every routed
@@ -160,12 +179,22 @@ kennels.
   hares 53%, location 42%; 19 `maps.app.goo.gl` pins on `locationUrl`, 0 leaking into
   `sourceUrl`. (The verify script reads `kennelPatterns` straight out of the seed, so
   what was tested is what ships.)
-- **Migration** applied to a local prod-copy DB: creates 1 source + 12 links, disables
-  the legacy row; re-run is a clean no-op (`INSERT 0 0`, `UPDATE 0`).
+- Applied to a local prod-copy DB: creates 1 source + 12 links, disables the legacy
+  row; re-run is a clean no-op (`INSERT 0 0`, `UPDATE 0`).
 - **JSONB escaping:** `"\\b"` in the SQL literal stores as `\b` (regex word boundary,
   not a JSON backspace) — confirmed through the DB → `config::text` → `JSON.parse` →
   `RegExp` round-trip, with all routing cases passing off the *stored* config.
-- `npx tsc --noEmit && npm run lint && npm test`.
+
+**Relabel dedupe (`20260811130000`)** — 2 events on 2026-11-14 → 1 (`nawwh3 #396`);
+`nah3.lastEventDate` falls back to 2026-02-22; re-run is a no-op; a real scrape + merge
+afterwards leaves it at 1 (the `nah3` copy does not resurrect).
+
+**Reschedule dedupe (`20260811210000`)** — scope confirmed read-only against prod before
+applying (exactly one row matched); `LIL #152` duplicate removed and the live `ICAL_FEED`
+copy on 2026-09-05 retained; all six legitimate orphans survive; **zero** duplicate run
+numbers remain across the 12 NYC kennels; re-run is a no-op.
+
+- `npx tsc --noEmit && npm run lint && npm test` green throughout.
 
 ## Notes
 
