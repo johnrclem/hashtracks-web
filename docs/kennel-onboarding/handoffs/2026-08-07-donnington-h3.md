@@ -182,7 +182,10 @@ Shape (ILLUSTRATIVE — verify field names against live types):
   - `parseRunNumber(cell)` → integer; **skip the row if not an integer** (spacer/section/`N/A` rows).
   - `parseDonningtonDate(cell)` → UTC noon. Handle `DD/MM/YYYY` (forward + modern years) AND `DD MMM YYYY` (deep archive) via `chronoParseDate` from `@/adapters/utils` (do NOT hand-roll a 12-way month alternation — Sonar S5843).
   - `parseTime(cell)` → `"HH:MM"`: accept `"18.30"`, `"11.00"`, `"1830"`, `"11.15"`; return undefined for non-time text.
-  - `hares` = `[hare1, hare2].filter(Boolean).map(s=>s.trim()).join(", ")` (undefined if empty / "HARE NEEDED").
+  - Normalize each hare cell FIRST — map `TBA` / `HARE NEEDED` / empty to `undefined` — THEN filter and
+    join: `[hare1, hare2].map(normalizeHareCell).filter(Boolean).map(s=>s.trim()).join(", ")`. 🔴
+    `.filter(Boolean)` alone does NOT catch `"HARE NEEDED"` — it's a non-empty, truthy string, so it
+    would be stored as a literal hare name unless normalized first.
   - `location` = Venue cell (undefined if "TBA"/blank); `locationStreet` = Area cell; extract a UK postcode + optional `///w3w` from Area/Venue for geocoding.
   - `title`: **leave undefined** (no themes) → `merge.ts` synthesizes.
   - `kennelTags: ["donnington-h3"]`.
