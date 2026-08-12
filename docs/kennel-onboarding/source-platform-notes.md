@@ -512,7 +512,7 @@ Devonport/TVH3):
   default; runNumber + trailing date are the only reliable title fields.
 - **runNumber + date reliable in the run-numbered era** (≥~2021/2023). `extractHashRunNumber` keys on `#`;
   the trailing date is **year-bearing** but drifts (`19 July 2026`, `May 10 2026`, `May 3rd 2026`,
-  `31 May 2026`, tight-dash `Can't Tell- 12 July 2026`, `. `-separated `Pearl and Hansel. 31 May 2026`) →
+  `31 May 2026`, tight-dash `Can't Tell- 12 July 2026`, `". "`-separated `Pearl and Hansel. 31 May 2026`) →
   normalize (strip ordinals, unify separators) then `chronoParseDate` (no month-name alternation → S5852/S5843-safe).
 - 🔴 **Pre-run-number era (≤2019) is messier** — NO `#NNNN`, some titles **missing the year**
   (`Pynes Hill - BluToe and Hole in 1 - 30th December`), and **non-run posts interspersed** ("... Haberdashery",
@@ -1867,7 +1867,7 @@ were authored in Microsoft Word / FrontPage / Excel and "Saved as Web Page" — 
   `<span>` runs with `&nbsp;`). Build the test fixture from `curl -s <homepage>` verbatim or tests pass
   then live-verify fails.
 
-#### Herts H3 addendum (`hertshash.co.uk`, 2026-08-01) — FrontPage site with a FULL forward-hareline TABLE + a run-reports archive + MIXED kennels
+### Herts H3 addendum (`hertshash.co.uk`, 2026-08-01) — FrontPage site with a FULL forward-hareline TABLE + a run-reports archive + MIXED kennels
 
 Unlike Tamar Valley's single-next-run block, a FrontPage site can publish the **whole season's forward
 hareline as one `<table>`** (`hare_line.htm`) AND a separate **run-report archive listing**

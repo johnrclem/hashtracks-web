@@ -934,43 +934,53 @@ kept producing good handoffs, `origin/main` never moved, and a later session bra
 `origin/main` saw a handoffs folder that looked complete.
 
 Attempt to commit **and push** everything this run touched — the handoff, `run-log.md`,
-`target-queue.md`, and any `source-platform-notes.md` additions:
+`target-queue.md`, and any `source-platform-notes.md` additions. By this point in the run the
+working tree already has uncommitted edits (the handoff file, plus your appended `run-log.md` /
+`target-queue.md` entries from Step 8) — the sequence below is written to land safely on top of
+that, not from a clean tree:
 
 ```bash
 cd "$REPO"
 git fetch origin
-# Detach onto origin/main explicitly — do NOT `git pull`/`git push` on the ambient
-# branch. "Why handoff, not direct PR" above says the mount is often parked on a
-# feature branch; an unqualified pull+push would commit onto THAT branch's own
-# upstream, which can succeed while leaving the handoff invisible to every
-# origin/main-based checkout — recreating the exact backlog this step exists to
-# prevent (Codex review on the 2026-08-11 rescue PR caught this).
+# Stash everything this run wrote (including the new handoff file, which is untracked) before
+# touching branches — `git switch` can refuse to move when local changes would conflict with the
+# target, and stashing first avoids that regardless of what the ambient branch's state is.
+git stash push -u -m "onboarding run output $(date +%F)"
+# Detach onto origin/main explicitly — do NOT `git pull`/`git push` on the ambient branch. "Why
+# handoff, not direct PR" above says the mount is often parked on a feature branch; an unqualified
+# pull+push would commit onto THAT branch's own upstream, which can succeed while leaving the
+# handoff invisible to every origin/main-based checkout — recreating the exact backlog this step
+# exists to prevent (Codex + CodeRabbit review on the 2026-08-11 rescue PR caught this).
 git switch --detach origin/main
-# List only the paths THIS run touched — never `git add docs/kennel-onboarding/`,
-# which sweeps in any unrelated pre-existing edits already sitting in that
-# directory (e.g. another session's in-progress WIP).
+git stash pop
+# 🔴 Validate before staging — don't blindly trust the path list. Diff the two shared files against
+# origin/main and confirm the ONLY difference is your own appended entry (or platform-note
+# addition). If the diff shows anything else — a removed line, another session's edit, content that
+# predates this run — STOP and reconcile by hand; do not stage or commit over it.
+git diff origin/main -- docs/kennel-onboarding/run-log.md docs/kennel-onboarding/target-queue.md
+# List only the paths THIS run touched — never `git add docs/kennel-onboarding/`, which sweeps in
+# any unrelated pre-existing edits already sitting in that directory.
 git add docs/kennel-onboarding/handoffs/<today's-handoff-file>.md \
         docs/kennel-onboarding/run-log.md \
         docs/kennel-onboarding/target-queue.md
-# Only if this run appended to it:
+# Only if this run appended to it, and only after the same diff-review:
 # git add docs/kennel-onboarding/source-platform-notes.md
 git commit -m "docs(kennel-onboarding): hand off <shortName> (<region>)"
 git push origin HEAD:main
 ```
 
-🔴 **`git switch --detach origin/main` is the fix, not a nicety.** The prior version of this step
-used a plain `git pull --ff-only` + `git push`, which is exactly what a feature-branch mount would
-silently mis-target. Detaching onto `origin/main` and pushing `HEAD:main` explicitly guarantees the
-commit lands where every other checkout will actually see it, regardless of what the mount's ambient
-branch happens to be.
+🔴 **`git switch --detach origin/main` is the fix, not a nicety** — a plain `git pull --ff-only` +
+`git push` is exactly what a feature-branch mount would silently mis-target, landing the commit
+somewhere invisible to every `origin/main`-based checkout. `stash` → `switch --detach` → `stash pop`
+is what makes the detach possible in the first place: without stashing first, the switch can refuse
+to run at all once the working tree already has uncommitted edits from earlier in this same run.
 
 🔴 **The 2026-08-11 rescue separately found the daily run had been appending to `run-log.md` and
 `target-queue.md` on top of a stale checkout**, missing content that had already landed on
 `origin/main` (the hc-batch-6 blocks). Committing that file wholesale would have deleted real
-history; it took a hand-built 3-way merge to recover. Fetching fresh and detaching onto
-**`origin/main`** (not a locally-cached `main` ref) is what prevents this — if `docs/kennel-onboarding/run-log.md` differs
-between your working copy and `origin/main` in ways beyond your own appended entry, stop and
-reconcile by hand rather than committing over it.
+history; it took a hand-built 3-way merge to recover. Fetching fresh, detaching onto **`origin/main`**
+(not a locally-cached `main` ref), and — critically — **reviewing the diff before staging** is what
+prevents this from recurring silently.
 
 ⚠️ **This may genuinely fail in the sandbox** — see *Why handoff, not direct PR*: the repo mount is
 often parked on a feature branch with uncommitted work, and `.git/` writes have historically been
@@ -986,7 +996,8 @@ varies, and when it works it removes the failure mode entirely.
 Do not report success while output sits untracked. A silent failure here is the exact shape of all
 three previous backlogs.
 
-This is the **only** git operation this run may perform: commit and push its own
+This is the **only** git operation this run may perform: `fetch`, `stash`, `switch --detach
+origin/main`, `stash pop`, scoped `add`/`commit`, and `push origin HEAD:main` for its own
 `docs/kennel-onboarding/` output. Never branch, never open a PR, never touch code or seed files —
 implementation stays with Claude Code.
 

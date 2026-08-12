@@ -86,8 +86,12 @@ while IFS= read -r f; do
 
   is_implemented_in_seed "$f" && continue
 
-  # Secondary: in-flight work that hasn't merged to seed yet.
-  if (cd "$REPO" && git ls-remote --heads origin "onboard/${code}-*" 2>/dev/null | grep -q .); then
+  # Secondary: in-flight work that hasn't merged to seed yet. Capture output before testing it —
+  # piping straight into `grep -q` under `pipefail` risks git ls-remote receiving SIGPIPE when grep
+  # closes the pipe after its first match, which can make the whole pipeline's exit status nonzero
+  # even though a match WAS found, silently re-adding an in-flight handoff to the backlog.
+  remote_refs="$(cd "$REPO" && git ls-remote --heads origin "onboard/${code}-*" 2>/dev/null || true)"
+  if [[ -n "$remote_refs" ]]; then
     continue
   fi
 

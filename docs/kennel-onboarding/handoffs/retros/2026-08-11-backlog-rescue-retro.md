@@ -65,10 +65,12 @@ was doing exactly as instructed; the backlog was designed in, not an accident of
 
 The constraint behind it is real and documented in *Why handoff, not direct PR* — the Cowork sandbox
 often has the repo parked on a feature branch, and `.git/` writes have historically been
-permission-blocked. So the new Step 9 is **best-effort, not assumed**: attempt `pull --ff-only` →
-`add` → `commit` → `push`, and if any step fails, **report it loudly** rather than reporting success
-over untracked output. Detection (A + B) is the durable fix; committing is the cheap one when the
-environment allows it.
+permission-blocked. So the new Step 9 is **best-effort, not assumed**: `fetch` → `stash` → `switch
+--detach origin/main` → `stash pop` → diff-review → scoped `add` → `commit` → `push origin
+HEAD:main`, and if any step fails, **report it loudly** rather than reporting success over untracked
+output. (An earlier draft of this step used a plain `pull --ff-only` + `push`, which a feature-branch
+mount would silently mis-target — caught and fixed via Codex + CodeRabbit review on this PR.)
+Detection (A + B) is the durable fix; committing is the cheap one when the environment allows it.
 
 ---
 

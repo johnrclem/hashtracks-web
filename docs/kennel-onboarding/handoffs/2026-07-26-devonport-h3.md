@@ -51,7 +51,7 @@
   `devonport-h3`, which equals the slug and dodges the crowded `dh3` namespace)
 
 ## Live source verification  ✅
-- Source: **HTML_SCRAPER (Blogger JSON feed)** — `https://www.dhash.com/feeds/posts/default?alt=json`
+- Source: **HTML_SCRAPER (Blogger JSON feed)** — `https://www.dhash.com/`
   (custom domain fronting Blogger; blog id **`7231198193475707740`**; `meta name=generator` = `blogger`).
   DNS `dhash.com` → **Status 0** (resolves; not NXDOMAIN), verified via `dns.google/resolve` in Chrome.
   Feed is **sandbox-fetchable** (`web_fetch`, `application/json`).
@@ -224,7 +224,7 @@ Add to **`COUNTRY_GROUP_MAP`** (near `region.ts:4577`, after `"Melbourne, VIC": 
 // sources.ts — Source[] (append one object)
 {
   name: "Devonport H3 Blogger",
-  url: "https://www.dhash.com/feeds/posts/default?alt=json",   // Blogger blog id 7231198193475707740
+  url: "https://www.dhash.com/",   // Blogger blog id 7231198193475707740; fetchBloggerPosts() discovers this via blogs.byurl from the plain domain, NOT a feed-path URL
   type: "HTML_SCRAPER" as const,
   trustLevel: 6,
   scrapeFreq: "daily",
