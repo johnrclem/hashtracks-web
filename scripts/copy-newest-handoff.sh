@@ -52,16 +52,16 @@ case "${1:-}" in
   *) echo "Unknown option: $1 (expected --oldest, --list, or no argument)" >&2; exit 2 ;;
 esac
 
-[ -d "$HANDOFF_DIR" ] || { echo "No handoffs dir: $HANDOFF_DIR" >&2; exit 1; }
+[[ -d "$HANDOFF_DIR" ]] || { echo "No handoffs dir: $HANDOFF_DIR" >&2; exit 1; }
 # Fail loud rather than silently treating every handoff as un-implemented.
-[ -s "$KENNELS" ] || { echo "Missing/empty seed file: $KENNELS" >&2; exit 1; }
-[ -s "$SOURCES" ] || { echo "Missing/empty seed file: $SOURCES" >&2; exit 1; }
+[[ -s "$KENNELS" ]] || { echo "Missing/empty seed file: $KENNELS" >&2; exit 1; }
+[[ -s "$SOURCES" ]] || { echo "Missing/empty seed file: $SOURCES" >&2; exit 1; }
 
 # Returns 0 (true) when every kennelCode in $1 is present in BOTH seed files.
 is_implemented_in_seed() {
   local file="$1" code found_any=0
   while IFS= read -r code; do
-    [ -z "$code" ] && continue
+    [[ -z "$code" ]] && continue
     found_any=1
     grep -q "kennelCode: \"$code\"" "$KENNELS" || return 1
     grep -qE "\"$code\"" "$SOURCES" || return 1
@@ -69,7 +69,7 @@ is_implemented_in_seed() {
              | grep -oE '"[a-z0-9-]+"' | tr -d '"' | sort -u)
   # A handoff with no parseable kennelCode can't be judged — treat as NOT implemented so it
   # surfaces for a human rather than vanishing.
-  [ "$found_any" -eq 1 ]
+  [[ "$found_any" -eq 1 ]]
 }
 
 backlog=()   # actionable handoffs, oldest-first
@@ -82,7 +82,7 @@ while IFS= read -r f; do
   code="$(echo "$base" | sed -E 's/^[0-9]{4}-[0-9]{2}-[0-9]{2}-(.+)\.md$/\1/')"
 
   # Resolved as a documented block (dormant/dead source) if it has its own retro.
-  [ -f "$RETRO_DIR/${date_part}-${code}-retro.md" ] && continue
+  [[ -f "$RETRO_DIR/${date_part}-${code}-retro.md" ]] && continue
 
   is_implemented_in_seed "$f" && continue
 
@@ -99,13 +99,13 @@ done < <(ls "$HANDOFF_DIR"/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.md 2>/de
 
 count="${#backlog[@]}"
 
-if [ "$count" -eq 0 ]; then
+if [[ "$count" -eq 0 ]]; then
   echo "No un-implemented handoffs found."
   exit 0
 fi
 
 # 🔴 Make a backlog impossible to miss — this is the whole point of the rewrite.
-if [ "$count" -gt 1 ]; then
+if [[ "$count" -gt 1 ]]; then
   echo "════════════════════════════════════════════════════════════════════"
   echo "🔴 BACKLOG: ${count} un-implemented handoffs (oldest first)"
   echo "════════════════════════════════════════════════════════════════════"
@@ -118,9 +118,9 @@ if [ "$count" -gt 1 ]; then
   echo ""
 fi
 
-[ "$MODE" = "list" ] && exit 0
+[[ "$MODE" == "list" ]] && exit 0
 
-if [ "$MODE" = "oldest" ]; then
+if [[ "$MODE" == "oldest" ]]; then
   target="${backlog[0]}"
 else
   target="${backlog[$((count - 1))]}"
