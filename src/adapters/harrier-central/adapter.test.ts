@@ -5,6 +5,7 @@ import {
   composeHcLocation,
   hcGeocodeFailed,
   scrubDescriptionPii,
+  buildHashrunsPermalink,
 } from "./adapter";
 import type { HCEvent } from "./adapter";
 import { generateAccessToken, PUBLIC_HASHER_ID } from "./token";
@@ -319,6 +320,64 @@ describe("applyTitleFallback (#1166)", () => {
     // eventNumber 0 (social) can't synthesize → undefined (UI run-number fallback)
     expect(applyTitleFallback(" | ", 0, config)).toBeUndefined();
   });
+
+  // #2657 — Douliu H3 titleStripPatterns config knob.
+  describe("titleStripPatterns (#2657)", () => {
+    const douliuConfig = {
+      defaultTitle: "Douliu H3",
+      titleStripPatterns: ["^DH3\\s*#?\\d*\\s*[-–:]?\\s*", "\\s+run\\s+\\d+\\s*$"],
+    };
+
+    it("strips a bare number to synthesized default when configured", () => {
+      expect(applyTitleFallback("206", 206, douliuConfig)).toBe("Douliu H3 #206");
+      expect(applyTitleFallback("#159", 159, douliuConfig)).toBe("Douliu H3 #159");
+    });
+
+    it("strips a 'DH3 #N -' prefix, synthesizing when nothing real remains", () => {
+      expect(applyTitleFallback("DH3 #194 - 194", 194, douliuConfig)).toBe(
+        "Douliu H3 #194",
+      );
+    });
+
+    it("preserves a real theme after stripping the kennel-code prefix", () => {
+      expect(applyTitleFallback("DH3 #187 - Jortspocalypse", 187, douliuConfig)).toBe(
+        "Jortspocalypse",
+      );
+      expect(applyTitleFallback("The Rumours run", 190, douliuConfig)).toBe(
+        "The Rumours run",
+      );
+    });
+
+    it("does not treat a bare number as stale when titleStripPatterns is unset (opt-in only)", () => {
+      // Same input, no titleStripPatterns configured — pre-#2657 behavior:
+      // a bare number passes through verbatim, unchanged by this feature.
+      expect(applyTitleFallback("206", 206, { defaultTitle: "Douliu H3" })).toBe("206");
+    });
+  });
+
+  // #2549 — Algarve H3's HC-native "hare not yet assigned" placeholder.
+  describe("need-hare placeholder rewrite (#2549)", () => {
+    it("rewrites 'Need Hare' to 'hare TBD', keeping the rest of the title", () => {
+      expect(applyTitleFallback("Run 2179 - Need Hare", 2179, {})).toBe(
+        "Run 2179 - hare TBD",
+      );
+      expect(applyTitleFallback("Run 2182 - NEED HARE", 2182, {})).toBe(
+        "Run 2182 - hare TBD",
+      );
+    });
+
+    it("rewrites 'need a hare' too", () => {
+      expect(applyTitleFallback("Run 100 - need a hare", 100, {})).toBe(
+        "Run 100 - hare TBD",
+      );
+    });
+
+    it("leaves a real theme untouched (no 'need hare' phrase present)", () => {
+      expect(
+        applyTitleFallback("Run 2181 - Summer Cummer- venue tbc", 2181, {}),
+      ).toBe("Run 2181 - Summer Cummer- venue tbc");
+    });
+  });
 });
 
 describe("hcGeocodeFailed", () => {
@@ -408,6 +467,47 @@ describe("scrubDescriptionPii (#2550)", () => {
   });
 });
 
+describe("buildHashrunsPermalink (#2601)", () => {
+  it("builds the kennelUniqueShortName + eventNumber permalink", () => {
+    expect(
+      buildHashrunsPermalink(
+        buildHCEvent({ kennelUniqueShortName: "AH3", eventNumber: 2253 }),
+        {},
+      ),
+    ).toBe("https://www.hashruns.org/AH3/2253");
+  });
+
+  it("URL-encodes an unusual kennelUniqueShortName", () => {
+    expect(
+      buildHashrunsPermalink(
+        buildHCEvent({ kennelUniqueShortName: "A/B H3", eventNumber: 5 }),
+        {},
+      ),
+    ).toBe("https://www.hashruns.org/A%2FB%20H3/5");
+  });
+
+  it("returns undefined for eventNumber 0 (social/drinking-practice sentinel)", () => {
+    expect(
+      buildHashrunsPermalink(buildHCEvent({ eventNumber: 0 }), {}),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined for a missing/negative eventNumber", () => {
+    expect(
+      buildHashrunsPermalink(buildHCEvent({ eventNumber: -1 }), {}),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when suppressRunNumber is set (#2654 Manchester) — the number isn't a real per-event id", () => {
+    expect(
+      buildHashrunsPermalink(
+        buildHCEvent({ kennelUniqueShortName: "MH3-GB", eventNumber: 289 }),
+        { suppressRunNumber: true },
+      ),
+    ).toBeUndefined();
+  });
+});
+
 describe("generateAccessToken", () => {
   it("produces a 64-char hex string", () => {
     const token = generateAccessToken("getEvents");
@@ -465,9 +565,10 @@ describe("HarrierCentralAdapter", () => {
       expect(evt.location).toBe("Yamanote, Tozai lines. Waseda exit");
       expect(evt.latitude).toBeCloseTo(35.713, 2);
       expect(evt.longitude).toBeCloseTo(139.704, 2);
-      // sourceUrl is intentionally omitted — hashruns.org/#/event/... links
-      // no longer resolve in the Flutter UI (#706, #725).
-      expect(evt.sourceUrl).toBeUndefined();
+      // #2601: sourceUrl now links to the current Next.js hashruns.org front
+      // end's per-run page (kennelUniqueShortName + eventNumber), which
+      // replaced the dead Flutter `#/event/...` scheme (#706, #725).
+      expect(evt.sourceUrl).toBe("https://www.hashruns.org/TH3/2577");
     });
 
     it("maps eventNumber to runNumber by default", async () => {
@@ -1056,5 +1157,31 @@ describe("HarrierCentralAdapter", () => {
       });
     });
 
+    // #2601 — sourceUrl now links to the live hashruns.org per-run page.
+    describe("sourceUrl (#2601)", () => {
+      it("sets sourceUrl to the hashruns.org permalink", async () => {
+        mockApiResponse([
+          buildHCEvent({ kennelUniqueShortName: "TH3", eventNumber: 2577 }),
+        ]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        expect(result.events[0].sourceUrl).toBe("https://www.hashruns.org/TH3/2577");
+      });
+
+      it("omits sourceUrl for eventNumber 0 (social)", async () => {
+        mockApiResponse([buildHCEvent({ eventNumber: 0 })]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        expect(result.events[0].sourceUrl).toBeUndefined();
+      });
+
+      it("omits sourceUrl when suppressRunNumber is set", async () => {
+        mockApiResponse([
+          buildHCEvent({ kennelUniqueShortName: "MH3-GB", eventNumber: 289 }),
+        ]);
+        const result = await adapter.fetch(
+          makeSource({ defaultKennelTag: "mh3-gb", suppressRunNumber: true }),
+        );
+        expect(result.events[0].sourceUrl).toBeUndefined();
+      });
+    });
   });
 });
