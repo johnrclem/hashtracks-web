@@ -2075,3 +2075,96 @@ browserRender, no anti-bot). Verified via both `web_fetch` and a Chrome MCP DOM 
 - **Effort:** small **new bespoke ~150–220 LoC HTML adapter** (`GenericHtmlAdapter` can't split the
   combined `<date> - Run <NNNN>` heading or the multi-field cards). Model `dublin-hash.ts` fetch
   plumbing + `burlington-hash.ts` field cleaning.
+
+---
+
+## Blazor (.NET) SPA hash-club site — SSR-empty, `browserRender` required (learned from Cambridge H3, 2026-08-12)
+
+`ch3.co.uk` (Cambridge H3, est. 1978, weekly Sunday, run #2486) is a **Blazor (.NET) single-page
+app** — a rendering shape distinct from Wix/Google-Sites SPAs. Detection + gotchas (all verified in
+Chrome):
+
+- **Detection:** page `<head>`/scripts load `_framework/blazor.web.js` + `_content/CSE.Blazor.Bootstrap/js/cse.bootstrap.js`
+  and `lib/bootstrap/...`. `performance.getEntriesByType('resource')` shows **no JSON/REST/XML data
+  URL** — Blazor Server streams the rendered DOM over a **SignalR WebSocket**, so there is nothing to
+  intercept as a plain `fetch`. (Blazor WASM variants would fetch data files; this one doesn't.)
+- **🔴 A plain `web_fetch`/`curl` of the https site returns an EMPTY shell** (`<meta base>` +
+  viewport only — zero run data). The content only exists after the Blazor runtime hydrates. →
+  **`browserRender` is mandatory** (there is no config-only / Cheerio-on-raw-HTML path). Call
+  `browserRender({ url, waitFor: "<content selector>", timezoneId: "Europe/London", timeout: 30000 })`
+  and Cheerio-load the returned HTML. ⚠️ Confirm the NAS render service actually drives the SignalR
+  hydration to completion (wait on a real content selector, not `body`); this is the single build
+  risk. From the research sandbox you CAN capture the live sample via the Chrome MCP (Chrome runs the
+  Blazor runtime), but `browserRender` itself must be verified at build.
+- **🔴 Legacy-cache trap: the `http://` (no-TLS) host can serve a stale OLD site.** Cambridge's
+  `http://www.ch3.co.uk/` still returns a 2022-era SSR snapshot (runs #1971–#1974, Jul-2022 Sundays)
+  while `https://www.ch3.co.uk/` is the live Blazor app. Always pin **https** and ignore an http
+  snapshot — it's a different, dead site version, not a fallback.
+- **Two useful surfaces, both Blazor-rendered:**
+  - **Homepage `/` → `div.RunList`** = the rolling forward hareline: alternating `<h3>` **"Month YYYY"**
+    headers (unambiguous year — no inference) + run `<div>`s
+    (`Run NNNN <Mon> <Dth> - <Venue> , <Town>, <POSTCODE> [ - Tel: …]` + `Hare: …` + optional note).
+    The next upcoming run's div carries a **`.nextRun`** class. Forward-only, ages out → `upcomingOnly:true`.
+  - **`/runlist` → 20 per-year `<table>`s** captioned `Runs X-Y  Years A/B` (newest first), columns
+    `Date | Run | Relive | Venue | Hare` (older tables append `Scribe`). A **full run archive** (Cambridge:
+    #1458 2006 → present ≈ 1,033 runs) — the historical-backfill source.
+- **🔴 Year rollover in the archive tables.** Data rows carry only a month sub-header + ordinal day
+  (no year); each table spans a "hash year" (AGPU/October boundary) labeled `Years A/B`. Don't
+  hard-code an Oct/Sep split — resolve by walking runs **newest→oldest** ~7 days/run, snapping to each
+  row's month/day with the caption's two years as candidates, then validate with run-number
+  monotonicity + gap-sanity. The homepage's explicit "Month YYYY" headers avoid this for the live
+  adapter → do the live parse off the homepage, the backfill off `/runlist`.
+- **No coords / no per-row time** — venue + UK postcode only (the on-page "map" is a Blazor widget,
+  not a Maps URL) → geocode the postcode, `startTime` constant from the schedule. No default-pin trap.
+- **No theme titles** — event names ("Beer Festival"/"Seaside Run") are trailing **notes** → leave
+  `title` undefined (merge synthesizes "Cambridge H3 Trail #N"). Run number is `Run NNNN` (no `#` →
+  `extractHashRunNumber` doesn't fit; use `/^Run\s+(\d+)\b/`).
+- **Logo** = `ch3.co.uk/images/ch3logo.gif` (stable own-domain **GIF**, not tokenized) → self-host +
+  magic-byte the ext (`GIF8`). Socials: email + Google-group only (no FB/IG/X) → blank+flag.
+- **Effort:** new bespoke **~180–260 LoC `browserRender` adapter** (homepage `.RunList` parse) + a
+  one-shot `/runlist` backfill. Model `northboro-hash.ts` (browserRender plumbing) + `dublin-hash.ts` /
+  `burlington-hash.ts` (field cleaning).
+
+---
+
+## concrete5 CMS "Forthcoming Runs" hash-club site (MKH3, 2026-08-13)
+
+**Platform tell:** `<meta name="generator" content="concrete5">` (an older PHP CMS, often via a
+small web-design agency — MKH3's footer credits "Bays Media"). URLs are clean paths
+(`/runs-events`, `/about-us`, `/history`) sometimes aliasing internal `index.php?cID=<n>` block IDs.
+
+**Source shape (VERIFIED via `web_fetch` on `mkh3.co.uk/runs-events`, 2026-08-13 — SSR, no browser needed):**
+The forward hareline is a repeating **"Forthcoming Runs"** block list. Each entry renders as:
+- a short date label (`Aug 17`),
+- a **venue line** (`Cannon, Newport Pagnell - MK16 8AQ` → venue before ` - `, UK postcode after),
+- a **full datetime line** (`Aug 17, 2026, 6:50 PM – 9:00 PM`) — **YEAR-BEARING** (chrono-parse, no inference) with **same-day start+end**,
+- a **body** (`Run: NNNN` / `Hares: A, B` / free-text details),
+- a **Google Maps `<iframe>` embed** whose `src` carries real per-venue coords as `!3d<lat>!2d<lng>` (⚠️ `!2d`=lng, `!3d`=lat).
+"No Run" placeholder blocks (`No Run` / "running approximately fortnightly") appear inline and **must be skipped**.
+
+**Gotchas learned:**
+- 🔴 **Forward-widget run numbers can be UNRELIABLE.** MKH3 showed the *same* `Run: 1931` on two
+  distinct dated runs (a hand-editing typo). Never key event identity/dedup on `runNumber` from this
+  block — use `kennel + date` (the merge fingerprint). Treat `runNumber` as best-effort display only.
+- 🟢 **Coords are clean per-venue Maps embeds** (not a repeated default pin) — parse `!3d/!2d`; reject
+  if the embed is absent rather than synthesizing a centroid. No `dropCachedCoords` needed.
+- 🟢 **Rolling forward window ⇒ `config.upcomingOnly: true` REQUIRED** (blocks roll off after the date;
+  otherwise `reconcile.ts` false-cancels).
+- **Single-page source ⇒ explicit `events.length === 0` fail-loud guard** (baseline is 0 for a new source).
+- **Effort:** new bespoke **~160–220 LoC static-Cheerio adapter** (`fetchHTMLPage`; two-pass block slice
+  so date/time regexes stay S5852/S5843-safe). Model `dublin-hash.ts` (block iteration) +
+  `burlington-hash.ts` (labeled-field + safe-regex helpers).
+
+**Archive backfill = a PUBLISHED GOOGLE SHEET (not the CMS).** concrete5 sites frequently embed the run
+archive as a Google Sheets `pubhtml` iframe on a `/history/past-runs` page (MKH3:
+`docs.google.com/spreadsheets/d/e/2PACX-…/pubhtml`, per-year tabs, cols `Run, Date, Day, Venue/Details,
+Hares`). This is a rich one-shot backfill source **separate from the forward adapter** — pull each
+year-tab via `.../pub?output=csv&gid=<gid>` (or the default `?output=csv` = newest tab), derive the year
+from the tab **title** ("2025 - 6 MKH3 Runs") + the `DD Mon` cell, skip `Run = "-"` / "No Run" /
+"Hares Required" rows. Freeze the ingested rows to `scripts/data/<code>-history.json` + a dumb loader
+(H7 pattern). **Always check `/history` and `/history/past-runs` on a concrete5 hash site before
+concluding "no backfill."**
+
+**Logo:** concrete5 serves uploads from tokenized `application/files/<id>/<id>/<id>/<name>.<ext>` paths
+that rotate on re-upload → **self-host** to `public/kennel-logos/<code>.<ext>` (confirm ext by
+Content-Type **and** magic bytes; MKH3's is a `.gif`).
