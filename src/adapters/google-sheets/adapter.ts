@@ -562,10 +562,9 @@ function resolveKennelTagFromSheetRow(
   if (specialRunCell && config.kennelTagRules.specialRunMap) {
     const mapped = new Map(Object.entries(config.kennelTagRules.specialRunMap)).get(specialRunCell);
     if (mapped) {
-      return {
-        kennelTag: mapped,
-        runNumber: runNumberCell ? Number.parseInt(runNumberCell, 10) || undefined : undefined,
-      };
+      const runNumber = runNumberCell ? Number.parseInt(runNumberCell, 10) || undefined : undefined;
+      if (runNumber === undefined && config.requireRunNumber) return null;
+      return { kennelTag: mapped, runNumber };
     }
   }
   if (specialRunCell && /^\d+$/.test(specialRunCell) && config.kennelTagRules.numericSpecialTag) {

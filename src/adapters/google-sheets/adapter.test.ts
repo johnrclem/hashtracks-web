@@ -355,6 +355,22 @@ describe("buildEventFromSheetRow", () => {
     expect(event!.kennelTags).toEqual(["mickleover-h3"]);
   });
 
+  it("requireRunNumber: drops a specialRunMap-matched row with a blank run# cell too", () => {
+    // The specialRunMap branch resolves and returns before the general
+    // fallthrough check — without its own requireRunNumber guard, a mapped
+    // special-run row (e.g. an anniversary/social label) with no run number
+    // would slip through as runNumber: undefined even with the flag set.
+    const config = {
+      sheetId: "mickleover",
+      columns: { runNumber: 0, date: 1, hares: 2, location: 3, specialRun: 4 },
+      kennelTagRules: { default: "mickleover-h3", specialRunMap: { "social": "mickleover-h3" } },
+      requireRunNumber: true,
+    };
+    const row = ["", "12-Jan-26", "", "The Malt Shovel", "social"];
+    const event = buildEventFromSheetRow(row, config, "https://example.com", "2026-01-12");
+    expect(event).toBeNull();
+  });
+
   it("drops all-lowercase single-token city shorthands like 'sheperdstown' (#893)", () => {
     // W3H3 sheet row 17 (run #359) has "sheperdstown" in column D — a typo'd
     // city name used as a venue placeholder. Without this fix the geocoder
