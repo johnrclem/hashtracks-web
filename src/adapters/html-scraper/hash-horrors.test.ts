@@ -177,6 +177,41 @@ describe("parseHashHorrorsHareline (year-grouped archive)", () => {
     expect(out.skippedMarkers).toBe(1);
   });
 
+  it("does not mistake a Singapore postal-code fragment for a run-line start (#2666)", () => {
+    // Live 2026-08-13: "...Singapore 099115 – Bottom of Mount Faber..." — the
+    // trailing 4 digits of the postal code ("9115") plus " – Bottom" satisfy
+    // the digits+dash+word shape and were previously mis-tokenized as a
+    // (unparseable) run-line start, inflating skippedLines every scrape.
+    const text =
+      "2026 790 – November 9 – Duncan Family – Mount Faber – near 4 Seah Im Road, " +
+      "Singapore 099115 – Bottom of Mount Faber / Large Car Park off Seah Im Rd. " +
+      "789 – October 26 – Strawberry Short-Cut, Gummy Bear";
+    const out = parseHashHorrorsHareline(text);
+    expect(out.events.map((e) => e.runNumber)).toEqual([790, 789]);
+    expect(out.skippedLines).toBe(0);
+  });
+
+  it("skips known-dateless 1990s/2000s archive stub rows without counting as drift (#2666)", () => {
+    // These run numbers genuinely have no month/day in the source's own
+    // /hareline page (verified live 2026-08-13) — not a parser regression.
+    const text =
+      "2004 640 – February 8 – Abe, Ella and Sil Linskens – Upper Peirce Reservoir Park " +
+      "628 – Linskens and Seah Families – Upper Peirce Reservoir " +
+      "625 – Danial, Mushu, and Mischief – Lorong Lada Hitam " +
+      "600 – July 29";
+    const out = parseHashHorrorsHareline(text);
+    expect(out.events.map((e) => e.runNumber)).toEqual([640, 600]);
+    expect(out.skippedLines).toBe(0);
+    expect(out.skippedKnownGaps).toBe(2);
+  });
+
+  it("still counts an unrecognized dateless run number as skippedLines drift (allowlist doesn't over-match)", () => {
+    const text = "2004 640 – February 8 – Abe Family 601 – Nobody Knows This One";
+    const out = parseHashHorrorsHareline(text);
+    expect(out.skippedKnownGaps).toBe(0);
+    expect(out.skippedLines).toBe(1);
+  });
+
   it("flags non-empty pages with no year headings as a parse failure (#1536 review)", () => {
     // If the WP.com template drops the year heading shape entirely, the
     // adapter must surface a scrape error rather than silently emit zero
