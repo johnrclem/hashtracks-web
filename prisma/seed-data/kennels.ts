@@ -136,6 +136,9 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "qbk", shortName: "Queens", fullName: "Queens Black Knights Hash House Harriers", region: "New York City, NY",
       logoUrl: "/kennel-logos/qbk.png",
+      website: "https://hashnyc.com", // #2649: umbrella site (already the tracked source); QBK has no dedicated site
+      scheduleNotes: "Random days, random times.", // #2649: explicitly no fixed weekly schedule per hashnyc.com
+      description: "Queens Hash House Harriers — Starts near public transit in Queens — Random days, random times.", // #2649
     },
     { kennelCode: "si", shortName: "SI", fullName: "Staten Island Hash House Harriers", region: "New York City, NY" },
     { kennelCode: "columbia", shortName: "Columbia", fullName: "Columbia Hash House Harriers", region: "New York City, NY" },
@@ -593,6 +596,8 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "w3h3", shortName: "W3H3", fullName: "Wild and Wonderful Wednesday Hash House Harriers", region: "Jefferson County, WV",
       website: "https://sites.google.com/view/w3h3",
       facebookUrl: "https://www.facebook.com/groups/273947756839837/",
+      foundedYear: 2019, // #2610: W3H3 Hareline sheet, Hash #1 "W3H3 Inaugural Hash!!!" 06/12/2019
+      contactEmail: "w3h3hareraiser@gmail.com", // #2610: hareraiser contact, W3H3 Hareline sheet header
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:09 PM", scheduleFrequency: "Weekly",
       description: "Weekly Wednesday 6:09 PM hash in Jefferson County, West Virginia (Harpers Ferry area).",
       latitude: 39.32, longitude: -77.87,
@@ -1058,6 +1063,10 @@ export const KENNELS: KennelSeed[] = [
       website: "https://westlondonhash.com",
       logoUrl: "https://westlondonhash.com/wp-content/uploads/2013/07/west-london-hash-harriers-logo.png",
       scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      hashCash: "£2 per run (£35/year membership)", // #2617: westlondonhash.com/about/
+      facebookUrl: "https://www.facebook.com/groups/1822849584637512", // #2617: closed FB group
+      contactEmail: "westlondonh3@gmail.com", // #2617: weekly runs mailing list
+      description: "A highly inclusive group with a diverse and cosmopolitan following, hashing all-year-round every Thursday. Meet at a pub within walking distance of a tube/mainline station for a 4–5 mile, ~1 hour P-trail of chalked Ps from the station.", // #2617
     },
     {
       kennelCode: "barnesh3", shortName: "BarnesH3", fullName: "Barnes Hash House Harriers", region: "London", country: "UK",
@@ -1148,6 +1157,7 @@ export const KENNELS: KennelSeed[] = [
       latitude: 57.1497, longitude: -2.0943 },
     { kennelCode: "tnth3", shortName: "The New Town Hash", fullName: "The New Town Hash (Big Bang Hash)",
       region: "Edinburgh", country: "UK", logoUrl: "/kennel-logos/tnth3.png",
+      foundedYear: 1984, // #2627: edinburghh3.com/tnt-history.html — first trail 11 Apr 1984
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Wednesday-evening Edinburgh trail. Also known as the Big Bang Hash.",
       hashCash: "£1", description: "Edinburgh's weekly Wednesday-evening New Town / Big Bang hash.",
@@ -2333,6 +2343,10 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "sluth3", shortName: "SLUT H3", fullName: "Short Lazy Urban Thursday H3", region: "Atlanta, GA",
       scheduleFrequency: "Monthly", scheduleNotes: "1st Thursday, 7:00 PM.",
       hashCash: "$10", // $10 all-inclusive (beer, food, trail) — consistent across Atlanta Hash Board posts
+      // #2512: corrects wrong "Since first known run in 2025" display — Atlanta Hash Board's
+      // oldest SLUT topic is #247 (Jun 2023); run numbering implies the kennel predates the
+      // forum itself, so 2023 is a verified floor, not the exact founding year.
+      foundedYear: 2023,
       description: "Monthly Thursday evening urban trail in Atlanta.",
     },
     {
@@ -3521,6 +3535,7 @@ export const KENNELS: KennelSeed[] = [
       // No explicit slug — toSlug("Fengyuan H3") = "fengyuan-h3". The HC acronym "FISHHH" is
       // kept as an alias (Bandung "BHHH2" → "Bandung H3" precedent). Taiwan's 5th metro (Taichung).
       region: "Taichung", country: "Taiwan",
+      facebookUrl: "https://www.facebook.com/TWFISH3", // #2578: active FB Page, confirmed live
       foundedYear: 2022, // verified: HC run #1 = 2022-08-07
       scheduleDayOfWeek: "Sunday", // nominal ("Irregular Sunday"); actual days/times genuinely vary
       scheduleFrequency: "Irregular",
@@ -4187,6 +4202,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "wsh3", shortName: "Wandering Soul H3", fullName: "Wandering Soul Hash House Harriers", region: "Birmingham, AL",
       scheduleFrequency: "Annually",
       scheduleNotes: "Annual hash campout (SOEX) held each June. No regular weekly trail schedule.",
+      contactEmail: "wileyzachary2@gmail.com", // #2633: organizer-tied, rotates yearly (2025 SOEX contact) — lower confidence
       description: "Birmingham, Alabama hash kennel. Best known for hosting the annual SOEX (Southern Excursion) hash campout.",
       latitude: 33.52, longitude: -86.81,
     },
@@ -5368,6 +5384,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "wasatch-h3", shortName: "Wasatch H3", fullName: "Wasatch Hash House Harriers",
       region: "Salt Lake City, UT",
       website: "https://www.whoremanh3.com",
+      facebookUrl: "https://facebook.com/groups/UtahH3", // #2644: Utah H3 umbrella group, linked from whoremanh3.com/utah-kennels/
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
       scheduleTime: "10:45 AM",
       scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-05-30", startTime: "10:45" }],
@@ -5403,6 +5420,10 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "slut-h3", shortName: "SL,UT Discovery", fullName: "SL,UT Discovery Hash House Harriers",
+      // #2308: explicit slug — toSlug("SL,UT Discovery") now correctly strips the comma to
+      // "sl-ut-discovery", but the stored row predates that fix and needs a one-time correction
+      // (see companion data migration). Pin it explicitly so it can never drift back.
+      slug: "sl-ut-discovery",
       region: "Salt Lake City, UT",
       website: "https://www.whoremanh3.com",
       scheduleFrequency: "Monthly",
@@ -5711,6 +5732,7 @@ export const KENNELS: KennelSeed[] = [
     // Toulouse (first Toulouse kennel) — HC batch
     { kennelCode: "toulouse-h3", shortName: "Toulouse H3", fullName: "Toulouse Hash House Harriers",
       region: "Toulouse", country: "France", website: "https://toulousehash.com", facebookUrl: "https://www.facebook.com/ToulouseHHH",
+      contactEmail: "contact@toulousehash.com", // #2608: toulousehash.com/hash-contacts/
       logoUrl: "/kennel-logos/toulouse-h3.avif", scheduleDayOfWeek: "Sunday", scheduleFrequency: "Monthly",
       scheduleNotes: "Monthly, second Sunday (date can shift). Family-oriented — runners and walkers of all ages.",
       hashCash: "€5", foundedYear: 2002,
@@ -5879,6 +5901,7 @@ export const KENNELS: KennelSeed[] = [
       country: "Poland",
       website: "https://warsawh3.com/",
       facebookUrl: "https://www.facebook.com/WarsawH3",
+      contactEmail: "WarsawH3@gmail.com", // #2613: mailto in site footer
       foundedYear: 1983,
       hashCash: "PLN20", // first run free
       walkersWelcome: true,
