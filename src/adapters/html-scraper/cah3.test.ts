@@ -1,4 +1,24 @@
-import { parseCah3Title, parseCah3Body, parseCah3Post } from "./cah3";
+import { parseCah3Title, parseCah3Body, parseCah3Post, Cah3Adapter } from "./cah3";
+import * as wordpressApi from "../wordpress-api";
+
+vi.mock("../wordpress-api");
+
+const MONTH_NAMES = [
+  "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+];
+
+/** A near-future date (~3 weeks out) as "YYYY-MM-DD", plus its "MMM D" title
+ *  form — used so fetch()-level tests stay inside the 365-day scrape window
+ *  indefinitely instead of aging out on a hardcoded year (see
+ *  adapter-patterns.md "windowed adapter tests need relative dates"). */
+function nearFutureDate(): { iso: string; titleText: string } {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + 21);
+  const iso = d.toISOString().slice(0, 10);
+  const titleText = `${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()}`;
+  return { iso, titleText };
+}
 
 describe("parseCah3Title", () => {
   it("parses run number and date from a typical title", () => {
@@ -127,5 +147,81 @@ describe("parseCah3Post", () => {
     });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.event.startTime).toBe("16:00");
+  });
+});
+
+describe("Cah3Adapter.fetch — no-date skip vs. hard failure (#2668)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  // cah3.net redesigned its "Run NNN" posts mid-2026 onto a template with no
+  // date field anywhere; a majority of posts are expected to skip on
+  // "no-date" as steady state (paired with a STATIC_SCHEDULE sibling source
+  // for the recurring baseline — see seed comment). That expected partial
+  // skip must NOT surface as `errors` (which drives consecutive-failure
+  // alerts) as long as at least one post still yields a dated event.
+  it("does not push no-date skips into errors when some posts still parse", async () => {
+    const { iso, titleText } = nearFutureDate();
+    vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: `Run 534: Songkran Outstation ${titleText}`,
+          content: "<p>RUN DIRECTIONS</p>",
+          url: "https://cah3.net/run-534/",
+          date: `${iso}T09:00:00`,
+        },
+        {
+          // New template, real content, but genuinely no date anywhere.
+          title: "Run 541: Bangs My Sister & Brother Lover",
+          content: "<p>Sam Phan Nam Spillway West</p>",
+          url: "https://cah3.net/run-541/",
+          date: `${iso}T11:19:21`,
+        },
+      ],
+      fetchDurationMs: 150,
+    });
+
+    const result = await new Cah3Adapter().fetch({
+      id: "test-cah3",
+      url: "https://cah3.net",
+      scrapeDays: 365,
+    } as never);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.errors).toEqual([]);
+    expect(result.diagnosticContext).toMatchObject({
+      postsFound: 2,
+      eventsParsed: 1,
+      skippedNoDate: 1,
+    });
+  });
+
+  it("escalates to a hard error when every post fetched lacks a date", async () => {
+    const { iso } = nearFutureDate();
+    vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "Run 541: Bangs My Sister & Brother Lover",
+          content: "<p>Sam Phan Nam Spillway West</p>",
+          url: "https://cah3.net/run-541/",
+          date: `${iso}T11:19:21`,
+        },
+        {
+          title: "Run 540: Majestic Ballcock & HTT",
+          content: "<p>GPS Coordinates N 12.5248534</p>",
+          url: "https://cah3.net/run-540/",
+          date: `${iso}T10:26:59`,
+        },
+      ],
+      fetchDurationMs: 150,
+    });
+
+    const result = await new Cah3Adapter().fetch({
+      id: "test-cah3",
+      url: "https://cah3.net",
+      scrapeDays: 365,
+    } as never);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors.length).toBeGreaterThan(0);
   });
 });

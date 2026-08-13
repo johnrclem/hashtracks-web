@@ -182,7 +182,23 @@ export class Cah3Adapter implements SourceAdapter {
       return { events: [], errors: [message], errorDetails };
     }
 
+    // #2668: cah3.net redesigned its "Run NNN" posts around mid-2026 onto a
+    // generic "RUN DIRECTIONS / SPECIAL NOTE / ON AFTER" template that has NO
+    // date field anywhere (title or body) — confirmed live 2026-08-13 by
+    // inspecting the raw WP REST payload (no ACF/meta date field either).
+    // The site's own /hareline/ page now points hares at a Facebook Events
+    // page for scheduling instead. This was already a known, by-design
+    // partial-parse source (see the seed comment: "~20% of posts whose
+    // titles do carry dates ... rejects the rest", paired with a
+    // STATIC_SCHEDULE source for the recurring baseline) — the redesign just
+    // pushed the miss rate higher. A per-post "no parseable date" skip here
+    // is expected steady state, not format drift, so it's tracked as a
+    // diagnostic count rather than pushed into `errors` (which drives
+    // consecutive-failure alerts). Only escalate to a hard error if literally
+    // NO posts yield a dated event — that would mean the ~20% baseline itself
+    // broke, which the STATIC_SCHEDULE sibling can't detect on its own.
     const events: RawEventData[] = [];
+    const noDateTitles: string[] = [];
     for (let i = 0; i < wpResult.posts.length; i++) {
       const post = wpResult.posts[i];
       const result = parseCah3Post({
@@ -196,7 +212,7 @@ export class Cah3Adapter implements SourceAdapter {
         continue;
       }
       if (result.reason === "not-run-post") continue;
-      errors.push(`CAH3 post "${result.title.slice(0, 80)}" has no parseable date`);
+      noDateTitles.push(result.title.slice(0, 80));
       errorDetails.parse = [
         ...(errorDetails.parse ?? []),
         {
@@ -209,6 +225,12 @@ export class Cah3Adapter implements SourceAdapter {
       ];
     }
 
+    if (events.length === 0 && noDateTitles.length > 0) {
+      errors.push(
+        `CAH3: ${noDateTitles.length} post(s) fetched but none had a parseable date — the ~20% title-date baseline may have broken`,
+      );
+    }
+
     const days = options?.days ?? source.scrapeDays ?? 365;
     return applyDateWindow(
       {
@@ -219,6 +241,8 @@ export class Cah3Adapter implements SourceAdapter {
           fetchMethod: "wordpress-api",
           postsFound: wpResult.posts.length,
           eventsParsed: events.length,
+          skippedNoDate: noDateTitles.length,
+          skippedNoDateTitles: noDateTitles,
           fetchDurationMs: wpResult.fetchDurationMs,
         },
       },
