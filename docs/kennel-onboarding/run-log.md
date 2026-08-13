@@ -12,6 +12,21 @@ Format:
 - Follow-ups: <anything deferred>
 ```
 
+> **✅ POST-MERGE LIVE (2026-08-13, all prod-verified) — CONFIG BATCH C.** [PR #2672](https://github.com/johnrclem/hashtracks-web/pull/2672)
+> merged (`477942f9`); all 4 kennels live: **devon-lunatics-h3 113 · isca-h3 401 · mickleover-h3 362 ·
+> jaxh3 12** canonical events, correct region badges (new Exeter + East Midlands METROs), all 4
+> `/kennels/*` + all 4 `/kennel-logos/*` serve 200. Applied via a targeted, self-contained
+> `scripts/apply-config-batch-c.ts` one-shot (mirrors `prisma/seed.ts`'s ensure* logic scoped to just
+> this batch — never imports `prisma/seed.ts` itself, per the #2655 lesson) rather than a full `db
+> seed`; deleted after running (no reuse value, matches convention — these one-shots are never
+> committed). Mickleover landed **362** canonical events from **364** fetched RawEvents — the 2
+> dropped are exactly the blank-run# winter "social" rows the new `requireRunNumber` flag is meant to
+> filter, confirming it works correctly against live data. First scrape attempt against Mickleover's
+> full 1993→present archive exceeded the CLI's 2-minute client timeout; the request had already
+> completed server-side (Vercel Fluid Compute allows up to 300s) — a retry against the same source
+> came back **0 created / 364 skipped** (idempotent RawEvent fingerprint dedup), confirming the first
+> attempt succeeded and this was a client-side timeout, not a scrape failure.
+
 > **CONFIG BATCH C (2026-08-12) — 3 new kennels + 1 source-add, part of the 20-kennel backlog rescue.**
 > Built from four handoffs generated 2026-07-21 → 08-09 that sat uncommitted for weeks (see
 > `handoffs/retros/2026-08-11-backlog-rescue-retro.md`): **Devon Lunatics H3 (`dlh3-gb`, Exeter,
