@@ -6140,6 +6140,86 @@ export const KENNELS: KennelSeed[] = [
       latitude: 44.8125,
       longitude: 20.4612,
     },
+    // ===== HC BATCH-11 ===== (4 config-only Harrier Central kennels)
+    {
+      // bare "PH3" taken by ph3-my (Petaling) / pattaya-h3 → country-suffixed, matching HC's own slug PH3-CZ
+      kennelCode: "ph3-cz",
+      shortName: "Prague H3", // deliberately NOT "PH3" (3 chars ≤4 → friendlyKennelName would fall back to fullName)
+      fullName: "Prague Hash House Harriers",
+      region: "Prague",
+      country: "Czech Republic",
+      foundedYear: 1984, // first hash club in then-Czechoslovakia (p2h3.com "In the Spotlight — Czech Republic")
+      hashCash: "100 CZK", // HC-inferred modal EventPriceForMembers; currency inferred — flagged
+      facebookUrl: "https://www.facebook.com/Prague-Hash-House-Harriers-136967876395579/",
+      instagramHandle: "praguehashhouse",
+      // website OMITTED — praguehhh.com is hijacked to a spam/affiliate redirect
+      logoUrl: "/kennel-logos/ph3-cz.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      latitude: 50.0755,
+      longitude: 14.4378,
+      // Cadence uncertain from a sparse HC feed — flat fallback only, low-confidence, no scheduleRules.
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "2:00 PM",
+    },
+    {
+      kennelCode: "eels-h3", // grep-clean; bare "EELS"/"EELS H3" unused globally
+      shortName: "EELS H3",
+      fullName: "East End of London Something Hash House Harriers",
+      region: "London", // reuses the existing London METRO — no region.ts edits
+      country: "UK",
+      facebookUrl: "https://www.facebook.com/groups/381336404144042/",
+      scheduleDayOfWeek: "Thursday",
+      scheduleTime: "7:00 PM", // 12-hr profile field; on-out ~19:00, HC meet time 18:45
+      scheduleFrequency: "Monthly", // 1st Thursday
+      description:
+        "East London branch of the Hash House Harriers — a monthly first-Thursday pub hash meeting 'somewhere with an E in the postcode'.",
+      logoUrl: "/kennel-logos/eels-h3.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      // foundedYear / hashCash / dogFriendly / walkersWelcome: unverified — omitted per source-onboarding-playbook
+    },
+    {
+      kennelCode: "sh2b", // grep-clean; distinct from sh3-wa / ssh3 / ssh3-wa (South Sound, already live)
+      shortName: "SH2B",
+      fullName: "Seattle Hash House Bikers",
+      region: "Seattle, WA", // reuses the existing Seattle METRO — no region.ts edits
+      country: "USA",
+      facebookUrl: "https://www.facebook.com/HashBikersWA/",
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "12:00 PM", // 12-hr profile field; HC run times 10:00-14:00, typically noon
+      scheduleFrequency: "Monthly",
+      scheduleNotes:
+        "Seasonal bike hash — one Sunday per month, roughly noon, April through October; dormant in winter.",
+      description:
+        "Seattle's bike hash — a 'drinking club with a cycling problem'. Monthly Sunday bike-bashes around the Puget Sound area through the April-October season.",
+      latitude: 47.61,
+      longitude: -122.33,
+      // logoUrl OMITTED — HC returns a bundle:// app asset, not a fetchable URL; no logo available
+      // website / foundedYear / hashCash: unverified — omitted
+    },
+    {
+      kennelCode: "sierra-h4", // grep-clean; first Sierra Leone kennel
+      shortName: "Sierra H4",
+      fullName: "Sierra Hash House Harriers and Harriettes",
+      region: "Freetown",
+      country: "Sierra Leone",
+      website: "https://sierrah4.com",
+      facebookUrl: "https://facebook.com/sierrah4",
+      instagramHandle: "sierra_h4",
+      twitterHandle: "sierra_h4",
+      foundedYear: 2024,
+      hashCash: "NLe 30 (members) / NLe 250 (visitors)",
+      // scheduleDayOfWeek/scheduleTime are the flat fallback; scheduleRules is authoritative.
+      scheduleDayOfWeek: "Wednesday",
+      scheduleTime: "6:00 PM", // 12-hr fallback (kennel site). scheduleRules.startTime stays 24-hr.
+      scheduleFrequency: "Weekly",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=WE", startTime: "18:00", label: "Weekly Wednesday" },
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA", startTime: "18:00", label: "1st Saturday" },
+      ],
+      latitude: 8.484,
+      longitude: -13.2299,
+      logoUrl: "/kennel-logos/sierra-h4.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      description:
+        "Freetown's favourite drinking club with a running problem — the 'Duo Kennel' of Sierra Hash House Harriers & Harriettes. Weekly Wednesday-evening trails plus a monthly 1st-Saturday run, with a seasonal pause during the May-August rains. Founded 2024; host of Pan Africa Hash 2027.",
+    },
     // ===== CONFIG BATCH C ===== (2 GOOGLE_CALENDAR, 1 GOOGLE_SHEETS, 1 ICAL_FEED source-add)
     {
       // bare "dlh3" taken by Duneland H3 (South Shore, IN) → region-suffixed

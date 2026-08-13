@@ -1748,6 +1748,24 @@ The HC config-only well is *upcoming-feed* exhausted (6+ consecutive runs found 
   kennel's FB group. Confirmed Douliu H3's "last Saturday monthly, 13:00 Douliu Baseball Stadium, founded
   27 Jun 2009" verbatim. Good for HC-only kennels whose own site is FB-group-only.
 
+### Harrier Central — `EventNumber` itself can be corrupted, not just `EventName` (learned from Prague H3, HC batch-11, 2026-08-12)
+
+Every prior note here says "trust `EventNumber` over `EventName` for the run number" — `EventName` is a
+known mix of real themes and placeholders. Prague H3's fuller archive (re-pulled fresh 3 weeks after the
+onboarding handoff, recovering 15 more rows than the handoff's narrower sample) surfaces a sharper
+problem: **`EventNumber` itself can carry a data-entry typo.** Four consecutive Nov–Dec 2023 rows read
+`EventNumber: 1943, 1944, 1944, 1945, 1945` where chronological context makes the intended sequence
+unambiguous — `1493, 1494, 1494, 1495, 1495` — a transposed middle digit (9↔4) in HC's own data entry,
+not an adapter bug.
+
+**Don't hand-correct it.** Follow the same faithful-data policy the Douliu backfill established (#165
+named "#166", #201 named "200", never renumbered): ship `EventNumber` verbatim even when it's locally
+non-monotonic or visibly wrong. Inventing a "fix" with no independent verification is worse than a
+faithful anomaly. The corrected rule: **prefer `EventNumber` over `EventName`, but don't assume
+`EventNumber` is error-free either — when in doubt, ship it as-is.**
+
+---
+
 ## Embedded Google Calendar (small club sites) — config-only GOOGLE_CALENDAR (2026-07-21, Devon Lunatics H3)
 - **Many small UK/club kennel sites are just a public Google Calendar embed.** `dlh3.org.uk` (Devon
   Lunatics H3) is a static CloudFront page whose only dynamic content is a single
