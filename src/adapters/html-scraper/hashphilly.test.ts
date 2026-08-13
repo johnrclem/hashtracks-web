@@ -55,6 +55,17 @@ const SAMPLE_HTML_NO_TRAILNUM = `
 </body></html>
 `;
 
+const SAMPLE_HTML_TBD = `
+<html><body>
+<div>
+<p>Trail Number: 2048</p>
+<p>Date: TBD</p>
+<p>Time: TBD</p>
+<p>Location: TBD</p>
+</div>
+</body></html>
+`;
+
 describe("HashPhillyAdapter.fetch", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -118,6 +129,21 @@ describe("HashPhillyAdapter.fetch", () => {
     expect(result.events).toHaveLength(0);
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.errors[0]).toContain("date");
+  });
+
+  it("succeeds with zero events (not an error) when Date is a placeholder like 'TBD'", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_HTML_TBD, { status: 200 }),
+    );
+
+    const adapter = new HashPhillyAdapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://hashphilly.com/nexthash/",
+    } as never);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toHaveLength(0);
   });
 
   it("returns error on network failure", async () => {

@@ -5,6 +5,14 @@ import { chronoParseDate, parse12HourTime, googleMapsSearchUrl, fetchHTMLPage } 
 const mapsUrl = googleMapsSearchUrl;
 
 /**
+ * Known placeholder values the site publishes for the "Date" field when the
+ * next trail hasn't been scheduled yet (e.g. between events, or hare TBD).
+ * These are NOT parse failures — the source is working correctly and simply
+ * has nothing to report yet. (#2661)
+ */
+const DATE_PLACEHOLDER_RE = /^(tbd|tba|n\/?a|coming soon|\?+|-+)$/i;
+
+/**
  * Parse a Philly H3 date string using chrono-node.
  * Handles: "Sat, Feb 14, 2026", "Sat, February 14, 2026"
  */
@@ -53,9 +61,24 @@ export class HashPhillyAdapter implements SourceAdapter {
       return { events: [], errors: ["No date found on page"], structureHash, errorDetails };
     }
 
-    const dateStr = parsePhillyDate(dateMatch[1].trim());
+    const rawDate = dateMatch[1].trim();
+
+    // The site publishes "Date: TBD" between hares stepping up — this is the
+    // expected steady state, not a scraper bug. Succeed with zero events so
+    // consecutive-failure alerts don't fire while the page is legitimately
+    // waiting on a hare. (#2661)
+    if (DATE_PLACEHOLDER_RE.test(rawDate)) {
+      return {
+        events: [],
+        errors: [],
+        structureHash,
+        diagnosticContext: { fieldsFound: ["trailNumber"], nextTrailPending: true },
+      };
+    }
+
+    const dateStr = parsePhillyDate(rawDate);
     if (!dateStr) {
-      const message = `Could not parse date: "${dateMatch[1].trim()}"`;
+      const message = `Could not parse date: "${rawDate}"`;
       errorDetails.parse = [{ row: 0, section: "main", field: "date", error: message, rawText: bodyText.slice(0, 2000), partialData: { kennelTags: ["philly-h3" ]} }];
       return { events: [], errors: [message], structureHash, errorDetails };
     }
