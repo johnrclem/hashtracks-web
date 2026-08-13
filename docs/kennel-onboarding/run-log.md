@@ -23,6 +23,22 @@ Format:
 > total), 2 new-country region.ts additions, 3 self-hosted logos (magic-byte verified PNG). Full
 > retro: `handoffs/retros/2026-07-23-hc-batch-11-retro.md`.
 >
+> **✅ POST-MERGE LIVE (2026-08-13, all prod-verified) — HC BATCH-11.** [PR #2671](https://github.com/johnrclem/hashtracks-web/pull/2671)
+> merged (`67262b32`); all 4 kennels live: **prague-h3 26 · eels-h3 37 · sh2b 20 · sierra-h4 53**
+> canonical events, **0 cancelled on every source**, all 4 `/kennels/*` + 3 `/kennel-logos/*` serve 200
+> (SH2B has no logo by design — HC returns a `bundle://` app asset, not a fetchable URL). Applied via
+> the same targeted, self-contained upsert pattern as Config Batch C (scoped to just these 4
+> kennels/sources; deleted after running). **New Czech Republic + Sierra Leone COUNTRY regions** created
+> as part of the targeted upsert (extended the region-seeding helper beyond Config Batch C's METRO-only
+> case, since these are genuinely new countries, not existing-country METROs). Scoped **Pass 3** created
+> Sierra H4's 2 `scheduleRules` (weekly Wednesday + 1st Saturday) via `runKennelSeedPass` + `applyUpserts`
+> (Taoyuan/hc-batch-6 precedent — a targeted kennel/source upsert alone does NOT create ScheduleRule
+> rows). All 4 frozen-JSON backfills applied first (135 rows: 26+37+19+53), THEN live-scraped —
+> SH2B's predicted seasonal resumption run **#62** landed live as expected; Prague/EELS/Sierra H4 came
+> back 0 upcoming (recently-active, matches the handoffs). A few benign geocode misses on Sierra H4's
+> messy free-text WhatsApp-relay venues (ZERO_RESULTS / >5000km-from-kennel validation rejects) — left
+> those events without coordinates rather than blocking the ingest, 0 `eventErrors`.
+
 > **✅ POST-MERGE LIVE (2026-08-13, all prod-verified) — CONFIG BATCH C.** [PR #2672](https://github.com/johnrclem/hashtracks-web/pull/2672)
 > merged (`477942f9`); all 4 kennels live: **devon-lunatics-h3 113 · isca-h3 401 · mickleover-h3 362 ·
 > jaxh3 12** canonical events, correct region badges (new Exeter + East Midlands METROs), all 4
