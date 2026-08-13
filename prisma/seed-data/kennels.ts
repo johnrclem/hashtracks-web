@@ -6188,7 +6188,7 @@ export const KENNELS: KennelSeed[] = [
       shortName: "Mickleover H3",
       fullName: "Mickleover Hash House Harriers",
       region: "East Midlands",
-      country: "United Kingdom",
+      country: "UK",
       website: "https://sites.google.com/site/mickleoverh3",
       facebookUrl: "https://www.facebook.com/MickleoverH3/",
       foundedYear: 1993,
@@ -6196,7 +6196,7 @@ export const KENNELS: KennelSeed[] = [
       walkersWelcome: true,
       scheduleDayOfWeek: "Monday",
       scheduleTime: "7:15 PM", // 12-hr in Kennel.scheduleTime; adapter/RawEventData startTime stays 24-hr "19:15"
-      scheduleFrequency: "monthly", // 2nd Monday; winter "socials" are non-trail (skipped by the source)
+      scheduleFrequency: "Monthly", // 2nd Monday; winter "socials" are non-trail (skipped by the source)
       description:
         "A sociable, mixed running club that starts and finishes at a pub — runners and walkers both welcome. Monthly Monday-evening trails at a different pub within ~30 minutes of Derby.",
       logoUrl: "/kennel-logos/mickleover-h3.jpg", // self-hosted from the Google Sites og:image; magic bytes confirmed JPEG
