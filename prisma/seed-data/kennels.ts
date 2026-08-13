@@ -6148,7 +6148,7 @@ export const KENNELS: KennelSeed[] = [
       fullName: "Devon Lunatics Hash House Harriers",
       region: "Exeter",
       country: "UK",
-      website: "http://dlh3.org.uk",
+      website: "https://dlh3.org.uk",
       facebookUrl: "https://www.facebook.com/groups/153125188050687",
       scheduleFrequency: "Monthly",
       scheduleTime: "7:30 PM", // 12-hr profile field; full-moon date drifts across weekdays — no fixed scheduleDayOfWeek
