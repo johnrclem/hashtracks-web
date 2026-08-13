@@ -27,16 +27,25 @@ import { fetchHTMLPage, chronoParseDate, parse12HourTime, decodeEntities } from 
  * #511 (Saturday specials via the current-trail slot).
  */
 
-/** "TRAIL #2005" */
-const TRAIL_NUMBER_RE = /TRAIL\s*#\s*(\d+)/i;
+/** "TRAIL #2005" (older layout) or "Trail 2028" (live layout as of #2663,
+ *  verified 2026-08-13 — the site dropped the "#"). The "#" is optional so
+ *  both shapes match. */
+const TRAIL_NUMBER_RE = /TRAIL\s*#?\s*(\d+)/i;
 /** Day names used for injecting a split before the date phrase. */
 const DATE_SPLIT_RE = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/g;
 /** Known field labels on the 7H4 page that need a preceding newline so value regexes don't run past them. */
 const FIELD_LABEL_SPLIT_RE = /(When:|Start:|Hares?:|Beer\s*Meister:|Cost:|Shiggy\s*Level:|Special\s*Instructions:|On[\s-]*On)/g;
-/** "Saturday April 4, 2026 @ 2pm" — captures the leading date phrase. */
-const DATE_PHRASE_RE = /((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})/i;
-/** "@ 2pm" / "@ 2:30 PM" — minutes optional. Captured time is normalized into `HH:MM am/pm` before parsing. */
-const TIME_AT_RE = /@\s*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/i;
+/** "Saturday April 4, 2026" (older layout) or "August 12, 2026" (live layout
+ *  as of #2663, verified 2026-08-13 — the site dropped the leading
+ *  day-of-week). The day-name + comma prefix is optional so both shapes
+ *  match; only the month/day/year is captured either way. */
+const DATE_PHRASE_RE = /(?:(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+)?((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})/i;
+/** "@ 2pm" (older layout) or "6:30p.m." with no "@" at all (live layout as
+ *  of #2663, verified 2026-08-13). The "@" is optional; the trailing
+ *  am/pm suffix is the real anchor so this stays safe against false
+ *  matches elsewhere in the body text. Minutes optional either way.
+ *  Captured time is normalized into `HH:MM am/pm` before parsing. */
+const TIME_AT_RE = /@?\s*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/i;
 /** "Hares: Frodo & Snatch" — up to the next line / label / EOD. */
 const HARES_RE = /Hares?:\s*([^\n]+)/i;
 /** "Start: 442 S Five Forks Road Monroe, VA" — up to the next line / label / EOD. */
@@ -70,13 +79,25 @@ export function parseSevenHillsPage(html: string): ParsedTrail | null {
   if (!trailMatch) return null;
   const runNumber = Number.parseInt(trailMatch[1], 10);
 
-  const dateMatch = DATE_PHRASE_RE.exec(bodyText);
-  if (!dateMatch) return null;
-  const date = chronoParseDate(dateMatch[1], "en-US", new Date(), { forwardDate: true });
+  // Search only the text AFTER "TRAIL #N" / "Trail N" for the date/time/
+  // hares/location fields. The page's "About Hashing" prose above the trail
+  // block contains the club's founding date ("began in Lynchburg, Virginia
+  // on June 21, 1992") with no leading day-of-week — once DATE_PHRASE_RE's
+  // day-name prefix became optional (#2663, to match the live "August 12,
+  // 2026" no-day-name layout), an unanchored search on the WHOLE body text
+  // matched that 1992 founding date instead of the actual upcoming trail
+  // date. Anchoring to after the trail number guarantees we only ever see
+  // the current trail's own field block.
+  const trailBlockStart = trailMatch.index + trailMatch[0].length;
+  const trailBlock = bodyText.slice(trailBlockStart);
+
+  const dateMatchInBlock = DATE_PHRASE_RE.exec(trailBlock);
+  if (!dateMatchInBlock) return null;
+  const date = chronoParseDate(dateMatchInBlock[1], "en-US", new Date(), { forwardDate: true });
   if (!date) return null;
 
   // parse12HourTime requires explicit minutes, so synthesize ":00" for the "2pm" short form.
-  const timeMatch = TIME_AT_RE.exec(bodyText);
+  const timeMatch = TIME_AT_RE.exec(trailBlock);
   let startTime: string | undefined;
   if (timeMatch) {
     const hour = timeMatch[1];
@@ -87,10 +108,10 @@ export function parseSevenHillsPage(html: string): ParsedTrail | null {
     startTime = parse12HourTime(`${hour}:${minutes} ${ampm}`);
   }
 
-  const haresMatch = HARES_RE.exec(bodyText);
+  const haresMatch = HARES_RE.exec(trailBlock);
   const hares = haresMatch?.[1]?.trim() || undefined;
 
-  const startMatch = START_RE.exec(bodyText);
+  const startMatch = START_RE.exec(trailBlock);
   const location = startMatch?.[1]?.trim() || undefined;
 
   // Trail name sits between "TRAIL #N" and the date phrase, decorated with emoji
@@ -100,8 +121,8 @@ export function parseSevenHillsPage(html: string): ParsedTrail | null {
   // phrase. Splitting at \n[0] is wrong: DATE_SPLIT_RE also injects \n before day
   // names, so a title like "Saturday Night Fever Trail" would be truncated.
   let title: string | undefined;
-  const nameStart = trailMatch.index + trailMatch[0].length;
-  const nameEnd = dateMatch.index;
+  const nameStart = trailBlockStart;
+  const nameEnd = trailBlockStart + dateMatchInBlock.index;
   if (nameEnd > nameStart) {
     const rawName = bodyText.slice(nameStart, nameEnd)
       .replaceAll(/\s+/g, " ")
