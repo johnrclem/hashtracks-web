@@ -4,6 +4,7 @@ import {
   applyTitleFallback,
   composeHcLocation,
   hcGeocodeFailed,
+  scrubDescriptionPii,
 } from "./adapter";
 import type { HCEvent } from "./adapter";
 import { generateAccessToken, PUBLIC_HASHER_ID } from "./token";
@@ -55,6 +56,25 @@ function mockApiResponse(events: HCEvent[]) {
     ok: true,
     status: 200,
     json: async () => [events],
+  } as never);
+}
+
+/**
+ * Queues the SECOND safeFetch call every `fetch()` now makes — the best-effort
+ * hashruns.org global-runs description lookup. Must be queued AFTER
+ * `mockApiResponse` (getEvents) since safeFetch calls happen in that order.
+ * Tests that don't call this leave the mock queue exhausted for the second
+ * call, which `vi.fn()` resolves to `undefined` — `fetch()`'s try/catch around
+ * the description fetch turns that into a no-op (empty description map),
+ * matching production's non-fatal-failure behavior.
+ */
+function mockDescriptionsResponse(
+  runs: { PublicEventId: string; EventDescription?: string }[],
+) {
+  mockSafeFetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    json: async () => ({ totalMatchingEvents: runs.length, runs }),
   } as never);
 }
 
@@ -349,6 +369,42 @@ describe("hcGeocodeFailed", () => {
     expect(
       hcGeocodeFailed("Iron Horse Tavern", "140 High Street, Morgantown, 26505, WV, United States"),
     ).toBe(false);
+  });
+});
+
+describe("scrubDescriptionPii (#2550)", () => {
+  it("redacts a hyphen/dot/space-separated phone number", () => {
+    expect(scrubDescriptionPii("Call the hare-line 808-225-5465 for details")).toBe(
+      "Call the hare-line [redacted] for details",
+    );
+    expect(scrubDescriptionPii("Contact: 808.225.5465")).toBe("Contact: [redacted]");
+    expect(scrubDescriptionPii("Ring 808 225 5465")).toBe("Ring [redacted]");
+  });
+
+  it("redacts an unseparated 10-digit phone number", () => {
+    expect(scrubDescriptionPii("contact 0631976736 for info")).toBe(
+      "contact [redacted] for info",
+    );
+  });
+
+  it("redacts an email address", () => {
+    expect(scrubDescriptionPii("Email a3h-hares@example.com to sign up")).toBe(
+      "Email [redacted] to sign up",
+    );
+  });
+
+  it("redacts multiple PII instances across a multi-paragraph description", () => {
+    const text =
+      "OnOn: Kemnay Skate Park\n\nHare-line: 808-225-5465\n\nQuestions? mail@example.com";
+    expect(scrubDescriptionPii(text)).toBe(
+      "OnOn: Kemnay Skate Park\n\nHare-line: [redacted]\n\nQuestions? [redacted]",
+    );
+  });
+
+  it("leaves ordinary prose (dates, addresses, prices) untouched", () => {
+    const text =
+      "OnOn: Kemnay Skate Park\n\nGoogleMap:\nhttps://maps.app.goo.gl/MQE6DpvfUDAE5wbr6\n\nHash cash 3.00, 2026-09-07";
+    expect(scrubDescriptionPii(text)).toBe(text);
   });
 });
 
@@ -729,7 +785,9 @@ describe("HarrierCentralAdapter", () => {
       mockApiResponse([]);
       await adapter.fetch(makeSource({ cityNames: "Tokyo", defaultKennelTag: "tokyo-h3" }));
 
-      expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+      // 2 calls: the primary getEvents POST, plus the best-effort hashruns.org
+      // global-runs description-enrichment GET (#2626 group).
+      expect(mockSafeFetch).toHaveBeenCalledTimes(2);
       const callBody = JSON.parse(mockSafeFetch.mock.calls[0][1]!.body as string);
       expect(callBody.queryType).toBe("getEvents");
       expect(callBody.cityNames).toBe("Tokyo");
@@ -942,5 +1000,61 @@ describe("HarrierCentralAdapter", () => {
       expect(result.diagnosticContext!.apiEventsReturned).toBe(1);
       expect(result.diagnosticContext!.eventsEmitted).toBe(1);
     });
+
+    // #2626/#2569/#2553/#2550/#2539 — description enrichment via the
+    // hashruns.org global-runs join.
+    describe("description enrichment (#2626 group)", () => {
+      it("joins the description onto the matching event by PublicEventId", async () => {
+        mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
+        mockDescriptionsResponse([
+          { PublicEventId: "evt-1", EventDescription: "OnOn: Kemnay Skate Park" },
+        ]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        expect(result.events[0].description).toBe("OnOn: Kemnay Skate Park");
+        expect(result.diagnosticContext!.descriptionsIndexed).toBe(1);
+      });
+
+      it("scrubs PII from the joined description before storing it", async () => {
+        mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
+        mockDescriptionsResponse([
+          {
+            PublicEventId: "evt-1",
+            EventDescription: "Hare-line: 808-225-5465. Email hare@example.com",
+          },
+        ]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        expect(result.events[0].description).toBe(
+          "Hare-line: [redacted]. Email [redacted]",
+        );
+      });
+
+      it("leaves description undefined when no matching global-runs row exists", async () => {
+        mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
+        mockDescriptionsResponse([
+          { PublicEventId: "some-other-event", EventDescription: "Unrelated" },
+        ]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        expect(result.events[0].description).toBeUndefined();
+      });
+
+      it("leaves description undefined (not null) when the enrichment fetch fails — non-fatal", async () => {
+        mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
+        mockSafeFetch.mockResolvedValueOnce({ ok: false, status: 500 } as never);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        // Primary scrape still succeeds — the description miss is not a scrape error.
+        expect(result.errors).toHaveLength(0);
+        expect(result.events).toHaveLength(1);
+        expect(result.events[0].description).toBeUndefined();
+        expect(result.diagnosticContext!.descriptionFetchError).toBeDefined();
+      });
+
+      it("skips a global-runs row with an empty/whitespace-only description", async () => {
+        mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
+        mockDescriptionsResponse([{ PublicEventId: "evt-1", EventDescription: "   " }]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        expect(result.events[0].description).toBeUndefined();
+      });
+    });
+
   });
 });

@@ -7,6 +7,80 @@ import { buildDateWindow, eqTrimLc } from "../utils";
 
 const API_URL = "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/";
 
+// HC's getEvents API (above) never returns a description/notes field — verified
+// live against multiple kennels (#2626, #2569, #2553, #2550, #2539): the response
+// keys are fixed and description is not among them, regardless of extra request
+// params. The free-text "About this run" note IS available, but only from the
+// separate hashruns.org public front-end's `global-runs` endpoint (the same data
+// source the one-shot historical backfills use — see
+// scripts/lib/hashruns-ssr-backfill.ts). Fetched once per adapter.fetch() call
+// (not per event) and joined back to getEvents rows by PublicEventId.
+const GLOBAL_RUNS_URL = "https://www.hashruns.org/api/global-runs";
+// Comfortably above the observed global upcoming-event count (~230 as of 2026-08)
+// so a single page covers every future HC run without pagination.
+const GLOBAL_RUNS_PAGE_SIZE = 1000;
+const GLOBAL_RUNS_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36";
+
+/** Minimal shape consumed from the hashruns.org global-runs feed. */
+interface HCGlobalRunEvent {
+  PublicEventId: string;
+  EventDescription?: string;
+}
+
+/**
+ * Fetch every upcoming HC event's free-text description from hashruns.org and
+ * index it by PublicEventId. Best-effort: this is an enrichment on top of the
+ * primary getEvents fetch, so any failure here must not fail the whole scrape
+ * — callers get an empty map and the caller records the miss in
+ * diagnosticContext (never in `errors`), mirroring the FACEBOOK_HOSTED_EVENTS
+ * past-tab best-effort convention.
+ */
+async function fetchEventDescriptions(): Promise<Map<string, string>> {
+  const url = `${GLOBAL_RUNS_URL}?isFuture=1&pageSize=${GLOBAL_RUNS_PAGE_SIZE}`;
+  const res = await safeFetch(url, {
+    headers: { "User-Agent": GLOBAL_RUNS_USER_AGENT },
+  });
+  if (!res.ok) {
+    throw new Error(`hashruns.org global-runs returned HTTP ${res.status}`);
+  }
+  const json = (await res.json()) as { runs?: HCGlobalRunEvent[] } | HCGlobalRunEvent[];
+  const rows = Array.isArray(json) ? json : (json.runs ?? []);
+  if (!Array.isArray(rows)) {
+    throw new Error("Unexpected hashruns.org global-runs response shape");
+  }
+  const byId = new Map<string, string>();
+  for (const row of rows) {
+    const desc = row.EventDescription?.trim();
+    if (row.PublicEventId && desc) byId.set(row.PublicEventId, desc);
+  }
+  return byId;
+}
+
+// PII scrub for HC's free-text "About this run" description. It's authored by
+// individual hares and sometimes carries a hare-line phone number or personal
+// email as day-of contact info (#2550 Algarve H3 sample explicitly includes a
+// "hare-line contact number"; live-verified ~2.5% of populated descriptions
+// carry a phone-shaped or email-shaped token). Redact before storing — the
+// merge pipeline has no PII-scrubbing pass of its own for description text.
+// Global (not just trailing) — unlike PHONE_TRAILING_RE in hare-extraction.ts,
+// a contact number can appear anywhere inside a multi-paragraph description.
+// Pattern mirrors PHONE_NUMBER_RE (audit-checks.ts) verbatim but as a literal
+// with the "g" flag — kept as a literal (not `new RegExp(PHONE_NUMBER_RE.source, "g")`)
+// per repo convention (non-literal RegExp gets flagged even when built from a
+// const; see hare-extraction.ts's PHONE_TRAILING_RE for the same tradeoff).
+const DESCRIPTION_PHONE_RE =
+  /(?:(?<!\d)\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}(?!\d)|(?<!\d)\d{10}(?!\d))/g;
+const DESCRIPTION_EMAIL_RE = /\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g;
+
+/** Redact phone numbers and email addresses from HC's free-text description. */
+export function scrubDescriptionPii(text: string): string {
+  return text.replace(DESCRIPTION_EMAIL_RE, "[redacted]").replace(DESCRIPTION_PHONE_RE, "[redacted]");
+}
+
+/** Length cap mirrors the GCal adapter's normalizeGCalDescription convention. */
+const DESCRIPTION_MAX_LENGTH = 2000;
+
 /** Shape of a single event from the Harrier Central getEvents response */
 export interface HCEvent {
   publicEventId: string;
@@ -152,6 +226,20 @@ export class HarrierCentralAdapter implements SourceAdapter {
       catch { return null; }
     }).filter((p): p is [RegExp, string] => p !== null);
 
+    // #2626/#2569/#2553/#2550/#2539: getEvents (above) carries no description
+    // field at all, so the only way to surface HC's "About this run" note is a
+    // second, best-effort fetch of the separate hashruns.org front-end feed.
+    // A failure here must not fail the primary scrape — record it in
+    // diagnosticContext (not `errors`) and proceed with undefined descriptions,
+    // same convention as the FACEBOOK_HOSTED_EVENTS past-tab fetch.
+    let descriptionsById: Map<string, string> = new Map();
+    let descriptionFetchError: string | undefined;
+    try {
+      descriptionsById = await fetchEventDescriptions();
+    } catch (err) {
+      descriptionFetchError = String(err);
+    }
+
     // Convert HC events to RawEventData
     for (const hcEvent of hcEvents) {
       if (!hcEvent.eventStartDatetime) continue;
@@ -218,6 +306,17 @@ export class HarrierCentralAdapter implements SourceAdapter {
       // (#706, #725). The REST API still serves the UUIDs so scrapes succeed,
       // but the user-facing detail page is dead. Event detail pages fall back
       // to the kennel website / other EventLinks when sourceUrl is null.
+      //
+      // #2626/#2569/#2553/#2550/#2539: join the best-effort description lookup
+      // (built once above) by PublicEventId, scrub PII, and cap length. Left
+      // undefined (not null) when absent so the merge UPDATE path preserves
+      // any existing description rather than clearing it on a scrape where the
+      // enrichment fetch failed or the run simply has no note yet.
+      const rawDescription = descriptionsById.get(hcEvent.publicEventId);
+      const description = rawDescription
+        ? scrubDescriptionPii(rawDescription).trim().substring(0, DESCRIPTION_MAX_LENGTH) || undefined
+        : undefined;
+
       let title = applyTitleFallback(hcEvent.eventName, hcEvent.eventNumber, config);
       // #2409 Tokyo #2583: the source stored the hare's hash name ("Back Door
       // Hoe") as BOTH the title and the hares field; #2591 stored the
@@ -238,6 +337,7 @@ export class HarrierCentralAdapter implements SourceAdapter {
         date: dateStr,
         kennelTags: [kennelTag],
         title,
+        description,
         // Socials / "drinking practices" come back as eventNumber=0. Map that
         // sentinel to null (explicit clear) and positive values to the number;
         // anything else stays undefined so the merge UPDATE path preserves an
@@ -272,6 +372,8 @@ export class HarrierCentralAdapter implements SourceAdapter {
         fetchDurationMs: Date.now() - fetchStart,
         apiEventsReturned: hcEvents.length,
         eventsEmitted: events.length,
+        descriptionsIndexed: descriptionsById.size,
+        ...(descriptionFetchError ? { descriptionFetchError } : {}),
       },
     };
   }
