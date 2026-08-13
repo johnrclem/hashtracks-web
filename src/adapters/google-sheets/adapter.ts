@@ -551,6 +551,21 @@ export function extractEventLabelFromCell(
   return undefined;
 }
 
+// Three-state return: undefined = no specialRunMap match (caller falls through to the
+// other resolution branches), null = matched but rejected by requireRunNumber, object = matched.
+function resolveSpecialRunMapMatch(
+  specialRunCell: string | undefined,
+  runNumberCell: string | undefined,
+  config: GoogleSheetsConfig,
+): { kennelTag: string; runNumber: number | undefined } | null | undefined {
+  if (!specialRunCell || !config.kennelTagRules.specialRunMap) return undefined;
+  const mapped = new Map(Object.entries(config.kennelTagRules.specialRunMap)).get(specialRunCell);
+  if (!mapped) return undefined;
+  const runNumber = runNumberCell ? Number.parseInt(runNumberCell, 10) || undefined : undefined;
+  if (runNumber === undefined && config.requireRunNumber) return null;
+  return { kennelTag: mapped, runNumber };
+}
+
 /** Resolve kennel tag and run number from a sheet row. Returns null if the row should be skipped. */
 function resolveKennelTagFromSheetRow(
   row: string[],
@@ -559,14 +574,9 @@ function resolveKennelTagFromSheetRow(
   const runNumberCell = cellByOptionalIndex(row, config.columns.runNumber);
   const specialRunCell = cellByOptionalIndex(row, config.columns.specialRun);
 
-  if (specialRunCell && config.kennelTagRules.specialRunMap) {
-    const mapped = new Map(Object.entries(config.kennelTagRules.specialRunMap)).get(specialRunCell);
-    if (mapped) {
-      const runNumber = runNumberCell ? Number.parseInt(runNumberCell, 10) || undefined : undefined;
-      if (runNumber === undefined && config.requireRunNumber) return null;
-      return { kennelTag: mapped, runNumber };
-    }
-  }
+  const specialMatch = resolveSpecialRunMapMatch(specialRunCell, runNumberCell, config);
+  if (specialMatch !== undefined) return specialMatch;
+
   if (specialRunCell && /^\d+$/.test(specialRunCell) && config.kennelTagRules.numericSpecialTag) {
     return {
       kennelTag: config.kennelTagRules.numericSpecialTag,
