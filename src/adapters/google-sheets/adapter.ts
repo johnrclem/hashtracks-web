@@ -130,6 +130,16 @@ export interface GoogleSheetsConfig {
   gid?: number;
   /** Direct CSV export URL for anonymous published sheets (e.g., /d/e/.../pub?output=csv). Bypasses tab discovery. */
   csvUrl?: string;
+  /**
+   * Opt-in: skip rows with no resolvable run number instead of emitting them
+   * with `runNumber: undefined` (the #1625 default). For sheets that mix
+   * numbered trails with un-numbered social/pub-meet rows (e.g. Mickleover
+   * H3's winter "social only" rows, which lack a Run # cell entirely) — the
+   * numbered-runs-only kennel wants those dropped, not ingested as blank
+   * events. Default `false` preserves existing behavior for sheets that
+   * legitimately mix numbered and unnumbered rows (MASS H3, MFMH3).
+   */
+  requireRunNumber?: boolean;
 }
 
 /** Month abbreviation → 1-based month number lookup. */
@@ -541,6 +551,21 @@ export function extractEventLabelFromCell(
   return undefined;
 }
 
+// Three-state return: undefined = no specialRunMap match (caller falls through to the
+// other resolution branches), null = matched but rejected by requireRunNumber, object = matched.
+function resolveSpecialRunMapMatch(
+  specialRunCell: string | undefined,
+  runNumberCell: string | undefined,
+  config: GoogleSheetsConfig,
+): { kennelTag: string; runNumber: number | undefined } | null | undefined {
+  if (!specialRunCell || !config.kennelTagRules.specialRunMap) return undefined;
+  const mapped = new Map(Object.entries(config.kennelTagRules.specialRunMap)).get(specialRunCell);
+  if (!mapped) return undefined;
+  const runNumber = runNumberCell ? Number.parseInt(runNumberCell, 10) || undefined : undefined;
+  if (runNumber === undefined && config.requireRunNumber) return null;
+  return { kennelTag: mapped, runNumber };
+}
+
 /** Resolve kennel tag and run number from a sheet row. Returns null if the row should be skipped. */
 function resolveKennelTagFromSheetRow(
   row: string[],
@@ -549,15 +574,9 @@ function resolveKennelTagFromSheetRow(
   const runNumberCell = cellByOptionalIndex(row, config.columns.runNumber);
   const specialRunCell = cellByOptionalIndex(row, config.columns.specialRun);
 
-  if (specialRunCell && config.kennelTagRules.specialRunMap) {
-    const mapped = new Map(Object.entries(config.kennelTagRules.specialRunMap)).get(specialRunCell);
-    if (mapped) {
-      return {
-        kennelTag: mapped,
-        runNumber: runNumberCell ? Number.parseInt(runNumberCell, 10) || undefined : undefined,
-      };
-    }
-  }
+  const specialMatch = resolveSpecialRunMapMatch(specialRunCell, runNumberCell, config);
+  if (specialMatch !== undefined) return specialMatch;
+
   if (specialRunCell && /^\d+$/.test(specialRunCell) && config.kennelTagRules.numericSpecialTag) {
     return {
       kennelTag: config.kennelTagRules.numericSpecialTag,
@@ -577,6 +596,7 @@ function resolveKennelTagFromSheetRow(
   // (#1625) Empty-# rows like MASS H3's 5th Birthday (#1639) and MFMH3's
   // 12-of-13 unnumbered rows (#1657) used to fall through here and get
   // silently filtered.
+  if (config.requireRunNumber) return null;
   return { kennelTag: config.kennelTagRules.default, runNumber: undefined };
 }
 

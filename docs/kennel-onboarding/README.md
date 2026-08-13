@@ -25,6 +25,9 @@ A **scheduled task in Cowork runs every morning at ~6 AM** and:
    makes the whole file self-executing.
 6. Updates the queue + [`run-log.md`](run-log.md), and **refills the queue to ~20** whenever it
    drops to 5 or fewer (dynamic-source kennels only, deduped against the live sitemap).
+7. **Commits and pushes its `docs/kennel-onboarding/` output** (Step 9 of the prompt) — and reports
+   loudly if the sandbox blocks it. Leaving handoffs untracked caused three backlogs (4 → 6 → 20
+   kennels); see [`handoffs/retros/2026-08-11-backlog-rescue-retro.md`](handoffs/retros/2026-08-11-backlog-rescue-retro.md).
 
 Then the last mile (implement → PR) happens via Claude Code. The handoff is the brief.
 
@@ -34,10 +37,22 @@ Then the last mile (implement → PR) happens via Claude Code. The handoff is th
 bash scripts/copy-newest-handoff.sh   # alias suggestion: `htn`
 ```
 
-That copies the newest un-implemented, non-voided handoff to your clipboard (skipping any that
-already have an `onboard/<code>-*` branch on origin, so re-runs are idempotent). Paste into a
-fresh Claude Code session in `hashtracks-web`; its top directive drives branch → seed → adapter
-→ live-verify → tsc/lint/test → PR.
+That copies the newest un-implemented, non-voided handoff to your clipboard. Paste into a fresh
+Claude Code session in `hashtracks-web`; its top directive drives branch → seed → adapter →
+live-verify → tsc/lint/test → PR.
+
+**A handoff counts as done when its `kennelCode`s are in both seed files, or when it has its own
+retro** (a documented live-verify block). If more than one is outstanding the script prints a loud
+backlog banner — always read it:
+
+```bash
+bash scripts/copy-newest-handoff.sh --list     # audit only; print the backlog, copy nothing
+bash scripts/copy-newest-handoff.sh --oldest   # drain a backlog oldest-first
+```
+
+🔴 Don't hand-roll the audit in zsh — the snippet this README used to recommend silently
+false-passed any handoff naming more than one `kennelCode`, which is how a 20-kennel backlog stayed
+invisible. See [`handoffs/README.md`](handoffs/README.md#-check-for-a-backlog-first--it-has-now-bitten-three-times).
 
 **Why local?** HashTracks adapters routinely need NAS-only resources during live verification —
 the NAS `browserRender` service (Wix / Google Sites / SPA scraping) and the residential proxy

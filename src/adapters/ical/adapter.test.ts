@@ -1498,38 +1498,46 @@ function buildOh3Source(): Source {
   });
 }
 
-// hashnyc.com's 2026 relaunch published a structured iCal feed
-// (https://hashnyc.com/public/hareline.ics). The source cutover from the bespoke
-// HTML scraper to the shared ICalAdapter is DEFERRED — the site reverted to the
-// old HTML layout and the .ics 404s for now (see docs/hashnyc-ical-cutover.md for
-// the ready-to-apply seed + migration to resume when they re-launch). This block
-// stays as forward-looking coverage: it guards the shared adapter's multi-kennel
-// routing (incl. the nawwh3-vs-nah3 ordering) and the maps.app.goo.gl locationUrl
-// support that landed with this work. Fixture mirrors the live feed's real VEVENT
-// shapes (SUMMARY "<kennel> #<run>[: <title>]", "Hares:"/"Hash Cash:" in
-// DESCRIPTION, venue in LOCATION).
+// hashnyc.com relaunched on a new "hash-attendance" app publishing a structured
+// iCal feed (https://hashnyc.com/public/hareline.ics); the source was cut over
+// from the bespoke HTML scraper to the shared ICalAdapter (config-only — see
+// prisma/seed-data/sources.ts and docs/hashnyc-ical-cutover.md).
+//
+// Fixture mirrors SUMMARY shapes captured from the live feed on 2026-08-10.
+// The relaunch DROPPED the "H3" suffixes ("NYCH3 #2150" → "NYC #2154",
+// "Brooklyn H3" → "Brooklyn"), so both spellings are covered here — the patterns
+// must keep matching the legacy form for the historical rows already in the DB.
 const HASHNYC_ICS = [
   "BEGIN:VCALENDAR",
   "VERSION:2.0",
   "PRODID:-//hashnyc.com//hash-attendance//EN",
   "CALSCALE:GREGORIAN",
   "X-WR-TIMEZONE:America/New_York",
-  // NYCH3 #2153 — full field set (hares, hash cash, escaped-comma venue)
+  // NYC #2154 (post-relaunch spelling, no "H3") — full field set: hares, hash
+  // cash, escaped-comma venue, and a maps.app.goo.gl pin on the "Map:" line.
   "BEGIN:VEVENT",
-  "UID:ab8995b7#2153@hashnyc.com",
+  "UID:ab8995b7#2154@hashnyc.com",
   "DTSTART;TZID=America/New_York:20260610T190000",
   "DURATION:PT2H",
-  "SUMMARY:NYCH3 #2153",
+  "SUMMARY:NYC #2154",
   "LOCATION:Malt & Mold\\, 362 Second Ave",
-  "DESCRIPTION:Hares: Cheeky Bastard\\, Just Elizabeth\\nHash Cash: $3\\nMap: https://maps.app.goo.gl/nyc2153",
+  "DESCRIPTION:Hares: Cheeky Bastard\\, Just Elizabeth\\nHash Cash: $3\\nMap: https://maps.app.goo.gl/nyc2154",
   "DTSTAMP:20260601T000000Z",
   "END:VEVENT",
-  // Brooklyn H3 #1185 — full-name prefix with " H3"
+  // NYCH3 #2153 — legacy spelling WITH the "H3" suffix must still route.
+  "BEGIN:VEVENT",
+  "UID:ab8995b7#2153@hashnyc.com",
+  "DTSTART;TZID=America/New_York:20260603T190000",
+  "DURATION:PT2H",
+  "SUMMARY:NYCH3 #2153",
+  "DTSTAMP:20260601T000000Z",
+  "END:VEVENT",
+  // Brooklyn #1185 — post-relaunch spelling (the " H3" suffix is now optional).
   "BEGIN:VEVENT",
   "UID:817c90a6#1185@hashnyc.com",
   "DTSTART;TZID=America/New_York:20260622T190000",
   "DURATION:PT2H",
-  "SUMMARY:Brooklyn H3 #1185",
+  "SUMMARY:Brooklyn #1185",
   "LOCATION:Hinterlands Bar\\, 739 Church Ave",
   "DESCRIPTION:Hash Cash: $3",
   "DTSTAMP:20260601T000000Z",
@@ -1552,24 +1560,27 @@ const HASHNYC_ICS = [
   "LOCATION:Long Beach train station",
   "DTSTAMP:20260601T000000Z",
   "END:VEVENT",
-  // NAH3 #391 — must route to nah3, NOT nawwh3
+  // NAWW #391 → nawwh3. Real live shape: the monthly New Amsterdam series the
+  // feed labels "NAWW" (prod holds #387-393 on nawwh3). Its map pin comes from
+  // the URL property, not a DESCRIPTION "Map:" line.
   "BEGIN:VEVENT",
-  "UID:nah3#391@hashnyc.com",
+  "UID:naww#391@hashnyc.com",
   "DTSTART;TZID=America/New_York:20260614T140000",
   "DURATION:PT2H",
-  "SUMMARY:NAH3 #391",
-  "URL:https://maps.app.goo.gl/nah3391",
+  "SUMMARY:NAWW #391",
+  "URL:https://maps.app.goo.gl/naww391",
   "DTSTAMP:20260601T000000Z",
   "END:VEVENT",
-  // NAWW #12 — synthetic: proves the nawwh3 pattern precedes New Amsterdam/NAH3
+  // NASS #304 → nah3. The SEPARATE New Amsterdam series (prod holds "NASS"
+  // #298-304 on nah3). Guards the ordering: "NAWW" must not swallow "NASS".
   "BEGIN:VEVENT",
-  "UID:naww#12@hashnyc.com",
-  "DTSTART;TZID=America/New_York:20260701T190000",
+  "UID:nass#304@hashnyc.com",
+  "DTSTART;TZID=America/New_York:20261114T140000",
   "DURATION:PT2H",
-  "SUMMARY:NAWW #12: Winter Wednesday",
+  "SUMMARY:NASS #304: Friendsgiving 2026",
   "DTSTAMP:20260601T000000Z",
   "END:VEVENT",
-  // Queens #249 — generic "Queens" routes to qbk (not shadowed, not NYCH3)
+  // Queens #249 — generic "Queens" routes to qbk (not shadowed, not the default)
   "BEGIN:VEVENT",
   "UID:queens#249@hashnyc.com",
   "DTSTART;TZID=America/New_York:20260702T190000",
@@ -1577,12 +1588,61 @@ const HASHNYC_ICS = [
   "SUMMARY:Queens #249: 7-11 C*ms to Queens!",
   "DTSTAMP:20260601T000000Z",
   "END:VEVENT",
-  // NYCH3 Beer Mile — special event, no run #, no colon → title stays undefined
+  // QBK #73 — the abbreviation form of the same kennel, on its own run sequence.
   "BEGIN:VEVENT",
-  "UID:nych3-beermile@hashnyc.com",
+  "UID:qbk#73@hashnyc.com",
+  "DTSTART;TZID=America/New_York:20260815T150000",
+  "DURATION:PT2H",
+  "SUMMARY:QBK #73",
+  "DESCRIPTION:Hares: Shorts Story\\nHash Cash: $0",
+  "DTSTAMP:20260601T000000Z",
+  "END:VEVENT",
+  // NYC Beer Mile — special event, no run #, no colon → full SUMMARY kept as title
+  "BEGIN:VEVENT",
+  "UID:nyc-beermile@hashnyc.com",
   "DTSTART;TZID=America/New_York:20261024T170000",
   "DURATION:PT2H",
-  "SUMMARY:NYCH3 Beer Mile",
+  "SUMMARY:NYC Beer Mile",
+  "DTSTAMP:20260601T000000Z",
+  "END:VEVENT",
+  // ── Dormant kennels ────────────────────────────────────────────────────────
+  // These five publish sporadically and had no event in the feed window when the
+  // cutover shipped, but they stay linked to the source and keep their patterns.
+  // Without a fixture row their routes could regress silently, so each gets one
+  // VEVENT here. Both the spelled-out and abbreviated spellings are exercised.
+  "BEGIN:VEVENT",
+  "UID:knick#175@hashnyc.com",
+  "DTSTART;TZID=America/New_York:20260905T140000",
+  "DURATION:PT2H",
+  "SUMMARY:Knickerbocker #175",
+  "DTSTAMP:20260601T000000Z",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:si#2@hashnyc.com",
+  "DTSTART;TZID=America/New_York:20260912T140000",
+  "DURATION:PT2H",
+  "SUMMARY:Staten Island #2: Ferry Tale",
+  "DTSTAMP:20260601T000000Z",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:columbia#130@hashnyc.com",
+  "DTSTART;TZID=America/New_York:20260919T140000",
+  "DURATION:PT2H",
+  "SUMMARY:Columbia #130",
+  "DTSTAMP:20260601T000000Z",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:harriettes#1335@hashnyc.com",
+  "DTSTART;TZID=America/New_York:20260926T140000",
+  "DURATION:PT2H",
+  "SUMMARY:Harriettes #1335",
+  "DTSTAMP:20260601T000000Z",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:dp#10@hashnyc.com",
+  "DTSTART;TZID=America/New_York:20261003T190000",
+  "DURATION:PT2H",
+  "SUMMARY:Drinking Practice #10",
   "DTSTAMP:20260601T000000Z",
   "END:VEVENT",
   "END:VCALENDAR",
@@ -1628,46 +1688,61 @@ describe("ICalAdapter — HashNYC (relaunch iCal migration)", () => {
     const result = await adapter.fetch(buildHashNycSource(), { days: 9999 });
 
     expect(result.errors).toHaveLength(0);
-    const byTag = (tag: string) => result.events.filter((e) => e.kennelTags[0] === tag);
+    const byTag = (tag: string) =>
+      result.events.filter((e) => e.kennelTags[0] === tag).map((e) => e.runNumber);
 
-    expect(byTag("nych3").map((e) => e.runNumber).sort()).toEqual([2153, undefined]);
-    expect(byTag("brh3")[0]?.runNumber).toBe(1185);
-    expect(byTag("ggfm")[0]?.runNumber).toBe(441);
-    expect(byTag("lil")[0]?.runNumber).toBe(149);
-    // NAWW routes to nawwh3, NAH3 routes to nah3 — the ordering split holds
-    expect(byTag("nawwh3")[0]?.runNumber).toBe(12);
-    expect(byTag("nah3")[0]?.runNumber).toBe(391);
-    // generic "Queens" → qbk (not NYCH3 default, not shadowed)
-    expect(byTag("qbk")[0]?.runNumber).toBe(249);
-    // no event should fall through to the UNKNOWN sentinel
+    // Both spellings of the NYC prefix land on nych3 (2154 post-relaunch, 2153
+    // legacy "NYCH3", plus the run-less Beer Mile special).
+    expect(byTag("nych3").sort()).toEqual([2153, 2154, undefined]);
+    expect(byTag("brh3")).toEqual([1185]);
+    expect(byTag("ggfm")).toEqual([441]);
+    expect(byTag("lil")).toEqual([149]);
+    // The two New Amsterdam series stay separate — "NAWW" must be matched before
+    // the "NASS"/"NAH3"/"New Amsterdam" pattern or NASS would swallow both.
+    expect(byTag("nawwh3")).toEqual([391]);
+    expect(byTag("nah3")).toEqual([304]);
+    // Both the spelled-out "Queens" and the "QBK" abbreviation → qbk.
+    expect(byTag("qbk").sort((a, b) => Number(a) - Number(b))).toEqual([73, 249]);
+    // Dormant kennels: no events in the feed window at cutover, but still linked
+    // to the source — assert their routes so they can't regress unnoticed.
+    expect(byTag("knick")).toEqual([175]);
+    expect(byTag("si")).toEqual([2]);
+    expect(byTag("columbia")).toEqual([130]);
+    expect(byTag("harriettes-nyc")).toEqual([1335]);
+    expect(byTag("drinking-practice-nyc")).toEqual([10]);
+    // Nothing falls through to the UNKNOWN sentinel or the default kennel.
     expect(result.events.every((e) => e.kennelTags[0] !== "UNKNOWN")).toBe(true);
+    // 3 nych3 + 2 qbk + 1 each brh3/ggfm/lil/nawwh3/nah3 + 5 dormant — every
+    // fixture VEVENT is accounted for above, so nothing silently routed to the
+    // default kennel (which is nych3, and would otherwise absorb a miss).
+    expect(result.events).toHaveLength(15);
   });
 
-  it("extracts hares, hash cash, and venue from a full NYCH3 VEVENT", async () => {
+  it("extracts hares, hash cash, and venue from a full NYC VEVENT", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(HASHNYC_ICS, { status: 200 }));
     const result = await adapter.fetch(buildHashNycSource(), { days: 9999 });
 
-    const nych3 = result.events.find((e) => e.runNumber === 2153);
-    expect(nych3).toBeDefined();
-    expect(nych3!.kennelTags[0]).toBe("nych3");
-    expect(nych3!.date).toBe("2026-06-10");
-    expect(nych3!.startTime).toBe("19:00");
-    expect(nych3!.hares).toBe("Cheeky Bastard, Just Elizabeth");
-    expect(nych3!.cost).toBe("$3");
-    expect(nych3!.location).toBe("Malt & Mold, 362 Second Ave");
+    const nyc = result.events.find((e) => e.runNumber === 2154);
+    expect(nyc).toBeDefined();
+    expect(nyc!.kennelTags[0]).toBe("nych3");
+    expect(nyc!.date).toBe("2026-06-10");
+    expect(nyc!.startTime).toBe("19:00");
+    expect(nyc!.hares).toBe("Cheeky Bastard, Just Elizabeth");
+    expect(nyc!.cost).toBe("$3");
+    expect(nyc!.location).toBe("Malt & Mold, 362 Second Ave");
     // The DESCRIPTION "Map:" line (a maps.app.goo.gl share link) → locationUrl
-    expect(nych3!.locationUrl).toBe("https://maps.app.goo.gl/nyc2153");
+    expect(nyc!.locationUrl).toBe("https://maps.app.goo.gl/nyc2154");
   });
 
   it("routes a maps-shaped URL property to locationUrl, not sourceUrl", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(HASHNYC_ICS, { status: 200 }));
     const result = await adapter.fetch(buildHashNycSource(), { days: 9999 });
 
-    // NAH3 #391 has no DESCRIPTION Map: line — the map pin comes from the
+    // NAWW #391 has no DESCRIPTION Map: line — the map pin comes from the
     // maps.app.goo.gl URL property, which must NOT leak into sourceUrl.
-    const nah3 = result.events.find((e) => e.runNumber === 391);
-    expect(nah3!.locationUrl).toBe("https://maps.app.goo.gl/nah3391");
-    expect(nah3!.sourceUrl).toBeUndefined();
+    const naww = result.events.find((e) => e.runNumber === 391);
+    expect(naww!.locationUrl).toBe("https://maps.app.goo.gl/naww391");
+    expect(naww!.sourceUrl).toBeUndefined();
   });
 
   it("keeps colon titles but never leaks the kennel prefix", async () => {
@@ -1677,13 +1752,14 @@ describe("ICalAdapter — HashNYC (relaunch iCal migration)", () => {
     expect(result.events.find((e) => e.runNumber === 441)!.title).toBe("Cold Moon");
     expect(result.events.find((e) => e.runNumber === 149)!.title).toBe("Fluffy's Long Beach Adventure");
     expect(result.events.find((e) => e.runNumber === 249)!.title).toBe("7-11 C*ms to Queens!");
+    expect(result.events.find((e) => e.runNumber === 304)!.title).toBe("Friendsgiving 2026");
     // Colon-less, run-less special event: kennel resolves and the full SUMMARY
     // is kept as the title (same behavior as the all-day "Bay 2 Blackout 2026"
     // case) — there is no run number for the merge synthesizer to build from.
     const beerMile = result.events.find((e) => e.date === "2026-10-24");
     expect(beerMile!.kennelTags[0]).toBe("nych3");
     expect(beerMile!.runNumber).toBeUndefined();
-    expect(beerMile!.title).toBe("NYCH3 Beer Mile");
+    expect(beerMile!.title).toBe("NYC Beer Mile");
   });
 });
 

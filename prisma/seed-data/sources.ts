@@ -164,20 +164,79 @@ function staticScheduleSource(params: {
 
 export const SOURCES = [
     {
+      // hashnyc.com relaunched (2026) on a new "hash-attendance" app; the old
+      // `table.past_hashes` / `table.future_hashes` layout the bespoke Cheerio
+      // HashNYCAdapter scraped is GONE (verified 2026-08-10 — neither table is in
+      // the homepage HTML any more), so that scraper can no longer see any events.
+      // The relaunched site publishes a structured iCal feed, so this source moves
+      // HTML_SCRAPER → ICAL_FEED on the shared ICalAdapter. Kennel is a reliable
+      // SUMMARY prefix ("NYC #2154", "Brooklyn #1185", "GGFM #441: Cold Moon");
+      // hares + hash cash live in DESCRIPTION; venue is LOCATION; map pins arrive
+      // as maps.app.goo.gl links. The legacy HTML_SCRAPER row is retired (disabled
+      // entry below + companion migration `cutover_hashnyc_html_to_ical`, which
+      // ALSO provisions THIS row + its SourceKennel links in prod — Vercel runs
+      // migrate deploy, not db seed, so a deploy must never leave hashnyc.com with
+      // no enabled source). See docs/hashnyc-ical-cutover.md.
       name: "HashNYC Website",
-      url: "https://hashnyc.com",
-      type: "HTML_SCRAPER" as const,
+      url: "https://hashnyc.com/public/hareline.ics",
+      type: "ICAL_FEED" as const,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      // "Receding Hareline (Next 30 Days)" — events fall off the page once they
-      // pass, so the reconciler must not interpret that as a cancellation. (#1263)
+      config: {
+        // Forward hareline — events fall off once they pass, so the reconciler
+        // must not read that as a cancellation. (#1263)
+        upcomingOnly: true,
+        // Ported from the old adapter's KENNEL_PATTERNS, anchored to the start of
+        // SUMMARY and ordered most-specific-first (first match wins). Verified
+        // against the live feed 2026-08-10 (62 events, 0 unrouted):
+        //   * "Queens Black Knights"/"QBK" MUST precede the generic "Queens" —
+        //     the feed carries both "QBK #73" and "Queens #249", and prod has
+        //     both series on `qbk`.
+        //   * "NAWW" MUST precede "New Amsterdam"/"NAH3"/"NASS" — they are
+        //     DISTINCT kennels (nawwh3 runs #387-393, nah3 runs "NASS" #298-304
+        //     in prod). The relaunched feed labels the monthly series "NAWW",
+        //     matching prod's existing attribution.
+        //   * The optional H3 suffixes matter: the relaunch dropped them
+        //     ("NYCH3 #2150" → "NYC #2154", "Brooklyn H3" → "Brooklyn"), so the
+        //     patterns deliberately match both spellings.
+        kennelPatterns: [
+          ["^Knickerbocker\\b|^Knick\\b", "knick"],
+          ["^Queens Black Knights\\b|^QBK\\b", "qbk"],
+          ["^NAWW(?:H3)?\\b", "nawwh3"],
+          ["^New Amsterdam\\b|^NAH3\\b|^NASS\\b", "nah3"],
+          ["^Long Island(?:\\s+Lunatics)?\\b|^LIL\\b", "lil"],
+          ["^Staten Island\\b|^SI\\b", "si"],
+          ["^Drinking Practice\\b", "drinking-practice-nyc"],
+          ["^Brooklyn(?:\\s+H3)?\\b|^BrH3\\b|^BKH3\\b", "brh3"],
+          ["^Harriettes\\b", "harriettes-nyc"],
+          ["^Columbia\\b", "columbia"],
+          ["^GGFM\\b", "ggfm"],
+          ["^Queens\\b", "qbk"],
+          ["^NYC(?:H3)?\\b", "nych3"],
+        ],
+        defaultKennelTag: "nych3",
+      },
+      // All 12 kennels the patterns route to stay linked even when a series is
+      // dormant in the current feed window (knick / si / columbia / harriettes /
+      // drinking-practice publish sporadically) — the merge guard blocks events
+      // for unlinked kennels as SOURCE_KENNEL_MISMATCH. (#1793 / Codex review)
+      kennelCodes: ["nych3", "brh3", "nah3", "knick", "lil", "qbk", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3", "drinking-practice-nyc"],
+    },
+    {
+      // Retired legacy HTML scraper for hashnyc.com — superseded by the ICAL_FEED
+      // row above after the 2026 site relaunch removed the tables it parsed. Kept
+      // as a disabled entry so re-seeds hold it disabled (seed identity is
+      // (name, type), so this is a distinct row) and it isn't flagged as a stale
+      // source. Prod is disabled by the companion migration.
+      name: "HashNYC Website",
+      url: "https://hashnyc.com",
+      type: "HTML_SCRAPER" as const,
+      enabled: false,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
       config: { upcomingOnly: true },
-      // `drinking-practice-nyc` is the 12th kennel the parser routes to
-      // (KENNEL_PATTERNS in hashnyc.ts) — hashnyc.com publishes its events, so
-      // the source must be linked or the merge guard blocks them as
-      // SOURCE_KENNEL_MISMATCH (and the archive backfill would partial-fail on
-      // the ~24 historical Drinking Practice rows). (#1793 / Codex review)
       kennelCodes: ["nych3", "brh3", "nah3", "knick", "lil", "qbk", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3", "drinking-practice-nyc"],
     },
     {
@@ -8474,6 +8533,101 @@ export const SOURCES = [
         upcomingOnly: true,
       },
       kennelCodes: ["sierra-h4"],
+    },
+    // ===== CONFIG BATCH C =====
+    {
+      name: "Devon Lunatics H3 Google Calendar",
+      url: "devonlunaticshashhouseharriers@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 3300, // ~9 years -> reaches the 2018 floor; a full-archive calendar (no upcomingOnly needed)
+      config: {
+        defaultKennelTag: "dlh3-gb",
+        defaultTitle: "Devon Lunatics H3",
+        futureHorizonDays: 200, // upcoming events reach ~Dec (default cap 180 would just barely include them)
+        // Summaries jam venue + hare after "Devon Lunatics H3 - "; strip the
+        // prefix, then route the "vytbc" (venue+hare-to-be-confirmed)
+        // placeholder that remains to the default title.
+        titleStripPatterns: [String.raw`^Devon Lunatics H3\s*-\s*`],
+        staleTitleAliases: { "dlh3-gb": ["vytbc"] },
+        // No titleHarePattern — the post-strip venue/hare split is unreliable
+        // (silent-corruption caution); location/coords come from the GCal
+        // LOCATION field (full postal addresses), not the title.
+      },
+      kennelCodes: ["dlh3-gb"],
+    },
+    {
+      name: "Isca H3 Google Calendar",
+      url: "iscahareraiser@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 3600, // reach the 2017-07 floor; full-archive calendar (no upcomingOnly needed)
+      config: {
+        defaultKennelTag: "isca-h3",
+        includeAllDayEvents: true, // captures the multi-day "Roman Away Day" signature annual event
+        defaultTitle: "Isca H3 Trail",
+        defaultStartTime: "19:30",
+        // Summaries are "Isca H3 - {venue}[. {hare(s)}]"; strip the prefix.
+        // An all-empty remainder already falls back to defaultTitle. No
+        // titleHarePattern — the post-venue segment is inconsistently
+        // delimited (sometimes a hare, sometimes part of the venue); the
+        // structured LOCATION field is the reliable venue/geocode source.
+        titleStripPatterns: [String.raw`^Isca H3\s*-\s*`],
+      },
+      kennelCodes: ["isca-h3"],
+    },
+    {
+      name: "Mickleover H3 Run Log Sheet",
+      url: "https://docs.google.com/spreadsheets/d/1oZFMbkKFQp2rBM3x4LUt9vGOImCbsFOnyriQdO6xSCg/export?format=csv&gid=0",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 12500, // full-archive pull (1993-present); buildDateWindow is symmetric -> no upcomingOnly
+      config: {
+        sheetId: "1oZFMbkKFQp2rBM3x4LUt9vGOImCbsFOnyriQdO6xSCg",
+        // Direct CSV export of the "MH3 Full Run log" tab (gid=0) — anonymously
+        // fetchable. NOTE the gid inversion: gid=0 is the full log (this tab);
+        // gid=1624247485 is a single-cell "Next run" form, not a data source.
+        csvUrl: "https://docs.google.com/spreadsheets/d/1oZFMbkKFQp2rBM3x4LUt9vGOImCbsFOnyriQdO6xSCg/export?format=csv&gid=0",
+        // Header: Run # | Date | Pub Name | GoogleMaps | street | town/village | PostCode | Hares | Info | Pack Size | Pubs
+        columns: {
+          runNumber: 0,
+          date: 1, // "DD-MMM-YY" — natively parsed by parseDMonDate (2-digit pivot: 26->2026, 94->1994)
+          location: 2,
+          address: 6, // PostCode — best UK geocode key (street col 4 / town col 5 are partial)
+          hares: 7,
+          description: 8, // Info notes only, not a title
+        },
+        startTimeRules: { default: "19:15" }, // no time column; Monday 7:15pm confirmed on-site
+        kennelTagRules: { default: "mickleover-h3" },
+        // Winter "social only" rows carry a blank Run # cell (their "social"
+        // marker sits inconsistently in Info or the unmapped Pack Size column).
+        // requireRunNumber uniformly drops every blank-run# row regardless of
+        // where the marker lives, which a silentlySkipPatterns text match can't.
+        requireRunNumber: true,
+      },
+      kennelCodes: ["mickleover-h3"],
+    },
+    {
+      name: "Jacksonville H3 Timely iCal",
+      url: "https://events.timely.fun/api/calendars/54747312/export?format=ics",
+      type: "ICAL_FEED" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 400, // reach the ~9-month past archive; feed is full-archive (no upcomingOnly)
+      config: {
+        defaultKennelTag: "jax-h3",
+        // Titles are "Jax H3 - #NNNN Theme" / "Jax Urban H3 - #NNNN Theme"
+        // (hyphen, not colon); strip the kennel-label + run marker off the
+        // title, leaving just the theme. Longest-first ordering (the helper
+        // also sorts) so "Jax Urban H3 -" isn't half-stripped to "Urban H3 -".
+        titleStripPrefixAliases: ["Jax Urban H3", "Jax H3"],
+        // NO upcomingOnly — full-archive feed (returns the ~9-month past
+        // window on every scrape; nothing ages out for reconcile to false-cancel).
+      },
+      kennelCodes: ["jax-h3"],
     },
   ];
 

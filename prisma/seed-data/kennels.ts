@@ -2239,7 +2239,13 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/groups/JaxH3/",
       contactEmail: "Tikiguy0317@gmail.com",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
+      scheduleTime: "6:30 PM", // 12-hr kennel default; per-trail startTime (11:00-18:20 observed) is authoritative
+      walkersWelcome: true, // jaxh3.com/hash-guides: "pack may be made up of both walkers and runners"
+      hashCash: "$6", // jaxh3.com/hash-guides: "$6 Hash Cash is typical cost"
+      logoUrl: "/kennel-logos/jax-h3.jpg", // self-hosted; magic bytes confirmed JPEG
+      latitude: 30.3322, longitude: -81.6557,
       description: "Every other Saturday runs in Jacksonville.",
+      // foundedYear / dogFriendly / instagramHandle: unverifiable — omitted (flagged)
     },
     // --- Tallahassee ---
     {
@@ -6213,6 +6219,70 @@ export const KENNELS: KennelSeed[] = [
       logoUrl: "/kennel-logos/sierra-h4.png", // self-hosted from HC blob; magic bytes confirmed PNG
       description:
         "Freetown's favourite drinking club with a running problem — the 'Duo Kennel' of Sierra Hash House Harriers & Harriettes. Weekly Wednesday-evening trails plus a monthly 1st-Saturday run, with a seasonal pause during the May-August rains. Founded 2024; host of Pan Africa Hash 2027.",
+    },
+    // ===== CONFIG BATCH C ===== (2 GOOGLE_CALENDAR, 1 GOOGLE_SHEETS, 1 ICAL_FEED source-add)
+    {
+      // bare "dlh3" taken by Duneland H3 (South Shore, IN) → region-suffixed
+      kennelCode: "dlh3-gb",
+      shortName: "Devon Lunatics H3",
+      fullName: "Devon Lunatics Hash House Harriers",
+      region: "Exeter",
+      country: "UK",
+      website: "https://dlh3.org.uk",
+      facebookUrl: "https://www.facebook.com/groups/153125188050687",
+      scheduleFrequency: "Monthly",
+      scheduleTime: "7:30 PM", // 12-hr profile field; full-moon date drifts across weekdays — no fixed scheduleDayOfWeek
+      description:
+        "Devon Lunatics Hash House Harriers — a full-moon hash running throughout Devon (Exeter and the surrounding East/South Devon area). 'A drinking club with a running problem.'",
+      logoUrl: "/kennel-logos/dlh3-gb.png", // self-hosted from dlh3.org.uk; magic bytes confirmed PNG
+      // foundedYear / hashCash / dogFriendly / walkersWelcome: unverifiable — omitted (flagged)
+    },
+    {
+      kennelCode: "isca-h3", // grep-clean; bare "IH3" OMITTED — Ithaca H3 (ih3), live
+      shortName: "Isca H3",
+      fullName: "Isca Hash House Harriers",
+      region: "Exeter",
+      country: "UK",
+      website: "https://iscah3.uk",
+      scheduleDayOfWeek: "Wednesday",
+      scheduleTime: "7:30 PM", // 12-hr seed convention; adapter startTime stays 24-hr "19:30"
+      scheduleFrequency: "Weekly",
+      facebookUrl: "https://www.facebook.com/groups/458558960939413",
+      contactEmail: "iscahareraiser@gmail.com",
+      foundedYear: 1998,
+      dogFriendly: true,
+      description:
+        "Isca Hash House Harriers — founded 13 May 1998, running every permitted Wednesday since. " +
+        "Named after Isca Dumnoniorum, the Roman name for Exeter. A friendly, social group meeting at " +
+        "varied (often rural) locations within ~30 minutes of Exeter city centre; a gentle ~1-hour run " +
+        "then on-down to a pub. Well-behaved dogs on leads welcome.",
+      logoUrl: "/kennel-logos/isca-h3.gif", // self-hosted from iscah3.uk; magic bytes confirmed GIF
+      latitude: 50.7184,
+      longitude: -3.5339,
+      // hashCash / instagramHandle / twitterHandle / walkersWelcome: unverified — omitted (flagged)
+    },
+    {
+      // bare "mh3" globally taken (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai); mh3-gb
+      // reserved by Manchester H3 (shipped) → city-based
+      kennelCode: "mickleover-h3",
+      shortName: "Mickleover H3",
+      fullName: "Mickleover Hash House Harriers",
+      region: "East Midlands",
+      country: "UK",
+      website: "https://sites.google.com/site/mickleoverh3",
+      facebookUrl: "https://www.facebook.com/MickleoverH3/",
+      foundedYear: 1993,
+      hashCash: "£2 per run (visitors & virgins free; no annual sub)",
+      walkersWelcome: true,
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "7:15 PM", // 12-hr in Kennel.scheduleTime; adapter/RawEventData startTime stays 24-hr "19:15"
+      scheduleFrequency: "Monthly", // 2nd Monday; winter "socials" are non-trail (skipped by the source)
+      description:
+        "A sociable, mixed running club that starts and finishes at a pub — runners and walkers both welcome. Monthly Monday-evening trails at a different pub within ~30 minutes of Derby.",
+      logoUrl: "/kennel-logos/mickleover-h3.jpg", // self-hosted from the Google Sites og:image; magic bytes confirmed JPEG
+      latitude: 52.923,
+      longitude: -1.526,
+      // dogFriendly / instagramHandle / twitterHandle: unstated — omitted (flagged)
     },
   ];
 

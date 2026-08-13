@@ -715,5 +715,12 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "sh2b": ["SH2B", "Seattle Hash House Bikers", "Hash Bikers WA", "Seattle Bike Hash"],
     // bare "SHHH"/"SHH3" OMITTED — taken by sech3/sgharriets; bare "H4" OMITTED — taken by Hangover H3.
     "sierra-h4": ["Sierra Hash", "Sierra HHH", "Sierra Hash House Harriers", "Sierra Hash House Harriers and Harriettes", "Sierra H4 Freetown"],
+    // ===== CONFIG BATCH C =====
+    // bare "DLH3" OMITTED — resolves to Duneland H3 (dlh3, South Shore, IN).
+    "dlh3-gb": ["Devon Lunatics", "Devon Lunatics HHH", "DLH3-GB"],
+    // bare "IH3" OMITTED — resolves to Ithaca H3 (live).
+    "isca-h3": ["Isca H3", "Isca HHH", "Isca Hash", "Isca Hash House Harriers"],
+    // bare "MH3" OMITTED — global collision (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai).
+    "mickleover-h3": ["Mickleover Hash House Harriers", "Mickleover HHH", "Mickleover"],
   };
 
