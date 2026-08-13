@@ -5746,13 +5746,23 @@ export const SOURCES = [
       kennelCodes: ["perth-h3"],
     },
 
-    // 2. Top End Hash (Darwin) — WordPress + Events Manager plugin.
-    // Events Manager exposes iCal at /?post_type=event&ical=1&limit=50.
-    // Feed mixes past + future events; the iCal adapter window-filters.
+    // 2. Top End Hash (Darwin) — DISABLED (#2662): topendhash.com's WordPress +
+    // Events Manager site is gone. Every URL under the domain (root and the
+    // iCal export path) now resolves to a GoDaddy "Great things are coming
+    // soon" domain-parking page (verified live 2026-08-12), not a 404 or a
+    // plugin-removed error — the whole site was torn down, not just the
+    // calendar. The club is still listed as active on the official HHH
+    // directory (hhh.asn.au, Thursdays 1800) with a private Facebook GROUP
+    // (facebook.com/groups/TopEndHash) as its only other online presence —
+    // Groups require login and aren't reachable by the FACEBOOK_HOSTED_EVENTS
+    // adapter (public Pages' /upcoming_hosted_events only). No parser fix is
+    // possible against a parked domain; re-enable if the club relaunches a
+    // public feed.
     {
       name: "Top End Hash Hareline",
       url: "https://topendhash.com/?post_type=event&ical=1&limit=50",
       type: "ICAL_FEED" as const,
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
