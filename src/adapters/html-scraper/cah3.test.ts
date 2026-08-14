@@ -161,7 +161,8 @@ describe("Cah3Adapter.fetch — no-date skip vs. hard failure (#2668)", () => {
   // alerts) as long as at least one post still yields a dated event.
   it("does not push no-date skips into errors when some posts still parse", async () => {
     const { iso, titleText } = nearFutureDate();
-    vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValueOnce({
+    vi.mocked(wordpressApi.fetchWordPressRunPosts).mockResolvedValueOnce({
+      ok: true,
       posts: [
         {
           title: `Run 534: Songkran Outstation ${titleText}`,
@@ -197,7 +198,8 @@ describe("Cah3Adapter.fetch — no-date skip vs. hard failure (#2668)", () => {
 
   it("escalates to a hard error when every post fetched lacks a date", async () => {
     const { iso } = nearFutureDate();
-    vi.mocked(wordpressApi.fetchWordPressPosts).mockResolvedValueOnce({
+    vi.mocked(wordpressApi.fetchWordPressRunPosts).mockResolvedValueOnce({
+      ok: true,
       posts: [
         {
           title: "Run 541: Bangs My Sister & Brother Lover",

@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { ErrorDetails, RawEventData, ScrapeResult, SourceAdapter } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchWordPressPosts } from "../wordpress-api";
+import { fetchWordPressRunPosts } from "../wordpress-api";
 import {
   applyDateWindow,
   chronoParseDate,
@@ -173,14 +173,10 @@ export class Cah3Adapter implements SourceAdapter {
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
-    const wpResult = await fetchWordPressPosts(baseUrl, 20);
-    if (wpResult.error || wpResult.posts.length === 0) {
-      const message = wpResult.error?.message ?? "CAH3 WordPress API returned no posts";
-      errorDetails.fetch = [
-        { url: baseUrl, message, status: wpResult.error?.status },
-      ];
-      return { events: [], errors: [message], errorDetails };
-    }
+    const wpResult = await fetchWordPressRunPosts(baseUrl, {
+      noPostsMessage: "CAH3 WordPress API returned no posts",
+    });
+    if (!wpResult.ok) return wpResult.result;
 
     // #2668: cah3.net redesigned its "Run NNN" posts around mid-2026 onto a
     // generic "RUN DIRECTIONS / SPECIAL NOTE / ON AFTER" template that has NO
