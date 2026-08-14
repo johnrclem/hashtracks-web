@@ -8629,5 +8629,45 @@ export const SOURCES = [
       },
       kennelCodes: ["jax-h3"],
     },
+    // ===== CLUSTER 1 =====
+    {
+      name: "Herts H3 Website Hareline",
+      url: "https://www.hertshash.co.uk/hare_line.htm",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper
+      scrapeFreq: "daily",
+      scrapeDays: 365, // forward hareline reaches ~7 months ahead
+      config: { upcomingOnly: true }, // rolling forward hareline; past runs age off -> reconcile would false-cancel
+      kennelCodes: ["herts-h3"],
+    },
+    {
+      name: "F.U.K Full Moon H3 Hareline",
+      url: "https://fukfmh3.co.uk/hareline.htm",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper
+      scrapeFreq: "daily",
+      scrapeDays: 365, // forward hareline reaches ~16 months out (#495->#511)
+      config: { upcomingOnly: true }, // rolling forward hareline; past runs age off -> reconcile would false-cancel
+      kennelCodes: ["fukfm"],
+    },
+    {
+      name: "Bicester H3 Events (The Events Calendar iCal)",
+      url: "http://bicesterh3.com/?post_type=tribe_events&ical=1&eventDisplay=list",
+      type: "ICAL_FEED" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      // Wide window so reconcile's range covers the backfilled 2018-> archive (mirrors ICH3);
+      // upcomingOnly gates reconcile to future dates so the archive is never cancelled regardless.
+      scrapeDays: 3300,
+      config: {
+        defaultKennelTag: "bicester-h3",
+        upcomingOnly: true, // REQUIRED — feed is ?eventDisplay=list (upcoming-only); protects the backfilled archive from reconcile
+        allowEmptyBody: true, // TEC returns HTTP 200 + 0-byte body when no upcoming events (ICH3 #1753)
+        // Capture the hare from "Trail # NNNN - <hare> - <venue>" (dash-delimited SUMMARY, no colon).
+        // Bounded, S5852-safe: single \s runs, non-greedy middle segment stopped at the next dash.
+        titleHarePattern: "^Trail\\s*#?\\s*\\d+\\s*[-–]\\s*([^-–]+?)\\s*[-–]",
+      },
+      kennelCodes: ["bicester-h3"],
+    },
   ];
 
