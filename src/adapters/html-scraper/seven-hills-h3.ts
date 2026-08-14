@@ -56,8 +56,11 @@ const DAY_NAME_SUFFIX_RE = /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday
  *  of #2663, verified 2026-08-13). The "@" is optional; the trailing
  *  am/pm suffix is the real anchor so this stays safe against false
  *  matches elsewhere in the body text. Minutes optional either way.
- *  Captured time is normalized into `HH:MM am/pm` before parsing. */
-const TIME_AT_RE = /@?\s*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/i;
+ *  Captured time is normalized into `HH:MM am/pm` before parsing. A single
+ *  `[@\s]*` class (rather than `@?\s*`) avoids the adjacent-optional-
+ *  quantifier shape Sonar flags as super-linear (S8786), same fix as
+ *  TRAIL_NUMBER_RE above. */
+const TIME_AT_RE = /[@\s]*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/i;
 /** "Hares: Frodo & Snatch" — up to the next line / label / EOD. */
 const HARES_RE = /Hares?:\s*([^\n]+)/i;
 /** "Start: 442 S Five Forks Road Monroe, VA" — up to the next line / label / EOD. */
