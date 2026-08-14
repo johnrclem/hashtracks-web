@@ -4,6 +4,7 @@ import { hasAnyErrors } from "../types";
 import { generateAccessToken, PUBLIC_HASHER_ID } from "./token";
 import { safeFetch } from "../safe-fetch";
 import { buildDateWindow, eqTrimLc, compilePatterns } from "../utils";
+import { HARE_PII_RES } from "../hare-pii";
 
 const API_URL = "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/";
 
@@ -35,6 +36,16 @@ interface HCGlobalRunEvent {
  * — callers get an empty map and the caller records the miss in
  * diagnosticContext (never in `errors`), mirroring the FACEBOOK_HOSTED_EVENTS
  * past-tab best-effort convention.
+ *
+ * Every row with a `PublicEventId` is indexed, INCLUDING rows whose
+ * `EventDescription` is empty/blank (mapped to `""`) — the caller uses
+ * `Map.has()` to distinguish "row found, description explicitly blank"
+ * (→ `null`, an explicit clear) from "row not found at all, or this whole
+ * fetch failed" (→ `undefined`, preserve). Silently dropping blank-description
+ * rows here would collapse that distinction and leave a description that was
+ * removed at the source stuck on the canonical event forever, since
+ * `undefined` never overwrites an existing value (see the per-event join in
+ * `fetch()`).
  */
 async function fetchEventDescriptions(): Promise<Map<string, string>> {
   const url = `${GLOBAL_RUNS_URL}?isFuture=1&pageSize=${GLOBAL_RUNS_PAGE_SIZE}`;
@@ -51,31 +62,40 @@ async function fetchEventDescriptions(): Promise<Map<string, string>> {
   }
   const byId = new Map<string, string>();
   for (const row of rows) {
-    const desc = row.EventDescription?.trim();
-    if (row.PublicEventId && desc) byId.set(row.PublicEventId, desc);
+    if (!row.PublicEventId) continue;
+    byId.set(row.PublicEventId, row.EventDescription?.trim() ?? "");
   }
   return byId;
 }
 
-// PII scrub for HC's free-text "About this run" description. It's authored by
-// individual hares and sometimes carries a hare-line phone number or personal
-// email as day-of contact info (#2550 Algarve H3 sample explicitly includes a
-// "hare-line contact number"; live-verified ~2.5% of populated descriptions
-// carry a phone-shaped or email-shaped token). Redact before storing — the
-// merge pipeline has no PII-scrubbing pass of its own for description text.
-// Global (not just trailing) — unlike PHONE_TRAILING_RE in hare-extraction.ts,
-// a contact number can appear anywhere inside a multi-paragraph description.
-// Pattern mirrors PHONE_NUMBER_RE (audit-checks.ts) verbatim but as a literal
-// with the "g" flag — kept as a literal (not `new RegExp(PHONE_NUMBER_RE.source, "g")`)
-// per repo convention (non-literal RegExp gets flagged even when built from a
-// const; see hare-extraction.ts's PHONE_TRAILING_RE for the same tradeoff).
-const DESCRIPTION_PHONE_RE =
-  /(?:(?<!\d)\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}(?!\d)|(?<!\d)\d{10}(?!\d))/g;
-const DESCRIPTION_EMAIL_RE = /\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g;
-
-/** Redact phone numbers and email addresses from HC's free-text description. */
+/**
+ * Redact phone numbers and email addresses from HC's free-text "About this
+ * run" description. It's authored by individual hares and sometimes carries a
+ * hare-line phone number or personal email as day-of contact info (#2550
+ * Algarve H3 sample explicitly includes a "hare-line contact number";
+ * live-verified ~2.5% of populated descriptions carry a phone-shaped or
+ * email-shaped token). Redact before storing — the merge pipeline has no
+ * PII-scrubbing pass of its own for description text.
+ *
+ * Reuses `HARE_PII_RES` from `src/adapters/hare-pii.ts` — the same combined
+ * pattern set the merge pipeline's `sanitizeHares` applies to every adapter's
+ * `hares` field — rather than a hand-rolled North-America-only pattern. That
+ * module's own regexes are global-only (kept private for `.test()`/`.exec()`
+ * lastIndex safety) and its exported `scrubHarePii()` is shaped for
+ * comma-joined hare-name lists (splits/rejoins on `,`/`;`), which would
+ * mangle multi-paragraph prose — so this is a plain `.replace()` loop over
+ * the same `HARE_PII_RES` array instead of calling `scrubHarePii()`.
+ * `HARE_PII_RES` covers North American (3-3-4 / bare-10 / parenthesized),
+ * international (E.164, e.g. "+44 7700 900123"), Korean domestic mobile
+ * (e.g. "010-2354-1741"), and email — where the earlier NA-only pattern here
+ * would have missed the international and Korean shapes.
+ */
 export function scrubDescriptionPii(text: string): string {
-  return text.replace(DESCRIPTION_EMAIL_RE, "[redacted]").replace(DESCRIPTION_PHONE_RE, "[redacted]");
+  let result = text;
+  for (const re of HARE_PII_RES) {
+    result = result.replace(re, "[redacted]");
+  }
+  return result;
 }
 
 /** Length cap mirrors the GCal adapter's normalizeGCalDescription convention. */
@@ -353,14 +373,25 @@ export class HarrierCentralAdapter implements SourceAdapter {
       const sourceUrl = buildHashrunsPermalink(hcEvent, config);
 
       // #2626/#2569/#2553/#2550/#2539: join the best-effort description lookup
-      // (built once above) by PublicEventId, scrub PII, and cap length. Left
-      // undefined (not null) when absent so the merge UPDATE path preserves
-      // any existing description rather than clearing it on a scrape where the
-      // enrichment fetch failed or the run simply has no note yet.
+      // (built once above) by PublicEventId, scrub PII, and cap length.
+      // Three-way tri-state, not a plain truthy check:
+      //   - row not indexed at all (enrichment fetch failed, OR hashruns.org
+      //     simply doesn't have this PublicEventId yet) → `undefined`, the
+      //     merge UPDATE path preserves any existing description. We have no
+      //     signal either way, so we must not clear a good existing value.
+      //   - row found, but EventDescription is empty/blank → `null`, an
+      //     explicit clear. The source positively told us there's no note
+      //     (any more) for this event; without this branch a description
+      //     removed at the source would stay stuck on the canonical event
+      //     forever, since `undefined` never overwrites.
+      //   - row found with real text → the scrubbed, capped description.
+      const descriptionRowFound = descriptionsById.has(hcEvent.publicEventId);
       const rawDescription = descriptionsById.get(hcEvent.publicEventId);
-      const description = rawDescription
-        ? scrubDescriptionPii(rawDescription).trim().substring(0, DESCRIPTION_MAX_LENGTH) || undefined
-        : undefined;
+      const description = !descriptionRowFound
+        ? undefined
+        : rawDescription
+          ? scrubDescriptionPii(rawDescription).trim().substring(0, DESCRIPTION_MAX_LENGTH) || null
+          : null;
 
       let title = applyTitleFallback(hcEvent.eventName, hcEvent.eventNumber, config);
       // #2409 Tokyo #2583: the source stored the hare's hash name ("Back Door

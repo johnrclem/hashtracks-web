@@ -465,6 +465,25 @@ describe("scrubDescriptionPii (#2550)", () => {
       "OnOn: Kemnay Skate Park\n\nGoogleMap:\nhttps://maps.app.goo.gl/MQE6DpvfUDAE5wbr6\n\nHash cash 3.00, 2026-09-07";
     expect(scrubDescriptionPii(text)).toBe(text);
   });
+
+  // Coordinator review caught the previous hand-rolled NA-only pattern missing
+  // international and Korean domestic mobile shapes — now reuses the shared
+  // HARE_PII_RES set from src/adapters/hare-pii.ts, which covers both.
+  it("redacts an international (E.164) phone number", () => {
+    expect(scrubDescriptionPii("Hare-line: +44 7700 900123")).toBe(
+      "Hare-line: [redacted]",
+    );
+  });
+
+  it("redacts a Korean domestic mobile number", () => {
+    expect(scrubDescriptionPii("연락처: 010-2354-1741")).toBe("연락처: [redacted]");
+  });
+
+  it("redacts a parenthesized NA number with no separator after the area code", () => {
+    expect(scrubDescriptionPii("Call (415)555-1212 anytime")).toBe(
+      "Call [redacted] anytime",
+    );
+  });
 });
 
 describe("buildHashrunsPermalink (#2601)", () => {
@@ -1129,7 +1148,7 @@ describe("HarrierCentralAdapter", () => {
         );
       });
 
-      it("leaves description undefined when no matching global-runs row exists", async () => {
+      it("preserves (undefined) when no matching global-runs row exists — 'not found' is not 'blank'", async () => {
         mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
         mockDescriptionsResponse([
           { PublicEventId: "some-other-event", EventDescription: "Unrelated" },
@@ -1149,11 +1168,14 @@ describe("HarrierCentralAdapter", () => {
         expect(result.diagnosticContext!.descriptionFetchError).toBeDefined();
       });
 
-      it("skips a global-runs row with an empty/whitespace-only description", async () => {
+      it("explicitly clears (null) when the row is found but the description is empty/whitespace-only", async () => {
+        // Tri-state fix: a FOUND row with a blank description is a positive
+        // signal from the source ("no note (any more) for this event"), not
+        // an absence of information — must clear a stale existing value.
         mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
         mockDescriptionsResponse([{ PublicEventId: "evt-1", EventDescription: "   " }]);
         const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
-        expect(result.events[0].description).toBeUndefined();
+        expect(result.events[0].description).toBeNull();
       });
     });
 
