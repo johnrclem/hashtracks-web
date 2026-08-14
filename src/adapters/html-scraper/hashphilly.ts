@@ -8,9 +8,11 @@ const mapsUrl = googleMapsSearchUrl;
  * Known placeholder values the site publishes for the "Date" field when the
  * next trail hasn't been scheduled yet (e.g. between events, or hare TBD).
  * These are NOT parse failures — the source is working correctly and simply
- * has nothing to report yet. (#2661)
+ * has nothing to report yet. (#2661) The "N/A" alternative accepts slash,
+ * hyphen, or no separator ("N/A", "N-A", "NA") — PR review flagged that the
+ * hyphenated spelling wasn't covered.
  */
-const DATE_PLACEHOLDER_RE = /^(tbd|tba|n\/?a|coming soon|\?+|-+)$/i;
+const DATE_PLACEHOLDER_RE = /^(tbd|tba|n[-/]?a|coming soon|\?+|-+)$/i;
 
 /**
  * Parse a Philly H3 date string using chrono-node.

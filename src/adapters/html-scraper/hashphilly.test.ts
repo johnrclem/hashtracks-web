@@ -66,6 +66,20 @@ const SAMPLE_HTML_TBD = `
 </body></html>
 `;
 
+// PR review finding (#2661 follow-up): the hyphenated "N-A" spelling wasn't
+// covered by the original placeholder regex, so it fell through to
+// chronoParseDate and re-triggered the same consecutive-failure alert.
+const SAMPLE_HTML_N_DASH_A = `
+<html><body>
+<div>
+<p>Trail Number: 2049</p>
+<p>Date: N-A</p>
+<p>Time: N-A</p>
+<p>Location: N-A</p>
+</div>
+</body></html>
+`;
+
 describe("HashPhillyAdapter.fetch", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -134,6 +148,21 @@ describe("HashPhillyAdapter.fetch", () => {
   it("succeeds with zero events (not an error) when Date is a placeholder like 'TBD'", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response(SAMPLE_HTML_TBD, { status: 200 }),
+    );
+
+    const adapter = new HashPhillyAdapter();
+    const result = await adapter.fetch({
+      id: "test",
+      url: "https://hashphilly.com/nexthash/",
+    } as never);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it("succeeds with zero events when Date is the hyphenated 'N-A' spelling (PR review finding)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_HTML_N_DASH_A, { status: 200 }),
     );
 
     const adapter = new HashPhillyAdapter();
