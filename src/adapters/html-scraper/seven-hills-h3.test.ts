@@ -43,10 +43,10 @@ describe("parseSevenHillsPage", () => {
   it("does not mistake an earlier day-name-less date in page prose for the trail date (#2663)", () => {
     // The page's "About Hashing" blurb states the club's 1992 founding date
     // with no day-of-week attached ("began ... on June 21, 1992"), ahead of
-    // the actual trail block in body order. Once the day-name prefix on
-    // DATE_PHRASE_RE became optional to match the live "August 12, 2026"
-    // layout, an unanchored search would greedily match this 1992 date
-    // instead of the real trail date — the date search must be scoped to
+    // the actual trail block in body order. An unanchored MONTH_DAY_YEAR_RE
+    // search would greedily match this 1992 date instead of the real trail
+    // date (to match the live "August 12, 2026" no-day-name layout) — the
+    // date search must be scoped to
     // after the "Trail N" match, not the whole body text.
     const body =
       "The 7H4 traditions began in Lynchburg, Virginia on June 21, 1992. " +

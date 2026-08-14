@@ -94,12 +94,11 @@ export function parseSevenHillsPage(html: string): ParsedTrail | null {
   // Search only the text AFTER "TRAIL #N" / "Trail N" for the date/time/
   // hares/location fields. The page's "About Hashing" prose above the trail
   // block contains the club's founding date ("began in Lynchburg, Virginia
-  // on June 21, 1992") with no leading day-of-week — once DATE_PHRASE_RE's
-  // day-name prefix became optional (#2663, to match the live "August 12,
-  // 2026" no-day-name layout), an unanchored search on the WHOLE body text
-  // matched that 1992 founding date instead of the actual upcoming trail
-  // date. Anchoring to after the trail number guarantees we only ever see
-  // the current trail's own field block.
+  // on June 21, 1992") with no leading day-of-week — an unanchored
+  // MONTH_DAY_YEAR_RE search on the WHOLE body text would match that 1992
+  // founding date instead of the actual upcoming trail date (#2663).
+  // Anchoring to after the trail number guarantees we only ever see the
+  // current trail's own field block.
   const trailBlockStart = trailMatch.index + trailMatch[0].length;
   const trailBlock = bodyText.slice(trailBlockStart);
 
