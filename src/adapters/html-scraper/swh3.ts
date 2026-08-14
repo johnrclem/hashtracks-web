@@ -209,20 +209,30 @@ function processPost(
   // all, only a "When: Saturday, April 11th" field in the body — fall back
   // to parsing that with the same publish-date-anchored chrono call the
   // title path uses, rather than failing the whole post.
+  //
+  // requireCertainDate guards against a real chrono footgun (PR review
+  // finding): a post whose "When:"/"Time:" field is time-only ("2:30 pm",
+  // no date at all) would otherwise have chrono silently resolve day/month
+  // from the publish-date reference and report the PUBLISH day as if it
+  // were the trail date — a wrong-but-plausible-looking date is worse than
+  // correctly falling through to "no parseable date".
   const date =
     titleFields.date ??
     (bodyFields.whenText
-      ? chronoParseDate(bodyFields.whenText, "en-US", new Date(post.date)) ?? undefined
+      ? chronoParseDate(bodyFields.whenText, "en-US", new Date(post.date), {
+          requireCertainDate: true,
+        }) ?? undefined
       : undefined);
   if (!date) {
     const msg = `No date found in title: "${titleText}"`;
     errors.push(msg);
+    const whenSuffix = bodyFields.whenText ? ` | When: ${bodyFields.whenText}` : "";
     (errorDetails.parse ??= []).push({
       row: index,
       section: "post",
       field: "date",
       error: msg,
-      rawText: `Title: ${titleText}${bodyFields.whenText ? ` | When: ${bodyFields.whenText}` : ""}`.slice(0, 2000),
+      rawText: `Title: ${titleText}${whenSuffix}`.slice(0, 2000),
     });
     return null;
   }

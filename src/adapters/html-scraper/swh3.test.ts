@@ -216,4 +216,31 @@ describe("SWH3Adapter.fetch — date fallback (#2667)", () => {
     expect(result.events).toHaveLength(0);
     expect(result.errors[0]).toContain("No date found in title");
   });
+
+  it("does not resolve a time-only When: field to the publish date (PR review finding)", async () => {
+    // A bare title + a "When:" field carrying ONLY a time ("2:30 pm", no
+    // date at all) would otherwise let chrono silently fill in the publish
+    // date as if it were the trail date. requireCertainDate on the
+    // chronoParseDate fallback must reject this and fail loud instead of
+    // emitting a wrong-but-plausible date.
+    const posts = [
+      {
+        id: 2,
+        date: "2026-04-07T14:34:53",
+        link: "https://swh3.wordpress.com/y/",
+        title: { rendered: "SWH3 Trail #9998" },
+        content: { rendered: "<p>When: 2:30 pm</p><p>Hares: Nobody</p>" },
+      },
+    ];
+    vi.mocked(safeFetch).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => posts,
+    } as unknown as Response);
+
+    const result = await new SWH3Adapter().fetch({} as Source);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toContain("No date found in title");
+  });
 });
