@@ -19,16 +19,28 @@
  *
  * Parsed once from the live table and frozen into `scripts/data/sffmh3-history.json`
  * (no live parser committed — throwaway extractor, not committed, per the
- * H7/Asunción pattern). 99 of the table's 100 rows survive: one row was a
- * same-date "FMH3" placeholder-title husk (no hare/location/anything else) that
- * duplicated a richer row for the same date — dropped as a split-row artifact,
- * not a real second trail (mirrors the "title fallback must never be a
- * placeholder" pitfall). The 1 already-tracked event (Flower Moon Pub Crawl,
- * 2026-05-08) stays in the frozen set; the merge pipeline dedupes it against the
- * existing iCal-sourced canonical event by kennel+date rather than duplicating it.
+ * H7/Asunción pattern). 97 of the table's 100 rows survive:
+ *   - 1 row was a same-date "FMH3" placeholder-title husk (no hare/location/
+ *     anything else) that duplicated a richer row for the same date — dropped
+ *     as a split-row artifact, not a real second trail (mirrors the "title
+ *     fallback must never be a placeholder" pitfall).
+ *   - 2 rows had the literal title "OPEN DATE" (2008-11-14, 2009-01-09) —
+ *     CAUGHT IN REVIEW: an earlier draft of this backfill kept these as real
+ *     events, which would have created canonical cards titled "OPEN DATE" on
+ *     the kennel page. "OPEN DATE" on this site means the slot went unfilled
+ *     (no hare signed up, no trail happened) — a vacant-slot marker, not a
+ *     documented run. Dropped. (Two OTHER rows, 2008-12-12 and 2009-12-04, have
+ *     no title at all rather than an explicit placeholder marker — those are
+ *     kept: the source lists them as real rows with hare/where simply
+ *     "Unknown," not as explicitly vacant, and the merge pipeline synthesizes
+ *     a default title for them the same way it would for any adapter's
+ *     title-less row.)
+ * The 1 already-tracked event (Flower Moon Pub Crawl, 2026-05-08) stays in the
+ * frozen set; the merge pipeline dedupes it against the existing iCal-sourced
+ * canonical event by kennel+date rather than duplicating it.
  *
- * Field availability matches the issue's own count: title ~56/99, hares ~29/99
- * (rest "Unknown" in the source, dropped), location ~54/99, runNumber only 1/99
+ * Field availability matches the issue's own count: title ~54/97, hares ~29/97
+ * (rest "Unknown" in the source, dropped), location ~54/97, runNumber only 1/97
  * (source numbers almost nothing — "(No #)" on all but one row). `startTime` and
  * `cost` are not in this table at all and are omitted (undefined, not null —
  * these fields were never observed, not explicitly cleared).
@@ -60,7 +72,7 @@ runBackfillScript({
   fetchEvents: async () => {
     const events = history as RawEventData[];
     if (events.length === 0) {
-      throw new Error("sffmh3-history.json is empty — expected ~99 frozen runs. Aborting.");
+      throw new Error("sffmh3-history.json is empty — expected ~97 frozen runs. Aborting.");
     }
     return events;
   },

@@ -59,16 +59,27 @@ runBackfillScript({
       .map((r) => mapRunToRawEvent(r, KENNEL_TAG, HC_CONFIG))
       .filter((e): e is RawEventData => e !== null);
 
-    const has13 = events.some((e) => e.runNumber === EXPECTED_RUN_NUMBER);
-    if (!has13) {
+    const target = events.filter((e) => e.runNumber === EXPECTED_RUN_NUMBER);
+    if (target.length === 0) {
       throw new Error(
         `Run #${EXPECTED_RUN_NUMBER} not found in the swept window — the source ` +
           `may have changed since #2576 was filed. Aborting rather than silently ` +
           `applying nothing useful.`,
       );
     }
-    console.log(`  Swept window yielded ${events.length} row(s); #${EXPECTED_RUN_NUMBER} present.`);
-    return events;
+    // Filter to ONLY the target run. The sweep necessarily also returns #11/#12
+    // (already in prod from the original 20-run backfill) since the window has
+    // to span enough days to reliably catch #13 — but `processRawEvents` matches
+    // by fingerprint, not by (kennel, date) identity alone, so re-submitting the
+    // neighbors would silently overwrite them if anything about their upstream
+    // HC data has drifted since the original freeze (title edit, hare
+    // correction, etc.). This is meant to be a single-row gap-fill, not a
+    // re-sync of its neighbors, so only #13 is returned.
+    console.log(
+      `  Swept window yielded ${events.length} row(s) total; ` +
+        `filtering to #${EXPECTED_RUN_NUMBER} only (${target.length} row).`,
+    );
+    return target;
   },
 }).catch((err) => {
   console.error(err);
