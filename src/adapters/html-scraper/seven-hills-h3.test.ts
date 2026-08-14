@@ -72,6 +72,20 @@ describe("parseSevenHillsPage", () => {
     expect(result?.startTime).toBe("18:30");
   });
 
+  it("does not mistake a later on-after time for the trail start time when When: has no time (PR review finding)", () => {
+    // Making "@" optional on TIME_AT_RE (#2663, live "6:30p.m." layout) would
+    // otherwise let it match the FIRST am/pm-shaped text anywhere in the
+    // trail block — here that's the on-after mention, not the trail start —
+    // when the "When:" line itself carries no time at all.
+    const body =
+      "Trail 2029When: August 19, 2026 Start: Jojos Pizza 1400 Lakeside Drive " +
+      "Lynchburg VA 24501Hares: UTB & Mystery HareBeer Meister: No" +
+      "Special Instructions: On-after starts at 8pm at the pub.";
+    const result = parseSevenHillsPage(`<html><body>${body}</body></html>`);
+    expect(result?.startTime).toBeUndefined();
+    expect(result?.date).toMatch(/^\d{4}-08-19$/);
+  });
+
   it("handles missing optional fields gracefully", () => {
     const body = "TRAIL #2011 Another TrailThursday April 9, 2026 @ 6pm";
     const result = parseSevenHillsPage(`<html><body>${body}</body></html>`);
