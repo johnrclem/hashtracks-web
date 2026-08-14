@@ -1083,7 +1083,15 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "fukfm", shortName: "FUKFM", fullName: "First UK Full Moon Hash House Harriers", region: "London", country: "UK",
       website: "https://fukfmh3.co.uk", foundedYear: 1990,
-      scheduleFrequency: "Monthly", scheduleNotes: "Every full moon evening, 7:30 PM",
+      scheduleFrequency: "Monthly",
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "12:00 PM",
+      scheduleNotes: "Monthly Saturday noon pub-crawl trail (occasional 7pm evening runs); named for its full-moon origins",
+      dogFriendly: true,
+      description: "A Monthly Social Drinking club with a Running Problem — Saturday-noon pub-crawl trails across Greater North London and the Home Counties.",
+      logoUrl: "/kennel-logos/fukfm.png", // self-hosted; magic bytes confirmed PNG
+      // hashCash: unverifiable (not published) → leave unset + flag
+      // facebook/instagram/twitter/discord: none found → leave unset + flag
     },
     {
       kennelCode: "eh3", shortName: "Enfield H3", fullName: "Enfield Hash House Harriers", region: "London", country: "UK",
@@ -6283,6 +6291,63 @@ export const KENNELS: KennelSeed[] = [
       latitude: 52.923,
       longitude: -1.526,
       // dogFriendly / instagramHandle / twitterHandle: unstated — omitted (flagged)
+    },
+    // ===== CLUSTER 1 ===== (Herts H3 + Bicester H3 full onboard; FUKFM source-add + field fixes below)
+    {
+      kennelCode: "herts-h3",
+      shortName: "Herts H3",
+      fullName: "Herts Hash House Harriers",
+      region: "Hertfordshire",
+      country: "UK",
+      website: "https://www.hertshash.co.uk/",
+      facebookUrl: "https://www.facebook.com/groups/1896723760468831/",
+      foundedYear: 1985,
+      dogFriendly: true,
+      walkersWelcome: true,
+      // hashCash intentionally omitted — not published on the site (unverifiable; do not invent).
+      description:
+        "The Hash in Hertfordshire — a drinking club with a running problem, founded 10 June 1985. " +
+        "Weekly non-competitive trails (3–5 miles) across Hertfordshire, usually starting and finishing " +
+        "at a pub. Sunday winter trails at 11:00; Monday summer trails at 19:00. New runners, walkers " +
+        "and well-behaved dogs welcome.",
+      logoUrl: "/kennel-logos/herts-h3.png", // self-hosted; magic bytes confirmed PNG
+      // scheduleDayOfWeek/scheduleTime kept as fallback; scheduleRules is authoritative.
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM", // 12-hr on Kennel.scheduleTime; scheduleRules.startTime stays 24-hr "11:00"/"19:00"
+      scheduleRules: [
+        // Seasonal same-cadence day/time shift. BYMONTH boundaries are best-effort from the site copy
+        // (summer = Monday evenings, winter = Sunday late-morning); the adapter's real dates are authoritative.
+        { rrule: "FREQ=WEEKLY;BYDAY=MO;BYMONTH=5,6,7,8", startTime: "19:00", label: "Summer (Mon evening)" },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=1,2,3,4,9,10,11,12", startTime: "11:00", label: "Winter (Sun morning)" },
+      ],
+      latitude: 51.8098,
+      longitude: -0.2377,
+    },
+    {
+      kennelCode: "bicester-h3",
+      shortName: "Bicester H3",
+      fullName: "Bicester Hash House Harriers",
+      region: "Bicester",
+      country: "UK",
+      website: "http://bicesterh3.com",
+      facebookUrl: "https://www.facebook.com/groups/187643361712005/",
+      instagramHandle: "Bicester_Hash_House_Harriers",
+      foundedYear: 1974,
+      hashCash: "£3 (first 2 runs free)",
+      walkersWelcome: true,
+      scheduleFrequency: "Weekly",
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "7:00 PM", // 12-hour Kennel.scheduleTime; seasonal — see scheduleNotes
+      scheduleNotes: "Weekly. Summer: Monday 7:00 PM. Winter: Sunday 11:00 AM (seasonal switch).",
+      description:
+        "Bicester H3 — 'a drinking club with a running problem'. Founded 1 April 1974 by Ray Thornton " +
+        "(ex-Singapore H3), Bicester is the oldest weekly running hash in the UK. Trails of 3–6 miles " +
+        "across Oxfordshire, Buckinghamshire and the borders, laid from country pubs; summer runs are " +
+        "Monday evenings, winter runs Sunday mornings. First two runs free, then £3.",
+      logoUrl: "/kennel-logos/bicester-h3.png", // self-hosted; white-on-transparent, magic bytes confirmed PNG
+      latitude: 51.9007,
+      longitude: -1.1522,
+      // dogFriendly: unstated — omitted (flagged)
     },
   ];
 
