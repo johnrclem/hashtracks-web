@@ -2186,3 +2186,43 @@ concluding "no backfill."**
 **Logo:** concrete5 serves uploads from tokenized `application/files/<id>/<id>/<id>/<name>.<ext>` paths
 that rotate on re-upload → **self-host** to `public/kennel-logos/<code>.<ext>` (confirm ext by
 Content-Type **and** magic bytes; MKH3's is a `.gif`).
+
+---
+
+## The Events Calendar (Tribe, WordPress) — config-only ICAL_FEED + paginated REST archive (verified from Bicester H3, 2026-08-14, SHIPPED handoff)
+
+Distinct from the two cautionary TEC-adjacent notes above (Desert H3 = **Modern Events Calendar**, a
+different plugin whose `/wp-json/tribe/...` is empty; South Hams SH4 = **Events Manager**, whose
+`?ical=1` is a stale capped window). When a WordPress hash site runs the **genuine "The Events
+Calendar" (Tribe)** plugin — detect via `meta-tec-api-version: v1` / `meta-tec-api-origin` in the page
+`<head>` — it exposes three mutually-consistent, sandbox-fetchable surfaces and is a clean
+**config-only `ICAL_FEED`** (the `ICalAdapter` already handles it; **Iron City H3 `sources.ts:1560`**
+is the reference source config). Bicester H3 (`bicesterh3.com`) confirmed all three via real `web_fetch`:
+
+- **iCal export** `…/?post_type=tribe_events&ical=1&eventDisplay=list` — returns `Content-Type:
+  text/calendar` with upcoming VEVENTs (`SUMMARY`, `DTSTART`/`DTEND`, `LOCATION` = venue + street +
+  city + county + postcode + country). This is the **seeded live URL**. 🔴 It is **upcoming-only**
+  (past runs age off) → `config.upcomingOnly: true` REQUIRED, and 🔴 TEC returns **HTTP 200 + 0-byte
+  body when there are no upcoming events** (the ICH3 #1753 quirk) → `config.allowEmptyBody: true`.
+- **REST API** `…/wp-json/tribe/events/v1/events` — same events as JSON; `?start_date=…&end_date=…&per_page=N&page=M`
+  paginates the **full past archive** (Bicester: `total: 419, total_pages: 84` back to run #2294 /
+  Jan 2018; `next_rest_url` signals continuation). Per-event: `title`, `description` (often carries the
+  run number as `# NNNN`), `venue{}` object, `organizer[].organizer` (**the hare**), `cost`,
+  `start_date`. This is the **backfill source** — a one-shot `scripts/backfill-<code>-history.ts`
+  (H7 frozen-JSON + dumb loader), NOT the live cron. Keep the `?eventDisplay=past` / REST URL out of
+  the seed (a script-side override, exactly like `scripts/backfill-ich3-history.ts`).
+- **HTML `/runs` (or the TEC list view)** — the same events, plus per-page `?eventDisplay=past`
+  navigation and the `webcal://…?ical=1` subscribe links. Useful for eyeballing parity.
+
+SUMMARY-parse note: kennels commonly format the SUMMARY as `Trail # NNNN - <hare> - <venue>`
+(dash-delimited, **no colon**). The `ICalAdapter`'s built-in `Prefix:`/`#N:` title-splitter only
+fires on a colon, so the whole SUMMARY becomes the `title` — acceptable (it's the source's own event
+name). `extractHashRunNumber` still pulls the run number from `# NNNN` (the space-after-`#` form
+parses — same as ICH3's "ICH3# 60", #2160). Add `config.titleHarePattern` to capture the hare from the
+middle segment. For a fully clean `title → synth "<Kennel> Trail #N"` you'd need a small adapter flag
+to split the dash-delimited SUMMARY (~15–30 LoC) — optional polish, not required for a working onboard.
+
+Other gotchas: these club sites are frequently **http-only** (no https) → the source `url` + kennel
+`website` literals trip Sonar **S5332** (mark SAFE via the SonarCloud REST API per the AH3-NZ process).
+Venues carry an address/postcode but **no lat/lng** → merge geocodes; no default-pin trap. Same-day
+`DTEND` → `endTime` for free.
