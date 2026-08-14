@@ -1,4 +1,4 @@
-import { RiyadhH3Adapter, mapHikeRow, type HikeRow } from "./riyadh-h3";
+import { RiyadhH3Adapter, mapHikeRow, HIKES_SELECT, type HikeRow } from "./riyadh-h3";
 import { safeFetch } from "../safe-fetch";
 import type { Source } from "@/generated/prisma/client";
 
@@ -121,6 +121,18 @@ describe("mapHikeRow", () => {
     expect(e.description).toBeUndefined();
     expect(e.startTime).toBeUndefined();
     expect(e.latitude).toBeUndefined();
+  });
+});
+
+describe("HIKES_SELECT", () => {
+  // #2665: the site owner revoked the anon role's column-level SELECT grant on
+  // `location_gps` and `map_link`. PostgREST fails the WHOLE request (401) if
+  // ANY requested column lacks a grant, so re-adding either name here would
+  // silently zero out every future Riyadh H3 scrape. Verified live 2026-08-13.
+  it("does not request the anon-revoked location_gps/map_link columns", () => {
+    const columns = HIKES_SELECT.split(",");
+    expect(columns).not.toContain("location_gps");
+    expect(columns).not.toContain("map_link");
   });
 });
 

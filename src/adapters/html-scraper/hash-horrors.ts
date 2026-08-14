@@ -187,6 +187,29 @@ export interface ParseHarelineResult {
   skippedLines: number;
   /** Run lines that were recognised but intentionally emit no event (e.g. BREAK). */
   skippedMarkers: number;
+  /** Known-dateless historical stub rows, skipped without counting as drift. */
+  skippedKnownGaps: number;
+}
+
+/**
+ * Very old (1994-2004) archive rows for which the kennel's own `/hareline`
+ * page has never carried a month/day — the row is just "<run#> – <hares> –
+ * <location>" with the date field entirely absent from the source HTML
+ * (verified live 2026-08-13, #2666). This is not a parser gap: there is no
+ * date to recover, so no event can ever be emitted for these run numbers.
+ * Treating them as ordinary "skippedLines" would permanently trip the
+ * format-drift alert on every scrape, even though nothing has drifted.
+ * Listed as an explicit allowlist (rather than "any dateless line") so a
+ * *new*, unexpected dateless row still counts as drift and surfaces.
+ */
+const KNOWN_DATELESS_RUN_NUMBERS = new Set([526, 527, 528, 552, 616, 617, 625, 628]);
+
+/** Extract the leading run number from a candidate line, or null if the
+ *  run-prefix shape itself doesn't match (shouldn't happen — callers only
+ *  invoke this on lines `findRunLineStarts` already matched). */
+function extractLeadingRunNumber(line: string): number | null {
+  const m = RUN_PREFIX_RE.exec(line.trim());
+  return m ? Number.parseInt(m[1], 10) : null;
 }
 
 /**
@@ -223,10 +246,20 @@ function findYearHeadings(text: string): Array<{ year: number; start: number; en
  * with a context-aware check (e.g. look backwards from the candidate for an
  * ordinal/space pattern) or shift to a per-row tokenizer. Codex flagged
  * this on PR #1536 as a long-horizon correctness regression.
+ *
+ * The leading `(?<!\d)` guards against a genuine false-positive found live
+ * on 2026-08-13 (#2666): a 1990s archive row embeds a 6-digit Singapore
+ * postal code ("...Seah Im Road, Singapore 099115 – Bottom of Mount
+ * Faber..."). Without the lookbehind, the tokenizer matches the *trailing*
+ * 4 digits of the postal code ("9115") as if it were its own run-number
+ * prefix, since "9115 – Bottom" satisfies the digits+dash+word shape.
+ * Requiring the digit run not be preceded by another digit rejects any
+ * mid-number substring match while leaving every real run-line start
+ * (always preceded by whitespace or start-of-section) unaffected.
  */
 function findRunLineStarts(section: string): number[] {
   const starts: number[] = [];
-  for (const m of section.matchAll(/(\d{3,4})\s*[–—:-]\s*(?:[a-z]+|\d{1,2})/gi)) {
+  for (const m of section.matchAll(/(?<!\d)(\d{3,4})\s*[–—:-]\s*(?:[a-z]+|\d{1,2})/gi)) {
     const n = Number.parseInt(m[1], 10);
     if (n >= 1900 && n <= 2099) continue;
     if (m.index !== undefined) starts.push(m.index);
@@ -263,13 +296,19 @@ function walkRunLines(
   const events: RawEventData[] = [];
   let skippedLines = 0;
   let skippedMarkers = 0;
+  let skippedKnownGaps = 0;
   const starts = findRunLineStarts(text);
   for (let i = 0; i < starts.length; i++) {
     const lineEnd = starts[i + 1] ?? text.length;
     const line = text.slice(starts[i], lineEnd).trim();
     const parsed = parseHashHorrorsRunLine(line);
     if (!parsed) {
-      skippedLines++;
+      const runNumber = extractLeadingRunNumber(line);
+      if (runNumber !== null && KNOWN_DATELESS_RUN_NUMBERS.has(runNumber)) {
+        skippedKnownGaps++;
+      } else {
+        skippedLines++;
+      }
       continue;
     }
     const year = yearForLine(parsed);
@@ -279,7 +318,7 @@ function walkRunLines(
     }
     events.push(buildEvent(parsed, year));
   }
-  return { events, skippedLines, skippedMarkers };
+  return { events, skippedLines, skippedMarkers, skippedKnownGaps };
 }
 
 /**
@@ -295,9 +334,10 @@ export function parseHashHorrorsHareline(text: string): ParseHarelineResult {
   const events: RawEventData[] = [];
   let skippedLines = 0;
   let skippedMarkers = 0;
+  let skippedKnownGaps = 0;
   const headings = findYearHeadings(text);
   if (text.trim() && headings.length === 0) {
-    return { events: [], skippedLines: 1, skippedMarkers: 0 };
+    return { events: [], skippedLines: 1, skippedMarkers: 0, skippedKnownGaps: 0 };
   }
   for (let i = 0; i < headings.length; i++) {
     const { year, end } = headings[i];
@@ -307,8 +347,9 @@ export function parseHashHorrorsHareline(text: string): ParseHarelineResult {
     events.push(...sectionResult.events);
     skippedLines += sectionResult.skippedLines;
     skippedMarkers += sectionResult.skippedMarkers;
+    skippedKnownGaps += sectionResult.skippedKnownGaps;
   }
-  return { events, skippedLines, skippedMarkers };
+  return { events, skippedLines, skippedMarkers, skippedKnownGaps };
 }
 
 /**
@@ -396,7 +437,12 @@ export class HashHorrorsAdapter implements SourceAdapter {
     const fetchErrors: NonNullable<ErrorDetails["fetch"]> = [];
     let upcomingUrl: string | undefined;
     let upcomingText = "";
-    let upcoming: ParseHarelineResult = { events: [], skippedLines: 0, skippedMarkers: 0 };
+    let upcoming: ParseHarelineResult = {
+      events: [],
+      skippedLines: 0,
+      skippedMarkers: 0,
+      skippedKnownGaps: 0,
+    };
 
     if (upcomingResult.error || !upcomingResult.page) {
       const message = upcomingResult.error?.message ?? "WordPress.com API returned no upcoming page";
@@ -435,6 +481,7 @@ export class HashHorrorsAdapter implements SourceAdapter {
 
     const skippedLines = archive.skippedLines + upcoming.skippedLines;
     const skippedMarkers = archive.skippedMarkers + upcoming.skippedMarkers;
+    const skippedKnownGaps = archive.skippedKnownGaps + upcoming.skippedKnownGaps;
 
     // Surface dropped lines as scrape errors so the reconciler doesn't cancel
     // events on a partial parse (it only runs when errors.length === 0). A
@@ -475,6 +522,7 @@ export class HashHorrorsAdapter implements SourceAdapter {
         upcomingRunsParsed: upcoming.events.length,
         skippedLines,
         skippedMarkers,
+        skippedKnownGaps,
         eventsInWindow: events.length,
         archiveFetchDurationMs: archiveResult.fetchDurationMs,
         upcomingFetchDurationMs: upcomingResult.fetchDurationMs,

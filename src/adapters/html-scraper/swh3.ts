@@ -137,6 +137,12 @@ export function parseSWH3Time(timeText: string): string | undefined {
  */
 export function parseSWH3Body(html: string): {
   startTime?: string;
+  /** Raw text of the Time/When field, e.g. "Saturday, April 11th" — kept
+   *  alongside the parsed time so callers can fall back to it for the trail
+   *  DATE when the title itself carries none (#2667: "SWH3 Trail #1786"
+   *  posts have no date suffix in the title at all — only "When:" in the
+   *  body). */
+  whenText?: string;
   location?: string;
   hares?: string;
   trailName?: string;
@@ -152,6 +158,7 @@ export function parseSWH3Body(html: string): {
 
   // Time / When — extract pack-off/start time from field like "Meet at 2:00 for a 2:30 start"
   const timeMatch = text.match(new RegExp(`(?:Time|When)\\s*:\\s*(.+?)${stop}`, "i"));
+  const whenText = timeMatch ? timeMatch[1].trim() : undefined;
   const startTime = timeMatch ? parseSWH3Time(timeMatch[1]) : undefined;
 
   // Where / Start location
@@ -182,7 +189,7 @@ export function parseSWH3Body(html: string): {
   const onAfterMatch = text.match(/On[ -]After:\s*(.+?)(?=\n|$)/i);
   const onAfter = onAfterMatch ? onAfterMatch[1].trim() : undefined;
 
-  return { startTime, location, hares, trailName, onAfter };
+  return { startTime, whenText, location, hares, trailName, onAfter };
 }
 
 /** Process a single WordPress.com post into a RawEventData. */
@@ -197,17 +204,35 @@ function processPost(
   const titleFields = parseSWH3Title(titleText, post.date);
   const bodyFields = parseSWH3Body(post.content.rendered);
 
-  // Event date comes from the title, NOT the publish date
-  const date = titleFields.date;
+  // Event date normally comes from the title, NOT the publish date. Some
+  // posts (#2667 — "SWH3 Trail #1786") carry no date suffix in the title at
+  // all, only a "When: Saturday, April 11th" field in the body — fall back
+  // to parsing that with the same publish-date-anchored chrono call the
+  // title path uses, rather than failing the whole post.
+  //
+  // requireCertainDate guards against a real chrono footgun (PR review
+  // finding): a post whose "When:"/"Time:" field is time-only ("2:30 pm",
+  // no date at all) would otherwise have chrono silently resolve day/month
+  // from the publish-date reference and report the PUBLISH day as if it
+  // were the trail date — a wrong-but-plausible-looking date is worse than
+  // correctly falling through to "no parseable date".
+  const date =
+    titleFields.date ??
+    (bodyFields.whenText
+      ? chronoParseDate(bodyFields.whenText, "en-US", new Date(post.date), {
+          requireCertainDate: true,
+        }) ?? undefined
+      : undefined);
   if (!date) {
     const msg = `No date found in title: "${titleText}"`;
     errors.push(msg);
+    const whenSuffix = bodyFields.whenText ? ` | When: ${bodyFields.whenText}` : "";
     (errorDetails.parse ??= []).push({
       row: index,
       section: "post",
       field: "date",
       error: msg,
-      rawText: `Title: ${titleText}`.slice(0, 2000),
+      rawText: `Title: ${titleText}${whenSuffix}`.slice(0, 2000),
     });
     return null;
   }

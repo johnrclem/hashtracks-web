@@ -3,6 +3,7 @@ import {
   fetchAllWordPressPosts,
   fetchWordPressComPosts,
   fetchWordPressPosts,
+  fetchWordPressRunPosts,
 } from "./wordpress-api";
 
 describe("fetchWordPressPosts", () => {
@@ -236,6 +237,93 @@ describe("fetchWordPressPosts", () => {
     );
 
     await fetchWordPressPosts("https://example.com/", 5);
+
+    const calledUrl = vi.mocked(fetch).mock.calls[0][0] as string;
+    expect(calledUrl).toContain("per_page=5");
+  });
+});
+
+// Extracted from the near-identical error-shaping block SonarCloud flagged
+// as duplicated between cah3.ts and klj-h3.ts (#2668 PR review) — see the
+// helper's own docstring for the full history.
+describe("fetchWordPressRunPosts", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns ok:true with the posts on success", async () => {
+    const apiResponse = [
+      {
+        title: { rendered: "Run 534: Songkran" },
+        content: { rendered: "<p>Hare: Someone</p>" },
+        link: "https://cah3.net/run-534/",
+        date: "2026-04-10T09:00:00",
+      },
+    ];
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify(apiResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }) as never,
+    );
+
+    const result = await fetchWordPressRunPosts("https://cah3.net", {
+      noPostsMessage: "no posts",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.posts).toHaveLength(1);
+      expect(result.fetchDurationMs).toBeDefined();
+    }
+  });
+
+  it("returns ok:false with a ready-to-return ScrapeResult when zero posts come back", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(JSON.stringify([]), { status: 200 }) as never,
+    );
+
+    const result = await fetchWordPressRunPosts("https://cah3.net", {
+      noPostsMessage: "CAH3 WordPress API returned no posts",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.result.events).toEqual([]);
+      expect(result.result.errors).toEqual(["CAH3 WordPress API returned no posts"]);
+      expect(result.result.errorDetails?.fetch?.[0]).toMatchObject({
+        url: "https://cah3.net",
+        message: "CAH3 WordPress API returned no posts",
+      });
+    }
+  });
+
+  it("returns ok:false using the upstream error message when the fetch itself fails", async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error("network down"));
+
+    const result = await fetchWordPressRunPosts("https://cah3.net", {
+      noPostsMessage: "fallback message",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.result.errors[0]).toContain("WordPress API fetch error");
+    }
+  });
+
+  it("respects the perPage option", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify([]), { status: 200 }) as never,
+    );
+
+    await fetchWordPressRunPosts("https://cah3.net", {
+      noPostsMessage: "no posts",
+      perPage: 5,
+    });
 
     const calledUrl = vi.mocked(fetch).mock.calls[0][0] as string;
     expect(calledUrl).toContain("per_page=5");

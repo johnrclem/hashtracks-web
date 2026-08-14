@@ -575,7 +575,23 @@ export function chronoParseDate(
   text: string,
   locale: DateLocale = "en-US",
   referenceDate?: Date,
-  options?: { forwardDate?: boolean },
+  options?: {
+    forwardDate?: boolean;
+    /**
+     * Reject a parse whose day/month were only IMPLIED from the reference
+     * date rather than explicitly present in `text` — e.g. chrono parses a
+     * bare time-only string like "2:30 pm" as "today [referenceDate] at
+     * 2:30pm", silently returning the reference date with no date signal in
+     * the source text at all. Callers that fall back to a secondary field
+     * (a body "When:"/"Time:" label used as a date backstop when the primary
+     * source has none) should set this so a time-only value correctly
+     * reports "no date" instead of masquerading as a real one. Defaults to
+     * false to preserve existing behavior for the many callers that
+     * legitimately rely on year/month defaulting from the reference date
+     * (e.g. year-less "March 14" titles).
+     */
+    requireCertainDate?: boolean;
+  },
 ): string | null {
   // Fast-path: "D[D] MMM YY[YY]" with space or hyphen separators. Bypasses
   // a chrono-node bug where "5 May 26" becomes 2026-05-26 instead of
@@ -605,6 +621,10 @@ export function chronoParseDate(
   const day = parsed.get("day");
 
   if (year == null || month == null || day == null) return null;
+
+  if (options?.requireCertainDate && (!parsed.isCertain("day") || !parsed.isCertain("month"))) {
+    return null;
+  }
 
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }

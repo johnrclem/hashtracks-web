@@ -22,6 +22,40 @@ describe("parseSevenHillsPage", () => {
     });
   });
 
+  it("parses the live layout (#2663): 'Trail N' with no '#', no day-name, no '@' before the time", () => {
+    // Captured live from sites.google.com/view/7h4/home on 2026-08-13 after
+    // the site dropped the "#", the leading day-of-week, and the "@" before
+    // the time all at once.
+    const body =
+      "Upcoming TrailsTrail 2028When: August 12, 2026 6:30p.m. Start: " +
+      "Jojos Pizza 1400 Lakeside Drive Lynchburg VA 24501Hares: UTB & Mystery Hare" +
+      "Beer Meister: NoSpecial Instructions: A to A.";
+    const result = parseSevenHillsPage(`<html><body>${body}</body></html>`);
+    expect(result).toMatchObject({
+      runNumber: 2028,
+      date: expect.stringMatching(/^\d{4}-08-12$/),
+      startTime: "18:30",
+      hares: "UTB & Mystery Hare",
+      location: "Jojos Pizza 1400 Lakeside Drive Lynchburg VA 24501",
+    });
+  });
+
+  it("does not mistake an earlier day-name-less date in page prose for the trail date (#2663)", () => {
+    // The page's "About Hashing" blurb states the club's 1992 founding date
+    // with no day-of-week attached ("began ... on June 21, 1992"), ahead of
+    // the actual trail block in body order. An unanchored MONTH_DAY_YEAR_RE
+    // search would greedily match this 1992 date instead of the real trail
+    // date (to match the live "August 12, 2026" no-day-name layout) — the
+    // date search must be scoped to
+    // after the "Trail N" match, not the whole body text.
+    const body =
+      "The 7H4 traditions began in Lynchburg, Virginia on June 21, 1992. " +
+      "See you Wednesday!Upcoming TrailsTrail 2028When: August 12, 2026 6:30p.m. " +
+      "Start: Jojos Pizza";
+    const result = parseSevenHillsPage(`<html><body>${body}</body></html>`);
+    expect(result?.date).toMatch(/^\d{4}-08-12$/);
+  });
+
   it("returns null when no TRAIL #N block is present", () => {
     const html = `<html><body>Welcome to the 7H4 home page. No trail announcement yet.</body></html>`;
     expect(parseSevenHillsPage(html)).toBeNull();
@@ -36,6 +70,20 @@ describe("parseSevenHillsPage", () => {
     const body = "TRAIL #2010 Test TrailWednesday April 8, 2026 @ 6:30 PMStart: Somewhere, VAHares: Test Hare";
     const result = parseSevenHillsPage(`<html><body>${body}</body></html>`);
     expect(result?.startTime).toBe("18:30");
+  });
+
+  it("does not mistake a later on-after time for the trail start time when When: has no time (PR review finding)", () => {
+    // Making "@" optional on TIME_AT_RE (#2663, live "6:30p.m." layout) would
+    // otherwise let it match the FIRST am/pm-shaped text anywhere in the
+    // trail block — here that's the on-after mention, not the trail start —
+    // when the "When:" line itself carries no time at all.
+    const body =
+      "Trail 2029When: August 19, 2026 Start: Jojos Pizza 1400 Lakeside Drive " +
+      "Lynchburg VA 24501Hares: UTB & Mystery HareBeer Meister: No" +
+      "Special Instructions: On-after starts at 8pm at the pub.";
+    const result = parseSevenHillsPage(`<html><body>${body}</body></html>`);
+    expect(result?.startTime).toBeUndefined();
+    expect(result?.date).toMatch(/^\d{4}-08-19$/);
   });
 
   it("handles missing optional fields gracefully", () => {

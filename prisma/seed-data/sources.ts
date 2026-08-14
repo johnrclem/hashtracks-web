@@ -5746,13 +5746,23 @@ export const SOURCES = [
       kennelCodes: ["perth-h3"],
     },
 
-    // 2. Top End Hash (Darwin) — WordPress + Events Manager plugin.
-    // Events Manager exposes iCal at /?post_type=event&ical=1&limit=50.
-    // Feed mixes past + future events; the iCal adapter window-filters.
+    // 2. Top End Hash (Darwin) — DISABLED (#2662): topendhash.com's WordPress +
+    // Events Manager site is gone. Every URL under the domain (root and the
+    // iCal export path) now resolves to a GoDaddy "Great things are coming
+    // soon" domain-parking page (verified live 2026-08-12), not a 404 or a
+    // plugin-removed error — the whole site was torn down, not just the
+    // calendar. The club is still listed as active on the official HHH
+    // directory (hhh.asn.au, Thursdays 1800) with a private Facebook GROUP
+    // (facebook.com/groups/TopEndHash) as its only other online presence —
+    // Groups require login and aren't reachable by the FACEBOOK_HOSTED_EVENTS
+    // adapter (public Pages' /upcoming_hosted_events only). No parser fix is
+    // possible against a parked domain; re-enable if the club relaunches a
+    // public feed.
     {
       name: "Top End Hash Hareline",
       url: "https://topendhash.com/?post_type=event&ical=1&limit=50",
       type: "ICAL_FEED" as const,
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
@@ -6375,13 +6385,27 @@ export const SOURCES = [
     // "Songkran Outstation APR 10 & 11") and rejects the rest. Pair with
     // the STATIC_SCHEDULE source below so the recurring biweekly Saturday
     // slot still shows on the hareline.
+    //
+    // scrapeDays is intentionally < the historical 365 default (#2668 PR
+    // review): the adapter always fetches a FIXED 20 most-recent posts
+    // (fetchWordPressPosts(baseUrl, 20)), ignoring `options.days` entirely,
+    // so its true ground-truth horizon is however far back those 20 posts
+    // reach — NOT the configured scrapeDays. reconcile.ts uses the SAME
+    // scrapeDays as its cancellation window (there's no adapter->reconcile
+    // channel for "I only covered N days"), so a scrapeDays wider than what
+    // was actually fetched risks false-cancelling a genuine event that's
+    // still live on the site but fell outside the 20-post batch. Live
+    // evidence 2026-08-14: only 2 of the 20 fetched posts had a parseable
+    // date at all, and the older of the two (#529) was already dated
+    // 2026-01-19 — ~207 days back. 150 stays safely under that observed
+    // floor while still giving reconcile a meaningful window.
     {
       name: "Cha-Am H3 Website",
       url: "https://cah3.net",
       type: "HTML_SCRAPER" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
-      scrapeDays: 365,
+      scrapeDays: 150,
       config: {},
       kennelCodes: ["cah3"],
     },
