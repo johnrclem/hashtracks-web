@@ -16,6 +16,7 @@
 import he from "he";
 import { buildUrlVariantCandidates } from "@/adapters/url-variants";
 import { safeFetch } from "./safe-fetch";
+import type { ScrapeResult, ErrorDetails } from "./types";
 
 const WP_USER_AGENT = "HashTracks/1.0 (event aggregator; +https://hashtracks.com)";
 
@@ -290,6 +291,43 @@ export async function fetchWordPressPosts(
     error: lastError ?? { message: "WordPress API fetch failed" },
     fetchDurationMs: Date.now() - fetchStart,
   };
+}
+
+/** Result of {@link fetchWordPressRunPosts} — a discriminated union so
+ *  callers can `if (!result.ok) return result.result;` and move on. */
+export type WordPressRunPostsResult =
+  | { ok: true; posts: WordPressPost[]; fetchDurationMs?: number }
+  | { ok: false; result: ScrapeResult };
+
+/**
+ * Fetch the latest N posts for a "one WordPress post per run" adapter
+ * (CAH3, KLJ H3, and others), pre-packaging the "fetch failed / zero posts"
+ * case into the standard `ScrapeResult` early-return shape every one of
+ * those adapters otherwise duplicates near-verbatim: call
+ * `fetchWordPressPosts`, check `wpResult.error || wpResult.posts.length ===
+ * 0`, build a single-element `errorDetails.fetch` array, and return
+ * `{ events: [], errors: [message], errorDetails }`.
+ *
+ * SonarCloud flagged this exact block as duplicated between cah3.ts and
+ * klj-h3.ts during #2668 PR review (both call `fetchWordPressPosts(baseUrl,
+ * 20)` and reproduce the same ~15-line error-shaping block). Extracting it
+ * here means new/edited adapters no longer reproduce it inline — existing
+ * callers with the older inline shape (dch4.ts, ewh3.ts, etc.) are left
+ * alone since they weren't touched by this change.
+ */
+export async function fetchWordPressRunPosts(
+  siteUrl: string,
+  options: { perPage?: number; noPostsMessage: string },
+): Promise<WordPressRunPostsResult> {
+  const wpResult = await fetchWordPressPosts(siteUrl, options.perPage ?? 20);
+  if (wpResult.error || wpResult.posts.length === 0) {
+    const message = wpResult.error?.message ?? options.noPostsMessage;
+    const errorDetails: ErrorDetails = {
+      fetch: [{ url: siteUrl, message, status: wpResult.error?.status }],
+    };
+    return { ok: false, result: { events: [], errors: [message], errorDetails } };
+  }
+  return { ok: true, posts: wpResult.posts, fetchDurationMs: wpResult.fetchDurationMs };
 }
 
 /**

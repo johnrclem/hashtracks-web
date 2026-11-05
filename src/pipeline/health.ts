@@ -40,6 +40,8 @@ interface AnalyzeInput {
   aiRecovery?: AiRecoveryContext;
   /** Number of events cancelled by reconciliation on this scrape. */
   cancelledCount?: number;
+  /** Set when the reconcile mass-cancel circuit breaker blocked this scrape's cancellations. */
+  massCancelBlocked?: { wouldCancel: number; candidatesExamined: number };
   /** Whether reconciliation ran this scrape. Gates `RECONCILE_SUPPRESSED` from `checkedTypes` so a skipped reconcile doesn't false-resolve a prior open alert. */
   reconcileEvaluated?: boolean;
   /** Kennel IDs whose stale-event cancellation was suppressed because the adapter emitted unparseable dates. */
@@ -297,6 +299,25 @@ function checkExcessiveCancellations(
   input: AnalyzeInput,
   recentSuccessful: RecentLog[],
 ): AlertCandidate | null {
+  // Circuit-breaker trip: nothing was cancelled, but reconcile wanted to
+  // cancel an implausible share of the source's events. Always CRITICAL and
+  // baseline-independent — the breaker already applied the thresholds.
+  if (input.massCancelBlocked) {
+    const { wouldCancel, candidatesExamined } = input.massCancelBlocked;
+    return {
+      type: "EXCESSIVE_CANCELLATIONS" as AlertType,
+      severity: "CRITICAL",
+      title: `Blocked: reconcile tried to cancel ${wouldCancel} of ${candidatesExamined} events`,
+      details:
+        `The mass-cancel circuit breaker refused to cancel ${wouldCancel} of ${candidatesExamined} ` +
+        `CONFIRMED in-window events (nothing was cancelled). This usually means a scraper or config ` +
+        `regression (e.g. a forward-only adapter without upcomingOnly, an unanchored INTERVAL>1 ` +
+        `schedule, or a partially-rendered page). If the removal is genuine, re-scrape with ` +
+        `allowMassCancel to apply it.`,
+      context: { blocked: true, wouldCancel, candidatesExamined },
+    };
+  }
+
   const count = input.cancelledCount ?? 0;
   if (count === 0) return null;
 
@@ -506,10 +527,16 @@ export async function analyzeHealth(
   const mismatchAlert = checkSourceKennelMismatches(input);
   if (mismatchAlert) alerts.push(mismatchAlert);
 
-  // 8. Excessive cancellations (needs baseline for relative threshold)
-  checkedTypes.add("EXCESSIVE_CANCELLATIONS");
-  const cancellationAlert = checkExcessiveCancellations(input, recentSuccessful);
-  if (cancellationAlert) alerts.push(cancellationAlert);
+  // 8. Excessive cancellations (post-hoc needs baseline; breaker trip doesn't).
+  // Gate on reconcileEvaluated like RECONCILE_SUPPRESSED: a scrape that skipped
+  // reconcile (errors, partial coverage, zero events) proves nothing about
+  // cancellations, so it must not auto-resolve an open alert — in particular an
+  // open circuit-breaker alert would otherwise clear on the next failed scrape.
+  if (input.reconcileEvaluated) {
+    checkedTypes.add("EXCESSIVE_CANCELLATIONS");
+    const cancellationAlert = checkExcessiveCancellations(input, recentSuccessful);
+    if (cancellationAlert) alerts.push(cancellationAlert);
+  }
 
   // 9. Reconcile suppressed. Gate on reconcileEvaluated so a skipped reconcile
   // (scrape failed, partial coverage, etc.) doesn't false-resolve a prior alert.

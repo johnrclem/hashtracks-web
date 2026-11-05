@@ -12,7 +12,7 @@ logbook + kennel directory.
 - `npx prisma studio` — Visual database browser
 - `npm run prisma -- db push` — Push schema changes to dev DB (**local only** — wrapper refuses to run against non-local hosts; Vercel runs `migrate deploy`)
 - `npm run prisma -- migrate dev --name <change>` — Author a new versioned migration (wrapper refuses to run against prod `DATABASE_URL`; review SQL before committing)
-- `npx prisma migrate deploy` — Apply pending migrations (runs automatically in Vercel build)
+- `npx prisma migrate deploy` — Apply pending migrations (runs automatically in Vercel **production** builds only — see `buildCommand` in `vercel.json`)
 - `npx prisma db seed` — Seed launch kennels and aliases
 
 ## Architecture
@@ -524,12 +524,12 @@ Large reference lists are in `.claude/rules/`. They load automatically when you 
 - `rules/live-verification.md` — Mandatory live adapter verification (loads for adapter work)
 
 ## Schema Changes (Versioned Migrations)
-Vercel builds run `prisma migrate deploy` — only committed, checksummed migration files under `prisma/migrations/` ever touch prod. Workflow:
+Vercel builds with `VERCEL_ENV=production` run `prisma migrate deploy` (the `buildCommand` conditional in `vercel.json`, mirrored by `npm run vercel-build`); only committed, checksummed migration files under `prisma/migrations/` ever touch prod. Preview builds share the prod `DATABASE_URL`, so they run only read-only `prisma migrate status`: a migration on an unmerged branch does not apply from its preview build (before this guard, pushing a branch applied its migration immediately — see PR #2675). The gate is the environment, not merge status — any build Vercel runs as *production* applies pending migrations, so keep `main` as the only production branch. Consequence: a preview of a schema-changing PR runs against the un-migrated schema. Workflow:
 1. Edit `prisma/schema.prisma`
 2. `npm run prisma -- migrate dev --name <descriptive_name>` — generates `prisma/migrations/<ts>_<name>/migration.sql`. **Always go through `npm run prisma`** for `migrate dev` / `migrate reset` / `db push`; the wrapper (`scripts/safe-prisma.mjs`) refuses to invoke them when `DATABASE_URL` points at the Railway prod host.
 3. Review the generated SQL in the PR diff alongside the schema change
 4. Commit the migration dir + schema together
-5. Merge → Vercel runs `migrate deploy` automatically
+5. Merge → the production build runs `migrate deploy` automatically
 
 **Rules:**
 - Migration files are **immutable** once applied — editing them breaks the checksum and blocks deploys. To undo a change, add a new migration.

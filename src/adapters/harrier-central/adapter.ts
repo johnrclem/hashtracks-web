@@ -3,9 +3,103 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 import { hasAnyErrors } from "../types";
 import { generateAccessToken, PUBLIC_HASHER_ID } from "./token";
 import { safeFetch } from "../safe-fetch";
-import { buildDateWindow, eqTrimLc } from "../utils";
+import { buildDateWindow, eqTrimLc, compilePatterns } from "../utils";
+import { HARE_PII_RES } from "../hare-pii";
 
 const API_URL = "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/";
+
+// HC's getEvents API (above) never returns a description/notes field — verified
+// live against multiple kennels (#2626, #2569, #2553, #2550, #2539): the response
+// keys are fixed and description is not among them, regardless of extra request
+// params. The free-text "About this run" note IS available, but only from the
+// separate hashruns.org public front-end's `global-runs` endpoint (the same data
+// source the one-shot historical backfills use — see
+// scripts/lib/hashruns-ssr-backfill.ts). Fetched once per adapter.fetch() call
+// (not per event) and joined back to getEvents rows by PublicEventId.
+const GLOBAL_RUNS_URL = "https://www.hashruns.org/api/global-runs";
+// Comfortably above the observed global upcoming-event count (~230 as of 2026-08)
+// so a single page covers every future HC run without pagination.
+const GLOBAL_RUNS_PAGE_SIZE = 1000;
+const GLOBAL_RUNS_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36";
+
+/** Minimal shape consumed from the hashruns.org global-runs feed. */
+interface HCGlobalRunEvent {
+  PublicEventId: string;
+  EventDescription?: string;
+}
+
+/**
+ * Fetch every upcoming HC event's free-text description from hashruns.org and
+ * index it by PublicEventId. Best-effort: this is an enrichment on top of the
+ * primary getEvents fetch, so any failure here must not fail the whole scrape
+ * — callers get an empty map and the caller records the miss in
+ * diagnosticContext (never in `errors`), mirroring the FACEBOOK_HOSTED_EVENTS
+ * past-tab best-effort convention.
+ *
+ * Every row with a `PublicEventId` is indexed, INCLUDING rows whose
+ * `EventDescription` is empty/blank (mapped to `""`) — the caller uses
+ * `Map.has()` to distinguish "row found, description explicitly blank"
+ * (→ `null`, an explicit clear) from "row not found at all, or this whole
+ * fetch failed" (→ `undefined`, preserve). Silently dropping blank-description
+ * rows here would collapse that distinction and leave a description that was
+ * removed at the source stuck on the canonical event forever, since
+ * `undefined` never overwrites an existing value (see the per-event join in
+ * `fetch()`).
+ */
+async function fetchEventDescriptions(): Promise<Map<string, string>> {
+  const url = `${GLOBAL_RUNS_URL}?isFuture=1&pageSize=${GLOBAL_RUNS_PAGE_SIZE}`;
+  const res = await safeFetch(url, {
+    headers: { "User-Agent": GLOBAL_RUNS_USER_AGENT },
+  });
+  if (!res.ok) {
+    throw new Error(`hashruns.org global-runs returned HTTP ${res.status}`);
+  }
+  const json = (await res.json()) as { runs?: HCGlobalRunEvent[] } | HCGlobalRunEvent[];
+  const rows = Array.isArray(json) ? json : (json.runs ?? []);
+  if (!Array.isArray(rows)) {
+    throw new Error("Unexpected hashruns.org global-runs response shape");
+  }
+  const byId = new Map<string, string>();
+  for (const row of rows) {
+    if (!row.PublicEventId) continue;
+    byId.set(row.PublicEventId, row.EventDescription?.trim() ?? "");
+  }
+  return byId;
+}
+
+/**
+ * Redact phone numbers and email addresses from HC's free-text "About this
+ * run" description. It's authored by individual hares and sometimes carries a
+ * hare-line phone number or personal email as day-of contact info (#2550
+ * Algarve H3 sample explicitly includes a "hare-line contact number";
+ * live-verified ~2.5% of populated descriptions carry a phone-shaped or
+ * email-shaped token). Redact before storing — the merge pipeline has no
+ * PII-scrubbing pass of its own for description text.
+ *
+ * Reuses `HARE_PII_RES` from `src/adapters/hare-pii.ts` — the same combined
+ * pattern set the merge pipeline's `sanitizeHares` applies to every adapter's
+ * `hares` field — rather than a hand-rolled North-America-only pattern. That
+ * module's own regexes are global-only (kept private for `.test()`/`.exec()`
+ * lastIndex safety) and its exported `scrubHarePii()` is shaped for
+ * comma-joined hare-name lists (splits/rejoins on `,`/`;`), which would
+ * mangle multi-paragraph prose — so this is a plain `.replace()` loop over
+ * the same `HARE_PII_RES` array instead of calling `scrubHarePii()`.
+ * `HARE_PII_RES` covers North American (3-3-4 / bare-10 / parenthesized),
+ * international (E.164, e.g. "+44 7700 900123"), Korean domestic mobile
+ * (e.g. "010-2354-1741"), and email — where the earlier NA-only pattern here
+ * would have missed the international and Korean shapes.
+ */
+export function scrubDescriptionPii(text: string): string {
+  let result = text;
+  for (const re of HARE_PII_RES) {
+    result = result.replace(re, "[redacted]");
+  }
+  return result;
+}
+
+/** Length cap mirrors the GCal adapter's normalizeGCalDescription convention. */
+const DESCRIPTION_MAX_LENGTH = 2000;
 
 /** Shape of a single event from the Harrier Central getEvents response */
 export interface HCEvent {
@@ -71,6 +165,44 @@ export interface HarrierCentralConfig {
    * for such kennels because their events carry real names (no synthesis fires).
    */
   suppressRunNumber?: boolean;
+  /**
+   * Regex strings (case-insensitive) applied in sequence as
+   * `title.replace(re, "")` to `eventName` before staleness detection —
+   * mirrors the `titleStripPatterns` knob on the GCal and FACEBOOK_HOSTED_EVENTS
+   * adapters. `staleTitleAliases` is a literal allow-list and can't express
+   * drifting shapes like bare run numbers (every future number is a new
+   * literal). Opt-in — off by default, no effect on kennels that don't set
+   * it. After stripping, a remainder that is empty OR a bare run number
+   * (optionally "#"-prefixed) is treated as stale and falls through to
+   * `${defaultTitle} #${eventNumber}` synthesis; a real theme survives
+   * unchanged. See #2657 (Douliu H3: bare "194"/"#159" drift, "DH3 #N -"
+   * prefixes).
+   */
+  titleStripPatterns?: string[];
+}
+
+/** Matches a title that, after stripping, is nothing but a run number (see `titleStripPatterns`). */
+const BARE_RUN_NUMBER_RE = /^#?\d+$/;
+
+/**
+ * #2549 Algarve H3: HC's own "hare not yet assigned" placeholder title (e.g.
+ * "Run 2179 - Need Hare", "Run 2182 - NEED HARE") passes through this adapter
+ * verbatim — it isn't a `staleTitleAliases` match and doesn't equal hares/
+ * location — but the shared merge-pipeline title sanitizer (`ADMIN_TITLE_PATTERNS`
+ * in merge.ts, specifically `/need\s+(?:a\s+)?hares?/i`) treats "need (a)
+ * hare(s)" phrasing as administrative boilerplate across EVERY adapter and
+ * nulls it. merge.ts then synthesizes the generic "<Kennel> Trail #N" default,
+ * which drops the "still needs a hare" signal HC's own placeholder carried —
+ * worse than showing the source's text (live-verified against #2179/#2180 and
+ * their live successors #2182/#2183/#2185, 2026-08-12). Rewriting the phrase
+ * to "hare TBD" keeps the same signal in a shape the shared filter doesn't
+ * match, so it survives to the event card instead of being replaced. Scoped
+ * to the literal "need (a) hare(s)" word order (HC's own text) — the reversed
+ * "hares needed" CTA-spam shape is untouched and still nulled as before.
+ */
+const NEED_HARE_RE = /\bneed(?:s)?\s+(?:a\s+)?hares?\b/i;
+function rewriteNeedHarePlaceholder(title: string): string {
+  return title.replace(NEED_HARE_RE, "hare TBD");
 }
 
 /**
@@ -152,6 +284,20 @@ export class HarrierCentralAdapter implements SourceAdapter {
       catch { return null; }
     }).filter((p): p is [RegExp, string] => p !== null);
 
+    // #2626/#2569/#2553/#2550/#2539: getEvents (above) carries no description
+    // field at all, so the only way to surface HC's "About this run" note is a
+    // second, best-effort fetch of the separate hashruns.org front-end feed.
+    // A failure here must not fail the primary scrape — record it in
+    // diagnosticContext (not `errors`) and proceed with undefined descriptions,
+    // same convention as the FACEBOOK_HOSTED_EVENTS past-tab fetch.
+    let descriptionsById: Map<string, string> = new Map();
+    let descriptionFetchError: string | undefined;
+    try {
+      descriptionsById = await fetchEventDescriptions();
+    } catch (err) {
+      descriptionFetchError = String(err);
+    }
+
     // Convert HC events to RawEventData
     for (const hcEvent of hcEvents) {
       if (!hcEvent.eventStartDatetime) continue;
@@ -213,11 +359,40 @@ export class HarrierCentralAdapter implements SourceAdapter {
         hcEvent.resolvableLocation,
       );
 
-      // Intentionally no sourceUrl: the hashruns.org Flutter UI can no longer
-      // resolve `https://www.hashruns.org/#/event/${publicEventId}` links
-      // (#706, #725). The REST API still serves the UUIDs so scrapes succeed,
-      // but the user-facing detail page is dead. Event detail pages fall back
-      // to the kennel website / other EventLinks when sourceUrl is null.
+      // #2601: the adapter's long-standing comment here said sourceUrl was
+      // intentionally omitted because the hashruns.org Flutter UI's
+      // `#/event/${publicEventId}` links no longer resolve (#706, #725) — true
+      // of the OLD Flutter app, but hashruns.org has since been rebuilt as a
+      // Next.js SSR site (see reference_harrier_central_getevents_future_only
+      // memory note) with a DIFFERENT, currently-working per-run permalink:
+      // `hashruns.org/<kennelUniqueShortName>/<eventNumber>` (verified live
+      // 2026-08 against 7 different HC kennels — AH3, TITs, KRASHH3,
+      // Heraultics, BNH3, TNTH3, BeerH3, BSH3 — all 200 with real page content;
+      // an unknown run number 404s cleanly). Both fields are already present
+      // on every getEvents row, so build the link with no extra request.
+      const sourceUrl = buildHashrunsPermalink(hcEvent, config);
+
+      // #2626/#2569/#2553/#2550/#2539: join the best-effort description lookup
+      // (built once above) by PublicEventId, scrub PII, and cap length.
+      // Three-way tri-state, not a plain truthy check:
+      //   - row not indexed at all (enrichment fetch failed, OR hashruns.org
+      //     simply doesn't have this PublicEventId yet) → `undefined`, the
+      //     merge UPDATE path preserves any existing description. We have no
+      //     signal either way, so we must not clear a good existing value.
+      //   - row found, but EventDescription is empty/blank → `null`, an
+      //     explicit clear. The source positively told us there's no note
+      //     (any more) for this event; without this branch a description
+      //     removed at the source would stay stuck on the canonical event
+      //     forever, since `undefined` never overwrites.
+      //   - row found with real text → the scrubbed, capped description.
+      const descriptionRowFound = descriptionsById.has(hcEvent.publicEventId);
+      const rawDescription = descriptionsById.get(hcEvent.publicEventId);
+      const description = !descriptionRowFound
+        ? undefined
+        : rawDescription
+          ? scrubDescriptionPii(rawDescription).trim().substring(0, DESCRIPTION_MAX_LENGTH) || null
+          : null;
+
       let title = applyTitleFallback(hcEvent.eventName, hcEvent.eventNumber, config);
       // #2409 Tokyo #2583: the source stored the hare's hash name ("Back Door
       // Hoe") as BOTH the title and the hares field; #2591 stored the
@@ -238,6 +413,8 @@ export class HarrierCentralAdapter implements SourceAdapter {
         date: dateStr,
         kennelTags: [kennelTag],
         title,
+        description,
+        sourceUrl,
         // Socials / "drinking practices" come back as eventNumber=0. Map that
         // sentinel to null (explicit clear) and positive values to the number;
         // anything else stays undefined so the merge UPDATE path preserves an
@@ -272,6 +449,8 @@ export class HarrierCentralAdapter implements SourceAdapter {
         fetchDurationMs: Date.now() - fetchStart,
         apiEventsReturned: hcEvents.length,
         eventsEmitted: events.length,
+        descriptionsIndexed: descriptionsById.size,
+        ...(descriptionFetchError ? { descriptionFetchError } : {}),
       },
     };
   }
@@ -421,6 +600,24 @@ function normalizeHcEventNumber(n: number | undefined | null): number | null | u
 }
 
 /**
+ * Build the hashruns.org per-run permalink (#2601), or undefined when there's
+ * no reliable per-event number to key it on:
+ *   - `suppressRunNumber` kennels (Manchester H3, #2654) return the kennel's
+ *     *current* number on every row, not a genuine per-event number — a link
+ *     built from it would point several distinct events at the same page.
+ *   - `eventNumber <= 0` (missing, or the 0 "social" sentinel) has no
+ *     corresponding run page.
+ */
+export function buildHashrunsPermalink(
+  event: HCEvent,
+  config: HarrierCentralConfig,
+): string | undefined {
+  if (config.suppressRunNumber) return undefined;
+  if (!event.kennelUniqueShortName || !(event.eventNumber > 0)) return undefined;
+  return `https://www.hashruns.org/${encodeURIComponent(event.kennelUniqueShortName)}/${event.eventNumber}`;
+}
+
+/**
  * Detect HC API geocode failure: when `resolvableLocation` is just a verbatim
  * copy of `locationOneLineDesc` (case-insensitive after trim, both non-empty
  * and not TBA), the upstream API failed to resolve a real address and the
@@ -499,11 +696,31 @@ export function applyTitleFallback(
   eventNumber: number | undefined | null,
   config: HarrierCentralConfig,
 ): string | undefined {
-  const trimmed = stripTrailingTitleSeparators(eventName);
+  let trimmed = stripTrailingTitleSeparators(eventName);
+
+  // #2657: opt-in regex strip (e.g. Douliu's "DH3 #N -" prefix). Applied only
+  // when explicitly configured — no effect on the ~35 other HC kennels.
+  if (trimmed && config.titleStripPatterns?.length) {
+    let stripped = trimmed;
+    for (const re of compilePatterns(config.titleStripPatterns, "i")) {
+      stripped = stripped.replace(re, "").trim();
+    }
+    trimmed = stripped || undefined;
+  }
+
+  if (trimmed) trimmed = rewriteNeedHarePlaceholder(trimmed);
+
   const aliases = config.staleTitleAliases;
+  // Bare-number staleness only applies when titleStripPatterns is configured
+  // (opt-in per #2657's acceptance criteria) — a kennel that never set the
+  // knob keeps its pre-existing behavior of storing a bare-number title
+  // verbatim, unchanged by this feature.
+  const bareNumberAfterStrip =
+    !!config.titleStripPatterns?.length && !!trimmed && BARE_RUN_NUMBER_RE.test(trimmed);
   const isStale =
     !trimmed ||
-    (aliases?.some((a) => a.trim().toLowerCase() === trimmed.toLowerCase()) ?? false);
+    bareNumberAfterStrip ||
+    (aliases?.some((a) => a.trim().toLowerCase() === trimmed!.toLowerCase()) ?? false);
 
   if (!isStale) return trimmed || undefined;
 

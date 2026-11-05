@@ -25,6 +25,50 @@ export interface ReconcileResult {
    * the upstream adapter emits valid dates again.
    */
   kennelsSuppressedForBadDate: string[];
+  /**
+   * Set when the mass-cancel circuit breaker refused to apply this pass's
+   * cancellations (see `shouldBlockMassCancel`). `cancelled` is 0 in that
+   * case; `wouldCancel` is how many sole-source events the pass wanted to
+   * cancel. Absent when the breaker did not trip.
+   */
+  massCancelBlocked?: {
+    wouldCancel: number;
+    /** In-window CONFIRMED candidates backed by this source (the breaker's denominator). */
+    candidatesExamined: number;
+  };
+}
+
+/** Options for {@link reconcileStaleEvents}. */
+export interface ReconcileOptions {
+  /**
+   * Apply cancellations even when they trip the mass-cancel circuit breaker.
+   * Operator escape hatch for a genuine mass removal (e.g. a kennel cancelled
+   * its season); scheduled scrapes never set it.
+   */
+  allowMassCancel?: boolean;
+}
+
+/** Cancellations at or below this count never trip the breaker. */
+export const MASS_CANCEL_MIN = 10;
+/** Fraction of in-window CONFIRMED candidates above which a pass is blocked. */
+export const MASS_CANCEL_FRACTION = 0.3;
+
+/**
+ * Mass-cancel circuit breaker. A single reconcile pass that would cancel more
+ * than {@link MASS_CANCEL_MIN} events AND more than
+ * {@link MASS_CANCEL_FRACTION} of the in-window CONFIRMED candidates this source backs
+ * is far more likely to be an adapter/config regression (forward-only fetch
+ * without `upcomingOnly`, an unanchored biweekly RRULE flipping parity, a
+ * half-rendered page) than a real mass removal — and a false cancellation is
+ * user-visible damage. Blocking is cheap: stale events stay CONFIRMED until
+ * an operator confirms (`allowMassCancel`) or the source recovers.
+ */
+export function shouldBlockMassCancel(
+  wouldCancel: number,
+  candidatesExamined: number,
+): boolean {
+  if (wouldCancel <= MASS_CANCEL_MIN) return false;
+  return wouldCancel > candidatesExamined * MASS_CANCEL_FRACTION;
 }
 
 /**
@@ -37,6 +81,10 @@ export interface ReconcileResult {
  * - Are currently CONFIRMED
  * - Have NO RawEvents from any other source (sole-source events)
  * - Were not returned in the current scrape results
+ *
+ * A pass that would cancel too many events at once is blocked by the
+ * mass-cancel circuit breaker (`shouldBlockMassCancel`) unless
+ * `options.allowMassCancel` is set.
  */
 export async function reconcileStaleEvents(
   sourceId: string,
@@ -44,6 +92,7 @@ export async function reconcileStaleEvents(
   days: number,
   scrapedKennelIds?: string[],
   upcomingOnly?: boolean,
+  options?: ReconcileOptions,
 ): Promise<ReconcileResult> {
   const emptyResult: ReconcileResult = {
     cancelled: 0, cancelledEventIds: [],
@@ -276,6 +325,31 @@ export async function reconcileStaleEvents(
   const cancelledEventIds = orphaned
     .filter((event) => !eventsWithOtherSources.has(event.id))
     .map((event) => event.id);
+
+  // Mass-cancel circuit breaker. The denominator is the candidates THIS source
+  // backs (has RawEvents for), not every CONFIRMED event in the linked kennels:
+  // events only another source supplies would otherwise dilute the fraction and
+  // let a broken secondary source wipe out most of its own rows. Only queried
+  // when the floor is exceeded, so ordinary passes pay nothing extra.
+  if (!options?.allowMassCancel && cancelledEventIds.length > MASS_CANCEL_MIN) {
+    const ownBacked = await prisma.rawEvent.groupBy({
+      by: ["eventId"],
+      where: { eventId: { in: candidates.map((c) => c.id) }, sourceId },
+    });
+    const sourceCandidates = ownBacked.length;
+    if (shouldBlockMassCancel(cancelledEventIds.length, sourceCandidates)) {
+      return {
+        cancelled: 0,
+        cancelledEventIds: [],
+        multiSourcePreserved: eventsWithOtherSources.size,
+        ...baseDiag,
+        massCancelBlocked: {
+          wouldCancel: cancelledEventIds.length,
+          candidatesExamined: sourceCandidates,
+        },
+      };
+    }
+  }
 
   // Batch update all sole-source orphaned events to CANCELLED
   if (cancelledEventIds.length > 0) {

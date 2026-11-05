@@ -80,6 +80,31 @@ describe("SOURCES seed data invariants (#817 regression guard)", () => {
   //    scrape/match/reconcile (dead link).
   // Lock the bidirectional invariant across BOTH locations so either drift fails
   // the build, never prod.
+  it("forward-only HTML scrapers set upcomingOnly so reconcile can't cancel already-run events", () => {
+    // PhoenixHHHAdapter only ever fetches the current month onward (#2242).
+    // Without upcomingOnly, reconcile's ±scrapeDays window cancelled every
+    // past event in the trailing window (89 in one scrape, 2026-11-05).
+    const phoenix = SOURCES.find((s) => s.name === "Phoenix H3 Big Ass Calendar");
+    expect(phoenix).toBeDefined();
+    expect((phoenix!.config as { upcomingOnly?: boolean }).upcomingOnly).toBe(true);
+  });
+
+  it("every enabled STATIC_SCHEDULE rule with INTERVAL>1 pins an anchorDate", () => {
+    // Without an anchor, generateWeeklyDates aligns an every-N-weeks rule to
+    // the scrape window's start, so the parity flips as the window slides and
+    // each scrape cancels the previous run's dates and regenerates the others
+    // (Happy Valley H3, 2026-11-05 — since disabled for lack of provenance).
+    const unanchored = SOURCES.filter((s) => s.type === "STATIC_SCHEDULE")
+      .filter((s) => (s as { enabled?: boolean }).enabled !== false)
+      .filter((s) => {
+        const cfg = (s.config ?? {}) as { rrule?: string; anchorDate?: string };
+        const interval = /INTERVAL=(\d+)/.exec(cfg.rrule ?? "");
+        return interval !== null && Number(interval[1]) > 1 && !cfg.anchorDate;
+      })
+      .map((s) => s.name);
+    expect(unanchored).toEqual([]);
+  });
+
   it("every source's kennelSlugMap key set (config or top-level) exactly matches its kennelCodes", () => {
     const offenders: string[] = [];
     for (const s of SOURCES) {

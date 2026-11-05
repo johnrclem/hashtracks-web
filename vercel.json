@@ -1,5 +1,5 @@
 {
-  "buildCommand": "prisma migrate deploy && next build",
+  "buildCommand": "if [ \"$VERCEL_ENV\" = production ]; then prisma migrate deploy; else echo \"[build] skipping migrate deploy (VERCEL_ENV=$VERCEL_ENV)\"; prisma migrate status || true; fi && next build",
   "crons": [
     {
       "path": "/api/cron/dispatch",
