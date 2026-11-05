@@ -4,6 +4,8 @@ import {
   applyTitleFallback,
   composeHcLocation,
   hcGeocodeFailed,
+  scrubDescriptionPii,
+  buildHashrunsPermalink,
 } from "./adapter";
 import type { HCEvent } from "./adapter";
 import { generateAccessToken, PUBLIC_HASHER_ID } from "./token";
@@ -55,6 +57,25 @@ function mockApiResponse(events: HCEvent[]) {
     ok: true,
     status: 200,
     json: async () => [events],
+  } as never);
+}
+
+/**
+ * Queues the SECOND safeFetch call every `fetch()` now makes — the best-effort
+ * hashruns.org global-runs description lookup. Must be queued AFTER
+ * `mockApiResponse` (getEvents) since safeFetch calls happen in that order.
+ * Tests that don't call this leave the mock queue exhausted for the second
+ * call, which `vi.fn()` resolves to `undefined` — `fetch()`'s try/catch around
+ * the description fetch turns that into a no-op (empty description map),
+ * matching production's non-fatal-failure behavior.
+ */
+function mockDescriptionsResponse(
+  runs: { PublicEventId: string; EventDescription?: string }[],
+) {
+  mockSafeFetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    json: async () => ({ totalMatchingEvents: runs.length, runs }),
   } as never);
 }
 
@@ -299,6 +320,64 @@ describe("applyTitleFallback (#1166)", () => {
     // eventNumber 0 (social) can't synthesize → undefined (UI run-number fallback)
     expect(applyTitleFallback(" | ", 0, config)).toBeUndefined();
   });
+
+  // #2657 — Douliu H3 titleStripPatterns config knob.
+  describe("titleStripPatterns (#2657)", () => {
+    const douliuConfig = {
+      defaultTitle: "Douliu H3",
+      titleStripPatterns: ["^DH3\\s*#?\\d*\\s*[-–:]?\\s*", "\\s+run\\s+\\d+\\s*$"],
+    };
+
+    it("strips a bare number to synthesized default when configured", () => {
+      expect(applyTitleFallback("206", 206, douliuConfig)).toBe("Douliu H3 #206");
+      expect(applyTitleFallback("#159", 159, douliuConfig)).toBe("Douliu H3 #159");
+    });
+
+    it("strips a 'DH3 #N -' prefix, synthesizing when nothing real remains", () => {
+      expect(applyTitleFallback("DH3 #194 - 194", 194, douliuConfig)).toBe(
+        "Douliu H3 #194",
+      );
+    });
+
+    it("preserves a real theme after stripping the kennel-code prefix", () => {
+      expect(applyTitleFallback("DH3 #187 - Jortspocalypse", 187, douliuConfig)).toBe(
+        "Jortspocalypse",
+      );
+      expect(applyTitleFallback("The Rumours run", 190, douliuConfig)).toBe(
+        "The Rumours run",
+      );
+    });
+
+    it("does not treat a bare number as stale when titleStripPatterns is unset (opt-in only)", () => {
+      // Same input, no titleStripPatterns configured — pre-#2657 behavior:
+      // a bare number passes through verbatim, unchanged by this feature.
+      expect(applyTitleFallback("206", 206, { defaultTitle: "Douliu H3" })).toBe("206");
+    });
+  });
+
+  // #2549 — Algarve H3's HC-native "hare not yet assigned" placeholder.
+  describe("need-hare placeholder rewrite (#2549)", () => {
+    it("rewrites 'Need Hare' to 'hare TBD', keeping the rest of the title", () => {
+      expect(applyTitleFallback("Run 2179 - Need Hare", 2179, {})).toBe(
+        "Run 2179 - hare TBD",
+      );
+      expect(applyTitleFallback("Run 2182 - NEED HARE", 2182, {})).toBe(
+        "Run 2182 - hare TBD",
+      );
+    });
+
+    it("rewrites 'need a hare' too", () => {
+      expect(applyTitleFallback("Run 100 - need a hare", 100, {})).toBe(
+        "Run 100 - hare TBD",
+      );
+    });
+
+    it("leaves a real theme untouched (no 'need hare' phrase present)", () => {
+      expect(
+        applyTitleFallback("Run 2181 - Summer Cummer- venue tbc", 2181, {}),
+      ).toBe("Run 2181 - Summer Cummer- venue tbc");
+    });
+  });
 });
 
 describe("hcGeocodeFailed", () => {
@@ -349,6 +428,102 @@ describe("hcGeocodeFailed", () => {
     expect(
       hcGeocodeFailed("Iron Horse Tavern", "140 High Street, Morgantown, 26505, WV, United States"),
     ).toBe(false);
+  });
+});
+
+describe("scrubDescriptionPii (#2550)", () => {
+  it("redacts a hyphen/dot/space-separated phone number", () => {
+    expect(scrubDescriptionPii("Call the hare-line 808-225-5465 for details")).toBe(
+      "Call the hare-line [redacted] for details",
+    );
+    expect(scrubDescriptionPii("Contact: 808.225.5465")).toBe("Contact: [redacted]");
+    expect(scrubDescriptionPii("Ring 808 225 5465")).toBe("Ring [redacted]");
+  });
+
+  it("redacts an unseparated 10-digit phone number", () => {
+    expect(scrubDescriptionPii("contact 0631976736 for info")).toBe(
+      "contact [redacted] for info",
+    );
+  });
+
+  it("redacts an email address", () => {
+    expect(scrubDescriptionPii("Email a3h-hares@example.com to sign up")).toBe(
+      "Email [redacted] to sign up",
+    );
+  });
+
+  it("redacts multiple PII instances across a multi-paragraph description", () => {
+    const text =
+      "OnOn: Kemnay Skate Park\n\nHare-line: 808-225-5465\n\nQuestions? mail@example.com";
+    expect(scrubDescriptionPii(text)).toBe(
+      "OnOn: Kemnay Skate Park\n\nHare-line: [redacted]\n\nQuestions? [redacted]",
+    );
+  });
+
+  it("leaves ordinary prose (dates, addresses, prices) untouched", () => {
+    const text =
+      "OnOn: Kemnay Skate Park\n\nGoogleMap:\nhttps://maps.app.goo.gl/MQE6DpvfUDAE5wbr6\n\nHash cash 3.00, 2026-09-07";
+    expect(scrubDescriptionPii(text)).toBe(text);
+  });
+
+  // Coordinator review caught the previous hand-rolled NA-only pattern missing
+  // international and Korean domestic mobile shapes — now reuses the shared
+  // HARE_PII_RES set from src/adapters/hare-pii.ts, which covers both.
+  it("redacts an international (E.164) phone number", () => {
+    expect(scrubDescriptionPii("Hare-line: +44 7700 900123")).toBe(
+      "Hare-line: [redacted]",
+    );
+  });
+
+  it("redacts a Korean domestic mobile number", () => {
+    expect(scrubDescriptionPii("연락처: 010-2354-1741")).toBe("연락처: [redacted]");
+  });
+
+  it("redacts a parenthesized NA number with no separator after the area code", () => {
+    expect(scrubDescriptionPii("Call (415)555-1212 anytime")).toBe(
+      "Call [redacted] anytime",
+    );
+  });
+});
+
+describe("buildHashrunsPermalink (#2601)", () => {
+  it("builds the kennelUniqueShortName + eventNumber permalink", () => {
+    expect(
+      buildHashrunsPermalink(
+        buildHCEvent({ kennelUniqueShortName: "AH3", eventNumber: 2253 }),
+        {},
+      ),
+    ).toBe("https://www.hashruns.org/AH3/2253");
+  });
+
+  it("URL-encodes an unusual kennelUniqueShortName", () => {
+    expect(
+      buildHashrunsPermalink(
+        buildHCEvent({ kennelUniqueShortName: "A/B H3", eventNumber: 5 }),
+        {},
+      ),
+    ).toBe("https://www.hashruns.org/A%2FB%20H3/5");
+  });
+
+  it("returns undefined for eventNumber 0 (social/drinking-practice sentinel)", () => {
+    expect(
+      buildHashrunsPermalink(buildHCEvent({ eventNumber: 0 }), {}),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined for a missing/negative eventNumber", () => {
+    expect(
+      buildHashrunsPermalink(buildHCEvent({ eventNumber: -1 }), {}),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when suppressRunNumber is set (#2654 Manchester) — the number isn't a real per-event id", () => {
+    expect(
+      buildHashrunsPermalink(
+        buildHCEvent({ kennelUniqueShortName: "MH3-GB", eventNumber: 289 }),
+        { suppressRunNumber: true },
+      ),
+    ).toBeUndefined();
   });
 });
 
@@ -409,9 +584,10 @@ describe("HarrierCentralAdapter", () => {
       expect(evt.location).toBe("Yamanote, Tozai lines. Waseda exit");
       expect(evt.latitude).toBeCloseTo(35.713, 2);
       expect(evt.longitude).toBeCloseTo(139.704, 2);
-      // sourceUrl is intentionally omitted — hashruns.org/#/event/... links
-      // no longer resolve in the Flutter UI (#706, #725).
-      expect(evt.sourceUrl).toBeUndefined();
+      // #2601: sourceUrl now links to the current Next.js hashruns.org front
+      // end's per-run page (kennelUniqueShortName + eventNumber), which
+      // replaced the dead Flutter `#/event/...` scheme (#706, #725).
+      expect(evt.sourceUrl).toBe("https://www.hashruns.org/TH3/2577");
     });
 
     it("maps eventNumber to runNumber by default", async () => {
@@ -729,7 +905,9 @@ describe("HarrierCentralAdapter", () => {
       mockApiResponse([]);
       await adapter.fetch(makeSource({ cityNames: "Tokyo", defaultKennelTag: "tokyo-h3" }));
 
-      expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+      // 2 calls: the primary getEvents POST, plus the best-effort hashruns.org
+      // global-runs description-enrichment GET (#2626 group).
+      expect(mockSafeFetch).toHaveBeenCalledTimes(2);
       const callBody = JSON.parse(mockSafeFetch.mock.calls[0][1]!.body as string);
       expect(callBody.queryType).toBe("getEvents");
       expect(callBody.cityNames).toBe("Tokyo");
@@ -941,6 +1119,91 @@ describe("HarrierCentralAdapter", () => {
       expect(result.diagnosticContext).toBeDefined();
       expect(result.diagnosticContext!.apiEventsReturned).toBe(1);
       expect(result.diagnosticContext!.eventsEmitted).toBe(1);
+    });
+
+    // #2626/#2569/#2553/#2550/#2539 — description enrichment via the
+    // hashruns.org global-runs join.
+    describe("description enrichment (#2626 group)", () => {
+      it("joins the description onto the matching event by PublicEventId", async () => {
+        mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
+        mockDescriptionsResponse([
+          { PublicEventId: "evt-1", EventDescription: "OnOn: Kemnay Skate Park" },
+        ]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        expect(result.events[0].description).toBe("OnOn: Kemnay Skate Park");
+        expect(result.diagnosticContext!.descriptionsIndexed).toBe(1);
+      });
+
+      it("scrubs PII from the joined description before storing it", async () => {
+        mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
+        mockDescriptionsResponse([
+          {
+            PublicEventId: "evt-1",
+            EventDescription: "Hare-line: 808-225-5465. Email hare@example.com",
+          },
+        ]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        expect(result.events[0].description).toBe(
+          "Hare-line: [redacted]. Email [redacted]",
+        );
+      });
+
+      it("preserves (undefined) when no matching global-runs row exists — 'not found' is not 'blank'", async () => {
+        mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
+        mockDescriptionsResponse([
+          { PublicEventId: "some-other-event", EventDescription: "Unrelated" },
+        ]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        expect(result.events[0].description).toBeUndefined();
+      });
+
+      it("leaves description undefined (not null) when the enrichment fetch fails — non-fatal", async () => {
+        mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
+        mockSafeFetch.mockResolvedValueOnce({ ok: false, status: 500 } as never);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        // Primary scrape still succeeds — the description miss is not a scrape error.
+        expect(result.errors).toHaveLength(0);
+        expect(result.events).toHaveLength(1);
+        expect(result.events[0].description).toBeUndefined();
+        expect(result.diagnosticContext!.descriptionFetchError).toBeDefined();
+      });
+
+      it("explicitly clears (null) when the row is found but the description is empty/whitespace-only", async () => {
+        // Tri-state fix: a FOUND row with a blank description is a positive
+        // signal from the source ("no note (any more) for this event"), not
+        // an absence of information — must clear a stale existing value.
+        mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
+        mockDescriptionsResponse([{ PublicEventId: "evt-1", EventDescription: "   " }]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        expect(result.events[0].description).toBeNull();
+      });
+    });
+
+    // #2601 — sourceUrl now links to the live hashruns.org per-run page.
+    describe("sourceUrl (#2601)", () => {
+      it("sets sourceUrl to the hashruns.org permalink", async () => {
+        mockApiResponse([
+          buildHCEvent({ kennelUniqueShortName: "TH3", eventNumber: 2577 }),
+        ]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        expect(result.events[0].sourceUrl).toBe("https://www.hashruns.org/TH3/2577");
+      });
+
+      it("omits sourceUrl for eventNumber 0 (social)", async () => {
+        mockApiResponse([buildHCEvent({ eventNumber: 0 })]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
+        expect(result.events[0].sourceUrl).toBeUndefined();
+      });
+
+      it("omits sourceUrl when suppressRunNumber is set", async () => {
+        mockApiResponse([
+          buildHCEvent({ kennelUniqueShortName: "MH3-GB", eventNumber: 289 }),
+        ]);
+        const result = await adapter.fetch(
+          makeSource({ defaultKennelTag: "mh3-gb", suppressRunNumber: true }),
+        );
+        expect(result.events[0].sourceUrl).toBeUndefined();
+      });
     });
   });
 });
