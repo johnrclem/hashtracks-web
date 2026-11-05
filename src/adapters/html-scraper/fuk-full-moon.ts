@@ -78,7 +78,9 @@ export class FukFullMoonH3Adapter implements SourceAdapter {
 
   async fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
     const sourceUrl = source.url || "https://fukfmh3.co.uk/hareline.htm";
-    const page = await fetchHTMLPage(sourceUrl);
+    // The site declares a non-UTF-8 charset (meta tag only); decode per that
+    // declaration so "£6" doesn't become "\uFFFD6".
+    const page = await fetchHTMLPage(sourceUrl, { charsetAware: true });
     if (!page.ok) return page.result;
     const { $, structureHash, fetchDurationMs } = page;
 

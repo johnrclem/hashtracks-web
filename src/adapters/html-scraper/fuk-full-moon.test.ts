@@ -37,6 +37,9 @@ function mockFetchResponse(html: string) {
     status: 200,
     statusText: "OK",
     text: () => Promise.resolve(html),
+    // The live site serves single-byte latin-1 (charset in a <meta> tag only),
+    // so hand the adapter those bytes, not UTF-8.
+    arrayBuffer: () => Promise.resolve(new Uint8Array(Buffer.from(html, "latin1")).buffer),
     headers: new Headers({ "content-type": "text/html" }),
   } as Response);
 }

@@ -645,6 +645,37 @@ type FetchHTMLError = { ok: false; result: ScrapeResult };
 
 export type FetchHTMLResult = FetchHTMLSuccess | FetchHTMLError;
 
+const META_CHARSET_RE = /<meta[^>]+charset\s*=\s*["']?([\w-]+)/i;
+const CONTENT_TYPE_CHARSET_RE = /charset\s*=\s*"?([\w-]+)"?/i;
+
+/**
+ * Decode an HTML body using its declared charset: HTTP `Content-Type` header
+ * first, then a `<meta charset>` / `<meta http-equiv=Content-Type>` in the
+ * first 2KB, then `fallbackCharset`. Legacy FrontPage / Excel-export sites
+ * declare iso-8859-1 or windows-1252 only in the meta tag, and decoding their
+ * bytes as UTF-8 turns every £ / smart quote / NBSP into U+FFFD (#1506, #2679).
+ * An unknown label falls back to `fallbackCharset` instead of throwing.
+ */
+export function decodeHtmlBytes(
+  bytes: Uint8Array,
+  contentType: string | null,
+  fallbackCharset = "utf-8",
+): string {
+  let label = contentType ? CONTENT_TYPE_CHARSET_RE.exec(contentType)?.[1] : undefined;
+  if (!label) {
+    // UTF-8 is ASCII-compatible, so it safely decodes an all-ASCII meta prefix
+    // even when the body itself isn't UTF-8.
+    const head = new TextDecoder("utf-8", { fatal: false }).decode(bytes.subarray(0, 2048));
+    label = META_CHARSET_RE.exec(head)?.[1];
+  }
+  try {
+    return new TextDecoder((label ?? fallbackCharset).toLowerCase(), { fatal: false }).decode(bytes);
+  } catch (err) {
+    console.warn(`[decodeHtmlBytes] Unsupported charset label "${label}" — falling back to ${fallbackCharset}`, err);
+    return new TextDecoder(fallbackCharset, { fatal: false }).decode(bytes);
+  }
+}
+
 /**
  * Fetch a URL, validate via safeFetch, compute structureHash, and load Cheerio.
  * Returns a discriminated union: check `result.ok` before accessing fields.
@@ -653,10 +684,12 @@ export type FetchHTMLResult = FetchHTMLSuccess | FetchHTMLError;
  * for datacenter-IP-blocked domains (e.g. bangkokhash.com 403s Vercel — #2247).
  * Pass `userAgent` to override the default "HashTracks-Scraper" UA — some WAFs
  * (e.g. bangkokhash.com) 403 the bot UA but allow a normal browser UA.
+ * Pass `charsetAware: true` for non-UTF-8 pages: the body is decoded with the
+ * charset its header / meta tag declares (see `decodeHtmlBytes`).
  */
 export async function fetchHTMLPage(
   url: string,
-  options?: { useResidentialProxy?: boolean; userAgent?: string },
+  options?: { useResidentialProxy?: boolean; userAgent?: string; charsetAware?: boolean },
 ): Promise<FetchHTMLResult> {
   const fetchStart = Date.now();
   try {
@@ -673,7 +706,9 @@ export async function fetchHTMLPage(
       };
       return { ok: false, result: { events: [], errors: [message], errorDetails } };
     }
-    const html = await response.text();
+    const html = options?.charsetAware
+      ? decodeHtmlBytes(new Uint8Array(await response.arrayBuffer()), response.headers.get("content-type"))
+      : await response.text();
     return {
       ok: true,
       html,

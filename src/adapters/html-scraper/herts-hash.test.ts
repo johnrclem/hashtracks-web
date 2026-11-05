@@ -37,6 +37,9 @@ function mockFetchResponse(html: string) {
     status: 200,
     statusText: "OK",
     text: () => Promise.resolve(html),
+    // The live site serves single-byte latin-1 (charset in a <meta> tag only),
+    // so hand the adapter those bytes, not UTF-8.
+    arrayBuffer: () => Promise.resolve(new Uint8Array(Buffer.from(html, "latin1")).buffer),
     headers: new Headers({ "content-type": "text/html" }),
   } as Response);
 }
@@ -283,6 +286,16 @@ describe("HertsHashAdapter.fetch", () => {
     const runNumbers = result.events.map((e) => e.runNumber).sort((a, b) => (a ?? 0) - (b ?? 0));
     expect(runNumbers).toEqual([2229, 2230, 2231, 2233]);
     expect(result.events.every((e) => e.kennelTags.includes("herts-h3"))).toBe(true);
+  });
+
+  it("decodes the page's declared latin-1 charset (£ survives, no U+FFFD)", async () => {
+    mockFetchResponse(
+      '<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">' +
+        REAL_FIXTURE.replace("Attimore Hall", "Attimore Hall £6 ENTRY FEE"),
+    );
+    const result = await new HertsHashAdapter().fetch(makeSource(), { days: 3650 });
+    const run = result.events.find((e) => e.runNumber === 2229);
+    expect(run?.location).toBe("Attimore Hall £6 ENTRY FEE");
   });
 
   it("fails loud when 0 Herts H3 rows parse (markup drift)", async () => {

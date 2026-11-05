@@ -12,6 +12,7 @@ import {
   buildDateWindow,
   bumpYearIfBefore,
   chronoParseDate,
+  decodeHtmlBytes,
   normalizeHaresField,
   stripPlaceholder,
 } from "../utils";
@@ -49,44 +50,14 @@ const DATE_CELL_RE = /^\s*(\d{1,2})-([A-Za-z]{3})\s*$/;
 // tag — the HTTP Content-Type header itself omits the charset. The default
 // `response.text()` decodes as UTF-8 and silently turns each high byte into
 // U+FFFD ("With the men on a Monday night� - 4pm" — #1506). Detect the
-// charset from header → meta → fallback to windows-1252.
-const META_CHARSET_RE = /<meta[^>]+charset\s*=\s*["']?([\w-]+)/i;
-const CONTENT_TYPE_CHARSET_RE = /charset\s*=\s*"?([\w-]+)"?/i;
+// charset from header → meta → fallback to windows-1252 (shared
+// `decodeHtmlBytes` in ../utils).
 const FALLBACK_CHARSET = "windows-1252";
 
 // Cap on the response body we'll buffer into memory. The live source is
 // ~56KB; 2MB leaves plenty of headroom for growth while bounding the worst
 // case if the upstream ever serves a malformed or hostile payload.
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
-
-function detectCharset(bytes: Uint8Array, contentType: string | null): string {
-  if (contentType) {
-    const m = CONTENT_TYPE_CHARSET_RE.exec(contentType);
-    if (m) return m[1].toLowerCase();
-  }
-  // Scan the first ~2KB for a <meta charset> declaration. UTF-8 is ASCII-
-  // compatible (and the WHATWG-recommended label), so it safely decodes
-  // any all-ASCII meta-tag prefix even when the body itself isn't UTF-8.
-  const head = new TextDecoder("utf-8", { fatal: false }).decode(bytes.subarray(0, 2048));
-  const m1 = META_CHARSET_RE.exec(head);
-  if (m1) return m1[1].toLowerCase();
-  return FALLBACK_CHARSET;
-}
-
-/** Wrap `new TextDecoder(label)` so a bogus charset (from a malformed
- *  meta tag) falls back to windows-1252 with a warning instead of
- *  throwing RangeError and killing the scrape. */
-function makeDecoder(label: string): TextDecoder {
-  try {
-    return new TextDecoder(label, { fatal: false });
-  } catch (err) {
-    console.warn(
-      `[auckland-hussies] Unsupported charset label "${label}" — falling back to ${FALLBACK_CHARSET}`,
-      err,
-    );
-    return new TextDecoder(FALLBACK_CHARSET, { fatal: false });
-  }
-}
 
 interface FetchSuccess {
   ok: true;
@@ -133,8 +104,7 @@ async function fetchCharsetAwareHTMLPage(url: string): Promise<FetchOutcome> {
         result: { events: [], errors: [message], errorDetails: { fetch: [{ url, message }] } },
       };
     }
-    const charset = detectCharset(bytes, response.headers.get("content-type"));
-    const html = makeDecoder(charset).decode(bytes);
+    const html = decodeHtmlBytes(bytes, response.headers.get("content-type"), FALLBACK_CHARSET);
     return {
       ok: true,
       $: cheerio.load(html),
