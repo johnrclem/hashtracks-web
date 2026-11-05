@@ -86,9 +86,12 @@ describe("detectRuleDrift — LOW cadence sentinel suppression (#2454)", () => {
   });
   const events = ["2026-10-11", "2026-10-18", "2026-10-25", "2026-11-01", "2026-10-26"].map(ev);
   const kennel = { id: "k1", kennelCode: "dh3-ae", shortName: "Desert H3", region: "Dubai" };
-  const rule = (id: string, rrule: string, confidence: "MEDIUM" | "LOW") => ({
+  const rule = (
+    id: string, rrule: string, confidence: "MEDIUM" | "LOW",
+    validFrom: string | null = null, validUntil: string | null = null,
+  ) => ({
     id, kennelId: "k1", rrule, anchorDate: null, startTime: "19:00", confidence,
-    notes: null, label: null, validFrom: null, validUntil: null,
+    notes: null, label: null, validFrom, validUntil,
   });
   const mockPrisma = (rules: ReturnType<typeof rule>[]) =>
     ({
@@ -106,6 +109,29 @@ describe("detectRuleDrift — LOW cadence sentinel suppression (#2454)", () => {
   it("does NOT flag when a LOW CADENCE sentinel declares the Sunday slot", async () => {
     const findings = await detectRuleDrift(
       mockPrisma([rule("r1", "FREQ=WEEKLY;BYDAY=MO", "MEDIUM"), rule("r2", "CADENCE=WEEKLY;BYDAY=SU", "LOW")]),
+      now,
+    );
+    expect(findings).toEqual([]);
+  });
+
+  it("does NOT suppress with a sentinel whose season window is entirely outside the span", async () => {
+    // Span is ~2026-09-22 .. 2026-12-01; a Mar–May-only Sunday sentinel must not hide drift.
+    const findings = await detectRuleDrift(
+      mockPrisma([
+        rule("r1", "FREQ=WEEKLY;BYDAY=MO", "MEDIUM"),
+        rule("r2", "CADENCE=WEEKLY;BYDAY=SU", "LOW", "03-01", "05-31"),
+      ]),
+      now,
+    );
+    expect(findings.map((f) => f.kennelCode)).toEqual(["dh3-ae"]);
+  });
+
+  it("suppresses with an in-season sentinel (Oct–Apr cool-season Sunday)", async () => {
+    const findings = await detectRuleDrift(
+      mockPrisma([
+        rule("r1", "FREQ=WEEKLY;BYDAY=MO", "MEDIUM"),
+        rule("r2", "CADENCE=WEEKLY;BYDAY=SU", "LOW", "10-01", "04-30"),
+      ]),
       now,
     );
     expect(findings).toEqual([]);

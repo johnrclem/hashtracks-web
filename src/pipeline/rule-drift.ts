@@ -20,6 +20,7 @@
 import type { Prisma, PrismaClient, ScheduleConfidence } from "@/generated/prisma/client";
 import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
 import { EVENT_ELIGIBILITY_SELECT, isEligibleActual } from "@/lib/event-eligibility";
+import { windowOverlapsSeason } from "@/lib/schedule-season";
 import { projectTrails, type ScheduleRuleInput } from "@/lib/travel/projections";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -67,10 +68,10 @@ export function judgeDrift(
 const BYDAY_TO_NUM: Record<string, number> = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
 
 /**
- * Weekdays an undated LOW `CADENCE=…;BYDAY=…` sentinel declares (e.g. `CADENCE=WEEKLY;BYDAY=SU`).
+ * Weekdays an undated `CADENCE=…;BYDAY=…` sentinel (always LOW in practice) declares (e.g. `CADENCE=WEEKLY;BYDAY=SU`).
  * projectTrails emits these as date-less "possible activity", so they never reach the projected
  * weekday set — but the rule author has still explicitly told us the kennel runs on that weekday.
- * Used only to SUPPRESS a drift finding (never to create one): a kennel like Desert H3 that runs
+ * Ordinal tokens (`1SU`) are ignored. Used only to SUPPRESS a drift finding (never to create one): a kennel like Desert H3 that runs
  * Mondays most weeks plus "the occasional Sunday" (#2454) must not be re-filed every week just
  * because its Sunday slot is a LOW sentinel.
  */
@@ -163,8 +164,15 @@ function computeKennelDrift(
   }
   const drift = judgeDrift(predictedDays, recent);
   if (!drift) return null;
-  // A LOW cadence sentinel that names the observed weekday means the rules already account for it.
-  if (kRules.some((r) => sentinelWeekdays(r.rrule).includes(drift.actualDay))) return null;
+  // A cadence sentinel that names the observed weekday means the rules already account for it —
+  // but only if its season window overlaps the same span projectTrails honours, so an off-season
+  // (e.g. winter-only) sentinel can't mask genuine summer drift (Codex review on #2708).
+  const sentinelCovers = kRules.some(
+    (r) =>
+      windowOverlapsSeason(recentStart, projectEnd, r.validFrom, r.validUntil) &&
+      sentinelWeekdays(r.rrule).includes(drift.actualDay),
+  );
+  if (sentinelCovers) return null;
   return {
     kennelCode: k.kennelCode,
     shortName: k.shortName,
