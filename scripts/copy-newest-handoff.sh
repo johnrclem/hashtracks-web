@@ -11,12 +11,14 @@
 #      → Fixed here: a loud backlog banner, oldest-first, plus --oldest / --list.
 #   2. It judged "implemented" solely by `onboard/<code>-*` existing on origin. A handoff
 #      that was never COMMITTED never gets a branch, so that test reported it as done.
-#      → Fixed here: the authoritative test is seed presence (a kennelCode must appear in
-#        BOTH kennels.ts and sources.ts); the branch check is only a secondary skip.
+#      → Fixed here: the authoritative test is seed presence (a kennelCode must be seeded in
+#        kennels.ts AND linked by a sources.ts kennelCodes array — checked by importing the
+#        seed data, #2673); the branch check is only a secondary skip.
 #
 # Definitions:
-#   implemented — every kennelCode in the handoff appears in BOTH prisma/seed-data/kennels.ts
-#                 and prisma/seed-data/sources.ts (authoritative), OR an onboard/<code>-* branch
+#   implemented — every kennelCode in the handoff is in prisma/seed-data/kennels.ts AND in some
+#                 source's kennelCodes in prisma/seed-data/sources.ts (authoritative; evaluated by
+#                 scripts/print-seeded-kennel-codes.ts), OR an onboard/<code>-* branch
 #                 exists on origin (secondary — catches in-flight work not yet merged).
 #   blocked     — a retro exists at handoffs/retros/<same-date>-<code>-retro.md. Per the handoffs
 #                 README, a handoff stopped at the live-verify gate gets a "not-onboarded" retro,
@@ -57,14 +59,22 @@ esac
 [[ -s "$KENNELS" ]] || { echo "Missing/empty seed file: $KENNELS" >&2; exit 1; }
 [[ -s "$SOURCES" ]] || { echo "Missing/empty seed file: $SOURCES" >&2; exit 1; }
 
-# Returns 0 (true) when every kennelCode in $1 is present in BOTH seed files.
+# Fully-seeded kennelCodes (in KENNELS *and* linked by some SOURCES[].kennelCodes), computed ONCE
+# by importing the seed-data modules (#2673). A text grep can't scope this: sources.ts references
+# arrays by identifier (`kennelCodes: sfh3KennelCodes`) and splits arrays across lines, and a code
+# quoted anywhere else in the file would false-pass. The TS helper sees the evaluated arrays.
+SEEDED_CODES="$(cd "$REPO" && npx --no-install tsx scripts/print-seeded-kennel-codes.ts)" || {
+  echo "Could not list seeded kennelCodes (needs node_modules: run npm install in $REPO)" >&2
+  exit 1
+}
+
+# Returns 0 (true) when every kennelCode in $1 is fully seeded.
 is_implemented_in_seed() {
   local file="$1" code found_any=0
   while IFS= read -r code; do
     [[ -z "$code" ]] && continue
     found_any=1
-    grep -q "kennelCode: \"$code\"" "$KENNELS" || return 1
-    grep -qE "\"$code\"" "$SOURCES" || return 1
+    grep -Fxq -- "$code" <<< "$SEEDED_CODES" || return 1
   done < <(grep -oE 'kennelCode: *"[a-z0-9-]+"' "$file" \
              | grep -oE '"[a-z0-9-]+"' | tr -d '"' | sort -u)
   # A handoff with no parseable kennelCode can't be judged — treat as NOT implemented so it
