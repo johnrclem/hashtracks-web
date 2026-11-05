@@ -425,6 +425,27 @@ describe("Oregon Hashing Calendar multi-kennel routing (#1023 step 4)", () => {
     expect(result?.kennelTags).toEqual(["oh3"]);
   });
 
+  it.each([
+    "SWH3#  - More Detrails to Follow",
+    "SWH3 # - More Detrails to Follow",
+  ])("skips the SWH3 placeholder %j", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2018-04-21T12:00:00-07:00" }, status: "confirmed" },
+      config,
+      { compiledSkipPatterns },
+    );
+    expect(result).toBeNull();
+  });
+
+  it("still routes a detailed SWH3 run to swh3-or", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "SWH3 #60 - 6TH ANALVERSARY", start: { dateTime: "2018-04-07T12:00:00-07:00" }, status: "confirmed" },
+      config,
+      { compiledSkipPatterns },
+    );
+    expect(result?.kennelTags).toEqual(["swh3-or"]);
+  });
+
   it("still routes the Cherry City + OH3 joint inaugural to both with skip patterns active", () => {
     const result = buildRawEventFromGCalItem(
       { summary: "Cherry City H3 #1 / OH3 # 1340", start: { dateTime: "2025-07-12T18:30:00-07:00" }, status: "confirmed" },
