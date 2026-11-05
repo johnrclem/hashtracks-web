@@ -112,3 +112,39 @@ describe("parseKaohsiungHashPage", () => {
     expect(parseErrors[0].field).toBe("date");
   });
 });
+
+// 2026-11 live shape: a multi-run "weekend away" heading carries no date; the
+// date is only in the body's "When:" line, with an ordinal ("November 7th").
+const WEEKEND_AWAY_FIXTURE = `
+<div data-testid="richTextElement"><h3 class="font_2"><span>KAOHSIUNG HASH HOUSE HARRIERS</span></h3></div>
+<div data-testid="richTextElement"><h2><span>#2743 and 2744 WEEKEND AWAY GUANZILING HOT SPRINGS TAINAN</span></h2></div>
+<div data-testid="richTextElement"><p>WEEKEND AWAY!</p><p>When: Saturday November 7th Hares off at Noon</p><p>And Sunday November 8th Hares off at 11:00 AM</p><p>Where: Guanzihling Baihe District Tainan.</p></div>
+<div data-testid="richTextElement"><p>#2745 November 14 Saturday Run</p></div>
+`;
+
+describe("parseKaohsiungHashPage — dateless heading with a When: line", () => {
+  const { runs, parseErrors } = parseKaohsiungHashPage(WEEKEND_AWAY_FIXTURE, new Date("2026-11-05T12:00:00Z"));
+
+  it("dates the run from the body's first When: date (ordinal tolerated)", () => {
+    expect(parseErrors).toEqual([]);
+    const away = runs.find((r) => r.runNumber === 2743);
+    expect(away?.date).toBe("2026-11-07");
+    expect(away?.title).toBe("WEEKEND AWAY GUANZILING HOT SPRINGS TAINAN");
+  });
+
+  it("takes the start time from the dated day's clause only (Saturday's Noon, not Sunday's 11:00)", () => {
+    expect(runs.find((r) => r.runNumber === 2743)?.startTime).toBe("12:00");
+  });
+
+  it("still parses ordinary dated headings", () => {
+    expect(runs.find((r) => r.runNumber === 2745)?.date).toBe("2026-11-14");
+  });
+
+  it("still fails loud when neither the heading nor a When: line has a date", () => {
+    const { parseErrors: errs } = parseKaohsiungHashPage(
+      `<div data-testid="richTextElement"><p>#2750 Mystery Run</p></div><div data-testid="richTextElement"><p>When: TBD</p></div>`,
+      new Date("2026-11-05T12:00:00Z"),
+    );
+    expect(errs.map((e) => e.error)).toEqual(["Kaohsiung H3: could not parse date for run #2750"]);
+  });
+});

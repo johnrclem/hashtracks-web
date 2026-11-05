@@ -694,6 +694,58 @@ describe("AtlantaHashBoardAdapter", () => {
     );
   });
 
+  describe("fallbackEgress", () => {
+    const source = (extra: Record<string, unknown>) =>
+      ({
+        id: "test-source",
+        url: "https://board.atlantahash.com",
+        config: { forums: { "2": { kennelTag: "ah4", hashDay: "Saturday" } }, ...extra },
+      }) as never;
+
+    it("retries a failed feed through the fallback egress and records which egress served it", async () => {
+      mockSafeFetch
+        .mockRejectedValueOnce(new Error("residential proxy error (502)"))
+        .mockResolvedValueOnce(mockResponse({ ok: true, text: () => Promise.resolve(SAMPLE_ATOM_FEED) }));
+
+      const result = await new AtlantaHashBoardAdapter().fetch(
+        source({ egress: "residential", fallbackEgress: "vpn" }),
+      );
+
+      expect(result.errors).toEqual([]);
+      expect(mockSafeFetch).toHaveBeenNthCalledWith(1, expect.any(String), expect.objectContaining({ egress: "residential" }));
+      expect(mockSafeFetch).toHaveBeenNthCalledWith(2, expect.any(String), expect.objectContaining({ egress: "vpn" }));
+      expect(result.diagnosticContext?.egressUsed).toEqual({ vpn: 1 });
+    });
+
+    it("reports the primary failure when the fallback also fails", async () => {
+      mockSafeFetch.mockRejectedValue(new Error("vpn proxy error (502)"));
+      const result = await new AtlantaHashBoardAdapter().fetch(
+        source({ egress: "residential", fallbackEgress: "vpn" }),
+      );
+      expect(mockSafeFetch).toHaveBeenCalledTimes(2);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]).toMatch(/Forum 2 \(ah4\): Fetch failed/);
+    });
+
+    it("does not retry without a fallback, or when the primary succeeds", async () => {
+      mockSafeFetch.mockRejectedValueOnce(new Error("boom"));
+      await new AtlantaHashBoardAdapter().fetch(source({ egress: "vpn" }));
+      expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+
+      mockSafeFetch.mockReset();
+      mockSafeFetch.mockResolvedValue(mockResponse({ ok: true, text: () => Promise.resolve(SAMPLE_ATOM_FEED) }));
+      const ok = await new AtlantaHashBoardAdapter().fetch(source({ egress: "residential", fallbackEgress: "vpn" }));
+      expect(mockSafeFetch).toHaveBeenCalledTimes(1);
+      expect(ok.diagnosticContext?.egressUsed).toEqual({ residential: 1 });
+    });
+
+    it("rejects an invalid fallbackEgress value", async () => {
+      await expect(
+        new AtlantaHashBoardAdapter().fetch(source({ fallbackEgress: "carrier" })),
+      ).rejects.toThrow(/config\.fallbackEgress must be/);
+    });
+  });
+
   it("rejects an invalid egress value", async () => {
     const adapter = new AtlantaHashBoardAdapter();
     const source = {

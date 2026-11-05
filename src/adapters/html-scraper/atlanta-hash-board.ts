@@ -38,6 +38,15 @@ interface AtlantaHashBoardConfig {
    * `egress: "vpn"` to route via the VPN-relay (#2054). Omit for direct fetch.
    */
   egress?: ProxyEgress;
+  /**
+   * Egress to retry a forum feed through when the primary `egress` fails
+   * (proxy 5xx / timeout / non-OK). OVH's allow/deny list is a moving target:
+   * on 2026-11-05 the rotated VPN exit (185.198.240.147) was silently dropped
+   * while the home residential range — blocked in mid-2026 — was accepted
+   * again. Pairing the two keeps the scrape alive whichever side OVH is
+   * currently dropping.
+   */
+  fallbackEgress?: ProxyEgress;
 }
 
 // ── Atom feed types ──
@@ -575,11 +584,15 @@ export class AtlantaHashBoardAdapter implements SourceAdapter {
       );
     }
     const egress = config.egress;
-    if (egress !== undefined && egress !== "residential" && egress !== "vpn") {
-      throw new Error(
-        `AtlantaHashBoardAdapter: config.egress must be "residential" | "vpn", got ${JSON.stringify(egress)}`,
-      );
+    const fallbackEgress = config.fallbackEgress;
+    for (const [field, value] of [["egress", egress], ["fallbackEgress", fallbackEgress]] as const) {
+      if (value !== undefined && value !== "residential" && value !== "vpn") {
+        throw new Error(
+          `AtlantaHashBoardAdapter: config.${field} must be "residential" | "vpn", got ${JSON.stringify(value)}`,
+        );
+      }
     }
+    const egressUsed: Record<string, number> = {};
     // Forward both raw; safeFetch resolves precedence + the legacy alias
     // (explicit egress fails closed; useResidentialProxy falls back).
     const { minDate, maxDate } = buildDateWindow(options?.days);
@@ -596,25 +609,38 @@ export class AtlantaHashBoardAdapter implements SourceAdapter {
     const feedResults = await Promise.allSettled(
       forumEntries.map(async ([forumId, forumConfig]): Promise<ForumFetchResult> => {
         const feedUrl = `${baseUrl}/app.php/feed/forum/${forumId}`;
-        try {
-          const response = await safeFetch(feedUrl, {
-            headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
-            egress,
-            useResidentialProxy,
-          });
-          if (!response.ok) {
+        const attempt = async (via: ProxyEgress | undefined): Promise<ForumFetchResult> => {
+          try {
+            const response = await safeFetch(feedUrl, {
+              headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" },
+              egress: via,
+              useResidentialProxy,
+            });
+            if (!response.ok) {
+              return {
+                forumId, forumConfig,
+                error: { url: feedUrl, status: response.status, message: `Forum ${forumId} (${forumConfig.kennelTag}): HTTP ${response.status}` },
+              };
+            }
+            return { forumId, forumConfig, xml: await response.text() };
+          } catch (err) {
             return {
               forumId, forumConfig,
-              error: { url: feedUrl, status: response.status, message: `Forum ${forumId} (${forumConfig.kennelTag}): HTTP ${response.status}` },
+              error: { url: feedUrl, message: `Forum ${forumId} (${forumConfig.kennelTag}): Fetch failed: ${err}` },
             };
           }
-          return { forumId, forumConfig, xml: await response.text() };
-        } catch (err) {
-          return {
-            forumId, forumConfig,
-            error: { url: feedUrl, message: `Forum ${forumId} (${forumConfig.kennelTag}): Fetch failed: ${err}` },
-          };
+        };
+        let result = await attempt(egress);
+        let via = egress;
+        if (result.error && fallbackEgress && fallbackEgress !== egress) {
+          const retry = await attempt(fallbackEgress);
+          if (!retry.error) {
+            result = retry;
+            via = fallbackEgress;
+          }
         }
+        if (!result.error) egressUsed[via ?? "direct"] = (egressUsed[via ?? "direct"] ?? 0) + 1;
+        return result;
       }),
     );
 
@@ -656,6 +682,7 @@ export class AtlantaHashBoardAdapter implements SourceAdapter {
         skippedReplies,
         eventsParsed: allEvents.length,
         parseErrors: allParseErrors.length,
+        egressUsed,
       },
     };
   }

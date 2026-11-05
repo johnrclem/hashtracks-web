@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
-import type { CheerioAPI } from "cheerio";
-import type { Element } from "domhandler";
+import type { Cheerio, CheerioAPI } from "cheerio";
+import type { AnyNode, Element } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ParseError } from "../types";
 import {
@@ -27,7 +27,11 @@ const RUN_HEADING_RE = /\bRUN\s*(?:#\s*)?(\d{3,4})\b/i;
 // a year, so requiring "20YY" cleanly isolates the run date from the noise.
 // Three simple capture groups, no alternation-adjacent quantifiers (Sonar
 // S5852/S5843 safe). The optional leading weekday is left for chrono to ignore.
-const DATE_RE = /\b\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\.?\s+20\d{2}\b/;
+// The year is closed with `(?!\d)`, not `\b`: the 2026 redesign renders each
+// field as its own <p>, and cheerio's .text() concatenates them with no
+// separator ("…25th October 2026Time: 9:30 AM"), so a trailing \b (digit→letter
+// is not a word boundary) never matched and every run failed to date.
+const DATE_RE = /\b\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\.?\s+20\d{2}(?!\d)/;
 
 // The sole AM/PM wall-clock on the page is the assembly time ("9:30 AM",
 // "09:30 AM"). Markers vary (🕘 Time:, ⏰ Assembly:, TIME:), so we ignore the
@@ -68,8 +72,28 @@ interface RunBlock {
   text: string;
   /** First body paragraph (`p.has-text-color`) — the run's headline source. */
   headlineText?: string;
+  /**
+   * Labeled field paragraphs ("Date: …", "Time: …", "Venue: …") from the 2026
+   * redesign's `div.event-card`, read per-<p> so adjacent fields and the long
+   * race-report prose can't bleed into each other. Absent on the old layout.
+   */
+  fields: Partial<Record<LabeledField, string>>;
   rawHeading: string;
   row: number;
+}
+
+type LabeledField = "date" | "time" | "venue";
+const LABELED_FIELD_RE = /^(date|time|venue)\s*:\s*(\S.*)$/i;
+
+function readLabeledFields($: CheerioAPI, node: Cheerio<AnyNode>): Partial<Record<LabeledField, string>> {
+  const fields: Partial<Record<LabeledField, string>> = {};
+  node.children("p").each((_, p) => {
+    const m = LABELED_FIELD_RE.exec(normalize($(p).text()));
+    if (!m) return;
+    const key = m[1].toLowerCase() as LabeledField;
+    fields[key] ??= m[2];
+  });
+  return fields;
 }
 
 function normalize(raw: string): string {
@@ -100,6 +124,7 @@ function collectRunBlocks($: CheerioAPI): RunBlock[] {
     let node = $(el).parent();
     let blockText: string | null = null;
     let headlineText: string | undefined;
+    let fields: Partial<Record<LabeledField, string>> = {};
     for (let depth = 0; depth < 6 && node.length > 0; depth++) {
       const tag = (node[0] as Element).tagName?.toLowerCase();
       const cls = node.attr("class") ?? "";
@@ -112,6 +137,7 @@ function collectRunBlocks($: CheerioAPI): RunBlock[] {
         blockText = nodeText;
         // The run's headline is the first colored body paragraph in this block.
         headlineText = node.find("p.has-text-color").first().text() || undefined;
+        fields = readLabeledFields($, node);
         break;
       }
       node = node.parent();
@@ -120,7 +146,7 @@ function collectRunBlocks($: CheerioAPI): RunBlock[] {
     seen.add(runNumber);
     // No dated ancestor → record the run with the heading text only; date
     // parsing below fails loud (per-run drift), it is NOT silently dropped.
-    blocks.push({ runNumber, text: normalize(blockText ?? heading), headlineText, rawHeading: heading, row });
+    blocks.push({ runNumber, text: normalize(blockText ?? heading), headlineText, fields, rawHeading: heading, row });
   });
 
   return blocks;
@@ -185,6 +211,21 @@ function parseVenue(text: string): string | undefined {
   return parseVenueFromPin(text) ?? parseVenueBeforeDate(text);
 }
 
+/** A labeled "Venue: 📍 Bhanpurwala Farms, Karjat" paragraph → its clean value. */
+function cleanLabeledVenue(value: string): string | undefined {
+  let rest = value.replace(LEADING_DECORATION_RE, "");
+  const endMatch = FIELD_END_RE.exec(rest);
+  if (endMatch && endMatch.index > 0) rest = rest.slice(0, endMatch.index);
+  const cleaned = scrubHarePii(rest.trim());
+  return cleaned && cleaned.length >= 3 && cleaned.length <= 120 ? cleaned : undefined;
+}
+
+/** Headline from the card heading itself: "🍺🐾 BH3 RUN #633 – KARJAT SPECIAL! 🐾🍺" → after the run number. */
+function headlineFromHeading(heading: string): string | undefined {
+  const m = RUN_HEADING_RE.exec(heading);
+  return m ? heading.slice(m.index + m[0].length) : undefined;
+}
+
 /**
  * Extract a clean run headline from the first body paragraph (#2421/#2425).
  * The headline is the leading phrase before the "✅ Attendance / ❌ Excuses"
@@ -241,7 +282,7 @@ export function parseBombayHashPage(html: string): {
   const parseErrors: ParseError[] = [];
 
   for (const block of blocks) {
-    const date = parseDate(block.text);
+    const date = parseDate(block.fields.date ?? block.text);
     if (!date) {
       // A numbered run whose date no longer parses is markup drift, not a
       // legitimately-absent run. Surface it so fetch() suppresses reconcile —
@@ -262,9 +303,9 @@ export function parseBombayHashPage(html: string): {
       runNumber: block.runNumber,
       // Real headline when one is cleanly extractable; else undefined → merge
       // synthesizes "Bombay H3 Trail #N" (#2421/#2425).
-      title: parseTitle(block.headlineText),
-      startTime: parseTime(block.text),
-      location: parseVenue(block.text),
+      title: parseTitle(block.headlineText) ?? parseTitle(headlineFromHeading(block.rawHeading)),
+      startTime: parseTime(block.fields.time ?? block.text),
+      location: block.fields.venue ? cleanLabeledVenue(block.fields.venue) : parseVenue(block.text),
       hares: parseHares(block.text),
       cost: parseSpecialCost(block.text),
       sourceUrl: DEFAULT_URL,
