@@ -27,7 +27,8 @@ import { fetchHTMLPage, stripHtmlTags, stripPlaceholder, MONTHS } from "../utils
  * second <p class="… display-7"> blurb, so detection keys on the visible
  * `WH3 Run #` / `Upcoming runs` / `Where?` / `Who?` / `Hare:` markers, never on
  * CSS selectors. Dates carry the year → NO year inference. The "next run" block
- * and the list are two shapes on one page; they merge by run number.
+ * and the list are two shapes on one page; they merge by date (an unnumbered
+ * special like "Halloween Special" has no run number).
  *
  * Single-page rolling feed (no archive): `config.upcomingOnly: true` protects
  * reconcile as runs age off, and a fail-loud zero-row guard surfaces markup
@@ -38,8 +39,11 @@ import { fetchHTMLPage, stripHtmlTags, stripPlaceholder, MONTHS } from "../utils
 const KENNEL_TAG = "warsaw-h3";
 const DEFAULT_URL = "https://warsawh3.com/";
 
-// "WH3 Run #1643" → run number (next-run detail header).
+// "WH3 Run #1643" → run number (next-run detail header). Since Oct 2026 the
+// header is sometimes omitted for unnumbered specials ("Halloween Special"),
+// so the block is also anchored on the "The next run is:" heading.
 const NEXT_RUN_RE = /WH3 Run #(\d{2,5})/i;
+const NEXT_RUN_HEADING_RE = /the next run is/i;
 // "#1644 July 4, 2026" → run number + "Month D, YYYY" (upcoming-list row).
 const LIST_ENTRY_RE = /#(\d{2,5})\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/;
 // "Sat 20 June 2026, 14h00" → day / month word / year.
@@ -61,10 +65,11 @@ const SET_BY_RE = /trail will be set by/i;
 // Imported MONTHS Record → Map (1-indexed month numbers; avoids object-injection).
 const MONTH_NUMBERS = new Map<string, number>(Object.entries(MONTHS));
 
-// Warsaw H3's standing hare-needed in-joke. The universal placeholders (`???`,
-// `TBA`, `Hare needed`…) are handled by the shared `stripPlaceholder`; only this
-// kennel-specific phrase needs a local guard.
-const WARSAW_HARE_PLACEHOLDER_RE = /^it could be you[!.]*$/i;
+// Warsaw H3's rotating hare-needed jokes. The universal placeholders (`???`,
+// `TBA`, `Hare needed`…) are handled by the shared `stripPlaceholder`; these
+// kennel-specific phrases need a local guard (#2507, #2653).
+const WARSAW_HARE_PLACEHOLDER_RE =
+  /^(?:it could be you|live trail|time to sign up|no hare\b.*)[!?.]*$/i;
 
 /** Trimmed value or undefined for empty cells. */
 function cleanText(value: string | undefined): string | undefined {
@@ -130,21 +135,28 @@ function parseNextRunBlock(
   endIdx: number,
   sourceUrl: string,
 ): RawEventData | null {
-  const runMatch = NEXT_RUN_RE.exec(lines[startIdx]);
-  if (!runMatch) return null;
-  const runNumber = Number.parseInt(runMatch[1], 10);
-
-  const block = lines.slice(startIdx + 1, endIdx);
+  const block = lines.slice(startIdx, endIdx);
+  const runLine = block.find((l) => NEXT_RUN_RE.test(l));
+  const runMatch = runLine ? NEXT_RUN_RE.exec(runLine) : null;
+  const runNumber = runMatch ? Number.parseInt(runMatch[1], 10) : undefined;
 
   let date: string | null = null;
+  let dateIdx = -1;
   let startTime: string | undefined;
-  for (const line of block) {
-    if (!date) date = parseDmyDate(line);
-    if (!startTime) startTime = parseTime(line);
+  for (let i = 0; i < block.length; i++) {
+    if (!date) {
+      date = parseDmyDate(block[i]);
+      if (date) dateIdx = i;
+    }
+    if (!startTime) startTime = parseTime(block[i]);
   }
   if (!date) return null;
 
   const whereIdx = block.findIndex((l) => WHERE_RE.test(l));
+  // Free-text lines between the date and "Where?" are the run's theme
+  // ("Halloween Special") — use it as the title.
+  const titleEnd = whereIdx === -1 ? block.length : whereIdx;
+  const title = cleanText(block.slice(dateIdx + 1, titleEnd).join(" – "));
   const location = whereIdx === -1 ? undefined : cleanText(block[whereIdx + 1]);
 
   const whoIdx = block.findIndex((l) => WHO_RE.test(l));
@@ -160,7 +172,9 @@ function parseNextRunBlock(
     date,
     kennelTags: [KENNEL_TAG],
     runNumber,
-    // title intentionally undefined → merge.ts synthesizes "Warsaw H3 Trail #N".
+    // undefined when the source gives no theme → merge.ts synthesizes
+    // "Warsaw H3 Trail #N".
+    title,
     hares,
     location,
     startTime,
@@ -168,7 +182,12 @@ function parseNextRunBlock(
   };
 }
 
-/** Parse the "Upcoming runs" list rows (run # + date on one line, hare on the next). */
+/**
+ * Parse the "Upcoming runs" list rows. `lines` keeps blank lines: rows are
+ * separated by `<br><br>` (a blank line), while a row's own "Hare:" and theme
+ * lines are single-`<br>` separated. A blank line also follows the run/date
+ * line itself (source newline + `<br>`), so leading blanks are skipped.
+ */
 function parseUpcomingList(lines: string[], sourceUrl: string): RawEventData[] {
   const events: RawEventData[] = [];
   for (let i = 0; i < lines.length; i++) {
@@ -176,12 +195,23 @@ function parseUpcomingList(lines: string[], sourceUrl: string): RawEventData[] {
     if (!m) continue;
     const date = parseMdyDate(m[2]);
     if (!date) continue;
-    const hareMatch = HARE_LINE_RE.exec(lines[i + 1] ?? "");
+    // Row body runs until the next "#NNNN Month D, YYYY" row: a "Hare:" line
+    // plus optional theme lines ("Curry & Diwali Special").
+    let hares: string | null | undefined;
+    const themeLines: string[] = [];
+    let j = i + 1;
+    while (j < lines.length && !lines[j]) j++;
+    for (; j < lines.length && lines[j] && !LIST_ENTRY_RE.test(lines[j]); j++) {
+      const hareMatch = HARE_LINE_RE.exec(lines[j]);
+      if (hareMatch) hares = cleanHare(hareMatch[1]);
+      else themeLines.push(lines[j]);
+    }
     events.push({
       date,
       kennelTags: [KENNEL_TAG],
       runNumber: Number.parseInt(m[1], 10),
-      hares: hareMatch ? cleanHare(hareMatch[1]) : undefined,
+      title: cleanText(themeLines.join(" – ")),
+      hares,
       sourceUrl,
     });
   }
@@ -196,34 +226,34 @@ function parseUpcomingList(lines: string[], sourceUrl: string): RawEventData[] {
  * a later list row that omits them, while an explicit `null` hare-clear (which is
  * defined) still wins. `undefined` fields are dropped so existing values stay.
  */
-function upsertEvent(map: Map<number, RawEventData>, event: RawEventData): void {
-  const runNumber = event.runNumber;
-  if (typeof runNumber !== "number") return;
-  const existing = map.get(runNumber);
+function upsertEvent(map: Map<string, RawEventData>, event: RawEventData): void {
+  // Keyed by date, not run number: an unnumbered special has no run number,
+  // and both shapes of the same run always carry the same date.
+  const existing = map.get(event.date);
   if (!existing) {
-    map.set(runNumber, event);
+    map.set(event.date, event);
     return;
   }
   const defined = Object.entries(event).filter(([, value]) => value !== undefined);
-  map.set(runNumber, { ...existing, ...Object.fromEntries(defined) });
+  map.set(event.date, { ...existing, ...Object.fromEntries(defined) });
 }
 
 /**
  * Parse the Warsaw H3 Mobirise home page into RawEvents. The next-run detail
- * block and the upcoming-runs list are merged by run number.
+ * block and the upcoming-runs list are merged by date.
  */
 export function parseWarsawH3Page(
   html: string,
   sourceUrl: string,
 ): { events: RawEventData[]; errors: string[] } {
-  const lines = stripHtmlTags(html, "\n")
+  const rawLines = stripHtmlTags(html, "\n")
     .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+    .map((line) => line.trim());
+  const lines = rawLines.filter(Boolean);
 
-  const eventsByRun = new Map<number, RawEventData>();
+  const eventsByRun = new Map<string, RawEventData>();
 
-  const nextRunIdx = lines.findIndex((l) => NEXT_RUN_RE.test(l));
+  const nextRunIdx = lines.findIndex((l) => NEXT_RUN_HEADING_RE.test(l) || NEXT_RUN_RE.test(l));
   if (nextRunIdx !== -1) {
     // Bound the next-run block at the first upcoming-list marker — either the
     // "Upcoming runs" heading OR the first "#NNNN Month D, YYYY" row. Keying on
@@ -240,7 +270,7 @@ export function parseWarsawH3Page(
     if (nextRun) upsertEvent(eventsByRun, nextRun);
   }
 
-  for (const event of parseUpcomingList(lines, sourceUrl)) {
+  for (const event of parseUpcomingList(rawLines, sourceUrl)) {
     upsertEvent(eventsByRun, event);
   }
 
