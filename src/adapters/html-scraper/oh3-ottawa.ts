@@ -46,7 +46,11 @@ export function parseDetailedBlock(text: string): RawEventData | null {
   if (!runMatch) return null;
 
   const runNumber = Number.parseInt(runMatch[1], 10);
-  const title = runMatch[2].trim() || undefined;
+  // A block with no theme on the R*n line can flow the next labelled field
+  // onto it ("R*n # 2238 When: Monday, 30 November 2026 @ 6:45 p.m.") — cut
+  // the title at the first field label so a "When:" line never becomes a title.
+  const titleRaw = runMatch[2].split(/\b(?:When|Hares?|Start|ON\s*IN|Hash\s*Cash|Map|Note(?:\s*\d+)?)\s*:/i)[0];
+  const title = titleRaw.trim() || undefined;
 
   // Parse labeled fields
   const whenMatch = /When:\s*(.+?)(?=\n|$)/i.exec(text);
@@ -110,6 +114,17 @@ export function parseOttawaTime(text: string): string | undefined {
 }
 
 /**
+ * Whether a planning-ahead free-text cell reads as a run theme rather than
+ * hare name(s): punctuation a hash name doesn't carry ("!", "?"), a digit
+ * ("CT 3 score and 10"), or an occasion word. Hare names are bare nicknames
+ * joined by "&"/"and" ("LBM & CT", "One Tit Wonder", "La Touchée").
+ */
+export function looksLikePlanningTheme(text: string): boolean {
+  if (/[!?\d]/.test(text)) return true;
+  return /\b(?:run|day|night|moon|party|b-?day|birthday|christmas|xmas|halloween|hash|trail|anniversary|special|year|rules|weekend|camp(?:out)?|crawl|score|vote|agm|agpu|celebration|festival|picnic)\b/i.test(text);
+}
+
+/**
  * Parse a planning-ahead line into a minimal RawEventData.
  *
  * Format: "2208    Monday, 4 May    2026    NEED A HARE"
@@ -129,10 +144,17 @@ export function parsePlanningLine(text: string): RawEventData | null {
 
   // "NEED A HARE" means no hare assigned
   const isNeedHare = /NEED\s+A\s+HARE/i.test(hareOrNote);
-  const hares = isNeedHare ? undefined : stripPlaceholder(hareOrNote) || undefined;
+  const cell = isNeedHare ? undefined : stripPlaceholder(hareOrNote) || undefined;
 
-  // If hares are assigned, use that as title too (planning lines don't have separate titles)
-  const title = isNeedHare ? undefined : hares;
+  // The single free-text cell is EITHER a theme ("A River runs through it!",
+  // "St David's Day Run") OR hare name(s) ("Beer Floaty & Dr Too Little") —
+  // never both, so it must not be copied into title AND hares (#2492). Themes
+  // go to the title; names go to hares and the title is left for merge to
+  // synthesize. The other field is cleared explicitly (null) where the type
+  // allows, so a duplicate stored by the old parser doesn't linger.
+  const isTheme = cell !== undefined && looksLikePlanningTheme(cell);
+  const title = isTheme ? cell : undefined;
+  const hares = isTheme ? null : cell;
 
   return {
     date: dateStr,
