@@ -117,6 +117,64 @@ describe("TribeEventsAdapter.fetch", () => {
     });
   });
 
+  it("maps organizers → sorted hares and the title's first #N → runNumber when opted in (Dayton H3)", async () => {
+    const d = isoDate(7);
+    const d2 = isoDate(14);
+    mockedSafeFetch.mockResolvedValue(jsonResponse({
+      events: [
+        {
+          id: 21, title: "Dayton H3 #1670/ SCH4 #1456- OLD FARTS HASH",
+          start_date: `${d} 16:00:00`, start_date_details: details(d, "16", "00"),
+          organizer: [{ organizer: "Lil John" }, { organizer: "Dirty Flamingo" }, { organizer: "Lil John" }],
+        },
+        {
+          id: 22, title: "Dayton H3 #1684 &#8211; Halloween Photo Trail",
+          start_date: `${d2} 17:00:00`, start_date_details: details(d2, "17", "00"),
+          organizer: [{ organizer: "Slamming Grandma&#8217;s Salmon" }],
+        },
+      ],
+      total: 2, total_pages: 1,
+    }));
+    const res = await new TribeEventsAdapter().fetch(
+      mkSource({
+        tribeEvents: true, kennelTag: "dh3-oh", upcomingOnly: true,
+        haresFromOrganizers: true, runNumberFromTitle: true,
+      }),
+      { days: 180 },
+    );
+    expect(res.errors).toEqual([]);
+    expect(res.events[0]).toMatchObject({ runNumber: 1670, hares: "Dirty Flamingo, Lil John" });
+    expect(res.events[1]).toMatchObject({
+      runNumber: 1684, hares: "Slamming Grandma\u2019s Salmon", title: "Dayton H3 #1684 \u2013 Halloween Photo Trail",
+    });
+  });
+
+  it("leaves hares and runNumber undefined when not opted in (or no organizers)", async () => {
+    const d = isoDate(7);
+    mockedSafeFetch.mockResolvedValue(jsonResponse({
+      events: [{
+        id: 23, title: "Special #2500",
+        start_date: `${d} 16:00:00`, start_date_details: details(d, "16", "00"),
+        organizer: [{ organizer: "Someone" }],
+      }],
+      total: 1, total_pages: 1,
+    }));
+    const off = await new TribeEventsAdapter().fetch(
+      mkSource({ tribeEvents: true, kennelTag: "larrikins-au", upcomingOnly: true }), { days: 180 },
+    );
+    expect(off.events[0].hares).toBeUndefined();
+    expect(off.events[0].runNumber).toBeUndefined();
+
+    mockedSafeFetch.mockResolvedValue(jsonResponse({
+      events: [{ id: 24, title: "No hares yet", start_date: `${d} 16:00:00`, organizer: [] }],
+      total: 1, total_pages: 1,
+    }));
+    const on = await new TribeEventsAdapter().fetch(
+      mkSource({ tribeEvents: true, kennelTag: "dh3-oh", upcomingOnly: true, haresFromOrganizers: true }), { days: 180 },
+    );
+    expect(on.events[0].hares).toBeUndefined();
+  });
+
   it("carries a multi-day span through as RawEventData.endDate", async () => {
     const d = isoDate(20);
     const end = isoDate(22);

@@ -4005,6 +4005,28 @@ export const SOURCES = [
       kennelCodes: ["dh4"],
     },
     {
+      // Dayton H3 (daytonhhh.org) — WordPress + The Events Calendar (Tribe).
+      // Config-routed to the shared TribeEventsAdapter. Hares are filed as Tribe
+      // organizers; titles carry the run number ("Dayton H3 #1686 – …", joint
+      // trails list DH3 first: "Dayton H3 #1670/ SCH4 #1456"). Forward-only feed
+      // → upcomingOnly so reconcile never cancels runs that age off the list.
+      // History (2014→) via scripts/backfill-dayton-h3-history.ts.
+      name: "Dayton H3 Events Calendar",
+      url: "https://daytonhhh.org",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        tribeEvents: true,
+        kennelTag: "dh3-oh",
+        upcomingOnly: true,
+        haresFromOrganizers: true,
+        runNumberFromTitle: true,
+      },
+      kennelCodes: ["dh3-oh"],
+    },
+    {
       name: "MVH3 Google Calendar",
       url: "mvh3calendar@gmail.com",
       type: "GOOGLE_CALENDAR" as const,

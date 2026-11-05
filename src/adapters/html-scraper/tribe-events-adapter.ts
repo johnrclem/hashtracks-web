@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { buildDateWindow } from "../utils";
+import { buildDateWindow, extractHashRunNumber } from "../utils";
 import { fetchTribeEvents } from "../tribe-events";
 
 /**
@@ -29,6 +29,18 @@ export interface TribeEventsConfig {
   startDate?: string;
   /** Fallback "HH:MM" when the API reports an all-day event (no meaningful time). */
   defaultStartTime?: string;
+  /**
+   * Map Tribe "organizers" to `hares` (comma-joined, sorted). Opt-in: only for
+   * sites that file the trail's hares as event organizers (Dayton H3).
+   */
+  haresFromOrganizers?: boolean;
+  /**
+   * Parse `runNumber` from the title's first `#NNN` (shared
+   * `extractHashRunNumber`). Opt-in: joint-trail titles like
+   * "Dayton H3 #1670/ SCH4 #1456" yield the host kennel's number only when the
+   * host is listed first, which is true for the opted-in sources.
+   */
+  runNumberFromTitle?: boolean;
   /** Defensive cap on total events returned. */
   maxEvents?: number;
   /**
@@ -102,6 +114,8 @@ export class TribeEventsAdapter implements SourceAdapter {
         description: e.description,
         location: e.location || e.venue,
         cost: e.cost,
+        hares: config.haresFromOrganizers && e.organizers.length > 0 ? e.organizers.join(", ") : undefined,
+        runNumber: config.runNumberFromTitle ? extractHashRunNumber(e.title) : undefined,
         sourceUrl: e.url ?? source.url,
       });
     }

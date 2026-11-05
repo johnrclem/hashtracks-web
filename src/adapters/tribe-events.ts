@@ -29,6 +29,10 @@ interface TribeEventVenueRaw {
   country?: string;
 }
 
+interface TribeEventOrganizerRaw {
+  organizer?: string;
+}
+
 interface TribeEventRaw {
   id?: number;
   title?: string;
@@ -53,6 +57,7 @@ interface TribeEventRaw {
   venue?: TribeEventVenueRaw | TribeEventVenueRaw[];
   cost?: string;
   all_day?: boolean;
+  organizer?: TribeEventOrganizerRaw[] | TribeEventOrganizerRaw;
 }
 
 interface TribeEventsResponse {
@@ -77,6 +82,12 @@ export interface TribeEvent {
   location?: string;
   cost?: string;
   allDay: boolean;
+  /**
+   * Decoded, de-duplicated, alphabetically sorted organizer names. Many hash
+   * kennels file the trail's hares as Tribe "organizers". Sorted so API row
+   * order can't churn the fingerprint between scrapes.
+   */
+  organizers: string[];
 }
 
 export interface FetchTribeEventsOptions {
@@ -152,6 +163,17 @@ export function parseTribeEndDate(raw: TribeEventRaw): string | null {
   return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
 }
 
+/** Decode + dedupe + sort organizer names (the API returns `[]` or an array of objects). */
+function normalizeOrganizers(raw: TribeEventRaw["organizer"]): string[] {
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  const names = new Set<string>();
+  for (const o of list) {
+    const name = decodeEntities(o?.organizer ?? "").trim();
+    if (name) names.add(name);
+  }
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
 /** Normalize a single raw tribe event into our shape. Returns null if required fields are missing. */
 export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
   const parsed = parseTribeStartDate(raw);
@@ -194,6 +216,7 @@ export function normalizeTribeEvent(raw: TribeEventRaw): TribeEvent | null {
     location,
     cost: raw.cost?.trim() || undefined,
     allDay: Boolean(raw.all_day),
+    organizers: normalizeOrganizers(raw.organizer),
   };
 }
 
