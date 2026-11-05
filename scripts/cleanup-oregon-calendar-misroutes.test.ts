@@ -10,9 +10,9 @@ import { classify, routeTitle, type Candidate } from "./cleanup-oregon-calendar-
 const seed = (SOURCES as unknown as Array<{ name: string; config: Record<string, unknown> }>).find(
   (s) => s.name === "Oregon Hashing Calendar",
 );
-const cfg = seed?.config as { kennelPatterns: never; skipPatterns: string[]; defaultKennelTag: string; strictKennelRouting: boolean };
+const cfg = seed?.config as { kennelPatterns: never; skipPatterns?: string[]; defaultKennelTag: string; strictKennelRouting: boolean };
 const compiled = compileKennelPatterns(cfg.kennelPatterns);
-const skips = compilePatterns(cfg.skipPatterns, "i");
+const skips = compilePatterns(cfg.skipPatterns ?? [], "i");
 const ev = (titles: string[], overrides: Partial<Candidate> = {}): Candidate => ({
   id: "e1",
   kennelCode: "oh3",
@@ -34,10 +34,13 @@ describe("Oregon Hashing Calendar routing (seed)", () => {
     }
   });
 
-  it("drops sibling kennels and template junk", () => {
-    for (const t of ["EH3 #1584", "Stumptown H3", "Dead Whores H3-Naked Lady Party", "OKH3 #626 Granny Panties", "start comment- choose your preferred fields"]) {
-      expect(routeTitle(t, compiled, skips)).toEqual([]);
-    }
+  it("routes sibling kennels to their own codes and drops template junk", () => {
+    expect(routeTitle("EH3 #1584", compiled, skips)).toEqual(["eh3-or"]);
+    expect(routeTitle("Stumptown H3", compiled, skips)).toEqual(["stumph3"]);
+    expect(routeTitle("Dead Whores H3-Naked Lady Party", compiled, skips)).toEqual(["dwh3"]);
+    expect(routeTitle("OKH3 #626 Granny Panties", compiled, skips)).toEqual(["okh3"]);
+    expect(routeTitle("SH3 #407 - Thanks", compiled, skips)).toEqual([]); // ambiguous Stumptown/Salem
+    expect(routeTitle("start comment- choose your preferred fields", compiled, skips)).toEqual([]);
   });
 });
 
