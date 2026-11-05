@@ -6005,6 +6005,10 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 180,
+      // The page lists only this week's and upcoming runs; a run drops off once
+      // it has happened. Without upcomingOnly, reconcile cancelled every past
+      // run as it rolled off (27 by 2026-11-05). Clamp reconcile to the future.
+      config: { upcomingOnly: true },
       kennelCodes: ["sth3-au"],
     },
     {
