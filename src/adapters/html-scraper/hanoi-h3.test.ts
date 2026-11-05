@@ -117,6 +117,18 @@ describe("parseHanoiH3Page", () => {
     expect(cleanHanoiLocation("Soc Son outside of Hanoi city.")).toBe("Soc Son outside of Hanoi city.");
   });
 
+  it("keeps the heading's run type when an own-line parenthetical follows", () => {
+    const html = FIXTURE_1840.replace("2026<br>(A-A run)<br>", "2026 (Sue's Birthday Run)<br>(see map below)<br>");
+    const { event } = parseHanoiH3Page(html, SOURCE_URL);
+    expect(event?.title).toBe("Sue's Birthday Run");
+  });
+
+  it("strips a pickup time prefix without 'at' and never cuts a venue word starting with 'at'", () => {
+    const html = FIXTURE_1840.replace("13:30 PM sharp at : 8 Hai Bà Trưng Street, Hoàn Kiếm District", "13:30 PM sharp: Atrium Tower, Hoàn Kiếm");
+    const { event } = parseHanoiH3Page(html, SOURCE_URL);
+    expect(event?.locationStreet).toBe("Atrium Tower, Hoàn Kiếm");
+  });
+
   it("parses 12h and dotted clock times", () => {
     expect(parseClockTime("Bus Pick Up: 13.30pm")).toBe("13:30");
     expect(parseClockTime("the bus leaves at 2.00 pm")).toBe("14:00");

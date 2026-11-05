@@ -47,6 +47,8 @@ const UPCOMING_HEADING_RE = /up\s*c[ou]m+ing/i;
 const TIME_RE = /\b(\d{1,2})[.:](\d{2})\s*([ap])?\.?m?\b/i;
 // A first-pickup label ("First pick up", "First Pick-up").
 const FIRST_PICKUP_RE = /first\s*pick\s*-?\s*up/i;
+// A leading pickup time + filler: "13:30 PM sharp at :", "13.30pm:", "2:00 pm at".
+const PICKUP_TIME_PREFIX_RE = /^\d{1,2}[.:]\d{2}\s*(?:[ap]\.?m\.?)?(?:\s+sharp)?(?:\s+at\b)?\s*:?\s*/i;
 // Pickup / bus-departure wording on the section header, which carries the
 // season's start time ("Bus Pick Up: 13.30pm", "the bus leaves at 14.00 pm").
 const DEPARTURE_RE = /pick\s*-?\s*up|leaves?\b/i;
@@ -117,10 +119,8 @@ function pickupAddress(line: string | undefined): string | undefined {
   const ci = rest.indexOf(":");
   if (ci === -1) return undefined;
   rest = rest.slice(ci + 1).trim();
-  if (TIME_RE.test(rest.slice(0, 12))) {
-    const atIdx = rest.toLowerCase().indexOf(" at");
-    if (atIdx !== -1) rest = rest.slice(atIdx + 3).replace(/^\s*:?\s*/, "");
-  }
+  // Drop a leading "13:30 PM sharp at :" time prefix (anchored, word-bounded).
+  rest = rest.replace(PICKUP_TIME_PREFIX_RE, "");
   return rest.trim() || undefined;
 }
 
@@ -171,6 +171,12 @@ function findHeadingIndex(lines: string[]): number {
     if (block.some((line) => FIRST_PICKUP_RE.test(line) || /\bhares?\s*:/i.test(line))) return start;
   }
   return candidates[0];
+}
+
+/** Lines above the first "No.<run#>" candidate — the section header only, never an agenda or run block. */
+function sectionHeaderLines(lines: string[]): string[] {
+  const first = lines.findIndex((line) => HEADING_RE.test(line));
+  return first === -1 ? lines : lines.slice(0, first);
 }
 
 /**
@@ -254,7 +260,8 @@ export function parseHanoiH3Page(
   }
 
   // The run-type "(A-A run)" sometimes sits on its own line under the heading.
-  const typeOnNextLine = /^\([^)]*\)$/.test(lines[headingIdx + 1] ?? "");
+  const typeOnNextLine =
+    !PAREN_RE.test(lines[headingIdx]) && /^\([^)]*\)$/.test(lines[headingIdx + 1] ?? "");
   const heading = typeOnNextLine ? `${lines[headingIdx]} ${lines[headingIdx + 1]}` : lines[headingIdx];
   const blurbIdx = headingIdx + (typeOnNextLine ? 2 : 1);
   const runMatch = HEADING_RE.exec(heading);
@@ -272,7 +279,7 @@ export function parseHanoiH3Page(
   // on the section header ("Bus Pick Up: 13.30pm") (#2614).
   const startTime =
     parseClockTime(pickupLine) ??
-    parseClockTime(lines.slice(0, headingIdx).find((line) => DEPARTURE_RE.test(line) && TIME_RE.test(line)));
+    parseClockTime(sectionHeaderLines(lines).find((line) => DEPARTURE_RE.test(line) && TIME_RE.test(line)));
 
   const haresRaw = findValue(block, "hares");
   const hares = haresRaw && !HARE_PLACEHOLDER_RE.test(haresRaw) ? haresRaw : undefined;
