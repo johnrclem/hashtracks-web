@@ -31,7 +31,11 @@ export interface ReconcileResult {
    * case; `wouldCancel` is how many sole-source events the pass wanted to
    * cancel. Absent when the breaker did not trip.
    */
-  massCancelBlocked?: { wouldCancel: number; candidatesExamined: number };
+  massCancelBlocked?: {
+    wouldCancel: number;
+    /** In-window CONFIRMED candidates backed by this source (the breaker's denominator). */
+    candidatesExamined: number;
+  };
 }
 
 /** Options for {@link reconcileStaleEvents}. */
@@ -52,7 +56,7 @@ export const MASS_CANCEL_FRACTION = 0.3;
 /**
  * Mass-cancel circuit breaker. A single reconcile pass that would cancel more
  * than {@link MASS_CANCEL_MIN} events AND more than
- * {@link MASS_CANCEL_FRACTION} of the source's in-window CONFIRMED candidates
+ * {@link MASS_CANCEL_FRACTION} of the in-window CONFIRMED candidates this source backs
  * is far more likely to be an adapter/config regression (forward-only fetch
  * without `upcomingOnly`, an unanchored biweekly RRULE flipping parity, a
  * half-rendered page) than a real mass removal — and a false cancellation is
@@ -322,20 +326,29 @@ export async function reconcileStaleEvents(
     .filter((event) => !eventsWithOtherSources.has(event.id))
     .map((event) => event.id);
 
-  if (
-    !options?.allowMassCancel &&
-    shouldBlockMassCancel(cancelledEventIds.length, candidates.length)
-  ) {
-    return {
-      cancelled: 0,
-      cancelledEventIds: [],
-      multiSourcePreserved: eventsWithOtherSources.size,
-      ...baseDiag,
-      massCancelBlocked: {
-        wouldCancel: cancelledEventIds.length,
-        candidatesExamined: candidates.length,
-      },
-    };
+  // Mass-cancel circuit breaker. The denominator is the candidates THIS source
+  // backs (has RawEvents for), not every CONFIRMED event in the linked kennels:
+  // events only another source supplies would otherwise dilute the fraction and
+  // let a broken secondary source wipe out most of its own rows. Only queried
+  // when the floor is exceeded, so ordinary passes pay nothing extra.
+  if (!options?.allowMassCancel && cancelledEventIds.length > MASS_CANCEL_MIN) {
+    const ownBacked = await prisma.rawEvent.groupBy({
+      by: ["eventId"],
+      where: { eventId: { in: candidates.map((c) => c.id) }, sourceId },
+    });
+    const sourceCandidates = ownBacked.length;
+    if (shouldBlockMassCancel(cancelledEventIds.length, sourceCandidates)) {
+      return {
+        cancelled: 0,
+        cancelledEventIds: [],
+        multiSourcePreserved: eventsWithOtherSources.size,
+        ...baseDiag,
+        massCancelBlocked: {
+          wouldCancel: cancelledEventIds.length,
+          candidatesExamined: sourceCandidates,
+        },
+      };
+    }
   }
 
   // Batch update all sole-source orphaned events to CANCELLED

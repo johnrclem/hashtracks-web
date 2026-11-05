@@ -527,10 +527,16 @@ export async function analyzeHealth(
   const mismatchAlert = checkSourceKennelMismatches(input);
   if (mismatchAlert) alerts.push(mismatchAlert);
 
-  // 8. Excessive cancellations (needs baseline for relative threshold)
-  checkedTypes.add("EXCESSIVE_CANCELLATIONS");
-  const cancellationAlert = checkExcessiveCancellations(input, recentSuccessful);
-  if (cancellationAlert) alerts.push(cancellationAlert);
+  // 8. Excessive cancellations (post-hoc needs baseline; breaker trip doesn't).
+  // Gate on reconcileEvaluated like RECONCILE_SUPPRESSED: a scrape that skipped
+  // reconcile (errors, partial coverage, zero events) proves nothing about
+  // cancellations, so it must not auto-resolve an open alert — in particular an
+  // open circuit-breaker alert would otherwise clear on the next failed scrape.
+  if (input.reconcileEvaluated) {
+    checkedTypes.add("EXCESSIVE_CANCELLATIONS");
+    const cancellationAlert = checkExcessiveCancellations(input, recentSuccessful);
+    if (cancellationAlert) alerts.push(cancellationAlert);
+  }
 
   // 9. Reconcile suppressed. Gate on reconcileEvaluated so a skipped reconcile
   // (scrape failed, partial coverage, etc.) doesn't false-resolve a prior alert.

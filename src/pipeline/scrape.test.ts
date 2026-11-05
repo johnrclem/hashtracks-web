@@ -128,6 +128,20 @@ describe("scrapeSource", () => {
     expect(mockReconcile.mock.calls[0][5]).toEqual({ allowMassCancel: true });
   });
 
+  it("reconciles a zero-event scrape only when allowMassCancel is set", async () => {
+    mockGetAdapter.mockReturnValue({
+      type: "HTML_SCRAPER",
+      fetch: vi.fn().mockResolvedValue({ events: [], errors: [] }),
+    } as never);
+
+    await scrapeSource("src_1");
+    expect(mockReconcile).not.toHaveBeenCalled();
+
+    await scrapeSource("src_1", { allowMassCancel: true });
+    expect(mockReconcile).toHaveBeenCalledTimes(1);
+    expect(mockReconcile.mock.calls[0][5]).toEqual({ allowMassCancel: true });
+  });
+
   it("forwards a tripped mass-cancel breaker to health analysis", async () => {
     mockReconcile.mockResolvedValueOnce({
       cancelled: 0,

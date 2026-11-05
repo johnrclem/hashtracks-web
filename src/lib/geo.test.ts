@@ -195,7 +195,7 @@ describe("geocodeAddress", () => {
     expect(result).toBeNull();
   });
 
-  it.each(["TBD", "tba", "TBA - Christmas Run", "?", "N/A", "See calendar details"])(
+  it.each(["TBD", "tba", "TBD.", "TBA!", "TBA - Christmas Run", "?", "N/A", "See calendar details"])(
     "skips the API call for placeholder venue %j",
     async (address) => {
       const fetchSpy = vi.spyOn(globalThis, "fetch");

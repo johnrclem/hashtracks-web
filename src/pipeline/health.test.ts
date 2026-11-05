@@ -426,6 +426,7 @@ describe("regime-aware baseline (#1115)", () => {
     const result = await analyzeHealth("src_1", "log_1", baseInput({
       currentConfigHash: "new-config",
       cancelledCount: 25,  // would normally fire WARNING (> 10 absolute threshold)
+      reconcileEvaluated: true,
     }));
 
     expect(result.alerts.find((a) => a.type === "EXCESSIVE_CANCELLATIONS")).toBeUndefined();
@@ -446,6 +447,7 @@ describe("EXCESSIVE_CANCELLATIONS — mass-cancel circuit breaker", () => {
       currentConfigHash: "new-config",
       cancelledCount: 0,
       massCancelBlocked: { wouldCancel: 89, candidatesExamined: 120 },
+      reconcileEvaluated: true,
     }));
 
     const alert = result.alerts.find((a) => a.type === "EXCESSIVE_CANCELLATIONS");
@@ -455,8 +457,13 @@ describe("EXCESSIVE_CANCELLATIONS — mass-cancel circuit breaker", () => {
   });
 
   it("does not raise the blocked alert when the breaker did not trip", async () => {
-    const result = await analyzeHealth("src_1", "log_1", baseInput({ cancelledCount: 0 }));
+    const result = await analyzeHealth("src_1", "log_1", baseInput({ cancelledCount: 0, reconcileEvaluated: true }));
     expect(result.alerts.find((a) => a.type === "EXCESSIVE_CANCELLATIONS")).toBeUndefined();
+  });
+
+  it("does not check (so cannot auto-resolve) EXCESSIVE_CANCELLATIONS when reconcile was skipped", async () => {
+    const result = await analyzeHealth("src_1", "log_1", baseInput({ cancelledCount: 0 }));
+    expect(result.checkedTypes).not.toContain("EXCESSIVE_CANCELLATIONS");
   });
 });
 

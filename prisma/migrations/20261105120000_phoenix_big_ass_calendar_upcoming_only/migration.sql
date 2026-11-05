@@ -25,6 +25,8 @@ SET config = jsonb_set(COALESCE(config, '{}'::jsonb), '{upcomingOnly}', 'true'::
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE name = 'Phoenix H3 Big Ass Calendar'
   AND type::text = 'HTML_SCRAPER'
-  AND (config->>'upcomingOnly') IS DISTINCT FROM 'true';
+  -- Compare the JSON value, not its text: a string "true" (->> also yields
+  -- 'true') is not the boolean scrape.ts checks with `=== true`.
+  AND (config->'upcomingOnly') IS DISTINCT FROM 'true'::jsonb;
 
 COMMIT;

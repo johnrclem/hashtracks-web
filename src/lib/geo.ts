@@ -237,13 +237,25 @@ export function boundingBoxFromCenter(
 }
 
 /**
- * Venue strings that can never geocode — TBD/TBA/TBC markers (optionally with a
- * trailing note, e.g. "TBA - Christmas Run", but not "TBD Brewing"), "?" runs, N/A, and "see
- * calendar/details" pointers. Skipping them saves a Geocoding API call and the
- * ZERO_RESULTS log line each scrape. Kept local (not adapters/utils'
- * isPlaceholder) because this module is also bundled for client components.
+ * Venue strings that can never geocode. Skipping them saves a Geocoding API
+ * call and the ZERO_RESULTS log line each scrape. Split into small anchored
+ * patterns to stay under SonarCloud's regex-complexity budget (S5843):
+ *   - TBD/TBA/TBC, optionally punctuated ("TBD.") and optionally followed by a
+ *     separator + note ("TBA - Christmas Run") — but not "TBD Brewing";
+ *   - bare N/A, none, or "?" runs;
+ *   - "see calendar/website/facebook/details/description" pointers.
+ * Kept local (not adapters/utils' isPlaceholder) because this module is also
+ * bundled for client components.
  */
-const GEOCODE_PLACEHOLDER_RE = /^(?:(?:tbd|tba|tbc)(?:\s*[-–:(,].*)?|n\/a|none|\?+|see (?:calendar|website|facebook|details|description)\b.*)$/i;
+const GEOCODE_PLACEHOLDER_RES: RegExp[] = [
+  /^(?:tbd|tba|tbc)[.!]?(?:\s*[-–:(,].*)?$/i,
+  /^(?:n\/a|none|\?+)$/i,
+  /^see (?:calendar|website|facebook|details|description)\b/i,
+];
+
+function isGeocodePlaceholder(address: string): boolean {
+  return GEOCODE_PLACEHOLDER_RES.some((re) => re.test(address));
+}
 
 /**
  * Geocode a text address using the Google Maps Geocoding API.
@@ -266,7 +278,7 @@ export async function geocodeAddress(
 ): Promise<{ lat: number; lng: number; formattedAddress?: string } | null> {
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
   if (!apiKey || !address.trim()) return null;
-  if (GEOCODE_PLACEHOLDER_RE.test(address.trim())) return null;
+  if (isGeocodePlaceholder(address.trim())) return null;
 
   try {
     let url = `${GOOGLE_GEOCODE_BASE}?address=${encodeURIComponent(address)}&language=en&key=${apiKey}`;

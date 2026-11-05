@@ -790,10 +790,16 @@ describe("reconcileStaleEvents", () => {
         buildRawEvent({ date: c.date.toISOString().slice(0, 10), kennelTags: ["BoBBH3"] }),
       );
     }
+    /** groupBy result: this source backs the first `n` candidates. */
+    function ownBacked(n: number) {
+      return Array.from({ length: n }, (_, i) => ({ eventId: `evt_${i}` }));
+    }
 
-    it("blocks a pass that would cancel >10 events and >30% of candidates", async () => {
+    it("blocks a pass that would cancel >10 events and >30% of this source's candidates", async () => {
       mockEventFindMany.mockResolvedValueOnce(candidates(20) as never);
-      mockRawEventGroupBy.mockResolvedValueOnce([] as never);
+      mockRawEventGroupBy
+        .mockResolvedValueOnce([] as never) // other-source check: none
+        .mockResolvedValueOnce(ownBacked(20) as never); // denominator: all 20 are ours
 
       // Scrape still returns 5 of 20 → 15 sole-source orphans (75%).
       const result = await reconcileStaleEvents("src_1", scrapeFirst(5), 90);
@@ -802,6 +808,26 @@ describe("reconcileStaleEvents", () => {
       expect(result.cancelledEventIds).toEqual([]);
       expect(result.massCancelBlocked).toEqual({ wouldCancel: 15, candidatesExamined: 20 });
       expect(mockEventUpdateMany).not.toHaveBeenCalled();
+      // Denominator query is scoped to this source.
+      expect(mockRawEventGroupBy.mock.calls[1][0]).toMatchObject({ where: { sourceId: "src_1" } });
+    });
+
+    it("is not diluted by candidates only other sources supply", async () => {
+      // 100 CONFIRMED events in the kennel, but this source only backs 20 of
+      // them. Losing 15 of its own 20 is 75% — block — even though it is only
+      // 15% of everything in the kennel.
+      mockEventFindMany.mockResolvedValueOnce(candidates(100) as never);
+      mockRawEventGroupBy
+        .mockResolvedValueOnce(
+          // evt_15..evt_99 are backed by other sources → not sole-source orphans.
+          Array.from({ length: 85 }, (_, i) => ({ eventId: `evt_${15 + i}` })) as never,
+        )
+        .mockResolvedValueOnce(ownBacked(20) as never);
+
+      const result = await reconcileStaleEvents("src_1", [], 90);
+
+      expect(result.massCancelBlocked).toEqual({ wouldCancel: 15, candidatesExamined: 20 });
+      expect(result.cancelled).toBe(0);
     });
 
     it("applies the same pass when allowMassCancel is set", async () => {
@@ -815,9 +841,11 @@ describe("reconcileStaleEvents", () => {
       expect(result.cancelled).toBe(15);
       expect(result.massCancelBlocked).toBeUndefined();
       expect(mockEventUpdateMany).toHaveBeenCalledTimes(1);
+      // No denominator query when the operator overrode the breaker.
+      expect(mockRawEventGroupBy).toHaveBeenCalledTimes(1);
     });
 
-    it("lets small passes through even when they are a large share", async () => {
+    it("lets small passes through without the extra query", async () => {
       mockEventFindMany.mockResolvedValueOnce(candidates(12) as never);
       mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
@@ -826,11 +854,14 @@ describe("reconcileStaleEvents", () => {
 
       expect(result.cancelled).toBe(MASS_CANCEL_MIN);
       expect(result.massCancelBlocked).toBeUndefined();
+      expect(mockRawEventGroupBy).toHaveBeenCalledTimes(1);
     });
 
-    it("lets large passes through when they are a small share of a big source", async () => {
+    it("lets large passes through when they are a small share of the source", async () => {
       mockEventFindMany.mockResolvedValueOnce(candidates(100) as never);
-      mockRawEventGroupBy.mockResolvedValueOnce([] as never);
+      mockRawEventGroupBy
+        .mockResolvedValueOnce([] as never)
+        .mockResolvedValueOnce(ownBacked(100) as never);
 
       // 20 of 100 orphaned (20%) → under the fraction → applied.
       const result = await reconcileStaleEvents("src_1", scrapeFirst(80), 90);

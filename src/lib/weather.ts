@@ -212,7 +212,10 @@ export async function getWeatherForEvents(
     }
   }
 
-  // Fetch weather for each unique location (cap API calls to avoid quota exhaustion)
+  // Fetch weather for each unique location. The cap is on LOCATIONS (quota
+  // guard); fetchWeather may add one retry per location, but only after the
+  // first attempt's pooled socket was dropped with nothing read — so the hard
+  // ceiling is 2× this, and in practice retries are rare.
   const MAX_WEATHER_API_CALLS = 15;
   const result: Record<string, DailyWeather> = {};
   const entries = Array.from(locationGroups.values()).slice(0, MAX_WEATHER_API_CALLS);
