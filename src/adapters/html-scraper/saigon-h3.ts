@@ -53,7 +53,7 @@ const ISO_DATE_RE = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
 
 // The Name/Occasion cell is usually the run-TYPE (logistics), not a theme.
 // These normalized labels are dropped so merge.ts synthesizes the default title.
-const RUN_TYPE_TITLES = new Set(["bus trip/city run", "bus trip", "city run"]);
+const RUN_TYPE_TITLES = new Set(["bus trip", "city run", "bus run"]);
 
 // Maps links are validated against an https + host allowlist (mirrors
 // phnom-penh-h3.ts / kaohsiung-hash.ts; Codacy flags unvalidated variable URLs).
@@ -97,29 +97,27 @@ export function parseIsoDate(text: string): string | null {
   return d.toISOString().slice(0, 10);
 }
 
-/**
- * Normalize a Name/Occasion cell for run-type comparison: lowercase, collapse
- * inner whitespace, and trim whitespace around any "/" separator so both
- * "Bus Trip/City Run" and "Bus Trip / City Run" map to one canonical form.
- * Uses string ops (split/join) over a `\s*\/\s*` regex to avoid Sonar S5852.
- */
-function normalizeRunType(text: string): string {
-  return text
-    .toLowerCase()
-    .split("/")
-    .map((part) => part.replaceAll(/\s+/g, " ").trim())
-    .join("/");
+/** Collapse inner whitespace + trim one Name/Occasion token. */
+function normalizeToken(text: string): string {
+  return text.replaceAll(/\s+/g, " ").trim();
 }
 
 /**
  * Discriminate the Name/Occasion cell: keep it as a title only when it's a real
- * occasion/theme; drop the run-TYPE logistics labels (→ undefined) so merge.ts
- * synthesizes "Saigon H3 Trail #N".
+ * occasion/theme; drop the run-TYPE logistics labels so merge.ts synthesizes
+ * "Saigon H3 Trail #N". The cell is a "/"- or ","-separated list ("Bus Trip/City
+ * Run", "Bus Trip,City Run", "City Run,St Andrew's Day" — #2532): run-type tokens
+ * are dropped and any remaining occasion tokens are kept, in source order.
  */
 function discriminateTitle(text: string): string | undefined {
-  const title = text.replaceAll(/\s+/g, " ").trim();
-  if (!title || RUN_TYPE_TITLES.has(normalizeRunType(title))) return undefined;
-  return title;
+  const title = normalizeToken(text);
+  if (!title) return undefined;
+  const tokens = title.split(/[/,]/).map(normalizeToken).filter(Boolean);
+  const kept = tokens.filter((token) => !RUN_TYPE_TITLES.has(token.toLowerCase()));
+  if (kept.length === 0) return undefined;
+  // Nothing dropped → keep the source string verbatim (an occasion may itself contain "," or "/").
+  if (kept.length === tokens.length) return title;
+  return kept.join(", ");
 }
 
 /**
