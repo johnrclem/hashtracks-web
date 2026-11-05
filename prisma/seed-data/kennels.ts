@@ -6273,6 +6273,27 @@ export const KENNELS: KennelSeed[] = [
       longitude: 33.6333,
     },
     {
+      kennelCode: "dh3-cy", // bare "dh3" is Dublin H3
+      shortName: "Dhekelia H3",
+      fullName: "Dhekelia Hash House Harriers",
+      region: "Larnaca",
+      country: "Cyprus",
+      website: "https://dhekelia-h3.com/",
+      foundedYear: 1967, // home page: "January 30th 1967 founded by Ray Thornton"
+      scheduleDayOfWeek: "Wednesday",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Every Wednesday regardless of the weather; 4 PM in winter, 6 PM in summer.",
+      hashCash: "€3", // home page: "Current Hash fees/subs are €3,- per person"
+      walkersWelcome: true, // "You can walk or run … approx 4K for walkers and 8K for runners"
+      logoUrl: "/kennel-logos/dh3-cy.png", // self-hosted WP upload (PNG 293x300; magic bytes confirmed)
+      description:
+        "Dhekelia Hash House Harriers, founded 30 January 1967 at Dhekelia Garrison — the first hash in Cyprus " +
+        "and self-styled 'Europe's oldest hash'. Meets every Wednesday around the Larnaca district for about an " +
+        "hour (~4K walkers / 8K runners), followed by a beer and nibbles.",
+      latitude: 34.982, // Dhekelia Garrison
+      longitude: 33.758,
+    },
+    {
       kennelCode: "sierra-h4", // grep-clean; first Sierra Leone kennel
       shortName: "Sierra H4",
       fullName: "Sierra Hash House Harriers and Harriettes",

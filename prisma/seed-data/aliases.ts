@@ -717,6 +717,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "sh2b": ["SH2B", "Seattle Hash House Bikers", "Hash Bikers WA", "Seattle Bike Hash"],
     // ===== CYPRUS ===== (bare "LH3" OMITTED — London H3)
     "lh3-cy": ["Larnaca H3", "Larnaca HHH", "Larnaca Hash House Harriers", "LH3-CY"],
+    // bare "DH3" OMITTED — Dublin / Dallas / Denver / Desert
+    "dh3-cy": ["Dhekelia H3", "Dhekelia HHH", "Dhekelia Hash House Harriers", "Dhekelia Hash", "DH3-CY"],
     // bare "SHHH"/"SHH3" OMITTED — taken by sech3/sgharriets; bare "H4" OMITTED — taken by Hangover H3.
     "sierra-h4": ["Sierra Hash", "Sierra HHH", "Sierra Hash House Harriers", "Sierra Hash House Harriers and Harriettes", "Sierra H4 Freetown"],
     // ===== CONFIG BATCH C =====
