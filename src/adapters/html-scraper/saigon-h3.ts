@@ -53,7 +53,7 @@ const ISO_DATE_RE = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
 
 // The Name/Occasion cell is usually the run-TYPE (logistics), not a theme.
 // These normalized labels are dropped so merge.ts synthesizes the default title.
-const RUN_TYPE_TITLES = new Set(["bus trip", "city run", "bus run"]);
+const RUN_TYPE_TITLES = new Set(["bus trip", "city run"]);
 
 // Maps links are validated against an https + host allowlist (mirrors
 // phnom-penh-h3.ts / kaohsiung-hash.ts; Codacy flags unvalidated variable URLs).
