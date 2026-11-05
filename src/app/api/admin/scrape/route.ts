@@ -10,10 +10,12 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { sourceId, days, force } = body as {
+  const { sourceId, days, force, allowMassCancel } = body as {
     sourceId: string;
     days?: number;
     force?: boolean;
+    /** Apply reconcile cancellations even if they trip the mass-cancel circuit breaker. */
+    allowMassCancel?: boolean;
   };
 
   if (!sourceId) {
@@ -24,7 +26,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await scrapeSource(sourceId, { days, force });
+    const result = await scrapeSource(sourceId, {
+      days,
+      force,
+      allowMassCancel: allowMassCancel === true,
+    });
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(

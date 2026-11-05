@@ -434,6 +434,32 @@ describe("regime-aware baseline (#1115)", () => {
   });
 });
 
+describe("EXCESSIVE_CANCELLATIONS — mass-cancel circuit breaker", () => {
+  it("raises a CRITICAL blocked alert even without a baseline", async () => {
+    mockScrapeLogFind.mockReset();
+    mockScrapeLogFind
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+    mockScrapeLogFindFirst.mockResolvedValueOnce({ id: "log_old" } as never);
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      currentConfigHash: "new-config",
+      cancelledCount: 0,
+      massCancelBlocked: { wouldCancel: 89, candidatesExamined: 120 },
+    }));
+
+    const alert = result.alerts.find((a) => a.type === "EXCESSIVE_CANCELLATIONS");
+    expect(alert?.severity).toBe("CRITICAL");
+    expect(alert?.title).toContain("89 of 120");
+    expect(alert?.context).toEqual({ blocked: true, wouldCancel: 89, candidatesExamined: 120 });
+  });
+
+  it("does not raise the blocked alert when the breaker did not trip", async () => {
+    const result = await analyzeHealth("src_1", "log_1", baseInput({ cancelledCount: 0 }));
+    expect(result.alerts.find((a) => a.type === "EXCESSIVE_CANCELLATIONS")).toBeUndefined();
+  });
+});
+
 describe("RECONCILE_SUPPRESSED alerts", () => {
   it("does not check or alert when reconcile did not run", async () => {
     const result = await analyzeHealth("src_1", "log_1", baseInput({

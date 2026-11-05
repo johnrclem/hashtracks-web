@@ -29,6 +29,21 @@ const AUTO_FILE_ALERT_TYPES = new Set([
   "RECONCILE_SUPPRESSED",
 ]);
 
+/**
+ * Whether an alert should be auto-filed as a GitHub issue. EXCESSIVE_CANCELLATIONS
+ * is only eligible when the reconcile circuit breaker *blocked* the pass
+ * (`context.blocked`) — the post-hoc variant stays dashboard-only to avoid noise.
+ */
+function isAutoFileType(type: string, context: unknown): boolean {
+  if (AUTO_FILE_ALERT_TYPES.has(type)) return true;
+  return (
+    type === "EXCESSIVE_CANCELLATIONS" &&
+    typeof context === "object" &&
+    context !== null &&
+    (context as { blocked?: unknown }).blocked === true
+  );
+}
+
 /** Severities eligible for automatic issue filing. */
 const AUTO_FILE_SEVERITIES = new Set(["CRITICAL", "WARNING"]);
 
@@ -115,6 +130,9 @@ export function buildRelevantFiles(alertType: string, sourceType: string, source
     case "RECONCILE_SUPPRESSED":
       files.push("src/pipeline/reconcile.ts", "src/lib/date.ts");
       break;
+    case "EXCESSIVE_CANCELLATIONS":
+      files.push("src/pipeline/reconcile.ts", "prisma/seed-data/sources.ts");
+      break;
   }
 
   return [...new Set(files)]; // deduplicate
@@ -157,6 +175,8 @@ function buildContextSection(alertType: string, ctx: Record<string, unknown> | n
       const kennelList = kennels.map((k: string) => "- `" + k + "`").join("\n");
       return `### Suppressed Kennels\n${kennelList}\n\nReconciliation skipped stale-event cancellation for these kennel IDs because the adapter emitted unparseable dates. Stale CONFIRMED events will not be cancelled until dates parse cleanly again.`;
     }
+    case "EXCESSIVE_CANCELLATIONS":
+      return `### Blocked Cancellations\n- **Would cancel:** ${ctx.wouldCancel ?? "?"} events\n- **In-window CONFIRMED candidates:** ${ctx.candidatesExamined ?? "?"}\n\nThe reconcile mass-cancel circuit breaker refused this pass, so nothing was cancelled. The source keeps re-tripping it on every scrape until the cause is fixed.`;
     default:
       return "";
   }
@@ -192,6 +212,8 @@ function buildSuggestedApproach(alertType: string, ctx: Record<string, unknown> 
       return "Add the SourceKennel link if the source legitimately provides events for that kennel, or update the adapter to produce the correct tag.";
     case "RECONCILE_SUPPRESSED":
       return "Inspect adapter output for the listed kennels — the date field is failing `toIsoDateString`. Typical causes: unexpected date formats, timezone-only strings, or missing dates. Fix the parser so every emitted row has a valid UTC date.";
+    case "EXCESSIVE_CANCELLATIONS":
+      return "Compare the adapter's fetch window with the reconcile window. Common causes: a forward-only adapter whose source config lacks `upcomingOnly: true` (reconcile then cancels every past event in the trailing window), an INTERVAL>1 STATIC_SCHEDULE without `anchorDate` (parity flips each scrape), or a partially-rendered/blocked page returning a subset of events. If the removal is genuine, an operator re-scrape with `allowMassCancel` applies it.";
     default:
       return "Investigate the alert context and relevant files.";
   }
@@ -483,7 +505,7 @@ export async function autoFileIssuesForAlerts(
     }
 
     // Only auto-file for eligible types and severities
-    if (!AUTO_FILE_ALERT_TYPES.has(alert.type) || !AUTO_FILE_SEVERITIES.has(alert.severity)) {
+    if (!isAutoFileType(alert.type, alert.context) || !AUTO_FILE_SEVERITIES.has(alert.severity)) {
       skipped++;
       continue;
     }

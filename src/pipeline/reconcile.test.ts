@@ -15,7 +15,11 @@ vi.mock("./kennel-resolver", () => ({
 
 import { prisma } from "@/lib/db";
 import { resolveKennelTag } from "./kennel-resolver";
-import { reconcileStaleEvents } from "./reconcile";
+import {
+  reconcileStaleEvents,
+  shouldBlockMassCancel,
+  MASS_CANCEL_MIN,
+} from "./reconcile";
 
 const mockSourceKennelFind = vi.mocked(prisma.sourceKennel.findMany);
 const mockEventFindMany = vi.mocked(prisma.event.findMany);
@@ -770,5 +774,96 @@ describe("reconcileStaleEvents", () => {
     expect(result.kennelsInScope).toBe(0);
     expect(result.totalLinkedKennels).toBe(1);
     expect(mockEventFindMany).not.toHaveBeenCalled();
+  });
+
+  describe("mass-cancel circuit breaker", () => {
+    /** N weekly CONFIRMED candidates for kennel_1 starting 2026-01-03. */
+    function candidates(n: number) {
+      return Array.from({ length: n }, (_, i) => {
+        const d = new Date(Date.UTC(2026, 0, 3 + i * 7, 12));
+        return mockEvent(`evt_${i}`, "kennel_1", d.toISOString().slice(0, 10));
+      });
+    }
+    /** Scrape returning only the first `kept` candidate dates. */
+    function scrapeFirst(kept: number) {
+      return candidates(kept).map((c) =>
+        buildRawEvent({ date: c.date.toISOString().slice(0, 10), kennelTags: ["BoBBH3"] }),
+      );
+    }
+
+    it("blocks a pass that would cancel >10 events and >30% of candidates", async () => {
+      mockEventFindMany.mockResolvedValueOnce(candidates(20) as never);
+      mockRawEventGroupBy.mockResolvedValueOnce([] as never);
+
+      // Scrape still returns 5 of 20 → 15 sole-source orphans (75%).
+      const result = await reconcileStaleEvents("src_1", scrapeFirst(5), 90);
+
+      expect(result.cancelled).toBe(0);
+      expect(result.cancelledEventIds).toEqual([]);
+      expect(result.massCancelBlocked).toEqual({ wouldCancel: 15, candidatesExamined: 20 });
+      expect(mockEventUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it("applies the same pass when allowMassCancel is set", async () => {
+      mockEventFindMany.mockResolvedValueOnce(candidates(20) as never);
+      mockRawEventGroupBy.mockResolvedValueOnce([] as never);
+
+      const result = await reconcileStaleEvents(
+        "src_1", scrapeFirst(5), 90, undefined, false, { allowMassCancel: true },
+      );
+
+      expect(result.cancelled).toBe(15);
+      expect(result.massCancelBlocked).toBeUndefined();
+      expect(mockEventUpdateMany).toHaveBeenCalledTimes(1);
+    });
+
+    it("lets small passes through even when they are a large share", async () => {
+      mockEventFindMany.mockResolvedValueOnce(candidates(12) as never);
+      mockRawEventGroupBy.mockResolvedValueOnce([] as never);
+
+      // 10 of 12 orphaned (83%) but at the absolute floor → not blocked.
+      const result = await reconcileStaleEvents("src_1", scrapeFirst(2), 90);
+
+      expect(result.cancelled).toBe(MASS_CANCEL_MIN);
+      expect(result.massCancelBlocked).toBeUndefined();
+    });
+
+    it("lets large passes through when they are a small share of a big source", async () => {
+      mockEventFindMany.mockResolvedValueOnce(candidates(100) as never);
+      mockRawEventGroupBy.mockResolvedValueOnce([] as never);
+
+      // 20 of 100 orphaned (20%) → under the fraction → applied.
+      const result = await reconcileStaleEvents("src_1", scrapeFirst(80), 90);
+
+      expect(result.cancelled).toBe(20);
+      expect(result.massCancelBlocked).toBeUndefined();
+    });
+
+    it("counts only sole-source orphans toward the breaker", async () => {
+      mockEventFindMany.mockResolvedValueOnce(candidates(20) as never);
+      // 15 orphans, but 10 have another source → only 5 would be cancelled.
+      mockRawEventGroupBy.mockResolvedValueOnce(
+        Array.from({ length: 10 }, (_, i) => ({ eventId: `evt_${5 + i}` })) as never,
+      );
+
+      const result = await reconcileStaleEvents("src_1", scrapeFirst(5), 90);
+
+      expect(result.cancelled).toBe(5);
+      expect(result.multiSourcePreserved).toBe(10);
+      expect(result.massCancelBlocked).toBeUndefined();
+    });
+  });
+
+  describe("shouldBlockMassCancel", () => {
+    it.each([
+      [10, 10, false], // at the floor
+      [11, 20, true], // 55%
+      [11, 40, false], // 27.5%
+      [31, 100, true], // 31%
+      [30, 100, false], // exactly 30% is allowed
+      [0, 0, false],
+    ])("wouldCancel=%i of %i → %s", (wouldCancel, candidates, expected) => {
+      expect(shouldBlockMassCancel(wouldCancel, candidates)).toBe(expected);
+    });
   });
 });
