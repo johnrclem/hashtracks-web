@@ -240,10 +240,23 @@ async function fetchDetailFields(url: string): Promise<BaliDetailFields | null> 
   }
 }
 
+/**
+ * Drop a sponsor blurb the committee sometimes pastes after the venue
+ * ("Puspem Payangan, Gianyar. Sponsors - BALIMOON & …", #2535) so only the
+ * geocodable venue reaches `locationName`.
+ */
+export function stripSponsorBlurb(location: string | undefined): string | undefined {
+  if (!location) return undefined;
+  const idx = location.search(/\bsponsor(?:s|ed)?\b/i);
+  if (idx === -1) return location;
+  const venue = location.slice(0, idx).replace(/[\s.,;:\-\u2013\u2014]+$/, "").trim();
+  return venue.length >= 2 ? venue : undefined;
+}
+
 /** Combine a listing entry with optional detail-page enrichment into a
  *  RawEventData. Exported so the one-shot history backfill shares it. */
 export function buildEvent(entry: BaliListingEntry, detail: BaliDetailFields | null): RawEventData {
-  const location = detail?.location ?? entry.location;
+  const location = stripSponsorBlurb(detail?.location ?? entry.location);
   const event: RawEventData = {
     date: entry.date!,
     kennelTags: [KENNEL_TAG],

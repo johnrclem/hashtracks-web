@@ -6,6 +6,7 @@ import {
   parseDetailFields,
   dedupeByRunNumber,
   buildEvent,
+  stripSponsorBlurb,
   BaliHash2Adapter,
 } from "./bali-hash-2";
 import * as safeFetchModule from "../safe-fetch";
@@ -204,6 +205,23 @@ describe("buildEvent", () => {
     const event = buildEvent(entry, parseDetailFields(DETAIL_FIXTURE));
     expect(event.title).toBeUndefined();
     expect(event.location).toBe("Pura Pekemitan / Prajapati, Kediri, Tabanan");
+  });
+
+  it("drops a sponsor blurb pasted after the venue (#2535)", () => {
+    const html = THEMED_DETAIL_FIXTURE.replace(
+      "Location: Pohen Hill Camp, Candikuning, Tabanan",
+      "Location: Puspem Payangan, Gianyar. Sponsors - BALIMOON &amp; MOBA Sausages, Go Figure",
+    );
+    const event = buildEvent(entry, parseDetailFields(html));
+    expect(event.location).toBe("Puspem Payangan, Gianyar");
+    expect(event.locationUrl).toContain("Puspem%20Payangan%2C%20Gianyar");
+  });
+
+  it("stripSponsorBlurb keeps plain venues and drops a sponsor-only value", () => {
+    expect(stripSponsorBlurb("Kampung Wisata Timbul")).toBe("Kampung Wisata Timbul");
+    expect(stripSponsorBlurb("Puspem Payangan, Gianyar. Sponsors -")).toBe("Puspem Payangan, Gianyar");
+    expect(stripSponsorBlurb("Sponsors - BALIMOON")).toBeUndefined();
+    expect(stripSponsorBlurb(undefined)).toBeUndefined();
   });
 
   it("leaves title undefined for a listing-only entry (no detail page)", () => {
