@@ -22,6 +22,27 @@ describe("parseSevenHillsPage", () => {
     });
   });
 
+  it("parses the Nov 2026 layout: 'Where:' location, 'Beermeister:', 'Dog Friendly?'", () => {
+    // Real markup curl'd from sites.google.com/view/7h4/home on 2026-11-05
+    // (styling attributes stripped). Each field is its own <p>, so cheerio's
+    // .text() glues "Hares: Jammer & Pink" directly onto "Where: …" — before
+    // this fix the whole address landed in `hares` and `location` was empty.
+    const html =
+      "<html><body><p><span>Trail 2040</span></p><p><span>When: November 1, 2026 2:30pm</span></p>" +
+      "<p><span>Hares: Jammer &amp; Pink</span></p><p><span>Where: 1303 Gates Street Lynchburg VA 24502</span></p>" +
+      "<p><span>Cost: $5</span></p><p><span>Beermeister: yes</span></p><p><span>Shiggy Level: 1.69</span></p>" +
+      "<p><span>Dog Friendly? No</span></p><p><span>Special Instructions: </span></p>" +
+      "<p><span>*Its Pinks birthday! Bring a Dish to share (chicken provided)</span></p>" +
+      "<p><span>**2 Drink Stops</span></p><h2><span>HARE LINEUP</span></h2></body></html>";
+    expect(parseSevenHillsPage(html)).toMatchObject({
+      runNumber: 2040,
+      date: expect.stringMatching(/^\d{4}-11-01$/),
+      startTime: "14:30",
+      hares: "Jammer & Pink",
+      location: "1303 Gates Street Lynchburg VA 24502",
+    });
+  });
+
   it("parses the live layout (#2663): 'Trail N' with no '#', no day-name, no '@' before the time", () => {
     // Captured live from sites.google.com/view/7h4/home on 2026-08-13 after
     // the site dropped the "#", the leading day-of-week, and the "@" before

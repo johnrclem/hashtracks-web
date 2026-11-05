@@ -36,7 +36,13 @@ const TRAIL_NUMBER_RE = /TRAIL[\s#]*(\d+)/i;
 /** Day names used for injecting a split before the date phrase. */
 const DATE_SPLIT_RE = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)/g;
 /** Known field labels on the 7H4 page that need a preceding newline so value regexes don't run past them. */
-const FIELD_LABEL_SPLIT_RE = /(When:|Start:|Hares?:|Beer\s*Meister:|Cost:|Shiggy\s*Level:|Special\s*Instructions:|On[\s-]*On)/g;
+const FIELD_LABEL_SPLIT_RE = /(When:|Start:|Hares?:|Beer\s*[Mm]eister:|Cost:|Shiggy\s*Level:|Special\s*Instructions:|On[\s-]*On)/g;
+/** Labels added by the Nov 2026 layout ("Where:" replaced "Start:", plus a
+ *  "Dog Friendly?" line). Kept as a second pass rather than widening
+ *  FIELD_LABEL_SPLIT_RE so each regex stays under Sonar's complexity budget
+ *  (S5843). Without these, "Hares: Jammer & Pink" ran straight into
+ *  "Where: 1303 Gates Street…" and the address landed in `hares`. */
+const FIELD_LABEL_SPLIT_EXTRA_RE = /(Where:|Dog\s*Friendly\??)/g;
 /** "August 12, 2026" (live layout as of #2663, verified 2026-08-13 — the
  *  site dropped the leading day-of-week the older "Saturday April 4, 2026"
  *  layout had). Matches ONLY the month/day/year — the optional leading
@@ -63,8 +69,10 @@ const DAY_NAME_SUFFIX_RE = /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday
 const TIME_AT_RE = /[@\s]*(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)/i;
 /** "Hares: Frodo & Snatch" — up to the next line / label / EOD. */
 const HARES_RE = /Hares?:\s*([^\n]+)/i;
-/** "Start: 442 S Five Forks Road Monroe, VA" — up to the next line / label / EOD. */
-const START_RE = /Start:\s*([^\n]+)/i;
+/** "Start: 442 S Five Forks Road Monroe, VA" (older layout) or "Where: 1303
+ *  Gates Street Lynchburg VA 24502" (Nov 2026 layout) — up to the next line /
+ *  label / EOD. */
+const START_RE = /(?:Start|Where):\s*([^\n]+)/i;
 
 interface ParsedTrail {
   runNumber?: number;
@@ -87,6 +95,7 @@ export function parseSevenHillsPage(html: string): ParsedTrail | null {
   const bodyText = decodeEntities($("body").text())
     .replaceAll(/\s+/g, " ")
     .replaceAll(FIELD_LABEL_SPLIT_RE, "\n$1")
+    .replaceAll(FIELD_LABEL_SPLIT_EXTRA_RE, "\n$1")
     .replaceAll(DATE_SPLIT_RE, "\n$1")
     .trim();
 
