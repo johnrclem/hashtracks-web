@@ -6310,6 +6310,28 @@ export const KENNELS: KennelSeed[] = [
       // hashCash / instagramHandle / twitterHandle / walkersWelcome: unverified — omitted (flagged)
     },
     {
+      // bare "tvh3" is clear (Burlington VT's "BTVH3" alias is unrelated). shortName kept >4 chars so
+      // the synthesized title reads "Teign Valley H3 Trail #N".
+      kennelCode: "tvh3",
+      shortName: "Teign Valley H3",
+      fullName: "Teign Valley Hash House Harriers",
+      region: "Torbay",
+      country: "UK",
+      website: "https://www.teignvalleyh3.com",
+      facebookUrl: "https://www.facebook.com/groups/11332464730",
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "7:15 PM", // 12-hr seed convention; adapter startTime stays 24-hr "19:15"
+      scheduleFrequency: "Weekly",
+      walkersWelcome: true,
+      description:
+        "The 'Party Hash' of South Devon — runs from pubs all over Torbay, Dartmoor and the Teign Valley " +
+        "every Monday evening at 7:15pm. Trails marked with flour, chalk or sawdust; typically 3-6 miles " +
+        "with short/long options or a leisurely walk; all abilities welcome. First run free.",
+      latitude: 50.4619,
+      longitude: -3.5253,
+      // foundedYear / hashCash / logoUrl / dogFriendly: unverified on the live site (2026-11-05) — omitted
+    },
+    {
       // bare "mh3" globally taken (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai); mh3-gb
       // reserved by Manchester H3 (shipped) → city-based
       kennelCode: "mickleover-h3",
