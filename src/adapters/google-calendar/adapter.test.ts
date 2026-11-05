@@ -369,6 +369,27 @@ describe("Oregon Hashing Calendar multi-kennel routing (#1023 step 4)", () => {
     expect(result?.kennelTags).toEqual(["cch3-or", "oh3"]);
   });
 
+  it.each([
+    "Saturday Oct 9th OH3 # 1207 Fucked Bi Tree!",
+    "Wednesday OCT 20th OH3 #1208 Full Moon/Hump Hash combo Quarentini Houdini!",
+    "#1157 OH3 Fucked Bi Tree",
+    "XXX-MAS IN JULY PH4 #1113 / OH3 #1235 Full Moon Combo Hash!",
+  ])("routes date-prefixed / run-first OH3 title %j to oh3", (summary) => {
+    const result = buildRawEventFromGCalItem(
+      { summary, start: { dateTime: "2021-10-09T12:30:00-07:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags).toEqual(["oh3"]);
+  });
+
+  it("keeps TGIF/OH3 joint pub crawls on tgif", () => {
+    const result = buildRawEventFromGCalItem(
+      { summary: "TGIF OH3 #1302 Full Moon at The Bear Paw!", start: { dateTime: "2024-06-21T18:30:00-07:00" }, status: "confirmed" },
+      config,
+    );
+    expect(result?.kennelTags).toEqual(["tgif"]);
+  });
+
   it("emits a single tag for OH3-only titles (single-tag pattern still wins)", () => {
     const result = buildRawEventFromGCalItem(
       { summary: "OH3 #1342: Wednesday Trail", start: { dateTime: "2025-07-23T18:30:00-07:00" }, status: "confirmed" },

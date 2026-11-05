@@ -3029,6 +3029,12 @@ export const SOURCES = [
           // Leading emoji/punctuation is common ("🍀OH3 #1185", "🌕 OH3 #1187").
           ["^[^A-Za-z0-9]*OH3\\b|OH3 Full Moon", "oh3"],
           ["TGIF|Friday.*Pubcrawl", "tgif"],
+          // Numbered OH3 runs whose summary starts with a weekday/date
+          // ("Saturday Oct 9th OH3 # 1207 …", "#1157 OH3 …"). The anchored OH3
+          // pattern above misses them and strict routing dropped ~40 real runs.
+          // Placed after TGIF so TGIF/OH3 joint pub crawls stay tgif, and before
+          // the siblings (a full-archive diff showed no routed event changes).
+          [String.raw`\bOH3\s*#\s*\d|#\s*\d+\s+OH3\b`, "oh3"],
           ["Cherry City|Cherry Cherry City", "cch3-or"],
           // Sibling Oregon kennels cross-posted here. Each has its own calendar
           // (trust 8) that only reaches back to 2024-2025; this aggregator holds
