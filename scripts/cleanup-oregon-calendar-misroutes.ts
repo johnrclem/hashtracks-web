@@ -28,6 +28,7 @@
 import "dotenv/config";
 import { prisma } from "@/lib/db";
 import { SOURCES } from "../prisma/seed-data/sources";
+import { compilePatterns } from "@/adapters/utils";
 import {
   compileKennelPatterns,
   matchCompiledKennelPatterns,
@@ -93,7 +94,8 @@ async function main() {
   const defaultTag = seed.config.defaultKennelTag;
   if (!defaultTag) throw new Error(`Seed config for "${SOURCE_NAME}" has no defaultKennelTag`);
   const compiled = compileKennelPatterns(seed.config.kennelPatterns);
-  const skips = (seed.config.skipPatterns ?? []).map((p) => new RegExp(p)); // NOSONAR — trusted seed config strings
+  // Same compiler + flags the GCal adapter uses for skipPatterns.
+  const skips = compilePatterns(seed.config.skipPatterns ?? [], "i");
 
   const source = await prisma.source.findFirst({ where: { name: SOURCE_NAME, type: "GOOGLE_CALENDAR" }, select: { id: true } });
   if (!source) throw new Error(`Source "${SOURCE_NAME}" not found`);

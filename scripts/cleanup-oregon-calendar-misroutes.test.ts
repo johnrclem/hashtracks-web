@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 
 import { compileKennelPatterns } from "@/adapters/kennel-patterns";
+import { compilePatterns } from "@/adapters/utils";
 import { SOURCES } from "../prisma/seed-data/sources";
 import { classify, routeTitle, type Candidate } from "./cleanup-oregon-calendar-misroutes";
 
@@ -11,7 +12,7 @@ const seed = (SOURCES as unknown as Array<{ name: string; config: Record<string,
 );
 const cfg = seed?.config as { kennelPatterns: never; skipPatterns: string[]; defaultKennelTag: string; strictKennelRouting: boolean };
 const compiled = compileKennelPatterns(cfg.kennelPatterns);
-const skips = cfg.skipPatterns.map((p) => new RegExp(p));
+const skips = compilePatterns(cfg.skipPatterns, "i");
 const ev = (titles: string[], overrides: Partial<Candidate> = {}): Candidate => ({
   id: "e1",
   kennelCode: "oh3",
