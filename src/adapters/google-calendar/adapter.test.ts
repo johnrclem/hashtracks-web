@@ -393,9 +393,10 @@ describe("Oregon Hashing Calendar multi-kennel routing (#1023 step 4)", () => {
     expect(result?.kennelTags).toEqual(["tgif"]);
   });
 
-  // #1867 — Kahuna (okh3) cross-posts onto the Oregon aggregate but has its own
-  // dedicated calendar source, so it's dropped here via skipPatterns (same
-  // precedent as No Name H3). Compile the seed skip patterns and pass them in.
+  // #1867 used to drop Kahuna cross-posts via skipPatterns. Since the Nov 2026
+  // sibling-routing change they route to okh3 instead (merge dedupes against
+  // Kahuna's own calendar by kennel+date). Any remaining seed skipPatterns are
+  // still compiled and passed so these cases mirror production.
   const skipCfg = oregonSource.config as { skipPatterns?: string[] };
   const compiledSkipPatterns = compilePatterns(skipCfg.skipPatterns ?? [], "i");
 
@@ -406,13 +407,13 @@ describe("Oregon Hashing Calendar multi-kennel routing (#1023 step 4)", () => {
     "Kah-Two-Na",
     "Katuna: Hate Crime",
     "Ka-Three-Na H3 - Gayzelle",
-  ])("skips Kahuna/okh3 cross-post %j", (summary) => {
+  ])("routes Kahuna cross-post %j to okh3", (summary) => {
     const result = buildRawEventFromGCalItem(
       { summary, start: { dateTime: "2025-07-07T18:30:00-07:00" }, status: "confirmed" },
       config,
       { compiledSkipPatterns },
     );
-    expect(result).toBeNull();
+    expect(result?.kennelTags).toEqual(["okh3"]);
   });
 
   it("does NOT skip a joint trail led by the local kennel (anchored)", () => {

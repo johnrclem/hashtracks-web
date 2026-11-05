@@ -3030,6 +3030,20 @@ export const SOURCES = [
           ["^[^A-Za-z0-9]*OH3\\b|OH3 Full Moon", "oh3"],
           ["TGIF|Friday.*Pubcrawl", "tgif"],
           ["Cherry City|Cherry Cherry City", "cch3-or"],
+          // Sibling Oregon kennels cross-posted here. Each has its own calendar
+          // (trust 8) that only reaches back to 2024-2025; this aggregator holds
+          // their 2018+ history. OH3 stays first so OH3-led joint trails
+          // ("OH3 #1336 / Kahuna combo") remain on oh3. Bare "SH3" is NOT routed:
+          // Stumptown ("SH3 #407") and Salem ("SH3 1st Analversary") both use it.
+          ["^[^A-Za-z0-9]*(?:EH3|EH2)\\b|Eugene (?:H3|Hash|Tutu)", "eh3-or"],
+          ["^[^A-Za-z0-9]*(?:Stumptown|Stumptowm|StumpH3)\\b", "stumph3"],
+          ["Dead Whores|^[^A-Za-z0-9]*DWH(?:3|ash)?\\b", "dwh3"],
+          ["Central Oregon|^[^A-Za-z0-9]*COH3\\b", "coh3"],
+          ["^[^A-Za-z0-9]*SWH3\\b", "swh3-or"],
+          ["^[^A-Za-z0-9]*(?:OKH3|Oregon Kahuna|Kahuna|Ka3na|Katuna|Kah-Two-Na|Ka-Three-Na)\\b", "okh3"],
+          ["^[^A-Za-z0-9]*(?:PH4|Portland Humpin)", "ph4"],
+          ["^[^A-Za-z0-9]*(?:N2H3|NNH3|No Name)\\b", "n2h3"],
+          ["^[^A-Za-z0-9]*SalemH3\\b|Salem H3", "salemh3"],
         ],
         defaultKennelTag: "oh3",
         // Drop anything matching no pattern. This is a regional aggregator:
@@ -3041,26 +3055,9 @@ export const SOURCES = [
         // backfill surfaced ~1,090 misrouted rows back to 2018. Each sibling
         // has (or should get) its own source.
         strictKennelRouting: true,
-        // Drop sibling-kennel events that leak into this shared aggregator and
-        // already have their own dedicated calendar source, so they don't get
-        // dumped into the OH3 default bucket (cross-kennel misattribution):
-        //   - N2H3 / NNH3 → No Name H3 Calendar (trust 8). Closes #584.
-        //   - Kahuna / Ka3na / Katuna / Kah-Two-Na / Ka-Three-Na → Kahuna H3
-        //     Calendar (okh3, trust 8). The Oregon feed cross-posts Kahuna's
-        //     Monday runs ("Kahuna H3 #815 …", "Kahuna pick up hash!", etc.)
-        //     which were landing on oh3. #1867.
-        // Anchored so joint co-host titles led by the local kennel ("OH3 #1336
-        // / Kahuna combo") are NOT skipped — they stay on oh3.
-        skipPatterns: [
-          String.raw`^NNH3\b`,
-          String.raw`^N2H3\b`,
-          String.raw`^No Name\b`,
-          String.raw`^Kahuna\b`,
-          String.raw`^Ka3na\b`,
-          String.raw`^Katuna\b`,
-          String.raw`^Kah-Two-Na\b`,
-          String.raw`^Ka-Three-Na\b`,
-        ],
+        // N2H3 and Kahuna used to be skipPatterns (#584, #1867); they are now
+        // routed to n2h3 / okh3 above, and merge dedupes against their own
+        // calendars by (kennel, date).
         // #1868: hares appear in the title suffix ("OH3 #1370 Boner Spur!",
         // "OH3 #1366 w/ Mouthful") for events whose description has no "Who:"
         // line (which DEFAULT_HARE_PATTERNS already handles). First pattern:
@@ -3073,7 +3070,7 @@ export const SOURCES = [
           String.raw`^OH3(?:\s+Full Moon)?\s*#\s*\d+\s+([^/#!]+)!*\s*$`,
         ],
       },
-      kennelCodes: ["oh3", "tgif", "cch3-or"],
+      kennelCodes: ["oh3", "tgif", "cch3-or", "eh3-or", "stumph3", "dwh3", "coh3", "swh3-or", "okh3", "ph4", "n2h3", "salemh3"],
     },
     // --- Individual kennel calendars ---
     {
