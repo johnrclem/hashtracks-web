@@ -3528,7 +3528,7 @@ export const KENNELS: KennelSeed[] = [
       hashCash: "NT$200 men / NT$150 women / NT$50 youth (6–17); women bringing a man free",
       logoUrl: "/kennel-logos/nth3-tw.jpg",
       facebookUrl: "https://www.facebook.com/groups/NewTaipeiHash/",
-      website: "http://www.newtaipeihash.com",
+      website: "https://nth3.taipeihash.com.tw/",
       // latitude/longitude omitted — Taipei METRO centroid drives the map.
     },
     {
@@ -5009,7 +5009,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "bth3", shortName: "BTH3", fullName: "Bangkok Thursday Hash House Harriers",
       region: "Bangkok", country: "Thailand",
-      website: "https://www.bangkokhash.com/thursday/index.php",
+      website: "https://bangkokhash.com/thursday/",
       facebookUrl: "https://www.facebook.com/groups/bangkokthursdayhash",
       contactEmail: "bkkth3@gmail.com",
       scheduleDayOfWeek: "Thursday", scheduleFrequency: "Weekly",
@@ -5037,7 +5037,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "bfmh3", shortName: "BFMH3", fullName: "Bangkok Full Moon Hash House Harriers",
       region: "Bangkok", country: "Thailand",
-      website: "https://www.bangkokhash.com/fullmoon/index.php",
+      website: "https://bangkokhash.com/fullmoon/",
       scheduleDayOfWeek: "Friday", scheduleFrequency: "Monthly",
       scheduleTime: "6:30 PM",
       scheduleNotes: "Monthly Friday closest to full moon. Bring a torch. Run fee 60 baht. Near BTS/MRT stations, BYO beer.",
@@ -5049,7 +5049,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "s2h3", shortName: "S2H3", fullName: "Siam Sunday Hash House Harriers",
       region: "Bangkok", country: "Thailand",
-      website: "https://www.bangkokhash.com/siamsunday/index.php",
+      website: "https://bangkokhash.com/siamsunday/",
       logoUrl: "/kennel-logos/s2h3.jpg",
       facebookUrl: "https://www.facebook.com/SiamSundayHashHouseHarriers",
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Biweekly",

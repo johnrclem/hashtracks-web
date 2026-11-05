@@ -1,66 +1,76 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
-import { hasAnyErrors } from "../types";
+import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { safeFetch } from "../safe-fetch";
+import { USER_AGENT as BROWSER_UA } from "../constants";
 import {
   applyDateWindow,
   chronoParseDate,
   decodeEntities,
+  extractHashRunNumber,
   fetchHTMLPage,
   HARE_BOILERPLATE_RE,
   normalizeHaresField,
+  parse12HourTime,
   stripHtmlTags,
 } from "../utils";
 
 /**
- * Bangkok Hash (bangkokhash.com) adapter — shared Joomla site for 3 kennels.
- *
- * bangkokhash.com hosts three sub-sites under one domain:
- *   /thursday/  → Bangkok Thursday H3 (BTH3) — weekly Thu 18:30
- *   /fullmoon/  → Bangkok Full Moon H3 (BFMH3) — monthly Fri 18:30
+ * Bangkok Hash (bangkokhash.com) adapter — one shared "HashWebApp" backend for
+ * three kennels, each with its own Joomla front page:
+ *   /thursday/   → Bangkok Thursday H3 (BTH3) — weekly Thu 18:30
+ *   /fullmoon/   → Bangkok Full Moon H3 (BFMH3) — monthly Fri 18:30
  *   /siamsunday/ → Siam Sunday H3 (S2H3) — 2nd & 4th Sun 16:30
  *
- * Each sub-site has:
- *   1. A Joomla article with labeled fields for the next run:
- *      <strong>Date</strong>: 16-Apr-2026
- *      <strong>Start Time</strong>: 18:30
- *      <strong>Hare</strong>: Jessticles
- *      <strong>Station</strong>: BTS Chong Nonsi
+ * The Nov-2026 site rebuild moved the data out of the Joomla articles into two
+ * HashWebApp endpoints the front pages embed as iframes:
  *
- *   2. A PHP JSON API hareline iframe at:
- *      /H222k3/Runs/05_Hareline/ViewHL_Server.php (BTH3, BFMH3)
- *      /H220j/Runs/05_Hareline/ViewHL_Server.php  (S2H3)
- *      POST body: {"usewamp":0,"hashclub":"BTH3","viewoption":"0"}
+ *   1. Hareline: `POST /HashWebApp/Runs/05_Hareline/ViewHL_Server.php`
+ *      body `{"hashclub":"BTH3","viewoption":3}` → `{info, html, source, colors}`.
+ *      `html` is `div.hl-month` headers + `div.hl-row` cards:
+ *        .hl-date[title="Thursday 12 November 2026"], .hl-hare (or
+ *        .hl-hare > .hl-wanted "Hare wanted!"), .hl-comment, .hl-num "#542".
+ *      Note rows (`.hl-row.hl-note`) carry `.hl-notetext` instead — the BTH3
+ *      feed cross-lists the Full Moon runs as "Fullmoon-262"; other notes are
+ *      "Cancelled" / party markers. viewoption 0=current, 1=last month,
+ *      2=last year (rolling ≈13 months back + future), 3=all (2012→). We
+ *      request 2 for scrapeDays ≤ 365 (3 beyond) so the payload covers the
+ *      whole ±scrapeDays reconcile window, then `applyDateWindow` trims.
  *
- * The PHP API returns JSON array: [debugInfo, harelineHtml, tableName]
- * The harelineHtml contains date blocks with run#/hare info.
+ *   2. Next-run directions: `GET /HashWebApp/Runs/05_Hareline/ViewNextRunDirections.php?b=BTH3`
+ *      → `table.run` (caption "BTH3  Run #542"; th/td rows Date / Start Time /
+ *      Hare / Station / Location / Restaurant / Google Maps) + `div.notes`
+ *      (mis-directions, run fee). Enriches the matching hareline row.
  *
- * The hareline iframe also shows Fullmoon entries inline with BTH3 dates,
- * identified by "Fullmoon-NNN" labels instead of "Run #NNN".
+ * `parseNextRunArticle` (the pre-rebuild Joomla article parser) is kept for the
+ * one-shot archive backfill scripts that still import it.
  *
- * Source config:
- *   { "subSite": "thursday", "hashClub": "BTH3", "apiBase": "/H222k3" }
+ * Source config: `{ "subSite": "thursday" | "fullmoon" | "siamsunday" }`
  */
 
-// bangkokhash.com's WAF 403s the default "HashTracks-Scraper" UA (#2247/#2245),
-// even via the residential proxy — it only allows a normal browser UA. Mirror
-// the UA the enfield/norfolk proxied adapters use.
-const BROWSER_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+// bangkokhash.com's WAF rejects the default "HashTracks-Scraper" UA (#2247/#2245),
+// so this adapter sends the shared browser UA from ../constants (BROWSER_UA).
+
+const HASHWEBAPP_BASE = "https://bangkokhash.com/HashWebApp/Runs/05_Hareline";
+const HARELINE_API_URL = `${HASHWEBAPP_BASE}/ViewHL_Server.php`;
+/** viewoption 2 = "Last Year" (≈13 months back + future), 3 = "All" (2012→). */
+const HARELINE_VIEW_LAST_YEAR = 2;
+const HARELINE_VIEW_ALL = 3;
+
+const FULLMOON_TIME = "18:30";
 
 interface BangkokHashConfig {
-  subSite: string;     // "thursday" | "fullmoon" | "siamsunday"
   hashClub: string;    // "BTH3" | "BFMH3" | "S2H3"
-  apiBase: string;     // "/H222k3" or "/H220j"
   kennelTag: string;   // "bth3" | "bfmh3" | "s2h3"
   defaultTime: string; // "18:30" or "16:30"
+  /** Tag for the "Fullmoon-NNN" rows this club's hareline cross-lists, if any. */
+  fullmoonTag: string | null;
 }
 
 const SITE_CONFIGS: Record<string, BangkokHashConfig> = {
-  thursday: { subSite: "thursday", hashClub: "BTH3", apiBase: "/H222k3", kennelTag: "bth3", defaultTime: "18:30" },
-  fullmoon: { subSite: "fullmoon", hashClub: "BFMH3", apiBase: "/H222k3", kennelTag: "bfmh3", defaultTime: "18:30" },
-  siamsunday: { subSite: "siamsunday", hashClub: "S2H3", apiBase: "/H220j", kennelTag: "s2h3", defaultTime: "16:30" },
+  thursday: { hashClub: "BTH3", kennelTag: "bth3", defaultTime: "18:30", fullmoonTag: "bfmh3" },
+  fullmoon: { hashClub: "BFMH3", kennelTag: "bfmh3", defaultTime: FULLMOON_TIME, fullmoonTag: null },
+  siamsunday: { hashClub: "S2H3", kennelTag: "s2h3", defaultTime: "16:30", fullmoonTag: null },
 };
 
 // #827: guard against label strings leaking as field values when the source
@@ -74,9 +84,18 @@ const FIELD_LABELS = new Set([
   "google map", "google maps", "google map link", "google maps link",
 ]);
 
+/** Collapse whitespace runs and trim. */
+function squish(text: string): string {
+  return text.replaceAll(/\s+/g, " ").trim();
+}
+
+/** Normalize a field label: "Google  Maps:" → "google maps". */
+function normLabel(label: string): string {
+  return squish(label).replace(/:\s*$/, "").toLowerCase();
+}
+
 function isFieldLabel(val: string): boolean {
-  const normalized = val.toLowerCase().replace(/:\s*$/, "").replaceAll(/\s+/g, " ").trim();
-  return FIELD_LABELS.has(normalized);
+  return FIELD_LABELS.has(normLabel(val));
 }
 
 /** Run-headline matcher ("Run #657", "Run 657"). No `g` flag → safe to reuse
@@ -236,196 +255,296 @@ export function parseNextRunArticle(
   };
 }
 
+
 /**
- * Parse the PHP hareline API response HTML.
- * The HTML is a series of div blocks:
- *   <div style='...'>
- *     <div style='font-weight: bold; ...'>DD-Mon-YYYY <span>Thursday</span></div>
- *     <div style='...'>
- *       <label>Run #519</label>Jessticles
- *       OR
- *       <label>&nbsp;</label><label>Fullmoon-255</label>
- *     </div>
- *   </div>
- *
+ * Normalize a hareline hare cell: "City Girl / Shaggy" → "City Girl, Shaggy";
+ * filler like "On On Que" (#802) → undefined.
+ */
+function cleanHareCell(raw: string): string | undefined {
+  const text = squish(raw);
+  if (!text || HARE_BOILERPLATE_RE.test(text)) return undefined;
+  return normalizeHaresField(text.split(/\s*[/&]\s*/).join(", "));
+}
+
+/** Options shared by the hareline + next-run parsers. */
+export interface BangkokHashParseOptions {
+  kennelTag: string;
+  /** Route "Fullmoon-NNN" note rows to this tag (BTH3 feed only); null = skip. */
+  fullmoonTag: string | null;
+  defaultTime: string;
+  sourceUrl: string;
+}
+
+/**
+ * Parse the HashWebApp hareline `html` payload (`div.hl-row` cards).
  * Exported for unit testing.
  */
-export function parseHarelineApiHtml(
-  harelineHtml: string,
-  kennelTag: string,
-  fullmoonTag: string | null,
-  defaultTime: string,
-  sourceUrl: string,
-): RawEventData[] {
-  const $ = cheerio.load(harelineHtml);
+export function parseHarelineRows(html: string, opts: BangkokHashParseOptions): RawEventData[] {
+  const $ = cheerio.load(html);
   const events: RawEventData[] = [];
+  const seen = new Set<string>();
 
-  // Each top-level div is a run entry
-  $("body > div").each((_i, el) => {
-    const $entry = $(el);
-
-    // Date header: first child div with bold styling
-    const dateDiv = $entry.find("div").first();
-    const dateText = dateDiv.text().trim();
-    // Pattern: "DD-Mon-YYYY" followed by day name
-    const dateMatch = /(\d{1,2}-[A-Za-z]{3}-\d{4})/.exec(dateText);
-    if (!dateMatch) return;
-
-    const date = chronoParseDate(dateMatch[1], "en-GB");
+  $(".hl-row").each((_i, el) => {
+    const $row = $(el);
+    const dateTitle = $row.find(".hl-date").attr("title")?.trim();
+    // "Thursday 12 November 2026" — a 4-digit year is always present.
+    if (!dateTitle || !/\b(?:19|20)\d{2}\b/.test(dateTitle)) return;
+    const date = chronoParseDate(dateTitle, "en-GB");
     if (!date) return;
 
-    // Info row: second div with run# and hare
-    const infoDiv = $entry.find("div").eq(1);
-    const infoText = infoDiv.text().trim();
-
-    // Check if this is a Fullmoon entry — route to fullmoonTag if set
-    // (Thursday subsite cross-lists FM runs), otherwise fall back to the
-    // current kennel (the FM subsite itself is the target).
-    const fullmoonMatch = /Fullmoon-(\d+)/i.exec(infoText);
-    if (fullmoonMatch) {
-      events.push({
+    const note = squish($row.find(".hl-notetext").text());
+    let event: RawEventData | undefined;
+    if (note) {
+      // Note rows: only the BTH3 feed's "Fullmoon-NNN" cross-listing is a run.
+      // "Fullmoon - Cancelled", "Cancelled", "AGM & Xmas Party" are skipped.
+      const fm = /^Fullmoon-(\d+)$/i.exec(note);
+      if (!fm || !opts.fullmoonTag) return;
+      event = {
         date,
-        kennelTags: [fullmoonTag ?? kennelTag],
-        runNumber: Number.parseInt(fullmoonMatch[1], 10),
-        startTime: "18:30",
-        sourceUrl,
-      });
-      return;
+        kennelTags: [opts.fullmoonTag],
+        runNumber: Number.parseInt(fm[1], 10),
+        startTime: FULLMOON_TIME,
+        sourceUrl: opts.sourceUrl,
+      };
+    } else {
+      const runNumber = extractHashRunNumber(squish($row.find(".hl-num").text()));
+      const $hare = $row.find(".hl-hare").first().clone();
+      const wanted = $hare.find(".hl-wanted").length > 0;
+      $hare.find(".hl-wanted").remove();
+      const hares = wanted ? undefined : cleanHareCell($hare.text());
+      const comment = squish($row.find(".hl-comment").text());
+      if (runNumber === undefined && !hares) return;
+      event = {
+        date,
+        kennelTags: [opts.kennelTag],
+        runNumber,
+        hares,
+        description: comment || undefined,
+        startTime: opts.defaultTime,
+        sourceUrl: opts.sourceUrl,
+      };
     }
 
-    // Regular run entry: "Run #519" followed by hare name
-    const runMatch = RUN_NUMBER_RE.exec(infoText);
-    const runNumber = runMatch ? Number.parseInt(runMatch[1], 10) : undefined;
-
-    let hares: string | undefined;
-    if (runMatch) {
-      const afterRun = infoText.slice(runMatch.index + runMatch[0].length).trim();
-      if (afterRun && !HARE_BOILERPLATE_RE.test(afterRun)) {
-        hares = normalizeHaresField(afterRun);
-      }
-    }
-
-    events.push({
-      date,
-      kennelTags: [kennelTag],
-      runNumber,
-      hares,
-      startTime: defaultTime,
-      sourceUrl,
-    });
+    const key = `${event.date}|${event.kennelTags[0]}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    events.push(event);
   });
 
   return events;
 }
 
+/** "6:30 pm" → "18:30"; "18:30" → "18:30"; anything else → undefined. */
+function parseStartTime(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const twelveHour = parse12HourTime(raw);
+  if (twelveHour) return twelveHour;
+  return /^\d{1,2}:\d{2}$/.test(raw) ? raw.padStart(5, "0") : undefined;
+}
+
+/**
+ * Parse the HashWebApp next-run directions page (`table.run` + `div.notes`).
+ * Returns null when the table has no parseable dated run.
+ * Exported for unit testing.
+ */
+export function parseNextRunDirections(
+  html: string,
+  opts: Pick<BangkokHashParseOptions, "kennelTag" | "defaultTime" | "sourceUrl">,
+): RawEventData | null {
+  const { kennelTag, defaultTime, sourceUrl } = opts;
+  const $ = cheerio.load(html);
+  const $table = $("table.run").first();
+  if (!$table.length) return null;
+
+  const fields = new Map<string, string>();
+  let mapsUrl: string | undefined;
+  $table.find("tr").each((_i, tr) => {
+    const label = normLabel($(tr).find("th").first().text());
+    const $td = $(tr).find("td").first();
+    if (!label || !$td.length) return;
+    if ($td.find(".wanted").length > 0) return; // "Hare wanted!" placeholder
+    const href = $td.find("a[href]").first().attr("href");
+    if (label.startsWith("google map") && href && HTTP_URL_RE.test(href)) {
+      mapsUrl = href;
+      return;
+    }
+    const value = squish($td.text());
+    if (value) fields.set(label, value);
+  });
+
+  // "Thursday 12-Nov-2026" → the D-Mon-YYYY fast-path in chronoParseDate.
+  const dateRaw = fields.get("date");
+  const dmy = dateRaw ? /\d{1,2}-[A-Za-z]{3}-\d{4}/.exec(dateRaw)?.[0] : undefined;
+  const date = dmy ? chronoParseDate(dmy, "en-GB") : null;
+  if (!date) return null;
+
+  const startTime = parseStartTime(fields.get("start time")) ?? defaultTime;
+
+  const caption = $table.find("caption").first().text();
+  const runMatch = RUN_NUMBER_RE.exec(caption);
+  const runNumber = runMatch ? Number.parseInt(runMatch[1], 10) : undefined;
+
+  const hareRaw = fields.get("hare") ?? fields.get("hares");
+  const hares = hareRaw ? cleanHareCell(hareRaw) : undefined;
+
+  const { location, locationUrl } = resolveLocation(
+    fields.get("location"),
+    fields.get("run site"),
+    fields.get("station"),
+    fields.get("restaurant"),
+    mapsUrl,
+  );
+
+  // Notes: "The run directions will be posted…" (.soon) is a placeholder.
+  // A "fee" line becomes `cost`; the remaining lines become the description.
+  const noteLines: string[] = [];
+  let cost: string | undefined;
+  $("div.notes")
+    .find("li, p")
+    .not(".soon")
+    .each((_i, el) => {
+      // Skip a <p> that only wraps a list heading like "Mis-directions:".
+      const line = squish($(el).text());
+      if (!line || /:\s*$/.test(line)) return;
+      const feeMatch = /\b(?:run\s*)?fee\s*[:-]\s*(.+)$/i.exec(line);
+      if (feeMatch && !cost) {
+        cost = feeMatch[1].trim();
+        return;
+      }
+      noteLines.push(line);
+    });
+  // Restaurant is the on-after venue when a separate Location is given.
+  const restaurant = fields.get("restaurant");
+  if (restaurant && location && restaurant !== location) noteLines.push(`Restaurant: ${restaurant}`);
+
+  return {
+    date,
+    kennelTags: [kennelTag],
+    runNumber,
+    hares,
+    location,
+    locationUrl,
+    startTime,
+    cost,
+    description: noteLines.length > 0 ? noteLines.join("\n") : undefined,
+    sourceUrl,
+  };
+}
+
+/** POST the hareline API; returns the `html` payload or an error message. */
+async function fetchHarelineHtml(hashClub: string, viewoption: number): Promise<string | { error: string }> {
+  try {
+    const response = await safeFetch(HARELINE_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json; charset=UTF-8",
+        "User-Agent": BROWSER_UA,
+      },
+      body: JSON.stringify({ hashclub: hashClub, viewoption }),
+      useResidentialProxy: true,
+    });
+    if (!response.ok) return { error: `Hareline API returned HTTP ${response.status}` };
+    const html = ((await response.json()) as { html?: unknown } | null)?.html;
+    return typeof html === "string"
+      ? html
+      : { error: "Hareline API returned unexpected payload shape (no html string)" };
+  } catch (err) {
+    return { error: `Hareline API fetch failed: ${err}` };
+  }
+}
+
+/** Overlay the next-run directions onto the matching hareline row (same date + kennel). */
+function mergeNextRun(events: RawEventData[], nextRun: RawEventData): RawEventData[] {
+  const idx = events.findIndex(
+    (e) => e.date === nextRun.date && e.kennelTags[0] === nextRun.kennelTags[0],
+  );
+  if (idx === -1) return [...events, nextRun];
+  const base = events[idx];
+  const merged: RawEventData = {
+    ...base,
+    runNumber: nextRun.runNumber ?? base.runNumber,
+    hares: nextRun.hares ?? base.hares,
+    location: nextRun.location ?? base.location,
+    locationUrl: nextRun.locationUrl ?? base.locationUrl,
+    startTime: nextRun.startTime ?? base.startTime,
+    cost: nextRun.cost ?? base.cost,
+    description: [base.description, nextRun.description].filter(Boolean).join("\n") || undefined,
+  };
+  return events.map((e, i) => (i === idx ? merged : e));
+}
+
 export class BangkokHashAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
-  async fetch(
-    source: Source,
-    options?: { days?: number },
-  ): Promise<ScrapeResult> {
+  async fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
     const config = (source.config ?? {}) as Record<string, unknown>;
     const subSite = (config.subSite as string) ?? "thursday";
     const siteConfig = SITE_CONFIGS[subSite];
-
     if (!siteConfig) {
-      return {
-        events: [],
-        errors: [`BangkokHash: unknown subSite "${subSite}"`],
-      };
+      return { events: [], errors: [`BangkokHash: unknown subSite "${subSite}"`] };
     }
 
-    const baseUrl = source.url || `https://www.bangkokhash.com/${siteConfig.subSite}/index.php`;
-    const { kennelTag, defaultTime, hashClub, apiBase } = siteConfig;
-    const fullmoonTag = subSite === "thursday" ? "bfmh3" : null;
-
-    const events: RawEventData[] = [];
+    const { kennelTag, defaultTime, hashClub, fullmoonTag } = siteConfig;
+    const sourceUrl = source.url || `https://bangkokhash.com/${subSite}/`;
+    const parseOpts: BangkokHashParseOptions = { kennelTag, fullmoonTag, defaultTime, sourceUrl };
     const errors: string[] = [];
-    const errorDetails: ErrorDetails = {};
+    const fetchStart = Date.now();
+
+    const days = options?.days ?? source.scrapeDays ?? 365;
+    // "Last year" (a rolling ~13 months back + all future) covers the ±days
+    // reconcile window for the usual 365; only wider windows need "All".
+    const viewoption = days <= 365 ? HARELINE_VIEW_LAST_YEAR : HARELINE_VIEW_ALL;
+
+    // bangkokhash.com 403s Vercel's datacenter IP (#2247 / #2245), so both
+    // HashWebApp endpoints egress through the NAS residential proxy (which
+    // forwards POST bodies). The two requests are independent → run together.
+    const [harelineResult, page] = await Promise.all([
+      fetchHarelineHtml(hashClub, viewoption),
+      fetchHTMLPage(`${HASHWEBAPP_BASE}/ViewNextRunDirections.php?b=${hashClub}`, {
+        useResidentialProxy: true,
+        userAgent: BROWSER_UA,
+      }),
+    ]);
+
+    // 1. Hareline (the event list) — required.
+    let events: RawEventData[] = [];
+    if (typeof harelineResult === "string") {
+      events = parseHarelineRows(harelineResult, parseOpts);
+    } else {
+      errors.push(harelineResult.error);
+    }
+
+    // 2. Next-run directions — best-effort enrichment for the upcoming run.
+    let nextRunFound = false;
     let structureHash: string | undefined;
-    let fetchDurationMs = 0;
-
-    // bangkokhash.com 403s Vercel's datacenter IP (#2247 / #2245), so both the
-    // main Joomla page and the PHP hareline API must egress through the NAS
-    // residential proxy. The PHP API is a POST whose JSON body the proxy now
-    // forwards (residential-proxy body support added alongside this fix).
-
-    // 1. Fetch the main Joomla page for the next run article
-    const page = await fetchHTMLPage(baseUrl, {
-      useResidentialProxy: true,
-      userAgent: BROWSER_UA,
-    });
     if (page.ok) {
       structureHash = page.structureHash;
-      fetchDurationMs = page.fetchDurationMs;
-      const nextRun = parseNextRunArticle(page.html, kennelTag, defaultTime, baseUrl);
+      const nextRun = parseNextRunDirections(page.html, parseOpts);
       if (nextRun) {
-        events.push(nextRun);
+        nextRunFound = true;
+        events = mergeNextRun(events, nextRun);
       }
-    } else {
-      errors.push(`Failed to fetch main page: ${page.result.errors[0]}`);
-    }
-
-    // 2. Fetch the PHP hareline API for future runs
-    const apiUrl = `https://www.bangkokhash.com${apiBase}/Runs/05_Hareline/ViewHL_Server.php`;
-    try {
-      const apiStart = Date.now();
-      const response = await safeFetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json; charset=UTF-8",
-          "User-Agent": BROWSER_UA,
-        },
-        body: JSON.stringify({ usewamp: 0, hashclub: hashClub, viewoption: "0" }),
-        useResidentialProxy: true,
-      });
-      const apiDurationMs = Date.now() - apiStart;
-
-      if (response.ok) {
-        const json: unknown = await response.json();
-        if (!Array.isArray(json) || json.length < 2 || typeof json[1] !== "string") {
-          errors.push("Hareline API returned unexpected payload shape");
-        } else {
-        const harelineHtml = json[1];
-        const apiEvents = parseHarelineApiHtml(harelineHtml, kennelTag, fullmoonTag, defaultTime, baseUrl);
-
-        // Deduplicate: prefer the article's next-run event (richer data) over API data
-        const existingDates = new Set(events.map((e) => `${e.date}|${e.kennelTags[0]}`));
-        for (const apiEvent of apiEvents) {
-          const key = `${apiEvent.date}|${apiEvent.kennelTags[0]}`;
-          if (!existingDates.has(key)) {
-            events.push(apiEvent);
-            existingDates.add(key);
-          }
-        }
-
-        fetchDurationMs += apiDurationMs;
-        } // close else (valid json array)
-      } else {
-        errors.push(`Hareline API returned ${response.status}`);
-      }
-    } catch (err) {
-      errors.push(`Hareline API fetch failed: ${err}`);
+    } else if (events.length === 0) {
+      // Only surface the enrichment failure when the hareline also produced
+      // nothing; otherwise the scrape is still complete.
+      errors.push(`Next-run page failed: ${page.result.errors[0]}`);
     }
 
     if (events.length === 0 && errors.length === 0) {
       errors.push(`BangkokHash ${subSite}: zero events parsed`);
     }
 
-    const days = options?.days ?? source.scrapeDays ?? 365;
     return applyDateWindow(
       {
         events,
         errors,
         structureHash,
-        errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
         diagnosticContext: {
-          fetchMethod: "joomla+php-api",
+          fetchMethod: "hashwebapp-hareline+next-run",
           subSite,
           hashClub,
-          eventsParsed: events.length,
-          fetchDurationMs,
+          nextRunFound,
+          fetchDurationMs: Date.now() - fetchStart,
         },
       },
       days,
