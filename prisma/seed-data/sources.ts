@@ -1569,6 +1569,8 @@ export const SOURCES = [
       name: "Hudson Valley H3 Meetup",
       url: "https://www.meetup.com/Hudson-Valley-Hash-House-Harriers/",
       type: "MEETUP" as const,
+      // Disabled 2026-11-05 (silent-zero triage): Meetup group shows no events of its own; last hvh3-ny event 2024-11-02.
+      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
@@ -1712,6 +1714,8 @@ export const SOURCES = [
       name: "Richmond H3 Google Calendar",
       url: "979d12b454f944e14bd00e8d0d0c30b1109d6e5f37ec4817542ae35f86f90ae8@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
+      // Disabled 2026-11-05 (silent-zero triage): calendar abandoned (0 items); rvah3 is fed by Richmond H3 Meetup.
+      enabled: false,
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 365,
@@ -1787,6 +1791,8 @@ export const SOURCES = [
       name: "BDSM H3 Meetup",
       url: "https://www.meetup.com/BDSM-Hash-House-Harriers/",
       type: "MEETUP" as const,
+      // Disabled 2026-11-05 (silent-zero triage): Meetup group shows no events of its own; last bdsmh3 event 2022-12-19.
+      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
@@ -2095,6 +2101,9 @@ export const SOURCES = [
       name: "West Central FL Hash Calendar",
       url: "https://www.jollyrogerh3.com/WCFH_Calendar.htm",
       type: "HTML_SCRAPER" as const,
+      // Disabled Nov 2026: the page states the calendar "has been discontinued
+      // until further notice" (last modified 2026-05-15; every cell empty).
+      enabled: false,
       trustLevel: 6,
       scrapeFreq: "daily",
       scrapeDays: 365,
@@ -2729,6 +2738,8 @@ export const SOURCES = [
       name: "Upstate H3 Website",
       url: "https://www.upstatehashers.com",
       type: "HTML_SCRAPER" as const,
+      // Disabled 2026-11-05 (silent-zero triage): Squarespace events collection last used Sep 2024; uh3 is fed by its static schedule.
+      enabled: false,
       trustLevel: 6,
       scrapeFreq: "weekly",
       scrapeDays: 365,
@@ -2908,7 +2919,28 @@ export const SOURCES = [
       trustLevel: 6,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      // Disabled Nov 2026: the hareline dropped its per-event "Add to Google
+      // Calendar" links (0 events every scrape). Replaced by the public GCal below.
+      enabled: false,
       config: { upcomingOnly: true },
+      kennelCodes: ["burlyh3"],
+    },
+    {
+      // The public Google Calendar linked from burlingtonh3.com/hareline. It also
+      // carries other Vermont kennels' events (Leaf Peeper, Nightmare Bimbo,
+      // Slopey Seconds, Non Tramp) — strict routing keeps only BTVH3.
+      name: "Burlington H3 Google Calendar",
+      url: "87d11c51005016fd7372d0fe76609bd0c3367183c3d7d944e5ca4b55bc5af87c@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "every_6h",
+      scrapeDays: 365,
+      config: {
+        calendarId: "87d11c51005016fd7372d0fe76609bd0c3367183c3d7d944e5ca4b55bc5af87c@group.calendar.google.com",
+        kennelPatterns: [["\\bBTVH3\\b|\\bBurlington H3\\b", "burlyh3"]],
+        defaultKennelTag: "burlyh3",
+        strictKennelRouting: true,
+      },
       kennelCodes: ["burlyh3"],
     },
     // ===== RHODE ISLAND =====
@@ -3158,6 +3190,9 @@ export const SOURCES = [
       config: {
         calendarId: "711a1cfbec0cfbcc26ba28c79d943700e6b7c33c8c11896a86da701fc96291b6@group.calendar.google.com",
         defaultKennelTag: "cch3-or",
+        // Every C2H3 calendar entry is all-day — without this the adapter
+        // dropped all of them (0 events on every scrape, Nov 2026 triage).
+        includeAllDayEvents: true,
       },
       kennelCodes: ["cch3-or"],
     },
@@ -3679,9 +3714,10 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         defaultKennelTag: "mrhappy",
-        // #1708: dormant unbounded FREQ=WEEKLY RRULE (abandoned 2021, no UNTIL)
-        // still projecting stale "Mr Happy's 69th Trail" phantoms every Wed.
-        suppressICalUids: ["20qb7gao7553kajq5de1s5kra4_R20210304T020000@google.com"],
+        // #1708 suppressed the 2021 weekly RRULE (iCalUID 20qb7gao…_R20210304T020000)
+        // as dormant. The kennel revived it in 2026 and edits each Wednesday
+        // occurrence in place (same iCalUID), so the suppression dropped every
+        // real run — removed Nov 2026.
       },
       kennelCodes: ["mrhappy"],
     },
@@ -4008,6 +4044,8 @@ export const SOURCES = [
       name: "MVH3 Google Calendar",
       url: "mvh3calendar@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
+      // Disabled 2026-11-05 (silent-zero triage): 0 calendar items and mvh3-day has never had an event.
+      enabled: false,
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 365,
@@ -4057,6 +4095,8 @@ export const SOURCES = [
       name: "LVH3 Google Calendar",
       url: "lickingvalleyh3@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
+      // Disabled 2026-11-05 (silent-zero triage): 0 calendar items; last lvh3-cin event 2021-09-25 (FB Hosted Events still feeds the kennel).
+      enabled: false,
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 365,
@@ -5595,6 +5635,9 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      // The published sheet the site reads starts at #177 (Jul 2026); older
+      // runs stay in the DB, so reconcile must not treat them as removed.
+      config: { upcomingOnly: true },
       kennelCodes: ["tth3-ab"],
     },
     // --- Edmonton: Saintly H3 ---
