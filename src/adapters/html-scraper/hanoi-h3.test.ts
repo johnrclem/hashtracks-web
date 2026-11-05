@@ -8,7 +8,7 @@ vi.mock("../utils", async () => {
 });
 
 import { fetchHTMLPage } from "../utils";
-import { parseHanoiH3Page, HanoiH3Adapter } from "./hanoi-h3";
+import { parseHanoiH3Page, HanoiH3Adapter, cleanHanoiLocation, parseClockTime } from "./hanoi-h3";
 
 const SOURCE_URL = "https://hanoih3.com/";
 const mockFetchHTMLPage = vi.mocked(fetchHTMLPage);
@@ -46,6 +46,25 @@ const FIXTURE_1819 = `<!DOCTYPE html><html><head></head><body>
 </div>
 </body></html>`;
 
+
+/**
+ * Live-shaped fixture (captured 2026-11-05, run #1840). New quirks:
+ *  - section heading is an <h3> "Run UpCuming" carrying the season pickup time,
+ *  - an away-weekend agenda with "No. 1843 …: Main trail" lines sits ABOVE the
+ *    real run block and must not be taken as the run heading,
+ *  - the run heading has an emoji prefix and the run type on its own line,
+ *  - a "…….. Ha Noi." location placeholder and a "First Pick-up: 13:30 PM sharp at :" line.
+ */
+const FIXTURE_1840 = `<!DOCTYPE html><html><head></head><body>
+<div class="entry-content">
+<h3 class="wp-block-heading">Run UpCuming  &#8220;Pay Attention&#8221; Bus Pick Up: 13.30pm Schedule (Winter time)</h3>
+<p class="wp-block-paragraph">Away weekend in November 28th.2026 cum in soon.</p>
+<p class="wp-block-paragraph">Who&#8217;s Cumming: Agenda:<br>No. 1843 Sat, 28, November 2026: Main trail Run/Walk, circle, drinks and Hash fingers food.<br>No. 1844 Sun, 29, November 2026: Breakfast, then hangover trail (run/walk) at 9.30 am.<br>Accommodation Provided:</p>
+<p class="has-small-font-size wp-block-paragraph">🏃‍♂️🏃‍♀️No. 1840– Sat. November, 07th. 2026<br>(A-A run)<br>RU! On On &#8230;.hashing day 😎.<br>*** Hash logo: 👣🍻 !<br>📌 location: &#8230;&#8230;.. Ha Noi.<br>🚶‍♂️ Walking Trail: ~6km+<br>🏃 Running Trail: ~8km+<br>📍 First Pick-up: 13:30 PM sharp at : 8 Hai Bà Trưng Street, Hoàn Kiếm District<br><a href="https://maps.app.goo.gl/FTavtwpc4hAoQTik7">https://maps.app.goo.gl/FTavtwpc4hAoQTik7</a><br>*** Second Pick up: 13:45 PM &#8211; 12 Đào Tấn Street, Ba Đình District.</p>
+<p class="has-small-font-size wp-block-paragraph"><br>📌 Cold Bia stop 🍻🍻<br>🐇 Hares: Finger In Van Dyke and Dr Creampie.</p>
+</div>
+</body></html>`;
+
 describe("parseHanoiH3Page", () => {
   it("parses the current-run block (#1820), scoping past the stray gallery caption", () => {
     const { event, error } = parseHanoiH3Page(FIXTURE_1820, SOURCE_URL);
@@ -66,6 +85,43 @@ describe("parseHanoiH3Page", () => {
     expect(event?.title).toBeUndefined();
     // Trail blurb → description.
     expect(event?.description).toContain("special hidden part of the city");
+  });
+
+
+  it("parses the Nov-2026 shape: skips the away-weekend agenda, emoji heading, own-line run type (#2466/#2614)", () => {
+    const { event, error } = parseHanoiH3Page(FIXTURE_1840, SOURCE_URL);
+    expect(error).toBeUndefined();
+    expect(event).toMatchObject({
+      date: "2026-11-07",
+      runNumber: 1840,
+      startTime: "13:30",
+      hares: "Finger In Van Dyke and Dr Creampie.",
+      locationStreet: "8 Hai Bà Trưng Street, Hoàn Kiếm District",
+      locationUrl: "https://maps.app.goo.gl/FTavtwpc4hAoQTik7",
+      trailLengthText: "Walking ~6km+ / Running ~8km+",
+    });
+    // "(A-A run)" is a run type, not a theme; "…….. Ha Noi." is a placeholder.
+    expect(event?.title).toBeUndefined();
+    expect(event?.location).toBeUndefined();
+    expect(event?.description).toContain("hashing day");
+  });
+
+  it("falls back to the section-header season time when the pickup line has no time (#2614)", () => {
+    const { event } = parseHanoiH3Page(FIXTURE_1820, SOURCE_URL);
+    expect(event?.startTime).toBe("14:00");
+  });
+
+  it("strips a leading ellipsis but keeps a real venue (#2466)", () => {
+    expect(cleanHanoiLocation("…… outside of Hanoi city.")).toBe("outside of Hanoi city.");
+    expect(cleanHanoiLocation("…….. Ha Noi.")).toBeUndefined();
+    expect(cleanHanoiLocation("Soc Son outside of Hanoi city.")).toBe("Soc Son outside of Hanoi city.");
+  });
+
+  it("parses 12h and dotted clock times", () => {
+    expect(parseClockTime("Bus Pick Up: 13.30pm")).toBe("13:30");
+    expect(parseClockTime("the bus leaves at 2.00 pm")).toBe("14:00");
+    expect(parseClockTime("First Pick-up: 13:30 PM sharp")).toBe("13:30");
+    expect(parseClockTime("no time here")).toBeUndefined();
   });
 
   it("strips the glued next-run 'No.' artifact off the first-pickup maps shortlink", () => {

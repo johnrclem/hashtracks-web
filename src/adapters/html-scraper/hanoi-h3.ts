@@ -38,8 +38,18 @@ const KENNEL_TAG = "hanoi-h3";
 const DEFAULT_URL = "https://hanoih3.com/";
 
 // Run-heading line: "No." + a 3-5 digit run number. The digit floor avoids
-// matching a stray bare "No." inside prose.
-const HEADING_RE = /^No\.?\s*(\d{3,5})\b/i;
+// matching a stray bare "No." inside prose. Leading emoji / punctuation is
+// tolerated ("🏃‍♂️🏃‍♀️No. 1840– Sat. November, 07th. 2026", #2614/#2466).
+const HEADING_RE = /^[^\p{L}\p{N}]*No\.?\s*(\d{3,5})\b/iu;
+// The "Upcoming runs" section heading; the committee spells it "Run UpCuming".
+const UPCOMING_HEADING_RE = /up\s*c[ou]m+ing/i;
+// A clock time "13:30", "13.30pm", "2:00 PM".
+const TIME_RE = /\b(\d{1,2})[.:](\d{2})\s*([ap])?\.?m?\b/i;
+// A first-pickup label ("First pick up", "First Pick-up").
+const FIRST_PICKUP_RE = /first\s*pick\s*-?\s*up/i;
+// Pickup / bus-departure wording on the section header, which carries the
+// season's start time ("Bus Pick Up: 13.30pm", "the bus leaves at 14.00 pm").
+const DEPARTURE_RE = /pick\s*-?\s*up|leaves?\b/i;
 // Trailing "(…)" run-type / theme on the heading.
 const PAREN_RE = /\(([^)]+)\)\s*$/;
 // Ordinal suffix on a day number ("20th" → "20").
@@ -51,7 +61,7 @@ const MAPS_URL_RE = /https?:\/\/maps\.app\.goo\.gl\/[A-Za-z0-9]+/;
 
 // Run-TYPE descriptors that are NOT themes → drop so merge.ts synthesizes
 // "Hanoi H3 Trail #N". A Set (not object indexing) per Codacy eslint-plugin-security.
-const RUN_TYPE_BLOCKLIST = new Set(["a-b run", "a to b run", "city run", "bus run"]);
+const RUN_TYPE_BLOCKLIST = new Set(["a-b run", "a to b run", "a-a run", "a to a run", "city run", "bus run"]);
 // Hare placeholders → undefined (no hare assigned yet).
 const HARE_PLACEHOLDER_RE = /^(?:hares?\s*needed|tba|tbc|n\/a|none)$/i;
 // Lines after the heading that still belong to the run block (the hares <p> sits
@@ -61,8 +71,8 @@ const BLOCK_WINDOW = 30;
 /** The HTML of the wp-block-column holding the "Upcoming runs" heading (falls back to the full page). */
 function scopeToUpcomingColumn(html: string): string {
   const $ = cheerio.load(html);
-  const heading = $("h2")
-    .filter((_, el) => /upcoming runs/i.test($(el).text()))
+  const heading = $("h2, h3, h4")
+    .filter((_, el) => UPCOMING_HEADING_RE.test($(el).text()))
     .first();
   if (heading.length === 0) return html;
   const column = heading.closest(".wp-block-column");
@@ -87,6 +97,80 @@ function findValue(block: string[], keyword: string): string | undefined {
     if (value !== undefined) return value;
   }
   return undefined;
+}
+
+/** The line carrying a "First pick up" / "First Pick-up" label, if any. */
+function findFirstPickupLine(block: string[]): string | undefined {
+  return block.find((line) => FIRST_PICKUP_RE.test(line));
+}
+
+/**
+ * First-pickup address: the text after the label's colon, minus a leading
+ * "13:30 PM sharp at :" time prefix. The committee sometimes puts a second
+ * colon after "at", so the last colon of that prefix wins.
+ */
+function pickupAddress(line: string | undefined): string | undefined {
+  if (!line) return undefined;
+  const label = FIRST_PICKUP_RE.exec(line);
+  if (!label) return undefined;
+  let rest = line.slice(label.index + label[0].length);
+  const ci = rest.indexOf(":");
+  if (ci === -1) return undefined;
+  rest = rest.slice(ci + 1).trim();
+  if (TIME_RE.test(rest.slice(0, 12))) {
+    const atIdx = rest.toLowerCase().indexOf(" at");
+    if (atIdx !== -1) rest = rest.slice(atIdx + 3).replace(/^\s*:?\s*/, "");
+  }
+  return rest.trim() || undefined;
+}
+
+/** "HH:MM" from the first clock time in the text (12h "pm" folded to 24h), else undefined. */
+export function parseClockTime(text: string | undefined): string | undefined {
+  if (!text) return undefined;
+  const m = TIME_RE.exec(text);
+  if (!m) return undefined;
+  let hours = Number.parseInt(m[1], 10);
+  const minutes = Number.parseInt(m[2], 10);
+  const meridiem = m[3]?.toLowerCase();
+  if (meridiem === "p" && hours < 12) hours += 12;
+  if (meridiem === "a" && hours === 12) hours = 0;
+  if (hours > 23 || minutes > 59) return undefined;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/**
+ * Location value with the committee's "……" / "…….. Ha Noi." placeholder
+ * stripped (#2466). Leading ellipses / dots are dropped; a value that is then
+ * only the city name (or empty) carries no venue → undefined, so the geocoder
+ * never invents a ward from it.
+ */
+export function cleanHanoiLocation(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  const stripped = raw.replace(/^[\s.\u2026]+/, "").trim();
+  const bare = stripped.replace(/[.\s]+$/, "");
+  if (!bare || /^(?:ha\s*noi|hanoi)(?:\s+city)?$/i.test(bare)) return undefined;
+  return stripped;
+}
+
+/**
+ * Pick the real run heading among "No.<run#>" candidates. The column can also
+ * hold an away-weekend agenda ("No. 1843 Sat, 28, November 2026: Main trail…")
+ * ahead of the run block, so prefer the first candidate whose block (up to the
+ * next candidate) carries run-block labels; fall back to the first candidate.
+ */
+function findHeadingIndex(lines: string[]): number {
+  const candidates: number[] = [];
+  lines.forEach((line, i) => {
+    if (HEADING_RE.test(line)) candidates.push(i);
+  });
+  if (candidates.length === 0) return -1;
+  for (let c = 0; c < candidates.length; c++) {
+    const start = candidates[c];
+    const end = Math.min(candidates[c + 1] ?? lines.length, start + BLOCK_WINDOW);
+    const block = lines.slice(start, end);
+    if (block.some((line) => FIRST_PICKUP_RE.test(line) || /\bhares?\s*:/i.test(line))) return start;
+  }
+  return candidates[0];
 }
 
 /**
@@ -128,7 +212,7 @@ function dateFromHeading(heading: string): string | null {
     .replace(HEADING_RE, "")
     .replace(PAREN_RE, "")
     .replace(ORDINAL_RE, "$1")
-    .replaceAll(",", " ")
+    .replaceAll(/[,.\u2013\u2014]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (!normalized) return null;
@@ -164,12 +248,15 @@ export function parseHanoiH3Page(
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const headingIdx = lines.findIndex((line) => HEADING_RE.test(line));
+  const headingIdx = findHeadingIndex(lines);
   if (headingIdx === -1) {
     return { event: null, error: "no 'No.<run#>' run heading found in the Upcoming runs block" };
   }
 
-  const heading = lines[headingIdx];
+  // The run-type "(A-A run)" sometimes sits on its own line under the heading.
+  const typeOnNextLine = /^\([^)]*\)$/.test(lines[headingIdx + 1] ?? "");
+  const heading = typeOnNextLine ? `${lines[headingIdx]} ${lines[headingIdx + 1]}` : lines[headingIdx];
+  const blurbIdx = headingIdx + (typeOnNextLine ? 2 : 1);
   const runMatch = HEADING_RE.exec(heading);
   const runNumber = runMatch ? Number.parseInt(runMatch[1], 10) : undefined;
 
@@ -179,6 +266,13 @@ export function parseHanoiH3Page(
   }
 
   const block = lines.slice(headingIdx, headingIdx + BLOCK_WINDOW);
+
+  const pickupLine = findFirstPickupLine(block);
+  // Start time: the first-pickup time on the run block, else the season time
+  // on the section header ("Bus Pick Up: 13.30pm") (#2614).
+  const startTime =
+    parseClockTime(pickupLine) ??
+    parseClockTime(lines.slice(0, headingIdx).find((line) => DEPARTURE_RE.test(line) && TIME_RE.test(line)));
 
   const haresRaw = findValue(block, "hares");
   const hares = haresRaw && !HARE_PLACEHOLDER_RE.test(haresRaw) ? haresRaw : undefined;
@@ -190,10 +284,11 @@ export function parseHanoiH3Page(
       runNumber,
       // title left undefined for run-type-only headings → merge.ts synthesizes "Hanoi H3 Trail #N".
       title: titleFromHeading(heading),
-      description: blurbDescription(lines[headingIdx + 1]),
+      description: blurbDescription(lines[blurbIdx]),
+      startTime,
       hares,
-      location: findValue(block, "location"),
-      locationStreet: findValue(block, "first pick up"),
+      location: cleanHanoiLocation(findValue(block, "location")),
+      locationStreet: pickupAddress(pickupLine),
       locationUrl: findFirstMapsUrl(block),
       trailLengthText: trailLengthFromBlock(block),
       sourceUrl,
