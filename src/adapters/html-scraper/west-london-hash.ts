@@ -33,12 +33,26 @@ export function parseDateFromHeading(heading: string): string | null {
   return chronoParseDate(heading, "en-GB");
 }
 
-// "19 February 2026", "7 January  2027", "09 July" — the heading's date text.
-const HEADING_DATE_RE = /\b\d{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\s+20\d{2})?/i;
-// "12.15 start time" / "12:15 start" — a non-default start time segment.
-const START_TIME_SEGMENT_RE = /^(\d{1,2})[.:](\d{2})\s*(am|pm)?\s*start(?:\s+time)?$/i;
+// "19 February 2026", "7 January  2027", "09 July" — the heading's date text,
+// found in steps (day + word, month check, optional year) instead of one
+// alternation-heavy regex (Sonar S5843 / S8786).
+const DAY_WORD_RE = /\b(\d{1,2})(?:st|nd|rd|th)?\s{1,3}([A-Za-z]{3,9})/g;
+const YEAR_PREFIX_RE = /^\s{1,3}20\d{2}/;
+const MONTH_PREFIXES = new Set(["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]);
+const DASHES = "-–—";
 // "hare needed" segments are a hare CTA, not a venue.
 const HARE_NEEDED_RE = /^hares?\s+needed!?$/i;
+
+/** Index just past the heading's date text, or -1 when there is no date. */
+function dateTextEnd(heading: string): number {
+  for (const m of heading.matchAll(DAY_WORD_RE)) {
+    if (!MONTH_PREFIXES.has(m[2].slice(0, 3).toLowerCase())) continue;
+    const end = (m.index ?? 0) + m[0].length;
+    const year = YEAR_PREFIX_RE.exec(heading.slice(end));
+    return year ? end + year[0].length : end;
+  }
+  return -1;
+}
 
 /**
  * Split the text after the heading's date into its dash-separated segments.
@@ -50,13 +64,39 @@ const HARE_NEEDED_RE = /^hares?\s+needed!?$/i;
  * like "Ealing Common-AGPU" stay intact.
  */
 function headingSegments(heading: string): string[] {
-  const m = HEADING_DATE_RE.exec(heading);
-  if (!m) return [];
-  const rest = heading.slice(m.index + m[0].length).replace(/^[\s\-–—]+/, "");
+  const end = dateTextEnd(heading);
+  if (end === -1) return [];
+  let rest = heading.slice(end);
+  let i = 0;
+  while (i < rest.length && (rest[i] === " " || DASHES.includes(rest[i]))) i++;
+  rest = rest.slice(i);
   return rest
-    .split(/\s+[-–—]\s+/)
+    .split(/\s[-–—]\s/)
     .map((seg) => seg.trim())
     .filter(Boolean);
+}
+
+/**
+ * Parse a "12.15 start time" / "12:15 start" / "1.30pm start" segment to
+ * "HH:MM"; undefined when the segment isn't a start-time instruction.
+ */
+function parseStartSegment(segment: string): string | undefined {
+  let t = segment.trim().toLowerCase();
+  if (t.endsWith(" time")) t = t.slice(0, -5).trimEnd();
+  if (!t.endsWith("start")) return undefined;
+  t = t.slice(0, -5).trimEnd();
+  let suffix: string | undefined;
+  if (t.endsWith("am") || t.endsWith("pm")) {
+    suffix = t.slice(-2);
+    t = t.slice(0, -2).trimEnd();
+  }
+  const m = /^(\d{1,2})[.:](\d{2})$/.exec(t);
+  if (!m) return undefined;
+  let hour = Number.parseInt(m[1], 10);
+  if (suffix === "pm" && hour < 12) hour += 12;
+  if (suffix === "am" && hour === 12) hour = 0;
+  if (hour > 23) return undefined;
+  return `${String(hour).padStart(2, "0")}:${m[2]}`;
 }
 
 /**
@@ -66,7 +106,7 @@ function headingSegments(heading: string): string[] {
  */
 export function parseLocationFromHeading(heading: string): string | null {
   const parts = headingSegments(heading).filter((seg) => {
-    if (START_TIME_SEGMENT_RE.test(seg) || HARE_NEEDED_RE.test(seg)) return false;
+    if (parseStartSegment(seg) || HARE_NEEDED_RE.test(seg)) return false;
     // Filter placeholder values like "TBA" or "Location TBA"
     return !isPlaceholder(seg.replace(/^Location\s+/i, ""));
   });
@@ -79,14 +119,8 @@ export function parseLocationFromHeading(heading: string): string | null {
  */
 export function parseStartTimeFromHeading(heading: string): string | undefined {
   for (const seg of headingSegments(heading)) {
-    const m = START_TIME_SEGMENT_RE.exec(seg);
-    if (!m) continue;
-    let hour = Number.parseInt(m[1], 10);
-    const suffix = m[3]?.toLowerCase();
-    if (suffix === "pm" && hour < 12) hour += 12;
-    if (suffix === "am" && hour === 12) hour = 0;
-    if (hour > 23) return undefined;
-    return `${String(hour).padStart(2, "0")}:${m[2]}`;
+    const time = parseStartSegment(seg);
+    if (time) return time;
   }
   return undefined;
 }
