@@ -47,6 +47,9 @@ describe("adelaide-h3 parseAdelaideEvent", () => {
     ["Run 2683 - Hare Wanted", 2683],
     ["Run 2685 - Hare wanted", 2685],
     ["Run 2686 - TBA", 2686],
+    ["Run 2690 - Hare TBA", 2690],
+    ["Run 2691 - Hares needed", 2691],
+    ["Run 2692 - Need a hare!", 2692],
   ])("drops the recruiting placeholder from the title: %s (#2686)", (title, run) => {
     const e = parseAdelaideEvent({ title, start: "2026-11-30 19:00:00" }, URL);
     expect(e!.title).toBe(`Run ${run}`);

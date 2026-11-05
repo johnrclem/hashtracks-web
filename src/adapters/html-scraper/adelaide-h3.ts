@@ -25,9 +25,9 @@ import { composeUtcStart } from "@/lib/timezone";
  *
  * Title regex tolerates the optional "Run "/"RUN " prefix and ordinal
  * suffix (e.g. "2600th Run!! - Committee"). The hare list is whatever
- * follows the dash; "TBA" / "Hare TBA" are stripped via
- * `normalizeHaresField()` indirectly (TBA never appears comma-separated)
- * by an explicit placeholder check below.
+ * follows the dash. A recruiting placeholder ("TBA", "Hare TBA", "HARE
+ * WANTED!", "Hares needed") clears hares (explicit null) and the title becomes
+ * the source-anchored "Run <N>" (#2686).
  *
  * No location field is exposed by the API; left undefined for now.
  */
@@ -49,6 +49,9 @@ interface AdelaideEventRow {
   allDay?: string | boolean;
   className?: string;
 }
+
+// Recruiting calls in the hare slot: "Hare TBA", "Hare Wanted", "Hares needed", "Need a hare".
+const RECRUITING_RE = /^(?:hares?\s+(?:tba|tbc|tbd|wanted|needed|required)|need(?:ed)?\s+(?:a\s+)?hares?)$/i;
 
 // Matches two title shapes:
 //   "RUN 2645 - Crunchy Crack and Unstoppable"     (regular — leading "RUN" keyword)
@@ -82,7 +85,7 @@ export function parseAdelaideEvent(
   const runNumber = Number.parseInt(titleMatch[1], 10);
   // Strip exclamation noise (e.g. "Committee!!") before placeholder check.
   const haresRaw = titleMatch[2].replace(/!+/g, "").trim();
-  const harePlaceholder = !haresRaw || isPlaceholder(haresRaw) || /^hares?\s*(?:tba|tbc|tbd|wanted)$/i.test(haresRaw);
+  const harePlaceholder = !haresRaw || isPlaceholder(haresRaw) || RECRUITING_RE.test(haresRaw);
   // A segment naming the kennel itself ("Committee AH3 XMAS Show", "AH3 Ironman
   // 2027") is an event name, not a hare list.
   const namesKennel = /\bAH3\b/i.test(haresRaw);
