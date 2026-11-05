@@ -64,6 +64,26 @@ export function judgeDrift(
   return { actualDay: dom.day, actualShare: dom.share, count: dom.count };
 }
 
+const BYDAY_TO_NUM: Record<string, number> = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
+
+/**
+ * Weekdays an undated LOW `CADENCE=…;BYDAY=…` sentinel declares (e.g. `CADENCE=WEEKLY;BYDAY=SU`).
+ * projectTrails emits these as date-less "possible activity", so they never reach the projected
+ * weekday set — but the rule author has still explicitly told us the kennel runs on that weekday.
+ * Used only to SUPPRESS a drift finding (never to create one): a kennel like Desert H3 that runs
+ * Mondays most weeks plus "the occasional Sunday" (#2454) must not be re-filed every week just
+ * because its Sunday slot is a LOW sentinel.
+ */
+export function sentinelWeekdays(rrule: string): number[] {
+  if (!rrule.startsWith("CADENCE=")) return [];
+  const byday = /(?:^|;)BYDAY=([A-Z,]+)/.exec(rrule);
+  if (!byday) return [];
+  return byday[1]
+    .split(",")
+    .map((tok) => BYDAY_TO_NUM[tok])
+    .filter((n): n is number => n !== undefined);
+}
+
 export function weekdayName(day: number): string {
   return WEEKDAY[day] ?? "?";
 }
@@ -143,6 +163,8 @@ function computeKennelDrift(
   }
   const drift = judgeDrift(predictedDays, recent);
   if (!drift) return null;
+  // A LOW cadence sentinel that names the observed weekday means the rules already account for it.
+  if (kRules.some((r) => sentinelWeekdays(r.rrule).includes(drift.actualDay))) return null;
   return {
     kennelCode: k.kennelCode,
     shortName: k.shortName,
