@@ -363,14 +363,69 @@ export function parseHashHorrorsHareline(text: string): ParseHarelineResult {
  * not 2026). Without this seed, January-only upcoming pages would be
  * mis-dated for the last ~6 weeks of every year.
  */
+export interface RunAnchor {
+  runNumber: number;
+  /** YYYY-MM-DD of the anchor run. */
+  date: string;
+  /** Typical days between consecutive run numbers (Hash Horrors ≈ 14). */
+  cadenceDays: number;
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Year for a run whose number we know, chosen as the candidate year (±1 around
+ * `currentYear`) whose date lands closest to anchor + Δrun × cadence. This is
+ * what stops stale past rows left on the upcoming page from being pushed into
+ * next year (#1015-#1019 sat there in Nov 2026 and were dated 2027).
+ */
+export function yearFromRunAnchor(parsed: { runNumber: number; monthIdx: number; day: number }, anchor: RunAnchor, currentYear: number): number {
+  const expected = Date.parse(`${anchor.date}T12:00:00Z`) + (parsed.runNumber - anchor.runNumber) * anchor.cadenceDays * DAY_MS;
+  let best = currentYear;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (const y of [currentYear - 1, currentYear, currentYear + 1]) {
+    const dist = Math.abs(Date.UTC(y, parsed.monthIdx - 1, parsed.day, 12) - expected);
+    if (dist < bestDist) {
+      best = y;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+/**
+ * Anchor from the archive's newest run: its number and date, plus the average
+ * days-per-run over its last `window` runs. Null when the archive is too thin.
+ */
+export function runAnchorFromArchive(events: RawEventData[], window = 10): RunAnchor | null {
+  const numbered = events
+    .filter((e): e is RawEventData & { runNumber: number } => typeof e.runNumber === "number")
+    .sort((a, b) => a.runNumber - b.runNumber);
+  if (numbered.length < 2) return null;
+  const last = numbered.at(-1) as RawEventData & { runNumber: number };
+  const first = numbered[Math.max(0, numbered.length - window)];
+  const runs = last.runNumber - first.runNumber;
+  if (runs <= 0) return null;
+  const cadenceDays = (Date.parse(`${last.date}T12:00:00Z`) - Date.parse(`${first.date}T12:00:00Z`)) / DAY_MS / runs;
+  if (!(cadenceDays > 0)) return null;
+  return { runNumber: last.runNumber, date: last.date, cadenceDays };
+}
+
 export function parseHashHorrorsUpcoming(
   text: string,
   currentYear: number,
   currentMonth: number,
+  anchor?: RunAnchor | null,
 ): ParseHarelineResult {
   let year = currentYear;
   let prev: { month: number; day: number } | null = null;
   return walkRunLines(text, (parsed) => {
+    if (anchor) {
+      // Run numbers are the reliable clock; month order is not (stale rows).
+      year = yearFromRunAnchor(parsed, anchor, currentYear);
+      prev = { month: parsed.monthIdx, day: parsed.day };
+      return year;
+    }
     const cur = { month: parsed.monthIdx, day: parsed.day };
     if (prev === null) {
       if (cur.month < currentMonth) year++;
@@ -462,7 +517,7 @@ export class HashHorrorsAdapter implements SourceAdapter {
       const ymd = todayInTimezone(KENNEL_TIMEZONE);
       const currentYear = Number.parseInt(ymd.slice(0, 4), 10);
       const currentMonth = Number.parseInt(ymd.slice(5, 7), 10);
-      upcoming = parseHashHorrorsUpcoming(upcomingText, currentYear, currentMonth);
+      upcoming = parseHashHorrorsUpcoming(upcomingText, currentYear, currentMonth, runAnchorFromArchive(archive.events));
     }
 
     // The hareline pages between them carry the full archive back to Hash 1.

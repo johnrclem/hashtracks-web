@@ -2,6 +2,8 @@ import {
   parseHashHorrorsRunLine,
   parseHashHorrorsHareline,
   parseHashHorrorsUpcoming,
+  runAnchorFromArchive,
+  yearFromRunAnchor,
 } from "./hash-horrors";
 
 describe("parseHashHorrorsRunLine", () => {
@@ -312,5 +314,31 @@ describe("parseHashHorrorsUpcoming (no year heading, current-year default)", () 
     const { events } = parseHashHorrorsUpcoming(text, 2026, 5);
     expect(events.find((e) => e.runNumber === 1015)?.date).toBe("2026-05-03");
     expect(events.find((e) => e.runNumber === 1016)?.date).toBe("2026-05-17");
+  });
+});
+
+describe("run-number year anchor (stale rows on the upcoming page)", () => {
+  // Nov 2026: the upcoming page still listed #1015-#1019 (May-Aug). The
+  // month-only rule saw "May < November" and dated them 2027.
+  const anchor = { runNumber: 1014, date: "2026-04-19", cadenceDays: 14 };
+
+  it("keeps already-run rows in the current year", () => {
+    expect(yearFromRunAnchor({ runNumber: 1015, monthIdx: 5, day: 3 }, anchor, 2026)).toBe(2026);
+    expect(yearFromRunAnchor({ runNumber: 1019, monthIdx: 8, day: 9 }, anchor, 2026)).toBe(2026);
+  });
+
+  it("still rolls a genuine next-year run forward", () => {
+    // ~#1033 lands in mid-January 2027.
+    expect(yearFromRunAnchor({ runNumber: 1033, monthIdx: 1, day: 10 }, anchor, 2026)).toBe(2027);
+  });
+
+  it("derives the anchor and cadence from the archive's newest runs", () => {
+    const events = [
+      { date: "2026-03-22", runNumber: 1012, kennelTags: ["x"] },
+      { date: "2026-04-05", runNumber: 1013, kennelTags: ["x"] },
+      { date: "2026-04-19", runNumber: 1014, kennelTags: ["x"] },
+    ];
+    expect(runAnchorFromArchive(events as never)).toEqual({ runNumber: 1014, date: "2026-04-19", cadenceDays: 14 });
+    expect(runAnchorFromArchive([] as never)).toBeNull();
   });
 });
