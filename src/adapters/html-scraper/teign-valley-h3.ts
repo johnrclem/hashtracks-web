@@ -44,7 +44,7 @@ export interface ParsedTvh3Post {
   date: string; // YYYY-MM-DD
   startTime: string;
   location?: string;
-  locationUrl?: string;
+  description?: string;
   hares?: string;
   sourceUrl: string;
 }
@@ -182,7 +182,9 @@ export function parseTvh3Post(body: string, publishedIso: string, url: string): 
     date,
     startTime,
     location: venue,
-    locationUrl: w3w ? `https://what3words.com/${w3w[1].toLowerCase()}` : undefined,
+    // what3words is not a Maps URL — never set locationUrl from it (repo convention);
+    // surface it in the description instead.
+    description: w3w ? `what3words: ///${w3w[1].toLowerCase()}` : undefined,
     hares: parseHares(afterVenue),
     sourceUrl: url,
   };
@@ -225,7 +227,7 @@ export class TeignValleyH3Adapter implements SourceAdapter {
         runNumber: parsed.runNumber,
         startTime: parsed.startTime,
         location: parsed.location,
-        locationUrl: parsed.locationUrl,
+        description: parsed.description,
         hares: parsed.hares,
         sourceUrl: parsed.sourceUrl,
       });

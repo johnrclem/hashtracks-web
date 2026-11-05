@@ -362,7 +362,7 @@
     "runNumber": 2032,
     "startTime": "19:15",
     "location": "main car park at Trenchford Reservoir",
-    "locationUrl": "https://what3words.com/squirted.menswear.quarrel",
+    "description": "what3words: ///squirted.menswear.quarrel",
     "hares": "Forrest",
     "sourceUrl": "https://www.teignvalleyh3.com/2024/08/toreservoir-dogs-this-monday.html"
   },
@@ -396,7 +396,7 @@
     "runNumber": 2035,
     "startTime": "19:15",
     "location": "Trendlebere Down C.P",
-    "locationUrl": "https://what3words.com/intersect.slave.locals",
+    "description": "what3words: ///intersect.slave.locals",
     "hares": "Beefy",
     "sourceUrl": "https://www.teignvalleyh3.com/2024/08/trendlebere-down-cp.html"
   },
@@ -430,7 +430,7 @@
     "runNumber": 2041,
     "startTime": "19:15",
     "location": "Church Cottages, Widecombe in the Moor, Newton Abbot TQ13 7TH",
-    "locationUrl": "https://what3words.com/ordeals.harmless.dolphin",
+    "description": "what3words: ///ordeals.harmless.dolphin",
     "sourceUrl": "https://www.teignvalleyh3.com/2024/09/listen-carefully.html"
   },
   {
@@ -441,7 +441,7 @@
     "runNumber": 2042,
     "startTime": "19:15",
     "location": "Tottiford Reservoir CP",
-    "locationUrl": "https://what3words.com/ranks.serenade.surprise",
+    "description": "what3words: ///ranks.serenade.surprise",
     "hares": "Beeflicker & Psycho",
     "sourceUrl": "https://www.teignvalleyh3.com/2024/09/back-to-reservoirs.html"
   },
@@ -809,7 +809,7 @@
     "runNumber": 2081,
     "startTime": "19:15",
     "location": "car park at Cold East Cross, B3212,(what3words taps.fishnet.sharpen)",
-    "locationUrl": "https://what3words.com/taps.fishnet.sharpen",
+    "description": "what3words: ///taps.fishnet.sharpen",
     "hares": "Beefy",
     "sourceUrl": "https://www.teignvalleyh3.com/2025/06/cold-east-cross-car-park.html"
   },
@@ -821,7 +821,7 @@
     "runNumber": 2082,
     "startTime": "19:15",
     "location": "Pizwell Farm, PL20 6TN",
-    "locationUrl": "https://what3words.com/buckling.hotdog.fixture",
+    "description": "what3words: ///buckling.hotdog.fixture",
     "hares": "Pisswell",
     "sourceUrl": "https://www.teignvalleyh3.com/2025/06/summers-here.html"
   },
@@ -855,7 +855,7 @@
     "runNumber": 2086,
     "startTime": "19:15",
     "location": "Brownstone and Coleton Camp, Kingswear, Dartmouth TQ6 0EQ",
-    "locationUrl": "https://what3words.com/tunes.hunk.hunk",
+    "description": "what3words: ///tunes.hunk.hunk",
     "hares": "Beeflicker",
     "sourceUrl": "https://www.teignvalleyh3.com/2025/07/expedition-kingswear.html"
   },
@@ -867,7 +867,7 @@
     "runNumber": 2087,
     "startTime": "19:15",
     "location": "North Bovey car park TQ13 8RB",
-    "locationUrl": "https://what3words.com/rabble.stint.inherits",
+    "description": "what3words: ///rabble.stint.inherits",
     "sourceUrl": "https://www.teignvalleyh3.com/2025/07/north-bovey-not-bovey-tracy.html"
   },
   {
@@ -878,7 +878,7 @@
     "runNumber": 2088,
     "startTime": "19:15",
     "location": "Hound Tor CP (Swallerton Gate) W3W forks.newstand.relies",
-    "locationUrl": "https://what3words.com/forks.newstand.relies",
+    "description": "what3words: ///forks.newstand.relies",
     "hares": "Poacher",
     "sourceUrl": "https://www.teignvalleyh3.com/2025/08/you-aint-nothing-but-hound-dog.html"
   },
@@ -1011,7 +1011,7 @@
     "runNumber": 2101,
     "startTime": "19:15",
     "location": "Forrest's hideout at Tinkley Bottom, Trusham, Newton Abbot TQ13 0NT",
-    "locationUrl": "https://what3words.com/princely.screeches.dissolve",
+    "description": "what3words: ///princely.screeches.dissolve",
     "sourceUrl": "https://www.teignvalleyh3.com/2025/11/forrests-firework-frenzy-and-feasting.html"
   },
   {
@@ -1153,7 +1153,7 @@
     "runNumber": 2117,
     "startTime": "19:15",
     "location": "Trendlebere Down - middle car park TQ13 9LJ",
-    "locationUrl": "https://what3words.com/revisit.pure.encroach",
+    "description": "what3words: ///revisit.pure.encroach",
     "hares": "Beefy",
     "sourceUrl": "https://www.teignvalleyh3.com/2026/02/run-2117-monday-23rd-february.html"
   },
@@ -1383,7 +1383,7 @@
     "runNumber": 2138,
     "startTime": "19:15",
     "location": "Holne on the Venford reservoir road",
-    "locationUrl": "https://what3words.com/sunbeam.revival.troll",
+    "description": "what3words: ///sunbeam.revival.troll",
     "hares": "Pisswell",
     "sourceUrl": "https://www.teignvalleyh3.com/2026/07/mondays-details.html"
   },
@@ -1449,7 +1449,7 @@
     "runNumber": 2145,
     "startTime": "19:15",
     "location": "Cordonford farm, Poundsgate, TQ13 7PD",
-    "locationUrl": "https://what3words.com/obstinate.estimates.gladiator",
+    "description": "what3words: ///obstinate.estimates.gladiator",
     "hares": "Pisswell",
     "sourceUrl": "https://www.teignvalleyh3.com/2026/09/anhother-pisswell-adventure.html"
   },
@@ -1472,7 +1472,7 @@
     "runNumber": 2147,
     "startTime": "19:15",
     "location": "Manaton Church Car Park Manaton, Newton Abbot TQ13 9UJ",
-    "locationUrl": "https://what3words.com/parked.defected.nerves",
+    "description": "what3words: ///parked.defected.nerves",
     "sourceUrl": "https://www.teignvalleyh3.com/2026/09/mondays-details-note-circle-up-location.html"
   },
   {
@@ -1537,7 +1537,7 @@
     "runNumber": 2153,
     "startTime": "19:15",
     "location": "Forrest's hideaway at Tinkley Bottom, Trusham, Newton Abbot TQ13 0NT",
-    "locationUrl": "https://what3words.com/princely.screeches.dissolve",
+    "description": "what3words: ///princely.screeches.dissolve",
     "sourceUrl": "https://www.teignvalleyh3.com/2026/11/firework-hash.html"
   }
 ]

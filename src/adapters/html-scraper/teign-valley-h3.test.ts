@@ -33,7 +33,7 @@ describe("parseTvh3Post", () => {
       date: "2026-11-02",
       startTime: "19:15",
       location: "Forrest's hideaway at Tinkley Bottom, Trusham, Newton Abbot TQ13 0NT",
-      locationUrl: "https://what3words.com/princely.screeches.dissolve",
+      description: "what3words: ///princely.screeches.dissolve",
       hares: undefined,
       sourceUrl: POSTS[0].url,
     });
@@ -55,7 +55,7 @@ describe("parseTvh3Post", () => {
       runNumber: 2147,
       date: "2026-09-21",
       location: "Manaton Church Car Park Manaton, Newton Abbot TQ13 9UJ",
-      locationUrl: "https://what3words.com/parked.defected.nerves",
+      description: "what3words: ///parked.defected.nerves",
     });
     expect(parsed?.hares).toBeUndefined();
   });
