@@ -4857,6 +4857,24 @@ export const SOURCES = [
       },
       kennelCodes: ["wsh3-ch"],
     },
+    {
+      name: "Basel-Stadt H3 Meetup",
+      url: "https://www.meetup.com/basel-stadt-hash-house-harriers-bsh3/",
+      type: "MEETUP" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 120,
+      config: {
+        // Fetch drops past runs; reconcile must not cancel them.
+        upcomingOnly: true,
+        groupUrlname: "basel-stadt-hash-house-harriers-bsh3",
+        kennelTag: "bsh3-ch",
+        // Titles are "BSH3 #394 - Gorgeous Run"; anchored so socials don't mint a run number.
+        extractRunNumber: true,
+        anchorTrailRunNumber: true,
+      },
+      kennelCodes: ["bsh3-ch"],
+    },
 
     // ===== AUSTRIA =====
     {
@@ -8949,6 +8967,36 @@ export const SOURCES = [
         titleHarePattern: "^Trail\\s*#?\\s*\\d+\\s*[-–]\\s*([^-–]+?)\\s*[-–]",
       },
       kennelCodes: ["bicester-h3"],
+    },
+    {
+      name: "Malvern H3 iCal Feed",
+      url: "https://www.malvernhash.co.uk/hash-cal.ics",
+      type: "ICAL_FEED" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90, // rolling ~5-week forward feed
+      config: {
+        defaultKennelTag: "malvern-h3",
+        upcomingOnly: true, // REQUIRED — rolling window ages runs off; reconcile would false-cancel them
+      },
+      kennelCodes: ["malvern-h3"],
+    },
+    {
+      // Bare URL 301s to ".../c2h3-calendar.ics/"; safeFetch follows it.
+      name: "Cheltenham & Cotswold H3 iCal Feed",
+      url: "https://c2h3.co.uk/c2h3-calendar.ics",
+      type: "ICAL_FEED" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 180, // rolling window reaches ~4 months back and ~3 months forward
+      config: {
+        defaultKennelTag: "c2h3-gb",
+        upcomingOnly: true, // REQUIRED — rolling window ages runs off; reconcile would false-cancel them
+        // "TORCHLIT" (winter torch-lit runs, venue TBC) is geocoded by the site into a
+        // pin in mid-Wales; drop it. "TORCHLIT <real venue>, <address>" is kept.
+        locationOmitIfMatches: ["^TORCHLIT(?:-[^,]*)?$"],
+      },
+      kennelCodes: ["c2h3-gb"],
     },
   ];
 

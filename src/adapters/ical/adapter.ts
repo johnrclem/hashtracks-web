@@ -30,6 +30,7 @@ export interface ICalSourceConfig {
   titleStripPrefixAliases?: string[];  // #2148 Reading / #2160 ICH3: kennel-label variants ("RH3"/"ReadingH3", "ICH3") to strip from the START of the resolved title together with an immediately-following run marker ("#1203:", "# 60"). Opt-in per source — the run number is already extracted into its own field, so the prefix is pure noise. See stripTitleKennelRunPrefix.
   cleanDescriptionLocation?: boolean;  // #2159 Charm City: run a DESCRIPTION-derived location (not the VEVENT LOCATION field) through cleanLocationName — strips URLs/labels/CTA residue and rejects placeholders. Opt-in so feeds whose On-On venue path already emits clean names are untouched.
   dropImprobablePlaceholderTime?: boolean; // #2175 Charm City: clear startTime/endTime when a `#TBD`-style placeholder run also carries a junk late-night DTSTART (23:00–03:59) — the hare entered a throwaway time before the trail was scheduled. Opt-in so a legitimately late/early-morning trail on another feed that still uses a placeholder run number keeps its time.
+  locationOmitIfMatches?: string[];    // Cheltenham & Cotswold H3: regexes (case-insensitive) for a LOCATION that is a placeholder, not a venue ("TORCHLIT"). A match drops the location AND the VEVENT's GEO, because the publisher geocoded the placeholder text into a bogus pin. Same semantics as the GenericHtml/GCal knob of the same name.
 }
 
 /**
@@ -243,6 +244,16 @@ const TITLE_HARE_THEME_SUFFIX_RE = /\b(?:run|walk|jog|ride|bike|hike)$/i;
 // map pin surfaces as locationUrl.
 const MAPS_URL_PATTERN =
   /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.com|maps\.app\.goo\.gl|goo\.gl\/maps)\S*/i;
+
+/**
+ * Drop a backslash left dangling at the end of a line. Malvern H3's feed
+ * double-escapes its newlines (`\\n`), which node-ical decodes to a literal
+ * backslash followed by a real newline ("Lassie\" + "\n"). A backslash at the
+ * end of a line is never meaningful text, so this is safe for every feed.
+ */
+export function stripLineEndBackslashes(text: string | undefined): string | undefined {
+  return text?.replaceAll("\\\n", "\n");
+}
 
 /** Normalize ICS escape sequences in a description string. */
 function normalizeIcsDescription(description: string): string {
@@ -601,6 +612,7 @@ function buildRawEventFromVEvent(
   compiledTitleHarePattern?: RegExp,
   compiledLocationPatterns?: RegExp[],
   compiledCostPatterns?: RegExp[],
+  compiledLocationOmit?: RegExp[],
 ): RawEventData | null {
   if (vevent.status === "CANCELLED") return null;
 
@@ -649,7 +661,7 @@ function buildRawEventFromVEvent(
       endDate = formatDate(inclusiveEnd);
     }
   }
-  const description = paramValue(vevent.description);
+  const description = stripLineEndBackslashes(paramValue(vevent.description));
   let hares = description ? extractHaresFromDescription(description, compiledHarePatterns) : undefined;
   // Track whether the hare came from the SUMMARY (titleHarePattern) vs the
   // description — the #2160 title-is-hare suppression below only fires for
@@ -679,6 +691,13 @@ function buildRawEventFromVEvent(
   if (location && isPlaceholder(location)) {
     location = null;
   }
+  // A configured placeholder LOCATION ("TORCHLIT") was geocoded by the publisher
+  // into a meaningless pin, so the GEO goes with it.
+  let geo = vevent.geo;
+  if (location && compiledLocationOmit?.some((re) => re.test(location as string))) {
+    location = null;
+    geo = undefined;
+  }
 
   if (!location && description) {
     const rawDescLocation = extractLocationFromDescription(description, compiledLocationPatterns)
@@ -701,7 +720,7 @@ function buildRawEventFromVEvent(
   const eventUrl = paramValue(vevent.url) ?? undefined;
   const eventUrlIsMap = eventUrl ? MAPS_URL_PATTERN.test(eventUrl) : false;
   const locationUrl = resolveLocationUrl(
-    vevent.geo,
+    geo,
     location ?? undefined,
     description,
     eventUrlIsMap ? eventUrl : undefined,
@@ -904,6 +923,9 @@ export class ICalAdapter implements SourceAdapter {
     const compiledTitleHarePattern = config?.titleHarePattern
       ? compilePatterns([config.titleHarePattern], "i")[0]
       : undefined;
+    const compiledLocationOmit = config?.locationOmitIfMatches?.length
+      ? compilePatterns(config.locationOmitIfMatches, "i")
+      : undefined;
 
     let events: RawEventData[] = [];
     const errors: string[] = [];
@@ -939,7 +961,7 @@ export class ICalAdapter implements SourceAdapter {
           continue;
         }
 
-        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns, compiledRunNumberPatterns, compiledTitleHarePattern, compiledLocationPatterns, compiledCostPatterns);
+        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns, compiledRunNumberPatterns, compiledTitleHarePattern, compiledLocationPatterns, compiledCostPatterns, compiledLocationOmit);
         if (event) events.push(event);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
