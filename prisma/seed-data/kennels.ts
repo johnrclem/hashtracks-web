@@ -6354,7 +6354,7 @@ export const KENNELS: KennelSeed[] = [
       fullName: "Bicester Hash House Harriers",
       region: "Bicester",
       country: "UK",
-      website: "http://bicesterh3.com",
+      website: "http://bicesterh3.com", // NOSONAR — HTTP-only: HTTPS fails TLS verification (self-signed cert, checked 2026-11-05)
       facebookUrl: "https://www.facebook.com/groups/187643361712005/",
       instagramHandle: "Bicester_Hash_House_Harriers",
       foundedYear: 1974,

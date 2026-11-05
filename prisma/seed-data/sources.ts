@@ -8690,7 +8690,7 @@ export const SOURCES = [
     },
     {
       name: "Bicester H3 Events (The Events Calendar iCal)",
-      url: "http://bicesterh3.com/?post_type=tribe_events&ical=1&eventDisplay=list",
+      url: "http://bicesterh3.com/?post_type=tribe_events&ical=1&eventDisplay=list", // NOSONAR — HTTP-only: HTTPS fails TLS verification (self-signed cert, checked 2026-11-05)
       type: "ICAL_FEED" as const,
       trustLevel: 7,
       scrapeFreq: "daily",

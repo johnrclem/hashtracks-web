@@ -117,7 +117,8 @@ export class FukFullMoonH3Adapter implements SourceAdapter {
         events.push(event);
       } catch (err) {
         errors.push(`Error parsing row ${i}: ${err}`);
-        (errorDetails.parse ??= []).push({
+        errorDetails.parse ??= [];
+        errorDetails.parse.push({
           row: i,
           section: "hareline",
           error: String(err),
