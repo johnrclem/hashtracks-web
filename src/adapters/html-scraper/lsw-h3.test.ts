@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { parseLswDate, parseLswRow } from "./lsw-h3";
 
+describe("parseLswDate hyphenated hareline form (Nov 2026)", () => {
+  it("parses the live '11-nov-26' format", () => {
+    expect(parseLswDate("11-nov-26")).toBe("2026-11-11");
+    expect(parseLswDate("02-dec-26")).toBe("2026-12-02");
+  });
+});
+
 describe("parseLswDate", () => {
   it("parses DD Mon YY format", () => {
     expect(parseLswDate("09 Apr 25")).toBe("2025-04-09");

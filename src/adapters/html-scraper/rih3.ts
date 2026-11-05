@@ -468,15 +468,18 @@ export class RIH3Adapter implements SourceAdapter {
     const errorDetails: ErrorDetails = {};
     const scrapeDate = new Date();
 
-    // First table = hareline events (skip second "Doghouse" table)
-    const rows = $("table").first().find("tr");
+    // Nov 2026 layout: every run is its own <table> holding one row of five
+    // <th> cells (Date / Time / Run / Hare / Directions); previously one table
+    // of <td> rows. Accept both, skip the "Date: Time: Run…" header row, and let
+    // parseHarelineRow reject non-run rows (e.g. the Doghouse table).
+    const rows = $("table tr");
 
     rows.each((i, el) => {
       const $row = $(el);
-      const tds = $row.find("> td");
+      const tds = $row.children("td, th");
 
-      // Skip header row (first row) and malformed rows
-      if (i === 0 || tds.length < 5) return;
+      if (tds.length < 5) return;
+      if (/^\s*Date:/i.test($(tds[0]).text())) return;
 
       try {
         // Extract text for simple columns

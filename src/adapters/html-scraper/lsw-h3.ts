@@ -22,7 +22,9 @@ const MONTH_NAMES: Record<string, number> = {
  * Returns YYYY-MM-DD or null.
  */
 export function parseLswDate(text: string): string | null {
-  const match = /(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{2,4})/.exec(text.trim());
+  // Separators: spaces ("17 Jan 79", previousruns.htm) or hyphens
+  // ("11-nov-26", the hareline since Nov 2026 — the space-only form parsed 0).
+  const match = /(\d{1,2})[\s-]+([A-Za-z]{3,9})[\s-]+(\d{2,4})/.exec(text.trim());
   if (!match) return null;
 
   const day = parseInt(match[1], 10);

@@ -2095,6 +2095,9 @@ export const SOURCES = [
       name: "West Central FL Hash Calendar",
       url: "https://www.jollyrogerh3.com/WCFH_Calendar.htm",
       type: "HTML_SCRAPER" as const,
+      // Disabled Nov 2026: the page states the calendar "has been discontinued
+      // until further notice" (last modified 2026-05-15; every cell empty).
+      enabled: false,
       trustLevel: 6,
       scrapeFreq: "daily",
       scrapeDays: 365,
@@ -3148,6 +3151,9 @@ export const SOURCES = [
       config: {
         calendarId: "711a1cfbec0cfbcc26ba28c79d943700e6b7c33c8c11896a86da701fc96291b6@group.calendar.google.com",
         defaultKennelTag: "cch3-or",
+        // Every C2H3 calendar entry is all-day — without this the adapter
+        // dropped all of them (0 events on every scrape, Nov 2026 triage).
+        includeAllDayEvents: true,
       },
       kennelCodes: ["cch3-or"],
     },

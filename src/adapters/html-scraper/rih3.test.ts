@@ -661,6 +661,34 @@ describe("RIH3Adapter", () => {
     expect(adapter.type).toBe("HTML_SCRAPER");
   });
 
+  it("parses the Nov-2026 layout: one <table> of <th> cells per run", async () => {
+    vi.setSystemTime(new Date(Date.UTC(2026, 10, 5, 12)));
+    // Trimmed from live rih3.com/hareline.html (2026-11-05).
+    const html = `<html><body>
+      <table><tr><th>Date:</th><th>Time:</th><th>Run</th><th>Hare:</th><th>Directions:</th></tr></table>
+      <table><tr>
+        <th valign="top" width="10%" align="left">Mon Nov 2</th>
+        <th valign="top" width="10%" align="center">6:30 PM</th>
+        <th valign="top" width="10%" align="center">2123</th>
+        <th valign="top" width="20%" align="left"><strong><span style="FONT-SIZE: large">Just the Tip</span><br/><img border="0" src="Images/tip.jpg"/></strong></th>
+        <th valign="top" width="50%" align="left"><h2>The Cold Winds of November Trail by Just the Tip</h2>Park at the Browning Pond lower lot on Arcadia Rd.</th>
+      </tr></table>
+      <table><tr>
+        <th>Mon. Nov 9</th><th>6:30 PM</th><th>2124</th>
+        <th><strong><span style="FONT-SIZE: large"> Rusty </span></strong></th>
+        <th><h2>Another GREAT Rusty the F'n Clown Hash</h2></th>
+      </tr></table>
+    </body></html>`;
+    mockFetchResponse(html);
+
+    const result = await adapter.fetch(makeSource());
+
+    expect(result.events.map((e) => [e.date, e.runNumber, e.hares])).toEqual([
+      ["2026-11-02", 2123, "Just the Tip"],
+      ["2026-11-09", 2124, "Rusty"],
+    ]);
+  });
+
   it("parses multiple rows from a hareline table", async () => {
     const html = `<html><body>
       <table border="5">
