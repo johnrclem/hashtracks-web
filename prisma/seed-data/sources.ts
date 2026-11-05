@@ -1012,7 +1012,9 @@ export const SOURCES = [
     // events on its calendar; this is the primary coverage path for sffmh3.
     {
       name: "SFFMH3 Static Schedule (Lunar)",
-      url: "https://www.facebook.com/sffmh",
+      // facebook.com/sffmh now resolves to an unrelated personal profile (#2297); the kennel's
+      // live run listing is the SFH3 multihash "Fully Mooned H3 Crawls" filter.
+      url: "https://www.sfh3.com/runs?kennels=7",
       type: "STATIC_SCHEDULE" as const,
       trustLevel: 5,
       scrapeFreq: "weekly",
@@ -1026,7 +1028,7 @@ export const SOURCES = [
         startTime: "18:30",
         defaultTitle: "SFFMH3 Full Moon Run",
         defaultLocation: "San Francisco, CA",
-        defaultDescription: "Monthly full-moon hash. Check Facebook for start location and hare details.",
+        defaultDescription: "Monthly full-moon hash. Check sfh3.com for start location and hare details.",
       },
       kennelCodes: ["sffmh3"],
     },
