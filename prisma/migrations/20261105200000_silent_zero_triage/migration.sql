@@ -31,6 +31,15 @@
 --    events 2026-04-01 → 2026-11-28. The disabled source's RawEvents remain,
 --    so reconcile's other-source guard protects their canonical events.
 --
+-- 6. Six dead/abandoned sources — DISABLE (owner-approved 2026-11-05):
+--      LVH3 Google Calendar (Cincinnati)  0 items; last lvh3-cin event 2021-09-25
+--      BDSM H3 Meetup                     no events of its own; last 2022-12-19
+--      Hudson Valley H3 Meetup            no events of its own; last 2024-11-02
+--      Richmond H3 Google Calendar        0 items; rvah3 is fed by its Meetup
+--      MVH3 Google Calendar               0 items; mvh3-day never had an event
+--      Upstate H3 Website                 events collection last used Sep 2024
+--    SourceKennel links are kept, so re-enabling is a one-line change.
+--
 -- DATA-ONLY. Vercel runs `prisma migrate deploy`, never `db seed`, so the live
 -- rows are converged here; prisma/seed-data/sources.ts carries the same values
 -- so a later seed is a no-op. Idempotent: each UPDATE is guarded on the audited
@@ -107,5 +116,18 @@ WHERE s.name = 'Burlington H3 Google Calendar'
   AND s.type = 'GOOGLE_CALENDAR'::"SourceType"
   AND k."kennelCode" = 'burlyh3'
 ON CONFLICT ("sourceId", "kennelId") DO NOTHING;
+
+UPDATE "Source"
+SET enabled = false,
+    "updatedAt" = NOW() AT TIME ZONE 'UTC'
+WHERE enabled = true
+  AND (name, type::text) IN (
+    ('LVH3 Google Calendar', 'GOOGLE_CALENDAR'),
+    ('BDSM H3 Meetup', 'MEETUP'),
+    ('Hudson Valley H3 Meetup', 'MEETUP'),
+    ('Richmond H3 Google Calendar', 'GOOGLE_CALENDAR'),
+    ('MVH3 Google Calendar', 'GOOGLE_CALENDAR'),
+    ('Upstate H3 Website', 'HTML_SCRAPER')
+  );
 
 COMMIT;

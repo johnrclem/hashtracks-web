@@ -1569,6 +1569,8 @@ export const SOURCES = [
       name: "Hudson Valley H3 Meetup",
       url: "https://www.meetup.com/Hudson-Valley-Hash-House-Harriers/",
       type: "MEETUP" as const,
+      // Disabled 2026-11-05 (silent-zero triage): Meetup group shows no events of its own; last hvh3-ny event 2024-11-02.
+      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
@@ -1712,6 +1714,8 @@ export const SOURCES = [
       name: "Richmond H3 Google Calendar",
       url: "979d12b454f944e14bd00e8d0d0c30b1109d6e5f37ec4817542ae35f86f90ae8@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
+      // Disabled 2026-11-05 (silent-zero triage): calendar abandoned (0 items); rvah3 is fed by Richmond H3 Meetup.
+      enabled: false,
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 365,
@@ -1787,6 +1791,8 @@ export const SOURCES = [
       name: "BDSM H3 Meetup",
       url: "https://www.meetup.com/BDSM-Hash-House-Harriers/",
       type: "MEETUP" as const,
+      // Disabled 2026-11-05 (silent-zero triage): Meetup group shows no events of its own; last bdsmh3 event 2022-12-19.
+      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
@@ -2732,6 +2738,8 @@ export const SOURCES = [
       name: "Upstate H3 Website",
       url: "https://www.upstatehashers.com",
       type: "HTML_SCRAPER" as const,
+      // Disabled 2026-11-05 (silent-zero triage): Squarespace events collection last used Sep 2024; uh3 is fed by its static schedule.
+      enabled: false,
       trustLevel: 6,
       scrapeFreq: "weekly",
       scrapeDays: 365,
@@ -4026,6 +4034,8 @@ export const SOURCES = [
       name: "MVH3 Google Calendar",
       url: "mvh3calendar@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
+      // Disabled 2026-11-05 (silent-zero triage): 0 calendar items and mvh3-day has never had an event.
+      enabled: false,
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 365,
@@ -4075,6 +4085,8 @@ export const SOURCES = [
       name: "LVH3 Google Calendar",
       url: "lickingvalleyh3@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
+      // Disabled 2026-11-05 (silent-zero triage): 0 calendar items; last lvh3-cin event 2021-09-25 (FB Hosted Events still feeds the kennel).
+      enabled: false,
       trustLevel: 7,
       scrapeFreq: "every_6h",
       scrapeDays: 365,
