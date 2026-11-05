@@ -767,6 +767,13 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 3650,
       config: {
+        // The browser-rendered receding hareline loads non-deterministically
+        // (two back-to-back live runs on 2026-11-05 differed: one dropped
+        // T3 #106/#110/#111), so reconcile cancelled ~10 random past runs a
+        // day and merge restored them on the next complete render. A past run
+        // missing from this archive is never a cancellation signal; future
+        // reschedules (e.g. T3 #232 11-19 → 11-26) are still reconciled.
+        upcomingOnly: true,
         browserRender: true,
         recedingHarelineUrl: "https://www.bullmoonh3.co.uk/receding-hareline",
         upcomingCompId: "comp-ksnfhbg7",
