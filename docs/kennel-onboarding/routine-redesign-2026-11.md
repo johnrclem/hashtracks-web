@@ -1,6 +1,6 @@
 # Daily onboarding routine — redesign proposal (2026-11-05)
 
-**Status:** proposal for the owner. The routine `trig_01NkbKrM53oWTmUxB7AHsPMC` ("Onboard daily kennel") stays paused until this is agreed.
+**Status:** approved by the owner on 2026-11-05 and implemented in `daily-onboarding-prompt.md`: Step 0 preflight, Step 2 handed-off dedupe, Step 9 GitHub delivery. The trigger prompt was updated and the labels created. The routine `trig_01NkbKrM53oWTmUxB7AHsPMC` stays **disabled** until the implementation backlog is under 10. At 52 today, Step 0 would exit on every run anyway.
 
 ## What went wrong (Aug–Nov 2026)
 
