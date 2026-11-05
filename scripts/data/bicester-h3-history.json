@@ -1,0 +1,4906 @@
+[
+  {
+    "date": "2018-01-28",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2294,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "ET",
+    "location": "Stratton Arms, Turweston",
+    "locationStreet": "Turweston, Brackley, Northamptonshire, NN13 5JX",
+    "cost": "\u00a32"
+  },
+  {
+    "date": "2018-02-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2295,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Preacher",
+    "location": "The Fox Inn, Fox Lane, Souldern OX27 7JW",
+    "locationStreet": "The Fox, Souldern, oxon, OX27 7JW",
+    "cost": "\u00a32"
+  },
+  {
+    "date": "2018-02-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2296,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Turnpike",
+    "location": "Bernwood Forest, Oakley",
+    "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR",
+    "cost": "\u00a32"
+  },
+  {
+    "date": "2018-02-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2297,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Hot Legs",
+    "location": "Hundred Acres, Bicester",
+    "locationStreet": "Sunderland Drive, Bicester, Oxon, OX264FR",
+    "cost": "\u00a32.00"
+  },
+  {
+    "date": "2018-02-25",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2298,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Thrifty Gaffer",
+    "location": "The Crown, Cuddington",
+    "locationStreet": "Aylesbury Road, Cuddington, Bucks, HP180BB"
+  },
+  {
+    "date": "2018-03-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2299,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "L\u2019Etcher",
+    "location": "The Plough Inn, Appleton",
+    "locationStreet": "Eaton Road, Appleton, Oxon, OX135JR"
+  },
+  {
+    "date": "2018-03-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2300,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Poacher",
+    "location": "The Plough, Arncott",
+    "locationStreet": "Ploughley road, Arncott, Oxfordshire, OX251NY"
+  },
+  {
+    "date": "2018-03-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2301,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "ISaw",
+    "location": "Dashwood Arms, Kirtlington",
+    "locationStreet": "South Green, Heyford Road, Kirtlington, Oxon, OX5 3HJ"
+  },
+  {
+    "date": "2018-03-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2302,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Amnesia, Scarecrow",
+    "location": "Launton Sports and Social",
+    "locationStreet": "Launton Playing Fields, Launton, Oxon, OX26 5DP"
+  },
+  {
+    "date": "2018-04-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2303,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Makin Bacon",
+    "location": "The Sow and Pigs, Poundon",
+    "locationStreet": "Main Street, Poundon, Oxon, OX279BA"
+  },
+  {
+    "date": "2018-04-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2304,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Perineum",
+    "location": "Killingworth Castle, Wooton",
+    "locationStreet": "Glympton Road, Wooton, Nr Woodstock, Oxon, OX201EJ"
+  },
+  {
+    "date": "2018-04-16",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2305,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Bollard Naked",
+    "location": "The Fox and Hounds, Ardley",
+    "locationStreet": "Main Street, Ardley, Bicester, OX27 7PE"
+  },
+  {
+    "date": "2018-04-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2306,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Blazing Saddles",
+    "location": "George & Dragon, Chacombe",
+    "locationStreet": "1 Thorpe Road, Chacombe, Oxfordshire, OX17 2JW"
+  },
+  {
+    "date": "2018-04-30",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2307,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Candida",
+    "location": "The Red Lion, Tingewick",
+    "locationStreet": "Buckingham Road, Little Tingewick, Buckingham, MK184AG"
+  },
+  {
+    "date": "2018-05-07",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2308,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Grunt",
+    "location": "The Bull & Butcher, Ludgershall",
+    "locationStreet": "The Green, Ludgershall, Aylesbury, HP189NZ"
+  },
+  {
+    "date": "2018-05-14",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2309,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Dizzy",
+    "location": "The Dew Drop, Summertown",
+    "locationStreet": "Banbury Road, Summertown, Oxford, Oxfordshire, OX27SX"
+  },
+  {
+    "date": "2018-05-21",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2310,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Cheesy, ISaw",
+    "location": "Rock of Gibraltar, Bletchingdon",
+    "locationStreet": "Enslow, Bletchingdon, Oxfordshire, OX53AY"
+  },
+  {
+    "date": "2018-05-28",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2311,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Playaway",
+    "location": "The Butchers Arms, Fringford",
+    "locationStreet": "Main Street, Fringford, Oxfordshire, OX278EB"
+  },
+  {
+    "date": "2018-06-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2312,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "ET",
+    "location": "Chez ET",
+    "locationStreet": "Main Street, Shalstone, Buckinghamshire, MK185LU"
+  },
+  {
+    "date": "2018-06-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2313,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Shagger",
+    "location": "Adderbury Bowls Club, Adderbury",
+    "locationStreet": "Twyford Gardens, Adderbury, Oxfordshire, OX173JB"
+  },
+  {
+    "date": "2018-06-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2314,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Maraschino, Thrifty Gaffer",
+    "location": "Rising Sun, Ickford",
+    "locationStreet": "Worminghall Road, Ickford, Buckinghamshire, HP189JD"
+  },
+  {
+    "date": "2018-06-25",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2315,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Amnesia, Robbo",
+    "location": "Morris Clown, Bampton",
+    "locationStreet": "High Street, Bampton, Oxfordshire, OX182JW"
+  },
+  {
+    "date": "2018-07-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2316,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Screech",
+    "location": "The Bull Inn, Launton",
+    "locationStreet": "OX26 5DQ"
+  },
+  {
+    "date": "2018-07-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2317,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Tarzan",
+    "location": "The Red Lion, Stratton Audley",
+    "locationStreet": "Stratton Audley, Bicester, Oxfordshire, OX279AG"
+  },
+  {
+    "date": "2018-07-16",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2318,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Shitstix",
+    "location": "The Bell, Chearsley",
+    "locationStreet": "The Green, Chearsley, Buckinghamshire, HP180DJ"
+  },
+  {
+    "date": "2018-07-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2319,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Monkey Glands, Sniffer",
+    "location": "The Bell Inn, Adderbury",
+    "locationStreet": "High Street, Adderbury, Banbury, OX17 3LS"
+  },
+  {
+    "date": "2018-07-30",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2320,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Monkey Glands, Sniffer",
+    "location": "The Pheasant, Brill",
+    "locationStreet": "39 Windmill Street, Brill, Aylesbury, HP18 9TG"
+  },
+  {
+    "date": "2018-08-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2321,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "location": "Plough Inn, Finstock",
+    "locationStreet": "High Street, Finstock, Oxfordshire, OX73BY"
+  },
+  {
+    "date": "2018-08-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2322,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Bollard Naked",
+    "location": "Wytham Woods, Wytham",
+    "locationStreet": "Wytham, Oxford, oxfordshire, OX28QQ"
+  },
+  {
+    "date": "2018-08-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2323,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Home Alone"
+  },
+  {
+    "date": "2018-08-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2324,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Technicolour Horn",
+    "location": "The Barley Mow, Clifton Hampden",
+    "locationStreet": "Clifton Hampden Road, Clifton Hampden, Oxfordshire, OX143EH"
+  },
+  {
+    "date": "2018-09-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2325,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Take Away",
+    "location": "Prince of Wales, Steeple Claydon",
+    "locationStreet": "16 Addison Road, Steeple Claydon, Buckinghamshire, MK182NP"
+  },
+  {
+    "date": "2018-09-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2326,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "location": "White Hart, Preston Bissett",
+    "locationStreet": "Pound Lane, Preston Bissett, Buckinghamshire, MK184LX"
+  },
+  {
+    "date": "2018-09-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2327,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Tom Tom",
+    "location": "Three Horseshoes, Long Hanborough",
+    "locationStreet": "Main Street, Long Hanborough, Oxfordshire, OX298BE"
+  },
+  {
+    "date": "2018-09-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2328,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Daglocks",
+    "location": "The Littlebury Hotel, Bicester",
+    "locationStreet": "Kings End, Bicester, Oxfordshire, OX266DR"
+  },
+  {
+    "date": "2018-10-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2329,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Lockjaw",
+    "location": "Masons Arms, Headington Quarry",
+    "locationStreet": "Headington Quarry, Oxford, Oxfordshire, OX38LH"
+  },
+  {
+    "date": "2018-10-07",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2330,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Biggles2",
+    "location": "Crewe Arms, Hinton in the Hedges",
+    "locationStreet": "Sparrow Corner, Hinton in the Hedges, Northamptonshire, NN13 5NF"
+  },
+  {
+    "date": "2018-10-14",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2331,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Anorak",
+    "location": "The Fox Inn, Fox Lane, Souldern OX27 7JW",
+    "locationStreet": "The Fox, Souldern, oxon, OX27 7JW"
+  },
+  {
+    "date": "2018-10-21",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2332,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "location": "The Pilgrim, North Marston",
+    "locationStreet": "25 High Street, North Marston, Buckinghamshire, MK183PD"
+  },
+  {
+    "date": "2018-10-28",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2333,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Turnpike",
+    "location": "Dashwood Arms, Kirtlington",
+    "locationStreet": "South Green, Heyford Road, Kirtlington, Oxon, OX5 3HJ"
+  },
+  {
+    "date": "2018-11-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2334,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "X Stitch",
+    "location": "The Ben Jonson, Weston-on-the-Green",
+    "locationStreet": "Weston on the Green, Bicester, Oxfordshire, OX253RA"
+  },
+  {
+    "date": "2018-11-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2335,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "L\u2019Etcher",
+    "location": "The Clifden Arms, Worminghall",
+    "locationStreet": "75 Clifden Road, Worminghall, Bucks, HP189JR"
+  },
+  {
+    "date": "2018-11-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2336,
+    "startTime": "11:00",
+    "endTime": "15:00",
+    "hares": "Bollard Naked",
+    "location": "Visitor Centre, Sandringham Estate, Norfolk",
+    "locationStreet": "Sandringham Estate, Norfolk, PE356AB"
+  },
+  {
+    "date": "2018-11-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2336,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Bollard Naked"
+  },
+  {
+    "date": "2018-11-25",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2337,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Dim Spark",
+    "location": "The Red Lion, Steeple Aston",
+    "locationStreet": "South Side, Steeple Aston, Oxfordshire, OX254RY"
+  },
+  {
+    "date": "2018-12-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2338,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Creeper",
+    "location": "Honey Bee, Aylesbury",
+    "locationStreet": "Trenchard Street, Fairford Leys, Aylesbury, Buckinghamshire, HP197AA"
+  },
+  {
+    "date": "2018-12-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2339,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Cheesy, ISaw",
+    "location": "The Bull & Butcher, Ludgershall",
+    "locationStreet": "The Green, Ludgershall, Aylesbury, HP189NZ"
+  },
+  {
+    "date": "2018-12-16",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2340,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "location": "The Greatworth Inn, Greatworth",
+    "locationStreet": "Chapel Road, Greatworth, Oxfordshire, OX172DT"
+  },
+  {
+    "date": "2018-12-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2341,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Playaway",
+    "location": "The Red Lion, Tingewick",
+    "locationStreet": "Buckingham Road, Little Tingewick, Buckingham, MK184AG"
+  },
+  {
+    "date": "2018-12-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2341,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "location": "Hundred Acres, Bicester",
+    "locationStreet": "Sunderland Drive, Bicester, Oxon, OX264FR"
+  },
+  {
+    "date": "2018-12-30",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2342,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Rectal Floss",
+    "location": "The Royal Sun, Begbroke",
+    "locationStreet": "2 Woodstock Road West, Begbroke, Oxfordshire, OX51RZ"
+  },
+  {
+    "date": "2019-01-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2343,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Kip",
+    "location": "The Red Lion, Yarnton",
+    "locationStreet": "127 Cassington Road, Yarnton, Oxfordshire, OX51QD"
+  },
+  {
+    "date": "2019-01-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2344,
+    "startTime": "11:00",
+    "endTime": "17:00",
+    "hares": "Cheesy, Turnpike"
+  },
+  {
+    "date": "2019-01-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2346,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Monkey Glands",
+    "location": "Bernwood Forest, Oakley",
+    "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR"
+  },
+  {
+    "date": "2019-01-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2347,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Dipstick",
+    "location": "Rose and Crown, Charlbury",
+    "locationStreet": "Market Street, Charlbury, Oxfordshire, OX73PL"
+  },
+  {
+    "date": "2019-02-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2348,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Makin Bacon2"
+  },
+  {
+    "date": "2019-02-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2349,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Maraschino",
+    "location": "The King and Queen, Wheatley",
+    "locationStreet": "57 High Street, Wheatley, Oxfordshire, OX331XT"
+  },
+  {
+    "date": "2019-02-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2350,
+    "startTime": "11:00",
+    "endTime": "12:00"
+  },
+  {
+    "date": "2019-02-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2351,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Bebe",
+    "location": "White Hart Hotel, Buckingham",
+    "locationStreet": "Market Square, Buckingham, Buckinghamshire, MK181NL"
+  },
+  {
+    "date": "2019-03-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2352,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Clippety Clogs",
+    "location": "The Sow and Pigs, Poundon",
+    "locationStreet": "Main Street, Poundon, Oxon, OX279BA"
+  },
+  {
+    "date": "2019-03-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2353,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Nipples",
+    "location": "The Lion, Waddesdon",
+    "locationStreet": "70a High Street, Waddesdon, Buckinghamshire, HP180JD"
+  },
+  {
+    "date": "2019-03-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2354,
+    "startTime": "10:30",
+    "endTime": "12:00",
+    "hares": "Creeper",
+    "location": "Fleur de Lis, Stokenchurch",
+    "locationStreet": "The Common, Oxford Road, Stokenchurch, Buckinghamshire, HP143TZ"
+  },
+  {
+    "date": "2019-03-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2355,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Ed Case",
+    "location": "The Royal Oak, Tingewick",
+    "locationStreet": "Main Street, Tingewick, Buckinghamshire, MK184NN"
+  },
+  {
+    "date": "2019-04-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2356,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Kip",
+    "location": "Launton Sports and Social",
+    "locationStreet": "Launton Playing Fields, Launton, Oxon, OX26 5DP"
+  },
+  {
+    "date": "2019-04-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2357,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "location": "The Butchers Arms, Kings Sutton",
+    "locationStreet": "8-10 Whittall Street, King's Sutton, Oxfordshire, OX17 3RD"
+  },
+  {
+    "date": "2019-04-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2358,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Thrifty Gaffer",
+    "location": "The White Lion, Fewcott",
+    "locationStreet": "Fritwell Road, Fewcott, Oxfordshire, OX27 7NZ"
+  },
+  {
+    "date": "2019-04-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2359,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Bollard Naked",
+    "location": "The White Horse Inn",
+    "locationStreet": "Daisy Hill, Duns Tew, Oxfordshire, OX25 6JS"
+  },
+  {
+    "date": "2019-04-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2360,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Bondage, Dingaling",
+    "location": "The Boat, Thrupp",
+    "locationStreet": "Canal Road, Thrupp, Oxfordshire, OX5 1JY"
+  },
+  {
+    "date": "2019-05-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2361,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Turnpike2",
+    "location": "The Crown, Gawcott",
+    "locationStreet": "Hillesden Road, Gawcott, Buckinghamshire, MK18 4JH"
+  },
+  {
+    "date": "2019-05-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2362,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Azzanife",
+    "location": "The Red Lion, Evenley",
+    "locationStreet": "39 The Green, Evenley, Brackley, NN13 5SH"
+  },
+  {
+    "date": "2019-05-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2363,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Monkey Glands, Sniffer",
+    "location": "The Great Western Arms, Ayno",
+    "locationStreet": "Station Road, Aynho, Oxfordshire, OX17 3BP"
+  },
+  {
+    "date": "2019-05-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2364,
+    "startTime": "12:00",
+    "hares": "Cheesy, ISaw",
+    "location": "Launton Sports and Social",
+    "locationStreet": "Launton Playing Fields, Launton, Oxon, OX26 5DP"
+  },
+  {
+    "date": "2019-05-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2366,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Grunt, Screech",
+    "location": "The Plough, Arncott",
+    "locationStreet": "Ploughley road, Arncott, Oxfordshire, OX251NY"
+  },
+  {
+    "date": "2019-06-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2367,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Thrifty Gaffer",
+    "location": "The Bell, Lower Heyford.",
+    "locationStreet": "21 Market Square, Lower Heyford, Oxfordshire, OX25 5NY"
+  },
+  {
+    "date": "2019-06-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2368,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "ET",
+    "location": "Chez ET",
+    "locationStreet": "Main Street, Shalstone, Buckinghamshire, MK185LU"
+  },
+  {
+    "date": "2019-06-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2369,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Lockjaw",
+    "location": "Chez Lockjaw",
+    "locationStreet": "Lavender Cottage, Otmoor Lane, Beckley, Oxford, Oxfordshire, Ox39UX"
+  },
+  {
+    "date": "2019-06-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2370,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Take Away",
+    "location": "The Crown, Twyford",
+    "locationStreet": "The Square, Twyford, Bucks, MK184EG"
+  },
+  {
+    "date": "2019-07-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2371,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Dog Loss \u2013 do not use",
+    "location": "The Butchers Arms, Fringford",
+    "locationStreet": "Main Street, Fringford, Oxfordshire, OX278EB"
+  },
+  {
+    "date": "2019-07-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2372,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Chaucer, Daglocks",
+    "location": "Daglocks House",
+    "locationStreet": "Grove Barn, Main Street, Grendon Underwood, Buckinghamshire, HP180SJ"
+  },
+  {
+    "date": "2019-07-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2373,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Turnpike",
+    "location": "Bernwood Forest, Oakley",
+    "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR"
+  },
+  {
+    "date": "2019-07-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2374,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "CD, Pussy Warmer, Slushy",
+    "location": "The Royal Oak, Tingewick",
+    "locationStreet": "Main Street, Tingewick, Buckinghamshire, MK184NN"
+  },
+  {
+    "date": "2019-07-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2375,
+    "startTime": "19:00",
+    "endTime": "21:00"
+  },
+  {
+    "date": "2019-08-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2376,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Grandma Dyson",
+    "location": "The Griffin, Chipping Warden",
+    "locationStreet": "9 Culworth Road, Chipping Warden, Oxfordshire, OX171LB"
+  },
+  {
+    "date": "2019-08-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2377,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dim Spark",
+    "location": "The Bull & Butcher, Ludgershall",
+    "locationStreet": "The Green, Ludgershall, Aylesbury, HP189NZ"
+  },
+  {
+    "date": "2019-08-19",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2378,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Preacher",
+    "location": "The Peartree Inn, Hook Norton",
+    "locationStreet": "Scotland End,, Hook Norton, Oxfordshire, OX155NU"
+  },
+  {
+    "date": "2019-08-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2379,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Reined On",
+    "location": "Kirtlington Golf Club, Kirtlington",
+    "locationStreet": "Kirtlington, Oxfordshire, OX53JY"
+  },
+  {
+    "date": "2019-09-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2380,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Shitstix",
+    "location": "The Fox, Boars Hill",
+    "locationStreet": "Fox Lane, Boars Hill, Oxford, Oxfordshire, OX15DR"
+  },
+  {
+    "date": "2019-09-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2381,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Maraschino",
+    "location": "Westcott Cricket Club, Westcott",
+    "locationStreet": "Ashendon Road, Westcott, Bucks, HP180NZ"
+  },
+  {
+    "date": "2019-09-16",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2382,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "location": "The Fox Inn, Middle Barton",
+    "locationStreet": "27 Enstone Road, Middle Barton, Oxfordshire, Ox77bl"
+  },
+  {
+    "date": "2019-09-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2383,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dingaling",
+    "location": "Kings Arms, Kidlington",
+    "locationStreet": "4 The Moors, Kidlington, Oxfordshire, Ox52aj"
+  },
+  {
+    "date": "2019-09-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2384,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Beerstop",
+    "location": "Chez Beerstop, Chesterton",
+    "locationStreet": "Lodge Farm, Chesterton, Oxfordshire, OX261XA"
+  },
+  {
+    "date": "2019-10-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2385,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Turnpike",
+    "location": "Gardiner Arms, Tackley",
+    "locationStreet": "93 Medcroft Road, Tackley, Oxfordshire, Ox53ah"
+  },
+  {
+    "date": "2019-10-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2386,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "location": "Launton Sports and Social",
+    "locationStreet": "Launton Playing Fields, Launton, Oxon, OX26 5DP"
+  },
+  {
+    "date": "2019-10-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2387,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Thrifty Gaffer",
+    "location": "Blackbird Inn, Croughton",
+    "locationStreet": "38 High St, Croughton, Brackley, Northants, NN13 5LT"
+  },
+  {
+    "date": "2019-10-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2388,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Clippety Clogs, Dog Loss \u2013 do not use",
+    "location": "The George & Dragon, Quainton",
+    "locationStreet": "32 The Green, Quainton, Buckinghamshire, HP224AR"
+  },
+  {
+    "date": "2019-11-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2389,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "L\u2019Etcher",
+    "location": "Dashwood Arms, Kirtlington",
+    "locationStreet": "South Green, Heyford Road, Kirtlington, Oxon, OX5 3HJ"
+  },
+  {
+    "date": "2019-11-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2390,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Enterprise, Nutella",
+    "location": "The Mitre, Buckingham",
+    "locationStreet": "2 Mitre Street, Buckingham, Buckinghamshire, MK18 1DW"
+  },
+  {
+    "date": "2019-11-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2391,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Cheesy, Ovett",
+    "location": "The Pheasant, Brill",
+    "locationStreet": "39 Windmill Street, Brill, Aylesbury, HP18 9TG"
+  },
+  {
+    "date": "2019-11-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2392,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Monkey Glands, Take Away",
+    "location": "Chandos Arms",
+    "locationStreet": "8 The Turnpike, Oakley, OXON, HP189QB"
+  },
+  {
+    "date": "2019-12-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2393,
+    "startTime": "11:00",
+    "endTime": "13:00"
+  },
+  {
+    "date": "2019-12-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2394,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Tom Tom",
+    "location": "The White Horse Inn",
+    "locationStreet": "Daisy Hill, Duns Tew, Oxfordshire, OX25 6JS"
+  },
+  {
+    "date": "2019-12-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2395,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Technicolour Horn",
+    "location": "Horspath Cricket Club",
+    "locationStreet": "The Village Hall, Oxford Road, Horspath, Oxford, Oxfordshire, OX33 1RT"
+  },
+  {
+    "date": "2019-12-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2396,
+    "startTime": "11:00",
+    "endTime": "15:00",
+    "hares": "Cocktail, Maraschino",
+    "location": "The Crown, Twyford",
+    "locationStreet": "The Square, Twyford, Bucks, MK184EG"
+  },
+  {
+    "date": "2019-12-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2397,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Dormobile, Ovett",
+    "location": "Hundred Acres, Bicester",
+    "locationStreet": "Sunderland Drive, Bicester, Oxon, OX264FR"
+  },
+  {
+    "date": "2019-12-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2398,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Enterprise, Nutella",
+    "location": "The Crown, Gawcott",
+    "locationStreet": "Hillesden Road, Gawcott, Buckinghamshire, MK18 4JH"
+  },
+  {
+    "date": "2020-01-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2399,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Blazing Saddles",
+    "location": "The Rose & Crown",
+    "locationStreet": "Featherbow Lane, Ratley, Oxfordshire, OX156DS"
+  },
+  {
+    "date": "2020-01-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2400,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Sniffer",
+    "location": "The Dun Cow",
+    "locationStreet": "West end, Hornton, Oxfordshire, Ox156da"
+  },
+  {
+    "date": "2020-01-19",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2401,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Monkey Glands, Sniffer",
+    "location": "Bernwood Forest, Oakley",
+    "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR"
+  },
+  {
+    "date": "2020-01-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2402,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Preacher, Thrifty Gaffer",
+    "location": "The Swan Inn",
+    "locationStreet": "1 Lower Road, Islip, Oxfordshire, OX52SB"
+  },
+  {
+    "date": "2020-02-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2403,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Playaway",
+    "location": "Fountain",
+    "locationStreet": "10 West Street, Steeple Claudon, Buckinghamshire, MK182NT"
+  },
+  {
+    "date": "2020-02-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2404,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Daglocks",
+    "location": "The Swan Public House",
+    "locationStreet": "Main Street, Grendon Underwood, Aylesbury, Bucks., Buckinghamshire, HP18 0SW"
+  },
+  {
+    "date": "2020-02-16",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2405,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "X Stitch",
+    "location": "Ex-Services & Social Club, 67 Sheep St, Bicester OX26 6JW, UK",
+    "locationStreet": "67 Sheep Street, Bicester, OX26 6JW"
+  },
+  {
+    "date": "2020-02-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2406,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "No Name Jess",
+    "location": "Shepherds Crook, The Green, Crowell\u2028,",
+    "locationStreet": "The Green, Crowell, Chinnor, OX39 4RR"
+  },
+  {
+    "date": "2020-03-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2407,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Dim Spark",
+    "location": "White Hart, Preston Bissett",
+    "locationStreet": "Pound Lane, Preston Bissett, Buckinghamshire, MK184LX"
+  },
+  {
+    "date": "2020-03-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2408,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Dipstick, Preying Mantis",
+    "location": "Gardiner Arms, Tackley",
+    "locationStreet": "93 Medcroft Road, Tackley, Oxfordshire, Ox53ah"
+  },
+  {
+    "date": "2020-03-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2409,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Dipstick",
+    "location": "Abingdon Utd Football Club",
+    "locationStreet": "Northcourt Road, Abingdon, Oxfordshire, OX141PL"
+  },
+  {
+    "date": "2020-03-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2410,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Turnpike2"
+  },
+  {
+    "date": "2020-03-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2411,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Turnpike2"
+  },
+  {
+    "date": "2020-04-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2412,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Kip"
+  },
+  {
+    "date": "2020-04-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2413,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Lockjaw"
+  },
+  {
+    "date": "2020-04-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2414,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Bollard Naked",
+    "location": "Bucknell Wood",
+    "locationStreet": "Nn128UW"
+  },
+  {
+    "date": "2020-04-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2415,
+    "startTime": "19:00",
+    "endTime": "21:30"
+  },
+  {
+    "date": "2020-05-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2416,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Big End"
+  },
+  {
+    "date": "2020-05-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2417,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "location": "BeerStop"
+  },
+  {
+    "date": "2020-05-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2418,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Clippety Clogs, Dogloss"
+  },
+  {
+    "date": "2020-05-25",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2419,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dormobile, ReinDon \u2013 do not use"
+  },
+  {
+    "date": "2020-06-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2420,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dipstick"
+  },
+  {
+    "date": "2020-06-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2421,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "TBA"
+  },
+  {
+    "date": "2020-06-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2422,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Technicolour Horn"
+  },
+  {
+    "date": "2020-06-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2423,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "L\u2019Etcher2"
+  },
+  {
+    "date": "2020-06-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2424,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Makin Bacon2"
+  },
+  {
+    "date": "2020-07-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2425,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Nipples"
+  },
+  {
+    "date": "2020-07-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2409,
+    "startTime": "19:00",
+    "endTime": "21:30"
+  },
+  {
+    "date": "2020-12-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2410,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Turnpike",
+    "location": "Bernwood Forest, Oakley",
+    "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR"
+  },
+  {
+    "date": "2020-12-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2411,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Clippety Clogs, Dogloss, Dormobile",
+    "location": "Whitelands Farm Sports Ground",
+    "locationStreet": "Whitelands Way, Bicester, Oxfordshire, OX26 1AJ"
+  },
+  {
+    "date": "2021-04-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2412,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Thrifty Gaffer",
+    "location": "Station Car Park",
+    "locationStreet": "Station Approach, Kings Sutton, Oxfordshire, OX17 3RR"
+  },
+  {
+    "date": "2021-04-19",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2413,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Maraschino"
+  },
+  {
+    "date": "2021-04-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2414,
+    "startTime": "19:00",
+    "endTime": "19:00",
+    "hares": "Dormobile, Reined On",
+    "location": "Kirtlington Golf Club, Kirtlington",
+    "locationStreet": "Kirtlington, Oxfordshire, OX53JY"
+  },
+  {
+    "date": "2021-05-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2415,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Bollard Naked",
+    "location": "Stoke Woods",
+    "locationStreet": "Stoke Lyne Car Park, Stoke Lyne, Oxfordshire"
+  },
+  {
+    "date": "2021-05-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2416,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Daglocks",
+    "location": "White Hart, Preston Bissett",
+    "locationStreet": "Pound Lane, Preston Bissett, Buckinghamshire, MK184LX"
+  },
+  {
+    "date": "2021-05-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2417,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Turnpike",
+    "location": "The Nightingale",
+    "locationStreet": "10 Nightingale Place, Bicetster, OX26 6XX"
+  },
+  {
+    "date": "2021-05-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2418,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Pheasant Plucker",
+    "location": "The Shakespeare Pub",
+    "locationStreet": "Bowmont Square, Bicester, Oxfordshire, OX26 2GJ"
+  },
+  {
+    "date": "2021-05-31",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2419,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Dormobile",
+    "location": "The Butchers Arms, Fringford",
+    "locationStreet": "Main Street, Fringford, Oxfordshire, OX278EB"
+  },
+  {
+    "date": "2021-06-07",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2420,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Ovett",
+    "location": "Hundred Acres, Bicester",
+    "locationStreet": "Sunderland Drive, Bicester, Oxon, OX264FR"
+  },
+  {
+    "date": "2021-06-14",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2421,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Clippety Clogs, Dogloss",
+    "location": "Akeman Inn",
+    "locationStreet": "Kingswood Lane,, Aylesbury HP18 0QJ, HP18 0QJ"
+  },
+  {
+    "date": "2021-06-21",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2422,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Kip, Nipples",
+    "location": "The Red Lion, Yarnton",
+    "locationStreet": "127 Cassington Road, Yarnton, Oxfordshire, OX51QD"
+  },
+  {
+    "date": "2021-06-28",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2423,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Thrifty Gaffer",
+    "location": "The Blackbird, Croughton",
+    "locationStreet": "38 HIGH STREET, CROUGHTON, NORTHANTS, NN13 5LT"
+  },
+  {
+    "date": "2021-07-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2424,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Daglocks",
+    "location": "The George & Dragon, Quainton",
+    "locationStreet": "32 The Green, Quainton, Buckinghamshire, HP224AR"
+  },
+  {
+    "date": "2021-07-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2425,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "location": "Bernwood Forest, Oakley",
+    "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR"
+  },
+  {
+    "date": "2021-07-19",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2426,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Reined On",
+    "location": "Ardley with Fewcott Village Hall.",
+    "locationStreet": "Ardley Playing Fields, Ardley Road, OX27 7PA"
+  },
+  {
+    "date": "2021-07-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2427,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Bollard Naked",
+    "location": "The Bat and ball,  High St, Cuddesdon, Oxford OX44 9HJ",
+    "locationStreet": "High Street, Cuddesdon, Oxford, OX44 9HJ"
+  },
+  {
+    "date": "2021-08-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2428,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Ovett",
+    "location": "The Old Red Lions, Tetsworth",
+    "locationStreet": "40 High Street, Tetsworth, Oxfordshire, OX9 7AS"
+  },
+  {
+    "date": "2021-08-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2429,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Clippety Clogs, Dogloss",
+    "location": "The Crown, Twyford",
+    "locationStreet": "The Square, Twyford, Bucks, MK184EG"
+  },
+  {
+    "date": "2021-08-16",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2430,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Ovett",
+    "location": "The Bull Inn, Launton",
+    "locationStreet": "OX26 5DQ"
+  },
+  {
+    "date": "2021-08-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2431,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Bondage, Dingaling",
+    "location": "The Red Lion 42 Oxford Road Old Marston Oxford OX3 0PH",
+    "locationStreet": "42 Oxford Road, Old Marston, OX3 0PH"
+  },
+  {
+    "date": "2021-08-30",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2432,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Maraschino",
+    "location": "The Bull & Butcher, Ludgershall",
+    "locationStreet": "The Green, Ludgershall, Aylesbury, HP189NZ"
+  },
+  {
+    "date": "2021-09-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2433,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Thrifty Gaffer",
+    "location": "syresham sportss and social club",
+    "locationStreet": "High Street, Syresham., NN13 5HL"
+  },
+  {
+    "date": "2021-09-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2434,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Monkey Glands, Take Away",
+    "location": "Marsh Gibbon Village Hall",
+    "locationStreet": "Clements Lane, Marsh Gibbon, OX27 0HG"
+  },
+  {
+    "date": "2021-09-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2435,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Beerstop",
+    "location": "Chez Beerstop, Chesterton",
+    "locationStreet": "Lodge Farm, Chesterton, Oxfordshire, OX261XA"
+  },
+  {
+    "date": "2021-09-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2436,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Dormobile, Reined On",
+    "location": "The White Lion, Fewcott",
+    "locationStreet": "Fritwell Road, Fewcott, Oxfordshire, OX27 7NZ"
+  },
+  {
+    "date": "2021-10-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2437,
+    "startTime": "11:00",
+    "endTime": "17:00",
+    "hares": "Dobby, Dogloss",
+    "location": "The Pheasant, Brill",
+    "locationStreet": "39 Windmill Street, Brill, Aylesbury, HP18 9TG"
+  },
+  {
+    "date": "2021-10-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2438,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Gadget",
+    "location": "The Greyhound Inn,  101 High St, Brackley NN13 7BW",
+    "locationStreet": "101 Hight Street,, Brackley, NN13 7BW"
+  },
+  {
+    "date": "2021-10-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2439,
+    "startTime": "11:00",
+    "endTime": "12:30",
+    "hares": "Thrifty Gaffer",
+    "location": "The Barley Mow, Upper Heyford.",
+    "locationStreet": "Somerton Road, Upper Heyford., Bicester, OX25 5LB"
+  },
+  {
+    "date": "2021-10-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2440,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Sniffer",
+    "location": "The Dun Cow",
+    "locationStreet": "West end, Hornton, Oxfordshire, Ox156da"
+  },
+  {
+    "date": "2021-10-31",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2441,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Pheasant Plucker",
+    "location": "Shakespeare Inn",
+    "locationStreet": "Bowmont Square, Bicester, OX26 2GJ"
+  },
+  {
+    "date": "2021-11-07",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2442,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Clippety Clogs, Dogloss",
+    "location": "The Old Thatched Inn, Adstock."
+  },
+  {
+    "date": "2021-11-14",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2443,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Home Alone, Tom Tom",
+    "location": "Three Horseshoes, Long Hanborough",
+    "locationStreet": "Main Street, Long Hanborough, Oxfordshire, OX298BE"
+  },
+  {
+    "date": "2021-11-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2444,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Dormobile, Shitstix"
+  },
+  {
+    "date": "2021-11-21",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2445,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Monkey Glands",
+    "location": "The Red Lion, Steeple Aston",
+    "locationStreet": "South Side, Steeple Aston, Oxfordshire, OX254RY"
+  },
+  {
+    "date": "2021-11-28",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2446,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Thrifty Gaffer",
+    "location": "The Lion, Waddesdon",
+    "locationStreet": "70a High Street, Waddesdon, Buckinghamshire, HP180JD"
+  },
+  {
+    "date": "2021-12-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2447,
+    "startTime": "11:00",
+    "endTime": "12:00",
+    "hares": "Kip, Nipples",
+    "location": "The Red Lion, Yarnton",
+    "locationStreet": "127 Cassington Road, Yarnton, Oxfordshire, OX51QD"
+  },
+  {
+    "date": "2021-12-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2448,
+    "startTime": "11:00",
+    "endTime": "16:00",
+    "hares": "Dormobile, The Two Fannys",
+    "location": "Launton Sports and Social",
+    "locationStreet": "Launton Playing Fields, Launton, Oxon, OX26 5DP"
+  },
+  {
+    "date": "2021-12-19",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2449,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Preacher",
+    "location": "The Blinking Owl, North Newington",
+    "locationStreet": "MAIN ST, NORTH NEWINGTON, BANBURY, OX15 6AE"
+  },
+  {
+    "date": "2021-12-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2450,
+    "startTime": "11:00",
+    "endTime": "14:30",
+    "hares": "Dormobile, Reined On",
+    "location": "Ardley with Fewcott Village Hall.",
+    "locationStreet": "Ardley Playing Fields, Ardley Road, OX27 7PA"
+  },
+  {
+    "date": "2022-01-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2451,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Beerstop",
+    "location": "Chez Beerstop, Chesterton",
+    "locationStreet": "Lodge Farm, Chesterton, Oxfordshire, OX261XA"
+  },
+  {
+    "date": "2022-01-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2452,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Clippety Clogs, Dogloss",
+    "location": "The Fat Landlord, Helmdon",
+    "locationStreet": "29 CHURCH STREET, HELMDON, BRACKLEY,, NORTHANTS., NN135QJ"
+  },
+  {
+    "date": "2022-01-16",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2453,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Thrifty Gaffer",
+    "location": "Plough Inn, 9 High St, Bodicote, Banbury OX15 4BZ",
+    "locationStreet": "9 High Street, Bodicote, Banbury, OX15 4BZ"
+  },
+  {
+    "date": "2022-01-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2454,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Bollard Naked",
+    "location": "The Black Prince.",
+    "locationStreet": "2 MANOR ROAD, WOODSTOCK, OX20 1XJ"
+  },
+  {
+    "date": "2022-01-30",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2455,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Turnpike",
+    "location": "Bernwood Forest, Oakley",
+    "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR"
+  },
+  {
+    "date": "2022-02-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2456,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Bondage, Dingaling"
+  },
+  {
+    "date": "2022-02-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2457,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Shitstix",
+    "location": "The Blackbird, Croughton",
+    "locationStreet": "38 HIGH STREET, CROUGHTON, NORTHANTS, NN13 5LT"
+  },
+  {
+    "date": "2022-02-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2458,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Pheasant Plucker",
+    "location": "The Shakespeare Pub",
+    "locationStreet": "Bowmont Square, Bicester, Oxfordshire, OX26 2GJ"
+  },
+  {
+    "date": "2022-02-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2459,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Reined On",
+    "location": "The Red Lion, Evenley",
+    "locationStreet": "39 The Green, Evenley, Brackley, NN13 5SH"
+  },
+  {
+    "date": "2022-03-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2460,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Daglocks, Smiling Oyster",
+    "location": "The White Hart Buckingham",
+    "locationStreet": "1-2 Market Square, Buckingham, Buckinghamshire, MK181NL"
+  },
+  {
+    "date": "2022-03-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2461,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Kip, Nipples",
+    "location": "The Red Lion, Cassington",
+    "locationStreet": "The Green, Cassington, Oxfordshire, OX294DN"
+  },
+  {
+    "date": "2022-03-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2462,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Turnpike",
+    "location": "Gardiner Arms, Tackley",
+    "locationStreet": "93 Medcroft Road, Tackley, Oxfordshire, Ox53ah"
+  },
+  {
+    "date": "2022-03-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2463,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Thrifty Gaffer",
+    "location": "The Turner Arms",
+    "locationStreet": "15 Merton Road, Ambrosden, Oxfordshire, OX25 2LX"
+  },
+  {
+    "date": "2022-04-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2464,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Maraschino",
+    "location": "The Bull Inn, Launton",
+    "locationStreet": "OX26 5DQ"
+  },
+  {
+    "date": "2022-04-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2465,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Ovett",
+    "location": "The Pheasant, Brill",
+    "locationStreet": "39 Windmill Street, Brill, Aylesbury, HP18 9TG"
+  },
+  {
+    "date": "2022-04-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2466,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Cheesy, ISaw",
+    "location": "The Nightingale",
+    "locationStreet": "10 Nightingale Place, Bicetster, OX26 6XX"
+  },
+  {
+    "date": "2022-04-25",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2467,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Thrifty Gaffer",
+    "location": "The New Inn, Middleton Cheney",
+    "locationStreet": "45 Main Road, Middleton Cheney., Banbury"
+  },
+  {
+    "date": "2022-05-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2468,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Dogloss",
+    "location": "The Talk House,",
+    "locationStreet": "Wheatley Road, Stnton St John, Oxford, OX33 1EX"
+  },
+  {
+    "date": "2022-05-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2469,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Dormobile",
+    "location": "The Crown, Gawcott",
+    "locationStreet": "Hillesden Road, Gawcott, Buckinghamshire, MK18 4JH"
+  },
+  {
+    "date": "2022-05-16",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2470,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Cocktail",
+    "location": "The Red Lion, Stratton Audley",
+    "locationStreet": "Stratton Audley, Bicester, Oxfordshire, OX279AG"
+  },
+  {
+    "date": "2022-05-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2471,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Reined On",
+    "location": "Kirtlington Golf Club, Kirtlington",
+    "locationStreet": "Kirtlington, Oxfordshire, OX53JY"
+  },
+  {
+    "date": "2022-05-30",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2472,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Bollard Naked",
+    "location": "Wytham Woods Saw Mill Car Park OX2 8QQ",
+    "locationStreet": "Wytham Woods Saw Mill Car Park, OX2 8QQ"
+  },
+  {
+    "date": "2022-06-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2473,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Dobby",
+    "location": "Bernwood Forest, Oakley",
+    "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR"
+  },
+  {
+    "date": "2022-06-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2474,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Beerstop",
+    "location": "The Bell, Lower Heyford.",
+    "locationStreet": "21 Market Square, Lower Heyford, Oxfordshire, OX25 5NY"
+  },
+  {
+    "date": "2022-06-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2475,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Sniffer",
+    "location": "The Bell Inn, Adderbury",
+    "locationStreet": "High Street, Adderbury, Banbury, OX17 3LS"
+  },
+  {
+    "date": "2022-06-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2476,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Bondage, Dingaling",
+    "location": "The Star Inn, Sulgrave"
+  },
+  {
+    "date": "2022-07-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2477,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Stalker",
+    "location": "Westcott Cricket Club, Westcott",
+    "locationStreet": "Ashendon Road, Westcott, Bucks, HP180NZ"
+  },
+  {
+    "date": "2022-07-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2478,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Home Alone",
+    "location": "The Butchers Arms, Kings Sutton",
+    "locationStreet": "8-10 Whittall Street, King's Sutton, Oxfordshire, OX17 3RD"
+  },
+  {
+    "date": "2022-07-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2479,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "ET",
+    "location": "Chez ET",
+    "locationStreet": "Main Street, Shalstone, Buckinghamshire, MK185LU"
+  },
+  {
+    "date": "2022-07-25",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2480,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Offside",
+    "location": "Charlton united fc",
+    "locationStreet": "Playing Field, High Street, Charlton on Otmoor, Oxfordshire, OX52UL"
+  },
+  {
+    "date": "2022-08-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2481,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Tresemme",
+    "location": "Launton Sports and Social",
+    "locationStreet": "Launton Playing Fields, Launton, Oxon, OX26 5DP"
+  },
+  {
+    "date": "2022-08-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2482,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Lockjaw",
+    "location": "The Clifden Arms, Worminghall",
+    "locationStreet": "75 Clifden Road, Worminghall, Bucks, HP189JR"
+  },
+  {
+    "date": "2022-08-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2483,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Preacher",
+    "location": "The George & Dragon, Shutford",
+    "locationStreet": "Church Lane, Shutford, Banbury, OX15 6PG"
+  },
+  {
+    "date": "2022-08-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2484,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Take Away",
+    "location": "Chandos Arms, Oakley",
+    "locationStreet": "8 The Turnpike, Oakley, HP18 9QB"
+  },
+  {
+    "date": "2022-08-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2485,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Gollum, Maraschino",
+    "location": "Queens Head",
+    "locationStreet": "26 Church Road, Horspath, Oxon, OX331RU"
+  },
+  {
+    "date": "2022-09-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2486,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Thrifty Gaffer",
+    "location": "The Cartwright Hotel.",
+    "locationStreet": "1-5 Croughton Road,, Aynho, OX17 3BE"
+  },
+  {
+    "date": "2022-09-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2487,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Gadget",
+    "location": "Saye & Sele Arms,",
+    "locationStreet": "Broughton, Oxfordshire, Ox155ED"
+  },
+  {
+    "date": "2022-09-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2488,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Turnpike",
+    "location": "Bernwood Forest, Oakley",
+    "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR"
+  },
+  {
+    "date": "2022-09-25",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2489,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Bambi",
+    "location": "Yarrnton British Legion Club.",
+    "locationStreet": "Rotten Lane, Kidlington, OX5 1LN"
+  },
+  {
+    "date": "2022-10-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2490,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dormobile",
+    "location": "The Blacks Head Inn, Bletchingdon",
+    "locationStreet": "The Green, Bletchingdon, OX5 3DA"
+  },
+  {
+    "date": "2022-10-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2491,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Thrifty Gaffer",
+    "location": "The Crown, Twyford",
+    "locationStreet": "The Square, Twyford, Bucks, MK184EG"
+  },
+  {
+    "date": "2022-10-16",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2492,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "L\u2019Etcher",
+    "location": "The Star Inn, Sulgrave"
+  },
+  {
+    "date": "2022-10-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2493,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Shitstix",
+    "location": "The Pilgrim, North Marston",
+    "locationStreet": "25 High Street, North Marston, Buckinghamshire, MK183PD"
+  },
+  {
+    "date": "2022-10-30",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2494,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Pheasant Plucker",
+    "location": "The Shakespeare Pub",
+    "locationStreet": "Bowmont Square, Bicester, Oxfordshire, OX26 2GJ"
+  },
+  {
+    "date": "2022-11-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2495,
+    "startTime": "11:00",
+    "endTime": "13:30"
+  },
+  {
+    "date": "2022-11-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2496,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Reined On",
+    "location": "The White Lion, Fewcott",
+    "locationStreet": "Fritwell Road, Fewcott, Oxfordshire, OX27 7NZ"
+  },
+  {
+    "date": "2022-11-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2497,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Daglocks",
+    "location": "Daglocks House",
+    "locationStreet": "Grove Barn, Main Street, Grendon Underwood, Buckinghamshire, HP180SJ"
+  },
+  {
+    "date": "2022-11-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2498,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Grunt",
+    "location": "The Nightingale",
+    "locationStreet": "10 Nightingale Place, Bicetster, OX26 6XX"
+  },
+  {
+    "date": "2022-12-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2499,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dogloss",
+    "location": "Crewe Arms, Hinton in the Hedges",
+    "locationStreet": "Sparrow Corner, Hinton in the Hedges, Northamptonshire, NN13 5NF"
+  },
+  {
+    "date": "2022-12-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2500,
+    "startTime": "11:00",
+    "endTime": "17:00",
+    "hares": "Home Alone, Tom Tom",
+    "location": "The Littlebury Hotel, Bicester",
+    "locationStreet": "Kings End, Bicester, Oxfordshire, OX266DR"
+  },
+  {
+    "date": "2022-12-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2501,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Cocktail",
+    "location": "The Red Lion, Stratton Audley",
+    "locationStreet": "Stratton Audley, Bicester, Oxfordshire, OX279AG"
+  },
+  {
+    "date": "2022-12-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2502,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dormobile",
+    "location": "The Bull Inn, Launton",
+    "locationStreet": "OX26 5DQ"
+  },
+  {
+    "date": "2023-01-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2503,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Sniffer"
+  },
+  {
+    "date": "2023-01-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2504,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Maraschino",
+    "location": "The Crown, Twyford",
+    "locationStreet": "The Square, Twyford, Bucks, MK184EG"
+  },
+  {
+    "date": "2023-01-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2505,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Clippety Clogs",
+    "location": "The Crown & Tuns",
+    "locationStreet": "New Street, Deddington, Oxfordshire, OX150SP"
+  },
+  {
+    "date": "2023-01-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2506,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Turnpike",
+    "location": "Gardiner Arms, Tackley",
+    "locationStreet": "93 Medcroft Road, Tackley, Oxfordshire, Ox53ah"
+  },
+  {
+    "date": "2023-01-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2507,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Bondage, Dingaling",
+    "location": "Bernwood Forest, Oakley",
+    "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR"
+  },
+  {
+    "date": "2023-02-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2508,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Gadget",
+    "location": "The Plough, Brackley",
+    "locationStreet": "9 High Street, Brackley, Northamptonshire, Nn137DW"
+  },
+  {
+    "date": "2023-02-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2509,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Preacher, Reined On",
+    "location": "The Stags Head",
+    "locationStreet": "The Green, Swalcliffe, Banbury, Oxfordshire, OX155EJ"
+  },
+  {
+    "date": "2023-02-19",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2510,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Shitstix",
+    "location": "The Two Brewers, Thornborough",
+    "locationStreet": "1 Bridge Street, Thornborough, Buckinghamshire, MK182DN"
+  },
+  {
+    "date": "2023-02-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2511,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dormobile",
+    "location": "The Fox Inn, Fox Lane, Souldern OX27 7JW",
+    "locationStreet": "The Fox, Souldern, oxon, OX27 7JW"
+  },
+  {
+    "date": "2023-03-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2512,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dipstick",
+    "location": "The Old Swan",
+    "locationStreet": "Old Minster, Witney, Oxfordshire, OX290RN"
+  },
+  {
+    "date": "2023-03-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2513,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Dogloss"
+  },
+  {
+    "date": "2023-03-19",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2514,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Thrifty Gaffer"
+  },
+  {
+    "date": "2023-03-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2515,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Preying Mantis",
+    "location": "Bure Farm",
+    "locationStreet": "Bure Park, Banbury Rd, Bicester, Oxfordshire, OX263HA"
+  },
+  {
+    "date": "2023-04-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2516,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Maraschino",
+    "location": "The Bull Inn, Launton",
+    "locationStreet": "OX26 5DQ"
+  },
+  {
+    "date": "2023-04-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2517,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dormobile",
+    "location": "The Crown, Twyford",
+    "locationStreet": "The Square, Twyford, Bucks, MK184EG"
+  },
+  {
+    "date": "2023-04-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2518,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Pheasant Plucker",
+    "location": "The Shakespeare Pub",
+    "locationStreet": "Bowmont Square, Bicester, Oxfordshire, OX26 2GJ"
+  },
+  {
+    "date": "2023-04-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2519,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Kip, Nipples",
+    "location": "The Cotton Wheel",
+    "locationStreet": "Jackson Rd, Aylesbury, Buckinghamshire, Hp199BF"
+  },
+  {
+    "date": "2023-05-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2520,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Reined On",
+    "location": "Kirtlington Golf Club, Kirtlington",
+    "locationStreet": "Kirtlington, Oxfordshire, OX53JY"
+  },
+  {
+    "date": "2023-05-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2521,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Daglocks",
+    "location": "Daglocks House",
+    "locationStreet": "Grove Barn, Main Street, Grendon Underwood, Buckinghamshire, HP180SJ"
+  },
+  {
+    "date": "2023-05-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2522,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Bollard Naked, Dormobile",
+    "location": "Wytham Woods, Wytham",
+    "locationStreet": "Wytham, Oxford, oxfordshire, OX28QQ"
+  },
+  {
+    "date": "2023-05-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2523,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Thrifty Gaffer",
+    "location": "The Star Inn, Sulgrave"
+  },
+  {
+    "date": "2023-05-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2524,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dobby, Styles",
+    "location": "The Bull Inn, Launton",
+    "locationStreet": "OX26 5DQ"
+  },
+  {
+    "date": "2023-06-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2525,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dogloss",
+    "location": "The Six Bells, Kidlington",
+    "locationStreet": "70 Mill Street, Kidlington, Oxfordshire, Ox5 2ef"
+  },
+  {
+    "date": "2023-06-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2526,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Sniffer",
+    "location": "The Butchers Arms, Balscote",
+    "locationStreet": "Shutford Road, Balscote, Oxfordshire, Ox15 6jq"
+  },
+  {
+    "date": "2023-06-19",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2527,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Gadget",
+    "location": "The Plough, Brackley",
+    "locationStreet": "9 High Street, Brackley, Northamptonshire, Nn137DW"
+  },
+  {
+    "date": "2023-06-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2528,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Shitstix",
+    "location": "The Greatworth Inn, Greatworth",
+    "locationStreet": "Chapel Road, Greatworth, Oxfordshire, OX172DT"
+  },
+  {
+    "date": "2023-07-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2529,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Turnpike",
+    "location": "The Nightingale",
+    "locationStreet": "10 Nightingale Place, Bicetster, OX26 6XX"
+  },
+  {
+    "date": "2023-07-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2530,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Home Alone, Tom Tom",
+    "location": "The Bell Inn, Adderbury",
+    "locationStreet": "High Street, Adderbury, Banbury, OX17 3LS"
+  },
+  {
+    "date": "2023-07-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2531,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dormobile",
+    "location": "The Bell, Lower Heyford.",
+    "locationStreet": "21 Market Square, Lower Heyford, Oxfordshire, OX25 5NY"
+  },
+  {
+    "date": "2023-07-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2532,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Bondage, Dingaling",
+    "location": "The Oxfordshire Yeoman",
+    "locationStreet": "172 Wroslyn Road, Freeland, Oxfordshire, OX298AQ"
+  },
+  {
+    "date": "2023-07-31",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2533,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Clippety Clogs, Dogloss",
+    "location": "Skimmingdish Lane",
+    "locationStreet": "O/S 3 Skimmingdish Lane, Caversfield, Oxfordshire, Ox278UF"
+  },
+  {
+    "date": "2023-08-07",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2534,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Preacher, Richard d\u2019Turd",
+    "location": "Rose and Crown, Charlbury",
+    "locationStreet": "Market Street, Charlbury, Oxfordshire, OX73PL"
+  },
+  {
+    "date": "2023-08-14",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2535,
+    "startTime": "19:00",
+    "endTime": "20:30",
+    "hares": "Reined On",
+    "location": "Ardley with Fewcott Village Hall.",
+    "locationStreet": "Ardley Playing Fields, Ardley Road, OX27 7PA"
+  },
+  {
+    "date": "2023-08-21",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2536,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Monkey Glands, Take Away",
+    "location": "The Plough Inn, Marsh Gibbon",
+    "locationStreet": "Church Street, Marsh Gibbon, Buckinghamshire, OX270HQ"
+  },
+  {
+    "date": "2023-08-28",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2537,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Buttocks, Maraschino",
+    "location": "The Fox and Goat",
+    "locationStreet": "Oxford Road, Tiddington, Oxfordshire, OX92LH"
+  },
+  {
+    "date": "2023-09-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2538,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Dogloss",
+    "location": "The Black Boy",
+    "locationStreet": "Church Lane, Oving, Aylesbury, Buckinghamshire, HP22 4HN"
+  },
+  {
+    "date": "2023-09-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2539,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Thrifty Gaffer",
+    "location": "The Crown, Cuddington",
+    "locationStreet": "Aylesbury Road, Cuddington, Bucks, HP180BB"
+  },
+  {
+    "date": "2023-09-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2540,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Blue Nun, Cocktail",
+    "location": "The Butchers Arms, Fringford",
+    "locationStreet": "Main Street, Fringford, Oxfordshire, OX278EB"
+  },
+  {
+    "date": "2023-09-25",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2541,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Unrequited",
+    "location": "The Star Inn, Sulgrave"
+  },
+  {
+    "date": "2023-10-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2542,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Pheasant Plucker",
+    "location": "The Shakespeare Pub",
+    "locationStreet": "Bowmont Square, Bicester, Oxfordshire, OX26 2GJ"
+  },
+  {
+    "date": "2023-10-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2543,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Gadget",
+    "location": "The Star Inn, Sulgrave"
+  },
+  {
+    "date": "2023-10-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2544,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dogloss",
+    "location": "The Bull & Butcher, Ludgershall",
+    "locationStreet": "The Green, Ludgershall, Aylesbury, HP189NZ"
+  },
+  {
+    "date": "2023-10-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2545,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Thrifty Gaffer",
+    "location": "Hook Norton Brewery/Pear Tree Pub.",
+    "locationStreet": "Hook Norton Brewery, - OVERFLOW CAR-PARK, - Brewery Lane, Hook Norton OX15 5NY., OX15 5NY"
+  },
+  {
+    "date": "2023-10-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2546,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Kip, Nipples",
+    "location": "Yarrnton British Legion Club.",
+    "locationStreet": "Rotten Lane, Kidlington, OX5 1LN"
+  },
+  {
+    "date": "2023-11-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2547,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Sniffer",
+    "location": "The Dun Cow",
+    "locationStreet": "West end, Hornton, Oxfordshire, Ox156da"
+  },
+  {
+    "date": "2023-11-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2548,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Home Alone, Tom Tom",
+    "location": "The Ben Jonson, Weston-on-the-Green",
+    "locationStreet": "Weston on the Green, Bicester, Oxfordshire, OX253RA"
+  },
+  {
+    "date": "2023-11-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2549,
+    "startTime": "11:00",
+    "endTime": "14:00",
+    "hares": "Bustripper, P-Rick"
+  },
+  {
+    "date": "2023-11-19",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2549,
+    "startTime": "11:00",
+    "endTime": "13:30"
+  },
+  {
+    "date": "2023-11-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2550,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Buttocks, Maraschino",
+    "location": "The Red Cow",
+    "locationStreet": "The Green, Chesterton, Oxfordshire, Ox261uu"
+  },
+  {
+    "date": "2023-12-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2551,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Grunt, Preacher"
+  },
+  {
+    "date": "2023-12-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2552,
+    "startTime": "11:00",
+    "endTime": "17:00",
+    "hares": "Bondage, Take Away",
+    "location": "Launton Sports and Social",
+    "locationStreet": "Launton Playing Fields, Launton, Oxon, OX26 5DP"
+  },
+  {
+    "date": "2023-12-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2553,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Shitstix"
+  },
+  {
+    "date": "2023-12-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2554,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Dormobile, Reined On"
+  },
+  {
+    "date": "2023-12-31",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2555,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Dormobile",
+    "location": "Hundred Acres, Bicester",
+    "locationStreet": "Sunderland Drive, Bicester, Oxon, OX264FR"
+  },
+  {
+    "date": "2024-01-07",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2556,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Pheasant Plucker",
+    "location": "The Shakespeare Pub",
+    "locationStreet": "Bowmont Square, Bicester, Oxfordshire, OX26 2GJ"
+  },
+  {
+    "date": "2024-01-14",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2557,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Dingaling",
+    "location": "The Red Lion 42 Oxford Road Old Marston Oxford OX3 0PH",
+    "locationStreet": "42 Oxford Road, Old Marston, OX3 0PH"
+  },
+  {
+    "date": "2024-01-21",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2558,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Clippety Clogs",
+    "location": "Blackbird Inn, Croughton",
+    "locationStreet": "38 High St, Croughton, Brackley, Northants, NN13 5LT"
+  },
+  {
+    "date": "2024-01-28",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2559,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Thrifty Gaffer",
+    "location": "The White Horse",
+    "locationStreet": "The Ridings Stonesfield, Witney OX29 8EA"
+  },
+  {
+    "date": "2024-02-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2560,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Turnpike",
+    "location": "Bernwood Forest, Oakley",
+    "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR"
+  },
+  {
+    "date": "2024-02-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2561,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Clippety Clogs, Shitstix",
+    "location": "The Crown, Gawcott",
+    "locationStreet": "Hillesden Road, Gawcott, Buckinghamshire, MK18 4JH"
+  },
+  {
+    "date": "2024-02-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2562,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Stalker",
+    "location": "The Lion, Waddesdon",
+    "locationStreet": "70a High Street, Waddesdon, Buckinghamshire, HP180JD"
+  },
+  {
+    "date": "2024-02-25",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2563,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Clippety Clogs, Dogloss",
+    "location": "The Fox",
+    "locationStreet": "Baker Street Farthinghoe Northamptonshire NN13 5PH"
+  },
+  {
+    "date": "2024-03-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2564,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Dobby, Duchess, Ready Salted, Styles",
+    "location": "The Plough Inn, Marsh Gibbon",
+    "locationStreet": "Church Street, Marsh Gibbon, Buckinghamshire, OX270HQ"
+  },
+  {
+    "date": "2024-03-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2565,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Pheasant Plucker"
+  },
+  {
+    "date": "2024-03-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2566,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Kip, Nipples",
+    "location": "The Red Lion, Yarnton",
+    "locationStreet": "127 Cassington Road, Yarnton, Oxfordshire, OX51QD"
+  },
+  {
+    "date": "2024-03-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2567,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Thrifty Gaffer",
+    "location": "Vale Brewery"
+  },
+  {
+    "date": "2024-03-31",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2568,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Sniffer",
+    "location": "The Dun Cow",
+    "locationStreet": "West end, Hornton, Oxfordshire, Ox156da"
+  },
+  {
+    "date": "2024-04-07",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2569,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Maraschino",
+    "location": "The Nightingale",
+    "locationStreet": "10 Nightingale Place, Bicetster, OX26 6XX"
+  },
+  {
+    "date": "2024-04-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2570,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dormobile",
+    "location": "Launton Sports and Social",
+    "locationStreet": "Launton Playing Fields, Launton, Oxon, OX26 5DP"
+  },
+  {
+    "date": "2024-04-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2571,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Thrifty Gaffer",
+    "location": "The Bull Inn, Launton",
+    "locationStreet": "OX26 5DQ"
+  },
+  {
+    "date": "2024-04-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2572,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dogloss",
+    "location": "The Mitre, Buckingham",
+    "locationStreet": "2 Mitre Street, Buckingham, Buckinghamshire, MK18 1DW"
+  },
+  {
+    "date": "2024-05-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2573,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dormobile",
+    "location": "The Bell Inn, Adderbury",
+    "locationStreet": "High Street, Adderbury, Banbury, OX17 3LS"
+  },
+  {
+    "date": "2024-05-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2574,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Bondage, Dingaling",
+    "location": "The White Hart",
+    "locationStreet": "31 Newland Street, Eynsham, Witney, Oxon OX29 4LB"
+  },
+  {
+    "date": "2024-05-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2575,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Shitstix",
+    "location": "The Fat Landlord, Helmdon",
+    "locationStreet": "29 CHURCH STREET, HELMDON, BRACKLEY,, NORTHANTS., NN135QJ"
+  },
+  {
+    "date": "2024-05-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2576,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Pheasant Plucker",
+    "location": "The Shakespeare Pub",
+    "locationStreet": "Bowmont Square, Bicester, Oxfordshire, OX26 2GJ"
+  },
+  {
+    "date": "2024-06-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2577,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "ET",
+    "location": "Chez ET",
+    "locationStreet": "Main Street, Shalstone, Buckinghamshire, MK185LU"
+  },
+  {
+    "date": "2024-06-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2578,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Grunt, Preacher",
+    "location": "The Pear Tree",
+    "locationStreet": "Scotland End, Hook Norton, Banbury, OX15 5NU"
+  },
+  {
+    "date": "2024-06-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2579,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Buttocks",
+    "location": "The Lion, Wendlebury",
+    "locationStreet": "Wendlebury Rd, Wendlebury, Oxfordshire, OX25 2PW"
+  },
+  {
+    "date": "2024-06-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2580,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "location": "Daglocks House",
+    "locationStreet": "Grove Barn, Main Street, Grendon Underwood, Buckinghamshire, HP180SJ"
+  },
+  {
+    "date": "2024-07-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2581,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "location": "The Beehive",
+    "locationStreet": "22 The Green, Deanshanger, Buckinghamshire, MK19 6HL"
+  },
+  {
+    "date": "2024-07-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2582,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "location": "Prince of Wales, Steeple Claydon",
+    "locationStreet": "16 Addison Road, Steeple Claydon, Buckinghamshire, MK182NP"
+  },
+  {
+    "date": "2024-07-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2583,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "location": "Ardley with Fewcott Village Hall.",
+    "locationStreet": "Ardley Playing Fields, Ardley Road, OX27 7PA"
+  },
+  {
+    "date": "2024-07-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2584,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Clippety Clogs, Dogloss",
+    "location": "The Abingdon Arms",
+    "locationStreet": "High Street, Beckley, Oxfordshire, OX3 9UU"
+  },
+  {
+    "date": "2024-07-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2585,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dormobile",
+    "location": "The Barley Mow, Upper Heyford.",
+    "locationStreet": "Somerton Road, Upper Heyford., Bicester, OX25 5LB"
+  },
+  {
+    "date": "2024-08-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2586,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Maraschino",
+    "location": "The Pheasant, Brill",
+    "locationStreet": "39 Windmill Street, Brill, Aylesbury, HP18 9TG"
+  },
+  {
+    "date": "2024-08-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2587,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Thrifty Gaffer"
+  },
+  {
+    "date": "2024-08-19",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2588,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "location": "The Red Lion, Evenley",
+    "locationStreet": "39 The Green, Evenley, Brackley, NN13 5SH"
+  },
+  {
+    "date": "2024-08-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2589,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "location": "The Dun Cow",
+    "locationStreet": "West end, Hornton, Oxfordshire, Ox156da"
+  },
+  {
+    "date": "2024-09-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2590,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Reined",
+    "location": "Kirtlington Golf Club, Kirtlington",
+    "locationStreet": "Kirtlington, Oxfordshire, OX53JY"
+  },
+  {
+    "date": "2024-09-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2591,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Preacher",
+    "location": "The Greatworth Inn, Greatworth",
+    "locationStreet": "Chapel Road, Greatworth, Oxfordshire, OX172DT"
+  },
+  {
+    "date": "2024-09-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2592,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Take Away",
+    "location": "Chez Takeaway",
+    "locationStreet": "Kindle Cottage, Castle Close, Marsh Gibbon, OX270HY"
+  },
+  {
+    "date": "2024-09-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2593,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Maraschino",
+    "location": "Launton Sports and Social",
+    "locationStreet": "Launton Playing Fields, Launton, Oxon, OX26 5DP"
+  },
+  {
+    "date": "2024-09-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2594,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dogloss & Clipperty Cloggs",
+    "location": "The Butchers Arms, Fringford",
+    "locationStreet": "Main Street, Fringford, Oxfordshire, OX278EB"
+  },
+  {
+    "date": "2024-09-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2595,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Shitstix",
+    "location": "The Swan Public House",
+    "locationStreet": "Main Street, Grendon Underwood, Aylesbury, Bucks., Buckinghamshire, HP18 0SW"
+  },
+  {
+    "date": "2024-10-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2596,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Pheasant Plucker",
+    "location": "Shakespeare Inn",
+    "locationStreet": "Bowmont Square, Bicester, OX26 2GJ"
+  },
+  {
+    "date": "2024-10-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2597,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Buttocks",
+    "location": "The Bell",
+    "locationStreet": "11 Oxford Road, Hampton Poyle, Oxon OX5 2QD"
+  },
+  {
+    "date": "2024-10-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2598,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Easily LED",
+    "location": "Queens Head",
+    "locationStreet": "Main Street, Chackmore, Buckingham MK15 5JF"
+  },
+  {
+    "date": "2024-10-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2599,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dingaling & Bondage",
+    "location": "The Masons Arms",
+    "locationStreet": "5 Park Road, Witney, Oxfordshire OX29 6RZ"
+  },
+  {
+    "date": "2024-11-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2600,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dogloss & Dobby",
+    "location": "The Butchers Arms, Kings Sutton",
+    "locationStreet": "8-10 Whittall Street, King's Sutton, Oxfordshire, OX17 3RD"
+  },
+  {
+    "date": "2024-11-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2601,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Blue Nun & Cocktail",
+    "location": "The Fox Inn, Fox Lane, Souldern OX27 7JW",
+    "locationStreet": "The Fox, Souldern, oxon, OX27 7JW"
+  },
+  {
+    "date": "2024-11-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2602,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Thrifty Gaffer",
+    "location": "Vale Brewery"
+  },
+  {
+    "date": "2024-11-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2603,
+    "startTime": "11:00",
+    "location": "Penny Farthing Hotel",
+    "locationStreet": "Romsey Road, Lyndhurst, Hampshire SO43 7AA"
+  },
+  {
+    "date": "2024-12-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2605,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Kip & Nipples",
+    "location": "The Royal Sun, Begbroke",
+    "locationStreet": "2 Woodstock Road West, Begbroke, Oxfordshire, OX51RZ"
+  },
+  {
+    "date": "2024-12-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2606,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dobby &  The Duchess",
+    "location": "The Littlebury Hotel, Bicester",
+    "locationStreet": "Kings End, Bicester, Oxfordshire, OX266DR"
+  },
+  {
+    "date": "2024-12-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2607,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Pheasant Plucker",
+    "location": "The Shakespeare Pub",
+    "locationStreet": "Bowmont Square, Bicester, Oxfordshire, OX26 2GJ"
+  },
+  {
+    "date": "2024-12-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2608,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Bus Stripper",
+    "location": "The Mitre, Buckingham",
+    "locationStreet": "2 Mitre Street, Buckingham, Buckinghamshire, MK18 1DW"
+  },
+  {
+    "date": "2024-12-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2609,
+    "startTime": "11:00",
+    "endTime": "13:00",
+    "hares": "Maraschino and Thrifty Gaffer",
+    "location": "The Ashton Club, Bicester",
+    "locationStreet": "SHEEP STREET, BICESTER"
+  },
+  {
+    "date": "2024-12-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2610,
+    "startTime": "11:00",
+    "endTime": "14:00",
+    "hares": "Reined On",
+    "location": "Ardley with Fewcott Village Hall.",
+    "locationStreet": "Ardley Playing Fields, Ardley Road, OX27 7PA"
+  },
+  {
+    "date": "2025-01-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2611,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dogloss",
+    "location": "The Rose & Crown, Charlton",
+    "locationStreet": "Main Street, Charlton, Banbury OX17 3DP"
+  },
+  {
+    "date": "2025-01-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2612,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Duchess and Tom Tom",
+    "location": "Three Horseshoes, Long Hanborough",
+    "locationStreet": "Main Street, Long Hanborough, Oxfordshire, OX298BE"
+  },
+  {
+    "date": "2025-01-19",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2613,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Preacher",
+    "location": "The George & Dragon, Shutford",
+    "locationStreet": "Church Lane, Shutford, Banbury, OX15 6PG"
+  },
+  {
+    "date": "2025-01-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2614,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dormie",
+    "location": "The Bull Inn, Launton",
+    "locationStreet": "OX26 5DQ"
+  },
+  {
+    "date": "2025-02-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2615,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Turnpike",
+    "location": "Bernwood Forest, Oakley",
+    "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR"
+  },
+  {
+    "date": "2025-02-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2616,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Clippety Clogs",
+    "location": "The Trigger Pond, Bucknell",
+    "locationStreet": "Bicester Road, Bucknell, OX27 7NE"
+  },
+  {
+    "date": "2025-02-16",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2617,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "location": "The Ash Tree/The Hundred of Ashendon",
+    "locationStreet": "Lower End, Ashendon, HP18 0HE"
+  },
+  {
+    "date": "2025-02-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2618,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Blue Nun & Cocktail",
+    "location": "The Crown, Gawcott",
+    "locationStreet": "Hillesden Road, Gawcott, Buckinghamshire, MK18 4JH"
+  },
+  {
+    "date": "2025-03-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2619,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Pheasant Plucker",
+    "location": "The Shakespeare Pub",
+    "locationStreet": "Bowmont Square, Bicester, Oxfordshire, OX26 2GJ"
+  },
+  {
+    "date": "2025-03-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2620,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dogloss",
+    "location": "The New Inn, Abthorpe",
+    "locationStreet": "Silver Street, Abthorpe, Towester NN12 8QR"
+  },
+  {
+    "date": "2025-03-16",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2621,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Shitstix",
+    "location": "The Manor, Garsington",
+    "locationStreet": "16 The Green, Garsington, Oxfordshire OX44 9DF"
+  },
+  {
+    "date": "2025-03-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2622,
+    "startTime": "08:00",
+    "endTime": "17:00",
+    "hares": "Sniffer & Down There",
+    "location": "The Butchers Arms, Balscote",
+    "locationStreet": "Shutford Road, Balscote, Oxfordshire, Ox15 6jq"
+  },
+  {
+    "date": "2025-03-30",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2623,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Buttocks",
+    "location": "The Ben Jonson, Weston-on-the-Green",
+    "locationStreet": "Weston on the Green, Bicester, Oxfordshire, OX253RA"
+  },
+  {
+    "date": "2025-04-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2624,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Reined On",
+    "location": "The Brasenose Arms, Cropredy",
+    "locationStreet": "Station Road, Cropredy, Oxfordshire OX17 1PW"
+  },
+  {
+    "date": "2025-04-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2625,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Bondage & Dingaling",
+    "location": "The Plough Inn, Finstock",
+    "locationStreet": "5 High Street, Finstock, Oxfordshire, OX73BY"
+  },
+  {
+    "date": "2025-04-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2626,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "location": "Hinksey Heights Golf Club, South Hinksey",
+    "locationStreet": "South Hinksey, Oxford OX1 5AB"
+  },
+  {
+    "date": "2025-04-28",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2627,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Dormobile",
+    "location": "The Crown, Twyford",
+    "locationStreet": "The Square, Twyford, Bucks, MK184EG"
+  },
+  {
+    "date": "2025-05-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2628,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Thrifty Gaffer",
+    "location": "The Crown Inn, Church Enstone.",
+    "locationStreet": "Mill Lane, Church Enstone, Ox7 4NN"
+  },
+  {
+    "date": "2025-05-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2629,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Dogloss",
+    "location": "The New Inn, Middleton Cheney",
+    "locationStreet": "45 Main Road, Middleton Cheney., Banbury"
+  },
+  {
+    "date": "2025-05-19",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2630,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Easily LED",
+    "location": "The Two Brewers, Thornborough",
+    "locationStreet": "1 Bridge Street, Thornborough, Buckinghamshire, MK182DN"
+  },
+  {
+    "date": "2025-05-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2631,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Duchess",
+    "location": "The Sun, Wheatley",
+    "locationStreet": "5 Church Road, Wheatley, OX33 1NB"
+  },
+  {
+    "date": "2025-06-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2632,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Pheasant Plucker",
+    "location": "The Shakespeare Pub",
+    "locationStreet": "Bowmont Square, Bicester, Oxfordshire, OX26 2GJ"
+  },
+  {
+    "date": "2025-06-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2633,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "E.T\u2019s Charity Hash",
+    "location": "Chez ET",
+    "locationStreet": "Main Street, Shalstone, Buckinghamshire, MK185LU"
+  },
+  {
+    "date": "2025-06-16",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2634,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Marashino",
+    "location": "Launton Sports and Social",
+    "locationStreet": "Launton Playing Fields, Launton, Oxon, OX26 5DP"
+  },
+  {
+    "date": "2025-06-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2635,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Sniffer & Down There",
+    "location": "tbc"
+  },
+  {
+    "date": "2025-06-30",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2636,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "location": "The Red Lion, Evenley",
+    "locationStreet": "39 The Green, Evenley, Brackley, NN13 5SH"
+  },
+  {
+    "date": "2025-07-07",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2637,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "location": "Daglocks House",
+    "locationStreet": "Grove Barn, Main Street, Grendon Underwood, Buckinghamshire, HP180SJ"
+  },
+  {
+    "date": "2025-07-14",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2638,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Dormobile & Titfer",
+    "location": "The Lion, Waddesdon",
+    "locationStreet": "70a High Street, Waddesdon, Buckinghamshire, HP180JD"
+  },
+  {
+    "date": "2025-07-21",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2639,
+    "startTime": "19:00",
+    "endTime": "20:00",
+    "hares": "Thrifty Gaffer",
+    "location": "The Old Fisherman",
+    "locationStreet": "Mill Road, Shabbington, HP18 9HJ"
+  },
+  {
+    "date": "2025-07-28",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2640,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dingaling & Bondage",
+    "location": "Killingworth Castle, Wooton",
+    "locationStreet": "Glympton Road, Wooton, Nr Woodstock, Oxon, OX201EJ"
+  },
+  {
+    "date": "2025-08-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2641,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Preacher & Grunt",
+    "location": "The Stags Head",
+    "locationStreet": "The Green, Swalcliffe, Banbury, Oxfordshire, OX155EJ"
+  },
+  {
+    "date": "2025-08-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2642,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Dobbie & Duchess",
+    "location": "The Lion, Wendlebury",
+    "locationStreet": "Wendlebury Rd, Wendlebury, Oxfordshire, OX25 2PW"
+  },
+  {
+    "date": "2025-08-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2643,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Titfer & Stalker",
+    "location": "Launton Sports and Social",
+    "locationStreet": "Launton Playing Fields, Launton, Oxon, OX26 5DP"
+  },
+  {
+    "date": "2025-08-25",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2644,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Reined On",
+    "location": "Horse & Groom, Caulcott",
+    "locationStreet": "Lower Heyford Road, Caulcott, OX25 4ND"
+  },
+  {
+    "date": "2025-09-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2645,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Deadloss & Dormie",
+    "location": "The Butchers Arms, Fringford",
+    "locationStreet": "Main Street, Fringford, Oxfordshire, OX278EB"
+  },
+  {
+    "date": "2025-09-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2646,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Thrifty Gaffer",
+    "location": "The New Inn, Middleton Cheney",
+    "locationStreet": "45 Main Road, Middleton Cheney., Banbury"
+  },
+  {
+    "date": "2025-09-14",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2647,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Shitstix",
+    "location": "Queens Head",
+    "locationStreet": "Main Street, Chackmore, Buckingham MK15 5JF"
+  },
+  {
+    "date": "2025-09-21",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2648,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Pheasant Plucker",
+    "location": "The Nightingale",
+    "locationStreet": "10 Nightingale Place, Bicetster, OX26 6XX"
+  },
+  {
+    "date": "2025-09-28",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2649,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Maraschino",
+    "location": "The Red Lion, Stratton Audley",
+    "locationStreet": "Stratton Audley, Bicester, Oxfordshire, OX279AG"
+  },
+  {
+    "date": "2025-10-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2650,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "location": "Daglocks House",
+    "locationStreet": "Grove Barn, Main Street, Grendon Underwood, Buckinghamshire, HP180SJ"
+  },
+  {
+    "date": "2025-10-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2651,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Clippety Cloggs",
+    "location": "The White Horse Inn",
+    "locationStreet": "Daisy Hill, Duns Tew, Oxfordshire, OX25 6JS"
+  },
+  {
+    "date": "2025-10-19",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2652,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Easily LED",
+    "location": "The Wheatsheaf, Maids Morton",
+    "locationStreet": "Main Street, Maids Morton, Buckingham, MK18 1QR"
+  },
+  {
+    "date": "2025-10-26",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2653,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dingaling & Bondage",
+    "location": "The Red Lion 42 Oxford Road Old Marston Oxford OX3 0PH",
+    "locationStreet": "42 Oxford Road, Old Marston, OX3 0PH"
+  },
+  {
+    "date": "2025-11-02",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2654,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Deadloss",
+    "location": "The Queens Head",
+    "locationStreet": "26 Church Road, Horspath, Oxfordshire, OX33 1RU"
+  },
+  {
+    "date": "2025-11-09",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2655,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Takeaway and Nipples",
+    "location": "The Plough Inn, Marsh Gibbon",
+    "locationStreet": "Church Street, Marsh Gibbon, Buckinghamshire, OX270HQ"
+  },
+  {
+    "date": "2025-11-16",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2656,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Buttocks",
+    "location": "The Bull Inn, Launton",
+    "locationStreet": "OX26 5DQ"
+  },
+  {
+    "date": "2025-11-23",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2657,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Thrifty Gaffer",
+    "location": "THE CROWN INN",
+    "locationStreet": "The Square, Twyford, MK18, 4EG"
+  },
+  {
+    "date": "2025-11-30",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2658,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dormobile",
+    "location": "The Blackbird, Croughton",
+    "locationStreet": "38 HIGH STREET, CROUGHTON, NORTHANTS, NN13 5LT"
+  },
+  {
+    "date": "2025-12-07",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2659,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Reined On",
+    "location": "Ardley with Fewcott Village Hall.",
+    "locationStreet": "Ardley Playing Fields, Ardley Road, OX27 7PA"
+  },
+  {
+    "date": "2025-12-14",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2660,
+    "startTime": "11:00",
+    "endTime": "17:00",
+    "hares": "Shitstix",
+    "location": "Studley Wood Golf Club",
+    "locationStreet": "The Straight Mile, Horton-Cum-Studley, OX33 1BF"
+  },
+  {
+    "date": "2025-12-21",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2661,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Deadloss & Clippety Clogs",
+    "location": "The Fox Inn, Fox Lane, Souldern OX27 7JW",
+    "locationStreet": "The Fox, Souldern, oxon, OX27 7JW"
+  },
+  {
+    "date": "2025-12-28",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2662,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Pheasant Plucker",
+    "location": "The Shakespeare Pub",
+    "locationStreet": "Bowmont Square, Bicester, Oxfordshire, OX26 2GJ"
+  },
+  {
+    "date": "2026-01-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2663,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "The Plough, Brackley"
+  },
+  {
+    "date": "2026-01-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2664,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Easily LED",
+    "location": "Prince of Wales, Steeple Claydon",
+    "locationStreet": "16 Addison Road, Steeple Claydon, Buckinghamshire, MK182NP"
+  },
+  {
+    "date": "2026-01-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2665,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Stalker & Titfer",
+    "location": "The Lion, Waddesdon",
+    "locationStreet": "70a High Street, Waddesdon, Buckinghamshire, HP180JD"
+  },
+  {
+    "date": "2026-01-25",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2666,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Kip & Nipples",
+    "location": "The Red Lion, Yarnton",
+    "locationStreet": "127 Cassington Road, Yarnton, Oxfordshire, OX51QD"
+  },
+  {
+    "date": "2026-02-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2667,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Sniffer & Monkey Glands",
+    "location": "Bernwood Forest, Oakley",
+    "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR"
+  },
+  {
+    "date": "2026-02-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2668,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dormobile",
+    "location": "The Barley Mow, Upper Heyford.",
+    "locationStreet": "Somerton Road, Upper Heyford., Bicester, OX25 5LB"
+  },
+  {
+    "date": "2026-02-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2669,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dogloss & Clippety Clogs",
+    "location": "The Clifden Arms, Worminghall",
+    "locationStreet": "75 Clifden Road, Worminghall, Bucks, HP189JR"
+  },
+  {
+    "date": "2026-02-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2670,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dingaling & Bondage",
+    "location": "Jolly Sportsman",
+    "locationStreet": "2 Lombard Street, Eynsham, Oxfordshire"
+  },
+  {
+    "date": "2026-03-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2671,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Thrifty Gaffer",
+    "location": "Chandos Arms, Oakley",
+    "locationStreet": "8 The Turnpike, Oakley, HP18 9QB"
+  },
+  {
+    "date": "2026-03-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2672,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Preacher & Grunt",
+    "location": "The Butchers Arms, Balscote",
+    "locationStreet": "Shutford Road, Balscote, Oxfordshire, Ox15 6jq"
+  },
+  {
+    "date": "2026-03-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2673,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Clippety Clogs & Dogloss",
+    "location": "The Butchers Arms, Fringford",
+    "locationStreet": "Main Street, Fringford, Oxfordshire, OX278EB"
+  },
+  {
+    "date": "2026-03-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2674,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Reined On",
+    "location": "Ardley with Fewcott Village Hall.",
+    "locationStreet": "Ardley Playing Fields, Ardley Road, OX27 7PA"
+  },
+  {
+    "date": "2026-03-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2675,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Blue Nun & Cocktail",
+    "location": "The Red Lion, Stratton Audley",
+    "locationStreet": "Stratton Audley, Bicester, Oxfordshire, OX279AG"
+  },
+  {
+    "date": "2026-04-05",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2676,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Buttocks",
+    "location": "The Black Boy",
+    "locationStreet": "Church Lane, Oving, Aylesbury, Buckinghamshire, HP22 4HN"
+  },
+  {
+    "date": "2026-04-12",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2677,
+    "startTime": "11:00",
+    "endTime": "14:00",
+    "hares": "Pheasant Plucker & Preying Mantis",
+    "location": "Bure Farm",
+    "locationStreet": "Bure Park, Banbury Rd, Bicester, Oxfordshire, OX263HA"
+  },
+  {
+    "date": "2026-04-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2678,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dormobile & Cunning Linguist",
+    "location": "Launton Sports and Social",
+    "locationStreet": "Launton Playing Fields, Launton, Oxon, OX26 5DP"
+  },
+  {
+    "date": "2026-04-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2679,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Kip & Nipples",
+    "location": "Hinksey Heights Golf Club, South Hinksey",
+    "locationStreet": "South Hinksey, Oxford OX1 5AB"
+  },
+  {
+    "date": "2026-05-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2680,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Deadloss & Clippety Cloggs",
+    "location": "The Boat, Thrupp",
+    "locationStreet": "Canal Road, Thrupp, Oxfordshire, OX5 1JY"
+  },
+  {
+    "date": "2026-05-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2681,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Shitstix",
+    "location": "The Old Red Lions, Tetsworth",
+    "locationStreet": "40 High Street, Tetsworth, Oxfordshire, OX9 7AS"
+  },
+  {
+    "date": "2026-05-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2682,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Preacher & Preying Mantis",
+    "location": "Vale Brewery"
+  },
+  {
+    "date": "2026-05-25",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2683,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Thrifty Gaffer",
+    "location": "THE CROSS KEYS, THAME",
+    "locationStreet": "EAST STREET, THAME, OX9 3JS"
+  },
+  {
+    "date": "2026-06-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2684,
+    "startTime": "19:00",
+    "endTime": "21:00",
+    "hares": "Dingaling & Bondage",
+    "location": "The Fishes",
+    "locationStreet": "North Hinksey Village, Oxford, OX2 0NA"
+  },
+  {
+    "date": "2026-06-08",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2685,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Sniffer & Down There",
+    "location": "The Turnpike",
+    "locationStreet": "2 Woodstock Road, Yarnton, Oxfordshire, OX5 1PJ"
+  },
+  {
+    "date": "2026-06-15",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2686,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Buttocks",
+    "location": "The Jolly Boatman, Thrupp",
+    "locationStreet": "216 Banbury Road, Thrupp, Oxfordshire, OX5 1JU"
+  },
+  {
+    "date": "2026-06-22",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2687,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Shitstix",
+    "location": "The New Inn, Abthorpe",
+    "locationStreet": "Silver Street, Abthorpe, Towester NN12 8QR"
+  },
+  {
+    "date": "2026-06-29",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2688,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Gadget & Billericay Dickie",
+    "location": "Crewe Arms, Hinton in the Hedges",
+    "locationStreet": "Sparrow Corner, Hinton in the Hedges, Northamptonshire, NN13 5NF"
+  },
+  {
+    "date": "2026-07-06",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2689,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Daglocks",
+    "location": "Daglocks House",
+    "locationStreet": "Grove Barn, Main Street, Grendon Underwood, Buckinghamshire, HP180SJ"
+  },
+  {
+    "date": "2026-07-13",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2690,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Dormobile, Reined On",
+    "location": "The Butchers Arms, Kings Sutton",
+    "locationStreet": "8-10 Whittall Street, King's Sutton, Oxfordshire, OX17 3RD"
+  },
+  {
+    "date": "2026-07-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2691,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Kip & Nipples",
+    "location": "Bletchingdon Sports & Social Club",
+    "locationStreet": "Oxford Road, Kidlington, OX5 3BS"
+  },
+  {
+    "date": "2026-07-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2692,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Easily LED",
+    "location": "The Kings Head, Syresham",
+    "locationStreet": "2 Abbey Road, Syresham, NN13 5HW"
+  },
+  {
+    "date": "2026-08-03",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2693,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Pheasant Plucker",
+    "location": "Shakespeare Inn",
+    "locationStreet": "Bowmont Square, Bicester, OX26 2GJ"
+  },
+  {
+    "date": "2026-08-10",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2694,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Runner Bean",
+    "location": "The Pheasant, Brill",
+    "locationStreet": "39 Windmill Street, Brill, Aylesbury, HP18 9TG"
+  }
+]

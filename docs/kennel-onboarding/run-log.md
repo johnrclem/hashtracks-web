@@ -12,6 +12,28 @@ Format:
 - Follow-ups: <anything deferred>
 ```
 
+> **CLUSTER 1 (2026-08-14) — Herts H3 + F.U.K Full Moon H3 + Bicester H3, first Phase-2 bespoke-adapter
+> batch.** Built from `handoffs/2026-08-01-herts-h3.md`, `handoffs/2026-08-02-fukfm.md` (both
+> 2-week-stale, re-verified live at build time), and `handoffs/2026-08-14-bicester-h3.md` (same-day
+> handoff, folded in per the daily run's own dedup catch — see its run-log entry). Two new bespoke
+> `HTML_SCRAPER` adapters for the shared legacy-FrontPage platform (`HertsHashAdapter`,
+> `FukFullMoonH3Adapter`, small shared `legacy-frontpage-utils.ts` helper — the two sites have
+> different column layouts so the row parsers stayed separate, not a unified parser) + one
+> config-only `ICAL_FEED` (Bicester, existing adapter, mirrors Iron City H3). Herts H3 is a new
+> kennel; FUKFM was a **source-add** on an already-seeded-but-dark kennel (`/kennels/fukfm` 404'd —
+> fixed its stale `scheduleNotes` in the same pass); Bicester is a new kennel + new METRO.
+> **New Hertfordshire + Bicester METROs** (2 region.ts edits each, no new country/inference needed).
+> 3 self-hosted logos, all magic-byte verified PNG. Both frontpage adapters' tests use REAL curl'd
+> fixtures (not hand-rendered samples) per `.claude/rules/live-verification.md` — caught two real bugs
+> against live data: `isPlaceholderCell` didn't handle stacked placeholder phrases in one cell ("TBC" +
+> "Limited Numbers" -> "TBC Limited Numbers"), and the Bicester backfill's run-number regex matched an
+> HTML-entity-encoded apostrophe ("Runner Bean&#8217;s" -> bogus `#8217`) before entities were decoded.
+> Two historical backfills shipped (not deferred, per the "include historical data" rule): Herts **269**
+> runs (`run_reports.htm`, 5 documented typo/run-number corrections applied, 1 unresolved anomaly
+> shipped as-is per the Prague/Douliu faithful-data precedent) and Bicester **418** runs (TEC REST API,
+> 3 description/title eras handled, 1 unresolved run-number regression shipped as-is). FUKFM has no
+> archive (forward-only site, documented in its own handoff).
+>
 > **HC BATCH-11 (2026-08-12) — 4 kennels, part of the 20-kennel backlog rescue.** Built from four
 > handoffs generated 2026-07-16 → 07-23 that sat uncommitted for weeks (see
 > `handoffs/retros/2026-08-11-backlog-rescue-retro.md`): **Prague H3 (`ph3-cz`, Czech Republic — first

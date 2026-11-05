@@ -25,6 +25,7 @@ import {
   cleanLocationName,
   stripClickHereForMap,
   dedupeRepeatedDescription,
+  decodeHtmlBytes,
 } from "./utils";
 import { validateSourceUrlWithDns } from "./ssrf-dns";
 
@@ -1263,5 +1264,34 @@ describe("dedupeRepeatedDescription (#1889 Morgantown)", () => {
     expect(dedupeRepeatedDescription(null)).toBeNull();
     expect(dedupeRepeatedDescription(undefined)).toBeUndefined();
     expect(dedupeRepeatedDescription("")).toBe("");
+  });
+});
+
+describe("decodeHtmlBytes", () => {
+  // "£6" in windows-1252 / iso-8859-1 is the single byte 0xA3 followed by "6".
+  const latin1Page = (meta: string) =>
+    new Uint8Array([...new TextEncoder().encode(`<html><head>${meta}</head><body>`), 0xa3, 0x36, ...new TextEncoder().encode("</body></html>")]);
+
+  it("decodes per a <meta http-equiv> charset when the header has none", () => {
+    const html = decodeHtmlBytes(
+      latin1Page('<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">'),
+      "text/html",
+    );
+    expect(html).toContain("£6");
+    expect(html).not.toContain("\uFFFD");
+  });
+
+  it("prefers the Content-Type header charset over the meta tag", () => {
+    const bytes = new TextEncoder().encode('<meta charset="windows-1252"><p>café</p>');
+    expect(decodeHtmlBytes(bytes, "text/html; charset=utf-8")).toContain("café");
+  });
+
+  it("falls back to the given charset when nothing is declared, and on an unknown label", () => {
+    expect(decodeHtmlBytes(latin1Page(""), null, "windows-1252")).toContain("£6");
+    expect(decodeHtmlBytes(latin1Page('<meta charset="x-bogus-9">'), null, "windows-1252")).toContain("£6");
+  });
+
+  it("defaults to UTF-8", () => {
+    expect(decodeHtmlBytes(new TextEncoder().encode("<p>£6</p>"), null)).toContain("£6");
   });
 });
