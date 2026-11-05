@@ -77,8 +77,10 @@ export function nextMondayOnOrAfter(from: Date): string {
 
 /** Labels we know to terminate the previous value (so a multi-line tag-stripped
  * block like "Location\n: \nHollywood Park Road" doesn't bleed into the next
- * field's value). */
-const LABEL_STOP_RE = /\b(Run\s+Number|Location|Format|Bus|ONONON|If you wish)\b/i;
+ * field's value). The colon-labelled fields only stop on "<Label>:" — a bare
+ * word is prose: the Run #2979 venue reads "…the hare's first run was set from
+ * this very location up to the top of …" and was cut at "location" (#2584). */
+const LABEL_STOP_RE = /\bRun\s+Number\b|\b(?:Location|Format|Bus|ONONON)\s*:|\bIf you wish\b/i;
 
 /**
  * Extract a labeled value, e.g. text after "Run Number" or "Location:".
