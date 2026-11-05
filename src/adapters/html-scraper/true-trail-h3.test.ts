@@ -1,226 +1,54 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { parseTrueTrailHeading, extractHares } from "./true-trail-h3";
-import type { Source } from "@/generated/prisma/client";
+import { describe, it, expect } from "vitest";
+import { findSheetUrl, parseTrueTrailCsv } from "./true-trail-h3";
 
-// ── Unit tests for parseTrueTrailHeading ──
+const URL = "https://truetrailh3.com/";
 
-describe("parseTrueTrailHeading", () => {
-  it("parses '#170 – Get Green'd Up Hash'", () => {
-    const result = parseTrueTrailHeading("#170 – Get Green'd Up Hash");
-    expect(result).toEqual({ runNumber: 170, title: "Get Green'd Up Hash" });
-  });
-
-  it("parses '#171 – Jesus Hash'", () => {
-    const result = parseTrueTrailHeading("#171 – Jesus Hash");
-    expect(result).toEqual({ runNumber: 171, title: "Jesus Hash" });
-  });
-
-  it("parses '#172 – 7th Analversary'", () => {
-    const result = parseTrueTrailHeading("#172 – 7th Analversary");
-    expect(result).toEqual({ runNumber: 172, title: "7th Analversary" });
-  });
-
-  it("parses heading with regular dash", () => {
-    const result = parseTrueTrailHeading("#175 - Some Title");
-    expect(result).toEqual({ runNumber: 175, title: "Some Title" });
-  });
-
-  it("returns null for Hare Line compact entries", () => {
-    expect(parseTrueTrailHeading("Hare Line:")).toBeNull();
-  });
-
-  it("returns null for non-matching text", () => {
-    expect(parseTrueTrailHeading("Random text")).toBeNull();
-  });
-});
-
-// ── Unit tests for extractHares ──
-
-describe("extractHares", () => {
-  it("extracts 'Hares: Peppermint Meatrod, Tinder Tits'", () => {
-    expect(extractHares("Hares: Peppermint Meatrod, Tinder Tits")).toBe("Peppermint Meatrod, Tinder Tits");
-  });
-
-  it("extracts singular 'Hare: Someone'", () => {
-    expect(extractHares("Hare: Someone")).toBe("Someone");
-  });
-
-  it("returns undefined for 'Sexy Hares Needed'", () => {
-    expect(extractHares("Hares: Sexy Hares Needed")).toBeUndefined();
-  });
-
-  it("returns undefined for non-hare text", () => {
-    expect(extractHares("Some random text")).toBeUndefined();
-  });
-});
-
-// ── Integration test with HTML fixture ──
-
-// Fixture HTML must be defined before vi.mock factory references it
-const FIXTURE_HTML = `
-<div class="wp-block-group is-layout-constrained wp-block-group-is-layout-constrained">
-<h2 class="nfd-text-xl nfd-text-balance wp-block-heading" style="font-style:normal;font-weight:600"><strong>Hare Line:</strong></h2>
-<p class="">3/26 #170 &#8211; Get Green'd Up Hash</p>
-<p class="">4/09 #171 &#8211; Jesus Hash</p>
-<p class="">4/23 #172 &#8211; 7th Analversary</p>
-<p class="">5/07 #173 &#8211; Dolly Parton Hash</p>
-
-<div class="wp-block-group is-content-justification-left is-layout-constrained wp-container-core-group-is-layout-12dd3699 wp-block-group-is-layout-constrained">
-<div class="wp-block-gutenverse-divider guten-element guten-divider guten-cJjlfz"><div class="guten-divider-wrapper"><div class="guten-divider-default guten-divider-line guten-divider-regular"></div></div></div>
-
-<h2 class="nfd-text-xl nfd-text-balance wp-block-heading has-large-font-size" style="font-style:normal;font-weight:600"><strong>#1</strong>70 &#8211; Get Green&#8217;d Up Hash</h2>
-
-<p class="has-text-align-left">March 26, 2026</p>
-<p class="">Sherlock Holmes Pub Campus</p>
-<p class="">8519 112 St</p>
-<p class="">Hares: Peppermint Meatrod, Tinder Tits</p>
-<p class="">St Patricks may be over but if you don't stop drinking did it ever really end?</p>
-<p class="">Bring: Green clothing, Roach Clip</p>
-<p class="">Shiggy: 1.69</p>
-<p class="">Trail: A-A'</p>
-<p class="has-text-align-left">Pack Gathers: 6:30<br>Hare Off: 6:45<br>On Out: 7:00<br>Hash Cash: $8<br>Pay Hash Cash by e-transfer to: Truetrailh3@gmail.com</p>
-
-<div class="wp-block-gutenverse-divider guten-element guten-divider guten-QFWrXn"><div class="guten-divider-wrapper"><div class="guten-divider-default guten-divider-line guten-divider-regular"></div></div></div>
-
-<h2 class="nfd-text-xl nfd-text-balance wp-block-heading has-large-font-size" style="font-style:normal;font-weight:600"><strong>#1</strong>71 &#8211; Jesus Hash</h2>
-
-<p class="has-text-align-left">April 9, 2026</p>
-<p class="">Hares: Cumming Of Christ</p>
-<p class="">More Detrails to Cum!</p>
-<p class="has-text-align-left">Pack Gathers: 6:30<br>Hare Off: 6:45<br>On Out: 7:00<br>Hash Cash: $8</p>
-
-<div class="wp-block-gutenverse-divider guten-element guten-divider guten-26XL6O"><div class="guten-divider-wrapper"><div class="guten-divider-default guten-divider-line guten-divider-regular"></div></div></div>
-
-<h2 class="nfd-text-xl nfd-text-balance wp-block-heading has-large-font-size" style="font-style:normal;font-weight:600"><strong>#1</strong>72 &#8211; 7th Analversary</h2>
-
-<p class="has-text-align-left">April 23, 2026</p>
-<p class="">Hares: Peppermint Meatrod</p>
-<p class="">More Detrails to Cum!</p>
-<p class="has-text-align-left">Pack Gathers: 6:30<br>Hare Off: 6:45<br>On Out: 7:00<br>Hash Cash: $8</p>
-
-<div class="wp-block-gutenverse-divider guten-element guten-divider guten-sIYunK"><div class="guten-divider-wrapper"><div class="guten-divider-default guten-divider-line guten-divider-regular"></div></div></div>
-
-<h2 class="nfd-text-xl nfd-text-balance wp-block-heading has-large-font-size" style="font-style:normal;font-weight:600"><strong>#1</strong>73 &#8211; Dolly Parton Hash </h2>
-
-<p class="has-text-align-left">May 7, 2026</p>
-<p class="">Hares: Screaming Wet Hole</p>
-<p class="">More Detrails to Cum!</p>
-<p class="has-text-align-left">Pack Gathers: 6:30<br>Hare Off: 6:45<br>On Out: 7:00<br>Hash Cash: $8</p>
-
-</div>
-</div>
+// Trimmed from the live published sheet the homepage fetches (2026-11-05).
+const CSV = `published,trailNumber,title,date,time,locationName,address,hares,theme,hashCash,description,mapUrl,paypalUrl
+TRUE,177,Blue Dress Run,2026-07-02,18:30,Original Joes,12520 102 Ave,Tinder Tits,Blue Dress,8,Let's get educated and liberated!,https://maps.app.goo.gl/n4xxcsSbcsCYm8Xi7,www.paypal.me/truetrailh3
+TRUE,186,Skid Mark Hash,November 5 2026,18:30,Off Campus,"8216 104 St, Edmonton, AB, T6E 2C7",Spring Loaded & Limp Noodle,,8,"Multi-line
+description",https://maps.app.goo.gl/abc,www.paypal.me/truetrailh3
+TRUE,188,Sexy Hares Needed,December 3 2026,18:30,TBD,,Sexy Hares Needed,,8,More Detrails to cum!,,www.paypal.me/truetrailh3
+FALSE,191,Draft,January 14 2027,18:30,TBD,,TBD,,8,,,
 `;
 
-vi.mock("../utils", async () => {
-  const actual = await vi.importActual("../utils");
-  return {
-    ...actual,
-    fetchHTMLPage: vi.fn(),
-  };
+describe("findSheetUrl", () => {
+  it("extracts the published-CSV URL from the homepage script", () => {
+    const html = `<script>const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRi_x-Y/pub?gid=0&amp;single=true&amp;output=csv";</script>`;
+    expect(findSheetUrl(html)).toBe("https://docs.google.com/spreadsheets/d/e/2PACX-1vRi_x-Y/pub?gid=0&single=true&output=csv");
+    expect(findSheetUrl("<html></html>")).toBeUndefined();
+  });
 });
 
-describe("TrueTrailH3Adapter", () => {
-  // Freeze the clock at the fixtures' era so the windowed/year-inferred assertions never age out (#2066).
-  beforeEach(async () => {
-    vi.restoreAllMocks();
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-03-15T12:00:00Z"));
-    const { fetchHTMLPage } = await import("../utils");
-    const cheerio = await import("cheerio");
-    vi.mocked(fetchHTMLPage).mockResolvedValue({
-      ok: true,
-      html: FIXTURE_HTML,
-      $: cheerio.load(FIXTURE_HTML),
-      structureHash: "test-hash",
-      fetchDurationMs: 100,
+describe("parseTrueTrailCsv", () => {
+  const events = parseTrueTrailCsv(CSV, URL);
+
+  it("keeps published rows only, handling ISO and prose dates", () => {
+    expect(events.map((e) => [e.runNumber, e.date])).toEqual([
+      [177, "2026-07-02"],
+      [186, "2026-11-05"],
+      [188, "2026-12-03"],
+    ]);
+  });
+
+  it("maps venue, address, hares, cost and maps link", () => {
+    expect(events[1]).toEqual({
+      date: "2026-11-05",
+      kennelTags: ["tth3-ab"],
+      runNumber: 186,
+      title: "Skid Mark Hash",
+      hares: "Limp Noodle, Spring Loaded",
+      location: "Off Campus",
+      locationStreet: "8216 104 St, Edmonton, AB, T6E 2C7",
+      locationUrl: "https://maps.app.goo.gl/abc",
+      startTime: "18:30",
+      cost: "$8",
+      description: "Multi-line description",
+      sourceUrl: URL,
     });
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("parses events from fixture HTML", async () => {
-    const { TrueTrailH3Adapter } = await import("./true-trail-h3");
-    const adapter = new TrueTrailH3Adapter();
-    const source = {
-      id: "test",
-      url: "https://truetrailh3.com/",
-      scrapeDays: 365,
-    } as Source;
-
-    const result = await adapter.fetch(source);
-
-    expect(result.errors).toHaveLength(0);
-    expect(result.events.length).toBeGreaterThanOrEqual(3);
-
-    // First detailed event: #170
-    const ev170 = result.events.find((e) => e.runNumber === 170);
-    expect(ev170).toBeDefined();
-    expect(ev170!.kennelTags[0]).toBe("tth3-ab");
-    expect(ev170!.title).toBe("Get Green\u2019d Up Hash");
-    expect(ev170!.date).toBe("2026-03-26");
-    expect(ev170!.hares).toBe("Peppermint Meatrod, Tinder Tits");
-    expect(ev170!.location).toContain("Sherlock Holmes Pub Campus");
-    expect(ev170!.locationStreet).toBe("8519 112 St");
-    expect(ev170!.startTime).toBe("18:30");
-
-    // #171 — Jesus Hash (minimal details)
-    const ev171 = result.events.find((e) => e.runNumber === 171);
-    expect(ev171).toBeDefined();
-    expect(ev171!.title).toBe("Jesus Hash");
-    expect(ev171!.date).toBe("2026-04-09");
-    expect(ev171!.hares).toBe("Cumming Of Christ");
-
-    // #172 — 7th Analversary
-    const ev172 = result.events.find((e) => e.runNumber === 172);
-    expect(ev172).toBeDefined();
-    expect(ev172!.date).toBe("2026-04-23");
-    expect(ev172!.hares).toBe("Peppermint Meatrod");
-  });
-
-  it("skips Hare Line summary (compact entries)", async () => {
-    const { TrueTrailH3Adapter } = await import("./true-trail-h3");
-    const adapter = new TrueTrailH3Adapter();
-    const source = { id: "test", url: "https://truetrailh3.com/", scrapeDays: 365 } as Source;
-
-    const result = await adapter.fetch(source);
-
-    // Should not have duplicate events from the Hare Line summary
-    const runNumbers = result.events.map((e) => e.runNumber);
-    const unique = new Set(runNumbers);
-    expect(runNumbers.length).toBe(unique.size);
-  });
-
-  it("does not store a placeholder 'Hares: Sexy Hares Needed' line as the venue (#1730)", async () => {
-    // Run #175 before a venue is announced: the only post-date paragraph is a
-    // placeholder Hares: line. It must never fall through to the venue slot.
-    const PLACEHOLDER_HTML = `
-<div class="wp-block-group">
-<h2 class="wp-block-heading"><strong>#1</strong>75 &#8211; Trailer Trash Hash</h2>
-<p class="">July 2, 2026</p>
-<p class="">Hares: Sexy Hares Needed</p>
-<p class="">More Detrails to Cum!</p>
-<p class="has-text-align-left">Pack Gathers: 6:30<br>Hash Cash: $8</p>
-</div>`;
-    const { fetchHTMLPage } = await import("../utils");
-    const cheerio = await import("cheerio");
-    vi.mocked(fetchHTMLPage).mockResolvedValue({
-      ok: true,
-      html: PLACEHOLDER_HTML,
-      $: cheerio.load(PLACEHOLDER_HTML),
-      structureHash: "test-hash",
-      fetchDurationMs: 100,
-    });
-
-    const { TrueTrailH3Adapter } = await import("./true-trail-h3");
-    const adapter = new TrueTrailH3Adapter();
-    const source = { id: "test", url: "https://truetrailh3.com/", scrapeDays: 365 } as Source;
-
-    const result = await adapter.fetch(source);
-    const ev = result.events.find((e) => e.runNumber === 175);
-    expect(ev).toBeDefined();
-    expect(ev!.location).toBeUndefined();
-    expect(ev!.hares).toBeUndefined();
+  it("drops 'Sexy Hares Needed' and TBD placeholders", () => {
+    expect(events[2]).toMatchObject({ runNumber: 188, title: undefined, hares: undefined, location: undefined });
   });
 });

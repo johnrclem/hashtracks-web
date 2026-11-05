@@ -2911,7 +2911,28 @@ export const SOURCES = [
       trustLevel: 6,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      // Disabled Nov 2026: the hareline dropped its per-event "Add to Google
+      // Calendar" links (0 events every scrape). Replaced by the public GCal below.
+      enabled: false,
       config: { upcomingOnly: true },
+      kennelCodes: ["burlyh3"],
+    },
+    {
+      // The public Google Calendar linked from burlingtonh3.com/hareline. It also
+      // carries other Vermont kennels' events (Leaf Peeper, Nightmare Bimbo,
+      // Slopey Seconds, Non Tramp) — strict routing keeps only BTVH3.
+      name: "Burlington H3 Google Calendar",
+      url: "87d11c51005016fd7372d0fe76609bd0c3367183c3d7d944e5ca4b55bc5af87c@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "every_6h",
+      scrapeDays: 365,
+      config: {
+        calendarId: "87d11c51005016fd7372d0fe76609bd0c3367183c3d7d944e5ca4b55bc5af87c@group.calendar.google.com",
+        kennelPatterns: [["\\bBTVH3\\b|\\bBurlington H3\\b", "burlyh3"]],
+        defaultKennelTag: "burlyh3",
+        strictKennelRouting: true,
+      },
       kennelCodes: ["burlyh3"],
     },
     // ===== RHODE ISLAND =====
@@ -3675,9 +3696,10 @@ export const SOURCES = [
       scrapeDays: 90,
       config: {
         defaultKennelTag: "mrhappy",
-        // #1708: dormant unbounded FREQ=WEEKLY RRULE (abandoned 2021, no UNTIL)
-        // still projecting stale "Mr Happy's 69th Trail" phantoms every Wed.
-        suppressICalUids: ["20qb7gao7553kajq5de1s5kra4_R20210304T020000@google.com"],
+        // #1708 suppressed the 2021 weekly RRULE (iCalUID 20qb7gao…_R20210304T020000)
+        // as dormant. The kennel revived it in 2026 and edits each Wednesday
+        // occurrence in place (same iCalUID), so the suppression dropped every
+        // real run — removed Nov 2026.
       },
       kennelCodes: ["mrhappy"],
     },
@@ -5582,6 +5604,9 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      // The published sheet the site reads starts at #177 (Jul 2026); older
+      // runs stay in the DB, so reconcile must not treat them as removed.
+      config: { upcomingOnly: true },
       kennelCodes: ["tth3-ab"],
     },
     // --- Edmonton: Saintly H3 ---
