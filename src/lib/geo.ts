@@ -237,6 +237,15 @@ export function boundingBoxFromCenter(
 }
 
 /**
+ * Venue strings that can never geocode — TBD/TBA/TBC markers (optionally with a
+ * trailing note, e.g. "TBA - Christmas Run", but not "TBD Brewing"), "?" runs, N/A, and "see
+ * calendar/details" pointers. Skipping them saves a Geocoding API call and the
+ * ZERO_RESULTS log line each scrape. Kept local (not adapters/utils'
+ * isPlaceholder) because this module is also bundled for client components.
+ */
+const GEOCODE_PLACEHOLDER_RE = /^(?:(?:tbd|tba|tbc)(?:\s*[-–:(,].*)?|n\/a|none|\?+|see (?:calendar|website|facebook|details|description)\b.*)$/i;
+
+/**
  * Geocode a text address using the Google Maps Geocoding API.
  * Returns the first result's coordinates, or null on failure.
  * Uses GOOGLE_CALENDAR_API_KEY (server-only, no HTTP referrer restrictions).
@@ -257,6 +266,7 @@ export async function geocodeAddress(
 ): Promise<{ lat: number; lng: number; formattedAddress?: string } | null> {
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
   if (!apiKey || !address.trim()) return null;
+  if (GEOCODE_PLACEHOLDER_RE.test(address.trim())) return null;
 
   try {
     let url = `${GOOGLE_GEOCODE_BASE}?address=${encodeURIComponent(address)}&language=en&key=${apiKey}`;
@@ -275,7 +285,11 @@ export async function geocodeAddress(
 
     const data = await res.json();
     if (data.status !== "OK" || !data.results?.length) {
-      console.error(`Geocode failed for "${address}": ${data.status} ${data.error_message ?? ""}`);
+      // ZERO_RESULTS is expected for vague venue names ("Chez Crunchy") — warn.
+      // Anything else (REQUEST_DENIED, OVER_QUERY_LIMIT, INVALID_REQUEST) points
+      // at the API key or quota and stays an error so it surfaces in alerts.
+      const log = data.status === "ZERO_RESULTS" ? console.warn : console.error;
+      log(`Geocode failed for "${address}": ${data.status} ${data.error_message ?? ""}`);
       return null;
     }
 

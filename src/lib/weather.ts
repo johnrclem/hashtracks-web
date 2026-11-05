@@ -39,6 +39,42 @@ interface GoogleWeatherApiResponse {
  *  path renders the page without weather data. */
 const WEATHER_FETCH_TIMEOUT_MS = 8000;
 
+/** Undici / Node socket error codes that mean "connection dropped before a response" — safe to retry once. */
+const RETRYABLE_SOCKET_CODES = new Set(["UND_ERR_SOCKET", "ECONNRESET", "EPIPE", "UND_ERR_CLOSED"]);
+
+/** Undici reports connection failures as `TypeError: fetch failed` with the real code on `cause`. */
+function socketErrorCode(err: unknown): string | undefined {
+  const cause = (err as { cause?: { code?: unknown } } | null)?.cause;
+  return typeof cause?.code === "string" ? cause.code : undefined;
+}
+
+/**
+ * Fetch a Google Weather URL with a per-attempt timeout, retrying ONCE when the
+ * pooled keep-alive socket was closed by the far side before any bytes came
+ * back ("other side closed" / ECONNRESET — 175 occurrences in prod logs, all
+ * with bytesRead: 0). Timeouts and HTTP errors are not retried.
+ */
+async function fetchWeather(url: string): Promise<Response> {
+  const init = () => ({
+    next: { revalidate: 1800 }, // 30-minute cache
+    signal: AbortSignal.timeout(WEATHER_FETCH_TIMEOUT_MS),
+  });
+  try {
+    return await fetch(url, init()); // NOSONAR - domain is hardcoded; lat/lng are DB-sourced numbers
+  } catch (err) {
+    const code = socketErrorCode(err);
+    if (!code || !RETRYABLE_SOCKET_CODES.has(code)) throw err;
+    return fetch(url, init()); // NOSONAR - same hardcoded-domain URL as above
+  }
+}
+
+/** One-line description of a weather fetch failure (avoids dumping socket internals). */
+function describeFetchError(err: unknown): string {
+  const code = socketErrorCode(err);
+  const message = err instanceof Error ? err.message : String(err);
+  return code ? `${message} (${code})` : message;
+}
+
 /**
  * Fetch daily forecast for a given event date and location.
  * Returns null if the date is not found in the 10-day window or the API fails.
@@ -64,10 +100,7 @@ export async function getEventDayWeather(
     `&days=10`;
 
   try {
-    const res = await fetch(url, { // NOSONAR - domain is hardcoded; lat/lng are DB-sourced numbers
-      next: { revalidate: 1800 }, // 30-minute cache
-      signal: AbortSignal.timeout(WEATHER_FETCH_TIMEOUT_MS),
-    });
+    const res = await fetchWeather(url);
 
     if (!res.ok) return null;
 
@@ -193,10 +226,7 @@ export async function getWeatherForEvents(
       `&days=10`;
 
     try {
-      const res = await fetch(url, {
-        next: { revalidate: 1800 },
-        signal: AbortSignal.timeout(WEATHER_FETCH_TIMEOUT_MS),
-      });
+      const res = await fetchWeather(url);
       if (!res.ok) return;
 
       const data = (await res.json()) as GoogleWeatherApiResponse;
@@ -229,7 +259,11 @@ export async function getWeatherForEvents(
         };
       }
     } catch (error) {
-      console.error(`Weather fetch failed for location ${group.lat},${group.lng}:`, error);
+      // Weather is optional decoration — the page renders without it — so this
+      // is a warning, not an error (it was the #1 prod error group by volume).
+      console.warn(
+        `Weather fetch failed for location ${group.lat},${group.lng}: ${describeFetchError(error)}`,
+      );
     }
   });
 

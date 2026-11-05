@@ -195,6 +195,44 @@ describe("geocodeAddress", () => {
     expect(result).toBeNull();
   });
 
+  it.each(["TBD", "tba", "TBA - Christmas Run", "?", "N/A", "See calendar details"])(
+    "skips the API call for placeholder venue %j",
+    async (address) => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      expect(await geocodeAddress(address)).toBeNull();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    },
+  );
+
+  it("still geocodes real venues whose name starts with a placeholder word", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        status: "OK",
+        results: [{ geometry: { location: { lat: 1, lng: 2 } } }],
+      }),
+    } as Response);
+    expect(await geocodeAddress("TBD Brewing Co")).toEqual({ lat: 1, lng: 2 });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs ZERO_RESULTS as a warning but key/quota failures as errors", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ status: "ZERO_RESULTS", results: [] }) } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: "REQUEST_DENIED", error_message: "API key expired", results: [] }),
+      } as Response);
+
+    await geocodeAddress("Chez Crunchy");
+    await geocodeAddress("Real Place");
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("ZERO_RESULTS"));
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("REQUEST_DENIED"));
+  });
+
   it("returns null when fetch fails (network error)", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("Network error"));
 
