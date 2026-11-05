@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractOnOnVenueFromDescription, extractCostFromDescription, extractMapsUrlFromDescription, coalesceEndpointDuplicates, stripTitleKennelRunPrefix, paramValue } from "./adapter";
+import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractOnOnVenueFromDescription, extractCostFromDescription, extractMapsUrlFromDescription, coalesceEndpointDuplicates, stripTitleKennelRunPrefix, paramValue, normalizeLocMapUrl, splitGridRefSummary, gridRefPreambleHares } from "./adapter";
 import type { RawEventData } from "../types";
 import type { Source } from "@/generated/prisma/client";
 import type { ParameterValue } from "node-ical";
@@ -2528,5 +2528,169 @@ describe("ICalAdapter — dangling backslashes + locationOmitIfMatches", () => {
     const e = result.events.find((x) => x.runNumber === 2862);
     expect(e?.location).toBe("TORCHLIT");
     expect(e?.locationUrl).toBe("https://www.google.com/maps/search/?api=1&query=52.4907092,-3.2557682");
+  });
+});
+
+// Chichester H3 (chihhh.org.uk/diary) — verbatim live VEVENTs. SUMMARY is
+// "<hares / theme>  <OS grid ref> <venue>"; coords live in a maps.google.co.uk
+// `?q=loc:` URL; venue-TBA runs carry a 0,0 placeholder; one special has a
+// malformed DTSTART that node-ical leaves as a raw string.
+const CHICHESTER_ICS = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "PRODID:-//Chichester HHH 2026-11-05//NONSGML v1.0//EN",
+  "BEGIN:VEVENT",
+  "UID:Run 1094",
+  "DTSTART:20260920T110000",
+  "DTEND:20260920T130000",
+  "SUMMARY:Sirs Old Faithful & Bambi  SU752074 Westbourne Ems Valley Memorial Arboretum",
+  "DESCRIPTION:DETAIL=https://www.chihhh.org.uk/trashRun 1094 <br>MAPS=https://dupee.xyz/maps.php?p=SU752074",
+  "URL:https://maps.google.co.uk/maps?q=loc:50.861524,-0.932663",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:Run 1088",
+  "DTSTART:20260621T110000",
+  "DTEND:20260621T130000",
+  "SUMMARY:Visit: Deepcut Hash. Hares: Yorkie & Yellow Peril  SU807378 Bordon Hogmoor Inclosure",
+  "DESCRIPTION:DETAIL=https://www.chihhh.org.uk/trashRun 1088 <br>MAPS=https://dupee.xyz/maps.php?p=SU807378",
+  "URL:https://maps.google.co.uk/maps?q=loc:51.111908,-0.878378",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:Run 1095",
+  "DTSTART:20261004T101500",
+  "DTEND:20261004T121500",
+  "SUMMARY:West London Hash Visit  SU860046 Chichester_Naggs_Head",
+  "DESCRIPTION:DETAIL=https://www.chihhh.org.uk/trashRun 1095 <br>MAPS=https://dupee.xyz/maps.php?p=SU860046",
+  "URL:https://maps.google.co.uk/maps?q=loc:50.836706,-0.773646",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:Run 1100",
+  "DTSTART:20261213T110000",
+  "DTEND:20261213T130000",
+  "SUMMARY:Pink Flamingo and Dr Blood (One dot trail)  TBA  see <a href=latest.php>latest</a>",
+  "DESCRIPTION:DETAIL=https://www.chihhh.org.uk/trashRun 1100 <br>MAPS=https://dupee.xyz/maps.php?p=TBA",
+  "URL:https://maps.google.co.uk/maps?q=loc:00.000000,-0.000000",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:Run 1081a",
+  "DTSTART:20260315T110000",
+  "DTEND:20260315T130000",
+  "SUMMARY:IOW HHH Beer Pump & Proppy  SZ634898 IOW Nodes Point",
+  "DESCRIPTION:DETAIL=https://www.chihhh.org.uk/trashRun 1081a <br>MAPS=https://dupee.xyz/maps.php?p=SZ634898",
+  "URL:https://maps.google.co.uk/maps?q=loc:50.704608,-1.1025265",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:WWH3",
+  "DTSTART:20250307to10T110000",
+  "DTEND:20250307to10T130000",
+  'SUMMARY:Caravan Weekend - see <a href="wwh3_cwe_11.pdf">Flyer</a>  SU874032 Chichester Lakeside',
+  "DESCRIPTION:DETAIL=https://www.chihhh.org.uk/trashWWH3 <br>MAPS=https://dupee.xyz/maps.php?p=SU874032",
+  "URL:https://maps.google.co.uk/maps?q=loc:50.822293,-0.759429",
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n");
+
+describe("ICalAdapter — Chichester H3 grid-ref SUMMARY (summaryGridRefVenue)", () => {
+  let adapter: ICalAdapter;
+  beforeEach(() => {
+    adapter = new ICalAdapter();
+    vi.restoreAllMocks();
+  });
+
+  const chichesterSource = () =>
+    buildMockSource({
+      name: "Chichester H3 iCal Feed",
+      url: "https://www.chihhh.org.uk/diary",
+      config: {
+        defaultKennelTag: "ch3-gb",
+        upcomingOnly: true,
+        runNumberPatterns: [String.raw`Run (\d+)\b`],
+        summaryGridRefVenue: true,
+      },
+    });
+
+  it("splits hares, venue and coords out of the SUMMARY and leaves the title for merge", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHICHESTER_ICS, { status: 200 }));
+    const result = await adapter.fetch(chichesterSource(), { days: 9999 });
+    expect(result.errors).toEqual([]);
+    const e = result.events.find((x) => x.runNumber === 1094);
+    expect(e).toMatchObject({
+      date: "2026-09-20",
+      kennelTags: ["ch3-gb"],
+      hares: "Sirs Old Faithful & Bambi",
+      location: "Westbourne Ems Valley Memorial Arboretum",
+      locationUrl: "https://www.google.com/maps/search/?api=1&query=50.861524,-0.932663",
+      description: "Sirs Old Faithful & Bambi",
+    });
+    // DTSTART/DTEND are floating (no TZID), so the HH:MM depends on the process TZ
+    // (UTC in CI and on Vercel); only assert that a same-day end time is present.
+    expect(e?.endTime).toMatch(/^\d{2}:\d{2}$/);
+    expect(e?.title).toBeUndefined();
+    expect(e?.sourceUrl).toBeUndefined();
+  });
+
+  it("reads an explicit Hares label and rejects theme-only preambles", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHICHESTER_ICS, { status: 200 }));
+    const result = await adapter.fetch(chichesterSource(), { days: 9999 });
+    const byRun = new Map(result.events.map((x) => [x.runNumber, x]));
+    expect(byRun.get(1088)?.hares).toBe("Yorkie & Yellow Peril");
+    const visit = byRun.get(1095);
+    expect(visit?.hares).toBeUndefined();
+    expect(visit?.description).toBe("West London Hash Visit");
+    expect(visit?.location).toBe("Chichester Naggs Head");
+  });
+
+  it("rejects the 0,0 placeholder pin on venue-TBA runs and strips the HTML tail", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHICHESTER_ICS, { status: 200 }));
+    const result = await adapter.fetch(chichesterSource(), { days: 9999 });
+    const tba = result.events.find((x) => x.runNumber === 1100);
+    expect(tba?.locationUrl).toBeUndefined();
+    expect(tba?.location).toBeUndefined();
+    expect(tba?.hares).toBe("Pink Flamingo and Dr Blood");
+    expect(tba?.description).toBe("Pink Flamingo and Dr Blood (One dot trail)");
+  });
+
+  it("skips a malformed DTSTART without failing the scrape, and leaves '1081a' unnumbered", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(CHICHESTER_ICS, { status: 200 }));
+    const result = await adapter.fetch(chichesterSource(), { days: 9999 });
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(5);
+    expect(result.diagnosticContext?.skippedInvalidDate).toBe(1);
+    const iow = result.events.find((x) => x.date === "2026-03-15");
+    expect(iow?.runNumber).toBeUndefined();
+    expect(iow?.hares).toBeUndefined();
+  });
+});
+
+describe("Chichester grid-ref helpers", () => {
+  it("normalizeLocMapUrl rewrites loc: coords, rejects 0,0, passes other URLs through", () => {
+    expect(normalizeLocMapUrl("https://maps.google.co.uk/maps?q=loc:50.861524,-0.932663")).toBe(
+      "https://www.google.com/maps/search/?api=1&query=50.861524,-0.932663",
+    );
+    expect(normalizeLocMapUrl("https://maps.google.co.uk/maps?q=loc:00.000000,-0.000000")).toBeNull();
+    expect(normalizeLocMapUrl("https://maps.app.goo.gl/abc")).toBe("https://maps.app.goo.gl/abc");
+  });
+
+  it("splitGridRefSummary handles grid-ref and TBA rows", () => {
+    expect(splitGridRefSummary("Bika & Dead Cowboy  SU706131 Horndean - Ship & Bell")).toEqual({
+      preamble: "Bika & Dead Cowboy",
+      venue: "Horndean - Ship & Bell",
+    });
+    expect(splitGridRefSummary("Bika and ?? ON-IN at Hunston  TBA  see <a href=latest.php>latest</a>")).toEqual({
+      preamble: "Bika and ?? ON-IN at Hunston",
+    });
+  });
+
+  it.each([
+    ["Bambi & Old Faithful - SUMMER BBQ CHEZ SPIDERS", "Bambi & Old Faithful"],
+    ["Prancer and crew  (Vixen's birthday) - Clocks go forward", "Prancer and crew"],
+    ["Joint H4 and CH3 run - Hare Ravinous Curls", "Ravinous Curls"],
+    ["Hare: Nutcracker - Joint run with H4 & neighbours", "Nutcracker"],
+    ["Hangover - Old Faithful and Bambi - chez Old Faithful & Pru", undefined],
+    ["Worthy Winchester and IOW Weekend", undefined],
+    ["Cock Burn & ?? Chichester Architectural Highlights trail", undefined],
+    [undefined, undefined],
+  ])("gridRefPreambleHares(%j) → %j", (preamble, expected) => {
+    expect(gridRefPreambleHares(preamble)).toBe(expected);
   });
 });

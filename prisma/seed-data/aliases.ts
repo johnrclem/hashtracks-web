@@ -735,5 +735,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "malvern-h3": ["Malvern Hash House Harriers", "Malvern H3", "Malvern HHH"],
     // bare "C2H3" OMITTED — Corpus Christi H3 owns it.
     "c2h3-gb": ["Cheltenham & Cotswold Hash House Harriers", "Cheltenham & Cotswold Hash", "Cheltenham Hash", "C2H3-GB"],
+    // bare "CH3" OMITTED — Chicago H3 owns it.
+    "ch3-gb": ["Chichester H3", "Chichester Hash House Harriers", "CHIHHH"],
   };
 
