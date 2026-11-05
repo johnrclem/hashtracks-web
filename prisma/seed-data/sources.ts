@@ -3058,6 +3058,10 @@ export const SOURCES = [
         // N2H3 and Kahuna used to be skipPatterns (#584, #1867); they are now
         // routed to n2h3 / okh3 above, and merge dedupes against their own
         // calendars by (kennel, date).
+        // SWH3's 2018-2024 entries here are mostly undated-detail placeholders
+        // ("SWH3#  - More Detrails to Follow", 61 of 74 in the wide backfill
+        // preview). SWH3 has its own calendar, so drop the placeholders here.
+        skipPatterns: [String.raw`^[^A-Za-z0-9]*SWH3\b.*More Detrails to Follow`],
         // #1868: hares appear in the title suffix ("OH3 #1370 Boner Spur!",
         // "OH3 #1366 w/ Mouthful") for events whose description has no "Who:"
         // line (which DEFAULT_HARE_PATTERNS already handles). First pattern:
