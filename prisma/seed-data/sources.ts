@@ -8997,6 +8997,18 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["lh3-cy"],
     },
+    // Dhekelia H3 — single weekly "Next Run" block on the WP /info/ page, read via
+    // WP REST. Overwritten weekly, so upcomingOnly keeps reconcile off past runs.
+    {
+      name: "Dhekelia H3 Website Next Run",
+      url: "https://dhekelia-h3.com/wp-json/wp/v2/pages?slug=info",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["dh3-cy"],
+    },
     {
       name: "Sierra H4 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
