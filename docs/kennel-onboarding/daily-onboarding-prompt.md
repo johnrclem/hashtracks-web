@@ -12,25 +12,17 @@
 
 ## Why handoff, not direct PR
 
-This task runs in a sandboxed environment that **can read the repo and write files, but cannot
-reliably perform git operations** (the repo mount is often parked on a feature branch with
-uncommitted work, and `.git/` writes are permission-blocked). So this run does **no git** — it
-does the research + verification + drafting, and writes a handoff file. **Claude Code**, running
-in a local terminal where git works and where the NAS / live DB are reachable, then implements it
-end-to-end through PR creation. The handoff file leads with a `▶ FOR CLAUDE CODE` directive so the
-whole file is the brief.
+This task does research, verification and drafting, and ends in a **handoff file**. It never
+implements code. **Claude Code**, running where the NAS and the live DB are reachable, implements
+each handoff end to end through its own code PR. The handoff file leads with a `▶ FOR CLAUDE CODE`
+directive so the whole file is the brief.
 
-**One exception, added 2026-08-11:** the run **must attempt** `git add`/`commit`/`push` of its own
-`docs/kennel-onboarding/` output as its final step (Step 9), and must report loudly if that fails.
-Leaving handoffs untracked is what produced three separate backlogs (4 → 6 → 20 kennels). Everything
-below still applies to *code*: **do not** branch, open PRs, or hard `checkout`/`rebase` the working
-tree — Claude Code handles all of that after the handoff. **Do** write files (the handoff,
-queue updates, run log) — plain file writes work fine. **Before you pick today's target, refresh your
-view of `main`:** `git fetch` + `git show origin/main:…` + `git log/rev-list` are **inspection-only**
-(they do not mutate the working tree) and are what keep a stale checkout from causing duplicate work —
-run them and dedup (Step 2) against `origin/main`, never your local files. If the checkout is clean and
-you want it current, a non-forcing `git merge --ff-only` is an **optional, separate** step — that one
-*does* update the tree (the only mutation allowed in this run).
+**Delivery (redesigned 2026-11, see [`routine-redesign-2026-11.md`](routine-redesign-2026-11.md)):**
+the run works in a **throwaway clone** of `origin/main` (Step 0) and delivers its
+`docs/kennel-onboarding/` output as a **docs-only PR with auto-merge** (Step 9). It never uses git
+in the owner's live checkout. That checkout's feature-branch state and stale `.git` locks stranded
+handoffs four times (4 → 6 → 20 → 49 kennels). Because the clone starts from fresh `origin/main`,
+the run always sees what has already landed, and Step 2 dedupes against it.
 
 ---
 
@@ -57,8 +49,12 @@ you want it current, a non-forcing `git merge --ff-only` is an **optional, separ
 
 ## Repo & environment
 
-- **Repo path:** `/Users/johnclem/Developer/hashtracks-web` (bash mount: `/sessions/*/mnt/hashtracks-web`).
-  Read freely; **write only** to `docs/kennel-onboarding/` (handoff, queue, run log).
+- **Repo path:** `/Users/johnclem/Developer/hashtracks-web` is the owner's live checkout. **Read it
+  freely but NEVER write to it or run git there.** It is often parked on a feature branch with
+  uncommitted work, and git writes in it stranded 49 handoffs for 11 weeks (Aug–Nov 2026).
+- **Your working copy:** Step 0 makes a throwaway clone of `origin/main` in a temp dir
+  (`$WORK`). All writes go there, and **only** under `docs/kennel-onboarding/` (handoff, queue,
+  run log, platform notes). Step 9 delivers them as a PR through GitHub.
 - **Node (for any read-only probes):** `eval "$(fnm env)" && fnm use 20` if needed. You will NOT
   run `prisma db seed` or the full pipeline here — that happens in Claude Code.
 - **Queue:** [`target-queue.md`](target-queue.md)
@@ -74,6 +70,26 @@ you want it current, a non-forcing `git merge --ff-only` is an **optional, separ
 
 ---
 
+## Step 0 — Preflight (exit early unless there is real work)
+
+Run these before any research. Each exit writes **one line** to the run log (Step 9 still
+delivers it) and reports it in Step 10. Do not write a multi-paragraph "NO ONBOARD" essay.
+
+```bash
+WORK=$(mktemp -d) && gh repo clone johnrclem/hashtracks-web "$WORK" -- --depth 1 && cd "$WORK"
+```
+
+1. **A human hold is in place?** If `gh issue list --label onboarding-blocked --state open` is
+   non-empty, **stop immediately**. Write nothing and report "held: #N".
+2. **Implementation backlog too large?** Run `bash scripts/copy-newest-handoff.sh --list` inside
+   `$WORK` (needs `npm ci` there, or point `HASHTRACKS_REPO` at `$WORK` and use the owner's
+   `node_modules` read-only). If **10 or more** handoffs are un-implemented, research adds
+   nothing. Log `YYYY-MM-DD — SKIPPED: implementation backlog N ≥ 10` and stop.
+3. **No-op streak:** if the last **3** run-log entries are all one-line no-op entries (SKIPPED /
+   NO ONBOARD), open an `onboarding-blocked` issue. Say why (queue empty, every candidate
+   unverifiable, tooling denied) and what would unblock it. Then stop. Every later run exits at
+   check 1 until a human closes the issue.
+
 ## Step 1 — Pick today's target
 
 Open `target-queue.md`. Take the **top row whose Status is `queued`** (lowest Rank first). If
@@ -82,6 +98,17 @@ chosen row `in_progress` with today's date. Record shortName, full name, region,
 type + URL.
 
 ## Step 2 — Deduplicate against LIVE production data (NOT the seed files)
+
+**First, dedupe against work already handed off.** The live sitemap only shows kennels that are
+already live, and a handed-off kennel isn't live yet. The routine wrote 8 duplicate handoffs
+(Aug–Oct 2026) because it skipped this check. In `$WORK`, for each candidate kennelCode:
+- `ls docs/kennel-onboarding/handoffs/*-<code>.md` — any hit means it's already handed off.
+- `gh pr list --state open --label onboarding-handoff --search <code>` — any hit means a delivery
+  PR is in flight.
+- `npx tsx scripts/print-seeded-kennel-codes.ts | grep -Fx <code>` — a hit means it's seeded.
+
+On any hit, skip the candidate and mark its queue row `handed-off` or `done`. Never write a
+second handoff.
 
 > ⚠️ **The seed files are NOT the source of truth for what's live.** Kennels get added directly
 > to the production DB via the admin UI / "Suggest a Kennel" (`Kennel.isManualEntry`), so the
@@ -925,81 +952,34 @@ piped in whole by an automated runner.
    candidate in an already-populated region, only queue it after a positive slug check or a
    sitemap read proves it's not already live. Append rows with full columns + honest confidence.
 
-## Step 9 — Commit and push this run's output (🔴 MANDATORY — do not skip)
+## Step 9 — Deliver through GitHub (🔴 MANDATORY — a PR, never the owner's checkout)
 
-**A handoff that exists only as an untracked file in one working tree is invisible to every other
-checkout and to `git`.** Skipping this step is the single root cause of every onboarding backlog so
-far — 4 kennels (2026-07-05), 6 (2026-07-15), and **20** (2026-08-11). In each case the daily runs
-kept producing good handoffs, `origin/main` never moved, and a later session branching from
-`origin/main` saw a handoffs folder that looked complete.
-
-Attempt to commit **and push** everything this run touched — the handoff, `run-log.md`,
-`target-queue.md`, and any `source-platform-notes.md` additions. By this point in the run the
-working tree already has uncommitted edits (the handoff file, plus your appended `run-log.md` /
-`target-queue.md` entries from Step 8) — the sequence below is written to land safely on top of
-that, not from a clean tree:
+Everything was written in the throwaway clone `$WORK` (Step 0), which started from a fresh
+`origin/main`. So `run-log.md` and `target-queue.md` already contain everything `main` has. You
+append; you never merge by hand.
 
 ```bash
-cd "$REPO"
-git fetch origin
-# Stash everything this run wrote (including the new handoff file, which is untracked) before
-# touching branches — `git switch` can refuse to move when local changes would conflict with the
-# target, and stashing first avoids that regardless of what the ambient branch's state is.
-git stash push -u -m "onboarding run output $(date +%F)"
-# Detach onto origin/main explicitly — do NOT `git pull`/`git push` on the ambient branch. "Why
-# handoff, not direct PR" above says the mount is often parked on a feature branch; an unqualified
-# pull+push would commit onto THAT branch's own upstream, which can succeed while leaving the
-# handoff invisible to every origin/main-based checkout — recreating the exact backlog this step
-# exists to prevent (Codex + CodeRabbit review on the 2026-08-11 rescue PR caught this).
-git switch --detach origin/main
-git stash pop
-# 🔴 Validate before staging — don't blindly trust the path list. Diff the two shared files against
-# origin/main and confirm the ONLY difference is your own appended entry (or platform-note
-# addition). If the diff shows anything else — a removed line, another session's edit, content that
-# predates this run — STOP and reconcile by hand; do not stage or commit over it.
-git diff origin/main -- docs/kennel-onboarding/run-log.md docs/kennel-onboarding/target-queue.md
-# List only the paths THIS run touched — never `git add docs/kennel-onboarding/`, which sweeps in
-# any unrelated pre-existing edits already sitting in that directory.
-git add docs/kennel-onboarding/handoffs/<today's-handoff-file>.md \
-        docs/kennel-onboarding/run-log.md \
-        docs/kennel-onboarding/target-queue.md
-# Only if this run appended to it, and only after the same diff-review:
-# git add docs/kennel-onboarding/source-platform-notes.md
+cd "$WORK"
+git switch -c "onboarding/handoff-$(date +%F)-<code>"     # or onboarding/noop-$(date +%F)
+git add docs/kennel-onboarding/                            # only this dir changed in $WORK
+git diff --cached --stat                                   # expect: your handoff + appended log/queue lines
 git commit -m "docs(kennel-onboarding): hand off <shortName> (<region>)"
-git push origin HEAD:main
+git push -u origin HEAD
+gh pr create --base main --label onboarding-handoff \
+  --title "docs(kennel-onboarding): hand off <shortName> (<region>)" \
+  --body "Daily onboarding run $(date +%F). Handoff: docs/kennel-onboarding/handoffs/<file>.md"
+gh pr merge --auto --squash                                # docs-only; lands once CI is green
 ```
 
-🔴 **`git switch --detach origin/main` is the fix, not a nicety** — a plain `git pull --ff-only` +
-`git push` is exactly what a feature-branch mount would silently mis-target, landing the commit
-somewhere invisible to every `origin/main`-based checkout. `stash` → `switch --detach` → `stash pop`
-is what makes the detach possible in the first place: without stashing first, the switch can refuse
-to run at all once the working tree already has uncommitted edits from earlier in this same run.
-
-🔴 **The 2026-08-11 rescue separately found the daily run had been appending to `run-log.md` and
-`target-queue.md` on top of a stale checkout**, missing content that had already landed on
-`origin/main` (the hc-batch-6 blocks). Committing that file wholesale would have deleted real
-history; it took a hand-built 3-way merge to recover. Fetching fresh, detaching onto **`origin/main`**
-(not a locally-cached `main` ref), and — critically — **reviewing the diff before staging** is what
-prevents this from recurring silently.
-
-⚠️ **This may genuinely fail in the sandbox** — see *Why handoff, not direct PR*: the repo mount is
-often parked on a feature branch with uncommitted work, and `.git/` writes have historically been
-permission-blocked. That is expected, and it is **not** a reason to skip the attempt: the environment
-varies, and when it works it removes the failure mode entirely.
-
-**If any of those commands fails, say so LOUDLY and explicitly in the Step 10 report**, e.g.:
-
-> 🔴 **UNCOMMITTED — `git push` failed (`<error>`). `docs/kennel-onboarding/` holds N untracked
-> files that exist only in this working tree. A human must commit them or they are invisible to
-> every other checkout.**
-
-Do not report success while output sits untracked. A silent failure here is the exact shape of all
-three previous backlogs.
-
-This is the **only** git operation this run may perform: `fetch`, `stash`, `switch --detach
-origin/main`, `stash pop`, scoped `add`/`commit`, and `push origin HEAD:main` for its own
-`docs/kennel-onboarding/` output. Never branch, never open a PR, never touch code or seed files —
-implementation stays with Claude Code.
+- Before committing, check that `git diff --cached` touches **only** `docs/kennel-onboarding/`.
+  If anything else changed, stop and report it.
+- **Delivery failure is never silent.** If the push, `gh pr create` or `gh pr merge --auto`
+  fails, open an `onboarding-blocked` issue. Paste the error and the full handoff body (or a
+  link to the pushed branch). A handoff must reach the owner one way or another. Then report
+  🔴 UNDELIVERED in Step 10.
+- Never touch `/Users/johnclem/Developer/hashtracks-web` with git. Never branch or commit
+  anywhere but `$WORK`. Never change code or seed files.
+- Remove the clone at the end: `rm -rf "$WORK"`.
 
 ## Step 10 — Report
 
@@ -1023,8 +1003,9 @@ bash scripts/copy-newest-handoff.sh --list
 - **Source is JS-rendered and browserRender isn't available in this shell** → still write the
   handoff with everything you could gather, clearly flagging that Claude Code must pull/verify
   the live sample. Mark the queue row `handed-off (needs live-verify)`.
-- **Commit + push this run's `docs/kennel-onboarding/` output (Step 9) — that is required, and is the
-  only git operation permitted.** Never branch, never open a PR, never write outside
-  `docs/kennel-onboarding/`. (This rule previously read "never attempt git operations", which is
-  precisely why three backlogs accumulated as untracked files.)
+- **Deliver this run's `docs/kennel-onboarding/` output as a PR from the throwaway clone
+  (Step 9). That is required, and it is the only git work permitted.** Never use git in the
+  owner's checkout, and never write outside `docs/kennel-onboarding/`. (Earlier rules said
+  "never attempt git operations" and later "commit in the mounted checkout". Between them they
+  caused four untracked-handoff backlogs. See `routine-redesign-2026-11.md`.)
 - Never invent a logo/source URL — mark "none found / follow up" instead.

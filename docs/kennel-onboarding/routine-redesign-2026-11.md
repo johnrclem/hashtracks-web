@@ -1,6 +1,6 @@
 # Daily onboarding routine — redesign proposal (2026-11-05)
 
-**Status:** proposal for the owner. The routine `trig_01NkbKrM53oWTmUxB7AHsPMC` ("Onboard daily kennel") stays paused until this is agreed.
+**Status:** approved by the owner on 2026-11-05 and implemented in `daily-onboarding-prompt.md`: Step 0 preflight, Step 2 handed-off dedupe, Step 9 GitHub delivery. The labels are created. **The trigger prompt is not yet updated** (see "Re-enable checklist" below). The routine `trig_01NkbKrM53oWTmUxB7AHsPMC` stays **disabled** until the implementation backlog is under 10. At 52 today, Step 0 would exit on every run anyway.
 
 ## What went wrong (Aug–Nov 2026)
 
@@ -52,3 +52,35 @@ While 52 handoffs wait, a daily run that **implements** the oldest config-only h
 2. Rewrite manual Step 9 as section A, add Step 0 preflight as section B, and extend Step 2 as section C.
 3. Create the `onboarding-handoff` and `onboarding-blocked` labels.
 4. Re-enable the routine once #2690 and #2691 are merged.
+
+## Re-enable checklist (when the backlog is under 10)
+1. Replace the trigger's prompt with the text below. Do it in the claude.ai routine editor, or with
+   `RemoteTrigger update`. In the API it's the user-message event in `job_config.ccr.events`.
+   Send the **whole** `job_config` back unchanged apart from that string, because its
+   ~100 KB `session_context` must survive. The current prompt still says "Do NOT run git
+   … commit/push" and reads the manual from the live checkout, which contradicts Step 9.
+2. Re-enable `trig_01NkbKrM53oWTmUxB7AHsPMC`. Run it once with "Run now" and check that it
+   either exits cleanly at Step 0 or opens an `onboarding-handoff` PR.
+
+```text
+You are running the HashTracks daily kennel onboarding RESEARCH + HANDOFF task.
+
+FIRST make a throwaway clone of origin/main and read the operating manual from it. Never read the manual from, write to, or run git in the owner's live checkout (/Users/johnclem/Developer/hashtracks-web); it is often on a feature branch.
+
+  WORK=$(mktemp -d) && gh repo clone johnrclem/hashtracks-web "$WORK" -- --depth 1
+  Manual: $WORK/docs/kennel-onboarding/daily-onboarding-prompt.md
+
+Read that file and follow it exactly, top to bottom, starting with Step 0 (preflight). Step 0 may tell you to exit at once: an open `onboarding-blocked` issue, an implementation backlog of 10 or more, or a no-op streak. Obey it.
+
+Also read $WORK/docs/kennel-onboarding/source-platform-notes.md for platform gotchas, and append new learnings to it in $WORK.
+
+If anything here seems to conflict with the manual, the MANUAL wins.
+
+Hard limits (also in the manual):
+- All writes go in $WORK, and only under docs/kennel-onboarding/.
+- Deliver ONLY as the manual's Step 9 says: a branch in $WORK, `gh pr create --label onboarding-handoff`, then `gh pr merge --auto --squash`. If delivery fails, open an `onboarding-blocked` issue containing the handoff. Never leave output undelivered.
+- Do NOT run `npx prisma db seed` or the scrape/merge pipeline. Do NOT touch code or seed files.
+- Never invent a logo URL, source URL or metadata field. Cite the source URL for every field; if a field is unverifiable, leave it blank and flag it.
+
+When done, report one line: kennel (or SKIPPED/held reason), source type, adapter (config-only or new ~N LoC), handoff path, PR link, events verified (count + date range), and backlog count.
+```
