@@ -522,6 +522,7 @@ Large reference lists are in `.claude/rules/`. They load automatically when you 
 - `rules/testing-coverage.md` — Detailed test coverage areas (loads for test files)
 - `rules/documentation-index.md` — Docs directory index (loads for `docs/*`)
 - `rules/live-verification.md` — Mandatory live adapter verification (loads for adapter work)
+- `rules/prod-data-ops.md` — Prod data writes: dry-run + counts, routing-aware backfill previews, upcomingOnly for forward-only sources, restore rules, tx timeouts (loads for scripts/migrations/seed)
 
 ## Schema Changes (Versioned Migrations)
 Vercel builds with `VERCEL_ENV=production` run `prisma migrate deploy` (the `buildCommand` conditional in `vercel.json`, mirrored by `npm run vercel-build`); only committed, checksummed migration files under `prisma/migrations/` ever touch prod. Preview builds share the prod `DATABASE_URL`, so they run only read-only `prisma migrate status`: a migration on an unmerged branch does not apply from its preview build (before this guard, pushing a branch applied its migration immediately — see PR #2675). The gate is the environment, not merge status — any build Vercel runs as *production* applies pending migrations, so keep `main` as the only production branch. Consequence: a preview of a schema-changing PR runs against the un-migrated schema. Workflow:

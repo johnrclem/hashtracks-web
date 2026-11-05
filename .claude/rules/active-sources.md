@@ -1,5 +1,5 @@
 ---
-description: Active data sources catalog — 344 sources across 17 countries
+description: Active data sources catalog — 423 sources across 44 countries
 globs:
   - src/adapters/**
   - prisma/seed.ts
@@ -7,11 +7,11 @@ globs:
   - src/pipeline/**
 ---
 
-# Active Sources (344)
+# Active Sources (423)
 
-Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` skill.
+Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` skill (enabled sources only).
 
-## United States (215 sources)
+## United States (217 sources)
 
 ### Akron, OH (1)
 - **Rubber City H3 Meetup** -> MEETUP -> rch3
@@ -37,8 +37,9 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Austin H3 Calendar** -> GOOGLE_CALENDAR -> ah3
 - **Keep Austin Weird H3 Calendar** -> GOOGLE_CALENDAR -> kawh3
 
-### Baltimore, MD (2)
+### Baltimore, MD (3)
 - **Charm City H3 iCal Feed** -> ICAL_FEED -> cch3
+- **Baltimore Annapolis GCal** -> GOOGLE_CALENDAR -> bah3
 - **Charm City H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> cch3
 
 ### Bend, OR (1)
@@ -85,11 +86,13 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Chicago Hash Website** -> HTML_SCRAPER -> ch3
 - **Thirstday Hash Website** -> HTML_SCRAPER -> th3
 
-### Cincinnati, OH (5)
+### Cincinnati, OH (7)
 - **SCH4 Google Calendar** -> GOOGLE_CALENDAR -> sch4
-- **SCH4 HashStats** -> HTML_SCRAPER (HashStats archive) -> sch4
 - **QCH4 Google Calendar** -> GOOGLE_CALENDAR -> qch4
-- **LVH3 Google Calendar** -> GOOGLE_CALENDAR -> lvh3-cin
+- **SCH4 HashStats** -> HTML_SCRAPER -> sch4
+- **QCH4 HashStats** -> HTML_SCRAPER -> qch4
+- **LVH3 HashStats** -> HTML_SCRAPER -> lvh3-cin
+- **SCH4BASH HashStats** -> HTML_SCRAPER -> sch4bash
 - **Licking Valley H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> lvh3-cin
 
 ### Cleveland, OH (2)
@@ -99,38 +102,37 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 ### Colorado Springs, CO (1)
 - **Colorado Springs H3 Calendar** -> GOOGLE_CALENDAR -> pph4, kimchi-h3, dim-h3
 
-### Columbia, SC (4)
+### Columbia, SC (8)
 - **Columbian H3 Static Schedule (1st Sunday)** -> STATIC_SCHEDULE -> colh3
 - **Columbian H3 Static Schedule (3rd Sunday)** -> STATIC_SCHEDULE -> colh3
+- **Columbian H3 Static Schedule (1st Sunday, Summer)** -> STATIC_SCHEDULE -> colh3
+- **Columbian H3 Static Schedule (3rd Sunday, Summer)** -> STATIC_SCHEDULE -> colh3
 - **Secession H3 Static Schedule** -> STATIC_SCHEDULE -> sech3
 - **Palmetto H3 Static Schedule** -> STATIC_SCHEDULE -> palh3
+- **Palmetto H3 Static Schedule (4th Saturday)** -> STATIC_SCHEDULE -> palh3
+- **Sumter Hasher Trail Info Calendar** -> GOOGLE_CALENDAR -> palh3
 
 ### Columbus, GA (1)
 - **CVH3 Static Schedule** -> STATIC_SCHEDULE -> cvh3
 
-### Columbus, OH (2)
+### Columbus, OH (1)
 - **Renegade H3 Website** -> HTML_SCRAPER -> renh3
-- **RH3 Columbus Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> renh3
-
-### Connecticut (2)
-- **Narwhal H3 Meetup (CTH3)** -> MEETUP -> narwhal-h3
-- **Narwhal H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> narwhal-h3
 
 ### Corpus Christi, TX (1)
-- **Corpus Christi H3 Calendar** -> GOOGLE_CALENDAR -> c2h3
+- **Corpus Christi H3 Calendar** -> GOOGLE_CALENDAR -> c2h3, balh3, cbh3-cc
 
 ### Dallas-Fort Worth, TX (1)
 - **DFW Hash Calendar** -> HTML_SCRAPER -> dh3-tx, duhhh, noduhhh, fwh3, yakh3
 
-### Dayton, OH (4)
+### Dayton, OH (5)
 - **DH4 Google Calendar** -> GOOGLE_CALENDAR -> dh4
-- **MVH3 Google Calendar** -> GOOGLE_CALENDAR -> mvh3-day
+- **Dayton H3 Events Calendar** -> HTML_SCRAPER -> dh3-oh
 - **SWOT Google Calendar** -> GOOGLE_CALENDAR -> swot-h3
+- **SWOT HashStats** -> HTML_SCRAPER -> swot-h3
 - **Dayton H4 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> dh4
 
-### Denver, CO (3)
-- **Denver H3 Google Calendar** -> GOOGLE_CALENDAR -> dh3-co
-- **MiHi-HuHa Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> mihi-huha
+### Denver, CO (2)
+- **Denver H3 Google Calendar** -> GOOGLE_CALENDAR -> dh3-co, bh3-co, mihi-huha
 - **Mile High Humpin Hash Calendar** -> GOOGLE_CALENDAR -> mihi-huha
 
 ### Detroit, MI (3)
@@ -167,21 +169,19 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 ### Fredericksburg, VA (1)
 - **FUH3 Static Schedule** -> STATIC_SCHEDULE -> fuh3
 
-### Greenville, SC (2)
+### Greenville, SC (1)
 - **Upstate H3 Static Schedule** -> STATIC_SCHEDULE -> uh3
-- **GOTH3 Static Schedule** -> STATIC_SCHEDULE -> goth3
 
-### Hampton Roads, VA (4)
+### Hampton Roads, VA (3)
 - **Fort Eustis H3 Google Calendar** -> GOOGLE_CALENDAR -> feh3
 - **Fort Eustis H3 Meetup** -> MEETUP -> feh3
-- **BDSM H3 Meetup** -> MEETUP -> bdsmh3
 - **Tidewater H3 Website Calendar** -> HTML_SCRAPER -> twh3, t3h3-va, hoboh3, vbfmh3, mosh3, tkdh3
 
 ### Harrisburg, PA (1)
 - **H5 Google Calendar** -> GOOGLE_CALENDAR -> h5-hash
 
 ### Honolulu, HI (3)
-- **Aloha H3 Google Calendar** -> GOOGLE_CALENDAR -> ah3-hi, h5-hi, phh-hi
+- **Aloha H3 Google Calendar** -> GOOGLE_CALENDAR -> ah3-hi, h5-hi, phh-hi, fool-moon-h3
 - **Honolulu H5 Google Calendar** -> GOOGLE_CALENDAR -> h5-hi
 - **Aloha H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> ah3-hi
 
@@ -196,6 +196,9 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 
 ### Ithaca, NY (1)
 - **IH3 Website Hareline** -> HTML_SCRAPER -> ih3
+
+### Jacksonville, FL (1)
+- **Jacksonville H3 Timely iCal** -> ICAL_FEED -> jax-h3
 
 ### Jefferson County, WV (1)
 - **W3H3 Hareline Spreadsheet** -> GOOGLE_SHEETS -> w3h3
@@ -222,21 +225,21 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **SUPH3 Google Calendar** -> GOOGLE_CALENDAR -> suph3
 - **Signal Hill H3 Google Calendar** -> GOOGLE_CALENDAR -> sgh3
 
-### Los Angeles, CA (5)
+### Los Angeles, CA (4)
 - **LAH3 Google Calendar** -> GOOGLE_CALENDAR -> lah3
 - **GAL Google Calendar** -> GOOGLE_CALENDAR -> gal-h3
 - **Foothill H3 Google Calendar** -> GOOGLE_CALENDAR -> fth3
-- **East LA H3 Google Calendar** -> GOOGLE_CALENDAR -> elah3
 - **Foothill H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> fth3
 
 ### Lynchburg, VA (2)
 - **Seven Hills H3 Static Schedule** -> STATIC_SCHEDULE -> 7h4
 - **Seven Hills H3 Google Sites** -> HTML_SCRAPER -> 7h4
 
-### Macon, GA (3)
+### Macon, GA (4)
 - **MGH4 Static Schedule (Biweekly Saturday)** -> STATIC_SCHEDULE -> mgh4
 - **MGH4 Static Schedule (Weekly Wednesday)** -> STATIC_SCHEDULE -> mgh4
 - **W3H3 GA Static Schedule** -> STATIC_SCHEDULE -> w3h3-ga
+- **MGH4 & W3H3 Next Hash** -> HTML_SCRAPER -> mgh4, w3h3-ga
 
 ### Madison, WI (2)
 - **Madison H3 Google Calendar** -> GOOGLE_CALENDAR -> madisonh3
@@ -244,7 +247,7 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 
 ### Memphis, TN (2)
 - **Memphis H3 Google Calendar** -> GOOGLE_CALENDAR -> mh3-tn, gynoh3
-- **Memphis H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> mh3-tn
+- **Memphis H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> mh3-tn, gynoh3
 
 ### Miami, FL (6)
 - **Miami H3 Meetup** -> MEETUP -> mia-h3
@@ -282,9 +285,6 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **NOH3 Google Calendar** -> GOOGLE_CALENDAR -> noh3
 - **Voodoo H3 Google Calendar** -> GOOGLE_CALENDAR -> voodoo-h3
 
-### New York (1)
-- **Hudson Valley H3 Meetup** -> MEETUP -> hvh3-ny
-
 ### New York City, NY (1)
 - **HashNYC Website** -> ICAL_FEED -> nych3, brh3, nah3, knick, lil, qbk, si, columbia, harriettes-nyc, ggfm, nawwh3, drinking-practice-nyc
 
@@ -304,23 +304,22 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **OCHHH Google Calendar** -> GOOGLE_CALENDAR -> ochhh
 - **OC Hump Google Calendar** -> GOOGLE_CALENDAR -> ochump
 
-### Orlando, FL (2)
+### Orlando, FL (3)
 - **O2H3 Google Calendar** -> GOOGLE_CALENDAR -> o2h3
-- **GATR H3 Static Schedule** -> STATIC_SCHEDULE -> gatr-h3
+- **OKissMe H3 Hareline** -> GOOGLE_SHEETS -> okissme-h3
+- **GATR H3 WordPress Trail Posts** -> HTML_SCRAPER -> gatr-h3
 
-### Philadelphia, PA (5)
+### Philadelphia, PA (6)
 - **BFM Google Calendar** -> GOOGLE_CALENDAR -> bfm
 - **Philly H3 Google Calendar** -> GOOGLE_CALENDAR -> philly-h3
 - **BFM Website** -> HTML_SCRAPER -> bfm
+- **BFM Special Events** -> HTML_SCRAPER -> bfm
 - **Philly H3 Website** -> HTML_SCRAPER -> philly-h3
-- **Hash Rego** -> HASHREGO -> bfm, ewh3, wh4, gfh3, ch3, dch4, dcfmh3, fch3, oh3, wsh3, mrh3, bfh3, moa2h3
+- **Hash Rego** -> HASHREGO -> bfm, ewh3, wh4, gfh3, ch3, dch4, dcfmh3, flour-city, oh3, wsh3, mrh3, bfh3, moa2h3, nych3, ggfm, mosh3, tkdh3
 
 ### Phoenix, AZ (2)
 - **Phoenix H3 Events** -> ICAL_FEED -> lbh-phx, hump-d, wrong-way, fdtdd
 - **Phoenix H3 Big Ass Calendar** -> HTML_SCRAPER -> lbh-phx, hump-d, wrong-way, fdtdd
-
-### Pioneer Valley, MA (1)
-- **Happy Valley H3 Static Schedule** -> STATIC_SCHEDULE -> hvh3
 
 ### Pittsburgh, PA (2)
 - **Pittsburgh Hash Calendar** -> GOOGLE_CALENDAR -> pgh-h3
@@ -338,10 +337,9 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Dead Whores H3 Calendar** -> GOOGLE_CALENDAR -> dwh3
 - **SWH3 Calendar** -> GOOGLE_CALENDAR -> swh3-or
 
-### Raleigh, NC (4)
+### Raleigh, NC (3)
 - **SWH3 Google Calendar** -> GOOGLE_CALENDAR -> swh3
 - **SWH3 Trail Announcements** -> HTML_SCRAPER -> swh3
-- **Sir Walters H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> swh3
 - **Carolina Larrikins Google Calendar** -> GOOGLE_CALENDAR -> larrikins
 
 ### Reading, PA (1)
@@ -354,8 +352,7 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **RIH3 Static Schedule** -> STATIC_SCHEDULE -> rih3
 - **RIH3 Website Hareline** -> HTML_SCRAPER -> rih3
 
-### Richmond, VA (2)
-- **Richmond H3 Google Calendar** -> GOOGLE_CALENDAR -> rvah3
+### Richmond, VA (1)
 - **Richmond H3 Meetup** -> MEETUP -> rvah3, bibh3, tmfmh3, chain-gang-hhh
 
 ### Rochester, NY (1)
@@ -392,13 +389,14 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 ### Savannah, GA (1)
 - **Savannah H3 Meetup** -> MEETUP -> savh3
 
-### Seattle, WA (6)
+### Seattle, WA (7)
 - **WA Hash Google Calendar** -> GOOGLE_CALENDAR -> sh3-wa, psh3, nbh3-wa, rch3-wa, seamon-h3, th3-wa, ssh3-wa, cunth3-wa, taint-h3, giggity-h3, seh3-wa, hswtf-h3, leapyear-h3
 - **Seattle H3 Hareline Sheet** -> GOOGLE_SHEETS -> sh3-wa
 - **Puget Sound H3 Hareline Sheet** -> GOOGLE_SHEETS -> psh3
 - **Rain City H3 Hareline Sheet** -> GOOGLE_SHEETS -> rch3-wa
 - **SeaMon H3 Hareline Sheet** -> GOOGLE_SHEETS -> seamon-h3
 - **Leap Year H3 Hareline Sheet** -> GOOGLE_SHEETS -> leapyear-h3
+- **Seattle Hash House Bikers Harrier Central** -> HARRIER_CENTRAL -> sh2b
 
 ### St. Louis, MO (2)
 - **Big Hump H3 Hareline** -> HTML_SCRAPER -> bh4
@@ -411,27 +409,24 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **SOH4 Website** -> HTML_SCRAPER -> soh4
 - **SOH4 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> soh4
 
-### Tampa Bay, FL (1)
-- **West Central FL Hash Calendar** -> HTML_SCRAPER -> barf-h3, b2b-h3, jrh3, lh3-fl, sbh3, lush, nsah3, circus-h3, sph3-fl, tth3-fl, tbh3-fl
-
 ### Tucson, AZ (3)
 - **jHavelina H3 Google Calendar** -> GOOGLE_CALENDAR -> jhav-h3
 - **Mr. Happy's H3 Google Calendar** -> GOOGLE_CALENDAR -> mrhappy
 - **Pedal Files Bash Google Calendar** -> GOOGLE_CALENDAR -> pedalfiles
 
-### Vermont (5)
-- **Von Tramp H3 Meetup** -> MEETUP -> vth3
+### Vermont (4)
 - **Von Tramp H3 Squarespace Events** -> HTML_SCRAPER -> vth3
-- **Burlington H3 Website Hareline** -> HTML_SCRAPER -> burlyh3
+- **Burlington H3 Google Calendar** -> GOOGLE_CALENDAR -> burlyh3
 - **Burlington H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> burlyh3
 - **Von Tramp H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> vth3
 
-### Washington, DC (5)
+### Washington, DC (6)
 - **EWH3 Google Calendar** -> GOOGLE_CALENDAR -> ewh3
 - **EWH3 WordPress Trail News** -> HTML_SCRAPER -> ewh3
 - **DCH4 WordPress Trail Posts** -> HTML_SCRAPER -> dch4
 - **Hangover H3 DigitalPress Blog** -> HTML_SCRAPER -> h4
-- **DCFMH3 Static Schedule (Lunar Anchor)** -> STATIC_SCHEDULE -> dcfmh3
+- **DCFMH3 Google Sites Calendar** -> HTML_SCRAPER -> dcfmh3, ewh3, dch3, dch4, cch3, mvh3, fuh3, h4
+- **White House H3 Hareline** -> GOOGLE_SHEETS -> wh4
 
 ### Wichita, KS (1)
 - **Tornado Alley H3 Google Calendar** -> GOOGLE_CALENDAR -> tah3
@@ -443,7 +438,67 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Cape Fear H3 Website** -> HTML_SCRAPER -> cfh3
 - **Cape Fear H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> cfh3
 
-## Canada (10 sources)
+## Australia (12 sources)
+
+### Adelaide, SA (2)
+- **Adelaide H3 admin-ajax** -> HTML_SCRAPER -> ah3-au
+- **Adelaide H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> ah3-au
+
+### Australian Capital Territory (1)
+- **Capital Hash Calendar** -> GOOGLE_CALENDAR -> capital-h3-au
+
+### Gold Coast, QLD (1)
+- **Gold Coast H3 Hareline** -> HTML_SCRAPER -> gch3-au
+
+### Melbourne, VIC (1)
+- **Melbourne New Moon Meetup** -> MEETUP -> mel-new-moon, melbourne-full-moon, delinquents-hhh, melbourne-city-h3, melbourne-bike-hash
+
+### Perth, WA (1)
+- **Perth H3 Hareline** -> ICAL_FEED -> perth-h3
+
+### Sydney, NSW (6)
+- **Sydney H3 Hareline** -> HTML_SCRAPER -> sh3-au
+- **Sydney Larrikins Upcoming Runs** -> HTML_SCRAPER -> larrikins-au
+- **Sydney Larrikins Special Events** -> HTML_SCRAPER -> larrikins-au
+- **Sydney Thirsty H3 Upcoming Runs** -> HTML_SCRAPER -> sth3-au
+- **North Shore Wanderers H3 Hareline Sheet** -> GOOGLE_SHEETS -> nswhhh
+- **North Shore Wanderers H3 Website** -> HTML_SCRAPER -> nswhhh
+
+## Austria (1 source)
+
+### Vienna (1)
+- **Vindobona H3 Hareline** -> HTML_SCRAPER -> vindobona-h3, vienna-fmh3
+
+## Barbados (1 source)
+
+### Bridgetown (1)
+- **Barbados H3 Harrier Central** -> HARRIER_CENTRAL -> barbados-h3
+
+## Belgium (4 sources)
+
+### Brussels (4)
+- **BMPH3 Google Calendar** -> GOOGLE_CALENDAR -> bmph3-be
+- **Brussels Blue Moon Google Calendar** -> GOOGLE_CALENDAR -> bbmh3
+- **BruH3 Website** -> HTML_SCRAPER -> bruh3
+- **Divahhh Harrier Central** -> HARRIER_CENTRAL -> divahhh
+
+## Brazil (3 sources)
+
+### Brasília, Brazil (1)
+- **Brasilia H3 Blogspot Trail Posts** -> HTML_SCRAPER -> brasilia-h3
+
+### Rio de Janeiro (1)
+- **Rio H3 Harrier Central** -> HARRIER_CENTRAL -> rioh3
+
+### São Paulo (1)
+- **Brazil Nuts H3 Harrier Central** -> HARRIER_CENTRAL -> bnh3
+
+## Cambodia (1 source)
+
+### Phnom Penh (1)
+- **Phnom Penh H3 Website** -> HTML_SCRAPER -> phnom-penh-h3
+
+## Canada (11 sources)
 
 ### Calgary, AB (2)
 - **Calgary H3 Upcoming Runs** -> HTML_SCRAPER -> ch3-ab
@@ -465,60 +520,40 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Hogtown H3 Meetup** -> MEETUP -> hogtownh3
 - **Hogtown H3 Website** -> HTML_SCRAPER -> hogtownh3
 
-## United Kingdom (15 sources)
+### Victoria, BC (1)
+- **Victoria H3 Gamma Site** -> HTML_SCRAPER -> vh3, dsmh3, vk9h3
 
-### Birmingham (1)
-- **Bull Moon Upcoming Runs** -> HTML_SCRAPER -> bullmoon
+## China (1 source)
 
-### Bristol (2)
-- **West of England Hash Run List** -> HTML_SCRAPER -> bristolh3, bristol-grey
-- **BOGS H3 Run List** -> HTML_SCRAPER -> bogs-h3
+### Shanghai (1)
+- **Shanghai H3 Harrier Central** -> HARRIER_CENTRAL -> shh3-cn
 
-### Edinburgh (1)
-- **Edinburgh H3 Hareline** -> HTML_SCRAPER -> edinburghh3
+## Czech Republic (1 source)
 
-### Glasgow (1)
-- **Glasgow H3 Hareline** -> HTML_SCRAPER -> glasgowh3
+### Prague (1)
+- **Prague H3 Harrier Central** -> HARRIER_CENTRAL -> ph3-cz
 
-### Liverpool (1)
-- **Mersey Thirstdays Website** -> HTML_SCRAPER -> mth3
+## Denmark (2 sources)
 
-### London (6)
-- **City Hash Makesweat** -> HTML_SCRAPER -> cityh3
-- **West London Hash Website** -> HTML_SCRAPER -> wlh3
-- **London Hash Run List** -> HTML_SCRAPER -> lh3
-- **Barnes Hash Hare Line** -> HTML_SCRAPER -> barnesh3
-- **SLASH Run List** -> HTML_SCRAPER -> slh3
-- **Enfield Hash Blog** -> HTML_SCRAPER -> eh3
+### Copenhagen (2)
+- **Copenhagen H3 Google Calendar** -> GOOGLE_CALENDAR -> ch3-dk, ch4-dk, rdh3
+- **Copenhagen Howling H3 Runsheet** -> HTML_SCRAPER -> ch4-dk
 
-### Norfolk (2)
-- **Norfolk H3 Trails Page** -> HTML_SCRAPER -> norfolkh3
-- **Norfolk H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> norfolkh3
+## France (4 sources)
 
-### Surrey (1)
-- **Old Coulsdon Hash Run List** -> HTML_SCRAPER -> och3
+### Lyon (1)
+- **Lyon H3 Harrier Central** -> HARRIER_CENTRAL -> lh3-fr
 
-## Ireland (1 source)
+### Montpellier (1)
+- **Heraultics H3 Harrier Central** -> HARRIER_CENTRAL -> heraultics
 
-### Dublin (1)
-- **Dublin H3 Website Hareline** -> HTML_SCRAPER -> dh3
+### Paris (1)
+- **Paris & Sans Clue H3 Meetup** -> MEETUP -> paris-h3, sans-clue-h3
 
-## Belgium (3 sources)
+### Toulouse (1)
+- **Toulouse H3 Harrier Central** -> HARRIER_CENTRAL -> toulouse-h3
 
-### Brussels (3)
-- **BMPH3 Google Calendar** -> GOOGLE_CALENDAR -> bmph3-be
-- **Brussels Blue Moon Google Calendar** -> GOOGLE_CALENDAR -> bbmh3
-- **BruH3 Website** -> HTML_SCRAPER -> bruh3
-
-## Netherlands (2 sources)
-
-### Amsterdam (1)
-- **Amsterdam H3 Website** -> HTML_SCRAPER -> ah3-nl
-
-### The Hague (1)
-- **The Hague H3 Website** -> HTML_SCRAPER -> hagueh3
-
-## Germany (9 sources)
+## Germany (12 sources)
 
 ### Berlin (2)
 - **Berlin H3 iCal Feed** -> ICAL_FEED -> berlinh3, bh3fm
@@ -527,6 +562,13 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 ### Frankfurt (2)
 - **Frankfurt H3 Hareline** -> HTML_SCRAPER -> fh3, ffmh3, shits-fra, dom-fra, bikeh3-fra
 - **FFMH3 Hareline** -> HTML_SCRAPER -> ffmh3
+
+### Hamburg (1)
+- **Hamburg H7 Harrier Central** -> HARRIER_CENTRAL -> h7
+
+### Kaiserslautern (2)
+- **Sembach H3 Harrier Central** -> HARRIER_CENTRAL -> sembach-h3
+- **KRASH H3 Harrier Central** -> HARRIER_CENTRAL -> krashh3
 
 ### Munich (3)
 - **Munich H3 Hareline Sheet** -> GOOGLE_SHEETS -> mh3-de
@@ -537,53 +579,69 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Stuttgart H3 Google Calendar** -> GOOGLE_CALENDAR -> sh3-de, dst-h3, fm-stgt, super-h3
 - **DST H3 Static Schedule** -> STATIC_SCHEDULE -> dst-h3
 
-## Denmark (2 sources)
+## Hong Kong (14 sources)
 
-### Copenhagen (2)
-- **Copenhagen H3 Google Calendar** -> GOOGLE_CALENDAR -> ch3-dk, ch4-dk, rdh3
-- **Copenhagen Howling H3 Runsheet** -> HTML_SCRAPER -> ch4-dk
+### Hong Kong (14)
+- **HK H3 Homepage** -> HTML_SCRAPER -> hkh3
+- **HK H3 Static Schedule** -> STATIC_SCHEDULE -> hkh3
+- **N2TH3 WordPress Blog** -> HTML_SCRAPER -> n2th3
+- **N2TH3 Static Schedule** -> STATIC_SCHEDULE -> n2th3
+- **RS2H3 Hareline Sheet** -> GOOGLE_SHEETS -> rs2h3
+- **Wanchai H3 Hareline Sheet** -> GOOGLE_SHEETS -> wanchai-h3
+- **Sek Kong H3 Hareline Sheet** -> GOOGLE_SHEETS -> sekkong-h3
+- **LSW Hareline** -> HTML_SCRAPER -> lsw-h3
+- **Ladies H4 Hareline** -> HTML_SCRAPER -> lh4-hk
+- **Kowloon H3 Hareline Sheet** -> GOOGLE_SHEETS -> kowloon-h3
+- **HKFH3 Static Schedule** -> STATIC_SCHEDULE -> hkfh3
+- **Free China H3 Static Schedule** -> STATIC_SCHEDULE -> fch3-hk
+- **Hebe H3 Static Schedule** -> STATIC_SCHEDULE -> hebe-h3
+- **HK H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> hkh3
 
-## Sweden (1 source)
+## Hungary (2 sources)
 
-### Stockholm (1)
-- **Stockholm HHH iCal Feed** -> ICAL_FEED -> suh3, sah3-se
+### Budapest (2)
+- **Budapest H3 Static Schedule (Summer Sundays)** -> STATIC_SCHEDULE -> budapest-h3
+- **Budapest H3 Static Schedule (Winter Sundays)** -> STATIC_SCHEDULE -> budapest-h3
 
-## Norway (1 source)
+## Ireland (1 source)
 
-### Oslo (1)
-- **Oslo H3 iCal Feed** -> ICAL_FEED -> oh3-no
+### Dublin (1)
+- **Dublin H3 Website Hareline** -> HTML_SCRAPER -> dh3
 
-## Thailand (18 sources)
+## India (1 source)
 
-### Bangkok (7)
-- **BSSH3 Meetup** -> MEETUP -> bssh3
-- **Bangkok Harriettes Blog** -> HTML_SCRAPER -> bkk-harriettes
-- **Bangkok Thursday Hash** -> HTML_SCRAPER -> bth3, bfmh3
-- **Bangkok Full Moon Hash** -> HTML_SCRAPER -> bfmh3
-- **Siam Sunday Hash** -> HTML_SCRAPER -> s2h3
-- **Bangkok H3 Website** -> HTML_SCRAPER -> bkk-h3
-- **Bangkok Bikers Website** -> HTML_SCRAPER -> bhhb
+### Mumbai, India (1)
+- **Bombay H3 Website** -> HTML_SCRAPER -> bombay-h3
 
-### Chiang Mai (6)
-- **Chiang Mai CH3 Hareline** -> HTML_SCRAPER -> ch3-cm
-- **Chiang Mai CGH3 Hareline** -> HTML_SCRAPER -> cgh3
-- **Chiang Mai CH4 Hareline** -> HTML_SCRAPER -> ch4-cm
-- **Chiang Mai CSH3 Hareline** -> HTML_SCRAPER -> csh3
-- **Chiang Mai CBH3 Hareline** -> HTML_SCRAPER -> cbh3-cm
-- **Chiang Mai Hash Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> ch3-cm, ch4-cm, csh3, cbh3-cm
+## Indonesia (2 sources)
 
-### Chiang Rai (1)
-- **Chiang Rai H3 Blog** -> HTML_SCRAPER -> crh3
+### Bali (1)
+- **Bali Hash 2 Website** -> HTML_SCRAPER -> bali-hash-2
 
-### Hua Hin (2)
-- **Cha-Am H3 Website** -> HTML_SCRAPER -> cah3
-- **Cha-Am H3 Static Schedule** -> STATIC_SCHEDULE -> cah3
+### Bandung (1)
+- **Bandung H3 Harrier Central** -> HARRIER_CENTRAL -> bandung-h3
 
-### Pattaya (1)
-- **Pattaya H3 Hareline** -> HTML_SCRAPER -> pattaya-h3
+## Japan (10 sources)
 
-### Phuket (1)
-- **Phuket HHH Hareline** -> HTML_SCRAPER -> phhh, phuket-tinmen, iron-pussy, phuket-pooying
+### Kansai (3)
+- **KFMH3 Google Calendar** -> GOOGLE_CALENDAR -> kfmh3
+- **Kyoto H3 Google Calendar** -> GOOGLE_CALENDAR -> kyoto-h3
+- **Osaka H3 Google Calendar** -> GOOGLE_CALENDAR -> osaka-h3
+
+### Tokyo (7)
+- **Tokyo H3 Harrier Central** -> HARRIER_CENTRAL -> tokyo-h3
+- **F3H3 Website** -> HTML_SCRAPER -> f3h3
+- **Sumo H3 Website** -> HTML_SCRAPER -> sumo-h3
+- **Yoko Yoko H3 Website** -> HTML_SCRAPER -> yoko-yoko-h3
+- **Hayama 4H Website** -> HTML_SCRAPER -> hayama-4h
+- **Samurai H3 Website** -> HTML_SCRAPER -> samurai-h3
+- **New Tokyo Katch Website** -> HTML_SCRAPER -> new-tokyo-katch
+
+## Kenya (2 sources)
+
+### Nairobi (2)
+- **ONH3 WordPress Trail Posts** -> HTML_SCRAPER -> onh3
+- **ONH3 Google Calendar** -> GOOGLE_CALENDAR -> onh3
 
 ## Malaysia (13 sources)
 
@@ -616,86 +674,35 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Penang H3 Hareline** -> HTML_SCRAPER -> penangh3
 - **Hash House Harriets Penang Hareline** -> HTML_SCRAPER -> hhhpenang
 
-## Singapore (8 sources)
+## Mexico (1 source)
 
-### Singapore (8)
-- **Singapore Sunday H3 Harrier Central** -> HARRIER_CENTRAL -> sh3-sg
-- **Lion City H3 Website** -> HTML_SCRAPER -> lch3
-- **Kampong H3 Website** -> HTML_SCRAPER -> kampong-h3
-- **HHHS Father Hash Static Schedule** -> STATIC_SCHEDULE -> hhhs
-- **HHHS Hareline** -> HTML_SCRAPER -> hhhs
-- **Singapore Harriets Static Schedule** -> STATIC_SCHEDULE -> sgharriets
-- **Hash House Horrors Hareline** -> HTML_SCRAPER -> hhhorrors
-- **Seletar H3 PWA** -> HTML_SCRAPER -> seletar-h3
+### Mexico City (1)
+- **Mexico City H3 Meetup** -> MEETUP -> mch3
 
-## Hong Kong (14 sources)
+## Nepal (1 source)
 
-### Hong Kong (14)
-- **HK H3 Homepage** -> HTML_SCRAPER -> hkh3
-- **HK H3 Static Schedule** -> STATIC_SCHEDULE -> hkh3
-- **N2TH3 WordPress Blog** -> HTML_SCRAPER -> n2th3
-- **N2TH3 Static Schedule** -> STATIC_SCHEDULE -> n2th3
-- **RS2H3 Hareline Sheet** -> GOOGLE_SHEETS -> rs2h3
-- **Wanchai H3 Hareline Sheet** -> GOOGLE_SHEETS -> wanchai-h3
-- **Sek Kong H3 Hareline Sheet** -> GOOGLE_SHEETS -> sekkong-h3
-- **LSW Hareline** -> HTML_SCRAPER -> lsw-h3
-- **Ladies H4 Hareline** -> HTML_SCRAPER -> lh4-hk
-- **Kowloon H3 Hareline Sheet** -> GOOGLE_SHEETS -> kowloon-h3
-- **HKFH3 Static Schedule** -> STATIC_SCHEDULE -> hkfh3
-- **Free China H3 Static Schedule** -> STATIC_SCHEDULE -> fch3-hk
-- **Hebe H3 Static Schedule** -> STATIC_SCHEDULE -> hebe-h3
-- **HK H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> hkh3
+### Kathmandu (1)
+- **Himalayan H3 Website** -> HTML_SCRAPER -> himalayan-h3
 
-## Japan (10 sources)
+## Netherlands (3 sources)
 
-### Kansai (3)
-- **KFMH3 Google Calendar** -> GOOGLE_CALENDAR -> kfmh3
-- **Kyoto H3 Google Calendar** -> GOOGLE_CALENDAR -> kyoto-h3
-- **Osaka H3 Google Calendar** -> GOOGLE_CALENDAR -> osaka-h3
+### Amsterdam (2)
+- **Amsterdam H3 Website** -> HTML_SCRAPER -> ah3-nl
+- **FILTH H3 Harrier Central** -> HARRIER_CENTRAL -> filth-h3
 
-### Tokyo (7)
-- **Tokyo H3 Harrier Central** -> HARRIER_CENTRAL -> tokyo-h3
-- **F3H3 Website** -> HTML_SCRAPER -> f3h3
-- **Sumo H3 Website** -> HTML_SCRAPER -> sumo-h3
-- **Yoko Yoko H3 Website** -> HTML_SCRAPER -> yoko-yoko-h3
-- **Hayama 4H Website** -> HTML_SCRAPER -> hayama-4h
-- **Samurai H3 Website** -> HTML_SCRAPER -> samurai-h3
-- **New Tokyo Katch Website** -> HTML_SCRAPER -> new-tokyo-katch
+### The Hague (1)
+- **The Hague H3 Website** -> HTML_SCRAPER -> hagueh3
 
-## Australia (10 sources)
+## New Zealand (13 sources)
 
-### Adelaide, SA (2)
-- **Adelaide H3 admin-ajax** -> HTML_SCRAPER -> ah3-au
-- **Adelaide H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> ah3-au
-
-### Australian Capital Territory (1)
-- **Capital Hash Calendar** -> GOOGLE_CALENDAR -> capital-h3-au
-
-### Darwin, NT (1)
-- **Top End Hash Hareline** -> ICAL_FEED -> top-end-h3
-
-### Gold Coast, QLD (1)
-- **Gold Coast H3 Hareline** -> HTML_SCRAPER -> gch3-au
-
-### Melbourne, VIC (1)
-- **Melbourne New Moon Meetup** -> MEETUP -> mel-new-moon
-
-### Perth, WA (1)
-- **Perth H3 Hareline** -> ICAL_FEED -> perth-h3
-
-### Sydney, NSW (3)
-- **Sydney H3 Hareline** -> HTML_SCRAPER -> sh3-au
-- **Sydney Larrikins Upcoming Runs** -> HTML_SCRAPER -> larrikins-au
-- **Sydney Thirsty H3 Upcoming Runs** -> HTML_SCRAPER -> sth3-au
-
-## New Zealand (11 sources)
-
-### Auckland, NZ (2)
+### Auckland, NZ (3)
 - **Hibiscus H3 Hareline Sheet** -> GOOGLE_SHEETS -> hibiscus-h3
 - **Auckland Hussies Run List** -> HTML_SCRAPER -> auckland-hussies
+- **Auckland H3 Website** -> HTML_SCRAPER -> ah3-nz
 
-### Christchurch, NZ (2)
+### Christchurch, NZ (3)
 - **Garden City H3 Website** -> HTML_SCRAPER -> garden-city-h3
+- **Christchurch H3 Website Hareline** -> HTML_SCRAPER -> christchurch-h3
 - **Christchurch H3 Static Schedule** -> STATIC_SCHEDULE -> christchurch-h3
 
 ### Hamilton, NZ (4)
@@ -708,6 +715,238 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **T3H3 Wellington Static Schedule** -> STATIC_SCHEDULE -> t3h3-nz
 - **Capital H3 Website** -> HTML_SCRAPER -> capital-h3-nz
 - **Geriatrix H3 Receding Hareline** -> HTML_SCRAPER -> geriatrix-h3
+
+## Norway (1 source)
+
+### Oslo (1)
+- **Oslo H3 iCal Feed** -> ICAL_FEED -> oh3-no
+
+## Paraguay (1 source)
+
+### Asunción (1)
+- **Asunción H3 WordPress Run Posts** -> HTML_SCRAPER -> asu-h3
+
+## Philippines (1 source)
+
+### Manila (1)
+- **Manila H3 Website** -> HTML_SCRAPER -> mh3-ph
+
+## Poland (2 sources)
+
+### Poznan (1)
+- **Poznan H3 Harrier Central** -> HARRIER_CENTRAL -> ph3-pl
+
+### Warsaw (1)
+- **Warsaw H3 Website** -> HTML_SCRAPER -> warsaw-h3
+
+## Portugal (3 sources)
+
+### Algarve (1)
+- **Algarve H3 Harrier Central** -> HARRIER_CENTRAL -> a3h
+
+### Lisbon (1)
+- **Lisbon H3 Harrier Central** -> HARRIER_CENTRAL -> lh3-pt
+
+### Porto (1)
+- **Porto Invicta H3 Harrier Central** -> HARRIER_CENTRAL -> pih3
+
+## Saudi Arabia (1 source)
+
+### Riyadh (1)
+- **Riyadh H3 Supabase API** -> HTML_SCRAPER -> riyadh-h3
+
+## Serbia (1 source)
+
+### Belgrade (1)
+- **BEER H3 Harrier Central** -> HARRIER_CENTRAL -> beerh3
+
+## Sierra Leone (1 source)
+
+### Freetown (1)
+- **Sierra H4 Harrier Central** -> HARRIER_CENTRAL -> sierra-h4
+
+## Singapore (9 sources)
+
+### Singapore (9)
+- **Singapore Sunday H3 Harrier Central** -> HARRIER_CENTRAL -> sh3-sg
+- **Lion City H3 Website** -> HTML_SCRAPER -> lch3
+- **Kampong H3 Website** -> HTML_SCRAPER -> kampong-h3
+- **HHHS Father Hash Static Schedule** -> STATIC_SCHEDULE -> hhhs
+- **HHHS Hareline** -> HTML_SCRAPER -> hhhs
+- **Singapore Harriets Static Schedule** -> STATIC_SCHEDULE -> sgharriets
+- **SG Harriets Hareline** -> HTML_SCRAPER -> sgharriets
+- **Hash House Horrors Hareline** -> HTML_SCRAPER -> hhhorrors
+- **Seletar H3 PWA** -> HTML_SCRAPER -> seletar-h3
+
+## South Korea (1 source)
+
+### Seoul (1)
+- **Seoul H3 Website** -> HTML_SCRAPER -> sh3-kr
+
+## Spain (2 sources)
+
+### Costa del Sol (1)
+- **Mijas H3 Hareline** -> HTML_SCRAPER -> mijash3
+
+### Madrid (1)
+- **Madrid HHH WordPress Trail Directions** -> HTML_SCRAPER -> madrid-h3
+
+## Sri Lanka (1 source)
+
+### Colombo (1)
+- **Colombo Harriettes Website** -> HTML_SCRAPER -> colombo-harriettes
+
+## Sweden (1 source)
+
+### Stockholm (1)
+- **Stockholm HHH iCal Feed** -> ICAL_FEED -> suh3, sah3-se
+
+## Switzerland (2 sources)
+
+### Winterthur (1)
+- **Winterthur & Schaffhausen H3 Meetup** -> MEETUP -> wsh3-ch
+
+### Zürich (1)
+- **Zurich H3 Meetup** -> MEETUP -> zh3
+
+## Taiwan (7 sources)
+
+### Douliu (1)
+- **Douliu H3 Harrier Central** -> HARRIER_CENTRAL -> douliu-h3
+
+### Kaohsiung (1)
+- **Kaohsiung H3 Run Information** -> HTML_SCRAPER -> kaohsiung-h3
+
+### Taichung (1)
+- **Fengyuan H3 Harrier Central** -> HARRIER_CENTRAL -> fishhh
+
+### Taipei (3)
+- **Taiwan H3 Harrier Central** -> HARRIER_CENTRAL -> twh3-tw
+- **Taipei Hash Run List** -> HTML_SCRAPER -> taipei-h3
+- **New Taipei Hash Run List** -> HTML_SCRAPER -> nth3-tw
+
+### Taoyuan (1)
+- **Taoyuan Metro H3 Website** -> HTML_SCRAPER -> tymh3-tw
+
+## Thailand (19 sources)
+
+### Bangkok (6)
+- **BSSH3 Meetup** -> MEETUP -> bssh3
+- **Bangkok Harriettes Blog** -> HTML_SCRAPER -> bkk-harriettes
+- **Bangkok Monday H3 Hareline** -> HTML_SCRAPER -> bmh3-bkk
+- **Bangkok Thursday Hash** -> HTML_SCRAPER -> bth3, bfmh3
+- **Bangkok Full Moon Hash** -> HTML_SCRAPER -> bfmh3
+- **Siam Sunday Hash** -> HTML_SCRAPER -> s2h3
+
+### Chiang Mai (6)
+- **Chiang Mai CH3 Hareline** -> HTML_SCRAPER -> ch3-cm
+- **Chiang Mai CGH3 Hareline** -> HTML_SCRAPER -> cgh3
+- **Chiang Mai CH4 Hareline** -> HTML_SCRAPER -> ch4-cm
+- **Chiang Mai CSH3 Hareline** -> HTML_SCRAPER -> csh3
+- **Chiang Mai CBH3 Hareline** -> HTML_SCRAPER -> cbh3-cm
+- **Chiang Mai Hash Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> ch3-cm, ch4-cm, csh3, cbh3-cm
+
+### Chiang Rai (1)
+- **Chiang Rai H3 Blog** -> HTML_SCRAPER -> crh3
+
+### Hua Hin (4)
+- **Cha-Am H3 Website** -> HTML_SCRAPER -> cah3
+- **Cha-Am H3 Static Schedule** -> STATIC_SCHEDULE -> cah3
+- **Hua Hin Full Moon H3 Harrier Central** -> HARRIER_CENTRAL -> h2fmh3
+- **Pranburi H3 Harrier Central** -> HARRIER_CENTRAL -> psh3-th
+
+### Pattaya (1)
+- **Pattaya H3 Hareline** -> HTML_SCRAPER -> pattaya-h3
+
+### Phuket (1)
+- **Phuket HHH Hareline** -> HTML_SCRAPER -> phhh, phuket-tinmen, iron-pussy, phuket-pooying
+
+## United Arab Emirates (3 sources)
+
+### Dubai (3)
+- **Desert H3 Website** -> HTML_SCRAPER -> dh3-ae
+- **Creek H3 Website** -> HTML_SCRAPER -> ch3-ae
+- **Moonshine H3 Dubai Harrier Central** -> HARRIER_CENTRAL -> mh3-dxb
+
+## United Kingdom (32 sources)
+
+### Aberdeen (1)
+- **Aberdeen H3 Harrier Central** -> HARRIER_CENTRAL -> aberdeen-h3
+
+### Bicester (1)
+- **Bicester H3 Events (The Events Calendar iCal)** -> ICAL_FEED -> bicester-h3
+
+### Birmingham (1)
+- **Bull Moon Upcoming Runs** -> HTML_SCRAPER -> bullmoon
+
+### Bristol (2)
+- **West of England Hash Run List** -> HTML_SCRAPER -> bristolh3, bristol-grey
+- **BOGS H3 Run List** -> HTML_SCRAPER -> bogs-h3
+
+### Cornwall (1)
+- **Try it Thursdays H3 Harrier Central** -> HARRIER_CENTRAL -> titsh3
+
+### East Midlands (1)
+- **Mickleover H3 Run Log Sheet** -> GOOGLE_SHEETS -> mickleover-h3
+
+### Edinburgh (4)
+- **Edinburgh H3 Hareline** -> HTML_SCRAPER -> edinburghh3
+- **The New Town Hash Harrier Central** -> HARRIER_CENTRAL -> tnth3
+- **DAFT H3 Harrier Central** -> HARRIER_CENTRAL -> dafth3
+- **BeerSpoke H3 Harrier Central** -> HARRIER_CENTRAL -> beerspoke-h3
+
+### Exeter (2)
+- **Devon Lunatics H3 Google Calendar** -> GOOGLE_CALENDAR -> dlh3-gb
+- **Isca H3 Google Calendar** -> GOOGLE_CALENDAR -> isca-h3
+
+### Glasgow (1)
+- **Glasgow H3 Hareline** -> HTML_SCRAPER -> glasgowh3
+
+### Hertfordshire (1)
+- **Herts H3 Website Hareline** -> HTML_SCRAPER -> herts-h3
+
+### Lancaster (1)
+- **Lune Valley H3 Harrier Central** -> HARRIER_CENTRAL -> lvh3-gb
+
+### Liverpool (1)
+- **Mersey Thirstdays Website** -> HTML_SCRAPER -> mth3
+
+### London (8)
+- **City Hash Makesweat** -> HTML_SCRAPER -> cityh3
+- **West London Hash Website** -> HTML_SCRAPER -> wlh3
+- **London Hash Run List** -> HTML_SCRAPER -> lh3
+- **Barnes Hash Hare Line** -> HTML_SCRAPER -> barnesh3
+- **SLASH Run List** -> HTML_SCRAPER -> slh3
+- **Enfield Hash Blog** -> HTML_SCRAPER -> eh3
+- **EELS H3 Harrier Central** -> HARRIER_CENTRAL -> eels-h3
+- **F.U.K Full Moon H3 Hareline** -> HTML_SCRAPER -> fukfm
+
+### Manchester (1)
+- **Manchester H3 Harrier Central** -> HARRIER_CENTRAL -> mh3-gb
+
+### Newcastle (1)
+- **Newcastle H3 Harrier Central** -> HARRIER_CENTRAL -> newcastle-h3
+
+### Norfolk (2)
+- **Norfolk H3 Trails Page** -> HTML_SCRAPER -> norfolkh3
+- **Norfolk H3 Facebook Hosted Events** -> FACEBOOK_HOSTED_EVENTS -> norfolkh3
+
+### Plymouth (1)
+- **Plympton H3 Harrier Central** -> HARRIER_CENTRAL -> plympton-h3
+
+### Sheffield (1)
+- **Steel City H3 Harrier Central** -> HARRIER_CENTRAL -> sch3-gb
+
+### Surrey (1)
+- **Old Coulsdon Hash Run List** -> HTML_SCRAPER -> och3
+
+## Vietnam (2 sources)
+
+### Hanoi (1)
+- **Hanoi H3 Website** -> HTML_SCRAPER -> hanoi-h3
+
+### Ho Chi Minh City (1)
+- **Saigon H3 Website** -> HTML_SCRAPER -> saigon-h3
 
 See `docs/source-onboarding-playbook.md` for how to add new sources.
 See `docs/roadmap.md` for implementation roadmap.
