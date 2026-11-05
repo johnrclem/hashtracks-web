@@ -312,9 +312,11 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "hvh3", shortName: "HVH3", fullName: "Happy Valley Hash House Harriers", region: "Pioneer Valley, MA",
       website: "https://happyvalleyh3.org/",
-      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Biweekly", scheduleTime: "6:30 PM",
+      // No verified fixed schedule (the former "Biweekly Thursday 6:30 PM" had
+      // no provenance; see the disabled HVH3 static source in sources.ts).
+      scheduleNotes: "No fixed schedule published — trails are announced in the Happy Valley H3 Facebook group.",
       foundedYear: 1999,
-      description: "Biweekly Thursday hashes in Western Massachusetts.",
+      description: "Hash House Harriers in Western Massachusetts since 1999.",
     },
     {
       kennelCode: "413h3", shortName: "413H3", fullName: "413 Hash House Harriers", region: "Pioneer Valley, MA",

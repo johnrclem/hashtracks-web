@@ -89,23 +89,19 @@ describe("SOURCES seed data invariants (#817 regression guard)", () => {
     expect((phoenix!.config as { upcomingOnly?: boolean }).upcomingOnly).toBe(true);
   });
 
-  it("every STATIC_SCHEDULE rule with INTERVAL>1 pins an anchorDate", () => {
+  it("every enabled STATIC_SCHEDULE rule with INTERVAL>1 pins an anchorDate", () => {
     // Without an anchor, generateWeeklyDates aligns an every-N-weeks rule to
     // the scrape window's start, so the parity flips as the window slides and
-    // each scrape cancels the previous run's dates and regenerates the others.
-    // Happy Valley H3 is the one known gap: its real run parity could not be
-    // verified (site unreachable from the 2026-11-05 triage session, and its
-    // "upcumming runs" page is undated). Remove it from this list once a
-    // verified anchorDate lands — the list must only ever shrink.
-    const KNOWN_UNANCHORED = new Set(["Happy Valley H3 Static Schedule"]);
+    // each scrape cancels the previous run's dates and regenerates the others
+    // (Happy Valley H3, 2026-11-05 — since disabled for lack of provenance).
     const unanchored = SOURCES.filter((s) => s.type === "STATIC_SCHEDULE")
+      .filter((s) => (s as { enabled?: boolean }).enabled !== false)
       .filter((s) => {
         const cfg = (s.config ?? {}) as { rrule?: string; anchorDate?: string };
         const interval = /INTERVAL=(\d+)/.exec(cfg.rrule ?? "");
         return interval !== null && Number(interval[1]) > 1 && !cfg.anchorDate;
       })
-      .map((s) => s.name)
-      .filter((name) => !KNOWN_UNANCHORED.has(name));
+      .map((s) => s.name);
     expect(unanchored).toEqual([]);
   });
 
