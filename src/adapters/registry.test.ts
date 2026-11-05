@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getAdapter } from "./registry";
+import { GoHashAdapter } from "./html-scraper/gohash";
 import { GenericHtmlAdapter } from "./html-scraper/generic";
 import { HashNYCAdapter } from "./html-scraper/hashnyc";
 import { BFMAdapter } from "./html-scraper/bfm";
@@ -59,6 +60,10 @@ describe("getAdapter", () => {
     const adapter = getAdapter("HTML_SCRAPER", "https://benfranklinmob.com/bfm-special-events/");
     expect(adapter).toBeInstanceOf(BfmSpecialEventsAdapter);
     expect(adapter).not.toBeInstanceOf(BFMAdapter);
+  });
+
+  it("routes motherhash.org (goHash.app since Nov 2026) to GoHashAdapter", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://www.motherhash.org")).toBeInstanceOf(GoHashAdapter);
   });
 
   it("returns HashPhillyAdapter for hashphilly.com URL", () => {

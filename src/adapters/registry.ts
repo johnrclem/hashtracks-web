@@ -87,7 +87,6 @@ import { KampongH3Adapter } from "./html-scraper/kampong-h3";
 import { HashHorrorsAdapter } from "./html-scraper/hash-horrors";
 import { SeletarH3Adapter } from "./html-scraper/seletar-h3";
 import { HHHSAdapter } from "./html-scraper/hhhs";
-import { MotherHashAdapter } from "./html-scraper/mother-hash";
 import { YiiHarelineAdapter } from "./html-scraper/yii-hareline";
 import { KljH3Adapter } from "./html-scraper/klj-h3";
 import { GoHashAdapter } from "./html-scraper/gohash";
@@ -281,7 +280,9 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /sh3app\.hash\.org\.sg/i, name: "SeletarH3Adapter", factory: () => new SeletarH3Adapter() },
   { pattern: /hhhs\.org\.sg/i, name: "HHHSAdapter", factory: () => new HHHSAdapter() },
   // ── Malaysia (Phase 1: KL + Penang founder pack) ──
-  { pattern: /motherhash\.org/i, name: "MotherHashAdapter", factory: () => new MotherHashAdapter() },
+  // Mother Hash left Google Sites for goHash.app (Nov 2026) — same
+  // window.__INITIAL_STATE__ /hareline/upcoming shape as KL Full Moon / Penang.
+  { pattern: /motherhash\.org/i, name: "GoHashAdapter", factory: () => new GoHashAdapter() },
   { pattern: /ph3\.org/i, name: "YiiHarelineAdapter", factory: () => new YiiHarelineAdapter() },
   // KL Full Moon migrated off Yii to the goHash.app platform (#2241) — the old
   // /index.php?r=site/hareline route now 404s. The relaunched site SSRs

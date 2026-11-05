@@ -27,7 +27,7 @@ import {
  *
  * Gamma wraps every block in deeply nested divs, so a whole-document `.text()`
  * stack-overflows (domutils recursion). Instead we select the leaf text-block
- * elements (`p.gml-paragraph__content`) and read each one's (shallow) text,
+ * elements (`<p>`/heading leaves — see TEXT_BLOCK_SELECTOR) and read each one's (shallow) text,
  * keying entirely on visible content — the same content-keyed strategy the
  * Wix/Google-Sites scrapers use.
  *
@@ -81,17 +81,13 @@ function fragmentUrl(anchor: string, baseUrl: string): string {
   return `${baseUrl.split("#")[0]}#${anchor}`;
 }
 
-// Gamma renders each text block as a leaf `<p class="gml-paragraph__content">`
-// (headings included — they're paragraphs with a bold run, not <h*>). Selecting
-// these leaves and reading each one's shallow text avoids a full-document
-// `.text()`. NOTE (#2555): Gamma dropped the older
-// `data-node-view-content-inner="paragraph"|"title"` attributes — the run lines
-// now live only in `gml-paragraph__content`, so the previous attribute selector
-// matched nothing and every kennel parsed 0 runs. We key on the leaf content
-// class; `.gml-heading__content` is kept as a forward-compatible fallback in
-// case Gamma reintroduces a distinct heading leaf. Both are leaves, so there is
-// no ancestor/child double-count (and the parse passes dedupe by run key anyway).
-const TEXT_BLOCK_SELECTOR = "p.gml-paragraph__content,.gml-heading__content";
+// Gamma renames its leaf classes between publishes (`data-node-view-content-inner`
+// → `p.gml-paragraph__content` → `p.gml-paragraph`, Nov 2026 — each rename
+// silently zeroed all three kennels). Select by TAG instead: run lines are
+// always rendered as <p> or heading leaves. Gamma never nests one of these
+// inside another, so there is no ancestor/child double-count (and the parse
+// passes dedupe by run key anyway).
+const TEXT_BLOCK_SELECTOR = "p,h1,h2,h3,h4,h5,h6";
 
 // A schedule-list run line carries its date inline, and the remainder after the
 // run number starts (after an optional colon) with a weekday: "VH3 #918:
