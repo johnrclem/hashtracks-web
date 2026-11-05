@@ -2198,6 +2198,32 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -59.6167,
     aliases: ["Bridgetown, Barbados"],
   },
+  // ── Jamaica (first 🇯🇲 kennel: Jamaica H3, est. 1998) — 2-level COUNTRY→METRO,
+  //    mirrors the Barbados precedent. Emerald palette (Jamaican flag green); the
+  //    nearest seeded Caribbean country (Barbados) is fuchsia. ──
+  {
+    name: "Jamaica",
+    country: "Jamaica",
+    level: "COUNTRY",
+    timezone: "America/Jamaica",
+    abbrev: "JM",
+    colorClasses: "bg-emerald-200 text-emerald-800",
+    pinColor: "#059669",
+    centroidLat: 18.1096,
+    centroidLng: -77.2975,
+    aliases: ["Jamaica, Caribbean", "Jamaica, West Indies"],
+  },
+  {
+    name: "Kingston",
+    country: "Jamaica",
+    timezone: "America/Jamaica",
+    abbrev: "KIN",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#10b981",
+    centroidLat: 18.0179,
+    centroidLng: -76.8099,
+    aliases: ["Kingston, Jamaica"],
+  },
   // ── Serbia (first 🇷🇸 kennel: BEER H3, Belgrade) — 2-level COUNTRY→METRO,
   //    mirrors the Barbados/Cambodia precedent (no seed.ts stateMetroLinks). Red
   //    palette (Serbian flag) — no adjacent seeded country uses red (Germany=yellow,
@@ -4141,6 +4167,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // Barbados — country + capital. Both tokens are unambiguous; inferCountry() is
   // first-match with USA as the default fallthrough.
   [/\b(barbados|bridgetown)\b/, "Barbados"],
+  // Jamaica — country name only, with the US "Jamaica Plain, MA" / "Jamaica, Queens,
+  // NY" neighborhoods excluded. "kingston" is OMITTED (Kingston, ON / NY / TN).
+  // inferCountry() is first-match with USA as the default fallthrough.
+  [/\bjamaica\b(?! plain)(?!,? (?:ny|queens|new york)\b)/, "Jamaica"],
   // Serbia — country name + native spelling only. "belgrade" is OMITTED because it
   // doubles as US place names (Belgrade, MT / Belgrade, ME); "serbia"/"beograd" are
   // unambiguous. inferCountry() is first-match with USA as the default fallthrough.
@@ -4431,6 +4461,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Phnom Penh": "Cambodia",
   // Barbados
   "Bridgetown": "Barbados",
+  // Jamaica
+  "Kingston": "Jamaica",
   // Serbia
   "Belgrade": "Serbia",
   "Prague": "Czech Republic",
@@ -4682,6 +4714,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Barbados — metro "Bridgetown" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Barbados" is reachable here (mirrors the Cambodia precedent).
   "Barbados": "Barbados",
+  "Jamaica": "Jamaica",
   // Serbia — metro "Belgrade" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Serbia" is reachable here (mirrors the Barbados precedent).
   "Serbia": "Serbia",
@@ -4831,6 +4864,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   NP: "Nepal",
   KH: "Cambodia",
   BB: "Barbados",
+  JM: "Jamaica",
   RS: "Serbia",
   CZ: "Czech Republic",
   VN: "Vietnam",

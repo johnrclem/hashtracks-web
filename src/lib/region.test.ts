@@ -306,6 +306,22 @@ describe("inferCountry — Barbados (first 🇧🇧 / first Caribbean kennel)", 
   });
 });
 
+describe("inferCountry — Jamaica (first 🇯🇲 kennel: Jamaica H3)", () => {
+  it.each([
+    ["Jamaica", "Jamaica"],
+    ["Kingston, Jamaica", "Jamaica"],
+    ["Stony Hill, Saint Andrew, Jamaica", "Jamaica"],
+    // US neighborhoods named Jamaica must stay USA.
+    ["Jamaica Plain, MA", "USA"],
+    ["Jamaica, Queens, NY", "USA"],
+    ["Jamaica, NY", "USA"],
+    // Bare Kingston is ambiguous (ON / NY / TN) and is not a Jamaica token.
+    ["Kingston, NY", "USA"],
+  ])("infers %s → %s", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
 describe("inferCountry — Serbia (first 🇷🇸 kennel: BEER H3, Belgrade)", () => {
   it.each([
     ["Serbia", "Serbia"],
