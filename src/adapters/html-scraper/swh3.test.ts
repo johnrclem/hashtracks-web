@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { parseSWH3Title, parseSWH3Body, cleanTrailingPunct } from "./swh3";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { parseSWH3Title, parseSWH3Body, cleanTrailingPunct, SWH3Adapter } from "./swh3";
+import { safeFetch } from "../safe-fetch";
+import type { Source } from "@/generated/prisma/client";
+
+vi.mock("../safe-fetch", () => ({ safeFetch: vi.fn() }));
 
 describe("cleanTrailingPunct (#1647)", () => {
   it("strips trailing dash from 'SWH3 #1792-'", () => {
@@ -145,5 +149,98 @@ describe("parseSWH3Body", () => {
     expect(result.startTime).toBeUndefined();
     expect(result.location).toBeUndefined();
     expect(result.hares).toBeUndefined();
+  });
+
+  it("captures the raw When: text as whenText (#2667 title-date fallback source)", () => {
+    const html = `<p>When: Saturday, April 11th</p><p>Meet: Noon, Pack off at 12:30</p>`;
+    const result = parseSWH3Body(html);
+    expect(result.whenText).toBe("Saturday, April 11th");
+  });
+});
+
+describe("SWH3Adapter.fetch — date fallback (#2667)", () => {
+  afterEach(() => vi.mocked(safeFetch).mockReset());
+
+  it("falls back to the body's When: field when the title has no date suffix", async () => {
+    // Real shape of https://swh3.wordpress.com/2026/04/07/swh3-trail-1786/ —
+    // title is bare "SWH3 Trail #1786", no date; only the body's "When:"
+    // field carries the trail date. Previously this failed the whole post.
+    const posts = [
+      {
+        id: 3798,
+        date: "2026-04-07T14:34:53",
+        link: "https://swh3.wordpress.com/2026/04/07/swh3-trail-1786/",
+        title: { rendered: "SWH3 Trail #1786" },
+        content: {
+          rendered:
+            "<p>What's da Word: Karen Trail: Volume VII</p>" +
+            "<p>Hares: Quick to Shoot and 50 Shades of Vanilla</p>" +
+            "<p>When: Saturday, April 11th</p>" +
+            "<p>Meet: Noon, Pack off at 12:30</p>" +
+            "<p>Where: 408 Sarazen Drive, Clayton</p>",
+        },
+      },
+    ];
+    vi.mocked(safeFetch).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => posts,
+    } as unknown as Response);
+
+    const result = await new SWH3Adapter().fetch({} as Source);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].date).toBe("2026-04-11");
+    expect(result.events[0].runNumber).toBe(1786);
+  });
+
+  it("still fails loud when neither the title nor the When: field has a date", async () => {
+    const posts = [
+      {
+        id: 1,
+        date: "2026-04-07T14:34:53",
+        link: "https://swh3.wordpress.com/x/",
+        title: { rendered: "SWH3 Trail #9999" },
+        content: { rendered: "<p>Hares: Nobody</p>" },
+      },
+    ];
+    vi.mocked(safeFetch).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => posts,
+    } as unknown as Response);
+
+    const result = await new SWH3Adapter().fetch({} as Source);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toContain("No date found in title");
+  });
+
+  it("does not resolve a time-only When: field to the publish date (PR review finding)", async () => {
+    // A bare title + a "When:" field carrying ONLY a time ("2:30 pm", no
+    // date at all) would otherwise let chrono silently fill in the publish
+    // date as if it were the trail date. requireCertainDate on the
+    // chronoParseDate fallback must reject this and fail loud instead of
+    // emitting a wrong-but-plausible date.
+    const posts = [
+      {
+        id: 2,
+        date: "2026-04-07T14:34:53",
+        link: "https://swh3.wordpress.com/y/",
+        title: { rendered: "SWH3 Trail #9998" },
+        content: { rendered: "<p>When: 2:30 pm</p><p>Hares: Nobody</p>" },
+      },
+    ];
+    vi.mocked(safeFetch).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => posts,
+    } as unknown as Response);
+
+    const result = await new SWH3Adapter().fetch({} as Source);
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors[0]).toContain("No date found in title");
   });
 });

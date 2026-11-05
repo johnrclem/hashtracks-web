@@ -763,6 +763,36 @@ describe("chronoParseDate", () => {
     const result = chronoParseDate("5 May 226", "en-GB");
     expect(result).toMatch(/^20\d{2}-05-05$/);
   });
+
+  // requireCertainDate (PR #2674 review finding, SWH3 date-fallback footgun)
+  describe("requireCertainDate option", () => {
+    const ref = new Date(Date.UTC(2026, 6, 6, 11, 19, 21)); // July 6, 2026
+
+    it("without the flag, a time-only string silently resolves to the reference date", () => {
+      // This is the existing/default behavior every other caller relies on
+      // (e.g. year-less "March 14" titles legitimately want the reference
+      // year filled in) — documenting it here so the opt-in flag's value is
+      // clear by contrast.
+      expect(chronoParseDate("2:30 pm", "en-US", ref)).toBe("2026-07-06");
+    });
+
+    it("with the flag, a time-only string (no day/month in the text) returns null", () => {
+      expect(chronoParseDate("2:30 pm", "en-US", ref, { requireCertainDate: true })).toBeNull();
+      expect(chronoParseDate("Noon", "en-US", ref, { requireCertainDate: true })).toBeNull();
+    });
+
+    it("with the flag, a real date+time string still resolves normally", () => {
+      expect(
+        chronoParseDate("Saturday, April 11th", "en-US", ref, { requireCertainDate: true }),
+      ).toBe("2026-04-11");
+    });
+
+    it("with the flag, a year-less month/day string still resolves (day+month are certain; only year is implied)", () => {
+      expect(chronoParseDate("March 14", "en-US", ref, { requireCertainDate: true })).toBe(
+        "2026-03-14",
+      );
+    });
+  });
 });
 
 describe("extractAddressWithAi", () => {

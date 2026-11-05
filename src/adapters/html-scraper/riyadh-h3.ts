@@ -51,9 +51,22 @@ export function riyadhToday(): string {
 }
 
 /** Columns consumed by mapHikeRow — explicit `select` so the wire payload never
- *  carries unused (or future large) columns. Shared with the history backfill. */
+ *  carries unused (or future large) columns. Shared with the history backfill.
+ *
+ *  `location_gps` and `map_link` were dropped in #2665: the site owner revoked
+ *  the anon role's column-level SELECT grant on both (verified live
+ *  2026-08-13 — every other column, including `id`/`date`/`title`/`location`/
+ *  `gathering_time`/`description`, still returns 200; only these two 401 with
+ *  Postgres `permission denied for table hikes`, which is a column-grant error,
+ *  not an RLS/anon-key-rotation error — the anon JWT itself still authenticates
+ *  fine against every other table). PostgREST fails the WHOLE request when any
+ *  requested column lacks a grant, so keeping either column in this list zeros
+ *  out every future scrape. mapHikeRow already treats both fields as optional
+ *  (falls back to geocoding `location` text / the kennel centroid), so this is
+ *  a graceful degrade, not a data-loss regression. Re-add if the grant returns.
+ */
 export const HIKES_SELECT =
-  "run_number,date,title,location,gathering_time,location_gps,map_link,description";
+  "run_number,date,title,location,gathering_time,description";
 
 export interface RiyadhH3Config {
   /** Supabase project ref, e.g. "uleyjftvdnpniabomdpi" → <ref>.supabase.co */
