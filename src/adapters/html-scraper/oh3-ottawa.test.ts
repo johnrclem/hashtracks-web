@@ -199,13 +199,25 @@ describe("parsePlanningLine", () => {
 
   it.each([
     "A River runs through it!",
-    "CT 3 score and 10",
     "St David’s Day Run",
-    "New Year, New Rules",
+    "Halloween Pub Crawl",
+    "27th Anniversary",
   ])("routes a theme to title only and clears hares: %s (#2492)", (theme) => {
     const result = parsePlanningLine(`2221        Monday, 3 August          2026           ${theme}`);
     expect(result!.title).toBe(theme);
     expect(result!.hares).toBeNull();
+  });
+
+  it.each([
+    "Night Rider & Trail Mix",
+    "Hash Slinging Slasher",
+    "Full Moon Fever",
+    "Mr 2 Times",
+    "CT 3 score and 10", // ambiguous: no theme signal → hares (the safe direction)
+  ])("keeps hare names that contain common hash words as hares: %s", (name) => {
+    const result = parsePlanningLine(`2230        Monday, 12 October          2026           ${name}`);
+    expect(result!.hares).toBe(name);
+    expect(result!.title).toBeUndefined();
   });
 
   it("returns null for non-planning text", () => {

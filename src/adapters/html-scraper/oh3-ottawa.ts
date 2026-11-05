@@ -115,13 +115,19 @@ export function parseOttawaTime(text: string): string | undefined {
 
 /**
  * Whether a planning-ahead free-text cell reads as a run theme rather than
- * hare name(s): punctuation a hash name doesn't carry ("!", "?"), a digit
- * ("CT 3 score and 10"), or an occasion word. Hare names are bare nicknames
- * joined by "&"/"and" ("LBM & CT", "One Tit Wonder", "La Touchée").
+ * hare name(s). Deliberately narrow, because a "theme" verdict clears hares
+ * (explicit null): hash names freely use words like Night, Moon, Trail, Hash or
+ * a digit ("Night Rider", "Trail Mix", "Mr 2 Times"), so those are NOT signals.
+ * Signals: "!"/"?" (names don't carry them — "A River runs through it!"), an
+ * occasion word, a trailing "Run" ("St David's Day Run"), or an ordinal/year
+ * ("27th", "2027"). Anything else is treated as hares; a theme misread as hares
+ * only shows as hares, while the reverse would silently drop real hare data.
  */
 export function looksLikePlanningTheme(text: string): boolean {
-  if (/[!?\d]/.test(text)) return true;
-  return /\b(?:run|day|night|moon|party|b-?day|birthday|christmas|xmas|halloween|hash|trail|anniversary|special|year|rules|weekend|camp(?:out)?|crawl|score|vote|agm|agpu|celebration|festival|picnic)\b/i.test(text);
+  if (/[!?]/.test(text)) return true;
+  if (/\brun$/i.test(text.trim())) return true;
+  if (/\b\d+(?:st|nd|rd|th)\b|\b(?:19|20)\d{2}\b/i.test(text)) return true;
+  return /\b(?:christmas|xmas|halloween|anniversary|birthday|b-?day|agm|agpu|festival|picnic|crawl|campout|vote)\b/i.test(text);
 }
 
 /**
