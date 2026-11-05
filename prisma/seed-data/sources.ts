@@ -2767,6 +2767,13 @@ export const SOURCES = [
       name: "Happy Valley H3 Static Schedule",
       url: "https://happyvalleyh3.org/",
       type: "STATIC_SCHEDULE" as const,
+      // DISABLED 2026-11-05: the biweekly-Thursday rule had no recorded
+      // provenance. The kennel's own site (last edited 2023-05-02) listed
+      // ~monthly weekend-afternoon trails (#401 Sat May 6 2PM), and its only
+      // live channel is a private Facebook group. With no anchorDate the rule
+      // also flip-flopped parity every scrape (reconcile churn). Re-enable only
+      // with a verified cadence + anchorDate.
+      enabled: false,
       trustLevel: 3,
       scrapeFreq: "weekly",
       scrapeDays: 90,
