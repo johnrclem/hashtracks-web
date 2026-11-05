@@ -161,7 +161,7 @@ describe("getEventDayWeather", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
     await getEventDayWeather(51.51, -0.13, new Date("2026-03-01T12:00:00Z"));
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = String(mockFetch.mock.calls[0][0]);
     expect(calledUrl).toContain("location.latitude=51.51");
     expect(calledUrl).toContain("location.longitude=-0.13");
     expect(calledUrl).toContain("weather.googleapis.com");

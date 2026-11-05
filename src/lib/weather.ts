@@ -48,6 +48,8 @@ function socketErrorCode(err: unknown): string | undefined {
   return typeof cause?.code === "string" ? cause.code : undefined;
 }
 
+const WEATHER_FORECAST_ENDPOINT = "https://weather.googleapis.com/v1/forecast/days:lookup";
+
 /**
  * Fetch the 10-day Google Weather forecast for a point, with a per-attempt
  * timeout, retrying ONCE when the pooled keep-alive socket was closed by the
@@ -55,27 +57,27 @@ function socketErrorCode(err: unknown): string | undefined {
  * occurrences in prod logs, all with bytesRead: 0). Timeouts and HTTP errors
  * are not retried.
  *
- * Takes numbers, not a URL: the request URL is built here against the
- * hardcoded weather.googleapis.com host, so no caller-supplied string can
- * reach fetch() (Codacy/Opengrep node-ssrf on #2684).
+ * Only numeric coordinates come from the caller: the URL is built here from
+ * the fixed endpoint constant + the server-side API key, so no caller-supplied
+ * string can reach fetch(). (Codacy's node-ssrf pattern still matches the
+ * numeric params, hence the targeted nosemgrep on the two fetch lines.)
  */
-async function fetchWeather(apiKey: string, lat: number, lng: number): Promise<Response> {
-  const url =
-    `https://weather.googleapis.com/v1/forecast/days:lookup` +
-    `?key=${encodeURIComponent(apiKey)}` +
-    `&location.latitude=${Number(lat)}` +
-    `&location.longitude=${Number(lng)}` +
-    `&days=10`;
+async function fetchWeather(lat: number, lng: number): Promise<Response> {
+  const url = new URL(WEATHER_FORECAST_ENDPOINT);
+  url.searchParams.set("key", process.env.GOOGLE_WEATHER_API_KEY ?? "");
+  url.searchParams.set("location.latitude", String(Number(lat)));
+  url.searchParams.set("location.longitude", String(Number(lng)));
+  url.searchParams.set("days", "10");
   const init = () => ({
     next: { revalidate: 1800 }, // 30-minute cache
     signal: AbortSignal.timeout(WEATHER_FETCH_TIMEOUT_MS),
   });
   try {
-    return await fetch(url, init()); // NOSONAR - domain is hardcoded; lat/lng are DB-sourced numbers
+    return await fetch(url, init()); // nosemgrep -- fixed weather.googleapis.com endpoint; only numeric lat/lng vary. NOSONAR
   } catch (err) {
     const code = socketErrorCode(err);
     if (!code || !RETRYABLE_SOCKET_CODES.has(code)) throw err;
-    return fetch(url, init()); // NOSONAR - same hardcoded-domain URL as above
+    return fetch(url, init()); // nosemgrep -- same fixed endpoint as above. NOSONAR
   }
 }
 
@@ -102,7 +104,7 @@ export async function getEventDayWeather(
   const targetDateStr = eventDate.toISOString().slice(0, 10);
 
   try {
-    const res = await fetchWeather(apiKey, lat, lng);
+    const res = await fetchWeather(lat, lng);
 
     if (!res.ok) return null;
 
@@ -224,7 +226,7 @@ export async function getWeatherForEvents(
 
   const fetches = entries.map(async (group) => {
     try {
-      const res = await fetchWeather(apiKey, group.lat, group.lng);
+      const res = await fetchWeather(group.lat, group.lng);
       if (!res.ok) return;
 
       const data = (await res.json()) as GoogleWeatherApiResponse;
