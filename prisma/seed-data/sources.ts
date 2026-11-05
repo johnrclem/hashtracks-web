@@ -7996,6 +7996,16 @@ export const SOURCES = [
       kennelCodes: ["plympton-h3"],
     },
     {
+      name: "Tamar Valley H3 Website",
+      url: "https://www.tvh3.co.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true }, // homepage lists only the next run + ~5 forward rows
+      kennelCodes: ["tamar-h3"],
+    },
+    {
       name: "Toulouse H3 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
       type: "HARRIER_CENTRAL" as const,
