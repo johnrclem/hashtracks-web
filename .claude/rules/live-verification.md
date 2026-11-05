@@ -13,6 +13,7 @@ When you create or modify an adapter, you MUST verify it against the live source
 1. **Find the source URL** -- look up the source in `prisma/seed.ts` to get the production URL
 2. **Fetch live data and run the adapter:**
    - Call the adapter's `fetch(source, options?)` method which returns `Promise<ScrapeResult>` with events in `result.events`
+   - 🔴 **Pass `{ days: source.scrapeDays }` explicitly as `options`** — only `HarrierCentralAdapter` falls back to `source.scrapeDays` on its own if `options` is omitted. `GoogleCalendarAdapter`, `GoogleSheetsAdapter`, and `ICalAdapter` all default `days` to a small internal constant (e.g. 90) when no `options` are passed, silently ignoring a wide seeded `scrapeDays`. The real scrape pipeline (`src/pipeline/scrape.ts`) always resolves and passes `days` explicitly — a throwaway verify script that skips this produces a false "the archive isn't reaching back" alarm (config batch C, 2026-08-12).
    - For manual verification: `curl -s "$URL"` for static HTML, `browserRender()` for JS-rendered sites, `fetchBloggerPosts()` for Blogspot, API calls for Calendar/Meetup
 3. **Validate the output:**
    - Events array is non-empty

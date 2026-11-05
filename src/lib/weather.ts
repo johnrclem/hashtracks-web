@@ -39,6 +39,55 @@ interface GoogleWeatherApiResponse {
  *  path renders the page without weather data. */
 const WEATHER_FETCH_TIMEOUT_MS = 8000;
 
+/** Undici / Node socket error codes that mean "connection dropped before a response" — safe to retry once. */
+const RETRYABLE_SOCKET_CODES = new Set(["UND_ERR_SOCKET", "ECONNRESET", "EPIPE", "UND_ERR_CLOSED"]);
+
+/** Undici reports connection failures as `TypeError: fetch failed` with the real code on `cause`. */
+function socketErrorCode(err: unknown): string | undefined {
+  const cause = (err as { cause?: { code?: unknown } } | null)?.cause;
+  return typeof cause?.code === "string" ? cause.code : undefined;
+}
+
+const WEATHER_FORECAST_ENDPOINT = "https://weather.googleapis.com/v1/forecast/days:lookup";
+
+/**
+ * Fetch the 10-day Google Weather forecast for a point, with a per-attempt
+ * timeout, retrying ONCE when the pooled keep-alive socket was closed by the
+ * far side before any bytes came back ("other side closed" / ECONNRESET — 175
+ * occurrences in prod logs, all with bytesRead: 0). Timeouts and HTTP errors
+ * are not retried.
+ *
+ * Only numeric coordinates come from the caller: the URL is built here from
+ * the fixed endpoint constant + the server-side API key, so no caller-supplied
+ * string can reach fetch(). (Codacy's node-ssrf pattern still matches the
+ * numeric params, hence the targeted nosemgrep on the two fetch lines.)
+ */
+async function fetchWeather(lat: number, lng: number): Promise<Response> {
+  const url = new URL(WEATHER_FORECAST_ENDPOINT);
+  url.searchParams.set("key", process.env.GOOGLE_WEATHER_API_KEY ?? "");
+  url.searchParams.set("location.latitude", String(Number(lat)));
+  url.searchParams.set("location.longitude", String(Number(lng)));
+  url.searchParams.set("days", "10");
+  const init = () => ({
+    next: { revalidate: 1800 }, // 30-minute cache
+    signal: AbortSignal.timeout(WEATHER_FETCH_TIMEOUT_MS),
+  });
+  try {
+    return await fetch(url, init()); // nosemgrep -- fixed weather.googleapis.com endpoint; only numeric lat/lng vary. NOSONAR
+  } catch (err) {
+    const code = socketErrorCode(err);
+    if (!code || !RETRYABLE_SOCKET_CODES.has(code)) throw err;
+    return fetch(url, init()); // nosemgrep -- same fixed endpoint as above. NOSONAR
+  }
+}
+
+/** One-line description of a weather fetch failure (avoids dumping socket internals). */
+function describeFetchError(err: unknown): string {
+  const code = socketErrorCode(err);
+  const message = err instanceof Error ? err.message : String(err);
+  return code ? `${message} (${code})` : message;
+}
+
 /**
  * Fetch daily forecast for a given event date and location.
  * Returns null if the date is not found in the 10-day window or the API fails.
@@ -54,20 +103,8 @@ export async function getEventDayWeather(
 
   const targetDateStr = eventDate.toISOString().slice(0, 10);
 
-  // lat/lng are typed as numbers (from the DB), so no SSRF risk — the domain is hardcoded
-  // and numeric parameters cannot contain path-traversal or injection payloads. // NOSONAR
-  const url =
-    `https://weather.googleapis.com/v1/forecast/days:lookup` +
-    `?key=${apiKey}` +
-    `&location.latitude=${lat}` +
-    `&location.longitude=${lng}` +
-    `&days=10`;
-
   try {
-    const res = await fetch(url, { // NOSONAR - domain is hardcoded; lat/lng are DB-sourced numbers
-      next: { revalidate: 1800 }, // 30-minute cache
-      signal: AbortSignal.timeout(WEATHER_FETCH_TIMEOUT_MS),
-    });
+    const res = await fetchWeather(lat, lng);
 
     if (!res.ok) return null;
 
@@ -179,24 +216,17 @@ export async function getWeatherForEvents(
     }
   }
 
-  // Fetch weather for each unique location (cap API calls to avoid quota exhaustion)
+  // Fetch weather for each unique location. The cap is on LOCATIONS (quota
+  // guard); fetchWeather may add one retry per location, but only after the
+  // first attempt's pooled socket was dropped with nothing read — so the hard
+  // ceiling is 2× this, and in practice retries are rare.
   const MAX_WEATHER_API_CALLS = 15;
   const result: Record<string, DailyWeather> = {};
   const entries = Array.from(locationGroups.values()).slice(0, MAX_WEATHER_API_CALLS);
 
   const fetches = entries.map(async (group) => {
-    const url =
-      `https://weather.googleapis.com/v1/forecast/days:lookup` +
-      `?key=${apiKey}` +
-      `&location.latitude=${group.lat}` +
-      `&location.longitude=${group.lng}` +
-      `&days=10`;
-
     try {
-      const res = await fetch(url, {
-        next: { revalidate: 1800 },
-        signal: AbortSignal.timeout(WEATHER_FETCH_TIMEOUT_MS),
-      });
+      const res = await fetchWeather(group.lat, group.lng);
       if (!res.ok) return;
 
       const data = (await res.json()) as GoogleWeatherApiResponse;
@@ -229,7 +259,11 @@ export async function getWeatherForEvents(
         };
       }
     } catch (error) {
-      console.error(`Weather fetch failed for location ${group.lat},${group.lng}:`, error);
+      // Weather is optional decoration — the page renders without it — so this
+      // is a warning, not an error (it was the #1 prod error group by volume).
+      console.warn(
+        `Weather fetch failed for location ${group.lat},${group.lng}: ${describeFetchError(error)}`,
+      );
     }
   });
 

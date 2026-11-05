@@ -161,7 +161,7 @@ describe("getEventDayWeather", () => {
     });
     vi.stubGlobal("fetch", mockFetch);
     await getEventDayWeather(51.51, -0.13, new Date("2026-03-01T12:00:00Z"));
-    const calledUrl = mockFetch.mock.calls[0][0] as string;
+    const calledUrl = String(mockFetch.mock.calls[0][0]);
     expect(calledUrl).toContain("location.latitude=51.51");
     expect(calledUrl).toContain("location.longitude=-0.13");
     expect(calledUrl).toContain("weather.googleapis.com");
@@ -176,6 +176,60 @@ describe("getEventDayWeather", () => {
     await getEventDayWeather(51.51, -0.13, new Date("2026-03-01T12:00:00Z"));
     const init = mockFetch.mock.calls[0][1] as RequestInit;
     expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+});
+
+describe("getEventDayWeather — socket-reset retry", () => {
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_WEATHER_API_KEY", "test-key");
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  /** Undici's shape: TypeError("fetch failed") with the socket code on `cause`. */
+  function socketError(code: string) {
+    return Object.assign(new TypeError("fetch failed"), { cause: { code } });
+  }
+
+  it("retries once when the pooled socket was closed by the far side", async () => {
+    const mockFetch = vi.fn()
+      .mockRejectedValueOnce(socketError("UND_ERR_SOCKET"))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(buildWeatherResponse("2026-03-01")),
+      });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await getEventDayWeather(51.51, -0.13, new Date("2026-03-01T12:00:00Z"));
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(result).not.toBeNull();
+    // Each attempt gets its own timeout signal.
+    expect(mockFetch.mock.calls[0][1].signal).not.toBe(mockFetch.mock.calls[1][1].signal);
+  });
+
+  it("does not retry non-socket failures (e.g. timeouts)", async () => {
+    const mockFetch = vi.fn().mockRejectedValue(
+      Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" }),
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await getEventDayWeather(51.51, -0.13, new Date("2026-03-01T12:00:00Z"));
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(result).toBeNull();
+  });
+
+  it("gives up (null) after a second socket failure", async () => {
+    const mockFetch = vi.fn().mockRejectedValue(socketError("ECONNRESET"));
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await getEventDayWeather(51.51, -0.13, new Date("2026-03-01T12:00:00Z"));
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(result).toBeNull();
   });
 });
 

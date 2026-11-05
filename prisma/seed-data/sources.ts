@@ -3563,6 +3563,13 @@ export const SOURCES = [
       // iCal feed source remains primary — this calendar is enrichment.
       scrapeDays: 90,
       config: {
+        // The adapter fetches forward-only (current month onward, #2242), so a
+        // prior-month event is simply never returned again. Without this flag
+        // reconcile's window is now−scrapeDays…now+scrapeDays and every
+        // already-run event in the trailing 90 days looked "removed from the
+        // source" and was cancelled (89 in one scrape on 2026-11-05).
+        // upcomingOnly clamps reconcile to future dates (reconcile.ts).
+        upcomingOnly: true,
         kennelPatterns: [
           ["^LBH\\b|Lost Boobs", "lbh-phx"],
           ["Hump D", "hump-d"],
@@ -8467,6 +8474,191 @@ export const SOURCES = [
         // upcomingOnly OMITTED — LIVE-ONLY HC source (no backfill); Lisbon/Taiwan/Steel City contract.
       },
       kennelCodes: ["mh3-gb"],
+    },
+    // ===== HC BATCH-11 ===== (4 config-only Harrier Central sources)
+    {
+      name: "Prague H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID verified live via hashruns.org/api/global-runs — 26 past runs 2023-06-03 to
+        // 2026-07-12, 0 upcoming (HC posts sporadically for this kennel).
+        publicKennelId: "e7a4700c-beb3-4a5f-a05e-9ce019e5a610",
+        defaultKennelTag: "ph3-cz",
+        // HC EventNames mix real themes with bare "PH3 #N" placeholders → synth "Prague H3 #N".
+        defaultTitle: "Prague H3",
+        staleTitleAliases: ["PH3 # 1485", "PH3 1498", "PH3#1506", "PH3 #1507", "PH3 #1509", "PH3# 1517"],
+        // upcomingOnly:true — this source owns a one-shot 26-run historical backfill
+        // (scripts/backfill-ph3-cz-history.ts). HC getEvents is future-only, so without this
+        // guard reconcile.ts false-CANCELs the backfilled past rows as they age off the
+        // 365-day window (same contract as Bandung / Douliu).
+        upcomingOnly: true,
+      },
+      kennelCodes: ["ph3-cz"],
+    },
+    {
+      name: "EELS H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID verified live via hashruns.org/api/global-runs — 37 counted past runs
+        // #24 (2023-07-13) to #60 (2026-08-06), 0 upcoming (monthly first-Thursday,
+        // recently active).
+        publicKennelId: "15940f8a-517e-4a13-b289-6709aaa259e9",
+        defaultKennelTag: "eels-h3",
+        defaultTitle: "EELS H3", // merge fallback only — HC EventNames are all real, kept verbatim
+        // upcomingOnly:true — this source owns a one-shot 37-run historical backfill
+        // (scripts/backfill-eels-h3-history.ts). HC getEvents is future-only, so without this
+        // guard reconcile.ts false-CANCELs the backfilled past rows.
+        upcomingOnly: true,
+      },
+      kennelCodes: ["eels-h3"],
+    },
+    {
+      name: "Seattle Hash House Bikers Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID verified live via hashruns.org/api/global-runs — 19 past runs #43
+        // (2023-06-11) to #61 (2026-07-19). Seasonal bike hash (Apr-Oct); the 2026
+        // season resumed and run #62 (2026-08-16) is live on the future feed.
+        publicKennelId: "72a5b2f7-0942-4157-b301-557701eb242e",
+        defaultKennelTag: "sh2b",
+        defaultTitle: "Seattle Hash House Bikers", // merge fallback — HC EventNames are all real
+        // upcomingOnly:true — this source owns a one-shot 19-run historical backfill
+        // (scripts/backfill-sh2b-history.ts). HC getEvents is future-only, so without this
+        // guard reconcile.ts false-CANCELs the backfilled past rows. Seasonal winter dormancy
+        // is expected, not staleness.
+        upcomingOnly: true,
+      },
+      kennelCodes: ["sh2b"],
+    },
+    {
+      name: "Sierra H4 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // GUID verified live via hashruns.org/api/global-runs — 53 counted past runs
+        // #15 (2024-08-21) to #130 (2026-06-03), 0 upcoming (documented annual
+        // May-August rainy-season pause; the 2025 season shows an identical ~84-day gap).
+        publicKennelId: "8f01a559-5c86-46de-8efa-18722dd7b7d0",
+        defaultKennelTag: "sierra-h4",
+        defaultTitle: "Sierra H4",
+        staleTitleAliases: ["Placeholder event for Sierra H4"],
+        // upcomingOnly:true — this source owns a one-shot 53-run historical backfill
+        // (scripts/backfill-sierra-h4-history.ts). HC getEvents is future-only, so without
+        // this guard reconcile.ts false-CANCELs the backfilled past rows (same contract
+        // as Bandung / Algarve / Fengyuan). The multi-month seasonal gap is expected.
+        upcomingOnly: true,
+      },
+      kennelCodes: ["sierra-h4"],
+    },
+    // ===== CONFIG BATCH C =====
+    {
+      name: "Devon Lunatics H3 Google Calendar",
+      url: "devonlunaticshashhouseharriers@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 3300, // ~9 years -> reaches the 2018 floor; a full-archive calendar (no upcomingOnly needed)
+      config: {
+        defaultKennelTag: "dlh3-gb",
+        defaultTitle: "Devon Lunatics H3",
+        futureHorizonDays: 200, // upcoming events reach ~Dec (default cap 180 would just barely include them)
+        // Summaries jam venue + hare after "Devon Lunatics H3 - "; strip the
+        // prefix, then route the "vytbc" (venue+hare-to-be-confirmed)
+        // placeholder that remains to the default title.
+        titleStripPatterns: [String.raw`^Devon Lunatics H3\s*-\s*`],
+        staleTitleAliases: { "dlh3-gb": ["vytbc"] },
+        // No titleHarePattern — the post-strip venue/hare split is unreliable
+        // (silent-corruption caution); location/coords come from the GCal
+        // LOCATION field (full postal addresses), not the title.
+      },
+      kennelCodes: ["dlh3-gb"],
+    },
+    {
+      name: "Isca H3 Google Calendar",
+      url: "iscahareraiser@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 3600, // reach the 2017-07 floor; full-archive calendar (no upcomingOnly needed)
+      config: {
+        defaultKennelTag: "isca-h3",
+        includeAllDayEvents: true, // captures the multi-day "Roman Away Day" signature annual event
+        defaultTitle: "Isca H3 Trail",
+        defaultStartTime: "19:30",
+        // Summaries are "Isca H3 - {venue}[. {hare(s)}]"; strip the prefix.
+        // An all-empty remainder already falls back to defaultTitle. No
+        // titleHarePattern — the post-venue segment is inconsistently
+        // delimited (sometimes a hare, sometimes part of the venue); the
+        // structured LOCATION field is the reliable venue/geocode source.
+        titleStripPatterns: [String.raw`^Isca H3\s*-\s*`],
+      },
+      kennelCodes: ["isca-h3"],
+    },
+    {
+      name: "Mickleover H3 Run Log Sheet",
+      url: "https://docs.google.com/spreadsheets/d/1oZFMbkKFQp2rBM3x4LUt9vGOImCbsFOnyriQdO6xSCg/export?format=csv&gid=0",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 12500, // full-archive pull (1993-present); buildDateWindow is symmetric -> no upcomingOnly
+      config: {
+        sheetId: "1oZFMbkKFQp2rBM3x4LUt9vGOImCbsFOnyriQdO6xSCg",
+        // Direct CSV export of the "MH3 Full Run log" tab (gid=0) — anonymously
+        // fetchable. NOTE the gid inversion: gid=0 is the full log (this tab);
+        // gid=1624247485 is a single-cell "Next run" form, not a data source.
+        csvUrl: "https://docs.google.com/spreadsheets/d/1oZFMbkKFQp2rBM3x4LUt9vGOImCbsFOnyriQdO6xSCg/export?format=csv&gid=0",
+        // Header: Run # | Date | Pub Name | GoogleMaps | street | town/village | PostCode | Hares | Info | Pack Size | Pubs
+        columns: {
+          runNumber: 0,
+          date: 1, // "DD-MMM-YY" — natively parsed by parseDMonDate (2-digit pivot: 26->2026, 94->1994)
+          location: 2,
+          address: 6, // PostCode — best UK geocode key (street col 4 / town col 5 are partial)
+          hares: 7,
+          description: 8, // Info notes only, not a title
+        },
+        startTimeRules: { default: "19:15" }, // no time column; Monday 7:15pm confirmed on-site
+        kennelTagRules: { default: "mickleover-h3" },
+        // Winter "social only" rows carry a blank Run # cell (their "social"
+        // marker sits inconsistently in Info or the unmapped Pack Size column).
+        // requireRunNumber uniformly drops every blank-run# row regardless of
+        // where the marker lives, which a silentlySkipPatterns text match can't.
+        requireRunNumber: true,
+      },
+      kennelCodes: ["mickleover-h3"],
+    },
+    {
+      name: "Jacksonville H3 Timely iCal",
+      url: "https://events.timely.fun/api/calendars/54747312/export?format=ics",
+      type: "ICAL_FEED" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 400, // reach the ~9-month past archive; feed is full-archive (no upcomingOnly)
+      config: {
+        defaultKennelTag: "jax-h3",
+        // Titles are "Jax H3 - #NNNN Theme" / "Jax Urban H3 - #NNNN Theme"
+        // (hyphen, not colon); strip the kennel-label + run marker off the
+        // title, leaving just the theme. Longest-first ordering (the helper
+        // also sorts) so "Jax Urban H3 -" isn't half-stripped to "Urban H3 -".
+        titleStripPrefixAliases: ["Jax Urban H3", "Jax H3"],
+        // NO upcomingOnly — full-archive feed (returns the ~9-month past
+        // window on every scrape; nothing ages out for reconcile to false-cancel).
+      },
+      kennelCodes: ["jax-h3"],
     },
   ];
 

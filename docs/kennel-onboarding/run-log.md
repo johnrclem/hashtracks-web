@@ -12,6 +12,61 @@ Format:
 - Follow-ups: <anything deferred>
 ```
 
+> **HC BATCH-11 (2026-08-12) — 4 kennels, part of the 20-kennel backlog rescue.** Built from four
+> handoffs generated 2026-07-16 → 07-23 that sat uncommitted for weeks (see
+> `handoffs/retros/2026-08-11-backlog-rescue-retro.md`): **Prague H3 (`ph3-cz`, Czech Republic — first
+> Czech kennel) · EELS H3 (`eels-h3`, London) · SH2B (`sh2b`, Seattle) · Sierra H4 (`sierra-h4`,
+> Freetown — first Sierra Leone kennel, 2nd African country after Kenya, 1st West Africa).**
+> Config-only `HARRIER_CENTRAL`, zero new adapter code. Re-pulled live data fresh rather than trusting
+> the stale handoffs — Prague's real archive was 26 runs vs the handoff's sampled 11; SH2B's
+> predicted seasonal resumption (run #62) had already landed. 4 frozen-JSON backfills (135 rows
+> total), 2 new-country region.ts additions, 3 self-hosted logos (magic-byte verified PNG). Full
+> retro: `handoffs/retros/2026-07-23-hc-batch-11-retro.md`.
+>
+> **✅ POST-MERGE LIVE (2026-08-13, all prod-verified) — HC BATCH-11.** [PR #2671](https://github.com/johnrclem/hashtracks-web/pull/2671)
+> merged (`67262b32`); all 4 kennels live: **prague-h3 26 · eels-h3 37 · sh2b 20 · sierra-h4 53**
+> canonical events, **0 cancelled on every source**, all 4 `/kennels/*` + 3 `/kennel-logos/*` serve 200
+> (SH2B has no logo by design — HC returns a `bundle://` app asset, not a fetchable URL). Applied via
+> the same targeted, self-contained upsert pattern as Config Batch C (scoped to just these 4
+> kennels/sources; deleted after running). **New Czech Republic + Sierra Leone COUNTRY regions** created
+> as part of the targeted upsert (extended the region-seeding helper beyond Config Batch C's METRO-only
+> case, since these are genuinely new countries, not existing-country METROs). Scoped **Pass 3** created
+> Sierra H4's 2 `scheduleRules` (weekly Wednesday + 1st Saturday) via `runKennelSeedPass` + `applyUpserts`
+> (Taoyuan/hc-batch-6 precedent — a targeted kennel/source upsert alone does NOT create ScheduleRule
+> rows). All 4 frozen-JSON backfills applied first (135 rows: 26+37+19+53), THEN live-scraped —
+> SH2B's predicted seasonal resumption run **#62** landed live as expected; Prague/EELS/Sierra H4 came
+> back 0 upcoming (recently-active, matches the handoffs). A few benign geocode misses on Sierra H4's
+> messy free-text WhatsApp-relay venues (ZERO_RESULTS / >5000km-from-kennel validation rejects) — left
+> those events without coordinates rather than blocking the ingest, 0 `eventErrors`.
+
+> **✅ POST-MERGE LIVE (2026-08-13, all prod-verified) — CONFIG BATCH C.** [PR #2672](https://github.com/johnrclem/hashtracks-web/pull/2672)
+> merged (`477942f9`); all 4 kennels live: **devon-lunatics-h3 113 · isca-h3 401 · mickleover-h3 362 ·
+> jaxh3 12** canonical events, correct region badges (new Exeter + East Midlands METROs), all 4
+> `/kennels/*` + all 4 `/kennel-logos/*` serve 200. Applied via a targeted, self-contained
+> `scripts/apply-config-batch-c.ts` one-shot (mirrors `prisma/seed.ts`'s ensure* logic scoped to just
+> this batch — never imports `prisma/seed.ts` itself, per the #2655 lesson) rather than a full `db
+> seed`; deleted after running (no reuse value, matches convention — these one-shots are never
+> committed). Mickleover landed **362** canonical events from **364** fetched RawEvents — the 2
+> dropped are exactly the blank-run# winter "social" rows the new `requireRunNumber` flag is meant to
+> filter, confirming it works correctly against live data. First scrape attempt against Mickleover's
+> full 1993→present archive exceeded the CLI's 2-minute client timeout; the request had already
+> completed server-side (Vercel Fluid Compute allows up to 300s) — a retry against the same source
+> came back **0 created / 364 skipped** (idempotent RawEvent fingerprint dedup), confirming the first
+> attempt succeeded and this was a client-side timeout, not a scrape failure.
+
+> **CONFIG BATCH C (2026-08-12) — 3 new kennels + 1 source-add, part of the 20-kennel backlog rescue.**
+> Built from four handoffs generated 2026-07-21 → 08-09 that sat uncommitted for weeks (see
+> `handoffs/retros/2026-08-11-backlog-rescue-retro.md`): **Devon Lunatics H3 (`dlh3-gb`, Exeter,
+> GOOGLE_CALENDAR) · Isca H3 (`isca-h3`, Exeter, GOOGLE_CALENDAR) · JaxH3 (`jax-h3`, Jacksonville FL,
+> ICAL_FEED source-add on an existing sourceless kennel) · Mickleover H3 (`mickleover-h3`, East
+> Midlands, GOOGLE_SHEETS).** Config-only across all four adapters, plus one small opt-in
+> `GoogleSheetsConfig.requireRunNumber` flag (~5 lines + 2 tests) to cleanly drop Mickleover's
+> unnumbered winter "social" rows. New Exeter METRO (shared by the two Devon kennels) + East Midlands
+> METRO (carried here since the sibling Quorn H3 handoff hasn't shipped). Re-verified all 4 sources
+> fresh at build time rather than trusting the stale handoffs — every archive had grown since
+> research (Isca 359→401 events, Mickleover #362→#364). 4 self-hosted logos, all magic-byte verified.
+> Full retro: `handoffs/retros/2026-08-09-config-batch-retro.md`.
+>
 > **🔴 STATUS (2026-08-11) — BACKLOG RESCUE: 20 handoffs recovered, 0 onboarded yet.** The daily runs
 > of **2026-07-16 → 2026-08-11** produced 20 complete handoffs that were **never committed** — they
 > existed only as untracked files in the main repo working tree, so `origin/main` never moved and
@@ -112,6 +167,27 @@ Format:
 > (`2026-07-05-backlog-catchup-retro.md`), titsh3/lh3-fr/heraultics/krashh3 (`2026-07-09-hc-batch-4-retro.md`),
 > h2fmh3 (`2026-07-02-hc-batch-10-retro.md`), and wsh3-ch's build (`2026-05-30-wsh3-retro.md` — the 06-03
 > entry is a prod-only re-seed recovery, no code).
+
+## 2026-08-14 — Bicester H3 (Bicester, Oxfordshire, England)
+- Source: **config-only ICAL_FEED** (`ICalAdapter` exists — The Events Calendar `?ical=1`, mirrors Iron City H3 `sources.ts:1560`) — `http://bicesterh3.com/?post_type=tribe_events&ical=1&eventDisplay=list`. Feed HEAD-check ✅ `Content-Type: text/calendar` (5 VEVENTs); DNS `bicesterh3.com` Status 0 → 208.109.43.124; site = WordPress + Elementor + The Events Calendar (`meta-tec-api-version: v1`). `queued` bucket was 0 → refill/discovery pass on the MKH3 top-line's open UK leads. 🔴 **Dedup catch:** the first pick **F.U.K Full Moon H3** turned out to be **ALREADY HANDED OFF 2026-08-02** (`handoffs/2026-08-02-fukfm.md`, in the "Handed off — awaiting implementation" section) → my duplicate 2026-08-14-fukfm.md was **VOIDED** (overwritten to a VOID stub; bash `rm` was permission-blocked). Also checked: **Spa H3** = FB-group-only (dead end); **Warwick Hash** (`warwickhash.org.uk`) = live weekly Monday but homepage shows only a single **stale** next-run block (#658 "Mon July 27" vs today Aug 14, Chrome-confirmed) → deprioritized. From Warwick's "other local chapters" list, **Bicester H3** (`bicesterh3.com`) had a rich TEC feed → picked.
+- Outcome: **handed-off** — `handoffs/2026-08-14-bicester-h3.md`. **Full onboard.** First **Oxfordshire** kennel and a historically significant one — **the oldest weekly running hash in the UK** (founded **1 April 1974 by Ray Thornton**, ex-Singapore H3, cited `bicesterh3.com/history-of-hashing/`). Dedup: Chrome sitemap **498 slugs** (2026-08-14) — no `bicester`/`oxford`/`bicester-h3` slug (`bh3`=Buffalo H3, distinct); `/kennels/bicester-h3` renders real 404; grep clean in seed. kennelCode **`bicester-h3`** (bare `bh3`=Buffalo taken → city-based; **bare "BH3" alias OMITTED**).
+- Events verified: **5 upcoming #2695 Mon 17 Aug 2026 → #2699 Mon 14 Sep 2026** (all future — NOT a 0-upcoming case), weekly Monday 19:00–21:30, run #2699. Next #2695 Mon 17 Aug 7pm, The Vine Inn, Cumnor OX2 9QN, hare Deadloss. REST/iCal/HTML all agree (5 events, full parity). Venue+postcode in LOCATION (no lat/lng → geocode; no default-pin trap); same-day endTime 21:30. Config: `defaultKennelTag:"bicester-h3"`, `upcomingOnly:true` (feed is `eventDisplay=list` upcoming-only), `allowEmptyBody:true` (TEC 0-byte-body quirk, ICH3 #1753), `titleHarePattern` for the dash-delimited `Trail # NNNN - <hare> - <venue>` SUMMARY.
+- Historical backfill: **419 past events back to run #2294 (28 Jan 2018)** via the TEC REST API (`/wp-json/tribe/events/v1/events`, `total:419 total_pages:84`; run# in `description` `# NNNN`, hare in `organizer`, venue object, older runs Sunday 11:00 £2) → **worth it**: one-shot `scripts/backfill-bicester-h3-history.ts` (H7 frozen-JSON + dumb loader; `?eventDisplay=past`/REST override like ICH3, strict `date < today`).
+- Follow-ups: **NO new adapter** — config-only ICAL_FEED. **Bicester METRO = 2 region.ts edits** (REGION_SEED_DATA METRO mirror Surrey/Bristol/MK [violet, abbrev `BIC` grep-free, centroid 51.9007/−1.1522, aliases "Bicester, England"/"Oxfordshire"] + STATE_GROUP_MAP `"Bicester":"United Kingdom"`; NO inference/COUNTRY_GROUP_MAP — UK covers `england`; omit bare `oxford` [US collision]). 🔴 **http-only origin → Sonar S5332** on source `url` + kennel `website` (mark SAFE via SonarCloud REST). Title = full SUMMARY (source's own naming) — acceptable; optional ~15–30 LoC polish flag to split hare/venue and synth "Bicester H3 Trail #N". Metadata cited off bicesterh3.com: founded **1974** (history page), **hashCash £3 (first 2 free)** (home), seasonal weekly (summer Mon 19:00 / winter Sun 11:00), walkersWelcome true (home), FB group `187643361712005` + IG `Bicester_Hash_House_Harriers`; **dogFriendly + twitter/discord unstated/none → blank+flag**; logo `wp-content/uploads/2018/02/BH3_logo_white-01.png` (own-domain, white-on-transparent → self-host + magic-byte ext). New platform learning appended to `source-platform-notes.md` → "The Events Calendar (WordPress) → config-only ICAL_FEED + REST backfill". `queued` bucket stays 0 (HC bench exhausted). Open UK leads: **Warwick Hash** (weekly Monday, stale single-run block — needs a better source), **Oxford H3** (`oxfordhashhouseharriers.wordpress.com`, Bicester offshoot 1999), **Malvern H3** (`malvernhash.co.uk`, Tuesday), **N.E.W. Cotswold HHH** (`newch3.org.uk`), **Wyre Forest HHH** (`wyreforesthhh.org.uk`); prior Cardiff CH3 (NXDOMAIN)/Yorkshire (stale)/North Hants (FB).
+
+## 2026-08-13 — MKH3 (Milton Keynes, England)
+- Source: **HTML_SCRAPER (NEW ~160–220 LoC `MkH3Adapter` — NOT config-only)** — `https://mkh3.co.uk/runs-events` concrete5 SSR "Forthcoming Runs" blocks (forward hareline) + a **published Google Sheet** archive (per-year tabs, ~1,900 runs to 1990). `web_fetch` renders SSR fine (no browser needed); `meta-generator: concrete5`; DNS `mkh3.co.uk` Status 0 → 77.68.8.21. `queued` bucket was 0 → refill/discovery pass: re-swept `hashruns.org/api/global-runs` future AND recent-past feeds fresh — every kennel already covered (HC bench confirmed exhausted). Picked up 2026-08-12's Cambridge `/AwayHashing` lead **Milton Keynes H3** and verified its own-site source.
+- Outcome: **handed-off** — `handoffs/2026-08-13-mkh3.md`. **Full onboard.** First Milton Keynes kennel (founded **28 May 1990** by Wellington-Hash refugee Jonathan "Grizzler" Hobbs, cited mkh3.co.uk/history). Dedup: Chrome sitemap **491 slugs** (2026-08-13) — no `mk`/`milton`/`keynes` slug; `/kennels/milton-keynes-h3` renders generic shell = 404; grep clean in seed files. kennelCode **`mkh3`** brand-new.
+- Events verified: **2 upcoming** — Mon 17 Aug 2026 6:50–9pm Cannon, Newport Pagnell MK16 8AQ (hares Nice Flaps & Rubber Jonny, coords 52.0863/−0.7224); Mon 31 Aug 11am–2pm Cross Keys, Woolstone MK15 0AA (Bolly Knickers & Lunchsac); Aug 24 = "No Run" (skip). Weekly/fortnightly Monday ~7pm. NOT a 0-upcoming case. 🔴 **Forward-widget run numbers UNRELIABLE** (both runs labeled "1931" — site data-entry dup) → adapter identity = kennel+date, runNumber best-effort.
+- Historical backfill: **~1,900 runs back to 1990** — published Google Sheet (Run/Date/Day/Venue/Hares, per-year tabs; default tab = 2025 season #1875+) → one-shot `scripts/backfill-mkh3-history.ts` (frozen-JSON + dumb loader, H7 pattern; year-from-tab-title + "DD Mon" → UTC-noon; run-# monotonicity + PII scrub).
+- Follow-ups: **NEW `MkH3Adapter`** (~160–220 LoC Cheerio; `fetchHTMLPage`, two-pass block slice, skip "No Run", `chronoParseDate` year-bearing, `!3d`lat/`!2d`lng embed coords, title undefined→synth, fail-loud zero guard). `config.upcomingOnly:true` REQUIRED (rolling forward widget). **Milton Keynes METRO = 2 region.ts edits** (REGION_SEED_DATA mirror Plymouth [violet, abbrev `MKY` grep-free, centroid 52.04/−0.76, aliases "Milton Keynes, England"/"Buckinghamshire"] + STATE_GROUP_MAP `"Milton Keynes":"United Kingdom"`; NO inference/COUNTRY_GROUP_MAP — UK covers `england`; omit bare `milton` [US collision]). 🔴 shortName "MKH3" ≤4 → run `friendlyKennelName` check at build. hashCash unpublished + dogFriendly unstated + IG/X/Discord none → blank+flag; logo self-host (concrete5 tokenized gif, magic-byte ext). New platform learning appended to `source-platform-notes.md` → "concrete5 CMS 'Forthcoming Runs' hash-club site". `queued` bucket stays 0 (HC bench exhausted). Open UK leads: Spa H3 (Coventry/Warwickshire), F.U.K Full Moon H3, H5 Hare & Hounds (Bedfordshire).
+
+## 2026-08-12 — Cambridge H3 (Cambridge, England)
+- Source: **HTML_SCRAPER (NEW bespoke ~180–260 LoC `browserRender` adapter — NOT config-only)** — `https://www.ch3.co.uk/` homepage `div.RunList` (forward hareline) + `/runlist` (archive). 🔑 The site is a **Blazor (.NET) SPA** (`_framework/blazor.web.js`): a plain https `web_fetch` returns an **empty shell**, there's **no REST/JSON feed** (Blazor Server streams over SignalR) → **`browserRender` required** (no config-only path). 🔴 The **http** host serves a **stale 2022 cached** site (runs #1971–#1974) → pin https. DNS `ch3.co.uk` Status 0 → 147.93.85.8. `queued` bucket was 0 → refill/discovery pass: chased Essex's leads — **Danbury HHH** folded into Essex HHH in 1984 (not a separate kennel); **Mersea Island HHH** = FB-group-only; **Essex Alternative Hash** legacy site = the OLD dead Essex HHH site. A web search surfaced Cambridge H3 via its own `/AwayHashing` page.
+- Outcome: **handed-off** — `handoffs/2026-08-12-cambridge-h3.md`. **Full onboard.** First Cambridge / Cambridgeshire kennel (founded **11 Sep 1978** via a Cambridge Evening News advert, cited ch3.co.uk/Hashtory; run #2486, weekly Sunday 11:00). Dedup: Chrome sitemap **491 slugs** (2026-08-12) — no `cambridge`/`cambridge-h3` slug; `/kennels/ch3` renders **Copenhagen H3** (Chrome-confirmed, NOT Cambridge), `ch3-cm`=Chiang Mai; `/kennels/cambridge-h3` real 404. kennelCode **`cambridge-h3`** brand-new (bare `ch3` globally taken → city-based; **bare "CH3" alias OMITTED** — Chicago/Charlotte/Charleston/Copenhagen collisions).
+- Events verified: **5 genuine upcoming** #2486 Sun 16 Aug 2026 → #2490 Sun 13 Sep 2026, VERBATIM from the live Blazor DOM (Chrome MCP). Weekly Sunday 11:00. NOT a 0-upcoming case. 🔴 No coords (venue+postcode → geocode; no default-pin trap). 🔴 No theme titles → synth "Cambridge H3 Trail #N".
+- Historical backfill: **~1,033 runs** at `/runlist` (20 per-year `<table>`s, #1458 Sep 2006 → #2490 present) → worth a one-shot frozen backfill (`scripts/data/cambridge-h3-history.json` + dumb loader, H7 pattern). 🔴 Hash-year `Years A/B` rollover (rows carry only month+ordinal, no year) → resolve newest→oldest weekly walk + run-# monotonicity + gap-sanity.
+- Follow-ups: **NEW `CambridgeH3Adapter`** (~180–260 LoC `browserRender`; model `northboro-hash.ts` browserRender + `dublin-hash.ts`/`burlington-hash.ts` cleaning). ⚠️ **Build risk = confirm the NAS `browserRender` renders the Blazor `.RunList`** (waitFor `.RunList`, timeout 30000, `timezoneId:"Europe/London"`); if SignalR hydration can't be driven, escalate before shipping a 0-event adapter. `source config:` `trustLevel:6`, `scrapeDays:90`, `config:{upcomingOnly:true}` + fail-loud zero guard, `kennelCodes:["cambridge-h3"]`. `startTime` constant "11:00"; run # local `/^Run\s+(\d+)/`. **Cambridge METRO = 2 region.ts edits** (mirror Bristol/Newcastle, abbrev **`CAM`** grep-free, centroid 52.2053/0.1218; NO COUNTRY_GROUP_MAP/inference — bare `cambridge`=Cambridge MA collision). Metadata cited off ch3.co.uk: founded 1978, Sun 11:00 weekly, hashCash £3 first-free, walkersWelcome true; **dogFriendly + Facebook/IG/X/Discord none published → blank+flag**; logo `ch3.co.uk/images/ch3logo.gif` (self-host GIF, magic-byte ext). New platform learning appended to `source-platform-notes.md` → "Blazor (.NET) SPA hash-club site". `queued` bucket stays 0 (HC bench exhausted). New leads from Cambridge's `/AwayHashing` (both sitemap-absent): **Milton Keynes H3** (own site, Mon 7pm — onboarded next day as `mkh3`, see above) + **Spa H3** (Coventry/Warwickshire, 2nd Thu 7pm + 4th Sun 11am); older open leads: Cardiff CH3 (NXDOMAIN), Yorkshire Hash (stale), North Hants H3 (FB/geocities).
 
 ## 2026-08-11 — Essex H3 (Essex, England)
 - Source: **HTML_SCRAPER (NEW bespoke ~150–220 LoC adapter — NOT config-only)** — `https://essexhhh.co.uk/hareline` (GoDaddy Website Builder **Calendar widget**, fully SSR — `web_fetch`/Cheerio, no browserRender). DNS `essexhhh.co.uk` Status 0 → 13.248.243.5/76.223.105.230. `queued` bucket was 0 → refill/discovery pass: verify-live-first new-country bench all dead/unfetchable (**Panama H3** empty-body/503 + mailing-list-only schedule; **Bogotá H3** IG/FB only; **Santiago H3** blogspot dead 2015 archive [`entry[0].published`=2015-06] + Meetup stale since 2025-12; **OKC H3** no active Meetup; **Ashbourne AH4** FB-only) → pivoted to a UK web search which surfaced **Essex Hash House Harriers** (first Essex kennel, self-hosted GoDaddy site, run #2155).

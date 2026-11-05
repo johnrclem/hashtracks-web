@@ -1748,6 +1748,24 @@ The HC config-only well is *upcoming-feed* exhausted (6+ consecutive runs found 
   kennel's FB group. Confirmed Douliu H3's "last Saturday monthly, 13:00 Douliu Baseball Stadium, founded
   27 Jun 2009" verbatim. Good for HC-only kennels whose own site is FB-group-only.
 
+### Harrier Central — `EventNumber` itself can be corrupted, not just `EventName` (learned from Prague H3, HC batch-11, 2026-08-12)
+
+Every prior note here says "trust `EventNumber` over `EventName` for the run number" — `EventName` is a
+known mix of real themes and placeholders. Prague H3's fuller archive (re-pulled fresh 3 weeks after the
+onboarding handoff, recovering 15 more rows than the handoff's narrower sample) surfaces a sharper
+problem: **`EventNumber` itself can carry a data-entry typo.** Four consecutive Nov–Dec 2023 rows read
+`EventNumber: 1943, 1944, 1944, 1945, 1945` where chronological context makes the intended sequence
+unambiguous — `1493, 1494, 1494, 1495, 1495` — a transposed middle digit (9↔4) in HC's own data entry,
+not an adapter bug.
+
+**Don't hand-correct it.** Follow the same faithful-data policy the Douliu backfill established (#165
+named "#166", #201 named "200", never renumbered): ship `EventNumber` verbatim even when it's locally
+non-monotonic or visibly wrong. Inventing a "fix" with no independent verification is worse than a
+faithful anomaly. The corrected rule: **prefer `EventNumber` over `EventName`, but don't assume
+`EventNumber` is error-free either — when in doubt, ship it as-is.**
+
+---
+
 ## Embedded Google Calendar (small club sites) — config-only GOOGLE_CALENDAR (2026-07-21, Devon Lunatics H3)
 - **Many small UK/club kennel sites are just a public Google Calendar embed.** `dlh3.org.uk` (Devon
   Lunatics H3) is a static CloudFront page whose only dynamic content is a single
@@ -2075,3 +2093,136 @@ browserRender, no anti-bot). Verified via both `web_fetch` and a Chrome MCP DOM 
 - **Effort:** small **new bespoke ~150–220 LoC HTML adapter** (`GenericHtmlAdapter` can't split the
   combined `<date> - Run <NNNN>` heading or the multi-field cards). Model `dublin-hash.ts` fetch
   plumbing + `burlington-hash.ts` field cleaning.
+
+---
+
+## Blazor (.NET) SPA hash-club site — SSR-empty, `browserRender` required (learned from Cambridge H3, 2026-08-12)
+
+`ch3.co.uk` (Cambridge H3, est. 1978, weekly Sunday, run #2486) is a **Blazor (.NET) single-page
+app** — a rendering shape distinct from Wix/Google-Sites SPAs. Detection + gotchas (all verified in
+Chrome):
+
+- **Detection:** page `<head>`/scripts load `_framework/blazor.web.js` + `_content/CSE.Blazor.Bootstrap/js/cse.bootstrap.js`
+  and `lib/bootstrap/...`. `performance.getEntriesByType('resource')` shows **no JSON/REST/XML data
+  URL** — Blazor Server streams the rendered DOM over a **SignalR WebSocket**, so there is nothing to
+  intercept as a plain `fetch`. (Blazor WASM variants would fetch data files; this one doesn't.)
+- **🔴 A plain `web_fetch`/`curl` of the https site returns an EMPTY shell** (`<meta base>` +
+  viewport only — zero run data). The content only exists after the Blazor runtime hydrates. →
+  **`browserRender` is mandatory** (there is no config-only / Cheerio-on-raw-HTML path). Call
+  `browserRender({ url, waitFor: "<content selector>", timezoneId: "Europe/London", timeout: 30000 })`
+  and Cheerio-load the returned HTML. ⚠️ Confirm the NAS render service actually drives the SignalR
+  hydration to completion (wait on a real content selector, not `body`); this is the single build
+  risk. From the research sandbox you CAN capture the live sample via the Chrome MCP (Chrome runs the
+  Blazor runtime), but `browserRender` itself must be verified at build.
+- **🔴 Legacy-cache trap: the `http://` (no-TLS) host can serve a stale OLD site.** Cambridge's
+  `http://www.ch3.co.uk/` still returns a 2022-era SSR snapshot (runs #1971–#1974, Jul-2022 Sundays)
+  while `https://www.ch3.co.uk/` is the live Blazor app. Always pin **https** and ignore an http
+  snapshot — it's a different, dead site version, not a fallback.
+- **Two useful surfaces, both Blazor-rendered:**
+  - **Homepage `/` → `div.RunList`** = the rolling forward hareline: alternating `<h3>` **"Month YYYY"**
+    headers (unambiguous year — no inference) + run `<div>`s
+    (`Run NNNN <Mon> <Dth> - <Venue> , <Town>, <POSTCODE> [ - Tel: …]` + `Hare: …` + optional note).
+    The next upcoming run's div carries a **`.nextRun`** class. Forward-only, ages out → `upcomingOnly:true`.
+  - **`/runlist` → 20 per-year `<table>`s** captioned `Runs X-Y  Years A/B` (newest first), columns
+    `Date | Run | Relive | Venue | Hare` (older tables append `Scribe`). A **full run archive** (Cambridge:
+    #1458 2006 → present ≈ 1,033 runs) — the historical-backfill source.
+- **🔴 Year rollover in the archive tables.** Data rows carry only a month sub-header + ordinal day
+  (no year); each table spans a "hash year" (AGPU/October boundary) labeled `Years A/B`. Don't
+  hard-code an Oct/Sep split — resolve by walking runs **newest→oldest** ~7 days/run, snapping to each
+  row's month/day with the caption's two years as candidates, then validate with run-number
+  monotonicity + gap-sanity. The homepage's explicit "Month YYYY" headers avoid this for the live
+  adapter → do the live parse off the homepage, the backfill off `/runlist`.
+- **No coords / no per-row time** — venue + UK postcode only (the on-page "map" is a Blazor widget,
+  not a Maps URL) → geocode the postcode, `startTime` constant from the schedule. No default-pin trap.
+- **No theme titles** — event names ("Beer Festival"/"Seaside Run") are trailing **notes** → leave
+  `title` undefined (merge synthesizes "Cambridge H3 Trail #N"). Run number is `Run NNNN` (no `#` →
+  `extractHashRunNumber` doesn't fit; use `/^Run\s+(\d+)\b/`).
+- **Logo** = `ch3.co.uk/images/ch3logo.gif` (stable own-domain **GIF**, not tokenized) → self-host +
+  magic-byte the ext (`GIF8`). Socials: email + Google-group only (no FB/IG/X) → blank+flag.
+- **Effort:** new bespoke **~180–260 LoC `browserRender` adapter** (homepage `.RunList` parse) + a
+  one-shot `/runlist` backfill. Model `northboro-hash.ts` (browserRender plumbing) + `dublin-hash.ts` /
+  `burlington-hash.ts` (field cleaning).
+
+---
+
+## concrete5 CMS "Forthcoming Runs" hash-club site (MKH3, 2026-08-13)
+
+**Platform tell:** `<meta name="generator" content="concrete5">` (an older PHP CMS, often via a
+small web-design agency — MKH3's footer credits "Bays Media"). URLs are clean paths
+(`/runs-events`, `/about-us`, `/history`) sometimes aliasing internal `index.php?cID=<n>` block IDs.
+
+**Source shape (VERIFIED via `web_fetch` on `mkh3.co.uk/runs-events`, 2026-08-13 — SSR, no browser needed):**
+The forward hareline is a repeating **"Forthcoming Runs"** block list. Each entry renders as:
+- a short date label (`Aug 17`),
+- a **venue line** (`Cannon, Newport Pagnell - MK16 8AQ` → venue before ` - `, UK postcode after),
+- a **full datetime line** (`Aug 17, 2026, 6:50 PM – 9:00 PM`) — **YEAR-BEARING** (chrono-parse, no inference) with **same-day start+end**,
+- a **body** (`Run: NNNN` / `Hares: A, B` / free-text details),
+- a **Google Maps `<iframe>` embed** whose `src` carries real per-venue coords as `!3d<lat>!2d<lng>` (⚠️ `!2d`=lng, `!3d`=lat).
+"No Run" placeholder blocks (`No Run` / "running approximately fortnightly") appear inline and **must be skipped**.
+
+**Gotchas learned:**
+- 🔴 **Forward-widget run numbers can be UNRELIABLE.** MKH3 showed the *same* `Run: 1931` on two
+  distinct dated runs (a hand-editing typo). Never key event identity/dedup on `runNumber` from this
+  block — use `kennel + date` (the merge fingerprint). Treat `runNumber` as best-effort display only.
+- 🟢 **Coords are clean per-venue Maps embeds** (not a repeated default pin) — parse `!3d/!2d`; reject
+  if the embed is absent rather than synthesizing a centroid. No `dropCachedCoords` needed.
+- 🟢 **Rolling forward window ⇒ `config.upcomingOnly: true` REQUIRED** (blocks roll off after the date;
+  otherwise `reconcile.ts` false-cancels).
+- **Single-page source ⇒ explicit `events.length === 0` fail-loud guard** (baseline is 0 for a new source).
+- **Effort:** new bespoke **~160–220 LoC static-Cheerio adapter** (`fetchHTMLPage`; two-pass block slice
+  so date/time regexes stay S5852/S5843-safe). Model `dublin-hash.ts` (block iteration) +
+  `burlington-hash.ts` (labeled-field + safe-regex helpers).
+
+**Archive backfill = a PUBLISHED GOOGLE SHEET (not the CMS).** concrete5 sites frequently embed the run
+archive as a Google Sheets `pubhtml` iframe on a `/history/past-runs` page (MKH3:
+`docs.google.com/spreadsheets/d/e/2PACX-…/pubhtml`, per-year tabs, cols `Run, Date, Day, Venue/Details,
+Hares`). This is a rich one-shot backfill source **separate from the forward adapter** — pull each
+year-tab via `.../pub?output=csv&gid=<gid>` (or the default `?output=csv` = newest tab), derive the year
+from the tab **title** ("2025 - 6 MKH3 Runs") + the `DD Mon` cell, skip `Run = "-"` / "No Run" /
+"Hares Required" rows. Freeze the ingested rows to `scripts/data/<code>-history.json` + a dumb loader
+(H7 pattern). **Always check `/history` and `/history/past-runs` on a concrete5 hash site before
+concluding "no backfill."**
+
+**Logo:** concrete5 serves uploads from tokenized `application/files/<id>/<id>/<id>/<name>.<ext>` paths
+that rotate on re-upload → **self-host** to `public/kennel-logos/<code>.<ext>` (confirm ext by
+Content-Type **and** magic bytes; MKH3's is a `.gif`).
+
+---
+
+## The Events Calendar (Tribe, WordPress) — config-only ICAL_FEED + paginated REST archive (verified from Bicester H3, 2026-08-14, SHIPPED handoff)
+
+Distinct from the two cautionary TEC-adjacent notes above (Desert H3 = **Modern Events Calendar**, a
+different plugin whose `/wp-json/tribe/...` is empty; South Hams SH4 = **Events Manager**, whose
+`?ical=1` is a stale capped window). When a WordPress hash site runs the **genuine "The Events
+Calendar" (Tribe)** plugin — detect via `meta-tec-api-version: v1` / `meta-tec-api-origin` in the page
+`<head>` — it exposes three mutually-consistent, sandbox-fetchable surfaces and is a clean
+**config-only `ICAL_FEED`** (the `ICalAdapter` already handles it; **Iron City H3 `sources.ts:1560`**
+is the reference source config). Bicester H3 (`bicesterh3.com`) confirmed all three via real `web_fetch`:
+
+- **iCal export** `…/?post_type=tribe_events&ical=1&eventDisplay=list` — returns `Content-Type:
+  text/calendar` with upcoming VEVENTs (`SUMMARY`, `DTSTART`/`DTEND`, `LOCATION` = venue + street +
+  city + county + postcode + country). This is the **seeded live URL**. 🔴 It is **upcoming-only**
+  (past runs age off) → `config.upcomingOnly: true` REQUIRED, and 🔴 TEC returns **HTTP 200 + 0-byte
+  body when there are no upcoming events** (the ICH3 #1753 quirk) → `config.allowEmptyBody: true`.
+- **REST API** `…/wp-json/tribe/events/v1/events` — same events as JSON; `?start_date=…&end_date=…&per_page=N&page=M`
+  paginates the **full past archive** (Bicester: `total: 419, total_pages: 84` back to run #2294 /
+  Jan 2018; `next_rest_url` signals continuation). Per-event: `title`, `description` (often carries the
+  run number as `# NNNN`), `venue{}` object, `organizer[].organizer` (**the hare**), `cost`,
+  `start_date`. This is the **backfill source** — a one-shot `scripts/backfill-<code>-history.ts`
+  (H7 frozen-JSON + dumb loader), NOT the live cron. Keep the `?eventDisplay=past` / REST URL out of
+  the seed (a script-side override, exactly like `scripts/backfill-ich3-history.ts`).
+- **HTML `/runs` (or the TEC list view)** — the same events, plus per-page `?eventDisplay=past`
+  navigation and the `webcal://…?ical=1` subscribe links. Useful for eyeballing parity.
+
+SUMMARY-parse note: kennels commonly format the SUMMARY as `Trail # NNNN - <hare> - <venue>`
+(dash-delimited, **no colon**). The `ICalAdapter`'s built-in `Prefix:`/`#N:` title-splitter only
+fires on a colon, so the whole SUMMARY becomes the `title` — acceptable (it's the source's own event
+name). `extractHashRunNumber` still pulls the run number from `# NNNN` (the space-after-`#` form
+parses — same as ICH3's "ICH3# 60", #2160). Add `config.titleHarePattern` to capture the hare from the
+middle segment. For a fully clean `title → synth "<Kennel> Trail #N"` you'd need a small adapter flag
+to split the dash-delimited SUMMARY (~15–30 LoC) — optional polish, not required for a working onboard.
+
+Other gotchas: these club sites are frequently **http-only** (no https) → the source `url` + kennel
+`website` literals trip Sonar **S5332** (mark SAFE via the SonarCloud REST API per the AH3-NZ process).
+Venues carry an address/postcode but **no lat/lng** → merge geocodes; no default-pin trap. Same-day
+`DTEND` → `endTime` for free.
