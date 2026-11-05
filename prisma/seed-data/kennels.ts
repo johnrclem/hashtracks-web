@@ -2249,7 +2249,13 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/groups/JaxH3/",
       contactEmail: "Tikiguy0317@gmail.com",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly",
+      scheduleTime: "6:30 PM", // 12-hr kennel default; per-trail startTime (11:00-18:20 observed) is authoritative
+      walkersWelcome: true, // jaxh3.com/hash-guides: "pack may be made up of both walkers and runners"
+      hashCash: "$6", // jaxh3.com/hash-guides: "$6 Hash Cash is typical cost"
+      logoUrl: "/kennel-logos/jax-h3.jpg", // self-hosted; magic bytes confirmed JPEG
+      latitude: 30.3322, longitude: -81.6557,
       description: "Every other Saturday runs in Jacksonville.",
+      // foundedYear / dogFriendly / instagramHandle: unverifiable — omitted (flagged)
     },
     // --- Tallahassee ---
     {
@@ -6156,6 +6162,150 @@ export const KENNELS: KennelSeed[] = [
         "Trails run roughly every second Sunday with a couple of drink stops and an on-after.",
       latitude: 44.8125,
       longitude: 20.4612,
+    },
+    // ===== HC BATCH-11 ===== (4 config-only Harrier Central kennels)
+    {
+      // bare "PH3" taken by ph3-my (Petaling) / pattaya-h3 → country-suffixed, matching HC's own slug PH3-CZ
+      kennelCode: "ph3-cz",
+      shortName: "Prague H3", // deliberately NOT "PH3" (3 chars ≤4 → friendlyKennelName would fall back to fullName)
+      fullName: "Prague Hash House Harriers",
+      region: "Prague",
+      country: "Czech Republic",
+      foundedYear: 1984, // first hash club in then-Czechoslovakia (p2h3.com "In the Spotlight — Czech Republic")
+      hashCash: "100 CZK", // HC-inferred modal EventPriceForMembers; currency inferred — flagged
+      facebookUrl: "https://www.facebook.com/Prague-Hash-House-Harriers-136967876395579/",
+      instagramHandle: "praguehashhouse",
+      // website OMITTED — praguehhh.com is hijacked to a spam/affiliate redirect
+      logoUrl: "/kennel-logos/ph3-cz.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      latitude: 50.0755,
+      longitude: 14.4378,
+      // Cadence uncertain from a sparse HC feed — flat fallback only, low-confidence, no scheduleRules.
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "2:00 PM",
+    },
+    {
+      kennelCode: "eels-h3", // grep-clean; bare "EELS"/"EELS H3" unused globally
+      shortName: "EELS H3",
+      fullName: "East End of London Something Hash House Harriers",
+      region: "London", // reuses the existing London METRO — no region.ts edits
+      country: "UK",
+      facebookUrl: "https://www.facebook.com/groups/381336404144042/",
+      scheduleDayOfWeek: "Thursday",
+      scheduleTime: "7:00 PM", // 12-hr profile field; on-out ~19:00, HC meet time 18:45
+      scheduleFrequency: "Monthly", // 1st Thursday
+      description:
+        "East London branch of the Hash House Harriers — a monthly first-Thursday pub hash meeting 'somewhere with an E in the postcode'.",
+      logoUrl: "/kennel-logos/eels-h3.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      // foundedYear / hashCash / dogFriendly / walkersWelcome: unverified — omitted per source-onboarding-playbook
+    },
+    {
+      kennelCode: "sh2b", // grep-clean; distinct from sh3-wa / ssh3 / ssh3-wa (South Sound, already live)
+      shortName: "SH2B",
+      fullName: "Seattle Hash House Bikers",
+      region: "Seattle, WA", // reuses the existing Seattle METRO — no region.ts edits
+      country: "USA",
+      facebookUrl: "https://www.facebook.com/HashBikersWA/",
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "12:00 PM", // 12-hr profile field; HC run times 10:00-14:00, typically noon
+      scheduleFrequency: "Monthly",
+      scheduleNotes:
+        "Seasonal bike hash — one Sunday per month, roughly noon, April through October; dormant in winter.",
+      description:
+        "Seattle's bike hash — a 'drinking club with a cycling problem'. Monthly Sunday bike-bashes around the Puget Sound area through the April-October season.",
+      latitude: 47.61,
+      longitude: -122.33,
+      // logoUrl OMITTED — HC returns a bundle:// app asset, not a fetchable URL; no logo available
+      // website / foundedYear / hashCash: unverified — omitted
+    },
+    {
+      kennelCode: "sierra-h4", // grep-clean; first Sierra Leone kennel
+      shortName: "Sierra H4",
+      fullName: "Sierra Hash House Harriers and Harriettes",
+      region: "Freetown",
+      country: "Sierra Leone",
+      website: "https://sierrah4.com",
+      facebookUrl: "https://facebook.com/sierrah4",
+      instagramHandle: "sierra_h4",
+      twitterHandle: "sierra_h4",
+      foundedYear: 2024,
+      hashCash: "NLe 30 (members) / NLe 250 (visitors)",
+      // scheduleDayOfWeek/scheduleTime are the flat fallback; scheduleRules is authoritative.
+      scheduleDayOfWeek: "Wednesday",
+      scheduleTime: "6:00 PM", // 12-hr fallback (kennel site). scheduleRules.startTime stays 24-hr.
+      scheduleFrequency: "Weekly",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=WE", startTime: "18:00", label: "Weekly Wednesday" },
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA", startTime: "18:00", label: "1st Saturday" },
+      ],
+      latitude: 8.484,
+      longitude: -13.2299,
+      logoUrl: "/kennel-logos/sierra-h4.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      description:
+        "Freetown's favourite drinking club with a running problem — the 'Duo Kennel' of Sierra Hash House Harriers & Harriettes. Weekly Wednesday-evening trails plus a monthly 1st-Saturday run, with a seasonal pause during the May-August rains. Founded 2024; host of Pan Africa Hash 2027.",
+    },
+    // ===== CONFIG BATCH C ===== (2 GOOGLE_CALENDAR, 1 GOOGLE_SHEETS, 1 ICAL_FEED source-add)
+    {
+      // bare "dlh3" taken by Duneland H3 (South Shore, IN) → region-suffixed
+      kennelCode: "dlh3-gb",
+      shortName: "Devon Lunatics H3",
+      fullName: "Devon Lunatics Hash House Harriers",
+      region: "Exeter",
+      country: "UK",
+      website: "https://dlh3.org.uk",
+      facebookUrl: "https://www.facebook.com/groups/153125188050687",
+      scheduleFrequency: "Monthly",
+      scheduleTime: "7:30 PM", // 12-hr profile field; full-moon date drifts across weekdays — no fixed scheduleDayOfWeek
+      description:
+        "Devon Lunatics Hash House Harriers — a full-moon hash running throughout Devon (Exeter and the surrounding East/South Devon area). 'A drinking club with a running problem.'",
+      logoUrl: "/kennel-logos/dlh3-gb.png", // self-hosted from dlh3.org.uk; magic bytes confirmed PNG
+      // foundedYear / hashCash / dogFriendly / walkersWelcome: unverifiable — omitted (flagged)
+    },
+    {
+      kennelCode: "isca-h3", // grep-clean; bare "IH3" OMITTED — Ithaca H3 (ih3), live
+      shortName: "Isca H3",
+      fullName: "Isca Hash House Harriers",
+      region: "Exeter",
+      country: "UK",
+      website: "https://iscah3.uk",
+      scheduleDayOfWeek: "Wednesday",
+      scheduleTime: "7:30 PM", // 12-hr seed convention; adapter startTime stays 24-hr "19:30"
+      scheduleFrequency: "Weekly",
+      facebookUrl: "https://www.facebook.com/groups/458558960939413",
+      contactEmail: "iscahareraiser@gmail.com",
+      foundedYear: 1998,
+      dogFriendly: true,
+      description:
+        "Isca Hash House Harriers — founded 13 May 1998, running every permitted Wednesday since. " +
+        "Named after Isca Dumnoniorum, the Roman name for Exeter. A friendly, social group meeting at " +
+        "varied (often rural) locations within ~30 minutes of Exeter city centre; a gentle ~1-hour run " +
+        "then on-down to a pub. Well-behaved dogs on leads welcome.",
+      logoUrl: "/kennel-logos/isca-h3.gif", // self-hosted from iscah3.uk; magic bytes confirmed GIF
+      latitude: 50.7184,
+      longitude: -3.5339,
+      // hashCash / instagramHandle / twitterHandle / walkersWelcome: unverified — omitted (flagged)
+    },
+    {
+      // bare "mh3" globally taken (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai); mh3-gb
+      // reserved by Manchester H3 (shipped) → city-based
+      kennelCode: "mickleover-h3",
+      shortName: "Mickleover H3",
+      fullName: "Mickleover Hash House Harriers",
+      region: "East Midlands",
+      country: "UK",
+      website: "https://sites.google.com/site/mickleoverh3",
+      facebookUrl: "https://www.facebook.com/MickleoverH3/",
+      foundedYear: 1993,
+      hashCash: "£2 per run (visitors & virgins free; no annual sub)",
+      walkersWelcome: true,
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "7:15 PM", // 12-hr in Kennel.scheduleTime; adapter/RawEventData startTime stays 24-hr "19:15"
+      scheduleFrequency: "Monthly", // 2nd Monday; winter "socials" are non-trail (skipped by the source)
+      description:
+        "A sociable, mixed running club that starts and finishes at a pub — runners and walkers both welcome. Monthly Monday-evening trails at a different pub within ~30 minutes of Derby.",
+      logoUrl: "/kennel-logos/mickleover-h3.jpg", // self-hosted from the Google Sites og:image; magic bytes confirmed JPEG
+      latitude: 52.923,
+      longitude: -1.526,
+      // dogFriendly / instagramHandle / twitterHandle: unstated — omitted (flagged)
     },
   ];
 

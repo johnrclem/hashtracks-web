@@ -20,8 +20,11 @@ in a local terminal where git works and where the NAS / live DB are reachable, t
 end-to-end through PR creation. The handoff file leads with a `▶ FOR CLAUDE CODE` directive so the
 whole file is the brief.
 
-**Do not** attempt `git commit`/`branch`/`push`, or a hard `git checkout`/`rebase` of the working
-tree, in this run — Claude Code handles all git after the handoff. **Do** write files (the handoff,
+**One exception, added 2026-08-11:** the run **must attempt** `git add`/`commit`/`push` of its own
+`docs/kennel-onboarding/` output as its final step (Step 9), and must report loudly if that fails.
+Leaving handoffs untracked is what produced three separate backlogs (4 → 6 → 20 kennels). Everything
+below still applies to *code*: **do not** branch, open PRs, or hard `checkout`/`rebase` the working
+tree — Claude Code handles all of that after the handoff. **Do** write files (the handoff,
 queue updates, run log) — plain file writes work fine. **Before you pick today's target, refresh your
 view of `main`:** `git fetch` + `git show origin/main:…` + `git log/rev-list` are **inspection-only**
 (they do not mutate the working tree) and are what keep a stale checkout from causing duplicate work —
@@ -922,10 +925,92 @@ piped in whole by an automated runner.
    candidate in an already-populated region, only queue it after a positive slug check or a
    sitemap read proves it's not already live. Append rows with full columns + honest confidence.
 
-## Step 9 — Report
+## Step 9 — Commit and push this run's output (🔴 MANDATORY — do not skip)
+
+**A handoff that exists only as an untracked file in one working tree is invisible to every other
+checkout and to `git`.** Skipping this step is the single root cause of every onboarding backlog so
+far — 4 kennels (2026-07-05), 6 (2026-07-15), and **20** (2026-08-11). In each case the daily runs
+kept producing good handoffs, `origin/main` never moved, and a later session branching from
+`origin/main` saw a handoffs folder that looked complete.
+
+Attempt to commit **and push** everything this run touched — the handoff, `run-log.md`,
+`target-queue.md`, and any `source-platform-notes.md` additions. By this point in the run the
+working tree already has uncommitted edits (the handoff file, plus your appended `run-log.md` /
+`target-queue.md` entries from Step 8) — the sequence below is written to land safely on top of
+that, not from a clean tree:
+
+```bash
+cd "$REPO"
+git fetch origin
+# Stash everything this run wrote (including the new handoff file, which is untracked) before
+# touching branches — `git switch` can refuse to move when local changes would conflict with the
+# target, and stashing first avoids that regardless of what the ambient branch's state is.
+git stash push -u -m "onboarding run output $(date +%F)"
+# Detach onto origin/main explicitly — do NOT `git pull`/`git push` on the ambient branch. "Why
+# handoff, not direct PR" above says the mount is often parked on a feature branch; an unqualified
+# pull+push would commit onto THAT branch's own upstream, which can succeed while leaving the
+# handoff invisible to every origin/main-based checkout — recreating the exact backlog this step
+# exists to prevent (Codex + CodeRabbit review on the 2026-08-11 rescue PR caught this).
+git switch --detach origin/main
+git stash pop
+# 🔴 Validate before staging — don't blindly trust the path list. Diff the two shared files against
+# origin/main and confirm the ONLY difference is your own appended entry (or platform-note
+# addition). If the diff shows anything else — a removed line, another session's edit, content that
+# predates this run — STOP and reconcile by hand; do not stage or commit over it.
+git diff origin/main -- docs/kennel-onboarding/run-log.md docs/kennel-onboarding/target-queue.md
+# List only the paths THIS run touched — never `git add docs/kennel-onboarding/`, which sweeps in
+# any unrelated pre-existing edits already sitting in that directory.
+git add docs/kennel-onboarding/handoffs/<today's-handoff-file>.md \
+        docs/kennel-onboarding/run-log.md \
+        docs/kennel-onboarding/target-queue.md
+# Only if this run appended to it, and only after the same diff-review:
+# git add docs/kennel-onboarding/source-platform-notes.md
+git commit -m "docs(kennel-onboarding): hand off <shortName> (<region>)"
+git push origin HEAD:main
+```
+
+🔴 **`git switch --detach origin/main` is the fix, not a nicety** — a plain `git pull --ff-only` +
+`git push` is exactly what a feature-branch mount would silently mis-target, landing the commit
+somewhere invisible to every `origin/main`-based checkout. `stash` → `switch --detach` → `stash pop`
+is what makes the detach possible in the first place: without stashing first, the switch can refuse
+to run at all once the working tree already has uncommitted edits from earlier in this same run.
+
+🔴 **The 2026-08-11 rescue separately found the daily run had been appending to `run-log.md` and
+`target-queue.md` on top of a stale checkout**, missing content that had already landed on
+`origin/main` (the hc-batch-6 blocks). Committing that file wholesale would have deleted real
+history; it took a hand-built 3-way merge to recover. Fetching fresh, detaching onto **`origin/main`**
+(not a locally-cached `main` ref), and — critically — **reviewing the diff before staging** is what
+prevents this from recurring silently.
+
+⚠️ **This may genuinely fail in the sandbox** — see *Why handoff, not direct PR*: the repo mount is
+often parked on a feature branch with uncommitted work, and `.git/` writes have historically been
+permission-blocked. That is expected, and it is **not** a reason to skip the attempt: the environment
+varies, and when it works it removes the failure mode entirely.
+
+**If any of those commands fails, say so LOUDLY and explicitly in the Step 10 report**, e.g.:
+
+> 🔴 **UNCOMMITTED — `git push` failed (`<error>`). `docs/kennel-onboarding/` holds N untracked
+> files that exist only in this working tree. A human must commit them or they are invisible to
+> every other checkout.**
+
+Do not report success while output sits untracked. A silent failure here is the exact shape of all
+three previous backlogs.
+
+This is the **only** git operation this run may perform: `fetch`, `stash`, `switch --detach
+origin/main`, `stash pop`, scoped `add`/`commit`, and `push origin HEAD:main` for its own
+`docs/kennel-onboarding/` output. Never branch, never open a PR, never touch code or seed files —
+implementation stays with Claude Code.
+
+## Step 10 — Report
 
 Return a one-line summary: kennel, source type, adapter (config-only or new), handoff file path,
 events verified, and the backlog count remaining.
+
+Get the backlog count from the helper rather than guessing — it is the authoritative audit:
+
+```bash
+bash scripts/copy-newest-handoff.sh --list
+```
 
 ---
 
@@ -938,5 +1023,8 @@ events verified, and the backlog count remaining.
 - **Source is JS-rendered and browserRender isn't available in this shell** → still write the
   handoff with everything you could gather, clearly flagging that Claude Code must pull/verify
   the live sample. Mark the queue row `handed-off (needs live-verify)`.
-- Never attempt git operations in this run. Never write outside `docs/kennel-onboarding/`.
+- **Commit + push this run's `docs/kennel-onboarding/` output (Step 9) — that is required, and is the
+  only git operation permitted.** Never branch, never open a PR, never write outside
+  `docs/kennel-onboarding/`. (This rule previously read "never attempt git operations", which is
+  precisely why three backlogs accumulated as untracked files.)
 - Never invent a logo/source URL — mark "none found / follow up" instead.
