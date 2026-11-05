@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { cleanWlh3Hares, loadWlh3History } from "./backfill-wlh3-history";
+import { cleanWlh3Hares, cleanWlh3Title, loadWlh3History } from "./backfill-wlh3-history";
 
 describe("cleanWlh3Hares", () => {
   it.each([
@@ -32,11 +32,30 @@ describe("cleanWlh3Hares", () => {
   });
 });
 
+describe("cleanWlh3Title", () => {
+  it("drops a title that is only the run's date", () => {
+    expect(cleanWlh3Title("9 February 2011")).toBeUndefined();
+    expect(cleanWlh3Title(" 15 September 2011 ")).toBeUndefined();
+  });
+
+  it("keeps real titles, including ones that start with a date", () => {
+    expect(cleanWlh3Title("6 August 2026-Harrow on the Hill")).toBe("6 August 2026-Harrow on the Hill");
+    expect(cleanWlh3Title("Thursday 10 September – Ealing Broadway")).toBe(
+      "Thursday 10 September – Ealing Broadway",
+    );
+    expect(cleanWlh3Title(null)).toBeUndefined();
+  });
+});
+
 describe("loadWlh3History (frozen archive)", () => {
   const rows = loadWlh3History();
 
   it("keeps all 644 frozen rows", () => {
     expect(rows).toHaveLength(644);
+  });
+
+  it("has no bare-date titles left", () => {
+    expect(rows.filter((r) => /^\d{1,2} [A-Z][a-z]+ \d{4}$/.test(r.title ?? ""))).toEqual([]);
   });
 
   it("has no direction/aside text left in any hares value", () => {

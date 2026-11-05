@@ -645,6 +645,23 @@ export const SOURCES = [
       kennelCodes: ["wlh3"],
     },
     {
+      // Backfill-only provenance (#2676 / #2618): the historical rows are
+      // inserted once by scripts/backfill-wlh3-history.ts, never by scraping this row. A
+      // separate disabled row keeps the backfilled events out of any live
+      // source's reconcile window (archive-source safety pattern);
+      // upcomingOnly is belt-and-suspenders should it ever be enabled.
+      // Provisioned in prod by migration 20261105160000_add_2676_archive_sources.
+      name: "West London Hash Previous-Runs Archive",
+      url: "https://westlondonhash.com/previous-runs/",
+      type: "HTML_SCRAPER" as const,
+      enabled: false,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["wlh3"],
+    },
+    {
       name: "London Hash Run List",
       url: "https://www.londonhash.org/runlist.php",
       type: "HTML_SCRAPER" as const,
@@ -999,6 +1016,23 @@ export const SOURCES = [
         defaultLocation: "San Francisco, CA",
         defaultDescription: "Monthly full-moon hash. Check Facebook for start location and hare details.",
       },
+      kennelCodes: ["sffmh3"],
+    },
+    {
+      // Backfill-only provenance (#2676 / #2260): the historical rows are
+      // inserted once by scripts/backfill-sffmh3-history.ts, never by scraping this row. A
+      // separate disabled row keeps the backfilled events out of any live
+      // source's reconcile window (archive-source safety pattern);
+      // upcomingOnly is belt-and-suspenders should it ever be enabled.
+      // Provisioned in prod by migration 20261105160000_add_2676_archive_sources.
+      name: "SFFMH3 Runs Archive",
+      url: "https://www.sfh3.com/runs?kennel=7&kennels=7&period=all",
+      type: "HTML_SCRAPER" as const,
+      enabled: false,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
       kennelCodes: ["sffmh3"],
     },
     // DC / DMV area — iCal feeds (ai1ec WordPress plugin)
@@ -7839,6 +7873,23 @@ export const SOURCES = [
         staleTitleAliases: ["Placeholder event for SH3-DE"],
         upcomingOnly: true,
       },
+      kennelCodes: ["sembach-h3"],
+    },
+    {
+      // Backfill-only provenance (#2676 / #2604): the historical rows are
+      // inserted once by scripts/backfill-sembach-h3-website-history.ts, never by scraping this row. A
+      // separate disabled row keeps the backfilled events out of any live
+      // source's reconcile window (archive-source safety pattern);
+      // upcomingOnly is belt-and-suspenders should it ever be enabled.
+      // Provisioned in prod by migration 20261105160000_add_2676_archive_sources.
+      name: "Sembach H3 Website Archive",
+      url: "https://sembach-hash.de/",
+      type: "HTML_SCRAPER" as const,
+      enabled: false,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
       kennelCodes: ["sembach-h3"],
     },
     {

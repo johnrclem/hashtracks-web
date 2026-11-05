@@ -101,9 +101,28 @@ export function cleanWlh3Hares(hares: string | null | undefined): string | null 
   return cleaned.length > 0 ? cleaned : undefined;
 }
 
-/** Frozen archive rows with leaked hare tails removed. */
+/**
+ * 45/644 frozen rows (mostly 2011-2014 posts) carry the post's date as their
+ * only title ("9 February 2011"). A bare date is not a title — the card would
+ * repeat the date it already shows — so drop it and let merge synthesize the
+ * kennel's default trail title.
+ */
+const BARE_DATE_TITLE_RE = /^\d{1,2}(?:st|nd|rd|th)? [A-Z][a-z]+ \d{4}$/;
+
+/** Drop a title that is only the run's date. */
+export function cleanWlh3Title(title: string | null | undefined): string | undefined {
+  const t = title?.trim();
+  if (!t || BARE_DATE_TITLE_RE.test(t)) return undefined;
+  return t;
+}
+
+/** Frozen archive rows with leaked hare tails and bare-date titles removed. */
 export function loadWlh3History(): RawEventData[] {
-  return (history as RawEventData[]).map((row) => ({ ...row, hares: cleanWlh3Hares(row.hares) }));
+  return (history as RawEventData[]).map((row) => ({
+    ...row,
+    title: cleanWlh3Title(row.title),
+    hares: cleanWlh3Hares(row.hares),
+  }));
 }
 
 if (process.argv[1]?.endsWith("backfill-wlh3-history.ts")) {
