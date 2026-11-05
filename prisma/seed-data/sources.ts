@@ -6613,7 +6613,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { subSite: "thursday" },
+      config: { subSite: "thursday", upcomingOnly: true }, // browser-rendered view is future-only (Nov 2026)
       kennelCodes: ["bth3", "bfmh3"],
     },
     // --- Bangkok Full Moon Hash (HashWebApp hareline + next-run API) ---
@@ -6624,7 +6624,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { subSite: "fullmoon" },
+      config: { subSite: "fullmoon", upcomingOnly: true }, // browser-rendered view is future-only (Nov 2026)
       kennelCodes: ["bfmh3"],
     },
     // --- Siam Sunday Hash (HashWebApp hareline + next-run API) ---
@@ -6635,7 +6635,7 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { subSite: "siamsunday" },
+      config: { subSite: "siamsunday", upcomingOnly: true }, // browser-rendered view is future-only (Nov 2026)
       kennelCodes: ["s2h3"],
     },
     // --- Phuket HHH Shared Hareline ---

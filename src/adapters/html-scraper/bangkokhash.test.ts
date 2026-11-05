@@ -1,4 +1,10 @@
-import { parseNextRunArticle, parseHarelineRows, parseNextRunDirections } from "./bangkokhash";
+import { vi } from "vitest";
+
+vi.mock("@/lib/browser-render", () => ({ browserRender: vi.fn() }));
+vi.mock("@/pipeline/structure-hash", () => ({ generateStructureHash: vi.fn(() => "hash") }));
+
+import { browserRender } from "@/lib/browser-render";
+import { BangkokHashAdapter, parseNextRunArticle, parseHarelineRows, parseNextRunDirections } from "./bangkokhash";
 
 const NEXT_RUN_HTML = `
 <div class="item-content">
@@ -405,5 +411,32 @@ describe("parseNextRunDirections", () => {
 
   it("returns null when there is no run table", () => {
     expect(parseNextRunDirections("<div class='msg'>No run scheduled</div>", BTH3_OPTS)).toBeNull();
+  });
+});
+
+describe("BangkokHashAdapter.fetch (browser-rendered HashWebApp)", () => {
+  const source = { id: "s", url: "https://bangkokhash.com/thursday/", config: { subSite: "thursday", upcomingOnly: true }, scrapeDays: 3650 } as never;
+
+  it("renders the hareline and next-run pages in the headless browser and parses them", async () => {
+    vi.mocked(browserRender).mockImplementation(async (opts: { url: string }) =>
+      opts.url.includes("ViewHL.php") ? BTH3_HARELINE_HTML : "<table class='run'></table>",
+    );
+    const result = await new BangkokHashAdapter().fetch(source, { days: 3650 });
+    expect(result.errors).toEqual([]);
+    expect(result.events.map((e) => e.runNumber)).toContain(542);
+    const urls = vi.mocked(browserRender).mock.calls.map(([o]) => (o as { url: string; waitFor: string }));
+    expect(urls.map((u) => u.url)).toEqual([
+      "https://bangkokhash.com/HashWebApp/Runs/05_Hareline/ViewHL.php?a=false&b=BTH3",
+      "https://bangkokhash.com/HashWebApp/Runs/05_Hareline/ViewNextRunDirections.php?b=BTH3",
+    ]);
+    expect(urls.map((u) => u.waitFor)).toEqual([".hl-row", "table.run"]);
+  });
+
+  it("fails loud when the hareline render fails", async () => {
+    vi.mocked(browserRender).mockReset();
+    vi.mocked(browserRender).mockRejectedValue(new Error("render timeout"));
+    const result = await new BangkokHashAdapter().fetch(source, { days: 3650 });
+    expect(result.events).toEqual([]);
+    expect(result.errors[0]).toMatch(/Browser render failed/);
   });
 });

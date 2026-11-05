@@ -1,14 +1,13 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
-import { safeFetch } from "../safe-fetch";
-import { USER_AGENT as BROWSER_UA } from "../constants";
+import { browserRender } from "@/lib/browser-render";
+import { generateStructureHash } from "@/pipeline/structure-hash";
 import {
   applyDateWindow,
   chronoParseDate,
   decodeEntities,
   extractHashRunNumber,
-  fetchHTMLPage,
   HARE_BOILERPLATE_RE,
   normalizeHaresField,
   parse12HourTime,
@@ -25,19 +24,16 @@ import {
  * The Nov-2026 site rebuild moved the data out of the Joomla articles into two
  * HashWebApp endpoints the front pages embed as iframes:
  *
- *   1. Hareline: `POST /HashWebApp/Runs/05_Hareline/ViewHL_Server.php`
- *      body `{"hashclub":"BTH3","viewoption":3}` → `{info, html, source, colors}`.
- *      `html` is `div.hl-month` headers + `div.hl-row` cards:
+ *   1. Hareline: `/HashWebApp/Runs/05_Hareline/ViewHL.php?a=false&b=BTH3`, whose
+ *      script POSTs ViewHL_Server.php and renders `div.hl-month` headers +
+ *      `div.hl-row` cards:
  *        .hl-date[title="Thursday 12 November 2026"], .hl-hare (or
  *        .hl-hare > .hl-wanted "Hare wanted!"), .hl-comment, .hl-num "#542".
  *      Note rows (`.hl-row.hl-note`) carry `.hl-notetext` instead — the BTH3
  *      feed cross-lists the Full Moon runs as "Fullmoon-262"; other notes are
- *      "Cancelled" / party markers. viewoption 0=current, 1=last month,
- *      2=last year (rolling ≈13 months back + future), 3=all (2012→). We
- *      request 2 for scrapeDays ≤ 365 (3 beyond) so the payload covers the
- *      whole ±scrapeDays reconcile window, then `applyDateWindow` trims.
+ *      "Cancelled" / party markers.
  *
- *   2. Next-run directions: `GET /HashWebApp/Runs/05_Hareline/ViewNextRunDirections.php?b=BTH3`
+ *   2. Next-run directions: `/HashWebApp/Runs/05_Hareline/ViewNextRunDirections.php?b=BTH3`
  *      → `table.run` (caption "BTH3  Run #542"; th/td rows Date / Start Time /
  *      Hare / Station / Location / Restaurant / Google Maps) + `div.notes`
  *      (mis-directions, run fee). Enriches the matching hareline row.
@@ -48,14 +44,13 @@ import {
  * Source config: `{ "subSite": "thursday" | "fullmoon" | "siamsunday" }`
  */
 
-// bangkokhash.com's WAF rejects the default "HashTracks-Scraper" UA (#2247/#2245),
-// so this adapter sends the shared browser UA from ../constants (BROWSER_UA).
+// Both pages are fetched through the NAS headless browser (`browserRender`):
+// since the Nov 2026 rebuild the site hangs up on direct requests from both NAS
+// relays (residential + VPN), while a real browser loads them normally. The
+// render covers the page's default view; sources set `upcomingOnly` so past
+// runs outside it are never reconcile-cancelled.
 
 const HASHWEBAPP_BASE = "https://bangkokhash.com/HashWebApp/Runs/05_Hareline";
-const HARELINE_API_URL = `${HASHWEBAPP_BASE}/ViewHL_Server.php`;
-/** viewoption 2 = "Last Year" (≈13 months back + future), 3 = "All" (2012→). */
-const HARELINE_VIEW_LAST_YEAR = 2;
-const HARELINE_VIEW_ALL = 3;
 
 const FULLMOON_TIME = "18:30";
 
@@ -431,25 +426,21 @@ export function parseNextRunDirections(
   };
 }
 
-/** POST the hareline API; returns the `html` payload or an error message. */
-async function fetchHarelineHtml(hashClub: string, viewoption: number): Promise<string | { error: string }> {
+/**
+ * Render a HashWebApp page in the NAS headless browser and return its HTML.
+ *
+ * Since the Nov 2026 rebuild, bangkokhash.com drops direct requests from both
+ * NAS relays (residential and VPN egress: "socket hang up" → proxy 502), while
+ * the same pages load normally in a real browser. ViewHL.php's own script calls
+ * ViewHL_Server.php from inside the page, so rendering it yields the hareline
+ * markup (`div.hl-row`) that `parseHarelineRows` already parses. `waitFor`
+ * makes the render wait for the script's rows / the next-run table.
+ */
+async function renderHashWebApp(url: string, waitFor: string): Promise<string | { error: string }> {
   try {
-    const response = await safeFetch(HARELINE_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=UTF-8",
-        "User-Agent": BROWSER_UA,
-      },
-      body: JSON.stringify({ hashclub: hashClub, viewoption }),
-      useResidentialProxy: true,
-    });
-    if (!response.ok) return { error: `Hareline API returned HTTP ${response.status}` };
-    const html = ((await response.json()) as { html?: unknown } | null)?.html;
-    return typeof html === "string"
-      ? html
-      : { error: "Hareline API returned unexpected payload shape (no html string)" };
+    return await browserRender({ url, waitFor, timeout: 45_000 });
   } catch (err) {
-    return { error: `Hareline API fetch failed: ${err}` };
+    return { error: `Browser render failed for ${url}: ${err}` };
   }
 }
 
@@ -491,19 +482,13 @@ export class BangkokHashAdapter implements SourceAdapter {
     const fetchStart = Date.now();
 
     const days = options?.days ?? source.scrapeDays ?? 365;
-    // "Last year" (a rolling ~13 months back + all future) covers the ±days
-    // reconcile window for the usual 365; only wider windows need "All".
-    const viewoption = days <= 365 ? HARELINE_VIEW_LAST_YEAR : HARELINE_VIEW_ALL;
 
-    // bangkokhash.com 403s Vercel's datacenter IP (#2247 / #2245), so both
-    // HashWebApp endpoints egress through the NAS residential proxy (which
-    // forwards POST bodies). The two requests are independent → run together.
-    const [harelineResult, page] = await Promise.all([
-      fetchHarelineHtml(hashClub, viewoption),
-      fetchHTMLPage(`${HASHWEBAPP_BASE}/ViewNextRunDirections.php?b=${hashClub}`, {
-        useResidentialProxy: true,
-        userAgent: BROWSER_UA,
-      }),
+    // Both HashWebApp pages are rendered in the NAS headless browser (see
+    // renderHashWebApp). The two renders are independent → run together.
+    const nextRunUrl = `${HASHWEBAPP_BASE}/ViewNextRunDirections.php?b=${hashClub}`;
+    const [harelineResult, nextRunResult] = await Promise.all([
+      renderHashWebApp(`${HASHWEBAPP_BASE}/ViewHL.php?a=false&b=${hashClub}`, ".hl-row"),
+      renderHashWebApp(nextRunUrl, "table.run"),
     ]);
 
     // 1. Hareline (the event list) — required.
@@ -517,9 +502,9 @@ export class BangkokHashAdapter implements SourceAdapter {
     // 2. Next-run directions — best-effort enrichment for the upcoming run.
     let nextRunFound = false;
     let structureHash: string | undefined;
-    if (page.ok) {
-      structureHash = page.structureHash;
-      const nextRun = parseNextRunDirections(page.html, parseOpts);
+    if (typeof nextRunResult === "string") {
+      structureHash = generateStructureHash(nextRunResult);
+      const nextRun = parseNextRunDirections(nextRunResult, parseOpts);
       if (nextRun) {
         nextRunFound = true;
         events = mergeNextRun(events, nextRun);
@@ -527,7 +512,7 @@ export class BangkokHashAdapter implements SourceAdapter {
     } else if (events.length === 0) {
       // Only surface the enrichment failure when the hareline also produced
       // nothing; otherwise the scrape is still complete.
-      errors.push(`Next-run page failed: ${page.result.errors[0]}`);
+      errors.push(`Next-run page failed: ${nextRunResult.error}`);
     }
 
     if (events.length === 0 && errors.length === 0) {
@@ -540,7 +525,7 @@ export class BangkokHashAdapter implements SourceAdapter {
         errors,
         structureHash,
         diagnosticContext: {
-          fetchMethod: "hashwebapp-hareline+next-run",
+          fetchMethod: "browser-render:hashwebapp-hareline+next-run",
           subSite,
           hashClub,
           nextRunFound,
