@@ -49,12 +49,23 @@ function socketErrorCode(err: unknown): string | undefined {
 }
 
 /**
- * Fetch a Google Weather URL with a per-attempt timeout, retrying ONCE when the
- * pooled keep-alive socket was closed by the far side before any bytes came
- * back ("other side closed" / ECONNRESET — 175 occurrences in prod logs, all
- * with bytesRead: 0). Timeouts and HTTP errors are not retried.
+ * Fetch the 10-day Google Weather forecast for a point, with a per-attempt
+ * timeout, retrying ONCE when the pooled keep-alive socket was closed by the
+ * far side before any bytes came back ("other side closed" / ECONNRESET — 175
+ * occurrences in prod logs, all with bytesRead: 0). Timeouts and HTTP errors
+ * are not retried.
+ *
+ * Takes numbers, not a URL: the request URL is built here against the
+ * hardcoded weather.googleapis.com host, so no caller-supplied string can
+ * reach fetch() (Codacy/Opengrep node-ssrf on #2684).
  */
-async function fetchWeather(url: string): Promise<Response> {
+async function fetchWeather(apiKey: string, lat: number, lng: number): Promise<Response> {
+  const url =
+    `https://weather.googleapis.com/v1/forecast/days:lookup` +
+    `?key=${encodeURIComponent(apiKey)}` +
+    `&location.latitude=${Number(lat)}` +
+    `&location.longitude=${Number(lng)}` +
+    `&days=10`;
   const init = () => ({
     next: { revalidate: 1800 }, // 30-minute cache
     signal: AbortSignal.timeout(WEATHER_FETCH_TIMEOUT_MS),
@@ -90,17 +101,8 @@ export async function getEventDayWeather(
 
   const targetDateStr = eventDate.toISOString().slice(0, 10);
 
-  // lat/lng are typed as numbers (from the DB), so no SSRF risk — the domain is hardcoded
-  // and numeric parameters cannot contain path-traversal or injection payloads. // NOSONAR
-  const url =
-    `https://weather.googleapis.com/v1/forecast/days:lookup` +
-    `?key=${apiKey}` +
-    `&location.latitude=${lat}` +
-    `&location.longitude=${lng}` +
-    `&days=10`;
-
   try {
-    const res = await fetchWeather(url);
+    const res = await fetchWeather(apiKey, lat, lng);
 
     if (!res.ok) return null;
 
@@ -221,15 +223,8 @@ export async function getWeatherForEvents(
   const entries = Array.from(locationGroups.values()).slice(0, MAX_WEATHER_API_CALLS);
 
   const fetches = entries.map(async (group) => {
-    const url =
-      `https://weather.googleapis.com/v1/forecast/days:lookup` +
-      `?key=${apiKey}` +
-      `&location.latitude=${group.lat}` +
-      `&location.longitude=${group.lng}` +
-      `&days=10`;
-
     try {
-      const res = await fetchWeather(url);
+      const res = await fetchWeather(apiKey, group.lat, group.lng);
       if (!res.ok) return;
 
       const data = (await res.json()) as GoogleWeatherApiResponse;
