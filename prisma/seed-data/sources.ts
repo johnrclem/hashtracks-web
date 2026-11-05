@@ -694,6 +694,17 @@ export const SOURCES = [
       kennelCodes: ["och3"],
     },
     {
+      name: "Surrey H3 Website Hareline",
+      url: "https://surreyhashhouseharriers.com/receding-hareline/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 120,
+      // Rolling forward hareline — past runs drop off; history is a frozen backfill.
+      config: { upcomingOnly: true },
+      kennelCodes: ["surrey-h3"],
+    },
+    {
       name: "SLASH Run List",
       url: "https://www.londonhash.org/slah3/runlist/slash3list.html",
       type: "HTML_SCRAPER" as const,

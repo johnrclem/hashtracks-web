@@ -1087,6 +1087,18 @@ export const KENNELS: KennelSeed[] = [
       hashCash: "£2",
     },
     {
+      kennelCode: "surrey-h3", shortName: "Surrey H3", fullName: "Surrey Hash House Harriers", region: "Surrey", country: "UK",
+      website: "https://surreyhashhouseharriers.com",
+      foundedYear: 1975, founder: "Jim Raper",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Weekly",
+      hashCash: "£2 (visitors; first visit free)",
+      walkersWelcome: true,
+      logoUrl: "/kennel-logos/surrey-h3.jpg", // self-hosted; magic bytes confirmed JPEG
+      description:
+        "Surrey Hash House Harriers — a non-competitive running and walking club founded in 1975. Every Sunday at 11:00 the pack follows a flour trail of 4–5 miles around the Surrey countryside, with shortcuts and loops so all abilities finish together, then heads 'On On' to a local pub. Visitors welcome — £2, first visit free.",
+      // facebook/instagram/twitter: none on the site → unset. dogFriendly: unstated → unset.
+    },
+    {
       kennelCode: "slh3", shortName: "SLH3", fullName: "SLASH (South London Hash House Harriers)", region: "London", country: "UK",
       scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "2nd Saturday of the month",
