@@ -14,12 +14,15 @@ import { chronoParseDate, extractAddressWithAi, extractUkPostcode, googleMapsSea
 import { safeFetch } from "../safe-fetch";
 
 /**
- * Parse run number from WLH3 heading text.
- * "Run Number 2081 – 19 February 2026-Clapham Junction" → 2081
+ * Parse run number from WLH3 heading text. The site uses both "Run Number"
+ * and (since Dec 2026) "Run No":
+ *   "Run Number 2081 – 19 February 2026-Clapham Junction" → 2081
+ *   "Run No 2131 – 21 January 2027 – location TBA" → 2131
  */
+const RUN_NUMBER_RE = /Run\s*(?:Number|No\.?)\s*(\d+)/i;
 export function parseRunNumberFromHeading(heading: string): number | null {
-  const match = heading.match(/Run\s*Number\s*(\d+)/i);
-  return match ? parseInt(match[1], 10) : null;
+  const match = RUN_NUMBER_RE.exec(heading);
+  return match ? Number.parseInt(match[1], 10) : null;
 }
 
 /**
@@ -30,21 +33,62 @@ export function parseDateFromHeading(heading: string): string | null {
   return chronoParseDate(heading, "en-GB");
 }
 
+// "19 February 2026", "7 January  2027", "09 July" — the heading's date text.
+const HEADING_DATE_RE = /\b\d{1,2}(?:st|nd|rd|th)?\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\s+20\d{2})?/i;
+// "12.15 start time" / "12:15 start" — a non-default start time segment.
+const START_TIME_SEGMENT_RE = /^(\d{1,2})[.:](\d{2})\s*(am|pm)?\s*start(?:\s+time)?$/i;
+// "hare needed" segments are a hare CTA, not a venue.
+const HARE_NEEDED_RE = /^hares?\s+needed!?$/i;
+
 /**
- * Extract location name from WLH3 heading text (after the date).
+ * Split the text after the heading's date into its dash-separated segments.
+ * Headings come in several shapes:
+ *   "Run Number 2081 – 19 February 2026-Clapham Junction"   (unspaced dash)
+ *   "Run Number 2120 – 5 November 2026 – Chiswick NR"       (spaced en dash)
+ *   "Run No 2128 – 31 December 2026 – location TBA – 12.15 start time"
+ * Only spaced dashes separate segments after the first, so hyphenated names
+ * like "Ealing Common-AGPU" stay intact.
+ */
+function headingSegments(heading: string): string[] {
+  const m = HEADING_DATE_RE.exec(heading);
+  if (!m) return [];
+  const rest = heading.slice(m.index + m[0].length).replace(/^[\s\-–—]+/, "");
+  return rest
+    .split(/\s+[-–—]\s+/)
+    .map((seg) => seg.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Extract the location / theme from WLH3 heading text (after the date).
  * "Run Number 2081 – 19 February 2026-Clapham Junction" → "Clapham Junction"
- * The location comes after "YYYY" immediately followed by a hyphen/dash (no space).
+ * Placeholder ("location TBA"), hare-needed and start-time segments are dropped.
  */
 export function parseLocationFromHeading(heading: string): string | null {
-  // Match year (20xx) immediately followed by a dash then location text (starts with letter)
-  // Key: no whitespace between year and dash — "2026-Clapham" not "2081 – 19 Feb"
-  const match = heading.match(/20\d{2}[-–—]([A-Za-z].+)$/);
-  if (!match) return null;
-  const loc = match[1].trim();
-  // Filter placeholder values like "TBA" or "Location TBA"
-  const prefixStripped = loc.replace(/^Location\s+/i, "");
-  if (isPlaceholder(prefixStripped)) return null;
-  return loc;
+  const parts = headingSegments(heading).filter((seg) => {
+    if (START_TIME_SEGMENT_RE.test(seg) || HARE_NEEDED_RE.test(seg)) return false;
+    // Filter placeholder values like "TBA" or "Location TBA"
+    return !isPlaceholder(seg.replace(/^Location\s+/i, ""));
+  });
+  return parts.length > 0 ? parts.join(" – ") : null;
+}
+
+/**
+ * Non-default start time from the heading ("– 12.15 start time" on the
+ * Christmas/New Year lunchtime runs), as "HH:MM"; undefined when absent.
+ */
+export function parseStartTimeFromHeading(heading: string): string | undefined {
+  for (const seg of headingSegments(heading)) {
+    const m = START_TIME_SEGMENT_RE.exec(seg);
+    if (!m) continue;
+    let hour = Number.parseInt(m[1], 10);
+    const suffix = m[3]?.toLowerCase();
+    if (suffix === "pm" && hour < 12) hour += 12;
+    if (suffix === "am" && hour === 12) hour = 0;
+    if (hour > 23) return undefined;
+    return `${String(hour).padStart(2, "0")}:${m[2]}`;
+  }
+  return undefined;
 }
 
 /** @deprecated Use extractUkPostcode from ../utils instead */
@@ -114,10 +158,13 @@ export function parseRunItem(
   const location = filteredVenue || locationFromHeading || undefined;
   const locationUrl = postcode ? mapsUrl(postcode) : (locationFromHeading ? mapsUrl(locationFromHeading) : undefined);
 
-  // Build title
-  const title = runNumber
-    ? `WLH3 Run #${runNumber} - ${locationFromHeading || "TBD"}`
-    : headingText;
+  // Build title. No "- TBD" suffix when the heading names no place (#2619).
+  let title = headingText;
+  if (runNumber) {
+    title = locationFromHeading
+      ? `WLH3 Run #${runNumber} - ${locationFromHeading}`
+      : `WLH3 Run #${runNumber}`;
+  }
 
   const event: RawEventData & { _longParagraph?: string } = {
     date,
@@ -127,7 +174,7 @@ export function parseRunItem(
     hares,
     location,
     locationUrl,
-    startTime: "19:15",
+    startTime: parseStartTimeFromHeading(headingText) ?? "19:15",
     sourceUrl,
   };
   // Attach long paragraph text for AI extraction (stripped before return to caller)
@@ -181,7 +228,7 @@ export class WestLondonHashAdapter implements SourceAdapter {
     if (items.length === 0) items = $("article");
     if (items.length === 0) {
       items = $("li").filter((_i, el) => {
-        return $(el).find("h4, h5").text().includes("Run Number");
+        return RUN_NUMBER_RE.test($(el).find("h4, h5").text());
       });
     }
     return items;
