@@ -49,7 +49,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, isReplaceableDefaultTitle, normalizeThemeTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked, isImplausibleEndTime } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, isReplaceableDefaultTitle, normalizeThemeTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked, isImplausibleEndTime, hasConflictingRunNumber } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -1416,6 +1416,58 @@ describe("double-header support", () => {
 
     expect(result.created).toBe(2);
     expect(result.updated).toBe(0);
+  });
+
+  it("#2656: same-batch Walkers/Runners split with distinct runNumbers at the SAME startTime stays two canonicals", async () => {
+    mockFingerprint.mockReturnValueOnce("fp_1").mockReturnValueOnce("fp_2");
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce({ id: "evt_39", startTime: "09:30", runNumber: 39 } as never);
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_39", trustLevel: 5, sourceUrl: "https://hc.example/39", startTime: "09:30", runNumber: 39, title: "Divahhh #39 - Walkers" },
+    ] as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_40"));
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-18", startTime: "09:30", runNumber: 39, sourceUrl: "https://hc.example/39", title: "Divahhh #39 - Walkers" }),
+      buildRawEvent({ date: "2026-04-18", startTime: "09:30", runNumber: 40, sourceUrl: "https://hc.example/40", title: "Divahhh #40 - Runners" }),
+    ]);
+
+    expect(result.created).toBe(2);
+    expect(result.updated).toBe(0);
+  });
+
+  it("#2656: multi-row startTime fallback never lands on a sibling with a conflicting runNumber", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_39", trustLevel: 5, sourceUrl: "https://hc.example/39", startTime: "09:30", runNumber: 39, title: "Walkers" },
+      { id: "evt_x", trustLevel: 5, sourceUrl: "https://hc.example/x", startTime: "14:00", runNumber: null, title: "Afternoon" },
+    ] as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_40"));
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-18", startTime: "09:30", runNumber: 40, sourceUrl: "https://hc.example/40", title: "Runners" }),
+    ]);
+
+    expect(result.created).toBe(1);
+    expect(mockEventUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: "evt_39" } }));
+  });
+
+  it("#2656: multi-row startTime fallback still matches a sibling with NO runNumber", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_a", trustLevel: 5, sourceUrl: "https://a.example/1", startTime: "09:30", runNumber: null, title: "Morning" },
+      { id: "evt_b", trustLevel: 5, sourceUrl: "https://a.example/2", startTime: "14:00", runNumber: null, title: "Afternoon" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-18", startTime: "09:30", runNumber: 40, sourceUrl: "https://b.example/40", title: "Morning run" }),
+    ]);
+
+    expect(result.updated).toBe(1);
+    expect(mockEventUpdate).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "evt_a" } }));
   });
 
   it("cross-source: matches single existing event with different sourceUrl and creates EventLink", async () => {
@@ -5996,5 +6048,15 @@ describe("same-date multi-run matcher (#2157)", () => {
         },
       ),
     ).toBe(true);
+  });
+});
+
+describe("hasConflictingRunNumber (#2656)", () => {
+  it("conflicts only when both run numbers are present and differ", () => {
+    expect(hasConflictingRunNumber({ runNumber: 39 }, { runNumber: 40 })).toBe(true);
+    expect(hasConflictingRunNumber({ runNumber: 39 }, { runNumber: 39 })).toBe(false);
+    expect(hasConflictingRunNumber({ runNumber: null }, { runNumber: 40 })).toBe(false);
+    expect(hasConflictingRunNumber({ runNumber: 39 }, { runNumber: undefined })).toBe(false);
+    expect(hasConflictingRunNumber({ runNumber: 39 }, {})).toBe(false);
   });
 });

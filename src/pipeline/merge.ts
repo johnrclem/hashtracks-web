@@ -1469,6 +1469,18 @@ async function findFuzzyDuplicateInWindow(
 }
 
 /**
+ * True when both rows carry a run number and they differ — the strongest signal
+ * that two same-date rows are distinct runs (#2656). Absent run numbers never
+ * conflict, so rows without one keep the existing startTime/title matching.
+ */
+export function hasConflictingRunNumber(
+  existing: { runNumber: number | null },
+  incoming: { runNumber?: number | null },
+): boolean {
+  return existing.runNumber != null && incoming.runNumber != null && existing.runNumber !== incoming.runNumber;
+}
+
+/**
  * Create or update the canonical Event record and link the RawEvent to it.
  * Returns the canonical event ID.
  */
@@ -1515,9 +1527,15 @@ async function upsertCanonicalEvent(
       // Same-batch duplicate: treat as update (not double-header) when the incoming
       // event shares a startTime or runNumber with the existing one — this catches
       // overlapping past/future table entries from adapters like hashnyc.com.
+      //
+      // #2656 — two present-and-different run numbers are ALWAYS distinct events,
+      // even when the startTime matches (Divahhh splits one slot into a Walkers #39
+      // and a Runners #40 trail, both 09:30). Without this veto the shared startTime
+      // silently collapsed #40 onto #39.
       const looksLikeSameEvent =
-        (event.startTime != null && sole.startTime === event.startTime) ||
-        (event.runNumber != null && sole.runNumber === event.runNumber);
+        !hasConflictingRunNumber(sole, event) &&
+        ((event.startTime != null && sole.startTime === event.startTime) ||
+          (event.runNumber != null && sole.runNumber === event.runNumber));
       existingEvent = looksLikeSameEvent ? sole : null;
     } else {
       existingEvent = sole; // Cross-source or first match — backward-compatible
@@ -1544,11 +1562,13 @@ async function upsertCanonicalEvent(
       const runMatches = sameDayEvents.filter(e => e.runNumber === event.runNumber);
       if (runMatches.length === 1) existingEvent = runMatches[0];
     }
+    // #2656 — the weaker startTime/title tiers must never land on a sibling whose
+    // run number conflicts with the incoming row's (a distinct double-header run).
     if (!existingEvent && event.startTime) {
-      existingEvent = sameDayEvents.find(e => e.startTime === event.startTime) ?? null;
+      existingEvent = sameDayEvents.find(e => e.startTime === event.startTime && !hasConflictingRunNumber(e, event)) ?? null;
     }
     if (!existingEvent && event.title) {
-      existingEvent = sameDayEvents.find(e => e.title === event.title) ?? null;
+      existingEvent = sameDayEvents.find(e => e.title === event.title && !hasConflictingRunNumber(e, event)) ?? null;
     }
     // Degenerate fallback — multiple rows share this URL and the incoming row
     // carries NO disambiguating signal at all (no runNumber/startTime/title), so
