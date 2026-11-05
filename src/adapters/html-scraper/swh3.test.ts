@@ -1,5 +1,20 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { parseSWH3Title, parseSWH3Body, cleanTrailingPunct, SWH3Adapter } from "./swh3";
+import { parseSWH3Title, parseSWH3Body, cleanTrailingPunct, SWH3Adapter, trimProseAfterZip } from "./swh3";
+
+describe("trimProseAfterZip (#2680)", () => {
+  it("drops directions/phone prose after the ZIP", () => {
+    const raw = "7700 Perry Creek Rd, Raleigh, NC 27616 also known as the WRAL Soccer Park. More specifically: There's only one way into the Park. Or call GS: 201 655-2630.";
+    expect(trimProseAfterZip(raw)).toBe("7700 Perry Creek Rd, Raleigh, NC 27616");
+  });
+  it("keeps short suffixes and ZIP-less locations unchanged", () => {
+    expect(trimProseAfterZip("Pullen Park, Raleigh, NC 27607 (shelter 2)")).toBe("Pullen Park, Raleigh, NC 27607 (shelter 2)");
+    expect(trimProseAfterZip("Lake Johnson Park")).toBe("Lake Johnson Park");
+  });
+  it("is applied by parseSWH3Body", () => {
+    const html = "<p>Where: 7700 Perry Creek Rd, Raleigh, NC 27616 also known as the WRAL Soccer Park. Or call GS: 201 655-2630.</p>";
+    expect(parseSWH3Body(html).location).toBe("7700 Perry Creek Rd, Raleigh, NC 27616");
+  });
+});
 import { safeFetch } from "../safe-fetch";
 import type { Source } from "@/generated/prisma/client";
 

@@ -578,11 +578,19 @@ export const SOURCES = [
         defaultStartTime: "18:45",
         // #1892: summaries are "{theme} - {location}" (e.g. "Autism Speaks for
         // Deities & Friends! - Dupont Circle"). Capture the post-dash location
-        // into locationName and strip it from the title. Deliberately NO
-        // titleHarePattern — the pre-dash text is a run theme, not hares.
+        // into locationName and strip it from the title. The pre-dash text is
+        // a run theme, not hares.
         // "… - Location TBD" is rejected by the adapter's placeholder-token
         // guard (the "TBD" token), so it never becomes a location.
-        titleLocationPattern: String.raw`\s+-\s+(\S.*)$`,
+        //
+        // #2598: the calendar also uses "{theme} - {hares}" ("4th Anal Fallout
+        // Trail - PhD, S2B2, VagLaw") and "{theme} - {hares} - {location}".
+        // Hare lists are comma-separated; station names never are. So:
+        //  - a comma-bearing LAST " - " segment is hares (titleHarePattern);
+        //  - the location is only the LAST " - " segment, and only when it
+        //    has no comma.
+        titleHarePattern: String.raw`\s-\s+((?:(?!\s-\s).)+,(?:(?!\s-\s).)+)$`,
+        titleLocationPattern: String.raw`\s-\s+((?:(?!\s-\s)[^,])+)$`,
       },
       kennelCodes: ["ewh3"],
     },
@@ -921,6 +929,11 @@ export const SOURCES = [
           String.raw`Hare:?\s+(.+?)(?:(?=[-\u2013\u2014]\s*\S)|\s*$)`,
           String.raw`^DST\s*#?\s*\d*\s*-\s*(.+)$`,
         ],
+        // #2652: when the description already carries the hare ("Hare: Ditch
+        // Bitch with Co-hare: Just Denis") the title-hare pattern was skipped,
+        // leaving "Hare: Ditch Bitch" as the whole title. Always strip the
+        // title's hare span; the description hare stays canonical.
+        alwaysStripTitleHareSpan: true,
         // #2349: SH3 frequently omits the "#" ("SH3 871 Anni Tua", "SH3 879
         // Lone Thrills") so the shared #-parser misses the run number. Pull it
         // from the summary (anchored to the SH3 prefix so a digit in a theme
@@ -933,7 +946,7 @@ export const SOURCES = [
         // title that the default/merge synthesis fills. DST is intentionally
         // omitted \u2014 its post-dash text is the hare (titleHarePattern handles it).
         titleStripPatterns: [
-          String.raw`^SH3\s*(?:#\s*)?\d+\s*(?:-\s*)?`,
+          String.raw`^SH3\s*(?:#\s*)?\d+\s*(?:[-:]\s*)?`,
           String.raw`^FM\s*(?:#\s*)?\d+\s*(?:-\s*)?`,
         ],
       },
