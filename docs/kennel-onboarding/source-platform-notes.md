@@ -369,6 +369,28 @@ Manila, **`curl -e https://sites.google.com/ <ogimage>` returned HTTP 200** (rea
 confirmed) — a `Referer` header was enough. The token still rotates per load, so a browser grab remains
 the fallback, but try a Referer'd `curl` first.
 
+#### North Hants H4 addenda (researched 2026-08-25) — CUSTOM-DOMAIN Google Sites + reduced-cadence single-run + unresolvable "atari" archive gadget
+
+`nh4.org` (North Hants H4, Aldershot, England, founded 1981) is the **Manila single-current-run pattern
+on a Google Sites CUSTOM DOMAIN** (`.org`, not `sites.google.com/...`). Confirmations:
+- **A custom domain does NOT break the SSR-parse path.** `web_fetch`/`fetchHTMLPage` returns the home
+  page's run block as plain text — labels `Run No:` / `Date:` / `Time:` / `Hare(s):` / `Location:` /
+  `RV:` / `Postcode:` / `On Inn:` / `Notes:`, colon-adjacent, one per line after linearization. Detect
+  the site as Google Sites via the `lh3.googleusercontent.com/sitesv/…=w16383` og:image + "Google Sites
+  / Report abuse" footer. Register the adapter by the custom-domain URL pattern (`/nh4\.org/i`), not a
+  `sites.google.com` pattern. Content-keyed parse (rotating classes) as always.
+- 🟡 **Reduced-cadence single-run is still a valid onboard, not a 0-upcoming block.** NH4 posts exactly
+  one "Next Run" and, as of 2026, runs "one run a month + pop-ups" (down from weekly). One genuine
+  FUTURE run was posted (Sun 6 Sept 2026) → recently-active. `config.upcomingOnly:true` + fail-loud zero
+  guard; no run numbers (`Run No: N/A` → runNumber undefined, title synth).
+- 🔴 **The Google Sites "atari" embed gadget is NOT resolvable from the research sandbox.** NH4's
+  `/run-list-old` page embeds `www.gstatic.com/atari/embeds/<hash>/intermediate-frame-minified.html`; the
+  nested frame exposes only `jsh`/`r` params (the real embedded URL — possibly a Sheet/Calendar of past
+  runs — is JS-loaded and not in the SSR). Treat such a gadget as an **unverified potential backfill
+  source** and flag Claude Code to inspect the rendered nested iframe at build (browserRender / Chrome),
+  rather than dismissing "no history" or guessing the target. (Generalizes the NSWHHH "enumerate embedded
+  sheets" rule to the opaque atari-embed case.)
+
 ## Blogger / Blogspot — staleness check from the sandbox (learned 2026-06-03, LatAm leads)
 
 The Blogger JSON feed `https://<blog>.blogspot.com/feeds/posts/default?alt=json&max-results=N` **is fetchable from the research sandbox via `web_fetch`** (returns `application/json`, not stripped) — a reliable, fast recency probe for Blogspot-hosted kennels.
@@ -525,6 +547,7 @@ Devonport/TVH3):
 - **Metadata is on the blog's static pages** (`/p/an-introduction-to-city-of-exeter-h3.html`) even when the
   runs are recaps — schedule, dog/walker friendliness, FB group, IG handle, WhatsApp link all live there.
 - **Logo:** tokenized Blogger asset (`.../coeh3-1-transp-small.gif`) → self-host + magic-byte ext (GIF here).
+- **🔁 Re-verified + HANDED OFF 2026-10-12** (`handoffs/2026-10-12-coeh3.md`, `coeh3`): feed `updated 2026-10-11`, now **1087 posts**, newest **#1279 "Chudleigh Knighton play park - NoButt and Mouthful - 11 October 2026"**, weekly-Sunday cadence #1273→#1279 confirmed. New drift observed in the recent sample: **emoji inside a hare segment** (`#1278 … - Can't Tell and Capt 🦚 - 4 Oct 2026`) and a **2-segment special with NO hare/venue** (`#1273 Spockfest hangover hash - 30 August 2026` = `<theme> - <date>`). The 2026-07-27 **order-inconsistent-middle-segment** rule still holds and was carried into the handoff (location/hares left undefined by position; runNumber + trailing year-bearing date the only reliable fields). foundedYear **2001** nailed via feed **#1274 "25th Anniversary Hash" 6 Sep 2026**. Reconcile stance: model on OFH3 (ships WITHOUT `upcomingOnly`, scrapeDays:90) and verify no false-cancel at build before adding `upcomingOnly:true`.
 
 ---
 
@@ -800,6 +823,28 @@ off — so this endpoint hands you ready-to-paste config-only source rows.
   **Coverage is from the kennel's HC-join date forward, not its lifetime** (Bandung: 55 rows back to #2253
   2025-06, NOT to its 1984 founding — the LH3/PIH3 caveat). Bind the backfill to the live HC source AND set
   `upcomingOnly:true` (the EXCEPTION above). 2026-06-18 pulls: Bandung 55, Moonshine Dubai 17, Barbados 130.
+- 🔑 **`SearchTags` is the location fallback when `LocationCity`/`LocationCountry` are blank (learned Big Lik H3 / BLHHH, 2026-10-17).** Some HC kennels carry **no `LocationCity`/`LocationCountry`** on the event object and a generic venue in `LocationOneLineDesc` (Big Lik: just `"The Hash House"`), which made the kennel "city unconfirmed" and parked it as verify-live-first across several runs. But the **kennel-level `SearchTags` string** holds the geography: Big Lik's was `"Incirlik  Turkey  Adana   Southern Europe"` (note double/triple spaces — split on `/\s+/` and discard the `KennelContinent` tail). That resolved it to **Incirlik Air Base / Adana, Turkey** and unblocked a config-only onboard (first Turkey kennel). **Always read `SearchTags` before declaring an HC kennel's city/country unidentifiable.** (Caveat: `SearchTags` is free-form kennel-authored text, so treat it as a strong hint, not a schema field — cross-check the continent/timezone.)
+- 🔑 **Discovery sweeps must do a FULL name-by-name diff of the future feed vs seed — not "do the
+  unfamiliar-looking names resolve" (learned Okinawa Poofters / OPH3, 2026-09-15).** Two consecutive
+  "HC bench EXHAUSTED, nothing onboardable" runs (2026-09-13, -14) both had **Okinawa Poofters (OPH3,
+  `PublicKennelId c4a54536-aa57-41b1-b487-f94db0fd2e71`)** sitting in the `isFuture=1` feed with a real
+  upcoming run — but the sweeps only eyeballed the names that *looked* new and confirmed those were
+  seeded, so a genuinely-new kennel whose name didn't jump out got skipped for two days. The reliable
+  recipe: extract EVERY distinct `KennelName`/`KennelSlug` from the feed and `grep -il` each against
+  `prisma/seed-data/{kennels,sources,aliases}.ts` — treat a 0-hit as a candidate, don't rely on
+  recognition. (OPH3 was onboarded 2026-09-15 config-only once the diff surfaced it.)
+- 🔑 **An umbrella hash can register a mid-week / sub-trail series as its OWN kennel on Harrier Central,
+  with a distinct `PublicKennelId` + independent run-number sequence, while the umbrella's main trails
+  live only on a Wix/other site (learned Okinawa Poofters, 2026-09-15).** The Okinawa Hash House Harriers
+  (parent, `okinawah3.wixsite.com`, Saturday trails on a JS Wix Events widget) registers only its
+  mid-week **"Poofter Trail"** series on HC as `KennelName "Okinawa Poofters"` / `KennelShortName "OPH3"`,
+  run #383. So HC-registered "sub-series" are legitimate standalone kennels to onboard (config-only), and
+  the umbrella's *other* series (Saturday, Full Moon) are separate future targets on their own source with
+  **no bleed** (HC filters by `publicKennelId`). Watch two things: (a) `foundedYear` — the umbrella's
+  founding (Okinawa HHH = Feb 1980) is NOT the sub-series' founding; leave blank+flag unless the sub-series'
+  own start is cited; (b) `EventName` is often a systematic `"<SHORT> - <N> (<hare-initials>)"` label, not a
+  real theme — `applyTitleFallback` passes non-empty names through verbatim, so either add a
+  `staleTitlePattern` regex option or lean on `defaultTitle`.
 - 🔑 **The `isFuture=1` ~200-row cap is DATE-ORDERED — a specific kennel whose next run is more than ~a
   week out (or which has 0 upcoming) will NOT appear in the global future feed, even though it's live
   (learned KRASH H3, 2026-07-09).** So `global-runs?isFuture=1` is a *discovery/enumeration* tool, not a
@@ -823,6 +868,16 @@ off — so this endpoint hands you ready-to-paste config-only source rows.
   already happened, no next run posted yet" = the recently-active signal. Pair it with the `isFuture=0`
   past sweep for the cadence evidence. (This is cleaner than the city-name finder sweep below when you
   already have the GUID from the queue.)
+- 🔴 **The converse trap: `global-runs?isFuture=1` can list a kennel the adapter's `getEvents` path returns
+  0 for (learned YH3 sweep, 2026-09-11).** CERN H3 (`80886b52-…`) showed **3 future runs (next 2026-10-09)**
+  in the `global-runs` future feed, yet the Azure `getEvents` POST for that same GUID returned **`count: 0`**
+  (status 200) — i.e. the ADAPTER would scrape zero events for it. The two endpoints are different backends;
+  `global-runs` (hashruns.org Next.js) is NOT a proxy for what `getEvents` (the adapter) serves. **Selection
+  rule: never onboard an HC kennel on `global-runs` evidence alone — confirm the adapter path (`getEvents`
+  by `publicKennelIds=<GUID>`) returns ≥1 upcoming (or the recently-active `daysUntil<0` slot). If `getEvents`
+  is empty, the config-only source will scrape nothing, no matter how healthy `global-runs` looks.** (A
+  clean 43-kennel sweep confirmed the rest: every other globally-upcoming HC kennel was already shipped/live;
+  YH3 was the sole not-live one that `getEvents` also confirmed scrapeable — 2 upcoming.)
 - 🔴 **Curated-backfill discipline — preserve STRUCTURAL quirks, FIX value errors that corrupt on load
   (Bandung #2340).** "Extract faithfully" applies to real identity facts (a genuine run-number reuse across
   two *distinct* events, gaps like Bandung's 2273/2289, a verbatim title typo like #2301's "Run 2231") — NOT
@@ -2094,6 +2149,18 @@ browserRender, no anti-bot). Verified via both `web_fetch` and a Chrome MCP DOM 
   combined `<date> - Run <NNNN>` heading or the multi-field cards). Model `dublin-hash.ts` fetch
   plumbing + `burlington-hash.ts` field cleaning.
 
+**⚠️ Addendum (Hyderabad H3, 2026-09-18) — not every GoDaddy WSB hash site populates the SSR Calendar
+widget.** `hyderabadhash.com` (same `Go Daddy Website Builder 8.0.0000` generator + `img1.wsimg.com`
+assets, founded 1990) does **NOT** carry a populated Calendar/Events widget: its "Next Run" is a bare
+in-page anchor and its "Receding Hareline" heading renders **empty** in `web_fetch`, and the page's
+primary run-coordination CTA is **WhatsApp** (`wa.me/…`). So an **empty `web_fetch` render of a WSB
+hash page ≠ dead, but ≠ a confirmed dated feed either** — it usually means the club coordinates off-site
+(WhatsApp/IG/email) rather than in the widget. **Do not classify such a site as onboardable from a
+sandbox `web_fetch` alone** — either (a) browserRender/Chrome the live page to confirm the widget
+actually holds dated rows (Essex `data-aid` pattern above), or (b) treat it as `verify-live-first`. The
+Essex "fully-SSR populated widget" case is the exception that earns a handoff; the Hyderabad "empty
+widget + WhatsApp CTA" case is the more common one.
+
 ---
 
 ## Blazor (.NET) SPA hash-club site — SSR-empty, `browserRender` required (learned from Cambridge H3, 2026-08-12)
@@ -2226,3 +2293,849 @@ Other gotchas: these club sites are frequently **http-only** (no https) → the 
 `website` literals trip Sonar **S5332** (mark SAFE via the SonarCloud REST API per the AH3-NZ process).
 Venues carry an address/postcode but **no lat/lng** → merge geocodes; no default-pin trap. Same-day
 `DTEND` → `endTime` for free.
+
+---
+
+## Bespoke hash-club CMS: config-only `hash-cal.ics` ICAL_FEED + `/hashes/?year=` HTML archive (learned from Malvern H3, 2026-08-19)
+
+`malvernhash.co.uk` (Malvern H3) is a **custom-built** hash-club site (no `meta-generator`, no
+`wp-content`, no recognisable platform) — but it exposes a clean, standards-compliant split that
+makes it **config-only** for the forward feed:
+
+- **Forward feed = a static iCal at a fixed path** (`/hash-cal.ics`). GET → HTTP 200
+  `content-type: text/calendar; charset=…`, a **rolling ~4-week forward window** (~5 VEVENTs). Each
+  VEVENT carries `DTSTART` + **`DTEND`** (→ same-day `endTime`), `SUMMARY` (`<CODE> Hash @ <venue>`),
+  **`DESCRIPTION` = `Hare(s): <names>`** (the existing `ICalAdapter`'s built-in
+  `/(?:^|\n)\s*Hare\(s\):\s*([^\n]+)/im` extractor fires with no config), and `LOCATION` = venue +
+  UK postcode. **No `GEO`** → geocode the postcode (no default-pin trap). **No run number in the iCal**
+  → `parseICalSummary` finds none and `merge.ts` can't synth `"… Trail #N"`; the SUMMARY becomes the
+  title (`"MH3 Hash @ <venue>"`). Config: `defaultKennelTag`, `upcomingOnly:true` (rolling window ages
+  out → suppress reconcile), `scrapeDays:90`. **Both config-only conditions met** (feed verified +
+  `ICalAdapter` exists) → no adapter code.
+- **Deep archive = paginated HTML tables at `/hashes/?year=YYYY`** (one page per year, e.g. 2003…2026,
+  ~52 rows each). Columns `# | Date | Venue | Hare(s) | Link | Notes`; dates `D Mon YYYY`
+  (non-zero-padded day, 3-letter month); the `#` column carries the run number the iCal lacks. This is
+  the backfill source → frozen-JSON one-shot (H7 pattern), strict `date < today` so it never overlaps
+  the live iCal forward rows. Skip non-numeric `#` rows (socials/TBC). **No time column and no coords
+  in the archive** → omit `startTime` on backfill rows (or use the standard ON time), geocode postcode.
+  Archive rows carry run numbers → their synthesized titles are clean (`"<Kennel> Trail #N"`), unlike
+  the iCal forward events.
+
+**Detection / handling shortcut:** when a hash-club site advertises an "Add to calendar (iCal)" link
+AND a separate "hashes"/"runs" archive listing, check the `.ics` first — if it's `text/calendar` with
+real VEVENTs, the forward feed is config-only ICAL_FEED regardless of the site's platform; harvest run
+numbers + history from the HTML archive via a one-shot backfill. The two surfaces disagree on which
+fields they carry (iCal: times/hares/venue, no run#; archive: run#/venue/hares, no times) — that's the
+normal shape, not a defect.
+
+---
+
+## Classic PHP table-layout hash-club site (learned from Wyre Forest H3, 2026-08-20, VERIFIED via browser fetch + DataTables API)
+
+`wyreforesthhh.org.uk` (Wyre Forest H3, Kidderminster, weekly Thursday, est. 2008) is an old-school
+hand-maintained **PHP site** (`index.php`, `Page_on-back.php`; no meta-generator, no wp-content). Two
+distinct run surfaces, each needs a different fetch treatment — confirmed against the real markup:
+
+- **Forward hareline = `index.php`, a plain SSR `<table>` (NO DataTables).** The **whole page** is a
+  layout `<table>`; the run rows are `<tr>` with 6 `<td>` `[Number, Date, Location, Postcode(<a>),
+  Hare(s), Notes]`. There is **no `<thead>`/`<th>`** — key run rows on `td[0]` matching `/^\d+$/` + the
+  expected column count, never on header text. Dates are `Dth Mon YYYY` (ordinal + abbreviated month,
+  **year-bearing** → strip ordinal + `chronoParseDate`, no inference). Postcode cell is a
+  `google.com/maps/dir/?destination=<postcode>` link (no coords → geocode postcode; no default-pin trap).
+  A blank Location/Postcode is a real "TBD" run — keep it, leave `location` undefined. `Notes` column
+  carries blurbs ("Annual birthday hash", "Retirement hash") — NOT clean themes → leave `title`
+  undefined (merge synthesizes), optionally route Notes → `description`. `fetchHTMLPage` works; small
+  rolling list → `config.upcomingOnly:true`.
+
+- **Archive = `Page_on-back.php`, a client-side jQuery DataTables initialized from a fully-SSR'd table.**
+  The DataTable init is `$('#runs').DataTable({paging,searching,ordering,pageLength:10})` with **NO ajax
+  source** — so all rows come from an HTML `<table>` that is **fully server-rendered in the raw response**
+  (Wyre Forest: 259 KB, 918 `<tr>` = 1 header + 917 data rows, 917 `data-order` attrs). Columns here are
+  `Number | Date | Location | Grid Ref | Hare(s)` (**5 cols, no Notes** — differs from the forward table).
+  🟢 **Each date `<td>` carries a clean ISO `data-order="YYYY-MM-DD"` attribute** (DataTables sort key) —
+  read THAT, not the visible ordinal text → zero date-inference. The "Grid Ref" column is **mixed**: old
+  runs use **OS 6-fig grid refs** (`SO744738`), newer runs use **UK postcodes** (`DY12 2AQ`) — don't feed
+  a grid ref to a postcode geocoder; leave coords undefined for those and let merge geocode the venue text.
+  → Backfill source: `fetchHTMLPage` + Cheerio over `#runs tbody tr`, freeze to `scripts/data/<code>-history.json`.
+
+- **🔴 The research sandbox's `web_fetch` returns an EMPTY/whitespace body for the DataTables archive page**
+  (its HTML→markdown converter chokes on the large in-page DataTables table) — a **false empty**. Do NOT
+  conclude "no archive / JS-rendered / needs browserRender" from that. Verify with a **same-origin
+  in-browser `fetch()` via Chrome MCP** (or trust that the DataTables `rows().data()` count in the live DOM
+  reflects the raw HTML) — Wyre Forest's `fetch()` returned the full 259 KB with all 918 `<tr>`. A
+  server-side `fetchHTMLPage` (raw fetch + Cheerio) gets the rows; only the sandbox tool stripped them.
+  🔴 **Getting the full row set out of the live DOM:** after DataTables inits, the DOM shows only
+  `pageLength` rows (the rest are held in DataTables' internal model), so `document.querySelectorAll('tr')`
+  under-counts — use the API `window.jQuery('#runs').DataTable().rows().data()` (and `.cell(i,1).node()`
+  for the `data-order` attr) to read all rows during research.
+
+**Effort:** NEW ~120–180 LoC bespoke Cheerio adapter (mirror `dublin-hash.ts` table plumbing +
+`burlington-hash.ts` field cleaning) + a frozen archive backfill (H7 pattern). Not config-only
+(`GenericHtmlAdapter` can't split a run row across the multi-`<td>` layout, and the two surfaces have
+different column sets). Logo is a stable own-domain asset (`SmallLogo.<ext>`) → still self-host +
+magic-byte the extension (don't assume `.gif`).
+
+---
+
+## Hand-maintained SSR HTML hash-table with the DATE cell as `<th scope="row">` (learned from N.E.W. Cotswold H3, 2026-08-21, VERIFIED via web_fetch + Chrome DOM read)
+
+`newch3.org.uk` (N.E.W. Cotswold H3, Cotswolds, biweekly Sunday, est. 2019) is the *cleanest* variant
+of the classic hand-maintained hash-club table — simpler than Wyre Forest (no DataTables, no PHP; both
+surfaces are plain fully-SSR `<table>`s, `fetchHTMLPage`-able / `web_fetch` returns them whole). Two
+surfaces, one column layout: forward `/` (upcoming runs) + `/past/` (full dated archive). Columns
+`Date | Run No. | Venue | Address | Hare(s)`.
+
+- **🔴 The DATE cell is a `<th scope="row">`, not a `<td>` — on BOTH tables.** Each row is
+  `<tr><th scope="row">30th August, 2026</th><td>183</td><td>Venue</td><td>Town, POSTCODE</td><td>Hares</td></tr>`.
+  An adapter that reads `$(tr).find("td")` gets **only 4 cells** and **silently drops every date** (the
+  scrape "succeeds" with dateless events). Iterate `$(tr).children()` (or a `th, td` selector) and index
+  cell[0]=date(`<th>`), cell[1]=run#, cell[2]=venue, cell[3]=address, cell[4]=hares. **This is the one
+  real gotcha** — put a `<th>`-date row in the test fixture + a regression assertion, or a `find("td")`
+  refactor reintroduces it. (My earlier `querySelectorAll('td')` DOM probe returned 4 cells and looked
+  like a "no dates" table — the dates were there, just in the `<th>`.)
+- **Dates are `Dth Month, YYYY`** (ordinal + full month + comma + year) — **year-bearing** → strip the
+  ordinal (`/(\d)(?:st|nd|rd|th)\b/→$1`), drop the comma, `chronoParseDate`, **NO inference**. Same
+  format on the archive → the frozen backfill needs no date guessing.
+- **No coords** — the Address `<td>` is `Town, POSTCODE` with a `maps.app.goo.gl` shortlink (no lat/lng)
+  → geocode the postcode; no default-pin trap. `TBD` venue rows are real future runs with a blank
+  venue/address → keep the run, leave `location` null (tri-state), don't synth.
+- **No per-event times / no theme titles** — fixed schedule time (11:00) → `startTime` from the kennel
+  default; leave `title` undefined → merge synthesizes "N.E.W. Cotswold H3 Trail #N".
+- **Forward table is a rolling window** (runs move to `/past` after they happen) → `config.upcomingOnly:true`
+  REQUIRED (else reconcile false-cancels aged-off archive rows) + a fail-loud `rows.length === 0` guard
+  (single page, no pagination, 0 baseline on a brand-new source).
+- **Archive `/past/` is the backfill source** — a single un-paginated page of all past runs, fully dated,
+  continuous into the forward table's run numbers → frozen ~N-row JSON + dumb loader (H7 pattern), strict
+  `date < today`. Founding date is Run #1 on `/past` (a reliable `foundedYear` signal).
+- **Logo** is a stable own-domain `og:image` (`/images/hare.png`) → still self-host + magic-byte the ext.
+  🔴 **Chrome MCP DOM probes get [BLOCKED: Cookie/query string data]** when the serialized output contains
+  the `maps.app.goo.gl/<token>` shortlinks — strip/neutralize hrefs and output text-only, or read the
+  table via `web_fetch` markdown instead.
+
+**Effort:** NEW ~100–160 LoC bespoke Cheerio adapter (mirror `dublin-hash.ts` + `burlington-hash.ts`) +
+a frozen archive backfill. Distinct from the Wyre Forest "Classic PHP table-layout" note above: no
+DataTables, no PHP, no OS-grid-ref column, and the `<th>`-date gotcha replaces the `data-order` one.
+
+## Self-hosted WordPress hash-club site with a custom public `.ics` feed → config-only ICAL_FEED (learned from Cheltenham & Cotswold H3 / C2H3, 2026-08-22, VERIFIED via web_fetch)
+
+Not every self-hosted WordPress hash site needs a bespoke scraper (contrast Donnington's per-year
+Pages, Bombay's content-block runs, Creek's `?cat=N` archive). Some ship a **custom-built public iCal
+feed at a bespoke path** — e.g. `c2h3.co.uk` serves `https://c2h3.co.uk/c2h3-calendar.ics`
+(`Content-Type: text/calendar` 200, `PRODID:-//C2H3//…`). When present, that's a **config-only
+ICAL_FEED** (`ICalAdapter`), no code. Checklist when you hit a WP hash site:
+
+- **Look for a calendar-subscribe link first.** The Upcoming Runs page here had a `webcal://…/…ics`
+  "Subscribe to Calendar" button — the fastest tell. `webcal://` → fetch as `https://`.
+- **The feed can be RICHER than a generic WP export.** This one carried per-VEVENT: `SUMMARY:Run
+  #NNNN — <Venue>`, `GEO:lat;lon` (real distinct per-run pins), `LOCATION` (venue+street+postcode),
+  `DTEND` (same-day, +2h), and `DESCRIPTION:Hare(s): …\n<notes>\nMap: …\n<detail-url>`. `ICalAdapter`
+  parses run# (`extractHashRunNumber`), hares (`HARE_PATTERNS`), venue, endTime, and GEO→`locationUrl`
+  (`/maps/search/?api=1&query=lat,lng`) → merge's `extractCoordsFromMapsUrl` **Pattern 4** all natively.
+- 🔴 **SUMMARY with an em-dash (`—`) and NO colon defeats `parseICalSummary`'s title regex** (it is
+  colon-anchored). Result: the adapter keeps the **full SUMMARY as the title** (`Run #2834 — Bredon
+  Cricket Club`). That's acceptable (source's own naming, run# included; Bicester precedent). Do NOT
+  reach for `titleStripPrefixAliases: ["Run"]` to "clean" it — it demotes venue-bearing titles to a
+  bare venue name (redundant with `location`) and leaves venue-less runs synthesizing, i.e. worse and
+  inconsistent.
+- 🔴 **The `.ics` can be FRESHER than the site's own HTML "Upcoming Runs" page.** Here the iCal had
+  already inserted a new run #2837 and renumbered the tail (`LAST-MODIFIED` timestamps prove it) while
+  the HTML page still showed the pre-renumber order (a stale render/cache). **The machine-readable feed
+  is canonical** — sample from the `.ics`, not the HTML page.
+- 🔴 **The WP `runs`/`events` custom-post REST endpoints are often auth-gated**
+  (`{"code":"rest_not_logged_in","status":401}`) even when the `.ics` is fully public. So "REST 401"
+  does NOT mean "no dynamic source" — the iCal is the source. It DOES usually mean **no deep backfill**
+  (the archive lives behind the Members Area); combined with a recently-rebuilt site (`wp-content/
+  uploads/2026/…`), treat as forward-only + `upcomingOnly:true`. The rolling `.ics` window here still
+  carried ~19 recent-past runs, giving the kennel page instant history for free on first scrape.
+- **Effort:** config-only — one `sources.ts` ICAL_FEED row (`defaultKennelTag` + `upcomingOnly:true` +
+  `scrapeDays` wide enough to catch the recent-past window, ~180). No adapter, no backfill script.
+
+---
+
+## Custom PHP hash-club site — JS-built hareline table from INLINE embedded data, no XHR (learned from H5 Hare & Hounds, 2026-08-23)
+
+`h5hashers.org.uk` (H5 Hare & Hounds, Bedfordshire, weekly-Sunday, since 1991) is a bespoke PHP/`.shtml`
+site whose **`hareline.php` "Receding Hareline" is JS-rendered** — a plain `web_fetch`/`curl` returns a
+shell ("Your browser does not appear to support JavaScript"). Key finding, confirmed via Chrome MCP
+`read_network_requests`:
+
+- **The runs data is EMBEDDED INLINE in the `hareline.php` HTML** (an inline `<script>`, ~2 KB) and a
+  static asset `includes/futureBuildTable.js` renders it into `<table id="fTable">` (columns:
+  Number, Date, Hares, Town, Pub, Postcode, Maplink). **NO data XHR is made** (only the `.js` + images
+  load). So `fetchHTMLPage` (raw HTML) DOES contain the data — the text-extractor just drops the
+  `<script>`. Two adapter paths: (1) **static** — locate the inline `<script>` (`colHeads = [...]` +
+  run objects) and parse it; 🔴 the run objects are **JS object literals with UNQUOTED keys**
+  (`date:`/`town:`/`pub:`/`postcode:`) → NOT valid JSON, don't `JSON.parse`; do tolerant field
+  extraction. (2) **`browserRender`** reading `table#fTable` (northboro pattern) — simplest/robust,
+  and the only way to get the *rendered* rows if a server-side fetch is ever served the shell.
+- **Homepage (`index.shtml`) SSRs the CURRENT run** ("Next Hash" block) as plain text — a reliable
+  fallback for the single next run even without JS.
+- **Dates are year-bearing** (`"Sun 23 Aug 26"` = weekday D Mon YY) → NO year inference.
+- **Sub-letter run numbers** (`1862A`/`1862B` — Away Hash vs local, same date) → base integer
+  `runNumber` + `eventLabel` (Mijas pattern); dropping the suffix collapses both rows in the merge.
+- **`Hares` column carries non-hare NOTES on TBC rows** (`Hares Needed`, `Away Hash`, `35 Year
+  Anniversary`, `AGM`, `4pm BH Run`) — skip as hares AND as titles (leave both undefined → merge
+  synthesizes `Trail #N`). Anniversary-run rows are a reliable `foundedYear` signal ("35 Year
+  Anniversary" on the 2026 hareline → founded 1991).
+- **Maplinks are streetmap.co.uk `map.srf?X=<easting>&Y=<northing>` = OS National Grid, NOT lat/lng**
+  → `extractCoordsFromMapsUrl` won't parse them; leave coords undefined, geocode the postcode. No
+  default-pin trap.
+- **Archive = "The Words" newsletter pages** (`words/archiveIndex.shtml`, run #1 1991 → present, ~80%
+  coverage, prose) — NOT cleanly machine-readable → forward-only adapter + `upcomingOnly:true`, no
+  backfill. A "Search in Previous Runs" box hints at a structured backend run DB (optional build-time
+  probe for deeper history — don't block the onboard on it).
+- **Chrome MCP `read_network_requests` is the fast way to prove "inline data vs XHR"** on any
+  JS-rendered hareline: if the only same-origin requests are the builder `.js` + images (no
+  JSON/`?ajax` call), the data is embedded inline and a static fetch suffices.
+
+---
+
+## UK county hash: empty website hareline + embedded Google Doc, but the kennel logs to Harrier Central (Yorkshire H3, 2026-08-26)
+
+Observed on Yorkshire Hash House Harriers (`yorkshirehash.net`, a Google Sites site). The pattern recurs
+on hand-maintained UK club sites and is a **trap**: the obvious "scrape the website hareline" plan is the
+wrong source; the config-only Harrier Central feed is the right one.
+
+- **The website hareline is a shell.** The "Home/Hairline" page rendered **242 chars of nav-only text**
+  (`document.body.innerText`), **0 `<table>`, 0 `<img>`**. The actual run list lives on a `/complete_<year>`
+  sub-page whose only real content is an **embedded published Google Doc** via
+  `<iframe src="docs.google.com/document/d/e/<pubId>/pub?embedded=true">`. Fetch the doc's `…/pub` URL
+  directly for the text.
+- **That Google Doc is a poor structured source.** It's a free-form 3-column prose table
+  (`Date & Time | Event | Details`) that **mixes multiple kennels** (YH3 + SH4 + PUPS + Hash Walks),
+  carries **no run numbers**, and uses ambiguous month/day dates (`"Jan 11"`, glued `"Jan18"`, bare
+  month headers). Parsing it = a bespoke multi-kennel adapter with routing + heavy date normalization.
+  Do NOT reach for it when a cleaner source exists.
+- **Check Harrier Central first.** Sweep `hashruns.org/api/global-runs?isFuture=1` (public HC mirror, no
+  token, works from Chrome) for the kennel's shortName. If it's there, it's **config-only HARRIER_CENTRAL**
+  — clean structured events (date, time, hares, price, sometimes venue). This is the ONE clean feed even
+  when the club's own site is a shell.
+- **`hashruns.org/api/global-runs` is the token-free way to verify + backfill any HC kennel.**
+  `?isFuture=1` = upcoming (single global list, filter by `PublicKennelId`/`KennelShortName`);
+  `?isFuture=0&minEventDate=YYYY-MM-DD&maxEventDate=YYYY-MM-DD` = past runs (min/max **required**, else
+  HTTP 400 `"minEventDate and maxEventDate are required for past runs"`). The token-authed `getEvents`
+  POST that `HarrierCentralAdapter` actually calls is upcoming-only — verify the adapter separately at
+  build; the mirror is enough to confirm the kennel is live + capture the sample.
+- 🔴 **HC user-entered data can be messy per-kennel** (independent of platform): non-monotonic AND
+  **duplicated** EventNumbers (Yorkshire reused `#2195` for both an Aug-2026 run and its Jan-2027 upcoming)
+  → `config.suppressRunNumber:true`; the `hares` field sometimes carries a **location** (`"Near Leeds"`)
+  the adapter's location-bleed guards miss when no venue is set; EventNames sometimes carry the full
+  pasted hareline → rely on `defaultTitle` synthesis, not the raw name.
+- **`config.upcomingOnly:true` is required** for HC sources (the getEvents feed ages events off after they
+  pass; without it `reconcile.ts` CANCELs any backfilled past rows — the "Bandung contract").
+
+## "kbean" / Kerribean-Design PHP hash sites (Jamaica H3, 2026-08-28)
+
+Some long-running kennels run a bespoke PHP hash-management app under a `/kbean/` path (built by
+"Kerribean Design"; Jamaica H3 = `jah3.com/kbean/hareline.php`). Pattern (VERIFIED for JAH3; treat
+as UNVERIFIED for other tenants until confirmed at build):
+
+- **SSR, not JS.** A raw `fetch()` of `hareline.php` returns the fully-rendered HTML (both tables
+  inline, ~113 KB for JAH3) — use static `fetchHTMLPage` + Cheerio, NOT browserRender. (A "loading"
+  heading can appear in the visible text but the data is already server-rendered.)
+- **Two `<table class="hareline">` on one page.** Table 0 = **upcoming "Hare Line"** (often just a
+  sentinel row *"Sorry, nothing in the calendar yet."* — the next run is posted only ~6 days prior);
+  Table 1 = **"Receding Hare Line"**, the **complete run archive** (JAH3: 534 rows, #001 1998 →
+  present). Both share the header `Run | Date | Location | Hares`. → parse Table 0 for forward events
+  (adapter, `upcomingOnly:true`), Table 1 for a one-shot frozen backfill.
+- **Fail-loud only when BOTH tables are missing** — an empty *forward* table with the archive present
+  is the normal between-postings state, not a scrape failure.
+- Date format `"Weekday, D Mon, YYYY"` (4-digit year, occasional single-digit day) → `chronoParseDate`.
+  Location cells may be prefixed `*** CANCELLED ***` → skip. No coords / no start times in the table
+  (JAH3 start time is "up to the hare"); geocode from the free-text Location, fall back to the city
+  centroid. Per-run detail pages exist at `/kbean/runtemplate.php?runnum=N` (enrichment only, not needed).
+
+#### Larnaca H3 addenda (researched 2026-08-29) — Google Sites `view/...` with a NEXT-RUN page carrying BOTH a current-run block AND a "Future Hares" forward list
+
+`sites.google.com/view/larnaca-hash-house-harriers` (Larnaca H3, Cyprus, founded 1987) is a `view/` Google
+Sites variant (like Larnaca; distinct from Manila's `sites.google.com/site/...` and NH4's custom domain).
+Fully SSR'd — `web_fetch`/`fetchHTMLPage` returns everything; no browserRender.
+
+- **The `/next-run` page is a DUAL surface on ONE page:** (1) a labeled current-run detail block
+  (`RUN NUMBER:` / `HARES:` / `LOCATION:` / `ON ON:` / `DATE:` / `TIME:` / directions + a Google Maps
+  embed `q=<lat>,<lng>` pin + a `what3words` token), AND (2) a **"Future Hares:-" forward list** of ~15
+  runs (`<runNo>  <Dth Mon YY>  <hares>  <location>  <on-on>`). Parse the forward list as the primary event
+  set; enrich the first row (the current run) from the detail block. This is richer than Manila (single
+  current run) — you get a real forward hareline.
+- **The forward list is tab/whitespace-delimited text** (renders with large gaps in `web_fetch`), very likely
+  a single content block like Auckland's Rocketspark Draft.js list — **NOT** a `<table>`. ⚠️ Confirm the real
+  delimiter in-DOM at build and split on `\t` / collapsed whitespace.
+- **Dates are year-bearing** — forward list `31st Aug 26` (ordinal + abbreviated month + **2-digit** year;
+  the month uses the British **"Sept"** 4-letter form — the month `Map` must contain "Sept" as well as "Sep");
+  detail block `31st August 2026` (full). NO year inference (`+2000` on the 2-digit year).
+- **Coords:** only the current run has a real RV pin (Maps embed `q=`); all forward rows are "TBA" → single
+  real pin, **no default-pin trap**. Others: undefined → merge geocodes the town / metro centroid.
+- **Metadata lives on `/the-larnaca-hash` (the About page), not the empty `/larnaca-hash` child** — founded year,
+  weekly-Monday, seasonal start times (winter 16:00 / spring-autumn 17:00 / summer 18:00), hash cash, walkers-welcome
+  all in one prose block. **`/previous-hash-details` is empty → no reachable archive → future-only, no backfill.**
+- **Committee page (`/mismanagement`) is PII** (personal emails + phone) — never seed it.
+- **`sitesv` og:image logo** — tokenized/rotating; try a `Referer: https://sites.google.com/` curl first (Manila
+  precedent), else Chrome-grab; self-host + magic-byte the ext.
+- **Cyprus is a dense hash scene** — Larnaca's "Links to other Cyprus hashes" page lists 7 siblings (Amathus,
+  Dhekelia, Nicosia Horrible, Episkopi, Happy Valley, Kition, Polygon), each on its OWN separate site → future
+  targets, not co-hosted.
+
+---
+
+## Self-hosted WordPress + Elementor — "Next Run Location" two-column block, data in a PAGE not posts (learned from Dhekelia H3, Cyprus, 2026-08-30)
+
+**Detection:** `<meta name="generator" content="Site Kit by Google …">` (often) + Astra theme +
+`elementor-*` class soup. The runs are NOT in `posts` — `/wp-json/wp/v2/posts?per_page=8` returns `[]`.
+They live in the rendered content of a single **page** (Dhekelia: `/info/`, page id 511).
+
+**The clean fetch path is the WP REST *page* endpoint, not HTML scraping:**
+`GET /wp-json/wp/v2/pages?slug=<slug>` → `[{ content: { rendered }, modified, _links }]`.
+- `content.rendered` = the exact Elementor markup (parse with Cheerio).
+- `modified` = last-edit timestamp → a **staleness / recently-active** signal (Dhekelia: `2026-08-24`,
+  6 days before research).
+- `_links["version-history"][0].count` = revision count → **maintenance-frequency** signal. Dhekelia's
+  page had **960 revisions** since 2021-01 ⇒ hand-edited ~weekly ⇒ strong recently-active evidence even
+  with **0 upcoming** and only the single current run visible.
+
+**The "Next Run Location" block is TWO 50% Elementor columns (labels | values), positionally paired.**
+VERIFIED against Dhekelia's real `content.rendered` (not speculation):
+- Column A = `div.elementor-widget-text-editor` with `<p>Hash Number:</p><p>Date:</p><p>Time:</p><p>Hares:</p><p>Location:</p><p>Directions:</p>`
+- Column B = a second `text-editor` widget whose `<p>` children carry the VALUES in the same order,
+  then extra `<p>` for multi-paragraph directions + a trailing signature (`""`, a bare first name,
+  `On On`). Values had MORE `<p>` than labels.
+- Parse: locate `h2:contains("Next Run Location")`, take the two `.elementor-widget-text-editor` under
+  it, read column B's `<p>` list positionally (idx 0–4 = number/date/time/hares/location; 5+ =
+  directions). Verify column A's first `<p>` starts with `Hash Number` (Elementor `data-id` hashes
+  rotate — content-key, never selector-key) and **fail loud** if it doesn't.
+- Dates are British **`D/M/YYYY`** (`26/8/2026`) — day-first, split on `/`, build `Date.UTC(y,m-1,d,12)`.
+  Times are `HH.MM` (`18.00`) — `.replace(".",":")`.
+- Only the current run is exposed (overwritten weekly) → `config.upcomingOnly: true` + a fail-loud
+  zero guard; **no on-page archive/backfill** (page **revisions** endpoint `/wp-json/wp/v2/pages/<id>/revisions`
+  holds the weekly history but is **auth-gated** — returned empty to an unauthenticated fetch).
+
+## Carrd landing page + public Google Sheet hareline (Bucharest H3, 2026-08-31)
+
+**Pattern:** a tiny [Carrd](https://carrd.co) one-page site (`<kennel>.carrd.co`) whose "See our
+Hare Line" link points at a **public Google Sheet** — the sheet, not the Carrd, is the dynamic
+source. Carrd itself is static marketing copy + photos + social links (WhatsApp/FB/IG); do NOT treat
+it as the source. Confirm the sheet is world-readable via the anonymous CSV export
+(`…/export?format=csv&gid=<gid>` with `credentials:'omit'` → HTTP 200 `text/csv`) and/or gviz
+(`…/gviz/tq?tqx=out:json&gid=<gid>`).
+
+**Why it's usually NOT config-only** (two blockers seen on Bucharest's sheet — verify per sheet):
+1. **British `D/M/YYYY` dates.** The shared `GoogleSheetsAdapter.parseDate` assumes **month-first**
+   for slash dates, so `20/09/2026` (month=20) is dropped and `5/3/2023` is silently swapped. A
+   day-first parser is required. Real cells also carry variants: dot separators (`23.10.2026`),
+   trailing text (`18/05/2024 Hash Home Brew Fest`, `17/5/25 - Homebrew Fest`, `(TBD)`), and date
+   **ranges** for away weekends (`25-27/10/2024 Transylvanian Hash` → take the first day).
+2. **Run-# prefix routing (multi-kennel, no Group column).** The sheet interleaves two kennels in the
+   Run # column by prefix — `#N` (the regular hash) and `FM#N` / `FM #N` (the Full Moon sister, its
+   own independent sequence). The stock adapter's `/^\d+$/` run test rejects the `#`/`FM#` prefixes,
+   and `groupFilter` only routes off a dedicated *column*, which these sheets lack. → bespoke adapter
+   that strips the prefix for `runNumber` and maps `FM#`→sister-kennel, `#`→primary.
+
+**Other observations:** the "Trail type and location" column mixes trail type (`A-A`/`A-B`), a venue
+(metro/park), AND theme text (`Frankenstein Day`, `Sturgeon Moon`) — map it to `location` (geocode
+with a city bias), never to `title` (leave title undefined → merge synthesizes). Start-time column is
+mostly blank → default by kennel/day (regular Sun 14:00, Full Moon Fri 19:00). Because the sheet keeps
+the entire archive on one always-present tab, a **wide `scrapeDays` + NO `upcomingOnly`** ingests past
++ future in one pass (Isca full-archive precedent) — no separate backfill script. Single-tab source →
+add a **fail-loud `events.length === 0` guard** so a layout change surfaces instead of silently
+cancelling.
+
+---
+
+## Joomla (Helix Ultimate template) — hareline article table (Nicosia H4, 2026-09-01)
+
+**What it is:** A self-hosted Joomla site (footprint: `meta[name=generator] = "Helix Ultimate …
+Joomla! Template Framework"`, URLs under `/index.php/<section>/<article>`). The forward hareline
+lives in a Joomla *article* at a stable path (Nicosia: `/index.php/hare-line/upcoming-hares`).
+
+**Fully SSR — static scrape, no browserRender.** A plain `web_fetch`/`fetchHTMLPage` (no JS) returns
+the complete run table. Confirmed on `nh4.com.cy`: Content-Type `text/html`, the `<table>` with all
+run rows is present in the initial HTML.
+
+**Structure (verify per site):** the run list is a **class-less `<table>`** (no `<thead>`, no header
+row — the first `<tr>` is already data) sitting inside the Joomla article body
+(`.article-details` / `.com-content-article__body`). Nicosia's is 3 columns:
+`run# (integer) | date (DD-Mon, NO year) | hares (often empty)`. Select the table **inside the
+article content**, not a nav/menu table — Joomla menus can also render as tables.
+
+**Gotchas:**
+- ⚠️ **Chrome's raw-HTML/`outerHTML` extraction gets filtered** ("[BLOCKED: Cookie/query string
+  data]") because Joomla markup carries session tokens / query-string form actions. Use
+  `get_page_text` (or a server-side `curl`/`fetchHTMLPage`) to read content, and **capture the test
+  fixture from a real fetch**, not a hand-typed guess.
+- **Dates often lack a year** (`25-Aug`) → infer current year + Dec→Jan rollover, store UTC noon.
+- **Archive is a separate messy section.** Nicosia's "Receding Hare Lines" links only years 2008–2015
+  as raw Joomla article IDs with an odd `/../nh4/` path prefix (clean paths 404), with a multi-year
+  gap to the current forward window → not a clean backfill source. Don't assume the archive is
+  continuous or reachable just because the forward table is.
+- **Per-run location/time/coords may be absent** (venues posted weekly to Facebook) → rely on the
+  kennel's fixed schedule for `startTime` and a city-centroid fallback for coords; don't synth venues.
+
+#### Muscateers H3 addenda (verified via real web_fetch, 2026-09-02) — WordPress.com "Receding Hareline" SSR `<table>` PAGE (REST gated)
+
+A fourth WordPress.com variant, distinct from ONH3 (REST-blog) and Hanoi (single-current-run page):
+the forward/history data lives in a **single WordPress.com _page_** rendered as a plain SSR `<table>`
+(`muscateersh3.com/mush3-meets/receding-hareline/`, columns `Date | Meet(run#) | Details(venue) | Hares`).
+- **REST is gated for pages** here: `wp-json/wp/v2/sites/<host>/pages/<id>` → empty, and
+  `rest/v1.1/sites/<host>/posts/slug:<slug>` → empty (it's a `page`, not a `post`). **Don't rely on REST** —
+  the rendered HTML page is fully SSR, so `fetchHTMLPage` + Cheerio on the page URL is the verified path.
+  (`rest/v1.1/sites/<host>/posts/<id>` by numeric id *might* return page content — the id + blog id are in the
+  page's "View post in Reader" link — but live-verify before trusting it.)
+- **"Receding hareline" = a PAST log** (newest-first, no future rows). It's a **full always-present archive**
+  (every run from #1 stays on the page), so treat it like Bucharest/Isca: **wide `scrapeDays`, NO `upcomingOnly`,
+  no separate backfill script** — one pass ingests everything; the newest completed run refreshes each scrape.
+  0 future rows is NOT a block — apply the Step 3 recently-active rule (last run within ~2× cadence).
+- **Dotted day-first dates** (`28.8.26`, `16.01.26`, `2.1.2026`) → build UTC noon directly, expand 2-digit years,
+  no chrono/regex. Watch for **year typos** revealed by run-number monotonicity (`5.6.25` should be `5.6.2026`).
+- **Blank-run# rows are real socials/specials** (title = the Details cell); **cancelled rows** ("Cancelled due to
+  weather") get skipped. No time/cost/coord columns → leave those undefined, city-centroid coord fallback.
+
+## The Events Calendar (Tribe) REST — abandoned-plugin staleness trap (learned from Bahrain H3, 2026-09-02, BLOCKED: stale)
+
+`meta-tec-api-origin` / `meta-generator: … The Events Calendar` in a WordPress site's `<head>` signals the Tribe
+plugin, whose events REST API is `wp-json/tribe/events/v1/events` (`?start_date=YYYY-MM-DD&per_page=N`). **But a
+site can keep the plugin installed long after it stopped entering events there.** Bahrain H3 (`bahrainhash.com`)
+returned `total:0` for upcoming, and only **6 events total** (all May–Jul 2024) with a past-inclusive query — the
+kennel migrated its forward hareline off the plugin to WhatsApp/Facebook and left a manually-edited Elementor
+"next run" block that was itself **8 months stale** (Jan-2026). **Verify recency with a wide past-inclusive query**
+(`start_date` a few years back) and read the newest `start_date` before trusting a Tribe feed — an empty upcoming
+list plus a tiny, old total = abandoned source (blocked: stale), not "0 upcoming but recently active". Empty
+hareline pages + a stale static "next run" block corroborate abandonment.
+
+## Bespoke PHP hash-club site — SSR forward "upcoming-runs" page + JS/DataTables archive (researched from Puerto Galera H3, 2026-10-16)
+
+**What it is:** A hand-built bespoke club site (`pgh3.org`, HostGator-hosted, custom template with sponsor
+footer + a `rego.<host>` registration subdomain — NOT Squarespace/Wix/WordPress/Joomla; no generator meta).
+The site splits forward vs archive across two pages with **different render strategies**, which is the key trap:
+
+- **Forward feed = `upcoming-runs.html` is FULLY SSR** → `fetchHTMLPage` + Cheerio works, no browserRender.
+  web_fetch returned the complete "Upcoming Regular Runs" list (5 weekly-Saturday runs with run #, departure
+  time, hares, location, comments, fees). This is the live adapter source.
+- **Archive = `run-list.html` is an EMPTY `<table>` in SSR** — rows are injected client-side by a DataTable
+  ("click on the table headers to sort columns"; meta "Runs since August 2008"). The ~1,900-run history is
+  **NOT in the static HTML** → you must find the DataTable's JSON/AJAX endpoint (browser DevTools / browserRender)
+  to backfill. The `hares.html` / `top-runners.html` stat pages are likely fed by the same backend endpoint.
+
+**⚠️ UNVERIFIED (confirm at implementation): exact DOM tags.** The forward-page structure below is from
+web_fetch's *rendered* text, not raw markup — capture real HTML (`fetchHTMLPage`/`curl`) for the fixture.
+Observed block shape (one per run, under a "REGULAR RUNS" section): a **date heading** ("Saturday October 17th",
+**NO YEAR**) → "**Run** NNNN" → "**Departure:** H:MM am/pm (sign-in closes…)" → "**Hare(s):** …" →
+"**Location:** …" → "**Comments:** …" → "**Fees:** normal fee".
+
+**Gotchas:**
+- **Year-less date headings** → infer year from a reference `now` (forward Saturdays; +1 across Dec→Jan). UTC noon.
+- **Seasonal default start time** stated in prose ("depart 3:00 pm Oct–Feb / 3:30 pm Mar–Sep") but the per-run
+  "Departure:" string is authoritative and overrides it.
+- **Tagalog placeholder hares** — `"Walang Hare!"` means "No Hare!" (no hare assigned). Treat as no-hare; don't let
+  it (or a "Comments" theme like "The Secret Hash!") become the event `title`.
+- **Scope to the REGULAR RUNS block.** The same page carries a men-only unnumbered "BLOOD RUN" (last Wed/month),
+  a suspended "HASH HIKE", a "2027 NASH HASH" blurb and a "SPECIAL RUNS: Watch this space…" placeholder — all of
+  which must be excluded or they leak as events.
+- **No per-event coords / informal venue names** ("Away", "Fug Nose") → city-centroid fallback; don't geocode or synth.
+- **Rolling forward window** (~5 runs) → source needs `config.upcomingOnly: true` (reconcile would false-cancel aged-off runs).
+- **No standalone logo** — the header is a rotating banner photo; self-host a real logo only if the favicon/FB
+  profile yields one (magic-byte ext), else leave blank. Don't treat the banner as a logo.
+
+## Self-hosted static-HTML single-next-run hareline + Apache `/Photos/` autoindex archive (learned from Athens H3, 2026-09-03)
+
+`athenshash.com` (Greece's oldest hash, founded 1978) is a classic hand-built static site (AI-generated
+button/hero art under `Images/AI_Images/`, http-only). Two useful surfaces:
+
+- **Forward source = a single "NEXT HASHING EVENT" block** at `Main_HTML/hareline.htm` (linked from
+  `Main_HTML/upcoming-links.htm` as "Upcoming Runs"). One run only, labeled lines: `Date:` (playful,
+  ordinal, **no year**, e.g. "Sunday 31st May – 11am-ish"), `Run:` ("2329-ish"), `Hare/s:`, `Venue:`,
+  `On Inn:`, `GPS:` (a real decimal lat/lng pair + DMS), `MAP LINK:` (`maps.app.goo.gl`). 🔑 **The block's
+  `<img src>` folder path encodes run# + date unambiguously** (`../Photos/R2329_260531_<Venue>/…` →
+  `R<run>_<YYMMDD>`) — parse that first; treat the "-ish"/ordinal text as a fallback. Single-block →
+  `config.upcomingOnly:true` + fail-loud zero guard (North Hants/Tamar/Warwick pattern).
+- **Backfill = the Apache `/Photos/` autoindex itself** (directory listing enabled). Every run has a folder
+  `R<run>_<YYMMDD>_<Venue-with-dashes>` (Athens: **915 folders, `R1161_000715` 2000 → `R2331_260614` 2026**;
+  runs #1–#1160 pre-2000 are not archived). The folder-name list IS a machine-readable run archive
+  (run# + date + venue; no hares/coords). 🔴 Variants: a **`ph<YYMMDD>_R<run>_…`** prefix form also occurs,
+  and **multi-part folders share one run#** (`R2327_…_Saturday-Run` + `_Walk`; `R1472_…-1` + `-2`; island
+  weekends) → match run#/date by token (not position) and **dedup by run#**. Dates are all `20YY` → build
+  UTC noon directly. Freeze the curated JSON + dumb loader (H7 pattern); don't commit the parser.
+
+- **`web_fetch` returns EMPTY on the hero/menu + run-map hareline pages** (no extractable innerText — the
+  content is images + short labeled lines the text-extractor collapses), but the pages ARE SSR and render
+  in a real browser. Use the in-app browser to read them at research time, and `fetchHTMLPage` (raw markup)
+  — NOT the text-extractor — in the adapter. Text-bearing pages (About, otherhhh) `web_fetch` fine.
+- **Seasonal kennel (documented summer break Jun–Aug)** → 0 upcoming in the off-season is expected; the
+  hareline lags on the last spring run until the autumn restart. Onboard on the Step 3 recently-active rule
+  using the `/Photos/` autoindex mtime + folder dates as the cadence evidence; the daily scrape picks up the
+  restart run automatically. UNVERIFIED-until-build: the exact autumn hareline layout may differ slightly —
+  Claude Code confirms the live DOM.
+
+---
+
+## Self-hosted WordPress "umbrella" — multiple single-current-run PAGES via WP REST `pages/<id>`, one page per sibling kennel (Laos HHH / hashlaos.com, 2026-09-04)
+
+`hashlaos.com` (**WordPress 6.9.7**, Spacious theme) is the umbrella for **three Vientiane kennels** — VH3
+(Monday Town Hash), VBH3 (Saturday Bush Hash), and the Monthly Bicycle Hash. Distinct from the Bombay H3 shape
+(*several* runs stacked on ONE page) and the Hanoi/Manila shape (ONE kennel on ONE page): here there is **one
+WP `page` per kennel, each carrying that kennel's single current run**, hand-overwritten weekly.
+
+- **Runs are in PAGES, not posts.** `wp/v2/posts` holds a single static "About VH3" blurb (id 2430). The run
+  data lives in three pages, each fetchable **without auth** via plain `web_fetch`:
+  `GET /wp-json/wp/v2/pages/<id>?_fields=content,modified` → `content.rendered` HTML + a `modified` timestamp.
+  Page ids: 78 (`monday-map` → VH3), 22 (`saturday-bush-hash` → VBH3), 26 (`monthly-bicycle-hash` → Bicycle).
+  The same blocks SSR at the page URLs (`/monday-map/` etc.) as a fallback if an id ever changes; the page
+  **slug** is a stable alternate (`/wp-json/wp/v2/pages?slug=<slug>`).
+- **`modified` + revision count = the recently-active signal.** All three pages showed `modified` = the prior
+  day with 200–700 revisions each (weekly overwrite). For a single-current-run block this is the reliable
+  liveness proof — treat it like Dhekelia's `modified`/revision-count evidence.
+- **Adapter is config-driven page→kennel routing** (one adapter, one Source row, `kennelCodes: [all three]`):
+  `config.pages = [{ pageId, slug, kennelCode, defaultStartTime, hasRunNumber }]`. This satisfies the
+  sibling-sweep rule (don't ship a source that quietly carries siblings) in a single handoff.
+- **Facebook copy-paste soup in the markup.** Page 78's `content.rendered` is wrapped in nested Draft.js /
+  Facebook divs (`_2cuy _3dgx`, `kvgmc6g5 cxmmr5t8 …`) but the run data is in clean `<p>` tags inside — a
+  Cheerio `.root().text()` collapse extracts it fine; **do not** try to key on the FB class names.
+- **Dates: NO year + a Laos `##` quirk.** Blocks read `"Saturday 05# September"`, `"27 # SEPTEMBER"`,
+  `"the 7th of September"`. Normalize `#`→space, extract day+month (loose regex + chrono/month-map to dodge
+  S5843), **infer the year with Dec→Jan rollover**, UTC noon.
+- **Start times are am/pm-ambiguous.** VH3's `"A2A 5:30 departure"` has no am/pm and is really 17:30 → use a
+  per-kennel config default (VH3 17:30 / VBH3 17:00 / Bicycle 09:30) and only trust an explicit am/pm time.
+- **Hares tri-state.** `"X is the Hare"` / `"hare is X"`; `"????"` / `"we need a hare"` → `null` (clear);
+  label absent → `undefined`.
+- **Coords: at most one page has a Maps link** (VH3's `maps.app.goo.gl` **shortlink**) → best-effort resolve
+  the redirect, else geocode the venue text / metro centroid. No repeated default pin → no default-pin trap.
+- **No archive → `config.upcomingOnly: true` + zero-row fail-loud guard.** Pages hold only the current run
+  (overwritten weekly → past runs age off → reconcile would false-cancel); revisions are WP-default
+  auth-gated → no backfill. A brand-new source's health baseline is 0, so `if (events.length===0) errors.push(...)`.
+- **PII:** GM emails + mobile numbers appear in the blocks — read run fields only, strip contacts.
+- Reference adapters: `bombay-hash.ts` (WP page content, upcomingOnly, per-run + zero-row fail-loud),
+  `hanoi-h3.ts` (single-current-run WP page). UNVERIFIED-until-build: exact block phrasing may drift week to
+  week — Claude Code confirms the live `content.rendered` at implementation time.
+
+## Self-hosted WordPress — hand-maintained forward schedule `<table>` PAGE, blog/REST posts dead (learned from Grenada H3, 2026-09-06)
+
+A distinct self-hosted-WordPress shape (vs the Creek H3 flexslider "This Week's Meet Point" and the Laos
+per-page-per-kennel patterns above): the **blog is dead** (Grenada's `/wp-json/wp/v2/posts` "Hash Diary"
+category has only ~8 recap posts, newest 2019-03), but the club keeps a **static WordPress *page* with a
+forward schedule `<table>`** that is edited in place. Two surfaces:
+
+- **`/schedule/`** — a plain WordPress content `<table>` (cols `Date | Hash No | Hares | Location | Extra Info`)
+  listing ~6 months of forward runs (Grenada: 29 rows, #1414 → #1442, weekly Saturday). This is the canonical
+  **forward feed** — scrape it.
+- **`/next-hash/`** — a single-run **detail page** (venue, Google Maps shortlink, arrive/On-On time, food,
+  drinks, hares, hash cash) for the *imminent* run only.
+
+Gotchas:
+- **The pages are current even though the blog is dead.** Prove liveness via `article:modified_time` in the
+  page `<head>` (Grenada `/schedule/` = 2026-07-25, `/next-hash/` = 2026-08-31), NOT the blog `article:modified`
+  (2019). Do **NOT** conclude "stale" from the dead blog archive or the `Archives` widget's last month.
+- **Scrape the page HTML, not WP REST.** The runs are in page markup, not `posts`/`pages` REST JSON worth
+  parsing — `fetchHTMLPage` + Cheerio over the `<table>` is the path.
+- **Schedule table = tentative PLAN; next-hash = confirmed for the imminent run.** They can disagree on
+  hares/venue for the same run# (Grenada #1415: table "Frank / Mt Airy" vs next-hash "Bloody Mary & Rum Runner
+  / Ahoma"). Prefer the schedule table as the single canonical feed (all forward runs, self-corrects on each
+  scrape); treat next-hash as **optional** enrichment for the one imminent run (match by run#) — don't dual-emit.
+- **`config.upcomingOnly: true` REQUIRED** — the schedule table is a rolling window (past rows drop off) →
+  reconcile would false-cancel. Plus a **`rows.length === 0` fail-loud guard** (single-page/single-table; a
+  brand-new source's health baseline is 0, so a markup drift must surface as an error, not `events: []`).
+- **Dates are `DD Mon YYYY` (year-bearing)** → `chronoParseDate` → UTC noon; no year inference needed.
+- **`Extra Info` column** carries event themes ("Halloween Hash", "Red Dress Hash", "Carriacou Hash") → map to
+  `description`, NOT `title` (leave title undefined → `merge.ts` synth).
+- **Blank/`TBA` cells** (Grenada had `location: "TBA"` and 2 fully-blank future rows) → `undefined`, don't synth.
+- **No coords in the table** (place-name venues only) → kennel centroid fallback; only the next-hash page has a
+  Maps shortlink (1 pin, no default-pin trap). http-only WP asset URLs → Sonar S5332 (mark the 2–3 real literals SAFE).
+- Reference adapters: `dublin-hash.ts` (thin table parse), `burlington-hash.ts` (Sonar-safe terminators),
+  `nswhhh.ts` (cell cleaning). UNVERIFIED-until-build: web_fetch returns rendered markdown, so the exact
+  `<table>` markup (thead/tbody, td count) must be captured live before writing the fixture.
+
+## Self-hosted static-HTML "Upcoming Runs" page + JS-populated stats archive (Puerto Galera H3, `pgh3.org`, 2026-09-08)
+
+A hand-rolled static HTML site (HostGator-hosted; multi-page, header/footer template) where the **forward
+hareline is fully server-rendered** but the **statistics/archive pages are JavaScript-populated**. Two distinct
+behaviours on the same site:
+- **`/upcoming-runs.html` (and `/index.html`) are SSR** — a plain `fetchHTMLPage`/`web_fetch` returns the full
+  forward run list. Each run is a `Saturday <Month> <Dayordinal>` heading (NO year) followed by labeled lines
+  `Run <N>` / `Departure: <H:MM am/pm>` / `Hare(s): <…>` / `Location: <…>` / `Comments: <…>` / `Fees: <…>`.
+  This is the adapter's forward source (`config.upcomingOnly: true` — rolling window; + `rows.length === 0`
+  fail-loud guard).
+- **`/run-list.html` is a JS-populated `<table>`** ("Runs since August 2008") — SSR returns the header row and
+  an **empty tbody**; a plain fetch sees no rows. `/run-list.json` at the obvious path is empty/404. For a
+  backfill you must inspect the page's `<script>` for the real data URL (a `.json`/`.js` array or a per-run
+  detail endpoint) or use browserRender. **Do not conclude "no history" from the empty SSR table** — the
+  archive exists, it's just client-rendered.
+- 🔴 **Tagalog / joke placeholders** (Philippine hashes especially): `"Walang Hare!"` = Tagalog for **"No
+  Hare!"** (hare not yet assigned) — map to **no hares**, never emit as a hare name. Placeholder locations
+  like `"Fug Nose"`, `"Away"`, `"TBA"` (recurring gags — "The Secret Hash!") → pass through verbatim or
+  `locationOmitIfMatches`; never synthesize a venue or let them become the title.
+- Dates NO year → strip ordinal suffix, infer year (Dec→Jan rollover), UTC noon; startTime from the per-run
+  "Departure" line (seasonal 2:30/3:00pm handled automatically because it's read per-run, not from the flat
+  schedule). Reference adapters: `dublin-hash.ts`, `burlington-hash.ts`, plus the Athens/Nicosia/Grenada
+  single-page current-run parsers. UNVERIFIED-until-build: capture the real `upcoming-runs.html` DOM
+  (`curl -s`) before writing the fixture — web_fetch returned rendered markdown, so heading level and
+  `<strong>`/`<br>` delimiting of the labeled lines are unconfirmed.
+
+#### City of Exeter H3 addenda (researched 2026-09-09) — Blogspot RECAP blog whose FORWARD source is an embedded Google Calendar
+
+A common UK pattern: the Blogspot is a **recap** blog (posts appear day-of/after each run, so it is
+never a source of *upcoming* runs), but the club maintains its schedule on a **Google Calendar
+embedded on a "Upcoming hashes" / "Hash diary" page**. This makes the onboarding the ONH3 split:
+**config-only GOOGLE_CALENDAR for the forward hareline + a one-shot Blogspot backfill for history** —
+NOT a bespoke Blogspot adapter (unless the GCal turns out empty at build).
+- **Find the calendar id in the embed URL:** the "Upcoming hashes" page embeds
+  `calendar.google.com/calendar/embed?...&src=<BASE64>&ctz=Europe/London`. The `src=` value is the
+  **base64 of the calendar id** (an email). e.g. `Y2l0eW9mZXhldGVyaDNAZ21haWwuY29t` → decode →
+  `cityofexeterh3@gmail.com`. Put that email in the GCal source `url` (mirror the EWH3 row shape).
+- **🔴 The public `.ics` (`/calendar/ical/<id>/public/basic.ics` or `/full.ics`) returns an EMPTY
+  body via the research sandbox's `web_fetch`** (machine-readable calendar bodies are stripped here —
+  same class as the allowlist `.ics`/JSON limitation). This is NOT evidence the calendar is empty →
+  flag `⚠️ Claude Code must confirm at build` (API v3 with the key, or the ICS), don't block. The
+  *embed's existence* + a currently-edited recap blog is sufficient liveness evidence to hand off.
+- **Recap-blog recency nuance:** the newest recap can lag the actual runs by weeks (volunteer scribe /
+  summer lull). Judge liveness from the embedded forward GCal + the blog `feed.updated` + the newest
+  post's "next week we're at…" line, not from the recap date alone. Confirm the GCal at build.
+- **Backfill format drift (City of Exeter, 2008→2026, ~1,079 posts):** title format CHANGED over the
+  archive — recent `#<run> <Location> - <Hares> - <DD Month YYYY>` (run# + year present) vs pre-2010
+  `<Dordinal> <Month> - <Location> - <Hares>` (NO run#, NO year → take year from `published`). The feed
+  also carries **non-run noise** (announcements, YouTube links, "Autumn Gathering", "THIS SUNDAY…"
+  reminders) that must be filtered, and `published` ≠ run date (write-ups post days late; same-day
+  double-posts happen). Parse the run date from the title; leave `runNumber` undefined for the
+  pre-numbering era. Reference: OFH3 / Brasília Blogspot adapters + `fetchBloggerPosts`.
+
+## WordPress.com free site — Jetpack "Upcoming Events" widget as the forward hareline (learned from Cebu H3, 2026-09-10)
+
+Some hash clubs on **WordPress.com-hosted free sites** (`*.wordpress.com`, `meta-generator: WordPress.com`)
+publish their forward schedule through the built-in **Jetpack "Upcoming Events" widget** rather than a
+blog, a table, or an events plugin (free WordPress.com can't run arbitrary plugins). The widget renders
+**server-side** into every page's sidebar/footer as a list of events, so a plain `fetchHTMLPage` +
+Cheerio scrape works (NO browserRender). Reference: Cebu H3 (`cebuhash.wordpress.com`), an active weekly-
+Sunday kennel whose homepage "Upcumming Events" block listed `Hash #` 13/20/27 Sep 2026.
+
+**Structure (Jetpack widget convention — ⚠️ confirm the real markup before writing the parser):**
+- A `ul.upcoming-events` with one `li` per event; children typically `span.upcoming-event-title`,
+  `span.upcoming-event-date`, and (for timed events only) `span.upcoming-event-time` /
+  `span.upcoming-event-location` / `span.upcoming-event-summary`.
+- `web_fetch` renders the widget as a flat markdown list, so the exact tag/class structure is
+  **UNVERIFIED from the sandbox** — `curl -s <site> | grep -i upcoming` at build and pin the fixture
+  to the real DOM (per the platform-notes UNVERIFIED rule).
+
+**The widget is iCal-backed but the iCal URL is NOT exposed.** Jetpack's "Upcoming Events" widget reads
+a public iCalendar feed configured in **widget settings**, which do not appear anywhere in the page
+HTML. So you generally **cannot** turn this into a config-only ICAL_FEED without admin access — treat a
+bespoke SSR scrape of the rendered widget as the default. (If a club *also* publishes the same Google
+Calendar/iCal publicly elsewhere, prefer config-only ICAL_FEED — but don't assume it's discoverable.)
+
+**Data richness is often thin — recurring "placeholder" run entries + detailed special events in the
+same list.** The widget mixes two VEVENT shapes:
+- **All-day placeholder runs** — e.g. `Hash #` with a **date only** (no run number, hares, venue or
+  time; those details are posted to the club's Facebook group, not the site). These are the actual
+  trails → emit date + synth title (`merge.ts` → `"<Kennel> Trail"`, no `#N` since there's no run #),
+  no coords → kennel centroid fallback.
+- **Timed special events** — committee/"Mismanagement" meetings, AGMs, socials — carry a time range +
+  venue + summary. These are **NOT runs** → the adapter MUST **filter them out** (match the run title,
+  e.g. `/^Hash\b/`, and drop everything else). A mis-filter ships a Friday committee meeting as a trail.
+
+**Handling:** dates are year-bearing (`"13th Sep 2026"`) → strip the ordinal (`st|nd|rd|th`) and hand to
+`chronoParseDate` → UTC noon. `config.upcomingOnly: true` REQUIRED (rolling forward window ages events
+off; without it `reconcile.ts` false-CANCELs them). Single-widget source → **fail-loud
+`rows.length === 0` guard** (a widget re-skin/removal otherwise "succeeds" with `events: []`/`errors:[]`
+and the zero-event alert never fires for a baseline-0 new source). NB the "Hash Stats" page on such
+sites is usually **published Google Sheets of hasher A–Z / attendance lists** (`/pubhtml?gid=N`), NOT a
+dated run log — not a backfill source. Reference: Cebu H3 handoff `handoffs/2026-09-10-cebu-h3.md`;
+mirror `muscateers` (WordPress.com SSR) + `dublin-hash.ts` for the parser shape.
+
+---
+
+## WordPress + "The Events Calendar" plugin (Tribe REST / iCal) — config-ish forward source (UNVERIFIED end-to-end — no live onboard yet)
+
+Discovered on `bahrainhash.com` (2026-09-12 discovery pass; the kennel itself was BLOCKED-stale, so
+this pattern has NOT yet been used in a shipped adapter — treat as a lead, confirm at build).
+
+Many WordPress hash sites run the **"The Events Calendar" (Modern Tribe)** plugin. Tells in the page
+`<head>`: `meta-tec-api-origin` / `meta-tec-api-version` (and often `et-api-*` from Event Tickets).
+When present, the site exposes a **public REST endpoint** that is far cleaner than scraping the
+JS-rendered calendar/hareline widgets:
+
+- **REST:** `https://<host>/wp-json/tribe/events/v1/events?per_page=N&start_date=YYYY-MM-DD 00:00:00&end_date=YYYY-MM-DD 23:59:59`
+  - Returns `{"events":[…],"total":N,"total_pages":N}`. Each event carries `title`, `start_date`
+    (local) + `utc_start_date` + `timezone` (e.g. `Asia/Bahrain`), `end_date`, `venue` (name/city/
+    country/address), `organizer[]` (often the **hares**, e.g. `"Spanks The Turkey + Just Ben"`),
+    `cost`, `url`. Run number is usually only in the `title` (`"BH3 #2770 – Memorial Day"`).
+  - **Default filter is future + `status=publish`.** To sample history, pass a past `start_date`.
+  - **Empty result is authoritative 0-events evidence** (`{"events":[],"total":0}`) — capture it verbatim
+    for a "stale/0-upcoming" claim.
+- **iCal:** The Events Calendar also serves `https://<host>/events/?ical=1` (all) and per-view/per-category
+  iCal — if populated, that's a config-only `ICAL_FEED` path (HEAD-check `content-type: text/calendar`).
+
+**🔴 The plugin being installed does NOT mean the calendar is maintained.** On `bahrainhash.com` the
+Tribe REST worked but held only **6 events, all May–Jul 2024** (0 upcoming); the club had moved live
+scheduling to WhatsApp/FB while the WordPress **homepage next-run block (Elementor)** was hand-edited
+to a later run and the `/hareline/` page auto-touched its `modified_time` — i.e. a cosmetically-fresh
+`article:modified_time` on a hareline page can hide a dead event pipeline. **Always confirm recency via
+the Tribe REST/iCal event dates themselves, not the page's modified_time or a hand-edited Elementor
+block.** If Tribe REST returns current dated events → near-config-only (a small Tribe-REST adapter, or
+ICAL_FEED if the ical view is populated); if it's empty/stale → the site is FB/WhatsApp-driven, BLOCK
+as stale. Reference: 2026-09-12 run-log entry (Bahrain H3 blocked-stale).
+
+## Blogspot / Blogger — forward "Hareline" TABLE embedded inside a single post (distinct from per-post recaps)
+
+Most Blogspot H3 sources are one-run-per-post (recap prose parsed via `fetchBloggerPosts`, e.g. OFH3,
+Chiang Rai). **Subic Bay Hash** (`subicbayhash.blogspot.com`, 2026-09-16) is a different shape worth
+recognizing: the **forward schedule lives as an HTML `<table>` inside a single recurring post titled
+"Hareline"** (columns `Run# | Date | Hares | Venue | Att. | Total`), re-published roughly monthly.
+Per-run **"Run NNNN"** posts are separate recaps carrying DMS start + on-home coords + confirmed
+hares, and **"Hashstats YYYY"** posts are attendance tables (real member NAMES — PII; never emit).
+
+Recipe: `fetchBloggerPosts` → pick the **latest** post whose title === "Hareline" → Cheerio-parse its
+`<table>` → each row is a forward event. Gotchas confirmed on Subic Bay:
+- **Dates are `M/D` with NO year** → infer year from the Hareline post's `publishOn`, with a Dec→Jan
+  rollover guard.
+- **No coords / no startTime in the table** → kennel-centroid fallback + kennel-default start time.
+  Coords only exist in the separate "Run NNNN" recap posts (DMS; use `parseDMSFromLocation`).
+- **Blogger feed `openSearch$totalResults` ≠ run-number depth** — Subic Bay is on run #1723 but the
+  blog only holds 190 posts back to Run 1622 / Oct 2024 (created recently); #1–#1621 are historical,
+  NOT archived on the source. Always read `openSearch$totalResults` + walk `start-index` for true depth.
+- **`config.upcomingOnly: true` required** — the Hareline is a rolling forward window; recaps age out.
+- Bespoke adapter needed (~150–220 LoC) — no existing adapter parses a table-inside-a-post.
+Reference: `handoffs/2026-09-16-sbh3-ph.md`.
+
+## WordPress — in-place "next run" *pages* (edited each week, not dated posts) — Laos HHH
+
+Some self-hosted WordPress kennels publish the **current run on a static Page that is edited in place**
+each week, rather than as dated blog posts. `wp-json/wp/v2/posts` returns little or nothing (Laos HHH:
+one static intro post); the live data is on **Pages** reachable at
+`/wp-json/wp/v2/pages/{id}?_fields=id,slug,modified,content`. Each page's `content.rendered` holds the
+current run as free-text prose, and `modified` is a reliable **year-inference anchor** (dates in the body
+carry no year). Confirmed on `hashlaos.com` (WordPress 6.9.8), which runs THREE kennels off three pages —
+`/monday-map/` id 78 (VH3), `/saturday-bush-hash/` id 22 (VBH3), `/monthly-bicycle-hash/` id 26 (Bike).
+
+Recipe: one adapter, N pages → N kennels. Per page: `safeFetch` the wp-json page JSON →
+`cheerio.load(json.content.rendered).text()` (flatten — page 78 is Draft.js-style nested `<div>`s, page 22
+clean `<p>`, page 26 `<h2>/<h3>`; DON'T depend on selectors) → regex the flattened text. Gotchas confirmed:
+- **One current run per page (the "next run" pattern)** → `config.upcomingOnly: true` REQUIRED (else
+  reconcile false-CANCELs last week's run) + a fail-loud zero-row guard (single-block source).
+- **Dates carry no year and drift in format** across sibling pages: `"the 14th of September"` (ordinal+"of"),
+  `"19# September"` (number+`#`), `"27 # SEPTEMBER"` (spaced `#`, ALL-CAPS). Normalize (strip `#`/ordinals/"of",
+  collapse spaces), match day + a month via an **EN month-map + validator** (NOT a 12-way alternation — Sonar
+  S5843), then infer year from `json.modified` with a Dec→Jan rollover guard.
+- **No coords / times sometimes absent** — locations are `goo.gl/maps` **shortlinks** (redirects, not lat/lng)
+  → capture as `locationUrl`, fall back to the metro centroid; per-kennel default start times.
+- **Run number formats vary:** `Run #NNNN` vs `Hash-run no. NNNN`; some pages (bike) have none → undefined.
+- **History = 0 on this source** despite high run numbers (pages edited in place; history only as WP
+  revisions). No backfill. Run-number ≠ archive depth.
+- **PII:** GM emails/phones appear in the page body — keep them out of seed + diagnostics.
+- Bespoke adapter (~220–300 LoC) — no existing adapter parses a free-text single-run WP page.
+Reference: `handoffs/2026-09-20-vh3-la.md`.
+
+## Bespoke WordPress "hash-stats" apps (JS/admin-ajax run DB) — UNVERIFIED endpoint pattern (2026-09-25, Hanoi Hash)
+
+Some long-running kennels run a **custom WordPress + Elementor stats site** ("by VD"-style: menu of
+`/runs/`, `/hashers/`, `/stats/`, `/cash-list/`, `/compare/`, `/wankers/`, `/in-memoriam/`). Observed on
+`hanoihash.com` (the original Hanoi Hash).
+
+- **The run archive + forward "This week's run" / "Coming up" are client-rendered — EMPTY in SSR HTML.**
+  A plain `web_fetch`/`curl` of `/runs/` returns only the page chrome (nav + copyright), no rows.
+- **No custom WP REST namespace.** `/wp-json/` lists only `wp/v2`, `rankmath/*`, `elementor/*`,
+  `indexnow`, `oembed` — so the data is NOT at a discoverable `/wp-json/<plugin>/…` route. It is served
+  via `admin-ajax.php?action=…` or a bespoke PHP endpoint, discoverable only by watching the network
+  tab while `/runs/` hydrates (browserRender/Chrome). ⚠️ **UNVERIFIED — confirm the exact endpoint at
+  implementation time.**
+- **The WP posts blog (`/wp-json/wp/v2/posts`, "Run Reports"/"News" categories) can be STALE while the
+  stats app is live.** On Hanoi Hash the newest Run-Report post is Hash #1728 (Sep-2024); the run log
+  moved into the stats app. So a stale WP blog is NOT evidence the kennel is dormant — check the stats
+  app itself for recent activity. Conversely, do not treat the WP blog's recap posts as the run feed.
+- **`/stats/` can time out** (loads the whole DB) — probe `/runs/` for the lighter data request.
+- Founding year is usually NOT on the About page (generic Mother-Hash lore); look in the stats app,
+  "In Memoriam", or anniversary/milestone runs.
+
+---
+
+## WordPress hand-built "run info" page (hareline table + per-run label/value tables) — VERIFIED (Nuremberg H3, 2026-10-06)
+
+Some kennels run a plain WordPress site (not The Events Calendar / no `tribe` namespace) whose **one
+`/run-info/` page** is hand-edited in place each week and carries the *complete* hareline. Nuremberg H3
+(`nuremberg-h3.de`) is the reference. VERIFIED via `wp/v2/pages?slug=run-info` → `content.rendered` tag
+inspection on 2026-10-06.
+
+- **Fetch machine-readably via WP REST:** `GET /wp-json/wp/v2/pages?slug=run-info` → `[0].content.rendered`
+  (clean ~30 KB HTML; `[0].modified` tells you how fresh it is). Prefer this over a raw GET of the page
+  (raw GET can be slow / anti-bot). Confirm `wp/v2` exists and there is **no `tribe`** namespace via
+  `GET /wp-json/` (`.namespaces`) — if `tribe` is present, use the config-only TEC/iCal path instead.
+- **The page mixes THREE block shapes, all Gutenberg `<figure><table>`:**
+  1. **"Next run" / "Upcoming runs"** — a **2-column label/value** table: `<tr><td>Number</td><td>…</td></tr>`
+     with rows `Number` (→ `NH3 Run #NNN – <theme>`), `Description`, `Hare`, `Date`, `Time`, `Venue`,
+     `How to get there`, `Google Maps`.
+  2. **"Hareline (scheduled runs) – <YEAR>"** — a **3-column** table: header `Date | HARE | LOCATION`, rows
+     `"October 10th, 2026 (Saturday)" | <hare>(+sub-note on <br>) | <location>`. **No run number, no time.**
+  3. **"Old runs"** — a run of the same 2-column label/value tables (one per past run), descending.
+- **Join strategy:** forward events = current-year hareline-table rows (date ≥ today) ∪ the Next/Upcoming
+  detail blocks; enrich a table row from a detail block **by matching date** (that's where run#, time,
+  Maps URL, description live). Table-only rows get `undefined` run#/title (let `merge.ts` synth) and a
+  default time from source config.
+- **Date formats to expect on one page:** `"October 10th, 2026 (Saturday)"`, `"July 11th 2026"` (no comma),
+  `"February 9th, 2025 (Sunday)"`, German numeric `"30.11.2024"`, and ranges `"July 25-27th 2025"` /
+  `"December 19+20th 2025"` (→ primary date). Strip ordinals + `(Weekday)` before `chronoParseDate`.
+- **Placeholders to skip for hare/location:** `Cancelled`, `Not scheduled`, `TBA`, `TBD`, `–`.
+- **Coords:** typically none — venues are place names + `maps.app.goo.gl` shortlinks → `locationUrl`; fall back
+  to kennel centroid (no default-pin trap).
+- **Cross-platform caveat (Harrier Central):** the same kennel may ALSO be on `hashruns.org` (HC) but with
+  **sparse coverage and WRONG run numbers** (Nuremberg: HC had ~40% of runs and labeled the website's #87 as
+  "#85"). Treat the kennel's own `/run-info/` page as canonical for run numbers; use HC only as a lat/lng
+  cross-reference, never as the run-number source.
+
+## `dupee.xyz`-generated club `.ics` — a REAL `text/calendar` feed that is NOT config-only ICAL_FEED (learned from Chichester H3, 2026-10-11, VERIFIED via web_fetch)
+
+Some long-running UK club sites (Chichester HHH, `chihhh.org.uk`) are plain SSR PHP with a **"SUBSCRIBE TO
+CALENDAR" link that serves a genuine `.ics`** — but the calendar is generated by a bespoke backend
+(`dupee.xyz`), and its field packing defeats the stock `ICalAdapter`. VERIFIED 2026-10-11: `GET
+https://www.chihhh.org.uk/diary` (redirects `/diary/`) → `Content-Type: text/calendar; charset=utf-8`,
+`PRODID:-//Chichester HHH …`, 75 VEVENTs, a rolling ~2-year window (past + future).
+
+- **It LOOKS config-only but is NOT** (the SACH3 "earn the claim" trap, inverted — here the feed is real but
+  the *structure* is wrong). The stock `ICalAdapter` handles fetch/validate/date-window/run#-from-description,
+  but this feed needs a small enhancement for all the user-visible fields:
+  1. **SUMMARY packs `<hares>␠␠<OSgrid> <venue>`** with **no colon and no `#` run marker**, e.g.
+     `"Old Faithful and Bambi  SU752074 Westbourne Ems Valley Memorial Arboretum"`. `parseICalSummary`'s title
+     regex needs a `…:` / `Prefix:`; with none it falls through and makes the WHOLE summary the title (ugly).
+     Fix: split on the first OS grid-ref token `/\b[A-Z]{2}\d{6}\b/` → hares (prefix) + venue (suffix), leave
+     `title` undefined (merge synthesizes `"<Kennel> Trail #N"`). Drop `"???"` / `"& ???"` / `"Please volunteer"`
+     / `"TBA"` hare placeholders.
+  2. **No `LOCATION` field** — the venue is ONLY in the SUMMARY (above). `locationPatterns` (DESCRIPTION-based)
+     won't find it; the DESCRIPTION is just `DETAIL=…/trash<UID> <br>MAPS=https://dupee.xyz/maps.php?p=<gridref>`.
+  3. **Coords live in the `URL` property as `https://maps.google.co.uk/maps?q=loc:LAT,LNG`.** The adapter's
+     `MAPS_URL_PATTERN` matches only `maps.google.com` / `.app.goo.gl` / `goo.gl/maps` — **NOT `.co.uk`** — so
+     `resolveLocationUrl` never routes it. Widen the pattern to `maps.google.co.*` OR parse `?q=loc:` directly.
+  4. **Placeholder coords `loc:00.000000,-0.000000`** on not-yet-scheduled (TBA) future runs → MUST reject
+     `0,0` (and `dropCachedCoords:true` if ever persisted).
+- **Run number IS config-recoverable:** the `#NNNN` isn't in the SUMMARY, but the DESCRIPTION carries
+  `…trashRun 1094 <br>…` (and the UID is `"Run 1094"`). `runNumberPatterns: ["Run (\\d+)"]` matches the
+  description. Non-numeric UIDs exist (`IOW4`, `WWH3`, `1081a` for visits/specials/split days) → leave run#
+  undefined for those; guard a malformed multi-day `DTSTART:20250307to10` (non-ISO).
+- **Rolling window → `config.upcomingOnly: true` REQUIRED** (feed drops old runs as new ones are added;
+  without it `reconcile.ts` false-CANCELs the aged-off events). The `.ics` reaches back ~2 years; deep archive
+  (to the club's founding) lives on a separate `runstodate.php` full-list page + a "Hash Trash" archive.
+- **Source-pivot signal:** Chichester was queued as a Harrier Central lead, but HC was a sparse mirror (0
+  upcoming + a single reachable away-weekend run) while the club's own `.ics` had the full fortnightly schedule
+  + 4 upcoming. When a UK club's HC listing looks thin, check the club's own site for a `/diary`-style `.ics`
+  first (Devon-Lunatics / Nuremberg pattern). Reuse the shared `ICalAdapter` + new opt-in config flags rather
+  than a bespoke adapter — the `dupee.xyz` format may recur across other South-Coast UK hashes.
+- 🟡 **UNVERIFIED generalization:** the grid-ref split + `loc:` parse above are confirmed against Chichester's
+  live feed, but the "other dupee.xyz hashes share this exact shape" claim is a hypothesis — confirm against a
+  second feed before treating the config flags as a stable shared pattern.
+
+### Harrier Central — the `isFuture=0` past feed finds recently-active kennels the future bench misses (learned from SUNH3, 2026-10-30)
+A future-only sweep (`global-runs?isFuture=1`) enumerates only kennels with an **upcoming** run posted.
+A live kennel on a longer cadence (monthly / full-moon) often has **0 upcoming between postings**, so it
+is **absent from the future bench entirely** yet is genuinely recently-active. **Shenanagains Under
+Nightfall (SUNH3)**, Raleigh NC — a monthly full-moon night hash — was invisible to the 2026-10-29
+future-only sweep but surfaced immediately on `global-runs?isFuture=0` with a run 4 days old
+(#10 "Hunter's Moon Trail", 2026-10-26). **When the future bench looks exhausted, sweep the recent
+`isFuture=0` window too** (last ~6–8 weeks) and dedup the distinct `KennelSlug`s vs the sitemap — that is
+where the long-cadence uncovered kennels live.
+- **Full-moon run names are the cadence proof.** Consecutive full-moon event names (Strawberry=Jun,
+  Buck=Jul, Sturgeon=Aug, Harvest=Sep, Hunter's=Oct, Beaver=Nov) + monotonic `EventNumber` establish a
+  clean monthly cadence from just a few sampled rows — satisfies the Step 3 recently-active evidence bar
+  without a full history pull. (Still treat `foundedYear` inferred from the run-# sequence as LOW
+  CONFIDENCE — leave blank unless a milestone/kennel post confirms.)
+- **`global-runs` is future-vs-past, PortalApi is future-only.** The adapter's HC `getEvents` PortalApi
+  returns **future** events only; the **past** runs for a backfill come from `hashruns.org/api/global-runs?isFuture=0`
+  filtered to the `publicKennelId`. So a monthly HC kennel still needs `config.upcomingOnly:true` + a
+  `scripts/backfill-<code>-history.ts` (same Moonshine/ONH3 contract).
+- **WebFetch truncation when the sandbox has no raw-fetch path.** Unattended (no Chrome approval, cloud
+  proxy + device-VM both 403 `hashruns.org`), the only read is **WebFetch rendering the JSON**, which caps
+  each response to the window's most-recent slice. To enumerate one kennel's full history, **step
+  `maxEventDate` backward** window-by-window (e.g. Oct→Sep→Jul→Apr) and extract only that kennel's rows
+  each pass; a complete single-pull is not possible that way — flag the full enumeration for Claude Code
+  (which can raw-fetch + paginate) at build.
