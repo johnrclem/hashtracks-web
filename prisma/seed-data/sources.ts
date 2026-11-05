@@ -5236,15 +5236,22 @@ export const SOURCES = [
     // KL Harriettes was researched but the Strapi API requires auth — defer
     // to Phase 2 when the kennel can expose a public feed.
 
-    // 1. Mother Hash (Kuala Lumpur H3) — Google Sites static HTML, 2 runs visible
+    // 1. Mother Hash (Kuala Lumpur H3) — goHash.app (moved off Google Sites Nov 2026)
     {
       name: "Mother Hash (KL H3) Website",
       url: "https://www.motherhash.org",
       type: "HTML_SCRAPER" as const,
       trustLevel: 9,
       scrapeFreq: "daily",
-      // Only 2 upcoming runs shown; use a generous window so both always land.
       scrapeDays: 180,
+      // /hareline/upcoming lists future runs only → upcomingOnly so reconcile
+      // never cancels a run the day after it happens.
+      config: {
+        kennelTag: "motherh3",
+        startTime: "18:00",
+        harelinePath: "/hareline/upcoming",
+        upcomingOnly: true,
+      },
       kennelCodes: ["motherh3"],
     },
 
@@ -5278,6 +5285,9 @@ export const SOURCES = [
         kennelTag: "klfmh3",
         startTime: "18:00",
         harelinePath: "/hareline/upcoming",
+        // Forward-only goHash view — see Mother Hash. Prevents reconcile from
+        // cancelling each run the day after it happens.
+        upcomingOnly: true,
       },
       kennelCodes: ["klfmh3"],
     },

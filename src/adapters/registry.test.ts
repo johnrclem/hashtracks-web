@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { NewTaipeiHashAdapter } from "./html-scraper/new-taipei-hash";
 import { TaipeiHashAdapter } from "./html-scraper/taipei-hash";
 import { getAdapter } from "./registry";
+import { GoHashAdapter } from "./html-scraper/gohash";
 import { GenericHtmlAdapter } from "./html-scraper/generic";
 import { HashNYCAdapter } from "./html-scraper/hashnyc";
 import { BFMAdapter } from "./html-scraper/bfm";
@@ -61,6 +62,10 @@ describe("getAdapter", () => {
     const adapter = getAdapter("HTML_SCRAPER", "https://benfranklinmob.com/bfm-special-events/");
     expect(adapter).toBeInstanceOf(BfmSpecialEventsAdapter);
     expect(adapter).not.toBeInstanceOf(BFMAdapter);
+  });
+
+  it("routes motherhash.org (goHash.app since Nov 2026) to GoHashAdapter", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://www.motherhash.org")).toBeInstanceOf(GoHashAdapter);
   });
 
   it("routes New Taipei's nth3.taipeihash.com.tw apart from Taipei H3's www host", () => {
