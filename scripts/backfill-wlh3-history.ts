@@ -71,18 +71,55 @@ import history from "./data/wlh3-history.json";
 const SOURCE_NAME = "West London Hash Previous-Runs Archive";
 const KENNEL_TIMEZONE = "Europe/London";
 
-runBackfillScript({
-  sourceName: SOURCE_NAME,
-  kennelTimezone: KENNEL_TIMEZONE,
-  label: "Loading frozen West London H3 (wlh3) previous-runs archive",
-  fetchEvents: async () => {
-    const events = history as RawEventData[];
-    if (events.length === 0) {
-      throw new Error("wlh3-history.json is empty — expected ~644 frozen runs. Aborting.");
-    }
-    return events;
-  },
-}).catch((err) => {
-  console.error(err);
-  process.exitCode = 1;
-});
+/**
+ * Boundaries where the post's next sentence bled into the frozen `hares` field.
+ * The extractor stopped hares at the first line break, but many WLH3 posts run
+ * the hare name straight into pre-trail directions on the same line
+ * ("Crap Nav P Trails from Hammersmith and Ravenscourt Park Tube"), a "This is…"
+ * aside, or a lone "Map" link label. Found in 57/644 rows during the Nov 2026
+ * re-verification. Cut at the earliest boundary; the hare name always precedes it.
+ */
+const HARE_TAIL_BOUNDARIES: RegExp[] = [
+  /\s+P\s*(?:[-–=]\s*)?tr(?:ai|ia)ls?\b/i, // "P Trail", "P-trails", "P – trail", "P=trail", "P Trial"
+  /\s+(?:This|There|The)\s+(?:is|will|weeks?|trail)\b/, // "This is…", "There will…", "The trail…", "This weeks…"
+  /\s+A\s+tube\s+strike\b/i,
+  /\s+(?:Murder|Recovery)[\s-]trail\b/i,
+  /\s+[“"]A[”"]\s/,
+  /\s+Tube\b/i,
+  /\s+Map$/,
+];
+
+/** Strip direction/aside text that leaked into a frozen WLH3 `hares` value. */
+export function cleanWlh3Hares(hares: string | null | undefined): string | null | undefined {
+  if (!hares) return hares;
+  let cut = hares.length;
+  for (const re of HARE_TAIL_BOUNDARIES) {
+    const m = re.exec(hares);
+    if (m && m.index < cut) cut = m.index;
+  }
+  const cleaned = hares.slice(0, cut).trim();
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
+/** Frozen archive rows with leaked hare tails removed. */
+export function loadWlh3History(): RawEventData[] {
+  return (history as RawEventData[]).map((row) => ({ ...row, hares: cleanWlh3Hares(row.hares) }));
+}
+
+if (process.argv[1]?.endsWith("backfill-wlh3-history.ts")) {
+  runBackfillScript({
+    sourceName: SOURCE_NAME,
+    kennelTimezone: KENNEL_TIMEZONE,
+    label: "Loading frozen West London H3 (wlh3) previous-runs archive",
+    fetchEvents: async () => {
+      const events = loadWlh3History();
+      if (events.length === 0) {
+        throw new Error("wlh3-history.json is empty — expected ~644 frozen runs. Aborting.");
+      }
+      return events;
+    },
+  }).catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  });
+}
