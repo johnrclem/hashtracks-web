@@ -3027,8 +3027,18 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "wrong-way", shortName: "Wrong Way", fullName: "Phoenix Wrong Way Hash House Harriers", region: "Phoenix, AZ",
       website: "https://www.phoenixhhh.org",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
-      scheduleNotes: "1st, 3rd, and 5th Saturday",
-      description: "Phoenix Saturday afternoon hash. 1st, 3rd, and 5th Saturdays at 2 PM.",
+      scheduleNotes: "1st, 3rd, and 5th Saturday. 2 PM most of the year; 5 PM in summer (Jun–Sep).",
+      // #1724 — verified vs 12 months of prod: 1st Sat 11/12, 3rd Sat 12/12, 5th Sat 4/4;
+      // 17:00 Jun–Sep, 14:00 Oct–May. Fri/Sun/Thu rows are Rising H3 / specials on the shared calendar.
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA;BYMONTH=6,7,8,9", startTime: "17:00", label: "Summer (Jun–Sep)", validFrom: "06-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA;BYMONTH=6,7,8,9", startTime: "17:00", label: "Summer (Jun–Sep)", validFrom: "06-01", validUntil: "09-30", displayOrder: 1 },
+        { rrule: "FREQ=MONTHLY;BYDAY=5SA;BYMONTH=6,7,8,9", startTime: "17:00", label: "Summer (Jun–Sep)", validFrom: "06-01", validUntil: "09-30", displayOrder: 2 },
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA;BYMONTH=1,2,3,4,5,10,11,12", startTime: "14:00", label: "Oct–May", validFrom: "10-01", validUntil: "05-31", displayOrder: 3 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA;BYMONTH=1,2,3,4,5,10,11,12", startTime: "14:00", label: "Oct–May", validFrom: "10-01", validUntil: "05-31", displayOrder: 4 },
+        { rrule: "FREQ=MONTHLY;BYDAY=5SA;BYMONTH=1,2,3,4,5,10,11,12", startTime: "14:00", label: "Oct–May", validFrom: "10-01", validUntil: "05-31", displayOrder: 5 },
+      ],
+      description: "Phoenix Saturday afternoon hash. 1st, 3rd, and 5th Saturdays at 2 PM (5 PM in summer).",
       latitude: 33.45, longitude: -112.07,
     },
     {
