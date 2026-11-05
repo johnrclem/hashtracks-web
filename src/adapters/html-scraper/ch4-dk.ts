@@ -213,8 +213,9 @@ export function parseCh4Hares(raw: string | undefined): string | undefined {
   if (parts.length === 0) return undefined;
   // "Thunder and friends": splitting would turn the filler into a hare name and
   // the alphabetical sort would invert the order ("friends, Thunder"). Keep
-  // the cell verbatim instead (#2533).
-  if (parts.some((p) => RE_HARES_FILLER.test(p))) return text.replace(/\s+/g, " ");
+  // the names in source order, joined with "and", instead (#2533). Built from
+  // `parts` so recruitment fragments filtered above stay out.
+  if (parts.some((p) => RE_HARES_FILLER.test(p))) return parts.join(" and ");
   return normalizeHaresField(parts.join(", "));
 }
 

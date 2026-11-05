@@ -584,11 +584,16 @@ export const SOURCES = [
         // guard (the "TBD" token), so it never becomes a location.
         //
         // #2598: the calendar also uses "{theme} - {hares}" ("4th Anal Fallout
-        // Trail - PhD, S2B2, VagLaw") and "{theme} - {hares} - {location}".
-        // Hare lists are comma-separated; station names never are. So:
+        // Trail - PhD, S2B2, VagLaw"). Heuristic, checked against every stored
+        // EWH3 summary (2026-11-05): a comma-bearing LAST " - " segment was
+        // always a hare list, never a station. So:
         //  - a comma-bearing LAST " - " segment is hares (titleHarePattern);
         //  - the location is only the LAST " - " segment, and only when it
         //    has no comma.
+        // Not covered: "{theme} - {hares} - {station}" keeps the middle hare
+        // span in the title (station still extracted), and a single-name
+        // "{theme} - {hare}" still reads as a location. The GCal item's own
+        // location field, when set, always wins over the title capture.
         titleHarePattern: String.raw`\s-\s+((?:(?!\s-\s).)+,(?:(?!\s-\s).)+)$`,
         titleLocationPattern: String.raw`\s-\s+((?:(?!\s-\s)[^,])+)$`,
       },

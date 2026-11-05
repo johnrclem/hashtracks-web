@@ -1,6 +1,8 @@
 -- One-shot canonical Event fixes for audit issues whose rows sit outside the
 -- recurring scrape window (a re-scrape cannot correct them). DATA-ONLY,
 -- idempotent: every UPDATE is guarded on the bad value it replaces.
+-- Prod-data-specific: the hard-coded Event ids exist only in prod, so on a
+-- local/empty DB these statements update 0 rows (by design).
 
 -- #2392 Tacoma H3: founding year "1987" leaked into hares on the yearly
 -- "TH3 Analversary (1987)" rows (forward fix shipped in #2449).
@@ -30,7 +32,8 @@ WHERE id = 'cmnwb4wum006g04jx4nqykvlt' AND "runNumber" = 1151 AND title = 'Wasat
 
 -- #2652 Stuttgart: hare label stored as the title.
 UPDATE "Event" SET title = 'Stuttgart H3 Trail #' || "runNumber", "updatedAt" = NOW() AT TIME ZONE 'UTC'
-WHERE id IN ('cmnx79ul4000204jv8dqxrzmi', 'cmrad3a2j001f04i9te80ydw6') AND title LIKE 'Hare:%';
+WHERE id IN ('cmnx79ul4000204jv8dqxrzmi', 'cmrad3a2j001f04i9te80ydw6') AND title LIKE 'Hare:%'
+  AND "runNumber" IS NOT NULL;
 
 -- #2533 CH4 #370: "Thunder and friends" was split and reordered.
 UPDATE "Event" SET "haresText" = 'Thunder and friends', "updatedAt" = NOW() AT TIME ZONE 'UTC'

@@ -6,6 +6,11 @@ describe("trimProseAfterZip (#2680)", () => {
     const raw = "7700 Perry Creek Rd, Raleigh, NC 27616 also known as the WRAL Soccer Park. More specifically: There's only one way into the Park. Or call GS: 201 655-2630.";
     expect(trimProseAfterZip(raw)).toBe("7700 Perry Creek Rd, Raleigh, NC 27616");
   });
+  it("handles ZIP+4 and trims a phone-only tail", () => {
+    expect(trimProseAfterZip("100 Main St, Cary, NC 27513-1234 Or call GS: 201 655-2630 for the gate")).toBe(
+      "100 Main St, Cary, NC 27513-1234",
+    );
+  });
   it("keeps short suffixes and ZIP-less locations unchanged", () => {
     expect(trimProseAfterZip("Pullen Park, Raleigh, NC 27607 (shelter 2)")).toBe("Pullen Park, Raleigh, NC 27607 (shelter 2)");
     expect(trimProseAfterZip("Lake Johnson Park")).toBe("Lake Johnson Park");
