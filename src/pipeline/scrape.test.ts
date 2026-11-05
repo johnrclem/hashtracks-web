@@ -119,6 +119,57 @@ describe("scrapeSource", () => {
     expect(mockFetch).toHaveBeenCalledWith(fakeSource, { days: 30 });
   });
 
+  it("passes allowMassCancel through to reconcile (defaults to false)", async () => {
+    await scrapeSource("src_1");
+    expect(mockReconcile.mock.calls[0][5]).toEqual({ allowMassCancel: false });
+
+    mockReconcile.mockClear();
+    await scrapeSource("src_1", { allowMassCancel: true });
+    expect(mockReconcile.mock.calls[0][5]).toEqual({ allowMassCancel: true });
+  });
+
+  it("reconciles a zero-event scrape only when allowMassCancel is set", async () => {
+    mockGetAdapter.mockReturnValue({
+      type: "HTML_SCRAPER",
+      fetch: vi.fn().mockResolvedValue({ events: [], errors: [] }),
+    } as never);
+
+    await scrapeSource("src_1");
+    expect(mockReconcile).not.toHaveBeenCalled();
+
+    await scrapeSource("src_1", { allowMassCancel: true });
+    expect(mockReconcile).toHaveBeenCalledTimes(1);
+    expect(mockReconcile.mock.calls[0][5]).toEqual({ allowMassCancel: true });
+  });
+
+  it("forwards a tripped mass-cancel breaker to health analysis", async () => {
+    mockReconcile.mockResolvedValueOnce({
+      cancelled: 0,
+      cancelledEventIds: [],
+      candidatesExamined: 120,
+      multiSourcePreserved: 0,
+      kennelsInScope: 4,
+      totalLinkedKennels: 4,
+      kennelsSuppressedForBadDate: [],
+      massCancelBlocked: { wouldCancel: 89, candidatesExamined: 120 },
+    });
+    // Shared spy (a later describe installs one at collection time) — don't
+    // mockRestore it here or that block loses its spy.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await scrapeSource("src_1");
+
+    expect(mockAnalyzeHealth).toHaveBeenCalledWith(
+      "src_1",
+      "log_1",
+      expect.objectContaining({
+        cancelledCount: 0,
+        massCancelBlocked: { wouldCancel: 89, candidatesExamined: 120 },
+      }),
+    );
+    expect(warn.mock.calls.some((c) => String(c[0]).includes("circuit breaker tripped"))).toBe(true);
+  });
+
   it("passes scrape results to processRawEvents", async () => {
     await scrapeSource("src_1");
     expect(mockProcessRaw).toHaveBeenCalledWith("src_1", expect.any(Array));
@@ -302,6 +353,7 @@ describe("scrapeSource", () => {
         expect.any(Number),
         ["k_sch4"],
         false,
+        { allowMassCancel: false },
       );
     });
 

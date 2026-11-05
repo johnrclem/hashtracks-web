@@ -303,6 +303,40 @@ describe("autoFileIssuesForAlerts", () => {
     expect(result.filed).toBe(0);
   });
 
+  it("skips post-hoc EXCESSIVE_CANCELLATIONS (dashboard-only)", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    mockAlertFindMany.mockResolvedValueOnce([
+      buildAlert({
+        id: "alert_1", sourceId: "src_1", type: "EXCESSIVE_CANCELLATIONS",
+        context: { cancelledCount: 25, avgEventsFound: 30 },
+      }),
+    ] as never);
+
+    const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+    expect(result.skipped).toBe(1);
+    expect(result.filed).toBe(0);
+  });
+
+  it("files EXCESSIVE_CANCELLATIONS when the circuit breaker blocked the pass", async () => {
+    process.env.GITHUB_TOKEN = "test-token";
+    mockAlertFindMany.mockResolvedValueOnce([
+      buildAlert({
+        id: "alert_1", sourceId: "src_1", type: "EXCESSIVE_CANCELLATIONS", severity: "CRITICAL",
+        context: { blocked: true, wouldCancel: 89, candidatesExamined: 120 },
+      }),
+    ] as never);
+    setupPassingGuards();
+    const fetchSpy = mockFetchForIssueCreation();
+    mockAlertFindUnique.mockResolvedValueOnce({ repairLog: null } as never);
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    const result = await autoFileIssuesForAlerts("src_1", ["alert_1"]);
+    expect(result.filed).toBe(1);
+    const body = JSON.parse((fetchSpy.mock.calls[1][1] as RequestInit).body as string).body as string;
+    expect(body).toContain("Would cancel:** 89");
+    expect(body).toContain("upcomingOnly");
+  });
+
   it("skips alerts with INFO severity", async () => {
     process.env.GITHUB_TOKEN = "test-token";
     mockAlertFindMany.mockResolvedValueOnce([

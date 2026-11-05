@@ -338,7 +338,17 @@ async function runHealthAndAlerts(
  */
 export async function scrapeSource(
   sourceId: string,
-  options?: { days?: number; force?: boolean },
+  options?: {
+    days?: number;
+    force?: boolean;
+    /**
+     * Apply reconcile cancellations even if they trip the mass-cancel circuit
+     * breaker (see `shouldBlockMassCancel` in reconcile.ts). Operator-only
+     * escape hatch for a genuine mass removal; cron scrapes never set it.
+     * (`force` is unrelated — it skips reconcile entirely.)
+     */
+    allowMassCancel?: boolean;
+  },
 ): Promise<ScrapeSourceResult> {
   const force = options?.force ?? false;
 
@@ -523,13 +533,17 @@ export async function scrapeSource(
     let reconcileContext: Record<string, unknown> | undefined;
     let reconcileEvaluated = false;
     let reconcileSuppressedKennels: string[] = [];
+    let massCancelBlocked: { wouldCancel: number; candidatesExamined: number } | undefined;
     const rawKennelPageErrors = scrapeResult.diagnosticContext?.kennelPageFetchErrors;
     const kennelPageErrors = typeof rawKennelPageErrors === "number" && Number.isFinite(rawKennelPageErrors) ? rawKennelPageErrors : 0;
     const kennelPagesStopReason = scrapeResult.diagnosticContext?.kennelPagesStopReason;
     const kennelPagesIncomplete = typeof kennelPagesStopReason === "string" && kennelPagesStopReason !== "";
+    // A zero-event scrape normally skips reconcile (an empty page is far more
+    // often breakage than a real "everything was removed"). allowMassCancel is
+    // the operator saying the removal is genuine, so it opts the empty case in.
     if (
       !force &&
-      scrapeResult.events.length > 0 &&
+      (scrapeResult.events.length > 0 || options?.allowMassCancel === true) &&
       scrapeResult.errors.length === 0 &&
       kennelPageErrors === 0 &&
       !kennelPagesIncomplete &&
@@ -543,8 +557,18 @@ export async function scrapeSource(
         days,
         scrapedKennelIds,
         upcomingOnly,
+        { allowMassCancel: options?.allowMassCancel === true },
       );
       reconcileEvaluated = true;
+      massCancelBlocked = reconciled.massCancelBlocked;
+      if (massCancelBlocked) {
+        console.warn(
+          `[scrape] Mass-cancel circuit breaker tripped for source "${source.name}" (${sourceId}): ` +
+          `reconcile wanted to cancel ${massCancelBlocked.wouldCancel} of ` +
+          `${massCancelBlocked.candidatesExamined} in-window events; nothing was cancelled. ` +
+          `Fix the adapter/config, or re-scrape with allowMassCancel if the removal is genuine.`,
+        );
+      }
       const { cancelledEventIds: _, ...reconDiag } = reconciled;
       cancelledCount = reconciled.cancelled;
       reconcileContext = reconDiag;
@@ -596,6 +620,7 @@ export async function scrapeSource(
         ? { attempted: aiRecovery.attempted, succeeded: aiRecovery.succeeded, failed: aiRecovery.failed }
         : undefined,
       cancelledCount,
+      massCancelBlocked,
       reconcileEvaluated,
       reconcileSuppressedKennels,
       // Adapter-declared expected-empty scrape (e.g. seasonal STATIC_SCHEDULE

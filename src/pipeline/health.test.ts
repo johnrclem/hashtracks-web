@@ -426,11 +426,44 @@ describe("regime-aware baseline (#1115)", () => {
     const result = await analyzeHealth("src_1", "log_1", baseInput({
       currentConfigHash: "new-config",
       cancelledCount: 25,  // would normally fire WARNING (> 10 absolute threshold)
+      reconcileEvaluated: true,
     }));
 
     expect(result.alerts.find((a) => a.type === "EXCESSIVE_CANCELLATIONS")).toBeUndefined();
     // Still registered as checked so any stale prior-regime alert auto-resolves
     expect(result.checkedTypes).toContain("EXCESSIVE_CANCELLATIONS");
+  });
+});
+
+describe("EXCESSIVE_CANCELLATIONS — mass-cancel circuit breaker", () => {
+  it("raises a CRITICAL blocked alert even without a baseline", async () => {
+    mockScrapeLogFind.mockReset();
+    mockScrapeLogFind
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+    mockScrapeLogFindFirst.mockResolvedValueOnce({ id: "log_old" } as never);
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      currentConfigHash: "new-config",
+      cancelledCount: 0,
+      massCancelBlocked: { wouldCancel: 89, candidatesExamined: 120 },
+      reconcileEvaluated: true,
+    }));
+
+    const alert = result.alerts.find((a) => a.type === "EXCESSIVE_CANCELLATIONS");
+    expect(alert?.severity).toBe("CRITICAL");
+    expect(alert?.title).toContain("89 of 120");
+    expect(alert?.context).toEqual({ blocked: true, wouldCancel: 89, candidatesExamined: 120 });
+  });
+
+  it("does not raise the blocked alert when the breaker did not trip", async () => {
+    const result = await analyzeHealth("src_1", "log_1", baseInput({ cancelledCount: 0, reconcileEvaluated: true }));
+    expect(result.alerts.find((a) => a.type === "EXCESSIVE_CANCELLATIONS")).toBeUndefined();
+  });
+
+  it("does not check (so cannot auto-resolve) EXCESSIVE_CANCELLATIONS when reconcile was skipped", async () => {
+    const result = await analyzeHealth("src_1", "log_1", baseInput({ cancelledCount: 0 }));
+    expect(result.checkedTypes).not.toContain("EXCESSIVE_CANCELLATIONS");
   });
 });
 

@@ -387,3 +387,46 @@ describe("inferCountry — India (first 🇮🇳 kennel)", () => {
     expect(resolveCountryName("IN")).toBe("India");
   });
 });
+
+describe("inferCountry — Czech Republic (first 🇨🇿 kennel: Prague H3)", () => {
+  it.each([
+    ["Czech Republic", "Czech Republic"],
+    ["Czechia", "Czech Republic"],
+    ["Prague, Czech Republic", "Czech Republic"],
+    ["Praha", "Czech Republic"],
+  ])("infers %s → Czech Republic", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+
+  it("does NOT misroute bare US Prague → USA", () => {
+    // bare "prague" doubles as US towns (Prague, OK / Prague, NE) — it is
+    // deliberately OMITTED from the Czech Republic rule.
+    expect(inferCountry("Prague, OK")).toBe("USA");
+  });
+
+  it("resolves the ISO code CZ → Czech Republic (separate from region aliases)", () => {
+    expect(resolveCountryName("CZ")).toBe("Czech Republic");
+  });
+});
+
+describe("inferCountry — Sierra Leone (first West Africa kennel: Sierra H4, Freetown)", () => {
+  it.each([
+    ["Sierra Leone", "Sierra Leone"],
+    ["Freetown, Sierra Leone", "Sierra Leone"],
+  ])("infers %s → Sierra Leone", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+
+  it.each([
+    // bare "sierra" doubles as US towns (Sierra Vista, AZ) and the kennel's own
+    // "Sierra H4" name — deliberately OMITTED from the Sierra Leone rule.
+    ["Sierra Vista, AZ"],
+    ["Sierra H4"],
+  ])("does NOT misroute bare Sierra %s → USA", (name) => {
+    expect(inferCountry(name)).toBe("USA");
+  });
+
+  it("resolves the ISO code SL → Sierra Leone (separate from region aliases)", () => {
+    expect(resolveCountryName("SL")).toBe("Sierra Leone");
+  });
+});
