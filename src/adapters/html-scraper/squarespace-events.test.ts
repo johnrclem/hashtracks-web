@@ -258,6 +258,35 @@ describe("parseSquarespaceEvent", () => {
     expect(ev?.latitude).toBeUndefined();
   });
 
+  it("rejects a pin on an event with no address text (VTH3 Grafton County default, #2426)", () => {
+    // Verbatim location from vontramph3.com/hareline?format=json for
+    // "VTH3 Trail #100: Ragnarök" (2026-11-05): no venue text, mapLat set to
+    // a second tenant default in Grafton County, NH that differs from the
+    // Manhattan marker default — reverse-geocoded as "Warren, NH".
+    const ev = parseSquarespaceEvent(
+      {
+        ...UNSET_PIN_EVENT,
+        title: "VTH3 Trail #100: Ragnarök",
+        location: {
+          addressTitle: "",
+          addressLine1: "",
+          addressLine2: "",
+          mapLat: 43.9087929,
+          mapLng: -71.825994,
+          markerLat: 40.7207559,
+          markerLng: -74.0007613,
+        },
+      },
+      CONFIG,
+      BASE,
+      PT,
+    );
+    expect(ev?.latitude).toBeUndefined();
+    expect(ev?.longitude).toBeUndefined();
+    expect(ev?.dropCachedCoords).toBe(true);
+    expect(ev?.location).toBeUndefined();
+  });
+
   it("emits coords when mapLat/mapLng differ from markerLat/markerLng even by a small margin", () => {
     // Defense against false-positives: a kennel whose real venue happens to
     // be near the Squarespace default must still get coords if the user
