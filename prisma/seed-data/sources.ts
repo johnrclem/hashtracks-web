@@ -2979,11 +2979,21 @@ export const SOURCES = [
         // titles still route correctly.
         kennelPatterns: [
           ["(?:Cherry City.*OH3)|(?:OH3.*Cherry City)", ["cch3-or", "oh3"]],
-          ["^OH3\\b|OH3 Full Moon", "oh3"],
+          // Leading emoji/punctuation is common ("🍀OH3 #1185", "🌕 OH3 #1187").
+          ["^[^A-Za-z0-9]*OH3\\b|OH3 Full Moon", "oh3"],
           ["TGIF|Friday.*Pubcrawl", "tgif"],
           ["Cherry City|Cherry Cherry City", "cch3-or"],
         ],
         defaultKennelTag: "oh3",
+        // Drop anything matching no pattern. This is a regional aggregator:
+        // without strict routing every sibling kennel's run (Eugene EH3,
+        // Stumptown, Dead Whores, Central Oregon, SWH3, OBGYN, Beaver, Morning
+        // Wood, MWH3, …) plus template junk ("start comment- choose your
+        // preferred fields") fell into the oh3 default bucket. The skipPatterns
+        // below were whack-a-mole for the same leak; the 2026-11-05 wide
+        // backfill surfaced ~1,090 misrouted rows back to 2018. Each sibling
+        // has (or should get) its own source.
+        strictKennelRouting: true,
         // Drop sibling-kennel events that leak into this shared aggregator and
         // already have their own dedicated calendar source, so they don't get
         // dumped into the OH3 default bucket (cross-kennel misattribution):
