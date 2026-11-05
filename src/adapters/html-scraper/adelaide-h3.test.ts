@@ -39,7 +39,30 @@ describe("adelaide-h3 parseAdelaideEvent", () => {
       URL,
     );
     expect(e).not.toBeNull();
-    expect(e!.hares).toBeUndefined();
+    expect(e!.hares).toBeNull();
+  });
+
+  it.each([
+    ["Run 2679 - HARE WANTED!", 2679],
+    ["Run 2683 - Hare Wanted", 2683],
+    ["Run 2685 - Hare wanted", 2685],
+    ["Run 2686 - TBA", 2686],
+  ])("drops the recruiting placeholder from the title: %s (#2686)", (title, run) => {
+    const e = parseAdelaideEvent({ title, start: "2026-11-30 19:00:00" }, URL);
+    expect(e!.title).toBe(`Run ${run}`);
+    expect(e!.hares).toBeNull();
+  });
+
+  it("keeps a real hare title verbatim", () => {
+    const e = parseAdelaideEvent({ title: "Run 2676 - Inherendo", start: "2026-11-09 19:00:00" }, URL);
+    expect(e!.title).toBe("Run 2676 - Inherendo");
+    expect(e!.hares).toBe("Inherendo");
+  });
+
+  it("does not treat a kennel-named event as hares", () => {
+    const e = parseAdelaideEvent({ title: "Run 2682 - Committee AH3 XMAS Show", start: "2026-12-21 19:00:00" }, URL);
+    expect(e!.title).toBe("Run 2682 - Committee AH3 XMAS Show");
+    expect(e!.hares).toBeNull();
   });
 
   it("returns null on missing title or start", () => {

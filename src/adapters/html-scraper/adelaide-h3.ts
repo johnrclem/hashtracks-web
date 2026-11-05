@@ -82,14 +82,20 @@ export function parseAdelaideEvent(
   const runNumber = Number.parseInt(titleMatch[1], 10);
   // Strip exclamation noise (e.g. "Committee!!") before placeholder check.
   const haresRaw = titleMatch[2].replace(/!+/g, "").trim();
-  const hares = !haresRaw || isPlaceholder(haresRaw) || /^hare\s*tba$/i.test(haresRaw)
-    ? undefined
-    : normalizeHaresField(haresRaw);
+  const harePlaceholder = !haresRaw || isPlaceholder(haresRaw) || /^hares?\s*(?:tba|tbc|tbd|wanted)$/i.test(haresRaw);
+  // A segment naming the kennel itself ("Committee AH3 XMAS Show", "AH3 Ironman
+  // 2027") is an event name, not a hare list.
+  const namesKennel = /\bAH3\b/i.test(haresRaw);
+  // Explicit null (not undefined) so a stale hare stored from an earlier
+  // misparse is cleared by merge rather than preserved.
+  const hares = harePlaceholder || namesKennel ? null : normalizeHaresField(haresRaw);
 
   return {
     date,
     kennelTags: [KENNEL_TAG],
-    title,
+    // "Run 2679 - HARE WANTED!" is a recruiting call, not a title (#2686):
+    // keep the source-anchored "Run 2679" and drop the placeholder segment.
+    title: harePlaceholder ? `Run ${runNumber}` : title,
     runNumber,
     hares,
     startTime,
