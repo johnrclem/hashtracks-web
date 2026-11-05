@@ -165,7 +165,9 @@ export function parseTribeEndDate(raw: TribeEventRaw): string | null {
 
 /** Decode + dedupe + sort organizer names (the API returns `[]` or an array of objects). */
 function normalizeOrganizers(raw: TribeEventRaw["organizer"]): string[] {
-  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  let list: TribeEventOrganizerRaw[] = [];
+  if (Array.isArray(raw)) list = raw;
+  else if (raw) list = [raw];
   const names = new Set<string>();
   for (const o of list) {
     const name = decodeEntities(o?.organizer ?? "").trim();
