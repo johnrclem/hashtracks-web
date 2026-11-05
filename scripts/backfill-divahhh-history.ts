@@ -16,11 +16,9 @@
  *  - Placeholder/bleed `Hares` cleared: #44 "Will be pulled from a hat!", #43 "Multiple
  *    Hares", #36 "Leiden" (venue). Real hare names kept.
  *  - `description` omitted for live-adapter fingerprint parity.
- *  - 🔴 #39/#40 are a genuine Walkers/Runners split of ONE slot (2026-04-18, both 09:30).
- *    merge.ts `upsertCanonicalEvent` collapses a same-date pair that shares startTime OR
- *    runNumber, which would silently drop one. They already differ on runNumber, so the
- *    Walkers row's startTime is cleared (no separately-published walkers' time) — both
- *    now survive as distinct canonicals.
+ *  - #39/#40 are a genuine Walkers/Runners split of ONE slot (2026-04-18, both 09:30).
+ *    Originally the Walkers row's startTime was cleared to dodge merge's same-day collapse;
+ *    since #2656 a runNumber disagreement vetoes that collapse, so the real 09:30 is kept.
  *
  * HC's KennelIANATimezone for this kennel is Europe/Berlin (a data quirk); the Brussels
  * metro is correctly Europe/Brussels — same offset, so times are unaffected.
