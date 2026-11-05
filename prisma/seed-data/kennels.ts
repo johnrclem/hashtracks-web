@@ -6364,6 +6364,14 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Monday",
       scheduleTime: "7:00 PM", // 12-hour Kennel.scheduleTime; seasonal — see scheduleNotes
       scheduleNotes: "Weekly. Summer: Monday 7:00 PM. Winter: Sunday 11:00 AM (seasonal switch).",
+      // Seasonal same-cadence shift. Boundaries from the 2023-2026 archive: Mondays
+      // late April -> mid September (2025: Mon from 04-28, Sun again from 09-14),
+      // Sundays otherwise. BYMONTH is month-granular, so April/September are
+      // best-effort (both are split months); the feed's real dates are authoritative.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO;BYMONTH=4,5,6,7,8", startTime: "19:00", label: "Summer (Mon evening)" },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=1,2,3,9,10,11,12", startTime: "11:00", label: "Winter (Sun morning)" },
+      ],
       description:
         "Bicester H3 — 'a drinking club with a running problem'. Founded 1 April 1974 by Ray Thornton " +
         "(ex-Singapore H3), Bicester is the oldest weekly running hash in the UK. Trails of 3–6 miles " +

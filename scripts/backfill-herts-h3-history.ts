@@ -18,10 +18,15 @@
  *  - Run #1904's year is missing on this pull ("24th August" with no year
  *    before the page rolls into the Virtual Hash section) — inferred 2020
  *    from the surrounding entirely-2020 context.
- *  - #2179 "5th October 2025" sits between #2180/#2176-78 (both September
- *    2025) — flagged as a likely typo by the research pass but with no
- *    independently-verifiable correction, so it ships as-is (Douliu/Prague
- *    faithful-data precedent: don't invent a fix with no independent source).
+ *  - #2179-#2183 (corrected 2026-11-05): the page lists #2179 "5th October
+ *    2025" then #2180-#2183 "5th/12th/19th/26th September 2025". Those
+ *    September dates are Fridays — Herts never runs Fridays — and would put
+ *    #2180 before #2176-78 (19-21 Sep weekend). The same day numbers are the
+ *    Sundays of October 2025, and with #2184 on Sun 2 Nov they complete an
+ *    unbroken weekly-Sunday run, so #2180-#2183 -> 5/12/19/26 Oct and #2179
+ *    takes the one remaining Sunday slot, 28 Sep (its "5th October" is the
+ *    date that belongs to #2180). The weekday + run-order evidence makes this
+ *    a reasoned correction, not an invented one.
  *  - Weekend-bundle rows ("2225-6", "2222-4", "2176-78", "2133/34/35", ...)
  *    keep the base (first) run number rather than splitting into individual
  *    runs — this dataset has no per-day fields to split them into anyway.
