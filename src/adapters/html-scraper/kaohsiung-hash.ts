@@ -223,6 +223,37 @@ function parseRunBody(
   return { hares, locationUrl, prose: proseParts.join(" ") };
 }
 
+const WHEN_LABEL_RE = /\bWhen:\s*/i;
+const ORDINAL_SUFFIX_RE = /\b(\d{1,2})(?:st|nd|rd|th)\b/gi;
+// "#2743 and 2744 WEEKEND AWAY …" — a multi-run heading; drop the extra run number.
+const EXTRA_RUN_PREFIX_RE = /^(?:and|&|\/|-)\s*#?\d{3,5}\s*/i;
+
+/**
+ * Fallback for headings that carry no date (#2743 "WEEKEND AWAY GUANZILING HOT
+ * SPRINGS TAINAN", 2026-11): the date lives only in a body "When: Saturday
+ * November 7th Hares off at Noon …" line. Parse the first date after "When:";
+ * the heading text (minus any extra run number) becomes the title.
+ */
+function parseWhenLineDate(
+  blocks: Block[],
+  start: number,
+  end: number,
+  afterRun: string,
+  now: Date,
+): { date: string; title?: string } | null {
+  for (let i = start + 1; i < end; i++) {
+    const m = WHEN_LABEL_RE.exec(blocks[i].text);
+    if (!m) continue;
+    // Prose dates carry ordinals ("November 7th"); DAY_RE expects a bare day.
+    const whenText = blocks[i].text.slice(m.index + m[0].length).replace(ORDINAL_SUFFIX_RE, "$1");
+    const parsed = parseHeadingDate(whenText, now);
+    if (!parsed) return null;
+    const title = afterRun.replace(EXTRA_RUN_PREFIX_RE, "").trim();
+    return { date: parsed.date, title: title || undefined };
+  }
+  return null;
+}
+
 /** Build one run from its heading block + body, or a parse error on drift. */
 function buildRun(
   blocks: Block[],
@@ -236,7 +267,7 @@ function buildRun(
   const runNumber = Number.parseInt(rm[1], 10);
 
   const afterRun = heading.slice(rm.index + rm[0].length).trim();
-  const dateParsed = parseHeadingDate(afterRun, now);
+  const dateParsed = parseHeadingDate(afterRun, now) ?? parseWhenLineDate(blocks, start, end, afterRun, now);
   if (!dateParsed) {
     // A numbered run whose date no longer parses is markup drift, NOT a
     // legitimately-absent run. Record a parse error so fetch() suppresses

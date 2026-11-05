@@ -150,3 +150,41 @@ describe("parseTitle", () => {
     expect(parseTitle("TBA")).toBeUndefined();
   });
 });
+
+// 2026-11 redesign: plain `div.event-card` blocks with labeled field <p>s and a
+// long race-report prose div. Trimmed from the live bombayhash.org home page
+// (curl'd 2026-11-05; prose cut to 120 chars). Adjacent <p>s concatenate with
+// no separator under cheerio .text() ("…October 2026Time: 9:30 AM"), which
+// broke the old year `\b` and let the venue swallow the whole report.
+const EVENT_CARD_FIXTURE = `<html><body><section><div class="container">
+<div class="events-grid" style="text-align: left;">
+                <div class="event-card"><h3>RUN #635 🏃‍♀️🍻 📍 Carter Road, Bandra – Where the Sun Roasted Us, but the Hash Spirit Stayed WELL DONE! ☀️🔥🤣</h3><p><span class="highlight">Date:</span> Sunday, 25th October 2026</p><p><span class="highlight">Time:</span> 9:30 AM sharp</p><p><span class="highlight">Venue:</span> Carter Road, Bandra</p><hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;"><div class="event-desc"><p>When we left home for Bandra, we had a feeling that the weather would be kind to us. A pleasant morning, a gentle breeze…</p></div></div><div class="event-card"><h3>Run 634 Jawhar Kashivali</h3><p><span class="highlight">Date:</span> Sunday 27th September 2026</p><p><span class="highlight">Time:</span> 9:30 AM </p><p><span class="highlight">Venue:</span> Jawhar Kashivali</p><hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;"><div class="event-desc"><p>Jawhar, Kashivali Approx 115 km from Andheri…</p></div></div><div class="event-card"><h3>🍺🐾 BH3 RUN #633 – KARJAT SPECIAL! 🐾🍺</h3><p><span class="highlight">Date:</span> Sunday, 23rd August 2026</p><p><span class="highlight">Time:</span> ⏰ Assemble: 9:30 AM | Run Starts: 10:00 AM</p><p><span class="highlight">Venue:</span> 📍 Bhanpurwala Farms, Karjat</p><hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;"><div class="event-desc"><p>👕 Hash Tee Mandatory 💧 Carry water, trail shoes &amp; your best ON-ON spirit! 🏃 Come for the Run. 🍻 Stay for the Beer. �…</p></div></div>            </div>
+</div></section></body></html>`;
+
+describe("parseBombayHashPage — 2026 event-card layout", () => {
+  const { events, parseErrors } = parseBombayHashPage(EVENT_CARD_FIXTURE);
+
+  it("dates every run from its labeled Date paragraph", () => {
+    expect(parseErrors).toEqual([]);
+    expect(events.map((e) => [e.runNumber, e.date])).toEqual([
+      [635, "2026-10-25"],
+      [634, "2026-09-27"],
+      [633, "2026-08-23"],
+    ]);
+  });
+
+  it("reads venue and time from their own paragraphs, not the prose", () => {
+    expect(events.map((e) => e.location)).toEqual([
+      "Carter Road, Bandra",
+      "Jawhar Kashivali",
+      "Bhanpurwala Farms, Karjat",
+    ]);
+    expect(events.every((e) => e.startTime === "09:30")).toBe(true);
+  });
+
+  it("takes the headline from the heading after the run number when it is clean", () => {
+    expect(events.find((e) => e.runNumber === 633)?.title).toBe("KARJAT SPECIAL!");
+    // #635's heading is emoji + 📍 venue only → no clean headline → merge default.
+    expect(events.find((e) => e.runNumber === 635)?.title).toBeUndefined();
+  });
+});
