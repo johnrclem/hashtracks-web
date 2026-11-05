@@ -31,15 +31,20 @@ function log(message) {
   process.stdout.write(`[vercel-build] ${message}\n`);
 }
 
-/** Run a command, inheriting stdio. Exits the process on failure when `fatal`. */
-function run(cmd, args, { fatal }) {
-  const line = `${cmd} ${args.join(" ")}`;
+/**
+ * Run `npx <args>`, inheriting stdio. Exits the process on failure when `fatal`.
+ * The executable is a string literal (not a parameter) so static analysis can
+ * see no caller-controlled command reaches spawnSync; every arg is a literal
+ * from this file.
+ */
+function npx(args, { fatal }) {
+  const line = `npx ${args.join(" ")}`;
   if (dryRun) {
     process.stdout.write(`DRY RUN: ${line}\n`);
     return 0;
   }
   log(`$ ${line}`);
-  const result = spawnSync(cmd, args, { stdio: "inherit" });
+  const result = spawnSync("npx", args, { stdio: "inherit" });
   const status = result.status ?? 1;
   if (status !== 0 && fatal) process.exit(status);
   return status;
@@ -47,13 +52,13 @@ function run(cmd, args, { fatal }) {
 
 if (isProduction) {
   log("VERCEL_ENV=production — applying pending migrations");
-  run("npx", ["prisma", "migrate", "deploy"], { fatal: true });
+  npx(["prisma", "migrate", "deploy"], { fatal: true });
 } else {
   log(
     `skipping migrate deploy (VERCEL_ENV=${vercelEnv ?? "unset"}) — ` +
       "migrations apply only on production builds",
   );
-  const status = run("npx", ["prisma", "migrate", "status"], { fatal: false });
+  const status = npx(["prisma", "migrate", "status"], { fatal: false });
   if (status !== 0) {
     log(
       "migrate status reported pending or unknown migrations " +
@@ -62,4 +67,4 @@ if (isProduction) {
   }
 }
 
-run("npx", ["next", "build"], { fatal: true });
+npx(["next", "build"], { fatal: true });
