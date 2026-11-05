@@ -38,6 +38,10 @@ import {
 
 const SOURCE_NAME = "Oregon Hashing Calendar";
 const APPLY = process.env.CLEANUP_APPLY === "1";
+// Prisma's interactive-transaction default is 5s; a bulk delete over a no-eventId-index
+// RawEvent table takes far longer (the Oregon apply on 2026-11-05 died at 76s with P2028
+// and rolled back). Give the one-shot room.
+const BULK_TX_OPTIONS = { timeout: 600_000, maxWait: 60_000 };
 
 interface RoutingConfig {
   kennelPatterns: KennelPattern[];
@@ -168,7 +172,7 @@ async function main() {
     const r = await tx.rawEvent.deleteMany({ where: { eventId: { in: toDelete }, sourceId: source.id } });
     const ev = await tx.event.deleteMany({ where: { id: { in: toDelete } } });
     return { raws: r.count, events: ev.count };
-  });
+  }, BULK_TX_OPTIONS);
   console.log(`\n✅ Deleted ${result.events} events and ${result.raws} RawEvents.`);
 }
 

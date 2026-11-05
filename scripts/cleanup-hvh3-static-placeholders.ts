@@ -33,6 +33,10 @@ import { prisma } from "@/lib/db";
 const KENNEL_CODE = "hvh3";
 const SOURCE_NAME = "Happy Valley H3 Static Schedule";
 const APPLY = process.env.CLEANUP_APPLY === "1";
+// Prisma's interactive-transaction default is 5s; a bulk delete over a no-eventId-index
+// RawEvent table takes far longer (the Oregon apply on 2026-11-05 died at 76s with P2028
+// and rolled back). Give the one-shot room.
+const BULK_TX_OPTIONS = { timeout: 600_000, maxWait: 60_000 };
 
 interface Candidate {
   id: string;
@@ -125,7 +129,7 @@ async function main() {
     const raws = await tx.rawEvent.deleteMany({ where: { eventId: { in: ids }, sourceId: source.id } });
     const deleted = await tx.event.deleteMany({ where: { id: { in: ids } } });
     return { raws: raws.count, events: deleted.count };
-  });
+  }, BULK_TX_OPTIONS);
   console.log(`\n✅ Deleted ${result.events} placeholder events and ${result.raws} static-schedule RawEvents.`);
 }
 
