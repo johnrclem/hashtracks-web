@@ -3867,6 +3867,32 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 14.4378,
     aliases: ["Prague, Czech Republic", "Praha"],
   },
+  // ── Cyprus (first 🇨🇾 kennel: Larnaca H3, est. 1987) — 2-level COUNTRY→METRO,
+  //    mirrors the Czech/Serbia precedent (no seed.ts stateMetroLinks). Amber
+  //    palette (the copper of the Cypriot flag); its other owner, Kenya, is far away. ──
+  {
+    name: "Cyprus",
+    country: "Cyprus",
+    level: "COUNTRY",
+    timezone: "Asia/Nicosia",
+    abbrev: "CY",
+    colorClasses: "bg-amber-200 text-amber-800",
+    pinColor: "#d97706",
+    centroidLat: 35.1264,
+    centroidLng: 33.4299,
+    aliases: ["Republic of Cyprus"],
+  },
+  {
+    name: "Larnaca",
+    country: "Cyprus",
+    timezone: "Asia/Nicosia",
+    abbrev: "LCA",
+    colorClasses: "bg-amber-100 text-amber-700",
+    pinColor: "#f59e0b",
+    centroidLat: 34.9167,
+    centroidLng: 33.6333,
+    aliases: ["Larnaca, Cyprus"],
+  },
   // ── Africa — Sierra Leone (2nd African country after Kenya; first West
   //    Africa; country → metro, no state-province intermediate). Lime
   //    palette keeps it distinct from Kenya's amber. ──
@@ -4149,6 +4175,9 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // doubles as US place names (Prague, OK / Prague, NE); "czech"/"czechia"/"praha"
   // are unambiguous. inferCountry() is first-match with USA as the default fallthrough.
   [/\b(czech|czechia|praha)\b/, "Czech Republic"],
+  // Cyprus — country + Larnaca. Both tokens are unambiguous (no US namesakes);
+  // inferCountry() is first-match with USA as the default fallthrough.
+  [/\b(cyprus|larnaca)\b/, "Cyprus"],
   // Sierra Leone — country-name token only. "freetown" is OMITTED (Freetown, MA/IN
   // collisions) and bare "sierra" is OMITTED (Sierra Vista, AZ + the kennel's own
   // "Sierra H4" name). "sierra leone" is unambiguous; inferCountry() is first-match
@@ -4434,6 +4463,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   // Serbia
   "Belgrade": "Serbia",
   "Prague": "Czech Republic",
+  // Cyprus
+  "Larnaca": "Cyprus",
   "Freetown": "Sierra Leone",
   // Vietnam
   "Ho Chi Minh City": "Vietnam",
@@ -4690,6 +4721,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // (mirrors the Serbia precedent; a metro-name key would be a dead no-op —
   // see hc-batch-4/-6 retros).
   "Czech Republic": "Czech Republic",
+  "Cyprus": "Cyprus",
   "Sierra Leone": "Sierra Leone",
   // Vietnam — metro "Ho Chi Minh City" resolves via STATE_GROUP_MAP first, so only
   // the country-group key "Vietnam" is reachable here (mirrors the Cambodia precedent).
@@ -4833,6 +4865,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   BB: "Barbados",
   RS: "Serbia",
   CZ: "Czech Republic",
+  CY: "Cyprus",
   VN: "Vietnam",
   LK: "Sri Lanka",
   IN: "India",

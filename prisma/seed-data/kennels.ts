@@ -6242,6 +6242,36 @@ export const KENNELS: KennelSeed[] = [
       // logoUrl OMITTED — HC returns a bundle:// app asset, not a fetchable URL; no logo available
       // website / foundedYear / hashCash: unverified — omitted
     },
+    // ── Cyprus (first 🇨🇾 kennel: Larnaca H3, est. late May 1987) ──
+    {
+      kennelCode: "lh3-cy", // bare "lh3" is London H3
+      shortName: "Larnaca H3",
+      fullName: "Larnaca Hash House Harriers",
+      region: "Larnaca",
+      country: "Cyprus", // canonical NAME — code "CY" lives in region.ts
+      website: "https://sites.google.com/view/larnaca-hash-house-harriers/the-larnaca-hash",
+      foundedYear: 1987, // /the-larnaca-hash: "Larnaca beating Amathus to it by a short head in late May, 1987"
+      // Seasonal start times (/the-larnaca-hash): "Winter runs begin at 4pm, spring and
+      // autumn runs at 5pm, summer runs at 6pm." Disjoint BYMONTH keeps the three
+      // same-BYDAY rules distinct on the (kennelId, rrule, source) upsert key.
+      scheduleDayOfWeek: "Monday",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Winter runs start at 4 PM, spring and autumn at 5 PM, summer at 6 PM.",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO;BYMONTH=6,7,8", startTime: "18:00", label: "Summer", validFrom: "06-01", validUntil: "08-31", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=MO;BYMONTH=3,4,5,9,10", startTime: "17:00", label: "Spring/Autumn", validFrom: "03-01", validUntil: "10-31", displayOrder: 1 },
+        { rrule: "FREQ=WEEKLY;BYDAY=MO;BYMONTH=11,12,1,2", startTime: "16:00", label: "Winter", validFrom: "11-01", validUntil: "02-28", displayOrder: 2 },
+      ],
+      hashCash: "€4", // /the-larnaca-hash: "Hash fees are 4€ per person"
+      walkersWelcome: true, // "welcomes both runners and walkers and trails are laid for both"
+      // logoUrl omitted — the only site image is an 822x184 header banner, not a logo.
+      description:
+        "Larnaca Hash House Harriers, founded in late May 1987 — a very family-oriented hash ('clean names') " +
+        "that runs every Monday evening on the eastern side of Cyprus. Runners and walkers both welcome; " +
+        "trails last around an hour and regularly muster 40+.",
+      latitude: 34.9167, // Larnaca centroid (runs spread across the east of the island)
+      longitude: 33.6333,
+    },
     {
       kennelCode: "sierra-h4", // grep-clean; first Sierra Leone kennel
       shortName: "Sierra H4",

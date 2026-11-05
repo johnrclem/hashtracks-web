@@ -8792,6 +8792,19 @@ export const SOURCES = [
       },
       kennelCodes: ["sh2b"],
     },
+    // Cyprus — first 🇨🇾 kennel; bespoke LarnacaHashAdapter over the Google Sites
+    // NEXT RUN page ("Future Hares" list + current-run block). The list rolls
+    // forward ~4 months, so upcomingOnly keeps reconcile off aged-off runs.
+    {
+      name: "Larnaca H3 Website (Next Run + Future Hares)",
+      url: "https://sites.google.com/view/larnaca-hash-house-harriers/next-run",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 180, // the list reaches ~18 weeks ahead
+      config: { upcomingOnly: true },
+      kennelCodes: ["lh3-cy"],
+    },
     {
       name: "Sierra H4 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",

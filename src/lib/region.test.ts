@@ -295,6 +295,17 @@ describe("inferCountry — Cambodia (first 🇰🇭 kennel)", () => {
   });
 });
 
+describe("inferCountry — Cyprus (first 🇨🇾 kennel: Larnaca H3)", () => {
+  it.each([
+    ["Cyprus", "Cyprus"],
+    ["Larnaca, Cyprus", "Cyprus"],
+    ["Larnaca", "Cyprus"],
+    ["Agia Napa Nature Reserve, Cyprus", "Cyprus"],
+  ])("infers %s → Cyprus", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
 describe("inferCountry — Barbados (first 🇧🇧 / first Caribbean kennel)", () => {
   it.each([
     ["Bridgetown", "Barbados"],
