@@ -68,8 +68,14 @@ const MONTH_NUMBERS = new Map<string, number>(Object.entries(MONTHS));
 // Warsaw H3's rotating hare-needed jokes. The universal placeholders (`???`,
 // `TBA`, `Hare needed`…) are handled by the shared `stripPlaceholder`; these
 // kennel-specific phrases need a local guard (#2507, #2653).
-const WARSAW_HARE_PLACEHOLDER_RE =
-  /^(?:it could be you|live trail|time to sign up|no hare\b.*)[!?.]*$/i;
+// Matched procedurally (trailing punctuation stripped, then exact / prefix
+// compare) rather than one regex with `.*` before `[!?.]*` (Sonar S8786).
+const WARSAW_HARE_JOKES = new Set(["it could be you", "live trail", "time to sign up"]);
+function isWarsawHareJoke(hare: string): boolean {
+  let core = hare.trim().toLowerCase();
+  while (core && "!?.".includes(core.at(-1) ?? "")) core = core.slice(0, -1);
+  return WARSAW_HARE_JOKES.has(core) || core === "no hare" || core.startsWith("no hare ");
+}
 
 /** Trimmed value or undefined for empty cells. */
 function cleanText(value: string | undefined): string | undefined {
@@ -91,7 +97,7 @@ function cleanHare(value: string | undefined): string | null | undefined {
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
   const hare = stripPlaceholder(trimmed);
-  if (!hare || WARSAW_HARE_PLACEHOLDER_RE.test(hare)) return null;
+  if (!hare || isWarsawHareJoke(hare)) return null;
   return hare;
 }
 
