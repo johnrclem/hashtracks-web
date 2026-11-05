@@ -7695,17 +7695,48 @@ export const SOURCES = [
       defaultLocation: "Tokoroa, NZ",
       defaultDescription: "Winter schedule: Sunday 4pm. Start location posted each week on https://www.facebook.com/TokoroaHHH/.",
     }),
-    // T3H3 (Wellington Thirsty Thursday Taniwha): monthly 2nd Thursday.
+    // T3H3 (Wellington Thirsty Thursday Taniwha): 1st + 3rd Thursday.
+    // #2374: the FB Events page shows runs on the 1st and 3rd Thursdays
+    // (#538 Jul 16, #539 Aug 6, #540 Aug 20 … #545 Nov 5 2026), not the
+    // "2nd Thursday monthly" the original rule assumed. RRULE BYDAY can't take
+    // two ordinals, so split into two rules (Columbian H3 pattern). The FB
+    // hosted-events source below supplies real titles/venues (trust 8).
     staticScheduleSource({
       name: "T3H3 Wellington Static Schedule",
       url: "https://www.facebook.com/ThirstyThursdayTaniwhaH3",
       kennelTag: "t3h3-nz",
-      rrule: "FREQ=MONTHLY;BYDAY=2TH",
+      rrule: "FREQ=MONTHLY;BYDAY=1TH",
       startTime: "18:30",
-      defaultTitle: "T3H3 Monthly Run",
+      defaultTitle: "T3H3 Run",
       defaultLocation: "Wellington, NZ",
-      defaultDescription: "2nd Thursday of every month, 6:30 PM. ~5km urban trails accessible by public transport. Check https://www.facebook.com/ThirstyThursdayTaniwhaH3 for each month's start location.",
+      defaultDescription: "1st and 3rd Thursday of every month, 6:30 PM. ~5km urban trails accessible by public transport. Check https://www.facebook.com/ThirstyThursdayTaniwhaH3 for each run's start location.",
     }),
+    staticScheduleSource({
+      name: "T3H3 Wellington Static Schedule (3rd Thursday)",
+      url: "https://www.facebook.com/ThirstyThursdayTaniwhaH3#3rd-thursday",
+      kennelTag: "t3h3-nz",
+      rrule: "FREQ=MONTHLY;BYDAY=3TH",
+      startTime: "18:30",
+      defaultTitle: "T3H3 Run",
+      defaultLocation: "Wellington, NZ",
+      defaultDescription: "1st and 3rd Thursday of every month, 6:30 PM. ~5km urban trails accessible by public transport. Check https://www.facebook.com/ThirstyThursdayTaniwhaH3 for each run's start location.",
+    }),
+    {
+      name: "T3H3 Wellington Facebook Hosted Events",
+      url: "https://www.facebook.com/ThirstyThursdayTaniwhaH3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "t3h3-nz",
+        pageHandle: "ThirstyThursdayTaniwhaH3",
+        timezone: "Pacific/Auckland",
+        upcomingOnly: true,
+        includePastEvents: true,
+      },
+      kennelCodes: ["t3h3-nz"],
+    },
     // Auckland Hussies: Excel-exported static HTML run list.
     {
       name: "Auckland Hussies Run List",
