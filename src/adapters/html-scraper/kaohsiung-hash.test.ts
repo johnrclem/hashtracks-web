@@ -132,6 +132,10 @@ describe("parseKaohsiungHashPage — dateless heading with a When: line", () => 
     expect(away?.title).toBe("WEEKEND AWAY GUANZILING HOT SPRINGS TAINAN");
   });
 
+  it("takes the start time from the dated day's clause only (Saturday's Noon, not Sunday's 11:00)", () => {
+    expect(runs.find((r) => r.runNumber === 2743)?.startTime).toBe("12:00");
+  });
+
   it("still parses ordinary dated headings", () => {
     expect(runs.find((r) => r.runNumber === 2745)?.date).toBe("2026-11-14");
   });

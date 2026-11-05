@@ -240,7 +240,7 @@ function parseWhenLineDate(
   end: number,
   afterRun: string,
   now: Date,
-): { date: string; title?: string } | null {
+): { date: string; title?: string; daySchedule: string } | null {
   for (let i = start + 1; i < end; i++) {
     const m = WHEN_LABEL_RE.exec(blocks[i].text);
     if (!m) continue;
@@ -249,9 +249,22 @@ function parseWhenLineDate(
     const parsed = parseHeadingDate(whenText, now);
     if (!parsed) return null;
     const title = afterRun.replace(EXTRA_RUN_PREFIX_RE, "").trim();
-    return { date: parsed.date, title: title || undefined };
+    // Only the first day's clause belongs to this run: "Saturday November 7
+    // Hares off at Noon And Sunday November 8 Hares off at 11:00 AM" → cut at
+    // the second month name so Sunday's time is never borrowed. (Adjacent <p>s
+    // can concatenate with no space — "NoonAnd Sunday" — so don't split on "and".)
+    const monthHits = [...whenText.matchAll(MONTH_WORD_RE)].filter((h) => MONTH_INDEX.has(h[0].toLowerCase()));
+    const daySchedule = monthHits.length > 1 ? whenText.slice(0, monthHits[1].index) : whenText;
+    return { date: parsed.date, title: title || undefined, daySchedule };
   }
   return null;
+}
+
+/** Start time from one day's "When:" clause; "Noon" → 12:00. Never falls back to other prose. */
+function parseDayScheduleTime(daySchedule: string): string | undefined {
+  // Leading boundary only: tolerates "NoonAnd" run-ons, still rejects "afternoon".
+  if (/\bnoon/i.test(daySchedule)) return "12:00";
+  return parseStartTime(daySchedule, undefined);
 }
 
 /** Build one run from its heading block + body, or a parse error on drift. */
@@ -267,7 +280,8 @@ function buildRun(
   const runNumber = Number.parseInt(rm[1], 10);
 
   const afterRun = heading.slice(rm.index + rm[0].length).trim();
-  const dateParsed = parseHeadingDate(afterRun, now) ?? parseWhenLineDate(blocks, start, end, afterRun, now);
+  const dateParsed: { date: string; title?: string; daySchedule?: string } | null =
+    parseHeadingDate(afterRun, now) ?? parseWhenLineDate(blocks, start, end, afterRun, now);
   if (!dateParsed) {
     // A numbered run whose date no longer parses is markup drift, NOT a
     // legitimately-absent run. Record a parse error so fetch() suppresses
@@ -299,7 +313,10 @@ function buildRun(
       hares,
       location: parseLocation(prose),
       locationUrl,
-      startTime: parseStartTime(prose, rawTitle),
+      startTime:
+        dateParsed.daySchedule === undefined
+          ? parseStartTime(prose, rawTitle)
+          : parseDayScheduleTime(dateParsed.daySchedule),
       cost: parseCost(prose),
       description: prose || undefined,
     },
