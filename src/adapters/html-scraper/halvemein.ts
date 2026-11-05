@@ -165,9 +165,11 @@ export function parseHalveMeinRow(
 
 /** Extract the street address from a "Google: <address>" directions cell. */
 export function parseHalveMeinDirections(cell: string | undefined): string | undefined {
-  const match = /^google\s*:\s*([\s\S]*)$/i.exec(cell?.trim() ?? "");
-  const address = match?.[1].trim();
-  return address || undefined;
+  const text = cell?.trim() ?? "";
+  if (!text.toLowerCase().startsWith("google")) return undefined;
+  const rest = text.slice("google".length).trimStart();
+  if (!rest.startsWith(":")) return undefined;
+  return rest.slice(1).trim() || undefined;
 }
 
 /**
