@@ -1,4 +1,4 @@
-import { parseNextRunArticle, parseHarelineApiHtml } from "./bangkokhash";
+import { parseNextRunArticle, parseHarelineRows, parseNextRunDirections } from "./bangkokhash";
 
 const NEXT_RUN_HTML = `
 <div class="item-content">
@@ -258,69 +258,152 @@ describe("parseNextRunArticle", () => {
   });
 });
 
-describe("parseHarelineApiHtml", () => {
-  // Simplified version of the actual API response HTML
-  const HARELINE_HTML = `
-<div style='padding: 0px;'>
-  <div style='font-weight: bold; background: #b3d9ff;'>16-Apr-2026 <span>Thursday</span></div>
-  <div style='font-size: 10pt;'><label style='width: 100px;'>Run #519</label>Jessticles</div>
-</div>
-<div style='padding: 0px;'>
-  <div style='font-weight: bold; background: #b3d9ff;'>23-Apr-2026 <span>Thursday</span></div>
-  <div style='font-size: 10pt;'><label style='width: 100px;'>Run #520</label>Here for Beer</div>
-</div>
-<div style='padding: 0px;'>
-  <div style='font-weight: bold; background: #b3d9ff;'>01-May-2026 <span>Friday</span></div>
-  <div style='font-size: 10pt;'><label>&nbsp;</label><label>Fullmoon-255</label></div>
-</div>
-<div style='padding: 0px;'>
-  <div style='font-weight: bold; background: #b3d9ff;'>07-May-2026 <span>Thursday</span></div>
-  <div style='font-size: 10pt;'><label style='width: 100px;'>Run #521</label>Drunkin Donut</div>
-</div>`;
+// Trimmed from the live HashWebApp hareline payload (Nov 2026 rebuild):
+// POST /HashWebApp/Runs/05_Hareline/ViewHL_Server.php {"hashclub":"BTH3","viewoption":3}
+const BTH3_HARELINE_HTML =
+  "<div class='hl-month'>November 2026</div><div class='hl-group'>" +
+  "<div class='hl-row hl-past'><div class='hl-date' title='Thursday 5 November 2026'><span class='hl-dow'>Thu</span><span class='hl-day'>5</span></div><div class='hl-main'><span class='hl-hare'>Khlong Dump</span></div><div class='hl-side'><span class='hl-num'>#541</span></div></div>" +
+  "<div class='hl-row hl-booked hl-next'><div class='hl-date' title='Thursday 12 November 2026'><span class='hl-dow'>Thu</span><span class='hl-day'>12</span></div><div class='hl-main'><span class='hl-hare'>On On Que</span></div><div class='hl-side'><span class='hl-tag'>Next</span><span class='hl-num'>#542</span></div></div>" +
+  "<div class='hl-row hl-note'><div class='hl-date' title='Friday 27 November 2026'><span class='hl-dow'>Fri</span><span class='hl-day'>27</span></div><div class='hl-main'><span class='hl-notetext'>Fullmoon-262</span></div></div></div>" +
+  "<div class='hl-month'>April 2027</div><div class='hl-group'>" +
+  "<div class='hl-row hl-booked'><div class='hl-date' title='Thursday 1 April 2027'><span class='hl-dow'>Thu</span><span class='hl-day'>1</span></div><div class='hl-main'><span class='hl-hare'>City Girl / Shaggy</span></div><div class='hl-side'><span class='hl-num'>#557</span></div></div>" +
+  "<div class='hl-row'><div class='hl-date' title='Thursday 8 April 2027'><span class='hl-dow'>Thu</span><span class='hl-day'>8</span></div><div class='hl-main'><span class='hl-hare'><span class='hl-wanted'>Hare wanted!</span></span></div><div class='hl-side'><span class='hl-num'>#558</span></div></div>" +
+  "<div class='hl-row hl-note hl-past'><div class='hl-date' title='Friday 23 October 2020'><span class='hl-dow'>Fri</span><span class='hl-day'>23</span></div><div class='hl-main'><span class='hl-notetext'>Fullmoon - Cancelled</span></div></div>" +
+  "<div class='hl-row hl-note hl-past'><div class='hl-date' title='Thursday 19 March 2020'><span class='hl-dow'>Thu</span><span class='hl-day'>19</span></div><div class='hl-main'><span class='hl-notetext'>Cancelled</span></div></div></div>";
 
-  it("parses BTH3 hareline entries", () => {
-    const events = parseHarelineApiHtml(HARELINE_HTML, "bth3", "bfmh3", "18:30", "https://www.bangkokhash.com/thursday/index.php");
-    expect(events.length).toBe(4);
+const S2H3_HARELINE_HTML =
+  "<div class='hl-month'>November 2026</div><div class='hl-group'><div class='hl-row hl-booked hl-next'><div class='hl-date' title='Sunday 8 November 2026'><span class='hl-dow'>Sun</span><span class='hl-day'>8</span></div><div class='hl-main'><span class='hl-hare'>Chicken Licker</span> <span class='hl-comment'>80th Birthday Run</span></div><div class='hl-side'><span class='hl-tag'>Next</span><span class='hl-num'>#667</span></div></div></div>";
 
-    // First entry: BTH3
-    expect(events[0].date).toBe("2026-04-16");
-    expect(events[0].kennelTags[0]).toBe("bth3");
-    expect(events[0].runNumber).toBe(519);
-    expect(events[0].hares).toBe("Jessticles");
+const BTH3_OPTS = {
+  kennelTag: "bth3",
+  fullmoonTag: "bfmh3",
+  defaultTime: "18:30",
+  sourceUrl: "https://bangkokhash.com/thursday/",
+};
 
-    // Second entry: BTH3
-    expect(events[1].date).toBe("2026-04-23");
-    expect(events[1].runNumber).toBe(520);
-    expect(events[1].hares).toBe("Here for Beer");
+describe("parseHarelineRows", () => {
+  it("parses run rows with date, run number and hares", () => {
+    const events = parseHarelineRows(BTH3_HARELINE_HTML, BTH3_OPTS);
+    const r541 = events.find((e) => e.runNumber === 541);
+    expect(r541).toMatchObject({
+      date: "2026-11-05",
+      kennelTags: ["bth3"],
+      hares: "Khlong Dump",
+      startTime: "18:30",
+      sourceUrl: "https://bangkokhash.com/thursday/",
+    });
   });
 
-  it("routes Fullmoon entries to bfmh3 tag", () => {
-    const events = parseHarelineApiHtml(HARELINE_HTML, "bth3", "bfmh3", "18:30", "https://www.bangkokhash.com/thursday/index.php");
-    const fullmoon = events.find((e) => e.kennelTags[0] === "bfmh3");
-    expect(fullmoon).toBeDefined();
-    expect(fullmoon!.date).toBe("2026-05-01");
-    expect(fullmoon!.runNumber).toBe(255);
-    expect(fullmoon!.startTime).toBe("18:30");
+  it("drops 'On On Que' filler and 'Hare wanted!' placeholders from hares (#802)", () => {
+    const events = parseHarelineRows(BTH3_HARELINE_HTML, BTH3_OPTS);
+    const r542 = events.find((e) => e.runNumber === 542);
+    const r558 = events.find((e) => e.runNumber === 558);
+    expect(r542?.date).toBe("2026-11-12");
+    expect(r542?.hares).toBeUndefined();
+    expect(r558?.date).toBe("2027-04-08");
+    expect(r558?.hares).toBeUndefined();
   });
 
-  it("does not route Fullmoon when fullmoonTag is null", () => {
-    const events = parseHarelineApiHtml(HARELINE_HTML, "s2h3", null, "16:30", "https://www.bangkokhash.com/siamsunday/index.php");
-    const fullmoon = events.find((e) => e.kennelTags[0] === "bfmh3");
-    expect(fullmoon).toBeUndefined();
+  it("splits slash-joined co-hares", () => {
+    const events = parseHarelineRows(BTH3_HARELINE_HTML, BTH3_OPTS);
+    expect(events.find((e) => e.runNumber === 557)?.hares).toBe("City Girl, Shaggy");
   });
 
-  it("handles empty hareline", () => {
-    const events = parseHarelineApiHtml("", "bth3", "bfmh3", "18:30", "https://example.com");
-    expect(events).toEqual([]);
+  it("routes the BTH3 feed's Fullmoon-NNN note rows to bfmh3", () => {
+    const events = parseHarelineRows(BTH3_HARELINE_HTML, BTH3_OPTS);
+    const fm = events.filter((e) => e.kennelTags[0] === "bfmh3");
+    expect(fm).toHaveLength(1);
+    expect(fm[0]).toMatchObject({ date: "2026-11-27", runNumber: 262, startTime: "18:30" });
   });
 
-  it("filters 'On On' boilerplate from hare field", () => {
-    const html = `
-<div style='padding: 0px;'>
-  <div style='font-weight: bold; background: #b3d9ff;'>01-May-2026 <span>Friday</span></div>
-  <div style='font-size: 10pt;'><label style='width: 100px;'>Run #101</label>On On Q</div>
-</div>`;
-    const events = parseHarelineApiHtml(html, "bfmh3", null, "18:30", "https://example.com");
-    expect(events[0].hares).toBeUndefined();
+  it("skips Fullmoon rows when no fullmoonTag is set, and skips Cancelled notes", () => {
+    const events = parseHarelineRows(BTH3_HARELINE_HTML, { ...BTH3_OPTS, fullmoonTag: null });
+    expect(events.some((e) => e.kennelTags[0] === "bfmh3")).toBe(false);
+    expect(events.some((e) => e.date.startsWith("2020-"))).toBe(false);
+    expect(events.map((e) => e.runNumber)).toEqual([541, 542, 557, 558]);
+  });
+
+  it("maps the .hl-comment annotation to description", () => {
+    const events = parseHarelineRows(S2H3_HARELINE_HTML, {
+      kennelTag: "s2h3",
+      fullmoonTag: null,
+      defaultTime: "16:30",
+      sourceUrl: "https://bangkokhash.com/siamsunday/",
+    });
+    expect(events).toEqual([
+      {
+        date: "2026-11-08",
+        kennelTags: ["s2h3"],
+        runNumber: 667,
+        hares: "Chicken Licker",
+        description: "80th Birthday Run",
+        startTime: "16:30",
+        sourceUrl: "https://bangkokhash.com/siamsunday/",
+      },
+    ]);
+  });
+
+  it("handles an empty hareline", () => {
+    expect(parseHarelineRows("", BTH3_OPTS)).toEqual([]);
+  });
+});
+
+// Trimmed from live GET /HashWebApp/Runs/05_Hareline/ViewNextRunDirections.php?b=S2H3
+const S2H3_NEXT_RUN_HTML = `<!DOCTYPE html><html lang="en"><head><title>S2H3 Run Directions</title></head><body>
+<div class="wrap">
+<table class="run"><caption>S2H3  Run #667</caption><tbody>
+<tr><th>Date</th><td>Sunday 08-Nov-2026</td></tr>
+<tr><th>Start Time</th><td>4:30 pm</td></tr>
+<tr><th>Hare</th><td>Chicken Licker</td></tr>
+<tr><th>Location</th><td>Thetsaban Bang Pu Soi-70</td></tr>
+<tr><th>Restaurant</th><td>Baan Chidlom Bang Pu</td></tr>
+<tr><th>Google Maps</th><td><a class="maplink" href="https://maps.app.goo.gl/d6ia7xVD6as8EMFd8" target="_blank" rel="noopener">Open in Google Maps &#8599;</a></td></tr>
+</tbody></table>
+<div class="notes"><p><strong><span class="dk">Mis-directions</span>:</strong></p><ul>
+<li>Chicken Licker&#039;s 80th birthday run</li>
+<li><strong>By BTS</strong>: Go to Kheha BTS on the green line and then a 5 minute taxi ride to Soi 70</li>
+<li><strong>Run Fee</strong>: 300 Baht</li>
+</ul></div>
+</div></body></html>`;
+
+// Live BTH3 shape when directions aren't posted yet.
+const BTH3_NEXT_RUN_PENDING_HTML = `<div class="wrap"><table class="run"><caption>BTH3  Run #542</caption><tbody>
+<tr><th>Date</th><td>Thursday 12-Nov-2026</td></tr>
+<tr><th>Start Time</th><td>6:30 pm</td></tr>
+<tr><th>Hare</th><td>Tallman</td></tr>
+</tbody></table>
+<div class="notes"><p class="soon">The run directions will be posted when they are available.</p></div></div>`;
+
+describe("parseNextRunDirections", () => {
+  it("parses the run table, maps link, notes and fee", () => {
+    const event = parseNextRunDirections(S2H3_NEXT_RUN_HTML, {
+      kennelTag: "s2h3",
+      defaultTime: "16:30",
+      sourceUrl: "https://bangkokhash.com/siamsunday/",
+    });
+    expect(event).toEqual({
+      date: "2026-11-08",
+      kennelTags: ["s2h3"],
+      runNumber: 667,
+      hares: "Chicken Licker",
+      location: "Thetsaban Bang Pu Soi-70",
+      locationUrl: "https://maps.app.goo.gl/d6ia7xVD6as8EMFd8",
+      startTime: "16:30",
+      cost: "300 Baht",
+      description:
+        "Chicken Licker's 80th birthday run\nBy BTS: Go to Kheha BTS on the green line and then a 5 minute taxi ride to Soi 70\nRestaurant: Baan Chidlom Bang Pu",
+      sourceUrl: "https://bangkokhash.com/siamsunday/",
+    });
+  });
+
+  it("ignores the 'directions will be posted' placeholder and converts 12h time", () => {
+    const event = parseNextRunDirections(BTH3_NEXT_RUN_PENDING_HTML, BTH3_OPTS);
+    expect(event).toMatchObject({ date: "2026-11-12", runNumber: 542, hares: "Tallman", startTime: "18:30" });
+    expect(event?.description).toBeUndefined();
+    expect(event?.location).toBeUndefined();
+  });
+
+  it("returns null when there is no run table", () => {
+    expect(parseNextRunDirections("<div class='msg'>No run scheduled</div>", BTH3_OPTS)).toBeNull();
   });
 });

@@ -4438,17 +4438,16 @@ export const SOURCES = [
     },
     {
       name: "New Taipei Hash Run List",
-      // Big5-encoded legacy .htm; the year is in the filename and the adapter
-      // derives the current year at fetch time (run_site_<YYYY>.htm). The seed
-      // URL is pinned to 2026 only for first-scrape determinism.
-      url: "http://www.newtaipeihash.com/run_site_2026.htm",
+      // Nov 2026: newtaipeihash.com 301s to this rebuilt site; the adapter reads
+      // its JSON API (/api/runs + /api/runs/this-week).
+      url: "https://nth3.taipeihash.com.tw/",
       type: "HTML_SCRAPER" as const,
       trustLevel: 6,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      // The page is a whole-year rolling hareline (past + future on one page) and
-      // the one-shot backfill loads 2013–2025; upcomingOnly keeps reconcile.ts from
-      // false-CANCELLing the past rows as the year progresses.
+      // The adapter pages back only to the scrape window and the one-shot
+      // backfill loads 2013–2025; upcomingOnly keeps reconcile.ts from
+      // false-CANCELLing past rows.
       config: { upcomingOnly: true },
       kennelCodes: ["nth3-tw"],
     },
@@ -6527,10 +6526,10 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["bmh3-bkk"],
     },
-    // --- Bangkok Thursday Hash (Joomla + PHP API) ---
+    // --- Bangkok Thursday Hash (HashWebApp hareline + next-run API) ---
     {
       name: "Bangkok Thursday Hash",
-      url: "https://www.bangkokhash.com/thursday/index.php",
+      url: "https://bangkokhash.com/thursday/",
       type: "HTML_SCRAPER" as const,
       trustLevel: 8,
       scrapeFreq: "daily",
@@ -6538,10 +6537,10 @@ export const SOURCES = [
       config: { subSite: "thursday" },
       kennelCodes: ["bth3", "bfmh3"],
     },
-    // --- Bangkok Full Moon Hash (Joomla + PHP API) ---
+    // --- Bangkok Full Moon Hash (HashWebApp hareline + next-run API) ---
     {
       name: "Bangkok Full Moon Hash",
-      url: "https://www.bangkokhash.com/fullmoon/index.php",
+      url: "https://bangkokhash.com/fullmoon/",
       type: "HTML_SCRAPER" as const,
       trustLevel: 8,
       scrapeFreq: "daily",
@@ -6549,10 +6548,10 @@ export const SOURCES = [
       config: { subSite: "fullmoon" },
       kennelCodes: ["bfmh3"],
     },
-    // --- Siam Sunday Hash (Joomla + PHP API) ---
+    // --- Siam Sunday Hash (HashWebApp hareline + next-run API) ---
     {
       name: "Siam Sunday Hash",
-      url: "https://www.bangkokhash.com/siamsunday/index.php",
+      url: "https://bangkokhash.com/siamsunday/",
       type: "HTML_SCRAPER" as const,
       trustLevel: 8,
       scrapeFreq: "daily",

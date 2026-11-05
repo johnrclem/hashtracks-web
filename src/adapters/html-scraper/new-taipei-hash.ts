@@ -1,392 +1,261 @@
-import * as cheerio from "cheerio";
-import type { CheerioAPI, Cheerio } from "cheerio";
-import type { Element } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
-import type {
-  SourceAdapter,
-  RawEventData,
-  ScrapeResult,
-  ErrorDetails,
-  ParseError,
-} from "../types";
-import { hasAnyErrors } from "../types";
-import { filterEventsByWindow, normalizeHaresField } from "../utils";
+import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
+import { appendDescriptionSuffix, applyDateWindow, buildDateWindow, normalizeHaresField } from "../utils";
 import { safeFetch } from "../safe-fetch";
-import { generateStructureHash } from "@/pipeline/structure-hash";
-import { todayInTimezone } from "@/lib/timezone";
 
 /**
  * New Taipei Hash House Harriers (新北捷兔) — `nth3-tw`.
  *
- * Static Cheerio scrape of the kennel's legacy server-rendered yearly page at
- * newtaipeihash.com/run_site_<YYYY>.htm. A single `<table>` holds the whole
- * year's hareline (past + future) plus highlighted "Important Events" specials.
+ * The kennel's legacy Big5 `newtaipeihash.com/run_site_<YYYY>.htm` page now
+ * 301s to a rebuilt site at nth3.taipeihash.com.tw (Nov 2026), which is backed
+ * by a public JSON API:
  *
- * Three source-specific quirks drive a bespoke adapter (vs config-only):
- *   1. **Big5 encoding.** The page declares no charset and serves legacy Big5
- *      bytes — `response.text()` (UTF-8) mojibakes every Chinese venue/hare.
- *      We read the raw bytes and decode with `TextDecoder("big5")` before
- *      cheerio.load. This is HashTracks' first Big5 source.
- *   2. **Year is in the URL filename**, not the rows. `run_site_2026.htm` →
- *      2026. The adapter derives the *current* year at fetch time so a daily
- *      scraper never pins to a stale page once the year rolls over.
- *   3. **Seasonal start time, not per-row.** The page header is authoritative:
- *      "下午15:00起跑(冬令時間提前於下午14:30起跑)" — summer 15:00 / winter 14:30.
- *      The in-table season-marker rows actually have a typo (both say 14:30),
- *      so we derive the time by month (Apr–Sep summer / Oct–Mar winter), which
- *      matches the real marker boundaries (winter from run #706=10/04, summer
- *      from run #680=04/05) exactly.
+ *   GET /api/runs?page=N&limit=50   → `data.runs[]` (upcoming + completed,
+ *       newest first) + `data.pagination {page, limit, total, total_pages}`.
+ *       The server caps `limit` at 50.
+ *   GET /api/runs/this-week         → `data.run` — one run with the detail
+ *       fields the list omits (description, on-after `bash_place`, `event_link`,
+ *       `loc_map_url`). Phone fields (`hare_phone`, `cohare_phone`) are PII and
+ *       are never read.
  *
- * Other quirks handled: hare cells carry PII phone numbers (mobile `0xxx-xxx-xxx`
- * and landline `(02)xxxx-xxxx`) that are stripped; the Word "Save as HTML" export
- * leaks `<style>` content into some cells (2024+); the highlighted "Important
- * Events" rows duplicate weekly-list runs and are deduped by run number; per-run
- * Facebook event links are captured as EventLinks (not locationUrl, which is
- * reserved for genuine map links so the static-map click-through stays a map).
+ * Per run: `run_number`, `run_date` "YYYY-MM-DD", `start_time` "14:30:00",
+ * `loc_name(_en)` (district), `loc_place(_en)` (venue or street address),
+ * `special_note` (theme, e.g. "年會" AGM), `status` ("upcoming" | "completed"),
+ * `hare_name(_zh)`, `cohare_name(_zh)`.
+ *
+ * The adapter pages the list newest→oldest until it passes the start of the
+ * ±days window, so a scrape covers the upcoming hareline plus the recent past.
+ * History before 2026 was loaded once by scripts/backfill-nth3-tw-history.ts;
+ * the source is `upcomingOnly` so aged-out runs are never reconcile-cancelled.
  */
 
 const KENNEL_TAG = "nth3-tw";
-const KENNEL_TIMEZONE = "Asia/Taipei";
-const DEFAULT_BASE = "http://www.newtaipeihash.com";
-const NOON_HOUR = 12;
-const SUMMER_START = "15:00"; // Apr–Sep
-const WINTER_START = "14:30"; // Oct–Mar
-const SUMMER_MONTHS = new Set([4, 5, 6, 7, 8, 9]);
-const BIG5_LABEL = "big5";
-
-// A `Mozilla`-prefixed UA is mandatory: the origin returns HTTP 500 to a bare
-// `curl/*` UA but 200 to any Mozilla UA (verified 2026-06-13).
+const API_BASE = "https://nth3.taipeihash.com.tw/api";
+const PAGE_LIMIT = 50; // server-side cap
+const MAX_PAGES = 20; // 1000 runs ≈ 19 years — bounds a pagination bug
 const USER_AGENT = "Mozilla/5.0 (compatible; HashTracks-Scraper)";
+const TIMEOUT_MS = 30_000;
 
-// Cap on the response body we'll buffer. The live 2026 page is ~126KB; 2MB
-// leaves headroom while bounding a malformed/hostile payload.
-const MAX_BODY_BYTES = 2 * 1024 * 1024;
-
-// First MM/DD in the cell — a trailing `~DD` (multi-day special, e.g. archive
-// #46 `11/15~17`) is ignored, so the event lands on the first day.
-const DATE_RE = /(\d{1,2})\/(\d{1,2})/;
-const RUN_RE = /(\d+)/;
-
-// Phone strips (bounded — ReDoS-safe, no nested unbounded quantifiers):
-//   (02)2883-2383  — landline with parenthesised area code
-//   0920-946-035   — mobile (also matches 02-2883-2383)
-const PHONE_PAREN_RE = /\(0\d\)\d{3,4}-?\d{3,4}/g;
-const PHONE_DASHED_RE = /0\d{1,3}-?\d{3,4}-?\d{3,4}/g;
-
-// Distinct hares are separated by & / ＆ / 、 ; a single hare's CN/EN names are
-// joined by "/" and must stay together. No surrounding `\s*` (S5852/ReDoS) —
-// normalizeHaresField trims each comma-split part anyway.
-const HARE_SEPARATOR_RE = /[&＆、]/g;
-
-const MAPS_HREF =
-  "a[href*='maps.app.goo.gl'], a[href*='goo.gl/maps'], a[href*='google.com/maps']";
-const MAPS_HOSTS = new Set([
-  "maps.app.goo.gl",
-  "goo.gl",
-  "google.com",
-  "www.google.com",
-  "maps.google.com",
-]);
-const FB_HREF = "a[href*='fb.me/'], a[href*='facebook.com/events/']";
-const FB_HOSTS = new Set(["fb.me", "facebook.com", "www.facebook.com", "m.facebook.com"]);
-
-function pad2(n: number): string {
-  return String(n).padStart(2, "0");
+/** Subset of the API run shape we consume. All fields optional — validated at runtime. */
+export interface Nth3ApiRun {
+  run_number?: number | null;
+  run_date?: string | null;
+  start_time?: string | null;
+  loc_name?: string | null;
+  loc_name_en?: string | null;
+  loc_place?: string | null;
+  loc_place_en?: string | null;
+  loc_map_url?: string | null;
+  bash_place?: string | null;
+  bash_place_en?: string | null;
+  description?: string | null;
+  event_link?: string | null;
+  special_note?: string | null;
+  status?: string | null;
+  hare_name?: string | null;
+  hare_name_zh?: string | null;
+  cohare_name?: string | null;
+  cohare_name_zh?: string | null;
 }
 
-/** Round-trip-validated UTC-noon ms for a given Y/M/D, or null if impossible. */
-function utcNoonMs(year: number, month: number, day: number): number | null {
-  const ms = Date.UTC(year, month - 1, day, NOON_HOUR, 0, 0);
-  const d = new Date(ms);
-  if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
-  return ms;
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const HTTP_URL_RE = /^https?:\/\//i;
+const TIME_RE = /^(\d{1,2}):(\d{2})/;
+
+/** First non-empty trimmed string, else undefined. */
+function pick(...values: Array<string | null | undefined>): string | undefined {
+  for (const v of values) {
+    const t = v?.trim();
+    if (t) return t;
+  }
+  return undefined;
 }
 
-/** Summer (Apr–Sep) 15:00, winter (Oct–Mar) 14:30. */
-function seasonalStartTime(month: number): string {
-  return SUMMER_MONTHS.has(month) ? SUMMER_START : WINTER_START;
+/** Drop tracking params (e.g. `?utm_source=chatgpt.com`) from a maps short-link. */
+function cleanMapUrl(raw: string | undefined): string | undefined {
+  if (!raw || !HTTP_URL_RE.test(raw)) return undefined;
+  try {
+    const url = new URL(raw);
+    for (const key of [...url.searchParams.keys()]) {
+      if (key.toLowerCase().startsWith("utm_")) url.searchParams.delete(key);
+    }
+    return url.toString();
+  } catch {
+    return undefined;
+  }
 }
 
-// Overseas-special venues prefix the country in Chinese (e.g. "泰國 清邁",
-// "日本 沖繩"). The merge pipeline drops geocoded results >200km from the
-// kennel/region centroid unless `countryOverride` is set, which would throw
-// away the (correct) foreign pin. Setting countryOverride="" bypasses that
-// guard with no geocode bias — the venue text already names the country.
-// Mirrors new-tokyo-katch.ts's overseas handling. Set-membership check (not a
-// big alternation regex) to keep clear of Sonar S5843.
+// Overseas specials prefix the country in Chinese ("泰國 清邁", "日本 沖繩").
+// merge.ts drops geocodes >200km from the kennel centroid unless
+// `countryOverride` is set; "" bypasses that guard with no geocode bias (the
+// venue text already names the country). Mirrors new-tokyo-katch.ts.
 const FOREIGN_COUNTRY_TOKENS = [
   "泰國", "日本", "越南", "馬來西亞", "菲律賓", "韓國", "香港",
   "新加坡", "中國", "柬埔寨", "印尼", "寮國", "緬甸",
 ];
-function foreignCountryOverride(location: string | undefined): string | undefined {
-  if (!location) return undefined;
-  return FOREIGN_COUNTRY_TOKENS.some((t) => location.includes(t)) ? "" : undefined;
-}
-
-/** Big5 → string, falling back to UTF-8 only if the runtime lacks Big5. */
-export function decodeBig5(bytes: Uint8Array): string {
-  try {
-    return new TextDecoder(BIG5_LABEL, { fatal: false }).decode(bytes);
-  } catch (err) {
-    console.warn(
-      `[new-taipei-hash] TextDecoder("${BIG5_LABEL}") unavailable — falling back to utf-8`,
-      err,
-    );
-    return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-  }
+function foreignCountryOverride(...texts: Array<string | null | undefined>): string | undefined {
+  return texts.some((t) => t && FOREIGN_COUNTRY_TOKENS.some((tok) => t.includes(tok))) ? "" : undefined;
 }
 
 /**
- * Collapse a cell to clean text. Strips `<style>`/`<script>` first — the Word
- * "Save as HTML" export leaks `<style><!--td {...}--></style>` into some cells
- * (2024+), and cheerio's `.text()` would otherwise include that CSS. Block
- * boundaries get a trailing space because multi-value cells stack siblings
- * (e.g. a 2-day overseas special renders the run cell as
- * `<p>647</p><p>648</p>`, which `.text()` would otherwise mash to "647648").
+ * `loc_place` is the specific venue or street address ("Magong Friendship
+ * Park", "No. 141, Chajiao, Sanxia Dist., …"); `loc_name` is usually the
+ * district ("Xindian District") and sometimes repeats the venue. Qualify the
+ * venue with the district unless the venue already names it.
  */
-function cellText($cell: Cheerio<Element>): string {
-  const clone = $cell.clone();
-  clone.find("style, script").remove();
-  clone.find("br").replaceWith(" ");
-  clone.find("p, div, li").append(" ");
-  return clone.text().replace(/\s+/g, " ").trim();
-}
-
-/** True for the repeated column-header row (跑次 / 日期 / …). */
-function parseRunNumber(text: string): number | null {
-  const m = RUN_RE.exec(text);
-  if (!m) return null;
-  const n = Number.parseInt(m[1], 10);
-  return Number.isNaN(n) ? null : n;
-}
-
-function parseMonthDay(text: string): { month: number; day: number } | null {
-  const m = DATE_RE.exec(text);
-  if (!m) return null;
-  const month = Number.parseInt(m[1], 10);
-  const day = Number.parseInt(m[2], 10);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
-  return { month, day };
-}
-
-/** Hare name(s) with PII phones stripped, normalised for stable fingerprints. */
-function parseHares($cell: Cheerio<Element>): string | undefined {
-  const stripped = cellText($cell).replace(PHONE_PAREN_RE, " ").replace(PHONE_DASHED_RE, " ");
-  // Turn distinct-hare separators into commas so normalizeHaresField can
-  // trim/dedupe/sort/rejoin (idempotent ", "-joined output).
-  const asComma = stripped.replace(HARE_SEPARATOR_RE, ", ");
-  return normalizeHaresField(asComma);
-}
-
-/** Genuine Google Maps link (https + allowlisted host), stored verbatim. */
-function parseMapsUrl($cell: Cheerio<Element>): string | undefined {
-  const href = $cell.find(MAPS_HREF).first().attr("href")?.trim();
-  if (!href) return undefined;
-  try {
-    const u = new URL(href);
-    if (u.protocol !== "https:") return undefined;
-    return MAPS_HOSTS.has(u.hostname.toLowerCase()) ? href : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/** Per-run Facebook event link → externalLinks (proper EventLink home). */
-function parseFbLink($cell: Cheerio<Element>): string | undefined {
-  const href = $cell.find(FB_HREF).first().attr("href")?.trim();
-  if (!href) return undefined;
-  try {
-    const u = new URL(href);
-    if (u.protocol !== "https:" && u.protocol !== "http:") return undefined;
-    return FB_HOSTS.has(u.hostname.toLowerCase()) ? href : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/** Build the current year's page URL from the source URL's directory. */
-export function resolvePageUrl(sourceUrl: string | null | undefined, year: number): string {
-  let base = DEFAULT_BASE;
-  if (sourceUrl) {
-    try {
-      const u = new URL(sourceUrl);
-      base = `${u.origin}${u.pathname.replace(/\/[^/]*$/, "")}`;
-    } catch {
-      base = DEFAULT_BASE;
-    }
-  }
-  return `${base}/run_site_${year}.htm`;
+function composeLocation(place: string | undefined, area: string | undefined): string | undefined {
+  if (!place) return area;
+  if (!area || area === place) return place;
+  const areaRoot = area.replace(/\s*(?:District|Dist\.?)$/i, "").replace(/區$/, "").trim();
+  if (areaRoot && place.toLowerCase().includes(areaRoot.toLowerCase())) return place;
+  return `${place}, ${area}`;
 }
 
 /**
- * Parse one yearly page into deduped, date-resolved events. Exported so the
- * one-shot historical backfill can reuse it over the archive pages (year taken
- * from each filename).
+ * Map one API run to RawEventData. Returns null for rows without a valid date.
+ * Exported for unit testing.
  */
-export function parseNewTaipeiHash(
-  $: CheerioAPI,
-  sourceUrl: string,
-  year: number,
-): { events: RawEventData[]; rowsFound: number; errors: string[]; parseErrors: ParseError[] } {
-  const errors: string[] = [];
-  const parseErrors: ParseError[] = [];
-  // Map keyed by run number — the highlighted "Important Events" specials
-  // appear *before* the weekly list, so iterating top-to-bottom lets the
-  // (richer) weekly row overwrite the special's stub. Last-wins = weekly.
-  const byRun = new Map<number, RawEventData>();
-  let rowsFound = 0;
+export function mapNth3Run(run: Nth3ApiRun, sourceUrl: string): RawEventData | null {
+  const date = run.run_date?.trim() ?? "";
+  if (!DATE_RE.test(date)) return null;
+  if (run.status && !["upcoming", "completed"].includes(run.status)) return null;
 
-  $("table tr").each((i, tr) => {
-    const tds = $(tr).children("td");
-    if (tds.length < 5) return; // section band / spacer (1-cell rows)
+  const timeMatch = TIME_RE.exec(run.start_time ?? "");
+  const startTime = timeMatch ? `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}` : undefined;
 
-    try {
-      const runNumber = parseRunNumber(cellText(tds.eq(0)));
-      // A row without a numeric run number is never a real run — it's a repeated
-      // column header (跑次 / Run No.), a spacer, or a deliberate cancellation
-      // marker (run cell "X", e.g. the COVID "三級疫情取消" / "大雨取消" rows).
-      // Skip silently.
-      if (runNumber === null) return;
-      const md = parseMonthDay(cellText(tds.eq(1)));
-      if (md === null || utcNoonMs(year, md.month, md.day) === null) {
-        // A *numbered* run with an unparseable date is a genuine anomaly
-        // (markup drift) — surface it so we don't undercount silently.
-        const message = `Unparseable date for run #${runNumber} (row ${i})`;
-        errors.push(message);
-        parseErrors.push({
-          row: i,
-          section: "run_site",
-          error: message,
-          rawText: $(tr).text().trim().slice(0, 2000),
-        });
-        return;
-      }
-      rowsFound++;
-      const fbLink = parseFbLink(tds.eq(4));
-      const location = cellText(tds.eq(3)) || undefined;
-      const countryOverride = foreignCountryOverride(location);
-      byRun.set(runNumber, {
-        date: `${year}-${pad2(md.month)}-${pad2(md.day)}`,
-        kennelTags: [KENNEL_TAG],
-        runNumber,
-        startTime: seasonalStartTime(md.month),
-        hares: parseHares(tds.eq(2)),
-        location,
-        locationUrl: parseMapsUrl(tds.eq(4)),
-        externalLinks: fbLink ? [{ url: fbLink, label: "Facebook Event" }] : undefined,
-        // Overseas specials ("日本 沖繩", "泰國 清邁") — bypass merge's 200km
-        // centroid guard so the foreign geocode isn't dropped (PR #2186 review).
-        ...(countryOverride === undefined ? {} : { countryOverride }),
-        sourceUrl,
-      });
-    } catch (err) {
-      errors.push(`Error parsing row ${i}: ${err}`);
-      parseErrors.push({
-        row: i,
-        section: "run_site",
-        error: String(err),
-        rawText: $(tr).text().trim().slice(0, 2000),
-      });
-    }
+  // English hash name preferred; fall back to the Chinese name.
+  const hares = normalizeHaresField(
+    [pick(run.hare_name, run.hare_name_zh), pick(run.cohare_name, run.cohare_name_zh)]
+      .filter((h): h is string => !!h)
+      .join(", "),
+  );
+
+  const location = composeLocation(pick(run.loc_place_en, run.loc_place), pick(run.loc_name_en, run.loc_name));
+  const onAfter = pick(run.bash_place_en, run.bash_place);
+  const eventLink = pick(run.event_link);
+
+  return {
+    date,
+    kennelTags: [KENNEL_TAG],
+    runNumber: typeof run.run_number === "number" ? run.run_number : undefined,
+    title: pick(run.special_note),
+    hares,
+    location,
+    countryOverride: foreignCountryOverride(run.loc_name, run.loc_place, location),
+    locationUrl: cleanMapUrl(pick(run.loc_map_url)),
+    startTime,
+    description: appendDescriptionSuffix(pick(run.description), onAfter ? `On-after: ${onAfter}` : undefined),
+    externalLinks:
+      eventLink && HTTP_URL_RE.test(eventLink) ? [{ url: eventLink, label: "Event page" }] : undefined,
+    sourceUrl,
+  };
+}
+
+/** Overlay the this-week detail onto the list row for the same date (detail fields win). */
+export function mergeDetail(events: RawEventData[], detail: RawEventData): RawEventData[] {
+  const idx = events.findIndex((e) => e.date === detail.date);
+  if (idx === -1) return [...events, detail];
+  const defined = Object.fromEntries(Object.entries(detail).filter(([, v]) => v !== undefined));
+  const merged: RawEventData = { ...events[idx], ...defined };
+  return events.map((e, i) => (i === idx ? merged : e));
+}
+
+async function getJson(url: string): Promise<unknown> {
+  const response = await safeFetch(url, {
+    headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   });
-
-  const events = [...byRun.values()].sort((a, b) => a.date.localeCompare(b.date));
-  return { events, rowsFound, errors, parseErrors };
+  if (!response.ok) throw new Error(`HTTP ${response.status} from ${url}`);
+  return response.json();
 }
 
-interface Big5FetchSuccess {
-  ok: true;
-  $: CheerioAPI;
-  structureHash: string;
+interface ListPage {
+  runs: Nth3ApiRun[];
+  totalPages: number;
 }
-type Big5FetchOutcome = Big5FetchSuccess | { ok: false; result: ScrapeResult };
 
-/** Fetch raw bytes and decode Big5 before loading into cheerio. */
-export async function fetchBig5Page(url: string): Promise<Big5FetchOutcome> {
-  try {
-    const response = await safeFetch(url, {
-      headers: { "User-Agent": USER_AGENT },
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok) {
-      const message = `HTTP ${response.status}: ${response.statusText}`;
-      return {
-        ok: false,
-        result: {
-          events: [],
-          errors: [message],
-          errorDetails: { fetch: [{ url, status: response.status, message }] },
-        },
-      };
-    }
-    const declaredLength = Number(response.headers.get("content-length") ?? "");
-    if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
-      const message = `Response too large: ${declaredLength} bytes > ${MAX_BODY_BYTES} cap`;
-      return {
-        ok: false,
-        result: { events: [], errors: [message], errorDetails: { fetch: [{ url, message }] } },
-      };
-    }
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > MAX_BODY_BYTES) {
-      const message = `Response too large: ${bytes.byteLength} bytes > ${MAX_BODY_BYTES} cap`;
-      return {
-        ok: false,
-        result: { events: [], errors: [message], errorDetails: { fetch: [{ url, message }] } },
-      };
-    }
-    const html = decodeBig5(bytes);
-    return { ok: true, $: cheerio.load(html), structureHash: generateStructureHash(html) };
-  } catch (err) {
-    const message = `Fetch failed: ${err}`;
-    return {
-      ok: false,
-      result: { events: [], errors: [message], errorDetails: { fetch: [{ url, message }] } },
-    };
-  }
+function asListPage(json: unknown): ListPage | null {
+  const data = (json as { data?: { runs?: unknown; pagination?: { total_pages?: unknown } } } | null)?.data;
+  if (!data || !Array.isArray(data.runs)) return null;
+  const totalPages = typeof data.pagination?.total_pages === "number" ? data.pagination.total_pages : 1;
+  return { runs: data.runs as Nth3ApiRun[], totalPages };
 }
 
 export class NewTaipeiHashAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
   async fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
-    // Year lives in the filename — derive the *current* year so a daily scraper
-    // doesn't pin to a stale page after the year rolls over. Use the kennel's
-    // local (Taiwan) date so the rollover happens at Taiwan midnight, not the
-    // ~8h-earlier UTC New Year (a stale-page window the zero-event guard would
-    // otherwise trip around Jan 1).
-    const year = Number(todayInTimezone(KENNEL_TIMEZONE).slice(0, 4));
-    const url = resolvePageUrl(source.url, year);
+    const days = options?.days ?? source.scrapeDays ?? 365;
+    const sourceUrl = source.url || "https://nth3.taipeihash.com.tw/";
+    const windowStart = buildDateWindow(days).minDate.toISOString().slice(0, 10);
+    const fetchStart = Date.now();
 
-    const page = await fetchBig5Page(url);
-    if (!page.ok) return page.result;
+    const events: RawEventData[] = [];
+    const errors: string[] = [];
+    let pagesFetched = 0;
+    let rowsSeen = 0;
 
-    const { events, rowsFound, errors, parseErrors } = parseNewTaipeiHash(page.$, url, year);
+    // This week's run carries the detail fields — independent of the list, so
+    // start it now. Enrichment only: a failure is reported below only when the
+    // list also produced nothing.
+    const detailPromise: Promise<RawEventData | null | Error> = getJson(`${API_BASE}/runs/this-week`).then(
+      (json) => {
+        const run = (json as { data?: { run?: Nth3ApiRun | null } } | null)?.data?.run;
+        return run ? mapNth3Run(run, sourceUrl) : null;
+      },
+      (err: unknown) => (err instanceof Error ? err : new Error(String(err))),
+    );
 
-    const errorDetails: ErrorDetails = {};
-    if (parseErrors.length > 0) errorDetails.parse = parseErrors;
-
-    // Fail loud: a clean fetch yielding zero events is almost certainly Big5/
-    // markup drift, not an empty hareline. A brand-new source has a 0 baseline,
-    // so the zero-event health alert won't catch it — push an error so the
-    // reconciler doesn't treat the empty result as "all runs cancelled".
-    if (events.length === 0) {
-      const message = `New Taipei Hash: parsed 0 events from ${rowsFound} rows at ${url} (Big5/markup drift?)`;
-      errors.push(message);
-      errorDetails.parse = [
-        ...(errorDetails.parse ?? []),
-        { row: -1, section: "run_site", error: message },
-      ];
+    // 1. Page the run list newest → oldest until we pass the window start.
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      let listPage: ListPage | null;
+      try {
+        listPage = asListPage(await getJson(`${API_BASE}/runs?page=${page}&limit=${PAGE_LIMIT}`));
+      } catch (err) {
+        errors.push(`Run list page ${page} failed: ${err}`);
+        break;
+      }
+      if (!listPage) {
+        errors.push(`Run list page ${page}: unexpected payload shape (no data.runs array)`);
+        break;
+      }
+      pagesFetched++;
+      rowsSeen += listPage.runs.length;
+      for (const run of listPage.runs) {
+        const event = mapNth3Run(run, sourceUrl);
+        if (event) events.push(event);
+      }
+      const oldest = listPage.runs.at(-1)?.run_date ?? "";
+      if (listPage.runs.length === 0 || page >= listPage.totalPages || oldest < windowStart) break;
     }
 
-    const windowed = filterEventsByWindow(events, options?.days ?? 365);
+    // 2. Merge the this-week detail.
+    const detail = await detailPromise;
+    const detailMerged = !!detail && !(detail instanceof Error);
+    const merged = detailMerged ? mergeDetail(events, detail) : events;
+    if (detail instanceof Error && events.length === 0) {
+      errors.push(`This-week detail failed: ${detail}`);
+    }
 
-    return {
-      events: windowed,
-      errors,
-      structureHash: page.structureHash,
-      errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
-      diagnosticContext: { rowsFound, eventsParsed: windowed.length, pageUrl: url },
-    };
+    // Fail loud: a clean fetch with zero runs is API drift, not an empty hareline
+    // (weekly kennel, hareline pre-assigned for the year).
+    if (merged.length === 0 && errors.length === 0) {
+      errors.push(`New Taipei Hash: 0 runs parsed from ${rowsSeen} API rows (API drift?)`);
+    }
+
+    return applyDateWindow(
+      {
+        events: merged,
+        errors,
+        diagnosticContext: {
+          fetchMethod: "nth3-json-api",
+          pagesFetched,
+          rowsSeen,
+          detailMerged,
+          fetchDurationMs: Date.now() - fetchStart,
+        },
+      },
+      days,
+    );
   }
 }

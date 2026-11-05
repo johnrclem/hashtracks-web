@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { NewTaipeiHashAdapter } from "./html-scraper/new-taipei-hash";
+import { TaipeiHashAdapter } from "./html-scraper/taipei-hash";
 import { getAdapter } from "./registry";
 import { GenericHtmlAdapter } from "./html-scraper/generic";
 import { HashNYCAdapter } from "./html-scraper/hashnyc";
@@ -59,6 +61,12 @@ describe("getAdapter", () => {
     const adapter = getAdapter("HTML_SCRAPER", "https://benfranklinmob.com/bfm-special-events/");
     expect(adapter).toBeInstanceOf(BfmSpecialEventsAdapter);
     expect(adapter).not.toBeInstanceOf(BFMAdapter);
+  });
+
+  it("routes New Taipei's nth3.taipeihash.com.tw apart from Taipei H3's www host", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://nth3.taipeihash.com.tw/")).toBeInstanceOf(NewTaipeiHashAdapter);
+    expect(getAdapter("HTML_SCRAPER", "https://www.taipeihash.com.tw/run_site.php")).toBeInstanceOf(TaipeiHashAdapter);
+    expect(getAdapter("HTML_SCRAPER", "https://taipeihash.com.tw/run_site.php")).toBeInstanceOf(TaipeiHashAdapter);
   });
 
   it("returns HashPhillyAdapter for hashphilly.com URL", () => {

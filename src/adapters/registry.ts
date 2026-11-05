@@ -315,7 +315,12 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /bangkokhhh\.org/i, name: "BangkokH3Adapter", factory: () => new BangkokH3Adapter() },
   { pattern: /bangkokmondayhhh\.com/i, name: "BangkokMondayHashAdapter", factory: () => new BangkokMondayHashAdapter() },
   // ── Taiwan ──
-  { pattern: /^https?:\/\/(?:[^/]+\.)?taipeihash\.com\.tw(?:[/?#:]|$)/i, name: "TaipeiHashAdapter", factory: () => new TaipeiHashAdapter() },
+  // Taipei H3 is pinned to www./apex: New Taipei's Nov-2026 rebuild lives on
+  // the nth3. subdomain of the same domain, so a subdomain wildcard here would
+  // shadow it.
+  { pattern: /^https?:\/\/(?:www\.)?taipeihash\.com\.tw(?:[/?#:]|$)/i, name: "TaipeiHashAdapter", factory: () => new TaipeiHashAdapter() },
+  { pattern: /^https?:\/\/nth3\.taipeihash\.com\.tw(?:[/?#:]|$)/i, name: "NewTaipeiHashAdapter", factory: () => new NewTaipeiHashAdapter() },
+  // Legacy host (301s to nth3.taipeihash.com.tw) — kept so an unmigrated row still routes.
   { pattern: /^https?:\/\/(?:[^/]+\.)?newtaipeihash\.com(?:[/?#:]|$)/i, name: "NewTaipeiHashAdapter", factory: () => new NewTaipeiHashAdapter() },
   { pattern: /^https?:\/\/(?:[^/]+\.)?kaohsiunghash\.com(?:[/?#:]|$)/i, name: "KaohsiungHashAdapter", factory: () => new KaohsiungHashAdapter() },
   { pattern: /^https?:\/\/(?:[^/]+\.)?tymh3\.com(?:[/?#:]|$)/i, name: "BoomCalendarAdapter", factory: () => new BoomCalendarAdapter() },
