@@ -3563,6 +3563,13 @@ export const SOURCES = [
       // iCal feed source remains primary — this calendar is enrichment.
       scrapeDays: 90,
       config: {
+        // The adapter fetches forward-only (current month onward, #2242), so a
+        // prior-month event is simply never returned again. Without this flag
+        // reconcile's window is now−scrapeDays…now+scrapeDays and every
+        // already-run event in the trailing 90 days looked "removed from the
+        // source" and was cancelled (89 in one scrape on 2026-11-05).
+        // upcomingOnly clamps reconcile to future dates (reconcile.ts).
+        upcomingOnly: true,
         kennelPatterns: [
           ["^LBH\\b|Lost Boobs", "lbh-phx"],
           ["Hump D", "hump-d"],
