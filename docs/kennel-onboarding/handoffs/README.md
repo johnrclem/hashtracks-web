@@ -63,6 +63,9 @@ documented live-verify block, e.g. `2026-06-09-lima-h3`), not just ones present 
 ```bash
 bash -c '
 [ -d docs/kennel-onboarding/handoffs ] || { echo "Run this from the repo root." >&2; exit 1; }
+# Seeded = in kennels.ts AND linked by a sources.ts kennelCodes array, evaluated from the seed
+# modules (a text grep misreads identifier-referenced / multi-line arrays — #2673).
+seeded="$(npx --no-install tsx scripts/print-seeded-kennel-codes.ts)" || exit 1
 for f in docs/kennel-onboarding/handoffs/[0-9]*.md; do
   head -8 "$f" | grep -qi VOID && continue
   base="$(basename "$f")"; date_part="${base:0:10}"
@@ -70,9 +73,7 @@ for f in docs/kennel-onboarding/handoffs/[0-9]*.md; do
   [ -f "docs/kennel-onboarding/handoffs/retros/${date_part}-${code_for_retro}-retro.md" ] && continue
   while IFS= read -r c; do
     [ -z "$c" ] && continue
-    k=$(grep -c "kennelCode: \"$c\"" prisma/seed-data/kennels.ts)
-    s=$(grep -cE "\"$c\"" prisma/seed-data/sources.ts)
-    { [ "$k" -eq 0 ] || [ "$s" -eq 0 ]; } && echo "UN-ONBOARDED: $f :: $c"
+    grep -Fxq -- "$c" <<< "$seeded" || echo "UN-ONBOARDED: $f :: $c"
   done < <(grep -oE "kennelCode: *\"[a-z0-9-]+\"" "$f" | grep -oE "\"[a-z0-9-]+\"" | tr -d "\"" | sort -u)
 done'
 ```
