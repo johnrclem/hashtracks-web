@@ -222,6 +222,8 @@ describe("buildEvent", () => {
     expect(stripSponsorBlurb("Puspem Payangan, Gianyar. Sponsors -")).toBe("Puspem Payangan, Gianyar");
     expect(stripSponsorBlurb("Sponsors - BALIMOON")).toBeUndefined();
     expect(stripSponsorBlurb(undefined)).toBeUndefined();
+    expect(stripSponsorBlurb("Sponsor's Bar, Kuta")).toBe("Sponsor's Bar, Kuta");
+    expect(stripSponsorBlurb("Pura Dalem. Sponsored by Bintang")).toBe("Pura Dalem");
   });
 
   it("leaves title undefined for a listing-only entry (no detail page)", () => {

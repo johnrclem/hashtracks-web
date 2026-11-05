@@ -245,18 +245,26 @@ async function fetchDetailFields(url: string): Promise<BaliDetailFields | null> 
  * ("Puspem Payangan, Gianyar. Sponsors - BALIMOON & …", #2535) so only the
  * geocodable venue reaches `locationName`.
  */
+const TRAILING_PUNCT = new Set([" ", ".", ",", ";", ":", "-", "\u2013", "\u2014"]);
+
 export function stripSponsorBlurb(location: string | undefined): string | undefined {
   if (!location) return undefined;
-  const idx = location.search(/\bsponsor(?:s|ed)?\b/i);
+  // The blurb is introduced as "Sponsors -" / "Sponsors:" / "Sponsored by".
+  // Requiring that shape keeps a venue named e.g. "Sponsor's Bar" intact.
+  const idx = location.search(/\bsponsor(?:s\s*[-:\u2013\u2014]|ed\s+by\b)/i);
   if (idx === -1) return location;
-  const venue = location.slice(0, idx).replace(/[\s.,;:\-\u2013\u2014]+$/, "").trim();
+  let end = idx;
+  while (end > 0 && TRAILING_PUNCT.has(location[end - 1])) end--;
+  const venue = location.slice(0, end).trim();
   return venue.length >= 2 ? venue : undefined;
 }
 
 /** Combine a listing entry with optional detail-page enrichment into a
  *  RawEventData. Exported so the one-shot history backfill shares it. */
 export function buildEvent(entry: BaliListingEntry, detail: BaliDetailFields | null): RawEventData {
-  const location = stripSponsorBlurb(detail?.location ?? entry.location);
+  // Strip each candidate before falling back, so a sponsor-only detail value
+  // still lets the listing venue through.
+  const location = stripSponsorBlurb(detail?.location) ?? stripSponsorBlurb(entry.location);
   const event: RawEventData = {
     date: entry.date!,
     kennelTags: [KENNEL_TAG],
