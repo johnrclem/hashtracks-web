@@ -68,6 +68,9 @@ const sfh3Config = {
 const sfh3IcalConfig = {
   ...sfh3Config,
   enrichSFH3Details: true,
+  // The iCal feed is a rolling window (~3 months back); reconcile must not cancel
+  // past runs that age out of it (118 wrongly cancelled by Nov 2026).
+  upcomingOnly: true,
 };
 
 const sfh3KennelCodes = [
@@ -879,6 +882,8 @@ export const SOURCES = [
       // 90-day window. Bump to a full year to cover them.
       scrapeDays: 365,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         kennelPatterns: [["Full Moon Run", "bh3fm"]],
         defaultKennelTag: "berlinh3",
         enrichBerlinH3Details: true,
@@ -1117,6 +1122,8 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+      config: { upcomingOnly: true },
       kennelCodes: ["dch4"],
     },
     {
@@ -1673,6 +1680,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 180,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         defaultKennelTag: "rh3",
         // #2148: the Localendar SUMMARY bakes the kennel label + run marker into
         // the title ("RH3: #1203: Deja FuckYou Hash", "RH3 #1201 …", "RH3 Pigs'
@@ -1741,6 +1750,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         groupUrlname: "richmond-hash-house-harriers",
         kennelTag: "rvah3",
         // RH3 + its sisters title their trails "RH3 # 1704", "BIBH3 Trail #251",
@@ -1956,7 +1967,9 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { groupUrlname: "charlotte-hash-house-harriers", kennelTag: "ch3-nc" },
+      config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true, groupUrlname: "charlotte-hash-house-harriers", kennelTag: "ch3-nc" },
       kennelCodes: ["ch3-nc"],
     },
     // --- Asheville (Meetup) ---
@@ -2002,6 +2015,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         groupUrlname: "miami-hash-house-harriers",
         kennelTag: "mia-h3",
         // #1562 — Miami's title convention is unambiguously "Miami H3 Trail
@@ -4012,6 +4027,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         groupUrlname: "rubber-city-hash-house-harriers-and-harriettes",
         kennelTag: "rch3",
       },
@@ -4333,6 +4350,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         // GUID is the most stable filter; cityNames:"Hamburg" and
         // kennelUniqueShortName:"H7" both return the same H7 events (verified).
         publicKennelId: "cfcbb91a-6a58-438e-a814-979e9ca6f024",
@@ -4352,6 +4371,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         // GUID is the most stable filter; kennelUniqueShortName "LH3-PT" returns
         // the identical 27-event set (both verified 2026-06-07).
         publicKennelId: "102bca91-1821-402d-a852-c64a51a1a2a1",
@@ -4371,6 +4392,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         // GUID is the most stable filter; cityNames:"Porto" and
         // kennelUniqueShortName:"PIH3" both returned the identical single-event
         // set (all three verified 2026-06-09).
@@ -4414,6 +4437,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         // GUID is the most stable filter; cityNames:"Taipei" and
         // kennelUniqueShortName:"TwH3" both returned the identical 3-event set
         // (all three verified 2026-06-10).
@@ -4596,6 +4621,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         cityNames: "Tokyo",
         defaultKennelTag: "tokyo-h3",
         // Tokyo H3 enters trail names in HC's eventName field as the
@@ -4681,6 +4708,8 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+      config: { upcomingOnly: true },
       kennelCodes: ["f3h3"],
     },
     // Sumo H3 Website (Kanagawa)
@@ -4691,6 +4720,8 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+      config: { upcomingOnly: true },
       kennelCodes: ["sumo-h3"],
     },
     // Yoko Yoko H3 Website (Yokohama/Yokosuka)
@@ -4723,6 +4754,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         browserRender: true,
       },
       kennelCodes: ["samurai-h3"],
@@ -4790,6 +4823,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         groupUrlname: "the-zurich-hash-house-harriers",
         kennelTag: "zh3",
         extractRunNumber: true, // titles are "ZH3 Hash # 1731: <theme>"
@@ -4937,6 +4972,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         // #2355: hash.se publishes one shared feed for the whole Stockholm scene
         // (SUH3 Sunday, SAH3 Saturday, plus BASH, SPOR&DIC, LYH3, SMH3,
         // Cocktails@3, Absolut, Harriettes specials…). We only track SUH3 + SAH3;
@@ -5161,6 +5198,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         kennelUniqueShortName: "SH3-SG",
         defaultKennelTag: "sh3-sg",
       },
@@ -5175,6 +5214,8 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+      config: { upcomingOnly: true },
       kennelCodes: ["lch3"],
     },
 
@@ -5186,6 +5227,8 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+      config: { upcomingOnly: true },
       kennelCodes: ["kampong-h3"],
     },
 
@@ -5326,6 +5369,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 180,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         kennelTag: "ph3-my",
         startTime: "16:00",
       },
@@ -5414,6 +5459,8 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 180,
+      // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+      config: { upcomingOnly: true },
       kennelCodes: ["kj-harimau"],
     },
 
@@ -5483,6 +5530,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         defaultKennelTag: "oh3-no",
         // oh3.no publishes each run twice in calendar.ics — a timed /runs/{m}
         // VEVENT and an all-day /events/{n} listing. Collapse the duplicate so
@@ -5558,6 +5607,8 @@ export const SOURCES = [
       // the Friday-midnight placeholders move — a genuinely-timed Friday event
       // stays put.
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         weekdayShift: { from: "Friday", to: "Thursday", defaultStartTime: "20:00" },
       },
       kennelCodes: ["bch3"],
@@ -5573,6 +5624,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         groupUrlname: "montreal-hash-house-harriers",
         kennelTag: "mh3-ca",
       },
@@ -5603,6 +5656,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         groupUrlname: "meetup-group-pyrddkbc",
         kennelTag: "hogtownh3",
       },
@@ -5687,6 +5742,8 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+      config: { upcomingOnly: true },
       kennelCodes: ["oh3-ca"],
     },
     // --- Calgary: CH3 Upcoming Runs ---
@@ -5700,6 +5757,8 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+      config: { upcomingOnly: true },
       kennelCodes: ["ch3-ab"],
     },
     // --- Calgary: CH3 Scribe ---
@@ -5812,6 +5871,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 180,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         baseUrl: "https://indyhhh.com",
         pageId: 1792,
         defaultKennelTag: "indyh3",
@@ -5995,6 +6056,8 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 180,
+      // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+      config: { upcomingOnly: true },
       kennelCodes: ["larrikins-au"],
     },
     {
@@ -6111,6 +6174,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 180,
       config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,
         groupUrlname: "melbourne-new-moon-running-group",
         kennelTag: "mel-new-moon",
         kennelPatterns: [
@@ -6313,6 +6378,8 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+      config: { upcomingOnly: true },
       kennelCodes: ["n2th3"],
     },
     // --- N2TH3 (STATIC_SCHEDULE — recurring slot for advance visibility) ---
@@ -6391,6 +6458,8 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+      config: { upcomingOnly: true },
       kennelCodes: ["lsw-h3"],
     },
     // --- Ladies H4 (Wix browser-render via Table Master iframe) ---
@@ -6591,7 +6660,9 @@ export const SOURCES = [
       trustLevel: 5,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: {},
+      config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,},
       kennelCodes: ["bkk-harriettes"],
     },
     // --- Bangkok Monday Hash (static HTML hareline) ---
@@ -6646,7 +6717,9 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: {},
+      config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true,},
       kennelCodes: ["phhh", "phuket-tinmen", "iron-pussy", "phuket-pooying"],
     },
     // --- Chiang Mai CH3 Hareline ---
@@ -6670,7 +6743,9 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { harelineKey: "cgh3" },
+      config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true, harelineKey: "cgh3" },
       kennelCodes: ["cgh3"],
     },
     // --- Chiang Mai CH4 Hareline ---
@@ -6705,7 +6780,9 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { harelineKey: "cbh3" },
+      config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true, harelineKey: "cbh3" },
       kennelCodes: ["cbh3-cm"],
     },
     // --- Pattaya H3 Hareline ---
@@ -7476,7 +7553,9 @@ export const SOURCES = [
       trustLevel: 6,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { kennelTag: "garden-city-h3" },
+      config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true, kennelTag: "garden-city-h3" },
       kennelCodes: ["garden-city-h3"],
     },
     // CHH3 publishes a populated "Receding Hareline (Upcumming Runs)" <table>
@@ -7615,7 +7694,9 @@ export const SOURCES = [
       trustLevel: 5,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { kennelTag: "auckland-hussies" },
+      config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true, kennelTag: "auckland-hussies" },
       kennelCodes: ["auckland-hussies"],
     },
     // Auckland H3: Rocketspark homepage, rolling "Upcoming Runs" Draft.js block.
@@ -7645,7 +7726,9 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { kennelTag: "capital-h3-nz" },
+      config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true, kennelTag: "capital-h3-nz" },
       kennelCodes: ["capital-h3-nz"],
     },
     {
@@ -7682,7 +7765,9 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { kennelTag: "geriatrix-h3" },
+      config: {
+        // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
+        upcomingOnly: true, kennelTag: "geriatrix-h3" },
       kennelCodes: ["geriatrix-h3"],
     },
 
@@ -8613,6 +8698,8 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: {
+        // HC getEvents is future-only; reconcile must not cancel past runs (Nov 2026 sweep).
+        upcomingOnly: true,
         // GUID is the most stable filter (verified live 2026-07-14 via HC getEvents [3 upcoming]
         // + hashruns.org/api/global-runs [0 past rows — kennel joined HC ~July 2026]).
         // HC KennelIANATimezone = Europe/London (correct, no quirk).
