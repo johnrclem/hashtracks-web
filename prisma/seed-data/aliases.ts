@@ -69,7 +69,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Rhode Island
     "rih3": ["RIH3", "Rhode Island Hash", "RI H3", "RI Hash", "Rhode Island HHH"],
     // Ohio
-    "dh4": ["DH4", "DH3", "Dayton H4", "Dayton H3", "Dayton Hash", "Dayton HHH"],
+    // "Dayton H3" / "Dayton HHH" moved to dh3-oh (the real Dayton H3, daytonhhh.org).
+    "dh4": ["DH4", "DH3", "Dayton H4", "Dayton Hash"],
+    "dh3-oh": ["Dayton H3", "Dayton HHH", "Dayton Hash House Harriers", "DH3 Dayton"],
     "mvh3-day": ["MVH3", "Miami Valley H3", "Miami Valley Hash"],
     "swot-h3": ["SWOT", "SWOT H3", "South West Ohio Traditional"],
     "sch4": ["SCH4", "Sin City H4", "Sin City Hash", "Cincinnati Hash"],

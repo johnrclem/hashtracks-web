@@ -3130,6 +3130,21 @@ export const KENNELS: KennelSeed[] = [
       latitude: 39.76, longitude: -84.19,
     },
     {
+      // Dayton H3 — the parent Dayton kennel (est. 1987), distinct from DH4
+      // (daytonhash.com, split off ~2021). Both kennels continue the same
+      // shared #16xx run-number series. Bare "dh3" is Dublin; "dh3-oh" follows
+      // the dh3-tx / dh3-co / dh3-ae convention.
+      kennelCode: "dh3-oh", shortName: "Dayton H3", fullName: "Dayton Hash House Harriers", region: "Dayton, OH",
+      website: "https://daytonhhh.org/",
+      facebookUrl: "https://www.facebook.com/daytonhhh",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "4:00 PM",
+      scheduleNotes: "Every other Saturday (4 PM during Daylight Saving Time, 3 PM in winter) plus full moon evenings at 7 PM.",
+      hashCash: "$8 ($4 non-drinkers)",
+      foundedYear: 1987,
+      description: "Ohio's oldest hash kennel — first run June 28, 1987. Hashes every other Saturday plus full moon evenings, with annual specials like the New Year's Day Hangover Hash, Spring Formal, World Peace Through Beer and a Red Dress run joint with sister kennel Sin City H4. Parent of SWOT, Miami Valley, UnMASKED, ON-IN and DH4.",
+      latitude: 39.76, longitude: -84.19,
+    },
+    {
       kennelCode: "mvh3-day", shortName: "MVH3", fullName: "Miami Valley Hash House Harriers", region: "Dayton, OH",
       facebookUrl: "https://www.facebook.com/groups/1703366143261426",
       description: "Dayton-area kennel spawned from DH3.",

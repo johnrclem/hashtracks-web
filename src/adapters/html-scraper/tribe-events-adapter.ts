@@ -1,8 +1,8 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { buildDateWindow } from "../utils";
-import { fetchTribeEvents } from "../tribe-events";
+import { buildDateWindow, extractHashRunNumber } from "../utils";
+import { fetchTribeEvents, type TribeEvent } from "../tribe-events";
 
 /**
  * Config-driven adapter for "The Events Calendar" (Tribe) REST sites.
@@ -29,6 +29,18 @@ export interface TribeEventsConfig {
   startDate?: string;
   /** Fallback "HH:MM" when the API reports an all-day event (no meaningful time). */
   defaultStartTime?: string;
+  /**
+   * Map Tribe "organizers" to `hares` (comma-joined, sorted). Opt-in: only for
+   * sites that file the trail's hares as event organizers (Dayton H3).
+   */
+  haresFromOrganizers?: boolean;
+  /**
+   * Parse `runNumber` from the title's first `#NNN` (shared
+   * `extractHashRunNumber`). Opt-in: joint-trail titles like
+   * "Dayton H3 #1670/ SCH4 #1456" yield the host kennel's number only when the
+   * host is listed first, which is true for the opted-in sources.
+   */
+  runNumberFromTitle?: boolean;
   /** Defensive cap on total events returned. */
   maxEvents?: number;
   /**
@@ -45,6 +57,27 @@ export function isTribeEventsConfig(config: unknown): config is TribeEventsConfi
   if (!config || typeof config !== "object") return false;
   const c = config as Record<string, unknown>;
   return c.tribeEvents === true && typeof c.kennelTag === "string" && c.kennelTag.length > 0;
+}
+
+/** Map one normalized Tribe event to RawEventData under the source's config. */
+function toRawEvent(e: TribeEvent, config: TribeEventsConfig, sourceUrl: string): RawEventData {
+  return {
+    date: e.date,
+    // Multi-day span (campout weekend) — undefined for single-day events,
+    // which merge.ts treats as "no endDate" (its gated-spread convention).
+    endDate: e.endDate,
+    // All-day events carry a meaningless 00:00 from the API; drop it (or use
+    // the configured fallback) so the card doesn't render "midnight".
+    startTime: e.allDay ? config.defaultStartTime : (e.startTime ?? config.defaultStartTime),
+    kennelTags: [config.kennelTag],
+    title: e.title,
+    description: e.description,
+    location: e.location || e.venue,
+    cost: e.cost,
+    hares: config.haresFromOrganizers && e.organizers.length > 0 ? e.organizers.join(", ") : undefined,
+    runNumber: config.runNumberFromTitle ? extractHashRunNumber(e.title) : undefined,
+    sourceUrl: e.url ?? sourceUrl,
+  };
 }
 
 export class TribeEventsAdapter implements SourceAdapter {
@@ -89,21 +122,7 @@ export class TribeEventsAdapter implements SourceAdapter {
     for (const e of result.events) {
       const asDate = new Date(`${e.date}T12:00:00Z`);
       if (asDate < minDate || asDate > maxDate) continue;
-      events.push({
-        date: e.date,
-        // Multi-day span (campout weekend) — undefined for single-day events,
-        // which merge.ts treats as "no endDate" (its gated-spread convention).
-        endDate: e.endDate,
-        // All-day events carry a meaningless 00:00 from the API; drop it (or use
-        // the configured fallback) so the card doesn't render "midnight".
-        startTime: e.allDay ? config.defaultStartTime : (e.startTime ?? config.defaultStartTime),
-        kennelTags: [config.kennelTag],
-        title: e.title,
-        description: e.description,
-        location: e.location || e.venue,
-        cost: e.cost,
-        sourceUrl: e.url ?? source.url,
-      });
+      events.push(toRawEvent(e, config, source.url));
     }
 
     // Surface silent schema drift (e.g. a plugin upgrade renaming fields →
