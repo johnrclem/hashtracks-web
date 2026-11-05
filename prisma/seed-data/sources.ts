@@ -1768,11 +1768,16 @@ export const SOURCES = [
         // "ANNUAL GENERAL MEEING: Chain Gang ... Trail #40" route correctly.
         // Closes #992. Alt names (Belle Isle, Titanic) included since the same
         // prefix-blindness affects sister kennels.
+        // #2413: the full gql2 archive also titles the sisters "TMFM #124", "TFMH3 #142"
+        // and "BIB # 48", which fell through to rvah3 — route those short forms too.
         kennelPatterns: [
-          ["\\b(?:BIBH3|Belle Isle)\\b", "bibh3"],
-          ["\\b(?:TMFMH3|Titanic)\\b", "tmfmh3"],
+          ["\\b(?:BIBH3|BIB|Belle Isle)\\b", "bibh3"],
+          ["\\b(?:TMFMH3|TMFM|TFMH3?|Titanic)\\b", "tmfmh3"],
           ["\\bChain Gang\\b", "chain-gang-hhh"],
         ],
+        // The group also posts POHO H3 and Sassy H3 trails (kennels HashTracks doesn't
+        // track); without this they'd land on RH3's page.
+        skipTitlePatterns: ["\\bPOHO", "\\bSassy\\b"],
       },
       kennelCodes: ["rvah3", "bibh3", "tmfmh3", "chain-gang-hhh"],
     },
@@ -1794,7 +1799,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { groupUrlname: "FEH3-Hash", kennelTag: "feh3" },
+      config: { groupUrlname: "FEH3-Hash", kennelTag: "feh3", upcomingOnly: true },
       kennelCodes: ["feh3"],
     },
     // --- BDSM H3 (Meetup) ---
@@ -1818,7 +1823,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { groupUrlname: "meetup-group-xxcniptw", kennelTag: "cvilleh3" },
+      config: { groupUrlname: "meetup-group-xxcniptw", kennelTag: "cvilleh3", upcomingOnly: true },
       kennelCodes: ["cvilleh3"],
     },
     // --- Fredericksburg (Static Schedule — kennel already exists, adding source) ---
@@ -1980,7 +1985,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
-      config: { groupUrlname: "AVLH3-On-On", kennelTag: "avlh3" },
+      config: { groupUrlname: "AVLH3-On-On", kennelTag: "avlh3", upcomingOnly: true },
       kennelCodes: ["avlh3"],
     },
     // --- Wilmington / Cape Fear (WordPress.com blog API) ---
@@ -2002,7 +2007,7 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 180,
-      config: { groupUrlname: "fayetteville-running-training-meetup-group", kennelTag: "ctrh3" },
+      config: { groupUrlname: "fayetteville-running-training-meetup-group", kennelTag: "ctrh3", upcomingOnly: true },
       kennelCodes: ["ctrh3"],
     },
     // ===== FLORIDA =====
@@ -2229,6 +2234,8 @@ export const SOURCES = [
       config: {
         groupUrlname: "savannah-hash-house-harriers",
         kennelTag: "savh3",
+        // Forward-only fetch (HC getEvents / logged-out Meetup's ~10 past) — keep reconcile off past runs.
+        upcomingOnly: true,
       },
       kennelCodes: ["savh3"],
     },
@@ -2509,6 +2516,8 @@ export const SOURCES = [
       config: {
         groupUrlname: "charlestonheretics",
         kennelTag: "chh3",
+        // Forward-only fetch (HC getEvents / logged-out Meetup's ~10 past) — keep reconcile off past runs.
+        upcomingOnly: true,
       },
       kennelCodes: ["chh3"],
     },
@@ -4022,6 +4031,8 @@ export const SOURCES = [
       config: {
         groupUrlname: "cleveland-hash-house-harriers-and-harriettes",
         kennelTag: "cleh4",
+        // Forward-only fetch (HC getEvents / logged-out Meetup's ~10 past) — keep reconcile off past runs.
+        upcomingOnly: true,
       },
       kennelCodes: ["cleh4"],
     },
@@ -4596,7 +4607,9 @@ export const SOURCES = [
         // known placeholder appears (mirrors Taiwan H3 / Lisbon H3 #1166).
         defaultTitle: "Shanghai H3",
         staleTitleAliases: ["Placeholder event for SHH3"],
-        // upcomingOnly OMITTED — HC convention (getEvents is future-only).
+        // getEvents is future-only, so the past-run guard below is required (Nov 2026).
+        // Forward-only fetch (HC getEvents / logged-out Meetup's ~10 past) — keep reconcile off past runs.
+        upcomingOnly: true,
       },
       kennelCodes: ["shh3-cn"],
     },
@@ -4854,6 +4867,8 @@ export const SOURCES = [
         kennelTag: "wsh3-ch",
         // extractRunNumber OFF — titles are free-form prose ("WSH3 Summer
         // Solstice Trail", "WSH3 tbd"), no "#NNN" run numbers to extract.
+        // Forward-only fetch (HC getEvents / logged-out Meetup's ~10 past) — keep reconcile off past runs.
+        upcomingOnly: true,
       },
       kennelCodes: ["wsh3-ch"],
     },
@@ -5139,6 +5154,8 @@ export const SOURCES = [
       config: {
         kennelUniqueShortName: "MH3-US",
         defaultKennelTag: "mh3-wv",
+        // Forward-only fetch (HC getEvents / logged-out Meetup's ~10 past) — keep reconcile off past runs.
+        upcomingOnly: true,
       },
       kennelCodes: ["mh3-wv"],
     },
@@ -6597,6 +6614,8 @@ export const SOURCES = [
       config: {
         groupUrlname: "bangkok-weekend-walk-run-adventure-group",
         kennelTag: "bssh3",
+        // Forward-only fetch (HC getEvents / logged-out Meetup's ~10 past) — keep reconcile off past runs.
+        upcomingOnly: true,
       },
       kennelCodes: ["bssh3"],
     },
@@ -7941,7 +7960,9 @@ export const SOURCES = [
         publicKennelId: "f1266de7-9bdc-4cb7-95ca-4846fd7aa01c",
         defaultKennelTag: "newcastle-h3",
         defaultTitle: "Newcastle H3",
-        staleTitleAliases: ["Placeholder event for NH3-GB"],
+        // HC's placeholder string uses the short name "NH3", not the unique
+        // short name "NH3-GB" (#2590) — keep both.
+        staleTitleAliases: ["Placeholder event for NH3", "Placeholder event for NH3-GB"],
         upcomingOnly: true,
       },
       kennelCodes: ["newcastle-h3"],
@@ -7976,7 +7997,12 @@ export const SOURCES = [
         publicKennelId: "79557c23-c531-4499-b5c2-36fe19af484c",
         defaultKennelTag: "aberdeen-h3",
         defaultTitle: "Aberdeen H3",
-        staleTitleAliases: ["Placeholder event for AH3"],
+        // #2583: HC names are "AH3 Run 2244 - Brathens - Hares: Redstripe", repeating the run #,
+        // venue and hares that already render in their own fields. Strip the run prefix and the
+        // hares suffix; a remainder equal to the venue (or "TBA") falls back to "Aberdeen H3 #N",
+        // while a real theme ("Burns Night Special") survives.
+        titleStripPatterns: [String.raw`^AH3\s+Run\s+\d+[\s-]*`, String.raw`[\s-]*\bHares?:.*$`],
+        staleTitleAliases: ["Placeholder event for AH3", "TBA"],
         upcomingOnly: true,
       },
       kennelCodes: ["aberdeen-h3"],
@@ -7994,6 +8020,33 @@ export const SOURCES = [
         upcomingOnly: true,
       },
       kennelCodes: ["plympton-h3"],
+    },
+    {
+      // #2594: the kennel's own public calendar (plymptonh3.org "Sunday diary" embed). It also
+      // carries the sister Try it Thursdays ("TIT's …") runs, so both prefixes are routed and
+      // everything else is dropped. Reaches back to 2022 (HC only to Apr 2024) and further
+      // forward than HC. Live-verified 2026-11-05: 539 events (294 plympton-h3, 245 titsh3).
+      // Titles are free text (venue + O/D pub + hare jammed together, like Devon Lunatics);
+      // HC (trust 8) keeps the title wherever both sources have the run.
+      // Shipped disabled; enable after a prod scrape check.
+      name: "Plympton H3 Google Calendar",
+      url: "ph3hareraising@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      enabled: false,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 1500, // full-archive calendar back to 2022 (no upcomingOnly needed)
+      config: {
+        calendarId: "ph3hareraising@gmail.com",
+        defaultKennelTag: "plympton-h3",
+        kennelPatterns: [
+          [String.raw`^Plympton Hash House Harriers\b`, "plympton-h3"],
+          [String.raw`^TIT'?s\b`, "titsh3"],
+        ],
+        strictKennelRouting: true,
+        titleStripPatterns: [String.raw`^Plympton Hash House Harriers\s*(?:#\d+)?\s*-?\s*`, String.raw`^TIT'?s\s*`],
+      },
+      kennelCodes: ["plympton-h3", "titsh3"],
     },
     {
       name: "Toulouse H3 Harrier Central",
@@ -8061,6 +8114,31 @@ export const SOURCES = [
         defaultKennelTag: "sembach-h3",
         defaultTitle: "Sembach H3",
         staleTitleAliases: ["Placeholder event for SH3-DE"],
+        upcomingOnly: true,
+      },
+      kennelCodes: ["sembach-h3"],
+    },
+    {
+      // #2603: the Google Sheet behind sembach-hash.de/hare-line-2026 (the page renders it via
+      // gviz). Carries the full-moon runs and late-season trails HC doesn't list. Run numbers
+      // are inconsistent at the source (duplicates, e.g. 1290 twice) and disagree with HC, so
+      // runNumber is NOT mapped. Trail Type (col 7) goes to description; HC's titles win.
+      // A season sheet that rolls over each January, hence upcomingOnly.
+      // Live-verified 2026-11-05: 45 rows 2026-01-10 → 2026-12-26. Shipped disabled.
+      name: "Sembach H3 Hare Line Sheet",
+      url: "https://docs.google.com/spreadsheets/d/1tC2GdrJJU2WNJYyIsuBbjuyQPUO1IDTaaYZGr9j_Zzg/export?format=csv",
+      type: "GOOGLE_SHEETS" as const,
+      enabled: false,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        sheetId: "1tC2GdrJJU2WNJYyIsuBbjuyQPUO1IDTaaYZGr9j_Zzg",
+        csvUrl: "https://docs.google.com/spreadsheets/d/1tC2GdrJJU2WNJYyIsuBbjuyQPUO1IDTaaYZGr9j_Zzg/export?format=csv",
+        // Header: Run # | Subject | Start Date | Start Time | End Date | End Time | Day | Trail Type | Hare | Co-Hare
+        skipRows: 1,
+        columns: { date: 2, startTime: 3, hares: 8, extraHares: [9], description: 7 },
+        kennelTagRules: { default: "sembach-h3" },
         upcomingOnly: true,
       },
       kennelCodes: ["sembach-h3"],
@@ -8692,8 +8770,10 @@ export const SOURCES = [
         // HC names events "Steel City H3 Run#N" (real name) → kept verbatim.
         defaultTitle: "Steel City H3",
         staleTitleAliases: ["Placeholder event for Steel City H3"],
-        // upcomingOnly OMITTED — LIVE-ONLY HC source (no backfill); established HC kennels
-        // survive reconciliation without it (Lisbon/Taiwan contract).
+        // (Until Nov 2026 the past-run guard was left off here on a "live-only" theory; reconcile
+        // then cancelled 4 past Steel City runs after their dates — every HC source needs it.)
+        // Forward-only fetch (HC getEvents / logged-out Meetup's ~10 past) — keep reconcile off past runs.
+        upcomingOnly: true,
       },
       kennelCodes: ["sch3-gb"],
     },

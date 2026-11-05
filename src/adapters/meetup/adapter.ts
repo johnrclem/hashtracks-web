@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { validateSourceConfig, stripHtmlTags, buildDateWindow, extractHashRunNumber, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS, splitDescriptionBlocks, normalizeDescriptionKey } from "../utils";
+import { validateSourceConfig, compilePatterns, stripHtmlTags, buildDateWindow, extractHashRunNumber, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS, splitDescriptionBlocks, normalizeDescriptionKey } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { extractHares as extractHaresFromDescription } from "../hare-extraction";
 import { isPlatformDepartureTitle } from "../skip-rules";
@@ -116,10 +116,17 @@ export interface MeetupConfig {
    * else — Savannah/Hogtown/Montreal still get their generic blurbs stripped.
    */
   keepRepeatedDescription?: boolean;
+  /**
+   * Opt-in: regexes (case-insensitive) matched against the title; a match
+   * drops the event. For shared groups that also post other kennels' runs that
+   * HashTracks doesn't track, which would otherwise fall into `kennelTag`
+   * (Richmond's group carries POHO H3 and Sassy H3 trails — #2413).
+   */
+  skipTitlePatterns?: string[];
 }
 
 /** Shape of an event entry in Meetup's __NEXT_DATA__ Apollo state. */
-interface ApolloEvent {
+export interface ApolloEvent {
   __typename: string;
   id: string;
   title?: string;
@@ -994,6 +1001,116 @@ async function enrichRecurringEvents(
  *
  * Config: { groupUrlname: string, kennelTag: string }
  */
+/**
+ * Convert a (deduped, date-filtered, recurring-enriched) set of Apollo events
+ * into RawEventData with this source's config: group-template boilerplate
+ * stripping, cancelled / platform-departure skips, kennel routing and
+ * run-number extraction. Shared by `MeetupAdapter.fetch()` and the gql2
+ * history backfill (scripts/backfill-meetup-gql-history.ts), so archived
+ * events get exactly the rules live ones do.
+ */
+export function apolloEventsToRawEvents(
+  allApolloEvents: ApolloEvent[],
+  mergedState: Record<string, Record<string, unknown>>,
+  config: MeetupConfig,
+) {
+  const events: RawEventData[] = [];
+  const errors: string[] = [];
+  const parseErrors: { row: number; error: string }[] = [];
+  // Detect group-template boilerplate structurally: a paragraph block the
+  // group reuses verbatim across >= 2 events is part of its standing
+  // recurring-event template, not run-specific notes (#2058/#2059/#2062).
+  // Computed once over the post-enrichment event set (index-aligned with
+  // allApolloEvents) so per-occurrence detail-page overrides are reflected.
+  // The pre-cleaned values back the per-event "was boilerplate stripped?"
+  // diagnostic below; the builder recomputes cleanMeetupDescription so both
+  // stay consistent.
+  const cleanedDescriptions = allApolloEvents.map((ev) =>
+    cleanMeetupDescription(ev.description, mergedState),
+  );
+  // Strict-boolean opt-out (#2228): kennels whose real per-event body is a
+  // shared run template (Paris/Sans Clue) skip boilerplate stripping entirely,
+  // so the full description survives instead of collapsing to a title-echo.
+  const boilerplateBlocks =
+    config.keepRepeatedDescription === true
+      ? new Set<string>()
+      : detectBoilerplateBlocks(cleanedDescriptions);
+
+  const compiledPatterns = compileKennelPatterns(config.kennelPatterns);
+  const anchorTrailRunNumber = config.anchorTrailRunNumber === true;
+  const skipTitleRes = compilePatterns(config.skipTitlePatterns ?? [], "i");
+  let foreignKennelSkipped = 0;
+  let cancelledSkipped = 0;
+  let adminNoticeSkipped = 0;
+  let boilerplateDescriptionsDropped = 0;
+  // Collect the titles we drop as admin notices so admins can audit
+  // false positives in the scrape diagnostics (#1728).
+  const adminNoticeTitles: string[] = [];
+  for (const [i, ev] of allApolloEvents.entries()) {
+    try {
+      if (!ev.dateTime) continue;
+      // Drop cancelled events at ingest. Meetup's Apollo payload exposes
+      // `status: "CANCELLED"` for trails that were called off (e.g.
+      // Charlotte H3 #1235, Jan 10 — weather cancellation, re-held later
+      // as a different trail with the same number). Without this filter
+      // they show on HashTracks as normal past runs with no cancellation
+      // indicator; the reconcile pipeline transitions any pre-existing
+      // CONFIRMED row to CANCELLED on the next scrape because the event
+      // is no longer in the active set. See #917.
+      if (ev.status === "CANCELLED") {
+        cancelledSkipped++;
+        continue;
+      }
+      // Drop platform-departure admin posts (kennel migration announcements,
+      // farewell posts). Narwhal H3 surfaced "Moving to a new website site -
+      // Last day in Meetup is March 10th" (#1689); Miami posted "...ARE
+      // LEAVING MEETUP" (#1728). Routed through the shared skip-rules matcher
+      // (#1739): the specific departure phrases drop unconditionally, while
+      // the broad farewell words ("farewell"/"goodbye") are now signal-gated
+      // so a real "Farewell Run Trail #42" still ingests.
+      if (ev.title && isPlatformDepartureTitle(ev.title)) {
+        adminNoticeSkipped++;
+        adminNoticeTitles.push(ev.title);
+        continue;
+      }
+      if (ev.title && skipTitleRes.some((re) => re.test(ev.title!))) {
+        foreignKennelSkipped++;
+        continue;
+      }
+      // Strict-boolean check (CodeRabbit PR #1612 review): the config is
+      // hydrated from persisted JSON, where any truthy value would pass
+      // through unintentionally. Only literal `true` opts in.
+      const shouldExtractRunNumber = config.extractRunNumber === true;
+      // Reuse the pre-pass cleaned value (index-aligned) so the builder
+      // doesn't re-run the heavy cleanMeetupDescription/cheerio parse.
+      const cleanedBefore = cleanedDescriptions[i];
+      const rawEvent = buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber, config.runNumberPrefix, { blocks: boilerplateBlocks, preCleaned: { value: cleanedBefore }, anchorTrail: anchorTrailRunNumber });
+      // Count events whose description had boilerplate removed (fully nulled
+      // or partially stripped) vs. its pre-strip cleaned value.
+      if (cleanedBefore !== undefined && rawEvent.description !== cleanedBefore) {
+        boilerplateDescriptionsDropped++;
+      }
+      events.push(rawEvent);
+    } catch (err) {
+      const msg = `Failed to parse event "${ev.id}": ${err instanceof Error ? err.message : String(err)}`;
+      errors.push(msg);
+      parseErrors.push({ row: i, error: msg });
+    }
+  }
+
+
+  return {
+    events,
+    errors,
+    parseErrors,
+    cancelledSkipped,
+    adminNoticeSkipped,
+    adminNoticeTitles,
+    boilerplateDescriptionsDropped,
+    foreignKennelSkipped,
+  };
+}
+
 export class MeetupAdapter implements SourceAdapter {
   type = "MEETUP" as const;
 
@@ -1100,80 +1217,13 @@ export class MeetupAdapter implements SourceAdapter {
       errorDetails.parse = [{ row: 0, error: message }];
     }
 
-    // Detect group-template boilerplate structurally: a paragraph block the
-    // group reuses verbatim across >= 2 events is part of its standing
-    // recurring-event template, not run-specific notes (#2058/#2059/#2062).
-    // Computed once over the post-enrichment event set (index-aligned with
-    // allApolloEvents) so per-occurrence detail-page overrides are reflected.
-    // The pre-cleaned values back the per-event "was boilerplate stripped?"
-    // diagnostic below; the builder recomputes cleanMeetupDescription so both
-    // stay consistent.
-    const cleanedDescriptions = allApolloEvents.map((ev) =>
-      cleanMeetupDescription(ev.description, mergedState),
-    );
-    // Strict-boolean opt-out (#2228): kennels whose real per-event body is a
-    // shared run template (Paris/Sans Clue) skip boilerplate stripping entirely,
-    // so the full description survives instead of collapsing to a title-echo.
-    const boilerplateBlocks =
-      config.keepRepeatedDescription === true
-        ? new Set<string>()
-        : detectBoilerplateBlocks(cleanedDescriptions);
-
-    const compiledPatterns = compileKennelPatterns(config.kennelPatterns);
-    const anchorTrailRunNumber = config.anchorTrailRunNumber === true;
-    let cancelledSkipped = 0;
-    let adminNoticeSkipped = 0;
-    let boilerplateDescriptionsDropped = 0;
-    // Collect the titles we drop as admin notices so admins can audit
-    // false positives in the scrape diagnostics (#1728).
-    const adminNoticeTitles: string[] = [];
-    for (const [i, ev] of allApolloEvents.entries()) {
-      try {
-        if (!ev.dateTime) continue;
-        // Drop cancelled events at ingest. Meetup's Apollo payload exposes
-        // `status: "CANCELLED"` for trails that were called off (e.g.
-        // Charlotte H3 #1235, Jan 10 — weather cancellation, re-held later
-        // as a different trail with the same number). Without this filter
-        // they show on HashTracks as normal past runs with no cancellation
-        // indicator; the reconcile pipeline transitions any pre-existing
-        // CONFIRMED row to CANCELLED on the next scrape because the event
-        // is no longer in the active set. See #917.
-        if (ev.status === "CANCELLED") {
-          cancelledSkipped++;
-          continue;
-        }
-        // Drop platform-departure admin posts (kennel migration announcements,
-        // farewell posts). Narwhal H3 surfaced "Moving to a new website site -
-        // Last day in Meetup is March 10th" (#1689); Miami posted "...ARE
-        // LEAVING MEETUP" (#1728). Routed through the shared skip-rules matcher
-        // (#1739): the specific departure phrases drop unconditionally, while
-        // the broad farewell words ("farewell"/"goodbye") are now signal-gated
-        // so a real "Farewell Run Trail #42" still ingests.
-        if (ev.title && isPlatformDepartureTitle(ev.title)) {
-          adminNoticeSkipped++;
-          adminNoticeTitles.push(ev.title);
-          continue;
-        }
-        // Strict-boolean check (CodeRabbit PR #1612 review): the config is
-        // hydrated from persisted JSON, where any truthy value would pass
-        // through unintentionally. Only literal `true` opts in.
-        const shouldExtractRunNumber = config.extractRunNumber === true;
-        // Reuse the pre-pass cleaned value (index-aligned) so the builder
-        // doesn't re-run the heavy cleanMeetupDescription/cheerio parse.
-        const cleanedBefore = cleanedDescriptions[i];
-        const rawEvent = buildRawEventFromApollo(ev, mergedState, config.kennelTag, compiledPatterns, shouldExtractRunNumber, config.runNumberPrefix, { blocks: boilerplateBlocks, preCleaned: { value: cleanedBefore }, anchorTrail: anchorTrailRunNumber });
-        // Count events whose description had boilerplate removed (fully nulled
-        // or partially stripped) vs. its pre-strip cleaned value.
-        if (cleanedBefore !== undefined && rawEvent.description !== cleanedBefore) {
-          boilerplateDescriptionsDropped++;
-        }
-        events.push(rawEvent);
-      } catch (err) {
-        const msg = `Failed to parse event "${ev.id}": ${err instanceof Error ? err.message : String(err)}`;
-        errors.push(msg);
-        errorDetails.parse = [...(errorDetails.parse ?? []), { row: i, error: msg }];
-      }
+    const converted = apolloEventsToRawEvents(allApolloEvents, mergedState, config);
+    events.push(...converted.events);
+    errors.push(...converted.errors);
+    if (converted.parseErrors.length > 0) {
+      errorDetails.parse = [...(errorDetails.parse ?? []), ...converted.parseErrors];
     }
+    const { cancelledSkipped, adminNoticeSkipped, adminNoticeTitles, boilerplateDescriptionsDropped, foreignKennelSkipped } = converted;
 
     const hasErrorDetails = hasAnyErrors(errorDetails);
 
@@ -1192,6 +1242,7 @@ export class MeetupAdapter implements SourceAdapter {
         adminNoticeSkipped,
         adminNoticeTitles,
         boilerplateDescriptionsDropped,
+        foreignKennelSkipped,
         detailPagesFetched,
         detailPagesEnriched,
       },
