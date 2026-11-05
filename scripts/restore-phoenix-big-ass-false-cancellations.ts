@@ -187,7 +187,7 @@ async function main() {
     console.log(`  ${c.dateKey}  ${c.kennelCode.padEnd(10)} ${v.padEnd(24)} ${c.title ?? "(no title)"}`);
   }
   console.log(`\nPast CANCELLED canonical events in ${KENNEL_CODES.join(", ")}: ${candidates.length}`);
-  for (const [v, n] of [...tally].sort()) console.log(`  ${v.padEnd(24)} ${n}`);
+  for (const [v, n] of [...tally].sort(([a], [b]) => a.localeCompare(b))) console.log(`  ${v.padEnd(24)} ${n}`);
 
   const ids = candidates.filter((c) => verdicts.get(c.id) === "RESTORE").map((c) => c.id);
   if (!APPLY) {
