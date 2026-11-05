@@ -106,7 +106,7 @@ export interface HikeRow {
 const EARLIEST_GATHERING_HOUR = 7;
 
 /** Convert a PostgREST time "16:30:00" → "16:30" ("HH:MM"); undefined otherwise. */
-export function toHhmm(time: string | null | undefined): string | undefined {
+function toHhmm(time: string | null | undefined): string | undefined {
   if (!time) return undefined;
   const trimmed = time.trim();
   // Expect "HH:MM" or "HH:MM:SS" — keep the first five chars when well-formed.
