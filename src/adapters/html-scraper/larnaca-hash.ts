@@ -59,8 +59,12 @@ export function parseLarnacaDate(text: string): string | null {
   return d.toISOString().slice(0, 10);
 }
 
-/** Split hare cells ("A and B", "A", "+", "B") into a sorted "A, B". */
-export function splitHares(parts: string[]): string | undefined {
+/**
+ * Split hare cells ("A and B", "A", "+", "B") into a sorted "A, B". A cell that
+ * is present but only a placeholder ("TBA") returns null, so merge clears a
+ * previously named hare (atomic-bundle semantics).
+ */
+export function splitHares(parts: string[]): string | null {
   const names = parts
     .join(",")
     .replaceAll(" and ", ",")
@@ -69,14 +73,15 @@ export function splitHares(parts: string[]): string | undefined {
     .split(",")
     .map((s) => clean(s))
     .filter((s) => s && !PLACEHOLDERS.has(s.toLowerCase()));
-  if (names.length === 0) return undefined;
+  if (names.length === 0) return null;
   return [...new Set(names)].sort((a, b) => a.localeCompare(b)).join(", ");
 }
 
-function placeholderOrValue(text: string | undefined): string | undefined {
+/** Present placeholder ("TBA", "None") → null (explicit clear); absent → undefined. */
+function placeholderOrValue(text: string | undefined): string | null | undefined {
   if (text === undefined) return undefined;
   const v = clean(text);
-  return PLACEHOLDERS.has(v.toLowerCase()) ? undefined : v;
+  return PLACEHOLDERS.has(v.toLowerCase()) ? null : v;
 }
 
 /** One "Future Hares" line → event; null for non-run lines. Throws on a bad date. */
@@ -84,25 +89,36 @@ export function parseFutureLine(line: string, sourceUrl: string): RawEventData |
   const run = RUN_LINE_RE.exec(line);
   if (!run) return null;
   const cells = line.split("\t").map(clean).filter(Boolean);
-  // cells: [run, date, ...hares, location, onOn]
+  // cells: [run, date, ...hares, location, onOn]. Gaps are runs of tabs, so an
+  // empty cell vanishes; with only 4 cells we can't tell whether the venue or
+  // the On On is the missing one, so the venue is left unset rather than guessed.
   if (cells.length < 4) throw new Error(`run ${run[1]}: too few columns`);
   const date = parseLarnacaDate(cells[1]);
   if (!date) throw new Error(`run ${run[1]}: unparseable date "${cells[1]}"`);
+  const ambiguous = cells.length === 4;
   return {
     date,
     kennelTags: [KENNEL_TAG],
     runNumber: Number.parseInt(run[1], 10),
-    hares: splitHares(cells.slice(2, -2)),
-    location: placeholderOrValue(cells.at(-2)),
+    hares: splitHares(ambiguous ? [cells[2]] : cells.slice(2, -2)),
+    location: ambiguous ? undefined : placeholderOrValue(cells.at(-2)),
     sourceUrl,
   };
+}
+
+/** "16","00" → "16:00"; undefined when out of range ("16","60"). */
+function toClock(hours: string, minutes: string): string | undefined {
+  const h = Number.parseInt(hours, 10);
+  const m = Number.parseInt(minutes, 10);
+  if (h > 23 || m > 59) return undefined;
+  return `${String(h).padStart(2, "0")}:${minutes}`;
 }
 
 export interface CurrentRunBlock {
   runNumber?: number;
   date?: string;
-  hares?: string;
-  location?: string;
+  hares?: string | null;
+  location?: string | null;
   startTime?: string;
   locationUrl?: string;
 }
@@ -130,7 +146,7 @@ export function parseCurrentBlock(lines: string[]): CurrentRunBlock {
     if (date) block.date = parseLarnacaDate(date) ?? undefined;
     const time = labelValue(line, "TIME");
     const hashAt = time ? HASH_AT_RE.exec(time) : null;
-    if (hashAt) block.startTime = `${hashAt[1].padStart(2, "0")}:${hashAt[2]}`;
+    if (hashAt) block.startTime = toClock(hashAt[1], hashAt[2]);
     const w3w = line.toLowerCase().startsWith("what3words") ? W3W_RE.exec(line) : null;
     if (w3w) block.locationUrl = `https://what3words.com/${w3w[1].toLowerCase()}`;
   }
@@ -176,6 +192,19 @@ export function parseLarnacaPage(
     if (block.location) current.location = block.location;
     if (block.locationUrl) current.locationUrl = block.locationUrl;
     if (block.hares) current.hares = block.hares;
+  } else if (block.date && block.runNumber) {
+    // The block's run was already dropped from the list: emit it from the block
+    // so it isn't silently lost.
+    events.unshift({
+      date: block.date,
+      kennelTags: [KENNEL_TAG],
+      runNumber: block.runNumber,
+      hares: block.hares,
+      location: block.location,
+      startTime: block.startTime,
+      locationUrl: block.locationUrl,
+      sourceUrl,
+    });
   }
   return { events, foundList: true, parseErrors };
 }
