@@ -32,7 +32,6 @@ import { HertsHashAdapter } from "./html-scraper/herts-hash";
 import { SurreyHashAdapter } from "./html-scraper/surrey-hash";
 import { FukFullMoonH3Adapter } from "./html-scraper/fuk-full-moon";
 import { SouthHamsH4Adapter } from "./html-scraper/south-hams-h4";
-import { NorthWiltsHashAdapter } from "./html-scraper/north-wilts-hash";
 import { TidewaterH3Adapter } from "./html-scraper/tidewater-h3";
 import { DesertHashAdapter } from "./html-scraper/desert-hash";
 import { CreekHashAdapter } from "./html-scraper/creek-hash";
@@ -48,6 +47,7 @@ import { SOH4Adapter } from "./html-scraper/soh4";
 import { HalveMeinAdapter } from "./html-scraper/halvemein";
 import { IthacaH3Adapter } from "./html-scraper/ithaca-h3";
 import { HockessinAdapter } from "./html-scraper/hockessin";
+import { NorthWiltsHashAdapter } from "./html-scraper/north-wilts-hash";
 import { RenegadeH3Adapter } from "./html-scraper/renegade-h3";
 import { SWH3Adapter } from "./html-scraper/swh3";
 import { GATRH3Adapter } from "./html-scraper/gatrh3";
@@ -212,7 +212,6 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /surreyhashhouseharriers\.com/i, name: "SurreyHashAdapter",     factory: () => new SurreyHashAdapter() },
   { pattern: /fukfmh3\.co\.uk/i,             name: "FukFullMoonH3Adapter",    factory: () => new FukFullMoonH3Adapter() },
   { pattern: /sh4\.org\.uk/i,                 name: "SouthHamsH4Adapter",      factory: () => new SouthHamsH4Adapter() },
-  { pattern: /\/\/(?:www\.)?nwh3\.net/i,      name: "NorthWiltsHashAdapter",   factory: () => new NorthWiltsHashAdapter() },
   { pattern: /tidewaterh3\.org/i,            name: "TidewaterH3Adapter",      factory: () => new TidewaterH3Adapter() },
   // Desert H3 (HashTracks' first UAE kennel, Dubai's oldest hash, est. 1979) — deserthash.org
   // WordPress/Elementor + Modern Events Calendar, fully SSR'd; wp-json + MEC/Tribe REST all
@@ -276,6 +275,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /sites\.google\.com\/view\/7h4/i, name: "SevenHillsH3Adapter", factory: () => new SevenHillsH3Adapter() },
   { pattern: /sites\.google\.com\/site\/dcfmh3/i, name: "DCFMH3Adapter", factory: () => new DCFMH3Adapter() },
   { pattern: /kansascityh3\.com/i, name: "KCH3Adapter", factory: () => new KCH3Adapter() },
+  { pattern: /\/\/(?:www\.)?nwh3\.net/i,      name: "NorthWiltsHashAdapter",   factory: () => new NorthWiltsHashAdapter() },
   { pattern: /big-hump\.com/i, name: "BigHumpAdapter", factory: () => new BigHumpAdapter() },
   { pattern: /stlh3\.com/i, name: "StlH3Adapter", factory: () => new StlH3Adapter() },
   { pattern: /brewcityh3\.com/i, name: "BrewCityH3Adapter", factory: () => new BrewCityH3Adapter() },
