@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<runlog xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<run>
+    <number>1144</number>
+    <hares>Barritone</hares>
+    <pubname>Admiral Rodney</pubname>
+    <place>Wollaton, Nottingham</place>
+	<date>01</date>
+    <month>11</month>
+    <year>2026</year>
+    <time>11:00</time>
+    <postcod>NG8 2AF</postcod>
+    <info>Pub is dog-friendly and has a car park.Dogs will need to be on a lead throughout the trail</info>
+  </run>
+<run>
+    <number>1145</number>
+    <hares>Long Dong Silver</hares>
+    <pubname>tba</pubname>
+    <place>tba</place>
+	<date>06</date>
+    <month>12</month>
+    <year>2026</year>
+    <time>11:00</time>
+    <postcod> </postcod>
+    <info>Running/walking for fun in the Leicestershire-Derbyshire-Nottinghamshire area</info>
+  </run>
+<run>
+    <number>1146</number>
+    <hares>Long Dong Silver</hares>
+    <pubname>tba</pubname>
+    <place>Nottingham</place>
+	<date>20</date>
+    <month>12</month>
+    <year>2026</year>
+    <time>11:00</time>
+    <postcod> </postcod>
+    <info>Jingle Balls Run and Pub Crawl</info>
+  </run>
+</runlog>

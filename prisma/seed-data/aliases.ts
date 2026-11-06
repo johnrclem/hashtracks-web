@@ -686,6 +686,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
 
     // ===== HUNGARY ===== (first Hungary kennel; bare "BH3"/"BHHH" omitted — globally taken)
     "budapest-h3": ["Budapest H3", "Budapest Hash", "Budapest HHH", "BPH3", "Budapest, Hungary"],
+    // ===== ROMANIA ===== (bare "BH3"/"BFMH3" OMITTED — Boulder/Buffalo/Berlin, Bangkok Full Moon)
+    "bh3-ro": ["Bucharest H3", "Bucharest Hash", "Bucharest Hash House Harriers", "BH3-RO"],
+    "bfmh3-ro": ["Bucharest Full Moon H3", "Bucharest Full Moon Hash", "Bucharest Full Moon Hash House Harriers", "BFMH3-RO"],
 
     // ===== POLAND ===== (first Poland kennel; bare "WH3" omitted — global collision risk)
     "warsaw-h3": ["Warsaw HHH", "Warsaw Hash", "Warsaw Hash House Harriers", "WH3 Warsaw"],
@@ -732,6 +735,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "sh2b": ["SH2B", "Seattle Hash House Bikers", "Hash Bikers WA", "Seattle Bike Hash"],
     // ===== CYPRUS ===== (bare "LH3" OMITTED — London H3)
     "lh3-cy": ["Larnaca H3", "Larnaca HHH", "Larnaca Hash House Harriers", "LH3-CY"],
+    // bare "DH3" OMITTED — Dublin / Dallas / Denver / Desert
+    "dh3-cy": ["Dhekelia H3", "Dhekelia HHH", "Dhekelia Hash House Harriers", "Dhekelia Hash", "DH3-CY"],
     // bare "SHHH"/"SHH3" OMITTED — taken by sech3/sgharriets; bare "H4" OMITTED — taken by Hangover H3.
     "sierra-h4": ["Sierra Hash", "Sierra HHH", "Sierra Hash House Harriers", "Sierra Hash House Harriers and Harriettes", "Sierra H4 Freetown"],
     // ===== HC BATCH (Nov 2026) =====
@@ -762,13 +767,19 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "coeh3": ["City of Exeter H3", "City of Exeter Hash House Harriers", "CoEH3", "Exeter H3"],
     // bare "MH3" OMITTED — global collision (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai).
     "mickleover-h3": ["Mickleover Hash House Harriers", "Mickleover HHH", "Mickleover"],
+    "quorn-h3": ["QH3", "Quorn Hash", "Quorn Hash House Harriers", "Quorn HHH"],
     // bare "H5" / "H5 Hash" OMITTED — h5-hash (Harrisburg) and h5-hi (Honolulu) collide.
     "h5-gb": ["Hare & Hounds H3", "Hare and Hounds Hash House Harriers", "Bedfordshire Hash", "H5 Hare & Hounds", "H5 Hare and Hounds"],
     // ===== CLUSTER 1 =====
     // bare "HH3" OMITTED — collision-prone (Hanoi precedent).
     "herts-h3": ["Hertfordshire", "Herts H3", "Herts Hash", "Herts Hash House Harriers", "North Herts H3"],
+    "mkh3": ["Milton Keynes H3", "MK Hash House Harriers", "Milton Keynes Hash House Harriers", "MKHHH"],
+    "cambridge-h3": ["Cambridge Hash House Harriers", "Cambridge Hash", "Cambridge HHH"],
+    "essex-h3": ["Essex Hash House Harriers", "Essex HHH", "Essex Hash"],
+    "donnington-h3": ["Donnington Hash", "Donnington HHH", "DH3 Telford", "Donnington Hash House Harriers"],
     // bare "BH3" OMITTED — Buffalo H3 owns it globally.
     "bicester-h3": ["Bicester Hash", "Bicester HHH", "BH3 Bicester"],
+    "oxford-h3": ["Oxford Hash", "Oxford HHH", "OxfordH3", "Oxford Hash House Harriers"],
     "newch3": ["NEW Cotswold H3", "N.E.W. Cotswold HHH", "NEWCH3", "Cotswold H3", "Cotswold Hash", "New Cotswold Hash House Harriers"],
     // bare "MH3"/"MVH3" OMITTED — taken (Munich/Montreal/…; Mount Vernon).
     "malvern-h3": ["Malvern Hash House Harriers", "Malvern H3", "Malvern HHH"],
