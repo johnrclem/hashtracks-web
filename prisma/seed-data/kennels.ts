@@ -6378,6 +6378,20 @@ export const KENNELS: KennelSeed[] = [
       longitude: -0.2377,
     },
     {
+      kennelCode: "essex-h3", shortName: "Essex H3", fullName: "Essex Hash House Harriers", region: "Essex", country: "UK",
+      website: "https://essexhhh.co.uk",
+      facebookUrl: "https://www.facebook.com/groups/255786294522554/",
+      foundedYear: 1984, // about page: emerged at the Dec 1984 AGPU from Danbury HHH (June 1984)
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly — a mix of Sunday 11:00 AM runs and weekday (usually Monday) 7:00 PM evening runs.",
+      dogFriendly: true, // home page: "Dogs are welcome at events"
+      walkersWelcome: true, // home page: "run, walk or crawl"
+      description:
+        "Essex Hash House Harriers meet at a different pub in Essex each week for a run following a trail of flour, then a few drinks back at the pub. New faces always welcome — run, walk or crawl!",
+      logoUrl: "/kennel-logos/essex-h3.jpg", // self-hosted from the tokenized wsimg og:image; magic bytes confirmed JPEG
+      // hashCash: unpublished. instagram/twitter: none on site.
+    },
+    {
       kennelCode: "bicester-h3",
       shortName: "Bicester H3",
       fullName: "Bicester Hash House Harriers",

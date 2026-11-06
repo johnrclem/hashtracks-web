@@ -729,6 +729,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== CLUSTER 1 =====
     // bare "HH3" OMITTED — collision-prone (Hanoi precedent).
     "herts-h3": ["Hertfordshire", "Herts H3", "Herts Hash", "Herts Hash House Harriers", "North Herts H3"],
+    "essex-h3": ["Essex Hash House Harriers", "Essex HHH", "Essex Hash"],
     // bare "BH3" OMITTED — Buffalo H3 owns it globally.
     "bicester-h3": ["Bicester Hash", "Bicester HHH", "BH3 Bicester"],
     // bare "MH3"/"MVH3" OMITTED — taken (Munich/Montreal/…; Mount Vernon).
