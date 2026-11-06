@@ -160,6 +160,12 @@ describe("parseInlineHares", () => {
   it("drops the next label word when no period ends the list", () => {
     expect(parseInlineHares("Hares: Solo Hare Details: bring cash")).toBe("Solo Hare");
   });
+  it("keeps an honorific period inside a name", () => {
+    expect(parseInlineHares("Hares: Mr. Fister and Dr. Diddle. Details: x")).toBe("Dr. Diddle, Mr. Fister");
+  });
+  it("drops a multi-word next label ('Start Time:')", () => {
+    expect(parseInlineHares("Hares: Alpha, Beta Start Time: 6pm")).toBe("Alpha, Beta");
+  });
   it("ignores 'Hares off at Noon' (no colon)", () => {
     expect(parseInlineHares("When: Saturday Hares off at Noon")).toBeUndefined();
   });

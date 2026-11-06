@@ -260,6 +260,25 @@ function parseHares(text: string): string | null | undefined {
   return cleaned && cleaned.length >= 2 ? cleaned : null;
 }
 
+// Fee labels the run blocks use ("REGO:", "Damage:", "Hash Cash:", "Fee:"). Only
+// amounts after one of them count, so an unrelated ₹ mention (merch, deposit)
+// elsewhere in the block can't become the run's cost.
+const REGO_LABELS = ["rego", "damage", "hash cash", "fee"];
+const REGO_WINDOW = 250;
+
+/** The text after the first fee label (bounded), or undefined when there is none. */
+function regoWindow(text: string): string | undefined {
+  const lower = text.toLowerCase();
+  let start = -1;
+  for (const label of REGO_LABELS) {
+    let at = lower.indexOf(label);
+    // Word start only ("Gregory" must not match "rego").
+    while (at > 0 && /[a-z]/.test(lower[at - 1])) at = lower.indexOf(label, at + 1);
+    if (at >= 0 && (start < 0 || at < start)) start = at;
+  }
+  return start < 0 ? undefined : text.slice(start, start + REGO_WINDOW);
+}
+
 /**
  * The run's rego price. Two rising amounts are the advance / late pair
  * ("INR 250 till Friday … INR 400 after") and read like the kennel default;
@@ -267,7 +286,9 @@ function parseHares(text: string): string | null | undefined {
  * for 5-trail regulars → ₹2100).
  */
 function parseRegoCost(text: string): string | undefined {
-  const amounts = [...new Set([...text.matchAll(REGO_AMOUNT_RE)].map((m) => Number.parseInt(m[1], 10)))];
+  const window = regoWindow(text);
+  if (!window) return undefined;
+  const amounts = [...new Set([...window.matchAll(REGO_AMOUNT_RE)].map((m) => Number.parseInt(m[1], 10)))];
   if (amounts.length === 0) return undefined;
   if (amounts.length === 2 && amounts[0] < amounts[1]) {
     return `₹${amounts[0]} (advance) / ₹${amounts[1]} (late)`;

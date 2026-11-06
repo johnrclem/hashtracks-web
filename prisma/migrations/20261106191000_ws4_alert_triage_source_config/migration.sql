@@ -50,33 +50,33 @@ WHERE name = 'BoiseH3 Website'
   AND (config->'upcomingOnly') IS DISTINCT FROM 'true'::jsonb;
 
 UPDATE "Source"
-SET config = jsonb_set(config, '{skipKennelTags}', '["BOGS"]'::jsonb),
+SET config = jsonb_set(CASE WHEN jsonb_typeof(config) = 'object' THEN config ELSE '{}'::jsonb END, '{skipKennelTags}', '["BOGS"]'::jsonb),
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE name = 'West of England Hash Run List'
   AND type::text = 'HTML_SCRAPER'
-  AND NOT config ? 'skipKennelTags';
+  AND (jsonb_typeof(config) IS DISTINCT FROM 'object' OR NOT config ? 'skipKennelTags');
 
 UPDATE "Source"
-SET config = jsonb_set(config, '{skipPatterns}',
+SET config = jsonb_set(CASE WHEN jsonb_typeof(config) = 'object' THEN config ELSE '{}'::jsonb END, '{skipPatterns}',
       '["^Rumson Hash House Harriers\\b", "^Summit HHH\\b", "^SHHH\\b"]'::jsonb),
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE name = 'Princeton NJ Hash Calendar'
   AND type::text = 'GOOGLE_CALENDAR'
-  AND NOT config ? 'skipPatterns';
+  AND (jsonb_typeof(config) IS DISTINCT FROM 'object' OR NOT config ? 'skipPatterns');
 
 UPDATE "Source"
-SET config = jsonb_set(config, '{strictKennelRouting}', 'true'::jsonb),
+SET config = jsonb_set(CASE WHEN jsonb_typeof(config) = 'object' THEN config ELSE '{}'::jsonb END, '{strictKennelRouting}', 'true'::jsonb),
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE name = 'ONH3 Google Calendar'
   AND type::text = 'GOOGLE_CALENDAR'
   AND (config->'strictKennelRouting') IS DISTINCT FROM 'true'::jsonb;
 
 UPDATE "Source"
-SET config = jsonb_set(config, '{kennelPatterns}', '[["Boston Ball\\s*Buster|\\bBall\\s*Buster\\b|BoBBH3|B3H4|BBH3", "bobbh3"], ["Beantown", "beantown"], ["Pink Taco|PT2H3|PTT\\s*H3|\\bTaco\\b", "pink-taco"], ["\\bZigZag\\b|Zig Zag|ZZH3", "zigzag"], ["\\bE4B\\b|Eager\\s*4\\s*Beaver", "e4b"], ["Boston Moo[mn]|Full Moon|\\bMo{2,}[mn]\\b", "bos-moon"], ["Boston H3|Boston Hash|BoH3|BH3", "boh3"], ["^Misman meeting\\b", "boh3"]]'::jsonb),
+SET config = jsonb_set(CASE WHEN jsonb_typeof(config) = 'object' THEN config ELSE '{}'::jsonb END, '{kennelPatterns}', '[["Boston Ball\\s*Buster|\\bBall\\s*Buster\\b|BoBBH3|B3H4|BBH3", "bobbh3"], ["Beantown", "beantown"], ["Pink Taco|PT2H3|PTT\\s*H3|\\bTaco\\b", "pink-taco"], ["\\bZigZag\\b|Zig Zag|ZZH3", "zigzag"], ["\\bE4B\\b|Eager\\s*4\\s*Beaver", "e4b"], ["Boston Moo[mn]|Full Moon|\\bMo{2,}[mn]\\b", "bos-moon"], ["Boston H3|Boston Hash|BoH3|BH3", "boh3"], ["^Misman meeting\\b", "boh3"]]'::jsonb),
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE name = 'Boston Hash Calendar'
   AND type::text = 'GOOGLE_CALENDAR'
-  AND NOT (config->'kennelPatterns') @> '[["^Misman meeting\\b", "boh3"]]'::jsonb;
+  AND ((config->'kennelPatterns') IS NULL OR NOT (config->'kennelPatterns') @> '[["^Misman meeting\\b", "boh3"]]'::jsonb);
 
 UPDATE "Source"
 SET config = jsonb_set(
@@ -85,11 +85,11 @@ SET config = jsonb_set(
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE name = 'HK H3 Homepage'
   AND type::text = 'HTML_SCRAPER'
-  AND (config IS NULL OR NOT config ? 'runNumberAnchor');
+  AND (jsonb_typeof(config) IS DISTINCT FROM 'object' OR NOT config ? 'runNumberAnchor');
 
 UPDATE "Source"
-SET config = jsonb_set(config, '{titleStripPatterns}', '["\\s*-\\s*sign up\\b.*$"]'::jsonb),
+SET config = jsonb_set(CASE WHEN jsonb_typeof(config) = 'object' THEN config ELSE '{}'::jsonb END, '{titleStripPatterns}', '["\\s*-\\s*sign up\\b.*$"]'::jsonb),
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE name = 'Taiwan H3 Harrier Central'
   AND type::text = 'HARRIER_CENTRAL'
-  AND NOT config ? 'titleStripPatterns';
+  AND (jsonb_typeof(config) IS DISTINCT FROM 'object' OR NOT config ? 'titleStripPatterns');

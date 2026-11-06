@@ -76,6 +76,8 @@ export function nextMondayOnOrAfter(from: Date): string {
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+/** A stale homepage this many weeks behind its anchor fails the scrape loudly. */
+const STALE_ALERT_WEEKS = 13;
 
 /** A known (run number, Monday) pair from `Source.config.runNumberAnchor`. */
 export interface RunNumberAnchor {
@@ -274,6 +276,17 @@ export class Hkh3Adapter implements SourceAdapter {
     const runNumber = typeof event?.runNumber === "number" ? event.runNumber : undefined;
     const expected = event && runNumber !== undefined && anchor ? expectedRunNumber(event.date, anchor) : undefined;
     const stale = runNumber !== undefined && expected !== undefined && runNumber < expected;
+    const weeksBehind = stale ? (expected as number) - (runNumber as number) : 0;
+    // The check is exact (any lag means the run already happened), so a club
+    // that skips a number would suppress every later page. Past a quarter
+    // behind, fail loud: either the homepage is dead or the anchor needs
+    // re-baselining (see the seed comment on runNumberAnchor).
+    if (weeksBehind > STALE_ALERT_WEEKS) {
+      errors.push(
+        `HK H3 homepage shows run #${runNumber}, ${weeksBehind} weeks behind the expected #${expected} — ` +
+          "re-baseline Source.config.runNumberAnchor if the club skipped numbers, else the page is abandoned",
+      );
+    }
 
     return {
       events: event && !stale ? [event] : [],
@@ -284,7 +297,7 @@ export class Hkh3Adapter implements SourceAdapter {
         runNumberDetected: event?.runNumber,
         locationDetected: event?.location,
         ...(expected === undefined ? {} : { expectedRunNumber: expected }),
-        ...(stale ? { staleHomepage: true, expectedZero: true } : {}),
+        ...(stale ? { staleHomepage: true, weeksBehind, expectedZero: true } : {}),
         fetchDurationMs,
       },
     };

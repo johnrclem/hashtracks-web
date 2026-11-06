@@ -6496,6 +6496,9 @@ export const SOURCES = [
       // its run; a run number behind the one this anchor predicts for the coming
       // Monday means the page is stale, so nothing is emitted (Nov 2026).
       // #2979 = 2026-07-06 and #2988 = 2026-09-07 confirm one run per Monday.
+      // RE-BASELINE this anchor (to any current run # and its Monday) if the club
+      // ever skips or doubles a number: the check is exact, so a lagging anchor
+      // would suppress every page. A page >13 weeks behind fails the scrape loudly.
       config: { runNumberAnchor: { runNumber: 2988, date: "2026-09-07" } },
       kennelCodes: ["hkh3"],
     },

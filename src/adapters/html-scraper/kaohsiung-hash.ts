@@ -230,6 +230,25 @@ function parseRunBody(
 // value runs to the first '.' or ':' (max 160 chars).
 const INLINE_HARE_LABELS = ["hares:", "hare:"];
 const INLINE_HARES_MAX = 160;
+// A '.' after one of these is part of a name ("Mr. Fister"), not the end.
+const HONORIFICS = new Set(["mr", "mrs", "ms", "dr", "st", "jr", "sr", "mt"]);
+// Words that start the next label when the value ran into a ':' ("… Start Time:").
+const NEXT_LABEL_WORDS = new Set(["start", "time", "details", "detail", "where", "when", "cost", "location", "meet", "bring"]);
+
+/** True when the '.' at `i` closes an honorific like "Mr." rather than the sentence. */
+function isHonorificPeriod(text: string, i: number): boolean {
+  let j = i;
+  while (j > 0 && /[A-Za-z]/.test(text[j - 1])) j--;
+  return HONORIFICS.has(text.slice(j, i).toLowerCase());
+}
+
+/** Drop the next label's words ("Start Time") from a value that ran into its ':'. */
+function dropTrailingLabelWords(value: string): string {
+  const words = value.split(" ");
+  let end = words.length - 1; // the word right before ':' is always a label word
+  while (end > 0 && NEXT_LABEL_WORDS.has(words[end - 1].toLowerCase())) end--;
+  return words.slice(0, end).join(" ").trimEnd();
+}
 const AND_SEPARATOR_RE = /\s(?:and|&)\s/gi;
 
 function findInlineHareValue(prose: string): { value: string; endsAtLabel: boolean } | undefined {
@@ -241,7 +260,7 @@ function findInlineHareValue(prose: string): { value: string; endsAtLabel: boole
     const rest = prose.slice(at + label.length, at + label.length + INLINE_HARES_MAX + 1);
     let end = rest.length;
     for (let i = 0; i < rest.length; i++) {
-      if (rest[i] === "." || rest[i] === ":") {
+      if (rest[i] === ":" || (rest[i] === "." && !isHonorificPeriod(rest, i))) {
         end = i;
         break;
       }
@@ -260,11 +279,7 @@ export function parseInlineHares(prose: string): string | undefined {
   const found = findInlineHareValue(prose);
   if (!found || found.value.length < 2) return undefined;
   let names = found.value;
-  if (found.endsAtLabel) {
-    // "Hares: Solo Hare Details: …" — drop the next label's word.
-    const cut = names.lastIndexOf(" ");
-    names = cut > 0 ? names.slice(0, cut).trimEnd() : "";
-  }
+  if (found.endsAtLabel) names = dropTrailingLabelWords(names);
   return normalizeHaresField(names.replace(AND_SEPARATOR_RE, ", "));
 }
 

@@ -191,6 +191,14 @@ describe("runNumberAnchor stale-homepage guard (G7)", () => {
     expect(r.diagnosticContext).toMatchObject({ staleHomepage: true, expectedZero: true, expectedRunNumber: 2997 });
   });
 
+  it("fails loud once the page is more than 13 weeks behind the anchor", async () => {
+    // 2027-01-07 → next Monday 2027-01-11 expects #3006; page still #2988 → 18 weeks behind.
+    const r = await fetchWith("2027-01-07T04:00:00Z", { runNumberAnchor: anchor });
+    expect(r.events).toEqual([]);
+    expect(r.errors[0]).toMatch(/18 weeks behind.*runNumberAnchor/);
+    expect(r.diagnosticContext).toMatchObject({ weeksBehind: 18 });
+  });
+
   it("emits the run on the next Monday when the page is current", async () => {
     const r = await fetchWith("2026-09-03T04:00:00Z", { runNumberAnchor: anchor });
     expect(r.events.map((e) => [e.date, e.runNumber])).toEqual([["2026-09-07", 2988]]);
