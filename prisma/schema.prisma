@@ -493,6 +493,9 @@ model Attendance {
   status             AttendanceStatus   @default(CONFIRMED)
   participationLevel ParticipationLevel @default(RUN)
   stravaUrl          String?
+  // True when stravaUrl was attached from the Strava API (suggestion / picker),
+  // false when the user pasted it. Disconnect clears only auto-linked URLs.
+  stravaUrlAutoLinked Boolean           @default(false)
   beezThere          Boolean            @default(false)
   notes              String? // User's personal notes
   isVerified         Boolean            @default(false) // Verified by misman (v2)
@@ -811,13 +814,14 @@ model StravaConnection {
   refreshToken String // Long-lived refresh token
   expiresAt    DateTime // When accessToken expires
   scope        String    @default("activity:read_all")
-  athleteData  Json? // Cached athlete profile (name, pic URL — user-scoped only per Strava API agreement)
+  athleteData  Json? // No longer written: Strava API Policy §6.2 caps retention at 7 days (nullable for legacy rows)
   lastSyncAt   DateTime? // Last successful activity sync
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   activities StravaActivity[]
+  dismissals StravaDismissal[]
 
   @@index([userId])
 }
@@ -837,18 +841,37 @@ model StravaActivity {
   timezone           String? // Strava timezone string
   city               String? // Reverse-geocoded city name (e.g. "Brooklyn, NY")
 
-  // Match tracking (V1: set on manual pick; V2: auto-suggest will populate these)
+  // Match state, rehydrated on every sync from the durable sources of truth
+  // (Attendance.stravaUrl + StravaDismissal) because cache rows are transient.
   matchedAttendanceId String? // Attendance record this was attached to
-  matchDismissed      Boolean @default(false) // User dismissed this match suggestion (V2)
+  matchDismissed      Boolean @default(false) // User dismissed this match suggestion
 
   connection StravaConnection @relation(fields: [stravaConnectionId], references: [id], onDelete: Cascade)
 
+  // Transient cache (Strava API Policy §6.2 / §5.7): stamped on every sync; rows not
+  // re-fetched within STRAVA_CACHE_TTL_HOURS are deleted by /api/cron/strava-cache-purge.
+  fetchedAt DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([stravaConnectionId, dateLocal])
   @@index([matchedAttendanceId])
   @@index([dateLocal])
+  @@index([fetchedAt])
+}
+
+/// A user's "not a hash run" decision on a Strava activity. Durable, but holds no
+/// Strava Data: the activity ID is stored only as a one-way hash (see
+/// src/lib/strava/activity-key.ts) so the decision outlives the transient cache.
+model StravaDismissal {
+  id                 String   @id @default(cuid())
+  stravaConnectionId String
+  activityKey        String // sha256 hex of "strava-activity:<stravaActivityId>"
+  createdAt          DateTime @default(now())
+
+  connection StravaConnection @relation(fields: [stravaConnectionId], references: [id], onDelete: Cascade)
+
+  @@unique([stravaConnectionId, activityKey])
 }
 
 // ── KENNEL DISCOVERY ──

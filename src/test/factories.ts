@@ -292,6 +292,7 @@ export function buildStravaActivity(
     city: null,
     matchedAttendanceId: null,
     matchDismissed: false,
+    fetchedAt: new Date("2026-01-01"),
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),
     ...overrides,

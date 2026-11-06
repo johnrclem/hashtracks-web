@@ -7,7 +7,7 @@ import {
   StravaAthleteLimitError,
 } from "@/lib/strava/client";
 import { encryptToken } from "@/lib/strava/crypto";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 
 const STATE_COOKIE = "strava_oauth_state";
 
@@ -86,16 +86,14 @@ export async function GET(request: NextRequest) {
 
     // Upsert StravaConnection (handles reconnect case).
     // Tokens are encrypted at rest via AES-256-GCM; see src/lib/strava/crypto.ts.
+    // The athlete profile (name, avatar) is deliberately not stored: Strava API
+    // Policy §6.2 caps retention of Strava Data at a 7-day cache.
     const connectionData = {
       athleteId,
       accessToken: encryptToken(tokenData.access_token),
       refreshToken: encryptToken(tokenData.refresh_token),
       expiresAt: new Date(tokenData.expires_at * 1000),
-      athleteData: {
-        firstname: tokenData.athlete.firstname,
-        lastname: tokenData.athlete.lastname,
-        profile: tokenData.athlete.profile,
-      } as Prisma.InputJsonValue,
+      athleteData: Prisma.DbNull,
     };
 
     await prisma.stravaConnection.upsert({

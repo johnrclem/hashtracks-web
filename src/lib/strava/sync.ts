@@ -4,24 +4,43 @@ import {
   fetchStravaActivities,
   parseStravaActivity,
 } from "./client";
+import { stravaActivityKey } from "./activity-key";
+import { extractStravaActivityId } from "./url";
 import { reverseGeocode, cityFromTimezone } from "@/lib/geo";
 
 export interface SyncResult {
   created: number;
   updated: number;
+  /** Cached rows removed because Strava no longer returns them (deleted, made private, or out of window). */
+  removed: number;
   total: number;
+  /** True when the sync was skipped because the cache is still fresh. */
+  skipped?: boolean;
   error?: string;
 }
 
 const LOOKBACK_DAYS = 90;
-const STALE_HOURS = 6;
+/** A cache older than this is re-fetched on the next logbook visit. */
+export const STALE_HOURS = 6;
+/**
+ * Cached rows not re-fetched within this window are purged by the daily
+ * /api/cron/strava-cache-purge run. With a daily cron a row lives under 48h,
+ * inside Strava API Policy §6.2 (7-day cache) and §6.3 (deletions within 48h).
+ * Must stay well above STALE_HOURS so a fresh sync's rows are never purged.
+ */
+export const STRAVA_CACHE_TTL_HOURS = 24;
+
+const EMPTY_RESULT = { created: 0, updated: 0, removed: 0, total: 0 } as const;
 
 /**
- * Sync Strava activities for a user.
+ * Sync Strava activities for a user into the transient activity cache.
  *
  * - Lookback: 90 days from now
- * - Skips if lastSyncAt is within 6 hours (unless forceRefresh)
- * - Upserts activities by stravaActivityId
+ * - Skips if lastSyncAt is within STALE_HOURS (unless forceRefresh)
+ * - Upserts activities by stravaActivityId and stamps `fetchedAt`
+ * - Deletes this user's cached rows that Strava no longer returns
+ * - Rehydrates match state (matchedAttendanceId / matchDismissed) from the
+ *   durable sources of truth: Attendance.stravaUrl and StravaDismissal
  * - Uses string extraction for dates (never new Date() on start_date_local)
  */
 export async function syncStravaActivities(
@@ -34,7 +53,7 @@ export async function syncStravaActivities(
   });
 
   if (!connection) {
-    return { created: 0, updated: 0, total: 0, error: "No Strava connection" };
+    return { ...EMPTY_RESULT, error: "No Strava connection" };
   }
 
   // Check freshness (skip if synced recently)
@@ -42,12 +61,7 @@ export async function syncStravaActivities(
     const hoursSinceSync =
       (Date.now() - connection.lastSyncAt.getTime()) / (1000 * 60 * 60);
     if (hoursSinceSync < STALE_HOURS) {
-      return {
-        created: 0,
-        updated: 0,
-        total: 0,
-        error: "Sync skipped (recent)",
-      };
+      return { ...EMPTY_RESULT, skipped: true };
     }
   }
 
@@ -59,7 +73,8 @@ export async function syncStravaActivities(
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Token refresh failed";
-    return { created: 0, updated: 0, total: 0, error: message };
+    console.error(`[strava-sync] token refresh failed for connection ${connection.id}: ${message}`);
+    return { ...EMPTY_RESULT, error: message };
   }
 
   // Calculate date range: 90 days ago → now (Unix seconds)
@@ -73,12 +88,21 @@ export async function syncStravaActivities(
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Activity fetch failed";
-    return { created: 0, updated: 0, total: 0, error: message };
+    console.error(`[strava-sync] activity fetch failed for connection ${connection.id}: ${message}`);
+    return { ...EMPTY_RESULT, error: message };
   }
 
   // Parse all activities and batch by create vs update
   const parsed = rawActivities.map(parseStravaActivity);
   const stravaIds = parsed.map((p) => p.stravaActivityId);
+  const fetchedAt = new Date();
+
+  const { linkedAttendanceByActivityId, dismissedKeys } =
+    await loadMatchState(userId, connection.id);
+  const matchState = (stravaActivityId: string) => ({
+    matchedAttendanceId: linkedAttendanceByActivityId.get(stravaActivityId) ?? null,
+    matchDismissed: dismissedKeys.has(stravaActivityKey(stravaActivityId)),
+  });
 
   // Single query to find all existing activities (include city for backfill optimization)
   const existingActivities = await prisma.stravaActivity.findMany({
@@ -96,7 +120,17 @@ export async function syncStravaActivities(
   const toCreate = parsed.filter((p) => !existingIdSet.has(p.stravaActivityId));
   const toUpdate = parsed.filter((p) => existingIdSet.has(p.stravaActivityId));
 
-  // Batch create new activities
+  // Drop cached rows Strava no longer returns: deleted or made private on
+  // Strava, or aged out of the lookback window (API Policy §6.3).
+  const { count: removed } = await prisma.stravaActivity.deleteMany({
+    where: {
+      stravaConnectionId: connection.id,
+      stravaActivityId: { notIn: stravaIds },
+    },
+  });
+
+  // Batch create new activities. skipDuplicates guards against two concurrent
+  // syncs (e.g. two open tabs) racing on the stravaActivityId unique key.
   if (toCreate.length > 0) {
     await prisma.stravaActivity.createMany({
       data: toCreate.map((p) => ({
@@ -111,7 +145,10 @@ export async function syncStravaActivities(
         startLat: p.startLat,
         startLng: p.startLng,
         timezone: p.timezone,
+        fetchedAt,
+        ...matchState(p.stravaActivityId),
       })),
+      skipDuplicates: true,
     });
   }
 
@@ -135,6 +172,8 @@ export async function syncStravaActivities(
                 startLat: p.startLat,
                 startLng: p.startLng,
                 timezone: p.timezone,
+                fetchedAt,
+                ...matchState(p.stravaActivityId),
               },
             }),
           ),
@@ -161,7 +200,55 @@ export async function syncStravaActivities(
     data: { lastSyncAt: new Date() },
   });
 
-  return { created, updated, total: rawActivities.length };
+  return { created, updated, removed, total: rawActivities.length };
+}
+
+/**
+ * Load the durable match state for a user. Cache rows are transient, so the
+ * user's decisions live elsewhere and are copied onto each freshly fetched row:
+ * - links: Attendance.stravaUrl (activity ID → attendance ID)
+ * - dismissals: StravaDismissal (hashed activity keys)
+ */
+async function loadMatchState(userId: string, stravaConnectionId: string) {
+  const [linkedAttendances, dismissals] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { userId, stravaUrl: { not: null } },
+      select: { id: true, stravaUrl: true },
+    }),
+    prisma.stravaDismissal.findMany({
+      where: { stravaConnectionId },
+      select: { activityKey: true },
+    }),
+  ]);
+
+  const linkedAttendanceByActivityId = new Map<string, string>();
+  for (const a of linkedAttendances) {
+    const activityId = a.stravaUrl ? extractStravaActivityId(a.stravaUrl) : null;
+    if (activityId && !linkedAttendanceByActivityId.has(activityId)) {
+      linkedAttendanceByActivityId.set(activityId, a.id);
+    }
+  }
+
+  return {
+    linkedAttendanceByActivityId,
+    dismissedKeys: new Set(dismissals.map((d) => d.activityKey)),
+  };
+}
+
+/**
+ * Delete cached activities that were not re-fetched within
+ * STRAVA_CACHE_TTL_HOURS. Called daily by /api/cron/strava-cache-purge.
+ * Only the transient cache is touched: links (Attendance.stravaUrl) and
+ * dismissals (StravaDismissal) are the user's own durable records.
+ */
+export async function purgeExpiredStravaCache(
+  now: Date = new Date(),
+): Promise<{ deleted: number; olderThan: Date }> {
+  const olderThan = new Date(now.getTime() - STRAVA_CACHE_TTL_HOURS * 60 * 60 * 1000);
+  const { count } = await prisma.stravaActivity.deleteMany({
+    where: { fetchedAt: { lt: olderThan } },
+  });
+  return { deleted: count, olderThan };
 }
 
 /** Round coords to 3 decimal places (~111m precision) for dedup key. */

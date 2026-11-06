@@ -110,13 +110,21 @@ export async function updateAttendance(
   if (data.stravaUrl && data.stravaUrl.length > 500) return { error: "Strava URL is too long (max 500 characters)" };
   if (data.notes && data.notes.length > 1000) return { error: "Notes are too long (max 1,000 characters)" };
 
+  // A URL the user types in replaces a Strava-attached one, so the link becomes
+  // theirs (kept on disconnect). Re-saving the dialog unchanged keeps the flag.
+  const stravaUrlChanged =
+    data.stravaUrl !== undefined && data.stravaUrl !== attendance.stravaUrl;
+
   await prisma.attendance.update({
     where: { id: attendanceId },
     data: {
       ...(data.participationLevel !== undefined && {
         participationLevel: parseParticipationLevel(data.participationLevel),
       }),
-      ...(data.stravaUrl !== undefined && { stravaUrl: data.stravaUrl }),
+      ...(stravaUrlChanged && {
+        stravaUrl: data.stravaUrl,
+        stravaUrlAutoLinked: false,
+      }),
       ...(data.notes !== undefined && { notes: data.notes }),
     },
   });
@@ -272,7 +280,7 @@ export async function checkInWithStrava(
   await prisma.$transaction([
     prisma.attendance.update({
       where: { id: attendanceId },
-      data: { stravaUrl },
+      data: { stravaUrl, stravaUrlAutoLinked: true },
     }),
     prisma.stravaActivity.update({
       where: { id: stravaActivityDbId },

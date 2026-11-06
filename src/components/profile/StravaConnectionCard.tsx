@@ -67,6 +67,12 @@ export function StravaConnectionCard({
           Link your Strava account to easily attach activities to your hash
           runs.
         </p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          We read your last 90 days of activities to suggest runs you were at,
+          and show them only to you. Activity details are cached for at most
+          48 hours. We keep only the activity links you choose to attach, and
+          disconnecting removes those too.
+        </p>
         <a href="/api/auth/strava">
           <Button className="mt-3 bg-strava hover:bg-strava-hover text-white">
             Connect with Strava

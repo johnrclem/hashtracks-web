@@ -23,7 +23,8 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(),
       findMany: vi.fn(),
     },
-    stravaActivity: { updateMany: vi.fn() },
+    stravaActivity: { updateMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -393,6 +394,40 @@ describe("updateAttendance", () => {
     );
   });
 
+  it("marks a typed-in Strava URL as the user's own link", async () => {
+    mockAttFind.mockResolvedValueOnce({
+      id: "att_1", userId: "user_1",
+      stravaUrl: "https://www.strava.com/activities/111", stravaUrlAutoLinked: true,
+    } as never);
+    mockAttUpdate.mockResolvedValueOnce({} as never);
+    await updateAttendance("att_1", { stravaUrl: "https://www.strava.com/activities/222" });
+    expect(mockAttUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          stravaUrl: "https://www.strava.com/activities/222",
+          stravaUrlAutoLinked: false,
+        }),
+      }),
+    );
+  });
+
+  it("keeps an auto-linked Strava URL auto-linked when re-saved unchanged", async () => {
+    mockAttFind.mockResolvedValueOnce({
+      id: "att_1", userId: "user_1",
+      stravaUrl: "https://www.strava.com/activities/111", stravaUrlAutoLinked: true,
+    } as never);
+    mockAttUpdate.mockResolvedValueOnce({} as never);
+    await updateAttendance("att_1", {
+      stravaUrl: "https://www.strava.com/activities/111",
+      notes: "Great trail",
+    });
+    const lastCall = mockAttUpdate.mock.calls.at(-1);
+    const { data } = lastCall?.[0] as { data: Record<string, unknown> };
+    expect(data).not.toHaveProperty("stravaUrl");
+    expect(data).not.toHaveProperty("stravaUrlAutoLinked");
+    expect(data).toMatchObject({ notes: "Great trail" });
+  });
+
   it("updates notes only", async () => {
     mockAttFind.mockResolvedValueOnce({ id: "att_1", userId: "user_1" } as never);
     mockAttUpdate.mockResolvedValueOnce({} as never);
@@ -713,5 +748,33 @@ describe("declineMismanAttendance", () => {
     expect(result).toEqual({ error: "Unable to decline — please try again later" });
     expect(spy).toHaveBeenCalledWith("[declineMismanAttendance] Unhandled error:", dbError);
     spy.mockRestore();
+  });
+});
+
+// ── checkInWithStrava ──
+
+import { checkInWithStrava } from "./actions";
+
+describe("checkInWithStrava", () => {
+  it("links the Strava activity and flags the link as auto-attached", async () => {
+    mockEventFind.mockResolvedValueOnce({ id: "evt_1", date: utcNoonDate(-1) } as never);
+    mockAttFind.mockResolvedValueOnce(null);
+    mockAttCreate.mockResolvedValueOnce({ id: "att_1" } as never);
+    vi.mocked(prisma.stravaActivity.findUnique).mockResolvedValueOnce({
+      id: "sa_1",
+      stravaActivityId: "9876543210",
+      connection: { userId: "user_1" },
+    } as never);
+
+    const result = await checkInWithStrava("evt_1", "sa_1");
+
+    expect(result).toEqual({ success: true, attendanceId: "att_1" });
+    expect(mockAttUpdate).toHaveBeenCalledWith({
+      where: { id: "att_1" },
+      data: {
+        stravaUrl: "https://www.strava.com/activities/9876543210",
+        stravaUrlAutoLinked: true,
+      },
+    });
   });
 });
