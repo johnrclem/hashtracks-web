@@ -215,7 +215,7 @@ export async function fetchStravaActivities(
     // rather than read as "no activities".
     const body: unknown = await res.json();
     if (!Array.isArray(body)) {
-      throw new Error(
+      throw new TypeError(
         `Strava activity fetch returned an unexpected payload (${typeof body}) on page ${page}`,
       );
     }
