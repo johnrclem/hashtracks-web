@@ -773,6 +773,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== CLUSTER 1 =====
     // bare "HH3" OMITTED — collision-prone (Hanoi precedent).
     "herts-h3": ["Hertfordshire", "Herts H3", "Herts Hash", "Herts Hash House Harriers", "North Herts H3"],
+    "warwick-h3": ["Warwick Hash House Harriers", "Warwick HHH", "WHHH", "Warwick Hash"],
     "mkh3": ["Milton Keynes H3", "MK Hash House Harriers", "Milton Keynes Hash House Harriers", "MKHHH"],
     "cambridge-h3": ["Cambridge Hash House Harriers", "Cambridge Hash", "Cambridge HHH"],
     "essex-h3": ["Essex Hash House Harriers", "Essex HHH", "Essex Hash"],

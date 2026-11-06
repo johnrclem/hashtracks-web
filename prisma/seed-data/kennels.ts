@@ -6999,6 +6999,20 @@ export const KENNELS: KennelSeed[] = [
       // hashCash / dogFriendly: unpublished.
     },
     {
+      kennelCode: "warwick-h3", shortName: "Warwick H3", fullName: "Warwick Hash House Harriers", region: "Warwick", country: "UK",
+      website: "https://www.warwickhash.org.uk/",
+      facebookUrl: "https://www.facebook.com/WarwickHHH",
+      scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Monday evenings at 7:00 PM (very occasionally Tuesday when Monday is a public holiday).",
+      walkersWelcome: true, // homepage "Who": social jogging, "Hashing is not a race"
+      description:
+        "Warwick Hash House Harriers — a \'drinking club with a running problem\' — meet on Monday evenings for 3–4 mile flour-laid trails starting and finishing at a pub within about 10 miles of Warwick (Warwick, Leamington Spa, Kenilworth, Wellesbourne, Rugby). Runs are social, not races; walkers welcome.",
+      logoUrl: "/kennel-logos/warwick-h3.png", // self-hosted og:image (resized to 512px); magic bytes confirmed PNG
+      latitude: 52.2823,
+      longitude: -1.5849,
+      // foundedYear / hashCash / dogFriendly: not published. Strava club exists (no Kennel field).
+    },
+    {
       kennelCode: "bicester-h3",
       shortName: "Bicester H3",
       fullName: "Bicester Hash House Harriers",
