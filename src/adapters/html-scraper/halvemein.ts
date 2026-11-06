@@ -75,6 +75,7 @@ export function parseHalveMeinRow(
   cells: string[],
   sourceUrl: string,
   cell0Html?: string,
+  today: Date = new Date(),
 ): RawEventData | null {
   if (cells.length < 4) return null;
 
@@ -117,8 +118,15 @@ export function parseHalveMeinRow(
   if (!dateTimeText) return null;
 
   const normalizedDateText = normalizeHalveMeinMonths(dateTimeText);
-  const date = chronoParseDate(normalizedDateText, "en-US", undefined, { forwardDate: true });
-  if (!date) return null;
+  const parsed = chronoParseDate(normalizedDateText, "en-US");
+  if (!parsed) return null;
+  // Cells are year-less ("Novembeer 14, 1PM"). chrono's forwardDate rolled any
+  // row still listed after its date into NEXT year, minting 2027 phantoms of
+  // every 2026 run the webmaster hadn't yet removed (#825-#839). Pick the year
+  // from the Day column instead (#2597 follow-up). See resolveHalveMeinYear.
+  const date = HAS_EXPLICIT_YEAR_RE.test(normalizedDateText)
+    ? parsed
+    : resolveHalveMeinYear(parsed.slice(5), cells[1], today);
 
   const startTime = parseHalveMeinTime(normalizedDateText);
 
@@ -161,6 +169,29 @@ export function parseHalveMeinRow(
     startTime,
     sourceUrl,
   };
+}
+
+const HAS_EXPLICIT_YEAR_RE = /\b(?:19|20)\d{2}\b/;
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+/**
+ * Choose the year for a year-less "MM-DD" from the row's Day column. Candidates
+ * are last, this and next year (UTC). Among those whose weekday matches the
+ * Day cell, take the one closest to `today`; with no Day match (blank or
+ * mismatched cell) fall back to the closest date overall. A weekday repeats on
+ * the same month/day only every 5-11 years, so a matching Day pins the year.
+ */
+export function resolveHalveMeinYear(monthDay: string, dayCell: string | undefined, today: Date): string {
+  const thisYear = today.getUTCFullYear();
+  const wantDay = WEEKDAYS.indexOf((dayCell ?? "").trim().toLowerCase());
+  const candidates = [thisYear - 1, thisYear, thisYear + 1]
+    .map((y) => `${y}-${monthDay}`)
+    // Round-trip check drops impossible dates (Feb 29 in a non-leap year).
+    .filter((iso) => new Date(`${iso}T12:00:00Z`).toISOString().startsWith(iso));
+  const distance = (iso: string) => Math.abs(Date.parse(`${iso}T12:00:00Z`) - today.getTime());
+  const matching = candidates.filter((iso) => new Date(`${iso}T12:00:00Z`).getUTCDay() === wantDay);
+  const pool = matching.length > 0 ? matching : candidates;
+  return pool.reduce((best, iso) => (distance(iso) < distance(best) ? iso : best), pool[0]);
 }
 
 /** Extract the street address from a "Google: <address>" directions cell. */
