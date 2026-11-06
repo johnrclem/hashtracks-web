@@ -598,21 +598,25 @@ async function runStopSearch(
       },
       select: { kennelId: true, date: true },
     }),
-    // Step 8b: Independent (non-STATIC_SCHEDULE) runs for the rule-agreement gate. Filtered
-    // with an EXISTS in SQL so no RawEvent rows come back (uses RawEvent_eventId_idx).
+    // Step 8b: Independent (non-STATIC_SCHEDULE) runs for the rule-agreement gate, including
+    // co-hosted runs (same as the prediction ledger). Filtered with an EXISTS in SQL so no
+    // RawEvent rows come back (uses RawEvent_eventId_idx).
     prisma.event.findMany({
       where: {
         ...CANONICAL_EVENT_WHERE,
-        kennelId: { in: nearbyIds },
+        eventKennels: { some: { kennelId: { in: nearbyIds } } },
         status: "CONFIRMED",
         date: { gte: agreementLookback, lte: now },
         ...INDEPENDENT_EVENT_WHERE,
       },
-      select: { kennelId: true, date: true },
+      select: { date: true, eventKennels: { select: { kennelId: true } } },
     }),
   ]);
   const evidenceByKennel = groupBy(evidenceEvents, (e) => e.kennelId);
-  const independentByKennel = groupBy(independentEvents, (e) => e.kennelId);
+  const independentByKennel = groupBy(
+    independentEvents.flatMap((e) => e.eventKennels.map((ek) => ({ kennelId: ek.kennelId, date: e.date }))),
+    (e) => e.kennelId,
+  );
 
   // Step 6: Project trails
   const ruleInputs: ScheduleRuleInput[] = scheduleRules.map((r) => ({

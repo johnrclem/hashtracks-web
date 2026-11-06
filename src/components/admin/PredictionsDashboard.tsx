@@ -424,7 +424,7 @@ export function PredictionsDashboard({ ledger, drift, coverage, leadTime, unobse
                 <PrecisionHeatmap ledger={ledger.data} />
               )}
               <p className="text-xs text-muted-foreground">
-                PRECONFIRMED + UNOBSERVED are excluded. MISS / UNOBSERVED rows are re-checked for 120 days after their date, since runs are often posted or re-confirmed late. Recall is a deferred follow-up (computed from events vs snapshot coverage, not snapshot rows).
+                PRECONFIRMED + UNOBSERVED are excluded. MISS / UNOBSERVED rows are re-checked for 120 days after their date, since runs are often posted or re-confirmed late. Each snapshot keeps the confidence it had when taken, so tiers scored before the Nov 2026 rule-agreement gate still carry the old (inverted) calibration until newer cohorts mature. Recall is a deferred follow-up (computed from events vs snapshot coverage, not snapshot rows).
               </p>
             </div>
 
