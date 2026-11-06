@@ -35,7 +35,7 @@ const DETAIL_TRAIL_RE = /^(\d{3,5}),?\s+(\d{1,2})\s+([A-Za-z]+)(?:\s+(\d{4}))?$/
 const PLACEHOLDERS = new Set(["", "tbc", "tba", "tbd", "x", "¦", "-", "?"]);
 
 function clean(text: string): string {
-  return text.replaceAll(" ", " ").replace(/\s+/g, " ").trim();
+  return text.replaceAll("\u00a0", " ").replace(/\s+/g, " ").trim();
 }
 
 function valueOrUndefined(text: string | undefined): string | undefined {
