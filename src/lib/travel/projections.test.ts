@@ -8,6 +8,9 @@ import {
   clampToProjectionHorizon,
   projectionHorizonForStart,
   filterProjectionsByHorizon,
+  applyAgreementGate,
+  measureRuleAgreement,
+  buildRuleAgreementMap,
   type ScheduleRuleInput,
   type ConfirmedEventRef,
 } from "./projections";
@@ -302,6 +305,97 @@ describe("scoreConfidence", () => {
   it("handles null lastEventDate gracefully", () => {
     const noLastEvent = { ...kennel, lastEventDate: null };
     expect(scoreConfidence("medium", noLastEvent, 3, new Date())).toBe("high");
+  });
+
+  it("applies the agreement gate after the activity signals", () => {
+    const now = Date.now();
+    // A HIGH rule that missed most recent runs is demoted…
+    expect(scoreConfidence("high", kennel, 10, null, now, { observed: 10, hits: 6 })).toBe("medium");
+    // …and a MEDIUM rule with a near-perfect record is promoted without lastValidatedAt.
+    expect(scoreConfidence("medium", kennel, 10, null, now, { observed: 10, hits: 10 })).toBe("high");
+    // Omitting agreement keeps the previous behaviour.
+    expect(scoreConfidence("high", kennel, 10, null, now)).toBe("high");
+  });
+
+  it("agreement cannot rescue a MEDIUM rule with no evidence events", () => {
+    expect(scoreConfidence("medium", kennel, 0, null, Date.now(), { observed: 2, hits: 2 })).toBe("low");
+  });
+});
+
+// ============================================================================
+// Rule agreement (evidence gate)
+// ============================================================================
+
+describe("applyAgreementGate", () => {
+  it("abstains on thin or missing evidence", () => {
+    expect(applyAgreementGate("high", null)).toBe("high");
+    expect(applyAgreementGate("high", { observed: 3, hits: 0 })).toBe("high");
+    expect(applyAgreementGate("medium", { observed: 0, hits: 0 })).toBe("medium");
+  });
+
+  it("never lifts LOW", () => {
+    expect(applyAgreementGate("low", { observed: 20, hits: 20 })).toBe("low");
+  });
+
+  it("demotes HIGH below 75% and drops to LOW below 50%", () => {
+    expect(applyAgreementGate("high", { observed: 8, hits: 6 })).toBe("high"); // 75% — kept
+    expect(applyAgreementGate("high", { observed: 8, hits: 5 })).toBe("medium"); // 62.5%
+    expect(applyAgreementGate("high", { observed: 8, hits: 3 })).toBe("low"); // 37.5%
+  });
+
+  it("demotes MEDIUM below 50%", () => {
+    expect(applyAgreementGate("medium", { observed: 10, hits: 4 })).toBe("low");
+    expect(applyAgreementGate("medium", { observed: 10, hits: 5 })).toBe("medium");
+  });
+
+  it("promotes MEDIUM at ≥90% only with ≥6 observed dates", () => {
+    expect(applyAgreementGate("medium", { observed: 6, hits: 6 })).toBe("high");
+    expect(applyAgreementGate("medium", { observed: 10, hits: 9 })).toBe("high");
+    expect(applyAgreementGate("medium", { observed: 5, hits: 5 })).toBe("medium");
+    expect(applyAgreementGate("medium", { observed: 10, hits: 8 })).toBe("medium");
+  });
+});
+
+describe("measureRuleAgreement", () => {
+  // 2026-11-07 is a Saturday; the 84-day window before it holds 12 Saturdays (Aug 15 … Oct 31).
+  const now = utcNoon("2026-11-07");
+  const saturdays = Array.from({ length: 12 }, (_, i) => new Date(utcNoon("2026-08-15").getTime() + i * 7 * 86_400_000));
+
+  it("counts a weekly rule that matches every run as all hits", () => {
+    expect(measureRuleAgreement(makeRule(), saturdays, now)).toEqual({ observed: 12, hits: 12 });
+  });
+
+  it("treats ±1 day as a hit and anything within ±14 days as observed", () => {
+    const sundays = saturdays.map((d) => new Date(d.getTime() + 86_400_000));
+    const thursdays = saturdays.map((d) => new Date(d.getTime() - 2 * 86_400_000));
+    expect(measureRuleAgreement(makeRule(), sundays, now)).toEqual({ observed: 12, hits: 12 });
+    expect(measureRuleAgreement(makeRule(), thursdays, now)).toEqual({ observed: 12, hits: 0 });
+  });
+
+  it("scores a biweekly rule anchored on the wrong week as zero hits", () => {
+    const realRuns = saturdays.filter((_, i) => i % 2 === 0); // Aug 15, Aug 29, …
+    const offPhase = makeRule({ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-08-22" });
+    const onPhase = makeRule({ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-08-15" });
+    expect(measureRuleAgreement(offPhase, realRuns, now)).toEqual({ observed: 6, hits: 0 });
+    expect(measureRuleAgreement(onPhase, realRuns, now)).toEqual({ observed: 6, hits: 6 });
+  });
+
+  it("ignores events on or after `now` so an as-of replay can't see the future", () => {
+    const future = [utcNoon("2026-11-07"), utcNoon("2026-11-14")];
+    expect(measureRuleAgreement(makeRule(), future, now)).toEqual({ observed: 0, hits: 0 });
+  });
+
+  it("returns zero evidence for LOW rules and empty histories", () => {
+    expect(measureRuleAgreement(makeRule({ confidence: "LOW", rrule: "CADENCE=BIWEEKLY;BYDAY=SA" }), saturdays, now))
+      .toEqual({ observed: 0, hits: 0 });
+    expect(measureRuleAgreement(makeRule(), [], now)).toEqual({ observed: 0, hits: 0 });
+  });
+
+  it("builds a per-rule map for dated rules only", () => {
+    const rules = [makeRule({ id: "a" }), makeRule({ id: "b", confidence: "LOW", rrule: "CADENCE=WEEKLY;BYDAY=SU" })];
+    const map = buildRuleAgreementMap(rules, new Map([["kennel-1", saturdays]]), now);
+    expect([...map.keys()]).toEqual(["a"]);
+    expect(map.get("a")).toEqual({ observed: 12, hits: 12 });
   });
 });
 

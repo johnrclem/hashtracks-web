@@ -234,8 +234,10 @@ export const KENNELS: KennelSeed[] = [
       // Travel-prediction fix: seasonal swap (summer Thu / winter Sun) per the note + independent
       // history; the prior flat Sunday rule mis-projected the summer Thursday season.
       scheduleRules: [
-        { rrule: "FREQ=WEEKLY;BYDAY=TH", startTime: "18:09", label: "Summer", validFrom: "04-01", validUntil: "09-30", displayOrder: 0 },
-        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "13:09", label: "Winter", validFrom: "10-01", validUntil: "03-31", displayOrder: 1 },
+        // Thursdays run into mid-October (switch to Sundays Oct 12 2025, ~Oct 18 2026), so the
+        // summer window ends Oct 15, not Sep 30 (backtest 81% → 85%; clears a rule-drift flag).
+        { rrule: "FREQ=WEEKLY;BYDAY=TH", startTime: "18:09", label: "Summer", validFrom: "04-01", validUntil: "10-15", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "13:09", label: "Winter", validFrom: "10-16", validUntil: "03-31", displayOrder: 1 },
       ],
       hashCash: "$5", foundedYear: 1988,
       description: "Weekly hash in Rochester with seasonal schedule: Thursday evenings in summer, Sunday afternoons in winter.",
@@ -474,6 +476,12 @@ export const KENNELS: KennelSeed[] = [
       foundedYear: 1977,
       facebookUrl: "https://www.facebook.com/groups/4054701031522819",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Weekly",
+      // Independent GCal history runs on the 2nd + 4th Saturday only (24/24, Jun–Nov 2026);
+      // the flat "Weekly" rule mis-predicted every other Saturday (Travel ledger 0 HIT / 13 MISS).
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=2SA", startTime: "14:00", confidence: "MEDIUM", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=4SA", startTime: "14:00", confidence: "MEDIUM", displayOrder: 1 },
+      ],
     },
     // Chicago area (Chicagoland Google Calendar aggregator)
     {
@@ -1385,6 +1393,8 @@ export const KENNELS: KennelSeed[] = [
       scheduleTime: "7:00 PM", // 12-hr seed convention; adapter startTime stays 24-hr "19:00"
       scheduleFrequency: "Biweekly",
       scheduleNotes: "Fortnightly Wednesday evening run from a Swindon-area pub — bring a torch in winter.",
+      // Strictly alternate Wednesdays (all 49 runs on one week-parity); anchor = a recent run.
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=WE", anchorDate: "2026-11-04", startTime: "19:00", confidence: "MEDIUM" }],
       foundedYear: 1996, // moonrakers.html: "The first Moonraker run was held on 7th Feb 1996 from the Crown Inn at Stratton"
       description:
         "North Wilts H3's fortnightly Wednesday-evening series — torch-lit in winter — running from a pub " +
@@ -1457,6 +1467,12 @@ export const KENNELS: KennelSeed[] = [
       website: "https://www.berlin-h3.eu",
       scheduleDayOfWeek: "Sunday", scheduleTime: "2:45 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Summer meetup 14:45, winter meetup 13:45. Check hareline for exact start and meet point.",
+      // Sundays all year (32/36 runs). BYMONTH keeps the two meetup times distinct on the
+      // (kennelId, rrule, source) key. Replaces a stale Saturday rule left in prod.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=4,5,6,7,8,9,10", startTime: "14:45", confidence: "MEDIUM", label: "Summer", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU;BYMONTH=1,2,3,11,12", startTime: "13:45", confidence: "MEDIUM", label: "Winter", displayOrder: 1 },
+      ],
       hashCash: "€5", foundedYear: 1979,
       facebookUrl: "https://www.facebook.com/BerlinHashHouseHarriers/",
       mailingListUrl: "https://list.berlin-h3.eu/subscription/form",
@@ -1587,8 +1603,10 @@ export const KENNELS: KennelSeed[] = [
       // Legacy flat fields kept for fallback only — scheduleRules below are authoritative.
       scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       scheduleRules: [
-        { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "18:30", label: "Summer (Monday evening)", displayOrder: 0 },
-        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "14:30", label: "Winter (Sunday afternoon)", displayOrder: 1 },
+        // Seasonal windows (Nov 2026): the hareline shows Mondays Jun–Sep and weekly Sundays from
+        // Oct. Without validFrom/validUntil both rules projected every week, all year.
+        { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "18:30", confidence: "MEDIUM", label: "Summer (Monday evening)", validFrom: "04-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "14:30", confidence: "MEDIUM", label: "Winter (Sunday afternoon)", validFrom: "10-01", validUntil: "03-31", displayOrder: 1 },
       ],
       scheduleNotes: "Roughly weekly. Monday 18:30 in summer, Sunday 14:30 in winter; dates shift, so trust the published hareline. The Full Moon Hash (sibling Vienna FMH3) runs Friday ~19:00 nearest the full moon.",
       foundedYear: 1982,
@@ -1710,19 +1728,21 @@ export const KENNELS: KennelSeed[] = [
       scheduleFrequency: "Weekly",
       scheduleRules: [
         {
+          // Seasons from 2026 history: Saturdays through Apr 25, Wednesdays May 6 – Sep 9,
+          // Saturdays again from Sep 12 (backtest 53% → 94%).
           rrule: "FREQ=WEEKLY;BYDAY=WE",
           startTime: "18:30",
           label: "Summer",
-          validFrom: "03-01",
-          validUntil: "10-31",
+          validFrom: "05-01",
+          validUntil: "09-10",
           displayOrder: 0,
         },
         {
           rrule: "FREQ=WEEKLY;BYDAY=SA",
           startTime: "15:00",
           label: "Winter",
-          validFrom: "11-01",
-          validUntil: "02-29",
+          validFrom: "09-11",
+          validUntil: "04-30",
           displayOrder: 1,
         },
       ],
@@ -2141,6 +2161,13 @@ export const KENNELS: KennelSeed[] = [
       contactEmail: "borderjumpersh3@gmail.com",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Two weekly hashes: Wednesday evenings and Saturday afternoons. See Carrd for current trail.",
+      // The independent calendar shows a 3rd-Saturday run 8 of the last 9 months but almost no
+      // Wednesdays (2 in a year); the flat Wednesday rule went 0 HIT / 23 MISS in the Travel ledger.
+      // Dated rule = 3rd Saturday; Wednesdays stay an undated "sometimes" sentinel.
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA", confidence: "MEDIUM", label: "Saturday afternoon", displayOrder: 0 },
+        { rrule: "CADENCE=WEEKLY;BYDAY=WE", confidence: "LOW", label: "Wednesday evening (occasional)", displayOrder: 1 },
+      ],
       description: "A Drinking Club With a Running Problem — Border Jumpers Style!",
       latitude: 31.76, longitude: -106.49,
     },
@@ -2432,6 +2459,11 @@ export const KENNELS: KennelSeed[] = [
       // no mixed-content risk). The board source is tracked separately in #2054.
       website: "http://atlantahash.com", // NOSONAR — see #1416 above: HTTPS hangs from every network tested; HTTP is the reachable surface
       scheduleDayOfWeek: "Saturday", scheduleTime: "1:00 PM", scheduleFrequency: "Weekly",
+      // The board lists AH4 on alternate Saturdays (25 runs in 52 weeks, 21 on one week-parity);
+      // a weekly rule hit 53%, the anchored biweekly 88%. Anchor = a recent in-phase run.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-10-31", startTime: "13:00", confidence: "MEDIUM" },
+      ],
       hashCash: "$10", foundedYear: 1978,
       contactEmail: "info@atlantahash.com",
       description: "Atlanta's original hash. Weekly Saturday runs.",
@@ -3135,7 +3167,12 @@ export const KENNELS: KennelSeed[] = [
       hashCash: "$1",
       foundedYear: 2006,
       scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
-      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=WE", anchorDate: "2026-06-03", startTime: "18:30" }],
+      // 1st & 3rd Wednesday (20/21 runs since Oct 2025). An anchored biweekly drifts a week
+      // off-phase every month with 5 Wednesdays (backtest 36% → 83%).
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1WE", startTime: "18:30", confidence: "MEDIUM", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3WE", startTime: "18:30", confidence: "MEDIUM", displayOrder: 1 },
+      ],
       scheduleNotes: "1st & 3rd Wednesdays. Start time varies seasonally (6:36 PM fall/winter, 6:54 PM spring/summer). 21+ only.",
       description: "Phoenix biweekly Wednesday evening hash.",
       latitude: 33.45, longitude: -112.07,
@@ -3269,6 +3306,12 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/daytonhhh",
       scheduleDayOfWeek: "Saturday", scheduleFrequency: "Biweekly", scheduleTime: "4:00 PM",
       scheduleNotes: "Every other Saturday (4 PM during Daylight Saving Time, 3 PM in winter) plus full moon evenings at 7 PM.",
+      // "Every other Saturday" lands on the 1st + 3rd Saturday (backtest 83%); start time varies
+      // with daylight saving, so it is left off the rules.
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA", confidence: "MEDIUM", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA", confidence: "MEDIUM", displayOrder: 1 },
+      ],
       hashCash: "$8 ($4 non-drinkers)",
       foundedYear: 1987,
       description: "Ohio's oldest hash kennel — first run June 28, 1987. Hashes every other Saturday plus full moon evenings, with annual specials like the New Year's Day Hangover Hash, Spring Formal, World Peace Through Beer and a Red Dress run joint with sister kennel Sin City H4. Parent of SWOT, Miami Valley, UnMASKED, ON-IN and DH4.",
@@ -3475,6 +3518,8 @@ export const KENNELS: KennelSeed[] = [
       scheduleTime: "2:00 PM", // run-info detail blocks (13:00–14:00; 14:00 most common)
       scheduleFrequency: "Monthly",
       scheduleNotes: "Roughly monthly on Saturdays, roving across Franconia (Nürnberg, Bamberg, Bayreuth, Würzburg, Regensburg …).",
+      // 2nd Saturday most months (13 of 17 runs; backtest 83%).
+      scheduleRules: [{ rrule: "FREQ=MONTHLY;BYDAY=2SA", startTime: "14:00", confidence: "MEDIUM" }],
       hashCash: "€5", // run-info: "Bring €5 and a vessel"
       dogFriendly: true, // run-info: "The trail is dog friendly"
       walkersWelcome: true, // run-info: walkers' trail + runners' trail
@@ -3705,6 +3750,11 @@ export const KENNELS: KennelSeed[] = [
       region: "Kaohsiung", country: "Taiwan",
       foundedYear: 1973,
       scheduleDayOfWeek: "Saturday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      // The run-information page shows a run every other Saturday (afternoon or night, so no
+      // fixed startTime); weekly hit 48%, anchored biweekly 82%.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-10-31", confidence: "MEDIUM" },
+      ],
       scheduleNotes: "Mixed run types around Kaohsiung. Per the kennel: Saturday afternoon runs meet ~1:00pm, Saturday night runs ~7:00pm, and Sunday family runs ~9:00am (runner, walker, and stroller trails). Per-run venue/time/hares posted on the Wix /run-information page; meeting points are Google Maps pins. Run #2732 as of June 2026 (running since 1973). Standard hash cash not published online (a NT$300 cost appeared only on a special 7/11 joint run).",
       description: "Kaohsiung Hash House Harriers (高雄捷兔) is southern Taiwan's oldest hash — the Kaohsiung chapter of the Hash House Harriers, founded 16 September 1973. A self-described 'drinking club with a running problem' running trails around the island and the city: Saturday afternoon runs (~1:00pm), Saturday night runs (~7:00pm), and Sunday family runs (~9:00am) with runner, walker, and stroller trails. Run #2732 as of June 2026. On On!",
       // hashCash omitted — standard per-run price not published (follow up); NT$300 seen only on a special joint run.
@@ -4339,6 +4389,13 @@ export const KENNELS: KennelSeed[] = [
       gm: "Kaya Kwanga", hareRaiser: "Buzz Lightyear",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Monday (summer) 18:30; Saturday (winter) 14:30",
+      // From the iCal history: Mondays Apr 6 – Sep 28, Saturdays Oct – Mar, plus a 12:00 run on
+      // the last Wednesday of every month (backtest 57% → 95%). Was a single all-year Monday rule.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "18:30", confidence: "MEDIUM", label: "Summer", validFrom: "04-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "14:30", confidence: "MEDIUM", label: "Winter", validFrom: "10-01", validUntil: "03-31", displayOrder: 1 },
+        { rrule: "FREQ=MONTHLY;BYDAY=-1WE", startTime: "12:00", confidence: "MEDIUM", label: "Last-Wednesday lunch run", displayOrder: 2 },
+      ],
       description: "Oslo's weekly Monday evening hash. Run #1992+.",
       latitude: 59.91, longitude: 10.75,
     },
@@ -5611,6 +5668,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleTime: "9:30 AM", // /monthly-bicycle-hash/: "we start at the JOMA Cafe … at 9:30 am"
       scheduleFrequency: "Monthly",
       scheduleNotes: "Last Sunday of the month (sometimes moved); starts at JOMA Cafe near the Nam Phu Fountain.",
+      scheduleRules: [{ rrule: "FREQ=MONTHLY;BYDAY=-1SU", startTime: "09:30", confidence: "MEDIUM" }],
       hashCash: "250,000 Kip", // /monthly-bicycle-hash/: includes drinks at the beer stops and lunch
       description:
         "The VH3 Monthly Bicycle Hash — an out-of-town bike hash founded by Graeme 'Mother Trucker' Bolger, " +
@@ -7189,6 +7247,8 @@ export const KENNELS: KennelSeed[] = [
       foundedYear: 1990, // history page: started Monday 28 May 1990
       scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM", scheduleFrequency: "Fortnightly",
       scheduleNotes: "Monday evenings, currently about fortnightly — meet in the pub from ~6:50pm, run ~7pm. Weekly from 1990; occasional daytime bank-holiday and special runs.",
+      // "Fortnightly" without a phase → undated LOW sentinel (backfill Pass 2 can't parse "Fortnightly").
+      scheduleRules: [{ rrule: "CADENCE=BIWEEKLY;BYDAY=MO", startTime: "19:00", confidence: "LOW" }],
       walkersWelcome: true, // about-us: "walk round at the back with the knitting circle"
       description:
         "A drinking club with a running problem — hashing in and around Milton Keynes since 1990. Monday-evening trails of 3–4 miles with checks, holds and fish hooks so walkers, joggers and runners of all abilities can join, then beer and the hash circle.",
@@ -7280,6 +7340,8 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Sunday",
       scheduleTime: "11:00 AM", // 12-hr seed convention; adapter startTime stays 24-hr "11:00"
       scheduleFrequency: "Biweekly",
+      // Strictly alternate Sundays (51 of 52 runs on one week-parity); anchor = a recent run.
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU", anchorDate: "2026-10-25", startTime: "11:00", confidence: "MEDIUM" }],
       foundedYear: 2019, // /past/: run #1, 13 January 2019
       description:
         "N.E.W. Cotswold Hash House Harriers — out on trail in the North, East or West Cotswolds every other " +
@@ -7329,6 +7391,12 @@ export const KENNELS: KennelSeed[] = [
       scheduleFrequency: "Weekly",
       scheduleDayOfWeek: "Monday",
       scheduleTime: "7:00 PM",
+      // Seasonal (UK clocks): Monday 19:00 evenings until BST ends, then Sunday 14:30 runs
+      // (iCal: Mondays Jul 13 – Oct 19 2026, Sundays from Oct 25). Spring switch assumed Apr 1.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "19:00", confidence: "MEDIUM", label: "Summer", validFrom: "04-01", validUntil: "10-24", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "14:30", confidence: "MEDIUM", label: "Winter", validFrom: "10-25", validUntil: "03-31", displayOrder: 1 },
+      ],
       description:
         "A family-orientated, non-competitive social running club — 'a drinking club with a running problem' — " +
         "established 25 January 1981, running weekly through the towns, villages and countryside of Cheltenham " +

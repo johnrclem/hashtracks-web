@@ -33,7 +33,10 @@ import type {
   LedgerScorecard,
   RuleDriftView,
   RuleCoverage,
+  LeadTimeView,
+  UnobservedView,
 } from "@/app/admin/predictions/data";
+import { unobservedReason, type UnobservedReason } from "@/lib/travel/ledger-scorecard";
 
 type Loadable<T> = { ok: true; data: T } | { ok: false };
 
@@ -41,6 +44,8 @@ interface Props {
   ledger: Loadable<LedgerScorecard>;
   drift: Loadable<RuleDriftView>;
   coverage: Loadable<RuleCoverage>;
+  leadTime: Loadable<LeadTimeView>;
+  unobserved: Loadable<UnobservedView>;
 }
 
 const DAY_MS = 86_400_000;
@@ -164,6 +169,127 @@ function PrecisionHeatmap({ ledger }: Readonly<{ ledger: LedgerScorecard }>) {
   );
 }
 
+// ── Lead time (how early we called it) ───────────────────────────────────────
+function fmtDays(d: number | null): string {
+  return d === null ? "—" : `${Math.round(d)}d`;
+}
+function pctOf(n: number, of: number): string {
+  return of === 0 ? "—" : `${Math.round((n / of) * 100)}%`;
+}
+
+function LeadTimeSection({ lead }: Readonly<{ lead: LeadTimeView }>) {
+  const rows = lead.cells.filter((c) => c.hits > 0);
+  // Headline: the farthest horizon with scored HITs, best confidence first.
+  const headline = [...rows].sort((a, b) => b.horizon - a.horizon || a.confidence.localeCompare(b.confidence))[0];
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold">Lead time — how early we predicted runs that happened</h3>
+      {rows.length === 0 ? (
+        <div className="rounded-xl border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
+          No scored HITs yet.
+        </div>
+      ) : (
+        <>
+          {headline && headline.medianLeadDays !== null && (
+            <p className="text-sm">
+              At the <strong>{headline.horizon}-day</strong> horizon, {headline.confidence} predictions were made a median{" "}
+              <strong>{fmtDays(headline.medianLeadDays)}</strong> before the run first appeared on any source; the kennel itself
+              posted it {fmtDays(headline.medianPostedAheadDays)} ahead.
+            </p>
+          )}
+          <div className="overflow-x-auto rounded-xl border border-border/50">
+            <table className="w-full text-sm tabular-nums">
+              <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left">Confidence</th>
+                  <th className="px-3 py-2 text-left">Horizon</th>
+                  <th className="px-3 py-2 text-right">Hits</th>
+                  <th className="px-3 py-2 text-right">Median lead</th>
+                  <th className="px-3 py-2 text-right">Called before any source</th>
+                  <th className="px-3 py-2 text-right">Kennel posted ahead</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((c) => (
+                  <tr key={`${c.confidence}-${c.horizon}`} className="border-t border-border/40">
+                    <td className="px-3 py-2 font-semibold">{c.confidence}</td>
+                    <td className="px-3 py-2">{c.horizon}-day band</td>
+                    <td className="px-3 py-2 text-right">{c.hits.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-semibold">{fmtDays(c.medianLeadDays)}</td>
+                    <td className="px-3 py-2 text-right">{pctOf(c.predictedFirst, c.hits)}</td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">{fmtDays(c.medianPostedAheadDays)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Lead = snapshot → the matched run&apos;s first appearance in HashTracks (capped at the run date, so a run only
+        ingested after it happened never counts as extra notice). Kennels whose first independent source was added
+        after the snapshot are excluded{lead.totalExcluded > 0 ? ` (${lead.totalExcluded} hits)` : ""}.
+      </p>
+    </div>
+  );
+}
+
+// ── UNOBSERVED per kennel ────────────────────────────────────────────────────
+const REASON_META: Record<UnobservedReason, { label: string; tone: string }> = {
+  "no-source": { label: "No independent source", tone: "bg-red-500/10 text-red-600" },
+  "source-added": { label: "Source added since", tone: "bg-emerald-500/10 text-emerald-600" },
+  "source-silent": { label: "Source silent near date", tone: "bg-amber-500/10 text-amber-600" },
+};
+
+function UnobservedSection({ view }: Readonly<{ view: UnobservedView }>) {
+  const noSource = view.kennels.filter((k) => unobservedReason(k) === "no-source").length;
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold">Unobserved — predictions we could not score, by kennel</h3>
+      <p className="text-xs text-muted-foreground">
+        {view.totalUnobserved.toLocaleString()} matured predictions across {view.kennelCount} kennels had no independent
+        (non-static-schedule) event within ±14 days to confirm or refute them. Top {view.kennels.length} shown
+        {noSource > 0 ? `; ${noSource} of them have no independent source at all` : ""}.
+      </p>
+      {view.kennels.length > 0 && (
+        <div className="max-h-[28rem] overflow-auto rounded-xl border border-border/50">
+          <table className="w-full text-sm tabular-nums">
+            <thead className="sticky top-0 bg-muted/80 text-[11px] uppercase tracking-wider text-muted-foreground backdrop-blur">
+              <tr>
+                <th className="px-3 py-2 text-left">Kennel</th>
+                <th className="px-3 py-2 text-left">Region</th>
+                <th className="px-3 py-2 text-right">Unobserved</th>
+                <th className="px-3 py-2 text-right">Hit / Miss</th>
+                <th className="px-3 py-2 text-right">Sources now</th>
+                <th className="px-3 py-2 text-left">Why</th>
+              </tr>
+            </thead>
+            <tbody>
+              {view.kennels.map((k) => {
+                const meta = REASON_META[unobservedReason(k)];
+                return (
+                  <tr key={k.kennelCode} className="border-t border-border/40 hover:bg-muted/20">
+                    <td className="px-3 py-2 font-medium">
+                      {k.shortName} <span className="text-muted-foreground">({k.kennelCode})</span>
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">{k.region}</td>
+                    <td className="px-3 py-2 text-right font-semibold">{k.unobserved}</td>
+                    <td className="px-3 py-2 text-right text-muted-foreground">{k.hit} / {k.miss}</td>
+                    <td className="px-3 py-2 text-right">{k.independentSourcesNow}</td>
+                    <td className="px-3 py-2">
+                      <span className={`rounded-md px-1.5 py-0.5 text-xs font-medium ${meta.tone}`}>{meta.label}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Rule-drift section ───────────────────────────────────────────────────────
 function DriftSection({ drift }: Readonly<{ drift: RuleDriftView }>) {
   const [isPending, startTransition] = useTransition();
@@ -262,7 +388,7 @@ function DriftSection({ drift }: Readonly<{ drift: RuleDriftView }>) {
 }
 
 // ── Dashboard ────────────────────────────────────────────────────────────────
-export function PredictionsDashboard({ ledger, drift, coverage }: Readonly<Props>) {
+export function PredictionsDashboard({ ledger, drift, coverage, leadTime, unobserved }: Readonly<Props>) {
   return (
     <div className="space-y-10">
       <div>
@@ -303,9 +429,12 @@ export function PredictionsDashboard({ ledger, drift, coverage }: Readonly<Props
                 <PrecisionHeatmap ledger={ledger.data} />
               )}
               <p className="text-xs text-muted-foreground">
-                PRECONFIRMED + UNOBSERVED are excluded. Recall is a deferred follow-up (computed from events vs snapshot coverage, not snapshot rows).
+                PRECONFIRMED + UNOBSERVED are excluded. MISS / UNOBSERVED rows are re-checked for 120 days after their date, since runs are often posted or re-confirmed late. Recall is a deferred follow-up (computed from events vs snapshot coverage, not snapshot rows).
               </p>
             </div>
+
+            {leadTime.ok ? <LeadTimeSection lead={leadTime.data} /> : <ErrorCard what="prediction lead time" />}
+            {unobserved.ok ? <UnobservedSection view={unobserved.data} /> : <ErrorCard what="unobserved predictions by kennel" />}
 
             {ledger.data.weekly.length > 1 && (
               <div className="h-56 rounded-xl border border-border/50 bg-card p-4">

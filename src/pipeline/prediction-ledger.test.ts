@@ -3,7 +3,9 @@ import {
   shouldCaptureBand,
   captureBandFor,
   classifyOutcome,
+  planScoreUpdates,
   type ScorableEvent,
+  type ScorableSnapshot,
 } from "./prediction-ledger";
 
 const d = (iso: string) => new Date(iso + "T12:00:00Z");
@@ -98,5 +100,37 @@ describe("classifyOutcome", () => {
     const r = classifyOutcome(target, false, [ev("mix", "2026-03-14", ["src-new", "src-a"])], FROZEN);
     expect(r.outcome).toBe("HIT");
     expect(r.matchedEventId).toBe("mix");
+  });
+});
+
+describe("planScoreUpdates", () => {
+  const snap = (id: string, outcome: ScorableSnapshot["outcome"], iso = "2026-03-14"): ScorableSnapshot => ({
+    id, kennelId: "k1", predictedDate: d(iso), confirmedAtSnapshot: false, independentSourceIds: ["src-a"], outcome,
+  });
+
+  it("scores every PENDING row", () => {
+    const events = new Map([["k1", [ev("e1", "2026-03-14", ["src-a"])]]]);
+    expect(planScoreUpdates([snap("p1", "PENDING")], events)).toEqual([
+      { id: "p1", outcome: "HIT", matchedEventId: "e1" },
+    ]);
+  });
+
+  it("upgrades a MISS once the run is re-confirmed (late archive / restored cancellation)", () => {
+    // Scored as MISS while reconcile had the run cancelled; the archive later re-confirmed it.
+    const events = new Map([["k1", [ev("e1", "2026-03-14", ["src-a"]), ev("e2", "2026-03-21", ["src-a"])]]]);
+    expect(planScoreUpdates([snap("m1", "MISS"), snap("u1", "UNOBSERVED")], events)).toEqual([
+      { id: "m1", outcome: "HIT", matchedEventId: "e1" },
+      { id: "u1", outcome: "HIT", matchedEventId: "e1" },
+    ]);
+  });
+
+  it("skips rows whose outcome is unchanged", () => {
+    const events = new Map([["k1", [ev("e2", "2026-03-21", ["src-a"])]]]);
+    expect(planScoreUpdates([snap("m1", "MISS")], events)).toEqual([]);
+  });
+
+  it("still honours the frozen-source gate on a re-check", () => {
+    const events = new Map([["k1", [ev("late", "2026-03-14", ["src-new"])]]]);
+    expect(planScoreUpdates([snap("u1", "UNOBSERVED")], events)).toEqual([]);
   });
 });

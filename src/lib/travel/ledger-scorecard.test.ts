@@ -3,7 +3,10 @@ import {
   buildPrecisionMap,
   tallyOutcomes,
   firstMaturityDate,
+  shapeLeadTimeGrid,
+  unobservedReason,
   type ScorecardSnap,
+  type UnobservedKennelRow,
 } from "./ledger-scorecard";
 
 const snap = (o: Partial<ScorecardSnap>): ScorecardSnap => ({
@@ -79,5 +82,36 @@ describe("firstMaturityDate", () => {
 
   it("returns null when nothing is PENDING", () => {
     expect(firstMaturityDate([{ outcome: "HIT", predictedDate: d("2026-06-01") }])).toBeNull();
+  });
+});
+
+describe("shapeLeadTimeGrid", () => {
+  it("fills the full HIGH/MEDIUM × 30/90/180 grid, keeping DB rows and blanking the rest", () => {
+    const grid = shapeLeadTimeGrid([
+      { confidence: "HIGH", horizon: 90, hits: 160, excluded: 2, medianLeadDays: 51.4, medianPostedAheadDays: 38.6, predictedFirst: 152 },
+    ]);
+    expect(grid).toHaveLength(6);
+    expect(grid.map((c) => `${c.confidence}${c.horizon}`)).toEqual(["HIGH30", "HIGH90", "HIGH180", "MEDIUM30", "MEDIUM90", "MEDIUM180"]);
+    expect(grid[1]).toMatchObject({ hits: 160, medianLeadDays: 51.4, predictedFirst: 152, excluded: 2 });
+    expect(grid[0]).toMatchObject({ hits: 0, medianLeadDays: null, medianPostedAheadDays: null, predictedFirst: 0 });
+  });
+});
+
+describe("unobservedReason", () => {
+  const row = (over: Partial<UnobservedKennelRow>): UnobservedKennelRow => ({
+    kennelCode: "k", shortName: "K", region: "R", unobserved: 10, noSourceAtSnapshot: 0, hit: 0, miss: 0, independentSourcesNow: 1, ...over,
+  });
+
+  it("no-source when every unobserved snapshot lacked an independent source and none exists now", () => {
+    expect(unobservedReason(row({ noSourceAtSnapshot: 10, independentSourcesNow: 0 }))).toBe("no-source");
+  });
+
+  it("source-added when a source was linked after the snapshots were taken", () => {
+    expect(unobservedReason(row({ noSourceAtSnapshot: 10, independentSourcesNow: 1 }))).toBe("source-added");
+  });
+
+  it("source-silent when a frozen source existed but posted nothing near the date", () => {
+    expect(unobservedReason(row({ noSourceAtSnapshot: 3 }))).toBe("source-silent");
+    expect(unobservedReason(row({ noSourceAtSnapshot: 0 }))).toBe("source-silent");
   });
 });

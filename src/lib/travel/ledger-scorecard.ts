@@ -66,3 +66,79 @@ export function firstMaturityDate(snaps: { outcome: PredictionOutcome; predicted
     return !earliest || s.predictedDate < earliest ? s.predictedDate : earliest;
   }, null);
 }
+
+// ── Lead time (C3): how early a HIT was predicted vs when the run first appeared ─────────────
+
+/** Snapshot horizon bands the ledger captures at (mirrors LEDGER_BANDS, nearest first). */
+export const LEAD_TIME_HORIZONS = [30, 90, 180] as const;
+
+/** One aggregated (confidence × horizon band) lead-time row, as returned by the DB. */
+export interface LeadTimeRow {
+  confidence: string;
+  horizon: number;
+  /** Scored HITs counted (kennel had an enabled independent source at snapshot time). */
+  hits: number;
+  /** HITs left out because the kennel's first enabled independent source came later. */
+  excluded: number;
+  /** Median days between the snapshot and the run's first appearance (capped at the run date). */
+  medianLeadDays: number | null;
+  /** Median days the kennel's own posting preceded the run (0 when posted after the fact). */
+  medianPostedAheadDays: number | null;
+  /** HITs predicted strictly before any source posted the run. */
+  predictedFirst: number;
+}
+
+export interface LeadTimeCell extends LeadTimeRow {
+  confidence: "HIGH" | "MEDIUM";
+}
+
+/** Full HIGH/MEDIUM × horizon grid; missing combinations become empty cells (hits 0, medians null). */
+export function shapeLeadTimeGrid(rows: LeadTimeRow[]): LeadTimeCell[] {
+  const byKey = new Map(rows.map((r) => [`${r.confidence}|${r.horizon}`, r]));
+  const out: LeadTimeCell[] = [];
+  for (const confidence of ["HIGH", "MEDIUM"] as const) {
+    for (const horizon of LEAD_TIME_HORIZONS) {
+      const r = byKey.get(`${confidence}|${horizon}`);
+      out.push({
+        confidence,
+        horizon,
+        hits: r?.hits ?? 0,
+        excluded: r?.excluded ?? 0,
+        medianLeadDays: r?.medianLeadDays ?? null,
+        medianPostedAheadDays: r?.medianPostedAheadDays ?? null,
+        predictedFirst: r?.predictedFirst ?? 0,
+      });
+    }
+  }
+  return out;
+}
+
+// ── UNOBSERVED per kennel (C4) ──────────────────────────────────────────────────────────────
+
+export interface UnobservedKennelRow {
+  kennelCode: string;
+  shortName: string;
+  region: string;
+  unobserved: number;
+  /** UNOBSERVED rows whose snapshot had NO independent source frozen (STATIC_SCHEDULE-only / sourceless). */
+  noSourceAtSnapshot: number;
+  hit: number;
+  miss: number;
+  /** Enabled non-STATIC_SCHEDULE sources linked to the kennel today. */
+  independentSourcesNow: number;
+}
+
+export type UnobservedReason = "no-source" | "source-added" | "source-silent";
+
+/**
+ * Why a kennel's predictions can't be scored:
+ *  - `no-source`: it never had an independent source (nothing can confirm or refute a run);
+ *  - `source-added`: it had none at snapshot time but has one now (future snapshots will score);
+ *  - `source-silent`: a source existed but posted nothing within ±14 days (dormant kennel or gap).
+ */
+export function unobservedReason(row: UnobservedKennelRow): UnobservedReason {
+  if (row.noSourceAtSnapshot >= row.unobserved) {
+    return row.independentSourcesNow > 0 ? "source-added" : "no-source";
+  }
+  return "source-silent";
+}

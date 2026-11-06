@@ -48,6 +48,8 @@ import {
   scoreConfidence,
   deduplicateAgainstConfirmed,
   projectionHorizonForStart,
+  buildRuleAgreementMap,
+  type RuleAgreement,
   type ScheduleRuleInput,
   type ProjectedTrail,
   type KennelContext,
@@ -157,6 +159,7 @@ function scoreProjectionsAsOf(
   reference: Date,
   ruleValidation: Map<string, Date | null>,
   lastEventDateAsOf: Date | null,
+  agreement: ReadonlyMap<string, RuleAgreement>,
 ): ProjectedTrail[] {
   const ctx = kennelCtx(kennel, lastEventDateAsOf);
   const nowMs = reference.getTime();
@@ -168,8 +171,20 @@ function scoreProjectionsAsOf(
       evidenceCount,
       ruleValidation.get(proj.scheduleRuleId) ?? null,
       nowMs,
+      agreement.get(proj.scheduleRuleId),
     ),
   }));
+}
+
+/**
+ * Each dated rule's agreement with the kennel's INDEPENDENT events as-of `reference`
+ * (measureRuleAgreement only reads events before the reference, so no look-ahead).
+ */
+function agreementAsOf(rules: RuleRow[], events: EvDate[], reference: Date): Map<string, RuleAgreement> {
+  const independent = events.filter((e) => e.eligible).map((e) => e.date);
+  const byKennel = new Map<string, Date[]>();
+  for (const r of rules) byKennel.set(r.kennelId, independent);
+  return buildRuleAgreementMap(rules.map(ruleToInput), byKennel, reference);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -234,6 +249,7 @@ function censusForKennel(
       today,
       ruleValidation,
       kennel.lastEventDate,
+      agreementAsOf(rules, events, today),
     );
     // Dedup only against INDEPENDENT confirmed events — otherwise a STATIC_SCHEDULE
     // source's own materialized future events would suppress the very projection
@@ -379,6 +395,7 @@ function backtest(
       reference,
       ruleValidation,
       lastEventAsOf,
+      agreementAsOf(rules, events, reference),
     );
     const dated = scored.filter(
       (p): p is ProjectedTrail & { date: Date } =>
@@ -526,6 +543,7 @@ function buildContradicted(
         reference,
         ruleValidation,
         lastEventAsOf,
+        agreementAsOf(rules, events, reference),
       );
       for (const p of scored) {
         if (!p.date || p.confidence === "low") continue;

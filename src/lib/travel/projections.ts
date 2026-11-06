@@ -278,12 +278,14 @@ function deduplicateProjectionsByKennelDate(
  * - Historical consistency: confirmed event count in last 90 days
  * - Kennel activity: lastEventDate recency
  * - Rule validation recency: lastValidatedAt on the rule
+ * - Rule agreement: the rule's own hit rate against independent events over the
+ *   last 12 weeks (`applyAgreementGate`) — optional; omitted ⇒ gate abstains
  *
  * Returns the final confidence level. Can upgrade MEDIUM→HIGH or degrade
  * MEDIUM→LOW / HIGH→MEDIUM based on evidence.
  */
 export function scoreConfidence(
-  baseConfidence: "high" | "medium" | "low",
+  baseConfidence: ConfidenceTier,
   kennel: KennelContext,
   confirmedEventCount: number,
   lastValidatedAt: Date | null,
@@ -291,7 +293,8 @@ export function scoreConfidence(
   // callers are unaffected; the prediction-evaluation harness injects a past
   // reference date to backtest the model as-of that point in time.
   now: number = Date.now(),
-): "high" | "medium" | "low" {
+  agreement?: RuleAgreement | null,
+): ConfidenceTier {
   // LOW is terminal — never upgrade possible-activity rules
   if (baseConfidence === "low") return "low";
 
@@ -300,7 +303,7 @@ export function scoreConfidence(
   const ONE_EIGHTY_DAYS_MS = 180 * 24 * 60 * 60 * 1000;
 
   // Explicitly typed to allow degradation to "low" in extreme cases
-  let score: "high" | "medium" | "low" = baseConfidence;
+  let score: ConfidenceTier = baseConfidence;
 
   // Boost MEDIUM → HIGH if strong evidence
   if (
@@ -323,10 +326,125 @@ export function scoreConfidence(
     if (score === "high") score = "medium";
   }
 
+  // The rule's own recent track record against independent history (see applyAgreementGate).
+  score = applyAgreementGate(score, agreement);
+
   // PRD §Confidence Model: Medium requires ≥1 evidence event.
   if (score === "medium" && confirmedEventCount === 0) score = "low";
 
   return score;
+}
+
+// ============================================================================
+// Rule agreement (evidence gate)
+// ============================================================================
+//
+// "HIGH" used to mean "where the rule came from" (a STATIC_SCHEDULE source or a seed
+// `scheduleRules` entry). The prediction ledger showed that is NOT "more accurate": HIGH
+// scored 70% vs MEDIUM 81% (Nov 2026), because hand-authored rules can be wrong (a biweekly
+// phase off by a week, a seasonal window ending a month early) and nothing checked them.
+// The gate re-ranks every dated rule by how well it matched the kennel's INDEPENDENT
+// (non-STATIC_SCHEDULE) events over the last 12 weeks:
+//   - poor agreement demotes (HIGH→MEDIUM below 75%, →LOW below 50%: no dated prediction);
+//   - strong agreement promotes MEDIUM→HIGH (≥90% over ≥6 observed dates).
+// A rule with too little independent evidence keeps its base tier, so kennels whose only
+// data is a STATIC_SCHEDULE source don't vanish from Travel Mode. Thresholds were chosen by
+// replaying the gate over every matured ledger snapshot (HIGH 85% / MEDIUM 70% / LOW 42%).
+
+export type ConfidenceTier = "high" | "medium" | "low";
+
+/** Look-back window for a rule's track record (matches the 12-week evidence window). */
+export const AGREEMENT_WINDOW_DAYS = 84;
+/** A past predicted date counts as OBSERVED when an independent event lies within ±this. */
+export const AGREEMENT_OBSERVE_TOL_DAYS = 14;
+/** …and as a HIT when one lies within ±this (same tolerance the ledger scores with). */
+export const AGREEMENT_MATCH_TOL_DAYS = 1;
+/** Below this many observed dates the gate abstains (keeps the base tier). */
+export const AGREEMENT_MIN_OBSERVED = 4;
+export const AGREEMENT_DEMOTE_HIGH_BELOW = 0.75;
+export const AGREEMENT_DEMOTE_MEDIUM_BELOW = 0.5;
+export const AGREEMENT_PROMOTE_AT = 0.9;
+export const AGREEMENT_PROMOTE_MIN_OBSERVED = 6;
+
+/** How a rule's recent projected dates fared against independent events. */
+export interface RuleAgreement {
+  /** Past projected dates with an independent event within ±AGREEMENT_OBSERVE_TOL_DAYS. */
+  observed: number;
+  /** …of which an independent event landed within ±AGREEMENT_MATCH_TOL_DAYS. */
+  hits: number;
+}
+
+function utcMidnight(d: Date | number): number {
+  const date = typeof d === "number" ? new Date(d) : d;
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
+/**
+ * Replay one dated rule over the AGREEMENT_WINDOW_DAYS before `now` and score it against
+ * independent event dates. Only events strictly before `now` count, so an as-of backtest can
+ * pass a full event list without leaking the future. LOW rules (no dated projections) and
+ * windows with no projections return `{ observed: 0, hits: 0 }` — the gate then abstains.
+ */
+export function measureRuleAgreement(
+  rule: ScheduleRuleInput,
+  independentDates: readonly Date[],
+  now: Date,
+): RuleAgreement {
+  if (rule.confidence === "LOW") return { observed: 0, hits: 0 };
+  const today = utcMidnight(now);
+  const windowStart = new Date(today - AGREEMENT_WINDOW_DAYS * DAY_MS);
+  const windowEnd = new Date(today - DAY_MS);
+  const predicted = new Set<number>();
+  for (const p of projectTrails([rule], windowStart, windowEnd)) {
+    if (p.date) predicted.add(utcMidnight(p.date));
+  }
+  if (predicted.size === 0) return { observed: 0, hits: 0 };
+
+  const earliest = windowStart.getTime() - AGREEMENT_OBSERVE_TOL_DAYS * DAY_MS;
+  const actual = independentDates
+    .map((d) => utcMidnight(d))
+    .filter((t) => t >= earliest && t < today);
+
+  let observed = 0;
+  let hits = 0;
+  for (const p of predicted) {
+    let nearest = Infinity;
+    for (const t of actual) nearest = Math.min(nearest, Math.abs(t - p) / DAY_MS);
+    if (nearest <= AGREEMENT_OBSERVE_TOL_DAYS) observed++;
+    if (nearest <= AGREEMENT_MATCH_TOL_DAYS) hits++;
+  }
+  return { observed, hits };
+}
+
+/**
+ * Agreement for every dated (HIGH/MEDIUM) rule, keyed by rule id. `independentDatesByKennel`
+ * must hold only independent (non-STATIC_SCHEDULE) event dates — counting a rule's own
+ * STATIC_SCHEDULE-generated events would be circular (they always agree).
+ */
+export function buildRuleAgreementMap(
+  rules: readonly ScheduleRuleInput[],
+  independentDatesByKennel: ReadonlyMap<string, readonly Date[]>,
+  now: Date,
+): Map<string, RuleAgreement> {
+  const out = new Map<string, RuleAgreement>();
+  for (const rule of rules) {
+    if (rule.confidence === "LOW") continue;
+    out.set(rule.id, measureRuleAgreement(rule, independentDatesByKennel.get(rule.kennelId) ?? [], now));
+  }
+  return out;
+}
+
+/** Re-rank a scored tier by the rule's agreement (abstains on thin evidence). */
+export function applyAgreementGate(
+  score: ConfidenceTier,
+  agreement: RuleAgreement | null | undefined,
+): ConfidenceTier {
+  if (score === "low" || !agreement || agreement.observed < AGREEMENT_MIN_OBSERVED) return score;
+  const rate = agreement.hits / agreement.observed;
+  if (rate < AGREEMENT_DEMOTE_MEDIUM_BELOW) return "low";
+  if (score === "high") return rate < AGREEMENT_DEMOTE_HIGH_BELOW ? "medium" : "high";
+  if (rate >= AGREEMENT_PROMOTE_AT && agreement.observed >= AGREEMENT_PROMOTE_MIN_OBSERVED) return "high";
+  return "medium";
 }
 
 // ============================================================================

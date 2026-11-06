@@ -12,7 +12,11 @@ import type { PredictionOutcome, ScheduleConfidence } from "@/generated/prisma/c
 import {
   DAYSOUT_BINS,
   binOf,
+  shapeLeadTimeGrid,
+  type LeadTimeCell,
+  type LeadTimeRow,
   type OutcomeTally,
+  type UnobservedKennelRow,
 } from "@/lib/travel/ledger-scorecard";
 
 // ── Ledger scorecard ────────────────────────────────────────────────────────
@@ -128,6 +132,92 @@ export async function loadLedgerScorecard(): Promise<LedgerScorecard> {
     kennelsCovered: distinctKennels.length,
     confidenceSplit: splitConfidence(confidenceGroups),
     weekly: bucketWeekly(weeklyGroups),
+  };
+}
+
+// ── Lead time: predicted N days before the run first appeared (C3) ─────────
+export interface LeadTimeView {
+  cells: LeadTimeCell[];
+  totalHits: number;
+  totalExcluded: number;
+}
+
+/**
+ * Median lead time of HITs per confidence × horizon band, aggregated in the DB (bounded output).
+ *
+ * "Appeared" = the matched event's `createdAt`, capped at the run date: a run first ingested
+ * AFTER it happened (backfill, archive page, late onboarding) never counts as more advance
+ * notice than the run itself. HITs at kennels whose first enabled independent source was
+ * created after the snapshot are excluded — onboarding would otherwise inflate the lead.
+ */
+export async function loadLeadTime(): Promise<LeadTimeView> {
+  const rows = await prisma.$queryRaw<LeadTimeRow[]>`
+    WITH first_src AS (
+      SELECT sk."kennelId", MIN(s."createdAt") AS first_at
+      FROM "SourceKennel" sk JOIN "Source" s ON s.id = sk."sourceId"
+      WHERE s.enabled AND s.type <> 'STATIC_SCHEDULE'
+      GROUP BY sk."kennelId"
+    ),
+    hits AS (
+      SELECT ps.confidence::text AS confidence, ps."horizonBucket" AS horizon,
+        EXTRACT(EPOCH FROM (LEAST(e."createdAt", e.date) - ps."snapshotAt")) / 86400.0 AS lead_days,
+        EXTRACT(EPOCH FROM (e.date - e."createdAt")) / 86400.0 AS posted_ahead_days,
+        (f.first_at IS NOT NULL AND f.first_at <= ps."snapshotAt") AS eligible
+      FROM "PredictionSnapshot" ps
+      JOIN "Event" e ON e.id = ps."matchedEventId"
+      LEFT JOIN first_src f ON f."kennelId" = ps."kennelId"
+      WHERE ps.outcome = 'HIT'
+    )
+    SELECT confidence, horizon,
+      (COUNT(*) FILTER (WHERE eligible))::int AS "hits",
+      (COUNT(*) FILTER (WHERE NOT eligible))::int AS "excluded",
+      percentile_cont(0.5) WITHIN GROUP (ORDER BY lead_days) FILTER (WHERE eligible) AS "medianLeadDays",
+      percentile_cont(0.5) WITHIN GROUP (ORDER BY GREATEST(posted_ahead_days, 0)) FILTER (WHERE eligible) AS "medianPostedAheadDays",
+      (COUNT(*) FILTER (WHERE eligible AND lead_days > 0))::int AS "predictedFirst"
+    FROM hits
+    GROUP BY confidence, horizon`;
+  const cells = shapeLeadTimeGrid(rows);
+  return {
+    cells,
+    totalHits: cells.reduce((s, c) => s + c.hits, 0),
+    totalExcluded: cells.reduce((s, c) => s + c.excluded, 0),
+  };
+}
+
+// ── UNOBSERVED per kennel (C4) ──────────────────────────────────────────────
+export interface UnobservedView {
+  kennels: UnobservedKennelRow[]; // top UNOBSERVED_LIMIT by count
+  kennelCount: number; // all kennels with ≥1 UNOBSERVED snapshot
+  totalUnobserved: number;
+}
+
+const UNOBSERVED_LIMIT = 40;
+
+/** Kennels whose matured predictions could not be scored, with whether they have an independent source. */
+export async function loadUnobservedByKennel(): Promise<UnobservedView> {
+  const rows = await prisma.$queryRaw<UnobservedKennelRow[]>`
+    WITH indep AS (
+      SELECT sk."kennelId", (COUNT(*) FILTER (WHERE s.enabled))::int AS enabled_sources
+      FROM "SourceKennel" sk JOIN "Source" s ON s.id = sk."sourceId"
+      WHERE s.type <> 'STATIC_SCHEDULE'
+      GROUP BY sk."kennelId"
+    )
+    SELECT k."kennelCode" AS "kennelCode", k."shortName" AS "shortName", k.region AS "region",
+      (COUNT(*) FILTER (WHERE ps.outcome = 'UNOBSERVED'))::int AS "unobserved",
+      (COUNT(*) FILTER (WHERE ps.outcome = 'UNOBSERVED' AND cardinality(ps."independentSourceIds") = 0))::int AS "noSourceAtSnapshot",
+      (COUNT(*) FILTER (WHERE ps.outcome = 'HIT'))::int AS "hit",
+      (COUNT(*) FILTER (WHERE ps.outcome = 'MISS'))::int AS "miss",
+      COALESCE(MAX(i.enabled_sources), 0)::int AS "independentSourcesNow"
+    FROM "PredictionSnapshot" ps
+    JOIN "Kennel" k ON k.id = ps."kennelId"
+    LEFT JOIN indep i ON i."kennelId" = ps."kennelId"
+    GROUP BY k.id
+    HAVING COUNT(*) FILTER (WHERE ps.outcome = 'UNOBSERVED') > 0
+    ORDER BY "unobserved" DESC, k."kennelCode"`;
+  return {
+    kennels: rows.slice(0, UNOBSERVED_LIMIT),
+    kennelCount: rows.length,
+    totalUnobserved: rows.reduce((s, r) => s + r.unobserved, 0),
   };
 }
 
