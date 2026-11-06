@@ -761,6 +761,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "coeh3": ["City of Exeter H3", "City of Exeter Hash House Harriers", "CoEH3", "Exeter H3"],
     // bare "MH3" OMITTED — global collision (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai).
     "mickleover-h3": ["Mickleover Hash House Harriers", "Mickleover HHH", "Mickleover"],
+    "quorn-h3": ["QH3", "Quorn Hash", "Quorn Hash House Harriers", "Quorn HHH"],
     // bare "H5" / "H5 Hash" OMITTED — h5-hash (Harrisburg) and h5-hi (Honolulu) collide.
     "h5-gb": ["Hare & Hounds H3", "Hare and Hounds Hash House Harriers", "Bedfordshire Hash", "H5 Hare & Hounds", "H5 Hare and Hounds"],
     // ===== CLUSTER 1 =====

@@ -9383,6 +9383,17 @@ export const SOURCES = [
       kennelCodes: ["mickleover-h3"],
     },
     {
+      name: "Quorn H3 Runlog XML",
+      url: "http://www.quornh3.org.uk/runlog.html", // NOSONAR — site is HTTP-only; adapter reads runlog<YYYY>.xml
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Per-year file ages out at the year boundary; history is a frozen backfill.
+      config: { upcomingOnly: true },
+      kennelCodes: ["quorn-h3"],
+    },
+    {
       name: "North Wilts H3 Run Sheet",
       url: "https://nwh3.net/runsheet.html",
       type: "HTML_SCRAPER" as const,
