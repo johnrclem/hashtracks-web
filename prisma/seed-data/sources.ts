@@ -8617,6 +8617,20 @@ export const SOURCES = [
       },
       kennelCodes: ["barbados-h3"],
     },
+    // Jamaica — first 🇯🇲 kennel; bespoke JamaicaHashAdapter over the PHP hareline
+    // (forward "Hare Line" + "Receding Hare Line" tables, fetched via browserRender
+    // because jah3.com sits behind a Cloudflare challenge). Deep archive comes from
+    // scripts/backfill-jah3-history.ts; upcomingOnly keeps reconcile off past runs.
+    {
+      name: "Jamaica H3 Website Hareline",
+      url: "https://www.jah3.com/kbean/hareline.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["jah3"],
+    },
     // Serbia — first 🇷🇸 kennel; Harrier Central public API (config-only).
     {
       name: "BEER H3 Harrier Central",

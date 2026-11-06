@@ -6206,6 +6206,30 @@ export const KENNELS: KennelSeed[] = [
       latitude: 13.0975, // Bridgetown / capital anchor (runs are island-wide; no per-event coords published)
       longitude: -59.6167,
     },
+    // ── Jamaica (first 🇯🇲 kennel: Jamaica H3, est. 13 Feb 1998) ──
+    {
+      kennelCode: "jah3",
+      shortName: "Jamaica H3",
+      fullName: "Jamaica Hash House Harriers",
+      region: "Kingston",
+      country: "Jamaica", // canonical NAME — code "JM" lives in region.ts
+      website: "https://jah3.com/",
+      facebookUrl: "https://www.facebook.com/groups/1611425852447494/",
+      foundedYear: 1998, // jah3.com/who-we-are: "Friday, February 13, 1998" (= archive run #001)
+      // No fixed start time: "The starting time is up to the hare(s)" (kbean/nextrun.php).
+      scheduleDayOfWeek: "Sunday",
+      scheduleFrequency: "Biweekly",
+      scheduleNotes: "Almost every 2nd Sunday afternoon, sometimes on other days; start time is up to the hares.",
+      hashCash: "J$1000", // kbean/nextrun.php: "Usually J$ 1000: Hash Registration & down downs"
+      walkersWelcome: true, // "walk/run", family hash "from one year old"
+      logoUrl: "/kennel-logos/jah3.gif", // self-hosted site icon (cropped-jah3 GIF, 512x512; magic bytes confirmed)
+      description:
+        "Jamaica's islandwide hash, based in Kingston — a drinking club with a running problem. " +
+        "Co-founded 13 Feb 1998 by Goran 'Nutcase' Engdahl and Bill 'Bags' Hetherington. A family hash " +
+        "laying trails across central and eastern Jamaica, usually every other Sunday afternoon.",
+      latitude: 18.0179, // Kingston anchor (runs are islandwide; no per-event coords published)
+      longitude: -76.8099,
+    },
     {
       kennelCode: "beerh3", // bare code clear; only unrelated beerspoke-h3 exists
       shortName: "BEER H3", // >4 chars → toSlug("BEER H3") = "beer-h3"; a backronym (Belgrade Eastern European Revival)
