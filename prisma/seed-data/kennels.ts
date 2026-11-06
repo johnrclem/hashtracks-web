@@ -1284,6 +1284,27 @@ export const KENNELS: KennelSeed[] = [
       hashCash: "£2.50", foundedYear: 1994, // nhhh.co.uk: "every week since 1994"
       description: "Newcastle upon Tyne's weekly Wednesday-evening hash.",
       latitude: 54.9783, longitude: -1.6178 },
+    {
+      kennelCode: "wfh3",
+      shortName: "Wyre Forest H3",
+      fullName: "Wyre Forest Hash House Harriers",
+      region: "Kidderminster",
+      country: "UK",
+      website: "https://www.wyreforesthhh.org.uk/",
+      scheduleDayOfWeek: "Thursday",
+      scheduleTime: "7:00 PM", // 12-hr seed convention; adapter startTime stays 24-hr "19:00"
+      scheduleFrequency: "Weekly",
+      foundedYear: 2008, // run archive: #1, 1st May 2008, Royal Forester at Callow Hill, Bewdley
+      hashCash: "£1", // homepage: "a contribution of £1 per person towards the cost of our insurance policy"
+      description:
+        "Wyre Forest Hash House Harriers — running in the beautiful countryside around the Wyre Forest " +
+        "(Kidderminster, Bewdley and beyond) every Thursday at 7pm. Everyone is welcome; all we ask is a " +
+        "£1 contribution towards the club's insurance.",
+      logoUrl: "/kennel-logos/wfh3.gif", // self-hosted SmallLogo.gif (via residential proxy); magic bytes confirmed GIF
+      latitude: 52.388,
+      longitude: -2.2497,
+      // dogFriendly / walkersWelcome / socials: not stated on the site — omitted
+    },
     { kennelCode: "plympton-h3", shortName: "Plympton H3", fullName: "Plympton Hash House Harriers",
       region: "Plymouth", country: "UK", logoUrl: "/kennel-logos/plympton-h3.png",
       scheduleDayOfWeek: "Sunday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
@@ -6306,6 +6327,31 @@ export const KENNELS: KennelSeed[] = [
         "laying trails across central and eastern Jamaica, usually every other Sunday afternoon.",
       latitude: 18.0179, // Kingston anchor (runs are islandwide; no per-event coords published)
       longitude: -76.8099,
+    },
+    // ── Grenada (first 🇬🇩 kennel: Grenada H3, est. 1985) ──
+    {
+      kennelCode: "gh3-gd", // bare "gh3"/"GH3" is Glasgow H3
+      shortName: "Grenada H3",
+      fullName: "Grenada Hash House Harriers",
+      region: "St George's",
+      country: "Grenada", // canonical NAME — code "GD" lives in region.ts
+      website: "https://grenadahash.com/",
+      facebookUrl: "https://www.facebook.com/groups/grenadahash", // gotothehash.net/caribbean.html (Feb 2026)
+      foundedYear: 1985, // /about-us/: "founded by Paul “Rigor Mortis” Slinger in 1985"
+      // No scheduleTime: the On On moves with the season (4:00 PM in Aug, 3:30 PM in Nov).
+      scheduleDayOfWeek: "Saturday",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Saturday afternoons; arrive 30 minutes before the On On (3:30–4:00 PM, posted weekly on Next Hash).",
+      hashCash: "EC$3 (voluntary)", // /next-hash/: "a voluntary three dollar (EC$3) hash cash fee"
+      dogFriendly: true, // /next-hash/ rules: "DO keep your dog on a leash!"
+      walkersWelcome: true, // /next-hash/: "2 Trails: Walkers & Runners"
+      logoUrl: "/kennel-logos/gh3-gd.png", // self-hosted GH3-GaryLogoSmall (PNG 260x282; magic bytes confirmed)
+      description:
+        "Grenada Hash House Harriers, founded in 1985 by Paul 'Rigor Mortis' Slinger. Every Saturday afternoon " +
+        "runners and walkers follow two trails at rotating locations around the Spice Isle (and Carriacou), " +
+        "then share Stag, Carib and local food. Dogs on a leash welcome; voluntary EC$3 hash cash.",
+      latitude: 12.0561, // St George's (runs rotate island-wide)
+      longitude: -61.7488,
     },
     {
       kennelCode: "beerh3", // bare code clear; only unrelated beerspoke-h3 exists

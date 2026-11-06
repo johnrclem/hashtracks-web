@@ -34,6 +34,7 @@ import { NewCotswoldH3Adapter } from "./html-scraper/new-cotswold-h3";
 import { SurreyHashAdapter } from "./html-scraper/surrey-hash";
 import { FukFullMoonH3Adapter } from "./html-scraper/fuk-full-moon";
 import { SouthHamsH4Adapter } from "./html-scraper/south-hams-h4";
+import { WyreForestHashAdapter } from "./html-scraper/wyre-forest-hash";
 import { TidewaterH3Adapter } from "./html-scraper/tidewater-h3";
 import { DesertHashAdapter } from "./html-scraper/desert-hash";
 import { CreekHashAdapter } from "./html-scraper/creek-hash";
@@ -140,6 +141,7 @@ import { BombayHashAdapter } from "./html-scraper/bombay-hash";
 import { SaigonH3Adapter } from "./html-scraper/saigon-h3";
 import { HanoiH3Adapter } from "./html-scraper/hanoi-h3";
 import { JamaicaHashAdapter } from "./html-scraper/jamaica-hash";
+import { GrenadaHashAdapter } from "./html-scraper/grenada-hash";
 import { VictoriaH3Adapter } from "./html-scraper/victoria-h3";
 import { Ch4DkAdapter } from "./html-scraper/ch4-dk";
 import { MiteriHarelineAdapter } from "./html-scraper/miteri-hareline";
@@ -218,6 +220,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /surreyhashhouseharriers\.com/i, name: "SurreyHashAdapter",     factory: () => new SurreyHashAdapter() },
   { pattern: /fukfmh3\.co\.uk/i,             name: "FukFullMoonH3Adapter",    factory: () => new FukFullMoonH3Adapter() },
   { pattern: /sh4\.org\.uk/i,                 name: "SouthHamsH4Adapter",      factory: () => new SouthHamsH4Adapter() },
+  { pattern: /wyreforesthhh\.org\.uk/i,       name: "WyreForestHashAdapter",   factory: () => new WyreForestHashAdapter() },
   { pattern: /tidewaterh3\.org/i,            name: "TidewaterH3Adapter",      factory: () => new TidewaterH3Adapter() },
   // Desert H3 (HashTracks' first UAE kennel, Dubai's oldest hash, est. 1979) — deserthash.org
   // WordPress/Elementor + Modern Events Calendar, fully SSR'd; wp-json + MEC/Tribe REST all
@@ -348,6 +351,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /^https?:\/\/(?:[^/]+\.)?tymh3\.com(?:[/?#:]|$)/i, name: "BoomCalendarAdapter", factory: () => new BoomCalendarAdapter() },
   // ── Jamaica ──
   { pattern: /^https?:\/\/(?:[^/]+\.)?jah3\.com(?:[/?#:]|$)/i, name: "JamaicaHashAdapter", factory: () => new JamaicaHashAdapter() },
+  // ── Grenada ──
+  { pattern: /^https?:\/\/(?:[^/]+\.)?grenadahash\.com(?:[/?#:]|$)/i, name: "GrenadaHashAdapter", factory: () => new GrenadaHashAdapter() },
   // ── Cambodia ──
   { pattern: /^https?:\/\/(?:[^/]+\.)?p2h3\.com(?:[/?#:]|$)/i, name: "PhnomPenhH3Adapter", factory: () => new PhnomPenhH3Adapter() },
   // ── Nepal ──

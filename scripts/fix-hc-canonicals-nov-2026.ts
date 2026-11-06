@@ -17,6 +17,7 @@
  *
  *   Dry run:  BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/fix-hc-canonicals-nov-2026.ts
  *   Apply:    BACKFILL_APPLY=1 BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/fix-hc-canonicals-nov-2026.ts
+ *   Updates only (no delete): append --skip-delete
  */
 import "dotenv/config";
 import { prisma } from "@/lib/db";
@@ -90,7 +91,8 @@ async function main(): Promise<void> {
   const dup = await prisma.event.findUnique({ where: { id: DUPLICATE_ID }, select: { title: true, date: true } });
   const dupLabel = dup ? `${dup.title} ${dup.date.toISOString().slice(0, 10)}` : "already gone";
   console.log(`  DELETE ${DUPLICATE_ID}: ${dupLabel}`);
-  if (apply && dup?.title === NH3_PLACEHOLDER) {
+  // --skip-delete: apply the updates only and leave the hard delete for a separate run.
+  if (apply && dup?.title === NH3_PLACEHOLDER && !process.argv.includes("--skip-delete")) {
     await deleteLeakedEvent(prisma, DUPLICATE_ID, ["hares", "attendances", "kennelAttendances"]);
   }
   console.log(apply ? `\nApplied ${applied} updates.` : "\nDry run complete.");

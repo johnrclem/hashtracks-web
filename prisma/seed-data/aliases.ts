@@ -177,6 +177,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "nwh3-moon": ["Moonrakers H3", "Moonrakers", "NWH3 Moonrakers", "Moonraker Hash", "North Wilts Moonrakers"],
     // ===== UK — CORNWALL =====
     "titsh3": ["TITs", "TITS", "Try it Thursdays", "Try It Thursdays H3", "TIT H3"],
+    "wfh3": ["Wyre Forest H3", "WFHHH", "WFH3", "Wyre Forest Hash", "Wyre Forest Hash House Harriers"],
     // Bare "SCH3" OMITTED — claimed by sch3-atl (Southern Comfort) + sch3-ca (Surf City).
     "sch3-gb": ["Steel City H3", "Steel City Hash House Harriers", "SCH3-GB"],
     // Bare "MH3" OMITTED — globally taken (Munich/Montreal/Minneapolis/Miami/Madrid/Memphis/Morgantown/Manila/Dubai).
@@ -720,6 +721,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "barbados-h3": ["Barbados H3", "Barbados Hash House Harriers", "Barbados Hash"],
     // ===== JAMAICA ===== (first Jamaica kennel)
     "jah3": ["JAH3", "Jamaica H3", "Jamaica Hash", "Jamaica Hash House Harriers", "Kingston Hash"],
+    // ===== GRENADA ===== (bare "GH3" OMITTED — Glasgow H3)
+    "gh3-gd": ["Grenada H3", "Grenada Hash", "Grenada HHH", "Grenada Hash House Harriers"],
     "beerh3": ["BEER H3", "BEERH3", "Belgrade EER H3", "Belgrade Eastern European Revival H3", "Belgrade Hash", "Beograd Hash"],
     // ===== HC BATCH-11 =====
     // bare "PH3"/"PHHH" OMITTED — taken by ph3-my/pattaya-h3 and princeton-h3/ph3-my/phuket-tinmen respectively.
