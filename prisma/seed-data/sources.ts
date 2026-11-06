@@ -8966,6 +8966,16 @@ export const SOURCES = [
       kennelCodes: ["herts-h3"],
     },
     {
+      name: "H5 Hare & Hounds Website Hareline",
+      url: "https://www.h5hashers.org.uk/hareline.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke scraper (inline runData JSON island)
+      scrapeFreq: "daily",
+      scrapeDays: 120, // forward hareline reaches ~3 months
+      config: { upcomingOnly: true }, // forward-only hareline; past runs drop off
+      kennelCodes: ["h5-gb"],
+    },
+    {
       name: "F.U.K Full Moon H3 Hareline",
       url: "https://fukfmh3.co.uk/hareline.htm",
       type: "HTML_SCRAPER" as const,
