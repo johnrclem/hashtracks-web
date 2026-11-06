@@ -1,0 +1,6115 @@
+[
+  {
+    "date": "2015-09-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 875,
+    "startTime": "19:00",
+    "location": "The Eagle & Child, 49 St Giles, Oxford, OX1 3LU",
+    "locationUrl": "https://goo.gl/maps/LVU42",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-10-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 876,
+    "startTime": "19:00",
+    "location": "AGPU: General Elliott, 27 Manor Road, South Hinksey, OX1 5AS.",
+    "locationUrl": "https://goo.gl/maps/XGv4Z.",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-10-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 877,
+    "startTime": "19:00",
+    "location": "The Webfart birthday hash: James Street Tavern, 47-48 James St, Oxford OX4 1EU",
+    "hares": "Webfart",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-10-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 878,
+    "startTime": "19:00",
+    "location": "Six Bells, 70 Mill St. Kidlington, OX5 2EF",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-10-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 879,
+    "startTime": "19:00",
+    "location": "Dew Drop Inn, Summertown, OX2 7DX",
+    "hares": "Mummies Boy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-10-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 880,
+    "location": "OH3 Away weekend, The Royal Oak, 24 Church Street, Kington, Herefordshire, HR5 3BE",
+    "hares": "Roady & Scraggy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-11-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "11:00",
+    "location": "Away weekend joint run with Mountin’ Sheep H3, On Out: long stay car park on Oxford Road, Hay on Wye, HR3 5EQ. CP is pay and display",
+    "hares": "Snowy, Mountin Sheep H3",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-11-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 881,
+    "startTime": "19:00",
+    "location": "Three Pigeons, 31 Woodgreen, Witney, OX28 1DG",
+    "locationStreet": "OX28 1 DG",
+    "hares": "Richard D’Turd and Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-11-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 882,
+    "startTime": "19:00",
+    "location": "Masons Arms, 2 Quarry School Place, Headington, OX3 8LH",
+    "hares": "Two Pack",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-11-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 883,
+    "startTime": "19:00",
+    "location": "Butchers Arms,5 Wilberforce St, Headington, OX3 7AN",
+    "hares": "Killer & Forgetful Bastard",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-11-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 884,
+    "startTime": "19:00",
+    "location": "The Old Bookbinders Alehouse, 17-18 Victor St, Oxford, OX2 6BT",
+    "hares": "Pony Express & Home Alone",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-12-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 885,
+    "startTime": "19:00",
+    "location": "The Boundary House, 69 Oxford Road, Abingdon OX14 2AA",
+    "hares": "FBJ & La Crease",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-12-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "11:00",
+    "location": "CAMRA run hosted by Didcot H3 – East Hagbourne Village Hall, 53 Main Rd, East Hagbourne, Didcot, OX11 9LR",
+    "hares": "Didcot H3",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-12-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 886,
+    "startTime": "19:00",
+    "location": "The Prince of Wales, 73 Church Way, Iffley Oxford OX4 4EF",
+    "hares": "Makin’ Bacon & Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-12-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "18:00",
+    "location": "Christmas OUCH: The Jericho Wine Cafe (corner Little Clarendon St and Walton St) from 6pm, dinner at Loch Fyne, Walton Street, OX2 6AE (8pm) – see Mummie’s Boy for details",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-12-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 887,
+    "startTime": "19:00",
+    "location": "The Plough, The Green, Upper Wolvercote, Oxford OX2 8BD",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2015-12-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 888,
+    "startTime": "19:00",
+    "location": "Xmas Fancy Dress run, there will be cake! Rose & Crown, 14 North Parade Ave, Oxford OX2 6LX",
+    "hares": "Kneel You Bastard",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-01-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 889,
+    "startTime": "12:00",
+    "location": "The Cowley Retreat, 172 Cowley Rd, Oxford OX4 1UE",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-01-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 890,
+    "startTime": "19:00",
+    "location": "The Marsh Harrier, Marsh Road, Cowley, OX4 2HH",
+    "hares": "Finger Flasher",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-01-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 891,
+    "startTime": "19:00",
+    "location": "The Seacourt Bridge, West Way, Oxford, Botley, OX2 9JU",
+    "hares": "Technicolour Horn & Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-01-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 892,
+    "startTime": "19:00",
+    "location": "Burns Night. The Mason’s Arms, 2 Quarry School Place, Headington, OX3 8LH",
+    "hares": "Two Pack",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-01-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 893,
+    "startTime": "19:00",
+    "location": "The Chester Arms, 19 Chester Street, Oxford, OX4 1SN",
+    "hares": "Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-02-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 895,
+    "startTime": "19:00",
+    "location": "The Port Mahon, 82 St Clements Street, Oxford, OX4 1AW",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-02-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 896,
+    "startTime": "19:00",
+    "location": "Red Dress Run – The Jolly Farmers, 20 Paradise Square, Oxford, OX1 1LD",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-02-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 897,
+    "startTime": "19:00",
+    "location": "City Arms, 288 Cowley Road, OX4 1UR",
+    "hares": "Warm and Fluffy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-02-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 898,
+    "startTime": "19:00",
+    "location": "Red Lion, Marston TBC",
+    "locationStreet": "VYTBC",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-03-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 899,
+    "startTime": "19:00",
+    "location": "Banbury Road, Kidlington, OX5 2BT",
+    "locationStreet": "BLACK BULL",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-03-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 900,
+    "startTime": "19:00",
+    "location": "The Golden Ball, 2 College Lane, OX4 4LQ",
+    "hares": "Woof & Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-03-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 901,
+    "startTime": "19:00",
+    "location": "The Midget, Midget Close, Abingdon, OX14 5NR",
+    "hares": "FBJ",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-03-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 902,
+    "startTime": "19:00",
+    "location": "The William Morris, 59a Between Towns Road, Cowley, OX4 3LR – The GM’s birthday run – bring a present!",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-03-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 903,
+    "startTime": "19:00",
+    "location": "Newlands Inn, 45-47 Newland Street, Eynsham, OX29 4LD",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-04-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 904,
+    "startTime": "19:00",
+    "location": "The Six Bells, 44 Lower High Street, Thame, OX9 2AD",
+    "hares": "ShitStix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-04-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 905,
+    "startTime": "19:00",
+    "location": "The Jolly Boatman, 216 Banbury Road, Thrupp, OX5 1JU",
+    "hares": "Shagger",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-04-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 906,
+    "startTime": "19:00",
+    "location": "The Vine Inn, 11 Abingdon Road, Cumnor, OX2 9QN",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-04-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 907,
+    "startTime": "19:00",
+    "location": "The Queen’s Head, 26 Church Road, Horspath, OX33 1RU",
+    "hares": "Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-05-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 909,
+    "startTime": "19:00",
+    "location": "The Red Lion, High Street, Islip,OX5 2RX",
+    "hares": "HiViz & Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-05-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 910,
+    "startTime": "19:00",
+    "location": "The Red Lion, 42 Oxford Road, Marston, OX3 0PH",
+    "locationStreet": "OX1 5AS",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-05-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 911,
+    "startTime": "19:00",
+    "location": "The Butcher’s Arms, 5 Wilberforce St, Oxford OX3 7AN",
+    "hares": "Bouncer",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-05-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 912,
+    "startTime": "19:00",
+    "location": "The Jolly Sportsman, 2 Lombard Street, Eynsham, OX29 4HT",
+    "hares": "Latchkey kid",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-05-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "location": "Bicester H3 2222 run weekend – Launton Sports and Social Club, Bicester, OX26 5DP BH3 website for details",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-06-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 913,
+    "startTime": "19:00",
+    "location": "The Bull Inn, The Green, Great Milton, OX44 7NS",
+    "hares": "Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-06-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 914,
+    "startTime": "19:00",
+    "location": "The Woodman Inn, New Yatt Rd, North Leigh, OX29 6TT",
+    "locationStreet": "OX29 6TH",
+    "hares": "Richard d’Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-06-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 915,
+    "startTime": "19:00",
+    "location": "The White House, 1 Grove Road, Bladon, OX20 1RQ",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-06-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 916,
+    "startTime": "19:00",
+    "location": "The Chandos Arms, 8 The Turnpike, Oakley, HP18 9QB",
+    "hares": "Shit Stix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-06-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 917,
+    "startTime": "19:00",
+    "location": "The Three Horseshoes, 16 The Green, Garsington, OX44 9DF",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-07-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 918,
+    "startTime": "19:00",
+    "location": "Founder’s birthday Hash – Grove Barn, Main Street, Grendon Underwood, HP18 0SJ . ***There will be fresh Thai food courtesy of Smiling Oyster***",
+    "hares": "Daglocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-07-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 919,
+    "startTime": "19:00",
+    "location": "The Seven Stars, The Green, Marsh Baldon, OX44 9LP",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-07-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 920,
+    "startTime": "19:00",
+    "location": "The Plough, The Green, Upper Wolvercote, OX2 8BD. Bring a change of clothes, it WILL be wet!",
+    "hares": "Finger Flasher",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-07-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 921,
+    "startTime": "19:00",
+    "location": "Webfart and W+F’s last run: The Library, 182 Cowley Road, OX4 1UE",
+    "hares": "W+F",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-08-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 922,
+    "startTime": "19:00",
+    "location": "The Nag’s Head, The Bridge, Abingdon, OX14 3HX",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-08-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 923,
+    "startTime": "19:00",
+    "location": "The Bystander, Besselsleigh Road, Wootton, OX13 6DN",
+    "hares": "Pony Express & Home Alone",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-08-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 924,
+    "startTime": "19:00",
+    "location": "The Star Inn, Middle Road, Stanton St John, OX33 1EX",
+    "hares": "Bollard Naked & Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-08-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 925,
+    "startTime": "19:00",
+    "location": "Inaugural Yellow Dress Run in aid of Sobell House Hospice – The White Horse, 1 London Road, Headington, OX3 7SP",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-08-31",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 926,
+    "startTime": "19:00",
+    "location": "The Plough Inn, 24 High Street, Long Wittenham, OX14 4QH",
+    "hares": "Technicolour Horn",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-09-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 927,
+    "startTime": "19:00",
+    "location": "The Red Lion, 127 Cassington Rd, Yarnton, Kidlington OX5 1QD",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-09-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 928,
+    "startTime": "19:00",
+    "location": "The Tandem, 193 Kennington Rd, Kennington, Oxford OX1 5PG",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-09-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 929,
+    "startTime": "19:00",
+    "location": "The Plough, Rectory Road, Great Haseley, OX44 7JQ",
+    "hares": "Shit Stix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-09-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 930,
+    "startTime": "19:00",
+    "location": "The Six Bells, 44 Upper High St, Thame OX9 2AD",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-10-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 931,
+    "startTime": "19:00",
+    "location": "AGPU – The Red Lion, 42 Oxford Road, Old Marston, OX3 0PH AGPU with food in the pub!",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-10-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 932,
+    "startTime": "19:00",
+    "location": "The Chester Arms, 19 Chester Street, Oxford, OX4 1SN",
+    "hares": "Webfart",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-10-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 933,
+    "startTime": "19:00",
+    "location": "The Spread Eagle, 20 Northcourt Rd, Abingdon OX14 1PL",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-10-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 934,
+    "startTime": "19:00",
+    "location": "The Lamb and Flag, 12 St Giles, Oxford OX1 3JS",
+    "hares": "Shagger",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-11-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 935,
+    "startTime": "19:00",
+    "location": "The Three Pigeons, 31 Woodgreen, Witney OX28 1DG",
+    "hares": "Richard D’Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-11-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 938,
+    "startTime": "19:00",
+    "location": "The King and Queen, 57 High Street, Wheatley, OX33 1XX. There is free parking in Church Rd at the rear of the pub.",
+    "hares": "ShitStix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-11-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 939,
+    "startTime": "19:00",
+    "location": "The White Horse, 1 London Rd, Oxford OX3 7SP",
+    "hares": "Gadget",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-11-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 940,
+    "startTime": "19:00",
+    "location": "The Library, 182 Cowley Rd, Oxford OX4 1UE",
+    "hares": "Warm & Fluffy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-11-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 941,
+    "startTime": "19:00",
+    "location": "The Prince of Wales, 73 Church Way, Iffley, OX4 4EF",
+    "hares": "Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-12-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 943,
+    "startTime": "19:00",
+    "location": "The Nag’s Head, The Bridge, Abingdon, OX14 3HX",
+    "hares": "FBJ",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-12-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 944,
+    "startTime": "19:00",
+    "location": "The Lamb and Flag, 12 St Giles, Oxford OX1 3JS . Two Pac’s novelty Xmas run, bring some money 🙂",
+    "hares": "Two Pack",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-12-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 945,
+    "startTime": "19:00",
+    "location": "The Bell Inn, 12 Middleton Rd, Banbury OX16 4QJ Regular trains from Oxford, only takes 20 mins",
+    "hares": "Shagger",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2016-12-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 946,
+    "startTime": "19:00",
+    "location": "The Cowley Retreat, 172 Cowley Road, OX4 1UE",
+    "hares": "Warm & Fluffy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-01-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 947,
+    "startTime": "19:00",
+    "location": "The Punchbowl, 12 Oxford Road, Woodstock, OX20 1TR. Park in Hensington Road car park, behind the firestation",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-01-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 948,
+    "startTime": "19:00",
+    "location": "The Seacourt Bridge, West Way, Botley OX2 9JU",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-01-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 949,
+    "startTime": "19:00",
+    "location": "The Dewdrop Inn, 258 Banbury Rd, Oxford OX2 7DX",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-01-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 950,
+    "startTime": "19:00",
+    "location": "The Marsh Harrier, 40 Marsh Rd, Oxford OX4 2HH – Burn’s Night run",
+    "hares": "Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-02-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 951,
+    "startTime": "19:00",
+    "location": "The Rose & Crown, 14 North Parade Ave, Oxford OX2 6LX",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-02-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 952,
+    "startTime": "19:00",
+    "location": "Gispert Memorial Run – The Penny Black, 58 Sheep St, Bicester OX26 6JW",
+    "hares": "Daglocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-02-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 953,
+    "startTime": "19:00",
+    "location": "Red Dress Run – The White Hart, St Andrews Road, Headington, OX3 9DL",
+    "hares": "Gadget",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-02-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 954,
+    "startTime": "19:00",
+    "location": "The White Horse, 189 Ock St, Abingdon OX14 5DW",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-03-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 955,
+    "startTime": "19:00",
+    "location": "The Red Lion, 42 Oxford Rd, Oxford OX3 0PH",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-03-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 956,
+    "startTime": "19:00",
+    "location": "The Library, 182 Cowley Rd, Oxford OX4 1UE",
+    "hares": "Warm&Fluffy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-03-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 957,
+    "startTime": "19:00",
+    "location": "The Six Bells, 43-44 High Street, Thame, OX9 2AD",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-03-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 958,
+    "startTime": "19:00",
+    "location": "The GM’s birthday run – The William Morris, 59 Between Towns Rd, Oxford OX4 3LR",
+    "locationStreet": "OX4 6SS",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-03-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 959,
+    "startTime": "19:00",
+    "location": "The Red Lion, 3 Abingdon Rd, Drayton, Abingdon OX14 4JB",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-04-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 960,
+    "startTime": "19:00",
+    "location": "The Bowyers Arms, Foxborough Rd, Radley, Abingdon OX14 3AE",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-04-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 961,
+    "startTime": "19:00",
+    "location": "The Jolly Postboys, 22 Florence Park Rd, Oxford OX4 3PH",
+    "hares": "Herr Discharge",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-04-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 962,
+    "startTime": "19:00",
+    "location": "The Mason’s Arms, 2 Quarry School Place, Headington, OX3 8LH",
+    "hares": "Gadget",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-04-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 963,
+    "startTime": "19:00",
+    "location": "The Hand & Shears, Church Hanborough OX29 8AB",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-05-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 965,
+    "startTime": "19:00",
+    "location": "The Kings Arms, Church Rd, Sandford-on-Thames, OX4 4YB",
+    "hares": "Two Pac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-05-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 966,
+    "startTime": "19:00",
+    "location": "The North Star, 2 Stocks Lane, Steventon OX13 6SG",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-05-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 967,
+    "startTime": "19:00",
+    "location": "The Fox, Fox Lane, Boars Hill, Oxford OX1 5DR",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-05-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 968,
+    "startTime": "19:00",
+    "location": "The Kings Arms, 4 The Moors, Kidlington OX5 2AJ",
+    "hares": "Gadget & Swing Low",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-05-31",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 969,
+    "startTime": "19:00",
+    "location": "The King’s Arms, 19 Market St, Woodstock OX20 1SU",
+    "hares": "Bollard Naked & Shagger",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-06-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 970,
+    "startTime": "19:00",
+    "location": "The Rose Revived, Newbridge, Witney OX29 7QD….there will be a boat!",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-06-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 971,
+    "startTime": "19:00",
+    "location": "The White Hart, 31 Newland St, Eynsham, Witney OX29 4LB",
+    "hares": "“Dolly” featuring Shagger and Swing Low",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-06-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 972,
+    "startTime": "19:00",
+    "location": "The Oxfordshire Yeoman, 172 Wroslyn Road, Freeland, Oxfordshire, OX29 8AQ",
+    "hares": "Richard d’Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-06-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 973,
+    "startTime": "19:00",
+    "location": "The Lockjaw Freedom Run – The Abingdon Arms, High Street, Beckley, OX3 9UU",
+    "hares": "Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-07-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 975,
+    "startTime": "19:00",
+    "location": "The Woodman, New Yatt Rd, North Leigh, Witney OX29 6TT",
+    "hares": "Home Alone & Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-07-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 976,
+    "startTime": "19:00",
+    "location": "The Three Horseshoes, 16 The Green, Garsington, Oxford OX44 9DF",
+    "hares": "Victoria & Technicolour Horn",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-07-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 977,
+    "startTime": "19:00",
+    "location": "The Library, 182 Cowley Rd, Oxford OX4 1UE",
+    "hares": "Warm&Fluffy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-07-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 978,
+    "startTime": "19:00",
+    "location": "Bollard’s birthday run:Chez Bollard – 11 Broad Close, Kidlington OX5 1BE",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-08-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 979,
+    "startTime": "19:00",
+    "location": "The North Star, 2 Stocks Ln, Steventon, Abingdon OX13 6SG",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-08-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 980,
+    "startTime": "19:00",
+    "location": "Chez Daglocks – Grove Barn, Main Street, Grendon Underwood, HP18 0SJ",
+    "hares": "Daglocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-08-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 982,
+    "startTime": "19:00",
+    "location": "The Plough Inn, 24 High Street, Long Wittenham, OX14 4QH",
+    "hares": "Technicolour Horn",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-08-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 983,
+    "startTime": "19:00",
+    "location": "The Butchers Arms,5 Wilberforce St, Headington, OX3 7AN",
+    "hares": "Killer",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-08-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 984,
+    "startTime": "19:00",
+    "location": "Yellow Dress Run #2 in aid of Sobell House Hospice: The Mason’s Arms, 2 Quarry School Place, Headington, OX3 8LH",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-09-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 985,
+    "startTime": "19:00",
+    "location": "The Greyhound, Bessels Leigh, Oxford OX13 5PX",
+    "hares": "Rectal Floss & Perineum",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-09-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 986,
+    "startTime": "19:00",
+    "location": "The Plough, The Green, Upper Wolvercote, Oxford OX2 8BD",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-09-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 987,
+    "startTime": "19:00",
+    "location": "The Broad Face, 30-32 Bridge Street, Abingdon, OX14 3HR",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-09-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 988,
+    "startTime": "19:00",
+    "location": "The Rose & Crown, 14 North Parade Ave, Oxford OX2 6LX",
+    "hares": "Nutella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-10-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 989,
+    "startTime": "19:00",
+    "location": "AGPU – The Red Lion, 42 Oxford Road, Marston, OX3 0PH",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-10-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 990,
+    "startTime": "19:00",
+    "location": "The Dewdrop Inn, 258 Banbury Rd, Oxford OX2 7DX",
+    "hares": "Bollard Naked/Dingaling/Dizzy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-10-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 991,
+    "startTime": "19:00",
+    "location": "The White Hart, St Andrews Road, Headington, OX3 9DL",
+    "hares": "Gadget",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-10-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 992,
+    "startTime": "19:00",
+    "location": "**Blue Dress Run in aid of Prostate Cancer UK – £5 proceeds to charity**: The White Hart, 31 Newland St, Eynsham, Witney OX29 4LB",
+    "hares": "Swing Low & Pussy Stroker",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-11-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 993,
+    "startTime": "19:00",
+    "location": "The Six Bells, 44 Lower High Street, Thame, OX9 2AD",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-11-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 996,
+    "startTime": "19:00",
+    "location": "The Three Pigeons, 31 Woodgreen, Witney, OX28 1DG",
+    "hares": "Richard D’Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-11-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 997,
+    "startTime": "19:00",
+    "location": "The Prince of Wales, 73 Church Way, Iffley Oxford OX4 4EF",
+    "hares": "ShitStix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-11-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 998,
+    "startTime": "19:00",
+    "location": "The Victoria Arms, Mill Lane, Oxford, OX3 0PZ",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-11-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 999,
+    "startTime": "19:00",
+    "location": "The Fir Tree, 163 Iffley Rd, Oxford OX4 1EJ Emergency Services special Fancy Dress",
+    "hares": "Two Pac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-12-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1001,
+    "startTime": "19:00",
+    "location": "The Boundary House, 69 Oxford Road, Abingdon, OX14 2AA",
+    "hares": "FBJ",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-12-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1002,
+    "startTime": "19:00",
+    "location": "Drunk Dry, 12 Banbury Rd, Kidlington OX5 2BT. Park at the Black Horse or Co-op carpark. Wear your Xmas/Santa hat!",
+    "hares": "Rectal Floss, Swing Low & Pussy Stroker",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-12-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1003,
+    "startTime": "19:00",
+    "location": "The White Hart, 31 Newland St, Eynsham, Witney OX29 4LB",
+    "hares": "Shit Stix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2017-12-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1004,
+    "startTime": "19:00",
+    "location": "The William Morris, 59a Between Towns Road, Cowley, OX4 3LR",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-01-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1005,
+    "startTime": "19:00",
+    "location": "The Fishes, North Hinksey, Oxfordshire, OX2 0NA",
+    "hares": "Pony Express & Home Alone",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-01-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1006,
+    "startTime": "19:00",
+    "location": "The Kings Head and Bell, 10 E St Helen St, Abingdon OX14 5EA . Park at the carpark off West St Helens Street",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-01-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1008,
+    "startTime": "19:00",
+    "location": "Dew Drop Inn, Summertown, OX2 7DX",
+    "hares": "Shit Stix & Bollard",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-01-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1009,
+    "startTime": "19:00",
+    "location": "Burns Night run – The Masons Arms, 2 Quarry School Place, Headington, OX3 8LH",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-01-31",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1010,
+    "startTime": "19:00",
+    "location": "The Lamb and Flag, 12 St Giles, Oxford OX1 3JS",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-02-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1011,
+    "startTime": "19:00",
+    "location": "The Seacourt Bridge, West Way, Botley OX2 9JU",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-02-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1012,
+    "startTime": "19:00",
+    "location": "The Narrows, 25 High St, Abingdon OX14 5AA – Red Dress run. Bring £10 for food in the pub",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-02-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1013,
+    "startTime": "19:00",
+    "location": "The King’s Arms, 4 The Moors, Kidlington OX5 2AJ",
+    "hares": "Perineum & Rectal Floss",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-02-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1014,
+    "startTime": "19:00",
+    "location": "The White Hart, 31 Newland St, Eynsham, Witney OX29 4LB",
+    "hares": "Swinglow",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-03-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1015,
+    "startTime": "19:00",
+    "location": "The Swan Hotel, Thame, Oxon",
+    "locationStreet": "OX9 3ER",
+    "hares": "Thrifty ‘what a star’ Gaffer",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-03-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1016,
+    "startTime": "19:00",
+    "location": "Chez Victoria, 104 Oxford Road, Old Marston, OX3 0RD",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-03-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1017,
+    "startTime": "19:00",
+    "location": "The Tandem, 193 Kennington Road, Kennington, OX1 5PG – The GM’s birthday run",
+    "hares": "FBJ",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-03-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1018,
+    "startTime": "19:00",
+    "location": "The Three Horseshoes, Main Road, Long Hanborough, OX29 8BE",
+    "hares": "Richard D’Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-04-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1019,
+    "startTime": "19:00",
+    "location": "The Plough Inn, 132 London Road, Wheatley, OX33 1JH",
+    "hares": "Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-04-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1020,
+    "startTime": "19:00",
+    "location": "Nettlebed Village Club, High Street, Nettlebed, RG9 5DD. Please park across the road in the school carpark. In case of a live trail, walkers please check Pyro’s car (blue astra estate) for a Note 🙂",
+    "hares": "Pyro",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-04-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1021,
+    "startTime": "19:00",
+    "location": "Dew Drop Inn, Summertown, OX2 7DX",
+    "hares": "Technicolour Horn & Dizzy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-04-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1022,
+    "startTime": "19:00",
+    "location": "The Three Horseshoes, Main Road, Long Hanborough, OX29 8BE",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-05-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1023,
+    "startTime": "19:00",
+    "location": "The Ampleforth Arms, 53 Collinwood Rd, Oxford OX3 8HH",
+    "hares": "Shitstix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-05-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1024,
+    "startTime": "19:00",
+    "location": "The Plough, Rectory Road, Great Haseley, OX44 7JQ",
+    "hares": "Thrifty Gaffer",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-05-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1025,
+    "startTime": "19:00",
+    "location": "The Seven Stars, Marsh Baldon, OX44 9LP",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-05-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1026,
+    "startTime": "19:00",
+    "location": "Chez Lockjaw, Lavender Cottage, Otmoor Lane, Beckley, OX3 9UX",
+    "hares": "Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-05-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1027,
+    "startTime": "19:00",
+    "location": "The Merry Miller, Cothill Rd, Dry Sandford, Abingdon, OX13 6JW",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-06-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1028,
+    "startTime": "19:00",
+    "location": "The Kings HEAD, 11 Park Lane, Woodstock, OX20 1UD . Parking in public car park just past the pub *** do NOT go to the Kings Arms on the main road 🙂 ***",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-06-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1029,
+    "startTime": "19:00",
+    "location": "The Rose & Crown, 14 North Parade Ave, Oxford OX2 6LX",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-06-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1030,
+    "startTime": "19:00",
+    "location": "The Masons Arms, 2 Quarry School Place, Headington, OX3 8LH",
+    "hares": "Two Pac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-06-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1031,
+    "startTime": "19:00",
+    "location": "The Vine Inn, 11 Abingdon Rd, Cumnor, Oxford OX2 9QN",
+    "hares": "Shitstix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-07-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1032,
+    "startTime": "19:00",
+    "location": "The Abingdon Arms, High Street, Beckley, OX3 9UU </",
+    "hares": "Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-07-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1034,
+    "startTime": "19:00",
+    "location": "The Three Pigeons, 31 Woodgreen, Witney, OX28 1DG",
+    "hares": "Pussy Stroker",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-07-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1000,
+    "startTime": "19:00",
+    "location": "OH3 1000th run & Bollard’s 69th Birthday – 11 Broad Close, Kidlington, OX5 1BE",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-08-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1035,
+    "startTime": "19:00",
+    "location": "The Old Red Lion, 40 High St, Tetsworth, Thame OX9 7AS",
+    "hares": "Thrifty Gaffer",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-08-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1036,
+    "startTime": "19:00",
+    "location": "The Gardiner Arms, 93 Medcroft Rd, Tackley, Kidlington OX5 3AQ",
+    "hares": "Turnpike",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-08-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1037,
+    "startTime": "19:00",
+    "location": "The Ampleforth Arms, 53 Collinwood Rd, Oxford OX3 8HH",
+    "hares": "Quasimojo & Dominatrix featuring Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-08-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1038,
+    "startTime": "19:00",
+    "location": "The Cock Inn, The Green, Church Walk, Combe, Witney OX29 8NT",
+    "hares": "Perineum & Rectal Floss",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-08-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1039,
+    "startTime": "19:00",
+    "location": "The Red Lion, Church Rd, Northmoor, Witney OX29 5SX </",
+    "hares": "Animal Magic",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-09-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1040,
+    "startTime": "19:00",
+    "location": "The Talkhouse, Wheatley Rd, Stanton St John, Oxford, OX33 1EX -The Delhi Belly special",
+    "hares": "Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-09-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1041,
+    "startTime": "19:00",
+    "location": "The Oxfordshire Yeoman, Freeland, OX29 8AQ",
+    "hares": "Richard D’Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-09-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1042,
+    "startTime": "19:00",
+    "location": "The Plough, The Green, Upper Wolvercote, Oxford OX2 8BD",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-09-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1043,
+    "startTime": "19:00",
+    "location": "The College Oak, Peachcroft Rd, Abingdon OX14 2NA",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-10-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1044,
+    "startTime": "19:00",
+    "location": "AGPU – The Red Lion, 42 Oxford Road, Old Marston, OX3 0PH AGPU with food in the pub!",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-10-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1045,
+    "startTime": "19:00",
+    "location": "Six Bells Kidlington, OX5 2EF.",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-10-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1046,
+    "startTime": "19:00",
+    "location": "The Nightingale, 10 Nightingale Pl, Bicester OX26 6XX.",
+    "hares": "Turnpike",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-10-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1057,
+    "startTime": "19:00",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-10-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1047,
+    "startTime": "19:00",
+    "location": "At present the arrangement is to park at Kidlington Football Club and walk across Yarnton Rd to No 10 Broad Close, OX5 1BE, next door to Bollard’s house, for the start of the run. After the run and food/down downs at Gullible’s house we will go across to the bar in the football clubhouse for the post hash drinks and socialising.",
+    "hares": "Gullible",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-10-31",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1048,
+    "startTime": "19:00",
+    "location": "Halloween run from The Kings Head and Bell, 10 E St Helen St, Abingdon OX14 5EA",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-11-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1049,
+    "startTime": "19:00",
+    "location": "he Bear and Ragged Staff, 28 Appleton Road, Cumnor, OX2 9QH.",
+    "hares": "Dominatrix & Quasimojo",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-11-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1050,
+    "startTime": "19:00",
+    "location": "Oxford Retreat, 1-2 Hythe Bridge Street, OX1 2EW",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-11-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1051,
+    "startTime": "19:00",
+    "location": "Angel and Greyhound, 30 St Clement’s St, OX4 1AB",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-11-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1052,
+    "startTime": "19:00",
+    "location": "White Hart Eynsham, 31 Newland Street Eynsham OX29 4LB",
+    "hares": "Bollard",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-12-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1053,
+    "startTime": "19:00",
+    "location": "Prince of Wales, Church Way, Iffley, Oxford, OX44EF",
+    "locationStreet": "OX4 4EF",
+    "hares": "Shitstix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-12-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1054,
+    "startTime": "19:00",
+    "location": "The Dewdrop Inn, 258 Banbury Road, Summer Town, Oxford, Oxfordshire, OX2 7DX",
+    "hares": "Dominatrix & Quasimojo",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2018-12-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1055,
+    "startTime": "19:00",
+    "location": "The Grapes, (opposite The Narrows) on High Street, Abingdon",
+    "locationStreet": "OX14 5AX",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-01-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1058,
+    "startTime": "19:00",
+    "location": "The Marsh Harrier, Marsh Road, Cowley, OX4 2HH",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-01-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1059,
+    "startTime": "19:00",
+    "location": "Six Bells, 3 Beaumont Road, Oxford OX3 8JN",
+    "hares": "Dominatrix&QuasiMojo",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-01-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1060,
+    "startTime": "19:00",
+    "location": "Red Lion, 42 Oxford Road, Marston, OX3 0PH",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-01-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1061,
+    "startTime": "19:00",
+    "location": "The Rusty Bicycle 28 Magdalen Rd, Oxford OX4 1RB",
+    "hares": "Daglocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-01-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1062,
+    "startTime": "19:00",
+    "location": "The King & Queen, 57 High St, Wheatley, OX33 1XT",
+    "hares": "Thrifty Gaffer",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-02-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1063,
+    "startTime": "19:00",
+    "location": "Seacourt Bridge, 78 West Way, OX2 9JU",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-02-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1064,
+    "startTime": "19:00",
+    "location": "Red Dress Run from The Lamb & Flag, 12 St Giles’, Oxford The whole idea of the Hash Red Dress Run is a charity run for Prostate Cancer UK. Therefore there will be a series of pub stops on the way round the city to show off our wonderful regalia and also do a charity collection en route.",
+    "locationStreet": "OX1 3JS",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-02-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1065,
+    "startTime": "19:00",
+    "location": "The Windrush, Burford Road, Witney OX28 6DJ",
+    "hares": "Swing Low & Pussy Stroker",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-02-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1066,
+    "startTime": "19:00",
+    "location": "1066 fancy dress run, Six Bells, 3 Beaumont Road, Oxford,OX3 8JN",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-03-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1067,
+    "startTime": "19:00",
+    "location": "The White Hart,St. Andrews road,Headington, OX3 9DL",
+    "hares": "Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-03-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1068,
+    "startTime": "19:00",
+    "location": "The Six Bells, 44 Upper High St, Thame, OX9 2AD",
+    "hares": "Shitstix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-03-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1069,
+    "startTime": "19:00",
+    "location": "The Bell, Bicester, OX26 7LP",
+    "hares": "Turnpike",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-03-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1070,
+    "startTime": "19:00",
+    "location": "Prince of Wales, 73 Church Way, Oxford,",
+    "locationStreet": "OX4 3EF",
+    "hares": "Dominatrix and Quasimojo",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-04-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1071,
+    "startTime": "19:00",
+    "location": "The back of 254 Marlborough Road, Parking at Hinksey Park OX1 4PZ",
+    "locationStreet": "OX1 4LU",
+    "locationUrl": "https://goo.gl/maps/ii8CWMSytBF2",
+    "hares": "Dizzy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-04-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1072,
+    "startTime": "19:00",
+    "location": "The Butcher's Arms, Wilberforce St, Oxford",
+    "locationStreet": "OX3 7AN",
+    "locationUrl": "https://goo.gl/maps/Nipw78Ba3bC2",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-04-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1073,
+    "startTime": "19:00",
+    "location": "The Bowyers Arms,Foxborough Rd, Radley, Abingdon",
+    "locationStreet": "OX14 3AE",
+    "locationUrl": "https://goo.gl/maps/8qr3juWWiy72",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-04-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1074,
+    "startTime": "19:00",
+    "location": "The Hand & Shears, Church Hanborough, “Double Header’ - A Bluebell Trail” combined with an \"Easter Egg Hunt”.",
+    "locationStreet": "OX29 8AB",
+    "locationUrl": "https://goo.gl/maps/jFkYD84KgjL2",
+    "hares": "Bollard",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-05-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1075,
+    "startTime": "06:30",
+    "location": "Morning - from The White Horse on Broad Street at 6.45AM",
+    "locationStreet": "OX1 3BB",
+    "locationUrl": "https://goo.gl/maps/YJCdgzMhbDXQtkJi9",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-05-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "location": "The Six Bells, 3 Beaumont Rd, Oxford",
+    "locationStreet": "OX3 8JN",
+    "locationUrl": "https://goo.gl/maps/UXBHxtbn4U32",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-05-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1076,
+    "startTime": "19:00",
+    "location": "The Mason's Arms, 5 Park Rd, North Leigh, Witney.",
+    "locationStreet": "OX29 6RZ",
+    "locationUrl": "https://goo.gl/maps/QyoshQAaQusE8FYHA",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-05-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1077,
+    "startTime": "19:00",
+    "location": "The Three Horseshoes, 16 The Green, Garsington, Oxford",
+    "locationStreet": "OX44 9DF",
+    "locationUrl": "https://goo.gl/maps/umXxKvs598o2qkYE9",
+    "hares": "Victoria&Horny",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-05-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1078,
+    "startTime": "19:00",
+    "location": "The Blue Boar, Tucks Lane, Longworth",
+    "locationStreet": "OX13 5ET",
+    "locationUrl": "https://goo.gl/maps/awHHhVpzUbZqiwLZ7",
+    "hares": "Shitstix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-05-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1079,
+    "startTime": "19:00",
+    "location": "Red Lion, 127 Cassington Rd, Yarnton",
+    "locationStreet": "OX5 1QD",
+    "locationUrl": "https://goo.gl/maps/5HD8e1FroWTzx4ia8",
+    "hares": "Perineum",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-06-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1080,
+    "startTime": "19:00",
+    "location": "The Windrush Inn, 60 Burford Rd, Witney",
+    "locationStreet": "OX28 6DJ",
+    "locationUrl": "https://goo.gl/maps/X95uRw8kN9VRRfnc6",
+    "hares": "Bollard, Swing Low and Pussy Stroker",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-06-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1081,
+    "startTime": "19:00",
+    "location": "The Bat & Ball Inn, High St, Cuddesdon",
+    "locationStreet": "OX44 9HJ",
+    "locationUrl": "https://goo.gl/maps/LT8E3BTyhQMNSwLR9",
+    "hares": "Quassi and Domi",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-06-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1082,
+    "startTime": "19:00",
+    "location": "The Up In Arms, 241 Marston Rd, Oxford",
+    "locationStreet": "OX3 0EN",
+    "locationUrl": "https://goo.gl/maps/dLWUceWQ1JwT652t6",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-06-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1083,
+    "startTime": "19:00",
+    "location": "The Blacks Head Inn, Bletchingdon, Kidlington",
+    "locationStreet": "OX5 3DA",
+    "locationUrl": "https://goo.gl/maps/HyDB1FxyXicXCJMQ8",
+    "hares": "Thrifty Gaffer",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-07-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1084,
+    "startTime": "19:00",
+    "location": "The Tandem, 193 Kennington Rd, Kennington Please do not use the pub car park. There is a free public car park opposite the pub.",
+    "locationStreet": "OX1 5PG",
+    "locationUrl": "https://goo.gl/maps/MzHDRLaSaSFiUVAD9",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-07-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1085,
+    "startTime": "19:00",
+    "location": "Chez Daglocks, Grove Barn, Main st, Grendon Underwood",
+    "locationStreet": "HP18 0SJ",
+    "locationUrl": "https://goo.gl/maps/PqBEjivjKh7AgVi96",
+    "hares": "Daglocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-07-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1086,
+    "startTime": "19:00",
+    "location": "Masons Arms, 2 Quarry School Pl, Oxford",
+    "locationStreet": "OX3 8LH",
+    "locationUrl": "https://goo.gl/maps/X5AiyfETY8srTr9t8",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-07-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1087,
+    "startTime": "19:00",
+    "location": "Sunnymead Bathing Place, Car Park (Off Water Eaton Road)",
+    "locationStreet": "OX2 7XD",
+    "locationUrl": "https://goo.gl/maps/e5EwSEWU1GwSi38S9",
+    "hares": "Rent Boy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-07-31",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1088,
+    "startTime": "19:00",
+    "location": "The Plough, Finstock INFO: \"Donations to MND (Motor Neuron Disease) can be made this evening and will be given to RentBoy to add to his collection. This is to supplement collections made on 24th July by RentBoy\"",
+    "locationStreet": "OX7 3BY",
+    "locationUrl": "https://goo.gl/maps/eZfY2GadNt9PBCPH7",
+    "hares": "Shit Stix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-08-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1089,
+    "startTime": "19:00",
+    "location": "The Rose & Crown, 14 N Parade Ave, Oxford There will be a punting element to the hash so there will be a small additional charge of £2 per person to cover punt hire. Down downs to anyone falling in or losing their pole.",
+    "locationStreet": "OX2 6LX",
+    "locationUrl": "https://goo.gl/maps/VQgPaxkpYQC8dpcP8",
+    "hares": "DipStick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-08-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1090,
+    "startTime": "19:00",
+    "location": "The Fox and Hounds, Christmas Common, Watlington",
+    "locationStreet": "OX49 5HL",
+    "locationUrl": "https://goo.gl/maps/h4sKw1BHmuMzJ3Cr9",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-08-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1091,
+    "startTime": "19:00",
+    "location": "The Flowing Well, Sunningwell, Abingdon",
+    "locationStreet": "OX13 6RB",
+    "locationUrl": "https://goo.gl/maps/SmfRGF3vV3e6zvh96",
+    "hares": "Quassi & Domi",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-08-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1092,
+    "startTime": "19:00",
+    "location": "The Chequers, Northampton Rd, Weston-on-the-Green, Bicester",
+    "locationStreet": "OX25 3QH",
+    "locationUrl": "https://goo.gl/maps/2LuX86QkxnudDeYc8",
+    "hares": "Gadget",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-09-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1093,
+    "startTime": "19:00",
+    "location": "Old Anchor, 1 St Helen's Wharf, Abingdon",
+    "locationStreet": "OX14 5EN",
+    "locationUrl": "https://goo.gl/maps/wPMczrnkLqgxNQu8A",
+    "hares": "FBJ & Pottymouth",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-09-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1094,
+    "startTime": "19:00",
+    "location": "Yellow Dress Run from The Butcher's Arms, 5 Wilberforce St, Headington. Don't forget your yellow dresses. Tick will be £5 this week which goes to Sobell House.",
+    "locationStreet": "OX3 7AN",
+    "locationUrl": "https://goo.gl/maps/YYtLyBCGumEeCU3q6",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-09-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1096,
+    "startTime": "19:00",
+    "location": "The Kings Head, 11 Park Lane, Woodstock.",
+    "locationStreet": "OX20 1UD",
+    "locationUrl": "https://goo.gl/maps/irpgD9ybsw6yVMn9A",
+    "hares": "Swing Low & Pussy Stroker",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-09-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1097,
+    "startTime": "19:00",
+    "location": "The Brewery Tap, 40-42 Ock St, Abingdon Very limited parking at pub. Park in west st Helen's street carpark",
+    "locationStreet": "OX14 5BZ",
+    "locationUrl": "https://goo.gl/maps/pbM8yHtBCow55htJ7",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-10-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1098,
+    "startTime": "19:00",
+    "location": "OH3 20th Anniversary, The Royal Oak, 42-44 Woodstock Rd, Oxford",
+    "locationStreet": "OX2 6HT",
+    "locationUrl": "https://goo.gl/maps/3yuuyEbgf8Y4d55c6",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-10-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1099,
+    "startTime": "19:00",
+    "location": "The Red Lion, 5 Oxford Rd, Kidlington",
+    "locationStreet": "OX5 2BP",
+    "locationUrl": "https://goo.gl/maps/JWPc4wWQHGzra3AL8",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-10-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1100,
+    "startTime": "19:00",
+    "location": "AGM - The Red Lion, 42 Oxford Road, Old Marston, Oxford",
+    "locationStreet": "OX3 0PH",
+    "locationUrl": "https://goo.gl/maps/nN6URNwfFhZ4fJ2Z6",
+    "hares": "Quassi & Domi",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-10-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1101,
+    "startTime": "19:00",
+    "location": "The Three Pigeons, 31 Woodgreen, Witney",
+    "locationStreet": "OX28 1DG",
+    "locationUrl": "https://goo.gl/maps/8XgRVhpZNvzA6yUL9",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-10-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1102,
+    "startTime": "19:00",
+    "location": "The Tandem, 193 Kennington Rd., Kennington",
+    "locationStreet": "OX1 5PG",
+    "locationUrl": "https://goo.gl/maps/RDfV3DsxWUqwZ1MD6",
+    "hares": "Shitstix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-11-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1104,
+    "startTime": "19:00",
+    "location": "The Punter, 7 South St, Oxford",
+    "locationStreet": "OX2 0BE",
+    "locationUrl": "https://goo.gl/maps/YcshSdR2C3y9n2PR7",
+    "hares": "Dangleberry",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-11-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1105,
+    "startTime": "19:00",
+    "location": "OxMoonH3, The Tipsy Mercer, 22 High St, Abingdon",
+    "locationStreet": "OX14 5AX",
+    "locationUrl": "https://goo.gl/maps/DkqDm12muTBiUEij9",
+    "hares": "Dippy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-11-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1106,
+    "startTime": "19:00",
+    "location": "The Falcon, 1 Thame Park Road, Thame.",
+    "locationStreet": "OX9 3JA",
+    "locationUrl": "https://goo.gl/maps/gmBL5Ek2n4gJnYCe8",
+    "hares": "Thrifty Gaffer",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-11-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1107,
+    "startTime": "19:00",
+    "location": "The Jolly Postboys, 22 Florence Park Road, Oxford",
+    "locationStreet": "OX4 3PH",
+    "locationUrl": "https://goo.gl/maps/ekkY8kovJUauo8eB8",
+    "hares": "FBJ",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-12-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1108,
+    "startTime": "19:00",
+    "location": "The Nightingale, Langford Village, Bicester",
+    "locationStreet": "OX26 6XX",
+    "hares": "Turnpike",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-12-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1109,
+    "startTime": "19:00",
+    "location": "Kidlington Recreational Trust Social Club, 31 Yarnton Road, Kidlington",
+    "locationStreet": "OX5 1AT",
+    "locationUrl": "https://goo.gl/maps/TxnM9q3SsHttmKaP8",
+    "hares": "Rectal & Perineum",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-12-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "title": "HASHY XMAS PARTY",
+    "startTime": "19:00",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-12-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "11:00",
+    "location": "Hangover Run, Horspath Cricket Club. Kindly provided by Bicester Hash. Mince Pies and Whiskey will be provided",
+    "hares": "Victoria and Technicolour Horn",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2019-12-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1110,
+    "startTime": "19:00",
+    "location": "X-MAS RUN (BE LIKE SANTA CLAUS) The Up In Arms, 241 Marston Rd, Oxford",
+    "locationStreet": "OX3 0EN",
+    "locationUrl": "https://goo.gl/maps/RHjDVFY3LjP12e2R9",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-01-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1111,
+    "startTime": "19:00",
+    "location": "The Red Lion, 42 Oxford Rd, Oxford",
+    "locationStreet": "OX3 0PH",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-01-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1112,
+    "startTime": "19:00",
+    "location": "The Duke of Monmouth, 260 Abingdon Road, Oxford, OX1 4TA",
+    "hares": "Dangleberry",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-01-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1113,
+    "startTime": "19:00",
+    "location": "The Midget, Midget Cl, Abingdon",
+    "locationStreet": "OX14 5NR",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-01-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1114,
+    "startTime": "19:00",
+    "location": "Old Bookbinders, Jericho, Oxford",
+    "locationStreet": "OX2 6BT",
+    "locationUrl": "https://goo.gl/maps/nFdJdjDuKMNe4TaH8",
+    "hares": "Zorro",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-01-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1115,
+    "startTime": "19:00",
+    "location": "The College Oak, Peachcroft Rd, Abingdon",
+    "locationStreet": "OX14 2NA",
+    "locationUrl": "https://goo.gl/maps/bG1K6nhqkhBFruBx5",
+    "hares": "FBJ",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-02-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1116,
+    "startTime": "19:00",
+    "location": "Seacourt Bridge Botley, West Way, Oxford",
+    "locationStreet": "OX2 0JB",
+    "locationUrl": "https://goo.gl/maps/JthWTmoy5yp2BN838",
+    "hares": "Shit Stix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-02-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1117,
+    "startTime": "19:00",
+    "location": "Red Dress Run,The White Hart, 12 St Andrew's Rd, Oxford",
+    "locationStreet": "OX3 9DL",
+    "locationUrl": "https://goo.gl/maps/x1YLzyS3Whd46i5X7",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-02-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1118,
+    "startTime": "19:00",
+    "location": "Red Lion, 5 Oxford Road, Kidlington",
+    "locationStreet": "OX5 2BP",
+    "locationUrl": "https://goo.gl/maps/ac7ji9pdgyrJ2Zmr6",
+    "hares": "Bollard Naked and Pussy Stroker",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-02-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1119,
+    "startTime": "19:00",
+    "location": "The Crown Inn, 31 High St, Woodstock",
+    "locationStreet": "OX20 1TE",
+    "locationUrl": "https://goo.gl/maps/LST2znKS1Nd7Sh42A",
+    "hares": "Dingaling Hashy birthday",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-03-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1120,
+    "startTime": "19:00",
+    "location": "The Masons Arms, 2 Quarry School Pl, Headington",
+    "locationStreet": "OX3 8LH",
+    "locationUrl": "https://goo.gl/maps/CK7Hm7ZzZhVSxQru6",
+    "hares": "Dominatrix & QuassiMojo",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-03-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1121,
+    "startTime": "19:00",
+    "location": "Mccafarty’s Bar @ The White Hart, 4 Sheep Street, Bicester",
+    "locationStreet": "OX26 6TB",
+    "locationUrl": "https://goo.gl/maps/r2gyw5PgtbhUxg6j7",
+    "hares": "Turnpike",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-10-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1122,
+    "startTime": "19:00",
+    "location": "Foresters Way Car Park, Kidlington,",
+    "locationStreet": "OX5 2DL",
+    "locationUrl": "https://goo.gl/maps/ofKLuWDQwwS7BCC7A",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-10-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1123,
+    "startTime": "19:00",
+    "location": "Brackley - Meet at Brackley Park",
+    "locationStreet": "NN13 7BW",
+    "locationUrl": "https://goo.gl/maps/v8DjT7gCDWQiH4KXA",
+    "hares": "Gadget",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-10-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1124,
+    "startTime": "00:00",
+    "location": "Bawsey Country Park on the B1145, King's Lynn",
+    "locationStreet": "PE32 1EP",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-10-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1125,
+    "startTime": "00:00",
+    "location": "Goodwins Rd, King's Lynn",
+    "locationStreet": "PE30 5QX",
+    "hares": "Bollard Naked and Yogi",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-10-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1126,
+    "startTime": "19:00",
+    "location": "Car park behind Waitrose Abingdon",
+    "locationStreet": "OX14 3JE",
+    "locationUrl": "https://goo.gl/maps/bqeHr9MFnu1eF5Kx7",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-11-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1127,
+    "startTime": "19:00",
+    "location": "Entrance to cricket club opposite the Bear and Ragged Staff",
+    "locationStreet": "OX2 9QH",
+    "locationUrl": "https://goo.gl/maps/AiGsjrFrdycoXSUDA",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-12-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1128,
+    "startTime": "19:00",
+    "location": "From the top floor of the new car park behind Elm's Parade, Botley",
+    "locationStreet": "OX2 9LG",
+    "locationUrl": "https://goo.gl/maps/4J4DQWF2pQ1ywCc29",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-12-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1129,
+    "startTime": "19:00",
+    "location": "Thame Cattle Market Car Park",
+    "locationStreet": "OX9 3FP",
+    "locationUrl": "https://goo.gl/maps/yRkUpGoRmW5o37Jj9",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2020-12-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1130,
+    "startTime": "19:00",
+    "location": "Car park in front of Peachcroft shops, northeast Abingdon.",
+    "locationStreet": "OX14 2RR",
+    "locationUrl": "https://goo.gl/maps/Yqz9MKWjx8oiiZVb6",
+    "hares": "Dippy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-03-31",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1131,
+    "startTime": "19:00",
+    "location": "Ferry Pool Leisure Centre in Summertown. Ferry Car Park,Ferry Pool Rd, Oxford",
+    "locationStreet": "OX2 7DU",
+    "locationUrl": "https://goo.gl/maps/4EsszybRtjpWT7Cg7",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-04-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1132,
+    "startTime": "19:00",
+    "location": "Marsh Lane Pay & Display Car Park Marston",
+    "locationStreet": "OX3 0NQ",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-04-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1133,
+    "startTime": "19:00",
+    "location": "White Hart, 31 Newland Street, Eynsham. OX29 4LB",
+    "locationUrl": "https://goo.gl/maps/rGcUFj2PBnTa8E8x5",
+    "hares": "Pussy Stroker",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-04-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1134,
+    "startTime": "19:00",
+    "location": "Shotover Country Park",
+    "locationStreet": "OX3 8TA",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-04-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1135,
+    "startTime": "19:00",
+    "location": "Car park at Kennington Village Centre, Kennington Rd, Kennington",
+    "locationStreet": "OX1 5PG",
+    "locationUrl": "https://goo.gl/maps/PzfeshQq4s3xXe398",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-05-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1136,
+    "startTime": "19:00",
+    "location": "The White Hart, Pound Ln, Preston Bissett, Buckingham",
+    "locationStreet": "MK18 4LX",
+    "hares": "Daglocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-05-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1137,
+    "startTime": "19:00",
+    "location": "The North Star Inn, 2 Stocks Ln, Steventon, Abingdon",
+    "locationStreet": "OX13 6SG",
+    "locationUrl": "https://goo.gl/maps/g9hvDUgPAGnck24Q7",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-05-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1138,
+    "startTime": "19:00",
+    "location": "Greyhound Pub, 101 High St, Brackley",
+    "locationStreet": "NN13 7BW",
+    "locationUrl": "https://goo.gl/maps/MvX68FEC158GtvdSA",
+    "hares": "Gadget",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-05-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1139,
+    "startTime": "19:00",
+    "location": "Masons Arms, 2 Quarry School Pl, Headington",
+    "locationStreet": "OX3 8LH",
+    "locationUrl": "https://goo.gl/maps/hEHuu5ht76ryiFUYA",
+    "hares": "Push Push",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-06-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1140,
+    "startTime": "19:00",
+    "location": "The Boat Inn, Canal Rd, Thrupp, Kidlington",
+    "locationStreet": "OX5 1JY",
+    "locationUrl": "https://goo.gl/maps/t4oL2aYe1nAimLrs7",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-06-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1141,
+    "startTime": "19:00",
+    "location": "The Fox and Goat, Oxford Rd, Tiddington",
+    "locationStreet": "OX9 2LH",
+    "hares": "Thrifty Gaffer",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-06-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1142,
+    "startTime": "19:00",
+    "location": "Wytham Woods, (the top car park, use overflow parking if necessary) Wytham",
+    "locationStreet": "OX2 8QQ",
+    "locationUrl": "https://goo.gl/maps/oMrCEDxxqEdA9dPE7",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-06-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1143,
+    "startTime": "19:00",
+    "location": "Red Lion Pub, Islip",
+    "locationStreet": "OX5 2RX",
+    "locationUrl": "https://goo.gl/maps/vjJrhKDw3Jvur4CK9",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-06-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1144,
+    "startTime": "19:00",
+    "location": "The Flowing Well, Sunningwell, Boars Hill",
+    "locationStreet": "OX13 6RB",
+    "locationUrl": "https://goo.gl/maps/zvGE6Q6WUpBJZ3CX8",
+    "hares": "Dominatrix",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-07-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1145,
+    "startTime": "19:00",
+    "location": "Cancelled (precaution due to COVID19 event last week, No Hare & England Game)",
+    "hares": "NA",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-07-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1146,
+    "startTime": "19:00",
+    "location": "The Cricketers, 38 Littleworth, Wheatley",
+    "locationStreet": "OX33 1TR",
+    "locationUrl": "https://goo.gl/maps/PFL4zKvG99Bpio7X9",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-07-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1147,
+    "startTime": "19:00",
+    "location": "Victoria Arms Mill Ln, Marston, Oxford OX3 0QA",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-07-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1148,
+    "startTime": "19:00",
+    "location": "Red Lion, 127 Cassington Rd, Yarnton, Kidlington OX5 1QD",
+    "locationUrl": "https://goo.gl/maps/dR2xLXaFXfgfWVBh7",
+    "hares": "Perineum",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-08-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1149,
+    "startTime": "19:00",
+    "location": "Masons Arms, North Leigh",
+    "locationStreet": "OX29 6RZ",
+    "locationUrl": "https://goo.gl/maps/PNj9QM8Bc9TbvfHK6",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-08-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1150,
+    "startTime": "19:00",
+    "location": "Queens Head, Horspath",
+    "locationStreet": "OX33 1RU",
+    "locationUrl": "https://goo.gl/maps/MtovtxXjtu66SG4a8",
+    "hares": "Lockjaw / Bollard",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-08-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1151,
+    "startTime": "19:00",
+    "location": "The Talkhouse, Wheatley Road, Stanton St John",
+    "locationStreet": "OX33 1EX",
+    "locationUrl": "https://goo.gl/maps/QBwrkQXqwDjcRiQT8",
+    "hares": "Lockjaw / Bollard",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-08-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1152,
+    "startTime": "19:00",
+    "location": "The James Figg, 21 Cornmarket, Thame",
+    "locationStreet": "OX9 2BL",
+    "locationUrl": "https://goo.gl/maps/ibS7tZmbbBi3zKKf9",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-09-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1153,
+    "startTime": "19:00",
+    "location": "Six Bells, The Moors,70 Mill St, Kidlington",
+    "locationStreet": "OX5 2EF",
+    "hares": "Various",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-09-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "location": "Vine Inn, 11 Abingdon Rd, Cumnor, Oxford",
+    "locationStreet": "OX2 9QN",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-09-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1154,
+    "startTime": "19:00",
+    "location": "Ampleforth Arms 53 Collinwood Road, Oxford",
+    "locationStreet": "OX3 8HH",
+    "hares": "BPH Pablo",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-09-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1155,
+    "startTime": "19:00",
+    "location": "Black Swan, 17 Bath St, Abingdon",
+    "locationStreet": "OX14 3QH",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-09-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1156,
+    "startTime": "19:00",
+    "location": "White Hart, Eynsham 31 Newland St, Eynsham, Witney OX29 4LB",
+    "locationUrl": "https://goo.gl/maps/TAqUfTPcxp72fXHD9",
+    "hares": "Swing Low/Pussy Stroker",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-10-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1157,
+    "startTime": "19:00",
+    "location": "Red Lion, Marston",
+    "locationStreet": "OX3 0PH",
+    "locationUrl": "https://goo.gl/maps/sM6bvhgSRxZRyZVn8",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-10-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1158,
+    "startTime": "19:00",
+    "location": "Butchers Arms, 5 Wilberforce St, Headington",
+    "locationStreet": "OX3 7AN",
+    "locationUrl": "https://goo.gl/maps/r2R9M8ymmzUyZfYi6",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-10-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1159,
+    "startTime": "19:00",
+    "location": "Prince of Wales, Horspath Driftway",
+    "locationStreet": "OX4 2QW",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-10-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1160,
+    "startTime": "19:00",
+    "location": "The Fishes",
+    "locationStreet": "OX2 0NA",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-11-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1161,
+    "startTime": "19:00",
+    "location": "Red Lion, Kidlington",
+    "locationStreet": "OX5 2BP",
+    "locationUrl": "https://goo.gl/maps/ZqKfPsnS69n4cHjr5",
+    "hares": "Bollard & Camel Toe",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-11-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1162,
+    "startTime": "19:00",
+    "location": "Three Pigeons, Witney",
+    "locationStreet": "OX28 1DG",
+    "locationUrl": "https://goo.gl/maps/yHndJSLL8o9YJF718",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-11-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1163,
+    "startTime": "19:00",
+    "location": "Prince of Wales, Iffley",
+    "locationStreet": "OX4 4EF",
+    "locationUrl": "https://goo.gl/maps/fj2aCvChFUQmTWxL6",
+    "hares": "Daglocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-11-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1164,
+    "startTime": "19:00",
+    "location": "The Blue boar, 1 Bath St, Abingdon",
+    "locationStreet": "OX14 3QH",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-12-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1165,
+    "startTime": "19:00",
+    "location": "Goldilocks Departure Hash - Jolly Postboys",
+    "locationStreet": "OX4 3PH",
+    "locationUrl": "https://goo.gl/maps/m2nJsuMeWWJGVXc59",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-12-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1166,
+    "startTime": "19:00",
+    "location": "The James Figg, 21 Cornmarket, Thame OX9 2BL",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-12-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1167,
+    "startTime": "19:00",
+    "location": "The boundary house 69 Oxford Rd, Abingdon OX14 2AA",
+    "locationUrl": "https://goo.gl/maps/paTgxhqnyUiuWVN28",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2021-12-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "location": "Planned Christmas walk/run/pub crawl. Details to follow",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-01-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1168,
+    "startTime": "19:00",
+    "location": "Up in Arms, Marston",
+    "locationStreet": "OX3 0EN",
+    "locationUrl": "https://goo.gl/maps/dxy2u6wTp4Eyhq8s8",
+    "hares": "Technicolour Horn & Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-01-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1169,
+    "startTime": "19:00",
+    "location": "The Star Inn, 22 Market Street, Woodstock",
+    "locationStreet": "OX20 1TA",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-01-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1170,
+    "startTime": "19:00",
+    "location": "The Cape Of Good Hope, 1 Iffley Rd, The Plain, Oxford OX4 1EA.",
+    "locationUrl": "https://goo.gl/maps/y5yxLV3ghyXJavBx9",
+    "hares": "Thrifty Gaffer",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-01-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1171,
+    "startTime": "19:00",
+    "location": "Dewdrop Inn, Summertown",
+    "locationStreet": "OX2 7DX",
+    "locationUrl": "https://goo.gl/maps/GdHsLCsepxWiBvKX7",
+    "hares": "Barren Mouthful & Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-02-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1172,
+    "startTime": "19:00",
+    "location": "Seacourt Bridge, Botley",
+    "locationStreet": "OX2 0JB",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-02-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1173,
+    "startTime": "19:00",
+    "location": "Duke of Monmouth, Abingdon Rd",
+    "locationStreet": "OX1 4TA",
+    "locationUrl": "https://www.google.com/maps/place/Duke+of+Monmouth/@51.7373106,-1.2521059,17z/data=!3m1!4b1!4m5!3m4!1s0x4876c6c982a22f93:0x99bc296062b5273b!8m2!3d51.7373177!4d-1.2520859",
+    "hares": "BPH",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-02-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1174,
+    "startTime": "19:00",
+    "location": "Red Dress Run. Royal Oak, Woodstock Road",
+    "locationStreet": "OX2 6HT",
+    "locationUrl": "https://www.google.com/maps/search/42-44+Woodstock+Road,+Oxford,+OX2+6HT?entry=gmail&source=g",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-02-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1175,
+    "startTime": "19:00",
+    "location": "Spread Eagle, Abingdon",
+    "locationStreet": "OX14 1PL",
+    "locationUrl": "https://goo.gl/maps/EyczW9qN2EtY1eat9",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-03-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1176,
+    "startTime": "19:00",
+    "location": "The White Hart, 12 St Andrew's Rd, Headington",
+    "locationStreet": "OX3 9DL",
+    "locationUrl": "https://goo.gl/maps/KyyCvhXXauWqXD448",
+    "hares": "TwoPack",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-03-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1177,
+    "startTime": "19:00",
+    "location": "Three Pigeons, Witney",
+    "locationStreet": "OX28 1DG",
+    "locationUrl": "https://goo.gl/maps/zXET5AXp1Zdh4QAp6",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-03-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1178,
+    "startTime": "19:00",
+    "location": "Fishes, N Hinskey",
+    "locationStreet": "OX2 0NA",
+    "hares": "Gadget",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-03-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1179,
+    "startTime": "19:00",
+    "location": "The White Hart, 126 Godstow Rd, Wolvercote",
+    "locationStreet": "OX2 8PQ",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-03-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1180,
+    "startTime": "19:00",
+    "location": "James Figg, Thame",
+    "locationStreet": "OX9 2BL",
+    "hares": "We know;-) and Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-04-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1181,
+    "startTime": "19:00",
+    "location": "Fir Tree, Ifley Rd",
+    "locationStreet": "OX4 1EJ",
+    "locationUrl": "https://goo.gl/maps/fcCzKhUsrj9hX4Vp8",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-04-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1182,
+    "startTime": "19:00",
+    "location": "Red Lion, Yarnton",
+    "locationStreet": "OX5 1QD",
+    "locationUrl": "https://goo.gl/maps/3tVC5EK94EjWhArk9",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-04-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1183,
+    "startTime": "19:00",
+    "location": "Meet at the Car park at Entrance to Wytham Woods - OX2 8QQ",
+    "locationUrl": "https://goo.gl/maps/BJYrCyuXzVPbsEc2A",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-04-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1184,
+    "startTime": "19:00",
+    "location": "Red Lion, Marston",
+    "locationStreet": "OX3 0PH",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-05-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1185,
+    "startTime": "19:00",
+    "location": "Vine, Cumnor",
+    "locationStreet": "OX2 9QN",
+    "hares": "BPH and PushPush",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-05-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1186,
+    "startTime": "19:00",
+    "location": "The Queens Head, Horspath",
+    "locationStreet": "OX33 1RU",
+    "locationUrl": "https://goo.gl/maps/T5ewDa8mwGPxqRPM9",
+    "hares": "TwoPack",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-05-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1187,
+    "startTime": "19:00",
+    "location": "The Black's Head, Bletchingdon",
+    "locationStreet": "OX5 3DA",
+    "locationUrl": "https://goo.gl/maps/YYRzikjruDMVUJJk6",
+    "hares": "Home Alone, Pony Express and Carole-Ann",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-05-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1188,
+    "startTime": "19:00",
+    "location": "The Royal Sun, 2 Woodstock Rd, Begbroke, Kidlington",
+    "locationStreet": "OX5 1RZ",
+    "locationUrl": "https://goo.gl/maps/kVL1j9BAwrgX5paj8",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-06-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1189,
+    "startTime": "19:00",
+    "location": "White Hart, 126 Godstow Rd, Wolvercote",
+    "locationStreet": "OX2 8PQ",
+    "locationUrl": "https://goo.gl/maps/FzFwBmDNQGr2GrtWA",
+    "hares": "Technicolour Horn",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-06-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1190,
+    "startTime": "19:00",
+    "location": "The Pheasant, 39 Windmill St, Brill",
+    "locationStreet": "HP18 9TG",
+    "locationUrl": "https://goo.gl/maps/MNW757mrWiFAztpw5",
+    "hares": "Gadget",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-06-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1191,
+    "startTime": "19:00",
+    "location": "The Midget, Midget Cl, Abingdon",
+    "locationStreet": "OX14 5NR",
+    "hares": "FBJ",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-06-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1192,
+    "startTime": "19:00",
+    "location": "5 Park Rd, North Leigh, Witney",
+    "locationStreet": "OX29 6RZ",
+    "locationUrl": "https://goo.gl/maps/49c6KpZN15QFdh116",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-06-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1193,
+    "startTime": "19:00",
+    "location": "Meet by crescent at Park Town, adjourning later to Rose &Crown, 14 N Parade Ave, Oxford",
+    "locationStreet": "OX2 6LX",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-07-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1194,
+    "startTime": "19:00",
+    "location": "The Fox & Goat, Oxford Rd, Tiddington, Thame OX9 2LH",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-07-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1195,
+    "startTime": "19:00",
+    "location": "Fox & Hounds, Christmas Common, Christmas Common, Watlington OX49 5HL",
+    "hares": "TwoPack and Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-07-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1196,
+    "startTime": "19:00",
+    "location": "Seven Stars, The Green, Marsh Baldon, Oxford",
+    "locationStreet": "OX44 9LP",
+    "locationUrl": "https://goo.gl/maps/brgH4sfRwCcQ9HgE8",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-07-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1197,
+    "startTime": "19:00",
+    "location": "Wytham Woods car park (Sawmill Yard, Oxford OX2 8QQ) and afterwards down at the White Hart Community Pub in Wolvercote ( on the corner next to Jacobs Inn).",
+    "hares": "Bollard Naked (Happy Birthday!)",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-08-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1198,
+    "startTime": "19:00",
+    "location": "Mason's Arms, 2 Quarry School Pl, Headington, Oxford",
+    "locationStreet": "OX3 8LH",
+    "locationUrl": "https://goo.gl/maps/MBHqqLyNNyPzhkEW6",
+    "hares": "Lady Killer",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-08-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1199,
+    "startTime": "19:00",
+    "location": "Chequers, Northampton Rd, Weston-on-the-Green, Bicester OX25 3QH",
+    "hares": "Gadget",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-08-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1200,
+    "startTime": "19:00",
+    "location": "The Fox, Boar's Hill",
+    "locationStreet": "OX1 5DR",
+    "locationUrl": "https://goo.gl/maps/7MzfKijqDF9xE3PN6",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-08-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1201,
+    "startTime": "19:00",
+    "location": "The Bull, Great Milton, Oxford",
+    "locationStreet": "OX44 7NS",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-08-31",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1202,
+    "startTime": "19:00",
+    "location": "Abingdon Arms, High St, Beckley, Oxford",
+    "locationStreet": "OX3 9UU",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-09-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1203,
+    "startTime": "19:00",
+    "location": "Oxfordshire Yeoman, 172 Wroslyn Rd, Freeland, Witney",
+    "locationStreet": "OX29 8AQ",
+    "hares": "Richard D-Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-09-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1204,
+    "startTime": "19:00",
+    "location": "The Marsh Harrier, Marsh Road, Cowley",
+    "locationStreet": "OX4 2HH",
+    "locationUrl": "https://maps.app.goo.gl/Buv4xbtKKMxuQbDB9?g_st=ic",
+    "hares": "TwoPack",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-09-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1205,
+    "startTime": "19:00",
+    "location": "The Fishes, North Hinksey",
+    "locationStreet": "OX2 0NA",
+    "hares": "Lady Killer",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-09-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1206,
+    "startTime": "19:00",
+    "location": "Prince of Wales, 73 Church Way, Iffley, Oxford",
+    "locationStreet": "OX4 4EF",
+    "locationUrl": "https://goo.gl/maps/tPduZmmZgPZstYAHA",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-10-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1207,
+    "startTime": "19:00",
+    "location": "Red Lion Marston, AGM",
+    "hares": "TwoPack",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-10-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1209,
+    "startTime": "19:00",
+    "location": "Royal Oak, Woodstock Road",
+    "locationStreet": "OX2 6HT",
+    "locationUrl": "https://maps.app.goo.gl/1iWwUw8aPnUUsCYGA?g_st=ic",
+    "hares": "BPH",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-11-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1210,
+    "startTime": "19:00",
+    "location": "Gardeners Arms, Plantation Road",
+    "locationStreet": "OX2 6JE",
+    "locationUrl": "https://maps.app.goo.gl/t2v6SEiuVioRnpEz9?g_st=ic",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-11-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1211,
+    "startTime": "19:00",
+    "location": "The Up In Arms, 241 Marston Road,",
+    "locationStreet": "OX3 0EN",
+    "locationUrl": "https://maps.app.goo.gl/DmLiy5Uc7MPHH3K87?g_st=ic",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-11-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1212,
+    "startTime": "19:00",
+    "location": "Butchers Arms, 5 Wilberforce St, Headington, Oxford",
+    "locationStreet": "OX3 7AN",
+    "locationUrl": "https://goo.gl/maps/WP5NmRhPwnNQedJZ6",
+    "hares": "Gadget",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-12-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1213,
+    "startTime": "19:00",
+    "location": "Eagle Tavern, 22 Corn St, Witney OX28 6BL",
+    "locationUrl": "https://goo.gl/maps/RhSokHx5Z4ncGxry6",
+    "hares": "Richard D turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2022-12-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1215,
+    "startTime": "19:00",
+    "location": "The White Horse, 52 Broad St, Oxford",
+    "locationStreet": "OX1 3BB",
+    "locationUrl": "https://goo.gl/maps/WeYKAYDsavivbpqQ8",
+    "hares": "Horney and Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-01-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1217,
+    "startTime": "19:00",
+    "location": "The Old Bookbinders Ale House, 17-18 Victor St, Oxford OX2 6BT",
+    "locationUrl": "https://goo.gl/maps/ba36UCqQZ1nDazJC8",
+    "hares": "Pony Express and Home Alone",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-01-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1218,
+    "startTime": "19:00",
+    "location": "Masons Arms, 2 Quarry School Pl, Headington, Oxford",
+    "locationStreet": "OX3 8LH",
+    "locationUrl": "https://goo.gl/maps/Ao5RuEzXvjqpKgxe7",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-02-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1219,
+    "startTime": "19:00",
+    "location": "The Old Bookbinders Ale House, 17-18 Victor St, Oxford",
+    "locationStreet": "OX2 6BT",
+    "locationUrl": "https://goo.gl/maps/FG719979LC3de2EBA",
+    "hares": "Ladykiller",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-02-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1220,
+    "startTime": "19:00",
+    "location": "Six Bells, 70 Mill St, Kidlington",
+    "locationStreet": "OX5 2EF",
+    "locationUrl": "https://goo.gl/maps/HeqvypviwrAdi9ck8",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-03-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1221,
+    "startTime": "19:00",
+    "location": "Bure Farm, Bure Park, Bicester",
+    "locationStreet": "OX26 3HA",
+    "locationUrl": "https://goo.gl/maps/E6wGEUKaoonqQErB7",
+    "hares": "BPH & Push push",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-03-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1222,
+    "startTime": "19:00",
+    "location": "Victoria Arms, Old Marston",
+    "locationStreet": "OX3 0QA",
+    "locationUrl": "https://goo.gl/maps/NzR7n4VoH4Sz4tYN9",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-03-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1223,
+    "startTime": "19:00",
+    "location": "Lamb & Flag, 12 St Giles, Oxford",
+    "locationStreet": "OX1 3JS",
+    "locationUrl": "https://goo.gl/maps/HwMkeZXUt3Uw6TQ77",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-04-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1224,
+    "startTime": "19:00",
+    "location": "James Figg, 21 Cornmarket, Thame",
+    "locationStreet": "OX9 2BL",
+    "locationUrl": "https://goo.gl/maps/yzV6WfFkZ3YxbHYd9",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-04-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1225,
+    "startTime": "19:00",
+    "location": "Gardiner Arms, 93 Medcroft Rd, Tackley, Kidlington OX5 3AQ",
+    "locationUrl": "https://goo.gl/maps/Kzh5eA8LTipi5cYn8",
+    "hares": "Turnpike",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-04-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1226,
+    "startTime": "19:00",
+    "location": "The White Hart, 126 Godstow Rd, Wolvercote",
+    "locationStreet": "OX2 8PQ",
+    "locationUrl": "https://maps.app.goo.gl/xjH56UYgXi3JKbzx7?g_st=ic",
+    "hares": "Pub Run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-04-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1227,
+    "startTime": "19:00",
+    "location": "Bernwood Forest, Oakley Rd, Boarstall",
+    "locationStreet": "OX33 1BJ",
+    "locationUrl": "https://goo.gl/maps/hfJReUvjQmtKb3oM6",
+    "hares": "Gadget",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-05-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1228,
+    "startTime": "19:00",
+    "location": "Queen's Head, 26 Church Rd, Wheatley, Horspath, Oxford",
+    "locationStreet": "OX33 1RU",
+    "locationUrl": "https://goo.gl/maps/MUmAyFAZcGiw4DA66",
+    "hares": "Two Pac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-05-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1229,
+    "startTime": "19:00",
+    "location": "The Fox Inn, Fox Ln, Boars Hill, Oxford OX1 5DR",
+    "locationUrl": "https://goo.gl/maps/an1ZaaKYxUzdY9BE8",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-05-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1230,
+    "startTime": "19:00",
+    "location": "Meet at the Car park at Entrance to Wytham Woods - OX2 8QQ. 7pm prompt start. Sorry no dogs",
+    "locationUrl": "https://goo.gl/maps/BJYrCyuXzVPbsEc2A",
+    "hares": "Bollard Naked",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-05-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1231,
+    "startTime": "19:00",
+    "location": "Anchor, 2 Hayfield Rd, Oxford",
+    "locationStreet": "OX2 6TT",
+    "locationUrl": "https://goo.gl/maps/ohCgrXmybi1qGLFJ7",
+    "hares": "Ladykiller",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-05-31",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1232,
+    "startTime": "19:00",
+    "location": "King's Arms, The Moors, Kidlington",
+    "locationStreet": "OX5 2AJ",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-06-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1233,
+    "startTime": "19:00",
+    "location": "Mason's Arms, 5 Park Rd, North Leigh, Witney OX29 6RZ",
+    "locationUrl": "https://goo.gl/maps/znFVmuy5faD893iH6",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-06-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1234,
+    "startTime": "19:00",
+    "location": "Lamb Inn, High Street, High St, Little Milton, Oxford",
+    "locationStreet": "OX44 7PU",
+    "locationUrl": "https://goo.gl/maps/NTjhp6RYaJGMcrU67",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-06-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1235,
+    "startTime": "19:00",
+    "location": "White Horse, 52 Broad St, Oxford",
+    "locationStreet": "OX1 3BB",
+    "locationUrl": "https://maps.app.goo.gl/Wqtof8pfmaj4dALHA?g_st=ic",
+    "hares": "Ladykiller",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-06-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1236,
+    "startTime": "19:00",
+    "location": "The White House, 1 Grove Rd, Bladon, Woodstock",
+    "locationStreet": "OX20 1RQ",
+    "locationUrl": "https://goo.gl/maps/6nWzXEK96btTcy2L8",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-07-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1237,
+    "startTime": "19:00",
+    "location": "Duke of Monmouth, 260 Abingdon Rd, Oxford",
+    "locationStreet": "OX1 4TA",
+    "locationUrl": "https://goo.gl/maps/kBRrV42JRFYRRYTt6",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-07-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1238,
+    "startTime": "19:00",
+    "location": "Plough, 9 High St, Brackley",
+    "locationStreet": "NN13 7DW",
+    "locationUrl": "https://goo.gl/maps/Cs852ADrWXC5SHvK7",
+    "hares": "Gadget",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-07-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1239,
+    "startTime": "19:00",
+    "location": "Talkhouse, Stanton St John",
+    "locationStreet": "OX33 1EX",
+    "hares": "Lockjaw",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-07-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1240,
+    "startTime": "19:00",
+    "location": "Broadface, 30-32 Bridge St, Abingdon",
+    "locationStreet": "OX14 3HR",
+    "locationUrl": "https://goo.gl/maps/zgeNuTcqHRx6zjna6",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-08-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1241,
+    "startTime": "19:00",
+    "location": "The Victoria, 90 Walton Street, Oxford",
+    "locationStreet": "OX2 6EB",
+    "locationUrl": "https://maps.app.goo.gl/w19iaYbLYeLPRvnn6?g_st=ic",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-08-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1242,
+    "startTime": "19:00",
+    "location": "Bernwood Forest, Oakley Rd, Horton-cum-Studley, Aylesbury",
+    "locationStreet": "OX33 1B",
+    "locationUrl": "https://goo.gl/maps/UorroepnjctrypCC9",
+    "hares": "Daglocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-08-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1243,
+    "startTime": "19:00",
+    "location": "Seven Stars, Marsh Balden, The Green, Marsh Baldon, Oxford",
+    "locationStreet": "OX44 9LP",
+    "locationUrl": "https://goo.gl/maps/yWidK63QvSXmov5B9",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-08-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1244,
+    "startTime": "19:00",
+    "location": "Cothill Rd, Abingdon, Merry Miller, Cothill",
+    "locationStreet": "OX13 6JW",
+    "locationUrl": "https://goo.gl/maps/aa8ViN3o3SAHFwSR8",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-08-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1245,
+    "startTime": "19:00",
+    "location": "Talkhouse, Wheatley Rd, Stanton St John, Oxford",
+    "locationStreet": "OX33 1EX",
+    "locationUrl": "https://goo.gl/maps/oiASwZxYQ9EeijTN8",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-09-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1246,
+    "startTime": "19:00",
+    "location": "Oxfordshire Yeoman, 172 Wroslyn Rd, Freeland, Witney",
+    "locationStreet": "OX29 8AQ",
+    "locationUrl": "https://goo.gl/maps/ZcjriaF87ZjJfE639",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-09-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1247,
+    "startTime": "19:00",
+    "location": "Boat Inn, Canal Rd, Thrupp, Kidlington",
+    "locationStreet": "OX5 1JY",
+    "locationUrl": "https://goo.gl/maps/raxDdkmRQV8fDwpL7",
+    "hares": "Mouthful",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-09-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1248,
+    "startTime": "19:00",
+    "location": "Mason Arms, 2 Quarry School Pl, Headington",
+    "locationStreet": "OX3 8PH",
+    "locationUrl": "https://maps.app.goo.gl/PoyvnJBxqxWPSTjs5?g_st=ic",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-09-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1249,
+    "startTime": "19:00",
+    "location": "Jude the Obscure, 54 Walton St, Oxford",
+    "locationStreet": "OX2 6AE",
+    "locationUrl": "https://maps.app.goo.gl/ttWbioeNon5PJGGW8",
+    "hares": "Doggy Paddler",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-10-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1250,
+    "startTime": "19:00",
+    "location": "White Hart, 12 St Andrew's Rd, Headington",
+    "locationStreet": "OX3 9DL",
+    "locationUrl": "https://maps.app.goo.gl/JCLyLMC4XBYvwGR76?g_st=ic",
+    "hares": "BPH",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-10-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "20:00",
+    "hares": "No hash",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-10-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1251,
+    "startTime": "19:00",
+    "location": "AGM: The Red Lion, Old Marston",
+    "locationStreet": "OX2 6LX",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-10-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "20:00",
+    "location": "Mason's Arms, Headington Quarry",
+    "hares": "No hash",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-11-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1252,
+    "startTime": "19:00",
+    "location": "Prince of Wales, 73 Church Way, Iffley, Oxford",
+    "locationStreet": "OX4 4EF",
+    "locationUrl": "https://maps.app.goo.gl/6fXWBzwaLpPuZBsP9",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-11-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "20:00",
+    "hares": "No hash",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-11-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1253,
+    "startTime": "19:00",
+    "location": "Rose and Crown, 14 N Parade Ave, Oxford",
+    "locationStreet": "OX2 6LX",
+    "locationUrl": "https://maps.app.goo.gl/1787cdCXAeMk9EYU7",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-11-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "20:00",
+    "hares": "No hash",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-11-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1254,
+    "startTime": "19:00",
+    "location": "Lamb and Flag, 12 St Giles', Oxford",
+    "locationStreet": "OX1 3JS",
+    "locationUrl": "https://maps.app.goo.gl/Pizg4iatPwE2BMbw7?g_st=ic",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-12-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "20:00",
+    "hares": "No hash",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-12-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1255,
+    "startTime": "19:00",
+    "location": "Kings Arms,4 The Moors, Kidlington",
+    "locationStreet": "OX5 2AJ",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-12-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:30",
+    "location": "Oxford Hash Christmas Party at The Royal Oak on Woodstock Road, Please register here https://forms.gle/qwANJGNpG3GTGtRn8 where you can find further details.",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2023-12-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1256,
+    "startTime": "19:00",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-01-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "20:00",
+    "hares": "No hash",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-01-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1257,
+    "startTime": "19:00",
+    "location": "Fir Tree, 163 Iffley Rd, Oxford",
+    "locationStreet": "OX4 1EJ",
+    "locationUrl": "https://maps.app.goo.gl/6Gq5SHpPwoMEPvNY9",
+    "hares": "Quaker Oats",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-01-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "20:00",
+    "hares": "No hash",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-01-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1258,
+    "startTime": "19:00",
+    "location": "Mason's Arms, 2 Quarry School Pl, Headington, Oxford",
+    "locationStreet": "OX3 8LH,",
+    "locationUrl": "https://maps.app.goo.gl/kCcwnLRD61wnvDNM8",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-01-31",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "20:00",
+    "hares": "No hash",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-02-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1259,
+    "startTime": "19:00",
+    "location": "Eagle Tavern, 22 Corn St, Witney",
+    "locationStreet": "OX28 6BL",
+    "locationUrl": "https://maps.app.goo.gl/96uun7bbQEqoJk189",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-02-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "20:00",
+    "hares": "No hash",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-02-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1260,
+    "startTime": "19:00",
+    "location": "Red dress run: Rose and Crown, 14 N Parade Ave, Oxford OX2 6LX",
+    "locationUrl": "https://maps.app.goo.gl/nW8jAaiUn25e3kNm6",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-02-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "20:00",
+    "hares": "No hash",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-03-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1261,
+    "startTime": "19:00",
+    "location": "Up in Arms, 241 Marston Rd, Headington",
+    "locationStreet": "OX3 0EN",
+    "locationUrl": "https://maps.app.goo.gl/vma58bWcmpr44kF6A?g_st=ic",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-03-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "20:00",
+    "hares": "No hash",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-03-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1262,
+    "startTime": "19:00",
+    "location": "Marsh Harrier, 40 Marsh Rd, Oxford",
+    "locationStreet": "OX4 2HH",
+    "locationUrl": "https://maps.app.goo.gl/spU3m3MQmoGkXSDRA",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-03-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "20:00",
+    "location": "Junkyard Golf Social, Westgate Shopping Centre. Signup at https://docs.google.com/forms/d/e/1FAIpQLSeCvDdgrCg-c4pOXowptBfZIgAIDdsuzXhuu6Fe8LZ1MdRvnw/viewform?usp=sf_link",
+    "locationStreet": "OX1 1 NU",
+    "locationUrl": "https://maps.app.goo.gl/Rw6o1p9ZecRnoUQ1A?g_st=ic",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-04-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1263,
+    "startTime": "19:00",
+    "location": "Red Lion, 42 Oxford Rd, Oxford",
+    "locationStreet": "OX3 0PH",
+    "locationUrl": "https://maps.app.goo.gl/pqzHirXtbFPgPkyB9?g_st=ic",
+    "hares": "BPH",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-04-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1264,
+    "startTime": "19:00",
+    "location": "Chester Arms, 19 Chester St",
+    "locationStreet": "OX4 1SN",
+    "locationUrl": "https://maps.app.goo.gl/kDHWGSLMzNA2DcKM8?g_st=ic",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-04-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1265,
+    "startTime": "19:00",
+    "location": "Dew Drop Inn, Summertown",
+    "locationStreet": "OX2 7 DX",
+    "locationUrl": "https://maps.app.goo.gl/xiwiPS6XUAv4E4e19?g_st=ic",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-04-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1266,
+    "startTime": "19:00",
+    "location": "Tandem, 193 Kennington Rd, Kennington",
+    "locationStreet": "OX1 5PG",
+    "locationUrl": "https://maps.app.goo.gl/JQNCT11Gb1qmFSf3A?g_st=ic",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-05-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1267,
+    "startTime": "19:00",
+    "location": "Plum Pudding, 44 High St, Milton, Abingdon",
+    "locationStreet": "OX14 4EJ",
+    "locationUrl": "https://maps.app.goo.gl/gJryPVrHpk6TrkXg7",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-05-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1268,
+    "startTime": "19:00",
+    "location": "Masons Arms, Quarry School Place",
+    "locationStreet": "OX3 8LH",
+    "locationUrl": "https://maps.app.goo.gl/s96WmdeRWvbNxHv48?g_st=ic",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-05-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1269,
+    "startTime": "19:00",
+    "location": "Boat Inn, Canal Rd, Thrupp, Kidlington",
+    "locationStreet": "OX5 1JY",
+    "locationUrl": "https://maps.app.goo.gl/BuQFWiCFBRBBVMN77",
+    "hares": "Mouthful",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-05-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1270,
+    "startTime": "19:00",
+    "location": "White Hart, 31 Newland St, Eynsham",
+    "locationStreet": "OX29 4LB",
+    "locationUrl": "https://maps.app.goo.gl/re5WM2SeaPRZWWCq9",
+    "hares": "Swing Low / Pussy Stroker",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-05-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1271,
+    "startTime": "19:00",
+    "location": "James Figg, 21 Cornmarket,Thame",
+    "locationStreet": "OX9 2BL",
+    "locationUrl": "https://maps.app.goo.gl/98LfDR6UvSLfGcQdA",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-06-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1272,
+    "startTime": "19:00",
+    "location": "Mason's Arms, 5 Park Rd, North Leigh",
+    "locationStreet": "OX29 6RZ",
+    "locationUrl": "https://maps.app.goo.gl/k4KC2xc5ALinxpNB7",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-06-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1273,
+    "startTime": "19:00",
+    "location": "Victoria Arms, Marston",
+    "locationStreet": "OX3 0PZ",
+    "locationUrl": "https://maps.app.goo.gl/MawhdzjtqDuv4rpW6",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-06-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1274,
+    "startTime": "19:00",
+    "location": "Red Lion, 127 Cassington Rd, Yarnton",
+    "locationStreet": "OX5 1QD",
+    "locationUrl": "https://maps.app.goo.gl/TPedJjdC8rRHarvc9",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-06-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1275,
+    "startTime": "19:00",
+    "location": "Fleur de Lys, 9 High St, Dorchester, Wallingford",
+    "locationStreet": "OX10 7HH",
+    "locationUrl": "https://maps.app.goo.gl/uC5E3Faq64U1UKmu6",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-07-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1276,
+    "startTime": "19:00",
+    "location": "White Hart, 12 St Andrew's Rd, Headington",
+    "locationStreet": "OX3 9DL",
+    "locationUrl": "https://maps.app.goo.gl/wBkTP5iDnkbjFWh78?g_st=com.google.maps.preview.copy",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-07-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1278,
+    "startTime": "19:00",
+    "location": "The Oxfordshire Yeoman, 172 Wroslyn Rd, Freeland, Witney",
+    "locationStreet": "OX29 8AQ",
+    "locationUrl": "https://maps.app.goo.gl/XyGsupbVHzTm21Uc9?g_st=com.google.maps.preview.copy",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-07-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1279,
+    "startTime": "19:00",
+    "location": "White Hart, 126 Godstow Rd, Wolvercote",
+    "locationStreet": "OX2 8PQ",
+    "locationUrl": "https://maps.app.goo.gl/oEGcaTDE2V4oGzNE9?g_st=com.google.maps.preview.copy",
+    "hares": "Horny and Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-07-31",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1280,
+    "startTime": "19:00",
+    "location": "The Up In Arms, 241 Marston Rd, Headington, Oxford",
+    "locationStreet": "OX3 0EN",
+    "locationUrl": "https://maps.app.goo.gl/b2Dd47RMQFT5vAeP6",
+    "hares": "BPH",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-08-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1281,
+    "startTime": "19:00",
+    "location": "Victoria, Walton St, Jericho",
+    "hares": "Ladykiller",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-08-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1282,
+    "startTime": "19:00",
+    "location": "Stratton Arms, Turweston",
+    "locationStreet": "NN13 5JX",
+    "locationUrl": "https://maps.app.goo.gl/ZBtSVHUzENwjeKwk8",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-08-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1283,
+    "startTime": "19:00",
+    "location": "Highwayman, 249 Banbury Rd, Kidlington",
+    "locationStreet": "OX5 1BF",
+    "locationUrl": "https://maps.app.goo.gl/UYgB7S6SQno59Kwq9?g_st=com.google.maps.preview.copy",
+    "hares": "Mouthful",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-08-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1284,
+    "startTime": "19:00",
+    "location": "Fox, Boar's Hill",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-09-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1285,
+    "startTime": "19:00",
+    "location": "Three Horseshoes, 18 Main Rd, Long Hanborough",
+    "locationStreet": "OX29 8BE",
+    "locationUrl": "https://maps.app.goo.gl/rmNfiWRtbxWnuKKz7",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-09-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1286,
+    "startTime": "19:00",
+    "location": "Masons Arms, Headington Quarry",
+    "locationStreet": "OX3 8LH",
+    "locationUrl": "https://maps.app.goo.gl/PX4pHjhzY1xxffYp8?g_st=com.google.maps.preview.copy",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-09-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1287,
+    "startTime": "19:00",
+    "location": "Duke of Monmouth, 260 Abingdon Rd, Oxford",
+    "locationStreet": "OX1 4TA",
+    "locationUrl": "https://maps.app.goo.gl/vC7kXCjUJtW77AGW9",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-09-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1288,
+    "startTime": "19:00",
+    "location": "Dewdrop, 258 Banbury Rd, Summertown, Oxford",
+    "locationStreet": "OX2 7DX",
+    "locationUrl": "https://maps.app.goo.gl/6itsddZyCKcaPwTy8",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-10-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1289,
+    "startTime": "19:00",
+    "location": "Six Bells, 70 Mill St, Kidlington",
+    "locationStreet": "OX5 2EF",
+    "locationUrl": "https://maps.app.goo.gl/3xSYsq4dz29BWp1S8",
+    "hares": "Mouthful",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-10-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "hares": "No run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-10-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1290,
+    "startTime": "19:00",
+    "location": "Lamb & Flag, St Giles",
+    "locationStreet": "OX1 3JS",
+    "locationUrl": "https://maps.app.goo.gl/vxiabYngW5NERm8J7",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-10-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "hares": "No run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-10-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1291,
+    "startTime": "19:00",
+    "location": "AGM, Red Lion, Old Marston + Raffle - bring raffle prize",
+    "locationStreet": "OX3 0PH",
+    "locationUrl": "https://maps.app.goo.gl/5QjWxCvjoaLjUAqD7",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-11-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "hares": "No run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-11-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1292,
+    "startTime": "19:00",
+    "location": "James Figg, Thame",
+    "locationStreet": "OX9 2BL",
+    "locationUrl": "https://maps.app.goo.gl/u8HATHJU1vAbpfVV9",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-11-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1293,
+    "location": "Away w/e",
+    "hares": "Goldilocks",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-11-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "hares": "No run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-11-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1294,
+    "startTime": "19:00",
+    "location": "Punter, Osney",
+    "locationStreet": "OX2 0BE",
+    "locationUrl": "https://maps.app.goo.gl/R1nNcXMxrpTVKkFL7",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-12-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "hares": "No run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-12-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1295,
+    "startTime": "19:00",
+    "location": "Masons Arms, Quarry School Place, Headington",
+    "locationStreet": "OX3 8LH",
+    "locationUrl": "https://maps.app.goo.gl/GzVhnM4z4RzF2CCV8?g_st=com.google.maps.preview.copy",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-12-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "title": "Xmas dinner",
+    "startTime": "19:00",
+    "hares": "No run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2024-12-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "hares": "No run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-01-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "hares": "No run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-01-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1296,
+    "startTime": "19:00",
+    "location": "Up in Arms, Marston",
+    "locationStreet": "OX3 0EN",
+    "locationUrl": "https://maps.app.goo.gl/JeCg9DeAFtX526q48",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-01-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "hares": "No run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-01-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1297,
+    "startTime": "19:00",
+    "location": "Mason's Arms - Burns night",
+    "locationStreet": "OX3 8LH",
+    "locationUrl": "https://maps.app.goo.gl/FbJCK6QKncA5houQ9",
+    "hares": "Lambada",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-01-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "hares": "No run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-02-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1298,
+    "startTime": "19:00",
+    "location": "The White Hart",
+    "locationStreet": "OX3 9DL",
+    "locationUrl": "https://maps.app.goo.gl/rGQwEABf9jD3NhVu5",
+    "hares": "BPH",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-02-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "hares": "No run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-02-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1299,
+    "startTime": "19:00",
+    "location": "Oranges & Lemons, St Clements, Red dress run",
+    "locationStreet": "OX4 1AB",
+    "locationUrl": "https://maps.app.goo.gl/vYE2KdHJ5fskXVxe7",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-02-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "hares": "No run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-03-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1300,
+    "startTime": "19:00",
+    "location": "Victoria, 90 Walton St, Oxford",
+    "locationStreet": "OX2 6EB",
+    "locationUrl": "https://maps.app.goo.gl/EkExvExxfoxvMJZf6",
+    "hares": "Mouthful",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-03-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "hares": "No run",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-03-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1301,
+    "startTime": "19:00",
+    "location": "White Hart, Eynsham",
+    "locationStreet": "OX29 4LB",
+    "locationUrl": "https://maps.app.goo.gl/TZXqCQrau7UW6oK89",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-03-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "location": "Social: Junk Yard Golf",
+    "locationStreet": "OX1 1NU",
+    "locationUrl": "https://maps.app.goo.gl/eH6DBHvWQgAbEhdW9",
+    "hares": "No run, Horny",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-04-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1302,
+    "startTime": "19:00",
+    "location": "Prince of Wales, Iffley",
+    "locationStreet": "OX4 4EF",
+    "locationUrl": "https://maps.app.goo.gl/NcQKNvtH86inqz3p7",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-04-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1303,
+    "startTime": "19:00",
+    "location": "Oxfordshire Yeoman, Freeland",
+    "locationStreet": "OX29 8AQ",
+    "locationUrl": "https://maps.app.goo.gl/NFNVqrzwxPLvuomv6",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-04-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1304,
+    "startTime": "19:00",
+    "location": "Six Bells, Thame",
+    "locationStreet": "OX9 2AD",
+    "locationUrl": "https://maps.app.goo.gl/6Dq68pmWs9ffGXPW6",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-04-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1305,
+    "startTime": "19:00",
+    "location": "Queens Head, 26 Church Rd, Horspath",
+    "locationStreet": "OX33 1RU",
+    "locationUrl": "https://maps.app.goo.gl/oPejFs4XGDke37zB9?g_st=com.google.maps.preview.copy",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-04-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1306,
+    "startTime": "19:00",
+    "location": "Swan, Suton Courtenay",
+    "locationStreet": "OX3 8HH",
+    "locationUrl": "https://maps.app.goo.gl/JM9rtvRc6g2mMaTv6?g_st=com.google.maps.preview.copy",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-05-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1307,
+    "startTime": "19:00",
+    "location": "Golf Club, Hinksey Heights",
+    "locationStreet": "OX1 5AB",
+    "locationUrl": "https://maps.app.goo.gl/MyqrJWp7WAv12kfR8",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-05-14",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1308,
+    "startTime": "19:00",
+    "location": "Butcher's Arms, Headington",
+    "locationStreet": "OX3 7AN",
+    "locationUrl": "https://maps.app.goo.gl/92kkb3hCKxdMA6XP7",
+    "hares": "Killer",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-05-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1309,
+    "startTime": "19:00",
+    "location": "Red Lion, Marston",
+    "locationStreet": "OX3 0PH",
+    "locationUrl": "https://maps.app.goo.gl/jZjonfcEhpBiMeQ9A",
+    "hares": "Horny and Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-05-28",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1310,
+    "startTime": "19:00",
+    "location": "Duke of Monmouth, 260 Abingdon Rd, OX1 4TA",
+    "hares": "Doggy Paddler",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-06-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1311,
+    "startTime": "19:00",
+    "location": "Medley Bar, Binsey",
+    "locationStreet": "OX2 0NJ",
+    "locationUrl": "https://maps.app.goo.gl/to7XtT5vi1zPx7AS6",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-06-11",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1312,
+    "startTime": "19:00",
+    "location": "Six Bells, Kidlington",
+    "locationStreet": "OX5 2EF",
+    "locationUrl": "https://maps.app.goo.gl/LFzkR9arYvZT4cVaA",
+    "hares": "Mouthful",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-06-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1313,
+    "startTime": "19:00",
+    "location": "Mason's Arms, North Leigh",
+    "locationStreet": "OX29 6RZ",
+    "locationUrl": "https://maps.app.goo.gl/uJW3hyoZ1PGFSdjP9",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-06-25",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1314,
+    "startTime": "19:00",
+    "location": "King & Queen, 57 High St, Wheatley",
+    "locationStreet": "OX33 1XT",
+    "locationUrl": "https://maps.app.goo.gl/HWJyZgEFqwMfAH5z9",
+    "hares": "Thrifty",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-07-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1315,
+    "startTime": "19:00",
+    "location": "Mason's Arms, Headington Quarry",
+    "locationStreet": "OX3 8LH",
+    "locationUrl": "https://maps.app.goo.gl/3bjCm5qUUBfSnZku9",
+    "hares": "Lambada",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-07-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1316,
+    "startTime": "19:00",
+    "location": "White Hart, 31 Newland St, Eynsham",
+    "locationStreet": "OX29 4LB",
+    "locationUrl": "https://maps.app.goo.gl/eyG4EMZNpwx6y6EM8",
+    "hares": "Swing Low & Pussy Stroker",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-07-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1317,
+    "startTime": "19:00",
+    "location": "Vine, Cumnor",
+    "locationStreet": "OX2 9QN",
+    "locationUrl": "https://maps.app.goo.gl/225YbajHdHnqve2T6",
+    "hares": "Skylark",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-07-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1318,
+    "startTime": "19:00",
+    "location": "White Hart, Headington",
+    "locationStreet": "OX3 9DL",
+    "locationUrl": "https://maps.app.goo.gl/YE5qW3Hsy9HQGLvQ9",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-07-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1319,
+    "startTime": "19:00",
+    "location": "The Fox, Fox Ln, Boars Hill, Oxford",
+    "locationStreet": "OX1 5DR",
+    "locationUrl": "https://maps.app.goo.gl/CWogUKhNH243a5vH7",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-08-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1320,
+    "startTime": "19:00",
+    "location": "Clifden Arms, Worminghall",
+    "locationStreet": "HP18 9JR",
+    "locationUrl": "https://maps.app.goo.gl/NZVgzNYonEMpPYfo7",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-08-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1321,
+    "startTime": "19:00",
+    "location": "Turnpike, Yarnton",
+    "locationStreet": "OX5 1PJ",
+    "locationUrl": "https://maps.app.goo.gl/7zsRB2bReVtHBWJb6?g_st=ipc",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-08-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1322,
+    "startTime": "19:00",
+    "location": "Chester Arms, 19 Chester St, Oxford",
+    "locationStreet": "OX4 1SN",
+    "locationUrl": "https://maps.app.goo.gl/JzDubPW4nLjUys5W6?g_st=ipc",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-08-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1323,
+    "startTime": "19:00",
+    "location": "Royal Sun, Begbroke",
+    "locationStreet": "OX5 1RZ",
+    "locationUrl": "https://maps.app.goo.gl/rjdqCY8p26ANJWuZA",
+    "hares": "Mouthful",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-09-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1324,
+    "startTime": "19:00",
+    "location": "Plough, Finstock",
+    "locationStreet": "OX7 3BY",
+    "locationUrl": "https://maps.app.goo.gl/5uEYhGTUAnF4jRE3A",
+    "hares": "Totally Alien & Skylark",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-09-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1325,
+    "startTime": "19:00",
+    "location": "Three Pigeons, Witney",
+    "locationStreet": "OX28 1DG",
+    "locationUrl": "https://maps.app.goo.gl/MH14D9Uyw7K7qBCe7?g_st=ipc",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-09-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1326,
+    "startTime": "19:00",
+    "location": "Rose & Crown, North Parade",
+    "locationStreet": "OX2 6LX",
+    "locationUrl": "https://maps.app.goo.gl/eUjRTZZzU9EJJEqy5",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-09-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1327,
+    "startTime": "19:00",
+    "location": "Marsh Harrier, Oxford",
+    "locationStreet": "OX4 2HH",
+    "locationUrl": "https://maps.app.goo.gl/YqJQTEUuopzFjPrK7",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-10-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1328,
+    "startTime": "19:00",
+    "location": "Masons Arms, Headington Quarry",
+    "locationStreet": "OX3 8LH",
+    "locationUrl": "https://maps.app.goo.gl/BuRCJy9axSH9zHuWA",
+    "hares": "Lambada",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-10-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "location": "AGPU, Red Lion, Old Marston",
+    "locationStreet": "OX3 0PH",
+    "locationUrl": "https://maps.app.goo.gl/VZJCxbvvvJinp6aB6",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-10-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1329,
+    "startTime": "19:00",
+    "location": "Nag's Head, Abingdon",
+    "locationStreet": "OX14 3HX",
+    "locationUrl": "https://maps.app.goo.gl/TfCbPYP95RC9iapE6",
+    "hares": "Horny & Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-10-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1330,
+    "startTime": "19:00",
+    "location": "Old Bookbinders, Jericho",
+    "locationStreet": "OX2 6BH",
+    "locationUrl": "https://maps.app.goo.gl/ssXPVGbmwbvPgKVFA",
+    "hares": "Doggy Paddler",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-11-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1331,
+    "location": "Away Weekend, YHA Swanage",
+    "locationStreet": "BH19 2BS",
+    "locationUrl": "https://maps.app.goo.gl/ao7F8iGkeb5CPB3a8?g_st=com.google.maps.preview.copy",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-11-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1332,
+    "startTime": "19:00",
+    "location": "James Figg, Thame",
+    "locationStreet": "OX9 2BL",
+    "locationUrl": "https://maps.app.goo.gl/KNU8iQzBePX2KgBf9",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-11-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1333,
+    "startTime": "19:00",
+    "location": "Butchers Arms, Headington",
+    "locationStreet": "OX3 7AN",
+    "locationUrl": "https://maps.app.goo.gl/RT1aS5PRrcdzdZ3a8?g_st=ipc",
+    "hares": "Two Pac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-12-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1334,
+    "startTime": "19:00",
+    "location": "Dewdrop, Summertown",
+    "locationStreet": "OX2 7DL",
+    "locationUrl": "https://maps.app.goo.gl/gN95hmb4Zh5L9nvaA",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-12-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "19:00",
+    "location": "Christmas Dinner, Kings Arms",
+    "locationStreet": "OX2 8BD",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2025-12-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "startTime": "11:00",
+    "location": "Boxing Day Hash, Church Lane, Dry Sanford. Christmas jumpers are welcome!",
+    "locationStreet": "OX13 6JP",
+    "locationUrl": "https://maps.app.goo.gl/fsmqp8S2DZ1NZRkD9",
+    "hares": "Skylark",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-01-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1335,
+    "startTime": "19:00",
+    "location": "Plough, Upper Wolvercote",
+    "locationStreet": "OX2 8BD",
+    "locationUrl": "https://maps.app.goo.gl/tDdW2YYJ9Jdbd4SR7",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-01-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1336,
+    "startTime": "19:00",
+    "location": "Burns Night, Mason's Arms",
+    "locationStreet": "OX3 8LH",
+    "locationUrl": "https://maps.app.goo.gl/BuRCJy9axSH9zHuWA",
+    "hares": "Two Pac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-02-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1337,
+    "startTime": "19:00",
+    "location": "Up In Arms, 241 Marston Rd, Headington",
+    "locationStreet": "OX3 0EN",
+    "locationUrl": "https://maps.app.goo.gl/UR1mRsLrvUjSscq77?g_st=ic",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-02-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1338,
+    "startTime": "19:15",
+    "location": "Red Dress run: Oranges & Lemons, St Clements, NB late start to avoid congestion charge",
+    "locationStreet": "OX4 1AB",
+    "locationUrl": "https://maps.app.goo.gl/d2svjvoN8VhxBHBt9",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-03-04",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1339,
+    "startTime": "19:00",
+    "location": "Victoria, Walton Street",
+    "locationStreet": "OX2 6EB",
+    "locationUrl": "https://maps.app.goo.gl/za49dfDtuWtHAXkaA",
+    "hares": "Skylark",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-03-18",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1340,
+    "startTime": "19:00",
+    "location": "Dewdrop, Summertown",
+    "locationStreet": "OX2 7DX",
+    "locationUrl": "https://maps.app.goo.gl/6itsddZyCKcaPwTy8",
+    "hares": "Paul and Nina",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-04-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1341,
+    "startTime": "19:00",
+    "location": "Oxfordshire Yeoman, Freeland",
+    "locationStreet": "OX29 8AQ",
+    "locationUrl": "https://maps.app.goo.gl/fj853WTwQ17ronXx5",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-04-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1342,
+    "startTime": "19:00",
+    "location": "Slow and Steady, Abingdon Road",
+    "locationStreet": "OX1 4PD",
+    "locationUrl": "https://maps.app.goo.gl/ty5BAQoxEgRdPTkV8",
+    "hares": "Mouthful",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-04-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1343,
+    "startTime": "19:00",
+    "location": "Royal Oak, Woodstock Road",
+    "locationStreet": "OX2 6HT",
+    "locationUrl": "https://maps.app.goo.gl/cA4BwJ8inyiGpW2W6",
+    "hares": "Doggy Paddler",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-04-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1344,
+    "startTime": "19:00",
+    "location": "Butcher's Arms, Headington",
+    "locationStreet": "OX3 7AN",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-04-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1345,
+    "startTime": "19:00",
+    "location": "Tandem, Kennington",
+    "locationStreet": "OX1 5PG",
+    "locationUrl": "https://maps.app.goo.gl/vzLvrUCtah4a8GLK6",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-05-06",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1346,
+    "startTime": "19:00",
+    "location": "Mason's Arms, Headington Quarry",
+    "locationStreet": "OX3 8LH",
+    "locationUrl": "https://maps.app.goo.gl/GsoAb5AAtVLdWQrN6",
+    "hares": "Lambada",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-05-13",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1347,
+    "startTime": "19:00",
+    "location": "Rising Sun, Ickford",
+    "locationStreet": "HP18 9JD",
+    "locationUrl": "https://maps.app.goo.gl/Jctx3F5NgiUp1xe79",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-05-20",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1348,
+    "startTime": "19:00",
+    "location": "Queens Head, Horspath",
+    "locationStreet": "OX33 1RU",
+    "locationUrl": "https://maps.app.goo.gl/nxKadKyys7CH4xzo8",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-05-27",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1349,
+    "startTime": "19:00",
+    "location": "Gardiner Arms, 93 Medcroft Rd, Tackley",
+    "locationStreet": "OX5 3AQ",
+    "locationUrl": "https://maps.app.goo.gl/udJamP3mgy1nkuWw6?g_st=ic",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-06-03",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1350,
+    "startTime": "19:00",
+    "location": "The Boat Inn, Thrupp",
+    "locationStreet": "OX5 1JY",
+    "locationUrl": "https://maps.app.goo.gl/CRnBLRp5kriY5Txq5",
+    "hares": "Mouthful",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-06-10",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1351,
+    "startTime": "19:00",
+    "location": "The Plough Inn, Finstock",
+    "locationStreet": "OX7 3BY",
+    "locationUrl": "https://maps.app.goo.gl/rEQdmmCBASL9DmTi7",
+    "hares": "Skylark & Totally Alien",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-06-17",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1352,
+    "startTime": "19:00",
+    "location": "The Red Lion, Yarnton",
+    "locationStreet": "OX5 1QD",
+    "locationUrl": "https://maps.app.goo.gl/N3AuAwMSzZ8wnbef8",
+    "hares": "Pony Express & Mouthful",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-06-24",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1353,
+    "startTime": "19:00",
+    "location": "The Star Inn, Woodstock",
+    "locationStreet": "OX20 1TA",
+    "locationUrl": "https://maps.app.goo.gl/64AsYy2SVWY2jrTX7",
+    "hares": "Skylark",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-07-01",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1354,
+    "startTime": "20:00",
+    "location": "The Mason's Arms, North Leigh",
+    "locationStreet": "OX29 6RZ",
+    "locationUrl": "https://maps.app.goo.gl/kKwReADCYtnoTD3R6",
+    "hares": "Richard D'Turd",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-07-08",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1355,
+    "startTime": "19:00",
+    "location": "The Queens' Head, Eynsham",
+    "locationStreet": "OX29 4HH",
+    "hares": "Swing Low & Pussy Stroker",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-07-15",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1356,
+    "startTime": "19:00",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-07-22",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1357,
+    "startTime": "19:00",
+    "location": "Victoria Arms, Old Marston",
+    "locationStreet": "OX3 0PZ",
+    "locationUrl": "https://maps.app.goo.gl/GESY2A3K7yKig7Yj8",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-07-29",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1358,
+    "startTime": "19:00",
+    "location": "Abingdon Arms, Beckley",
+    "locationStreet": "OX3 9UU",
+    "locationUrl": "https://maps.app.goo.gl/RwQVN6m1nvdcm3hE6",
+    "hares": "Billericay Dickie",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-08-05",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1359,
+    "startTime": "19:00",
+    "location": "The Medley, Rainbow Bridge, Port Meadow",
+    "locationUrl": "https://maps.app.goo.gl/UeRwhcqEwXWsg8gN8",
+    "hares": "Mouthful",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-08-12",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1360,
+    "startTime": "19:00",
+    "location": "North Star, Steventon",
+    "locationStreet": "OX13 6SG",
+    "hares": "Dipstick",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-08-19",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1361,
+    "startTime": "19:00",
+    "location": "George & Dragon, Long Hanborough",
+    "locationStreet": "OX29 8JX",
+    "locationUrl": "https://maps.app.goo.gl/EiF9SQgk8gkU6oxR8?g_st=ic",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-08-26",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1362,
+    "startTime": "19:00",
+    "location": "The Fox Inn, Boars Hill",
+    "locationStreet": "OX1 5DR",
+    "locationUrl": "https://maps.app.goo.gl/o9k8JcSpAC5E8x1D8",
+    "hares": "Pony Express",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-09-02",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1363,
+    "startTime": "19:00",
+    "location": "Masons Arms, Headington",
+    "hares": "Lambada",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-09-09",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1364,
+    "startTime": "19:00",
+    "location": "Six Bells, Thame",
+    "locationStreet": "OX9 2AD",
+    "hares": "Cruella",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-09-16",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1365,
+    "startTime": "19:00",
+    "location": "White Hart, Wolvercote",
+    "locationStreet": "OX2 8PQ",
+    "locationUrl": "https://maps.app.goo.gl/YG7f6Qo96eiJmzfP9?g_st=ic",
+    "hares": "Victoria",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-09-23",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1366,
+    "startTime": "19:00",
+    "location": "Butchers Arms, Headington",
+    "locationStreet": "OX3 7AN",
+    "locationUrl": "https://maps.app.goo.gl/5mrifcoDuGied78t7?g_st=ic",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-09-30",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1367,
+    "startTime": "19:00",
+    "location": "Dew Drop Inn",
+    "locationStreet": "OX2 7DX",
+    "hares": "Circle Master",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-10-07",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1368,
+    "startTime": "19:00",
+    "location": "Six Bells, Kidlington",
+    "locationStreet": "OX5 2EF",
+    "hares": "Dingaling",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  },
+  {
+    "date": "2026-10-21",
+    "kennelTags": [
+      "oxford-h3"
+    ],
+    "runNumber": 1369,
+    "startTime": "19:00",
+    "location": "AGM Red Lion, Marston",
+    "locationStreet": "OXP 0PH",
+    "hares": "TwoPac",
+    "sourceUrl": "https://www.oxfordh3.org.uk/run-list-3-2/"
+  }
+]

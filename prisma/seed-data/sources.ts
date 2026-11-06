@@ -718,6 +718,26 @@ export const SOURCES = [
       kennelCodes: ["surrey-h3"],
     },
     {
+      name: "North Hants H4 Run List Sheet",
+      url: "https://www.nh4.org/run-list-data/run-list",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 120,
+      config: {
+        sheetId: "anonymous",
+        // Published CSV behind the nh4.org (Google Sites) run-list embed.
+        // Header row 0: Run No(0) Date ISO(1) Time(2) Hare(s)(3) Location(4)
+        // Post code(5) what3words(6) On Inn(7) Notes(8) Notice(9) Site Shows(10).
+        csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTHqOFTR_N3_rOVblYaZAilWMnDij-TUWKh6JI0VI_XNde_hmgRjSUx62R1EFjR68n7vUYi_Z5HdRcx/pub?gid=0&single=true&output=csv",
+        columns: { runNumber: 0, date: 1, startTime: 2, hares: 3, location: 4, address: 5, description: 8 },
+        kennelTagRules: { default: "nh4" },
+        // Forward list — past runs move to a separate "past runs" tab.
+        upcomingOnly: true,
+      },
+      kennelCodes: ["nh4"],
+    },
+    {
       name: "SLASH Run List",
       url: "https://www.londonhash.org/slah3/runlist/slash3list.html",
       type: "HTML_SCRAPER" as const,
@@ -6172,6 +6192,8 @@ export const SOURCES = [
       // Trust 7 < the website's 8 (see below) so the website owns the
       // current-run venue/coords. Both dedup on (kennel, date) at merge.
       name: "North Shore Wanderers H3 Hareline Sheet",
+      // Club folded: last run Mon 21 Sep 2026 (#2585). Kept for history.
+      enabled: false,
       url: "https://docs.google.com/spreadsheets/d/14vp2bq4MYMLDGlxuIfZS8MeJpenzpBTOV2nWicrphSE/export?format=csv&gid=0",
       type: "GOOGLE_SHEETS" as const,
       trustLevel: 7,
@@ -6219,6 +6241,8 @@ export const SOURCES = [
       // order. Website and sheet never conflict on run #/hares (website = current
       // week, sheet = forward weeks).
       name: "North Shore Wanderers H3 Website",
+      // Club folded: last run Mon 21 Sep 2026 (#2585). Kept for history.
+      enabled: false,
       url: "https://www.nswhhh.info/home",
       type: "HTML_SCRAPER" as const,
       trustLevel: 8,
@@ -8138,11 +8162,11 @@ export const SOURCES = [
       // forward than HC. Live-verified 2026-11-05: 539 events (294 plympton-h3, 245 titsh3).
       // Titles are free text (venue + O/D pub + hare jammed together, like Devon Lunatics);
       // HC (trust 8) keeps the title wherever both sources have the run.
-      // Shipped disabled; enable after a prod scrape check.
+      // Prod dry-run 2026-11-06: 508 events (263 plympton-h3 / 245 titsh3), 0 unrouted;
+      // enabled by 20261106041000.
       name: "Plympton H3 Google Calendar",
       url: "ph3hareraising@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
-      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 1500, // full-archive calendar back to 2022 (no upcomingOnly needed)
@@ -8154,7 +8178,8 @@ export const SOURCES = [
           [String.raw`^TIT'?s\b`, "titsh3"],
         ],
         strictKennelRouting: true,
-        titleStripPatterns: [String.raw`^Plympton Hash House Harriers\s*(?:#\d+)?\s*-?\s*`, String.raw`^TIT'?s\s*`],
+        // `^TBC$`: bare placeholder slots → empty title, like the untitled ones.
+        titleStripPatterns: [String.raw`^Plympton Hash House Harriers\s*(?:#\d+)?\s*-?\s*`, String.raw`^TIT'?s\s*`, "^TBC$"],
       },
       kennelCodes: ["plympton-h3", "titsh3"],
     },
@@ -8234,11 +8259,10 @@ export const SOURCES = [
       // are inconsistent at the source (duplicates, e.g. 1290 twice) and disagree with HC, so
       // runNumber is NOT mapped. Trail Type (col 7) goes to description; HC's titles win.
       // A season sheet that rolls over each January, hence upcomingOnly.
-      // Live-verified 2026-11-05: 45 rows 2026-01-10 → 2026-12-26. Shipped disabled.
+      // Live-verified 2026-11-05: 45 rows 2026-01-10 → 2026-12-26; enabled by 20261106041000.
       name: "Sembach H3 Hare Line Sheet",
       url: "https://docs.google.com/spreadsheets/d/1tC2GdrJJU2WNJYyIsuBbjuyQPUO1IDTaaYZGr9j_Zzg/export?format=csv",
       type: "GOOGLE_SHEETS" as const,
-      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
@@ -8432,6 +8456,20 @@ export const SOURCES = [
     // to the live (private) FB group. The kennel's only public presence is that
     // private group, so no scrapable FB source is possible. Kennel.website still
     // carries the dead .org URL (kennels.ts) — left for the profile owner.
+    // Romania — Bucharest H3 + Full Moon sister share one public Google Sheet
+    // hareline (#N = BH3, FM#N = BFMH3), read as CSV by the bespoke
+    // BucharestHashAdapter. The sheet keeps every run since Feb 2023, so the wide
+    // window loads the archive; upcomingOnly keeps reconcile off past rows.
+    {
+      name: "Bucharest H3 Hareline Sheet",
+      url: "https://docs.google.com/spreadsheets/d/17NUJ3M9Th9fPi9oYkK8cLGhydW7nNq6yFMyD0x34fkQ/export?format=csv&gid=0",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 1500,
+      config: { upcomingOnly: true },
+      kennelCodes: ["bh3-ro", "bfmh3-ro"],
+    },
     {
       name: "Budapest H3 Static Schedule (Summer Sundays)",
       url: "https://www.facebook.com/groups/1014178591932185",
@@ -9022,6 +9060,18 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["lh3-cy"],
     },
+    // Dhekelia H3 — single weekly "Next Run" block on the WP /info/ page, read via
+    // WP REST. Overwritten weekly, so upcomingOnly keeps reconcile off past runs.
+    {
+      name: "Dhekelia H3 Website Next Run",
+      url: "https://dhekelia-h3.com/wp-json/wp/v2/pages?slug=info",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["dh3-cy"],
+    },
     {
       name: "Sierra H4 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
@@ -9383,6 +9433,17 @@ export const SOURCES = [
       kennelCodes: ["mickleover-h3"],
     },
     {
+      name: "Quorn H3 Runlog XML",
+      url: "http://www.quornh3.org.uk/runlog.html", // NOSONAR — site is HTTP-only; adapter reads runlog<YYYY>.xml
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Per-year file ages out at the year boundary; history is a frozen backfill.
+      config: { upcomingOnly: true },
+      kennelCodes: ["quorn-h3"],
+    },
+    {
       name: "North Wilts H3 Run Sheet",
       url: "https://nwh3.net/runsheet.html",
       type: "HTML_SCRAPER" as const,
@@ -9453,6 +9514,28 @@ export const SOURCES = [
       kennelCodes: ["fukfm"],
     },
     {
+      name: "Essex H3 Website Hareline",
+      url: "https://essexhhh.co.uk/hareline",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // Rolling forward hareline (next ~5 runs) — past runs drop off.
+      config: { upcomingOnly: true },
+      kennelCodes: ["essex-h3"],
+    },
+    {
+      name: "Donnington H3 Website",
+      url: "https://www.donningtonh3.co.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Rolling forward table — past runs age off; history is a frozen backfill.
+      config: { upcomingOnly: true },
+      kennelCodes: ["donnington-h3"],
+    },
+    {
       name: "N.E.W. Cotswold H3 Website",
       url: "https://www.newch3.org.uk/",
       type: "HTML_SCRAPER" as const,
@@ -9461,6 +9544,28 @@ export const SOURCES = [
       scrapeDays: 90,
       config: { upcomingOnly: true }, // homepage lists upcoming runs only; done runs move to /past/
       kennelCodes: ["newch3"],
+    },
+    {
+      name: "Cambridge H3 Website",
+      url: "https://www.ch3.co.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // Blazor SPA rendered via browserRender; rolling ~7-run window → upcomingOnly.
+      config: { upcomingOnly: true },
+      kennelCodes: ["cambridge-h3"],
+    },
+    {
+      name: "MKH3 Website",
+      url: "https://mkh3.co.uk/runs-events",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // Rolling near-term "Forthcoming Runs/Events" widgets — past runs drop off.
+      config: { upcomingOnly: true },
+      kennelCodes: ["mkh3"],
     },
     {
       name: "Warwick H3 Website",
@@ -9492,6 +9597,17 @@ export const SOURCES = [
         titleHarePattern: "^Trail\\s*#?\\s*\\d+\\s*[-–]\\s*([^-–]+?)\\s*[-–]",
       },
       kennelCodes: ["bicester-h3"],
+    },
+    {
+      name: "Oxford H3 Website",
+      url: "https://www.oxfordh3.org.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      // Rolling "Hash Diary" table — past runs move to the archive page.
+      config: { upcomingOnly: true },
+      kennelCodes: ["oxford-h3"],
     },
     {
       name: "Malvern H3 iCal Feed",
