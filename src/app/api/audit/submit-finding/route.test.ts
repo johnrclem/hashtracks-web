@@ -89,6 +89,18 @@ describe("POST /api/audit/submit-finding — finding", () => {
     expect(mockDraftCreate).not.toHaveBeenCalled();
   });
 
+  it("resolves a kennel-page slug to its internal kennelCode (#2588)", async () => {
+    // First lookup (by kennelCode "hk-h3") misses; slug fallback finds hkh3.
+    mockKennel.mockResolvedValueOnce(null as never).mockResolvedValueOnce({ kennelCode: "hkh3" } as never);
+    mockDraftCreate.mockResolvedValue({ id: "draft_slug" } as never);
+    const res = await POST(buildApiPostRequest(URL, { ...VALID_FINDING, kennelCode: "hk-h3" }));
+    expect(res.status).toBe(201);
+    expect(mockKennel).toHaveBeenNthCalledWith(2, expect.objectContaining({ where: { slug: "hk-h3" } }));
+    expect(mockDraftCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ kennelCode: "hkh3" }) }),
+    );
+  });
+
   it("400 on a malformed ruleSlug", async () => {
     const res = await POST(
       buildApiPostRequest(URL, { ...VALID_FINDING, ruleSlug: "Not A Slug!" }),
@@ -135,6 +147,17 @@ describe("POST /api/audit/submit-finding — completion", () => {
     const res = await POST(buildApiPostRequest(URL, COMPLETION));
     expect(res.status).toBe(422);
     expect(mockLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("records the completion under the internal kennelCode when given a slug (#2588)", async () => {
+    mockKennel.mockResolvedValueOnce(null as never).mockResolvedValueOnce({ kennelCode: "nswhhh" } as never);
+    mockLogFindFirst.mockResolvedValue(null as never);
+    mockLogCreate.mockResolvedValue({ id: "log_slug" } as never);
+    const res = await POST(buildApiPostRequest(URL, { ...COMPLETION, kennelCode: "north-shore-wanderers-h3" }));
+    expect(res.status).toBe(200);
+    expect(mockLogCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ kennelCode: "nswhhh" }) }),
+    );
   });
 
   it.each([Infinity, NaN, 2.5])(
