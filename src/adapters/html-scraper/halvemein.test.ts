@@ -4,7 +4,33 @@ import {
   normalizeHalveMeinMonths,
   parseHalveMeinTime,
   parseHalveMeinDirections,
+  resolveHalveMeinYear,
 } from "./halvemein";
+
+describe("resolveHalveMeinYear (year-less rows)", () => {
+  const today = new Date("2026-11-06T12:00:00Z");
+  it("keeps a run that already happened but is still listed in this year", () => {
+    // #829 Wolf Hollow, Wednesday July 8 2026 — used to roll to 2027-07-08 (a Thursday).
+    expect(resolveHalveMeinYear("07-08", "Wednesday", today)).toBe("2026-07-08");
+    expect(resolveHalveMeinYear("10-31", "Saturday", today)).toBe("2026-10-31");
+  });
+  it("rolls an early-next-year run forward", () => {
+    expect(resolveHalveMeinYear("02-06", "Saturday", today)).toBe("2027-02-06");
+  });
+  it("falls back to the closest candidate when the Day cell is blank", () => {
+    expect(resolveHalveMeinYear("12-12", "", today)).toBe("2026-12-12");
+    expect(resolveHalveMeinYear("01-09", undefined, today)).toBe("2027-01-09");
+  });
+  it("parses a listed-but-past row into its own year", () => {
+    const row = parseHalveMeinRow(
+      ["829", "Wednesday", "July 8, 6PM", "Wolf Hollow Brewing", "Assman Cumeth"],
+      "https://www.hmhhh.com/",
+      undefined,
+      today,
+    );
+    expect(row!.date).toBe("2026-07-08");
+  });
+});
 
 describe("parseHalveMeinDirections (#2597)", () => {
   it("extracts the street address after the Google: label", () => {
