@@ -3371,6 +3371,30 @@ export const KENNELS: KennelSeed[] = [
       logoUrl: "/kennel-logos/h7.png",
       latitude: 53.5503, longitude: 9.992,
     },
+    {
+      kennelCode: "nh3-de", // bare "nh3"/"NH3" ambiguous (Newcastle nh3-gb)
+      shortName: "Nuremberg H3",
+      fullName: "Nuremberg Hash House Harriers",
+      region: "Nuremberg",
+      country: "Germany",
+      website: "https://nuremberg-h3.de/",
+      facebookUrl: "https://www.facebook.com/NurembergHashHouseHarriers", // homepage
+      // foundedYear omitted — not stated anywhere on the site.
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "2:00 PM", // run-info detail blocks (13:00–14:00; 14:00 most common)
+      scheduleFrequency: "Monthly",
+      scheduleNotes: "Roughly monthly on Saturdays, roving across Franconia (Nürnberg, Bamberg, Bayreuth, Würzburg, Regensburg …).",
+      hashCash: "€5", // run-info: "Bring €5 and a vessel"
+      dogFriendly: true, // run-info: "The trail is dog friendly"
+      walkersWelcome: true, // run-info: walkers' trail + runners' trail
+      logoUrl: "/kennel-logos/nh3-de.png", // self-hosted Harrier Central blob "Nuremberg H3.png" (PNG 400x400; magic bytes confirmed)
+      description:
+        "A roving hash in Nuremberg and across Franconia: non-competitive walker and runner trails roughly " +
+        "once a month on Saturdays, usually near public transport, followed by a good Franconian beer. " +
+        "Dogs and walkers welcome.",
+      latitude: 49.4521, // Nürnberg centroid (trails rove across Franconia)
+      longitude: 11.0767,
+    },
 
     // ── Portugal: Lisbon ──
     {

@@ -124,6 +124,7 @@ import { VindobonaH3Adapter } from "./html-scraper/vindobona-h3";
 import { LVH3Adapter } from "./html-scraper/lvh3";
 import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
 import { BoiseH3Adapter } from "./html-scraper/boiseh3";
+import { NurembergHashAdapter } from "./html-scraper/nuremberg-hash";
 import { NSWHHHAdapter } from "./html-scraper/nswhhh";
 import { ManilaH3Adapter } from "./html-scraper/manila-h3";
 import { WarsawH3Adapter } from "./html-scraper/warsaw-h3";
@@ -347,6 +348,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // ── Vietnam ──
   { pattern: /^https?:\/\/(?:[^/]+\.)?saigonhashers\.com(?:[/?#:]|$)/i, name: "SaigonH3Adapter", factory: () => new SaigonH3Adapter() },
   { pattern: /^https?:\/\/(?:[^/]+\.)?hanoih3\.com(?:[/?#:]|$)/i, name: "HanoiH3Adapter", factory: () => new HanoiH3Adapter() },
+  // ── Germany ──
+  { pattern: /^https?:\/\/(?:[^/]+\.)?nuremberg-h3\.de(?:[/?#:]|$)/i, name: "NurembergHashAdapter", factory: () => new NurembergHashAdapter() },
   // ── Austria ──
   { pattern: /viennahash\.org/i, name: "VindobonaH3Adapter", factory: () => new VindobonaH3Adapter() },
   // ── Nevada ──

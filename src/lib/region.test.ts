@@ -295,6 +295,16 @@ describe("inferCountry — Cambodia (first 🇰🇭 kennel)", () => {
   });
 });
 
+describe("inferCountry — Nuremberg (Germany)", () => {
+  it.each([
+    ["Nuremberg", "Germany"],
+    ["Nürnberg Erlenstegen", "Germany"],
+    ["Springbrunnen in the Cramer-Klett-Park, 90489 Nürnberg", "Germany"],
+  ])("infers %s → Germany", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
 describe("inferCountry — Barbados (first 🇧🇧 / first Caribbean kennel)", () => {
   it.each([
     ["Bridgetown", "Barbados"],

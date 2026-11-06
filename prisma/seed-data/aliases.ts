@@ -370,6 +370,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "dom-fra": ["DOM Hash", "D.O.M. Hash", "DOM H3"],
     "bikeh3-fra": ["Frankfurt Bike Hash", "Bike Bash Frankfurt"],
     "h7": ["Hamburg H7", "H7", "Hamburg Hash", "Hamburg Hash House Harriers", "Hummel Hummel", "Hamburg H3"],
+    // bare "NH3" OMITTED — Newcastle (nh3-gb)
+    "nh3-de": ["Nuremberg H3", "Nürnberg H3", "Nuremberg Hash House Harriers", "NH3-DE"],
 
     // Bare "LH3" omitted — already maps to London H3 + Lakeland H3; a 3-way
     // alias would be ambiguous. The HC source routes via defaultKennelTag.
