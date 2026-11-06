@@ -177,7 +177,7 @@ function fmtDays(d: number | null): string {
 function LeadTimeSection({ lead }: Readonly<{ lead: LeadTimeView }>) {
   const { rows } = lead;
   // Headline: the farthest horizon with scored HITs (rows arrive HIGH-first, so HIGH wins ties).
-  const headline = rows.length > 0 ? rows.reduce((a, c) => (c.horizon > a.horizon ? c : a)) : null;
+  const headline = rows.length > 0 ? rows.reduce((a, c) => (c.horizon > a.horizon ? c : a), rows[0]) : null;
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-semibold">Lead time — how early we predicted runs that happened</h3>
