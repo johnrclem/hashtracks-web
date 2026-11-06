@@ -1290,6 +1290,19 @@ export const KENNELS: KennelSeed[] = [
       scheduleNotes: "Weekly Sunday-evening trail around Plymouth and Dartmoor.",
       hashCash: "£1.50", description: "Plymouth / Dartmoor weekly Sunday-evening hash.",
       latitude: 50.3755, longitude: -4.1427 },
+    { kennelCode: "tamar-h3", // bare "tvh3" is Teign Valley H3 — Tamar keeps a distinct code (and no bare "TVH3" alias)
+      shortName: "Tamar Valley H3", fullName: "Tamar Valley Hash House Harriers",
+      region: "Plymouth", country: "UK",
+      website: "https://www.tvh3.co.uk/",
+      facebookUrl: "https://www.facebook.com/profile.php?id=100051557537843",
+      scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly", // 12-hr; adapter startTime "19:00"
+      scheduleNotes: "Weekly Monday 7pm trail across western Dartmoor and the Devon/Cornwall Tamar Valley.",
+      foundedYear: 1981, // tvh3.co.uk Hash History: "TVH3's first Hash was in 1981"
+      hashCash: "£2", // homepage "The cost is £2.00"; first-timers and children free (Hash History)
+      dogFriendly: true, // Hash History: "Keep your dogs on leads"
+      walkersWelcome: true, // Hash History: "£2.00 … from everyone - hashers, walkers and virgins"
+      description: "Tamar Valley Hash House Harriers (est. 1981) — a weekly Monday-evening (7pm) hash running across western Dartmoor and the Devon/Cornwall Tamar Valley. £2 hash cash; walkers and dogs on leads welcome. Annual Red Dress Run and Brown Gin Run.",
+      latitude: 50.5486, longitude: -4.1425 }, // Tavistock (approx); no logo on the site (nav buttons only)
     { kennelCode: "lvh3-gb", // bare "lvh3" = Lehigh Valley (PA), "lvh3-cin" = Licking Valley (OH) → region-suffixed
       shortName: "Lune Valley H3", // slug → lune-valley-h3 (NOT "LVH3", which slugifies to the taken "lvh3")
       fullName: "Lune Valley Hash House Harriers",

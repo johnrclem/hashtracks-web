@@ -8110,6 +8110,16 @@ export const SOURCES = [
       kennelCodes: ["plympton-h3"],
     },
     {
+      name: "Tamar Valley H3 Website",
+      url: "https://www.tvh3.co.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true }, // homepage lists only the next run + ~5 forward rows
+      kennelCodes: ["tamar-h3"],
+    },
+    {
       // #2594: the kennel's own public calendar (plymptonh3.org "Sunday diary" embed). It also
       // carries the sister Try it Thursdays ("TIT's …") runs, so both prefixes are routed and
       // everything else is dropped. Reaches back to 2022 (HC only to Apr 2024) and further
