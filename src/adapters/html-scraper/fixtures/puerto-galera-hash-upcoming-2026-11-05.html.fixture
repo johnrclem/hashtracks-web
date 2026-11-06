@@ -1,0 +1,67 @@
+<div id="regularRunsList">
+<div id='runListAccordion'>
+  <h3>Saturday November 7th</h3>
+  <div class='runList'>
+    <p>
+      <strong>Run 1905</strong><br>
+      <strong>Departure: <span style='color:red'>3:00 pm <em>(sign-in closes at 2:50 pm)</em></span></strong><br>
+    <strong>Hare(s): </strong>Free Sex<br>
+    <strong>Location: </strong>Away to home<br>
+    <strong>Comments: </strong> <br>
+    <strong>Fees: </strong> regular fee
+    </p>
+  </div>
+  
+  <h3>Saturday November 14th</h3>
+  <div class='runList'>
+    <p>
+      <strong>Run 1906</strong><br>
+      <strong>Departure: <span style='color:red'>3:00 pm <em>(sign-in closes at 2:50 pm)</em></span></strong><br>
+    <strong>Hare(s): </strong>Dopey Gummy Bear, Siggy Wiggy Wanker<br>
+    <strong>Location: </strong>Away<br>
+    <strong>Comments: </strong> <br>
+    <strong>Fees: </strong> regular fee
+    </p>
+  </div>
+  
+  <h3>Saturday November 21st</h3>
+  <div class='runList'>
+    <p>
+      <strong>Run 1907</strong><br>
+      <strong>Departure: <span style='color:red'>3:00 pm <em>(sign-in closes at 2:50 pm)</em></span></strong><br>
+    <strong>Hare(s): </strong>Hopalong Hotpants<br>
+    <strong>Location: </strong>Local<br>
+    <strong>Comments: </strong> <br>
+    <strong>Fees: </strong> regular fee
+    </p>
+  </div>
+  
+  <h3>Saturday November 28th</h3>
+  <div class='runList'>
+    <p>
+      <strong>Run 1908</strong><br>
+      <strong>Departure: <span style='color:red'>2:30 pm <em>(sign-in closes at 2:20 pm)</em></span></strong><br>
+    <strong>Hare(s): </strong><span style='color:red'>Hare Needed!</span><br>
+    <strong>Location: </strong>TBA<br>
+    <strong>Comments: </strong> <br>
+    <strong>Fees: </strong> regular fee
+    </p>
+  </div>
+  
+  <h3>Saturday December 5th</h3>
+  <div class='runList'>
+    <p>
+      <strong>Run 1909</strong><br>
+      <strong>Departure: <span style='color:red'>2:30 pm <em>(sign-in closes at 2:20 pm)</em></span></strong><br>
+    <strong>Hare(s): </strong><span style='color:red'>Hare Needed!</span><br>
+    <strong>Location: </strong>TBA<br>
+    <strong>Comments: </strong> <br>
+    <strong>Fees: </strong> regular fee
+    </p>
+  </div>
+  
+  </div>
+
+
+</div>
+<p>&nbsp;</p>
