@@ -194,8 +194,9 @@ export const SOURCES = [
         // SUMMARY and ordered most-specific-first (first match wins). Verified
         // against the live feed 2026-08-10 (62 events, 0 unrouted):
         //   * "Queens Black Knights"/"QBK" MUST precede the generic "Queens" —
-        //     the feed carries both "QBK #73" and "Queens #249", and prod has
-        //     both series on `qbk`.
+        //     the feed carries both "QBK #73" and "Queens #249", which are two
+        //     separate kennels: QBK → `qbk`, Queens H3 → `queens-h3` (#2650;
+        //     hashnyc.com/kennels lists them separately).
         //   * "NAWW" MUST precede "New Amsterdam"/"NAH3"/"NASS" — they are
         //     DISTINCT kennels (nawwh3 runs #387-393, nah3 runs "NASS" #298-304
         //     in prod). The relaunched feed labels the monthly series "NAWW",
@@ -215,16 +216,16 @@ export const SOURCES = [
           ["^Harriettes\\b", "harriettes-nyc"],
           ["^Columbia\\b", "columbia"],
           ["^GGFM\\b", "ggfm"],
-          ["^Queens\\b", "qbk"],
+          ["^Queens\\b", "queens-h3"],
           ["^NYC(?:H3)?\\b", "nych3"],
         ],
         defaultKennelTag: "nych3",
       },
-      // All 12 kennels the patterns route to stay linked even when a series is
+      // All 13 kennels the patterns route to stay linked even when a series is
       // dormant in the current feed window (knick / si / columbia / harriettes /
-      // drinking-practice publish sporadically) — the merge guard blocks events
-      // for unlinked kennels as SOURCE_KENNEL_MISMATCH. (#1793 / Codex review)
-      kennelCodes: ["nych3", "brh3", "nah3", "knick", "lil", "qbk", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3", "drinking-practice-nyc"],
+      // drinking-practice / queens-h3 publish sporadically) — the merge guard
+      // blocks events for unlinked kennels as SOURCE_KENNEL_MISMATCH. (#1793 / Codex review)
+      kennelCodes: ["nych3", "brh3", "nah3", "knick", "lil", "qbk", "queens-h3", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3", "drinking-practice-nyc"],
     },
     {
       // Retired legacy HTML scraper for hashnyc.com — superseded by the ICAL_FEED
@@ -763,7 +764,9 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      kennelCodes: ["dh3"],
+      // #2759: the hareline carries three kennels; DublinHashAdapter routes each
+      // row by its Hash label (routeDublinRow) and skips non-trails.
+      kennelCodes: ["dh3", "i-love-monday", "shed-h3"],
     },
     // ===== UK — SCOTLAND =====
     {
@@ -1279,12 +1282,19 @@ export const SOURCES = [
       // campout/special events on Hash Rego (e.g. mosh3-lingerie-shiggyfest-2026,
       // tkdh3-presents-dead-elvis-18). Their only other source is the Tidewater
       // HTML scraper; Hash Rego carries structured rego data these events need.
-      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "flour-city", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm", "mosh3", "tkdh3"],
+      // #2501 — Pinelake (ph3-atl) has no Hash Rego account of its own; its
+      // joint trails with Atlanta H4 are posted by the shared "AH4_PLH3"
+      // account (host display name "Atlanta & Pine Lake", e.g.
+      // ah4_plh3-heavy-metal-rainbow-dress-2026). The Atlanta Hash Board files
+      // those joint trails under Pinelake, so Hash Rego routes them there too
+      // (alias "Atlanta & Pine Lake" → ph3-atl in aliases.ts).
+      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "flour-city", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm", "mosh3", "tkdh3", "ph3-atl"],
       kennelSlugMap: {
         bfm: "BFMH3", ewh3: "EWH3", wh4: "WH4", gfh3: "GFH3",
         ch3: "CH3", dch4: "DCH4", dcfmh3: "DCFMH3", "flour-city": "FCH3", oh3: "OregonH3",
         wsh3: "WSH3", mrh3: "MRH3", bfh3: "BFH3", moa2h3: "MoA2H3",
         nych3: "NYCH3", ggfm: "GGFM", mosh3: "MoSH3", tkdh3: "TKDH3",
+        "ph3-atl": "AH4_PLH3",
       },
       // Per-day kennel attribution config (PR D.5). Patterns matched
       // against each day's section text in a multi-day event's

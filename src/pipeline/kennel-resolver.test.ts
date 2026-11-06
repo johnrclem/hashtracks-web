@@ -116,8 +116,17 @@ describe("mapKennelTag", () => {
     expect(mapKennelTag("sfm")).toBe("sfm");
   });
 
-  it("maps 'queens' → qbk", () => {
-    expect(mapKennelTag("queens")).toBe("qbk");
+  // #2650: bare "Queens" is Queens H3; QBK is a separate kennel.
+  it("maps 'queens' → queens-h3", () => {
+    expect(mapKennelTag("queens")).toBe("queens-h3");
+  });
+
+  it("maps 'queens h3 #249' → queens-h3", () => {
+    expect(mapKennelTag("queens h3 #249")).toBe("queens-h3");
+  });
+
+  it("maps 'qbk #73' → qbk", () => {
+    expect(mapKennelTag("qbk #73")).toBe("qbk");
   });
 
   it("maps 'knick' → knick", () => {
@@ -211,13 +220,13 @@ describe("resolveKennelTag", () => {
   });
 
   it("resolves via pattern fallback", async () => {
-    // kennelCode miss, shortName miss, alias miss, then pattern maps "queens" → "QBK"
+    // kennelCode miss, shortName miss, alias miss, then pattern maps "queens" → "queens-h3"
     mockKennelFind.mockResolvedValueOnce(null);                            // kennelCode global miss
     mockKennelFind.mockResolvedValueOnce(null);                            // initial shortName
     mockAliasFind.mockResolvedValueOnce(null);                             // alias
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_qbk" } as never);  // pattern re-lookup
+    mockKennelFind.mockResolvedValueOnce({ id: "kennel_queens_h3" } as never);  // pattern re-lookup
     const result = await resolveKennelTag("queens");
-    expect(result).toEqual({ kennelId: "kennel_qbk", matched: true });
+    expect(result).toEqual({ kennelId: "kennel_queens_h3", matched: true });
   });
 
   it("returns unmatched when all stages fail", async () => {

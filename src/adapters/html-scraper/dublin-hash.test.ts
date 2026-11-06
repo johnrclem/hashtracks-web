@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
-import { parseHarelineRow, DublinHashAdapter, stripTruncatedPostalFragment } from "./dublin-hash";
+import { parseHarelineRow, DublinHashAdapter, stripTruncatedPostalFragment, routeDublinRow } from "./dublin-hash";
 
 // Mock safeFetch (used by fetchHTMLPage)
 vi.mock("@/adapters/safe-fetch", () => ({
@@ -99,6 +99,53 @@ describe("stripTruncatedPostalFragment", () => {
   });
 });
 
+// Every Hash-column label shape in the live dublinhhh.com/archive (221 rows,
+// fetched 2026-11-06) plus its kennel. Locks the #2759 routing decisions.
+describe("routeDublinRow (#2759)", () => {
+  it.each([
+    ["Dublin H3 #1685", "dh3"],
+    ["Dublin H3 #1674 Pride Run", "dh3"],
+    ["Dublin H3 #1610 Wren Boys Run", "dh3"],
+    ["Dublin H3 #1636 Wren Boys Run --", "dh3"],
+    ["Dublin H3 #1639 St. Brigid's Day", "dh3"],
+    ["Dublin H3 #1587 Australia Day Run", "dh3"],
+    ["Dublin H3 DH3 Nash Hash", "dh3"],
+    // 2025 Wren Boys was filed as an "Other" hash under an i-♥-monday slug;
+    // it is still a Dublin H3 run.
+    ["Wren Boys Run #", "dh3"],
+    // Dublin HHH's own Paddy's Day pick-up and a guest run it hosted.
+    ["Pickup", "dh3"],
+    ["Shanghai Guest Hash 5th Shanghai Reunion", "dh3"],
+    ["I ♥ Monday #427", "i-love-monday"],
+    ["I ♥ Monday #376 Mince Pie Run", "i-love-monday"],
+    ["I ♥ Monday", "i-love-monday"],
+    ["I Love Monday #400", "i-love-monday"],
+    ["I\u00A0♥\u00A0Monday #429", "i-love-monday"],
+    ["Shed Hash", "shed-h3"],
+    ["Shed Hash #5", "shed-h3"],
+    ["Shed #6", "shed-h3"],
+    ["Shed Hash #7 The Magnificent Seven and The return of the Shedi", "shed-h3"],
+  ])("routes %j → %s", (label, kennel) => {
+    expect(routeDublinRow(label)).toBe(kennel);
+  });
+
+  it.each([
+    // Marathon water-station volunteer shifts are not trails.
+    "Marathon Water Stop",
+    "Other MARATHON WATER STATION",
+    // Cork H3's Paddy's Day trail in Cork, listed for information.
+    "Cork H3",
+  ])("skips %j", (label) => {
+    expect(routeDublinRow(label)).toBeNull();
+  });
+
+  it("never treats a bare 'Dublin' as Dublin H3 evidence beyond the default", () => {
+    // Only the anchored "Dublin H3" label is a DH3 signal; a numbered I ♥ Monday
+    // row mentioning Dublin stays on its own series.
+    expect(routeDublinRow("I ♥ Monday #430 Dublin Pub Crawl")).toBe("i-love-monday");
+  });
+});
+
 describe("DublinHashAdapter", () => {
   describe("parseHarelineRow", () => {
     it("strips trailing truncated postal fragment from location (#453)", () => {
@@ -177,7 +224,8 @@ describe("DublinHashAdapter", () => {
 
       expect(event).not.toBeNull();
       expect(event!.date).toBe("2026-03-23");
-      expect(event!.kennelTags[0]).toBe("dh3");
+      // #2759: I ♥ Monday is its own kennel with its own run sequence.
+      expect(event!.kennelTags).toEqual(["i-love-monday"]);
       expect(event!.title).toBe("I ♥ Monday #410");
       expect(event!.runNumber).toBe(410);
       expect(event!.location).toBe("Strand House, Fairview");
@@ -276,6 +324,36 @@ describe("DublinHashAdapter", () => {
 
       expect(event).not.toBeNull();
       expect(event!.startTime).toBe("14:00");
+    });
+  });
+
+  describe("fetch — kennel routing", () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it("routes each series to its kennel and skips non-trails", async () => {
+      const near = relativeDate(7);
+      const later = relativeDate(14);
+      const html = `<html><body><table>
+  <tr><th>Day</th><th>Date</th><th>Time</th><th>Hash</th><th>Location</th><th>Hares</th><th>Notes</th></tr>
+  <tr><td>Monday</td><td>${near.display}</td><td>19:30</td>
+    <td><a href="/hareline/${near.iso}-dublin-h3/">Dublin H3 #1685</a></td>
+    <td>Four Provinces Brew Co</td><td>Wot the Phoque</td><td></td></tr>
+  <tr><td>Monday</td><td>${later.display}</td><td>19:30</td>
+    <td><a href="/hareline/${later.iso}-i-%E2%99%A5-monday/">I ♥ Monday #427</a></td>
+    <td>Beachcomber, Killester</td><td>Knuthead</td><td></td></tr>
+  <tr><td>Sunday</td><td>${later.display}</td><td>8:30</td>
+    <td><a href="/hareline/${later.iso}-other/">Marathon Water Stop</a></td>
+    <td>Kimmage Road West</td><td>DH3</td><td></td></tr>
+</table></body></html>`;
+      mockFetchResponse(html);
+
+      const result = await new DublinHashAdapter().fetch(makeSource(), { days: 90 });
+
+      expect(result.events.map((e) => [e.kennelTags[0], e.runNumber])).toEqual([
+        ["dh3", 1685],
+        ["i-love-monday", 427],
+      ]);
+      expect(result.diagnosticContext?.skippedRows).toBe(1);
     });
   });
 

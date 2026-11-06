@@ -74,6 +74,15 @@ and `^Queens Black Knights|^QBK` must precede the generic `^Queens`.
 The two New Amsterdam series are genuinely separate and both live:
 `nawwh3` = "NAWW #NNN" (monthly, #387-393), `nah3` = "NASS #NNN" (seasonal, #298-304).
 
+**Queens is two kennels too (#2650, Nov 2026).** `qbk` used to hold both Queens
+series. It is now Queens Black Knights only ("Queens Black Knights #NN" / "QBK #NN",
+2013–), and the generic `^Queens` pattern routes "Queens #NNN" to `queens-h3`
+(Queens H3, 1996–). This mirrors hashnyc.com, which lists them separately
+(`/kennels/queens` = QBK, `/kennels/queens-h3` = Queens H3). Migration
+`20261106210000_split_queens_h3_from_qbk` re-homed the history by run designation:
+80 events to `queens-h3`, plus "GGFM #253" (2011) to `ggfm` and "NYC #1477" (2012)
+and "Special #174" (2020) to `nych3`.
+
 ### The 2026-11-14 Friendsgiving duplicate (fixed in a follow-up migration)
 
 Prod held `NASS #304` → `nah3` on 2026-11-14 (ingested from the old HTML scraper); the

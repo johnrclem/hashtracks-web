@@ -201,8 +201,10 @@ const KENNEL_PATTERNS: readonly [RegExp, string][] = [
   [/moon|moom/, "bos-moon"],
   [/beantown/, "beantown"],
 
-  // Remaining short patterns
-  [/queens/, "qbk"],
+  // Remaining short patterns. Bare "queens" is Queens H3 (#2650); Queens Black
+  // Knights is caught by the multi-word pattern above, its "QBK" abbreviation here.
+  [/^qbk\b/, "qbk"],
+  [/queens/, "queens-h3"],
   [/knick/, "knick"],
   [/lil/, "lil"],
   [/columbia/, "columbia"],

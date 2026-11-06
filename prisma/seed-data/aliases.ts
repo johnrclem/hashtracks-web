@@ -5,7 +5,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "bobbh3": ["Ballbuster", "BoBBH3", "Boston Ballbuster", "Ballbuster Hash", "B3H4", "Boston Ballbuster Hardcore", "Boston Ballbuster H4"],
     "nawwh3": ["NAWW", "NAWWH3", "NAWW Hash", "New Amsterdam Weekend Wankers", "New Amsterdam Winter Wednesday", "Weekend Wankers"],
     "nah3": ["New Amsterdam", "NAH3", "NASS", "NASS H3", "NASSH3", "New Amsterdam Hash", "New Amsterdam Summer Sundays"],
-    "qbk": ["Queens Black Knights", "QBK", "QBK Hash", "Queens", "Queens Hash"],
+    // #2650: bare "Queens" / "Queens Hash" belong to Queens H3, not QBK.
+    "qbk": ["Queens Black Knights", "QBK", "QBK Hash", "Queens Black Knights H3", "Queens Black Knights Hash House Harriers"],
+    "queens-h3": ["Queens", "Queens Hash", "Queens H3", "Queens HHH", "Queens Hash House Harriers"],
     "lil": ["Long Island Lunatics", "LIL", "Long Island", "LI Hash", "Lunatics"],
     "bfm": ["Ben Franklin Mob", "BFM", "BFM H3", "BFMH3"],
     "philly-h3": ["Philly Hash", "Philly H3", "Philadelphia H3", "Philadelphia Hash", "hashphilly"],
@@ -159,7 +161,11 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "ch4": ["Catch the Hare", "CTH"],
     "cunth3": ["CUNT H3", "Currently Unnamed North Thames"],
     // Ireland
-    "dh3": ["Dublin H3", "Dublin HHH", "Dublin Hash", "DH3", "I Love Monday"],
+    // #2759: "I Love Monday" moved to its own kennel. Never alias a bare
+    // "Dublin" here — Dayton has a Dublin Pub that DH4/Dayton H3 trails use.
+    "dh3": ["Dublin H3", "Dublin HHH", "Dublin Hash", "DH3"],
+    "i-love-monday": ["I Love Monday", "I ♥ Monday", "I Heart Monday", "I Love Monday H3", "I Love Monday Hash"],
+    "shed-h3": ["Shed Hash", "Shed H3", "The Shed Hash"],
     // ===== UK — SCOTLAND =====
     "edinburghh3": ["Edinburgh Hash", "EH3", "Edinburgh HHH"],
     "glasgowh3": ["Glasgow Hash", "GH3", "Glasgow HHH"],
@@ -243,7 +249,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "ech3-fl": ["Emerald Coast Hash", "Fort Walton Hash", "FWB Hash"],
     // Georgia
     "ah4": ["Atlanta Hash", "Atlanta H4", "Atlanta HHH", "AH4 Hash", "Atlanta Hash (Saturdays)", "AHHH"],
-    "ph3-atl": ["Pinelake Hash", "Pinelake H3", "PH3 ATL"],
+    // #2501: Hash Rego's joint AH4+Pinelake account ("AH4_PLH3") shows the host
+    // as "Atlanta & Pine Lake"; the slug is the index-fallback kennel tag.
+    "ph3-atl": ["Pinelake Hash", "Pinelake H3", "PH3 ATL", "Atlanta & Pine Lake", "AH4_PLH3", "Pine Lake H3"],
     "bsh3": ["Black Sheep Hash", "Black Sheep H3", "BSH3 Hash", "Rainbow Sheep"],
     "sobh3": ["Slow Old Bastards", "SOB Hash", "SOB H3", "SOBH3 Hash"],
     "mlh4": ["Moonlite Hash", "Atlanta Moonlite", "Moonlite H3", "Moonlite H4"],

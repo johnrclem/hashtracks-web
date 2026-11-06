@@ -388,7 +388,7 @@ logbook + kennel directory.
 - **West of England Hash Run List** → HTML_SCRAPER (GenericHtml) → Bristol H3, GREY, BOGS (3 kennels)
 
 ### Ireland (1 source)
-- **Dublin H3 Website Hareline** → HTML_SCRAPER → DH3
+- **Dublin H3 Website Hareline** → HTML_SCRAPER → DH3, I ♥ Monday, Shed Hash (routed per row by the Hash label)
 
 ### Germany (4 sources)
 - **Berlin H3 iCal Feed** → ICAL_FEED → BH3, BH3FM (2 Berlin kennels)
