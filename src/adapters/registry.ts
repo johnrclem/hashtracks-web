@@ -30,6 +30,7 @@ import { AtlantaHashBoardAdapter } from "./html-scraper/atlanta-hash-board";
 import { NorthboroHashAdapter } from "./html-scraper/northboro-hash";
 import { DublinHashAdapter } from "./html-scraper/dublin-hash";
 import { HertsHashAdapter } from "./html-scraper/herts-hash";
+import { CambridgeHashAdapter } from "./html-scraper/cambridge-hash";
 import { EssexHashAdapter } from "./html-scraper/essex-hash";
 import { QuornH3Adapter } from "./html-scraper/quorn-h3";
 import { DonningtonHashAdapter } from "./html-scraper/donnington-hash";
@@ -221,6 +222,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /northboroh3\.com/i,             name: "NorthboroHashAdapter",    factory: () => new NorthboroHashAdapter() },
   { pattern: /dublinhhh\.com/i,              name: "DublinHashAdapter",       factory: () => new DublinHashAdapter() },
   { pattern: /hertshash\.co\.uk/i,           name: "HertsHashAdapter",        factory: () => new HertsHashAdapter() },
+  { pattern: /\/\/(?:www\.)?ch3\.co\.uk/i,  name: "CambridgeHashAdapter",    factory: () => new CambridgeHashAdapter() },
   { pattern: /essexhhh\.co\.uk/i,            name: "EssexHashAdapter",        factory: () => new EssexHashAdapter() },
   { pattern: /quornh3\.org\.uk/i,            name: "QuornH3Adapter",          factory: () => new QuornH3Adapter() },
   { pattern: /donningtonh3\.co\.uk/i,       name: "DonningtonHashAdapter",   factory: () => new DonningtonHashAdapter() },
