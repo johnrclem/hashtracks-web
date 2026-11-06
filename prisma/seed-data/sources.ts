@@ -1789,13 +1789,13 @@ export const SOURCES = [
         // #2413: the full gql2 archive also titles the sisters "TMFM #124", "TFMH3 #142"
         // and "BIB # 48", which fell through to rvah3 — route those short forms too.
         kennelPatterns: [
-          ["\\b(?:BIBH3|BIB|Belle Isle)\\b", "bibh3"],
-          ["\\b(?:TMFMH3|TMFM|TFMH3?|Titanic)\\b", "tmfmh3"],
-          ["\\bChain Gang\\b", "chain-gang-hhh"],
+          [String.raw`\b(?:BIBH3|BIB|Belle Isle)\b`, "bibh3"],
+          [String.raw`\b(?:TMFMH3|TMFM|TFMH3?|Titanic)\b`, "tmfmh3"],
+          [String.raw`\bChain Gang\b`, "chain-gang-hhh"],
         ],
         // The group also posts POHO H3 and Sassy H3 trails (kennels HashTracks doesn't
         // track); without this they'd land on RH3's page.
-        skipTitlePatterns: ["\\bPOHO", "\\bSassy\\b"],
+        skipTitlePatterns: [String.raw`\bPOHO`, String.raw`\bSassy\b`],
       },
       kennelCodes: ["rvah3", "bibh3", "tmfmh3", "chain-gang-hhh"],
     },

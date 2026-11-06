@@ -88,7 +88,8 @@ async function main(): Promise<void> {
   }
 
   const dup = await prisma.event.findUnique({ where: { id: DUPLICATE_ID }, select: { title: true, date: true } });
-  console.log(`  DELETE ${DUPLICATE_ID}: ${dup ? `${dup.title} ${dup.date.toISOString().slice(0, 10)}` : "already gone"}`);
+  const dupLabel = dup ? `${dup.title} ${dup.date.toISOString().slice(0, 10)}` : "already gone";
+  console.log(`  DELETE ${DUPLICATE_ID}: ${dupLabel}`);
   if (apply && dup?.title === NH3_PLACEHOLDER) {
     await deleteLeakedEvent(prisma, DUPLICATE_ID, ["hares", "attendances", "kennelAttendances"]);
   }

@@ -126,7 +126,8 @@ async function main(): Promise<void> {
     if (page.errors?.length) throw new Error(`gql2 error: ${page.errors[0].message}`);
     const group = page.data?.groupByUrlname;
     if (!group?.events) throw new Error("gql2: group or events missing");
-    tz = group.timezone ?? tz;
+    // Remote value: keep only IANA-zone characters before it is logged or used.
+    tz = (group.timezone ?? tz).replaceAll(/[^\w/+-]/g, "");
     total = group.events.totalCount;
     nodes.push(...group.events.edges.map((e) => e.node));
     if (!group.events.pageInfo.hasNextPage) break;
