@@ -6230,6 +6230,31 @@ export const KENNELS: KennelSeed[] = [
       latitude: 18.0179, // Kingston anchor (runs are islandwide; no per-event coords published)
       longitude: -76.8099,
     },
+    // ── Grenada (first 🇬🇩 kennel: Grenada H3, est. 1985) ──
+    {
+      kennelCode: "gh3-gd", // bare "gh3"/"GH3" is Glasgow H3
+      shortName: "Grenada H3",
+      fullName: "Grenada Hash House Harriers",
+      region: "St George's",
+      country: "Grenada", // canonical NAME — code "GD" lives in region.ts
+      website: "https://grenadahash.com/",
+      facebookUrl: "https://www.facebook.com/groups/grenadahash", // gotothehash.net/caribbean.html (Feb 2026)
+      foundedYear: 1985, // /about-us/: "founded by Paul “Rigor Mortis” Slinger in 1985"
+      // No scheduleTime: the On On moves with the season (4:00 PM in Aug, 3:30 PM in Nov).
+      scheduleDayOfWeek: "Saturday",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Saturday afternoons; arrive 30 minutes before the On On (3:30–4:00 PM, posted weekly on Next Hash).",
+      hashCash: "EC$3 (voluntary)", // /next-hash/: "a voluntary three dollar (EC$3) hash cash fee"
+      dogFriendly: true, // /next-hash/ rules: "DO keep your dog on a leash!"
+      walkersWelcome: true, // /next-hash/: "2 Trails: Walkers & Runners"
+      logoUrl: "/kennel-logos/gh3-gd.png", // self-hosted GH3-GaryLogoSmall (PNG 260x282; magic bytes confirmed)
+      description:
+        "Grenada Hash House Harriers, founded in 1985 by Paul 'Rigor Mortis' Slinger. Every Saturday afternoon " +
+        "runners and walkers follow two trails at rotating locations around the Spice Isle (and Carriacou), " +
+        "then share Stag, Carib and local food. Dogs on a leash welcome; voluntary EC$3 hash cash.",
+      latitude: 12.0561, // St George's (runs rotate island-wide)
+      longitude: -61.7488,
+    },
     {
       kennelCode: "beerh3", // bare code clear; only unrelated beerspoke-h3 exists
       shortName: "BEER H3", // >4 chars → toSlug("BEER H3") = "beer-h3"; a backronym (Belgrade Eastern European Revival)
