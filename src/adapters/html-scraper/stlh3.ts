@@ -296,7 +296,7 @@ export function isPlausibleRunDate(date: string, postDate: Date): boolean {
   const runMs = Date.parse(`${date}T12:00:00Z`);
   // Compare calendar days: pin the publish instant to UTC noon like the run date,
   // so an afternoon post doesn't lose a run exactly MAX_LAG_DAYS earlier.
-  const postNoon = new Date(postDate.getTime());
+  const postNoon = new Date(postDate);
   postNoon.setUTCHours(12, 0, 0, 0);
   const postMs = postNoon.getTime();
   if (Number.isNaN(runMs) || Number.isNaN(postMs)) return false;
@@ -319,14 +319,20 @@ const MONTH_DAY_YEAR_RE =
   /^[a-z]+\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{4}$/i;
 const ISO_DATE_RE = /^\d{4}-\d{1,2}-\d{1,2}$/;
 const SLASH_DATE_RE = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
-// Month-less "27th 2026" (the "Sunday 27th 2026" post, Sep 2026).
-const DAY_YEAR_RE = /^\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{4}$/i;
+const ORDINAL_DAY_RE = /^\d{1,2}(?:st|nd|rd|th)?$/i;
+const YEAR_RE = /^\d{4}$/;
+
+/** Month-less "27th 2026" / "27th, 2026" (the "Sunday 27th 2026" post, Sep 2026). */
+function isDayYear(s: string): boolean {
+  const parts = s.replace(",", " ").split(" ").filter(Boolean);
+  return parts.length === 2 && ORDINAL_DAY_RE.test(parts[0]) && YEAR_RE.test(parts[1]);
+}
 
 function isDateOnlySuffix(s: string): boolean {
   const stripped = s.trim().replace(WEEKDAY_PREFIX_RE, "");
   return (
     MONTH_DAY_YEAR_RE.test(stripped) ||
-    DAY_YEAR_RE.test(stripped) ||
+    isDayYear(stripped) ||
     ISO_DATE_RE.test(stripped) ||
     SLASH_DATE_RE.test(stripped)
   );
@@ -390,11 +396,51 @@ type ArchiveFetch =
   | { posts: SubstackArchivePost[]; errors: string[]; pages: number }
   | { fatal: ScrapeResult };
 
+type ArchivePageResult =
+  | { ok: true; page: { posts: SubstackArchivePost[]; nextCursor: string | null } }
+  | { ok: false; message: string; status?: number; shape?: boolean };
+
+/** Fetch and validate one archive page. */
+async function fetchArchivePage(url: string): Promise<ArchivePageResult> {
+  try {
+    const response = await safeFetch(url, { headers: SUBSTACK_HEADERS });
+    if (!response.ok) {
+      return {
+        ok: false,
+        message: `Substack archive HTTP ${response.status}: ${response.statusText}`,
+        status: response.status,
+      };
+    }
+    const page = normalizeArchivePage(await response.json());
+    return page
+      ? { ok: true, page }
+      : { ok: false, message: "Substack archive returned an unrecognized response shape", shape: true };
+  } catch (err) {
+    return { ok: false, message: `Substack archive fetch failed: ${err}` };
+  }
+}
+
+function archivePageUrl(baseUrl: string, cursor: string | null): string {
+  const base = `${baseUrl}/api/v1/archive?sort=new&limit=${ARCHIVE_PAGE_LIMIT}`;
+  return cursor ? `${base}&cursor=${encodeURIComponent(cursor)}` : base;
+}
+
+/** True when this page ends the walk: no cursor, empty, or older than the window. */
+function isLastArchivePage(
+  page: { posts: SubstackArchivePost[]; nextCursor: string | null },
+  cutoffMs: number,
+): boolean {
+  const oldest = page.posts.at(-1);
+  const oldestMs = oldest ? Date.parse(oldest.post_date) : Number.NaN;
+  return !page.nextCursor || page.posts.length === 0 || oldestMs < cutoffMs;
+}
+
 /**
  * Fetch archive pages newest-first, following `nextCursor` until the oldest
  * post on a page predates the scrape window (plus a week of slack for posts
  * published before their run). A failure on the FIRST page is fatal; a later
- * page failure keeps what was fetched and reports the error.
+ * page failure keeps what was fetched and reports the error. Running out of
+ * pages before the window is covered is reported too.
  */
 async function fetchArchive(baseUrl: string, days: number): Promise<ArchiveFetch> {
   const cutoffMs = Date.now() - (days + 7) * DAY_MS;
@@ -404,57 +450,30 @@ async function fetchArchive(baseUrl: string, days: number): Promise<ArchiveFetch
   let pages = 0;
 
   while (pages < MAX_ARCHIVE_PAGES) {
-    const url =
-      `${baseUrl}/api/v1/archive?sort=new&limit=${ARCHIVE_PAGE_LIMIT}` +
-      (cursor ? `&cursor=${encodeURIComponent(cursor)}` : "");
-    let page: ReturnType<typeof normalizeArchivePage>;
-    try {
-      const response = await safeFetch(url, { headers: SUBSTACK_HEADERS });
-      if (!response.ok) {
-        const message = `Substack archive HTTP ${response.status}: ${response.statusText}`;
-        if (pages === 0) {
-          return {
-            fatal: {
-              events: [],
-              errors: [message],
-              errorDetails: { fetch: [{ url, status: response.status, message }] },
-            },
-          };
-        }
-        errors.push(`${message} (page ${pages + 1})`);
-        break;
+    const url = archivePageUrl(baseUrl, cursor);
+    const result = await fetchArchivePage(url);
+    if (!result.ok) {
+      if (pages > 0) {
+        errors.push(`${result.message} (page ${pages + 1})`);
+        return { posts, errors, pages };
       }
-      page = normalizeArchivePage(await response.json());
-    } catch (err) {
-      const message = `Substack archive fetch failed: ${err}`;
-      if (pages === 0) {
-        return { fatal: { events: [], errors: [message], errorDetails: { fetch: [{ url, message }] } } };
-      }
-      errors.push(`${message} (page ${pages + 1})`);
-      break;
-    }
-    if (!page) {
-      const message = "Substack archive returned an unrecognized response shape";
-      if (pages === 0) return { fatal: { events: [], errors: [message] } };
-      errors.push(`${message} (page ${pages + 1})`);
-      break;
+      const fetchDetail = { url, ...(result.status === undefined ? {} : { status: result.status }), message: result.message };
+      return {
+        fatal: {
+          events: [],
+          errors: [result.message],
+          ...(result.shape ? {} : { errorDetails: { fetch: [fetchDetail] } }),
+        },
+      };
     }
     pages++;
-    posts.push(...page.posts);
-    const oldest = page.posts.at(-1);
-    const oldestMs = oldest ? Date.parse(oldest.post_date) : Number.NaN;
-    if (!page.nextCursor || page.posts.length === 0 || oldestMs < cutoffMs) {
-      cursor = null;
-      break;
-    }
-    cursor = page.nextCursor;
+    posts.push(...result.page.posts);
+    if (isLastArchivePage(result.page, cutoffMs)) return { posts, errors, pages };
+    cursor = result.page.nextCursor;
   }
-  // Only when the loop ran out of pages — a page error already broke out with its own message.
-  if (cursor && pages >= MAX_ARCHIVE_PAGES && errors.length === 0) {
-    errors.push(
-      `Substack archive still had older posts after ${MAX_ARCHIVE_PAGES} pages; the ${days}-day window is truncated`,
-    );
-  }
+  errors.push(
+    `Substack archive still had older posts after ${MAX_ARCHIVE_PAGES} pages; the ${days}-day window is truncated`,
+  );
   return { posts, errors, pages };
 }
 
