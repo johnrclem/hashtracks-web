@@ -230,6 +230,8 @@ export interface TravelSearchResults {
 // ============================================================================
 
 const TWELVE_WEEKS_MS = 12 * 7 * DAY_MS;
+/** Row cap on the rule-agreement evidence query (independent runs over ~14 weeks). */
+const AGREEMENT_EVENT_ROW_CAP = 5_000;
 
 /**
  * Safety-net row cap for the confirmed-event query. A traveler viewing
@@ -611,11 +613,18 @@ async function runStopSearch(
         ...INDEPENDENT_EVENT_WHERE,
       },
       select: { date: true, eventKennels: { select: { kennelId: true } } },
+      // Defensive cap (a dense max-radius search sees ~1k rows); keep the newest if it ever binds.
+      orderBy: { date: "desc" },
+      take: AGREEMENT_EVENT_ROW_CAP,
     }),
   ]);
   const evidenceByKennel = groupBy(evidenceEvents, (e) => e.kennelId);
   const independentByKennel = groupBy(
-    independentEvents.flatMap((e) => e.eventKennels.map((ek) => ({ kennelId: ek.kennelId, date: e.date }))),
+    independentEvents.flatMap((e) =>
+      e.eventKennels
+        .filter((ek) => nearbyIdsSet.has(ek.kennelId))
+        .map((ek) => ({ kennelId: ek.kennelId, date: e.date })),
+    ),
     (e) => e.kennelId,
   );
 
