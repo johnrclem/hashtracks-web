@@ -191,7 +191,7 @@ export function resolveHalveMeinYear(monthDay: string, dayCell: string | undefin
   const distance = (iso: string) => Math.abs(Date.parse(`${iso}T12:00:00Z`) - today.getTime());
   const matching = candidates.filter((iso) => new Date(`${iso}T12:00:00Z`).getUTCDay() === wantDay);
   const pool = matching.length > 0 ? matching : candidates;
-  return pool.reduce((best, iso) => (distance(iso) < distance(best) ? iso : best));
+  return pool.reduce((best, iso) => (distance(iso) < distance(best) ? iso : best), pool[0]);
 }
 
 /** Extract the street address from a "Google: <address>" directions cell. */
