@@ -25,9 +25,9 @@ import { composeUtcStart } from "@/lib/timezone";
  *
  * Title regex tolerates the optional "Run "/"RUN " prefix and ordinal
  * suffix (e.g. "2600th Run!! - Committee"). The hare list is whatever
- * follows the dash; "TBA" / "Hare TBA" are stripped via
- * `normalizeHaresField()` indirectly (TBA never appears comma-separated)
- * by an explicit placeholder check below.
+ * follows the dash. A recruiting placeholder ("TBA", "Hare TBA", "HARE
+ * WANTED!", "Hares needed") clears hares (explicit null) and the title becomes
+ * the source-anchored "Run <N>" (#2686).
  *
  * No location field is exposed by the API; left undefined for now.
  */
@@ -49,6 +49,9 @@ interface AdelaideEventRow {
   allDay?: string | boolean;
   className?: string;
 }
+
+// Recruiting calls in the hare slot: "Hare TBA", "Hare Wanted", "Hares needed", "Need a hare".
+const RECRUITING_RE = /^(?:hares?\s+(?:tba|tbc|tbd|wanted|needed|required)|need(?:ed)?\s+(?:a\s+)?hares?)$/i;
 
 // Matches two title shapes:
 //   "RUN 2645 - Crunchy Crack and Unstoppable"     (regular — leading "RUN" keyword)
@@ -82,14 +85,20 @@ export function parseAdelaideEvent(
   const runNumber = Number.parseInt(titleMatch[1], 10);
   // Strip exclamation noise (e.g. "Committee!!") before placeholder check.
   const haresRaw = titleMatch[2].replace(/!+/g, "").trim();
-  const hares = !haresRaw || isPlaceholder(haresRaw) || /^hare\s*tba$/i.test(haresRaw)
-    ? undefined
-    : normalizeHaresField(haresRaw);
+  const harePlaceholder = !haresRaw || isPlaceholder(haresRaw) || RECRUITING_RE.test(haresRaw);
+  // A segment naming the kennel itself ("Committee AH3 XMAS Show", "AH3 Ironman
+  // 2027") is an event name, not a hare list.
+  const namesKennel = /\bAH3\b/i.test(haresRaw);
+  // Explicit null (not undefined) so a stale hare stored from an earlier
+  // misparse is cleared by merge rather than preserved.
+  const hares = harePlaceholder || namesKennel ? null : normalizeHaresField(haresRaw);
 
   return {
     date,
     kennelTags: [KENNEL_TAG],
-    title,
+    // "Run 2679 - HARE WANTED!" is a recruiting call, not a title (#2686):
+    // keep the source-anchored "Run 2679" and drop the placeholder segment.
+    title: harePlaceholder ? `Run ${runNumber}` : title,
     runNumber,
     hares,
     startTime,

@@ -30,6 +30,8 @@ export interface ICalSourceConfig {
   titleStripPrefixAliases?: string[];  // #2148 Reading / #2160 ICH3: kennel-label variants ("RH3"/"ReadingH3", "ICH3") to strip from the START of the resolved title together with an immediately-following run marker ("#1203:", "# 60"). Opt-in per source — the run number is already extracted into its own field, so the prefix is pure noise. See stripTitleKennelRunPrefix.
   cleanDescriptionLocation?: boolean;  // #2159 Charm City: run a DESCRIPTION-derived location (not the VEVENT LOCATION field) through cleanLocationName — strips URLs/labels/CTA residue and rejects placeholders. Opt-in so feeds whose On-On venue path already emits clean names are untouched.
   dropImprobablePlaceholderTime?: boolean; // #2175 Charm City: clear startTime/endTime when a `#TBD`-style placeholder run also carries a junk late-night DTSTART (23:00–03:59) — the hare entered a throwaway time before the trail was scheduled. Opt-in so a legitimately late/early-morning trail on another feed that still uses a placeholder run number keeps its time.
+  summaryGridRefVenue?: boolean;       // Chichester H3: SUMMARY is "<hares / theme>  <OS grid ref> <venue>" (e.g. "Bambi & Old Faithful  SU912194 Ambersham Common") or "<text>  TBA  see …" with no title and a link-only DESCRIPTION. Splits venue off the grid ref, uses the preamble as the description, takes hares from it only when it reads as a plain hare list, and leaves the title undefined so merge synthesizes "<Kennel> Trail #N". See splitGridRefSummary / gridRefPreambleHares.
+  locationOmitIfMatches?: string[];    // Cheltenham & Cotswold H3: regexes (case-insensitive) for a LOCATION that is a placeholder, not a venue ("TORCHLIT"). A match drops the location AND the VEVENT's GEO, because the publisher geocoded the placeholder text into a bogus pin. Same semantics as the GenericHtml/GCal knob of the same name.
 }
 
 /**
@@ -242,7 +244,86 @@ const TITLE_HARE_THEME_SUFFIX_RE = /\b(?:run|walk|jog|ride|bike|hike)$/i;
 // property); `goo.gl/maps` is the legacy short form. Both recognized so the
 // map pin surfaces as locationUrl.
 const MAPS_URL_PATTERN =
-  /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.com|maps\.app\.goo\.gl|goo\.gl\/maps)\S*/i;
+  /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.(?:com|co\.[a-z]{2})|maps\.app\.goo\.gl|goo\.gl\/maps)\S*/i;
+
+/**
+ * Drop a backslash left dangling at the end of a line. Malvern H3's feed
+ * double-escapes its newlines (`\\n`), which node-ical decodes to a literal
+ * backslash followed by a real newline ("Lassie\" + "\n"). A backslash at the
+ * end of a line is never meaningful text, so this is safe for every feed.
+ */
+export function stripLineEndBackslashes(text: string | undefined): string | undefined {
+  return text?.replaceAll("\\\n", "\n");
+}
+
+/** Matches a `q=loc:LAT,LNG` coordinate query (Chichester's maps.google.co.uk URLs). */
+const LOC_QUERY_RE = /[?&]q=loc:(-?\d{1,3}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/i;
+
+/** True for the 0,0 "null island" placeholder some feeds emit for venue-TBA runs. */
+function isNullIsland(lat: number, lng: number): boolean {
+  return Math.abs(lat) < 1e-6 && Math.abs(lng) < 1e-6;
+}
+
+/**
+ * Rewrite a `?q=loc:LAT,LNG` map link to the canonical `query=LAT,LNG` search URL
+ * that merge's extractCoordsFromMapsUrl parses. Returns `null` for a 0,0
+ * placeholder pin (reject), and the URL unchanged when it carries no `loc:` query.
+ */
+export function normalizeLocMapUrl(url: string): string | null {
+  const m = LOC_QUERY_RE.exec(url);
+  if (!m) return url;
+  const lat = Number.parseFloat(m[1]);
+  const lng = Number.parseFloat(m[2]);
+  if (isNullIsland(lat, lng)) return null;
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+}
+
+/** UK Ordnance Survey grid reference: two letters + six digits ("SU752074"). */
+const OS_GRID_REF_RE = /\b[A-Z]{2}\d{6}\b/;
+const TBA_MARKER = "  TBA";
+
+/**
+ * Split a Chichester-style SUMMARY into its free-text preamble and the venue
+ * that follows the OS grid reference. A venue-TBA row ("<text>  TBA  see <a…>")
+ * has a preamble and no venue. HTML tags are stripped, whitespace collapsed,
+ * and underscores in venues ("Chichester_Naggs_Head") become spaces.
+ */
+export function splitGridRefSummary(summary: string): { preamble?: string; venue?: string } {
+  const tidy = (text: string): string | undefined =>
+    text.replaceAll(/<[^>]*>/g, " ").replaceAll(/\s+/g, " ").trim() || undefined;
+  const grid = OS_GRID_REF_RE.exec(summary);
+  if (grid) {
+    return {
+      preamble: tidy(summary.slice(0, grid.index)),
+      venue: tidy(summary.slice(grid.index + grid[0].length).replaceAll("_", " ")),
+    };
+  }
+  const tba = summary.indexOf(TBA_MARKER);
+  return { preamble: tidy(tba >= 0 ? summary.slice(0, tba) : summary) };
+}
+
+// Words that mark a preamble as a theme / visit / special rather than a hare list.
+const GRID_PREAMBLE_THEME_RE =
+  /\?|\b(?:hash|hhh|visit|weekend|camp|joint|run|trail|bbq|christmas|hangover|party|birthday|raffle|awards|tba|volunteer|iow)\b/i;
+const HARE_LABEL_RE = /\bhares?\b/i;
+
+/**
+ * Hares from a Chichester SUMMARY preamble, or undefined when it doesn't read
+ * as a plain hare list. An explicit "Hare(s)" label wins ("Visit: Deepcut Hash.
+ * Hares: Yorkie & Yellow Peril"); otherwise the text before " - " is used, minus
+ * any parenthetical ("Bambi & Old Faithful - SUMMER BBQ" → "Bambi & Old Faithful").
+ * Anything still carrying a theme word or "??" is rejected — the preamble is
+ * kept as the description either way, so nothing is lost.
+ */
+export function gridRefPreambleHares(preamble: string | undefined): string | undefined {
+  if (!preamble) return undefined;
+  let candidate = preamble;
+  const label = HARE_LABEL_RE.exec(candidate);
+  if (label) candidate = candidate.slice(label.index + label[0].length).replace(/^[\s:]+/, "");
+  candidate = candidate.split(" - ")[0].replaceAll(/\([^)]*\)/g, " ").replaceAll(/\s+/g, " ").trim();
+  if (!candidate || GRID_PREAMBLE_THEME_RE.test(candidate)) return undefined;
+  return candidate;
+}
 
 /** Normalize ICS escape sequences in a description string. */
 function normalizeIcsDescription(description: string): string {
@@ -579,7 +660,7 @@ function resolveLocationUrl(
 ): string | undefined {
   if (geo) {
     const { lat, lon } = geo;
-    if (lat != null && lon != null) {
+    if (lat != null && lon != null && !isNullIsland(lat, lon)) {
       return `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
     }
   }
@@ -601,6 +682,7 @@ function buildRawEventFromVEvent(
   compiledTitleHarePattern?: RegExp,
   compiledLocationPatterns?: RegExp[],
   compiledCostPatterns?: RegExp[],
+  compiledLocationOmit?: RegExp[],
 ): RawEventData | null {
   if (vevent.status === "CANCELLED") return null;
 
@@ -649,7 +731,7 @@ function buildRawEventFromVEvent(
       endDate = formatDate(inclusiveEnd);
     }
   }
-  const description = paramValue(vevent.description);
+  const description = stripLineEndBackslashes(paramValue(vevent.description));
   let hares = description ? extractHaresFromDescription(description, compiledHarePatterns) : undefined;
   // Track whether the hare came from the SUMMARY (titleHarePattern) vs the
   // description — the #2160 title-is-hare suppression below only fires for
@@ -679,6 +761,13 @@ function buildRawEventFromVEvent(
   if (location && isPlaceholder(location)) {
     location = null;
   }
+  // A configured placeholder LOCATION ("TORCHLIT") was geocoded by the publisher
+  // into a meaningless pin, so the GEO goes with it.
+  let geo = vevent.geo;
+  if (location && compiledLocationOmit?.some((re) => re.test(location as string))) {
+    location = null;
+    geo = undefined;
+  }
 
   if (!location && description) {
     const rawDescLocation = extractLocationFromDescription(description, compiledLocationPatterns)
@@ -700,11 +789,26 @@ function buildRawEventFromVEvent(
   // don't match, so their sourceUrl behavior is unchanged.
   const eventUrl = paramValue(vevent.url) ?? undefined;
   const eventUrlIsMap = eventUrl ? MAPS_URL_PATTERN.test(eventUrl) : false;
+  // A `?q=loc:0,0` placeholder pin (Chichester venue-TBA runs) is rejected outright.
+  const eventMapUrl = eventUrlIsMap && eventUrl ? (normalizeLocMapUrl(eventUrl) ?? undefined) : undefined;
+
+  // Chichester H3: hares/theme + venue are packed into the SUMMARY around an OS
+  // grid ref, and the DESCRIPTION is only links. Venue fills an empty LOCATION.
+  let gridPreamble: string | undefined;
+  if (config?.summaryGridRefVenue) {
+    const split = splitGridRefSummary(summary);
+    gridPreamble = split.preamble;
+    hares = gridRefPreambleHares(split.preamble);
+    // A venue-TBA row is the source saying "no venue": emit an explicit `null` so
+    // merge clears a venue (and its pin) a previous scrape stored for this run.
+    if (!location) location = split.venue ?? null;
+  }
+
   const locationUrl = resolveLocationUrl(
-    vevent.geo,
+    geo,
     location ?? undefined,
     description,
-    eventUrlIsMap ? eventUrl : undefined,
+    eventMapUrl,
   );
 
   // Run number: prefer the shared `#`-delimited summary extraction (parsed),
@@ -744,7 +848,8 @@ function buildRawEventFromVEvent(
   // A summary that is only kennel + an unconfirmed-run placeholder ("RH3: #120?")
   // has no real title — leave it undefined so the merge pipeline synthesizes a
   // default rather than surfacing the marker (#1785).
-  let title = parsed.title ?? (hasPlaceholderRun ? undefined : summary);
+  // Grid-ref SUMMARYs carry no title (merge synthesizes "<Kennel> Trail #N").
+  let title = config?.summaryGridRefVenue ? undefined : parsed.title ?? (hasPlaceholderRun ? undefined : summary);
   // #2148 Reading / #2160 ICH3: strip a leading kennel label + run marker the
   // source bakes into the title ("RH3: #1203:", "ICH3# 60"). Opt-in per source.
   if (title && config?.titleStripPrefixAliases?.length) {
@@ -781,7 +886,10 @@ function buildRawEventFromVEvent(
     kennelTags: [parsed.kennelTag],
     runNumber,
     title,
-    description: appendDescriptionSuffix(description?.substring(0, 2000) || undefined, config?.descriptionSuffix),
+    description: appendDescriptionSuffix(
+      (config?.summaryGridRefVenue ? gridPreamble : description?.substring(0, 2000)) || undefined,
+      config?.descriptionSuffix,
+    ),
     hares,
     location,
     locationUrl,
@@ -904,12 +1012,16 @@ export class ICalAdapter implements SourceAdapter {
     const compiledTitleHarePattern = config?.titleHarePattern
       ? compilePatterns([config.titleHarePattern], "i")[0]
       : undefined;
+    const compiledLocationOmit = config?.locationOmitIfMatches?.length
+      ? compilePatterns(config.locationOmitIfMatches, "i")
+      : undefined;
 
     let events: RawEventData[] = [];
     const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
     let totalVEvents = 0;
     let skippedDateRange = 0;
+    let skippedInvalidDate = 0;
     let skippedPattern = 0;
     let eventIndex = 0;
     const parseErrors: ParseError[] = [];
@@ -934,12 +1046,20 @@ export class ICalAdapter implements SourceAdapter {
         }
 
         if (!vevent.start) continue;
+        // A malformed DTSTART ("20250307to10T110000", Chichester's multi-day
+        // caravan weekend) is left by node-ical as a raw string (or an Invalid
+        // Date) — skip it rather than throw.
+        const startValue: unknown = vevent.start;
+        if (!(startValue instanceof Date) || Number.isNaN(startValue.getTime())) {
+          skippedInvalidDate++;
+          continue;
+        }
         if (vevent.start < minDate || vevent.start > maxDate) {
           skippedDateRange++;
           continue;
         }
 
-        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns, compiledRunNumberPatterns, compiledTitleHarePattern, compiledLocationPatterns, compiledCostPatterns);
+        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns, compiledRunNumberPatterns, compiledTitleHarePattern, compiledLocationPatterns, compiledCostPatterns, compiledLocationOmit);
         if (event) events.push(event);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -1026,6 +1146,7 @@ export class ICalAdapter implements SourceAdapter {
         eventsExtracted: events.length,
         skippedDateRange,
         skippedPattern,
+        skippedInvalidDate,
         fetchDurationMs,
         icsBytes: icsText.length,
         contentType,

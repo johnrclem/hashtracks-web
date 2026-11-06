@@ -90,15 +90,27 @@ function validateFinding(req: FindingRequest): string | null {
   return null;
 }
 
-async function handleFinding(req: FindingRequest, adminId: string): Promise<NextResponse> {
-  const validationError = validateFinding(req);
+/**
+ * Resolve the submitted kennel identifier to a canonical `kennelCode`. Submitters are told to use
+ * the last path segment of the kennel's HashTracks page, which is the name-derived `slug` — and
+ * for some kennels that differs from the internal code (`hk-h3` → `hkh3`,
+ * `north-shore-wanderers-h3` → `nswhhh`; #2588). An exact kennelCode match wins; otherwise fall
+ * back to the slug. Both columns are unique, so each lookup yields at most one kennel.
+ */
+async function resolveKennelCode(input: string): Promise<string | null> {
+  const byCode = await prisma.kennel.findUnique({ where: { kennelCode: input }, select: { kennelCode: true } });
+  if (byCode) return byCode.kennelCode;
+  const bySlug = await prisma.kennel.findUnique({ where: { slug: input }, select: { kennelCode: true } });
+  return bySlug?.kennelCode ?? null;
+}
+
+async function handleFinding(rawReq: FindingRequest, adminId: string): Promise<NextResponse> {
+  const validationError = validateFinding(rawReq);
   if (validationError) return badRequest(validationError);
 
-  const kennel = await prisma.kennel.findUnique({
-    where: { kennelCode: req.kennelCode },
-    select: { kennelCode: true },
-  });
-  if (!kennel) return badRequest("Unknown kennelCode", 422);
+  const kennelCode = await resolveKennelCode(rawReq.kennelCode);
+  if (!kennelCode) return badRequest("Unknown kennelCode", 422);
+  const req = { ...rawReq, kennelCode };
 
   const eventIds = req.eventIds ?? [];
   const contentHash = computeDraftContentHash({
@@ -138,15 +150,13 @@ async function handleFinding(req: FindingRequest, adminId: string): Promise<Next
   }
 }
 
-async function handleCompletion(req: CompletionRequest): Promise<NextResponse> {
-  if (req.findingsCount < 0) return badRequest("findingsCount must be ≥ 0");
-  if (req.summary.length > SUMMARY_MAX) return badRequest(`summary must be ≤${SUMMARY_MAX} chars`);
+async function handleCompletion(rawReq: CompletionRequest): Promise<NextResponse> {
+  if (rawReq.findingsCount < 0) return badRequest("findingsCount must be ≥ 0");
+  if (rawReq.summary.length > SUMMARY_MAX) return badRequest(`summary must be ≤${SUMMARY_MAX} chars`);
 
-  const kennel = await prisma.kennel.findUnique({
-    where: { kennelCode: req.kennelCode },
-    select: { kennelCode: true },
-  });
-  if (!kennel) return badRequest("Unknown kennelCode", 422);
+  const kennelCode = await resolveKennelCode(rawReq.kennelCode);
+  if (!kennelCode) return badRequest("Unknown kennelCode", 422);
+  const req = { ...rawReq, kennelCode };
 
   // Same-day idempotency: a deep-dive completion is recorded as a KENNEL_DEEP_DIVE
   // AuditLog row (the rotation's lastDeepDiveAt is DERIVED from these rows, so writing

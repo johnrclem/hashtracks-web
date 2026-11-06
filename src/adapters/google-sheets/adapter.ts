@@ -228,8 +228,36 @@ function parseDayNameDMonNoYear(cleaned: string, today: Date): string | null {
   return inferYearForMonthDay(month, day, today);
 }
 
+const WEEKDAY_INDEX: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+
+/**
+ * Parse a weekday-prefixed two-digit-triple date: "Mon 26-06-22" (Summit H3's
+ * 2026-2027 tab writes YY-MM-DD, #2332/#2333). Two-digit triples are
+ * ambiguous, so try YY-MM-DD, then M-D-YY, then D-M-YY and accept the first
+ * valid candidate whose weekday matches the prefix. A mismatching prefix
+ * rejects the cell rather than guessing.
+ */
+function parseWeekdayPrefixedTriple(cleaned: string): string | null {
+  const match = /^([A-Za-z]{3})[A-Za-z]*\.?,?\s+(\d{1,2})[-/.](\d{1,2})[-/.](\d{2})$/.exec(cleaned);
+  if (!match) return null;
+  const weekday = WEEKDAY_INDEX[match[1].toLowerCase()];
+  if (weekday === undefined) return null;
+  const [a, b, c] = [match[2], match[3], match[4]].map((n) => Number.parseInt(n, 10));
+  const candidates: Array<[number, number, number]> = [
+    [normalizeYear(a), b, c], // YY-MM-DD
+    [normalizeYear(c), a, b], // M-D-YY
+    [normalizeYear(c), b, a], // D-M-YY
+  ];
+  for (const [year, month, day] of candidates) {
+    const iso = formatValidDate(year, month, day);
+    if (iso && new Date(`${iso}T12:00:00Z`).getUTCDay() === weekday) return iso;
+  }
+  return null;
+}
+
 /**
  * Parse dates in multiple formats found across hash kennel spreadsheets:
+ * - "Mon 26-06-22" (weekday + two-digit triple, weekday-validated)
  * - "6-15-25" (M-D-YY with hyphens)
  * - "7/1/2024" (M/D/YYYY with slashes)
  * - "6/13/22" (M/DD/YY with slashes)
@@ -259,6 +287,9 @@ export function parseDate(dateStr: string, today: Date = new Date()): string | n
   // "Thu 7 May" / "Mon 14 Sep" — year inferred from today
   const dayNameResult = parseDayNameDMonNoYear(cleaned, today);
   if (dayNameResult) return dayNameResult;
+
+  const weekdayTriple = parseWeekdayPrefixedTriple(cleaned);
+  if (weekdayTriple) return weekdayTriple;
 
   const parts = cleaned.split(/[/\-]/).map((s) => Number.parseInt(s, 10));
   if (parts.length !== 3 || parts.some(isNaN)) return null;
@@ -398,6 +429,11 @@ export function parseCSV(text: string): string[][] {
 }
 
 const mapsUrl = googleMapsSearchUrl;
+
+/** Cross-tab identity for de-duplicating overlapping season tabs (#2332). */
+function sheetEventKey(ev: RawEventData): string {
+  return `${ev.kennelTags[0] ?? ""}|${ev.date}|${ev.runNumber ?? ""}`;
+}
 
 /** Discover sheet tabs via Sheets API, returning year-prefixed tab names sorted newest-first. */
 async function discoverSheetTabs(sheetId: string, apiKey: string): Promise<{ tabNames: string[]; error?: { message: string; url?: string; status?: number } }> {
@@ -821,6 +857,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
     }
 
     // Step 2: Process each tab (newest first, stop when all events are too old)
+    const seenKeys = new Set<string>();
     for (const tabName of tabNames) {
       let csvText: string;
       const csvUrl = config.gid != null
@@ -859,7 +896,19 @@ export class GoogleSheetsAdapter implements SourceAdapter {
       }
 
       const processed = this.processRows(rows, config, { sourceUrl: source.url, minISO, maxISO, today: now, groupFilterSet, section: tabName });
-      events.push(...processed.events);
+      // Tabs are processed newest-first. Season tabs often overlap: Summit H3
+      // left stale copies of the new season's first runs at the bottom of the
+      // previous tab (#2332), and emitting both made the older copy's fields
+      // bleed into the canonical event. A row already emitted by a newer tab
+      // (same kennel + date + run number) wins; same-tab duplicates are kept.
+      const tabKeys = new Set<string>();
+      for (const ev of processed.events) {
+        const key = sheetEventKey(ev);
+        if (seenKeys.has(key)) continue;
+        tabKeys.add(key);
+        events.push(ev);
+      }
+      for (const key of tabKeys) seenKeys.add(key);
       errors.push(...processed.errors);
       if (processed.parseErrors.length > 0) {
         errorDetails.parse = [...(errorDetails.parse ?? []), ...processed.parseErrors];

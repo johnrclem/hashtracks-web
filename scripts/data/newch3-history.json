@@ -1,0 +1,2418 @@
+[
+  {
+    "date": "2019-01-13",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 1,
+    "startTime": "11:00",
+    "location": "Cheltenham North RFC",
+    "locationStreet": "Bishops Cleeve, GL52 7DG",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL52+7DG",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-01-27",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 2,
+    "startTime": "11:00",
+    "location": "The Plaisterers Arms",
+    "locationStreet": "Winchcombe, GL54 5LL",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL54+5LL",
+    "hares": "Red Devil & Twinkletoes",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-02-10",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 3,
+    "startTime": "11:00",
+    "location": "The Rising Sun Hotel",
+    "locationStreet": "Cleeve Hill, GL52 3PX",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL52+3PX",
+    "hares": "Magpie & Cripplecock",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-02-24",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 4,
+    "startTime": "11:00",
+    "location": "The Royal Oak",
+    "locationStreet": "Gretton, GL54 5EP",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL54+5EP",
+    "hares": "Grey'un & Superstitch",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-03-10",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 5,
+    "startTime": "11:00",
+    "location": "The Gardeners Arms",
+    "locationStreet": "Alderton, GL20 8NL",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL20+8NL",
+    "hares": "Soggy Balls",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-03-24",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 6,
+    "startTime": "11:00",
+    "location": "The Crown & Trumpet",
+    "locationStreet": "Broadway, WR12 7AE",
+    "locationUrl": "https://maps.google.co.uk/maps?q=WR12+7AE",
+    "hares": "Colonel Klink",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-04-07",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 7,
+    "startTime": "11:00",
+    "location": "Mechanical Music Museum",
+    "locationStreet": "Northleach, GL54 3ET",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL54+3ET",
+    "hares": "Hubcaps & Gizmo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-04-21",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 8,
+    "startTime": "11:00",
+    "location": "The Black Horse",
+    "locationStreet": "Naunton, GL54 3AD",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL54+3AD",
+    "hares": "Carloss, Magpie & Cripplecock",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-05-05",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 9,
+    "startTime": "11:00",
+    "location": "The Red Lion Inn",
+    "locationStreet": "Little Compton, GL56 0RT",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL56+0RT",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-05-19",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 10,
+    "startTime": "11:00",
+    "location": "The Great Western Arms",
+    "locationStreet": "Blockley, GL56 9DT",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL56+9DT",
+    "hares": "Red Devil & Twinkletoes",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-06-02",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 11,
+    "startTime": "11:00",
+    "location": "The Crown Inn",
+    "locationStreet": "Kemerton, GL20 7HP",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL20+7HP",
+    "hares": "Oddjob, Bunny Girl & Paddy Power",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-06-16",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 12,
+    "startTime": "11:00",
+    "location": "Stanton Village Club",
+    "locationStreet": "Stanton, WR12 7NE",
+    "locationUrl": "https://maps.google.co.uk/maps?q=WR12+7NE",
+    "hares": "Red Devil & Twinkletoes",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-06-30",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 13,
+    "startTime": "11:00",
+    "location": "The Volunteer Inn",
+    "locationStreet": "Chipping Campden, GL55 6DY",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL55+6DY",
+    "hares": "Grey'un & Superstitch",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-07-14",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 14,
+    "startTime": "11:00",
+    "location": "Sherborne Social Club",
+    "locationStreet": "Sherborne, GL54 3DH",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL54+3DH",
+    "hares": "Dylan & Avril",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-07-28",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 15,
+    "startTime": "11:00",
+    "location": "Horse & Groom",
+    "locationStreet": "Upper Oddington, GL56 0XH",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL56+0XH",
+    "hares": "Hubcaps & Gizmo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-08-11",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 16,
+    "startTime": "11:00",
+    "location": "The Frogmill",
+    "locationStreet": "Shipton Oliffe, GL54 4HT",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL54+4HT",
+    "hares": "Carloss, Magpie & Cripplecock",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-09-01",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 17,
+    "startTime": "11:00",
+    "location": "The Kings Head Inn",
+    "locationStreet": "Bledington, OX7 6XQ",
+    "locationUrl": "https://maps.google.co.uk/maps?q=OX7+6XQ",
+    "hares": "Red Devil & Ticker",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-09-08",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 18,
+    "startTime": "11:00",
+    "location": "The Ebrington Arms",
+    "locationStreet": "Ebrington, GL55 6NH",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL55+6NH",
+    "hares": "Colonel Klink",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-09-22",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 19,
+    "startTime": "11:00",
+    "location": "Dumbleton Cricket Club",
+    "locationStreet": "Dumbleton, WR11 7TP",
+    "locationUrl": "https://maps.google.co.uk/maps?q=WR11+7TP",
+    "hares": "Paddy Power & Bunny Girl",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-10-06",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 20,
+    "startTime": "11:00",
+    "location": "The Apple Tree",
+    "locationStreet": "Woodmancote, GL52 9QG",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL52+9QG",
+    "hares": "Dr Foster & Hubcaps",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-10-20",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 21,
+    "startTime": "11:00",
+    "location": "The Bakers Arms",
+    "locationStreet": "Broad Campden, GL55 6UR",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL55+6UR",
+    "hares": "Grey'un & Superstitch",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-11-03",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 22,
+    "startTime": "11:00",
+    "location": "The Bell",
+    "locationStreet": "Eckington, WR10 3AN",
+    "locationUrl": "https://maps.google.co.uk/maps?q=WR10+3AN",
+    "hares": "Magpie & Cripplecock",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-11-17",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 23,
+    "startTime": "11:00",
+    "location": "The Fleece Inn",
+    "locationStreet": "Bretforton, WR11 7JE",
+    "locationUrl": "https://maps.google.co.uk/maps?q=WR11+7JE",
+    "hares": "Gizmo & Hubcaps",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-12-01",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 24,
+    "startTime": "11:00",
+    "location": "The Seven Tuns",
+    "locationStreet": "Chedworth, GL54 4AE",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL54+4AE",
+    "hares": "Stratos & Apollo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-12-15",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 25,
+    "startTime": "11:00",
+    "location": "The Royal Oak",
+    "locationStreet": "Bredon, GL20 7LW",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL20+7LW",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2019-12-29",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 26,
+    "startTime": "11:00",
+    "location": "The Beckford Inn",
+    "locationStreet": "Beckford, GL20 7AN",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL20+7AN",
+    "hares": "Soggy Balls",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2020-01-12",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 27,
+    "startTime": "11:00",
+    "location": "The Hollow Bottom",
+    "locationStreet": "Guiting Power, GL54 5UX",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL54+5UX",
+    "hares": "Oddjob",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2020-01-26",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 28,
+    "startTime": "11:00",
+    "location": "Village Bar",
+    "locationStreet": "Weston Subedge , GL55 6QJ",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL55+6QJ",
+    "hares": "Colonel Klink",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2020-02-09",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 29,
+    "startTime": "11:00",
+    "location": "Snowshill Arms",
+    "locationStreet": "Snowshill, WR12 7JU",
+    "locationUrl": "https://maps.google.co.uk/maps?q=WR12+7JU",
+    "hares": "Gizmo & Hubcaps",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2020-02-23",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 30,
+    "startTime": "11:00",
+    "location": "The Turks Head",
+    "locationStreet": "Alcester, B49 5AD",
+    "locationUrl": "https://maps.google.co.uk/maps?q=B49+5AD",
+    "hares": "Split Ends & Bondage",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2020-03-08",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 31,
+    "startTime": "11:00",
+    "location": "The Shutters Inn",
+    "locationStreet": "Gotherington, GL52 9EZ",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL52+9EZ",
+    "hares": "Carloss",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2020-07-12",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 32,
+    "startTime": "11:00",
+    "location": "The Fox Inn",
+    "locationStreet": "Broadwell, GL56 0UF",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL56+0UF",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2020-07-26",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 33,
+    "startTime": "11:00",
+    "location": "The Yew Tree",
+    "locationStreet": "Conderton, GL20 7PP",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL20+7PP",
+    "hares": "Soggy Balls",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2020-08-09",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 34,
+    "startTime": "11:00",
+    "location": "The Childswickham Inn",
+    "locationStreet": "Childswickham, WR12 7HP",
+    "locationUrl": "https://maps.google.co.uk/maps?q=WR12+7HP",
+    "hares": "Hubcaps & Gizmo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2020-08-23",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 35,
+    "startTime": "11:00",
+    "location": "The Ivy Inn",
+    "locationStreet": "North Littleton, WR11 8EF",
+    "locationUrl": "https://maps.google.co.uk/maps?q=WR11+8EF",
+    "hares": "Turbo & Dyldo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2020-09-06",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 36,
+    "startTime": "11:00",
+    "location": "Coach & Horses",
+    "locationStreet": "Longborough, GL56 0QU",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL56+0QU",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2020-11-01",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 37,
+    "startTime": "11:00",
+    "location": "Hayles Fruit Farm",
+    "locationStreet": "Winchcombe, GL54 5PB",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL54+5PB",
+    "hares": "Hubcaps & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2020-12-13",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 38,
+    "startTime": "11:00",
+    "location": "Dumbleton Cricket Club",
+    "locationStreet": "Dumbleton, WR11 7TP",
+    "locationUrl": "https://maps.google.co.uk/maps?q=WR11+7TP",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2020-12-27",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 39,
+    "startTime": "11:00",
+    "location": "Woodmancote Village Hall",
+    "locationStreet": "Woodmancote, GL52 9HX",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL52+9HX",
+    "hares": "Badger & Kojak",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-04-04",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 40,
+    "startTime": "11:00",
+    "location": "Kilkenny Viewpoint",
+    "locationStreet": "Andoversford, GL54 4LN",
+    "locationUrl": "https://goo.gl/maps/9TQcEGNjZZKGuvJ47",
+    "hares": "Hubcaps & Carloss",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-04-18",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 41,
+    "startTime": "11:00",
+    "location": "Slaughters United CC",
+    "locationStreet": "Lower Slaughter, GL54 2HY",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL54+2HY",
+    "hares": "Split Ends & Bondage",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-05-02",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 42,
+    "startTime": "11:00",
+    "location": "Bushley Village Hall",
+    "locationStreet": "Bushley, GL20 6HT",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL20+6HT",
+    "hares": "Magpie & Cripplecock",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-05-16",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 43,
+    "startTime": "11:00",
+    "location": "Elmley Castle Picnic Place",
+    "locationStreet": "Elmley Castle, WR10 3HS",
+    "locationUrl": "https://maps.google.co.uk/maps?q=WR10+3HS",
+    "hares": "Torchy & Florence",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-05-30",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 44,
+    "startTime": "11:00",
+    "location": "The Plough Inn",
+    "locationStreet": "Stretton on Fosse, GL56 9QX",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL56+9QX",
+    "hares": "Salty Hard Bit & Split Ends",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-06-13",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 45,
+    "startTime": "11:00",
+    "location": "The Plough at Ford",
+    "locationStreet": "Temple Guiting, GL54 5RU",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL54+5RU",
+    "hares": "Badger & Kojak",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-06-27",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 46,
+    "startTime": "11:00",
+    "location": "The Mill Inn",
+    "locationStreet": "Withington, GL54 4BE",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL54+4BE",
+    "hares": "The Pimp & Dyldo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-07-11",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 47,
+    "startTime": "11:00",
+    "location": "The New Inn",
+    "locationStreet": "Willersey, WR12 7PJ",
+    "locationUrl": "https://maps.google.co.uk/maps?q=WR12+7PJ",
+    "hares": "Hubcaps, Split Ends & Bondage",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-07-25",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 48,
+    "startTime": "11:00",
+    "location": "The Curious Wine Cellar",
+    "locationStreet": "Northleach, GL54 3EG",
+    "locationUrl": "https://maps.google.co.uk/maps?q=GL54+3EG",
+    "hares": "Gizmo & Ticker",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-08-08",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 49,
+    "startTime": "11:00",
+    "location": "The Royal Oak",
+    "locationStreet": "Prestbury, GL52 3DL",
+    "locationUrl": "https://goo.gl/maps/gnnFwxMWA7bNL1NE7",
+    "hares": "Apollo & Stratos",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-08-22",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 50,
+    "startTime": "11:00",
+    "location": "The Greedy Goose",
+    "locationStreet": "Moreton-in-Marsh, GL56 0SP",
+    "locationUrl": "https://goo.gl/maps/gnnFwxMWA7bNL1NE7",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-09-05",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 51,
+    "startTime": "11:00",
+    "location": "The Gardeners Arms",
+    "locationStreet": "Alderton, GL20 8NL",
+    "locationUrl": "https://g.page/gardenerstewks",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-09-19",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 52,
+    "startTime": "11:00",
+    "location": "Great Rissington Cricket Club",
+    "locationStreet": "Great Rissington, GL54 2LP",
+    "locationUrl": "https://goo.gl/maps/DJQ59bPKsAjMAemZ9",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-10-03",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 53,
+    "startTime": "11:00",
+    "location": "The Plough Inn",
+    "locationStreet": "Cold Aston, GL54 3BN",
+    "locationUrl": "https://goo.gl/maps/QMEfvvXM8yRfGGqh7",
+    "hares": "Badger & Kojak",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-10-17",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 54,
+    "startTime": "11:00",
+    "location": "The Star Inn",
+    "locationStreet": "Ashton Under Hill, WR11 7SN",
+    "locationUrl": "https://goo.gl/maps/aadJiLN98ggU91KN6",
+    "hares": "Soggy Balls",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-10-31",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 55,
+    "startTime": "11:00",
+    "location": "The Great Western Arms",
+    "locationStreet": "Blockley, GL56 9DT",
+    "locationUrl": "https://goo.gl/maps/V7wdkNZjNpYH6oLK6",
+    "hares": "Simoane, Pimp, Half Baked",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-11-14",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 56,
+    "startTime": "11:00",
+    "location": "The George Inn",
+    "locationStreet": "Lower Brailes, OX15 5HN",
+    "locationUrl": "https://goo.gl/maps/at4ChNWyGYvefu77A",
+    "hares": "Split Ends, Bondage, & Ringpull",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-11-28",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 57,
+    "startTime": "11:00",
+    "location": "The Craven Arms",
+    "locationStreet": "Brockhampton, GL54 5XQ",
+    "locationUrl": "https://goo.gl/maps/VXrJyXGMFbpz7JZw5",
+    "hares": "Florence & Torchy",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-12-12",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 58,
+    "startTime": "11:00",
+    "location": "The Hunters Inn",
+    "locationStreet": "Longdon, GL20 6AR",
+    "locationUrl": "https://goo.gl/maps/U8x4c94RJzVZuRka7",
+    "hares": "Magpie & Cripplecock",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2021-12-26",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 59,
+    "startTime": "11:00",
+    "location": "The London Inn",
+    "locationStreet": "Charlton Kings, GL52 6HU",
+    "locationUrl": "https://goo.gl/maps/bKe4Su72V5BfrUuB7",
+    "hares": "Gizmo & Ratty",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-01-09",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 60,
+    "startTime": "11:00",
+    "location": "The Golden Ball",
+    "locationStreet": "Lower Swell, GL54 1LF",
+    "locationUrl": "https://goo.gl/maps/zUgqqEHoQsemzGJN9",
+    "hares": "Paddy Power, Boris, and Lily the Pink",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-01-23",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 61,
+    "startTime": "11:00",
+    "location": "The Kings Arms",
+    "locationStreet": "Mickleton, GL55 6RT",
+    "locationUrl": "https://goo.gl/maps/vfK3t2DdVhgwmKgT8",
+    "hares": "Badger & Kojak",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-02-06",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 62,
+    "startTime": "11:00",
+    "location": "Boat Lane Brewery",
+    "locationStreet": "Offenham, WR11 8RS",
+    "locationUrl": "https://goo.gl/maps/BZSFBzSgVrqFopeF7",
+    "hares": "Turbo & Trolley Dolly",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-02-20",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 63,
+    "startTime": "11:00",
+    "location": "The Royal Oak",
+    "locationStreet": "Andoversford, GL54 4HR",
+    "locationUrl": "https://goo.gl/maps/8DERCvDiBMMavWks8",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-03-06",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 64,
+    "startTime": "11:00",
+    "location": "The Trumpet Inn",
+    "locationStreet": "Evesham, WR11 4BD",
+    "locationUrl": "https://g.page/trumpetevesham",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-03-20",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 65,
+    "startTime": "11:00",
+    "location": "The Swan Inn",
+    "locationStreet": "Birlingham, WR10 3AQ",
+    "locationUrl": "https://goo.gl/maps/REu8wyR4iTxck1rY7",
+    "hares": "Hubcaps & Gizmo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-04-03",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 66,
+    "startTime": "11:00",
+    "location": "The Horse and Groom",
+    "locationStreet": "Bourton-on-the-Hill, GL56 9AQ",
+    "locationUrl": "https://goo.gl/maps/MfB5S6axU36YKoVe6",
+    "hares": "Noddy & Dolly",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-04-17",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 67,
+    "startTime": "11:00",
+    "location": "The Eight Bells Inn",
+    "locationStreet": "Chipping Campden, GL55 6JG",
+    "locationUrl": "https://goo.gl/maps/YH2KCTcnR2R2F66C6",
+    "hares": "Grey'un & Iron Maiden",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-05-01",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 68,
+    "startTime": "11:00",
+    "location": "The Seagrave Arms",
+    "locationStreet": "Weston Subedge , GL55 6QH",
+    "locationUrl": "https://goo.gl/maps/sNQYe5DzxYUB4DrN8",
+    "hares": "Ringpull & Bondage",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-05-15",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 69,
+    "startTime": "11:00",
+    "location": "The Corner Cupboard",
+    "locationStreet": "Winchcombe, GL54 5LX",
+    "locationUrl": "https://goo.gl/maps/btxMs5EtT4eNEfRZ7",
+    "hares": "Badger & Kojak",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-05-29",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 70,
+    "startTime": "11:00",
+    "location": "The Wychwood Inn",
+    "locationStreet": "Shipton-under-Wychwood, OX7 6BA",
+    "locationUrl": "https://g.page/wychwoodinn",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-06-12",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 71,
+    "startTime": "11:00",
+    "location": "The Halfway House",
+    "locationStreet": "Kineton, GL54 5UG",
+    "locationUrl": "https://goo.gl/maps/eGRbQvcCyy6b1Pf37",
+    "hares": "Carloss & HRH",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-06-26",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 72,
+    "startTime": "11:00",
+    "location": "The Fox",
+    "locationStreet": "Little Barrington, OX18 4TB",
+    "locationUrl": "https://goo.gl/maps/tJZwEUrtEbnKvjuu5",
+    "hares": "Gizmo & Hubcaps",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-07-10",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 73,
+    "startTime": "11:00",
+    "location": "The Thatched Tavern",
+    "locationStreet": "Honeybourne, WR11 7PQ",
+    "locationUrl": "https://goo.gl/maps/5q3K1ovRxKwC77Vc6",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-07-24",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 74,
+    "startTime": "11:00",
+    "location": "The Swan",
+    "locationStreet": "Coombe Hill, GL19 4BA",
+    "locationUrl": "https://goo.gl/maps/Z2y8kqt9z4He6QrW8",
+    "hares": "Magpie & Cripplecock",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-08-07",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 75,
+    "startTime": "11:00",
+    "location": "The Broom Tavern",
+    "locationStreet": "Broom, B50 4HL",
+    "locationUrl": "https://goo.gl/maps/K3XxTx7AzPuh87yn9",
+    "hares": "Split Ends, Bondage, & Hubcaps",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-08-21",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 76,
+    "startTime": "11:00",
+    "location": "The Ebrington Arms",
+    "locationStreet": "Ebrington, GL55 6NH",
+    "locationUrl": "https://g.page/theebringtonarms",
+    "hares": "Tooti Flooti & Paddy Power",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-09-04",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 77,
+    "startTime": "11:00",
+    "location": "The Farmers Arms",
+    "locationStreet": "Guiting Power, GL54 5TZ",
+    "locationUrl": "https://goo.gl/maps/5U2bTsAZcsvj95wZA",
+    "hares": "Simoane & Half Baked",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-09-18",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 78,
+    "startTime": "11:00",
+    "location": "The Crown Inn",
+    "locationStreet": "Kemerton, GL20 7HP",
+    "locationUrl": "https://goo.gl/maps/WUaa6yLN9wte8Z2AA",
+    "hares": "Carlos TST",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-10-02",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 79,
+    "startTime": "11:00",
+    "location": "The Black Bear Inn",
+    "locationStreet": "Moreton-in-Marsh, GL56 0AX",
+    "locationUrl": "https://goo.gl/maps/zqnSJYACSzSRUCqZA",
+    "hares": "Noddy & Dolly",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-10-16",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 80,
+    "startTime": "11:00",
+    "location": "Bredon Hill Country",
+    "locationStreet": "Evesham, WR11 7QT",
+    "locationUrl": "https://goo.gl/maps/SMgJECYAxrB1bGzVA",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-10-30",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 81,
+    "startTime": "11:00",
+    "location": "The Mill Inn",
+    "locationStreet": "Withington, GL54 4BE",
+    "locationUrl": "https://g.page/millinnwithington",
+    "hares": "Physy Blonde & Florence",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-11-13",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 82,
+    "startTime": "11:00",
+    "location": "The Inn at Fossebridge",
+    "locationStreet": "Fossebridge, GL54 3JS",
+    "locationUrl": "https://goo.gl/maps/M6UuJNaUVPKeVR6o9",
+    "hares": "Badger & Kojak",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-11-27",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 83,
+    "startTime": "11:00",
+    "location": "The Mousetrap Inn",
+    "locationStreet": "Bourton-on-the-Water, GL54 2AR",
+    "locationUrl": "https://g.page/mousetrapinn",
+    "hares": "Gizmo & Hubcaps",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-12-11",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 84,
+    "startTime": "11:00",
+    "location": "The Howard Arms",
+    "locationStreet": "Ilmington, CV36 4LT",
+    "locationUrl": "https://goo.gl/maps/o64qwyRQdgnhcYycA",
+    "hares": "Bondage & Ringpull",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2022-12-26",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 85,
+    "location": "The Royal Oak",
+    "locationStreet": "Bredon, GL20 7LW",
+    "locationUrl": "https://goo.gl/maps/t5SDkWMoGQ8w6Vi66",
+    "hares": "Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-01-08",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 86,
+    "startTime": "11:00",
+    "location": "The Norman Knight",
+    "locationStreet": "Whichford, CV36 5PE",
+    "locationUrl": "https://goo.gl/maps/LaGXzvUFLDtd8JSo8",
+    "hares": "Tooti Flooti & Paddy Power",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-01-22",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 87,
+    "startTime": "11:00",
+    "location": "The Childswickham Inn",
+    "locationStreet": "Childswickham, WR12 7HP",
+    "locationUrl": "https://goo.gl/maps/vezyAN9BRZnzske56",
+    "hares": "Half Baked & Simoane",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-02-05",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 88,
+    "startTime": "11:00",
+    "location": "The Hare",
+    "locationStreet": "Milton-under-Wychwood, OX7 6LA",
+    "locationUrl": "https://goo.gl/maps/uAVrrB7AFUJVgC769",
+    "hares": "Gizmo & Ticker",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-02-19",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 89,
+    "startTime": "11:00",
+    "location": "Ye Olde Hobnails Inn",
+    "locationStreet": "Little Washbourne, GL20 8NQ",
+    "locationUrl": "https://goo.gl/maps/bqRqTkdPZNbnJasu8",
+    "hares": "Apollo & Stratos",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-03-05",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 90,
+    "startTime": "11:00",
+    "location": "The Old Swan",
+    "locationStreet": "Minster Lovell, OX29 0RN",
+    "locationUrl": "https://goo.gl/maps/J3rh2XvwSm2xewih8",
+    "hares": "Dipstick(joint r*n with Bicester H3)",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-03-19",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 91,
+    "startTime": "11:00",
+    "location": "The Seven Tuns",
+    "locationStreet": "Chedworth, GL54 4AE",
+    "locationUrl": "https://goo.gl/maps/rumW3aNMthbsuajd8",
+    "hares": "Carlos & Dyldo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-04-02",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 92,
+    "startTime": "11:00",
+    "location": "The Rising Sun",
+    "locationStreet": "Cleeve Hill, GL52 3PX",
+    "locationUrl": "https://goo.gl/maps/5fjdEBMQ4tmtDXJZ8",
+    "hares": "Magpie & Cripplecock",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-04-16",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 93,
+    "startTime": "11:00",
+    "location": "The Shutters Inn",
+    "locationStreet": "Gotherington, GL52 9EZ",
+    "locationUrl": "https://goo.gl/maps/3qpw2P3b2sbqewsEA",
+    "hares": "Badger & Kojak",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-04-30",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 94,
+    "startTime": "11:00",
+    "location": "The Highwayman",
+    "locationStreet": "Elkstone, GL53 9PH",
+    "locationUrl": "https://goo.gl/maps/jBMZPZSMRym5h7ZU6",
+    "hares": "Torch & Florence",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-05-14",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 95,
+    "startTime": "11:00",
+    "location": "The Red Lion",
+    "locationStreet": "Long Compton, CV36 5JS",
+    "locationUrl": "https://goo.gl/maps/H4pF6KcAMYJGScnD6",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-05-28",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 96,
+    "startTime": "11:00",
+    "location": "The Red Lion",
+    "locationStreet": "Evesham, WR11 4RW",
+    "locationUrl": "https://goo.gl/maps/ieCKVt1759ngGuNE6",
+    "hares": "Turbo & Trolley Dolly",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-06-11",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 97,
+    "startTime": "11:00",
+    "location": "The Cherington Arms",
+    "locationStreet": "Shipston-on-Stour, CV36 5HS",
+    "locationUrl": "https://goo.gl/maps/doCtmM1mXZ4cmxjg9",
+    "hares": "Paddy Power & Tooti Flooti",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-06-25",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 98,
+    "startTime": "11:00",
+    "location": "The Bakers Arms",
+    "locationStreet": "Broad Campden, GL55 6UR",
+    "locationUrl": "https://goo.gl/maps/FJFQpFihMZEuCREN7",
+    "hares": "Carlos & Dyldo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-07-09",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 99,
+    "startTime": "11:00",
+    "location": "The Bell Inn",
+    "locationStreet": "Willersey, WR12 7PJ",
+    "locationUrl": "https://goo.gl/maps/H7uChkohnmgQrubJ6",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-07-23",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 100,
+    "startTime": "11:00",
+    "location": "Stow-on-the-Wold RFC",
+    "locationStreet": "Stow-on-the-Wold, GL54 1JJ",
+    "locationUrl": "https://goo.gl/maps/549FWbsZJJqLJHtg9",
+    "hares": "Hubcaps et al.",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-08-06",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 101,
+    "startTime": "11:00",
+    "location": "The Yew Tree",
+    "locationStreet": "Conderton, GL20 7PP",
+    "locationUrl": "https://goo.gl/maps/oDMRjNteGdMPaPvcA",
+    "hares": "Magpie & Cripplecock",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-08-20",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 102,
+    "startTime": "11:00",
+    "location": "The Kings Arms",
+    "locationStreet": "Mickleton, GL55 6RT",
+    "locationUrl": "https://goo.gl/maps/EdtPJeaKUcAC22jT8",
+    "hares": "Badger & Kojak",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-09-03",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 103,
+    "startTime": "11:00",
+    "location": "The Seven Tuns",
+    "locationStreet": "Chedworth, GL54 4AE",
+    "locationUrl": "https://goo.gl/maps/qWMCxscpo1F7Jdzx7",
+    "hares": "Carlos TST & Dyldo(joint r*n with CVH3)",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-09-17",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 104,
+    "startTime": "11:00",
+    "location": "Cottage of Content",
+    "locationStreet": "Barton, B50 4NP",
+    "locationUrl": "https://goo.gl/maps/XRYKv38Qy9cYGAr1A",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-10-01",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 105,
+    "startTime": "11:00",
+    "location": "The Howard Arms",
+    "locationStreet": "Ilmington, CV36 4LT",
+    "locationUrl": "https://maps.app.goo.gl/1XFgzGNbbTrHyShp6",
+    "hares": "Ringpull",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-10-15",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 106,
+    "startTime": "11:00",
+    "location": "The Tite Inn",
+    "locationStreet": "Chadlington, OX7 3NY",
+    "locationUrl": "https://maps.app.goo.gl/YQ7SVMX8dvq2Wduu6",
+    "hares": "Gizmo & Ticker",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-10-29",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 107,
+    "startTime": "11:00",
+    "location": "Stanton Village Club",
+    "locationStreet": "Broadway, WR12 7NE",
+    "locationUrl": "https://maps.app.goo.gl/aYvty97FVVkVZKmk6",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-11-12",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 108,
+    "startTime": "11:00",
+    "location": "The White Hart Inn",
+    "locationStreet": "Winchcombe, GL54 5LJ",
+    "locationUrl": "https://maps.app.goo.gl/8PHyAtgKxxjo23fX6",
+    "hares": "Badger & Kojak",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-11-26",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 109,
+    "startTime": "11:00",
+    "location": "The Hunters Inn",
+    "locationStreet": "Longdon, GL20 6AR",
+    "locationUrl": "https://maps.app.goo.gl/KgdL6KoMvcNeEKg38",
+    "hares": "Instant Whip & Herr Flash",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-12-10",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 110,
+    "startTime": "11:00",
+    "location": "The Shakespeare Inn",
+    "locationStreet": "Welford-on-Avon, CV37 8PX",
+    "locationUrl": "https://maps.app.goo.gl/u7hfZZ5mLUf7gSKy5",
+    "hares": "Kookie D'Oh & Ring of Fire",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2023-12-24",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 111,
+    "startTime": "11:00",
+    "location": "The Beckford Inn",
+    "locationStreet": "Beckford, GL20 7AN",
+    "locationUrl": "https://maps.app.goo.gl/oGzhhgSzjwiLHUff7",
+    "hares": "Dr Foster, Robo, & Gizmo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-01-07",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 112,
+    "startTime": "11:00",
+    "location": "The Noel Arms",
+    "locationStreet": "Chipping Campden, GL55 6AT",
+    "locationUrl": "https://maps.app.goo.gl/PKUDcAhcCS9UKZUT7",
+    "hares": "Tooti Flooti & Tess",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-01-21",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 113,
+    "startTime": "11:00",
+    "location": "The Fish & Anchor Inn",
+    "locationStreet": "Offenham, WR11 8QT",
+    "locationUrl": "https://maps.app.goo.gl/c2qTASYVwUvkm7C87",
+    "hares": "Foxy Lady & Turbo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-02-04",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 114,
+    "startTime": "11:00",
+    "location": "The Hare",
+    "locationStreet": "Milton-under-Wychwood, OX7 6LA",
+    "locationUrl": "https://maps.app.goo.gl/ch1SPpdy8yCV2f1g9",
+    "hares": "Split Ends & co.",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-02-18",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 115,
+    "startTime": "11:00",
+    "location": "The Sherborne Arms",
+    "locationStreet": "Northleach, GL54 3EE",
+    "locationUrl": "https://maps.app.goo.gl/Q4WHSvgEpQxscjoCA",
+    "hares": "Haggis, Mother Hen, & MurcoJoint R*n with Churn Valley",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-03-03",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 116,
+    "startTime": "11:00",
+    "location": "The Kingsbridge Inn",
+    "locationStreet": "Bourton-on-the-Water, GL54 2BS",
+    "locationUrl": "https://maps.app.goo.gl/gKyEgofepAbQAQ3Y9",
+    "hares": "Tooti Flooti & Tess",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-03-17",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 117,
+    "startTime": "11:00",
+    "location": "The Mason's Arms",
+    "locationStreet": "Long Marston, CV37 8RG",
+    "locationUrl": "https://maps.app.goo.gl/4HJiCai8G4cGt8Mv6",
+    "hares": "Foxy Lady & co.",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-03-31",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 118,
+    "startTime": "11:00",
+    "location": "Dumbleton Village Club",
+    "locationStreet": "Dumbleton, WR11 7TH",
+    "locationUrl": "https://maps.app.goo.gl/hL5C1yxw59gZ4Ptn7",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-04-14",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 119,
+    "startTime": "11:00",
+    "location": "The Blue Boar",
+    "locationStreet": "Temple Grafton, B49 6NR",
+    "locationUrl": "https://maps.app.goo.gl/fdjX5s7aCEjK1niWA",
+    "hares": "Turbo & Trolley Dolly",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-04-28",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 120,
+    "startTime": "11:00",
+    "location": "The Queen Elizabeth Inn",
+    "locationStreet": "Elmley Castle, WR10 3HS",
+    "locationUrl": "https://maps.app.goo.gl/zeDQfCJrZmNFhThV8",
+    "hares": "Badger & Kojak",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-05-12",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 121,
+    "startTime": "11:00",
+    "location": "The Crown",
+    "locationStreet": "Ampney Crucis, GL7 5RS",
+    "locationUrl": "https://maps.app.goo.gl/ZQuPp7ZuA3mETHw3A",
+    "hares": "Carloss",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-05-26",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 122,
+    "startTime": "11:00",
+    "location": "La Vista Barat The Vale Golf Club",
+    "locationStreet": "Bishampton, WR10 2LZ",
+    "locationUrl": "https://maps.app.goo.gl/kzcA1LtC46ffBZhe6",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-06-09",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 123,
+    "startTime": "11:00",
+    "location": "The Kingham Plough",
+    "locationStreet": "Kingham, OX7 6YD",
+    "locationUrl": "https://maps.app.goo.gl/uqUUoWqHGsn6ZyGSA",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-06-23",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 124,
+    "startTime": "11:00",
+    "location": "The Tite Inn",
+    "locationStreet": "Chadlington, OX7 3NY",
+    "locationUrl": "https://maps.app.goo.gl/jeVfXc4af6xvgC9G6",
+    "hares": "Gizmo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-07-07",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 125,
+    "startTime": "11:00",
+    "location": "The Sherbourne Arms",
+    "locationStreet": "Northleach, GL54 3EE",
+    "locationUrl": "https://maps.app.goo.gl/pVkFvGMUTb7YhSzP8",
+    "hares": "Avril & Incognito",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-07-21",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 126,
+    "startTime": "11:00",
+    "location": "The Galton Arms",
+    "locationStreet": "Himbleton, WR9 7LQ",
+    "locationUrl": "https://maps.app.goo.gl/amR1xbCrhMfMnszFA",
+    "hares": "Split Ends & Bondage",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-08-04",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 127,
+    "startTime": "11:00",
+    "location": "The Queen Elizabeth Inn",
+    "locationStreet": "Elmley Castle, WR10 3HS",
+    "locationUrl": "https://maps.app.goo.gl/b8r22Fo4Tr7MG7qW7",
+    "hares": "Instant Whip & Herr Flash",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-08-18",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 128,
+    "startTime": "11:00",
+    "location": "The Crown Inn",
+    "locationStreet": "Kemerton, GL20 7HP",
+    "locationUrl": "https://maps.app.goo.gl/bGkmFa9tc9evnsYm7",
+    "hares": "Pimp",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-09-01",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 129,
+    "startTime": "11:00",
+    "location": "The Plough & Harrow",
+    "locationStreet": "Drakes Broughton, WR10 2AG",
+    "locationUrl": "https://maps.app.goo.gl/3WdzDbLPTJ4aimuH6",
+    "hares": "Kooki D'Oh & Ring of Fire",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-09-15",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 130,
+    "startTime": "11:00",
+    "location": "Stanton Village Club",
+    "locationStreet": "Stanton, WR12 7NE",
+    "locationUrl": "https://maps.app.goo.gl/wWyRzhhNc6QPxFkH6",
+    "hares": "Hubcaps Memorial R*nDr Foster, Robo, & Gizmo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-09-29",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 131,
+    "startTime": "11:00",
+    "location": "Kings Arms Tavern",
+    "locationStreet": "Cleeve Prior, WR11 8LQ",
+    "locationUrl": "https://maps.app.goo.gl/fqm5i2oCq8cGUrmE9",
+    "hares": "Turbo & Trolley Dolly",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-10-13",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 132,
+    "startTime": "11:00",
+    "location": "The Railway Inn",
+    "locationStreet": "Fairford, GL7 4AR",
+    "locationUrl": "https://maps.app.goo.gl/WPAYTXqRyDiGCgdE7",
+    "hares": "Carloss & friendsJoint R*n with CVH3",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-10-27",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 133,
+    "startTime": "11:00",
+    "location": "The Wheatsheaf Inn",
+    "locationStreet": "Badsey, WR11 7EJ",
+    "locationUrl": "https://maps.app.goo.gl/6QA7p5cHzw6skVUb9",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-11-10",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 134,
+    "startTime": "11:00",
+    "location": "The Fox & Hounds Inn",
+    "locationStreet": "Bredon, GL20 7LA",
+    "locationUrl": "https://maps.app.goo.gl/ijGdtABJdam7K1rB7",
+    "hares": "Dr Foster, Robo, & Gizmo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-11-24",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 135,
+    "startTime": "11:00",
+    "location": "The Red Lion",
+    "locationStreet": "Evesham, WR11 4RW",
+    "locationUrl": "https://maps.app.goo.gl/qGRM3nw4zTnwvhWK7",
+    "hares": "Turbo & Trolley Dolly",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-12-08",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 136,
+    "startTime": "11:00",
+    "location": "The Butchers Arms",
+    "locationStreet": "Mickleton, GL55 6SD",
+    "locationUrl": "https://maps.app.goo.gl/FCVZoKMJHLbv7FYP9",
+    "hares": "Tooti & Tess",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2024-12-22",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 137,
+    "startTime": "11:00",
+    "location": "Shukur's at the Queen's Head",
+    "locationStreet": "Sedgeberrow, WR11 7UE",
+    "locationUrl": "https://maps.app.goo.gl/LpSU6ESAmPwKvWYy8",
+    "hares": "Dr Foster, Robo, & Gizmo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-01-05",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 138,
+    "startTime": "11:00",
+    "location": "The Snowshill Arms",
+    "locationStreet": "Snowshill, WR12 7JU",
+    "locationUrl": "https://maps.app.goo.gl/mWQ9kxyLQiJdUAKK8",
+    "hares": "Kookie D'Oh & Ring of Fire",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-01-19",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 139,
+    "startTime": "11:00",
+    "location": "The Vale Bar & Restaurant",
+    "locationStreet": "Bishampton, WR10 2LZ",
+    "locationUrl": "https://maps.app.goo.gl/8hdpDcfq3gqoCrht9",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-02-02",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 140,
+    "startTime": "11:00",
+    "location": "The Great Western Arms",
+    "locationStreet": "Blockley, GL56 9DT",
+    "locationUrl": "https://maps.app.goo.gl/c6MUrZHGvup4nieL9",
+    "hares": "Split Ends & Bondage",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-02-16",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 141,
+    "startTime": "11:00",
+    "location": "The Shutters Inn",
+    "locationStreet": "Gotherington, GL52 9EZ",
+    "locationUrl": "https://maps.app.goo.gl/kfHT4kDpKcgzLgMXA",
+    "hares": "Instant Whip & Herr Flash",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-03-02",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 142,
+    "startTime": "11:00",
+    "location": "The Fleece Inn",
+    "locationStreet": "Bretforton, WR11 7JE",
+    "locationUrl": "https://maps.app.goo.gl/hTefhYGoG2ALMXco7",
+    "hares": "Gizmo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-03-16",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 143,
+    "startTime": "11:00",
+    "location": "The Red Lion",
+    "locationStreet": "Ilmington, CV36 4LX",
+    "locationUrl": "https://maps.app.goo.gl/9W83cngSMr6Z7fxW6",
+    "hares": "Beer Spoke & Lee",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-03-30",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 144,
+    "startTime": "11:00",
+    "location": "The Kings Arms",
+    "locationStreet": "Mickleton, GL55 6RT",
+    "locationUrl": "https://goo.gl/maps/vfK3t2DdVhgwmKgT8",
+    "hares": "Gizmo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-04-13",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 145,
+    "startTime": "11:00",
+    "location": "Ye Olde Hobnails Inn",
+    "locationStreet": "Little Washbourne, GL20 8NQ",
+    "locationUrl": "https://goo.gl/maps/bqRqTkdPZNbnJasu8",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-04-27",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 146,
+    "startTime": "11:00",
+    "location": "The Mill Inn",
+    "locationStreet": "Withington, GL54 4BE",
+    "locationUrl": "https://maps.app.goo.gl/K2M6XyQ4XgMieDyM8",
+    "hares": "Incognito & Harry",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-05-11",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 147,
+    "startTime": "11:00",
+    "location": "Ye Olde Red Horse",
+    "locationStreet": "Evesham, WR11 4RE",
+    "locationUrl": "https://maps.app.goo.gl/VBukiQyDxn8wcQHU9",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-05-25",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 148,
+    "startTime": "11:00",
+    "location": "Inn for All Seasons",
+    "locationStreet": "Little Barrington, OX18 4TN",
+    "locationUrl": "https://maps.app.goo.gl/n55XoBSKYuARFmi68",
+    "hares": "Dyldo & Carloss",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-06-08",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 149,
+    "startTime": "11:00",
+    "location": "The Coach and Horses",
+    "locationStreet": "Longborough, GL56 0QU",
+    "locationUrl": "https://maps.app.goo.gl/JZv1TJZc7n3wmw4j6",
+    "hares": "Tooti & Tess",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-06-22",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 150,
+    "startTime": "11:00",
+    "location": "Condicote Village Hall",
+    "locationStreet": "Condicote, GL54 1ES",
+    "locationUrl": "https://maps.app.goo.gl/Up8puREp8Sn4GQGX9",
+    "hares": "Dr Foster, Robo, & Gizmo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-07-06",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 151,
+    "startTime": "11:00",
+    "location": "The Golden Cross",
+    "locationStreet": "Ardens Grafton, B50 4LG",
+    "locationUrl": "https://maps.app.goo.gl/TXv12AXvc1fYP8it7",
+    "hares": "Turbo & Trolley Dolly",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-07-20",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 152,
+    "startTime": "11:00",
+    "location": "The Plough Inn",
+    "locationStreet": "Stretton-on-Fosse, GL56 9QX",
+    "locationUrl": "https://maps.app.goo.gl/FeuUaoj96Fa9zpNw6",
+    "hares": "Split Ends & Bondage",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-08-03",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 153,
+    "startTime": "11:00",
+    "location": "The Bell",
+    "locationStreet": "Eckington, WR10 3AN",
+    "locationUrl": "https://maps.app.goo.gl/j8LyViFAuUcy4c4k9",
+    "hares": "Instant Whip & Herr Flash",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-08-17",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 154,
+    "startTime": "11:00",
+    "location": "The Swan at Southrop",
+    "locationStreet": "Southrop, GL7 3NU",
+    "locationUrl": "https://maps.app.goo.gl/hjJYDEyAMyrw9Zxj8",
+    "hares": "Carloss & Dyldo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-08-31",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 155,
+    "startTime": "11:00",
+    "location": "Thatched Tavern",
+    "locationStreet": "Honeybourne, WR11 7PQ",
+    "locationUrl": "https://maps.app.goo.gl/UTwvyY1s9UcY3REw8",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-09-14",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 156,
+    "startTime": "11:00",
+    "location": "The Green Dragon Inn",
+    "locationStreet": "Cockleford, GL53 9NW",
+    "locationUrl": "https://maps.app.goo.gl/zAWkpVqH6x9yKRM29",
+    "hares": "Incognito & Harry",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-09-28",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 157,
+    "startTime": "11:00",
+    "location": "The Star Inn",
+    "locationStreet": "Ashton under Hill, WR11 7SN",
+    "locationUrl": "https://maps.app.goo.gl/EkCJQZdus8c7EwBM7",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-10-12",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 158,
+    "startTime": "11:00",
+    "location": "The Snowshill Arms",
+    "locationStreet": "Snowshill, WR12 7JU",
+    "locationUrl": "https://maps.app.goo.gl/mWQ9kxyLQiJdUAKK8",
+    "hares": "Kookie D'Oh & Ring of Fire",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-10-26",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 159,
+    "startTime": "11:00",
+    "location": "The Fox at Barrington",
+    "locationStreet": "Great Barrington, OX18 4TB",
+    "locationUrl": "https://maps.app.goo.gl/n7iWVFadwbxpxWT99",
+    "hares": "Gizmo & Co.",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-11-09",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 160,
+    "startTime": "11:00",
+    "location": "BYO Food & Drink for picnic",
+    "locationStreet": "Manor Farm, Sevenhampton, GL54 5SW",
+    "locationUrl": "https://maps.app.goo.gl/BwWTYSPLapsiAd1k6",
+    "hares": "Zandra & Dan",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-11-23",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 161,
+    "startTime": "11:00",
+    "location": "The Fish",
+    "locationStreet": "Wixford, B49 6DA",
+    "locationUrl": "https://maps.app.goo.gl/rAXJ7q49v76uNgxw7",
+    "hares": "Turbo & Trolley Dolly",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-12-07",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 162,
+    "startTime": "11:00",
+    "location": "The Bell",
+    "locationStreet": "Eckington, WR10 3AN",
+    "locationUrl": "https://maps.app.goo.gl/HVvVLMEzvqjyJjEm7",
+    "hares": "Christmas Party",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2025-12-21",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 163,
+    "startTime": "11:00",
+    "location": "Great Rissington Club",
+    "locationStreet": "Great Rissington, GL54 2LP",
+    "locationUrl": "https://maps.app.goo.gl/nwsWY7MVqN56VdBUA",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-01-04",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 164,
+    "startTime": "11:00",
+    "location": "The Cider Mill",
+    "locationStreet": "Evesham, WR11 2NA",
+    "locationUrl": "https://maps.app.goo.gl/qcGtzSv3YLQuvYLc7",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-01-18",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 165,
+    "startTime": "11:00",
+    "location": "The King's Head Inn",
+    "locationStreet": "Bledington, OX7 6XQ",
+    "locationUrl": "https://maps.app.goo.gl/HG4NHuDTVPhFjDTF6",
+    "hares": "Tooti Flooti & Tess",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-02-01",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 166,
+    "startTime": "11:00",
+    "location": "The Fox at Loxley",
+    "locationStreet": "Loxley, CV35 9JS",
+    "locationUrl": "https://maps.app.goo.gl/3xwN5NLa4toULqtE9",
+    "hares": "Incognito & Harry",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-02-15",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 167,
+    "startTime": "11:00",
+    "location": "The Royal Oak",
+    "locationStreet": "Gretton, GL54 5EP",
+    "locationUrl": "https://maps.app.goo.gl/fYqNzRJNHa3gbcFs5",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-03-15",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 169,
+    "startTime": "11:00",
+    "location": "The Red Lion",
+    "locationStreet": "Evesham, WR11 4RW",
+    "locationUrl": "https://goo.gl/maps/ieCKVt1759ngGuNE6",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-03-29",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 170,
+    "startTime": "11:00",
+    "location": "The Village Bar",
+    "locationStreet": "Weston Subedge , GL55 6QJ",
+    "locationUrl": "https://maps.app.goo.gl/Tgh2dkd1a6v8ktGE8",
+    "hares": "Turbo & Trolley Dolly",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-04-12",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 171,
+    "startTime": "11:00",
+    "location": "The Royal Oak",
+    "locationStreet": "Andoversford, GL54 4HR",
+    "locationUrl": "https://maps.app.goo.gl/CFBfZddBuQkqFEDj9",
+    "hares": "Pimp",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-04-18",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 172,
+    "location": "Tramway Station",
+    "locationStreet": "Llandudno, LL30 2NB",
+    "locationUrl": "https://maps.app.goo.gl/LdvDufVMjwDb4E4L7",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-04-19",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 173,
+    "startTime": "11:00",
+    "location": "The Palladium",
+    "locationStreet": "Llandudno, LL30 2DD",
+    "locationUrl": "https://maps.app.goo.gl/XvQxwW7oLwdULPV58",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-04-26",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 174,
+    "startTime": "11:00",
+    "location": "Round Of Gras",
+    "locationStreet": "Badsey, WR11 7XQ",
+    "locationUrl": "https://maps.app.goo.gl/CqXkY21LNo9xiS259",
+    "hares": "Instant Whip & Herr Flash",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-05-10",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 175,
+    "startTime": "11:00",
+    "location": "The Star Inn",
+    "locationStreet": "Pershore, WR10 1AJ",
+    "locationUrl": "https://maps.app.goo.gl/tNoaMB9y36JT4c2Z7",
+    "hares": "Kookie D'Oh & Ring of Fire",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-05-24",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 176,
+    "startTime": "11:00",
+    "location": "The Sun Inn",
+    "locationStreet": "Hook Norton, OX15 5NH",
+    "locationUrl": "https://maps.app.goo.gl/AjXMicAbgyYKp9E37",
+    "hares": "Split Ends & Bondage",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-06-07",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 177,
+    "startTime": "11:00",
+    "location": "The Cottage of Content",
+    "locationStreet": "Barton, B50 4NP",
+    "locationUrl": "https://goo.gl/maps/XRYKv38Qy9cYGAr1A",
+    "hares": "King of the Swingers & Raksha",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-06-21",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 178,
+    "startTime": "11:00",
+    "location": "The Farmers Arms",
+    "locationStreet": "Guiting Power, GL54 5TZ",
+    "locationUrl": "https://maps.app.goo.gl/paZgFZg4jRcyMm418",
+    "hares": "Dr Foster & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-07-05",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 179,
+    "startTime": "11:00",
+    "location": "Fish Hill Picnic Area",
+    "locationStreet": "Broadway, WR12 7LD",
+    "locationUrl": "https://maps.app.goo.gl/m8wEsTdaNr5rFGrm7",
+    "hares": "Kookie D'Oh & Ring of Fire",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-07-19",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 180,
+    "startTime": "11:00",
+    "location": "BCM Evesham",
+    "locationStreet": "Evesham, WR11 4DS",
+    "locationUrl": "https://maps.app.goo.gl/HAvQUfotdeECzP7z6",
+    "hares": "Foxy Lady & Dead Animal",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-08-02",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 181,
+    "startTime": "11:00",
+    "location": "The Fox in Dowdeswell",
+    "locationStreet": "Charlton Kings, GL54 4HG",
+    "locationUrl": "https://maps.app.goo.gl/rgTWLVWvrPd9yuUZ6",
+    "hares": "Carloss & Dyldo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-08-16",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 182,
+    "startTime": "11:00",
+    "location": "Pit Kitchen",
+    "locationStreet": "Moreton-in-Marsh, GL56 9PN",
+    "locationUrl": "https://maps.app.goo.gl/7xd3L12f1RRyvux28",
+    "hares": "Incognito & Harry",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-08-30",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 183,
+    "startTime": "11:00",
+    "location": "Bourton Rovers FC",
+    "locationStreet": "Bourton-on-the-Water, GL54 2ED",
+    "locationUrl": "https://maps.app.goo.gl/Wf3gwcZcyyfAfugv6",
+    "hares": "N Wilts & Robo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-09-13",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 184,
+    "startTime": "11:00",
+    "location": "The Crown Inn",
+    "locationStreet": "Kemerton, GL20 7HP",
+    "locationUrl": "https://maps.app.goo.gl/51R8EiG6MF76wpD28",
+    "hares": "Carloss & Dylan",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-09-27",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 185,
+    "startTime": "11:00",
+    "location": "The Old Prison",
+    "locationStreet": "Northleach, GL54 3JH",
+    "locationUrl": "https://maps.app.goo.gl/E8BNvVEJzgMtweC89",
+    "hares": "Incognito & Harry",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-10-11",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 186,
+    "startTime": "11:00",
+    "location": "The Chequers Inn",
+    "locationStreet": "Fladbury, WR10 2PZ",
+    "locationUrl": "https://maps.app.goo.gl/tecLDy8Eb6APCvxf8",
+    "hares": "Kookie D'Oh & Ring of Fire",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  },
+  {
+    "date": "2026-10-25",
+    "kennelTags": [
+      "newch3"
+    ],
+    "runNumber": 187,
+    "startTime": "11:00",
+    "location": "The Hare",
+    "locationStreet": "Milton-under-Wychwood, OX7 6LA",
+    "locationUrl": "https://maps.app.goo.gl/RpLBjvDoFUyofi1r9",
+    "hares": "Gizmo",
+    "sourceUrl": "https://www.newch3.org.uk/past/"
+  }
+]

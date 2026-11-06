@@ -65,6 +65,15 @@ Hash Cash:                   $5`;
     expect(result!.runNumber).toBe(2203);
   });
 
+  it("never takes a flowed-on 'When:' field as the title (#2492)", () => {
+    const result = parseDetailedBlock(
+      "R*n # 2238 When: Monday, 30 November 2026 @ 6:45 p.m.\nHares: Multiple Entry\nStart: The Nelson Pub",
+    );
+    expect(result!.runNumber).toBe(2238);
+    expect(result!.title).toBeUndefined();
+    expect(result!.date).toBe("2026-11-30");
+  });
+
   it("parses title from R*n line", () => {
     const result = parseDetailedBlock(fullBlock);
     expect(result!.title).toBe("Just wait until they see & hear me!");
@@ -180,6 +189,35 @@ describe("parsePlanningLine", () => {
     expect(result!.runNumber).toBe(2213);
     expect(result!.date).toBe("2026-06-08");
     expect(result!.hares).toBe("Tie Me Up & Clogged Nozzle");
+  });
+
+  it("routes hare names to hares only, never title (#2492)", () => {
+    const result = parsePlanningLine("2240        Monday, 14 December          2026           Beer Floaty & Dr Too Little");
+    expect(result!.hares).toBe("Beer Floaty & Dr Too Little");
+    expect(result!.title).toBeUndefined();
+  });
+
+  it.each([
+    "A River runs through it!",
+    "St David’s Day Run",
+    "Halloween Pub Crawl",
+    "27th Anniversary",
+  ])("routes a theme to title only and clears hares: %s (#2492)", (theme) => {
+    const result = parsePlanningLine(`2221        Monday, 3 August          2026           ${theme}`);
+    expect(result!.title).toBe(theme);
+    expect(result!.hares).toBeNull();
+  });
+
+  it.each([
+    "Night Rider & Trail Mix",
+    "Hash Slinging Slasher",
+    "Full Moon Fever",
+    "Mr 2 Times",
+    "CT 3 score and 10", // ambiguous: no theme signal → hares (the safe direction)
+  ])("keeps hare names that contain common hash words as hares: %s", (name) => {
+    const result = parsePlanningLine(`2230        Monday, 12 October          2026           ${name}`);
+    expect(result!.hares).toBe(name);
+    expect(result!.title).toBeUndefined();
   });
 
   it("returns null for non-planning text", () => {
@@ -311,20 +349,23 @@ describe("Oh3OttawaAdapter", () => {
     expect(run2214!.title).toBe("Nice and Greecey!");
     expect(run2214!.hares).toBe("Beer Floaty & Dr Too Little");
 
-    // Planning one-liners: ampersand themes land on the correct run (no
-    // off-by-one shift) with the verbatim ampersand text.
+    // Planning one-liners: ampersand hare names land on the correct run (no
+    // off-by-one shift) as HARES, with the title left for merge to synthesize
+    // (#2492 — never copied into both title and hares).
     const run2217 = result.events.find((e) => e.runNumber === 2217);
     expect(run2217).toBeDefined();
     expect(run2217!.date).toBe("2026-07-06");
-    expect(run2217!.title).toBe("Tie Me Up & Clogged Nozzle");
+    expect(run2217!.hares).toBe("Tie Me Up & Clogged Nozzle");
+    expect(run2217!.title).toBeUndefined();
 
     const run2218 = result.events.find((e) => e.runNumber === 2218);
     expect(run2218).toBeDefined();
-    expect(run2218!.title).toBe("Shredder");
+    expect(run2218!.hares).toBe("Shredder");
 
     const run2229 = result.events.find((e) => e.runNumber === 2229);
     expect(run2229).toBeDefined();
-    expect(run2229!.title).toBe("Finger Lickin' Good & Nipoleon");
+    expect(run2229!.hares).toBe("Finger Lickin' Good & Nipoleon");
+    expect(run2229!.title).toBeUndefined();
   });
 
   it("returns error when fetch fails", async () => {

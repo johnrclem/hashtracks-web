@@ -97,12 +97,25 @@ export interface HikeRow {
   deleted_at?: string | null;
 }
 
+/**
+ * Gatherings never start before this hour. A "02:30:00" / "03:00:00" gathering
+ * time is a 12-hour value entered without its PM flag: run #2453's own
+ * description says "Will meet at 2:45 pm" (#2401). Morning hikes (08:00/09:00)
+ * are real and stay as-is.
+ */
+const EARLIEST_GATHERING_HOUR = 7;
+
 /** Convert a PostgREST time "16:30:00" → "16:30" ("HH:MM"); undefined otherwise. */
 function toHhmm(time: string | null | undefined): string | undefined {
   if (!time) return undefined;
   const trimmed = time.trim();
   // Expect "HH:MM" or "HH:MM:SS" — keep the first five chars when well-formed.
   if (trimmed.length < 5 || trimmed[2] !== ":") return undefined;
+  const hours = Number.parseInt(trimmed.slice(0, 2), 10);
+  if (Number.isNaN(hours)) return undefined;
+  if (hours >= 1 && hours < EARLIEST_GATHERING_HOUR) {
+    return `${String(hours + 12).padStart(2, "0")}${trimmed.slice(2, 5)}`;
+  }
   return trimmed.slice(0, 5);
 }
 

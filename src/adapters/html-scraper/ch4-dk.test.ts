@@ -123,6 +123,10 @@ describe("flattenAddressCell", () => {
 });
 
 describe("parseCh4Hares", () => {
+  it("keeps 'X and friends' in source order instead of splitting the filler (#2533)", () => {
+    expect(parseCh4Hares("Thunder and friends")).toBe("Thunder and friends");
+    expect(parseCh4Hares("Thunder & Friends")).toBe("Thunder and Friends");
+  });
   it("returns single hare unchanged", () => {
     expect(parseCh4Hares("Codpiece")).toBe("Codpiece");
   });

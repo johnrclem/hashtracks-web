@@ -130,3 +130,14 @@ describe("parseHkh3Homepage", () => {
     expect(event!.locationUrl).toBe("https://maps.app.goo.gl/abc");
   });
 });
+
+describe("parseHkh3Homepage — prose containing a label word (#2584)", () => {
+  it("keeps the full venue when it mentions 'location' in prose", () => {
+    const venue =
+      "Old Wan Chai, up Stone Nullah Lane, past the American Quality Dyrclean, the Yellow House, the Blue House until you reach Stone Nullah Lane Garden and Pagoda (notably the hare's first run was set from this very location up to the top of \"Mount Cameron\", never to be repeated again!!!)";
+    const html = FIXTURE.replace("Hollywood Park Road", venue).replace("Run Number 2969", "Run Number 2979");
+    const ev = parseHkh3Homepage(html, "https://hkhash.com/", new Date(Date.UTC(2026, 6, 1)));
+    expect(ev?.location).toBe(venue);
+    expect(ev?.description).toBe("Run #2979 — Format: A to A. Bag drop 5:30pm for Walkers");
+  });
+});
