@@ -151,6 +151,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "wlh3": ["West London Hash", "West London H3", "WLH"],
     "barnesh3": ["Barnes Hash", "Barnes H3"],
     "och3": ["Old Coulsdon", "Old Coulsdon Hash", "OC Hash"],
+    "surrey-h3": ["Surrey Hash", "Surrey Hash House Harriers", "Surrey HHH"],
     "slh3": ["SLASH", "SLAH3", "South London Hash"],
     "fukfm": ["FUKFMH3", "FUK Full Moon", "First UK Full Moon"],
     "eh3": ["Enfield Hash", "Enfield H3", "EH3"],
@@ -430,6 +431,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "zh3": ["ZH3", "Zurich Hash House Harriers", "Zürich Hash House Harriers", "Zurich H3", "The Zurich Hash House Harriers"],
     // Keyed "wsh3-ch" (NOT "wsh3" → Wandering Soul H3). Bare "WSH3" alias omitted (claimed).
     "wsh3-ch": ["Winterthur & Schaffhausen Hash House Harriers", "Winterthur & Schaffhausen H3", "Winterthur Schaffhausen H3", "W&S H3", "WSH3 Switzerland"],
+    // bare "BSH3" OMITTED — Black Sheep H3 (Atlanta) owns it.
+    "bsh3-ch": ["Basel-Stadt H3", "Basel H3", "Basel Hash", "Basel-Stadt Hash House Harriers", "BSH3-CH"],
 
     // ===== AUSTRIA =====
     // Bare "VH3" alias omitted (claimed by Victoria H3, BC); "FMH" omitted (too generic).
@@ -718,11 +721,14 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // bare "SHHH"/"SHH3" OMITTED — taken by sech3/sgharriets; bare "H4" OMITTED — taken by Hangover H3.
     "sierra-h4": ["Sierra Hash", "Sierra HHH", "Sierra Hash House Harriers", "Sierra Hash House Harriers and Harriettes", "Sierra H4 Freetown"],
     // ===== CONFIG BATCH C =====
+    "sh4": ["South Hams Hash House Harriers", "South Hams H4", "South Hams H3", "South Hams Hash", "SH4 Hash"],
     // bare "DLH3" OMITTED — resolves to Duneland H3 (dlh3, South Shore, IN).
     "dlh3-gb": ["Devon Lunatics", "Devon Lunatics HHH", "DLH3-GB"],
     // bare "IH3" OMITTED — resolves to Ithaca H3 (live).
     "isca-h3": ["Isca H3", "Isca HHH", "Isca Hash", "Isca Hash House Harriers"],
     "tvh3": ["Teign Valley Hash House Harriers", "TVH3", "Teign Valley Hash"],
+    // bare "EH3" OMITTED — Eugene / Enfield / Edmonton collide.
+    "coeh3": ["City of Exeter H3", "City of Exeter Hash House Harriers", "CoEH3", "Exeter H3"],
     // bare "MH3" OMITTED — global collision (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai).
     "mickleover-h3": ["Mickleover Hash House Harriers", "Mickleover HHH", "Mickleover"],
     // ===== CLUSTER 1 =====
@@ -730,5 +736,11 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "herts-h3": ["Hertfordshire", "Herts H3", "Herts Hash", "Herts Hash House Harriers", "North Herts H3"],
     // bare "BH3" OMITTED — Buffalo H3 owns it globally.
     "bicester-h3": ["Bicester Hash", "Bicester HHH", "BH3 Bicester"],
+    // bare "MH3"/"MVH3" OMITTED — taken (Munich/Montreal/…; Mount Vernon).
+    "malvern-h3": ["Malvern Hash House Harriers", "Malvern H3", "Malvern HHH"],
+    // bare "C2H3" OMITTED — Corpus Christi H3 owns it.
+    "c2h3-gb": ["Cheltenham & Cotswold Hash House Harriers", "Cheltenham & Cotswold Hash", "Cheltenham Hash", "C2H3-GB"],
+    // bare "CH3" OMITTED — Chicago H3 owns it.
+    "ch3-gb": ["Chichester H3", "Chichester Hash House Harriers", "CHIHHH"],
   };
 

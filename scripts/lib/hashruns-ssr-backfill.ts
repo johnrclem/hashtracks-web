@@ -18,6 +18,7 @@ import { runBackfillScript } from "./backfill-runner";
 import {
   applyTitleFallback,
   composeHcLocation,
+  composeHcLocationWithUrl,
   type HarrierCentralConfig,
 } from "@/adapters/harrier-central/adapter";
 import type { RawEventData } from "@/adapters/types";
@@ -109,11 +110,12 @@ function toRawEvent(e: DatedSsrEvent, config: HashrunsSsrBackfillConfig): RawEve
   // provided", "TBD", …) internally, returning undefined for non-venues — apply
   // it to BOTH the venue and the street so an HC placeholder never persists as a
   // fake street fallback (merge/display treat locationStreet as a real address).
-  const location = composeHcLocation(e.LocationOneLineDesc, undefined);
+  // #2572: a URL-only venue (what3words link) goes to locationUrl.
+  const { location, locationUrl } = composeHcLocationWithUrl(e.LocationOneLineDesc, undefined);
   const locationStreet = composeHcLocation(e.LocationStreet, undefined);
   // Drop HC's region-default fallback pin when there is no real venue, letting
   // the merge pipeline geocode from place text + country bias instead.
-  const hasVenue = location !== undefined;
+  const hasVenue = location !== undefined || locationUrl !== undefined;
   return {
     date,
     kennelTags: [config.kennelTag],
@@ -122,6 +124,7 @@ function toRawEvent(e: DatedSsrEvent, config: HashrunsSsrBackfillConfig): RawEve
     startTime: timeMatch ? timeMatch[1] : undefined,
     hares: stripTba(e.Hares),
     location,
+    ...(locationUrl ? { locationUrl } : {}),
     locationStreet,
     latitude: hasVenue && typeof e.Latitude === "number" ? e.Latitude : undefined,
     longitude: hasVenue && typeof e.Longitude === "number" ? e.Longitude : undefined,

@@ -1,4 +1,4 @@
-import { dominantWeekday, judgeDrift, weekdayName } from "./rule-drift";
+import { detectRuleDrift, dominantWeekday, judgeDrift, sentinelWeekdays, weekdayName } from "./rule-drift";
 
 // UTC-noon dates on known weekdays. 2026-06-01 is a Monday.
 const MON = "2026-06-01"; // Mon
@@ -56,5 +56,92 @@ describe("judgeDrift", () => {
 
   it("does NOT flag when the rule projects nothing in the window (empty predicted set)", () => {
     expect(judgeDrift(new Set<number>(), recentSat)).toBeNull();
+  });
+});
+
+describe("sentinelWeekdays", () => {
+  it("reads the weekday from a CADENCE sentinel", () => {
+    expect(sentinelWeekdays("CADENCE=WEEKLY;BYDAY=SU")).toEqual([0]);
+    expect(sentinelWeekdays("CADENCE=BIWEEKLY;BYDAY=TH")).toEqual([4]);
+  });
+  it("reads multiple weekdays", () => {
+    expect(sentinelWeekdays("CADENCE=MONTHLY;BYDAY=SA,SU")).toEqual([6, 0]);
+  });
+  it("ignores dated FREQ rules, LUNAR sentinels and junk tokens", () => {
+    expect(sentinelWeekdays("FREQ=WEEKLY;BYDAY=MO")).toEqual([]);
+    expect(sentinelWeekdays("FREQ=LUNAR;BYMOONPHASE=FULL")).toEqual([]);
+    expect(sentinelWeekdays("CADENCE=WEEKLY")).toEqual([]);
+    expect(sentinelWeekdays("CADENCE=WEEKLY;BYDAY=XX")).toEqual([]);
+  });
+});
+
+describe("detectRuleDrift — LOW cadence sentinel suppression (#2454)", () => {
+  // 2026-11-02 is a Monday. Recent window: 4 Sundays + 1 Monday (Desert H3 cool-season shape).
+  const now = new Date("2026-11-03T12:00:00Z");
+  const ev = (iso: string) => ({
+    kennelId: "k1",
+    date: d(iso),
+    eventKennels: [],
+    rawEvents: [{ source: { type: "HTML_SCRAPER" } }],
+  });
+  const events = ["2026-10-11", "2026-10-18", "2026-10-25", "2026-11-01", "2026-10-26"].map(ev);
+  const kennel = { id: "k1", kennelCode: "dh3-ae", shortName: "Desert H3", region: "Dubai" };
+  const rule = (
+    id: string, rrule: string, confidence: "MEDIUM" | "LOW",
+    validFrom: string | null = null, validUntil: string | null = null,
+  ) => ({
+    id, kennelId: "k1", rrule, anchorDate: null, startTime: "19:00", confidence,
+    notes: null, label: null, validFrom, validUntil,
+  });
+  const mockPrisma = (rules: ReturnType<typeof rule>[]) =>
+    ({
+      kennel: { findMany: vi.fn().mockResolvedValue([kennel]) },
+      scheduleRule: { findMany: vi.fn().mockResolvedValue(rules) },
+      event: { findMany: vi.fn().mockResolvedValue(events) },
+    }) as never;
+
+  it("flags Sunday reality against a Monday-only rule", async () => {
+    const findings = await detectRuleDrift(mockPrisma([rule("r1", "FREQ=WEEKLY;BYDAY=MO", "MEDIUM")]), now);
+    expect(findings.map((f) => f.kennelCode)).toEqual(["dh3-ae"]);
+    expect(findings[0].actualWeekday).toBe("Sun");
+  });
+
+  it("does NOT flag when a LOW CADENCE sentinel declares the Sunday slot", async () => {
+    const findings = await detectRuleDrift(
+      mockPrisma([rule("r1", "FREQ=WEEKLY;BYDAY=MO", "MEDIUM"), rule("r2", "CADENCE=WEEKLY;BYDAY=SU", "LOW")]),
+      now,
+    );
+    expect(findings).toEqual([]);
+  });
+
+  it("does NOT suppress with a sentinel whose season window is entirely outside the span", async () => {
+    // Span is ~2026-09-22 .. 2026-12-01; a Mar–May-only Sunday sentinel must not hide drift.
+    const findings = await detectRuleDrift(
+      mockPrisma([
+        rule("r1", "FREQ=WEEKLY;BYDAY=MO", "MEDIUM"),
+        rule("r2", "CADENCE=WEEKLY;BYDAY=SU", "LOW", "03-01", "05-31"),
+      ]),
+      now,
+    );
+    expect(findings.map((f) => f.kennelCode)).toEqual(["dh3-ae"]);
+  });
+
+  it("suppresses with an in-season sentinel (Oct–Apr cool-season Sunday)", async () => {
+    const findings = await detectRuleDrift(
+      mockPrisma([
+        rule("r1", "FREQ=WEEKLY;BYDAY=MO", "MEDIUM"),
+        rule("r2", "CADENCE=WEEKLY;BYDAY=SU", "LOW", "10-01", "04-30"),
+      ]),
+      now,
+    );
+    expect(findings).toEqual([]);
+  });
+
+  it("still flags when the sentinel names a different weekday", async () => {
+    const findings = await detectRuleDrift(
+      mockPrisma([rule("r1", "FREQ=WEEKLY;BYDAY=MO", "MEDIUM"), rule("r2", "CADENCE=WEEKLY;BYDAY=SA", "LOW")]),
+      now,
+    );
+    expect(findings.map((f) => f.kennelCode)).toEqual(["dh3-ae"]);
   });
 });

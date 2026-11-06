@@ -3,13 +3,6 @@ import type { Source } from "@/generated/prisma/client";
 import { composeUtcStart, formatDateInZone } from "@/lib/timezone";
 import { parseDateTime, parseTitle, parseDetails, BrewCityH3Adapter } from "./brew-city-h3";
 
-/** BCH3's production weekdayShift config (Friday-published → Thursday-actual). */
-const BCH3_WEEKDAY_SHIFT = {
-  from: "Friday",
-  to: "Thursday",
-  defaultStartTime: "20:00",
-} as const;
-
 // Mock browserRender
 vi.mock("@/lib/browser-render", () => ({
   browserRender: vi.fn(),
@@ -47,45 +40,35 @@ function makeSource(overrides?: Partial<Source>): Source {
 
 // ── Unit tests for parse helpers ──
 
-describe("parseDateTime", () => {
-  it("parses weekday, date, and PM time", () => {
-    const result = parseDateTime("Saturday, April 4, 2026 AT 7 PM");
-    expect(result.date).toBe("2026-04-04");
-    expect(result.startTime).toBe("19:00");
+describe("parseDateTime (Wix heading is UTC → America/Chicago, #2658/#2678)", () => {
+  it("post-DST 'Friday 1 AM' UTC is Thursday 7 PM CST", () => {
+    expect(parseDateTime("Friday, November 13, 2026 AT 1 AM")).toEqual({ date: "2026-11-12", startTime: "19:00" });
   });
 
-  it("parses AM time", () => {
-    const result = parseDateTime("Sunday, May 10, 2026 AT 11 AM");
-    expect(result.date).toBe("2026-05-10");
-    expect(result.startTime).toBe("11:00");
+  it("summer 'Friday 12 AM' UTC is Thursday 7 PM CDT (not a date-only placeholder)", () => {
+    expect(parseDateTime("Friday, April 3, 2026 AT 12 AM")).toEqual({ date: "2026-04-02", startTime: "19:00" });
   });
 
-  it("returns undefined startTime for midnight (12 AM placeholder)", () => {
-    const result = parseDateTime("Friday, April 3, 2026 AT 12 AM");
-    expect(result.date).toBe("2026-04-03");
-    expect(result.startTime).toBeUndefined();
+  it("'Saturday 1 AM' UTC is a Friday 7 PM special (Guy Fawkes V)", () => {
+    expect(parseDateTime("Saturday, November 7, 2026 AT 1 AM")).toEqual({ date: "2026-11-06", startTime: "19:00" });
   });
 
-  it("handles 12 PM correctly", () => {
-    const result = parseDateTime("Thursday, June 1, 2026 AT 12 PM");
-    expect(result.date).toBe("2026-06-01");
-    expect(result.startTime).toBe("12:00");
+  it("a daytime heading stays on its day (Thanksgiving noon Turkey Stumble)", () => {
+    expect(parseDateTime("Thursday, November 26, 2026 AT 6 PM")).toEqual({ date: "2026-11-26", startTime: "12:00" });
+  });
+
+  it("parses minutes when present", () => {
+    expect(parseDateTime("Friday, July 10, 2026 AT 12:30 AM")).toEqual({ date: "2026-07-09", startTime: "19:30" });
+  });
+
+  it("handles 12 PM", () => {
+    expect(parseDateTime("Thursday, June 4, 2026 AT 12 PM")).toEqual({ date: "2026-06-04", startTime: "07:00" });
   });
 
   it("returns null date for non-matching text", () => {
     const result = parseDateTime("Some random text");
     expect(result.date).toBeNull();
     expect(result.startTime).toBeUndefined();
-  });
-
-  it("parses Thursday 8 PM (post-#960 timezone fix expected input)", () => {
-    // After the browser-render service is given timezoneId="America/Chicago",
-    // Wix renders BCH3 events as "Thursday, April 30, 2026 AT 8 PM" (the
-    // kennel's authored local time). Without the timezone hint, the same
-    // event rendered as "Friday, May 1, 2026 AT 12 AM" — see #960.
-    const result = parseDateTime("Thursday, April 30, 2026 AT 8 PM");
-    expect(result.date).toBe("2026-04-30");
-    expect(result.startTime).toBe("20:00");
   });
 });
 
@@ -225,17 +208,18 @@ describe("BrewCityH3Adapter", () => {
     const result = await adapter.fetch(makeSource());
     expect(result.events.length).toBeGreaterThanOrEqual(2);
 
-    // Verify the adapter forwards timezoneId so the NAS browser-render service
-    // creates a Playwright context in BCH3's local zone (#960). Without this,
-    // Wix renders 8 PM CDT events as 12 AM UTC and parseDateTime drops them.
+    // The renderer is pinned to UTC: the Wix heading is a UTC instant that
+    // parseDateTime converts to Chicago time (#960/#2658).
     expect(mockedBrowserRender).toHaveBeenCalledWith(
-      expect.objectContaining({ timezoneId: "America/Chicago" }),
+      expect.objectContaining({ timezoneId: "UTC" }),
     );
 
     // First event: BCH3 Trail #359
     const trail359 = result.events.find(e => e.runNumber === 359);
     expect(trail359).toBeDefined();
-    expect(trail359!.date).toBe("2026-04-03");
+    // "Friday, April 3, 2026 AT 12 AM" UTC → Thursday April 2, 7 PM CDT.
+    expect(trail359!.date).toBe("2026-04-02");
+    expect(trail359!.startTime).toBe("19:00");
     expect(trail359!.kennelTags[0]).toBe("bch3");
     expect(trail359!.title).toBe("🌕 Moonlit Easter Egg Hunt Hash III");
     expect(trail359!.hares).toBe("Amber Alert");
@@ -248,8 +232,9 @@ describe("BrewCityH3Adapter", () => {
     // Second event: Easter Hash (no trail number)
     const easterHash = result.events.find(e => e.title === "Easter Hash");
     expect(easterHash).toBeDefined();
+    // "Saturday, April 4, 2026 AT 7 PM" UTC → Saturday 2 PM CDT.
     expect(easterHash!.date).toBe("2026-04-04");
-    expect(easterHash!.startTime).toBe("19:00");
+    expect(easterHash!.startTime).toBe("14:00");
     expect(easterHash!.runNumber).toBeUndefined();
   });
 
@@ -263,66 +248,16 @@ describe("BrewCityH3Adapter", () => {
     ]);
   });
 
-  it("does NOT shift when weekdayShift config is absent (#359 stays Friday)", async () => {
-    mockedBrowserRender.mockResolvedValue(buildTestHtml());
-
-    // makeSource() has config: null — the fixture's "Friday, April 3, 2026
-    // AT 12 AM" placeholder is left untouched.
-    const result = await adapter.fetch(makeSource());
-    const trail359 = result.events.find(e => e.runNumber === 359);
-    expect(trail359!.date).toBe("2026-04-03");
-    expect(trail359!.startTime).toBeUndefined();
-  });
-
-  it("applies weekdayShift: Friday-midnight placeholder → Thursday 20:00 (#1134)", async () => {
-    mockedBrowserRender.mockResolvedValue(buildTestHtml());
-
-    const result = await adapter.fetch(
-      makeSource({ config: { weekdayShift: BCH3_WEEKDAY_SHIFT } }),
-    );
-
-    // #359 published as "Friday, April 3, 2026 AT 12 AM" back-shifts one day to
-    // Thursday April 2 and gets the kennel's real 8 PM start.
-    const trail359 = result.events.find(e => e.runNumber === 359);
-    expect(trail359).toBeDefined();
-    expect(trail359!.date).toBe("2026-04-02");
-    expect(trail359!.startTime).toBe("20:00");
-
-    // Only the Friday placeholder shifts; the Saturday event does not.
-    expect(result.diagnosticContext?.weekdayShifted).toBe(1);
-  });
-
-  it("weekdayShift leaves a real non-Friday event unchanged (Saturday)", async () => {
-    mockedBrowserRender.mockResolvedValue(buildTestHtml());
-
-    const result = await adapter.fetch(
-      makeSource({ config: { weekdayShift: BCH3_WEEKDAY_SHIFT } }),
-    );
-
-    // "Easter Hash" is "Saturday, April 4, 2026 AT 7 PM" — weekday ≠ Friday, so
-    // the from:Friday gate doesn't fire. Date + time untouched.
-    const easterHash = result.events.find(e => e.title === "Easter Hash");
-    expect(easterHash).toBeDefined();
-    expect(easterHash!.date).toBe("2026-04-04");
-    expect(easterHash!.startTime).toBe("19:00");
-  });
-
-  it("weekdayShift does NOT touch a genuinely-timed Friday event (placeholder-only gate)", async () => {
-    // A real "Friday, April 10, 2026 AT 7 PM" event has a parsed startTime
-    // (19:00), not the 12 AM placeholder's undefined — so the gate skips it and
-    // it stays Friday 19:00 even under the from:Friday config. Guards against
-    // silently corrupting a legitimate Friday special trail.
+  it("ignores a leftover weekdayShift config (times are already Chicago-local)", async () => {
     mockedBrowserRender.mockResolvedValue(buildSingleEventHtml(
-      "Friday, April 10, 2026 AT 7 PM",
-      "BCH3 Trail #364: Friday Special",
+      "Friday, November 13, 2026 AT 1 AM",
+      "BCH3 Trail #391",
     ));
-
     const result = await adapter.fetch(
-      makeSource({ config: { weekdayShift: BCH3_WEEKDAY_SHIFT } }),
+      makeSource({ config: { weekdayShift: { from: "Friday", to: "Thursday", defaultStartTime: "20:00" } } }),
     );
-    const event = result.events.find(e => e.runNumber === 364);
-    expect(event).toBeDefined();
-    expect(event!.date).toBe("2026-04-10");
+    const event = result.events.find(e => e.runNumber === 391);
+    expect(event!.date).toBe("2026-11-12");
     expect(event!.startTime).toBe("19:00");
   });
 
