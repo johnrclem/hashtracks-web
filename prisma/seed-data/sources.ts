@@ -5624,17 +5624,12 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      // BCH3 publishes Friday-midnight placeholders on Wix but actually runs
-      // Thursday 8 PM CDT (#960/#694). Remap Friday→Thursday at 20:00. No
-      // placeholderTime here: parseDateTime emits `undefined` (not "00:00") for
-      // the 12 AM placeholder, so a "00:00" gate would be inert. Instead the
-      // adapter gates the shift on a timeless (undefined startTime) row, so only
-      // the Friday-midnight placeholders move — a genuinely-timed Friday event
-      // stays put.
+      // Wix server-renders the date heading in UTC ("Friday … AT 1 AM" = a
+      // Thursday 7 PM Milwaukee run); the adapter converts it to Chicago time,
+      // so the old Friday→Thursday weekdayShift is gone (#2658/#2678).
       config: {
         // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
         upcomingOnly: true,
-        weekdayShift: { from: "Friday", to: "Thursday", defaultStartTime: "20:00" },
       },
       kennelCodes: ["bch3"],
     },
