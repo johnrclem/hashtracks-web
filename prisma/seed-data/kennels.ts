@@ -1284,12 +1284,46 @@ export const KENNELS: KennelSeed[] = [
       hashCash: "£2.50", foundedYear: 1994, // nhhh.co.uk: "every week since 1994"
       description: "Newcastle upon Tyne's weekly Wednesday-evening hash.",
       latitude: 54.9783, longitude: -1.6178 },
+    {
+      kennelCode: "wfh3",
+      shortName: "Wyre Forest H3",
+      fullName: "Wyre Forest Hash House Harriers",
+      region: "Kidderminster",
+      country: "UK",
+      website: "https://www.wyreforesthhh.org.uk/",
+      scheduleDayOfWeek: "Thursday",
+      scheduleTime: "7:00 PM", // 12-hr seed convention; adapter startTime stays 24-hr "19:00"
+      scheduleFrequency: "Weekly",
+      foundedYear: 2008, // run archive: #1, 1st May 2008, Royal Forester at Callow Hill, Bewdley
+      hashCash: "£1", // homepage: "a contribution of £1 per person towards the cost of our insurance policy"
+      description:
+        "Wyre Forest Hash House Harriers — running in the beautiful countryside around the Wyre Forest " +
+        "(Kidderminster, Bewdley and beyond) every Thursday at 7pm. Everyone is welcome; all we ask is a " +
+        "£1 contribution towards the club's insurance.",
+      logoUrl: "/kennel-logos/wfh3.gif", // self-hosted SmallLogo.gif (via residential proxy); magic bytes confirmed GIF
+      latitude: 52.388,
+      longitude: -2.2497,
+      // dogFriendly / walkersWelcome / socials: not stated on the site — omitted
+    },
     { kennelCode: "plympton-h3", shortName: "Plympton H3", fullName: "Plympton Hash House Harriers",
       region: "Plymouth", country: "UK", logoUrl: "/kennel-logos/plympton-h3.png",
       scheduleDayOfWeek: "Sunday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Weekly Sunday-evening trail around Plymouth and Dartmoor.",
       hashCash: "£1.50", description: "Plymouth / Dartmoor weekly Sunday-evening hash.",
       latitude: 50.3755, longitude: -4.1427 },
+    { kennelCode: "tamar-h3", // bare "tvh3" is Teign Valley H3 — Tamar keeps a distinct code (and no bare "TVH3" alias)
+      shortName: "Tamar Valley H3", fullName: "Tamar Valley Hash House Harriers",
+      region: "Plymouth", country: "UK",
+      website: "https://www.tvh3.co.uk/",
+      facebookUrl: "https://www.facebook.com/profile.php?id=100051557537843",
+      scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly", // 12-hr; adapter startTime "19:00"
+      scheduleNotes: "Weekly Monday 7pm trail across western Dartmoor and the Devon/Cornwall Tamar Valley.",
+      foundedYear: 1981, // tvh3.co.uk Hash History: "TVH3's first Hash was in 1981"
+      hashCash: "£2", // homepage "The cost is £2.00"; first-timers and children free (Hash History)
+      dogFriendly: true, // Hash History: "Keep your dogs on leads"
+      walkersWelcome: true, // Hash History: "£2.00 … from everyone - hashers, walkers and virgins"
+      description: "Tamar Valley Hash House Harriers (est. 1981) — a weekly Monday-evening (7pm) hash running across western Dartmoor and the Devon/Cornwall Tamar Valley. £2 hash cash; walkers and dogs on leads welcome. Annual Red Dress Run and Brown Gin Run.",
+      latitude: 50.5486, longitude: -4.1425 }, // Tavistock (approx); no logo on the site (nav buttons only)
     { kennelCode: "lvh3-gb", // bare "lvh3" = Lehigh Valley (PA), "lvh3-cin" = Licking Valley (OH) → region-suffixed
       shortName: "Lune Valley H3", // slug → lune-valley-h3 (NOT "LVH3", which slugifies to the taken "lvh3")
       fullName: "Lune Valley Hash House Harriers",
@@ -1301,6 +1335,49 @@ export const KENNELS: KennelSeed[] = [
       foundedYear: 2000, // lvh3.org.uk: "running since October 2000"
       description: "Lune Valley Hash House Harriers (est. October 2000) run in North Lancashire, South Cumbria and the southern Lake District — 2nd & 4th Sundays at 11am plus a Full Moon evening run.",
       latitude: 54.05, longitude: -2.8 },
+    {
+      kennelCode: "nwh3",
+      shortName: "North Wilts H3",
+      fullName: "North Wilts Hash House Harriers",
+      region: "Swindon",
+      country: "UK",
+      website: "https://nwh3.net",
+      facebookUrl: "https://www.facebook.com/NorthWiltsHHHSwindon/",
+      twitterHandle: "NorthWiltsH3",
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM", // 12-hr seed convention; adapter startTime stays 24-hr "11:00"
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Sunday 11:00 trail from a country pub around Swindon / North Wiltshire; fortnightly Wednesday 'Moonrakers' evening runs are listed separately (nwh3-moon).",
+      walkersWelcome: true, // homepage: "a social running and walking club"
+      description:
+        "Swindon's friendliest running (and walking) club — a social hash meeting every Sunday for a run or walk " +
+        "in the countryside around Swindon. Trails are typically 5 miles, marked in flour, with options for " +
+        "keen runners and walkers alike.",
+      latitude: 51.5558,
+      longitude: -1.7797,
+      // foundedYear / hashCash: not published on nwh3.net (2026-11-05) — omitted. No club crest on the site.
+    },
+    {
+      kennelCode: "nwh3-moon",
+      shortName: "Moonrakers H3",
+      fullName: "North Wilts Hash House Harriers — Moonrakers",
+      region: "Swindon",
+      country: "UK",
+      website: "https://nwh3.net/moonrakers.html",
+      facebookUrl: "https://www.facebook.com/NorthWiltsHHHSwindon/",
+      twitterHandle: "NorthWiltsH3",
+      logoUrl: "/kennel-logos/nwh3-moon.png", // self-hosted Moonrakers masthead (images/MrMoon.png); magic bytes confirmed PNG
+      scheduleDayOfWeek: "Wednesday",
+      scheduleTime: "7:00 PM", // 12-hr seed convention; adapter startTime stays 24-hr "19:00"
+      scheduleFrequency: "Biweekly",
+      scheduleNotes: "Fortnightly Wednesday evening run from a Swindon-area pub — bring a torch in winter.",
+      foundedYear: 1996, // moonrakers.html: "The first Moonraker run was held on 7th Feb 1996 from the Crown Inn at Stratton"
+      description:
+        "North Wilts H3's fortnightly Wednesday-evening series — torch-lit in winter — running from a pub " +
+        "around Swindon on alternate Wednesdays since February 1996.",
+      latitude: 51.5558,
+      longitude: -1.7797,
+    },
     // Cornwall (Callington / Tamar valley) — HC config-only
     { kennelCode: "titsh3", shortName: "Try it Thursdays H3", fullName: "Try it Thursdays Hash House Harriers",
       region: "Cornwall", country: "UK", logoUrl: "/kennel-logos/titsh3.png",
@@ -6275,6 +6352,31 @@ export const KENNELS: KennelSeed[] = [
       latitude: 18.0179, // Kingston anchor (runs are islandwide; no per-event coords published)
       longitude: -76.8099,
     },
+    // ── Grenada (first 🇬🇩 kennel: Grenada H3, est. 1985) ──
+    {
+      kennelCode: "gh3-gd", // bare "gh3"/"GH3" is Glasgow H3
+      shortName: "Grenada H3",
+      fullName: "Grenada Hash House Harriers",
+      region: "St George's",
+      country: "Grenada", // canonical NAME — code "GD" lives in region.ts
+      website: "https://grenadahash.com/",
+      facebookUrl: "https://www.facebook.com/groups/grenadahash", // gotothehash.net/caribbean.html (Feb 2026)
+      foundedYear: 1985, // /about-us/: "founded by Paul “Rigor Mortis” Slinger in 1985"
+      // No scheduleTime: the On On moves with the season (4:00 PM in Aug, 3:30 PM in Nov).
+      scheduleDayOfWeek: "Saturday",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Saturday afternoons; arrive 30 minutes before the On On (3:30–4:00 PM, posted weekly on Next Hash).",
+      hashCash: "EC$3 (voluntary)", // /next-hash/: "a voluntary three dollar (EC$3) hash cash fee"
+      dogFriendly: true, // /next-hash/ rules: "DO keep your dog on a leash!"
+      walkersWelcome: true, // /next-hash/: "2 Trails: Walkers & Runners"
+      logoUrl: "/kennel-logos/gh3-gd.png", // self-hosted GH3-GaryLogoSmall (PNG 260x282; magic bytes confirmed)
+      description:
+        "Grenada Hash House Harriers, founded in 1985 by Paul 'Rigor Mortis' Slinger. Every Saturday afternoon " +
+        "runners and walkers follow two trails at rotating locations around the Spice Isle (and Carriacou), " +
+        "then share Stag, Carib and local food. Dogs on a leash welcome; voluntary EC$3 hash cash.",
+      latitude: 12.0561, // St George's (runs rotate island-wide)
+      longitude: -61.7488,
+    },
     {
       kennelCode: "beerh3", // bare code clear; only unrelated beerspoke-h3 exists
       shortName: "BEER H3", // >4 chars → toSlug("BEER H3") = "beer-h3"; a backronym (Belgrade Eastern European Revival)
@@ -6350,6 +6452,36 @@ export const KENNELS: KennelSeed[] = [
       longitude: -122.33,
       // logoUrl OMITTED — HC returns a bundle:// app asset, not a fetchable URL; no logo available
       // website / foundedYear / hashCash: unverified — omitted
+    },
+    // ── Cyprus (first 🇨🇾 kennel: Larnaca H3, est. late May 1987) ──
+    {
+      kennelCode: "lh3-cy", // bare "lh3" is London H3
+      shortName: "Larnaca H3",
+      fullName: "Larnaca Hash House Harriers",
+      region: "Larnaca",
+      country: "Cyprus", // canonical NAME — code "CY" lives in region.ts
+      website: "https://sites.google.com/view/larnaca-hash-house-harriers/the-larnaca-hash",
+      foundedYear: 1987, // /the-larnaca-hash: "Larnaca beating Amathus to it by a short head in late May, 1987"
+      // Seasonal start times (/the-larnaca-hash): "Winter runs begin at 4pm, spring and
+      // autumn runs at 5pm, summer runs at 6pm." Disjoint BYMONTH keeps the three
+      // same-BYDAY rules distinct on the (kennelId, rrule, source) upsert key.
+      scheduleDayOfWeek: "Monday",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Winter runs start at 4 PM, spring and autumn at 5 PM, summer at 6 PM.",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO;BYMONTH=6,7,8", startTime: "18:00", label: "Summer", validFrom: "06-01", validUntil: "08-31", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=MO;BYMONTH=3,4,5,9,10", startTime: "17:00", label: "Spring/Autumn", validFrom: "03-01", validUntil: "10-31", displayOrder: 1 },
+        { rrule: "FREQ=WEEKLY;BYDAY=MO;BYMONTH=11,12,1,2", startTime: "16:00", label: "Winter", validFrom: "11-01", validUntil: "02-28", displayOrder: 2 },
+      ],
+      hashCash: "€4", // /the-larnaca-hash: "Hash fees are 4€ per person"
+      walkersWelcome: true, // "welcomes both runners and walkers and trails are laid for both"
+      // logoUrl omitted — the only site image is an 822x184 header banner, not a logo.
+      description:
+        "Larnaca Hash House Harriers, founded in late May 1987 — a very family-oriented hash ('clean names') " +
+        "that runs every Monday evening on the eastern side of Cyprus. Runners and walkers both welcome; " +
+        "trails last around an hour and regularly muster 40+.",
+      latitude: 34.9167, // Larnaca centroid (runs spread across the east of the island)
+      longitude: 33.6333,
     },
     {
       kennelCode: "sierra-h4", // grep-clean; first Sierra Leone kennel
@@ -6673,6 +6805,26 @@ export const KENNELS: KennelSeed[] = [
       longitude: -1.526,
       // dogFriendly / instagramHandle / twitterHandle: unstated — omitted (flagged)
     },
+    {
+      kennelCode: "h5-gb", // bare "h5" taken — h5-hash (Harrisburg) / h5-hi (Honolulu)
+      shortName: "H5 Hare & Hounds",
+      fullName: "Hare and Hounds Hash House Harriers",
+      region: "Bedford",
+      country: "UK",
+      website: "https://www.h5hashers.org.uk/",
+      foundedYear: 1991, // homepage: "Hashing since 1991"
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM", // 12-hr; Bank Holiday Mondays 4pm (adapter startTime "16:00")
+      scheduleFrequency: "Weekly",
+      dogFriendly: true, // homepage: "H5 welcomes dogs to the Hash"
+      description:
+        "The Hare & Hounds Hash House Harriers (H5) — 'the drinking club with a running problem', hashing " +
+        "since 1991. Weekly trails from a different pub across Bedfordshire & North Hertfordshire, Sundays " +
+        "at 11am (Bank Holiday Mondays at 4pm). New runners and drinkers always welcome.",
+      latitude: 52.1364,
+      longitude: -0.4667,
+      // hashCash / socials / logo / walkersWelcome: not published on the site (2026-11-05) — omitted
+    },
     // ===== CLUSTER 1 ===== (Herts H3 + Bicester H3 full onboard; FUKFM source-add + field fixes below)
     {
       kennelCode: "herts-h3",
@@ -6737,6 +6889,27 @@ export const KENNELS: KennelSeed[] = [
       latitude: 51.9007,
       longitude: -1.1522,
       // dogFriendly: unstated — omitted (flagged)
+    },
+    {
+      kennelCode: "newch3",
+      slug: "new-cotswold-h3", // pinned — toSlug("N.E.W. Cotswold H3") would give "n-e-w-cotswold-h3"
+      shortName: "N.E.W. Cotswold H3",
+      fullName: "N.E.W. Cotswold Hash House Harriers",
+      region: "Cotswolds",
+      country: "UK",
+      website: "https://www.newch3.org.uk",
+      contactEmail: "4humansponge@gmail.com", // homepage contact line
+      logoUrl: "/kennel-logos/newch3.png", // self-hosted from newch3.org.uk/images/hare.png; magic bytes confirmed PNG
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM", // 12-hr seed convention; adapter startTime stays 24-hr "11:00"
+      scheduleFrequency: "Biweekly",
+      foundedYear: 2019, // /past/: run #1, 13 January 2019
+      description:
+        "N.E.W. Cotswold Hash House Harriers — out on trail in the North, East or West Cotswolds every other " +
+        "Sunday at 11:00am, across Gloucestershire, Worcestershire, Oxfordshire and Warwickshire.",
+      latitude: 51.8875,
+      longitude: -1.7594,
+      // facebookUrl: the handoff's FB group is no longer linked from the site (2026-11-05) — omitted.
     },
     {
       // Bare "MH3"/"MVH3" are taken globally (Munich, Montreal…; Mount Vernon) → city code.

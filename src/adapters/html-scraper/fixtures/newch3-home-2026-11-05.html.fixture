@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-GB" lang="en-GB">
+	<head>
+		<link rel="stylesheet" href="css/base.css" type="text/css" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+		<meta name="description" content="N.E.W. Cotswold HHH - Find us out on trail in the North, East or West Cotswolds, every other Sunday at 11:00am" />
+		<meta name="keywords" content="new cotswold h3, new cotswold hhh, new cotswold hash, cotswold h3, cotswold hhh, cotswold hash house harriers, cotswolds h3, cotswolds hhh, cotswolds hash, cotswolds hash house harriers, hash house harriers" />
+		<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+		<meta name="Author" content="Colonel Klink" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta property="og:description" content="N.E.W. Cotswold HHH - Find us out on trail in the North, East or West Cotswolds, every other Sunday at 11:00am" />
+		<meta property="og:image" content="https://www.newch3.org.uk/images/hare.png" />
+		<meta property="og:site_name" content="N.E.W. Cotswold HHH" />
+		<meta property="og:title" content="N.E.W. Cotswold Hash House Harriers" />
+		<meta property="og:url" content="https://www.newch3.org.uk/" />
+		<title>N.E.W. Cotswold Hash House Harriers</title>
+	</head>
+	<body>
+		<img class="flexible" src="/images/header.png" width="1200" height="201" alt="N.E.W. Costwold H3 Header"/>
+		<h1>Find us out on trail in the <span class="shead">N</span>orth, <span class="shead">E</span>ast or <span class="shead">W</span>est Cotswolds</h1>
+		<h2>Every other Sunday at 11:00am</h2>
+		<table>
+			<caption>UPCOMING TRAILS</caption>
+			<thead>
+				<tr class="heading">
+					<th scope="col">Date</th>
+					<th scope="col">Run No.</th>
+					<th scope="col">Venue</th>
+					<th scope="col">Address</th>
+					<th scope="col">Hare(s)</th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr class="next"><th scope="row">8<sup>th</sup> November, 2026</th><td>188</td><td><a href="https://www.thebridgepub.co.uk/">The Bridge Inn</a></td><td>Offenham, <a href="https://maps.app.goo.gl/BhRLfp7EcPfKcnEv6" title="Google Map">WR11 8QZ</a></td><td>Turbo &amp; Trolley Dolly</td></tr>
+				<tr><th scope="row">22<sup>nd</sup> November, 2026</th><td>189</td><td colspan="2">TBD</td><td>Zandra Woes</td></tr>
+				<tr><th scope="row">6<sup>th</sup> December, 2026</th><td>190</td><td><a href="https://whitehartwinchcombe.co.uk/">The White Hart Inn</a></td><td>Winchcombe, <a href="https://maps.app.goo.gl/uPrK7x8eu2dK2CqC8" title="Google Map">GL54 5LJ</a></td><td>Tooti Flooti &amp; Boob Tube</td></tr>
+				<tr><th scope="row">&#x1F384; 20<sup>th</sup> December, 2026</th><td>191</td><td><a href="https://www.nortongrangepub.co.uk/">Norton Grange</a></td><td>Norton, <a href="https://maps.app.goo.gl/SF6cphpLYzi3Gmc16" title="Google Map">WR11 4TL</a></td><td>Foxy Lady &amp; Dead Animal &#x1F384;</td></tr>
+			</tbody>
+		</table>
+		<p>If you'd like to contact somebody before visiting, or have any other questions, please send an email to <a href="mailto:4humansponge@gmail.com">4humansponge@gmail.com</a>.</p>
+		<h3><a href="/past">See where we have been</a></h3>
+	</body>
+</html>
+

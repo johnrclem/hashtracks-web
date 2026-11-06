@@ -305,6 +305,17 @@ describe("inferCountry — Nuremberg (Germany)", () => {
   });
 });
 
+describe("inferCountry — Cyprus (first 🇨🇾 kennel: Larnaca H3)", () => {
+  it.each([
+    ["Cyprus", "Cyprus"],
+    ["Larnaca, Cyprus", "Cyprus"],
+    ["Larnaca", "Cyprus"],
+    ["Agia Napa Nature Reserve, Cyprus", "Cyprus"],
+  ])("infers %s → Cyprus", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
 describe("inferCountry — Barbados (first 🇧🇧 / first Caribbean kennel)", () => {
   it.each([
     ["Bridgetown", "Barbados"],
@@ -312,6 +323,25 @@ describe("inferCountry — Barbados (first 🇧🇧 / first Caribbean kennel)", 
     ["Barbados", "Barbados"],
     ["Oldbury Park, Oldbury, St Philip, Barbados", "Barbados"],
   ])("infers %s → Barbados", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
+describe("regionSlug — apostrophes", () => {
+  it("drops apostrophes", () => {
+    expect(regionSlug("St George's")).toBe("st-georges");
+  });
+});
+
+describe("inferCountry — Grenada (first 🇬🇩 kennel: Grenada H3)", () => {
+  it.each([
+    ["Grenada", "Grenada"],
+    ["St George's, Grenada", "Grenada"],
+    ["Carriacou", "Grenada"],
+    // Grenada, Mississippi stays USA.
+    ["Grenada, MS", "USA"],
+    ["Grenada, Mississippi", "USA"],
+  ])("infers %s → %s", (name, country) => {
     expect(inferCountry(name)).toBe(country);
   });
 });
