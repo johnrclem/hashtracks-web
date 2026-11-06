@@ -171,6 +171,7 @@ export function parseSWH3Body(html: string): {
       .replace(/\n/g, ", ")
       .replace(/,\s*,/g, ",")
       .trim();
+    location = trimProseAfterZip(location);
     if (isPlaceholder(location)) location = undefined;
   }
 
@@ -190,6 +191,23 @@ export function parseSWH3Body(html: string): {
   const onAfter = onAfterMatch ? onAfterMatch[1].trim() : undefined;
 
   return { startTime, whenText, location, hares, trailName, onAfter };
+}
+
+const US_STATE_ZIP_RE = /\b[A-Z]{2},?\s+\d{5}(?:-\d{4})?\b/;
+
+/**
+ * Where-lines sometimes run on past the address into parking directions,
+ * coordinates and a hare's phone number ("…, Raleigh, NC 27616 also known as
+ * the WRAL Soccer Park. More specifically: … Or call GS: 201 655-2630", #2680).
+ * When a "ST 12345" ZIP is followed by a long prose tail, keep the address
+ * only — the full post body is already carried in the description.
+ */
+export function trimProseAfterZip(location: string): string {
+  const zip = US_STATE_ZIP_RE.exec(location);
+  if (!zip) return location;
+  const end = zip.index + zip[0].length;
+  if (location.slice(end).trim().length <= 20) return location;
+  return location.slice(0, end).trim();
 }
 
 /** Process a single WordPress.com post into a RawEventData. */

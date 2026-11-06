@@ -6,6 +6,7 @@ import {
   hcGeocodeFailed,
   scrubDescriptionPii,
   buildHashrunsPermalink,
+  splitUrlOnlyLocation,
 } from "./adapter";
 import type { HCEvent } from "./adapter";
 import { generateAccessToken, PUBLIC_HASHER_ID } from "./token";
@@ -380,6 +381,29 @@ describe("applyTitleFallback (#1166)", () => {
   });
 });
 
+describe("splitUrlOnlyLocation (#2572)", () => {
+  it("routes a bare what3words URL to locationUrl", () => {
+    expect(splitUrlOnlyLocation("https://w3w.co/souk.rods.weeks")).toEqual({
+      locationUrl: "https://w3w.co/souk.rods.weeks",
+    });
+  });
+  it("trims surrounding whitespace (HC stores a leading newline on DAFT #678)", () => {
+    expect(splitUrlOnlyLocation("\nhttps://w3w.co/drain.bonnet.crumbles")).toEqual({
+      locationUrl: "https://w3w.co/drain.bonnet.crumbles",
+    });
+  });
+  it("keeps real venue text unchanged, even when it contains a URL", () => {
+    expect(splitUrlOnlyLocation("Golden Acorn, https://w3w.co/a.b.c")).toEqual({
+      location: "Golden Acorn, https://w3w.co/a.b.c",
+    });
+    expect(splitUrlOnlyLocation("Rosyth station")).toEqual({ location: "Rosyth station" });
+  });
+  it("returns nothing for empty input", () => {
+    expect(splitUrlOnlyLocation(undefined)).toEqual({});
+    expect(splitUrlOnlyLocation("  ")).toEqual({});
+  });
+});
+
 describe("hcGeocodeFailed", () => {
   it("returns true when both fields are non-empty and equal (case-insensitive)", () => {
     expect(hcGeocodeFailed("Ikebukuro exit", "Ikebukuro exit")).toBe(true);
@@ -605,6 +629,120 @@ describe("HarrierCentralAdapter", () => {
       );
       expect(result.events[0].runNumber).toBeUndefined();
       expect(result.events[0].title).toBe("Try it Thursday");
+    });
+
+    it("emits a what3words-only venue as locationUrl and keeps HC's coords (#2572 DAFT)", async () => {
+      mockApiResponse([
+        buildHCEvent({
+          locationOneLineDesc: "https://w3w.co/souk.rods.weeks",
+          resolvableLocation: "https://w3w.co/souk.rods.weeks",
+          syncLat: 56.1958,
+          syncLong: -3.1675,
+        }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "dafth3" }));
+      const evt = result.events[0];
+      expect(evt.location).toBeUndefined();
+      expect(evt.locationUrl).toBe("https://w3w.co/souk.rods.weeks");
+      expect(evt.latitude).toBeCloseTo(56.1958, 3);
+      expect(evt.dropCachedCoords).toBeUndefined();
+    });
+
+    it("strips Aberdeen's redundant run/venue/hares title shape via config (#2583)", async () => {
+      mockApiResponse([
+        buildHCEvent({
+          eventName: "AH3 Run 2244 - Brathens - Hares: Redstripe",
+          eventNumber: 2244,
+          locationOneLineDesc: "Brathens",
+          resolvableLocation: "Brathens, Banchory, United Kingdom",
+          hares: "Redstripe",
+        }),
+        buildHCEvent({
+          eventName: "AH3 Run 2263 TBA",
+          eventNumber: 2263,
+          locationOneLineDesc: "",
+          hares: "",
+        }),
+        buildHCEvent({
+          eventName: "AH3 Run 2250 - Burns Night Special - Hares: Tonto",
+          eventNumber: 2250,
+          locationOneLineDesc: "Kemnay Skate Park",
+        }),
+      ]);
+      const result = await adapter.fetch(
+        makeSource({
+          defaultKennelTag: "aberdeen-h3",
+          defaultTitle: "Aberdeen H3",
+          staleTitleAliases: ["Placeholder event for AH3", "TBA"],
+          titleStripPatterns: [String.raw`^AH3\s+Run\s+\d+[\s-]*`, String.raw`[\s-]*\bHares?:.*$`],
+        }),
+      );
+      expect(result.events.map((e) => e.title)).toEqual([
+        "Aberdeen H3 #2244", // remainder "Brathens" == venue → fallback
+        "Aberdeen H3 #2263", // remainder "TBA" → stale alias
+        "Burns Night Special", // a real theme survives
+      ]);
+      expect(result.events[0].hares).toBe("Redstripe");
+    });
+
+    it("adds upcoming hashruns.org rows that getEvents omits for this kennel (#2590 Newcastle)", async () => {
+      mockApiResponse([]); // getEvents returns [] for Newcastle
+      mockSafeFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          runs: [
+            {
+              PublicEventId: "nh3-1982",
+              PublicKennelId: "f1266de7-9bdc-4cb7-95ca-4846fd7aa01c",
+              KennelSlug: "NH3-GB",
+              EventNumber: 1982,
+              EventName: "Hash 1982",
+              EventStartDatetime: "2026-11-11T19:00:00",
+              Hares: "Pimp",
+              LocationOneLineDesc: "The Bacchus",
+              EventDescription: "On on",
+            },
+            // another kennel's run — must not leak in
+            { PublicEventId: "other", PublicKennelId: "someone-else", EventNumber: 5, EventStartDatetime: "2026-11-12T19:00:00" },
+            // already past — getEvents' future-only contract is kept
+            { PublicEventId: "nh3-old", PublicKennelId: "f1266de7-9bdc-4cb7-95ca-4846fd7aa01c", EventNumber: 1900, EventStartDatetime: "2026-03-01T19:00:00" },
+          ],
+        }),
+      } as never);
+      const result = await adapter.fetch(
+        makeSource({
+          publicKennelId: "f1266de7-9bdc-4cb7-95ca-4846fd7aa01c",
+          defaultKennelTag: "newcastle-h3",
+          defaultTitle: "Newcastle H3",
+        }),
+      );
+      expect(result.events).toHaveLength(1);
+      expect(result.events[0]).toMatchObject({
+        date: "2026-11-11",
+        startTime: "19:00",
+        runNumber: 1982,
+        title: "Hash 1982",
+        hares: "Pimp",
+        location: "The Bacchus",
+        description: "On on",
+        kennelTags: ["newcastle-h3"],
+      });
+      expect(result.diagnosticContext?.globalRunsAdded).toBe(1);
+    });
+
+    it("does not duplicate a run present in both getEvents and hashruns.org", async () => {
+      const hc = buildHCEvent({ publicKennelId: "k1" });
+      mockApiResponse([hc]);
+      mockSafeFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          runs: [{ PublicEventId: hc.publicEventId, PublicKennelId: "k1", EventNumber: 2577, EventStartDatetime: hc.eventStartDatetime }],
+        }),
+      } as never);
+      const result = await adapter.fetch(makeSource({ publicKennelId: "k1", defaultKennelTag: "tokyo-h3" }));
+      expect(result.events).toHaveLength(1);
     });
 
     it("skips invisible events", async () => {

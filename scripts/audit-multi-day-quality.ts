@@ -22,6 +22,7 @@ import {
   normalizeTitleForCluster,
   clusterGroupKey,
   isConsecutiveCluster,
+  isNumberedRunOnlyTitle,
 } from "../src/pipeline/same-title-cluster";
 import fs from "node:fs";
 import path from "node:path";
@@ -302,6 +303,9 @@ function clusterA5Groups(rows: AuditRow[]): Map<string, A5Group> {
   const groups = new Map<string, A5Group>();
   for (const r of rows) {
     if (r.isSeriesParent || r.parentEventId) continue;
+    // Same exclusion as the pipeline linker (#2456): bare "Trail #N" titles
+    // share no event name, so they are never multi-day cluster evidence.
+    if (isNumberedRunOnlyTitle(r.title)) continue;
     const norm = normalizeTitleForCluster(r.title);
     const prefix = clusterGroupKey(norm);
     if (!prefix) continue;

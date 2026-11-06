@@ -65,6 +65,16 @@ describe("mapHikeRow", () => {
     expect(e!.description).toBe("Camel Rage - Ammaiyah"); // trimmed
   });
 
+  it.each([
+    ["02:30:00", "14:30"],
+    ["03:00:00", "15:00"],
+    ["03:30:00", "15:30"],
+    ["08:00:00", "08:00"],
+    ["16:30:00", "16:30"],
+  ])("folds an AM-entered afternoon gathering time %s → %s (#2401)", (raw, want) => {
+    expect(mapHikeRow({ ...REAL_ROW, gathering_time: raw })!.startTime).toBe(want);
+  });
+
   it("parses DMS location_gps into latitude/longitude", () => {
     const e = mapHikeRow(REAL_ROW)!;
     expect(e.latitude).toBeCloseTo(24.7215, 3);
