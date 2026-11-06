@@ -7287,6 +7287,8 @@ export const SOURCES = [
       name: "SOH4 Facebook Hosted Events",
       url: "https://www.facebook.com/soh4onon/upcoming_hosted_events",
       type: "FACEBOOK_HOSTED_EVENTS" as const,
+      // Disabled 2026-11-06 (WS4 E2): soft-blocked by FB since 2026-07; the SOH4 Website source covers soh4.
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
@@ -7689,6 +7691,8 @@ export const SOURCES = [
       name: "Survivor H3 Facebook Hosted Events",
       url: "https://www.facebook.com/SurvivorH3/upcoming_hosted_events",
       type: "FACEBOOK_HOSTED_EVENTS" as const,
+      // Disabled 2026-11-06 (WS4 E2): soft-blocked by FB since 2026-07 and never produced an event; survivor-h3 is hidden.
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
@@ -7727,6 +7731,8 @@ export const SOURCES = [
       name: "Von Tramp H3 Facebook Hosted Events",
       url: "https://www.facebook.com/vontramph3/upcoming_hosted_events",
       type: "FACEBOOK_HOSTED_EVENTS" as const,
+      // Disabled 2026-11-06 (WS4 E2): soft-blocked by FB since 2026-09; the Von Tramp Squarespace source covers vth3.
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
