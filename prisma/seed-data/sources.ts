@@ -8665,6 +8665,19 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["jah3"],
     },
+    // Grenada — first 🇬🇩 kennel; bespoke GrenadaHashAdapter over the TablePress
+    // /schedule/ table (~6 months ahead) + the /next-hash/ confirmed detail. The
+    // table rolls forward, so upcomingOnly keeps reconcile off past runs.
+    {
+      name: "Grenada H3 Hash Schedule",
+      url: "https://grenadahash.com/schedule/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: { upcomingOnly: true },
+      kennelCodes: ["gh3-gd"],
+    },
     // Serbia — first 🇷🇸 kennel; Harrier Central public API (config-only).
     {
       name: "BEER H3 Harrier Central",
