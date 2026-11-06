@@ -128,12 +128,12 @@ async function main(): Promise<void> {
     if (!group?.events) throw new Error("gql2: group or events missing");
     // Remote value: keep only IANA-zone characters before it is logged or used.
     tz = (group.timezone ?? tz).replaceAll(/[^\w/+-]/g, "");
-    total = group.events.totalCount;
+    total = Number(group.events.totalCount) || 0;
     nodes.push(...group.events.edges.map((e) => e.node));
     if (!group.events.pageInfo.hasNextPage) break;
     after = group.events.pageInfo.endCursor;
   }
-  console.log(`  ${nodes.length}/${total} past events (group tz ${tz})`);
+  console.log(`  ${nodes.length}/${total} past events`);
   if (nodes.length < total) throw new Error("gql2 pagination ended early — aborting");
 
   console.log("[2/3] Mapping with the live adapter rules + gap filter…");
