@@ -385,14 +385,14 @@ export function parseTidewaterCalendar(
  * `<shortest>-<n>`, else -1 (not a re-post family — keep every copy).
  */
 function repostWinner(paths: string[]): number {
-  const base = paths.reduce((a, b) => (b.length < a.length ? b : a));
+  const base = paths.reduce((a, b) => (b.length < a.length ? b : a), paths[0]);
   let best = -1;
   let bestN = 1;
   for (let i = 0; i < paths.length; i++) {
     const p = paths[i];
     if (p === base) continue;
     const suffix = p.startsWith(`${base}-`) ? p.slice(base.length + 1) : "";
-    if (!/^\d+$/.test(suffix)) return -1;
+    if (suffix === "" || [...suffix].some((c) => c < "0" || c > "9")) return -1;
     const n = Number(suffix);
     if (n > bestN) {
       bestN = n;
@@ -406,7 +406,9 @@ function repostWinner(paths: string[]): number {
 function detailPath(sourceUrl: string | undefined): string | undefined {
   if (!sourceUrl) return undefined;
   try {
-    return new URL(sourceUrl).pathname.replace(/\/+$/, "");
+    let path = new URL(sourceUrl).pathname;
+    while (path.endsWith("/")) path = path.slice(0, -1);
+    return path;
   } catch {
     return undefined;
   }
@@ -433,7 +435,7 @@ export function dropSupersededReposts(events: RawEventData[]): RawEventData[] {
   for (const group of groups.values()) {
     if (group.length < 2) continue;
     const paths = group.map((e) => detailPath(e.sourceUrl));
-    if (paths.some((p) => p === undefined)) continue;
+    if (paths.includes(undefined)) continue;
     const keep = repostWinner(paths as string[]);
     if (keep < 0) continue;
     group.forEach((e, i) => {

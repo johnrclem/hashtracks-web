@@ -143,7 +143,7 @@ export function stripTrailingRoleClause(value: string): string {
   for (let i = 0; i < lower.length; i++) {
     if (lower[i] !== "," && lower[i] !== ";") continue;
     const rest = lower.slice(i + 1).trimStart();
-    const hit = TRAILING_ROLE_WORDS.find(
+    const hit = TRAILING_ROLE_WORDS.some(
       (w) => rest.startsWith(w) && !/[a-z0-9]/.test(rest.charAt(w.length)),
     );
     if (hit) return value.slice(0, i).trimEnd();

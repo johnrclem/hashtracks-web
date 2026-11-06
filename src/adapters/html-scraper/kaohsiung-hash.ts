@@ -226,8 +226,30 @@ function parseRunBody(
 
 // "Hares: Trojan Whores, Seldom Cums and River Horse." — the inline form some
 // posts use instead of a "Your Hares:" label block (Weekend Away, Nov 2026).
-// Capture stops at the first '.' or ':'.
-const INLINE_HARES_RE = /\bHares?:\s*([^.:]{2,160})([.:]?)/i;
+// Matched procedurally (Sonar S8786): the label must start a word, and the
+// value runs to the first '.' or ':' (max 160 chars).
+const INLINE_HARE_LABELS = ["hares:", "hare:"];
+const INLINE_HARES_MAX = 160;
+const AND_SEPARATOR_RE = /\s(?:and|&)\s/gi;
+
+function findInlineHareValue(prose: string): { value: string; endsAtLabel: boolean } | undefined {
+  const lower = prose.toLowerCase();
+  for (const label of INLINE_HARE_LABELS) {
+    let at = lower.indexOf(label);
+    while (at > 0 && /[a-z0-9]/.test(lower[at - 1])) at = lower.indexOf(label, at + 1);
+    if (at < 0) continue;
+    const rest = prose.slice(at + label.length, at + label.length + INLINE_HARES_MAX + 1);
+    let end = rest.length;
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === "." || rest[i] === ":") {
+        end = i;
+        break;
+      }
+    }
+    return { value: rest.slice(0, end).trim(), endsAtLabel: rest[end] === ":" };
+  }
+  return undefined;
+}
 
 /**
  * Hares from an inline "Hares: A, B and C." sentence in the run prose. When the
@@ -235,11 +257,15 @@ const INLINE_HARES_RE = /\bHares?:\s*([^.:]{2,160})([.:]?)/i;
  * dropped. A trailing "and C" is split so the names sort like the label form.
  */
 export function parseInlineHares(prose: string): string | undefined {
-  const m = INLINE_HARES_RE.exec(prose);
-  if (!m) return undefined;
-  let names = m[1].trim();
-  if (m[2] === ":") names = names.replace(/\s*\S+$/, "");
-  return normalizeHaresField(names.replace(/\s+(?:and|&)\s+/gi, ", "));
+  const found = findInlineHareValue(prose);
+  if (!found || found.value.length < 2) return undefined;
+  let names = found.value;
+  if (found.endsAtLabel) {
+    // "Hares: Solo Hare Details: …" — drop the next label's word.
+    const cut = names.lastIndexOf(" ");
+    names = cut > 0 ? names.slice(0, cut).trimEnd() : "";
+  }
+  return normalizeHaresField(names.replace(AND_SEPARATOR_RE, ", "));
 }
 
 const WHEN_LABEL_RE = /\bWhen:\s*/i;

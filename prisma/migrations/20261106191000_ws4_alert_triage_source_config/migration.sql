@@ -72,16 +72,7 @@ WHERE name = 'ONH3 Google Calendar'
   AND (config->'strictKennelRouting') IS DISTINCT FROM 'true'::jsonb;
 
 UPDATE "Source"
-SET config = jsonb_set(config, '{kennelPatterns}', '[
-      ["Boston Ball\\s*Buster|\\bBall\\s*Buster\\b|BoBBH3|B3H4|BBH3", "bobbh3"],
-      ["Beantown", "beantown"],
-      ["Pink Taco|PT2H3|PTT\\s*H3|\\bTaco\\b", "pink-taco"],
-      ["\\bZigZag\\b|Zig Zag|ZZH3", "zigzag"],
-      ["\\bE4B\\b|Eager\\s*4\\s*Beaver", "e4b"],
-      ["Boston Moo[mn]|Full Moon|\\bMo{2,}[mn]\\b", "bos-moon"],
-      ["Boston H3|Boston Hash|BoH3|BH3", "boh3"],
-      ["^Misman meeting\\b", "boh3"]
-    ]'::jsonb),
+SET config = jsonb_set(config, '{kennelPatterns}', '[["Boston Ball\\s*Buster|\\bBall\\s*Buster\\b|BoBBH3|B3H4|BBH3", "bobbh3"], ["Beantown", "beantown"], ["Pink Taco|PT2H3|PTT\\s*H3|\\bTaco\\b", "pink-taco"], ["\\bZigZag\\b|Zig Zag|ZZH3", "zigzag"], ["\\bE4B\\b|Eager\\s*4\\s*Beaver", "e4b"], ["Boston Moo[mn]|Full Moon|\\bMo{2,}[mn]\\b", "bos-moon"], ["Boston H3|Boston Hash|BoH3|BH3", "boh3"], ["^Misman meeting\\b", "boh3"]]'::jsonb),
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE name = 'Boston Hash Calendar'
   AND type::text = 'GOOGLE_CALENDAR'

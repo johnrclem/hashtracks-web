@@ -256,14 +256,14 @@ export const SOURCES = [
         kennelPatterns: [
           ["Boston Ball\\s*Buster|\\bBall\\s*Buster\\b|BoBBH3|B3H4|BBH3", "bobbh3"],
           ["Beantown", "beantown"],
-          ["Pink Taco|PT2H3|PTT\\s*H3|\\bTaco\\b", "pink-taco"],
+          [String.raw`Pink Taco|PT2H3|PTT\s*H3|\bTaco\b`, "pink-taco"],
           ["\\bZigZag\\b|Zig Zag|ZZH3", "zigzag"],
           ["\\bE4B\\b|Eager\\s*4\\s*Beaver", "e4b"],
           // "MOOOOOOM TRAIL" / "MoooooooooM": any run of o's (Nov 2026 alert triage).
-          ["Boston Moo[mn]|Full Moon|\\bMo{2,}[mn]\\b", "bos-moon"],
+          [String.raw`Boston Moo[mn]|Full Moon|\bMo{2,}[mn]\b`, "bos-moon"],
           ["Boston H3|Boston Hash|BoH3|BH3", "boh3"],
           // Bare "Misman meeting(location tbd)" — BH3's, like the "BH3 Misman meeting" rows above.
-          ["^Misman meeting\\b", "boh3"],
+          [String.raw`^Misman meeting\b`, "boh3"],
         ],
         // #1891: BH3 events carry a "BH3:" title prefix and stash the run
         // number in the description ("BH #2805"). Strip the prefix; pull the
@@ -388,7 +388,7 @@ export const SOURCES = [
         // reminders explicitly (both kennels have their own sources); any other
         // new title still surfaces as UNMATCHED_TAGS.
         defaultKennelTag: null,
-        skipPatterns: ["^Rumson Hash House Harriers\\b", "^Summit HHH\\b", "^SHHH\\b"],
+        skipPatterns: [String.raw`^Rumson Hash House Harriers\b`, String.raw`^Summit HHH\b`, String.raw`^SHHH\b`],
         // #2125: the 2nd-Sunday SUMMARY "Regular Hash Day, 2nd Sunday, detail
         // cuming" IS the intended run title (reverses #1934, which had treated
         // it as a placeholder blurb and substituted a default). Prefer the real
