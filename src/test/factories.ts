@@ -265,7 +265,6 @@ export function buildStravaConnection(
     refreshToken: "refresh_token_xyz",
     expiresAt: new Date(Date.now() + 3600 * 1000),
     scope: "read,activity:read",
-    athleteData: null,
     lastSyncAt: null,
     createdAt: new Date("2026-01-01"),
     updatedAt: new Date("2026-01-01"),

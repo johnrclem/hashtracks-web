@@ -814,7 +814,10 @@ model StravaConnection {
   refreshToken String // Long-lived refresh token
   expiresAt    DateTime // When accessToken expires
   scope        String    @default("activity:read_all")
-  athleteData  Json? // UNUSED since Nov 2026 (Strava API Policy §6.2); nulled by migration 20261106190000. Drop in a follow-up migration once no deployment reads it.
+  // The "athleteData" DB column (all NULL) is deliberately unmapped so deployed
+  // code stops selecting it. Its DROP ships as its own migration
+  // (drop_strava_athlete_data) after this deploys. If `migrate dev` proposes
+  // that DROP inside an unrelated migration first, move it to its own.
   lastSyncAt   DateTime? // Last successful activity sync
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt

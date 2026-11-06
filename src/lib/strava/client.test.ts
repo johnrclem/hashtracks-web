@@ -6,7 +6,7 @@ import {
   extractStravaActivityId,
   exchangeStravaCode,
   refreshStravaToken,
-  deauthorizeStrava,
+  revokeStravaRefreshToken,
   fetchStravaActivities,
 } from "./client";
 import type { StravaApiActivity } from "./types";
@@ -242,42 +242,55 @@ describe("refreshStravaToken", () => {
   });
 });
 
-describe("deauthorizeStrava", () => {
-  it("sends POST to deauthorize endpoint", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({ ok: true }),
-    );
+describe("revokeStravaRefreshToken", () => {
+  it("POSTs the token to oauth/revoke with client Basic auth and a form body", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200 }));
 
-    await deauthorizeStrava("my-access-token");
+    // Legacy plaintext token: decryptToken passes it through unchanged
+    await revokeStravaRefreshToken("my-refresh-token");
 
     const [url, options] = vi.mocked(fetch).mock.calls[0];
-    expect(url).toBe("https://www.strava.com/oauth/deauthorize");
-    expect(options!.method).toBe("POST");
+    expect(url).toBe("https://www.strava.com/oauth/revoke");
+    expect(options?.method).toBe("POST");
+    const headers = options?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe(
+      `Basic ${Buffer.from("test-client-id:test-client-secret").toString("base64")}`,
+    );
+    expect(headers["Content-Type"]).toBe("application/x-www-form-urlencoded");
+    const body = new URLSearchParams(String(options?.body));
+    expect(body.get("token")).toBe("my-refresh-token");
+    expect(body.get("token_type_hint")).toBe("refresh_token");
+    // Client credentials travel only in the Authorization header
+    expect(body.has("client_secret")).toBe(false);
+    // Disconnect must not hang on a slow Strava
+    expect(options?.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("treats 401 as success (already revoked)", async () => {
+  it("retries once on 503 after a short pause (Strava: safe to retry)", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ ok: false, status: 401 }),
+      vi.fn()
+        .mockResolvedValueOnce({ ok: false, status: 503, text: () => Promise.resolve("") })
+        .mockResolvedValueOnce({ ok: true, status: 200 }),
     );
 
-    // Should not throw
-    await deauthorizeStrava("expired-token");
+    await revokeStravaRefreshToken("tok");
+
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
   });
 
-  it("throws on other error status codes", async () => {
+  it("throws on other failures, e.g. 401 bad client credentials", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
         ok: false,
-        status: 500,
-        text: () => Promise.resolve("server error"),
+        status: 401,
+        text: () => Promise.resolve("Invalid or missing Authorization header"),
       }),
     );
 
-    await expect(deauthorizeStrava("token")).rejects.toThrow(
-      "Strava deauthorization failed (500)",
+    await expect(revokeStravaRefreshToken("tok")).rejects.toThrow(
+      "Strava token revocation failed (401)",
     );
   });
 });
