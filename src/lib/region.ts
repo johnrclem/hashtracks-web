@@ -1660,6 +1660,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     aliases: ["Bicester, England", "Oxfordshire"],
   },
   {
+    name: "Cotswolds",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "COT",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 51.8875, // Bourton-on-the-Water (central Cotswolds)
+    centroidLng: -1.7594,
+    aliases: ["Cotswolds, England", "Cheltenham"],
+  },
+  {
     name: "Cornwall",
     country: "UK",
     timezone: "Europe/London",
@@ -4370,6 +4381,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "East Midlands": "United Kingdom",
   "Hertfordshire": "United Kingdom",
   "Bicester": "United Kingdom",
+  "Cotswolds": "United Kingdom",
   "Lancaster": "United Kingdom",
   "Cornwall": "United Kingdom",
   "Sheffield": "United Kingdom",

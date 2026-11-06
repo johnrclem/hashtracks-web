@@ -6397,5 +6397,25 @@ export const KENNELS: KennelSeed[] = [
       longitude: -1.1522,
       // dogFriendly: unstated — omitted (flagged)
     },
+    {
+      kennelCode: "newch3",
+      shortName: "N.E.W. Cotswold H3",
+      fullName: "N.E.W. Cotswold Hash House Harriers",
+      region: "Cotswolds",
+      country: "UK",
+      website: "https://www.newch3.org.uk",
+      contactEmail: "4humansponge@gmail.com", // homepage contact line
+      logoUrl: "/kennel-logos/newch3.png", // self-hosted from newch3.org.uk/images/hare.png; magic bytes confirmed PNG
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM", // 12-hr seed convention; adapter startTime stays 24-hr "11:00"
+      scheduleFrequency: "Biweekly",
+      foundedYear: 2019, // /past/: run #1, 13 January 2019
+      description:
+        "N.E.W. Cotswold Hash House Harriers — out on trail in the North, East or West Cotswolds every other " +
+        "Sunday at 11:00am, across Gloucestershire, Worcestershire, Oxfordshire and Warwickshire.",
+      latitude: 51.8875,
+      longitude: -1.7594,
+      // facebookUrl: the handoff's FB group is no longer linked from the site (2026-11-05) — omitted.
+    },
   ];
 
