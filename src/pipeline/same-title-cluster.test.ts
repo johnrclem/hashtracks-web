@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import {
   normalizeTitleForCluster,
+  isNumberedRunOnlyTitle,
   clusterGroupKey,
   isConsecutiveCluster,
   splitIntoConsecutiveRuns,
@@ -23,6 +24,19 @@ describe("normalizeTitleForCluster", () => {
   });
   it("collapses multi-spaces and trims", () => {
     expect(normalizeTitleForCluster("  Foo   Bar  ")).toBe("foo bar");
+  });
+});
+
+describe("isNumberedRunOnlyTitle", () => {
+  it("matches synthesized and adapter default titles", () => {
+    expect(isNumberedRunOnlyTitle("Sydney Thirsty H3 Trail #1858")).toBe(true);
+    expect(isNumberedRunOnlyTitle("WLH3 Run #2123")).toBe(true);
+    expect(isNumberedRunOnlyTitle("Run #944")).toBe(true);
+  });
+  it("does not match titles that carry an event name", () => {
+    expect(isNumberedRunOnlyTitle("BMPH3: Trail #2051 – Belgian Nash Hash 2026 Pub Crawl!")).toBe(false);
+    expect(isNumberedRunOnlyTitle("IndyScent NASH Hash #1100")).toBe(false);
+    expect(isNumberedRunOnlyTitle("InterScandi 2026")).toBe(false);
   });
 });
 
@@ -147,6 +161,18 @@ describe("linkSameTitleConsecutiveClusters", () => {
     isSeriesParent: false,
     parentEventId: null,
     ...overrides,
+  });
+
+  it("does not fuse distinct numbered runs with default titles (#2456 STH3)", async () => {
+    // Thursday #1858 + Saturday #1859, both carrying merge's synthesized
+    // default title. Two days apart, same normalized key — but different runs.
+    mockEvents = [
+      ev({ id: "t1858", date: new Date("2026-07-02T12:00:00Z"), title: "Sydney Thirsty H3 Trail #1858" }),
+      ev({ id: "t1859", date: new Date("2026-07-04T12:00:00Z"), title: "Sydney Thirsty H3 Trail #1859" }),
+    ];
+    const result = await linkSameTitleConsecutiveClusters(mockPrisma, new Set(["kennel-1"]));
+    expect(result.clustersLinked).toBe(0);
+    expect(updates).toHaveLength(0);
   });
 
   it("links a 3-day InterScandi-style cluster", async () => {

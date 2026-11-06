@@ -101,6 +101,13 @@ describe("SaigonH3Adapter.parseHarelineRow", () => {
     expect(event!.hares).toBe("Rocky & Co"); // real hare kept verbatim incl "& Co"
   });
 
+  it("drops comma-separated run-type tokens and keeps the occasion (#2532)", () => {
+    const a = row("1858", "2026-12-06", "Bus Trip,City Run", "PIYB & Co");
+    expect(parseHarelineRow(a.cells, a.hrefs, SOURCE_URL)!.title).toBeUndefined();
+    const b = row("1857", "2026-11-29", "City Run,St Andrew’s Day", "BAP,CAL & Co");
+    expect(parseHarelineRow(b.cells, b.hrefs, SOURCE_URL)!.title).toBe("St Andrew’s Day");
+  });
+
   it("keeps a real occasion/theme as the title", () => {
     const { cells, hrefs } = row("1837", "2026-07-12", "William of Orange Run", "Paddy Fag & Co");
     const event = parseHarelineRow(cells, hrefs, SOURCE_URL);

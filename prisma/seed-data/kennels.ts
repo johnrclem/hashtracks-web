@@ -880,8 +880,11 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "tdh3-lb", shortName: "TDH3", fullName: "Throw Down Hash House Harriers", region: "Long Beach, CA",
-      scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
-      description: "Long Beach biweekly Thursday evening hash.",
+      // Wednesday per the dedicated TDH3 GCal: every biweekly "Throw Down H3" recurrence since
+      // 2015 starts on a Wednesday (latest series DTSTART Wed 2020-02-05), and prod history is
+      // Wed-dominant (#2477). Off-cadence specials land on other weekdays.
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      description: "Long Beach biweekly Wednesday evening hash.",
       latitude: 33.77, longitude: -118.19,
     },
     {
@@ -1453,6 +1456,20 @@ export const KENNELS: KennelSeed[] = [
       ],
       description: "Winterthur & Schaffhausen's English-speaking hash — 'a drinking club with a running problem.' WSH3 lays a flour trail on the third Saturday of each month around the Winterthur and Schaffhausen area of northern Switzerland, usually meeting at a public-transport-accessible point near Schaffhausen, and finishes with an On-After at a local restaurant. Runners and walkers of all abilities welcome.",
       latitude: 47.5, longitude: 8.72,
+    },
+    {
+      // Bare "bsh3" is Black Sheep H3 (Atlanta) → CH-suffixed code; bare "BSH3" alias omitted.
+      kennelCode: "bsh3-ch", shortName: "Basel-Stadt H3", fullName: "Basel-Stadt Hash House Harriers",
+      region: "Basel", country: "Switzerland",
+      hashCash: "CHF 5",
+      walkersWelcome: true,
+      // Legacy flat fields kept for fallback only — scheduleRules below are authoritative.
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Monthly",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=2SU", startTime: "14:00", label: "2nd Sunday", displayOrder: 0 },
+      ],
+      description: "Basel's international, English-speaking hash — a social running/walking group in the Basel tri-border area (CH/FR/DE). Monthly trails welcoming runners and walkers of all abilities.",
+      latitude: 47.5596, longitude: 7.5886,
     },
     // ===== AUSTRIA =====
     // --- Vienna ---
@@ -3024,8 +3041,18 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "wrong-way", shortName: "Wrong Way", fullName: "Phoenix Wrong Way Hash House Harriers", region: "Phoenix, AZ",
       website: "https://www.phoenixhhh.org",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
-      scheduleNotes: "1st, 3rd, and 5th Saturday",
-      description: "Phoenix Saturday afternoon hash. 1st, 3rd, and 5th Saturdays at 2 PM.",
+      scheduleNotes: "1st, 3rd, and 5th Saturday. 2 PM most of the year; 5 PM in summer (Jun–Sep).",
+      // #1724 — verified vs 12 months of prod: 1st Sat 11/12, 3rd Sat 12/12, 5th Sat 4/4;
+      // 17:00 Jun–Sep, 14:00 Oct–May. Fri/Sun/Thu rows are Rising H3 / specials on the shared calendar.
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA;BYMONTH=6,7,8,9", startTime: "17:00", label: "Summer (Jun–Sep)", validFrom: "06-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA;BYMONTH=6,7,8,9", startTime: "17:00", label: "Summer (Jun–Sep)", validFrom: "06-01", validUntil: "09-30", displayOrder: 1 },
+        { rrule: "FREQ=MONTHLY;BYDAY=5SA;BYMONTH=6,7,8,9", startTime: "17:00", label: "Summer (Jun–Sep)", validFrom: "06-01", validUntil: "09-30", displayOrder: 2 },
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA;BYMONTH=1,2,3,4,5,10,11,12", startTime: "14:00", label: "Oct–May", validFrom: "10-01", validUntil: "05-31", displayOrder: 3 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA;BYMONTH=1,2,3,4,5,10,11,12", startTime: "14:00", label: "Oct–May", validFrom: "10-01", validUntil: "05-31", displayOrder: 4 },
+        { rrule: "FREQ=MONTHLY;BYDAY=5SA;BYMONTH=1,2,3,4,5,10,11,12", startTime: "14:00", label: "Oct–May", validFrom: "10-01", validUntil: "05-31", displayOrder: 5 },
+      ],
+      description: "Phoenix Saturday afternoon hash. 1st, 3rd, and 5th Saturdays at 2 PM (5 PM in summer).",
       latitude: 33.45, longitude: -112.07,
     },
     {
@@ -4991,7 +5018,8 @@ export const KENNELS: KennelSeed[] = [
       // No explicit slug — toSlug("Pranburi H3") = "pranburi-h3". Bare "psh3" is Puget Sound H3
       // (Seattle) — this is region-suffixed to avoid it; do NOT set shortName to HC's "PSH3".
       region: "Hua Hin", country: "Thailand", // Pranburi ~25km south of Hua Hin — grouped under the Hua Hin metro (as h2fmh3).
-      // website/socials intentionally omitted — no verified dynamic own-site (Harrier Central-only).
+      // website intentionally omitted — no verified dynamic own-site (Harrier Central-only).
+      instagramHandle: "pranburihash", // "Pranburi Sunday Hash House Harriers" — og:title verified 2026-11-05 (#2602)
       logoUrl: "/kennel-logos/psh3-th.avif", // self-hosted from HC blob; ext confirmed by magic bytes (ftypavif)
       scheduleDayOfWeek: "Sunday", scheduleTime: "4:30 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "Monthly Sunday afternoon trail (~16:15 gather for 16:30 start) in Pranburi, just south of Hua Hin.",
@@ -6447,6 +6475,85 @@ export const KENNELS: KennelSeed[] = [
       latitude: 51.9007,
       longitude: -1.1522,
       // dogFriendly: unstated — omitted (flagged)
+    },
+    {
+      // Bare "MH3"/"MVH3" are taken globally (Munich, Montreal…; Mount Vernon) → city code.
+      kennelCode: "malvern-h3",
+      shortName: "Malvern H3",
+      fullName: "Malvern Hash House Harriers",
+      region: "Malvern",
+      country: "UK",
+      website: "https://www.malvernhash.co.uk",
+      facebookUrl: "https://www.facebook.com/groups/61731295743/",
+      foundedYear: 1981,
+      dogFriendly: true,
+      walkersWelcome: true,
+      scheduleFrequency: "Weekly",
+      scheduleDayOfWeek: "Tuesday",
+      scheduleTime: "7:00 PM",
+      scheduleNotes: "Weekly Tuesday, year-round. ON at 7:00 PM; runs last ~1–1½ h.",
+      description:
+        "Malvern H3 — a friendly, dog- and walker-friendly hash meeting every Tuesday evening at a pub " +
+        "within ~10 miles of Malvern, Worcestershire. Founded 31 March 1981 as a Bicester H3 offshoot. " +
+        "Trails are usually a Long (~4–5 mi) and a Short (~2–3 mi); runs last about 1–1½ hours.",
+      latitude: 52.1101,
+      longitude: -2.3265,
+      // hashCash unpublished; logo: the only homepage image is a weekly-rotating banner photo — omitted.
+    },
+    {
+      // Bare "c2h3" + bare "C2H3" alias belong to Corpus Christi H3 → UK-suffixed code,
+      // descriptive shortName so the slug doesn't collide.
+      kennelCode: "c2h3-gb",
+      slug: "cheltenham-cotswold-h3",
+      shortName: "Cheltenham & Cotswold H3",
+      fullName: "Cheltenham & Cotswold Hash House Harriers",
+      region: "Cotswolds",
+      country: "UK",
+      website: "https://c2h3.co.uk",
+      logoUrl: "/kennel-logos/c2h3-gb.png", // self-hosted from c2h3.co.uk; magic bytes confirm PNG
+      foundedYear: 1981, // History page: "established on 25th January 1981" (the 1984 meta tag is boilerplate)
+      walkersWelcome: true,
+      // Fallback only — the iCal carries the real per-run day/time (Sunday daytimes in winter).
+      scheduleFrequency: "Weekly",
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "7:00 PM",
+      description:
+        "A family-orientated, non-competitive social running club — 'a drinking club with a running problem' — " +
+        "established 25 January 1981, running weekly through the towns, villages and countryside of Cheltenham " +
+        "and the Cotswolds (Gloucestershire, Worcestershire and Herefordshire). Monday evenings in summer, moving " +
+        "to Sunday daytimes in autumn/winter; first run free.",
+      latitude: 51.9,
+      longitude: -2.08,
+      // hashCash: amount unpublished ("first run free, small fee"); dogFriendly unstated.
+    },
+    {
+      // Bare "ch3" + bare "CH3" alias belong to Chicago H3 → UK-suffixed code.
+      kennelCode: "ch3-gb",
+      shortName: "Chichester H3",
+      fullName: "Chichester Hash House Harriers",
+      region: "Chichester",
+      country: "UK",
+      website: "https://www.chihhh.org.uk",
+      facebookUrl: "https://www.facebook.com/chichesterhhh",
+      logoUrl: "/kennel-logos/ch3-gb.avif", // self-hosted from the kennel's Harrier Central upload; magic bytes confirm AVIF
+      foundedYear: 1983,
+      hashCash: "Free",
+      dogFriendly: true,
+      walkersWelcome: true,
+      // Legacy flat fields kept for fallback only — scheduleRules below are authoritative.
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM",
+      scheduleFrequency: "Biweekly",
+      scheduleRules: [
+        // INTERVAL=2 needs an anchor for phase: 2026-10-18 is Run 1096.
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU", startTime: "11:00", anchorDate: "2026-10-18", label: "Alternate Sundays", displayOrder: 0 },
+      ],
+      description:
+        "Chichester Hash House Harriers — a small group of runners and walkers hashing the South West Sussex " +
+        "and South East Hampshire countryside on alternate Sundays. Flour trails, a loose set of rules, a pub " +
+        "afterwards. Visitors, walkers and dogs welcome; it's free.",
+      latitude: 50.8365,
+      longitude: -0.7792,
     },
   ];
 

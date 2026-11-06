@@ -55,7 +55,7 @@ describe("splitHares", () => {
   it("joins split cells and sorts", () => {
     expect(splitHares(["Sian the Sheep", "+", "Open Wide"])).toBe("Open Wide, Sian the Sheep");
     expect(splitHares(["Wet Dream and Doggy Style"])).toBe("Doggy Style, Wet Dream");
-    expect(splitHares(["TBA"])).toBeUndefined();
+    expect(splitHares(["TBA"])).toBeNull();
   });
 });
 
@@ -66,9 +66,13 @@ describe("parseFutureLine", () => {
       kennelTags: ["lh3-cy"],
       runNumber: 2092,
       hares: "Blow Job, Dora the Explorer",
-      location: undefined,
+      location: null, // present "TBA" → explicit clear
       sourceUrl: URL,
     });
+  });
+  it("leaves the venue unset when a blank cell makes the row ambiguous", () => {
+    const e = parseFutureLine("2093\t\t23rd Nov 26\tWet Dream and Doggy Style\t\tPyla Beach\t\t", URL);
+    expect(e).toMatchObject({ hares: "Doggy Style, Wet Dream", location: undefined });
   });
   it("ignores non-run lines and throws on a bad date", () => {
     expect(parseFutureLine("Google Sites", URL)).toBeNull();
@@ -93,9 +97,22 @@ describe("parseLarnacaPage", () => {
       startTime: "16:00",
       locationUrl: "https://what3words.com/bedbugs.differing.overcomes",
     });
-    expect(events[1].location).toBeUndefined();
+    expect(events[1].location).toBeNull();
     expect(events[1].startTime).toBeUndefined();
     expect(events.every((e) => e.title === undefined)).toBe(true);
+  });
+});
+
+describe("current-run block edge cases", () => {
+  it("drops an out-of-range start time", () => {
+    const html = LIVE_HTML.replace("HASH AT 1600", "HASH AT 1660");
+    expect(parseLarnacaPage(html, URL).events[0].startTime).toBeUndefined();
+  });
+  it("emits the block's run when it is missing from the list", () => {
+    const html = LIVE_HTML.replaceAll("2091", "2090").replace("09th Nov 2026", "02nd Nov 2026");
+    const listOnly = html.replace(/<p[^>]*><span[^>]*>2090<\/span>[\s\S]*?<\/p>/, "");
+    const { events } = parseLarnacaPage(listOnly, URL);
+    expect(events[0]).toMatchObject({ runNumber: 2090, date: "2026-11-02", startTime: "16:00" });
   });
 });
 

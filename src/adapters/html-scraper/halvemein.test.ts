@@ -3,7 +3,31 @@ import {
   parseHalveMeinRow,
   normalizeHalveMeinMonths,
   parseHalveMeinTime,
+  parseHalveMeinDirections,
 } from "./halvemein";
+
+describe("parseHalveMeinDirections (#2597)", () => {
+  it("extracts the street address after the Google: label", () => {
+    expect(parseHalveMeinDirections("Google: 154 Sacandaga Road, Scotia, NY 12302")).toBe(
+      "154 Sacandaga Road, Scotia, NY 12302",
+    );
+  });
+  it("returns undefined for empty or non-Google cells", () => {
+    expect(parseHalveMeinDirections("Google: ")).toBeUndefined();
+    expect(parseHalveMeinDirections("")).toBeUndefined();
+    expect(parseHalveMeinDirections("Directions")).toBeUndefined();
+    expect(parseHalveMeinDirections(undefined)).toBeUndefined();
+  });
+  it("populates locationStreet on a parsed row", () => {
+    const row = parseHalveMeinRow(
+      ["829", "Wednesday", "July 8, 2026 6:00 PM", "Wolf Hollow Brewing - NEW LOCATION", "Some Hare",
+        "Google: 154 Sacandaga Road, Scotia, NY 12302"],
+      "https://www.hmhhh.com/",
+    );
+    expect(row!.location).toBe("Wolf Hollow Brewing - NEW LOCATION");
+    expect(row!.locationStreet).toBe("154 Sacandaga Road, Scotia, NY 12302");
+  });
+});
 
 describe("normalizeHalveMeinMonths", () => {
   it("replaces sextembeer with September", () => {

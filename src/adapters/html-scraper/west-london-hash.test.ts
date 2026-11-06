@@ -4,6 +4,7 @@ import {
   parseRunNumberFromHeading,
   parseDateFromHeading,
   parseLocationFromHeading,
+  parseStartTimeFromHeading,
   extractPostcode,
   parseRunItem,
 } from "./west-london-hash";
@@ -80,6 +81,54 @@ describe("parseLocationFromHeading", () => {
 
   it("returns null for TBD placeholder", () => {
     expect(parseLocationFromHeading("Run Number 2085 – 26 March 2026-TBD")).toBeNull();
+  });
+});
+
+// Verbatim headings from westlondonhash.com/runs/ (captured 2026-11-05).
+describe("heading formats since Nov 2026 (#2619)", () => {
+  it("parses 'Run No' run numbers", () => {
+    expect(parseRunNumberFromHeading("Run No 2131 – 21 January 2027 – location TBA")).toBe(2131);
+    expect(parseRunNumberFromHeading("Run No 2133-4 February 2027")).toBe(2133);
+  });
+
+  it("reads a location after a spaced en dash", () => {
+    expect(parseLocationFromHeading("Run Number 2120 – 5 November 2026 – Chiswick NR")).toBe("Chiswick NR");
+    expect(parseLocationFromHeading("Run Number 2124- 3 December 2026 – South Ealing tube")).toBe("South Ealing tube");
+  });
+
+  it("keeps hyphenated names intact", () => {
+    expect(parseLocationFromHeading("Run Number 2103 – 23 July 2026 – Ealing Common-AGPU")).toBe("Ealing Common-AGPU");
+  });
+
+  it("drops location-TBA, hare-needed and start-time segments", () => {
+    expect(parseLocationFromHeading("Run Number 2123 – 26 November 2026 – location TBA")).toBeNull();
+    expect(parseLocationFromHeading("Run No 2132 – 28 January 2027 – hare needed")).toBeNull();
+    expect(parseLocationFromHeading("Run No 2128 – 31 December 2026 – location TBA – 12.15 start time")).toBeNull();
+    expect(parseLocationFromHeading("Run No 2129 -7 January  2027 – location TBA")).toBeNull();
+  });
+
+  it("reads a lunchtime start time from the heading", () => {
+    expect(parseStartTimeFromHeading("Run No 2127 – 24 December 2026 – location TBA – 12.15 start time")).toBe("12:15");
+    expect(parseStartTimeFromHeading("Run Number 2120 – 5 November 2026 – Chiswick NR")).toBeUndefined();
+  });
+
+  it("builds clean titles with run number and start time", () => {
+    const $ = cheerio.load(`<ul class="wp-block-post-template">
+      <li><h4><a href="/runs/2123/">Run Number 2123 &#8211; 26 November 2026 &#8211; location TBA</a></h4></li>
+      <li><h4><a href="/runs/2127/">Run No 2127 &#8211; 24 December 2026 &#8211; location TBA &#8211; 12.15 start time</a></h4></li>
+      <li><h4><a href="/runs/2122/">Run Number 2122 &#8211; 19 November 2026 &#8211; Bermondsey tube</a></h4></li>
+    </ul>`);
+    const items = $(".wp-block-post-template > li");
+    const tba = parseRunItem($, items.eq(0), "https://westlondonhash.com/runs/");
+    expect(tba?.title).toBe("WLH3 Run #2123");
+    expect(tba?.runNumber).toBe(2123);
+    const xmas = parseRunItem($, items.eq(1), "https://westlondonhash.com/runs/");
+    expect(xmas?.title).toBe("WLH3 Run #2127");
+    expect(xmas?.date).toBe("2026-12-24");
+    expect(xmas?.startTime).toBe("12:15");
+    const named = parseRunItem($, items.eq(2), "https://westlondonhash.com/runs/");
+    expect(named?.title).toBe("WLH3 Run #2122 - Bermondsey tube");
+    expect(named?.startTime).toBe("19:15");
   });
 });
 
