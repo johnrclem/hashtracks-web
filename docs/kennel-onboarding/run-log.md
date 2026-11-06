@@ -1677,3 +1677,9 @@ _(latest handoff: Taoyuan Metro H3 2026-06-23 — 🇹🇼 Taiwan's 5th kennel, 
   Also deleted the empty `2026-10-19-bh3-ro.md` SUPERSEDED stub. `target-queue.md` now points at the kept files.
 - Net result: **41 implementable handoffs on `main`**, covering 43 kennels (vh3-la covers 3 and bh3-ro covers 2).
 - Cluster 1 (#2679: Herts H3, F.U.K Full Moon H3, Bicester H3) merged 2026-11-05 as `2a79cf8d`. The targeted prod upsert and both backfills are pending owner approval.
+
+## 2026-11-05 — HC BATCH (Nov 2026): 13 config-only Harrier Central kennels
+- Implemented 13 handoffs (2026-09-11 → 2026-10-30): yh3, oph3, bdh3-uk, da2b, bbch3, cernh3, ph3-sr, abujah3, blhhh, hannover-h3, mobh3, bbh3, sunh3. Zero new adapter code. Shipped as one data migration (`20261106060000_onboard_hc_batch_nov`), not `db seed`.
+- **Re-verified live 2026-11-05:** none dead (every kennel ran within the last ~2 months on HC), none duplicate (seed + prod by code, name, slug and alias). Only 3 had upcoming runs posted (yh3, blhhh, hannover-h3); the other 10 post a run only days ahead.
+- **Handoff corrections from live data:** Hannover runs on **Sunday** (not Saturday); BD H3 is fortnightly Sunday noon; Big Lik is fortnightly Saturday; Barbados Bike always Sunday 06:00. Region abbrev `HAN` was already taken → Hannover uses `HAJ`. New countries Suriname / Nigeria / Turkey.
+- **History:** every kennel had recoverable HC history (the handoffs mostly said "none" — `global-runs?isFuture=0` needs explicit date bounds). 158 rows frozen in `scripts/data/hc-batch-nov-history.json`, loaded per kennel by `scripts/backfill-hc-batch-nov-history.ts` against each live source (`upcomingOnly: true`).
