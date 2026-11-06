@@ -1616,6 +1616,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     aliases: ["Plymouth, England", "Plympton"],
   },
   {
+    name: "South Hams",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "SHM",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 50.283,
+    centroidLng: -3.777, // Kingsbridge
+    aliases: ["South Hams, Devon", "Kingsbridge"],
+  },
+  {
     name: "Exeter",
     country: "UK",
     timezone: "Europe/London",
@@ -1625,6 +1636,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 50.7184,
     centroidLng: -3.5339,
     aliases: ["Exeter, England", "Devon"],
+  },
+  {
+    name: "Torbay",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "TBY",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 50.4619,
+    centroidLng: -3.5253,
+    aliases: ["Torbay, England", "South Devon", "Teign Valley", "Newton Abbot", "Torquay"],
   },
   {
     name: "East Midlands",
@@ -1724,6 +1746,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 53.3811,
     centroidLng: -1.4701,
     aliases: ["Sheffield, England", "South Yorkshire"],
+  },
+  {
+    name: "Leeds",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "LDS",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 53.8008,
+    centroidLng: -1.5491,
+    aliases: ["Leeds, England", "West Yorkshire", "Bradford", "Saltaire"],
   },
   {
     name: "Manchester",
@@ -1847,6 +1880,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 53.55,
     centroidLng: 9.99,
     aliases: ["Hamburg, Germany"],
+  },
+  {
+    name: "Hannover",
+    country: "Germany",
+    timezone: "Europe/Berlin",
+    abbrev: "HAJ",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#eab308",
+    centroidLat: 52.3759,
+    centroidLng: 9.732,
+    aliases: ["Hannover, Germany", "Hanover"],
   },
   // ── Japan ──
   {
@@ -2242,6 +2286,32 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -59.6167,
     aliases: ["Bridgetown, Barbados"],
   },
+  // ── Jamaica (first 🇯🇲 kennel: Jamaica H3, est. 1998) — 2-level COUNTRY→METRO,
+  //    mirrors the Barbados precedent. Emerald palette (Jamaican flag green); the
+  //    nearest seeded Caribbean country (Barbados) is fuchsia. ──
+  {
+    name: "Jamaica",
+    country: "Jamaica",
+    level: "COUNTRY",
+    timezone: "America/Jamaica",
+    abbrev: "JM",
+    colorClasses: "bg-emerald-200 text-emerald-800",
+    pinColor: "#059669",
+    centroidLat: 18.1096,
+    centroidLng: -77.2975,
+    aliases: ["Jamaica, Caribbean", "Jamaica, West Indies"],
+  },
+  {
+    name: "Kingston",
+    country: "Jamaica",
+    timezone: "America/Jamaica",
+    abbrev: "KIN",
+    colorClasses: "bg-emerald-100 text-emerald-700",
+    pinColor: "#10b981",
+    centroidLat: 18.0179,
+    centroidLng: -76.8099,
+    aliases: ["Kingston, Jamaica"],
+  },
   // ── Serbia (first 🇷🇸 kennel: BEER H3, Belgrade) — 2-level COUNTRY→METRO,
   //    mirrors the Barbados/Cambodia precedent (no seed.ts stateMetroLinks). Red
   //    palette (Serbian flag) — no adjacent seeded country uses red (Germany=yellow,
@@ -2522,6 +2592,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 47.5596,
     centroidLng: 7.5886,
     aliases: ["Basel, Switzerland", "Basel-Stadt"],
+  },
+  {
+    name: "Geneva",
+    country: "Switzerland",
+    timezone: "Europe/Zurich",
+    abbrev: "GVA",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#fca5a5",
+    centroidLat: 46.2044,
+    centroidLng: 6.1432,
+    aliases: ["Geneva, Switzerland", "Genève"],
   },
   // ── Austria ──
   {
@@ -3385,6 +3466,18 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     aliases: ["ACT", "Federal Capital Territory"],
   },
   {
+    name: "Tasmania",
+    country: "Australia",
+    level: "STATE_PROVINCE",
+    timezone: "Australia/Hobart",
+    abbrev: "TAS",
+    colorClasses: "bg-yellow-100 text-yellow-700",
+    pinColor: "#713f12",
+    centroidLat: -42,
+    centroidLng: 146.6,
+    aliases: ["Tasmania, Australia"],
+  },
+  {
     name: "Perth, WA",
     country: "Australia",
     timezone: "Australia/Perth",
@@ -3394,6 +3487,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: -31.9523,
     centroidLng: 115.8613,
     aliases: ["Perth", "Perth, Australia"],
+  },
+  {
+    name: "Devonport, TAS",
+    country: "Australia",
+    timezone: "Australia/Hobart",
+    abbrev: "DPO",
+    colorClasses: "bg-yellow-200 text-yellow-800",
+    pinColor: "#eab308",
+    centroidLat: -41.1789,
+    centroidLng: 146.351,
+    aliases: ["Devonport, Tasmania"], // NO bare "Devonport" (Plymouth UK / Auckland NZ collide)
   },
   {
     name: "Darwin, NT",
@@ -3819,6 +3923,32 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -57.576,
     aliases: ["Asuncion", "Asunción, Paraguay"],
   },
+  // ── South America — Suriname (first 🇸🇷 kennel: Paramaribo H3, est. 1989).
+  //    Country → metro, no state-province intermediate (mirrors Paraguay). Sky
+  //    palette. tz America/Paramaribo (HC's America/Cayenne is a same-offset quirk). ──
+  {
+    name: "Suriname",
+    country: "Suriname",
+    level: "COUNTRY",
+    timezone: "America/Paramaribo",
+    abbrev: "SR",
+    colorClasses: "bg-sky-200 text-sky-800",
+    pinColor: "#0284c7",
+    centroidLat: 3.9193,
+    centroidLng: -56.0278,
+    aliases: ["Surinam"],
+  },
+  {
+    name: "Paramaribo",
+    country: "Suriname",
+    timezone: "America/Paramaribo",
+    abbrev: "PBM",
+    colorClasses: "bg-sky-100 text-sky-700",
+    pinColor: "#0ea5e9",
+    centroidLat: 5.852,
+    centroidLng: -55.2038,
+    aliases: ["Paramaribo, Suriname"],
+  },
   // ── South America — Brazil (first Brazilian country; country → metro, no
   // state-province intermediate, mirroring Paraguay). Emerald palette keeps it
   // visually distinct from Paraguay's purple within South America. ──
@@ -3922,6 +4052,31 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 14.4378,
     aliases: ["Prague, Czech Republic", "Praha"],
   },
+  // ── Turkey (first 🇹🇷 kennel: Big Lik H3, Incirlik Air Base / Adana) —
+  //    country → metro. Cyan palette. ──
+  {
+    name: "Turkey",
+    country: "Turkey",
+    level: "COUNTRY",
+    timezone: "Europe/Istanbul",
+    abbrev: "TR",
+    colorClasses: "bg-cyan-200 text-cyan-800",
+    pinColor: "#0891b2",
+    centroidLat: 39,
+    centroidLng: 35,
+    aliases: ["Türkiye"],
+  },
+  {
+    name: "Adana",
+    country: "Turkey",
+    timezone: "Europe/Istanbul",
+    abbrev: "ADA",
+    colorClasses: "bg-cyan-100 text-cyan-700",
+    pinColor: "#06b6d4",
+    centroidLat: 37.0017,
+    centroidLng: 35.4259,
+    aliases: ["Adana, Turkey", "Incirlik"],
+  },
   // ── Africa — Sierra Leone (2nd African country after Kenya; first West
   //    Africa; country → metro, no state-province intermediate). Lime
   //    palette keeps it distinct from Kenya's amber. ──
@@ -3947,6 +4102,31 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 8.484,
     centroidLng: -13.2299,
     aliases: ["Freetown, Sierra Leone"],
+  },
+  // ── Africa — Nigeria (first 🇳🇬 kennel: Abuja H3) — country → metro.
+  //    Rose palette keeps it distinct from Kenya amber / Sierra Leone lime. ──
+  {
+    name: "Nigeria",
+    country: "Nigeria",
+    level: "COUNTRY",
+    timezone: "Africa/Lagos",
+    abbrev: "NG",
+    colorClasses: "bg-rose-200 text-rose-800",
+    pinColor: "#e11d48",
+    centroidLat: 9.082,
+    centroidLng: 8.6753,
+    aliases: ["NG"],
+  },
+  {
+    name: "Abuja",
+    country: "Nigeria",
+    timezone: "Africa/Lagos",
+    abbrev: "ABV",
+    colorClasses: "bg-rose-100 text-rose-700",
+    pinColor: "#f43f5e",
+    centroidLat: 9.0765,
+    centroidLng: 7.3986,
+    aliases: ["Abuja, Nigeria", "Federal Capital Territory"],
   },
 ];
 
@@ -4152,7 +4332,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(british columbia|victoria,? bc|saanich|vancouver island)\b/, "Canada"],
   [/\b(australia|sydney|melbourne|brisbane|perth|adelaide|canberra|darwin|hobart|gold coast|newcastle|wollongong|geelong|tasmania|queensland|victoria|western australia|northern territory|australian capital territory|new south wales)\b/, "Australia"],
   [/\b(canada|toronto|vancouver|montreal|calgary|edmonton|ottawa|winnipeg)\b/, "Canada"],
-  [/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt|kaiserslautern|sembach)\b/, "Germany"],
+  [/\b(germany|berlin|munich|münchen|muenchen|hamburg|stuttgart|frankfurt|kaiserslautern|sembach|hannover)\b/, "Germany"],
   [/\b(japan|tokyo|osaka)\b/, "Japan"],
   [/\b(belgium|brussels|bruxelles|antwerp|ghent)\b/, "Belgium"],
   [/\b(spain|españa|espana|costa del sol|mijas|malaga|málaga|marbella|fuengirola|andalucia|andalucía|madrid|barcelona)\b/, "Spain"],
@@ -4196,6 +4376,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // Barbados — country + capital. Both tokens are unambiguous; inferCountry() is
   // first-match with USA as the default fallthrough.
   [/\b(barbados|bridgetown)\b/, "Barbados"],
+  // Jamaica — country name only, with the US "Jamaica Plain, MA" / "Jamaica, Queens,
+  // NY" neighborhoods excluded. "kingston" is OMITTED (Kingston, ON / NY / TN).
+  // inferCountry() is first-match with USA as the default fallthrough.
+  [/\bjamaica\b(?! plain)(?!,? (?:ny|queens|new york)\b)/, "Jamaica"],
   // Serbia — country name + native spelling only. "belgrade" is OMITTED because it
   // doubles as US place names (Belgrade, MT / Belgrade, ME); "serbia"/"beograd" are
   // unambiguous. inferCountry() is first-match with USA as the default fallthrough.
@@ -4209,6 +4393,12 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // "Sierra H4" name). "sierra leone" is unambiguous; inferCountry() is first-match
   // with USA as the default fallthrough.
   [/\bsierra leone\b/, "Sierra Leone"],
+  // Nigeria — "lagos" is OMITTED (collides with Lagos, Portugal in the Algarve);
+  // "nigeria"/"abuja" are unambiguous.
+  [/\b(nigeria|abuja)\b/, "Nigeria"],
+  // Turkey — bare "turkey" is OMITTED (the bird / "Turkey Creek" / "Turkey Trot"
+  // trail names); "türkiye"/"turkiye"/"incirlik"/"adana" are unambiguous.
+  [/\b(t[üu]rkiye|incirlik|adana)\b/, "Turkey"],
   // Vietnam — country (+ native) + the two unambiguous metros. None collide with
   // common US place names; inferCountry() is first-match with USA as the default
   // fallthrough. Including "hanoi" also serves the Hanoi H3 sibling onboarding.
@@ -4254,6 +4444,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(kenya|nairobi|mombasa|kisumu)\b/, "Kenya"],
   [/\b(bali|indonesia|denpasar|bandung|lembang)\b/, "Indonesia"],
   [/\b(paraguay|asuncion|asunción|luque)\b/, "Paraguay"],
+  [/\b(suriname|surinam|paramaribo)\b/, "Suriname"],
   // "rio de janeiro" only — bare `rio` would misroute US places (Rio WI / Rio Grande / Rio Rancho NM).
   [/\b(brazil|brasil|bras[ií]lia|são paulo|sao paulo|rio de janeiro)\b/, "Brazil"],
   // Mexico — guard "New Mexico" (US state, Albuquerque) to USA BEFORE the Mexico rule
@@ -4421,7 +4612,9 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Bristol": "United Kingdom",
   "Newcastle": "United Kingdom",
   "Plymouth": "United Kingdom",
+  "South Hams": "United Kingdom",
   "Exeter": "United Kingdom",
+  "Torbay": "United Kingdom",
   "East Midlands": "United Kingdom",
   "Hertfordshire": "United Kingdom",
   "Bicester": "United Kingdom",
@@ -4432,6 +4625,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Cornwall": "United Kingdom",
   "Kidderminster": "United Kingdom",
   "Sheffield": "United Kingdom",
+  "Leeds": "United Kingdom",
   "Manchester": "United Kingdom",
   "Norfolk": "United Kingdom",
   "Liverpool": "United Kingdom",
@@ -4445,6 +4639,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Munich": "Germany",
   "Frankfurt": "Germany",
   "Hamburg": "Germany",
+  "Hannover": "Germany",
   // Japan
   "Tokyo": "Japan",
   "Kansai": "Japan",
@@ -4490,10 +4685,14 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Phnom Penh": "Cambodia",
   // Barbados
   "Bridgetown": "Barbados",
+  // Jamaica
+  "Kingston": "Jamaica",
   // Serbia
   "Belgrade": "Serbia",
   "Prague": "Czech Republic",
   "Freetown": "Sierra Leone",
+  "Abuja": "Nigeria",
+  "Adana": "Turkey",
   // Vietnam
   "Ho Chi Minh City": "Vietnam",
   "Hanoi": "Vietnam",
@@ -4562,6 +4761,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Zürich": "Switzerland",
   "Winterthur": "Switzerland",
   "Basel": "Switzerland",
+  "Geneva": "Switzerland",
   // Austria
   "Vienna": "Austria",
   // Malaysia — Kuala Lumpur is a Federal Territory (state-equivalent),
@@ -4590,12 +4790,14 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "South Australia": "South Australia",
   "Queensland": "Queensland",
   "Victoria": "Victoria",
+  "Tasmania": "Tasmania",
   "Perth, WA": "Western Australia",
   "Darwin, NT": "Northern Territory",
   "Sydney, NSW": "New South Wales",
   "Adelaide, SA": "South Australia",
   "Gold Coast, QLD": "Queensland",
   "Melbourne, VIC": "Victoria",
+  "Devonport, TAS": "Tasmania",
   // New Zealand — country → metro (Singapore/Hong Kong pattern; no state-province intermediate)
   "Auckland, NZ": "New Zealand",
   "Wellington, NZ": "New Zealand",
@@ -4608,6 +4810,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Bandung": "Indonesia",
   // Paraguay — country → metro (no state-province intermediate)
   "Asunción": "Paraguay",
+  // Suriname — country → metro (no state-province intermediate)
+  "Paramaribo": "Suriname",
   // Brazil — country → metro (no state-province intermediate)
   "Brasília": "Brazil",
   "São Paulo": "Brazil",
@@ -4742,6 +4946,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Barbados — metro "Bridgetown" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Barbados" is reachable here (mirrors the Cambodia precedent).
   "Barbados": "Barbados",
+  "Jamaica": "Jamaica",
   // Serbia — metro "Belgrade" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Serbia" is reachable here (mirrors the Barbados precedent).
   "Serbia": "Serbia",
@@ -4751,6 +4956,8 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // see hc-batch-4/-6 retros).
   "Czech Republic": "Czech Republic",
   "Sierra Leone": "Sierra Leone",
+  "Nigeria": "Nigeria",
+  "Turkey": "Turkey",
   // Vietnam — metro "Ho Chi Minh City" resolves via STATE_GROUP_MAP first, so only
   // the country-group key "Vietnam" is reachable here (mirrors the Cambodia precedent).
   "Vietnam": "Vietnam",
@@ -4817,12 +5024,14 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "South Australia": "Australia",
   "Queensland": "Australia",
   "Victoria": "Australia",
+  "Tasmania": "Australia",
   "Perth, WA": "Australia",
   "Darwin, NT": "Australia",
   "Sydney, NSW": "Australia",
   "Adelaide, SA": "Australia",
   "Gold Coast, QLD": "Australia",
   "Melbourne, VIC": "Australia",
+  "Devonport, TAS": "Australia",
   // New Zealand — country → metro (Singapore/Hong Kong pattern; no state-province intermediate)
   "New Zealand": "New Zealand",
   "Auckland, NZ": "New Zealand",
@@ -4839,6 +5048,8 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Paraguay — both the country-level region and its metro map to "Paraguay"
   "Paraguay": "Paraguay",
   "Asunción": "Paraguay",
+  // Suriname — country-group key (metro "Paramaribo" resolves via STATE_GROUP_MAP first)
+  "Suriname": "Suriname",
   // Brazil — both the country-level region and its metro map to "Brazil"
   "Brazil": "Brazil",
   "Brasília": "Brazil",
@@ -4891,6 +5102,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   NP: "Nepal",
   KH: "Cambodia",
   BB: "Barbados",
+  JM: "Jamaica",
   RS: "Serbia",
   CZ: "Czech Republic",
   VN: "Vietnam",
@@ -4918,9 +5130,12 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   NZ: "New Zealand",
   KE: "Kenya",
   SL: "Sierra Leone",
+  NG: "Nigeria",
+  TR: "Turkey",
   ID: "Indonesia",
   PY: "Paraguay",
   BR: "Brazil",
+  SR: "Suriname",
   MX: "Mexico",
 };
 
