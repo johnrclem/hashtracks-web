@@ -30,7 +30,6 @@ const PLACEHOLDER_POSTCODE = "CB1 2JW";
 
 const RUN_HEAD_RE = /Run\s+(\d{3,5})\s+([A-Za-z]{3,9})\s+(\d{1,2})(?:st|nd|rd|th)?/;
 const MONTH_HEADER_RE = /^([A-Za-z]{3,9})\s+(\d{4})$/;
-const UK_POSTCODE_RE = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i;
 
 function clean(text: string): string {
   return text.replaceAll("\u00a0", " ").replace(/\s+/g, " ").trim();
