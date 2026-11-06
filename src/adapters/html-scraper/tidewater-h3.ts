@@ -377,7 +377,70 @@ export function parseTidewaterCalendar(
     events.push(event);
   }
 
-  return { events, rawCount: arr.length, unknownKennels: [...unknownKennels] };
+  return { events: dropSupersededReposts(events), rawCount: arr.length, unknownKennels: [...unknownKennels] };
+}
+
+/**
+ * Index of the newest re-post when every path other than the shortest is
+ * `<shortest>-<n>`, else -1 (not a re-post family — keep every copy).
+ */
+function repostWinner(paths: string[]): number {
+  const base = paths.reduce((a, b) => (b.length < a.length ? b : a));
+  let best = -1;
+  let bestN = 1;
+  for (let i = 0; i < paths.length; i++) {
+    const p = paths[i];
+    if (p === base) continue;
+    const suffix = p.startsWith(`${base}-`) ? p.slice(base.length + 1) : "";
+    if (!/^\d+$/.test(suffix)) return -1;
+    const n = Number(suffix);
+    if (n > bestN) {
+      bestN = n;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/** Path of an event's detail page without a trailing slash, or undefined. */
+function detailPath(sourceUrl: string | undefined): string | undefined {
+  if (!sourceUrl) return undefined;
+  try {
+    return new URL(sourceUrl).pathname.replace(/\/+$/, "");
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * WordPress gives a re-posted trail the original slug plus "-2", "-3", … The
+ * calendar then lists both copies (VB Full Moon 2026-09-25 at 18:30 and, as
+ * `…-2026-09-25-2`, at 19:00). The site later deleted the original, but the run
+ * had already passed, so reconcile (upcomingOnly) never cancelled it. Within one
+ * kennel + date + title, when every other copy's path is `<shortest>-<n>`, keep
+ * only the highest-numbered re-post. Anything else (a genuine double-header)
+ * is left alone.
+ */
+export function dropSupersededReposts(events: RawEventData[]): RawEventData[] {
+  const groups = new Map<string, RawEventData[]>();
+  for (const e of events) {
+    const key = `${e.kennelTags[0]}|${e.date}|${e.title ?? ""}`;
+    const g = groups.get(key);
+    if (g) g.push(e);
+    else groups.set(key, [e]);
+  }
+  const dropped = new Set<RawEventData>();
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const paths = group.map((e) => detailPath(e.sourceUrl));
+    if (paths.some((p) => p === undefined)) continue;
+    const keep = repostWinner(paths as string[]);
+    if (keep < 0) continue;
+    group.forEach((e, i) => {
+      if (i !== keep) dropped.add(e);
+    });
+  }
+  return dropped.size === 0 ? events : events.filter((e) => !dropped.has(e));
 }
 
 /**
