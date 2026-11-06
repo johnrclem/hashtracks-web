@@ -9026,6 +9026,30 @@ export const SOURCES = [
       kennelCodes: ["isca-h3"],
     },
     {
+      name: "Teign Valley H3 Blogger Feed",
+      url: "https://www.teignvalleyh3.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke blog scrape (run-announcement posts)
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Adapter reads only the latest ~30 posts; older announcements age out of
+      // the fetch, so reconcile must not treat them as removed.
+      config: { upcomingOnly: true },
+      kennelCodes: ["tvh3"],
+    },
+    {
+      name: "City of Exeter H3 Blogspot Recaps",
+      url: "https://cityofexeterhhh.blogspot.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke blog scrape (run # / venue / hares / date from recap titles)
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Recap blog: the adapter reads the latest ~25 posts, so older runs age
+      // out of the fetch and must not be reconciled as removed.
+      config: { upcomingOnly: true },
+      kennelCodes: ["coeh3"],
+    },
+    {
       name: "Mickleover H3 Run Log Sheet",
       url: "https://docs.google.com/spreadsheets/d/1oZFMbkKFQp2rBM3x4LUt9vGOImCbsFOnyriQdO6xSCg/export?format=csv&gid=0",
       type: "GOOGLE_SHEETS" as const,

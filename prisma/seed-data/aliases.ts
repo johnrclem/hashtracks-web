@@ -726,6 +726,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "dlh3-gb": ["Devon Lunatics", "Devon Lunatics HHH", "DLH3-GB"],
     // bare "IH3" OMITTED — resolves to Ithaca H3 (live).
     "isca-h3": ["Isca H3", "Isca HHH", "Isca Hash", "Isca Hash House Harriers"],
+    "tvh3": ["Teign Valley Hash House Harriers", "TVH3", "Teign Valley Hash"],
+    // bare "EH3" OMITTED — Eugene / Enfield / Edmonton collide.
+    "coeh3": ["City of Exeter H3", "City of Exeter Hash House Harriers", "CoEH3", "Exeter H3"],
     // bare "MH3" OMITTED — global collision (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai).
     "mickleover-h3": ["Mickleover Hash House Harriers", "Mickleover HHH", "Mickleover"],
     // ===== CLUSTER 1 =====

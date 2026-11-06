@@ -39,6 +39,8 @@ import { BurlingtonHashAdapter } from "./html-scraper/burlington-hash";
 import { RIH3Adapter } from "./html-scraper/rih3";
 import { BrassMonkeyAdapter } from "./html-scraper/brass-monkey";
 import { BrasiliaH3Adapter } from "./html-scraper/brasilia-h3";
+import { TeignValleyH3Adapter } from "./html-scraper/teign-valley-h3";
+import { CityOfExeterH3Adapter } from "./html-scraper/city-of-exeter-h3";
 import { DFWHashAdapter } from "./html-scraper/dfw-hash";
 import { SOH4Adapter } from "./html-scraper/soh4";
 import { HalveMeinAdapter } from "./html-scraper/halvemein";
@@ -227,6 +229,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /rih3\.com/i,                 name: "RIH3Adapter",             factory: () => new RIH3Adapter() },
   { pattern: /teambrassmonkey\.blogspot/i, name: "BrassMonkeyAdapter",      factory: () => new BrassMonkeyAdapter() },
   { pattern: /brasiliah3\.blogspot/i,      name: "BrasiliaH3Adapter",       factory: () => new BrasiliaH3Adapter() },
+  { pattern: /teignvalleyh3\.com/i,         name: "TeignValleyH3Adapter",    factory: () => new TeignValleyH3Adapter() },
+  { pattern: /cityofexeterhhh\.blogspot/i,  name: "CityOfExeterH3Adapter",   factory: () => new CityOfExeterH3Adapter() },
   { pattern: /dfwhhh\.org/i,              name: "DFWHashAdapter",           factory: () => new DFWHashAdapter() },
   { pattern: /soh4\.com/i,               name: "SOH4Adapter",              factory: () => new SOH4Adapter() },
   { pattern: /hmhhh\.com/i,              name: "HalveMeinAdapter",         factory: () => new HalveMeinAdapter() },

@@ -6373,6 +6373,53 @@ export const KENNELS: KennelSeed[] = [
       // hashCash / instagramHandle / twitterHandle / walkersWelcome: unverified — omitted (flagged)
     },
     {
+      // bare "tvh3" is clear (Burlington VT's "BTVH3" alias is unrelated). shortName kept >4 chars so
+      // the synthesized title reads "Teign Valley H3 Trail #N".
+      kennelCode: "tvh3",
+      shortName: "Teign Valley H3",
+      fullName: "Teign Valley Hash House Harriers",
+      region: "Torbay",
+      country: "UK",
+      website: "https://www.teignvalleyh3.com",
+      facebookUrl: "https://www.facebook.com/groups/11332464730",
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "7:15 PM", // 12-hr seed convention; adapter startTime stays 24-hr "19:15"
+      scheduleFrequency: "Weekly",
+      walkersWelcome: true,
+      description:
+        "The 'Party Hash' of South Devon — runs from pubs all over Torbay, Dartmoor and the Teign Valley " +
+        "every Monday evening at 7:15pm. Trails marked with flour, chalk or sawdust; typically 3-6 miles " +
+        "with short/long options or a leisurely walk; all abilities welcome. First run free.",
+      latitude: 50.4619,
+      longitude: -3.5253,
+      // foundedYear / hashCash / logoUrl / dogFriendly: unverified on the live site (2026-11-05) — omitted
+    },
+    {
+      // bare "EH3" OMITTED — Eugene (eh3-or) / Enfield (eh3) / Edmonton (eh3-ab) collide; code matches IG "coe.h3".
+      kennelCode: "coeh3",
+      shortName: "City of Exeter H3",
+      fullName: "City of Exeter Hash House Harriers",
+      region: "Exeter",
+      country: "UK",
+      website: "https://cityofexeterhhh.blogspot.com/",
+      facebookUrl: "https://www.facebook.com/groups/cityofexeterh3",
+      instagramHandle: "coe.h3",
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM", // 12-hr seed convention; adapter startTime stays 24-hr "11:00"
+      scheduleFrequency: "Weekly",
+      foundedYear: 2001, // run #1274 "25th Anniversary Hash" on 6 Sep 2026
+      dogFriendly: true, // "welcomes all abilities, dogs and families" (All About Us)
+      walkersWelcome: true, // "there should always be a walkers option of no more than 2.5 miles"
+      description:
+        "A non-competitive running/jogging/walking club meeting on Sunday mornings at 11am, usually within " +
+        "15 miles of Exeter. Welcomes all abilities, dogs and families, with a walkers option of no more " +
+        "than 2.5 miles and longs of up to 6 miles. No need to sign up — just turn up.",
+      logoUrl: "/kennel-logos/coeh3.gif", // self-hosted from the blog header; magic bytes confirmed GIF
+      latitude: 50.7184,
+      longitude: -3.5339,
+      // hashCash: no set run fee published — omitted
+    },
+    {
       // bare "mh3" globally taken (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai); mh3-gb
       // reserved by Manchester H3 (shipped) → city-based
       kennelCode: "mickleover-h3",

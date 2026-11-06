@@ -1,0 +1,1543 @@
+[
+  {
+    "date": "2023-08-28",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 1984,
+    "startTime": "19:15",
+    "location": "South Devon Railway - Staverton Station, Staverton, Totnes TQ9 6AG",
+    "hares": "Beefy",
+    "sourceUrl": "https://www.teignvalleyh3.com/2023/08/monday-28th-august-map.html"
+  },
+  {
+    "date": "2023-09-04",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 1985,
+    "startTime": "19:15",
+    "location": "Warren House Inn, Postbridge, Yelverton PL20 6TA",
+    "hares": "Pisswell",
+    "sourceUrl": "https://www.teignvalleyh3.com/2023/08/monday-4th-september-map.html"
+  },
+  {
+    "date": "2023-10-09",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 1990,
+    "startTime": "19:15",
+    "location": "Cockhaven Arms (formerly Cockhaven Manor) Cockhaven Rd, Bishopsteignton, Teignmouth TQ14 9RF",
+    "hares": "Big End and Well Hopped",
+    "sourceUrl": "https://www.teignvalleyh3.com/2023/10/monday-9th-october.html"
+  },
+  {
+    "date": "2023-10-16",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 1991,
+    "startTime": "19:15",
+    "location": "Royal British Legion club, Newton Abbot, 2 Marsh Rd, Newton Abbot TQ12 2AP",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2023/10/monday-16-october-details-and-map.html"
+  },
+  {
+    "date": "2023-10-30",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 1993,
+    "startTime": "19:15",
+    "location": "Chudleigh car park TQ13 0HL",
+    "sourceUrl": "https://www.teignvalleyh3.com/2023/10/mondays-details-and-map.html"
+  },
+  {
+    "date": "2023-11-06",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 1994,
+    "startTime": "19:15",
+    "location": "King William IV, 45 Fore St, Totnes TQ9 5HN",
+    "hares": "Wet Johnny",
+    "sourceUrl": "https://www.teignvalleyh3.com/2023/11/mondays-map-6th-november.html"
+  },
+  {
+    "date": "2023-11-20",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 1996,
+    "startTime": "19:15",
+    "location": "Court Farm Inn, Abbotskerswell, Newton Abbot TQ12 5NY",
+    "hares": "Sugar Puff and Camel Toe",
+    "sourceUrl": "https://www.teignvalleyh3.com/2023/11/run-1996-monday-20th-november-circle-up.html"
+  },
+  {
+    "date": "2023-11-27",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 1997,
+    "startTime": "19:15",
+    "location": "Manor Inn, 2 Stoke Gabriel Rd, Galmpton, Brixham TQ5 0NL",
+    "hares": "U Bend",
+    "sourceUrl": "https://www.teignvalleyh3.com/2023/11/run-1997-monday-27th-november-circle-up.html"
+  },
+  {
+    "date": "2023-12-11",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 1999,
+    "startTime": "19:15",
+    "location": "Court Farm Inn, Abbotskerswell, Newton Abbot TQ12 5NY",
+    "hares": "Ernie and Strap-On",
+    "sourceUrl": "https://www.teignvalleyh3.com/2023/12/space-1999.html"
+  },
+  {
+    "date": "2024-01-08",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2002,
+    "startTime": "19:15",
+    "location": "Two Mile Oak Inn, Newton Abbot TQ12 6DF",
+    "hares": "Only Here for the Beer",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/01/run-2002-monday-8th-january-circle-up.html"
+  },
+  {
+    "date": "2024-01-22",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2004,
+    "startTime": "19:15",
+    "location": "Maltings Taphouse & Bottle Shop, Teign Rd, Newton Abbot TQ12 4AA",
+    "hares": "Able",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/01/burns-night-with-tvh.html"
+  },
+  {
+    "date": "2024-01-29",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2005,
+    "startTime": "19:15",
+    "location": "The Lord Nelson, Kingskerswell, Newton Abbot TQ12 5JB",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/01/monday-from-nellie.html"
+  },
+  {
+    "date": "2024-02-12",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2007,
+    "startTime": "19:15",
+    "location": "Dolphin Hotel, 1A Station Rd, Bovey Tracey, Newton Abbot TQ13 9AL",
+    "hares": "Beefy, Pisswell and Coldtits",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/02/mondays-trail.html"
+  },
+  {
+    "date": "2024-02-19",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2008,
+    "startTime": "19:15",
+    "location": "Corner Flag bar, Devon FA, County Headquarters, Coach Rd, Newton Abbot TQ12 1EJ",
+    "hares": "Wet Johnny",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/02/mondays-details.html"
+  },
+  {
+    "date": "2024-02-26",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2009,
+    "startTime": "19:15",
+    "location": "main car park Chudleigh for the 'Bring a Friend' extravaganza",
+    "hares": "Zoot and Hotlips",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/02/back-to-bishop-lacy.html"
+  },
+  {
+    "date": "2024-03-04",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2010,
+    "startTime": "19:15",
+    "location": "Old Commercial Inn Bishopsteignton, Clanage St, Bishopsteignton, Teignmouth TQ14 9QS",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/03/mondays-trail.html"
+  },
+  {
+    "date": "2024-03-11",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2011,
+    "startTime": "19:15",
+    "location": "Cockhaven Arms (formerly Cockhaven Manor) Cockhaven Rd, Bishopsteignton, Teignmouth TQ14 9RF",
+    "hares": "Roger the Dodger and Co",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/03/mondays-details.html"
+  },
+  {
+    "date": "2024-03-18",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2012,
+    "startTime": "19:15",
+    "location": "Church House Inn Marldon, Village Rd, Marldon, Paignton TQ3 1S",
+    "hares": "your Grand Master Shitfaced",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/03/mondays-details_16.html"
+  },
+  {
+    "date": "2024-03-25",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2013,
+    "startTime": "19:15",
+    "location": "hash HQ the Park Inn, 15 Cole's Ln, Kingskerswell, Newton Abbot TQ12 5BQ",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/03/awards-night-this-monday.html"
+  },
+  {
+    "date": "2024-04-01",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2014,
+    "startTime": "19:15",
+    "location": "King William IV, 45 Fore St, Totnes TQ9 5HN",
+    "hares": "Smellie",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/03/1st-april-hash.html"
+  },
+  {
+    "date": "2024-04-15",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2016,
+    "startTime": "19:15",
+    "location": "The Nobody Inn, Doddiscombsleigh, Exeter EX6 7PS",
+    "hares": "Forrest",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/04/nobody-inn-15th-april.html"
+  },
+  {
+    "date": "2024-04-22",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2017,
+    "startTime": "19:15",
+    "location": "Two Crosses car park outside Widecombe in the Moor. Nearest postcode is TQ13 7TU",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/04/please-note-circle-location-monday-22nd.html"
+  },
+  {
+    "date": "2024-05-06",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2019,
+    "startTime": "19:15",
+    "location": "Chudleigh main car park",
+    "hares": "Forrest and Man-Pig",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/05/please-note-venue-change.html"
+  },
+  {
+    "date": "2024-05-13",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2020,
+    "startTime": "19:15",
+    "location": "Devon Arms, Northumberland Pl, Teignmouth TQ14 8DE",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/05/pirate-hash-arr.html"
+  },
+  {
+    "date": "2024-05-27",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2022,
+    "startTime": "19:15",
+    "location": "Manor Inn, 2 Stoke Gabriel Rd, Galmpton, Brixham TQ5 0NL",
+    "hares": "U Bend",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/05/mondays-trail.html"
+  },
+  {
+    "date": "2024-06-03",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2023,
+    "startTime": "19:15",
+    "location": "Maddacombe Farm Estate, Stoneycombe, Maddacombe Rd, Newton Abbot",
+    "hares": "Only Here For the Beer",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/05/only-here-for-beers-place-this-monday.html"
+  },
+  {
+    "date": "2024-06-10",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2024,
+    "startTime": "19:15",
+    "location": "Ipplepen Athletic Football Club, Moor Road Playing Fields, Moor Road, Ipplepen, Newton Abbot TQ12 5TT",
+    "hares": "Wet Johnny",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/06/mondays-details.html"
+  },
+  {
+    "date": "2024-06-24",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2026,
+    "startTime": "19:15",
+    "location": "The Bell Inn, 108 Drew St, Brixham TQ5 9JY",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/06/mondays-details-and-map.html"
+  },
+  {
+    "date": "2024-07-01",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2027,
+    "startTime": "19:15",
+    "location": "Church House Inn, Stokeinteignhead, Newton Abbot TQ12 4QA",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/06/mondays-details_29.html"
+  },
+  {
+    "date": "2024-07-08",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2028,
+    "startTime": "19:15",
+    "location": "Dolphin Hotel, 1A Station Rd, Bovey Tracey, Newton Abbot TQ13 9AL",
+    "hares": "double seeking hare Poacher",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/07/mondays-details.html"
+  },
+  {
+    "date": "2024-07-15",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2029,
+    "startTime": "19:15",
+    "location": "ye olde Devon Dumpling, 108 Shiphay Ln, Shiphay, Torquay TQ2 7BY",
+    "hares": "Pork Torpedo and Hornie",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/07/mondays-trail.html"
+  },
+  {
+    "date": "2024-07-22",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2030,
+    "startTime": "19:15",
+    "location": "car park at Ausewell TQ13 7HL",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/07/back-to-moor-this-monday.html"
+  },
+  {
+    "date": "2024-07-29",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2031,
+    "startTime": "19:15",
+    "location": "Court Farm Inn, Abbotskerswell, Newton Abbot TQ12 5NY",
+    "hares": "Ernie and Strap-On",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/07/court-farm-inn-this-monday.html"
+  },
+  {
+    "date": "2024-08-05",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2032,
+    "startTime": "19:15",
+    "location": "main car park at Trenchford Reservoir",
+    "description": "what3words: ///squirted.menswear.quarrel",
+    "hares": "Forrest",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/08/toreservoir-dogs-this-monday.html"
+  },
+  {
+    "date": "2024-08-12",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2033,
+    "startTime": "19:15",
+    "location": "Torquay Athletic Rugby Football Club, Recreation Ground The Seafront, Torquay TQ2 6NX",
+    "hares": "Cheerio Beerio",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/08/fancy-dip-bring-your-cossie.html"
+  },
+  {
+    "date": "2024-08-19",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2034,
+    "startTime": "19:15",
+    "location": "Heatree Activity Centre, Manaton, Dartmoor, Devon, TQ13 9XE",
+    "hares": "Pisswell",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/08/back-to-moor.html"
+  },
+  {
+    "date": "2024-08-26",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2035,
+    "startTime": "19:15",
+    "location": "Trendlebere Down C.P",
+    "description": "what3words: ///intersect.slave.locals",
+    "hares": "Beefy",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/08/trendlebere-down-cp.html"
+  },
+  {
+    "date": "2024-09-02",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2036,
+    "startTime": "19:15",
+    "location": "Tinpickle And Rhum, The Moorland Hotel, Haytor, Newton Abbot TQ13 9XT",
+    "hares": "Slip on Me",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/09/todays-trail-details-with-profuse.html"
+  },
+  {
+    "date": "2024-09-09",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2040,
+    "startTime": "19:15",
+    "location": "Church car park at Manaton.ON DOWN from the Kestor Inn TQ13 9UF",
+    "hares": "Poacher",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/09/please-note-this-is-venue-change-from.html"
+  },
+  {
+    "date": "2024-09-16",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2041,
+    "startTime": "19:15",
+    "location": "Church Cottages, Widecombe in the Moor, Newton Abbot TQ13 7TH",
+    "description": "what3words: ///ordeals.harmless.dolphin",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/09/listen-carefully.html"
+  },
+  {
+    "date": "2024-09-23",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2042,
+    "startTime": "19:15",
+    "location": "Tottiford Reservoir CP",
+    "description": "what3words: ///ranks.serenade.surprise",
+    "hares": "Beeflicker & Psycho",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/09/back-to-reservoirs.html"
+  },
+  {
+    "date": "2024-09-30",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2043,
+    "startTime": "19:15",
+    "location": "Royal British Legion club, Newton Abbot, 2 Marsh Rd, Newton Abbot TQ12 2AP",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/09/back-to-legion.html"
+  },
+  {
+    "date": "2024-10-07",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2044,
+    "startTime": "19:15",
+    "location": "Cofton Holiday Park, Starcross, Exeter EX6 8RP",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/10/winfields-memorial-hash.html"
+  },
+  {
+    "date": "2024-10-14",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2045,
+    "startTime": "19:15",
+    "location": "Kestor Inn, Manaton, Dartmoor National Park, Kestor Inn, Manaton, Newton Abbot TQ13 9UF",
+    "hares": "Ollie, Poacher & Compo",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/10/kestor-inn-this-monday.html"
+  },
+  {
+    "date": "2024-10-21",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2046,
+    "startTime": "19:15",
+    "location": "Cockhaven Arms, 16 Cockhaven Rd, Bishopsteignton, Teignmouth TQ14 9R",
+    "hares": "Roger the Dodger",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/10/cockhaven-arms.html"
+  },
+  {
+    "date": "2024-10-28",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2047,
+    "startTime": "19:15",
+    "location": "Barton Hill car park EX7 9QQ",
+    "hares": "Soapy & Melonpicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/10/halloween-hash.html"
+  },
+  {
+    "date": "2024-11-04",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2048,
+    "startTime": "19:15",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/11/bonfire-night-in-tinkley-bottom.html"
+  },
+  {
+    "date": "2024-11-11",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2049,
+    "startTime": "19:15",
+    "location": "Highweek Inn, Highweek, Newton Abbot TQ12 1QA",
+    "hares": "Poacher and Able Semen",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/11/highweek-inn.html"
+  },
+  {
+    "date": "2024-11-18",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2050,
+    "startTime": "19:15",
+    "location": "The Prince of Orange 157 Barton Hill Road, Torquay, TQ2 8HN",
+    "hares": "Smash, MisMash and Satnav",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/11/prince-of-orange.html"
+  },
+  {
+    "date": "2024-11-25",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2051,
+    "startTime": "19:15",
+    "location": "The Lord Nelson, Fore St, Kingskerswell, Devon TQ12 5JB",
+    "hares": "that stalwart of stalwarts, Man-Pig",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/11/back-to-nellie-this-monday.html"
+  },
+  {
+    "date": "2024-12-02",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2052,
+    "startTime": "19:15",
+    "location": "King William IV 45 Fore St, Totnes TQ9 5HN",
+    "hares": "Wet Johnny",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/11/on-on-to-king-billy.html"
+  },
+  {
+    "date": "2024-12-09",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2053,
+    "startTime": "19:15",
+    "location": "Smugglers Inn, 27 Teignmouth Rd, Dawlish EX7 0LA",
+    "hares": "U Bend",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/12/smugglers-inn.html"
+  },
+  {
+    "date": "2024-12-30",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2056,
+    "startTime": "19:15",
+    "location": "Royal British Legion club, Newton Abbot, 2 Marsh Rd, Newton Abbot TQ12 2AP",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2024/12/fancy-dress-pub-crawl.html"
+  },
+  {
+    "date": "2025-01-06",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2057,
+    "startTime": "19:15",
+    "location": "Castle Inn, Stoke Gabriel TQ9 6RZ",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/01/castle-inn-stoke-gabriel.html"
+  },
+  {
+    "date": "2025-01-20",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2059,
+    "startTime": "19:15",
+    "location": "Park Inn, 15 Coles Lane Kingskerswell TQ12 5BQ",
+    "hares": "Shitfaced & Friends",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/01/park-inn-at-kingskerswell.html"
+  },
+  {
+    "date": "2025-01-27",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2060,
+    "startTime": "19:15",
+    "location": "Station Road car park",
+    "hares": "Poacher and Pocket Rocket",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/01/back-to-bovey.html"
+  },
+  {
+    "date": "2025-02-03",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2061,
+    "startTime": "19:15",
+    "location": "Newfoundland Way CP (by the Police station) Newton Abbot TQ12 1NG",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/02/circle-up-northmberland-way-cp.html"
+  },
+  {
+    "date": "2025-02-10",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2062,
+    "startTime": "19:15",
+    "location": "The Corner flag Bar, Devon FA, County Headquarters, Coach Rd, Newton Abbot TQ12 1EJ",
+    "hares": "Wet Johnny",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/02/corner-flag-kick-off-715-pm.html"
+  },
+  {
+    "date": "2025-02-17",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2063,
+    "startTime": "19:15",
+    "location": "River Dart Country Park, TQ13 7NP",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/02/pisswells-birthday-hash.html"
+  },
+  {
+    "date": "2025-02-24",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2064,
+    "startTime": "19:15",
+    "location": "Claycutters Arms, Chudleigh Knighton, Newton Abbot TQ13 0EY",
+    "hares": "Poacher",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/02/claycutters.html"
+  },
+  {
+    "date": "2025-03-03",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2065,
+    "startTime": "19:15",
+    "location": "Rora House, Halford, Liverton, Newton Abbot TQ12 6HZ",
+    "hares": "Pisswell",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/03/a-walk-on-wild-side.html"
+  },
+  {
+    "date": "2025-03-10",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2066,
+    "startTime": "19:15",
+    "location": "Maddacombe Farm, Stoneycombe, Maddacombe Rd, Newton Abbot TQ12 5LF",
+    "hares": "Cheerio Beerio and Shitfaced",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/03/barby-time.html"
+  },
+  {
+    "date": "2025-03-24",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2068,
+    "startTime": "19:15",
+    "location": "Highweek Inn, Highweek, Newton Abbot TQ12 1QA",
+    "hares": "Poacher",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/03/awards-night-at-highweek-inn.html"
+  },
+  {
+    "date": "2025-03-31",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2069,
+    "startTime": "19:15",
+    "location": "Pig and Whistle, Newton Road, Littlehempston, Totnes TQ9 6LT",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/03/pig-and-whistle.html"
+  },
+  {
+    "date": "2025-04-07",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2070,
+    "startTime": "19:15",
+    "location": "Park Inn, 15 Coles Lane, Kingskerswell for the AGPU",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/04/agpu.html"
+  },
+  {
+    "date": "2025-04-14",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2071,
+    "startTime": "19:15",
+    "location": "Kestor Inn, Manaton, Dartmoor National Park, Kestor Inn, Manaton, Newton Abbot TQ13 9UF",
+    "hares": "Poacher",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/04/kestor-inn.html"
+  },
+  {
+    "date": "2025-04-21",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2072,
+    "startTime": "19:15",
+    "location": "main car park (near the square) in Chudleigh - parking is free after 6 pm",
+    "hares": "Zoot and Hotlips",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/04/ship-inn-chudleigh.html"
+  },
+  {
+    "date": "2025-04-28",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2073,
+    "startTime": "19:15",
+    "location": "Dartmoor Halfway Inn, Ashburton Rd, Bickington, Newton Abbot TQ12 6JW",
+    "hares": "Poacher and Pisswell",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/04/dartmoor-halfway-inn.html"
+  },
+  {
+    "date": "2025-05-12",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2075,
+    "startTime": "19:15",
+    "location": "Ipplepen Football Club, Moor Rd Playing Fields, Moor Rd, Ipplepen TQ12 5TT",
+    "hares": "Wet Johnny",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/05/ipplepen-football-club.html"
+  },
+  {
+    "date": "2025-05-19",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2076,
+    "startTime": "19:15",
+    "location": "The Prince of Orange 157 Barton Hill Road, Torquay, TQ2 8HN",
+    "hares": "Smash and Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/05/prince-of-orange-at-barton.html"
+  },
+  {
+    "date": "2025-05-26",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2077,
+    "startTime": "19:15",
+    "location": "Saddle Tor car park south (second CP from Haytor)",
+    "hares": "Pisswell",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/05/bluebell-hash.html"
+  },
+  {
+    "date": "2025-06-02",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2078,
+    "startTime": "19:15",
+    "location": "The Grumpy Farmer, Higher Humber Farm TQ14 9TD",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/05/back-to-red-rock-baby.html"
+  },
+  {
+    "date": "2025-06-09",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2079,
+    "startTime": "19:15",
+    "location": "Artichoke Inn, Christow EX6 7NF",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/06/artichoke-inn-last-there-2016.html"
+  },
+  {
+    "date": "2025-06-16",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2080,
+    "startTime": "19:15",
+    "location": "Court Farm Inn at Abbotskerswell",
+    "hares": "Strap-On and Strap-Dancer",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/06/court-farm-inn.html"
+  },
+  {
+    "date": "2025-06-23",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2081,
+    "startTime": "19:15",
+    "location": "car park at Cold East Cross, B3212,(what3words taps.fishnet.sharpen)",
+    "description": "what3words: ///taps.fishnet.sharpen",
+    "hares": "Beefy",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/06/cold-east-cross-car-park.html"
+  },
+  {
+    "date": "2025-06-30",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2082,
+    "startTime": "19:15",
+    "location": "Pizwell Farm, PL20 6TN",
+    "description": "what3words: ///buckling.hotdog.fixture",
+    "hares": "Pisswell",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/06/summers-here.html"
+  },
+  {
+    "date": "2025-07-07",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2084,
+    "startTime": "19:15",
+    "location": "Bone Hill Rocks car park TQ13 7TD",
+    "hares": "Poacher",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/07/bone-hill-rocks.html"
+  },
+  {
+    "date": "2025-07-14",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2085,
+    "startTime": "19:15",
+    "location": "Bridford Inn, Bridford, Exeter EX6 7HT",
+    "hares": "Psycho and Forrest",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/07/bridford-inn.html"
+  },
+  {
+    "date": "2025-07-21",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2086,
+    "startTime": "19:15",
+    "location": "Brownstone and Coleton Camp, Kingswear, Dartmouth TQ6 0EQ",
+    "description": "what3words: ///tunes.hunk.hunk",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/07/expedition-kingswear.html"
+  },
+  {
+    "date": "2025-07-28",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2087,
+    "startTime": "19:15",
+    "location": "North Bovey car park TQ13 8RB",
+    "description": "what3words: ///rabble.stint.inherits",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/07/north-bovey-not-bovey-tracy.html"
+  },
+  {
+    "date": "2025-08-04",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2088,
+    "startTime": "19:15",
+    "location": "Hound Tor CP (Swallerton Gate) W3W forks.newstand.relies",
+    "description": "what3words: ///forks.newstand.relies",
+    "hares": "Poacher",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/08/you-aint-nothing-but-hound-dog.html"
+  },
+  {
+    "date": "2025-08-11",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2089,
+    "startTime": "19:15",
+    "location": "Trendlebere Down, East Dartmoor National Nature Reserve, Yarner Wood, Bovey Tracy TQ13 9LJ",
+    "hares": "Poacher",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/08/trendlebeare-down-with-poacher.html"
+  },
+  {
+    "date": "2025-08-18",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2090,
+    "startTime": "19:15",
+    "location": "Manor Inn at Galmpton, Stoke Gabriel Rd, Galmpton, Brixham TQ5 0NL",
+    "hares": "U Bend",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/08/back-to-manor-inn-at-galmpton.html"
+  },
+  {
+    "date": "2025-09-01",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2092,
+    "startTime": "19:15",
+    "location": "Fingle Bridge, Exeter EX6 6PW",
+    "hares": "Pisswell",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/08/fingle-bridge-return-after-many-year.html"
+  },
+  {
+    "date": "2025-09-08",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2093,
+    "startTime": "19:15",
+    "location": "Kestor Inn, Manaton, Newton Abbot TQ13 9UF",
+    "hares": "Poacher",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/09/kestore-inn.html"
+  },
+  {
+    "date": "2025-09-15",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2094,
+    "startTime": "19:15",
+    "location": "Waterside Inn Goodrington TQ4 6ND",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/09/waterside-inn-at-goodrington.html"
+  },
+  {
+    "date": "2025-09-22",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2095,
+    "startTime": "19:15",
+    "location": "adjacent to the Bay Horse Inn, 64 North Street, Ashburton TQ13 7QG",
+    "hares": "Beefy",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/09/new-pub.html"
+  },
+  {
+    "date": "2025-09-29",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2096,
+    "startTime": "19:15",
+    "location": "Embassy Tavern, 3 Colin Rd, Paignton TQ3 2NR",
+    "hares": "Cheerio Beerio and Threesum",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/09/to-seaside.html"
+  },
+  {
+    "date": "2025-10-06",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2097,
+    "startTime": "19:15",
+    "location": "Station Road car park, 1 Station Road, Bovey Tracey, Newton Abbot TQ13 9AL",
+    "hares": "Soapy and Melonpicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/10/back-to-bovey.html"
+  },
+  {
+    "date": "2025-10-13",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2098,
+    "startTime": "19:15",
+    "location": "Newfoundland Way car park, Newton Abbot TQ12 1JZ",
+    "hares": "hare Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/10/no-joy-at-abbot-this-monday.html"
+  },
+  {
+    "date": "2025-10-20",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2099,
+    "startTime": "19:15",
+    "location": "Bridford Inn, Bridford, Exeter EX6 7HT",
+    "hares": "Warmfront",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/10/bridford-inn.html"
+  },
+  {
+    "date": "2025-10-27",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2100,
+    "startTime": "19:15",
+    "location": "Maltings Taphouse, Teign Road Newton Abbot TQ12 4AA",
+    "hares": "Archangel",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/10/taphouse-for-2100.html"
+  },
+  {
+    "date": "2025-11-03",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2101,
+    "startTime": "19:15",
+    "location": "Forrest's hideout at Tinkley Bottom, Trusham, Newton Abbot TQ13 0NT",
+    "description": "what3words: ///princely.screeches.dissolve",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/11/forrests-firework-frenzy-and-feasting.html"
+  },
+  {
+    "date": "2025-11-10",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2102,
+    "startTime": "19:15",
+    "location": "Cricketfield Road Car Park, Newton bbot TQ12 2AS",
+    "hares": "Beeflicker and Pocket Rocket",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/11/monday-10th-november-2102.html"
+  },
+  {
+    "date": "2025-11-17",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2103,
+    "startTime": "19:15",
+    "location": "Barton Hill car park, Dawlish EX7 9QF",
+    "hares": "Polyfella",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/11/off-to-dawlish.html"
+  },
+  {
+    "date": "2025-12-01",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2105,
+    "startTime": "19:15",
+    "location": "Cockhaven Arms, 16 Cockhaven Rd, Bishopsteignton, Teignmouth TQ14 9RF",
+    "hares": "Roger the Dodger",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/12/cockhaven-arms.html"
+  },
+  {
+    "date": "2025-12-08",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2106,
+    "startTime": "19:15",
+    "location": "King William IV 45 Fore St, Totnes TQ9 5HN",
+    "hares": "Wet Johnny",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/12/king-billy.html"
+  },
+  {
+    "date": "2025-12-22",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2108,
+    "startTime": "19:15",
+    "location": "Live and Let Live, Landscove TQ13 7LZ",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/12/christmas-time.html"
+  },
+  {
+    "date": "2025-12-29",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2109,
+    "startTime": "19:15",
+    "location": "The Lord Nelson, Kingskerswell TQ12 5JB",
+    "hares": "Man-Pig",
+    "sourceUrl": "https://www.teignvalleyh3.com/2025/12/last-hash-2025.html"
+  },
+  {
+    "date": "2026-01-05",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2110,
+    "startTime": "19:15",
+    "location": "outside the Bell Inn, Town Hall Pl, Bovey Tracey, Newton Abbot TQ13 9AA",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/01/the-bell-inn.html"
+  },
+  {
+    "date": "2026-01-12",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2111,
+    "startTime": "19:15",
+    "location": "Kings Arms, Kingsteignton TQ12 3EG",
+    "hares": "Ernie & Strap-On",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/01/kings-arms.html"
+  },
+  {
+    "date": "2026-01-19",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2112,
+    "startTime": "19:15",
+    "location": "promptly (please!) from The Wighton, Orchard Way, Torquay TQ2 7JA",
+    "hares": "stand-in stalwart Man-Pig",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/01/the-wighton.html"
+  },
+  {
+    "date": "2026-01-26",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2113,
+    "startTime": "19:15",
+    "location": "Two Mile Oak, Totnes Rd, Newton Abbot TQ12 6DF",
+    "hares": "Wet Johnny",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/01/burns-night-hash-from-two-mile-oak.html"
+  },
+  {
+    "date": "2026-02-09",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2115,
+    "startTime": "19:15",
+    "location": "New Quay Inn, New Quay St, Teignmouth TQ14 8DA",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/02/new-quay-inn-just-round-corner-from.html"
+  },
+  {
+    "date": "2026-02-16",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2116,
+    "startTime": "19:15",
+    "location": "The Star at Liverton, Newton Abbot TQ12 6EZ",
+    "hares": "Soapy and Melonpicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/02/paint-star-pink.html"
+  },
+  {
+    "date": "2026-02-23",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2117,
+    "startTime": "19:15",
+    "location": "Trendlebere Down - middle car park TQ13 9LJ",
+    "description": "what3words: ///revisit.pure.encroach",
+    "hares": "Beefy",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/02/run-2117-monday-23rd-february.html"
+  },
+  {
+    "date": "2026-03-02",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2118,
+    "startTime": "19:15",
+    "location": "Ten Tors Inn, Kingsteignton TQ12 3NP",
+    "hares": "March Hare Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/02/ten-tors-inn.html"
+  },
+  {
+    "date": "2026-03-09",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2119,
+    "startTime": "19:15",
+    "location": "The Grumpy Farmer (former Red Rock brewery) Higher Humber Farm, TQ14 9TD",
+    "hares": "Well Hopped",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/03/red-rock-n-roll.html"
+  },
+  {
+    "date": "2026-03-16",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2120,
+    "startTime": "19:15",
+    "location": "The Upside Bar Co. Victoria Street, Paignton TQ4 5DS",
+    "hares": "Manpig",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/03/a-visit-to-upside-bar-company.html"
+  },
+  {
+    "date": "2026-03-23",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2121,
+    "startTime": "19:15",
+    "location": "Sandygate Inn. Kingsteignton TQ12 3PU",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/03/sandygate-inn.html"
+  },
+  {
+    "date": "2026-03-30",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2122,
+    "startTime": "19:15",
+    "location": "Devonport Arms, 42 Elmbank Road, Paignton TQ4 5NG",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/03/awards-night.html"
+  },
+  {
+    "date": "2026-04-06",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2123,
+    "startTime": "19:15",
+    "location": "Bridford Inn, Bridford, Exeter EX6 7HT",
+    "hares": "Forrest and Woodlend",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/04/remember-bridford-inn-not-cridford-inn.html"
+  },
+  {
+    "date": "2026-04-13",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2124,
+    "startTime": "19:15",
+    "location": "Lord Nelson",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/04/agpu.html"
+  },
+  {
+    "date": "2026-04-20",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2125,
+    "startTime": "19:15",
+    "location": "Rugglestone Inn, Widecombe in the Moor, Newton Abbot TQ13 7TF",
+    "hares": "Beefy",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/04/spring-has-sprung-rugglestone-moor.html"
+  },
+  {
+    "date": "2026-04-27",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2126,
+    "startTime": "19:15",
+    "location": "The Kent's. 1 Ilsham Rd, Wellswood, Torquay TQ1 2JG",
+    "hares": "Piltdown and Georgy",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/04/715-pm-sharp_01643527899.html"
+  },
+  {
+    "date": "2026-05-04",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2127,
+    "startTime": "19:15",
+    "location": "Ness car park at Shaldon TQ14 0DP",
+    "hares": "Swinger and Well Hopped",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/05/bank-holiday-beach-beer.html"
+  },
+  {
+    "date": "2026-05-11",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2128,
+    "startTime": "19:15",
+    "location": "Court Farm Inn, Abbotskerswell, Newton Abbot TQ12 5NY",
+    "hares": "Strap-on",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/05/court-farm-inn.html"
+  },
+  {
+    "date": "2026-05-18",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2129,
+    "startTime": "19:15",
+    "location": "High Heathercombe Centre, Manaton, Newton Abbot TQ13 9XE",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/05/red-dress-run-cream-tea.html"
+  },
+  {
+    "date": "2026-05-25",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2130,
+    "startTime": "19:15",
+    "location": "Bay Horse Inn - pavement adjacent to pub (not opposite), 64 North St, Ashburton, Newton Abbot TQ13 7QG",
+    "hares": "Beefy",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/05/the-bay-horse-beckons.html"
+  },
+  {
+    "date": "2026-06-01",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2131,
+    "startTime": "19:15",
+    "location": "Coombe Cellars CP, Combeinteignhead, Newton Abbot TQ12 4RT",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/05/coombe-cellars.html"
+  },
+  {
+    "date": "2026-06-08",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2132,
+    "startTime": "19:15",
+    "location": "Cockhaven Arms, Bishopsteignton",
+    "hares": "Roger the Dodger",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/06/cockhaven-arms.html"
+  },
+  {
+    "date": "2026-06-15",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2133,
+    "startTime": "19:15",
+    "location": "Rugglestone Inn, Widecombe-in-the-Moor",
+    "hares": "Pisswell",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/06/rugglestone-here-we-come.html"
+  },
+  {
+    "date": "2026-06-22",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2134,
+    "startTime": "19:15",
+    "location": "Royal Oak Inn at Exminster, Exeter EX6 8DX",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/06/royal-oak-at-exminster.html"
+  },
+  {
+    "date": "2026-06-29",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2135,
+    "startTime": "19:15",
+    "location": "Dawlish Warren Landward car park, Beach Road, Dawlish Warren, Dawlish EX7 0NF",
+    "hares": "Pollyfella",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/06/a-trip-to-sands.html"
+  },
+  {
+    "date": "2026-07-06",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2136,
+    "startTime": "19:15",
+    "location": "The Star at Liverton, Liverton, Newton Abbot TQ12 6EZ",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/07/the-star-at-liverton.html"
+  },
+  {
+    "date": "2026-07-13",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2137,
+    "startTime": "19:15",
+    "location": "The Drum Inn at Cockington, Torquay TQ2 6XA",
+    "hares": "Beefy",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/07/the-drum-at-cockington.html"
+  },
+  {
+    "date": "2026-07-20",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2138,
+    "startTime": "19:15",
+    "location": "Holne on the Venford reservoir road",
+    "description": "what3words: ///sunbeam.revival.troll",
+    "hares": "Pisswell",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/07/mondays-details.html"
+  },
+  {
+    "date": "2026-07-27",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2139,
+    "startTime": "19:15",
+    "location": "Bay Horse Inn 64 North St, Ashburton, Newton Abbot TQ13 7QG",
+    "hares": "Piltdown Man and Georgy P Orgy",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/07/back-to-bay-horse.html"
+  },
+  {
+    "date": "2026-08-03",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2140,
+    "startTime": "19:15",
+    "location": "Sea Trout Inn at Staverton",
+    "hares": "Man-Pig",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/08/sea-trout-inn-at-staverton.html"
+  },
+  {
+    "date": "2026-08-17",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2142,
+    "startTime": "19:15",
+    "location": "car park by the weir at Stoke Gabriel TQ9 6RD",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/08/it-be-pirate-night.html"
+  },
+  {
+    "date": "2026-08-24",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2143,
+    "startTime": "19:15",
+    "location": "The Monks Retreat, Broadhempston TQ9 6BN",
+    "hares": "Fukarwe",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/08/retreat-to-broadhempston.html"
+  },
+  {
+    "date": "2026-08-31",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2144,
+    "startTime": "19:15",
+    "location": "Newfoundland Way car park, Newton Abbot (in front of the police station)",
+    "hares": "Beeflicker",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/08/newton-town-at-abbot.html"
+  },
+  {
+    "date": "2026-09-07",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2145,
+    "startTime": "19:15",
+    "location": "Cordonford farm, Poundsgate, TQ13 7PD",
+    "description": "what3words: ///obstinate.estimates.gladiator",
+    "hares": "Pisswell",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/09/anhother-pisswell-adventure.html"
+  },
+  {
+    "date": "2026-09-14",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2146,
+    "startTime": "19:15",
+    "location": "Maltings Taphouse, Teign Road, Newton Abbot TQ12 4AA",
+    "hares": "Archangel",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/09/back-to-tap-house.html"
+  },
+  {
+    "date": "2026-09-21",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2147,
+    "startTime": "19:15",
+    "location": "Manaton Church Car Park Manaton, Newton Abbot TQ13 9UJ",
+    "description": "what3words: ///parked.defected.nerves",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/09/mondays-details-note-circle-up-location.html"
+  },
+  {
+    "date": "2026-09-28",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2148,
+    "startTime": "19:15",
+    "location": "Coombe Cellars CP, Combeinteignhead, Newton Abbot TQ12 4RT",
+    "hares": "Ollie",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/09/coombe-cellars-this-monday.html"
+  },
+  {
+    "date": "2026-10-05",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2149,
+    "startTime": "19:15",
+    "location": "Maddicombe farm, Maddacombe rd, Kingskerswell, Newton Abbot TQ12 5LF",
+    "hares": "Only Here for the Beer",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/10/only-here-for-beers-drum.html"
+  },
+  {
+    "date": "2026-10-12",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2150,
+    "startTime": "19:15",
+    "location": "Bell Inn, Town Hall Pl, Bovey Tracey, Newton Abbot TQ13 9AA",
+    "hares": "Pocket Rocket",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/10/bell-at-bovey.html"
+  },
+  {
+    "date": "2026-10-19",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2151,
+    "startTime": "19:15",
+    "location": "The Crown & Anchor, 2 Petitor Rd, St Marychurch, Torquay TQ1 4QA",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/10/crown-sceptre.html"
+  },
+  {
+    "date": "2026-10-26",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2152,
+    "startTime": "19:15",
+    "location": "Court Farm Inn, Abbotskerswell, Newton Abbot TQ12 5NY",
+    "hares": "Psycho",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/10/halloween-hash-from-court-farm-inn.html"
+  },
+  {
+    "date": "2026-11-02",
+    "kennelTags": [
+      "tvh3"
+    ],
+    "runNumber": 2153,
+    "startTime": "19:15",
+    "location": "Forrest's hideaway at Tinkley Bottom, Trusham, Newton Abbot TQ13 0NT",
+    "description": "what3words: ///princely.screeches.dissolve",
+    "sourceUrl": "https://www.teignvalleyh3.com/2026/11/firework-hash.html"
+  }
+]
