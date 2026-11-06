@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+	<meta charset="UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<link rel="pingback" href="https://www.sh4.org.uk/xmlrpc.php" />
+
+	<script type="text/javascript">
+		document.documentElement.className = 'js';
+	</script>
+
+	<title>Hash 1609 | South Hams Hash House Harriers</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><style id="et-builder-googlefonts-cached-inline">/* Original: https://fonts.googleapis.com/css?family=Cuprum:regular,500,600,700,italic,500italic,600italic,700italic|Arimo:regular,500,600,700,italic,500italic,600italic,700italic&#038;subset=cyrillic,cyrillic-ext,latin,latin-ext,vietnamese,greek,greek-ext,hebrew&#038;display=swap *//* User Agent: Mozilla/5.0 (Unknown; Linux x86_64) AppleWebKit/538.1 (KHTML, like Gecko) Safari/538.1 Daum/4.1 */@font-face {font-family: 'Arimo';font-style: italic;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sdzZCDf9_T_10c3i9MeUcyat4iJY-ERBrE.ttf) format('truetype');}@font-face {font-family: 'Arimo';font-style: italic;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sdzZCDf9_T_10c3i9MeUcyat4iJY-2RBrE.ttf) format('truetype');}@font-face {font-family: 'Arimo';font-style: italic;font-weight: 600;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sdzZCDf9_T_10c3i9MeUcyat4iJY9aQxrE.ttf) format('truetype');}@font-face {font-family: 'Arimo';font-style: italic;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sdzZCDf9_T_10c3i9MeUcyat4iJY9jQxrE.ttf) format('truetype');}@font-face {font-family: 'Arimo';font-style: normal;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sfzZCDf9_T_3cV7NCUECyoxNk37cxsBw.ttf) format('truetype');}@font-face {font-family: 'Arimo';font-style: normal;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sfzZCDf9_T_3cV7NCUECyoxNk338xsBw.ttf) format('truetype');}@font-face {font-family: 'Arimo';font-style: normal;font-weight: 600;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sfzZCDf9_T_3cV7NCUECyoxNk3M8tsBw.ttf) format('truetype');}@font-face {font-family: 'Arimo';font-style: normal;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sfzZCDf9_T_3cV7NCUECyoxNk3CstsBw.ttf) format('truetype');}@font-face {font-family: 'Cuprum';font-style: italic;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg47_pLmvrkcOkBNI_FMh0j91rkhli25jn_YIg.ttf) format('truetype');}@font-face {font-family: 'Cuprum';font-style: italic;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg47_pLmvrkcOkBNI_FMh0j91rkhli25vH_YIg.ttf) format('truetype');}@font-face {font-family: 'Cuprum';font-style: italic;font-weight: 600;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg47_pLmvrkcOkBNI_FMh0j91rkhli25UHjYIg.ttf) format('truetype');}@font-face {font-family: 'Cuprum';font-style: italic;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg47_pLmvrkcOkBNI_FMh0j91rkhli25aXjYIg.ttf) format('truetype');}@font-face {font-family: 'Cuprum';font-style: normal;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg45_pLmvrkcOkBnKsOzXyGWTBcmg-X6Zjw.ttf) format('truetype');}@font-face {font-family: 'Cuprum';font-style: normal;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg45_pLmvrkcOkBnKsOzXyGWTBcmg9f6Zjw.ttf) format('truetype');}@font-face {font-family: 'Cuprum';font-style: normal;font-weight: 600;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg45_pLmvrkcOkBnKsOzXyGWTBcmgzv9Zjw.ttf) format('truetype');}@font-face {font-family: 'Cuprum';font-style: normal;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg45_pLmvrkcOkBnKsOzXyGWTBcmgwL9Zjw.ttf) format('truetype');}/* User Agent: Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0 */@font-face {font-family: 'Arimo';font-style: italic;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sdzZCDf9_T_10c3i9MeUcyat4iJY-ERBrH.woff) format('woff');}@font-face {font-family: 'Arimo';font-style: italic;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sdzZCDf9_T_10c3i9MeUcyat4iJY-2RBrH.woff) format('woff');}@font-face {font-family: 'Arimo';font-style: italic;font-weight: 600;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sdzZCDf9_T_10c3i9MeUcyat4iJY9aQxrH.woff) format('woff');}@font-face {font-family: 'Arimo';font-style: italic;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sdzZCDf9_T_10c3i9MeUcyat4iJY9jQxrH.woff) format('woff');}@font-face {font-family: 'Arimo';font-style: normal;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sfzZCDf9_T_3cV7NCUECyoxNk37cxsBA.woff) format('woff');}@font-face {font-family: 'Arimo';font-style: normal;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sfzZCDf9_T_3cV7NCUECyoxNk338xsBA.woff) format('woff');}@font-face {font-family: 'Arimo';font-style: normal;font-weight: 600;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sfzZCDf9_T_3cV7NCUECyoxNk3M8tsBA.woff) format('woff');}@font-face {font-family: 'Arimo';font-style: normal;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sfzZCDf9_T_3cV7NCUECyoxNk3CstsBA.woff) format('woff');}@font-face {font-family: 'Cuprum';font-style: italic;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg47_pLmvrkcOkBNI_FMh0j91rkhli25jn_YIQ.woff) format('woff');}@font-face {font-family: 'Cuprum';font-style: italic;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg47_pLmvrkcOkBNI_FMh0j91rkhli25vH_YIQ.woff) format('woff');}@font-face {font-family: 'Cuprum';font-style: italic;font-weight: 600;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg47_pLmvrkcOkBNI_FMh0j91rkhli25UHjYIQ.woff) format('woff');}@font-face {font-family: 'Cuprum';font-style: italic;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg47_pLmvrkcOkBNI_FMh0j91rkhli25aXjYIQ.woff) format('woff');}@font-face {font-family: 'Cuprum';font-style: normal;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg45_pLmvrkcOkBnKsOzXyGWTBcmg-X6Zj8.woff) format('woff');}@font-face {font-family: 'Cuprum';font-style: normal;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg45_pLmvrkcOkBnKsOzXyGWTBcmg9f6Zj8.woff) format('woff');}@font-face {font-family: 'Cuprum';font-style: normal;font-weight: 600;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg45_pLmvrkcOkBnKsOzXyGWTBcmgzv9Zj8.woff) format('woff');}@font-face {font-family: 'Cuprum';font-style: normal;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg45_pLmvrkcOkBnKsOzXyGWTBcmgwL9Zj8.woff) format('woff');}/* User Agent: Mozilla/5.0 (Windows NT 6.3; rv:39.0) Gecko/20100101 Firefox/39.0 */@font-face {font-family: 'Arimo';font-style: italic;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sdzZCDf9_T_10c3i9MeUcyat4iJY-ERBrB.woff2) format('woff2');}@font-face {font-family: 'Arimo';font-style: italic;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sdzZCDf9_T_10c3i9MeUcyat4iJY-2RBrB.woff2) format('woff2');}@font-face {font-family: 'Arimo';font-style: italic;font-weight: 600;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sdzZCDf9_T_10c3i9MeUcyat4iJY9aQxrB.woff2) format('woff2');}@font-face {font-family: 'Arimo';font-style: italic;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sdzZCDf9_T_10c3i9MeUcyat4iJY9jQxrB.woff2) format('woff2');}@font-face {font-family: 'Arimo';font-style: normal;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sfzZCDf9_T_3cV7NCUECyoxNk37cxsAg.woff2) format('woff2');}@font-face {font-family: 'Arimo';font-style: normal;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sfzZCDf9_T_3cV7NCUECyoxNk338xsAg.woff2) format('woff2');}@font-face {font-family: 'Arimo';font-style: normal;font-weight: 600;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sfzZCDf9_T_3cV7NCUECyoxNk3M8tsAg.woff2) format('woff2');}@font-face {font-family: 'Arimo';font-style: normal;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/arimo/v36/P5sfzZCDf9_T_3cV7NCUECyoxNk3CstsAg.woff2) format('woff2');}@font-face {font-family: 'Cuprum';font-style: italic;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg47_pLmvrkcOkBNI_FMh0j91rkhli25jn_YJw.woff2) format('woff2');}@font-face {font-family: 'Cuprum';font-style: italic;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg47_pLmvrkcOkBNI_FMh0j91rkhli25vH_YJw.woff2) format('woff2');}@font-face {font-family: 'Cuprum';font-style: italic;font-weight: 600;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg47_pLmvrkcOkBNI_FMh0j91rkhli25UHjYJw.woff2) format('woff2');}@font-face {font-family: 'Cuprum';font-style: italic;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg47_pLmvrkcOkBNI_FMh0j91rkhli25aXjYJw.woff2) format('woff2');}@font-face {font-family: 'Cuprum';font-style: normal;font-weight: 400;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg45_pLmvrkcOkBnKsOzXyGWTBcmg-X6Zjk.woff2) format('woff2');}@font-face {font-family: 'Cuprum';font-style: normal;font-weight: 500;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg45_pLmvrkcOkBnKsOzXyGWTBcmg9f6Zjk.woff2) format('woff2');}@font-face {font-family: 'Cuprum';font-style: normal;font-weight: 600;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg45_pLmvrkcOkBnKsOzXyGWTBcmgzv9Zjk.woff2) format('woff2');}@font-face {font-family: 'Cuprum';font-style: normal;font-weight: 700;font-display: swap;src: url(https://fonts.gstatic.com/s/cuprum/v29/dg45_pLmvrkcOkBnKsOzXyGWTBcmgwL9Zjk.woff2) format('woff2');}</style><meta name='robots' content='max-image-preview:large' />
+<script type="text/javascript">
+			let jqueryParams=[],jQuery=function(r){return jqueryParams=[...jqueryParams,r],jQuery},$=function(r){return jqueryParams=[...jqueryParams,r],$};window.jQuery=jQuery,window.$=jQuery;let customHeadScripts=!1;jQuery.fn=jQuery.prototype={},$.fn=jQuery.prototype={},jQuery.noConflict=function(r){if(window.jQuery)return jQuery=window.jQuery,$=window.jQuery,customHeadScripts=!0,jQuery.noConflict},jQuery.ready=function(r){jqueryParams=[...jqueryParams,r]},$.ready=function(r){jqueryParams=[...jqueryParams,r]},jQuery.load=function(r){jqueryParams=[...jqueryParams,r]},$.load=function(r){jqueryParams=[...jqueryParams,r]},jQuery.fn.ready=function(r){jqueryParams=[...jqueryParams,r]},$.fn.ready=function(r){jqueryParams=[...jqueryParams,r]};</script><link rel='dns-prefetch' href='//www.sh4.org.uk' />
+<link rel="alternate" type="application/rss+xml" title="South Hams Hash House Harriers &raquo; Feed" href="https://www.sh4.org.uk/feed/" />
+<link rel="alternate" type="application/rss+xml" title="South Hams Hash House Harriers &raquo; Comments Feed" href="https://www.sh4.org.uk/comments/feed/" />
+<link rel="alternate" title="oEmbed (JSON)" type="application/json+oembed" href="https://www.sh4.org.uk/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fwww.sh4.org.uk%2Fevents%2Fhash-1609%2F" />
+<link rel="alternate" title="oEmbed (XML)" type="text/xml+oembed" href="https://www.sh4.org.uk/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fwww.sh4.org.uk%2Fevents%2Fhash-1609%2F&#038;format=xml" />
+<meta content="Divi Child v.1.0.1443162076" name="generator"/><style id="wp-img-auto-sizes-contain-inline-css">
+img:is([sizes=auto i],[sizes^="auto," i]){contain-intrinsic-size:3000px 1500px}
+/*# sourceURL=wp-img-auto-sizes-contain-inline-css */
+</style>
+<style id="wp-block-library-inline-css">
+:root{--wp-block-synced-color:#7a00df;--wp-block-synced-color--rgb:122,0,223;--wp-bound-block-color:var(--wp-block-synced-color);--wp-editor-canvas-background:#ddd;--wp-admin-theme-color:#007cba;--wp-admin-theme-color--rgb:0,124,186;--wp-admin-theme-color-darker-10:#006ba1;--wp-admin-theme-color-darker-10--rgb:0,107,160.5;--wp-admin-theme-color-darker-20:#005a87;--wp-admin-theme-color-darker-20--rgb:0,90,135;--wp-admin-border-width-focus:2px}@media (min-resolution:192dpi){:root{--wp-admin-border-width-focus:1.5px}}.wp-element-button{cursor:pointer}:root .has-very-light-gray-background-color{background-color:#eee}:root .has-very-dark-gray-background-color{background-color:#313131}:root .has-very-light-gray-color{color:#eee}:root .has-very-dark-gray-color{color:#313131}:root .has-vivid-green-cyan-to-vivid-cyan-blue-gradient-background{background:linear-gradient(135deg,#00d084,#0693e3)}:root .has-purple-crush-gradient-background{background:linear-gradient(135deg,#34e2e4,#4721fb 50%,#ab1dfe)}:root .has-hazy-dawn-gradient-background{background:linear-gradient(135deg,#faaca8,#dad0ec)}:root .has-subdued-olive-gradient-background{background:linear-gradient(135deg,#fafae1,#67a671)}:root .has-atomic-cream-gradient-background{background:linear-gradient(135deg,#fdd79a,#004a59)}:root .has-nightshade-gradient-background{background:linear-gradient(135deg,#330968,#31cdcf)}:root .has-midnight-gradient-background{background:linear-gradient(135deg,#020381,#2874fc)}:root{--wp--preset--font-size--normal:16px;--wp--preset--font-size--huge:42px}.has-regular-font-size{font-size:1em}.has-larger-font-size{font-size:2.625em}.has-normal-font-size{font-size:var(--wp--preset--font-size--normal)}.has-huge-font-size{font-size:var(--wp--preset--font-size--huge)}:root .has-text-align-center{text-align:center}:root .has-text-align-left{text-align:left}:root .has-text-align-right{text-align:right}.has-fit-text{white-space:nowrap!important}#end-resizable-editor-section{display:none}.aligncenter{clear:both}.items-justified-left{justify-content:flex-start}.items-justified-center{justify-content:center}.items-justified-right{justify-content:flex-end}.items-justified-space-between{justify-content:space-between}.screen-reader-text{word-wrap:normal!important;border:0;clip-path:inset(50%);height:1px;margin:-1px;overflow:hidden;padding:0;position:absolute;width:1px;word-break:normal!important}.screen-reader-text:focus{background-color:#ddd;clip-path:none;color:#444;display:block;font-size:1em;height:auto;left:5px;line-height:normal;padding:15px 23px 14px;text-decoration:none;top:5px;width:auto;z-index:100000}html :where(.has-border-color){border-style:solid}html :where([style^=border-color],[style*=";border-color"],[style*="; border-color"]){border-style:solid}html :where([style^=border-top-color],[style*=";border-top-color"],[style*="; border-top-color"]){border-top-style:solid}html :where([style^=border-right-color],[style*=";border-right-color"],[style*="; border-right-color"]){border-right-style:solid}html :where([style^=border-bottom-color],[style*=";border-bottom-color"],[style*="; border-bottom-color"]){border-bottom-style:solid}html :where([style^=border-left-color],[style*=";border-left-color"],[style*="; border-left-color"]){border-left-style:solid}html :where([style^=border-width],[style*=";border-width"],[style*="; border-width"]){border-style:solid}html :where([style^=border-top-width],[style*=";border-top-width"],[style*="; border-top-width"]){border-top-style:solid}html :where([style^=border-right-width],[style*=";border-right-width"],[style*="; border-right-width"]){border-right-style:solid}html :where([style^=border-bottom-width],[style*=";border-bottom-width"],[style*="; border-bottom-width"]){border-bottom-style:solid}html :where([style^=border-left-width],[style*=";border-left-width"],[style*="; border-left-width"]){border-left-style:solid}html :where(img[class*=wp-image-]){height:auto;max-width:100%}:where(figure){margin:0 0 1em}html :where(.is-position-sticky){--wp-admin--admin-bar--position-offset:var(--wp-admin--admin-bar--height,0px)}@media screen and (max-width:600px){html :where(.is-position-sticky){--wp-admin--admin-bar--position-offset:0px}}
+
+/*# sourceURL=/wp-includes/css/dist/block-library/common.min.css */
+</style>
+<style id="classic-theme-styles-inline-css">
+/*! This file is auto-generated */
+.wp-block-button__link{color:#fff;background-color:#32373c;border-radius:9999px;box-shadow:none;text-decoration:none;padding:calc(.667em + 2px) calc(1.333em + 2px);font-size:1.125em}.wp-block-file__button{background:#32373c;color:#fff;text-decoration:none}
+/*# sourceURL=/wp-includes/css/classic-themes.min.css */
+</style>
+
+<style id="global-styles-inline-css">
+:root{--wp--preset--aspect-ratio--square: 1;--wp--preset--aspect-ratio--4-3: 4/3;--wp--preset--aspect-ratio--3-4: 3/4;--wp--preset--aspect-ratio--3-2: 3/2;--wp--preset--aspect-ratio--2-3: 2/3;--wp--preset--aspect-ratio--16-9: 16/9;--wp--preset--aspect-ratio--9-16: 9/16;--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #ffffff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgb(6,147,227) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgb(252,185,0) 0%,rgb(255,105,0) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgb(255,105,0) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--font-size--small: 13px;--wp--preset--font-size--medium: 20px;--wp--preset--font-size--large: 36px;--wp--preset--font-size--x-large: 42px;--wp--preset--spacing--20: 0.44rem;--wp--preset--spacing--30: 0.67rem;--wp--preset--spacing--40: 1rem;--wp--preset--spacing--50: 1.5rem;--wp--preset--spacing--60: 2.25rem;--wp--preset--spacing--70: 3.38rem;--wp--preset--spacing--80: 5.06rem;--wp--preset--shadow--natural: 6px 6px 9px rgba(0, 0, 0, 0.2);--wp--preset--shadow--deep: 12px 12px 50px rgba(0, 0, 0, 0.4);--wp--preset--shadow--sharp: 6px 6px 0px rgba(0, 0, 0, 0.2);--wp--preset--shadow--outlined: 6px 6px 0px -3px rgb(255, 255, 255), 6px 6px rgb(0, 0, 0);--wp--preset--shadow--crisp: 6px 6px 0px rgb(0, 0, 0);}.wp-block-button{--wp--preset--dimension--25: 25%;--wp--preset--dimension--50: 50%;--wp--preset--dimension--75: 75%;--wp--preset--dimension--100: 100%;}:where(body) { margin: 0; }:where(.is-layout-flex){gap: 0.5em;}:where(.is-layout-grid){gap: 0.5em;}body .is-layout-flex{display: flex;}.is-layout-flex{flex-wrap: wrap;align-items: center;}.is-layout-flex > :is(*, div){margin: 0;}body .is-layout-grid{display: grid;}.is-layout-grid > :is(*, div){margin: 0;}body{padding-top: 0px;padding-right: 0px;padding-bottom: 0px;padding-left: 0px;}:root :where(.wp-element-button, .wp-block-button__link){background-color: #32373c;border-width: 0;color: #fff;font-family: inherit;font-size: inherit;font-style: inherit;font-weight: inherit;letter-spacing: inherit;line-height: inherit;padding-top: calc(0.667em + 2px);padding-right: calc(1.333em + 2px);padding-bottom: calc(0.667em + 2px);padding-left: calc(1.333em + 2px);text-decoration: none;text-transform: inherit;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}
+/*# sourceURL=global-styles-inline-css */
+</style>
+
+<link rel='stylesheet' id='events-manager-css' href='https://www.sh4.org.uk/wp-content/plugins/events-manager/includes/css/events-manager.css?ver=7.4.12' media='all' />
+<link rel='stylesheet' id='divi-style-parent-css' href='https://www.sh4.org.uk/wp-content/themes/Divi/style-static.min.css?ver=4.10.8' media='all' />
+<link rel='stylesheet' id='divi-style-css' href='https://www.sh4.org.uk/wp-content/themes/SH4-Divi-child/style.css?ver=1.0.1443162076' media='all' />
+<script id="jquery-core-js" src="https://www.sh4.org.uk/wp-includes/js/jquery/jquery.min.js?ver=3.7.1"></script>
+<script id="jquery-migrate-js" src="https://www.sh4.org.uk/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1"></script>
+<script id="jquery-js-after">
+jqueryParams.length&&$.each(jqueryParams,function(e,r){if("function"==typeof r){var n=String(r);n.replace("$","jQuery");var a=new Function("return "+n)();$(document).ready(a)}});
+//# sourceURL=jquery-js-after
+</script>
+<script id="jquery-ui-core-js-before">
+jQuery.uiBackCompat = true;
+//# sourceURL=jquery-ui-core-js-before
+</script>
+<script id="jquery-ui-core-js" src="https://www.sh4.org.uk/wp-includes/js/jquery/ui/core.min.js?ver=1.14.2"></script>
+<script id="jquery-ui-mouse-js" src="https://www.sh4.org.uk/wp-includes/js/jquery/ui/mouse.min.js?ver=1.14.2"></script>
+<script id="jquery-ui-sortable-js" src="https://www.sh4.org.uk/wp-includes/js/jquery/ui/sortable.min.js?ver=1.14.2"></script>
+<script id="jquery-ui-datepicker-js" src="https://www.sh4.org.uk/wp-includes/js/jquery/ui/datepicker.min.js?ver=1.14.2"></script>
+<script id="jquery-ui-datepicker-js-after">
+jQuery(function(jQuery){jQuery.datepicker.setDefaults({"closeText":"Close","currentText":"Today","monthNames":["January","February","March","April","May","June","July","August","September","October","November","December"],"monthNamesShort":["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],"nextText":"Next","prevText":"Previous","dayNames":["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],"dayNamesShort":["Sun","Mon","Tue","Wed","Thu","Fri","Sat"],"dayNamesMin":["S","M","T","W","T","F","S"],"dateFormat":"dd/mm/yy","firstDay":1,"isRTL":false});});
+//# sourceURL=jquery-ui-datepicker-js-after
+</script>
+<script id="jquery-ui-resizable-js" src="https://www.sh4.org.uk/wp-includes/js/jquery/ui/resizable.min.js?ver=1.14.2"></script>
+<script id="jquery-ui-draggable-js" src="https://www.sh4.org.uk/wp-includes/js/jquery/ui/draggable.min.js?ver=1.14.2"></script>
+<script id="jquery-ui-controlgroup-js" src="https://www.sh4.org.uk/wp-includes/js/jquery/ui/controlgroup.min.js?ver=1.14.2"></script>
+<script id="jquery-ui-checkboxradio-js" src="https://www.sh4.org.uk/wp-includes/js/jquery/ui/checkboxradio.min.js?ver=1.14.2"></script>
+<script id="jquery-ui-button-js" src="https://www.sh4.org.uk/wp-includes/js/jquery/ui/button.min.js?ver=1.14.2"></script>
+<script id="jquery-ui-dialog-js" src="https://www.sh4.org.uk/wp-includes/js/jquery/ui/dialog.min.js?ver=1.14.2"></script>
+<script id="events-manager-js-extra">
+var EM = {"ajaxurl":"https://www.sh4.org.uk/wp-admin/admin-ajax.php","locationajaxurl":"https://www.sh4.org.uk/wp-admin/admin-ajax.php?action=locations_search","firstDay":"1","locale":"en","dateFormat":"yy-mm-dd","ui_css":"https://www.sh4.org.uk/wp-content/plugins/events-manager/includes/css/jquery-ui/build.css","show24hours":"1","is_ssl":"1","autocomplete_limit":"10","calendar":{"breakpoints":{"small":560,"medium":908,"large":false},"month_format":"M Y"},"phone":"","datepicker":{"format":"d/m/Y"},"search":{"breakpoints":{"small":650,"medium":850,"full":false}},"url":"https://www.sh4.org.uk/wp-content/plugins/events-manager","assets":{"input.em-uploader":{"js":{"em-uploader":{"url":"https://www.sh4.org.uk/wp-content/plugins/events-manager/includes/js/em-uploader.js?v=7.4.12","event":"em_uploader_ready"}}},".em-event-editor":{"js":{"event-editor":{"url":"https://www.sh4.org.uk/wp-content/plugins/events-manager/includes/js/events-manager-event-editor.js?v=7.4.12","event":"em_event_editor_ready"}},"css":{"event-editor":"https://www.sh4.org.uk/wp-content/plugins/events-manager/includes/css/events-manager-event-editor.css?v=7.4.12"}},".em-recurrence-sets, .em-timezone":{"js":{"luxon":{"url":"luxon/luxon.js?v=7.4.12","event":"em_luxon_ready"}}},".em-booking-form, #em-booking-form, .em-booking-recurring, .em-event-booking-form":{"js":{"em-bookings":{"url":"https://www.sh4.org.uk/wp-content/plugins/events-manager/includes/js/bookingsform.js?v=7.4.12","event":"em_booking_form_js_loaded"}}},"#em-opt-archetypes":{"js":{"archetypes":"https://www.sh4.org.uk/wp-content/plugins/events-manager/includes/js/admin-archetype-editor.js?v=7.4.12","archetypes_ms":"https://www.sh4.org.uk/wp-content/plugins/events-manager/includes/js/admin-archetypes.js?v=7.4.12","qs":"qs/qs.js?v=7.4.12"}}},"cached":"","txt_search":"Search For Hashes & Events","txt_searching":"Searching...","txt_loading":"Loading..."};
+//# sourceURL=events-manager-js-extra
+</script>
+<script id="events-manager-js" src="https://www.sh4.org.uk/wp-content/plugins/events-manager/includes/js/events-manager.js?ver=7.4.12"></script>
+<link rel="https://api.w.org/" href="https://www.sh4.org.uk/wp-json/" /><link rel="EditURI" type="application/rsd+xml" title="RSD" href="https://www.sh4.org.uk/xmlrpc.php?rsd" />
+<meta name="generator" content="WordPress 7.1.4" />
+<link rel="canonical" href="https://www.sh4.org.uk/events/hash-1609/" />
+<link rel='shortlink' href='https://www.sh4.org.uk/?p=8209' />
+<!-- Template: page.php --><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" /><link rel="shortcut icon" href="http://www.sh4.org.uk/wp-content/uploads/2015/10/favicon.png" /><style id="custom-background-css">
+body.custom-background { background-color: #ffffff; }
+</style>
+<link rel="preload" href="wp-content/themes/Divi/core/admin/fonts/modules/all/modules.ttf" as="font" type="font/ttf" crossorigin="anonymous">
+<script id="mcjs">!function(c,h,i,m,p){m=c.createElement(h),p=c.getElementsByTagName(h)[0],m.async=1,m.src=i,p.parentNode.insertBefore(m,p)}(document,"script","https://chimpstatic.com/mcjs-connected/js/users/cca341264ea9ec0db94717807/87794d476ba8ae014a252c3bf.js");</script>
+<link rel="stylesheet" id="et-divi-customizer-global-cached-inline-styles" href="https://www.sh4.org.uk/wp-content/et-cache/global/et-divi-customizer-global.min.css?ver=1791313759" /><style id="et-critical-inline-css"></style>
+
+<meta name="viewport" content="width=device-width, user-scalable=yes, initial-scale=1.0, minimum-scale=0.1, maximum-scale=10.0">
+<link rel='stylesheet' id='so-css-Divi-css' href='https://www.sh4.org.uk/wp-content/uploads/so-css/so-css-Divi.css?ver=1791191947' media='all' />
+
+</head>
+<body class="wp-singular event-template-default single single-event postid-8209 custom-background wp-theme-Divi wp-child-theme-SH4-Divi-child et_pb_button_helper_class et_fixed_nav et_show_nav et_hide_primary_logo et_primary_nav_dropdown_animation_fade et_secondary_nav_dropdown_animation_fade et_header_style_left et_pb_footer_columns4 et_cover_background et_pb_gutter et_pb_gutters3 et_right_sidebar et_divi_theme et-db">
+	<div id="page-container">
+
+	
+	
+			<header id="main-header" data-height-onload="66">
+			<div class="container clearfix et_menu_container">
+							<div class="logo_container">
+					<span class="logo_helper"></span>
+					<a href="https://www.sh4.org.uk/">
+						<img src="http://www.sh4.org.uk/wp-content/uploads/2015/12/SouthHamsPig300x300.png" width="300" height="300" alt="South Hams Hash House Harriers" id="logo" data-height-percentage="54" />
+					</a>
+				</div>
+							<div id="et-top-navigation" data-height="66" data-fixed-height="40">
+											<nav id="top-menu-nav">
+						<ul id="top-menu" class="nav"><li id="menu-item-68" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-home menu-item-68"><a href="https://www.sh4.org.uk/">On Home</a></li>
+<li id="menu-item-7218" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-7218"><a href="#">Hash Diary</a>
+<ul class="sub-menu">
+	<li id="menu-item-6374" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-6374"><a href="https://www.sh4.org.uk/auto-draft/">Hash Diary</a></li>
+	<li id="menu-item-6234" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-6234"><a href="https://www.sh4.org.uk/social-events/">Social Events</a></li>
+	<li id="menu-item-7214" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-7214"><a href="https://www.sh4.org.uk/7117-2/">Hashes Attended</a></li>
+</ul>
+</li>
+<li id="menu-item-4262" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-item-4262"><a href="https://www.sh4.org.uk/sh4s-hashtory/" title="A brief history of SH4">Hashstory</a>
+<ul class="sub-menu">
+	<li id="menu-item-2879" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-2879"><a href="https://www.sh4.org.uk/historical-hashes/" title="Listing of past Events">Historical Hashes</a></li>
+	<li id="menu-item-7394" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-7394"><a href="https://www.sh4.org.uk/hare-ye-well/">Hare Ye Well</a></li>
+</ul>
+</li>
+<li id="menu-item-215" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-215"><a href="#">Information For Hashers</a>
+<ul class="sub-menu">
+	<li id="menu-item-7434" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-7434"><a href="https://www.sh4.org.uk/how-to-participate/">How To Participate</a></li>
+	<li id="menu-item-7408" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-7408"><a href="https://www.sh4.org.uk/risk-assesment/">Risk Assesment</a></li>
+	<li id="menu-item-8023" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-8023"><a href="https://www.sh4.org.uk/anti-bullying-pollicy/">Anti-Bullying Policy</a></li>
+</ul>
+</li>
+<li id="menu-item-332" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-item-332"><a href="https://www.sh4.org.uk/stayin-alive/" title="Seriously, you may fall over&#8230;">Stayin Alive</a>
+<ul class="sub-menu">
+	<li id="menu-item-7493" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-7493"><a href="https://www.sh4.org.uk/stayin-alive/">Stayin Alive</a></li>
+</ul>
+</li>
+<li id="menu-item-3391" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-3391"><a href="https://www.sh4.org.uk/sh4-strava/" title="If it&#8217;s not on Strava, it didn&#8217;t happen! Follow fellow Hashers here.">SH4 On Strava</a></li>
+<li id="menu-item-7487" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-7487"><a href="https://www.sh4.org.uk/what-the-hash-does-for-you/">What the Hash does for you</a></li>
+<li id="menu-item-7441" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-7441"><a href="https://www.sh4.org.uk/hare-today/">Information For Hares</a></li>
+<li id="menu-item-461" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-461"><a href="https://www.sh4.org.uk/its-all-in-a-name/" title="Regular Hashers get a Hash Name">All In A Name</a></li>
+<li id="menu-item-5090" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-5090"><a href="https://www.sh4.org.uk/hash-clothing/" title="Get your SH4 branded Hash Clothing here">Hash Haberdashery</a></li>
+<li id="menu-item-7957" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-item-7957"><a href="https://www.sh4.org.uk/mismanagement-committee/">Mis-management Committee</a>
+<ul class="sub-menu">
+	<li id="menu-item-4545" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-4545"><a href="https://www.sh4.org.uk/contact-us/">Contact Us</a></li>
+	<li id="menu-item-24" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-24"><a href="https://www.sh4.org.uk/mismanagement-committee/" title="The &#8220;Mis-management Committee&#8221; &#8211; Who&#8217;s supposed to be organising what?">Members</a></li>
+	<li id="menu-item-7454" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-7454"><a href="https://www.sh4.org.uk/terms-of-reference/">Terms Of Reference</a></li>
+	<li id="menu-item-8180" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-8180"><a href="https://www.sh4.org.uk/committee-meeting-minutes/">Committee Meeting Minutes</a></li>
+</ul>
+</li>
+<li id="menu-item-7436" class="menu-item menu-item-type-taxonomy menu-item-object-category menu-item-has-children menu-item-7436"><a href="https://www.sh4.org.uk/category/links/">Links</a>
+<ul class="sub-menu">
+	<li id="menu-item-7437" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-7437"><a href="https://www.sh4.org.uk/risk-assesment/">Risk Assesment</a></li>
+	<li id="menu-item-7438" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-7438"><a href="https://www.sh4.org.uk/hare-ye-well/">Hare Ye Well</a></li>
+	<li id="menu-item-7439" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-7439"><a href="https://www.sh4.org.uk/sh4-strava/">SH4 Strava</a></li>
+	<li id="menu-item-7440" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-7440"><a href="https://www.sh4.org.uk/wtf-are-those-marks/">Hash Marks</a></li>
+	<li id="menu-item-8154" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-8154"><a href="https://www.sh4.org.uk/privacy-policy/">Privacy Policy</a></li>
+</ul>
+</li>
+</ul>						</nav>
+					
+					
+					
+										<div id="et_top_search">
+						<span id="et_search_icon"></span>
+					</div>
+					
+					<div id="et_mobile_nav_menu">
+				<div class="mobile_nav closed">
+					<span class="select_page">Select Page</span>
+					<span class="mobile_menu_bar mobile_menu_bar_toggle"></span>
+				</div>
+			</div>				</div>
+			</div>
+			<div class="et_search_outer">
+				<div class="container et_search_form_container">
+					<form role="search" method="get" class="et-search-form" action="https://www.sh4.org.uk/">
+					<input type="search" class="et-search-field" placeholder="Search &hellip;" value="" name="s" title="Search for:" />					</form>
+					<span class="et_close_search_field"></span>
+				</div>
+			</div>
+		</header>
+			<div id="et-main-area">
+	
+<div id="main-content">
+
+
+    <div class="container">
+        <div id="content-area" class="clearfix">
+            <div id="left-area">
+
+
+            
+                <article id="post-8209" class="post-8209 event type-event status-publish hentry event-categories-hashes">
+
+                
+                    <h1 class="entry-title main_title">Hash 1609</h1>
+                
+                
+                    <div class="entry-content">
+                    <div class="em em-view-container" id="em-view-6" data-view="event">
+	<div class="em pixelbones em-item em-item-single em-event em-event-single em-event-647 " id="em-event-6" data-view-id="6">
+		<section class="em-item-header" style="--default-border:#FFFFFF;margin-left: 10%">
+	
+	<div class="em-item-meta">
+		<section class="em-item-meta-column">
+			<section class="em-event-when" style='margin-left: 10%'>
+				<br><h3>When</h3>
+				<div class="em-item-meta-line em-event-date em-event-meta-datetime">
+					<span class="em-icon-calendar em-icon"></span>
+					18/11/26    
+				</div>
+				<div class="em-item-meta-line em-event-time em-event-meta-datetime">
+					<span class="em-icon-clock em-icon"></span>
+					7:30 pm - 11:00 pm
+				</div>
+									<button type="button" class="em-event-add-to-calendar em-tooltip-ddm em-clickable input" data-button-width="match" data-tooltip-class="em-add-to-calendar-tooltip" data-content="em-event-add-to-colendar-content-668794618"><span class="em-icon em-icon-calendar"></span> Add To Calendar</button>
+					<div class="em-tooltip-ddm-content em-event-add-to-calendar-content" id="em-event-add-to-colendar-content-668794618">
+						<a class="em-a2c-download" href="https://www.sh4.org.uk/events/hash-1609/ical/" target="_blank">Download ICS</a>
+						<a class="em-a2c-google" href="https://www.google.com/calendar/event?action=TEMPLATE&#038;text=Hash+1609&#038;dates=20261118T193000/20261118T230000&#038;details=&#038;location=Broadmoor+Farm%2C+The+Mounts%2C+TQ9+7QJ%2C+United+Kingdom&#038;trp=false&#038;sprop=https%3A%2F%2Fwww.sh4.org.uk%2Fevents%2Fhash-1609%2F&#038;sprop=name:South+Hams+Hash+House+Harriers&#038;ctz=Europe%2FLondon" target="_blank">Google Calendar</a>
+						<a class="em-a2c-apple" href="webcal://www.sh4.org.uk/events/hash-1609/ical/" target="_blank">iCalendar</a>
+						<a class="em-a2c-office" href="https://outlook.office.com/calendar/0/deeplink/compose?allday=false&#038;body=&#038;location=Broadmoor+Farm%2C+The+Mounts%2C+TQ9+7QJ%2C+United+Kingdom&#038;path=/calendar/action/compose&#038;rru=addevent&#038;startdt=2026-11-18T19%3A30%3A00%2B00%3A00&#038;enddt=2026-11-18T23%3A00%3A00%2B00%3A00&#038;subject=Hash+1609" target="_blank">Office 365</a>
+						<a class="em-a2c-outlook" href="https://outlook.live.com/calendar/0/deeplink/compose?allday=false&#038;body=&#038;location=Broadmoor+Farm%2C+The+Mounts%2C+TQ9+7QJ%2C+United+Kingdom&#038;path=/calendar/action/compose&#038;rru=addevent&#038;startdt=2026-11-18T19%3A30%3A00%2B00%3A00&#038;enddt=2026-11-18T23%3A00%3A00%2B00%3A00&#038;subject=Hash+1609" target="_blank">Outlook Live</a>
+					</div>
+					
+			</section>
+			
+			<section class="em-event-where" style='margin-left: 10%'>
+				<h3>Where</h3>
+				<div class="em-item-meta-line em-event-location">
+					<span class="em-icon-location em-icon"></span>
+					<div>
+						<a href="https://www.sh4.org.uk/locations/broadmoor-farm/">Broadmoor Farm</a><br>
+						Broadmoor Farm, The Mounts, TQ9 7QJ<br>
+						<span>Hares: Muckspreader & Nice Buns</span><br>
+						<span>RA: To Be Confirmed</span><br>
+						<span>What 3 Words: <a href='https://what3words.com////headache.boil.childcare' target='_blank'>///headache.boil.childcare</a></span><br>
+						<span>On Down: </span><br>
+					</div>
+				</div>
+			</section>
+			
+			
+	
+			
+		</section>
+
+		<section class="em-item-meta-column">
+			
+			
+
+			
+			
+		</section>
+	</div>
+</section>
+
+<section class="em-event-location">
+	
+</section>
+
+<section class="em-event-content">
+	
+</section>
+
+	</div>
+</div>
+	                    </div>
+
+                
+                </article>
+
+            
+
+            </div>
+
+                    </div>
+    </div>
+
+
+</div>
+
+
+			<footer id="main-footer">
+				
+
+		
+				<div id="footer-bottom">
+					<div class="container clearfix">
+				<ul class="et-social-icons">
+
+	<li class="et-social-icon et-social-facebook">
+		<a href="https://www.facebook.com/groups/southhamsh3/" class="icon">
+			<span>Facebook</span>
+		</a>
+	</li>
+
+</ul>
+						<p id="footer-info">Designed by The Jerk | Powered by Coffee</p>
+					</div>	<!-- .container -->
+				</div>
+			</footer> <!-- #main-footer -->
+		</div> <!-- #et-main-area -->
+
+
+	</div> <!-- #page-container -->
+
+	<script type="speculationrules">
+{"prefetch":[{"source":"document","where":{"and":[{"href_matches":"/*"},{"not":{"href_matches":["/wp-*.php","/wp-admin/*","/wp-content/uploads/*","/wp-content/*","/wp-content/plugins/*","/wp-content/themes/SH4-Divi-child/*","/wp-content/themes/Divi/*","/*\\?(.+)"]}},{"not":{"selector_matches":"a[rel~=\"nofollow\"]"}},{"not":{"selector_matches":".no-prefetch, .no-prefetch a"}}]},"eagerness":"conservative"}]}
+</script>
+		<script type="text/javascript">
+			(function() {
+				let targetObjectName = 'EM';
+				if ( typeof window[targetObjectName] === 'object' && window[targetObjectName] !== null ) {
+					Object.assign( window[targetObjectName], []);
+				} else {
+					console.warn( 'Could not merge extra data: window.' + targetObjectName + ' not found or not an object.' );
+				}
+			})();
+		</script>
+		<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-69289382-1', 'auto');
+  ga('send', 'pageview');
+
+</script><script id="divi-custom-script-js-extra">
+var DIVI = {"item_count":"%d Item","items_count":"%d Items"};
+var et_builder_utils_params = {"condition":{"diviTheme":true,"extraTheme":false},"scrollLocations":["app","top"],"builderScrollLocations":{"desktop":"app","tablet":"app","phone":"app"},"onloadScrollLocation":"app","builderType":"fe"};
+var et_frontend_scripts = {"builderCssContainerPrefix":"#et-boc","builderCssLayoutPrefix":"#et-boc .et-l"};
+var et_pb_custom = {"ajaxurl":"https://www.sh4.org.uk/wp-admin/admin-ajax.php","images_uri":"https://www.sh4.org.uk/wp-content/themes/Divi/images","builder_images_uri":"https://www.sh4.org.uk/wp-content/themes/Divi/includes/builder/images","et_frontend_nonce":"d868f527a7","subscription_failed":"Please, check the fields below to make sure you entered the correct information.","et_ab_log_nonce":"e2ed57b239","fill_message":"Please, fill in the following fields:","contact_error_message":"Please, fix the following errors:","invalid":"Invalid email","captcha":"Captcha","prev":"Prev","previous":"Previous","next":"Next","wrong_captcha":"You entered the wrong number in captcha.","wrong_checkbox":"Checkbox","ignore_waypoints":"no","is_divi_theme_used":"1","widget_search_selector":".widget_search","ab_tests":[],"is_ab_testing_active":"","page_id":"8209","unique_test_id":"","ab_bounce_rate":"5","is_cache_plugin_active":"no","is_shortcode_tracking":"","tinymce_uri":""};
+var et_pb_box_shadow_elements = [];
+//# sourceURL=divi-custom-script-js-extra
+</script>
+<script id="divi-custom-script-js" src="https://www.sh4.org.uk/wp-content/themes/Divi/js/scripts.min.js?ver=4.10.8"></script>
+<script id="fitvids-js" src="https://www.sh4.org.uk/wp-content/themes/Divi/includes/builder/feature/dynamic-assets/assets/js/jquery.fitvids.js?ver=4.10.8"></script>
+<script id="et-builder-cpt-modules-wrapper-js-extra">
+var et_modules_wrapper = {"builderCssContainerPrefix":"#et-boc","builderCssLayoutPrefix":"#et-boc .et-l"};
+//# sourceURL=et-builder-cpt-modules-wrapper-js-extra
+</script>
+<script id="et-builder-cpt-modules-wrapper-js" src="https://www.sh4.org.uk/wp-content/themes/Divi/includes/builder/scripts/cpt-modules-wrapper.js?ver=4.10.8"></script>
+<script id="et-core-common-js" src="https://www.sh4.org.uk/wp-content/themes/Divi/core/admin/js/common.js?ver=4.10.8"></script>
+</body>
+</html>

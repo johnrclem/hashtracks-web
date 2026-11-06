@@ -880,8 +880,11 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "tdh3-lb", shortName: "TDH3", fullName: "Throw Down Hash House Harriers", region: "Long Beach, CA",
-      scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
-      description: "Long Beach biweekly Thursday evening hash.",
+      // Wednesday per the dedicated TDH3 GCal: every biweekly "Throw Down H3" recurrence since
+      // 2015 starts on a Wednesday (latest series DTSTART Wed 2020-02-05), and prod history is
+      // Wed-dominant (#2477). Off-cadence specials land on other weekdays.
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      description: "Long Beach biweekly Wednesday evening hash.",
       latitude: 33.77, longitude: -118.19,
     },
     {
@@ -1085,6 +1088,18 @@ export const KENNELS: KennelSeed[] = [
       foundedYear: 1984, founder: "Robin Masefield",
       scheduleFrequency: "Weekly", scheduleNotes: "Alternating Sunday 11 AM and Monday 7:30 PM",
       hashCash: "£2",
+    },
+    {
+      kennelCode: "surrey-h3", shortName: "Surrey H3", fullName: "Surrey Hash House Harriers", region: "Surrey", country: "UK",
+      website: "https://surreyhashhouseharriers.com",
+      foundedYear: 1975, founder: "Jim Raper",
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Weekly",
+      hashCash: "£2 (visitors; first visit free)",
+      walkersWelcome: true,
+      logoUrl: "/kennel-logos/surrey-h3.jpg", // self-hosted; magic bytes confirmed JPEG
+      description:
+        "Surrey Hash House Harriers — a non-competitive running and walking club founded in 1975. Every Sunday at 11:00 the pack follows a flour trail of 4–5 miles around the Surrey countryside, with shortcuts and loops so all abilities finish together, then heads 'On On' to a local pub. Visitors welcome — £2, first visit free.",
+      // facebook/instagram/twitter: none on the site → unset. dogFriendly: unstated → unset.
     },
     {
       kennelCode: "slh3", shortName: "SLH3", fullName: "SLASH (South London Hash House Harriers)", region: "London", country: "UK",
@@ -1496,6 +1511,20 @@ export const KENNELS: KennelSeed[] = [
       ],
       description: "Winterthur & Schaffhausen's English-speaking hash — 'a drinking club with a running problem.' WSH3 lays a flour trail on the third Saturday of each month around the Winterthur and Schaffhausen area of northern Switzerland, usually meeting at a public-transport-accessible point near Schaffhausen, and finishes with an On-After at a local restaurant. Runners and walkers of all abilities welcome.",
       latitude: 47.5, longitude: 8.72,
+    },
+    {
+      // Bare "bsh3" is Black Sheep H3 (Atlanta) → CH-suffixed code; bare "BSH3" alias omitted.
+      kennelCode: "bsh3-ch", shortName: "Basel-Stadt H3", fullName: "Basel-Stadt Hash House Harriers",
+      region: "Basel", country: "Switzerland",
+      hashCash: "CHF 5",
+      walkersWelcome: true,
+      // Legacy flat fields kept for fallback only — scheduleRules below are authoritative.
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Monthly",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=2SU", startTime: "14:00", label: "2nd Sunday", displayOrder: 0 },
+      ],
+      description: "Basel's international, English-speaking hash — a social running/walking group in the Basel tri-border area (CH/FR/DE). Monthly trails welcoming runners and walkers of all abilities.",
+      latitude: 47.5596, longitude: 7.5886,
     },
     // ===== AUSTRIA =====
     // --- Vienna ---
@@ -3067,8 +3096,18 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "wrong-way", shortName: "Wrong Way", fullName: "Phoenix Wrong Way Hash House Harriers", region: "Phoenix, AZ",
       website: "https://www.phoenixhhh.org",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
-      scheduleNotes: "1st, 3rd, and 5th Saturday",
-      description: "Phoenix Saturday afternoon hash. 1st, 3rd, and 5th Saturdays at 2 PM.",
+      scheduleNotes: "1st, 3rd, and 5th Saturday. 2 PM most of the year; 5 PM in summer (Jun–Sep).",
+      // #1724 — verified vs 12 months of prod: 1st Sat 11/12, 3rd Sat 12/12, 5th Sat 4/4;
+      // 17:00 Jun–Sep, 14:00 Oct–May. Fri/Sun/Thu rows are Rising H3 / specials on the shared calendar.
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA;BYMONTH=6,7,8,9", startTime: "17:00", label: "Summer (Jun–Sep)", validFrom: "06-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA;BYMONTH=6,7,8,9", startTime: "17:00", label: "Summer (Jun–Sep)", validFrom: "06-01", validUntil: "09-30", displayOrder: 1 },
+        { rrule: "FREQ=MONTHLY;BYDAY=5SA;BYMONTH=6,7,8,9", startTime: "17:00", label: "Summer (Jun–Sep)", validFrom: "06-01", validUntil: "09-30", displayOrder: 2 },
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA;BYMONTH=1,2,3,4,5,10,11,12", startTime: "14:00", label: "Oct–May", validFrom: "10-01", validUntil: "05-31", displayOrder: 3 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA;BYMONTH=1,2,3,4,5,10,11,12", startTime: "14:00", label: "Oct–May", validFrom: "10-01", validUntil: "05-31", displayOrder: 4 },
+        { rrule: "FREQ=MONTHLY;BYDAY=5SA;BYMONTH=1,2,3,4,5,10,11,12", startTime: "14:00", label: "Oct–May", validFrom: "10-01", validUntil: "05-31", displayOrder: 5 },
+      ],
+      description: "Phoenix Saturday afternoon hash. 1st, 3rd, and 5th Saturdays at 2 PM (5 PM in summer).",
       latitude: 33.45, longitude: -112.07,
     },
     {
@@ -4703,6 +4742,27 @@ export const KENNELS: KennelSeed[] = [
     },
     // ===== AUSTRALIA — Victoria =====
     {
+      // bare "DH3" OMITTED everywhere — Dublin H3 owns it (plus dh3-tx / dh3-co / dh3-oh).
+      kennelCode: "devonport-h3",
+      shortName: "Devonport H3",
+      fullName: "Devonport Hash House Harriers",
+      region: "Devonport, TAS",
+      country: "Australia",
+      website: "https://www.dhash.com/",
+      facebookUrl: "https://www.facebook.com/devonporthash",
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "6:45 PM", // 12-hr seed convention; "6.30pm for 6.45pm Sharp START" → adapter startTime "18:45"
+      scheduleFrequency: "Weekly",
+      hashCash: "$20", // run posts #2324-#2331 (was $15 in 2024-early 2026)
+      description:
+        "Devonport Hash House Harriers — 'The Odd Sock Hash' — a weekly Monday-evening hash on Tasmania's " +
+        "north-west coast, running around Devonport, Ulverstone, Latrobe, Port Sorell and the surrounding area. " +
+        "6:30pm for a 6:45pm sharp start; bring a torch.",
+      latitude: -41.1789,
+      longitude: 146.351,
+      // foundedYear / dogFriendly / walkersWelcome: unverified — omitted. logo: only a 1100x200 banner — omitted.
+    },
+    {
       kennelCode: "mel-new-moon", shortName: "Melbourne New Moon", fullName: "Melbourne New Moon Hash House Harriers",
       region: "Melbourne, VIC", country: "Australia",
       website: "https://www.meetup.com/melbourne-new-moon-running-group/",
@@ -5034,7 +5094,8 @@ export const KENNELS: KennelSeed[] = [
       // No explicit slug — toSlug("Pranburi H3") = "pranburi-h3". Bare "psh3" is Puget Sound H3
       // (Seattle) — this is region-suffixed to avoid it; do NOT set shortName to HC's "PSH3".
       region: "Hua Hin", country: "Thailand", // Pranburi ~25km south of Hua Hin — grouped under the Hua Hin metro (as h2fmh3).
-      // website/socials intentionally omitted — no verified dynamic own-site (Harrier Central-only).
+      // website intentionally omitted — no verified dynamic own-site (Harrier Central-only).
+      instagramHandle: "pranburihash", // "Pranburi Sunday Hash House Harriers" — og:title verified 2026-11-05 (#2602)
       logoUrl: "/kennel-logos/psh3-th.avif", // self-hosted from HC blob; ext confirmed by magic bytes (ftypavif)
       scheduleDayOfWeek: "Sunday", scheduleTime: "4:30 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "Monthly Sunday afternoon trail (~16:15 gather for 16:30 start) in Pranburi, just south of Hua Hin.",
@@ -6209,6 +6270,30 @@ export const KENNELS: KennelSeed[] = [
       latitude: 13.0975, // Bridgetown / capital anchor (runs are island-wide; no per-event coords published)
       longitude: -59.6167,
     },
+    // ── Jamaica (first 🇯🇲 kennel: Jamaica H3, est. 13 Feb 1998) ──
+    {
+      kennelCode: "jah3",
+      shortName: "Jamaica H3",
+      fullName: "Jamaica Hash House Harriers",
+      region: "Kingston",
+      country: "Jamaica", // canonical NAME — code "JM" lives in region.ts
+      website: "https://jah3.com/",
+      facebookUrl: "https://www.facebook.com/groups/1611425852447494/",
+      foundedYear: 1998, // jah3.com/who-we-are: "Friday, February 13, 1998" (= archive run #001)
+      // No fixed start time: "The starting time is up to the hare(s)" (kbean/nextrun.php).
+      scheduleDayOfWeek: "Sunday",
+      scheduleFrequency: "Biweekly",
+      scheduleNotes: "Almost every 2nd Sunday afternoon, sometimes on other days; start time is up to the hares.",
+      hashCash: "J$1000", // kbean/nextrun.php: "Usually J$ 1000: Hash Registration & down downs"
+      walkersWelcome: true, // "walk/run", family hash "from one year old"
+      logoUrl: "/kennel-logos/jah3.gif", // self-hosted site icon (cropped-jah3 GIF, 512x512; magic bytes confirmed)
+      description:
+        "Jamaica's islandwide hash, based in Kingston — a drinking club with a running problem. " +
+        "Co-founded 13 Feb 1998 by Goran 'Nutcase' Engdahl and Bill 'Bags' Hetherington. A family hash " +
+        "laying trails across central and eastern Jamaica, usually every other Sunday afternoon.",
+      latitude: 18.0179, // Kingston anchor (runs are islandwide; no per-event coords published)
+      longitude: -76.8099,
+    },
     {
       kennelCode: "beerh3", // bare code clear; only unrelated beerspoke-h3 exists
       shortName: "BEER H3", // >4 chars → toSlug("BEER H3") = "beer-h3"; a backronym (Belgrade Eastern European Revival)
@@ -6311,6 +6396,168 @@ export const KENNELS: KennelSeed[] = [
       description:
         "Freetown's favourite drinking club with a running problem — the 'Duo Kennel' of Sierra Hash House Harriers & Harriettes. Weekly Wednesday-evening trails plus a monthly 1st-Saturday run, with a seasonal pause during the May-August rains. Founded 2024; host of Pan Africa Hash 2027.",
     },
+    // ===== HC BATCH (Nov 2026) — 13 config-only HARRIER_CENTRAL kennels =====
+    // Handoffs 2026-09-11 → 2026-10-30, re-verified live against hashruns.org on
+    // 2026-11-05. Profile values come only from the handoffs or the live HC feed.
+    {
+      kennelCode: "yh3", shortName: "YH3", fullName: "Yorkshire Hash House Harriers",
+      region: "Leeds", country: "UK",
+      website: "https://www.yorkshirehash.net/",
+      facebookUrl: "https://www.facebook.com/groups/YH3HashHouseHarriers/",
+      logoUrl: "/kennel-logos/yh3.avif", // self-hosted from HC blob; magic bytes confirmed AVIF
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Biweekly",
+      scheduleRules: [
+        // anchorDate 2026-09-20 = run #2209 (a confirmed fortnightly Sunday); INTERVAL=2 needs a phase anchor.
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU", startTime: "11:00", anchorDate: "2026-09-20", label: "Fortnightly Sunday" },
+      ],
+      foundedYear: 1981, // run #1500 = 30th anniversary, 22 Jan 2011 (kennel blog)
+      hashCash: "£1.50 (visitors; members free)", // HC EventPriceForMembers 0 / NonMembers 1.5
+      walkersWelcome: true,
+      description:
+        "Yorkshire Hash House Harriers (YH3) is a long-running West Yorkshire kennel — 'the drinking club " +
+        "with a running problem' — founded in 1981. It hashes on alternate Sunday mornings around Leeds, " +
+        "Bradford, Saltaire, Halifax and the wider West Yorkshire area, with separate trails for runners and " +
+        "walkers followed by the usual down-downs in the pub. Its annual highlight is the AGPU (Annual General " +
+        "Piss Up) weekend. Newcomers welcome. On On!",
+      // latitude/longitude omitted — the kennel roves across West Yorkshire; the Leeds metro centroid drives the map.
+    },
+    {
+      kennelCode: "oph3", shortName: "OPH3", fullName: "Okinawa Poofters Hash House Harriers",
+      region: "Okinawa", country: "Japan",
+      website: "https://okinawah3.wixsite.com/okih3",
+      facebookUrl: "https://www.facebook.com/OkinawaH3",
+      instagramHandle: "okinawah3",
+      logoUrl: "/kennel-logos/oph3.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      scheduleTime: "7:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Poofter Trail — weekday evenings, day varies (~19:00)",
+      // scheduleDayOfWeek unset — HC runs fell on Wed (#382) and Thu (#383).
+      hashCash: "¥800", // HC #382/#383 price, ¥ currency symbol
+      walkersWelcome: true,
+      description:
+        "The Okinawa Poofters (OPH3) is the mid-week 'Poofter Trail' series of the Okinawa Hash House Harriers on " +
+        "Okinawa Island, Japan — a drinking club with a running problem. Biweekly weekday-evening trails (~19:00) " +
+        "across Okinawa; 2–5 mile run/walk trails through the Ryukyus. First trail free.",
+      latitude: 26.34, longitude: 127.77,
+    },
+    {
+      kennelCode: "bdh3-uk", shortName: "Black Death H3", fullName: "Black Death Hash House Harriers",
+      region: "London", country: "UK",
+      // Fortnightly Sunday noon — consistent across the 15 HC runs (2024-09 → 2026-09) re-pulled 2026-11-05.
+      scheduleDayOfWeek: "Sunday", scheduleTime: "12:00 PM", scheduleFrequency: "Biweekly",
+      // website / socials / foundedYear / hashCash / logo: none found (HC has only a generic logo) — left unset.
+    },
+    {
+      kennelCode: "da2b", shortName: "DA2B", fullName: "Devon A to B Hash House Harriers",
+      region: "Plymouth", country: "UK",
+      website: "https://devonatobh3.blogspot.com/",
+      logoUrl: "/kennel-logos/da2b.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      scheduleDayOfWeek: "Saturday", scheduleTime: "12:30 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "First Saturday of the month — A-to-B 'mystery tour', 8+ miles, beer stops, transport back to start.",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA", startTime: "12:30", label: "First Saturday" },
+      ],
+      hashCash: "£5",
+      description:
+        "Devon's monthly A-to-B 'mystery tour' hash — first Saturday of the month, at least 8 miles from Point A to " +
+        "a secret Point B known only to the Hares and the Beermaster, with beer stops en route and transport back to the start.",
+      latitude: 50.3, longitude: -3.8, // approximate (Kingsbridge / South Hams)
+    },
+    {
+      kennelCode: "bbch3", shortName: "BBCH3", fullName: "Brum and Black Country Hash House Harriers",
+      region: "Birmingham", country: "UK",
+      logoUrl: "/kennel-logos/bbch3.avif", // self-hosted from HC blob; magic bytes confirmed AVIF
+      // schedule unset — cadence not established (1 run on HC).
+      hashCash: "£5", foundedYear: 2026,
+      walkersWelcome: true,
+      description:
+        "Birmingham / Black Country hash, founded September 2026. A-A trails (start & finish at the same spot), " +
+        "8-12km for runners and 5-6km for walkers, with an Indian-restaurant On After.",
+      latitude: 52.4577, longitude: -1.9981,
+    },
+    {
+      kennelCode: "cernh3", shortName: "CERN H3", fullName: "CERN Hash House Harriers",
+      region: "Geneva", country: "Switzerland",
+      logoUrl: "/kennel-logos/cernh3.avif", // self-hosted from HC blob; magic bytes confirmed AVIF
+      // schedule + hashCash unset — cadence unconfirmed; HC price "69" is a joke default.
+      foundedYear: 2026, // inferred (HC run #5 in Oct 2026, no earlier history)
+      description:
+        "A new Hash House Harriers kennel at CERN, on the Geneva/France border, hashing since 2026. Trails start at " +
+        "CERN (Meyrin), with the odd hangover run in downtown Geneva.",
+      latitude: 46.23372, longitude: 6.05639,
+    },
+    {
+      kennelCode: "ph3-sr", shortName: "Paramaribo H3", fullName: "Paramaribo Hash House Harriers",
+      region: "Paramaribo", country: "Suriname",
+      // logo omitted — HC only has a generic placeholder; hashCash omitted — HC 75/50 is inverted + unlabeled.
+      scheduleDayOfWeek: "Monday", scheduleTime: "5:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Monday evening run/walk; meets at a member's house or a bar.",
+      foundedYear: 1989,
+      description:
+        "The Hash House Harriers of Paramaribo, Suriname — founded in 1989 by members of the Dutch embassy. A weekly " +
+        "Monday-evening run/walk that meets at a member's house or a bar, finishing with the usual circle. On-on!",
+      latitude: 5.83503, longitude: -55.16703,
+    },
+    {
+      kennelCode: "abujah3", shortName: "Abuja H3", fullName: "Abuja Hash House Harriers",
+      region: "Abuja", country: "Nigeria",
+      logoUrl: "/kennel-logos/abujah3.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:30 PM", // HC: Saturday 14:30 across the 2024 + 2026 runs
+      hashCash: "₦3,000", // HC price 3000, currency NGN
+      latitude: 9.0765, longitude: 7.3986,
+      description:
+        "Abuja Hash House Harriers — the Hash House Harriers kennel of Nigeria's Federal Capital Territory. 'A drinking " +
+        "club with a running problem,' trailing around Abuja (Wuse and beyond). Run #816 as of October 2026.",
+    },
+    {
+      kennelCode: "blhhh", shortName: "Big Lik H3", fullName: "Big Lik Hash House Harriers",
+      region: "Adana", country: "Turkey",
+      logoUrl: "/kennel-logos/blhhh.avif", // self-hosted from HC blob; magic bytes confirmed AVIF
+      // Fortnightly Saturday — 9 of the 12 counted runs 2026-05 → 2026-11 fell on alternate Saturdays.
+      scheduleDayOfWeek: "Saturday", scheduleTime: "5:00 PM", scheduleFrequency: "Biweekly",
+      // hashCash omitted — HC "5 TL" is implausible for a run fee; foundedYear unverifiable.
+      latitude: 37.0017, longitude: 35.4259, // Incirlik Air Base
+    },
+    {
+      kennelCode: "hannover-h3", shortName: "Hannover H3", fullName: "Hannover Hash House Harriers",
+      region: "Hannover", country: "Germany",
+      logoUrl: "/kennel-logos/hannover-h3.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      // Sunday noon — both HC runs (#1088 2026-10-25, #1089 2026-11-29) are Sundays (the handoff said Saturday).
+      scheduleDayOfWeek: "Sunday", scheduleTime: "12:00 PM",
+      scheduleNotes: "Cadence unconfirmed (two Harrier Central runs so far); per-event dates and times come from Harrier Central.",
+      hashCash: "€5", // HC price 5, € currency symbol
+      latitude: 52.3759, longitude: 9.732,
+    },
+    {
+      kennelCode: "mobh3", shortName: "Moon Over Barbados H3", fullName: "Moon Over Barbados H3",
+      region: "Bridgetown", country: "Barbados",
+      logoUrl: "/kennel-logos/mobh3.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      scheduleFrequency: "Monthly", scheduleTime: "7:00 PM", // full-moon cadence → no weekday / scheduleRules
+      description: "Moon Over Barbados H3 — the Barbados full-moon hash, running monthly on or near the full moon.",
+    },
+    {
+      kennelCode: "bbh3", shortName: "Barbados Bike H3", fullName: "Barbados Bike H3",
+      region: "Bridgetown", country: "Barbados",
+      logoUrl: "/kennel-logos/bbh3.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      scheduleDayOfWeek: "Sunday", scheduleTime: "6:00 AM", // every HC run is a Sunday 06:00–06:30
+      description:
+        "Barbados Bike H3 — the Barbados bike hash ('bike bash'), a mountain-bike sibling of the " +
+        "Barbados Hash House Harriers, riding around Christ Church / Bridgetown, Barbados.",
+    },
+    {
+      kennelCode: "sunh3", shortName: "SUNH3", fullName: "Shenanagains Under Nightfall",
+      region: "Raleigh, NC", country: "USA",
+      logoUrl: "/kennel-logos/sunh3.avif", // self-hosted from HC blob; magic bytes confirmed AVIF
+      scheduleFrequency: "Monthly",
+      scheduleNotes:
+        "Monthly full-moon evening/night hash around the Raleigh/Triangle area (venues rotate — Raleigh, Cary, " +
+        "Burlington). Meet ~6:30 PM, circle ~7:00 PM. Run day tracks the full moon.",
+      hashCash: "$5",
+      dogFriendly: true,
+      latitude: 35.78, longitude: -78.64,
+      description:
+        "Shenanagains Under Nightfall (SUNH3) is a Raleigh/Triangle full-moon night hash — a drinking club with a " +
+        "running problem that meets once a lunar month after dark.",
+    },
     // ===== CONFIG BATCH C ===== (2 GOOGLE_CALENDAR, 1 GOOGLE_SHEETS, 1 ICAL_FEED source-add)
     {
       // bare "dlh3" taken by Duneland H3 (South Shore, IN) → region-suffixed
@@ -6327,6 +6574,29 @@ export const KENNELS: KennelSeed[] = [
         "Devon Lunatics Hash House Harriers — a full-moon hash running throughout Devon (Exeter and the surrounding East/South Devon area). 'A drinking club with a running problem.'",
       logoUrl: "/kennel-logos/dlh3-gb.png", // self-hosted from dlh3.org.uk; magic bytes confirmed PNG
       // foundedYear / hashCash / dogFriendly / walkersWelcome: unverifiable — omitted (flagged)
+    },
+    {
+      kennelCode: "sh4",
+      shortName: "SH4",
+      fullName: "South Hams Hash House Harriers",
+      region: "South Hams",
+      country: "UK",
+      website: "https://www.sh4.org.uk/",
+      facebookUrl: "https://www.facebook.com/groups/southhamsh3/",
+      contactEmail: "thewords@sh4.org.uk",
+      foundedYear: 1998, // historical-hashes page: Hash 0001, Kingsbridge Leisure Centre, 06/05/98
+      logoUrl: "/kennel-logos/sh4.png", // self-hosted from sh4.org.uk (#logo); magic bytes confirmed PNG
+      scheduleDayOfWeek: "Wednesday",
+      scheduleTime: "7:30 PM", // 12-hr seed convention; adapter startTime stays 24-hr "19:30"
+      scheduleFrequency: "Weekly",
+      hashCash: "£2 (first run free; £40/calendar year)",
+      walkersWelcome: true, // homepage: "from fast walkers to dedicated runners", long/short splits
+      description:
+        "The South Hams Hash House Harriers (SH4) run every Wednesday, rain or shine, all year — meeting at " +
+        "7:30pm, normally at a South Hams pub in Devon. A very social, all-abilities group with long/short " +
+        "splits; new members, visitors and holidaymakers always welcome. First run free.",
+      latitude: 50.283,
+      longitude: -3.777,
     },
     {
       kennelCode: "isca-h3", // grep-clean; bare "IH3" OMITTED — Ithaca H3 (ih3), live
@@ -6351,6 +6621,53 @@ export const KENNELS: KennelSeed[] = [
       latitude: 50.7184,
       longitude: -3.5339,
       // hashCash / instagramHandle / twitterHandle / walkersWelcome: unverified — omitted (flagged)
+    },
+    {
+      // bare "tvh3" is clear (Burlington VT's "BTVH3" alias is unrelated). shortName kept >4 chars so
+      // the synthesized title reads "Teign Valley H3 Trail #N".
+      kennelCode: "tvh3",
+      shortName: "Teign Valley H3",
+      fullName: "Teign Valley Hash House Harriers",
+      region: "Torbay",
+      country: "UK",
+      website: "https://www.teignvalleyh3.com",
+      facebookUrl: "https://www.facebook.com/groups/11332464730",
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "7:15 PM", // 12-hr seed convention; adapter startTime stays 24-hr "19:15"
+      scheduleFrequency: "Weekly",
+      walkersWelcome: true,
+      description:
+        "The 'Party Hash' of South Devon — runs from pubs all over Torbay, Dartmoor and the Teign Valley " +
+        "every Monday evening at 7:15pm. Trails marked with flour, chalk or sawdust; typically 3-6 miles " +
+        "with short/long options or a leisurely walk; all abilities welcome. First run free.",
+      latitude: 50.4619,
+      longitude: -3.5253,
+      // foundedYear / hashCash / logoUrl / dogFriendly: unverified on the live site (2026-11-05) — omitted
+    },
+    {
+      // bare "EH3" OMITTED — Eugene (eh3-or) / Enfield (eh3) / Edmonton (eh3-ab) collide; code matches IG "coe.h3".
+      kennelCode: "coeh3",
+      shortName: "City of Exeter H3",
+      fullName: "City of Exeter Hash House Harriers",
+      region: "Exeter",
+      country: "UK",
+      website: "https://cityofexeterhhh.blogspot.com/",
+      facebookUrl: "https://www.facebook.com/groups/cityofexeterh3",
+      instagramHandle: "coe.h3",
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM", // 12-hr seed convention; adapter startTime stays 24-hr "11:00"
+      scheduleFrequency: "Weekly",
+      foundedYear: 2001, // run #1274 "25th Anniversary Hash" on 6 Sep 2026
+      dogFriendly: true, // "welcomes all abilities, dogs and families" (All About Us)
+      walkersWelcome: true, // "there should always be a walkers option of no more than 2.5 miles"
+      description:
+        "A non-competitive running/jogging/walking club meeting on Sunday mornings at 11am, usually within " +
+        "15 miles of Exeter. Welcomes all abilities, dogs and families, with a walkers option of no more " +
+        "than 2.5 miles and longs of up to 6 miles. No need to sign up — just turn up.",
+      logoUrl: "/kennel-logos/coeh3.gif", // self-hosted from the blog header; magic bytes confirmed GIF
+      latitude: 50.7184,
+      longitude: -3.5339,
+      // hashCash: no set run fee published — omitted
     },
     {
       // bare "mh3" globally taken (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai); mh3-gb
@@ -6439,6 +6756,85 @@ export const KENNELS: KennelSeed[] = [
       latitude: 51.9007,
       longitude: -1.1522,
       // dogFriendly: unstated — omitted (flagged)
+    },
+    {
+      // Bare "MH3"/"MVH3" are taken globally (Munich, Montreal…; Mount Vernon) → city code.
+      kennelCode: "malvern-h3",
+      shortName: "Malvern H3",
+      fullName: "Malvern Hash House Harriers",
+      region: "Malvern",
+      country: "UK",
+      website: "https://www.malvernhash.co.uk",
+      facebookUrl: "https://www.facebook.com/groups/61731295743/",
+      foundedYear: 1981,
+      dogFriendly: true,
+      walkersWelcome: true,
+      scheduleFrequency: "Weekly",
+      scheduleDayOfWeek: "Tuesday",
+      scheduleTime: "7:00 PM",
+      scheduleNotes: "Weekly Tuesday, year-round. ON at 7:00 PM; runs last ~1–1½ h.",
+      description:
+        "Malvern H3 — a friendly, dog- and walker-friendly hash meeting every Tuesday evening at a pub " +
+        "within ~10 miles of Malvern, Worcestershire. Founded 31 March 1981 as a Bicester H3 offshoot. " +
+        "Trails are usually a Long (~4–5 mi) and a Short (~2–3 mi); runs last about 1–1½ hours.",
+      latitude: 52.1101,
+      longitude: -2.3265,
+      // hashCash unpublished; logo: the only homepage image is a weekly-rotating banner photo — omitted.
+    },
+    {
+      // Bare "c2h3" + bare "C2H3" alias belong to Corpus Christi H3 → UK-suffixed code,
+      // descriptive shortName so the slug doesn't collide.
+      kennelCode: "c2h3-gb",
+      slug: "cheltenham-cotswold-h3",
+      shortName: "Cheltenham & Cotswold H3",
+      fullName: "Cheltenham & Cotswold Hash House Harriers",
+      region: "Cotswolds",
+      country: "UK",
+      website: "https://c2h3.co.uk",
+      logoUrl: "/kennel-logos/c2h3-gb.png", // self-hosted from c2h3.co.uk; magic bytes confirm PNG
+      foundedYear: 1981, // History page: "established on 25th January 1981" (the 1984 meta tag is boilerplate)
+      walkersWelcome: true,
+      // Fallback only — the iCal carries the real per-run day/time (Sunday daytimes in winter).
+      scheduleFrequency: "Weekly",
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "7:00 PM",
+      description:
+        "A family-orientated, non-competitive social running club — 'a drinking club with a running problem' — " +
+        "established 25 January 1981, running weekly through the towns, villages and countryside of Cheltenham " +
+        "and the Cotswolds (Gloucestershire, Worcestershire and Herefordshire). Monday evenings in summer, moving " +
+        "to Sunday daytimes in autumn/winter; first run free.",
+      latitude: 51.9,
+      longitude: -2.08,
+      // hashCash: amount unpublished ("first run free, small fee"); dogFriendly unstated.
+    },
+    {
+      // Bare "ch3" + bare "CH3" alias belong to Chicago H3 → UK-suffixed code.
+      kennelCode: "ch3-gb",
+      shortName: "Chichester H3",
+      fullName: "Chichester Hash House Harriers",
+      region: "Chichester",
+      country: "UK",
+      website: "https://www.chihhh.org.uk",
+      facebookUrl: "https://www.facebook.com/chichesterhhh",
+      logoUrl: "/kennel-logos/ch3-gb.avif", // self-hosted from the kennel's Harrier Central upload; magic bytes confirm AVIF
+      foundedYear: 1983,
+      hashCash: "Free",
+      dogFriendly: true,
+      walkersWelcome: true,
+      // Legacy flat fields kept for fallback only — scheduleRules below are authoritative.
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM",
+      scheduleFrequency: "Biweekly",
+      scheduleRules: [
+        // INTERVAL=2 needs an anchor for phase: 2026-10-18 is Run 1096.
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU", startTime: "11:00", anchorDate: "2026-10-18", label: "Alternate Sundays", displayOrder: 0 },
+      ],
+      description:
+        "Chichester Hash House Harriers — a small group of runners and walkers hashing the South West Sussex " +
+        "and South East Hampshire countryside on alternate Sundays. Flour trails, a loose set of rules, a pub " +
+        "afterwards. Visitors, walkers and dogs welcome; it's free.",
+      latitude: 50.8365,
+      longitude: -0.7792,
     },
   ];
 
