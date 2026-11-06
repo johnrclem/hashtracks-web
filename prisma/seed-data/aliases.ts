@@ -761,12 +761,14 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "coeh3": ["City of Exeter H3", "City of Exeter Hash House Harriers", "CoEH3", "Exeter H3"],
     // bare "MH3" OMITTED — global collision (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai).
     "mickleover-h3": ["Mickleover Hash House Harriers", "Mickleover HHH", "Mickleover"],
+    "quorn-h3": ["QH3", "Quorn Hash", "Quorn Hash House Harriers", "Quorn HHH"],
     // bare "H5" / "H5 Hash" OMITTED — h5-hash (Harrisburg) and h5-hi (Honolulu) collide.
     "h5-gb": ["Hare & Hounds H3", "Hare and Hounds Hash House Harriers", "Bedfordshire Hash", "H5 Hare & Hounds", "H5 Hare and Hounds"],
     // ===== CLUSTER 1 =====
     // bare "HH3" OMITTED — collision-prone (Hanoi precedent).
     "herts-h3": ["Hertfordshire", "Herts H3", "Herts Hash", "Herts Hash House Harriers", "North Herts H3"],
     "essex-h3": ["Essex Hash House Harriers", "Essex HHH", "Essex Hash"],
+    "donnington-h3": ["Donnington Hash", "Donnington HHH", "DH3 Telford", "Donnington Hash House Harriers"],
     // bare "BH3" OMITTED — Buffalo H3 owns it globally.
     "bicester-h3": ["Bicester Hash", "Bicester HHH", "BH3 Bicester"],
     "newch3": ["NEW Cotswold H3", "N.E.W. Cotswold HHH", "NEWCH3", "Cotswold H3", "Cotswold Hash", "New Cotswold Hash House Harriers"],
