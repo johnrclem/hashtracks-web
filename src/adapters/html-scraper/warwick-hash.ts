@@ -27,12 +27,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Year (now-1 … now+1) that puts month/day closest to `now`. */
 export function closestYear(month: number, day: number, now = new Date()): number {
   const y = now.getUTCFullYear();
-  return [y - 1, y, y + 1].reduce((best, cand) =>
-    Math.abs(Date.UTC(cand, month - 1, day, 12) - now.getTime()) <
-    Math.abs(Date.UTC(best, month - 1, day, 12) - now.getTime())
-      ? cand
-      : best,
-  );
+  const distance = (cand: number) => Math.abs(Date.UTC(cand, month - 1, day, 12) - now.getTime());
+  return [y, y - 1, y + 1].reduce((best, cand) => (distance(cand) < distance(best) ? cand : best), y);
 }
 
 /** Parse the caption text + its links into a RawEventData (null if it isn't a run). */
