@@ -9,7 +9,7 @@
   "latitude": 50.909842,
   "longitude": -0.714859,
   "location": "East Dean Village",
-  "hares": "Phil Spooner & lan Barton"
+  "hares": "Phil Spooner & Ian Barton"
  },
  {
   "date": "1983-09-18",
@@ -69,7 +69,7 @@
   "latitude": 50.932704,
   "longitude": -0.749806,
   "location": "Singleton Oilfield",
-  "hares": "lan Barton & Denis Poulton"
+  "hares": "Ian Barton & Denis Poulton"
  },
  {
   "date": "1983-10-23",
@@ -153,7 +153,7 @@
   "latitude": 50.887724,
   "longitude": -0.667129,
   "location": "Eartham Woods",
-  "hares": "Andrew Tarry & lan Barton"
+  "hares": "Andrew Tarry & Ian Barton"
  },
  {
   "date": "1984-01-15",
@@ -177,7 +177,7 @@
   "latitude": 50.932704,
   "longitude": -0.749806,
   "location": "Singleton Oilfield",
-  "hares": "lan Barton & Denis Poulton"
+  "hares": "Ian Barton & Denis Poulton"
  },
  {
   "date": "1984-02-12",
@@ -225,7 +225,7 @@
   "latitude": 50.906671,
   "longitude": -0.84153,
   "location": "Stoughton Forest",
-  "hares": "lan Barton & Denis Poulton"
+  "hares": "Ian Barton & Denis Poulton"
  },
  {
   "date": "1984-04-01",
@@ -297,7 +297,7 @@
   "latitude": 50.906829,
   "longitude": -0.686495,
   "location": "Droke, direction East Dean off A285",
-  "hares": "lan Barton & Denis Poulton"
+  "hares": "Ian Barton & Denis Poulton"
  },
  {
   "date": "1984-06-24",
@@ -345,7 +345,7 @@
   "latitude": 50.939936,
   "longitude": -0.840704,
   "location": "Hooksway",
-  "hares": "Richard Foulkes & lan Moncrieff"
+  "hares": "Richard Foulkes & Ian Moncrieff"
  },
  {
   "date": "1984-08-19",
@@ -417,7 +417,7 @@
   "latitude": 50.887724,
   "longitude": -0.667129,
   "location": "Eartham Woods",
-  "hares": "lan Barton & Denis Poulton"
+  "hares": "Ian Barton & Denis Poulton"
  },
  {
   "date": "1984-11-11",
@@ -453,7 +453,7 @@
   "latitude": 50.932704,
   "longitude": -0.749806,
   "location": "Singleton Oilfield",
-  "hares": "Richard Foulkes & lan Moncreiff"
+  "hares": "Richard Foulkes & Ian Moncreiff"
  },
  {
   "date": "1984-12-30",
@@ -2118,7 +2118,7 @@
   "latitude": 50.89869,
   "longitude": -0.682458,
   "location": "Selhurst Park West",
-  "hares": "lan & Joan Clarke"
+  "hares": "Ian & Joan Clarke"
  },
  {
   "date": "1990-08-15",
@@ -11689,20 +11689,6 @@
   "location": "Stoughton Village - Triangle",
   "hares": "Vixen Prancer",
   "description": "Vixen Prancer ( JM standin) - GROUNDHOG DAY"
- },
- {
-  "date": "2020-02-16",
-  "kennelTags": [
-   "ch3-gb"
-  ],
-  "sourceUrl": "https://www.chihhh.org.uk/runstodate.php",
-  "runNumber": 941,
-  "startTime": "12:30",
-  "latitude": 50.86026,
-  "longitude": -0.625285,
-  "location": "Slindon Cricket Club Mill Road",
-  "hares": "Two Ferrets Fighting & Old Faithful",
-  "description": "Two Ferrets Fighting & Old Faithful - RUN CANCELLED GO STRAIGHT TO THE PUB - THE OLD STABLES FONTWELL"
  },
  {
   "date": "2020-03-01",

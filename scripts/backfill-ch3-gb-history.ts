@@ -4,7 +4,7 @@
  * The live source is the club's rolling diary .ics (Run 1025, Jan 2024 →
  * present), so the archive back to Est 1983 never reaches canonical Events
  * from the scrape. Frozen from chihhh.org.uk/runstodate.php (run #, date,
- * OS grid ref, venue, hares): 1,047 runs, #1 (11 Sep 1983) → #1024
+ * OS grid ref, venue, hares): 1,046 runs, #1 (11 Sep 1983) → #1024
  * (17 Dec 2023). Rows from 7 Jan 2024 onward are left to the live feed.
  *
  * Coordinates are the OS Landranger grid ref converted OSGB36 → WGS84 (checked
@@ -14,6 +14,10 @@
  *
  * Cleanup applied when freezing:
  *   - "NO HASH" rows dropped (2); an exact duplicate row for #675 dropped.
+ *   - #941 (2020-02-16, "RUN CANCELLED GO STRAIGHT TO THE PUB") dropped: the
+ *     merge pipeline has no cancelled flag, and a re-run could un-cancel it.
+ *     (It was applied once before this fix; that prod Event is set CANCELLED.)
+ *   - The archive's "lan" for "Ian" in hare names corrected (10 rows).
  *   - Low-numbered special sub-series (walks, socials re-using #1–#6 after 1984)
  *     keep no runNumber (14 rows). Where the archive gives one main-series
  *     number to two rows (weekends away, socials), the Sunday / earlier row
@@ -43,7 +47,7 @@ runBackfillScript({
   fetchEvents: async () => {
     const events = history as RawEventData[];
     if (events.length === 0) {
-      throw new Error("ch3-gb-history.json is empty — expected ~1,047 frozen runs. Aborting.");
+      throw new Error("ch3-gb-history.json is empty — expected ~1,046 frozen runs. Aborting.");
     }
     return events;
   },
