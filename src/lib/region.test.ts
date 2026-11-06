@@ -322,6 +322,7 @@ describe("inferCountry — Cebu (Philippines)", () => {
     ["Turning Wheels Craft Brewery, P. Almendras St, Cebu City, 6000 Cebu", "Philippines"],
     ["Barrio Barretto, Olongapo City", "Philippines"],
     ["Subic Bay", "Philippines"],
+    ["Sabang Beach, Puerto Galera", "Philippines"],
   ])("infers %s → Philippines", (name, country) => {
     expect(inferCountry(name)).toBe(country);
   });

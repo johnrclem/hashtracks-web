@@ -6987,6 +6987,20 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["sbh3-ph"],
     },
+    // Puerto Galera H3 — bespoke PuertoGaleraHashAdapter: upcoming-runs.html
+    // accordion + recent rows of the Run List JSON (assets/php/runList.php).
+    // Runs age off the upcoming page → upcomingOnly. Archive back to #940
+    // (Aug 2008) via scripts/backfill-pgh3-history.ts.
+    {
+      name: "Puerto Galera H3 Upcoming Runs",
+      url: "https://www.pgh3.org/upcoming-runs.html",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["pgh3"],
+    },
 
     // Seoul H3 — seoulhash.com renders one current run on index.php (no
     // pagination); archive.php carries deep history (backfilled separately).
