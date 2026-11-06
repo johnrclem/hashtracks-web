@@ -10,6 +10,9 @@ import {
 
 const HASHTRACKS_KENNEL_BASE = "https://www.hashtracks.xyz/kennels";
 
+/** Half-Mind's community-verified kennel directory (rebuilt 2026, with per-listing verification dates). */
+const HALF_MIND_DIRECTORY_URL = "https://half-mind.com/regionalwebsite/";
+
 /**
  * Build a self-contained prompt for a kennel deep dive.
  * Pure function — safe to call from a server component or copied to clipboard verbatim.
@@ -76,6 +79,13 @@ ${SCHEMA_GAP_FIELDS_MD}
 5. **Stale defaults** — does the HashTracks page show default placeholder titles like "${kennel.shortName} Trail" instead of event-specific titles from the source?
 6. **Cross-reference** — does this kennel appear on aggregator sites (Harrier Central, Hash Rego, hashruns.org) with extra data we don't have?
 7. **Source coverage gap** — are there other source pages for this kennel (e.g. Facebook events, additional calendars, blog) that we don't already track?
+8. **Half-Mind directory cross-check.**
+   - **Find the listing:** search the kennel on Half-Mind's directory (${HALF_MIND_DIRECTORY_URL}) by club name and country, or open a country list such as \`${HALF_MIND_DIRECTORY_URL}p_list1.php?country=Ireland\`. The site rejects scripted requests (HTTP 406), so open it in the browser.
+   - **Compare** the listing with the HashTracks kennel page: status (Alive, Sleeping or Dead, plus the last-verified date), usual schedule, website, contact, founder, first-run date and parent hash.
+   - **File a finding** when they disagree on something HashTracks shows: schedule, website, founded year, or active vs dead. Cite the listing number and its last-verified date.
+   - **When sources conflict,** the kennel's own website wins over Half-Mind; say which source you trusted.
+   - **Missing data:** if HashTracks lacks a field the listing has (for example founder or first-run date), add it to the profile bundle.
+   - **No listing:** note that in your completion summary; it is not a finding.
 
 ## Filing findings — bundle by root cause, not by symptom
 

@@ -564,7 +564,7 @@ Confirmed present in `hashtracks.xyz/sitemap.xml` — do **not** onboard:
 Asked to find aggregator sources that link other SA kennels, swept three directories + a live blogroll — all converge on the same FB-only universe:
 - **gotothehash.net/southam.html** (updated 3 Feb 2026) — every SA kennel FB-only except the already-known sites.
 - **Brasília H3 blogspot "Hash Links" blogroll** (live blog, last run N+341 Sun 21 Jun 2026) — links Rio, São Paulo (bnhhh=Brazil Nuts), Lima, Quito, Cuenca, Bogotá, Medellín, La Paz, Uruguay, Buenos Aires (blog), Santiago (blog), Asunción. Of the non-FB links: Buenos Aires Blogspot dead 2020, Santiago Blogspot dead 2015, **Lima Blogspot `limahashash.blogspot.com` dead/empty (2026-06-25)**.
-- **half-mind.com** country lists — stale (2010 data, e.g. Peru→Lima Yahoo Group).
+- **half-mind.com** country lists — stale (2010 data, e.g. Peru→Lima Yahoo Group). *Superseded 2026-11-06: Half-Mind rebuilt its directory at `half-mind.com/regionalwebsite/` with per-listing status (Alive / Sleeping / Dead), last-verified dates and listing numbers. Re-check SA countries there; it is browser-only (scripted requests get HTTP 406).*
 - **HC `global-runs` future feed** — only South American kennel = **Brazil Nuts H3** (now queued Rank 12). HC past feed needs a date-window param (returns empty bare) — not pullable from the sandbox; a city-name `getEvents` sweep (2026-06-10) already found HC empty for Colombia/Peru/Chile/Argentina/Ecuador.
 - **pansoam.gotothehash.net** — biennial PAN-SOAM event hub (2024 Brazil, 2026 Uruguay), not a per-kennel run source.
 
