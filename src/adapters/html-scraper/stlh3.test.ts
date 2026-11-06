@@ -207,6 +207,9 @@ describe("isPlausibleRunDate", () => {
   it("rejects a run well before the post", () => {
     expect(isPlausibleRunDate("2026-08-01", published)).toBe(false);
   });
+  it("keeps a run exactly 7 calendar days before a late-evening post", () => {
+    expect(isPlausibleRunDate("2026-09-17", new Date("2026-09-24T23:30:00Z"))).toBe(true);
+  });
 });
 
 describe("normalizeArchivePage", () => {
@@ -218,6 +221,13 @@ describe("normalizeArchivePage", () => {
   });
   it("rejects an error body", () => {
     expect(normalizeArchivePage({ errors: [{ msg: "Invalid value" }] })).toBeNull();
+  });
+  it("rejects a page with a null or malformed post", () => {
+    expect(normalizeArchivePage({ posts: [null], nextCursor: null })).toBeNull();
+    expect(normalizeArchivePage({ posts: [{ title: "x" }] })).toBeNull();
+  });
+  it("rejects a non-string cursor instead of treating it as the last page", () => {
+    expect(normalizeArchivePage({ posts: [], nextCursor: 42 })).toBeNull();
   });
 });
 
@@ -562,5 +572,31 @@ describe("StlH3Adapter", () => {
     const result = await adapter.fetch(mockSource, { days: 365 });
     expect(result.events).toHaveLength(1);
     expect(result.errors[0]).toContain("page 2");
+  });
+
+  it("reports an error when the page cap truncates the window", async () => {
+    const page = (i: number) => ({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({
+        posts: [
+          {
+            title: "Upcumming Hash: Sunday Mar 15th 2026",
+            subtitle: null,
+            slug: `p${i}`,
+            post_date: "2026-03-13T10:00:00Z",
+            canonical_url: `https://www.stlh3.com/p/p${i}`,
+            body_html: "<p>x</p>",
+          },
+        ],
+        nextCursor: `C${i}`,
+      }),
+    });
+    const mock = vi.mocked(safeFetchModule.safeFetch);
+    for (let i = 0; i < 20; i++) mock.mockResolvedValueOnce(page(i) as never);
+
+    const result = await adapter.fetch(mockSource, { days: 365 });
+    expect(mock).toHaveBeenCalledTimes(20);
+    expect(result.errors.some((e) => e.includes("truncated"))).toBe(true);
   });
 });

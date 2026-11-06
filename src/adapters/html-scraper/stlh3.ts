@@ -294,7 +294,11 @@ const MAX_LAG_DAYS = 7;
  */
 export function isPlausibleRunDate(date: string, postDate: Date): boolean {
   const runMs = Date.parse(`${date}T12:00:00Z`);
-  const postMs = postDate.getTime();
+  // Compare calendar days: pin the publish instant to UTC noon like the run date,
+  // so an afternoon post doesn't lose a run exactly MAX_LAG_DAYS earlier.
+  const postNoon = new Date(postDate.getTime());
+  postNoon.setUTCHours(12, 0, 0, 0);
+  const postMs = postNoon.getTime();
   if (Number.isNaN(runMs) || Number.isNaN(postMs)) return false;
   return runMs >= postMs - MAX_LAG_DAYS * DAY_MS && runMs <= postMs + MAX_LEAD_DAYS * DAY_MS;
 }
@@ -362,12 +366,24 @@ const SUBSTACK_HEADERS = {
 export function normalizeArchivePage(
   body: unknown,
 ): { posts: SubstackArchivePost[]; nextCursor: string | null } | null {
-  if (Array.isArray(body)) return { posts: body as SubstackArchivePost[], nextCursor: null };
-  if (body && typeof body === "object" && Array.isArray((body as { posts?: unknown }).posts)) {
-    const { posts, nextCursor } = body as { posts: SubstackArchivePost[]; nextCursor?: unknown };
-    return { posts, nextCursor: typeof nextCursor === "string" && nextCursor ? nextCursor : null };
+  let posts: unknown;
+  let nextCursor: unknown = null;
+  if (Array.isArray(body)) {
+    posts = body;
+  } else if (body && typeof body === "object") {
+    ({ posts, nextCursor = null } = body as { posts?: unknown; nextCursor?: unknown });
   }
-  return null;
+  if (!Array.isArray(posts) || !posts.every(isArchivePost)) return null;
+  // A present-but-non-string cursor is a shape change, not "last page".
+  if (nextCursor !== null && typeof nextCursor !== "string") return null;
+  return { posts, nextCursor: nextCursor || null };
+}
+
+/** Runtime guard for one archive entry — the fields the adapter reads. */
+function isArchivePost(p: unknown): p is SubstackArchivePost {
+  if (!p || typeof p !== "object") return false;
+  const { title, slug, post_date } = p as Record<string, unknown>;
+  return typeof title === "string" && typeof slug === "string" && typeof post_date === "string";
 }
 
 type ArchiveFetch =
@@ -427,8 +443,17 @@ async function fetchArchive(baseUrl: string, days: number): Promise<ArchiveFetch
     posts.push(...page.posts);
     const oldest = page.posts.at(-1);
     const oldestMs = oldest ? Date.parse(oldest.post_date) : Number.NaN;
-    if (!page.nextCursor || page.posts.length === 0 || oldestMs < cutoffMs) break;
+    if (!page.nextCursor || page.posts.length === 0 || oldestMs < cutoffMs) {
+      cursor = null;
+      break;
+    }
     cursor = page.nextCursor;
+  }
+  // Only when the loop ran out of pages — a page error already broke out with its own message.
+  if (cursor && pages >= MAX_ARCHIVE_PAGES && errors.length === 0) {
+    errors.push(
+      `Substack archive still had older posts after ${MAX_ARCHIVE_PAGES} pages; the ${days}-day window is truncated`,
+    );
   }
   return { posts, errors, pages };
 }

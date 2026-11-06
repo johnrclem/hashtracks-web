@@ -11,7 +11,11 @@
 -- DATA-ONLY, idempotent. prisma/seed-data/sources.ts carries the same value.
 
 UPDATE "Source"
-SET config = jsonb_set(COALESCE(config, '{}'::jsonb), '{upcomingOnly}', 'true'::jsonb),
+-- Non-object configs (SQL NULL or a JSON scalar such as 'null') start from {} so
+-- jsonb_set can't fail with "cannot set path in scalar".
+SET config = jsonb_set(
+      CASE WHEN jsonb_typeof(config) = 'object' THEN config ELSE '{}'::jsonb END,
+      '{upcomingOnly}', 'true'::jsonb),
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE name = 'STL H3 Substack'
   AND type::text = 'HTML_SCRAPER'
