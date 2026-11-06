@@ -6,7 +6,6 @@ vi.mock("@/lib/cron-auth");
 vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
 vi.mock("@/lib/strava/sync", () => ({
   purgeExpiredStravaCache: vi.fn(),
-  STRAVA_CACHE_TTL_HOURS: 24,
 }));
 
 function makeRequest(method = "POST"): Request {

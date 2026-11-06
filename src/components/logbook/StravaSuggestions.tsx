@@ -28,6 +28,7 @@ import {
   formatRelativeTime,
 } from "@/lib/format";
 import { buildStravaUrl } from "@/lib/strava/url";
+import { isStravaCacheStale } from "@/lib/strava/constants";
 import { RefreshCw } from "lucide-react";
 import { StravaBackfillWizard } from "@/components/logbook/StravaBackfillWizard";
 
@@ -80,8 +81,10 @@ export function StravaSuggestions({
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const [hasMore, setHasMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncFailed, setSyncFailed] = useState(false);
   const [syncedAt, setSyncedAt] = useState(lastSyncAt);
+  // Mount-time freshness decision only; later syncs update `syncedAt`
+  const initialLastSyncAtRef = useRef(lastSyncAt);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -153,16 +156,17 @@ export function StravaSuggestions({
     let cancelled = false;
     async function fetchData() {
       try {
-        // Refresh the transient activity cache first (no-op if it is fresh).
-        // On failure, still show what is cached and surface the error.
-        const syncResult = await syncStravaIfStale();
-        if (cancelled) return;
-        if (syncResult.success) {
-          setSyncError(null);
-          if (syncResult.lastSyncAt) setSyncedAt(syncResult.lastSyncAt);
-        } else {
-          console.error("Strava auto-sync failed:", syncResult.error);
-          setSyncError(syncResult.error ?? "Sync failed");
+        // Refresh the transient activity cache first when it is stale. On
+        // failure, still show what is cached and surface the error.
+        if (isStravaCacheStale(initialLastSyncAtRef.current)) {
+          const syncResult = await syncStravaIfStale();
+          if (cancelled) return;
+          if (syncResult.success) {
+            if (syncResult.synced) setSyncedAt(new Date().toISOString());
+          } else {
+            console.error("Strava auto-sync failed:", syncResult.error);
+            setSyncFailed(true);
+          }
         }
 
         const [suggestionsResult, matchesResult] = await Promise.all([
@@ -200,7 +204,7 @@ export function StravaSuggestions({
 
   if (!stravaConnected || !loaded || hidden) return null;
 
-  const syncErrorRow = syncError ? (
+  const syncErrorRow = syncFailed ? (
     <div
       role="alert"
       className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3"
@@ -212,16 +216,12 @@ export function StravaSuggestions({
         </a>
         .
       </p>
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-7 shrink-0 gap-1.5 text-xs"
+      <SyncButton
+        label="Retry"
+        className="shrink-0"
+        isPending={isPending}
         onClick={handleSyncNow}
-        disabled={isPending}
-      >
-        <RefreshCw size={12} className={isPending ? "animate-spin" : ""} />
-        Retry
-      </Button>
+      />
     </div>
   ) : null;
 
@@ -322,11 +322,11 @@ export function StravaSuggestions({
     startTransition(async () => {
       const result = await triggerStravaSync();
       if (!result.success) {
-        setSyncError(result.error ?? "Sync failed");
+        setSyncFailed(true);
         toast.error(result.error);
         return;
       }
-      setSyncError(null);
+      setSyncFailed(false);
       setSyncedAt(new Date().toISOString());
       toast.success(`Synced ${result.syncedCount} activities`);
       // Re-fetch both data sources
@@ -402,16 +402,12 @@ export function StravaSuggestions({
                 Synced {formatRelativeTime(syncedAt)}
               </span>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1.5 text-xs font-mono border-strava/40 text-strava hover:bg-strava/5"
+            <SyncButton
+              label="Sync"
+              className="font-mono border-strava/40 text-strava hover:bg-strava/5"
+              isPending={isPending}
               onClick={handleSyncNow}
-              disabled={isPending}
-            >
-              <RefreshCw size={12} className={isPending ? "animate-spin" : ""} />
-              Sync
-            </Button>
+            />
             <Button
               variant="ghost"
               size="sm"
@@ -539,6 +535,26 @@ export function StravaSuggestions({
 }
 
 // ── Shared sub-components ──
+
+function SyncButton({ label, className, isPending, onClick }: Readonly<{
+  label: string;
+  className?: string;
+  isPending: boolean;
+  onClick: () => void;
+}>) {
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className={`h-7 gap-1.5 text-xs ${className ?? ""}`}
+      onClick={onClick}
+      disabled={isPending}
+    >
+      <RefreshCw size={12} className={isPending ? "animate-spin" : ""} />
+      {label}
+    </Button>
+  );
+}
 
 function EventInfoLine({ eventId, kennelShortName, kennelFullName, kennelRegion, eventRunNumber, eventDate }: Readonly<{
   eventId: string;

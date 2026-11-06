@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { createEventWithKennel } from "@/lib/event-write";
 import { getTodayUtcNoon, parseUtcNoonDate } from "@/lib/date";
 import { parseParticipationLevel } from "@/lib/format";
-import { buildStravaUrl } from "@/lib/strava/url";
+import { buildStravaUrl, extractStravaActivityId } from "@/lib/strava/url";
 import type { ActionResult } from "@/lib/actions";
 import { revalidatePath } from "next/cache";
 
@@ -114,20 +114,42 @@ export async function updateAttendance(
   // theirs (kept on disconnect). Re-saving the dialog unchanged keeps the flag.
   const stravaUrlChanged =
     data.stravaUrl !== undefined && data.stravaUrl !== attendance.stravaUrl;
+  const newActivityId =
+    stravaUrlChanged && data.stravaUrl ? extractStravaActivityId(data.stravaUrl) : null;
 
-  await prisma.attendance.update({
-    where: { id: attendanceId },
-    data: {
-      ...(data.participationLevel !== undefined && {
-        participationLevel: parseParticipationLevel(data.participationLevel),
-      }),
-      ...(stravaUrlChanged && {
-        stravaUrl: data.stravaUrl,
-        stravaUrlAutoLinked: false,
-      }),
-      ...(data.notes !== undefined && { notes: data.notes }),
-    },
-  });
+  await prisma.$transaction([
+    prisma.attendance.update({
+      where: { id: attendanceId },
+      data: {
+        ...(data.participationLevel !== undefined && {
+          participationLevel: parseParticipationLevel(data.participationLevel),
+        }),
+        ...(stravaUrlChanged && {
+          stravaUrl: data.stravaUrl,
+          stravaUrlAutoLinked: false,
+        }),
+        ...(data.notes !== undefined && { notes: data.notes }),
+      },
+    }),
+    // Keep the activity cache's link flag in step with the edited URL (the
+    // next sync rehydrates it from stravaUrl too; this avoids a stale window).
+    ...(stravaUrlChanged
+      ? [
+          prisma.stravaActivity.updateMany({
+            where: { matchedAttendanceId: attendanceId },
+            data: { matchedAttendanceId: null },
+          }),
+        ]
+      : []),
+    ...(newActivityId
+      ? [
+          prisma.stravaActivity.updateMany({
+            where: { stravaActivityId: newActivityId, connection: { userId: user.id } },
+            data: { matchedAttendanceId: attendanceId },
+          }),
+        ]
+      : []),
+  ]);
 
   revalidatePath("/hareline");
   revalidatePath("/logbook");

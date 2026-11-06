@@ -36,12 +36,8 @@ import {
   fetchStravaActivities,
   parseStravaActivity,
 } from "./client";
-import {
-  syncStravaActivities,
-  purgeExpiredStravaCache,
-  STRAVA_CACHE_TTL_HOURS,
-  STALE_HOURS,
-} from "./sync";
+import { syncStravaActivities, purgeExpiredStravaCache } from "./sync";
+import { STRAVA_CACHE_TTL_HOURS, STALE_HOURS } from "./constants";
 import { stravaActivityKey } from "./activity-key";
 
 const mockConnectionFindUnique = vi.mocked(prisma.stravaConnection.findUnique);
@@ -89,7 +85,6 @@ describe("syncStravaActivities", () => {
     expect(result).toEqual({
       created: 0,
       updated: 0,
-      removed: 0,
       total: 0,
       error: "No Strava connection",
     });
@@ -325,9 +320,8 @@ describe("syncStravaActivities", () => {
     mockedFetchActivities.mockResolvedValue([{ id: 5 }] as never);
     mockedParseActivity.mockReturnValue(makeParsed("5", "Still there"));
     mockActivityFindMany.mockResolvedValue([] as never);
-    mockActivityDeleteMany.mockResolvedValue({ count: 4 } as never);
 
-    const result = await syncStravaActivities("user_1");
+    await syncStravaActivities("user_1");
 
     expect(mockActivityDeleteMany).toHaveBeenCalledWith({
       where: {
@@ -335,7 +329,6 @@ describe("syncStravaActivities", () => {
         stravaActivityId: { notIn: ["5"] },
       },
     });
-    expect(result.removed).toBe(4);
   });
 
   it("does not touch the cache when the activity fetch fails", async () => {

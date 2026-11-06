@@ -21,7 +21,6 @@ import { formatRelativeTime } from "@/lib/format";
 interface StravaConnectionCardProps {
   connection: {
     connected: boolean;
-    athleteName?: string;
     lastSyncAt?: string;
     activityCount?: number;
   };
@@ -88,14 +87,8 @@ export function StravaConnectionCard({
         <div>
           <p className="text-sm font-medium">Strava Connected</p>
           <p className="text-xs text-muted-foreground">
-            {connection.athleteName && (
-              <span>Connected as {connection.athleteName}</span>
-            )}
             {connection.lastSyncAt && (
-              <span>
-                {connection.athleteName ? " · " : ""}
-                Last synced: {formatRelativeTime(connection.lastSyncAt)}
-              </span>
+              <span>Last synced: {formatRelativeTime(connection.lastSyncAt)}</span>
             )}
             {connection.activityCount !== undefined && (
               <span>

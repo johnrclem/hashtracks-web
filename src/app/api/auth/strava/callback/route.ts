@@ -7,7 +7,6 @@ import {
   StravaAthleteLimitError,
 } from "@/lib/strava/client";
 import { encryptToken } from "@/lib/strava/crypto";
-import { Prisma } from "@/generated/prisma/client";
 
 const STATE_COOKIE = "strava_oauth_state";
 
@@ -93,7 +92,6 @@ export async function GET(request: NextRequest) {
       accessToken: encryptToken(tokenData.access_token),
       refreshToken: encryptToken(tokenData.refresh_token),
       expiresAt: new Date(tokenData.expires_at * 1000),
-      athleteData: Prisma.DbNull,
     };
 
     await prisma.stravaConnection.upsert({

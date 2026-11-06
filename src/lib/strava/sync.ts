@@ -6,13 +6,12 @@ import {
 } from "./client";
 import { stravaActivityKey } from "./activity-key";
 import { extractStravaActivityId } from "./url";
+import { isStravaCacheStale, STRAVA_CACHE_TTL_HOURS } from "./constants";
 import { reverseGeocode, cityFromTimezone } from "@/lib/geo";
 
 export interface SyncResult {
   created: number;
   updated: number;
-  /** Cached rows removed because Strava no longer returns them (deleted, made private, or out of window). */
-  removed: number;
   total: number;
   /** True when the sync was skipped because the cache is still fresh. */
   skipped?: boolean;
@@ -20,17 +19,8 @@ export interface SyncResult {
 }
 
 const LOOKBACK_DAYS = 90;
-/** A cache older than this is re-fetched on the next logbook visit. */
-export const STALE_HOURS = 6;
-/**
- * Cached rows not re-fetched within this window are purged by the daily
- * /api/cron/strava-cache-purge run. With a daily cron a row lives under 48h,
- * inside Strava API Policy §6.2 (7-day cache) and §6.3 (deletions within 48h).
- * Must stay well above STALE_HOURS so a fresh sync's rows are never purged.
- */
-export const STRAVA_CACHE_TTL_HOURS = 24;
 
-const EMPTY_RESULT = { created: 0, updated: 0, removed: 0, total: 0 } as const;
+const EMPTY_RESULT = { created: 0, updated: 0, total: 0 } as const;
 
 /**
  * Sync Strava activities for a user into the transient activity cache.
@@ -57,12 +47,8 @@ export async function syncStravaActivities(
   }
 
   // Check freshness (skip if synced recently)
-  if (!options?.forceRefresh && connection.lastSyncAt) {
-    const hoursSinceSync =
-      (Date.now() - connection.lastSyncAt.getTime()) / (1000 * 60 * 60);
-    if (hoursSinceSync < STALE_HOURS) {
-      return { ...EMPTY_RESULT, skipped: true };
-    }
+  if (!options?.forceRefresh && !isStravaCacheStale(connection.lastSyncAt)) {
+    return { ...EMPTY_RESULT, skipped: true };
   }
 
   // Get valid access token (auto-refresh if needed)
@@ -97,17 +83,19 @@ export async function syncStravaActivities(
   const stravaIds = parsed.map((p) => p.stravaActivityId);
   const fetchedAt = new Date();
 
-  const { linkedAttendanceByActivityId, dismissedKeys } =
-    await loadMatchState(userId, connection.id);
+  // Durable match state + one query for all existing activities (include city
+  // for backfill optimization) — independent reads, run together
+  const [{ linkedAttendanceByActivityId, dismissedKeys }, existingActivities] =
+    await Promise.all([
+      loadMatchState(userId, connection.id),
+      prisma.stravaActivity.findMany({
+        where: { stravaActivityId: { in: stravaIds } },
+        select: { stravaActivityId: true, city: true, startLat: true, startLng: true },
+      }),
+    ]);
   const matchState = (stravaActivityId: string) => ({
     matchedAttendanceId: linkedAttendanceByActivityId.get(stravaActivityId) ?? null,
     matchDismissed: dismissedKeys.has(stravaActivityKey(stravaActivityId)),
-  });
-
-  // Single query to find all existing activities (include city for backfill optimization)
-  const existingActivities = await prisma.stravaActivity.findMany({
-    where: { stravaActivityId: { in: stravaIds } },
-    select: { stravaActivityId: true, city: true, startLat: true, startLng: true },
   });
   const existingIdSet = new Set(existingActivities.map((a) => a.stravaActivityId));
   // Track activities that need city backfill (have coords but null city)
@@ -122,7 +110,7 @@ export async function syncStravaActivities(
 
   // Drop cached rows Strava no longer returns: deleted or made private on
   // Strava, or aged out of the lookback window (API Policy §6.3).
-  const { count: removed } = await prisma.stravaActivity.deleteMany({
+  await prisma.stravaActivity.deleteMany({
     where: {
       stravaConnectionId: connection.id,
       stravaActivityId: { notIn: stravaIds },
@@ -200,7 +188,7 @@ export async function syncStravaActivities(
     data: { lastSyncAt: new Date() },
   });
 
-  return { created, updated, removed, total: rawActivities.length };
+  return { created, updated, total: rawActivities.length };
 }
 
 /**

@@ -32,7 +32,7 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
-import { buildPrismaUniqueViolation } from "@/test/factories";
+import { buildPrismaUniqueViolation, buildStravaActivity } from "@/test/factories";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
@@ -411,6 +411,31 @@ describe("updateAttendance", () => {
     );
   });
 
+  it("moves the activity cache's link to the newly pasted activity", async () => {
+    mockAttFind.mockResolvedValueOnce({
+      id: "att_1", userId: "user_1", stravaUrl: "https://www.strava.com/activities/111",
+    } as never);
+    await updateAttendance("att_1", { stravaUrl: "https://www.strava.com/activities/222" });
+    const cacheUpdates = vi.mocked(prisma.stravaActivity.updateMany).mock.calls.map((c) => c[0]);
+    expect(cacheUpdates).toEqual([
+      { where: { matchedAttendanceId: "att_1" }, data: { matchedAttendanceId: null } },
+      {
+        where: { stravaActivityId: "222", connection: { userId: "user_1" } },
+        data: { matchedAttendanceId: "att_1" },
+      },
+    ]);
+  });
+
+  it("frees the cached activity when the link is cleared", async () => {
+    mockAttFind.mockResolvedValueOnce({
+      id: "att_1", userId: "user_1", stravaUrl: "https://www.strava.com/activities/111",
+    } as never);
+    await updateAttendance("att_1", { stravaUrl: null });
+    expect(vi.mocked(prisma.stravaActivity.updateMany).mock.calls.map((c) => c[0])).toEqual([
+      { where: { matchedAttendanceId: "att_1" }, data: { matchedAttendanceId: null } },
+    ]);
+  });
+
   it("keeps an auto-linked Strava URL auto-linked when re-saved unchanged", async () => {
     mockAttFind.mockResolvedValueOnce({
       id: "att_1", userId: "user_1",
@@ -761,8 +786,7 @@ describe("checkInWithStrava", () => {
     mockAttFind.mockResolvedValueOnce(null);
     mockAttCreate.mockResolvedValueOnce({ id: "att_1" } as never);
     vi.mocked(prisma.stravaActivity.findUnique).mockResolvedValueOnce({
-      id: "sa_1",
-      stravaActivityId: "9876543210",
+      ...buildStravaActivity(),
       connection: { userId: "user_1" },
     } as never);
 

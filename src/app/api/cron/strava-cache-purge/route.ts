@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { verifyCronAuth } from "@/lib/cron-auth";
-import { purgeExpiredStravaCache, STRAVA_CACHE_TTL_HOURS } from "@/lib/strava/sync";
+import { purgeExpiredStravaCache } from "@/lib/strava/sync";
+import { STRAVA_CACHE_TTL_HOURS } from "@/lib/strava/constants";
 
 /**
  * Daily purge of the transient Strava activity cache.

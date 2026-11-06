@@ -4,6 +4,7 @@ import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/lib/actions";
+import type { Prisma } from "@/generated/prisma/client";
 import {
   deauthorizeStrava,
   getValidAccessToken,
@@ -99,13 +100,36 @@ function findBestEventMatch<
   return { event: bestEvent, score: bestScore, breakdown: bestBreakdown };
 }
 
+/**
+ * The two writes behind a dismiss / undismiss: the flag on the cached rows
+ * (immediate effect) and the durable StravaDismissal keyed by a one-way hash
+ * of the activity ID (survives cache expiry; rehydrated by each sync).
+ */
+function dismissalWrites(
+  activities: Array<{ id: string; stravaActivityId: string; stravaConnectionId: string }>,
+  dismissed: boolean,
+): [Prisma.PrismaPromise<Prisma.BatchPayload>, Prisma.PrismaPromise<Prisma.BatchPayload>] {
+  const keys = activities.map((a) => ({
+    stravaConnectionId: a.stravaConnectionId,
+    activityKey: stravaActivityKey(a.stravaActivityId),
+  }));
+  return [
+    prisma.stravaActivity.updateMany({
+      where: { id: { in: activities.map((a) => a.id) } },
+      data: { matchDismissed: dismissed },
+    }),
+    dismissed
+      ? prisma.stravaDismissal.createMany({ data: keys, skipDuplicates: true })
+      : prisma.stravaDismissal.deleteMany({ where: { OR: keys } }),
+  ];
+}
+
 // ── Connection Status ──
 
 /** Get Strava connection status for the current user. */
 export async function getStravaConnection(): Promise<
   ActionResult<{
     connected: boolean;
-    athleteName?: string;
     lastSyncAt?: string;
     activityCount?: number;
   }>
@@ -122,20 +146,9 @@ export async function getStravaConnection(): Promise<
     return { success: true, connected: false };
   }
 
-  const athleteData = (
-    connection.athleteData && typeof connection.athleteData === "object"
-      ? connection.athleteData
-      : null
-  ) as { firstname?: string; lastname?: string } | null;
-
-  const athleteName = athleteData
-    ? [athleteData.firstname, athleteData.lastname].filter(Boolean).join(" ")
-    : undefined;
-
   return {
     success: true,
     connected: true,
-    athleteName: athleteName || undefined,
     lastSyncAt: connection.lastSyncAt?.toISOString() ?? undefined,
     activityCount: connection._count.activities,
   };
@@ -195,10 +208,7 @@ export async function triggerStravaSync(): Promise<
   if (!user) return { error: "Not authenticated" };
 
   const result = await syncStravaActivities(user.id, { forceRefresh: true });
-
-  if (result.error && result.total === 0) {
-    return { error: result.error };
-  }
+  if (result.error) return { error: result.error };
 
   revalidatePath("/profile");
   return { success: true, syncedCount: result.total };
@@ -211,17 +221,24 @@ export async function triggerStravaSync(): Promise<
  * button vanished once the 90-day window held no matches, which stalled
  * sync from June to November 2026.
  */
-export async function syncStravaIfStale(): Promise<
-  ActionResult<{ synced: boolean; lastSyncAt?: string }>
-> {
+export async function syncStravaIfStale(): Promise<ActionResult<{ synced: boolean }>> {
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
 
   const result = await syncStravaActivities(user.id);
   if (result.error) return { error: result.error };
-  if (result.skipped) return { success: true, synced: false };
+  return { success: true, synced: !result.skipped };
+}
 
-  return { success: true, synced: true, lastSyncAt: new Date().toISOString() };
+/**
+ * Refresh the transient activity cache before reading it (no-op when fresh).
+ * Readers outside the logbook panel (the post-check-in picker, a linked
+ * activity's details, the onboarding backfill wizard) can run long after the
+ * last sync, when the cache has expired or been purged. A failure is logged
+ * inside the sync, and the reader still serves whatever is cached.
+ */
+async function ensureFreshCache(userId: string): Promise<void> {
+  await syncStravaActivities(userId);
 }
 
 // ── Activity Lookup (for Edit Dialog dropdown) ──
@@ -251,10 +268,7 @@ export async function getStravaActivitiesForDate(
     return { error: "Invalid date format (expected YYYY-MM-DD)" };
   }
 
-  // The picker opens right after a check-in (often from the hareline, not the
-  // logbook), when the transient cache may be stale or already purged. A
-  // failure is logged inside the sync; the picker still shows what is cached.
-  await syncStravaActivities(user.id);
+  await ensureFreshCache(user.id);
 
   const activities = await prisma.stravaActivity.findMany({
     where: {
@@ -522,23 +536,7 @@ export async function dismissStravaMatch(
     if (!activity) return { error: "Activity not found" };
     if (activity.connection.userId !== user.id) return { error: "Not authorized" };
 
-    const activityKey = stravaActivityKey(activity.stravaActivityId);
-    await prisma.$transaction([
-      prisma.stravaActivity.update({
-        where: { id: stravaActivityDbId },
-        data: { matchDismissed: true },
-      }),
-      prisma.stravaDismissal.upsert({
-        where: {
-          stravaConnectionId_activityKey: {
-            stravaConnectionId: activity.stravaConnectionId,
-            activityKey,
-          },
-        },
-        create: { stravaConnectionId: activity.stravaConnectionId, activityKey },
-        update: {},
-      }),
-    ]);
+    await prisma.$transaction(dismissalWrites([activity], true));
 
     revalidatePath("/logbook");
     return { success: true };
@@ -567,19 +565,7 @@ export async function dismissAllStravaMatches(
     });
     if (owned.length === 0) return { success: true, dismissedCount: 0 };
 
-    const [result] = await prisma.$transaction([
-      prisma.stravaActivity.updateMany({
-        where: { id: { in: owned.map((a) => a.id) } },
-        data: { matchDismissed: true },
-      }),
-      prisma.stravaDismissal.createMany({
-        data: owned.map((a) => ({
-          stravaConnectionId: a.stravaConnectionId,
-          activityKey: stravaActivityKey(a.stravaActivityId),
-        })),
-        skipDuplicates: true,
-      }),
-    ]);
+    const [result] = await prisma.$transaction(dismissalWrites(owned, true));
 
     revalidatePath("/logbook");
     return { success: true, dismissedCount: result.count };
@@ -646,6 +632,8 @@ export async function getLinkedStravaActivity(
   });
   if (!attendance) return { success: true, activity: null };
   if (attendance.userId !== user.id) return { error: "Not authorized" };
+
+  await ensureFreshCache(user.id);
 
   const activity = await prisma.stravaActivity.findFirst({
     where: { matchedAttendanceId: attendanceId },
@@ -891,6 +879,8 @@ export async function getStravaBackfillActivities(): Promise<
     });
     if (!connection) return { success: true, activities: [] };
 
+    await ensureFreshCache(user.id);
+
     // Get ALL Strava activities from last 90 days
     const cutoffDateStr = getStravaCutoffDateStr();
 
@@ -1030,18 +1020,7 @@ export async function undismissStravaMatch(
     if (!activity) return { error: "Activity not found" };
     if (activity.connection.userId !== user.id) return { error: "Not authorized" };
 
-    await prisma.$transaction([
-      prisma.stravaActivity.update({
-        where: { id: stravaActivityDbId },
-        data: { matchDismissed: false },
-      }),
-      prisma.stravaDismissal.deleteMany({
-        where: {
-          stravaConnectionId: activity.stravaConnectionId,
-          activityKey: stravaActivityKey(activity.stravaActivityId),
-        },
-      }),
-    ]);
+    await prisma.$transaction(dismissalWrites([activity], false));
 
     revalidatePath("/logbook");
     return { success: true };
