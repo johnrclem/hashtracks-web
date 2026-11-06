@@ -634,6 +634,17 @@ describe("title strip patterns (#2158)", () => {
 });
 
 describe("extractFieldsFromFbDescription (#1319)", () => {
+  it("takes the street after a venue name on the Location line (#2756 Hollyweird)", () => {
+    const f = extractFieldsFromFbDescription(
+      "Hare: Buttplug\nLocation: Pine Island Park. 300 S Pine Island Rd Plantation FL 33324\nPre Lube: 600 pm",
+    );
+    expect(f.locationStreet).toBe("300 S Pine Island Rd Plantation FL 33324");
+  });
+
+  it("does not split a venue-only Location value without a ZIP", () => {
+    expect(extractFieldsFromFbDescription("Location: Studio 54, Broadway\nPre Lube: x").locationStreet).toBeUndefined();
+  });
+
   const MAY_15_DESCRIPTION = [
     "Hollyweird Hash House Harriers HapPy Hour ~ Boston Johnny's May's Birthday Party ~ H6#307",
     "",

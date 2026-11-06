@@ -257,11 +257,14 @@ export const SOURCES = [
         kennelPatterns: [
           ["Boston Ball\\s*Buster|\\bBall\\s*Buster\\b|BoBBH3|B3H4|BBH3", "bobbh3"],
           ["Beantown", "beantown"],
-          ["Pink Taco|PT2H3|\\bTaco\\b", "pink-taco"],
+          [String.raw`Pink Taco|PT2H3|PTT\s*H3|\bTaco\b`, "pink-taco"],
           ["\\bZigZag\\b|Zig Zag|ZZH3", "zigzag"],
           ["\\bE4B\\b|Eager\\s*4\\s*Beaver", "e4b"],
-          ["Boston Moo[mn]|Full Moon|\\bMoo[mn]\\b", "bos-moon"],
+          // "MOOOOOOM TRAIL" / "MoooooooooM": any run of o's (Nov 2026 alert triage).
+          [String.raw`Boston Moo[mn]|Full Moon|\bMo{2,}[mn]\b`, "bos-moon"],
           ["Boston H3|Boston Hash|BoH3|BH3", "boh3"],
+          // Bare "Misman meeting(location tbd)" — BH3's, like the "BH3 Misman meeting" rows above.
+          [String.raw`^Misman meeting\b`, "boh3"],
         ],
         // #1891: BH3 events carry a "BH3:" title prefix and stash the run
         // number in the description ("BH #2805"). Strip the prefix; pull the
@@ -380,8 +383,13 @@ export const SOURCES = [
         // Shared NJ calendar also has Summit + Rumson placeholder events
         // that don't get updated — only match Princeton's actual runs.
         kennelPatterns: [["^Regular Hash", "princeton-h3"], ["^MDL Hash", "princeton-h3"]],
-        // null default so Summit/Rumson/other placeholders are skipped
+        // A null default does NOT drop the rest: an unmatched title becomes its own
+        // tag and fuzzy-resolves to rumson / summit, raising SOURCE_KENNEL_MISMATCH
+        // every scrape (open since May 2026). Skip the recurring sister-kennel
+        // reminders explicitly (both kennels have their own sources); any other
+        // new title still surfaces as UNMATCHED_TAGS.
         defaultKennelTag: null,
+        skipPatterns: [String.raw`^Rumson Hash House Harriers\b`, String.raw`^Summit HHH\b`, String.raw`^SHHH\b`],
         // #2125: the 2nd-Sunday SUMMARY "Regular Hash Day, 2nd Sunday, detail
         // cuming" IS the intended run title (reverses #1934, which had treated
         // it as a placeholder blurb and substituted a default). Prefer the real
@@ -900,6 +908,9 @@ export const SOURCES = [
           GREY: "19:00",
           BOGS: "19:15",
         },
+        // BOGS rows are covered by the bogsruns.php source below; here they
+        // only raised SOURCE_KENNEL_MISMATCH on every scrape (May 2026).
+        skipKennelTags: ["BOGS"],
         locationOmitIfMatches: BRISTOL_LOCATION_OMIT,
       },
       // Issue #1004: bogs-h3 split off into its own bogsruns.php source below
@@ -3524,6 +3535,9 @@ export const SOURCES = [
       trustLevel: 6,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      // The home page shows only the next hash; each run drops off once the
+      // following one is posted.
+      config: { upcomingOnly: true },
       kennelCodes: ["boiseh3"],
     },
     // ===== COLORADO =====
@@ -3934,7 +3948,11 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { kennelTag: "sach3" },
+      // upcomingOnly: Squarespace pages past events by publishOn but sorts them
+      // by startDate, so runs published out of order fall between pages
+      // (#1719–#1730 vanished from the walk on 2026-11-05 and were cancelled).
+      // Every run is first seen on the complete upcoming list.
+      config: { kennelTag: "sach3", upcomingOnly: true },
       kennelCodes: ["sach3"],
     },
     // --- Los Angeles Area (Google Calendar) ---
@@ -4563,6 +4581,9 @@ export const SOURCES = [
         // placeholder appears (mirrors Lisbon H3 / Porto Invicta H3 #1166).
         defaultTitle: "Taiwan H3",
         staleTitleAliases: ["Placeholder event for TwH3"],
+        // #2757: a "- SIGN UP FOR THE … BUS!!!" call to action rode in the event
+        // name; strip it so the run reads "TwH³ 2682" like other untitled runs.
+        titleStripPatterns: [String.raw`\s*-\s*sign up\b.*$`],
       },
       kennelCodes: ["twh3-tw"],
     },
@@ -6503,6 +6524,14 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 30,
+      // The "Next H4 Run" block has no date and often stays up for weeks after
+      // its run; a run number behind the one this anchor predicts for the coming
+      // Monday means the page is stale, so nothing is emitted (Nov 2026).
+      // #2979 = 2026-07-06 and #2988 = 2026-09-07 confirm one run per Monday.
+      // RE-BASELINE this anchor (to any current run # and its Monday) if the club
+      // ever skips or doubles a number: the check is exact, so a lagging anchor
+      // would suppress every page. A page >13 weeks behind fails the scrape loudly.
+      config: { runNumberAnchor: { runNumber: 2988, date: "2026-09-07" } },
       kennelCodes: ["hkh3"],
     },
     // --- HK H3 (STATIC_SCHEDULE — recurring slot for advance visibility) ---
@@ -7293,6 +7322,8 @@ export const SOURCES = [
       name: "SOH4 Facebook Hosted Events",
       url: "https://www.facebook.com/soh4onon/upcoming_hosted_events",
       type: "FACEBOOK_HOSTED_EVENTS" as const,
+      // Disabled 2026-11-06 (WS4 E2): soft-blocked by FB since 2026-07; the SOH4 Website source covers soh4.
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
@@ -7695,6 +7726,8 @@ export const SOURCES = [
       name: "Survivor H3 Facebook Hosted Events",
       url: "https://www.facebook.com/SurvivorH3/upcoming_hosted_events",
       type: "FACEBOOK_HOSTED_EVENTS" as const,
+      // Disabled 2026-11-06 (WS4 E2): soft-blocked by FB since 2026-07 and never produced an event; survivor-h3 is hidden.
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
@@ -7733,6 +7766,8 @@ export const SOURCES = [
       name: "Von Tramp H3 Facebook Hosted Events",
       url: "https://www.facebook.com/vontramph3/upcoming_hosted_events",
       type: "FACEBOOK_HOSTED_EVENTS" as const,
+      // Disabled 2026-11-06 (WS4 E2): soft-blocked by FB since 2026-09; the Von Tramp Squarespace source covers vth3.
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
@@ -8043,6 +8078,10 @@ export const SOURCES = [
         // Single \s (not \s+) keeps it safe-regex2-clean — see kennel-patterns.ts.
         kennelPatterns: [[String.raw`^(?:ONH3\s)?(?:Run\s)?#?\d{3,4}\b`, "onh3"]],
         defaultKennelTag: null,
+        // The calendar is a member's personal calendar too (appointments,
+        // birthdays, school dates). Drop unmatched entries silently instead of
+        // surfacing them as UNMATCHED_TAGS samples (Nov 2026 alert triage).
+        strictKennelRouting: true,
       },
       kennelCodes: ["onh3"],
     },

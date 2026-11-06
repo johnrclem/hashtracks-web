@@ -911,7 +911,25 @@ function isContinuationTerminator(line: string): boolean {
 function pickAddressRemainder(remainder: string): string | undefined {
   if (remainder.length === 0) return undefined;
   const undecorated = stripLeadingDecoration(remainder).trimStart();
-  return /^\d/.test(undecorated) ? undecorated : undefined;
+  return /^\d/.test(undecorated) ? undecorated : venuePrefixedAddress(undecorated);
+}
+
+/**
+ * The street part of a venue-led location value — "Pine Island Park. 300 S Pine
+ * Island Rd Plantation FL 33324" → "300 S Pine Island Rd Plantation FL 33324"
+ * (#2756 Hollyweird). Only when the value ends in a US ZIP, and only at a
+ * ". " / ", " boundary followed by a digit, so a venue name with a number in it
+ * isn't split. Procedural scan (Sonar S5852).
+ */
+function venuePrefixedAddress(value: string): string | undefined {
+  if (!FB_ZIP_AT_END_RE.test(value)) return undefined;
+  for (let i = 1; i < value.length - 2; i++) {
+    if ((value[i] === "." || value[i] === ",") && value[i + 1] === " ") {
+      const rest = value.slice(i + 2).trimStart();
+      if (/^\d/.test(rest)) return rest;
+    }
+  }
+  return undefined;
 }
 
 /**

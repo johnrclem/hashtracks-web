@@ -101,10 +101,17 @@ describe("parseBombayHashPage", () => {
     expect(byRun.get(628)?.hares).toBeUndefined(); // no HARES label → preserve existing
   });
 
-  it("emits a special per-event cost only when it exceeds the standard fee", () => {
-    expect(byRun.get(630)?.cost).toBe("₹2100"); // anniversary price
-    expect(byRun.get(631)?.cost).toBeUndefined(); // standard ₹250/₹400 → default
-    expect(byRun.get(628)?.cost).toBeUndefined();
+  it("emits every run's rego price (#2423)", () => {
+    expect(byRun.get(630)?.cost).toBe("₹2100"); // anniversary headline price (₹1600 regulars' discount)
+    expect(byRun.get(631)?.cost).toBe("₹250 (advance) / ₹400 (late)");
+    expect(byRun.get(628)?.cost).toBe("₹250");
+  });
+
+  it("ignores ₹ amounts outside the rego/fee text (#2778 review)", () => {
+    const html = `<div class="spectra-is-root-container alignfull"><div class="wp-block-spectra-container"><h3><span>BOMBAY HASH RUN #640</span></h3></div><p>📅 Date: Sunday, 22nd November 2026🕘 Time: 9:30 AM📍 Venue: Juhu Beach🎽 T-shirts ₹500 at the start</p></div>`;
+    const r = parseBombayHashPage(html).events.find((e) => e.runNumber === 640);
+    expect(r?.date).toBe("2026-11-22");
+    expect(r?.cost).toBeUndefined();
   });
 
   it("never leaks PII (phone numbers / payee names) into any field", () => {

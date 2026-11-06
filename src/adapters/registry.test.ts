@@ -25,6 +25,8 @@ import { TribeEventsAdapter } from "./html-scraper/tribe-events-adapter";
 import { LarrikinsAdapter } from "./html-scraper/larrikins";
 import { RssAdapter } from "./rss/adapter";
 import { StaticScheduleAdapter } from "./static-schedule/adapter";
+import { BoiseH3Adapter } from "./html-scraper/boiseh3";
+import { Eh3EdmontonAdapter } from "./html-scraper/eh3-edmonton";
 
 describe("getAdapter", () => {
   it("routes a Tribe-config HTML_SCRAPER source to TribeEventsAdapter (config wins over URL)", () => {
@@ -72,6 +74,11 @@ describe("getAdapter", () => {
     expect(getAdapter("HTML_SCRAPER", "https://nth3.taipeihash.com.tw/")).toBeInstanceOf(NewTaipeiHashAdapter);
     expect(getAdapter("HTML_SCRAPER", "https://www.taipeihash.com.tw/run_site.php")).toBeInstanceOf(TaipeiHashAdapter);
     expect(getAdapter("HTML_SCRAPER", "https://taipeihash.com.tw/run_site.php")).toBeInstanceOf(TaipeiHashAdapter);
+  });
+
+  it("routes boiseh3.org to BoiseH3Adapter, not the Edmonton eh3.org adapter (substring collision)", () => {
+    expect(getAdapter("HTML_SCRAPER", "https://www.boiseh3.org")).toBeInstanceOf(BoiseH3Adapter);
+    expect(getAdapter("HTML_SCRAPER", "https://www.eh3.org/wp-json/wp/v2/pages/437")).toBeInstanceOf(Eh3EdmontonAdapter);
   });
 
   it("returns HashPhillyAdapter for hashphilly.com URL", () => {

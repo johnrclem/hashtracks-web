@@ -104,6 +104,17 @@ describe("parseBoiseH3Page", () => {
     expect(event!.hares).not.toContain("Virgins");
   });
 
+  it("ignores Wix zero-width-space padding blocks (no '\u200B' location or hares)", () => {
+    const html = `
+      <div data-testid="richTextElement"><h1>Hash #2016</h1></div>
+      <div data-testid="richTextElement"><p>Monday, 11/2/2026, 6:40 PM</p></div>
+      <div data-testid="richTextElement"><p><span class="wixGuard">\u200B</span></p></div>
+      <div data-testid="richTextElement"><p>Hares: Himroid \u200B</p></div>`;
+    const { event } = parseBoiseH3Page(html, "https://www.boiseh3.org");
+    expect(event?.location).toBeUndefined();
+    expect(event?.hares).toBe("Himroid");
+  });
+
   it("returns null event with error when no hash heading found", () => {
     const { event, error } = parseBoiseH3Page(NO_EVENT_HTML, "https://www.boiseh3.org");
     expect(event).toBeNull();

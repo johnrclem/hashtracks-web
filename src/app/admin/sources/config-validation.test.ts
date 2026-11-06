@@ -519,6 +519,12 @@ describe("validateSourceConfig", () => {
       expect(errors.some((e) => e.includes("must be an object"))).toBe(true);
     });
 
+    it("accepts a skipKennelTags string array and rejects other shapes", () => {
+      expect(validateSourceConfig("HTML_SCRAPER", { ...baseHtmlConfig, skipKennelTags: ["BOGS"] })).toEqual([]);
+      const errors = validateSourceConfig("HTML_SCRAPER", { ...baseHtmlConfig, skipKennelTags: "BOGS" });
+      expect(errors.some((e) => e.includes("skipKennelTags"))).toBe(true);
+    });
+
     it("rejects malformed time values in defaultStartTimeByKennel", () => {
       const errors = validateSourceConfig("HTML_SCRAPER", {
         ...baseHtmlConfig,

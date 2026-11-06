@@ -425,14 +425,37 @@ const DETAIL_FETCH_ERROR_SAMPLE_LIMIT = 5;
  * we already parsed successfully.
  */
 /**
+ * #2756 Hollyweird: a text-only FB place ("Pine Island Park", no coordinates) is
+ * geocoded by name near the kennel's home city — the wrong Pine Island Park. When
+ * the place has no coordinates and the post body gives a street address, fold it
+ * into `location` ("Pine Island Park, 300 S Pine Island Rd Plantation FL 33324") so
+ * the geocoder resolves the real venue. Places with coordinates are untouched.
+ */
+const US_ZIP_AT_END_RE = /\b\d{5}(?:-\d{4})?\s*$/;
+function venueWithStreetForGeocode(
+  event: RawEventData,
+  street: string | undefined,
+): Pick<RawEventData, "location"> | Record<string, never> {
+  if (!street || typeof event.location !== "string" || !event.location.trim()) return {};
+  // Only a street that ends in a US ZIP is trusted enough to reach the venue
+  // line and the geocoder (the description parser also accepts looser blocks).
+  if (!US_ZIP_AT_END_RE.test(street)) return {};
+  if (typeof event.latitude === "number" && typeof event.longitude === "number") return {};
+  if (event.location.toLowerCase().includes(street.toLowerCase())) return {};
+  return { location: `${event.location}, ${street}` };
+}
+
+/**
  * Mine structured fields (#1319) out of the post body and merge into the
  * event. Only backfills fields the parser hasn't already populated, so a
  * future adapter-side emit (or a richer listing-tab GraphQL field) wins.
  */
 function applyDetailDescription(event: RawEventData, description: string): RawEventData {
   const extra = extractFieldsFromFbDescription(description);
+  const folded = venueWithStreetForGeocode(event, extra.locationStreet);
   return {
     ...event,
+    ...folded,
     description,
     // `extra.hares` is tri-state: string (real), null (explicit clear, #2032
     // self-heal), or undefined (no signal). Backfill when the listing pass left

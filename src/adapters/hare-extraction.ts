@@ -132,6 +132,24 @@ function stripHareRoleLabels(value: string): string {
     .replace(/[\s,.]+$/, "")
     .trim();
 }
+// #2615 Boston — a trailing support-role clause after the hare list is not a hare:
+// "Who: Finger In My and Frosty, Bag car No Man on the Moon" → the bag-car driver.
+// Cut at the first ',' / ';' followed by a role word. Procedural (indexOf + startsWith)
+// rather than a regex alternation to stay clear of Sonar S5852; a value without such
+// a clause is returned unchanged, so other hares' fingerprints don't churn.
+const TRAILING_ROLE_WORDS = ["bag car", "bagcar", "bike sweep", "sweep", "beer car"];
+export function stripTrailingRoleClause(value: string): string {
+  const lower = value.toLowerCase();
+  for (let i = 0; i < lower.length; i++) {
+    if (lower[i] !== "," && lower[i] !== ";") continue;
+    const rest = lower.slice(i + 1).trimStart();
+    const hit = TRAILING_ROLE_WORDS.some(
+      (w) => rest.startsWith(w) && !/[a-z0-9]/.test(rest.charAt(w.length)),
+    );
+    if (hit) return value.slice(0, i).trimEnd();
+  }
+  return value;
+}
 // #2008 PGH H3 — a bare kennel code ("Who: PGHH3") is the kennel name, never a
 // hash name. Rejected via the shared BARE_KENNEL_CODE_RE (imported from utils).
 // #2008 PGH H3 row 4 — a conversational "…and you, of course" tail is not part
@@ -243,7 +261,7 @@ function collectContinuationLines(normalized: string, match: RegExpExecArray): s
  * re-implementing a weaker subset of its passes.
  */
 export function cleanAndFilterHares(raw: string): string | null | undefined {
-  let hares = stripHareRoleLabels(raw)
+  let hares = stripTrailingRoleClause(stripHareRoleLabels(raw))
     .replace(LEADING_HARE_LABEL_RE, "")
     .trim()
     .replace(ASTERISK_TAIL_RE, "")

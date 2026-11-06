@@ -13,6 +13,7 @@ import {
   parseShiggy,
   parseDetailGrid,
   resolveKennel,
+  dropSupersededReposts,
 } from "./tidewater-h3";
 
 vi.mock("@/adapters/safe-fetch", () => ({ safeFetch: vi.fn() }));
@@ -388,5 +389,39 @@ describe("TidewaterH3Adapter.fetch", () => {
     const dining = result.events.filter((e) => e.title?.includes("Dining-In"));
     expect(dining).toHaveLength(1);
     expect(dining[0].endDate).toBe("2026-11-15");
+  });
+});
+
+describe("dropSupersededReposts", () => {
+  const ev = (url: string, startTime: string, title = "🌙 VB Full Moon 🌙") => ({
+    date: "2026-09-25",
+    kennelTags: ["vbfmh3"],
+    title,
+    startTime,
+    sourceUrl: url,
+  });
+
+  it("keeps only the newest WordPress re-post of the same trail (VBFMH3 2026-09-25)", () => {
+    const out = dropSupersededReposts([
+      ev("https://tidewaterh3.org/trail/vb-full-moon-2026-09-25", "18:30"),
+      ev("https://tidewaterh3.org/trail/vb-full-moon-2026-09-25-2", "19:00"),
+    ]);
+    expect(out.map((e) => e.startTime)).toEqual(["19:00"]);
+  });
+
+  it("leaves a genuine same-title double-header with unrelated slugs alone", () => {
+    const out = dropSupersededReposts([
+      ev("https://tidewaterh3.org/trail/vb-full-moon-am", "09:00"),
+      ev("https://tidewaterh3.org/trail/vb-full-moon-pm", "19:00"),
+    ]);
+    expect(out).toHaveLength(2);
+  });
+
+  it("does not group events with different titles", () => {
+    const out = dropSupersededReposts([
+      ev("https://tidewaterh3.org/trail/x", "18:30", "A"),
+      ev("https://tidewaterh3.org/trail/x-2", "19:00", "B"),
+    ]);
+    expect(out).toHaveLength(2);
   });
 });
