@@ -105,6 +105,37 @@ export function expectedRunNumber(monday: string, anchor: RunNumberAnchor): numb
   return anchor.runNumber + weeks;
 }
 
+interface Staleness {
+  stale: boolean;
+  expected?: number;
+  weeksBehind: number;
+  error?: string;
+}
+
+/**
+ * Stale-homepage guard (G7, Nov 2026). The block carries no date, and the
+ * committee often leaves an already-run block up for weeks, so dating it "next
+ * Monday" stamped #2979 on 9 Mondays and #2988 on 10. When the page's run number
+ * is behind the number expected for the coming Monday, the run has already
+ * happened: emit nothing (the STATIC_SCHEDULE source keeps the Monday itself on
+ * the calendar). The check is exact, so a club that skips a number would
+ * suppress every later page; past a quarter behind, report an error — either the
+ * homepage is dead or the anchor needs re-baselining (see the seed comment).
+ */
+export function checkStaleness(event: RawEventData | null, rawAnchor: unknown): Staleness {
+  const anchor = parseRunNumberAnchor(rawAnchor);
+  const runNumber = typeof event?.runNumber === "number" ? event.runNumber : undefined;
+  if (!event || runNumber === undefined || !anchor) return { stale: false, weeksBehind: 0 };
+  const expected = expectedRunNumber(event.date, anchor);
+  const weeksBehind = Math.max(0, expected - runNumber);
+  const error =
+    weeksBehind > STALE_ALERT_WEEKS
+      ? `HK H3 homepage shows run #${runNumber}, ${weeksBehind} weeks behind the expected #${expected} — ` +
+        "re-baseline Source.config.runNumberAnchor if the club skipped numbers, else the page is abandoned"
+      : undefined;
+  return { stale: weeksBehind > 0, expected, weeksBehind, error };
+}
+
 /** Labels we know to terminate the previous value (so a multi-line tag-stripped
  * block like "Location\n: \nHollywood Park Road" doesn't bleed into the next
  * field's value). The colon-labelled fields only stop on "<Label>:" — a bare
@@ -266,27 +297,9 @@ export class Hkh3Adapter implements SourceAdapter {
       errors.push(message);
     }
 
-    // Stale-homepage guard (#G7, Nov 2026). The block carries no date, and the
-    // committee often leaves an already-run block up for weeks, so dating it
-    // "next Monday" stamped #2979 on 9 Mondays and #2988 on 10. When the page's
-    // run number is behind the number expected for the coming Monday, the run
-    // has already happened: emit nothing (the STATIC_SCHEDULE source keeps the
-    // Monday itself on the calendar).
-    const anchor = parseRunNumberAnchor((source.config as Record<string, unknown> | null)?.runNumberAnchor);
-    const runNumber = typeof event?.runNumber === "number" ? event.runNumber : undefined;
-    const expected = event && runNumber !== undefined && anchor ? expectedRunNumber(event.date, anchor) : undefined;
-    const stale = runNumber !== undefined && expected !== undefined && runNumber < expected;
-    const weeksBehind = stale ? (expected as number) - (runNumber as number) : 0;
-    // The check is exact (any lag means the run already happened), so a club
-    // that skips a number would suppress every later page. Past a quarter
-    // behind, fail loud: either the homepage is dead or the anchor needs
-    // re-baselining (see the seed comment on runNumberAnchor).
-    if (weeksBehind > STALE_ALERT_WEEKS) {
-      errors.push(
-        `HK H3 homepage shows run #${runNumber}, ${weeksBehind} weeks behind the expected #${expected} — ` +
-          "re-baseline Source.config.runNumberAnchor if the club skipped numbers, else the page is abandoned",
-      );
-    }
+    const staleness = checkStaleness(event, (source.config as Record<string, unknown> | null)?.runNumberAnchor);
+    if (staleness.error) errors.push(staleness.error);
+    const { stale, expected, weeksBehind } = staleness;
 
     return {
       events: event && !stale ? [event] : [],
