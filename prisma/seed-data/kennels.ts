@@ -1102,6 +1102,20 @@ export const KENNELS: KennelSeed[] = [
       // facebook/instagram/twitter: none on the site → unset. dogFriendly: unstated → unset.
     },
     {
+      kennelCode: "nh4", shortName: "North Hants H4", fullName: "North Hants Hash House Harriers", region: "Aldershot", country: "UK",
+      website: "https://www.nh4.org",
+      facebookUrl: "https://www.facebook.com/groups/121837721191777/",
+      foundedYear: 1981, // /about/who-we-are: inaugural run Good Friday, 17 April 1981
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Sundays, roughly every other week (run list) — 11:00 AM in winter, 6:00 PM in summer. As of 2026 the club also adds occasional pop-up runs.",
+      hashCash: "£1 (first run free); £30/yr membership",
+      dogFriendly: true, // /about/who-we-are: "Well behaved dogs are welcome"
+      walkersWelcome: true,
+      description:
+        "North Hants Hash House Harriers (NH4) — a non-competitive trail-running \'drinking club with a running problem\' founded on Good Friday 1981 in Aldershot. Trails run within OS Map 186 (Aldershot & Guildford), followed by drinks at a nearby pub.",
+      logoUrl: "/kennel-logos/nh4.png", // self-hosted from the tokenized Google Sites og:image; magic bytes confirmed PNG
+    },
+    {
       kennelCode: "slh3", shortName: "SLH3", fullName: "SLASH (South London Hash House Harriers)", region: "London", country: "UK",
       scheduleDayOfWeek: "Saturday", scheduleTime: "12:00 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "2nd Saturday of the month",

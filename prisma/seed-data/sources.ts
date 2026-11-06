@@ -718,6 +718,26 @@ export const SOURCES = [
       kennelCodes: ["surrey-h3"],
     },
     {
+      name: "North Hants H4 Run List Sheet",
+      url: "https://www.nh4.org/run-list-data/run-list",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 120,
+      config: {
+        sheetId: "anonymous",
+        // Published CSV behind the nh4.org (Google Sites) run-list embed.
+        // Header row 0: Run No(0) Date ISO(1) Time(2) Hare(s)(3) Location(4)
+        // Post code(5) what3words(6) On Inn(7) Notes(8) Notice(9) Site Shows(10).
+        csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTHqOFTR_N3_rOVblYaZAilWMnDij-TUWKh6JI0VI_XNde_hmgRjSUx62R1EFjR68n7vUYi_Z5HdRcx/pub?gid=0&single=true&output=csv",
+        columns: { runNumber: 0, date: 1, startTime: 2, hares: 3, location: 4, address: 5, description: 8 },
+        kennelTagRules: { default: "nh4" },
+        // Forward list — past runs move to a separate "past runs" tab.
+        upcomingOnly: true,
+      },
+      kennelCodes: ["nh4"],
+    },
+    {
       name: "SLASH Run List",
       url: "https://www.londonhash.org/slah3/runlist/slash3list.html",
       type: "HTML_SCRAPER" as const,
