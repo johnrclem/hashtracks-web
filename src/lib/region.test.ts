@@ -295,6 +295,16 @@ describe("inferCountry — Cambodia (first 🇰🇭 kennel)", () => {
   });
 });
 
+describe("inferCountry — Laos (first 🇱🇦 kennel: Vientiane H3)", () => {
+  it.each([
+    ["Laos", "Laos"],
+    ["Vientiane, Laos", "Laos"],
+    ["Ban Lao Beer Garden, Vientiane", "Laos"],
+  ])("infers %s → Laos", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
 describe("inferCountry — Barbados (first 🇧🇧 / first Caribbean kennel)", () => {
   it.each([
     ["Bridgetown", "Barbados"],

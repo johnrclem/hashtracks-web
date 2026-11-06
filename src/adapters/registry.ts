@@ -133,6 +133,7 @@ import { HimalayanHashAdapter } from "./html-scraper/himalayan-h3";
 import { BombayHashAdapter } from "./html-scraper/bombay-hash";
 import { SaigonH3Adapter } from "./html-scraper/saigon-h3";
 import { HanoiH3Adapter } from "./html-scraper/hanoi-h3";
+import { LaosHashAdapter } from "./html-scraper/laos-hash";
 import { JamaicaHashAdapter } from "./html-scraper/jamaica-hash";
 import { VictoriaH3Adapter } from "./html-scraper/victoria-h3";
 import { Ch4DkAdapter } from "./html-scraper/ch4-dk";
@@ -340,6 +341,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /^https?:\/\/(?:[^/]+\.)?jah3\.com(?:[/?#:]|$)/i, name: "JamaicaHashAdapter", factory: () => new JamaicaHashAdapter() },
   // ── Cambodia ──
   { pattern: /^https?:\/\/(?:[^/]+\.)?p2h3\.com(?:[/?#:]|$)/i, name: "PhnomPenhH3Adapter", factory: () => new PhnomPenhH3Adapter() },
+  // ── Laos ──
+  { pattern: /^https?:\/\/(?:[^/]+\.)?hashlaos\.com(?:[/?#:]|$)/i, name: "LaosHashAdapter", factory: () => new LaosHashAdapter() },
   // ── Nepal ──
   { pattern: /^https?:\/\/(?:[^/]+\.)?himalayanhash\.run(?:[/?#:]|$)/i, name: "HimalayanHashAdapter", factory: () => new HimalayanHashAdapter() },
   // ── India ──

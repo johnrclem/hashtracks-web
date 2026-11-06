@@ -6976,6 +6976,19 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["phnom-penh-h3"],
     },
+    // Laos — VH3 + VBH3 + Vientiane Bike Hash, one current run per hashlaos.com
+    // WordPress page (read via WP REST by the bespoke LaosHashAdapter). Pages are
+    // overwritten weekly → upcomingOnly.
+    {
+      name: "Laos HHH Website (hashlaos.com)",
+      url: "https://hashlaos.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["vh3-la", "vbh3-la", "vbikeh3-la"],
+    },
 
     // ── Vietnam (first 🇻🇳 kennel) ──
 
