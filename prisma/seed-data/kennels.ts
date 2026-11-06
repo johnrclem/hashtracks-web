@@ -4699,6 +4699,27 @@ export const KENNELS: KennelSeed[] = [
     },
     // ===== AUSTRALIA — Victoria =====
     {
+      // bare "DH3" OMITTED everywhere — Dublin H3 owns it (plus dh3-tx / dh3-co / dh3-oh).
+      kennelCode: "devonport-h3",
+      shortName: "Devonport H3",
+      fullName: "Devonport Hash House Harriers",
+      region: "Devonport, TAS",
+      country: "Australia",
+      website: "https://www.dhash.com/",
+      facebookUrl: "https://www.facebook.com/devonporthash",
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "6:45 PM", // 12-hr seed convention; "6.30pm for 6.45pm Sharp START" → adapter startTime "18:45"
+      scheduleFrequency: "Weekly",
+      hashCash: "$20", // run posts #2324-#2331 (was $15 in 2024-early 2026)
+      description:
+        "Devonport Hash House Harriers — 'The Odd Sock Hash' — a weekly Monday-evening hash on Tasmania's " +
+        "north-west coast, running around Devonport, Ulverstone, Latrobe, Port Sorell and the surrounding area. " +
+        "6:30pm for a 6:45pm sharp start; bring a torch.",
+      latitude: -41.1789,
+      longitude: 146.351,
+      // foundedYear / dogFriendly / walkersWelcome: unverified — omitted. logo: only a 1100x200 banner — omitted.
+    },
+    {
       kennelCode: "mel-new-moon", shortName: "Melbourne New Moon", fullName: "Melbourne New Moon Hash House Harriers",
       region: "Melbourne, VIC", country: "Australia",
       website: "https://www.meetup.com/melbourne-new-moon-running-group/",
