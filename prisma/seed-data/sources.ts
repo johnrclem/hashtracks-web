@@ -578,11 +578,24 @@ export const SOURCES = [
         defaultStartTime: "18:45",
         // #1892: summaries are "{theme} - {location}" (e.g. "Autism Speaks for
         // Deities & Friends! - Dupont Circle"). Capture the post-dash location
-        // into locationName and strip it from the title. Deliberately NO
-        // titleHarePattern — the pre-dash text is a run theme, not hares.
+        // into locationName and strip it from the title. The pre-dash text is
+        // a run theme, not hares.
         // "… - Location TBD" is rejected by the adapter's placeholder-token
         // guard (the "TBD" token), so it never becomes a location.
-        titleLocationPattern: String.raw`\s+-\s+(\S.*)$`,
+        //
+        // #2598: the calendar also uses "{theme} - {hares}" ("4th Anal Fallout
+        // Trail - PhD, S2B2, VagLaw"). Heuristic, checked against every stored
+        // EWH3 summary (2026-11-05): a comma-bearing LAST " - " segment was
+        // always a hare list, never a station. So:
+        //  - a comma-bearing LAST " - " segment is hares (titleHarePattern);
+        //  - the location is only the LAST " - " segment, and only when it
+        //    has no comma.
+        // Not covered: "{theme} - {hares} - {station}" keeps the middle hare
+        // span in the title (station still extracted), and a single-name
+        // "{theme} - {hare}" still reads as a location. The GCal item's own
+        // location field, when set, always wins over the title capture.
+        titleHarePattern: String.raw`\s-\s+((?:(?!\s-\s).)+,(?:(?!\s-\s).)+)$`,
+        titleLocationPattern: String.raw`\s-\s+((?:(?!\s-\s)[^,])+)$`,
       },
       kennelCodes: ["ewh3"],
     },
@@ -921,6 +934,11 @@ export const SOURCES = [
           String.raw`Hare:?\s+(.+?)(?:(?=[-\u2013\u2014]\s*\S)|\s*$)`,
           String.raw`^DST\s*#?\s*\d*\s*-\s*(.+)$`,
         ],
+        // #2652: when the description already carries the hare ("Hare: Ditch
+        // Bitch with Co-hare: Just Denis") the title-hare pattern was skipped,
+        // leaving "Hare: Ditch Bitch" as the whole title. Always strip the
+        // title's hare span; the description hare stays canonical.
+        alwaysStripTitleHareSpan: true,
         // #2349: SH3 frequently omits the "#" ("SH3 871 Anni Tua", "SH3 879
         // Lone Thrills") so the shared #-parser misses the run number. Pull it
         // from the summary (anchored to the SH3 prefix so a digit in a theme
@@ -933,7 +951,7 @@ export const SOURCES = [
         // title that the default/merge synthesis fills. DST is intentionally
         // omitted \u2014 its post-dash text is the hare (titleHarePattern handles it).
         titleStripPatterns: [
-          String.raw`^SH3\s*(?:#\s*)?\d+\s*(?:-\s*)?`,
+          String.raw`^SH3\s*(?:#\s*)?\d+\s*(?:[-:]\s*)?`,
           String.raw`^FM\s*(?:#\s*)?\d+\s*(?:-\s*)?`,
         ],
       },
@@ -5623,17 +5641,12 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      // BCH3 publishes Friday-midnight placeholders on Wix but actually runs
-      // Thursday 8 PM CDT (#960/#694). Remap Friday→Thursday at 20:00. No
-      // placeholderTime here: parseDateTime emits `undefined` (not "00:00") for
-      // the 12 AM placeholder, so a "00:00" gate would be inert. Instead the
-      // adapter gates the shift on a timeless (undefined startTime) row, so only
-      // the Friday-midnight placeholders move — a genuinely-timed Friday event
-      // stays put.
+      // Wix server-renders the date heading in UTC ("Friday … AT 1 AM" = a
+      // Thursday 7 PM Milwaukee run); the adapter converts it to Chicago time,
+      // so the old Friday→Thursday weekdayShift is gone (#2658/#2678).
       config: {
         // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
         upcomingOnly: true,
-        weekdayShift: { from: "Friday", to: "Thursday", defaultStartTime: "20:00" },
       },
       kennelCodes: ["bch3"],
     },
@@ -7701,17 +7714,48 @@ export const SOURCES = [
       defaultLocation: "Tokoroa, NZ",
       defaultDescription: "Winter schedule: Sunday 4pm. Start location posted each week on https://www.facebook.com/TokoroaHHH/.",
     }),
-    // T3H3 (Wellington Thirsty Thursday Taniwha): monthly 2nd Thursday.
+    // T3H3 (Wellington Thirsty Thursday Taniwha): 1st + 3rd Thursday.
+    // #2374: the FB Events page shows runs on the 1st and 3rd Thursdays
+    // (#538 Jul 16, #539 Aug 6, #540 Aug 20 … #545 Nov 5 2026), not the
+    // "2nd Thursday monthly" the original rule assumed. RRULE BYDAY can't take
+    // two ordinals, so split into two rules (Columbian H3 pattern). The FB
+    // hosted-events source below supplies real titles/venues (trust 8).
     staticScheduleSource({
       name: "T3H3 Wellington Static Schedule",
       url: "https://www.facebook.com/ThirstyThursdayTaniwhaH3",
       kennelTag: "t3h3-nz",
-      rrule: "FREQ=MONTHLY;BYDAY=2TH",
+      rrule: "FREQ=MONTHLY;BYDAY=1TH",
       startTime: "18:30",
-      defaultTitle: "T3H3 Monthly Run",
+      defaultTitle: "T3H3 Run",
       defaultLocation: "Wellington, NZ",
-      defaultDescription: "2nd Thursday of every month, 6:30 PM. ~5km urban trails accessible by public transport. Check https://www.facebook.com/ThirstyThursdayTaniwhaH3 for each month's start location.",
+      defaultDescription: "1st and 3rd Thursday of every month, 6:30 PM. ~5km urban trails accessible by public transport. Check https://www.facebook.com/ThirstyThursdayTaniwhaH3 for each run's start location.",
     }),
+    staticScheduleSource({
+      name: "T3H3 Wellington Static Schedule (3rd Thursday)",
+      url: "https://www.facebook.com/ThirstyThursdayTaniwhaH3#3rd-thursday",
+      kennelTag: "t3h3-nz",
+      rrule: "FREQ=MONTHLY;BYDAY=3TH",
+      startTime: "18:30",
+      defaultTitle: "T3H3 Run",
+      defaultLocation: "Wellington, NZ",
+      defaultDescription: "1st and 3rd Thursday of every month, 6:30 PM. ~5km urban trails accessible by public transport. Check https://www.facebook.com/ThirstyThursdayTaniwhaH3 for each run's start location.",
+    }),
+    {
+      name: "T3H3 Wellington Facebook Hosted Events",
+      url: "https://www.facebook.com/ThirstyThursdayTaniwhaH3/upcoming_hosted_events",
+      type: "FACEBOOK_HOSTED_EVENTS" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: {
+        kennelTag: "t3h3-nz",
+        pageHandle: "ThirstyThursdayTaniwhaH3",
+        timezone: "Pacific/Auckland",
+        upcomingOnly: true,
+        includePastEvents: true,
+      },
+      kennelCodes: ["t3h3-nz"],
+    },
     // Auckland Hussies: Excel-exported static HTML run list.
     {
       name: "Auckland Hussies Run List",
