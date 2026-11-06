@@ -6332,6 +6332,31 @@ export const KENNELS: KennelSeed[] = [
       // foundedYear / hashCash / logoUrl / dogFriendly: unverified on the live site (2026-11-05) — omitted
     },
     {
+      // bare "EH3" OMITTED — Eugene (eh3-or) / Enfield (eh3) / Edmonton (eh3-ab) collide; code matches IG "coe.h3".
+      kennelCode: "coeh3",
+      shortName: "City of Exeter H3",
+      fullName: "City of Exeter Hash House Harriers",
+      region: "Exeter",
+      country: "UK",
+      website: "https://cityofexeterhhh.blogspot.com/",
+      facebookUrl: "https://www.facebook.com/groups/cityofexeterh3",
+      instagramHandle: "coe.h3",
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM", // 12-hr seed convention; adapter startTime stays 24-hr "11:00"
+      scheduleFrequency: "Weekly",
+      foundedYear: 2001, // run #1274 "25th Anniversary Hash" on 6 Sep 2026
+      dogFriendly: true, // "welcomes all abilities, dogs and families" (All About Us)
+      walkersWelcome: true, // "there should always be a walkers option of no more than 2.5 miles"
+      description:
+        "A non-competitive running/jogging/walking club meeting on Sunday mornings at 11am, usually within " +
+        "15 miles of Exeter. Welcomes all abilities, dogs and families, with a walkers option of no more " +
+        "than 2.5 miles and longs of up to 6 miles. No need to sign up — just turn up.",
+      logoUrl: "/kennel-logos/coeh3.gif", // self-hosted from the blog header; magic bytes confirmed GIF
+      latitude: 50.7184,
+      longitude: -3.5339,
+      // hashCash: no set run fee published — omitted
+    },
+    {
       // bare "mh3" globally taken (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai); mh3-gb
       // reserved by Manchester H3 (shipped) → city-based
       kennelCode: "mickleover-h3",

@@ -8872,6 +8872,18 @@ export const SOURCES = [
       kennelCodes: ["tvh3"],
     },
     {
+      name: "City of Exeter H3 Blogspot Recaps",
+      url: "https://cityofexeterhhh.blogspot.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke blog scrape (run # / venue / hares / date from recap titles)
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Recap blog: the adapter reads the latest ~25 posts, so older runs age
+      // out of the fetch and must not be reconciled as removed.
+      config: { upcomingOnly: true },
+      kennelCodes: ["coeh3"],
+    },
+    {
       name: "Mickleover H3 Run Log Sheet",
       url: "https://docs.google.com/spreadsheets/d/1oZFMbkKFQp2rBM3x4LUt9vGOImCbsFOnyriQdO6xSCg/export?format=csv&gid=0",
       type: "GOOGLE_SHEETS" as const,
