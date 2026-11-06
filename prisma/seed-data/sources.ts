@@ -8031,6 +8031,18 @@ export const SOURCES = [
       kennelCodes: ["newcastle-h3"],
     },
     {
+      name: "Wyre Forest HHH Website",
+      url: "https://www.wyreforesthhh.org.uk/index.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // The site answers HTTP 406 to datacenter fetches → residential proxy (owner-approved 2026-11-05).
+      // Forward-only hareline; completed runs move to Page_on-back.php → upcomingOnly.
+      config: { useResidentialProxy: true, upcomingOnly: true },
+      kennelCodes: ["wfh3"],
+    },
+    {
       name: "Lune Valley H3 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
       type: "HARRIER_CENTRAL" as const,
