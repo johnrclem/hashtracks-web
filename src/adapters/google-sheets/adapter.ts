@@ -140,6 +140,12 @@ export interface GoogleSheetsConfig {
    * legitimately mix numbered and unnumbered rows (MASS H3, MFMH3).
    */
   requireRunNumber?: boolean;
+  /**
+   * Read two-digit-first numeric dates day-first ("04/01/2026" = 4 Jan), as UK
+   * sheets write them. Default false keeps the month-first US reading. Year-first
+   * ISO dates and month-name formats are unaffected. Newcastle H3 (#2591).
+   */
+  dayFirst?: boolean;
 }
 
 /** Month abbreviation → 1-based month number lookup. */
@@ -259,7 +265,7 @@ function parseWeekdayPrefixedTriple(cleaned: string): string | null {
  * Parse dates in multiple formats found across hash kennel spreadsheets:
  * - "Mon 26-06-22" (weekday + two-digit triple, weekday-validated)
  * - "6-15-25" (M-D-YY with hyphens)
- * - "7/1/2024" (M/D/YYYY with slashes)
+ * - "7/1/2024" (M/D/YYYY with slashes; D/M/YYYY with `opts.dayFirst`)
  * - "6/13/22" (M/DD/YY with slashes)
  * - "2026-03-29" (YYYY-MM-DD ISO 8601)
  * - "2026/03/07" (YYYY/MM/DD)
@@ -269,7 +275,11 @@ function parseWeekdayPrefixedTriple(cleaned: string): string | null {
  *
  * `today` is injectable for testability; defaults to the current UTC date.
  */
-export function parseDate(dateStr: string, today: Date = new Date()): string | null {
+export function parseDate(
+  dateStr: string,
+  today: Date = new Date(),
+  opts: { dayFirst?: boolean } = {},
+): string | null {
   const trimmed = dateStr.trim();
   if (!trimmed) return null;
 
@@ -299,6 +309,10 @@ export function parseDate(dateStr: string, today: Date = new Date()): string | n
   if (parts[0] > 99) {
     // Year-first: YYYY-MM-DD or YYYY/MM/DD
     [year, month, day] = parts;
+  } else if (opts.dayFirst) {
+    // Day-first: D/M/YY or D/M/YYYY (UK sheets, `config.dayFirst`)
+    [day, month, year] = parts;
+    year = normalizeYear(year);
   } else {
     // Month-first: M/D/YY or M/D/YYYY
     [month, day, year] = parts;
@@ -957,7 +971,7 @@ export class GoogleSheetsAdapter implements SourceAdapter {
         const dateCell = row[config.columns.date]?.trim();
         if (!dateCell) continue;
 
-        const dateStr = parseDate(dateCell, today);
+        const dateStr = parseDate(dateCell, today, { dayFirst: config.dayFirst });
         if (!dateStr) continue;
 
         if (dateStr < minISO || dateStr > maxISO) continue;

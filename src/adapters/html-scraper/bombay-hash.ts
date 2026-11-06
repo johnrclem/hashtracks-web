@@ -38,11 +38,10 @@ const DATE_RE = /\b\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+\.?\s+20\d{2}(?!\d)/;
 // label and grab the first clock time.
 const TIME_RE = /\b(\d{1,2})[:.](\d{2})\s*([AP]M)\b/i;
 
-// Rego amounts. The standard fee is the kennel default (₹250/₹400 on hashCash);
-// only a clearly-special per-event price (anniversary runs, ≥ ₹1000) is worth
-// storing on the Event. Currency is written as "₹", "INR", or "Rs".
+// Rego amounts. Every run carries its own cost (#2423): the event page doesn't
+// fall back to Kennel.hashCash, so a standard-fee run showed no hash cash at all.
+// Currency is written as "₹", "INR", or "Rs".
 const REGO_AMOUNT_RE = /(?:₹|INR|Rs\.?)\s*(\d{3,5})/gi;
-const SPECIAL_REGO_FLOOR = 1000;
 
 // Field-boundary emoji that terminate a field value. Deliberately EXCLUDES the
 // beer emoji (🍻/🍺) — Run #630's venue is prefixed with 🍻 ("🍻 SOCIAL – NESCO …").
@@ -261,14 +260,19 @@ function parseHares(text: string): string | null | undefined {
   return cleaned && cleaned.length >= 2 ? cleaned : null;
 }
 
-/** Emit a special rego price only when it clearly exceeds the standard fee. */
-function parseSpecialCost(text: string): string | undefined {
-  let max = 0;
-  for (const m of text.matchAll(REGO_AMOUNT_RE)) {
-    const amount = Number.parseInt(m[1], 10);
-    if (amount > max) max = amount;
+/**
+ * The run's rego price. Two rising amounts are the advance / late pair
+ * ("INR 250 till Friday … INR 400 after") and read like the kennel default;
+ * otherwise the highest amount is the headline price (#630 "₹2100 … only ₹1600"
+ * for 5-trail regulars → ₹2100).
+ */
+function parseRegoCost(text: string): string | undefined {
+  const amounts = [...new Set([...text.matchAll(REGO_AMOUNT_RE)].map((m) => Number.parseInt(m[1], 10)))];
+  if (amounts.length === 0) return undefined;
+  if (amounts.length === 2 && amounts[0] < amounts[1]) {
+    return `₹${amounts[0]} (advance) / ₹${amounts[1]} (late)`;
   }
-  return max >= SPECIAL_REGO_FLOOR ? `₹${max}` : undefined;
+  return `₹${Math.max(...amounts)}`;
 }
 
 export function parseBombayHashPage(html: string): {
@@ -307,7 +311,7 @@ export function parseBombayHashPage(html: string): {
       startTime: parseTime(block.fields.time ?? block.text),
       location: block.fields.venue ? cleanLabeledVenue(block.fields.venue) : parseVenue(block.text),
       hares: parseHares(block.text),
-      cost: parseSpecialCost(block.text),
+      cost: parseRegoCost(block.text),
       sourceUrl: DEFAULT_URL,
     });
   }

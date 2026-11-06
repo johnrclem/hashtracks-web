@@ -4549,6 +4549,9 @@ export const SOURCES = [
         // placeholder appears (mirrors Lisbon H3 / Porto Invicta H3 #1166).
         defaultTitle: "Taiwan H3",
         staleTitleAliases: ["Placeholder event for TwH3"],
+        // #2757: a "- SIGN UP FOR THE … BUS!!!" call to action rode in the event
+        // name; strip it so the run reads "TwH³ 2682" like other untitled runs.
+        titleStripPatterns: [String.raw`\s*-\s*sign up\b.*$`],
       },
       kennelCodes: ["twh3-tw"],
     },

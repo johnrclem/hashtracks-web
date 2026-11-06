@@ -561,6 +561,11 @@ describe("FacebookHostedEventsAdapter — fetch", () => {
     expect(bandoleros?.locationStreet).toBe(
       "208 SW 2nd St, Fort Lauderdale, FL 33301",
     );
+    // #2756: a coordinate-less place carries its street in `location` so the
+    // geocoder resolves the real venue, not a same-named one near the kennel.
+    if (typeof bandoleros?.latitude !== "number") {
+      expect(bandoleros?.location).toMatch(/, 208 SW 2nd St, Fort Lauderdale, FL 33301$/);
+    }
     expect(bandoleros?.description).toMatch(/Hare:/);
   });
 

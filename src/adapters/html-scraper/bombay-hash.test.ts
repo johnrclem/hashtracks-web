@@ -101,10 +101,10 @@ describe("parseBombayHashPage", () => {
     expect(byRun.get(628)?.hares).toBeUndefined(); // no HARES label → preserve existing
   });
 
-  it("emits a special per-event cost only when it exceeds the standard fee", () => {
-    expect(byRun.get(630)?.cost).toBe("₹2100"); // anniversary price
-    expect(byRun.get(631)?.cost).toBeUndefined(); // standard ₹250/₹400 → default
-    expect(byRun.get(628)?.cost).toBeUndefined();
+  it("emits every run's rego price (#2423)", () => {
+    expect(byRun.get(630)?.cost).toBe("₹2100"); // anniversary headline price (₹1600 regulars' discount)
+    expect(byRun.get(631)?.cost).toBe("₹250 (advance) / ₹400 (late)");
+    expect(byRun.get(628)?.cost).toBe("₹250");
   });
 
   it("never leaks PII (phone numbers / payee names) into any field", () => {

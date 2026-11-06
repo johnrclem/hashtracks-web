@@ -26,6 +26,8 @@
 --    date and stays up for weeks after its run; dating it "next Monday" stamped #2979
 --    on 9 Mondays and #2988 on 10. A run number behind the anchor's prediction for the
 --    coming Monday now means "stale", and nothing is emitted.
+-- 8. Taiwan H3 Harrier Central (#2757): titleStripPatterns drops a "- SIGN UP FOR …"
+--    call to action from event names ("TwH³ 2682 - SIGN UP FOR THE FUCKING BUS!!!").
 --
 -- DATA-ONLY, idempotent. prisma/seed-data/sources.ts carries the same values.
 
@@ -93,3 +95,10 @@ SET config = jsonb_set(
 WHERE name = 'HK H3 Homepage'
   AND type::text = 'HTML_SCRAPER'
   AND (config IS NULL OR NOT config ? 'runNumberAnchor');
+
+UPDATE "Source"
+SET config = jsonb_set(config, '{titleStripPatterns}', '["\\s*-\\s*sign up\\b.*$"]'::jsonb),
+    "updatedAt" = NOW() AT TIME ZONE 'UTC'
+WHERE name = 'Taiwan H3 Harrier Central'
+  AND type::text = 'HARRIER_CENTRAL'
+  AND NOT config ? 'titleStripPatterns';
