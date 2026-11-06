@@ -9463,6 +9463,18 @@ export const SOURCES = [
       kennelCodes: ["newch3"],
     },
     {
+      name: "Warwick H3 Website",
+      url: "https://www.warwickhash.org.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // Single "Next Run" block that keeps showing the last run until the next
+      // is posted — REQUIRED so reconcile never cancels it as it ages out.
+      config: { upcomingOnly: true },
+      kennelCodes: ["warwick-h3"],
+    },
+    {
       name: "Bicester H3 Events (The Events Calendar iCal)",
       url: "http://bicesterh3.com/?post_type=tribe_events&ical=1&eventDisplay=list", // NOSONAR — HTTP-only: HTTPS fails TLS verification (self-signed cert, checked 2026-11-05)
       type: "ICAL_FEED" as const,
