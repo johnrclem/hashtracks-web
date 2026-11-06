@@ -707,6 +707,17 @@ export const SOURCES = [
       kennelCodes: ["och3"],
     },
     {
+      name: "Surrey H3 Website Hareline",
+      url: "https://surreyhashhouseharriers.com/receding-hareline/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 120,
+      // Rolling forward hareline — past runs drop off; history is a frozen backfill.
+      config: { upcomingOnly: true },
+      kennelCodes: ["surrey-h3"],
+    },
+    {
       name: "SLASH Run List",
       url: "https://www.londonhash.org/slah3/runlist/slash3list.html",
       type: "HTML_SCRAPER" as const,
@@ -6225,6 +6236,18 @@ export const SOURCES = [
     // explicit "Melbourne New Moon" prefix wins over a bare "Run No."
     // catch-all). Anything that doesn't match falls back to `kennelTag`.
     {
+      name: "Devonport H3 Blogger Feed",
+      url: "https://www.dhash.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke blog scrape (labelled run posts + receding hareline)
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Reads the latest ~15 posts + the newest post's hareline; older runs age
+      // out of the fetch and must not be reconciled as removed.
+      config: { upcomingOnly: true },
+      kennelCodes: ["devonport-h3"],
+    },
+    {
       name: "Melbourne New Moon Meetup",
       url: "https://www.meetup.com/melbourne-new-moon-running-group/",
       type: "MEETUP" as const,
@@ -8616,6 +8639,20 @@ export const SOURCES = [
       },
       kennelCodes: ["barbados-h3"],
     },
+    // Jamaica — first 🇯🇲 kennel; bespoke JamaicaHashAdapter over the PHP hareline
+    // (forward "Hare Line" + "Receding Hare Line" tables, fetched via browserRender
+    // because jah3.com sits behind a Cloudflare challenge). Deep archive comes from
+    // scripts/backfill-jah3-history.ts; upcomingOnly keeps reconcile off past runs.
+    {
+      name: "Jamaica H3 Website Hareline",
+      url: "https://www.jah3.com/kbean/hareline.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["jah3"],
+    },
     // Serbia — first 🇷🇸 kennel; Harrier Central public API (config-only).
     {
       name: "BEER H3 Harrier Central",
@@ -8970,6 +9007,233 @@ export const SOURCES = [
       },
       kennelCodes: ["sierra-h4"],
     },
+    // ===== HC BATCH (Nov 2026) — 13 config-only HARRIER_CENTRAL sources =====
+    // Every row sets upcomingOnly:true: HC getEvents is future-only, and each source
+    // owns a one-shot history backfill (scripts/backfill-hc-batch-nov-history.ts), so
+    // without it reconcile.ts would false-CANCEL runs as they age out of the feed.
+    // GUIDs re-verified live via hashruns.org/api/global-runs on 2026-11-05.
+    {
+      name: "Yorkshire H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        publicKennelId: "5ee2d8ec-57a4-4461-ae5c-bcf0de3f4ce0",
+        defaultKennelTag: "yh3",
+        // Run numbers are genuine per-event (#2208–#2212), so suppressRunNumber stays off.
+        defaultTitle: "Yorkshire H3",
+        staleTitleAliases: ["Placeholder event for YH3", "Yorkshire H3 Sunday"],
+        upcomingOnly: true,
+      },
+      kennelCodes: ["yh3"],
+    },
+    {
+      name: "Okinawa Poofters Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        publicKennelId: "c4a54536-aa57-41b1-b487-f94db0fd2e71",
+        defaultKennelTag: "oph3",
+        // EventNames ("OPH3 - 383 (DHP)") are kept verbatim.
+        defaultTitle: "Okinawa Poofters",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["oph3"],
+    },
+    {
+      name: "Black Death H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        publicKennelId: "92c77191-e7e4-47f6-99ac-b2b33dd80952",
+        defaultKennelTag: "bdh3-uk",
+        defaultTitle: "Black Death H3",
+        staleTitleAliases: ["Placeholder event for BD H3"],
+        upcomingOnly: true,
+      },
+      kennelCodes: ["bdh3-uk"],
+    },
+    {
+      name: "Devon A2B Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        publicKennelId: "a3844c71-7a31-4ef7-a6e0-2444023182ac",
+        defaultKennelTag: "da2b",
+        // Bare "Hash 197" / "Devon A2B Run 202" names strip to a bare number → "Devon A2B #N".
+        defaultTitle: "Devon A2B",
+        staleTitleAliases: ["Devon A2B", "Devon A2B.", "Placeholder event for DA2B"],
+        titleStripPatterns: [String.raw`^(?:devon a2b )?(?:hash|run) \d+!?$`],
+        upcomingOnly: true,
+      },
+      kennelCodes: ["da2b"],
+    },
+    {
+      name: "Brum and Black Country H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        publicKennelId: "e369f74d-a523-4857-a03f-83112edc7e29",
+        defaultKennelTag: "bbch3",
+        defaultTitle: "Brum & Black Country H3",
+        staleTitleAliases: ["Placeholder event for BBCH3"],
+        upcomingOnly: true,
+      },
+      kennelCodes: ["bbch3"],
+    },
+    {
+      name: "CERN H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        publicKennelId: "80886b52-cd7f-4a19-9285-1a94e2ce35d7",
+        defaultKennelTag: "cernh3",
+        defaultTitle: "CERN H3",
+        staleTitleAliases: ["Placeholder event for CERN H3"],
+        upcomingOnly: true,
+      },
+      kennelCodes: ["cernh3"],
+    },
+    {
+      name: "Paramaribo H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        publicKennelId: "84d28394-1a47-42fb-828d-af322e22a497",
+        defaultKennelTag: "ph3-sr",
+        // Generic "Hash" / "Run 1809" names → "Paramaribo H3 #N".
+        defaultTitle: "Paramaribo H3",
+        staleTitleAliases: ["Hash", "Placeholder event for PH3"],
+        titleStripPatterns: [String.raw`^run \d+$`],
+        upcomingOnly: true,
+      },
+      kennelCodes: ["ph3-sr"],
+    },
+    {
+      name: "Abuja H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        publicKennelId: "fa948a7e-c51f-4024-8e81-fb09c30977c1",
+        defaultKennelTag: "abujah3",
+        // EventNames carry real themes ("Miscreant Run") and are kept verbatim.
+        defaultTitle: "Abuja H3",
+        staleTitleAliases: ["Placeholder event for Abuja H3"],
+        upcomingOnly: true,
+      },
+      kennelCodes: ["abujah3"],
+    },
+    {
+      name: "Big Lik H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        publicKennelId: "cdd3638f-b7e4-4759-84c8-d56552938176",
+        defaultKennelTag: "blhhh",
+        // Strip the "UN #738 -" prefix (the number is already runNumber); a bare "Un #740" → "Big Lik H3 Trail #740".
+        defaultTitle: "Big Lik H3 Trail",
+        staleTitleAliases: ["Description", "Placeholder event for BLHHH"],
+        titleStripPatterns: [String.raw`^un #\d+[ -]*`],
+        upcomingOnly: true,
+      },
+      kennelCodes: ["blhhh"],
+    },
+    {
+      name: "Hannover H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        publicKennelId: "254b7c83-06c8-4c27-ada4-13b3a1581ce2",
+        defaultKennelTag: "hannover-h3",
+        // EventName is often the bare kennel name → "Hannover H3 #N"; "Isenbüttel Placeholder" → "Isenbüttel".
+        defaultTitle: "Hannover H3",
+        staleTitleAliases: ["Hannover H3"],
+        titleStripPatterns: [String.raw`\s+placeholder$`],
+        upcomingOnly: true,
+      },
+      kennelCodes: ["hannover-h3"],
+    },
+    {
+      name: "Moon Over Barbados H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        publicKennelId: "e035b47d-efcb-46da-bb2e-9d306f4c1102",
+        defaultKennelTag: "mobh3",
+        // Generic "MOBH3 335" names strip to a bare number → "Moon Over Barbados H3 #335".
+        defaultTitle: "Moon Over Barbados H3",
+        staleTitleAliases: ["Placeholder event for MOBH3"],
+        titleStripPatterns: ["^mobh3 "],
+        upcomingOnly: true,
+      },
+      kennelCodes: ["mobh3"],
+    },
+    {
+      name: "Barbados Bike H3 Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        publicKennelId: "1651097d-3b01-46af-9008-e641e9d4d4b4",
+        defaultKennelTag: "bbh3",
+        // Generic "Bash 105" names strip to a bare number → "Barbados Bike H3 #105".
+        defaultTitle: "Barbados Bike H3",
+        staleTitleAliases: ["Placeholder event for BBH3"],
+        titleStripPatterns: ["^bash "],
+        upcomingOnly: true,
+      },
+      kennelCodes: ["bbh3"],
+    },
+    {
+      name: "Shenanagains Under Nightfall Harrier Central",
+      url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
+      type: "HARRIER_CENTRAL" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        publicKennelId: "d9d1e89a-f340-4ce8-83f2-43e43d7beba0",
+        defaultKennelTag: "sunh3",
+        // EventNames carry real themes ("Hunter's Moon Trail") and are kept verbatim.
+        defaultTitle: "Shenanagains Under Nightfall",
+        upcomingOnly: true,
+      },
+      kennelCodes: ["sunh3"],
+    },
     // ===== CONFIG BATCH C =====
     {
       name: "Devon Lunatics H3 Google Calendar",
@@ -8994,6 +9258,16 @@ export const SOURCES = [
       kennelCodes: ["dlh3-gb"],
     },
     {
+      name: "South Hams H3 (SH4) Website Hash Diary",
+      url: "https://www.sh4.org.uk/auto-draft/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper (Events Manager list + detail pages)
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { upcomingOnly: true }, // rolling list (~50 past rows); aged-off runs must not be cancelled
+      kennelCodes: ["sh4"],
+    },
+    {
       name: "Isca H3 Google Calendar",
       url: "iscahareraiser@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
@@ -9013,6 +9287,30 @@ export const SOURCES = [
         titleStripPatterns: [String.raw`^Isca H3\s*-\s*`],
       },
       kennelCodes: ["isca-h3"],
+    },
+    {
+      name: "Teign Valley H3 Blogger Feed",
+      url: "https://www.teignvalleyh3.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke blog scrape (run-announcement posts)
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Adapter reads only the latest ~30 posts; older announcements age out of
+      // the fetch, so reconcile must not treat them as removed.
+      config: { upcomingOnly: true },
+      kennelCodes: ["tvh3"],
+    },
+    {
+      name: "City of Exeter H3 Blogspot Recaps",
+      url: "https://cityofexeterhhh.blogspot.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke blog scrape (run # / venue / hares / date from recap titles)
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Recap blog: the adapter reads the latest ~25 posts, so older runs age
+      // out of the fetch and must not be reconciled as removed.
+      config: { upcomingOnly: true },
+      kennelCodes: ["coeh3"],
     },
     {
       name: "Mickleover H3 Run Log Sheet",

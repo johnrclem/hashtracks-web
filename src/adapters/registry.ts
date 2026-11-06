@@ -29,7 +29,9 @@ import { AtlantaHashBoardAdapter } from "./html-scraper/atlanta-hash-board";
 import { NorthboroHashAdapter } from "./html-scraper/northboro-hash";
 import { DublinHashAdapter } from "./html-scraper/dublin-hash";
 import { HertsHashAdapter } from "./html-scraper/herts-hash";
+import { SurreyHashAdapter } from "./html-scraper/surrey-hash";
 import { FukFullMoonH3Adapter } from "./html-scraper/fuk-full-moon";
+import { SouthHamsH4Adapter } from "./html-scraper/south-hams-h4";
 import { TamarValleyH3Adapter } from "./html-scraper/tamar-valley-h3";
 import { TidewaterH3Adapter } from "./html-scraper/tidewater-h3";
 import { DesertHashAdapter } from "./html-scraper/desert-hash";
@@ -38,6 +40,9 @@ import { BurlingtonHashAdapter } from "./html-scraper/burlington-hash";
 import { RIH3Adapter } from "./html-scraper/rih3";
 import { BrassMonkeyAdapter } from "./html-scraper/brass-monkey";
 import { BrasiliaH3Adapter } from "./html-scraper/brasilia-h3";
+import { TeignValleyH3Adapter } from "./html-scraper/teign-valley-h3";
+import { CityOfExeterH3Adapter } from "./html-scraper/city-of-exeter-h3";
+import { DevonportH3Adapter } from "./html-scraper/devonport-h3";
 import { DFWHashAdapter } from "./html-scraper/dfw-hash";
 import { SOH4Adapter } from "./html-scraper/soh4";
 import { HalveMeinAdapter } from "./html-scraper/halvemein";
@@ -129,6 +134,7 @@ import { HimalayanHashAdapter } from "./html-scraper/himalayan-h3";
 import { BombayHashAdapter } from "./html-scraper/bombay-hash";
 import { SaigonH3Adapter } from "./html-scraper/saigon-h3";
 import { HanoiH3Adapter } from "./html-scraper/hanoi-h3";
+import { JamaicaHashAdapter } from "./html-scraper/jamaica-hash";
 import { VictoriaH3Adapter } from "./html-scraper/victoria-h3";
 import { Ch4DkAdapter } from "./html-scraper/ch4-dk";
 import { MiteriHarelineAdapter } from "./html-scraper/miteri-hareline";
@@ -203,7 +209,9 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /northboroh3\.com/i,             name: "NorthboroHashAdapter",    factory: () => new NorthboroHashAdapter() },
   { pattern: /dublinhhh\.com/i,              name: "DublinHashAdapter",       factory: () => new DublinHashAdapter() },
   { pattern: /hertshash\.co\.uk/i,           name: "HertsHashAdapter",        factory: () => new HertsHashAdapter() },
+  { pattern: /surreyhashhouseharriers\.com/i, name: "SurreyHashAdapter",     factory: () => new SurreyHashAdapter() },
   { pattern: /fukfmh3\.co\.uk/i,             name: "FukFullMoonH3Adapter",    factory: () => new FukFullMoonH3Adapter() },
+  { pattern: /sh4\.org\.uk/i,                 name: "SouthHamsH4Adapter",      factory: () => new SouthHamsH4Adapter() },
   { pattern: /tvh3\.co\.uk/i,                name: "TamarValleyH3Adapter",    factory: () => new TamarValleyH3Adapter() },
   { pattern: /tidewaterh3\.org/i,            name: "TidewaterH3Adapter",      factory: () => new TidewaterH3Adapter() },
   // Desert H3 (HashTracks' first UAE kennel, Dubai's oldest hash, est. 1979) — deserthash.org
@@ -225,6 +233,9 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /rih3\.com/i,                 name: "RIH3Adapter",             factory: () => new RIH3Adapter() },
   { pattern: /teambrassmonkey\.blogspot/i, name: "BrassMonkeyAdapter",      factory: () => new BrassMonkeyAdapter() },
   { pattern: /brasiliah3\.blogspot/i,      name: "BrasiliaH3Adapter",       factory: () => new BrasiliaH3Adapter() },
+  { pattern: /teignvalleyh3\.com/i,         name: "TeignValleyH3Adapter",    factory: () => new TeignValleyH3Adapter() },
+  { pattern: /cityofexeterhhh\.blogspot/i,  name: "CityOfExeterH3Adapter",   factory: () => new CityOfExeterH3Adapter() },
+  { pattern: /\/\/(?:www\.)?dhash\.com/i,   name: "DevonportH3Adapter",      factory: () => new DevonportH3Adapter() },
   { pattern: /dfwhhh\.org/i,              name: "DFWHashAdapter",           factory: () => new DFWHashAdapter() },
   { pattern: /soh4\.com/i,               name: "SOH4Adapter",              factory: () => new SOH4Adapter() },
   { pattern: /hmhhh\.com/i,              name: "HalveMeinAdapter",         factory: () => new HalveMeinAdapter() },
@@ -327,6 +338,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /^https?:\/\/(?:[^/]+\.)?newtaipeihash\.com(?:[/?#:]|$)/i, name: "NewTaipeiHashAdapter", factory: () => new NewTaipeiHashAdapter() },
   { pattern: /^https?:\/\/(?:[^/]+\.)?kaohsiunghash\.com(?:[/?#:]|$)/i, name: "KaohsiungHashAdapter", factory: () => new KaohsiungHashAdapter() },
   { pattern: /^https?:\/\/(?:[^/]+\.)?tymh3\.com(?:[/?#:]|$)/i, name: "BoomCalendarAdapter", factory: () => new BoomCalendarAdapter() },
+  // ── Jamaica ──
+  { pattern: /^https?:\/\/(?:[^/]+\.)?jah3\.com(?:[/?#:]|$)/i, name: "JamaicaHashAdapter", factory: () => new JamaicaHashAdapter() },
   // ── Cambodia ──
   { pattern: /^https?:\/\/(?:[^/]+\.)?p2h3\.com(?:[/?#:]|$)/i, name: "PhnomPenhH3Adapter", factory: () => new PhnomPenhH3Adapter() },
   // ── Nepal ──
