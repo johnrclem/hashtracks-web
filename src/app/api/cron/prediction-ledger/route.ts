@@ -27,6 +27,7 @@ export async function POST(request: Request) {
     const result = await runPredictionLedger(prisma);
     console.log(
       `[prediction-ledger] scored ${result.scored} (${JSON.stringify(result.outcomes)}), ` +
+        `re-scored ${result.rescored} (${JSON.stringify(result.rescoredTo)}), ` +
         `+${result.snapshotsCreated} snapshots`,
     );
     return NextResponse.json({ data: result });

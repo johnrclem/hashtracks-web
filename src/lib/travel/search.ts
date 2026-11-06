@@ -11,6 +11,7 @@
 import type { PrismaClient } from "@/generated/prisma/client";
 import { MAX_RADIUS_KM } from "@/lib/travel/limits";
 import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
+import { INDEPENDENT_EVENT_WHERE } from "@/lib/event-eligibility";
 import { haversineDistance } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import { safeUrl } from "@/lib/safe-url";
@@ -23,9 +24,13 @@ import {
   clampToProjectionHorizon,
   projectionHorizonForStart,
   filterProjectionsByHorizon,
+  buildRuleAgreementMap,
+  selectBestProjections,
   CONFIRMED_EVENT_HORIZON_DAYS,
+  AGREEMENT_LOOKBACK_DAYS,
   DAY_MS,
   type ProjectedTrail,
+  type RuleAgreement,
   type ProjectionHorizonTier,
   type ScheduleRuleInput,
   type KennelContext,
@@ -225,6 +230,8 @@ export interface TravelSearchResults {
 // ============================================================================
 
 const TWELVE_WEEKS_MS = 12 * 7 * DAY_MS;
+/** Row cap on the rule-agreement evidence query (independent runs over ~14 weeks). */
+const AGREEMENT_EVENT_ROW_CAP = 5_000;
 
 /**
  * Safety-net row cap for the confirmed-event query. A traveler viewing
@@ -543,7 +550,8 @@ async function runStopSearch(
 
     // Steps 3–5 + 8: Three independent DB queries run in parallel (saves ~2 round-trips)
     const twelveWeeksAgo = new Date(now.getTime() - TWELVE_WEEKS_MS);
-    const [confirmedEvents, scheduleRules, evidenceEvents] = await Promise.all([
+    const agreementLookback = new Date(now.getTime() - AGREEMENT_LOOKBACK_DAYS * DAY_MS);
+    const [confirmedEvents, scheduleRules, evidenceEvents, independentEvents] = await Promise.all([
     // Step 3: Confirmed events in date window. Allowed past the 365-day
     // projection horizon (real NYE events 18mo out still render) but
     // bounded by CONFIRMED_EVENT_HORIZON_DAYS + a row cap so a pathological
@@ -593,8 +601,32 @@ async function runStopSearch(
       },
       select: { kennelId: true, date: true },
     }),
+    // Step 8b: Independent (non-STATIC_SCHEDULE) runs for the rule-agreement gate, including
+    // co-hosted runs (same as the prediction ledger). Filtered with an EXISTS in SQL so no
+    // RawEvent rows come back (uses RawEvent_eventId_idx).
+    prisma.event.findMany({
+      where: {
+        ...CANONICAL_EVENT_WHERE,
+        eventKennels: { some: { kennelId: { in: nearbyIds } } },
+        status: "CONFIRMED",
+        date: { gte: agreementLookback, lte: now },
+        ...INDEPENDENT_EVENT_WHERE,
+      },
+      select: { date: true, eventKennels: { select: { kennelId: true } } },
+      // Defensive cap (a dense max-radius search sees ~1k rows); keep the newest if it ever binds.
+      orderBy: { date: "desc" },
+      take: AGREEMENT_EVENT_ROW_CAP,
+    }),
   ]);
   const evidenceByKennel = groupBy(evidenceEvents, (e) => e.kennelId);
+  const independentByKennel = groupBy(
+    independentEvents.flatMap((e) =>
+      e.eventKennels
+        .filter((ek) => nearbyIdsSet.has(ek.kennelId))
+        .map((ek) => ({ kennelId: ek.kennelId, date: e.date })),
+    ),
+    (e) => e.kennelId,
+  );
 
   // Step 6: Project trails
   const ruleInputs: ScheduleRuleInput[] = scheduleRules.map((r) => ({
@@ -611,11 +643,21 @@ async function runStopSearch(
     validFrom: r.validFrom,
     validUntil: r.validUntil,
   }));
-  const projections = projectTrails(ruleInputs, startDate, projectionEndDate);
+  // Undeduped: each rule is scored on its own record before picking a slot's winner (Step 7).
+  const projections = projectTrails(ruleInputs, startDate, projectionEndDate, { dedupe: false });
 
   // Step 7: Score confidence using evidence events (last ~12 weeks ≈ 84 days,
-  // close to the 90-day window the scoring function expects)
-  const scoredProjections = scoreProjections(projections, kennelMap, scheduleRules, evidenceEvents);
+  // close to the 90-day window the scoring function expects) plus each rule's own
+  // track record against independent events (agreement gate).
+  const datedRuleIds = new Set(projections.filter((p) => p.date).map((p) => p.scheduleRuleId));
+  const ruleAgreement = buildRuleAgreementMap(
+    ruleInputs.filter((r) => datedRuleIds.has(r.id)),
+    (kennelId) => independentByKennel.get(kennelId),
+    now,
+  );
+  const scoredProjections = selectBestProjections(
+    scoreProjections(projections, kennelMap, scheduleRules, evidenceEvents, ruleAgreement, now),
+  );
 
   // Step 9: Deduplicate projections against confirmed events.
   // A confirmed event renders under whichever NEARBY kennel matched (the
@@ -967,6 +1009,8 @@ function scoreProjections(
   kennelMap: Map<string, NearbyKennel>,
   scheduleRules: { id: string; lastValidatedAt: Date | null; kennelId: string }[],
   evidenceEvents: { kennelId: string }[],
+  ruleAgreement: ReadonlyMap<string, RuleAgreement>,
+  now: Date,
 ): ProjectedTrail[] {
   // Count evidence events per kennel (last 12 weeks ≈ 84 days,
   // close to the 90-day window scoreConfidence was designed for)
@@ -1001,6 +1045,8 @@ function scoreProjections(
       kennelCtx,
       eventCounts.get(proj.kennelId) ?? 0,
       ruleValidation.get(proj.scheduleRuleId) ?? null,
+      now.getTime(),
+      ruleAgreement.get(proj.scheduleRuleId),
     );
 
     return { ...proj, confidence: scored };

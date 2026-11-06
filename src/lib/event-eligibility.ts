@@ -23,6 +23,15 @@ export const EVENT_ELIGIBILITY_SELECT = {
   rawEvents: { select: { source: { select: { type: true } } } },
 } as const satisfies Prisma.EventSelect;
 
+/**
+ * Prisma `where` fragment with the same meaning as `isEligibleActual`, evaluated in SQL (an EXISTS
+ * over RawEvent → Source): spread into an Event `where` when only independent events are needed,
+ * so no RawEvent rows are fetched.
+ */
+export const INDEPENDENT_EVENT_WHERE = {
+  rawEvents: { some: { source: { type: { not: STATIC_SCHEDULE } } } },
+} as const satisfies Prisma.EventWhereInput;
+
 /** The minimal shape `isEligibleActual` reads — an Event with its RawEvent source types. */
 export interface EligibilityCheckable {
   rawEvents: { source: { type: SourceType } }[];

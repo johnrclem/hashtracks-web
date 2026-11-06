@@ -23,6 +23,7 @@ import {
   windowOverlapsSeason,
   formatSeasonHint,
 } from "@/lib/schedule-season";
+import { utcMidnightMs } from "@/lib/date";
 import type { ScheduleConfidence } from "@/generated/prisma/client";
 
 // ============================================================================
@@ -195,11 +196,17 @@ function projectScheduledRule(
  *
  * HIGH/MEDIUM rules produce date-specific projections via the RRULE engine.
  * LOW rules produce a single "possible activity" entry with `date: null`.
+ *
+ * By default overlapping projections (same kennel/date/time from several rules) collapse to
+ * the highest BASE confidence. Callers that re-score per rule (the agreement gate can demote
+ * the base winner below a sibling rule) pass `{ dedupe: false }`, score every projection, then
+ * call `selectBestProjections` on the scored list.
  */
 export function projectTrails(
   rules: ScheduleRuleInput[],
   windowStart: Date,
   windowEnd: Date,
+  { dedupe = true }: { dedupe?: boolean } = {},
 ): ProjectedTrail[] {
   const results: ProjectedTrail[] = [];
   for (const rule of rules) {
@@ -220,14 +227,16 @@ export function projectTrails(
     }
   }
 
-  // Deduplicate by (kennelId, date): when multiple rules generate projections
-  // for the same kennel on the same date (e.g. STATIC_SCHEDULE + SEED_DATA both
-  // produce "Saturday"), keep only the highest-confidence one. This prevents
-  // duplicate travel result cards for the same trail.
-  const deduped = deduplicateProjectionsByKennelDate(results);
+  return dedupe ? selectBestProjections(results) : results;
+}
 
-  // Sort: date-specific results first (by date asc), then null-date results
-  return deduped.sort((a, b) => {
+/**
+ * Keep the highest-confidence projection per (kennelId, date, startTime) — e.g. STATIC_SCHEDULE
+ * + SEED_DATA rules both producing "Saturday" — so Travel never shows duplicate cards for one
+ * trail, then sort: dated results first (by date asc), then null-date results.
+ */
+export function selectBestProjections<T extends ProjectedTrail>(projections: T[]): T[] {
+  return deduplicateProjectionsByKennelDate(projections).sort((a, b) => {
     if (a.date && b.date) return a.date.getTime() - b.date.getTime();
     if (a.date && !b.date) return -1;
     if (!a.date && b.date) return 1;
@@ -243,10 +252,8 @@ const CONFIDENCE_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
  * key so legitimate same-day double trails (e.g., morning and evening runs) are
  * preserved. Null-date entries (possible activity) are deduped by kennelId alone.
  */
-function deduplicateProjectionsByKennelDate(
-  projections: ProjectedTrail[],
-): ProjectedTrail[] {
-  const best = new Map<string, ProjectedTrail>();
+function deduplicateProjectionsByKennelDate<T extends ProjectedTrail>(projections: T[]): T[] {
+  const best = new Map<string, T>();
   for (const proj of projections) {
     // KNOWN LIMITATION: all date-null ("possible activity") projections for a
     // kennel share the `__possible__` key, so a kennel with TWO distinct LOW
@@ -278,12 +285,14 @@ function deduplicateProjectionsByKennelDate(
  * - Historical consistency: confirmed event count in last 90 days
  * - Kennel activity: lastEventDate recency
  * - Rule validation recency: lastValidatedAt on the rule
+ * - Rule agreement: the rule's own hit rate against independent events over the
+ *   last 12 weeks (`applyAgreementGate`) — optional; omitted ⇒ gate abstains
  *
  * Returns the final confidence level. Can upgrade MEDIUM→HIGH or degrade
  * MEDIUM→LOW / HIGH→MEDIUM based on evidence.
  */
 export function scoreConfidence(
-  baseConfidence: "high" | "medium" | "low",
+  baseConfidence: ConfidenceTier,
   kennel: KennelContext,
   confirmedEventCount: number,
   lastValidatedAt: Date | null,
@@ -291,7 +300,8 @@ export function scoreConfidence(
   // callers are unaffected; the prediction-evaluation harness injects a past
   // reference date to backtest the model as-of that point in time.
   now: number = Date.now(),
-): "high" | "medium" | "low" {
+  agreement?: RuleAgreement | null,
+): ConfidenceTier {
   // LOW is terminal — never upgrade possible-activity rules
   if (baseConfidence === "low") return "low";
 
@@ -300,7 +310,7 @@ export function scoreConfidence(
   const ONE_EIGHTY_DAYS_MS = 180 * 24 * 60 * 60 * 1000;
 
   // Explicitly typed to allow degradation to "low" in extreme cases
-  let score: "high" | "medium" | "low" = baseConfidence;
+  let score: ConfidenceTier = baseConfidence;
 
   // Boost MEDIUM → HIGH if strong evidence
   if (
@@ -323,10 +333,111 @@ export function scoreConfidence(
     if (score === "high") score = "medium";
   }
 
+  // The rule's own recent track record against independent history (see applyAgreementGate).
+  score = applyAgreementGate(score, agreement);
+
   // PRD §Confidence Model: Medium requires ≥1 evidence event.
   if (score === "medium" && confirmedEventCount === 0) score = "low";
 
   return score;
+}
+
+// ============================================================================
+// Rule agreement (evidence gate)
+// ============================================================================
+//
+// Re-ranks a dated rule by its own track record: how often its projected dates over the last
+// 12 weeks matched the kennel's INDEPENDENT (non-STATIC_SCHEDULE) events. Rule provenance alone
+// (STATIC_SCHEDULE source, seed `scheduleRules`) proved a poor accuracy signal. Thin evidence ⇒
+// the gate abstains, so kennels with only a static schedule keep their base tier.
+
+export type ConfidenceTier = "high" | "medium" | "low";
+
+/** Prediction-scoring tolerances, shared with the prospective ledger (prediction-ledger.ts). */
+export const PREDICTION_MATCH_TOL_DAYS = 1; // a run within ±1d of the date is a HIT
+export const PREDICTION_OBSERVE_TOL_DAYS = 14; // any run within ±14d means the date was observed
+
+const AGREEMENT_WINDOW_DAYS = 84;
+/** How far back a caller must load independent events for `measureRuleAgreement`. */
+export const AGREEMENT_LOOKBACK_DAYS = AGREEMENT_WINDOW_DAYS + PREDICTION_OBSERVE_TOL_DAYS + 1;
+const AGREEMENT_MIN_OBSERVED = 4;
+const AGREEMENT_DEMOTE_HIGH_BELOW = 0.75;
+const AGREEMENT_DEMOTE_MEDIUM_BELOW = 0.5;
+const AGREEMENT_PROMOTE_AT = 0.9;
+const AGREEMENT_PROMOTE_MIN_OBSERVED = 6;
+
+/** How a rule's recent projected dates fared against independent events. */
+export interface RuleAgreement {
+  /** Past projected dates with an independent event within ±PREDICTION_OBSERVE_TOL_DAYS. */
+  observed: number;
+  /** …of which an independent event landed within ±PREDICTION_MATCH_TOL_DAYS. */
+  hits: number;
+}
+
+/**
+ * Replay one dated rule over the AGREEMENT_WINDOW_DAYS before `now` and score it against
+ * independent events. Only events strictly before `now` count, so an as-of backtest can pass a
+ * full event list without leaking the future. LOW rules project no dates ⇒ `{0, 0}`.
+ */
+export function measureRuleAgreement(
+  rule: ScheduleRuleInput,
+  independentEvents: readonly { date: Date }[],
+  now: Date,
+): RuleAgreement {
+  const today = utcMidnightMs(now);
+  const windowStart = new Date(today - AGREEMENT_WINDOW_DAYS * DAY_MS);
+  const predicted = new Set<number>();
+  // End 1 ms before today's midnight: occurrences are dated at UTC noon and the window end is
+  // inclusive, so ending at yesterday's midnight would drop yesterday's run.
+  for (const p of projectTrails([rule], windowStart, new Date(today - 1))) {
+    if (p.date) predicted.add(utcMidnightMs(p.date));
+  }
+  if (predicted.size === 0) return { observed: 0, hits: 0 };
+
+  const earliest = windowStart.getTime() - PREDICTION_OBSERVE_TOL_DAYS * DAY_MS;
+  const actual = independentEvents.map((e) => utcMidnightMs(e.date)).filter((t) => t >= earliest && t < today);
+
+  let observed = 0;
+  let hits = 0;
+  for (const p of predicted) {
+    let nearest = Infinity;
+    for (const t of actual) nearest = Math.min(nearest, Math.abs(t - p) / DAY_MS);
+    if (nearest <= PREDICTION_OBSERVE_TOL_DAYS) observed++;
+    if (nearest <= PREDICTION_MATCH_TOL_DAYS) hits++;
+  }
+  return { observed, hits };
+}
+
+/**
+ * Agreement for every dated (HIGH/MEDIUM) rule whose kennel has independent events, keyed by
+ * rule id. `independentEventsFor` must return only independent (non-STATIC_SCHEDULE) events —
+ * a rule's own STATIC_SCHEDULE-generated events always agree (circular).
+ */
+export function buildRuleAgreementMap(
+  rules: readonly ScheduleRuleInput[],
+  independentEventsFor: (kennelId: string) => readonly { date: Date }[] | undefined,
+  now: Date,
+): Map<string, RuleAgreement> {
+  const out = new Map<string, RuleAgreement>();
+  for (const rule of rules) {
+    if (rule.confidence === "LOW") continue;
+    const events = independentEventsFor(rule.kennelId);
+    if (events?.length) out.set(rule.id, measureRuleAgreement(rule, events, now));
+  }
+  return out;
+}
+
+/** Re-rank a scored tier by the rule's agreement (abstains on thin evidence). */
+export function applyAgreementGate(
+  score: ConfidenceTier,
+  agreement: RuleAgreement | null | undefined,
+): ConfidenceTier {
+  if (score === "low" || !agreement || agreement.observed < AGREEMENT_MIN_OBSERVED) return score;
+  const rate = agreement.hits / agreement.observed;
+  if (rate < AGREEMENT_DEMOTE_MEDIUM_BELOW) return "low";
+  if (score === "high") return rate < AGREEMENT_DEMOTE_HIGH_BELOW ? "medium" : "high";
+  if (rate >= AGREEMENT_PROMOTE_AT && agreement.observed >= AGREEMENT_PROMOTE_MIN_OBSERVED) return "high";
+  return "medium";
 }
 
 // ============================================================================

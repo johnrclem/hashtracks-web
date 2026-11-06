@@ -48,6 +48,9 @@ import {
   scoreConfidence,
   deduplicateAgainstConfirmed,
   projectionHorizonForStart,
+  buildRuleAgreementMap,
+  selectBestProjections,
+  type RuleAgreement,
   type ScheduleRuleInput,
   type ProjectedTrail,
   type KennelContext,
@@ -157,19 +160,33 @@ function scoreProjectionsAsOf(
   reference: Date,
   ruleValidation: Map<string, Date | null>,
   lastEventDateAsOf: Date | null,
+  agreement: ReadonlyMap<string, RuleAgreement>,
 ): ProjectedTrail[] {
   const ctx = kennelCtx(kennel, lastEventDateAsOf);
   const nowMs = reference.getTime();
-  return projections.map((proj) => ({
-    ...proj,
-    confidence: scoreConfidence(
-      proj.confidence,
-      ctx,
-      evidenceCount,
-      ruleValidation.get(proj.scheduleRuleId) ?? null,
-      nowMs,
-    ),
-  }));
+  // Callers pass undeduped projections; pick each slot's winner by SCORED confidence (as search does).
+  return selectBestProjections(
+    projections.map((proj) => ({
+      ...proj,
+      confidence: scoreConfidence(
+        proj.confidence,
+        ctx,
+        evidenceCount,
+        ruleValidation.get(proj.scheduleRuleId) ?? null,
+        nowMs,
+        agreement.get(proj.scheduleRuleId),
+      ),
+    })),
+  );
+}
+
+/**
+ * Each dated rule's agreement with the kennel's INDEPENDENT events as-of `reference`
+ * (measureRuleAgreement only reads events before the reference, so no look-ahead).
+ */
+function agreementAsOf(ruleInputs: ScheduleRuleInput[], events: EvDate[], reference: Date): Map<string, RuleAgreement> {
+  const independent = events.filter((e) => e.eligible);
+  return buildRuleAgreementMap(ruleInputs, () => independent, reference);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -218,7 +235,7 @@ function censusForKennel(
   let visibleDated: ProjectedTrail[] = [];
   if (hasRule) {
     const ruleInputs = rules.map(ruleToInput);
-    const raw = projectTrails(ruleInputs, today, maxHorizonEnd);
+    const raw = projectTrails(ruleInputs, today, maxHorizonEnd, { dedupe: false });
     const ruleValidation = new Map<string, Date | null>(
       rules.map((r) => [r.id, r.lastValidatedAt]),
     );
@@ -234,6 +251,7 @@ function censusForKennel(
       today,
       ruleValidation,
       kennel.lastEventDate,
+      agreementAsOf(ruleInputs, events, today),
     );
     // Dedup only against INDEPENDENT confirmed events — otherwise a STATIC_SCHEDULE
     // source's own materialized future events would suppress the very projection
@@ -358,7 +376,7 @@ function backtest(
     // Project + score AS-OF the reference date. No dedup-against-confirmed here:
     // we WANT to keep predictions to compare them against actuals.
     const ruleInputs = rules.map(ruleToInput);
-    const raw = projectTrails(ruleInputs, reference, windowEnd);
+    const raw = projectTrails(ruleInputs, reference, windowEnd, { dedupe: false });
     const ruleValidation = new Map<string, Date | null>(
       // Treat validation as unknown as-of R — don't assume future validation existed.
       rules.map((r) => [r.id, null]),
@@ -379,6 +397,7 @@ function backtest(
       reference,
       ruleValidation,
       lastEventAsOf,
+      agreementAsOf(ruleInputs, events, reference),
     );
     const dated = scored.filter(
       (p): p is ProjectedTrail & { date: Date } =>
@@ -511,7 +530,8 @@ function buildContradicted(
       const windowEnd = addDays(reference, BACKTEST_WINDOW_DAYS);
       const eligible = eligibleInRange(events, reference, windowEnd).map((e) => e.date);
       if (eligible.length === 0) continue; // unverifiable in this window
-      const raw = projectTrails(rules.map(ruleToInput), reference, windowEnd);
+      const ruleInputs = rules.map(ruleToInput);
+      const raw = projectTrails(ruleInputs, reference, windowEnd, { dedupe: false });
       const evidenceCount = eligibleInRange(
         events,
         addDays(reference, -EVIDENCE_WINDOW_DAYS),
@@ -526,6 +546,7 @@ function buildContradicted(
         reference,
         ruleValidation,
         lastEventAsOf,
+        agreementAsOf(ruleInputs, events, reference),
       );
       for (const p of scored) {
         if (!p.date || p.confidence === "low") continue;

@@ -2902,7 +2902,9 @@ export const SOURCES = [
       config: {
         kennelTag: "gsh3",
         rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA",
-        anchorDate: "2026-03-07",
+        // Phase from the Facebook events (Feb 28, Mar 14 … Nov 7 2026). The old 03-07 anchor
+        // generated the in-between Saturdays — 0 HIT / 13 MISS in the Travel ledger.
+        anchorDate: "2026-03-14",
         startTime: "16:00",
         defaultTitle: "GSH3 Biweekly Run",
         defaultLocation: "Myrtle Beach, SC",
@@ -4102,6 +4104,9 @@ export const SOURCES = [
           "Diaper Rash": "drh3-sd",
         },
         includeHistory: true,
+        // The hareline drops each run the day after it happens and history.shtml lists it ~a
+        // month later; without this, reconcile cancelled every past SD run in that gap.
+        upcomingOnly: true,
       },
       kennelCodes: ["sdh3", "clh3-sd", "ljh3", "nch3-sd", "irh3-sd", "humpin-sd", "fmh3-sd", "hah3-sd", "mh4-sd", "drh3-sd"],
     },
