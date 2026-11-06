@@ -331,6 +331,8 @@ describe("inferCountry — Cyprus (first 🇨🇾 kennel: Larnaca H3)", () => {
     ["Larnaca, Cyprus", "Cyprus"],
     ["Larnaca", "Cyprus"],
     ["Agia Napa Nature Reserve, Cyprus", "Cyprus"],
+    ["Nicosia", "Cyprus"],
+    ["Lefkosia", "Cyprus"],
   ])("infers %s → Cyprus", (name, country) => {
     expect(inferCountry(name)).toBe(country);
   });
