@@ -21,7 +21,7 @@ import { fetchHTMLPage, buildDateWindow } from "../utils";
 
 const KENNEL_TAG = "quorn-h3";
 const DEFAULT_URL = "http://www.quornh3.org.uk/runlog.html"; // NOSONAR — site is HTTP-only (no TLS)
-const TIME_RE = /^(\d{1,2}):(\d{2})$/;
+const TIME_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 /** Site-wide strapline the club pastes into <info> when a run has no notes yet. */
 const BOILERPLATE_INFO_PREFIX = "running/walking for fun in the";
 

@@ -71,6 +71,12 @@ describe("parseQuornRunlog", () => {
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ runNumber: 819, date: "2014-01-05", description: undefined });
   });
+
+  it("drops an out-of-range time instead of emitting it (run #1066 was '10:66')", () => {
+    const xml = XML_MIXED.replace("<time>11:00</time>", "<time>10:66</time>");
+    const events = parseQuornRunlog(xml, "u");
+    expect(events[0]).toMatchObject({ runNumber: 819, startTime: undefined });
+  });
 });
 
 describe("QuornH3Adapter.fetch", () => {
