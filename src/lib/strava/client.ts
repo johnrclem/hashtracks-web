@@ -210,7 +210,16 @@ export async function fetchStravaActivities(
       );
     }
 
-    const activities = (await res.json()) as StravaApiActivity[];
+    // Validate the shape: sync treats the result as the complete list for the
+    // window and deletes cached rows not in it, so a malformed 200 must throw
+    // rather than read as "no activities".
+    const body: unknown = await res.json();
+    if (!Array.isArray(body)) {
+      throw new Error(
+        `Strava activity fetch returned an unexpected payload (${typeof body}) on page ${page}`,
+      );
+    }
+    const activities = body as StravaApiActivity[];
     allActivities.push(...activities);
 
     // If we got fewer than perPage, we've reached the end

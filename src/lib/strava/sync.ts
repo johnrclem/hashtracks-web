@@ -83,31 +83,52 @@ export async function syncStravaActivities(
   const stravaIds = parsed.map((p) => p.stravaActivityId);
   const fetchedAt = new Date();
 
-  // Durable match state + one query for all existing activities (include city
-  // for backfill optimization) — independent reads, run together
-  const [{ linkedAttendanceByActivityId, dismissedKeys }, existingActivities] =
-    await Promise.all([
-      loadMatchState(userId, connection.id),
-      prisma.stravaActivity.findMany({
-        where: { stravaActivityId: { in: stravaIds } },
-        select: { stravaActivityId: true, city: true, startLat: true, startLng: true },
-      }),
-    ]);
+  // Read this user's existing cache rows (with their current match state)
+  // BEFORE the durable snapshot. That order is what makes the compare-and-set
+  // below race-safe: an attach / detach / dismiss / undismiss writes the cache
+  // row and its durable record in one transaction, so if it commits after the
+  // row read, the row no longer equals what we read and our CAS skips it
+  // instead of undoing it — whether it added state or cleared it.
+  const existingActivities = await prisma.stravaActivity.findMany({
+    where: { stravaConnectionId: connection.id, stravaActivityId: { in: stravaIds } },
+    select: {
+      stravaActivityId: true,
+      city: true,
+      startLat: true,
+      startLng: true,
+      matchedAttendanceId: true,
+      matchDismissed: true,
+    },
+  });
+  const { linkedAttendanceByActivityId, dismissedKeys } =
+    await loadMatchState(userId, connection.id);
   const matchState = (stravaActivityId: string) => ({
     matchedAttendanceId: linkedAttendanceByActivityId.get(stravaActivityId) ?? null,
     matchDismissed: dismissedKeys.has(stravaActivityKey(stravaActivityId)),
   });
-  // Existing rows only gain state from the snapshot, never lose it: every
-  // writer that clears a link or dismissal (detach, undismiss, edit/delete
-  // attendance) clears the cache row itself, so clearing here could only undo
-  // an attach/dismiss that committed after the snapshot was taken.
-  const additiveMatchState = (stravaActivityId: string) => {
-    const { matchedAttendanceId, matchDismissed } = matchState(stravaActivityId);
-    return {
-      ...(matchedAttendanceId && { matchedAttendanceId }),
-      ...(matchDismissed && { matchDismissed }),
-    };
-  };
+  // Compare-and-set writes for existing rows whose match state differs from the
+  // durable snapshot (usually none). Authoritative in both directions, so any
+  // drift self-heals on the next sync.
+  const matchStateFixes = existingActivities.flatMap((row) => {
+    const desired = matchState(row.stravaActivityId);
+    if (
+      desired.matchedAttendanceId === row.matchedAttendanceId &&
+      desired.matchDismissed === row.matchDismissed
+    ) {
+      return [];
+    }
+    return [
+      prisma.stravaActivity.updateMany({
+        where: {
+          stravaConnectionId: connection.id,
+          stravaActivityId: row.stravaActivityId,
+          matchedAttendanceId: row.matchedAttendanceId,
+          matchDismissed: row.matchDismissed,
+        },
+        data: desired,
+      }),
+    ];
+  });
   const existingIdSet = new Set(existingActivities.map((a) => a.stravaActivityId));
   // Track activities that need city backfill (have coords but null city)
   const needsCityIds = new Set(
@@ -155,14 +176,15 @@ export async function syncStravaActivities(
   await Promise.all([
     // Batch reverse-geocode new activities to populate city field
     toCreate.length > 0 ? backfillCities(toCreate) : Promise.resolve(),
-    // Batch update existing activities in a single transaction. updateMany (not
-    // update) so a row the purge cron deleted mid-sync is skipped, not a P2025
-    // that rolls back the whole sync; the next sync recreates it.
+    // Batch update existing activities (fields + fetchedAt, then the match-state
+    // CAS writes) in a single transaction. updateMany (not update) so a row the
+    // purge cron deleted mid-sync is skipped, not a P2025 that rolls back the
+    // whole sync; the next sync recreates it.
     toUpdate.length > 0
-      ? prisma.$transaction(
-          toUpdate.map((p) =>
+      ? prisma.$transaction([
+          ...toUpdate.map((p) =>
             prisma.stravaActivity.updateMany({
-              where: { stravaActivityId: p.stravaActivityId },
+              where: { stravaConnectionId: connection.id, stravaActivityId: p.stravaActivityId },
               data: {
                 name: p.name,
                 sportType: p.sportType,
@@ -174,11 +196,11 @@ export async function syncStravaActivities(
                 startLng: p.startLng,
                 timezone: p.timezone,
                 fetchedAt,
-                ...additiveMatchState(p.stravaActivityId),
               },
             }),
           ),
-        )
+          ...matchStateFixes,
+        ])
       : Promise.resolve(),
   ]);
 
