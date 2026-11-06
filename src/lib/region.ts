@@ -2345,6 +2345,32 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -76.8099,
     aliases: ["Kingston, Jamaica"],
   },
+  // ── Grenada (first 🇬🇩 kennel: Grenada H3, est. 1985) — 2-level COUNTRY→METRO,
+  //    mirrors Barbados/Jamaica. Red palette (Grenadian flag); Barbados is fuchsia,
+  //    Jamaica emerald. ──
+  {
+    name: "Grenada",
+    country: "Grenada",
+    level: "COUNTRY",
+    timezone: "America/Grenada",
+    abbrev: "GD",
+    colorClasses: "bg-red-200 text-red-800",
+    pinColor: "#dc2626",
+    centroidLat: 12.1165,
+    centroidLng: -61.679,
+    aliases: ["Grenada, Caribbean", "Spice Isle"],
+  },
+  {
+    name: "St George's",
+    country: "Grenada",
+    timezone: "America/Grenada",
+    abbrev: "GND",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 12.0561,
+    centroidLng: -61.7488,
+    aliases: ["St George's, Grenada", "St. George's, Grenada"],
+  },
   // ── Serbia (first 🇷🇸 kennel: BEER H3, Belgrade) — 2-level COUNTRY→METRO,
   //    mirrors the Barbados/Cambodia precedent (no seed.ts stateMetroLinks). Red
   //    palette (Serbian flag) — no adjacent seeded country uses red (Germany=yellow,
@@ -4206,7 +4232,7 @@ export interface RegionLookup {
 export function regionSlug(name: string): string {
   return name
     .toLowerCase()
-    .replace(/[()]/g, "")
+    .replace(/[()'’]/g, "") // drop parens + apostrophes ("St George's" → "st-georges")
     .replace(/[,.\s]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
@@ -4439,6 +4465,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // NY" neighborhoods excluded. "kingston" is OMITTED (Kingston, ON / NY / TN).
   // inferCountry() is first-match with USA as the default fallthrough.
   [/\bjamaica\b(?! plain)(?!,? (?:ny|queens|new york)\b)/, "Jamaica"],
+  // Grenada — country + Carriacou. "Grenada" is also a town in Mississippi
+  // (Grenada, MS), so that US form is excluded; "st george's" is omitted (common
+  // worldwide). inferCountry() is first-match with USA as the default fallthrough.
+  [/\bgrenada\b(?!,? (?:ms|mississippi)\b)|\bcarriacou\b/, "Grenada"],
   // Serbia — country name + native spelling only. "belgrade" is OMITTED because it
   // doubles as US place names (Belgrade, MT / Belgrade, ME); "serbia"/"beograd" are
   // unambiguous. inferCountry() is first-match with USA as the default fallthrough.
@@ -4752,6 +4782,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Bridgetown": "Barbados",
   // Jamaica
   "Kingston": "Jamaica",
+  // Grenada
+  "St George's": "Grenada",
   // Serbia
   "Belgrade": "Serbia",
   "Prague": "Czech Republic",
@@ -5014,6 +5046,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // country-group key "Barbados" is reachable here (mirrors the Cambodia precedent).
   "Barbados": "Barbados",
   "Jamaica": "Jamaica",
+  "Grenada": "Grenada",
   // Serbia — metro "Belgrade" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Serbia" is reachable here (mirrors the Barbados precedent).
   "Serbia": "Serbia",
@@ -5171,6 +5204,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   KH: "Cambodia",
   BB: "Barbados",
   JM: "Jamaica",
+  GD: "Grenada",
   RS: "Serbia",
   CZ: "Czech Republic",
   CY: "Cyprus",

@@ -317,6 +317,25 @@ describe("inferCountry — Barbados (first 🇧🇧 / first Caribbean kennel)", 
   });
 });
 
+describe("regionSlug — apostrophes", () => {
+  it("drops apostrophes", () => {
+    expect(regionSlug("St George's")).toBe("st-georges");
+  });
+});
+
+describe("inferCountry — Grenada (first 🇬🇩 kennel: Grenada H3)", () => {
+  it.each([
+    ["Grenada", "Grenada"],
+    ["St George's, Grenada", "Grenada"],
+    ["Carriacou", "Grenada"],
+    // Grenada, Mississippi stays USA.
+    ["Grenada, MS", "USA"],
+    ["Grenada, Mississippi", "USA"],
+  ])("infers %s → %s", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
 describe("inferCountry — Jamaica (first 🇯🇲 kennel: Jamaica H3)", () => {
   it.each([
     ["Jamaica", "Jamaica"],
