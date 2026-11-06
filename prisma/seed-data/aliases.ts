@@ -678,6 +678,9 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
 
     // ===== HUNGARY ===== (first Hungary kennel; bare "BH3"/"BHHH" omitted — globally taken)
     "budapest-h3": ["Budapest H3", "Budapest Hash", "Budapest HHH", "BPH3", "Budapest, Hungary"],
+    // ===== ROMANIA ===== (bare "BH3"/"BFMH3" OMITTED — Boulder/Buffalo/Berlin, Bangkok Full Moon)
+    "bh3-ro": ["Bucharest H3", "Bucharest Hash", "Bucharest Hash House Harriers", "BH3-RO"],
+    "bfmh3-ro": ["Bucharest Full Moon H3", "Bucharest Full Moon Hash", "Bucharest Full Moon Hash House Harriers", "BFMH3-RO"],
 
     // ===== POLAND ===== (first Poland kennel; bare "WH3" omitted — global collision risk)
     "warsaw-h3": ["Warsaw HHH", "Warsaw Hash", "Warsaw Hash House Harriers", "WH3 Warsaw"],

@@ -295,6 +295,17 @@ describe("inferCountry — Cambodia (first 🇰🇭 kennel)", () => {
   });
 });
 
+describe("inferCountry — Romania (first 🇷🇴 kennel: Bucharest H3)", () => {
+  it.each([
+    ["Romania", "Romania"],
+    ["Bucharest, Romania", "Romania"],
+    ["Grozavesti Metro station, Bucharest", "Romania"],
+    ["București", "Romania"],
+  ])("infers %s → Romania", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
 describe("inferCountry — Barbados (first 🇧🇧 / first Caribbean kennel)", () => {
   it.each([
     ["Bridgetown", "Barbados"],

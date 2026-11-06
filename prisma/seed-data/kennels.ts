@@ -5962,6 +5962,49 @@ export const KENNELS: KennelSeed[] = [
       description:
         "The Budapest chapter of the Hash House Harriers (est. 1982), a non-competitive running/hiking and social club. Runs every Sunday — usually meeting at Batthyány tér on the Buda side — followed by drinks at the Ganz Bar. Run fee HUF 1,000; trails ~12–15 km. Per-run details are posted to the members' Facebook group.",
     },
+    // ── Romania (first 🇷🇴 kennels: Bucharest H3 est. 1986 + its Full Moon sister) ──
+    {
+      kennelCode: "bh3-ro", // bare "bh3" is Buffalo/Boulder/Berlin
+      shortName: "Bucharest H3",
+      fullName: "Bucharest Hash House Harriers",
+      region: "Bucharest",
+      country: "Romania", // canonical NAME — code "RO" lives in region.ts
+      website: "https://bucharesthash.carrd.co/",
+      facebookUrl: "https://www.facebook.com/BucharestHashHouseHarriersandHarrierettes",
+      instagramHandle: "bucharest_hash",
+      foundedYear: 1986, // carrd: "a drinking/running/walking club that was established in 1986"
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "2:00 PM", // carrd: "Usually meets weekly on Sunday afternoon at 14:00"
+      scheduleFrequency: "Weekly",
+      hashCash: "50 Lei", // carrd: "Cost: 50 Lei"
+      walkersWelcome: true, // carrd: "drinking/running/walking club"
+      // logoUrl omitted — the Carrd site has photos only, no logo.
+      description:
+        "The Bucharest Hash House Harriers — a drinking/running/walking club established in 1986. " +
+        "A mixed group of expats and locals exploring the city on Sunday afternoon trails that end " +
+        "with a circle, food and beverages.",
+      latitude: 44.4268, // Bucharest centroid
+      longitude: 26.1025,
+    },
+    {
+      kennelCode: "bfmh3-ro", // bare "bfmh3" is Bangkok Full Moon
+      shortName: "Bucharest Full Moon H3",
+      fullName: "Bucharest Full Moon Hash House Harriers",
+      region: "Bucharest",
+      country: "Romania",
+      website: "https://bucharesthash.carrd.co/",
+      facebookUrl: "https://www.facebook.com/BucharestHashHouseHarriersandHarrierettes",
+      foundedYear: 2025, // first Full Moon run (FM #1) on the shared hareline: 14 Feb 2025
+      scheduleDayOfWeek: "Friday",
+      scheduleTime: "7:00 PM", // carrd: "Meets monthly on the Friday closest to the full moon at 19:00"
+      scheduleFrequency: "Full Moon",
+      walkersWelcome: true,
+      description:
+        "The Bucharest Full Moon Hash House Harriers, sister hash to Bucharest H3, meets monthly on the " +
+        "Friday closest to the full moon at 19:00.",
+      latitude: 44.4268,
+      longitude: 26.1025,
+    },
 
     // ===== POLAND ===== (first Poland kennel; bare "WH3" omitted — globally taken)
     {
