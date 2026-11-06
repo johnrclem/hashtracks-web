@@ -2645,7 +2645,8 @@ describe("ICalAdapter — Chichester H3 grid-ref SUMMARY (summaryGridRefVenue)",
     const result = await adapter.fetch(chichesterSource(), { days: 9999 });
     const tba = result.events.find((x) => x.runNumber === 1100);
     expect(tba?.locationUrl).toBeUndefined();
-    expect(tba?.location).toBeUndefined();
+    // Explicit clear, so merge wipes a venue + pin stored before the run went TBA.
+    expect(tba?.location).toBeNull();
     expect(tba?.hares).toBe("Pink Flamingo and Dr Blood");
     expect(tba?.description).toBe("Pink Flamingo and Dr Blood (One dot trail)");
   });

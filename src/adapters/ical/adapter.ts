@@ -799,7 +799,9 @@ function buildRawEventFromVEvent(
     const split = splitGridRefSummary(summary);
     gridPreamble = split.preamble;
     hares = gridRefPreambleHares(split.preamble);
-    if (!location && split.venue) location = split.venue;
+    // A venue-TBA row is the source saying "no venue": emit an explicit `null` so
+    // merge clears a venue (and its pin) a previous scrape stored for this run.
+    if (!location) location = split.venue ?? null;
   }
 
   const locationUrl = resolveLocationUrl(
