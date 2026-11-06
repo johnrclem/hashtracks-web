@@ -151,6 +151,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "wlh3": ["West London Hash", "West London H3", "WLH"],
     "barnesh3": ["Barnes Hash", "Barnes H3"],
     "och3": ["Old Coulsdon", "Old Coulsdon Hash", "OC Hash"],
+    "surrey-h3": ["Surrey Hash", "Surrey Hash House Harriers", "Surrey HHH"],
     "slh3": ["SLASH", "SLAH3", "South London Hash"],
     "fukfm": ["FUKFMH3", "FUK Full Moon", "First UK Full Moon"],
     "eh3": ["Enfield Hash", "Enfield H3", "EH3"],
@@ -711,6 +712,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== BARBADOS ===== (first Caribbean kennel; bare "BH3" omitted —
     // global collision: bh3=Boulder/Buffalo)
     "barbados-h3": ["Barbados H3", "Barbados Hash House Harriers", "Barbados Hash"],
+    // ===== JAMAICA ===== (first Jamaica kennel)
+    "jah3": ["JAH3", "Jamaica H3", "Jamaica Hash", "Jamaica Hash House Harriers", "Kingston Hash"],
     "beerh3": ["BEER H3", "BEERH3", "Belgrade EER H3", "Belgrade Eastern European Revival H3", "Belgrade Hash", "Beograd Hash"],
     // ===== HC BATCH-11 =====
     // bare "PH3"/"PHHH" OMITTED — taken by ph3-my/pattaya-h3 and princeton-h3/ph3-my/phuket-tinmen respectively.
@@ -721,11 +724,32 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "lh3-cy": ["Larnaca H3", "Larnaca HHH", "Larnaca Hash House Harriers", "LH3-CY"],
     // bare "SHHH"/"SHH3" OMITTED — taken by sech3/sgharriets; bare "H4" OMITTED — taken by Hangover H3.
     "sierra-h4": ["Sierra Hash", "Sierra HHH", "Sierra Hash House Harriers", "Sierra Hash House Harriers and Harriettes", "Sierra H4 Freetown"],
+    // ===== HC BATCH (Nov 2026) =====
+    "yh3": ["Yorkshire H3", "Yorkshire HHH", "Yorkshire Hash House Harriers", "Yorkshire"],
+    "oph3": ["Okinawa Poofters", "Okinawa Poofters H3", "Okinawa Poofters Hash House Harriers"],
+    // bare "BDH3" OMITTED — resolves to Big Dogs H3 (bdh3).
+    "bdh3-uk": ["Black Death", "BD H3", "BDH3-UK", "Black Death Hash House Harriers"],
+    "da2b": ["Devon A2B", "Devon A to B", "Devon A 2 B"],
+    "bbch3": ["Brum and Black Country H3", "Brum & Black Country H3", "Brum and Black Country Hash House Harriers"],
+    "cernh3": ["CERN Hash", "CERN Hash House Harriers"],
+    // bare "PH3" OMITTED — taken by several kennels (Petaling, Plympton, Pattaya, …).
+    "ph3-sr": ["PH3-SR", "Paramaribo HHH", "Paramaribo Hash", "Paramaribo Hash House Harriers"],
+    // bare "AH3" OMITTED — taken by Aloha / Amsterdam / Adelaide / Auckland.
+    "abujah3": ["Abuja Hash", "Abuja HHH", "Abuja Hash House Harriers"],
+    "blhhh": ["BLHHH", "Big Lik HHH", "Big Lik Hash House Harriers", "Incirlik Hash"],
+    "hannover-h3": ["Hannover", "Hannover Hash House Harriers", "HANH3"],
+    "mobh3": ["MOBH3", "Moon Over Barbados"],
+    "bbh3": ["BBH3", "Barbados Bike", "Barbados Bike Hash"],
+    "sunh3": ["Shenanagains Under Nightfall", "Shenanagains"],
     // ===== CONFIG BATCH C =====
+    "sh4": ["South Hams Hash House Harriers", "South Hams H4", "South Hams H3", "South Hams Hash", "SH4 Hash"],
     // bare "DLH3" OMITTED — resolves to Duneland H3 (dlh3, South Shore, IN).
     "dlh3-gb": ["Devon Lunatics", "Devon Lunatics HHH", "DLH3-GB"],
     // bare "IH3" OMITTED — resolves to Ithaca H3 (live).
     "isca-h3": ["Isca H3", "Isca HHH", "Isca Hash", "Isca Hash House Harriers"],
+    "tvh3": ["Teign Valley Hash House Harriers", "TVH3", "Teign Valley Hash"],
+    // bare "EH3" OMITTED — Eugene / Enfield / Edmonton collide.
+    "coeh3": ["City of Exeter H3", "City of Exeter Hash House Harriers", "CoEH3", "Exeter H3"],
     // bare "MH3" OMITTED — global collision (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai).
     "mickleover-h3": ["Mickleover Hash House Harriers", "Mickleover HHH", "Mickleover"],
     // ===== CLUSTER 1 =====

@@ -4,6 +4,7 @@ import { hasAnyErrors } from "../types";
 import { fetchBloggerPosts } from "../blogger-api";
 import { applyDateWindow, isPlaceholder, MONTHS, stripHtmlTags } from "../utils";
 import { extractHares } from "../hare-extraction";
+import { inferYearClosestToPublish } from "../year-inference";
 
 /**
  * Run heading: `Hash N+340 "Praça dos Orixás Hash"`. The kennel's post-reboot
@@ -63,41 +64,6 @@ export interface ParsedBrasiliaPost {
   sourceUrl: string;
 }
 
-/**
- * The in-body date line carries no year. Pick the year (publishYear − 1,
- * publishYear, or publishYear + 1) that places the run date closest to the
- * post's publish date. This is more robust than a naive "use publishYear, add a
- * year if the date is before publish" rule: it handles both the Dec→Jan
- * announcement rollover AND recap posts published days-to-weeks after the run
- * (a previous-run photo gallery is sometimes prepended, bumping publish later).
- */
-function inferDateString(day: number, month: number, publishedIso: string): string | null {
-  const published = new Date(publishedIso);
-  if (Number.isNaN(published.getTime())) return null;
-
-  const pubYear = published.getUTCFullYear();
-  const pubMs = published.getTime();
-
-  let bestUtc: number | null = null;
-  let bestDiff = Number.POSITIVE_INFINITY;
-  for (const year of [pubYear - 1, pubYear, pubYear + 1]) {
-    const candidate = Date.UTC(year, month - 1, day, 12, 0, 0);
-    // Skip impossible dates that Date.UTC silently rolled over (e.g. "31st of
-    // February", or "29th of February" in a non-leap year) so a valid sibling
-    // year can still win the minimisation instead of being masked by a rolled
-    // candidate that happens to land closer to the publish date.
-    const resolved = new Date(candidate);
-    if (resolved.getUTCDate() !== day || resolved.getUTCMonth() !== month - 1) continue;
-    const diff = Math.abs(candidate - pubMs);
-    if (diff < bestDiff) {
-      bestDiff = diff;
-      bestUtc = candidate;
-    }
-  }
-  if (bestUtc === null) return null;
-  return new Date(bestUtc).toISOString().slice(0, 10);
-}
-
 /** Parse the `Dth of Month` date line and resolve its year from the publish date. */
 function parseRunDate(body: string, publishedIso: string): string | null {
   const match = DATE_RE.exec(body);
@@ -105,7 +71,7 @@ function parseRunDate(body: string, publishedIso: string): string | null {
   const day = Number.parseInt(match[1], 10);
   const month = MONTHS[match[2].toLowerCase().slice(0, 3)];
   if (!month || day < 1 || day > 31) return null;
-  return inferDateString(day, month, publishedIso);
+  return inferYearClosestToPublish(day, month, publishedIso);
 }
 
 /**
