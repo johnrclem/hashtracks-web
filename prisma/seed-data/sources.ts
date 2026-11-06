@@ -9563,6 +9563,17 @@ export const SOURCES = [
       kennelCodes: ["bicester-h3"],
     },
     {
+      name: "Oxford H3 Website",
+      url: "https://www.oxfordh3.org.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      // Rolling "Hash Diary" table — past runs move to the archive page.
+      config: { upcomingOnly: true },
+      kennelCodes: ["oxford-h3"],
+    },
+    {
       name: "Malvern H3 iCal Feed",
       url: "https://www.malvernhash.co.uk/hash-cal.ics",
       type: "ICAL_FEED" as const,
