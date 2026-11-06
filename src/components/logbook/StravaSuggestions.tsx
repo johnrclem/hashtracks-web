@@ -13,6 +13,7 @@ import {
   dismissStravaMatch,
   dismissAllStravaMatches,
   triggerStravaSync,
+  syncStravaIfStale,
 } from "@/app/strava/actions";
 import type {
   StravaSuggestion,
@@ -27,6 +28,7 @@ import {
   formatRelativeTime,
 } from "@/lib/format";
 import { buildStravaUrl } from "@/lib/strava/url";
+import { isStravaCacheStale } from "@/lib/strava/constants";
 import { RefreshCw } from "lucide-react";
 import { StravaBackfillWizard } from "@/components/logbook/StravaBackfillWizard";
 
@@ -79,6 +81,10 @@ export function StravaSuggestions({
   const [skippedIds, setSkippedIds] = useState<Set<string>>(new Set());
   const [hasMore, setHasMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [syncFailed, setSyncFailed] = useState(false);
+  const [syncedAt, setSyncedAt] = useState(lastSyncAt);
+  // Mount-time freshness decision only; later syncs update `syncedAt`
+  const initialLastSyncAtRef = useRef(lastSyncAt);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -150,6 +156,19 @@ export function StravaSuggestions({
     let cancelled = false;
     async function fetchData() {
       try {
+        // Refresh the transient activity cache first when it is stale. On
+        // failure, still show what is cached and surface the error.
+        if (isStravaCacheStale(initialLastSyncAtRef.current)) {
+          const syncResult = await syncStravaIfStale();
+          if (cancelled) return;
+          if (syncResult.success) {
+            if (syncResult.synced) setSyncedAt(new Date().toISOString());
+          } else {
+            console.error("Strava auto-sync failed:", syncResult.error);
+            setSyncFailed(true);
+          }
+        }
+
         const [suggestionsResult, matchesResult] = await Promise.all([
           getStravaEventSuggestions({
             excludeActivityIds: [...skippedIdsRef.current],
@@ -183,7 +202,30 @@ export function StravaSuggestions({
     refreshSuggestions();
   }, [filteredSuggestions.length, hasMore, loaded, isPending, isRefreshing]);
 
-  if (!stravaConnected || !loaded || hidden || totalCount === 0) return null;
+  if (!stravaConnected || !loaded || hidden) return null;
+
+  const syncErrorRow = syncFailed ? (
+    <div
+      role="alert"
+      className="flex items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3"
+    >
+      <p className="text-sm">
+        Couldn&apos;t sync your Strava activities. Try again, or reconnect Strava on{" "}
+        <a href="/profile" className="underline underline-offset-2">
+          your profile
+        </a>
+        .
+      </p>
+      <SyncButton
+        label="Retry"
+        className="shrink-0"
+        isPending={isPending}
+        onClick={handleSyncNow}
+      />
+    </div>
+  ) : null;
+
+  if (totalCount === 0) return syncErrorRow;
 
   function handleHide() {
     localStorage.setItem(HIDE_KEY, "true");
@@ -280,9 +322,12 @@ export function StravaSuggestions({
     startTransition(async () => {
       const result = await triggerStravaSync();
       if (!result.success) {
+        setSyncFailed(true);
         toast.error(result.error);
         return;
       }
+      setSyncFailed(false);
+      setSyncedAt(new Date().toISOString());
       toast.success(`Synced ${result.syncedCount} activities`);
       // Re-fetch both data sources
       const [, matchesResult] = await Promise.all([
@@ -297,32 +342,35 @@ export function StravaSuggestions({
   // ── Collapsed state ──
   if (!expanded) {
     return (
-      <div className="flex items-center justify-between rounded-lg border px-4 py-3">
-        <p className="text-sm">
-          <span
-            className="mr-2 inline-block h-2 w-2 rounded-full bg-strava animate-pulse"
-            aria-hidden="true"
-          />
-          <span className="font-medium">{totalCount}{hasMore ? "+" : ""}</span> Strava{" "}
-          {totalCount === 1 && !hasMore ? "match" : "matches"} for your recent activities
-        </p>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="default"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() => setExpanded(true)}
-          >
-            Review
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs text-muted-foreground"
-            onClick={handleHide}
-          >
-            Hide
-          </Button>
+      <div className="space-y-2">
+        {syncErrorRow}
+        <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+          <p className="text-sm">
+            <span
+              className="mr-2 inline-block h-2 w-2 rounded-full bg-strava animate-pulse"
+              aria-hidden="true"
+            />
+            <span className="font-medium">{totalCount}{hasMore ? "+" : ""}</span> Strava{" "}
+            {totalCount === 1 && !hasMore ? "match" : "matches"} for your recent activities
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setExpanded(true)}
+            >
+              Review
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-muted-foreground"
+              onClick={handleHide}
+            >
+              Hide
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -338,6 +386,7 @@ export function StravaSuggestions({
 
   return (
     <div className="space-y-4">
+      {syncErrorRow}
       {/* Section A header — always visible when expanded */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -348,21 +397,17 @@ export function StravaSuggestions({
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {lastSyncAt && (
+            {syncedAt && (
               <span className="text-[11px] text-muted-foreground font-mono">
-                Synced {formatRelativeTime(lastSyncAt)}
+                Synced {formatRelativeTime(syncedAt)}
               </span>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 gap-1.5 text-xs font-mono border-strava/40 text-strava hover:bg-strava/5"
+            <SyncButton
+              label="Sync"
+              className="font-mono border-strava/40 text-strava hover:bg-strava/5"
+              isPending={isPending}
               onClick={handleSyncNow}
-              disabled={isPending}
-            >
-              <RefreshCw size={12} className={isPending ? "animate-spin" : ""} />
-              Sync
-            </Button>
+            />
             <Button
               variant="ghost"
               size="sm"
@@ -490,6 +535,26 @@ export function StravaSuggestions({
 }
 
 // ── Shared sub-components ──
+
+function SyncButton({ label, className, isPending, onClick }: Readonly<{
+  label: string;
+  className?: string;
+  isPending: boolean;
+  onClick: () => void;
+}>) {
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className={`h-7 gap-1.5 text-xs ${className ?? ""}`}
+      onClick={onClick}
+      disabled={isPending}
+    >
+      <RefreshCw size={12} className={isPending ? "animate-spin" : ""} />
+      {label}
+    </Button>
+  );
+}
 
 function EventInfoLine({ eventId, kennelShortName, kennelFullName, kennelRegion, eventRunNumber, eventDate }: Readonly<{
   eventId: string;

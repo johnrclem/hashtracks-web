@@ -12,6 +12,14 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       createMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    attendance: {
+      findMany: vi.fn(),
+    },
+    stravaDismissal: {
+      findMany: vi.fn(),
     },
     $transaction: vi.fn(),
   },
@@ -29,12 +37,18 @@ import {
   fetchStravaActivities,
   parseStravaActivity,
 } from "./client";
-import { syncStravaActivities } from "./sync";
+import { syncStravaActivities, purgeExpiredStravaCache } from "./sync";
+import { STRAVA_CACHE_TTL_HOURS, STALE_HOURS } from "./constants";
+import { stravaActivityKey } from "./activity-key";
 
 const mockConnectionFindUnique = vi.mocked(prisma.stravaConnection.findUnique);
 const mockConnectionUpdate = vi.mocked(prisma.stravaConnection.update);
 const mockActivityFindMany = vi.mocked(prisma.stravaActivity.findMany);
 const mockActivityCreateMany = vi.mocked(prisma.stravaActivity.createMany);
+const mockActivityUpdateMany = vi.mocked(prisma.stravaActivity.updateMany);
+const mockActivityDeleteMany = vi.mocked(prisma.stravaActivity.deleteMany);
+const mockAttendanceFindMany = vi.mocked(prisma.attendance.findMany);
+const mockDismissalFindMany = vi.mocked(prisma.stravaDismissal.findMany);
 const mockTransaction = vi.mocked(prisma.$transaction);
 const mockedGetToken = vi.mocked(getValidAccessToken);
 const mockedFetchActivities = vi.mocked(fetchStravaActivities);
@@ -42,6 +56,10 @@ const mockedParseActivity = vi.mocked(parseStravaActivity);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Durable match state defaults: nothing linked, nothing dismissed
+  mockAttendanceFindMany.mockResolvedValue([] as never);
+  mockDismissalFindMany.mockResolvedValue([] as never);
+  mockActivityDeleteMany.mockResolvedValue({ count: 0 } as never);
 });
 
 function makeParsed(id: string, name: string) {
@@ -81,7 +99,8 @@ describe("syncStravaActivities", () => {
 
     const result = await syncStravaActivities("user_1");
 
-    expect(result.error).toBe("Sync skipped (recent)");
+    expect(result.skipped).toBe(true);
+    expect(result.error).toBeUndefined();
     expect(mockedGetToken).not.toHaveBeenCalled();
   });
 
@@ -208,5 +227,191 @@ describe("syncStravaActivities", () => {
     expect(result.total).toBe(2);
     expect(mockActivityCreateMany).toHaveBeenCalledOnce();
     expect(mockTransaction).toHaveBeenCalledOnce();
+  });
+  it("syncs when the last sync is older than STALE_HOURS", async () => {
+    const connection = buildStravaConnection({
+      lastSyncAt: new Date(Date.now() - (STALE_HOURS + 1) * 60 * 60 * 1000),
+    });
+    mockConnectionFindUnique.mockResolvedValue(connection as never);
+    mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
+    mockedFetchActivities.mockResolvedValue([]);
+    mockActivityFindMany.mockResolvedValue([] as never);
+
+    const result = await syncStravaActivities("user_1");
+
+    expect(result.skipped).toBeUndefined();
+    expect(mockedGetToken).toHaveBeenCalled();
+  });
+
+  it("stamps fetchedAt and guards concurrent inserts with skipDuplicates", async () => {
+    mockConnectionFindUnique.mockResolvedValue(buildStravaConnection() as never);
+    mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
+    mockedFetchActivities.mockResolvedValue([{ id: 111 }] as never);
+    mockedParseActivity.mockReturnValue(makeParsed("111", "Run"));
+    mockActivityFindMany.mockResolvedValue([] as never);
+
+    await syncStravaActivities("user_1");
+
+    const arg = mockActivityCreateMany.mock.calls[0][0] as {
+      data: Array<Record<string, unknown>>;
+      skipDuplicates: boolean;
+    };
+    expect(arg.skipDuplicates).toBe(true);
+    expect(arg.data[0].fetchedAt).toBeInstanceOf(Date);
+  });
+
+  it("rehydrates links and dismissals onto newly cached activities", async () => {
+    mockConnectionFindUnique.mockResolvedValue(buildStravaConnection() as never);
+    mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
+    mockedFetchActivities.mockResolvedValue([{ id: 1 }, { id: 2 }, { id: 3 }] as never);
+    mockedParseActivity
+      .mockReturnValueOnce(makeParsed("1", "Linked run"))
+      .mockReturnValueOnce(makeParsed("2", "Dismissed walk"))
+      .mockReturnValueOnce(makeParsed("3", "Fresh run"));
+    mockActivityFindMany.mockResolvedValue([] as never);
+    mockAttendanceFindMany.mockResolvedValue([
+      { id: "att_1", stravaUrl: "https://www.strava.com/activities/1" },
+      { id: "att_manual", stravaUrl: "https://example.com/not-strava" },
+    ] as never);
+    mockDismissalFindMany.mockResolvedValue([
+      { activityKey: stravaActivityKey("2") },
+    ] as never);
+
+    await syncStravaActivities("user_1");
+
+    expect(mockAttendanceFindMany).toHaveBeenCalledWith({
+      where: { userId: "user_1", stravaUrl: { not: null } },
+      select: { id: true, stravaUrl: true },
+    });
+    const rows = (mockActivityCreateMany.mock.calls[0][0] as {
+      data: Array<{ stravaActivityId: string; matchedAttendanceId: string | null; matchDismissed: boolean }>;
+    }).data;
+    const byId = Object.fromEntries(rows.map((r) => [r.stravaActivityId, r]));
+    expect(byId["1"]).toMatchObject({ matchedAttendanceId: "att_1", matchDismissed: false });
+    expect(byId["2"]).toMatchObject({ matchedAttendanceId: null, matchDismissed: true });
+    expect(byId["3"]).toMatchObject({ matchedAttendanceId: null, matchDismissed: false });
+  });
+
+  /** Existing-row fixture as the sync reads it (with current match state). */
+  const cachedRow = (id: string, state: { matchedAttendanceId?: string | null; matchDismissed?: boolean } = {}) => ({
+    stravaActivityId: id, city: null, startLat: null, startLng: null,
+    matchedAttendanceId: state.matchedAttendanceId ?? null,
+    matchDismissed: state.matchDismissed ?? false,
+  });
+
+  /** Arrange one existing cached activity and run a sync. */
+  async function syncOneExisting(id: string, rowState: Parameters<typeof cachedRow>[1]) {
+    mockConnectionFindUnique.mockResolvedValue(buildStravaConnection() as never);
+    mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
+    mockedFetchActivities.mockResolvedValue([{ id: Number(id) }] as never);
+    mockedParseActivity.mockReturnValue(makeParsed(id, "Run"));
+    mockActivityFindMany.mockResolvedValue([cachedRow(id, rowState)] as never);
+    await syncStravaActivities("user_1");
+    const calls = mockActivityUpdateMany.mock.calls.map(
+      (c) => c[0] as { where: Record<string, unknown>; data: Record<string, unknown> },
+    );
+    // The CAS write is the one whose where-clause pins the read match state
+    const isCas = (c: (typeof calls)[number]) => "matchDismissed" in c.where;
+    return { fieldUpdates: calls.filter((c) => !isCas(c)), casWrites: calls.filter(isCas) };
+  }
+
+  it("re-stamps fetchedAt on existing rows without touching match state in the field update", async () => {
+    const { fieldUpdates: [fieldUpdate], casWrites } = await syncOneExisting("2", {});
+
+    expect(fieldUpdate).toEqual({
+      where: { stravaConnectionId: "sc_1", stravaActivityId: "2" },
+      data: expect.objectContaining({ fetchedAt: expect.any(Date) }),
+    });
+    expect(fieldUpdate.data).not.toHaveProperty("matchedAttendanceId");
+    expect(fieldUpdate.data).not.toHaveProperty("matchDismissed");
+    expect(casWrites).toEqual([]); // row already matches the (empty) durable state
+  });
+
+  it("applies a durable dismissal via compare-and-set against the state it read", async () => {
+    mockDismissalFindMany.mockResolvedValue([{ activityKey: stravaActivityKey("2") }] as never);
+
+    const { casWrites: [cas] } = await syncOneExisting("2", {});
+
+    expect(cas).toEqual({
+      where: { stravaConnectionId: "sc_1", stravaActivityId: "2", matchedAttendanceId: null, matchDismissed: false },
+      data: { matchedAttendanceId: null, matchDismissed: true },
+    });
+  });
+
+  it("clears stale link state too (authoritative), still guarded by compare-and-set", async () => {
+    // Durable snapshot: no attendance links activity 3 any more
+    const { casWrites: [cas] } = await syncOneExisting("3", { matchedAttendanceId: "att_old" });
+
+    expect(cas).toEqual({
+      where: { stravaConnectionId: "sc_1", stravaActivityId: "3", matchedAttendanceId: "att_old", matchDismissed: false },
+      data: { matchedAttendanceId: null, matchDismissed: false },
+    });
+  });
+
+  it("reads cache rows before the durable snapshot so concurrent writes win the CAS", async () => {
+    await syncOneExisting("4", {});
+
+    const rowRead = mockActivityFindMany.mock.invocationCallOrder[0];
+    expect(rowRead).toBeLessThan(mockAttendanceFindMany.mock.invocationCallOrder[0]);
+    expect(rowRead).toBeLessThan(mockDismissalFindMany.mock.invocationCallOrder[0]);
+    expect(mockActivityFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { stravaConnectionId: "sc_1", stravaActivityId: { in: ["4"] } },
+      }),
+    );
+  });
+
+  it("removes cached activities Strava no longer returns", async () => {
+    const connection = buildStravaConnection();
+    mockConnectionFindUnique.mockResolvedValue(connection as never);
+    mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
+    mockedFetchActivities.mockResolvedValue([{ id: 5 }] as never);
+    mockedParseActivity.mockReturnValue(makeParsed("5", "Still there"));
+    mockActivityFindMany.mockResolvedValue([] as never);
+
+    await syncStravaActivities("user_1");
+
+    expect(mockActivityDeleteMany).toHaveBeenCalledWith({
+      where: {
+        stravaConnectionId: connection.id,
+        stravaActivityId: { notIn: ["5"] },
+      },
+    });
+  });
+
+  it("does not touch the cache when the activity fetch fails", async () => {
+    mockConnectionFindUnique.mockResolvedValue(buildStravaConnection() as never);
+    mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
+    mockedFetchActivities.mockRejectedValue(new Error("Strava activity fetch failed (401)"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await syncStravaActivities("user_1");
+
+    expect(result.error).toContain("401");
+    expect(mockActivityDeleteMany).not.toHaveBeenCalled();
+    expect(mockConnectionUpdate).not.toHaveBeenCalled();
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("[strava-sync]"));
+    consoleSpy.mockRestore();
+  });
+});
+
+describe("purgeExpiredStravaCache", () => {
+  it("deletes only cache rows fetched before the TTL cutoff", async () => {
+    mockActivityDeleteMany.mockResolvedValue({ count: 7 } as never);
+    const now = new Date("2026-11-06T12:00:00Z");
+
+    const result = await purgeExpiredStravaCache(now);
+
+    const cutoff = new Date(now.getTime() - STRAVA_CACHE_TTL_HOURS * 60 * 60 * 1000);
+    expect(mockActivityDeleteMany).toHaveBeenCalledWith({
+      where: { fetchedAt: { lt: cutoff } },
+    });
+    expect(result).toEqual({ deleted: 7, olderThan: cutoff });
+  });
+
+  it("keeps the TTL comfortably above the resync interval and under Strava's 48h deletion window", () => {
+    expect(STRAVA_CACHE_TTL_HOURS).toBeGreaterThan(STALE_HOURS * 2);
+    // Daily cron: worst-case row age is TTL + 24h
+    expect(STRAVA_CACHE_TTL_HOURS + 24).toBeLessThanOrEqual(48);
   });
 });

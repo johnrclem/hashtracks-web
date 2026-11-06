@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { createEventWithKennel } from "@/lib/event-write";
 import { getTodayUtcNoon, parseUtcNoonDate } from "@/lib/date";
 import { parseParticipationLevel } from "@/lib/format";
-import { buildStravaUrl } from "@/lib/strava/url";
+import { buildStravaUrl, extractStravaActivityId } from "@/lib/strava/url";
 import type { ActionResult } from "@/lib/actions";
 import { revalidatePath } from "next/cache";
 
@@ -110,16 +110,51 @@ export async function updateAttendance(
   if (data.stravaUrl && data.stravaUrl.length > 500) return { error: "Strava URL is too long (max 500 characters)" };
   if (data.notes && data.notes.length > 1000) return { error: "Notes are too long (max 1,000 characters)" };
 
-  await prisma.attendance.update({
-    where: { id: attendanceId },
-    data: {
-      ...(data.participationLevel !== undefined && {
-        participationLevel: parseParticipationLevel(data.participationLevel),
-      }),
-      ...(data.stravaUrl !== undefined && { stravaUrl: data.stravaUrl }),
-      ...(data.notes !== undefined && { notes: data.notes }),
-    },
-  });
+  // A URL the user types in replaces a Strava-attached one, so the link becomes
+  // theirs (kept on disconnect). Re-saving the dialog unchanged keeps the flag.
+  const stravaUrlChanged =
+    data.stravaUrl !== undefined && data.stravaUrl !== attendance.stravaUrl;
+  const newActivityId =
+    stravaUrlChanged && data.stravaUrl ? extractStravaActivityId(data.stravaUrl) : null;
+
+  await prisma.$transaction([
+    prisma.attendance.update({
+      where: { id: attendanceId },
+      data: {
+        ...(data.participationLevel !== undefined && {
+          participationLevel: parseParticipationLevel(data.participationLevel),
+        }),
+        ...(stravaUrlChanged && {
+          stravaUrl: data.stravaUrl,
+          stravaUrlAutoLinked: false,
+        }),
+        ...(data.notes !== undefined && { notes: data.notes }),
+      },
+    }),
+    // Keep the activity cache's link flag in step with the edited URL (the
+    // next sync rehydrates it from stravaUrl too; this avoids a stale window).
+    ...(stravaUrlChanged
+      ? [
+          prisma.stravaActivity.updateMany({
+            where: { matchedAttendanceId: attendanceId },
+            data: { matchedAttendanceId: null },
+          }),
+        ]
+      : []),
+    ...(newActivityId
+      ? [
+          prisma.stravaActivity.updateMany({
+            // Never take over an activity already linked to another attendance
+            where: {
+              stravaActivityId: newActivityId,
+              connection: { userId: user.id },
+              matchedAttendanceId: null,
+            },
+            data: { matchedAttendanceId: attendanceId },
+          }),
+        ]
+      : []),
+  ]);
 
   revalidatePath("/hareline");
   revalidatePath("/logbook");
@@ -272,7 +307,7 @@ export async function checkInWithStrava(
   await prisma.$transaction([
     prisma.attendance.update({
       where: { id: attendanceId },
-      data: { stravaUrl },
+      data: { stravaUrl, stravaUrlAutoLinked: true },
     }),
     prisma.stravaActivity.update({
       where: { id: stravaActivityDbId },

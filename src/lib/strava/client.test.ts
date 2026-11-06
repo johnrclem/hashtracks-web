@@ -334,6 +334,21 @@ describe("fetchStravaActivities", () => {
     ).rejects.toThrow("rate limit");
   });
 
+  it("throws on a 200 whose body is not an activity array", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ message: "Authorization Error" }),
+      }),
+    );
+
+    await expect(
+      fetchStravaActivities("token", 1700000000, 1700100000),
+    ).rejects.toThrow("unexpected payload");
+  });
+
   it("paginates when first page is full", async () => {
     const page1 = Array.from({ length: 200 }, (_, i) => ({
       id: i,

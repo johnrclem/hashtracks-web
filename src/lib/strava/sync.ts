@@ -4,24 +4,33 @@ import {
   fetchStravaActivities,
   parseStravaActivity,
 } from "./client";
+import { stravaActivityKey } from "./activity-key";
+import { extractStravaActivityId } from "./url";
+import { isStravaCacheStale, STRAVA_CACHE_TTL_HOURS } from "./constants";
 import { reverseGeocode, cityFromTimezone } from "@/lib/geo";
 
 export interface SyncResult {
   created: number;
   updated: number;
   total: number;
+  /** True when the sync was skipped because the cache is still fresh. */
+  skipped?: boolean;
   error?: string;
 }
 
 const LOOKBACK_DAYS = 90;
-const STALE_HOURS = 6;
+
+const EMPTY_RESULT = { created: 0, updated: 0, total: 0 } as const;
 
 /**
- * Sync Strava activities for a user.
+ * Sync Strava activities for a user into the transient activity cache.
  *
  * - Lookback: 90 days from now
- * - Skips if lastSyncAt is within 6 hours (unless forceRefresh)
- * - Upserts activities by stravaActivityId
+ * - Skips if lastSyncAt is within STALE_HOURS (unless forceRefresh)
+ * - Upserts activities by stravaActivityId and stamps `fetchedAt`
+ * - Deletes this user's cached rows that Strava no longer returns
+ * - Rehydrates match state (matchedAttendanceId / matchDismissed) from the
+ *   durable sources of truth: Attendance.stravaUrl and StravaDismissal
  * - Uses string extraction for dates (never new Date() on start_date_local)
  */
 export async function syncStravaActivities(
@@ -34,21 +43,12 @@ export async function syncStravaActivities(
   });
 
   if (!connection) {
-    return { created: 0, updated: 0, total: 0, error: "No Strava connection" };
+    return { ...EMPTY_RESULT, error: "No Strava connection" };
   }
 
   // Check freshness (skip if synced recently)
-  if (!options?.forceRefresh && connection.lastSyncAt) {
-    const hoursSinceSync =
-      (Date.now() - connection.lastSyncAt.getTime()) / (1000 * 60 * 60);
-    if (hoursSinceSync < STALE_HOURS) {
-      return {
-        created: 0,
-        updated: 0,
-        total: 0,
-        error: "Sync skipped (recent)",
-      };
-    }
+  if (!options?.forceRefresh && !isStravaCacheStale(connection.lastSyncAt)) {
+    return { ...EMPTY_RESULT, skipped: true };
   }
 
   // Get valid access token (auto-refresh if needed)
@@ -59,7 +59,8 @@ export async function syncStravaActivities(
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Token refresh failed";
-    return { created: 0, updated: 0, total: 0, error: message };
+    console.error(`[strava-sync] token refresh failed for connection ${connection.id}: ${message}`);
+    return { ...EMPTY_RESULT, error: message };
   }
 
   // Calculate date range: 90 days ago → now (Unix seconds)
@@ -73,17 +74,60 @@ export async function syncStravaActivities(
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Activity fetch failed";
-    return { created: 0, updated: 0, total: 0, error: message };
+    console.error(`[strava-sync] activity fetch failed for connection ${connection.id}: ${message}`);
+    return { ...EMPTY_RESULT, error: message };
   }
 
   // Parse all activities and batch by create vs update
   const parsed = rawActivities.map(parseStravaActivity);
   const stravaIds = parsed.map((p) => p.stravaActivityId);
+  const fetchedAt = new Date();
 
-  // Single query to find all existing activities (include city for backfill optimization)
+  // Read this user's existing cache rows (with their current match state)
+  // BEFORE the durable snapshot. That order is what makes the compare-and-set
+  // below race-safe: an attach / detach / dismiss / undismiss writes the cache
+  // row and its durable record in one transaction, so if it commits after the
+  // row read, the row no longer equals what we read and our CAS skips it
+  // instead of undoing it — whether it added state or cleared it.
   const existingActivities = await prisma.stravaActivity.findMany({
-    where: { stravaActivityId: { in: stravaIds } },
-    select: { stravaActivityId: true, city: true, startLat: true, startLng: true },
+    where: { stravaConnectionId: connection.id, stravaActivityId: { in: stravaIds } },
+    select: {
+      stravaActivityId: true,
+      city: true,
+      startLat: true,
+      startLng: true,
+      matchedAttendanceId: true,
+      matchDismissed: true,
+    },
+  });
+  const { linkedAttendanceByActivityId, dismissedKeys } =
+    await loadMatchState(userId, connection.id);
+  const matchState = (stravaActivityId: string) => ({
+    matchedAttendanceId: linkedAttendanceByActivityId.get(stravaActivityId) ?? null,
+    matchDismissed: dismissedKeys.has(stravaActivityKey(stravaActivityId)),
+  });
+  // Compare-and-set writes for existing rows whose match state differs from the
+  // durable snapshot (usually none). Authoritative in both directions, so any
+  // drift self-heals on the next sync.
+  const matchStateFixes = existingActivities.flatMap((row) => {
+    const desired = matchState(row.stravaActivityId);
+    if (
+      desired.matchedAttendanceId === row.matchedAttendanceId &&
+      desired.matchDismissed === row.matchDismissed
+    ) {
+      return [];
+    }
+    return [
+      prisma.stravaActivity.updateMany({
+        where: {
+          stravaConnectionId: connection.id,
+          stravaActivityId: row.stravaActivityId,
+          matchedAttendanceId: row.matchedAttendanceId,
+          matchDismissed: row.matchDismissed,
+        },
+        data: desired,
+      }),
+    ];
   });
   const existingIdSet = new Set(existingActivities.map((a) => a.stravaActivityId));
   // Track activities that need city backfill (have coords but null city)
@@ -96,7 +140,17 @@ export async function syncStravaActivities(
   const toCreate = parsed.filter((p) => !existingIdSet.has(p.stravaActivityId));
   const toUpdate = parsed.filter((p) => existingIdSet.has(p.stravaActivityId));
 
-  // Batch create new activities
+  // Drop cached rows Strava no longer returns: deleted or made private on
+  // Strava, or aged out of the lookback window (API Policy §6.3).
+  await prisma.stravaActivity.deleteMany({
+    where: {
+      stravaConnectionId: connection.id,
+      stravaActivityId: { notIn: stravaIds },
+    },
+  });
+
+  // Batch create new activities. skipDuplicates guards against two concurrent
+  // syncs (e.g. two open tabs) racing on the stravaActivityId unique key.
   if (toCreate.length > 0) {
     await prisma.stravaActivity.createMany({
       data: toCreate.map((p) => ({
@@ -111,7 +165,10 @@ export async function syncStravaActivities(
         startLat: p.startLat,
         startLng: p.startLng,
         timezone: p.timezone,
+        fetchedAt,
+        ...matchState(p.stravaActivityId),
       })),
+      skipDuplicates: true,
     });
   }
 
@@ -119,12 +176,15 @@ export async function syncStravaActivities(
   await Promise.all([
     // Batch reverse-geocode new activities to populate city field
     toCreate.length > 0 ? backfillCities(toCreate) : Promise.resolve(),
-    // Batch update existing activities in a single transaction
+    // Batch update existing activities (fields + fetchedAt, then the match-state
+    // CAS writes) in a single transaction. updateMany (not update) so a row the
+    // purge cron deleted mid-sync is skipped, not a P2025 that rolls back the
+    // whole sync; the next sync recreates it.
     toUpdate.length > 0
-      ? prisma.$transaction(
-          toUpdate.map((p) =>
-            prisma.stravaActivity.update({
-              where: { stravaActivityId: p.stravaActivityId },
+      ? prisma.$transaction([
+          ...toUpdate.map((p) =>
+            prisma.stravaActivity.updateMany({
+              where: { stravaConnectionId: connection.id, stravaActivityId: p.stravaActivityId },
               data: {
                 name: p.name,
                 sportType: p.sportType,
@@ -135,10 +195,12 @@ export async function syncStravaActivities(
                 startLat: p.startLat,
                 startLng: p.startLng,
                 timezone: p.timezone,
+                fetchedAt,
               },
             }),
           ),
-        )
+          ...matchStateFixes,
+        ])
       : Promise.resolve(),
   ]);
 
@@ -162,6 +224,54 @@ export async function syncStravaActivities(
   });
 
   return { created, updated, total: rawActivities.length };
+}
+
+/**
+ * Load the durable match state for a user. Cache rows are transient, so the
+ * user's decisions live elsewhere and are copied onto each freshly fetched row:
+ * - links: Attendance.stravaUrl (activity ID → attendance ID)
+ * - dismissals: StravaDismissal (hashed activity keys)
+ */
+async function loadMatchState(userId: string, stravaConnectionId: string) {
+  const [linkedAttendances, dismissals] = await Promise.all([
+    prisma.attendance.findMany({
+      where: { userId, stravaUrl: { not: null } },
+      select: { id: true, stravaUrl: true },
+    }),
+    prisma.stravaDismissal.findMany({
+      where: { stravaConnectionId },
+      select: { activityKey: true },
+    }),
+  ]);
+
+  const linkedAttendanceByActivityId = new Map<string, string>();
+  for (const a of linkedAttendances) {
+    const activityId = a.stravaUrl ? extractStravaActivityId(a.stravaUrl) : null;
+    if (activityId && !linkedAttendanceByActivityId.has(activityId)) {
+      linkedAttendanceByActivityId.set(activityId, a.id);
+    }
+  }
+
+  return {
+    linkedAttendanceByActivityId,
+    dismissedKeys: new Set(dismissals.map((d) => d.activityKey)),
+  };
+}
+
+/**
+ * Delete cached activities that were not re-fetched within
+ * STRAVA_CACHE_TTL_HOURS. Called daily by /api/cron/strava-cache-purge.
+ * Only the transient cache is touched: links (Attendance.stravaUrl) and
+ * dismissals (StravaDismissal) are the user's own durable records.
+ */
+export async function purgeExpiredStravaCache(
+  now: Date = new Date(),
+): Promise<{ deleted: number; olderThan: Date }> {
+  const olderThan = new Date(now.getTime() - STRAVA_CACHE_TTL_HOURS * 60 * 60 * 1000);
+  const { count } = await prisma.stravaActivity.deleteMany({
+    where: { fetchedAt: { lt: olderThan } },
+  });
+  return { deleted: count, olderThan };
 }
 
 /** Round coords to 3 decimal places (~111m precision) for dedup key. */
@@ -238,7 +348,7 @@ async function backfillCities(
   if (updates.length > 0) {
     await prisma.$transaction(
       updates.map(({ stravaActivityId, city }) =>
-        prisma.stravaActivity.update({
+        prisma.stravaActivity.updateMany({
           where: { stravaActivityId },
           data: { city },
         }),
