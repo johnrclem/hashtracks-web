@@ -129,6 +129,7 @@ import { WarsawH3Adapter } from "./html-scraper/warsaw-h3";
 import { ColomboHarriettesAdapter } from "./html-scraper/colombo-harriettes";
 import { SeoulH3Adapter } from "./html-scraper/seoul-h3";
 import { HimalayanHashAdapter } from "./html-scraper/himalayan-h3";
+import { CebuHashAdapter } from "./html-scraper/cebu-hash";
 import { BombayHashAdapter } from "./html-scraper/bombay-hash";
 import { SaigonH3Adapter } from "./html-scraper/saigon-h3";
 import { HanoiH3Adapter } from "./html-scraper/hanoi-h3";
@@ -353,6 +354,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /boiseh3\.org/i, name: "BoiseH3Adapter", factory: () => new BoiseH3Adapter() },
   { pattern: /nswhhh\.info/i, name: "NSWHHHAdapter", factory: () => new NSWHHHAdapter() },
   // ── Philippines ──
+  { pattern: /^https?:\/\/cebuhash\.wordpress\.com(?:[/?#:]|$)/i, name: "CebuHashAdapter", factory: () => new CebuHashAdapter() },
   // Manila H3 (Monday men's, "since 1972") — Google Sites SSR home page; a single
   // current "next run" block keyed on the bilingual labels ano/kailan/sino/saan.
   { pattern: /sites\.google\.com\/site\/manilah3/i, name: "ManilaH3Adapter", factory: () => new ManilaH3Adapter() },

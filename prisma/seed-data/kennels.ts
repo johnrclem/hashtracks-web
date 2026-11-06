@@ -5298,6 +5298,29 @@ export const KENNELS: KennelSeed[] = [
       description:
         "The drinking club with a running problem — Manila's original Monday men's hash, trailing throughout Metro Manila and beyond since 1972 (first numbered trail 28 Apr 1975). Founded out of Jakarta H3 by 'Ratcatcher' from the Manila Nomad Sports Club.",
     },
+    {
+      kennelCode: "cebu-h3", // bare "ch3"/"CH3" is Chicago H3
+      shortName: "Cebu H3",
+      fullName: "Cebu Hash House Harriers",
+      region: "Cebu",
+      country: "Philippines",
+      website: "https://cebuhash.wordpress.com/",
+      facebookUrl: "https://www.facebook.com/groups/1111927273013754",
+      instagramHandle: "cebu_hash_house_harriers",
+      foundedYear: 1997, // /about/a-brief-history-of-cebu-hhh/: "Cebu Hash started in July 1997"
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "2:00 PM", // home: "we often meet around 2pm or sometimes earlier"
+      scheduleFrequency: "Weekly",
+      hashCash: "₱100 (kids free)", // home: "Registration is P100; kids are free"
+      walkersWelcome: true, // home: "easy walking trails … We normally walk"
+      logoUrl: "/kennel-logos/cebu-h3.jpg", // self-hosted WP site icon (JPEG 100x100; magic bytes confirmed)
+      description:
+        "Cebu Hash House Harriers, founded July 1997 (first run 9 August 1997) — easy, mostly walked Sunday " +
+        "afternoon trails in and around Metro Cebu, its mountains and nearby islands, with an active social side. " +
+        "Registration ₱100, kids free; bring your own drinks.",
+      latitude: 10.3157, // Cebu City
+      longitude: 123.8854,
+    },
     // ── South Korea (first 🇰🇷 kennel: Seoul H3) ──
     {
       // "Korea's Mother Hash", men-only, est. 1972 (~run #2897 Jun 2026). Bare

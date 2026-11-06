@@ -295,6 +295,15 @@ describe("inferCountry — Cambodia (first 🇰🇭 kennel)", () => {
   });
 });
 
+describe("inferCountry — Cebu (Philippines)", () => {
+  it.each([
+    ["Cebu City", "Philippines"],
+    ["Turning Wheels Craft Brewery, P. Almendras St, Cebu City, 6000 Cebu", "Philippines"],
+  ])("infers %s → Philippines", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
 describe("inferCountry — Barbados (first 🇧🇧 / first Caribbean kennel)", () => {
   it.each([
     ["Bridgetown", "Barbados"],

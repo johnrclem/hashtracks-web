@@ -6912,6 +6912,18 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["mh3-ph"],
     },
+    // Cebu H3 — Jetpack "Upcoming Events" widget on cebuhash.wordpress.com
+    // (bespoke CebuHashAdapter; "Hash #N" items only). Rolling window → upcomingOnly.
+    {
+      name: "Cebu H3 Upcoming Events Widget",
+      url: "https://cebuhash.wordpress.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["cebu-h3"],
+    },
 
     // Seoul H3 — seoulhash.com renders one current run on index.php (no
     // pagination); archive.php carries deep history (backfilled separately).
