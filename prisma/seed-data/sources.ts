@@ -8636,6 +8636,19 @@ export const SOURCES = [
       },
       kennelCodes: ["mh3-dxb"],
     },
+    // Oman — Muscateers H3: receding hareline (full archive since #1, 1 Sep 2023)
+    // + the Diary page's forward dates, read by the bespoke MuscateersHashAdapter.
+    // Both pages rewrite/drop rows, so upcomingOnly keeps reconcile off past meets.
+    {
+      name: "Muscateers H3 Website Hareline",
+      url: "https://muscateersh3.com/mush3-meets/receding-hareline/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 1200, // reaches #1 (2023-09-01)
+      config: { upcomingOnly: true },
+      kennelCodes: ["mush3"],
+    },
     // ── Saudi Arabia ──
     // Riyadh H3 / R3H4 (first Saudi Arabia kennel) — riyadhhash.com is a Lovable React/Vite
     // SPA (empty HTML shell), so run data must come from its public Supabase (PostgREST) `anon`

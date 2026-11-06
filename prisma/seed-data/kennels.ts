@@ -6295,6 +6295,35 @@ export const KENNELS: KennelSeed[] = [
       latitude: 25.2048, // Dubai centroid (venues rotate; per-event coords come from HC)
       longitude: 55.2708,
     },
+    // ── Oman (first 🇴🇲 kennel: Muscateers H3, first meet 1 Sep 2023) ──
+    {
+      kennelCode: "mush3",
+      shortName: "Muscateers H3",
+      fullName: "Muscateers Hash House Harriers",
+      region: "Muscat",
+      country: "Oman", // canonical NAME — code "OM" lives in region.ts
+      website: "https://muscateersh3.com/",
+      instagramHandle: "muscateers_hash_house_harriers",
+      foundedYear: 2023, // /about-2/: resurrected April 2023; "The first MusH3 Meet took place on 1st September 2023"
+      // No clock time published ("every second Friday, late in the afternoon"; details on request).
+      scheduleDayOfWeek: "Friday",
+      scheduleFrequency: "Biweekly",
+      scheduleNotes: "Every second Friday, late afternoon. All meets require prior registration.",
+      scheduleRules: [
+        // anchorDate = meet #77 (28 Aug 2026); the Diary's 25 Sep … 20 Nov dates follow this phase.
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=FR", anchorDate: "2026-08-28", label: "Fortnightly Friday" },
+      ],
+      hashCash: "BYOB", // /mush3-meets/: "Meets are BYOB … Food may be provided occasionally at a nominal cost"
+      dogFriendly: true, // /mush3-meets/: "Dogs are also usually welcome, however please check in advance …"
+      walkersWelcome: true, // /mush3-meets/: "Walkers, runners, crawlers and inbetweeners all begin at the same point"
+      logoUrl: "/kennel-logos/mush3.png", // self-hosted WP site icon (PNG 640x640; magic bytes confirmed)
+      description:
+        "A small, family-friendly hash in Muscat, Oman, meeting every second Friday late in the afternoon " +
+        "with the emphasis on Fun, Friendship and Fitness. Non-competitive urban, beach and wadi trails for " +
+        "walkers and runners; BYOB, prior registration required. Revived in 2023 from Muscat Streetstalkers H3.",
+      latitude: 23.588, // Muscat centroid (venues vary; no per-meet coords published)
+      longitude: 58.3829,
+    },
     // ── Saudi Arabia (first 🇸🇦 kennel: Riyadh H3 / R3H4) ──
     {
       kennelCode: "riyadh-h3", // bare "r3h4" also free; "riyadh-h3" reads cleaner as a slug

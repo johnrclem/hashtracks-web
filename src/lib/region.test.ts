@@ -295,6 +295,16 @@ describe("inferCountry — Cambodia (first 🇰🇭 kennel)", () => {
   });
 });
 
+describe("inferCountry — Oman (first 🇴🇲 kennel: Muscateers H3)", () => {
+  it.each([
+    ["Oman", "Oman"],
+    ["Muscat, Oman", "Oman"],
+    ["Bandar Khairan Viewpoint, Muscat", "Oman"],
+  ])("infers %s → Oman", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
 describe("inferCountry — Romania (first 🇷🇴 kennel: Bucharest H3)", () => {
   it.each([
     ["Romania", "Romania"],

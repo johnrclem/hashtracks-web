@@ -138,6 +138,7 @@ import { DhekeliaHashAdapter } from "./html-scraper/dhekelia-hash";
 import { LVH3Adapter } from "./html-scraper/lvh3";
 import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
 import { BoiseH3Adapter } from "./html-scraper/boiseh3";
+import { MuscateersHashAdapter } from "./html-scraper/muscateers-hash";
 import { NSWHHHAdapter } from "./html-scraper/nswhhh";
 import { ManilaH3Adapter } from "./html-scraper/manila-h3";
 import { WarsawH3Adapter } from "./html-scraper/warsaw-h3";
@@ -377,6 +378,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // ── Vietnam ──
   { pattern: /^https?:\/\/(?:[^/]+\.)?saigonhashers\.com(?:[/?#:]|$)/i, name: "SaigonH3Adapter", factory: () => new SaigonH3Adapter() },
   { pattern: /^https?:\/\/(?:[^/]+\.)?hanoih3\.com(?:[/?#:]|$)/i, name: "HanoiH3Adapter", factory: () => new HanoiH3Adapter() },
+  // ── Oman ──
+  { pattern: /^https?:\/\/(?:[^/]+\.)?muscateersh3\.com(?:[/?#:]|$)/i, name: "MuscateersHashAdapter", factory: () => new MuscateersHashAdapter() },
   // ── Romania ──
   { pattern: /^https?:\/\/docs\.google\.com\/spreadsheets\/d\/17NUJ3M9Th9fPi9oYkK8cLGhydW7nNq6yFMyD0x34fkQ(?:[/?#]|$)/i, name: "BucharestHashAdapter", factory: () => new BucharestHashAdapter() },
   // ── Cyprus ──

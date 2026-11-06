@@ -718,6 +718,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Moonshine H3 Dubai (third UAE kennel; bare "MH3" omitted — global collision:
     // mh3-de=Munich, mh3-ca=Montreal, mh3-mn=Minneapolis, mia-h3=Miami, Madrid/Memphis/Morgantown/Manila)
     "mh3-dxb": ["MH3D", "Moonshine H3", "Moonshine Hash Dubai", "Moonshine HHH Dubai"],
+    // ===== OMAN ===== ("Muscat Hash"/"Muscat H3" OMITTED — MusH3 disclaims the other Muscat hashes)
+    "mush3": ["MusH3", "Muscateers", "Muscateers H3", "Muscateers Hash", "Muscateers Hash House Harriers"],
     // ===== SAUDI ARABIA ===== (first Saudi kennel)
     "riyadh-h3": ["Riyadh H3", "R3H4", "Riyadh Hash House Harriers", "Riyadh Hash"],
     // ===== BARBADOS ===== (first Caribbean kennel; bare "BH3" omitted —
