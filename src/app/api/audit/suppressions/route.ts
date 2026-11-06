@@ -1,45 +1,16 @@
-import { prisma } from "@/lib/db";
+import {
+  SUPPRESSIONS_RESPONSE_HEADERS,
+  renderSuppressionsMarkdown,
+} from "@/lib/admin/audit-suppressions-md";
 
 /**
- * Public markdown endpoint listing active audit suppressions.
- * Consumed by docs/audit-chrome-prompt.md so the chrome agent picks up
- * accepted false positives without a manual doc update.
+ * Markdown endpoint listing active audit suppressions, so audit agents pick up
+ * accepted false positives without a manual doc update. Sits behind the Clerk
+ * session like the rest of `/api/audit/*`; the scheduled agent reads the same
+ * list from `/api/audit/agent/suppressions` with its token.
  */
 export async function GET() {
-  const rows = await prisma.auditSuppression.findMany({
-    select: {
-      kennelCode: true,
-      rule: true,
-      reason: true,
-      kennel: { select: { shortName: true } },
-    },
-    orderBy: [{ kennelCode: "asc" }, { rule: "asc" }],
-  });
-
-  const lines = [
-    "## Active Suppressions",
-    "",
-    "These kennel+rule combos are accepted behavior — do not flag:",
-    "",
-  ];
-
-  if (rows.length === 0) {
-    lines.push("*(none currently)*");
-  } else {
-    for (const r of rows) {
-      const scope =
-        r.kennelCode === null
-          ? "**Global**"
-          : `**${r.kennel?.shortName ?? r.kennelCode}** (\`${r.kennelCode}\`)`;
-      lines.push(`- ${scope} — \`${r.rule}\` — ${r.reason}`);
-    }
-  }
-  lines.push("");
-
-  return new Response(lines.join("\n"), {
-    headers: {
-      "Content-Type": "text/markdown; charset=utf-8",
-      "Cache-Control": "private, max-age=300",
-    },
+  return new Response(await renderSuppressionsMarkdown(), {
+    headers: SUPPRESSIONS_RESPONSE_HEADERS,
   });
 }

@@ -15,6 +15,9 @@ const isPublicRoute = createRouteMatcher([
   "/opengraph-image",
   "/api/health(.*)",
   "/api/cron(.*)",
+  // Scheduled audit agent: no Clerk session. Every handler enforces the
+  // AUDIT_AGENT_TOKEN bearer itself (src/lib/audit-agent-auth.ts).
+  "/api/audit/agent/(.*)",
   "/api/auth/strava(.*)",
   "/kennels(.*)",
   "/hareline(.*)",

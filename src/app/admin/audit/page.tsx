@@ -13,10 +13,12 @@ import {
   getHarelinePromptInputs,
   getAuditSyncFreshness,
   getPendingDrafts,
+  getAuditAutomationHeartbeat,
 } from "./actions";
 import { KNOWN_AUDIT_RULES } from "@/pipeline/audit-checks";
 import { AuditDashboard } from "@/components/admin/AuditDashboard";
 import { AuditSyncStatus } from "./AuditSyncStatus";
+import { AuditAutomationHeartbeatBanner } from "./AuditAutomationHeartbeat";
 import { buildHarelinePrompt } from "@/lib/admin/hareline-prompt";
 import { mintQueueTokens } from "@/lib/queue-snapshot-token";
 
@@ -57,6 +59,7 @@ export default async function AuditPage() {
     recentOpenIssuesResult,
     syncFreshnessResult,
     pendingDraftsResult,
+    heartbeatResult,
   ] = await Promise.all([
     getAuditTrends().catch(() => []),
     getTopOffenders().catch(() => []),
@@ -84,6 +87,8 @@ export default async function AuditPage() {
     // `null` (not []) on failure so the queue card renders a loud "couldn't load"
     // state instead of a fake "no findings" — admins need to see a stuck queue.
     getPendingDrafts().catch(() => null),
+    // `null` on failure renders "status unavailable", never a false all-clear.
+    getAuditAutomationHeartbeat().catch(() => null),
   ]);
 
   // Pre-mint a queue token per candidate at page render so the dialog
@@ -99,6 +104,7 @@ export default async function AuditPage() {
   return (
     <>
       <AuditSyncStatus freshness={syncFreshnessResult} />
+      <AuditAutomationHeartbeatBanner heartbeat={heartbeatResult} />
       <AuditDashboard
         trends={trendsResult}
         topOffenders={offendersResult}

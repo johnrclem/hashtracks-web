@@ -17,11 +17,15 @@ import {
   type PromotionSummary,
 } from "@/pipeline/audit-draft-promoter";
 import { DASHBOARD_STREAMS } from "@/lib/audit-stream-meta";
-import type {
-  HarelinePromptInputs,
-  RecentlyFixedItem,
-  FocusAreaItem,
-} from "@/lib/admin/hareline-prompt";
+import { computeStaleness, daysAgo, easternDate } from "@/lib/admin/audit-dates";
+import { AUDIT_AGENT_SUBMITTER_ID } from "@/lib/audit-agent-auth";
+import { loadHarelinePromptInputs } from "@/lib/admin/hareline-prompt-inputs";
+import {
+  ACTIVE_EVENT_WINDOW_DAYS,
+  loadDeepDiveQueue,
+  type DeepDiveCandidate,
+} from "@/lib/admin/deep-dive-queue";
+import type { HarelinePromptInputs } from "@/lib/admin/hareline-prompt";
 import {
   computeQueueSnapshotId,
   computeQueueTokenExpiresAt,
@@ -41,20 +45,11 @@ function suppressionKey(kennelCode: string | null, rule: string): string {
   return `${kennelCode ?? ""}::${rule}`;
 }
 
-const TZ = "America/New_York";
 const TREND_DAYS = 30;
 const OFFENDER_DAYS = 14; // TODO(phase3): move to materialized aggregate when deep-dive runs land
 const RECENT_RUNS_DAYS = 14;
 const TOP_OFFENDERS_LIMIT = 20;
 
-/** Bucket a date into `YYYY-MM-DD` in America/New_York. */
-function easternDate(d: Date): string {
-  return d.toLocaleDateString("en-CA", { timeZone: TZ });
-}
-
-function daysAgo(days: number): Date {
-  return new Date(Date.now() - days * 86_400_000);
-}
 
 // ── Trends ──────────────────────────────────────────────────────────
 
@@ -301,23 +296,7 @@ export async function getSuppressionImpact(
 
 // ── Deep Dive ────────────────────────────────────────────────────────
 
-const ACTIVE_EVENT_WINDOW_DAYS = 90;
-
-export interface DeepDiveSource {
-  type: string;
-  url: string;
-  name: string;
-}
-
-export interface DeepDiveCandidate {
-  kennelCode: string;
-  shortName: string;
-  slug: string;
-  region: string;
-  lastDeepDiveAt: Date | null;
-  eventCount90d: number;
-  sources: DeepDiveSource[];
-}
+export type { DeepDiveSource, DeepDiveCandidate } from "@/lib/admin/deep-dive-queue";
 
 /**
  * Default page size for the deep-dive queue display. Centralized so
@@ -391,74 +370,7 @@ export async function getDeepDiveQueue(
   limit: number = DEEP_DIVE_QUEUE_DEFAULT_LIMIT,
 ): Promise<DeepDiveCandidate[]> {
   await requireAdmin();
-
-  const activeSince = daysAgo(ACTIVE_EVENT_WINDOW_DAYS);
-
-  const [kennels, lastDives] = await Promise.all([
-    prisma.kennel.findMany({
-      where: {
-        isHidden: false,
-        sources: { some: { source: { enabled: true } } },
-        events: { some: { date: { gte: activeSince } } },
-      },
-      select: {
-        kennelCode: true,
-        shortName: true,
-        slug: true,
-        region: true,
-        sources: {
-          where: { source: { enabled: true } },
-          select: {
-            source: { select: { type: true, url: true, name: true } },
-          },
-        },
-        _count: { select: { events: { where: { date: { gte: activeSince } } } } },
-      },
-    }),
-    prisma.auditLog.groupBy({
-      by: ["kennelCode"],
-      where: { type: "KENNEL_DEEP_DIVE", kennelCode: { not: null } },
-      _max: { createdAt: true },
-    }),
-  ]);
-
-  const lastDiveByKennel = new Map<string, Date>();
-  for (const row of lastDives) {
-    if (row.kennelCode && row._max.createdAt) {
-      lastDiveByKennel.set(row.kennelCode, row._max.createdAt);
-    }
-  }
-
-  const candidates: DeepDiveCandidate[] = kennels.map(k => ({
-    kennelCode: k.kennelCode,
-    shortName: k.shortName,
-    slug: k.slug,
-    region: k.region,
-    lastDeepDiveAt: lastDiveByKennel.get(k.kennelCode) ?? null,
-    eventCount90d: k._count.events,
-    sources: k.sources.map(sk => ({
-      type: sk.source.type,
-      url: sk.source.url,
-      name: sk.source.name,
-    })),
-  }));
-
-  // Sort: never-dived first, then oldest dive first
-  candidates.sort((a, b) => {
-    if (a.lastDeepDiveAt === null && b.lastDeepDiveAt === null) {
-      return a.shortName.localeCompare(b.shortName);
-    }
-    if (a.lastDeepDiveAt === null) return -1;
-    if (b.lastDeepDiveAt === null) return 1;
-    return a.lastDeepDiveAt.getTime() - b.lastDeepDiveAt.getTime();
-  });
-
-  return candidates.slice(0, limit);
-}
-
-export async function getNextDeepDiveKennel(): Promise<DeepDiveCandidate | null> {
-  const queue = await getDeepDiveQueue(1);
-  return queue[0] ?? null;
+  return loadDeepDiveQueue(limit);
 }
 
 export interface DeepDiveCoverage {
@@ -986,70 +898,10 @@ export async function getRecentOpenIssues(limit = 30): Promise<RecentOpenIssue[]
 
 // ── Hareline prompt inputs (chrome-event auto-rotated sections) ─────
 
-const HARELINE_PROMPT_WINDOW_DAYS = 14;
-const HARELINE_PROMPT_LIST_LIMIT = 8;
-
-/**
- * Fetch the dynamic inputs for `buildHarelinePrompt` — recently-closed audit
- * issues and recently-onboarded sources. Replaces the hand-curated "Recently
- * Fixed" / "Focus Areas" sections in the static prompt that decayed into
- * stale references (e.g. PR #423 from weeks ago).
- */
+/** Admin-gated wrapper; the loader itself lives in `@/lib/admin/hareline-prompt-inputs`. */
 export async function getHarelinePromptInputs(): Promise<HarelinePromptInputs> {
   await requireAdmin();
-  const since = daysAgo(HARELINE_PROMPT_WINDOW_DAYS);
-
-  const [closedIssues, recentSources] = await Promise.all([
-    prisma.auditIssue.findMany({
-      where: {
-        state: "closed",
-        delistedAt: null,
-        githubClosedAt: { gte: since },
-        // Scope to the human-driven streams. Including AUTOMATED would mix
-        // cron-auto-closed structural findings into a list whose readers are
-        // chrome auditors looking for "fixes the team verified."
-        stream: { in: [AuditStream.CHROME_EVENT, AuditStream.CHROME_KENNEL] },
-        // Exclude `state_reason="not_planned"` closures — those are
-        // operator-marked false positives, not fixes. Advertising them
-        // as "Recently Fixed" would actively mis-teach future auditors.
-        // `null` closeReason (legacy rows pre-PR #1171 that haven't
-        // re-synced yet) is permitted so the list isn't empty during
-        // rollout; the next sync cycle populates the field for them.
-        closeReason: { not: "not_planned" },
-      },
-      select: { githubNumber: true, title: true, githubClosedAt: true },
-      orderBy: { githubClosedAt: "desc" },
-      take: HARELINE_PROMPT_LIST_LIMIT,
-    }),
-    prisma.source.findMany({
-      where: { enabled: true, createdAt: { gte: since } },
-      select: { name: true, type: true, createdAt: true },
-      orderBy: { createdAt: "desc" },
-      take: HARELINE_PROMPT_LIST_LIMIT,
-    }),
-  ]);
-
-  // `githubClosedAt` is non-null at runtime (the where clause filters
-  // `gte: since`), but Prisma's projected type still includes null. Filter
-  // narrows it without the bare `!` assertion Sonar flagged.
-  const recentlyFixed: RecentlyFixedItem[] = closedIssues
-    .filter(
-      (i): i is typeof i & { githubClosedAt: Date } => i.githubClosedAt !== null,
-    )
-    .map((i) => ({
-      issueNumber: i.githubNumber,
-      title: i.title,
-      // easternDate keeps prompt dates in the same bucket as the rest of the dashboard.
-      closedDate: easternDate(i.githubClosedAt),
-    }));
-
-  const focusAreas: FocusAreaItem[] = recentSources.map((s) => ({
-    sourceName: s.name,
-    sourceType: s.type,
-    addedDate: easternDate(s.createdAt),
-  }));
-
-  return { recentlyFixed, focusAreas };
+  return loadHarelinePromptInputs();
 }
 
 // ── Sync freshness + manual re-sync (issue #1958) ───────────────────
@@ -1090,13 +942,49 @@ export async function getAuditSyncFreshness(): Promise<AuditSyncFreshness> {
   await requireAdmin();
   const agg = await prisma.auditIssue.aggregate({ _max: { syncedAt: true } });
   const lastSyncAt = agg._max.syncedAt ?? null;
-  if (!lastSyncAt) {
-    // Empty mirror — treat as stale so a never-run sync is surfaced, not
-    // mistaken for a quiet-but-healthy day.
-    return { lastSyncAt: null, ageHours: null, stale: true };
-  }
-  const ageHours = (Date.now() - lastSyncAt.getTime()) / 3_600_000;
-  return { lastSyncAt, ageHours, stale: ageHours > SYNC_STALENESS_WARN_HOURS };
+  // An empty mirror counts as stale, so a never-run sync is surfaced rather
+  // than mistaken for a quiet-but-healthy day.
+  return { lastSyncAt, ...computeStaleness(lastSyncAt, SYNC_STALENESS_WARN_HOURS) };
+}
+
+// ── Audit automation heartbeat ───────────────────────────────────────
+//
+// The scheduled deep-dive agent records a KENNEL_DEEP_DIVE AuditLog row per
+// kennel (via /api/audit/agent/submit-finding). The Chrome deep dive stopped
+// on 2026-07-10 and nobody noticed for four months; this probe makes a
+// stalled agent visible on the dashboard.
+
+/** The agent runs about every 5h, so 12h without a deep dive means at least two missed runs. */
+const DEEP_DIVE_STALE_HOURS = 12;
+
+/** Only completions the token agent recorded; manual Mark-complete clicks don't count. */
+const AGENT_DEEP_DIVE_WHERE = {
+  type: "KENNEL_DEEP_DIVE" as const,
+  summary: { path: ["submitter"], equals: AUDIT_AGENT_SUBMITTER_ID },
+};
+
+export interface AuditAutomationHeartbeat {
+  lastDeepDiveAt: Date | null;
+  deepDivesLast24h: number;
+  stale: boolean;
+  /** The warning threshold, so the banner text can't drift from it. */
+  staleAfterHours: number;
+}
+
+export async function getAuditAutomationHeartbeat(): Promise<AuditAutomationHeartbeat> {
+  await requireAdmin();
+  const [agg, deepDivesLast24h] = await Promise.all([
+    prisma.auditLog.aggregate({
+      where: AGENT_DEEP_DIVE_WHERE,
+      _max: { createdAt: true },
+    }),
+    prisma.auditLog.count({
+      where: { ...AGENT_DEEP_DIVE_WHERE, createdAt: { gte: daysAgo(1) } },
+    }),
+  ]);
+  const lastDeepDiveAt = agg._max.createdAt ?? null;
+  const { stale } = computeStaleness(lastDeepDiveAt, DEEP_DIVE_STALE_HOURS);
+  return { lastDeepDiveAt, deepDivesLast24h, stale, staleAfterHours: DEEP_DIVE_STALE_HOURS };
 }
 
 /** Discriminated result for the manual re-sync trigger. The error string

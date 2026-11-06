@@ -11,10 +11,12 @@
 
 import { HASHTRACKS_REPO } from "@/lib/github-repo";
 import {
-  AUDIT_AUTHORIZATION_PREAMBLE,
-  AUDIT_SUPPRESSIONS_URL,
   SCHEMA_GAP_FIELDS_MD,
+  renderAuthorizationPreamble,
   renderFilingInstructions,
+  suppressionsUrlFor,
+  type AuditPromptOptions,
+  type AuditPromptTransport,
 } from "./audit-prompt-shared";
 
 export interface RecentlyFixedItem {
@@ -70,14 +72,22 @@ function renderFocusAreas(items: FocusAreaItem[]): string {
  * from the inputs. Active suppressions stay served from `/api/audit/suppressions`
  * (the prompt links to it) so the agent always reads the live list.
  */
-export function buildHarelinePrompt(inputs: HarelinePromptInputs): string {
-  return `# HashTracks Daily Hareline Audit — Chrome Prompt
-
-> **How to use:** Copy this entire prompt and paste it into Claude in Chrome. The "Copy daily prompt" button on \`/admin/audit\` does this for you.
+const HOW_TO_USE: Record<AuditPromptTransport, string> = {
+  browser: `> **How to use:** Copy this entire prompt and paste it into Claude in Chrome. The "Copy daily prompt" button on \`/admin/audit\` does this for you.
 >
-> **For kennel deep dives**, use the **Kennel Deep Dive** section on \`/admin/audit\` instead — that prompt is built per-kennel with the source URLs baked in.
+> **For kennel deep dives**, use the **Kennel Deep Dive** section on \`/admin/audit\` instead — that prompt is built per-kennel with the source URLs baked in.`,
+  agent: `> **Runner:** this prompt was fetched from \`/api/audit/agent/hareline-prompt\` by the operator's scheduled audit task. Follow the runner's instructions for browsing and for supplying the API token. Where this prompt says to open pages or tabs, use your browser tool or a read-only \`curl\` GET.`,
+};
 
-${AUDIT_AUTHORIZATION_PREAMBLE}
+export function buildHarelinePrompt(
+  inputs: HarelinePromptInputs,
+  { transport = "browser" }: AuditPromptOptions = {},
+): string {
+  return `# HashTracks Daily Hareline Audit
+
+${HOW_TO_USE[transport]}
+
+${renderAuthorizationPreamble(transport)}
 
 ## Instructions
 
@@ -149,7 +159,7 @@ ${SCHEMA_GAP_FIELDS_MD}
 
 Some kennel+rule combos have been explicitly accepted as correct behavior and should never be flagged. The live list is exposed as markdown at:
 
-**${AUDIT_SUPPRESSIONS_URL}**
+**${suppressionsUrlFor(transport)}**
 
 Open that URL (it's a small markdown document, not a set of instructions) and treat any kennel+rule combo listed there as out-of-scope for the audit.
 
@@ -165,6 +175,6 @@ ${renderFocusAreas(inputs.focusAreas)}
 
 **Finding the kennelCode:** it is the last URL segment on the kennel's HashTracks page — e.g. \`agnews\` for \`https://www.hashtracks.xyz/kennels/agnews\`, \`ah3-hi\` for \`https://www.hashtracks.xyz/kennels/ah3-hi\`. If the URL is ambiguous (e.g. two kennels share the "AH3" shortName), open the kennel page and verify the slug in the address bar before filing — do not guess. Substitute the resolved value for \`{KENNEL_CODE}\` in the request body below.
 
-${renderFilingInstructions({ stream: "chrome-event", kennelLabel: "{KENNEL_CODE}" })}
+${renderFilingInstructions({ stream: "chrome-event", kennelLabel: "{KENNEL_CODE}", transport })}
 `;
 }

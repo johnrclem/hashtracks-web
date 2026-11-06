@@ -8,6 +8,8 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       groupBy: vi.fn(),
       create: vi.fn(),
+      aggregate: vi.fn(),
+      count: vi.fn(),
     },
     auditSuppression: {
       findMany: vi.fn(),
@@ -80,6 +82,7 @@ import {
   lookupKennelForDeepDive,
   getAuditSyncFreshness,
   resyncAuditIssues,
+  getAuditAutomationHeartbeat,
 } from "./actions";
 import {
   computeQueueSnapshotId,
@@ -1059,3 +1062,54 @@ describe("resyncAuditIssues", () => {
     expect(mockRevalidate).toHaveBeenCalledWith("/admin/audit");
   });
 });
+
+describe("getAuditAutomationHeartbeat", () => {
+  const mockLogAggregate = vi.mocked(prisma.auditLog.aggregate);
+  const mockLogCount = vi.mocked(prisma.auditLog.count);
+  type LogAggregate = Awaited<ReturnType<typeof prisma.auditLog.aggregate>>;
+  const withCreatedAt = (createdAt: Date | null) => ({ _max: { createdAt } }) as unknown as LogAggregate;
+
+  it("rejects unauthenticated callers", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(getAuditAutomationHeartbeat()).rejects.toThrow("Unauthorized");
+  });
+
+  // Threshold is DEEP_DIVE_STALE_HOURS = 12 (the agent runs about every 5h).
+  it.each([
+    { label: "recent deep dive", hoursAgo: 3, stale: false },
+    { label: "deep dive just inside the threshold", hoursAgo: 11, stale: false },
+    { label: "deep dive past the threshold", hoursAgo: 13, stale: true },
+  ])("marks a $label as stale=$stale", async ({ hoursAgo, stale }) => {
+    const lastDeepDiveAt = new Date(Date.now() - hoursAgo * 3_600_000);
+    mockLogAggregate.mockResolvedValue(withCreatedAt(lastDeepDiveAt));
+    mockLogCount.mockResolvedValue(4 as never);
+
+    const result = await getAuditAutomationHeartbeat();
+
+    expect(result).toEqual({ lastDeepDiveAt, deepDivesLast24h: 4, stale, staleAfterHours: 12 });
+  });
+
+  it("counts only completions recorded by the token agent", async () => {
+    mockLogAggregate.mockResolvedValue(withCreatedAt(null));
+    mockLogCount.mockResolvedValue(0 as never);
+    await getAuditAutomationHeartbeat();
+    const agentFilter = {
+      type: "KENNEL_DEEP_DIVE",
+      summary: { path: ["submitter"], equals: "audit-agent" },
+    };
+    expect(mockLogAggregate).toHaveBeenCalledWith(expect.objectContaining({ where: agentFilter }));
+    expect(mockLogCount).toHaveBeenCalledWith({ where: expect.objectContaining(agentFilter) });
+  });
+
+  it("treats no recorded deep dive as stale", async () => {
+    mockLogAggregate.mockResolvedValue(withCreatedAt(null));
+    mockLogCount.mockResolvedValue(0 as never);
+    expect(await getAuditAutomationHeartbeat()).toEqual({
+      lastDeepDiveAt: null,
+      deepDivesLast24h: 0,
+      stale: true,
+      staleAfterHours: 12,
+    });
+  });
+});
+

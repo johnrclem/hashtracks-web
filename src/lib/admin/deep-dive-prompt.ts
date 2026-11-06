@@ -1,18 +1,23 @@
-import type { DeepDiveCandidate } from "@/app/admin/audit/actions";
+import type { DeepDiveCandidate } from "./deep-dive-queue";
 import {
-  AUDIT_AUTHORIZATION_PREAMBLE,
-  AUDIT_SUPPRESSIONS_URL,
   SCHEMA_GAP_FIELDS_MD,
+  renderAuthorizationPreamble,
   renderFilingInstructions,
+  renderSubmitEndpoint,
+  suppressionsUrlFor,
+  type AuditPromptOptions,
 } from "./audit-prompt-shared";
 
 const HASHTRACKS_KENNEL_BASE = "https://www.hashtracks.xyz/kennels";
 
 /**
- * Build a self-contained Claude in Chrome prompt for a kennel deep dive.
+ * Build a self-contained prompt for a kennel deep dive.
  * Pure function — safe to call from a server component or copied to clipboard verbatim.
  */
-export function buildDeepDivePrompt(kennel: DeepDiveCandidate): string {
+export function buildDeepDivePrompt(
+  kennel: DeepDiveCandidate,
+  { transport = "browser" }: AuditPromptOptions = {},
+): string {
   const sourceLines = kennel.sources
     .map(s => `- **${s.name}** (${s.type}): ${s.url}`)
     .join("\n");
@@ -33,7 +38,7 @@ export function buildDeepDivePrompt(kennel: DeepDiveCandidate): string {
 
 You are auditing a single kennel end-to-end. Compare what HashTracks has stored against the live source pages and submit verified findings to HashTracks' internal review queue (a trusted server job files the reviewed ones later).
 
-${AUDIT_AUTHORIZATION_PREAMBLE}
+${renderAuthorizationPreamble(transport)}
 
 **Kennel:** ${kennel.shortName} (${kennel.kennelCode})
 **Region:** ${kennel.region}
@@ -48,7 +53,7 @@ ${sourceLines || "_(no enabled sources — flag this as a finding)_"}
 ## Active suppressions
 
 Before flagging anything, open this list — kennel+rule combos here are accepted behavior, not findings:
-**${AUDIT_SUPPRESSIONS_URL}**
+**${suppressionsUrlFor(transport)}**
 
 ## What to check
 
@@ -80,13 +85,13 @@ ${SCHEMA_GAP_FIELDS_MD}
 
 For each distinct root-cause finding:
 
-${renderFilingInstructions({ stream: "chrome-kennel", kennelLabel: kennel.kennelCode })}
+${renderFilingInstructions({ stream: "chrome-kennel", kennelLabel: kennel.kennelCode, transport })}
 
 ## When done
 
 Submit a completion marker to the internal queue — the same non-publishing endpoint you used for findings. You do **not** need to visit \`/admin/audit\` or click anything in the UI. Replace the example \`findingsCount\` (3) and \`summary\` below with the real count you submitted for ${kennel.shortName} and a one-line summary.
 
-**POST** \`/api/audit/submit-finding\`
+${renderSubmitEndpoint(transport)}
 
 \`\`\`json
 {
@@ -96,6 +101,8 @@ Submit a completion marker to the internal queue — the same non-publishing end
   "summary": "Checked sources; 3 findings submitted (2 missing hares, 1 stale title)."
 }
 \`\`\`
+
+Submit the completion even if you could not finish (for example, a source was unreachable): set \`findingsCount\` to what you actually submitted and start the summary with \`PARTIAL:\` and the reason. Otherwise the rotation stays stuck on this kennel. A full completion later the same day replaces a partial one.
 
 A \`{ "data": { "recorded": true } }\` response means the deep dive is recorded server-side and ${kennel.shortName} advances in the rotation. (A \`"deepDive": "already-recorded"\` response just means it was already credited today — that's fine, don't resubmit.)
 `;
