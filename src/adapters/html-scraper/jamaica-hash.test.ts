@@ -70,6 +70,8 @@ describe("helpers", () => {
     expect(isCancelledCell("CANCELLED")).toBe(true);
     expect(isCancelledCell("CANCELLED - Devon's Pen")).toBe(true);
     expect(isCancelledCell("*** CANCELLED *** Historic Folly ruins")).toBe(true);
+    expect(isCancelledCell("All seasons resort Greenwood, St. James (cancelled)")).toBe(true);
+    expect(isCancelledCell("Goodwill Farms, Guys Hill, St Catherine - POSTPONED")).toBe(true);
     expect(isCancelledCell("Redlight, St Andrews")).toBe(false);
   });
   it("splits and sorts hares", () => {

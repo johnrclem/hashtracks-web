@@ -46,11 +46,14 @@ function normalize(text: string): string {
   return text.replaceAll(/\s+/g, " ").trim();
 }
 
-/** "CANCELLED", "CANCELLED - venue", "*** CANCELLED *** venue" → true. */
+/**
+ * True when the location cell marks the run as not happening on that date:
+ * "CANCELLED", "CANCELLED - venue", "*** CANCELLED *** venue",
+ * "venue (cancelled)" or "venue - POSTPONED".
+ */
 export function isCancelledCell(text: string): boolean {
-  let s = text.trim();
-  while (s.startsWith("*")) s = s.slice(1).trimStart();
-  return s.toUpperCase().startsWith("CANCELLED");
+  const s = text.toLowerCase();
+  return s.includes("cancelled") || s.includes("postponed");
 }
 
 /** Parse "Weekday, D Mon, YYYY" to "YYYY-MM-DD"; null if malformed. */
