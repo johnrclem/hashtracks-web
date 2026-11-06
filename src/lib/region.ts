@@ -1658,7 +1658,18 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 51.9007,
     centroidLng: -1.1522,
     aliases: ["Bicester, England", "Oxfordshire"],
+  },  {
+    name: "Milton Keynes",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "MKY",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 52.04,
+    centroidLng: -0.76,
+    aliases: ["Milton Keynes, England", "Buckinghamshire"],
   },
+
   {
     name: "Malvern",
     country: "UK",
@@ -4414,6 +4425,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "East Midlands": "United Kingdom",
   "Hertfordshire": "United Kingdom",
   "Bicester": "United Kingdom",
+  "Milton Keynes": "United Kingdom",
   "Malvern": "United Kingdom",
   "Cotswolds": "United Kingdom",
   "Chichester": "United Kingdom",

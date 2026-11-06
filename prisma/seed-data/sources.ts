@@ -9075,6 +9075,17 @@ export const SOURCES = [
       kennelCodes: ["fukfm"],
     },
     {
+      name: "MKH3 Website",
+      url: "https://mkh3.co.uk/runs-events",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // Rolling near-term "Forthcoming Runs/Events" widgets — past runs drop off.
+      config: { upcomingOnly: true },
+      kennelCodes: ["mkh3"],
+    },
+    {
       name: "Bicester H3 Events (The Events Calendar iCal)",
       url: "http://bicesterh3.com/?post_type=tribe_events&ical=1&eventDisplay=list", // NOSONAR — HTTP-only: HTTPS fails TLS verification (self-signed cert, checked 2026-11-05)
       type: "ICAL_FEED" as const,
