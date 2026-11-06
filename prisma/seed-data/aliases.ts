@@ -151,6 +151,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "wlh3": ["West London Hash", "West London H3", "WLH"],
     "barnesh3": ["Barnes Hash", "Barnes H3"],
     "och3": ["Old Coulsdon", "Old Coulsdon Hash", "OC Hash"],
+    "surrey-h3": ["Surrey Hash", "Surrey Hash House Harriers", "Surrey HHH"],
     "slh3": ["SLASH", "SLAH3", "South London Hash"],
     "fukfm": ["FUKFMH3", "FUK Full Moon", "First UK Full Moon"],
     "eh3": ["Enfield Hash", "Enfield H3", "EH3"],
