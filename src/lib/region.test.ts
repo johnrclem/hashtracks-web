@@ -295,12 +295,13 @@ describe("inferCountry — Cambodia (first 🇰🇭 kennel)", () => {
   });
 });
 
-describe("inferCountry — Nuremberg (Germany)", () => {
+describe("inferCountry — Romania (first 🇷🇴 kennel: Bucharest H3)", () => {
   it.each([
-    ["Nuremberg", "Germany"],
-    ["Nürnberg Erlenstegen", "Germany"],
-    ["Springbrunnen in the Cramer-Klett-Park, 90489 Nürnberg", "Germany"],
-  ])("infers %s → Germany", (name, country) => {
+    ["Romania", "Romania"],
+    ["Bucharest, Romania", "Romania"],
+    ["Grozavesti Metro station, Bucharest", "Romania"],
+    ["București", "Romania"],
+  ])("infers %s → Romania", (name, country) => {
     expect(inferCountry(name)).toBe(country);
   });
 });
@@ -517,5 +518,15 @@ describe("inferCountry — Suriname / Nigeria / Turkey (HC batch, Nov 2026)", ()
     ["TR", "Turkey"],
   ])("resolves ISO code %s → %s", (code, country) => {
     expect(resolveCountryName(code)).toBe(country);
+  });
+});
+
+describe("inferCountry — Nuremberg (Germany)", () => {
+  it.each([
+    ["Nuremberg", "Germany"],
+    ["Nürnberg Erlenstegen", "Germany"],
+    ["Springbrunnen in the Cramer-Klett-Park, 90489 Nürnberg", "Germany"],
+  ])("infers %s → Germany", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
   });
 });
