@@ -1454,6 +1454,20 @@ export const KENNELS: KennelSeed[] = [
       description: "Winterthur & Schaffhausen's English-speaking hash — 'a drinking club with a running problem.' WSH3 lays a flour trail on the third Saturday of each month around the Winterthur and Schaffhausen area of northern Switzerland, usually meeting at a public-transport-accessible point near Schaffhausen, and finishes with an On-After at a local restaurant. Runners and walkers of all abilities welcome.",
       latitude: 47.5, longitude: 8.72,
     },
+    {
+      // Bare "bsh3" is Black Sheep H3 (Atlanta) → CH-suffixed code; bare "BSH3" alias omitted.
+      kennelCode: "bsh3-ch", shortName: "Basel-Stadt H3", fullName: "Basel-Stadt Hash House Harriers",
+      region: "Basel", country: "Switzerland",
+      hashCash: "CHF 5",
+      walkersWelcome: true,
+      // Legacy flat fields kept for fallback only — scheduleRules below are authoritative.
+      scheduleDayOfWeek: "Sunday", scheduleTime: "2:00 PM", scheduleFrequency: "Monthly",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=2SU", startTime: "14:00", label: "2nd Sunday", displayOrder: 0 },
+      ],
+      description: "Basel's international, English-speaking hash — a social running/walking group in the Basel tri-border area (CH/FR/DE). Monthly trails welcoming runners and walkers of all abilities.",
+      latitude: 47.5596, longitude: 7.5886,
+    },
     // ===== AUSTRIA =====
     // --- Vienna ---
     {
@@ -6417,6 +6431,85 @@ export const KENNELS: KennelSeed[] = [
       latitude: 51.8875,
       longitude: -1.7594,
       // facebookUrl: the handoff's FB group is no longer linked from the site (2026-11-05) — omitted.
+    },
+    {
+      // Bare "MH3"/"MVH3" are taken globally (Munich, Montreal…; Mount Vernon) → city code.
+      kennelCode: "malvern-h3",
+      shortName: "Malvern H3",
+      fullName: "Malvern Hash House Harriers",
+      region: "Malvern",
+      country: "UK",
+      website: "https://www.malvernhash.co.uk",
+      facebookUrl: "https://www.facebook.com/groups/61731295743/",
+      foundedYear: 1981,
+      dogFriendly: true,
+      walkersWelcome: true,
+      scheduleFrequency: "Weekly",
+      scheduleDayOfWeek: "Tuesday",
+      scheduleTime: "7:00 PM",
+      scheduleNotes: "Weekly Tuesday, year-round. ON at 7:00 PM; runs last ~1–1½ h.",
+      description:
+        "Malvern H3 — a friendly, dog- and walker-friendly hash meeting every Tuesday evening at a pub " +
+        "within ~10 miles of Malvern, Worcestershire. Founded 31 March 1981 as a Bicester H3 offshoot. " +
+        "Trails are usually a Long (~4–5 mi) and a Short (~2–3 mi); runs last about 1–1½ hours.",
+      latitude: 52.1101,
+      longitude: -2.3265,
+      // hashCash unpublished; logo: the only homepage image is a weekly-rotating banner photo — omitted.
+    },
+    {
+      // Bare "c2h3" + bare "C2H3" alias belong to Corpus Christi H3 → UK-suffixed code,
+      // descriptive shortName so the slug doesn't collide.
+      kennelCode: "c2h3-gb",
+      slug: "cheltenham-cotswold-h3",
+      shortName: "Cheltenham & Cotswold H3",
+      fullName: "Cheltenham & Cotswold Hash House Harriers",
+      region: "Cotswolds",
+      country: "UK",
+      website: "https://c2h3.co.uk",
+      logoUrl: "/kennel-logos/c2h3-gb.png", // self-hosted from c2h3.co.uk; magic bytes confirm PNG
+      foundedYear: 1981, // History page: "established on 25th January 1981" (the 1984 meta tag is boilerplate)
+      walkersWelcome: true,
+      // Fallback only — the iCal carries the real per-run day/time (Sunday daytimes in winter).
+      scheduleFrequency: "Weekly",
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "7:00 PM",
+      description:
+        "A family-orientated, non-competitive social running club — 'a drinking club with a running problem' — " +
+        "established 25 January 1981, running weekly through the towns, villages and countryside of Cheltenham " +
+        "and the Cotswolds (Gloucestershire, Worcestershire and Herefordshire). Monday evenings in summer, moving " +
+        "to Sunday daytimes in autumn/winter; first run free.",
+      latitude: 51.9,
+      longitude: -2.08,
+      // hashCash: amount unpublished ("first run free, small fee"); dogFriendly unstated.
+    },
+    {
+      // Bare "ch3" + bare "CH3" alias belong to Chicago H3 → UK-suffixed code.
+      kennelCode: "ch3-gb",
+      shortName: "Chichester H3",
+      fullName: "Chichester Hash House Harriers",
+      region: "Chichester",
+      country: "UK",
+      website: "https://www.chihhh.org.uk",
+      facebookUrl: "https://www.facebook.com/chichesterhhh",
+      logoUrl: "/kennel-logos/ch3-gb.avif", // self-hosted from the kennel's Harrier Central upload; magic bytes confirm AVIF
+      foundedYear: 1983,
+      hashCash: "Free",
+      dogFriendly: true,
+      walkersWelcome: true,
+      // Legacy flat fields kept for fallback only — scheduleRules below are authoritative.
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM",
+      scheduleFrequency: "Biweekly",
+      scheduleRules: [
+        // INTERVAL=2 needs an anchor for phase: 2026-10-18 is Run 1096.
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU", startTime: "11:00", anchorDate: "2026-10-18", label: "Alternate Sundays", displayOrder: 0 },
+      ],
+      description:
+        "Chichester Hash House Harriers — a small group of runners and walkers hashing the South West Sussex " +
+        "and South East Hampshire countryside on alternate Sundays. Flour trails, a loose set of rules, a pub " +
+        "afterwards. Visitors, walkers and dogs welcome; it's free.",
+      latitude: 50.8365,
+      longitude: -0.7792,
     },
   ];
 

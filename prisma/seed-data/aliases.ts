@@ -430,6 +430,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "zh3": ["ZH3", "Zurich Hash House Harriers", "Zürich Hash House Harriers", "Zurich H3", "The Zurich Hash House Harriers"],
     // Keyed "wsh3-ch" (NOT "wsh3" → Wandering Soul H3). Bare "WSH3" alias omitted (claimed).
     "wsh3-ch": ["Winterthur & Schaffhausen Hash House Harriers", "Winterthur & Schaffhausen H3", "Winterthur Schaffhausen H3", "W&S H3", "WSH3 Switzerland"],
+    // bare "BSH3" OMITTED — Black Sheep H3 (Atlanta) owns it.
+    "bsh3-ch": ["Basel-Stadt H3", "Basel H3", "Basel Hash", "Basel-Stadt Hash House Harriers", "BSH3-CH"],
 
     // ===== AUSTRIA =====
     // Bare "VH3" alias omitted (claimed by Victoria H3, BC); "FMH" omitted (too generic).
@@ -730,5 +732,11 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // bare "BH3" OMITTED — Buffalo H3 owns it globally.
     "bicester-h3": ["Bicester Hash", "Bicester HHH", "BH3 Bicester"],
     "newch3": ["NEW Cotswold H3", "N.E.W. Cotswold HHH", "NEWCH3", "Cotswold H3", "Cotswold Hash", "New Cotswold Hash House Harriers"],
+    // bare "MH3"/"MVH3" OMITTED — taken (Munich/Montreal/…; Mount Vernon).
+    "malvern-h3": ["Malvern Hash House Harriers", "Malvern H3", "Malvern HHH"],
+    // bare "C2H3" OMITTED — Corpus Christi H3 owns it.
+    "c2h3-gb": ["Cheltenham & Cotswold Hash House Harriers", "Cheltenham & Cotswold Hash", "Cheltenham Hash", "C2H3-GB"],
+    // bare "CH3" OMITTED — Chicago H3 owns it.
+    "ch3-gb": ["Chichester H3", "Chichester Hash House Harriers", "CHIHHH"],
   };
 
