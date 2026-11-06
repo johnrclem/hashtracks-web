@@ -6962,6 +6962,19 @@ export const KENNELS: KennelSeed[] = [
       // Contacts are email + a Google group only — no social links. dogFriendly/walkersWelcome: unstated.
     },
     {
+      kennelCode: "mkh3", shortName: "MKH3", fullName: "Milton Keynes Hash House Harriers", region: "Milton Keynes", country: "UK",
+      website: "https://mkh3.co.uk",
+      facebookUrl: "https://www.facebook.com/MiltonKeynesH3/",
+      foundedYear: 1990, // history page: started Monday 28 May 1990
+      scheduleDayOfWeek: "Monday", scheduleTime: "7:00 PM", scheduleFrequency: "Fortnightly",
+      scheduleNotes: "Monday evenings, currently about fortnightly — meet in the pub from ~6:50pm, run ~7pm. Weekly from 1990; occasional daytime bank-holiday and special runs.",
+      walkersWelcome: true, // about-us: "walk round at the back with the knitting circle"
+      description:
+        "A drinking club with a running problem — hashing in and around Milton Keynes since 1990. Monday-evening trails of 3–4 miles with checks, holds and fish hooks so walkers, joggers and runners of all abilities can join, then beer and the hash circle.",
+      logoUrl: "/kennel-logos/mkh3.gif", // self-hosted from a concrete5 application/files path; magic bytes confirmed GIF89a
+      // hashCash / dogFriendly: unpublished.
+    },
+    {
       kennelCode: "bicester-h3",
       shortName: "Bicester H3",
       fullName: "Bicester Hash House Harriers",
