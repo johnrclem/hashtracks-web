@@ -295,6 +295,17 @@ describe("inferCountry — Cambodia (first 🇰🇭 kennel)", () => {
   });
 });
 
+describe("inferCountry — Cyprus (first 🇨🇾 kennel: Larnaca H3)", () => {
+  it.each([
+    ["Cyprus", "Cyprus"],
+    ["Larnaca, Cyprus", "Cyprus"],
+    ["Larnaca", "Cyprus"],
+    ["Agia Napa Nature Reserve, Cyprus", "Cyprus"],
+  ])("infers %s → Cyprus", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
 describe("inferCountry — Barbados (first 🇧🇧 / first Caribbean kennel)", () => {
   it.each([
     ["Bridgetown", "Barbados"],
@@ -302,6 +313,41 @@ describe("inferCountry — Barbados (first 🇧🇧 / first Caribbean kennel)", 
     ["Barbados", "Barbados"],
     ["Oldbury Park, Oldbury, St Philip, Barbados", "Barbados"],
   ])("infers %s → Barbados", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
+describe("regionSlug — apostrophes", () => {
+  it("drops apostrophes", () => {
+    expect(regionSlug("St George's")).toBe("st-georges");
+  });
+});
+
+describe("inferCountry — Grenada (first 🇬🇩 kennel: Grenada H3)", () => {
+  it.each([
+    ["Grenada", "Grenada"],
+    ["St George's, Grenada", "Grenada"],
+    ["Carriacou", "Grenada"],
+    // Grenada, Mississippi stays USA.
+    ["Grenada, MS", "USA"],
+    ["Grenada, Mississippi", "USA"],
+  ])("infers %s → %s", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
+describe("inferCountry — Jamaica (first 🇯🇲 kennel: Jamaica H3)", () => {
+  it.each([
+    ["Jamaica", "Jamaica"],
+    ["Kingston, Jamaica", "Jamaica"],
+    ["Stony Hill, Saint Andrew, Jamaica", "Jamaica"],
+    // US neighborhoods named Jamaica must stay USA.
+    ["Jamaica Plain, MA", "USA"],
+    ["Jamaica, Queens, NY", "USA"],
+    ["Jamaica, NY", "USA"],
+    // Bare Kingston is ambiguous (ON / NY / TN) and is not a Jamaica token.
+    ["Kingston, NY", "USA"],
+  ])("infers %s → %s", (name, country) => {
     expect(inferCountry(name)).toBe(country);
   });
 });
@@ -428,5 +474,38 @@ describe("inferCountry — Sierra Leone (first West Africa kennel: Sierra H4, Fr
 
   it("resolves the ISO code SL → Sierra Leone (separate from region aliases)", () => {
     expect(resolveCountryName("SL")).toBe("Sierra Leone");
+  });
+});
+
+describe("inferCountry — Suriname / Nigeria / Turkey (HC batch, Nov 2026)", () => {
+  it.each([
+    ["Suriname", "Suriname"],
+    ["Paramaribo, Suriname", "Suriname"],
+    ["Nigeria", "Nigeria"],
+    ["Wuse 2, Abuja", "Nigeria"],
+    ["Türkiye", "Turkey"],
+    ["Incirlik Air Base", "Turkey"],
+    ["Adana, Turkey", "Turkey"],
+    ["Hannover, Germany", "Germany"],
+  ])("infers %s → %s", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+
+  it.each([
+    // bare "turkey" (Turkey Creek / Turkey Trot), "lagos" (Lagos, Portugal) and
+    // single-n "hanover" (Hanover, NH/PA) are deliberately OMITTED from the rules.
+    ["Turkey Creek, TX", "USA"],
+    ["Hanover, NH", "USA"],
+    ["Lagos, Portugal", "Portugal"],
+  ])("does NOT misroute %s", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+
+  it.each([
+    ["SR", "Suriname"],
+    ["NG", "Nigeria"],
+    ["TR", "Turkey"],
+  ])("resolves ISO code %s → %s", (code, country) => {
+    expect(resolveCountryName(code)).toBe(country);
   });
 });

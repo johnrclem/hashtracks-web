@@ -23,31 +23,44 @@ const GLOBAL_RUNS_PAGE_SIZE = 1000;
 const GLOBAL_RUNS_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36";
 
-/** Minimal shape consumed from the hashruns.org global-runs feed. */
-interface HCGlobalRunEvent {
+/**
+ * A hashruns.org global-runs row (PascalCase). The same feed serves upcoming
+ * (`isFuture=1`) and past (`isFuture=0`, windowed) runs; fields vary by year.
+ */
+export interface HCGlobalRun {
   PublicEventId: string;
+  PublicKennelId?: string;
+  KennelSlug?: string;
+  KennelName?: string;
+  KennelShortName?: string;
+  KennelIANATimezone?: string;
+  EventNumber?: number;
+  EventName?: string;
+  EventStartDatetime?: string;
+  Hares?: string;
   EventDescription?: string;
+  IsCountedRun?: number;
+  LocationOneLineDesc?: string;
+  LocationStreet?: string;
+  LocationCity?: string;
+  LocationPostCode?: string;
+  LocationCountry?: string;
+  Latitude?: number;
+  Longitude?: number;
 }
 
 /**
- * Fetch every upcoming HC event's free-text description from hashruns.org and
- * index it by PublicEventId. Best-effort: this is an enrichment on top of the
- * primary getEvents fetch, so any failure here must not fail the whole scrape
- * — callers get an empty map and the caller records the miss in
- * diagnosticContext (never in `errors`), mirroring the FACEBOOK_HOSTED_EVENTS
- * past-tab best-effort convention.
- *
- * Every row with a `PublicEventId` is indexed, INCLUDING rows whose
- * `EventDescription` is empty/blank (mapped to `""`) — the caller uses
- * `Map.has()` to distinguish "row found, description explicitly blank"
- * (→ `null`, an explicit clear) from "row not found at all, or this whole
- * fetch failed" (→ `undefined`, preserve). Silently dropping blank-description
- * rows here would collapse that distinction and leave a description that was
- * removed at the source stuck on the canonical event forever, since
- * `undefined` never overwrites an existing value (see the per-event join in
- * `fetch()`).
+ * Fetch every upcoming HC run from hashruns.org. Best-effort: this is an
+ * enrichment on top of the primary getEvents fetch, so any failure here must
+ * not fail the whole scrape — callers record the miss in diagnosticContext
+ * (never in `errors`), mirroring the FACEBOOK_HOSTED_EVENTS past-tab
+ * best-effort convention. Used for two things:
+ *   1. descriptions (getEvents has none), indexed by PublicEventId — see
+ *      `indexDescriptions`;
+ *   2. upcoming runs getEvents omits for some kennels (#2590/#2591: Newcastle
+ *      H3's getEvents returns [] while hashruns.org lists 34 upcoming runs).
  */
-async function fetchEventDescriptions(): Promise<Map<string, string>> {
+async function fetchGlobalFutureRuns(): Promise<HCGlobalRun[]> {
   const url = `${GLOBAL_RUNS_URL}?isFuture=1&pageSize=${GLOBAL_RUNS_PAGE_SIZE}`;
   const res = await safeFetch(url, {
     headers: { "User-Agent": GLOBAL_RUNS_USER_AGENT },
@@ -55,17 +68,79 @@ async function fetchEventDescriptions(): Promise<Map<string, string>> {
   if (!res.ok) {
     throw new Error(`hashruns.org global-runs returned HTTP ${res.status}`);
   }
-  const json = (await res.json()) as { runs?: HCGlobalRunEvent[] } | HCGlobalRunEvent[];
+  const json = (await res.json()) as { runs?: HCGlobalRun[] } | HCGlobalRun[];
   const rows = Array.isArray(json) ? json : (json.runs ?? []);
   if (!Array.isArray(rows)) {
     throw new Error("Unexpected hashruns.org global-runs response shape");
   }
+  return rows;
+}
+
+/**
+ * Index descriptions by PublicEventId. Every row with a `PublicEventId` is
+ * indexed, INCLUDING rows whose `EventDescription` is empty/blank (mapped to
+ * `""`) — the caller uses `Map.has()` to distinguish "row found, description
+ * explicitly blank" (→ `null`, an explicit clear) from "row not found at all,
+ * or this whole fetch failed" (→ `undefined`, preserve). Silently dropping
+ * blank-description rows here would collapse that distinction and leave a
+ * description that was removed at the source stuck on the canonical event
+ * forever, since `undefined` never overwrites an existing value.
+ */
+export function indexDescriptions(rows: readonly HCGlobalRun[]): Map<string, string> {
   const byId = new Map<string, string>();
   for (const row of rows) {
     if (!row.PublicEventId) continue;
     byId.set(row.PublicEventId, row.EventDescription?.trim() ?? "");
   }
   return byId;
+}
+
+function stripTrailingCommas(value: string): string {
+  let end = value.length;
+  while (end > 0 && (value[end - 1] === "," || value[end - 1] === " ")) end--;
+  return value.slice(0, end);
+}
+
+function joinLocationParts(parts: (string | undefined)[]): string | undefined {
+  const kept = parts.map((p) => p?.trim()).filter((p): p is string => !!p);
+  return kept.length ? kept.join(", ") : undefined;
+}
+
+/** Adapt a global-runs row to the getEvents shape `hcEventToRawEvent` consumes. */
+export function globalRunToHcEvent(r: HCGlobalRun): HCEvent {
+  return {
+    publicEventId: r.PublicEventId,
+    publicKennelId: r.PublicKennelId ?? "",
+    kennelName: r.KennelName ?? "",
+    kennelShortName: r.KennelShortName ?? "",
+    kennelUniqueShortName: r.KennelSlug ?? "",
+    eventName: r.EventName ?? "",
+    eventNumber: r.EventNumber ?? 0,
+    eventStartDatetime: r.EventStartDatetime ?? "",
+    syncLat: r.Latitude as number,
+    syncLong: r.Longitude as number,
+    // hashruns.org place names sometimes end in a comma ("The Bodega,"), which
+    // would compose as "The Bodega,, Westgate Road".
+    locationOneLineDesc: stripTrailingCommas(r.LocationOneLineDesc ?? ""),
+    resolvableLocation: r.LocationStreet
+      ? (joinLocationParts([r.LocationStreet, r.LocationCity, r.LocationPostCode, r.LocationCountry]) ?? "")
+      : "",
+    hares: r.Hares ?? "",
+    eventCityAndCountry: joinLocationParts([r.LocationCity, r.LocationCountry]) ?? "",
+    isVisible: 1,
+    isCountedRun: r.IsCountedRun ?? 1,
+    daysUntilEvent: 0,
+  };
+}
+
+/**
+ * True when a global-runs row belongs to this single-kennel source. City-filter
+ * sources (Tokyo) have no kennel key and never match.
+ */
+export function globalRunMatchesSource(r: HCGlobalRun, config: HarrierCentralConfig): boolean {
+  if (config.publicKennelId) return r.PublicKennelId === config.publicKennelId;
+  if (config.kennelUniqueShortName) return r.KennelSlug === config.kennelUniqueShortName;
+  return false;
 }
 
 /**
@@ -290,155 +365,38 @@ export class HarrierCentralAdapter implements SourceAdapter {
     // A failure here must not fail the primary scrape — record it in
     // diagnosticContext (not `errors`) and proceed with undefined descriptions,
     // same convention as the FACEBOOK_HOSTED_EVENTS past-tab fetch.
-    let descriptionsById: Map<string, string> = new Map();
+    let globalRuns: HCGlobalRun[] = [];
     let descriptionFetchError: string | undefined;
     try {
-      descriptionsById = await fetchEventDescriptions();
+      globalRuns = await fetchGlobalFutureRuns();
     } catch (err) {
       descriptionFetchError = String(err);
     }
+    const descriptionsById = indexDescriptions(globalRuns);
 
     // Convert HC events to RawEventData
+    const ctx = { maxDate, compiledPatterns, descriptionsById };
+    const seenIds = new Set<string>();
     for (const hcEvent of hcEvents) {
-      if (!hcEvent.eventStartDatetime) continue;
-      if (!hcEvent.isVisible) continue;
+      seenIds.add(hcEvent.publicEventId);
+      const raw = hcEventToRawEvent(hcEvent, config, ctx);
+      if (raw) events.push(raw);
+    }
 
-      // Timestamps lack TZ offset (e.g., "2026-04-27T19:15:00"); date/time extraction
-      // via slice/regex is TZ-safe — only this maxDate comparison uses new Date()
-      const eventDate = new Date(hcEvent.eventStartDatetime);
-      if (eventDate > maxDate) continue;
-
-      const kennelTag = resolveKennelTag(hcEvent, config, compiledPatterns);
-      if (!kennelTag) continue;
-
-      const dateStr = hcEvent.eventStartDatetime.slice(0, 10); // "YYYY-MM-DD"
-      const timeMatch = hcEvent.eventStartDatetime.match(/T(\d{2}:\d{2})/);
-      const startTime = timeMatch ? timeMatch[1] : undefined;
-
-      let hares = stripPlaceholderHares(hcEvent.hares);
-      const location = composeHcLocation(
-        hcEvent.locationOneLineDesc,
-        hcEvent.resolvableLocation,
-        hcEvent.eventCityAndCountry,
-      );
-
-      // Data-entry safety net: when a kennel user pastes the same text into
-      // both the hare and location slots (observed on Tokyo H3 #2578, where
-      // both fields came back as "JR Keihintohoku line"), the hare slot is
-      // almost certainly the wrong one — you don't name a hare after a
-      // subway line. Null the hare but keep location; if the location text
-      // is also bad, the separate location-quality audit rules will flag
-      // it without this adapter erasing a potentially-valid value. See #521.
-      // #1642 extension: also strip when the hare text is a prefix/substring
-      // of the location AND looks address-shaped (contains a comma, a
-      // street-type token, or a leading street number). SG Sunday H3 #798
-      // had hares "Swiss Club Road, dead end old Turf City" and location
-      // "Swiss Club Road, dead end old Turf City, Singapore" — the location
-      // is just the hares value with ", Singapore" appended, but exact-match
-      // didn't catch it.
-      if (hares && location && haresLooksLikeLocation(hares, location)) {
-        hares = undefined;
+    // #2590/#2591: getEvents silently omits some kennels' upcoming runs that
+    // hashruns.org still lists (Newcastle H3: [] vs 34). Add those rows for
+    // this source's own kennel, mapped through the same rules.
+    const today = new Date().toISOString().slice(0, 10);
+    let globalRunsAdded = 0;
+    for (const run of globalRuns) {
+      if (seenIds.has(run.PublicEventId) || !globalRunMatchesSource(run, config)) continue;
+      if (!run.EventStartDatetime || run.EventStartDatetime.slice(0, 10) < today) continue;
+      seenIds.add(run.PublicEventId);
+      const raw = hcEventToRawEvent(globalRunToHcEvent(run), config, ctx);
+      if (raw) {
+        events.push(raw);
+        globalRunsAdded++;
       }
-      // #2408 Tokyo #2591: the hare slot byte-equals the raw venue/neighborhood
-      // ("Azabujuban"). The composed-location check above misses it (a single
-      // word with no address signals isn't caught once ", Tokyo, Japan" is
-      // appended), so compare against the raw place text too.
-      if (hares && haresEqualsRawPlace(hares, hcEvent.locationOneLineDesc, hcEvent.resolvableLocation)) {
-        hares = undefined;
-      }
-
-      // When HC's geocoder fails it returns the placeName verbatim as
-      // resolvableLocation and falls back to a region-default lat/lng (e.g.
-      // 35.685, 139.751 — the Imperial Palace area — for any un-geocoded
-      // Tokyo event, ~10 km from the actual meeting point). Drop those
-      // coords and let the merge pipeline geocode from the place text +
-      // kennel country bias instead. The match is intentionally
-      // case-insensitive on trimmed values to catch the common form (#957).
-      const dropApiCoords = hcGeocodeFailed(
-        hcEvent.locationOneLineDesc,
-        hcEvent.resolvableLocation,
-      );
-
-      // #2601: the adapter's long-standing comment here said sourceUrl was
-      // intentionally omitted because the hashruns.org Flutter UI's
-      // `#/event/${publicEventId}` links no longer resolve (#706, #725) — true
-      // of the OLD Flutter app, but hashruns.org has since been rebuilt as a
-      // Next.js SSR site (see reference_harrier_central_getevents_future_only
-      // memory note) with a DIFFERENT, currently-working per-run permalink:
-      // `hashruns.org/<kennelUniqueShortName>/<eventNumber>` (verified live
-      // 2026-08 against 7 different HC kennels — AH3, TITs, KRASHH3,
-      // Heraultics, BNH3, TNTH3, BeerH3, BSH3 — all 200 with real page content;
-      // an unknown run number 404s cleanly). Both fields are already present
-      // on every getEvents row, so build the link with no extra request.
-      const sourceUrl = buildHashrunsPermalink(hcEvent, config);
-
-      // #2626/#2569/#2553/#2550/#2539: join the best-effort description lookup
-      // (built once above) by PublicEventId, scrub PII, and cap length.
-      // Three-way tri-state, not a plain truthy check:
-      //   - row not indexed at all (enrichment fetch failed, OR hashruns.org
-      //     simply doesn't have this PublicEventId yet) → `undefined`, the
-      //     merge UPDATE path preserves any existing description. We have no
-      //     signal either way, so we must not clear a good existing value.
-      //   - row found, but EventDescription is empty/blank → `null`, an
-      //     explicit clear. The source positively told us there's no note
-      //     (any more) for this event; without this branch a description
-      //     removed at the source would stay stuck on the canonical event
-      //     forever, since `undefined` never overwrites.
-      //   - row found with real text → the scrubbed, capped description.
-      const descriptionRowFound = descriptionsById.has(hcEvent.publicEventId);
-      const rawDescription = descriptionsById.get(hcEvent.publicEventId);
-      const description = !descriptionRowFound
-        ? undefined
-        : rawDescription
-          ? scrubDescriptionPii(rawDescription).trim().substring(0, DESCRIPTION_MAX_LENGTH) || null
-          : null;
-
-      let title = applyTitleFallback(hcEvent.eventName, hcEvent.eventNumber, config);
-      // #2409 Tokyo #2583: the source stored the hare's hash name ("Back Door
-      // Hoe") as BOTH the title and the hares field; #2591 stored the
-      // neighborhood ("Azabujuban") as both title and venue. A title that
-      // byte-equals the hares or the raw venue is never a real run title —
-      // re-route through the stale-title fallback ("<defaultTitle> #N", or
-      // undefined → merge synthesizes "<Kennel> Trail #N"). hares is kept.
-      if (
-        title &&
-        (eqTrimLc(title, hares) ||
-          eqTrimLc(title, hcEvent.locationOneLineDesc) ||
-          eqTrimLc(title, hcEvent.resolvableLocation))
-      ) {
-        title = staleTitleFallback(hcEvent.eventNumber, config);
-      }
-
-      const raw: RawEventData = {
-        date: dateStr,
-        kennelTags: [kennelTag],
-        title,
-        description,
-        sourceUrl,
-        // Socials / "drinking practices" come back as eventNumber=0. Map that
-        // sentinel to null (explicit clear) and positive values to the number;
-        // anything else stays undefined so the merge UPDATE path preserves an
-        // existing runNumber on partial HC payloads (#892). `suppressRunNumber`
-        // opts a kennel out entirely when HC returns a stale current-number on
-        // every row (Manchester, #2654) → undefined = preserve, never assert.
-        runNumber: config.suppressRunNumber
-          ? undefined
-          : normalizeHcEventNumber(hcEvent.eventNumber),
-        startTime,
-        hares,
-        location,
-        latitude: dropApiCoords ? undefined : (hcEvent.syncLat != null ? hcEvent.syncLat : undefined),
-        longitude: dropApiCoords ? undefined : (hcEvent.syncLong != null ? hcEvent.syncLong : undefined),
-        // Tell the merge pipeline to bypass its existingCoords cache and
-        // re-geocode this event — without this signal, canonical events
-        // already storing HC's bad fallback pin would never be corrected
-        // because HC events have locationUrl === null and the cache short-
-        // circuit keys on (locationUrl unchanged + stored coords present).
-        // See #957 codex review.
-        ...(dropApiCoords ? { dropCachedCoords: true } : {}),
-      };
-
-      events.push(raw);
     }
 
     return {
@@ -450,10 +408,171 @@ export class HarrierCentralAdapter implements SourceAdapter {
         apiEventsReturned: hcEvents.length,
         eventsEmitted: events.length,
         descriptionsIndexed: descriptionsById.size,
+        globalRunsAdded,
         ...(descriptionFetchError ? { descriptionFetchError } : {}),
       },
     };
   }
+}
+
+/**
+ * Map one HC event to RawEventData (null = skip). Shared by the live
+ * `fetch()` loop and the hashruns.org global-runs history backfill
+ * (scripts/backfill-hc-global-runs-gaps.ts), so past runs recovered from the
+ * archive go through exactly the same title / hare / location / coord rules.
+ */
+export function hcEventToRawEvent(
+  hcEvent: HCEvent,
+  config: HarrierCentralConfig,
+  ctx: {
+    maxDate?: Date;
+    compiledPatterns?: readonly [RegExp, string][];
+    descriptionsById: Map<string, string>;
+  },
+): RawEventData | null {
+  const { maxDate, compiledPatterns, descriptionsById } = ctx;
+  if (!hcEvent.eventStartDatetime) return null;
+  if (!hcEvent.isVisible) return null;
+
+  // Timestamps lack TZ offset (e.g., "2026-04-27T19:15:00"); date/time extraction
+  // via slice/regex is TZ-safe — only this maxDate comparison uses new Date()
+  if (maxDate && new Date(hcEvent.eventStartDatetime) > maxDate) return null;
+
+  const kennelTag = resolveKennelTag(hcEvent, config, compiledPatterns);
+  if (!kennelTag) return null;
+
+  const dateStr = hcEvent.eventStartDatetime.slice(0, 10); // "YYYY-MM-DD"
+  const timeMatch = hcEvent.eventStartDatetime.match(/T(\d{2}:\d{2})/);
+  const startTime = timeMatch ? timeMatch[1] : undefined;
+
+  let hares = stripPlaceholderHares(hcEvent.hares);
+  // #2572: a kennel that gives only a what3words / maps link (DAFT H3) has
+  // the bare URL as its "location". The merge pipeline's location sanitizer
+  // drops URL-shaped text, so route it to locationUrl instead of losing it.
+  const { location, locationUrl } = composeHcLocationWithUrl(
+    hcEvent.locationOneLineDesc,
+    hcEvent.resolvableLocation,
+    hcEvent.eventCityAndCountry,
+  );
+
+  // Data-entry safety net: when a kennel user pastes the same text into
+  // both the hare and location slots (observed on Tokyo H3 #2578, where
+  // both fields came back as "JR Keihintohoku line"), the hare slot is
+  // almost certainly the wrong one — you don't name a hare after a
+  // subway line. Null the hare but keep location; if the location text
+  // is also bad, the separate location-quality audit rules will flag
+  // it without this adapter erasing a potentially-valid value. See #521.
+  // #1642 extension: also strip when the hare text is a prefix/substring
+  // of the location AND looks address-shaped (contains a comma, a
+  // street-type token, or a leading street number). SG Sunday H3 #798
+  // had hares "Swiss Club Road, dead end old Turf City" and location
+  // "Swiss Club Road, dead end old Turf City, Singapore" — the location
+  // is just the hares value with ", Singapore" appended, but exact-match
+  // didn't catch it.
+  if (hares && location && haresLooksLikeLocation(hares, location)) {
+    hares = undefined;
+  }
+  // #2408 Tokyo #2591: the hare slot byte-equals the raw venue/neighborhood
+  // ("Azabujuban"). The composed-location check above misses it (a single
+  // word with no address signals isn't caught once ", Tokyo, Japan" is
+  // appended), so compare against the raw place text too.
+  if (hares && haresEqualsRawPlace(hares, hcEvent.locationOneLineDesc, hcEvent.resolvableLocation)) {
+    hares = undefined;
+  }
+
+  // When HC's geocoder fails it returns the placeName verbatim as
+  // resolvableLocation and falls back to a region-default lat/lng (e.g.
+  // 35.685, 139.751 — the Imperial Palace area — for any un-geocoded
+  // Tokyo event, ~10 km from the actual meeting point). Drop those
+  // coords and let the merge pipeline geocode from the place text +
+  // kennel country bias instead. The match is intentionally
+  // case-insensitive on trimmed values to catch the common form (#957).
+  // A URL-only venue (w3w link) is not a geocoder failure: HC resolved it
+  // to real coords, so keep them (the link alone can't be geocoded).
+  const dropApiCoords =
+    !locationUrl &&
+    hcGeocodeFailed(hcEvent.locationOneLineDesc, hcEvent.resolvableLocation);
+
+  // #2601: the adapter's long-standing comment here said sourceUrl was
+  // intentionally omitted because the hashruns.org Flutter UI's
+  // `#/event/${publicEventId}` links no longer resolve (#706, #725) — true
+  // of the OLD Flutter app, but hashruns.org has since been rebuilt as a
+  // Next.js SSR site (see reference_harrier_central_getevents_future_only
+  // memory note) with a DIFFERENT, currently-working per-run permalink:
+  // `hashruns.org/<kennelUniqueShortName>/<eventNumber>` (verified live
+  // 2026-08 against 7 different HC kennels — AH3, TITs, KRASHH3,
+  // Heraultics, BNH3, TNTH3, BeerH3, BSH3 — all 200 with real page content;
+  // an unknown run number 404s cleanly). Both fields are already present
+  // on every getEvents row, so build the link with no extra request.
+  const sourceUrl = buildHashrunsPermalink(hcEvent, config);
+
+  // #2626/#2569/#2553/#2550/#2539: join the best-effort description lookup
+  // (built once above) by PublicEventId, scrub PII, and cap length.
+  // Three-way tri-state, not a plain truthy check:
+  //   - row not indexed at all (enrichment fetch failed, OR hashruns.org
+  //     simply doesn't have this PublicEventId yet) → `undefined`, the
+  //     merge UPDATE path preserves any existing description. We have no
+  //     signal either way, so we must not clear a good existing value.
+  //   - row found, but EventDescription is empty/blank → `null`, an
+  //     explicit clear. The source positively told us there's no note
+  //     (any more) for this event; without this branch a description
+  //     removed at the source would stay stuck on the canonical event
+  //     forever, since `undefined` never overwrites.
+  //   - row found with real text → the scrubbed, capped description.
+  const descriptionRowFound = descriptionsById.has(hcEvent.publicEventId);
+  const rawDescription = descriptionsById.get(hcEvent.publicEventId);
+  const description = !descriptionRowFound
+    ? undefined
+    : rawDescription
+      ? scrubDescriptionPii(rawDescription).trim().substring(0, DESCRIPTION_MAX_LENGTH) || null
+      : null;
+
+  let title = applyTitleFallback(hcEvent.eventName, hcEvent.eventNumber, config);
+  // #2409 Tokyo #2583: the source stored the hare's hash name ("Back Door
+  // Hoe") as BOTH the title and the hares field; #2591 stored the
+  // neighborhood ("Azabujuban") as both title and venue. A title that
+  // byte-equals the hares or the raw venue is never a real run title —
+  // re-route through the stale-title fallback ("<defaultTitle> #N", or
+  // undefined → merge synthesizes "<Kennel> Trail #N"). hares is kept.
+  if (
+    title &&
+    (eqTrimLc(title, hares) ||
+      eqTrimLc(title, hcEvent.locationOneLineDesc) ||
+      eqTrimLc(title, hcEvent.resolvableLocation))
+  ) {
+    title = staleTitleFallback(hcEvent.eventNumber, config);
+  }
+
+  return {
+    date: dateStr,
+    kennelTags: [kennelTag],
+    title,
+    description,
+    sourceUrl,
+    // Socials / "drinking practices" come back as eventNumber=0. Map that
+    // sentinel to null (explicit clear) and positive values to the number;
+    // anything else stays undefined so the merge UPDATE path preserves an
+    // existing runNumber on partial HC payloads (#892). `suppressRunNumber`
+    // opts a kennel out entirely when HC returns a stale current-number on
+    // every row (Manchester, #2654) → undefined = preserve, never assert.
+    runNumber: config.suppressRunNumber
+      ? undefined
+      : normalizeHcEventNumber(hcEvent.eventNumber),
+    startTime,
+    hares,
+    location,
+    ...(locationUrl ? { locationUrl } : {}),
+    latitude: dropApiCoords ? undefined : (hcEvent.syncLat != null ? hcEvent.syncLat : undefined),
+    longitude: dropApiCoords ? undefined : (hcEvent.syncLong != null ? hcEvent.syncLong : undefined),
+    // Tell the merge pipeline to bypass its existingCoords cache and
+    // re-geocode this event — without this signal, canonical events
+    // already storing HC's bad fallback pin would never be corrected
+    // because HC events have locationUrl === null and the cache short-
+    // circuit keys on (locationUrl unchanged + stored coords present).
+    // See #957 codex review.
+    ...(dropApiCoords ? { dropCachedCoords: true } : {}),
+  };
+
 }
 
 /**
@@ -795,6 +914,42 @@ export function composeHcLocation(
   if (segments.includes(placeLc)) return addressShaped;
   if (addressLc.startsWith(`${placeLc},`)) return addressShaped;
   return `${place}, ${addressShaped}`;
+}
+
+/**
+ * #2572: split a composed HC location that is nothing but a URL (DAFT H3 posts
+ * only a what3words link, e.g. "https://w3w.co/souk.rods.weeks") into
+ * `locationUrl`, leaving `location` undefined. Any location with real text
+ * around the URL is returned unchanged.
+ */
+export function splitUrlOnlyLocation(
+  location: string | undefined,
+): { location?: string; locationUrl?: string } {
+  const trimmed = location?.trim();
+  if (!trimmed) return {};
+  if (/^https?:\/\/\S+$/i.test(trimmed)) return { locationUrl: trimmed };
+  return { location: trimmed };
+}
+
+/**
+ * `composeHcLocation`, but a URL-only place (#2572 what3words link) is lifted
+ * into `locationUrl` first so it never gets ", City, Country" appended or
+ * reaches the location sanitizer (which drops URL-shaped text). A resolvable
+ * field that just echoes the URL is ignored; a real address in it still
+ * becomes `location`.
+ */
+export function composeHcLocationWithUrl(
+  placeName: string | undefined,
+  resolvable: string | undefined,
+  cityCountry?: string | undefined,
+): { location?: string; locationUrl?: string } {
+  const { locationUrl } = splitUrlOnlyLocation(placeName);
+  if (!locationUrl) {
+    return { location: composeHcLocation(placeName, resolvable, cityCountry) };
+  }
+  const resolvableUrl = splitUrlOnlyLocation(resolvable).locationUrl;
+  const location = resolvableUrl ? undefined : composeHcLocation(undefined, resolvable);
+  return { location, locationUrl };
 }
 
 /**
