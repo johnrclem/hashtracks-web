@@ -5,8 +5,7 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/lib/actions";
 import type { Prisma } from "@/generated/prisma/client";
-import { revokeStravaToken } from "@/lib/strava/client";
-import { decryptToken } from "@/lib/strava/crypto";
+import { revokeStravaRefreshToken } from "@/lib/strava/client";
 import { buildStravaUrl } from "@/lib/strava/url";
 import { syncStravaActivities } from "@/lib/strava/sync";
 import { stravaActivityKey } from "@/lib/strava/activity-key";
@@ -166,14 +165,14 @@ export async function disconnectStrava(): Promise<ActionResult> {
 
   const connection = await prisma.stravaConnection.findUnique({
     where: { userId: user.id },
+    select: { id: true, refreshToken: true },
   });
 
   if (!connection) return { error: "No Strava connection found" };
 
-  // Revoke access on Strava's end. Revoking the refresh token also revokes its
-  // access tokens, so no token refresh is needed first.
+  // Revoke access on Strava's end
   try {
-    await revokeStravaToken(decryptToken(connection.refreshToken), "refresh_token");
+    await revokeStravaRefreshToken(connection.refreshToken);
   } catch (err) {
     // Continue with local cleanup even if Strava revocation fails
     console.error("Strava token revocation error (continuing cleanup):", err);

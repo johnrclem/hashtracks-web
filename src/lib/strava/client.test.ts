@@ -6,7 +6,7 @@ import {
   extractStravaActivityId,
   exchangeStravaCode,
   refreshStravaToken,
-  revokeStravaToken,
+  revokeStravaRefreshToken,
   fetchStravaActivities,
 } from "./client";
 import type { StravaApiActivity } from "./types";
@@ -242,11 +242,12 @@ describe("refreshStravaToken", () => {
   });
 });
 
-describe("revokeStravaToken", () => {
+describe("revokeStravaRefreshToken", () => {
   it("POSTs the token to oauth/revoke with client Basic auth and a form body", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200 }));
 
-    await revokeStravaToken("my-refresh-token", "refresh_token");
+    // Legacy plaintext token: decryptToken passes it through unchanged
+    await revokeStravaRefreshToken("my-refresh-token");
 
     const [url, options] = vi.mocked(fetch).mock.calls[0];
     expect(url).toBe("https://www.strava.com/oauth/revoke");
@@ -261,9 +262,11 @@ describe("revokeStravaToken", () => {
     expect(body.get("token_type_hint")).toBe("refresh_token");
     // Client credentials travel only in the Authorization header
     expect(body.has("client_secret")).toBe(false);
+    // Disconnect must not hang on a slow Strava
+    expect(options?.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("retries once on 503 (Strava: safe to retry)", async () => {
+  it("retries once on 503 after a short pause (Strava: safe to retry)", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn()
@@ -271,7 +274,7 @@ describe("revokeStravaToken", () => {
         .mockResolvedValueOnce({ ok: true, status: 200 }),
     );
 
-    await revokeStravaToken("tok", "refresh_token");
+    await revokeStravaRefreshToken("tok");
 
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
   });
@@ -286,7 +289,7 @@ describe("revokeStravaToken", () => {
       }),
     );
 
-    await expect(revokeStravaToken("tok", "refresh_token")).rejects.toThrow(
+    await expect(revokeStravaRefreshToken("tok")).rejects.toThrow(
       "Strava token revocation failed (401)",
     );
   });
