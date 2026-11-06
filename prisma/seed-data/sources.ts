@@ -6172,6 +6172,8 @@ export const SOURCES = [
       // Trust 7 < the website's 8 (see below) so the website owns the
       // current-run venue/coords. Both dedup on (kennel, date) at merge.
       name: "North Shore Wanderers H3 Hareline Sheet",
+      // Club folded: last run Mon 21 Sep 2026 (#2585). Kept for history.
+      enabled: false,
       url: "https://docs.google.com/spreadsheets/d/14vp2bq4MYMLDGlxuIfZS8MeJpenzpBTOV2nWicrphSE/export?format=csv&gid=0",
       type: "GOOGLE_SHEETS" as const,
       trustLevel: 7,
@@ -6219,6 +6221,8 @@ export const SOURCES = [
       // order. Website and sheet never conflict on run #/hares (website = current
       // week, sheet = forward weeks).
       name: "North Shore Wanderers H3 Website",
+      // Club folded: last run Mon 21 Sep 2026 (#2585). Kept for history.
+      enabled: false,
       url: "https://www.nswhhh.info/home",
       type: "HTML_SCRAPER" as const,
       trustLevel: 8,
