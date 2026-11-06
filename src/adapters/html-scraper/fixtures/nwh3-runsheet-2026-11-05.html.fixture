@@ -1,0 +1,259 @@
+﻿<!DOCTYPE html>
+<html xml:lang="en" lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+    <title>North Wilts Hash House Harriers, Run Sheet</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="keywords"
+        content="hash, running club, running, drinking, social running, Swindon, Moonrakers, hashing" />
+
+    <meta name="description" content="North Wilts Hash House Harriers, NWH3. Runs every Sunday. A drinking club with a running problem.
+ Moonraker runs fortnightly on a Wednesday" />
+
+    <link href="steve.css" rel="stylesheet" />
+    <link href="runs.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div class="mainBody">
+        <div class="dropdown">
+            <button class="dropbtn">Menu</button>
+            <div class="dropdown-content">
+                <a href="index.html">Home</a>
+                <a href="runsheet.html">Run Sheet</a>
+                <a href="moonrakers.html">Moonrakers</a>
+                <a href="mismanagement.html">Mismanagement</a>
+                <a href="http://www.flickr.com/photos/kitkath3/sets/">Hash Flash</a>
+                <a href="runrecords.html">Run Records</a>
+                <a href="links.html">Links</a>
+            </div>
+        </div>
+        <header>
+            <h1 class="mainHeading">North Wilts Hash House Harriers</h1>
+            <h2 class="subHeading">Swindon’s Friendliest Running (and Walking) Club</h2>
+        </header>
+
+        <div class="main">
+            <div class="sideMenu">
+
+                <div class="menuButton">
+                    <a href="index.html">
+                        <img src="images/home.gif" alt="NWH3 Home" title="NWH3 Home" />
+                        Home
+                    </a>
+                </div>
+                <br />
+
+                <div class="menuButton">
+                    <a href="runsheet.html">
+                        <img src="images/ononfoot1.png" alt="Run Sheet" title="Run Sheet" />
+                        Run Sheet
+                    </a>
+                </div>
+
+                <br />
+                <div class="menuButton">
+                    <a href="moonrakers.html">
+                        <img src="images/MrMoon.png" alt="Moonrakers" title="Moonrakers" />
+                        Moonrakers
+                    </a>
+                </div>
+
+                <br />
+                <div class="menuButton">
+                    <a href="mismanagement.html">
+                        <img src="images/nwh3logo.png" alt="Mismanagement" title="Mismanagement" />
+                        Mismanagement
+                    </a>
+                </div>
+
+                <br />
+                <div class="menuButton">
+                    <a href="http://www.flickr.com/photos/kitkath3/sets/" target="_blank">
+                        <img src="images/hashflash.gif" alt="Hash Flash" title="Hash Flash" />
+                        Hash Flash
+                    </a>
+                </div>
+
+                <br />
+                <div class="menuButton">
+                    <a href="runrecords.html">
+                        <img src="images/trainers.png" alt="Run Records" title="Run Records" />
+                        Run Records
+                    </a>
+                </div>
+
+                <br />
+                <div class="menuButton">
+                    <a href="hashistory.html">
+                        <img src="images/goneonon.png" alt="Hashistory" title="Hashistory" />
+                        Hashistory
+                    </a>
+                </div>
+
+                <br />
+                <div class="menuButton">
+                    <a href="links.html">
+                        <img src="images/feetglobe.png" alt="Links" title="Links" />Links
+                    </a>
+                </div>
+
+                <div>
+                    <a href="https://twitter.com/NorthWiltsH3" target="_blank">
+                        <img src="images/twitter.png" alt="Twitter" title="Twitter" /></a>
+                </div>
+            </div>
+
+        <div class="contentBody">
+
+<div class="runList">
+    <ul>
+        <li class="runDate">08 November 2026 at 11am, run 2071</li>
+        <li class="runDetail">
+            <ul class="runDetailList">
+                <li class="runItem">The Barrington Arms</li>
+                <li class="runItem">Shrivenham, SN6 8AN<a href="https://www.google.co.uk/maps/place/Barrington+Arms+Hotel/@51.5966567,-1.7177201,13z/data=!4m9!3m8!1s0x487149383a61adb3:0x80cd217ce3ae5c1e!5m2!4m1!1i2!8m2!3d51.598896!4d-1.65339!16s%2Fg%2F1tzgj23q?entry=ttu&g_ep=EgoyMDI2MTAxOS4wIKXMDSoASAFQAw%3D%3D"  target="_blank"><img src="images/buttonmap.gif" alt="map" title="map" /></a ></li>
+                <li class="runItem">Babe & Utterly Butterly</li>
+            </ul>
+        </li>
+    </ul>
+</div>
+<div class="runList">
+    <ul>
+        <li class="runDate">15 November 2026 at 11am, run 2072</li>
+        <li class="runDetail">
+            <ul class="runDetailList">
+                <li class="runItem">The Three Crowns</li>
+                <li class="runItem">Brinkworth, SN15 5AF</li>
+                <li class="runItem">Lady Garden/Turd Tugger</li>
+            </ul>
+        </li>
+    </ul>
+</div>
+<div class="runList">
+    <ul>
+        <li class="runDate">22 November 2026 at 11am, run 2073</li>
+        <li class="runDetail">
+            <ul class="runDetailList">
+                <li class="runItem">The Tunnel House</li>
+                <li class="runItem">Coates, GL7 6PW</li>
+                <li class="runItem">Miss Malaprop & Dr Doolittle</li>
+            </ul>
+        </li>
+    </ul>
+</div>
+<div class="runList">
+    <ul>
+        <li class="runDate">29 November 2026 at 11am, run 2074</li>
+        <li class="runDetail">
+            <ul class="runDetailList">
+                <li class="runItem">The Hickory Smokehouse</li>
+                <li class="runItem">Middleleaze Drive,SN5 5TZ </li>
+                <li class="runItem">Trihard & SuperFanny</li>
+            </ul>
+        </li>
+    </ul>
+</div>
+<div class="runList">
+    <ul>
+        <li class="runDate">06 December 2026 at 11am, run 2075</li>
+        <li class="runDetail">
+            <ul class="runDetailList">
+                <li class="runItem">TBA</li>
+                <li class="runItem">TBA</li>
+                <li class="runItem">Cybersex</li>
+            </ul>
+        </li>
+    </ul>
+</div>
+<div class="runList">
+    <ul>
+        <li class="runDate">13 December 2026 at 11am, run 2076</li>
+        <li class="runDetail">
+            <ul class="runDetailList">
+                <li class="runItem">The White Hart</li>
+                <li class="runItem">Ashton Keynes, SN6 6NX</li>
+                <li class="runItem">Janisch Family/Dr D</li>
+            </ul>
+        </li>
+    </ul>
+</div>
+<div class="runList">
+    <ul>
+        <li class="runDate">20 December 2026 at 11am, run 2077</li>
+        <li class="runDetail">
+            <ul class="runDetailList">
+                <li class="runItem">Xmas Jumper Run</li>
+                <li class="runItem">Bath</li>
+                <li class="runItem">Semi On & Package</li>
+            </ul>
+        </li>
+    </ul>
+</div>
+<div class="runList">
+    <ul>
+        <li class="runDate">26 December 2026 at 11am, run 2078</li>
+        <li class="runDetail">
+            <ul class="runDetailList">
+                <li class="runItem">Boxing Day Run</li>
+                <li class="runItem">TBA</li>
+                <li class="runItem">Flicker</li>
+            </ul>
+        </li>
+    </ul>
+</div>
+<div class="runList">
+    <ul>
+        <li class="runDate">03 January 2027 at 11am, run 2079</li>
+        <li class="runDetail">
+            <ul class="runDetailList">
+                <li class="runItem">Chedworth Village Hall, GL54 4NQ</li>
+                <li class="runItem">On Inn to The Stump, Foss Cross</li>
+                <li class="runItem">Stickman and Package</li>
+            </ul>
+        </li>
+    </ul>
+</div>
+
+     
+
+                <br />
+                <br />
+                <p>
+                    <img class="runPic" src="images/hashgym.jpg" alt="Hash Gym Cartoon" title="Hash Gym Cartoon" />
+                </p>
+
+
+                <p>
+                    <img class="runPic" src="images/brussels.jpg" alt="NWH3 at Brussels July 2014"
+                        title="NWH3 at Brussels July 2014" />
+                </p>
+                <p>Secret Seven on tour! NWH3 at Brussels July 2014</p>
+                <p>
+                    <img class="runPic" src="images/kitkatmombasa.png" alt="KitKat in Mombasa"
+                        title="KitKat in Mombasa" />
+                </p>
+                <p>Kitkat all washed up in Mombasa or the rear half of a pantomime horse?? 2012</p>
+                <p>
+                    <img class="runPic" src="images/waterfun.png" alt="Hashing in the water"
+                        title="Hashing in the water" />
+                </p>
+                <p>Mudplugger giving a helpful (?) push at the Woodbridge Inn Hash 2011</p>
+                <p>
+                    <img class="runPic" src="images/woodrun.png" alt="Hashing in the woods"
+                        title="Hashing in the woods" />
+                </p>
+                <p>Package being an FRB?</p>
+
+            </div>
+            <br class="clearer" />
+
+
+        </div>
+    </div>
+
+
+</body>
+
+</html>
