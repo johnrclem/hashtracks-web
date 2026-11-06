@@ -1702,7 +1702,8 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 51.9007,
     centroidLng: -1.1522,
     aliases: ["Bicester, England", "Oxfordshire"],
-  },  {
+  },
+  {
     name: "Oxford",
     country: "UK",
     timezone: "Europe/London",
