@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
-import { SOH4Adapter, parseTrailPageHtml, parseRssItems, extractTrailNumber } from "./soh4";
+import { SOH4Adapter, cleanTrailTitle, parseTrailPageHtml, parseRssItems, extractTrailNumber } from "./soh4";
 
 vi.mock("@/adapters/safe-fetch", () => ({ safeFetch: vi.fn() }));
 vi.mock("@/pipeline/structure-hash", () => ({
@@ -312,5 +312,37 @@ describe("SOH4Adapter.fetch", () => {
     const result = await new SOH4Adapter().fetch(soh4Source());
     const e = result.events.find((ev) => ev.runNumber === 825);
     expect(e?.title).toBe("SOH4 Trail #825"); // not "TBD"
+  });
+});
+
+describe("cleanTrailTitle", () => {
+  it("strips the legacy 'Trail #NNN:' prefix", () => {
+    expect(cleanTrailTitle("Trail #836: A Romp around Solvay !!!!")).toBe("A Romp around Solvay !!!!");
+    expect(cleanTrailTitle("Trail 833: Donut Holes Trail")).toBe("Donut Holes Trail");
+  });
+
+  it("strips the post-relaunch 'NNN – Name' prefix (en dash or entity)", () => {
+    expect(cleanTrailTitle("869 – Beaver Moon")).toBe("Beaver Moon");
+    expect(cleanTrailTitle("869 &#8211; Beaver Moon")).toBe("Beaver Moon");
+    expect(cleanTrailTitle("867 - Pickle Trail")).toBe("Pickle Trail");
+  });
+
+  it("strips the doubled prefix the relaunched theme renders", () => {
+    expect(cleanTrailTitle("Trail #868: 868 – Yellow Jackets")).toBe("Yellow Jackets");
+    expect(cleanTrailTitle("Trail #870: 870")).toBeUndefined();
+  });
+
+  it("returns undefined for a bare run-number heading", () => {
+    expect(cleanTrailTitle("870")).toBeUndefined();
+    expect(cleanTrailTitle("#891")).toBeUndefined();
+  });
+
+  it("returns undefined for placeholder names", () => {
+    expect(cleanTrailTitle("Trail #836: TBD")).toBeUndefined();
+    expect(cleanTrailTitle(undefined)).toBeUndefined();
+  });
+
+  it("keeps a title that merely starts with a year", () => {
+    expect(cleanTrailTitle("2026 Pride Parade")).toBe("2026 Pride Parade");
   });
 });
