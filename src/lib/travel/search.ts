@@ -25,6 +25,7 @@ import {
   projectionHorizonForStart,
   filterProjectionsByHorizon,
   buildRuleAgreementMap,
+  selectBestProjections,
   CONFIRMED_EVENT_HORIZON_DAYS,
   AGREEMENT_LOOKBACK_DAYS,
   DAY_MS,
@@ -633,7 +634,8 @@ async function runStopSearch(
     validFrom: r.validFrom,
     validUntil: r.validUntil,
   }));
-  const projections = projectTrails(ruleInputs, startDate, projectionEndDate);
+  // Undeduped: each rule is scored on its own record before picking a slot's winner (Step 7).
+  const projections = projectTrails(ruleInputs, startDate, projectionEndDate, { dedupe: false });
 
   // Step 7: Score confidence using evidence events (last ~12 weeks ≈ 84 days,
   // close to the 90-day window the scoring function expects) plus each rule's own
@@ -644,7 +646,9 @@ async function runStopSearch(
     (kennelId) => independentByKennel.get(kennelId),
     now,
   );
-  const scoredProjections = scoreProjections(projections, kennelMap, scheduleRules, evidenceEvents, ruleAgreement, now);
+  const scoredProjections = selectBestProjections(
+    scoreProjections(projections, kennelMap, scheduleRules, evidenceEvents, ruleAgreement, now),
+  );
 
   // Step 9: Deduplicate projections against confirmed events.
   // A confirmed event renders under whichever NEARBY kennel matched (the

@@ -196,11 +196,17 @@ function projectScheduledRule(
  *
  * HIGH/MEDIUM rules produce date-specific projections via the RRULE engine.
  * LOW rules produce a single "possible activity" entry with `date: null`.
+ *
+ * By default overlapping projections (same kennel/date/time from several rules) collapse to
+ * the highest BASE confidence. Callers that re-score per rule (the agreement gate can demote
+ * the base winner below a sibling rule) pass `{ dedupe: false }`, score every projection, then
+ * call `selectBestProjections` on the scored list.
  */
 export function projectTrails(
   rules: ScheduleRuleInput[],
   windowStart: Date,
   windowEnd: Date,
+  { dedupe = true }: { dedupe?: boolean } = {},
 ): ProjectedTrail[] {
   const results: ProjectedTrail[] = [];
   for (const rule of rules) {
@@ -221,14 +227,16 @@ export function projectTrails(
     }
   }
 
-  // Deduplicate by (kennelId, date): when multiple rules generate projections
-  // for the same kennel on the same date (e.g. STATIC_SCHEDULE + SEED_DATA both
-  // produce "Saturday"), keep only the highest-confidence one. This prevents
-  // duplicate travel result cards for the same trail.
-  const deduped = deduplicateProjectionsByKennelDate(results);
+  return dedupe ? selectBestProjections(results) : results;
+}
 
-  // Sort: date-specific results first (by date asc), then null-date results
-  return deduped.sort((a, b) => {
+/**
+ * Keep the highest-confidence projection per (kennelId, date, startTime) — e.g. STATIC_SCHEDULE
+ * + SEED_DATA rules both producing "Saturday" — so Travel never shows duplicate cards for one
+ * trail, then sort: dated results first (by date asc), then null-date results.
+ */
+export function selectBestProjections<T extends ProjectedTrail>(projections: T[]): T[] {
+  return deduplicateProjectionsByKennelDate(projections).sort((a, b) => {
     if (a.date && b.date) return a.date.getTime() - b.date.getTime();
     if (a.date && !b.date) return -1;
     if (!a.date && b.date) return 1;
@@ -244,10 +252,8 @@ const CONFIDENCE_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
  * key so legitimate same-day double trails (e.g., morning and evening runs) are
  * preserved. Null-date entries (possible activity) are deduped by kennelId alone.
  */
-function deduplicateProjectionsByKennelDate(
-  projections: ProjectedTrail[],
-): ProjectedTrail[] {
-  const best = new Map<string, ProjectedTrail>();
+function deduplicateProjectionsByKennelDate<T extends ProjectedTrail>(projections: T[]): T[] {
+  const best = new Map<string, T>();
   for (const proj of projections) {
     // KNOWN LIMITATION: all date-null ("possible activity") projections for a
     // kennel share the `__possible__` key, so a kennel with TWO distinct LOW
@@ -381,7 +387,9 @@ export function measureRuleAgreement(
   const today = utcMidnightMs(now);
   const windowStart = new Date(today - AGREEMENT_WINDOW_DAYS * DAY_MS);
   const predicted = new Set<number>();
-  for (const p of projectTrails([rule], windowStart, new Date(today - DAY_MS))) {
+  // End 1 ms before today's midnight: occurrences are dated at UTC noon and the window end is
+  // inclusive, so ending at yesterday's midnight would drop yesterday's run.
+  for (const p of projectTrails([rule], windowStart, new Date(today - 1))) {
     if (p.date) predicted.add(utcMidnightMs(p.date));
   }
   if (predicted.size === 0) return { observed: 0, hits: 0 };

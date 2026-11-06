@@ -49,6 +49,7 @@ import {
   deduplicateAgainstConfirmed,
   projectionHorizonForStart,
   buildRuleAgreementMap,
+  selectBestProjections,
   type RuleAgreement,
   type ScheduleRuleInput,
   type ProjectedTrail,
@@ -163,17 +164,20 @@ function scoreProjectionsAsOf(
 ): ProjectedTrail[] {
   const ctx = kennelCtx(kennel, lastEventDateAsOf);
   const nowMs = reference.getTime();
-  return projections.map((proj) => ({
-    ...proj,
-    confidence: scoreConfidence(
-      proj.confidence,
-      ctx,
-      evidenceCount,
-      ruleValidation.get(proj.scheduleRuleId) ?? null,
-      nowMs,
-      agreement.get(proj.scheduleRuleId),
-    ),
-  }));
+  // Callers pass undeduped projections; pick each slot's winner by SCORED confidence (as search does).
+  return selectBestProjections(
+    projections.map((proj) => ({
+      ...proj,
+      confidence: scoreConfidence(
+        proj.confidence,
+        ctx,
+        evidenceCount,
+        ruleValidation.get(proj.scheduleRuleId) ?? null,
+        nowMs,
+        agreement.get(proj.scheduleRuleId),
+      ),
+    })),
+  );
 }
 
 /**
@@ -231,7 +235,7 @@ function censusForKennel(
   let visibleDated: ProjectedTrail[] = [];
   if (hasRule) {
     const ruleInputs = rules.map(ruleToInput);
-    const raw = projectTrails(ruleInputs, today, maxHorizonEnd);
+    const raw = projectTrails(ruleInputs, today, maxHorizonEnd, { dedupe: false });
     const ruleValidation = new Map<string, Date | null>(
       rules.map((r) => [r.id, r.lastValidatedAt]),
     );
@@ -372,7 +376,7 @@ function backtest(
     // Project + score AS-OF the reference date. No dedup-against-confirmed here:
     // we WANT to keep predictions to compare them against actuals.
     const ruleInputs = rules.map(ruleToInput);
-    const raw = projectTrails(ruleInputs, reference, windowEnd);
+    const raw = projectTrails(ruleInputs, reference, windowEnd, { dedupe: false });
     const ruleValidation = new Map<string, Date | null>(
       // Treat validation as unknown as-of R — don't assume future validation existed.
       rules.map((r) => [r.id, null]),
@@ -527,7 +531,7 @@ function buildContradicted(
       const eligible = eligibleInRange(events, reference, windowEnd).map((e) => e.date);
       if (eligible.length === 0) continue; // unverifiable in this window
       const ruleInputs = rules.map(ruleToInput);
-      const raw = projectTrails(ruleInputs, reference, windowEnd);
+      const raw = projectTrails(ruleInputs, reference, windowEnd, { dedupe: false });
       const evidenceCount = eligibleInRange(
         events,
         addDays(reference, -EVIDENCE_WINDOW_DAYS),

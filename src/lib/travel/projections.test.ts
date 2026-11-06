@@ -11,6 +11,7 @@ import {
   applyAgreementGate,
   measureRuleAgreement,
   buildRuleAgreementMap,
+  selectBestProjections,
   type ScheduleRuleInput,
   type ConfirmedEventRef,
 } from "./projections";
@@ -326,6 +327,30 @@ describe("scoreConfidence", () => {
 // Rule agreement (evidence gate)
 // ============================================================================
 
+describe("projectTrails dedupe option + selectBestProjections", () => {
+  const start = utcNoon("2026-04-01");
+  const end = utcNoon("2026-04-30");
+  const rules = [
+    makeRule({ id: "weekly", confidence: "HIGH" }),
+    makeRule({ id: "third", rrule: "FREQ=MONTHLY;BYDAY=3SA", confidence: "MEDIUM" }),
+  ];
+
+  it("keeps every rule's projection when dedupe is off", () => {
+    const apr18 = projectTrails(rules, start, end, { dedupe: false }).filter((p) => p.date?.toISOString().startsWith("2026-04-18"));
+    expect(apr18.map((p) => p.scheduleRuleId).sort()).toEqual(["third", "weekly"]);
+  });
+
+  it("selectBestProjections keeps the highest SCORED confidence per slot", () => {
+    const rescored = projectTrails(rules, start, end, { dedupe: false }).map((p) => ({
+      ...p,
+      confidence: p.scheduleRuleId === "weekly" ? ("low" as const) : p.confidence,
+    }));
+    const apr18 = selectBestProjections(rescored).filter((p) => p.date?.toISOString().startsWith("2026-04-18"));
+    expect(apr18).toHaveLength(1);
+    expect(apr18[0].scheduleRuleId).toBe("third");
+  });
+});
+
 describe("applyAgreementGate", () => {
   it("abstains on thin or missing evidence", () => {
     expect(applyAgreementGate("high", null)).toBe("high");
@@ -378,6 +403,12 @@ describe("measureRuleAgreement", () => {
     const onPhase = makeRule({ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-08-15" });
     expect(measureRuleAgreement(offPhase, realRuns, now)).toEqual({ observed: 6, hits: 0 });
     expect(measureRuleAgreement(onPhase, realRuns, now)).toEqual({ observed: 6, hits: 6 });
+  });
+
+  it("includes yesterday's occurrence (window ends just before today's midnight)", () => {
+    // Sunday Nov 8: the run the day before (Sat Nov 7) must be replayed and matched.
+    const sunday = utcNoon("2026-11-08");
+    expect(measureRuleAgreement(makeRule(), runsOn("2026-08-22", 12), sunday)).toEqual({ observed: 12, hits: 12 });
   });
 
   it("ignores events on or after `now` so an as-of replay can't see the future", () => {

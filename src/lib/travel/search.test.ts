@@ -490,6 +490,23 @@ describe("executeTravelSearch", () => {
       expect(result.likely).toHaveLength(0);
     });
 
+    it("picks a slot's winner after scoring, so a demoted rule can't hide a sibling rule", async () => {
+      // Runs only on the 3rd Saturday (Jan 17, Feb 21, Mar 21). A HIGH weekly-Saturday rule is
+      // contradicted (2 of 11 observed Saturdays) and drops to LOW; a MEDIUM 3rd-Saturday rule
+      // (too few observed dates to judge) stays MEDIUM. Both project Apr 18 at 14:00 — the
+      // MEDIUM rule must win the slot instead of being discarded by base-confidence dedup.
+      const thirdSaturdays: MockEvent[] = ["2026-01-17", "2026-02-21", "2026-03-21"].map((d, i) => ({
+        ...testEvent, id: `e-3sa-${i}`, date: utcNoon(d),
+      }));
+      const weeklyHigh: MockScheduleRule = { ...testRule, id: "r-weekly", confidence: "HIGH", lastValidatedAt: null };
+      const thirdSat: MockScheduleRule = { ...testRule, id: "r-3sa", rrule: "FREQ=MONTHLY;BYDAY=3SA", lastValidatedAt: null };
+      const prisma = createMockPrisma([testKennel], thirdSaturdays, [weeklyHigh, thirdSat]);
+      const result = await executeTravelSearch(prisma, baseParams);
+      const apr18 = result.likely.filter((l) => l.date.toISOString().startsWith("2026-04-18"));
+      expect(apr18).toHaveLength(1);
+      expect(apr18[0].confidence).toBe("medium");
+    });
+
     it("ignores STATIC_SCHEDULE-only evidence (circular) and keeps the rule", async () => {
       const prisma = createMockPrisma(
         [testKennel],

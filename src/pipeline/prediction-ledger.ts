@@ -23,6 +23,7 @@ import {
   projectTrails,
   scoreConfidence,
   buildRuleAgreementMap,
+  selectBestProjections,
   PREDICTION_MATCH_TOL_DAYS,
   PREDICTION_OBSERVE_TOL_DAYS,
   type ScheduleRuleInput,
@@ -279,7 +280,8 @@ function buildKennelSnapshotRows(
     startTime: r.startTime, confidence: r.confidence, notes: r.notes,
     label: r.label, validFrom: r.validFrom, validUntil: r.validUntil,
   }));
-  const projections = projectTrails(ruleInputs, now, windowEnd);
+  // Undeduped: each rule is scored on its own record before picking a slot's winner.
+  const projections = projectTrails(ruleInputs, now, windowEnd, { dedupe: false });
   const evidenceCount = kEvents.filter(
     (e) => e.date.getTime() >= now.getTime() - EVIDENCE_WINDOW_DAYS * DAY_MS && e.date.getTime() <= now.getTime(),
   ).length;
@@ -291,13 +293,20 @@ function buildKennelSnapshotRows(
     scheduleTime: k.scheduleTime, scheduleFrequency: k.scheduleFrequency, lastEventDate: k.lastEventDate,
   };
 
+  const scored = selectBestProjections(
+    projections.map((proj) => ({
+      ...proj,
+      confidence: scoreConfidence(
+        proj.confidence, ctx, evidenceCount, ruleValidation.get(proj.scheduleRuleId) ?? null, now.getTime(),
+        agreement.get(proj.scheduleRuleId),
+      ),
+    })),
+  );
+
   const rows: Prisma.PredictionSnapshotCreateManyInput[] = [];
-  for (const proj of projections) {
+  for (const proj of scored) {
+    const { confidence } = proj;
     if (!proj.date) continue; // LOW/possible — not date-scorable
-    const confidence = scoreConfidence(
-      proj.confidence, ctx, evidenceCount, ruleValidation.get(proj.scheduleRuleId) ?? null, now.getTime(),
-      agreement.get(proj.scheduleRuleId),
-    );
     if (confidence !== "high" && confidence !== "medium") continue;
     const nowDaysOut = daysBetween(now, proj.date);
     const prevDaysOut = lastSuccessfulRunAt ? daysBetween(lastSuccessfulRunAt, proj.date) : null;
