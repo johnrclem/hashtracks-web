@@ -29,6 +29,7 @@ import { AtlantaHashBoardAdapter } from "./html-scraper/atlanta-hash-board";
 import { NorthboroHashAdapter } from "./html-scraper/northboro-hash";
 import { DublinHashAdapter } from "./html-scraper/dublin-hash";
 import { HertsHashAdapter } from "./html-scraper/herts-hash";
+import { DonningtonHashAdapter } from "./html-scraper/donnington-hash";
 import { FukFullMoonH3Adapter } from "./html-scraper/fuk-full-moon";
 import { TidewaterH3Adapter } from "./html-scraper/tidewater-h3";
 import { DesertHashAdapter } from "./html-scraper/desert-hash";
@@ -202,6 +203,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /northboroh3\.com/i,             name: "NorthboroHashAdapter",    factory: () => new NorthboroHashAdapter() },
   { pattern: /dublinhhh\.com/i,              name: "DublinHashAdapter",       factory: () => new DublinHashAdapter() },
   { pattern: /hertshash\.co\.uk/i,           name: "HertsHashAdapter",        factory: () => new HertsHashAdapter() },
+  { pattern: /donningtonh3\.co\.uk/i,       name: "DonningtonHashAdapter",   factory: () => new DonningtonHashAdapter() },
   { pattern: /fukfmh3\.co\.uk/i,             name: "FukFullMoonH3Adapter",    factory: () => new FukFullMoonH3Adapter() },
   { pattern: /tidewaterh3\.org/i,            name: "TidewaterH3Adapter",      factory: () => new TidewaterH3Adapter() },
   // Desert H3 (HashTracks' first UAE kennel, Dubai's oldest hash, est. 1979) — deserthash.org

@@ -8932,6 +8932,17 @@ export const SOURCES = [
       kennelCodes: ["fukfm"],
     },
     {
+      name: "Donnington H3 Website",
+      url: "https://www.donningtonh3.co.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Rolling forward table — past runs age off; history is a frozen backfill.
+      config: { upcomingOnly: true },
+      kennelCodes: ["donnington-h3"],
+    },
+    {
       name: "Bicester H3 Events (The Events Calendar iCal)",
       url: "http://bicesterh3.com/?post_type=tribe_events&ical=1&eventDisplay=list", // NOSONAR — HTTP-only: HTTPS fails TLS verification (self-signed cert, checked 2026-11-05)
       type: "ICAL_FEED" as const,
