@@ -1,0 +1,1862 @@
+{
+  "yh3": [
+    {
+      "date": "2026-01-23",
+      "kennelTags": [
+        "yh3"
+      ],
+      "title": "AGPU Weekend",
+      "runNumber": 2200,
+      "startTime": "19:00",
+      "location": "Mystery spot"
+    },
+    {
+      "date": "2026-01-24",
+      "kennelTags": [
+        "yh3"
+      ],
+      "title": "AGPU Weekend",
+      "runNumber": 2201,
+      "startTime": "10:00",
+      "hares": "Pints",
+      "location": "Chevin Country Park Hotel, Otley",
+      "latitude": 53.89238966310215,
+      "longitude": -1.679792979279229
+    },
+    {
+      "date": "2026-01-25",
+      "kennelTags": [
+        "yh3"
+      ],
+      "title": "AGPU Weekend",
+      "runNumber": 2202,
+      "startTime": "11:00",
+      "location": "Chevin Country Park Hotel",
+      "latitude": 53.89061,
+      "longitude": -1.67864
+    },
+    {
+      "date": "2026-02-08",
+      "kennelTags": [
+        "yh3"
+      ],
+      "title": "Yorkshire H3 #2193",
+      "runNumber": 2193,
+      "startTime": "11:00",
+      "hares": "Rivet and Little Stiffy"
+    },
+    {
+      "date": "2026-02-22",
+      "kennelTags": [
+        "yh3"
+      ],
+      "title": "Yorkshire H3 #2194",
+      "runNumber": 2194,
+      "startTime": "11:00",
+      "hares": "Bookend and Rapunzel"
+    },
+    {
+      "date": "2026-08-23",
+      "kennelTags": [
+        "yh3"
+      ],
+      "title": "Yorkshire H3 #2195",
+      "runNumber": 2195,
+      "startTime": "11:00",
+      "hares": "HRT and Footloose",
+      "location": "The Navigation Inn, Chapel Lane, Sowerby Bridge, HX6 3LF.\nW3W///limbs.panel.horn",
+      "latitude": 53.71050655093007,
+      "longitude": -1.9001023081113
+    },
+    {
+      "date": "2026-09-06",
+      "kennelTags": [
+        "yh3"
+      ],
+      "title": "YH3 run 2208",
+      "runNumber": 2208,
+      "startTime": "11:00",
+      "hares": "Bookend and Rapunzel",
+      "location": "Waggon and Horses, 3 Great North Road, Fairburn, WF11 9JY"
+    },
+    {
+      "date": "2026-09-20",
+      "kennelTags": [
+        "yh3"
+      ],
+      "title": "YH3 #2209 The Boathouse Inn, Victoria Road, Saltaire, BD18 3LA",
+      "runNumber": 2209,
+      "startTime": "11:00",
+      "hares": "Jake the Peg",
+      "location": "The Boathouse Inn, Victoria Road, Saltaire, BD18 3LA",
+      "latitude": 53.839223750361285,
+      "longitude": -1.78951203482499
+    },
+    {
+      "date": "2026-10-04",
+      "kennelTags": [
+        "yh3"
+      ],
+      "title": "Yorkshire H3 Sunday Trail. The Fox at Thorner, LS14 3DX",
+      "runNumber": 2210,
+      "startTime": "11:00",
+      "hares": "Lilly the Pink and Grope",
+      "location": "The Fox at Thorner, 37 Main Street, Thorner, Leeds LS14 3DX",
+      "latitude": 53.85757755509765,
+      "longitude": -1.428067953552708
+    },
+    {
+      "date": "2026-10-17",
+      "kennelTags": [
+        "yh3"
+      ],
+      "title": "YH3 on a SATURDAY!",
+      "runNumber": 2211,
+      "location": "The Red Lion Country Pub, Worsbrough S70 5LJ (West Barnsley J36 M1)"
+    },
+    {
+      "date": "2026-10-31",
+      "kennelTags": [
+        "yh3"
+      ],
+      "title": "YH3 #2212 Halloween Trail - SATURDAY!",
+      "runNumber": 2212,
+      "startTime": "11:00",
+      "hares": "HRT and Footloose",
+      "location": "Hollins Mill (previously ‘The Works’), Sowerby Bridge",
+      "latitude": 53.70891483371127,
+      "longitude": -1.912768165291372
+    }
+  ],
+  "oph3": [
+    {
+      "date": "2026-08-26",
+      "kennelTags": [
+        "oph3"
+      ],
+      "title": "OPH3 - 382 (DHP)",
+      "runNumber": 382,
+      "startTime": "19:00",
+      "hares": "Drink Her Pretty",
+      "location": "The Current Typhoon Hash Start",
+      "latitude": 26.3387332,
+      "longitude": 127.8343401
+    },
+    {
+      "date": "2026-09-17",
+      "kennelTags": [
+        "oph3"
+      ],
+      "title": "OPH3 - 383 (DHP)",
+      "runNumber": 383,
+      "startTime": "19:00",
+      "hares": "Drink Her Pretty",
+      "location": "Yomitan Airfield (HW 12)",
+      "latitude": 26.40434,
+      "longitude": 127.74652
+    }
+  ],
+  "bdh3-uk": [
+    {
+      "date": "2024-09-08",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "BDH3 #154 - West Ealing",
+      "runNumber": 1,
+      "startTime": "12:00",
+      "hares": "Pope",
+      "location": "Crayton Court Hotel",
+      "latitude": 51.51434,
+      "longitude": -0.31925
+    },
+    {
+      "date": "2024-09-22",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "Run no 154",
+      "runNumber": 154,
+      "startTime": "12:15",
+      "hares": "Standard deviant",
+      "location": "Bulls head strand in the green",
+      "latitude": 51.48325858809228,
+      "longitude": -0.277197867948043
+    },
+    {
+      "date": "2024-10-13",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "Bulls head",
+      "runNumber": 155,
+      "startTime": "12:15",
+      "hares": "Standard deviant",
+      "location": "Bulls head strand in the green",
+      "latitude": 51.48425498547215,
+      "longitude": -0.277929193760611
+    },
+    {
+      "date": "2024-10-27",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "run 156",
+      "runNumber": 156,
+      "startTime": "12:00",
+      "location": "Ravenscourt tube is the nearest station"
+    },
+    {
+      "date": "2024-11-10",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "BDH3 #157 - Brentford",
+      "runNumber": 157,
+      "startTime": "12:15",
+      "hares": "Pope",
+      "location": "The Brook",
+      "latitude": 51.488359090480195,
+      "longitude": -0.304660672542307
+    },
+    {
+      "date": "2024-11-24",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "BDH3 #158 - Battersea",
+      "runNumber": 158,
+      "startTime": "12:00",
+      "hares": "Beetroot",
+      "location": "The Woodman",
+      "latitude": 51.4737842,
+      "longitude": -0.1736061
+    },
+    {
+      "date": "2024-12-08",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "BDH3 #159 - Northfields",
+      "runNumber": 159,
+      "startTime": "12:00",
+      "hares": "Pope",
+      "location": "Ryan's",
+      "latitude": 51.4983764,
+      "longitude": -0.3140157
+    },
+    {
+      "date": "2024-12-22",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "BDH3 #160 - Hanwell",
+      "runNumber": 160,
+      "startTime": "12:00",
+      "hares": "Rambo",
+      "location": "The Viaduct",
+      "latitude": 51.5084263,
+      "longitude": -0.34192
+    },
+    {
+      "date": "2025-01-12",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "BDH3 #161 - Hammersmith",
+      "runNumber": 161,
+      "startTime": "12:00",
+      "hares": "Pope",
+      "location": "The Queen's Head",
+      "latitude": 51.496001,
+      "longitude": -0.220675
+    },
+    {
+      "date": "2025-01-26",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "BDH3 #162 - Ealing",
+      "runNumber": 162,
+      "startTime": "12:00",
+      "hares": "Ryde, Tablewhine",
+      "location": "The Haven Arms",
+      "latitude": 51.51692466969627,
+      "longitude": -0.30007605109293
+    },
+    {
+      "date": "2025-02-09",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "BDH3 #163 - Goldhawk Road",
+      "runNumber": 163,
+      "startTime": "12:00",
+      "location": "The Shepherd and Flock",
+      "latitude": 51.502208,
+      "longitude": -0.228458
+    },
+    {
+      "date": "2025-02-23",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "BDH3 #164 - South Kenton",
+      "runNumber": 164,
+      "startTime": "12:00",
+      "hares": "Wacker",
+      "location": "The Windermere",
+      "latitude": 51.570353,
+      "longitude": -0.307771
+    },
+    {
+      "date": "2025-03-09",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "BDH3 #165 - Kew Green",
+      "runNumber": 165,
+      "startTime": "12:00",
+      "hares": "Smartarse",
+      "location": "The Greyhound Kew",
+      "latitude": 51.485205,
+      "longitude": -0.286108
+    },
+    {
+      "date": "2025-05-25",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "BDH3 #170 - Sloane Square",
+      "runNumber": 170,
+      "startTime": "12:00",
+      "hares": "Bobo",
+      "location": "The Surprise in Chelsea",
+      "latitude": 51.486218,
+      "longitude": -0.163084
+    },
+    {
+      "date": "2026-09-27",
+      "kennelTags": [
+        "bdh3-uk"
+      ],
+      "title": "Black Death 200th Trail!",
+      "runNumber": 200,
+      "startTime": "12:00",
+      "hares": "Pope",
+      "location": "Kings Arms",
+      "latitude": 51.48781,
+      "longitude": -0.31096
+    }
+  ],
+  "da2b": [
+    {
+      "date": "2024-06-01",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "June A2B number 189",
+      "runNumber": 189,
+      "startTime": "13:00",
+      "hares": "Triple Top",
+      "location": "Oxen Cove Car Park Brixham TQ58AY",
+      "latitude": 50.399758812375424,
+      "longitude": -3.514935194231675
+    },
+    {
+      "date": "2024-07-06",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Devon A2B #190",
+      "runNumber": 190,
+      "hares": "Twiggy",
+      "location": "Top end NT carpark Countisbury, \nw3w: ///barks.shave.footpath\n\nHare Twiggy.",
+      "latitude": 51.23177979692719,
+      "longitude": -3.788016865174633
+    },
+    {
+      "date": "2024-09-07",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Devon A2B #191",
+      "runNumber": 191,
+      "location": "Hares Sore Point and Paperwork",
+      "latitude": 50.800936222286225,
+      "longitude": -3.455434087175078
+    },
+    {
+      "date": "2024-10-05",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Devon A2B #193",
+      "runNumber": 193,
+      "startTime": "12:30",
+      "hares": "TripleTop Gymslip",
+      "location": "South west(ish) of Okehampton, near Meldon Reservoir",
+      "latitude": 50.70778242358636,
+      "longitude": -4.038557392303688
+    },
+    {
+      "date": "2024-11-02",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Devon A2B #194",
+      "runNumber": 194,
+      "hares": "Blown Off and Fluffy Dice"
+    },
+    {
+      "date": "2024-12-07",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Devon A2B #195",
+      "runNumber": 195,
+      "startTime": "12:30",
+      "location": "December’s A2B @ Kilmington, exact A to be confirmed.",
+      "latitude": 50.7821859289525,
+      "longitude": -3.025818731347332
+    },
+    {
+      "date": "2025-01-04",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Hash 196 joint with Plympton Hash 2300!",
+      "runNumber": 196,
+      "startTime": "12:30",
+      "hares": "Fluffy Dice, Woggle",
+      "location": "Plymbridge Woods.",
+      "latitude": 50.40938405339635,
+      "longitude": -4.078478408254849
+    },
+    {
+      "date": "2025-02-01",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Devon A2B #197",
+      "runNumber": 197,
+      "hares": "Bridgewater H3.",
+      "location": "Saunders Way Industrial estate \nCullumpton.",
+      "latitude": 50.86171313239135,
+      "longitude": -3.380551023423871
+    },
+    {
+      "date": "2025-05-03",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Devon A2B 200th Run",
+      "runNumber": 198,
+      "startTime": "12:30",
+      "hares": "That’s Crap, She’s Ready and Fluffy Dice"
+    },
+    {
+      "date": "2025-07-05",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Devon A2B #202",
+      "runNumber": 202,
+      "startTime": "12:30",
+      "hares": "Man Pig."
+    },
+    {
+      "date": "2025-08-02",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Another Mystery Tour from\nDevon A2BH3",
+      "runNumber": 202,
+      "startTime": "12:30",
+      "hares": "Blown Off and Winnie",
+      "location": "Dartmeet Car Park .https://share.google/2VM17UcXGxc0kOh7R",
+      "latitude": 50.371389,
+      "longitude": -4.142222
+    },
+    {
+      "date": "2025-09-06",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Devon A2B #203",
+      "runNumber": 203,
+      "startTime": "12:30",
+      "location": "Sidmouth Scout Hut."
+    },
+    {
+      "date": "2025-10-04",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Devon A2B #205",
+      "runNumber": 205,
+      "startTime": "12:30",
+      "hares": "Flour Power and chums"
+    },
+    {
+      "date": "2025-11-01",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Devon A2B #206",
+      "runNumber": 206,
+      "startTime": "12:30",
+      "hares": "Gromit and chums"
+    },
+    {
+      "date": "2025-12-06",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Devon A2B #207",
+      "runNumber": 207,
+      "startTime": "12:30",
+      "hares": "Triple Top",
+      "location": "South of Lee Moor.",
+      "latitude": 50.437514584446525,
+      "longitude": -4.006736381957817
+    },
+    {
+      "date": "2026-10-03",
+      "kennelTags": [
+        "da2b"
+      ],
+      "title": "Hash 217 Aveton Gifford",
+      "runNumber": 217,
+      "startTime": "12:30",
+      "hares": "Pugsley",
+      "location": "Aveton Gifford Car Park",
+      "latitude": 50.3105,
+      "longitude": -3.8379
+    }
+  ],
+  "bbch3": [
+    {
+      "date": "2026-09-06",
+      "kennelTags": [
+        "bbch3"
+      ],
+      "title": "BBCH3 Run #1 - The Inaugural Run",
+      "runNumber": 1,
+      "startTime": "14:45",
+      "hares": "Squeaky Rider, Noisy Pussy",
+      "location": "Higgins Lane, Birmingham, B32 1LH",
+      "latitude": 52.457741931683515,
+      "longitude": -1.998088122299558
+    }
+  ],
+  "cernh3": [
+    {
+      "date": "2026-10-09",
+      "kennelTags": [
+        "cernh3"
+      ],
+      "title": "CERN Hash weekend pub crawl",
+      "runNumber": null,
+      "startTime": "19:00",
+      "hares": "Wouldn‘t Chew",
+      "location": "Departs from Les Brasseurs",
+      "latitude": 46.21021475302083,
+      "longitude": 6.143984554254481
+    },
+    {
+      "date": "2026-10-10",
+      "kennelTags": [
+        "cernh3"
+      ],
+      "title": "Fifth CERN H3",
+      "runNumber": 5,
+      "startTime": "11:00",
+      "hares": "Wouldn’t Chew",
+      "location": "CERN. (The tram stop)",
+      "latitude": 46.233629564218234,
+      "longitude": 6.056382770556678
+    },
+    {
+      "date": "2026-10-11",
+      "kennelTags": [
+        "cernh3"
+      ],
+      "title": "Hangover Hash CERN H3",
+      "runNumber": null,
+      "startTime": "11:00",
+      "hares": "Wouldn‘t Chew, Canada Wet",
+      "location": "Downtown Geneva (jardins Anglais) on Sunday. So don’t expect crowds,",
+      "latitude": 46.20430147165665,
+      "longitude": 6.150989155737322
+    }
+  ],
+  "ph3-sr": [
+    {
+      "date": "2025-04-28",
+      "kennelTags": [
+        "ph3-sr"
+      ],
+      "title": "Paramaribo H3 #1809",
+      "runNumber": 1809,
+      "startTime": "17:30",
+      "location": "HJ Benjaminstraat 46, Elements Apartments (Jamila Dry Cleaning is ook hier)."
+    },
+    {
+      "date": "2026-10-05",
+      "kennelTags": [
+        "ph3-sr"
+      ],
+      "title": "Paramaribo H3 #1884",
+      "runNumber": 1884,
+      "startTime": "17:30",
+      "hares": "Seki Melinda",
+      "location": "Amba Bar Café Club",
+      "latitude": 5.83503013,
+      "longitude": -55.16703089
+    }
+  ],
+  "abujah3": [
+    {
+      "date": "2022-04-30",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Run#680: April-born Birthday Run",
+      "runNumber": 680,
+      "startTime": "14:00",
+      "hares": "Cock Pox, Cunt Pricked, Toto Mechanic, Pussy Grinder, Just Lizzy,  Head Giver, Wattafuck, Kockahuntis,  Buttanical",
+      "location": "Durban Park, Wuse 2, Abuja",
+      "latitude": 9.067351668956835,
+      "longitude": 7.49036478578089
+    },
+    {
+      "date": "2022-05-14",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Run#681: The Flag Beerer's Run",
+      "runNumber": 681,
+      "startTime": "14:00",
+      "location": "Durban Park, Wuse 2",
+      "latitude": 9.067764985410859,
+      "longitude": 7.490655077311545
+    },
+    {
+      "date": "2022-05-28",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Run#682: May-borns Rocky Beerday Run",
+      "runNumber": 682,
+      "startTime": "14:00",
+      "hares": "Buttanical",
+      "location": "Durban Park, Abuja",
+      "latitude": 9.067586560847682,
+      "longitude": 7.490584016660021
+    },
+    {
+      "date": "2022-06-11",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Run#683: Beer-O-Cracy Day Run",
+      "runNumber": 683,
+      "startTime": "14:00",
+      "hares": "Pussy Lubricator",
+      "location": "Abuja",
+      "latitude": 9.067772015219822,
+      "longitude": 7.490323996705095
+    },
+    {
+      "date": "2022-06-25",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Run#684",
+      "runNumber": 684,
+      "startTime": "14:00",
+      "location": "Abuja"
+    },
+    {
+      "date": "2022-07-09",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Run#685",
+      "runNumber": 685,
+      "startTime": "14:00",
+      "hares": "Just ORA",
+      "location": "Abuja",
+      "latitude": 9.067743939346204,
+      "longitude": 7.490698354028914
+    },
+    {
+      "date": "2022-07-23",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Run#686",
+      "runNumber": 686,
+      "startTime": "14:00",
+      "hares": "Buttanical",
+      "location": "Abuja"
+    },
+    {
+      "date": "2022-08-06",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Run#688",
+      "runNumber": 688,
+      "startTime": "14:00",
+      "hares": "Buttanical",
+      "location": "Abuja",
+      "latitude": 9.067809373324014,
+      "longitude": 7.490744043516667
+    },
+    {
+      "date": "2022-09-03",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Run#690",
+      "runNumber": 690,
+      "startTime": "14:00",
+      "hares": "Buttanical",
+      "location": "Abuja",
+      "latitude": 9.067547015981324,
+      "longitude": 7.490388569561874
+    },
+    {
+      "date": "2022-09-17",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "September Beerday Run",
+      "runNumber": 691,
+      "startTime": "14:00",
+      "hares": "Many",
+      "location": "Abuja",
+      "latitude": 9.0677592,
+      "longitude": 7.4908418
+    },
+    {
+      "date": "2022-10-08",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Run#694",
+      "runNumber": 694,
+      "startTime": "11:30",
+      "location": "Abuja"
+    },
+    {
+      "date": "2022-10-15",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Run#695",
+      "runNumber": 695,
+      "startTime": "14:00",
+      "location": "Abuja"
+    },
+    {
+      "date": "2022-11-25",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Silver Jubilee & Handover",
+      "runNumber": 700,
+      "startTime": "12:00",
+      "hares": "Buttanical , Sweet2Lick",
+      "location": "Abuja",
+      "latitude": 9.06719227418759,
+      "longitude": 7.49019214822452
+    },
+    {
+      "date": "2022-12-24",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Run#703: Christmas Eve Run",
+      "runNumber": 703,
+      "startTime": "14:00",
+      "hares": "Buttanical , Sweet2Lick",
+      "location": "Durban Park"
+    },
+    {
+      "date": "2023-01-07",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "The Greatest Beer Run Ever",
+      "runNumber": 704,
+      "startTime": "14:00",
+      "hares": "Buttanical , Don't Make Me Cum, Genital Fixer, Genital Spanker, I love to spread , Mountain🏔️ Ogbangé, PROBLEMATIC PUSY , Pussy  Rider, Pussy Lubricator , Sweet2Lick , they can't take it oo , Toto Mechanic, Warm Water💦 Nipple",
+      "location": "Abuja",
+      "latitude": 9.06765300911719,
+      "longitude": 7.490813206428943
+    },
+    {
+      "date": "2023-01-21",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "January-born Beerday Run",
+      "runNumber": 705,
+      "startTime": "14:00",
+      "hares": "Pussy Lubricator , Sweet2Lick",
+      "location": "Durban Park, Abuja."
+    },
+    {
+      "date": "2023-02-04",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Cold Lager Run",
+      "runNumber": 706,
+      "startTime": "14:00",
+      "hares": "Butt Access, Buttanical , I love to spread , Lost on Trail, Press Penis Put, PROBLEMATIC PUSY , they can't take it oo , Toto Mechanic",
+      "location": "Durban/Riverplate Park, Abuja.",
+      "latitude": 9.067709358022631,
+      "longitude": 7.490758669597613
+    },
+    {
+      "date": "2023-02-18",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Valentine Beerday Run",
+      "runNumber": 707,
+      "startTime": "14:00",
+      "location": "Abuja",
+      "latitude": 9.067742977459297,
+      "longitude": 7.490822729070501
+    },
+    {
+      "date": "2023-03-04",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Beers To a New Month",
+      "runNumber": 708,
+      "startTime": "14:00",
+      "location": "Abuja"
+    },
+    {
+      "date": "2023-03-18",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "March-borns Beerday Run",
+      "runNumber": 709,
+      "startTime": "14:00",
+      "location": "Durban/Riverplate Park, Abuja",
+      "latitude": 9.067624343053765,
+      "longitude": 7.490372676554526
+    },
+    {
+      "date": "2023-04-15",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Easter Bunny Run",
+      "runNumber": 711,
+      "startTime": "14:00",
+      "hares": "Buttanical , Prick Breaker , they can't take it oo , Toto Mechanic",
+      "location": "Wuse, Abuja",
+      "latitude": 9.067741536080069,
+      "longitude": 7.490711863653253
+    },
+    {
+      "date": "2023-04-29",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "April-borns Beerday Run",
+      "runNumber": 712,
+      "startTime": "14:00",
+      "location": "Abuja"
+    },
+    {
+      "date": "2023-05-13",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Bob Marley Anniversary Run",
+      "runNumber": 713,
+      "startTime": "14:00",
+      "hares": "Anticipating Fucker",
+      "location": "Abuja",
+      "latitude": 9.067920733902728,
+      "longitude": 7.49080410114234
+    },
+    {
+      "date": "2023-05-27",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "May-borns Beerday Run",
+      "runNumber": 714,
+      "startTime": "14:00",
+      "hares": "Anticipating Fucker",
+      "location": "Abuja",
+      "latitude": 9.067653869814801,
+      "longitude": 7.490802931486049
+    },
+    {
+      "date": "2023-06-24",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "June Beerday Run",
+      "runNumber": 716,
+      "startTime": "14:00",
+      "hares": "Anticipating Fucker , Mountain🏔️ Ogbangé",
+      "location": "Abuja",
+      "latitude": 9.067675518351358,
+      "longitude": 7.490833983933102
+    },
+    {
+      "date": "2023-07-08",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Beers and Cheers 🍻",
+      "runNumber": 717,
+      "startTime": "14:00",
+      "location": "Abuja",
+      "latitude": 9.067953785449447,
+      "longitude": 7.490683277613758
+    },
+    {
+      "date": "2023-07-22",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "A Toast To Nash Hash",
+      "runNumber": 718,
+      "startTime": "14:00",
+      "hares": "Pussy Shocker, Mountain Ogbangé, Warm Water Nipple, Butt Access, They Can't Take It O, Prick Breaker",
+      "location": "Abuja",
+      "latitude": 9.067763739490914,
+      "longitude": 7.490692211158821
+    },
+    {
+      "date": "2023-08-05",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Link Up, Climb Up & Drink Up",
+      "runNumber": 719,
+      "startTime": "14:00",
+      "location": "Abuja",
+      "latitude": 9.067905184009714,
+      "longitude": 7.490554689359473
+    },
+    {
+      "date": "2023-08-19",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "August-born Beerday Run",
+      "runNumber": 720,
+      "startTime": "14:00",
+      "location": "Abuja",
+      "latitude": 9.067843864775048,
+      "longitude": 7.490543266697976
+    },
+    {
+      "date": "2023-09-02",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "September Beer is Here! 🍻",
+      "runNumber": 721,
+      "startTime": "14:00",
+      "location": "Abuja",
+      "latitude": 9.067925211003567,
+      "longitude": 7.490508202334084
+    },
+    {
+      "date": "2023-09-16",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Old Fart Run",
+      "runNumber": 722,
+      "startTime": "14:00",
+      "location": "Abuja",
+      "latitude": 9.067799695960039,
+      "longitude": 7.490711998272049
+    },
+    {
+      "date": "2023-09-30",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Sextember-borns Beerday Run",
+      "runNumber": 723,
+      "startTime": "14:00",
+      "location": "Abuja",
+      "latitude": 9.06775642942221,
+      "longitude": 7.4906768842992
+    },
+    {
+      "date": "2023-10-07",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Beerdependence Run",
+      "runNumber": 724,
+      "startTime": "14:00",
+      "hares": "The Hares of Life",
+      "location": "Abuja",
+      "latitude": 9.0677170198517,
+      "longitude": 7.490602010189567
+    },
+    {
+      "date": "2023-10-28",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Cocktober Beerday & Miscreants' Run",
+      "runNumber": 727,
+      "startTime": "13:00",
+      "location": "Abuja",
+      "latitude": 9.067523817189658,
+      "longitude": 7.490628823031713
+    },
+    {
+      "date": "2023-11-10",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "AH3 Makurdi Invasion 2023",
+      "runNumber": 728,
+      "startTime": "06:00",
+      "hares": "Makurdi Metropolitan H3",
+      "location": "Makurdi, Benue State",
+      "latitude": 9.067776185771523,
+      "longitude": 7.490706229246713
+    },
+    {
+      "date": "2023-11-11",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "AH3 Makurdi Invasion 2023",
+      "runNumber": 728,
+      "startTime": "12:00",
+      "hares": "Makurdi Metropolitan H3",
+      "location": "Makurdi, Benue State",
+      "latitude": 7.733127752717578,
+      "longitude": 8.53571079324786
+    },
+    {
+      "date": "2023-11-25",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "26th Anniversary/November Beerday Run",
+      "runNumber": 729,
+      "startTime": "13:00",
+      "location": "Abuja",
+      "latitude": 9.067842536259597,
+      "longitude": 7.490674653656609
+    },
+    {
+      "date": "2023-12-09",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Beering In December",
+      "runNumber": 730,
+      "startTime": "13:00",
+      "location": "Abuja",
+      "latitude": 9.06772920558108,
+      "longitude": 7.490671678182782
+    },
+    {
+      "date": "2023-12-23",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "End of Year Run",
+      "runNumber": 731,
+      "startTime": "13:00",
+      "location": "Abuja",
+      "latitude": 9.067801551218144,
+      "longitude": 7.490542319404653
+    },
+    {
+      "date": "2024-01-06",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "More Beer, More Cheer, More Fun",
+      "runNumber": 732,
+      "startTime": "13:00",
+      "location": "Abuja",
+      "latitude": 9.067823806357962,
+      "longitude": 7.490474456851116
+    },
+    {
+      "date": "2024-01-20",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "January-borns Beerday Run",
+      "runNumber": 733,
+      "startTime": "13:00",
+      "hares": "The Hares",
+      "location": "Abuja",
+      "latitude": 9.067878246398132,
+      "longitude": 7.490566766489368
+    },
+    {
+      "date": "2024-02-03",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "February Fun Run",
+      "runNumber": 734,
+      "startTime": "13:00",
+      "location": "Abuja",
+      "latitude": 9.067712190168297,
+      "longitude": 7.490528543279012
+    },
+    {
+      "date": "2024-02-17",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Valentine/February Beerday Run",
+      "runNumber": 735,
+      "startTime": "13:00",
+      "location": "Abuja",
+      "latitude": 9.067847727206049,
+      "longitude": 7.490701192988661
+    },
+    {
+      "date": "2024-03-02",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "March-in our Beering",
+      "runNumber": 736,
+      "startTime": "13:00",
+      "location": "Abuja"
+    },
+    {
+      "date": "2024-03-30",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Beerday Run Extraordinaire",
+      "runNumber": 738,
+      "startTime": "14:00",
+      "location": "Abuja",
+      "latitude": 9.067806840076827,
+      "longitude": 7.490621047154772
+    },
+    {
+      "date": "2024-04-13",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "A Trail and a Bottle",
+      "runNumber": 739,
+      "startTime": "14:00",
+      "hares": "Buttanical",
+      "location": "Abuja"
+    },
+    {
+      "date": "2024-04-27",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "April Beerday Run",
+      "runNumber": 740,
+      "startTime": "14:00",
+      "hares": "Lost on Trail, Warm Water Nipple, Mountain Ogbangé, I Love 2 Spread, Too Wet for Pricks",
+      "location": "Abuja",
+      "latitude": 9.067763361837335,
+      "longitude": 7.490659243654815
+    },
+    {
+      "date": "2024-05-11",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Natural Mystic Run",
+      "runNumber": 741,
+      "startTime": "14:00",
+      "location": "Abuja",
+      "latitude": 9.067776014043172,
+      "longitude": 7.490365543280594
+    },
+    {
+      "date": "2024-05-25",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "May-born Beerday Run",
+      "runNumber": 742,
+      "startTime": "14:00",
+      "location": "Abuja",
+      "latitude": 9.067849386667985,
+      "longitude": 7.490699473075448
+    },
+    {
+      "date": "2024-06-08",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Beer-O-Cracy Day Run",
+      "runNumber": 743,
+      "startTime": "14:00",
+      "hares": "Pussy Shocker, Cunt Pricked, Warm Water 💦 Nipple, Mountain 🏔️ Ogbangé, Disunited Condom, Toto Embassy, Buttanical, Don't Make Me Cum, Lost on trail, I ❤️2 spread, Prick Breaker, Too Wet for Pricks, Problematic Pussy, ⁠Old Pussy",
+      "location": "Abuja",
+      "latitude": 9.067681281284248,
+      "longitude": 7.490657130377822
+    },
+    {
+      "date": "2024-06-22",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "June-born Beerday Run",
+      "runNumber": 744,
+      "startTime": "14:00",
+      "location": "Abuja",
+      "latitude": 9.067795861306273,
+      "longitude": 7.490696765708679
+    },
+    {
+      "date": "2024-07-06",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Beers & Cheers 🥂",
+      "runNumber": 745,
+      "startTime": "14:00",
+      "location": "Abuja"
+    },
+    {
+      "date": "2024-07-20",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Toasting to 10th Nash Hash",
+      "runNumber": 746,
+      "startTime": "14:00",
+      "hares": "P Shocker, P Rider, I Love 2 Spread, They Can't Take It ọ, Too Wet For Pricks, D. Evangelist, Just Tonie",
+      "location": "Durban Park, Abuja.",
+      "latitude": 9.067677002551271,
+      "longitude": 7.490724815011919
+    },
+    {
+      "date": "2024-08-17",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Foamy Heads in the Rain",
+      "runNumber": 748,
+      "startTime": "14:00",
+      "location": "Abuja"
+    },
+    {
+      "date": "2024-08-31",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "August-born Beerday Run",
+      "runNumber": 749,
+      "startTime": "14:00",
+      "location": "Abuja"
+    },
+    {
+      "date": "2024-10-05",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Beerdependence Run",
+      "runNumber": 753,
+      "startTime": "14:30",
+      "location": "Abuja",
+      "latitude": 9.067609601223083,
+      "longitude": 7.490812218837496
+    },
+    {
+      "date": "2024-10-12",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Breast Cancer Awareness Run",
+      "runNumber": 754,
+      "startTime": "14:30",
+      "location": "Abuja"
+    },
+    {
+      "date": "2024-10-19",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "The Hunt for the Red Cocktober",
+      "runNumber": 755,
+      "startTime": "14:30",
+      "location": "Abuja",
+      "latitude": 9.06751876702392,
+      "longitude": 7.490689018799285
+    },
+    {
+      "date": "2024-10-26",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Cocktober Beerday & Miscreants Run",
+      "runNumber": 756,
+      "startTime": "14:30",
+      "location": "Abuja",
+      "latitude": 9.06770238319443,
+      "longitude": 7.490716372940837
+    },
+    {
+      "date": "2024-11-02",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Hashy Halloween 🦇",
+      "runNumber": 757,
+      "startTime": "14:30",
+      "location": "Abuja",
+      "latitude": 9.067807243103994,
+      "longitude": 7.490663803911308
+    },
+    {
+      "date": "2024-11-15",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "THE HANDOVER",
+      "runNumber": 758,
+      "startTime": "12:00",
+      "hares": "P Shocker",
+      "location": "Abuja"
+    },
+    {
+      "date": "2026-10-17",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Miscreant Run",
+      "runNumber": 814,
+      "startTime": "14:30",
+      "location": "Durban park,Wuse 2",
+      "latitude": 9.0678,
+      "longitude": 7.490714
+    },
+    {
+      "date": "2026-10-24",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "RUN 815 - Treasure Hunt Run",
+      "runNumber": 815,
+      "startTime": "14:30",
+      "location": "Durban park",
+      "latitude": 9.0678,
+      "longitude": 7.490714
+    },
+    {
+      "date": "2026-10-31",
+      "kennelTags": [
+        "abujah3"
+      ],
+      "title": "Run 816: Halloween/Cocktober Buns Beerday Run.",
+      "runNumber": 816,
+      "startTime": "14:00",
+      "location": "Durban Park, Wuse 2, Abuja",
+      "latitude": 9.0678,
+      "longitude": 7.49071
+    }
+  ],
+  "blhhh": [
+    {
+      "date": "2026-02-20",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Drink Like a Fish",
+      "runNumber": 723,
+      "startTime": "18:00",
+      "location": "The Hash House"
+    },
+    {
+      "date": "2026-03-28",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Late St Pats Trail",
+      "runNumber": 724,
+      "startTime": "18:00",
+      "location": "The Hash House"
+    },
+    {
+      "date": "2026-04-11",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "It's Alive!",
+      "runNumber": 725,
+      "startTime": "18:00",
+      "location": "The Hash House"
+    },
+    {
+      "date": "2026-04-18",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Boobies and Beans",
+      "runNumber": 726,
+      "startTime": "18:00",
+      "hares": "Alexander AvilaJames",
+      "location": "Hash House"
+    },
+    {
+      "date": "2026-05-02",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Hash Pool Party",
+      "runNumber": 727,
+      "startTime": "18:00",
+      "location": "Pool"
+    },
+    {
+      "date": "2026-05-16",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "UN#728 Slam Dranks",
+      "runNumber": 728,
+      "startTime": "15:00",
+      "location": "Big Lik Hash House 3031A"
+    },
+    {
+      "date": "2026-05-30",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Walker Texas Ragers",
+      "runNumber": 729,
+      "startTime": "18:00",
+      "hares": "Came Too Soon",
+      "location": "The Hash House"
+    },
+    {
+      "date": "2026-06-05",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Extra Credit - Perfect Week",
+      "runNumber": 729,
+      "startTime": "18:00",
+      "location": "3117A"
+    },
+    {
+      "date": "2026-06-12",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Alive At 5",
+      "runNumber": 730,
+      "startTime": "18:00",
+      "location": "The Hash House"
+    },
+    {
+      "date": "2026-06-27",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Rainbow Road",
+      "runNumber": 731,
+      "startTime": "18:00",
+      "location": "The Hash House"
+    },
+    {
+      "date": "2026-07-11",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Delay of Gayme",
+      "runNumber": 732,
+      "startTime": "18:00",
+      "hares": "Came Too Soon",
+      "location": "The Hash House"
+    },
+    {
+      "date": "2026-07-25",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Pirates of the Carribeer",
+      "runNumber": 733,
+      "startTime": "18:00",
+      "location": "The Hash House"
+    },
+    {
+      "date": "2026-08-08",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Into The Woods",
+      "runNumber": 734,
+      "startTime": "18:00",
+      "hares": "Came Too Soon",
+      "location": "The hash house"
+    },
+    {
+      "date": "2026-08-21",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Digital Adana",
+      "runNumber": 735,
+      "startTime": "18:00",
+      "hares": "Lightweight Heavyweight",
+      "location": "Downtown Adana"
+    },
+    {
+      "date": "2026-09-12",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Spin The Hasher",
+      "runNumber": 736,
+      "startTime": "18:00",
+      "hares": "Came Too Soon",
+      "location": "The Hash House",
+      "latitude": 36.98749667133722,
+      "longitude": 35.42615615575316
+    },
+    {
+      "date": "2026-09-26",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Going a-Gay for AJJ",
+      "runNumber": 737,
+      "startTime": "18:00",
+      "hares": "Came Too Soon",
+      "location": "The Hash House"
+    },
+    {
+      "date": "2026-10-17",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Let's have FUN again",
+      "runNumber": 738,
+      "startTime": "17:00",
+      "hares": "Came Too Doon, Came Too Soon",
+      "location": "The Hash House"
+    },
+    {
+      "date": "2026-10-31",
+      "kennelTags": [
+        "blhhh"
+      ],
+      "title": "Something Something Something Halloween",
+      "runNumber": 739,
+      "startTime": "17:00",
+      "location": "The Hash House"
+    }
+  ],
+  "hannover-h3": [
+    {
+      "date": "2026-10-25",
+      "kennelTags": [
+        "hannover-h3"
+      ],
+      "title": "Hannover H3 #1088",
+      "runNumber": 1088,
+      "startTime": "12:00",
+      "hares": "Just Period & Salmonella",
+      "location": "Beginnen Turm",
+      "latitude": 52.3716121,
+      "longitude": 9.7318034
+    }
+  ],
+  "mobh3": [
+    {
+      "date": "2023-10-26",
+      "kennelTags": [
+        "mobh3"
+      ],
+      "title": "Moon Over Barbados H3 #297",
+      "runNumber": 297,
+      "startTime": "19:00"
+    },
+    {
+      "date": "2023-12-28",
+      "kennelTags": [
+        "mobh3"
+      ],
+      "title": "Moon Over Barbados H3 #299",
+      "runNumber": 299,
+      "startTime": "19:00",
+      "hares": "Lockjaw & Nasty Santa",
+      "location": "Adam’s Rum Bar"
+    },
+    {
+      "date": "2024-01-26",
+      "kennelTags": [
+        "mobh3"
+      ],
+      "title": "Moon Over Barbados H3 #300",
+      "runNumber": 300,
+      "startTime": "19:00",
+      "hares": "Jim Boots",
+      "location": "Yuh So Nice Restaurant"
+    },
+    {
+      "date": "2024-02-23",
+      "kennelTags": [
+        "mobh3"
+      ],
+      "title": "Moon Over Barbados H3 #301",
+      "runNumber": 301,
+      "startTime": "19:00",
+      "location": "Chenark’s Food & Bar, Checker Hall, St. Lucy"
+    },
+    {
+      "date": "2024-07-19",
+      "kennelTags": [
+        "mobh3"
+      ],
+      "title": "Moon Over Barbados H3 #306",
+      "runNumber": 306,
+      "startTime": "19:00",
+      "hares": "Concrete Sex",
+      "location": "Carlton Bar & Grille"
+    },
+    {
+      "date": "2026-01-23",
+      "kennelTags": [
+        "mobh3"
+      ],
+      "title": "Cruise Hash",
+      "runNumber": 325,
+      "startTime": "09:00",
+      "hares": "Nasty Santa & Injured Cock",
+      "location": "Carlisle Brewery",
+      "latitude": 13.10200258,
+      "longitude": -59.61652674
+    },
+    {
+      "date": "2026-10-29",
+      "kennelTags": [
+        "mobh3"
+      ],
+      "title": "Moon Over Barbados H3 #335",
+      "runNumber": 335,
+      "startTime": "19:00",
+      "hares": "Horny Horn Horner, Susan H & Beer Tits",
+      "location": "De Thirsty Lizard"
+    }
+  ],
+  "bbh3": [
+    {
+      "date": "2023-09-24",
+      "kennelTags": [
+        "bbh3"
+      ],
+      "title": "Barbados Bike H3 #74",
+      "runNumber": 74,
+      "startTime": "06:00"
+    },
+    {
+      "date": "2023-11-26",
+      "kennelTags": [
+        "bbh3"
+      ],
+      "title": "Barbados Bike H3 #75",
+      "runNumber": 75,
+      "startTime": "06:00"
+    },
+    {
+      "date": "2023-12-31",
+      "kennelTags": [
+        "bbh3"
+      ],
+      "title": "Barbados Bike H3 #76",
+      "runNumber": 76,
+      "startTime": "06:00",
+      "hares": "Slow Poke & Pitbull",
+      "location": "Dashell’s Bar"
+    },
+    {
+      "date": "2024-01-28",
+      "kennelTags": [
+        "bbh3"
+      ],
+      "title": "Barbados Bike H3 #77",
+      "runNumber": 77,
+      "startTime": "06:00",
+      "hares": "Pitbull",
+      "location": "The Big Rock Bar, Harrington, St Philip"
+    },
+    {
+      "date": "2024-06-02",
+      "kennelTags": [
+        "bbh3"
+      ],
+      "title": "Barbados Bike H3 #81",
+      "runNumber": 81,
+      "startTime": "06:00",
+      "hares": "Omar Estwick",
+      "location": "Dashell’s Bar & Grill, Halton Terrace, Cottage Vale, St. Philip"
+    },
+    {
+      "date": "2026-06-07",
+      "kennelTags": [
+        "bbh3"
+      ],
+      "title": "Barbados Bike H3 #82",
+      "runNumber": 82,
+      "startTime": "06:30",
+      "location": "De Board Room, Oistins, Ch Ch"
+    },
+    {
+      "date": "2026-10-25",
+      "kennelTags": [
+        "bbh3"
+      ],
+      "title": "Barbados Bike H3 #105",
+      "runNumber": 105,
+      "startTime": "06:00",
+      "hares": "Hightower & Killa Milla",
+      "location": "Chicken Rita’s",
+      "latitude": 13.04916,
+      "longitude": -59.522696
+    }
+  ],
+  "sunh3": [
+    {
+      "date": "2026-03-03",
+      "kennelTags": [
+        "sunh3"
+      ],
+      "title": "Worm Moon Trail 2.1",
+      "runNumber": 1,
+      "startTime": "18:30",
+      "hares": "In My Otter Ear, Frau Farter",
+      "location": "Briar Creek"
+    },
+    {
+      "date": "2026-03-20",
+      "kennelTags": [
+        "sunh3"
+      ],
+      "title": "Equinox Trail",
+      "runNumber": 2,
+      "startTime": "19:00",
+      "location": "Raleigh"
+    },
+    {
+      "date": "2026-04-01",
+      "kennelTags": [
+        "sunh3"
+      ],
+      "title": "Pink Moon Trail",
+      "runNumber": 3,
+      "startTime": "19:00",
+      "location": "Raleigh"
+    },
+    {
+      "date": "2026-05-01",
+      "kennelTags": [
+        "sunh3"
+      ],
+      "title": "Flower Moon Trail",
+      "runNumber": 4,
+      "startTime": "19:00",
+      "location": "Raleigh"
+    },
+    {
+      "date": "2026-05-31",
+      "kennelTags": [
+        "sunh3"
+      ],
+      "title": "Blue Moon Trail",
+      "runNumber": 5,
+      "startTime": "19:00",
+      "location": "Raleigh"
+    },
+    {
+      "date": "2026-06-29",
+      "kennelTags": [
+        "sunh3"
+      ],
+      "title": "Strawberry Moon Trail",
+      "runNumber": 6,
+      "startTime": "19:00",
+      "hares": "In My Otter Ear",
+      "location": "Raleigh"
+    },
+    {
+      "date": "2026-07-29",
+      "kennelTags": [
+        "sunh3"
+      ],
+      "title": "Buck Moon Trail",
+      "runNumber": 7,
+      "startTime": "19:00",
+      "location": "Raleigh"
+    },
+    {
+      "date": "2026-08-29",
+      "kennelTags": [
+        "sunh3"
+      ],
+      "title": "Sturgeon Moon Trail",
+      "runNumber": 8,
+      "startTime": "19:00",
+      "location": "689 Barbour dr"
+    },
+    {
+      "date": "2026-09-22",
+      "kennelTags": [
+        "sunh3"
+      ],
+      "title": "Autumn Equinox Social",
+      "runNumber": null,
+      "startTime": "19:00",
+      "location": "205 w Morgan st"
+    },
+    {
+      "date": "2026-09-26",
+      "kennelTags": [
+        "sunh3"
+      ],
+      "title": "Harvest Moon Trail",
+      "runNumber": 9,
+      "startTime": "18:30",
+      "location": "2250 N Church St, Burlington, NC 27217"
+    },
+    {
+      "date": "2026-10-26",
+      "kennelTags": [
+        "sunh3"
+      ],
+      "title": "Hunter's Moon Trail",
+      "runNumber": 10,
+      "startTime": "18:30",
+      "hares": "Frau Farter & In My Otter Ear",
+      "location": "657 Cary Towne Blvd, Cary, NC 27511"
+    }
+  ]
+}

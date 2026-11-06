@@ -151,6 +151,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "wlh3": ["West London Hash", "West London H3", "WLH"],
     "barnesh3": ["Barnes Hash", "Barnes H3"],
     "och3": ["Old Coulsdon", "Old Coulsdon Hash", "OC Hash"],
+    "surrey-h3": ["Surrey Hash", "Surrey Hash House Harriers", "Surrey HHH"],
     "slh3": ["SLASH", "SLAH3", "South London Hash"],
     "fukfm": ["FUKFMH3", "FUK Full Moon", "First UK Full Moon"],
     "eh3": ["Enfield Hash", "Enfield H3", "EH3"],
@@ -430,6 +431,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "zh3": ["ZH3", "Zurich Hash House Harriers", "Zürich Hash House Harriers", "Zurich H3", "The Zurich Hash House Harriers"],
     // Keyed "wsh3-ch" (NOT "wsh3" → Wandering Soul H3). Bare "WSH3" alias omitted (claimed).
     "wsh3-ch": ["Winterthur & Schaffhausen Hash House Harriers", "Winterthur & Schaffhausen H3", "Winterthur Schaffhausen H3", "W&S H3", "WSH3 Switzerland"],
+    // bare "BSH3" OMITTED — Black Sheep H3 (Atlanta) owns it.
+    "bsh3-ch": ["Basel-Stadt H3", "Basel H3", "Basel Hash", "Basel-Stadt Hash House Harriers", "BSH3-CH"],
 
     // ===== AUSTRIA =====
     // Bare "VH3" alias omitted (claimed by Victoria H3, BC); "FMH" omitted (too generic).
@@ -551,6 +554,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "sth3-au": ["Sydney Thirsty H3", "Sydney Thirsty", "Thirsty H3", "Thirsty Hash", "STH3", "Sydney Thirsty Hash House Harriers"],
     "nswhhh": ["NSWHHH", "NSWH3", "North Shore Wanderers", "North Shore Wanderers H3", "North Shore Wanderers Hash", "North Shore Wanderers Hash House Harriers", "NSW Hash"],
     // Australia — Victoria
+    // bare "DH3" OMITTED — Dublin H3.
+    "devonport-h3": ["Devonport H3", "Devonport Hash", "Devonport HHH", "Odd Sock Hash", "DHash"],
     "mel-new-moon": ["Melbourne New Moon H3", "Melbourne New Moon", "New Moon H3 Melbourne", "MNMH3", "Melbourne Moon Hash"],
     // #1617 — Melbourne sibling kennels routed off the shared Mel-NM Meetup
     // aggregator. Aliases drawn from the actual title prefixes observed in
@@ -709,6 +714,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== BARBADOS ===== (first Caribbean kennel; bare "BH3" omitted —
     // global collision: bh3=Boulder/Buffalo)
     "barbados-h3": ["Barbados H3", "Barbados Hash House Harriers", "Barbados Hash"],
+    // ===== JAMAICA ===== (first Jamaica kennel)
+    "jah3": ["JAH3", "Jamaica H3", "Jamaica Hash", "Jamaica Hash House Harriers", "Kingston Hash"],
     "beerh3": ["BEER H3", "BEERH3", "Belgrade EER H3", "Belgrade Eastern European Revival H3", "Belgrade Hash", "Beograd Hash"],
     // ===== HC BATCH-11 =====
     // bare "PH3"/"PHHH" OMITTED — taken by ph3-my/pattaya-h3 and princeton-h3/ph3-my/phuket-tinmen respectively.
@@ -717,11 +724,32 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "sh2b": ["SH2B", "Seattle Hash House Bikers", "Hash Bikers WA", "Seattle Bike Hash"],
     // bare "SHHH"/"SHH3" OMITTED — taken by sech3/sgharriets; bare "H4" OMITTED — taken by Hangover H3.
     "sierra-h4": ["Sierra Hash", "Sierra HHH", "Sierra Hash House Harriers", "Sierra Hash House Harriers and Harriettes", "Sierra H4 Freetown"],
+    // ===== HC BATCH (Nov 2026) =====
+    "yh3": ["Yorkshire H3", "Yorkshire HHH", "Yorkshire Hash House Harriers", "Yorkshire"],
+    "oph3": ["Okinawa Poofters", "Okinawa Poofters H3", "Okinawa Poofters Hash House Harriers"],
+    // bare "BDH3" OMITTED — resolves to Big Dogs H3 (bdh3).
+    "bdh3-uk": ["Black Death", "BD H3", "BDH3-UK", "Black Death Hash House Harriers"],
+    "da2b": ["Devon A2B", "Devon A to B", "Devon A 2 B"],
+    "bbch3": ["Brum and Black Country H3", "Brum & Black Country H3", "Brum and Black Country Hash House Harriers"],
+    "cernh3": ["CERN Hash", "CERN Hash House Harriers"],
+    // bare "PH3" OMITTED — taken by several kennels (Petaling, Plympton, Pattaya, …).
+    "ph3-sr": ["PH3-SR", "Paramaribo HHH", "Paramaribo Hash", "Paramaribo Hash House Harriers"],
+    // bare "AH3" OMITTED — taken by Aloha / Amsterdam / Adelaide / Auckland.
+    "abujah3": ["Abuja Hash", "Abuja HHH", "Abuja Hash House Harriers"],
+    "blhhh": ["BLHHH", "Big Lik HHH", "Big Lik Hash House Harriers", "Incirlik Hash"],
+    "hannover-h3": ["Hannover", "Hannover Hash House Harriers", "HANH3"],
+    "mobh3": ["MOBH3", "Moon Over Barbados"],
+    "bbh3": ["BBH3", "Barbados Bike", "Barbados Bike Hash"],
+    "sunh3": ["Shenanagains Under Nightfall", "Shenanagains"],
     // ===== CONFIG BATCH C =====
+    "sh4": ["South Hams Hash House Harriers", "South Hams H4", "South Hams H3", "South Hams Hash", "SH4 Hash"],
     // bare "DLH3" OMITTED — resolves to Duneland H3 (dlh3, South Shore, IN).
     "dlh3-gb": ["Devon Lunatics", "Devon Lunatics HHH", "DLH3-GB"],
     // bare "IH3" OMITTED — resolves to Ithaca H3 (live).
     "isca-h3": ["Isca H3", "Isca HHH", "Isca Hash", "Isca Hash House Harriers"],
+    "tvh3": ["Teign Valley Hash House Harriers", "TVH3", "Teign Valley Hash"],
+    // bare "EH3" OMITTED — Eugene / Enfield / Edmonton collide.
+    "coeh3": ["City of Exeter H3", "City of Exeter Hash House Harriers", "CoEH3", "Exeter H3"],
     // bare "MH3" OMITTED — global collision (Munich/Montreal/Minneapolis/Memphis/Manila/Dubai).
     "mickleover-h3": ["Mickleover Hash House Harriers", "Mickleover HHH", "Mickleover"],
     // bare "H5" / "H5 Hash" OMITTED — h5-hash (Harrisburg) and h5-hi (Honolulu) collide.
@@ -731,5 +759,11 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "herts-h3": ["Hertfordshire", "Herts H3", "Herts Hash", "Herts Hash House Harriers", "North Herts H3"],
     // bare "BH3" OMITTED — Buffalo H3 owns it globally.
     "bicester-h3": ["Bicester Hash", "Bicester HHH", "BH3 Bicester"],
+    // bare "MH3"/"MVH3" OMITTED — taken (Munich/Montreal/…; Mount Vernon).
+    "malvern-h3": ["Malvern Hash House Harriers", "Malvern H3", "Malvern HHH"],
+    // bare "C2H3" OMITTED — Corpus Christi H3 owns it.
+    "c2h3-gb": ["Cheltenham & Cotswold Hash House Harriers", "Cheltenham & Cotswold Hash", "Cheltenham Hash", "C2H3-GB"],
+    // bare "CH3" OMITTED — Chicago H3 owns it.
+    "ch3-gb": ["Chichester H3", "Chichester Hash House Harriers", "CHIHHH"],
   };
 
