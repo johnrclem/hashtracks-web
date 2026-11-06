@@ -709,7 +709,7 @@ async function seedKennels(prisma: any, kennels: KennelSeed[], kennelAliases: Re
   await reconcileEventTimezones(prisma);
 
   const rosterGroups = [
-    { name: "NYC Metro", kennelCodes: ["nych3", "brh3", "nah3", "knick", "qbk", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3"] },
+    { name: "NYC Metro", kennelCodes: ["nych3", "brh3", "nah3", "knick", "qbk", "queens-h3", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3"] },
     { name: "Philly Area", kennelCodes: ["bfm", "philly-h3"] },
   ];
   await upsertRosterGroups(prisma, rosterGroups, kennelRecords);

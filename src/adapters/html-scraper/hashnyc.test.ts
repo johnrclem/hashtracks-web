@@ -132,6 +132,15 @@ describe("extractKennelTag", () => {
     expect(extractKennelTag("Queens Black Knights Run #100")).toBe("qbk");
   });
 
+  // #2650: Queens H3 and Queens Black Knights are separate kennels.
+  it.each([
+    ["Queens #248", "queens-h3"],
+    ["QBK #73", "qbk"],
+    ["Queens Black Knights #72", "qbk"],
+  ])("routes %s → %s", (text, tag) => {
+    expect(extractKennelTag(text)).toBe(tag);
+  });
+
   it("matches NAWWH3", () => {
     expect(extractKennelTag("NAWWH3 Run #50")).toBe("nawwh3");
   });

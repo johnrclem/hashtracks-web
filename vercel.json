@@ -26,6 +26,10 @@
       "schedule": "30 3 * * *"
     },
     {
+      "path": "/api/cron/strava-cache-purge",
+      "schedule": "45 3 * * *"
+    },
+    {
       "path": "/api/cron/prediction-ledger",
       "schedule": "0 8 * * 1"
     },

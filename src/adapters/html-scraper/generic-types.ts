@@ -35,6 +35,7 @@ export interface GenericHtmlConfig {
   locationOmitIfMatches?: string[];        // regex strings; trimmed location matching any pattern is dropped (TBA, "Contact X to set this run", etc.)
   defaultStartTime?: string;               // "HH:MM" fallback when page doesn't have per-event times
   defaultStartTimeByKennel?: Record<string, string>; // per-kennelTag "HH:MM" map; takes precedence over defaultStartTime when the row's kennelTag matches a key
+  skipKennelTags?: string[];               // raw kennel-column codes to drop (case-insensitive) — rows a sibling source already covers, e.g. BOGS on the West of England allprint page; otherwise they raise SOURCE_KENNEL_MISMATCH every scrape
   forwardDate?: boolean;                   // resolve year-less dates to next future occurrence
   maxPastDays?: number;                    // skip events with dates more than N days in the past
   maxFutureDays?: number;                  // skip events with dates more than N days in the future — bounds a short rolling hareline so a stale source's future-dated rows can't become phantom runs (#1533)

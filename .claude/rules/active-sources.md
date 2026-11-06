@@ -286,7 +286,7 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **Voodoo H3 Google Calendar** -> GOOGLE_CALENDAR -> voodoo-h3
 
 ### New York City, NY (1)
-- **HashNYC Website** -> ICAL_FEED -> nych3, brh3, nah3, knick, lil, qbk, si, columbia, harriettes-nyc, ggfm, nawwh3, drinking-practice-nyc
+- **HashNYC Website** -> ICAL_FEED -> nych3, brh3, nah3, knick, lil, qbk, queens-h3, si, columbia, harriettes-nyc, ggfm, nawwh3, drinking-practice-nyc
 
 ### North NJ (3)
 - **Summit H3 Spreadsheet** -> GOOGLE_SHEETS -> summit, sfm, asssh3
@@ -315,7 +315,7 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **BFM Website** -> HTML_SCRAPER -> bfm
 - **BFM Special Events** -> HTML_SCRAPER -> bfm
 - **Philly H3 Website** -> HTML_SCRAPER -> philly-h3
-- **Hash Rego** -> HASHREGO -> bfm, ewh3, wh4, gfh3, ch3, dch4, dcfmh3, flour-city, oh3, wsh3, mrh3, bfh3, moa2h3, nych3, ggfm, mosh3, tkdh3
+- **Hash Rego** -> HASHREGO -> bfm, ewh3, wh4, gfh3, ch3, dch4, dcfmh3, flour-city, oh3, wsh3, mrh3, bfh3, moa2h3, nych3, ggfm, mosh3, tkdh3, ph3-atl
 
 ### Phoenix, AZ (2)
 - **Phoenix H3 Events** -> ICAL_FEED -> lbh-phx, hump-d, wrong-way, fdtdd
@@ -638,7 +638,7 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 ## Ireland (1 source)
 
 ### Dublin (1)
-- **Dublin H3 Website Hareline** -> HTML_SCRAPER -> dh3
+- **Dublin H3 Website Hareline** -> HTML_SCRAPER -> dh3, i-love-monday, shed-h3
 
 ## Jamaica (1 source)
 

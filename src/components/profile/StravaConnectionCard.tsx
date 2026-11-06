@@ -21,7 +21,6 @@ import { formatRelativeTime } from "@/lib/format";
 interface StravaConnectionCardProps {
   connection: {
     connected: boolean;
-    athleteName?: string;
     lastSyncAt?: string;
     activityCount?: number;
   };
@@ -67,6 +66,12 @@ export function StravaConnectionCard({
           Link your Strava account to easily attach activities to your hash
           runs.
         </p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          We read your last 90 days of activities to suggest runs you were at,
+          and show them only to you. Activity details are cached for at most
+          48 hours. We keep only the activity links you choose to attach, and
+          disconnecting removes those too.
+        </p>
         <a href="/api/auth/strava">
           <Button className="mt-3 bg-strava hover:bg-strava-hover text-white">
             Connect with Strava
@@ -82,21 +87,16 @@ export function StravaConnectionCard({
         <div>
           <p className="text-sm font-medium">Strava Connected</p>
           <p className="text-xs text-muted-foreground">
-            {connection.athleteName && (
-              <span>Connected as {connection.athleteName}</span>
-            )}
             {connection.lastSyncAt && (
-              <span>
-                {connection.athleteName ? " · " : ""}
-                Last synced: {formatRelativeTime(connection.lastSyncAt)}
-              </span>
+              <span>Last synced: {formatRelativeTime(connection.lastSyncAt)}</span>
             )}
-            {connection.activityCount !== undefined && (
+            {/* The activity cache is transient (purged after ~24h), so a zero
+                count just means "not fetched lately", not "nothing synced". */}
+            {!!connection.activityCount && (
               <span>
                 {" "}
-                · {connection.activityCount}{" "}
-                {connection.activityCount === 1 ? "activity" : "activities"}{" "}
-                cached
+                · {connection.activityCount} recent{" "}
+                {connection.activityCount === 1 ? "activity" : "activities"}
               </span>
             )}
           </p>

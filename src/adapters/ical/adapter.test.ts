@@ -3,6 +3,7 @@ import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunN
 import type { RawEventData } from "../types";
 import type { Source } from "@/generated/prisma/client";
 import type { ParameterValue } from "node-ical";
+import { SOURCES } from "../../../prisma/seed-data/sources";
 
 // Minimal ICS content for testing
 const SAMPLE_ICS = `BEGIN:VCALENDAR
@@ -1580,7 +1581,8 @@ const HASHNYC_ICS = [
   "SUMMARY:NASS #304: Friendsgiving 2026",
   "DTSTAMP:20260601T000000Z",
   "END:VEVENT",
-  // Queens #249 — generic "Queens" routes to qbk (not shadowed, not the default)
+  // Queens #249 — generic "Queens" routes to Queens H3 (queens-h3, #2650): not
+  // shadowed by the QBK pattern, not the default.
   "BEGIN:VEVENT",
   "UID:queens#249@hashnyc.com",
   "DTSTART;TZID=America/New_York:20260702T190000",
@@ -1588,7 +1590,7 @@ const HASHNYC_ICS = [
   "SUMMARY:Queens #249: 7-11 C*ms to Queens!",
   "DTSTAMP:20260601T000000Z",
   "END:VEVENT",
-  // QBK #73 — the abbreviation form of the same kennel, on its own run sequence.
+  // QBK #73 — Queens Black Knights (qbk), a separate kennel with its own run sequence.
   "BEGIN:VEVENT",
   "UID:qbk#73@hashnyc.com",
   "DTSTART;TZID=America/New_York:20260815T150000",
@@ -1648,32 +1650,17 @@ const HASHNYC_ICS = [
   "END:VCALENDAR",
 ].join("\r\n");
 
-const HASHNYC_KENNEL_PATTERNS: [string, string][] = [
-  ["^Knickerbocker\\b|^Knick\\b", "knick"],
-  ["^Queens Black Knights\\b|^QBK\\b", "qbk"],
-  ["^NAWW(?:H3)?\\b", "nawwh3"],
-  ["^New Amsterdam\\b|^NAH3\\b|^NASS\\b", "nah3"],
-  ["^Long Island(?:\\s+Lunatics)?\\b|^LIL\\b", "lil"],
-  ["^Staten Island\\b|^SI\\b", "si"],
-  ["^Drinking Practice\\b", "drinking-practice-nyc"],
-  ["^Brooklyn(?:\\s+H3)?\\b|^BrH3\\b|^BKH3\\b", "brh3"],
-  ["^Harriettes\\b", "harriettes-nyc"],
-  ["^Columbia\\b", "columbia"],
-  ["^GGFM\\b", "ggfm"],
-  ["^Queens\\b", "qbk"],
-  ["^NYC(?:H3)?\\b", "nych3"],
-];
+// Build the source straight from the seed so this suite tests exactly the
+// routing that ships (a hand-copied pattern list could silently drift).
+function findHashNycSeed() {
+  const seed = SOURCES.find((s) => s.name === "HashNYC Website" && s.type === "ICAL_FEED");
+  if (!seed?.config) throw new Error("HashNYC Website ICAL_FEED seed config missing");
+  return seed;
+}
+const HASHNYC_SEED = findHashNycSeed();
 
 function buildHashNycSource(): Source {
-  return buildMockSource({
-    name: "HashNYC Website",
-    url: "https://hashnyc.com/public/hareline.ics",
-    config: {
-      upcomingOnly: true,
-      kennelPatterns: HASHNYC_KENNEL_PATTERNS,
-      defaultKennelTag: "nych3",
-    },
-  });
+  return buildMockSource({ name: HASHNYC_SEED.name, url: HASHNYC_SEED.url, config: HASHNYC_SEED.config });
 }
 
 describe("ICalAdapter — HashNYC (relaunch iCal migration)", () => {
@@ -1701,8 +1688,9 @@ describe("ICalAdapter — HashNYC (relaunch iCal migration)", () => {
     // the "NASS"/"NAH3"/"New Amsterdam" pattern or NASS would swallow both.
     expect(byTag("nawwh3")).toEqual([391]);
     expect(byTag("nah3")).toEqual([304]);
-    // Both the spelled-out "Queens" and the "QBK" abbreviation → qbk.
-    expect(byTag("qbk").sort((a, b) => Number(a) - Number(b))).toEqual([73, 249]);
+    // "QBK" → Queens Black Knights; bare "Queens" → Queens H3 (#2650).
+    expect(byTag("qbk")).toEqual([73]);
+    expect(byTag("queens-h3")).toEqual([249]);
     // Dormant kennels: no events in the feed window at cutover, but still linked
     // to the source — assert their routes so they can't regress unnoticed.
     expect(byTag("knick")).toEqual([175]);
@@ -1712,7 +1700,7 @@ describe("ICalAdapter — HashNYC (relaunch iCal migration)", () => {
     expect(byTag("drinking-practice-nyc")).toEqual([10]);
     // Nothing falls through to the UNKNOWN sentinel or the default kennel.
     expect(result.events.every((e) => e.kennelTags[0] !== "UNKNOWN")).toBe(true);
-    // 3 nych3 + 2 qbk + 1 each brh3/ggfm/lil/nawwh3/nah3 + 5 dormant — every
+    // 3 nych3 + 1 each qbk/queens-h3/brh3/ggfm/lil/nawwh3/nah3 + 5 dormant — every
     // fixture VEVENT is accounted for above, so nothing silently routed to the
     // default kennel (which is nych3, and would otherwise absorb a miss).
     expect(result.events).toHaveLength(15);

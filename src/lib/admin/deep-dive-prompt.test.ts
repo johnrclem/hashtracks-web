@@ -68,6 +68,8 @@ const CONTAINS_CASES: readonly ContainsCase[] = [
   ["root-cause bundling across N events", ["Root-cause bundle rule", "sample event link", "not N issues"]],
   // Schema-gap field list with #503/#504 cross-references.
   ["schema-gap field list with #503/#504 cross-references", ["`endTime`", "#504", "`cost`", "#503", "`trailType`", "`schema-gap`"]],
+  // Half-Mind cross-check: status, schedule, website and genealogy against its verified listing; browser-only site.
+  ["Half-Mind directory cross-check", ["Half-Mind directory cross-check", "https://half-mind.com/regionalwebsite/", "HTTP 406", "Cite the listing number", "kennel's own website wins"]],
   // Completion-recorded response advances the rotation server-side; no UI visit needed.
   ["completion recorded response", ["\"recorded\": true", "advances in the rotation"]],
 ];

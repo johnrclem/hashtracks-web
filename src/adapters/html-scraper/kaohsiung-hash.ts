@@ -220,7 +220,67 @@ function parseRunBody(
     proseParts.push(block.text);
     locationUrl ??= block.mapsUrl;
   }
-  return { hares, locationUrl, prose: proseParts.join(" ") };
+  const prose = proseParts.join(" ");
+  return { hares: hares ?? parseInlineHares(prose), locationUrl, prose };
+}
+
+// "Hares: Trojan Whores, Seldom Cums and River Horse." — the inline form some
+// posts use instead of a "Your Hares:" label block (Weekend Away, Nov 2026).
+// Matched procedurally (Sonar S8786): the label must start a word, and the
+// value runs to the first '.' or ':' (max 160 chars).
+const INLINE_HARE_LABELS = ["hares:", "hare:"];
+const INLINE_HARES_MAX = 160;
+// A '.' after one of these is part of a name ("Mr. Fister"), not the end.
+const HONORIFICS = new Set(["mr", "mrs", "ms", "dr", "st", "jr", "sr", "mt"]);
+// Words that start the next label when the value ran into a ':' ("… Start Time:").
+const NEXT_LABEL_WORDS = new Set(["start", "time", "details", "detail", "where", "when", "cost", "location", "meet", "bring"]);
+
+/** True when the '.' at `i` closes an honorific like "Mr." rather than the sentence. */
+function isHonorificPeriod(text: string, i: number): boolean {
+  let j = i;
+  while (j > 0 && /[A-Za-z]/.test(text[j - 1])) j--;
+  return HONORIFICS.has(text.slice(j, i).toLowerCase());
+}
+
+/** Drop the next label's words ("Start Time") from a value that ran into its ':'. */
+function dropTrailingLabelWords(value: string): string {
+  const words = value.split(" ");
+  let end = words.length - 1; // the word right before ':' is always a label word
+  while (end > 0 && NEXT_LABEL_WORDS.has(words[end - 1].toLowerCase())) end--;
+  return words.slice(0, end).join(" ").trimEnd();
+}
+const AND_SEPARATOR_RE = /\s(?:and|&)\s/gi;
+
+function findInlineHareValue(prose: string): { value: string; endsAtLabel: boolean } | undefined {
+  const lower = prose.toLowerCase();
+  for (const label of INLINE_HARE_LABELS) {
+    let at = lower.indexOf(label);
+    while (at > 0 && /[a-z0-9]/.test(lower[at - 1])) at = lower.indexOf(label, at + 1);
+    if (at < 0) continue;
+    const rest = prose.slice(at + label.length, at + label.length + INLINE_HARES_MAX + 1);
+    let end = rest.length;
+    for (let i = 0; i < rest.length; i++) {
+      if (rest[i] === ":" || (rest[i] === "." && !isHonorificPeriod(rest, i))) {
+        end = i;
+        break;
+      }
+    }
+    return { value: rest.slice(0, end).trim(), endsAtLabel: rest[end] === ":" };
+  }
+  return undefined;
+}
+
+/**
+ * Hares from an inline "Hares: A, B and C." sentence in the run prose. When the
+ * capture ran into the next label ("Hares: A, B Details: …"), the label word is
+ * dropped. A trailing "and C" is split so the names sort like the label form.
+ */
+export function parseInlineHares(prose: string): string | undefined {
+  const found = findInlineHareValue(prose);
+  if (!found || found.value.length < 2) return undefined;
+  let names = found.value;
+  if (found.endsAtLabel) names = dropTrailingLabelWords(names);
+  return normalizeHaresField(names.replace(AND_SEPARATOR_RE, ", "));
 }
 
 const WHEN_LABEL_RE = /\bWhen:\s*/i;

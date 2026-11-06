@@ -43,7 +43,8 @@ const KENNEL_PATTERNS: [RegExp, string][] = [
   [/LIL/i, "lil"],
   [/SI\b/i, "si"],
   [/NYC(?:H3)?/i, "nych3"],
-  [/Queens/i, "qbk"],
+  // Bare "Queens" is Queens H3, a separate kennel from QBK (#2650).
+  [/Queens/i, "queens-h3"],
   [/Special/i, "nych3"],
 ];
 

@@ -453,6 +453,26 @@ describe("parseEventRow", () => {
       expect(event?.startTime).toBe("18:30");
     });
   });
+
+  // ── skipKennelTags ──
+  describe("skipKennelTags", () => {
+    it("drops rows whose kennel-column code is listed (case-insensitive)", () => {
+      const $h = cheerio.load(`<table>
+        <tr><td>BRIS</td><td>03/05/26</td></tr>
+        <tr><td>bogs</td><td>06/05/26</td></tr>
+      </table>`);
+      const config: GenericHtmlConfig = {
+        containerSelector: "table",
+        rowSelector: "tr",
+        columns: { kennelTag: "td:nth-child(1)", date: "td:nth-child(2)" },
+        defaultKennelTag: "fallback",
+        dateLocale: "en-GB",
+        skipKennelTags: ["BOGS"],
+      };
+      expect(parseEventRow($h, $h("tr").eq(0), config, "x")?.kennelTags).toEqual(["BRIS"]);
+      expect(parseEventRow($h, $h("tr").eq(1), config, "x")).toBeNull();
+    });
+  });
 });
 
 describe("GenericHtmlAdapter", () => {

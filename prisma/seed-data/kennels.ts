@@ -134,11 +134,29 @@ export const KENNELS: KennelSeed[] = [
       description: "Long Island's LIRR-friendly hash kennel — part of the HashNYC umbrella. Trails start near a Long Island Rail Road station on full-moon Saturdays. Hash cash is $20.",
     },
     {
-      kennelCode: "qbk", shortName: "Queens", fullName: "Queens Black Knights Hash House Harriers", region: "New York City, NY",
+      // #2650: `qbk` is Queens Black Knights H3 ONLY. Its "Queens #NNN" sibling
+      // series (Queens H3, 1996–) moved to `queens-h3` below. The slug stays
+      // "queens" because hashnyc.com itself serves QBK at /kennels/queens and
+      // Queens H3 at /kennels/queens-h3 — and it keeps existing URLs working.
+      kennelCode: "qbk", shortName: "QBK", slug: "queens", fullName: "Queens Black Knights Hash House Harriers", region: "New York City, NY",
       logoUrl: "/kennel-logos/qbk.png",
       website: "https://hashnyc.com", // #2649: umbrella site (already the tracked source); QBK has no dedicated site
-      scheduleNotes: "Random days, random times.", // #2649: explicitly no fixed weekly schedule per hashnyc.com
-      description: "Queens Hash House Harriers — Starts near public transit in Queens — Random days, random times.", // #2649
+      scheduleNotes: "Sporadic, plus the annual Queen's Birthday run on the second Saturday in June.", // hashnyc.com/kennels
+      foundedYear: 2013, // QBK #1 "Inaugural R*n" 2013-04-12
+      description: "Queens Black Knights Hash House Harriers — a sporadic Queens kennel in the HashNYC family, founded in April 2013 (the name is a Monty Python joke). Starts near public transit in Queens; best known for the annual Queen's Birthday run on the second Saturday in June.",
+    },
+    {
+      // #2650: the original Queens H3 — split off `qbk`, whose page carried both
+      // series. Ran biweekly Mondays in the early 2000s (#169–#242), then went
+      // quiet; revival trails since (#244 2023 → #249 Jul 2026). hashnyc.com
+      // lists it under "Dearly departed" ("Sporadic · Queens").
+      kennelCode: "queens-h3", shortName: "Queens H3", fullName: "Queens Hash House Harriers", region: "New York City, NY",
+      website: "https://hashnyc.com",
+      logoUrl: "/kennel-logos/hashnyc-umbrella.png",
+      scheduleNotes: "Sporadic.",
+      foundedYear: 1996, // "Ten Year Anniversary! - Queens #232" on 2006-04-10
+      description: "Queens Hash House Harriers — the original Queens kennel of the HashNYC family, founded in 1996. Ran every other Monday in the early 2000s; now sporadic, with occasional revival trails starting near public transit in Queens.",
+      latitude: 40.7509, longitude: -73.9411,
     },
     { kennelCode: "si", shortName: "SI", fullName: "Staten Island Hash House Harriers", region: "New York City, NY" },
     { kennelCode: "columbia", shortName: "Columbia", fullName: "Columbia Hash House Harriers", region: "New York City, NY" },
@@ -1165,10 +1183,40 @@ export const KENNELS: KennelSeed[] = [
       logoUrl: "https://dublinhhh.com/assets/images/leprechaun.gif",
       facebookUrl: "https://www.facebook.com/groups/dublinhashhouseharriers/",
       instagramHandle: "dublinhashhouseharriers",
-      scheduleDayOfWeek: "Monday", scheduleTime: "19:30", scheduleFrequency: "Weekly",
+      // #2759: the in-between Mondays are I ♥ Monday's (own kennel below), so
+      // Dublin H3 itself runs every other Monday. Anchor = Dublin H3 #1685.
+      scheduleDayOfWeek: "Monday", scheduleTime: "19:30", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO", anchorDate: "2026-11-09", startTime: "19:30" }],
       foundedYear: 1986, hashCash: "€2",
-      description: "Ireland's longest-running hash. Weekly Monday evening runs in the Dublin area, alternating Dublin H3 (odd weeks) and I ♥ Monday (even weeks).",
+      description: "Ireland's longest-running hash, founded in 1986. Runs every other Monday at 19:30 from a pub in the Dublin area; the Mondays in between belong to its sister series, I ♥ Monday.",
       latitude: 53.3498, longitude: -6.2603,
+    },
+    {
+      // #2759: Dublin HHH's even-week Monday series, on its own run count
+      // (#324 Dec 2022 → #429 Dec 2026). Shares the dublinhhh.com hareline with
+      // Dublin H3; was an alias of dh3 until the split. Anchor = I ♥ Monday #427.
+      kennelCode: "i-love-monday", shortName: "I ♥ Monday", slug: "i-love-monday",
+      fullName: "I Love Monday Hash House Harriers", region: "Dublin", country: "IE",
+      parentKennelCode: "dh3",
+      website: "https://dublinhhh.com/",
+      logoUrl: "https://dublinhhh.com/assets/images/leprechaun.gif",
+      facebookUrl: "https://www.facebook.com/groups/dublinhashhouseharriers/",
+      instagramHandle: "dublinhashhouseharriers",
+      scheduleDayOfWeek: "Monday", scheduleTime: "19:30", scheduleFrequency: "Biweekly",
+      scheduleRules: [{ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO", anchorDate: "2026-11-16", startTime: "19:30" }],
+      description: "Dublin HHH's other Monday series: every other Monday at 19:30, alternating with Dublin H3 and numbered on its own count. Trails start from a pub around Dublin and finish back there.",
+      latitude: 53.3498, longitude: -6.2603,
+    },
+    {
+      // #2759: annual August Saturday trail at The Shed, Naas (Co. Kildare), on
+      // its own count (#5 2024, #6 2025, #7 2026). Listed on the dublinhhh.com
+      // hareline as an "Other" hash, so it is sourced by that hareline.
+      kennelCode: "shed-h3", shortName: "Shed Hash", fullName: "Shed Hash House Harriers", region: "Dublin", country: "IE",
+      website: "https://dublinhhh.com/",
+      scheduleDayOfWeek: "Saturday", scheduleFrequency: "Annually",
+      scheduleNotes: "One Saturday afternoon each August at The Shed, Naas, Co. Kildare: hydration from 14:00, trail around 14:30–15:00, BBQ after.",
+      description: "An annual Saturday-afternoon trail at The Shed in Naas, Co. Kildare, every August: long and short trails with a beer stop, a circle at the finish, then a BBQ. Run by Dublin hashers on its own count and listed on the Dublin HHH hareline.",
+      latitude: 53.2226, longitude: -6.6521,
     },
     // ===== UK — SCOTLAND =====
     {
@@ -4171,11 +4219,12 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "bch3", shortName: "BCH3", fullName: "Brew City Hash House Harriers", region: "Milwaukee, WI",
       website: "https://www.brewcityh3.com",
       facebookUrl: "https://www.facebook.com/groups/BrewCityH3/",
-      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Weekly",
-      // Seasonal: summer Thursdays (Jun–Oct), winter Fridays (Nov–May) per 2yr history.
+      scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      // Thursdays at 7 PM all year. The old "summer Thursday / winter Friday" split
+      // was an artifact: Wix renders BCH3's headings in UTC, so a Thursday 7 PM
+      // winter run read as "Friday 1 AM" (#2720).
       scheduleRules: [
-        { rrule: "FREQ=WEEKLY;BYDAY=TH", label: "Summer", validFrom: "06-01", validUntil: "10-31", displayOrder: 0 },
-        { rrule: "FREQ=WEEKLY;BYDAY=FR", label: "Winter", validFrom: "11-01", validUntil: "05-31", displayOrder: 1 },
+        { rrule: "FREQ=WEEKLY;BYDAY=TH", startTime: "19:00", displayOrder: 0 },
       ],
       hashCash: "$7-8",
       contactEmail: "Fido@BrewCityH3.com",

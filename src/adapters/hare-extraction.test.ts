@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractHares, cleanAndFilterHares } from "./hare-extraction";
+import { extractHares, cleanAndFilterHares, stripTrailingRoleClause } from "./hare-extraction";
 
 type ExpectedRow = readonly [label: string, desc: string, expected: string];
 type UndefinedRow = readonly [label: string, desc: string];
@@ -500,5 +500,19 @@ describe("cleanAndFilterHares — role labels (#2368 StumpH3)", () => {
   it("leaves a plain hare name untouched (no labels)", () => {
     expect(cleanAndFilterHares("Khuming Rouge")).toBe("Khuming Rouge");
     expect(cleanAndFilterHares("Mudflap & Trail Blazer")).toBe("Mudflap & Trail Blazer");
+  });
+});
+
+describe("trailing support-role clause (#2615 Boston)", () => {
+  it("drops a 'Bag car <name>' clause from the Who: line", () => {
+    expect(extractHares("Who: Finger In My and Frosty, Bag car No Man on the Moon")).toBe("Finger In My and Frosty");
+  });
+  it("drops a sweep / beer car clause after ';' too", () => {
+    expect(stripTrailingRoleClause("Alpha, Beta; sweep: Gamma")).toBe("Alpha, Beta");
+    expect(stripTrailingRoleClause("Alpha, beer car Delta")).toBe("Alpha");
+  });
+  it("leaves names that merely contain a role word alone", () => {
+    expect(stripTrailingRoleClause("Sweeper Todd, Bagcarrier")).toBe("Sweeper Todd, Bagcarrier");
+    expect(stripTrailingRoleClause("Alpha, Beta")).toBe("Alpha, Beta");
   });
 });

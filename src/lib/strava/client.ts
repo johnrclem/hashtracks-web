@@ -20,8 +20,12 @@ export class StravaAthleteLimitError extends Error {
 
 const STRAVA_AUTH_URL = "https://www.strava.com/oauth/authorize";
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
+// Strava announced a move to https://api-v3.strava.com (available from 2027;
+// no shutdown date yet for this host). Switch once the old host has an end date.
 const STRAVA_API_BASE = "https://www.strava.com/api/v3";
-const STRAVA_DEAUTH_URL = "https://www.strava.com/oauth/deauthorize";
+const STRAVA_REVOKE_URL = "https://www.strava.com/oauth/revoke";
+const REVOKE_TIMEOUT_MS = 5000;
+const REVOKE_RETRY_DELAY_MS = 500;
 
 function getClientId(): string {
   const id = process.env.STRAVA_CLIENT_ID;
@@ -150,20 +154,44 @@ export async function getValidAccessToken(connection: {
   return { accessToken: tokenData.access_token, refreshed: true };
 }
 
-/** Revoke access on Strava's end (required on disconnect per API agreement). */
-export async function deauthorizeStrava(accessToken: string): Promise<void> {
-  const res = await fetch(STRAVA_DEAUTH_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({ access_token: accessToken }),
-  });
+/**
+ * Revoke a connection's stored refresh token on Strava's end (required on
+ * disconnect per the API agreement). Takes the token as stored, which may be
+ * encrypted, and decrypts it here.
+ *
+ * POST /oauth/revoke with HTTP Basic client auth. Revoking the refresh token
+ * also revokes its access tokens, so no refresh is needed first. Strava returns
+ * 200 whether or not the token was found, so an already-revoked token is not an
+ * error. 503 is documented as safe to retry and gets one retry after a short
+ * pause. 401 means our client credentials are wrong, so it throws.
+ */
+export async function revokeStravaRefreshToken(storedRefreshToken: string): Promise<void> {
+  const basic = Buffer.from(`${getClientId()}:${getClientSecret()}`).toString("base64");
+  const body = new URLSearchParams({
+    token: decryptToken(storedRefreshToken),
+    token_type_hint: "refresh_token",
+  }).toString();
+  const request = () =>
+    fetch(STRAVA_REVOKE_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${basic}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body,
+      signal: AbortSignal.timeout(REVOKE_TIMEOUT_MS),
+    });
 
-  // 401 means token is already invalid — treat as success
-  if (!res.ok && res.status !== 401) {
+  let res = await request();
+  if (res.status === 503) {
+    await res.body?.cancel();
+    await new Promise((resolve) => setTimeout(resolve, REVOKE_RETRY_DELAY_MS));
+    res = await request();
+  }
+
+  if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Strava deauthorization failed (${res.status}): ${text}`);
+    throw new Error(`Strava token revocation failed (${res.status}): ${text}`);
   }
 }
 
@@ -210,7 +238,16 @@ export async function fetchStravaActivities(
       );
     }
 
-    const activities = (await res.json()) as StravaApiActivity[];
+    // Validate the shape: sync treats the result as the complete list for the
+    // window and deletes cached rows not in it, so a malformed 200 must throw
+    // rather than read as "no activities".
+    const body: unknown = await res.json();
+    if (!Array.isArray(body)) {
+      throw new TypeError(
+        `Strava activity fetch returned an unexpected payload (${typeof body}) on page ${page}`,
+      );
+    }
+    const activities = body as StravaApiActivity[];
     allActivities.push(...activities);
 
     // If we got fewer than perPage, we've reached the end

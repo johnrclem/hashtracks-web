@@ -14,6 +14,13 @@ const mockedSafeFetch = vi.mocked(safeFetch);
 // ── parseDate ──
 
 describe("parseDate", () => {
+  it("reads D/M/YYYY day-first when opts.dayFirst is set (#2591 Newcastle)", () => {
+    expect(parseDate("04/01/2026", undefined, { dayFirst: true })).toBe("2026-01-04");
+    expect(parseDate("30/12/2026", undefined, { dayFirst: true })).toBe("2026-12-30");
+    expect(parseDate("04/01/2026")).toBe("2026-04-01"); // default stays month-first
+    expect(parseDate("2026-03-29", undefined, { dayFirst: true })).toBe("2026-03-29"); // ISO unaffected
+  });
+
   it("parses weekday-prefixed YY-MM-DD (Summit 2026-2027 tab, #2333)", () => {
     expect(parseDate("Mon 26-06-22")).toBe("2026-06-22");
     expect(parseDate("Sat 26-06-27")).toBe("2026-06-27");

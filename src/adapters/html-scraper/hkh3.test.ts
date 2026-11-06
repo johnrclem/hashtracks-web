@@ -1,5 +1,15 @@
-import { describe, it, expect } from "vitest";
-import { parseHkh3Homepage, nextMondayOnOrAfter } from "./hkh3";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import {
+  parseHkh3Homepage,
+  nextMondayOnOrAfter,
+  expectedRunNumber,
+  parseRunNumberAnchor,
+  Hkh3Adapter,
+} from "./hkh3";
+import * as safeFetchModule from "../safe-fetch";
+
+vi.mock("../safe-fetch");
+vi.mock("@/pipeline/structure-hash", () => ({ generateStructureHash: () => "h" }));
 
 const FIXTURE = `
 <html><body>
@@ -139,5 +149,63 @@ describe("parseHkh3Homepage — prose containing a label word (#2584)", () => {
     const ev = parseHkh3Homepage(html, "https://hkhash.com/", new Date(Date.UTC(2026, 6, 1)));
     expect(ev?.location).toBe(venue);
     expect(ev?.description).toBe("Run #2979 — Format: A to A. Bag drop 5:30pm for Walkers");
+  });
+});
+
+describe("runNumberAnchor stale-homepage guard (G7)", () => {
+  const anchor = { runNumber: 2988, date: "2026-09-07" };
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.resetAllMocks();
+  });
+
+  it("counts one run per Monday from the anchor", () => {
+    expect(expectedRunNumber("2026-09-07", anchor)).toBe(2988);
+    expect(expectedRunNumber("2026-11-09", anchor)).toBe(2997);
+    expect(expectedRunNumber("2026-07-06", anchor)).toBe(2979);
+  });
+
+  it("rejects malformed anchors", () => {
+    expect(parseRunNumberAnchor({ runNumber: "2988", date: "2026-09-07" })).toBeUndefined();
+    expect(parseRunNumberAnchor({ runNumber: 2988, date: "Sep 7" })).toBeUndefined();
+    expect(parseRunNumberAnchor(anchor)).toEqual(anchor);
+  });
+
+  const fetchWith = async (now: string, config: unknown) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(now));
+    vi.mocked(safeFetchModule.safeFetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => FIXTURE.replace("Run Number 2969", "Run Number 2988"),
+    } as never);
+    return new Hkh3Adapter().fetch({ id: "s", url: "https://hkhash.com/", config } as never);
+  };
+
+  it("emits nothing when the page still shows a run that has already happened", async () => {
+    // Nov 2026: the page still says #2988 (held 2026-09-07); the next Monday expects #2997.
+    const r = await fetchWith("2026-11-03T04:00:00Z", { runNumberAnchor: anchor });
+    expect(r.events).toEqual([]);
+    expect(r.errors).toEqual([]);
+    expect(r.diagnosticContext).toMatchObject({ staleHomepage: true, expectedZero: true, expectedRunNumber: 2997 });
+  });
+
+  it("fails loud once the page is more than 13 weeks behind the anchor", async () => {
+    // 2027-01-07 → next Monday 2027-01-11 expects #3006; page still #2988 → 18 weeks behind.
+    const r = await fetchWith("2027-01-07T04:00:00Z", { runNumberAnchor: anchor });
+    expect(r.events).toEqual([]);
+    expect(r.errors[0]).toMatch(/18 weeks behind.*runNumberAnchor/);
+    expect(r.diagnosticContext).toMatchObject({ weeksBehind: 18 });
+  });
+
+  it("emits the run on the next Monday when the page is current", async () => {
+    const r = await fetchWith("2026-09-03T04:00:00Z", { runNumberAnchor: anchor });
+    expect(r.events.map((e) => [e.date, e.runNumber])).toEqual([["2026-09-07", 2988]]);
+  });
+
+  it("keeps the old behavior when no anchor is configured", async () => {
+    const r = await fetchWith("2026-11-03T04:00:00Z", null);
+    expect(r.events).toHaveLength(1);
   });
 });

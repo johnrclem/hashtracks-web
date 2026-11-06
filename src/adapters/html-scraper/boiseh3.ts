@@ -11,6 +11,7 @@ const TIME_RE = /(\d{1,2}:\d{2}) ?(AM|PM)/i;
 const HARES_RE = /^Hares?:\s*(\S.*)$/i;
 // Lines that aren't location candidates: section labels, bullet items, hash-cash boilerplate.
 const SKIP_LINE_RE = /^(?:Trail:|Bring:|[●•]|\$\d+\s*Hash\s*Cash)/iu;
+const ZERO_WIDTH_RE = /[\u200B-\u200D\u2060\uFEFF]/g;
 
 function parseDateTimeLine(line: string): { dateStr: string; timeStr: string } | null {
   const dm = DATE_RE.exec(line);
@@ -61,7 +62,9 @@ export function parseBoiseH3Page(
   const lines: string[] = [];
   $walkFrom.nextAll().each((_i, el) => {
     if ($(el).is("h1, h2, h3, h4, h5, h6")) return false;
-    const text = $(el).text().replace(/\s+/g, " ").trim();
+    // Wix pads empty blocks with U+200B ("wixGuard"), which `\s` and trim()
+    // don't remove, so a "​"-only line became the location (Nov 2026).
+    const text = $(el).text().replace(ZERO_WIDTH_RE, "").replace(/\s+/g, " ").trim();
     if (text) lines.push(text);
     return true;
   });

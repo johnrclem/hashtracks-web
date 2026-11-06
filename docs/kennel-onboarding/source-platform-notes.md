@@ -3139,3 +3139,30 @@ where the long-cadence uncovered kennels live.
   `maxEventDate` backward** window-by-window (e.g. Oct→Sep→Jul→Apr) and extract only that kennel's rows
   each pass; a complete single-pull is not possible that way — flag the full enumeration for Claude Code
   (which can raw-fetch + paginate) at build.
+
+## Half-Mind (rebuilt 2026) as a bulk discovery oracle — VERIFIED (Music City H3 run, 2026-11-06)
+
+- `half-mind.com` returns HTTP 406 to curl, but the **built-in browser** works. From a half-mind.com tab, a same-origin
+  `fetch('/regionalwebsite/p_list1.php?ALL=&category=fixed&region=&country=&HASHCLUB=<name>&LOCATION=&showdead=AliveOnly&CONTACT=')`
+  returns the server-rendered results page. `HASHCLUB` blank with `region=USA` gave **548 listings (~4 MB)**. They
+  covered the whole Americas, not only the USA, so treat `region` as loose.
+- Parse in-page with `DOMParser`. Each listing has a `Direct Link` anchor. Walk up to the ancestor whose text contains
+  "Usual schedule" to get name, `Current State: Alive and Verified|Alive|UNKNOWN`, `Location …` and website links.
+  Don't walk further up: the next ancestor is the whole list, and the result blows past the tool output limit.
+- Single-listing queries (`HASHCLUB=<name>`) also return the **Details** block (schedule prose, hash cash, adults-only
+  policy), **First Hash (DOB)**, **Parent Hash**, the "Last verified … Evidence: …" line, and the listing number to cite.
+- Contact emails and phones are listed in plain text. **Don't copy them into handoffs** (PII), except as a
+  `contactEmail` that the kennel publishes as its own club address.
+- Workflow that found Music City: filter "Alive and Verified" + website → diff against the sitemap, seed and handoffs →
+  `curl` each homepage and grep for `calendar/embed?src=`, `meetup.com/`, `.ics`, `tribe-events`, `hashruns`.
+  Only a marker hit is worth a deep look.
+
+## The Events Calendar (Tribe) — organizers can be the KENNEL, and archives carry bogus spans (Music City H3, 2026-11-06, VERIFIED via curl)
+
+- On `musiccityhash.com`, Tribe `organizer` is `"MCH3"` (107×, last used 2018) plus a few cross-posted *other kennels*
+  (Governators, Rocket Shitty, Savannah…). It is **not hares**, so `haresFromOrganizers` must stay off. Check the organizer
+  names before copying the Dayton config.
+- Archives can hold hand-entry errors such as a single Saturday run entered with a 29-day `end_date` (#982,
+  2024-06-01 → 06-29). The adapter maps `endDate` for multi-day spans, so a backfill must clamp or drop implausible spans.
+- `?start_date=2000-01-01&end_date=<future>&per_page=50&page=N` paginates the full archive (418 events, 9 pages here).
+  The adapter's default `maxEvents` is 200, so raise it for backfills.
