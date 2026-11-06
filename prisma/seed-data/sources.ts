@@ -6174,6 +6174,18 @@ export const SOURCES = [
     // explicit "Melbourne New Moon" prefix wins over a bare "Run No."
     // catch-all). Anything that doesn't match falls back to `kennelTag`.
     {
+      name: "Devonport H3 Blogger Feed",
+      url: "https://www.dhash.com/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke blog scrape (labelled run posts + receding hareline)
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Reads the latest ~15 posts + the newest post's hareline; older runs age
+      // out of the fetch and must not be reconciled as removed.
+      config: { upcomingOnly: true },
+      kennelCodes: ["devonport-h3"],
+    },
+    {
       name: "Melbourne New Moon Meetup",
       url: "https://www.meetup.com/melbourne-new-moon-running-group/",
       type: "MEETUP" as const,

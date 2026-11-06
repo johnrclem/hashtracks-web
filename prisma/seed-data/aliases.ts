@@ -551,6 +551,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "sth3-au": ["Sydney Thirsty H3", "Sydney Thirsty", "Thirsty H3", "Thirsty Hash", "STH3", "Sydney Thirsty Hash House Harriers"],
     "nswhhh": ["NSWHHH", "NSWH3", "North Shore Wanderers", "North Shore Wanderers H3", "North Shore Wanderers Hash", "North Shore Wanderers Hash House Harriers", "NSW Hash"],
     // Australia — Victoria
+    // bare "DH3" OMITTED — Dublin H3.
+    "devonport-h3": ["Devonport H3", "Devonport Hash", "Devonport HHH", "Odd Sock Hash", "DHash"],
     "mel-new-moon": ["Melbourne New Moon H3", "Melbourne New Moon", "New Moon H3 Melbourne", "MNMH3", "Melbourne Moon Hash"],
     // #1617 — Melbourne sibling kennels routed off the shared Mel-NM Meetup
     // aggregator. Aliases drawn from the actual title prefixes observed in
