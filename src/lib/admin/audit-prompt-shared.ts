@@ -119,7 +119,7 @@ Filing is a single POST to a first-party endpoint. **This does NOT create a GitH
 Response shapes:
 - \`{ "data": { "queued": true, "draftId": "...", "deduped": false } }\` — finding queued for review.
 - \`{ "data": { "queued": true, "deduped": true } }\` — you already submitted this exact finding this run; it's a no-op. **Don't resubmit.**
-- \`{ "error": "Unknown kennelCode" }\` (422) — re-check the kennelCode (it's the last path segment of the kennel's HashTracks page) and retry.
+- \`{ "error": "Unknown kennelCode" }\` (422) — re-check the kennelCode and retry. Either the internal kennelCode or the kennel page's URL slug (last path segment of \`/kennels/<slug>\`) is accepted; the finding is stored under the internal code.
 - \`{ "error": "..." }\` (400) — malformed payload; fix the field it names and retry.
 
 You never set labels and never touch GitHub. The \`ruleSlug\` is lowercase-hyphenated (e.g. \`hares-theme-leak\`, \`title-raw-kennel-code\`); when the server later files the reviewed finding it applies the \`audit\`, \`alert\`, \`audit:${input.stream}\`, and \`kennel:${input.kennelLabel}\` labels and runs the cross-issue dedup, so duplicates of an already-open finding become recurrence comments rather than new issues.

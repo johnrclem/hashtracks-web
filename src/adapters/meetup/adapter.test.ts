@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription, cleanMeetupTitle, detectBoilerplateBlocks, stripBoilerplateBlocks, extractRunNumberFromMeetupDescription, extractMeetupCost, extractMeetupTrailType } from "./adapter";
+import { MeetupAdapter, extractApolloEvents, resolveVenue, isNumericId, dedupByDate, stripTrailingState, deduplicateWords, isStateFullName, buildRawEventFromApollo, extractHaresFromMeetupDescription, cleanMeetupTitle, detectBoilerplateBlocks, stripBoilerplateBlocks, extractRunNumberFromMeetupDescription, extractMeetupCost, extractMeetupTrailType, apolloEventsToRawEvents } from "./adapter";
 import { normalizeDescriptionKey } from "../utils";
 import { SOURCES } from "../../../prisma/seed-data/sources";
 import type { Source } from "@/generated/prisma/client";
@@ -2372,5 +2372,48 @@ describe("buildRawEventFromApollo — CHH3 dash-form fallback (#953)", () => {
     };
     const event = buildRawEventFromApollo(ev as never, emptyState, "chh3");
     expect(event.hares).toBe("Just Josh");
+  });
+});
+
+describe("apolloEventsToRawEvents — skipTitlePatterns + routing (#2413 Richmond)", () => {
+  const richmond = {
+    groupUrlname: "richmond-hash-house-harriers",
+    kennelTag: "rvah3",
+    kennelPatterns: [
+      [String.raw`\b(?:BIBH3|BIB|Belle Isle)\b`, "bibh3"],
+      [String.raw`\b(?:TMFMH3|TMFM|TFMH3?|Titanic)\b`, "tmfmh3"],
+      [String.raw`\bChain Gang\b`, "chain-gang-hhh"],
+    ] as [string, string][],
+    skipTitlePatterns: [String.raw`\bPOHO`, String.raw`\bSassy\b`],
+  };
+  const ev = (id: string, title: string) => ({
+    __typename: "Event",
+    id,
+    title,
+    dateTime: `2016-0${id}-10T18:00:00-04:00`,
+    status: "PUBLISHED",
+  });
+
+  it("drops other kennels' posts and routes the sister kennels' short forms", () => {
+    const out = apolloEventsToRawEvents(
+      [
+        ev("1", "RH3 # 1148 - Zombie Jesus!"),
+        ev("2", "POHO H3 Trail #3 -- Invade Clam's Purple Dress Run"),
+        ev("3", "Sassy Hash ISABONAF NIIIGGGHTT!!"),
+        ev("4", "TMFM #124  - Barley and Hops and Stout, Oh My!"),
+        ev("5", "TFMH3 #142 - White Trash Hash!"),
+        ev("6", "BIB’s Happy Hashgiving PICKUP TRAIL!!!"),
+      ],
+      {},
+      richmond,
+    );
+    expect(out.foreignKennelSkipped).toBe(2);
+    expect(out.events.map((e) => e.kennelTags[0])).toEqual(["rvah3", "tmfmh3", "tmfmh3", "bibh3"]);
+  });
+
+  it("skips nothing when skipTitlePatterns is unset", () => {
+    const out = apolloEventsToRawEvents([ev("2", "POHO H3 Trail #3")], {}, { groupUrlname: "g", kennelTag: "rvah3" });
+    expect(out.foreignKennelSkipped).toBe(0);
+    expect(out.events).toHaveLength(1);
   });
 });
