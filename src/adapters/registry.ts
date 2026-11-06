@@ -23,6 +23,7 @@ import { MadridHashAdapter } from "./html-scraper/madrid-hash";
 import { AucklandHashAdapter } from "./html-scraper/auckland-hash";
 import { OCH3Adapter } from "./html-scraper/och3";
 import { SlashHashAdapter } from "./html-scraper/slash-hash";
+import { TamarValleyH3Adapter } from "./html-scraper/tamar-valley-h3";
 import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
 import { WCFHCalendarAdapter } from "./html-scraper/wcfh-calendar";
 import { AtlantaHashBoardAdapter } from "./html-scraper/atlanta-hash-board";
@@ -32,7 +33,6 @@ import { HertsHashAdapter } from "./html-scraper/herts-hash";
 import { SurreyHashAdapter } from "./html-scraper/surrey-hash";
 import { FukFullMoonH3Adapter } from "./html-scraper/fuk-full-moon";
 import { SouthHamsH4Adapter } from "./html-scraper/south-hams-h4";
-import { TamarValleyH3Adapter } from "./html-scraper/tamar-valley-h3";
 import { TidewaterH3Adapter } from "./html-scraper/tidewater-h3";
 import { DesertHashAdapter } from "./html-scraper/desert-hash";
 import { CreekHashAdapter } from "./html-scraper/creek-hash";
@@ -197,6 +197,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /enfieldhash\.org/i,       name: "EnfieldHashAdapter",   factory: () => new EnfieldHashAdapter() },
   { pattern: /chicagohash\.org/i,       name: "ChicagoHashAdapter",   factory: () => new ChicagoHashAdapter() },
   { pattern: /chicagoth3\.com/i,        name: "ChicagoTH3Adapter",    factory: () => new ChicagoTH3Adapter() },
+  { pattern: /tvh3\.co\.uk/i,                name: "TamarValleyH3Adapter",    factory: () => new TamarValleyH3Adapter() },
   { pattern: /sfh3\.com/i,             name: "SFH3Adapter",           factory: () => new SFH3Adapter() },
   { pattern: /ewh3\.com/i,             name: "EWH3Adapter",           factory: () => new EWH3Adapter() },
   { pattern: /dch4\.org/i,             name: "DCH4Adapter",           factory: () => new DCH4Adapter() },
@@ -212,7 +213,6 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /surreyhashhouseharriers\.com/i, name: "SurreyHashAdapter",     factory: () => new SurreyHashAdapter() },
   { pattern: /fukfmh3\.co\.uk/i,             name: "FukFullMoonH3Adapter",    factory: () => new FukFullMoonH3Adapter() },
   { pattern: /sh4\.org\.uk/i,                 name: "SouthHamsH4Adapter",      factory: () => new SouthHamsH4Adapter() },
-  { pattern: /tvh3\.co\.uk/i,                name: "TamarValleyH3Adapter",    factory: () => new TamarValleyH3Adapter() },
   { pattern: /tidewaterh3\.org/i,            name: "TidewaterH3Adapter",      factory: () => new TidewaterH3Adapter() },
   // Desert H3 (HashTracks' first UAE kennel, Dubai's oldest hash, est. 1979) — deserthash.org
   // WordPress/Elementor + Modern Events Calendar, fully SSR'd; wp-json + MEC/Tribe REST all
