@@ -1,0 +1,5510 @@
+[
+  {
+    "date": "1998-05-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1,
+    "startTime": "19:30",
+    "location": "Kingsbridge Leisure Centre",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-0001/"
+  },
+  {
+    "date": "2015-01-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 947,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/947/"
+  },
+  {
+    "date": "2015-09-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 987,
+    "startTime": "19:30",
+    "location": "Cornwood Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-987/"
+  },
+  {
+    "date": "2015-10-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 991,
+    "startTime": "19:30",
+    "location": "Seven Stars",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-991/"
+  },
+  {
+    "date": "2015-11-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 992,
+    "startTime": "19:30",
+    "location": "Journey’s End",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-992/"
+  },
+  {
+    "date": "2015-11-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 993,
+    "startTime": "19:30",
+    "location": "Trawler",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-993/"
+  },
+  {
+    "date": "2015-11-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 994,
+    "startTime": "19:30",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-994/"
+  },
+  {
+    "date": "2015-11-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 995,
+    "startTime": "19:30",
+    "location": "Dartmouth Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-995-dartmouth-inn-totnes/"
+  },
+  {
+    "date": "2015-12-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 998,
+    "startTime": "19:30",
+    "location": "Dean Prior (Wood)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-996-dean-prior/"
+  },
+  {
+    "date": "2015-12-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 999,
+    "startTime": "19:30",
+    "location": "Venus Cafe",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-999/"
+  },
+  {
+    "date": "2015-12-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1000,
+    "startTime": "19:30",
+    "title": "The 1000th Hash",
+    "location": "Hare’s House, Blackadon Barns",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1000/"
+  },
+  {
+    "date": "2015-12-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1001,
+    "startTime": "19:30",
+    "title": "Oxen Cove Brixham",
+    "location": "Oxen Cove Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1001-oxen-cove-brixham/"
+  },
+  {
+    "date": "2015-12-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1002,
+    "title": "Challabrough",
+    "location": "Challaborough Bay",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1002/"
+  },
+  {
+    "date": "2015-12-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1003,
+    "startTime": "19:30",
+    "title": "The Foxhound - Brixton",
+    "location": "Foxhound",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1002-the-foxhound-brixton/"
+  },
+  {
+    "date": "2016-01-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1004,
+    "startTime": "19:30",
+    "location": "Hope And Anchor",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1004/"
+  },
+  {
+    "date": "2016-01-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1005,
+    "startTime": "19:30",
+    "location": "Kings Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1005/"
+  },
+  {
+    "date": "2016-01-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1006,
+    "startTime": "19:30",
+    "location": "Old Inn, Halwell",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1006/"
+  },
+  {
+    "date": "2016-01-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1007,
+    "startTime": "19:30",
+    "location": "Horse and Groom",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1007/"
+  },
+  {
+    "date": "2016-02-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1008,
+    "startTime": "19:30",
+    "location": "Slapton Sands War Memorial",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1008-2/"
+  },
+  {
+    "date": "2016-02-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1009,
+    "startTime": "19:30",
+    "location": "Dartmouth Park and Ride Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1009/"
+  },
+  {
+    "date": "2016-02-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1010,
+    "startTime": "19:30",
+    "title": "The Official 1010 Hash ! Super Heroes Fancy Dress",
+    "location": "Watermans Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1010/"
+  },
+  {
+    "date": "2016-02-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1011,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1011/"
+  },
+  {
+    "date": "2016-02-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1012,
+    "title": "1013 - 2016 Hash Weekend - China Fleet Club",
+    "location": "China Fleet Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/1016-hash-weekend-china-fleet/"
+  },
+  {
+    "date": "2016-03-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1014,
+    "startTime": "19:30",
+    "location": "Shadycombe Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1014/"
+  },
+  {
+    "date": "2016-03-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1015,
+    "startTime": "19:30",
+    "location": "Cornwood Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1015/"
+  },
+  {
+    "date": "2016-03-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1016,
+    "startTime": "19:30",
+    "location": "Pickwick Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1016-the-pickwick-inn/"
+  },
+  {
+    "date": "2016-03-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1017,
+    "startTime": "19:30",
+    "location": "Hunting Lodge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1017-hunters-lodge-lee-mill/"
+  },
+  {
+    "date": "2016-03-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1018,
+    "startTime": "19:30",
+    "location": "Modbury Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1018-the-modbury-inn/"
+  },
+  {
+    "date": "2016-04-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1019,
+    "startTime": "19:30",
+    "location": "Cornwood Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1019/"
+  },
+  {
+    "date": "2016-04-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1020,
+    "startTime": "19:30",
+    "location": "Watermark Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/h/"
+  },
+  {
+    "date": "2016-04-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1021,
+    "startTime": "19:30",
+    "location": "Red Lion Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1021/"
+  },
+  {
+    "date": "2016-04-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1022,
+    "startTime": "19:30",
+    "location": "Mayor’s Avenue Car Park, Dartmouth",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1022-dartmouth-yacht-club/"
+  },
+  {
+    "date": "2016-05-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1023,
+    "startTime": "19:30",
+    "location": "Pig’s Nose Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1023-the-pigs-nose/"
+  },
+  {
+    "date": "2016-05-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1024,
+    "startTime": "19:30",
+    "location": "Fisherman’s Rest",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1024-fishermans-rest/"
+  },
+  {
+    "date": "2016-05-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1025,
+    "startTime": "19:30",
+    "location": "Dolphin Inn, Kingston",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1025/"
+  },
+  {
+    "date": "2016-05-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1026,
+    "startTime": "19:30",
+    "location": "Cornwood Cricket Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1026/"
+  },
+  {
+    "date": "2016-06-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1027,
+    "startTime": "19:30",
+    "location": "Court Park Farm",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1027/"
+  },
+  {
+    "date": "2016-06-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1028,
+    "startTime": "19:30",
+    "location": "Miner’s Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1028/"
+  },
+  {
+    "date": "2016-06-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1029,
+    "startTime": "19:30",
+    "location": "Quayside",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1028-2/"
+  },
+  {
+    "date": "2016-06-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1030,
+    "startTime": "19:30",
+    "location": "Church House Inn (Harberton)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1030/"
+  },
+  {
+    "date": "2016-06-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1031,
+    "startTime": "19:30",
+    "location": "Sun Bay Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1032/"
+  },
+  {
+    "date": "2016-07-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1032,
+    "startTime": "19:30",
+    "location": "Manor Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1033/"
+  },
+  {
+    "date": "2016-07-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1033,
+    "startTime": "19:30",
+    "location": "Berry Pomeroy Castle",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1033-berry-pomeroy/"
+  },
+  {
+    "date": "2016-07-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1034,
+    "startTime": "19:30",
+    "location": "Fisherman’s Rest",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1034/"
+  },
+  {
+    "date": "2016-07-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1035,
+    "startTime": "19:30",
+    "location": "Ayrmer Cove NT Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1035/"
+  },
+  {
+    "date": "2016-08-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1036,
+    "startTime": "19:30",
+    "location": "Tradesman’s Arms, Scorriton",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1036-2/"
+  },
+  {
+    "date": "2016-08-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1037,
+    "startTime": "19:30",
+    "location": "Church House Inn (Rattery)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1037/"
+  },
+  {
+    "date": "2016-08-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1038,
+    "startTime": "19:30",
+    "location": "Loddiswell Playing Fields Pavillion",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1038/"
+  },
+  {
+    "date": "2016-08-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1039,
+    "startTime": "19:30",
+    "location": "Holsome Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1039/"
+  },
+  {
+    "date": "2016-08-31",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1040,
+    "startTime": "19:30",
+    "location": "Anchor Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1040/"
+  },
+  {
+    "date": "2016-09-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1041,
+    "startTime": "19:30",
+    "location": "Malborough Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1041/"
+  },
+  {
+    "date": "2016-09-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1042,
+    "startTime": "19:30",
+    "location": "The Odd Wheel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1042/"
+  },
+  {
+    "date": "2016-09-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1043,
+    "startTime": "19:30",
+    "location": "Mussel Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1043/"
+  },
+  {
+    "date": "2016-09-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1044,
+    "startTime": "19:30",
+    "location": "Charleton Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1044/"
+  },
+  {
+    "date": "2016-10-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1045,
+    "startTime": "19:30",
+    "location": "The George",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1045/"
+  },
+  {
+    "date": "2016-10-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1046,
+    "startTime": "19:30",
+    "location": "Crabshell Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1046/"
+  },
+  {
+    "date": "2016-10-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1047,
+    "startTime": "19:30",
+    "location": "The Volunteer",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1047/"
+  },
+  {
+    "date": "2016-10-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1048,
+    "startTime": "19:30",
+    "location": "Foxhound",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1048/"
+  },
+  {
+    "date": "2016-11-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1049,
+    "startTime": "19:30",
+    "title": "AGPU*",
+    "location": "Cottage Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1049/"
+  },
+  {
+    "date": "2016-11-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1050,
+    "startTime": "19:30",
+    "location": "Journey’s End",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1050/"
+  },
+  {
+    "date": "2016-11-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1051,
+    "startTime": "19:30",
+    "location": "Brixham Rugby Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1051/"
+  },
+  {
+    "date": "2016-11-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1052,
+    "startTime": "19:30",
+    "location": "Oyster Shack",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1052/"
+  },
+  {
+    "date": "2016-11-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1053,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1053/"
+  },
+  {
+    "date": "2016-12-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1054,
+    "title": "Pre-xmas hash weekend",
+    "location": "Start Bay Centre",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1054-pre-xmas-hash-weekend/"
+  },
+  {
+    "date": "2016-12-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1055,
+    "title": "Pre-xmas hash weekend",
+    "location": "Start Bay Centre",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1055-pre-xmas-hash-weekend/"
+  },
+  {
+    "date": "2016-12-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1056,
+    "startTime": "19:30",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1056/"
+  },
+  {
+    "date": "2016-12-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1057,
+    "startTime": "19:30",
+    "title": "Fallen Woman's Fish 'n Chip Hash",
+    "location": "Oxen Cove Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1057/"
+  },
+  {
+    "date": "2016-12-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1058,
+    "startTime": "19:30",
+    "location": "Crooked Spire",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1058/"
+  },
+  {
+    "date": "2016-12-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1059,
+    "title": "Boxing Day Hare of the Dog Hash",
+    "location": "Challaborough Bay",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1059-boxing-day-hare-dog-hash/"
+  },
+  {
+    "date": "2016-12-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1060,
+    "startTime": "19:30",
+    "location": "Duke Of Cornwall",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1060/"
+  },
+  {
+    "date": "2017-01-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1061,
+    "startTime": "19:30",
+    "title": "South Milton Village Hall",
+    "location": "South Milton Village Hall",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1061/"
+  },
+  {
+    "date": "2017-01-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1062,
+    "startTime": "19:30",
+    "location": "Packhorse Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1062/"
+  },
+  {
+    "date": "2017-01-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1063,
+    "startTime": "19:30",
+    "location": "Bear & Blacksmith",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1063/"
+  },
+  {
+    "date": "2017-01-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1064,
+    "startTime": "19:30",
+    "location": "Manor Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1064/"
+  },
+  {
+    "date": "2017-02-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1065,
+    "startTime": "19:30",
+    "location": "Sea Trout Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1065/"
+  },
+  {
+    "date": "2017-02-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1066,
+    "title": "Post-Xmas Bash Weekend",
+    "location": "China Fleet Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1066-china-fleet-weekend/"
+  },
+  {
+    "date": "2017-02-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1067,
+    "title": "Post-Xmas Bash Hare-of-the-Dog Run",
+    "location": "China Fleet Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1067-china-fleet-hare-dog/"
+  },
+  {
+    "date": "2017-02-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1068,
+    "startTime": "19:30",
+    "location": "Sloop Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1068/"
+  },
+  {
+    "date": "2017-02-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1069,
+    "startTime": "19:30",
+    "location": "The George",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1069/"
+  },
+  {
+    "date": "2017-02-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1070,
+    "startTime": "19:30",
+    "location": "George & Dragon",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1070/"
+  },
+  {
+    "date": "2017-03-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1071,
+    "startTime": "19:30",
+    "location": "California Country Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1071/"
+  },
+  {
+    "date": "2017-03-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1072,
+    "startTime": "19:30",
+    "location": "Watermans Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1072/"
+  },
+  {
+    "date": "2017-03-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1073,
+    "startTime": "19:30",
+    "location": "Pickwick Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1073/"
+  },
+  {
+    "date": "2017-03-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1074,
+    "startTime": "19:30",
+    "location": "Church House Inn (Stokenham)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1074/"
+  },
+  {
+    "date": "2017-03-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1075,
+    "startTime": "19:30",
+    "location": "Tally Ho Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1075/"
+  },
+  {
+    "date": "2017-04-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1076,
+    "startTime": "19:30",
+    "location": "Horse and Groom",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1076/"
+  },
+  {
+    "date": "2017-04-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1077,
+    "startTime": "19:30",
+    "location": "Station House Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1077/"
+  },
+  {
+    "date": "2017-04-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1078,
+    "startTime": "19:30",
+    "location": "Madruth Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1078/"
+  },
+  {
+    "date": "2017-04-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1079,
+    "startTime": "19:30",
+    "location": "Fisherman’s Rest",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1079/"
+  },
+  {
+    "date": "2017-05-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1080,
+    "startTime": "19:30",
+    "location": "Dolphin Inn, Kingston",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1080/"
+  },
+  {
+    "date": "2017-05-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1081,
+    "startTime": "19:30",
+    "location": "Live and Let Live",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1081/"
+  },
+  {
+    "date": "2017-05-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1082,
+    "startTime": "19:30",
+    "location": "Village Inn, Thurlestone",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1082/"
+  },
+  {
+    "date": "2017-05-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1083,
+    "startTime": "19:30",
+    "description": "Hekkel's Coming of Age (finally; talk about a late developer!) Birthday BBQ Hash*",
+    "location": "Hare’s House, Hekkle & Jyde",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1083-hekkels-coming-age-finally-talk-late-developer-birthday-bbq-hash/"
+  },
+  {
+    "date": "2017-05-31",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1084,
+    "startTime": "19:30",
+    "location": "Bay Horse Inn (Totnes)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1084/"
+  },
+  {
+    "date": "2017-06-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1085,
+    "startTime": "19:30",
+    "location": "Pickwick Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1085/"
+  },
+  {
+    "date": "2017-06-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1086,
+    "startTime": "19:30",
+    "location": "Pig’s Nose Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1086/"
+  },
+  {
+    "date": "2017-06-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1087,
+    "startTime": "19:30",
+    "title": "Joint hash with Berkshire H3",
+    "location": "Journey’s End",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1087-joint-hash-berkshire-h3/"
+  },
+  {
+    "date": "2017-06-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1090,
+    "startTime": "19:30",
+    "location": "Royal Oak",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1090/"
+  },
+  {
+    "date": "2017-07-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1091,
+    "startTime": "19:30",
+    "location": "Dean Court Farm Shop",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1091/"
+  },
+  {
+    "date": "2017-07-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1092,
+    "startTime": "19:30",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1092/"
+  },
+  {
+    "date": "2017-07-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1093,
+    "startTime": "19:30",
+    "location": "Scoops Barn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1093/"
+  },
+  {
+    "date": "2017-07-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1094,
+    "startTime": "19:30",
+    "location": "Pig’s Nose Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/1094/"
+  },
+  {
+    "date": "2017-08-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1095,
+    "startTime": "19:30",
+    "location": "Ayrmer Cove NT Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1095/"
+  },
+  {
+    "date": "2017-08-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1096,
+    "startTime": "19:30",
+    "location": "Hare’s House, Yetsonais Farm",
+    "sourceUrl": "https://www.sh4.org.uk/events/1096-yetsonais-farm-east-allington/"
+  },
+  {
+    "date": "2017-08-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1097,
+    "startTime": "19:30",
+    "location": "Totnes RFC",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1097-2/"
+  },
+  {
+    "date": "2017-08-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1098,
+    "startTime": "19:30",
+    "location": "Fisherman’s Rest",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1097/"
+  },
+  {
+    "date": "2017-08-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1099,
+    "startTime": "19:30",
+    "location": "Dolphin Inn, Kingston",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1099/"
+  },
+  {
+    "date": "2017-09-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1100,
+    "startTime": "19:30",
+    "title": "Troughie's 'Ang-on hash",
+    "location": "Dolphin Inn, Dartmouth",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1100-troughies-ang-hash/"
+  },
+  {
+    "date": "2017-09-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1101,
+    "startTime": "19:30",
+    "location": "Modbury Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1101/"
+  },
+  {
+    "date": "2017-09-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1102,
+    "startTime": "19:30",
+    "location": "The Millbrook Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1102/"
+  },
+  {
+    "date": "2017-09-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1103,
+    "startTime": "19:30",
+    "location": "Hope And Anchor",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1103/"
+  },
+  {
+    "date": "2017-10-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1104,
+    "startTime": "19:30",
+    "location": "Bear & Blacksmith",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1104/"
+  },
+  {
+    "date": "2017-10-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1105,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1105/"
+  },
+  {
+    "date": "2017-10-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1106,
+    "startTime": "19:30",
+    "location": "Church House Inn (Churchstow)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1106/"
+  },
+  {
+    "date": "2017-10-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1107,
+    "startTime": "19:30",
+    "location": "The Waterside",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1107/"
+  },
+  {
+    "date": "2017-11-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1108,
+    "startTime": "19:30",
+    "title": "AGPU",
+    "location": "Cottage Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1108-agpu/"
+  },
+  {
+    "date": "2017-11-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1109,
+    "startTime": "19:30",
+    "title": "Bonfire Night",
+    "location": "Journey’s End",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1109/"
+  },
+  {
+    "date": "2017-11-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1110,
+    "startTime": "19:30",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1110/"
+  },
+  {
+    "date": "2017-11-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1111,
+    "startTime": "19:30",
+    "location": "Salcombe Rugby Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1111/"
+  },
+  {
+    "date": "2017-11-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1112,
+    "title": "Pre Xmas Bash",
+    "location": "Start Bay Centre",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1112-pre-xmas-bash/"
+  },
+  {
+    "date": "2017-11-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1113,
+    "title": "Pre Xmas Bash Hare Of The Dog",
+    "location": "Start Bay Centre",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1113-pre-xmas-bash/"
+  },
+  {
+    "date": "2017-11-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1114,
+    "startTime": "19:30",
+    "location": "Cornwood Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1114/"
+  },
+  {
+    "date": "2017-12-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1115,
+    "startTime": "19:30",
+    "location": "Tradesman’s Arms, Stokenham",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1115/"
+  },
+  {
+    "date": "2017-12-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1116,
+    "startTime": "19:30",
+    "location": "Packhorse Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1116/"
+  },
+  {
+    "date": "2017-12-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1117,
+    "startTime": "19:30",
+    "location": "Oxen Cove Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1117/"
+  },
+  {
+    "date": "2017-12-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1118,
+    "location": "Challaborough Bay",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1118/"
+  },
+  {
+    "date": "2017-12-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1119,
+    "startTime": "19:30",
+    "location": "Miner’s Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1119/"
+  },
+  {
+    "date": "2018-01-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1120,
+    "startTime": "19:30",
+    "location": "First & Last Bistro",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1120/"
+  },
+  {
+    "date": "2018-01-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1121,
+    "startTime": "19:30",
+    "location": "Hare’s House, Preston Farm",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1121/"
+  },
+  {
+    "date": "2018-01-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1122,
+    "startTime": "19:30",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1122/"
+  },
+  {
+    "date": "2018-01-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1123,
+    "startTime": "19:30",
+    "location": "California Country Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1123/"
+  },
+  {
+    "date": "2018-01-31",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1124,
+    "startTime": "19:30",
+    "location": "The Cott Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1124/"
+  },
+  {
+    "date": "2018-02-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1125,
+    "startTime": "19:30",
+    "location": "Fisherman’s Rest",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1125/"
+  },
+  {
+    "date": "2018-02-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1126,
+    "title": "Post Xmas Hash Bash 2018",
+    "location": "Palace Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1126-post-xmas-hash-bash-2018/"
+  },
+  {
+    "date": "2018-02-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1127,
+    "title": "Post Xmas Hash Bash 2018",
+    "location": "Palace Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1127post-xmas-hash-bash-2018-2/"
+  },
+  {
+    "date": "2018-02-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1128,
+    "startTime": "19:30",
+    "location": "Church House Inn (Harberton)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1128/"
+  },
+  {
+    "date": "2018-02-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1129,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1129/"
+  },
+  {
+    "date": "2018-02-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1130,
+    "startTime": "19:30",
+    "title": "The Beast From The East",
+    "location": "Tradesman’s Arms, Stokenham",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1130/"
+  },
+  {
+    "date": "2018-03-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1131,
+    "startTime": "19:30",
+    "location": "The Avon Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1131/"
+  },
+  {
+    "date": "2018-03-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1132,
+    "startTime": "19:30",
+    "location": "Pickwick Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1132/"
+  },
+  {
+    "date": "2018-03-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1133,
+    "startTime": "19:30",
+    "location": "The Parkers Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1133/"
+  },
+  {
+    "date": "2018-03-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1134,
+    "startTime": "19:30",
+    "location": "The White Thorn Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1134/"
+  },
+  {
+    "date": "2018-04-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1135,
+    "startTime": "19:30",
+    "location": "Packhorse Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1135/"
+  },
+  {
+    "date": "2018-04-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1136,
+    "startTime": "19:30",
+    "location": "Leonards Road Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1136/"
+  },
+  {
+    "date": "2018-04-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1137,
+    "startTime": "19:30",
+    "location": "The Ship Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1137/"
+  },
+  {
+    "date": "2018-04-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1138,
+    "startTime": "19:30",
+    "location": "Plym Bridge Car Park (Plympton side)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1138/"
+  },
+  {
+    "date": "2018-05-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1139,
+    "startTime": "19:30",
+    "title": "Red Dress Run",
+    "location": "Bigbury Memorial Hall",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1139/"
+  },
+  {
+    "date": "2018-05-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1140,
+    "startTime": "19:30",
+    "location": "Creek’s End Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1140/"
+  },
+  {
+    "date": "2018-05-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1141,
+    "startTime": "19:30",
+    "location": "The Cove Cafe Bar",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1141/"
+  },
+  {
+    "date": "2018-05-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1142,
+    "startTime": "19:30",
+    "location": "The Skipper Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1142/"
+  },
+  {
+    "date": "2018-05-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1143,
+    "startTime": "19:30",
+    "location": "The Square",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1143/"
+  },
+  {
+    "date": "2018-06-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1144,
+    "startTime": "19:30",
+    "location": "Thurlestone Parish Hall",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1144/"
+  },
+  {
+    "date": "2018-06-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1145,
+    "startTime": "19:30",
+    "location": "Beesands\tBeach Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1145/"
+  },
+  {
+    "date": "2018-06-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1146,
+    "startTime": "19:30",
+    "location": "Madruth Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1146/"
+  },
+  {
+    "date": "2018-06-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1147,
+    "title": "Maker Heights",
+    "location": "Maker Heights Camping",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1147-maker-heights/"
+  },
+  {
+    "date": "2018-06-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1148,
+    "title": "Maker Heights",
+    "location": "Maker Heights Camping",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1148-maker-heights/"
+  },
+  {
+    "date": "2018-06-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1149,
+    "startTime": "19:30",
+    "location": "The Old Inn [Malborough]",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1147/"
+  },
+  {
+    "date": "2018-07-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1150,
+    "startTime": "19:30",
+    "location": "Shaugh Bridge- Dewerstone Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1150/"
+  },
+  {
+    "date": "2018-07-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1151,
+    "startTime": "19:30",
+    "location": "The Odd Wheel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1151/"
+  },
+  {
+    "date": "2018-07-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1152,
+    "startTime": "19:30",
+    "location": "Dartmoor Union",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1152/"
+  },
+  {
+    "date": "2018-07-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1153,
+    "startTime": "19:30",
+    "location": "Leonards Road Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1153/"
+  },
+  {
+    "date": "2018-08-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1154,
+    "startTime": "19:30",
+    "location": "Bigbury On Sea Beach Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1154/"
+  },
+  {
+    "date": "2018-08-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1155,
+    "startTime": "19:30",
+    "location": "Modbury Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1155/"
+  },
+  {
+    "date": "2018-08-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1156,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1156/"
+  },
+  {
+    "date": "2018-08-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1157,
+    "startTime": "19:30",
+    "location": "Shipley Bridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1157/"
+  },
+  {
+    "date": "2018-08-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1158,
+    "startTime": "19:30",
+    "location": "Pig’s Nose Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1158/"
+  },
+  {
+    "date": "2018-09-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1159,
+    "startTime": "19:30",
+    "location": "Fisherman’s Rest",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1159/"
+  },
+  {
+    "date": "2018-09-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1160,
+    "startTime": "19:30",
+    "location": "Cornwood Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1160/"
+  },
+  {
+    "date": "2018-09-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1161,
+    "startTime": "19:30",
+    "location": "Churston Manor",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1161/"
+  },
+  {
+    "date": "2018-09-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1162,
+    "startTime": "19:30",
+    "location": "East Soar National Trust Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1162/"
+  },
+  {
+    "date": "2018-10-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1163,
+    "startTime": "19:30",
+    "location": "Packhorse Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1163/"
+  },
+  {
+    "date": "2018-10-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1164,
+    "startTime": "19:30",
+    "location": "Royal Oak",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1164/"
+  },
+  {
+    "date": "2018-10-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1165,
+    "startTime": "19:30",
+    "location": "Horse and Groom",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1165/"
+  },
+  {
+    "date": "2018-10-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1166,
+    "startTime": "19:30",
+    "location": "The Volunteer",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1166/"
+  },
+  {
+    "date": "2018-10-31",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1167,
+    "startTime": "19:30",
+    "location": "Totnes RFC",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1167/"
+  },
+  {
+    "date": "2018-11-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1168,
+    "startTime": "19:30",
+    "location": "Journey’s End",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1168/"
+  },
+  {
+    "date": "2018-11-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1169,
+    "startTime": "19:30",
+    "title": "AGPU",
+    "location": "Dolphin Inn, Kingston",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1169-agpu/"
+  },
+  {
+    "date": "2018-11-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1170,
+    "startTime": "19:30",
+    "location": "Hare’s House, Blackadon Barns",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1170/"
+  },
+  {
+    "date": "2018-11-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1171,
+    "title": "Saturday",
+    "location": "Dartmoor Training Centre",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1171/"
+  },
+  {
+    "date": "2018-11-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1172,
+    "title": "Hair Of The Dog",
+    "location": "Dartmoor Training Centre",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1172-3/"
+  },
+  {
+    "date": "2018-11-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1173,
+    "startTime": "19:30",
+    "location": "Shaugh Bridge- Dewerstone Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1172/"
+  },
+  {
+    "date": "2018-12-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1174,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1172-2/"
+  },
+  {
+    "date": "2018-12-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1175,
+    "startTime": "19:30",
+    "location": "Sloop Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1175/"
+  },
+  {
+    "date": "2018-12-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1176,
+    "startTime": "19:30",
+    "location": "Dolphin Inn, Dartmouth",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1176/"
+  },
+  {
+    "date": "2018-12-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1177,
+    "startTime": "19:30",
+    "location": "Challaborough Bay",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1177/"
+  },
+  {
+    "date": "2019-01-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1178,
+    "startTime": "19:30",
+    "location": "Dartbridge Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1178/"
+  },
+  {
+    "date": "2019-01-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1179,
+    "startTime": "19:30",
+    "location": "First & Last Bistro",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1179/"
+  },
+  {
+    "date": "2019-01-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1180,
+    "startTime": "19:30",
+    "location": "Church House Inn (Harberton)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1180/"
+  },
+  {
+    "date": "2019-01-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1181,
+    "startTime": "19:30",
+    "location": "Abbey Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1181/"
+  },
+  {
+    "date": "2019-01-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1182,
+    "startTime": "19:30",
+    "location": "Loddiswell Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1182/"
+  },
+  {
+    "date": "2019-02-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1183,
+    "startTime": "19:30",
+    "location": "Village Inn, Thurlestone",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1183/"
+  },
+  {
+    "date": "2019-02-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1184,
+    "title": "POST XMAS BASH",
+    "location": "New Continental Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1184-post-xmas-bash/"
+  },
+  {
+    "date": "2019-02-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1185,
+    "title": "POST XMAS BASH Hare of the Dog",
+    "location": "New Continental Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1185-post-xmas-bash/"
+  },
+  {
+    "date": "2019-02-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1186,
+    "startTime": "19:30",
+    "location": "Fisherman’s Rest",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1184/"
+  },
+  {
+    "date": "2019-02-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1187,
+    "startTime": "19:30",
+    "location": "Hunting Lodge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1185/"
+  },
+  {
+    "date": "2019-02-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1188,
+    "startTime": "19:30",
+    "location": "Modbury Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1188/"
+  },
+  {
+    "date": "2019-03-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1189,
+    "startTime": "19:30",
+    "location": "Durrant Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1189/"
+  },
+  {
+    "date": "2019-03-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1190,
+    "startTime": "19:30",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1190/"
+  },
+  {
+    "date": "2019-03-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1191,
+    "startTime": "19:30",
+    "location": "First & Last Bistro",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1191/"
+  },
+  {
+    "date": "2019-03-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1192,
+    "startTime": "19:30",
+    "location": "South Milton Village Hall",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1192/"
+  },
+  {
+    "date": "2019-04-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1193,
+    "startTime": "19:30",
+    "location": "Blackpool Sands Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1193/"
+  },
+  {
+    "date": "2019-04-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1194,
+    "startTime": "19:30",
+    "location": "North Sands Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1194/"
+  },
+  {
+    "date": "2019-04-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1195,
+    "startTime": "19:30",
+    "location": "The George",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1195/"
+  },
+  {
+    "date": "2019-04-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1196,
+    "startTime": "19:30",
+    "location": "Broadhempston Community Woodland Car park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1196/"
+  },
+  {
+    "date": "2019-05-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1197,
+    "startTime": "19:30",
+    "location": "Cornwood Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1197/"
+  },
+  {
+    "date": "2019-05-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1198,
+    "startTime": "19:30",
+    "location": "The Odd Wheel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1198/"
+  },
+  {
+    "date": "2019-05-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1199,
+    "startTime": "19:30",
+    "location": "Bigbury On Sea Beach Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1199/"
+  },
+  {
+    "date": "2019-05-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1200,
+    "startTime": "19:30",
+    "location": "South Hams Brewery",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1200/"
+  },
+  {
+    "date": "2019-05-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1201,
+    "startTime": "19:30",
+    "location": "The Avon Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1201/"
+  },
+  {
+    "date": "2019-06-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1202,
+    "startTime": "19:30",
+    "location": "Churston Manor",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1202-venue-tbc-but-likely/"
+  },
+  {
+    "date": "2019-06-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1203,
+    "startTime": "19:30",
+    "location": "Mothecombe Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1203/"
+  },
+  {
+    "date": "2019-06-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1204,
+    "startTime": "19:30",
+    "location": "Buckland Tout Saints Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1204/"
+  },
+  {
+    "date": "2019-06-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1205,
+    "title": "Red Dress Run",
+    "location": "Alston Farm Campsite",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1205-red-dress-run/"
+  },
+  {
+    "date": "2019-06-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1206,
+    "title": "Hair Of The Dog",
+    "location": "Alston Farm Campsite",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1206-hair-of-the-dog/"
+  },
+  {
+    "date": "2019-06-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1207,
+    "startTime": "19:30",
+    "location": "The Elburton Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1207/"
+  },
+  {
+    "date": "2019-07-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1208,
+    "startTime": "19:30",
+    "location": "Leonards Road Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1208/"
+  },
+  {
+    "date": "2019-07-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1209,
+    "startTime": "19:30",
+    "location": "Thurlestone Sands Beach Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1209/"
+  },
+  {
+    "date": "2019-07-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1210,
+    "startTime": "19:30",
+    "location": "Scoops Barn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1210/"
+  },
+  {
+    "date": "2019-07-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1211,
+    "startTime": "19:30",
+    "location": "Shipley Bridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1211/"
+  },
+  {
+    "date": "2019-07-31",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1212,
+    "startTime": "19:30",
+    "location": "Journey’s End",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1212/"
+  },
+  {
+    "date": "2019-08-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1213,
+    "startTime": "19:30",
+    "location": "Packhorse Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1213/"
+  },
+  {
+    "date": "2019-08-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1214,
+    "startTime": "19:30",
+    "title": "In a Field",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1214/"
+  },
+  {
+    "date": "2019-08-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1215,
+    "startTime": "19:30",
+    "location": "Harford Road- Snail Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1215/"
+  },
+  {
+    "date": "2019-08-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1216,
+    "startTime": "19:30",
+    "title": "BBQ Hash",
+    "location": "The Square",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1216-bbq-hash/"
+  },
+  {
+    "date": "2019-09-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1217,
+    "startTime": "19:30",
+    "location": "Modbury Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1217/"
+  },
+  {
+    "date": "2019-09-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1218,
+    "startTime": "19:30",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1218/"
+  },
+  {
+    "date": "2019-09-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1219,
+    "startTime": "19:30",
+    "location": "Kingsbridge Rugby Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1219/"
+  },
+  {
+    "date": "2019-09-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1220,
+    "startTime": "19:30",
+    "location": "Rose and Crown",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1220/"
+  },
+  {
+    "date": "2019-10-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1221,
+    "startTime": "19:30",
+    "location": "Dartbridge Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1221/"
+  },
+  {
+    "date": "2019-10-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1222,
+    "startTime": "19:30",
+    "location": "Miner’s Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1222/"
+  },
+  {
+    "date": "2019-10-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1223,
+    "startTime": "19:30",
+    "location": "Court Farm Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1223/"
+  },
+  {
+    "date": "2019-10-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1224,
+    "startTime": "19:30",
+    "location": "The George",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1224/"
+  },
+  {
+    "date": "2019-10-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1225,
+    "startTime": "19:30",
+    "location": "Bolberry Down NT Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1225/"
+  },
+  {
+    "date": "2019-11-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1226,
+    "startTime": "19:30",
+    "location": "Journey’s End",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1226/"
+  },
+  {
+    "date": "2019-11-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1227,
+    "startTime": "19:30",
+    "title": "AGPU",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1227-agpu/"
+  },
+  {
+    "date": "2019-11-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1228,
+    "startTime": "19:30",
+    "location": "Fisherman’s Rest",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1228/"
+  },
+  {
+    "date": "2019-11-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1229,
+    "startTime": "19:30",
+    "location": "Village Inn, Thurlestone",
+    "sourceUrl": "https://www.sh4.org.uk/events/hahs-1229/"
+  },
+  {
+    "date": "2019-11-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1230,
+    "title": "Pre Xmas Hash Bash 2019",
+    "location": "Grenville House",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1230-pre-xmas-hash-bash-2019/"
+  },
+  {
+    "date": "2019-12-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1231,
+    "location": "Grenville House",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1231/"
+  },
+  {
+    "date": "2019-12-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1232,
+    "startTime": "19:30",
+    "location": "Loddiswell Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1232/"
+  },
+  {
+    "date": "2019-12-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1233,
+    "startTime": "19:30",
+    "location": "The Avon Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1234/"
+  },
+  {
+    "date": "2019-12-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1234,
+    "startTime": "19:30",
+    "location": "Village Inn, Thurlestone",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1234-2/"
+  },
+  {
+    "date": "2019-12-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1235,
+    "location": "Challaborough Bay",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1235/"
+  },
+  {
+    "date": "2020-01-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1236,
+    "startTime": "19:30",
+    "title": "6pm Start",
+    "location": "Royal Oak",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1236-6pm-start/"
+  },
+  {
+    "date": "2020-01-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1237,
+    "startTime": "19:30",
+    "location": "First & Last Bistro",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1237/"
+  },
+  {
+    "date": "2020-01-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1238,
+    "startTime": "19:30",
+    "location": "Ring O Bells",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1238/"
+  },
+  {
+    "date": "2020-01-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1239,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1239/"
+  },
+  {
+    "date": "2020-01-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1240,
+    "startTime": "19:30",
+    "location": "Sherford New Town Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1240/"
+  },
+  {
+    "date": "2020-02-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1241,
+    "startTime": "19:30",
+    "location": "Riverside Road Car Park Dittisham",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1241/"
+  },
+  {
+    "date": "2020-02-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1242,
+    "title": "Post Xmas Hash Bash 2020",
+    "location": "Pentire Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1242-post-xmas-hash-bash-2020/"
+  },
+  {
+    "date": "2020-02-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1243,
+    "location": "Pentire Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1243/"
+  },
+  {
+    "date": "2020-02-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1244,
+    "startTime": "19:30",
+    "location": "Station House Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1244/"
+  },
+  {
+    "date": "2020-02-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1245,
+    "startTime": "19:30",
+    "location": "Horse and Groom",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1245/"
+  },
+  {
+    "date": "2020-02-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1246,
+    "startTime": "19:30",
+    "location": "Tradesman’s Arms, Stokenham",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1246/"
+  },
+  {
+    "date": "2020-03-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1247,
+    "startTime": "19:30",
+    "location": "Salcombe Rugby Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1247/"
+  },
+  {
+    "date": "2020-03-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1248,
+    "startTime": "19:30",
+    "location": "Cornwood Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1248/"
+  },
+  {
+    "date": "2020-03-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1249,
+    "startTime": "19:30",
+    "location": "Leonards Road Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1249/"
+  },
+  {
+    "date": "2020-08-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1250,
+    "startTime": "19:30",
+    "title": "at Last!",
+    "location": "Ayrmer Cove NT Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1250-at-last/"
+  },
+  {
+    "date": "2020-08-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1251,
+    "startTime": "19:30",
+    "location": "Nutcombe Farm, East Allington",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1251/"
+  },
+  {
+    "date": "2020-08-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1252,
+    "startTime": "19:30",
+    "location": "Grand View Road, Hope Cove",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1252/"
+  },
+  {
+    "date": "2020-08-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1253,
+    "startTime": "19:30",
+    "location": "Harford Moor Gate",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1253/"
+  },
+  {
+    "date": "2020-09-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1254,
+    "startTime": "19:30",
+    "location": "Thurlestone Sands Beach Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1254/"
+  },
+  {
+    "date": "2020-09-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1255,
+    "startTime": "19:30",
+    "location": "Venford Reservoir West Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1255/"
+  },
+  {
+    "date": "2020-09-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1256,
+    "startTime": "19:30",
+    "title": "Thurlestone Village Hall",
+    "location": "Thurlestone Parish Hall",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1256/"
+  },
+  {
+    "date": "2020-09-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1257,
+    "startTime": "19:30",
+    "location": "Shipley Bridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1257/"
+  },
+  {
+    "date": "2020-09-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1258,
+    "startTime": "19:30",
+    "location": "Salcombe Park And Ride Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1258/"
+  },
+  {
+    "date": "2020-10-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1259,
+    "startTime": "19:30",
+    "location": "Barton Close Car Park Wembury",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1259/"
+  },
+  {
+    "date": "2020-10-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1260,
+    "startTime": "19:30",
+    "title": "Wrangaton Golf Club",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1260-wrangaton-golf-club/"
+  },
+  {
+    "date": "2020-10-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1261,
+    "startTime": "19:30",
+    "location": "Timbers Car Park, Aveton Gifford",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1261/"
+  },
+  {
+    "date": "2020-10-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1262,
+    "startTime": "19:30",
+    "location": "Kingsbridge Rugby Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1262/"
+  },
+  {
+    "date": "2020-11-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1263,
+    "startTime": "19:30",
+    "location": "Blackdown Rings Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1263/"
+  },
+  {
+    "date": "2020-12-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1264,
+    "startTime": "19:30",
+    "location": "Strete Gate Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1264/"
+  },
+  {
+    "date": "2020-12-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1265,
+    "startTime": "19:30",
+    "location": "Ayrmer Cove NT Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1265-2/"
+  },
+  {
+    "date": "2020-12-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1266,
+    "startTime": "19:30",
+    "location": "Ivybridge Railway Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1266-2/"
+  },
+  {
+    "date": "2020-12-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1267,
+    "startTime": "19:30",
+    "location": "Thurlestone Sands Beach Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1267/"
+  },
+  {
+    "date": "2020-12-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1268,
+    "location": "Challaborough Bay",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1269/"
+  },
+  {
+    "date": "2020-12-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1269,
+    "startTime": "19:30",
+    "location": "Staverton Railway Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1270/"
+  },
+  {
+    "date": "2021-01-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1270,
+    "startTime": "19:30",
+    "title": "Virtual",
+    "location": "The Avon Inn, Avonwick",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1270-virtual/"
+  },
+  {
+    "date": "2021-03-31",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1282,
+    "startTime": "19:30",
+    "location": "Bolberry Down NT Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1282/"
+  },
+  {
+    "date": "2021-04-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1283,
+    "startTime": "19:30",
+    "location": "Ivybridge Railway Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1283/"
+  },
+  {
+    "date": "2021-04-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1284,
+    "startTime": "19:30",
+    "location": "East Soar National Trust Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1284/"
+  },
+  {
+    "date": "2021-04-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1285,
+    "startTime": "19:30",
+    "location": "Start Point Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1285/"
+  },
+  {
+    "date": "2021-04-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1286,
+    "startTime": "19:30",
+    "location": "Hembury Woods Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1286/"
+  },
+  {
+    "date": "2021-05-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1287,
+    "startTime": "19:30",
+    "location": "Ayrmer Cove NT Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1287/"
+  },
+  {
+    "date": "2021-05-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1288,
+    "startTime": "19:30",
+    "location": "Moreleigh Village Hall Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1288/"
+  },
+  {
+    "date": "2021-05-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1289,
+    "startTime": "19:30",
+    "location": "Beesands\tBeach Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1289/"
+  },
+  {
+    "date": "2021-05-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1290,
+    "startTime": "19:30",
+    "location": "Riverside Road Car Park Dittisham",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1290/"
+  },
+  {
+    "date": "2021-06-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1291,
+    "startTime": "19:30",
+    "location": "Yetsonais Farm",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1291/"
+  },
+  {
+    "date": "2021-06-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1292,
+    "startTime": "19:30",
+    "location": "Shipley Bridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1292/"
+  },
+  {
+    "date": "2021-06-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1293,
+    "startTime": "19:30",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1293/"
+  },
+  {
+    "date": "2021-06-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1294,
+    "location": "Alston Farm Campsite",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1294/"
+  },
+  {
+    "date": "2021-06-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1295,
+    "location": "Alston Farm Campsite",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1295/"
+  },
+  {
+    "date": "2021-06-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1296,
+    "startTime": "19:30",
+    "location": "Filham Park Car Park, Ivybridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1296/"
+  },
+  {
+    "date": "2021-06-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1297,
+    "startTime": "19:30",
+    "location": "Yealmpton, Riverside Walk",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1297/"
+  },
+  {
+    "date": "2021-07-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1298,
+    "startTime": "19:30",
+    "location": "Watkins Woods, Woodleigh",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1298/"
+  },
+  {
+    "date": "2021-07-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1299,
+    "startTime": "19:30",
+    "location": "Timbers Car Park, Aveton Gifford",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1299/"
+  },
+  {
+    "date": "2021-07-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1300,
+    "startTime": "19:30",
+    "location": "South Brent Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1300/"
+  },
+  {
+    "date": "2021-07-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1301,
+    "startTime": "19:30",
+    "location": "Ayrmer Cove NT Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1301/"
+  },
+  {
+    "date": "2021-08-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1302,
+    "startTime": "19:30",
+    "location": "Marlin, South Milton, TQ7 3JQ",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1302/"
+  },
+  {
+    "date": "2021-08-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1303,
+    "startTime": "19:30",
+    "location": "Crooked Spire",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1303/"
+  },
+  {
+    "date": "2021-08-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1304,
+    "startTime": "19:30",
+    "location": "Manor Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1304-2/"
+  },
+  {
+    "date": "2021-08-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1305,
+    "startTime": "19:30",
+    "location": "Farm Field (East Allington)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1304/"
+  },
+  {
+    "date": "2021-09-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1306,
+    "startTime": "19:30",
+    "location": "Grand View Road, Hope Cove",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1306/"
+  },
+  {
+    "date": "2021-09-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1307,
+    "startTime": "19:30",
+    "location": "Timbers Car Park, Aveton Gifford",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1307/"
+  },
+  {
+    "date": "2021-09-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1308,
+    "startTime": "19:30",
+    "location": "Sloop Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1308/"
+  },
+  {
+    "date": "2021-09-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1309,
+    "startTime": "19:30",
+    "location": "Ring O Bells",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1309/"
+  },
+  {
+    "date": "2021-09-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1310,
+    "startTime": "19:30",
+    "location": "Modbury Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1310/"
+  },
+  {
+    "date": "2021-10-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1311,
+    "startTime": "19:30",
+    "location": "Cornwood Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-13011/"
+  },
+  {
+    "date": "2021-10-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1312,
+    "startTime": "19:30",
+    "location": "The Globe Inn, Frogmore",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1312/"
+  },
+  {
+    "date": "2021-10-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1313,
+    "startTime": "19:30",
+    "location": "Dolphin Inn, Kingston",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1313/"
+  },
+  {
+    "date": "2021-10-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1314,
+    "startTime": "19:30",
+    "title": "Halloween Fancy Dress",
+    "location": "The White Thorn Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1314/"
+  },
+  {
+    "date": "2021-11-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1315,
+    "startTime": "19:30",
+    "title": "Fireworks",
+    "location": "Challaborough Bay",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1315-fireworks/"
+  },
+  {
+    "date": "2021-11-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1316,
+    "startTime": "19:30",
+    "location": "The Avon Inn, Avonwick",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1316/"
+  },
+  {
+    "date": "2021-11-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1317,
+    "startTime": "19:30",
+    "title": "AGPU",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1317-agpu/"
+  },
+  {
+    "date": "2021-11-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1318,
+    "startTime": "19:30",
+    "location": "Church House Inn (Rattery)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1318/"
+  },
+  {
+    "date": "2021-12-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1321,
+    "startTime": "19:30",
+    "location": "Ferry Boat Inn (Dittisham)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1321/"
+  },
+  {
+    "date": "2021-12-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1322,
+    "startTime": "19:30",
+    "location": "Heath Nursery Car park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1322/"
+  },
+  {
+    "date": "2021-12-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1323,
+    "startTime": "19:30",
+    "location": "Crooked Spire",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1323/"
+  },
+  {
+    "date": "2021-12-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1324,
+    "startTime": "19:30",
+    "title": "Christmas Carols",
+    "location": "Village Inn, Thurlestone",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1324-christmas-carols/"
+  },
+  {
+    "date": "2021-12-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1325,
+    "title": "Boxing Day Hash",
+    "location": "Challaborough Bay",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1325-boxing-day-hash/"
+  },
+  {
+    "date": "2021-12-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1326,
+    "startTime": "19:30",
+    "location": "Cann Woods Car Park, Sparkwell",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1326/"
+  },
+  {
+    "date": "2022-01-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1327,
+    "startTime": "19:30",
+    "title": "AGPU",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1327-agpu/"
+  },
+  {
+    "date": "2022-01-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1328,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1328/"
+  },
+  {
+    "date": "2022-01-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1329,
+    "startTime": "19:30",
+    "location": "Yealmpton, Bakery Square",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1329/"
+  },
+  {
+    "date": "2022-01-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1330,
+    "startTime": "19:30",
+    "location": "South Brent Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1330/"
+  },
+  {
+    "date": "2022-02-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1331,
+    "startTime": "19:30",
+    "location": "Village Inn, Thurlestone",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1331/"
+  },
+  {
+    "date": "2022-02-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1332,
+    "title": "Post Xmas Hash",
+    "location": "Elfordleigh Spa Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1332-post-xmas-hash/"
+  },
+  {
+    "date": "2022-02-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1334,
+    "startTime": "19:30",
+    "location": "South Brent Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1334/"
+  },
+  {
+    "date": "2022-02-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1335,
+    "startTime": "19:30",
+    "location": "Dolphin Inn, Kingston",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1335/"
+  },
+  {
+    "date": "2022-02-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1336,
+    "startTime": "19:30",
+    "location": "Loddiswell Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1336/"
+  },
+  {
+    "date": "2022-03-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1337,
+    "startTime": "19:30",
+    "location": "The Old Inn [Malborough]",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1337/"
+  },
+  {
+    "date": "2022-03-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1338,
+    "startTime": "19:30",
+    "location": "Leonards Road Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1338/"
+  },
+  {
+    "date": "2022-03-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1339,
+    "startTime": "19:30",
+    "location": "Elburton Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1339/"
+  },
+  {
+    "date": "2022-03-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1340,
+    "startTime": "19:30",
+    "location": "Blackawton, Sportsmans Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1340/"
+  },
+  {
+    "date": "2022-03-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1341,
+    "startTime": "19:30",
+    "location": "Foxhound",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1341/"
+  },
+  {
+    "date": "2022-04-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1342,
+    "startTime": "19:30",
+    "location": "Malborough Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1342/"
+  },
+  {
+    "date": "2022-04-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1343,
+    "startTime": "19:30",
+    "location": "The White Thorn Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1343/"
+  },
+  {
+    "date": "2022-04-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1344,
+    "startTime": "19:30",
+    "location": "Leonards Road Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1344/"
+  },
+  {
+    "date": "2022-04-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1345,
+    "startTime": "19:30",
+    "location": "Ring O Bells",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1345/"
+  },
+  {
+    "date": "2022-05-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1346,
+    "startTime": "19:30",
+    "title": "May The Forth Be With You",
+    "location": "Sloop Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1346-may-the-forth-be-with-you/"
+  },
+  {
+    "date": "2022-05-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1347,
+    "startTime": "19:30",
+    "location": "Journey’s End",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1347/"
+  },
+  {
+    "date": "2022-05-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1348,
+    "startTime": "19:30",
+    "location": "Cornwood Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1348/"
+  },
+  {
+    "date": "2022-05-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1349,
+    "startTime": "19:30",
+    "location": "The Creek’s End, Kingsbridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1349/"
+  },
+  {
+    "date": "2022-06-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1350,
+    "startTime": "19:30",
+    "location": "Yetsonais Farm",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1350/"
+  },
+  {
+    "date": "2022-06-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1351,
+    "startTime": "19:30",
+    "location": "Dolphin Inn, Kingston",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1351/"
+  },
+  {
+    "date": "2022-06-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1352,
+    "startTime": "19:30",
+    "location": "The Westward Inn, Lee Mill",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1352/"
+  },
+  {
+    "date": "2022-06-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1353,
+    "startTime": "19:30",
+    "title": "BBQ Ermington",
+    "location": "Hare’s House, Hekkle & Jyde",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1353-bbq/"
+  },
+  {
+    "date": "2022-06-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1354,
+    "title": "Summer Solstice",
+    "location": "Broadleigh Farm Park, Stoke Gabriel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1354-summer-solstice/"
+  },
+  {
+    "date": "2022-06-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1356,
+    "startTime": "19:30",
+    "location": "Littlehempston, Tally Ho",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1356/"
+  },
+  {
+    "date": "2022-07-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1357,
+    "startTime": "19:30",
+    "location": "The New Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1357/"
+  },
+  {
+    "date": "2022-07-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1358,
+    "startTime": "19:30",
+    "title": "BBQ Hash",
+    "location": "Thurlestone Sands Beach Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1358/"
+  },
+  {
+    "date": "2022-07-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1359,
+    "startTime": "19:30",
+    "location": "Watkins Woods, Woodleigh",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1359/"
+  },
+  {
+    "date": "2022-07-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1360,
+    "startTime": "19:30",
+    "location": "Modbury Long Stay Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1360/"
+  },
+  {
+    "date": "2022-08-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1361,
+    "startTime": "19:30",
+    "location": "Norsworthy Bridge Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1361/"
+  },
+  {
+    "date": "2022-08-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1362,
+    "startTime": "19:30",
+    "location": "Marlin, South Milton, TQ7 3JQ",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1362/"
+  },
+  {
+    "date": "2022-08-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1363,
+    "startTime": "19:30",
+    "location": "Filham Park Car Park, Ivybridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1362-2/"
+  },
+  {
+    "date": "2022-08-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1364,
+    "startTime": "19:30",
+    "location": "Old Mill Creek, Dartmouth",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1364/"
+  },
+  {
+    "date": "2022-08-31",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1365,
+    "startTime": "19:30",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1365/"
+  },
+  {
+    "date": "2022-09-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1366,
+    "startTime": "19:30",
+    "location": "Landscove, Landscove Church Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1366/"
+  },
+  {
+    "date": "2022-09-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1367,
+    "startTime": "19:30",
+    "location": "Bear & Blacksmith",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1367/"
+  },
+  {
+    "date": "2022-09-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1368,
+    "startTime": "19:30",
+    "location": "Malborough Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1368/"
+  },
+  {
+    "date": "2022-09-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1369,
+    "startTime": "19:30",
+    "location": "Old Inn, Halwell",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1369/"
+  },
+  {
+    "date": "2022-10-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1370,
+    "startTime": "19:30",
+    "location": "Wotter, Moorland Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1370/"
+  },
+  {
+    "date": "2022-10-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1371,
+    "startTime": "19:30",
+    "location": "Creek’s End Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1371/"
+  },
+  {
+    "date": "2022-10-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1372,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1372/"
+  },
+  {
+    "date": "2022-10-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1373,
+    "startTime": "19:30",
+    "location": "Loddiswell Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1373/"
+  },
+  {
+    "date": "2022-11-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1374,
+    "startTime": "19:30",
+    "title": "Change of venue",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1374/"
+  },
+  {
+    "date": "2022-11-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1375,
+    "startTime": "19:30",
+    "title": "AGPU",
+    "location": "Fisherman’s Rest",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1375-agpu/"
+  },
+  {
+    "date": "2022-11-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1376,
+    "startTime": "19:30",
+    "title": "Fireworks",
+    "location": "Journey’s End",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1376-fireworks/"
+  },
+  {
+    "date": "2022-11-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1377,
+    "startTime": "19:30",
+    "location": "The Mussel Inn & Cottages",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1377/"
+  },
+  {
+    "date": "2022-11-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1378,
+    "title": "1379",
+    "location": "Grenville House",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1381-and-1382/"
+  },
+  {
+    "date": "2022-11-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1380,
+    "startTime": "19:30",
+    "location": "Church House Inn (Stokenham)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1380/"
+  },
+  {
+    "date": "2022-12-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1381,
+    "startTime": "19:30",
+    "location": "Salcombe Park And Ride Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1381-2/"
+  },
+  {
+    "date": "2022-12-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1382,
+    "startTime": "19:30",
+    "location": "Croft Farm",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1382/"
+  },
+  {
+    "date": "2022-12-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1383,
+    "startTime": "19:30",
+    "title": "Olives Christmas Carol Extravaganza!, Fancy Dress",
+    "location": "George & Dragon",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1383-olives-christmas-carol-extravaganza-fancy-dress/"
+  },
+  {
+    "date": "2022-12-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1384,
+    "title": "Boxing Day Hash & Swim",
+    "location": "Ayrmer Cove NT Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1384-boxing-day-hash-swim/"
+  },
+  {
+    "date": "2022-12-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1385,
+    "startTime": "19:30",
+    "location": "Cornwood Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1385/"
+  },
+  {
+    "date": "2023-01-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1386,
+    "startTime": "19:30",
+    "location": "Pickwick Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1386/"
+  },
+  {
+    "date": "2023-01-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1387,
+    "startTime": "19:30",
+    "location": "Victoria Street Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1387/"
+  },
+  {
+    "date": "2023-01-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1388,
+    "startTime": "19:30",
+    "location": "Bear & Blacksmith",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1388/"
+  },
+  {
+    "date": "2023-01-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1389,
+    "startTime": "19:30",
+    "location": "Burrator Quarry Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1389/"
+  },
+  {
+    "date": "2023-02-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1390,
+    "startTime": "19:30",
+    "location": "South Brent Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1390/"
+  },
+  {
+    "date": "2023-02-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1391,
+    "title": "Away weekend",
+    "location": "Woodbury Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1391-1392-away-weekend/"
+  },
+  {
+    "date": "2023-02-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1393,
+    "startTime": "19:30",
+    "location": "Leonards Road Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1393/"
+  },
+  {
+    "date": "2023-02-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1394,
+    "startTime": "19:30",
+    "location": "Royal Oak",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1394/"
+  },
+  {
+    "date": "2023-02-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1395,
+    "startTime": "19:30",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1395/"
+  },
+  {
+    "date": "2023-03-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1396,
+    "startTime": "19:30",
+    "location": "Pig’s Nose Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1396/"
+  },
+  {
+    "date": "2023-03-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1397,
+    "startTime": "19:30",
+    "location": "Modbury Long Stay Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1397/"
+  },
+  {
+    "date": "2023-03-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1398,
+    "startTime": "19:30",
+    "location": "The Millbrook Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1398/"
+  },
+  {
+    "date": "2023-03-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1399,
+    "startTime": "19:30",
+    "location": "Plymstock Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1399/"
+  },
+  {
+    "date": "2023-03-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1400,
+    "startTime": "19:30",
+    "title": ", The Big One !!",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1400-the-big-one/"
+  },
+  {
+    "date": "2023-04-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1401,
+    "title": "Boat Trip (Pre Book £10) 11am Start",
+    "location": "Kingsbridge Community College Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/1400-boat-trip-hash/"
+  },
+  {
+    "date": "2023-04-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1402,
+    "startTime": "19:30",
+    "location": "The Old Inn [Malborough]",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1402/"
+  },
+  {
+    "date": "2023-04-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1403,
+    "startTime": "19:30",
+    "location": "Fisherman’s Rest",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1403/"
+  },
+  {
+    "date": "2023-04-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1404,
+    "startTime": "19:30",
+    "location": "Ring O Bells",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1404/"
+  },
+  {
+    "date": "2023-04-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1405,
+    "startTime": "19:30",
+    "location": "Crooked Spire",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1405/"
+  },
+  {
+    "date": "2023-05-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1406,
+    "startTime": "19:30",
+    "location": "Calancombe Estate",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1406/"
+  },
+  {
+    "date": "2023-05-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1407,
+    "startTime": "19:30",
+    "location": "Shaugh Bridge- Dewerstone Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1407/"
+  },
+  {
+    "date": "2023-05-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1408,
+    "startTime": "19:30",
+    "location": "Dolphin Inn, Kingston",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1408/"
+  },
+  {
+    "date": "2023-05-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1409,
+    "startTime": "19:30",
+    "location": "Shipley Bridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/1409/"
+  },
+  {
+    "date": "2023-05-31",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1410,
+    "startTime": "19:30",
+    "location": "East Soar Farm",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1410/"
+  },
+  {
+    "date": "2023-06-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1411,
+    "startTime": "19:30",
+    "location": "South Hams Brewery",
+    "sourceUrl": "https://www.sh4.org.uk/events/1411/"
+  },
+  {
+    "date": "2023-06-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1412,
+    "startTime": "19:30",
+    "location": "Wrangaton Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1412/"
+  },
+  {
+    "date": "2023-06-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1415,
+    "startTime": "19:30",
+    "location": "The Avon Inn, Avonwick",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1414/"
+  },
+  {
+    "date": "2023-06-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1416,
+    "startTime": "19:30",
+    "location": "The George",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1415/"
+  },
+  {
+    "date": "2023-07-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1417,
+    "startTime": "19:30",
+    "location": "Manor Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1416/"
+  },
+  {
+    "date": "2023-07-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1418,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1418/"
+  },
+  {
+    "date": "2023-07-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1419,
+    "startTime": "19:30",
+    "location": "Sea Trout Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1419/"
+  },
+  {
+    "date": "2023-07-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1420,
+    "startTime": "19:30",
+    "location": "Modbury Long Stay Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1420/"
+  },
+  {
+    "date": "2023-08-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1421,
+    "startTime": "19:30",
+    "location": "A Pizza Me",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1421/"
+  },
+  {
+    "date": "2023-08-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1422,
+    "startTime": "19:30",
+    "title": "BYO BBQ, Baps, Salad Provided.",
+    "location": "Hare’s House, Hekkle & Jyde",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1421-byo-bbq-baps-salad-provided/"
+  },
+  {
+    "date": "2023-08-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1423,
+    "startTime": "19:30",
+    "title": "Barbie, BYO Meat or Veg",
+    "location": "Truckers Field",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1422/"
+  },
+  {
+    "date": "2023-08-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1424,
+    "startTime": "19:30",
+    "location": "Field in Hope Cove",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1422-2/"
+  },
+  {
+    "date": "2023-08-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1425,
+    "startTime": "19:30",
+    "location": "Plym Bridge Car Park (Plympton side)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1423/"
+  },
+  {
+    "date": "2023-09-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1426,
+    "startTime": "19:30",
+    "location": "Thurlestone Parish Hall",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1425/"
+  },
+  {
+    "date": "2023-09-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1427,
+    "startTime": "19:30",
+    "location": "Watermans Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1427/"
+  },
+  {
+    "date": "2023-09-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1428,
+    "startTime": "19:30",
+    "location": "South Brent Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1428/"
+  },
+  {
+    "date": "2023-09-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1429,
+    "startTime": "19:30",
+    "location": "Cornwood Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1429/"
+  },
+  {
+    "date": "2023-10-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1430,
+    "startTime": "19:30",
+    "location": "South Brent Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1430/"
+  },
+  {
+    "date": "2023-10-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1431,
+    "startTime": "19:30",
+    "location": "Old Inn, Halwell",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1431/"
+  },
+  {
+    "date": "2023-10-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1432,
+    "startTime": "19:30",
+    "location": "Hunters Lodge Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1432/"
+  },
+  {
+    "date": "2023-10-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1433,
+    "startTime": "19:30",
+    "location": "Crooked Spire",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1433/"
+  },
+  {
+    "date": "2023-11-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1434,
+    "startTime": "19:30",
+    "title": "Halloween Theme",
+    "location": "Creek’s End Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1434-halloween-theme/"
+  },
+  {
+    "date": "2023-11-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1435,
+    "startTime": "19:30",
+    "title": "Bonfire Hash",
+    "location": "Journeys End Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1435-bonfire-hash/"
+  },
+  {
+    "date": "2023-11-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1436,
+    "startTime": "19:30",
+    "location": "Green Dragon",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1436/"
+  },
+  {
+    "date": "2023-11-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1437,
+    "title": "SH4 Away Weekend",
+    "location": "Dartmoor Training Centre",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1437-sh4-away-weekend/"
+  },
+  {
+    "date": "2023-11-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1438,
+    "title": "Hare of the Dog Hash",
+    "location": "Dartmoor Training Centre",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1438-hare-of-the-dog-hash/"
+  },
+  {
+    "date": "2023-11-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1439,
+    "startTime": "19:30",
+    "title": "(AGPU) Important Info",
+    "location": "Thurlestone Golf Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1437/"
+  },
+  {
+    "date": "2023-11-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1440,
+    "startTime": "19:30",
+    "location": "Church House Inn (Harberton)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1438/"
+  },
+  {
+    "date": "2023-12-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1441,
+    "startTime": "19:30",
+    "location": "Charleton Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1441/"
+  },
+  {
+    "date": "2023-12-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1442,
+    "startTime": "19:30",
+    "location": "Malborough Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1442-probably-modbury/"
+  },
+  {
+    "date": "2023-12-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1443,
+    "startTime": "19:30",
+    "title": "Fancy Dress",
+    "location": "White Strand Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1443/"
+  },
+  {
+    "date": "2023-12-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1444,
+    "title": "Boxing Day Hash & Swim",
+    "location": "Challaborough Bay",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1444-boxing-day-hash-swim/"
+  },
+  {
+    "date": "2023-12-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1445,
+    "startTime": "19:30",
+    "location": "King William IV",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1444/"
+  },
+  {
+    "date": "2024-01-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1446,
+    "startTime": "19:30",
+    "location": "Hares House, Filth",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1445/"
+  },
+  {
+    "date": "2024-01-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1447,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1447/"
+  },
+  {
+    "date": "2024-01-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1448,
+    "startTime": "19:30",
+    "location": "The Westward Inn, Lee Mill",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1448/"
+  },
+  {
+    "date": "2024-01-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1449,
+    "startTime": "19:30",
+    "location": "King William IV",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1449/"
+  },
+  {
+    "date": "2024-01-31",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1450,
+    "startTime": "19:30",
+    "location": "Pasture Coombe",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1450/"
+  },
+  {
+    "date": "2024-02-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1451,
+    "startTime": "19:30",
+    "location": "Cricket Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1451/"
+  },
+  {
+    "date": "2024-02-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1452,
+    "startTime": "19:30",
+    "location": "Church House Inn (Churchstow)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1452-2/"
+  },
+  {
+    "date": "2024-02-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1453,
+    "startTime": "19:30",
+    "location": "Modbury Long Stay Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1453/"
+  },
+  {
+    "date": "2024-02-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1454,
+    "title": "Hash residential weekend",
+    "location": "Pentire Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1454-hash-residential-weekend/"
+  },
+  {
+    "date": "2024-02-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1455,
+    "title": "Hair of the dog Hash",
+    "location": "Pentire Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1455-hair-of-the-dog-hash/"
+  },
+  {
+    "date": "2024-02-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1456,
+    "startTime": "19:30",
+    "location": "South Brent Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1454/"
+  },
+  {
+    "date": "2024-03-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1457,
+    "startTime": "19:30",
+    "title": "Dimmers Birthday Hash",
+    "location": "Leonards Road Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1455-dimmers-birthday-hash/"
+  },
+  {
+    "date": "2024-03-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1458,
+    "startTime": "19:30",
+    "location": "Pickwick Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1456/"
+  },
+  {
+    "date": "2024-03-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1459,
+    "startTime": "19:30",
+    "location": "Ridge Road Junction",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1459/"
+  },
+  {
+    "date": "2024-03-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1460,
+    "startTime": "19:30",
+    "location": "The Globe Inn, Frogmore",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1460/"
+  },
+  {
+    "date": "2024-04-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1461,
+    "startTime": "19:30",
+    "location": "Timbers Car Park, Aveton Gifford",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1461/"
+  },
+  {
+    "date": "2024-04-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1462,
+    "startTime": "19:30",
+    "location": "Crooked Spire",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1462/"
+  },
+  {
+    "date": "2024-04-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1463,
+    "startTime": "19:30",
+    "location": "Tradesman’s Arms, Stokenham",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1463/"
+  },
+  {
+    "date": "2024-04-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1464,
+    "startTime": "19:30",
+    "location": "Shipley Bridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1464/"
+  },
+  {
+    "date": "2024-05-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1465,
+    "startTime": "19:30",
+    "location": "Crooked Spire",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1465/"
+  },
+  {
+    "date": "2024-05-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1466,
+    "startTime": "19:30",
+    "location": "Journeys End Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1465-2/"
+  },
+  {
+    "date": "2024-05-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1467,
+    "startTime": "19:30",
+    "location": "The Ham Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1466/"
+  },
+  {
+    "date": "2024-05-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1468,
+    "startTime": "19:30",
+    "title": "Bring cash for food",
+    "location": "Shipley Bridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1467/"
+  },
+  {
+    "date": "2024-05-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1469,
+    "startTime": "19:30",
+    "title": "Overshots 50th Birthday Hash",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1468-overshots-50th-birthday-hash/"
+  },
+  {
+    "date": "2024-06-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1470,
+    "startTime": "19:30",
+    "location": "The Volunteer",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1470/"
+  },
+  {
+    "date": "2024-06-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1471,
+    "startTime": "19:30",
+    "location": "Sloop Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1471/"
+  },
+  {
+    "date": "2024-06-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1472,
+    "startTime": "19:30",
+    "location": "Hare’s House, Hekkle & Jyde",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1472/"
+  },
+  {
+    "date": "2024-06-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1473,
+    "title": "Summer Solstice",
+    "location": "Thorn Campsite, Sidmouth",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1473/"
+  },
+  {
+    "date": "2024-06-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1474,
+    "title": "Hairy Dog",
+    "location": "Thorn Campsite, Sidmouth",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1474-hairy-dog/"
+  },
+  {
+    "date": "2024-06-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1475,
+    "startTime": "19:30",
+    "title": "Picnic Hash",
+    "location": "Combestone Tor Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1475-picnic-hash/"
+  },
+  {
+    "date": "2024-07-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1476,
+    "startTime": "19:30",
+    "location": "Burrator Quarry Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1476/"
+  },
+  {
+    "date": "2024-07-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1477,
+    "startTime": "19:30",
+    "location": "South Brent Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1477/"
+  },
+  {
+    "date": "2024-07-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1478,
+    "startTime": "19:30",
+    "location": "The Odd Wheel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1478/"
+  },
+  {
+    "date": "2024-07-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1479,
+    "startTime": "19:30",
+    "location": "The Rock Box",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1479/"
+  },
+  {
+    "date": "2024-07-31",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1480,
+    "startTime": "19:30",
+    "location": "South Brent Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1480/"
+  },
+  {
+    "date": "2024-08-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1481,
+    "startTime": "19:30",
+    "location": "Watkins Woods, Woodleigh",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1481/"
+  },
+  {
+    "date": "2024-08-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1482,
+    "startTime": "19:30",
+    "location": "Crooked Spire",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1482-ermington/"
+  },
+  {
+    "date": "2024-08-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1483,
+    "startTime": "19:30",
+    "location": "Foxhound",
+    "sourceUrl": "https://www.sh4.org.uk/events/1483/"
+  },
+  {
+    "date": "2024-08-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1484,
+    "startTime": "19:30",
+    "location": "The Creek’s End, Kingsbridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1484/"
+  },
+  {
+    "date": "2024-09-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1485,
+    "startTime": "19:30",
+    "location": "Cornwood Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1485/"
+  },
+  {
+    "date": "2024-09-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1486,
+    "startTime": "19:30",
+    "location": "St Peters Church",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1486/"
+  },
+  {
+    "date": "2024-09-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1487,
+    "startTime": "19:30",
+    "location": "The Cove Cafe Bar",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1487/"
+  },
+  {
+    "date": "2024-09-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1488,
+    "startTime": "19:30",
+    "location": "Pickwick Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1488-2/"
+  },
+  {
+    "date": "2024-10-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1489,
+    "startTime": "19:30",
+    "location": "Church House Inn (Harberton)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1488/"
+  },
+  {
+    "date": "2024-10-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1490,
+    "startTime": "19:30",
+    "location": "Cricket Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1490/"
+  },
+  {
+    "date": "2024-10-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1491,
+    "startTime": "19:30",
+    "location": "Dolphin Inn, Dartmouth",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1491/"
+  },
+  {
+    "date": "2024-10-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1492,
+    "startTime": "19:30",
+    "title": "Fundraising event, please bring change.",
+    "location": "Shadycombe Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1492/"
+  },
+  {
+    "date": "2024-10-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1493,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1493/"
+  },
+  {
+    "date": "2024-11-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1494,
+    "startTime": "19:30",
+    "location": "Mountain Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1494/"
+  },
+  {
+    "date": "2024-11-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1495,
+    "startTime": "19:30",
+    "title": "AGPU",
+    "location": "South Brent Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1495-agpu/"
+  },
+  {
+    "date": "2024-11-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1496,
+    "startTime": "19:30",
+    "location": "Shipley Bridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1496/"
+  },
+  {
+    "date": "2024-11-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1497,
+    "startTime": "19:30",
+    "location": "Modbury Long Stay Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1497/"
+  },
+  {
+    "date": "2024-11-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1498,
+    "title": "Pre Christmas Weekend",
+    "location": "Grenville House",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1498-pre-christmas-weekend/"
+  },
+  {
+    "date": "2024-12-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1499,
+    "title": "Hairy Dog",
+    "location": "Grenville House",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1499-hairy-dog/"
+  },
+  {
+    "date": "2024-12-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1500,
+    "startTime": "19:30",
+    "title": "Olympics Hash",
+    "location": "Bear & Blacksmith",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1500-olympics-hash/"
+  },
+  {
+    "date": "2024-12-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1501,
+    "startTime": "19:30",
+    "location": "Crooked Spire",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1501/"
+  },
+  {
+    "date": "2024-12-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1502,
+    "startTime": "19:30",
+    "title": "Brixham Santa Sparkle Hash",
+    "location": "Brixham Holiday Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1502-brixham-santa-sparkle-hash/"
+  },
+  {
+    "date": "2024-12-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1503,
+    "title": "Boxing Day Hash",
+    "location": "Links Court Flats Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1503-boxing-day-hash/"
+  },
+  {
+    "date": "2025-01-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1504,
+    "startTime": "19:30",
+    "title": "New Years Day Hash",
+    "location": "California Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1504/"
+  },
+  {
+    "date": "2025-01-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1505,
+    "startTime": "19:30",
+    "location": "Dartmouth Visitor Centre",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1505/"
+  },
+  {
+    "date": "2025-01-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1506,
+    "startTime": "19:30",
+    "location": "Pavilion Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1506/"
+  },
+  {
+    "date": "2025-01-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1507,
+    "startTime": "19:30",
+    "location": "Malborough Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1507/"
+  },
+  {
+    "date": "2025-01-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1508,
+    "startTime": "19:30",
+    "location": "Start Bay Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1508/"
+  },
+  {
+    "date": "2025-02-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1509,
+    "startTime": "19:30",
+    "location": "Watermark Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1509/"
+  },
+  {
+    "date": "2025-02-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1510,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1510/"
+  },
+  {
+    "date": "2025-02-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1511,
+    "title": "Post Christmas Hash £10 for run only, pasty and beer",
+    "location": "Victoria Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1511-post-christmas-hash-10-for-pasties-and-beer-stops/"
+  },
+  {
+    "date": "2025-02-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1512,
+    "title": "Hair of the dog hash",
+    "location": "Victoria Hotel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1512-hair-of-the-dog-hash/"
+  },
+  {
+    "date": "2025-02-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1513,
+    "startTime": "19:30",
+    "location": "Cornwood Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1513/"
+  },
+  {
+    "date": "2025-02-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1514,
+    "startTime": "19:30",
+    "location": "Ye Olde Smokey House",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1514/"
+  },
+  {
+    "date": "2025-03-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1515,
+    "startTime": "19:30",
+    "location": "The Avon Inn, Avonwick",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1515/"
+  },
+  {
+    "date": "2025-03-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1516,
+    "startTime": "19:30",
+    "location": "Cann Woods Car Park, Sparkwell",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1516/"
+  },
+  {
+    "date": "2025-03-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1517,
+    "startTime": "19:30",
+    "location": "Elburton Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1517/"
+  },
+  {
+    "date": "2025-03-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1518,
+    "startTime": "19:30",
+    "location": "White Hart (Modbury)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1518/"
+  },
+  {
+    "date": "2025-04-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1519,
+    "startTime": "19:30",
+    "location": "Mountain Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1519/"
+  },
+  {
+    "date": "2025-04-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1520,
+    "startTime": "19:30",
+    "location": "Fisherman’s Rest",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1520/"
+  },
+  {
+    "date": "2025-04-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1521,
+    "startTime": "19:30",
+    "location": "Cadover Bridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1521/"
+  },
+  {
+    "date": "2025-04-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1522,
+    "title": "Good Friday Hot Cross Bun Hash and Easter Egg Hunt",
+    "location": "Field in South Milton Opposite Church",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1522-good-friday-hash/"
+  },
+  {
+    "date": "2025-04-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1523,
+    "startTime": "19:30",
+    "title": "Fancy Dress, St Georges Day",
+    "location": "Malborough Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1523/"
+  },
+  {
+    "date": "2025-04-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1524,
+    "startTime": "19:30",
+    "location": "Charleton Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1524/"
+  },
+  {
+    "date": "2025-05-07",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1525,
+    "startTime": "19:30",
+    "location": "Pavilion Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1525/"
+  },
+  {
+    "date": "2025-05-14",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1526,
+    "startTime": "19:30",
+    "location": "Tradesman’s Arms, Stokenham",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1526/"
+  },
+  {
+    "date": "2025-05-21",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1527,
+    "startTime": "19:30",
+    "location": "Wembury Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1527/"
+  },
+  {
+    "date": "2025-05-28",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1528,
+    "startTime": "19:30",
+    "location": "The Creek’s End, Kingsbridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1528/"
+  },
+  {
+    "date": "2025-06-04",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1529,
+    "startTime": "19:30",
+    "location": "Pickwick Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1529/"
+  },
+  {
+    "date": "2025-06-11",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1530,
+    "startTime": "19:30",
+    "location": "Ivybridge Town Hall Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1530/"
+  },
+  {
+    "date": "2025-06-18",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1531,
+    "startTime": "19:30",
+    "location": "Things Happen Here",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1531/"
+  },
+  {
+    "date": "2025-06-25",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1532,
+    "startTime": "19:30",
+    "title": "Bring Your Own BBQ Hash",
+    "location": "Crooked Spire",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1532-bring-your-own-bbq-hash/"
+  },
+  {
+    "date": "2025-07-02",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1533,
+    "startTime": "19:30",
+    "location": "Plym Bridge Car Park (Plympton side)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1533/"
+  },
+  {
+    "date": "2025-07-09",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1534,
+    "startTime": "19:30",
+    "location": "Shipley Bridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1534/"
+  },
+  {
+    "date": "2025-07-16",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1535,
+    "startTime": "19:30",
+    "location": "Ivybridge Cricket Club",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1535/"
+  },
+  {
+    "date": "2025-07-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1536,
+    "title": "RED DRESS RUN - £3 for Non Members",
+    "location": "KEVICC School, Elmhurst Site Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1536-red-dress-run/"
+  },
+  {
+    "date": "2025-07-23",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1537,
+    "startTime": "19:30",
+    "location": "Higher Stancombe Farm",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1537/"
+  },
+  {
+    "date": "2025-07-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1538,
+    "startTime": "19:30",
+    "location": "Church House Inn (Churchstow)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1538/"
+  },
+  {
+    "date": "2025-08-06",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1539,
+    "startTime": "19:30",
+    "location": "Layby near Cornwood",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1539/"
+  },
+  {
+    "date": "2025-08-13",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1540,
+    "startTime": "19:30",
+    "location": "Avon Mill Garden Centre",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1540/"
+  },
+  {
+    "date": "2025-08-20",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1541,
+    "startTime": "19:30",
+    "location": "Fortescue Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1541/"
+  },
+  {
+    "date": "2025-08-27",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1542,
+    "startTime": "19:30",
+    "location": "Tallet Meadow Farm (chez pinky and Pi)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1542/"
+  },
+  {
+    "date": "2025-09-03",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1543,
+    "startTime": "19:30",
+    "location": "The Ham Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1543/"
+  },
+  {
+    "date": "2025-09-10",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1544,
+    "startTime": "19:30",
+    "location": "The George",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1544/"
+  },
+  {
+    "date": "2025-09-17",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1545,
+    "startTime": "19:30",
+    "location": "South Brent Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1545/"
+  },
+  {
+    "date": "2025-09-24",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1546,
+    "startTime": "19:30",
+    "location": "Church House Inn (Harberton)",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1546/"
+  },
+  {
+    "date": "2025-10-01",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1547,
+    "startTime": "19:30",
+    "location": "Sloop Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1547/"
+  },
+  {
+    "date": "2025-10-08",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1548,
+    "startTime": "19:30",
+    "location": "Dartbridge Inn",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1548/"
+  },
+  {
+    "date": "2025-10-15",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1549,
+    "startTime": "19:30",
+    "title": "AGPU",
+    "location": "South Brent Station Car Park",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1549-agpu/"
+  },
+  {
+    "date": "2025-10-22",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1550,
+    "startTime": "19:30",
+    "location": "The Odd Wheel",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1550/"
+  },
+  {
+    "date": "2025-10-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1551,
+    "startTime": "19:30",
+    "location": "Mildmay Colours",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1551/"
+  },
+  {
+    "date": "2025-11-05",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1552,
+    "startTime": "19:30",
+    "title": "Fireworks",
+    "location": "Wakeham Farm",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1552-fireworks/"
+  },
+  {
+    "date": "2025-11-12",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1553,
+    "startTime": "19:30",
+    "location": "Lower Kernborough Farm",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1553/"
+  },
+  {
+    "date": "2025-11-19",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1554,
+    "startTime": "19:30",
+    "location": "Shipley Bridge",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1554/"
+  },
+  {
+    "date": "2025-11-26",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1555,
+    "startTime": "19:30",
+    "location": "The Elburton Arms",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1555/"
+  },
+  {
+    "date": "2025-11-29",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1556,
+    "title": "Pre Christmas Hash",
+    "location": "Slapton Visitor Centre",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1556-pre-christmas-hash/"
+  },
+  {
+    "date": "2025-11-30",
+    "kennelTags": [
+      "sh4"
+    ],
+    "runNumber": 1557,
+    "title": "Hairy Dog Run",
+    "location": "Slapton Visitor Centre",
+    "sourceUrl": "https://www.sh4.org.uk/events/hash-1557-hairy-dog-run/"
+  }
+]

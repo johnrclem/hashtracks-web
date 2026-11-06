@@ -31,6 +31,7 @@ import { DublinHashAdapter } from "./html-scraper/dublin-hash";
 import { HertsHashAdapter } from "./html-scraper/herts-hash";
 import { SurreyHashAdapter } from "./html-scraper/surrey-hash";
 import { FukFullMoonH3Adapter } from "./html-scraper/fuk-full-moon";
+import { SouthHamsH4Adapter } from "./html-scraper/south-hams-h4";
 import { TidewaterH3Adapter } from "./html-scraper/tidewater-h3";
 import { DesertHashAdapter } from "./html-scraper/desert-hash";
 import { CreekHashAdapter } from "./html-scraper/creek-hash";
@@ -205,6 +206,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /hertshash\.co\.uk/i,           name: "HertsHashAdapter",        factory: () => new HertsHashAdapter() },
   { pattern: /surreyhashhouseharriers\.com/i, name: "SurreyHashAdapter",     factory: () => new SurreyHashAdapter() },
   { pattern: /fukfmh3\.co\.uk/i,             name: "FukFullMoonH3Adapter",    factory: () => new FukFullMoonH3Adapter() },
+  { pattern: /sh4\.org\.uk/i,                 name: "SouthHamsH4Adapter",      factory: () => new SouthHamsH4Adapter() },
   { pattern: /tidewaterh3\.org/i,            name: "TidewaterH3Adapter",      factory: () => new TidewaterH3Adapter() },
   // Desert H3 (HashTracks' first UAE kennel, Dubai's oldest hash, est. 1979) — deserthash.org
   // WordPress/Elementor + Modern Events Calendar, fully SSR'd; wp-json + MEC/Tribe REST all

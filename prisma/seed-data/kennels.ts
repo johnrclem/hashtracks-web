@@ -6326,6 +6326,29 @@ export const KENNELS: KennelSeed[] = [
       // foundedYear / hashCash / dogFriendly / walkersWelcome: unverifiable — omitted (flagged)
     },
     {
+      kennelCode: "sh4",
+      shortName: "SH4",
+      fullName: "South Hams Hash House Harriers",
+      region: "South Hams",
+      country: "UK",
+      website: "https://www.sh4.org.uk/",
+      facebookUrl: "https://www.facebook.com/groups/southhamsh3/",
+      contactEmail: "thewords@sh4.org.uk",
+      foundedYear: 1998, // historical-hashes page: Hash 0001, Kingsbridge Leisure Centre, 06/05/98
+      logoUrl: "/kennel-logos/sh4.png", // self-hosted from sh4.org.uk (#logo); magic bytes confirmed PNG
+      scheduleDayOfWeek: "Wednesday",
+      scheduleTime: "7:30 PM", // 12-hr seed convention; adapter startTime stays 24-hr "19:30"
+      scheduleFrequency: "Weekly",
+      hashCash: "£2 (first run free; £40/calendar year)",
+      walkersWelcome: true, // homepage: "from fast walkers to dedicated runners", long/short splits
+      description:
+        "The South Hams Hash House Harriers (SH4) run every Wednesday, rain or shine, all year — meeting at " +
+        "7:30pm, normally at a South Hams pub in Devon. A very social, all-abilities group with long/short " +
+        "splits; new members, visitors and holidaymakers always welcome. First run free.",
+      latitude: 50.283,
+      longitude: -3.777,
+    },
+    {
       kennelCode: "isca-h3", // grep-clean; bare "IH3" OMITTED — Ithaca H3 (ih3), live
       shortName: "Isca H3",
       fullName: "Isca Hash House Harriers",

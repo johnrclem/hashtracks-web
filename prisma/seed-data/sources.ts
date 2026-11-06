@@ -8995,6 +8995,16 @@ export const SOURCES = [
       kennelCodes: ["dlh3-gb"],
     },
     {
+      name: "South Hams H3 (SH4) Website Hash Diary",
+      url: "https://www.sh4.org.uk/auto-draft/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper (Events Manager list + detail pages)
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { upcomingOnly: true }, // rolling list (~50 past rows); aged-off runs must not be cancelled
+      kennelCodes: ["sh4"],
+    },
+    {
       name: "Isca H3 Google Calendar",
       url: "iscahareraiser@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
