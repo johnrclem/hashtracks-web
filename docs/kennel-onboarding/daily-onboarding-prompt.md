@@ -19,7 +19,7 @@ directive so the whole file is the brief.
 
 **Delivery (redesigned 2026-11, see [`routine-redesign-2026-11.md`](routine-redesign-2026-11.md)):**
 the run works in a **throwaway clone** of `origin/main` (Step 0) and delivers its
-`docs/kennel-onboarding/` output as a **docs-only PR with auto-merge** (Step 9). It never uses git
+`docs/kennel-onboarding/` output as a **docs-only PR that the run merges itself once CI passes** (Step 9; GitHub auto-merge is disabled for this repo). It never uses git
 in the owner's live checkout. That checkout's feature-branch state and stale `.git` locks stranded
 handoffs four times (4 → 6 → 20 → 49 kennels). Because the clone starts from fresh `origin/main`,
 the run always sees what has already landed, and Step 2 dedupes against it.
@@ -89,8 +89,13 @@ delivers it) and reports it in Step 10. Do not write a multi-paragraph "NO ONBOA
 ```bash
 WORK=$(mktemp -d) && gh repo clone johnrclem/hashtracks-web "$WORK" -- --depth 1 && cd "$WORK"
 # Read-only reuse of the owner's dependencies, so repo scripts run without an `npm ci`.
-ln -s /Users/johnclem/Developer/hashtracks-web/node_modules "$WORK/node_modules"
+OWNER_NM=/Users/johnclem/Developer/hashtracks-web/node_modules
+if [ -d "$OWNER_NM/.bin" ]; then ln -s "$OWNER_NM" "$WORK/node_modules"; else echo "WARN: $OWNER_NM missing"; fi
 ```
+
+If the owner's `node_modules` is missing, or the backlog helper below fails, don't guess the
+backlog. Note "backlog check unavailable: <error>" in the run log and report, and carry on with
+the other preflight checks.
 
 1. **A human hold is in place?** If `gh issue list --label onboarding-blocked --state open` is
    non-empty, **stop immediately**. Write nothing and report "held: #N".
@@ -135,10 +140,16 @@ kennels"), **not** the kennel names. The authoritative full list comes from the 
 
 - **PRIMARY on the desktop runner — `curl` the sitemap** (verified 2026-11-06: 554 kennel slugs):
   ```bash
-  curl -s https://www.hashtracks.xyz/sitemap.xml | grep -o 'https://www.hashtracks.xyz/kennels/[^<]*' \
+  curl -sf --max-time 30 https://www.hashtracks.xyz/sitemap.xml -o "$WORK/sitemap.xml" \
+    && grep -o 'https://www.hashtracks.xyz/kennels/[^<]*' "$WORK/sitemap.xml" \
     | grep -v '/kennels/region/' | sed 's#.*/kennels/##' | sort -u > "$WORK/live-slugs.txt"
+  wc -l < "$WORK/live-slugs.txt"   # must be ≥ 400; it was 554 on 2026-11-06
   ```
-  Then do the slug and fragment checks in step 4 of the Chrome method below.
+  **Validate before trusting it.** If `curl` fails, or fewer than 400 slugs come back, the
+  sitemap is broken, has become an index, or was cut short. In that case an empty or short list
+  would make every candidate look new. Use the Chrome method below instead, or skip dedupe-dependent
+  candidates this run and say why. Then do the slug and fragment checks in step 4 of the Chrome
+  method below.
 
 - **ALTERNATIVE — read the live sitemap with the Chrome MCP** (the old sandbox's method). The
   server-generated `https://www.hashtracks.xyz/sitemap.xml` lists every non-hidden kennel slug
@@ -224,7 +235,14 @@ genuinely **missing this dynamic source**. Only then proceed.
 > 🔴 **DNS check FIRST for any non-platform domain.** Before treating a proposed source as real,
 > if its domain is NOT a known platform (`meetup.com`, `calendar.google.com`, `hashruns.org`,
 > `hashrego.com`, `*.wordpress.com`, `*.blogspot.com`, etc.), you MUST resolve it. On the desktop
-> runner, `dig +short A <domain>` printing nothing means NXDOMAIN. Or, from a browser:
+> runner, read the resolver status, not just the A records:
+> ```bash
+> dig +noall +comments <domain> | grep -o 'status: [A-Z]*'   # NXDOMAIN = does not exist
+> dig +short A <domain>; dig +short AAAA <domain>              # either non-empty = it resolves
+> ```
+> Only `status: NXDOMAIN` proves the domain doesn't exist. `NOERROR` with no A records can be an
+> IPv6-only site; check AAAA. `SERVFAIL` or a timeout is **inconclusive**: retry once, then flag
+> it rather than rejecting the source. Or, from a browser:
 > ```js
 > (await (await fetch('https://dns.google/resolve?name=<domain>&type=A')).json()).Status
 > // 0 = OK, 3 = NXDOMAIN (domain does not exist).
@@ -999,32 +1017,44 @@ git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push -u
 PR=$(gh pr create --base main --label onboarding-handoff \
   --title "docs(kennel-onboarding): hand off <shortName> (<region>)" \
   --body "Daily onboarding run $(date +%F). Handoff: docs/kennel-onboarding/handoffs/<file>.md")
-# GitHub auto-merge is disabled for this repo, so wait for CI, then merge the docs-only PR.
-timeout 1500 gh pr checks "$PR" --watch --fail-fast && gh pr merge "$PR" --squash
+# GitHub auto-merge is disabled for this repo. The script waits for the CI `test` check to register,
+# polls for at most 25 minutes, refuses anything outside docs/kennel-onboarding/, then squash-merges.
+bash scripts/onboarding-merge-handoff-pr.sh "$PR"; echo "merge-exit=$?"
 ```
+
+Report the script's exit code in Step 10:
+
+| Exit | Meaning | Report |
+|---|---|---|
+| 0 | merged | ✅ MERGED + PR link |
+| 1 | a check failed | 🟡 PR OPEN + PR link + failing check names |
+| 2 | CI didn't finish in time, or the `test` check never registered | 🟡 PR OPEN + PR link |
+| 3 | PR touches files outside `docs/kennel-onboarding/` | 🔴 REFUSED + PR link + the file list |
+| 4 | CI passed but the merge failed | 🟡 PR OPEN + PR link + the merge error |
 
 - Before committing, check that `git diff --cached` touches **only** `docs/kennel-onboarding/`.
   If anything else changed, stop and report it.
-- **If CI fails or doesn't finish within 25 minutes,** leave the PR open, don't merge, and report
-  🟡 PR OPEN with the PR link and the failing check in Step 10. The triage session merges it
-  later. Never merge a PR that touches anything outside `docs/kennel-onboarding/`.
+- **Any non-zero exit leaves the PR open.** Never merge it by another route. The triage session
+  picks up 🟡 PR OPEN reports, and a 🔴 REFUSED PR needs a human look.
 - **Delivery failure is never silent.** If the push or `gh pr create` fails, open an
   `onboarding-blocked` issue. Paste the error and the full handoff body (or a
   link to the pushed branch). A handoff must reach the owner one way or another. Then report
   🔴 UNDELIVERED in Step 10.
 - Never touch `/Users/johnclem/Developer/hashtracks-web` with git. Never branch or commit
   anywhere but `$WORK`. Never change code or seed files.
-- Remove the clone at the end: `rm -rf "$WORK"`.
+- Keep `$WORK` until Step 10 has run. The backlog audit there reads the clone.
 
 ## Step 10 — Report
 
 Return a one-line summary: kennel, source type, adapter (config-only or new), handoff file path,
 events verified, and the backlog count remaining.
 
-Get the backlog count from the helper rather than guessing — it is the authoritative audit:
+Get the backlog count from the helper rather than guessing — it is the authoritative audit. Run it
+against the clone (without `HASHTRACKS_REPO` it reads the owner's checkout), then remove the clone:
 
 ```bash
-bash scripts/copy-newest-handoff.sh --list
+cd "$WORK" && HASHTRACKS_REPO="$WORK" bash scripts/copy-newest-handoff.sh --list
+cd / && rm -rf "$WORK"
 ```
 
 ---
