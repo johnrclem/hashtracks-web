@@ -1616,6 +1616,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     aliases: ["Plymouth, England", "Plympton"],
   },
   {
+    name: "South Hams",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "SHM",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 50.283,
+    centroidLng: -3.777, // Kingsbridge
+    aliases: ["South Hams, Devon", "Kingsbridge"],
+  },
+  {
     name: "Exeter",
     country: "UK",
     timezone: "Europe/London",
@@ -4366,6 +4377,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Bristol": "United Kingdom",
   "Newcastle": "United Kingdom",
   "Plymouth": "United Kingdom",
+  "South Hams": "United Kingdom",
   "Exeter": "United Kingdom",
   "East Midlands": "United Kingdom",
   "Hertfordshire": "United Kingdom",

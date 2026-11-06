@@ -718,6 +718,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // bare "SHHH"/"SHH3" OMITTED — taken by sech3/sgharriets; bare "H4" OMITTED — taken by Hangover H3.
     "sierra-h4": ["Sierra Hash", "Sierra HHH", "Sierra Hash House Harriers", "Sierra Hash House Harriers and Harriettes", "Sierra H4 Freetown"],
     // ===== CONFIG BATCH C =====
+    "sh4": ["South Hams Hash House Harriers", "South Hams H4", "South Hams H3", "South Hams Hash", "SH4 Hash"],
     // bare "DLH3" OMITTED — resolves to Duneland H3 (dlh3, South Shore, IN).
     "dlh3-gb": ["Devon Lunatics", "Devon Lunatics HHH", "DLH3-GB"],
     // bare "IH3" OMITTED — resolves to Ithaca H3 (live).
