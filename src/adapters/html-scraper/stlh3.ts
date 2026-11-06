@@ -3,7 +3,10 @@
  *
  * Fetches event posts from stlh3.com, which is a Substack publication.
  *
- * Listing endpoint: /api/v1/archive?sort=new&limit=50
+ * Listing endpoint: /api/v1/archive?sort=new&limit=25[&cursor=…]
+ *   Substack (Nov 2026) caps `limit` at 25 — `limit=50` returns HTTP 400 — and
+ *   now wraps the listing as `{ posts, nextCursor }`, paginating by an opaque
+ *   cursor (offset is rejected). The legacy bare-array shape is still accepted.
  * Detail endpoint: /api/v1/posts/{slug}
  *
  * Post structure:
@@ -255,20 +258,49 @@ async function resolveMapsShortlink(url: string): Promise<string | undefined> {
  * Parse a date from a Substack post title.
  * Format: "Upcumming Hash: Sunday Mar 29th 2026"
  * The date part is after the colon.
+ *
+ * `postDate` (the post's publish timestamp) anchors chrono's reference date.
+ * Without it, a month-less title like "Sunday 27th 2026" resolves to "the next
+ * Sunday after TODAY" — a phantom that walked a week forward on every scrape
+ * (Sep 27 → … → Nov 8, 2026) and stamped the Sep 27 post onto each real run it
+ * landed on. Anchored to the publish date it resolves to the intended Sep 27.
  */
-export function parseTitleDate(title: string): string | null {
+export function parseTitleDate(title: string, postDate?: Date): string | null {
   // Try parsing after colon first (e.g., "Upcumming Hash: Sunday Mar 29th 2026")
   const colonIdx = title.indexOf(":");
   if (colonIdx !== -1) {
     const afterColon = title.slice(colonIdx + 1).trim();
-    const date = chronoParseDate(afterColon, "en-US", undefined, {
+    const date = chronoParseDate(afterColon, "en-US", postDate, {
       forwardDate: true,
     });
     if (date) return date;
   }
 
   // Fallback: parse entire title
-  return chronoParseDate(title, "en-US", undefined, { forwardDate: true });
+  return chronoParseDate(title, "en-US", postDate, { forwardDate: true });
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** A run is announced at most this long before it happens. */
+const MAX_LEAD_DAYS = 120;
+/** …and posted at most this long after (a late or edited announcement). */
+const MAX_LAG_DAYS = 7;
+
+/**
+ * True when `date` (YYYY-MM-DD) is a plausible run date for a post published at
+ * `postDate`. Rejects parses that land far from the publish date — the
+ * signature of a mis-anchored or typo'd title — so one bad post can't become a
+ * phantom run months away.
+ */
+export function isPlausibleRunDate(date: string, postDate: Date): boolean {
+  const runMs = Date.parse(`${date}T12:00:00Z`);
+  // Compare calendar days: pin the publish instant to UTC noon like the run date,
+  // so an afternoon post doesn't lose a run exactly MAX_LAG_DAYS earlier.
+  const postNoon = new Date(postDate);
+  postNoon.setUTCHours(12, 0, 0, 0);
+  const postMs = postNoon.getTime();
+  if (Number.isNaN(runMs) || Number.isNaN(postMs)) return false;
+  return runMs >= postMs - MAX_LAG_DAYS * DAY_MS && runMs <= postMs + MAX_LEAD_DAYS * DAY_MS;
 }
 
 /**
@@ -287,11 +319,20 @@ const MONTH_DAY_YEAR_RE =
   /^[a-z]+\s+\d{1,2}(?:st|nd|rd|th)?\s*,?\s*\d{4}$/i;
 const ISO_DATE_RE = /^\d{4}-\d{1,2}-\d{1,2}$/;
 const SLASH_DATE_RE = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
+const ORDINAL_DAY_RE = /^\d{1,2}(?:st|nd|rd|th)?$/i;
+const YEAR_RE = /^\d{4}$/;
+
+/** Month-less "27th 2026" / "27th, 2026" (the "Sunday 27th 2026" post, Sep 2026). */
+function isDayYear(s: string): boolean {
+  const parts = s.replace(",", " ").split(" ").filter(Boolean);
+  return parts.length === 2 && ORDINAL_DAY_RE.test(parts[0]) && YEAR_RE.test(parts[1]);
+}
 
 function isDateOnlySuffix(s: string): boolean {
   const stripped = s.trim().replace(WEEKDAY_PREFIX_RE, "");
   return (
     MONTH_DAY_YEAR_RE.test(stripped) ||
+    isDayYear(stripped) ||
     ISO_DATE_RE.test(stripped) ||
     SLASH_DATE_RE.test(stripped)
   );
@@ -314,6 +355,128 @@ export function cleanPostTitle(title: string): string {
   return title.slice(0, colonIdx).trim();
 }
 
+/** Substack rejects `limit` above 25 with HTTP 400 (observed 2026-11-06). */
+const ARCHIVE_PAGE_LIMIT = 25;
+/** Hard stop on cursor-following: ~1 post/week ⇒ 20 pages ≈ 10 years. */
+const MAX_ARCHIVE_PAGES = 20;
+const SUBSTACK_HEADERS = {
+  Accept: "application/json",
+  "User-Agent": "HashTracks/1.0 (event aggregator; +https://hashtracks.com)",
+};
+
+/**
+ * Normalize one archive response body. Substack moved from a bare array to
+ * `{ posts, nextCursor }`; accept both so a rollback on their side can't break
+ * the scrape. Returns null for any other shape (an error page, `{errors:[…]}`).
+ */
+export function normalizeArchivePage(
+  body: unknown,
+): { posts: SubstackArchivePost[]; nextCursor: string | null } | null {
+  let posts: unknown;
+  let nextCursor: unknown = null;
+  if (Array.isArray(body)) {
+    posts = body;
+  } else if (body && typeof body === "object") {
+    ({ posts, nextCursor = null } = body as { posts?: unknown; nextCursor?: unknown });
+  }
+  if (!Array.isArray(posts) || !posts.every(isArchivePost)) return null;
+  // A present-but-non-string cursor is a shape change, not "last page".
+  if (nextCursor !== null && typeof nextCursor !== "string") return null;
+  return { posts, nextCursor: nextCursor || null };
+}
+
+/** Runtime guard for one archive entry — the fields the adapter reads. */
+function isArchivePost(p: unknown): p is SubstackArchivePost {
+  if (!p || typeof p !== "object") return false;
+  const { title, slug, post_date } = p as Record<string, unknown>;
+  return typeof title === "string" && typeof slug === "string" && typeof post_date === "string";
+}
+
+type ArchiveFetch =
+  | { posts: SubstackArchivePost[]; errors: string[]; pages: number }
+  | { fatal: ScrapeResult };
+
+type ArchivePageResult =
+  | { ok: true; page: { posts: SubstackArchivePost[]; nextCursor: string | null } }
+  | { ok: false; message: string; status?: number; shape?: boolean };
+
+/** Fetch and validate one archive page. */
+async function fetchArchivePage(url: string): Promise<ArchivePageResult> {
+  try {
+    const response = await safeFetch(url, { headers: SUBSTACK_HEADERS });
+    if (!response.ok) {
+      return {
+        ok: false,
+        message: `Substack archive HTTP ${response.status}: ${response.statusText}`,
+        status: response.status,
+      };
+    }
+    const page = normalizeArchivePage(await response.json());
+    return page
+      ? { ok: true, page }
+      : { ok: false, message: "Substack archive returned an unrecognized response shape", shape: true };
+  } catch (err) {
+    return { ok: false, message: `Substack archive fetch failed: ${err}` };
+  }
+}
+
+function archivePageUrl(baseUrl: string, cursor: string | null): string {
+  const base = `${baseUrl}/api/v1/archive?sort=new&limit=${ARCHIVE_PAGE_LIMIT}`;
+  return cursor ? `${base}&cursor=${encodeURIComponent(cursor)}` : base;
+}
+
+/** True when this page ends the walk: no cursor, empty, or older than the window. */
+function isLastArchivePage(
+  page: { posts: SubstackArchivePost[]; nextCursor: string | null },
+  cutoffMs: number,
+): boolean {
+  const oldest = page.posts.at(-1);
+  const oldestMs = oldest ? Date.parse(oldest.post_date) : Number.NaN;
+  return !page.nextCursor || page.posts.length === 0 || oldestMs < cutoffMs;
+}
+
+/**
+ * Fetch archive pages newest-first, following `nextCursor` until the oldest
+ * post on a page predates the scrape window (plus a week of slack for posts
+ * published before their run). A failure on the FIRST page is fatal; a later
+ * page failure keeps what was fetched and reports the error. Running out of
+ * pages before the window is covered is reported too.
+ */
+async function fetchArchive(baseUrl: string, days: number): Promise<ArchiveFetch> {
+  const cutoffMs = Date.now() - (days + 7) * DAY_MS;
+  const posts: SubstackArchivePost[] = [];
+  const errors: string[] = [];
+  let cursor: string | null = null;
+  let pages = 0;
+
+  while (pages < MAX_ARCHIVE_PAGES) {
+    const url = archivePageUrl(baseUrl, cursor);
+    const result = await fetchArchivePage(url);
+    if (!result.ok) {
+      if (pages > 0) {
+        errors.push(`${result.message} (page ${pages + 1})`);
+        return { posts, errors, pages };
+      }
+      const fetchDetail = { url, ...(result.status === undefined ? {} : { status: result.status }), message: result.message };
+      return {
+        fatal: {
+          events: [],
+          errors: [result.message],
+          ...(result.shape ? {} : { errorDetails: { fetch: [fetchDetail] } }),
+        },
+      };
+    }
+    pages++;
+    posts.push(...result.page.posts);
+    if (isLastArchivePage(result.page, cutoffMs)) return { posts, errors, pages };
+    cursor = result.page.nextCursor;
+  }
+  errors.push(
+    `Substack archive still had older posts after ${MAX_ARCHIVE_PAGES} pages; the ${days}-day window is truncated`,
+  );
+  return { posts, errors, pages };
+}
+
 /**
  * STL H3 Substack Scraper
  *
@@ -333,45 +496,11 @@ export class StlH3Adapter implements SourceAdapter {
     );
     // Honor source.scrapeDays via options.days (default 365)
     const days = options?.days ?? source.scrapeDays ?? 365;
-    const archiveUrl = `${baseUrl}/api/v1/archive?sort=new&limit=50`;
     const fetchStart = Date.now();
 
-    // Fetch archive listing
-    let archivePosts: SubstackArchivePost[];
-    try {
-      const response = await safeFetch(archiveUrl, {
-        headers: {
-          Accept: "application/json",
-          "User-Agent":
-            "HashTracks/1.0 (event aggregator; +https://hashtracks.com)",
-        },
-      });
-      if (!response.ok) {
-        const message = `Substack archive HTTP ${response.status}: ${response.statusText}`;
-        return {
-          events: [],
-          errors: [message],
-          errorDetails: {
-            fetch: [{ url: archiveUrl, status: response.status, message }],
-          },
-        };
-      }
-      archivePosts = (await response.json()) as SubstackArchivePost[];
-    } catch (err) {
-      const message = `Substack archive fetch failed: ${err}`;
-      return {
-        events: [],
-        errors: [message],
-        errorDetails: { fetch: [{ url: archiveUrl, message }] },
-      };
-    }
-
-    if (!Array.isArray(archivePosts)) {
-      return {
-        events: [],
-        errors: ["Substack archive returned non-array response"],
-      };
-    }
+    const archive = await fetchArchive(baseUrl, days);
+    if ("fatal" in archive) return archive.fatal;
+    const archivePosts = archive.posts;
 
     // Filter to "Upcumming Hash" posts (event announcements)
     const eventPosts = archivePosts.filter((p) =>
@@ -379,13 +508,23 @@ export class StlH3Adapter implements SourceAdapter {
     );
 
     const events: RawEventData[] = [];
-    const errors: string[] = [];
+    const errors: string[] = [...archive.errors];
     let detailsFetched = 0;
+    let implausibleDates = 0;
 
     for (const post of eventPosts) {
       try {
-        const date = parseTitleDate(post.title);
+        const postDate = new Date(post.post_date);
+        const hasPostDate = !Number.isNaN(postDate.getTime());
+        const date = parseTitleDate(post.title, hasPostDate ? postDate : undefined);
         if (!date) continue;
+        if (hasPostDate && !isPlausibleRunDate(date, postDate)) {
+          implausibleDates++;
+          console.warn(
+            `[stlh3] skipping "${post.title}": parsed ${date} is implausible for a post published ${post.post_date}`,
+          );
+          continue;
+        }
 
         const startTime = parseSubtitleTime(post.subtitle);
 
@@ -460,8 +599,10 @@ export class StlH3Adapter implements SourceAdapter {
       structureHash,
       diagnosticContext: {
         fetchMethod: "substack-api",
+        archivePagesFetched: archive.pages,
         archivePostsFound: archivePosts.length,
         eventPostsFiltered: eventPosts.length,
+        implausibleDates,
         detailsFetched,
         fetchDurationMs: Date.now() - fetchStart,
       },

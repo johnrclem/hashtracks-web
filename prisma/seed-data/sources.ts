@@ -5730,6 +5730,10 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
+      // Substack's archive is a post feed, not a schedule: older posts page out
+      // of what one scrape reads. Without upcomingOnly, reconcile cancelled 21
+      // past runs (Jan–May 2026) as they aged off page 1.
+      config: { upcomingOnly: true },
       kennelCodes: ["stlh3"],
     },
 
