@@ -23,6 +23,7 @@ import {
   windowOverlapsSeason,
   formatSeasonHint,
 } from "@/lib/schedule-season";
+import { utcMidnightMs } from "@/lib/date";
 import type { ScheduleConfidence } from "@/generated/prisma/client";
 
 // ============================================================================
@@ -339,97 +340,81 @@ export function scoreConfidence(
 // Rule agreement (evidence gate)
 // ============================================================================
 //
-// "HIGH" used to mean "where the rule came from" (a STATIC_SCHEDULE source or a seed
-// `scheduleRules` entry). The prediction ledger showed that is NOT "more accurate": HIGH
-// scored 70% vs MEDIUM 81% (Nov 2026), because hand-authored rules can be wrong (a biweekly
-// phase off by a week, a seasonal window ending a month early) and nothing checked them.
-// The gate re-ranks every dated rule by how well it matched the kennel's INDEPENDENT
-// (non-STATIC_SCHEDULE) events over the last 12 weeks:
-//   - poor agreement demotes (HIGH→MEDIUM below 75%, →LOW below 50%: no dated prediction);
-//   - strong agreement promotes MEDIUM→HIGH (≥90% over ≥6 observed dates).
-// A rule with too little independent evidence keeps its base tier, so kennels whose only
-// data is a STATIC_SCHEDULE source don't vanish from Travel Mode. Thresholds were chosen by
-// replaying the gate over every matured ledger snapshot (HIGH 85% / MEDIUM 70% / LOW 42%).
+// Re-ranks a dated rule by its own track record: how often its projected dates over the last
+// 12 weeks matched the kennel's INDEPENDENT (non-STATIC_SCHEDULE) events. Rule provenance alone
+// (STATIC_SCHEDULE source, seed `scheduleRules`) proved a poor accuracy signal. Thin evidence ⇒
+// the gate abstains, so kennels with only a static schedule keep their base tier.
 
 export type ConfidenceTier = "high" | "medium" | "low";
 
-/** Look-back window for a rule's track record (matches the 12-week evidence window). */
-export const AGREEMENT_WINDOW_DAYS = 84;
-/** A past predicted date counts as OBSERVED when an independent event lies within ±this. */
-export const AGREEMENT_OBSERVE_TOL_DAYS = 14;
-/** …and as a HIT when one lies within ±this (same tolerance the ledger scores with). */
-export const AGREEMENT_MATCH_TOL_DAYS = 1;
-/** Below this many observed dates the gate abstains (keeps the base tier). */
-export const AGREEMENT_MIN_OBSERVED = 4;
-export const AGREEMENT_DEMOTE_HIGH_BELOW = 0.75;
-export const AGREEMENT_DEMOTE_MEDIUM_BELOW = 0.5;
-export const AGREEMENT_PROMOTE_AT = 0.9;
-export const AGREEMENT_PROMOTE_MIN_OBSERVED = 6;
+/** Prediction-scoring tolerances, shared with the prospective ledger (prediction-ledger.ts). */
+export const PREDICTION_MATCH_TOL_DAYS = 1; // a run within ±1d of the date is a HIT
+export const PREDICTION_OBSERVE_TOL_DAYS = 14; // any run within ±14d means the date was observed
+
+const AGREEMENT_WINDOW_DAYS = 84;
+/** How far back a caller must load independent events for `measureRuleAgreement`. */
+export const AGREEMENT_LOOKBACK_DAYS = AGREEMENT_WINDOW_DAYS + PREDICTION_OBSERVE_TOL_DAYS + 1;
+const AGREEMENT_MIN_OBSERVED = 4;
+const AGREEMENT_DEMOTE_HIGH_BELOW = 0.75;
+const AGREEMENT_DEMOTE_MEDIUM_BELOW = 0.5;
+const AGREEMENT_PROMOTE_AT = 0.9;
+const AGREEMENT_PROMOTE_MIN_OBSERVED = 6;
 
 /** How a rule's recent projected dates fared against independent events. */
 export interface RuleAgreement {
-  /** Past projected dates with an independent event within ±AGREEMENT_OBSERVE_TOL_DAYS. */
+  /** Past projected dates with an independent event within ±PREDICTION_OBSERVE_TOL_DAYS. */
   observed: number;
-  /** …of which an independent event landed within ±AGREEMENT_MATCH_TOL_DAYS. */
+  /** …of which an independent event landed within ±PREDICTION_MATCH_TOL_DAYS. */
   hits: number;
-}
-
-function utcMidnight(d: Date | number): number {
-  const date = typeof d === "number" ? new Date(d) : d;
-  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
 
 /**
  * Replay one dated rule over the AGREEMENT_WINDOW_DAYS before `now` and score it against
- * independent event dates. Only events strictly before `now` count, so an as-of backtest can
- * pass a full event list without leaking the future. LOW rules (no dated projections) and
- * windows with no projections return `{ observed: 0, hits: 0 }` — the gate then abstains.
+ * independent events. Only events strictly before `now` count, so an as-of backtest can pass a
+ * full event list without leaking the future. LOW rules project no dates ⇒ `{0, 0}`.
  */
 export function measureRuleAgreement(
   rule: ScheduleRuleInput,
-  independentDates: readonly Date[],
+  independentEvents: readonly { date: Date }[],
   now: Date,
 ): RuleAgreement {
-  if (rule.confidence === "LOW") return { observed: 0, hits: 0 };
-  const today = utcMidnight(now);
+  const today = utcMidnightMs(now);
   const windowStart = new Date(today - AGREEMENT_WINDOW_DAYS * DAY_MS);
-  const windowEnd = new Date(today - DAY_MS);
   const predicted = new Set<number>();
-  for (const p of projectTrails([rule], windowStart, windowEnd)) {
-    if (p.date) predicted.add(utcMidnight(p.date));
+  for (const p of projectTrails([rule], windowStart, new Date(today - DAY_MS))) {
+    if (p.date) predicted.add(utcMidnightMs(p.date));
   }
   if (predicted.size === 0) return { observed: 0, hits: 0 };
 
-  const earliest = windowStart.getTime() - AGREEMENT_OBSERVE_TOL_DAYS * DAY_MS;
-  const actual = independentDates
-    .map((d) => utcMidnight(d))
-    .filter((t) => t >= earliest && t < today);
+  const earliest = windowStart.getTime() - PREDICTION_OBSERVE_TOL_DAYS * DAY_MS;
+  const actual = independentEvents.map((e) => utcMidnightMs(e.date)).filter((t) => t >= earliest && t < today);
 
   let observed = 0;
   let hits = 0;
   for (const p of predicted) {
     let nearest = Infinity;
     for (const t of actual) nearest = Math.min(nearest, Math.abs(t - p) / DAY_MS);
-    if (nearest <= AGREEMENT_OBSERVE_TOL_DAYS) observed++;
-    if (nearest <= AGREEMENT_MATCH_TOL_DAYS) hits++;
+    if (nearest <= PREDICTION_OBSERVE_TOL_DAYS) observed++;
+    if (nearest <= PREDICTION_MATCH_TOL_DAYS) hits++;
   }
   return { observed, hits };
 }
 
 /**
- * Agreement for every dated (HIGH/MEDIUM) rule, keyed by rule id. `independentDatesByKennel`
- * must hold only independent (non-STATIC_SCHEDULE) event dates — counting a rule's own
- * STATIC_SCHEDULE-generated events would be circular (they always agree).
+ * Agreement for every dated (HIGH/MEDIUM) rule whose kennel has independent events, keyed by
+ * rule id. `independentEventsFor` must return only independent (non-STATIC_SCHEDULE) events —
+ * a rule's own STATIC_SCHEDULE-generated events always agree (circular).
  */
 export function buildRuleAgreementMap(
   rules: readonly ScheduleRuleInput[],
-  independentDatesByKennel: ReadonlyMap<string, readonly Date[]>,
+  independentEventsFor: (kennelId: string) => readonly { date: Date }[] | undefined,
   now: Date,
 ): Map<string, RuleAgreement> {
   const out = new Map<string, RuleAgreement>();
   for (const rule of rules) {
     if (rule.confidence === "LOW") continue;
-    out.set(rule.id, measureRuleAgreement(rule, independentDatesByKennel.get(rule.kennelId) ?? [], now));
+    const events = independentEventsFor(rule.kennelId);
+    if (events?.length) out.set(rule.id, measureRuleAgreement(rule, events, now));
   }
   return out;
 }

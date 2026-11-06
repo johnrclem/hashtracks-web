@@ -3,7 +3,6 @@ import {
   buildPrecisionMap,
   tallyOutcomes,
   firstMaturityDate,
-  shapeLeadTimeGrid,
   unobservedReason,
   type ScorecardSnap,
   type UnobservedKennelRow,
@@ -82,18 +81,6 @@ describe("firstMaturityDate", () => {
 
   it("returns null when nothing is PENDING", () => {
     expect(firstMaturityDate([{ outcome: "HIT", predictedDate: d("2026-06-01") }])).toBeNull();
-  });
-});
-
-describe("shapeLeadTimeGrid", () => {
-  it("fills the full HIGH/MEDIUM × 30/90/180 grid, keeping DB rows and blanking the rest", () => {
-    const grid = shapeLeadTimeGrid([
-      { confidence: "HIGH", horizon: 90, hits: 160, excluded: 2, medianLeadDays: 51.4, medianPostedAheadDays: 38.6, predictedFirst: 152 },
-    ]);
-    expect(grid).toHaveLength(6);
-    expect(grid.map((c) => `${c.confidence}${c.horizon}`)).toEqual(["HIGH30", "HIGH90", "HIGH180", "MEDIUM30", "MEDIUM90", "MEDIUM180"]);
-    expect(grid[1]).toMatchObject({ hits: 160, medianLeadDays: 51.4, predictedFirst: 152, excluded: 2 });
-    expect(grid[0]).toMatchObject({ hits: 0, medianLeadDays: null, medianPostedAheadDays: null, predictedFirst: 0 });
   });
 });
 

@@ -12,8 +12,6 @@ import type { PredictionOutcome, ScheduleConfidence } from "@/generated/prisma/c
 import {
   DAYSOUT_BINS,
   binOf,
-  shapeLeadTimeGrid,
-  type LeadTimeCell,
   type LeadTimeRow,
   type OutcomeTally,
   type UnobservedKennelRow,
@@ -137,8 +135,7 @@ export async function loadLedgerScorecard(): Promise<LedgerScorecard> {
 
 // ── Lead time: predicted N days before the run first appeared (C3) ─────────
 export interface LeadTimeView {
-  cells: LeadTimeCell[];
-  totalHits: number;
+  rows: LeadTimeRow[]; // HIGH then MEDIUM, nearest horizon first; only combinations with HITs
   totalExcluded: number;
 }
 
@@ -147,15 +144,15 @@ export interface LeadTimeView {
  *
  * "Appeared" = the matched event's `createdAt`, capped at the run date: a run first ingested
  * AFTER it happened (backfill, archive page, late onboarding) never counts as more advance
- * notice than the run itself. HITs at kennels whose first enabled independent source was
- * created after the snapshot are excluded — onboarding would otherwise inflate the lead.
+ * notice than the run itself. HITs at kennels whose first independent source was created
+ * after the snapshot are excluded — onboarding would otherwise inflate the lead.
  */
 export async function loadLeadTime(): Promise<LeadTimeView> {
   const rows = await prisma.$queryRaw<LeadTimeRow[]>`
     WITH first_src AS (
       SELECT sk."kennelId", MIN(s."createdAt") AS first_at
       FROM "SourceKennel" sk JOIN "Source" s ON s.id = sk."sourceId"
-      WHERE s.enabled AND s.type <> 'STATIC_SCHEDULE'
+      WHERE s.type <> 'STATIC_SCHEDULE'
       GROUP BY sk."kennelId"
     ),
     hits AS (
@@ -175,12 +172,11 @@ export async function loadLeadTime(): Promise<LeadTimeView> {
       percentile_cont(0.5) WITHIN GROUP (ORDER BY GREATEST(posted_ahead_days, 0)) FILTER (WHERE eligible) AS "medianPostedAheadDays",
       (COUNT(*) FILTER (WHERE eligible AND lead_days > 0))::int AS "predictedFirst"
     FROM hits
-    GROUP BY confidence, horizon`;
-  const cells = shapeLeadTimeGrid(rows);
+    GROUP BY confidence, horizon
+    ORDER BY confidence, horizon`;
   return {
-    cells,
-    totalHits: cells.reduce((s, c) => s + c.hits, 0),
-    totalExcluded: cells.reduce((s, c) => s + c.excluded, 0),
+    rows: rows.filter((r) => r.hits > 0),
+    totalExcluded: rows.reduce((sum, r) => sum + r.excluded, 0),
   };
 }
 
@@ -195,7 +191,7 @@ const UNOBSERVED_LIMIT = 40;
 
 /** Kennels whose matured predictions could not be scored, with whether they have an independent source. */
 export async function loadUnobservedByKennel(): Promise<UnobservedView> {
-  const rows = await prisma.$queryRaw<UnobservedKennelRow[]>`
+  const rows = await prisma.$queryRaw<(UnobservedKennelRow & { kennelCount: number; totalUnobserved: number })[]>`
     WITH indep AS (
       SELECT sk."kennelId", (COUNT(*) FILTER (WHERE s.enabled))::int AS enabled_sources
       FROM "SourceKennel" sk JOIN "Source" s ON s.id = sk."sourceId"
@@ -207,17 +203,21 @@ export async function loadUnobservedByKennel(): Promise<UnobservedView> {
       (COUNT(*) FILTER (WHERE ps.outcome = 'UNOBSERVED' AND cardinality(ps."independentSourceIds") = 0))::int AS "noSourceAtSnapshot",
       (COUNT(*) FILTER (WHERE ps.outcome = 'HIT'))::int AS "hit",
       (COUNT(*) FILTER (WHERE ps.outcome = 'MISS'))::int AS "miss",
-      COALESCE(MAX(i.enabled_sources), 0)::int AS "independentSourcesNow"
+      COALESCE(MAX(i.enabled_sources), 0)::int AS "independentSourcesNow",
+      (COUNT(*) OVER ())::int AS "kennelCount",
+      (SUM(COUNT(*) FILTER (WHERE ps.outcome = 'UNOBSERVED')) OVER ())::int AS "totalUnobserved"
     FROM "PredictionSnapshot" ps
     JOIN "Kennel" k ON k.id = ps."kennelId"
     LEFT JOIN indep i ON i."kennelId" = ps."kennelId"
+    WHERE ps.outcome IN ('UNOBSERVED', 'HIT', 'MISS')
     GROUP BY k.id
     HAVING COUNT(*) FILTER (WHERE ps.outcome = 'UNOBSERVED') > 0
-    ORDER BY "unobserved" DESC, k."kennelCode"`;
+    ORDER BY "unobserved" DESC, k."kennelCode"
+    LIMIT ${UNOBSERVED_LIMIT}`;
   return {
-    kennels: rows.slice(0, UNOBSERVED_LIMIT),
-    kennelCount: rows.length,
-    totalUnobserved: rows.reduce((s, r) => s + r.unobserved, 0),
+    kennels: rows.map(({ kennelCount: _kc, totalUnobserved: _tu, ...k }) => k),
+    kennelCount: rows[0]?.kennelCount ?? 0,
+    totalUnobserved: rows[0]?.totalUnobserved ?? 0,
   };
 }
 

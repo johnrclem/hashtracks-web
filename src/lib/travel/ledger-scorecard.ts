@@ -9,6 +9,9 @@
  */
 import type { PredictionOutcome, ScheduleConfidence } from "@/generated/prisma/client";
 
+/** Nominal snapshot horizon bands (days out), farthest first. Shared with the ledger job. */
+export const LEDGER_BANDS = [180, 90, 30] as const;
+
 /** Actual-days-out bins for precision (report by real horizon, not the nominal band). */
 export const DAYSOUT_BINS: { label: string; lo: number; hi: number }[] = [
   { label: "0–45", lo: 0, hi: 45 },
@@ -69,16 +72,13 @@ export function firstMaturityDate(snaps: { outcome: PredictionOutcome; predicted
 
 // ── Lead time (C3): how early a HIT was predicted vs when the run first appeared ─────────────
 
-/** Snapshot horizon bands the ledger captures at (mirrors LEDGER_BANDS, nearest first). */
-export const LEAD_TIME_HORIZONS = [30, 90, 180] as const;
-
-/** One aggregated (confidence × horizon band) lead-time row, as returned by the DB. */
+/** One (confidence × horizon band) lead-time row, aggregated in the DB. */
 export interface LeadTimeRow {
-  confidence: string;
+  confidence: "HIGH" | "MEDIUM";
   horizon: number;
-  /** Scored HITs counted (kennel had an enabled independent source at snapshot time). */
+  /** Scored HITs counted (kennel had an independent source before the snapshot). */
   hits: number;
-  /** HITs left out because the kennel's first enabled independent source came later. */
+  /** HITs left out because the kennel's first independent source came after the snapshot. */
   excluded: number;
   /** Median days between the snapshot and the run's first appearance (capped at the run date). */
   medianLeadDays: number | null;
@@ -86,31 +86,6 @@ export interface LeadTimeRow {
   medianPostedAheadDays: number | null;
   /** HITs predicted strictly before any source posted the run. */
   predictedFirst: number;
-}
-
-export interface LeadTimeCell extends LeadTimeRow {
-  confidence: "HIGH" | "MEDIUM";
-}
-
-/** Full HIGH/MEDIUM × horizon grid; missing combinations become empty cells (hits 0, medians null). */
-export function shapeLeadTimeGrid(rows: LeadTimeRow[]): LeadTimeCell[] {
-  const byKey = new Map(rows.map((r) => [`${r.confidence}|${r.horizon}`, r]));
-  const out: LeadTimeCell[] = [];
-  for (const confidence of ["HIGH", "MEDIUM"] as const) {
-    for (const horizon of LEAD_TIME_HORIZONS) {
-      const r = byKey.get(`${confidence}|${horizon}`);
-      out.push({
-        confidence,
-        horizon,
-        hits: r?.hits ?? 0,
-        excluded: r?.excluded ?? 0,
-        medianLeadDays: r?.medianLeadDays ?? null,
-        medianPostedAheadDays: r?.medianPostedAheadDays ?? null,
-        predictedFirst: r?.predictedFirst ?? 0,
-      });
-    }
-  }
-  return out;
 }
 
 // ── UNOBSERVED per kennel (C4) ──────────────────────────────────────────────────────────────

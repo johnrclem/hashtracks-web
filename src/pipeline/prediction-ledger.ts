@@ -23,24 +23,26 @@ import {
   projectTrails,
   scoreConfidence,
   buildRuleAgreementMap,
+  PREDICTION_MATCH_TOL_DAYS,
+  PREDICTION_OBSERVE_TOL_DAYS,
   type ScheduleRuleInput,
   type KennelContext,
 } from "@/lib/travel/projections";
+import { LEDGER_BANDS } from "@/lib/travel/ledger-scorecard";
+import { utcMidnightMs } from "@/lib/date";
 
 // ── Tunables ────────────────────────────────────────────────────────────────
-export const LEDGER_BANDS = [180, 90, 30] as const;
+export { LEDGER_BANDS };
 /** Capture window half-width around each band target. ≥ weekly cron step (7d). */
 export const BAND_HALF_WIDTH = 4;
 /** A prediction HITs if an eligible event lands within ±this of the predicted date. */
-export const MATCH_TOL_DAYS = 1;
+export const MATCH_TOL_DAYS = PREDICTION_MATCH_TOL_DAYS;
 /** A matured date is OBSERVED if an eligible event exists within ±this of it. */
-export const OBSERVE_TOL_DAYS = 14;
+export const OBSERVE_TOL_DAYS = PREDICTION_OBSERVE_TOL_DAYS;
 /**
- * MISS / UNOBSERVED rows stay re-checkable for this many days after their predicted date.
- * Ground truth often arrives late: a forward-only source drops a run the day after it happens
- * and reconcile cancels it until an archive page re-confirms it ~a month later (SDH3 history
- * lag — 95 of the first 475 MISSes were runs that DID happen), Meetup/FB post late, and new
- * sources backfill. HIT and PRECONFIRMED stay final. Frozen-source provenance still applies.
+ * MISS / UNOBSERVED rows are re-checked for this many days after their date: runs are often
+ * posted late, or cancelled by reconcile and re-confirmed by an archive page weeks later.
+ * HIT and PRECONFIRMED are final.
  */
 export const RESCORE_WINDOW_DAYS = 120;
 const EVIDENCE_WINDOW_DAYS = 84;
@@ -52,11 +54,6 @@ const STATIC = "STATIC_SCHEDULE";
 const SCORE_UPDATE_CHUNK = 25;
 
 // ── Pure helpers (exported for tests) ─────────────────────────────────────────
-
-/** UTC calendar-midnight epoch ms — normalizes away time-of-day so day math is exact. */
-function utcMidnightMs(d: Date): number {
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-}
 
 /** Whole CALENDAR days from→to (UTC), robust to non-noon event/run timestamps. */
 export function daysBetween(from: Date, to: Date): number {
@@ -149,11 +146,7 @@ export interface ScorableSnapshot {
   outcome: Outcome;
 }
 
-export interface ScoreUpdate {
-  id: string;
-  outcome: Exclude<Outcome, "PENDING">;
-  matchedEventId: string | null;
-}
+export type ScoreUpdate = { id: string } & ReturnType<typeof classifyOutcome>;
 
 /**
  * Classify each snapshot against current events and return ONLY the rows whose outcome
@@ -292,7 +285,7 @@ function buildKennelSnapshotRows(
   ).length;
   const ruleValidation = new Map(kRules.map((r) => [r.id, r.lastValidatedAt]));
   // kEvents are already independent-only (indexLedgerInputs drops STATIC_SCHEDULE-only events).
-  const agreement = buildRuleAgreementMap(ruleInputs, new Map([[k.id, kEvents.map((e) => e.date)]]), now);
+  const agreement = buildRuleAgreementMap(ruleInputs, () => kEvents, now);
   const ctx: KennelContext = {
     id: k.id, shortName: k.shortName, scheduleDayOfWeek: k.scheduleDayOfWeek,
     scheduleTime: k.scheduleTime, scheduleFrequency: k.scheduleFrequency, lastEventDate: k.lastEventDate,
@@ -328,6 +321,12 @@ function buildKennelSnapshotRows(
     });
   }
   return rows;
+}
+
+/** Add each update's outcome to `counts`; returns how many updates were tallied. */
+function tallyInto(counts: Record<Exclude<Outcome, "PENDING">, number>, updates: ScoreUpdate[]): number {
+  for (const u of updates) counts[u.outcome]++;
+  return updates.length;
 }
 
 /** Write classified outcomes in bounded-concurrency chunks. */
@@ -438,24 +437,15 @@ export async function runPredictionLedger(
   };
 
   // ── Pass 1: score matured snapshots against their FROZEN sources ────────────
-  // (a) first-time scoring of matured PENDING rows, and (b) a re-check of recent MISS /
-  // UNOBSERVED rows against today's events (see RESCORE_WINDOW_DAYS) — only changed rows are
-  // written. Classify in memory first, then flush updates in bounded-concurrency chunks. A
-  // multi-week cron outage (or the first run after migration) can leave hundreds–thousands of
-  // matured rows; a sequential await-per-row N+1 risks the 300s timeout, while an unbounded
-  // Promise.all over the whole backlog could exhaust the connection pool. Chunking gets the
-  // parallel speedup with a bounded pool footprint (claude review on PR #2164).
+  // First-time scoring of matured PENDING rows plus a re-check of recent MISS/UNOBSERVED rows
+  // (only changed rows are written). Classify in memory, then flush in bounded-concurrency
+  // chunks: a long cron outage can leave thousands of rows, and a per-row N+1 risks the 300s
+  // timeout while an unbounded Promise.all could exhaust the pool (claude review on PR #2164).
   const scoredUpdates = planScoreUpdates(matured, eventsByKennel);
   const rescoredUpdates = planScoreUpdates(rescorable, eventsByKennel);
   await flushScoreUpdates(prisma, [...scoredUpdates, ...rescoredUpdates], now);
-  for (const u of scoredUpdates) {
-    result.scored++;
-    result.outcomes[u.outcome]++;
-  }
-  for (const u of rescoredUpdates) {
-    result.rescored++;
-    result.rescoredTo[u.outcome]++;
-  }
+  result.scored = tallyInto(result.outcomes, scoredUpdates);
+  result.rescored = tallyInto(result.rescoredTo, rescoredUpdates);
 
   // ── Pass 2: snapshot current predictions ───────────────────────────────────
   const snapshotRows: Prisma.PredictionSnapshotCreateManyInput[] = [];

@@ -337,6 +337,9 @@ model RawEvent {
 
   @@unique([sourceId, fingerprint])
   @@index([sourceId, scrapedAt])
+  // Event → RawEvent provenance lookups (independent-event EXISTS in Travel search, ledger,
+  // rule-drift). Without it every such lookup seq-scans RawEvent (~100ms per Travel search).
+  @@index([eventId])
 }
 
 model Event {

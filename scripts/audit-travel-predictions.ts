@@ -180,11 +180,9 @@ function scoreProjectionsAsOf(
  * Each dated rule's agreement with the kennel's INDEPENDENT events as-of `reference`
  * (measureRuleAgreement only reads events before the reference, so no look-ahead).
  */
-function agreementAsOf(rules: RuleRow[], events: EvDate[], reference: Date): Map<string, RuleAgreement> {
-  const independent = events.filter((e) => e.eligible).map((e) => e.date);
-  const byKennel = new Map<string, Date[]>();
-  for (const r of rules) byKennel.set(r.kennelId, independent);
-  return buildRuleAgreementMap(rules.map(ruleToInput), byKennel, reference);
+function agreementAsOf(ruleInputs: ScheduleRuleInput[], events: EvDate[], reference: Date): Map<string, RuleAgreement> {
+  const independent = events.filter((e) => e.eligible);
+  return buildRuleAgreementMap(ruleInputs, () => independent, reference);
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -249,7 +247,7 @@ function censusForKennel(
       today,
       ruleValidation,
       kennel.lastEventDate,
-      agreementAsOf(rules, events, today),
+      agreementAsOf(ruleInputs, events, today),
     );
     // Dedup only against INDEPENDENT confirmed events — otherwise a STATIC_SCHEDULE
     // source's own materialized future events would suppress the very projection
@@ -395,7 +393,7 @@ function backtest(
       reference,
       ruleValidation,
       lastEventAsOf,
-      agreementAsOf(rules, events, reference),
+      agreementAsOf(ruleInputs, events, reference),
     );
     const dated = scored.filter(
       (p): p is ProjectedTrail & { date: Date } =>
@@ -528,7 +526,8 @@ function buildContradicted(
       const windowEnd = addDays(reference, BACKTEST_WINDOW_DAYS);
       const eligible = eligibleInRange(events, reference, windowEnd).map((e) => e.date);
       if (eligible.length === 0) continue; // unverifiable in this window
-      const raw = projectTrails(rules.map(ruleToInput), reference, windowEnd);
+      const ruleInputs = rules.map(ruleToInput);
+      const raw = projectTrails(ruleInputs, reference, windowEnd);
       const evidenceCount = eligibleInRange(
         events,
         addDays(reference, -EVIDENCE_WINDOW_DAYS),
@@ -543,7 +542,7 @@ function buildContradicted(
         reference,
         ruleValidation,
         lastEventAsOf,
-        agreementAsOf(rules, events, reference),
+        agreementAsOf(ruleInputs, events, reference),
       );
       for (const p of scored) {
         if (!p.date || p.confidence === "low") continue;

@@ -82,6 +82,11 @@ interface MockScheduleRule {
   lastValidatedAt: Date | null;
 }
 
+/** RawEvent provenance of a mock event; defaults to one independent (GOOGLE_CALENDAR) source. */
+function rawEventsOf(e: MockEvent): { source: { type: string } }[] {
+  return e.rawEvents ?? [{ source: { type: "GOOGLE_CALENDAR" } }];
+}
+
 function createMockPrisma(
   kennels: MockKennel[],
   events: MockEvent[],
@@ -113,6 +118,11 @@ function createMockPrisma(
         if (where.status === "CONFIRMED") {
           filtered = filtered.filter((e: MockEvent) => e.status === "CONFIRMED");
         }
+        // INDEPENDENT_EVENT_WHERE: keep events with ≥1 RawEvent whose source type differs.
+        const excludedType = where.rawEvents?.some?.source?.type?.not;
+        if (excludedType) {
+          filtered = filtered.filter((e: MockEvent) => rawEventsOf(e).some((r) => r.source.type !== excludedType));
+        }
         if (where.date?.gte) {
           filtered = filtered.filter((e: MockEvent) => e.date >= where.date.gte);
         }
@@ -128,8 +138,6 @@ function createMockPrisma(
           filtered.map((e) => ({
             ...e,
             isSeriesParent: e.isSeriesParent ?? false,
-            // Evidence provenance for the rule-agreement gate: default to an independent source.
-            rawEvents: e.rawEvents ?? [{ source: { type: "GOOGLE_CALENDAR" } }],
             eventKennels: [
               { kennelId: e.kennelId },
               ...(e.coHostKennelIds ?? []).map((id) => ({ kennelId: id })),

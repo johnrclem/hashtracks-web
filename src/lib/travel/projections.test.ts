@@ -359,21 +359,21 @@ describe("applyAgreementGate", () => {
 describe("measureRuleAgreement", () => {
   // 2026-11-07 is a Saturday; the 84-day window before it holds 12 Saturdays (Aug 15 … Oct 31).
   const now = utcNoon("2026-11-07");
-  const saturdays = Array.from({ length: 12 }, (_, i) => new Date(utcNoon("2026-08-15").getTime() + i * 7 * 86_400_000));
+  const runsOn = (first: string, count: number, stepDays = 7) =>
+    Array.from({ length: count }, (_, i) => ({ date: new Date(utcNoon(first).getTime() + i * stepDays * 86_400_000) }));
+  const saturdays = runsOn("2026-08-15", 12);
 
   it("counts a weekly rule that matches every run as all hits", () => {
     expect(measureRuleAgreement(makeRule(), saturdays, now)).toEqual({ observed: 12, hits: 12 });
   });
 
   it("treats ±1 day as a hit and anything within ±14 days as observed", () => {
-    const sundays = saturdays.map((d) => new Date(d.getTime() + 86_400_000));
-    const thursdays = saturdays.map((d) => new Date(d.getTime() - 2 * 86_400_000));
-    expect(measureRuleAgreement(makeRule(), sundays, now)).toEqual({ observed: 12, hits: 12 });
-    expect(measureRuleAgreement(makeRule(), thursdays, now)).toEqual({ observed: 12, hits: 0 });
+    expect(measureRuleAgreement(makeRule(), runsOn("2026-08-16", 12), now)).toEqual({ observed: 12, hits: 12 });
+    expect(measureRuleAgreement(makeRule(), runsOn("2026-08-13", 12), now)).toEqual({ observed: 12, hits: 0 });
   });
 
   it("scores a biweekly rule anchored on the wrong week as zero hits", () => {
-    const realRuns = saturdays.filter((_, i) => i % 2 === 0); // Aug 15, Aug 29, …
+    const realRuns = runsOn("2026-08-15", 6, 14); // Aug 15, Aug 29, …
     const offPhase = makeRule({ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-08-22" });
     const onPhase = makeRule({ rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-08-15" });
     expect(measureRuleAgreement(offPhase, realRuns, now)).toEqual({ observed: 6, hits: 0 });
@@ -381,8 +381,7 @@ describe("measureRuleAgreement", () => {
   });
 
   it("ignores events on or after `now` so an as-of replay can't see the future", () => {
-    const future = [utcNoon("2026-11-07"), utcNoon("2026-11-14")];
-    expect(measureRuleAgreement(makeRule(), future, now)).toEqual({ observed: 0, hits: 0 });
+    expect(measureRuleAgreement(makeRule(), runsOn("2026-11-07", 2), now)).toEqual({ observed: 0, hits: 0 });
   });
 
   it("returns zero evidence for LOW rules and empty histories", () => {
@@ -391,9 +390,13 @@ describe("measureRuleAgreement", () => {
     expect(measureRuleAgreement(makeRule(), [], now)).toEqual({ observed: 0, hits: 0 });
   });
 
-  it("builds a per-rule map for dated rules only", () => {
-    const rules = [makeRule({ id: "a" }), makeRule({ id: "b", confidence: "LOW", rrule: "CADENCE=WEEKLY;BYDAY=SU" })];
-    const map = buildRuleAgreementMap(rules, new Map([["kennel-1", saturdays]]), now);
+  it("builds a per-rule map for dated rules of kennels that have independent events", () => {
+    const rules = [
+      makeRule({ id: "a" }),
+      makeRule({ id: "b", confidence: "LOW", rrule: "CADENCE=WEEKLY;BYDAY=SU" }),
+      makeRule({ id: "c", kennelId: "kennel-2" }),
+    ];
+    const map = buildRuleAgreementMap(rules, (k) => (k === "kennel-1" ? saturdays : undefined), now);
     expect([...map.keys()]).toEqual(["a"]);
     expect(map.get("a")).toEqual({ observed: 12, hits: 12 });
   });

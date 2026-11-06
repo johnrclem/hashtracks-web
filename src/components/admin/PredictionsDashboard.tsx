@@ -173,30 +173,25 @@ function PrecisionHeatmap({ ledger }: Readonly<{ ledger: LedgerScorecard }>) {
 function fmtDays(d: number | null): string {
   return d === null ? "—" : `${Math.round(d)}d`;
 }
-function pctOf(n: number, of: number): string {
-  return of === 0 ? "—" : `${Math.round((n / of) * 100)}%`;
-}
 
 function LeadTimeSection({ lead }: Readonly<{ lead: LeadTimeView }>) {
-  const rows = lead.cells.filter((c) => c.hits > 0);
-  // Headline: the farthest horizon with scored HITs, best confidence first.
-  const headline = [...rows].sort((a, b) => b.horizon - a.horizon || a.confidence.localeCompare(b.confidence))[0];
+  const { rows } = lead;
+  // Headline: the farthest horizon with scored HITs (rows arrive HIGH-first, so HIGH wins ties).
+  const headline = rows.length > 0 ? rows.reduce((a, c) => (c.horizon > a.horizon ? c : a)) : null;
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-semibold">Lead time — how early we predicted runs that happened</h3>
-      {rows.length === 0 ? (
+      {headline === null ? (
         <div className="rounded-xl border border-border/60 bg-muted/30 p-4 text-sm text-muted-foreground">
           No scored HITs yet.
         </div>
       ) : (
         <>
-          {headline && headline.medianLeadDays !== null && (
-            <p className="text-sm">
-              At the <strong>{headline.horizon}-day</strong> horizon, {headline.confidence} predictions were made a median{" "}
-              <strong>{fmtDays(headline.medianLeadDays)}</strong> before the run first appeared on any source; the kennel itself
-              posted it {fmtDays(headline.medianPostedAheadDays)} ahead.
-            </p>
-          )}
+          <p className="text-sm">
+            At the <strong>{headline.horizon}-day</strong> horizon, {headline.confidence} predictions were made a median{" "}
+            <strong>{fmtDays(headline.medianLeadDays)}</strong> before the run first appeared on any source; the kennel itself
+            posted it {fmtDays(headline.medianPostedAheadDays)} ahead.
+          </p>
           <div className="overflow-x-auto rounded-xl border border-border/50">
             <table className="w-full text-sm tabular-nums">
               <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -216,7 +211,7 @@ function LeadTimeSection({ lead }: Readonly<{ lead: LeadTimeView }>) {
                     <td className="px-3 py-2">{c.horizon}-day band</td>
                     <td className="px-3 py-2 text-right">{c.hits.toLocaleString()}</td>
                     <td className="px-3 py-2 text-right font-semibold">{fmtDays(c.medianLeadDays)}</td>
-                    <td className="px-3 py-2 text-right">{pctOf(c.predictedFirst, c.hits)}</td>
+                    <td className="px-3 py-2 text-right">{Math.round((c.predictedFirst / c.hits) * 100)}%</td>
                     <td className="px-3 py-2 text-right text-muted-foreground">{fmtDays(c.medianPostedAheadDays)}</td>
                   </tr>
                 ))}

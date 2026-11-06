@@ -4054,9 +4054,8 @@ export const SOURCES = [
           "Diaper Rash": "drh3-sd",
         },
         includeHistory: true,
-        // The hareline drops each run the day after it happens and history.shtml only lists it
-        // ~a month later, so reconcile was cancelling every past SD run in between (and the
-        // Travel ledger scored those weeks as MISS). Past rows are owned by the history page.
+        // The hareline drops each run the day after it happens and history.shtml lists it ~a
+        // month later; without this, reconcile cancelled every past SD run in that gap.
         upcomingOnly: true,
       },
       kennelCodes: ["sdh3", "clh3-sd", "ljh3", "nch3-sd", "irh3-sd", "humpin-sd", "fmh3-sd", "hah3-sd", "mh4-sd", "drh3-sd"],

@@ -28,11 +28,15 @@ export default async function PredictionsPage() {
 
   return (
     <PredictionsDashboard
-      ledger={ledger.status === "fulfilled" ? { ok: true, data: ledger.value } : { ok: false }}
-      drift={drift.status === "fulfilled" ? { ok: true, data: drift.value } : { ok: false }}
-      coverage={coverage.status === "fulfilled" ? { ok: true, data: coverage.value } : { ok: false }}
-      leadTime={leadTime.status === "fulfilled" ? { ok: true, data: leadTime.value } : { ok: false }}
-      unobserved={unobserved.status === "fulfilled" ? { ok: true, data: unobserved.value } : { ok: false }}
+      ledger={toLoadable(ledger)}
+      drift={toLoadable(drift)}
+      coverage={toLoadable(coverage)}
+      leadTime={toLoadable(leadTime)}
+      unobserved={toLoadable(unobserved)}
     />
   );
+}
+
+function toLoadable<T>(r: PromiseSettledResult<T>): { ok: true; data: T } | { ok: false } {
+  return r.status === "fulfilled" ? { ok: true, data: r.value } : { ok: false };
 }

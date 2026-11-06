@@ -2161,9 +2161,8 @@ export const KENNELS: KennelSeed[] = [
       contactEmail: "borderjumpersh3@gmail.com",
       scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
       scheduleNotes: "Two weekly hashes: Wednesday evenings and Saturday afternoons. See Carrd for current trail.",
-      // The independent calendar shows a 3rd-Saturday run 8 of the last 9 months but almost no
-      // Wednesdays (2 in a year); the flat Wednesday rule went 0 HIT / 23 MISS in the Travel ledger.
-      // Dated rule = 3rd Saturday; Wednesdays stay an undated "sometimes" sentinel.
+      // The calendar shows a 3rd-Saturday run most months but almost no Wednesdays, so
+      // Wednesday stays an undated "sometimes" sentinel.
       scheduleRules: [
         { rrule: "FREQ=MONTHLY;BYDAY=3SA", confidence: "MEDIUM", label: "Saturday afternoon", displayOrder: 0 },
         { rrule: "CADENCE=WEEKLY;BYDAY=WE", confidence: "LOW", label: "Wednesday evening (occasional)", displayOrder: 1 },
