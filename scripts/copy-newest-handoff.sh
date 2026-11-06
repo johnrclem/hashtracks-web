@@ -29,6 +29,7 @@
 #   bash scripts/copy-newest-handoff.sh            # copy the NEWEST actionable handoff
 #   bash scripts/copy-newest-handoff.sh --oldest   # copy the OLDEST actionable handoff (drain a backlog)
 #   bash scripts/copy-newest-handoff.sh --list     # audit only; print the backlog, copy nothing
+#   bash scripts/copy-newest-handoff.sh --paths    # machine-readable: actionable paths, oldest first
 #
 # Suggested alias (drop in ~/.zshrc):
 #   alias htn='bash ~/Developer/hashtracks-web/scripts/copy-newest-handoff.sh'
@@ -50,8 +51,9 @@ MODE="newest"
 case "${1:-}" in
   --oldest) MODE="oldest" ;;
   --list)   MODE="list" ;;
+  --paths)  MODE="paths" ;;
   "")       ;;
-  *) echo "Unknown option: $1 (expected --oldest, --list, or no argument)" >&2; exit 2 ;;
+  *) echo "Unknown option: $1 (expected --oldest, --list, --paths, or no argument)" >&2; exit 2 ;;
 esac
 
 [[ -d "$HANDOFF_DIR" ]] || { echo "No handoffs dir: $HANDOFF_DIR" >&2; exit 1; }
@@ -112,6 +114,13 @@ while IFS= read -r f; do
 done < <(ls "$HANDOFF_DIR"/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.md 2>/dev/null | sort || true)
 
 count="${#backlog[@]}"
+
+# Machine-readable mode for the unattended implementer: one absolute path per line, oldest
+# first, no banner. Prints nothing when the backlog is empty.
+if [[ "$MODE" == "paths" ]]; then
+  (( count > 0 )) && printf '%s\n' "${backlog[@]}"
+  exit 0
+fi
 
 if [[ "$count" -eq 0 ]]; then
   echo "No un-implemented handoffs found."

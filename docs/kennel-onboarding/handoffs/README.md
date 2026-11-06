@@ -10,7 +10,13 @@ pagination notes, and an embedded **`▶ FOR CLAUDE CODE`** directive **at the t
 
 ## To implement one
 
-Run `bash scripts/copy-newest-handoff.sh` to copy the newest un-implemented, non-voided handoff
+**Automatic (since 2026-11-06):** the desktop task `hashtracks-kennel-implement` builds one
+config-only handoff a day and opens an `onboarding-impl` PR. Review it, then add the
+`owner-approved` label; the next run merges it and verifies the new kennel in prod. See
+[`../implement-handoff-prompt.md`](../implement-handoff-prompt.md). Handoffs that need a new adapter
+are left for a manual session, as below.
+
+**Manual:** Run `bash scripts/copy-newest-handoff.sh` to copy the newest un-implemented, non-voided handoff
 to your clipboard, then paste the whole file as the first message into a fresh Claude Code
 session in `hashtracks-web`. The top directive drives implementation through PR.
 
