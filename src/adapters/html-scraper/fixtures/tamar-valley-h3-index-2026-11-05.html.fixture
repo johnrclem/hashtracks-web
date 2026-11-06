@@ -1,0 +1,700 @@
+<html>
+<head>
+<title>Tamar Valley Hash House Harriers</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<script language="JavaScript" type="text/JavaScript">
+<!--
+function MM_displayStatusMsg(msgStr) { //v1.0
+  status=msgStr;
+  document.MM_returnValue = true;
+}
+
+function MM_preloadImages() { //v3.0
+  var d=document; if(d.images){ if(!d.MM_p) d.MM_p=new Array();
+    var i,j=d.MM_p.length,a=MM_preloadImages.arguments; for(i=0; i<a.length; i++)
+    if (a[i].indexOf("#")!=0){ d.MM_p[j]=new Image; d.MM_p[j++].src=a[i];}}
+}
+function MM_swapImgRestore() { //v3.0
+  var i,x,a=document.MM_sr; for(i=0;a&&i<a.length&&(x=a[i])&&x.oSrc;i++) x.src=x.oSrc;
+}
+function MM_findObj(n, d) { //v4.01
+  var p,i,x;  if(!d) d=document; if((p=n.indexOf("?"))>0&&parent.frames.length) {
+    d=parent.frames[n.substring(p+1)].document; n=n.substring(0,p);}
+  if(!(x=d[n])&&d.all) x=d.all[n]; for (i=0;!x&&i<d.forms.length;i++) x=d.forms[i][n];
+  for(i=0;!x&&d.layers&&i<d.layers.length;i++) x=MM_findObj(n,d.layers[i].document);
+  if(!x && d.getElementById) x=d.getElementById(n); return x;
+}
+
+function MM_swapImage() { //v3.0
+  var i,j=0,x,a=MM_swapImage.arguments; document.MM_sr=new Array; for(i=0;i<(a.length-2);i+=3)
+   if ((x=MM_findObj(a[i]))!=null){document.MM_sr[j++]=x; if(!x.oSrc) x.oSrc=x.src; x.src=a[i+2];}
+}
+//-->
+</script>
+<style type="text/css">
+.Table_Text {
+	font-family: Arial, Helvetica, sans-serif;
+	font-weight: bold;
+}
+body,td,th {
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 10pt;
+	color: #009;
+	font-weight: bold;
+}
+.Bold {
+	font-weight: bold;
+	font-size: 14pt;
+}
+.MapTable {
+	font-weight: bold;
+	font-size: 10pt;
+	color: #00C;
+}
+body p {
+	font-size: 12px;
+	font-weight: bold;
+}
+.Table {
+	font-size: 10pt;
+	font-weight: bold;
+}
+.Maptable {
+	font-size: 10pt;
+	font-weight: bold;
+}
+body p {
+	font-size: 10pt;
+}
+red {
+	color: #F00;
+}
+.RedTableText {
+	color: #F00;
+}
+body p {
+	font-size: 10pt;
+	text-align: left;
+	font-weight: bold;
+	font-family: Arial, Helvetica, sans-serif;
+	color: #009;
+}
+.redtext {
+	color: #F00;
+}
+.announcement {
+	color: #F00;
+}
+.TableText {	font-size: 10px;
+	font-family: Arial, Helvetica, sans-serif;
+	font-style: normal;
+	font-weight: normal;
+}
+.TableText {
+	font-size: 12px;
+	font-weight: bold;
+}
+.TableHeading {
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 12pt;
+	font-weight: bold;
+	text-align: center;
+}
+#Riverdart {
+	font-size: 10pt;
+}
+body {
+	background-color: #FFF;
+	color: #00F;
+}
+.Table_red {
+	color: #F00;
+}
+.red_table {
+	color: #F00;
+}
+#red_text {
+	color: #F00;
+	font-size: 14px;
+	text-align: center;
+}
+#Email {
+	text-align: right;
+	right: auto;
+}
+h3 {
+	color: #F00;
+}
+#apDiv1 {
+	position:absolute;
+	width:194px;
+	height:67px;
+	z-index:1;
+	left: 11px;
+	top: 335px;
+}
+body table tr td table tr td font strong {
+}
+.Table_red {
+	color: #F00;
+	text-align: left;
+	font-weight: bold;
+}
+.Table_border {
+	color: #C0C0C0;
+}
+.TableText1 {	font-size: 10px;
+	font-family: Arial, Helvetica, sans-serif;
+	font-style: normal;
+	font-weight: normal;
+}
+.TableText1 {	font-size: 12px;
+}
+.TableHeading1 {	font-family: Arial, Helvetica, sans-serif;
+	font-size: 16pt;
+	font-weight: bold;
+	text-align: center;
+}
+.TableText1 {
+	font-weight: bold;
+}
+.TableText2 {	font-size: 10px;
+	font-family: Arial, Helvetica, sans-serif;
+	font-style: normal;
+	font-weight: normal;
+}
+.TableText2 {
+	font-size: 12px;
+	font-weight: bold;
+}
+.TableText3 {	font-size: 10px;
+	font-family: Arial, Helvetica, sans-serif;
+	font-style: normal;
+	font-weight: normal;
+}
+.TableText3 {
+	font-size: 12px;
+	font-weight: bold;
+}
+.Table_Red {
+	color: #F00;
+}
+.Table_Red1 {	color: #F00;
+}
+#apDiv2 {
+	position:absolute;
+	width:165px;
+	height:133px;
+	z-index:1;
+	left: 507px;
+	top: 792px;
+}
+#apDiv3 {
+	position:absolute;
+	width:183px;
+	height:62px;
+	z-index:1;
+	left: 202px;
+	top: 817px;
+}
+.Maptable1 {	font-size: 10pt;
+	font-weight: bold;
+}
+.red {
+	color: #F00;
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 10pt;
+	font-style: normal;
+	font-weight: normal;
+}
+.Centre {
+	text-align: left;
+}
+#apDiv4 {
+	position:absolute;
+	left:122px;
+	top:507px;
+	width:180px;
+	height:78px;
+	z-index:1;
+}
+.Blank {
+	color: #FFF;
+}
+.Blank {
+	color: #FFF;
+}
+.Blank {
+	color: #FFF;
+}
+.Blank {
+	color: #FFF;
+}
+Blank {
+	color: #D6D6D6;
+}
+Blank {
+	color: #D6D6D6;
+}
+#apDiv5 {
+	position:absolute;
+	width:200px;
+	height:115px;
+	z-index:1;
+}
+#apDiv6 {
+	position:absolute;
+	width:125px;
+	height:130px;
+	z-index:2;
+	left: 546px;
+	top: 822px;
+}
+.annet {font-weight: bold}
+#apDiv7 {
+	position:absolute;
+	width:181px;
+	height:66px;
+	z-index:1;
+	left: 164px;
+	top: 733px;
+}
+#apDiv8 {
+	position:absolute;
+	width:76px;
+	height:97px;
+	z-index:1;
+	left: 596px;
+	top: 845px;
+}
+.table_text1 {	font-size: 10pt;
+}
+.asterisk {
+	color: #F00;
+}
+.asterisk {
+	font-size: 14pt;
+}
+.centred {
+	text-align: center;
+}
+.Table14point {
+	font-size: 12pt;
+}
+#apDiv9 {
+	position:absolute;
+	left:149px;
+	top:539px;
+	width:133px;
+	height:64px;
+	z-index:1;
+}
+body table tr td div {
+	color: #F00;
+	width: auto;
+}
+.Map_centre {
+	text-align: center;
+}
+#Centre_Table {
+	text-align: center;
+}
+#Centre_Table {
+	text-align: center;
+}
+#Centre_Table {
+	text-align: center;
+}
+#Red_Text {
+	color: #F00;
+}
+#Table_Small {
+	font-size: 10px;
+}
+.Table_10px {
+	font-size: 10pt;
+}
+#Red_Text {
+	color: #F00;
+}
+#apDiv10 {
+	position:absolute;
+	width:190px;
+	height:70px;
+	z-index:1;
+	left: 547px;
+	top: 564px;
+}
+#Red_Text_14 {
+	color: #F00;
+	font-size: 24px;
+	text-align: center;
+}
+.Red_Text_16 {
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 16px;
+	font-style: normal;
+	font-weight: bold;
+	color: #F00;
+}
+.Red_24 {
+	color: #F00;
+	font-size: 18pt;
+	text-align: center;
+}
+.Red_Text {
+	color: #F00;
+}
+#Table {
+	font-size: 10px;
+}
+#Table {
+	font-size: 10pt;
+	color: #009;
+}
+#apDiv11 {
+	position:absolute;
+	width:177px;
+	height:63px;
+	z-index:1;
+	left: 62px;
+	top: 600px;
+}
+#apDiv12 {
+	position:absolute;
+	left:351px;
+	top:744px;
+	width:156px;
+	height:68px;
+	z-index:1;
+}
+.Red {
+	color: #F00;
+}
+#apDiv13 {
+	position:absolute;
+	width:200px;
+	height:63px;
+	z-index:1;
+	left: 619px;
+	top: 571px;
+}
+.Image_Centre {
+	text-align: center;
+}
+.RedText {
+	color: #F00;
+}
+.Vitual_Hash_Mag {	font-size: 14px;
+	text-align: center;
+}
+.Vitual_Hash_Mag {	text-align: left;
+	color: #009;
+}
+.Next_Run_Text {
+	color: #009;
+}
+#red_text {
+	color: #F00;
+}
+#Red_Text {
+	color: #F00;
+}
+#_Colour_09 {
+	color: #009;
+}
+.Raffle {
+	font-size: 14px;
+}
+#T-shirt {
+	font-size: 14pt;
+}
+#Red_Text {
+	font-size: 12pt;
+}
+.Map_centre p {
+	font-size: 36px;
+	text-align: center;
+}
+.Map_centre p {
+	text-align: left;
+	font-size: 10px;
+}
+#apDiv14 {
+	position:absolute;
+	width:198px;
+	height:64px;
+	z-index:1;
+	left: 229px;
+	top: 677px;
+}
+body p {
+	color: #009;
+}
+.Hare_Needed {
+	color: #F00;
+}
+#apDiv15 {
+	position:absolute;
+	width:200px;
+	height:80px;
+	z-index:2;
+	left: 439px;
+	top: 847px;
+}
+#apDiv16 {
+	position:absolute;
+	width:200px;
+	height:68px;
+	z-index:3;
+	left: 546px;
+	top: 1095px;
+}
+#apDiv17 {
+	position:absolute;
+	width:100px;
+	height:172px;
+	z-index:1;
+	left: 337px;
+	top: 1062px;
+}
+#apDiv18 {
+	position:absolute;
+	width:200px;
+	height:64px;
+	z-index:1;
+	left: 69px;
+	top: 849px;
+}
+.Urgent {
+	color: #F00;
+}
+.Centre {
+	text-align: center;
+}
+#Red_Text {
+	color: #F00;
+	font-size: 10pt;
+}
+.red {
+	color: #F00;
+	font-weight: bold;
+}
+._Right {
+	text-align: right;
+}
+#apDiv19 {
+	position:absolute;
+	width:174px;
+	height:64px;
+	z-index:1;
+	left: 769px;
+	top: 695px;
+}
+#Email3 {
+	text-align: right;
+}
+#Table strong font font {
+	color: #009;
+}
+.MapTable strong font font {
+	color: #009;
+}
+.Table_Text {
+	color: #009;
+}
+.Right {
+	text-align: center;
+}
+#apDiv20 {
+	position:absolute;
+	width:99px;
+	height:105px;
+	z-index:1;
+	left: 404px;
+	top: 1119px;
+}
+#apDiv21 {
+	position:absolute;
+	width:185px;
+	height:65px;
+	z-index:1;
+	left: 18px;
+	top: 839px;
+}
+#apDiv22 {
+	position:absolute;
+	width:96px;
+	height:101px;
+	z-index:1;
+	left: 549px;
+	top: 1112px;
+}
+#Email3 #Email3 {
+}
+</style>
+<link href="/tvh_styles.css" rel="stylesheet" type="text/css">
+<style type="text/css">
+a:link {
+	color: #FF0000;
+}
+a:visited {
+	color: #FF00FF;
+}
+</style>
+</head>
+<body link="#FF0000" vlink="#FF00FF" alink="#FF0000" onLoad="MM_preloadImages('/images/Buttons/Stats2.png','/images/Buttons/Planner2.png','/images/Buttons/Events2.png','/images/Buttons/Committee2.png','/images/Buttons/Hash Info2.png','/images/Buttons/Hash Links2.png','/images/Buttons/Archives2.png','/images/Buttons/On On Mag2.png','/images/Buttons/Haberdashery2.png')">
+<table width="949" border="0" align="left" cellpadding="0" cellspacing="0"left" valign="top">
+  <tr valign="top">
+    <td width="949" colspan="3" align="left" bgcolor="#FFFFFF"><img src="/images/Webpage heading.png" width="950" height="273" alt="Heading"></td>
+  </tr>
+  <tr valign="bottom">
+    <td height="1500" colspan="3" align="left" valign="top" bordercolor="#FFFFFF" bgcolor="#FFFFFF"><table width="904" height="1667" border="0" cellpadding="0" cellspacing="0" bordercolor="#FFFFFF" bgcolor="#FFFFFF">
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td height="2" colspan="9" valign="top"></td>
+      </tr>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td height="20" colspan="9" valign="middle"><table width="950" border="0" cellpadding="0" cellspacing="0">
+          <tr>
+            <td width="77" height="20"><a href="Pages/Hash Stats.htm" target="_parent" onMouseOver="MM_swapImage('Hash Stats','','/images/Buttons/Stats2.png',1)" onMouseOut="MM_swapImgRestore()"><img src="/images/Buttons/Stats1.png" alt="Hash Stats" name="Hash Stats" width="72" height="20" border="0"></a></td>
+            <td width="98"><a href="Pages/Hash Planner.htm" target="_parent" onMouseOver="MM_swapImage('Planner','','/images/Buttons/Planner2.png',1)" onMouseOut="MM_swapImgRestore()"><img src="/images/Buttons/Planner1.png" alt="Hash Planner" name="Planner" width="98" height="20" border="0"></a></td>
+            <td width="53"><a href="Pages/Events.html" target="_parent" onMouseOver="MM_swapImage('Events','','/images/Buttons/Events2.png',1)" onMouseOut="MM_swapImgRestore()"><img src="/images/Buttons/Events1.png" alt="Events" name="Events" width="47" height="20" border="0"></a></td>
+            <td width="75"><a href="Pages/Committee.htm" target="_parent" onMouseOver="MM_swapImage('Committee','','/images/Buttons/Committee2.png',1)" onMouseOut="MM_swapImgRestore()"><img src="/images/Buttons/Committee1.png" alt="Committee" name="Committee" width="71" height="20" border="0"></a></td>
+            <td width="69"><a href="Pages/Hash Info/HASH HISTORY.htm" target="_parent" onMouseOver="MM_swapImage('Hash Info','','/images/Buttons/Hash Info2.png',1)" onMouseOut="MM_swapImgRestore()"><img src="/images/Buttons/Hash Info1.png" alt="Hash Info" name="Hash Info" width="62" height="20" border="0"></a></td>
+            <td width="77"><a href="Pages/Hash Links.htm" target="_parent" onMouseOver="MM_swapImage('Hash Links','','/images/Buttons/Hash Links2.png',1)" onMouseOut="MM_swapImgRestore()"><img src="/images/Buttons/Hash Links1.png" alt="Hash Links" name="Hash Links" width="73" height="20" border="0"></a></td>
+            <td width="111"><a href="https://www.deserthash.org/?page_id=2182" target="_blank" onMouseOver="MM_swapImage('On On Mag','','/images/Buttons/On On Mag2.png',1)" onMouseOut="MM_swapImgRestore()"><img src="/images/Buttons/On On Mag1.png" name="On On Mag" width="105" height="20" border="0"></a></td>
+            <td width="66" height="20"><a href="Pages/Hash Mag Archive.htm" target="_parent" onMouseOver="MM_swapImage('Archives','','/images/Buttons/Archives2.png',1)" onMouseOut="MM_swapImgRestore()"><img src="/images/Buttons/Archives1.png" alt="Archives" name="Archives" width="58" height="20" border="0"></a></td>
+            <td width="92"><a href="Pages/Haberdashery.html" target="_parent" onMouseOver="MM_swapImage('Haberdashery','','/images/Buttons/Haberdashery2.png',1)" onMouseOut="MM_swapImgRestore()"><img src="/images/Buttons/Haberdashery1.png" alt="Haberdashery" name="Haberdashery" width="80" height="20" border="0"></a></td>
+            <td width="75" height="20" align="left"><a href="https://www.facebook.com/profile.php?id=100051557537843" target="_blank" class="Right"><img src="/images/Buttons/Facebook.png" width="65" height="20" alt="Facebook"></a></td>
+            <td width="157" height="20" align="right" nowrap><a href="mailto:	info@tvh3.co.uk">e-mail: info@tvh3.co.uk</a><a href="mailto:info@tvh3.co.uk" title="Email"><font color="#0000CC" size="4"><font color="#FF0000" size="2" face="Arial, Helvetica, sans-serif" class="body_text"><span><span id="Email3"></span></span></font></font></a></td>
+            </tr>
+          </table></td>
+      </tr>
+      <hr>
+
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td height="2" colspan="9" valign="bottom"><hr align="left" width="950" size="2"></td>
+      </tr>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td height="51" colspan="9" valign="middle"><a href="/Pages/Committee.htm" target="_parent">Click here to see the new Committee </a><br>
+          For the Hash to function properly, every hasher needs to set at least three hashes a year. If you want to plan a date for your next hash, <a href="/Pages/Hash Planner.htm" target="_parent">click </a><a href="/Pages/Hash Planner.htm" target="_blank">here to open the Hash Planner</a></td>
+      </tr>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td height="27" colspan="8" valign="top"><font size="3" face="Arial, Helvetica, sans-serif"><strong><font size="2" face="Arial, Helvetica, sans-serif"><font size="3" face="Arial, Helvetica, sans-serif"><strong><font size="2" face="Arial, Helvetica, sans-serif"><font color="#0000CC" id="_Colour_09">TVH3 runs  start at 7.00pm - The cost is &pound;2.00 </font></font></strong></font></font></strong></font></td>
+        <td width="451" height="27" align="right" valign="top"><font color="#FF0000" face="Arial, Helvetica, sans-serif" class="_Right">Website updated on Tuesday 3rd November 2026</font></td>
+      </tr>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td width="74" height="22" valign="top" nowrap><p><span id="Table" style="font-weight: bold"><strong><font size="2" face="Arial, Helvetica, sans-serif"><font color="#0000CC">Hash</font></font></strong></span><span class="MapTable" id="Table"><strong><font size="2" face="Arial, Helvetica, sans-serif"><font color="#0000CC"> No: </font></font></strong></span></p></td>
+        <td height="22" colspan="8" valign="top">2381</td>
+      </tr>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td width="74" height="22" valign="top" nowrap><strong><font face="Arial, Helvetica, sans-serif"><font size="2">Date:</font></font></strong></td>
+        <td height="22" colspan="8" valign="top"><p>9th November 2026</p></td>
+        </tr>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td width="74" height="22" valign="top" nowrap><p><strong><font face="Arial, Helvetica, sans-serif"><font size="2">Start:</font></font></strong></p></td>
+        <td height="22" colspan="8" valign="top"><p>Denham Woods Car Park - what3words - <a href="https://what3words.com/joke.huddled.whisker" target="_blank">/// joke.huddled.whisker<br>
+        </a></p></td>
+        </tr>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td width="74" height="22" valign="top" nowrap><span class="MapTable"><strong><font face="Arial, Helvetica, sans-serif"><font size="2">On 
+          Down:   </font></font></strong></span></td>
+        <td height="22" colspan="8" valign="top"><p>Drake Manor Inn, Buckland Monachorum - what3words - <a href="https://what3words.com/version.taller.rejoin" target="_blank">///version.taller.rejoin</a></p></td>
+      </tr>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td width="74" height="22" valign="top" nowrap><p><strong><font face="Arial, Helvetica, sans-serif"><font size="2">Hares:</font></font></strong></p></td>
+        <td height="22" colspan="8" valign="top"><p>Bottom &amp; Trip Advisor</p></td>
+      </tr>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td height="855" colspan="10" align="center" valign="top" class="Map_centre"><img src="/images/Denham_Bridge_Car_Park_Drake_Manor.png" width="949" height="892" alt="Denham Woods"><tr align="left" valign="top" bordercolor="#CCCCCC">
+          <td height="127" colspan="9" valign="middle"><table width="950" height="130" border="0" align="left">
+            <tr>
+              <td width="84" height="21"><font color="#009" size="3" face="Arial, Helvetica, sans-serif"><strong>Date</strong></font></td>
+              <td width="85" height="21" nowrap><strong><font color="#009" size="3" face="Arial, Helvetica, sans-serif">Hash 
+                No</font></strong></td>
+              <td width="218" height="21"><strong><font color="#009" size="3" face="Arial, Helvetica, sans-serif">Hares</font></strong></td>
+              <td width="247" height="21"><strong><font color="#009" size="3" face="Arial, Helvetica, sans-serif">Location</font></strong></td>
+              <td width="294" height="21"><strong><font color="#009" size="3" face="Arial, Helvetica, sans-serif">On 
+                Down</font></strong></td>
+            </tr>
+            <tr>
+              <td height="18" align="left" valign="top">16/11/26</td>
+              <td height="18" align="left" valign="top" nowrap>2382</td>
+              <td height="18" align="left" valign="middle" nowrap>Scupper Sucker &amp; Pist 'N' Broke</td>
+              <td height="18" align="left" valign="top">Little Down Lane, Roborough Down</td>
+              <td height="18" align="left" valign="top">The Walkhampton Inn, Walkhampton</td>
+            </tr>
+            <tr>
+              <td height="18" align="left" valign="top">23/11/26</td>
+              <td height="18" align="left" valign="top" nowrap>2383</td>
+              <td height="18" align="left" valign="middle" nowrap>Spit Ends</td>
+              <td height="18" align="left" valign="top">TBA</td>
+              <td height="18" align="left" valign="top">TBA</td>
+              </tr>
+            <tr>
+              <td height="18" align="left" valign="top">30/11/26</td>
+              <td height="18" align="left" valign="top" nowrap>2384</td>
+              <td height="18" align="left" valign="middle" nowrap>Pony &amp; Von Trapp</td>
+              <td height="18" align="left" valign="top">TBA</td>
+              <td height="18" align="left" valign="top">TBA</td>
+              </tr>
+            <tr>
+              <td height="18" align="left" valign="top">07/12/26</td>
+              <td height="18" align="left" valign="top" nowrap>2385</td>
+              <td height="18" align="left" valign="middle" nowrap>Psycho &amp; Aimless</td>
+              <td height="18" align="left" valign="top">TBA</td>
+              <td height="18" align="left" valign="top">TBA</td>
+              </tr>
+            <tr>
+              <td height="18" align="left" valign="top">14/12/26</td>
+              <td height="18" align="left" valign="top" nowrap>2386</td>
+              <td height="18" align="left" valign="middle" nowrap>Nipple Deep</td>
+              <td height="18" align="left" valign="top">TBA</td>
+              <td height="18" align="left" valign="top">TBA</td>
+              </tr>
+          </table></td>
+        </tr>
+        <tr align="left" valign="top" bordercolor="#CCCCCC">
+          <td height="18" colspan="9" valign="middle"><hr width="950" size="2">
+            <span class="Vitual_Hash_Mag">TVH3 members - 
+          If you would like to join the TVH3  WhatsApp groups, you need to join WhatsApp and then send your name and mobile phone number to Pimp: <a href="mailto:info@tvh3.co.uk"><font color="#0000CC" size="4"><font color="#FF0000" size="2" face="Arial, Helvetica, sans-serif" id="Email2">info@tvh3.co.uk</font></font></a></span></td>
+        </tr>
+        <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td height="2" colspan="9" valign="middle"><hr align="left" width="950" size="2">
+           You can pay your TVH3 subs by monthly standing order, a monthly  figure has been set at &pound;5. As currently the weekly subs are &pound;2 per hash you can  see that by going to monthly standing order, you could save money!&nbsp; If you wish to use this method of paying your weekly subs, please log in to  your bank account and enter the details below.&nbsp; Once you have set up your  standing order please can you let Racey (Hash Cash) know so that we can  update the records&nbsp; Thank you for your support.<br>
+          <br>
+          <strong>Setting up a Standing Order</strong><br>
+          Name: <strong>Tamar Valley Hash House Harriers</strong><br>
+          Bank Sort Code: <strong>40&ndash;44&ndash;05</strong><br>
+          Bank Acct: <strong>31381911</strong><br>
+          Payee Acct Type: <strong>Business</strong><br>
+          Reference: <strong>TVH3 + First initial + Surname&nbsp;</strong>(i.e. TVH3 A Smith) -  THIS IS VERY IMPORTANT<br>
+          Amount: <strong>&pound;</strong>5<br>
+          Payment Frequency: <strong>Monthly</strong><br>
+          Start Date:<strong>&nbsp;1st day of the month that you want to start your standing order</strong><br>
+          Duration: <strong>Until further notice</strong>
+          <hr width="950" size="2"></td>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td height="2" colspan="6" valign="middle">&nbsp;</td>
+        <td width="170" height="2" valign="middle">&nbsp;</td>
+        <td width="253" height="2" valign="middle" nowrap>&nbsp;</td>
+        <td height="2" valign="middle" nowrap>&nbsp;</td>
+        </tr>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td height="30" colspan="9" valign="middle"><font color="#0000CC" size="2" face="Arial, Helvetica, sans-serif"><a href="/Templates/Hare List 10.pdf" title="Hare List" target="_blank">Hare 
+          List</a></font> - The completed Hare List to be given  to Pimp (Webmaster) or Racey (Hash Cash)</td>
+      </tr>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td height="30" colspan="9" valign="middle"><a href="/Templates/TVH3_Risk_Assessment_2026.pdf" target="_blank">TVH3 Risk Assessment</a></td>
+      </tr>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td height="30" colspan="9" valign="middle"><a href="/Templates/TVH3 Public Liability Insurance.pdf" target="_blank">Public Liability Insurance</a></td>
+        </tr>
+      <tr align="left" valign="top" bordercolor="#CCCCCC">
+        <td height="32" colspan="9" valign="middle"><p><a href="/Templates/South General Permission Application Form.doc" target="_blank">Forestry Commission Permission Application Form </a>- Please complete and submit the form before planning a hash on Forestry Commission land in the North/West Devon area. Submit the completed form to <em><a href="mailto:southpermissions.westengland@forestryengland.uk">southpermissions.westengland@forestryengland.uk</a></em></p></td>
+        </tr>
+    </table></td>
+  </tr>
+</table>
+</body>
+</html>

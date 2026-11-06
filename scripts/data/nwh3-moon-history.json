@@ -1,0 +1,2383 @@
+[
+  {
+    "date": "2017-11-29",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 560,
+    "startTime": "19:00",
+    "title": "Bring a Torch",
+    "location": "The Railway",
+    "locationStreet": "London Rd, Fairford, GL7 4AR",
+    "hares": "MicroFrite",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2017-12-13",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 561,
+    "startTime": "19:00",
+    "title": "Xmas Meal at The Biplob Wood Street",
+    "location": "Hop Inn",
+    "locationStreet": "Old Town Swindon SN1 0BJ",
+    "hares": "Two Pump",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-01-10",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 562,
+    "startTime": "19:00",
+    "location": "The Woodlands Edge",
+    "locationStreet": "SN5 5EZ",
+    "hares": "Flipper",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-01-24",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 563,
+    "startTime": "19:00",
+    "location": "The Wheat Sheaf",
+    "locationStreet": "Ermin St, SN3 4NH",
+    "hares": "I'll Do It",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-02-07",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 564,
+    "startTime": "19:00",
+    "title": "The Wine Bar in the High St after.",
+    "location": "Meet public car park near the Coop in Brewery Street",
+    "locationStreet": "Highworth, SN6 7AJ, Bring Torch",
+    "hares": "Peacemaker",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-02-21",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 565,
+    "startTime": "19:00",
+    "location": "The Blunsdon Arms",
+    "locationStreet": "Lady Lane (Off, Thamesdown Dr) Blunsdon St Andrew, Swindon SN25 2NA",
+    "hares": "Babe",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-03-07",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 566,
+    "startTime": "19:00",
+    "location": "The Clifton",
+    "locationStreet": "Clifton St, Swindon SN1 3PY",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-03-21",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 567,
+    "startTime": "19:00",
+    "location": "The Moonrakers",
+    "locationStreet": "Cricklade Rd, SN2 5AA",
+    "hares": "Yo Yo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-04-04",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 568,
+    "startTime": "19:00",
+    "location": "Dockle Farm House",
+    "locationStreet": "Greenbridge, SN3 4PD",
+    "hares": "Cybersex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-04-18",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 569,
+    "startTime": "19:00",
+    "location": "The Prince of Wales",
+    "locationStreet": "Royal Wootton Bassett, SN47HT",
+    "hares": "Cybersex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-05-02",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 570,
+    "startTime": "19:00",
+    "location": "Crown of Crucis",
+    "locationStreet": "Cirencester GL7 5RS",
+    "hares": "Peacemaker",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-05-16",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 571,
+    "startTime": "19:00",
+    "title": "Curry After",
+    "location": "Prospect Place Car Park",
+    "locationStreet": "Swindon, SN1 3LJ",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-05-30",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 572,
+    "startTime": "19:00",
+    "location": "The Red Lion",
+    "locationStreet": "Cricklade",
+    "hares": "Rear Entry & MicroFrite",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-06-06",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 573,
+    "startTime": "19:00",
+    "location": "The Crown",
+    "locationStreet": "Cerney Wick, GL7 5QH",
+    "hares": "Flipper",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-06-20",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 574,
+    "startTime": "19:00",
+    "location": "The Robins Farm Inn",
+    "locationStreet": "Blunsdon, SN25 4DL",
+    "hares": "Two Pump",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-07-04",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 575,
+    "startTime": "19:00",
+    "location": "The Prince of Wales",
+    "locationStreet": "Coped Hall roundabout, Wootton Bassett, SN4 7HT",
+    "hares": "CyberSex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-07-18",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 576,
+    "startTime": "19:00",
+    "location": "The Kingsdown",
+    "locationStreet": "Stratton, Swindon",
+    "hares": "I'll Do It",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-08-01",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 577,
+    "startTime": "19:00",
+    "location": "Shield & Dagger",
+    "locationStreet": "Greenmeadow, SN25 3NT",
+    "hares": "Woody",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-08-15",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 578,
+    "startTime": "19:00",
+    "title": "Bike Bash",
+    "location": "The Moonrakers",
+    "locationStreet": "Cricklade Rd, Swindon, SN2 5AA",
+    "hares": "Semi-on",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-08-29",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 579,
+    "startTime": "19:00",
+    "location": "Brookhouse Farm",
+    "locationStreet": "Middleleaze Drive, West Swindon, SN5 5GL",
+    "hares": "Cybersex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-09-12",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 580,
+    "startTime": "19:00",
+    "location": "The Kembrey Inn",
+    "locationStreet": "Swindon, SN2 8YS",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-09-26",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 581,
+    "startTime": "19:00",
+    "title": "Mismanagement Meeting",
+    "location": "The New Inn",
+    "locationStreet": "Lechlade, GL7 3AB",
+    "hares": "Peacemaker",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-10-10",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 582,
+    "startTime": "19:00",
+    "location": "The Bear",
+    "locationStreet": "12 Dyer St, Cirencester GL7 2PF",
+    "hares": "Two Pump",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-10-24",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 583,
+    "startTime": "19:00",
+    "location": "The Tawny Owl",
+    "locationStreet": "West Swindon, SN25 1WR",
+    "hares": "Mudplugger",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-11-07",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 584,
+    "startTime": "19:00",
+    "title": "Curry after at the Zaika Valley",
+    "location": "Outside The Vic",
+    "locationStreet": "88 Victoria Rd, Swindon SN1 3BD",
+    "hares": "I'll Do It",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-11-21",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 585,
+    "startTime": "19:00",
+    "location": "Kembrey Park Inn",
+    "locationStreet": "Kembrey Business Park, SN2 8YS",
+    "hares": "Flipper",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-12-05",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 586,
+    "startTime": "19:00",
+    "location": "Iron Horse",
+    "locationStreet": "Kerrs Way, Wroughton, Swindon SN4 9EJ",
+    "hares": "Flicker",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2018-12-19",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 587,
+    "startTime": "19:00",
+    "title": "Curry after",
+    "location": "The Plough in Devizes Rd, SN1 4BQ",
+    "locationStreet": "Meet on the corner by Newport St, Park in the nearby local Co-op",
+    "hares": "Cybersex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2017.html"
+  },
+  {
+    "date": "2019-01-02",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 588,
+    "startTime": "19:00",
+    "location": "The Messenger",
+    "locationStreet": "Covingham, SN3 5AA",
+    "hares": "Babe or Flipper",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-01-16",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 589,
+    "startTime": "19:00",
+    "location": "The Greyhound",
+    "locationStreet": "177 Faringdon Rd, Swindon SN1 5DL",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-01-30",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 590,
+    "startTime": "19:00",
+    "location": "The Woodlands Edge",
+    "locationStreet": "Midwinter Close, Peatmoor, SN55EZ",
+    "hares": "SB",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-02-13",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 591,
+    "startTime": "19:00",
+    "title": "Mismanagement Meeting after",
+    "location": "The Twelve Bells",
+    "locationStreet": "Cirencester GL7 1EA",
+    "hares": "Peacemaker",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-02-27",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 592,
+    "startTime": "19:00",
+    "location": "Nine Elms",
+    "locationStreet": "Shaw",
+    "hares": "Flipper",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-03-13",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 593,
+    "startTime": "19:00",
+    "title": "Curry after in The Lalbagh",
+    "location": "The Dolphin",
+    "locationStreet": "Rodbourne Road, SN2 2AF",
+    "hares": "Yo Yo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-03-27",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 594,
+    "startTime": "19:00",
+    "location": "The White Hart",
+    "locationStreet": "Stratton",
+    "hares": "Two Pump",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-04-10",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 595,
+    "startTime": "19:00",
+    "location": "The Hall and Woodhouse Canal Side Pub",
+    "locationStreet": "Wichelstowe. SN1 7DA",
+    "hares": "I'll Do It",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-04-24",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 596,
+    "startTime": "19:00",
+    "location": "The Castle",
+    "locationStreet": "28 Prospect Place, Swindon, SN1 3LQ",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-05-08",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 597,
+    "startTime": "19:00",
+    "location": "The Spotted Cow",
+    "locationStreet": "Coate",
+    "hares": "AAF/Mildred",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-05-22",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 598,
+    "startTime": "19:00",
+    "title": "BIKE RIDE",
+    "location": "The Kembrey Inn",
+    "locationStreet": "Swindon",
+    "hares": "Semi-on",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-06-05",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 599,
+    "startTime": "19:00",
+    "location": "Bakers Arms",
+    "locationStreet": "Badbury, Berricot Ln, Swindon, SN4 0EU",
+    "hares": "Yo Yo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-06-19",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 600,
+    "startTime": "19:00",
+    "title": "Curry after in Cricklade",
+    "location": "The Old Boathouse",
+    "locationStreet": "Lake 6, Spine Road East, South Cerney GL7 5FP",
+    "hares": "Two Pump",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-07-03",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 601,
+    "startTime": "19:00",
+    "title": "BIKE RIDE",
+    "location": "The Sun Inn",
+    "locationStreet": "Coate Water, Swindon",
+    "hares": "Mildred & Easy Rider",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-07-17",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 602,
+    "startTime": "19:00",
+    "location": "The Messenger",
+    "locationStreet": "Covingham, Swindon, SN3 5AA",
+    "hares": "Babe",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-07-31",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 603,
+    "startTime": "19:00",
+    "title": "Park in the car park in front of the shops.",
+    "location": "Liden Arms",
+    "locationStreet": "Barrington Close, Liden, Swindon, SN3 6HP",
+    "hares": "I'll Do It",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-08-14",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 604,
+    "startTime": "19:00",
+    "location": "The Trout, BIKE RIDE",
+    "locationStreet": "Lechlade",
+    "hares": "Houdini",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-08-28",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 605,
+    "startTime": "19:00",
+    "location": "The Southbrook Inn",
+    "locationStreet": "Southbrook St, Swindon SN2 1HF",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-09-11",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 606,
+    "startTime": "19:00",
+    "location": "The Blunsdon Arms",
+    "locationStreet": "Lady Lane (off Thamesdown Drive) Blunsdon St Andrew, Swindon SN25 2NA",
+    "hares": "Two Pump",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-09-25",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 607,
+    "startTime": "19:00",
+    "location": "The Harvey",
+    "locationStreet": "West Swindon District Centre, 18 Town Square, SN5 7DL",
+    "hares": "CyberSex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-10-09",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 608,
+    "startTime": "19:00",
+    "location": "The Castle",
+    "locationStreet": "28 Prospect Pl, Swindon SN1 3LQ",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-10-23",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 609,
+    "startTime": "19:00",
+    "location": "The Cross Keys",
+    "locationStreet": "Wanborough",
+    "hares": "Flicker",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-11-06",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 610,
+    "startTime": "19:00",
+    "location": "The Carters' Rest",
+    "locationStreet": "High St, Wroughton, SN4 9JU",
+    "hares": "I'll Do It",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-11-20",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 611,
+    "startTime": "19:00",
+    "location": "The Village Inn",
+    "locationStreet": "Shaw, SN5 5PY",
+    "hares": "Babe",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-12-04",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 612,
+    "startTime": "19:00",
+    "location": "The Rat Trap",
+    "locationStreet": "Stratton, SN3 4QS",
+    "hares": "2 Pump",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2019-12-18",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 613,
+    "startTime": "19:00",
+    "title": "Xmas Meal after",
+    "location": "The Castle Inn",
+    "locationStreet": "Old Town, SN1 3LQ",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2019.html"
+  },
+  {
+    "date": "2020-01-08",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 614,
+    "startTime": "19:00",
+    "title": "Mismanagement Meeting after",
+    "location": "The Manor",
+    "locationStreet": "Swindon, SN2 2NX",
+    "hares": "Peacemaker",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2020.html"
+  },
+  {
+    "date": "2020-01-22",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 615,
+    "startTime": "19:00",
+    "location": "The Beehive",
+    "locationStreet": "Swindon",
+    "hares": "Flicker",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2020.html"
+  },
+  {
+    "date": "2020-01-29",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 616,
+    "startTime": "19:00",
+    "location": "The White Hart",
+    "locationStreet": "Stratton",
+    "hares": "Two Pump",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2020.html"
+  },
+  {
+    "date": "2020-02-12",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 617,
+    "startTime": "19:00",
+    "location": "Jovial Monk",
+    "locationStreet": "Swindon, SN25 4YD",
+    "hares": "Flipper",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2020.html"
+  },
+  {
+    "date": "2020-02-26",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 618,
+    "startTime": "19:00",
+    "location": "The Merlin",
+    "locationStreet": "Drove Road, Swindon, SN1 3AE",
+    "hares": "I'll Do It",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2020.html"
+  },
+  {
+    "date": "2021-05-19",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 619,
+    "startTime": "19:00",
+    "location": "The Castle",
+    "locationStreet": "28 Prospect Pl, Swindon, SN1 3LQ",
+    "hares": "I'll Do It & Easy Rider",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-06-02",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 620,
+    "startTime": "19:00",
+    "location": "The Moonrakers",
+    "locationStreet": "Cricklade Road, Swindon",
+    "hares": "Mildred and Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-06-16",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 621,
+    "startTime": "19:00",
+    "location": "The Harrow",
+    "locationStreet": "Wanborough",
+    "hares": "Flicker",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-06-30",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 622,
+    "startTime": "19:00",
+    "location": "The Roebuck",
+    "locationStreet": "Marlborough",
+    "hares": "Cybersex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-07-21",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 623,
+    "startTime": "19:00",
+    "location": "The Red Lion",
+    "locationStreet": "Cricklade",
+    "hares": "Two Pump",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-08-04",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 624,
+    "startTime": "19:00",
+    "title": "Curry after at Khushi",
+    "location": "Market Square",
+    "locationStreet": "Lechlade",
+    "hares": "Team BumPlugger",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-08-18",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 625,
+    "startTime": "19:00",
+    "location": "The Bakers Arms",
+    "locationStreet": "Badbury, SN4 0EU",
+    "hares": "Rubber",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-09-01",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 626,
+    "startTime": "19:00",
+    "title": "Joint Run with Kennet and Avon H3",
+    "location": "The Wellesley Arms",
+    "locationStreet": "Sutton Benger, SN15 4RD",
+    "hares": "Knead",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-09-15",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 627,
+    "startTime": "19:00",
+    "location": "The Southbrook",
+    "locationStreet": "Southbrook St, SN21HF",
+    "hares": "CyberSex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-09-29",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 628,
+    "startTime": "19:00",
+    "location": "The Glue Pot",
+    "locationStreet": "Emlyn Square, Swindon. SN15BP",
+    "hares": "Two Pump",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-10-13",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 629,
+    "startTime": "19:00",
+    "location": "The New Inn",
+    "locationStreet": "Swindon Road, Stratton, SN3 4PN",
+    "hares": "Yo Yo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-10-27",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 630,
+    "startTime": "19:00",
+    "location": "The Merlin",
+    "locationStreet": "Drove Rd, Swindon, SN13AF",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-11-10",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 631,
+    "startTime": "19:00",
+    "title": "Pamper's Memorial Run",
+    "location": "The Cross Keys",
+    "locationStreet": "Wanborough, SN4 0AP",
+    "hares": "Flicker",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-11-24",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 632,
+    "startTime": "19:00",
+    "location": "The Manor",
+    "locationStreet": "Chesney Manor Road,, SN2 2NX",
+    "hares": "Rubber",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-12-08",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 633,
+    "startTime": "19:00",
+    "title": "Curry Run",
+    "location": "The Castle",
+    "locationStreet": "Old Town, SN1 3LQ",
+    "hares": "SB",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2021-12-22",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 634,
+    "startTime": "19:00",
+    "location": "The Village Inn",
+    "locationStreet": "Shaw, SN5 5PY",
+    "hares": "Cybersex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2021.html"
+  },
+  {
+    "date": "2022-01-05",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 635,
+    "startTime": "19:00",
+    "location": "The Shield and Dagger",
+    "locationStreet": "Thames Avenue,SN25 3NT",
+    "hares": "Flipper",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-01-19",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 636,
+    "startTime": "19:00",
+    "location": "The Boundary House",
+    "locationStreet": "1 The St, Moredon, Swindon, SN25 3ER",
+    "hares": "Babe",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-02-02",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 637,
+    "startTime": "19:00",
+    "location": "The Five Bells",
+    "locationStreet": "Royal Wootton Bassett, SN4 7BD",
+    "hares": "I'll Do It",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-02-16",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 638,
+    "startTime": "19:00",
+    "location": "The New Inn",
+    "locationStreet": "Swindon Road, Stratton, SN3 4PN",
+    "hares": "Yo Yo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-03-02",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 639,
+    "startTime": "19:00",
+    "location": "The Southbrook",
+    "locationStreet": "Southbrook St, SN2 1HF",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-03-16",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 640,
+    "startTime": "19:00",
+    "location": "The Jovial Monk",
+    "locationStreet": "Swindon, SN25 4YD",
+    "hares": "Swamp Creature",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-04-06",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 641,
+    "startTime": "19:00",
+    "location": "The Chinese Experience",
+    "locationStreet": "Peatmoor",
+    "hares": "Cybersex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-04-13",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 642,
+    "startTime": "19:00",
+    "location": "Robins Farm, Blunsdon",
+    "locationStreet": "SN25 4DL",
+    "hares": "Two Pump",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-05-04",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 643,
+    "startTime": "19:00",
+    "location": "Woodlands Edge",
+    "locationStreet": "Midwinter Cl, Peatmoor, Swindon SN5 5EZ",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-05-25",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 644,
+    "startTime": "19:00",
+    "location": "The Fox & Hounds",
+    "locationStreet": "Haydn Wick",
+    "hares": "Flipper",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-06-08",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 645,
+    "startTime": "19:00",
+    "location": "The Rising Sun",
+    "locationStreet": "Christian Malford",
+    "hares": "Knead",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-06-22",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 646,
+    "startTime": "19:00",
+    "location": "The Windmill",
+    "locationStreet": "Freshbrook, SN5 8LY",
+    "hares": "Cybersex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-07-06",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 647,
+    "startTime": "19:00",
+    "location": "Dockle Farm",
+    "locationStreet": "Swindon",
+    "hares": "Team BumPlugger",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-07-20",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 648,
+    "startTime": "19:00",
+    "location": "The Kingsdown",
+    "locationStreet": "Swindon, SN2 7PE",
+    "hares": "Semi-on",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-08-03",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 649,
+    "startTime": "19:00",
+    "title": "Curry After",
+    "location": "The Drink Valley",
+    "locationStreet": "Swindon, SN1 1RU",
+    "hares": "I'll do it",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-08-17",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 650,
+    "startTime": "19:00",
+    "location": "The Bakers Arms",
+    "locationStreet": "Badbury, SN4 0EU",
+    "hares": "Mini-me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-08-31",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 651,
+    "startTime": "19:00",
+    "location": "The Dolphin",
+    "locationStreet": "Rodbourne, SN2 2AF",
+    "hares": "Rubber",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-09-14",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 652,
+    "startTime": "19:00",
+    "location": "The Kembrey Inn",
+    "locationStreet": "Kembrey Business Park, SN2 8YS",
+    "hares": "Cybersex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-09-28",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 653,
+    "startTime": "19:00",
+    "location": "The Merlin",
+    "locationStreet": "Drove road, SN13AF",
+    "hares": "Yo Yo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-10-12",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 654,
+    "startTime": "19:00",
+    "location": "The Barrington Arms",
+    "locationStreet": "25 High St, Shrivenham, SN6 8AN",
+    "hares": "Dunghie",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-10-26",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 655,
+    "startTime": "19:00",
+    "location": "The Blunsdon Arms",
+    "locationStreet": "Thamesdown Drive, Swindon, SN25 2NA",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-11-09",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 656,
+    "startTime": "19:00",
+    "location": "The Strawberry Thief",
+    "locationStreet": "Tadpole village, SN25 2RA",
+    "hares": "Swamp Creature",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-11-23",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 657,
+    "startTime": "19:00",
+    "location": "The Waiting Room",
+    "locationStreet": "59 Fleet St, Swindon, SN1 1RA",
+    "hares": "SB & Jolly Rogered",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-12-07",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 658,
+    "startTime": "19:00",
+    "location": "The Kingsdown Arms",
+    "locationStreet": "1 Kingsdown Rd, Upper Stratton, Swindon SN2 7PE",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2022-12-21",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 659,
+    "startTime": "19:00",
+    "title": "Curry After",
+    "location": "Drink Valley",
+    "locationStreet": "Fleet Square, Swindon",
+    "hares": "Flicker",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2022.html"
+  },
+  {
+    "date": "2023-01-04",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 660,
+    "startTime": "19:00",
+    "location": "The Beehive Pub",
+    "locationStreet": "55 Prospect Hill, Old Town, Swindon, SN1 3JS",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-01-18",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 661,
+    "startTime": "19:00",
+    "location": "The Brown Jack",
+    "locationStreet": "1 Priors Hill, Wroughton, Swindon, SN4 0RT",
+    "hares": "I’ll do it",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-02-01",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 662,
+    "startTime": "19:00",
+    "location": "Robins Farm",
+    "locationStreet": "Latham Road, Swindon, SN25 4DL",
+    "hares": "Swamp Creature",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-02-15",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 663,
+    "startTime": "19:00",
+    "location": "Sun Inn",
+    "locationStreet": "Coate Water, Swindon",
+    "hares": "Yo Yo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-03-01",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 664,
+    "startTime": "19:00",
+    "location": "The Wheatsheaf",
+    "locationStreet": "Ermin Street, Stratton St Margaret",
+    "hares": "Utterly Butterly",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-03-15",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 665,
+    "startTime": "19:00",
+    "location": "The Messenger",
+    "locationStreet": "Covingham",
+    "hares": "Fannybone",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-03-29",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 666,
+    "startTime": "19:00",
+    "location": "The Crown",
+    "locationStreet": "Stratton",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-04-12",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 667,
+    "startTime": "19:00",
+    "location": "The Moonrakers",
+    "locationStreet": "Swindon, SN2 5AA",
+    "hares": "AAF",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-04-26",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 668,
+    "startTime": "19:00",
+    "location": "The Wichell Inn",
+    "locationStreet": "Wichelstowe, Frogden Lane, Swindon, SN1 7AP",
+    "hares": "I'll Do It",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-05-10",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 669,
+    "startTime": "19:00",
+    "location": "Hall & Woodhouse",
+    "locationStreet": "Peglars Way, Wichelstowe, Swindon, SN1 7DA",
+    "hares": "Dilly Dilly Dildo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-05-24",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 670,
+    "startTime": "19:00",
+    "location": "The Runner",
+    "locationStreet": "Wootton Bassett Road, Swindon, SN1 4NQ",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-06-07",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 671,
+    "startTime": "19:00",
+    "location": "Dockle Farmhouse",
+    "locationStreet": "2 Bridge End Rd, Swindon, SN3 4PD",
+    "hares": "Mudplugger",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-06-21",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 672,
+    "startTime": "19:00",
+    "location": "The Kingsdown Inn",
+    "locationStreet": "Upper Stratton, Swindon, SN2 7PE",
+    "hares": "Semi On",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-07-05",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 673,
+    "startTime": "19:00",
+    "location": "The White Hart",
+    "locationStreet": "Stratton",
+    "hares": "Yo Yo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-07-19",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 674,
+    "startTime": "19:00",
+    "location": "The Abbey Meads",
+    "locationStreet": "Elstree Way, Swindon SN25 4YX",
+    "hares": "Swamp Creature",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-08-02",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 675,
+    "startTime": "19:00",
+    "location": "The Rose and Crown",
+    "locationStreet": "19 The Green, Highworth, SN6 7DB",
+    "hares": "I’ll do it",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-08-16",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 676,
+    "startTime": "19:00",
+    "location": "The Manor",
+    "locationStreet": "Cheney Manor Road, SN2 2NX",
+    "hares": "Peacemaker",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-08-30",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 677,
+    "startTime": "19:00",
+    "location": "The Windmill",
+    "locationStreet": "Freshbrook, SN5 8LY",
+    "hares": "Fannybone & Split Lips",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-09-13",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 678,
+    "startTime": "19:00",
+    "location": "Ashford Road Club",
+    "locationStreet": "17-18 Ashford Road, SN1 3NT",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-09-27",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 679,
+    "startTime": "19:00",
+    "location": "Kembrey Inn",
+    "locationStreet": "Kembrey Business Park, Larch Close, Swindon, SN2 8YS",
+    "hares": "AAF",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-10-11",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 680,
+    "startTime": "19:00",
+    "location": "Spotted Cow",
+    "locationStreet": "Coate, SN3 6AA",
+    "hares": "I'll Do It",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-10-25",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 681,
+    "startTime": "19:00",
+    "location": "The Moonrakers",
+    "locationStreet": "Swindon, SN2 5AA",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-11-08",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 682,
+    "startTime": "19:00",
+    "location": "The Tawny Owl",
+    "locationStreet": "Swindon, SN25 1WP",
+    "hares": "Swamp Creature",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-11-22",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 683,
+    "startTime": "19:00",
+    "title": "21st Birthday Run, Curry After",
+    "location": "Steam Railway Co",
+    "locationStreet": "14 Newport St, Old Town, SN1 3DX",
+    "hares": "Mini Me & Alfie",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-12-06",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 684,
+    "startTime": "19:00",
+    "location": "The Messenger",
+    "locationStreet": "5 Covingham Square, SN3 5AA",
+    "hares": "Yo Yo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2023-12-20",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 685,
+    "startTime": "19:00",
+    "location": "Steam Railway",
+    "locationStreet": "14 Newport street, SN1 3DX",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2024-01-03",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 686,
+    "startTime": "19:00",
+    "location": "The Manor",
+    "locationStreet": "Cheney Manor Road, SN2 2NX",
+    "hares": "Used Rubber",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2023.html"
+  },
+  {
+    "date": "2024-01-17",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 687,
+    "startTime": "19:00",
+    "location": "White Hart",
+    "locationStreet": "Stratton, SN3 4JD",
+    "hares": "Mudplugger",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-01-31",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 688,
+    "startTime": "19:00",
+    "location": "The Windmill",
+    "locationStreet": "Freshbrook, SN5 8DA",
+    "hares": "Cybersex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-02-14",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 689,
+    "startTime": "19:00",
+    "location": "Fox and Hounds",
+    "locationStreet": "10 High St, Haydon Wick, Swindon",
+    "hares": "Flipper",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-02-28",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 690,
+    "startTime": "19:00",
+    "location": "Brookhouse Farm",
+    "locationStreet": "Middleleaze Dr, Middleleaze, Swindon SN5 5TZ",
+    "hares": "Utterly Butterly",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-03-13",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 691,
+    "startTime": "19:00",
+    "location": "The Merlin",
+    "locationStreet": "Drove Rd, Swindon SN1 3AF",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-03-27",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 692,
+    "startTime": "19:00",
+    "location": "The Deers Leap",
+    "locationStreet": "Penhill Dr, Swindon, SN2 5DX",
+    "hares": "Used Rubber",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-04-10",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 693,
+    "startTime": "19:00",
+    "location": "Barrington Arms",
+    "locationStreet": "25 High Street, Shrivenham, SN6 8AN",
+    "hares": "Dunghie",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-04-24",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 694,
+    "startTime": "19:00",
+    "location": "The Kembrey Inn",
+    "locationStreet": "2 Larch Close, Gorse Hill, SN2 8YS",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-05-22",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 695,
+    "startTime": "19:00",
+    "location": "The 5 Bells",
+    "locationStreet": "Royal Wootton Bassett, SN4 7BD",
+    "hares": "Cybersex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-06-05",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 696,
+    "startTime": "19:00",
+    "location": "Patriot Arms",
+    "locationStreet": "Chiseldon, SN4 0JL",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-06-19",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 697,
+    "startTime": "19:00",
+    "location": "The Bear",
+    "locationStreet": "High St, Marlborough",
+    "hares": "Yo Yo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-07-03",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 698,
+    "startTime": "19:00",
+    "location": "The Greyhound",
+    "locationStreet": "177 Faringdon Road, SN1 5DL",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-07-17",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 699,
+    "startTime": "19:00",
+    "location": "The Rat Trap",
+    "locationStreet": "Stratton, Swindon, SN3 4QS",
+    "hares": "AAF",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-07-31",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 700,
+    "startTime": "19:00",
+    "location": "The Hop Inn",
+    "locationStreet": "8 Devizes Road, SN1 4BH",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-08-14",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 701,
+    "startTime": "19:00",
+    "location": "The Crown Inn",
+    "locationStreet": "71-73 Ermin St, Stratton St Margaret, SN3 4NL",
+    "hares": "MudPlugger",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-08-28",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 702,
+    "startTime": "19:00",
+    "location": "The Strawberry Thief",
+    "locationStreet": "Tadpole Garden Village, 31 Mackay Cres, Swindon SN25 2RA",
+    "hares": "Rubber & Miss Malaprop",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-09-18",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 703,
+    "startTime": "19:00",
+    "title": "Flipper Memorial Run & Walk",
+    "location": "The Fox and Hounds",
+    "locationStreet": "10 High Street, Haydon Wick, Swindon, SN25 1HX",
+    "hares": "Mildred, Dilly Dilly Dildo and Arse About Face",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-09-25",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 704,
+    "startTime": "19:00",
+    "location": "The Tawny Owl",
+    "locationStreet": "Swindon, SN25 1WP",
+    "hares": "Swamp creature",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-10-09",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 706,
+    "startTime": "19:00",
+    "location": "The Moonrakers",
+    "locationStreet": "Cricklade Road, Swindon, SN2 5AA",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-10-23",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 707,
+    "startTime": "19:00",
+    "location": "Hop Kettle Tap & Brew",
+    "locationStreet": "51 Devizes Road, Old Town, Swindon, SN1 4BG",
+    "hares": "Mudplugger",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-11-06",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 708,
+    "startTime": "19:00",
+    "location": "The Brown JackTBC",
+    "locationStreet": "1 Priors Hill, Wroughton, SN4 0RT",
+    "hares": "I'll Do It",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-11-20",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 709,
+    "startTime": "19:00",
+    "location": "The Castle Inn",
+    "locationStreet": "28 Prospect Place, Old Town, Swindon, SN1 3LQ",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-12-04",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 710,
+    "startTime": "19:00",
+    "location": "The Fox and Hounds",
+    "locationStreet": "10 High Street, Haydon Wick, Swindon, SN25 1HX",
+    "hares": "Mildred & Utterly Butterly",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2024-12-18",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 711,
+    "startTime": "19:00",
+    "title": "Bengal Square",
+    "location": "Christmas Curry Run",
+    "locationStreet": "Roughmoor Village Centre, 2, Peatmoor, Swindon, SN5 5DJ",
+    "hares": "AAF",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2024.html"
+  },
+  {
+    "date": "2025-01-15",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 711,
+    "startTime": "19:00",
+    "location": "The Beehive",
+    "locationStreet": "Old Town, Swindon, SN1 3JS",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-01-29",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 712,
+    "startTime": "19:00",
+    "location": "Jovial Monk",
+    "locationStreet": "Highdown Way, Swindon, SN25 4YD",
+    "hares": "Swamp Creature",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-02-12",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 713,
+    "startTime": "19:00",
+    "location": "The Harvey",
+    "locationStreet": "18 The Town Square, Swindon, SN5 7DL",
+    "hares": "Yo Yo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-02-26",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 714,
+    "startTime": "19:00",
+    "location": "The Wheatsheaf",
+    "locationStreet": "32 Newport Street, Swindon, SN1 3DP",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-03-12",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 715,
+    "startTime": "19:00",
+    "location": "The Kingsdown Inn",
+    "locationStreet": "Upper Stratton, Swindon, SN2 7PE",
+    "hares": "Mildred",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-03-26",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 716,
+    "startTime": "19:00",
+    "location": "The Greyhound",
+    "locationStreet": "177 Faringdon Road, Swindon, SN1 5DL",
+    "hares": "Cybersex",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-04-09",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 717,
+    "startTime": "19:00",
+    "location": "The Blunsdon Arms",
+    "locationStreet": "Thamesdown Drive, SN25 2NA",
+    "hares": "Miss Malaprop",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-04-23",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 718,
+    "startTime": "19:00",
+    "title": "St George's Day Run. Wear appropriate colours",
+    "location": "Bridge House Inn",
+    "locationStreet": "Borough Parade, Chippenham, SN15 3WL",
+    "hares": "Joint Run with St George's HHH",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-05-07",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 719,
+    "startTime": "19:00",
+    "location": "The Clifton",
+    "locationStreet": "Clifton Street, SN1 3PY",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-05-21",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 720,
+    "startTime": "19:00",
+    "location": "The Abbey Mead",
+    "locationStreet": "Elstree Way, Swindon, SN25 4YX",
+    "hares": "Swamp Creature",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-06-04",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 721,
+    "startTime": "19:00",
+    "location": "The Swan Inn",
+    "locationStreet": "Lechlade",
+    "hares": "Team Bumplugger",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-06-18",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 722,
+    "startTime": "19:00",
+    "location": "The Woodland's Edge",
+    "locationStreet": "Midwinter Close, Swindon, SN5",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-07-02",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 723,
+    "startTime": "19:00",
+    "location": "The Strawberry Thief",
+    "locationStreet": "Tadpole Garden Village, 31 Mackay Crescent, Swindon, SN25 2RA",
+    "hares": "Little Big Mouth",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-07-16",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 724,
+    "startTime": "19:00",
+    "location": "The Village Inn",
+    "locationStreet": "Ramleaze Drive, Shaw, SN5 5PY",
+    "hares": "Lady Garden",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-07-30",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 725,
+    "startTime": "19:00",
+    "location": "The Goldfinger Tavern",
+    "locationStreet": "Newburgh Place, Highworth, SN6 7DN",
+    "hares": "Mildred",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-08-13",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 726,
+    "startTime": "19:00",
+    "location": "The Tawny Owl",
+    "locationStreet": "Swindon, SN25 1WP",
+    "hares": "Miss Malaprop",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-08-27",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 727,
+    "startTime": "19:00",
+    "location": "The Mason's Arms",
+    "locationStreet": "Meysey Hampton, 28 High Street, GL7 5JT",
+    "hares": "Peacemaker",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-09-10",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 728,
+    "startTime": "19:00",
+    "location": "The Sun Inn",
+    "locationStreet": "Coate Water, SN3 6AA",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-09-24",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 729,
+    "startTime": "19:00",
+    "location": "Heart In Hand",
+    "locationStreet": "43 High St, Blunsdon, SN26 7AG",
+    "hares": "Swindon",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-10-08",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 730,
+    "startTime": "19:00",
+    "location": "The Merlin Pub",
+    "locationStreet": "Drove Road, Swindon, SN1 3AF",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-10-22",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 731,
+    "startTime": "19:00",
+    "location": "The Wichel Inn",
+    "locationStreet": "2 Frogden Road, Wichelstowe, Swindon, SN1 7AP",
+    "hares": "I'll Do It",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-11-05",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 732,
+    "startTime": "19:00",
+    "location": "Manor Farm",
+    "locationStreet": "Haydon Wick, SN25 IJE",
+    "hares": "AAF",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-11-19",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 733,
+    "startTime": "19:00",
+    "location": "The Stripey Badger",
+    "locationStreet": "Eldene Shopping Centre, Eldene Drive, Swindon, SN3 3RZ",
+    "hares": "Yo Yo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-12-03",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 734,
+    "startTime": "19:00",
+    "location": "The Red Lion",
+    "locationStreet": "Cricklade",
+    "hares": "Swamp Creature",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2025-12-17",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 735,
+    "startTime": "19:00",
+    "title": "Curry after",
+    "location": "The Lalbagh",
+    "locationStreet": "171 Rodborourne Road,Rodbourne, SN2 2AY",
+    "hares": "AAF",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2025.html"
+  },
+  {
+    "date": "2026-01-14",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 737,
+    "startTime": "19:00",
+    "location": "The Moonrakers",
+    "locationStreet": "Cricklade Rd, Swindon SN2 5AA",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-01-28",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 738,
+    "startTime": "19:00",
+    "location": "The Woodlands Edge",
+    "locationStreet": "Peatmoor, Swindon SN5 5EZ",
+    "hares": "Lady Garden",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-02-11",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 739,
+    "startTime": "19:00",
+    "location": "The Merlin",
+    "locationStreet": "Drove Road, Swindon, SN1 3AF",
+    "hares": "WW",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-02-25",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 740,
+    "startTime": "19:00",
+    "location": "The Dockle Farmhouse",
+    "locationStreet": "2 Bridge end Road, SN3 4PD",
+    "hares": "I’ll Do It",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-03-11",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 741,
+    "startTime": "19:00",
+    "location": "The Kembrey Inn",
+    "locationStreet": "Swindon, SN2 8YS",
+    "hares": "Mildred",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-03-25",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 742,
+    "startTime": "19:00",
+    "location": "The Messenger",
+    "locationStreet": "5 Covingham Square, Swindon, SN3 5AA",
+    "hares": "Utterly Butterly & Miss Malaprop",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-04-08",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 743,
+    "startTime": "19:00",
+    "location": "The Spotted Cow",
+    "locationStreet": "Coate Lane, Swindon, SN3 6AA",
+    "hares": "Yo Yo",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-04-22",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 744,
+    "startTime": "19:00",
+    "location": "The Village Inn",
+    "locationStreet": "Ramleaze Drive, Shaw, SN5 5PY",
+    "hares": "Turd Tugger",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-05-06",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 745,
+    "startTime": "19:00",
+    "location": "The Jovial Monk",
+    "locationStreet": "Swindon, SN25 4YD",
+    "hares": "Swamp Creature",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-05-20",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 746,
+    "startTime": "19:00",
+    "location": "The Strawberry Thief",
+    "locationStreet": "Swindon, SN25 2RA",
+    "hares": "Miss Malaprop",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-06-03",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 747,
+    "startTime": "19:00",
+    "location": "The Sun Inn",
+    "locationStreet": "Coate, SN3 6AA",
+    "hares": "Babe & Utterly Butterly",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-06-17",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 748,
+    "startTime": "19:00",
+    "location": "The Southbrook Inn",
+    "locationStreet": "Swindon, SN2 1HF",
+    "hares": "Mildred",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-07-16",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 749,
+    "startTime": "19:00",
+    "location": "The Blunsdon Arms",
+    "locationStreet": "Blunsdon, SN25 2NA",
+    "hares": "Swamp Creature",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-07-29",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 750,
+    "startTime": "19:00",
+    "title": "Curry Run",
+    "location": "The Runner",
+    "locationStreet": "Wootton Bassett Road, Swindon, SN1 4NQ",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-08-12",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 751,
+    "startTime": "19:00",
+    "title": "Solar Eclipse Run",
+    "location": "The White Hart",
+    "locationStreet": "Stratton, SN3",
+    "hares": "Mini Me",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-08-26",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 752,
+    "startTime": "19:00",
+    "location": "The Hall & Woodhouse",
+    "locationStreet": "Peglars Way, Wichelstowe, Swindon, SN1 7DA",
+    "hares": "Split Lips (Hashy Birthday)",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-09-09",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 753,
+    "startTime": "19:00",
+    "location": "The Windmill",
+    "locationStreet": "Freshbrook Village Centre, Swindon, SN5 8LY",
+    "hares": "Little Big Mouth",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-09-23",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 754,
+    "startTime": "19:00",
+    "location": "The Kingsdown Inn",
+    "locationStreet": "Stratton, SN2 7PE",
+    "hares": "Stickman",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-10-07",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 755,
+    "startTime": "19:00",
+    "location": "The Wichel Inn",
+    "locationStreet": "Frodgen Lane, East Wichel, Swindon, SN1 7AP",
+    "hares": "Lobster",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  },
+  {
+    "date": "2026-10-21",
+    "kennelTags": [
+      "nwh3-moon"
+    ],
+    "runNumber": 756,
+    "startTime": "19:00",
+    "location": "The Merlin",
+    "locationStreet": "Drove Road, Swindon, GB SN1 3AF",
+    "hares": "Little Big Mouth",
+    "sourceUrl": "https://nwh3.net/moonrakersrecords2026.html"
+  }
+]

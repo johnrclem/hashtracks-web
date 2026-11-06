@@ -23,29 +23,35 @@ import { MadridHashAdapter } from "./html-scraper/madrid-hash";
 import { AucklandHashAdapter } from "./html-scraper/auckland-hash";
 import { OCH3Adapter } from "./html-scraper/och3";
 import { SlashHashAdapter } from "./html-scraper/slash-hash";
+import { TamarValleyH3Adapter } from "./html-scraper/tamar-valley-h3";
 import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
 import { WCFHCalendarAdapter } from "./html-scraper/wcfh-calendar";
 import { AtlantaHashBoardAdapter } from "./html-scraper/atlanta-hash-board";
 import { NorthboroHashAdapter } from "./html-scraper/northboro-hash";
 import { DublinHashAdapter } from "./html-scraper/dublin-hash";
 import { HertsHashAdapter } from "./html-scraper/herts-hash";
+import { NewCotswoldH3Adapter } from "./html-scraper/new-cotswold-h3";
 import { SurreyHashAdapter } from "./html-scraper/surrey-hash";
 import { FukFullMoonH3Adapter } from "./html-scraper/fuk-full-moon";
 import { SouthHamsH4Adapter } from "./html-scraper/south-hams-h4";
+import { WyreForestHashAdapter } from "./html-scraper/wyre-forest-hash";
 import { TidewaterH3Adapter } from "./html-scraper/tidewater-h3";
 import { DesertHashAdapter } from "./html-scraper/desert-hash";
 import { CreekHashAdapter } from "./html-scraper/creek-hash";
+import { H5HareHoundsAdapter } from "./html-scraper/h5-hare-hounds";
 import { BurlingtonHashAdapter } from "./html-scraper/burlington-hash";
 import { RIH3Adapter } from "./html-scraper/rih3";
 import { BrassMonkeyAdapter } from "./html-scraper/brass-monkey";
 import { BrasiliaH3Adapter } from "./html-scraper/brasilia-h3";
 import { TeignValleyH3Adapter } from "./html-scraper/teign-valley-h3";
 import { CityOfExeterH3Adapter } from "./html-scraper/city-of-exeter-h3";
+import { DevonportH3Adapter } from "./html-scraper/devonport-h3";
 import { DFWHashAdapter } from "./html-scraper/dfw-hash";
 import { SOH4Adapter } from "./html-scraper/soh4";
 import { HalveMeinAdapter } from "./html-scraper/halvemein";
 import { IthacaH3Adapter } from "./html-scraper/ithaca-h3";
 import { HockessinAdapter } from "./html-scraper/hockessin";
+import { NorthWiltsHashAdapter } from "./html-scraper/north-wilts-hash";
 import { RenegadeH3Adapter } from "./html-scraper/renegade-h3";
 import { SWH3Adapter } from "./html-scraper/swh3";
 import { GATRH3Adapter } from "./html-scraper/gatrh3";
@@ -120,6 +126,7 @@ import { KaohsiungHashAdapter } from "./html-scraper/kaohsiung-hash";
 import { BoomCalendarAdapter } from "./html-scraper/boom-calendar";
 import { PhnomPenhH3Adapter } from "./html-scraper/phnom-penh-h3";
 import { VindobonaH3Adapter } from "./html-scraper/vindobona-h3";
+import { LarnacaHashAdapter } from "./html-scraper/larnaca-hash";
 import { LVH3Adapter } from "./html-scraper/lvh3";
 import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
 import { BoiseH3Adapter } from "./html-scraper/boiseh3";
@@ -134,6 +141,7 @@ import { BombayHashAdapter } from "./html-scraper/bombay-hash";
 import { SaigonH3Adapter } from "./html-scraper/saigon-h3";
 import { HanoiH3Adapter } from "./html-scraper/hanoi-h3";
 import { JamaicaHashAdapter } from "./html-scraper/jamaica-hash";
+import { GrenadaHashAdapter } from "./html-scraper/grenada-hash";
 import { VictoriaH3Adapter } from "./html-scraper/victoria-h3";
 import { Ch4DkAdapter } from "./html-scraper/ch4-dk";
 import { MiteriHarelineAdapter } from "./html-scraper/miteri-hareline";
@@ -196,6 +204,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /enfieldhash\.org/i,       name: "EnfieldHashAdapter",   factory: () => new EnfieldHashAdapter() },
   { pattern: /chicagohash\.org/i,       name: "ChicagoHashAdapter",   factory: () => new ChicagoHashAdapter() },
   { pattern: /chicagoth3\.com/i,        name: "ChicagoTH3Adapter",    factory: () => new ChicagoTH3Adapter() },
+  { pattern: /tvh3\.co\.uk/i,                name: "TamarValleyH3Adapter",    factory: () => new TamarValleyH3Adapter() },
   { pattern: /sfh3\.com/i,             name: "SFH3Adapter",           factory: () => new SFH3Adapter() },
   { pattern: /ewh3\.com/i,             name: "EWH3Adapter",           factory: () => new EWH3Adapter() },
   { pattern: /dch4\.org/i,             name: "DCH4Adapter",           factory: () => new DCH4Adapter() },
@@ -211,6 +220,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /surreyhashhouseharriers\.com/i, name: "SurreyHashAdapter",     factory: () => new SurreyHashAdapter() },
   { pattern: /fukfmh3\.co\.uk/i,             name: "FukFullMoonH3Adapter",    factory: () => new FukFullMoonH3Adapter() },
   { pattern: /sh4\.org\.uk/i,                 name: "SouthHamsH4Adapter",      factory: () => new SouthHamsH4Adapter() },
+  { pattern: /wyreforesthhh\.org\.uk/i,       name: "WyreForestHashAdapter",   factory: () => new WyreForestHashAdapter() },
   { pattern: /tidewaterh3\.org/i,            name: "TidewaterH3Adapter",      factory: () => new TidewaterH3Adapter() },
   // Desert H3 (HashTracks' first UAE kennel, Dubai's oldest hash, est. 1979) — deserthash.org
   // WordPress/Elementor + Modern Events Calendar, fully SSR'd; wp-json + MEC/Tribe REST all
@@ -233,10 +243,12 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /brasiliah3\.blogspot/i,      name: "BrasiliaH3Adapter",       factory: () => new BrasiliaH3Adapter() },
   { pattern: /teignvalleyh3\.com/i,         name: "TeignValleyH3Adapter",    factory: () => new TeignValleyH3Adapter() },
   { pattern: /cityofexeterhhh\.blogspot/i,  name: "CityOfExeterH3Adapter",   factory: () => new CityOfExeterH3Adapter() },
+  { pattern: /\/\/(?:www\.)?dhash\.com/i,   name: "DevonportH3Adapter",      factory: () => new DevonportH3Adapter() },
   { pattern: /dfwhhh\.org/i,              name: "DFWHashAdapter",           factory: () => new DFWHashAdapter() },
   { pattern: /soh4\.com/i,               name: "SOH4Adapter",              factory: () => new SOH4Adapter() },
   { pattern: /hmhhh\.com/i,              name: "HalveMeinAdapter",         factory: () => new HalveMeinAdapter() },
   { pattern: /ithacah3\.org/i,           name: "IthacaH3Adapter",          factory: () => new IthacaH3Adapter() },
+  { pattern: /newch3\.org\.uk/i,              name: "NewCotswoldH3Adapter",    factory: () => new NewCotswoldH3Adapter() },
   { pattern: /hockessinhash\.org/i,     name: "HockessinAdapter",         factory: () => new HockessinAdapter() },
   { pattern: /renegadeh3\.com/i,       name: "RenegadeH3Adapter",        factory: () => new RenegadeH3Adapter() },
   { pattern: /swh3\.wordpress\.com/i, name: "SWH3Adapter",              factory: () => new SWH3Adapter() },
@@ -258,6 +270,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /merseythirstdayshash/i, name: "MerseyThirstdaysAdapter", factory: () => new MerseyThirstdaysAdapter() },
   { pattern: /bullmoonh3/i,          name: "BullMoonAdapter",         factory: () => new BullMoonAdapter() },
   { pattern: /glasgowh3\.co\.uk/i, name: "GlasgowH3Adapter",        factory: () => new GlasgowH3Adapter() },
+  { pattern: /h5hashers\.org\.uk/i,           name: "H5HareHoundsAdapter",     factory: () => new H5HareHoundsAdapter() },
   { pattern: /frankfurt-hash\.de/i, name: "FrankfurtHashAdapter",    factory: () => new FrankfurtHashAdapter() },
   { pattern: /voodoohash\.com/i,    name: "VoodooH3Adapter",         factory: () => new VoodooH3Adapter() },
   { pattern: /capefearh3\.com/i,   name: "CapeFearH3Adapter",      factory: () => new CapeFearH3Adapter() },
@@ -273,6 +286,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /sites\.google\.com\/view\/7h4/i, name: "SevenHillsH3Adapter", factory: () => new SevenHillsH3Adapter() },
   { pattern: /sites\.google\.com\/site\/dcfmh3/i, name: "DCFMH3Adapter", factory: () => new DCFMH3Adapter() },
   { pattern: /kansascityh3\.com/i, name: "KCH3Adapter", factory: () => new KCH3Adapter() },
+  { pattern: /\/\/(?:www\.)?nwh3\.net/i,      name: "NorthWiltsHashAdapter",   factory: () => new NorthWiltsHashAdapter() },
   { pattern: /big-hump\.com/i, name: "BigHumpAdapter", factory: () => new BigHumpAdapter() },
   { pattern: /stlh3\.com/i, name: "StlH3Adapter", factory: () => new StlH3Adapter() },
   { pattern: /brewcityh3\.com/i, name: "BrewCityH3Adapter", factory: () => new BrewCityH3Adapter() },
@@ -337,6 +351,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /^https?:\/\/(?:[^/]+\.)?tymh3\.com(?:[/?#:]|$)/i, name: "BoomCalendarAdapter", factory: () => new BoomCalendarAdapter() },
   // ── Jamaica ──
   { pattern: /^https?:\/\/(?:[^/]+\.)?jah3\.com(?:[/?#:]|$)/i, name: "JamaicaHashAdapter", factory: () => new JamaicaHashAdapter() },
+  // ── Grenada ──
+  { pattern: /^https?:\/\/(?:[^/]+\.)?grenadahash\.com(?:[/?#:]|$)/i, name: "GrenadaHashAdapter", factory: () => new GrenadaHashAdapter() },
   // ── Cambodia ──
   { pattern: /^https?:\/\/(?:[^/]+\.)?p2h3\.com(?:[/?#:]|$)/i, name: "PhnomPenhH3Adapter", factory: () => new PhnomPenhH3Adapter() },
   // ── Nepal ──
@@ -346,6 +362,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // ── Vietnam ──
   { pattern: /^https?:\/\/(?:[^/]+\.)?saigonhashers\.com(?:[/?#:]|$)/i, name: "SaigonH3Adapter", factory: () => new SaigonH3Adapter() },
   { pattern: /^https?:\/\/(?:[^/]+\.)?hanoih3\.com(?:[/?#:]|$)/i, name: "HanoiH3Adapter", factory: () => new HanoiH3Adapter() },
+  // ── Cyprus ──
+  { pattern: /^https?:\/\/sites\.google\.com\/view\/larnaca-hash-house-harriers(?:[/?#]|$)/i, name: "LarnacaHashAdapter", factory: () => new LarnacaHashAdapter() },
   // ── Austria ──
   { pattern: /viennahash\.org/i, name: "VindobonaH3Adapter", factory: () => new VindobonaH3Adapter() },
   // ── Nevada ──

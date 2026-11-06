@@ -1,0 +1,46 @@
+            <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
+            <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+            <script type="text/javascript" src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+            
+            <table>
+                <td valign="top" width="120">
+                    <center>
+                        <img src="SmallLogo.gif">
+                        <a href="index.php">
+                            <img border="0" src="Button_on-on.gif" alt="Home Page">
+                        </a>
+                        <a href="Page_on-back.php">
+                            <img border="0" src="Button_on-back.gif" alt="Past Runs">
+                        </a>
+                        <a href="Page_on-flash.html">
+                            <img border="0" src="Button_on-flash.gif" alt="Gallery">
+                        </a>
+                        <a href="Page_on-rules.html">
+                            <img border="0" src="Button_on-rules.gif" alt="Hashing rules">
+                        </a>
+                        <a href="Page_on-links.html">
+                            <img border="0" src="Button_on-links.gif" alt="Links">
+                        </a>
+                        <a href="https://wyreforesthash.blogspot.com/">
+                            <img border="0" src="Button_on-blog.gif" alt="On-Blog">
+                        </a>
+                        <a href="http://connect.garmin.com/activity/313948305#.UZZQZ64SsnM.email">
+                            <img border="0" src="Button_on-maps.gif">
+                        </a>
+                        <p>&nbsp;</p>
+                        <img border="0" src="Welcome.jpg" alt="">
+                    </center> 
+                </td>
+                <td>
+                    <center>
+                        <h1>This is where we've been:</h1>
+                        <p><table id="runs" class="display" style="width:100%"><thead><tr><th>Number</th><th>Date</th><th>Location</th><th>Grid Ref</th><th>Hare(s)</th></tr></thead><tbody><tr><td class="center">1</td><td class="center" data-order="2008-05-01">1st May 2008</td><td> Royal Forester at Callow Hill, Bewdley </td><td class="center"><a href="https://osmaps.ordnancesurvey.co.uk/lat/SO744738" target="_blank" rel="noopener noreferrer">SO744738</a></td><td> Compost &amp; Pant Buster </td></tr><tr><td class="center">2</td><td class="center" data-order="2008-06-12">12th Jun 2008</td><td> Live and Let Live at Neen Sollars </td><td class="center"><a href="https://osmaps.ordnancesurvey.co.uk/lat/SO668719" target="_blank" rel="noopener noreferrer">SO668719</a></td><td> Hash Quack </td></tr><tr><td class="center">3</td><td class="center" data-order="2008-07-10">10th Jul 2008</td><td> The Hop Pole at Droitwich </td><td class="center"><a href="https://osmaps.ordnancesurvey.co.uk/lat/SO897634" target="_blank" rel="noopener noreferrer">SO897634</a></td><td> Robbo and Dulux </td></tr><tr><td class="center">928</td><td class="center" data-order="2026-10-29">29th Oct 2026</td><td> Rose and Crown Tenbury </td><td class="center"><a href="https://www.google.com/maps?q=WR158HA" target="_blank" rel="noopener noreferrer">WR158HA</a></td><td> The Pro </td></tr><tr><td class="center">929</td><td class="center" data-order="2026-11-05">5th Nov 2026</td><td> The Cross, Church Hill, Kinver </td><td class="center"><a href="https://www.google.com/maps?q=DY76HZ" target="_blank" rel="noopener noreferrer">DY76HZ</a></td><td> Miss Moneypenny and Venom </td></tr></tbody></table>            <script type="text/javascript">
+                $(document).ready(function() {
+                    $("#runs").DataTable({
+                        "paging": true,
+                        "searching": true,
+                        "ordering": true,
+                        "pageLength": 10
+                    });
+                });
+            </script>
