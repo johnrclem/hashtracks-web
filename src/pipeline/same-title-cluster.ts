@@ -53,6 +53,20 @@ export function normalizeTitleForCluster(title: string): string {
 }
 
 /**
+ * True for a bare numbered-run title with no event name: merge's synthesized
+ * default ("Sydney Thirsty H3 Trail #1858") or an adapter's equivalent
+ * ("WLH3 Run #2123"). Normalizing strips the run number, so two DIFFERENT runs
+ * two days apart (STH3's Thursday #1858 + Saturday #1859) collapse to the same
+ * key and were fused into one "multi-day" event (#2456). These titles carry no
+ * shared event name, so they are never cluster evidence. "Hash #N" is left
+ * out on purpose so "NASH Hash #N"-style event names still cluster.
+ */
+const NUMBERED_RUN_ONLY_RE = /^[^#]*\b(?:trail|run)\s*#\s*\d+\s*$/i;
+export function isNumberedRunOnlyTitle(title: string): boolean {
+  return NUMBERED_RUN_ONLY_RE.test(title.trim());
+}
+
+/**
  * Group key for cluster matching = first 4 tokens of the normalized title.
  * Per-day suffixes ("Pub Crawl!", "Hangover Trail!") differ across days but
  * the leading event-name tokens stay stable. Example:
@@ -154,7 +168,7 @@ function bucketByClusterKey(
 ): Map<string, ClusterEvent[]> {
   const buckets = new Map<string, ClusterEvent[]>();
   for (const e of events) {
-    if (!e.title) continue;
+    if (!e.title || isNumberedRunOnlyTitle(e.title)) continue;
     const key = clusterGroupKey(normalizeTitleForCluster(e.title));
     if (!key) continue;
     const bucketKey = `${e.kennelId}::${key}`;
