@@ -6335,7 +6335,7 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "da2b", shortName: "DA2B", fullName: "Devon A to B Hash House Harriers",
       region: "Plymouth", country: "UK",
-      website: "http://devonatobh3.blogspot.com/",
+      website: "https://devonatobh3.blogspot.com/",
       logoUrl: "/kennel-logos/da2b.png", // self-hosted from HC blob; magic bytes confirmed PNG
       scheduleDayOfWeek: "Saturday", scheduleTime: "12:30 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "First Saturday of the month — A-to-B 'mystery tour', 8+ miles, beer stops, transport back to start.",

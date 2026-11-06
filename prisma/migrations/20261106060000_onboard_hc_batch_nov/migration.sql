@@ -87,7 +87,7 @@ FROM "Region" r WHERE r.name = 'London'
 ON CONFLICT ("kennelCode") DO NOTHING;
 INSERT INTO "Kennel" (id, "kennelCode", "shortName", slug, "fullName", region, "regionId", country, "website", "scheduleDayOfWeek", "scheduleTime", "scheduleFrequency", "scheduleNotes", "hashCash", "description", "logoUrl", "latitude", "longitude", "createdAt", "updatedAt")
 SELECT 'knl_hcnov_da2b', 'da2b', 'DA2B', 'da2b', 'Devon A to B Hash House Harriers', 'Plymouth', r.id, 'UK',
-  'http://devonatobh3.blogspot.com/',
+  'https://devonatobh3.blogspot.com/',
   'Saturday',
   '12:30 PM',
   'Monthly',

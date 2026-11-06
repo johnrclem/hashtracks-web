@@ -71,11 +71,12 @@ async function main(): Promise<void> {
     const events = archive[code] ?? [];
     if (events.length === 0) throw new Error(`No frozen rows for ${code} — the archive file is corrupt. Aborting.`);
     console.log(`\n========== ${code} ==========`);
-    await runBackfillScript({
+    // Sequential by design: one kennel's merge at a time (shared Prisma client).
+    await runBackfillScript({ // NOSONAR S7735 — intentional sequential await
       sourceName: KENNELS[code].sourceName,
       kennelTimezone: KENNELS[code].timezone,
       label: `Loading frozen ${code} Harrier Central archive`,
-      fetchEvents: async () => events,
+      fetchEvents: () => Promise.resolve(events),
     });
   }
 }

@@ -9025,7 +9025,7 @@ export const SOURCES = [
         // Bare "Hash 197" / "Devon A2B Run 202" names strip to a bare number → "Devon A2B #N".
         defaultTitle: "Devon A2B",
         staleTitleAliases: ["Devon A2B", "Devon A2B.", "Placeholder event for DA2B"],
-        titleStripPatterns: ["^(?:devon a2b )?(?:hash|run) \\d+!?$"],
+        titleStripPatterns: [String.raw`^(?:devon a2b )?(?:hash|run) \d+!?$`],
         upcomingOnly: true,
       },
       kennelCodes: ["da2b"],
@@ -9075,7 +9075,7 @@ export const SOURCES = [
         // Generic "Hash" / "Run 1809" names → "Paramaribo H3 #N".
         defaultTitle: "Paramaribo H3",
         staleTitleAliases: ["Hash", "Placeholder event for PH3"],
-        titleStripPatterns: ["^run \\d+$"],
+        titleStripPatterns: [String.raw`^run \d+$`],
         upcomingOnly: true,
       },
       kennelCodes: ["ph3-sr"],
@@ -9110,7 +9110,7 @@ export const SOURCES = [
         // Strip the "UN #738 -" prefix (the number is already runNumber); a bare "Un #740" → "Big Lik H3 Trail #740".
         defaultTitle: "Big Lik H3 Trail",
         staleTitleAliases: ["Description", "Placeholder event for BLHHH"],
-        titleStripPatterns: ["^un #\\d+[ -]*"],
+        titleStripPatterns: [String.raw`^un #\d+[ -]*`],
         upcomingOnly: true,
       },
       kennelCodes: ["blhhh"],
@@ -9128,7 +9128,7 @@ export const SOURCES = [
         // EventName is often the bare kennel name → "Hannover H3 #N"; "Isenbüttel Placeholder" → "Isenbüttel".
         defaultTitle: "Hannover H3",
         staleTitleAliases: ["Hannover H3"],
-        titleStripPatterns: ["\\s+placeholder$"],
+        titleStripPatterns: [String.raw`\s+placeholder$`],
         upcomingOnly: true,
       },
       kennelCodes: ["hannover-h3"],
