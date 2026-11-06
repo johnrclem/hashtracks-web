@@ -6669,6 +6669,11 @@ export const KENNELS: KennelSeed[] = [
       region: "Abuja", country: "Nigeria",
       logoUrl: "/kennel-logos/abujah3.png", // self-hosted from HC blob; magic bytes confirmed PNG
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:30 PM", // HC: Saturday 14:30 across the 2024 + 2026 runs
+      scheduleRules: [
+        // LOW "possible activity", not dated: runs are on Saturdays but skip many weeks
+        // (#758 Nov 2024 → #814 Oct 2026 is ~56 runs in ~100 weeks), so a weekly RRULE would over-predict.
+        { rrule: "CADENCE=WEEKLY;BYDAY=SA", confidence: "LOW", startTime: "14:30", label: "Saturday afternoon" },
+      ],
       hashCash: "₦3,000", // HC price 3000, currency NGN
       latitude: 9.0765, longitude: 7.3986,
       description:
@@ -6681,6 +6686,11 @@ export const KENNELS: KennelSeed[] = [
       logoUrl: "/kennel-logos/blhhh.avif", // self-hosted from HC blob; magic bytes confirmed AVIF
       // Fortnightly Saturday — 9 of the 12 counted runs 2026-05 → 2026-11 fell on alternate Saturdays.
       scheduleDayOfWeek: "Saturday", scheduleTime: "5:00 PM", scheduleFrequency: "Biweekly",
+      scheduleRules: [
+        // MEDIUM: fortnightly since 2026-10-17 (10-17, 10-31, 11-14), but the phase shifted in Sep 2026.
+        // anchorDate 2026-10-31 = a confirmed run; INTERVAL=2 needs a phase anchor.
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", confidence: "MEDIUM", startTime: "17:00", anchorDate: "2026-10-31", label: "Fortnightly Saturday" },
+      ],
       // hashCash omitted — HC "5 TL" is implausible for a run fee; foundedYear unverifiable.
       latitude: 37.0017, longitude: 35.4259, // Incirlik Air Base
     },
@@ -6698,7 +6708,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "mobh3", shortName: "Moon Over Barbados H3", fullName: "Moon Over Barbados H3",
       region: "Bridgetown", country: "Barbados",
       logoUrl: "/kennel-logos/mobh3.png", // self-hosted from HC blob; magic bytes confirmed PNG
-      scheduleFrequency: "Monthly", scheduleTime: "7:00 PM", // full-moon cadence → no weekday / scheduleRules
+      scheduleFrequency: "Full Moon", scheduleTime: "7:00 PM", // full-moon cadence → Pass-2 FREQ=LUNAR LOW rule; no weekday
       description: "Moon Over Barbados H3 — the Barbados full-moon hash, running monthly on or near the full moon.",
     },
     {
@@ -6714,7 +6724,7 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "sunh3", shortName: "SUNH3", fullName: "Shenanagains Under Nightfall",
       region: "Raleigh, NC", country: "USA",
       logoUrl: "/kennel-logos/sunh3.avif", // self-hosted from HC blob; magic bytes confirmed AVIF
-      scheduleFrequency: "Monthly",
+      scheduleFrequency: "Full Moon", // → Pass-2 FREQ=LUNAR LOW rule (2026 runs track the full moon)
       scheduleNotes:
         "Monthly full-moon evening/night hash around the Raleigh/Triangle area (venues rotate — Raleigh, Cary, " +
         "Burlington). Meet ~6:30 PM, circle ~7:00 PM. Run day tracks the full moon.",
