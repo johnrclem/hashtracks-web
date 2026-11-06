@@ -1680,7 +1680,18 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 51.9007,
     centroidLng: -1.1522,
     aliases: ["Bicester, England", "Oxfordshire"],
+  },  {
+    name: "Oxford",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "OXF",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 51.752,
+    centroidLng: -1.2577,
+    aliases: ["Oxford, England"],
   },
+
   {
     name: "Malvern",
     country: "UK",
@@ -4438,6 +4449,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "East Midlands": "United Kingdom",
   "Hertfordshire": "United Kingdom",
   "Bicester": "United Kingdom",
+  "Oxford": "United Kingdom",
   "Malvern": "United Kingdom",
   "Cotswolds": "United Kingdom",
   "Chichester": "United Kingdom",

@@ -6508,6 +6508,30 @@ export const KENNELS: KennelSeed[] = [
       // dogFriendly: unstated — omitted (flagged)
     },
     {
+      kennelCode: "oxford-h3", shortName: "Oxford H3", fullName: "Oxford Hash House Harriers", region: "Oxford", country: "UK",
+      website: "https://www.oxfordh3.org.uk",
+      facebookUrl: "https://www.facebook.com/groups/oxfordh3/",
+      instagramHandle: "oxfordh3",
+      twitterHandle: "oxfordh3",
+      foundedYear: 1999, // /about/: first run 6 Oct 1999, The Royal Oak, Woodstock Road
+      hashCash: "£4 (first 3 runs free); food and beer provided",
+      walkersWelcome: true, // /about/: short-cuts let "slower runners and walkers" catch up
+      // Flat fields are the fallback; scheduleRules (seasonal) is authoritative.
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Wednesday 7:00 PM. Weekly from April to mid-October; fortnightly over the winter.",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=WE", startTime: "19:00", label: "Summer (weekly)", validFrom: "04-01", validUntil: "10-15", displayOrder: 0 },
+        // Winter fortnightly phase anchored on a real run (#1370, 4 Nov 2026).
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=WE", anchorDate: "2026-11-04", startTime: "19:00", label: "Winter (fortnightly)", validFrom: "10-16", validUntil: "03-31", displayOrder: 1 },
+      ],
+      description:
+        "Oxford Hash House Harriers — \'a drinking club with a running problem\', founded 6 October 1999 as a Bicester H3 offshoot. The self-styled \'Odd Sock Hash\' (motto Poto Ergo Curro) runs on Wednesday evenings at 7 p.m. on flour trails across Oxford and the Oxfordshire countryside — weekly in summer, fortnightly in winter — finishing with a beer stop, food and a circle. Newcomers welcome; first three runs free, then £4.",
+      logoUrl: "/kennel-logos/oxford-h3.gif", // self-hosted; magic bytes confirmed GIF89a
+      latitude: 51.752,
+      longitude: -1.2577,
+      // dogFriendly: unstated.
+    },
+    {
       // Bare "MH3"/"MVH3" are taken globally (Munich, Montreal…; Mount Vernon) → city code.
       kennelCode: "malvern-h3",
       shortName: "Malvern H3",
