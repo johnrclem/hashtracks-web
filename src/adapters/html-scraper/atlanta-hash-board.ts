@@ -309,6 +309,22 @@ function classifyTimeInstruction(value: string): { time?: string } | null {
 }
 
 /**
+ * The first non-empty line after `idx`, used as a bare label's value. Returns
+ * undefined when that line is itself a "Label:" line, so "Where:" ⏎ "Hares: X"
+ * can't make the hare line the venue. A clock time ("7:00") is not a label.
+ */
+function nextValueLine(lines: string[], idx: number): string | undefined {
+  for (let i = idx + 1; i < lines.length; i++) {
+    const line = stripMarkdownEmphasis(lines[i]);
+    if (!line) continue;
+    const colon = line.indexOf(":");
+    const isLabel = colon > 0 && colon <= 20 && !/\d/.test(line.charAt(colon - 1));
+    return isLabel ? undefined : line;
+  }
+  return undefined;
+}
+
+/**
  * Extract structured event fields from pre-parsed content.
  * Accepts pre-computed plain text (to avoid re-parsing HTML) and Cheerio instance
  * for link extraction.
@@ -330,9 +346,12 @@ export function extractEventFields(
   // (`^`, multiline) so mid-sentence prose like "the Red Hare is celebrating…"
   // can't be mistaken for a hare name (caught in the Wayback backfill dry-run).
   // Strip markdown bold/italic asterisks the scribes wrap names in (#1640).
+  // Also the dash-label "Hares - the lovely X and Y" form (SLUT Feb 5 2026,
+  // #2505), line-anchored for the same reason.
   const hareMatch =
     /\bHares?\s*:\s*([^\n]*)/i.exec(text) ??
-    /^[ \t*]*Hares?\s+(?:is|are)\s+([^\n]*)/im.exec(text);
+    /^[ \t*]*Hares?\s+(?:is|are)\s+([^\n]*)/im.exec(text) ??
+    /^[ \t*]*Hares?\s[-–—]\s([^\n]+)/im.exec(text);
   if (hareMatch) {
     const cleaned = stripMarkdownEmphasis(hareMatch[1]);
     if (cleaned) fields.hares = cleaned;
@@ -350,14 +369,19 @@ export function extractEventFields(
   // whitespace (` `, `&nbsp;`) before comparison — phpBB editors
   // sometimes pad labels with NBSP that survives `.text()` extraction
   // (#1702 gemini medium).
-  const LOC_LABELS = new Set(["start", "where", "location", "meeting", "meet"]);
+  // "start/end" — SLUT Apr 2 2026 used a combined "Start/End:" label (#2509).
+  const LOC_LABELS = new Set(["start", "start/end", "where", "location", "meeting", "meet"]);
   let locationCandidate: string | undefined;
-  for (const rawLine of text.split("\n")) {
+  const textLines = text.split("\n");
+  for (let li = 0; li < textLines.length; li++) {
+    const rawLine = textLines[li];
     const colonIdx = rawLine.indexOf(":");
     if (colonIdx <= 0) continue;
     const label = rawLine.slice(0, colonIdx).replaceAll(" ", " ").replaceAll("&nbsp;", " ").trim().toLowerCase();
     if (!LOC_LABELS.has(label)) continue;
-    const value = stripMarkdownEmphasis(rawLine.slice(colonIdx + 1));
+    // A bare label ("Start/End:") with the venue on the next line (#2509).
+    const value =
+      stripMarkdownEmphasis(rawLine.slice(colonIdx + 1)) || nextValueLine(textLines, li);
     if (!value) continue;
     // Time/"out" instructions mislabeled as a location ("Start: Meet at 7pm,
     // out", "Meet: 12:30 out", "Start: 1:30 PM") must not become the venue —
@@ -373,7 +397,8 @@ export function extractEventFields(
   // Line-anchored (`^`, multiline) so prose like "the start is a mystery" can't
   // leak into location (mirrors the anchored hare fallback above).
   if (!locationCandidate) {
-    const startIs = /^[ \t*]*Start\s+is\s+([^\n]+)/im.exec(text);
+    // Also "Details: Start is <venue>" (SLUT Sep 4 2025).
+    const startIs = /^[ \t*]*(?:Details:\s?)?Start\s+is\s+([^\n]+)/im.exec(text);
     if (startIs) {
       const v = stripMarkdownEmphasis(startIs[1]);
       if (v && !classifyTimeInstruction(v)) locationCandidate = v;
