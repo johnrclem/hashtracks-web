@@ -271,8 +271,9 @@ export class Hkh3Adapter implements SourceAdapter {
     // has already happened: emit nothing (the STATIC_SCHEDULE source keeps the
     // Monday itself on the calendar).
     const anchor = parseRunNumberAnchor((source.config as Record<string, unknown> | null)?.runNumberAnchor);
-    const expected = event?.runNumber !== undefined && anchor ? expectedRunNumber(event.date, anchor) : undefined;
-    const stale = event?.runNumber !== undefined && expected !== undefined && event.runNumber < expected;
+    const runNumber = typeof event?.runNumber === "number" ? event.runNumber : undefined;
+    const expected = event && runNumber !== undefined && anchor ? expectedRunNumber(event.date, anchor) : undefined;
+    const stale = runNumber !== undefined && expected !== undefined && runNumber < expected;
 
     return {
       events: event && !stale ? [event] : [],
