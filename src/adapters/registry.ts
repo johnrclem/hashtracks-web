@@ -30,6 +30,7 @@ import { AtlantaHashBoardAdapter } from "./html-scraper/atlanta-hash-board";
 import { NorthboroHashAdapter } from "./html-scraper/northboro-hash";
 import { DublinHashAdapter } from "./html-scraper/dublin-hash";
 import { HertsHashAdapter } from "./html-scraper/herts-hash";
+import { DonningtonHashAdapter } from "./html-scraper/donnington-hash";
 import { NewCotswoldH3Adapter } from "./html-scraper/new-cotswold-h3";
 import { SurreyHashAdapter } from "./html-scraper/surrey-hash";
 import { FukFullMoonH3Adapter } from "./html-scraper/fuk-full-moon";
@@ -216,6 +217,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /northboroh3\.com/i,             name: "NorthboroHashAdapter",    factory: () => new NorthboroHashAdapter() },
   { pattern: /dublinhhh\.com/i,              name: "DublinHashAdapter",       factory: () => new DublinHashAdapter() },
   { pattern: /hertshash\.co\.uk/i,           name: "HertsHashAdapter",        factory: () => new HertsHashAdapter() },
+  { pattern: /donningtonh3\.co\.uk/i,       name: "DonningtonHashAdapter",   factory: () => new DonningtonHashAdapter() },
   { pattern: /surreyhashhouseharriers\.com/i, name: "SurreyHashAdapter",     factory: () => new SurreyHashAdapter() },
   { pattern: /fukfmh3\.co\.uk/i,             name: "FukFullMoonH3Adapter",    factory: () => new FukFullMoonH3Adapter() },
   { pattern: /sh4\.org\.uk/i,                 name: "SouthHamsH4Adapter",      factory: () => new SouthHamsH4Adapter() },

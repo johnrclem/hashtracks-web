@@ -9453,6 +9453,17 @@ export const SOURCES = [
       kennelCodes: ["fukfm"],
     },
     {
+      name: "Donnington H3 Website",
+      url: "https://www.donningtonh3.co.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Rolling forward table — past runs age off; history is a frozen backfill.
+      config: { upcomingOnly: true },
+      kennelCodes: ["donnington-h3"],
+    },
+    {
       name: "N.E.W. Cotswold H3 Website",
       url: "https://www.newch3.org.uk/",
       type: "HTML_SCRAPER" as const,

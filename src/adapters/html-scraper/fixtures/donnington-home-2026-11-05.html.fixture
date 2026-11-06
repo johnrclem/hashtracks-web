@@ -1,0 +1,24 @@
+<table id="tablepress-15" class="tablepress tablepress-id-15">
+<thead>
+<tr class="row-1">
+	<th class="column-1">Run No</th><th class="column-2">Date</th><th class="column-3">Time</th><th class="column-4">Venue</th><th class="column-5">Area</th><th class="column-6">Post Code</th><th class="column-7">Hare 1</th><th class="column-8">Hare 2</th><th class="column-9">Notes</th>
+</tr>
+</thead>
+<tbody class="row-striping row-hover">
+<tr class="row-2">
+	<td class="column-1">2654</td><td class="column-2">08/11/2026</td><td class="column-3">11.00</td><td class="column-4">The Lion o Morfe </td><td class="column-5">Upper Farmcote, Upper, Bridgnorth.</td><td class="column-6">WV15 5PS</td><td class="column-7">Jenny</td><td class="column-8">Anyone Volunteer to help Jenny?</td><td class="column-9"></td>
+</tr>
+<tr class="row-3">
+	<td class="column-1">2655</td><td class="column-2">15/11/2026</td><td class="column-3">11.00</td><td class="column-4">TBA</td><td class="column-5"></td><td class="column-6"></td><td class="column-7">Nancy &amp; Stuart</td><td class="column-8">Don</td><td class="column-9"></td>
+</tr>
+<tr class="row-4">
+	<td class="column-1">2656</td><td class="column-2">22/11/2026</td><td class="column-3">11.00</td><td class="column-4">Park and meet at Aston Street Car Park.</td><td class="column-5">Shifnal, Telford</td><td class="column-6"></td><td class="column-7">Jude</td><td class="column-8">Graham</td><td class="column-9">Apres; The Anvil, Aston Road. TF11 8DU</td>
+</tr>
+<tr class="row-7">
+	<td class="column-1">2659</td><td class="column-2">13/12/2026</td><td class="column-3">11.00</td><td class="column-4">HARE NEEDED</td><td class="column-5"></td><td class="column-6"></td><td class="column-7"></td><td class="column-8"></td><td class="column-9"></td>
+</tr>
+<tr class="row-14">
+	<td class="column-1">2666</td><td class="column-2">31/02/2027</td><td class="column-3">11.00</td><td class="column-4"></td><td class="column-5"></td><td class="column-6"></td><td class="column-7"></td><td class="column-8"></td><td class="column-9"></td>
+</tr>
+</tbody>
+</table>

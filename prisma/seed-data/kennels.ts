@@ -6833,6 +6833,25 @@ export const KENNELS: KennelSeed[] = [
       longitude: -0.2377,
     },
     {
+      kennelCode: "donnington-h3", shortName: "Donnington H3", fullName: "Donnington Hash House Harriers", region: "Shropshire", country: "UK",
+      website: "https://www.donningtonh3.co.uk/",
+      facebookUrl: "https://www.facebook.com/Dh3running/",
+      foundedYear: 1976, founder: "Ray Thornton",
+      hashCash: "£2",
+      // Flat fields are the fallback; scheduleRules (seasonal) is authoritative.
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "18:30", label: "Summer", validFrom: "04-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "11:00", label: "Winter", validFrom: "10-01", validUntil: "03-31", displayOrder: 1 },
+      ],
+      description:
+        "A Drinking Club with a Running Problem. Donnington Hash House Harriers (DH3), founded 1976 at the Army Ordnance Depot in Donnington, Telford — the third Hash founded in the UK. Weekly trails across Shropshire: Monday evenings in summer, Sunday mornings in winter.",
+      logoUrl: "/kennel-logos/donnington-h3.jpg", // self-hosted; magic bytes confirmed JPEG
+      latitude: 52.6784,
+      longitude: -2.4453,
+      // instagram/twitter: none on site. dogFriendly/walkersWelcome: unstated.
+    },
+    {
       kennelCode: "bicester-h3",
       shortName: "Bicester H3",
       fullName: "Bicester Hash House Harriers",
