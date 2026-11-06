@@ -1,0 +1,4217 @@
+[
+  {
+    "date": "2014-01-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 819,
+    "startTime": "11:00",
+    "hares": "Captain Oates",
+    "location": "Dixies Arms",
+    "locationStreet": "Bagthorpe, NG16 5HF",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-01-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 820,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Durex",
+    "location": "The Horse and Jockey",
+    "locationStreet": "Stapleford, NG9 8AA",
+    "description": "Hares' 30th Hashing anniversary",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-01-27",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 821,
+    "startTime": "19:15",
+    "hares": "Gobalot",
+    "location": "The Plough Inn",
+    "locationStreet": "Ashby-de-la-Zouch, LE65 1JU",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-02-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 822,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "The Rose and Crown",
+    "locationStreet": "Cotgrave, NG12 3HQ",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-02-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 823,
+    "startTime": "11:00",
+    "hares": "Diarrhoea",
+    "location": "The Lord Nelson",
+    "locationStreet": "Sneinton, NG2 4AG",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-02-24",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 824,
+    "startTime": "19:15",
+    "hares": "Rasher",
+    "location": "The Hop Pole",
+    "locationStreet": "Beeston, NG9 4AE",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-03-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 825,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "The Blue Bell",
+    "locationStreet": "Desford, LE9 9JF",
+    "description": "Wallington's big birthday",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-03-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 826,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The White Horse",
+    "locationStreet": "Ruddington, NG11 6HD",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-03-31",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 827,
+    "startTime": "19:15",
+    "hares": "Captain Oates and Artless Dodger",
+    "location": "JC's Bar",
+    "locationStreet": "Loughborough, LE11 3TU",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-04-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 828,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Chicki",
+    "location": "The White Lion",
+    "locationStreet": "Rempstone, LE12 6RH",
+    "description": "AGM",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-04-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 829,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Star",
+    "locationStreet": "Beeston, NG9 1FX",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-04-28",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 830,
+    "startTime": "19:15",
+    "hares": "Butcher's Dog",
+    "location": "The Plough",
+    "locationStreet": "Keyworth, NG12 5AH",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-05-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 831,
+    "startTime": "11:00",
+    "hares": "Free Willy and Debriefed",
+    "location": "The Woodlark Inn",
+    "locationStreet": "Lambley, NG4 4QB",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-05-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 832,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "The Burnt Stump",
+    "locationStreet": "Arnold, NG5 8PQ",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-05-27",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 833,
+    "startTime": "19:15",
+    "hares": "Too Tuf and Chicki",
+    "location": "The Newshouse",
+    "locationStreet": "Nottingham, NG1 7HB",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-06-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 834,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "The Tap House",
+    "locationStreet": "Smisby, LE65 2TA",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-06-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 835,
+    "startTime": "11:00",
+    "hares": "Captain Oates and Hot Air",
+    "location": "Dixies Arms",
+    "locationStreet": "Bagthorpe, NG16 5HF",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-06-30",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 836,
+    "startTime": "19:15",
+    "hares": "Durex",
+    "location": "Kings Head",
+    "locationStreet": "Sutton Bonington, LE12 5PE",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-07-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 837,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "White Lion",
+    "locationStreet": "Sawley, NG10 3AT",
+    "description": "Barritone's 25th hash anniversary",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-07-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 838,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Chicki",
+    "location": "Chez Tuf and Chicki",
+    "locationStreet": "West Bridgford, NG2 6EZ",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-07-28",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 839,
+    "startTime": "19:15",
+    "hares": "Durex",
+    "location": "The Risley Park",
+    "locationStreet": "Risley, DE72 3SS",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-08-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 840,
+    "startTime": "11:00",
+    "hares": "Butt Plug and Underlay",
+    "location": "Manifold Inn",
+    "locationStreet": "Hulme End, Hartington, SK17 0EX",
+    "description": "Joint Hash with AH4",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-08-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 841,
+    "startTime": "11:00",
+    "hares": "Diarrhoea and Captain Oates",
+    "location": "Poppy and Pint",
+    "locationStreet": "Lady Bay, Nottingham, NG2 5DX",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-08-26",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 842,
+    "startTime": "19:15",
+    "hares": "Too Tuf and Chicki",
+    "location": "Star Inn",
+    "locationStreet": "West Leake, LE12 5RQ",
+    "description": "Join us! Run for fun in the Nottingham-Leicester-Derby area.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-09-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 843,
+    "startTime": "11:00",
+    "hares": "Captain Oates",
+    "location": "The Dry Dock",
+    "locationStreet": "25 Putney Rd, Leicester, LE2 7TF",
+    "description": "We're heading south for this hash. Dogs allowed outside.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-09-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 845,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "Jolly Farmers",
+    "locationStreet": "Shepshed, LE12 9EP",
+    "description": "A child-friendly pub with a selection of real ales.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-09-29",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 846,
+    "startTime": "19:15",
+    "hares": "Chicki and Underlay",
+    "location": "Willowbrook",
+    "locationStreet": "13 Main Rd, Gedling, NG4 3HQ",
+    "description": "Dream hare team setting trail from Castle Rock pub that also serves many guests ales. Bring a torch.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-10-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 844,
+    "startTime": "11:00",
+    "hares": "Butcher's Dog and Durex",
+    "location": "Thorpe Bunkhouse",
+    "locationStreet": "Hathersage, S32 1BQ",
+    "description": "Bunkhouse weekend",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-10-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 847,
+    "startTime": "11:00",
+    "hares": "Dope",
+    "location": "The Windmill",
+    "locationStreet": "Wymeswold, LE12 6TT",
+    "description": "Into Leicestershire for Dope's first QH3 haring",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-10-25",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 848,
+    "startTime": "19:15",
+    "hares": "Durex and Malteaser",
+    "location": "Victoria Hotel Pub",
+    "locationStreet": "Beeston, Nottingham, NG9 1JG",
+    "description": "Old ladies red dress run. Start from the Victoria at 19:15 so if you want a drink before get there earlier. Well marked flour trail with holding check outside official pub stops.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-11-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 849,
+    "startTime": "11:00",
+    "hares": "Free Willy",
+    "location": "The Four Bells",
+    "locationStreet": "Woodborough, Nottingham, NG14 6EA",
+    "description": "87 Main Street, Woodborough. Free Willy and Debriefed set their second trail for QH3. Can they match their excellent first attempt!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-11-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 850,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "Halfway House",
+    "locationStreet": "65 Church Street, Donisthorpe, DE12 7PX",
+    "description": "Starting from a pub we've run from before when it was called the Turks Head",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-11-30",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 851,
+    "startTime": "11:30",
+    "hares": "Durex, Malteaser and Dipstick",
+    "location": "Rose and Crown",
+    "locationStreet": "6 Main St, Zouch, LE12 5EQ",
+    "description": "***NOTE This is a Sunday with 11:30 start time!*** Joint Run with Oxford H3",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-12-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 852,
+    "startTime": "11:00",
+    "hares": "IP and Sweet Pea",
+    "location": "Horse and Plough",
+    "locationStreet": "25 Long Acre, Bingham, NG13 8AF",
+    "description": "A rare Quorn outing to the east of Nottingham. Durex's 500th Quorn trail",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-12-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 853,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "Plough",
+    "locationStreet": "The Green, Ashby de la Zouch, LE65 1JU",
+    "description": "Jingle Balls Hash. Come suitably attired for the occasion. Durex's 501st Quorn Hash Trail",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2014-12-29",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 854,
+    "startTime": "19:15",
+    "hares": "Butcher's Dog",
+    "location": "The Lady Bay",
+    "locationStreet": "89 Trent Boulevard, Nottingham, NG2 5BE",
+    "description": "Bring your torch and get ready to run off some Christmas indulgence. Last chance for you to do something that warrants a 2014 hash award",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2015-01-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 855,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Navigation",
+    "locationStreet": "Breaston, DE72 3BP",
+    "description": "Guaranteed the best run trail of 2015 (so far). Dogs welcome",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2014.xml"
+  },
+  {
+    "date": "2015-01-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 856,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Chicki",
+    "location": "The Organ Grinder",
+    "locationStreet": "4 Woodgate, Loughborough, LE11 2TY",
+    "description": "Follow Too Tuf into his 32nd year of hashing",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-01-26",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 857,
+    "startTime": "19:15",
+    "hares": "Butt Plug",
+    "location": "The Old Volunteer",
+    "locationStreet": "35 Burton Rd, Carlton, Nottingham, NG4 3DQ",
+    "description": "Flipside Microbrewery",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-02-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 858,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Chicki",
+    "location": "Sir John Borlase Warren",
+    "locationStreet": "Canning Circus, Nottingham, NG7 3GD",
+    "description": "Post-awards night trail. Car parking to the right-side of the pub, accessible as you travel out of Nottingham",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-02-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 859,
+    "startTime": "11:00",
+    "hares": "Durex",
+    "location": "Horse and Jockey",
+    "locationStreet": "Nottingham Road, Stapleford, NG9 8AA",
+    "description": "Durex 60th birthday run. Park and start from the Cliffe Hill Av. Long stay public car park at the back of the pub. Free on Sundays",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-02-23",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 860,
+    "startTime": "19:15",
+    "hares": "Chicki",
+    "location": "White Hart",
+    "locationStreet": "27 Churchgate, Loughborough, LE11 1UD",
+    "description": "A new pub for the QH3. On road free parking after 6 pm. Dog-friendly.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-03-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 861,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "Queens Head",
+    "locationStreet": "3 Ashby Road, Markfield, LE67 9UB",
+    "description": "Run and have fun in the Nottingham-Derby-Leicester area!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-03-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 862,
+    "startTime": "11:00",
+    "hares": "Dope and Heroin",
+    "location": "The Old Vicarage",
+    "locationStreet": "Whetstone, Leicester, LE8 6JH",
+    "description": "Dogs allowed only outside!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-03-30",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 863,
+    "startTime": "19:15",
+    "hares": "Too Tuf",
+    "location": "Robin Hood and Little John",
+    "locationStreet": "Arnold, NG5 8FD",
+    "description": "Nottingham Camra Pub of the year",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-04-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 864,
+    "startTime": "11:00",
+    "hares": "Malteaser, Skids and Durex",
+    "location": "Holly Bush Inn",
+    "locationStreet": "Makeney, DE56 0RX",
+    "description": "THIS IS A SATURDAY special Easter trail done jointly with AH4. Gem of a traditional real ale pub readily accessible by public transport not far from the A6 north of Derby. Dogs OK.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-04-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 865,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "The Lord Nelson",
+    "locationStreet": "Chestnut Grove, Burton Joyce, NG14 5DN",
+    "description": "QH3 AGM. Turn up and be elected. Don't turn up and you're even more likely to be elected!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-04-27",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 866,
+    "startTime": "19:15",
+    "hares": "Butcher's Dog",
+    "location": "White Horse",
+    "locationStreet": "Ruddington, NG11 6HD",
+    "description": "Should be enough daylight NOT to need torches",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-05-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 867,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Queens Head AND Marlpool Ale House",
+    "locationStreet": "Marlpool, DE75 7NJ",
+    "description": "Two pubs for the price of one! The Queens Head is a good ale house, but it has a micropub and microbrewery next door. Together they are putting on a beer festival over this bank holiday weekend Even if the beer festival completely runs out of beer, there will still be a combined total of 13 beers the two pubs put on normally.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-05-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 868,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "The Gate Inn",
+    "locationStreet": "Awsworth, NG16 2RN",
+    "description": "Excellent real ale pub",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-05-31",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 869,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "White Horse",
+    "locationStreet": "Ruddington, NG11 6HD",
+    "description": "Our last Monday of the month has been moved to the last SUNDAY of the month on order to catch the tail end of the Ruddington Beer Festival. If dry a bouncy castle will be in the pub car park - please park on the street.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-06-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 870,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Chicki",
+    "location": "Nags Head",
+    "locationStreet": "East Leake, LE12 6PG",
+    "description": "A rare visit for the QH3 to East Leake",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-06-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 871,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "White Horse Inn",
+    "locationStreet": "Church St, Seagrave, LE12 7LT",
+    "description": "The Longest Day Hash",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-06-29",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 872,
+    "startTime": "19:15",
+    "hares": "Durex",
+    "location": "Sun Inn",
+    "locationStreet": "Gotham, NG11 0HX",
+    "description": "A trail from the town of mad men that inspired the nickname for New York City",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-07-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 873,
+    "startTime": "11:00",
+    "hares": "Butt Plug and Underlay",
+    "location": "The Ostrich Inn",
+    "locationStreet": "Longford, Derbyshire, DE6 3AH",
+    "description": "Part of the QH3 camping weekend",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-07-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 874,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "Conkers",
+    "locationStreet": "near Moira, DE12 6BA",
+    "description": "Park at Conkers Waterside, National Forest. Approach from Bath Lane",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-07-27",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 875,
+    "startTime": "19:15",
+    "hares": "Dope and Heroin",
+    "location": "Packe Arms",
+    "locationStreet": "Hoton, LE12 5SJ",
+    "description": "Dope and Heroin setting their last trail for Quorn before moving to Scotland",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-08-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 876,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "The Anchor",
+    "locationStreet": "Walton on the Wolds, LE12 8HT",
+    "description": "Loughborough Rd, Walton on the Wolds, Loughborough, Leicestershire",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-08-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 877,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "Ye Olde Red Lion",
+    "locationStreet": "Market Bosworth, Leics, CV13 0LL",
+    "description": "Teddy Bears' Picnic. Meet at pub as per usual hash trail. If the weather is good we'll move to the nearby park for picnic/BBQ. Bring your own food. Wallington says there's a shop to purchase food nearby. BRING A TEDDY BEAR!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-08-25",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 878,
+    "startTime": "19:15",
+    "hares": "Barritone",
+    "location": "The Crown",
+    "locationStreet": "Beeston, NG9 1FY",
+    "description": "**NOTE** Moved to the last TUESDAY night in August so as to avoid the Nash Hash Bank Holiday weekend! Quiz night in the pub",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-09-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 879,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Chicki",
+    "location": "The Stumble Inn",
+    "locationStreet": "Tamworth Rd, Long Eaton, NG10 1JF",
+    "description": "Dog friendly",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-09-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 880,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "The Old Volunteer",
+    "locationStreet": "Carlton, NG4 3DQ",
+    "description": "Real Ales, Dog Friendly, Free public car park opposite or street parking available",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-09-28",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 881,
+    "startTime": "19:15",
+    "hares": "Durex",
+    "location": "The Smithfield",
+    "locationStreet": "Derby, DE1 2BH",
+    "description": "Excellent real ale pub. Autumn is here - bring a torch!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-10-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 882,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "Kings Arms",
+    "locationStreet": "Coleorton, LE67 8GD",
+    "description": "A trail in the National Forest",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-10-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 883,
+    "startTime": "11:00",
+    "hares": "IP and Sweet Pea",
+    "location": "Star Inn",
+    "locationStreet": "West Leake, LE12 5RQ",
+    "description": "Dogs allowed in bar",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-10-26",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 884,
+    "startTime": "19:15",
+    "hares": "Too Tuff and Chicki",
+    "location": "King William IV",
+    "locationStreet": "Sneinton, Nottingham, NG2 4PB",
+    "description": "Nearby (?) on-road parking. Mainly urban run after sunset - bring a torch",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-11-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 885,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Chicki",
+    "location": "The Meadow Covert",
+    "locationStreet": "Edwalton, Nottingham, NG12 4AT",
+    "description": "Not at W Bridgford hockey club as advertised earlier",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-11-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 886,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Beer Shack",
+    "locationStreet": "Hucknall, NG15 7JX",
+    "description": "Microbrewery. Now accessible from many parts of Nottingham by tram",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-11-30",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 887,
+    "startTime": "19:15",
+    "hares": "Captain Oates",
+    "location": "VAT and Fiddle",
+    "locationStreet": "Nottingham, NG2 1NB",
+    "description": "St Andrews Day. This may or may not be of any relevance to today's trail. Remember that torch.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-12-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 888,
+    "startTime": "11:30",
+    "hares": "Durex and Malteaser",
+    "location": "Canal Inn",
+    "locationStreet": "Bullbridge nr Ambergate, DE56 2EW",
+    "description": "Special event to mark Run 888. Note slightly later start time. Go to Events page for detailed info",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-12-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 889,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "The Bell Inn",
+    "locationStreet": "Cromford, DE4 3RF",
+    "description": "Jingle Balls run. Fine real Ale Pub and Dog Friendly",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2015-12-28",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 890,
+    "startTime": "19:15",
+    "hares": "Butcher's Dog",
+    "location": "The Boat Inn",
+    "locationStreet": "Lenton, Nottingham, NG7 2NX",
+    "description": "We always have Butcher's Dog put down at the end of the year. CAMRA pub, dogs permitted",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2015.xml"
+  },
+  {
+    "date": "2016-01-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 891,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Bluebell",
+    "locationStreet": "Attenborough, NG9 6DN",
+    "description": "Barritone again starting off the hashing year",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-01-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 892,
+    "startTime": "11:00",
+    "hares": "Captain Oates",
+    "location": "The Plough Inn",
+    "locationStreet": "Huddlesford, Lichfield, WS13 8PY",
+    "description": "Pushing back the western frontiers of our hashing area Captain Oates is setting a hash for us in Staffordshire. Dog friendly and real ale pub with free canal moorings for hashers arriving by boat. A Plough Inn from which Butt Plug is NOT barred",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-01-25",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 893,
+    "startTime": "19:15",
+    "hares": "Too Tuf and Chicki",
+    "location": "Wilford Green Pub",
+    "locationStreet": "Wilford, Nottingham, NG11 7AX",
+    "description": "Guaranteed dry run?",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-02-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 894,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "The Bricklayers Arms",
+    "locationStreet": "Thornton, LE67 1AH",
+    "description": "Live hare by Wallington",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-02-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 895,
+    "startTime": "11:00",
+    "hares": "Durex",
+    "location": "Red Lion",
+    "locationStreet": "Kegworth, DE74 2DA",
+    "description": "Durex Birthday Run",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-02-29",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 896,
+    "startTime": "19:15",
+    "hares": "Too Tuf and Chicki",
+    "location": "The Embankment",
+    "locationStreet": "282 Arkwright Street, Nottingham, NG2 2GR",
+    "description": "First ever QH3 Leap Day Trail. Castle Rock pub with large car park",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-03-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 897,
+    "startTime": "11:00",
+    "hares": "Durex Malteaser and Skids",
+    "location": "The Spanker Inn",
+    "locationStreet": "Nether Heage nr. Belper, DE56 2AT",
+    "description": "Joint Hash with Wirral and Chester HHH as part of their 1500th run weekend",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-03-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 898,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "The Willowbrook",
+    "locationStreet": "Gedling, Nottingham, NG4 3HQ",
+    "description": "A gem of a pub in the middle of Gedling. QH3 continues its tour of Castle Rock Brewery pubs",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-03-28",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 899,
+    "startTime": "11:00",
+    "hares": "B*gger and Goblin",
+    "location": "The Plough",
+    "locationStreet": "Ashby-de-la-Zouch, LE65 1JU",
+    "description": "Note that, as this is Easter Monday, THE TRAIL WILL START AT 11:00. Bring your friends if you've got any. B*gger birthday trail",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-04-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 900,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Chicki",
+    "location": "Horse and Jockey",
+    "locationStreet": "Stapleford, Nottingham, NG9 8AA",
+    "description": "AGM and Run 900! Also Too Tuf's 100th laying of the trail for QH3",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-04-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 901,
+    "startTime": "11:00",
+    "hares": "Butcher's Dog and Sausage",
+    "location": "Sun Inn",
+    "locationStreet": "Gotham, NG11 0HX",
+    "description": "Hashers and Gothamites have a lot in common",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-04-25",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 902,
+    "startTime": "19:15",
+    "hares": "Chicki and Too Tuf",
+    "location": "Stratford Haven",
+    "locationStreet": "West Bridgford, NG2 6BA",
+    "description": "Chicki's 600th Quorn trail",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-05-08",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 903,
+    "startTime": "11:00",
+    "hares": "B*gger and Goblin",
+    "location": "Moira Furnace",
+    "locationStreet": "Moira, DE12 6AT",
+    "description": "NOTE THIS HAS BEEN MOVED FROM THE 1st Sunday of the month",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-05-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 904,
+    "startTime": "11:00",
+    "hares": "B*gger and Goblin",
+    "location": "None",
+    "locationStreet": "Conkers Waterside, National Forest, DE12 6BA",
+    "description": "From the Conkers Waterside car park (off Bath Lane)",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-05-31",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 905,
+    "startTime": "19:15",
+    "hares": "Barritone",
+    "location": "Pottle of Blues",
+    "locationStreet": "Stoney St, Beeston, NG9 2LA",
+    "description": "***NOTE change of date to Tuesday evening as the pub is not open on Bank Holiday*** No parking available at the pub.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-06-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 906,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "Boat Inn",
+    "locationStreet": "Cromford, DE4 3QF",
+    "description": "Boat Inn has real ales, is dog friendly but has no car park. Market place has parking and is very near to the pub",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-06-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 907,
+    "startTime": "11:00",
+    "hares": "Chicki and Too Tuf",
+    "location": "The Plough",
+    "locationStreet": "Normanton on the wolds (nr Keyworth), NG12 5NN",
+    "description": "Father's Day trail. Fed up with all the rain. Our RA always guarantees dry weather for our hash trails.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-06-27",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 908,
+    "startTime": "19:15",
+    "hares": "Durex",
+    "location": "The Navigation Inn",
+    "locationStreet": "Breaston, DE72 3BP",
+    "description": "Well served by frequent Indigo bus service from Derby and Nottingham. The pub is 400m north from the A6005 along Risley Lane with good sized car park.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-07-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 909,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Chicki",
+    "location": "Wilford Green Pub",
+    "locationStreet": "Wilford, Nottingham, NG11 7AX",
+    "description": "Wedding anniversary run",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-07-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 910,
+    "startTime": "11:00",
+    "hares": "Jelly Knob",
+    "location": "Royal Oak",
+    "locationStreet": "Ockbrook, DE72 3SE",
+    "description": "Jelly Knob's first haring for QH3. Come and support the hash!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-07-25",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 911,
+    "startTime": "19:15",
+    "hares": "Puss in Boots, PreMature, Lily the Pink",
+    "location": "Sir John Borlase Warren",
+    "locationStreet": "Canning Circus, Nottingham, NG7 3GD",
+    "description": "More virgin hares for our last Monday of the month trail.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-08-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 912,
+    "startTime": "11:00",
+    "hares": "Shagulater and Miss TakeMeNow",
+    "location": "Wheatsheaf Inn",
+    "locationStreet": "Cropwell Bishop, NG12 3BP",
+    "description": "Chip butties promised by the hares",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-08-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 913,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Spanish Bar",
+    "locationStreet": "Ilkeston, DE7 5QJ",
+    "description": "With Barritone as hare excellent trail expected. Dog and bus friendly (Bus stop outside pub). The barrier on the car park opposite is open on Sundays and can be used. There is also a public car park on the same street (South Street DE7 5QT), and another public car park the other side of the roundabout next to General Havelock (DE7 5FT)",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-08-30",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 914,
+    "startTime": "19:15",
+    "hares": "Gobalot",
+    "location": "The John Thompson",
+    "locationStreet": "Ingleby, DE73 7HW",
+    "description": "NOTE this is Tuesday evening (rather than a Monday as this falls on a bank holiday). All hashers invited to this pub with its own brewery!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-09-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 915,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "The Old Ship Inn",
+    "locationStreet": "Main Street, Lowdham, NG14 7BE",
+    "description": "Real Ales, Dog friendly",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-09-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 916,
+    "startTime": "11:00",
+    "hares": "Puss in Boots and Lily the Pink",
+    "location": "The Wheatsheaf",
+    "locationStreet": "Bingham, NG13 8BG",
+    "description": "Back to east Nottingham again. The Wheatsheaf (or The Bingham) closed in June 2014 but apparently has just reopened. Will it match our previous experiences of hashing from this venue?",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-09-26",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 917,
+    "startTime": "19:15",
+    "hares": "Too Tuf and Chicki",
+    "location": "Embankment",
+    "locationStreet": "Trent Bridge, Nottingham, NG2 2GR",
+    "description": "It will be dark so bring a torch. The hares promise an interesting trail with some virgin territory",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-10-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 918,
+    "startTime": "11:00",
+    "hares": "Butcher's Dog",
+    "location": "Foundry Adventure Centre",
+    "locationStreet": "Great Hucklow, SK17 8RF",
+    "description": "QH3 away weekend in Great Hucklow. Non registrants welcome to join our 'normal' Sunday run",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-10-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 919,
+    "startTime": "12:00",
+    "hares": "Latecomer and Durex",
+    "location": "Duke of York",
+    "locationStreet": "23/25 Greenhill, Lichfield, WS13 6EB",
+    "description": "Our 'Cultural Attache' Too Tuf has finally done something useful and organised a joint run with the Bull Moon H3. A change from our normal routine. This is a SATURDAY trail starting at NOON in Lichfield. Easily reached by public transport, train and bus. If coming by car the pub does have a difficult to find car park around the back and there is a pay and display long stay car park nearby (just in case you may want to look/shop around Lichfield before the run). The unsigned car park is accessed via Greenhill Mews (go down to the end), a narrow roadway which you have to turn right into immediately after passing through the traffic lights (opposite 'Richer Sounds'). Note if coming to Lichfield down the A38 the junction with the A5127 is closed and diversions are in place.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-10-31",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 920,
+    "startTime": "19:15",
+    "hares": "Too Tuf and Chicki",
+    "location": "Meadow Covert",
+    "locationStreet": "Edwalton, NG12 4AT",
+    "description": "Halloween Hash - come suitably attired/scary looking! Broomstick parking available.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-11-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 921,
+    "startTime": "11:00",
+    "hares": "B*gger and Goblin",
+    "location": "Plough",
+    "locationStreet": "Ashby de la Zouch, LE65 1JU",
+    "description": "Limited road parking near pub otherwise park in nearby pulic car park",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-11-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 922,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "Risley Park Pub and Restaurant",
+    "locationStreet": "Risley, DE72 3SS",
+    "description": "None",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-11-28",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 923,
+    "startTime": "19:15",
+    "hares": "Malteaser and Durex",
+    "location": "Apple Tree",
+    "locationStreet": "Compton Acres, Nottingham, NG2 7PA",
+    "description": "Remember to bring a torch the works!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-12-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 924,
+    "startTime": "11:00",
+    "hares": "Pre-Mature and Slug",
+    "location": "Final Whistle",
+    "locationStreet": "Southwell, NG25 0ET",
+    "description": "A real ale pub with plenty of parking to the front and side and dogs are allowed into all the rooms. For those using public transport there is the 100 bus departing from Kings Street, Nottingham but only one an hour on a Sunday.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-12-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 925,
+    "startTime": "11:00",
+    "hares": "B*gg*r and Goblin",
+    "location": "The Tap at 76",
+    "locationStreet": "Ashby de la Zouch, LE65 1BQ",
+    "description": "Jingle balls run. Come festively decorated. This is a new Micropub in Ashby. MEET in SOUTH STREET CAR PARK (LE65 1BQ) At least 5 real ales + 6 specialist keg + cider (no lager) wood burning stove, dog friendly, CAMRA discount.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2016-12-27",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 926,
+    "startTime": "11:00",
+    "hares": "Butchers Dog and Sausage",
+    "location": "Manvers Arms",
+    "locationStreet": "Cotgrave, NG12 3HS",
+    "description": "Chance to run off some of the Christmas pud. Note the time (11:00 am) and date (Tues 27 Dec)for our end of the year run",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2016.xml"
+  },
+  {
+    "date": "2017-01-08",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 927,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Chequers Inn",
+    "locationStreet": "Stanton by Dale, DE7 4QF",
+    "description": "The best trail of 2017! Dog friendly pub. NOTE the date for this run (NOT the 1st Sunday of the month!)",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-01-22",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 928,
+    "startTime": "11:00",
+    "hares": "Lily t' Pink and Puss 'n Boots",
+    "location": "Frame Breakers",
+    "locationStreet": "Ruddington, NG11 6DT",
+    "description": "Traditional village pub (formerly the Bricklayers Arms)offering real ales, ciders, wines and spirits alongside fresh local produce, coffee and cakes. Now run by Nottingham Brewery. There is a car park at the rear and the pub is dog friendly.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-01-30",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 929,
+    "startTime": "19:15",
+    "hares": "Too Tuf and Chicki",
+    "location": "Cock and Hoop",
+    "locationStreet": "Lace Market, Nottingham, NG1 1HE",
+    "description": "A torch may be required",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-02-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 930,
+    "startTime": "11:00",
+    "hares": "Chicki and Too Tuf",
+    "location": "King Willian IV",
+    "locationStreet": "Eyre St, Nottingham, NG2 4PB",
+    "description": "Chicki's 30th hashing anniversary. A to B trail - involves being transported out to start so don't be late!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-02-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 931,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "Willowbrook",
+    "locationStreet": "Gedling, NG4 3HQ",
+    "description": "A Castle Rock Brewery pub.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-02-27",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 932,
+    "startTime": "19:15",
+    "hares": "Gary Glitter",
+    "location": "Fatcat Sherwood",
+    "locationStreet": "Sherwood, Nottingham, NG5 2EL",
+    "description": "482 Mansfield Rd. Good large pub with a big car park, on the main bus routes. Remember a torch",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-03-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 933,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Totally Tapped",
+    "locationStreet": "Beeston, NG9 1EH",
+    "description": "Recently opened micropub and bottle shop in Chilwell Road. The hare has persuaded the pub to open early so normal hash starting time",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-03-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 934,
+    "startTime": "11:00",
+    "hares": "B*gger",
+    "location": "Kings Arms",
+    "locationStreet": "Coleorton, LE67 8GD",
+    "description": "AGM. Park at back car park",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-03-27",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 935,
+    "startTime": "19:15",
+    "hares": "Wee Willy",
+    "location": "Horse and Jockey",
+    "locationStreet": "Stapleford, NG9 8AA",
+    "description": "Wee Willy's first hare for QH3. Sunset 19:30 so bring a torch. Frequent bus service from Nottingham and Derby. Drivers can park in Cliffe Hill Av. public car park behind the pub (free after 18:00).",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-04-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 936,
+    "startTime": "11:00",
+    "hares": "Pre-Mature and Lily the Pink",
+    "location": "Poppy and Pint",
+    "locationStreet": "West Bridgford, Nottingham, NG2 5DX",
+    "description": "A real ale pub with plenty of parking to the front and side and dogs are allowed. For those using public transport there is the 11C bus which departs from the Victoria Centre, Nottingham every half hour on a Sunday. There is one that departs at 10.30 and arrives at Gertrude Road (5 min walk to pub) at 10.51.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-04-23",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 937,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Chicki",
+    "location": "The Frame Breakers",
+    "locationStreet": "Ruddington, NG11 6DT",
+    "description": "**NOTE** Because of Easter our usual 3rd Sunday of the month trail has been moved to the 4th Sunday!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-05-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 938,
+    "startTime": "11:00",
+    "hares": "Durex",
+    "location": "Spanish Bar",
+    "locationStreet": "Ilkeston, DE7 5QJ",
+    "description": "May Day Bank Holiday Hash starting at 11:00 a.m. Walker and r*nner trail. Have a day out in Ilkeston - bring your family, dog and friends. Good bus service to/from Nottingham stopping very close to the pub. Those coming by car should park in South Street Car park (150 m down from pub) - no charges on Bank Holiday.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-05-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 939,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "York Chambers",
+    "locationStreet": "Long Eaton, NG10 1LT",
+    "description": "Long Eaton's first micro pub",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-05-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 940,
+    "startTime": "11:00",
+    "hares": "Pre-Mature",
+    "location": "The Admiral Rodney",
+    "locationStreet": "Calverton, Nottingham, NG14 6FB",
+    "description": "A new location for a hash trail north of Nottingham. Dogs welcome in this pub. Large car park.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-05-29",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 941,
+    "startTime": "11:00",
+    "hares": "Wee Willy",
+    "location": "Stratford Haven",
+    "locationStreet": "West Bridgford, Nottingham, NG2 6BA",
+    "description": "Spring Bank Holiday so note the starting time is 11:00 a.m. rather than the usual Monday evening trail.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-06-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 942,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "Robin Hood",
+    "locationStreet": "Lambley, NG4 4PP",
+    "description": "Running for fun in the Nottingham-Leicester-Derby triangle",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-06-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 943,
+    "startTime": "11:00",
+    "hares": "Lily the Pink and Puss in Boots",
+    "location": "Lord Nelson",
+    "locationStreet": "Burton Joyce, NG14 5DN",
+    "description": "Dogs welcome. Ample parking at back of the pub. There's a railway station in Burton Joyce and the 100 Pathfinder bus service.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-06-26",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 944,
+    "startTime": "19:15",
+    "hares": "Puss in Boots",
+    "location": "Canal House",
+    "locationStreet": "Nottingham, NG1 7EH",
+    "description": "Running for fun in the Nottingham-Leicester-Derby triangle",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-07-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 945,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "The Navigation Inn",
+    "locationStreet": "Breaston, DE72 3BP",
+    "description": "CAMRA members 10p a pint discount on all cask ales",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-07-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 946,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Dew Drop Inn",
+    "locationStreet": "Ilkeston, DE7 5TE",
+    "description": "Next to Ilkeston's new railway station - the train from Nottingham gets in at 10:26, so bring a sudoku, and make sure it is a hard one. Street parking near the pub. Mosquito repellent is recommended. The pub has 5 or 6 different real ales.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-07-31",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 947,
+    "startTime": "19:15",
+    "hares": "Wee Willy",
+    "location": "Pear Tree",
+    "locationStreet": "Keyworth, NG12 5GW",
+    "description": "Formerly called the Fairway, the Pear Tree is well served by public transport (Keyworth connection), has a car park and allows dogs.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-08-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 948,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Chicki",
+    "location": "Great Northern",
+    "locationStreet": "Langley Mill, NG16 4AA",
+    "description": "Trail on virgin paths and cunning checks. Includes wild flower meadows, sheep, more downhill than up, a little shiggy (not compulsory), a shorter walkers trail and a co-hare who knows the area like the back of her own neck.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-08-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 949,
+    "startTime": "11:00",
+    "hares": "Pre-Mature",
+    "location": "Waggon and Horses",
+    "locationStreet": "Bleasby, NG14 7GG",
+    "description": "Large car park and dog friendly",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-09-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 950,
+    "startTime": "11:00",
+    "hares": "Bugger",
+    "location": "Conkers",
+    "locationStreet": "Moira, DE12 6BA",
+    "description": "Waterside Car Park, Bath Yard, Moira",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-09-09",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 951,
+    "startTime": "12:00",
+    "hares": "Durex and Nose Job",
+    "location": "Sir Robert Peel",
+    "locationStreet": "Tamworth, B79 7BA",
+    "description": "Pigs and Peelers run. Joint hash with B'ham Bull Moon and Mickleover Hashes. Normal hash trail including a shorter route for walkers. From \"a real pub, for real people, who enjoy real beer!\" Dog friendly pub with beer garden. Ten minute walk from Tamworth railway station - frequent direct train services from Nottingham, Derby and B'ham. Many long stay public car parks close by all costing 2.20 pounds for upto 4 hrs. Aim for Spinning School Lane public car park (B79 7BB - opposite Police station). Adjacent to this is Gallan Parking area on 'development land' which is opposite and closest to the ON INN.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-09-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 952,
+    "startTime": "11:00",
+    "hares": "Lily the Pink and Puss in Boots",
+    "location": "The Pit Micropub",
+    "locationStreet": "Newstead, NG15 0BU",
+    "description": "New micropub in Newstead Village. Dog Friendly. Parking in the village. Trains run from Nottingham and Mansfield. Trent Barton bus No. 3a from Nottingham.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-09-25",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 953,
+    "startTime": "19:15",
+    "hares": "Butcher's Dog",
+    "location": "Jolly Anglers",
+    "locationStreet": "Beeston Rylands, NG9 1JS",
+    "description": "Remember to bring a torch - the nights are drawing in!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-10-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 954,
+    "startTime": "11:00",
+    "hares": "Durex and Puss in Boots",
+    "location": "Hollowford Centre Bunkhouse",
+    "locationStreet": "Castleton, S33 8WB",
+    "description": "CASTLETON BUNKHOUSE WEEKEND. Non registered hashers welcome to attend the Sunday run starting from the bunkhouse",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-10-22",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 955,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "The Robin Hood",
+    "locationStreet": "Lambley, NG4 4PP",
+    "description": "Mr Plug will be setting the trail BUT note we're running on the 4th Sunday of the Month.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-10-30",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 956,
+    "startTime": "19:15",
+    "hares": "Too Tuf and Chicki",
+    "location": "Fox and Grapes",
+    "locationStreet": "Nottingham, NG1 1DL",
+    "description": "A recently reopened pub, and one never before hashed from",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-11-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 957,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Coach and Horses",
+    "locationStreet": "Draycott, DE72 3PS",
+    "description": "Guy Fawkes Hash",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-11-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 958,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "Robin Hood",
+    "locationStreet": "Overseal, DE12 6LQ",
+    "description": "Dog friendly pub car park at rear",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-11-27",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 959,
+    "startTime": "19:15",
+    "hares": "Butcher's Dog",
+    "location": "Stratford Haven",
+    "locationStreet": "W Bridgford, Nottingham, NG2 6BA",
+    "description": "Nice drop of Castle Rock ales, and lets Dogs in. Bring your torches, you'll need them!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-12-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 960,
+    "startTime": "11:00",
+    "hares": "Ballcrusher",
+    "location": "Old Crown Inn",
+    "locationStreet": "Shardlow, DE72 2HL",
+    "description": "A central point in our hashing area at the Nottinghamshire-Derbyshire-Leicestershire border",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2017-12-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 961,
+    "startTime": "11:00",
+    "hares": "Lily the Pink",
+    "location": "The Chestnut",
+    "locationStreet": "Radcliffe-on-Trent, NG12 2BE",
+    "description": "JINGLE BALLS RUN. Don't forget your Christmas jumpers and santa hats. The Chestnut is a dog friendly, real ale pub with a small car park",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2017.xml"
+  },
+  {
+    "date": "2018-01-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 962,
+    "startTime": "11:00",
+    "hares": "Durex",
+    "location": "Nelson and Railway",
+    "locationStreet": "Kimberley, NG16 2NR",
+    "description": "Malteaser's 500th run. Large car park at rear of the pub accessible and signed from Nine Corners Rd.. Dogs permitted in the bar. On Sundays there is a half-hourly Trent Barton bus service from Nottingham Victoria bus station (Rainbow One alighting at Kimberley, Nine Corners). There will also be a shorter (3-mile) walkers' trail marked.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-01-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 963,
+    "startTime": "11:00",
+    "hares": "Shagulater and Miss Take Me Now",
+    "location": "Crown Inn",
+    "locationStreet": "Old Dalby, LE14 3LF",
+    "description": "Dog friendly. This is going to be a really muddy trail - remember to bring a change of shoes and clothes! Probably a live haring.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-01-29",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 964,
+    "startTime": "19:15",
+    "hares": "Malteaser and Durex",
+    "location": "The Willow Tree",
+    "locationStreet": "West Bridgford, NG2 6LS",
+    "description": "Don't forget to bring a torch - muddy in parts. Dogs allowed in bar area",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-02-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 965,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Chicki",
+    "location": "The Boat",
+    "locationStreet": "Lenton, Nottingham, NG7 2NX",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-02-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 966,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Bull's Well",
+    "locationStreet": "Bulwell, NG6 8QH",
+    "description": "Micropub",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-02-26",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 967,
+    "startTime": "19:15",
+    "hares": "Durex",
+    "location": "Horse and Jockey",
+    "locationStreet": "Stapleford, NG9 8AA",
+    "description": "Park and start at the Cliffe Hill Av public car park (NG9 7HD) behind the pub. Free after 4 pm. Frequent Trent Barton i4 buses from Nottingham and Derby. Excellent choice of real ales. Dog-friendly. ***Don't forget your torch!!!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-03-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 968,
+    "startTime": "11:00",
+    "hares": "Lily the Pink",
+    "location": "The Boot and Shoe Inn",
+    "locationStreet": "Flintham, NG23 5LA",
+    "description": "Dog friendly. Real ales. No Muggers. Some sat-navs get a little confused with the A46 relation to Flintham, so do look at the road signs once you get near, if travelling via the A46.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-03-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 969,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "Rose and Crown",
+    "locationStreet": "Cotgrave, NG12 3HQ",
+    "description": "QH3 AGM after the trail to elect new mismanagement committee",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-03-26",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 970,
+    "startTime": "19:15",
+    "hares": "Too Tuf and Chicki",
+    "location": "Crafty Crow",
+    "locationStreet": "Nottingham, NG1 6EB",
+    "description": "Chicki's 100th haring for the Quorn Hash",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-04-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 971,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Chequered Flag",
+    "locationStreet": "Castle Donington, DE74 2LA",
+    "description": "April Fools and Easter Day Hash from micropub (32 Borough Street). Catch the Skylink bus from Derby or Nottingham to Castle Donington",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-04-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 972,
+    "startTime": "11:00",
+    "hares": "Sweat Pea and IP",
+    "location": "Crown Inn",
+    "locationStreet": "Old Dalby, LE14 3LF",
+    "description": "Dog and Muddy Boot friendly",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-04-30",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 973,
+    "startTime": "19:15",
+    "hares": "Lincolnshire Sausage",
+    "location": "Meadow Covert",
+    "locationStreet": "Edwalton, NG12 4AT",
+    "description": "Running for fun in the Nottingham-Leicester-Derby triangle",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-05-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 974,
+    "startTime": "11:00",
+    "hares": "Pre-Mature",
+    "location": "The Royal Oak",
+    "locationStreet": "East Bridgford, NG13 8PA",
+    "description": "Running for fun in the Nottingham-Leicester-Derby triangle",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-05-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 975,
+    "startTime": "11:00",
+    "hares": "**Durex**",
+    "location": "The White Lion",
+    "locationStreet": "74 Swingate, Kimberley, NG16 2PQ",
+    "description": "New On Inn for the QH3. Welcomes dogs and excellent selection of real ales. Catch Rainbow One bus to Kimberley Library stop then a 10 min walk to The White Lion in Swingate.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-05-28",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 976,
+    "startTime": "15:00",
+    "hares": "Barritone",
+    "location": "Dew Drop Inn",
+    "locationStreet": "Ilkestone, DE7 5TE",
+    "description": "***Note start time for this Bank Holiday Monday hash is 3:00 pm***",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-06-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 977,
+    "startTime": "11:00",
+    "hares": "Shagulater and MissTakemenow",
+    "location": "Blidworth Bottoms car park",
+    "locationStreet": "Longdale Lane, Ravenshead, NG14 6PX",
+    "description": "Sherwood Forest picnic hash (i.e. not from a pub - bring your own food and drinks). Hare is bringing party BBQ. It is a big car park with lots of picnic tables. There are 2 car parks for Blidworth Woods. It is the one on Longdale Lane which runs from the Newstead Abbey entrance in Ravenshead down to the roundabout on the A614",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-06-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 978,
+    "startTime": "11:00",
+    "hares": "Too Tuf and Chicki",
+    "location": "W Bridgford Cricket Club",
+    "locationStreet": "Stamford Rd, W Bridgford, NG2 6LS",
+    "description": "Location is 100 m from the Willow Tree Pub. Another attempt by Too Tuf to organise a hash trail from a Beer Festival. [Note Wallington Markfield Hash moved to Sunday 1st July]",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-06-25",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 979,
+    "startTime": "19:15",
+    "hares": "Durex",
+    "location": "Sun Inn",
+    "locationStreet": "Gotham, NG11 0HX",
+    "description": "Plenty of hours of daylight for a Monday evening trail in the Gotham area. Come and watch the sun setting after 10 p.m. Excellent choice of real ales and nice beer garden",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-07-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 980,
+    "startTime": "11:00",
+    "hares": "Wallington and Holly",
+    "location": "The Queens Head",
+    "locationStreet": "Markfield, LE67 9UB",
+    "description": "Wallington returns to haring. This should remind you of the 321 Dusty Bin Run. Dog friendly with beer garden.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-07-22",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 981,
+    "startTime": "11:00",
+    "hares": "Butt Plug",
+    "location": "The Old Volunteer",
+    "locationStreet": "Caythorpe (nr Lowdham), NG14 7EB",
+    "description": "Note the change to the fourth Sunday of the month to fit with hare availability. Quiet pub, real ales and dog friendly.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-07-30",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 982,
+    "startTime": "19:15",
+    "hares": "Lily the Pink and Premature",
+    "location": "Manvers Arms",
+    "locationStreet": "Radcliffe on Trent, NG12 2AA",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-08-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 983,
+    "startTime": "11:00",
+    "hares": "Shagulater and MissTakeMeNow",
+    "location": "The Crown",
+    "locationStreet": "Old Dalby, LE14 3LF",
+    "description": "Dog and muddy boot friendly. Re-run of aborted snowed-on trail of January",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-08-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 984,
+    "startTime": "11:00",
+    "hares": "B*gger and Goblin",
+    "location": "Hare and Hounds",
+    "locationStreet": "City of Three Waters, Whitwick, LE67 5AH",
+    "description": "Pub is dog friendly, 3 beers and most of the trail is a) in woods, b) new.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-09-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 985,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "White Lion",
+    "locationStreet": "Sawley, NG10 3AT",
+    "description": "Dog friendly pub with excellent slection of ales. Skylink bus stops outside the pub. There will be a pub stop on the trail so bring some money on the run",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-09-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 986,
+    "startTime": "11:00",
+    "hares": "Durex",
+    "location": "The Gate Inn",
+    "locationStreet": "Awsworth near Kimberley, NG16 2RN",
+    "description": "Dog friendly pub with excellent range of ales",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-10-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 987,
+    "startTime": "11:00",
+    "hares": "Lincolnshire Sausage and Butchers Dog",
+    "location": "Hollowford Centre, Castleton",
+    "locationStreet": "Castleton, Hollowford Rd, S33 8WB",
+    "description": "Castleton Bunkhouse Weekend. Those not registered for the weekend are welcome to attend this trail.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-10-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 988,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "Salutation Inn",
+    "locationStreet": "Keyworth, NG12 5AD",
+    "description": "Large car park, dog-friendly and serves a good range of cask ales. Keyworth is well served by the Keyworth Connection bus from Nottingham",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-10-29",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 989,
+    "startTime": "19:15",
+    "hares": "Butchers Dog",
+    "location": "The Boat Inn",
+    "locationStreet": "Lenton, Nottingham, NG7 2NX",
+    "description": "Remember to bring a torch! Dogs definately welcome",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-11-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 990,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Tap and Growler",
+    "locationStreet": "Eastwood, NG16 3GS",
+    "description": "Dog and bus friendly - Trent Barton 1 stops opposite. Great range of ales",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-12-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 991,
+    "startTime": "11:00",
+    "hares": "Lily the Pink",
+    "location": "Nags Head",
+    "locationStreet": "Harby, LE14 4BN",
+    "description": "Dog friendly country pub serving real ales",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2018-12-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 992,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "Hare and Hounds",
+    "locationStreet": "City of Three Waters, Whitwick, LE67 5AH",
+    "description": "JINGLE BALLS RUN. Pub is dog friendly",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2018.xml"
+  },
+  {
+    "date": "2019-01-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 993,
+    "startTime": "11:00",
+    "hares": "Shagulater and MissTakeMeNow",
+    "location": "White Lion",
+    "locationStreet": "Bramcote, NG9 3HH",
+    "description": "Start the New Year with your new exercise regime. Come Hashing",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-01-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 994,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "Red Lion",
+    "locationStreet": "Kegworth, DE74 2DA",
+    "description": "Dog-friendly. Good selection of Ales. Hash Committee meeting after trail to discuss run 1000 and beyond",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-02-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 995,
+    "startTime": "11:00",
+    "hares": "Butcher's Dog and Sausage",
+    "location": "The Crusader",
+    "locationStreet": "Hartness Road, clifton, Nottingham, NG11 8SG",
+    "description": "A large pub on the Southern approach into Nottingham",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-02-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 996,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Angels",
+    "locationStreet": "29 Market Place, Belper, DE56 1FZ",
+    "description": "On Sunday Lunch they had seven ales on, and all the beer I had was absolutely spot on. They also serve half price pork pies on Sundays. Dog friendly. Belper is easily reached by bus or train. If arriving by car, use the public car park behind the pub, not the slabs of Market Place. Don't confuse with a nearby shop, also called \"Angels\"",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-03-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 997,
+    "startTime": "11:00",
+    "hares": "Ballcrusher",
+    "location": "The Malt (formerly Malt Shovel)",
+    "locationStreet": "14 The Green, Aston on Trent, DE72 2AA",
+    "description": "Lovely refurbished pub in picturesque village near Shardlow",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-03-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 998,
+    "startTime": "11:00",
+    "hares": "Dervla Ireland and Schmuck",
+    "location": "The Malt Shovel",
+    "locationStreet": "1 Union Street, Beeston, NG9 2LU",
+    "description": "St Patrick's Day Hash",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-04-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 999,
+    "startTime": "19:00",
+    "hares": "Durex and Malteaser",
+    "location": "The Moonface Brewery and tap",
+    "locationStreet": "13 Moira Street, Loughborough, LE11 1AU",
+    "description": "Please state the nature of your Emergency Run. Pub crawl around Loughborough - part of the 1000th run weekend celebrations",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-04-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1000,
+    "startTime": "11:00",
+    "hares": "Shagulater and Miss T",
+    "location": "Great Central Railway Station, Great Central Road",
+    "locationStreet": "Loughborough, LE11 1RW",
+    "description": "Part of the 1000th run weekend celebrations. Typical QH3 trail open to everyone",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-04-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1001,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "Measham Library Car Park",
+    "locationStreet": "High Street, Measham, DE12 7HW",
+    "description": "Easter Egg Run and treasure hunt",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-05-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1002,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "The Queens Head",
+    "locationStreet": "3 Ashby Road, Markfield, LE67 9UB",
+    "description": "Traditional pub with a lovely garden and superb hashing country on your doorstep",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-05-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1003,
+    "startTime": "11:00",
+    "hares": "Sweet Pea and IP",
+    "location": "The Three Crowns",
+    "locationStreet": "45 Far Street, Wymeswold, Leics, LE12 6TZ",
+    "description": "A lovely refurbished pub, in the Good Beer Guide and dog friendly",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-06-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1004,
+    "startTime": "11:00",
+    "hares": "Ballcrusher",
+    "location": "The Mill Wheel",
+    "locationStreet": "31 Ticknall Road, Hartshorne, DE11 7AS",
+    "description": "Free House with Sunday roasts and superb hashing country",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-06-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1005,
+    "startTime": "11:00",
+    "hares": "Malteaser",
+    "location": "Rushcliffe Country Park",
+    "locationStreet": "The Asher Lane entrance, not the main Mere Way entrance, NG11 6JB",
+    "description": "QH3 Summer Picnic!! Teddy Bear's Picnic. Bring some food and beer. Note we are meeting at the Asher Lane entrance, approached via Ruddington itself, NOT the main Mere Way entrance",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-06-24",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1006,
+    "startTime": "19:15",
+    "hares": "Durex",
+    "location": "White Lion",
+    "locationStreet": "Swingate, Kimberley, NG16 2PQ",
+    "description": "MIDSUMMER MADNESS TRAIL. Excellent selection of real ales",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-07-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1007,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Millipede",
+    "locationStreet": "8 Alexandra Street, Stapleford, NG9 7ED",
+    "description": "Barritone's 30th Onniversary of hashing!! Micropub with a great selection of ale",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-07-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1008,
+    "startTime": "11:00",
+    "hares": "Touch n Go",
+    "location": "The Snibstone New Inn",
+    "locationStreet": "Coalville, LE67 3PE",
+    "description": "Touch n Go's first haring for QH3",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-08-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1009,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "Bulls Head",
+    "locationStreet": "Ratby, LE6 0LN",
+    "description": "Replacement hare - pub dog friendly and does good food",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-08-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1010,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "The Halfway House",
+    "locationStreet": "65 Church Street, Donisthorpe, DE12 7PX",
+    "description": "Community village pub with three guest ales and home cooked food. If coming by car please park in the public car park on the other end of the church",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-09-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1011,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Spanish Bar",
+    "locationStreet": "74-76 South Street, Ilkeston, DE7 5QJ",
+    "description": "Good selection of beers, and the wonderful floral beer garden is a real sun trap!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-09-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1012,
+    "startTime": "11:00",
+    "hares": "Durex",
+    "location": "The Cuckoo Bush",
+    "locationStreet": "Leake Road, Gotham, NG11 0JL",
+    "description": "Traditional pub with lovely beer garden and footpaths leading straight from the pub",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-10-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1013,
+    "startTime": "11:00",
+    "hares": "Malteaser and Durex",
+    "location": "The Railway",
+    "locationStreet": "25 King Street, Belper, DE56 1PW",
+    "description": "MEET IN THE FIELD LANE LONG STAY CAR PARK at the rear of the Railway (very close to the railway station). Pay and Display - 4 hrs costs £1.30. This is our \"Not the Castleton Bunkhouse\" trail set in the historic mill town of Belper. The Railway is a Lincoln Green Brewing Co. pub serving an excellent range of real ales. Convenient for rail and bus travel from Derby.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-10-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1014,
+    "startTime": "11:00",
+    "hares": "Borderline",
+    "location": "The Sherwin Arms",
+    "locationStreet": "Derby Road, Bramcote (on big A52 roundabout), NG9 3JN",
+    "description": "Flaming Grill pub with familiar menu of grills and comfort food. Close to Bramcote Park and the famous Hemlock Stone",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-11-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1015,
+    "startTime": "11:00",
+    "hares": "Hood",
+    "location": "The Griffin",
+    "locationStreet": "Main Road, Plumtree, NG12 5NB",
+    "description": "Newly refurbished traditional village pub with good food",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-11-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1016,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "The Monkey Walk",
+    "locationStreet": "1 Marlborough Square, Coalville, LE67 3WD",
+    "description": "Wetherspoons in the centre of Coalville. Convenient for pulic transport (300 metres from the bus stop). No pub car park, but plenty of nearby on street parking and car parks",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-12-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1017,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Town Street Tap",
+    "locationStreet": "17, Town Street, Duffield, Derby, DE56 4EH",
+    "description": "Wonderful micropub with waiter service! 6 ales on gravity, order and it is brought to your table.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2019-12-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1018,
+    "startTime": "11:00",
+    "hares": "Butchers Dog and Sausage",
+    "location": "The Frame Breakers",
+    "locationStreet": "High Street, Ruddington, NG11 6DT",
+    "description": "JINGLE BALLS RUN. Wear something christmassy!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2019.xml"
+  },
+  {
+    "date": "2020-01-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1019,
+    "startTime": "11:00",
+    "hares": "Ballcrusher",
+    "location": "The Hollybush",
+    "locationStreet": "1 Melbourne Lane, Breedon on the Hill, DE73 8AT",
+    "description": "Excellent traditional real ale pub. The hare recommends wellies, as the rain has resulted in plenty of shiggy",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2020.xml"
+  },
+  {
+    "date": "2020-01-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1020,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "Stamford Arms",
+    "locationStreet": "2 Leicester Road, Groby, LE6 0DJ",
+    "description": "Village pub, real ales, home cooked food",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2020.xml"
+  },
+  {
+    "date": "2020-02-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1021,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "The Cap and Stocking",
+    "locationStreet": "Kegworth, DE74 2FF",
+    "description": "Hash will be followed by Annual Awards in function room",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2020.xml"
+  },
+  {
+    "date": "2020-03-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1023,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Dog House",
+    "locationStreet": "Main Street, Kimberley, NG16 2NG",
+    "description": "*** NOTE CHANGE OF VENUE *** Dog friendly pub opposite Sainsburys",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2020.xml"
+  },
+  {
+    "date": "2020-03-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1024,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "the Horse and Jockey",
+    "locationStreet": "Nottingham Road, Stapleford, NG9 8AA",
+    "description": "Dog friendly pub serving excellent range of ales. Meet in public car park behind the pub - Cliffe Hill Avenue Car Park (Free on Sundays)",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2020.xml"
+  },
+  {
+    "date": "2020-08-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1022,
+    "startTime": "10:30",
+    "hares": "Durex and Malteaser",
+    "location": "Mapperley Reservoir Car Park",
+    "locationStreet": "Shipley Country Park, DE7 6BR",
+    "description": "Socially distanced hashing with picnic afterwards",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2020.xml"
+  },
+  {
+    "date": "2020-09-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1025,
+    "startTime": "11:00",
+    "hares": "Lincolnshire Sausage and Butcher's Dog",
+    "location": "Burntstump Country Park",
+    "locationStreet": "Arnold, NG5 8PQ",
+    "description": "Socially distanced hashing with picnic afterwards",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2020.xml"
+  },
+  {
+    "date": "2021-05-23",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1026,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Bramcote Leisure Centre/Swimming Baths Car Park",
+    "locationStreet": "Bramcote, Nottingham, NG9 3GF",
+    "description": "QH3 Restart. Bramcote Liesure Centre/Swimming Baths Lower Car Park - travelling into Nottingham on A52, take first turning left after Bramcote Island. Lower car park is the one furtherest from the Swimming pool. Socially distanced picnic in the park after the trail. Bring your own food, drink and chair.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-06-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1027,
+    "startTime": "11:00",
+    "hares": "B*gger and Goblin",
+    "location": "West Park",
+    "locationStreet": "Long Eaton, NG10 4AA",
+    "description": "A FLAT trail starting from West Park. Park in main car park and bring a chair and whatever nosh/drinkies you wish to consume after the r*n",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-06-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1028,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "Bagworth Heath Country Park Car Park",
+    "locationStreet": "Bagworth, LE67 1DL",
+    "description": "Teddy Bears' Picnic. Bring a teddy bear, chair and whatever nosh/drinkies you wish to consume after the r*n",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-07-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1029,
+    "startTime": "11:00",
+    "hares": "IP and Sweet Pea",
+    "location": "Colwick, NG2 4BH",
+    "description": "Take post code for Colwick Hall on Racecourse Road, drive past the Hall (don't go in) to the end of the road where there is a car park (height barrier 2 metres). Park at the far end of the car park if possible. Bring a chair and whatever nosh/drinkies you wish to consume after the trail.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-07-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1030,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "Rushcliffe Country Park",
+    "locationStreet": "Ruddington, NG11 6JX",
+    "description": "Park on Ashers Lane near the railway level crossing (opposite Leys Farm). On-OUT will be from the park entrance next to the level crossing. [Ignore advisory signs that are trying to encourage Country Park users to park in the car park the other side of the park]. There will be normal hash trail with a shorter trail for walkers. A gazebo will be erected for the On-INN inside the park not far from the ON-OUT. Hash will provide sandwiches, water and soft drinks. Unfortunately, BBQs not allowed this year. Bring your own beer/wine, chair and any food to supplement the picnic. Note that the £1.50 hash subs will be taken again following a return to some normality",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-08-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1031,
+    "startTime": "11:00",
+    "hares": "Dragon and Malteaser",
+    "location": "Outwoods Car Park",
+    "locationStreet": "Outwoods, Woodhouse Lane, Loughborough, LE11 3YG",
+    "description": "Park in car park. Costs £1 all day. Bring a chair and whatever nosh/drinkies you wish to consume after the trail.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-08-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1032,
+    "startTime": "11:00",
+    "hares": "B*gger and Goblin",
+    "location": "Spittal Park",
+    "locationStreet": "The Spittal, Castle Donington, DE74 2XH",
+    "description": "In order to access the car park, approach via Back Lane (new Castle Donington bypass). From the A50 turn right at the 2nd roundabout (Broad Rushes) to get onto the bypass and Spittall Park is left at the 3rd roundabout (if you pass Klober you've missed it)! Bring a chair and whatever nosh/drinkies you wish to consume after the trail.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-09-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1033,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "South Car Park",
+    "locationStreet": "Swithland Woods, Roecliffe Road, LE12 8TN",
+    "description": "Park in Car Park. NOTE PARKING IS TWO POUNDS. Come early as car park is small and fills up later in the morning. Bring a chair and whatever nosh/drinkies you wish to consume/share after the trail.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-09-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1034,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Chequers Inn",
+    "locationStreet": "Stanton By Dale, DE7 4QF",
+    "description": "Back to meeting at a pub. There is a large outdoor marquee. Last Sunday there were just three people there, so there will be plenty of room. You may think the paths are familiar, but some have a novel twist.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-10-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1035,
+    "startTime": "11:00",
+    "hares": "Butcher's Dog and Sausage",
+    "location": "Willow Tree",
+    "locationStreet": "West Bridgford, NG2 6LS",
+    "description": "Dog friendly venue. Hash trail with shortcuts available",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-10-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1036,
+    "startTime": "11:00",
+    "hares": "Ballcrusher and Bugger",
+    "location": "Chequers",
+    "locationStreet": "Ticknall, DE73 7JH",
+    "description": "Pub has car park but landlord has asked us to park on the road",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-11-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1037,
+    "startTime": "11:00",
+    "hares": "Duck 'n' Dive and Malteaser",
+    "location": "Ferry Inn",
+    "locationStreet": "Wilford, Nottingham, NG11 7AA",
+    "description": "Join our Facebook Group to see the latest events news",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-11-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1038,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Royal Oak",
+    "locationStreet": "Ockbrook, DE72 3SE",
+    "description": "The perfect village pub, has been run by the same family for over 50 years. Beautiful Derbyshire countryside with some historic interest. Pub has several rooms - we will probably have our own room",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-12-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1039,
+    "startTime": "11:00",
+    "hares": "Durex",
+    "location": "Horse and Jockey",
+    "locationStreet": "Stapleford, NG9 8AA",
+    "description": "Park and meet in Cliffe Hill Avenue Long Stay Car Park behind the pub (free parking Sundays). Pub does an excellent range of real ales and is dog friendly. Usual excellent hash trail with shortcuts for walkers",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2021-12-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1040,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "Boat Inn",
+    "locationStreet": "Loughborough, LE11 1JY",
+    "description": "Christmas Cracker of a run. Come dressed for Christmas (Santa, Rudolf, Xmas tree etc.). Stop for carol singing at the bandstand. Pub stop at the Windmill and on to the On Inn for some nosh and punch",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2021.xml"
+  },
+  {
+    "date": "2022-01-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1041,
+    "startTime": "11:00",
+    "hares": "Dragon and Malteaser",
+    "location": "Nag's Head",
+    "locationStreet": "East Leake, LE12 6PG",
+    "description": "New Year- 9th Day of Christmas - Ladies Dancing Trail?",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-01-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1042,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Victoria Hotel",
+    "locationStreet": "Beeston, Nottingham, NG9 1JG",
+    "description": "A trail from a classic pub that we have not used for some time. We are welcome to use the Red Room (with its own fire and ensuite toilet), and we will probably have it to ourselves. A choice of at least 10 real ales always in superb condition. The pub is next to Beeston Railway station (backs onto platform 1), and the Skylink passes close by. The pub also has a car park and cycle racks",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-02-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1043,
+    "startTime": "11:00",
+    "hares": "Golden Hole and Long Dong Silver",
+    "location": "VAT and Fiddle",
+    "locationStreet": "Nottingham, NG2 1NB",
+    "description": "1930s brewery tap serving Castle Rock beers and pub grub, plus a visitors' centre for the brewhouse.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-02-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1044,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Bird Hide",
+    "locationStreet": "Attenborough, NG9 6AA",
+    "description": "Lovely micropub, excellent beers and ciders not found elsewhere, plus mead served in wooden goblets!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-03-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1045,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "Gate Inn",
+    "locationStreet": "Awsworth (near IKEA), NG16 2RN",
+    "description": "Excellent Real Ale pub with some dog-friendly rooms",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-03-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1046,
+    "startTime": "11:00",
+    "hares": "Borderline",
+    "location": "Broad Oak",
+    "locationStreet": "Strelley, NG8 6PD",
+    "description": "Spring Equinox Trail. A lovely traditional pub in Strelley village. Turn into Strelley village from the A6002, the pub is on the right. Plenty of parking. Wear green as it's the first Sunday after St. Patrick's Day!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-04-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1047,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "White Lion",
+    "locationStreet": "Sawley, NG10 3AT",
+    "description": "Runners' and walkers' trails. Mismanagement Committee Erection - a new committee at last. Also the Pandemic Years (2020 and 2021) QH3 Hash Awards. Chip butties too. Dog friendly community pub. Traditional real ale Freehouse with microbrewery on site",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-04-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1048,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "White Lion",
+    "locationStreet": "Bramcote, NG9 3HH",
+    "description": "Easter Sunday Hash with Easter egg hunt. Trail for walkers and r*nners",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-05-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1049,
+    "startTime": "11:00",
+    "hares": "Lockerman and Long Dong Silver",
+    "location": "Bestwood Lodge Car Park",
+    "locationStreet": "Bestwood Country Park, NG5 8NE",
+    "description": "May Day Hash. Perfect weather is expected, and the trail will be all downhill. Runners and walkers welcome. On Inn is a car park (not a pub), so BYO (and a chair). Hare Lockerman may provide you with delicious beer for a small consideration",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-05-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1050,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Carpenters Arms",
+    "locationStreet": "Dale Abbey, DE7 4PP",
+    "description": "A hash from a village that really did not grasp the puritan revolution in the 1600s, being keen on following the Sunday service by indulging in such recreations as dancing, archery, morris dances, may-poles and other such amusements. Other amusements now include the Hash.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-06-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1051,
+    "startTime": "11:00",
+    "hares": "George and DragOn",
+    "location": "The Crown",
+    "locationStreet": "Anesty, LE7 7FB",
+    "description": "Queens Jubilee Hash from The Crown in Anstey - the theme is the union flag. Anything red white and blue will do",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-06-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1052,
+    "startTime": "11:00",
+    "hares": "Diarrhoea and Smutley",
+    "location": "Poppy and Pint",
+    "locationStreet": "West Bridgford, Nottingham, NG2 5DY",
+    "description": "Joint hash with Rutland H3 who are having an away weekend camping at Holme Pierrepont",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-07-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1053,
+    "startTime": "11:00",
+    "hares": "Borderline",
+    "location": "Broad Oak",
+    "locationStreet": "Strelley, Nottingham, NG8 6PD",
+    "description": "We return to Strelley Village where Borderline will have another attempt to set a good trail. Pub with pleasant outdoor drinking area and good food",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-07-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1054,
+    "startTime": "11:00",
+    "hares": "B*gger and Goblin",
+    "location": "West Park",
+    "locationStreet": "Long Eaton, NG10 4AA",
+    "description": "Picnic in the Park after the run (Bears optional). Walkers trail of approx. 2.5 miles also available. Please bring some food, drink and a chair. Same as for trail #1027 (6th June 2021), we will meet over towards the West Park Leisure Centre side of the car park off Wilsthorpe Rd",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-08-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1055,
+    "startTime": "11:00",
+    "hares": "Durex",
+    "location": "The Sun Inn",
+    "locationStreet": "Gotham, NG11 0HX",
+    "description": "A trail from the village of the original mad Gothamites. The Sun Inn has a good outdoor beer garden",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-08-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1056,
+    "startTime": "11:00",
+    "hares": "George and DragOn",
+    "location": "Free Trade Inn",
+    "locationStreet": "Sileby, LE12 7RW",
+    "description": "Back to our roots for this trail. The First Quorn Hash Trail started from the Free Trade Inn on 29th March 1987",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-09-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1057,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "The Old Thatched Inn",
+    "locationStreet": "Stanton Under Bardon near Markfield, LE67 9TQ",
+    "description": "On Inn is a traditional village pub with some serious pedigree! We always have a warm welcome, with a snug, lounge, restaurant and beer garden to suit all needs.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-09-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1058,
+    "startTime": "11:00",
+    "hares": "Ballcrusher and Bugger",
+    "location": "The Plough Inn",
+    "locationStreet": "Diseworth, DE74 2QJ",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-10-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1059,
+    "startTime": "11:00",
+    "hares": "Long Dong Silver and Golden Hole",
+    "location": "Trent Navigation Inn",
+    "locationStreet": "Nottingham, NG2 3HS",
+    "description": "The newly refurbished Trent Navigation (Meadow Lane, Nottingham) with beers brewed on-site. Sunday lunch is available. Limited car parking at the pub. Park round the corner on Iremonger Road - it is free on Sundays",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-10-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1060,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "Seven Oaks Inn",
+    "locationStreet": "Stanton by Dale, DE7 4QU",
+    "description": "Dog friendly. Large car park. Does a good Sunday carvery. Walker and runner trails",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-11-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1061,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Johnson Arms",
+    "locationStreet": "Lenton, Nottingham, NG7 2NZ",
+    "description": "There is some parking on adjacent streets with no charge on Sundays. Other streets require resident permits. The nearest public carpark is on Lean Gate and costs about £3 for the day. The pub is a short distance from the Gregory Street Tram Stop. The stop is on the Toton line with the park and ride site at Toton Lane Tram Stop (Bardills Roundabout A52)",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-11-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1062,
+    "startTime": "11:00",
+    "hares": "Smutley and Wriggle",
+    "location": "Ragley Boat Stop",
+    "locationStreet": "Deepdale Lane, Derby, DE73 7FY",
+    "description": "Dog friendly pub",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-12-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1063,
+    "startTime": "11:00",
+    "hares": "B*gger and Goblin",
+    "location": "White Lion",
+    "locationStreet": "Sawley, NG10 3AT",
+    "description": "A glorious hash of a perfect length of 5 miles and walking route of less than 3 miles all in Derbyshire",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2022-12-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1064,
+    "startTime": "11:00",
+    "hares": "Malteaser, Shagulater and MissTMN",
+    "location": "Commercial Inn",
+    "locationStreet": "Wollaton Rd, Beeston, NG9 2NG",
+    "description": "Jingle Balls Run. Come suitably dressed. Small car park - if possible park on side street (Nuart Rd) - parking restriction Mon-Sat. Walker and r*nner trails",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2022.xml"
+  },
+  {
+    "date": "2023-01-08",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1065,
+    "startTime": "11:00",
+    "hares": "Long Dong Silver and Golden Hole",
+    "location": "Trent Navigation",
+    "locationStreet": "Meadow Lane, Nottingham, NG2 3HS",
+    "description": "Guaranteed best run of 2023. Perfect weather is promised by the hares and it will be all downhill.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-01-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1066,
+    "startTime": "10:66",
+    "hares": "Smutley and Wriggle",
+    "location": "Ferriers Arms",
+    "locationStreet": "Lount, near Ashby-de-la-Zouch, LE65 1SD",
+    "description": "Real ale pub. Dog Friendly. This is run 1066, the Battle of Hastings - dress appropriately",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-02-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1067,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "The Black Swan",
+    "locationStreet": "Shepshed, Leics, LE12 9DL",
+    "description": "Hash 1067 will be from the Black Swan in Shepshed, which is next to Butthole Lane! CAMRA pub, always 5 draught ales on, dog friendly, big car park and 250 yards from the Skylink bus stop with a direct bus from Nottingham arriving at 10:40. Running for fun in the Nottingham-Leicester-Derby area",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-02-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1068,
+    "startTime": "11:00",
+    "hares": "George and Drag-On",
+    "location": "The Star",
+    "locationStreet": "Melton Lane, West Leake, LE12 5RQ",
+    "description": "Also known locally as the Pit House, this is a lovely traditional pub with three real ales and plenty of parking.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-03-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1069,
+    "startTime": "11:00",
+    "hares": "Malteaser",
+    "location": "The Kings Head",
+    "locationStreet": "75 Main Street, Sutton Bonington, Nottinghamshire, LE12 5PE",
+    "description": "The Kings Head is nestled in the pretty village of Sutton Bonington and situated on Main Street, with the local children’s park and playing fields just a few strides away. Nearby you can look after your chicken at the offices of Poultry Health Services Ltd or visit the birth place of Thomas Pierrepoint, a former executioner",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-03-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1070,
+    "startTime": "11:00",
+    "hares": "Sweet Pea and IP",
+    "location": "The Windmill",
+    "locationStreet": "Wymeswold, LE12 6TT",
+    "description": "A lovely pub. lots of shiggy",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-04-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1071,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Sawley Junction",
+    "locationStreet": "Long Eaton, opposite Long Eaton Station (meet in the Station car park), NG10 3JU",
+    "description": "If there were a perfect pub, this would come very close. Around 7 cask ales served straight from the cask, including ale brewed by the upb's own microbrewery, Birch Cottage. Snacks include interesting scotch eggs (including salmon) and cheese and ham sourdough toasties. Directly oppiste the station car park. there is a railway theme throughout. The run will be fairly short (with an extra dogleg for FRBs). The pub is dog friendly.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-04-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1072,
+    "startTime": "11:00",
+    "hares": "Shagulator and Miss Takenenow",
+    "location": "The Old Black Horse",
+    "locationStreet": "Mapperley, near Ilkeston. Derbs, DE7 6BY",
+    "description": "This is in Derbyshire, not to be confused with any other place of the same name. Lovely pub with plenty of parking, close to some great countryside including Shipley Country Park",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-05-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1073,
+    "startTime": "11:00",
+    "hares": "Long Dong Silver and Golden Hole",
+    "location": "The Meadow Covert",
+    "locationStreet": "Alford Rd, Edwalton, Nottingham, NG12 4AT",
+    "description": "Coronation Run! Also bring a joke as it is World Laughter Day! Dog-friendly, Green King Pub, big garden. This hash is the biggest national event of the weekend. To celebrate the crowning glory of the QHHH, come dressed with red, white and blue, or as a chicken, or as a quiche.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-05-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1074,
+    "startTime": "11:00",
+    "hares": "Borderline",
+    "location": "The Stanhope Arms",
+    "locationStreet": "Stanton by Dale, Nr Ilkeston, Derbyshire, DE7 4QA",
+    "description": "Traditional pub and kitchen, in this popular Hash village with numerous footpaths",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-06-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1075,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "The Old Bulls Head",
+    "locationStreet": "Woodhouse Eaves, Leics, LE12 8RZ",
+    "description": "The Beacon Hill Run. It's been a while since we have graced this hill, with lovely countryside and numerous permissive paths. Also it's National Cheese Day, so bring your favourite cheese to sample. Cheese goes well with anything, especially beer",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-06-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1076,
+    "startTime": "11:00",
+    "hares": "Lockerman",
+    "location": "The car park, Bestwood Lodge Drive",
+    "locationStreet": "Bestwood Park Drive, north Nottingham, NG5 8NE",
+    "description": "Half way up Bestwood Lodge Drive, leading up towards Bestwood Country Park from Queens Bower Road, grid ref: 53°00'43\"N 1°09'00\"W. It will be a lovely sunny day, so bring a chair and something to eat and drink.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-07-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1077,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "The Railway (The Bottom Railway)",
+    "locationStreet": "160 Charnwood Road, Shepshed, LE12 9NR",
+    "description": "NOTE - There are two pubs in Shepshed called the Railway, both on the same road. Our pub is commonly called the Bottom Railway, and is blue and red - the other one is green. It is a Marstons pub, and (for Malty), there's a plant sale in the pub car park ever Sunday and The Armstrong's Mill shop opposite.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-07-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1078,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "Foremark Reservoir",
+    "locationStreet": "Near Ticknall, South Derbyshire, DE65 6EG",
+    "description": "Please bring a teddy bear, picnic food to share, chair/blanket and something to drink. Families welcome. Meet at Foremark Resovoir Car Park at 11.00 for Hash 1078. Wallington will be leading a 3mile Walk which shortcuts the r*nners trail of a perfect 5miles (B*gger and Goblin). It is a National Trust managed site so parking charges apply; £3.50 for 4 hours or £5 all day unless you have a NT card, then its free. After the hash there will be a circle, a picnic and hash games",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-08-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1079,
+    "startTime": "11:00",
+    "hares": "Drag-On",
+    "location": "The Free Trade",
+    "locationStreet": "27 Cossington Road, Sileby, LE12 7RW",
+    "description": "Come back to where QH3 first started! a 16th Century thatched inn with a resident ghost",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-08-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1080,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "Cricketers Rest",
+    "locationStreet": "4 Chapel St., Kimberley, NG16 2NP",
+    "description": "Dog friendly Castle Rock Brewery Pub. Half-hourly Rainbow bus service from Nottingham. Pub has no car park. On street parking along nearby Chapel St, Station Rd and James St. Free on Sunday long stay car parks nearby on Station Road (six spaces!) and Victoria Street",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-09-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1081,
+    "startTime": "11:00",
+    "hares": "B*gger and Goblin",
+    "location": "Bull and Bush",
+    "locationStreet": "Shepshed, LE12 9JF",
+    "description": "The Bull and Bush, 61 Sullington Road, your friendly local, situated in the heart of Shepshed. The landlady asks we park on the roads nearby not the pub car park. Skylink bus from Nottingham arriving at c.10:40.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-09-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1082,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Car Park, St Alkmunds Church",
+    "locationStreet": "Duffield, DE56 4BA",
+    "description": "Meet in the car park next to the church, East side of the railway footbridge, for an interesting run with a viewpoint. I suggest a short circle in the car park afterwards, then off to one of Duffield's excellent pubs (there is a choice of two, with a car park between them, free on Sundays). If coming by bus, get off at the Baptist Church and walk down the lane.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-10-08",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1083,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "Pointing Dogs",
+    "locationStreet": "Matlock, DE4 3LT",
+    "description": "Trail part of the Matlock Big Weekend -see Events link. Normal QH3 Sunday trail open to all. Matlock is served by bus and train services. The pub has no car park so if coming by car plan your car parking carefully. Allow for at least 3 hours parking and make sure you get there in plenty of time for a 11 a.m. start. Artist Corner and the Railway Station car parks are likely the best option long stay car parks. Runner and walker trails.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-10-22",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1084,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Spirit Vaults",
+    "locationStreet": "Melbourne, Derbs, DE73 8EJ",
+    "description": "A friendly pub with adjoining microbrewery. Formerly the Blue Bell. You are promised a lovely scenic trail (5.75 miles with a walkers option) with lots of historical insterest. Buses from East Midlands Airport stop right outside, though unfortunately for the reverse direction the stop is in the town centre 400 metres away.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-11-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1085,
+    "startTime": "11:00",
+    "hares": "Malteaser",
+    "location": "Navigation Inn",
+    "locationStreet": "Breaston, DE72 3BP",
+    "description": "The pub have asked for us to park on the roads near the pub as Sunday is their busiest time",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-11-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1086,
+    "startTime": "11:00",
+    "hares": "Ballcrusher and Bugger",
+    "location": "The Shakespeare Inn",
+    "locationStreet": "Shardlow, DE72 2GP",
+    "description": "It will be a perfect hash of 5 miles and a shorter route for the walkers, some virgin trail has been found and less mud than the last hash. Come and join the hares Ballcrusher and B*gger next Sunday for a cracking hash in the Derbyshire",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2023-12-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1087,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "Red Lion",
+    "locationStreet": "Kegworth, DE74 2DA",
+    "description": "Come and join your hares B*gger and Goblin for this year's Jingle Balls run around Kegworth, with a perfect 5 mile trail for the quicker ones and a perfect 3-miler for walkers. Please come properly attired - Christmas hat is mandatory plus anything red and/or jingly. The Nottingham sklylink bus goes to the East Midland Gateway hub just over the motorway from Kegworth. The Derby to Leicester Sklylink goes through the village. If travelling by car on M1 come off at 24 and Please park at the bottom of the car park",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2023.xml"
+  },
+  {
+    "date": "2024-01-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1088,
+    "startTime": "11:00",
+    "hares": "Long Dong Silver and Golden Hole",
+    "location": "Clock Warehouse",
+    "locationStreet": "Shardlow, DE72 2GL",
+    "description": "Undoubtedly the best best run of 2024. This is a Marston's pub. Dog friendly in the bar and food available. The weather will be perfect but running wellingtons are recommended. There will be a lot of mud and water.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-01-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1089,
+    "startTime": "11:00",
+    "hares": "Dragon",
+    "location": "Three Crowns",
+    "locationStreet": "Hathern, LE12 5LN",
+    "description": "Traditional style pub off the main road (50 Wide Lane). Open for breakfast at 09.30 and serve Sunday lunch",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-02-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1090,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Frame Breakers",
+    "locationStreet": "Ruddington, NG11 6DT",
+    "description": "Local village pub serving proper beer and food",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-02-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1091,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "The Gate Inn",
+    "locationStreet": "Awsworth, NG16 2RN",
+    "description": "Durex Birthday run. Fabulous real ale pub. Dogs welcome in front room of pub. No meals but excellent range of fresh sandwiches",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-03-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1092,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "Queens Head",
+    "locationStreet": "Markfield, LE67 9UB",
+    "description": "Dog friendly",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-03-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1093,
+    "startTime": "11:00",
+    "hares": "Malteaser and Durex",
+    "location": "The Manvers Arms",
+    "locationStreet": "Cotgrave, NG12 3HS",
+    "description": "St Patrick's Day Run - come along dressed as a leprechaun or at least in something green.Has a decent sized car park but you MUST REGISTER YOUR CAR on arrival. Dog friendly.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-04-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1094,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "Old Thatched Inn",
+    "locationStreet": "Stanton Under Bardon, LE67 9TL",
+    "description": "AGPU - new committee incoming? Landlady requests we park on the road as they do a carvery. R*nners trail of 5 miles mostly downhill with shortcuts for w*lkers",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-04-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1095,
+    "startTime": "11:00",
+    "hares": "Drag-on",
+    "location": "Curzon Arms",
+    "locationStreet": "Woodhouse Eaves, LE12 8QZ",
+    "description": "Running for fun in the Nottingham-Leicester-Derby area",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-05-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1096,
+    "startTime": "11:00",
+    "hares": "Smutley and Queen Myrtle",
+    "location": "Boat and Horses",
+    "locationStreet": "Beeston Rylands,Nottingham, NG9 1LP",
+    "description": "Good beer, dog friendly and with large beer garden. Sunday lunches available",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-05-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1097,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Pottle Micropub",
+    "locationStreet": "Beeston, NG9 2LA",
+    "description": "The micropub is in the pedestrian zone between the High Road and Sainsbury's. Circle up at 11 a.m. outside the pub. The hare recommends parking in the Albion Street Car Park the other side of Sainsbury's which is free on Sundays. Plenty of public transport options, Besston bus station is 5 minutes away, the railway station 15 minutes.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-06-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1098,
+    "startTime": "11:00",
+    "hares": "Borderline",
+    "location": "Chequers Inn",
+    "locationStreet": "Stanton by Dale, DE7 4QF",
+    "description": "Wonderful countryside and close by to the former iron works at Stanton. Nice village pub serving good alea.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-06-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1099,
+    "startTime": "11:00",
+    "hares": "Long Dong Silver and Golden Hole",
+    "location": "The Peacock",
+    "locationStreet": "Clifton, NG11 9FB",
+    "description": "An estate pub working hard to be a social focal point. Beer garden and dog friendly.Very close to Clifton Centre tram stop and several bus routes. Large car park at the front of the pub. Opens at 11am for a pre-hash drink. The trail is all downhill and beach weather is guaranteed.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-07-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1100,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "Free Public car park",
+    "locationStreet": "Quorn, LE12 8BS",
+    "description": "Come and celebrate QH3's 1100th r*n where we started 37 years ago in Quorn village. If driving, there is a free long stay car park at Station Road, we will have a picnic and games in Stafford Orchard park next to it, please bring some nosh and liquids and a chair. Perfect 5 mile trail with shortcuts available for w*lkers.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-07-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1101,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "White Lion",
+    "locationStreet": "Bramcote, NG9 3HH",
+    "description": "Nice beer garden, large car park, dogs welcome in the top bar and outside",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-08-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1102,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "Olde Bulls Head",
+    "locationStreet": "Woodhouse Eaves, LE12 8RZ",
+    "description": "Running for fun in the Nottingham-Leicester-Derby area",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-08-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1103,
+    "startTime": "11:00",
+    "hares": "DragOn",
+    "location": "Royal Oak",
+    "locationStreet": "Cossington, LE7 4UW",
+    "description": "Running for fun in the Nottingham-Leicester-Derby area",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-09-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1104,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Round RobINN",
+    "locationStreet": "East Leake, LE12 6PG",
+    "description": "On Out is from the free car park on Gotham Road (by the bowls club) 200 metres from this rural pub of the year. The no. 1 bus from both Loughborough and Nottingham stops right outside the pub. Dogs are welcome on the bus, and in the pub.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-09-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1105,
+    "startTime": "11:00",
+    "hares": "Borderline",
+    "location": "Carpenters Arms",
+    "locationStreet": "Dale Abbey, DE7 4PP",
+    "description": "Running for fun in the Nottingham-Leicester-Derby area",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-10-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1106,
+    "startTime": "11:00",
+    "hares": "DragOn and George",
+    "location": "Rabona",
+    "locationStreet": "5 Dale Rd. Matlock, DE4 3LT",
+    "description": "Part of the QH3 Matlock Away weekend -everyone welcome. Pub has no car park but there's car parking nearby at the railway station (charges apply)",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-10-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1107,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaaser",
+    "location": "Royal Oak",
+    "locationStreet": "Watnall, NG16 1HS",
+    "description": "Newly refurbished pub, 2 miles from M1 jnct 26. Park in car park opposite the pub",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-11-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1108,
+    "startTime": "11:00",
+    "hares": "B*gger and Goblin",
+    "location": "Man within Compass",
+    "locationStreet": "Whitwick, LE67 5AS",
+    "description": "Dog-friendly pub. Real ales and cobs served. Loughborugh Rd, Whitwick, Coalville, 4 miles from M1 Jnct. 23.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-11-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1109,
+    "startTime": "10:30",
+    "hares": "Smutley",
+    "location": "Home of Quorn Hunt,",
+    "locationStreet": "near Melton Mowbray, LE14 2TQ",
+    "description": "***NOTE EARLIER START TIME***.Joint trail with Rutland H3.The start and On Inn is NOT a pub. It is a side road off Gaddesby Lane, which we can use to park. The side road leads to the kennels for the Quorn Hunt and is located on Google Maps as Quorn Hunt. Bring your own drinks/chairs etc.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-12-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1110,
+    "startTime": "11:00",
+    "hares": "Lockerman",
+    "location": "The Top House",
+    "locationStreet": "Bulwell, NG6 8JY",
+    "description": "Bardney Drive, Bulwell, Nottingham. we can expect a downhill trail, perfectly marked and in glorious sunshine.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2024-12-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1111,
+    "startTime": "11:00",
+    "hares": "B*GGER and Goblin",
+    "location": "The Railway Tavern",
+    "locationStreet": "Ashby de la Zouch, LE65 2PW",
+    "description": "Come and join us at the Jingle Ball run 2024 - grab your Jingling Balls and any other Christmas garb for this mainly town centre trail. We'll be going through Ashby de la Zouch town centre then out a bit, so that we will have a 5 mile trail for r*nners and a 3 mile trail for w*lkers. Halfway stop for Xmas treats etc. The dog Friendly pub doesn't have a car park but you will be able to find on-street free parking nearby",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2024.xml"
+  },
+  {
+    "date": "2025-01-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1112,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "The Star",
+    "locationStreet": "Beeston, NG9 1FX",
+    "description": "**NOTE NEW VENUE** Perfectly named pub for the last day of Christmas and the hare who has stepped in at short notice to set the trail! It serves 10 lovely ales and some decent cider. and has a small car park. The trail will be fairly short, and mostly (but not entirely) on tarmac. Wear a silly hat to protect yourself from the rain, or hang something silly from your santa hat!",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-01-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1113,
+    "startTime": "11:00",
+    "hares": "Long Dong Silver and Golden Hole",
+    "location": "2 Wetherlam Cls",
+    "locationStreet": "Nottingham, NG2 1LG",
+    "description": "Parking on the street anywhere nearby as there are no restrictions on Sunday. Much better is to come by Nottingham City's excellent public transport. The nearest tram stops are QUEENS WALK and MEADOWS WAY WEST, both less than five minutes walk away. Buses are available, and Nottingham railway station is a 10 minutes walk. Food, beer and toilets are available at the on-inn. Dogs welcome. Forest are playing at home in the afternoon, so the town may be a little busier than usual for a Sunday - hence the non pub venue",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-02-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1114,
+    "startTime": "11:00",
+    "hares": "Durex",
+    "location": "Horse and Jockey",
+    "locationStreet": "Stapleford, NG9 8AA",
+    "description": "ON-OUT from Cliffe Hill Avenue Public Car Park (NG9 7HD behind Horse and Jockey) - free parking on Sundays. CAMRA East Midlands pub of the year 2024",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-02-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1115,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "Blue Bell",
+    "locationStreet": "Attenborough, NG9 6DN",
+    "description": "Durex's Big Birthday run. Pub opens at 11 a.m. and has large car park at the rear. Dog-friendly (not in restaurant)",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-03-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1116,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "Plough Inn",
+    "locationStreet": "Ratby, LE6 0XZ",
+    "description": "Dog-friendly pub, hot Sunday Roast Dinner available too, when car parking log on to their computer!, carpark and pub open at 10.30 am",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-03-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1117,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Totally Tapped",
+    "locationStreet": "Beeston, NG9 1ES",
+    "description": "Our emergency hare will set a short trail from Totally Tapped, a lovely micropub at 104 Chilwell Road",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-04-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1118,
+    "startTime": "11:00",
+    "hares": "Diarrohea",
+    "location": "Poppy and Pint",
+    "locationStreet": "West Bridgford, Nottingham, NG2 5DX",
+    "description": "Excellent range of beers. Dog-friendly",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-04-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1119,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "Coach and Horses",
+    "locationStreet": "Draycott, DE72 3PS",
+    "description": "EASTER Sunday Run. People and Dog-friendly pub with car park. No meals served. Eggciting games on trail. Served by Indigo bus from Nottingham to Derby (normal Sunday/Bank Holiday service on Easter Sunday",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-05-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1120,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "Man within Compass",
+    "locationStreet": "Whitwick (near Coalville), LE67 5AS",
+    "description": "Main trail 5 miles with a shorter route of 2.5 miles, in and around Grace Dieu woods. Nottingham Skylink bus passes within 0.5miles of the pub. Cracking pub, no food but cobs available, 4 miles from either M1 Jnct 23 or M42 Jnct 13",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-05-18",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1121,
+    "startTime": "11:00",
+    "hares": "Ballcrusher and Bugger",
+    "location": "The Swan",
+    "locationStreet": "Milton, DE65 6EF",
+    "description": "Popular Sunday dining pub. Need to book if you wish to stay for a meal. Landlord has asked us to park on the road rather than filling the pub car park",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-06-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1122,
+    "startTime": "11:00",
+    "hares": "Wallington",
+    "location": "Queens Head",
+    "locationStreet": "Markfield, LE67 9UB",
+    "description": "Running (and walking) for fun in Nottinghamshire, Leicestershire and Derbyshire",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-06-15",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1123,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "White Lion",
+    "locationStreet": "Sawley, NG10 3AT",
+    "description": "Running (and walking) for fun in Nottinghamshire, Leicestershire and Derbyshire",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-07-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1124,
+    "startTime": "11:00",
+    "hares": "Borderline",
+    "location": "Rose and Crown",
+    "locationStreet": "Cotgrave, NG12 3HQ",
+    "description": "**Note Change of Venue - due to injury, Hare has changed venue from Stanley to Cotgrave on 30 June**",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-07-20",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1125,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "The Sun Inn",
+    "locationStreet": "Gotham, NG11 0HX",
+    "description": "Back visiting the Gothamites. The Sun Inn has a small car park - usually plenty of parking on the road outside the pub/church. Good selection of ales and the pub does food on Sundays.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-08-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1126,
+    "startTime": "11:00",
+    "hares": "Diarrohea",
+    "location": "Poppy and Pint",
+    "locationStreet": "West Bridgford, Nottingham, NG2 5DX",
+    "description": "Excellent range of beers. Dog-friendly",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-08-17",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1127,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "New Inn",
+    "locationStreet": "Peggs Green, LE67 8JE",
+    "description": "Full address - The Kell's New Inn, Clay Lane, Peggs Green, Coleorton, Coalville LE67 8JE. Dog-friendly pub. Traditional flat Bass served straight from the barrel.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-09-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1128,
+    "startTime": "11:00",
+    "hares": "Borderline",
+    "location": "The Kings Head",
+    "locationStreet": "Sutton Bonington, LE12 5PE",
+    "description": "Running (and walking) for fun in Nottinghamshire, Leicestershire and Derbyshire",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-09-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1129,
+    "startTime": "11:00",
+    "hares": "Long Dong Silver and Golden Hole",
+    "location": "The Starting Gate",
+    "locationStreet": "Colwick, NG2 4DX",
+    "description": "Circle up in the car park of the Starting Gate, in Colwick, Dale Side Road East, Nottingham. Dog-friendly, has a big car park, and Sunday roasts from £9.49.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-11-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1130,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Furnace Inn",
+    "locationStreet": "Derby, DE1 3BX",
+    "description": "One of the best real ale pubs in Derby. There may be some beer left from the Dark v Light Beer Festival. If not there will still be a good interesting selection of ales on the bar. The pub is dog friendly, provided they are well behaved and on leads",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-11-16",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1131,
+    "startTime": "11:00",
+    "hares": "Malteaser and Durex",
+    "location": "Horse and Jockey",
+    "locationStreet": "Stapleford, NG9 8AA",
+    "description": "ON-OUT from Cliffe Hill Avenue Public Car Park (NG9 7HD behind Horse and Jockey) - free parking on Sundays. CAMRA East Midland’s District Pub of the Year for 2024, 2023, 2022",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-12-07",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1132,
+    "startTime": "11:00",
+    "hares": "Bugger and Goblin",
+    "location": "New Inn",
+    "locationStreet": "Peggs Green, LE67 8JE",
+    "description": "Peggs Green is near Coleorton to the north of Coalville, located 2.5 miles from Junction 13 of the A42. The pub still serves Bass straight out of the barrel plus another couple of real ales, lagers and ciders. It is a dog-friendly pub with the car park opposite the pub.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2025-12-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1133,
+    "startTime": "11:00",
+    "hares": "LDS and Golden Hole",
+    "location": "Fellows Morton and Clayton",
+    "locationStreet": "Nottingham, NG1 7EH",
+    "description": "JINGLE BALLS TRAIL. Meet in the pub (which opens at 11 am for a prehash tipple or coffee before setting off about 11:20.The trail will visit 4 or 5 establishments for refreshments with about a km of marked trail in between each stop. The pace will be relaxed, so it will take longer than a non-Jiggle Balls hash. All stops will be dog-friendly. This is an A-to-B, but the B is very close to the A and to Broadmarsh car park. Christmas dress and or headgear are mandatory. The nearest tram stop is Nottingham Station, which is connected to P and R sites from outside of the city. If you are coming by car, Broadmarsh car park is £4.50 for all-day parking. Other car parks in Nottingham are much more expensive. You can park for free a bit further away in The Meadows, as resident permits do not apply on Sundays.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2026-01-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1134,
+    "startTime": "12:00",
+    "hares": "Wriggle",
+    "location": "Ashbourne",
+    "description": "Hit the New Year Hashing. Joint trail with Bullmoon Hash. Note trail is on a Saturday",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2025.xml"
+  },
+  {
+    "date": "2026-02-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1135,
+    "startTime": "11:00",
+    "hares": "Durex and Malteaser",
+    "location": "The Salutation",
+    "locationStreet": "Keyworth, NG12 5AD",
+    "description": "Dog-friendly pub with large car park",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2026.xml"
+  },
+  {
+    "date": "2026-03-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1136,
+    "startTime": "11:00",
+    "hares": "Ballcrusher and Bugger",
+    "location": "Harrington Arms",
+    "locationStreet": "Thulston, DE72 3EY",
+    "description": "St David's Day. Near Elvaston Castle, Derby, a pub with a big car park and 5 real ales. A rarely hashed area so virgin trails promised. 5 miles r*nners trail, plus a shorter walkers route.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2026.xml"
+  },
+  {
+    "date": "2026-04-19",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1137,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Totally Tapped",
+    "locationStreet": "Beeston, NG9 1ES",
+    "description": "April Hash and QH3 AGM. Gem of a craft beer and real ale micropub",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2026.xml"
+  },
+  {
+    "date": "2026-05-03",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1138,
+    "startTime": "11:00",
+    "hares": "B*gger and Goblin",
+    "location": "The Rock",
+    "locationStreet": "Whitwick/Coalville, LE67 4DQ",
+    "description": "The micro-pub is dog-friendly and serves 8 real ales plus keg and ciders, plus hot food and cakes. The pub doesn't have a car park so suggest parking on Kingfisher Close. R*nners trail will be exactly 5-miles and there's also 3-mile route for walkers, both of which feature virgin paths and bluebell woods.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2026.xml"
+  },
+  {
+    "date": "2026-06-21",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1139,
+    "startTime": "11:00",
+    "hares": "Diarrhoea",
+    "location": "Poppy and Pint",
+    "locationStreet": "W Bridgford, Nottingham, NG2 5DX",
+    "description": "Mid-summer's Day Run. Note this is a trail on the 3rd Sunday of June",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2026.xml"
+  },
+  {
+    "date": "2026-07-05",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1140,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Holly Bush Inn",
+    "locationStreet": "Makeney (near Duffield), DE56 0RX",
+    "description": "Holly Bush Inn is a traditional 17th century village inn, where highwayman Dick Turpin is reported to have frequented on his travels. They claim nothing comes close to our pork pie and a pint! No carpark so just park randomly on the road.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2026.xml"
+  },
+  {
+    "date": "2026-08-02",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1141,
+    "startTime": "11:00",
+    "hares": "Durex and Malteasers",
+    "location": "Railway Level Crossing",
+    "locationStreet": "Rushcliffe Country Park, NG11 6JX",
+    "description": "The QH3 summer picnic returns to Rushcliffe Country Park. As previously, we'll meet/start at a 'back' entrance to the park where the railway crosses Asher Lane (opposite the entrance to Leys Farm, Post Code NG11 6JX). Parking on Asher Lane is free but after 11:00 spaces tend to be further away from the entrance. The trail will be approx. five miles with plenty of options for shortcuts. The On Inn/Picnic spot will be a 1-minute walk from the entrance. Good shade from trees and some benches available. If the weather requires it, the hares will erect a Gazebo. Those that can should bring chairs to sit on. Bring your own drink and picnic - usual format bring extra food to share.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2026.xml"
+  },
+  {
+    "date": "2026-09-06",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1142,
+    "startTime": "11:00",
+    "hares": "B*GG*R/Durex/Wallington",
+    "location": "Queens Head",
+    "locationStreet": "Markfield, LE67 9UB",
+    "description": "Very experienced hare team - must be a cracking trail. Hash trail of 5 miles and a walkers' option of under 3 miles",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2026.xml"
+  },
+  {
+    "date": "2026-10-04",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1143,
+    "startTime": "11:00",
+    "hares": "Malteaser and Durex",
+    "location": "The Newdigate Pub",
+    "locationStreet": "West Hallam, DE7 6HW",
+    "description": "First time QH3 has been to this On Inn not far from Ilkeston. Good car park, dog-friendly and plenty of good trail opportunities.",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2026.xml"
+  },
+  {
+    "date": "2026-11-01",
+    "kennelTags": [
+      "quorn-h3"
+    ],
+    "runNumber": 1144,
+    "startTime": "11:00",
+    "hares": "Barritone",
+    "location": "Admiral Rodney",
+    "locationStreet": "Wollaton, Nottingham, NG8 2AF",
+    "description": "Pub is dog-friendly and has a car park.Dogs will need to be on a lead throughout the trail",
+    "sourceUrl": "http://www.quornh3.org.uk/runlog2026.xml"
+  }
+]

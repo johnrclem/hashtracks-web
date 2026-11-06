@@ -1713,6 +1713,28 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 0.1218,
     aliases: ["Cambridge, England", "Cambridgeshire"],
   },
+  {
+    name: "Essex",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "ESX",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 51.74,
+    centroidLng: 0.47, // Chelmsford
+    aliases: ["Essex, England"],
+  },
+  {
+    name: "Shropshire",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "SHR",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 52.6784,
+    centroidLng: -2.4453, // Telford
+    aliases: ["Telford", "Shropshire, England"],
+  },
 
   {
     name: "Malvern",
@@ -4711,6 +4733,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Bedford": "United Kingdom",
   "Hertfordshire": "United Kingdom",
   "Bicester": "United Kingdom",
+  "Essex": "United Kingdom",
+  "Shropshire": "United Kingdom",
   "Cambridge": "United Kingdom",
   "Malvern": "United Kingdom",
   "Cotswolds": "United Kingdom",

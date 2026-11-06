@@ -6782,6 +6782,25 @@ export const KENNELS: KennelSeed[] = [
       // dogFriendly / instagramHandle / twitterHandle: unstated — omitted (flagged)
     },
     {
+      kennelCode: "quorn-h3", shortName: "Quorn H3", fullName: "Quorn Hash House Harriers", region: "East Midlands", country: "UK",
+      website: "http://www.quornh3.org.uk/", // NOSONAR — site is HTTP-only (no TLS)
+      facebookUrl: "https://www.facebook.com/groups/quornh3",
+      foundedYear: 1987, // AboutUs.html: Run 1 on 29 March 1987 from the Free Trade, Sileby
+      walkersWelcome: true, // WhoAreWe.html: "walkers or runners"
+      // From January 2026 regular trails are the 1st Sunday of each month (events.html);
+      // the older About page's "1st and 3rd Sunday" is the pre-2026 pattern.
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Monthly",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1SU", startTime: "11:00", label: "1st Sunday" },
+      ],
+      logoUrl: "/kennel-logos/quorn-h3.png", // self-hosted (origin is HTTP-only); magic bytes confirmed PNG
+      latitude: 52.741,
+      longitude: -1.174,
+      description:
+        "A drinking club with a running problem — Quorn H3 runs for fun in the countryside between Nottingham, Derby and Leicester. Founded 1987; flour-marked trails of about an hour, followed by a circle and a pint.",
+      // hashCash: unpublished. dogFriendly: unstated. twitter: unverified (not linked on site).
+    },
+    {
       kennelCode: "h5-gb", // bare "h5" taken — h5-hash (Harrisburg) / h5-hi (Honolulu)
       shortName: "H5 Hare & Hounds",
       fullName: "Hare and Hounds Hash House Harriers",
@@ -6831,6 +6850,39 @@ export const KENNELS: KennelSeed[] = [
       ],
       latitude: 51.8098,
       longitude: -0.2377,
+    },
+    {
+      kennelCode: "essex-h3", shortName: "Essex H3", fullName: "Essex Hash House Harriers", region: "Essex", country: "UK",
+      website: "https://essexhhh.co.uk",
+      facebookUrl: "https://www.facebook.com/groups/255786294522554/",
+      foundedYear: 1984, // about page: emerged at the Dec 1984 AGPU from Danbury HHH (June 1984)
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly — a mix of Sunday 11:00 AM runs and weekday (usually Monday) 7:00 PM evening runs.",
+      dogFriendly: true, // home page: "Dogs are welcome at events"
+      walkersWelcome: true, // home page: "run, walk or crawl"
+      description:
+        "Essex Hash House Harriers meet at a different pub in Essex each week for a run following a trail of flour, then a few drinks back at the pub. New faces always welcome — run, walk or crawl!",
+      logoUrl: "/kennel-logos/essex-h3.jpg", // self-hosted from the tokenized wsimg og:image; magic bytes confirmed JPEG
+      // hashCash: unpublished. instagram/twitter: none on site.
+    },
+    {
+      kennelCode: "donnington-h3", shortName: "Donnington H3", fullName: "Donnington Hash House Harriers", region: "Shropshire", country: "UK",
+      website: "https://www.donningtonh3.co.uk/",
+      facebookUrl: "https://www.facebook.com/Dh3running/",
+      foundedYear: 1976, founder: "Ray Thornton",
+      hashCash: "£2",
+      // Flat fields are the fallback; scheduleRules (seasonal) is authoritative.
+      scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "18:30", label: "Summer", validFrom: "04-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "11:00", label: "Winter", validFrom: "10-01", validUntil: "03-31", displayOrder: 1 },
+      ],
+      description:
+        "A Drinking Club with a Running Problem. Donnington Hash House Harriers (DH3), founded 1976 at the Army Ordnance Depot in Donnington, Telford — the third Hash founded in the UK. Weekly trails across Shropshire: Monday evenings in summer, Sunday mornings in winter.",
+      logoUrl: "/kennel-logos/donnington-h3.jpg", // self-hosted; magic bytes confirmed JPEG
+      latitude: 52.6784,
+      longitude: -2.4453,
+      // instagram/twitter: none on site. dogFriendly/walkersWelcome: unstated.
     },
     {
       kennelCode: "cambridge-h3", shortName: "Cambridge H3", fullName: "Cambridge Hash House Harriers", region: "Cambridge", country: "UK",

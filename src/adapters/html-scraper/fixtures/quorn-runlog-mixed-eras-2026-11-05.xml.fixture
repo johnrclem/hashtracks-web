@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<runlog xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<run>
+    <number>819</number>
+    <hares>Captain Oates</hares>
+    <pubname>Dixies Arms</pubname>
+    <place>Bagthorpe</place>
+    <date>5</date>
+    <month>1</month>
+    <year>2014</year>
+    <time>11:00</time>
+    <postcod>NG16 5HF</postcod>
+    <info>_</info>
+  </run>
+<run>
+	<number>0000</number>
+	<hares>Borderline</hares>
+	<pubname>***CANCELLED***</pubname>
+	<place>***CANCELLED***</place>
+	 <date>05</date>
+	 <month>10</month>
+	 <year>2025</year>
+	 <time>11:00</time>
+	<postcod>DE7 6EX</postcod>
+<info>Due to injury to the hare less than 24 hours before the event this trail has been cancelled</info>
+</run>
+</runlog>
