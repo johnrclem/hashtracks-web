@@ -4174,6 +4174,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 33.6333,
     aliases: ["Larnaca, Cyprus"],
   },
+  {
+    name: "Nicosia",
+    country: "Cyprus",
+    timezone: "Asia/Nicosia",
+    abbrev: "NIC",
+    colorClasses: "bg-amber-100 text-amber-700",
+    pinColor: "#b45309",
+    centroidLat: 35.1856,
+    centroidLng: 33.3823,
+    aliases: ["Nicosia, Cyprus", "Lefkosia"],
+  },
   // ── Turkey (first 🇹🇷 kennel: Big Lik H3, Incirlik Air Base / Adana) —
   //    country → metro. Cyan palette. ──
   {
@@ -4517,9 +4528,9 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // doubles as US place names (Prague, OK / Prague, NE); "czech"/"czechia"/"praha"
   // are unambiguous. inferCountry() is first-match with USA as the default fallthrough.
   [/\b(czech|czechia|praha)\b/, "Czech Republic"],
-  // Cyprus — country + Larnaca. Both tokens are unambiguous (no US namesakes);
+  // Cyprus — country + Larnaca / Nicosia (Lefkosia). All tokens are unambiguous (no US namesakes);
   // inferCountry() is first-match with USA as the default fallthrough.
-  [/\b(cyprus|larnaca)\b/, "Cyprus"],
+  [/\b(cyprus|larnaca|nicosia|lefkosia)\b/, "Cyprus"],
   // Sierra Leone — country-name token only. "freetown" is OMITTED (Freetown, MA/IN
   // collisions) and bare "sierra" is OMITTED (Sierra Vista, AZ + the kennel's own
   // "Sierra H4" name). "sierra leone" is unambiguous; inferCountry() is first-match
@@ -4831,6 +4842,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Prague": "Czech Republic",
   // Cyprus
   "Larnaca": "Cyprus",
+  "Nicosia": "Cyprus",
   "Freetown": "Sierra Leone",
   "Abuja": "Nigeria",
   "Adana": "Turkey",
