@@ -60,6 +60,17 @@ describe("parseTvh3Post", () => {
     expect(parsed?.hares).toBeUndefined();
   });
 
+  it("keeps a run-on 'ON DOWN' pub and its postcode out of the start venue", () => {
+    // Verbatim body of run #2040 (teignvalleyh3.com, 2024-09).
+    const text =
+      "Run #2040 Monday 9th September Circle up 7:15 pm from the Church car park at Manaton.ON DOWN from the Kestor Inn TQ13 9UF with Poacher.Chips/cheesy chips - show of hands at circle.";
+    expect(parseTvh3Post(text, "2024-09-08T10:00:00+01:00", "https://example.test/2040")).toMatchObject({
+      runNumber: 2040,
+      date: "2024-09-09",
+      location: "Church car park at Manaton",
+    });
+  });
+
   it("snaps a stale day number onto the stated weekday", () => {
     expect(parse(POSTS[3])).toMatchObject({ runNumber: 2100, date: "2025-10-27", hares: "Archangel" });
     expect(parse(POSTS[4])).toMatchObject({
