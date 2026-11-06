@@ -628,6 +628,10 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "himalayan-h3": ["Himalayan H3", "Himalayan Hash", "Himalayan Hash House Harriers", "Kathmandu Hash", "HHHH Nepal"],
     // Cambodia — "PPH3" OMITTED (already a pph4/Pikes Peak alias); "P2H3" is free.
     "phnom-penh-h3": ["Phnom Penh", "Phnom Penh H3", "P2H3", "Phnom Penh Hash House Harriers"],
+    // ===== LAOS ===== (bare "VH3" OMITTED — Victoria H3)
+    "vh3-la": ["Vientiane H3", "Vientiane Hash", "Vientiane Hash House Harriers", "VH3 Laos", "Vientiane Monday Hash"],
+    "vbh3-la": ["VBH3", "Vientiane Bush Hash", "Vientiane Bush H3", "Saturday Bush Hash Vientiane", "VBH3 Laos"],
+    "vbikeh3-la": ["Vientiane Bicycle Hash", "VH3 Bike Hash", "VTE Bike Hash", "Vientiane Monthly Bicycle Hash"],
     // Vietnam — bare "SH3" OMITTED (global collision: summit / sh3-wa / salemh3).
     // The "Ho Chi Minh …" forms are the kennel's original 1990 name.
     "saigon-h3": ["Saigon", "Saigon H3", "Saigon Hash House Harriers", "Ho Chi Minh City H3", "Ho Chi Minh Hash House Harriers"],

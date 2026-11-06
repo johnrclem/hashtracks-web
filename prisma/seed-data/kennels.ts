@@ -5495,6 +5495,63 @@ export const KENNELS: KennelSeed[] = [
       description:
         "The Phnom Penh Hash House Harriers (P2H3) are a \"drinking club with a running problem\" that runs and walks the countryside around Phnom Penh every Sunday — a country bus departs Villa Grange (~1:30 pm) to rural trails (run ~6-10 km / walk ~4-6 km), then a circle and the On-On. Family-friendly; walkers and non-drinkers welcome.",
     },
+    // ── Laos (first 🇱🇦 kennels: VH3 est. 1981 + its Saturday bush and monthly bike hashes) ──
+    {
+      kennelCode: "vh3-la", // bare "vh3" is Victoria H3 (BC)
+      shortName: "VH3 Vientiane",
+      fullName: "Vientiane Hash House Harriers",
+      region: "Vientiane",
+      country: "Laos", // canonical NAME — code "LA" lives in region.ts
+      website: "https://hashlaos.com",
+      facebookUrl: "https://www.facebook.com/groups/Laoshhh", // FB group "Laos Hash House Harriers" (handoff-cited)
+      foundedYear: 1981, // home: "held its first run on Monday, 13th April 1981"
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "5:30 PM", // /monday-map/: "A2B 5:30 departure"
+      scheduleFrequency: "Weekly",
+      hashCash: "Pay as you go", // /monday-map/: "pay as you go"
+      description:
+        "The Vientiane Hash House Harriers, founded by Doug Stewart & Tom Holbrook with a first run on " +
+        "13 April 1981 — the flagship Lao hash, with a weekly Monday-evening A-to-B town run in and around Vientiane.",
+      latitude: 17.9757, // Vientiane centroid
+      longitude: 102.6331,
+    },
+    {
+      kennelCode: "vbh3-la",
+      shortName: "VBH3 Vientiane",
+      fullName: "Vientiane Bush Hash House Harriers",
+      region: "Vientiane",
+      country: "Laos",
+      website: "https://hashlaos.com/saturday-bush-hash/",
+      foundedYear: 1998, // /saturday-bush-hash/: "The first run was held on 14th June 1998"
+      scheduleDayOfWeek: "Saturday",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Late-afternoon countryside run (time posted weekly, e.g. 4:30 PM).",
+      hashCash: "Falang 70,000 Kip (80,000 first-timers) / Lao 30,000 Kip", // /saturday-bush-hash/
+      description:
+        "Vientiane's Saturday countryside 'bush' hash, formed in 1998 by six VH3 members who wanted a weekend " +
+        "run in the countryside rather than the suburbs; the first run was held on 14 June 1998.",
+      latitude: 17.9757,
+      longitude: 102.6331,
+    },
+    {
+      kennelCode: "vbikeh3-la",
+      shortName: "Vientiane Bike Hash",
+      fullName: "Vientiane Bike Hash",
+      region: "Vientiane",
+      country: "Laos",
+      website: "https://hashlaos.com/monthly-bicycle-hash/",
+      foundedYear: 2010, // /monthly-bicycle-hash/: "inaugural Bike Hash Run # 1 was held on 30th May 2010"
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "9:30 AM", // /monthly-bicycle-hash/: "we start at the JOMA Cafe … at 9:30 am"
+      scheduleFrequency: "Monthly",
+      scheduleNotes: "Last Sunday of the month (sometimes moved); starts at JOMA Cafe near the Nam Phu Fountain.",
+      hashCash: "250,000 Kip", // /monthly-bicycle-hash/: includes drinks at the beer stops and lunch
+      description:
+        "The VH3 Monthly Bicycle Hash — an out-of-town bike hash founded by Graeme 'Mother Trucker' Bolger, " +
+        "with Run #1 on 30 May 2010; held on the last Sunday of the month.",
+      latitude: 17.9757,
+      longitude: 102.6331,
+    },
     {
       // First Vietnam kennel. kennelCode == slug == "saigon-h3" (descriptive city
       // slug; bare "SH3" is globally taken by summit / sh3-wa / salemh3, so it is

@@ -2383,6 +2383,31 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 104.9282,
     aliases: ["Phnom Penh, Cambodia"],
   },
+  // ── Laos (first 🇱🇦 kennels: Vientiane H3, est. 1981) — 2-level COUNTRY→METRO,
+  //    mirrors Cambodia. Lime palette; neighbouring Cambodia/Thailand/Vietnam differ. ──
+  {
+    name: "Laos",
+    country: "Laos",
+    level: "COUNTRY",
+    timezone: "Asia/Vientiane",
+    abbrev: "LAO", // "LA" is already Los Angeles + Louisiana
+    colorClasses: "bg-lime-200 text-lime-800",
+    pinColor: "#65a30d",
+    centroidLat: 19.8563,
+    centroidLng: 102.4955,
+    aliases: ["Lao PDR", "Lao People's Democratic Republic"],
+  },
+  {
+    name: "Vientiane",
+    country: "Laos",
+    timezone: "Asia/Vientiane",
+    abbrev: "VTE",
+    colorClasses: "bg-lime-100 text-lime-700",
+    pinColor: "#84cc16",
+    centroidLat: 17.9757,
+    centroidLng: 102.6331,
+    aliases: ["Vientiane, Laos"],
+  },
   // ── Barbados (first 🇧🇧 / first Caribbean kennel: Barbados H3, est. 1985) —
   //    2-level COUNTRY→METRO, mirrors the Nepal/Cambodia precedent (no seed.ts
   //    stateMetroLinks needed). Fuchsia palette — its other owner is the
@@ -4588,6 +4613,8 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // Cambodia — country + capital. Both tokens are unambiguous; inferCountry() is
   // first-match with USA as the default fallthrough.
   [/\b(cambodia|phnom\s*penh)\b/, "Cambodia"],
+  // Laos — country + capital. Both unambiguous (no US namesakes).
+  [/\b(laos|lao pdr|vientiane)\b/, "Laos"],
   // Barbados — country + capital. Both tokens are unambiguous; inferCountry() is
   // first-match with USA as the default fallthrough.
   [/\b(barbados|bridgetown)\b/, "Barbados"],
@@ -4919,6 +4946,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Kathmandu": "Nepal",
   // Cambodia
   "Phnom Penh": "Cambodia",
+  // Laos
+  "Vientiane": "Laos",
   // Barbados
   "Bridgetown": "Barbados",
   // Jamaica
@@ -5185,6 +5214,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Cambodia — metro "Phnom Penh" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Cambodia" is reachable here (mirrors the Nepal precedent).
   "Cambodia": "Cambodia",
+  "Laos": "Laos",
   // Barbados — metro "Bridgetown" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Barbados" is reachable here (mirrors the Cambodia precedent).
   "Barbados": "Barbados",
@@ -5347,6 +5377,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   PL: "Poland",
   NP: "Nepal",
   KH: "Cambodia",
+  LA: "Laos",
   BB: "Barbados",
   JM: "Jamaica",
   GD: "Grenada",
