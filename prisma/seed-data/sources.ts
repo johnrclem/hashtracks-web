@@ -3902,7 +3902,11 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      config: { kennelTag: "sach3" },
+      // upcomingOnly: Squarespace pages past events by publishOn but sorts them
+      // by startDate, so runs published out of order fall between pages
+      // (#1719–#1730 vanished from the walk on 2026-11-05 and were cancelled).
+      // Every run is first seen on the complete upcoming list.
+      config: { kennelTag: "sach3", upcomingOnly: true },
       kennelCodes: ["sach3"],
     },
     // --- Los Angeles Area (Google Calendar) ---
