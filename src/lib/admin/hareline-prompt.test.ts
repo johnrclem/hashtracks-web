@@ -89,3 +89,15 @@ describe("buildHarelinePrompt", () => {
     }
   });
 });
+
+describe("buildHarelinePrompt — agent transport", () => {
+  const agentPrompt = buildHarelinePrompt(FIXTURE, { transport: "agent" });
+
+  it("replaces the copy-paste note with the runner note and uses the agent API", () => {
+    expect(agentPrompt).toContain("fetched from `/api/audit/agent/hareline-prompt`");
+    expect(agentPrompt).not.toContain("paste it into Claude in Chrome");
+    expect(agentPrompt).toContain("https://www.hashtracks.xyz/api/audit/agent/submit-finding");
+    expect(agentPrompt).toContain("https://www.hashtracks.xyz/api/audit/agent/suppressions");
+  });
+});
+

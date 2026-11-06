@@ -131,6 +131,8 @@ describe("POST /api/audit/submit-finding — completion", () => {
     const json = await res.json();
     expect(json.data).toMatchObject({ recorded: true, deepDive: "recorded" });
     expect(mockLogCreate).toHaveBeenCalledTimes(1);
+    // The submitter is stored so the dashboard heartbeat can tell agent runs from admin ones.
+    expect(mockLogCreate.mock.calls[0][0].data.summary).toMatchObject({ submitter: "admin_1" });
   });
 
   it("is idempotent same-day (returns already-recorded, no new row)", async () => {

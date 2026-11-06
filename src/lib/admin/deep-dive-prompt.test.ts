@@ -1,5 +1,5 @@
 import { buildDeepDivePrompt } from "./deep-dive-prompt";
-import type { DeepDiveCandidate } from "@/app/admin/audit/actions";
+import type { DeepDiveCandidate } from "./deep-dive-queue";
 
 const FIXTURE: DeepDiveCandidate = {
   kennelCode: "nych3",
@@ -106,5 +106,35 @@ describe("buildDeepDivePrompt", () => {
       const inner = block.replace(/^```json\n/, "").replace(/\n```$/, "");
       expect(() => JSON.parse(inner)).not.toThrow();
     }
+  });
+});
+
+describe("buildDeepDivePrompt — agent transport", () => {
+  const agentPrompt = buildDeepDivePrompt(FIXTURE, { transport: "agent" });
+
+  it("points findings, completion and suppressions at the token-gated agent API", () => {
+    expect(agentPrompt).toContain("https://www.hashtracks.xyz/api/audit/agent/submit-finding");
+    expect(agentPrompt).toContain("Authorization: Bearer $AUDIT_AGENT_TOKEN");
+    expect(agentPrompt).toContain("https://www.hashtracks.xyz/api/audit/agent/suppressions");
+    expect(agentPrompt).not.toContain("**POST** `/api/audit/submit-finding`");
+  });
+
+  it("scopes shell use to curl reads and the audit API, and forbids leaking the token", () => {
+    expect(agentPrompt).toContain("Shell use is limited to those reads, reading the API token");
+    expect(agentPrompt).toContain("Never print the token");
+  });
+
+  it("still emits valid JSON payload examples", () => {
+    const jsonBlocks = agentPrompt.match(/```json\n([\s\S]*?)\n```/g) ?? [];
+    expect(jsonBlocks.length).toBeGreaterThanOrEqual(2);
+    for (const block of jsonBlocks) {
+      const inner = block.replace(/^```json\n/, "").replace(/\n```$/, "");
+      expect(() => JSON.parse(inner)).not.toThrow();
+    }
+  });
+
+  it("leaves the default browser prompt unchanged", () => {
+    expect(prompt).not.toContain("/api/audit/agent/");
+    expect(prompt).toContain("same-origin and admin-gated");
   });
 });

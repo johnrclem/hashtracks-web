@@ -47,15 +47,21 @@ export async function authorizeAuditApi(
     };
   }
 
-  let body: unknown;
+  const parsed = await readJsonBody(req);
+  if (!parsed.ok) return parsed;
+  return { ok: true, admin, body: parsed.body };
+}
+
+/** Parse a JSON request body, or return a ready 400 response. Shared by the audit API routes. */
+export async function readJsonBody(
+  req: Request,
+): Promise<{ ok: true; body: unknown } | { ok: false; response: NextResponse }> {
   try {
-    body = await req.json();
+    return { ok: true, body: await req.json() };
   } catch {
     return {
       ok: false,
       response: NextResponse.json({ error: "Invalid JSON" }, { status: 400 }),
     };
   }
-
-  return { ok: true, admin, body };
 }

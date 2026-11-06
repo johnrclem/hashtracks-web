@@ -67,6 +67,7 @@ logbook + kennel directory.
 - GEMINI_API_KEY=         # Google AI API key (Sprint 10+)
 - CRON_SECRET=            # Secret for cron auth (Bearer token fallback)
 - AUDIT_QUEUE_TOKEN_SECRET= # HMAC secret for deep-dive queue-snapshot tokens (issue #1160). 32+ random bytes; rotate independently from CRON_SECRET.
+- AUDIT_AGENT_TOKEN=      # Bearer token for the scheduled audit agent (`/api/audit/agent/*`: next deep-dive kennel, hareline prompt, suppressions, submit-finding). 32+ chars; unset = agent API disabled. Also in the local `.env` the scheduled task reads.
 - QSTASH_TOKEN=           # Upstash QStash API token (fan-out job dispatch)
 - QSTASH_CURRENT_SIGNING_KEY= # QStash signature verification (current key)
 - QSTASH_NEXT_SIGNING_KEY=    # QStash signature verification (next key for rotation)

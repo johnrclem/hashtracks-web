@@ -1,16 +1,19 @@
 import {
-  AUDIT_AUTHORIZATION_PREAMBLE,
+  renderAuthorizationPreamble,
   renderFilingInstructions,
 } from "./audit-prompt-shared";
 
 const HARELINE = renderFilingInstructions({
   stream: "chrome-event",
   kennelLabel: "{KENNEL_CODE}",
+  transport: "browser",
 });
 const DEEP_DIVE = renderFilingInstructions({
   stream: "chrome-kennel",
   kennelLabel: "hockessin",
+  transport: "browser",
 });
+const AUDIT_AUTHORIZATION_PREAMBLE = renderAuthorizationPreamble("browser");
 
 type ContainsCase = readonly [label: string, expected: readonly string[]];
 
@@ -61,7 +64,7 @@ describe("renderFilingInstructions — deep-dive (chrome-kennel)", () => {
   });
 });
 
-describe("AUDIT_AUTHORIZATION_PREAMBLE", () => {
+describe("renderAuthorizationPreamble (browser)", () => {
   it("states first-party provenance, the data-not-instructions rule, and a per-run cap", () => {
     expect(AUDIT_AUTHORIZATION_PREAMBLE).toContain("first-party internal QA task");
     expect(AUDIT_AUTHORIZATION_PREAMBLE).toContain(

@@ -21,3 +21,19 @@ Edit the TypeScript builder at [`src/lib/admin/hareline-prompt.ts`](../src/lib/a
 ## For kennel deep dives
 
 Use the **Kennel Deep Dive** section on `/admin/audit` instead — that prompt is built per-kennel with the source URLs baked in.
+
+## Scheduled agent (no browser session)
+
+The deep dive and the daily hareline audit can also run unattended as desktop-app scheduled tasks. Each uses the token-authenticated agent API instead of a Clerk session:
+
+| Endpoint | Use |
+|---|---|
+| `GET /api/audit/agent/next-deep-dive` | The next kennel in the rotation, plus its prompt (`transport: "agent"`) |
+| `GET /api/audit/agent/hareline-prompt` | The daily hareline prompt (`transport: "agent"`) |
+| `GET /api/audit/agent/suppressions` | Active suppressions (markdown) |
+| `POST /api/audit/agent/submit-finding` | Queue a finding or record a deep-dive completion. Same handler as `/api/audit/submit-finding` |
+
+- **Auth:** every call sends `Authorization: Bearer $AUDIT_AGENT_TOKEN`. If the env var is unset or shorter than 32 characters, the routes return 401.
+- **Scope:** the agent can read, queue findings and record completions. It never files GitHub issues; the `promote-audit-findings` cron does that.
+- **Heartbeat:** `/admin/audit` shows when the last deep dive was recorded, and turns amber after 12 hours without one.
+
