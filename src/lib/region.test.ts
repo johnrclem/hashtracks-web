@@ -299,6 +299,8 @@ describe("inferCountry — Cebu (Philippines)", () => {
   it.each([
     ["Cebu City", "Philippines"],
     ["Turning Wheels Craft Brewery, P. Almendras St, Cebu City, 6000 Cebu", "Philippines"],
+    ["Barrio Barretto, Olongapo City", "Philippines"],
+    ["Subic Bay", "Philippines"],
   ])("infers %s → Philippines", (name, country) => {
     expect(inferCountry(name)).toBe(country);
   });
