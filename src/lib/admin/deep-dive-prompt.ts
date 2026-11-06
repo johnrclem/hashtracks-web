@@ -102,7 +102,7 @@ ${renderSubmitEndpoint(transport)}
 }
 \`\`\`
 
-Submit the completion even if you could not finish (for example, a source was unreachable): set \`findingsCount\` to what you actually submitted and start the summary with \`PARTIAL:\` and the reason. Otherwise the rotation stays stuck on this kennel.
+Submit the completion even if you could not finish (for example, a source was unreachable): set \`findingsCount\` to what you actually submitted and start the summary with \`PARTIAL:\` and the reason. Otherwise the rotation stays stuck on this kennel. A full completion later the same day replaces a partial one.
 
 A \`{ "data": { "recorded": true } }\` response means the deep dive is recorded server-side and ${kennel.shortName} advances in the rotation. (A \`"deepDive": "already-recorded"\` response just means it was already credited today — that's fine, don't resubmit.)
 `;

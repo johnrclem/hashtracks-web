@@ -5,7 +5,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     kennel: { findUnique: vi.fn() },
     auditFindingDraft: { create: vi.fn(), findFirst: vi.fn() },
-    auditLog: { findFirst: vi.fn(), create: vi.fn() },
+    auditLog: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
   },
 }));
 vi.mock("@/lib/site-url", () => ({
@@ -142,6 +142,25 @@ describe("POST /api/audit/submit-finding — completion", () => {
     const json = await res.json();
     expect(json.data).toMatchObject({ recorded: true, deepDive: "already-recorded" });
     expect(mockLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("replaces a same-day PARTIAL completion with a full one", async () => {
+    mockLogFindFirst.mockResolvedValue({ id: "log_partial", summary: { note: "PARTIAL: site timed out" } } as never);
+    const res = await POST(buildApiPostRequest(URL, COMPLETION));
+    const json = await res.json();
+    expect(json.data).toMatchObject({ recorded: true, deepDive: "replaced-partial", auditLogId: "log_partial" });
+    expect(vi.mocked(prisma.auditLog.update)).toHaveBeenCalledWith({
+      where: { id: "log_partial" },
+      data: { findingsCount: 3, summary: expect.objectContaining({ note: "All clean except hares." }) },
+    });
+    expect(mockLogCreate).not.toHaveBeenCalled();
+  });
+
+  it("does not let a second PARTIAL completion overwrite the first", async () => {
+    mockLogFindFirst.mockResolvedValue({ id: "log_partial", summary: { note: "PARTIAL: site timed out" } } as never);
+    const res = await POST(buildApiPostRequest(URL, { ...COMPLETION, summary: "partial: still blocked" }));
+    expect((await res.json()).data.deepDive).toBe("already-recorded");
+    expect(vi.mocked(prisma.auditLog.update)).not.toHaveBeenCalled();
   });
 
   it("422 on an unknown kennelCode", async () => {

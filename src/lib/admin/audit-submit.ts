@@ -140,6 +140,17 @@ async function handleFinding(rawReq: FindingRequest, adminId: string): Promise<N
   }
 }
 
+/** Agents prefix the completion summary with `PARTIAL:` when they couldn't finish a kennel. */
+function isPartialNote(note: string): boolean {
+  return note.trimStart().toUpperCase().startsWith("PARTIAL:");
+}
+
+function isPartialSummary(summary: unknown): boolean {
+  if (typeof summary !== "object" || summary === null) return false;
+  const note = (summary as { note?: unknown }).note;
+  return typeof note === "string" && isPartialNote(note);
+}
+
 async function handleCompletion(rawReq: CompletionRequest, submitterId: string): Promise<NextResponse> {
   if (rawReq.findingsCount < 0) return badRequest("findingsCount must be ≥ 0");
   if (rawReq.summary.length > SUMMARY_MAX) return badRequest(`summary must be ≤${SUMMARY_MAX} chars`);
@@ -161,9 +172,19 @@ async function handleCompletion(rawReq: CompletionRequest, submitterId: string):
   const existing = await prisma.auditLog.findFirst({
     where: { type: "KENNEL_DEEP_DIVE", kennelCode: req.kennelCode, createdAt: { gte: dayStart } },
     orderBy: { createdAt: "desc" },
-    select: { id: true },
+    select: { id: true, summary: true },
   });
+  const summary = { note: req.summary, viaSubmitEndpoint: true, submitter: submitterId };
   if (existing) {
+    // A full completion replaces an earlier PARTIAL one from the same day, so the
+    // record keeps the complete result. Any other replay is a no-op.
+    if (isPartialSummary(existing.summary) && !isPartialNote(req.summary)) {
+      await prisma.auditLog.update({
+        where: { id: existing.id },
+        data: { findingsCount: req.findingsCount, summary },
+      });
+      return NextResponse.json({ data: { recorded: true, deepDive: "replaced-partial", auditLogId: existing.id } });
+    }
     return NextResponse.json({ data: { recorded: true, deepDive: "already-recorded", auditLogId: existing.id } });
   }
 
@@ -178,7 +199,7 @@ async function handleCompletion(rawReq: CompletionRequest, submitterId: string):
       // cron files them later. Counting them as filed would overstate the metric.
       issuesFiled: 0,
       findings: [],
-      summary: { note: req.summary, viaSubmitEndpoint: true, submitter: submitterId },
+      summary,
     },
     select: { id: true },
   });
