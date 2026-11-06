@@ -59,8 +59,11 @@ function dateHits(text: string, re: RegExp, dayGroup: number, monthGroup: number
 /** Last date fragment in the title whose month word is real (day-first or month-first). */
 function findDate(text: string): DateHit | null {
   const hits = [...dateHits(text, DATE_FRAGMENT_RE, 1, 2), ...dateHits(text, MONTH_FIRST_RE, 2, 1)];
-  if (hits.length === 0) return null;
-  return hits.reduce((last, hit) => (hit.index > last.index ? hit : last));
+  let last: DateHit | null = null;
+  for (const hit of hits) {
+    if (last === null || hit.index > last.index) last = hit;
+  }
+  return last;
 }
 
 /**
@@ -92,7 +95,7 @@ export function parseCoeh3Title(rawTitle: string, publishedIso: string): ParsedC
     .filter(Boolean);
 
   const first = segments[0];
-  const isTheme = first !== undefined && first.toLowerCase().includes("hash");
+  const isTheme = first?.toLowerCase().includes("hash") ?? false;
   return {
     runNumber: Number.parseInt(run[1], 10),
     date,
