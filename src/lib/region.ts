@@ -1660,6 +1660,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     aliases: ["East Midlands, England", "Derby"],
   },
   {
+    name: "Bedford",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "BDF",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 52.1364,
+    centroidLng: -0.4667, // Bedford town centre
+    aliases: ["Bedford, England", "Bedfordshire"],
+  },
+  {
     name: "Hertfordshire",
     country: "UK",
     timezone: "Europe/London",
@@ -4605,6 +4616,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Exeter": "United Kingdom",
   "Torbay": "United Kingdom",
   "East Midlands": "United Kingdom",
+  "Bedford": "United Kingdom",
   "Hertfordshire": "United Kingdom",
   "Bicester": "United Kingdom",
   "Malvern": "United Kingdom",

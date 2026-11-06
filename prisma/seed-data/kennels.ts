@@ -6662,6 +6662,26 @@ export const KENNELS: KennelSeed[] = [
       longitude: -1.526,
       // dogFriendly / instagramHandle / twitterHandle: unstated — omitted (flagged)
     },
+    {
+      kennelCode: "h5-gb", // bare "h5" taken — h5-hash (Harrisburg) / h5-hi (Honolulu)
+      shortName: "H5 Hare & Hounds",
+      fullName: "Hare and Hounds Hash House Harriers",
+      region: "Bedford",
+      country: "UK",
+      website: "https://www.h5hashers.org.uk/",
+      foundedYear: 1991, // homepage: "Hashing since 1991"
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM", // 12-hr; Bank Holiday Mondays 4pm (adapter startTime "16:00")
+      scheduleFrequency: "Weekly",
+      dogFriendly: true, // homepage: "H5 welcomes dogs to the Hash"
+      description:
+        "The Hare & Hounds Hash House Harriers (H5) — 'the drinking club with a running problem', hashing " +
+        "since 1991. Weekly trails from a different pub across Bedfordshire & North Hertfordshire, Sundays " +
+        "at 11am (Bank Holiday Mondays at 4pm). New runners and drinkers always welcome.",
+      latitude: 52.1364,
+      longitude: -0.4667,
+      // hashCash / socials / logo / walkersWelcome: not published on the site (2026-11-05) — omitted
+    },
     // ===== CLUSTER 1 ===== (Herts H3 + Bicester H3 full onboard; FUKFM source-add + field fixes below)
     {
       kennelCode: "herts-h3",

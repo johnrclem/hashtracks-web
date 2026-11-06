@@ -37,6 +37,7 @@ import { SouthHamsH4Adapter } from "./html-scraper/south-hams-h4";
 import { TidewaterH3Adapter } from "./html-scraper/tidewater-h3";
 import { DesertHashAdapter } from "./html-scraper/desert-hash";
 import { CreekHashAdapter } from "./html-scraper/creek-hash";
+import { H5HareHoundsAdapter } from "./html-scraper/h5-hare-hounds";
 import { BurlingtonHashAdapter } from "./html-scraper/burlington-hash";
 import { RIH3Adapter } from "./html-scraper/rih3";
 import { BrassMonkeyAdapter } from "./html-scraper/brass-monkey";
@@ -263,6 +264,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /merseythirstdayshash/i, name: "MerseyThirstdaysAdapter", factory: () => new MerseyThirstdaysAdapter() },
   { pattern: /bullmoonh3/i,          name: "BullMoonAdapter",         factory: () => new BullMoonAdapter() },
   { pattern: /glasgowh3\.co\.uk/i, name: "GlasgowH3Adapter",        factory: () => new GlasgowH3Adapter() },
+  { pattern: /h5hashers\.org\.uk/i,           name: "H5HareHoundsAdapter",     factory: () => new H5HareHoundsAdapter() },
   { pattern: /frankfurt-hash\.de/i, name: "FrankfurtHashAdapter",    factory: () => new FrankfurtHashAdapter() },
   { pattern: /voodoohash\.com/i,    name: "VoodooH3Adapter",         factory: () => new VoodooH3Adapter() },
   { pattern: /capefearh3\.com/i,   name: "CapeFearH3Adapter",      factory: () => new CapeFearH3Adapter() },
