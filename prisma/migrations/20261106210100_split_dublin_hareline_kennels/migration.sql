@@ -60,7 +60,9 @@ UPDATE "Kennel"
 SET "scheduleFrequency" = 'Biweekly',
     description = 'Ireland''s longest-running hash, founded in 1986. Runs every other Monday at 19:30 from a pub in the Dublin area; the Mondays in between belong to its sister series, I ♥ Monday.',
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
-WHERE "kennelCode" = 'dh3' AND "scheduleFrequency" IS DISTINCT FROM 'Biweekly';
+WHERE "kennelCode" = 'dh3'
+  AND ("scheduleFrequency" IS DISTINCT FROM 'Biweekly'
+       OR description NOT LIKE 'Ireland''s longest-running hash, founded in 1986.%');
 
 -- 2. Aliases ---------------------------------------------------------------
 DELETE FROM "KennelAlias" a
