@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>  
+    <meta charset=utf-8>
+    <meta name=viewport content="width=device-width, initial-scale=1.0">
+    <title>H5 Future Runs</title>
+    <meta name=description content="A social club for non-athletic drinkers in Bedfordshire & Hertfordshire.">
+    <meta name=keywords content="H5, hare and hounds, hash house harriers, running, hashing, bedfordshire">
+    <link rel=icon type="image/png" href="favicon.png">
+    <script src="/includes/futureBuildTable.js"></script>
+    <style>
+    html {
+  --version: 26.0801_03; /*underscore gets replaced by dot to fix issue with iPad/Safari*/
+  --white4dark: antiquewhite;
+  --darkBackground: #222;
+  --darkHeadText: limegreen;
+  --darkInvert: invert(1);
+  --darkOddRows: wheat;
+  font-family: Verdana, Deja Vu Sans, Segoi UI, Arial, sans-serif;
+  --lnkButtonDecoration: #307090;
+  }
+h1.pageTitle {
+  color: blueviolet;
+  text-align: center;
+  font-weight: normal;
+  margin-top: auto;
+  margin-bottom: auto;
+  }
+#hareHounds {
+  position: absolute;
+  width: 400px;
+  height: 140px;
+  top: 0.5em;
+  right: 30px;
+  z-index: -5;
+  background-image: url('/images/drinkingClub.png');
+  background-repeat: no-repeat;
+  background-position: right;
+  }
+#content {
+  background-color: #eeeee0;
+  }
+footer {
+  margin-top: 1.0em;
+  text-align: center;
+  clear: both;
+  color: black;
+  font-weight: normal;
+  font-size: 0.8em;
+  }
+.html5badge {
+  vertical-align: middle;
+  height: 20px;
+  margin-top: 0.5em;
+  }
+.black {
+  color: black;
+  }
+.blue {
+  color: blue;
+  }
+.red {
+  color: red;
+  }
+.green {
+  color: darkgreen;
+  }
+.strike {
+  text-decoration: line-through;
+  }
+.smiley {
+  font-size: 150%;
+  }
+.centred {
+  text-align: center;
+  }
+.justify {
+  text-align: justify;
+  }
+.break {
+  clear: both;
+  }
+.lnkButton {
+  display: inline-flex;
+  background-color: lightskyblue;
+  border-radius: 10px;
+  padding: 0.3em;
+  border: solid 1px var(--lnkButtonDecoration);
+  box-shadow: 3px 2px 0px var(--lnkButtonDecoration);
+  }
+.lnkButton--small {
+  border-radius: 8px;
+  padding-top: 0.25em;
+  padding-bottom: 0.25em;
+  }
+.lnkButton__lnk {
+  font-size: 0.8em;
+  font-weight: bold;
+  color: maroon;
+  text-decoration: none;
+  }
+.lnkButton__lnk--small {
+  font-size: 0.9em;
+  }
+.lnkButton:hover {
+  box-shadow: 1px 2px 0px var(--lnkButtonDecoration);
+  opacity: 0.7;
+  }
+.lnkButton__lnk:hover {
+  color: gold;
+  }
+@media only screen and (max-width: 1023px) {
+  #hareHounds {
+    display: none;
+    }
+  .lnkButton__lnk--small {
+    font-size: 1.1em;
+    }
+}
+@media (prefers-color-scheme: dark) {
+  #content {
+    background-color: var(--darkBackground);
+    }
+  h1.pageTitle {
+    filter: var(--darkInvert);
+    }
+  #hareHounds {
+    background-image: url('/images/dark-drinkingClub.png');
+    }
+  footer {
+    color: var(--white4dark);
+    }
+  footer a {
+    color: gold;
+    }
+}#menuBurger {
+  position: absolute;
+  top: 0.1em;
+  left: 0.1em;
+  color: blueviolet;
+  font-size: 3em;
+  line-height: 0.5em;
+  z-index: 4;
+  }
+#menuWrapper {
+   position: absolute;
+   height: auto;
+   top: 0.5em;
+   left: 0.5em;
+   z-index: 5;
+   border: solid orange 2px;
+   background-image: linear-gradient(to right, #3366ff, firebrick);
+   }
+#menuBar {
+   margin: 0;
+   padding: 0;
+   }
+menu li {
+   list-style: none;
+   float: left;
+   }
+menu a, menu #fontPlus {
+   display: block;
+   padding: 0.3em 0.8em;
+   color: yellow;
+   font-size: 0.8em;
+   text-decoration: none;
+   }
+#fontPlus>#fontImg {
+    max-height: 1.3em;
+    }
+menu li menu {
+   display: none;
+   }
+menu li:hover menu {
+   position: absolute;
+   display: inherit;
+   list-style: none;
+   margin-left: -3.0em;
+   }
+menu menu li {
+   float: none;
+   }
+menu menu a {
+   border: 1px solid orange;
+   border-top: 0;
+   color: white;
+   font-size: 0.75em;
+   text-align: center;
+   background-color: firebrick;
+   background-image: linear-gradient(to right, #3366ff, #70b0f0);
+   }
+menu menu a:hover {
+   color: black;
+   }
+@media only screen and (max-width: 1024px) {
+  #menuWrapper {
+    top: 0.2em;
+    left: 0.2em;
+    }
+  menu a {
+    font-size: 0.95em;
+    }
+  menu menu a {
+    font-size: 0.9em;
+    }
+  }#fTableMain {
+  width: auto;
+  margin: 1em auto auto auto;
+  clear: both;
+  }
+#fTableMain .title {
+  background-color: lightskyblue;
+  color: navy;
+  font-size: 1.1em;
+  font-weight: bold;
+  text-align: center;
+  }
+#fTable {
+  min-width: 100%;
+  border: solid silver 2px;
+  border-collapse: collapse;
+  }
+#fTable .inf {
+  font-size: 0.8em;
+  background-color: #f0f0f0;
+  }
+#fTable .inf .ldiv {
+  width: 25%;
+  }
+#fTable .inf .mdiv {
+  width: 42%;
+  }
+#fTableHead th {
+  background-color: plum;
+  height: auto;
+  color: black;
+  font-size: 0.9em;
+  font-weight: bold;
+  text-transform: capitalize;
+  border: solid silver 1px;
+  padding: 0.3em;
+  }
+#fTableHead td, #fTableMain .title {
+  border: solid silver 1px;
+  border-bottom: 0;
+  padding: 0.3em;
+  }
+#fTableHead .flt_row {
+  background-color: azure;
+  }
+#fTableHead .flt_row .filters {
+  width: 100%;
+  width: -moz-available;
+  width: -webkit-fill-available;
+  width: fill-available;
+  background-color: lightyellow;
+  }
+#fTableBody {
+  background-color: white;
+  font-size: 0.9em;
+  }
+#fTableBody tr.odd {
+  background-color: lightsteelblue;
+  }
+#fTableBody td {
+  border: none;
+  padding: 0.3em;
+  word-break: break-word;
+  }
+@media only screen and (-webkit-max-device-width: 810px), 
+       only screen and (max-device-width: 810px) {
+  #fTable .inf {
+    font-size: 0.7em;
+    }
+  #fTable .inf .ldiv {
+    width: 17%;
+    }
+  #fTable .inf .mdiv {
+    width: 48%;
+    }
+  #fTable .inf .rdiv {
+    width: 35%;
+    }
+  .pubCell {
+    margin: 0;
+    padding-bottom: 0.5em;
+    }
+  .lnkButton__lnk--small {
+    font-size: 0.9em;
+    }
+  }
+@media (prefers-color-scheme: dark) {
+  #fTableBody {
+    background-color: var(--white4dark);
+    }
+  #fTableBody tr.odd {
+    background-color: var(--darkOddRows);
+    }
+  #fTableBody tr.even {
+    background-color: var(--white4dark);
+    }
+  }
+    #fTableMain {
+      max-width: 1024px;
+      }
+    #fTableBody td {
+      word-break: normal;
+      }
+    .yearBeer {
+      color: mediumaquamarine;
+      font-size: 1.2em;
+      margin-left: 2em;
+      }
+    .yearBeer img {
+      float: left;
+      margin: 0 0.5em 0.5em 0;
+      vertical-align: top;
+      }  
+    .warning {
+      text-align: center;
+      font-size: 0.8em;
+      color: red;
+      margin-top: 1.0em;
+      margin-bottom: 1.0em;
+      }
+    #allRuns {
+      display: block;
+      width: fit-content;
+      margin-left: auto;
+      margin-right: auto;
+      }
+    @media only screen and (max-width: 1023px) {
+      .lnkButton__lnk--small {
+        font-size: 0.9em;
+        }
+    @media only screen and (max-width: 810px) {
+      #fTableHead th:first-child {
+        min-width: 100px;
+        }
+      .yearBeer img {
+        max-height: 100px;
+        }
+      }
+    @media only screen and (max-width: 767px) {
+      #allRuns {
+        display: none;
+        }
+      }
+    }
+    </style>
+  </head>
+
+  <body id="content">
+    <script>
+  function hasTouch() {
+    return (('ontouchstart' in window) || (navigator.maxTouchPoints > 0));
+  }
+</script>
+<div id=menuBurger></div>
+<div id=menuWrapper>
+  <menu id=menuBar>
+  <!--Note: the 'onmouseover=""' in the top-level menu options are only needed to make the menus work on iPhones -->
+    <li onmouseover=""><a href="/index.shtml" title="Front Page News"><img alt="Home symbol" src="/images/home.png"></a></li>
+    <li onmouseover="">
+      <a>Hashing</a>
+      <menu>
+        <li><a href="/whatsit.shtml" title="An Explanation">About Hashing</a></li>
+        <li><a href="/faqs.shtml" title="Frequently Asked Questions">FAQs</a></li>
+        <li><a href="/glossary.shtml" title="Hash Terminology">Glossary</a></li>
+        <li><a href="/howto.shtml" title="How to Lay a Trail">How to Lay a Trail</a></li>
+      </menu>
+    </li>
+    <li onmouseover="">
+      <a>H5 Info</a>
+      <menu>
+        <li><a href="/hareline.php" title="Upcoming Runs">Receding Hareline</a></li>
+        <li><a href="/words/_words.shtml" title="The Weekly Newspaper">The Words</a></li>
+        <li><a href="/future.shtml" title="Month-by-Month Calendar">Future Events</a></li>
+        <li><a href="/haberdash.shtml" title="Hash Clobber">Haberdashery</a></li>
+        <li><a href="/mismanagement.shtml" title="Who's To Blame">Mismanagement</a></li>
+        <li><a href="/charity.shtml" title="Our Favourite Good Causes">Charity Donations</a></li>
+        <li><a href="/contact.shtml" title="For Our Eyes Only">Members Lounge<span id="signal" class="red" style="visibility: hidden"> +</span></a></li>
+        <li><a href="/words/archiveIndex.shtml" title="Previous Issues of The Words">Wurdz Archive</a></li>
+      </menu>
+    </li>
+    <li onmouseover="">
+      <a>What the Heck!</a>
+      <menu>
+        <li><a href="/gallery.php" title="Evidence">Photo Gallery</a></li>
+        <li><a href="/awards.shtml" title="Get a life">Hash Awards</a></li>
+        <li><a href="/stats.shtml" title="How're YOU doing?">Hasher Stats</a></li>
+        <li><a href="/pinMap.php" title="Where have we run from?" target="_blank">Hash Pub Map</a></li>
+        <li><a href="/news.shtml" title="Subscribe to eNews">Join Our Mailing List</a></li>
+      </menu>
+    </li>
+    <li id="fontPlus" onmouseover="" title="Make letters bigger"><img id="fontImg" alt="Increase font size symbol" src="/images/AAA.png"></li>
+  </menu>
+</div>
+<script>
+  doc = document;
+  mb = doc.querySelector('#menuBurger');
+  mw = doc.querySelector('#menuWrapper');
+// browser default top margin is 8px
+  const defTop = 8;
+  const fontSizes = ['initial', 'large', 'x-large', 'xx-large'];
+  hh = null;
+  newFontsize = 0;
+//
+  function hasTouch() {
+    return (('ontouchstart' in window) || (navigator.maxTouchPoints > 0));
+  }
+  function useBurgerMenu() {
+    return (hasTouch() && window.innerWidth < 1024);
+  }
+// leave space for menu bar or the 'drinking club' image if present
+  function setBodyMarginTop() {
+    hh = document.querySelector('#hareHounds');
+    mwBorder = parseInt(getComputedStyle(mw).getPropertyValue('border-top-width'),10) + parseInt(getComputedStyle(mw).getPropertyValue('border-bottom-width'),10);
+    ht = ((hh == null) || (getComputedStyle(hh).getPropertyValue('display') == 'none')) ? mw.clientHeight + mwBorder : hh.clientHeight;
+    bodyMarginTop = ht + defTop;
+    mw.parentElement.style.marginTop = bodyMarginTop + 'px';
+  }
+// initial condition
+  function initBodyMarginTop() {
+    setBodyMarginTop();
+    if (useBurgerMenu()) menuOut();
+  }
+// menu fly-in
+  function menuIn() {
+    mw.style.visibility = 'visible';
+    mw.style.transform = 'translate(0,0)';
+    if (useBurgerMenu()) mw.parentElement.style.marginTop = bodyMarginTop + 'px';
+  }
+// menu fly-out
+  function menuOut() {
+    mw.style.transform = 'translate(-500px,0)';
+    if((hh == null) || (getComputedStyle(hh).getPropertyValue('display') == 'none')) mw.parentElement.style.marginTop = defTop + 'px';
+  }
+
+// create touch event handlers to show/hide the menu bar
+  if (useBurgerMenu()) {
+    mw.parentElement.style.transition = 'margin-top 0.75s linear';
+    mw.style.transition = 'transform 1s';
+    mw.style.visibility = 'hidden';
+    menuOut();
+    mb.innerHTML = '&equiv;';
+    mb.addEventListener('touchstart', menuIn);
+    window.addEventListener('touchstart', function(e) {
+      if((mb !== e.target) && (!mw.contains(e.target))) menuOut();
+    })
+  }
+  else {
+    mw.style.visibility = 'visible';
+  }
+// zoom font size for user accessibility
+  var evType = hasTouch() ? 'touchstart' : 'click';
+  doc.querySelector('#fontPlus').addEventListener(evType, function() {
+    this.ownerDocument.body.style.fontSize = fontSizes[++newFontsize % 4];
+  });
+// on initial page load calc the required top margin
+  window.addEventListener('load', initBodyMarginTop);
+</script>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-HLTQELPG2T"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-HLTQELPG2T');
+</script>
+    <div id=hareHounds></div>
+
+    <div id="main">
+      <div class="yearBeer">
+        <img alt="Logo for Stallion Amber beer" title="Logo copyright Hambleton Brewery" src="/images/stallionAmber.jpg">
+        2026-27 is the year of the Horse<br>Stallion Amber from Hambleton Brewery, Ripon
+       </div>
+
+      <div id="fTableMain">
+        <table id="fTable">
+          <caption class="title">Receding Hareline</caption>
+          <thead id="fTableHead"></thead>
+          <tbody id="fTableBody"></tbody>
+        </table>
+      </div>
+            <script>
+        colHeads = ["number","date","hares","Town","pub","maplink","postcode"];
+        runData = [{"runno":"1868","date":"Sun 08 Nov 26","hares":"Forking & Chipolatte","town":"Stanbridge","pub":"The Five Bells","postcode":"LU7 9JF","maplink":"?x=496362&y=224091"},{"runno":"1869","date":"Sun 15 Nov 26","hares":"Edwina & Major Jon","town":"Bedford","pub":"The Pheasant","postcode":"MK41 8YR","maplink":"?X=505917&Y=252639"},{"runno":"1870","date":"Sun 22 Nov 26","hares":"Peppa Pig Porker","town":"","pub":"","postcode":"","maplink":""},{"runno":"1871","date":"Sun 29 Nov 26","hares":"Captain Fantastic & Lady Tarzan","town":"","pub":"","postcode":"","maplink":""},{"runno":"1872","date":"Sun 06 Dec 26","hares":"Shufflecock and Nicey","town":"Willington","pub":"The Danish Camp","postcode":"MK44 3QG","maplink":"?X=511262&Y=250460"},{"runno":"1873","date":"Sun 13 Dec 26","hares":"Lulu<font color=red> Hangover Hash<\/font>","town":"Kempston","pub":"The Fletton Brick #","postcode":"MK42 7FY","maplink":"?X=502354&Y=246215"},{"runno":"1874","date":"Sun 20 Dec 26","hares":"Rapid","town":"Milton Keynes","pub":"Blackened Sun Brewing","postcode":"MK12 6HP","maplink":"?x=482146&y=239702"},{"runno":"1875","date":"Sun 27 Dec 26","hares":"<font color=blue>Hares Needed<\/font>","town":"","pub":"","postcode":"","maplink":""},{"runno":"1876","date":"Sun 03 Jan 27","hares":"Old King Cole","town":"","pub":"","postcode":"","maplink":""},{"runno":"1877","date":"Sun 10 Jan 27","hares":"<font color=blue>Hares Needed<\/font>","town":"","pub":"","postcode":"","maplink":""},{"runno":"1878","date":"Sun 17 Jan 27","hares":"<font color=blue>Hares Needed<\/font>","town":"","pub":"","postcode":"","maplink":""},{"runno":"1879","date":"Sun 24 Jan 27","hares":"<font color=blue>Hares Needed<\/font>","town":"","pub":"","postcode":"","maplink":""},{"runno":"1880","date":"Sun 31 Jan 27","hares":"<font color=blue>Hares Needed<\/font>","town":"","pub":"","postcode":"","maplink":""}];
+        const desktop = [0, 1, 2, 3, 4, 6, 5];
+        const mobile = [0, 4, 2];
+        
+        displayStyle = (parseInt(window.innerWidth) < 810) ? mobile : desktop;
+        futureBuildTable(displayStyle, colHeads, runData, displayStyle == mobile);
+      </script>
+      <div class="warning">*/# means pub is not child/dog friendly</div>
+      <div id="allRuns" class="lnkButton lnkButton__lnk">Search in Previous Runs</div>
+    </div>
+    <script>
+      document.getElementById('allRuns').addEventListener('click', function() {
+        location.href='runsList.php';
+      });
+    </script>
+    <noscript>
+  <p class="centred red">Your browser does not appear to support JavaScript, or JavaScript may be disabled</p>
+  <style>
+    body {margin-top: 4em}
+    #main {display: none}
+  </style>
+</noscript><footer>
+  Contact us: email <a href="mailto:info@h5hashers.org.uk">info@h5hashers.org.uk</a><br>
+  <img class="html5badge"
+       src="/images/HTML5_Logo_32.png"
+       alt="HTML5 Powered with CSS3 / Styling"
+       title="HTML5 Powered with CSS3 / Styling">
+  <img class="html5badge"
+       src="/images/css-valid.png"
+       alt="HTML5 Powered with CSS3 / Styling"
+       title="HTML5 Powered with CSS3 / Styling">
+  Version <span id="version"></span><br>
+  &copy;2012-<span id="curYr"></span>, h5hashers.org.uk<br>
+  This site is ad-free. Please read our <a href="/privacy.shtml" target="_blank">Privacy Policy</a>
+  <script>
+  document.querySelector('#version').innerHTML = getComputedStyle(document.querySelector('html')).getPropertyValue('--version').replaceAll('_','.');
+  var yr=new Date().getFullYear()+'';
+  var doc = document.querySelector('#curYr');
+  doc.innerHTML = yr.match(/\d{2}$/);
+  doc.style.display = 'contents';
+  </script>
+</footer>
+  </body>
+</html>
