@@ -6399,6 +6399,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "newch3",
+      slug: "new-cotswold-h3", // pinned — toSlug("N.E.W. Cotswold H3") would give "n-e-w-cotswold-h3"
       shortName: "N.E.W. Cotswold H3",
       fullName: "N.E.W. Cotswold Hash House Harriers",
       region: "Cotswolds",
