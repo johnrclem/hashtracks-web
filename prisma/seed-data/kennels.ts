@@ -6332,6 +6332,25 @@ export const KENNELS: KennelSeed[] = [
       longitude: -1.526,
       // dogFriendly / instagramHandle / twitterHandle: unstated — omitted (flagged)
     },
+    {
+      kennelCode: "quorn-h3", shortName: "Quorn H3", fullName: "Quorn Hash House Harriers", region: "East Midlands", country: "UK",
+      website: "http://www.quornh3.org.uk/", // NOSONAR — site is HTTP-only (no TLS)
+      facebookUrl: "https://www.facebook.com/groups/quornh3",
+      foundedYear: 1987, // AboutUs.html: Run 1 on 29 March 1987 from the Free Trade, Sileby
+      walkersWelcome: true, // WhoAreWe.html: "walkers or runners"
+      // From January 2026 regular trails are the 1st Sunday of each month (events.html);
+      // the older About page's "1st and 3rd Sunday" is the pre-2026 pattern.
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Monthly",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1SU", startTime: "11:00", label: "1st Sunday" },
+      ],
+      logoUrl: "/kennel-logos/quorn-h3.png", // self-hosted (origin is HTTP-only); magic bytes confirmed PNG
+      latitude: 52.741,
+      longitude: -1.174,
+      description:
+        "A drinking club with a running problem — Quorn H3 runs for fun in the countryside between Nottingham, Derby and Leicester. Founded 1987; flour-marked trails of about an hour, followed by a circle and a pint.",
+      // hashCash: unpublished. dogFriendly: unstated. twitter: unverified (not linked on site).
+    },
     // ===== CLUSTER 1 ===== (Herts H3 + Bicester H3 full onboard; FUKFM source-add + field fixes below)
     {
       kennelCode: "herts-h3",

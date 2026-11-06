@@ -8936,6 +8936,17 @@ export const SOURCES = [
       kennelCodes: ["mickleover-h3"],
     },
     {
+      name: "Quorn H3 Runlog XML",
+      url: "http://www.quornh3.org.uk/runlog.html", // NOSONAR — site is HTTP-only; adapter reads runlog<YYYY>.xml
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Per-year file ages out at the year boundary; history is a frozen backfill.
+      config: { upcomingOnly: true },
+      kennelCodes: ["quorn-h3"],
+    },
+    {
       name: "Jacksonville H3 Timely iCal",
       url: "https://events.timely.fun/api/calendars/54747312/export?format=ics",
       type: "ICAL_FEED" as const,
