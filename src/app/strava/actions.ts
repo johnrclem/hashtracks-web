@@ -5,10 +5,8 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/lib/actions";
 import type { Prisma } from "@/generated/prisma/client";
-import {
-  deauthorizeStrava,
-  getValidAccessToken,
-} from "@/lib/strava/client";
+import { revokeStravaToken } from "@/lib/strava/client";
+import { decryptToken } from "@/lib/strava/crypto";
 import { buildStravaUrl } from "@/lib/strava/url";
 import { syncStravaActivities } from "@/lib/strava/sync";
 import { stravaActivityKey } from "@/lib/strava/activity-key";
@@ -172,13 +170,13 @@ export async function disconnectStrava(): Promise<ActionResult> {
 
   if (!connection) return { error: "No Strava connection found" };
 
-  // Revoke access on Strava's end
+  // Revoke access on Strava's end. Revoking the refresh token also revokes its
+  // access tokens, so no token refresh is needed first.
   try {
-    const { accessToken } = await getValidAccessToken(connection);
-    await deauthorizeStrava(accessToken);
+    await revokeStravaToken(decryptToken(connection.refreshToken), "refresh_token");
   } catch (err) {
     // Continue with local cleanup even if Strava revocation fails
-    console.error("Strava deauthorization error (continuing cleanup):", err);
+    console.error("Strava token revocation error (continuing cleanup):", err);
   }
 
   // Clear stravaUrl values that were attached from the Strava API. Links the

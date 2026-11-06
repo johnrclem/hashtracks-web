@@ -44,14 +44,13 @@ vi.mock("@/lib/strava/sync", () => ({
 }));
 
 vi.mock("@/lib/strava/client", () => ({
-  deauthorizeStrava: vi.fn(),
-  getValidAccessToken: vi.fn(),
+  revokeStravaToken: vi.fn(),
 }));
 
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { syncStravaActivities } from "@/lib/strava/sync";
-import { getValidAccessToken, deauthorizeStrava } from "@/lib/strava/client";
+import { revokeStravaToken } from "@/lib/strava/client";
 import { stravaActivityKey } from "@/lib/strava/activity-key";
 import { buildStravaActivity, mockUser } from "@/test/factories";
 import {
@@ -229,17 +228,31 @@ describe("attachStravaActivity", () => {
 });
 
 describe("disconnectStrava", () => {
-  it("revokes, clears only auto-linked URLs, and deletes the connection", async () => {
-    vi.mocked(prisma.stravaConnection.findUnique).mockResolvedValueOnce({ id: "sc_1" } as never);
-    vi.mocked(getValidAccessToken).mockResolvedValueOnce({ accessToken: "tok", refreshed: false });
+  it("revokes the refresh token, clears only auto-linked URLs, and deletes the connection", async () => {
+    // Legacy plaintext token: decryptToken passes it through unchanged
+    vi.mocked(prisma.stravaConnection.findUnique).mockResolvedValueOnce({
+      id: "sc_1", refreshToken: "refresh_xyz",
+    } as never);
 
     expect(await disconnectStrava()).toEqual({ success: true });
-    expect(deauthorizeStrava).toHaveBeenCalledWith("tok");
+    expect(revokeStravaToken).toHaveBeenCalledWith("refresh_xyz", "refresh_token");
     expect(prisma.attendance.updateMany).toHaveBeenCalledWith({
       where: { userId: "user_1", stravaUrlAutoLinked: true },
       data: { stravaUrl: null, stravaUrlAutoLinked: false },
     });
     expect(prisma.stravaConnection.delete).toHaveBeenCalledWith({ where: { id: "sc_1" } });
+  });
+
+  it("still cleans up locally when Strava revocation fails", async () => {
+    vi.mocked(prisma.stravaConnection.findUnique).mockResolvedValueOnce({
+      id: "sc_1", refreshToken: "refresh_xyz",
+    } as never);
+    vi.mocked(revokeStravaToken).mockRejectedValueOnce(new Error("Strava token revocation failed (401)"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(await disconnectStrava()).toEqual({ success: true });
+    expect(prisma.stravaConnection.delete).toHaveBeenCalledWith({ where: { id: "sc_1" } });
+    consoleSpy.mockRestore();
   });
 });
 

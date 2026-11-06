@@ -21,7 +21,8 @@ export class StravaAthleteLimitError extends Error {
 const STRAVA_AUTH_URL = "https://www.strava.com/oauth/authorize";
 const STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token";
 const STRAVA_API_BASE = "https://www.strava.com/api/v3";
-const STRAVA_DEAUTH_URL = "https://www.strava.com/oauth/deauthorize";
+// Replaces /oauth/deauthorize, which Strava retires on 2027-06-01.
+const STRAVA_REVOKE_URL = "https://www.strava.com/oauth/revoke";
 
 function getClientId(): string {
   const id = process.env.STRAVA_CLIENT_ID;
@@ -150,20 +151,37 @@ export async function getValidAccessToken(connection: {
   return { accessToken: tokenData.access_token, refreshed: true };
 }
 
-/** Revoke access on Strava's end (required on disconnect per API agreement). */
-export async function deauthorizeStrava(accessToken: string): Promise<void> {
-  const res = await fetch(STRAVA_DEAUTH_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({ access_token: accessToken }),
-  });
+/**
+ * Revoke a token on Strava's end (required on disconnect per the API agreement).
+ *
+ * Uses POST /oauth/revoke with HTTP Basic client auth. Revoking a refresh token
+ * also revokes its access tokens, and the reverse holds too. Strava returns 200
+ * whether or not the token was found, so an already-revoked token is not an
+ * error. A 503 is documented as safe to retry, so it is retried once. A 401 now
+ * means our client credentials are wrong, not that the token was invalid, so it
+ * throws.
+ */
+export async function revokeStravaToken(
+  token: string,
+  tokenTypeHint: "access_token" | "refresh_token",
+): Promise<void> {
+  const basic = Buffer.from(`${getClientId()}:${getClientSecret()}`).toString("base64");
+  const request = () =>
+    fetch(STRAVA_REVOKE_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${basic}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ token, token_type_hint: tokenTypeHint }).toString(),
+    });
 
-  // 401 means token is already invalid — treat as success
-  if (!res.ok && res.status !== 401) {
+  let res = await request();
+  if (res.status === 503) res = await request();
+
+  if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Strava deauthorization failed (${res.status}): ${text}`);
+    throw new Error(`Strava token revocation failed (${res.status}): ${text}`);
   }
 }
 
