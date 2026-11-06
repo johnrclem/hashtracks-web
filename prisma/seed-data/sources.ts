@@ -6973,6 +6973,20 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["cebu-h3"],
     },
+    // Subic Bay H3 — Blogspot read through the Blogger API (bespoke
+    // SubicBayHashAdapter: newest "Hareline" table row per run + "Run N" recap
+    // enrichment). Rows age out of newer Hareline posts → upcomingOnly. Archive
+    // back to #1622 (Oct 2024) via scripts/backfill-sbh3-ph-history.ts.
+    {
+      name: "Subic Bay H3 Blogger Hareline",
+      url: "https://subicbayhash.blogspot.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 120,
+      config: { upcomingOnly: true },
+      kennelCodes: ["sbh3-ph"],
+    },
 
     // Seoul H3 — seoulhash.com renders one current run on index.php (no
     // pagination); archive.php carries deep history (backfilled separately).
