@@ -6489,6 +6489,11 @@ export const SOURCES = [
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 30,
+      // The "Next H4 Run" block has no date and often stays up for weeks after
+      // its run; a run number behind the one this anchor predicts for the coming
+      // Monday means the page is stale, so nothing is emitted (Nov 2026).
+      // #2979 = 2026-07-06 and #2988 = 2026-09-07 confirm one run per Monday.
+      config: { runNumberAnchor: { runNumber: 2988, date: "2026-09-07" } },
       kennelCodes: ["hkh3"],
     },
     // --- HK H3 (STATIC_SCHEDULE — recurring slot for advance visibility) ---

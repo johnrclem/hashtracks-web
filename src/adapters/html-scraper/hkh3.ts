@@ -55,9 +55,9 @@ const RUN_HOUR_HK = 18;
  * (HK wall-clock) the schedule generates, so the two sources fingerprint to the
  * same canonical event.
  *
- * NOTE: a non-updating homepage (the run number stays stale for weeks) can
- * still re-stamp the same number onto successive upcoming Mondays — that's a
- * source-freshness limitation the adapter can't detect statelessly.
+ * A non-updating homepage (the run number stays stale for weeks) would
+ * re-stamp the same number onto successive Mondays; `fetch` suppresses that
+ * with the `runNumberAnchor` check (see `expectedRunNumber`).
  */
 export function nextMondayOnOrAfter(from: Date): string {
   // Shift into HK local time, then read the wall-clock via getUTC* accessors.
@@ -73,6 +73,34 @@ export function nextMondayOnOrAfter(from: Date): string {
     hk.getUTCDate() + daysUntilMon,
   ));
   return `${mon.getUTCFullYear()}-${String(mon.getUTCMonth() + 1).padStart(2, "0")}-${String(mon.getUTCDate()).padStart(2, "0")}`;
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** A known (run number, Monday) pair from `Source.config.runNumberAnchor`. */
+export interface RunNumberAnchor {
+  runNumber: number;
+  /** YYYY-MM-DD, the Monday that run was held. */
+  date: string;
+}
+
+/** Validate the untrusted `runNumberAnchor` config value. */
+export function parseRunNumberAnchor(raw: unknown): RunNumberAnchor | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const { runNumber, date } = raw as Record<string, unknown>;
+  if (typeof runNumber !== "number" || !Number.isInteger(runNumber)) return undefined;
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined;
+  return { runNumber, date };
+}
+
+/**
+ * The run number expected on `monday` (YYYY-MM-DD), counting one run per week
+ * from the anchor. HK H3 runs every Monday, and the numbers advance weekly
+ * (#2979 on 2026-07-06 → #2988 on 2026-09-07, exactly 9 weeks).
+ */
+export function expectedRunNumber(monday: string, anchor: RunNumberAnchor): number {
+  const weeks = Math.round((Date.parse(`${monday}T00:00:00Z`) - Date.parse(`${anchor.date}T00:00:00Z`)) / WEEK_MS);
+  return anchor.runNumber + weeks;
 }
 
 /** Labels we know to terminate the previous value (so a multi-line tag-stripped
@@ -236,14 +264,26 @@ export class Hkh3Adapter implements SourceAdapter {
       errors.push(message);
     }
 
+    // Stale-homepage guard (#G7, Nov 2026). The block carries no date, and the
+    // committee often leaves an already-run block up for weeks, so dating it
+    // "next Monday" stamped #2979 on 9 Mondays and #2988 on 10. When the page's
+    // run number is behind the number expected for the coming Monday, the run
+    // has already happened: emit nothing (the STATIC_SCHEDULE source keeps the
+    // Monday itself on the calendar).
+    const anchor = parseRunNumberAnchor((source.config as Record<string, unknown> | null)?.runNumberAnchor);
+    const expected = event?.runNumber !== undefined && anchor ? expectedRunNumber(event.date, anchor) : undefined;
+    const stale = event?.runNumber !== undefined && expected !== undefined && event.runNumber < expected;
+
     return {
-      events: event ? [event] : [],
+      events: event && !stale ? [event] : [],
       errors,
       structureHash,
       errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
       diagnosticContext: {
         runNumberDetected: event?.runNumber,
         locationDetected: event?.location,
+        ...(expected === undefined ? {} : { expectedRunNumber: expected }),
+        ...(stale ? { staleHomepage: true, expectedZero: true } : {}),
         fetchDurationMs,
       },
     };

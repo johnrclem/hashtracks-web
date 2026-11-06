@@ -22,18 +22,26 @@
 -- 6. Boston Hash Calendar: route "PTT H3"/"PTTH3" → pink-taco, "MOOOOOOM" → bos-moon,
 --    and a bare "Misman meeting" → boh3 (like "BH3 Misman meeting"). Validated against
 --    the full 1,640-item calendar archive: only those 7 titles change routing.
+-- 7. HK H3 Homepage: runNumberAnchor {2988, 2026-09-07}. The homepage block has no
+--    date and stays up for weeks after its run; dating it "next Monday" stamped #2979
+--    on 9 Mondays and #2988 on 10. A run number behind the anchor's prediction for the
+--    coming Monday now means "stale", and nothing is emitted.
 --
 -- DATA-ONLY, idempotent. prisma/seed-data/sources.ts carries the same values.
 
 UPDATE "Source"
-SET config = jsonb_set(COALESCE(config, '{}'::jsonb), '{upcomingOnly}', 'true'::jsonb),
+SET config = jsonb_set(
+      CASE WHEN jsonb_typeof(config) = 'object' THEN config ELSE '{}'::jsonb END,
+      '{upcomingOnly}', 'true'::jsonb),
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE name = 'Sacramento H3 Squarespace Events'
   AND type::text = 'HTML_SCRAPER'
   AND (config->'upcomingOnly') IS DISTINCT FROM 'true'::jsonb;
 
 UPDATE "Source"
-SET config = jsonb_set(COALESCE(config, '{}'::jsonb), '{upcomingOnly}', 'true'::jsonb),
+SET config = jsonb_set(
+      CASE WHEN jsonb_typeof(config) = 'object' THEN config ELSE '{}'::jsonb END,
+      '{upcomingOnly}', 'true'::jsonb),
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE name = 'BoiseH3 Website'
   AND type::text = 'HTML_SCRAPER'
@@ -76,3 +84,12 @@ SET config = jsonb_set(config, '{kennelPatterns}', '[
 WHERE name = 'Boston Hash Calendar'
   AND type::text = 'GOOGLE_CALENDAR'
   AND NOT (config->'kennelPatterns') @> '[["^Misman meeting\\b", "boh3"]]'::jsonb;
+
+UPDATE "Source"
+SET config = jsonb_set(
+      CASE WHEN jsonb_typeof(config) = 'object' THEN config ELSE '{}'::jsonb END,
+      '{runNumberAnchor}', '{"runNumber": 2988, "date": "2026-09-07"}'::jsonb),
+    "updatedAt" = NOW() AT TIME ZONE 'UTC'
+WHERE name = 'HK H3 Homepage'
+  AND type::text = 'HTML_SCRAPER'
+  AND (config IS NULL OR NOT config ? 'runNumberAnchor');
