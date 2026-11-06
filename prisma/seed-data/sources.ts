@@ -9464,6 +9464,17 @@ export const SOURCES = [
       kennelCodes: ["fukfm"],
     },
     {
+      name: "Essex H3 Website Hareline",
+      url: "https://essexhhh.co.uk/hareline",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // Rolling forward hareline (next ~5 runs) — past runs drop off.
+      config: { upcomingOnly: true },
+      kennelCodes: ["essex-h3"],
+    },
+    {
       name: "Donnington H3 Website",
       url: "https://www.donningtonh3.co.uk/",
       type: "HTML_SCRAPER" as const,
