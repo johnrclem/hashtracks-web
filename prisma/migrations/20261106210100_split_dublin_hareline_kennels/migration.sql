@@ -16,8 +16,9 @@
 --
 -- DATA-ONLY (Vercel runs `migrate deploy`, never `db seed`). Mirrors
 -- prisma/seed-data/{kennels,aliases,sources}.ts. Idempotent.
+-- Also restores the reconcile-cancelled Irish Nash Hash 2026 on dh3 (step 7).
 -- Expected on prod at authoring time: 106 → i-love-monday, 4 → shed-h3,
--- 3 deleted; dh3 keeps 109 (108 CONFIRMED + the cancelled Nash Hash row).
+-- 3 deleted, 1 restored; dh3 keeps 109, all CONFIRMED.
 
 BEGIN;
 
@@ -86,22 +87,21 @@ WHERE k."kennelCode" = 'shed-h3'
 ON CONFLICT ("kennelId", alias) DO NOTHING;
 
 -- 3. Source routing config + links -----------------------------------------
--- Mirrors the seed: route by Hash label, default to dh3, and drop the
--- non-trail / other-club rows before they become RawEvents. Merged into any
--- existing config (prod's is NULL today).
+-- Mirrors the seed: route by Hash label, default to dh3, drop the non-trail /
+-- other-club rows before they become RawEvents, and reconcile only future rows
+-- (the archive keeps past runs; see step 7). Plain SQL strings, so '\s' / '\b'
+-- reach the regex as written. Merged into any existing config (prod's is NULL).
 UPDATE "Source"
-SET config = COALESCE(config, '{}'::jsonb) || '{
-      "kennelPatterns": [
-        ["^I\\s*(?:♥|Love|Heart)\\s*Monday\\b", "i-love-monday"],
-        ["^Dublin\\s*H3\\b", "dh3"],
-        ["^Shed\\b", "shed-h3"]
-      ],
-      "defaultKennelTag": "dh3",
-      "silentlySkipPatterns": [
-        {"pattern": "^(?:Other )?Marathon Water\\b", "field": "title"},
-        {"pattern": "^Cork\\s+H3\\b", "field": "title"}
-      ]
-    }'::jsonb,
+SET config = COALESCE(config, '{}'::jsonb) || jsonb_build_object(
+      'upcomingOnly', true,
+      'kennelPatterns', jsonb_build_array(
+        jsonb_build_array('^I\s*(?:♥|Love|Heart)\s*Monday\b', 'i-love-monday'),
+        jsonb_build_array('^Dublin\s*H3\b', 'dh3'),
+        jsonb_build_array('^Shed\b', 'shed-h3')),
+      'defaultKennelTag', 'dh3',
+      'silentlySkipPatterns', jsonb_build_array(
+        jsonb_build_object('pattern', '^(?:Other )?Marathon Water\b', 'field', 'title'),
+        jsonb_build_object('pattern', '^Cork\s+H3\b', 'field', 'title'))),
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE name = 'Dublin H3 Website Hareline' AND type = 'HTML_SCRAPER'::"SourceType"
   AND (config IS NULL OR NOT config ? 'kennelPatterns');
@@ -129,12 +129,15 @@ JOIN (VALUES ('dh3', '2026-11-09'), ('i-love-monday', '2026-11-16')) AS t(code, 
   ON t.code = k."kennelCode"
 ON CONFLICT ("kennelId", rrule, source) DO NOTHING;
 
--- The anchored rule supersedes dh3's unprojectable LOW cadence placeholder.
+-- The anchored rule supersedes every other seed-derived dh3 rule: prod's LOW
+-- CADENCE=BIWEEKLY placeholder, and the FREQ=WEEKLY;BYDAY=MO rule older seeds
+-- derived from "Weekly" (it would project DH3 onto I ♥ Monday's weeks).
 UPDATE "ScheduleRule" sr
 SET "isActive" = false, "updatedAt" = NOW() AT TIME ZONE 'UTC'
 FROM "Kennel" k
 WHERE sr."kennelId" = k.id AND k."kennelCode" = 'dh3'
-  AND sr.rrule = 'CADENCE=BIWEEKLY;BYDAY=MO' AND sr.source = 'SEED_DATA'::"ScheduleRuleSource"
+  AND sr.source = 'SEED_DATA'::"ScheduleRuleSource"
+  AND sr.rrule <> 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO'
   AND sr."isActive" = true;
 
 -- 5. Re-home events by the archive label stored as the title ----------------
@@ -197,8 +200,27 @@ BEGIN
   RAISE NOTICE 'dublin split: % non-trail / other-club event(s) deleted', (SELECT count(*) FROM dublin_drops);
 END $$;
 
--- 7. Cached lastEventDate, mirroring the nightly backfillLastEventDates().
--- Two index-backed MAXes (primary FK, co-host EventKennel) instead of an
+-- 7. Restore Irish Nash Hash 2026 (Dublin H3, 3–5 July 2026). The site admin
+--    deleted its hareline row on 2026-07-03 (repo commit "Delete Run"), so
+--    reconcile cancelled a real event. With upcomingOnly now set, a past row
+--    is never reconciled again, so the restore sticks. Guarded: only this row,
+--    only if the reconciler (not an admin) cancelled it.
+UPDATE "Event" e
+SET status = 'CONFIRMED'::"EventStatus",
+    title = 'Irish Nash Hash 2026',
+    "endDate" = TIMESTAMP '2026-07-05 12:00:00',
+    description = 'Irish Nash Hash, hosted by Dublin HHH. Thursday 2 July: early-arrivals pub crawl from Toners, Baggot St. Friday 3 July: registration 17:00–18:30, trail at 19:00. Saturday 4 July: a choice of trails with a beer stop, then lunch, dinner and a party. Sunday 5 July: morning trail and circle.',
+    "updatedAt" = NOW() AT TIME ZONE 'UTC'
+FROM "Kennel" k
+WHERE e."kennelId" = k.id AND k."kennelCode" = 'dh3'
+  AND e.date = TIMESTAMP '2026-07-03 12:00:00'
+  AND e.title = 'Dublin H3 DH3 Nash Hash'
+  AND e.status = 'CANCELLED'::"EventStatus"
+  AND e."adminCancelledAt" IS NULL;
+
+-- 8. Cached lastEventDate for every kennel this deploy touched, including the
+--    Queens split's four (20261106210000 runs first). Mirrors the nightly
+--    backfillLastEventDates() predicate. Two index-backed MAXes (primary FK, co-host EventKennel) instead of an
 -- OR EXISTS scan; GREATEST ignores NULLs, so an empty kennel stays NULL.
 UPDATE "Kennel" k
 SET "lastEventDate" = GREATEST(
@@ -209,6 +231,6 @@ SET "lastEventDate" = GREATEST(
    WHERE ek."kennelId" = k.id
      AND e.status <> 'CANCELLED'::"EventStatus" AND e."isManualEntry" IS NOT TRUE AND e."isCanonical")
 )
-WHERE k."kennelCode" IN ('dh3', 'i-love-monday', 'shed-h3');
+WHERE k."kennelCode" IN ('dh3', 'i-love-monday', 'shed-h3', 'qbk', 'queens-h3', 'ggfm', 'nych3');
 
 COMMIT;

@@ -216,7 +216,7 @@ export const SOURCES = [
           ["^Harriettes\\b", "harriettes-nyc"],
           ["^Columbia\\b", "columbia"],
           ["^GGFM\\b", "ggfm"],
-          ["^Queens\\b", "queens-h3"],
+          [String.raw`^Queens\b`, "queens-h3"],
           ["^NYC(?:H3)?\\b", "nych3"],
         ],
         defaultKennelTag: "nych3",
@@ -770,6 +770,11 @@ export const SOURCES = [
       // HHH hosts — are Dublin H3 specials. Never route on a bare "Dublin":
       // Dayton has a Dublin Pub that DH4 / Dayton H3 trails use.
       config: {
+        // The archive keeps past runs, so a past row vanishing is the site
+        // tidying up, not a cancellation: the admin deleted Nash Hash 2026's
+        // row on the day and reconcile cancelled a real event. Only future
+        // rows are reconciled.
+        upcomingOnly: true,
         kennelPatterns: [
           [String.raw`^I\s*(?:♥|Love|Heart)\s*Monday\b`, "i-love-monday"],
           [String.raw`^Dublin\s*H3\b`, "dh3"],
@@ -782,7 +787,7 @@ export const SOURCES = [
         // spaces are safe (the adapter collapses whitespace in titles) and keep
         // the rule inside safe-regex2, which drops `(?:Other\s+)?`-style rules.
         silentlySkipPatterns: [
-          { pattern: "^(?:Other )?Marathon Water\\b", field: "title" },
+          { pattern: String.raw`^(?:Other )?Marathon Water\b`, field: "title" },
           { pattern: String.raw`^Cork\s+H3\b`, field: "title" },
         ],
       },

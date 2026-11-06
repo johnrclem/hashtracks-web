@@ -29,7 +29,8 @@
 --      target kennel already has an event that day.
 --      Queens #247 (2024-08-03) was a joint run with QBK's 69th, so qbk stays
 --      on it as a co-host (EventKennel, isPrimary = false).
---   6. Recompute lastEventDate for every kennel touched.
+--   6. lastEventDate for every kennel touched is recomputed by the next
+--      migration in this deploy (20261106210100).
 -- Expected on prod at authoring time: 80 → queens-h3, 1 → ggfm, 2 → nych3;
 -- qbk keeps 74 (QBK #1–#74).
 
@@ -166,19 +167,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- 6. Cached lastEventDate, mirroring the nightly backfillLastEventDates()
---    predicate (primary FK OR co-host; not CANCELLED, not manual, canonical).
--- Two index-backed MAXes (primary FK, co-host EventKennel) instead of an
--- OR EXISTS scan; GREATEST ignores NULLs, so an empty kennel stays NULL.
-UPDATE "Kennel" k
-SET "lastEventDate" = GREATEST(
-  (SELECT MAX(e.date) FROM "Event" e
-   WHERE e."kennelId" = k.id
-     AND e.status <> 'CANCELLED'::"EventStatus" AND e."isManualEntry" IS NOT TRUE AND e."isCanonical"),
-  (SELECT MAX(e.date) FROM "EventKennel" ek JOIN "Event" e ON e.id = ek."eventId"
-   WHERE ek."kennelId" = k.id
-     AND e.status <> 'CANCELLED'::"EventStatus" AND e."isManualEntry" IS NOT TRUE AND e."isCanonical")
-)
-WHERE k."kennelCode" IN ('qbk', 'queens-h3', 'ggfm', 'nych3');
+-- 6. Cached lastEventDate for qbk / queens-h3 / ggfm / nych3 is recomputed at
+--    the end of 20261106210100_split_dublin_hareline_kennels (same deploy).
 
 COMMIT;
