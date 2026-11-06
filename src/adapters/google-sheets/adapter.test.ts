@@ -14,6 +14,19 @@ const mockedSafeFetch = vi.mocked(safeFetch);
 // ── parseDate ──
 
 describe("parseDate", () => {
+  it("parses weekday-prefixed YY-MM-DD (Summit 2026-2027 tab, #2333)", () => {
+    expect(parseDate("Mon 26-06-22")).toBe("2026-06-22");
+    expect(parseDate("Sat 26-06-27")).toBe("2026-06-27");
+    expect(parseDate("Fri 27-01-01")).toBe("2027-01-01");
+  });
+
+  it("uses the weekday prefix to disambiguate two-digit triples", () => {
+    // 06-22-26 is not a valid YY-MM-DD; M-D-YY 2026-06-22 is a Monday.
+    expect(parseDate("Mon 06-22-26")).toBe("2026-06-22");
+    // Weekday that matches no interpretation → rejected, not guessed.
+    expect(parseDate("Tue 26-06-22")).toBeNull();
+  });
+
   it("parses M-D-YY with hyphens", () => {
     expect(parseDate("6-15-25")).toBe("2025-06-15");
   });
@@ -809,6 +822,41 @@ function dMonYY(offsetDays: number): string {
   d.setUTCDate(d.getUTCDate() + offsetDays);
   return `${d.getUTCDate()}-${TEST_MONTHS[d.getUTCMonth()]}-${String(d.getUTCFullYear()).slice(2)}`;
 }
+
+describe("GoogleSheetsAdapter.fetch — overlapping season tabs (#2332)", () => {
+  beforeEach(() => {
+    vi.stubEnv("GOOGLE_CALENDAR_API_KEY", "test-key");
+    mockedSafeFetch.mockReset();
+  });
+
+  it("keeps the newer tab's copy of a run that also appears in the older tab", async () => {
+    const newer = [
+      "Run#,Date,Hares,Location,Title",
+      `100,${dMonYY(1)},Fresh Hare,New Spot,`,
+      `101,${dMonYY(8)},Next Hare,Next Spot,`,
+    ].join("\n");
+    const older = [
+      "Run#,Date,Hares,Location,Title",
+      `99,${dMonYY(-6)},Old Hare,Old Spot,`,
+      `100,${dMonYY(1)},Stale Hare,Stale Spot,`,
+    ].join("\n");
+    mockedSafeFetch
+      .mockResolvedValueOnce(mockFetchResponse(
+        JSON.stringify({ sheets: [{ properties: { title: "2025-2026" } }, { properties: { title: "2026-2027" } }] }),
+      ))
+      .mockResolvedValueOnce(mockFetchResponse(newer))
+      .mockResolvedValueOnce(mockFetchResponse(older));
+
+    const result = await new GoogleSheetsAdapter().fetch(
+      makeSource({ config: sheetConfig as unknown as null }),
+    );
+    const byRun = new Map(result.events.map((e) => [e.runNumber, e]));
+    expect(result.events.filter((e) => e.runNumber === 100)).toHaveLength(1);
+    expect(byRun.get(100)?.hares).toBe("Fresh Hare");
+    expect(byRun.get(99)?.hares).toBe("Old Hare");
+    expect(byRun.get(101)?.hares).toBe("Next Hare");
+  });
+});
 
 describe("GoogleSheetsAdapter.fetch — skipRows", () => {
   beforeEach(() => {

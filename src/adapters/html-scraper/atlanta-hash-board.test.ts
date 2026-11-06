@@ -546,6 +546,42 @@ describe("extractEventFields — colon-less IS/ARE dialect (#2495 Pinelake)", ()
   });
 });
 
+// Verbatim post-body lines from board.atlantahash.com SLUT topics t=665 / t=706
+// / t=560 (fetched 2026-11-05).
+describe("extractEventFields — SLUT label dialects (#2505, #2509)", () => {
+  it("extracts hares from the dash label 'Hares - …'", () => {
+    const fields = extractEventFields(
+      "SLUT. Feb 5.<br>Hares - the lovely Dr Crotch Rot and Sani<br>Gather at 7,PM , bring flashlight",
+    );
+    expect(fields.hares).toBe("the lovely Dr Crotch Rot and Sani");
+  });
+
+  it("does not treat a hyphenated 'Hare-raising' word as a hare label", () => {
+    const fields = extractEventFields("Hare-raising trail this week!<br>Where: Some Park");
+    expect(fields.hares).toBeUndefined();
+  });
+
+  it("reads the combined 'Start/End:' location label", () => {
+    const nextLine = extractEventFields("Start/End:<br>415 Tamarron Parkway<br>Parking is available.");
+    expect(nextLine.location).toBe("415 Tamarron Parkway");
+    const sameLine = extractEventFields("Start/End: 415 Tamarron Parkway<br>Parking is available.");
+    expect(sameLine.location).toBe("415 Tamarron Parkway");
+  });
+
+  it("does not take a following 'Label:' line as a bare label's value", () => {
+    const fields = extractEventFields("Where:<br>Hares: Foo and Bar<br>Bring a flashlight");
+    expect(fields.location).toBeUndefined();
+    expect(fields.hares).toBe("Foo and Bar");
+  });
+
+  it("reads 'Details: Start is <venue>'", () => {
+    const fields = extractEventFields(
+      "Bring it to share!<br>Details: Start is 4736 Westhampton Dr, Tucker, GA 30084 <br>A dessert to share",
+    );
+    expect(fields.location).toBe("4736 Westhampton Dr, Tucker, GA 30084");
+  });
+});
+
 describe("extractEventFields — phpBB edit-notice must not leak into startTime (#2054 soco 6/19)", () => {
   it("ignores 'Last edited by … 3:48 am, edited 1 time in total'", () => {
     const fields = extractEventFields(

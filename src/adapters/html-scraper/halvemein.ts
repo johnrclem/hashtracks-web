@@ -125,6 +125,12 @@ export function parseHalveMeinRow(
   // Column 3: Location
   const location = cells[3]?.trim() || undefined;
 
+  // Column 5: Directions — "Google: 154 Sacandaga Road, Scotia, NY 12302".
+  // The street address only lives here, so capture it as locationStreet
+  // (#2597). Empty "Google:" placeholders (commented-out anchors render as "")
+  // yield undefined.
+  const locationStreet = parseHalveMeinDirections(cells[5]);
+
   // Column 4: Hares
   let hares: string | undefined;
   if (cells[4]) {
@@ -151,9 +157,19 @@ export function parseHalveMeinRow(
     title,
     hares,
     location: location || undefined,
+    locationStreet,
     startTime,
     sourceUrl,
   };
+}
+
+/** Extract the street address from a "Google: <address>" directions cell. */
+export function parseHalveMeinDirections(cell: string | undefined): string | undefined {
+  const text = cell?.trim() ?? "";
+  if (!text.toLowerCase().startsWith("google")) return undefined;
+  const rest = text.slice("google".length).trimStart();
+  if (!rest.startsWith(":")) return undefined;
+  return rest.slice(1).trim() || undefined;
 }
 
 /**

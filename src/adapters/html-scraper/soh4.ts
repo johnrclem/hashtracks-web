@@ -18,6 +18,27 @@ import {
 } from "../utils";
 
 /**
+ * Reduce a SOH4 trail heading to its theme name, or undefined when the heading
+ * carries no name. The site has used two heading shapes:
+ *   - "Trail #836: A Romp around Solvay" (through mid-2026)
+ *   - "869 – Beaver Moon" / bare "870" (since the Oct 2026 relaunch)
+ * The run-number prefix is stripped in both. A heading that is only a run
+ * number, or a placeholder like "TBD", yields undefined so the adapter falls
+ * back to "SOH4 Trail #N" instead of storing "870" or "TBD" as the title (#2327).
+ */
+export function cleanTrailTitle(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  // The relaunched theme renders both prefixes ("Trail #868: 868 – Yellow
+  // Jackets"), so strip up to two leading run-number tokens.
+  let title = decodeEntities(raw).trim();
+  for (let i = 0; i < 2; i++) {
+    title = title.replace(/^(?:Trail\s*)?#?\d+\s*(?:[-–—:]\s*|$)/i, "").trim();
+  }
+  if (!title || isPlaceholder(title)) return undefined;
+  return title;
+}
+
+/**
  * Parse a SOH4 trail page HTML to extract structured event fields.
  *
  * The Events Manager plugin renders fields as:
@@ -302,16 +323,7 @@ export class SOH4Adapter implements SourceAdapter {
 
           const trailNumber = extractTrailNumber(trailUrl);
 
-          // Build title from page or RSS title
-          let title: string | undefined = fields.title || rssTitle;
-          // Clean up title — remove "Trail #NNN" prefix and site suffix
-          if (title) {
-            title = title.replace(/^Trail\s*#?\d+\s*[-–:]\s*/i, "").trim() || undefined;
-          }
-          // An unannounced trail's heading is literally "Trail #NNN: TBD" — drop
-          // the placeholder so merge synthesizes "<Kennel> Trail #N" instead of
-          // storing "TBD" as the title (#2327).
-          if (title && isPlaceholder(title)) title = undefined;
+          const title = cleanTrailTitle(fields.title || rssTitle);
 
           // Build description with extra prose metadata. Cost (Hash Cash) and the
           // end time now live in their own Event columns (#2329), so they are no

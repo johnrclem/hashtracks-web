@@ -157,6 +157,13 @@ function extractVenueCoords(loc: SquarespaceLocation): ExtractedCoords {
     // is the tenant default, not a real venue location.
     return { defaultPinRejected: true };
   }
+  if (!loc.addressTitle?.trim() && !loc.addressLine1?.trim() && !loc.addressLine2?.trim()) {
+    // No venue text at all, yet mapLat differs from the marker: some tenants
+    // carry a SECOND default pin (Von Tramp H3's sits on Grafton County, NH,
+    // and every address-less trail was stored as "Warren, NH" — #2426). A pin
+    // with no address can't be told apart from that default, so drop it.
+    return { defaultPinRejected: true };
+  }
   return { latitude: mapLat, longitude: mapLng, defaultPinRejected: false };
 }
 
