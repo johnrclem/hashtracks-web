@@ -5476,6 +5476,29 @@ export const KENNELS: KennelSeed[] = [
       latitude: 14.8639, // Barrio Barretto (cluster of run-recap start coords)
       longitude: 120.2586,
     },
+    {
+      kennelCode: "pgh3",
+      shortName: "Puerto Galera H3",
+      fullName: "Puerto Galera Hash House Harriers",
+      region: "Puerto Galera",
+      country: "Philippines",
+      website: "https://www.pgh3.org",
+      facebookUrl: "https://www.facebook.com/PuertoGaleraHash", // general-info.html
+      foundedYear: 1990, // general-info.html: "Founded in October 1990 by Dave 'Moby Dick' Austin"
+      // No scheduleTime: departure moves with the season (2:30–3:30 PM) and is posted per run.
+      scheduleDayOfWeek: "Saturday",
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Saturday afternoons from Capt'n Greggs Dive Resort, Sabang Beach; departure 2:30–3:30 PM depending on season (posted per run).",
+      hashCash: "₱500 drinkers / ₱300 non-drinkers (kids under 14 free)", // upcoming-runs.html fee table
+      walkersWelcome: true, // general-info.html: "two courses, one for runners and the other for walkers"
+      // logoUrl omitted — the site header is a rotating banner photo, not a logo.
+      description:
+        "Puerto Galera Hash House Harriers — a mixed hash founded in October 1990 by Dave 'Moby Dick' Austin, " +
+        "running every Saturday afternoon from Capt'n Greggs Dive Resort on Sabang Beach. A-to-B trails of " +
+        "4–6 km for runners and walkers around Puerto Galera, Oriental Mindoro.",
+      latitude: 13.5167, // Puerto Galera / Sabang Beach
+      longitude: 120.9667,
+    },
     // ── South Korea (first 🇰🇷 kennel: Seoul H3) ──
     {
       // "Korea's Mother Hash", men-only, est. 1972 (~run #2897 Jun 2026). Bare

@@ -3605,6 +3605,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 120.2586,
     aliases: ["Subic Bay, Philippines", "Olongapo", "Olongapo City", "Barrio Barretto"],
   },
+  {
+    name: "Puerto Galera",
+    country: "Philippines",
+    timezone: "Asia/Manila",
+    abbrev: "PGA",
+    colorClasses: "bg-fuchsia-100 text-fuchsia-700",
+    pinColor: "#e879f9",
+    centroidLat: 13.5167,
+    centroidLng: 120.9667,
+    aliases: ["Puerto Galera, Philippines", "Sabang, Puerto Galera", "Oriental Mindoro"],
+  },
   // ── South Korea (first 🇰🇷 kennel: Seoul H3) ──
   {
     name: "South Korea",
@@ -4711,7 +4722,7 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(thailand|bangkok|pattaya|chiang mai|chiang rai|phuket|hua hin|samui|krabi)\b/, "Thailand"],
   // Include the venue city (Parañaque) so venue-derived inference resolves;
   // without this, "Manila"/"Philippines" text falls through to "USA".
-  [/\b(philippines|manila|maynila|para[ñn]aque|cebu|olongapo|subic)\b/, "Philippines"],
+  [/\b(philippines|manila|maynila|para[ñn]aque|cebu|olongapo|subic|puerto galera|mindoro)\b/, "Philippines"],
   // seoulhash.com is all-English so the ASCII rule suffices; the Hangul branch
   // (서울/한국/대한민국) is defensive (`\b` is ASCII-only, can't bound CJK). No
   // North Korea kennels, so the bare "korea" token is safe.
@@ -4960,6 +4971,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Manila": "Philippines",
   "Cebu": "Philippines",
   "Subic Bay": "Philippines",
+  "Puerto Galera": "Philippines",
   // South Korea
   "Seoul": "South Korea",
   // Belgium
