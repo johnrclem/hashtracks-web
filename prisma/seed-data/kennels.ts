@@ -6308,6 +6308,168 @@ export const KENNELS: KennelSeed[] = [
       description:
         "Freetown's favourite drinking club with a running problem — the 'Duo Kennel' of Sierra Hash House Harriers & Harriettes. Weekly Wednesday-evening trails plus a monthly 1st-Saturday run, with a seasonal pause during the May-August rains. Founded 2024; host of Pan Africa Hash 2027.",
     },
+    // ===== HC BATCH (Nov 2026) — 13 config-only HARRIER_CENTRAL kennels =====
+    // Handoffs 2026-09-11 → 2026-10-30, re-verified live against hashruns.org on
+    // 2026-11-05. Profile values come only from the handoffs or the live HC feed.
+    {
+      kennelCode: "yh3", shortName: "YH3", fullName: "Yorkshire Hash House Harriers",
+      region: "Leeds", country: "UK",
+      website: "https://www.yorkshirehash.net/",
+      facebookUrl: "https://www.facebook.com/groups/YH3HashHouseHarriers/",
+      logoUrl: "/kennel-logos/yh3.avif", // self-hosted from HC blob; magic bytes confirmed AVIF
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Biweekly",
+      scheduleRules: [
+        // anchorDate 2026-09-20 = run #2209 (a confirmed fortnightly Sunday); INTERVAL=2 needs a phase anchor.
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU", startTime: "11:00", anchorDate: "2026-09-20", label: "Fortnightly Sunday" },
+      ],
+      foundedYear: 1981, // run #1500 = 30th anniversary, 22 Jan 2011 (kennel blog)
+      hashCash: "£1.50 (visitors; members free)", // HC EventPriceForMembers 0 / NonMembers 1.5
+      walkersWelcome: true,
+      description:
+        "Yorkshire Hash House Harriers (YH3) is a long-running West Yorkshire kennel — 'the drinking club " +
+        "with a running problem' — founded in 1981. It hashes on alternate Sunday mornings around Leeds, " +
+        "Bradford, Saltaire, Halifax and the wider West Yorkshire area, with separate trails for runners and " +
+        "walkers followed by the usual down-downs in the pub. Its annual highlight is the AGPU (Annual General " +
+        "Piss Up) weekend. Newcomers welcome. On On!",
+      // latitude/longitude omitted — the kennel roves across West Yorkshire; the Leeds metro centroid drives the map.
+    },
+    {
+      kennelCode: "oph3", shortName: "OPH3", fullName: "Okinawa Poofters Hash House Harriers",
+      region: "Okinawa", country: "Japan",
+      website: "https://okinawah3.wixsite.com/okih3",
+      facebookUrl: "https://www.facebook.com/OkinawaH3",
+      instagramHandle: "okinawah3",
+      logoUrl: "/kennel-logos/oph3.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      scheduleTime: "7:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Poofter Trail — weekday evenings, day varies (~19:00)",
+      // scheduleDayOfWeek unset — HC runs fell on Wed (#382) and Thu (#383).
+      hashCash: "¥800", // HC #382/#383 price, ¥ currency symbol
+      walkersWelcome: true,
+      description:
+        "The Okinawa Poofters (OPH3) is the mid-week 'Poofter Trail' series of the Okinawa Hash House Harriers on " +
+        "Okinawa Island, Japan — a drinking club with a running problem. Biweekly weekday-evening trails (~19:00) " +
+        "across Okinawa; 2–5 mile run/walk trails through the Ryukyus. First trail free.",
+      latitude: 26.34, longitude: 127.77,
+    },
+    {
+      kennelCode: "bdh3-uk", shortName: "Black Death H3", fullName: "Black Death Hash House Harriers",
+      region: "London", country: "UK",
+      // Fortnightly Sunday noon — consistent across the 15 HC runs (2024-09 → 2026-09) re-pulled 2026-11-05.
+      scheduleDayOfWeek: "Sunday", scheduleTime: "12:00 PM", scheduleFrequency: "Biweekly",
+      // website / socials / foundedYear / hashCash / logo: none found (HC has only a generic logo) — left unset.
+    },
+    {
+      kennelCode: "da2b", shortName: "DA2B", fullName: "Devon A to B Hash House Harriers",
+      region: "Plymouth", country: "UK",
+      website: "https://devonatobh3.blogspot.com/",
+      logoUrl: "/kennel-logos/da2b.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      scheduleDayOfWeek: "Saturday", scheduleTime: "12:30 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "First Saturday of the month — A-to-B 'mystery tour', 8+ miles, beer stops, transport back to start.",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA", startTime: "12:30", label: "First Saturday" },
+      ],
+      hashCash: "£5",
+      description:
+        "Devon's monthly A-to-B 'mystery tour' hash — first Saturday of the month, at least 8 miles from Point A to " +
+        "a secret Point B known only to the Hares and the Beermaster, with beer stops en route and transport back to the start.",
+      latitude: 50.3, longitude: -3.8, // approximate (Kingsbridge / South Hams)
+    },
+    {
+      kennelCode: "bbch3", shortName: "BBCH3", fullName: "Brum and Black Country Hash House Harriers",
+      region: "Birmingham", country: "UK",
+      logoUrl: "/kennel-logos/bbch3.avif", // self-hosted from HC blob; magic bytes confirmed AVIF
+      // schedule unset — cadence not established (1 run on HC).
+      hashCash: "£5", foundedYear: 2026,
+      walkersWelcome: true,
+      description:
+        "Birmingham / Black Country hash, founded September 2026. A-A trails (start & finish at the same spot), " +
+        "8-12km for runners and 5-6km for walkers, with an Indian-restaurant On After.",
+      latitude: 52.4577, longitude: -1.9981,
+    },
+    {
+      kennelCode: "cernh3", shortName: "CERN H3", fullName: "CERN Hash House Harriers",
+      region: "Geneva", country: "Switzerland",
+      logoUrl: "/kennel-logos/cernh3.avif", // self-hosted from HC blob; magic bytes confirmed AVIF
+      // schedule + hashCash unset — cadence unconfirmed; HC price "69" is a joke default.
+      foundedYear: 2026, // inferred (HC run #5 in Oct 2026, no earlier history)
+      description:
+        "A new Hash House Harriers kennel at CERN, on the Geneva/France border, hashing since 2026. Trails start at " +
+        "CERN (Meyrin), with the odd hangover run in downtown Geneva.",
+      latitude: 46.23372, longitude: 6.05639,
+    },
+    {
+      kennelCode: "ph3-sr", shortName: "Paramaribo H3", fullName: "Paramaribo Hash House Harriers",
+      region: "Paramaribo", country: "Suriname",
+      // logo omitted — HC only has a generic placeholder; hashCash omitted — HC 75/50 is inverted + unlabeled.
+      scheduleDayOfWeek: "Monday", scheduleTime: "5:30 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Monday evening run/walk; meets at a member's house or a bar.",
+      foundedYear: 1989,
+      description:
+        "The Hash House Harriers of Paramaribo, Suriname — founded in 1989 by members of the Dutch embassy. A weekly " +
+        "Monday-evening run/walk that meets at a member's house or a bar, finishing with the usual circle. On-on!",
+      latitude: 5.83503, longitude: -55.16703,
+    },
+    {
+      kennelCode: "abujah3", shortName: "Abuja H3", fullName: "Abuja Hash House Harriers",
+      region: "Abuja", country: "Nigeria",
+      logoUrl: "/kennel-logos/abujah3.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:30 PM", // HC: Saturday 14:30 across the 2024 + 2026 runs
+      hashCash: "₦3,000", // HC price 3000, currency NGN
+      latitude: 9.0765, longitude: 7.3986,
+      description:
+        "Abuja Hash House Harriers — the Hash House Harriers kennel of Nigeria's Federal Capital Territory. 'A drinking " +
+        "club with a running problem,' trailing around Abuja (Wuse and beyond). Run #816 as of October 2026.",
+    },
+    {
+      kennelCode: "blhhh", shortName: "Big Lik H3", fullName: "Big Lik Hash House Harriers",
+      region: "Adana", country: "Turkey",
+      logoUrl: "/kennel-logos/blhhh.avif", // self-hosted from HC blob; magic bytes confirmed AVIF
+      // Fortnightly Saturday — 9 of the 12 counted runs 2026-05 → 2026-11 fell on alternate Saturdays.
+      scheduleDayOfWeek: "Saturday", scheduleTime: "5:00 PM", scheduleFrequency: "Biweekly",
+      // hashCash omitted — HC "5 TL" is implausible for a run fee; foundedYear unverifiable.
+      latitude: 37.0017, longitude: 35.4259, // Incirlik Air Base
+    },
+    {
+      kennelCode: "hannover-h3", shortName: "Hannover H3", fullName: "Hannover Hash House Harriers",
+      region: "Hannover", country: "Germany",
+      logoUrl: "/kennel-logos/hannover-h3.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      // Sunday noon — both HC runs (#1088 2026-10-25, #1089 2026-11-29) are Sundays (the handoff said Saturday).
+      scheduleDayOfWeek: "Sunday", scheduleTime: "12:00 PM",
+      scheduleNotes: "Cadence unconfirmed (two Harrier Central runs so far); per-event dates and times come from Harrier Central.",
+      hashCash: "€5", // HC price 5, € currency symbol
+      latitude: 52.3759, longitude: 9.732,
+    },
+    {
+      kennelCode: "mobh3", shortName: "Moon Over Barbados H3", fullName: "Moon Over Barbados H3",
+      region: "Bridgetown", country: "Barbados",
+      logoUrl: "/kennel-logos/mobh3.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      scheduleFrequency: "Monthly", scheduleTime: "7:00 PM", // full-moon cadence → no weekday / scheduleRules
+      description: "Moon Over Barbados H3 — the Barbados full-moon hash, running monthly on or near the full moon.",
+    },
+    {
+      kennelCode: "bbh3", shortName: "Barbados Bike H3", fullName: "Barbados Bike H3",
+      region: "Bridgetown", country: "Barbados",
+      logoUrl: "/kennel-logos/bbh3.png", // self-hosted from HC blob; magic bytes confirmed PNG
+      scheduleDayOfWeek: "Sunday", scheduleTime: "6:00 AM", // every HC run is a Sunday 06:00–06:30
+      description:
+        "Barbados Bike H3 — the Barbados bike hash ('bike bash'), a mountain-bike sibling of the " +
+        "Barbados Hash House Harriers, riding around Christ Church / Bridgetown, Barbados.",
+    },
+    {
+      kennelCode: "sunh3", shortName: "SUNH3", fullName: "Shenanagains Under Nightfall",
+      region: "Raleigh, NC", country: "USA",
+      logoUrl: "/kennel-logos/sunh3.avif", // self-hosted from HC blob; magic bytes confirmed AVIF
+      scheduleFrequency: "Monthly",
+      scheduleNotes:
+        "Monthly full-moon evening/night hash around the Raleigh/Triangle area (venues rotate — Raleigh, Cary, " +
+        "Burlington). Meet ~6:30 PM, circle ~7:00 PM. Run day tracks the full moon.",
+      hashCash: "$5",
+      dogFriendly: true,
+      latitude: 35.78, longitude: -78.64,
+      description:
+        "Shenanagains Under Nightfall (SUNH3) is a Raleigh/Triangle full-moon night hash — a drinking club with a " +
+        "running problem that meets once a lunar month after dark.",
+    },
     // ===== CONFIG BATCH C ===== (2 GOOGLE_CALENDAR, 1 GOOGLE_SHEETS, 1 ICAL_FEED source-add)
     {
       // bare "dlh3" taken by Duneland H3 (South Shore, IN) → region-suffixed

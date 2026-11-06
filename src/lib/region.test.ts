@@ -430,3 +430,36 @@ describe("inferCountry — Sierra Leone (first West Africa kennel: Sierra H4, Fr
     expect(resolveCountryName("SL")).toBe("Sierra Leone");
   });
 });
+
+describe("inferCountry — Suriname / Nigeria / Turkey (HC batch, Nov 2026)", () => {
+  it.each([
+    ["Suriname", "Suriname"],
+    ["Paramaribo, Suriname", "Suriname"],
+    ["Nigeria", "Nigeria"],
+    ["Wuse 2, Abuja", "Nigeria"],
+    ["Türkiye", "Turkey"],
+    ["Incirlik Air Base", "Turkey"],
+    ["Adana, Turkey", "Turkey"],
+    ["Hannover, Germany", "Germany"],
+  ])("infers %s → %s", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+
+  it.each([
+    // bare "turkey" (Turkey Creek / Turkey Trot), "lagos" (Lagos, Portugal) and
+    // single-n "hanover" (Hanover, NH/PA) are deliberately OMITTED from the rules.
+    ["Turkey Creek, TX", "USA"],
+    ["Hanover, NH", "USA"],
+    ["Lagos, Portugal", "Portugal"],
+  ])("does NOT misroute %s", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+
+  it.each([
+    ["SR", "Suriname"],
+    ["NG", "Nigeria"],
+    ["TR", "Turkey"],
+  ])("resolves ISO code %s → %s", (code, country) => {
+    expect(resolveCountryName(code)).toBe(country);
+  });
+});

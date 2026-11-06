@@ -720,6 +720,23 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "sh2b": ["SH2B", "Seattle Hash House Bikers", "Hash Bikers WA", "Seattle Bike Hash"],
     // bare "SHHH"/"SHH3" OMITTED — taken by sech3/sgharriets; bare "H4" OMITTED — taken by Hangover H3.
     "sierra-h4": ["Sierra Hash", "Sierra HHH", "Sierra Hash House Harriers", "Sierra Hash House Harriers and Harriettes", "Sierra H4 Freetown"],
+    // ===== HC BATCH (Nov 2026) =====
+    "yh3": ["Yorkshire H3", "Yorkshire HHH", "Yorkshire Hash House Harriers", "Yorkshire"],
+    "oph3": ["Okinawa Poofters", "Okinawa Poofters H3", "Okinawa Poofters Hash House Harriers"],
+    // bare "BDH3" OMITTED — resolves to Big Dogs H3 (bdh3).
+    "bdh3-uk": ["Black Death", "BD H3", "BDH3-UK", "Black Death Hash House Harriers"],
+    "da2b": ["Devon A2B", "Devon A to B", "Devon A 2 B"],
+    "bbch3": ["Brum and Black Country H3", "Brum & Black Country H3", "Brum and Black Country Hash House Harriers"],
+    "cernh3": ["CERN Hash", "CERN Hash House Harriers"],
+    // bare "PH3" OMITTED — taken by several kennels (Petaling, Plympton, Pattaya, …).
+    "ph3-sr": ["PH3-SR", "Paramaribo HHH", "Paramaribo Hash", "Paramaribo Hash House Harriers"],
+    // bare "AH3" OMITTED — taken by Aloha / Amsterdam / Adelaide / Auckland.
+    "abujah3": ["Abuja Hash", "Abuja HHH", "Abuja Hash House Harriers"],
+    "blhhh": ["BLHHH", "Big Lik HHH", "Big Lik Hash House Harriers", "Incirlik Hash"],
+    "hannover-h3": ["Hannover", "Hannover Hash House Harriers", "HANH3"],
+    "mobh3": ["MOBH3", "Moon Over Barbados"],
+    "bbh3": ["BBH3", "Barbados Bike", "Barbados Bike Hash"],
+    "sunh3": ["Shenanagains Under Nightfall", "Shenanagains"],
     // ===== CONFIG BATCH C =====
     "sh4": ["South Hams Hash House Harriers", "South Hams H4", "South Hams H3", "South Hams Hash", "SH4 Hash"],
     // bare "DLH3" OMITTED — resolves to Duneland H3 (dlh3, South Shore, IN).
