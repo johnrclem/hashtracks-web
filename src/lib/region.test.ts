@@ -549,3 +549,13 @@ describe("inferCountry — Suriname / Nigeria / Turkey (HC batch, Nov 2026)", ()
     expect(resolveCountryName(code)).toBe(country);
   });
 });
+
+describe("inferCountry — Nuremberg (Germany)", () => {
+  it.each([
+    ["Nuremberg", "Germany"],
+    ["Nürnberg Erlenstegen", "Germany"],
+    ["Springbrunnen in the Cramer-Klett-Park, 90489 Nürnberg", "Germany"],
+  ])("infers %s → Germany", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});

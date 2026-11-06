@@ -4432,6 +4432,19 @@ export const SOURCES = [
       },
       kennelCodes: ["h7"],
     },
+    // Nuremberg H3 — bespoke NurembergHashAdapter over the WordPress /run-info/
+    // page via WP REST (run detail blocks + yearly hareline tables, Feb 2025 →).
+    // Blocks/years get moved or dropped, so upcomingOnly keeps reconcile off them.
+    {
+      name: "Nuremberg H3 Run Info",
+      url: "https://nuremberg-h3.de/wp-json/wp/v2/pages?slug=run-info",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 730, // the page reaches back to Feb 2025
+      config: { upcomingOnly: true },
+      kennelCodes: ["nh3-de"],
+    },
     {
       name: "Lisbon H3 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",

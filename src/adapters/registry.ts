@@ -154,6 +154,7 @@ import { LaosHashAdapter } from "./html-scraper/laos-hash";
 import { JamaicaHashAdapter } from "./html-scraper/jamaica-hash";
 import { GrenadaHashAdapter } from "./html-scraper/grenada-hash";
 import { VictoriaH3Adapter } from "./html-scraper/victoria-h3";
+import { NurembergHashAdapter } from "./html-scraper/nuremberg-hash";
 import { Ch4DkAdapter } from "./html-scraper/ch4-dk";
 import { MiteriHarelineAdapter } from "./html-scraper/miteri-hareline";
 import { AucklandHussiesAdapter } from "./html-scraper/auckland-hussies";
@@ -386,6 +387,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /^https?:\/\/(?:[^/]+\.)?muscateersh3\.com(?:[/?#:]|$)/i, name: "MuscateersHashAdapter", factory: () => new MuscateersHashAdapter() },
   // ── Romania ──
   { pattern: /^https?:\/\/docs\.google\.com\/spreadsheets\/d\/17NUJ3M9Th9fPi9oYkK8cLGhydW7nNq6yFMyD0x34fkQ(?:[/?#]|$)/i, name: "BucharestHashAdapter", factory: () => new BucharestHashAdapter() },
+  // ── Germany ──
+  { pattern: /^https?:\/\/(?:[^/]+\.)?nuremberg-h3\.de(?:[/?#:]|$)/i, name: "NurembergHashAdapter", factory: () => new NurembergHashAdapter() },
   // ── Cyprus ──
   { pattern: /^https?:\/\/sites\.google\.com\/view\/larnaca-hash-house-harriers(?:[/?#]|$)/i, name: "LarnacaHashAdapter", factory: () => new LarnacaHashAdapter() },
   { pattern: /^https?:\/\/(?:[^/]+\.)?dhekelia-h3\.com(?:[/?#:]|$)/i, name: "DhekeliaHashAdapter", factory: () => new DhekeliaHashAdapter() },
