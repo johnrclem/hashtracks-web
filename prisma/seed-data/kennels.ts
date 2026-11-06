@@ -6461,5 +6461,34 @@ export const KENNELS: KennelSeed[] = [
       longitude: -2.08,
       // hashCash: amount unpublished ("first run free, small fee"); dogFriendly unstated.
     },
+    {
+      // Bare "ch3" + bare "CH3" alias belong to Chicago H3 → UK-suffixed code.
+      kennelCode: "ch3-gb",
+      shortName: "Chichester H3",
+      fullName: "Chichester Hash House Harriers",
+      region: "Chichester",
+      country: "UK",
+      website: "https://www.chihhh.org.uk",
+      facebookUrl: "https://www.facebook.com/chichesterhhh",
+      logoUrl: "/kennel-logos/ch3-gb.avif", // self-hosted from the kennel's Harrier Central upload; magic bytes confirm AVIF
+      foundedYear: 1983,
+      hashCash: "Free",
+      dogFriendly: true,
+      walkersWelcome: true,
+      // Legacy flat fields kept for fallback only — scheduleRules below are authoritative.
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM",
+      scheduleFrequency: "Biweekly",
+      scheduleRules: [
+        // INTERVAL=2 needs an anchor for phase: 2026-10-18 is Run 1096.
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SU", startTime: "11:00", anchorDate: "2026-10-18", label: "Alternate Sundays", displayOrder: 0 },
+      ],
+      description:
+        "Chichester Hash House Harriers — a small group of runners and walkers hashing the South West Sussex " +
+        "and South East Hampshire countryside on alternate Sundays. Flour trails, a loose set of rules, a pub " +
+        "afterwards. Visitors, walkers and dogs welcome; it's free.",
+      latitude: 50.8365,
+      longitude: -0.7792,
+    },
   ];
 

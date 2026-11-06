@@ -9123,5 +9123,24 @@ export const SOURCES = [
       },
       kennelCodes: ["c2h3-gb"],
     },
+    {
+      // The kennel's own "subscribe" feed (redirects to /diary/). Harrier Central
+      // mirrors this kennel too, but carries ~1 run — the site feed is authoritative.
+      name: "Chichester H3 iCal Feed",
+      url: "https://www.chihhh.org.uk/diary",
+      type: "ICAL_FEED" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 1095, // rolling ~2-year window (back to Jan 2024) plus ~2 months forward
+      config: {
+        defaultKennelTag: "ch3-gb",
+        upcomingOnly: true, // REQUIRED — rolling window ages runs off; reconcile would false-cancel them
+        // Run number lives in the DESCRIPTION ("…/trashRun 1094 <br>…"); \b keeps "Run 1081a" unnumbered.
+        runNumberPatterns: ["Run (\\d+)\\b"],
+        // SUMMARY = "<hares/theme>  <OS grid ref> <venue>"; DESCRIPTION is links only.
+        summaryGridRefVenue: true,
+      },
+      kennelCodes: ["ch3-gb"],
+    },
   ];
 
