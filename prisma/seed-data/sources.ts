@@ -8444,6 +8444,20 @@ export const SOURCES = [
     // to the live (private) FB group. The kennel's only public presence is that
     // private group, so no scrapable FB source is possible. Kennel.website still
     // carries the dead .org URL (kennels.ts) — left for the profile owner.
+    // Romania — Bucharest H3 + Full Moon sister share one public Google Sheet
+    // hareline (#N = BH3, FM#N = BFMH3), read as CSV by the bespoke
+    // BucharestHashAdapter. The sheet keeps every run since Feb 2023, so the wide
+    // window loads the archive; upcomingOnly keeps reconcile off past rows.
+    {
+      name: "Bucharest H3 Hareline Sheet",
+      url: "https://docs.google.com/spreadsheets/d/17NUJ3M9Th9fPi9oYkK8cLGhydW7nNq6yFMyD0x34fkQ/export?format=csv&gid=0",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 1500,
+      config: { upcomingOnly: true },
+      kennelCodes: ["bh3-ro", "bfmh3-ro"],
+    },
     {
       name: "Budapest H3 Static Schedule (Summer Sundays)",
       url: "https://www.facebook.com/groups/1014178591932185",
@@ -9034,6 +9048,18 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["lh3-cy"],
     },
+    // Dhekelia H3 — single weekly "Next Run" block on the WP /info/ page, read via
+    // WP REST. Overwritten weekly, so upcomingOnly keeps reconcile off past runs.
+    {
+      name: "Dhekelia H3 Website Next Run",
+      url: "https://dhekelia-h3.com/wp-json/wp/v2/pages?slug=info",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["dh3-cy"],
+    },
     {
       name: "Sierra H4 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
@@ -9395,6 +9421,17 @@ export const SOURCES = [
       kennelCodes: ["mickleover-h3"],
     },
     {
+      name: "Quorn H3 Runlog XML",
+      url: "http://www.quornh3.org.uk/runlog.html", // NOSONAR — site is HTTP-only; adapter reads runlog<YYYY>.xml
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Per-year file ages out at the year boundary; history is a frozen backfill.
+      config: { upcomingOnly: true },
+      kennelCodes: ["quorn-h3"],
+    },
+    {
       name: "North Wilts H3 Run Sheet",
       url: "https://nwh3.net/runsheet.html",
       type: "HTML_SCRAPER" as const,
@@ -9463,6 +9500,28 @@ export const SOURCES = [
       scrapeDays: 365, // forward hareline reaches ~16 months out (#495->#511)
       config: { upcomingOnly: true }, // rolling forward hareline; past runs age off -> reconcile would false-cancel
       kennelCodes: ["fukfm"],
+    },
+    {
+      name: "Essex H3 Website Hareline",
+      url: "https://essexhhh.co.uk/hareline",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // Rolling forward hareline (next ~5 runs) — past runs drop off.
+      config: { upcomingOnly: true },
+      kennelCodes: ["essex-h3"],
+    },
+    {
+      name: "Donnington H3 Website",
+      url: "https://www.donningtonh3.co.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // Rolling forward table — past runs age off; history is a frozen backfill.
+      config: { upcomingOnly: true },
+      kennelCodes: ["donnington-h3"],
     },
     {
       name: "N.E.W. Cotswold H3 Website",
