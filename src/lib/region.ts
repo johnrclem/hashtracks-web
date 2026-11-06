@@ -1702,7 +1702,18 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 51.9007,
     centroidLng: -1.1522,
     aliases: ["Bicester, England", "Oxfordshire"],
+  },  {
+    name: "Shropshire",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "SHR",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 52.6784,
+    centroidLng: -2.4453, // Telford
+    aliases: ["Telford", "Shropshire, England"],
   },
+
   {
     name: "Malvern",
     country: "UK",
@@ -4700,6 +4711,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Bedford": "United Kingdom",
   "Hertfordshire": "United Kingdom",
   "Bicester": "United Kingdom",
+  "Shropshire": "United Kingdom",
   "Malvern": "United Kingdom",
   "Cotswolds": "United Kingdom",
   "Chichester": "United Kingdom",
