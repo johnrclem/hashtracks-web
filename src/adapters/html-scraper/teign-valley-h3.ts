@@ -17,7 +17,7 @@ const DEFAULT_START_TIME = "19:15";
  * string ops), which is what separates announcements from "The Words" recaps
  * (`RUN #2150 Monday 12th October From The Bell Inn … Who was there:`).
  */
-const RUN_LINE_RE = /\bRun\s?#\s?(\d{3,5}) ([A-Za-z]+) (\d{1,2})(?:st|nd|rd|th)? ([A-Za-z]+)\b/i;
+const RUN_LINE_RE = /\bRun\s?#\s?(\d{3,5}) ([a-z]+) (\d{1,2})(?:st|nd|rd|th)? ([a-z]+)\b/i;
 
 const WHAT3WORDS_RE = /(?:what3words|w3w):? ?\/{0,3}([a-z]+\.[a-z]+\.[a-z]+)/i;
 
@@ -92,9 +92,10 @@ function splitVenue(afterRunLine: string): { venue?: string; rest: string } {
   const odIdx = postcodeWindow.indexOf(". OD ");
   if (odIdx !== -1) postcodeWindow = postcodeWindow.slice(0, odIdx);
   const postcode = extractUkPostcode(postcodeWindow);
+  const clauseEnd = withIdx === -1 ? after.length : withIdx;
   const end = postcode
     ? postcodeWindow.toUpperCase().indexOf(postcode) + postcode.length
-    : Math.min(withIdx === -1 ? after.length : withIdx, sentenceEnd(after));
+    : Math.min(clauseEnd, sentenceEnd(after));
 
   let venue = trimPunctuation(after.slice(0, end));
   if (venue.startsWith("the ")) venue = venue.slice(4);
