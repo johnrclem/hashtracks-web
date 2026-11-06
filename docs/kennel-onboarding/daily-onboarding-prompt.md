@@ -948,6 +948,12 @@ piped in whole by an automated runner.
    must not be queued as new; a live kennel lacking a dynamic source is a valid "source-add"
    target. Use web search + H3 directories (harriercentral.com / hashruns.org,
    hashrego.com, half-mind.com, genealogy.gotothehash.net); for Meetup, confirm upcoming events.
+   **Half-Mind is a primary discovery source** (rebuilt 2026): use `half-mind.com/regionalwebsite/`
+   with the status filter set to *Active clubs* and a country or region. Its listings carry a status,
+   a last-verified date and a listing number. Prefer "Alive and Verified" listings verified in the
+   last 12 months, and cite the listing number in the queue row. It is browser-only: scripted
+   requests get HTTP 406. A listing is a lead, not a source: you still need a verified-live
+   dynamic source before queueing.
    **Prefer candidates whose region shows 0 live kennels** (dedup is unambiguous there); for a
    candidate in an already-populated region, only queue it after a positive slug check or a
    sitemap read proves it's not already live. Append rows with full columns + honest confidence.
