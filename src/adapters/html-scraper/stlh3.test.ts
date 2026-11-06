@@ -485,6 +485,35 @@ describe("StlH3Adapter", () => {
     expect(result.events[0].title).toBe("Upcumming Hash");
   });
 
+  it("dates a month-less title from its publish date end-to-end (frozen March clock)", async () => {
+    // Prod, Sep–Nov 2026: "Sunday 27th 2026" resolved against the scrape day and
+    // walked forward weekly. With the clock frozen in March, an unanchored parse
+    // would land in March (and be rejected as implausible); anchored it is Sep 27.
+    vi.mocked(safeFetchModule.safeFetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({
+        posts: [
+          {
+            title: "Upcumming Hash: Sunday 27th 2026",
+            subtitle: "Meet @ 5PM",
+            slug: "upcumming-hash-sunday-27th-2026",
+            post_date: "2026-09-24T14:00:00Z",
+            canonical_url: "https://www.stlh3.com/p/upcumming-hash-sunday-27th-2026",
+            body_html: "<p>x</p>",
+          },
+        ],
+        nextCursor: null,
+      }),
+    } as never);
+
+    const result = await adapter.fetch(mockSource, { days: 365 });
+
+    expect(result.events.map((e) => [e.date, e.title, e.startTime])).toEqual([
+      ["2026-09-27", "Upcumming Hash", "17:00"],
+    ]);
+  });
+
   it("follows nextCursor across archive pages with limit<=25", async () => {
     const post = (title: string, slug: string, date: string) => ({
       title,
