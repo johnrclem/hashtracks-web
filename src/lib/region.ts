@@ -2218,6 +2218,31 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 19.0402,
     aliases: ["Budapest, Hungary"],
   },
+  // ── Romania (first 🇷🇴 kennels: Bucharest H3, est. 1986) — 2-level COUNTRY→METRO.
+  //    Indigo palette; neighbouring Hungary is orange, Serbia red. ──
+  {
+    name: "Romania",
+    country: "Romania",
+    level: "COUNTRY",
+    timezone: "Europe/Bucharest",
+    abbrev: "RO",
+    colorClasses: "bg-indigo-200 text-indigo-800",
+    pinColor: "#4f46e5",
+    centroidLat: 45.9432,
+    centroidLng: 24.9668,
+    aliases: ["România"],
+  },
+  {
+    name: "Bucharest",
+    country: "Romania",
+    timezone: "Europe/Bucharest",
+    abbrev: "BUH",
+    colorClasses: "bg-indigo-100 text-indigo-700",
+    pinColor: "#6366f1",
+    centroidLat: 44.4268,
+    centroidLng: 26.1025,
+    aliases: ["Bucharest, Romania", "București"],
+  },
   // ── Poland ──
   {
     name: "Poland",
@@ -4445,6 +4470,9 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // (\b is ASCII-only, so it can't bound the é — mirrors île-de-france/österreich).
   [/\b(france|paris|ile-de-france|toulouse|montpellier|herault)\b|(?:^|\W)(?:île-de-france|hérault)\b/, "France"],
   [/\b(hungary|budapest|magyar|magyarorszag|magyarország)\b/, "Hungary"],
+  // Romania — country + capital (English and Romanian ASCII spellings); no US
+  // namesakes. The accented "românia"/"bucurești" ride bare native tokens.
+  [/\b(romania|bucharest|bucuresti)\b|românia|bucurești/, "Romania"],
   // NB: bare "warsaw" is intentionally excluded — it's also a common US place
   // name (Warsaw, IN/NY/MO), and inferCountry() is first-match with USA as the
   // default fallthrough. "Warsaw, Poland" still matches via the "poland" token;
@@ -4785,6 +4813,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Montpellier": "France",
   // Hungary
   "Budapest": "Hungary",
+  "Bucharest": "Romania",
   "Warsaw": "Poland",
   "Poznan": "Poland",
   // Nepal
@@ -5046,6 +5075,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Hungary — metro "Budapest" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Hungary" is reachable here (mirrors the Portugal precedent).
   "Hungary": "Hungary",
+  "Romania": "Romania",
   // Poland — metro "Warsaw" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Poland" is reachable here (mirrors the Hungary precedent).
   "Poland": "Poland",
@@ -5212,6 +5242,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   ES: "Spain",
   FR: "France",
   HU: "Hungary",
+  RO: "Romania",
   PL: "Poland",
   NP: "Nepal",
   KH: "Cambodia",

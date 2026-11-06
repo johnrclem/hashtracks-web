@@ -8432,6 +8432,20 @@ export const SOURCES = [
     // to the live (private) FB group. The kennel's only public presence is that
     // private group, so no scrapable FB source is possible. Kennel.website still
     // carries the dead .org URL (kennels.ts) — left for the profile owner.
+    // Romania — Bucharest H3 + Full Moon sister share one public Google Sheet
+    // hareline (#N = BH3, FM#N = BFMH3), read as CSV by the bespoke
+    // BucharestHashAdapter. The sheet keeps every run since Feb 2023, so the wide
+    // window loads the archive; upcomingOnly keeps reconcile off past rows.
+    {
+      name: "Bucharest H3 Hareline Sheet",
+      url: "https://docs.google.com/spreadsheets/d/17NUJ3M9Th9fPi9oYkK8cLGhydW7nNq6yFMyD0x34fkQ/export?format=csv&gid=0",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 1500,
+      config: { upcomingOnly: true },
+      kennelCodes: ["bh3-ro", "bfmh3-ro"],
+    },
     {
       name: "Budapest H3 Static Schedule (Summer Sundays)",
       url: "https://www.facebook.com/groups/1014178591932185",
