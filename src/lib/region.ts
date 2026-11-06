@@ -1658,7 +1658,18 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 51.9007,
     centroidLng: -1.1522,
     aliases: ["Bicester, England", "Oxfordshire"],
+  },  {
+    name: "Cambridge",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "CAM",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 52.2053,
+    centroidLng: 0.1218,
+    aliases: ["Cambridge, England", "Cambridgeshire"],
   },
+
   {
     name: "Malvern",
     country: "UK",
@@ -4414,6 +4425,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "East Midlands": "United Kingdom",
   "Hertfordshire": "United Kingdom",
   "Bicester": "United Kingdom",
+  "Cambridge": "United Kingdom",
   "Malvern": "United Kingdom",
   "Cotswolds": "United Kingdom",
   "Chichester": "United Kingdom",

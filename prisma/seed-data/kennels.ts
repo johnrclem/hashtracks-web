@@ -6378,6 +6378,19 @@ export const KENNELS: KennelSeed[] = [
       longitude: -0.2377,
     },
     {
+      kennelCode: "cambridge-h3", shortName: "Cambridge H3", fullName: "Cambridge Hash House Harriers", region: "Cambridge", country: "UK",
+      website: "https://www.ch3.co.uk/",
+      foundedYear: 1978, // Hashtory: started from a Cambridge Evening News personal ad, 11 Sep 1978
+      scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Weekly",
+      hashCash: "£3 (first run free)",
+      description:
+        "A drinking club with a running problem — a non-competitive Sunday-morning run around the Cambridgeshire countryside at 11am, followed by a beer in a local pub. First run free.",
+      logoUrl: "/kennel-logos/cambridge-h3.gif", // self-hosted; magic bytes confirmed GIF89a
+      latitude: 52.2053,
+      longitude: 0.1218,
+      // Contacts are email + a Google group only — no social links. dogFriendly/walkersWelcome: unstated.
+    },
+    {
       kennelCode: "bicester-h3",
       shortName: "Bicester H3",
       fullName: "Bicester Hash House Harriers",
