@@ -1314,6 +1314,49 @@ export const KENNELS: KennelSeed[] = [
       foundedYear: 2000, // lvh3.org.uk: "running since October 2000"
       description: "Lune Valley Hash House Harriers (est. October 2000) run in North Lancashire, South Cumbria and the southern Lake District — 2nd & 4th Sundays at 11am plus a Full Moon evening run.",
       latitude: 54.05, longitude: -2.8 },
+    {
+      kennelCode: "nwh3",
+      shortName: "North Wilts H3",
+      fullName: "North Wilts Hash House Harriers",
+      region: "Swindon",
+      country: "UK",
+      website: "https://nwh3.net",
+      facebookUrl: "https://www.facebook.com/NorthWiltsHHHSwindon/",
+      twitterHandle: "NorthWiltsH3",
+      scheduleDayOfWeek: "Sunday",
+      scheduleTime: "11:00 AM", // 12-hr seed convention; adapter startTime stays 24-hr "11:00"
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Sunday 11:00 trail from a country pub around Swindon / North Wiltshire; fortnightly Wednesday 'Moonrakers' evening runs are listed separately (nwh3-moon).",
+      walkersWelcome: true, // homepage: "a social running and walking club"
+      description:
+        "Swindon's friendliest running (and walking) club — a social hash meeting every Sunday for a run or walk " +
+        "in the countryside around Swindon. Trails are typically 5 miles, marked in flour, with options for " +
+        "keen runners and walkers alike.",
+      latitude: 51.5558,
+      longitude: -1.7797,
+      // foundedYear / hashCash: not published on nwh3.net (2026-11-05) — omitted. No club crest on the site.
+    },
+    {
+      kennelCode: "nwh3-moon",
+      shortName: "Moonrakers H3",
+      fullName: "North Wilts Hash House Harriers — Moonrakers",
+      region: "Swindon",
+      country: "UK",
+      website: "https://nwh3.net/moonrakers.html",
+      facebookUrl: "https://www.facebook.com/NorthWiltsHHHSwindon/",
+      twitterHandle: "NorthWiltsH3",
+      logoUrl: "/kennel-logos/nwh3-moon.png", // self-hosted Moonrakers masthead (images/MrMoon.png); magic bytes confirmed PNG
+      scheduleDayOfWeek: "Wednesday",
+      scheduleTime: "7:00 PM", // 12-hr seed convention; adapter startTime stays 24-hr "19:00"
+      scheduleFrequency: "Biweekly",
+      scheduleNotes: "Fortnightly Wednesday evening run from a Swindon-area pub — bring a torch in winter.",
+      foundedYear: 1996, // moonrakers.html: "The first Moonraker run was held on 7th Feb 1996 from the Crown Inn at Stratton"
+      description:
+        "North Wilts H3's fortnightly Wednesday-evening series — torch-lit in winter — running from a pub " +
+        "around Swindon on alternate Wednesdays since February 1996.",
+      latitude: 51.5558,
+      longitude: -1.7797,
+    },
     // Cornwall (Callington / Tamar valley) — HC config-only
     { kennelCode: "titsh3", shortName: "Try it Thursdays H3", fullName: "Try it Thursdays Hash House Harriers",
       region: "Cornwall", country: "UK", logoUrl: "/kennel-logos/titsh3.png",

@@ -50,6 +50,7 @@ import { SOH4Adapter } from "./html-scraper/soh4";
 import { HalveMeinAdapter } from "./html-scraper/halvemein";
 import { IthacaH3Adapter } from "./html-scraper/ithaca-h3";
 import { HockessinAdapter } from "./html-scraper/hockessin";
+import { NorthWiltsHashAdapter } from "./html-scraper/north-wilts-hash";
 import { RenegadeH3Adapter } from "./html-scraper/renegade-h3";
 import { SWH3Adapter } from "./html-scraper/swh3";
 import { GATRH3Adapter } from "./html-scraper/gatrh3";
@@ -280,6 +281,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /sites\.google\.com\/view\/7h4/i, name: "SevenHillsH3Adapter", factory: () => new SevenHillsH3Adapter() },
   { pattern: /sites\.google\.com\/site\/dcfmh3/i, name: "DCFMH3Adapter", factory: () => new DCFMH3Adapter() },
   { pattern: /kansascityh3\.com/i, name: "KCH3Adapter", factory: () => new KCH3Adapter() },
+  { pattern: /\/\/(?:www\.)?nwh3\.net/i,      name: "NorthWiltsHashAdapter",   factory: () => new NorthWiltsHashAdapter() },
   { pattern: /big-hump\.com/i, name: "BigHumpAdapter", factory: () => new BigHumpAdapter() },
   { pattern: /stlh3\.com/i, name: "StlH3Adapter", factory: () => new StlH3Adapter() },
   { pattern: /brewcityh3\.com/i, name: "BrewCityH3Adapter", factory: () => new BrewCityH3Adapter() },
