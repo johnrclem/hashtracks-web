@@ -103,7 +103,7 @@ VALUES
    NOW() AT TIME ZONE 'UTC', NOW() AT TIME ZONE 'UTC'),
   ('src_bsh3_ch_meetup', 'Basel-Stadt H3 Meetup', 'https://www.meetup.com/basel-stadt-hash-house-harriers-bsh3/',
    'MEETUP'::"SourceType",
-   '{"upcomingOnly": true, "groupUrlname": "basel-stadt-hash-house-harriers-bsh3", "kennelTag": "bsh3-ch", "extractRunNumber": true, "anchorTrailRunNumber": true}'::jsonb,
+   '{"upcomingOnly": true, "groupUrlname": "basel-stadt-hash-house-harriers-bsh3", "kennelTag": "bsh3-ch", "extractRunNumber": true}'::jsonb,
    7, 'daily', 120, true, 'UNKNOWN'::"SourceHealth",
    NOW() AT TIME ZONE 'UTC', NOW() AT TIME ZONE 'UTC')
 ON CONFLICT (name, type) DO NOTHING;

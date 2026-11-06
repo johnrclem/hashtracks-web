@@ -4869,9 +4869,10 @@ export const SOURCES = [
         upcomingOnly: true,
         groupUrlname: "basel-stadt-hash-house-harriers-bsh3",
         kennelTag: "bsh3-ch",
-        // Titles are "BSH3 #394 - Gorgeous Run"; anchored so socials don't mint a run number.
+        // "BSH3 #394 - Gorgeous Run", "BSH3 # 392 Run : …" and mid-title "…Hash: BSH3 #393".
+        // Not anchored: anchoring only accepts a leading code, so it loses #393. Socials
+        // ("October Hash in Olten") carry no "#", so they stay unnumbered.
         extractRunNumber: true,
-        anchorTrailRunNumber: true,
       },
       kennelCodes: ["bsh3-ch"],
     },
