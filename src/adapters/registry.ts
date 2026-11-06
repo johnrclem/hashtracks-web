@@ -30,6 +30,9 @@ import { AtlantaHashBoardAdapter } from "./html-scraper/atlanta-hash-board";
 import { NorthboroHashAdapter } from "./html-scraper/northboro-hash";
 import { DublinHashAdapter } from "./html-scraper/dublin-hash";
 import { HertsHashAdapter } from "./html-scraper/herts-hash";
+import { EssexHashAdapter } from "./html-scraper/essex-hash";
+import { QuornH3Adapter } from "./html-scraper/quorn-h3";
+import { DonningtonHashAdapter } from "./html-scraper/donnington-hash";
 import { NewCotswoldH3Adapter } from "./html-scraper/new-cotswold-h3";
 import { SurreyHashAdapter } from "./html-scraper/surrey-hash";
 import { FukFullMoonH3Adapter } from "./html-scraper/fuk-full-moon";
@@ -127,6 +130,7 @@ import { BoomCalendarAdapter } from "./html-scraper/boom-calendar";
 import { PhnomPenhH3Adapter } from "./html-scraper/phnom-penh-h3";
 import { VindobonaH3Adapter } from "./html-scraper/vindobona-h3";
 import { LarnacaHashAdapter } from "./html-scraper/larnaca-hash";
+import { DhekeliaHashAdapter } from "./html-scraper/dhekelia-hash";
 import { LVH3Adapter } from "./html-scraper/lvh3";
 import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
 import { BoiseH3Adapter } from "./html-scraper/boiseh3";
@@ -137,6 +141,7 @@ import { WarsawH3Adapter } from "./html-scraper/warsaw-h3";
 import { ColomboHarriettesAdapter } from "./html-scraper/colombo-harriettes";
 import { SeoulH3Adapter } from "./html-scraper/seoul-h3";
 import { HimalayanHashAdapter } from "./html-scraper/himalayan-h3";
+import { BucharestHashAdapter } from "./html-scraper/bucharest-hash";
 import { BombayHashAdapter } from "./html-scraper/bombay-hash";
 import { SaigonH3Adapter } from "./html-scraper/saigon-h3";
 import { HanoiH3Adapter } from "./html-scraper/hanoi-h3";
@@ -217,6 +222,9 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /northboroh3\.com/i,             name: "NorthboroHashAdapter",    factory: () => new NorthboroHashAdapter() },
   { pattern: /dublinhhh\.com/i,              name: "DublinHashAdapter",       factory: () => new DublinHashAdapter() },
   { pattern: /hertshash\.co\.uk/i,           name: "HertsHashAdapter",        factory: () => new HertsHashAdapter() },
+  { pattern: /essexhhh\.co\.uk/i,            name: "EssexHashAdapter",        factory: () => new EssexHashAdapter() },
+  { pattern: /quornh3\.org\.uk/i,            name: "QuornH3Adapter",          factory: () => new QuornH3Adapter() },
+  { pattern: /donningtonh3\.co\.uk/i,       name: "DonningtonHashAdapter",   factory: () => new DonningtonHashAdapter() },
   { pattern: /surreyhashhouseharriers\.com/i, name: "SurreyHashAdapter",     factory: () => new SurreyHashAdapter() },
   { pattern: /fukfmh3\.co\.uk/i,             name: "FukFullMoonH3Adapter",    factory: () => new FukFullMoonH3Adapter() },
   { pattern: /sh4\.org\.uk/i,                 name: "SouthHamsH4Adapter",      factory: () => new SouthHamsH4Adapter() },
@@ -364,8 +372,11 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /^https?:\/\/(?:[^/]+\.)?hanoih3\.com(?:[/?#:]|$)/i, name: "HanoiH3Adapter", factory: () => new HanoiH3Adapter() },
   // ── Oman ──
   { pattern: /^https?:\/\/(?:[^/]+\.)?muscateersh3\.com(?:[/?#:]|$)/i, name: "MuscateersHashAdapter", factory: () => new MuscateersHashAdapter() },
+  // ── Romania ──
+  { pattern: /^https?:\/\/docs\.google\.com\/spreadsheets\/d\/17NUJ3M9Th9fPi9oYkK8cLGhydW7nNq6yFMyD0x34fkQ(?:[/?#]|$)/i, name: "BucharestHashAdapter", factory: () => new BucharestHashAdapter() },
   // ── Cyprus ──
   { pattern: /^https?:\/\/sites\.google\.com\/view\/larnaca-hash-house-harriers(?:[/?#]|$)/i, name: "LarnacaHashAdapter", factory: () => new LarnacaHashAdapter() },
+  { pattern: /^https?:\/\/(?:[^/]+\.)?dhekelia-h3\.com(?:[/?#:]|$)/i, name: "DhekeliaHashAdapter", factory: () => new DhekeliaHashAdapter() },
   // ── Austria ──
   { pattern: /viennahash\.org/i, name: "VindobonaH3Adapter", factory: () => new VindobonaH3Adapter() },
   // ── Nevada ──
