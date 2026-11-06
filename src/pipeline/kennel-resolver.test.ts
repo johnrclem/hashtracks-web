@@ -125,8 +125,9 @@ describe("mapKennelTag", () => {
     expect(mapKennelTag("queens h3 #249")).toBe("queens-h3");
   });
 
-  it("maps 'qbk #73' → qbk", () => {
-    expect(mapKennelTag("qbk #73")).toBe("qbk");
+  it("does not map 'queensland' or 'south queensferry' to an NYC kennel", () => {
+    expect(mapKennelTag("queensland h3")).not.toBe("queens-h3");
+    expect(mapKennelTag("south queensferry")).not.toBe("queens-h3");
   });
 
   it("maps 'knick' → knick", () => {

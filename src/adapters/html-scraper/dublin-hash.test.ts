@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
-import { parseHarelineRow, DublinHashAdapter, stripTruncatedPostalFragment, routeDublinRow } from "./dublin-hash";
+import { parseHarelineRow, DublinHashAdapter, stripTruncatedPostalFragment, buildDublinRouting, routeDublinLabel } from "./dublin-hash";
+import { compileSilentSkipRules, matchSilentSkip } from "../skip-rules";
+import { SOURCES } from "../../../prisma/seed-data/sources";
 
 // Mock safeFetch (used by fetchHTMLPage)
 vi.mock("@/adapters/safe-fetch", () => ({
@@ -99,9 +101,19 @@ describe("stripTruncatedPostalFragment", () => {
   });
 });
 
+// The shipped seed config — tests route through exactly what prod runs.
+function findDublinSeedConfig() {
+  const seed = SOURCES.find((src) => src.name === "Dublin H3 Website Hareline");
+  if (!seed?.config) throw new Error("Dublin H3 Website Hareline seed config missing");
+  return seed.config as { silentlySkipPatterns?: unknown };
+}
+const DUBLIN_CONFIG = findDublinSeedConfig();
+const DUBLIN_ROUTING = buildDublinRouting(DUBLIN_CONFIG);
+const DUBLIN_SKIP_RULES = compileSilentSkipRules(DUBLIN_CONFIG.silentlySkipPatterns);
+
 // Every Hash-column label shape in the live dublinhhh.com/archive (221 rows,
 // fetched 2026-11-06) plus its kennel. Locks the #2759 routing decisions.
-describe("routeDublinRow (#2759)", () => {
+describe("Dublin hareline routing (#2759, seed config)", () => {
   it.each([
     ["Dublin H3 #1685", "dh3"],
     ["Dublin H3 #1674 Pride Run", "dh3"],
@@ -111,7 +123,7 @@ describe("routeDublinRow (#2759)", () => {
     ["Dublin H3 #1587 Australia Day Run", "dh3"],
     ["Dublin H3 DH3 Nash Hash", "dh3"],
     // 2025 Wren Boys was filed as an "Other" hash under an i-♥-monday slug;
-    // it is still a Dublin H3 run.
+    // it is still a Dublin H3 run (default kennel).
     ["Wren Boys Run #", "dh3"],
     // Dublin HHH's own Paddy's Day pick-up and a guest run it hosted.
     ["Pickup", "dh3"],
@@ -125,8 +137,9 @@ describe("routeDublinRow (#2759)", () => {
     ["Shed Hash #5", "shed-h3"],
     ["Shed #6", "shed-h3"],
     ["Shed Hash #7 The Magnificent Seven and The return of the Shedi", "shed-h3"],
-  ])("routes %j → %s", (label, kennel) => {
-    expect(routeDublinRow(label)).toBe(kennel);
+  ])("routes %j → %s and keeps it", (label, kennel) => {
+    expect(routeDublinLabel(label, DUBLIN_ROUTING)).toBe(kennel);
+    expect(matchSilentSkip({ date: "2026-01-05", kennelTags: [kennel], title: label }, DUBLIN_SKIP_RULES)).toBeNull();
   });
 
   it.each([
@@ -135,14 +148,12 @@ describe("routeDublinRow (#2759)", () => {
     "Other MARATHON WATER STATION",
     // Cork H3's Paddy's Day trail in Cork, listed for information.
     "Cork H3",
-  ])("skips %j", (label) => {
-    expect(routeDublinRow(label)).toBeNull();
+  ])("drops %j via silentlySkipPatterns", (label) => {
+    expect(matchSilentSkip({ date: "2026-01-05", kennelTags: ["dh3"], title: label }, DUBLIN_SKIP_RULES)).not.toBeNull();
   });
 
-  it("never treats a bare 'Dublin' as Dublin H3 evidence beyond the default", () => {
-    // Only the anchored "Dublin H3" label is a DH3 signal; a numbered I ♥ Monday
-    // row mentioning Dublin stays on its own series.
-    expect(routeDublinRow("I ♥ Monday #430 Dublin Pub Crawl")).toBe("i-love-monday");
+  it("routes everything to dh3 when the source has no config", () => {
+    expect(routeDublinLabel("I ♥ Monday #427", buildDublinRouting(null))).toBe("dh3");
   });
 });
 
@@ -220,7 +231,7 @@ describe("DublinHashAdapter", () => {
         undefined,
       ];
 
-      const event = parseHarelineRow(cells, hrefs, sourceUrl);
+      const event = parseHarelineRow(cells, hrefs, sourceUrl, routeDublinLabel(cells[3], DUBLIN_ROUTING));
 
       expect(event).not.toBeNull();
       expect(event!.date).toBe("2026-03-23");
@@ -330,7 +341,7 @@ describe("DublinHashAdapter", () => {
   describe("fetch — kennel routing", () => {
     beforeEach(() => vi.clearAllMocks());
 
-    it("routes each series to its kennel and skips non-trails", async () => {
+    it("routes each series to its kennel using the source config", async () => {
       const near = relativeDate(7);
       const later = relativeDate(14);
       const html = `<html><body><table>
@@ -341,19 +352,15 @@ describe("DublinHashAdapter", () => {
   <tr><td>Monday</td><td>${later.display}</td><td>19:30</td>
     <td><a href="/hareline/${later.iso}-i-%E2%99%A5-monday/">I ♥ Monday #427</a></td>
     <td>Beachcomber, Killester</td><td>Knuthead</td><td></td></tr>
-  <tr><td>Sunday</td><td>${later.display}</td><td>8:30</td>
-    <td><a href="/hareline/${later.iso}-other/">Marathon Water Stop</a></td>
-    <td>Kimmage Road West</td><td>DH3</td><td></td></tr>
 </table></body></html>`;
       mockFetchResponse(html);
 
-      const result = await new DublinHashAdapter().fetch(makeSource(), { days: 90 });
+      const result = await new DublinHashAdapter().fetch(makeSource({ config: DUBLIN_CONFIG as never }), { days: 90 });
 
       expect(result.events.map((e) => [e.kennelTags[0], e.runNumber])).toEqual([
         ["dh3", 1685],
         ["i-love-monday", 427],
       ]);
-      expect(result.diagnosticContext?.skippedRows).toBe(1);
     });
   });
 

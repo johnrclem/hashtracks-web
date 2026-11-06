@@ -168,14 +168,16 @@ END $$;
 
 -- 6. Cached lastEventDate, mirroring the nightly backfillLastEventDates()
 --    predicate (primary FK OR co-host; not CANCELLED, not manual, canonical).
+-- Two index-backed MAXes (primary FK, co-host EventKennel) instead of an
+-- OR EXISTS scan; GREATEST ignores NULLs, so an empty kennel stays NULL.
 UPDATE "Kennel" k
-SET "lastEventDate" = (
-  SELECT MAX(e.date) FROM "Event" e
-  WHERE (e."kennelId" = k.id
-         OR EXISTS (SELECT 1 FROM "EventKennel" ek WHERE ek."eventId" = e.id AND ek."kennelId" = k.id))
-    AND e.status::text <> 'CANCELLED'
-    AND e."isManualEntry" IS NOT TRUE
-    AND e."isCanonical" = true
+SET "lastEventDate" = GREATEST(
+  (SELECT MAX(e.date) FROM "Event" e
+   WHERE e."kennelId" = k.id
+     AND e.status <> 'CANCELLED'::"EventStatus" AND e."isManualEntry" IS NOT TRUE AND e."isCanonical"),
+  (SELECT MAX(e.date) FROM "EventKennel" ek JOIN "Event" e ON e.id = ek."eventId"
+   WHERE ek."kennelId" = k.id
+     AND e.status <> 'CANCELLED'::"EventStatus" AND e."isManualEntry" IS NOT TRUE AND e."isCanonical")
 )
 WHERE k."kennelCode" IN ('qbk', 'queens-h3', 'ggfm', 'nych3');
 

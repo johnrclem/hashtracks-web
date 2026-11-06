@@ -241,7 +241,7 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       config: { upcomingOnly: true },
-      kennelCodes: ["nych3", "brh3", "nah3", "knick", "lil", "qbk", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3", "drinking-practice-nyc"],
+      kennelCodes: ["nych3", "brh3", "nah3", "knick", "lil", "qbk", "queens-h3", "si", "columbia", "harriettes-nyc", "ggfm", "nawwh3", "drinking-practice-nyc"],
     },
     {
       name: "Boston Hash Calendar",
@@ -764,8 +764,28 @@ export const SOURCES = [
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      // #2759: the hareline carries three kennels; DublinHashAdapter routes each
-      // row by its Hash label (routeDublinRow) and skips non-trails.
+      // #2759: the hareline carries three kennels. DublinHashAdapter routes each
+      // row by its Hash label (the site's own hash / other_hash field). Labels
+      // matching no pattern — Wren Boys, Nash Hash, pick-ups, guest runs Dublin
+      // HHH hosts — are Dublin H3 specials. Never route on a bare "Dublin":
+      // Dayton has a Dublin Pub that DH4 / Dayton H3 trails use.
+      config: {
+        kennelPatterns: [
+          [String.raw`^I\s*(?:♥|Love|Heart)\s*Monday\b`, "i-love-monday"],
+          [String.raw`^Dublin\s*H3\b`, "dh3"],
+          [String.raw`^Shed\b`, "shed-h3"],
+        ],
+        defaultKennelTag: "dh3",
+        // Not Dublin HHH trails: marathon water-station volunteer shifts and
+        // another club's trail (Cork H3) listed for information. Anchored, so a
+        // themed numbered run ("Dublin H3 #… Water …") is never dropped. Single
+        // spaces are safe (the adapter collapses whitespace in titles) and keep
+        // the rule inside safe-regex2, which drops `(?:Other\s+)?`-style rules.
+        silentlySkipPatterns: [
+          { pattern: "^(?:Other )?Marathon Water\\b", field: "title" },
+          { pattern: String.raw`^Cork\s+H3\b`, field: "title" },
+        ],
+      },
       kennelCodes: ["dh3", "i-love-monday", "shed-h3"],
     },
     // ===== UK — SCOTLAND =====
@@ -1282,12 +1302,9 @@ export const SOURCES = [
       // campout/special events on Hash Rego (e.g. mosh3-lingerie-shiggyfest-2026,
       // tkdh3-presents-dead-elvis-18). Their only other source is the Tidewater
       // HTML scraper; Hash Rego carries structured rego data these events need.
-      // #2501 — Pinelake (ph3-atl) has no Hash Rego account of its own; its
-      // joint trails with Atlanta H4 are posted by the shared "AH4_PLH3"
-      // account (host display name "Atlanta & Pine Lake", e.g.
-      // ah4_plh3-heavy-metal-rainbow-dress-2026). The Atlanta Hash Board files
-      // those joint trails under Pinelake, so Hash Rego routes them there too
-      // (alias "Atlanta & Pine Lake" → ph3-atl in aliases.ts).
+      // #2501 — Pinelake has no Hash Rego account; its joint trails with AH4 come
+      // from the shared "AH4_PLH3" account, filed under ph3-atl like the Atlanta
+      // Hash Board does (host-name alias in aliases.ts).
       kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "flour-city", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm", "mosh3", "tkdh3", "ph3-atl"],
       kennelSlugMap: {
         bfm: "BFMH3", ewh3: "EWH3", wh4: "WH4", gfh3: "GFH3",

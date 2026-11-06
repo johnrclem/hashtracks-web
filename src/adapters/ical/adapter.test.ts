@@ -1650,25 +1650,17 @@ const HASHNYC_ICS = [
   "END:VCALENDAR",
 ].join("\r\n");
 
-// Read the routing straight out of the seed so this suite tests exactly what
-// ships (a hand-copied pattern list could silently drift from the seed).
-const HASHNYC_SEED = SOURCES.find(
-  (s) => s.name === "HashNYC Website" && s.type === "ICAL_FEED",
-);
-const HASHNYC_KENNEL_PATTERNS = (
-  HASHNYC_SEED?.config as { kennelPatterns: [string, string][] } | undefined
-)?.kennelPatterns ?? [];
+// Build the source straight from the seed so this suite tests exactly the
+// routing that ships (a hand-copied pattern list could silently drift).
+function findHashNycSeed() {
+  const seed = SOURCES.find((s) => s.name === "HashNYC Website" && s.type === "ICAL_FEED");
+  if (!seed?.config) throw new Error("HashNYC Website ICAL_FEED seed config missing");
+  return seed;
+}
+const HASHNYC_SEED = findHashNycSeed();
 
 function buildHashNycSource(): Source {
-  return buildMockSource({
-    name: "HashNYC Website",
-    url: "https://hashnyc.com/public/hareline.ics",
-    config: {
-      upcomingOnly: true,
-      kennelPatterns: HASHNYC_KENNEL_PATTERNS,
-      defaultKennelTag: "nych3",
-    },
-  });
+  return buildMockSource({ name: HASHNYC_SEED.name, url: HASHNYC_SEED.url, config: HASHNYC_SEED.config });
 }
 
 describe("ICalAdapter — HashNYC (relaunch iCal migration)", () => {
@@ -1676,10 +1668,6 @@ describe("ICalAdapter — HashNYC (relaunch iCal migration)", () => {
   beforeEach(() => {
     adapter = new ICalAdapter();
     vi.restoreAllMocks();
-  });
-
-  it("reads the shipped kennelPatterns from the seed", () => {
-    expect(HASHNYC_KENNEL_PATTERNS.length).toBeGreaterThan(10);
   });
 
   it("routes every SUMMARY prefix to the correct kennel code", async () => {

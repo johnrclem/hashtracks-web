@@ -201,10 +201,10 @@ const KENNEL_PATTERNS: readonly [RegExp, string][] = [
   [/moon|moom/, "bos-moon"],
   [/beantown/, "beantown"],
 
-  // Remaining short patterns. Bare "queens" is Queens H3 (#2650); Queens Black
-  // Knights is caught by the multi-word pattern above, its "QBK" abbreviation here.
-  [/^qbk\b/, "qbk"],
-  [/queens/, "queens-h3"],
+  // Remaining short patterns. A leading "Queens" is Queens H3 (#2650); Queens
+  // Black Knights is caught by the multi-word pattern above. Anchored so
+  // "Queensland" / "South Queensferry" tags don't land on an NYC kennel.
+  [/^queens\b/, "queens-h3"],
   [/knick/, "knick"],
   [/lil/, "lil"],
   [/columbia/, "columbia"],

@@ -5,15 +5,10 @@
  * The archive is a Jekyll-generated HTML table with columns:
  *   Day | Date | Time | Hash (series + run#) | Location | Hares | Notes
  *
- * Several kennels share the table (#2759), told apart by the Hash column:
- *   - "Dublin H3 #NNNN"  → Dublin H3 (dh3), odd-week Mondays
- *   - "I ♥ Monday #NNN"  → I ♥ Monday (i-love-monday), even-week Mondays,
- *                          its own run sequence
- *   - "Shed Hash #N"     → Shed Hash (shed-h3), annual August trail in Naas
- *   - other "Other" rows → Dublin H3 specials (Wren Boys, Nash Hash, pick-ups,
- *                          hosted guest runs), except non-trails and other
- *                          clubs' trails, which are skipped.
- * See `routeDublinRow`.
+ * Several kennels share the table (#2759): Dublin H3, I ♥ Monday (its own
+ * even-week series) and Shed Hash. Each row is routed by its Hash label via
+ * `Source.config.kennelPatterns` / `defaultKennelTag` (see `routeDublinLabel`);
+ * non-trail rows are dropped by the source's `silentlySkipPatterns`.
  */
 
 import type { Source } from "@/generated/prisma/client";
@@ -25,6 +20,12 @@ import type {
 } from "../types";
 import { hasAnyErrors } from "../types";
 import { chronoParseDate, fetchHTMLPage, buildDateWindow } from "../utils";
+import {
+  compileKennelPatterns,
+  matchCompiledKennelPatterns,
+  type CompiledKennelPattern,
+  type KennelPattern,
+} from "../kennel-patterns";
 
 /**
  * Strip a trailing 1–2 letter postal-code fragment after a comma
@@ -40,57 +41,46 @@ export function stripTruncatedPostalFragment(value: string | undefined): string 
   return stripped || undefined;
 }
 
-/** kennelCodes the Dublin HHH hareline feeds (#2759). */
-export const DUBLIN_KENNELS = {
-  dublinH3: "dh3",
-  iLoveMonday: "i-love-monday",
-  shedHash: "shed-h3",
-} as const;
+const DEFAULT_KENNEL_TAG = "dh3";
 
-// Label prefixes, compared against the label lower-cased with all whitespace
-// removed ("I ♥ Monday #427" → "i♥monday#427"). Plain prefix checks keep the
-// matching linear and readable (Sonar S5852 flags `\s*` beside alternations).
-const I_LOVE_MONDAY_PREFIXES = ["i♥monday", "i❤️monday", "i❤monday", "ilovemonday", "iheartmonday", "i<3monday"];
-const DUBLIN_H3_PREFIX = "dublinh3";
-const SHED_HASH_PREFIX = "shed";
-/** Volunteer duty listed on the hareline (marathon water station), not a trail. */
-const NON_TRAIL_MARKERS = ["waterstop", "waterstation"];
-/** Other clubs' trails listed for information, not Dublin HHH runs. */
-const OTHER_CLUB_PREFIXES = ["corkh3"];
+/** Per-scrape routing compiled from `Source.config` (#2759). */
+export interface DublinRouting {
+  patterns: CompiledKennelPattern[];
+  defaultTag: string;
+}
 
-/**
- * Route a hareline row to a kennelCode by its Hash label (column 3), which is
- * the site's own `hash` / `other_hash` front-matter field: "Dublin H3",
- * "I ♥ Monday", or an "Other" hash's free-text name. Returns null for rows to
- * skip (non-trails, other clubs' trails).
- *
- * The detail-page slug (`…-dublin-h3/`, `…-i-♥-monday/`, `…-other/`) is NOT a
- * reliable signal: it is fixed when the post is created (the 2025 Wren Boys run
- * lives under an `i-♥-monday` slug; one DH3 slug reads "dubiln"). Only the
- * anchored "Dublin H3" label counts for Dublin H3, never a bare "Dublin".
- */
-export function routeDublinRow(label: string): string | null {
-  const compact = label.toLowerCase().replaceAll(/\s+/g, "");
-  // The two numbered Monday series first: a themed run is still a run.
-  if (I_LOVE_MONDAY_PREFIXES.some((p) => compact.startsWith(p))) return DUBLIN_KENNELS.iLoveMonday;
-  if (compact.startsWith(DUBLIN_H3_PREFIX)) return DUBLIN_KENNELS.dublinH3;
-  if (NON_TRAIL_MARKERS.some((m) => compact.includes(m))) return null;
-  if (OTHER_CLUB_PREFIXES.some((p) => compact.startsWith(p))) return null;
-  if (compact.startsWith(SHED_HASH_PREFIX)) return DUBLIN_KENNELS.shedHash;
-  // Remaining "Other" rows are Dublin HHH specials: Wren Boys Run, Nash Hash,
-  // the Paddy's Day pick-up, guest runs Dublin HHH hosts.
-  return DUBLIN_KENNELS.dublinH3;
+/** Compile the source's `kennelPatterns` + `defaultKennelTag` once per scrape. */
+export function buildDublinRouting(config: unknown): DublinRouting {
+  const cfg = (config ?? {}) as { kennelPatterns?: KennelPattern[]; defaultKennelTag?: string };
+  return {
+    patterns: compileKennelPatterns(cfg.kennelPatterns ?? []),
+    defaultTag: cfg.defaultKennelTag ?? DEFAULT_KENNEL_TAG,
+  };
 }
 
 /**
- * Parse a single table row into a RawEventData. Returns null for malformed
- * rows and for rows `routeDublinRow` skips.
+ * Route a hareline row to a kennelCode by its Hash label (column 3) — the
+ * site's own `hash` / `other_hash` field: "Dublin H3", "I ♥ Monday", or an
+ * "Other" hash's free-text name. Unmatched labels go to the default kennel.
+ *
+ * The detail-page slug (`…-dublin-h3/`, `…-i-♥-monday/`, `…-other/`) is NOT a
+ * reliable signal: it is fixed when the post is created (the 2025 Wren Boys run
+ * lives under an `i-♥-monday` slug; one DH3 slug reads "dubiln").
+ */
+export function routeDublinLabel(label: string, routing: DublinRouting): string {
+  return matchCompiledKennelPatterns(label, routing.patterns)[0] ?? routing.defaultTag;
+}
+
+/**
+ * Parse a single table row into a RawEventData, filed under `kennelTag`
+ * (routed by the caller via `routeDublinLabel`).
  * Exported for unit testing.
  */
 export function parseHarelineRow(
   cells: string[],
   hrefs: (string | undefined)[],
   sourceUrl: string,
+  kennelTag: string = DEFAULT_KENNEL_TAG,
 ): RawEventData | null {
   // Expected columns: [0]=day, [1]=date, [2]=time, [3]=hash, [4]=location, [5]=hares, [6]=notes
   if (cells.length < 6) return null;
@@ -118,8 +108,6 @@ export function parseHarelineRow(
 
   // Hash name + run number from column 3: "Dublin H3 #1668" or "I ♥ Monday #410"
   const hashText = cells[3]?.trim() ?? "";
-  const kennelCode = routeDublinRow(hashText);
-  if (!kennelCode) return null;
   const runMatch = hashText.match(/#(\d+)/);
   const runNumber = runMatch ? parseInt(runMatch[1], 10) : undefined;
 
@@ -149,7 +137,7 @@ export function parseHarelineRow(
 
   return {
     date,
-    kennelTags: [kennelCode],
+    kennelTags: [kennelTag],
     title,
     hares,
     location,
@@ -180,7 +168,7 @@ export class DublinHashAdapter implements SourceAdapter {
     const { minDate, maxDate } = buildDateWindow(options?.days);
 
     const rows = $("table tr");
-    let skippedRows = 0;
+    const routing = buildDublinRouting(source.config);
 
     rows.each((i, el) => {
       const $row = $(el);
@@ -201,12 +189,8 @@ export class DublinHashAdapter implements SourceAdapter {
           hrefs.push(href || undefined);
         });
 
-        // Non-trails and other clubs' trails are dropped on purpose (#2759).
-        if (cells.length > 3 && routeDublinRow(cells[3]) === null) {
-          skippedRows++;
-          return;
-        }
-        const event = parseHarelineRow(cells, hrefs, sourceUrl);
+        const kennelTag = routeDublinLabel(cells[3] ?? "", routing);
+        const event = parseHarelineRow(cells, hrefs, sourceUrl, kennelTag);
         if (event) {
           // Filter by date window (archive page has all historical events)
           const eventDate = new Date(event.date + "T12:00:00Z");
@@ -234,7 +218,6 @@ export class DublinHashAdapter implements SourceAdapter {
       diagnosticContext: {
         rowsFound: rows.length,
         eventsParsed: events.length,
-        skippedRows,
         fetchDurationMs,
       },
     };

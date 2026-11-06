@@ -3,12 +3,13 @@
 --
 -- Every row of dublinhhh.com/archive was filed under Dublin H3 (`dh3`). The
 -- archive's Hash column (the site's own `hash` / `other_hash` field) says which
--- kennel a row belongs to; DublinHashAdapter.routeDublinRow now routes by it:
+-- kennel a row belongs to; the source's kennelPatterns now route by it:
 --   "I ♥ Monday #NNN"  → new kennel `i-love-monday` (even-week Mondays, own
 --                        count #324 Dec 2022 → #429 Dec 2026; was an alias of dh3)
 --   "Shed Hash #N"     → new kennel `shed-h3` (annual August trail in Naas)
 --   Marathon water stations (volunteer duty) and Cork H3's trail in Cork are
---   dropped by the adapter, and their three events are deleted here.
+--   dropped by the source's silentlySkipPatterns; their three events are
+--   deleted here.
 --   Everything else stays on dh3, including the Wren Boys runs, Nash Hash
 --   (2026-07-03), the 2023 Paddy's Day pick-up and the Shanghai reunion run
 --   Dublin HHH hosted.
@@ -82,7 +83,27 @@ FROM "Kennel" k,
 WHERE k."kennelCode" = 'shed-h3'
 ON CONFLICT ("kennelId", alias) DO NOTHING;
 
--- 3. Source links ----------------------------------------------------------
+-- 3. Source routing config + links -----------------------------------------
+-- Mirrors the seed: route by Hash label, default to dh3, and drop the
+-- non-trail / other-club rows before they become RawEvents. Merged into any
+-- existing config (prod's is NULL today).
+UPDATE "Source"
+SET config = COALESCE(config, '{}'::jsonb) || '{
+      "kennelPatterns": [
+        ["^I\\s*(?:♥|Love|Heart)\\s*Monday\\b", "i-love-monday"],
+        ["^Dublin\\s*H3\\b", "dh3"],
+        ["^Shed\\b", "shed-h3"]
+      ],
+      "defaultKennelTag": "dh3",
+      "silentlySkipPatterns": [
+        {"pattern": "^(?:Other )?Marathon Water\\b", "field": "title"},
+        {"pattern": "^Cork\\s+H3\\b", "field": "title"}
+      ]
+    }'::jsonb,
+    "updatedAt" = NOW() AT TIME ZONE 'UTC'
+WHERE name = 'Dublin H3 Website Hareline' AND type = 'HTML_SCRAPER'::"SourceType"
+  AND (config IS NULL OR NOT config ? 'kennelPatterns');
+
 INSERT INTO "SourceKennel" (id, "sourceId", "kennelId")
 SELECT 'sk_dublin_hareline_' || replace(k."kennelCode", '-', '_'), s.id, k.id
 FROM "Source" s, "Kennel" k
@@ -119,9 +140,10 @@ CREATE TEMP TABLE dublin_moves ON COMMIT DROP AS
 SELECT e.id AS event_id, d.id AS from_id, t.id AS to_id, t."kennelCode" AS to_code
 FROM "Event" e
 JOIN "Kennel" d ON d.id = e."kennelId" AND d."kennelCode" = 'dh3'
+CROSS JOIN LATERAL (SELECT lower(regexp_replace(e.title, '\s', '', 'g')) AS compact) c
 JOIN "Kennel" t ON t."kennelCode" = CASE
-    WHEN lower(regexp_replace(e.title, '\s', '', 'g')) LIKE 'i♥monday%' THEN 'i-love-monday'
-    WHEN lower(regexp_replace(e.title, '\s', '', 'g')) LIKE 'shed%' THEN 'shed-h3'
+    WHEN c.compact LIKE 'i♥monday%' THEN 'i-love-monday'
+    WHEN c.compact LIKE 'shed%' THEN 'shed-h3'
   END
 WHERE NOT EXISTS (
   SELECT 1 FROM "Event" x WHERE x."kennelId" = t.id AND x.date = e.date AND x.id <> e.id
@@ -140,7 +162,7 @@ SET "kennelId" = m.to_id, "updatedAt" = NOW() AT TIME ZONE 'UTC'
 FROM dublin_moves m
 WHERE e.id = m.event_id AND e."kennelId" = m.from_id;
 
--- 6. Delete the three non-Dublin-H3 rows the adapter now drops. Guarded: only
+-- 6. Delete the three rows the source's silentlySkipPatterns now drop. Guarded: only
 --    these exact rows, and only when nothing user-facing hangs off them. Their
 --    RawEvents are kept (eventId → NULL, processed) as the audit trail.
 CREATE TEMP TABLE dublin_drops ON COMMIT DROP AS
@@ -174,14 +196,16 @@ BEGIN
 END $$;
 
 -- 7. Cached lastEventDate, mirroring the nightly backfillLastEventDates().
+-- Two index-backed MAXes (primary FK, co-host EventKennel) instead of an
+-- OR EXISTS scan; GREATEST ignores NULLs, so an empty kennel stays NULL.
 UPDATE "Kennel" k
-SET "lastEventDate" = (
-  SELECT MAX(e.date) FROM "Event" e
-  WHERE (e."kennelId" = k.id
-         OR EXISTS (SELECT 1 FROM "EventKennel" ek WHERE ek."eventId" = e.id AND ek."kennelId" = k.id))
-    AND e.status::text <> 'CANCELLED'
-    AND e."isManualEntry" IS NOT TRUE
-    AND e."isCanonical" = true
+SET "lastEventDate" = GREATEST(
+  (SELECT MAX(e.date) FROM "Event" e
+   WHERE e."kennelId" = k.id
+     AND e.status <> 'CANCELLED'::"EventStatus" AND e."isManualEntry" IS NOT TRUE AND e."isCanonical"),
+  (SELECT MAX(e.date) FROM "EventKennel" ek JOIN "Event" e ON e.id = ek."eventId"
+   WHERE ek."kennelId" = k.id
+     AND e.status <> 'CANCELLED'::"EventStatus" AND e."isManualEntry" IS NOT TRUE AND e."isCanonical")
 )
 WHERE k."kennelCode" IN ('dh3', 'i-love-monday', 'shed-h3');
 
