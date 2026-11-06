@@ -30,6 +30,8 @@ import {
 const RE_HARES_RECRUITMENT = /hares?\s+wanted|contact\s+the\s+ch4\s+junta|junta/i;
 const RE_HARES_WANTED = /hares?\s+wanted/i;
 const RE_HARES_SPLIT = /\s+and\s+|\s*&\s*|\s*,\s*/i;
+/** Filler tokens that are not hare names ("Thunder and friends", #2533). */
+const RE_HARES_FILLER = /^(?:friends?|others?|co|company|guests?)$/i;
 const RE_RUN_NUMBER = /#\s*(\d+)/;
 const RE_RUNSHEET_HEADING = /Runsheet\s+(\d{4})/i;
 const RE_LOCATION_TBA = /^location\s+(tba|tbc|tbd)\b/i;
@@ -209,6 +211,11 @@ export function parseCh4Hares(raw: string | undefined): string | undefined {
     .map((s) => s.trim())
     .filter((s) => s.length > 0 && !RE_HARES_WANTED.test(s));
   if (parts.length === 0) return undefined;
+  // "Thunder and friends": splitting would turn the filler into a hare name and
+  // the alphabetical sort would invert the order ("friends, Thunder"). Keep
+  // the names in source order, joined with "and", instead (#2533). Built from
+  // `parts` so recruitment fragments filtered above stay out.
+  if (parts.some((p) => RE_HARES_FILLER.test(p))) return parts.join(" and ");
   return normalizeHaresField(parts.join(", "));
 }
 

@@ -42,6 +42,31 @@ const FIXTURE = `<!DOCTYPE html><html><head>
 </div></div></section>
 </body></html>`;
 
+/**
+ * Verbatim forward-feed block from warsawh3.com (captured 2026-11-05). The
+ * next run is an unnumbered special — no "WH3 Run #" header, a theme line
+ * ("Halloween Special") under the date — and list rows carry theme lines
+ * ("Curry & Diwali Special") after the hare.
+ */
+const FIXTURE_NOV_2026 = `<html><body>
+<h5 class="item-title mbr-fonts-style display-5">
+<strong>WH3 meets every second Saturday. The next run is:</strong></h5>
+<p class="mbr-text mbr-fonts-style display-7">Sat 31 October 2026, 19h00<br>Halloween Special<br><br><strong>Where?</strong><br>Meet at the Presidential Hotel opposite the central railway station<br><br><strong>Who?</strong><br>The trail will be set by:<br>Forest Dump<br><br><strong>Upcoming runs</strong><br><br>#1653 November 7, 2026
+<br>Hare: High Heels<br>Curry &amp; Diwali Special<br><br>#1654 November 21, 2026
+<br>Hare: It Could Be You!<br><br>#1655 December 5, 2026
+<br>Hare: TBD<br><br>#1656 December 19, 2026
+<br>Hare: Santa Claus<br></p>
+<p class="mbr-text mbr-fonts-style display-7">Footer blurb that must not become a theme.</p>
+</body></html>`;
+
+/** Upcoming-list rows using the kennel's other hare-needed jokes (#2507, #2653). */
+const FIXTURE_JOKE_HARES = `<html><body>
+<p class="mbr-text mbr-fonts-style display-7">WH3 Run #1646<br>Sat 1 August 2026, 14h00<br><br><strong>Where?</strong><br>Presidential Hotel<br><br><strong>Who?</strong><br>The trail will be set by:<br>It Could Be You!<br><br><strong>Upcoming runs</strong><br><br>#1647 August 15, 2026
+<br>Hare: Live trail?<br><br>#1648 August 29, 2026
+<br>Hare: Time to sign up!<br><br>#1649 September 12, 2026
+<br>Hare: no hare = no run<br></p>
+</body></html>`;
+
 function eventsByRun(html: string) {
   const { events, errors } = parseWarsawH3Page(html, SOURCE_URL);
   return { byRun: new Map(events.map((e) => [e.runNumber, e])), events, errors };
@@ -135,6 +160,41 @@ describe("parseWarsawH3Page", () => {
       SOURCE_URL,
     );
     expect(events).toEqual([]);
+  });
+});
+
+describe("parseWarsawH3Page — Nov 2026 layout", () => {
+  it("parses an unnumbered next-run special anchored on the 'next run is' heading", () => {
+    const { events } = parseWarsawH3Page(FIXTURE_NOV_2026, SOURCE_URL);
+    expect(events.map((e) => e.date)).toEqual([
+      "2026-10-31", "2026-11-07", "2026-11-21", "2026-12-05", "2026-12-19",
+    ]);
+    const halloween = events[0];
+    expect(halloween.runNumber).toBeUndefined();
+    expect(halloween.title).toBe("Halloween Special");
+    expect(halloween.hares).toBe("Forest Dump");
+    expect(halloween.startTime).toBe("19:00");
+    expect(halloween.location).toBe("Meet at the Presidential Hotel opposite the central railway station");
+  });
+
+  it("reads a list row's theme line as its title, bounded to that row", () => {
+    const { byRun } = eventsByRun(FIXTURE_NOV_2026);
+    expect(byRun.get(1653)?.title).toBe("Curry & Diwali Special");
+    expect(byRun.get(1653)?.hares).toBe("High Heels");
+    expect(byRun.get(1654)?.title).toBeUndefined();
+    expect(byRun.get(1654)?.hares).toBeNull();
+    expect(byRun.get(1655)?.hares).toBeNull();
+    // Last row must not absorb the footer paragraph.
+    expect(byRun.get(1656)?.title).toBeUndefined();
+    expect(byRun.get(1656)?.hares).toBe("Santa Claus");
+  });
+
+  it("clears the kennel's other hare-needed jokes with null (#2507, #2653)", () => {
+    const { byRun } = eventsByRun(FIXTURE_JOKE_HARES);
+    expect(byRun.get(1646)?.hares).toBeNull();
+    expect(byRun.get(1647)?.hares).toBeNull();
+    expect(byRun.get(1648)?.hares).toBeNull();
+    expect(byRun.get(1649)?.hares).toBeNull();
   });
 });
 
