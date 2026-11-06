@@ -144,7 +144,12 @@ export async function updateAttendance(
     ...(newActivityId
       ? [
           prisma.stravaActivity.updateMany({
-            where: { stravaActivityId: newActivityId, connection: { userId: user.id } },
+            // Never take over an activity already linked to another attendance
+            where: {
+              stravaActivityId: newActivityId,
+              connection: { userId: user.id },
+              matchedAttendanceId: null,
+            },
             data: { matchedAttendanceId: attendanceId },
           }),
         ]

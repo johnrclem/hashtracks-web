@@ -12,6 +12,7 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       createMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
     attendance: {
@@ -44,7 +45,7 @@ const mockConnectionFindUnique = vi.mocked(prisma.stravaConnection.findUnique);
 const mockConnectionUpdate = vi.mocked(prisma.stravaConnection.update);
 const mockActivityFindMany = vi.mocked(prisma.stravaActivity.findMany);
 const mockActivityCreateMany = vi.mocked(prisma.stravaActivity.createMany);
-const mockActivityUpdate = vi.mocked(prisma.stravaActivity.update);
+const mockActivityUpdateMany = vi.mocked(prisma.stravaActivity.updateMany);
 const mockActivityDeleteMany = vi.mocked(prisma.stravaActivity.deleteMany);
 const mockAttendanceFindMany = vi.mocked(prisma.attendance.findMany);
 const mockDismissalFindMany = vi.mocked(prisma.stravaDismissal.findMany);
@@ -303,14 +304,29 @@ describe("syncStravaActivities", () => {
 
     await syncStravaActivities("user_1");
 
-    expect(mockActivityUpdate).toHaveBeenCalledWith({
+    expect(mockActivityUpdateMany).toHaveBeenCalledWith({
       where: { stravaActivityId: "2" },
       data: expect.objectContaining({
         fetchedAt: expect.any(Date),
         matchDismissed: true,
-        matchedAttendanceId: null,
       }),
     });
+  });
+
+  it("never clears link/dismiss state on existing rows (a concurrent attach must survive)", async () => {
+    mockConnectionFindUnique.mockResolvedValue(buildStravaConnection() as never);
+    mockedGetToken.mockResolvedValue({ accessToken: "token123" } as never);
+    mockedFetchActivities.mockResolvedValue([{ id: 3 }] as never);
+    mockedParseActivity.mockReturnValue(makeParsed("3", "Run"));
+    mockActivityFindMany.mockResolvedValue([{ stravaActivityId: "3" }] as never);
+    // Snapshot: nothing linked or dismissed (an attach may land mid-sync)
+
+    await syncStravaActivities("user_1");
+
+    const { data } = mockActivityUpdateMany.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(data).not.toHaveProperty("matchedAttendanceId");
+    expect(data).not.toHaveProperty("matchDismissed");
+    expect(data.fetchedAt).toBeInstanceOf(Date);
   });
 
   it("removes cached activities Strava no longer returns", async () => {

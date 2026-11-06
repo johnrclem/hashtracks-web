@@ -90,12 +90,13 @@ export function StravaConnectionCard({
             {connection.lastSyncAt && (
               <span>Last synced: {formatRelativeTime(connection.lastSyncAt)}</span>
             )}
-            {connection.activityCount !== undefined && (
+            {/* The activity cache is transient (purged after ~24h), so a zero
+                count just means "not fetched lately", not "nothing synced". */}
+            {!!connection.activityCount && (
               <span>
                 {" "}
-                · {connection.activityCount}{" "}
-                {connection.activityCount === 1 ? "activity" : "activities"}{" "}
-                cached
+                · {connection.activityCount} recent{" "}
+                {connection.activityCount === 1 ? "activity" : "activities"}
               </span>
             )}
           </p>

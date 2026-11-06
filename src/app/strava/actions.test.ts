@@ -274,6 +274,17 @@ describe("cache readers refresh the transient cache first", () => {
     expect(syncedBeforeRead(vi.mocked(prisma.stravaActivity.findMany))).toBe(true);
   });
 
+  it("still serves the cache when the refresh throws", async () => {
+    vi.mocked(prisma.stravaConnection.findUnique).mockResolvedValueOnce({ id: "sc_1" } as never);
+    mockSync.mockRejectedValueOnce(new Error("P2028 transaction timeout"));
+    vi.mocked(prisma.stravaActivity.findMany).mockResolvedValueOnce([] as never);
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    expect(await getStravaActivitiesForDate("2026-11-05")).toEqual({ success: true, activities: [] });
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+
   it("does not sync for a malformed picker date", async () => {
     vi.mocked(prisma.stravaConnection.findUnique).mockResolvedValueOnce({ id: "sc_1" } as never);
 

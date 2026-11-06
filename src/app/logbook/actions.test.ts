@@ -420,7 +420,7 @@ describe("updateAttendance", () => {
     expect(cacheUpdates).toEqual([
       { where: { matchedAttendanceId: "att_1" }, data: { matchedAttendanceId: null } },
       {
-        where: { stravaActivityId: "222", connection: { userId: "user_1" } },
+        where: { stravaActivityId: "222", connection: { userId: "user_1" }, matchedAttendanceId: null },
         data: { matchedAttendanceId: "att_1" },
       },
     ]);

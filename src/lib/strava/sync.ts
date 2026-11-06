@@ -97,6 +97,17 @@ export async function syncStravaActivities(
     matchedAttendanceId: linkedAttendanceByActivityId.get(stravaActivityId) ?? null,
     matchDismissed: dismissedKeys.has(stravaActivityKey(stravaActivityId)),
   });
+  // Existing rows only gain state from the snapshot, never lose it: every
+  // writer that clears a link or dismissal (detach, undismiss, edit/delete
+  // attendance) clears the cache row itself, so clearing here could only undo
+  // an attach/dismiss that committed after the snapshot was taken.
+  const additiveMatchState = (stravaActivityId: string) => {
+    const { matchedAttendanceId, matchDismissed } = matchState(stravaActivityId);
+    return {
+      ...(matchedAttendanceId && { matchedAttendanceId }),
+      ...(matchDismissed && { matchDismissed }),
+    };
+  };
   const existingIdSet = new Set(existingActivities.map((a) => a.stravaActivityId));
   // Track activities that need city backfill (have coords but null city)
   const needsCityIds = new Set(
@@ -144,11 +155,13 @@ export async function syncStravaActivities(
   await Promise.all([
     // Batch reverse-geocode new activities to populate city field
     toCreate.length > 0 ? backfillCities(toCreate) : Promise.resolve(),
-    // Batch update existing activities in a single transaction
+    // Batch update existing activities in a single transaction. updateMany (not
+    // update) so a row the purge cron deleted mid-sync is skipped, not a P2025
+    // that rolls back the whole sync; the next sync recreates it.
     toUpdate.length > 0
       ? prisma.$transaction(
           toUpdate.map((p) =>
-            prisma.stravaActivity.update({
+            prisma.stravaActivity.updateMany({
               where: { stravaActivityId: p.stravaActivityId },
               data: {
                 name: p.name,
@@ -161,7 +174,7 @@ export async function syncStravaActivities(
                 startLng: p.startLng,
                 timezone: p.timezone,
                 fetchedAt,
-                ...matchState(p.stravaActivityId),
+                ...additiveMatchState(p.stravaActivityId),
               },
             }),
           ),
@@ -313,7 +326,7 @@ async function backfillCities(
   if (updates.length > 0) {
     await prisma.$transaction(
       updates.map(({ stravaActivityId, city }) =>
-        prisma.stravaActivity.update({
+        prisma.stravaActivity.updateMany({
           where: { stravaActivityId },
           data: { city },
         }),

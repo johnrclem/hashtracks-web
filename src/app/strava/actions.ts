@@ -234,11 +234,16 @@ export async function syncStravaIfStale(): Promise<ActionResult<{ synced: boolea
  * Refresh the transient activity cache before reading it (no-op when fresh).
  * Readers outside the logbook panel (the post-check-in picker, a linked
  * activity's details, the onboarding backfill wizard) can run long after the
- * last sync, when the cache has expired or been purged. A failure is logged
- * inside the sync, and the reader still serves whatever is cached.
+ * last sync, when the cache has expired or been purged. Never throws: Strava
+ * failures are logged inside the sync, DB failures here, and the reader still
+ * serves whatever is cached.
  */
 async function ensureFreshCache(userId: string): Promise<void> {
-  await syncStravaActivities(userId);
+  try {
+    await syncStravaActivities(userId);
+  } catch (err) {
+    console.error("[strava-sync] cache refresh before read failed:", err);
+  }
 }
 
 // ── Activity Lookup (for Edit Dialog dropdown) ──
