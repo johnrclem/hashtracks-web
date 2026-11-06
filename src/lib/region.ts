@@ -1702,7 +1702,8 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 51.9007,
     centroidLng: -1.1522,
     aliases: ["Bicester, England", "Oxfordshire"],
-  },  {
+  },
+  {
     name: "Cambridge",
     country: "UK",
     timezone: "Europe/London",
@@ -1735,7 +1736,6 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: -2.4453, // Telford
     aliases: ["Telford", "Shropshire, England"],
   },
-
   {
     name: "Malvern",
     country: "UK",
