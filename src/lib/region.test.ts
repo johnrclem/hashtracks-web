@@ -295,12 +295,13 @@ describe("inferCountry — Cambodia (first 🇰🇭 kennel)", () => {
   });
 });
 
-describe("inferCountry — Laos (first 🇱🇦 kennel: Vientiane H3)", () => {
+describe("inferCountry — Romania (first 🇷🇴 kennel: Bucharest H3)", () => {
   it.each([
-    ["Laos", "Laos"],
-    ["Vientiane, Laos", "Laos"],
-    ["Ban Lao Beer Garden, Vientiane", "Laos"],
-  ])("infers %s → Laos", (name, country) => {
+    ["Romania", "Romania"],
+    ["Bucharest, Romania", "Romania"],
+    ["Grozavesti Metro station, Bucharest", "Romania"],
+    ["București", "Romania"],
+  ])("infers %s → Romania", (name, country) => {
     expect(inferCountry(name)).toBe(country);
   });
 });
@@ -312,6 +313,16 @@ describe("inferCountry — Cyprus (first 🇨🇾 kennel: Larnaca H3)", () => {
     ["Larnaca", "Cyprus"],
     ["Agia Napa Nature Reserve, Cyprus", "Cyprus"],
   ])("infers %s → Cyprus", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
+describe("inferCountry — Laos (first 🇱🇦 kennel: Vientiane H3)", () => {
+  it.each([
+    ["Laos", "Laos"],
+    ["Vientiane, Laos", "Laos"],
+    ["Ban Lao Beer Garden, Vientiane", "Laos"],
+  ])("infers %s → Laos", (name, country) => {
     expect(inferCountry(name)).toBe(country);
   });
 });
