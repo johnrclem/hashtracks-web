@@ -4122,11 +4122,12 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "bch3", shortName: "BCH3", fullName: "Brew City Hash House Harriers", region: "Milwaukee, WI",
       website: "https://www.brewcityh3.com",
       facebookUrl: "https://www.facebook.com/groups/BrewCityH3/",
-      scheduleDayOfWeek: "Thursday", scheduleFrequency: "Weekly",
-      // Seasonal: summer Thursdays (Jun–Oct), winter Fridays (Nov–May) per 2yr history.
+      scheduleDayOfWeek: "Thursday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      // Thursdays at 7 PM all year. The old "summer Thursday / winter Friday" split
+      // was an artifact: Wix renders BCH3's headings in UTC, so a Thursday 7 PM
+      // winter run read as "Friday 1 AM" (#2720).
       scheduleRules: [
-        { rrule: "FREQ=WEEKLY;BYDAY=TH", label: "Summer", validFrom: "06-01", validUntil: "10-31", displayOrder: 0 },
-        { rrule: "FREQ=WEEKLY;BYDAY=FR", label: "Winter", validFrom: "11-01", validUntil: "05-31", displayOrder: 1 },
+        { rrule: "FREQ=WEEKLY;BYDAY=TH", startTime: "19:00", displayOrder: 0 },
       ],
       hashCash: "$7-8",
       contactEmail: "Fido@BrewCityH3.com",
