@@ -6322,6 +6322,28 @@ export const KENNELS: KennelSeed[] = [
       longitude: 33.758,
     },
     {
+      kennelCode: "nh4-cy", // bare "nh4" left free (North Hants H4 pending)
+      shortName: "Nicosia H4",
+      fullName: "Nicosia Hash House Harriers",
+      region: "Nicosia",
+      country: "Cyprus",
+      website: "https://nh4.com.cy/",
+      facebookUrl: "https://www.facebook.com/nh4cy/",
+      foundedYear: 1989, // home page: "Founding (April 1989): NH4 was established by Duncan (Dingbat Chubby) Kirby …"
+      scheduleDayOfWeek: "Tuesday",
+      scheduleTime: "7:15 PM", // home page: "Tue 19:15 Every Week"
+      scheduleFrequency: "Weekly",
+      hashCash: "€3 run / €3–5 food", // home page: "€3 Run / €3-5 Food"
+      walkersWelcome: true, // "A shorter option of 4–5km is always set for walkers"
+      logoUrl: "/kennel-logos/nh4-cy.png", // self-hosted nh4.com.cy/images/images.png (PNG 447x447; magic bytes confirmed)
+      description:
+        "Nicosia Hash House Harriers, founded April 1989 — meets every Tuesday evening, rain or shine, for a " +
+        "6–8 km run (4–5 km walkers' option) around Nicosia, then cold beer, circle ceremonies and local food. " +
+        "About 95 core members; 20–30 out each week.",
+      latitude: 35.1856, // Nicosia centroid (venues vary weekly)
+      longitude: 33.3823,
+    },
+    {
       kennelCode: "sierra-h4", // grep-clean; first Sierra Leone kennel
       shortName: "Sierra H4",
       fullName: "Sierra Hash House Harriers and Harriettes",
