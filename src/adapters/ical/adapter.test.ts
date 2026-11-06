@@ -2422,3 +2422,111 @@ describe("ICalAdapter — Iron City (ICH3) title prefix strip (#2160)", () => {
     expect(e!.title).toBeUndefined();
   });
 });
+
+// Malvern H3 double-escapes its newlines (`\\n` in the raw feed), which node-ical
+// decodes to a dangling backslash + newline. Fixture is a verbatim live VEVENT.
+const MALVERN_ICS = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "PRODID:-//Malvern Hash House Harriers//Hash Calendar//EN",
+  "BEGIN:VEVENT",
+  "UID:mh3-hash-4783@malvernhash.co.uk",
+  "DTSTART;TZID=Europe/London:20261027T190000",
+  "DTEND;TZID=Europe/London:20261027T210000",
+  String.raw`SUMMARY:MH3 Hash @ Viaduct\, Kidderminster`,
+  String.raw`DESCRIPTION:Hare(s): I don't do hills\, Lassie\\nBirthday hash    Viaduct I`,
+  " nn  Postcode DY10 1XL",
+  String.raw`LOCATION:Viaduct\, Kidderminster\, DY10 1XL`,
+  "URL:https://malvernhash.co.uk/hashes/4783/",
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n");
+
+// Cheltenham & Cotswold H3 geocodes its "TORCHLIT" placeholder LOCATION into a
+// pin in mid-Wales. Fixture: two placeholder rows + one real Torchlit venue.
+const C2H3_ICS = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "PRODID:-//C2H3//Cheltenham & Cotswold HHH//EN",
+  "BEGIN:VEVENT",
+  "UID:run-1@c2h3.co.uk",
+  "DTSTART:20261210T190000",
+  "DTEND:20261210T210000",
+  "SUMMARY:Run #2854 — TORCHLIT-Joint run with GGS",
+  "LOCATION:TORCHLIT-Joint run with GGS",
+  "GEO:52.4907092;-3.2557682",
+  String.raw`DESCRIPTION:Hare(s): Stirfry\, Pied piper\, Thong`,
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:run-2@c2h3.co.uk",
+  "DTSTART:20270202T190000",
+  "DTEND:20270202T210000",
+  "SUMMARY:Run #2862 — TORCHLIT",
+  "LOCATION:TORCHLIT",
+  "GEO:52.4907092;-3.2557682",
+  "DESCRIPTION:Hare(s): Condom",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:run-3@c2h3.co.uk",
+  "DTSTART:20270119T190000",
+  "DTEND:20270119T210000",
+  String.raw`SUMMARY:Run #2861 — TORCHLIT The Gurkhas \, Gardeners Arms`,
+  String.raw`LOCATION:TORCHLIT The Gurkhas \, Gardeners Arms\, Alderton\, Beckford Road\, GL20 8NL`,
+  "GEO:51.99872;-2.002623",
+  String.raw`DESCRIPTION:Hare(s): Magpie\, Cripplecock`,
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n");
+
+describe("ICalAdapter — dangling backslashes + locationOmitIfMatches", () => {
+  let adapter: ICalAdapter;
+  beforeEach(() => {
+    adapter = new ICalAdapter();
+    vi.restoreAllMocks();
+  });
+
+  it("strips a backslash left at the end of a line (Malvern double-escaped newlines)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(MALVERN_ICS, { status: 200 }));
+    const source = buildMockSource({
+      name: "Malvern H3 iCal Feed",
+      url: "https://www.malvernhash.co.uk/hash-cal.ics",
+      config: { defaultKennelTag: "malvern-h3", upcomingOnly: true },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+    expect(result.events).toHaveLength(1);
+    const e = result.events[0];
+    expect(e.hares).toBe("I don't do hills, Lassie");
+    expect(e.description).not.toContain("\\");
+    expect(e.description).toContain("Lassie\nBirthday hash");
+    expect(e.startTime).toBe("19:00");
+    expect(e.endTime).toBe("21:00");
+    expect(e.location).toBe("Viaduct, Kidderminster, DY10 1XL");
+  });
+
+  it("drops a placeholder LOCATION and its bogus GEO pin, but keeps real venues", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(C2H3_ICS, { status: 200 }));
+    const source = buildMockSource({
+      name: "Cheltenham & Cotswold H3 iCal Feed",
+      url: "https://c2h3.co.uk/c2h3-calendar.ics",
+      config: { defaultKennelTag: "c2h3-gb", locationOmitIfMatches: ["^TORCHLIT(?:-[^,]*)?$"] },
+    });
+    const result = await adapter.fetch(source, { days: 9999 });
+    const byRun = new Map(result.events.map((e) => [e.runNumber, e]));
+    for (const run of [2854, 2862]) {
+      expect(byRun.get(run)?.location).toBeNull();
+      expect(byRun.get(run)?.locationUrl).toBeUndefined();
+    }
+    const real = byRun.get(2861);
+    expect(real?.location).toBe("TORCHLIT The Gurkhas , Gardeners Arms, Alderton, Beckford Road, GL20 8NL");
+    expect(real?.locationUrl).toBe("https://www.google.com/maps/search/?api=1&query=51.99872,-2.002623");
+  });
+
+  it("keeps the GEO pin when locationOmitIfMatches is not configured", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(C2H3_ICS, { status: 200 }));
+    const source = buildMockSource({ config: { defaultKennelTag: "c2h3-gb" } });
+    const result = await adapter.fetch(source, { days: 9999 });
+    const e = result.events.find((x) => x.runNumber === 2862);
+    expect(e?.location).toBe("TORCHLIT");
+    expect(e?.locationUrl).toBe("https://www.google.com/maps/search/?api=1&query=52.4907092,-3.2557682");
+  });
+});
