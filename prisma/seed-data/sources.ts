@@ -8138,11 +8138,11 @@ export const SOURCES = [
       // forward than HC. Live-verified 2026-11-05: 539 events (294 plympton-h3, 245 titsh3).
       // Titles are free text (venue + O/D pub + hare jammed together, like Devon Lunatics);
       // HC (trust 8) keeps the title wherever both sources have the run.
-      // Shipped disabled; enable after a prod scrape check.
+      // Prod dry-run 2026-11-06: 508 events (263 plympton-h3 / 245 titsh3), 0 unrouted;
+      // enabled by 20261106041000.
       name: "Plympton H3 Google Calendar",
       url: "ph3hareraising@gmail.com",
       type: "GOOGLE_CALENDAR" as const,
-      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 1500, // full-archive calendar back to 2022 (no upcomingOnly needed)
@@ -8154,7 +8154,8 @@ export const SOURCES = [
           [String.raw`^TIT'?s\b`, "titsh3"],
         ],
         strictKennelRouting: true,
-        titleStripPatterns: [String.raw`^Plympton Hash House Harriers\s*(?:#\d+)?\s*-?\s*`, String.raw`^TIT'?s\s*`],
+        // `^TBC$`: bare placeholder slots → empty title, like the untitled ones.
+        titleStripPatterns: [String.raw`^Plympton Hash House Harriers\s*(?:#\d+)?\s*-?\s*`, String.raw`^TIT'?s\s*`, "^TBC$"],
       },
       kennelCodes: ["plympton-h3", "titsh3"],
     },
@@ -8234,11 +8235,10 @@ export const SOURCES = [
       // are inconsistent at the source (duplicates, e.g. 1290 twice) and disagree with HC, so
       // runNumber is NOT mapped. Trail Type (col 7) goes to description; HC's titles win.
       // A season sheet that rolls over each January, hence upcomingOnly.
-      // Live-verified 2026-11-05: 45 rows 2026-01-10 → 2026-12-26. Shipped disabled.
+      // Live-verified 2026-11-05: 45 rows 2026-01-10 → 2026-12-26; enabled by 20261106041000.
       name: "Sembach H3 Hare Line Sheet",
       url: "https://docs.google.com/spreadsheets/d/1tC2GdrJJU2WNJYyIsuBbjuyQPUO1IDTaaYZGr9j_Zzg/export?format=csv",
       type: "GOOGLE_SHEETS" as const,
-      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 365,
