@@ -1112,7 +1112,7 @@ export const KENNELS: KennelSeed[] = [
       dogFriendly: true, // /about/who-we-are: "Well behaved dogs are welcome"
       walkersWelcome: true,
       description:
-        "North Hants Hash House Harriers (NH4) — a non-competitive trail-running \'drinking club with a running problem\' founded on Good Friday 1981 in Aldershot. Trails run within OS Map 186 (Aldershot & Guildford), followed by drinks at a nearby pub.",
+        "North Hants Hash House Harriers (NH4) — a non-competitive trail-running 'drinking club with a running problem' founded on Good Friday 1981 in Aldershot. Trails run within OS Map 186 (Aldershot & Guildford), followed by drinks at a nearby pub.",
       logoUrl: "/kennel-logos/nh4.png", // self-hosted from the tokenized Google Sites og:image; magic bytes confirmed PNG
     },
     {
@@ -7006,7 +7006,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleNotes: "Monday evenings at 7:00 PM (very occasionally Tuesday when Monday is a public holiday).",
       walkersWelcome: true, // homepage "Who": social jogging, "Hashing is not a race"
       description:
-        "Warwick Hash House Harriers — a \'drinking club with a running problem\' — meet on Monday evenings for 3–4 mile flour-laid trails starting and finishing at a pub within about 10 miles of Warwick (Warwick, Leamington Spa, Kenilworth, Wellesbourne, Rugby). Runs are social, not races; walkers welcome.",
+        "Warwick Hash House Harriers — a 'drinking club with a running problem' — meet on Monday evenings for 3–4 mile flour-laid trails starting and finishing at a pub within about 10 miles of Warwick (Warwick, Leamington Spa, Kenilworth, Wellesbourne, Rugby). Runs are social, not races; walkers welcome.",
       logoUrl: "/kennel-logos/warwick-h3.png", // self-hosted og:image (resized to 512px); magic bytes confirmed PNG
       latitude: 52.2823,
       longitude: -1.5849,
@@ -7064,7 +7064,7 @@ export const KENNELS: KennelSeed[] = [
         { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=WE", anchorDate: "2026-11-04", startTime: "19:00", label: "Winter (fortnightly)", validFrom: "10-16", validUntil: "03-31", displayOrder: 1 },
       ],
       description:
-        "Oxford Hash House Harriers — \'a drinking club with a running problem\', founded 6 October 1999 as a Bicester H3 offshoot. The self-styled \'Odd Sock Hash\' (motto Poto Ergo Curro) runs on Wednesday evenings at 7 p.m. on flour trails across Oxford and the Oxfordshire countryside — weekly in summer, fortnightly in winter — finishing with a beer stop, food and a circle. Newcomers welcome; first three runs free, then £4.",
+        "Oxford Hash House Harriers — 'a drinking club with a running problem', founded 6 October 1999 as a Bicester H3 offshoot. The self-styled 'Odd Sock Hash' (motto Poto Ergo Curro) runs on Wednesday evenings at 7 p.m. on flour trails across Oxford and the Oxfordshire countryside — weekly in summer, fortnightly in winter — finishing with a beer stop, food and a circle. Newcomers welcome; first three runs free, then £4.",
       logoUrl: "/kennel-logos/oxford-h3.gif", // self-hosted; magic bytes confirmed GIF89a
       latitude: 51.752,
       longitude: -1.2577,
