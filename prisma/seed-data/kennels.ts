@@ -1284,6 +1284,27 @@ export const KENNELS: KennelSeed[] = [
       hashCash: "£2.50", foundedYear: 1994, // nhhh.co.uk: "every week since 1994"
       description: "Newcastle upon Tyne's weekly Wednesday-evening hash.",
       latitude: 54.9783, longitude: -1.6178 },
+    {
+      kennelCode: "wfh3",
+      shortName: "Wyre Forest H3",
+      fullName: "Wyre Forest Hash House Harriers",
+      region: "Kidderminster",
+      country: "UK",
+      website: "https://www.wyreforesthhh.org.uk/",
+      scheduleDayOfWeek: "Thursday",
+      scheduleTime: "7:00 PM", // 12-hr seed convention; adapter startTime stays 24-hr "19:00"
+      scheduleFrequency: "Weekly",
+      foundedYear: 2008, // run archive: #1, 1st May 2008, Royal Forester at Callow Hill, Bewdley
+      hashCash: "£1", // homepage: "a contribution of £1 per person towards the cost of our insurance policy"
+      description:
+        "Wyre Forest Hash House Harriers — running in the beautiful countryside around the Wyre Forest " +
+        "(Kidderminster, Bewdley and beyond) every Thursday at 7pm. Everyone is welcome; all we ask is a " +
+        "£1 contribution towards the club's insurance.",
+      logoUrl: "/kennel-logos/wfh3.gif", // self-hosted SmallLogo.gif (via residential proxy); magic bytes confirmed GIF
+      latitude: 52.388,
+      longitude: -2.2497,
+      // dogFriendly / walkersWelcome / socials: not stated on the site — omitted
+    },
     { kennelCode: "plympton-h3", shortName: "Plympton H3", fullName: "Plympton Hash House Harriers",
       region: "Plymouth", country: "UK", logoUrl: "/kennel-logos/plympton-h3.png",
       scheduleDayOfWeek: "Sunday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",

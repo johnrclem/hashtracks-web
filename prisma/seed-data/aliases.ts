@@ -177,6 +177,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "nwh3-moon": ["Moonrakers H3", "Moonrakers", "NWH3 Moonrakers", "Moonraker Hash", "North Wilts Moonrakers"],
     // ===== UK — CORNWALL =====
     "titsh3": ["TITs", "TITS", "Try it Thursdays", "Try It Thursdays H3", "TIT H3"],
+    "wfh3": ["Wyre Forest H3", "WFHHH", "WFH3", "Wyre Forest Hash", "Wyre Forest Hash House Harriers"],
     // Bare "SCH3" OMITTED — claimed by sch3-atl (Southern Comfort) + sch3-ca (Surf City).
     "sch3-gb": ["Steel City H3", "Steel City Hash House Harriers", "SCH3-GB"],
     // Bare "MH3" OMITTED — globally taken (Munich/Montreal/Minneapolis/Miami/Madrid/Memphis/Morgantown/Manila/Dubai).
