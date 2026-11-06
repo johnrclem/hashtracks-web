@@ -5457,6 +5457,25 @@ export const KENNELS: KennelSeed[] = [
       latitude: 10.3157, // Cebu City
       longitude: 123.8854,
     },
+    {
+      kennelCode: "sbh3-ph", // bare "sbh3" is taken
+      shortName: "Subic Bay H3",
+      fullName: "Subic Bay Hash House Harriers",
+      region: "Subic Bay",
+      country: "Philippines",
+      website: "https://subicbayhash.blogspot.com",
+      foundedYear: 1993, // blog header: "Subic Bay Hash House Harriers were founded on 26 July, 1993"
+      scheduleDayOfWeek: "Monday",
+      scheduleTime: "2:00 PM", // blog header: "Runs every Monday at 2:00 sharp!"
+      scheduleFrequency: "Weekly",
+      scheduleNotes: "Adult (18+) hash.",
+      // logoUrl omitted — the only image is a tokenized Blogger header banner.
+      description:
+        "Subic Bay Hash House Harriers — an adult (18+) hash founded 26 July 1993, running every Monday at " +
+        "2:00 sharp from Barrio Barretto, Olongapo City / Subic Bay. 'The Hash with a view — IT'S NICE ON ICE.'",
+      latitude: 14.8639, // Barrio Barretto (cluster of run-recap start coords)
+      longitude: 120.2586,
+    },
     // ── South Korea (first 🇰🇷 kennel: Seoul H3) ──
     {
       // "Korea's Mother Hash", men-only, est. 1972 (~run #2897 Jun 2026). Bare

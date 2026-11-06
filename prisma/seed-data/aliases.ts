@@ -622,6 +622,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "mh3-ph": ["Manila Hash House Harriers", "Manila Monday Hash", "MH3 Manila", "Manila Men's Hash"],
     // bare "CH3" OMITTED — Chicago H3 et al.
     "cebu-h3": ["Cebu H3", "CebuH3", "Cebu Hash", "Cebu HHH", "Cebu Hash House Harriers"],
+    // bare "SBH3" OMITTED — global collision
+    "sbh3-ph": ["Subic Bay H3", "Subic Bay Hash", "Subic Bay HHH", "Subic Bay Hash House Harriers", "SBH3-PH", "Olongapo H3"],
     // South Korea — bare "SH3" OMITTED (taken by summit/salemh3/sh3-wa) and
     // "SHHH" OMITTED (taken by sech3/sgharriets).
     "sh3-kr": ["Seoul Hash", "Seoul H3", "Seoul Hash House Harriers", "Korea's Mother Hash"],
