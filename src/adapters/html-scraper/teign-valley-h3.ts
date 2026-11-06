@@ -65,6 +65,17 @@ function trimPunctuation(value: string): string {
   return out;
 }
 
+/** Start of an on-down label (". OD ", "ON DOWN", "on-down", "OnDown") in any case/spacing, or -1. */
+function onDownIndex(text: string): number {
+  const lower = text.toLowerCase();
+  let best = -1;
+  for (const label of [". od ", "on down", "on-down", "ondown"]) {
+    const i = lower.indexOf(label);
+    if (i !== -1 && (best === -1 || i < best)) best = i;
+  }
+  return best;
+}
+
 /**
  * Venue: the text after `Circle up <time>` (minus a leading "from" / "just out
  * of" / "at"), ending at the UK postcode when one sits inside the first clause,
@@ -88,14 +99,15 @@ function splitVenue(afterRunLine: string): { venue?: string; rest: string } {
   const lowerAfter = after.toLowerCase();
   const withIdx = lowerAfter.indexOf(" with ");
   let postcodeWindow = after.slice(0, withIdx === -1 ? VENUE_WINDOW : withIdx);
-  // The on-down pub's postcode is not the start venue ("… car park. OD the Bishop Lacy Inn … TQ13 0HY").
-  const odIdx = postcodeWindow.indexOf(". OD ");
+  // The on-down pub's postcode is not the start venue ("… car park. OD the Bishop Lacy Inn … TQ13 0HY",
+  // "… at Manaton.ON DOWN from the Kestor Inn TQ13 9UF").
+  const odIdx = onDownIndex(postcodeWindow);
   if (odIdx !== -1) postcodeWindow = postcodeWindow.slice(0, odIdx);
   const postcode = extractUkPostcode(postcodeWindow);
   const clauseEnd = withIdx === -1 ? after.length : withIdx;
   const end = postcode
     ? postcodeWindow.toUpperCase().indexOf(postcode) + postcode.length
-    : Math.min(clauseEnd, sentenceEnd(after));
+    : Math.min(clauseEnd, sentenceEnd(after), odIdx === -1 ? after.length : odIdx);
 
   let venue = trimPunctuation(after.slice(0, end));
   if (venue.startsWith("the ")) venue = venue.slice(4);
