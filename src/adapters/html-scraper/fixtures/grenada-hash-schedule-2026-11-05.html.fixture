@@ -1,0 +1,30 @@
+<div class="entry-content">
+<table id="tablepress-1" class="tablepress tablepress-id-1">
+<thead>
+<tr class="row-1">
+	<th class="column-1">Date</th><th class="column-2">Hash No</th><th class="column-3">Hares</th><th class="column-4">Location</th><th class="column-5">Extra Info</th>
+</tr>
+</thead>
+<tbody class="row-striping row-hover">
+<tr class="row-2">
+	<td class="column-1">29 Aug 2026</td><td class="column-2">1414</td><td class="column-3">Peak Freak &amp; Hemmerhoid</td><td class="column-4">Power Park</td><td class="column-5"></td>
+</tr>
+<tr class="row-7">
+	<td class="column-1">03 Oct 2026</td><td class="column-2">1419</td><td class="column-3">Bag o Shit, Feckless Father &amp; Poke ma hole</td><td class="column-4">Carriacou</td><td class="column-5">Carriacou Hash</td>
+</tr>
+<tr class="row-11">
+	<td class="column-1">31 Oct 2026</td><td class="column-2">1423</td><td class="column-3">Bling Ting</td><td class="column-4">True Blue</td><td class="column-5">Halloween Hash</td>
+</tr>
+<tr class="row-12">
+	<td class="column-1">07 Nov 2026</td><td class="column-2">1424</td><td class="column-3">Bling Ting</td><td class="column-4">Grand Mal</td><td class="column-5"></td>
+</tr>
+<tr class="row-15">
+	<td class="column-1">28 Nov 2026</td><td class="column-2">1427</td><td class="column-3">No Split</td><td class="column-4">TBA<br />
+</td><td class="column-5"></td>
+</tr>
+<tr class="row-28">
+	<td class="column-1">27 Feb 2027</td><td class="column-2">1440</td><td class="column-3"></td><td class="column-4"></td><td class="column-5"></td>
+</tr>
+</tbody>
+</table>
+</div>
