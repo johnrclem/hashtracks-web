@@ -220,7 +220,26 @@ function parseRunBody(
     proseParts.push(block.text);
     locationUrl ??= block.mapsUrl;
   }
-  return { hares, locationUrl, prose: proseParts.join(" ") };
+  const prose = proseParts.join(" ");
+  return { hares: hares ?? parseInlineHares(prose), locationUrl, prose };
+}
+
+// "Hares: Trojan Whores, Seldom Cums and River Horse." — the inline form some
+// posts use instead of a "Your Hares:" label block (Weekend Away, Nov 2026).
+// Capture stops at the first '.' or ':'.
+const INLINE_HARES_RE = /\bHares?:\s*([^.:]{2,160})([.:]?)/i;
+
+/**
+ * Hares from an inline "Hares: A, B and C." sentence in the run prose. When the
+ * capture ran into the next label ("Hares: A, B Details: …"), the label word is
+ * dropped. A trailing "and C" is split so the names sort like the label form.
+ */
+export function parseInlineHares(prose: string): string | undefined {
+  const m = INLINE_HARES_RE.exec(prose);
+  if (!m) return undefined;
+  let names = m[1].trim();
+  if (m[2] === ":") names = names.replace(/\s*\S+$/, "");
+  return normalizeHaresField(names.replace(/\s+(?:and|&)\s+/gi, ", "));
 }
 
 const WHEN_LABEL_RE = /\bWhen:\s*/i;

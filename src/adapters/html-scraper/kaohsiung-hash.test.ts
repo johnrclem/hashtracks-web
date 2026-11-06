@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseKaohsiungHashPage } from "./kaohsiung-hash";
+import { parseKaohsiungHashPage, parseInlineHares } from "./kaohsiung-hash";
 
 // Fixture mirrors the verbatim Wix markup captured from
 // https://www.kaohsiunghash.com/run-information on 2026-06-14:
@@ -118,7 +118,7 @@ describe("parseKaohsiungHashPage", () => {
 const WEEKEND_AWAY_FIXTURE = `
 <div data-testid="richTextElement"><h3 class="font_2"><span>KAOHSIUNG HASH HOUSE HARRIERS</span></h3></div>
 <div data-testid="richTextElement"><h2><span>#2743 and 2744 WEEKEND AWAY GUANZILING HOT SPRINGS TAINAN</span></h2></div>
-<div data-testid="richTextElement"><p>WEEKEND AWAY!</p><p>When: Saturday November 7th Hares off at Noon</p><p>And Sunday November 8th Hares off at 11:00 AM</p><p>Where: Guanzihling Baihe District Tainan.</p></div>
+<div data-testid="richTextElement"><p>WEEKEND AWAY!</p><p>When: Saturday November 7th Hares off at Noon</p><p>And Sunday November 8th Hares off at 11:00 AM</p><p>Where: Guanzihling Baihe District Tainan.</p><p>Hares: Trojan Whores, Seldom Cums and River Horse.</p><p>Details: There will be burgers.</p></div>
 <div data-testid="richTextElement"><p>#2745 November 14 Saturday Run</p></div>
 `;
 
@@ -136,6 +136,10 @@ describe("parseKaohsiungHashPage — dateless heading with a When: line", () => 
     expect(runs.find((r) => r.runNumber === 2743)?.startTime).toBe("12:00");
   });
 
+  it("takes hares from an inline 'Hares: …' sentence when there is no label block", () => {
+    expect(runs.find((r) => r.runNumber === 2743)?.hares).toBe("River Horse, Seldom Cums, Trojan Whores");
+  });
+
   it("still parses ordinary dated headings", () => {
     expect(runs.find((r) => r.runNumber === 2745)?.date).toBe("2026-11-14");
   });
@@ -146,5 +150,17 @@ describe("parseKaohsiungHashPage — dateless heading with a When: line", () => 
       new Date("2026-11-05T12:00:00Z"),
     );
     expect(errs.map((e) => e.error)).toEqual(["Kaohsiung H3: could not parse date for run #2750"]);
+  });
+});
+
+describe("parseInlineHares", () => {
+  it("splits a trailing 'and' and sorts", () => {
+    expect(parseInlineHares("Hares: B Name, A Name and C Name. Details: x")).toBe("A Name, B Name, C Name");
+  });
+  it("drops the next label word when no period ends the list", () => {
+    expect(parseInlineHares("Hares: Solo Hare Details: bring cash")).toBe("Solo Hare");
+  });
+  it("ignores 'Hares off at Noon' (no colon)", () => {
+    expect(parseInlineHares("When: Saturday Hares off at Noon")).toBeUndefined();
   });
 });
