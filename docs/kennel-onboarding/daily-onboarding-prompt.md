@@ -55,6 +55,17 @@ the run always sees what has already landed, and Step 2 dedupes against it.
 - **Your working copy:** Step 0 makes a throwaway clone of `origin/main` in a temp dir
   (`$WORK`). All writes go there, and **only** under `docs/kennel-onboarding/` (handoff, queue,
   run log, platform notes). Step 9 delivers them as a PR through GitHub.
+- **Runner (since 2026-11-06):** a desktop-app scheduled task (`hashtracks-kennel-onboarding`) on
+  the owner's Mac mini, in Auto mode. It replaces the old claude.ai routine. What you have there:
+  - **Plain `curl` and `dig`.** They reach any public site, with no network allowlist. Use them
+    first.
+  - **The app's built-in browser** (`mcp__Claude_Browser__*` tools) for JavaScript-rendered pages
+    and sites that reject scripted requests (Half-Mind returns HTTP 406 to curl). Claude in Chrome
+    is only a fallback.
+  - **No human present.** If a browser site approval or sign-in prompt appears, skip that source,
+    flag it, and keep going. Never wait.
+  - **Pushing:** use the gh credential helper, because the macOS keychain helper fails on push:
+    `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push -u origin HEAD`.
 - **Node (for any read-only probes):** `eval "$(fnm env)" && fnm use 20` if needed. You will NOT
   run `prisma db seed` or the full pipeline here — that happens in Claude Code.
 - **Queue:** [`target-queue.md`](target-queue.md)
@@ -77,13 +88,15 @@ delivers it) and reports it in Step 10. Do not write a multi-paragraph "NO ONBOA
 
 ```bash
 WORK=$(mktemp -d) && gh repo clone johnrclem/hashtracks-web "$WORK" -- --depth 1 && cd "$WORK"
+# Read-only reuse of the owner's dependencies, so repo scripts run without an `npm ci`.
+ln -s /Users/johnclem/Developer/hashtracks-web/node_modules "$WORK/node_modules"
 ```
 
 1. **A human hold is in place?** If `gh issue list --label onboarding-blocked --state open` is
    non-empty, **stop immediately**. Write nothing and report "held: #N".
-2. **Implementation backlog too large?** Run `bash scripts/copy-newest-handoff.sh --list` inside
-   `$WORK` (needs `npm ci` there, or point `HASHTRACKS_REPO` at `$WORK` and use the owner's
-   `node_modules` read-only). If **10 or more** handoffs are un-implemented, research adds
+2. **Implementation backlog too large?** Run
+   `HASHTRACKS_REPO="$WORK" bash scripts/copy-newest-handoff.sh --list` inside `$WORK`. It uses
+   the `node_modules` symlink from the block above. If **10 or more** handoffs are un-implemented, research adds
    nothing. Log `YYYY-MM-DD — SKIPPED: implementation backlog N ≥ 10` and stop.
 3. **No-op streak:** if the last **3** run-log entries are all one-line no-op entries (SKIPPED /
    NO ONBOARD), open an `onboarding-blocked` issue. Say why (queue empty, every candidate
@@ -116,12 +129,18 @@ second handoff.
 > can be fully live — page, logo, source, events — yet absent from `seed-data/`. **Always dedup
 > against the live production data first.** This is the #1 cause of wasted onboarding work.
 
-**Tooling reality (important):** the prod DB is **not reachable** from this sandbox (Railway host
-isn't in the network allowlist — DNS fails). The kennel directory and region pages are
-**client-rendered** — a plain fetch returns only a region's *count* ("SG7 / 7 kennels"), **not**
-the kennel names. So the authoritative full list comes from the **sitemap via the Chrome MCP**:
+**Tooling reality (important):** you don't query the prod DB in this task. The kennel directory and
+region pages are **client-rendered**: a plain fetch returns only a region's *count* ("SG7 / 7
+kennels"), **not** the kennel names. The authoritative full list comes from the **sitemap**.
 
-- **PRIMARY — read the live sitemap with the Chrome MCP (authoritative, confirmed working).** The
+- **PRIMARY on the desktop runner — `curl` the sitemap** (verified 2026-11-06: 554 kennel slugs):
+  ```bash
+  curl -s https://www.hashtracks.xyz/sitemap.xml | grep -o 'https://www.hashtracks.xyz/kennels/[^<]*' \
+    | grep -v '/kennels/region/' | sed 's#.*/kennels/##' | sort -u > "$WORK/live-slugs.txt"
+  ```
+  Then do the slug and fragment checks in step 4 of the Chrome method below.
+
+- **ALTERNATIVE — read the live sitemap with the Chrome MCP** (the old sandbox's method). The
   server-generated `https://www.hashtracks.xyz/sitemap.xml` lists every non-hidden kennel slug
   (the plain fetch tool returns it as binary, so use Chrome). Steps:
   1. `list_connected_browsers` → `select_browser` (the user runs "Personal Chrome on MacMini").
@@ -204,7 +223,8 @@ genuinely **missing this dynamic source**. Only then proceed.
 
 > 🔴 **DNS check FIRST for any non-platform domain.** Before treating a proposed source as real,
 > if its domain is NOT a known platform (`meetup.com`, `calendar.google.com`, `hashruns.org`,
-> `hashrego.com`, `*.wordpress.com`, `*.blogspot.com`, etc.), you MUST resolve it. From Chrome:
+> `hashrego.com`, `*.wordpress.com`, `*.blogspot.com`, etc.), you MUST resolve it. On the desktop
+> runner, `dig +short A <domain>` printing nothing means NXDOMAIN. Or, from a browser:
 > ```js
 > (await (await fetch('https://dns.google/resolve?name=<domain>&type=A')).json()).Status
 > // 0 = OK, 3 = NXDOMAIN (domain does not exist).
@@ -254,7 +274,12 @@ sandbox at all, flag `⚠️ Claude Code must confirm` (see verification reality
 - **End times / multi-day.** If events carry an end timestamp, note it — same-day → `endTime`,
   different-day → multi-day `endDate`. Don't discard it as "acceptable."
 
-**Verification reality (learned from live runs) — don't get stuck here.** In this sandbox,
+**Desktop runner:** `curl` fetches raw `.ics`, JSON and REST bodies directly, so capture the real
+machine-readable sample whenever you can. Use the built-in browser only for JS-rendered pages, and
+skip any site that raises an approval or sign-in prompt. The notes below describe the old sandbox
+and still apply when a fetch fails.
+
+**Verification reality (learned from live runs) — don't get stuck here.** In the old sandbox,
 `web_fetch` renders **HTML pages fine**, but raw machine-readable bodies (`.ics`, `?format=json`,
 REST/API) on domains **outside the allowlist** usually fail (HTTP 403 `blocked-by-allowlist`, or
 returned as binary), and the Chrome MCP **auto-denies a brand-new domain** when no user is present
@@ -970,17 +995,21 @@ git switch -c "onboarding/handoff-$(date +%F)-<code>"     # or onboarding/noop-$
 git add docs/kennel-onboarding/                            # only this dir changed in $WORK
 git diff --cached --stat                                   # expect: your handoff + appended log/queue lines
 git commit -m "docs(kennel-onboarding): hand off <shortName> (<region>)"
-git push -u origin HEAD
-gh pr create --base main --label onboarding-handoff \
+git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push -u origin HEAD
+PR=$(gh pr create --base main --label onboarding-handoff \
   --title "docs(kennel-onboarding): hand off <shortName> (<region>)" \
-  --body "Daily onboarding run $(date +%F). Handoff: docs/kennel-onboarding/handoffs/<file>.md"
-gh pr merge --auto --squash                                # docs-only; lands once CI is green
+  --body "Daily onboarding run $(date +%F). Handoff: docs/kennel-onboarding/handoffs/<file>.md")
+# GitHub auto-merge is disabled for this repo, so wait for CI, then merge the docs-only PR.
+timeout 1500 gh pr checks "$PR" --watch --fail-fast && gh pr merge "$PR" --squash
 ```
 
 - Before committing, check that `git diff --cached` touches **only** `docs/kennel-onboarding/`.
   If anything else changed, stop and report it.
-- **Delivery failure is never silent.** If the push, `gh pr create` or `gh pr merge --auto`
-  fails, open an `onboarding-blocked` issue. Paste the error and the full handoff body (or a
+- **If CI fails or doesn't finish within 25 minutes,** leave the PR open, don't merge, and report
+  🟡 PR OPEN with the PR link and the failing check in Step 10. The triage session merges it
+  later. Never merge a PR that touches anything outside `docs/kennel-onboarding/`.
+- **Delivery failure is never silent.** If the push or `gh pr create` fails, open an
+  `onboarding-blocked` issue. Paste the error and the full handoff body (or a
   link to the pushed branch). A handoff must reach the owner one way or another. Then report
   🔴 UNDELIVERED in Step 10.
 - Never touch `/Users/johnclem/Developer/hashtracks-web` with git. Never branch or commit
