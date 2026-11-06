@@ -8069,6 +8069,18 @@ export const SOURCES = [
       kennelCodes: ["newcastle-h3"],
     },
     {
+      name: "Wyre Forest HHH Website",
+      url: "https://www.wyreforesthhh.org.uk/index.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      // The site answers HTTP 406 to datacenter fetches → residential proxy (owner-approved 2026-11-05).
+      // Forward-only hareline; completed runs move to Page_on-back.php → upcomingOnly.
+      config: { useResidentialProxy: true, upcomingOnly: true },
+      kennelCodes: ["wfh3"],
+    },
+    {
       name: "Lune Valley H3 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
       type: "HARRIER_CENTRAL" as const,
@@ -8121,6 +8133,16 @@ export const SOURCES = [
         upcomingOnly: true,
       },
       kennelCodes: ["plympton-h3"],
+    },
+    {
+      name: "Tamar Valley H3 Website",
+      url: "https://www.tvh3.co.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true }, // homepage lists only the next run + ~5 forward rows
+      kennelCodes: ["tamar-h3"],
     },
     {
       // #2594: the kennel's own public calendar (plymptonh3.org "Sunday diary" embed). It also
@@ -8656,6 +8678,19 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["jah3"],
     },
+    // Grenada — first 🇬🇩 kennel; bespoke GrenadaHashAdapter over the TablePress
+    // /schedule/ table (~6 months ahead) + the /next-hash/ confirmed detail. The
+    // table rolls forward, so upcomingOnly keeps reconcile off past runs.
+    {
+      name: "Grenada H3 Hash Schedule",
+      url: "https://grenadahash.com/schedule/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: { upcomingOnly: true },
+      kennelCodes: ["gh3-gd"],
+    },
     // Serbia — first 🇷🇸 kennel; Harrier Central public API (config-only).
     {
       name: "BEER H3 Harrier Central",
@@ -8986,6 +9021,19 @@ export const SOURCES = [
         upcomingOnly: true,
       },
       kennelCodes: ["sh2b"],
+    },
+    // Cyprus — first 🇨🇾 kennel; bespoke LarnacaHashAdapter over the Google Sites
+    // NEXT RUN page ("Future Hares" list + current-run block). The list rolls
+    // forward ~4 months, so upcomingOnly keeps reconcile off aged-off runs.
+    {
+      name: "Larnaca H3 Website (Next Run + Future Hares)",
+      url: "https://sites.google.com/view/larnaca-hash-house-harriers/next-run",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 180, // the list reaches ~18 weeks ahead
+      config: { upcomingOnly: true },
+      kennelCodes: ["lh3-cy"],
     },
     {
       name: "Sierra H4 Harrier Central",
@@ -9348,6 +9396,26 @@ export const SOURCES = [
       kennelCodes: ["mickleover-h3"],
     },
     {
+      name: "North Wilts H3 Run Sheet",
+      url: "https://nwh3.net/runsheet.html",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper (shared NorthWiltsHashAdapter)
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { kennelTag: "nwh3", upcomingOnly: true }, // rolling ~9-week forward sheet
+      kennelCodes: ["nwh3"],
+    },
+    {
+      name: "North Wilts Moonrakers Run Sheet",
+      url: "https://nwh3.net/moonrakers.html",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper (shared NorthWiltsHashAdapter)
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { kennelTag: "nwh3-moon", upcomingOnly: true }, // rolling forward sheet
+      kennelCodes: ["nwh3-moon"],
+    },
+    {
       name: "Jacksonville H3 Timely iCal",
       url: "https://events.timely.fun/api/calendars/54747312/export?format=ics",
       type: "ICAL_FEED" as const,
@@ -9378,6 +9446,16 @@ export const SOURCES = [
       kennelCodes: ["herts-h3"],
     },
     {
+      name: "H5 Hare & Hounds Website Hareline",
+      url: "https://www.h5hashers.org.uk/hareline.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke scraper (inline runData JSON island)
+      scrapeFreq: "daily",
+      scrapeDays: 120, // forward hareline reaches ~3 months
+      config: { upcomingOnly: true }, // forward-only hareline; past runs drop off
+      kennelCodes: ["h5-gb"],
+    },
+    {
       name: "F.U.K Full Moon H3 Hareline",
       url: "https://fukfmh3.co.uk/hareline.htm",
       type: "HTML_SCRAPER" as const,
@@ -9386,6 +9464,16 @@ export const SOURCES = [
       scrapeDays: 365, // forward hareline reaches ~16 months out (#495->#511)
       config: { upcomingOnly: true }, // rolling forward hareline; past runs age off -> reconcile would false-cancel
       kennelCodes: ["fukfm"],
+    },
+    {
+      name: "N.E.W. Cotswold H3 Website",
+      url: "https://www.newch3.org.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper (hand-maintained run table)
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true }, // homepage lists upcoming runs only; done runs move to /past/
+      kennelCodes: ["newch3"],
     },
     {
       name: "Bicester H3 Events (The Events Calendar iCal)",

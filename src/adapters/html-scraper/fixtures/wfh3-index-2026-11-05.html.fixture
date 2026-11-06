@@ -1,0 +1,179 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+ <head>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+<meta name="robots" content="index, noarchive">
+<meta name="description" content="Wyre Forest Hash House Harriers, also known as Wyre Forest HHH or Wyre Forest H3. A drinking club with a running problem, running in Kidderminster, Bewdley and the surrounding Wyre Forest District">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+   <title>Wyre Forest Hash House Harriers (WFHHH)</title>
+ <script type='text/javascript' language='javascript'>
+<!--
+function SendEmail(name, domain, extension, subject){
+   window.location = 'mai' + 'lto:' + name + '@' + domain + '.' + extension + '?subject=' + subject;
+}
+//--></script>
+
+
+<style type="text/css">
+
+ body {
+      font-family: 'Helvetica', 'Arial', sans-serif;
+    }
+h1 { 
+	font-family: 'Helvetica', 'Arial', sans-serif;; 
+        font-size: 55px; 
+        font-style: normal;
+        font-variant: normal; 
+        font-weight: 700; 
+
+
+}
+
+A:hover
+{
+	font-weight:bold;
+}
+
+td {
+  text-align: center;
+}
+
+</style>
+
+<script type='text/javascript' language='javascript'>
+<!--
+function SendEmail(name, domain, extension, subject){
+   window.location = 'mai' + 'lto:' + name + '@' + domain + '.' + extension + '?subject=' + subject;
+}
+//--></script>
+</head>
+ <body>
+
+  <table width="100%">
+   <tr>    
+   <td valign="top" width="120">
+     
+      <img src="SmallLogo.gif" alt="Home">
+      <a href="index.php">
+       <img border="0" src="Button_on-on.gif" alt="Home Page">
+      </a>
+      <a href="Page_on-back.php">
+       <img border="0" src="Button_on-back.gif" alt="Past Runs">
+      </a>
+      <a href="Page_on-flash.html">
+       <img border="0" src="Button_on-flash.gif" alt="Gallery">
+      </a>
+      <a href="Page_on-rules.html">
+       <img border="0" src="Button_on-rules.gif" alt="Hashing rules">
+      </a>
+      <a href="Page_on-links.html">
+       <img border="0" src="Button_on-links.gif" alt="Links">
+      </a>
+       <a href="https://wyreforesthash.blogspot.com/">
+       <img border="0" src="Button_on-blog.gif" alt="On-Blog">
+      </a>
+      <p>
+      &nbsp;
+      <p>
+     <img border="0" src="Welcome.jpg" alt="">
+     </td>
+    <td valign="top">
+<table border="0" cellspacing="5" cellpadding="5" width="85%">
+<tr><td>    
+<h1>
+       Wyre Forest Hash House Harriers
+      </h1>
+     <p>
+      <img src="Pictures/cover-photo-wfhhh.jpg" alt="cover photo">
+     <p>
+   <p>
+      We love running in the beautiful countryside around the Wyre Forest.
+     <br>
+      Everyone is welcome to come and join us, we love meeting new people. All we ask for is a contribution of &pound;1 per 
+      person towards the cost of our insurance policy. <br>All runs start at 7:00pm on Thursday unless otherwise stated.
+     <br>
+<p>
+      Planned hashes are listed below, (Click on the postcode for a map)
+  </td>
+</tr>
+</table>
+            <table border cellpadding=5 width='85%'>
+       <tr>
+        <td><b>Number</b>        <td><b>Date</b>        <td><b>Location</b>        <td><b>Postcode</b>        <td><b>Hare(s)</b>        <td><b>Notes</b>       </tr>
+       <tr>
+        <td>930
+        <td>12th Nov 2026
+        <td> Camp at Grimley 
+        <td><a href="https://www.google.com/maps/dir/?api=1&amp;destination=WR26LX" target="_blank"> WR26LX</a>
+        <td> Still Keen 
+        <td>&nbsp;
+       </tr>
+       <tr>
+        <td>931
+        <td>19th Nov 2026
+        <td>&nbsp;
+        <td>&nbsp;
+        <td> Herr Flash 
+        <td>&nbsp;
+       </tr>
+       <tr>
+        <td>932
+        <td>26th Nov 2026
+        <td>&nbsp;
+        <td>&nbsp;
+        <td>&nbsp;
+        <td>&nbsp;
+       </tr>
+       <tr>
+        <td>933
+        <td>3rd Dec 2026
+        <td> Cross on the Hill Clee 
+        <td><a href="https://www.google.com/maps/dir/?api=1&amp;destination=SY83LZ" target="_blank"> SY83LZ</a>
+        <td> Specsavers 
+        <td>&nbsp;
+       </tr>
+       <tr>
+        <td>934
+        <td>10th Dec 2026
+        <td>&nbsp;
+        <td>&nbsp;
+        <td> Double Decker 
+        <td>&nbsp;
+       </tr>
+       <tr>
+        <td>935
+        <td>17th Dec 2026
+        <td>&nbsp;
+        <td>&nbsp;
+        <td>&nbsp;
+        <td>&nbsp;
+       </tr>
+       <tr>
+        <td>936
+        <td>24th Dec 2026
+        <td>&nbsp;
+        <td>&nbsp;
+        <td>&nbsp;
+        <td>&nbsp;
+       </tr>
+      </table>
+<table border="0" cellspacing="5" cellpadding="5" width="85%">
+	<tr> <td>
+
+ </td>
+<td>
+</td>
+
+</tr>
+<tr><td colspan="2"><a class="weatherwidget-io" href="https://forecast7.com/en/52d39n2d40/wyre-forest/" data-label_1="WYRE FOREST" data-label_2="WEATHER" data-theme="original" >WYRE FOREST WEATHER</a>
+<script type="text/javascript">
+!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src='https://weatherwidget.io/js/widget.min.js';fjs.parentNode.insertBefore(js,fjs);}}(document,'script','weatherwidget-io-js');
+</script></td></tr>
+</table>
+        
+     <!-- /INSERT -->
+    </td>
+   </tr>
+  </table>
+ </body>
+</html>

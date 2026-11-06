@@ -1605,6 +1605,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     aliases: ["Lancaster, England", "Lune Valley", "South Cumbria"],
   },
   {
+    name: "Swindon",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "SWN",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 51.5558,
+    centroidLng: -1.7797,
+    aliases: ["Swindon, England", "North Wilts"],
+  },
+  {
     name: "Plymouth",
     country: "UK",
     timezone: "Europe/London",
@@ -1658,6 +1669,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 52.77,
     centroidLng: -1.21,
     aliases: ["East Midlands, England", "Derby"],
+  },
+  {
+    name: "Bedford",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "BDF",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 52.1364,
+    centroidLng: -0.4667, // Bedford town centre
+    aliases: ["Bedford, England", "Bedfordshire"],
   },
   {
     name: "Hertfordshire",
@@ -1724,6 +1746,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 50.503,
     centroidLng: -4.313, // Callington / Tamar valley
     aliases: ["Cornwall, England", "Callington", "Kernow"],
+  },
+  {
+    name: "Kidderminster",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "KID",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 52.388,
+    centroidLng: -2.2497,
+    aliases: ["Kidderminster, England", "Wyre Forest", "Bewdley"],
   },
   {
     name: "Sheffield",
@@ -2325,6 +2358,32 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLat: 18.0179,
     centroidLng: -76.8099,
     aliases: ["Kingston, Jamaica"],
+  },
+  // ── Grenada (first 🇬🇩 kennel: Grenada H3, est. 1985) — 2-level COUNTRY→METRO,
+  //    mirrors Barbados/Jamaica. Red palette (Grenadian flag); Barbados is fuchsia,
+  //    Jamaica emerald. ──
+  {
+    name: "Grenada",
+    country: "Grenada",
+    level: "COUNTRY",
+    timezone: "America/Grenada",
+    abbrev: "GD",
+    colorClasses: "bg-red-200 text-red-800",
+    pinColor: "#dc2626",
+    centroidLat: 12.1165,
+    centroidLng: -61.679,
+    aliases: ["Grenada, Caribbean", "Spice Isle"],
+  },
+  {
+    name: "St George's",
+    country: "Grenada",
+    timezone: "America/Grenada",
+    abbrev: "GND",
+    colorClasses: "bg-red-100 text-red-700",
+    pinColor: "#ef4444",
+    centroidLat: 12.0561,
+    centroidLng: -61.7488,
+    aliases: ["St George's, Grenada", "St. George's, Grenada"],
   },
   // ── Serbia (first 🇷🇸 kennel: BEER H3, Belgrade) — 2-level COUNTRY→METRO,
   //    mirrors the Barbados/Cambodia precedent (no seed.ts stateMetroLinks). Red
@@ -4066,6 +4125,32 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 14.4378,
     aliases: ["Prague, Czech Republic", "Praha"],
   },
+  // ── Cyprus (first 🇨🇾 kennel: Larnaca H3, est. 1987) — 2-level COUNTRY→METRO,
+  //    mirrors the Czech/Serbia precedent (no seed.ts stateMetroLinks). Amber
+  //    palette (the copper of the Cypriot flag); its other owner, Kenya, is far away. ──
+  {
+    name: "Cyprus",
+    country: "Cyprus",
+    level: "COUNTRY",
+    timezone: "Asia/Nicosia",
+    abbrev: "CY",
+    colorClasses: "bg-amber-200 text-amber-800",
+    pinColor: "#d97706",
+    centroidLat: 35.1264,
+    centroidLng: 33.4299,
+    aliases: ["Republic of Cyprus"],
+  },
+  {
+    name: "Larnaca",
+    country: "Cyprus",
+    timezone: "Asia/Nicosia",
+    abbrev: "LCA",
+    colorClasses: "bg-amber-100 text-amber-700",
+    pinColor: "#f59e0b",
+    centroidLat: 34.9167,
+    centroidLng: 33.6333,
+    aliases: ["Larnaca, Cyprus"],
+  },
   // ── Turkey (first 🇹🇷 kennel: Big Lik H3, Incirlik Air Base / Adana) —
   //    country → metro. Cyan palette. ──
   {
@@ -4161,7 +4246,7 @@ export interface RegionLookup {
 export function regionSlug(name: string): string {
   return name
     .toLowerCase()
-    .replace(/[()]/g, "")
+    .replace(/[()'’]/g, "") // drop parens + apostrophes ("St George's" → "st-georges")
     .replace(/[,.\s]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
@@ -4396,6 +4481,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // NY" neighborhoods excluded. "kingston" is OMITTED (Kingston, ON / NY / TN).
   // inferCountry() is first-match with USA as the default fallthrough.
   [/\bjamaica\b(?! plain)(?!,? (?:ny|queens|new york)\b)/, "Jamaica"],
+  // Grenada — country + Carriacou. "Grenada" is also a town in Mississippi
+  // (Grenada, MS), so that US form is excluded; "st george's" is omitted (common
+  // worldwide). inferCountry() is first-match with USA as the default fallthrough.
+  [/\bgrenada\b(?!,? (?:ms|mississippi)\b)|\bcarriacou\b/, "Grenada"],
   // Serbia — country name + native spelling only. "belgrade" is OMITTED because it
   // doubles as US place names (Belgrade, MT / Belgrade, ME); "serbia"/"beograd" are
   // unambiguous. inferCountry() is first-match with USA as the default fallthrough.
@@ -4404,6 +4493,9 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // doubles as US place names (Prague, OK / Prague, NE); "czech"/"czechia"/"praha"
   // are unambiguous. inferCountry() is first-match with USA as the default fallthrough.
   [/\b(czech|czechia|praha)\b/, "Czech Republic"],
+  // Cyprus — country + Larnaca. Both tokens are unambiguous (no US namesakes);
+  // inferCountry() is first-match with USA as the default fallthrough.
+  [/\b(cyprus|larnaca)\b/, "Cyprus"],
   // Sierra Leone — country-name token only. "freetown" is OMITTED (Freetown, MA/IN
   // collisions) and bare "sierra" is OMITTED (Sierra Vista, AZ + the kennel's own
   // "Sierra H4" name). "sierra leone" is unambiguous; inferCountry() is first-match
@@ -4632,13 +4724,16 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Exeter": "United Kingdom",
   "Torbay": "United Kingdom",
   "East Midlands": "United Kingdom",
+  "Bedford": "United Kingdom",
   "Hertfordshire": "United Kingdom",
   "Bicester": "United Kingdom",
   "Malvern": "United Kingdom",
   "Cotswolds": "United Kingdom",
   "Chichester": "United Kingdom",
   "Lancaster": "United Kingdom",
+  "Swindon": "United Kingdom",
   "Cornwall": "United Kingdom",
+  "Kidderminster": "United Kingdom",
   "Sheffield": "United Kingdom",
   "Leeds": "United Kingdom",
   "Manchester": "United Kingdom",
@@ -4704,9 +4799,13 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Bridgetown": "Barbados",
   // Jamaica
   "Kingston": "Jamaica",
+  // Grenada
+  "St George's": "Grenada",
   // Serbia
   "Belgrade": "Serbia",
   "Prague": "Czech Republic",
+  // Cyprus
+  "Larnaca": "Cyprus",
   "Freetown": "Sierra Leone",
   "Abuja": "Nigeria",
   "Adana": "Turkey",
@@ -4965,6 +5064,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // country-group key "Barbados" is reachable here (mirrors the Cambodia precedent).
   "Barbados": "Barbados",
   "Jamaica": "Jamaica",
+  "Grenada": "Grenada",
   // Serbia — metro "Belgrade" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Serbia" is reachable here (mirrors the Barbados precedent).
   "Serbia": "Serbia",
@@ -4973,6 +5073,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // (mirrors the Serbia precedent; a metro-name key would be a dead no-op —
   // see hc-batch-4/-6 retros).
   "Czech Republic": "Czech Republic",
+  "Cyprus": "Cyprus",
   "Sierra Leone": "Sierra Leone",
   "Nigeria": "Nigeria",
   "Turkey": "Turkey",
@@ -5122,8 +5223,10 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   LA: "Laos",
   BB: "Barbados",
   JM: "Jamaica",
+  GD: "Grenada",
   RS: "Serbia",
   CZ: "Czech Republic",
+  CY: "Cyprus",
   VN: "Vietnam",
   LK: "Sri Lanka",
   IN: "India",
