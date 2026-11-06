@@ -99,8 +99,6 @@ function splitVenue(afterRunLine: string): { venue?: string; rest: string } {
   const lowerAfter = after.toLowerCase();
   const withIdx = lowerAfter.indexOf(" with ");
   let postcodeWindow = after.slice(0, withIdx === -1 ? VENUE_WINDOW : withIdx);
-  // The on-down pub's postcode is not the start venue ("… car park. OD the Bishop Lacy Inn … TQ13 0HY").
-  const odIdx = postcodeWindow.indexOf(". OD ");
   // The on-down pub's postcode is not the start venue ("… car park. OD the Bishop Lacy Inn … TQ13 0HY",
   // "… at Manaton.ON DOWN from the Kestor Inn TQ13 9UF").
   const odIdx = onDownIndex(postcodeWindow);
@@ -109,7 +107,6 @@ function splitVenue(afterRunLine: string): { venue?: string; rest: string } {
   const clauseEnd = withIdx === -1 ? after.length : withIdx;
   const end = postcode
     ? postcodeWindow.toUpperCase().indexOf(postcode) + postcode.length
-    : Math.min(clauseEnd, sentenceEnd(after));
     : Math.min(clauseEnd, sentenceEnd(after), odIdx === -1 ? after.length : odIdx);
 
   let venue = trimPunctuation(after.slice(0, end));
