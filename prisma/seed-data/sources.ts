@@ -9009,6 +9009,18 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["dh3-cy"],
     },
+    // Nicosia H4 — Joomla "Upcoming Hares" table (year-less DD-Mon rows a few
+    // months ahead). Rows age off, so upcomingOnly keeps reconcile off past runs.
+    {
+      name: "Nicosia H4 Upcoming Hares",
+      url: "https://nh4.com.cy/index.php/hare-line/upcoming-hares",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 120,
+      config: { upcomingOnly: true },
+      kennelCodes: ["nh4-cy"],
+    },
     {
       name: "Sierra H4 Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
