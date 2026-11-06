@@ -880,8 +880,11 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "tdh3-lb", shortName: "TDH3", fullName: "Throw Down Hash House Harriers", region: "Long Beach, CA",
-      scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
-      description: "Long Beach biweekly Thursday evening hash.",
+      // Wednesday per the dedicated TDH3 GCal: every biweekly "Throw Down H3" recurrence since
+      // 2015 starts on a Wednesday (latest series DTSTART Wed 2020-02-05), and prod history is
+      // Wed-dominant (#2477). Off-cadence specials land on other weekdays.
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      description: "Long Beach biweekly Wednesday evening hash.",
       latitude: 33.77, longitude: -118.19,
     },
     {
@@ -3038,8 +3041,18 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "wrong-way", shortName: "Wrong Way", fullName: "Phoenix Wrong Way Hash House Harriers", region: "Phoenix, AZ",
       website: "https://www.phoenixhhh.org",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
-      scheduleNotes: "1st, 3rd, and 5th Saturday",
-      description: "Phoenix Saturday afternoon hash. 1st, 3rd, and 5th Saturdays at 2 PM.",
+      scheduleNotes: "1st, 3rd, and 5th Saturday. 2 PM most of the year; 5 PM in summer (Jun–Sep).",
+      // #1724 — verified vs 12 months of prod: 1st Sat 11/12, 3rd Sat 12/12, 5th Sat 4/4;
+      // 17:00 Jun–Sep, 14:00 Oct–May. Fri/Sun/Thu rows are Rising H3 / specials on the shared calendar.
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA;BYMONTH=6,7,8,9", startTime: "17:00", label: "Summer (Jun–Sep)", validFrom: "06-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA;BYMONTH=6,7,8,9", startTime: "17:00", label: "Summer (Jun–Sep)", validFrom: "06-01", validUntil: "09-30", displayOrder: 1 },
+        { rrule: "FREQ=MONTHLY;BYDAY=5SA;BYMONTH=6,7,8,9", startTime: "17:00", label: "Summer (Jun–Sep)", validFrom: "06-01", validUntil: "09-30", displayOrder: 2 },
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA;BYMONTH=1,2,3,4,5,10,11,12", startTime: "14:00", label: "Oct–May", validFrom: "10-01", validUntil: "05-31", displayOrder: 3 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA;BYMONTH=1,2,3,4,5,10,11,12", startTime: "14:00", label: "Oct–May", validFrom: "10-01", validUntil: "05-31", displayOrder: 4 },
+        { rrule: "FREQ=MONTHLY;BYDAY=5SA;BYMONTH=1,2,3,4,5,10,11,12", startTime: "14:00", label: "Oct–May", validFrom: "10-01", validUntil: "05-31", displayOrder: 5 },
+      ],
+      description: "Phoenix Saturday afternoon hash. 1st, 3rd, and 5th Saturdays at 2 PM (5 PM in summer).",
       latitude: 33.45, longitude: -112.07,
     },
     {
@@ -5005,7 +5018,8 @@ export const KENNELS: KennelSeed[] = [
       // No explicit slug — toSlug("Pranburi H3") = "pranburi-h3". Bare "psh3" is Puget Sound H3
       // (Seattle) — this is region-suffixed to avoid it; do NOT set shortName to HC's "PSH3".
       region: "Hua Hin", country: "Thailand", // Pranburi ~25km south of Hua Hin — grouped under the Hua Hin metro (as h2fmh3).
-      // website/socials intentionally omitted — no verified dynamic own-site (Harrier Central-only).
+      // website intentionally omitted — no verified dynamic own-site (Harrier Central-only).
+      instagramHandle: "pranburihash", // "Pranburi Sunday Hash House Harriers" — og:title verified 2026-11-05 (#2602)
       logoUrl: "/kennel-logos/psh3-th.avif", // self-hosted from HC blob; ext confirmed by magic bytes (ftypavif)
       scheduleDayOfWeek: "Sunday", scheduleTime: "4:30 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "Monthly Sunday afternoon trail (~16:15 gather for 16:30 start) in Pranburi, just south of Hua Hin.",
