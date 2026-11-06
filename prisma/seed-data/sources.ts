@@ -9385,6 +9385,16 @@ export const SOURCES = [
       kennelCodes: ["fukfm"],
     },
     {
+      name: "N.E.W. Cotswold H3 Website",
+      url: "https://www.newch3.org.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper (hand-maintained run table)
+      scrapeFreq: "daily",
+      scrapeDays: 90,
+      config: { upcomingOnly: true }, // homepage lists upcoming runs only; done runs move to /past/
+      kennelCodes: ["newch3"],
+    },
+    {
       name: "Bicester H3 Events (The Events Calendar iCal)",
       url: "http://bicesterh3.com/?post_type=tribe_events&ical=1&eventDisplay=list", // NOSONAR — HTTP-only: HTTPS fails TLS verification (self-signed cert, checked 2026-11-05)
       type: "ICAL_FEED" as const,
