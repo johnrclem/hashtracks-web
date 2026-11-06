@@ -256,11 +256,14 @@ export const SOURCES = [
         kennelPatterns: [
           ["Boston Ball\\s*Buster|\\bBall\\s*Buster\\b|BoBBH3|B3H4|BBH3", "bobbh3"],
           ["Beantown", "beantown"],
-          ["Pink Taco|PT2H3|\\bTaco\\b", "pink-taco"],
+          ["Pink Taco|PT2H3|PTT\\s*H3|\\bTaco\\b", "pink-taco"],
           ["\\bZigZag\\b|Zig Zag|ZZH3", "zigzag"],
           ["\\bE4B\\b|Eager\\s*4\\s*Beaver", "e4b"],
-          ["Boston Moo[mn]|Full Moon|\\bMoo[mn]\\b", "bos-moon"],
+          // "MOOOOOOM TRAIL" / "MoooooooooM": any run of o's (Nov 2026 alert triage).
+          ["Boston Moo[mn]|Full Moon|\\bMo{2,}[mn]\\b", "bos-moon"],
           ["Boston H3|Boston Hash|BoH3|BH3", "boh3"],
+          // Bare "Misman meeting(location tbd)" — BH3's, like the "BH3 Misman meeting" rows above.
+          ["^Misman meeting\\b", "boh3"],
         ],
         // #1891: BH3 events carry a "BH3:" title prefix and stash the run
         // number in the description ("BH #2805"). Strip the prefix; pull the
@@ -379,8 +382,13 @@ export const SOURCES = [
         // Shared NJ calendar also has Summit + Rumson placeholder events
         // that don't get updated — only match Princeton's actual runs.
         kennelPatterns: [["^Regular Hash", "princeton-h3"], ["^MDL Hash", "princeton-h3"]],
-        // null default so Summit/Rumson/other placeholders are skipped
+        // A null default does NOT drop the rest: an unmatched title becomes its own
+        // tag and fuzzy-resolves to rumson / summit, raising SOURCE_KENNEL_MISMATCH
+        // every scrape (open since May 2026). Skip the recurring sister-kennel
+        // reminders explicitly (both kennels have their own sources); any other
+        // new title still surfaces as UNMATCHED_TAGS.
         defaultKennelTag: null,
+        skipPatterns: ["^Rumson Hash House Harriers\\b", "^Summit HHH\\b", "^SHHH\\b"],
         // #2125: the 2nd-Sunday SUMMARY "Regular Hash Day, 2nd Sunday, detail
         // cuming" IS the intended run title (reverses #1934, which had treated
         // it as a placeholder blurb and substituted a default). Prefer the real
@@ -872,6 +880,9 @@ export const SOURCES = [
           GREY: "19:00",
           BOGS: "19:15",
         },
+        // BOGS rows are covered by the bogsruns.php source below; here they
+        // only raised SOURCE_KENNEL_MISMATCH on every scrape (May 2026).
+        skipKennelTags: ["BOGS"],
         locationOmitIfMatches: BRISTOL_LOCATION_OMIT,
       },
       // Issue #1004: bogs-h3 split off into its own bogsruns.php source below
@@ -3492,6 +3503,9 @@ export const SOURCES = [
       trustLevel: 6,
       scrapeFreq: "daily",
       scrapeDays: 90,
+      // The home page shows only the next hash; each run drops off once the
+      // following one is posted.
+      config: { upcomingOnly: true },
       kennelCodes: ["boiseh3"],
     },
     // ===== COLORADO =====
@@ -8015,6 +8029,10 @@ export const SOURCES = [
         // Single \s (not \s+) keeps it safe-regex2-clean — see kennel-patterns.ts.
         kennelPatterns: [[String.raw`^(?:ONH3\s)?(?:Run\s)?#?\d{3,4}\b`, "onh3"]],
         defaultKennelTag: null,
+        // The calendar is a member's personal calendar too (appointments,
+        // birthdays, school dates). Drop unmatched entries silently instead of
+        // surfacing them as UNMATCHED_TAGS samples (Nov 2026 alert triage).
+        strictKennelRouting: true,
       },
       kennelCodes: ["onh3"],
     },

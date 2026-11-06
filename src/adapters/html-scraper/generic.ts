@@ -166,6 +166,7 @@ export function parseEventRow(
 
   // Extract optional fields
   const kennelTag = extractText($, $row, columns.kennelTag) || defaultKennelTag;
+  if (config.skipKennelTags?.some((t) => t.toLowerCase() === kennelTag.toLowerCase())) return null;
   const title = extractText($, $row, columns.title);
   const rawHares = extractText($, $row, columns.hares);
   const hares = rawHares && !CTA_HARES_RE.test(rawHares) ? rawHares : undefined;

@@ -312,7 +312,9 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: /big-hump\.com/i, name: "BigHumpAdapter", factory: () => new BigHumpAdapter() },
   { pattern: /stlh3\.com/i, name: "StlH3Adapter", factory: () => new StlH3Adapter() },
   { pattern: /brewcityh3\.com/i, name: "BrewCityH3Adapter", factory: () => new BrewCityH3Adapter() },
-  { pattern: /eh3\.org/i, name: "Eh3EdmontonAdapter", factory: () => new Eh3EdmontonAdapter() },
+  // Host-anchored: the bare /eh3\.org/ also matched "boiseh3.org", so the Boise
+  // source ran this adapter and emitted Edmonton runs (SOURCE_KENNEL_MISMATCH, May 2026).
+  { pattern: /^https?:\/\/(?:[^/]+\.)?eh3\.org(?:[/?#:]|$)/i, name: "Eh3EdmontonAdapter", factory: () => new Eh3EdmontonAdapter() },
   { pattern: /truetrailh3\.com/i, name: "TrueTrailH3Adapter", factory: () => new TrueTrailH3Adapter() },
   { pattern: /docs\.google\.com\/document\/d\/1jGyBUKxOYkxrZg8WVfpBYDP84fbacanoX_TJuyCmtAI/i, name: "Oh3OttawaAdapter", factory: () => new Oh3OttawaAdapter() },
   { pattern: /home\.onon\.org/i, name: "CalgaryH3HomeAdapter", factory: () => new CalgaryH3HomeAdapter() },

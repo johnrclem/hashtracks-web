@@ -522,6 +522,14 @@ function validateGenericHtmlConfig(obj: Record<string, unknown>, errors: string[
   }
 
   validateDefaultStartTimeByKennel(obj.defaultStartTimeByKennel, errors);
+
+  if (
+    obj.skipKennelTags !== undefined &&
+    (!Array.isArray(obj.skipKennelTags) ||
+      !obj.skipKennelTags.every((t) => typeof t === "string" && t.trim().length > 0))
+  ) {
+    errors.push("Generic HTML config skipKennelTags must be an array of non-empty strings");
+  }
 }
 
 /**
