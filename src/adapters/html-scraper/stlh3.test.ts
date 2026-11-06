@@ -5,6 +5,8 @@ import {
   findMapsLink,
   parseTitleDate,
   cleanPostTitle,
+  isPlausibleRunDate,
+  normalizeArchivePage,
   StlH3Adapter,
 } from "./stlh3";
 import * as safeFetchModule from "../safe-fetch";
@@ -151,6 +153,10 @@ describe("cleanPostTitle (#808)", () => {
     );
   });
 
+  it("strips a month-less day+year suffix (\"Sunday 27th 2026\")", () => {
+    expect(cleanPostTitle("Upcumming Hash: Sunday 27th 2026")).toBe("Upcumming Hash");
+  });
+
   it("strips from the last colon on multi-colon titles", () => {
     expect(
       cleanPostTitle("A: B: Sunday Apr 19th 2026"),
@@ -177,6 +183,41 @@ describe("parseTitleDate", () => {
 
   it("returns null for unparseable date", () => {
     expect(parseTitleDate("Weekly Announcement")).toBeNull();
+  });
+
+  it("anchors a month-less title to the post's publish date, not today", () => {
+    // Prod, Sep–Nov 2026: unanchored, "Sunday 27th 2026" resolved to the next
+    // Sunday after each scrape and walked from Sep 27 to Nov 8.
+    const published = new Date("2026-09-24T14:00:00Z");
+    expect(parseTitleDate("Upcumming Hash: Sunday 27th 2026", published)).toBe("2026-09-27");
+  });
+});
+
+describe("isPlausibleRunDate", () => {
+  const published = new Date("2026-09-24T14:00:00Z");
+  it("accepts a run a few days after the post", () => {
+    expect(isPlausibleRunDate("2026-09-27", published)).toBe(true);
+  });
+  it("accepts a run up to a week before the post (late announcement)", () => {
+    expect(isPlausibleRunDate("2026-09-20", published)).toBe(true);
+  });
+  it("rejects a run months after the post", () => {
+    expect(isPlausibleRunDate("2027-03-01", published)).toBe(false);
+  });
+  it("rejects a run well before the post", () => {
+    expect(isPlausibleRunDate("2026-08-01", published)).toBe(false);
+  });
+});
+
+describe("normalizeArchivePage", () => {
+  it("accepts the legacy bare-array shape", () => {
+    expect(normalizeArchivePage([])).toEqual({ posts: [], nextCursor: null });
+  });
+  it("accepts the { posts, nextCursor } shape", () => {
+    expect(normalizeArchivePage({ posts: [], nextCursor: "abc" })).toEqual({ posts: [], nextCursor: "abc" });
+  });
+  it("rejects an error body", () => {
+    expect(normalizeArchivePage({ errors: [{ msg: "Invalid value" }] })).toBeNull();
   });
 });
 
@@ -432,5 +473,94 @@ describe("StlH3Adapter", () => {
     // Only the "Upcumming Hash" post should be processed, not "Photo Gallery"
     expect(result.events).toHaveLength(1);
     expect(result.events[0].title).toBe("Upcumming Hash");
+  });
+
+  it("follows nextCursor across archive pages with limit<=25", async () => {
+    const post = (title: string, slug: string, date: string) => ({
+      title,
+      subtitle: "Meet @ 3PM",
+      slug,
+      post_date: date,
+      canonical_url: `https://www.stlh3.com/p/${slug}`,
+      body_html: "<p>x</p>",
+    });
+    const page1 = {
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({
+        posts: [post("Upcumming Hash: Sunday Mar 15th 2026", "mar-15", "2026-03-13T10:00:00Z")],
+        nextCursor: "CURSOR1",
+      }),
+    };
+    const page2 = {
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({
+        posts: [post("Upcumming Hash: Sunday Mar 8th 2026", "mar-8", "2026-03-06T10:00:00Z")],
+        nextCursor: null,
+      }),
+    };
+    vi.mocked(safeFetchModule.safeFetch)
+      .mockResolvedValueOnce(page1 as never)
+      .mockResolvedValueOnce(page2 as never);
+
+    const result = await adapter.fetch(mockSource, { days: 365 });
+
+    const urls = vi.mocked(safeFetchModule.safeFetch).mock.calls.map((c) => String(c[0]));
+    expect(urls[0]).toContain("limit=25");
+    expect(urls[0]).not.toContain("cursor=");
+    expect(urls[1]).toContain("cursor=CURSOR1");
+    expect(result.events.map((e) => e.date)).toEqual(["2026-03-15", "2026-03-08"]);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("skips a post whose title parses far from its publish date", async () => {
+    vi.mocked(safeFetchModule.safeFetch).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue({
+        posts: [
+          {
+            title: "Upcumming Hash: Sunday Dec 6th 2026",
+            subtitle: null,
+            slug: "typo",
+            post_date: "2026-03-01T10:00:00Z",
+            canonical_url: "https://www.stlh3.com/p/typo",
+            body_html: "<p>x</p>",
+          },
+        ],
+        nextCursor: null,
+      }),
+    } as never);
+
+    const result = await adapter.fetch(mockSource, { days: 365 });
+    expect(result.events).toHaveLength(0);
+    expect(result.diagnosticContext?.implausibleDates).toBe(1);
+  });
+
+  it("keeps page-1 events and reports an error when a later page fails", async () => {
+    vi.mocked(safeFetchModule.safeFetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({
+          posts: [
+            {
+              title: "Upcumming Hash: Sunday Mar 15th 2026",
+              subtitle: null,
+              slug: "mar-15",
+              post_date: "2026-03-13T10:00:00Z",
+              canonical_url: "https://www.stlh3.com/p/mar-15",
+              body_html: "<p>x</p>",
+            },
+          ],
+          nextCursor: "C",
+        }),
+      } as never)
+      .mockResolvedValueOnce({ ok: false, status: 400, statusText: "Bad Request" } as never);
+
+    const result = await adapter.fetch(mockSource, { days: 365 });
+    expect(result.events).toHaveLength(1);
+    expect(result.errors[0]).toContain("page 2");
   });
 });
