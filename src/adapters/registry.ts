@@ -125,6 +125,7 @@ import { KaohsiungHashAdapter } from "./html-scraper/kaohsiung-hash";
 import { BoomCalendarAdapter } from "./html-scraper/boom-calendar";
 import { PhnomPenhH3Adapter } from "./html-scraper/phnom-penh-h3";
 import { VindobonaH3Adapter } from "./html-scraper/vindobona-h3";
+import { LarnacaHashAdapter } from "./html-scraper/larnaca-hash";
 import { LVH3Adapter } from "./html-scraper/lvh3";
 import { BoulderH3Adapter } from "./html-scraper/boulder-h3";
 import { BoiseH3Adapter } from "./html-scraper/boiseh3";
@@ -355,6 +356,8 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   // ── Vietnam ──
   { pattern: /^https?:\/\/(?:[^/]+\.)?saigonhashers\.com(?:[/?#:]|$)/i, name: "SaigonH3Adapter", factory: () => new SaigonH3Adapter() },
   { pattern: /^https?:\/\/(?:[^/]+\.)?hanoih3\.com(?:[/?#:]|$)/i, name: "HanoiH3Adapter", factory: () => new HanoiH3Adapter() },
+  // ── Cyprus ──
+  { pattern: /^https?:\/\/sites\.google\.com\/view\/larnaca-hash-house-harriers(?:[/?#]|$)/i, name: "LarnacaHashAdapter", factory: () => new LarnacaHashAdapter() },
   // ── Austria ──
   { pattern: /viennahash\.org/i, name: "VindobonaH3Adapter", factory: () => new VindobonaH3Adapter() },
   // ── Nevada ──

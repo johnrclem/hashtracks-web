@@ -726,6 +726,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "ph3-cz": ["Prague H3", "Prague Hash", "Prague HHH", "Praha H3", "PH3-CZ", "Prague Hash House Harriers"],
     "eels-h3": ["EELS", "EELS H3", "East End of London Something H3", "East End of London Something Hash House Harriers", "EELS Hash"],
     "sh2b": ["SH2B", "Seattle Hash House Bikers", "Hash Bikers WA", "Seattle Bike Hash"],
+    // ===== CYPRUS ===== (bare "LH3" OMITTED — London H3)
+    "lh3-cy": ["Larnaca H3", "Larnaca HHH", "Larnaca Hash House Harriers", "LH3-CY"],
     // bare "SHHH"/"SHH3" OMITTED — taken by sech3/sgharriets; bare "H4" OMITTED — taken by Hangover H3.
     "sierra-h4": ["Sierra Hash", "Sierra HHH", "Sierra Hash House Harriers", "Sierra Hash House Harriers and Harriettes", "Sierra H4 Freetown"],
     // ===== HC BATCH (Nov 2026) =====
