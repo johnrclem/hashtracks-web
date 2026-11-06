@@ -8936,6 +8936,26 @@ export const SOURCES = [
       kennelCodes: ["mickleover-h3"],
     },
     {
+      name: "North Wilts H3 Run Sheet",
+      url: "https://nwh3.net/runsheet.html",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper (shared NorthWiltsHashAdapter)
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { kennelTag: "nwh3", upcomingOnly: true }, // rolling ~9-week forward sheet
+      kennelCodes: ["nwh3"],
+    },
+    {
+      name: "North Wilts Moonrakers Run Sheet",
+      url: "https://nwh3.net/moonrakers.html",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // bespoke HTML scraper (shared NorthWiltsHashAdapter)
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: { kennelTag: "nwh3-moon", upcomingOnly: true }, // rolling forward sheet
+      kennelCodes: ["nwh3-moon"],
+    },
+    {
       name: "Jacksonville H3 Timely iCal",
       url: "https://events.timely.fun/api/calendars/54747312/export?format=ics",
       type: "ICAL_FEED" as const,

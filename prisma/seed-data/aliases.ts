@@ -170,6 +170,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "plympton-h3": ["Plympton H3", "Plympton Hash House Harriers", "PH3-GB"],
     // Bare "LVH3" intentionally OMITTED — it is an alias of both lvh3 (Lehigh Valley) and lvh3-cin (Licking Valley).
     "lvh3-gb": ["Lune Valley H3", "Lune Valley Hash", "Lune Valley Hash House Harriers", "LVH3 Lancaster"],
+    "nwh3": ["NWH3", "North Wilts Hash", "North Wilts HHH", "Swindon Hash"],
+    "nwh3-moon": ["Moonrakers H3", "Moonrakers", "NWH3 Moonrakers", "Moonraker Hash", "North Wilts Moonrakers"],
     // ===== UK — CORNWALL =====
     "titsh3": ["TITs", "TITS", "Try it Thursdays", "Try It Thursdays H3", "TIT H3"],
     // Bare "SCH3" OMITTED — claimed by sch3-atl (Southern Comfort) + sch3-ca (Surf City).
