@@ -1601,6 +1601,51 @@ export const SOURCES = [
       },
       kennelCodes: ["c2h3", "balh3", "cbh3-cc"],
     },
+    // --- Killeen, TX (Google Calendar) ---
+    {
+      // Hill Country H3 (hch3.net) public Google Calendar. Also carries the
+      // sister full-moon kennel Heart of Texas H3, plus Wako H3 (Waco, not
+      // onboarded), an Austin H3 cross-post, Thursty Thursday rows and the
+      // owner's personal/holiday entries, so strict routing keeps only the two
+      // anchored prefixes. HOTH3 first so "HOT Humpin" never falls to HCH3.
+      // All-day entries ("HOTH3 Analversary", novelty days) stay dropped
+      // (includeAllDayEvents off).
+      // futureHorizonDays: the kennel edits instances of a biweekly template
+      // series in place; un-edited instances past ~3 months carry a stale
+      // "#760" run number. Real curated instances reach ~91 days ahead.
+      name: "Hill Country H3 Google Calendar",
+      url: "i98lot5sfibirmdp9kjp8jn604@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        kennelPatterns: [
+          [String.raw`^Heart of Texas\b|^HOTH3\b|^HOT Humpin`, "hoth3"],
+          [String.raw`^Hill Country\b|^HCH3\b`, "hch3"],
+        ],
+        strictKennelRouting: true,
+        skipPatterns: ["Miss Management", "Pub Call"],
+        futureHorizonDays: 100,
+      },
+      kennelCodes: ["hch3", "hoth3"],
+    },
+    {
+      // Backfill-only provenance: 2010→2025 history is inserted once by
+      // scripts/backfill-hch3-history.ts, never by scraping this row. A
+      // separate disabled row keeps the backfilled events out of the live
+      // source's reconcile window (archive-source safety pattern);
+      // upcomingOnly is belt-and-suspenders should it ever be enabled.
+      name: "Hill Country H3 Calendar Archive",
+      url: "i98lot5sfibirmdp9kjp8jn604@group.calendar.google.com",
+      type: "GOOGLE_CALENDAR" as const,
+      enabled: false,
+      trustLevel: 7,
+      scrapeFreq: "weekly",
+      scrapeDays: 90,
+      config: { upcomingOnly: true },
+      kennelCodes: ["hch3", "hoth3"],
+    },
     // ===== UPSTATE NEW YORK =====
     // --- Rochester (Google Calendar) ---
     {

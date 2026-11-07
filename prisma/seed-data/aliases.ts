@@ -215,6 +215,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "yakh3": ["Yak Hash", "YAKH3", "YakH3", "DFW Yak Hash"],
     "sah3": ["San Antonio Hash", "San Antonio H3", "SAH3", "SA Hash"],
     "c2h3": ["Corpus Christi Hash", "Corpus Christi H3", "C2H3", "CC Hash"],
+    "hch3": ["Hill Country H3", "HCH3", "Hill Country Hash", "Hill Country Hash House Harriers"],
+    "hoth3": ["Heart of Texas H3", "HOTH3", "HOT H3", "Heart of Texas Hash", "Heart of Texas Hash House Harriers"],
     "balh3": ["Bay Area Larrikins", "Bay Area Larrikin", "BALH3", "BAL Hash"],
     "cbh3-cc": ["Coastal Bend Hash", "Coastal Bend H3", "CBH3 Corpus Christi"],
     // Florida
