@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildRawEvent } from "@/test/factories";
+import { toIsoDateString } from "@/lib/date";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -50,6 +51,18 @@ function mockEvent(
     sourceUrl: "https://hashnyc.com",
     ...overrides,
   };
+}
+
+/** `n` weekly candidates for kennel_1, `stepDays` apart from `start` (UTC noon). */
+function weeklyCandidates(n: number, start: string, stepDays = 7, idPrefix = "evt_") {
+  const startMs = new Date(`${start}T12:00:00Z`).getTime();
+  return Array.from({ length: n }, (_, i) =>
+    mockEvent(
+      `${idPrefix}${i}`,
+      "kennel_1",
+      toIsoDateString(new Date(startMs + i * stepDays * 86_400_000)),
+    ),
+  );
 }
 
 /**
@@ -740,41 +753,31 @@ describe("reconcileStaleEvents", () => {
   });
 
   it("preserves the days-wide past window by default", async () => {
-    vi.useFakeTimers();
-    try {
-      const now = new Date("2026-04-21T12:00:00Z");
-      vi.setSystemTime(now);
-      mockEventFindMany.mockResolvedValueOnce([] as never);
+    const now = new Date("2026-04-21T12:00:00Z");
+    vi.setSystemTime(now);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
 
-      await reconcileStaleEvents("src_1", [buildRawEvent()], 90);
+    await reconcileStaleEvents("src_1", [buildRawEvent()], 90);
 
-      const call = mockEventFindMany.mock.calls[0][0] as {
-        where: { date: { gte: Date; lte: Date } };
-      };
-      expect(call.where.date.gte).toEqual(new Date(now.getTime() - 90 * 86_400_000));
-      expect(call.where.date.lte).toEqual(new Date(now.getTime() + 90 * 86_400_000));
-    } finally {
-      vi.useRealTimers();
-    }
+    const call = mockEventFindMany.mock.calls[0][0] as {
+      where: { date: { gte: Date; lte: Date } };
+    };
+    expect(call.where.date.gte).toEqual(new Date(now.getTime() - 90 * 86_400_000));
+    expect(call.where.date.lte).toEqual(new Date(now.getTime() + 90 * 86_400_000));
   });
 
   it("restricts the past side to now when upcomingOnly is true", async () => {
-    vi.useFakeTimers();
-    try {
-      const now = new Date("2026-04-21T12:00:00Z");
-      vi.setSystemTime(now);
-      mockEventFindMany.mockResolvedValueOnce([] as never);
+    const now = new Date("2026-04-21T12:00:00Z");
+    vi.setSystemTime(now);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
 
-      await reconcileStaleEvents("src_1", [buildRawEvent()], 90, undefined, true);
+    await reconcileStaleEvents("src_1", [buildRawEvent()], 90, undefined, true);
 
-      const call = mockEventFindMany.mock.calls[0][0] as {
-        where: { date: { gte: Date; lte: Date } };
-      };
-      expect(call.where.date.gte).toEqual(now);
-      expect(call.where.date.lte).toEqual(new Date(now.getTime() + 90 * 86_400_000));
-    } finally {
-      vi.useRealTimers();
-    }
+    const call = mockEventFindMany.mock.calls[0][0] as {
+      where: { date: { gte: Date; lte: Date } };
+    };
+    expect(call.where.date.gte).toEqual(now);
+    expect(call.where.date.lte).toEqual(new Date(now.getTime() + 90 * 86_400_000));
   });
 
   it("returns empty result when scrapedKennelIds has no overlap with linked kennels", async () => {
@@ -793,15 +796,12 @@ describe("reconcileStaleEvents", () => {
   describe("mass-cancel circuit breaker", () => {
     /** N weekly CONFIRMED candidates for kennel_1 starting 2026-01-03. */
     function candidates(n: number) {
-      return Array.from({ length: n }, (_, i) => {
-        const d = new Date(Date.UTC(2026, 0, 3 + i * 7, 12));
-        return mockEvent(`evt_${i}`, "kennel_1", d.toISOString().slice(0, 10));
-      });
+      return weeklyCandidates(n, "2026-01-03");
     }
     /** Scrape returning only the first `kept` candidate dates. */
     function scrapeFirst(kept: number) {
       return candidates(kept).map((c) =>
-        buildRawEvent({ date: c.date.toISOString().slice(0, 10), kennelTags: ["BoBBH3"] }),
+        buildRawEvent({ date: toIsoDateString(c.date), kennelTags: ["BoBBH3"] }),
       );
     }
     /** groupBy result: this source backs the first `n` candidates. */
@@ -997,10 +997,7 @@ describe("past-side coverage guard", () => {
   it("does not let protected past runs trip the mass-cancel breaker", async () => {
     // 20 past weekly runs dropped by a forward-only page: previously a 20/22
     // mass-cancel (blocked, alert filed); now nothing to cancel at all.
-    const past = Array.from({ length: 20 }, (_, i) => {
-      const d = new Date(Date.UTC(2026, 9, 31 - i * 7, 12));
-      return mockEvent(`past_${i}`, "kennel_1", d.toISOString().slice(0, 10));
-    });
+    const past = weeklyCandidates(20, "2026-10-31", -7, "past_");
     mockEventFindMany.mockResolvedValueOnce([
       ...past,
       mockEvent("up_1", "kennel_1", "2026-11-14"),
@@ -1023,23 +1020,24 @@ describe("past-side coverage guard", () => {
 
 describe("isPastOutsideCoverage", () => {
   const now = new Date("2026-11-07T18:00:00Z");
-  const at = (d: string) => new Date(`${d}T12:00:00Z`);
   const earliest = new Map([["k1", "2026-10-17"]]);
+  const check = (kennelId: string, date: string) =>
+    isPastOutsideCoverage(mockEvent("e", kennelId, date), earliest, now);
 
   it("never protects future events", () => {
-    expect(isPastOutsideCoverage({ kennelId: "k9", date: at("2026-11-14") }, earliest, now)).toBe(false);
+    expect(check("k9", "2026-11-14")).toBe(false);
   });
 
   it("protects past events for a kennel the scrape returned no rows for", () => {
-    expect(isPastOutsideCoverage({ kennelId: "k9", date: at("2026-10-24") }, earliest, now)).toBe(true);
+    expect(check("k9", "2026-10-24")).toBe(true);
   });
 
   it("protects past events older than the kennel's earliest scraped row", () => {
-    expect(isPastOutsideCoverage({ kennelId: "k1", date: at("2026-10-10") }, earliest, now)).toBe(true);
+    expect(check("k1", "2026-10-10")).toBe(true);
   });
 
   it("treats the earliest scraped date itself as covered", () => {
-    expect(isPastOutsideCoverage({ kennelId: "k1", date: at("2026-10-17") }, earliest, now)).toBe(false);
-    expect(isPastOutsideCoverage({ kennelId: "k1", date: at("2026-10-24") }, earliest, now)).toBe(false);
+    expect(check("k1", "2026-10-17")).toBe(false);
+    expect(check("k1", "2026-10-24")).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import type { ErrorDetails, ParseError } from "@/adapters/types";
+import type { ReconcileResult } from "@/pipeline/reconcile";
 import { getAdminUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -981,7 +982,7 @@ export default async function SourceDetailPage({
                     {log.diagnosticContext && (() => {
                       const ctx = log.diagnosticContext as Record<string, unknown>;
                       const ai = ctx.aiRecovery as { attempted?: number; succeeded?: number; failed?: number; durationMs?: number; recoveredFields?: Array<{ fields: string[]; confidence: string }> } | undefined;
-                      const reconciliation = ctx.reconciliation as { cancelled?: number; candidatesExamined?: number; multiSourcePreserved?: number; pastOutsideCoverage?: number; kennelsInScope?: number; totalLinkedKennels?: number } | undefined;
+                      const reconciliation = ctx.reconciliation as Partial<Omit<ReconcileResult, "cancelledEventIds">> | undefined;
                       const unmappedSlugs = ctx.unmappedKennelSlugs as string[] | undefined;
                       const internalKeys = new Set(["aiRecovery", "reconciliation", "eventsRestored", "unmappedKennelSlugs"]);
                       const otherCtx = Object.fromEntries(Object.entries(ctx).filter(([k]) => !internalKeys.has(k)));

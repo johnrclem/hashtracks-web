@@ -63,9 +63,9 @@ export const MASS_CANCEL_FRACTION = 0.3;
  * Mass-cancel circuit breaker. A single reconcile pass that would cancel more
  * than {@link MASS_CANCEL_MIN} events AND more than
  * {@link MASS_CANCEL_FRACTION} of the in-window CONFIRMED candidates this source backs
- * is far more likely to be an adapter/config regression (forward-only fetch
- * without `upcomingOnly`, an unanchored biweekly RRULE flipping parity, a
- * half-rendered page) than a real mass removal — and a false cancellation is
+ * is far more likely to be an adapter/config regression (an unanchored
+ * biweekly RRULE flipping parity, a fetch that keeps one stray old row but
+ * drops the runs after it, a half-rendered page) than a real mass removal — and a false cancellation is
  * user-visible damage. Blocking is cheap: stale events stay CONFIRMED until
  * an operator confirms (`allowMassCancel`) or the source recovers.
  */
@@ -78,19 +78,11 @@ export function shouldBlockMassCancel(
 }
 
 /**
- * Past-side coverage guard. A past-dated event missing from a scrape is only
- * evidence of removal when the scrape still reaches back to that date for that
- * kennel. Many sources drop runs once they happen (upcoming-runs pages, rolling
- * iCal windows, logged-out Meetup, recent-posts blogs). Without this guard,
- * every one of those sources needed `upcomingOnly: true`, or reconcile
- * cancelled each run the day after it happened.
- *
- * Returns true when `event` is in the past and the scrape returned no row for
- * its kennel dated on or before it, i.e. the event falls outside what this
- * scrape can see. Full-history feeds (most Google Calendars) still cover their
- * past, so their genuine past removals keep reconciling.
- *
- * `earliestScrapedByKennel` maps kennelId → earliest scraped YYYY-MM-DD.
+ * True when `event` is past and the scrape has no row for its kennel dated on
+ * or before it: the scrape no longer reaches back that far (upcoming-runs
+ * pages, rolling iCal windows, logged-out Meetup), so the miss is not a
+ * removal signal. Full-history feeds still cover their past and keep
+ * reconciling it. `earliestScrapedByKennel`: kennelId → earliest YYYY-MM-DD.
  */
 export function isPastOutsideCoverage(
   event: { kennelId: string; date: Date },
@@ -100,6 +92,66 @@ export function isPastOutsideCoverage(
   if (event.date >= now) return false;
   const earliest = earliestScrapedByKennel.get(event.kennelId);
   return earliest === undefined || earliest > toIsoDateString(event.date);
+}
+
+/** Scraped rows bucketed for reconcile; see {@link bucketScrapedRows}. */
+interface ScrapedBuckets {
+  /** `kennelId:YYYY-MM-DD` → scraped rows for that slot. */
+  scrapedBySlot: Map<string, RawEventData[]>;
+  /** kennelId → earliest scraped YYYY-MM-DD (the kennel's past coverage). */
+  earliestScrapedByKennel: Map<string, string>;
+  /** Kennels with at least one unparseable scraped date. */
+  kennelsWithUnparseableDates: Set<string>;
+}
+
+/**
+ * Bucket resolved scraped rows by (kennelId, date) slot and record each
+ * kennel's earliest scraped date.
+ *
+ * When a scraped row has an unparseable date we suppress the whole kennel, not
+ * just the row: dropping the row would leave its canonical orphaned and the
+ * cancellation phase would flip it to CANCELLED — strictly worse than the
+ * original slot-key mismatch this hardening prevents. A later successful
+ * scrape will reconcile that kennel cleanly.
+ */
+function bucketScrapedRows(
+  scrapedEvents: RawEventData[],
+  resolutions: readonly Awaited<ReturnType<typeof resolveKennelTag>>[],
+  sourceId: string,
+): ScrapedBuckets {
+  const scrapedBySlot = new Map<string, RawEventData[]>();
+  const earliestScrapedByKennel = new Map<string, string>();
+  const kennelsWithUnparseableDates = new Set<string>();
+  for (const [i, event] of scrapedEvents.entries()) {
+    const { kennelId, matched } = resolutions[i];
+    if (!matched || !kennelId) continue;
+    let dateKey: string;
+    try {
+      dateKey = toIsoDateString(event.date);
+    } catch (err) {
+      // Warn once per kennel; repeat warns on every bad row would spam logs
+      // when one kennel has many malformed rows.
+      if (!kennelsWithUnparseableDates.has(kennelId)) {
+        console.warn(
+          `[reconcile] suppressing cancellations for kennel=${kennelId} on source=${sourceId} due to unparseable date: ${String(err)}`,
+        );
+      }
+      kennelsWithUnparseableDates.add(kennelId);
+      continue;
+    }
+    const earliest = earliestScrapedByKennel.get(kennelId);
+    if (earliest === undefined || dateKey < earliest) {
+      earliestScrapedByKennel.set(kennelId, dateKey);
+    }
+    const key = `${kennelId}:${dateKey}`;
+    let list = scrapedBySlot.get(key);
+    if (!list) {
+      list = [];
+      scrapedBySlot.set(key, list);
+    }
+    list.push(event);
+  }
+  return { scrapedBySlot, earliestScrapedByKennel, kennelsWithUnparseableDates };
 }
 
 /**
@@ -140,43 +192,8 @@ export async function reconcileStaleEvents(
   const resolutions = await Promise.all(
     scrapedEvents.map((event) => resolveKennelTag(event.kennelTags[0], sourceId)),
   );
-  // When a scraped row has an unparseable date we suppress the whole kennel,
-  // not just the row: dropping the row would leave its canonical orphaned and
-  // the cancellation phase would flip it to CANCELLED — strictly worse than
-  // the original slot-key mismatch this hardening prevents. A later successful
-  // scrape will reconcile that kennel cleanly.
-  const scrapedBySlot = new Map<string, RawEventData[]>();
-  const earliestScrapedByKennel = new Map<string, string>();
-  const kennelsWithUnparseableDates = new Set<string>();
-  for (const [i, event] of scrapedEvents.entries()) {
-    const { kennelId, matched } = resolutions[i];
-    if (!matched || !kennelId) continue;
-    let dateKey: string;
-    try {
-      dateKey = toIsoDateString(event.date);
-    } catch (err) {
-      // Warn once per kennel; repeat warns on every bad row would spam logs
-      // when one kennel has many malformed rows.
-      if (!kennelsWithUnparseableDates.has(kennelId)) {
-        console.warn(
-          `[reconcile] suppressing cancellations for kennel=${kennelId} on source=${sourceId} due to unparseable date: ${String(err)}`,
-        );
-      }
-      kennelsWithUnparseableDates.add(kennelId);
-      continue;
-    }
-    const earliest = earliestScrapedByKennel.get(kennelId);
-    if (earliest === undefined || dateKey < earliest) {
-      earliestScrapedByKennel.set(kennelId, dateKey);
-    }
-    const key = `${kennelId}:${dateKey}`;
-    let list = scrapedBySlot.get(key);
-    if (!list) {
-      list = [];
-      scrapedBySlot.set(key, list);
-    }
-    list.push(event);
-  }
+  const { scrapedBySlot, earliestScrapedByKennel, kennelsWithUnparseableDates } =
+    bucketScrapedRows(scrapedEvents, resolutions, sourceId);
 
   // Get all kennel IDs linked to this source
   const sourceKennels = await prisma.sourceKennel.findMany({
@@ -224,10 +241,8 @@ export async function reconcileStaleEvents(
     };
   }
 
-  // `upcomingOnly` sources skip the past side entirely. The coverage guard
-  // below already protects past runs a fetch drops, but the flag is still the
-  // right call for a source whose fetch keeps one stray old row (e.g. a pinned
-  // "last run"), which would otherwise make the gap after it look covered.
+  // `upcomingOnly` skips the past side entirely; still needed when a fetch
+  // keeps one stray old row, which makes the gap after it look covered.
   const now = new Date();
   const timeMin = upcomingOnly
     ? now
