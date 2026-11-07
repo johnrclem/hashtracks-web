@@ -1,7 +1,7 @@
 # Daily onboarding implementer — operating manual
 
 The research task ([`daily-onboarding-prompt.md`](daily-onboarding-prompt.md)) writes one handoff
-a day to `handoffs/`. This task **builds** them: one kennel per run, ending in a PR that waits for the
+a day to `handoffs/`. This task **builds** them: one handoff per run, ending in a PR that waits for the
 owner's approval. It runs as the desktop-app scheduled task `hashtracks-kennel-implement` on the
 owner's Mac mini, in Auto mode, daily at about 05:00 local (two hours after research).
 
@@ -12,15 +12,16 @@ backfill, or seed the database, don't — this manual says how far you go.
 ## Golden rules
 
 1. **Never touch the owner's live checkout** (`/Users/johnclem/Developer/hashtracks-web`) with git
-   or writes. Work in a throwaway clone (`$WORK`). You may *read* its `.env` and use its
-   `node_modules` read-only.
+   or writes. Work in the implementer's own clone (`$WORK`, see Setup). You may *read* the live
+   checkout's `.env` and use its `node_modules` read-only.
 2. **No prod writes.** Prod access is limited to read-only queries and dry-runs inside
    `BEGIN … ROLLBACK`. Never run `prisma db seed`, `prisma migrate deploy`, `db push`, a backfill
    apply (`BACKFILL_APPLY`), or any UPDATE/INSERT/DELETE outside a rolled-back transaction.
 3. **The owner approves every merge.** The `owner-approved` label on GitHub is the owner's OK.
    **Never add that label yourself, and never merge an `onboarding-impl` PR without it.**
-4. **One kennel per run.** If **2 or more** `onboarding-impl` PRs are open without `owner-approved`,
-   build nothing new — the owner is the bottleneck, and more PRs don't help.
+4. **One handoff per run.** A handoff may onboard sibling kennels that share one source; that is
+   still one build. If **2 or more** `onboarding-impl` PRs are open without `owner-approved`, build
+   nothing new — the owner is the bottleneck, and more PRs don't help.
 5. **Config-only first.** Build only handoffs that use an **existing** adapter (configuration, seed,
    migration). A handoff that needs a **new adapter file** under `src/adapters/` is skipped: report
    it as "needs a supervised session" and try the next one.
@@ -30,12 +31,29 @@ backfill, or seed the database, don't — this manual says how far you go.
 
 ## Setup (every run)
 
+`$WORK` is `/Users/johnclem/Developer/hashtracks-implementer`, a clone that belongs to this task
+and is reused every run. It sits outside the live checkout, outside `$TMPDIR` (macOS ages out old
+temp files, which would corrupt a reused clone), and off any `.claude/worktrees/` path (vitest
+excludes that glob, so tests would find 0 files). Reusing it means nothing has to be deleted.
+
 ```bash
-WORK=$(mktemp -d) && gh repo clone johnrclem/hashtracks-web "$WORK" && cd "$WORK"
+WORK=/Users/johnclem/Developer/hashtracks-implementer
+if [ -d "$WORK/.git" ]; then
+  # The previous run's branch was pushed; discarding its local leftovers is expected.
+  cd "$WORK" && git fetch -q --prune origin && git checkout -q -f --detach origin/main && git clean -q -fdx -e node_modules
+else
+  gh repo clone johnrclem/hashtracks-web "$WORK" && cd "$WORK"
+fi
 OWNER_NM=/Users/johnclem/Developer/hashtracks-web/node_modules
-if [ -d "$OWNER_NM/.bin" ]; then ln -s "$OWNER_NM" "$WORK/node_modules"; else echo "WARN: $OWNER_NM missing — stop and report"; fi
+if [ -d "$OWNER_NM/.bin" ]; then [ -e node_modules ] || ln -s "$OWNER_NM" node_modules; else echo "WARN: $OWNER_NM missing — stop and report"; fi
 npx prisma generate >/dev/null
 ```
+
+**Every Bash call starts in the owner's live checkout,** and neither `cd` nor shell variables carry
+over to the next call. Begin **every** command with
+`cd /Users/johnclem/Developer/hashtracks-implementer &&`, and use absolute paths under it with the
+Read/Edit/Write tools. A command run without that prefix acts on the live checkout, which breaks
+golden rule 1.
 
 Env for live verification and read-only DB queries comes from the owner's `.env`. Load it only into
 the command that needs it, for example:
@@ -76,8 +94,9 @@ For each PR:
 
 1. An open `onboarding-blocked` issue → stop: "held: #N".
 2. Two or more open `onboarding-impl` PRs without `owner-approved` → stop: "waiting on owner review".
-3. List the backlog: `HASHTRACKS_REPO="$WORK" bash scripts/copy-newest-handoff.sh --paths`. Empty →
-   stop: "no handoffs to build".
+3. List the backlog:
+   `cd /Users/johnclem/Developer/hashtracks-implementer && HASHTRACKS_REPO="$PWD" bash scripts/copy-newest-handoff.sh --paths`.
+   Empty → stop: "no handoffs to build".
 
 ### Pick
 
@@ -106,13 +125,22 @@ A handoff older than **30 days** must have its source re-verified live before yo
 6. **History backfill** (only if the handoff has one): follow the recent precedent (frozen JSON under
    `scripts/data/` + a loader routed through the merge pipeline). Run it in **dry-run mode only** and
    record per-kennel counts and the exact apply command for the owner.
-7. Checks: `npx tsc --noEmit`, `npm run lint`, `npm test`. Run the `code-review` skill (high) and the
-   `simplify` skill if they're available, and fix what they find.
+   **Redact phone numbers and email addresses in every string field** of the frozen JSON. Hashers
+   write numbers in every format: `254-681-7657`, `254 681 7657`, `(254) 681-7657`, `5042311566`,
+   and 7-digit local numbers like `286-0444`. After scrubbing, re-scan all string fields with
+   patterns for each of those formats plus emails, and report the residual count in the PR. It
+   must be 0. (The first run's scrub caught only the dashed form and left 5 numbers.)
+7. Checks: `npx tsc --noEmit`, `npm run lint`, `npm test`.
 8. Commit, push, and open the PR:
    `gh pr create --base main --label onboarding-impl --title "feat(onboard): <shortName> (<region>)" --body-file <file>`.
    The body has: what was added, the live-verify sample, the migration dry-run counts, any backfill
    dry-run counts plus its apply command, and this line: **"Owner: review, then add the
    `owner-approved` label. The implementer merges it on its next run."**
+9. **Review the PR, not the working tree.** Run the `code-review` skill at `high` with the PR number
+   as its argument, then the `simplify` skill the same way. With a PR number they read
+   `gh pr diff <n>`, so the live checkout isn't involved. Tell them the code is at `$WORK` and that
+   every Bash call must start with `cd /Users/johnclem/Developer/hashtracks-implementer &&`. Fix
+   what they find, re-run the checks, push, and note the review in the PR body.
 
 ### Not onboardable
 
@@ -125,6 +153,6 @@ backlog helper, so it isn't retried.
 
 ## Phase C — report
 
-Remove the clone (`cd / && rm -rf "$WORK"`), then report **one line**:
+Leave `$WORK` in place; the next run resets it. Report **one line**:
 
 `merged: <PRs or none> | built: <code> → <PR link> (migration dry-run: N/N/N) | skipped: <codes + why> | retro: <code + reason> | backlog: N | owner to-do: <labels to review / backfill commands / redeploys>`
