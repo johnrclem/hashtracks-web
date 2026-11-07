@@ -1200,6 +1200,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     aliases: ["Corpus Christi, Texas"],
   },
   {
+    name: "Killeen, TX",
+    country: "USA",
+    timezone: "America/Chicago",
+    abbrev: "KIL",
+    colorClasses: "bg-lime-100 text-lime-700",
+    pinColor: "#65a30d",
+    centroidLat: 31.12,
+    centroidLng: -97.73,
+    aliases: ["Killeen, Texas", "Fort Cavazos"],
+  },
+  {
     name: "El Paso",
     country: "USA",
     timezone: "America/Denver",
@@ -4845,6 +4856,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Dallas-Fort Worth, TX": "Texas",
   "San Antonio, TX": "Texas",
   "Corpus Christi, TX": "Texas",
+  "Killeen, TX": "Texas",
   "El Paso": "Texas",
   // Illinois / Chicagoland
   "Chicago, IL": "Illinois + NW Indiana",

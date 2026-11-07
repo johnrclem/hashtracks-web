@@ -2253,6 +2253,35 @@ export const KENNELS: KennelSeed[] = [
       description: "Coastal Bend hash in the Corpus Christi, TX area.",
       latitude: 27.8, longitude: -97.4,
     },
+    // --- Killeen / Fort Cavazos / Temple / Belton ---
+    // Hill Country H3 + its full-moon sister Heart of Texas H3 share the
+    // hch3.net Google Calendar (routed via kennelPatterns, strict routing).
+    {
+      kennelCode: "hch3", shortName: "Hill Country H3", fullName: "Hill Country Hash House Harriers",
+      region: "Killeen, TX", country: "USA",
+      website: "https://hch3.net",
+      facebookUrl: "https://www.facebook.com/groups/HillCountryH3/", // Half-Mind #448 (the site's own FB link is the Texas-wide group)
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "Every other Saturday at 2 PM, year-round, around Killeen / Fort Cavazos / Temple / Belton.",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", anchorDate: "2026-11-14", startTime: "14:00", label: "Biweekly Saturday", displayOrder: 0 },
+      ],
+      foundedYear: 2001, // hch3.net/hashhistory.htm "founded the Hill Country H3 on 02 Feb 01"; Half-Mind #448 agrees
+      logoUrl: "/kennel-logos/hch3.png", // self-hosted from hch3.net/images/HCH gunbunny patch.png; magic bytes confirmed PNG
+      description: "Every-other-Saturday 2 PM hash around Killeen, Fort Cavazos, Temple and Belton (Bell & Coryell Counties), founded in Temple in February 2001. Sister kennel Heart of Texas H3 runs the full-moon trails.",
+    },
+    {
+      kennelCode: "hoth3", shortName: "Heart of Texas H3", fullName: "Heart of Texas Hash House Harriers",
+      region: "Killeen, TX", country: "USA",
+      website: "https://hch3.net/heart_of_texas_h3.htm",
+      facebookUrl: "https://www.facebook.com/groups/HOTH3/", // Half-Mind #447
+      // Friday nearest the full moon: Pass-2 FREQ=LUNAR, no scheduleRules (Bucharest FM precedent).
+      scheduleDayOfWeek: "Friday", scheduleTime: "7:30 PM", scheduleFrequency: "Full Moon",
+      scheduleNotes: "Friday nearest the full moon, 7:30 PM.",
+      foundedYear: 1991, // Half-Mind #447 DOB 1991-06-06; calendar "HOTH3 Analversary" series anchored 1991-06-06
+      logoUrl: "/kennel-logos/hoth3.png", // self-hosted from hch3.net/images/HOTc.PNG; magic bytes confirmed PNG
+      description: "Full-moon hash for the Killeen / Belton / Harker Heights area, running on the Friday nearest each full moon at 7:30 PM since June 1991. Sister kennel of Hill Country H3.",
+    },
     // ===== FLORIDA =====
     // --- Miami / South Florida ---
     {
