@@ -9,6 +9,9 @@
  */
 import type { PredictionOutcome, ScheduleConfidence } from "@/generated/prisma/client";
 
+/** Nominal snapshot horizon bands (days out), farthest first. Shared with the ledger job. */
+export const LEDGER_BANDS = [180, 90, 30] as const;
+
 /** Actual-days-out bins for precision (report by real horizon, not the nominal band). */
 export const DAYSOUT_BINS: { label: string; lo: number; hi: number }[] = [
   { label: "0–45", lo: 0, hi: 45 },
@@ -65,4 +68,52 @@ export function firstMaturityDate(snaps: { outcome: PredictionOutcome; predicted
     if (s.outcome !== "PENDING") return earliest;
     return !earliest || s.predictedDate < earliest ? s.predictedDate : earliest;
   }, null);
+}
+
+// ── Lead time (C3): how early a HIT was predicted vs when the run first appeared ─────────────
+
+/** One (confidence × horizon band) lead-time row, aggregated in the DB. */
+export interface LeadTimeRow {
+  confidence: "HIGH" | "MEDIUM";
+  horizon: number;
+  /** Scored HITs counted (kennel had an independent source before the snapshot). */
+  hits: number;
+  /** HITs left out because the kennel's first independent source came after the snapshot. */
+  excluded: number;
+  /** Median days between the snapshot and the run's first appearance (capped at the run date). */
+  medianLeadDays: number | null;
+  /** Median days the kennel's own posting preceded the run (0 when posted after the fact). */
+  medianPostedAheadDays: number | null;
+  /** HITs predicted strictly before any source posted the run. */
+  predictedFirst: number;
+}
+
+// ── UNOBSERVED per kennel (C4) ──────────────────────────────────────────────────────────────
+
+export interface UnobservedKennelRow {
+  kennelCode: string;
+  shortName: string;
+  region: string;
+  unobserved: number;
+  /** UNOBSERVED rows whose snapshot had NO independent source frozen (STATIC_SCHEDULE-only / sourceless). */
+  noSourceAtSnapshot: number;
+  hit: number;
+  miss: number;
+  /** Enabled non-STATIC_SCHEDULE sources linked to the kennel today. */
+  independentSourcesNow: number;
+}
+
+export type UnobservedReason = "no-source" | "source-added" | "source-silent";
+
+/**
+ * Why a kennel's predictions can't be scored:
+ *  - `no-source`: it never had an independent source (nothing can confirm or refute a run);
+ *  - `source-added`: it had none at snapshot time but has one now (future snapshots will score);
+ *  - `source-silent`: a source existed but posted nothing within ±14 days (dormant kennel or gap).
+ */
+export function unobservedReason(row: UnobservedKennelRow): UnobservedReason {
+  if (row.noSourceAtSnapshot >= row.unobserved) {
+    return row.independentSourcesNow > 0 ? "source-added" : "no-source";
+  }
+  return "source-silent";
 }

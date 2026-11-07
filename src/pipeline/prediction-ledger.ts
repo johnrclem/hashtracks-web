@@ -4,7 +4,8 @@
  * Weekly job that:
  *  1. SCORES matured snapshots — once a predicted date passes, check it against the
  *     snapshot's FROZEN independent sources: HIT / MISS / UNOBSERVED, with already-on-books
- *     rows finalized as PRECONFIRMED (contamination, excluded from metrics).
+ *     rows finalized as PRECONFIRMED (contamination, excluded from metrics). MISS/UNOBSERVED
+ *     rows are re-checked for RESCORE_WINDOW_DAYS, because ground truth often lands late.
  *  2. SNAPSHOTS current predictions — freezes the engine's forward HIGH/MEDIUM projections
  *     at narrow 180/90/30-day bands (resilient to a missed run), storing the ACTUAL days-out
  *     so calibration is reported by real horizon, not the nominal band.
@@ -21,18 +22,30 @@ import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
 import {
   projectTrails,
   scoreConfidence,
+  buildRuleAgreementMap,
+  selectBestProjections,
+  PREDICTION_MATCH_TOL_DAYS,
+  PREDICTION_OBSERVE_TOL_DAYS,
   type ScheduleRuleInput,
   type KennelContext,
 } from "@/lib/travel/projections";
+import { LEDGER_BANDS } from "@/lib/travel/ledger-scorecard";
+import { utcMidnightMs } from "@/lib/date";
 
 // ── Tunables ────────────────────────────────────────────────────────────────
-export const LEDGER_BANDS = [180, 90, 30] as const;
+export { LEDGER_BANDS };
 /** Capture window half-width around each band target. ≥ weekly cron step (7d). */
 export const BAND_HALF_WIDTH = 4;
 /** A prediction HITs if an eligible event lands within ±this of the predicted date. */
-export const MATCH_TOL_DAYS = 1;
+export const MATCH_TOL_DAYS = PREDICTION_MATCH_TOL_DAYS;
 /** A matured date is OBSERVED if an eligible event exists within ±this of it. */
-export const OBSERVE_TOL_DAYS = 14;
+export const OBSERVE_TOL_DAYS = PREDICTION_OBSERVE_TOL_DAYS;
+/**
+ * MISS / UNOBSERVED rows are re-checked for this many days after their date: runs are often
+ * posted late, or cancelled by reconcile and re-confirmed by an archive page weeks later.
+ * HIT and PRECONFIRMED are final.
+ */
+export const RESCORE_WINDOW_DAYS = 120;
 const EVIDENCE_WINDOW_DAYS = 84;
 const SNAPSHOT_HORIZON_DAYS = 200;
 const MATURITY_LAG_DAYS = 1;
@@ -42,11 +55,6 @@ const STATIC = "STATIC_SCHEDULE";
 const SCORE_UPDATE_CHUNK = 25;
 
 // ── Pure helpers (exported for tests) ─────────────────────────────────────────
-
-/** UTC calendar-midnight epoch ms — normalizes away time-of-day so day math is exact. */
-function utcMidnightMs(d: Date): number {
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-}
 
 /** Whole CALENDAR days from→to (UTC), robust to non-noon event/run timestamps. */
 export function daysBetween(from: Date, to: Date): number {
@@ -128,6 +136,40 @@ export function classifyOutcome(
   return { outcome: "MISS", matchedEventId: null };
 }
 
+/** A scored snapshot as read back for (re-)classification. */
+export interface ScorableSnapshot {
+  id: string;
+  kennelId: string;
+  predictedDate: Date;
+  confirmedAtSnapshot: boolean;
+  independentSourceIds: string[];
+  /** Current outcome — PENDING for first-time scoring, MISS/UNOBSERVED for a re-check. */
+  outcome: Outcome;
+}
+
+export type ScoreUpdate = { id: string } & ReturnType<typeof classifyOutcome>;
+
+/**
+ * Classify each snapshot against current events and return ONLY the rows whose outcome
+ * changes (a PENDING row always changes). Pure — the orchestrator writes the result.
+ */
+export function planScoreUpdates(
+  snaps: ScorableSnapshot[],
+  eventsByKennel: ReadonlyMap<string, ScorableEvent[]>,
+): ScoreUpdate[] {
+  const updates: ScoreUpdate[] = [];
+  for (const snap of snaps) {
+    const { outcome, matchedEventId } = classifyOutcome(
+      snap.predictedDate,
+      snap.confirmedAtSnapshot,
+      eventsByKennel.get(snap.kennelId) ?? [],
+      new Set(snap.independentSourceIds),
+    );
+    if (outcome !== snap.outcome) updates.push({ id: snap.id, outcome, matchedEventId });
+  }
+  return updates;
+}
+
 /** Identity key matching the PredictionSnapshot unique constraint (for in-batch dedup). */
 function snapshotKey(r: { kennelId: string; predictedDate: Date | string; startTimeKey: string; horizonBucket: number }): string {
   const iso = r.predictedDate instanceof Date ? r.predictedDate.toISOString() : new Date(r.predictedDate).toISOString();
@@ -160,6 +202,9 @@ interface RuleRow {
 export interface LedgerRunResult {
   scored: number;
   outcomes: Record<Exclude<Outcome, "PENDING">, number>;
+  /** MISS/UNOBSERVED rows inside RESCORE_WINDOW_DAYS whose outcome changed this run, by new outcome. */
+  rescored: number;
+  rescoredTo: Record<Exclude<Outcome, "PENDING">, number>;
   snapshotsCreated: number;
   lastSuccessfulRunAt: Date | null;
 }
@@ -235,20 +280,33 @@ function buildKennelSnapshotRows(
     startTime: r.startTime, confidence: r.confidence, notes: r.notes,
     label: r.label, validFrom: r.validFrom, validUntil: r.validUntil,
   }));
-  const projections = projectTrails(ruleInputs, now, windowEnd);
+  // Undeduped: each rule is scored on its own record before picking a slot's winner.
+  const projections = projectTrails(ruleInputs, now, windowEnd, { dedupe: false });
   const evidenceCount = kEvents.filter(
     (e) => e.date.getTime() >= now.getTime() - EVIDENCE_WINDOW_DAYS * DAY_MS && e.date.getTime() <= now.getTime(),
   ).length;
   const ruleValidation = new Map(kRules.map((r) => [r.id, r.lastValidatedAt]));
+  // kEvents are already independent-only (indexLedgerInputs drops STATIC_SCHEDULE-only events).
+  const agreement = buildRuleAgreementMap(ruleInputs, () => kEvents, now);
   const ctx: KennelContext = {
     id: k.id, shortName: k.shortName, scheduleDayOfWeek: k.scheduleDayOfWeek,
     scheduleTime: k.scheduleTime, scheduleFrequency: k.scheduleFrequency, lastEventDate: k.lastEventDate,
   };
 
+  const scored = selectBestProjections(
+    projections.map((proj) => ({
+      ...proj,
+      confidence: scoreConfidence(
+        proj.confidence, ctx, evidenceCount, ruleValidation.get(proj.scheduleRuleId) ?? null, now.getTime(),
+        agreement.get(proj.scheduleRuleId),
+      ),
+    })),
+  );
+
   const rows: Prisma.PredictionSnapshotCreateManyInput[] = [];
-  for (const proj of projections) {
+  for (const proj of scored) {
+    const { confidence } = proj;
     if (!proj.date) continue; // LOW/possible — not date-scorable
-    const confidence = scoreConfidence(proj.confidence, ctx, evidenceCount, ruleValidation.get(proj.scheduleRuleId) ?? null, now.getTime());
     if (confidence !== "high" && confidence !== "medium") continue;
     const nowDaysOut = daysBetween(now, proj.date);
     const prevDaysOut = lastSuccessfulRunAt ? daysBetween(lastSuccessfulRunAt, proj.date) : null;
@@ -274,6 +332,26 @@ function buildKennelSnapshotRows(
   return rows;
 }
 
+/** Add each update's outcome to `counts`; returns how many updates were tallied. */
+function tallyInto(counts: Record<Exclude<Outcome, "PENDING">, number>, updates: ScoreUpdate[]): number {
+  for (const u of updates) counts[u.outcome]++;
+  return updates.length;
+}
+
+/** Write classified outcomes in bounded-concurrency chunks. */
+async function flushScoreUpdates(prisma: PrismaClient, updates: ScoreUpdate[], now: Date): Promise<void> {
+  for (let i = 0; i < updates.length; i += SCORE_UPDATE_CHUNK) {
+    await Promise.all(
+      updates.slice(i, i + SCORE_UPDATE_CHUNK).map((u) =>
+        prisma.predictionSnapshot.update({
+          where: { id: u.id },
+          data: { outcome: u.outcome, matchedEventId: u.matchedEventId, matchToleranceDays: MATCH_TOL_DAYS, scoredAt: now },
+        }),
+      ),
+    );
+  }
+}
+
 // ── Orchestrator ──────────────────────────────────────────────────────────────
 export async function runPredictionLedger(
   prisma: PrismaClient,
@@ -291,14 +369,22 @@ export async function runPredictionLedger(
   // Matured snapshots can be arbitrarily old after a long cron outage; the event window
   // must reach back to the OLDEST pending matured target (− observe tol) or scoring would
   // see no events and wrongly mark them UNOBSERVED (Codex review on PR #2164).
-  const [oldestPending, matured] = await Promise.all([
+  const scoreSelect = {
+    id: true, kennelId: true, predictedDate: true, confirmedAtSnapshot: true, independentSourceIds: true, outcome: true,
+  } as const;
+  const rescoreFrom = new Date(todayMidnightMs - RESCORE_WINDOW_DAYS * DAY_MS);
+  const [oldestPending, matured, rescorable] = await Promise.all([
     prisma.predictionSnapshot.aggregate({
       where: { outcome: "PENDING", predictedDate: { lt: maturityCutoff } },
       _min: { predictedDate: true },
     }),
     prisma.predictionSnapshot.findMany({
       where: { outcome: "PENDING", predictedDate: { lt: maturityCutoff } },
-      select: { id: true, kennelId: true, predictedDate: true, confirmedAtSnapshot: true, independentSourceIds: true },
+      select: scoreSelect,
+    }),
+    prisma.predictionSnapshot.findMany({
+      where: { outcome: { in: ["MISS", "UNOBSERVED"] }, predictedDate: { gte: rescoreFrom, lt: maturityCutoff } },
+      select: scoreSelect,
     }),
   ]);
 
@@ -353,41 +439,22 @@ export async function runPredictionLedger(
   const result: LedgerRunResult = {
     scored: 0,
     outcomes: { HIT: 0, MISS: 0, PRECONFIRMED: 0, UNOBSERVED: 0 },
+    rescored: 0,
+    rescoredTo: { HIT: 0, MISS: 0, PRECONFIRMED: 0, UNOBSERVED: 0 },
     snapshotsCreated: 0,
     lastSuccessfulRunAt,
   };
 
   // ── Pass 1: score matured snapshots against their FROZEN sources ────────────
-  // Classify in memory first, then flush updates in bounded-concurrency chunks. A multi-week
-  // cron outage (or the first run after migration) can leave hundreds–thousands of matured rows;
-  // a sequential await-per-row N+1 risks the 300s timeout, while an unbounded Promise.all over
-  // the whole backlog could exhaust the connection pool. Chunking gets the parallel speedup with
-  // a bounded pool footprint (claude review on PR #2164).
-  const scoredUpdates = matured.map((snap) => {
-    const kennelEvents = eventsByKennel.get(snap.kennelId) ?? [];
-    const frozen = new Set(snap.independentSourceIds);
-    const { outcome, matchedEventId } = classifyOutcome(
-      snap.predictedDate,
-      snap.confirmedAtSnapshot,
-      kennelEvents,
-      frozen,
-    );
-    return { id: snap.id, outcome, matchedEventId };
-  });
-  for (let i = 0; i < scoredUpdates.length; i += SCORE_UPDATE_CHUNK) {
-    await Promise.all(
-      scoredUpdates.slice(i, i + SCORE_UPDATE_CHUNK).map((u) =>
-        prisma.predictionSnapshot.update({
-          where: { id: u.id },
-          data: { outcome: u.outcome, matchedEventId: u.matchedEventId, matchToleranceDays: MATCH_TOL_DAYS, scoredAt: now },
-        }),
-      ),
-    );
-  }
-  for (const u of scoredUpdates) {
-    result.scored++;
-    result.outcomes[u.outcome]++;
-  }
+  // First-time scoring of matured PENDING rows plus a re-check of recent MISS/UNOBSERVED rows
+  // (only changed rows are written). Classify in memory, then flush in bounded-concurrency
+  // chunks: a long cron outage can leave thousands of rows, and a per-row N+1 risks the 300s
+  // timeout while an unbounded Promise.all could exhaust the pool (claude review on PR #2164).
+  const scoredUpdates = planScoreUpdates(matured, eventsByKennel);
+  const rescoredUpdates = planScoreUpdates(rescorable, eventsByKennel);
+  await flushScoreUpdates(prisma, [...scoredUpdates, ...rescoredUpdates], now);
+  result.scored = tallyInto(result.outcomes, scoredUpdates);
+  result.rescored = tallyInto(result.rescoredTo, rescoredUpdates);
 
   // ── Pass 2: snapshot current predictions ───────────────────────────────────
   const snapshotRows: Prisma.PredictionSnapshotCreateManyInput[] = [];

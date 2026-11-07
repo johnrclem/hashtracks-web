@@ -59,3 +59,8 @@ export function toIsoDateString(input: string | Date): string {
   if (!Number.isNaN(d.getTime())) return d.toISOString().split("T")[0];
   throw new Error(`Invalid date format: ${input}`);
 }
+
+/** Epoch ms of the UTC calendar midnight that starts `d`'s day (normalizes away time-of-day). */
+export function utcMidnightMs(d: Date): number {
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}

@@ -65,6 +65,8 @@ interface MockEvent {
    *  `parentEvent.title` series tie. */
   parentEventId?: string | null;
   isSeriesParent?: boolean;
+  /** RawEvent provenance; defaults to one independent (GOOGLE_CALENDAR) source. */
+  rawEvents?: { source: { type: string } }[];
 }
 
 interface MockScheduleRule {
@@ -78,6 +80,11 @@ interface MockScheduleRule {
   notes: string | null;
   isActive: boolean;
   lastValidatedAt: Date | null;
+}
+
+/** RawEvent provenance of a mock event; defaults to one independent (GOOGLE_CALENDAR) source. */
+function rawEventsOf(e: MockEvent): { source: { type: string } }[] {
+  return e.rawEvents ?? [{ source: { type: "GOOGLE_CALENDAR" } }];
 }
 
 function createMockPrisma(
@@ -110,6 +117,11 @@ function createMockPrisma(
         }
         if (where.status === "CONFIRMED") {
           filtered = filtered.filter((e: MockEvent) => e.status === "CONFIRMED");
+        }
+        // INDEPENDENT_EVENT_WHERE: keep events with ≥1 RawEvent whose source type differs.
+        const excludedType = where.rawEvents?.some?.source?.type?.not;
+        if (excludedType) {
+          filtered = filtered.filter((e: MockEvent) => rawEventsOf(e).some((r) => r.source.type !== excludedType));
         }
         if (where.date?.gte) {
           filtered = filtered.filter((e: MockEvent) => e.date >= where.date.gte);
@@ -443,14 +455,15 @@ describe("executeTravelSearch", () => {
 
   it("returns likely projections from schedule rules", async () => {
     // Post-scoreConfidence-gate: Medium requires ≥1 evidence event in the
-    // 12-week window. Provide one historical confirmed event so the rule
-    // survives as `likely` instead of being downgraded to `possible`.
-    const evidenceEvent: MockEvent = {
+    // 12-week window, and the rule-agreement gate demotes a weekly rule whose
+    // recent Saturdays mostly had no run. Provide a run on each of the last
+    // 12 Saturdays (Jan 24 … Apr 11) so the rule survives as `likely`.
+    const evidenceEvents: MockEvent[] = Array.from({ length: 12 }, (_, i) => ({
       ...testEvent,
-      id: "e-evidence",
-      date: utcNoon("2026-02-21"), // 2 months before baseParams window — within 12-week evidence lookback
-    };
-    const prisma = createMockPrisma([testKennel], [evidenceEvent], [testRule]);
+      id: `e-evidence-${i}`,
+      date: new Date(utcNoon("2026-01-24").getTime() + i * 7 * 86_400_000),
+    }));
+    const prisma = createMockPrisma([testKennel], evidenceEvents, [testRule]);
     const result = await executeTravelSearch(prisma, baseParams);
 
     expect(result.likely.length).toBeGreaterThan(0);
@@ -458,6 +471,53 @@ describe("executeTravelSearch", () => {
     expect(result.likely[0].confidence).toMatch(/high|medium/);
     expect(result.likely[0].evidenceTimeline).toBeDefined();
     expect(result.likely[0].evidenceTimeline.weeks).toHaveLength(12);
+  });
+
+  describe("rule-agreement gate", () => {
+    // Twelve weekly runs before the Apr 14 clock, shifted onto Wednesdays: every Saturday the
+    // rule predicted is "observed" (a run within ±14d) but none had a run within ±1d.
+    const wednesdayRuns = (rawEvents?: MockEvent["rawEvents"]): MockEvent[] =>
+      Array.from({ length: 12 }, (_, i) => ({
+        ...testEvent,
+        id: `e-wed-${i}`,
+        date: new Date(utcNoon("2026-01-21").getTime() + i * 7 * 86_400_000),
+        rawEvents,
+      }));
+
+    it("drops a rule that independent runs contradict out of `likely`", async () => {
+      const prisma = createMockPrisma([testKennel], wednesdayRuns(), [testRule]);
+      const result = await executeTravelSearch(prisma, baseParams);
+      expect(result.likely).toHaveLength(0);
+    });
+
+    it("picks a slot's winner after scoring, so a demoted rule can't hide a sibling rule", async () => {
+      // Runs only on the 3rd Saturday (Jan 17, Feb 21, Mar 21). A HIGH weekly-Saturday rule is
+      // contradicted (2 of 11 observed Saturdays) and drops to LOW; a MEDIUM 3rd-Saturday rule
+      // (too few observed dates to judge) stays MEDIUM. Both project Apr 18 at 14:00 — the
+      // MEDIUM rule must win the slot instead of being discarded by base-confidence dedup.
+      const thirdSaturdays: MockEvent[] = ["2026-01-17", "2026-02-21", "2026-03-21"].map((d, i) => ({
+        ...testEvent, id: `e-3sa-${i}`, date: utcNoon(d),
+      }));
+      const weeklyHigh: MockScheduleRule = { ...testRule, id: "r-weekly", confidence: "HIGH", lastValidatedAt: null };
+      const thirdSat: MockScheduleRule = { ...testRule, id: "r-3sa", rrule: "FREQ=MONTHLY;BYDAY=3SA", lastValidatedAt: null };
+      const prisma = createMockPrisma([testKennel], thirdSaturdays, [weeklyHigh, thirdSat]);
+      const result = await executeTravelSearch(prisma, baseParams);
+      const apr18 = result.likely.filter((l) => l.date.toISOString().startsWith("2026-04-18"));
+      expect(apr18).toHaveLength(1);
+      expect(apr18[0].confidence).toBe("medium");
+    });
+
+    it("ignores STATIC_SCHEDULE-only evidence (circular) and keeps the rule", async () => {
+      const prisma = createMockPrisma(
+        [testKennel],
+        wednesdayRuns([{ source: { type: "STATIC_SCHEDULE" } }]),
+        [testRule],
+      );
+      const result = await executeTravelSearch(prisma, baseParams);
+      // Gate abstains (no independent evidence), so the pre-existing scoring stands.
+      expect(result.likely.length).toBeGreaterThan(0);
+      expect(result.likely[0].confidence).toMatch(/high|medium/);
+    });
   });
 
   it("returns possible activity for LOW confidence rules", async () => {
