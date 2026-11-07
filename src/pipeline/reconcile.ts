@@ -351,14 +351,16 @@ export async function reconcileStaleEvents(
     }
   }
 
-  const unmatched = candidates.filter((c) => !matchedCandidateIds.has(c.id));
-  const orphaned = unmatched.filter(
+  // Candidates this pass could cancel at all: matched ones are always covered,
+  // so this is every candidate minus the protected past ones.
+  const cancellable = candidates.filter(
     (c) => !isPastOutsideCoverage(c, earliestScrapedByKennel, now),
   );
+  const orphaned = cancellable.filter((c) => !matchedCandidateIds.has(c.id));
 
   const baseDiag = {
     candidatesExamined: candidates.length,
-    pastOutsideCoverage: unmatched.length - orphaned.length,
+    pastOutsideCoverage: candidates.length - cancellable.length,
     kennelsInScope: linkedKennelIds.length,
     totalLinkedKennels: allLinkedKennelIds.length,
     kennelsSuppressedForBadDate: suppressedKennels,
@@ -387,12 +389,13 @@ export async function reconcileStaleEvents(
   // Mass-cancel circuit breaker. The denominator is the candidates THIS source
   // backs (has RawEvents for), not every CONFIRMED event in the linked kennels:
   // events only another source supplies would otherwise dilute the fraction and
-  // let a broken secondary source wipe out most of its own rows. Only queried
+  // let a broken secondary source wipe out most of its own rows. Past runs the
+  // coverage guard protects are left out too, for the same reason. Only queried
   // when the floor is exceeded, so ordinary passes pay nothing extra.
   if (!options?.allowMassCancel && cancelledEventIds.length > MASS_CANCEL_MIN) {
     const ownBacked = await prisma.rawEvent.groupBy({
       by: ["eventId"],
-      where: { eventId: { in: candidates.map((c) => c.id) }, sourceId },
+      where: { eventId: { in: cancellable.map((c) => c.id) }, sourceId },
     });
     const sourceCandidates = ownBacked.length;
     if (shouldBlockMassCancel(cancelledEventIds.length, sourceCandidates)) {

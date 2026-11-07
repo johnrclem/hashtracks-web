@@ -1018,6 +1018,30 @@ describe("past-side coverage guard", () => {
   });
 });
 
+describe("past-side coverage guard: breaker denominator", () => {
+  it("leaves protected past runs out of the breaker's denominator", async () => {
+    vi.setSystemTime(new Date("2026-11-07T18:00:00Z"));
+    // 100 protected past runs + 20 future runs, of which the scrape drops 15.
+    const past = weeklyCandidates(100, "2026-10-31", -1, "past_");
+    const future = weeklyCandidates(20, "2026-11-14", 7, "up_");
+    mockEventFindMany.mockResolvedValueOnce([...past, ...future] as never);
+    mockRawEventGroupBy
+      .mockResolvedValueOnce([] as never) // other-source check
+      .mockResolvedValueOnce(future.map((c) => ({ eventId: c.id })) as never);
+    const scraped = future.slice(0, 5).map((c) =>
+      buildRawEvent({ date: toIsoDateString(c.date), kennelTags: ["BoBBH3"] }),
+    );
+
+    const result = await reconcileStaleEvents("src_1", scraped, 180);
+
+    expect(result.massCancelBlocked).toEqual({ wouldCancel: 15, candidatesExamined: 20 });
+    expect(mockRawEventGroupBy.mock.calls[1][0]).toMatchObject({
+      where: { eventId: { in: future.map((c) => c.id) } },
+    });
+    expect(mockEventUpdateMany).not.toHaveBeenCalled();
+  });
+});
+
 describe("isPastOutsideCoverage", () => {
   const now = new Date("2026-11-07T18:00:00Z");
   const earliest = new Map([["k1", "2026-10-17"]]);
