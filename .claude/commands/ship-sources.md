@@ -39,7 +39,8 @@ For Google Calendar sources, check if `includeAllDayEvents: true` is needed (som
 
 ## Step 4: Registry + Source Seed Data
 
-- `src/adapters/registry.ts` — add URL patterns to `htmlScraperEntries`
+- `src/adapters/registry.ts` — add `onHost(...)` routes to `htmlScraperEntries`
+- `src/adapters/registry-routing.test.ts` — list each new HTML_SCRAPER source under its adapter in `EXPECTED_SOURCES_BY_ADAPTER`
 - `prisma/seed-data/sources.ts` — add HTML_SCRAPER source records
 
 ## Step 5: Live Verification (MANDATORY)
