@@ -5,6 +5,7 @@ import type {
   ScrapeResult,
   SourceAdapter,
 } from "../types";
+import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
 import {
   applyDateWindow,
@@ -14,6 +15,7 @@ import {
   validateSourceConfig,
 } from "../utils";
 import { formatYmdInTimezone, isValidTimezone } from "@/lib/timezone";
+import { withConcurrency } from "@/lib/travel/url";
 
 /**
  * Shared adapter for Squarespace-hosted Events collections.
@@ -29,6 +31,20 @@ import { formatYmdInTimezone, isValidTimezone } from "@/lib/timezone";
  *     pagination: { nextPage, nextPageOffset, nextPageUrl, pageSize },
  *     ...
  *   }
+ *
+ * `upcoming` is the complete list of future events. `past` holds only the
+ * first page of past events. Do NOT walk `past` with the `?offset=NNN` chain:
+ * Squarespace pages past events by `publishOn` but sorts each page by
+ * `startDate`, so runs published out of order fall between pages and every
+ * walk misses them. Sacramento H3 lost #1719–#1730 this way (cancelled on
+ * 2026-11-05) and Von Tramp lost four Aug/Sep 2024 runs.
+ *
+ * Instead, fetch each calendar month with `?format=json&month=MM-YYYY`. That
+ * view returns the whole month (its `past` + `upcoming`), has no pagination,
+ * and echoes the filter back as `monthFilter`. A month with no events comes
+ * back as `empty: true` with NO `upcoming`/`past` arrays at all. Verified live
+ * 2026-11-07: the month walk is a strict superset of the offset walk on both
+ * tenants.
  *
  * Each event carries:
  *   - title              — string
@@ -53,13 +69,6 @@ export interface SquarespaceEventsConfig {
    * timezone string is missing or malformed.
    */
   timezone?: string;
-  /**
-   * Maximum pages to walk via Squarespace's `?offset=NNN` pagination when
-   * harvesting historical events. Default 20 — sufficient for ~600 events
-   * at the platform's pageSize of 30, and tenants with deeper history
-   * usually hit the date-window cutoff first. Tune up for backfills.
-   */
-  maxPages?: number;
 }
 
 export interface SquarespaceLocation {
@@ -99,8 +108,6 @@ export interface SquarespaceEvent {
 
 interface SquarespacePagination {
   nextPage?: boolean;
-  nextPageOffset?: number;
-  pageSize?: number;
 }
 
 interface SquarespaceEventsPayload {
@@ -108,6 +115,11 @@ interface SquarespaceEventsPayload {
   upcoming?: SquarespaceEvent[];
   past?: SquarespaceEvent[];
   pagination?: SquarespacePagination;
+  /** Epoch ms of the filtered month's start; present only on `?month=` responses. */
+  monthFilter?: number;
+  /** True on a month page with no events (which then has no arrays). */
+  empty?: boolean;
+  collection?: { itemCount?: number };
 }
 
 /**
@@ -377,10 +389,10 @@ type PageFetchResult =
 
 /**
  * Fetch + validate one page of the Squarespace events JSON endpoint.
- * Splits out the four guard-clause error returns (network, !ok status,
- * wrong Content-Type, malformed JSON, payload-not-object, shape-mismatch)
- * so the main `fetchSquarespaceEvents` body stays under Sonar's cognitive
- * complexity budget for the pagination loop.
+ * Splits out the guard-clause error returns (network, !ok status, wrong
+ * Content-Type, malformed JSON, payload-not-object) so the main
+ * `fetchSquarespaceEvents` body stays under Sonar's cognitive complexity
+ * budget.
  */
 async function fetchSquarespacePage(url: string): Promise<PageFetchResult> {
   const t0 = Date.now();
@@ -447,138 +459,285 @@ async function fetchSquarespacePage(url: string): Promise<PageFetchResult> {
   return { ok: true, payload, fetchDurationMs };
 }
 
-interface PaginationAccumulator {
-  events: RawEventData[];
-  upcomingCount: number;
-  pastCount: number;
-  pagesFetched: number;
-  totalFetchMs: number;
-  /**
-   * Number of deeper-page fetches that failed during pagination. Surfaces
-   * to `diagnosticContext.kennelPageFetchErrors`, which `scrape.ts`
-   * consumes to suppress stale-event reconciliation — without this the
-   * reconciler would treat events behind a transiently-broken offset as
-   * "removed from source" and cancel them (Codex P1, #1746).
-   */
-  pageFetchErrors: number;
-  /**
-   * Non-empty string signals an INCOMPLETE pagination walk (transient
-   * fetch failure, NOT the intentional maxPages cap). Surfaces to
-   * `diagnosticContext.kennelPagesStopReason`; same reconciliation
-   * suppression contract as `pageFetchErrors`. The maxPages cap is
-   * intentional truncation and does NOT set this — events past the cap
-   * are legitimately "outside our configured window".
-   */
-  paginationStopReason: string | null;
-}
-
 /**
- * Process one Squarespace page's events into the accumulator. Each event
- * is wrapped in try/catch so a future bug or rotated payload shape that
- * crashes `parseSquarespaceEvent` doesn't abort the whole batch.
+ * Fail-loud shape check shared by the base page and every month page. A JSON
+ * page with neither array means the tenant disabled the collection or rotated
+ * the shape; returning 0 events quietly would let reconcile cancel live runs.
  */
-function pushPageEvents(
-  payload: SquarespaceEventsPayload,
-  parseEvent: (ev: SquarespaceEvent) => RawEventData | null,
-  acc: PaginationAccumulator,
-): void {
-  const upcoming = Array.isArray(payload.upcoming) ? payload.upcoming : [];
-  const past = Array.isArray(payload.past) ? payload.past : [];
-  acc.upcomingCount += upcoming.length;
-  acc.pastCount += past.length;
-  for (const ev of [...upcoming, ...past]) {
-    try {
-      const parsed = parseEvent(ev);
-      if (parsed) acc.events.push(parsed);
-    } catch (err) {
-      console.warn(
-        "SquarespaceEventsAdapter: failed to parse one event row:",
-        err instanceof Error ? err.message : String(err),
-      );
-    }
-  }
+function missingArraysMessage(payload: SquarespaceEventsPayload, url: string): string | null {
+  if (Array.isArray(payload.upcoming) || Array.isArray(payload.past)) return null;
+  return (
+    `Squarespace payload from ${url} has no 'upcoming' or 'past' arrays — ` +
+    "tenant may have disabled the Events collection or rotated the JSON shape."
+  );
 }
 
+/** One parse-class failure in the adapter's `errors` + `errorDetails` shape. */
+function parseFailure(message: string): { errors: string[]; errorDetails: ErrorDetails } {
+  return { errors: [message], errorDetails: { parse: [{ row: 0, error: message }] } };
+}
+
+/** Month pages in flight at once. One month request takes ~0.1 s. */
+const MONTH_FETCH_CONCURRENCY = 4;
+/** Pause before the single retry of a transient month failure. */
+const MONTH_RETRY_DELAY_MS = 300;
 /**
- * Decide whether pagination should continue. Returns the next-page offset
- * or null. Returning null does NOT distinguish "no more pages" from
- * "intentional cap reached" — both are reconciliation-safe (the cap is by
- * design; the absence of `nextPage` means the source published nothing
- * deeper). Transient deeper-page failures are handled separately at the
- * call site.
+ * Ceiling on month requests per scrape (50 years). Seeded windows are far
+ * smaller: Von Tramp's 3650 days is ~122 months and the Upstate backfill's
+ * 9999 days is ~330. A wider window walks only the newest months and flags the
+ * walk incomplete, so reconcile can't cancel the runs it skipped.
  */
-function getNextPageOffset(
-  payload: SquarespaceEventsPayload,
-  pagesFetched: number,
-  maxPages: number,
-): number | null {
-  if (pagesFetched >= maxPages) return null;
-  const pagination = payload.pagination;
-  if (!pagination?.nextPage || typeof pagination.nextPageOffset !== "number") return null;
-  return pagination.nextPageOffset;
+const MAX_MONTH_WALK = 600;
+/** Keeps the window-start Date valid for absurd `days`; past the cap anyway. */
+const MAX_WINDOW_DAYS = (MAX_MONTH_WALK + 1) * 31;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+interface YearMonth {
+  year: number;
+  /** 1–12 */
+  month: number;
+}
+
+/** "YYYY-MM-DD" → months since year 0, so month ranges are plain integer ranges. */
+function toMonthIndex(ymd: string): number {
+  return Number(ymd.slice(0, 4)) * 12 + Number(ymd.slice(5, 7)) - 1;
+}
+
+function fromMonthIndex(index: number): YearMonth {
+  return { year: Math.floor(index / 12), month: (index % 12) + 1 };
+}
+
+/** Squarespace's `month` filter value, "MM-YYYY". */
+export function formatMonthParam({ year, month }: YearMonth): string {
+  return `${String(month).padStart(2, "0")}-${year}`;
 }
 
 /**
- * Walk the Squarespace `?offset=NNN` pagination chain starting from a
- * known-good first page. See helpers above for per-page processing and
- * stop-condition logic.
- */
-async function walkPagination(
-  firstPayload: SquarespaceEventsPayload,
-  firstFetchMs: number,
-  collectionUrl: string,
-  maxPages: number,
-  parseEvent: (ev: SquarespaceEvent) => RawEventData | null,
-): Promise<PaginationAccumulator> {
-  const acc: PaginationAccumulator = {
-    events: [],
-    upcomingCount: 0,
-    pastCount: 0,
-    pagesFetched: 0,
-    totalFetchMs: 0,
-    pageFetchErrors: 0,
-    paginationStopReason: null,
-  };
-
-  let currentPayload: SquarespaceEventsPayload = firstPayload;
-  let currentFetchMs = firstFetchMs;
-
-  while (true) {
-    pushPageEvents(currentPayload, parseEvent, acc);
-    acc.pagesFetched++;
-    acc.totalFetchMs += currentFetchMs;
-
-    const nextOffset = getNextPageOffset(currentPayload, acc.pagesFetched, maxPages);
-    if (nextOffset === null) break;
-
-    const pageResult = await fetchSquarespacePage(appendOffset(collectionUrl, nextOffset));
-    if (!pageResult.ok) {
-      // Transient deeper-page failure — preserve events harvested so far
-      // AND suppress stale-event reconciliation. Without the suppression
-      // signal `scrape.ts` would cancel events from the unreached pages.
-      acc.pageFetchErrors++;
-      acc.paginationStopReason = "deeper_page_fetch_failed";
-      break;
-    }
-
-    currentPayload = pageResult.payload;
-    currentFetchMs = pageResult.fetchDurationMs;
-  }
-
-  return acc;
-}
-
-/**
- * Fetch + parse a Squarespace events collection, following the platform's
- * `?offset=NNN` pagination chain up to `config.maxPages` pages.
+ * Every calendar month, in the site timezone, from the start of the `days`
+ * window through the current month, oldest first. The window start gets one
+ * extra day because `applyDateWindow` compares local event dates at UTC noon
+ * with `now - days`, which can reach one local day further back. Future months
+ * are not listed: the base page's `upcoming` array already holds every future
+ * event. Past MAX_MONTH_WALK months, only the newest are kept and `capped` is
+ * set.
  *
- * Exported so a one-shot historical backfill script can pass a high
- * `maxPages` (or override `collectionPath`) and harvest deeper history
- * without re-implementing the per-event mapping or the shape guards.
+ * Exported for unit testing.
+ */
+export function listWindowMonths(
+  now: Date,
+  days: number,
+  timezone: string,
+): { months: YearMonth[]; capped: boolean } {
+  const span = Number.isFinite(days) && days > 0 ? Math.min(days, MAX_WINDOW_DAYS) : 0;
+  const startIdx = toMonthIndex(
+    formatYmdInTimezone(new Date(now.getTime() - (span + 1) * DAY_MS), timezone),
+  );
+  const endIdx = toMonthIndex(formatYmdInTimezone(now, timezone));
+  const capped = endIdx - startIdx + 1 > MAX_MONTH_WALK;
+  const firstIdx = capped ? endIdx - MAX_MONTH_WALK + 1 : startIdx;
+  const months = Array.from({ length: endIdx - firstIdx + 1 }, (_, i) => fromMonthIndex(firstIdx + i));
+  return { months, capped };
+}
+
+/** Set the `month` query param, keeping `format=json` and any tenant params. */
+function withMonth(collectionUrl: string, monthParam: string): string {
+  const url = new URL(collectionUrl);
+  url.searchParams.set("month", monthParam);
+  return url.toString();
+}
+
+/** One month page: the parsed payload (when there is one) and any error. */
+interface MonthOutcome {
+  label: string;
+  payload?: SquarespaceEventsPayload;
+  errors?: string[];
+  errorDetails?: ErrorDetails;
+}
+
+/** A month payload problem that the walk must not swallow. */
+function monthShapeError(payload: SquarespaceEventsPayload, url: string): string | null {
+  if (typeof payload.monthFilter !== "number") {
+    // The tenant served the unfiltered listing. Its `past` array is the
+    // publishOn-paged list this walk exists to avoid.
+    return `Squarespace ignored the month filter at ${url} (no monthFilter in the payload).`;
+  }
+  // An empty month has no arrays; anything else without them is a shape break.
+  if (payload.empty !== true) {
+    const missing = missingArraysMessage(payload, url);
+    if (missing) return missing;
+  }
+  if (payload.pagination?.nextPage) {
+    // Never seen live. The walk reads one page per month, so a paged month
+    // would quietly drop runs.
+    return `Squarespace month page ${url} is paginated (nextPage=true); runs past page 1 would be missed.`;
+  }
+  return null;
+}
+
+/** Network errors, 429 and 5xx are worth one retry; other failures repeat. */
+function isTransientFailure(details: ErrorDetails): boolean {
+  const fetchError = details.fetch?.[0];
+  if (!fetchError) return false;
+  const status = fetchError.status;
+  return status === undefined || status === 429 || status >= 500;
+}
+
+async function fetchMonth(collectionUrl: string, ym: YearMonth): Promise<MonthOutcome> {
+  const label = formatMonthParam(ym);
+  const url = withMonth(collectionUrl, label);
+  let page = await fetchSquarespacePage(url);
+  // A walk makes up to ~120 requests per scrape; one blip shouldn't fail it.
+  if (!page.ok && isTransientFailure(page.errorDetails)) {
+    await new Promise((resolve) => setTimeout(resolve, MONTH_RETRY_DELAY_MS));
+    page = await fetchSquarespacePage(url);
+  }
+  if (!page.ok) return { label, errors: page.errors, errorDetails: page.errorDetails };
+  const message = monthShapeError(page.payload, url);
+  // Keep whatever rows a flawed page did carry (e.g. a paginated month's first
+  // page) while still failing loud. Repeats are dropped by eventKey.
+  return { label, payload: page.payload, ...(message ? parseFailure(message) : {}) };
+}
+
+interface CollectState {
+  events: RawEventData[];
+  /** Keys of rows already taken. The base page and the month pages overlap. */
+  seen: Set<string>;
+  upcomingRows: number;
+  pastRows: number;
+  duplicateRows: number;
+}
+
+/** Stable identity for a row across the base page and month pages. */
+function eventKey(ev: SquarespaceEvent): string | null {
+  if (typeof ev.id === "string" && ev.id) return `id:${ev.id}`;
+  if (typeof ev.fullUrl === "string" && ev.fullUrl) return `url:${ev.fullUrl}`;
+  if (typeof ev.startDate === "number") return `start:${ev.startDate}|${String(ev.title ?? "")}`;
+  return null;
+}
+
+/** Take a row unless an earlier page already supplied it. */
+function claimRow(ev: unknown, state: CollectState): boolean {
+  const key = ev && typeof ev === "object" ? eventKey(ev as SquarespaceEvent) : null;
+  if (key === null) return true;
+  if (state.seen.has(key)) {
+    state.duplicateRows++;
+    return false;
+  }
+  state.seen.add(key);
+  return true;
+}
+
+/** Parse one page's rows into the collector, skipping rows already taken. */
+function collectPayloadEvents(
+  payload: SquarespaceEventsPayload,
+  parseEvent: (ev: SquarespaceEvent) => RawEventData | null,
+  state: CollectState,
+): void {
+  for (const list of ["upcoming", "past"] as const) {
+    const rows = payload[list];
+    if (!Array.isArray(rows)) continue;
+    for (const ev of rows) {
+      if (!claimRow(ev, state)) continue;
+      if (list === "upcoming") state.upcomingRows++;
+      else state.pastRows++;
+      collectRow(ev, parseEvent, state);
+    }
+  }
+}
+
+/**
+ * Parse one row. The try/catch keeps a future bug or rotated row shape that
+ * crashes `parseSquarespaceEvent` from aborting the whole batch.
+ */
+function collectRow(
+  ev: SquarespaceEvent,
+  parseEvent: (ev: SquarespaceEvent) => RawEventData | null,
+  state: CollectState,
+): void {
+  try {
+    const parsed = parseEvent(ev);
+    if (parsed) state.events.push(parsed);
+  } catch (err) {
+    console.warn(
+      "SquarespaceEventsAdapter: failed to parse one event row:",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+interface MonthWalkResult {
+  failedMonths: string[];
+  errors: string[];
+  errorDetails: ErrorDetails;
+  /** Wall-clock time for the whole walk (requests overlap). */
+  fetchMs: number;
+}
+
+/**
+ * Fetch every month page through a MONTH_FETCH_CONCURRENCY worker pool, then
+ * collect rows oldest month first so dedup order stays deterministic. A failed
+ * month does not stop the walk: the other months still yield their runs, and
+ * the failure lands in `errors` so the scrape is marked FAILED and reconcile
+ * is skipped.
+ */
+async function walkMonths(
+  collectionUrl: string,
+  months: YearMonth[],
+  parseEvent: (ev: SquarespaceEvent) => RawEventData | null,
+  state: CollectState,
+): Promise<MonthWalkResult> {
+  const t0 = Date.now();
+  // fetchMonth never throws, so withConcurrency's abort-on-throw never fires.
+  const outcomes = await withConcurrency(months, MONTH_FETCH_CONCURRENCY, (ym) =>
+    fetchMonth(collectionUrl, ym),
+  );
+  const result: MonthWalkResult = {
+    failedMonths: [],
+    errors: [],
+    errorDetails: {},
+    fetchMs: Date.now() - t0,
+  };
+  for (const outcome of outcomes) {
+    if (outcome.payload) collectPayloadEvents(outcome.payload, parseEvent, state);
+    if (outcome.errors) {
+      result.failedMonths.push(outcome.label);
+      result.errors.push(...outcome.errors);
+      appendErrorDetails(result.errorDetails, outcome.errorDetails ?? {});
+    }
+  }
+  return result;
+}
+
+function appendErrorDetails(target: ErrorDetails, add: ErrorDetails): void {
+  if (add.fetch?.length) target.fetch = [...(target.fetch ?? []), ...add.fetch];
+  if (add.parse?.length) target.parse = [...(target.parse ?? []), ...add.parse];
+}
+
+/**
+ * Non-empty when the walk is incomplete. `scrape.ts` skips reconcile on this
+ * signal (shared with Hash Rego's per-kennel pages), so runs in an unread
+ * month are never cancelled.
+ */
+function walkStopReason(walk: MonthWalkResult, capped: boolean): string | null {
+  if (walk.failedMonths.length > 0) return "month_fetch_failed";
+  if (capped) return "month_walk_capped";
+  return null;
+}
+
+/**
+ * Fetch + parse a Squarespace events collection: the base page (complete
+ * `upcoming` list, site timezone) plus one `?month=MM-YYYY` page for every
+ * month from the start of the `days` window through the current month.
+ *
+ * Exported so a one-shot historical backfill script can pass a wide `days`
+ * window (or override `collectionPath`) without re-implementing the per-event
+ * mapping or the shape guards.
  */
 export async function fetchSquarespaceEvents(
   source: Source,
   config: SquarespaceEventsConfig,
+  days: number,
+  now: Date = new Date(),
 ): Promise<{
   events: RawEventData[];
   errors: string[];
@@ -597,17 +756,9 @@ export async function fetchSquarespaceEvents(
     source.url,
     config.collectionPath ?? "/events",
   );
-  // Guard against a misconfigured `maxPages` (e.g. seeded as a string or
-  // NaN). Without this, `Math.floor(NaN)` propagates and the loop's
-  // `pagesFetched >= maxPages` check would always be false → on a tenant
-  // that returns `nextPage: true` indefinitely the loop would never exit.
-  const maxPages =
-    typeof config.maxPages === "number" && Number.isFinite(config.maxPages)
-      ? Math.max(1, Math.floor(config.maxPages))
-      : 20;
 
-  // First page: fail loud on shape mismatch (tenant disabled the
-  // collection, etc.) so the reconciler doesn't cancel live events.
+  // Base page: fail loud on shape mismatch (tenant disabled the collection,
+  // etc.) so the reconciler doesn't cancel live events.
   const firstPageResult = await fetchSquarespacePage(collectionUrl);
   if (!firstPageResult.ok) {
     return {
@@ -622,14 +773,11 @@ export async function fetchSquarespaceEvents(
   }
 
   const firstPayload = firstPageResult.payload;
-  if (!Array.isArray(firstPayload.upcoming) && !Array.isArray(firstPayload.past)) {
-    const message =
-      `Squarespace payload from ${collectionUrl} has no 'upcoming' or 'past' arrays — ` +
-      "tenant may have disabled the Events collection or rotated the JSON shape.";
+  const shapeMessage = missingArraysMessage(firstPayload, collectionUrl);
+  if (shapeMessage) {
     return {
       events: [],
-      errors: [message],
-      errorDetails: { parse: [{ row: 0, error: message }] },
+      ...parseFailure(shapeMessage),
       diagnosticContext: {
         fetchMethod: "squarespace-events-json",
         fetchDurationMs: firstPageResult.fetchDurationMs,
@@ -638,47 +786,49 @@ export async function fetchSquarespaceEvents(
   }
 
   const timezone = resolveTimezone(config.timezone, firstPayload.website?.timeZone);
-  const acc = await walkPagination(
-    firstPayload,
-    firstPageResult.fetchDurationMs,
-    collectionUrl,
-    maxPages,
-    (ev) => parseSquarespaceEvent(ev, config, source.url, timezone),
-  );
+  const parseEvent = (ev: SquarespaceEvent) =>
+    parseSquarespaceEvent(ev, config, source.url, timezone);
+  const state: CollectState = {
+    events: [],
+    seen: new Set(),
+    upcomingRows: 0,
+    pastRows: 0,
+    duplicateRows: 0,
+  };
+  collectPayloadEvents(firstPayload, parseEvent, state);
+
+  const { months, capped } = listWindowMonths(now, days, timezone);
+  const walk = await walkMonths(collectionUrl, months, parseEvent, state);
+  const rowsSeen = state.upcomingRows + state.pastRows;
 
   return {
-    events: acc.events,
-    errors: [],
+    events: state.events,
+    errors: walk.errors,
+    errorDetails: hasAnyErrors(walk.errorDetails) ? walk.errorDetails : undefined,
     diagnosticContext: {
       fetchMethod: "squarespace-events-json",
       collectionUrl,
       timezone,
-      pagesFetched: acc.pagesFetched,
-      upcomingCount: acc.upcomingCount,
-      pastCount: acc.pastCount,
-      eventsParsed: acc.events.length,
-      eventsSkipped: acc.upcomingCount + acc.pastCount - acc.events.length,
-      fetchDurationMs: acc.totalFetchMs,
-      // Reconciliation-suppression signals consumed by `scrape.ts:432-438`.
-      // When a deeper page failed during pagination, the events we never
-      // reached must NOT be cancelled — they're not gone, we just didn't
-      // see them this scrape. Keys mirror Hash Rego's per-kennel-page
-      // diagnostics so the existing scrape-pipeline gate works without
-      // changes (Codex P1, #1746).
-      kennelPageFetchErrors: acc.pageFetchErrors,
-      kennelPagesStopReason: acc.paginationStopReason,
+      monthsRequested: months.length,
+      monthsFetched: months.length - walk.failedMonths.length,
+      monthRange: `${formatMonthParam(months[0])}..${formatMonthParam(months.at(-1) as YearMonth)}`,
+      failedMonths: walk.failedMonths,
+      // Every event in the collection, any date. Compare with
+      // upcomingCount + pastCount when the window covers the whole archive.
+      collectionItemCount: firstPayload.collection?.itemCount ?? null,
+      upcomingCount: state.upcomingRows,
+      pastCount: state.pastRows,
+      duplicateRows: state.duplicateRows,
+      eventsParsed: state.events.length,
+      eventsSkipped: rowsSeen - state.events.length,
+      fetchDurationMs: firstPageResult.fetchDurationMs + walk.fetchMs,
+      // Reconciliation-suppression signals read by `scrape.ts`. Keys mirror
+      // Hash Rego's per-kennel-page diagnostics so the existing gate works
+      // unchanged (Codex P1, #1746).
+      kennelPageFetchErrors: walk.failedMonths.length,
+      kennelPagesStopReason: walkStopReason(walk, capped),
     },
   };
-}
-
-/**
- * Add or replace the `offset` query param on the collection URL so the
- * next page request preserves `format=json` (and any other tenant params).
- */
-function appendOffset(collectionUrl: string, offset: number): string {
-  const url = new URL(collectionUrl);
-  url.searchParams.set("offset", String(offset));
-  return url.toString();
 }
 
 export class SquarespaceEventsAdapter implements SourceAdapter {
@@ -694,8 +844,8 @@ export class SquarespaceEventsAdapter implements SourceAdapter {
       { kennelTag: "string" },
     );
 
-    const result = await fetchSquarespaceEvents(source, config);
     const days = options?.days ?? source.scrapeDays ?? 180;
+    const result = await fetchSquarespaceEvents(source, config, days);
     return applyDateWindow(result, days);
   }
 }

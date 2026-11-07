@@ -1,11 +1,14 @@
 import type { Source } from "@/generated/prisma/client";
 import {
+  formatMonthParam,
+  listWindowMonths,
   parseSquarespaceEvent,
   resolveCollectionUrl,
   SquarespaceEventsAdapter,
   type SquarespaceEventsConfig,
 } from "./squarespace-events";
 import { buildSource } from "@/test/factories";
+import { formatYmdInTimezone } from "@/lib/timezone";
 
 const PT = "America/Los_Angeles";
 const BASE = "https://sach3.beer";
@@ -350,14 +353,50 @@ function mockJsonResponse(payload: unknown): Response {
   });
 }
 
+/** A month payload as Squarespace serves it for `?month=MM-YYYY`. */
+function monthPayload(past: unknown[] = [], upcoming: unknown[] = []) {
+  return { website: { timeZone: PT }, upcoming, past, monthFilter: 1 };
+}
+
+/** An event-less month, as served live: `empty: true` and no arrays at all. */
+const EMPTY_MONTH = { website: { timeZone: PT }, monthFilter: 1, empty: true, emptyFolder: false };
+
+type MockBody = unknown | (() => Response);
+
+/**
+ * Route mocked fetches by URL: the base collection page, then month pages
+ * keyed by their "MM-YYYY" filter. Unlisted months get EMPTY_MONTH.
+ * Routing (not `mockResolvedValueOnce` queues) because months are fetched
+ * several at a time.
+ */
+function routeFetch(base: MockBody, months: Record<string, MockBody> = {}) {
+  return vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    const month = url.searchParams.get("month");
+    let body: MockBody;
+    if (month === null) body = base;
+    else body = month in months ? months[month] : EMPTY_MONTH;
+    return typeof body === "function" ? (body as () => Response)() : mockJsonResponse(body);
+  });
+}
+
+function sourceWith(config: Record<string, unknown>): Source {
+  const source = buildSource({ url: BASE, type: "HTML_SCRAPER", scrapeDays: 365 }) as unknown as Source;
+  (source as unknown as { config: unknown }).config = config;
+  return source;
+}
+
+function requestedUrls(spy: ReturnType<typeof routeFetch>): URL[] {
+  return spy.mock.calls.map(([input]) => new URL(String(input)));
+}
+
 describe("SquarespaceEventsAdapter.fetch", () => {
   const adapter = new SquarespaceEventsAdapter();
 
   // Reset the global fetch spy between tests — `vi.spyOn(globalThis, "fetch")`
   // returns the SAME underlying spy across re-spy calls, so .mock.calls
-  // accumulates across tests and assertions like `toHaveBeenCalledTimes(2)`
-  // see counts from earlier tests too. Restore-all clears both the call
-  // history and any queued `mockResolvedValueOnce` responses.
+  // accumulates across tests. Restore-all clears both the call history and
+  // the mock implementation.
   beforeEach(() => {
     vi.restoreAllMocks();
     // Freeze "now" inside the fixtures' date span (2026-04-29 → 2026-07-10) so the
@@ -366,6 +405,7 @@ describe("SquarespaceEventsAdapter.fetch", () => {
     // on 2026-06-08. Every test here asserts events flow THROUGH the window (none
     // test now-relative exclusion), so a fixed reference date is safe. Date-only
     // faking keeps setTimeout real so the awaited fetch mocks still resolve.
+    // The month-walk tests further down use relative dates instead.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
   });
@@ -375,21 +415,13 @@ describe("SquarespaceEventsAdapter.fetch", () => {
   });
 
   it("parses upcoming + past arrays into RawEvents", async () => {
-    const payload = {
+    routeFetch({
       website: { timeZone: PT, baseUrl: BASE },
       upcoming: [WEDNESDAY_EVENT, CAMPOUT_EVENT],
       past: [NUMBERED_PAST_EVENT],
-    };
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockJsonResponse(payload));
+    });
 
-    const source = buildSource({
-      url: BASE,
-      type: "HTML_SCRAPER",
-      scrapeDays: 365,
-    }) as unknown as Source;
-    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
-
-    const result = await adapter.fetch(source, { days: 365 });
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 365 });
     expect(result.errors).toEqual([]);
     expect(result.events).toHaveLength(3);
     expect(
@@ -404,28 +436,23 @@ describe("SquarespaceEventsAdapter.fetch", () => {
   it("fails loud when the JSON parses to null or a non-object", async () => {
     // `JSON.parse("null")` succeeds with the literal `null`. Without the
     // guard the subsequent payload.upcoming access throws TypeError.
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockJsonResponse(null));
+    const spy = routeFetch(null);
 
-    const source = buildSource({ url: BASE }) as unknown as Source;
-    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
-
-    const result = await adapter.fetch(source);
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }));
     expect(result.events).toEqual([]);
     expect(result.errors[0]).toMatch(/is not an object/);
+    // A broken base page stops the scrape before any month is fetched.
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it("skips null entries inside upcoming/past arrays without crashing", async () => {
-    const payload = {
+    routeFetch({
       website: { timeZone: PT },
       upcoming: [WEDNESDAY_EVENT, null, "not an event"],
       past: [null],
-    };
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockJsonResponse(payload));
+    });
 
-    const source = buildSource({ url: BASE }) as unknown as Source;
-    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
-
-    const result = await adapter.fetch(source);
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }));
     expect(result.events).toHaveLength(1);
     expect(result.events[0]?.date).toBe("2026-05-27");
   });
@@ -434,209 +461,49 @@ describe("SquarespaceEventsAdapter.fetch", () => {
     // Tenant disabled the Events collection but still serves a JSON page.
     // If we silently returned 0 events here the reconciler would cancel
     // every live event for this source — fail loud instead.
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      mockJsonResponse({ website: { timeZone: PT } }),
-    );
+    routeFetch({ website: { timeZone: PT } });
 
-    const source = buildSource({ url: BASE }) as unknown as Source;
-    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
-
-    const result = await adapter.fetch(source);
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }));
     expect(result.events).toEqual([]);
     expect(result.errors[0]).toMatch(/no 'upcoming' or 'past' arrays/);
     expect(result.errorDetails?.parse).toHaveLength(1);
   });
 
   it("surfaces a fetch error when the tenant returns HTML instead of JSON", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response("<html>not json</html>", {
-        status: 200,
-        headers: { "content-type": "text/html;charset=utf-8" },
-      }),
+    routeFetch(
+      () =>
+        new Response("<html>not json</html>", {
+          status: 200,
+          headers: { "content-type": "text/html;charset=utf-8" },
+        }),
     );
 
-    const source = buildSource({ url: BASE }) as unknown as Source;
-    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
-
-    const result = await adapter.fetch(source, { days: 90 });
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 90 });
     expect(result.events).toEqual([]);
     expect(result.errors[0]).toMatch(/Expected JSON/);
     expect(result.errorDetails?.fetch).toHaveLength(1);
   });
 
   it("throws a descriptive error when kennelTag config is missing", async () => {
-    const source = buildSource({ url: BASE }) as unknown as Source;
-    (source as unknown as { config: unknown }).config = {};
-
-    await expect(adapter.fetch(source)).rejects.toThrow(
+    await expect(adapter.fetch(sourceWith({}))).rejects.toThrow(
       /missing required config field "kennelTag"/,
     );
   });
 
-  it("paginates via nextPageOffset and merges past arrays across pages", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-    // Page 1 — has nextPage, links to offset=999
-    fetchSpy.mockResolvedValueOnce(
-      mockJsonResponse({
-        website: { timeZone: PT },
-        upcoming: [WEDNESDAY_EVENT],
-        past: [CAMPOUT_EVENT],
-        pagination: { nextPage: true, nextPageOffset: 999, pageSize: 30 },
-      }),
-    );
-    // Page 2 — no more pages
-    fetchSpy.mockResolvedValueOnce(
-      mockJsonResponse({
-        website: { timeZone: PT },
-        upcoming: [],
-        past: [NUMBERED_PAST_EVENT],
-        pagination: { pageSize: 30 },
-      }),
-    );
-
-    const source = buildSource({ url: BASE, scrapeDays: 365 }) as unknown as Source;
-    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
-
-    const result = await adapter.fetch(source, { days: 365 });
-    expect(result.events).toHaveLength(3);
-    expect(result.diagnosticContext?.pagesFetched).toBe(2);
-
-    // Second fetch should hit the offset URL
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
-    const secondCall = fetchSpy.mock.calls[1][0];
-    expect(String(secondCall)).toContain("offset=999");
-    expect(String(secondCall)).toContain("format=json");
-  });
-
-  it("stops pagination at maxPages even when nextPage is still true", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-    // Both pages claim more available; maxPages=2 caps the loop
-    for (let i = 0; i < 2; i++) {
-      fetchSpy.mockResolvedValueOnce(
-        mockJsonResponse({
-          website: { timeZone: PT },
-          past: [NUMBERED_PAST_EVENT],
-          pagination: { nextPage: true, nextPageOffset: 100 + i },
-        }),
-      );
-    }
-
-    const source = buildSource({ url: BASE }) as unknown as Source;
-    (source as unknown as { config: unknown }).config = {
-      kennelTag: "sach3",
-      maxPages: 2,
-    };
-
-    const result = await adapter.fetch(source);
-    expect(result.diagnosticContext?.pagesFetched).toBe(2);
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
-  });
-
-  it("keeps page-1 events when a deeper page transiently fails AND signals reconciliation suppression", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-    fetchSpy.mockResolvedValueOnce(
-      mockJsonResponse({
-        website: { timeZone: PT },
-        upcoming: [WEDNESDAY_EVENT],
-        past: [CAMPOUT_EVENT],
-        pagination: { nextPage: true, nextPageOffset: 999 },
-      }),
-    );
-    // Page 2 fails with 500
-    fetchSpy.mockResolvedValueOnce(
-      new Response("oops", {
-        status: 500,
-        headers: { "content-type": "text/plain" },
-      }),
-    );
-
-    const source = buildSource({ url: BASE }) as unknown as Source;
-    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
-
-    const result = await adapter.fetch(source);
-    // Page 1 events flow through; pagination loop just stops on the deeper failure
-    expect(result.events.length).toBeGreaterThanOrEqual(2);
-    expect(result.errors).toEqual([]);
-    // Reconciliation-suppression signals MUST fire so scrape.ts:432-438
-    // doesn't cancel events from the unreached page (Codex P1, #1746).
-    expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(1);
-    expect(result.diagnosticContext?.kennelPagesStopReason).toBe(
-      "deeper_page_fetch_failed",
-    );
-  });
-
-  it("does NOT suppress reconciliation when the maxPages cap is hit (intentional truncation)", async () => {
-    // The maxPages cap is by design — events past the cap are legitimately
-    // "outside our configured window" and reconciliation should still run.
-    // Only TRANSIENT pagination failures (deeper_page_fetch_failed) suppress.
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-    for (let i = 0; i < 2; i++) {
-      fetchSpy.mockResolvedValueOnce(
-        mockJsonResponse({
-          website: { timeZone: PT },
-          past: [NUMBERED_PAST_EVENT],
-          pagination: { nextPage: true, nextPageOffset: 100 + i },
-        }),
-      );
-    }
-
-    const source = buildSource({ url: BASE }) as unknown as Source;
-    (source as unknown as { config: unknown }).config = {
-      kennelTag: "sach3",
-      maxPages: 2,
-    };
-
-    const result = await adapter.fetch(source);
-    expect(result.diagnosticContext?.pagesFetched).toBe(2);
-    expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(0);
-    expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
-  });
-
-  it("emits clean reconciliation signals on a successful single-page scrape", async () => {
-    // Sanity check: a clean walk to the natural end (no nextPage) must NOT
-    // set the suppression signals — otherwise reconciliation never fires
-    // and stale events accumulate forever.
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      mockJsonResponse({
-        website: { timeZone: PT },
-        upcoming: [WEDNESDAY_EVENT],
-        past: [CAMPOUT_EVENT],
-        pagination: { pageSize: 30 }, // no nextPage flag
-      }),
-    );
-
-    const source = buildSource({ url: BASE }) as unknown as Source;
-    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
-
-    const result = await adapter.fetch(source);
-    expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(0);
-    expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
-  });
-
   it("isolates a per-event parse failure so siblings still flow through", async () => {
-    // Use a payload that survives JSON round-trip but breaks parseSquarespaceEvent:
-    // a numeric `title` value triggers `title?.trim is not a function` inside the
-    // parser. Without the loop's try/catch this would abort the whole batch
-    // (campout event would never be emitted).
-    const explodingBody = JSON.stringify({
+    // A numeric `title` survives the JSON round-trip but makes
+    // parseSquarespaceEvent throw (`title?.trim is not a function`). Without
+    // the per-row try/catch the campout would never be emitted.
+    routeFetch({
       website: { timeZone: PT },
       upcoming: [
         { ...WEDNESDAY_EVENT, title: 42 }, // 42.trim() throws TypeError
         CAMPOUT_EVENT,
       ],
     });
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(explodingBody, {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-    );
-
-    const source = buildSource({ url: BASE }) as unknown as Source;
-    (source as unknown as { config: unknown }).config = { kennelTag: "sach3" };
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const result = await adapter.fetch(source);
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }));
 
     // The campout still gets through; the TypeError is logged, not thrown.
     expect(result.events).toHaveLength(1);
@@ -646,30 +513,320 @@ describe("SquarespaceEventsAdapter.fetch", () => {
       expect.stringContaining("trim is not a function"),
     );
   });
+});
 
-  it("falls back to the 20-page default when maxPages is misconfigured (NaN / non-number)", async () => {
-    // A seed row that types `maxPages: "lots"` would `Math.floor` to NaN
-    // and (without the guard) cause an infinite loop on a tenant that
-    // always returns `nextPage: true`. Bound to default 20 instead.
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-    for (let i = 0; i < 25; i++) {
-      fetchSpy.mockResolvedValueOnce(
-        mockJsonResponse({
-          website: { timeZone: PT },
-          past: [NUMBERED_PAST_EVENT],
-          pagination: { nextPage: true, nextPageOffset: 100 + i },
-        }),
-      );
+describe("listWindowMonths", () => {
+  // `now` is passed in, so these stay fixed no matter when CI runs.
+  const NOW = new Date("2026-11-07T20:00:00Z"); // 2026-11-07 12:00 PST
+
+  it("lists every month from the window start through the current month, oldest first", () => {
+    const months = listWindowMonths(NOW, 365, PT).months.map(formatMonthParam);
+    expect(months[0]).toBe("11-2025");
+    expect(months.at(-1)).toBe("11-2026");
+    expect(months).toHaveLength(13);
+  });
+
+  it("walks only the current month for a zero, negative or non-numeric window", () => {
+    for (const days of [0, -5, Number.NaN]) {
+      expect(listWindowMonths(NOW, days, PT).months.map(formatMonthParam)).toEqual(["11-2026"]);
     }
+  });
 
-    const source = buildSource({ url: BASE }) as unknown as Source;
-    (source as unknown as { config: unknown }).config = {
-      kennelTag: "sach3",
-      maxPages: "not a number" as unknown as number, // simulates bad seed config
+  it("adds a day of slack so a window starting on the 1st also covers the prior month's last day", () => {
+    // now - 6 days = 2026-11-01 (PST). applyDateWindow can still keep an
+    // Oct 31 run, so October must be walked too.
+    expect(listWindowMonths(NOW, 6, PT).months.map(formatMonthParam)).toEqual(["10-2026", "11-2026"]);
+  });
+
+  it("takes month boundaries from the site timezone, not UTC", () => {
+    // 2026-12-01T03:00Z is still Nov 30 in Sacramento.
+    const lateNov = new Date("2026-12-01T03:00:00Z");
+    expect(listWindowMonths(lateNov, 1, PT).months.map(formatMonthParam)).toEqual(["11-2026"]);
+    expect(listWindowMonths(lateNov, 1, "UTC").months.map(formatMonthParam)).toEqual(["11-2026", "12-2026"]);
+  });
+
+  it("keeps only the newest 600 months of an absurd window and reports the cap", () => {
+    const { months, capped } = listWindowMonths(NOW, 1_000_000, PT);
+    expect(capped).toBe(true);
+    expect(months).toHaveLength(600);
+    expect(formatMonthParam(months[months.length - 1])).toBe("11-2026");
+    expect(listWindowMonths(NOW, 3650, PT).capped).toBe(false);
+  });
+
+  it("formats month params as MM-YYYY", () => {
+    expect(formatMonthParam({ year: 2026, month: 3 })).toBe("03-2026");
+    expect(formatMonthParam({ year: 2025, month: 12 })).toBe("12-2025");
+  });
+});
+
+// Month-walk behaviour, on dates relative to the real clock so the fixtures
+// never age out of the adapter's date window.
+describe("SquarespaceEventsAdapter.fetch — month walk", () => {
+  const adapter = new SquarespaceEventsAdapter();
+  const DAY = 24 * 60 * 60 * 1000;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** A run `daysAgo` days back, plus the "MM-YYYY" month page it lives on. */
+  function runDaysAgo(id: string, daysAgo: number, runNumber: number) {
+    const startDate = Date.now() - daysAgo * DAY;
+    const ymd = formatYmdInTimezone(new Date(startDate), PT);
+    return {
+      event: {
+        id,
+        title: `Trail (#${runNumber})`,
+        fullUrl: `/events/${id}`,
+        startDate,
+        location: { addressTitle: "Some Park" },
+        body: "",
+      },
+      ymd,
+      month: `${ymd.slice(5, 7)}-${ymd.slice(0, 4)}`,
     };
+  }
 
-    const result = await adapter.fetch(source);
-    expect(result.diagnosticContext?.pagesFetched).toBe(20);
-    expect(fetchSpy).toHaveBeenCalledTimes(20);
+  /** Group runs onto their month pages. */
+  function monthPages(...runs: Array<ReturnType<typeof runDaysAgo>>): Record<string, unknown> {
+    const pages: Record<string, unknown[]> = {};
+    for (const run of runs) (pages[run.month] ??= []).push(run.event);
+    return Object.fromEntries(Object.entries(pages).map(([m, past]) => [m, monthPayload(past)]));
+  }
+
+  it("fetches one ?month=MM-YYYY page per month in the window and never follows the offset chain", async () => {
+    const spy = routeFetch({
+      website: { timeZone: PT },
+      upcoming: [],
+      past: [],
+      // The base page still advertises the publishOn offset chain.
+      pagination: { nextPage: true, nextPageOffset: 1772656551673, pageSize: 30 },
+    });
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 365 });
+    const expected = listWindowMonths(new Date(), 365, PT).months.map(formatMonthParam);
+    const urls = requestedUrls(spy);
+
+    expect(urls.some((u) => u.searchParams.has("offset"))).toBe(false);
+    expect(urls.filter((u) => u.searchParams.has("month")).map((u) => u.searchParams.get("month")))
+      .toEqual(expected);
+    for (const u of urls) expect(u.searchParams.get("format")).toBe("json");
+    expect(spy).toHaveBeenCalledTimes(1 + expected.length);
+    expect(result.diagnosticContext?.monthsRequested).toBe(expected.length);
+    expect(result.diagnosticContext?.monthsFetched).toBe(expected.length);
+  });
+
+  it("recovers runs that the publishOn-paged base listing leaves out (Sacramento #1719–#1730)", async () => {
+    // The base page's `past` holds only the most recently published runs. The
+    // older runs exist only on their month pages.
+    const recent = runDaysAgo("recent", 10, 1760);
+    const gapA = runDaysAgo("gap-a", 200, 1719);
+    const gapB = runDaysAgo("gap-b", 195, 1720);
+    routeFetch(
+      { website: { timeZone: PT }, upcoming: [], past: [recent.event] },
+      monthPages(recent, gapA, gapB),
+    );
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 365 });
+    expect(result.errors).toEqual([]);
+    expect(result.events.map((e) => e.runNumber).sort((a, b) => (a ?? 0) - (b ?? 0)))
+      .toEqual([1719, 1720, 1760]);
+    expect(result.events.find((e) => e.runNumber === 1719)?.date).toBe(gapA.ymd);
+  });
+
+  it("emits a run once when the base page and its month page both carry it", async () => {
+    const shared = runDaysAgo("shared", 3, 1800);
+    const future = { ...runDaysAgo("future", -5, 1801).event };
+    routeFetch(
+      { website: { timeZone: PT }, upcoming: [future], past: [shared.event] },
+      // The current month page repeats both rows.
+      { [shared.month]: monthPayload([shared.event], [future]) },
+    );
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 30 });
+    expect(result.events.map((e) => e.runNumber).sort((a, b) => (a ?? 0) - (b ?? 0)))
+      .toEqual([1800, 1801]);
+    expect(result.diagnosticContext?.duplicateRows).toBeGreaterThanOrEqual(1);
+  });
+
+  it("drops month-walk runs that fall outside options.days", async () => {
+    const inside = runDaysAgo("inside", 20, 1900);
+    const outside = runDaysAgo("outside", 75, 1890);
+    // The oldest walked month starts before the window does, so its page can
+    // carry runs older than `now - days`. Plant one there: the date window
+    // must still trim it.
+    const pages = monthPages(inside) as Record<string, ReturnType<typeof monthPayload>>;
+    const oldest = formatMonthParam(listWindowMonths(new Date(), 30, PT).months[0]);
+    pages[oldest] = monthPayload([...(pages[oldest]?.past ?? []), outside.event]);
+    const spy = routeFetch({ website: { timeZone: PT }, upcoming: [], past: [] }, pages);
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 30 });
+    expect(requestedUrls(spy).some((u) => u.searchParams.get("month") === oldest)).toBe(true);
+    expect(result.events.map((e) => e.runNumber)).toEqual([1900]);
+    expect(result.diagnosticContext?.totalBeforeFilter).toBe(2);
+  });
+
+  it("fails loud when a month fetch errors, keeps the other months' runs, and suppresses reconcile", async () => {
+    const good = runDaysAgo("good", 10, 2000);
+    const lost = runDaysAgo("lost", 100, 1990);
+    routeFetch(
+      { website: { timeZone: PT }, upcoming: [], past: [] },
+      {
+        ...monthPages(good),
+        [lost.month]: () => new Response("oops", { status: 500, headers: { "content-type": "text/plain" } }),
+      },
+    );
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 365 });
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatch(/HTTP 500/);
+    expect(result.errors[0]).toContain(`month=${lost.month}`);
+    expect(result.errorDetails?.fetch).toHaveLength(1);
+    expect(result.events.map((e) => e.runNumber)).toEqual([2000]);
+    expect(result.diagnosticContext?.failedMonths).toEqual([lost.month]);
+    expect(result.diagnosticContext?.monthsFetched).toBe(
+      (result.diagnosticContext?.monthsRequested as number) - 1,
+    );
+    expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(1);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBe("month_fetch_failed");
+  });
+
+  it("retries a month once, so a single transient failure doesn't fail the scrape", async () => {
+    const run = runDaysAgo("flaky", 50, 2010);
+    let calls = 0;
+    routeFetch(
+      { website: { timeZone: PT }, upcoming: [], past: [] },
+      {
+        [run.month]: () => {
+          calls++;
+          return calls === 1
+            ? new Response("busy", { status: 503, headers: { "content-type": "text/plain" } })
+            : mockJsonResponse(monthPayload([run.event]));
+        },
+      },
+    );
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 365 });
+    expect(calls).toBe(2);
+    expect(result.errors).toEqual([]);
+    expect(result.events.map((e) => e.runNumber)).toEqual([2010]);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
+  });
+
+  it("does not retry a month that fails with a 4xx (it would just fail again)", async () => {
+    const run = runDaysAgo("gone", 50, 2011);
+    let calls = 0;
+    routeFetch(
+      { website: { timeZone: PT }, upcoming: [], past: [] },
+      {
+        [run.month]: () => {
+          calls++;
+          return new Response("nope", { status: 404, headers: { "content-type": "text/plain" } });
+        },
+      },
+    );
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 365 });
+    expect(calls).toBe(1);
+    expect(result.errors[0]).toMatch(/HTTP 404/);
+  });
+
+  it("fails loud when a month fetch throws (network error)", async () => {
+    const lost = runDaysAgo("lost", 60, 1995);
+    routeFetch(
+      { website: { timeZone: PT }, upcoming: [], past: [] },
+      {
+        [lost.month]: () => {
+          throw new TypeError("fetch failed");
+        },
+      },
+    );
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 365 });
+    expect(result.errors[0]).toMatch(/Fetch failed: fetch failed/);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBe("month_fetch_failed");
+  });
+
+  it("fails loud when the tenant ignores the month filter", async () => {
+    // No `monthFilter` echo: the tenant served the unfiltered, publishOn-paged
+    // listing, which is exactly what the walk exists to avoid.
+    const current = runDaysAgo("now", 0, 2100);
+    routeFetch(
+      { website: { timeZone: PT }, upcoming: [], past: [] },
+      { [current.month]: { website: { timeZone: PT }, upcoming: [], past: [] } },
+    );
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 30 });
+    expect(result.errors.join(" ")).toMatch(/ignored the month filter/);
+    expect(result.errorDetails?.parse?.length).toBeGreaterThanOrEqual(1);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBe("month_fetch_failed");
+  });
+
+  it("accepts an `empty: true` month with no arrays (the live shape of an event-less month)", async () => {
+    // Von Tramp's pre-2022 months and Sacramento's pre-Sep-2025 months all
+    // come back like this. Treating them as shape breaks failed 64 months on
+    // the first live run.
+    const run = runDaysAgo("only", 15, 2300);
+    const spy = routeFetch({ website: { timeZone: PT }, upcoming: [], past: [] }, monthPages(run));
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 365 });
+    expect(result.errors).toEqual([]);
+    expect(result.events.map((e) => e.runNumber)).toEqual([2300]);
+    // Every month but one was served as EMPTY_MONTH.
+    expect(spy.mock.calls.length).toBeGreaterThan(3);
+    expect(result.diagnosticContext?.monthsFetched).toBe(result.diagnosticContext?.monthsRequested);
+  });
+
+  it("fails loud when a month page has no upcoming/past arrays", async () => {
+    const current = runDaysAgo("now", 0, 2100);
+    routeFetch(
+      { website: { timeZone: PT }, upcoming: [], past: [] },
+      { [current.month]: { website: { timeZone: PT }, monthFilter: 1 } },
+    );
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 30 });
+    expect(result.errors.join(" ")).toMatch(/no 'upcoming' or 'past' arrays/);
+  });
+
+  it("fails loud on a paginated month page but keeps the runs it did return", async () => {
+    const run = runDaysAgo("paged", 40, 2050);
+    routeFetch(
+      { website: { timeZone: PT }, upcoming: [], past: [] },
+      {
+        [run.month]: {
+          ...monthPayload([run.event]),
+          pagination: { nextPage: true, nextPageOffset: 123 },
+        },
+      },
+    );
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 365 });
+    expect(result.errors.join(" ")).toMatch(/is paginated/);
+    expect(result.events.map((e) => e.runNumber)).toEqual([2050]);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBe("month_fetch_failed");
+  });
+
+  it("emits clean reconciliation signals when every month succeeds", async () => {
+    // Otherwise reconcile would never run and stale events would pile up.
+    const run = runDaysAgo("ok", 15, 2200);
+    routeFetch({ website: { timeZone: PT }, upcoming: [], past: [] }, monthPages(run));
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 365 });
+    expect(result.errors).toEqual([]);
+    expect(result.errorDetails).toBeUndefined();
+    expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(0);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
+  });
+
+  it("caps an absurd window at 600 month requests and marks the walk incomplete", async () => {
+    const spy = routeFetch({ website: { timeZone: PT }, upcoming: [], past: [] });
+
+    const result = await adapter.fetch(sourceWith({ kennelTag: "sach3" }), { days: 1_000_000 });
+    expect(spy).toHaveBeenCalledTimes(1 + 600);
+    expect(result.errors).toEqual([]);
+    expect(result.diagnosticContext?.kennelPagesStopReason).toBe("month_walk_capped");
+    // The newest months are the ones kept.
+    const months = requestedUrls(spy).map((u) => u.searchParams.get("month")).filter(Boolean);
+    expect(months.at(-1)).toBe(formatMonthParam(listWindowMonths(new Date(), 0, PT).months[0]));
   });
 });

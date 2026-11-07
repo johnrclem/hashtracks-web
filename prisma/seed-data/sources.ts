@@ -3020,8 +3020,9 @@ export const SOURCES = [
     // resolve to the wrong `/events` collection). trustLevel 9 makes this the
     // authoritative source: its structured run#/title/street/coords/times/
     // description win over the sparser FB source when FB unblocks (merge
-    // field-fill is trust-gated). Wide window captures the full ~113-event
-    // archive back to 2022 (4 pages, under the adapter's default maxPages 20).
+    // field-fill is trust-gated). The wide window walks every month back to
+    // 2016 (~122 `?month=` requests), which covers the full 122-run archive
+    // from Jan 2022. The old publishOn offset walk missed 4 Aug/Sep 2024 runs.
     {
       name: "Von Tramp H3 Squarespace Events",
       url: "https://www.vontramph3.com",
@@ -3951,9 +3952,11 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 365,
       // upcomingOnly: Squarespace pages past events by publishOn but sorts them
-      // by startDate, so runs published out of order fall between pages
+      // by startDate, so runs published out of order fell between pages
       // (#1719–#1730 vanished from the walk on 2026-11-05 and were cancelled).
-      // Every run is first seen on the complete upcoming list.
+      // The adapter now walks past events month by month (`?month=MM-YYYY`),
+      // which closes that gap; upcomingOnly stays as a second guard. Every run
+      // is first seen on the complete upcoming list.
       config: { kennelTag: "sach3", upcomingOnly: true },
       kennelCodes: ["sach3"],
     },
