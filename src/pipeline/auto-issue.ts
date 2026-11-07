@@ -213,7 +213,7 @@ function buildSuggestedApproach(alertType: string, ctx: Record<string, unknown> 
     case "RECONCILE_SUPPRESSED":
       return "Inspect adapter output for the listed kennels — the date field is failing `toIsoDateString`. Typical causes: unexpected date formats, timezone-only strings, or missing dates. Fix the parser so every emitted row has a valid UTC date.";
     case "EXCESSIVE_CANCELLATIONS":
-      return "Compare the adapter's fetch window with the reconcile window. Common causes: a forward-only adapter whose source config lacks `upcomingOnly: true` (reconcile then cancels every past event in the trailing window), an INTERVAL>1 STATIC_SCHEDULE without `anchorDate` (parity flips each scrape), or a partially-rendered/blocked page returning a subset of events. If the removal is genuine, an operator re-scrape with `allowMassCancel` applies it.";
+      return "Compare the adapter's fetch window with the reconcile window. Common causes: an INTERVAL>1 STATIC_SCHEDULE without `anchorDate` (parity flips each scrape), a partially-rendered/blocked page returning a subset of events, or a fetch that keeps one stray old row but drops the runs after it, which defeats reconcile's past-coverage guard (set `upcomingOnly: true` on the source). If the removal is genuine, an operator re-scrape with `allowMassCancel` applies it.";
     default:
       return "Investigate the alert context and relevant files.";
   }

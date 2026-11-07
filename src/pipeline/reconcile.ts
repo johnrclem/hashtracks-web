@@ -13,6 +13,12 @@ export interface ReconcileResult {
   candidatesExamined: number;
   /** Number of orphaned events preserved because they have other sources. */
   multiSourcePreserved: number;
+  /**
+   * Number of past-dated orphaned events preserved because this scrape did not
+   * reach back to their date for their kennel (see {@link isPastOutsideCoverage}).
+   * Persistently high values on a source mean its fetch drops past runs.
+   */
+  pastOutsideCoverage: number;
   /** Number of kennels actually in reconciliation scope. */
   kennelsInScope: number;
   /** Total number of kennels linked to this source (for partial-scrape detection). */
@@ -72,6 +78,31 @@ export function shouldBlockMassCancel(
 }
 
 /**
+ * Past-side coverage guard. A past-dated event missing from a scrape is only
+ * evidence of removal when the scrape still reaches back to that date for that
+ * kennel. Many sources drop runs once they happen (upcoming-runs pages, rolling
+ * iCal windows, logged-out Meetup, recent-posts blogs). Without this guard,
+ * every one of those sources needed `upcomingOnly: true`, or reconcile
+ * cancelled each run the day after it happened.
+ *
+ * Returns true when `event` is in the past and the scrape returned no row for
+ * its kennel dated on or before it, i.e. the event falls outside what this
+ * scrape can see. Full-history feeds (most Google Calendars) still cover their
+ * past, so their genuine past removals keep reconciling.
+ *
+ * `earliestScrapedByKennel` maps kennelId → earliest scraped YYYY-MM-DD.
+ */
+export function isPastOutsideCoverage(
+  event: { kennelId: string; date: Date },
+  earliestScrapedByKennel: ReadonlyMap<string, string>,
+  now: Date,
+): boolean {
+  if (event.date >= now) return false;
+  const earliest = earliestScrapedByKennel.get(event.kennelId);
+  return earliest === undefined || earliest > toIsoDateString(event.date);
+}
+
+/**
  * After a successful scrape, detect canonical Events that are no longer
  * present in the source and mark them as CANCELLED.
  *
@@ -81,6 +112,8 @@ export function shouldBlockMassCancel(
  * - Are currently CONFIRMED
  * - Have NO RawEvents from any other source (sole-source events)
  * - Were not returned in the current scrape results
+ * - If past-dated, fall within the scrape's past coverage for their kennel
+ *   (`isPastOutsideCoverage`); `upcomingOnly` skips the past side entirely
  *
  * A pass that would cancel too many events at once is blocked by the
  * mass-cancel circuit breaker (`shouldBlockMassCancel`) unless
@@ -96,7 +129,7 @@ export async function reconcileStaleEvents(
 ): Promise<ReconcileResult> {
   const emptyResult: ReconcileResult = {
     cancelled: 0, cancelledEventIds: [],
-    candidatesExamined: 0, multiSourcePreserved: 0,
+    candidatesExamined: 0, multiSourcePreserved: 0, pastOutsideCoverage: 0,
     kennelsInScope: 0, totalLinkedKennels: 0,
     kennelsSuppressedForBadDate: [],
   };
@@ -113,6 +146,7 @@ export async function reconcileStaleEvents(
   // the original slot-key mismatch this hardening prevents. A later successful
   // scrape will reconcile that kennel cleanly.
   const scrapedBySlot = new Map<string, RawEventData[]>();
+  const earliestScrapedByKennel = new Map<string, string>();
   const kennelsWithUnparseableDates = new Set<string>();
   for (const [i, event] of scrapedEvents.entries()) {
     const { kennelId, matched } = resolutions[i];
@@ -130,6 +164,10 @@ export async function reconcileStaleEvents(
       }
       kennelsWithUnparseableDates.add(kennelId);
       continue;
+    }
+    const earliest = earliestScrapedByKennel.get(kennelId);
+    if (earliest === undefined || dateKey < earliest) {
+      earliestScrapedByKennel.set(kennelId, dateKey);
     }
     const key = `${kennelId}:${dateKey}`;
     let list = scrapedBySlot.get(key);
@@ -186,9 +224,10 @@ export async function reconcileStaleEvents(
     };
   }
 
-  // Upcoming-only sources (e.g. sh3.link) drop runs the moment they happen —
-  // a past-dated event missing from a scrape is not a cancellation signal, so
-  // restrict the reconcile window to future dates for those sources.
+  // `upcomingOnly` sources skip the past side entirely. The coverage guard
+  // below already protects past runs a fetch drops, but the flag is still the
+  // right call for a source whose fetch keeps one stray old row (e.g. a pinned
+  // "last run"), which would otherwise make the gap after it look covered.
   const now = new Date();
   const timeMin = upcomingOnly
     ? now
@@ -297,10 +336,14 @@ export async function reconcileStaleEvents(
     }
   }
 
-  const orphaned = candidates.filter((c) => !matchedCandidateIds.has(c.id));
+  const unmatched = candidates.filter((c) => !matchedCandidateIds.has(c.id));
+  const orphaned = unmatched.filter(
+    (c) => !isPastOutsideCoverage(c, earliestScrapedByKennel, now),
+  );
 
   const baseDiag = {
     candidatesExamined: candidates.length,
+    pastOutsideCoverage: unmatched.length - orphaned.length,
     kennelsInScope: linkedKennelIds.length,
     totalLinkedKennels: allLinkedKennelIds.length,
     kennelsSuppressedForBadDate: suppressedKennels,

@@ -981,7 +981,7 @@ export default async function SourceDetailPage({
                     {log.diagnosticContext && (() => {
                       const ctx = log.diagnosticContext as Record<string, unknown>;
                       const ai = ctx.aiRecovery as { attempted?: number; succeeded?: number; failed?: number; durationMs?: number; recoveredFields?: Array<{ fields: string[]; confidence: string }> } | undefined;
-                      const reconciliation = ctx.reconciliation as { cancelled?: number; candidatesExamined?: number; multiSourcePreserved?: number; kennelsInScope?: number; totalLinkedKennels?: number } | undefined;
+                      const reconciliation = ctx.reconciliation as { cancelled?: number; candidatesExamined?: number; multiSourcePreserved?: number; pastOutsideCoverage?: number; kennelsInScope?: number; totalLinkedKennels?: number } | undefined;
                       const unmappedSlugs = ctx.unmappedKennelSlugs as string[] | undefined;
                       const internalKeys = new Set(["aiRecovery", "reconciliation", "eventsRestored", "unmappedKennelSlugs"]);
                       const otherCtx = Object.fromEntries(Object.entries(ctx).filter(([k]) => !internalKeys.has(k)));
@@ -1021,6 +1021,11 @@ export default async function SourceDetailPage({
                                 <div>Cancelled: <span className={`font-medium ${(reconciliation.cancelled ?? 0) > 0 ? "text-red-600 dark:text-red-400" : ""}`}>{reconciliation.cancelled ?? 0}</span></div>
                                 {(reconciliation.multiSourcePreserved ?? 0) > 0 && (
                                   <div>Multi-source preserved: <span className="font-medium">{reconciliation.multiSourcePreserved}</span></div>
+                                )}
+                                {(reconciliation.pastOutsideCoverage ?? 0) > 0 && (
+                                  <div title="Past runs missing from this scrape that it no longer reaches back to (the source drops runs once they happen), so not cancelled">
+                                    Past runs protected: <span className="font-medium">{reconciliation.pastOutsideCoverage}</span>
+                                  </div>
                                 )}
                               </div>
                             </details>
