@@ -3166,3 +3166,24 @@ where the long-cadence uncovered kennels live.
   2024-06-01 → 06-29). The adapter maps `endDate` for multi-day spans, so a backfill must clamp or drop implausible spans.
 - `?start_date=2000-01-01&end_date=<future>&per_page=50&page=N` paginates the full archive (418 events, 9 pages here).
   The adapter's default `maxEvents` is 200, so raise it for backfills.
+
+## Embedded Google Calendar — in-place-edited template series with STALE run numbers (learned from Hill Country H3, 2026-11-07)
+- **Pattern:** some kennels keep ONE recurring "template" series (`FREQ=WEEKLY;INTERVAL=2;BYDAY=SA`, no UNTIL)
+  and turn each instance into the real trail by editing it in place (a RECURRENCE-ID override). Every
+  instance nobody has edited yet keeps the template's title, which carries a **stale run number**
+  (`Hill Country H3 Trail #760 WARNO` repeated biweekly through late 2027). Google splits the series when
+  "this and following" is edited (UID suffix `_R20270206T200000`), so the template UID changes over time.
+- **`suppressICalUids` is the WRONG tool here.** The real trails are overrides that share the series UID, so
+  suppression would drop them. **Use `futureHorizonDays`** sized just past how far the kennel actually
+  curates (HCH3: real overrides ran 91 days ahead → 100). Verified via API `singleEvents=true`: real
+  overrides and template instances share a summary prefix, and only the run number/theme differ.
+- **The same staleness exists in history** (`#689` reused on ~15 consecutive 2024–25 runs; `#69` on every
+  weekly run for 3 years). Any backfill from such a calendar must null run numbers that repeat across dates.
+- **A multi-`src` embed can hide non-kennel calendars.** HCH3's iframe carries a second `src` that decodes
+  to a "Phases of the Moon" calendar, and `nexthash.htm` adds Google's holiday calendar. Decode every `src`
+  and read `X-WR-CALNAME` from each public ICS before picking the source.
+- **Owner-personal entries** (`Fly to Chicago for CLT Meeting`, `Danielle in Rome`) and neighbor-kennel
+  cross-posts sit on small-club calendars. Use anchored `kennelPatterns` + `strictKennelRouting: true`.
+- Fetching the ICS with plain `curl` works on the desktop runner
+  (`calendar.google.com/calendar/ical/<url-encoded id>/public/basic.ics` → 200 `text/calendar`), and so
+  does the API with the owner's `GOOGLE_CALENDAR_API_KEY` (read-only from the owner's `.env`).
