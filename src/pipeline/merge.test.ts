@@ -3232,6 +3232,14 @@ describe("resolveUpdatedTitle", () => {
     expect(resolveUpdatedTitle("", "SH3 #? (TBD)", sh3, 1011, "sh3-wa")).toBe("Seattle H3 Trail #1011");
   });
 
+  it("rebuilds a synthesized default when the run number changed (#2811)", () => {
+    expect(resolveUpdatedTitle("Seattle H3 Trail #2544", "Seattle H3 Trail #2543", sh3, 2544, "sh3-wa")).toBe("Seattle H3 Trail #2544");
+  });
+
+  it("keeps a synthesized default when the incoming row has no run number", () => {
+    expect(resolveUpdatedTitle(undefined, "Seattle H3 Trail #2543", sh3, null, "sh3-wa")).toBe("Seattle H3 Trail #2543");
+  });
+
   it("preserves a real existing title when incoming is empty", () => {
     expect(resolveUpdatedTitle("", "Catholic School Girl", sh3, 1011, "sh3-wa")).toBe("Catholic School Girl");
   });
