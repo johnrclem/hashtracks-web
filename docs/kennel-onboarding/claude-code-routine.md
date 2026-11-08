@@ -67,8 +67,9 @@ STEPS:
      to htmlScraperEntries in src/adapters/registry.ts (never a substring regex), and
      list the source under its adapter in EXPECTED_SOURCES_BY_ADAPTER in
      src/adapters/registry-routing.test.ts. If Effort says "config-only", the adapter
-     already exists — only the Source row, the route (if applicable) and, for an
-     HTML_SCRAPER source, its EXPECTED_SOURCES_BY_ADAPTER entry change.
+     already exists — only the Source row, the route (if applicable) and, for a
+     source that resolves through a named route, its EXPECTED_SOURCES_BY_ADAPTER entry
+     change. A source routed by a Tribe or GenericHtml config needs no entry.
    - If the handoff says the region isn't seeded, add it to the region seed mirroring an
      existing metro (METRO level under the right country, with centroid + timezone).
    - npx prisma db seed
