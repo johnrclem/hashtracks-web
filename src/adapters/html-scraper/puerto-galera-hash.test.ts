@@ -65,3 +65,27 @@ describe("runListRowToEvent", () => {
     expect(runListRowToEvent({ Run: "<a>1904</a>", Date: "31/10/2026" })).toBeNull();
   });
 });
+
+describe("SPECIAL RUNS block (#2813)", () => {
+  const page = `<div id='runListAccordion'><h3>Saturday November 7th</h3><div class='runList'><p>
+    <strong>Run 1905: Special Run - see details...</strong><br>
+    <strong>Departure: </strong>3:00 pm<br><strong>Hare(s): </strong>Free Sex<br><strong>Location: </strong>Away to home</p></div></div>
+    <div id='specialRunsAccordion'><h3>Saturday November 7th - 7-11 Run #4</h3><div class='runList'><p>
+    <strong>Run 1905</strong><br><strong>Departure: </strong>2:45 pm<br><strong>Hares: </strong>Free Sex<br><strong>Location: </strong>Away to home</p></div></div>`;
+
+  it("overlays the special name and departure on the regular row", () => {
+    const { events } = parseUpcomingRuns(page, NOW);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ runNumber: 1905, title: "7-11 Run #4", startTime: "14:45", hares: "Free Sex", location: "Away to home" });
+  });
+
+  it("keeps the regular row's hares and location when the special block omits them", () => {
+    const sparse = page.replace("<strong>Hares: </strong>Free Sex<br><strong>Location: </strong>Away to home", "");
+    expect(parseUpcomingRuns(sparse, NOW).events[0]).toMatchObject({ title: "7-11 Run #4", startTime: "14:45", hares: "Free Sex", location: "Away to home" });
+  });
+
+  it("parses the placeholder panel as no special runs", () => {
+    const empty = page.replace(/<div id='specialRunsAccordion'>[\s\S]*$/, "<div id='specialRunsAccordion'>Watch this space...</div>");
+    expect(parseUpcomingRuns(empty, NOW).events[0].title).toBeUndefined();
+  });
+});

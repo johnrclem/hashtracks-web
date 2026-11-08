@@ -62,6 +62,10 @@ const IS_THE_HARE_RE = /(?:^|\n)([^\n]{2,60}?) is the hare/i;
 const FROM_TO_RE = /\bdeparture from (.{3,80}?) to (.{3,80}?)(?:,|\.|$)/i;
 const START_AT_RE = /\b(?:start|starts|meet) at (?:the )?(.{3,80}?)(?: at \d|,|!|\.|$)/i;
 const A2A_FROM_RE = /\bA2[AB] from (.{3,80}?)(?: hare|,|\.|$)/i;
+// "Location: Done Pamai village, Happy Endings Shop" (VBH3's own line, #2816).
+const LOCATION_LABEL_RE = /^Location:[ \t]*(\S[^\n]{2,118})$/im;
+// "Location: will be provided if the hash-site is decided" is the GM's placeholder.
+const LOCATION_PENDING_RE = /\bwill be\b|\btb[acd]\b/i;
 const MAPS_RE = /https:\/\/(?:goo\.gl\/maps|maps\.app\.goo\.gl)\/[A-Za-z0-9?=_&-]{5,120}/;
 const PLACEHOLDER_HARE = /^\?+$/;
 
@@ -136,6 +140,8 @@ function parseHare(text: string): string | undefined {
 }
 
 function parseVenue(text: string): string | undefined {
+  const labelled = LOCATION_LABEL_RE.exec(text);
+  if (labelled && !LOCATION_PENDING_RE.test(labelled[1])) return clean(labelled[1]);
   const fromTo = FROM_TO_RE.exec(text);
   if (fromTo) return clean(fromTo[1]);
   const m = START_AT_RE.exec(text) ?? A2A_FROM_RE.exec(text);

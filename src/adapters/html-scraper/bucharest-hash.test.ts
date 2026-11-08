@@ -5,9 +5,11 @@ import type { Source } from "@/generated/prisma/client";
 import {
   BucharestHashAdapter,
   parseBucharestDate,
+  parseBucharestRow,
   parseBucharestSheet,
   parseBucharestTime,
   splitHares,
+  splitMoonPrefix,
 } from "./bucharest-hash";
 
 vi.mock("../safe-fetch", () => ({ safeFetch: vi.fn() }));
@@ -112,5 +114,26 @@ describe("BucharestHashAdapter.fetch", () => {
     const result = await new BucharestHashAdapter().fetch(source, { days: 60 });
     expect(result.events).toEqual([]);
     expect(result.errors[0]).toContain("unexpected sheet export");
+  });
+});
+
+describe("splitMoonPrefix and moon-plus-venue cells (#2824)", () => {
+  const row = (place: string) => ["FM #2", "14/3/2025", "Roofie", place, ""];
+
+  it("splits the moon name from the place", () => {
+    expect(splitMoonPrefix("Worm Moon Parcul Păsărari")).toEqual({ moon: "Worm Moon", place: "Parcul Păsărari" });
+    expect(splitMoonPrefix("Hunter's Moon - Piata Romana")).toEqual({ moon: "Hunter's Moon", place: "Piata Romana" });
+    expect(splitMoonPrefix("Sturgeon Moon")).toBeNull();
+    expect(splitMoonPrefix("Moonlight Hash")).toBeNull();
+  });
+
+  it("files the moon as title and the place as location", () => {
+    expect(parseBucharestRow(row("Worm Moon Parcul Păsărari"))).toMatchObject({ title: "Worm Moon", location: "Parcul Păsărari" });
+  });
+
+  it("leaves a bare moon name as the title", () => {
+    const event = parseBucharestRow(row("Pink Moon"));
+    expect(event?.title).toBe("Pink Moon");
+    expect(event?.location).toBeUndefined();
   });
 });

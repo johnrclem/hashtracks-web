@@ -102,7 +102,8 @@ describe("parseHanoiH3Page", () => {
     });
     // "(A-A run)" is a run type, not a theme; "…….. Ha Noi." is a placeholder.
     expect(event?.title).toBeUndefined();
-    expect(event?.location).toBeUndefined();
+    // Placeholder venue → the first pickup stands in (#2788).
+    expect(event?.location).toBe("8 Hai Bà Trưng Street, Hoàn Kiếm District");
     expect(event?.description).toContain("hashing day");
   });
 
@@ -212,5 +213,30 @@ describe("HanoiH3Adapter", () => {
     const result = await new HanoiH3Adapter().fetch({ url: SOURCE_URL } as Source);
     expect(result.events).toEqual([]);
     expect(result.errors[0]).toMatch(/run heading/i);
+  });
+});
+
+describe("parseHanoiH3Page — garbled day and placeholder venue (#2788)", () => {
+  const page = (heading: string) => `<div class="wp-block-columns"><div class="wp-block-column">
+<h2 class="wp-block-heading">Upcoming runs</h2>
+<h4 class="wp-block-heading">${heading}<br>(A-A run)<br>RU! On On ….hashing day 😎.<br>The team hares tries out a trail through lush forests.<br>*** Hash logo: 👣🍻 !<br>📌 location: …….. Ha Noi.<br>📍 First Pick-up: 13:30 PM sharp at : 8 Hai Bà Trưng Street, Hoàn Kiếm District<br>https://maps.app.goo.gl/FTavtwpc4hAoQTik7</h4>
+<p>🐇 Hares: Money3 and EDT.</p></div></div>`;
+
+  it('reads "1t4h" as the 14th', () => {
+    const { event } = parseHanoiH3Page(page("🏃No. 1841– Sat. November, 1t4h. 2026"), SOURCE_URL);
+    expect(event?.date).toBe("2026-11-14");
+    expect(event?.runNumber).toBe(1841);
+  });
+
+  it("fails loud rather than letting chrono guess a missing day", () => {
+    const { event, error } = parseHanoiH3Page(page("🏃No. 1841– Sat. November, 2026"), SOURCE_URL);
+    expect(event).toBeNull();
+    expect(error).toContain("1841");
+  });
+
+  it("uses the first pickup when the venue is the placeholder, and keeps the prose", () => {
+    const { event } = parseHanoiH3Page(page("🏃No. 1841– Sat. November, 14th. 2026"), SOURCE_URL);
+    expect(event?.location).toBe("8 Hai Bà Trưng Street, Hoàn Kiếm District");
+    expect(event?.description).toBe("RU! On On ….hashing day 😎. The team hares tries out a trail through lush forests.");
   });
 });

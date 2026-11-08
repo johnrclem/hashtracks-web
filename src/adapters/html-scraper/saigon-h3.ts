@@ -16,6 +16,11 @@
  * `maps.app.goo.gl` venue shortlink (no extractable coords) → stored as
  * locationUrl only; the merge pipeline geocodes the HCMC centroid.
  *
+ * The home page's "This Week's Run" panel has the full hare names, the run's name
+ * and the A-site for the current run, which the table lists by initials only
+ * (#2791). `parseThisWeeksRun` reads it and overlays the matching run; a failed
+ * home-page fetch never blocks the hareline.
+ *
  * The deep archive lives at /runs (Run Stats) — a fully SSR'd table of ~800 past
  * runs (numbers | Date | Name/Occasion | Pack Size | Hares | A-Site | On-On).
  * `parseRunsArchive` reads it for the one-shot history backfill
@@ -33,7 +38,7 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, filterEventsByWindow, isPlaceholder } from "../utils";
+import { chronoParseDate, fetchHTMLPage, filterEventsByWindow, isPlaceholder, overlayKnownFields } from "../utils";
 
 const KENNEL_TAG = "saigon-h3";
 const DEFAULT_URL = "https://saigonhashers.com/hareline";
@@ -266,12 +271,62 @@ export function parseRunsArchive(html: string, sourceUrl: string): RawEventData[
   return events;
 }
 
+const THIS_WEEK_HEADING_RE = /Run\s*#(\d{2,5})(?:\s*:\s*(.+))?/i;
+
+export interface ThisWeeksRun {
+  runNumber: number;
+  date: string | null;
+  details: Partial<RawEventData>;
+}
+
+/** Parse the home page's "This Week's Run" panel, or null when it's absent or unnumbered. */
+export function parseThisWeeksRun($: cheerio.CheerioAPI): ThisWeeksRun | null {
+  const block = $(".this-weeks-run-container").first();
+  const heading = THIS_WEEK_HEADING_RE.exec(normalizeToken(block.find("h3").first().text()));
+  if (!heading) return null;
+
+  let hares: string | null | undefined;
+  let date: string | null = null;
+  block.find("h5").each((_i, el) => {
+    const text = normalizeToken($(el).text());
+    const hareLabel = /Hares?:/i.exec(text);
+    if (hareLabel) hares = cleanHares(text.slice(hareLabel.index + hareLabel[0].length));
+    else if (!date && /\d{4}/.test(text)) date = chronoParseDate(text);
+  });
+
+  const aPoint = block.find("li").filter((_i, el) => /A point/i.test($(el).text())).first().find("a").first();
+  const description = normalizeToken(block.find("p").first().text());
+  return {
+    runNumber: Number.parseInt(heading[1], 10),
+    date,
+    details: {
+      title: heading[2]?.trim() || undefined,
+      hares,
+      location: normalizeToken(aPoint.text()) || undefined,
+      locationUrl: firstMapsUrl([aPoint.attr("href")]),
+      description: description || undefined,
+    },
+  };
+}
+
+/** Overlay the panel on its hareline row, or add the run when the table has moved past it. */
+export function applyThisWeeksRun(events: RawEventData[], block: ThisWeeksRun, sourceUrl: string): void {
+  const idx = events.findIndex((e) => e.runNumber === block.runNumber);
+  if (idx !== -1) {
+    events[idx] = overlayKnownFields(events[idx], block.details);
+  } else if (block.date) {
+    const base = { date: block.date, kennelTags: [KENNEL_TAG], runNumber: block.runNumber, startTime: DEFAULT_START_TIME, sourceUrl };
+    events.push(overlayKnownFields(base, block.details));
+  }
+}
+
 export class SaigonH3Adapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
   async fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
     const sourceUrl = source.url || DEFAULT_URL;
-    const page = await fetchHTMLPage(sourceUrl);
+    // fetchHTMLPage never rejects, so a slow or failed home page can't lose the hareline.
+    const [page, home] = await Promise.all([fetchHTMLPage(sourceUrl), fetchHTMLPage(new URL("/", sourceUrl).href)]);
     if (!page.ok) return page.result;
     const { $, structureHash, fetchDurationMs } = page;
 
@@ -314,6 +369,15 @@ export class SaigonH3Adapter implements SourceAdapter {
       }
     });
 
+    let thisWeeksRun: number | undefined;
+    if (home.ok) {
+      const block = parseThisWeeksRun(home.$);
+      if (block) {
+        applyThisWeeksRun(events, block, sourceUrl);
+        thisWeeksRun = block.runNumber;
+      }
+    }
+
     const windowed = filterEventsByWindow(events, options?.days ?? 90);
 
     // Fail-loud: a single forward feed with a 0-event baseline can't rely on the
@@ -338,6 +402,7 @@ export class SaigonH3Adapter implements SourceAdapter {
         rowsFound: rows.length,
         eventsParsed: windowed.length,
         totalBeforeFilter: events.length,
+        thisWeeksRun,
         fetchDurationMs,
       },
     };

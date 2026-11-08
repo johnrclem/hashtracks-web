@@ -43,6 +43,8 @@ const DEFAULT_URL = "https://warsawh3.com/";
 // header is sometimes omitted for unnumbered specials ("Halloween Special"),
 // so the block is also anchored on the "The next run is:" heading.
 const NEXT_RUN_RE = /WH3 Run #(\d{2,5})/i;
+// Nov 2026 layout: the heading is followed by a bare "#1653" line.
+const BARE_RUN_LINE_RE = /^#(\d{2,5})$/;
 const NEXT_RUN_HEADING_RE = /the next run is/i;
 // "#1644 July 4, 2026" → run number + "Month D, YYYY" (upcoming-list row).
 const LIST_ENTRY_RE = /#(\d{2,5})\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/;
@@ -54,6 +56,8 @@ const DMY_DATE_RE = /(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})/;
 const MDY_DATE_RE = /([A-Za-z]{3,9})\s(\d{1,2}),\s(\d{4})/;
 // "14h00" → hour / minute (Mobirise time format).
 const TIME_RE = /(\d{1,2})h(\d{2})/;
+// A line that is only a time ("13h00"), so never the run's theme (#2789).
+const TIME_ONLY_LINE_RE = /^\d{1,2}h\d{2}$/;
 // "Hare: Chasing Yanks" → hare name. No leading `\s*` (it would overlap the
 // `.+` and trip S5852); the captured value is trimmed in cleanHare.
 const HARE_LINE_RE = /^Hare:(.+)$/i;
@@ -74,7 +78,9 @@ const WARSAW_HARE_JOKES = new Set(["it could be you", "live trail", "time to sig
 function isWarsawHareJoke(hare: string): boolean {
   let core = hare.trim().toLowerCase();
   while (core && "!?.".includes(core.at(-1) ?? "")) core = core.slice(0, -1);
-  return WARSAW_HARE_JOKES.has(core) || core === "no hare" || core.startsWith("no hare ");
+  if (WARSAW_HARE_JOKES.has(core) || core === "no hare" || core.startsWith("no hare ")) return true;
+  // A full sentence asked as a question ("You don't really think we can plan that far ahead, do you?").
+  return hare.trim().endsWith("?") && core.split(/\s+/).length >= 4;
 }
 
 /** Trimmed value or undefined for empty cells. */
@@ -142,8 +148,7 @@ function parseNextRunBlock(
   sourceUrl: string,
 ): RawEventData | null {
   const block = lines.slice(startIdx, endIdx);
-  const runLine = block.find((l) => NEXT_RUN_RE.test(l));
-  const runMatch = runLine ? NEXT_RUN_RE.exec(runLine) : null;
+  const runMatch = block.map((l) => NEXT_RUN_RE.exec(l) ?? BARE_RUN_LINE_RE.exec(l)).find(Boolean);
   const runNumber = runMatch ? Number.parseInt(runMatch[1], 10) : undefined;
 
   let date: string | null = null;
@@ -162,7 +167,8 @@ function parseNextRunBlock(
   // Free-text lines between the date and "Where?" are the run's theme
   // ("Halloween Special") — use it as the title.
   const titleEnd = whereIdx === -1 ? block.length : whereIdx;
-  const title = cleanText(block.slice(dateIdx + 1, titleEnd).join(" – "));
+  const themeLines = block.slice(dateIdx + 1, titleEnd).filter((l) => !TIME_ONLY_LINE_RE.test(l));
+  const title = cleanText(themeLines.join(" – "));
   const location = whereIdx === -1 ? undefined : cleanText(block[whereIdx + 1]);
 
   const whoIdx = block.findIndex((l) => WHO_RE.test(l));
