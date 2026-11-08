@@ -1326,7 +1326,7 @@ export const SOURCES = [
         bfm: "BFMH3", ewh3: "EWH3", wh4: "WH4", gfh3: "GFH3",
         ch3: "CH3", dch4: "DCH4", dcfmh3: "DCFMH3", "flour-city": "FCH3", oh3: "OregonH3",
         wsh3: "WSH3", mrh3: "MRH3", bfh3: "BFH3", moa2h3: "MoA2H3",
-        nych3: "NYCH3", ggfm: "GGFM", mosh3: "MoSH3", tkdh3: "TKDH3",
+        nych3: "NYCH3", ggfm: "GGFMH3", mosh3: "MoSH3", tkdh3: "TKDH3",
         "ph3-atl": "AH4_PLH3",
       },
       // Per-day kennel attribution config (PR D.5). Patterns matched
@@ -1334,7 +1334,11 @@ export const SOURCES = [
       // description. First-match-wins; falls back to host kennel when
       // no pattern matches. Patterns are stored as `[regexSource, code]`
       // tuples (case-insensitive). Lands on `Source.config.kennelPatterns`.
+      //
+      // upcomingOnly: the index lists upcoming events but can keep a recently
+      // started row, which would make a finished run after it look removed.
       config: {
+        upcomingOnly: true,
         kennelPatterns: [
           ["Greater Gotham", "ggfm"],
           ["GGFM", "ggfm"],

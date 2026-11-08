@@ -793,6 +793,18 @@ describe("reconcileStaleEvents", () => {
     expect(mockEventFindMany).not.toHaveBeenCalled();
   });
 
+  it("treats an empty scrapedKennelIds as no kennels, not every linked kennel", async () => {
+    mockSourceKennelFind.mockResolvedValueOnce([
+      { kennelId: "kennel_1" },
+    ] as never);
+
+    const result = await reconcileStaleEvents("src_1", [buildRawEvent()], 90, []);
+
+    expect(result.cancelled).toBe(0);
+    expect(result.kennelsInScope).toBe(0);
+    expect(mockEventFindMany).not.toHaveBeenCalled();
+  });
+
   describe("mass-cancel circuit breaker", () => {
     /** N weekly CONFIRMED candidates for kennel_1 starting 2026-01-03. */
     function candidates(n: number) {

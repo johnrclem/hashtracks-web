@@ -211,7 +211,7 @@ export async function reconcileStaleEvents(
   // adapter only scrapes a subset of linked kennels (e.g., HASHREGO with partial
   // externalSlug coverage).
   let linkedKennelIds: string[];
-  if (scrapedKennelIds && scrapedKennelIds.length > 0) {
+  if (scrapedKennelIds) {
     const scrapedSet = new Set(scrapedKennelIds);
     linkedKennelIds = allLinkedKennelIds.filter((id) => scrapedSet.has(id));
   } else {

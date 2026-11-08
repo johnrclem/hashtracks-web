@@ -138,7 +138,7 @@ export class HashRegoAdapter implements SourceAdapter {
     const kennelPagesChecked: string[] = [];
     let kennelPageEventsFound = 0;
     const existingSlugs = new Set(matchingEntries.map((e) => e.slug));
-    let kennelPageFetchErrors = 0;
+    const failedKennelSlugs: string[] = [];
     let kennelPagesStopReason: string | null = null;
 
     for (let i = 0; i < missingSlugs.length; i += BATCH_SIZE) {
@@ -168,7 +168,7 @@ export class HashRegoAdapter implements SourceAdapter {
             status: status === 0 ? undefined : status,
             message: outcome.error.message,
           });
-          kennelPageFetchErrors++;
+          failedKennelSlugs.push(slug);
           // Whole-response parse drift (malformed JSON, non-array body) is a
           // data-loss path: the entire kennel call returns no events even
           // though the HTTP fetch succeeded. Match Step 3 parse-surface
@@ -232,8 +232,12 @@ export class HashRegoAdapter implements SourceAdapter {
 
     // Approximate fallback count from detail page errors (each error triggers createFromIndex)
     // Exclude kennel page fetch errors since those don't produce createFromIndex fallbacks
-    const indexOnlyFallbacks = Math.max(0, (errorDetails.fetch?.length ?? 0) - kennelPageFetchErrors) + (errorDetails.parse?.length ?? 0);
-    const pagination: PaginationOutcome = { kennelPageFetchErrors, kennelPagesStopReason };
+    const indexOnlyFallbacks = Math.max(0, (errorDetails.fetch?.length ?? 0) - failedKennelSlugs.length) + (errorDetails.parse?.length ?? 0);
+    const pagination: PaginationOutcome = {
+      kennelPageFetchErrors: failedKennelSlugs.length,
+      kennelPagesStopReason,
+      failedKennelSlugs,
+    };
 
     return {
       events,

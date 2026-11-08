@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
-import type { ErrorDetails, AiRecoverySummary, ScrapeResult, MergeResult } from "@/adapters/types";
+import type { ErrorDetails, AiRecoverySummary, PaginationOutcome, ScrapeResult, MergeResult } from "@/adapters/types";
 import { hasAnyErrors } from "@/adapters/types";
 import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
@@ -116,6 +116,47 @@ function buildCombinedErrorDetails(
   }
   const hasErrors = hasAnyErrors(combined);
   return { combined, hasErrors };
+}
+
+/** Index kennel IDs by upper-cased external slug, the form adapters report failures in. */
+function indexKennelsBySlug(
+  links: { slug: string | null; kennelId: string | null }[],
+): Map<string, string[]> {
+  const bySlug = new Map<string, string[]>();
+  for (const { slug, kennelId } of links) {
+    if (!slug || !kennelId) continue;
+    const key = slug.toUpperCase();
+    bySlug.set(key, [...(bySlug.get(key) ?? []), kennelId]);
+  }
+  return bySlug;
+}
+
+/**
+ * Decide whether reconcile may run after a paginated fetch, and over which
+ * kennels. Returns null to skip it.
+ *
+ * A failed page only says something about its own kennel, so when the adapter
+ * names the kennel behind every failure, the other kennels still reconcile. A
+ * failure that can't be pinned to a linked kennel, or a walk that stopped
+ * early, skips reconcile for the whole source.
+ */
+function resolveReconcileScope(
+  pagination: PaginationOutcome | undefined,
+  scrapedKennelIds: string[] | undefined,
+  kennelIdsBySlug: ReadonlyMap<string, string[]>,
+): { kennelIds: string[] | undefined } | null {
+  if (pagination?.kennelPagesStopReason) return null;
+  if (!pagination?.kennelPageFetchErrors) return { kennelIds: scrapedKennelIds };
+
+  const failedSlugs = pagination.failedKennelSlugs ?? [];
+  if (!scrapedKennelIds || failedSlugs.length !== pagination.kennelPageFetchErrors) return null;
+  const failedKennels = failedSlugs.map((slug) => kennelIdsBySlug.get(slug.toUpperCase()));
+  if (failedKennels.includes(undefined)) return null;
+
+  const excluded = new Set(failedKennels.flat());
+  const kennelIds = scrapedKennelIds.filter((id) => !excluded.has(id));
+  // With every page failed nothing was read, so don't report a completed reconcile.
+  return kennelIds.length > 0 ? { kennelIds } : null;
 }
 
 /** Build the diagnostic context record, including AI recovery metrics. */
@@ -425,6 +466,7 @@ export async function scrapeSource(
     // Also capture kennel IDs to scope reconciliation to scraped kennels only.
     let kennelSlugs: string[] | undefined;
     let scrapedKennelIds: string[] | undefined;
+    let kennelIdsBySlug = new Map<string, string[]>();
     if (source.type === "HASHREGO") {
       const sks = await prisma.sourceKennel.findMany({
         where: { sourceId },
@@ -440,6 +482,9 @@ export async function scrapeSource(
         scrapedKennelIds = sks
           .filter((sk) => sk.externalSlug !== null)
           .map((sk) => sk.kennelId);
+        kennelIdsBySlug = indexKennelsBySlug(
+          sks.map((sk) => ({ slug: sk.externalSlug, kennelId: sk.kennelId })),
+        );
       } else {
         // Safety fallback: use KennelDiscovery matched slugs scoped to linked kennels
         const linkedKennelIds = sks.map((sk) => sk.kennelId);
@@ -465,6 +510,9 @@ export async function scrapeSource(
             );
             kennelSlugs = Array.from(slugSet);
             scrapedKennelIds = Array.from(kennelIdSet);
+            kennelIdsBySlug = indexKennelsBySlug(
+              discoveries.map((d) => ({ slug: d.externalSlug, kennelId: d.matchedKennelId })),
+            );
           }
         }
       }
@@ -493,10 +541,8 @@ export async function scrapeSource(
           .filter((sk) => mappedCodes.has(sk.kennel.kennelCode))
           .map((sk) => sk.kennelId);
         // Fail closed on scope drift: if the map matched no linked SourceKennel
-        // (typo, missing link, stale seed), an EMPTY scrapedKennelIds would make
-        // reconcile fall back to ALL linked kennels (reconcile treats [] the same
-        // as undefined) — reopening the false-cancellation hazard. Block reconcile
-        // and surface it instead of silently reconciling everything. (#1771)
+        // (typo, missing link, stale seed), there is nothing to reconcile. Skip
+        // it and surface the mismatch rather than report a clean pass. (#1771)
         if (scrapedKennelIds.length === 0) {
           slugMapScopeMismatch = true;
           console.warn(
@@ -534,8 +580,7 @@ export async function scrapeSource(
     let reconcileEvaluated = false;
     let reconcileSuppressedKennels: string[] = [];
     let massCancelBlocked: { wouldCancel: number; candidatesExamined: number } | undefined;
-    const paginationComplete =
-      !scrapeResult.pagination?.kennelPageFetchErrors && !scrapeResult.pagination?.kennelPagesStopReason;
+    const reconcileScope = resolveReconcileScope(scrapeResult.pagination, scrapedKennelIds, kennelIdsBySlug);
     // A zero-event scrape normally skips reconcile (an empty page is far more
     // often breakage than a real "everything was removed"). allowMassCancel is
     // the operator saying the removal is genuine, so it opts the empty case in.
@@ -543,7 +588,7 @@ export async function scrapeSource(
       !force &&
       (scrapeResult.events.length > 0 || options?.allowMassCancel === true) &&
       scrapeResult.errors.length === 0 &&
-      paginationComplete &&
+      reconcileScope &&
       !slugMapScopeMismatch
     ) {
       const upcomingOnly =
@@ -552,7 +597,7 @@ export async function scrapeSource(
         sourceId,
         scrapeResult.events,
         days,
-        scrapedKennelIds,
+        reconcileScope.kennelIds,
         upcomingOnly,
         { allowMassCancel: options?.allowMassCancel === true },
       );

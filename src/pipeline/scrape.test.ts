@@ -6,6 +6,7 @@ vi.mock("@/lib/db", () => ({
     rawEvent: { deleteMany: vi.fn() },
     scrapeLog: { create: vi.fn(), update: vi.fn() },
     sourceKennel: { findMany: vi.fn() },
+    kennelDiscovery: { findMany: vi.fn() },
   },
 }));
 
@@ -354,6 +355,110 @@ describe("scrapeSource", () => {
       await scrapeSource("src_1");
 
       expect(mockReconcile).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // A failed Hash Rego kennel page says nothing about the other kennels, so it
+  // narrows reconcile instead of skipping it. Anything that can't be pinned to
+  // specific kennels still skips.
+  describe("reconcile scope when named kennel pages fail", () => {
+    const hashRegoSource = { id: "src_hr", type: "HASHREGO", url: "https://hashrego.com/events" };
+    const linkedSlugs = [
+      { externalSlug: "NYCH3", kennelId: "k_nyc" },
+      { externalSlug: "MoA2H3", kennelId: "k_moa" },
+      { externalSlug: null, kennelId: "k_unslugged" },
+    ];
+
+    function hashRegoReturning(pagination: PaginationOutcome) {
+      mockSourceFind.mockResolvedValue(hashRegoSource as never);
+      mockSourceKennelFind.mockResolvedValue(linkedSlugs as never);
+      mockGetAdapter.mockReturnValue({
+        type: "HASHREGO",
+        fetch: vi.fn().mockResolvedValue({
+          events: [{ date: "2026-02-14", kennelTags: ["NYCH3"] }],
+          errors: [],
+          pagination,
+        }),
+      } as never);
+    }
+
+    it("reconciles only the kennels whose pages were read, matching slugs case-insensitively", async () => {
+      hashRegoReturning({ kennelPageFetchErrors: 1, kennelPagesStopReason: null, failedKennelSlugs: ["MOA2H3"] });
+
+      await scrapeSource("src_hr");
+
+      expect(mockReconcile).toHaveBeenCalledTimes(1);
+      expect(mockReconcile.mock.calls[0][3]).toEqual(["k_nyc"]);
+    });
+
+    it("keeps every linked kennel in scope when no page failed", async () => {
+      hashRegoReturning({ kennelPageFetchErrors: 0, kennelPagesStopReason: null, failedKennelSlugs: [] });
+
+      await scrapeSource("src_hr");
+
+      expect(mockReconcile.mock.calls[0][3]).toEqual(["k_nyc", "k_moa"]);
+    });
+
+    it("maps failed slugs through the KennelDiscovery fallback too", async () => {
+      vi.spyOn(console, "warn").mockImplementationOnce(() => {});
+      hashRegoReturning({ kennelPageFetchErrors: 1, kennelPagesStopReason: null, failedKennelSlugs: ["BBB"] });
+      mockSourceKennelFind.mockResolvedValue([
+        { externalSlug: null, kennelId: "k_a" },
+        { externalSlug: null, kennelId: "k_b" },
+      ] as never);
+      vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue([
+        { externalSlug: "AAA", matchedKennelId: "k_a" },
+        { externalSlug: "BBB", matchedKennelId: "k_b" },
+      ] as never);
+
+      await scrapeSource("src_hr");
+
+      expect(mockReconcile.mock.calls[0][3]).toEqual(["k_a"]);
+    });
+
+    it.each<[string, PaginationOutcome]>([
+      ["every kennel's page failed", { kennelPageFetchErrors: 2, kennelPagesStopReason: null, failedKennelSlugs: ["NYCH3", "MOA2H3"] }],
+      ["a failure names no kennel", { kennelPageFetchErrors: 2, kennelPagesStopReason: null, failedKennelSlugs: ["MOA2H3"] }],
+      ["a failed slug isn't linked to a kennel", { kennelPageFetchErrors: 1, kennelPagesStopReason: null, failedKennelSlugs: ["UNKNOWN"] }],
+      ["the walk stopped early", { kennelPageFetchErrors: 1, kennelPagesStopReason: "budget_exhausted", failedKennelSlugs: ["MOA2H3"] }],
+    ])("skips reconcile when %s", async (_case, pagination) => {
+      hashRegoReturning(pagination);
+
+      const result = await scrapeSource("src_hr");
+
+      expect(result.success).toBe(true);
+      expect(mockReconcile).not.toHaveBeenCalled();
+    });
+
+    it("skips reconcile when a named failure also reached errors[]", async () => {
+      hashRegoReturning({ kennelPageFetchErrors: 1, kennelPagesStopReason: null, failedKennelSlugs: ["MOA2H3"] });
+      mockGetAdapter.mockReturnValue({
+        type: "HASHREGO",
+        fetch: vi.fn().mockResolvedValue({
+          events: [{ date: "2026-02-14", kennelTags: ["NYCH3"] }],
+          errors: ["Hash Rego API parse error for MOA2H3"],
+          pagination: { kennelPageFetchErrors: 1, kennelPagesStopReason: null, failedKennelSlugs: ["MOA2H3"] },
+        }),
+      } as never);
+
+      await scrapeSource("src_hr");
+
+      expect(mockReconcile).not.toHaveBeenCalled();
+    });
+
+    it("skips reconcile for a source with no per-kennel scope, even if slugs are named", async () => {
+      mockGetAdapter.mockReturnValue({
+        type: "HTML_SCRAPER",
+        fetch: vi.fn().mockResolvedValue({
+          events: [{ date: "2026-02-14", kennelTags: ["NYCH3"] }],
+          errors: [],
+          pagination: { kennelPageFetchErrors: 1, kennelPagesStopReason: null, failedKennelSlugs: ["NYCH3"] },
+        }),
+      } as never);
+
+      await scrapeSource("src_1");
+
+      expect(mockReconcile).not.toHaveBeenCalled();
     });
   });
 
