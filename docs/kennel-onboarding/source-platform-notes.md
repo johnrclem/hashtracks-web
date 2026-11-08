@@ -3187,3 +3187,9 @@ where the long-cadence uncovered kennels live.
 - Fetching the ICS with plain `curl` works on the desktop runner
   (`calendar.google.com/calendar/ical/<url-encoded id>/public/basic.ics` → 200 `text/calendar`), and so
   does the API with the owner's `GOOGLE_CALENDAR_API_KEY` (read-only from the owner's `.env`).
+
+## Self-hosted WordPress: pre-posted yearly schedule with labeled post bodies (Hellgate H3, 2026-11-08, verified against all 158 posts through REST; adapter not yet built)
+- **A post's publish date can be up to ~11 months before the run.** Hellgate publishes a full year's run posts in early January, then edits each one near its run date. So "year closest to publish" fails on a year-less body in a pre-posted batch: `When: Campout Friday Aug 21st…` published 2026-01-03 resolves to Aug **2025**. Use the title's explicit year first, when the title and body months agree.
+- **A date-prefixed title can be wrong too.** `Dec 18th, 2025: January Hash…` (published 2025-01-14; body `Saturday January 18th`) means: if the months differ, trust the body and infer the year from publish date.
+- **`post.modified` is the liveness signal** for a pre-posted schedule. `date` says nothing about whether the kennel still maintains it.
+- **Only anchored title patterns count as dates.** `January 2019 Hash` and `July 9 Holes O' Glory Hash` both look like dates to a loose parser.
