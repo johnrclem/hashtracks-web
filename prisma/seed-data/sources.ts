@@ -5297,6 +5297,27 @@ export const SOURCES = [
       kennelCodes: ["bushwhackersh3"],
     },
     {
+      // Music City H3 (musiccityhash.com) — WordPress + The Events Calendar (Tribe).
+      // Config-routed to the shared TribeEventsAdapter. Organizers are the kennel
+      // ("MCH3"), not hares, so no haresFromOrganizers. Titles carry the run number
+      // ("MCH3 #1051 – …", sometimes "MCH3# 1042 – …"). Forward-only feed, so
+      // upcomingOnly. History (2015→) via scripts/backfill-mch3-tn-history.ts.
+      name: "Music City H3 Events Calendar",
+      url: "https://musiccityhash.com",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        tribeEvents: true,
+        kennelTag: "mch3-tn",
+        upcomingOnly: true,
+        runNumberFromTitle: true,
+        defaultStartTime: "14:00",
+      },
+      kennelCodes: ["mch3-tn"],
+    },
+    {
       ...icalBaseChooChoo,
       // Issue #966: HTML scraper missed 3 of 16 published events. The site
       // is a WordPress install with The Events Calendar plugin, which exposes
