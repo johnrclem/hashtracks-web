@@ -28,7 +28,7 @@ All adapters implement `SourceAdapter` from `src/adapters/types.ts`. The `fetch(
 - **Times:** `startTime` is a string `"HH:MM"`, not a DateTime
 - **IDs:** Use `cuid()` for all generated IDs
 - **kennelTags:** `RawEventData.kennelTags` is `string[]` (not a single tag — see PR #1105 / multi-kennel co-host spec). Always emit at least one entry. Single-kennel events: `kennelTags: [config.kennelTag]` or `kennelTags: ["nych3"]`. Multi-kennel co-hosts (Cherry City × OH3 joint trail, etc.): emit all tags; the merge pipeline writes the first as primary `EventKennel` and the rest as secondaries (`isPrimary=false`). Use `kennelCode` strings for stable resolution, not display names.
-- **Registration:** Add to `src/adapters/registry.ts`
+- **Registration:** Add an `htmlScraperEntries` row to `src/adapters/registry.ts` with an `onHost("example.org")` route (from `src/adapters/host-matcher.ts`; `{ path: "/x" }` for a tenant on a shared host, `{ subdomains: "www" }` when a sibling kennel lives on another subdomain). Never a substring regex: `/eh3\.org/` matched `boiseh3.org` and `/onh3\.wordpress\.com/` matched `asuncionh3.wordpress.com`. Then list the new source under its adapter in `EXPECTED_SOURCES_BY_ADAPTER` in `src/adapters/registry-routing.test.ts`, which fails on any seeded source claimed by two routes or resolving to the wrong adapter.
 
 ## Shared Utilities — Check Before Writing Similar Logic
 The codebase has accumulated several shared helpers that adapter authors keep reinventing. Before adding regex or parsing logic to a new adapter, search these:

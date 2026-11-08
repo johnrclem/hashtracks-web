@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildRawEvent } from "@/test/factories";
+import { toIsoDateString } from "@/lib/date";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -18,6 +19,7 @@ import { resolveKennelTag } from "./kennel-resolver";
 import {
   reconcileStaleEvents,
   shouldBlockMassCancel,
+  isPastOutsideCoverage,
   MASS_CANCEL_MIN,
 } from "./reconcile";
 
@@ -51,11 +53,36 @@ function mockEvent(
   };
 }
 
+/** `n` weekly candidates for kennel_1, `stepDays` apart from `start` (UTC noon). */
+function weeklyCandidates(n: number, start: string, stepDays = 7, idPrefix = "evt_") {
+  const startMs = new Date(`${start}T12:00:00Z`).getTime();
+  return Array.from({ length: n }, (_, i) =>
+    mockEvent(
+      `${idPrefix}${i}`,
+      "kennel_1",
+      toIsoDateString(new Date(startMs + i * stepDays * 86_400_000)),
+    ),
+  );
+}
+
+/**
+ * Pin "now" before every fixture date (all 2026) so the suite keeps testing
+ * slot matching rather than the past-side coverage guard, whatever the wall
+ * clock says. The guard has its own describe block with its own clock.
+ */
+const SUITE_NOW = new Date("2025-12-01T00:00:00Z");
+
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(SUITE_NOW);
   vi.clearAllMocks();
   mockSourceKennelFind.mockResolvedValue([{ kennelId: "kennel_1" }] as never);
   mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
   mockEventUpdateMany.mockResolvedValue({ count: 0 } as never);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("reconcileStaleEvents", () => {
@@ -726,41 +753,31 @@ describe("reconcileStaleEvents", () => {
   });
 
   it("preserves the days-wide past window by default", async () => {
-    vi.useFakeTimers();
-    try {
-      const now = new Date("2026-04-21T12:00:00Z");
-      vi.setSystemTime(now);
-      mockEventFindMany.mockResolvedValueOnce([] as never);
+    const now = new Date("2026-04-21T12:00:00Z");
+    vi.setSystemTime(now);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
 
-      await reconcileStaleEvents("src_1", [buildRawEvent()], 90);
+    await reconcileStaleEvents("src_1", [buildRawEvent()], 90);
 
-      const call = mockEventFindMany.mock.calls[0][0] as {
-        where: { date: { gte: Date; lte: Date } };
-      };
-      expect(call.where.date.gte).toEqual(new Date(now.getTime() - 90 * 86_400_000));
-      expect(call.where.date.lte).toEqual(new Date(now.getTime() + 90 * 86_400_000));
-    } finally {
-      vi.useRealTimers();
-    }
+    const call = mockEventFindMany.mock.calls[0][0] as {
+      where: { date: { gte: Date; lte: Date } };
+    };
+    expect(call.where.date.gte).toEqual(new Date(now.getTime() - 90 * 86_400_000));
+    expect(call.where.date.lte).toEqual(new Date(now.getTime() + 90 * 86_400_000));
   });
 
   it("restricts the past side to now when upcomingOnly is true", async () => {
-    vi.useFakeTimers();
-    try {
-      const now = new Date("2026-04-21T12:00:00Z");
-      vi.setSystemTime(now);
-      mockEventFindMany.mockResolvedValueOnce([] as never);
+    const now = new Date("2026-04-21T12:00:00Z");
+    vi.setSystemTime(now);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
 
-      await reconcileStaleEvents("src_1", [buildRawEvent()], 90, undefined, true);
+    await reconcileStaleEvents("src_1", [buildRawEvent()], 90, undefined, true);
 
-      const call = mockEventFindMany.mock.calls[0][0] as {
-        where: { date: { gte: Date; lte: Date } };
-      };
-      expect(call.where.date.gte).toEqual(now);
-      expect(call.where.date.lte).toEqual(new Date(now.getTime() + 90 * 86_400_000));
-    } finally {
-      vi.useRealTimers();
-    }
+    const call = mockEventFindMany.mock.calls[0][0] as {
+      where: { date: { gte: Date; lte: Date } };
+    };
+    expect(call.where.date.gte).toEqual(now);
+    expect(call.where.date.lte).toEqual(new Date(now.getTime() + 90 * 86_400_000));
   });
 
   it("returns empty result when scrapedKennelIds has no overlap with linked kennels", async () => {
@@ -779,15 +796,12 @@ describe("reconcileStaleEvents", () => {
   describe("mass-cancel circuit breaker", () => {
     /** N weekly CONFIRMED candidates for kennel_1 starting 2026-01-03. */
     function candidates(n: number) {
-      return Array.from({ length: n }, (_, i) => {
-        const d = new Date(Date.UTC(2026, 0, 3 + i * 7, 12));
-        return mockEvent(`evt_${i}`, "kennel_1", d.toISOString().slice(0, 10));
-      });
+      return weeklyCandidates(n, "2026-01-03");
     }
     /** Scrape returning only the first `kept` candidate dates. */
     function scrapeFirst(kept: number) {
       return candidates(kept).map((c) =>
-        buildRawEvent({ date: c.date.toISOString().slice(0, 10), kennelTags: ["BoBBH3"] }),
+        buildRawEvent({ date: toIsoDateString(c.date), kennelTags: ["BoBBH3"] }),
       );
     }
     /** groupBy result: this source backs the first `n` candidates. */
@@ -896,5 +910,158 @@ describe("reconcileStaleEvents", () => {
     ])("wouldCancel=%i of %i → %s", (wouldCancel, candidates, expected) => {
       expect(shouldBlockMassCancel(wouldCancel, candidates)).toBe(expected);
     });
+  });
+});
+
+describe("past-side coverage guard", () => {
+  // A Saturday; fixtures below are weekly Saturdays around it.
+  const NOW = new Date("2026-11-07T18:00:00Z");
+
+  beforeEach(() => {
+    vi.setSystemTime(NOW);
+    mockRawEventGroupBy.mockResolvedValue([] as never);
+  });
+
+  it("preserves past runs a forward-only fetch dropped, and still cancels a removed future run", async () => {
+    // The page lists only upcoming runs. 10-31 and today's run (11-07, noon
+    // UTC, already past at 18:00) fell off after they happened; 11-28 was
+    // genuinely removed.
+    const scraped = [
+      buildRawEvent({ date: "2026-11-14", kennelTags: ["BoBBH3"] }),
+      buildRawEvent({ date: "2026-11-21", kennelTags: ["BoBBH3"] }),
+    ];
+    mockEventFindMany.mockResolvedValueOnce([
+      mockEvent("past_1", "kennel_1", "2026-10-31"),
+      mockEvent("today", "kennel_1", "2026-11-07"),
+      mockEvent("up_1", "kennel_1", "2026-11-14"),
+      mockEvent("up_2", "kennel_1", "2026-11-21"),
+      mockEvent("removed", "kennel_1", "2026-11-28"),
+    ] as never);
+
+    const result = await reconcileStaleEvents("src_1", scraped, 90);
+
+    expect(result.cancelledEventIds).toEqual(["removed"]);
+    expect(result.pastOutsideCoverage).toBe(2);
+    // Only the in-coverage orphan reaches the other-source lookup.
+    expect(mockRawEventGroupBy.mock.calls[0][0]).toMatchObject({
+      where: { eventId: { in: ["removed"] } },
+    });
+  });
+
+  it("still cancels a past run inside the scrape's coverage (full-history feed)", async () => {
+    const scraped = [
+      buildRawEvent({ date: "2026-10-17", kennelTags: ["BoBBH3"] }),
+      buildRawEvent({ date: "2026-11-14", kennelTags: ["BoBBH3"] }),
+    ];
+    mockEventFindMany.mockResolvedValueOnce([
+      mockEvent("kept_past", "kennel_1", "2026-10-17"),
+      mockEvent("removed_past", "kennel_1", "2026-10-24"),
+      mockEvent("kept_up", "kennel_1", "2026-11-14"),
+    ] as never);
+
+    const result = await reconcileStaleEvents("src_1", scraped, 90);
+
+    expect(result.cancelledEventIds).toEqual(["removed_past"]);
+    expect(result.pastOutsideCoverage).toBe(0);
+  });
+
+  it("judges coverage per kennel on a multi-kennel source", async () => {
+    mockSourceKennelFind.mockResolvedValueOnce([
+      { kennelId: "kennel_1" },
+      { kennelId: "kennel_2" },
+    ] as never);
+    mockResolve.mockImplementation(async (tag: string) => ({
+      kennelId: tag === "K2" ? "kennel_2" : "kennel_1",
+      matched: true,
+    }));
+    // kennel_1's rows reach back to 10-03; kennel_2 only shows upcoming runs.
+    const scraped = [
+      buildRawEvent({ date: "2026-10-03", kennelTags: ["K1"] }),
+      buildRawEvent({ date: "2026-11-14", kennelTags: ["K1"] }),
+      buildRawEvent({ date: "2026-11-14", kennelTags: ["K2"] }),
+    ];
+    mockEventFindMany.mockResolvedValueOnce([
+      mockEvent("k1_kept", "kennel_1", "2026-10-03"),
+      mockEvent("k1_removed", "kennel_1", "2026-10-24"),
+      mockEvent("k1_up", "kennel_1", "2026-11-14"),
+      mockEvent("k2_dropped", "kennel_2", "2026-10-24"),
+      mockEvent("k2_up", "kennel_2", "2026-11-14"),
+    ] as never);
+
+    const result = await reconcileStaleEvents("src_1", scraped, 90);
+
+    expect(result.cancelledEventIds).toEqual(["k1_removed"]);
+    expect(result.pastOutsideCoverage).toBe(1);
+  });
+
+  it("does not let protected past runs trip the mass-cancel breaker", async () => {
+    // 20 past weekly runs dropped by a forward-only page: previously a 20/22
+    // mass-cancel (blocked, alert filed); now nothing to cancel at all.
+    const past = weeklyCandidates(20, "2026-10-31", -7, "past_");
+    mockEventFindMany.mockResolvedValueOnce([
+      ...past,
+      mockEvent("up_1", "kennel_1", "2026-11-14"),
+      mockEvent("up_2", "kennel_1", "2026-11-21"),
+    ] as never);
+    const scraped = [
+      buildRawEvent({ date: "2026-11-14", kennelTags: ["BoBBH3"] }),
+      buildRawEvent({ date: "2026-11-21", kennelTags: ["BoBBH3"] }),
+    ];
+
+    const result = await reconcileStaleEvents("src_1", scraped, 180);
+
+    expect(result.cancelled).toBe(0);
+    expect(result.massCancelBlocked).toBeUndefined();
+    expect(result.pastOutsideCoverage).toBe(20);
+    expect(mockRawEventGroupBy).not.toHaveBeenCalled();
+    expect(mockEventUpdateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("past-side coverage guard: breaker denominator", () => {
+  it("leaves protected past runs out of the breaker's denominator", async () => {
+    vi.setSystemTime(new Date("2026-11-07T18:00:00Z"));
+    // 100 protected past runs + 20 future runs, of which the scrape drops 15.
+    const past = weeklyCandidates(100, "2026-10-31", -1, "past_");
+    const future = weeklyCandidates(20, "2026-11-14", 7, "up_");
+    mockEventFindMany.mockResolvedValueOnce([...past, ...future] as never);
+    mockRawEventGroupBy
+      .mockResolvedValueOnce([] as never) // other-source check
+      .mockResolvedValueOnce(future.map((c) => ({ eventId: c.id })) as never);
+    const scraped = future.slice(0, 5).map((c) =>
+      buildRawEvent({ date: toIsoDateString(c.date), kennelTags: ["BoBBH3"] }),
+    );
+
+    const result = await reconcileStaleEvents("src_1", scraped, 180);
+
+    expect(result.massCancelBlocked).toEqual({ wouldCancel: 15, candidatesExamined: 20 });
+    expect(mockRawEventGroupBy.mock.calls[1][0]).toMatchObject({
+      where: { eventId: { in: future.map((c) => c.id) } },
+    });
+    expect(mockEventUpdateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("isPastOutsideCoverage", () => {
+  const now = new Date("2026-11-07T18:00:00Z");
+  const earliest = new Map([["k1", "2026-10-17"]]);
+  const check = (kennelId: string, date: string) =>
+    isPastOutsideCoverage(mockEvent("e", kennelId, date), earliest, now);
+
+  it("never protects future events", () => {
+    expect(check("k9", "2026-11-14")).toBe(false);
+  });
+
+  it("protects past events for a kennel the scrape returned no rows for", () => {
+    expect(check("k9", "2026-10-24")).toBe(true);
+  });
+
+  it("protects past events older than the kennel's earliest scraped row", () => {
+    expect(check("k1", "2026-10-10")).toBe(true);
+  });
+
+  it("treats the earliest scraped date itself as covered", () => {
+    expect(check("k1", "2026-10-17")).toBe(false);
+    expect(check("k1", "2026-10-24")).toBe(false);
   });
 });

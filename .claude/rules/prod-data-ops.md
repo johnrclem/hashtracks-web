@@ -33,16 +33,21 @@ Lessons from the Nov 2026 maintenance triage. Every rule here comes from a real 
   Importing `prisma/seed-data/*` is safe; those files are plain data.
 
 ## Reconcile and forward-only sources
-- **A source whose fetch drops past runs needs `upcomingOnly: true`.** That covers Harrier
-  Central `getEvents`, logged-out Meetup, "upcoming runs" HTML pages, rolling iCal windows, and
-  forward-only adapters. Without it, reconcile cancels every run once it has happened. Phoenix,
-  Sydney Thirsty, LSW and Sacramento hit this, and a prod sweep on 2026-11-05 found 65 sources
-  with past runs cancelled after their dates.
+- **Reconcile now protects past runs a fetch drops.** Reconcile cancels a missing past run only
+  when the scrape still returned a row for that kennel dated on or before it
+  (`isPastOutsideCoverage` in `src/pipeline/reconcile.ts`). Harrier Central `getEvents`,
+  logged-out Meetup, "upcoming runs" pages, rolling iCal windows and recent-posts blogs are safe
+  without config. Before this guard, every such source needed `upcomingOnly: true`: Phoenix,
+  Sydney Thirsty, LSW, Sacramento, SDH3 and the 43 sources in #2703 hit it.
+- **Still set `upcomingOnly: true`** when the fetch keeps one stray old row (a pinned "last run",
+  a featured past event) but drops the runs after it. That row makes the gap look covered.
+  `ScrapeLog.diagnosticContext.reconciliation.pastOutsideCoverage` counts the past runs the guard
+  protected on each scrape.
 - **Restoring wrongly cancelled runs:** skip any row whose (kennel, date) or run number already
   has a CONFIRMED event, since that is a reschedule or duplicate. Never touch admin-cancelled
   rows. `scripts/uncancel-stale-by-source.ts` only accepts events with 2+ RawEvents, but a
   RawEvent is added only when data changes, so single-RawEvent rows are equally real.
-  Restore only **after** the `upcomingOnly` migration is live, or the next scrape re-cancels.
+  Restore only once the source can no longer re-cancel them (the coverage guard, or `upcomingOnly`).
 - **Year-less upcoming pages can keep stale past rows.** "First row's month < this month ⇒ next
   year" turns already-run rows into next-year phantoms (Hash House Horrors, Nov 2026). Anchor
   years on run numbers: anchor run + Δrun × cadence (memory `reference_runnumber_anchored_year_inference`).

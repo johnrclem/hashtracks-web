@@ -311,9 +311,9 @@ function checkExcessiveCancellations(
       details:
         `The mass-cancel circuit breaker refused to cancel ${wouldCancel} of ${candidatesExamined} ` +
         `CONFIRMED in-window events (nothing was cancelled). This usually means a scraper or config ` +
-        `regression (e.g. a forward-only adapter without upcomingOnly, an unanchored INTERVAL>1 ` +
-        `schedule, or a partially-rendered page). If the removal is genuine, re-scrape with ` +
-        `allowMassCancel to apply it.`,
+        `regression (e.g. an unanchored INTERVAL>1 schedule flipping parity, a fetch that keeps one ` +
+        `stray old row but drops the runs after it (set upcomingOnly), or a partially-rendered ` +
+        `page). If the removal is genuine, re-scrape with allowMassCancel to apply it.`,
       context: { blocked: true, wouldCancel, candidatesExamined },
     };
   }

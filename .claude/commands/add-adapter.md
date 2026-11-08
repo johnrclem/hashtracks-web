@@ -32,7 +32,8 @@ Create a new HTML scraper adapter for the source at URL: $ARGUMENTS
    - Verify: correct date extraction (UTC noon), field mapping, edge cases
 
 4. **Register the adapter**
-   - Add to `src/adapters/registry.ts` (follow existing patterns)
+   - Add to `src/adapters/registry.ts` with an `onHost("host")` route (never a substring regex)
+   - List the source under its adapter in `EXPECTED_SOURCES_BY_ADAPTER` in `src/adapters/registry-routing.test.ts`
 
 5. **Add seed data**
    - Add Source record to `prisma/seed.ts` with correct SourceType
