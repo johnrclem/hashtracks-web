@@ -64,6 +64,7 @@ import { reconcileStaleEvents } from "./reconcile";
 import { scrapeSource } from "./scrape";
 import { revalidateTag } from "next/cache";
 import { after } from "next/server";
+import type { PaginationOutcome } from "@/adapters/types";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -314,6 +315,46 @@ describe("scrapeSource", () => {
     const updateData = mockLogUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
     expect(updateData.data.sampleBlocked).toEqual(sampleBlocked);
     expect(updateData.data.sampleSkipped).toEqual(sampleSkipped);
+  });
+
+  // A run the adapter never read is not a run the source removed. Hash Rego's
+  // budget_exhausted and the WordPress.com max-pages-hit stop leave errors[]
+  // empty, so ScrapeResult.pagination is all that keeps reconcile off them.
+  describe("reconcile gate on ScrapeResult.pagination", () => {
+    function adapterReturningPagination(pagination?: PaginationOutcome) {
+      mockGetAdapter.mockReturnValue({
+        type: "HTML_SCRAPER",
+        fetch: vi.fn().mockResolvedValue({
+          events: [{ date: "2026-02-14", kennelTags: ["NYCH3"] }],
+          errors: [],
+          pagination,
+        }),
+      } as never);
+    }
+
+    it.each<[string, PaginationOutcome]>([
+      ["pages failed to fetch", { kennelPageFetchErrors: 2, kennelPagesStopReason: null }],
+      ["the walk stopped early with errors[] empty", { kennelPageFetchErrors: 0, kennelPagesStopReason: "max-pages-hit" }],
+    ])("skips reconcile when %s", async (_case, pagination) => {
+      adapterReturningPagination(pagination);
+
+      const result = await scrapeSource("src_1");
+
+      expect(result.success).toBe(true);
+      expect(mockReconcile).not.toHaveBeenCalled();
+    });
+
+    it.each<[string, PaginationOutcome | undefined]>([
+      ["the walk reached the end", { kennelPageFetchErrors: 0, kennelPagesStopReason: null }],
+      ["the adapter doesn't paginate", undefined],
+      ["the stop reason is empty", { kennelPageFetchErrors: 0, kennelPagesStopReason: "" }],
+    ])("runs reconcile when %s", async (_case, pagination) => {
+      adapterReturningPagination(pagination);
+
+      await scrapeSource("src_1");
+
+      expect(mockReconcile).toHaveBeenCalledTimes(1);
+    });
   });
 
   // #1771 — config-driven slug-map sources (HashStats) must scope reconcile to

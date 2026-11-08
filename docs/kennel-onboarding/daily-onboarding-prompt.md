@@ -864,8 +864,8 @@ authority is the live repo. Before writing the adapter, confirm against current 
   `prisma/schema.prisma` for the canonical names before using any field.
 - Imports — `safeFetch` from `@/adapters/safe-fetch` (NOT raw `fetch`); date/extract helpers from
   `@/adapters/utils`; browser-render via `browserRender` from `@/lib/browser-render`.
-- `kennelPagesStopReason` — set ONLY on genuine truncation (a full page left unfetched / HTTP or
-  fetch error); a non-empty string suppresses stale-event reconciliation. Don't set it on a clean
+- `ScrapeResult.pagination.kennelPagesStopReason` — set ONLY on genuine truncation (a full page left
+  unfetched / HTTP or fetch error); a non-empty string suppresses stale-event reconciliation. Don't set it on a clean
   pagination end (e.g. WP.com `page=N+1` returning 400 = expected end, leave it null).
 - `title` — leave `undefined` when no clean theme exists; `merge.ts` synthesizes
   `"<KennelName> Trail #N"`. Never let a labeled-field fragment or hare name become the title.
@@ -883,8 +883,9 @@ authority is the live repo. Before writing the adapter, confirm against current 
 Carry these into the build; they've each caused a follow-up fix before:
 - **Rejecting upstream coords needs `dropCachedCoords: true`** — setting `latitude: undefined`
   alone does NOT clear a coord already stored by the merge pipeline (a re-scrape keeps the bad pin).
-- **On partial pagination failure, set `kennelPageFetchErrors` + `kennelPagesStopReason`** — else
-  `scrape.ts` runs stale-event reconciliation against partial data and cancels valid events. A
+- **On partial pagination failure, set `ScrapeResult.pagination` (`kennelPageFetchErrors` +
+  `kennelPagesStopReason`)** — else `scrape.ts` runs stale-event reconciliation against partial data
+  and cancels valid events. Writing them only to `diagnosticContext` does NOT stop reconcile. A
   non-empty `kennelPagesStopReason` suppresses stale-event reconciliation; only set it on a genuine
   truncation (full page left unfetched / HTTP or fetch error).
 - **`config.upcomingOnly: true` is required for ANY "ages-out" source** — not just historical

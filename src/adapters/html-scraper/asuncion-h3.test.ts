@@ -192,5 +192,23 @@ describe("AsuncionH3Adapter.fetch", () => {
     expect(result.events).toEqual([]);
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.diagnosticContext?.kennelPagesStopReason).toBe("first-page-unavailable");
+    expect(result.pagination).toEqual({
+      kennelPageFetchErrors: 1,
+      kennelPagesStopReason: "first-page-unavailable",
+    });
+  });
+
+  it("reports a clean end through the typed pagination field", async () => {
+    vi.mocked(safeFetchModule.safeFetch).mockResolvedValueOnce(jsonResponse([]));
+    const result = await new AsuncionH3Adapter().fetch(source);
+    expect(result.pagination).toEqual({ kennelPageFetchErrors: 0, kennelPagesStopReason: null });
+  });
+
+  it("marks max-pages-hit with errors[] empty, leaving pagination as the only signal", async () => {
+    const fullPage = Array.from({ length: 100 }, (_, i) => post(`Social ${i}`, "<p>no run here</p>", i));
+    vi.mocked(safeFetchModule.safeFetch).mockResolvedValue(jsonResponse(fullPage));
+    const result = await new AsuncionH3Adapter().fetch(source);
+    expect(result.errors).toEqual([]);
+    expect(result.pagination).toEqual({ kennelPageFetchErrors: 0, kennelPagesStopReason: "max-pages-hit" });
   });
 });

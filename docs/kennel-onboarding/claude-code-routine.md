@@ -80,7 +80,8 @@ STEPS:
      unmatched.
    - Honor the "Implementation gotchas" block at the bottom of the handoff:
        * Rejecting upstream coords needs dropCachedCoords:true (not just undefined).
-       * On partial pagination failure, set kennelPageFetchErrors + kennelPagesStopReason.
+       * On partial pagination failure, set ScrapeResult.pagination (kennelPageFetchErrors +
+         kennelPagesStopReason). Writing them only to diagnosticContext does NOT stop reconcile.
        * For historical-archive sources, set config.upcomingOnly:true (ONH3 pattern).
        * Tests using vi.spyOn(globalThis,"fetch") need beforeEach(vi.restoreAllMocks).
        * Keep functions under Sonar S3776 cognitive complexity ≤15 (extract helpers).

@@ -2311,6 +2311,7 @@ describe("HashRegoAdapter", () => {
     expect(result.errors).toHaveLength(0);
     expect(result.diagnosticContext?.kennelPagesChecked).toEqual(["MISS1", "NYCH3"]);
     expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
+    expect(result.pagination?.kennelPagesStopReason).toBeNull();
     expect((result.diagnosticContext?.kennelPageEventsFound as number)).toBeGreaterThan(0);
     // And the 502 was recorded in fetch errors
     expect(fetchErrorsOf(result)[0].status).toBe(502);
@@ -2480,6 +2481,7 @@ describe("HashRegoAdapter", () => {
     // And the fetch is still recorded for diagnostics
     expect(fetchErrorsOf(result)[0].message).toContain("parse");
     expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(1);
+    expect(result.pagination?.kennelPageFetchErrors).toBe(1);
   });
 
   it("ParseError.rawText whitelists non-PII fields only", async () => {
@@ -2558,6 +2560,7 @@ describe("HashRegoAdapter", () => {
     expect(simulatedWall).toBeGreaterThanOrEqual(40_000);
     expect(simulatedWall).toBeLessThan(60_000);
     expect(result.diagnosticContext?.kennelPagesStopReason).toBe("budget_exhausted");
+    expect(result.pagination?.kennelPagesStopReason).toBe("budget_exhausted");
     expect((result.diagnosticContext?.kennelPagesChecked as string[]).length).toBeLessThan(200);
     expect((result.diagnosticContext?.kennelPagesSkipped as number)).toBeGreaterThan(50);
     // Concurrency cap must hold throughout

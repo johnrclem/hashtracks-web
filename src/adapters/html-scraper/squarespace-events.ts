@@ -1,6 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type {
   ErrorDetails,
+  PaginationOutcome,
   RawEventData,
   ScrapeResult,
   SourceAdapter,
@@ -738,12 +739,7 @@ export async function fetchSquarespaceEvents(
   config: SquarespaceEventsConfig,
   days: number,
   now: Date = new Date(),
-): Promise<{
-  events: RawEventData[];
-  errors: string[];
-  errorDetails?: ErrorDetails;
-  diagnosticContext: Record<string, unknown>;
-}> {
+): Promise<ScrapeResult> {
   if (!source.url) {
     return {
       events: [],
@@ -800,11 +796,16 @@ export async function fetchSquarespaceEvents(
   const { months, capped } = listWindowMonths(now, days, timezone);
   const walk = await walkMonths(collectionUrl, months, parseEvent, state);
   const rowsSeen = state.upcomingRows + state.pastRows;
+  const pagination: PaginationOutcome = {
+    kennelPageFetchErrors: walk.failedMonths.length,
+    kennelPagesStopReason: walkStopReason(walk, capped),
+  };
 
   return {
     events: state.events,
     errors: walk.errors,
     errorDetails: hasAnyErrors(walk.errorDetails) ? walk.errorDetails : undefined,
+    pagination,
     diagnosticContext: {
       fetchMethod: "squarespace-events-json",
       collectionUrl,
@@ -822,11 +823,7 @@ export async function fetchSquarespaceEvents(
       eventsParsed: state.events.length,
       eventsSkipped: rowsSeen - state.events.length,
       fetchDurationMs: firstPageResult.fetchDurationMs + walk.fetchMs,
-      // Reconciliation-suppression signals read by `scrape.ts`. Keys mirror
-      // Hash Rego's per-kennel-page diagnostics so the existing gate works
-      // unchanged (Codex P1, #1746).
-      kennelPageFetchErrors: walk.failedMonths.length,
-      kennelPagesStopReason: walkStopReason(walk, capped),
+      ...pagination,
     },
   };
 }
