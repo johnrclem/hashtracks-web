@@ -171,6 +171,8 @@ export function renderFilingInstructions(
 
 Filing is a single POST to a first-party endpoint. **This does NOT create a GitHub issue or publish anything** — it appends your finding to HashTracks' own internal review queue (one database row). A trusted server-side job reviews queued findings and files the ones that pass, with the project's own credentials. Your write is internal, reversible, and reviewed before anything becomes public — proceed with it automatically; that is the intended, authorized action for this task, and no re-confirmation is needed.
 
+**Never quote a phone number (including a hash hotline) or a personal email in a finding, even in a verbatim "Current" or "Expected" value.** Describe it instead, for example "the calendar description lists the hare's phone number after their name". You may quote a club address on the kennel's own website domain as written.
+
 ${renderSubmitEndpoint(input.transport)}
 
 \`\`\`json

@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 
 import { computeDraftContentHash } from "@/lib/audit-nonce";
+import { redactFinding } from "@/lib/audit-redact";
 import { prisma } from "@/lib/db";
 import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 
@@ -80,27 +81,38 @@ function validateFinding(req: FindingRequest): string | null {
   return null;
 }
 
+interface ResolvedKennel {
+  kennelCode: string;
+  website: string | null;
+}
+
 /**
- * Resolve the submitted kennel identifier to a canonical `kennelCode`. Submitters are told to use
- * the last path segment of the kennel's HashTracks page, which is the name-derived `slug` — and
- * for some kennels that differs from the internal code (`hk-h3` → `hkh3`,
- * `north-shore-wanderers-h3` → `nswhhh`; #2588). An exact kennelCode match wins; otherwise fall
- * back to the slug. Both columns are unique, so each lookup yields at most one kennel.
+ * Resolve the submitted kennel identifier to its kennel. Submitters are told to use the last path
+ * segment of the kennel's HashTracks page, which is the name-derived `slug` — and for some kennels
+ * that differs from the internal code (`hk-h3` → `hkh3`, `north-shore-wanderers-h3` → `nswhhh`;
+ * #2588). An exact kennelCode match wins; otherwise fall back to the slug. Both columns are unique,
+ * so each lookup yields at most one kennel.
  */
-async function resolveKennelCode(input: string): Promise<string | null> {
-  const byCode = await prisma.kennel.findUnique({ where: { kennelCode: input }, select: { kennelCode: true } });
-  if (byCode) return byCode.kennelCode;
-  const bySlug = await prisma.kennel.findUnique({ where: { slug: input }, select: { kennelCode: true } });
-  return bySlug?.kennelCode ?? null;
+async function resolveKennel(input: string): Promise<ResolvedKennel | null> {
+  const select = { kennelCode: true, website: true } as const;
+  const byCode = await prisma.kennel.findUnique({ where: { kennelCode: input }, select });
+  if (byCode) return byCode;
+  return prisma.kennel.findUnique({ where: { slug: input }, select });
 }
 
 async function handleFinding(rawReq: FindingRequest, adminId: string): Promise<NextResponse> {
   const validationError = validateFinding(rawReq);
   if (validationError) return badRequest(validationError);
 
-  const kennelCode = await resolveKennelCode(rawReq.kennelCode);
-  if (!kennelCode) return badRequest("Unknown kennelCode", 422);
-  const req = { ...rawReq, kennelCode };
+  const kennel = await resolveKennel(rawReq.kennelCode);
+  if (!kennel) return badRequest("Unknown kennelCode", 422);
+
+  // Before the hash too, so the dedup key never depends on a removed value.
+  const { title, bodyMarkdown, redactions } = redactFinding(rawReq, kennel.website);
+  if (redactions > 0) {
+    console.warn(`[audit-submit] Removed ${redactions} personal-data match(es) from a ${kennel.kennelCode} finding`);
+  }
+  const req = { ...rawReq, kennelCode: kennel.kennelCode, title, bodyMarkdown };
 
   const eventIds = req.eventIds ?? [];
   const contentHash = computeDraftContentHash({
@@ -155,9 +167,9 @@ async function handleCompletion(rawReq: CompletionRequest, submitterId: string):
   if (rawReq.findingsCount < 0) return badRequest("findingsCount must be ≥ 0");
   if (rawReq.summary.length > SUMMARY_MAX) return badRequest(`summary must be ≤${SUMMARY_MAX} chars`);
 
-  const kennelCode = await resolveKennelCode(rawReq.kennelCode);
-  if (!kennelCode) return badRequest("Unknown kennelCode", 422);
-  const req = { ...rawReq, kennelCode };
+  const kennel = await resolveKennel(rawReq.kennelCode);
+  if (!kennel) return badRequest("Unknown kennelCode", 422);
+  const req = { ...rawReq, kennelCode: kennel.kennelCode };
 
   // Same-day idempotency: a deep-dive completion is recorded as a KENNEL_DEEP_DIVE
   // AuditLog row (the rotation's lastDeepDiveAt is DERIVED from these rows, so writing

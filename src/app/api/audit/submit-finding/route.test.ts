@@ -16,6 +16,7 @@ vi.mock("@/lib/prisma-errors", () => ({
 }));
 
 import { getAdminUser } from "@/lib/auth";
+import { computeDraftContentHash } from "@/lib/audit-nonce";
 import { prisma } from "@/lib/db";
 import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import { buildApiPostRequest } from "@/test/audit-request";
@@ -117,6 +118,56 @@ describe("POST /api/audit/submit-finding — finding", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.data).toMatchObject({ queued: true, draftId: "draft_existing", deduped: true });
+  });
+
+  // Fictional contact details only: this repo is public.
+  describe("personal-data redaction", () => {
+    const WITH_PII = {
+      ...VALID_FINDING,
+      title: "Hare phone 254-555-0142 leaked",
+      bodyMarkdown: "Source reads 'Whiff (254-555-0142)', contact hare@example.com",
+    };
+    const REDACTED_BODY = "Source reads 'Whiff ([phone])', contact [email]";
+    const storedDraft = () => mockDraftCreate.mock.calls[0][0].data;
+
+    beforeEach(() => {
+      mockDraftCreate.mockResolvedValue({ id: "draft_pii" } as never);
+    });
+
+    it("stores the title and body with phones and emails removed", async () => {
+      const res = await POST(buildApiPostRequest(URL, WITH_PII));
+      expect(res.status).toBe(201);
+      expect(storedDraft()).toMatchObject({ title: "Hare phone [phone] leaked", bodyMarkdown: REDACTED_BODY });
+    });
+
+    it("hashes the redacted body, so dedup never depends on the removed value", async () => {
+      await POST(buildApiPostRequest(URL, WITH_PII));
+      expect(storedDraft().contentHash).toBe(
+        computeDraftContentHash({
+          stream: "CHROME_EVENT",
+          kennelCode: "nych3",
+          ruleSlug: "hares-theme-leak",
+          eventIds: ["evt_1"],
+          bodyMarkdown: REDACTED_BODY,
+        }),
+      );
+    });
+
+    it("keeps a club address on the kennel's own website domain", async () => {
+      mockKennel.mockResolvedValue({ kennelCode: "nych3", website: "https://kennel.example.org" } as never);
+      await POST(
+        buildApiPostRequest(URL, { ...VALID_FINDING, bodyMarkdown: "Set contactEmail to gm@kennel.example.org" }),
+      );
+      expect(storedDraft().bodyMarkdown).toBe("Set contactEmail to gm@kennel.example.org");
+    });
+
+    it("leaves a clean finding unchanged", async () => {
+      await POST(buildApiPostRequest(URL, VALID_FINDING));
+      expect(storedDraft()).toMatchObject({
+        title: VALID_FINDING.title,
+        bodyMarkdown: VALID_FINDING.bodyMarkdown,
+      });
+    });
   });
 });
 

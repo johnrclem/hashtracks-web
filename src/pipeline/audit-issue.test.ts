@@ -29,6 +29,8 @@ vi.mock("@/lib/db", () => ({
       update: mockUpdate,
       updateMany: mockUpdateMany,
     },
+    // The filer looks up the kennel's website before redacting.
+    kennel: { findUnique: vi.fn() },
   },
 }));
 
