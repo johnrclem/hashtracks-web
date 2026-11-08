@@ -130,77 +130,57 @@ export class HashRegoAdapter implements SourceAdapter {
     );
 
     // Step 2b: Fetch kennel events from the JSON API for slugs absent from
-    // the global HTML index. Bounded-concurrent batches with remaining-budget-
-    // aware per-call timeouts so the outer cron timeout stays safe when the
-    // API is degraded.
+    // the global HTML index.
     const globalIndexSlugs = new Set(allEntries.map((e) => e.kennelSlug.toUpperCase()));
     const missingSlugs = [...kennelSlugs].filter((s) => !globalIndexSlugs.has(s));
-    const kennelPagesChecked: string[] = [];
     let kennelPageEventsFound = 0;
     const existingSlugs = new Set(matchingEntries.map((e) => e.slug));
     const failedKennelSlugs: string[] = [];
-    let kennelPagesStopReason: string | null = null;
+    const kennelPages = await fetchKennelPagesWithRetry(missingSlugs, fetchStart);
+    const kennelPagesStopReason = kennelPages.budgetExhausted ? "budget_exhausted" : null;
+    const kennelPagesChecked = kennelPages.results.map((r) => r.slug);
 
-    for (let i = 0; i < missingSlugs.length; i += BATCH_SIZE) {
-      const remaining = STEP2B_BUDGET_MS - (Date.now() - fetchStart);
-      if (remaining < MIN_REQUEST_TIMEOUT_MS) {
-        kennelPagesStopReason = "budget_exhausted";
-        break;
+    for (const { slug, outcome } of kennelPages.results) {
+      if (outcome.kind === "fail") {
+        const status = outcome.error.status;
+        errorDetails.fetch ??= [];
+        errorDetails.fetch.push({
+          url: kennelEventsUrl(slug),
+          status: status === 0 ? undefined : status,
+          message: outcome.error.message,
+        });
+        failedKennelSlugs.push(slug);
+        // Whole-response parse drift (malformed JSON, non-array body) is a
+        // data-loss path: the entire kennel call returns no events even
+        // though the HTTP fetch succeeded. Match Step 3 parse-surface
+        // semantics by pushing to errors[] so the scrape is marked failed
+        // and reconcile is blocked.
+        if (outcome.error.kind === "parse") {
+          errors.push(outcome.error.message);
+        }
+        continue;
       }
-      // Halve remaining so the next iteration of this loop has breathing room
-      // to fire the budget guard cleanly instead of racing the outer cron.
-      const perCallTimeout = Math.min(MAX_REQUEST_TIMEOUT_MS, Math.floor(remaining / 2));
-      const batch = missingSlugs.slice(i, i + BATCH_SIZE);
-      const results = await Promise.all(
-        batch.map(async (slug) => ({
-          slug,
-          outcome: await fetchAndConvertKennelEvents(slug, perCallTimeout),
-        })),
-      );
-
-      for (const { slug, outcome } of results) {
-        kennelPagesChecked.push(slug);
-        if (outcome.kind === "fail") {
-          const status = outcome.error.status;
-          errorDetails.fetch ??= [];
-          errorDetails.fetch.push({
-            url: kennelEventsUrl(slug),
-            status: status === 0 ? undefined : status,
-            message: outcome.error.message,
-          });
-          failedKennelSlugs.push(slug);
-          // Whole-response parse drift (malformed JSON, non-array body) is a
-          // data-loss path: the entire kennel call returns no events even
-          // though the HTTP fetch succeeded. Match Step 3 parse-surface
-          // semantics by pushing to errors[] so the scrape is marked failed
-          // and reconcile is blocked.
-          if (outcome.error.kind === "parse") {
-            errors.push(outcome.error.message);
-          }
-          continue;
+      for (const entry of outcome.entries) {
+        if (!existingSlugs.has(entry.slug) && isInDateWindow(entry.startDate)) {
+          existingSlugs.add(entry.slug);
+          matchingEntries.push(entry);
+          kennelPageEventsFound++;
         }
-        for (const entry of outcome.entries) {
-          if (!existingSlugs.has(entry.slug) && isInDateWindow(entry.startDate)) {
-            existingSlugs.add(entry.slug);
-            matchingEntries.push(entry);
-            kennelPageEventsFound++;
-          }
-        }
-        if (outcome.rowParseErrors.length > 0) {
-          errorDetails.parse ??= [];
-          errorDetails.parse.push(...outcome.rowParseErrors);
-          // Push each row's parse error text into top-level errors[] using
-          // the SAME string as the ParseError.error field. AI recovery
-          // (src/pipeline/scrape.ts:87) cleans up errors[] entries that
-          // exact/prefix match a recovered ParseError.error, so per-row
-          // pushes round-trip cleanly through the recovery path. A
-          // slug-level summary message would not match any individual
-          // ParseError.error and would linger in errors[] after recovery,
-          // keeping the scrape FAILED and reconcile blocked even after the
-          // dropped row was successfully restored.
-          for (const pe of outcome.rowParseErrors) {
-            errors.push(pe.error);
-          }
+      }
+      if (outcome.rowParseErrors.length > 0) {
+        errorDetails.parse ??= [];
+        errorDetails.parse.push(...outcome.rowParseErrors);
+        // Push each row's parse error text into top-level errors[] using
+        // the SAME string as the ParseError.error field. AI recovery
+        // (src/pipeline/scrape.ts:87) cleans up errors[] entries that
+        // exact/prefix match a recovered ParseError.error, so per-row
+        // pushes round-trip cleanly through the recovery path. A
+        // slug-level summary message would not match any individual
+        // ParseError.error and would linger in errors[] after recovery,
+        // keeping the scrape FAILED and reconcile blocked even after the
+        // dropped row was successfully restored.
+        for (const pe of outcome.rowParseErrors) {
+          errors.push(pe.error);
         }
       }
     }
@@ -259,6 +239,8 @@ export class HashRegoAdapter implements SourceAdapter {
         kennelPagesChecked,
         kennelPageEventsFound,
         kennelPagesSkipped: Math.max(0, missingSlugs.length - kennelPagesChecked.length),
+        kennelPagesRetried: kennelPages.retried,
+        kennelPagesRecovered: kennelPages.recovered,
         ...pagination,
       },
     };
@@ -466,6 +448,59 @@ async function fetchAndConvertKennelEvents(
   });
 
   return { kind: "ok", entries, rowParseErrors };
+}
+
+interface KennelPageResult {
+  slug: string;
+  outcome: Step2bOutcome;
+}
+
+/** Fetch kennel pages in concurrent batches, stopping when the Step 2b budget runs out. */
+async function fetchKennelPages(
+  slugs: string[],
+  fetchStart: number,
+): Promise<{ results: KennelPageResult[]; budgetExhausted: boolean }> {
+  const results: KennelPageResult[] = [];
+  for (let i = 0; i < slugs.length; i += BATCH_SIZE) {
+    const remaining = STEP2B_BUDGET_MS - (Date.now() - fetchStart);
+    if (remaining < MIN_REQUEST_TIMEOUT_MS) return { results, budgetExhausted: true };
+    // Halve remaining so the next batch has breathing room to fire the budget
+    // guard cleanly instead of racing the outer cron.
+    const perCallTimeout = Math.min(MAX_REQUEST_TIMEOUT_MS, Math.floor(remaining / 2));
+    const batch = await Promise.all(
+      slugs.slice(i, i + BATCH_SIZE).map(async (slug) => ({
+        slug,
+        outcome: await fetchAndConvertKennelEvents(slug, perCallTimeout),
+      })),
+    );
+    results.push(...batch);
+  }
+  return { results, budgetExhausted: false };
+}
+
+function isNetworkFailure(outcome: Step2bOutcome): boolean {
+  return outcome.kind === "fail" && outcome.error.kind === "network";
+}
+
+/**
+ * Fetch kennel pages, then give any that hit a network failure one more try.
+ * After sitting idle the API stalls some requests past the timeout from any IP,
+ * then answers normally: 8 of 37 stalled in a cold test and all 8 answered on
+ * an immediate retry. Other failures would just repeat. A retry the budget
+ * can't cover leaves the first failure standing without counting as an early
+ * stop, since every page was attempted.
+ */
+async function fetchKennelPagesWithRetry(slugs: string[], fetchStart: number) {
+  const firstPass = await fetchKennelPages(slugs, fetchStart);
+  const retrySlugs = firstPass.results.filter((r) => isNetworkFailure(r.outcome)).map((r) => r.slug);
+  const retryPass = await fetchKennelPages(retrySlugs, fetchStart);
+  const retryOutcomes = new Map(retryPass.results.map((r) => [r.slug, r.outcome]));
+  return {
+    results: firstPass.results.map((r) => ({ slug: r.slug, outcome: retryOutcomes.get(r.slug) ?? r.outcome })),
+    budgetExhausted: firstPass.budgetExhausted,
+    retried: retryPass.results.length,
+    recovered: retryPass.results.filter((r) => r.outcome.kind === "ok").length,
+  };
 }
 
 /**

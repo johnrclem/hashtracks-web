@@ -2267,7 +2267,7 @@ describe("HashRegoAdapter", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
-    mockedFetchKennelEvents.mockRejectedValueOnce(
+    mockedFetchKennelEvents.mockRejectedValue(
       new HashRegoApiError("NYCH3", 0, "network", "ECONNREFUSED"),
     );
 
@@ -2283,6 +2283,90 @@ describe("HashRegoAdapter", () => {
     const fetchErrors = fetchErrorsOf(result);
     expect(fetchErrors[0].message).toContain("network");
     expect(fetchErrors[0].url).toContain("/api/kennels/NYCH3/events/");
+  });
+
+  describe("retry of timed-out kennel pages", () => {
+    const timedOut = (slug: string) => new HashRegoApiError(slug, 0, "network", "TimeoutError");
+
+    const scrape = (kennelSlugs: string[]) =>
+      new HashRegoAdapter().fetch(buildSource(), { days: 365, kennelSlugs });
+
+    beforeEach(() => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+      vi.setSystemTime(new Date("2026-06-01T12:00:00Z"));
+      fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+      fetchSpy.mockImplementation(async () => new Response("<html></html>", { status: 200 }));
+    });
+
+    it("keeps a kennel's events when its page times out once and then answers", async () => {
+      mockedFetchKennelEvents
+        .mockRejectedValueOnce(timedOut("NYCH3"))
+        .mockResolvedValueOnce([buildApiRow({ slug: "nych3-recovered", start_time: "2026-06-27T19:00:00-04:00" })]);
+
+      const result = await scrape(["NYCH3"]);
+
+      expect(mockedFetchKennelEvents).toHaveBeenCalledTimes(2);
+      expect(result.events.length).toBeGreaterThan(0);
+      expect(result.errorDetails?.fetch).toBeUndefined();
+      expect(result.pagination).toMatchObject({ kennelPageFetchErrors: 0, failedKennelSlugs: [] });
+      expect(result.diagnosticContext).toMatchObject({
+        kennelPagesChecked: ["NYCH3"],
+        kennelPagesRetried: 1,
+        kennelPagesRecovered: 1,
+      });
+    });
+
+    it("reports one failure when the retry also times out", async () => {
+      mockedFetchKennelEvents.mockRejectedValue(timedOut("NYCH3"));
+
+      const result = await scrape(["NYCH3"]);
+
+      expect(mockedFetchKennelEvents).toHaveBeenCalledTimes(2);
+      expect(fetchErrorsOf(result)).toHaveLength(1);
+      expect(result.pagination?.failedKennelSlugs).toEqual(["NYCH3"]);
+      expect(result.diagnosticContext).toMatchObject({ kennelPagesRetried: 1, kennelPagesRecovered: 0 });
+    });
+
+    it("retries only the kennels that timed out", async () => {
+      let missCalls = 0;
+      mockedFetchKennelEvents.mockImplementation(async (slug: string) => {
+        if (slug === "MISS1" && ++missCalls === 1) throw timedOut(slug);
+        return [];
+      });
+
+      const result = await scrape(["MISS1", "OTHER"]);
+
+      expect(mockedFetchKennelEvents.mock.calls.map(([slug]) => slug).sort()).toEqual(["MISS1", "MISS1", "OTHER"]);
+      expect(result.diagnosticContext?.kennelPagesChecked).toEqual(["MISS1", "OTHER"]);
+      expect(result.pagination?.failedKennelSlugs).toEqual([]);
+    });
+
+    it.each(["not_found", "server", "auth", "rate_limit"] as const)("does not retry a %s failure", async (kind) => {
+      mockedFetchKennelEvents.mockRejectedValue(new HashRegoApiError("NYCH3", 500, kind));
+
+      const result = await scrape(["NYCH3"]);
+
+      expect(mockedFetchKennelEvents).toHaveBeenCalledTimes(1);
+      expect(result.pagination?.failedKennelSlugs).toEqual(["NYCH3"]);
+      expect(result.diagnosticContext?.kennelPagesRetried).toBe(0);
+    });
+
+    it("leaves the first failure standing when no budget remains for a retry", async () => {
+      mockedFetchKennelEvents.mockImplementation(async (slug: string) => {
+        vi.setSystemTime(Date.now() + 46_000);
+        throw timedOut(slug);
+      });
+
+      const result = await scrape(["NYCH3"]);
+
+      expect(mockedFetchKennelEvents).toHaveBeenCalledTimes(1);
+      expect(result.pagination).toMatchObject({
+        kennelPageFetchErrors: 1,
+        kennelPagesStopReason: null,
+        failedKennelSlugs: ["NYCH3"],
+      });
+      expect(result.diagnosticContext).toMatchObject({ kennelPagesRetried: 0, kennelPagesRecovered: 0 });
+    });
   });
 
   it("continues past API failures to reach other slugs with events", async () => {
@@ -2397,7 +2481,7 @@ describe("HashRegoAdapter", () => {
 
     // 15 missing slugs (not in the global index) — all 15 should be checked
     const missingSlugs = Array.from({ length: 15 }, (_, i) => `MISS${i}`);
-    // Default mock returns [] (legitimate "no events") — no special per-call setup needed.
+    mockedFetchKennelEvents.mockResolvedValue([]); // legitimate "no events"
 
     const adapter = new HashRegoAdapter();
     const source = buildSource();
