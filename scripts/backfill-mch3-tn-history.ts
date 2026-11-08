@@ -13,12 +13,14 @@
  *  - Dropped 4 cancelled/postponed runs (#873, #887, #899, #969) and 6 "Hare Needed"
  *    slots that never ran: their number was reused later or they collide with a
  *    real run (#888–#891 in early 2021, #935, a stray #985 in 2023).
- *  - "MCH3 #734" ("hares TBD") folded into its "Deliverance 24" weekend row.
+ *  - "MCH3 #734" ("hares TBD") folded into its "Deliverance 24" row, with no endDate
+ *    because the weekend's #735 and #736 have their own rows.
  *  - Dates corrected where the post's own "When:" contradicts the calendar entry:
  *    #979 → 2024-05-04, #991 → 2024-09-21, #956 → 2023-07-15.
  *  - endDate dropped on #982 (bogus 2024-06-01 → 06-29 span) and #956.
  *  - runNumber removed where a number repeats across dates (2020 COVID renumbering,
  *    #953 in 2023) — 15 rows. "MCH3 800th Hash!" gets #800.
+ *  - #994's body had "When 11/16/2024" copied from #995; that date text is removed.
  *  - Placeholder "Hare Needed" descriptions removed. Email addresses and phone
  *    numbers in every string field redacted (re-scan: 0).
  *
