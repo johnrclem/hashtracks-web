@@ -679,3 +679,70 @@ describe("autoResolveCleared", () => {
     expect(mockAlertUpdate).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("analyzeHealth structure fingerprint baseline", () => {
+  const V2_A = `v2:${"a".repeat(64)}`;
+  const V2_B = `v2:${"b".repeat(64)}`;
+  // Both values really exist in prod ScrapeLog rows from before the v2 algorithm.
+  const LEGACY_SHARED_CONSTANT = `ee36fdcc51${"0".repeat(54)}`;
+  const LEGACY_OTHER = `c187175750${"0".repeat(54)}`;
+
+  function mockBaselineHash(structureHash: string | null) {
+    mockScrapeLogFind.mockReset();
+    mockScrapeLogFind
+      .mockResolvedValueOnce(baselineEntries.map((e) => ({ ...e, structureHash })) as never)
+      .mockResolvedValueOnce([] as never);
+    mockAlertFindMany.mockReset();
+    mockAlertFindMany.mockResolvedValue([] as never);
+  }
+
+  const structureAlerts = (result: Awaited<ReturnType<typeof analyzeHealth>>) =>
+    result.alerts.filter((a) => a.type === "STRUCTURE_CHANGE");
+
+  it.each([
+    ["the legacy shared constant", LEGACY_SHARED_CONSTANT],
+    ["any other legacy hash", LEGACY_OTHER],
+  ])("treats %s as no baseline on the first v2 scrape", async (_label, legacyHash) => {
+    mockBaselineHash(legacyHash);
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput({ structureHash: V2_A }));
+
+    expect(structureAlerts(result)).toHaveLength(0);
+    expect(result.healthStatus).toBe("HEALTHY");
+    expect(result.checkedTypes).toContain("STRUCTURE_CHANGE");
+    // No baseline means no "structure stabilized" claim either.
+    expect(mockAlertFindMany).not.toHaveBeenCalled();
+  });
+
+  it("raises STRUCTURE_CHANGE when a v2 baseline differs", async () => {
+    mockBaselineHash(V2_A);
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput({ structureHash: V2_B }));
+
+    const [alert] = structureAlerts(result);
+    expect(alert).toBeDefined();
+    expect(alert.severity).toBe("INFO");
+    expect(alert.context).toMatchObject({ previousHash: V2_A, currentHash: V2_B });
+  });
+
+  it("auto-resolves when a v2 baseline matches", async () => {
+    mockBaselineHash(V2_A);
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput({ structureHash: V2_A }));
+
+    expect(structureAlerts(result)).toHaveLength(0);
+    expect(mockAlertFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ sourceId: "src_1", type: "STRUCTURE_CHANGE" }),
+      }),
+    );
+  });
+
+  it("stays quiet when the source reports no hash at all", async () => {
+    mockBaselineHash(V2_A);
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput());
+
+    expect(structureAlerts(result)).toHaveLength(0);
+  });
+});

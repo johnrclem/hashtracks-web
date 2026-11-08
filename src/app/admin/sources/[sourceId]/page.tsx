@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import type { ErrorDetails, ParseError } from "@/adapters/types";
 import type { ReconcileResult } from "@/pipeline/reconcile";
+import { compareStructureHashes } from "@/pipeline/structure-hash";
 import { getAdminUser } from "@/lib/auth";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -37,7 +38,7 @@ function detectHashChanges(
   for (let i = history.length - 1; i >= 0; i--) {
     const curr = history.at(i);
     if (!curr) continue;
-    if (curr.structureHash && prevHash && curr.structureHash !== prevHash) {
+    if (compareStructureHashes(prevHash, curr.structureHash) === "changed") {
       changes.set(curr.id, true);
     }
     prevHash = curr.structureHash;
@@ -793,7 +794,7 @@ export default async function SourceDetailPage({
                         {formatNYC(log.startedAt)}
                       </TableCell>
                       <TableCell className="font-mono text-xs">
-                        {log.structureHash?.substring(0, 8) ?? "—"}
+                        {log.structureHash?.substring(0, 11) ?? "—"}
                       </TableCell>
                       <TableCell className="text-center">
                         {changed && <span className="text-red-600 dark:text-red-400 text-lg">⚠️</span>}

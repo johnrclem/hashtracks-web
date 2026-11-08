@@ -1,9 +1,9 @@
-import { createHash } from "node:crypto";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { fetchWordPressComPage } from "../wordpress-api";
 import { MONTHS, decodeEntities, buildDateWindow, stripHtmlTags } from "../utils";
 import { todayInTimezone } from "@/lib/timezone";
+import { generateStructureHash } from "@/pipeline/structure-hash";
 
 const DEFAULT_SITE_DOMAIN = "hashhousehorrors.com";
 const HARELINE_ARCHIVE_SLUG = "hareline";
@@ -552,16 +552,9 @@ export class HashHorrorsAdapter implements SourceAdapter {
     if (fetchErrors.length > 0) errorDetails.fetch = fetchErrors;
     if (parseErrors.length > 0) errorDetails.parse = parseErrors;
 
-    // Content-based fingerprint of the raw page HTML. The shared
-    // `generateStructureHash` helper is hashnyc-specific (it looks for
-    // `table.past_hashes` / `table.future_hashes` CSS classes that don't
-    // exist on WordPress.com) and would return a constant for this adapter,
-    // which is strictly worse than no signal at all. A SHA-256 over the raw
-    // HTML changes on every edit — useful for diffing successive scrapes
-    // even though it's noisier than a true structural fingerprint.
-    const structureHash = createHash("sha256")
-      .update(archiveResult.page.content + (upcomingResult.page?.content ?? ""))
-      .digest("hex");
+    const structureHash = generateStructureHash(
+      archiveResult.page.content + (upcomingResult.page?.content ?? ""),
+    );
     return {
       events,
       errors,
