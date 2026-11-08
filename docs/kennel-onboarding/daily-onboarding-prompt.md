@@ -686,7 +686,8 @@ Produce:
   `fetchWordPressPosts`; `fetchBloggerPosts`), the CSS selectors / fields, date-format notes, a
   captured HTML snippet for the test fixture **that mirrors the real DOM structure** (e.g. Wix
   wraps blocks in `[data-testid="richTextElement"]` — a flat fixture passes tests then fails
-  live; see `source-platform-notes.md` → Wix), and the `htmlScrapersByUrl` registry entry to add.
+  live; see `source-platform-notes.md` → Wix), and the registry entry to add (an `onHost("host")`
+  route, never a substring regex).
 - **Adapter code shown in the handoff is ILLUSTRATIVE — not authoritative.** Show the *shape*
   (control flow, where each field comes from, helper extraction, pagination/coord/end-time
   handling, S5852/S3776 boundaries) and name a **reference adapter** to mirror (e.g.

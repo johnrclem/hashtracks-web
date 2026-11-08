@@ -295,7 +295,7 @@ config: { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", ... }
 **For new HTML scrapers:**
 1. Create `src/adapters/html-scraper/{site-name}.ts` implementing `SourceAdapter`
 2. Export pure parsing functions for unit testing (e.g., `parseDateFromTitle()`, `parseRunCard()`)
-3. Add URL pattern to `htmlScrapersByUrl` in `src/adapters/registry.ts`
+3. Add an `onHost("host")` route to `htmlScraperEntries` in `src/adapters/registry.ts` (never a substring regex; see `src/adapters/host-matcher.ts`), and list the source under its adapter in `EXPECTED_SOURCES_BY_ADAPTER` in `src/adapters/registry-routing.test.ts`
 4. Create `src/adapters/html-scraper/{site-name}.test.ts` with embedded HTML fixtures
 
 **For browser-rendered HTML scrapers (Wix, SPAs):**
