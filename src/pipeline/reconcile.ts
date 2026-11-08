@@ -13,6 +13,12 @@ export interface ReconcileResult {
   candidatesExamined: number;
   /** Number of orphaned events preserved because they have other sources. */
   multiSourcePreserved: number;
+  /**
+   * Number of past-dated orphaned events preserved because this scrape did not
+   * reach back to their date for their kennel (see {@link isPastOutsideCoverage}).
+   * Persistently high values on a source mean its fetch drops past runs.
+   */
+  pastOutsideCoverage: number;
   /** Number of kennels actually in reconciliation scope. */
   kennelsInScope: number;
   /** Total number of kennels linked to this source (for partial-scrape detection). */
@@ -57,9 +63,9 @@ export const MASS_CANCEL_FRACTION = 0.3;
  * Mass-cancel circuit breaker. A single reconcile pass that would cancel more
  * than {@link MASS_CANCEL_MIN} events AND more than
  * {@link MASS_CANCEL_FRACTION} of the in-window CONFIRMED candidates this source backs
- * is far more likely to be an adapter/config regression (forward-only fetch
- * without `upcomingOnly`, an unanchored biweekly RRULE flipping parity, a
- * half-rendered page) than a real mass removal — and a false cancellation is
+ * is far more likely to be an adapter/config regression (an unanchored
+ * biweekly RRULE flipping parity, a fetch that keeps one stray old row but
+ * drops the runs after it, a half-rendered page) than a real mass removal — and a false cancellation is
  * user-visible damage. Blocking is cheap: stale events stay CONFIRMED until
  * an operator confirms (`allowMassCancel`) or the source recovers.
  */
@@ -72,47 +78,49 @@ export function shouldBlockMassCancel(
 }
 
 /**
- * After a successful scrape, detect canonical Events that are no longer
- * present in the source and mark them as CANCELLED.
- *
- * Only cancels events that:
- * - Fall within the scrape time window
- * - Belong to a kennel linked to this source
- * - Are currently CONFIRMED
- * - Have NO RawEvents from any other source (sole-source events)
- * - Were not returned in the current scrape results
- *
- * A pass that would cancel too many events at once is blocked by the
- * mass-cancel circuit breaker (`shouldBlockMassCancel`) unless
- * `options.allowMassCancel` is set.
+ * True when `event` is past and the scrape has no row for its kennel dated on
+ * or before it: the scrape no longer reaches back that far (upcoming-runs
+ * pages, rolling iCal windows, logged-out Meetup), so the miss is not a
+ * removal signal. Full-history feeds still cover their past and keep
+ * reconciling it. `earliestScrapedByKennel`: kennelId → earliest YYYY-MM-DD.
  */
-export async function reconcileStaleEvents(
-  sourceId: string,
-  scrapedEvents: RawEventData[],
-  days: number,
-  scrapedKennelIds?: string[],
-  upcomingOnly?: boolean,
-  options?: ReconcileOptions,
-): Promise<ReconcileResult> {
-  const emptyResult: ReconcileResult = {
-    cancelled: 0, cancelledEventIds: [],
-    candidatesExamined: 0, multiSourcePreserved: 0,
-    kennelsInScope: 0, totalLinkedKennels: 0,
-    kennelsSuppressedForBadDate: [],
-  };
+export function isPastOutsideCoverage(
+  event: { kennelId: string; date: Date },
+  earliestScrapedByKennel: ReadonlyMap<string, string>,
+  now: Date,
+): boolean {
+  if (event.date >= now) return false;
+  const earliest = earliestScrapedByKennel.get(event.kennelId);
+  return earliest === undefined || earliest > toIsoDateString(event.date);
+}
 
-  // Resolve kennelId for every scraped event up front so we can bucket them by
-  // (kennelId, date) slot below. Slot membership drives the orphan decision
-  // after we query canonical candidates from the DB.
-  const resolutions = await Promise.all(
-    scrapedEvents.map((event) => resolveKennelTag(event.kennelTags[0], sourceId)),
-  );
-  // When a scraped row has an unparseable date we suppress the whole kennel,
-  // not just the row: dropping the row would leave its canonical orphaned and
-  // the cancellation phase would flip it to CANCELLED — strictly worse than
-  // the original slot-key mismatch this hardening prevents. A later successful
-  // scrape will reconcile that kennel cleanly.
+/** Scraped rows bucketed for reconcile; see {@link bucketScrapedRows}. */
+interface ScrapedBuckets {
+  /** `kennelId:YYYY-MM-DD` → scraped rows for that slot. */
+  scrapedBySlot: Map<string, RawEventData[]>;
+  /** kennelId → earliest scraped YYYY-MM-DD (the kennel's past coverage). */
+  earliestScrapedByKennel: Map<string, string>;
+  /** Kennels with at least one unparseable scraped date. */
+  kennelsWithUnparseableDates: Set<string>;
+}
+
+/**
+ * Bucket resolved scraped rows by (kennelId, date) slot and record each
+ * kennel's earliest scraped date.
+ *
+ * When a scraped row has an unparseable date we suppress the whole kennel, not
+ * just the row: dropping the row would leave its canonical orphaned and the
+ * cancellation phase would flip it to CANCELLED — strictly worse than the
+ * original slot-key mismatch this hardening prevents. A later successful
+ * scrape will reconcile that kennel cleanly.
+ */
+function bucketScrapedRows(
+  scrapedEvents: RawEventData[],
+  resolutions: readonly Awaited<ReturnType<typeof resolveKennelTag>>[],
+  sourceId: string,
+): ScrapedBuckets {
   const scrapedBySlot = new Map<string, RawEventData[]>();
+  const earliestScrapedByKennel = new Map<string, string>();
   const kennelsWithUnparseableDates = new Set<string>();
   for (const [i, event] of scrapedEvents.entries()) {
     const { kennelId, matched } = resolutions[i];
@@ -131,6 +139,10 @@ export async function reconcileStaleEvents(
       kennelsWithUnparseableDates.add(kennelId);
       continue;
     }
+    const earliest = earliestScrapedByKennel.get(kennelId);
+    if (earliest === undefined || dateKey < earliest) {
+      earliestScrapedByKennel.set(kennelId, dateKey);
+    }
     const key = `${kennelId}:${dateKey}`;
     let list = scrapedBySlot.get(key);
     if (!list) {
@@ -139,6 +151,49 @@ export async function reconcileStaleEvents(
     }
     list.push(event);
   }
+  return { scrapedBySlot, earliestScrapedByKennel, kennelsWithUnparseableDates };
+}
+
+/**
+ * After a successful scrape, detect canonical Events that are no longer
+ * present in the source and mark them as CANCELLED.
+ *
+ * Only cancels events that:
+ * - Fall within the scrape time window
+ * - Belong to a kennel linked to this source
+ * - Are currently CONFIRMED
+ * - Have NO RawEvents from any other source (sole-source events)
+ * - Were not returned in the current scrape results
+ * - If past-dated, fall within the scrape's past coverage for their kennel
+ *   (`isPastOutsideCoverage`); `upcomingOnly` skips the past side entirely
+ *
+ * A pass that would cancel too many events at once is blocked by the
+ * mass-cancel circuit breaker (`shouldBlockMassCancel`) unless
+ * `options.allowMassCancel` is set.
+ */
+export async function reconcileStaleEvents(
+  sourceId: string,
+  scrapedEvents: RawEventData[],
+  days: number,
+  scrapedKennelIds?: string[],
+  upcomingOnly?: boolean,
+  options?: ReconcileOptions,
+): Promise<ReconcileResult> {
+  const emptyResult: ReconcileResult = {
+    cancelled: 0, cancelledEventIds: [],
+    candidatesExamined: 0, multiSourcePreserved: 0, pastOutsideCoverage: 0,
+    kennelsInScope: 0, totalLinkedKennels: 0,
+    kennelsSuppressedForBadDate: [],
+  };
+
+  // Resolve kennelId for every scraped event up front so we can bucket them by
+  // (kennelId, date) slot below. Slot membership drives the orphan decision
+  // after we query canonical candidates from the DB.
+  const resolutions = await Promise.all(
+    scrapedEvents.map((event) => resolveKennelTag(event.kennelTags[0], sourceId)),
+  );
+  const { scrapedBySlot, earliestScrapedByKennel, kennelsWithUnparseableDates } =
+    bucketScrapedRows(scrapedEvents, resolutions, sourceId);
 
   // Get all kennel IDs linked to this source
   const sourceKennels = await prisma.sourceKennel.findMany({
@@ -186,9 +241,8 @@ export async function reconcileStaleEvents(
     };
   }
 
-  // Upcoming-only sources (e.g. sh3.link) drop runs the moment they happen —
-  // a past-dated event missing from a scrape is not a cancellation signal, so
-  // restrict the reconcile window to future dates for those sources.
+  // `upcomingOnly` skips the past side entirely; still needed when a fetch
+  // keeps one stray old row, which makes the gap after it look covered.
   const now = new Date();
   const timeMin = upcomingOnly
     ? now
@@ -297,10 +351,16 @@ export async function reconcileStaleEvents(
     }
   }
 
-  const orphaned = candidates.filter((c) => !matchedCandidateIds.has(c.id));
+  // Candidates this pass could cancel at all: matched ones are always covered,
+  // so this is every candidate minus the protected past ones.
+  const cancellable = candidates.filter(
+    (c) => !isPastOutsideCoverage(c, earliestScrapedByKennel, now),
+  );
+  const orphaned = cancellable.filter((c) => !matchedCandidateIds.has(c.id));
 
   const baseDiag = {
     candidatesExamined: candidates.length,
+    pastOutsideCoverage: candidates.length - cancellable.length,
     kennelsInScope: linkedKennelIds.length,
     totalLinkedKennels: allLinkedKennelIds.length,
     kennelsSuppressedForBadDate: suppressedKennels,
@@ -329,12 +389,13 @@ export async function reconcileStaleEvents(
   // Mass-cancel circuit breaker. The denominator is the candidates THIS source
   // backs (has RawEvents for), not every CONFIRMED event in the linked kennels:
   // events only another source supplies would otherwise dilute the fraction and
-  // let a broken secondary source wipe out most of its own rows. Only queried
+  // let a broken secondary source wipe out most of its own rows. Past runs the
+  // coverage guard protects are left out too, for the same reason. Only queried
   // when the floor is exceeded, so ordinary passes pay nothing extra.
   if (!options?.allowMassCancel && cancelledEventIds.length > MASS_CANCEL_MIN) {
     const ownBacked = await prisma.rawEvent.groupBy({
       by: ["eventId"],
-      where: { eventId: { in: candidates.map((c) => c.id) }, sourceId },
+      where: { eventId: { in: cancellable.map((c) => c.id) }, sourceId },
     });
     const sourceCandidates = ownBacked.length;
     if (shouldBlockMassCancel(cancelledEventIds.length, sourceCandidates)) {
