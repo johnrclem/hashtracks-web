@@ -516,3 +516,15 @@ describe("trailing support-role clause (#2615 Boston)", () => {
     expect(stripTrailingRoleClause("Alpha, Beta")).toBe("Alpha, Beta");
   });
 });
+
+describe("extractHares — phone-link residue and semicolon label (#2790, #2799)", () => {
+  it("drops the markdown tel: link wrapping a phone number (PGH H3 #2259)", () => {
+    const description = "Hare: Whiff [(412-979-3314](tel:(412)%20979-3314))\nCome join me.";
+    expect(extractHares(description)).toBe("Whiff");
+  });
+
+  it("reads a semicolon label with names on the following lines (Basel #392)", () => {
+    const description = "A -A Run\n.\nHares;\nGeorge Moonie\nChunder Woman\n.\nNo Bag Car";
+    expect(extractHares(description)).toBe("George Moonie, Chunder Woman");
+  });
+});

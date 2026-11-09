@@ -52,11 +52,14 @@ const NAMED_ROUTE_OVER_GENERIC_CONFIG: Readonly<Record<string, string>> = {
 };
 
 /**
- * The seeded sources each adapter serves, keyed by adapter and sorted. Every
- * enabled HTML_SCRAPER source must be listed under the adapter it resolves to.
- * When you seed a new HTML_SCRAPER source, list it under the adapter you built
- * for it, not whatever the failure message says it resolves to now. A source may
- * stay listed after it is disabled.
+ * The seeded sources each URL-routed adapter serves, keyed by adapter and sorted.
+ * Every enabled HTML_SCRAPER source that resolves through a named route must be
+ * listed under that route's adapter. When you seed one, list it under the adapter
+ * you built for it, not whatever the failure message says it resolves to now. A
+ * source may stay listed after it is disabled.
+ *
+ * A source routed by a Tribe or GenericHtml config needs no entry: its expected
+ * adapter comes from the config (see expectedAdapter).
  */
 const EXPECTED_SOURCES_BY_ADAPTER: Readonly<Record<string, readonly string[]>> = {
   AH3Adapter: ["Amsterdam H3 Website"],
@@ -123,12 +126,6 @@ const EXPECTED_SOURCES_BY_ADAPTER: Readonly<Record<string, readonly string[]>> =
   FrankfurtHashAdapter: ["FFMH3 Hareline", "Frankfurt H3 Hareline"],
   FukFullMoonH3Adapter: ["F.U.K Full Moon H3 Hareline"],
   GATRH3Adapter: ["GATR H3 WordPress Trail Posts"],
-  GenericHtmlAdapter: [
-    "BOGS H3 Run List",
-    "Christchurch H3 Website Hareline",
-    "SG Harriets Hareline",
-    "West of England Hash Run List",
-  ],
   GeriatrixH3Adapter: ["Geriatrix H3 Receding Hareline"],
   GlasgowH3Adapter: ["Glasgow H3 Hareline"],
   GoHashAdapter: [
@@ -227,7 +224,6 @@ const EXPECTED_SOURCES_BY_ADAPTER: Readonly<Record<string, readonly string[]>> =
   TamarValleyH3Adapter: ["Tamar Valley H3 Website"],
   TeignValleyH3Adapter: ["Teign Valley H3 Blogger Feed"],
   TidewaterH3Adapter: ["Tidewater H3 Website Calendar"],
-  TribeEventsAdapter: ["Dayton H3 Events Calendar", "Sydney Larrikins Special Events"],
   TrueTrailH3Adapter: ["True Trail H3 Hareline"],
   VictoriaH3Adapter: ["Victoria H3 Gamma Site"],
   VindobonaH3Adapter: ["Vindobona H3 Hareline"],
@@ -247,6 +243,15 @@ for (const [adapter, names] of Object.entries(EXPECTED_SOURCES_BY_ADAPTER)) {
     if (expectedAdapterBySource.has(name)) listedTwice.push(name);
     expectedAdapterBySource.set(name, adapter);
   }
+}
+
+/** A source's table entry, else the adapter its config selects, else undefined. */
+function expectedAdapter(s: SeedSource): string | undefined {
+  const listed = expectedAdapterBySource.get(s.name);
+  if (listed !== undefined) return listed;
+  if (isTribeEventsConfig(s.config)) return "TribeEventsAdapter";
+  if (isGenericHtmlConfig(s.config)) return "GenericHtmlAdapter";
+  return undefined;
 }
 
 describe("HTML_SCRAPER registry routing (seeded sources)", () => {
@@ -291,11 +296,13 @@ describe("HTML_SCRAPER registry routing (seeded sources)", () => {
   it("every enabled source (and any listed disabled one) resolves to its expected adapter", () => {
     const wrong: string[] = [];
     for (const s of htmlSources) {
-      const expected = expectedAdapterBySource.get(s.name);
-      if (expected === undefined && s.enabled === false) continue;
+      if (s.enabled === false && !expectedAdapterBySource.has(s.name)) continue;
+      const expected = expectedAdapter(s);
       const actual = resolvedAdapter(s);
       if (expected === undefined) {
-        wrong.push(`${s.name} (${s.url}) is not in EXPECTED_SOURCES_BY_ADAPTER; it resolves to ${actual}`);
+        wrong.push(
+          `${s.name} (${s.url}) is not in EXPECTED_SOURCES_BY_ADAPTER and has no valid Tribe or GenericHtml config; it resolves to ${actual}`,
+        );
       } else if (actual !== expected) {
         wrong.push(`${s.name} (${s.url}): expected ${expected}, got ${actual}`);
       }

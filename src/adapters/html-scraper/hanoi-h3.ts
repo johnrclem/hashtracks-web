@@ -56,6 +56,8 @@ const DEPARTURE_RE = /pick\s*-?\s*up|leaves?\b/i;
 const PAREN_RE = /\(([^)]+)\)\s*$/;
 // Ordinal suffix on a day number ("20th" → "20").
 const ORDINAL_RE = /(\d)(?:st|nd|rd|th)\b/gi;
+// A stray letter splitting the day digits: "1t4h" is 14th.
+const GARBLED_DAY_RE = /\b(\d)[a-z](\d)[a-z]{0,2}\b/gi;
 // A Google Maps shortlink (the first one in the block is the first pickup). No
 // `i` flag: the scheme + host are always lowercase, and `[A-Za-z0-9]` under `/i`
 // would duplicate the class (Sonar S5869). The shortcode itself is mixed-case.
@@ -69,6 +71,7 @@ const HARE_PLACEHOLDER_RE = /^(?:hares?\s*needed|tba|tbc|n\/a|none)$/i;
 // Lines after the heading that still belong to the run block (the hares <p> sits
 // ~13 lines below the heading; 30 comfortably covers it without reaching unrelated content).
 const BLOCK_WINDOW = 30;
+const MAX_DESCRIPTION_LEN = 1000;
 
 /** The HTML of the wp-block-column holding the "Upcoming runs" heading (falls back to the full page). */
 function scopeToUpcomingColumn(html: string): string {
@@ -217,12 +220,15 @@ function dateFromHeading(heading: string): string | null {
   const normalized = heading
     .replace(HEADING_RE, "")
     .replace(PAREN_RE, "")
+    .replace(GARBLED_DAY_RE, "$1$2")
     .replace(ORDINAL_RE, "$1")
     .replaceAll(/[,.\u2013\u2014]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   if (!normalized) return null;
-  return chronoParseDate(normalized);
+  // chrono fills in a missing day from the weekday ("Sat November 2026" → the
+  // nearest Saturday), which filed run #1841 on #1840's date; require a stated day.
+  return chronoParseDate(normalized, "en-US", undefined, { requireCertainDate: true });
 }
 
 /** Trail length display string from the "Walking" / "Running" lines (numeric bounds left open — "+"). */
@@ -235,11 +241,16 @@ function trailLengthFromBlock(block: string[]): string | undefined {
   return parts.length > 0 ? parts.join(" / ") : undefined;
 }
 
-/** A prose blurb line carries no "label:" and no URL — distinguishes it from the labelled detail lines. */
-function blurbDescription(line: string | undefined): string | undefined {
-  if (!line) return undefined;
-  if (line.includes(":") || /https?:\/\//i.test(line)) return undefined;
-  return line;
+/** A prose line has no "label:", no URL and no "***" note marker (those start the labelled details). */
+function isProseLine(line: string): boolean {
+  return !line.includes(":") && !/https?:\/\//i.test(line) && !line.startsWith("*");
+}
+
+/** The prose paragraphs between the run heading and the first labelled detail line (#2788). */
+function blurbDescription(lines: string[], startIdx: number, endIdx: number): string | undefined {
+  const prose: string[] = [];
+  for (let i = startIdx; i < Math.min(endIdx, lines.length) && isProseLine(lines[i]); i++) prose.push(lines[i]);
+  return prose.length > 0 ? prose.join(" ").slice(0, MAX_DESCRIPTION_LEN) : undefined;
 }
 
 /**
@@ -283,6 +294,7 @@ export function parseHanoiH3Page(
 
   const haresRaw = findValue(block, "hares");
   const hares = haresRaw && !HARE_PLACEHOLDER_RE.test(haresRaw) ? haresRaw : undefined;
+  const pickup = pickupAddress(pickupLine);
 
   return {
     event: {
@@ -291,11 +303,13 @@ export function parseHanoiH3Page(
       runNumber,
       // title left undefined for run-type-only headings → merge.ts synthesizes "Hanoi H3 Trail #N".
       title: titleFromHeading(heading),
-      description: blurbDescription(lines[blurbIdx]),
+      description: blurbDescription(lines, blurbIdx, headingIdx + BLOCK_WINDOW),
       startTime,
       hares,
-      location: cleanHanoiLocation(findValue(block, "location")),
-      locationStreet: pickupAddress(pickupLine),
+      // The venue line is usually the "…….. Ha Noi." placeholder, so the first
+      // pickup (where the pack actually meets the bus) stands in for it (#2788).
+      location: cleanHanoiLocation(findValue(block, "location")) ?? pickup,
+      locationStreet: pickup,
       locationUrl: findFirstMapsUrl(block),
       trailLengthText: trailLengthFromBlock(block),
       sourceUrl,

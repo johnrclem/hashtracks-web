@@ -180,3 +180,25 @@ describe("BoiseH3Adapter.fetch", () => {
     expect(result.errors.length).toBeGreaterThan(0);
   });
 });
+
+describe("parseBoiseH3Page — inline hare in the heading (#2821)", () => {
+  const page = (body: string) => `<div data-testid="richTextElement"><h1>Hash #2018-Westys players club&nbsp; Hare: Bookocker spaniel</h1></div>
+    <div data-testid="richTextElement"><p>Monday, 11/9/2026, 6:40 PM</p></div>${body}`;
+
+  it("keeps the hare out of the title and prefers the body line", () => {
+    const { event } = parseBoiseH3Page(page(`<div data-testid="richTextElement"><p>Hare: boococker spaniel</p></div>`), "https://www.boiseh3.org");
+    expect(event?.title).toBe("Westys players club");
+    expect(event?.hares).toBe("boococker spaniel");
+  });
+
+  it("leaves no title when the heading names only the hare", () => {
+    const html = `<div data-testid="richTextElement"><h1>Hash #2019 - Hare: Foo</h1></div><div data-testid="richTextElement"><p>Monday, 11/16/2026, 6:40 PM</p></div>`;
+    const { event } = parseBoiseH3Page(html, "https://www.boiseh3.org");
+    expect(event?.title).toBeUndefined();
+    expect(event?.hares).toBe("Foo");
+  });
+
+  it("falls back to the heading's hare when the body has none", () => {
+    expect(parseBoiseH3Page(page(""), "https://www.boiseh3.org").event?.hares).toBe("Bookocker spaniel");
+  });
+});

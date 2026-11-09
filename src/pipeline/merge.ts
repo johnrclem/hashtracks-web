@@ -998,7 +998,10 @@ export function resolveUpdatedTitle(
   if (incoming && !isReplaceableDefaultTitle(incoming, kennelData)) {
     return rewriteStaleDefaultTitle(incoming, kennelData.kennelCode, kennelData.shortName, kennelData.fullName, kennelData.aliases);
   }
-  if (existingTitle && !isThemelessPlaceholderTitle(existingTitle)) {
+  // A synthesized default carries the run number it was built with, so a run-number
+  // correction must rebuild it ("Trail #2543" on run 2544, #2811). Real titles stay.
+  const existingIsStaleDefault = !!runNumber && isReplaceableDefaultTitle(existingTitle, kennelData);
+  if (existingTitle && !isThemelessPlaceholderTitle(existingTitle) && !existingIsStaleDefault) {
     return rewriteStaleDefaultTitle(existingTitle, kennelData.kennelCode, kennelData.shortName, kennelData.fullName, kennelData.aliases);
   }
   const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || fallbackTag;
@@ -2036,7 +2039,8 @@ async function upsertCanonicalEvent(
           event.title,
           existingEvent.title,
           kennelData,
-          event.runNumber ?? existingEvent.runNumber,
+          // Enrichment never overwrites an existing run number, so the title must match it.
+          existingEvent.runNumber ?? event.runNumber,
           event.kennelTags[0],
         );
         if (newTitle !== existingEvent.title) enrichData.title = newTitle;
