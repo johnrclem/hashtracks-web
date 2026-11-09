@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractOnOnVenueFromDescription, extractCostFromDescription, extractMapsUrlFromDescription, coalesceEndpointDuplicates, stripTitleKennelRunPrefix, paramValue, normalizeLocMapUrl, splitGridRefSummary, gridRefPreambleHares } from "./adapter";
+import {
+  parseDashedTrailSummary, ICalAdapter, parseICalSummary, extractHaresFromDescription, extractRunNumberFromDescription, extractLocationFromDescription, extractOnOnVenueFromDescription, extractCostFromDescription, extractMapsUrlFromDescription, coalesceEndpointDuplicates, stripTitleKennelRunPrefix, paramValue, normalizeLocMapUrl, splitGridRefSummary, gridRefPreambleHares } from "./adapter";
 import type { RawEventData } from "../types";
 import type { Source } from "@/generated/prisma/client";
 import type { ParameterValue } from "node-ical";
@@ -2681,5 +2682,24 @@ describe("Chichester grid-ref helpers", () => {
     [undefined, undefined],
   ])("gridRefPreambleHares(%j) → %j", (preamble, expected) => {
     expect(gridRefPreambleHares(preamble)).toBe(expected);
+  });
+});
+
+describe("parseDashedTrailSummary (Bicester, #2802, #2803)", () => {
+  it("takes the hare and leaves the title to merge", () => {
+    expect(parseDashedTrailSummary("Trail # 2709 - Clippety Cloggs - The Rose & Crown, Charlton")).toEqual({ title: undefined, hares: "Clippety Cloggs" });
+    expect(parseDashedTrailSummary("Trail # 2710 - Runner Bean - TBC")).toEqual({ title: undefined, hares: "Runner Bean" });
+  });
+  it("reads a themed special's title and final-segment hares", () => {
+    expect(parseDashedTrailSummary("Trail # 2713 - 🎅 BH3 CHRISTMAS PARTY 🎅The Nightingale, Bicester - PP & Praying Mantis")).toEqual({
+      title: "BH3 CHRISTMAS PARTY",
+      hares: "PP & Praying Mantis",
+    });
+  });
+  it("treats a TBC hare as none", () => {
+    expect(parseDashedTrailSummary("Trail # 2720 - TBC - TBC")?.hares).toBeUndefined();
+  });
+  it("ignores other shapes", () => {
+    expect(parseDashedTrailSummary('Trail # 2707 & Trail # 2708 - "AWAY WEEKEND DEVON CLIFFS"')).toBeNull();
   });
 });

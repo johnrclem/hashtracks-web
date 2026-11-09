@@ -9811,9 +9811,8 @@ export const SOURCES = [
         defaultKennelTag: "bicester-h3",
         upcomingOnly: true, // REQUIRED — feed is ?eventDisplay=list (upcoming-only); protects the backfilled archive from reconcile
         allowEmptyBody: true, // TEC returns HTTP 200 + 0-byte body when no upcoming events (ICH3 #1753)
-        // Capture the hare from "Trail # NNNN - <hare> - <venue>" (dash-delimited SUMMARY, no colon).
-        // Bounded, S5852-safe: single \s runs, non-greedy middle segment stopped at the next dash.
-        titleHarePattern: "^Trail\\s*#?\\s*\\d+\\s*[-–]\\s*([^-–]+?)\\s*[-–]",
+        // "Trail # NNNN - <hare> - <venue>": hares from the SUMMARY, title synthesized like the backfilled archive.
+        dashedTrailSummary: true,
       },
       kennelCodes: ["bicester-h3"],
     },
