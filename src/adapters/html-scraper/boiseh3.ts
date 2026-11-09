@@ -2,6 +2,7 @@ import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { fetchHTMLPage, chronoParseDate, parse12HourTime } from "../utils";
+import { cleanAndFilterHares } from "../hare-extraction";
 
 // Heading: "Hash #1993 - Memorial Day Hash!" — dash+title is optional (site omits it between updates).
 const HEADING_RE = /Hash\s*[#＃]\s*(\d+)(?:\s*[-–]\s*(.+))?/i;
@@ -12,6 +13,8 @@ const HARES_RE = /^Hares?:\s*(\S.*)$/i;
 // Lines that aren't location candidates: section labels, bullet items, hash-cash boilerplate.
 const SKIP_LINE_RE = /^(?:Trail:|Bring:|[●•]|\$\d+\s*Hash\s*Cash)/iu;
 const ZERO_WIDTH_RE = /[\u200B-\u200D\u2060\uFEFF]/g;
+// The site sometimes puts the hare in the heading: "Hash #2018-Westys players club  Hare: X" (#2821).
+const INLINE_HARE_RE = /(?:^|\s)Hares?:/i;
 
 function parseDateTimeLine(line: string): { dateStr: string; timeStr: string } | null {
   const dm = DATE_RE.exec(line);
@@ -19,6 +22,19 @@ function parseDateTimeLine(line: string): { dateStr: string; timeStr: string } |
   const tm = TIME_RE.exec(line.slice(dm.index + dm[0].length));
   if (!tm) return null;
   return { dateStr: dm[1], timeStr: `${tm[1]} ${tm[2]}` };
+}
+
+/** Split a heading's title from a trailing "Hare: X" segment. */
+function splitInlineHare(heading: string | undefined): { title?: string; hares?: string } {
+  const text = heading?.trim();
+  if (!text) return {};
+  const idx = text.search(INLINE_HARE_RE);
+  if (idx === -1) return { title: text };
+  const colon = text.indexOf(":", idx);
+  return {
+    title: text.slice(0, idx).trim() || undefined,
+    hares: cleanAndFilterHares(text.slice(colon + 1)) ?? undefined,
+  };
 }
 
 function mergeLocation(existing: string | undefined, line: string): string {
@@ -54,7 +70,7 @@ export function parseBoiseH3Page(
     return { event: null, error: `could not parse heading: ${headText.slice(0, 80)}` };
   }
   const runNumber = Number.parseInt(headMatch[1], 10);
-  const title = headMatch[2]?.trim();
+  const { title, hares: inlineHares } = splitInlineHare(headMatch[2]);
 
   const $richContainer = $heading.closest('[data-testid="richTextElement"]');
   const $walkFrom = $richContainer.length ? $richContainer : $heading;
@@ -104,7 +120,8 @@ export function parseBoiseH3Page(
       kennelTags: ["boiseh3"],
       runNumber,
       title,
-      hares,
+      // The body "Hare:" line is the better-spelled one; the heading is only a fallback.
+      hares: hares ?? inlineHares,
       location,
       startTime,
       sourceUrl,

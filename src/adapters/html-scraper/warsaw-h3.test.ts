@@ -230,3 +230,27 @@ describe("WarsawH3Adapter", () => {
     expect(result.errors[0]).toMatch(/markup may have changed/i);
   });
 });
+
+describe("parseWarsawH3Page — bare run number + time line (#2789)", () => {
+  const html = `<p>WH3 meets every second Saturday. The next run is:<br>
+#1653<br>
+Sat 7 November 2026<br>
+13h00<br><br>
+Where?<br>Meet at the Presidential Hotel<br><br>
+Who?<br>The trail will be set by:<br>Witch Doctor<br><br>
+Upcoming runs<br><br>
+#1657 January 2, 2027<br>
+Hare: You don't really think we can plan that far ahead, do you?</p>`;
+
+  it("reads the run number and never uses the time as the title", () => {
+    const next = parseWarsawH3Page(html, "https://warsawh3.com/").events[0];
+    expect(next.runNumber).toBe(1653);
+    expect(next.startTime).toBe("13:00");
+    expect(next.title).toBeUndefined();
+  });
+
+  it("clears a full-sentence joke in the hare slot", () => {
+    const later = parseWarsawH3Page(html, "https://warsawh3.com/").events[1];
+    expect(later.hares).toBeNull();
+  });
+});

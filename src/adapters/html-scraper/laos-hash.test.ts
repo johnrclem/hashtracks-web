@@ -72,3 +72,12 @@ describe("parseLaosPage", () => {
     expect(parseLaosPage("<p>No hash this week, see you next Monday</p>", new Date(), spec(78))).toBeNull();
   });
 });
+
+describe("parseLaosPage — Location: line (#2816)", () => {
+  it("reads the labelled venue and map pin", () => {
+    const rendered = `<p>Saturday 07 #, November, Hash-run no. 1569, hare is “NAKED”<br />Start run at 4:30 pm., pay as you go<br />Location: Done Pamai village, Happy Endings Shop<br />PIN Google maps: https://maps.app.goo.gl/Ump4znCNufPW8RHa7</p>`;
+    const event = parseLaosPage(rendered, new Date("2026-11-06T04:04:55Z"), spec(22));
+    expect(event?.location).toBe("Done Pamai village, Happy Endings Shop");
+    expect(event?.locationUrl).toBe("https://maps.app.goo.gl/Ump4znCNufPW8RHa7");
+  });
+});

@@ -1,6 +1,9 @@
+import * as cheerio from "cheerio";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Source } from "@/generated/prisma/client";
-import { parseHarelineRow, parseIsoDate, parseRunsArchive, SaigonH3Adapter } from "./saigon-h3";
+import {
+  applyThisWeeksRun,
+  parseThisWeeksRun, parseHarelineRow, parseIsoDate, parseRunsArchive, SaigonH3Adapter } from "./saigon-h3";
 
 // Mock safeFetch (used by fetchHTMLPage)
 vi.mock("@/adapters/safe-fetch", () => ({
@@ -66,6 +69,53 @@ function row(
   const hrefArr = [hrefs[0], hrefs[1], hrefs[2], hrefs[3], hrefs[4], hrefs[5]];
   return { cells, hrefs: hrefArr };
 }
+
+describe("This Week's Run panel (#2791)", () => {
+  const panel = cheerio.load(`<div class="container this-weeks-run-container"><h2>This Week's Run</h2>
+    <div class="container hash-newsletter"><h3> Run #1854: The Ultimate Cat Lai Temple Run </h3>
+    <p> This week, we brave the murky Cat Lai waters. </p>
+    <h5> 🐇 Hares: Three Shitty Tits, Forgettable Fuck &amp; Team Jack Off </h5>
+    <h5> 🗓️ Sun, Nov 8th, 2026 </h5><h5> ⏰ Time and location: </h5>
+    <ul><li> 13:30 - Bus pick up at Caravelle Hotel: <a href="https://maps.app.goo.gl/6N2nBAJDTMp3YTUE9">Caravelle Hotel</a> </li>
+    <li> 15:00 - Run starts at A point: <a href="https://maps.app.goo.gl/xz39WsFmrid27NCu6">Nhà hàng Sông Quê Phước Khánh</a> </li></ul></div></div>`);
+
+  it("reads the name, full hares, date and A-site", () => {
+    expect(parseThisWeeksRun(panel)).toEqual({
+      runNumber: 1854,
+      date: "2026-11-08",
+      details: {
+        title: "The Ultimate Cat Lai Temple Run",
+        hares: "Three Shitty Tits, Forgettable Fuck & Team Jack Off",
+        location: "Nhà hàng Sông Quê Phước Khánh",
+        locationUrl: "https://maps.app.goo.gl/xz39WsFmrid27NCu6",
+        description: "This week, we brave the murky Cat Lai waters.",
+      },
+    });
+  });
+
+  it("overlays the matching row and adds the run when the table has moved past it", () => {
+    const block = parseThisWeeksRun(panel)!;
+    const row = { date: "2026-11-08", kennelTags: ["saigon-h3"], runNumber: 1854, hares: "FF,3ST& Co", startTime: "13:30" };
+    const matching = [{ ...row }];
+    applyThisWeeksRun(matching, block, "https://saigonhashers.com/hareline");
+    expect(matching[0].hares).toBe("Three Shitty Tits, Forgettable Fuck & Team Jack Off");
+    expect(matching[0].startTime).toBe("13:30");
+
+    const passed: typeof matching = [];
+    applyThisWeeksRun(passed, block, "https://saigonhashers.com/hareline");
+    expect(passed[0]).toMatchObject({ runNumber: 1854, date: "2026-11-08", startTime: "13:30" });
+  });
+
+  it("keeps the table's hares when the panel only has a placeholder", () => {
+    const events = [{ date: "2026-11-08", kennelTags: ["saigon-h3"], runNumber: 1854, hares: "FF,3ST& Co" }];
+    applyThisWeeksRun(events, { runNumber: 1854, date: "2026-11-08", details: { hares: null } }, "https://saigonhashers.com/hareline");
+    expect(events[0].hares).toBe("FF,3ST& Co");
+  });
+
+  it("is null without a numbered panel", () => {
+    expect(parseThisWeeksRun(cheerio.load("<div></div>"))).toBeNull();
+  });
+});
 
 describe("parseIsoDate", () => {
   it("parses a year-bearing ISO date to UTC-noon YYYY-MM-DD", () => {

@@ -72,3 +72,12 @@ describe("getLocationDisplay", () => {
     })).toBeNull();
   });
 });
+
+describe("getLocationDisplay — full international address (#2815)", () => {
+  it("does not append a district after a complete address", () => {
+    expect(getLocationDisplay({
+      locationName: "Turning Wheels Craft Brewery, P. Almendras St, Cebu City, 6000 Cebu, Philippines",
+      locationCity: "Mabolo, Central Visayas",
+    })).toBe("Turning Wheels Craft Brewery, P. Almendras St, Cebu City, 6000 Cebu, Philippines");
+  });
+});

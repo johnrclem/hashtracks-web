@@ -245,10 +245,8 @@ export function parseDetailBlock($: CheerioAPI, html: string): DetailBlock {
   return block;
 }
 
-/** Attach the featured-run detail block to its matching run, if present. */
-function applyDetailBlock(map: Map<number, RawEventData>, detail: DetailBlock): void {
-  if (detail.runNumber === undefined) return;
-  const target = map.get(detail.runNumber);
+/** Attach the featured-run detail block to its run, if that run is on the page. */
+function applyDetailBlock(target: RawEventData | undefined, detail: DetailBlock): void {
   if (!target) return;
   // Maps link is preferred over the row's w3w fallback.
   if (detail.locationUrl) target.locationUrl = detail.locationUrl;
@@ -260,6 +258,8 @@ export interface ParsedPage {
   events: RawEventData[];
   parseErrors: ParseError[];
   rowsFound: number;
+  /** Rows dropped because an earlier run number already holds their date. */
+  sameDateRowsDropped: number;
 }
 
 /**
@@ -291,10 +291,20 @@ export function parseHimalayanPage(html: string, now: Date, sourceUrl: string): 
     }
   });
 
-  applyDetailBlock(eventsByRun, parseDetailBlock($, html));
+  // The hand-kept table sometimes repeats a date ("Run 2543" and "Run 2544" both on
+  // 14th November, #2811). One date can only be one run here, so the first row wins
+  // rather than two rows merging into a single event with mixed fields.
+  const sorted = [...eventsByRun.values()].sort(
+    (a, b) => a.date.localeCompare(b.date) || (a.runNumber ?? 0) - (b.runNumber ?? 0),
+  );
+  const events = sorted.filter((event, i) => event.date !== sorted[i - 1]?.date);
 
-  const events = [...eventsByRun.values()].sort((a, b) => a.date.localeCompare(b.date));
-  return { events, parseErrors, rowsFound: rows.length };
+  // After the date dedup, so a detail block naming a dropped run still reaches the kept one.
+  const detail = parseDetailBlock($, html);
+  const featured = detail.runNumber === undefined ? undefined : eventsByRun.get(detail.runNumber);
+  applyDetailBlock(featured && events.find((e) => e.date === featured.date), detail);
+
+  return { events, parseErrors, rowsFound: rows.length, sameDateRowsDropped: sorted.length - events.length };
 }
 
 export class HimalayanHashAdapter implements SourceAdapter {
@@ -306,7 +316,7 @@ export class HimalayanHashAdapter implements SourceAdapter {
     if (!page.ok) return page.result;
 
     const { html, structureHash, fetchDurationMs } = page;
-    const { events: parsed, parseErrors, rowsFound } = parseHimalayanPage(
+    const { events: parsed, parseErrors, rowsFound, sameDateRowsDropped } = parseHimalayanPage(
       html,
       new Date(),
       url,
@@ -336,6 +346,7 @@ export class HimalayanHashAdapter implements SourceAdapter {
         rowsFound,
         eventsParsed: events.length,
         totalBeforeFilter: parsed.length,
+        sameDateRowsDropped,
         fetchDurationMs,
       },
     };
