@@ -534,10 +534,8 @@ export async function scrapeSource(
     let reconcileEvaluated = false;
     let reconcileSuppressedKennels: string[] = [];
     let massCancelBlocked: { wouldCancel: number; candidatesExamined: number } | undefined;
-    const rawKennelPageErrors = scrapeResult.diagnosticContext?.kennelPageFetchErrors;
-    const kennelPageErrors = typeof rawKennelPageErrors === "number" && Number.isFinite(rawKennelPageErrors) ? rawKennelPageErrors : 0;
-    const kennelPagesStopReason = scrapeResult.diagnosticContext?.kennelPagesStopReason;
-    const kennelPagesIncomplete = typeof kennelPagesStopReason === "string" && kennelPagesStopReason !== "";
+    const paginationComplete =
+      !scrapeResult.pagination?.kennelPageFetchErrors && !scrapeResult.pagination?.kennelPagesStopReason;
     // A zero-event scrape normally skips reconcile (an empty page is far more
     // often breakage than a real "everything was removed"). allowMassCancel is
     // the operator saying the removal is genuine, so it opts the empty case in.
@@ -545,8 +543,7 @@ export async function scrapeSource(
       !force &&
       (scrapeResult.events.length > 0 || options?.allowMassCancel === true) &&
       scrapeResult.errors.length === 0 &&
-      kennelPageErrors === 0 &&
-      !kennelPagesIncomplete &&
+      paginationComplete &&
       !slugMapScopeMismatch
     ) {
       const upcomingOnly =

@@ -689,6 +689,10 @@ describe("SquarespaceEventsAdapter.fetch — month walk", () => {
     );
     expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(1);
     expect(result.diagnosticContext?.kennelPagesStopReason).toBe("month_fetch_failed");
+    expect(result.pagination).toEqual({
+      kennelPageFetchErrors: 1,
+      kennelPagesStopReason: "month_fetch_failed",
+    });
   });
 
   it("retries a month once, so a single transient failure doesn't fail the scrape", async () => {
@@ -816,6 +820,7 @@ describe("SquarespaceEventsAdapter.fetch — month walk", () => {
     expect(result.errorDetails).toBeUndefined();
     expect(result.diagnosticContext?.kennelPageFetchErrors).toBe(0);
     expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
+    expect(result.pagination).toEqual({ kennelPageFetchErrors: 0, kennelPagesStopReason: null });
   });
 
   it("caps an absurd window at 600 month requests and marks the walk incomplete", async () => {
@@ -825,6 +830,7 @@ describe("SquarespaceEventsAdapter.fetch — month walk", () => {
     expect(spy).toHaveBeenCalledTimes(1 + 600);
     expect(result.errors).toEqual([]);
     expect(result.diagnosticContext?.kennelPagesStopReason).toBe("month_walk_capped");
+    expect(result.pagination).toEqual({ kennelPageFetchErrors: 0, kennelPagesStopReason: "month_walk_capped" });
     // The newest months are the ones kept.
     const months = requestedUrls(spy).map((u) => u.searchParams.get("month")).filter(Boolean);
     expect(months.at(-1)).toBe(formatMonthParam(listWindowMonths(new Date(), 0, PT).months[0]));

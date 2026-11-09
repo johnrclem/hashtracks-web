@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { Source } from "@/generated/prisma/client";
 import {
   parseTextDate,
   parseNumericDate,
@@ -8,7 +9,11 @@ import {
   composeVenueTitle,
   postToEvent,
   parseHarelineTable,
+  ONH3Adapter,
 } from "./onh3";
+import * as safeFetchModule from "../safe-fetch";
+
+vi.mock("../safe-fetch");
 
 type Post = Parameters<typeof postToEvent>[0];
 
@@ -245,5 +250,37 @@ describe("parseHarelineTable", () => {
     const row = parseHarelineTable(TABLE, "2026-01-05").find((e) => e.runNumber === 1314);
     expect(row).toBeDefined();
     expect(row!.hares).toBe("STFU & Blown Fuse"); // Hare column promoted to haresText
+  });
+});
+
+describe("ONH3Adapter.fetch pagination signal", () => {
+  const source = { id: "s1", url: "https://onh3.wordpress.com/" } as Source;
+  const jsonResponse = (body: unknown, status = 200) =>
+    ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("reports a clean end when the page past the last returns 400", async () => {
+    vi.mocked(safeFetchModule.safeFetch).mockResolvedValueOnce(jsonResponse(null, 400));
+    const result = await new ONH3Adapter().fetch(source);
+    expect(result.errors).toEqual([]);
+    expect(result.pagination).toEqual({ kennelPageFetchErrors: 0, kennelPagesStopReason: null });
+  });
+
+  it("reports a failed page", async () => {
+    vi.mocked(safeFetchModule.safeFetch).mockResolvedValueOnce(jsonResponse(null, 503));
+    const result = await new ONH3Adapter().fetch(source);
+    expect(result.errors).toHaveLength(1);
+    expect(result.pagination).toEqual({ kennelPageFetchErrors: 1, kennelPagesStopReason: "http-503" });
+  });
+
+  it("marks max-pages-hit with errors[] empty, leaving pagination as the only signal", async () => {
+    const fullPage = Array.from({ length: 100 }, (_, i) => post(`Social ${i}`, "<p>no run here</p>", i));
+    vi.mocked(safeFetchModule.safeFetch).mockResolvedValue(jsonResponse(fullPage));
+    const result = await new ONH3Adapter().fetch(source);
+    expect(result.errors).toEqual([]);
+    expect(result.pagination).toEqual({ kennelPageFetchErrors: 0, kennelPagesStopReason: "max-pages-hit" });
   });
 });

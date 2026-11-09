@@ -4,6 +4,7 @@ import type {
   RawEventData,
   ScrapeResult,
   ErrorDetails,
+  PaginationOutcome,
   ParseError,
 } from "../types";
 import { hasAnyErrors } from "../types";
@@ -232,12 +233,14 @@ export class HashRegoAdapter implements SourceAdapter {
     // Approximate fallback count from detail page errors (each error triggers createFromIndex)
     // Exclude kennel page fetch errors since those don't produce createFromIndex fallbacks
     const indexOnlyFallbacks = Math.max(0, (errorDetails.fetch?.length ?? 0) - kennelPageFetchErrors) + (errorDetails.parse?.length ?? 0);
+    const pagination: PaginationOutcome = { kennelPageFetchErrors, kennelPagesStopReason };
 
     return {
       events,
       errors,
       structureHash,
       errorDetails: hasErrorDetails ? errorDetails : undefined,
+      pagination,
       diagnosticContext: {
         totalIndexEntries: allEntries.length,
         matchingEntries: matchingEntries.length,
@@ -251,9 +254,8 @@ export class HashRegoAdapter implements SourceAdapter {
         unmappedKennelSlugs,
         kennelPagesChecked,
         kennelPageEventsFound,
-        kennelPageFetchErrors,
         kennelPagesSkipped: Math.max(0, missingSlugs.length - kennelPagesChecked.length),
-        kennelPagesStopReason,
+        ...pagination,
       },
     };
   }

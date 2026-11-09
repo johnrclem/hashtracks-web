@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
-import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
+import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, PaginationOutcome } from "../types";
 import { hasAnyErrors } from "../types";
 import { stripHtmlTags, decodeEntities, googleMapsSearchUrl, MONTHS, extractHashRunNumber, stripPlaceholder, trimEdgeChars } from "../utils";
 import { safeFetch } from "../safe-fetch";
@@ -337,15 +337,17 @@ export class ONH3Adapter implements SourceAdapter {
       if (page === MAX_PAGES) kennelPagesStopReason = "max-pages-hit"; // full page left unfetched
     }
 
+    const pagination: PaginationOutcome = { kennelPageFetchErrors, kennelPagesStopReason };
+
     return {
       events,
       errors,
       errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
+      pagination,
       diagnosticContext: {
         fetchMethod: "wordpress-com-api",
         eventsParsed: events.length,
-        kennelPageFetchErrors,
-        kennelPagesStopReason,
+        ...pagination,
         fetchDurationMs: Date.now() - fetchStart,
       },
     };

@@ -193,12 +193,31 @@ export interface AiRecoverySummary {
   results: RecoveryResult[]; // Detailed results for each recovery
 }
 
+/**
+ * How far an adapter's multi-page walk got (per-kennel pages, WordPress post
+ * pages, calendar months). `scrape.ts` skips reconcile unless the walk was
+ * complete, because a run missing from a partial fetch was not removed.
+ *
+ * Reconcile reads only `ScrapeResult.pagination`. Spread the same object into
+ * `diagnosticContext` so the values also reach ScrapeLog and the admin views.
+ */
+export interface PaginationOutcome {
+  /** Pages that failed to fetch. Non-zero suppresses reconcile. */
+  kennelPageFetchErrors: number;
+  /**
+   * Why the walk stopped short, or null if it reached the end. A non-empty
+   * string suppresses reconcile, so leave it null on a clean end.
+   */
+  kennelPagesStopReason: string | null;
+}
+
 /** Result of a single adapter scrape run */
 export interface ScrapeResult {
   events: RawEventData[];
   errors: string[]; // Legacy flat errors (kept for backwards compat)
   errorDetails?: ErrorDetails; // Phase 2A: Structured error breakdown
   structureHash?: string; // HTML structural fingerprint (HTML adapters only)
+  pagination?: PaginationOutcome; // Set by multi-page adapters; gates reconcile
   diagnosticContext?: Record<string, unknown>; // Phase 3B: Per-adapter metadata
   aiRecovery?: AiRecoverySummary; // AI recovery results (populated by scrape pipeline)
   sampleRows?: string[][]; // First 10 raw CSV rows from first tab (Google Sheets only — for AI column detection)
