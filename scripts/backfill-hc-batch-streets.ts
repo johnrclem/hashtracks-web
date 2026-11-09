@@ -14,6 +14,7 @@
 import "dotenv/config";
 import { prisma } from "@/lib/db";
 import type { HCGlobalRun } from "@/adapters/harrier-central/adapter";
+import { safeFetch } from "@/adapters/safe-fetch";
 
 const GLOBAL_RUNS_URL = "https://www.hashruns.org/api/global-runs";
 const USER_AGENT =
@@ -30,7 +31,7 @@ const WINDOWS = [["01-01", "04-30"], ["05-01", "08-31"], ["09-01", "12-31"]];
 
 async function fetchWindow(from: string, to: string): Promise<HCGlobalRun[]> {
   const url = `${GLOBAL_RUNS_URL}?isFuture=0&pageSize=20000&minEventDate=${from}&maxEventDate=${to}`;
-  const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(60_000) });
+  const res = await safeFetch(url, { headers: { "User-Agent": USER_AGENT } });
   if (!res.ok) throw new Error(`global-runs ${from}: HTTP ${res.status}`);
   const json = (await res.json()) as { runs?: HCGlobalRun[] };
   if (!Array.isArray(json.runs)) throw new Error(`global-runs ${from}: unexpected shape`);
