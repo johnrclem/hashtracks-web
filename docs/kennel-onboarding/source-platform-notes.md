@@ -3193,3 +3193,11 @@ where the long-cadence uncovered kennels live.
 - **A date-prefixed title can be wrong too.** `Dec 18th, 2025: January Hash…` (published 2025-01-14; body `Saturday January 18th`) means: if the months differ, trust the body and infer the year from publish date.
 - **`post.modified` is the liveness signal** for a pre-posted schedule. `date` says nothing about whether the kennel still maintains it.
 - **Only anchored title patterns count as dates.** `January 2019 Hash` and `July 9 Holes O' Glory Hash` both look like dates to a loose parser.
+
+## The Events Calendar (Tribe) — "Run NNNN – venue" titles and a run table in wpDataTables (Worthy Winchester H3, 2026-11-09, verified by running `TribeEventsAdapter` live; flags not yet built)
+- **`runNumberFromTitle` needs `#NNN`.** `extractHashRunNumber("Run 2159 – …")` returns undefined, so a green adapter run can still produce 0 run numbers. Check `runNumber` in the output, not just the event count.
+- **Tribe's venue object is often empty when the title holds the venue** (5 of 8 upcoming; 2 of those were `TBC`). The title then doubles as the location. A UK postcode at the end of the segment separates a venue from a theme (`New Year's Day, Red Dress run`).
+- **`stripHtmlTags` on a block-editor Tribe description leaves `@`, blank lines and the organizer's name.** The same field can hold useful notes, so normalize rather than discard.
+- **A shallow Tribe archive doesn't mean no history.** Here REST held 12 events in total, while a stats page rendered a 905-row run table through wpDataTables (SSR in `wp/v2/pages/<id>`). List `wp/v2/pages` and look for Statistics-style pages before concluding there's no backfill.
+- **Those tables are hand-kept.** Expect year typos around New Year, duplicated blocks (Covid Zoom rows twice each) and other kennels' run numbers.
+- Don't trust TEC's loader text as a count: `42 events found` sat beside 6 distinct event URLs (unexplained).
