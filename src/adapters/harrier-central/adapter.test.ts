@@ -8,7 +8,8 @@ import {
   buildHashrunsPermalink,
   splitUrlOnlyLocation,
 } from "./adapter";
-import type { HCEvent } from "./adapter";
+import type { HCEvent, HarrierCentralConfig } from "./adapter";
+import { SOURCES } from "../../../prisma/seed-data/sources";
 import { generateAccessToken, PUBLIC_HASHER_ID } from "./token";
 import type { Source } from "@/generated/prisma/client";
 
@@ -772,6 +773,12 @@ describe("HarrierCentralAdapter", () => {
       expect(result.events[0].hares).toBe("Depth Charge");
     });
 
+    it.each(["Many", "Hares", "The Hares", " the hare "])("drops the generic hare value %s (#2792)", async (hares) => {
+      mockApiResponse([buildHCEvent({ hares })]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "abujah3" }));
+      expect(result.events[0].hares).toBeUndefined();
+    });
+
     it("returns undefined hares when only the placeholder entry is present (#2220)", async () => {
       mockApiResponse([
         buildHCEvent({ hares: "Placeholder user for visitors / virgins for Lisbon H3" }),
@@ -1343,5 +1350,28 @@ describe("HarrierCentralAdapter", () => {
         expect(result.events[0].sourceUrl).toBeUndefined();
       });
     });
+  });
+});
+
+describe("Nov 2026 audit title patterns (#2793, #2817)", () => {
+  const seedConfig = (name: string) =>
+    SOURCES.find((s) => s.name === name)?.config as unknown as HarrierCentralConfig;
+
+  it.each([
+    ["Run#680: April-born Birthday Run", 680, "April-born Birthday Run"],
+    ["RUN 815 - Treasure Hunt Run", 815, "Treasure Hunt Run"],
+    ["Run 816: Halloween/Cocktober Buns Beerday Run.", 816, "Halloween/Cocktober Buns Beerday Run."],
+    ["Run#684", 684, "Abuja H3 Trail #684"],
+    ["Miscreant Run", 700, "Miscreant Run"],
+  ])("Abuja: %s", (eventName, runNumber, expected) => {
+    expect(applyTitleFallback(eventName, runNumber, seedConfig("Abuja H3 Harrier Central"))).toBe(expected);
+  });
+
+  it.each([
+    ["UN#728 Slam Dranks", 728, "Slam Dranks"],
+    ["UN #727 Hash Pool Party", 727, "Hash Pool Party"],
+    ["UN #738 - Trail", 738, "Trail"],
+  ])("Big Lik: %s", (eventName, runNumber, expected) => {
+    expect(applyTitleFallback(eventName, runNumber, seedConfig("Big Lik H3 Harrier Central"))).toBe(expected);
   });
 });

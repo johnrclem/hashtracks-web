@@ -591,9 +591,11 @@ function stripTba(value: string | undefined): string | undefined {
 // must not leak into haresText. Split the comma-joined value, drop placeholder
 // entries, and rejoin; returns undefined when nothing real remains.
 const PLACEHOLDER_HARE_RE = /\bplaceholder user\b/i;
+// Whole-value stand-ins kennels type instead of a name (Abuja H3, #2792).
+const GENERIC_HARE_VALUES = new Set(["many", "hare", "hares", "the hare", "the hares"]);
 function stripPlaceholderHares(value: string | undefined): string | undefined {
   const trimmed = stripTba(value);
-  if (!trimmed) return undefined;
+  if (!trimmed || GENERIC_HARE_VALUES.has(trimmed.toLowerCase())) return undefined;
   // Fast path: no placeholder present → return the trimmed value byte-for-byte
   // (identical to the old stripTba behavior). Re-joining unconditionally would
   // normalize comma spacing ("A,B" → "A, B") and re-fingerprint every HC

@@ -9446,9 +9446,10 @@ export const SOURCES = [
       config: {
         publicKennelId: "fa948a7e-c51f-4024-8e81-fb09c30977c1",
         defaultKennelTag: "abujah3",
-        // EventNames carry real themes ("Miscreant Run") and are kept verbatim.
-        defaultTitle: "Abuja H3",
+        // EventNames carry real themes ("Miscreant Run"); only a leading "Run#680:" is stripped, and a bare "Run#684" → "Abuja H3 Trail #684".
+        defaultTitle: "Abuja H3 Trail",
         staleTitleAliases: ["Placeholder event for Abuja H3"],
+        titleStripPatterns: [String.raw`^run\s*#?\s*\d+\s*[:\-–]?\s*`],
         upcomingOnly: true,
       },
       kennelCodes: ["abujah3"],
@@ -9466,7 +9467,7 @@ export const SOURCES = [
         // Strip the "UN #738 -" prefix (the number is already runNumber); a bare "Un #740" → "Big Lik H3 Trail #740".
         defaultTitle: "Big Lik H3 Trail",
         staleTitleAliases: ["Description", "Placeholder event for BLHHH"],
-        titleStripPatterns: [String.raw`^un #\d+[ -]*`],
+        titleStripPatterns: [String.raw`^un\s*#\s*\d+[\s-]*`],
         upcomingOnly: true,
       },
       kennelCodes: ["blhhh"],
