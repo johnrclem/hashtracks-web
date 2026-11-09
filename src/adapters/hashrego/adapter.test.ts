@@ -2312,6 +2312,9 @@ describe("HashRegoAdapter", () => {
     expect(result.diagnosticContext?.kennelPagesChecked).toEqual(["MISS1", "NYCH3"]);
     expect(result.diagnosticContext?.kennelPagesStopReason).toBeNull();
     expect(result.pagination?.kennelPagesStopReason).toBeNull();
+    // Only the kennel whose page failed is named, so reconcile can still run for NYCH3.
+    expect(result.pagination?.failedKennelSlugs).toEqual(["MISS1"]);
+    expect(result.pagination?.kennelPageFetchErrors).toBe(1);
     expect((result.diagnosticContext?.kennelPageEventsFound as number)).toBeGreaterThan(0);
     // And the 502 was recorded in fetch errors
     expect(fetchErrorsOf(result)[0].status).toBe(502);

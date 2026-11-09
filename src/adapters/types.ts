@@ -195,20 +195,27 @@ export interface AiRecoverySummary {
 
 /**
  * How far an adapter's multi-page walk got (per-kennel pages, WordPress post
- * pages, calendar months). `scrape.ts` skips reconcile unless the walk was
- * complete, because a run missing from a partial fetch was not removed.
+ * pages, calendar months). `scrape.ts` keeps reconcile off anything the walk
+ * didn't read, because a run missing from a partial fetch was not removed.
  *
  * Reconcile reads only `ScrapeResult.pagination`. Spread the same object into
  * `diagnosticContext` so the values also reach ScrapeLog and the admin views.
  */
 export interface PaginationOutcome {
-  /** Pages that failed to fetch. Non-zero suppresses reconcile. */
+  /** Pages that failed to fetch. Non-zero suppresses reconcile unless `failedKennelSlugs` names them all. */
   kennelPageFetchErrors: number;
   /**
    * Why the walk stopped short, or null if it reached the end. A non-empty
    * string suppresses reconcile, so leave it null on a clean end.
    */
   kennelPagesStopReason: string | null;
+  /**
+   * For adapters that fetch one page per kennel: the kennels whose page failed.
+   * When these account for every failure, `scrape.ts` narrows reconcile to the
+   * kennels that were read instead of skipping it. Anything in `errors[]` still
+   * skips reconcile for the whole source.
+   */
+  failedKennelSlugs?: string[];
 }
 
 /** Result of a single adapter scrape run */
