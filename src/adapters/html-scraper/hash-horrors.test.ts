@@ -4,7 +4,11 @@ import {
   parseHashHorrorsUpcoming,
   runAnchorFromArchive,
   yearFromRunAnchor,
+  HashHorrorsAdapter,
 } from "./hash-horrors";
+import { fetchWordPressComPage } from "../wordpress-api";
+
+vi.mock("../wordpress-api", () => ({ fetchWordPressComPage: vi.fn() }));
 
 describe("parseHashHorrorsRunLine", () => {
   it("parses a complete line with run/date/hares/location", () => {
@@ -340,5 +344,24 @@ describe("run-number year anchor (stale rows on the upcoming page)", () => {
     ];
     expect(runAnchorFromArchive(events as never)).toEqual({ runNumber: 1014, date: "2026-04-19", cadenceDays: 14 });
     expect(runAnchorFromArchive([] as never)).toBeNull();
+  });
+});
+
+describe("HashHorrorsAdapter structure fingerprint", () => {
+  const page = { ID: 1, URL: "https://hashhousehorrors.com/hareline/", modified: "2026-11-01", content: "<p>2026</p>" };
+  const source = { id: "src", url: "https://hashhousehorrors.com", config: null, scrapeDays: 90 } as never;
+
+  it("fingerprints both hareline pages when both load", async () => {
+    vi.mocked(fetchWordPressComPage).mockResolvedValue({ page, fetchDurationMs: 1 } as never);
+    const result = await new HashHorrorsAdapter().fetch(source);
+    expect(result.structureHash).toMatch(/^v2:/);
+  });
+
+  it("reports no fingerprint when the upcoming page fails, so a partial fetch can't alert", async () => {
+    vi.mocked(fetchWordPressComPage)
+      .mockResolvedValueOnce({ page, fetchDurationMs: 1 } as never)
+      .mockResolvedValueOnce({ error: { message: "HTTP 500", status: 500 }, fetchDurationMs: 1 } as never);
+    const result = await new HashHorrorsAdapter().fetch(source);
+    expect(result.structureHash).toBeUndefined();
   });
 });
