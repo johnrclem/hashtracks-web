@@ -306,3 +306,44 @@ describe("HertsHashAdapter.fetch", () => {
     expect(result.errors.some((e) => e.includes("0 Herts H3 rows"))).toBe(true);
   });
 });
+
+describe("parseHertsRow — stacked venue and address lines (#2812)", () => {
+  const base = ["Herts H3 2241", "Sunday 08/11/26", "11:00Hrs", "Mr X"];
+
+  it("keeps the first line as the venue and moves the rest to the description", () => {
+    const cells = [
+      ...base,
+      "The Royston Club\nFOLLOWED BY SHORT WALK TO\nSt Albans Organ Museum\nNUMBERS NEEDED £6 ENTRY FEE",
+      "12 College Road, St Albans\n320 Camp Road, St Albans\nPLEASE WEAR A POPPY!\nV\n15:00Hrs Kick Off",
+      "AL1 5ND AL1 5PE",
+    ];
+    const event = parseHertsRow(cells, []);
+    expect(event?.location).toBe("The Royston Club");
+    expect(event?.locationStreet).toBe("12 College Road, St Albans, AL1 5ND");
+    expect(event?.description).toBe(
+      "FOLLOWED BY SHORT WALK TO St Albans Organ Museum NUMBERS NEEDED £6 ENTRY FEE 320 Camp Road, St Albans PLEASE WEAR A POPPY! 15:00Hrs Kick Off",
+    );
+  });
+
+  it("rejoins an address split across two lines", () => {
+    const cells = [...base, "The Builders Arms", "47 Heath Road, Little Heath,\nPotter's Bar", "EN6 1LR"];
+    const event = parseHertsRow(cells, []);
+    expect(event?.locationStreet).toBe("47 Heath Road, Little Heath, Potter's Bar, EN6 1LR");
+    expect(event?.description).toBeNull();
+  });
+
+  it("treats a comma note under an unknown venue as a note, not an address", () => {
+    const cells = [...base, "TBC", "CAVEMAN TRAIL, DRESS AS A CAVEMAN\nTBC", ""];
+    const event = parseHertsRow(cells, []);
+    expect(event?.locationStreet).toBeUndefined();
+    expect(event?.description).toBe("CAVEMAN TRAIL, DRESS AS A CAVEMAN");
+  });
+
+  it("drops the scribe banner and a leading TBC", () => {
+    const cells = [...base, "The Queens Head\nVolunteer Scribe Please!", "TBC\n29b High Street/Basils Road, Stevenage", "SG1 3AU"];
+    const event = parseHertsRow(cells, []);
+    expect(event?.location).toBe("The Queens Head");
+    expect(event?.locationStreet).toBe("29b High Street/Basils Road, Stevenage, SG1 3AU");
+    expect(event?.description).toBeNull();
+  });
+});

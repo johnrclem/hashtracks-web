@@ -10,7 +10,7 @@
     "hares": "ET",
     "location": "Stratton Arms, Turweston",
     "locationStreet": "Turweston, Brackley, Northamptonshire, NN13 5JX",
-    "cost": "\u00a32"
+    "cost": "£2"
   },
   {
     "date": "2018-02-04",
@@ -23,7 +23,7 @@
     "hares": "Preacher",
     "location": "The Fox Inn, Fox Lane, Souldern OX27 7JW",
     "locationStreet": "The Fox, Souldern, oxon, OX27 7JW",
-    "cost": "\u00a32"
+    "cost": "£2"
   },
   {
     "date": "2018-02-11",
@@ -36,7 +36,7 @@
     "hares": "Turnpike",
     "location": "Bernwood Forest, Oakley",
     "locationStreet": "Oakley Road, Boarstall, Bucks, HP18 9UR",
-    "cost": "\u00a32"
+    "cost": "£2"
   },
   {
     "date": "2018-02-18",
@@ -49,7 +49,7 @@
     "hares": "Hot Legs",
     "location": "Hundred Acres, Bicester",
     "locationStreet": "Sunderland Drive, Bicester, Oxon, OX264FR",
-    "cost": "\u00a32.00"
+    "cost": "£2.00"
   },
   {
     "date": "2018-02-25",
@@ -71,7 +71,7 @@
     "runNumber": 2299,
     "startTime": "11:00",
     "endTime": "13:00",
-    "hares": "L\u2019Etcher",
+    "hares": "L’Etcher",
     "location": "The Plough Inn, Appleton",
     "locationStreet": "Eaton Road, Appleton, Oxon, OX135JR"
   },
@@ -498,7 +498,7 @@
     "runNumber": 2335,
     "startTime": "11:00",
     "endTime": "12:00",
-    "hares": "L\u2019Etcher",
+    "hares": "L’Etcher",
     "location": "The Clifden Arms, Worminghall",
     "locationStreet": "75 Clifden Road, Worminghall, Bucks, HP189JR"
   },
@@ -917,7 +917,7 @@
     "runNumber": 2371,
     "startTime": "19:00",
     "endTime": "20:30",
-    "hares": "Dog Loss \u2013 do not use",
+    "hares": "Dog Loss – do not use",
     "location": "The Butchers Arms, Fringford",
     "locationStreet": "Main Street, Fringford, Oxfordshire, OX278EB"
   },
@@ -1116,7 +1116,7 @@
     "runNumber": 2388,
     "startTime": "11:00",
     "endTime": "13:00",
-    "hares": "Clippety Clogs, Dog Loss \u2013 do not use",
+    "hares": "Clippety Clogs, Dog Loss – do not use",
     "location": "The George & Dragon, Quainton",
     "locationStreet": "32 The Green, Quainton, Buckinghamshire, HP224AR"
   },
@@ -1128,7 +1128,7 @@
     "runNumber": 2389,
     "startTime": "11:00",
     "endTime": "13:00",
-    "hares": "L\u2019Etcher",
+    "hares": "L’Etcher",
     "location": "Dashwood Arms, Kirtlington",
     "locationStreet": "South Green, Heyford Road, Kirtlington, Oxon, OX5 3HJ"
   },
@@ -1330,7 +1330,7 @@
     "startTime": "11:00",
     "endTime": "13:00",
     "hares": "No Name Jess",
-    "location": "Shepherds Crook, The Green, Crowell\u2028,",
+    "location": "Shepherds Crook, The Green, Crowell ,",
     "locationStreet": "The Green, Crowell, Chinnor, OX39 4RR"
   },
   {
@@ -1468,7 +1468,7 @@
     "runNumber": 2419,
     "startTime": "19:00",
     "endTime": "21:00",
-    "hares": "Dormobile, ReinDon \u2013 do not use"
+    "hares": "Dormobile, ReinDon – do not use"
   },
   {
     "date": "2020-06-01",
@@ -1508,7 +1508,7 @@
     "runNumber": 2423,
     "startTime": "19:00",
     "endTime": "21:00",
-    "hares": "L\u2019Etcher2"
+    "hares": "L’Etcher2"
   },
   {
     "date": "2020-06-29",
@@ -2522,7 +2522,7 @@
     "runNumber": 2492,
     "startTime": "11:00",
     "endTime": "13:30",
-    "hares": "L\u2019Etcher",
+    "hares": "L’Etcher",
     "location": "The Star Inn, Sulgrave"
   },
   {
@@ -3015,7 +3015,7 @@
     "runNumber": 2534,
     "startTime": "19:00",
     "endTime": "21:30",
-    "hares": "Preacher, Richard d\u2019Turd",
+    "hares": "Preacher, Richard d’Turd",
     "location": "Rose and Crown, Charlbury",
     "locationStreet": "Market Street, Charlbury, Oxfordshire, OX73PL"
   },
@@ -4174,7 +4174,7 @@
     "runNumber": 2633,
     "startTime": "19:00",
     "endTime": "21:30",
-    "hares": "E.T\u2019s Charity Hash",
+    "hares": "E.T’s Charity Hash",
     "location": "Chez ET",
     "locationStreet": "Main Street, Shalstone, Buckinghamshire, MK185LU"
   },
@@ -4902,5 +4902,149 @@
     "hares": "Runner Bean",
     "location": "The Pheasant, Brill",
     "locationStreet": "39 Windmill Street, Brill, Aylesbury, HP18 9TG"
+  },
+  {
+    "date": "2026-08-17",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2695,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Deadloss",
+    "location": "The Vine Inn, Cumnor",
+    "locationStreet": "11 Abingdon Road, Cumnor, OX2 9QN"
+  },
+  {
+    "date": "2026-08-24",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2696,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Kip & Nipples",
+    "location": "The Crown, Gawcott",
+    "locationStreet": "Hillesden Road, Gawcott, MK18 4JH"
+  },
+  {
+    "date": "2026-08-31",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2697,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Dormobile",
+    "location": "Westcott Cricket Club, Westcott",
+    "locationStreet": "Ashendon Road, Westcott, HP180NZ"
+  },
+  {
+    "date": "2026-09-07",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2698,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Reined On",
+    "location": "Kirtlington Golf Club, Kirtlington",
+    "locationStreet": "Kirtlington, OX53JY"
+  },
+  {
+    "date": "2026-09-14",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2699,
+    "startTime": "19:00",
+    "endTime": "21:30",
+    "hares": "Takeaway & Dick Dick!!",
+    "location": "The Plough Inn, Marsh Gibbon",
+    "locationStreet": "Church Street, Marsh Gibbon, OX270HQ"
+  },
+  {
+    "date": "2026-09-20",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2700,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Thrifty Gaffer",
+    "location": "The Blackbird, Croughton",
+    "locationStreet": "38 HIGH STREET, CROUGHTON, NN13 5LT"
+  },
+  {
+    "date": "2026-09-27",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2701,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dormobile",
+    "location": "Middleton Stoney Cricket Club",
+    "locationStreet": "Middleton Park, Middleton Stoney, OX25 4AQ"
+  },
+  {
+    "date": "2026-10-04",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2702,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Titfer & Stalker",
+    "location": "The Bell, Chearsley",
+    "locationStreet": "The Green, Chearsley, HP180DJ"
+  },
+  {
+    "date": "2026-10-11",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2703,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Shitstix",
+    "location": "The Pilgrim, North Marston",
+    "locationStreet": "25 High Street, North Marston, MK183PD"
+  },
+  {
+    "date": "2026-10-18",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2704,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "PP",
+    "location": "The Shakespeare Pub",
+    "locationStreet": "Bowmont Square, Bicester, OX26 2GJ"
+  },
+  {
+    "date": "2026-10-25",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2705,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Dingaling & Bondage",
+    "location": "The Chequers",
+    "locationStreet": "Weston-on-the-Green, Bicester, OX225 3QH"
+  },
+  {
+    "date": "2026-11-01",
+    "kennelTags": [
+      "bicester-h3"
+    ],
+    "runNumber": 2706,
+    "startTime": "11:00",
+    "endTime": "13:30",
+    "hares": "Deadloss",
+    "location": "The Talk House",
+    "locationStreet": "Wheatley Road, Stnton St John, Oxford, OX33 1EX"
   }
 ]

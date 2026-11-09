@@ -32,7 +32,7 @@ export const PHONE_TRAILING_RE = new RegExp(String.raw`\s*(?:${PHONE_NUMBER_RE.s
 /** Default hare extraction patterns for Google Calendar descriptions. */
 /* eslint-disable -- security/detect-unsafe-regex (Codacy ESLint plugin not loaded locally); patterns operate on trusted GCal description fields with bounded line slicing in extractHares */
 const DEFAULT_HARE_PATTERNS = [
-  /(?:^|\n)[ \t]*H{1,3}are(?:\s*&\s*Co-Hares?)?\(?s?\)?[ \t]*:[ \t]*(.*)/im,  // Hare:, Hares:, "Hare :" (space before colon, #1884 MH3-Mpls), HHHares: (Asheville's "HHH" = Hash House Harriers convention)
+  /(?:^|\n)[ \t]*H{1,3}are(?:\s*&\s*Co-Hares?)?\(?s?\)?[ \t]*[:;][ \t]*(.*)/im,  // Hare:, Hares:, "Hare :" (space before colon, #1884 MH3-Mpls), HHHares: (Asheville's "HHH" = Hash House Harriers convention), "Hares;" (semicolon typo, #2799 Basel)
   // "WHO ARE THE HARES:" template variant — must match before the generic
   // "Who:" pattern so the full label prefix is consumed. Non-greedy capture
   // with a section-label lookahead terminator handles concatenated descriptions
@@ -88,7 +88,10 @@ const URL_PREFIX_RE = /^https?:\/\//i;
 const SENTENCE_PUNCT_RE = /[:.!?]\s/;
 const SENTENCE_END_RE = /[.!?]$/;
 const PHONE_LABEL_TRAILING_RE = /[,:;\s-]*(?:phone|tel|mobile|cell)\b\s*:?\s*$/i; // NOSONAR — bounded char class + literal alternation + `$` anchor
-const PUNCT_TRAILING_RE = /[,:;\s-]+$/; // NOSONAR — single char class + `$` anchor
+// Includes the opening bracket/paren a phone number was wrapped in: GCal's rich-text
+// export renders "Hare: Whiff (412-…)" as a markdown tel: link, and truncating at the
+// number left "Whiff [" behind (#2790 PGH H3).
+const PUNCT_TRAILING_RE = /[,:;\s(\[-]+$/; // NOSONAR — single char class + `$` anchor
 const ASTERISK_TAIL_RE = /\s*\*{2,}\s*.*$/; // NOSONAR — bounded `.*$` on first-line slice (no nesting); input ≤200 chars
 const COHARE_COMMENTARY_RE = /\s*(?:could|need)\s+.*?co-?hares?\b.*$/i; // NOSONAR — non-greedy `.*?` anchored to literal `co-?hares?\b`
 // Strip trailing " - lowercase commentary" annotations like

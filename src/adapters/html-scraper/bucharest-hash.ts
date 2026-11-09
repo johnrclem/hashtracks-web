@@ -25,7 +25,7 @@
 
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
-import { filterEventsByWindow } from "../utils";
+import { filterEventsByWindow, trimEdgeChars } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { parseCSV } from "../google-sheets/adapter";
 import { generateStructureHash } from "@/pipeline/structure-hash";
@@ -108,6 +108,21 @@ export function looksLikeVenue(text: string): boolean {
   return VENUE_WORDS.some((w) => lower.includes(w));
 }
 
+/**
+ * "Worm Moon Parcul Păsărari" / "Hunter's Moon - Piata Romana" → the moon name
+ * plus the place after it (#2824). Null when the cell isn't that shape.
+ */
+export function splitMoonPrefix(text: string): { moon: string; place: string } | null {
+  const idx = text.toLowerCase().indexOf(" moon");
+  if (idx === -1) return null;
+  const end = idx + " moon".length;
+  if (/\p{L}/u.test(text.charAt(end))) return null; // "Moonlight"
+  const moon = text.slice(0, end).trim();
+  if (moon.split(/\s+/).length > 3) return null;
+  const place = trimEdgeChars(text.slice(end), " \t-–—:,");
+  return place ? { moon, place } : null;
+}
+
 function stripPrefix(text: string, prefixes: string[]): string {
   for (const prefix of prefixes) {
     if (text.toLowerCase().startsWith(prefix)) return text.slice(prefix.length).trim();
@@ -138,7 +153,11 @@ export function parseBucharestRow(row: string[]): RawEventData | null {
 
   let location: string | undefined;
   let title: string | undefined;
-  if (place && looksLikeVenue(place)) location = stripTrailType(place);
+  const moonSplit = splitMoonPrefix(place);
+  if (moonSplit && looksLikeVenue(moonSplit.place)) {
+    title = moonSplit.moon;
+    location = stripTrailType(moonSplit.place);
+  } else if (place && looksLikeVenue(place)) location = stripTrailType(place);
   else if (place) title = place;
   const startAt = START_AT_RE.exec(extra);
   if (!location && startAt) location = clean(startAt[1]);

@@ -13,14 +13,15 @@
  * "Mismanagement Meeting") are skipped. The text after the run number names
  * either the venue or the hares, so it is not used as a title (merge
  * synthesizes "Cebu H3 Trail #N"); hares come from the description's
- * "Hare is …" / "Hares are …" sentence. The widget is a rolling window, so the
- * source ships `upcomingOnly: true`.
+ * "Hare is …" / "Hares are …" sentence, or from a two-name suffix ("Hash #1565 -
+ * Busted & Screwdriver") when there is no description yet. The widget is a
+ * rolling window, so the source ships `upcomingOnly: true`.
  */
 
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ParseError } from "../types";
-import { fetchHTMLPage, filterEventsByWindow } from "../utils";
+import { fetchHTMLPage, filterEventsByWindow, trimEdgeChars } from "../utils";
 
 const KENNEL_TAG = "cebu-h3";
 const DEFAULT_URL = "https://cebuhash.wordpress.com/";
@@ -58,17 +59,32 @@ export function parseCebuWhen(text: string): { date: string | null; startTime?: 
   return { date: d.toISOString().slice(0, 10), startTime: clocks[0], endTime: clocks[1] };
 }
 
-/** "… Hare is Tiger Ass." → "Tiger Ass"; "Hares are A & B" → "A, B". */
-export function haresFromDescription(text: string): string | undefined {
-  const m = HARES_RE.exec(text);
-  if (!m) return undefined;
-  const names = m[1]
+/** "A & B and C" → sorted, de-duplicated "A, B, C". */
+function normalizeHareNames(text: string): string | undefined {
+  const names = text
     .replaceAll(" and ", ",")
     .replaceAll("&", ",")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
   return names.length > 0 ? [...new Set(names)].sort((a, b) => a.localeCompare(b)).join(", ") : undefined;
+}
+
+/** "… Hare is Tiger Ass." → "Tiger Ass"; "Hares are A & B" → "A, B". */
+export function haresFromDescription(text: string): string | undefined {
+  const m = HARES_RE.exec(text);
+  return m ? normalizeHareNames(m[1]) : undefined;
+}
+
+/**
+ * "Busted & Screwdriver" after the run number names the hares; "Turning Wheels"
+ * names the venue. Only a two-name suffix that isn't part of the location counts.
+ */
+export function haresFromSummarySuffix(summary: string, location: string | undefined): string | undefined {
+  const suffix = trimEdgeChars(clean(summary.replace(RUN_SUMMARY_RE, "")), " -–—");
+  if (!suffix || !/ (?:&|and) /i.test(suffix)) return undefined;
+  if (location?.toLowerCase().includes(suffix.toLowerCase())) return undefined;
+  return normalizeHareNames(suffix);
 }
 
 /** Parse the widget. Exported for tests. */
@@ -88,14 +104,15 @@ export function parseCebuWidget(html: string): { events: RawEventData[]; widgetF
       return;
     }
     const description = clean($(li).find(".event-description").text()) || undefined;
+    const location = clean($(li).find(".event-location").text()) || undefined;
     events.push({
       date: when.date,
       kennelTags: [KENNEL_TAG],
       runNumber: Number.parseInt(run[1], 10),
       startTime: when.startTime,
       endTime: when.endTime,
-      location: clean($(li).find(".event-location").text()) || undefined,
-      hares: description ? haresFromDescription(description) : undefined,
+      location,
+      hares: (description ? haresFromDescription(description) : undefined) ?? haresFromSummarySuffix(summary, location),
       description,
       sourceUrl: DEFAULT_URL,
     });

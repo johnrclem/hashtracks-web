@@ -211,3 +211,20 @@ describe("parseDetailBlock", () => {
     expect(block.longitude).toBeCloseTo(85.293534, 5);
   });
 });
+
+describe("parseHimalayanPage (two rows on one date, #2811)", () => {
+  it("keeps the first run instead of mixing the two rows", () => {
+    const row = (run: number) => `<tr><td>Run ${run}</td><td>14th November</td><td>1400 Hrs</td><td>Undecided</td><td>Needed</td><td></td></tr>`;
+    const html = `<table class="tablepress"><tbody>${row(2543)}${row(2544)}</tbody></table>`;
+    const { events, sameDateRowsDropped } = parseHimalayanPage(html, new Date("2026-11-08T12:00:00Z"), "https://himalayanhash.run/");
+    expect(events.map((e) => e.runNumber)).toEqual([2543]);
+    expect(sameDateRowsDropped).toBe(1);
+  });
+
+  it("gives the kept run the detail block of a dropped run", () => {
+    const row = (run: number) => `<tr><td>Run ${run}</td><td>14th November</td><td>1400 Hrs</td><td>Undecided</td><td>Needed</td><td></td></tr>`;
+    const html = `<table class="tablepress"><tbody>${row(2543)}${row(2544)}</tbody></table><h2>HASH 2544</h2><a href="https://maps.app.goo.gl/abc123">Map</a>`;
+    const { events } = parseHimalayanPage(html, new Date("2026-11-08T12:00:00Z"), "https://himalayanhash.run/");
+    expect(events[0]).toMatchObject({ runNumber: 2543, locationUrl: "https://maps.app.goo.gl/abc123" });
+  });
+});

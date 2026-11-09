@@ -14,7 +14,7 @@ import { buildUrlVariantCandidates } from "@/adapters/url-variants";
 import { toIsoDateString } from "@/lib/date";
 import { safeFetch } from "./safe-fetch";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import type { ErrorDetails, ScrapeResult } from "./types";
+import type { ErrorDetails, ScrapeResult, RawEventData } from "./types";
 
 /**
  * Decode all HTML entities (named, hex, decimal) in a string.
@@ -917,6 +917,16 @@ export const EVENT_FIELD_LABEL_UPPERCASE_RE =
  */
 export function isPlaceholder(value: string): boolean {
   return isPlaceholderText(value.trim());
+}
+
+/**
+ * Copy `overlay` onto `base`, skipping fields the overlay doesn't know: `undefined`
+ * and `null` both leave the base value alone. For a secondary block on a page, whose
+ * blank field says nothing about the primary row (unlike a primary row's explicit clear).
+ */
+export function overlayKnownFields(base: RawEventData, overlay: Partial<RawEventData>): RawEventData {
+  const known = Object.entries(overlay).filter(([, value]) => value !== undefined && value !== null);
+  return { ...base, ...Object.fromEntries(known) };
 }
 
 // Placeholder run token immediately after a "#" marker — the non-word markers:

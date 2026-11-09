@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { haresFromDescription, parseCebuWhen, parseCebuWidget } from "./cebu-hash";
+import { haresFromDescription, haresFromSummarySuffix, parseCebuWhen, parseCebuWidget } from "./cebu-hash";
 
 // The live Jetpack "Upcumming Events" widget from cebuhash.wordpress.com (2026-11-05).
 const WIDGET = readFileSync(path.join(__dirname, "fixtures/cebu-hash-upcoming-events-2026-11-05.html.fixture"), "utf-8");
@@ -44,10 +44,23 @@ describe("parseCebuWidget", () => {
       hares: "Tiger Ass",
     });
     expect(events.every((e) => e.title === undefined)).toBe(true);
-    expect(events[1]).toMatchObject({ location: undefined, hares: undefined, startTime: undefined });
+    expect(events[1]).toMatchObject({ location: undefined, hares: "Busted, Screwdriver", startTime: undefined });
   });
 
   it("reports a missing widget", () => {
     expect(parseCebuWidget("<html><body>nothing</body></html>").widgetFound).toBe(false);
+  });
+});
+
+describe("haresFromSummarySuffix (#2814)", () => {
+  it("takes a two-name suffix as hares", () => {
+    expect(haresFromSummarySuffix("Hash #1565 - Busted & Screwdriver", undefined)).toBe("Busted, Screwdriver");
+  });
+  it("ignores a venue suffix", () => {
+    expect(haresFromSummarySuffix("Hash #1564 - Turning Wheels", "Turning Wheels Craft Brewery, Cebu City")).toBeUndefined();
+    expect(haresFromSummarySuffix("Hash #1570 - Bar & Grill", "Bar & Grill, Cebu City")).toBeUndefined();
+  });
+  it("ignores a bare run", () => {
+    expect(haresFromSummarySuffix("Hash #1566", undefined)).toBeUndefined();
   });
 });

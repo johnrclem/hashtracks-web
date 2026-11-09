@@ -56,6 +56,9 @@ export function getLocationDisplay(event: LocationDisplayEvent): string | null {
     }
     // Don't append city when location already has a complete US address (ends with state + optional zip)
     if (/, [A-Za-z]{2}(?:\s+\d{5}(?:-\d{4})?)?\s*$/.test(name)) return name;
+    // Four or more comma-separated parts is already a full address: a reverse-geocoded
+    // district after the country reads backwards ("…, Philippines, Mabolo", #2815).
+    if (name.split(",").length >= 4) return name;
     return `${name}, ${city}`;
   }
   return city || name || null;

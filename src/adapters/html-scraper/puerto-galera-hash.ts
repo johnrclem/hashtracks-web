@@ -11,6 +11,9 @@
  *          <strong>Hare(s): </strong>Free Sex<br><strong>Location: </strong>Away to home<br>
  *          <strong>Comments: </strong> …<br><strong>Fees: </strong> regular fee</p></div>
  *      Headings carry no year; each date takes the year nearest to today.
+ *      Special runs are listed twice: the regular row says only "Run 1905: Special
+ *      Run - see details...", and `#specialRunsAccordion` holds the real name and
+ *      departure ("Saturday November 7th - 7-11 Run #4"), merged in by run number.
  *      "Hare Needed!" / "Walang Hare!" (Tagalog: "no hare") mean no hare yet.
  *   2. `/assets/php/runList.php` — the JSON behind the Run List DataTable: every
  *      run since #940 (Aug 2008) with ISO date, hares, location and On On venue.
@@ -25,7 +28,7 @@
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
-import { filterEventsByWindow } from "../utils";
+import { filterEventsByWindow, overlayKnownFields } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 
@@ -42,6 +45,8 @@ const MONTHS = new Map<string, number>([
 // "Saturday November 7th" — month then day, no year.
 const HEADING_RE = /\b([A-Za-z]{3,9}) (\d{1,2})(?:st|nd|rd|th)?\b/;
 const RUN_RE = /\bRun (\d{3,5})\b/;
+// "Saturday November 7th - 7-11 Run #4" → the special run's name after the date.
+const HEADING_NAME_RE = /^[^-–—]*\d(?:st|nd|rd|th)?\s[-–—]\s(.+)$/;
 const TIME_RE = /(\d{1,2}):(\d{2}) ?(am|pm)/i;
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 const RUN_LINK_RE = />(\d{3,5})</;
@@ -88,19 +93,20 @@ function labelledLines(html: string): Map<string, string> {
   const fields = new Map<string, string>();
   for (const line of lines) {
     const colon = line.indexOf(":");
-    if (colon > 0 && colon < 20) fields.set(line.slice(0, colon).toLowerCase(), line.slice(colon + 1).trim());
+    // "Run 1905: Special Run - see details..." is the run line, not a label.
+    if (line.startsWith("Run ") && RUN_RE.test(line) && !fields.has("run")) fields.set("run", line);
+    else if (colon > 0 && colon < 20) fields.set(line.slice(0, colon).toLowerCase(), line.slice(colon + 1).trim());
     else if (RUN_RE.test(line)) fields.set("run", line);
   }
   return fields;
 }
 
-/** Parse the upcoming-runs accordion. Exported for tests. */
-export function parseUpcomingRuns(html: string, now: Date = new Date()): { events: RawEventData[]; accordionFound: boolean } {
-  const $ = cheerio.load(html);
-  const accordion = $("#runListAccordion");
+/** One accordion's <h3> + `.runList` pairs. `named` reads a special run's name from its heading. */
+function parseAccordion($: cheerio.CheerioAPI, selector: string, now: Date, named: boolean): RawEventData[] {
   const events: RawEventData[] = [];
-  accordion.children("h3").each((_i, h3) => {
-    const date = resolveHeadingDate(clean($(h3).text()), now);
+  $(selector).children("h3").each((_i, h3) => {
+    const heading = clean($(h3).text());
+    const date = resolveHeadingDate(heading, now);
     const body = $(h3).next(".runList").find("p").first();
     if (!date || body.length === 0) return;
     const fields = labelledLines(body.html() ?? "");
@@ -115,13 +121,28 @@ export function parseUpcomingRuns(html: string, now: Date = new Date()): { event
       kennelTags: [KENNEL_TAG],
       runNumber: run ? Number.parseInt(run[1], 10) : undefined,
       startTime: time ? to24h(time[1], time[2], time[3]) : undefined,
-      hares: cleanHares(fields.get("hare(s)") ?? ""),
+      title: named ? HEADING_NAME_RE.exec(heading)?.[1] : undefined,
+      hares: cleanHares(fields.get("hare(s)") ?? fields.get("hares") ?? fields.get("hare") ?? ""),
       location: NO_LOCATION.has(location.toLowerCase()) ? null : location,
       description: notes.length > 0 ? notes.join(" — ") : undefined,
       sourceUrl: DEFAULT_URL,
     });
   });
-  return { events, accordionFound: accordion.length > 0 };
+  return events;
+}
+
+/** Parse the upcoming-runs accordion, overlaying the SPECIAL RUNS block by run number. Exported for tests. */
+export function parseUpcomingRuns(html: string, now: Date = new Date()): { events: RawEventData[]; accordionFound: boolean } {
+  const $ = cheerio.load(html);
+  const events = parseAccordion($, "#runListAccordion", now, false);
+  for (const special of parseAccordion($, "#specialRunsAccordion", now, true)) {
+    const idx = events.findIndex((e) =>
+      special.runNumber === undefined ? e.date === special.date : e.runNumber === special.runNumber,
+    );
+    if (idx === -1) events.push(special);
+    else events[idx] = overlayKnownFields(events[idx], special);
+  }
+  return { events, accordionFound: $("#runListAccordion").length > 0 };
 }
 
 export interface RunListRow {

@@ -30,6 +30,7 @@ export interface ICalSourceConfig {
   titleStripPrefixAliases?: string[];  // #2148 Reading / #2160 ICH3: kennel-label variants ("RH3"/"ReadingH3", "ICH3") to strip from the START of the resolved title together with an immediately-following run marker ("#1203:", "# 60"). Opt-in per source — the run number is already extracted into its own field, so the prefix is pure noise. See stripTitleKennelRunPrefix.
   cleanDescriptionLocation?: boolean;  // #2159 Charm City: run a DESCRIPTION-derived location (not the VEVENT LOCATION field) through cleanLocationName — strips URLs/labels/CTA residue and rejects placeholders. Opt-in so feeds whose On-On venue path already emits clean names are untouched.
   dropImprobablePlaceholderTime?: boolean; // #2175 Charm City: clear startTime/endTime when a `#TBD`-style placeholder run also carries a junk late-night DTSTART (23:00–03:59) — the hare entered a throwaway time before the trail was scheduled. Opt-in so a legitimately late/early-morning trail on another feed that still uses a placeholder run number keeps its time.
+  dashedTrailSummary?: boolean;        // Bicester H3: SUMMARY is "Trail # N - <hare> - <venue|TBC>", or for specials "Trail # N - 🎅 THEME 🎅Venue - <hares>". Takes the hares from the right segment and leaves the title undefined (merge synthesizes "<Kennel> Trail #N") unless the SUMMARY names a theme. See parseDashedTrailSummary.
   summaryGridRefVenue?: boolean;       // Chichester H3: SUMMARY is "<hares / theme>  <OS grid ref> <venue>" (e.g. "Bambi & Old Faithful  SU912194 Ambersham Common") or "<text>  TBA  see …" with no title and a link-only DESCRIPTION. Splits venue off the grid ref, uses the preamble as the description, takes hares from it only when it reads as a plain hare list, and leaves the title undefined so merge synthesizes "<Kennel> Trail #N". See splitGridRefSummary / gridRefPreambleHares.
   locationOmitIfMatches?: string[];    // Cheltenham & Cotswold H3: regexes (case-insensitive) for a LOCATION that is a placeholder, not a venue ("TORCHLIT"). A match drops the location AND the VEVENT's GEO, because the publisher geocoded the placeholder text into a bogus pin. Same semantics as the GenericHtml/GCal knob of the same name.
 }
@@ -235,6 +236,10 @@ const LOCATION_PATTERNS = [
 const COST_PATTERNS = [
   /(?:^|\n)\s*Hash\s*Cash:\s*([^\n]+)/im,
 ];
+const DASHED_TRAIL_RE = /^Trail\s*#\s*\d+\s+[-–]\s+(.+)$/i;
+const DASHED_TRAIL_SEPARATOR_RE = /\s[-–]\s/;
+const EMOJI_RE = /\p{Extended_Pictographic}/u;
+
 // #2004 Perth: a `titleHarePattern` capture that ends in an event-type word
 // ("West Coast 4 seasons run") is a trail theme, not a hare. "hash"/"trail" are
 // deliberately omitted so legit names like "Captain Hash" pass.
@@ -867,6 +872,11 @@ function buildRawEventFromVEvent(
   if (config?.stripTitleHareSuffix && hareFromTitle && title && compiledTitleHarePattern) {
     title = title.replace(compiledTitleHarePattern, "").trim() || undefined;
   }
+  const dashed = config?.dashedTrailSummary ? parseDashedTrailSummary(summary) : null;
+  if (dashed) {
+    title = dashed.title;
+    hares ??= dashed.hares;
+  }
   // #2160 hard rule — the title must NEVER be the hare name. When the hare was
   // pulled from the SUMMARY (titleHarePattern) and the stripped title is just
   // that hare (ICH3 "ICH3# 60 Plea Barkin" → title "Plea Barkin" == hare), drop
@@ -899,6 +909,23 @@ function buildRawEventFromVEvent(
     sourceUrl: eventUrlIsMap ? undefined : eventUrl,
     endDate,
   };
+}
+
+/**
+ * "Trail # 2709 - Clippety Cloggs - The Rose & Crown" → hares only (#2802); an
+ * emoji-marked special ("Trail # 2713 - 🎅 PARTY 🎅The Nightingale - PP & Mantis")
+ * → the theme as title and the LAST segment as hares (#2803). Null for any other
+ * shape, which then follows the normal SUMMARY path.
+ */
+export function parseDashedTrailSummary(summary: string): { title?: string; hares?: string } | null {
+  const body = DASHED_TRAIL_RE.exec(summary)?.[1];
+  if (!body) return null;
+  const parts = body.split(DASHED_TRAIL_SEPARATOR_RE).map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const isSpecial = EMOJI_RE.test(parts[0]);
+  const hares = isSpecial ? parts.at(-1) : parts[0];
+  const title = isSpecial ? parts[0].split(EMOJI_RE).map((p) => p.trim()).find(Boolean) : undefined;
+  return { title, hares: hares && !isPlaceholder(hares) ? hares : undefined };
 }
 
 /** Build diagnostic context string for a VEvent parse error. */
