@@ -75,7 +75,7 @@ describe("fetchKennelEvents", () => {
   });
 
   it("200 + malformed JSON body → throws parse error", async () => {
-    // Real Response with a non-JSON body — res.json() will throw SyntaxError.
+    // Real Response with a non-JSON body, so parsing throws SyntaxError.
     mockedSafeFetch.mockResolvedValue(
       new Response("this is not json", {
         status: 200,
@@ -83,6 +83,17 @@ describe("fetchKennelEvents", () => {
       }),
     );
     await expect(fetchKennelEvents("EWH3")).rejects.toMatchObject({ kind: "parse" });
+  });
+
+  it("200 + connection lost while reading the body → throws network error", async () => {
+    const droppedBody = new ReadableStream({
+      start(controller) {
+        controller.error(new DOMException("The operation timed out.", "TimeoutError"));
+      },
+    });
+    mockedSafeFetch.mockResolvedValue(new Response(droppedBody, { status: 200 }));
+
+    await expect(fetchKennelEvents("EWH3")).rejects.toMatchObject({ kind: "network" });
   });
 
   it("401 → throws auth", async () => {

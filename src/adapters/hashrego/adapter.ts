@@ -34,7 +34,7 @@ const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 500;
 const LOOKBACK_DAYS = 7;
 const INDEX_FETCH_RETRIES = 2;
-const STEP2B_BUDGET_MS = 45_000;
+const STEP2B_BUDGET_MS = 45_000; // Covers the first pass and the retry pass
 const MAX_REQUEST_TIMEOUT_MS = 5_000;
 const MIN_REQUEST_TIMEOUT_MS = 800;
 import { USER_AGENT } from "./constants";
@@ -379,13 +379,13 @@ export function apiToIndexEntry(api: HashRegoKennelEvent, kennelSlug: string): I
  * Non-PII field whitelist for error diagnostics. See seletar-h3.ts safeRowSample
  * for the equivalent pattern on the other adapter that handles user-supplied data.
  */
-function safeApiRowSample(row: Partial<HashRegoKennelEvent>): string {
+function safeApiRowSample(row: Partial<HashRegoKennelEvent> | null): string {
   return JSON.stringify({
-    slug: row.slug,
-    host_kennel_slug: row.host_kennel_slug,
-    start_time: row.start_time,
-    current_price: row.current_price,
-    is_over: row.is_over,
+    slug: row?.slug,
+    host_kennel_slug: row?.host_kennel_slug,
+    start_time: row?.start_time,
+    current_price: row?.current_price,
+    is_over: row?.is_over,
   });
 }
 
@@ -441,7 +441,7 @@ async function fetchAndConvertKennelEvents(
         row: index,
         section: slug,
         error: message,
-        rawText: safeApiRowSample(row ?? {}),
+        rawText: safeApiRowSample(row),
         partialData: { kennelTags: [slug], sourceUrl },
       });
     }
@@ -490,7 +490,10 @@ function isNetworkFailure(outcome: Step2bOutcome): boolean {
  * can't cover leaves the first failure standing without counting as an early
  * stop, since every page was attempted.
  */
-async function fetchKennelPagesWithRetry(slugs: string[], fetchStart: number) {
+async function fetchKennelPagesWithRetry(
+  slugs: string[],
+  fetchStart: number,
+): Promise<{ results: KennelPageResult[]; budgetExhausted: boolean; retried: number; recovered: number }> {
   const firstPass = await fetchKennelPages(slugs, fetchStart);
   const retrySlugs = firstPass.results.filter((r) => isNetworkFailure(r.outcome)).map((r) => r.slug);
   const retryPass = await fetchKennelPages(retrySlugs, fetchStart);
