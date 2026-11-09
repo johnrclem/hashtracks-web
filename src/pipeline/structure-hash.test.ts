@@ -183,6 +183,14 @@ describe("generateStructureHash", () => {
       );
     });
 
+    it("reads a structured plugin list the same with one item or two", () => {
+      const row = `<div class="run-row"><div class="run-date">a</div></div>`;
+      const direct = (rows: string) => themed(`<div class="entry-content">${rows}</div>`);
+      const wrapped = (rows: string) => direct(`<div class="hareline">${rows}</div>`);
+      expectSameHash(direct(row), direct(row + row));
+      expectSameHash(wrapped(row), wrapped(row + row));
+    });
+
     it("ignores blocks an author composes inside a post body", () => {
       const post = (body: string) => themed(`<div class="entry-content">${body}</div>`);
       expectSameHash(

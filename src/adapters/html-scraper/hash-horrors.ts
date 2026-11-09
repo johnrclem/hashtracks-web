@@ -552,9 +552,10 @@ export class HashHorrorsAdapter implements SourceAdapter {
     if (fetchErrors.length > 0) errorDetails.fetch = fetchErrors;
     if (parseErrors.length > 0) errorDetails.parse = parseErrors;
 
-    const structureHash = generateStructureHash(
-      archiveResult.page.content + (upcomingResult.page?.content ?? ""),
-    );
+    // Hashing one page instead of two would look like a template change.
+    const structureHash = upcomingResult.page
+      ? generateStructureHash(archiveResult.page.content + upcomingResult.page.content)
+      : undefined;
     return {
       events,
       errors,

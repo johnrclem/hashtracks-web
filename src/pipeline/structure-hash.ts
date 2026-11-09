@@ -5,7 +5,8 @@ import type { AnyNode, Element } from "domhandler";
 /**
  * Prefix on every stored hash. Bump it whenever the skeleton rules change: hashes
  * with different prefixes are never compared, so a new algorithm starts from
- * "no baseline" instead of raising STRUCTURE_CHANGE on every source.
+ * "no baseline" instead of raising STRUCTURE_CHANGE on every source. Code from
+ * before this prefix has no such guard, so don't revert past it without resetting baselines.
  */
 const HASH_PREFIX = "v2:";
 
@@ -134,7 +135,9 @@ interface SiblingGroup {
 
 /**
  * Same-tag siblings sharing any class are one list, labelled only by the classes
- * all of them have, so a row marked `run-open` still reads as a row.
+ * all of them have, so a row marked `run-open` still reads as a row. A sibling
+ * joins the first group it overlaps, which only matters if a site reorders
+ * siblings whose classes partly overlap.
  */
 function groupSiblings(children: Element[]): SiblingGroup[] {
   const groups: { tag: string; shared: string[]; seen: Set<string>; members: Element[] }[] = [];
@@ -183,9 +186,15 @@ function canBeListItem(el: Element): boolean {
   return classes.length > 0 && !classes.some((cls) => cls.startsWith("wp-block-"));
 }
 
+/** Authors write single notes. A lone block with classed blocks inside came from a template. */
+function isStructured(el: Element): boolean {
+  return el.children.filter(isElement).some(canBeListItem);
+}
+
 /**
- * What counts inside free-form writing: tables, and classed blocks repeated side
- * by side, which come from a plugin's list rather than from an author's hand.
+ * What counts inside free-form writing: tables, classed blocks repeated side by
+ * side, and lone classed blocks with structure of their own. Those come from a
+ * plugin's list rather than from an author's hand.
  */
 function listsAndTablesWithin(zone: Element): Element[] {
   const found: Element[] = [];
@@ -193,7 +202,7 @@ function listsAndTablesWithin(zone: Element): Element[] {
   for (let parent = pending.pop(); parent; parent = pending.pop()) {
     const children = parent.children.filter(isElement);
     const listItems = new Set(
-      groupSiblings(children.filter(canBeListItem)).flatMap(({ members }) => (members.length >= 2 ? members : [])),
+      groupSiblings(children.filter(canBeListItem)).flatMap(({ members }) => (members.length >= 2 || isStructured(members[0]) ? members : [])),
     );
     for (const child of children) {
       if (child.name === "table" || listItems.has(child)) found.push(child);
