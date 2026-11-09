@@ -98,7 +98,7 @@ const STATUS_KIND: Record<number, HashRegoApiErrorKind> = {
  *     silently returning [] would let the reconciler cancel events as stale
  *   - 429 → throws HashRegoApiError("rate_limit")
  *   - 5xx → throws HashRegoApiError("server")
- *   - Network / DNS / abort → throws HashRegoApiError("network")
+ *   - Network / DNS / abort, including while reading the body → throws HashRegoApiError("network")
  *
  * The per-call timeout is passed in by the batched-concurrent caller so it
  * can shrink timeouts as the Step 2b budget runs out.
@@ -129,9 +129,16 @@ export async function fetchKennelEvents(
     throw new HashRegoApiError(kennelSlug, res.status, kind, detail);
   }
 
+  let body: string;
+  try {
+    body = await res.text();
+  } catch (err) {
+    throw new HashRegoApiError(kennelSlug, 0, "network", String(err), { cause: err });
+  }
+
   let parsed: unknown;
   try {
-    parsed = await res.json();
+    parsed = JSON.parse(body);
   } catch (err) {
     throw new HashRegoApiError(kennelSlug, 200, "parse", `invalid JSON: ${err}`, { cause: err });
   }
