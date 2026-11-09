@@ -69,11 +69,11 @@ const CONTENT_DERIVED_CLASS = /^(?:author|cat|category|format|post_tag|status|ta
 /** WordPress block-editor styling flags. Core updates and page edits change these freely. */
 const BLOCK_EDITOR_FLAG = /^(?:has|is)-|^align(?:center|full|left|none|right|wide)$/;
 
-/** Core WordPress blocks an author drops into a page. Others, like `wp-block-post`, are template. */
+/** Blocks an author writes in WordPress or Wix. Others, like `wp-block-post`, are template. */
 const AUTHORED_BLOCK_CLASSES = new Set([
   "wp-block-gallery", "wp-block-heading", "wp-block-image", "wp-block-list",
   "wp-block-list-item", "wp-block-paragraph", "wp-block-quote", "wp-block-separator",
-  "wp-block-spacer",
+  "wp-block-spacer", "wixui-rich-text__text",
 ]);
 
 /** Generated ids that happen to contain no digits, like Wix's `comp-mtjrruxy`. */
@@ -134,30 +134,39 @@ interface SiblingGroup {
 }
 
 /**
- * Same-tag siblings sharing any class are one list, labelled only by the classes
- * all of them have, so a row marked `run-open` still reads as a row. A sibling
- * joins the first group it overlaps, which only matters if a site reorders
- * siblings whose classes partly overlap.
+ * Same-tag siblings linked by shared classes are one list, labelled only by the
+ * classes all of them have, so a row marked `run-open` still reads as a row.
  */
 function groupSiblings(children: Element[]): SiblingGroup[] {
-  const groups: { tag: string; shared: string[]; seen: Set<string>; members: Element[] }[] = [];
+  let groups: { tag: string; seen: Set<string>; members: Element[] }[] = [];
   for (const child of children) {
     const tag = tagOf(child);
     const classes = labelClasses(child);
-    const group = groups.find(
-      (candidate) =>
-        candidate.tag === tag &&
-        (classes.length === 0 ? candidate.seen.size === 0 : classes.some((cls) => candidate.seen.has(cls))),
-    );
-    if (group) {
-      group.members.push(child);
-      group.shared = group.shared.filter((cls) => classes.includes(cls));
-      for (const cls of classes) group.seen.add(cls);
-    } else {
-      groups.push({ tag, shared: classes, seen: new Set(classes), members: [child] });
+    const merged = { tag, seen: new Set(classes), members: [child] };
+    const overlaps = (seen: Set<string>) =>
+      classes.length === 0 ? seen.size === 0 : classes.some((cls) => seen.has(cls));
+
+    for (const group of groups) {
+      if (group.tag !== tag || !overlaps(group.seen)) continue;
+      merged.members.push(...group.members);
+      for (const cls of group.seen) merged.seen.add(cls);
     }
+    groups = [...groups.filter((group) => !merged.members.includes(group.members[0])), merged];
   }
-  return groups.map(({ tag, shared, members }) => ({ label: [tag, ...shared].join("."), members }));
+
+  return groups.map(({ tag, members }) => {
+    const shared = labelClasses(members[0]).filter((cls) =>
+      members.every((member) => labelClasses(member).includes(cls)),
+    );
+    return { label: [tag, ...shared].join("."), members };
+  });
+}
+
+/** A header row isn't a list item, so adding data rows can't change which rows count. */
+function withoutHeaderRows(rows: Element[]): Element[] {
+  const isHeader = (row: Element) => !row.children.some((cell) => isElement(cell) && cell.name === "td");
+  const dataRows = rows.filter((row) => !isHeader(row));
+  return dataRows.length > 0 ? dataRows : rows;
 }
 
 /** The template elements directly under `parent`, looking through inline wrappers. */
@@ -183,7 +192,8 @@ function templateChildren(parent: Element): Element[] {
 function canBeListItem(el: Element): boolean {
   if (IGNORED_TAGS.has(el.name) || INLINE_TAGS.has(el.name)) return false;
   const classes = stableClasses(el);
-  return classes.length > 0 && !classes.some((cls) => cls.startsWith("wp-block-"));
+  const isEditorBlock = (cls: string) => cls.startsWith("wp-block-") && !cls.startsWith("wp-block-post");
+  return classes.length > 0 && !classes.some(isEditorBlock);
 }
 
 /** Authors write single notes. A lone block with classed blocks inside came from a template. */
@@ -236,8 +246,8 @@ function collapseSiblings(blocks: string[]): string[] {
   return sortedUnique(blocks.filter((block) => counts.get(block) === highest)).slice(0, 1);
 }
 
-/** A table, or a row holding one, is page layout rather than a list item, so it always stays. */
-function collapseTableParts(blocks: string[]): string[] {
+/** Anything holding a table is page layout rather than a list item, so it always stays. */
+function collapseKeepingTables(blocks: string[]): string[] {
   const holdsTable = (block: string) => CONTAINS_TABLE.test(block);
   return [...collapseSiblings(blocks.filter((block) => !holdsTable(block))), ...blocks.filter(holdsTable)];
 }
@@ -249,9 +259,9 @@ function renderChildren(children: Element[], parentName: string, depth: number):
   }
 
   const collapsed = groupSiblings(children).flatMap(({ label, members }) => {
-    const blocks = members.map((member) => renderElement(member, label, depth)).filter(Boolean);
-    const tag = label.split(".")[0];
-    return tag === "table" || tag === "tr" ? collapseTableParts(blocks) : collapseSiblings(blocks);
+    const rendered = label === "tr" ? withoutHeaderRows(members) : members;
+    const blocks = rendered.map((member) => renderElement(member, label, depth)).filter(Boolean);
+    return collapseKeepingTables(blocks);
   });
   return sortedUnique(collapsed);
 }

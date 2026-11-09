@@ -214,7 +214,7 @@ async function checkStructuralChange(
   if (!input.structureHash) return null;
 
   const prevHash = recentSuccessful.find(
-    (l) => l.structureHash,
+    (l) => compareStructureHashes(l.structureHash, input.structureHash) !== "no-baseline",
   )?.structureHash;
 
   const comparison = compareStructureHashes(prevHash, input.structureHash);

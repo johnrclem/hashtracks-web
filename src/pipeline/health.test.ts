@@ -727,6 +727,9 @@ describe("analyzeHealth structure fingerprint baseline", () => {
 
   it("auto-resolves when a v2 baseline matches", async () => {
     mockBaselineHash(V2_A);
+    mockAlertFindMany.mockResolvedValue([{ id: "alert_1", details: "Changed" }] as never);
+    mockAlertUpdate.mockReset();
+    mockAlertUpdate.mockResolvedValue({} as never);
 
     const result = await analyzeHealth("src_1", "log_1", baseInput({ structureHash: V2_A }));
 
@@ -736,6 +739,27 @@ describe("analyzeHealth structure fingerprint baseline", () => {
         where: expect.objectContaining({ sourceId: "src_1", type: "STRUCTURE_CHANGE" }),
       }),
     );
+    expect(mockAlertUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "alert_1" },
+        data: expect.objectContaining({ status: "RESOLVED", resolvedAt: expect.any(Date) }),
+      }),
+    );
+  });
+
+  it("compares with the latest hash from the same algorithm, past any older ones", async () => {
+    mockBaselineHash(V2_A);
+    mockScrapeLogFind.mockReset();
+    mockScrapeLogFind
+      .mockResolvedValueOnce([
+        { ...baselineEntries[0], structureHash: LEGACY_SHARED_CONSTANT },
+        { ...baselineEntries[1], structureHash: V2_A },
+      ] as never)
+      .mockResolvedValueOnce([] as never);
+
+    const result = await analyzeHealth("src_1", "log_1", baseInput({ structureHash: V2_B }));
+
+    expect(structureAlerts(result)[0]?.context).toMatchObject({ previousHash: V2_A, currentHash: V2_B });
   });
 
   it("stays quiet when the source reports no hash at all", async () => {

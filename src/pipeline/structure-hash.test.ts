@@ -239,7 +239,7 @@ describe("generateStructureHash", () => {
       const list = (items: string) => themed(`<ul class="events">${items}</ul>`);
       expectSameHash(
         list(event("") + event("") + event("")),
-        list(event("") + event("") + event(`<span class="event-location">Pub</span>`)),
+        list(event("") + event("") + event(`<div class="event-location">Pub</div>`)),
       );
     });
 
@@ -278,6 +278,20 @@ describe("generateStructureHash", () => {
       );
     });
 
+    it("does not depend on the order of siblings with overlapping classes", () => {
+      const list = (items: string[]) =>
+        themed(`<div class="hareline">${items.map((cls) => `<div class="${cls}">a</div>`).join("")}</div>`);
+      const items = ["run-row", "special-row", "run-row special-row"];
+      expectSameHash(list(items), list([...items].reverse()));
+      expectSameHash(list(items), list([items[2], items[0], items[1]]));
+    });
+
+    it("keeps the same rows whether a table has one data row or many", () => {
+      const header = `<tr><th>Date</th><th>Hares</th></tr>`;
+      const data = `<tr><td class="date">a</td><td class="hares">b</td></tr>`;
+      expectSameHash(hareline(header + data), hareline(header + data + data + data));
+    });
+
     it("ignores classed inline text such as badges", () => {
       const event = (extra: string) => themed(`<div class="event"><h3 class="title">x${extra}</h3></div>`);
       expectSameHash(event(""), event(`<span class="new-badge">New</span>`));
@@ -301,6 +315,10 @@ describe("generateStructureHash", () => {
 
     it("ignores text formatting inside a Wix rich-text block", () => {
       const block = (body: string) => themed(`<div class="wixui-rich-text">${body}</div>`);
+      expectSameHash(
+        block(`<p class="wixui-rich-text__text">a</p>`),
+        block(`<p class="wixui-rich-text__text">a</p><p class="wixui-rich-text__text">b</p>`),
+      );
       expectSameHash(
         block(`<p class="wixui-rich-text__text">a</p>`),
         block(`<h2 class="wixui-rich-text__text">a</h2><p class="wixui-rich-text__text">b</p><ul class="wixui-rich-text__text"><li>c</li></ul>`),
@@ -421,6 +439,10 @@ describe("generateStructureHash", () => {
       ["nested in a layout table", nestedInLayoutTable],
       ["among differently shaped tables", (table) => themed(navTable + navTable + table)],
       ["inside a post body", (table) => themed(`<div class="entry-content"><p>Hareline</p>${table}</div>`)],
+      [
+        "in one of several same-class sections",
+        (table) => themed(`${`<div class="wp-block-group"><div class="note">x</div></div>`.repeat(3)}<div class="wp-block-group">${table}</div>`),
+      ],
     ])("detects a column added to a table %s", (_where, page) => {
       expectDifferentHash(
         page(`<table><tr><td>a</td><td>b</td></tr></table>`),
@@ -441,6 +463,15 @@ describe("generateStructureHash", () => {
           <div class="${cls}">a</div><div class="${cls}">b</div><div class="${cls}">c</div>
         </div></div>`);
       expectDifferentHash(page("run-row"), page("event-row"));
+    });
+
+    it("detects a redesigned WordPress post list inside a post body", () => {
+      const page = (title: string) =>
+        themed(`<div class="entry-content"><ul class="wp-block-post-template">
+          <li class="wp-block-post"><h2 class="${title}">a</h2></li>
+          <li class="wp-block-post"><h2 class="${title}">b</h2></li>
+        </ul></div>`);
+      expectDifferentHash(page("wp-block-post-title"), page("run-title"));
     });
 
     it("detects a block page served in place of the real page", () => {
