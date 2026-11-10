@@ -3491,6 +3491,21 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 103.82,
     aliases: ["SG", "Republic of Singapore"],
   },
+  // ── Guam (first 🇬🇺 kennel: Agana H3, est. 1981) — single COUNTRY-level region,
+  //    mirrors the Singapore precedent (no METRO, no STATE_GROUP_MAP entry). Pink
+  //    palette: Japan/Singapore/HK are red, Philippines fuchsia, Taiwan sky. ──
+  {
+    name: "Guam",
+    country: "Guam",
+    level: "COUNTRY",
+    timezone: "Pacific/Guam",
+    abbrev: "GU",
+    colorClasses: "bg-pink-100 text-pink-700",
+    pinColor: "#db2777",
+    centroidLat: 13.4443,
+    centroidLng: 144.7937,
+    aliases: ["GU", "Territory of Guam", "Guam, USA"],
+  },
   // ── Thailand ──
   {
     name: "Thailand",
@@ -4661,6 +4676,10 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(sweden|stockholm|göteborg|gothenburg|malmö)\b/, "Sweden"],
   [/\b(norway|oslo|bergen|stavanger)\b/, "Norway"],
   [/\b(singapore)\b/, "Singapore"],
+  // Guam — territory + its capital (Hagåtña, formerly Agana). Required: Guam is a US
+  // territory and inferCountry() falls through to USA. "Micronesia" is omitted (the
+  // Federated States of Micronesia is a separate country).
+  [/\bguam\b|\baga[nñ]a\b|\bhag[aå]t[nñ]a\b/, "Guam"],
   // Nepal — country + the two unambiguous Nepali cities. Bare "himalayan" is
   // excluded: the Himalaya span India/Bhutan/Tibet too, and inferCountry() is
   // first-match with USA as the default fallthrough.
@@ -5316,6 +5335,7 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   "Switzerland": "Switzerland",
   "Austria": "Austria",
   "Singapore": "Singapore",
+  "Guam": "Guam",
   "Taiwan": "Taiwan",
   // China — country → metro (both names map to the China group)
   "China": "China",
@@ -5460,6 +5480,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   AU: "Australia",
   CA: "Canada",
   SG: "Singapore",
+  GU: "Guam",
   TW: "Taiwan",
   CN: "China",
   TH: "Thailand",

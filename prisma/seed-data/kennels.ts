@@ -4630,6 +4630,30 @@ export const KENNELS: KennelSeed[] = [
       latitude: 34.75, longitude: -92.29,
     },
 
+    // ── Guam ──
+    {
+      // Bare "ah3" = Austin H3; ah3-hi/-nl/-au/-nz taken → GU suffix. Bare "AH3" alias omitted.
+      kennelCode: "ah3-gu",
+      slug: "agana-h3",
+      shortName: "Agana H3",
+      fullName: "Agana Hash House Harriers",
+      region: "Guam",
+      country: "Guam",
+      website: "https://www.guamhash.com",
+      logoUrl: "/kennel-logos/ah3-gu.png", // self-hosted Wix og:image (resized to 512px); magic bytes confirmed PNG
+      foundedYear: 1981, // guamhash.com: "Since its founding in 1981 … the original Guam hash and Mother Hash of Micronesia"
+      hashCash: "$10", // current home-page block ("$10 for beer & snacks, $1 for gloves"); an older duplicated block still says $8
+      dogFriendly: false, // "Do NOT bring: Kids, dogs, or kids"
+      // walkersWelcome: unstated (A-to-B jungle "live" trails).
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "4:00 PM", // 12-hour Kennel.scheduleTime: "3:45pm SHOW, Map is posted @ 4:00pm"
+      scheduleFrequency: "Weekly",
+      description:
+        "The original Guam hash and Mother Hash of Micronesia, founded 1981 — Guam's Worst Drinking Club, drinkers with a running problem. A-to-B 'live' trails through jungle, swamp, mountain, river and coastline every Saturday.",
+      latitude: 13.4732, // PDN building meeting point, Hagåtña
+      longitude: 144.7528,
+    },
+
     // ── Singapore ──
     {
       kennelCode: "hhhs", shortName: "HHHS", fullName: "Hash House Harriers Singapore",
