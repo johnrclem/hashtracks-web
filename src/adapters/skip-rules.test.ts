@@ -177,3 +177,33 @@ describe("Capital Hash Calendar silentlySkipPatterns (#2023)", () => {
     expect(matchSilentSkip(ev({ title }), rules)).toBeNull();
   });
 });
+
+// Alert fixes 2026-11-10 — titles from the live Choo-Choo and Perth iCal feeds.
+describe.each([
+  {
+    name: "Choo-Choo H3 iCal Feed",
+    dropped: ["Monthly Drinking Practice"],
+    kept: ["Hash #69+34 - Scavenger Hunt", "Hash - XXXmas", "MAINx24 Parade"],
+  },
+  {
+    name: "Perth H3 Hareline",
+    dropped: ["NO RUN TODAY- see you on 24th for the Breakfast run!"],
+    kept: ["Run 2957- Chunda", "Run 2953 - XMAS", "3000 runs Celebration"],
+  },
+])("$name silentlySkipPatterns (alert fixes)", ({ name, dropped, kept }) => {
+  const source = SOURCES.find((s) => s.name === name);
+  if (!source) throw new Error(`${name} seed source missing`);
+  const rules = compileSilentSkipRules(
+    (source.config as { silentlySkipPatterns?: unknown }).silentlySkipPatterns,
+  );
+
+  it("compiles every rule", () => {
+    expect(rules).toHaveLength(1);
+  });
+  it.each(dropped)("drops %s", (title) => {
+    expect(matchSilentSkip(ev({ title }), rules)).not.toBeNull();
+  });
+  it.each(kept)("keeps %s", (title) => {
+    expect(matchSilentSkip(ev({ title }), rules)).toBeNull();
+  });
+});

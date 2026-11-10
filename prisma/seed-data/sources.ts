@@ -1318,16 +1318,18 @@ export const SOURCES = [
       // campout/special events on Hash Rego (e.g. mosh3-lingerie-shiggyfest-2026,
       // tkdh3-presents-dead-elvis-18). Their only other source is the Tidewater
       // HTML scraper; Hash Rego carries structured rego data these events need.
+      // Alert fixes 2026-11-10 — T3H3 (Tidewater's Tuesday kennel) posts Party
+      // Gras on Hash Rego as "Tuesday, Tuesday, Tuesday" (alias on t3h3-va).
       // #2501 — Pinelake has no Hash Rego account; its joint trails with AH4 come
       // from the shared "AH4_PLH3" account, filed under ph3-atl like the Atlanta
       // Hash Board does (host-name alias in aliases.ts).
-      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "flour-city", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm", "mosh3", "tkdh3", "ph3-atl"],
+      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "flour-city", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm", "mosh3", "tkdh3", "ph3-atl", "t3h3-va"],
       kennelSlugMap: {
         bfm: "BFMH3", ewh3: "EWH3", wh4: "WH4", gfh3: "GFH3",
         ch3: "CH3", dch4: "DCH4", dcfmh3: "DCFMH3", "flour-city": "FCH3", oh3: "OregonH3",
         wsh3: "WSH3", mrh3: "MRH3", bfh3: "BFH3", moa2h3: "MoA2H3",
         nych3: "NYCH3", ggfm: "GGFMH3", mosh3: "MoSH3", tkdh3: "TKDH3",
-        "ph3-atl": "AH4_PLH3",
+        "ph3-atl": "AH4_PLH3", "t3h3-va": "T3H3",
       },
       // Per-day kennel attribution config (PR D.5). Patterns matched
       // against each day's section text in a multi-day event's
@@ -5313,6 +5315,12 @@ export const SOURCES = [
       // SEED_RECONCILE_DISABLE=true on next deploy).
       name: "Choo-Choo H3 iCal Feed",
       url: "https://choochooh3.com/events/?ical=1",
+      config: {
+        // Alert fixes 2026-11-10: the calendar now carries a year of "Monthly
+        // Drinking Practice" socials (4th Tuesday, 18:00). They aren't trails;
+        // the Music City backfill dropped them too.
+        silentlySkipPatterns: [{ pattern: String.raw`\bdrinking practice\b`, field: "title" }],
+      },
       kennelCodes: ["choochooh3"],
     },
 
@@ -6161,6 +6169,11 @@ export const SOURCES = [
         runNumberPatterns: [String.raw`^Run\s*(?:#\s*)?(\d+)\b`],
         titleHarePattern: String.raw`^Run\s*(?:#\s*)?\d+\s*-\s*([^@]+?)\s*(?:@.*)?$`,
         rejectTitleHareThemeSuffix: true,
+        // Alert fixes 2026-11-10: holiday gaps are posted as Monday rows titled
+        // "NO RUN TODAY- see you on 24th for the Breakfast run!". (The 8
+        // no-location rows, Runs 2957–2964, are real runs with hares and no
+        // venue yet, so they stay.)
+        silentlySkipPatterns: [{ pattern: String.raw`^NO RUN TODAY\b`, field: "title" }],
       },
       kennelCodes: ["perth-h3"],
     },

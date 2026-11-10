@@ -24,7 +24,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "soh4": ["SOH4", "Syracuse Hash", "Syracuse On On Dog A", "Syracuse On-On-Dog-A", "SOOD"],
     "halvemein": ["Halve Mein", "HMHHH", "Albany Hash", "Albany HHH", "Capital District Hash", "Halve Mein Hash"],
     "ih3": ["IH3", "Ithaca Hash", "Ithaca HHH", "Ithaca H3"],
-    "flour-city": ["Flour City", "FCH3", "FCHHH", "Flour City Hash", "Rochester Hash", "Flour City HHH"],
+    "flour-city": ["Flour City", "FCH3", "FCHHH", "Flour City Hash", "Rochester Hash", "Flour City HHH", "Flour City Hash House Harriers"],
     "bh3": ["BH3", "Buffalo Hash", "Hash in the Buff", "Buffalo HHH"],
     "hvh3-ny": ["HVH3 NY", "Hudson Valley Hash", "HV H3", "Hudson Valley HHH", "HVH3"],
     // Pennsylvania (outside Philly)
@@ -48,7 +48,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // Tidewater sub-kennels (tidewaterh3.org). Bare "T3H3" omitted — globally
     // taken (Minneapolis t3h3 / Wellington t3h3-nz); the adapter routes by
     // kennelCode so no bare alias is needed for ingest.
-    "t3h3-va": ["Tuesday Tuesday Tuesday H3", "Tuesday Tuesday Tuesday Hash House Harriers", "Tuesday Hash Norfolk"],
+    "t3h3-va": ["Tuesday Tuesday Tuesday H3", "Tuesday Tuesday Tuesday Hash House Harriers", "Tuesday Hash Norfolk", "Tuesday, Tuesday, Tuesday"],
     "hoboh3": ["HOBO H3", "HOBO Hash House Harriers"],
     "vbfmh3": ["VB Full Moon H3", "Virginia Beach Full Moon H3", "VBFM H3"],
     "mosh3": ["Men of Shenanigans H3", "Men of Shenanigans"],
