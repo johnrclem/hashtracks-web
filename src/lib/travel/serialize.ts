@@ -12,7 +12,7 @@
  *     `selectResultsToRender` swap on `no_nearby` works unchanged.
  */
 
-import type { executeTravelSearch } from "./search";
+import type { executeTravelSearch, NearestConfirmed } from "./search";
 
 type SearchResults = Awaited<ReturnType<typeof executeTravelSearch>>;
 type ConfirmedRow = SearchResults["confirmed"][number];
@@ -58,6 +58,8 @@ export interface SerializedTravelResults {
     likely: SerializedLikely[];
     possible: SerializedPossible[];
   };
+  /** Single-stop only (the search computes it only then): nearest confirmed runs outside the radius. */
+  nearestConfirmed?: NearestConfirmed<SerializedConfirmed>;
 }
 
 function serializeConfirmed(
@@ -128,6 +130,7 @@ export function serializeTravelResults(
   // into its own `broaderResults` key so the selectResultsToRender swap
   // on `no_nearby` keeps working as it does on main today.
   const stopBroader = results.destinations[0]?.broaderResults;
+  const stopNearest = results.destinations[0]?.nearestConfirmed;
   return {
     emptyState: results.emptyState,
     meta: results.meta,
@@ -142,6 +145,12 @@ export function serializeTravelResults(
           ),
           likely: stopBroader.likely.map(serializeLikely),
           possible: stopBroader.possible.map(serializePossible),
+        }
+      : undefined,
+    nearestConfirmed: stopNearest
+      ? {
+          radiusKm: stopNearest.radiusKm,
+          confirmed: stopNearest.confirmed.map((r) => serializeConfirmed(r, attendanceMap)),
         }
       : undefined,
   };

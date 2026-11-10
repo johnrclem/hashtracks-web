@@ -66,7 +66,7 @@ export function computeItinerarySignature(stops: SignatureStop[]): string {
 }
 
 /** Closed enum of radii exposed by the search pill selector. */
-export const RADIUS_TIERS = [10, 25, 50, 100] as const;
+export const RADIUS_TIERS = [10, 25, 50, 100, 200] as const;
 
 /** Snap an arbitrary radius to the nearest supported tier. */
 export function snapRadiusToTier(value: number): number {

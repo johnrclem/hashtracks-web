@@ -19,6 +19,8 @@ import { TravelResultsSkeleton } from "@/components/travel/TravelResultsSkeleton
 import { TripSummary } from "@/components/travel/TripSummary";
 import { toExportableConfirmedEvent } from "@/lib/travel/export";
 import { EmptyStates } from "@/components/travel/EmptyStates";
+import { NearestConfirmedSection } from "@/components/travel/NearestConfirmedSection";
+import { extractCityName } from "@/lib/travel/format";
 import { TravelHero } from "@/components/travel/TravelHero";
 import { PopularDestinations } from "@/components/travel/PopularDestinations";
 import { TravelAutoSave } from "@/components/travel/TravelAutoSave";
@@ -250,6 +252,7 @@ async function TravelResultsServer({
       : [
           ...results.confirmed.map((r) => r.eventId),
           ...(broaderResults?.confirmed ?? []).map((r) => r.eventId),
+          ...(stop?.nearestConfirmed?.confirmed ?? []).map((r) => r.eventId),
         ];
 
     const attendanceMap = await loadAttendanceMap(user, eventIds);
@@ -327,7 +330,11 @@ async function TravelResultsServer({
           <EmptyStates
             variant={results.emptyState}
             broaderRadiusKm={stop?.broaderRadiusKm}
+            place={extractCityName(destination)}
           />
+          {serializedResults.nearestConfirmed && (
+            <NearestConfirmedSection {...serializedResults.nearestConfirmed} />
+          )}
           {resultsToRender && (
             <TravelResults
               destination={destination}
@@ -663,7 +670,11 @@ async function SavedTripPage({
         <EmptyStates
           variant={serializedResults.emptyState}
           broaderRadiusKm={serializedResults.destinations[0]?.broaderRadiusKm}
+          place={extractCityName(serializedResults.destinations[0]?.label ?? search.name ?? "")}
         />
+      )}
+      {serializedResults.nearestConfirmed && (
+        <NearestConfirmedSection {...serializedResults.nearestConfirmed} />
       )}
       {resultsToRender && (
         <TravelResults
@@ -693,7 +704,10 @@ async function buildSavedTripResults(args: {
   });
   const allConfirmed = [
     ...results.confirmed,
-    ...results.destinations.flatMap((d) => d.broaderResults?.confirmed ?? []),
+    ...results.destinations.flatMap((d) => [
+      ...(d.broaderResults?.confirmed ?? []),
+      ...(d.nearestConfirmed?.confirmed ?? []),
+    ]),
   ];
   const attendanceMap: AttendanceMap = await loadAttendanceMap(
     args.user,

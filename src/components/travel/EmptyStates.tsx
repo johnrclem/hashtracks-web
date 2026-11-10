@@ -1,10 +1,13 @@
 import { Globe, CalendarX, Compass, AlertTriangle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { CoverageNote } from "./CoverageNote";
 
 interface EmptyStatesProps {
   variant: "no_coverage" | "no_confirmed" | "no_nearby" | "out_of_horizon" | "error";
   broaderRadiusKm?: number;
+  /** Destination city, for the coverage note. */
+  place?: string;
 }
 
 const STATES: Record<
@@ -15,6 +18,8 @@ const STATES: Record<
     body: (props: EmptyStatesProps) => string;
     cta?: { label: string; href: string };
     secondary?: string;
+    /** A run might exist at a kennel HashTracks doesn't track yet: say so. */
+    coverageNote?: true;
   }
 > = {
   no_coverage: {
@@ -30,6 +35,7 @@ const STATES: Record<
     headline: "No posted trails for your exact dates.",
     body: () =>
       "These kennels usually run during your stay — but you'll want to check directly to confirm.",
+    coverageNote: true,
   },
   no_nearby: {
     icon: Compass,
@@ -38,6 +44,7 @@ const STATES: Record<
       props.broaderRadiusKm != null
         ? `We expanded the search to ${props.broaderRadiusKm} km. Worth a drive?`
         : "We expanded the search to a wider area. Worth a drive?",
+    coverageNote: true,
   },
   out_of_horizon: {
     icon: Clock,
@@ -89,6 +96,8 @@ export function EmptyStates(props: Readonly<EmptyStatesProps>) {
           {state.secondary}
         </p>
       )}
+
+      {state.coverageNote && <CoverageNote place={props.place} />}
     </div>
   );
 }
