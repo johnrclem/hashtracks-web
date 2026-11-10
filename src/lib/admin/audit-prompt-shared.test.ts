@@ -29,6 +29,9 @@ const CONTAINS_CASES: readonly ContainsCase[] = [
   ["finding payload shape", ["\"kind\": \"finding\"", "\"stream\": \"CHROME_EVENT\"", "\"kennelCode\": \"{KENNEL_CODE}\""]],
   // Server applies the labels at promotion time; the agent never sets them.
   ["server-applied labels", ["audit:chrome-event", "kennel:{KENNEL_CODE}"]],
+  // Findings become public GitHub issues, and the last-resort format asks for
+  // verbatim values, so the rule has to say it applies to those too.
+  ["personal-data rule", ["Never quote a phone number", "personal email", "even in a verbatim", "Describe it instead"]],
 ];
 
 describe("renderFilingInstructions — hareline (chrome-event)", () => {

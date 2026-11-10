@@ -9,6 +9,7 @@ vi.mock("@/lib/db", () => ({
       update: vi.fn(),
       updateMany: vi.fn(),
     },
+    kennel: { findUnique: vi.fn() },
   },
 }));
 
@@ -49,6 +50,7 @@ const mockFindUnique = vi.mocked(prisma.auditIssue.findUnique);
 const mockFindMany = vi.mocked(prisma.auditIssue.findMany);
 const mockUpdate = vi.mocked(prisma.auditIssue.update);
 const mockUpdateMany = vi.mocked(prisma.auditIssue.updateMany);
+const mockKennelFindUnique = vi.mocked(prisma.kennel.findUnique);
 
 function buildActions(overrides: Partial<FilerActions> = {}): FilerActions {
   return {
@@ -82,6 +84,89 @@ beforeEach(() => {
     kennelCode: "nych3",
     kennel: { shortName: "NYCH3" },
   } as never);
+  mockKennelFindUnique.mockResolvedValue({ website: null } as never);
+});
+
+// The second redaction pass: a draft queued before the submit-boundary guard
+// existed still reaches this function with its original text. Fictional contact
+// details only, because this repo is public.
+describe("fileAuditFinding — personal-data redaction", () => {
+  const WITH_PII = {
+    ...BASE_INPUT,
+    title: "Hare phone 254-555-0142 leaked",
+    bodyMarkdown: "Source reads 'Whiff (254-555-0142)', contact hare@example.com",
+  };
+  const REDACTED_BODY = "Source reads 'Whiff ([phone])', contact [email]";
+
+  /** File with no existing issue to match, so the create path runs. */
+  async function fileFresh(input: Parameters<typeof fileAuditFinding>[0]) {
+    mockFindFirst.mockResolvedValue(null);
+    mockFindMany.mockResolvedValue([]);
+    const actions = buildActions();
+    const outcome = await fileAuditFinding(input, actions);
+    return { outcome, created: vi.mocked(actions.createIssue).mock.calls[0][0] };
+  }
+
+  it("files a fresh issue with the title and body redacted", async () => {
+    const { created } = await fileFresh(WITH_PII);
+
+    expect(created.title).toBe("Hare phone [phone] leaked");
+    expect(created.body).toContain(REDACTED_BODY);
+    expect(created.body).not.toContain("555-0142");
+    expect(created.body).not.toContain("hare@example.com");
+  });
+
+  it("still appends an intact identity marker after redacting", async () => {
+    const { created } = await fileFresh(WITH_PII);
+
+    expect(created.body).toContain(
+      emitIdentityMarker({
+        stream: BASE_INPUT.stream,
+        kennelCode: BASE_INPUT.kennelCode,
+        ruleSlug: BASE_INPUT.ruleSlug,
+      }),
+    );
+  });
+
+  it("redacts the recurrence comment posted on an existing issue", async () => {
+    mockFindFirst.mockResolvedValue({
+      id: "ai_1",
+      githubNumber: 42,
+      htmlUrl: "https://github.com/x/y/issues/42",
+      recurrenceCount: 1,
+    } as never);
+    mockUpdate.mockResolvedValue({ recurrenceCount: 2 } as never);
+    const actions = buildActions();
+
+    await fileAuditFinding(WITH_PII, actions);
+
+    const comment = vi.mocked(actions.postComment).mock.calls[0][1];
+    expect(comment).toContain(REDACTED_BODY);
+    expect(comment).not.toContain("555-0142");
+  });
+
+  it("keeps a club address on the kennel's own website domain", async () => {
+    mockKennelFindUnique.mockResolvedValue({ website: "https://kennel.example.org" } as never);
+
+    const { created } = await fileFresh({
+      ...BASE_INPUT,
+      bodyMarkdown: "Set contactEmail to gm@kennel.example.org",
+    });
+
+    expect(created.body).toContain("gm@kennel.example.org");
+  });
+
+  it("redacts every address, and still files, when the kennel lookup fails", async () => {
+    mockKennelFindUnique.mockRejectedValue(new Error("db down"));
+
+    const { outcome, created } = await fileFresh({
+      ...BASE_INPUT,
+      bodyMarkdown: "Set contactEmail to gm@kennel.example.org",
+    });
+
+    expect(outcome.action).toBe("created");
+    expect(created.body).not.toContain("gm@kennel.example.org");
+  });
 });
 
 describe("fileAuditFinding — strict tier", () => {

@@ -5,6 +5,9 @@
  * endpoint (`/api/audit/file-finding`) call into `fileAuditFinding`,
  * which:
  *
+ *   0. Removes phone numbers and personal emails from the title and
+ *      body (`redactFindingInput`). Every step below works on that
+ *      redacted copy, so nothing unredacted can reach GitHub.
  *   1. Computes the fingerprint via `buildCanonicalBlock`. Rules
  *      flagged `fingerprint: false` in the registry skip the fingerprint
  *      tiers entirely and fall through to a fresh-issue create — the
@@ -68,6 +71,7 @@ import {
   emitIdentityMarker,
   parseAuditIdentity,
 } from "@/lib/audit-canonical";
+import { redactFinding } from "@/lib/audit-redact";
 import { toIsoDateString } from "@/lib/date";
 import {
   AUDIT_LABEL,
@@ -857,6 +861,41 @@ async function tryGitHubSearchDedup(
 }
 
 /**
+ * Fails closed: without the kennel's website, its own-domain address can't be
+ * recognized, so it's redacted like any other. A DB hiccup here shouldn't stop
+ * the finding from being filed.
+ */
+async function lookUpKennelWebsite(kennelCode: string): Promise<string | null> {
+  try {
+    const kennel = await prisma.kennel.findUnique({
+      where: { kennelCode },
+      select: { website: true },
+    });
+    return kennel?.website ?? null;
+  } catch (err) {
+    console.error(`[audit-filer] Kennel website lookup failed for ${kennelCode}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Last personal-data pass before GitHub. The submit endpoint already redacts, but
+ * a draft queued before that guard existed, and the cron and file-finding paths,
+ * only pass through here. Later steps use only this redacted copy, so a fresh
+ * issue and a recurrence comment are both covered.
+ */
+async function redactFindingInput(input: FileFindingInput): Promise<FileFindingInput> {
+  const kennelWebsite = await lookUpKennelWebsite(input.kennelCode);
+  const { title, bodyMarkdown, redactions } = redactFinding(input, kennelWebsite);
+  if (redactions > 0) {
+    console.warn(
+      `[audit-filer] Removed ${redactions} personal-data match(es) from ${input.kennelCode}/${input.ruleSlug} before filing`,
+    );
+  }
+  return { ...input, title, bodyMarkdown };
+}
+
+/**
  * File an audit finding through the dedup cascade.
  *   - Fingerprintable (canonical !== null): strict → bridging → create.
  *   - Non-fingerprintable (canonical === null): coarse-dedup → create.
@@ -870,9 +909,10 @@ async function tryGitHubSearchDedup(
  * a stale mirror or a free-form chrome title can't fork a duplicate (#2308).
  */
 export async function fileAuditFinding(
-  input: FileFindingInput,
+  rawInput: FileFindingInput,
   actions: FilerActions,
 ): Promise<FileFindingOutcome> {
+  const input = await redactFindingInput(rawInput);
   const canonical = buildCanonicalBlock({
     stream: input.stream,
     kennelCode: input.kennelCode,
