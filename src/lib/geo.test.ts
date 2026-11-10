@@ -1,4 +1,4 @@
-import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress, boundingBoxFromCenter, GEOCODE_VIEWPORT_DELTA_DEG, reverseGeocode, cityFromTimezone, resolveShortMapsUrl, parseDMSFromLocation, stripDMSFromLocation } from "./geo";
+import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress, boundingBoxFromCenter, boundingBoxForRadiusKm, GEOCODE_VIEWPORT_DELTA_DEG, reverseGeocode, cityFromTimezone, resolveShortMapsUrl, parseDMSFromLocation, stripDMSFromLocation } from "./geo";
 
 describe("extractCoordsFromMapsUrl", () => {
   it("parses @lat,lng,zoom path segment", () => {
@@ -686,5 +686,31 @@ describe("stripDMSFromLocation", () => {
 
   it("returns original when no DMS present", () => {
     expect(stripDMSFromLocation("123 Main St, Phoenix, AZ")).toBe("123 Main St, Phoenix, AZ");
+  });
+});
+
+describe("boundingBoxForRadiusKm", () => {
+  it("is wider in longitude away from the equator", () => {
+    const equator = boundingBoxForRadiusKm(0, 0, 100);
+    const north = boundingBoxForRadiusKm(60, 0, 100);
+    expect(equator.maxLat - equator.minLat).toBeCloseTo(north.maxLat - north.minLat, 6);
+    expect(north.maxLng - north.minLng).toBeCloseTo(2 * (equator.maxLng - equator.minLng), 1);
+  });
+
+  it("contains points at the radius in every direction", () => {
+    const box = boundingBoxForRadiusKm(29.95, -90.07, 150);
+    for (const [lat, lng] of [[31.29, -90.07], [28.61, -90.07], [29.95, -88.52], [29.95, -91.62]]) {
+      expect(haversineDistance(29.95, -90.07, lat, lng)).toBeLessThanOrEqual(150);
+      expect(lat >= box.minLat && lat <= box.maxLat && lng >= box.minLng && lng <= box.maxLng).toBe(true);
+    }
+  });
+
+  it("covers every longitude rather than wrapping at the antimeridian", () => {
+    expect(boundingBoxForRadiusKm(-17.7, 179.9, 150)).toMatchObject({ minLng: -180, maxLng: 180 });
+  });
+
+  it("stays finite at the poles", () => {
+    const box = boundingBoxForRadiusKm(90, 0, 50);
+    expect(Number.isFinite(box.minLng) && Number.isFinite(box.maxLng)).toBe(true);
   });
 });

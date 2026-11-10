@@ -202,6 +202,33 @@ export function getEventCoordsFromRegionData(
   return null;
 }
 
+/**
+ * Latitude/longitude box containing every point within `radiusKm` of a center,
+ * for a cheap SQL prefilter before an exact `haversineDistance` check.
+ * Longitude widens with latitude; near the antimeridian (where the box would
+ * wrap) it covers every longitude instead.
+ */
+export function boundingBoxForRadiusKm(
+  centerLat: number,
+  centerLng: number,
+  radiusKm: number,
+): { minLat: number; maxLat: number; minLng: number; maxLng: number } {
+  const KM_PER_DEGREE = 111.32;
+  const dLat = radiusKm / KM_PER_DEGREE;
+  // Clamp so the box stays finite at the poles.
+  const cosLat = Math.max(Math.cos((centerLat * Math.PI) / 180), 0.01);
+  const dLng = radiusKm / (KM_PER_DEGREE * cosLat);
+  const minLng = centerLng - dLng;
+  const maxLng = centerLng + dLng;
+  const wraps = minLng < -180 || maxLng > 180;
+  return {
+    minLat: centerLat - dLat,
+    maxLat: centerLat + dLat,
+    minLng: wraps ? -180 : minLng,
+    maxLng: wraps ? 180 : maxLng,
+  };
+}
+
 /** Hardcoded Google Geocoding API base — not user-controlled (SSRF-safe). */
 const GOOGLE_GEOCODE_BASE = "https://maps.googleapis.com/maps/api/geocode/json";
 

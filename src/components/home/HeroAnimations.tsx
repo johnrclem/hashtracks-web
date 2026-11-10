@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useInView } from "@/hooks/useInView";
+import { cn } from "@/lib/utils";
 
 // Renders a number formatted with locale grouping. Previously this animated
 // from 0 → target via IntersectionObserver, but the count-up effect left
@@ -11,7 +12,10 @@ export function AnimatedCounter({ target }: { target: number }) {
   return <span>{target.toLocaleString()}</span>;
 }
 
-/* ── Staggered fade-in for sections ── */
+/* ── Staggered slide-in for sections ── */
+// Content is always visible: only a small slide animates, so server-rendered,
+// no-JS, screenshot and slow-phone views never show blank sections. Visitors
+// who prefer reduced motion get no animation at all. (Name kept for the ~15 call sites.)
 export function FadeInSection({
   children,
   delay = 0,
@@ -26,12 +30,12 @@ export function FadeInSection({
   return (
     <div
       ref={ref}
-      className={className}
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(24px)",
-        transition: `opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`,
-      }}
+      className={cn(
+        "transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:translate-y-0 motion-reduce:transition-none",
+        visible ? "translate-y-0" : "translate-y-3",
+        className,
+      )}
+      style={{ transitionDelay: `${delay}ms` }}
     >
       {children}
     </div>
