@@ -2,6 +2,9 @@ import {
   DISPLAY_EVENT_WHERE,
   DISPLAYABLE_EVENT_NO_PARENT_WHERE,
   CANONICAL_EVENT_WHERE,
+  endsBefore,
+  endsOnOrAfter,
+  eventEndMs,
 } from "@/lib/event-filters";
 
 describe("DISPLAY_EVENT_WHERE", () => {
@@ -44,5 +47,18 @@ describe("DISPLAYABLE_EVENT_NO_PARENT_WHERE", () => {
 describe("CANONICAL_EVENT_WHERE", () => {
   it("constrains only to canonical rows", () => {
     expect(CANONICAL_EVENT_WHERE).toEqual({ isCanonical: true });
+  });
+});
+
+describe("eventEndMs / endsOnOrAfter / endsBefore (#2452)", () => {
+  it("uses endDate when set, else date", () => {
+    expect(eventEndMs({ date: "2026-06-26T12:00:00.000Z", endDate: "2026-06-28T12:00:00.000Z" })).toBe(Date.UTC(2026, 5, 28, 12));
+    expect(eventEndMs({ date: "2026-06-26T12:00:00.000Z", endDate: null })).toBe(Date.UTC(2026, 5, 26, 12));
+  });
+
+  it("builds end-aware where clauses", () => {
+    const d = new Date("2026-06-27T00:00:00Z");
+    expect(endsOnOrAfter(d)).toEqual({ OR: [{ date: { gte: d } }, { endDate: { gte: d } }] });
+    expect(endsBefore(d)).toEqual({ date: { lt: d }, OR: [{ endDate: null }, { endDate: { lt: d } }] });
   });
 });

@@ -19,6 +19,11 @@ import { prisma } from "@/lib/db";
 import { loadEventsForTimeMode, loadMorePastEvents } from "./actions";
 import { PAST_EVENTS_LIMIT } from "./constants";
 
+/** The kennel OR-match lives in the second AND clause (the first is the end-date bound, #2452). */
+function kennelOr(where: Record<string, unknown>): unknown {
+  return (where.AND as Array<Record<string, unknown>>)[1]?.OR;
+}
+
 const mockFindMany = vi.mocked(prisma.event.findMany);
 
 // Fixed clock so cache-key assertions are deterministic across runs.
@@ -51,7 +56,7 @@ describe("loadEventsForTimeMode kennel-scoping (#1560 PR F)", () => {
     expect(where).not.toHaveProperty("parentEventId");
 
     // OR clause matches both root kennel and EventKennel co-host rows.
-    expect(where.OR).toEqual([
+    expect(kennelOr(where)).toEqual([
       { kennelId: { in: ["ggfm"] } },
       { eventKennels: { some: { kennelId: { in: ["ggfm"] } } } },
     ]);
@@ -72,7 +77,7 @@ describe("loadEventsForTimeMode kennel-scoping (#1560 PR F)", () => {
     const where = call?.where as Record<string, unknown>;
 
     expect(where).not.toHaveProperty("parentEventId");
-    expect(where.OR).toEqual([
+    expect(kennelOr(where)).toEqual([
       { kennelId: { in: ["nych3"] } },
       { eventKennels: { some: { kennelId: { in: ["nych3"] } } } },
     ]);
@@ -94,7 +99,7 @@ describe("loadEventsForTimeMode kennel-scoping (#1560 PR F)", () => {
     const second = mockFindMany.mock.calls[1][0]?.where as Record<string, unknown>;
     // Both calls produce identical `OR` clauses — i.e. caller order is
     // normalized before it reaches Prisma.
-    expect(first.OR).toEqual(second.OR);
+    expect(kennelOr(first)).toEqual(kennelOr(second));
   });
 
   it("empty kennelIds array falls back to the unfiltered code path", async () => {
@@ -112,7 +117,7 @@ describe("loadEventsForTimeMode kennel-scoping (#1560 PR F)", () => {
     await loadEventsForTimeMode("upcoming", NOW_MS, [" a ", "b", "", "a", "b  "]);
 
     const where = mockFindMany.mock.calls[0][0]?.where as Record<string, unknown>;
-    expect(where.OR).toEqual([
+    expect(kennelOr(where)).toEqual([
       { kennelId: { in: ["a", "b"] } },
       { eventKennels: { some: { kennelId: { in: ["a", "b"] } } } },
     ]);
@@ -124,7 +129,7 @@ describe("loadEventsForTimeMode kennel-scoping (#1560 PR F)", () => {
     await loadEventsForTimeMode("upcoming", NOW_MS, sixty);
 
     const where = mockFindMany.mock.calls[0][0]?.where as Record<string, unknown>;
-    const orClause = where.OR as Array<{ kennelId?: { in: string[] } }>;
+    const orClause = kennelOr(where) as Array<{ kennelId?: { in: string[] } }>;
     expect(orClause[0].kennelId!.in).toHaveLength(50);
   });
 
@@ -296,7 +301,7 @@ describe("loadMorePastEvents cursor back-pagination", () => {
     const where = mockFindMany.mock.calls[0][0]?.where as Record<string, unknown>;
     expect(where).toHaveProperty("parentEventId", null);
     expect(where).not.toHaveProperty("OR");
-    const dateFilter = where.date as { lt?: Date };
+    const dateFilter = (where.AND as Array<Record<string, unknown>>)[0].date as { lt?: Date };
     expect(dateFilter.lt).toBeInstanceOf(Date); // past ceiling, mirrors page one
   });
 
@@ -305,7 +310,7 @@ describe("loadMorePastEvents cursor back-pagination", () => {
 
     const where = mockFindMany.mock.calls[0][0]?.where as Record<string, unknown>;
     expect(where).not.toHaveProperty("parentEventId");
-    expect(where.OR).toEqual([
+    expect(kennelOr(where)).toEqual([
       { kennelId: { in: ["sdh3"] } },
       { eventKennels: { some: { kennelId: { in: ["sdh3"] } } } },
     ]);
@@ -368,5 +373,23 @@ describe("loadMorePastEvents cursor back-pagination", () => {
 
     const res = await loadMorePastEvents("ghost-id");
     expect(res).toEqual({ events: [], hasMore: false });
+  });
+});
+
+describe("upcoming/past bucket on the day an event ends (#2452)", () => {
+  beforeEach(() => mockFindMany.mockClear());
+
+  it("upcoming keeps an event whose endDate is still ahead (in-progress weekend)", async () => {
+    await loadEventsForTimeMode("upcoming", NOW_MS, ["nych3"]);
+    const where = mockFindMany.mock.calls[0][0]?.where as Record<string, unknown>;
+    const [dateClause] = where.AND as Array<{ OR: Array<Record<string, { gte: Date }>> }>;
+    expect(dateClause.OR.map((c) => Object.keys(c)[0])).toEqual(["date", "endDate"]);
+  });
+
+  it("past excludes an event whose endDate is still ahead", async () => {
+    await loadMorePastEvents("cursor-id");
+    const where = mockFindMany.mock.calls[0][0]?.where as Record<string, unknown>;
+    const [dateClause] = where.AND as Array<Record<string, unknown>>;
+    expect(dateClause.OR).toEqual([{ endDate: null }, { endDate: { lt: expect.any(Date) } }]);
   });
 });

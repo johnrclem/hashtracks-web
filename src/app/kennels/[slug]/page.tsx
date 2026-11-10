@@ -22,6 +22,7 @@ import { FadeInSection } from "@/components/home/HeroAnimations";
 import { buildKennelJsonLd, buildBreadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { ShareButton } from "@/components/shared/ShareButton";
+import { eventEndMs } from "@/lib/event-filters";
 
 /**
  * When an incoming slug doesn't resolve directly, normalize it the same way
@@ -276,12 +277,10 @@ export default async function KennelDetailPage({
     })),
   }));
 
-  const upcoming = serialized.filter(
-    (e) => new Date(e.date).getTime() >= todayUtc,
-  );
-  const past = serialized
-    .filter((e) => new Date(e.date).getTime() < todayUtc)
-    .reverse();
+  // Bucket on the day an event ends (#2452): an in-progress multi-day weekend
+  // stays at the top of Upcoming until its last day.
+  const upcoming = serialized.filter((e) => eventEndMs(e) >= todayUtc);
+  const past = serialized.filter((e) => eventEndMs(e) < todayUtc).reverse();
 
   // Stats — use unique date count for resilience against duplicate canonical events
   const uniqueDates = new Set(events.map(e => e.date.toISOString().split("T")[0]));

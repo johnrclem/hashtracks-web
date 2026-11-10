@@ -33,6 +33,7 @@ import { groupRegionsByState, expandRegionSelections, regionAbbrev } from "@/lib
 import { LocationPrompt } from "./LocationPrompt";
 import { getLocationPref, resolveLocationDefault, clearLocationPref, FILTER_PARAMS } from "@/lib/location-pref";
 import { loadEventsForTimeMode, loadMorePastEvents, getEventDetail, type EventDetailFields, type TimeMode } from "@/app/hareline/actions";
+import { eventEndMs } from "@/lib/event-filters";
 
 const MapView = dynamic(() => import("./MapView"), {
   ssr: false,
@@ -241,23 +242,25 @@ export function passesTimeFilter(
   timeFilter: FilterCriteria["timeFilter"],
   todayUtc: number,
   bucketBoundaryUtc: number,
+  /** Last day of a multi-day event (#2452); defaults to `eventDate`. */
+  eventEnd: number = eventDate,
 ): boolean {
   if (timeFilter === "all") return true;
-  if (timeFilter === "upcoming") return eventDate >= bucketBoundaryUtc;
-  if (timeFilter === "past") return eventDate < bucketBoundaryUtc;
+  if (timeFilter === "upcoming") return eventEnd >= bucketBoundaryUtc;
+  if (timeFilter === "past") return eventEnd < bucketBoundaryUtc;
 
-  // Rolling weeks: must be >= today AND <= today + N days
+  // Rolling weeks: still running today AND starting by today + N days
   const days = WEEKS_DAYS[timeFilter];
   if (days == null) return true;
   const ceiling = todayUtc + days * 24 * 60 * 60 * 1000;
-  return eventDate >= todayUtc && eventDate <= ceiling;
+  return eventEnd >= todayUtc && eventDate <= ceiling;
 }
 
 /** Check whether a single event passes all active filters. */
 function passesAllFilters(event: HarelineEvent, f: FilterCriteria): boolean {
   const eventDate = new Date(event.date).getTime();
 
-  if (!passesTimeFilter(eventDate, f.timeFilter, f.todayUtc, f.bucketBoundaryUtc)) return false;
+  if (!passesTimeFilter(eventDate, f.timeFilter, f.todayUtc, f.bucketBoundaryUtc, eventEndMs(event))) return false;
   if (f.scope === "my" && !f.subscribedKennelIds.includes(event.kennelId)) return false;
   if (f.selectedRegions.length > 0 && !f.expandedRegions.has(event.kennel?.region ?? "")) return false;
   if (f.selectedKennels.length > 0 && !f.selectedKennels.includes(event.kennel?.id ?? "")) return false;
@@ -873,7 +876,7 @@ export function HarelineView({
   const timeFilteredEvents = useMemo(() => {
     return currentEvents.filter((event) => {
       const eventDate = new Date(event.date).getTime();
-      return passesTimeFilter(eventDate, timeFilter, filterContext.todayUtc, filterContext.bucketBoundaryUtc);
+      return passesTimeFilter(eventDate, timeFilter, filterContext.todayUtc, filterContext.bucketBoundaryUtc, eventEndMs(event));
     });
   }, [currentEvents, timeFilter, filterContext.todayUtc, filterContext.bucketBoundaryUtc]);
 
