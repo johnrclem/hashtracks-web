@@ -17,7 +17,7 @@ import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { safeFetch } from "../safe-fetch";
-import { buildDateWindow, configString, fetchHTMLPage, MONTHS, stripPlaceholder } from "../utils";
+import { buildDateWindow, configString, fetchHTMLPage, MONTHS, normalizeHaresField, stripPlaceholder } from "../utils";
 import { extractCoordsFromMapsUrl } from "@/lib/geo";
 
 const DEFAULT_URL = "https://www.hwh3.co.uk/";
@@ -60,14 +60,14 @@ export function parseHwh3RunNumbers(ics: string): Map<string, number> {
   return byDate;
 }
 
+/** Collapse runs of whitespace and trim. */
+function squash(text: string): string {
+  return text.replaceAll(/\s+/g, " ").trim();
+}
+
 /** Own text of an element, excluding its child elements' text (e.g. the town span). */
 function ownText($: CheerioAPI, el: AnyNode): string {
-  return $(el)
-    .contents()
-    .filter((_i, node) => node.type === "text")
-    .text()
-    .replaceAll(/\s+/g, " ")
-    .trim();
+  return squash($(el).contents().filter((_i, node) => node.type === "text").text());
 }
 
 /** Venue, postcode, Maps link and pin for one entry. A "Venue TBA" row clears all of them. */
@@ -78,7 +78,7 @@ function parseVenue($: CheerioAPI, $entry: Cheerio<AnyNode>): Partial<RawEventDa
     return { location: null, locationStreet: null, dropCachedCoords: true };
   }
   const venue = ownText($, $venueLink[0]);
-  const town = $venueLink.find(".text-muted").text().replaceAll(/\s+/g, " ").trim();
+  const town = squash($venueLink.find(".text-muted").text());
   const $mapLink = $entry.find(".rl_loc a").first();
   const locationUrl = $mapLink.attr("href") || undefined;
   const coords = locationUrl ? extractCoordsFromMapsUrl(locationUrl) : null;
@@ -96,11 +96,11 @@ function parseHares($: CheerioAPI, $entry: Cheerio<AnyNode>): string | undefined
   const $hares = $entry.find(".rl_hares");
   const names = $hares
     .find("a")
-    .map((_i, a) => $(a).text().replaceAll(/\s+/g, " ").trim())
+    .map((_i, a) => squash($(a).text()))
     .get()
     .filter(Boolean);
-  if (names.length === 0) return stripPlaceholder($hares.text().replaceAll(/\s+/g, " "));
-  return [...new Set(names)].sort((a, b) => a.localeCompare(b)).join(", ");
+  if (names.length === 0) return stripPlaceholder(squash($hares.text()));
+  return normalizeHaresField(names.join(", "));
 }
 
 /** Parse one `.rl_entry`. Returns null when the date can't be read. */
@@ -115,10 +115,10 @@ export function parseHwh3Entry(
   if (!date) return null;
 
   const time = /^(\d{1,2}):(\d{2})$/.exec($date.find(".text-muted").text().trim());
-  const title = $entry.find(".rl_title").text().replaceAll(/\s+/g, " ").trim();
+  const title = squash($entry.find(".rl_title").text());
   const extra = $entry
     .find(".rl_extra p")
-    .map((_i, p) => $(p).text().replaceAll(/\s+/g, " ").trim())
+    .map((_i, p) => squash($(p).text()))
     .get()
     .filter(Boolean)
     .join(" ");
