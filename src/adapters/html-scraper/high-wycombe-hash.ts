@@ -92,15 +92,16 @@ function parseVenue($: CheerioAPI, $entry: Cheerio<AnyNode>): Partial<RawEventDa
 }
 
 /** Hares from the `.rl_hares` links, sorted for a stable fingerprint. */
-function parseHares($: CheerioAPI, $entry: Cheerio<AnyNode>): string | undefined {
+function parseHares($: CheerioAPI, $entry: Cheerio<AnyNode>): string | null {
   const $hares = $entry.find(".rl_hares");
   const names = $hares
     .find("a")
     .map((_i, a) => squash($(a).text()))
     .get()
     .filter(Boolean);
-  if (names.length === 0) return stripPlaceholder(squash($hares.text()));
-  return normalizeHaresField(names.join(", "));
+  // null (not undefined) so a hare who drops out clears on the event.
+  if (names.length === 0) return stripPlaceholder(squash($hares.text())) ?? null;
+  return normalizeHaresField(names.join(", ")) ?? null;
 }
 
 /** Parse one `.rl_entry`. Returns null when the date can't be read. */

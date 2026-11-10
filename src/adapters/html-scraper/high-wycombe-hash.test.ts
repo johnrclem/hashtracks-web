@@ -180,6 +180,11 @@ describe("parseHwh3Entry", () => {
     });
   });
 
+  it("clears hares when the cell has no hare", () => {
+    const $tba = cheerio.load(HOME_FIXTURE.replace('<a href="/hashers/hasher-2/">TooKeen</a>', "TBA"));
+    expect(parseHwh3Entry($tba, $tba(".rl_entry").toArray()[2])?.hares).toBeNull();
+  });
+
   it("leaves runNumber unset when the ICS has no match", () => {
     expect(parseHwh3Entry($, entries[0])?.runNumber).toBeUndefined();
   });
@@ -188,7 +193,7 @@ describe("parseHwh3Entry", () => {
 describe("HighWycombeHashAdapter.fetch", () => {
   it("returns runs joined to ICS run numbers", async () => {
     mockFetches(HOME_FIXTURE, ICS_FIXTURE);
-    const result = await new HighWycombeHashAdapter().fetch(makeSource(), { days: 3650 });
+    const result = await new HighWycombeHashAdapter().fetch(makeSource(), { days: 100_000 });
     expect(result.errors).toEqual([]);
     expect(result.events.map((e) => [e.date, e.runNumber])).toEqual([
       ["2026-11-10", 1879],
@@ -201,7 +206,7 @@ describe("HighWycombeHashAdapter.fetch", () => {
 
   it("keeps the runs when the ICS fails, recording it as a diagnostic", async () => {
     mockFetches(HOME_FIXTURE, 500);
-    const result = await new HighWycombeHashAdapter().fetch(makeSource(), { days: 3650 });
+    const result = await new HighWycombeHashAdapter().fetch(makeSource(), { days: 100_000 });
     expect(result.errors).toEqual([]);
     expect(result.events).toHaveLength(4);
     expect(result.events.every((e) => e.runNumber === undefined)).toBe(true);
@@ -210,7 +215,7 @@ describe("HighWycombeHashAdapter.fetch", () => {
 
   it("survives a thrown ICS fetch", async () => {
     mockFetches(HOME_FIXTURE, new Error("socket hang up"));
-    const result = await new HighWycombeHashAdapter().fetch(makeSource(), { days: 3650 });
+    const result = await new HighWycombeHashAdapter().fetch(makeSource(), { days: 100_000 });
     expect(result.events).toHaveLength(4);
     expect(String(result.diagnosticContext?.icsError)).toContain("socket hang up");
   });
