@@ -8,12 +8,16 @@
  *     as a last-resort fallback
  *   - Body rows in `tbody tr` (or `tr:not(:first-child)` if no `<tbody>`)
  *
- * Today this is consumed by `hhhs.ts`. New Wix Table Master adapters
+ * `fetchWixTableMasterCsv` reads the same data without a browser, straight
+ * from the widget's CSV endpoint; `hhhs.ts` uses it, and the date helper.
+ * `extractWixTableRows` has no caller today. New Wix Table Master adapters
  * (Samurai H3, New Tokyo Katch, Bull Moon currently inline their own
  * copies) should migrate to this helper rather than continuing to fork it.
  */
 import type { CheerioAPI } from "cheerio";
 import { MONTHS } from "../utils";
+import { safeFetch } from "../safe-fetch";
+import { parseCSV } from "../google-sheets/adapter";
 
 /**
  * Pull `(headers, rows)` from the first hareline-shaped `<table>` on the
@@ -97,4 +101,43 @@ export function parseDayMonthYearDate(
   const mm = String(month).padStart(2, "0");
   const dd = String(day).padStart(2, "0");
   return `${year}-${mm}-${dd}`;
+}
+
+/** Table Master's Wix app id; its anonymous per-site instance token is in `/_api/v1/access-tokens`. */
+const TABLE_MASTER_APP_DEF_ID = "134139f3-f2a0-2c2c-693c-ed22165cfd84";
+/** The JSON endpoint the widget's own Angular bundle loads its CSV from (`settingsService.getCSVFileContent`). */
+const TABLE_MASTER_FILE_API = "https://wix-visual-data.appspot.com/api/file";
+
+export type WixTableMasterCsvResult =
+  | { ok: true; rows: string[][] }
+  | { ok: false; error: string };
+
+/**
+ * Read a Table Master widget's data as CSV rows (header row first), with two
+ * plain HTTP calls instead of a headless render of the Wix page:
+ *   1. the site's public `/_api/v1/access-tokens` → the app's instance token;
+ *   2. `wix-visual-data.appspot.com/api/file?instance=…&compId=…&isSite=true`
+ *      → `{ csvData }`. The endpoint answers 403 without a Referer from the site.
+ * `compId` is the widget's Wix component id (e.g. `comp-jxzijgcm`).
+ */
+export async function fetchWixTableMasterCsv(siteUrl: string, compId: string): Promise<WixTableMasterCsvResult> {
+  try {
+    const origin = new URL(siteUrl).origin;
+    const tokenRes = await safeFetch(`${origin}/_api/v1/access-tokens`, { headers: { Accept: "application/json" } });
+    if (!tokenRes.ok) return { ok: false, error: `access-tokens HTTP ${tokenRes.status}` };
+    const tokens = (await tokenRes.json()) as { apps?: Record<string, { instance?: unknown }> };
+    const instance = tokens.apps?.[TABLE_MASTER_APP_DEF_ID]?.instance;
+    if (typeof instance !== "string" || !instance) return { ok: false, error: "no Table Master instance token" };
+
+    const params = new URLSearchParams({ instance, compId, originCompId: "", isSite: "true" });
+    const fileRes = await safeFetch(`${TABLE_MASTER_FILE_API}?${params}`, {
+      headers: { Accept: "application/json", Referer: `${origin}/` },
+    });
+    if (!fileRes.ok) return { ok: false, error: `Table Master file HTTP ${fileRes.status}` };
+    const body = (await fileRes.json()) as { csvData?: unknown };
+    if (typeof body.csvData !== "string") return { ok: false, error: "Table Master file payload has no csvData" };
+    return { ok: true, rows: parseCSV(body.csvData) };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
 }

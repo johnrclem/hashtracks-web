@@ -226,7 +226,7 @@ describe("parseTidewaterCalendar (windowing)", () => {
     expect(events).toEqual([]);
   });
 
-  it("fails closed on an unmapped kennel: emits an unmapped-* tag, not twh3", () => {
+  it("fails closed on an unmapped kennel: skips it (never twh3) and reports it", () => {
     const feed = JSON.stringify([
       {
         id: "trail-x",
@@ -242,9 +242,8 @@ describe("parseTidewaterCalendar (windowing)", () => {
       days: 120,
       sourceUrl: SOURCE_URL,
     });
-    expect(events).toHaveLength(1);
-    expect(events[0].kennelTags).toEqual(["unmapped-fooh3"]);
-    expect(events[0].kennelTags).not.toContain("twh3");
+    // Not emitted, so no unmapped-* RawEvent and no UNMATCHED_TAGS alert.
+    expect(events).toEqual([]);
     expect(unknownKennels).toContain("FOOH3 / Foo Hash");
   });
 });

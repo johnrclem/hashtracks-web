@@ -67,8 +67,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * Pill code (uppercased `entry.title`) → kennelCode. `extendedProps.kennel`
  * full names provide a secondary map. The site advertises ~11 sub-kennels but
  * only active ones appear in the feed at any time; unrecognized kennels are
- * handled by {@link lookupKennel} (emitted as `unmapped-*`, failing closed at
- * the merge source-kennel guard).
+ * flagged by {@link lookupKennel} and skipped by the parsers (fail closed,
+ * listed in diagnosticContext.unknownKennels).
  */
 const PILL_TO_KENNEL: Record<string, string> = {
   TH3: "twh3",
@@ -189,10 +189,11 @@ export function extractCalendarArray(html: string): CalendarEntry[] | null {
 /**
  * Resolve a kennelCode from a pill code and/or a full kennel name. Either may
  * be supplied; the first recognized one wins. Unrecognized kennels get an
- * `unmapped-<slug>` tag (NOT the host kennel) + `known: false`, so their events
- * fail closed at the merge source-kennel guard (SOURCE_KENNEL_MISMATCH alert)
- * rather than being silently misattributed to TWH3 — the site has more
- * sub-kennels than the six mapped here, so new ones must surface, not corrupt.
+ * `unmapped-<slug>` code + `known: false`; the parsers skip those events and
+ * list them in diagnosticContext.unknownKennels, so they are never
+ * misattributed to TWH3. The site has more sub-kennels (and visiting kennels,
+ * one-offs) than the six mapped here; map a new one in PILL_TO_KENNEL to
+ * onboard it.
  */
 export function lookupKennel(pill?: string, kennelName?: string): { code: string; known: boolean } {
   const p = (pill ?? "").trim().toUpperCase();
@@ -371,8 +372,13 @@ export function parseTidewaterCalendar(
     if (isSpecialEvent && suppress.has(`${event.kennelTags[0]}|${event.date}`)) continue;
     if (!isWithinWindow(event.date, isPlaceholder, opts.now, opts.days)) continue;
 
+    // Fail closed: an unrecognized kennel (a visiting kennel, a one-off like
+    // TWH3's "Trash Pickup") is dropped, never filed under the host kennel. It
+    // is reported in diagnosticContext.unknownKennels rather than emitted as an
+    // unmapped-* tag, which raised an UNMATCHED_TAGS alert on every scrape.
     if (!resolveKennel(entry).known) {
       unknownKennels.add(`${entry.title ?? "?"} / ${entry.extendedProps?.kennel ?? "?"}`);
+      continue;
     }
     events.push(event);
   }
@@ -504,7 +510,11 @@ export function parseSpecialEvents(
 
     const titleToken = title.split(/\s+/)[0];
     const { code, known } = lookupKennel(titleToken, host);
-    if (!known) unknownKennels.add(`${title} / ${host}`);
+    // Fail closed, as in parseTidewaterCalendar: report, don't emit.
+    if (!known) {
+      unknownKennels.add(`${title} / ${host}`);
+      return;
+    }
 
     const endRaw = fields["end"]?.[0];
     const endDateParsed = endRaw ? chronoParseDate(endRaw) : null;
@@ -685,7 +695,7 @@ export class TidewaterH3Adapter implements SourceAdapter {
     const allUnknown = [...new Set([...unknownKennels, ...specialUnknown])];
     if (allUnknown.length > 0) {
       console.warn(
-        `[tidewater-h3] ${allUnknown.length} unrecognized kennel(s) emitted as unmapped tags (will block at source-kennel guard — onboard them): ${allUnknown.join("; ")}`,
+        `[tidewater-h3] ${allUnknown.length} unrecognized kennel(s) skipped (see diagnosticContext.unknownKennels; map them in PILL_TO_KENNEL to onboard): ${allUnknown.join("; ")}`,
       );
     }
 

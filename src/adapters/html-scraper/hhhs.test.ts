@@ -7,10 +7,20 @@ import {
   HHHSAdapter,
 } from "./hhhs";
 import type { Source } from "@/generated/prisma/client";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
-vi.mock("@/lib/browser-render", () => ({
-  browserRender: vi.fn().mockResolvedValue("<html><body></body></html>"),
-}));
+vi.mock("../safe-fetch", () => ({ safeFetch: vi.fn() }));
+import { safeFetch } from "../safe-fetch";
+
+/** Live `wix-visual-data.appspot.com/api/file` payload for comp-jxzijgcm (2026-11-10), 5 rows kept. */
+const TABLE_MASTER_FILE = readFileSync(
+  path.join(__dirname, "fixtures/hhhs-table-master-file-2026-11-10.json.fixture"),
+  "utf8",
+);
+const ACCESS_TOKENS = JSON.stringify({
+  apps: { "134139f3-f2a0-2c2c-693c-ed22165cfd84": { instance: "test-instance" } },
+});
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -254,13 +264,11 @@ describe("HHHSAdapter", () => {
       type: "HTML_SCRAPER",
     } as unknown as Source;
 
-    async function runFetch(opts?: { days?: number; reject?: Error }) {
-      const { browserRender } = await import("@/lib/browser-render");
-      if (opts?.reject) {
-        vi.mocked(browserRender).mockRejectedValueOnce(opts.reject);
-      } else {
-        vi.mocked(browserRender).mockResolvedValueOnce(FIXTURE_HTML);
-      }
+    async function runFetch(opts?: { days?: number; file?: Response; tokens?: Response }) {
+      vi.mocked(safeFetch)
+        .mockReset()
+        .mockResolvedValueOnce(opts?.tokens ?? new Response(ACCESS_TOKENS))
+        .mockResolvedValueOnce(opts?.file ?? new Response(TABLE_MASTER_FILE));
       const fetchOpts =
         opts?.days === undefined ? undefined : { days: opts.days };
       return new HHHSAdapter().fetch(source, fetchOpts);
@@ -269,12 +277,13 @@ describe("HHHSAdapter", () => {
     it("parses the hareline table end-to-end", async () => {
       const result = await runFetch();
 
-      expect(result.events).toHaveLength(4);
+      expect(result.events).toHaveLength(5);
       expect(result.errors).toEqual([]);
       expect(result.diagnosticContext).toMatchObject({
-        fetchMethod: "browser-render",
+        fetchMethod: "table-master-csv",
         adapter: "HHHSAdapter",
-        totalEvents: 4,
+        rowsFetched: 5,
+        totalEvents: 5,
       });
 
       const ridout = result.events.find((e) => e.runNumber === 3290);
@@ -317,10 +326,29 @@ describe("HHHSAdapter", () => {
       expect(result.events).toHaveLength(0);
     });
 
-    it("surfaces a fetch error when browser-render throws", async () => {
-      const result = await runFetch({ reject: new Error("frame not found") });
+    it("calls the Table Master file API with the site's instance token and Referer", async () => {
+      await runFetch();
+      const [tokenUrl] = vi.mocked(safeFetch).mock.calls[0];
+      const [fileUrl, init] = vi.mocked(safeFetch).mock.calls[1];
+      expect(tokenUrl).toBe("https://www.hhhs.org.sg/_api/v1/access-tokens");
+      expect(fileUrl).toBe(
+        "https://wix-visual-data.appspot.com/api/file?instance=test-instance&compId=comp-jxzijgcm&originCompId=&isSite=true",
+      );
+      expect(init?.headers).toMatchObject({ Referer: "https://www.hhhs.org.sg/" });
+    });
+
+    it("fails loud when the token or file call fails", async () => {
+      const noToken = await runFetch({ tokens: new Response(JSON.stringify({ apps: {} })) });
+      expect(noToken.errors[0]).toMatch(/no Table Master instance token/);
+      const forbidden = await runFetch({ file: new Response("Forbidden", { status: 403 }) });
+      expect(forbidden.events).toEqual([]);
+      expect(forbidden.errors[0]).toMatch(/Table Master file HTTP 403/);
+    });
+
+    it("fails loud on a CSV without a Date column instead of returning zero runs", async () => {
+      const result = await runFetch({ file: new Response(JSON.stringify({ csvData: "a,b\r\n1,2\r\n" })) });
       expect(result.events).toEqual([]);
-      expect(result.errors[0]).toMatch(/Browser render failed/);
+      expect(result.errors[0]).toMatch(/no Date column/);
     });
   });
 });
