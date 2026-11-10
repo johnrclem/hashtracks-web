@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { upcomingConfirmedEventWhere } from "@/lib/activity-status";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import Link from "next/link";
 import { regionAbbrev, regionNameToSlug } from "@/lib/region";
@@ -65,9 +66,8 @@ export default async function KennelsPage() {
     // kennel-link rows the directory actually attributes to.
     prisma.event.findMany({
       where: {
-        date: { gte: todayUtc },
-        status: "CONFIRMED",
-        isCanonical: true,
+        // Shared with activeKennelWhere, so the homepage's active count matches this directory.
+        ...upcomingConfirmedEventWhere(todayUtc),
         eventKennels: { some: { kennel: { isHidden: false } } },
       },
       orderBy: { date: "asc" },

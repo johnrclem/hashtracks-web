@@ -1,4 +1,4 @@
-import { getActivityStatus } from "@/lib/activity-status";
+import { activeKennelWhere, activeSinceUtcNoon, getActivityStatus } from "@/lib/activity-status";
 
 function daysAgo(n: number): Date {
   const d = new Date();
@@ -63,6 +63,34 @@ describe("getActivityStatus", () => {
     it("preserves existing behavior when hasUpcomingEvent is omitted", () => {
       expect(getActivityStatus(null)).toBe("unknown");
       expect(getActivityStatus(daysAgo(400))).toBe("inactive");
+    });
+  });
+});
+
+describe("activeSinceUtcNoon / activeKennelWhere", () => {
+  // The SQL cutoff must agree with getActivityStatus at the 89/90/91-day boundary.
+  it.each([
+    [89, true],
+    [90, false],
+    [91, false],
+  ])("a last run %i days ago is active: %s", (days, active) => {
+    const cutoff = activeSinceUtcNoon(new Date()).getTime();
+    expect(daysAgo(days).getTime() >= cutoff).toBe(active);
+    expect(getActivityStatus(daysAgo(days)) === "active").toBe(active);
+  });
+
+  it("counts visible kennels with a recent run or an upcoming confirmed run", () => {
+    const now = new Date("2026-11-10T15:00:00Z");
+    expect(activeKennelWhere(now)).toEqual({
+      isHidden: false,
+      OR: [
+        { lastEventDate: { gte: new Date("2026-08-13T12:00:00Z") } },
+        {
+          eventKennels: {
+            some: { event: { date: { gte: new Date("2026-11-10T12:00:00Z") }, status: "CONFIRMED", isCanonical: true } },
+          },
+        },
+      ],
     });
   });
 });

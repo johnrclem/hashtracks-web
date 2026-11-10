@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { formatDateShort, formatTimeCompact } from "@/lib/format";
 import { getDisplayTitle, getLocationDisplay } from "@/lib/event-display";
 import { getRegionColor } from "@/lib/region";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
+import { activeKennelWhere } from "@/lib/activity-status";
+import { getTodayUtcNoon } from "@/lib/date";
+import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
+import { getComingUp } from "@/lib/home-coming-up";
+import { parseVisitorArea } from "@/lib/visitor-area";
 import {
   AnimatedCounter,
   FadeInSection,
@@ -34,39 +40,24 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const clerkUser = await currentUser();
+  const [clerkUser, requestHeaders] = await Promise.all([currentUser(), headers()]);
   const userId = clerkUser?.id ?? null;
+  // Vercel's IP-based location guess; null on localhost. Used only for this render.
+  const visitorArea = parseVisitorArea(requestHeaders);
+  const todayUtcNoon = new Date(getTodayUtcNoon());
 
-  const now = new Date();
-  const todayUtcNoon = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0)
-  );
-
-  const [upcomingCount, kennelCount, regionCount, nextEvents, regionNames] =
+  const [upcomingCount, kennelCount, regionCount, sourceCount, comingUp, regionNames] =
     await Promise.all([
       prisma.event.count({
-        where: { date: { gte: todayUtcNoon }, status: { not: "CANCELLED" }, isManualEntry: { not: true }, isCanonical: true, parentEventId: null, kennel: { isHidden: false } },
+        where: { ...DISPLAY_EVENT_WHERE, date: { gte: todayUtcNoon } },
       }),
-      prisma.kennel.count({ where: { isHidden: false } }),
+      // Same rule as the Kennel Directory's default "active" view.
+      prisma.kennel.count({ where: activeKennelWhere() }),
       prisma.kennel
         .findMany({ where: { isHidden: false }, select: { regionId: true }, distinct: ["regionId"] })
         .then((rows) => rows.length),
-      prisma.event.findMany({
-        where: { date: { gte: todayUtcNoon }, status: { not: "CANCELLED" }, isManualEntry: { not: true }, isCanonical: true, parentEventId: null, kennel: { isHidden: false } },
-        select: {
-          id: true,
-          date: true,
-          runNumber: true,
-          title: true,
-          haresText: true,
-          startTime: true,
-          locationName: true,
-          locationCity: true,
-          kennel: { select: { shortName: true, fullName: true, region: true } },
-        },
-        orderBy: [{ date: "asc" }, { startTime: "asc" }, { id: "asc" }],
-        take: 6,
-      }),
+      prisma.source.count({ where: { enabled: true } }),
+      getComingUp(visitorArea),
       prisma.region
         .findMany({
           where: { level: "METRO" },
@@ -115,7 +106,7 @@ export default async function HomePage() {
             <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
               HashTracks aggregates harelines from{" "}
               <span className="font-semibold text-foreground">{kennelCount}</span>{" "}
-              kennels into one calendar. Discover runs, track your attendance,
+              active kennels into one calendar. Discover runs, track your attendance,
               and never miss circle again.
             </p>
           </FadeInSection>
@@ -176,7 +167,7 @@ export default async function HomePage() {
                   <AnimatedCounter target={kennelCount} />
                 </div>
                 <div className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Kennels
+                  Active kennels
                 </div>
               </div>
               <div className="h-8 w-px bg-foreground/10" aria-hidden="true" />
@@ -220,10 +211,10 @@ export default async function HomePage() {
             <div className="mb-8 flex items-end justify-between">
               <div>
                 <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
-                  Coming Up
+                  {comingUp.heading}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Next runs across all kennels
+                  {comingUp.subheading}
                 </p>
               </div>
               <Link
@@ -237,7 +228,7 @@ export default async function HomePage() {
           </FadeInSection>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {nextEvents.map((event, i) => {
+            {comingUp.events.map((event, i) => {
               const regionColor = getRegionColor(event.kennel.region);
               const { title: displayTitle } = getDisplayTitle(event);
               const locationDisplay = getLocationDisplay(event);
@@ -401,7 +392,7 @@ export default async function HomePage() {
                 <h3 className="text-xl font-bold">Connect</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   Subscribe to your home kennels. Find new ones when you travel.{" "}
-                  {kennelCount} kennels across {regionCount} regions and counting.
+                  {kennelCount} active kennels across {regionCount} regions and counting.
                 </p>
                 <Link
                   href="/kennels"
@@ -451,7 +442,7 @@ export default async function HomePage() {
                 <div>
                   <h3 className="font-semibold">Auto-updated harelines</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Events are scraped daily from 69 sources. No manual data entry.
+                    Events are pulled daily from {sourceCount} sources. No manual data entry.
                   </p>
                 </div>
               </div>
