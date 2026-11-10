@@ -1,27 +1,31 @@
 -- Alert fixes (2026-11-10): non-run rows in two iCal feeds.
---   * Choo-Choo H3 iCal Feed now carries a year of "Monthly Drinking Practice" socials
---     (4th Tuesday, 18:00). They aren't trails; the Music City backfill dropped them too.
+--   * Choo-Choo H3 iCal Feed has config NULL, so the iCal adapter tagged every row "UNKNOWN"
+--     and the feed has created no event since it replaced the HTML scraper in April (every
+--     ScrapeLog: 0 created, unmatchedTags {UNKNOWN}). It now gets defaultKennelTag. The
+--     calendar also carries a year of "Monthly Drinking Practice" socials (4th Tuesday,
+--     18:00); they aren't trails, and the Music City backfill dropped them too.
 --   * Perth H3 Hareline posts holiday gaps as Monday rows titled "NO RUN TODAY- see you
 --     on 24th ...". (Its 8 no-location rows, Runs 2957-2964, are real runs and stay.)
 --
--- 1. Add a silentlySkipPatterns rule to each source (merged into the existing config).
--- 2. Delete the phantom Events already ingested. Skipped rows never reach reconcile, so
---    ~13 future Drinking Practice events would otherwise be orphaned at once and trip
---    the mass-cancel breaker. Events with check-ins or hares are left alone.
+-- 1. Merge each source's new keys into its existing config (other keys untouched).
+-- 2. Delete the phantom Events already ingested (prod: 6 Choo-Choo Drinking Practices,
+--    Apr-Sep 2026, from the retired HTML scraper). Events with check-ins, hares or
+--    series children are left alone.
 --
 -- DATA-ONLY, idempotent. Mirrors prisma/seed-data/sources.ts.
 
 BEGIN;
 
 UPDATE "Source"
-SET config = COALESCE(config, '{}'::jsonb) || jsonb_build_object('silentlySkipPatterns', t.rules),
+SET config = COALESCE(config, '{}'::jsonb) || t.patch,
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 FROM (VALUES
-  ('Choo-Choo H3 iCal Feed', '[{"pattern": "\\bdrinking practice\\b", "field": "title"}]'::jsonb),
-  ('Perth H3 Hareline',      '[{"pattern": "^NO RUN TODAY\\b", "field": "title"}]'::jsonb)
-) AS t(name, rules)
+  ('Choo-Choo H3 iCal Feed', '{"defaultKennelTag": "choochooh3",
+     "silentlySkipPatterns": [{"pattern": "\\bdrinking practice\\b", "field": "title"}]}'::jsonb),
+  ('Perth H3 Hareline', '{"silentlySkipPatterns": [{"pattern": "^NO RUN TODAY\\b", "field": "title"}]}'::jsonb)
+) AS t(name, patch)
 WHERE "Source".name = t.name AND "Source".type = 'ICAL_FEED'::"SourceType"
-  AND "Source".config -> 'silentlySkipPatterns' IS DISTINCT FROM t.rules;
+  AND NOT (COALESCE("Source".config, '{}'::jsonb) @> t.patch);
 
 CREATE TEMP TABLE alert_fix_phantoms ON COMMIT DROP AS
 SELECT e.id

@@ -5316,6 +5316,9 @@ export const SOURCES = [
       name: "Choo-Choo H3 iCal Feed",
       url: "https://choochooh3.com/events/?ical=1",
       config: {
+        // Without it every row resolved to "UNKNOWN": this feed created no
+        // events from its April switch until the 2026-11-10 alert fixes.
+        defaultKennelTag: "choochooh3",
         // Alert fixes 2026-11-10: the calendar now carries a year of "Monthly
         // Drinking Practice" socials (4th Tuesday, 18:00). They aren't trails;
         // the Music City backfill dropped them too.
