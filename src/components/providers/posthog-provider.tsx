@@ -2,8 +2,12 @@
 
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider, usePostHog } from "posthog-js/react";
+import { useUser } from "@clerk/nextjs";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, Suspense, type ReactNode } from "react";
+import { identifyUser } from "@/lib/analytics";
+import { getVisitContext } from "@/lib/visit-recency";
+import { isAdminUser } from "./posthog-identify";
 
 if (
   typeof window !== "undefined" &&
@@ -27,16 +31,34 @@ function PostHogPageView() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const ph = usePostHog();
+  const { isLoaded, isSignedIn, user } = useUser();
+  const isAdmin = isAdminUser(user);
   const lastRef = useRef<string>("");
+  const sentFirstRef = useRef(false);
 
   useEffect(() => {
-    if (!pathname || !ph) return;
+    // Wait for Clerk so a signed-in visitor's pageview is attributed to them
+    // (and admins are tagged as internal) instead of a throwaway anonymous ID.
+    if (!pathname || !ph || !isLoaded) return;
     const url = `${pathname}${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`;
-    if (url !== lastRef.current) {
-      lastRef.current = url;
-      ph.capture("$pageview", { $current_url: url });
+    if (url === lastRef.current) return;
+    lastRef.current = url;
+
+    if (isSignedIn && user?.id) identifyUser(user.id, { isAdmin });
+
+    const visit = getVisitContext();
+    const properties: Record<string, unknown> = { $current_url: url };
+    if (!sentFirstRef.current) {
+      sentFirstRef.current = true;
+      // Super property: every event on this page load carries new-vs-returning.
+      ph.register({ visit_recency: visit.recency });
+      // Only the first pageview of a page load can be the visitor's first of the day.
+      if (visit.firstVisitToday !== undefined) properties.first_visit_today = visit.firstVisitToday;
+    } else {
+      properties.first_visit_today = false;
     }
-  }, [pathname, searchParams, ph]);
+    ph.capture("$pageview", properties);
+  }, [pathname, searchParams, ph, isLoaded, isSignedIn, user?.id, isAdmin]);
 
   return null;
 }

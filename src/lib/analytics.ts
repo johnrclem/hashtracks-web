@@ -235,23 +235,46 @@ export function capture<E extends keyof AnalyticsEventMap>(
   posthog.capture(event, properties);
 }
 
+// PostHog runs with `persistence: "memory"`, so identity lives only for the
+// current page load. Track it here so repeat calls stay idempotent.
+let identifiedUserId: string | null = null;
+let markedInternal = false;
+
 /**
- * Identify the current user in PostHog with person properties.
+ * Identify the signed-in user in PostHog. Safe to call repeatedly: it only
+ * re-identifies when the user changes. Admins are tagged as internal traffic
+ * (event property `internal_user` plus PostHog's `$internal_or_test_user`
+ * person property) so they can be filtered out of visitor numbers.
  */
-export function identifyUser(
-  userId: string,
-  properties?: Record<string, unknown>,
-) {
+export function identifyUser(userId: string, options: { isAdmin: boolean }) {
   if (typeof window === "undefined") return;
   if (!posthog.__loaded) return;
-  posthog.identify(userId, properties);
+  if (identifiedUserId !== userId) {
+    posthog.identify(userId, { is_admin: options.isAdmin });
+    identifiedUserId = userId;
+  }
+  if (options.isAdmin && !markedInternal) {
+    posthog.register({ internal_user: true });
+    posthog.setInternalOrTestUser();
+    markedInternal = true;
+  }
 }
 
 /**
- * Reset PostHog identity (call on logout).
+ * Reset PostHog identity after a sign-out. A no-op for visitors who were never
+ * identified on this page load, so it doesn't wipe their super properties.
  */
 export function resetIdentity() {
   if (typeof window === "undefined") return;
   if (!posthog.__loaded) return;
+  if (identifiedUserId === null) return;
   posthog.reset();
+  identifiedUserId = null;
+  markedInternal = false;
+}
+
+/** Test-only: forget identity state between tests. */
+export function __resetAnalyticsIdentityState() {
+  identifiedUserId = null;
+  markedInternal = false;
 }
