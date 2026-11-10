@@ -513,6 +513,10 @@ export function parseBucharestSheet(csv: string): {
         return;
       }
       repairedDates.push(`#${event.runNumber} ${event.date} → ${repaired}`);
+      if (event.endDate) {
+        const shift = Date.parse(repaired) - Date.parse(event.date);
+        event.endDate = new Date(Date.parse(`${event.endDate}T12:00:00Z`) + shift).toISOString().slice(0, 10);
+      }
       event.date = repaired;
     }
     lastDate.set(tag, event.date);

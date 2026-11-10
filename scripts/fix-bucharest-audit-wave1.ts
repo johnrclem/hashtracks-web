@@ -68,9 +68,10 @@ runOneShot(async ({ prisma, apply }) => {
   const codeById = new Map(kennels.map((k) => [k.id, k.kennelCode]));
   const byRun = new Map(events.map((e) => [`${codeById.get(e.kennelId)}#${e.runNumber}`, e]));
 
-  // Guard: the post-deploy scrape must have run (FM #3's meeting place comes from the Extra column).
+  // Guard: the post-deploy scrape must have run (FM #3's meeting place comes from the
+  // Extra column; geocoding may normalize the name, so only require that it's set).
   const fm3 = byRun.get("bfmh3-ro#3");
-  if (fm3?.locationName !== "Gara de Nord 1 (M1) Metro") {
+  if (!fm3?.locationName) {
     throw new Error(`Scrape the Bucharest source on the new adapter first (FM #3 location is ${JSON.stringify(fm3?.locationName)}).`);
   }
 
