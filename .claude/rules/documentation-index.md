@@ -15,7 +15,8 @@ globs:
 - `docs/misman-implementation-plan.md` -- Sprint plan for misman feature (8a-8f)
 - `docs/config-driven-onboarding-plan.md` -- Config-driven source onboarding design (6-phase admin wizard)
 - `docs/test-coverage-analysis.md` -- Test coverage gap analysis and priorities
-- `docs/self-healing-automation-plan.md` -- Self-healing automation loop architecture, confidence scoring, roadmap
+- `docs/self-healing-automation-plan.md` -- Original 2026 self-healing design (superseded)
+- `docs/self-healing-v2-plan.md` -- Self-healing v2: review of the old loop and the scraper-doctor redesign
 - `docs/residential-proxy-spec.md` -- Architecture and deployment guide for residential proxy
 - `docs/hashnyc-ical-cutover.md` -- SHIPPED cutover: HashNYC HTML scraper -> iCal feed (relaunch label changes, NAWW-vs-NASS routing rule, 2026-11-14 Friendsgiving re-homed to nawwh3)
 - `infra/proxy-relay/` -- NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)

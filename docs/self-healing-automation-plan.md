@@ -1,5 +1,7 @@
 # Self-Healing Automation Loop — Architecture & Implementation Plan
 
+> **Superseded (2026-11-10).** This loop never produced an automatic fix: triage failed 20 of 24 runs, auto-fix 7 of 8, and issue filing has been off since June because `GITHUB_REPOSITORY` isn't set in Vercel. See [`self-healing-v2-plan.md`](self-healing-v2-plan.md) for the review and the replacement design.
+
 ## Context
 
 HashTracks currently has a sophisticated alert system that detects scraper failures, data quality drops, and structural changes across 29 data sources. When issues are detected, an admin manually clicks "File GitHub Issue" to create a structured issue, then manually investigates and fixes the code. This plan designs an automated loop where: alerts auto-create GitHub issues → an AI agent triages and diagnoses → if confidence is high, the agent implements a fix and opens a PR for human review.
