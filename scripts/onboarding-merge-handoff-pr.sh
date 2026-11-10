@@ -10,15 +10,20 @@
 #   bash scripts/onboarding-merge-handoff-pr.sh <pr-number-or-url> [--dry-run]
 #
 # Exit codes (the runner reports each one in Step 10):
-#   0  merged (or, with --dry-run, would merge)
+#   0  merged (or, with --dry-run, would merge or would re-run a lone failed review check)
 #   1  a check failed or was cancelled; PR left open
 #   2  CI didn't finish within the deadline; PR left open
 #   3  the PR changes files outside docs/kennel-onboarding/; refused, PR left open
 #   4  CI passed but `gh pr merge` failed; PR left open
 #   64 usage error
 #
+# Flaky review check: when the AI review check (`claude-review`) is the ONLY failing check, its job is
+# re-run once before giving up. It has failed on infrastructure errors (a setup-bun download 504), not
+# on review findings, which it posts as comments. Any other failing check still exits 1 at once.
+#
 # Env: ONBOARDING_CI_WAIT_SECS (default 1500 = 25 min), ONBOARDING_CI_POLL_SECS (default 30),
-#      ONBOARDING_CI_APPEAR_SECS (default 300: how long to wait for the `test` check to register).
+#      ONBOARDING_CI_APPEAR_SECS (default 300: how long to wait for the `test` check to register),
+#      ONBOARDING_REVIEW_CHECK (default claude-review: the check that gets one re-run).
 
 set -uo pipefail
 
@@ -33,6 +38,7 @@ fi
 WAIT_SECS="${ONBOARDING_CI_WAIT_SECS:-1500}"
 POLL_SECS="${ONBOARDING_CI_POLL_SECS:-30}"
 APPEAR_SECS="${ONBOARDING_CI_APPEAR_SECS:-300}"
+REVIEW_CHECK="${ONBOARDING_REVIEW_CHECK:-claude-review}"
 ALLOWED_PREFIX="docs/kennel-onboarding/"
 
 # 1. Refuse anything that isn't docs-only. This enforces the manual's rule at merge time.
@@ -50,6 +56,22 @@ checks() {
   gh pr checks "$PR" --json name,bucket --jq '.[] | "\(.name)\t\(.bucket)"' 2>/dev/null || true
 }
 
+# Re-runs the failed job behind $REVIEW_CHECK, then waits (up to APPEAR_SECS) until GitHub no longer
+# reports it as failed, so the next poll doesn't see the stale result. Returns non-zero if it can't.
+rerun_review_check() {
+  local link run_id
+  link="$(gh pr checks "$PR" --json name,link --jq ".[] | select(.name==\"$REVIEW_CHECK\") | .link" 2>/dev/null | head -1)"
+  run_id="$(printf '%s' "$link" | sed -nE 's#.*/actions/runs/([0-9]+).*#\1#p')"
+  [[ -n "$run_id" ]] || return 1
+  gh run rerun "$run_id" --failed >/dev/null 2>&1 || return 1
+  local until_ts=$((SECONDS + APPEAR_SECS))
+  while checks | grep -qE "^${REVIEW_CHECK}"$'\t'"(fail|cancel)$"; do
+    (( SECONDS >= until_ts )) && return 1
+    sleep 10
+  done
+  return 0
+}
+
 # 2. Wait for the CI `test` job to register. Merging before it exists would skip the real gate.
 deadline=$((SECONDS + APPEAR_SECS))
 until checks | grep -q $'^test\t'; do
@@ -62,10 +84,25 @@ done
 
 # 3. Poll until every check is pass/skipping, or one fails.
 deadline=$((SECONDS + WAIT_SECS))
+review_rerun_done=0
 while :; do
   rows="$(checks)"
   failed="$(printf '%s\n' "$rows" | awk -F'\t' '$2=="fail" || $2=="cancel" {print $1}')"
   if [[ -n "$failed" ]]; then
+    if [[ "$failed" == "$REVIEW_CHECK" ]] && (( ! review_rerun_done )); then
+      review_rerun_done=1
+      if (( DRY_RUN )); then
+        echo "DRY RUN: only '$REVIEW_CHECK' failed on $PR; would re-run it once and keep waiting"
+        exit 0
+      fi
+      if rerun_review_check; then
+        echo "Re-ran the failed '$REVIEW_CHECK' check on $PR once; waiting again." >&2
+        deadline=$((SECONDS + WAIT_SECS))
+        continue
+      fi
+      echo "PR OPEN: '$REVIEW_CHECK' failed on $PR and its re-run could not be started" >&2
+      exit 1
+    fi
     echo "PR OPEN: checks failed on $PR: $(printf '%s' "$failed" | paste -sd, -)" >&2
     exit 1
   fi
