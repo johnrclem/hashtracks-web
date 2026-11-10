@@ -32,6 +32,7 @@ import { NorthboroHashAdapter } from "./html-scraper/northboro-hash";
 import { DublinHashAdapter } from "./html-scraper/dublin-hash";
 import { HertsHashAdapter } from "./html-scraper/herts-hash";
 import { WarwickHashAdapter } from "./html-scraper/warwick-hash";
+import { HighWycombeHashAdapter } from "./html-scraper/high-wycombe-hash";
 import { MkH3Adapter } from "./html-scraper/mkh3";
 import { CambridgeHashAdapter } from "./html-scraper/cambridge-hash";
 import { EssexHashAdapter } from "./html-scraper/essex-hash";
@@ -251,6 +252,9 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: onHost("fukfmh3.co.uk"), name: "FukFullMoonH3Adapter", factory: () => new FukFullMoonH3Adapter() },
   { pattern: onHost("sh4.org.uk"), name: "SouthHamsH4Adapter", factory: () => new SouthHamsH4Adapter() },
   { pattern: onHost("wyreforesthhh.org.uk"), name: "WyreForestHashAdapter", factory: () => new WyreForestHashAdapter() },
+  // High Wycombe H3 (Chilterns, est. 1991) — ProcessWire SSR home-page "Runs list";
+  // run numbers joined by date from the kennel's hash-cal.ics UIDs (HASHID<run>).
+  { pattern: onHost("hwh3.co.uk"), name: "HighWycombeHashAdapter", factory: () => new HighWycombeHashAdapter() },
   { pattern: onHost("tidewaterh3.org"), name: "TidewaterH3Adapter", factory: () => new TidewaterH3Adapter() },
   // Desert H3 (HashTracks' first UAE kennel, Dubai's oldest hash, est. 1979) — deserthash.org
   // WordPress/Elementor + Modern Events Calendar, fully SSR'd; wp-json + MEC/Tribe REST all

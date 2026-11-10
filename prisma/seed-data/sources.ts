@@ -9833,6 +9833,19 @@ export const SOURCES = [
       kennelCodes: ["oxford-h3"],
     },
     {
+      name: "High Wycombe H3 Website",
+      url: "https://www.hwh3.co.uk/",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        upcomingOnly: true, // REQUIRED — the home-page Runs list shows ~7 weeks ahead and past runs drop off it
+        icsUrl: "https://www.hwh3.co.uk/hash-cal.ics", // run numbers from VEVENT UIDs (HASHID<run>), joined by date
+      },
+      kennelCodes: ["hwh3"],
+    },
+    {
       name: "Malvern H3 iCal Feed",
       url: "https://www.malvernhash.co.uk/hash-cal.ics",
       type: "ICAL_FEED" as const,

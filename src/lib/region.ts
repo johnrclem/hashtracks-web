@@ -1759,6 +1759,17 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     aliases: ["Milton Keynes, England", "Buckinghamshire"],
   },
   {
+    name: "High Wycombe",
+    country: "UK",
+    timezone: "Europe/London",
+    abbrev: "HWY",
+    colorClasses: "bg-violet-100 text-violet-700",
+    pinColor: "#8b5cf6",
+    centroidLat: 51.6287,
+    centroidLng: -0.7482, // High Wycombe town centre
+    aliases: ["High Wycombe, England"],
+  },
+  {
     name: "Cambridge",
     country: "UK",
     timezone: "Europe/London",
@@ -4931,6 +4942,7 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "Shropshire": "United Kingdom",
   "Cambridge": "United Kingdom",
   "Milton Keynes": "United Kingdom",
+  "High Wycombe": "United Kingdom",
   "Oxford": "United Kingdom",
   "Aldershot": "United Kingdom",
   "Warwick": "United Kingdom",

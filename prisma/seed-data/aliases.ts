@@ -806,6 +806,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "donnington-h3": ["Donnington Hash", "Donnington HHH", "DH3 Telford", "Donnington Hash House Harriers"],
     // bare "BH3" OMITTED — Buffalo H3 owns it globally.
     "bicester-h3": ["Bicester Hash", "Bicester HHH", "BH3 Bicester"],
+    "hwh3": ["HWH3", "High Wycombe Hash", "High Wycombe HHH", "Wycombe Hash"],
     "oxford-h3": ["Oxford Hash", "Oxford HHH", "OxfordH3", "Oxford Hash House Harriers"],
     "newch3": ["NEW Cotswold H3", "N.E.W. Cotswold HHH", "NEWCH3", "Cotswold H3", "Cotswold Hash", "New Cotswold Hash House Harriers"],
     // bare "MH3"/"MVH3" OMITTED — taken (Munich/Montreal/…; Mount Vernon).
