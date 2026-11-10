@@ -9,7 +9,8 @@
  *   - Body rows in `tbody tr` (or `tr:not(:first-child)` if no `<tbody>`)
  *
  * `fetchWixTableMasterCsv` reads the same data without a browser, straight
- * from the widget's CSV endpoint. Today both are consumed by `hhhs.ts`. New Wix Table Master adapters
+ * from the widget's CSV endpoint; `hhhs.ts` uses it, and the date helper.
+ * `extractWixTableRows` has no caller today. New Wix Table Master adapters
  * (Samurai H3, New Tokyo Katch, Bull Moon currently inline their own
  * copies) should migrate to this helper rather than continuing to fork it.
  */
