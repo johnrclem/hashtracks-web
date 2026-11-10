@@ -368,6 +368,19 @@ describe("regionSlug — apostrophes", () => {
   });
 });
 
+describe("inferCountry — Guam (first 🇬🇺 kennel: Agana H3)", () => {
+  it.each([
+    ["Guam", "Guam"],
+    ["Hagåtña, Guam", "Guam"],
+    ["Hagatna", "Guam"],
+    ["Agana Heights", "Guam"],
+    // A Guam rule must not swallow mainland US places.
+    ["Atlanta, GA", "USA"],
+  ])("infers %s → %s", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
 describe("inferCountry — Grenada (first 🇬🇩 kennel: Grenada H3)", () => {
   it.each([
     ["Grenada", "Grenada"],

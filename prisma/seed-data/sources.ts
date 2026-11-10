@@ -5432,6 +5432,33 @@ export const SOURCES = [
       kennelCodes: ["lrh3"],
     },
 
+    // ===== GUAM =====
+    // Agana H3 runs every Saturday (3:45pm show, map posted 4:00pm) from the PDN
+    // building in Hagåtña. The kennel's run list is a Wix "Table Master" widget that
+    // lazy-loads in an iframe (no src until scrolled into view), so it isn't scraped
+    // yet; this fixed weekly schedule ships forward runs. Run numbers come from the
+    // anchor: the live table (checked 2026-11-10) numbers every Saturday in sequence,
+    // #2300 on 2026-07-11 → #2317 on 2026-11-07 → #2324 on 2026-12-26.
+    {
+      name: "Agana H3 Static Schedule",
+      url: "https://www.guamhash.com",
+      type: "STATIC_SCHEDULE" as const,
+      trustLevel: 5,
+      scrapeFreq: "daily",
+      scrapeDays: 120,
+      config: {
+        kennelTag: "ah3-gu",
+        rrule: "FREQ=WEEKLY;BYDAY=SA",
+        anchorDate: "2026-11-07",
+        startRunNumber: 2317,
+        startTime: "16:00",
+        defaultLocation: "PDN building, Hagåtña",
+        defaultDescription:
+          "Every Saturday: 3:45pm show, map posted at 4:00pm, at the PDN (Pacific Daily News) building in Hagåtña. $10 for beer & snacks, $1 for gloves. Hares and run themes are on https://www.guamhash.com/recedinghareline",
+      },
+      kennelCodes: ["ah3-gu"],
+    },
+
     // ===== SINGAPORE =====
     // Singapore is the second-oldest hash scene in the world (after Mother Hash KL).
     // Five active kennels shipped here across four source patterns.
