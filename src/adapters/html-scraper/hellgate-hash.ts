@@ -40,12 +40,14 @@ const DESCRIPTION_LABELS = ["what", "trail", "bring", "onafter"];
 /** Labels whose values are mapped to other fields, so they never reach the description. */
 const MAPPED_LABELS = new Set([...DATE_LABELS, ...HARE_LABELS, ...WHERE_LABELS, ...TIME_LABELS, ...COST_LABELS, ...DESCRIPTION_LABELS]);
 
-const WEEKDAY_OR_MONTH_RE = /^(?:mon|tue|wed|thu|fri|sat|sun|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?[\s,]/i;
+const LEADING_WORD_RE = /^([A-Za-z]{3,9})\.?[\s,]/;
+const WEEKDAY_PREFIXES = new Set(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
 const MONTH_DAY_RE = /([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b/g;
 const DAY_RANGE_TAIL_RE = /^\s*[-–]\s*(\d{1,2})(?:st|nd|rd|th)?\b/;
 const YEAR_RE = /\b(20[1-3]\d)\b/;
-const TITLE_DATE_RE = /^([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*[-–]\s*(\d{1,2})(?:st|nd|rd|th)?)?,\s*(\d{4})\s*:\s*/;
-const TIME_RE = /\b(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s*m\b/i;
+const TITLE_YEAR_TAIL_RE = /, ?(\d{4}) ?$/;
+// Lines are whitespace-collapsed, so single optional spaces suffice ("3:30 pm", "2 p.m.", "12:00pm").
+const TIME_RE = /\b(\d{1,2})(?::(\d{2}))? ?([ap])\.? ?m\b/i;
 const PHONE_RE = /(?:\(\d{3}\)\s?|\b\d{3}[-.\s]?)\d{3}[-.]\d{4}\b/g;
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
 const MS_PER_DAY = 86_400_000;
@@ -124,12 +126,19 @@ export function monthDayMentions(text: string): MonthDay[] {
   return out;
 }
 
+/** "Saturday, December 8th" / "Sept. 20th" → true; "Directions:" → false. */
+function startsWithWeekdayOrMonth(line: string): boolean {
+  const word = LEADING_WORD_RE.exec(line)?.[1];
+  if (!word) return false;
+  return WEEKDAY_PREFIXES.has(word.slice(0, 3).toLowerCase()) || monthNumber(word) !== undefined;
+}
+
 /** The post's date text: the When/Date label, else the first top line that starts with a weekday or month. */
 function bodyDateTexts(lines: string[]): string[] {
   const texts: string[] = [];
   const labeled = labelValue(lines, DATE_LABELS);
   if (labeled) texts.push(labeled);
-  texts.push(...lines.slice(0, 6).filter((line) => WEEKDAY_OR_MONTH_RE.test(line) && !splitLabel(line)));
+  texts.push(...lines.slice(0, 6).filter((line) => startsWithWeekdayOrMonth(line) && !splitLabel(line)));
   return texts;
 }
 
@@ -161,16 +170,27 @@ interface TitleDate extends MonthDay {
 
 /** Only a leading "Mon Dth(-Dth), YYYY:" counts; "January 2019 Hash" and "July 9 Holes…" don't. */
 export function parseTitleDate(title: string): TitleDate | null {
-  const m = TITLE_DATE_RE.exec(title);
-  if (!m) return null;
-  const month = monthNumber(m[1]);
-  if (!month) return null;
+  const colon = title.indexOf(":");
+  if (colon < 0 || colon > 30) return null;
+  const head = title.slice(0, colon).trim();
+  const yearMatch = TITLE_YEAR_TAIL_RE.exec(head);
+  if (!yearMatch) return null;
+  const datePart = head.slice(0, yearMatch.index);
+  const leadingWord = LEADING_WORD_RE.exec(`${datePart} `)?.[1];
+  const mentions = monthDayMentions(datePart);
+  // The prefix must start with the month word itself ("Oct 17th, 2026:"), not prose.
+  if (!leadingWord || monthNumber(leadingWord) === undefined || mentions.length === 0) return null;
   return {
-    month,
-    day: Number.parseInt(m[2], 10),
-    endDay: m[3] ? Number.parseInt(m[3], 10) : undefined,
-    year: Number.parseInt(m[4], 10),
+    month: mentions[0].month,
+    day: mentions[0].day,
+    endDay: mentions[1]?.day,
+    year: Number.parseInt(yearMatch[1], 10),
   };
+}
+
+/** Post title without its "Mon Dth, YYYY:" date prefix. */
+function stripTitleDatePrefix(title: string): string {
+  return parseTitleDate(title) ? title.slice(title.indexOf(":") + 1).trim() : title.trim();
 }
 
 export interface ResolvedDate {
@@ -178,45 +198,53 @@ export interface ResolvedDate {
   endDate?: string;
 }
 
+interface DateMentions {
+  mentions: MonthDay[];
+  explicitYear?: number;
+}
+
+/** Month/day mentions (and any explicit year) from the body, else from the title prefix. */
+function findDateMentions(lines: string[], titleDate: TitleDate | null): DateMentions {
+  for (const text of bodyDateTexts(lines)) {
+    const mentions = monthDayMentions(text);
+    if (mentions.length > 0) {
+      const y = YEAR_RE.exec(text);
+      return { mentions, explicitYear: y ? Number.parseInt(y[1], 10) : undefined };
+    }
+  }
+  if (!titleDate) return { mentions: [] };
+  const mentions: MonthDay[] = [titleDate];
+  if (titleDate.endDay) mentions.push({ month: titleDate.month, day: titleDate.endDay });
+  return { mentions, explicitYear: titleDate.year };
+}
+
+/** Explicit year, else the title's when its month agrees, else the year closest to publish. */
+function pickYear(start: MonthDay, found: DateMentions, titleDate: TitleDate | null, publishedIso: string): number | undefined {
+  if (found.explicitYear !== undefined) return found.explicitYear;
+  if (titleDate?.month === start.month) return titleDate.year;
+  const published = new Date(publishedIso);
+  return Number.isNaN(published.getTime()) ? undefined : closestYear(start.month, start.day, published);
+}
+
+/** End date when the last mention is 1–4 days after the start (a campout), else undefined. */
+function campoutEndDate(date: string, start: MonthDay, last: MonthDay, year: number): string | undefined {
+  const end = ymd(last.month < start.month ? year + 1 : year, last.month, last.day);
+  if (!end || end <= date) return undefined;
+  return (Date.parse(end) - Date.parse(date)) / MS_PER_DAY <= MAX_RANGE_DAYS ? end : undefined;
+}
+
 /** Resolve the run date (and campout end date) for a post. Null when nothing date-like is found. */
 export function resolveHellgateDate(lines: string[], title: string, publishedIso: string): ResolvedDate | null {
   const titleDate = parseTitleDate(title);
-  const published = new Date(publishedIso);
-  let mentions: MonthDay[] = [];
-  let explicitYear: number | undefined;
-  for (const text of bodyDateTexts(lines)) {
-    mentions = monthDayMentions(text);
-    if (mentions.length > 0) {
-      const y = YEAR_RE.exec(text);
-      explicitYear = y ? Number.parseInt(y[1], 10) : undefined;
-      break;
-    }
-  }
-  if (mentions.length === 0 && titleDate) {
-    mentions = [titleDate];
-    if (titleDate.endDay) mentions.push({ month: titleDate.month, day: titleDate.endDay });
-    explicitYear = titleDate.year;
-  }
-  if (mentions.length === 0) return null;
-
-  const start = mentions[0];
-  let year = explicitYear;
-  if (year === undefined && titleDate?.month === start.month) year = titleDate.year;
-  if (year === undefined) {
-    if (Number.isNaN(published.getTime())) return null;
-    year = closestYear(start.month, start.day, published);
-  }
+  const found = findDateMentions(lines, titleDate);
+  if (found.mentions.length === 0) return null;
+  const start = found.mentions[0];
+  const year = pickYear(start, found, titleDate, publishedIso);
+  if (year === undefined) return null;
   const date = ymd(year, start.month, start.day);
   if (!date) return null;
-
-  const last = mentions.at(-1)!;
-  const lastYear = last.month < start.month ? year + 1 : year;
-  const end = ymd(lastYear, last.month, last.day);
-  if (end && end > date) {
-    const span = (Date.parse(end) - Date.parse(date)) / MS_PER_DAY;
-    if (span <= MAX_RANGE_DAYS) return { date, endDate: end };
-  }
-  return { date };
+  const endDate = campoutEndDate(date, start, found.mentions.at(-1)!, year);
+  return endDate ? { date, endDate } : { date };
 }
 
 /** First 12-hour clock time in the text ("3:30 pm", "2 p.m.", "12:00pm"). */
@@ -244,7 +272,9 @@ export function cleanHares(raw: string | undefined): string | null | undefined {
   if (raw === undefined) return undefined;
   const names = raw
     .replace(/^hares?\s+/i, "") // "Hares: Hares Hindlick Maneuver and …"
-    .replaceAll(/\([^)]*\)/g, " ")
+    .split("(")
+    .map((chunk, i) => (i === 0 ? chunk : chunk.slice(chunk.indexOf(")") + 1)))
+    .join(" ")
     .split(/[&,/+]/)
     .map((part) => stripPlaceholder(part.replaceAll(/\s+/g, " ")))
     .filter((part): part is string => part !== undefined);
@@ -314,7 +344,7 @@ export function parseHellgatePost(post: WordPressPost): RawEventData | null {
   const lines = htmlToLines(post.content);
   const dated = resolveHellgateDate(lines, post.title, post.date);
   if (!dated) return null;
-  const title = post.title.replace(TITLE_DATE_RE, "").trim();
+  const title = stripTitleDatePrefix(post.title);
   const trail = labelValue(lines, ["trail"]);
   const trailTypeMatch = /\bA\s*(?:to|-)\s*([AB])\b/.exec(trail ?? "");
   const dateLine = bodyDateTexts(lines)[0];
