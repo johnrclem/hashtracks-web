@@ -8,6 +8,9 @@
  * `persistence: "memory"`, so its own anonymous ID resets on every page load).
  */
 
+import { daysBetweenIsoDates } from "@/lib/travel/format";
+import { localYmd } from "@/lib/travel/url";
+
 export const LAST_VISIT_STORAGE_KEY = "ht_last_visit";
 
 export type VisitRecency =
@@ -18,81 +21,62 @@ export type VisitRecency =
   | "returning_31d_plus"
   | "unknown";
 
-export interface VisitContext {
-  recency: VisitRecency;
-  /** True only on the first page load of the visitor's local calendar day. Undefined when storage is unavailable. */
-  firstVisitToday: boolean | undefined;
-}
+const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-const DATE_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
-const MS_PER_DAY = 86_400_000;
-
-/** Local calendar date as `YYYY-MM-DD`. */
-export function localDateKey(now: Date): string {
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-/** Whole days from `from` to `to` (both `YYYY-MM-DD`), or null if either is malformed. */
-export function daysBetween(from: string, to: string): number | null {
-  const a = DATE_KEY_RE.exec(from);
-  const b = DATE_KEY_RE.exec(to);
-  if (!a || !b) return null;
-  const fromUtc = Date.UTC(Number(a[1]), Number(a[2]) - 1, Number(a[3]));
-  const toUtc = Date.UTC(Number(b[1]), Number(b[2]) - 1, Number(b[3]));
-  if (Number.isNaN(fromUtc) || Number.isNaN(toUtc)) return null;
-  return Math.round((toUtc - fromUtc) / MS_PER_DAY);
-}
-
-/** Classify a visit given the stored last-visit date (or null) and today's date key. */
-export function classifyVisit(lastVisit: string | null, today: string): VisitContext {
-  if (lastVisit === today) return { recency: "same_day", firstVisitToday: false };
-
-  const days = lastVisit === null ? null : daysBetween(lastVisit, today);
-  if (days === null) return { recency: "new", firstVisitToday: true };
+/** Classify a visit given the stored last-visit date (or null) and today's `YYYY-MM-DD`. */
+export function classifyVisit(lastVisit: string | null, today: string): VisitRecency {
+  if (lastVisit === today) return "same_day";
+  const days = lastVisit && DATE_KEY_RE.test(lastVisit) ? daysBetweenIsoDates(lastVisit, today) : Number.NaN;
+  if (Number.isNaN(days)) return "new";
   // A stored date in the future means the device clock moved; count it as a recent return.
-  if (days <= 7) return { recency: "returning_1_7d", firstVisitToday: true };
-  if (days <= 30) return { recency: "returning_8_30d", firstVisitToday: true };
-  return { recency: "returning_31d_plus", firstVisitToday: true };
+  if (days <= 7) return "returning_1_7d";
+  if (days <= 30) return "returning_8_30d";
+  return "returning_31d_plus";
 }
 
 type StorageLike = Pick<Storage, "getItem" | "setItem">;
 
 /** Read the stored last-visit date, classify this visit, and store today's date. Never throws. */
-export function readAndRecordVisit(storage: StorageLike | null | undefined, now: Date): VisitContext {
-  if (!storage) return { recency: "unknown", firstVisitToday: undefined };
+export function readAndRecordVisit(storage: StorageLike | null | undefined, now: Date): VisitRecency {
+  if (!storage) return "unknown";
   try {
-    const today = localDateKey(now);
-    const context = classifyVisit(storage.getItem(LAST_VISIT_STORAGE_KEY), today);
-    if (context.recency !== "same_day") storage.setItem(LAST_VISIT_STORAGE_KEY, today);
-    return context;
+    const today = localYmd(now);
+    const recency = classifyVisit(storage.getItem(LAST_VISIT_STORAGE_KEY), today);
+    if (recency !== "same_day") storage.setItem(LAST_VISIT_STORAGE_KEY, today);
+    return recency;
   } catch {
     // Storage blocked (privacy settings, sandboxed frames) — report unknown rather than guess.
-    return { recency: "unknown", firstVisitToday: undefined };
+    return "unknown";
   }
 }
 
-let cachedContext: VisitContext | null = null;
+/**
+ * Properties for a `$pageview`. Only the first pageview of a page load can be
+ * the visitor's first of the day; later client-side navigations report false.
+ * When storage was unavailable the property is omitted rather than guessed.
+ */
+export function pageviewVisitProperties(
+  recency: VisitRecency,
+  isFirstPageviewOfLoad: boolean,
+): { first_visit_today?: boolean } {
+  if (recency === "unknown") return {};
+  return { first_visit_today: isFirstPageviewOfLoad && recency !== "same_day" };
+}
+
+let cachedRecency: VisitRecency | null = null;
 
 /**
- * Visit context for the current page load. Reads and updates storage once, so
+ * Visit recency for the current page load. Reads and updates storage once, so
  * client-side navigations within the same load don't re-count the visit.
  */
-export function getVisitContext(): VisitContext {
-  if (cachedContext) return cachedContext;
+export function getVisitRecency(): VisitRecency {
+  if (cachedRecency) return cachedRecency;
   let storage: StorageLike | null = null;
   try {
     storage = typeof window === "undefined" ? null : window.localStorage;
   } catch {
     storage = null;
   }
-  cachedContext = readAndRecordVisit(storage, new Date());
-  return cachedContext;
-}
-
-/** Test-only: clear the per-page-load cache. */
-export function __resetVisitContextCache(): void {
-  cachedContext = null;
+  cachedRecency = readAndRecordVisit(storage, new Date());
+  return cachedRecency;
 }

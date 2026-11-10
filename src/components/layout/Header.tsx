@@ -6,6 +6,7 @@ import { SignInButton, SignedIn, SignedOut, UserButton, useUser } from "@clerk/n
 import { Button } from "@/components/ui/button";
 import { Globe, Clock, Thermometer, Sun, Moon, Monitor } from "lucide-react";
 import { Wordmark } from "@/components/layout/Wordmark";
+import { isAdminUser } from "@/lib/clerk-roles";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { useUnitsPreference } from "@/components/providers/units-preference-provider";
 import { useTheme } from "next-themes";
@@ -28,7 +29,7 @@ const navLinks = [
 
 export function Header() {
   const { user } = useUser();
-  const isAdmin = (user?.publicMetadata as { role?: string } | undefined)?.role === "admin";
+  const isAdmin = isAdminUser(user);
   const { preference, setPreference, isLoading } = useTimePreference();
   const { tempUnit, setTempUnit } = useUnitsPreference();
   const { theme, setTheme, resolvedTheme } = useTheme();

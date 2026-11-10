@@ -1,8 +1,7 @@
 import {
   LAST_VISIT_STORAGE_KEY,
   classifyVisit,
-  daysBetween,
-  localDateKey,
+  pageviewVisitProperties,
   readAndRecordVisit,
 } from "./visit-recency";
 
@@ -17,40 +16,16 @@ function memoryStorage(initial: Record<string, string> = {}) {
   };
 }
 
-describe("localDateKey", () => {
-  it("formats the local calendar date with zero padding", () => {
-    expect(localDateKey(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
-  });
-});
-
-describe("daysBetween", () => {
-  it("counts whole days across month and year boundaries", () => {
-    expect(daysBetween("2026-11-09", "2026-11-10")).toBe(1);
-    expect(daysBetween("2026-12-31", "2027-01-01")).toBe(1);
-    expect(daysBetween("2026-10-10", "2026-11-10")).toBe(31);
-  });
-
-  it("is unaffected by daylight-saving changes", () => {
-    expect(daysBetween("2026-03-07", "2026-03-09")).toBe(2);
-    expect(daysBetween("2026-10-31", "2026-11-02")).toBe(2);
-  });
-
-  it("returns null for malformed input", () => {
-    expect(daysBetween("yesterday", "2026-11-10")).toBeNull();
-    expect(daysBetween("2026-11-10", "")).toBeNull();
-  });
-});
-
 describe("classifyVisit", () => {
   const today = "2026-11-10";
 
   it("treats a missing or malformed date as a new visitor", () => {
-    expect(classifyVisit(null, today)).toEqual({ recency: "new", firstVisitToday: true });
-    expect(classifyVisit("garbage", today)).toEqual({ recency: "new", firstVisitToday: true });
+    expect(classifyVisit(null, today)).toBe("new");
+    expect(classifyVisit("garbage", today)).toBe("new");
   });
 
-  it("does not count a second load on the same day as a new daily visit", () => {
-    expect(classifyVisit(today, today)).toEqual({ recency: "same_day", firstVisitToday: false });
+  it("recognizes a second load on the same day", () => {
+    expect(classifyVisit(today, today)).toBe("same_day");
   });
 
   it.each([
@@ -59,27 +34,33 @@ describe("classifyVisit", () => {
     ["2026-11-02", "returning_8_30d"],
     ["2026-10-11", "returning_8_30d"],
     ["2026-10-10", "returning_31d_plus"],
+    ["2025-12-31", "returning_31d_plus"],
   ] as const)("classifies a last visit on %s as %s", (last, recency) => {
-    expect(classifyVisit(last, today)).toEqual({ recency, firstVisitToday: true });
+    expect(classifyVisit(last, today)).toBe(recency);
+  });
+
+  it("is unaffected by daylight-saving changes", () => {
+    expect(classifyVisit("2026-03-01", "2026-03-09")).toBe("returning_8_30d");
+    expect(classifyVisit("2026-10-26", "2026-11-02")).toBe("returning_1_7d");
   });
 
   it("counts a future stored date (clock change) as a recent return", () => {
-    expect(classifyVisit("2026-11-12", today)).toEqual({ recency: "returning_1_7d", firstVisitToday: true });
+    expect(classifyVisit("2026-11-12", today)).toBe("returning_1_7d");
   });
 });
 
 describe("readAndRecordVisit", () => {
   const now = new Date(2026, 10, 10, 9, 30);
 
-  it("records today's date and reports a new visitor on first load", () => {
+  it("records today's local date and reports a new visitor on first load", () => {
     const storage = memoryStorage();
-    expect(readAndRecordVisit(storage, now)).toEqual({ recency: "new", firstVisitToday: true });
+    expect(readAndRecordVisit(storage, now)).toBe("new");
     expect(storage.data.get(LAST_VISIT_STORAGE_KEY)).toBe("2026-11-10");
   });
 
   it("reports a return and moves the stored date forward", () => {
     const storage = memoryStorage({ [LAST_VISIT_STORAGE_KEY]: "2026-11-04" });
-    expect(readAndRecordVisit(storage, now)).toEqual({ recency: "returning_1_7d", firstVisitToday: true });
+    expect(readAndRecordVisit(storage, now)).toBe("returning_1_7d");
     expect(storage.data.get(LAST_VISIT_STORAGE_KEY)).toBe("2026-11-10");
   });
 
@@ -91,13 +72,30 @@ describe("readAndRecordVisit", () => {
   });
 
   it("reports unknown when storage is missing or throws", () => {
-    expect(readAndRecordVisit(null, now)).toEqual({ recency: "unknown", firstVisitToday: undefined });
+    expect(readAndRecordVisit(null, now)).toBe("unknown");
     const throwing = {
       getItem: () => {
         throw new Error("SecurityError");
       },
       setItem: () => {},
     };
-    expect(readAndRecordVisit(throwing, now)).toEqual({ recency: "unknown", firstVisitToday: undefined });
+    expect(readAndRecordVisit(throwing, now)).toBe("unknown");
+  });
+});
+
+describe("pageviewVisitProperties", () => {
+  it("marks only the first pageview of a page load as the first visit today", () => {
+    expect(pageviewVisitProperties("returning_1_7d", true)).toEqual({ first_visit_today: true });
+    expect(pageviewVisitProperties("new", true)).toEqual({ first_visit_today: true });
+    expect(pageviewVisitProperties("returning_1_7d", false)).toEqual({ first_visit_today: false });
+  });
+
+  it("does not count a same-day reload as a first visit", () => {
+    expect(pageviewVisitProperties("same_day", true)).toEqual({ first_visit_today: false });
+  });
+
+  it("omits the property when storage was unavailable", () => {
+    expect(pageviewVisitProperties("unknown", true)).toEqual({});
+    expect(pageviewVisitProperties("unknown", false)).toEqual({});
   });
 });

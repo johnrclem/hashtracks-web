@@ -7,6 +7,7 @@ import { useTheme } from "next-themes";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { useUnitsPreference } from "@/components/providers/units-preference-provider";
 import { FeedbackDialog } from "@/components/feedback/FeedbackDialog";
+import { isAdminUser } from "@/lib/clerk-roles";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Dialog,
@@ -24,7 +25,7 @@ const navLinkClass = "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm fon
 export function MobileMoreSheet({ open, onClose }: MobileMoreSheetProps) {
   const { user } = useUser();
   const { signOut } = useClerk();
-  const isAdmin = (user?.publicMetadata as { role?: string } | undefined)?.role === "admin";
+  const isAdmin = isAdminUser(user);
   const { preference, setPreference } = useTimePreference();
   const { tempUnit, setTempUnit } = useUnitsPreference();
   const { theme, setTheme } = useTheme();

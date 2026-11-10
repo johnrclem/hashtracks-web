@@ -4,17 +4,11 @@ import { useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import * as Sentry from "@sentry/nextjs";
 import { identifyUser, resetIdentity } from "@/lib/analytics";
-
-/** Admin role check, matching the Header's check on Clerk public metadata. */
-export function isAdminUser(user: { publicMetadata?: unknown } | null | undefined): boolean {
-  return (user?.publicMetadata as { role?: string } | undefined)?.role === "admin";
-}
+import { isAdminUser } from "@/lib/clerk-roles";
 
 /**
- * Identifies the current Clerk user in PostHog and Sentry when they log in,
- * and resets identity when they log out. The pageview tracker also calls
- * `identifyUser` before its first pageview, so ordering between the two
- * effects doesn't matter (the call is idempotent).
+ * Identifies the current Clerk user in PostHog when they log in,
+ * and resets identity when they log out.
  */
 export function PostHogIdentify() {
   const { isSignedIn, user } = useUser();

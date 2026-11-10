@@ -1,4 +1,5 @@
 import posthog from "posthog-js";
+import { getVisitRecency } from "@/lib/visit-recency";
 
 /**
  * Custom analytics events tracked in PostHog.
@@ -235,29 +236,36 @@ export function capture<E extends keyof AnalyticsEventMap>(
   posthog.capture(event, properties);
 }
 
-// PostHog runs with `persistence: "memory"`, so identity lives only for the
-// current page load. Track it here so repeat calls stay idempotent.
-let identifiedUserId: string | null = null;
-let markedInternal = false;
+// PostHog runs with `persistence: "memory"`, so identity and super properties
+// live only for the current page load. Track who was identified so repeat
+// calls (effects re-running) don't send duplicate identify events.
+let identifiedKey: string | null = null;
+
+/** Tag every event on this page load with new-vs-returning (see visit-recency.ts). */
+export function registerVisitRecency() {
+  if (typeof window === "undefined") return;
+  if (!posthog.__loaded) return;
+  posthog.register({ visit_recency: getVisitRecency() });
+}
 
 /**
- * Identify the signed-in user in PostHog. Safe to call repeatedly: it only
- * re-identifies when the user changes. Admins are tagged as internal traffic
- * (event property `internal_user` plus PostHog's `$internal_or_test_user`
- * person property) so they can be filtered out of visitor numbers.
+ * Identify the signed-in user in PostHog. Safe to call repeatedly. Admins are
+ * tagged as internal traffic (PostHog's `$internal_or_test_user` person
+ * property, plus an `internal_user` event property) so they can be filtered
+ * out of visitor numbers. Pageviews sent before this call are merged into the
+ * person by PostHog's identify merge.
  */
 export function identifyUser(userId: string, options: { isAdmin: boolean }) {
   if (typeof window === "undefined") return;
   if (!posthog.__loaded) return;
-  if (identifiedUserId !== userId) {
-    posthog.identify(userId, { is_admin: options.isAdmin });
-    identifiedUserId = userId;
-  }
-  if (options.isAdmin && !markedInternal) {
-    posthog.register({ internal_user: true });
-    posthog.setInternalOrTestUser();
-    markedInternal = true;
-  }
+  const key = `${userId}|${options.isAdmin}`;
+  if (identifiedKey === key) return;
+  posthog.identify(
+    userId,
+    options.isAdmin ? { is_admin: true, $internal_or_test_user: true } : { is_admin: false },
+  );
+  if (options.isAdmin) posthog.register({ internal_user: true });
+  identifiedKey = key;
 }
 
 /**
@@ -267,14 +275,9 @@ export function identifyUser(userId: string, options: { isAdmin: boolean }) {
 export function resetIdentity() {
   if (typeof window === "undefined") return;
   if (!posthog.__loaded) return;
-  if (identifiedUserId === null) return;
+  if (identifiedKey === null) return;
   posthog.reset();
-  identifiedUserId = null;
-  markedInternal = false;
-}
-
-/** Test-only: forget identity state between tests. */
-export function __resetAnalyticsIdentityState() {
-  identifiedUserId = null;
-  markedInternal = false;
+  identifiedKey = null;
+  // reset() clears super properties; keep new-vs-returning on later events.
+  registerVisitRecency();
 }
