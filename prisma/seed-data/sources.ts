@@ -954,11 +954,27 @@ export const SOURCES = [
       kennelCodes: ["bogs-h3"],
     },
     // ===== GERMANY =====
-    // Berlin (iCal Feed — 2 kennels, rolling window)
+    // Berlin (wordpress-hash-event-api JSON — 2 kennels, full archive since 2021)
+    {
+      name: "Berlin H3 Run API",
+      url: "https://www.berlin-h3.eu/api/v1/runs/all",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      // Specials (Neuglobsow, H.A.L.T.) are posted months ahead.
+      scrapeDays: 365,
+      config: {},
+      kennelCodes: ["berlinh3", "bh3fm"],
+    },
+    // RETIRED 2026-11-10: the plugin's calendar route drops any run whose post
+    // wasn't edited in the last few weeks, so the bulk-created upcoming runs
+    // (#2362–#2370) all left the feed on ~11-09 and reconcile tried to cancel
+    // them. "Berlin H3 Run API" above reads the same records unfiltered.
     {
       name: "Berlin H3 iCal Feed",
       url: "https://www.berlin-h3.eu/events.ics",
       type: "ICAL_FEED" as const,
+      enabled: false,
       trustLevel: 6,
       scrapeFreq: "daily",
       // #837: Neuglobsow and other annual specials land ~5mo out, past the
