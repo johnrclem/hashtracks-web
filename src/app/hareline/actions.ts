@@ -19,7 +19,7 @@
 import { unstable_cache } from "next/cache";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { DISPLAY_EVENT_WHERE, DISPLAYABLE_EVENT_NO_PARENT_WHERE } from "@/lib/event-filters";
+import { DISPLAY_EVENT_WHERE, DISPLAYABLE_EVENT_NO_PARENT_WHERE, endsBefore, endsOnOrAfter } from "@/lib/event-filters";
 // Tag constant lives in a plain module — a `"use server"` file can only
 // export async functions, so any non-function export (even a string)
 // makes Next strip all exports and fail the build at import sites.
@@ -263,18 +263,22 @@ function normalizeKennelIds(kennelIds?: ReadonlyArray<string>): string[] {
  * kennel so parents AND children whose own kennel matches both surface.
  */
 function buildHarelineWhere(
-  dateFilter: Prisma.EventWhereInput["date"],
+  dateWhere: Prisma.EventWhereInput,
   kennelIds: string[],
 ): Prisma.EventWhereInput {
   if (kennelIds.length === 0) {
-    return { ...DISPLAY_EVENT_WHERE, date: dateFilter };
+    return { ...DISPLAY_EVENT_WHERE, AND: [dateWhere] };
   }
   return {
     ...DISPLAYABLE_EVENT_NO_PARENT_WHERE,
-    date: dateFilter,
-    OR: [
-      { kennelId: { in: kennelIds } },
-      { eventKennels: { some: { kennelId: { in: kennelIds } } } },
+    AND: [
+      dateWhere,
+      {
+        OR: [
+          { kennelId: { in: kennelIds } },
+          { eventKennels: { some: { kennelId: { in: kennelIds } } } },
+        ],
+      },
     ],
   };
 }
@@ -414,8 +418,10 @@ const fetchSlimEventsCached = unstable_cache(
     // back into an array here. `buildHarelineWhere` handles the unfiltered vs
     // kennel-scoped visibility predicates (#1560 PR F).
     const kennelIds = kennelIdsKey ? kennelIdsKey.split(",") : [];
-    const dateFilter = isPast ? { lt: tomorrowUtc } : { gte: yesterdayUtc };
-    const where = buildHarelineWhere(dateFilter, kennelIds);
+    // Bucket on the day an event ends (#2452): an in-progress multi-day weekend
+    // stays in the upcoming payload until its last day.
+    const dateWhere = isPast ? endsBefore(tomorrowUtc) : endsOnOrAfter(yesterdayUtc);
+    const where = buildHarelineWhere(dateWhere, kennelIds);
 
     let queryLimit: number;
     if (isPast) {
@@ -550,7 +556,7 @@ export async function loadMorePastEvents(
   const tomorrowUtc = new Date(startOfTodayUtc.getTime() + 24 * 60 * 60 * 1000);
 
   const normalizedKennelIds = normalizeKennelIds(kennelIds);
-  const where = buildHarelineWhere({ lt: tomorrowUtc }, normalizedKennelIds);
+  const where = buildHarelineWhere(endsBefore(tomorrowUtc), normalizedKennelIds);
 
   let rows: HarelineEventRow[];
   try {

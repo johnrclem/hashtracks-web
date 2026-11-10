@@ -44,3 +44,22 @@ export const DISPLAYABLE_EVENT_NO_PARENT_WHERE =
 export const CANONICAL_EVENT_WHERE = {
   isCanonical: true,
 } as const satisfies Prisma.EventWhereInput;
+
+/**
+ * Upcoming vs past is decided by the day an event ENDS, not the day it starts
+ * (#2452): a multi-day weekend (series parent or date-range event with
+ * `endDate`) stays in Upcoming until its last day has passed.
+ */
+export function eventEndMs(event: { date: string | Date; endDate?: string | Date | null }): number {
+  return new Date(event.endDate ?? event.date).getTime();
+}
+
+/** Where-clause: the event is still running on or after `floor`. */
+export function endsOnOrAfter(floor: Date): Prisma.EventWhereInput {
+  return { OR: [{ date: { gte: floor } }, { endDate: { gte: floor } }] };
+}
+
+/** Where-clause: the event is entirely over before `ceiling`. */
+export function endsBefore(ceiling: Date): Prisma.EventWhereInput {
+  return { date: { lt: ceiling }, OR: [{ endDate: null }, { endDate: { lt: ceiling } }] };
+}

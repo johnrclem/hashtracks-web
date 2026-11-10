@@ -150,3 +150,28 @@ describe("computeInitialScope", () => {
     expect(computeInitialScope("mine", "Boston, MA", "my")).toBe("all");
   });
 });
+
+describe("passesTimeFilter — multi-day events bucket on their end day (#2452)", () => {
+  // NYCH3 5-Boro Pub Crawl: Fri Jun 26 – Sun Jun 28, viewed on Sat Jun 27.
+  const today = Date.UTC(2026, 5, 27, 12, 0, 0);
+  const bucket = Date.UTC(2026, 5, 27, 0, 0, 0);
+  const start = Date.UTC(2026, 5, 26, 12, 0, 0);
+  const end = Date.UTC(2026, 5, 28, 12, 0, 0);
+
+  it("keeps an in-progress weekend in Upcoming and out of Past", () => {
+    expect(passesTimeFilter(start, "upcoming", today, bucket, end)).toBe(true);
+    expect(passesTimeFilter(start, "past", today, bucket, end)).toBe(false);
+    expect(passesTimeFilter(start, "2w", today, bucket, end)).toBe(true);
+  });
+
+  it("moves it to Past once its last day is over", () => {
+    const monday = Date.UTC(2026, 5, 29, 0, 0, 0);
+    expect(passesTimeFilter(start, "upcoming", monday, monday, end)).toBe(false);
+    expect(passesTimeFilter(start, "past", monday, monday, end)).toBe(true);
+  });
+
+  it("single-day events keep the old behaviour", () => {
+    expect(passesTimeFilter(start, "upcoming", today, bucket)).toBe(false);
+    expect(passesTimeFilter(start, "past", today, bucket)).toBe(true);
+  });
+});
