@@ -18,10 +18,10 @@ each handoff end to end through its own code PR. The handoff file leads with a `
 directive so the whole file is the brief.
 
 **Delivery (redesigned 2026-11, see [`routine-redesign-2026-11.md`](routine-redesign-2026-11.md)):**
-the run works in a **throwaway clone** of `origin/main` (Step 0) and delivers its
+the run works in its own clone, reset to `origin/main` each run (Step 0), and delivers its
 `docs/kennel-onboarding/` output as a **docs-only PR that the run merges itself once CI passes** (Step 9; GitHub auto-merge is disabled for this repo). It never uses git
 in the owner's live checkout. That checkout's feature-branch state and stale `.git` locks stranded
-handoffs four times (4 → 6 → 20 → 49 kennels). Because the clone starts from fresh `origin/main`,
+handoffs four times (4 → 6 → 20 → 49 kennels). Because the clone is reset to a fresh `origin/main`,
 the run always sees what has already landed, and Step 2 dedupes against it.
 
 ---
@@ -52,9 +52,15 @@ the run always sees what has already landed, and Step 2 dedupes against it.
 - **Repo path:** `/Users/johnclem/Developer/hashtracks-web` is the owner's live checkout. **Read it
   freely but NEVER write to it or run git there.** It is often parked on a feature branch with
   uncommitted work, and git writes in it stranded 49 handoffs for 11 weeks (Aug–Nov 2026).
-- **Your working copy:** Step 0 makes a throwaway clone of `origin/main` in a temp dir
-  (`$WORK`). All writes go there, and **only** under `docs/kennel-onboarding/` (handoff, queue,
-  run log, platform notes). Step 9 delivers them as a PR through GitHub.
+- **Your working copy:** `$WORK` is `/Users/johnclem/Developer/hashtracks-research`, a clone that
+  belongs to this task and is reset to `origin/main` at the start of every run (Step 0). All writes
+  go there, and **only** under `docs/kennel-onboarding/` (handoff, queue, run log, platform notes).
+  Step 9 delivers them as a PR through GitHub. Until November 2026 each run made a new temp clone,
+  but the runner isn't allowed to delete one, so they piled up (7 clones, about 550 MB).
+  **Every Bash call starts in the owner's live checkout**, and neither `cd` nor shell variables carry
+  over to the next call. Begin every command that touches the clone with
+  `cd /Users/johnclem/Developer/hashtracks-research && WORK=$PWD &&`, so the `$WORK` paths in the
+  blocks below resolve.
 - **Runner (since 2026-11-06):** a desktop-app scheduled task (`hashtracks-kennel-onboarding`) on
   the owner's Mac mini, in Auto mode. It replaces the old claude.ai routine. What you have there:
   - **Plain `curl` and `dig`.** They reach any public site, with no network allowlist. Use them
@@ -87,10 +93,16 @@ Run these before any research. Each exit writes **one line** to the run log (Ste
 delivers it) and reports it in Step 10. Do not write a multi-paragraph "NO ONBOARD" essay.
 
 ```bash
-WORK=$(mktemp -d) && gh repo clone johnrclem/hashtracks-web "$WORK" -- --depth 1 && cd "$WORK"
+WORK=/Users/johnclem/Developer/hashtracks-research
+if [ -d "$WORK/.git" ]; then
+  # The previous run's branch was pushed; discarding its local leftovers is expected.
+  cd "$WORK" && git fetch -q --prune origin && git checkout -q -f --detach origin/main && git clean -q -fdx -e node_modules
+else
+  gh repo clone johnrclem/hashtracks-web "$WORK" && cd "$WORK"
+fi
 # Read-only reuse of the owner's dependencies, so repo scripts run without an `npm ci`.
 OWNER_NM=/Users/johnclem/Developer/hashtracks-web/node_modules
-if [ -d "$OWNER_NM/.bin" ]; then ln -s "$OWNER_NM" "$WORK/node_modules"; else echo "WARN: $OWNER_NM missing"; fi
+if [ -d "$OWNER_NM/.bin" ]; then [ -e node_modules ] || ln -s "$OWNER_NM" node_modules; else echo "WARN: $OWNER_NM missing"; fi
 ```
 
 If the owner's `node_modules` is missing, or the backlog helper below fails, don't guess the
@@ -99,6 +111,31 @@ the other preflight checks.
 
 1. **A human hold is in place?** If `gh issue list --label onboarding-blocked --state open` is
    non-empty, **stop immediately**. Write nothing and report "held: #N".
+1b. **An earlier handoff PR is still open?** Run
+   `gh pr list --state open --label onboarding-handoff --json number,headRefName,mergeable,createdAt`.
+   Land each one, oldest first, before any research. Every handoff run edits the same shared files
+   (`run-log.md`, `target-queue.md`, `source-platform-notes.md`), so a PR left open turns into a merge
+   conflict for the next one (#2836 vs #2852, November 2026).
+   - **`UNKNOWN`:** GitHub is still computing; wait 15 seconds and list again (up to 4 times).
+   - **`MERGEABLE`:** run `bash scripts/onboarding-merge-handoff-pr.sh <n>`. The script re-runs a
+     flaky `claude-review` once by itself.
+   - **`CONFLICTING`:** rebuild that PR on current `main`. Never copy whole files from its old
+     branch; `target-queue.md` rows change in place, so a whole-file copy would undo other runs'
+     edits.
+     1. Read `gh pr diff <n>` to see exactly what it changed.
+     2. `git fetch -q origin <headRefName> && git switch -C <headRefName> origin/main`.
+     3. Restore only the files that PR **added** (its handoff file, and any retro):
+        `git checkout origin/<headRefName> -- <path>`.
+     4. Re-apply by hand only its own edits to the shared files: its run-log entry, its queue-row
+        status change and any rows it added, and its platform-note additions.
+     5. Check `git diff --stat origin/main` touches only `docs/kennel-onboarding/`, commit, push with
+        `--force-with-lease -u origin HEAD` (using the credential helper below), then run the merge
+        script. If a force push is refused, push to a new branch `<headRefName>-r2` instead, open a
+        new PR with the same title and the `onboarding-handoff` label, close the old PR with a link to
+        the new one, and run the merge script on the new PR.
+   - **Still not merged** (non-zero exit): stop the run. Report "🟡 STUCK: PR #N — <reason>" and start
+     no new research, because a second open handoff PR would conflict with it.
+   - Afterwards, reset `$WORK` to `origin/main` again with the Step 0 block before Step 1.
 2. **Implementation backlog too large?** Run
    `HASHTRACKS_REPO="$WORK" bash scripts/copy-newest-handoff.sh --list` inside `$WORK`. It uses
    the `node_modules` symlink from the block above. If **10 or more** handoffs are un-implemented, research adds
@@ -110,7 +147,17 @@ the other preflight checks.
 
 ## Step 1 — Pick today's target
 
-Open `target-queue.md`. Take the **top row whose Status is `queued`** (lowest Rank first). If
+**First, open `onboarding-candidate` issues.** These are audit findings about a source HashTracks
+doesn't track yet: a live kennel's untracked hareline, or a new kennel. List them with
+`gh issue list --state open --label onboarding-candidate --json number,title,body,comments`. Skip
+any that already carry a comment linking a handoff. Take the oldest remaining one as today's target.
+It's a normal source-add or new-kennel handoff, with these extras:
+- Record the issue number in the handoff.
+- Put `Closes #N` in its `▶ FOR CLAUDE CODE` directive, so the implementing PR closes the issue.
+- After Step 9 merges the handoff, comment the handoff link on the issue. Leave the issue open.
+- If the source turns out dead, comment the evidence and close the issue as not planned.
+
+Otherwise, open `target-queue.md`. Take the **top row whose Status is `queued`** (lowest Rank first). If
 none are `queued`, jump to **Step 8's refill logic**, refill, then pick the new #1. Mark the
 chosen row `in_progress` with today's date. Record shortName, full name, region, proposed source
 type + URL.
@@ -1005,9 +1052,9 @@ piped in whole by an automated runner.
 
 ## Step 9 — Deliver through GitHub (🔴 MANDATORY — a PR, never the owner's checkout)
 
-Everything was written in the throwaway clone `$WORK` (Step 0), which started from a fresh
+Everything was written in the research clone `$WORK` (Step 0), which was reset to a fresh
 `origin/main`. So `run-log.md` and `target-queue.md` already contain everything `main` has. You
-append; you never merge by hand.
+append; you never merge by hand. (The one exception is rebuilding a stuck PR in preflight 1b.)
 
 ```bash
 cd "$WORK"
@@ -1029,22 +1076,22 @@ Report the script's exit code in Step 10:
 | Exit | Meaning | Report |
 |---|---|---|
 | 0 | merged | ✅ MERGED + PR link |
-| 1 | a check failed | 🟡 PR OPEN + PR link + failing check names |
+| 1 | a check failed (a lone `claude-review` failure was already re-run once) | 🟡 PR OPEN + PR link + failing check names |
 | 2 | CI didn't finish in time, or the `test` check never registered | 🟡 PR OPEN + PR link |
 | 3 | PR touches files outside `docs/kennel-onboarding/` | 🔴 REFUSED + PR link + the file list |
 | 4 | CI passed but the merge failed | 🟡 PR OPEN + PR link + the merge error |
 
 - Before committing, check that `git diff --cached` touches **only** `docs/kennel-onboarding/`.
   If anything else changed, stop and report it.
-- **Any non-zero exit leaves the PR open.** Never merge it by another route. The triage session
-  picks up 🟡 PR OPEN reports, and a 🔴 REFUSED PR needs a human look.
+- **Any non-zero exit leaves the PR open.** Never merge it by another route. The next run's preflight
+  1b tries again, the triage session picks up 🟡 PR OPEN reports, and a 🔴 REFUSED PR needs a human look.
 - **Delivery failure is never silent.** If the push or `gh pr create` fails, open an
   `onboarding-blocked` issue. Paste the error and the full handoff body (or a
   link to the pushed branch). A handoff must reach the owner one way or another. Then report
   🔴 UNDELIVERED in Step 10.
 - Never touch `/Users/johnclem/Developer/hashtracks-web` with git. Never branch or commit
   anywhere but `$WORK`. Never change code or seed files.
-- Keep `$WORK` until Step 10 has run. The backlog audit there reads the clone.
+- Leave `$WORK` in place. Step 10's backlog audit reads it, and the next run resets it.
 
 ## Step 10 — Report
 
@@ -1052,11 +1099,11 @@ Return a one-line summary: kennel, source type, adapter (config-only or new), ha
 events verified, and the backlog count remaining.
 
 Get the backlog count from the helper rather than guessing — it is the authoritative audit. Run it
-against the clone (without `HASHTRACKS_REPO` it reads the owner's checkout), then remove the clone:
+against the clone (without `HASHTRACKS_REPO` it reads the owner's checkout). Don't delete the clone;
+the next run reuses it:
 
 ```bash
-cd "$WORK" && HASHTRACKS_REPO="$WORK" bash scripts/copy-newest-handoff.sh --list
-cd / && rm -rf "$WORK"
+cd /Users/johnclem/Developer/hashtracks-research && HASHTRACKS_REPO="$PWD" bash scripts/copy-newest-handoff.sh --list
 ```
 
 ---
@@ -1070,8 +1117,9 @@ cd / && rm -rf "$WORK"
 - **Source is JS-rendered and browserRender isn't available in this shell** → still write the
   handoff with everything you could gather, clearly flagging that Claude Code must pull/verify
   the live sample. Mark the queue row `handed-off (needs live-verify)`.
-- **Deliver this run's `docs/kennel-onboarding/` output as a PR from the throwaway clone
-  (Step 9). That is required, and it is the only git work permitted.** Never use git in the
+- **Deliver this run's `docs/kennel-onboarding/` output as a PR from the research clone
+  (Step 9). That is required, and it is the only git work permitted** (plus rebuilding a stuck
+  handoff PR in preflight 1b). Never use git in the
   owner's checkout, and never write outside `docs/kennel-onboarding/`. (Earlier rules said
   "never attempt git operations" and later "commit in the mounted checkout". Between them they
   caused four untracked-handoff backlogs. See `routine-redesign-2026-11.md`.)
