@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSh3Paragraph } from "./sh3-au";
+import { parseSh3Paragraph, parseSh3Paragraphs } from "./sh3-au";
 
 const REF = new Date("2026-04-01T12:00:00Z");
 const URL = "https://www.sh3.link/?page_id=9470";
@@ -192,5 +192,42 @@ describe("sh3-au parseSh3Paragraph", () => {
     const e = parseSh3Paragraph(text, URL, REF);
     expect(e).not.toBeNull();
     expect(e!.location).toBe("Carpark (click to enlarge image), Sydney NSW");
+  });
+});
+
+// #2838 / #2848 — the live page dated run #3103 "31st November". chrono fell back
+// to the scrape day, so the run landed on Nov 8, then on Nov 9 over run #3100.
+describe("sh3-au parseSh3Paragraphs — impossible dates", () => {
+  const LIVE = [
+    "Run #3100 – A celebrationDate: 9th November @ 6:30pm Hares: Plunger & HandshakeStart: Thornleigh OvalCLICK HERE FOR MAPOn On: On Site",
+    "Run #3101Date: 16th November @ 6:30pm Hares: Beep and AlbotrossStart: Acron Oval, St IvesCLICK HERE FOR MAPOn On: On Site",
+    "Run #3102Date: 23rd November @ 6:30pm Hares: Music Man & KrusherStart: Little Manly reserve, Stuart St ManlyCLICK HERE FOR MAPOn On: Manly 16 Skiff Club",
+    "Run #3103Date: 31st November @ 6:30pm Hares: Khyber & Little ShitStart:Ingleside ScoutsCLICK HERE FOR MAPOn On: On Site",
+  ];
+  const NOV_8 = new Date("2026-11-08T12:00:00Z");
+
+  it("never files a non-existent day on the scrape date", () => {
+    expect(parseSh3Paragraph(LIVE[3], URL, NOV_8)).toBeNull();
+  });
+
+  it("dates it from the weekly run sequence and reports the inference", () => {
+    const { events, dateInferences, skippedInvalidDates } = parseSh3Paragraphs(LIVE, URL, NOV_8);
+    expect(events.map((e) => [e.runNumber, e.date])).toEqual([
+      [3100, "2026-11-09"],
+      [3101, "2026-11-16"],
+      [3102, "2026-11-23"],
+      [3103, "2026-11-30"],
+    ]);
+    expect(events[3]).toMatchObject({ hares: "Khyber & Little Shit", location: "Ingleside Scouts", startTime: "18:30" });
+    expect(dateInferences).toEqual([
+      'Run #3103: "31st November" is not a real date; filed on 2026-11-30 from run #3102 on 2026-11-23',
+    ]);
+    expect(skippedInvalidDates).toEqual([]);
+  });
+
+  it("skips the run with a warning when the sequence lands outside the stated month", () => {
+    const { events, skippedInvalidDates } = parseSh3Paragraphs([LIVE[0], LIVE[3].replace("#3103", "#3109")], URL, NOV_8);
+    expect(events.map((e) => e.runNumber)).toEqual([3100]);
+    expect(skippedInvalidDates).toHaveLength(1);
   });
 });

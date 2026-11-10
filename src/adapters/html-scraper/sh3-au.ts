@@ -206,6 +206,8 @@ export function parseSh3Paragraph(
   text: string,
   sourceUrl: string,
   referenceDate: Date = new Date(),
+  /** A date inferred from the run sequence, for a Date cell that names no real day. */
+  dateOverride?: string,
 ): RawEventData | null {
   const runMatch = /Run\s*#\s*(\d+)/i.exec(text);
   if (!runMatch) return null;
@@ -217,8 +219,11 @@ export function parseSh3Paragraph(
   // The Date: cell often contains extra context after the date itself
   // (e.g. "7th April – Tuesday Joint Run"). chrono parses the leading
   // date and ignores the rest. forwardDate ensures bare "13th April"
-  // resolves to the *next* April, not the past one.
-  const date = chronoParseDate(dateField, "en-GB", referenceDate, { forwardDate: true });
+  // resolves to the *next* April, not the past one. requireCertainDate
+  // rejects a day that doesn't exist ("31st November", #2848): chrono would
+  // otherwise fall back to the scrape day and file the run there.
+  const date =
+    dateOverride ?? chronoParseDate(dateField, "en-GB", referenceDate, { forwardDate: true, requireCertainDate: true });
   if (!date) return null;
 
   const startTime = parseStartTimeFromDate(dateField);
@@ -248,6 +253,88 @@ export function parseSh3Paragraph(
   };
 }
 
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+// "31st November" → day 31, month "Nov". Bounded; no nested quantifiers.
+const DAY_MONTH_RE = /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]{0,6}\b/i;
+const WEEK_MS = 7 * 86_400_000;
+
+interface PendingRow { text: string; runNumber: number; day: number; month: number; stated: string }
+
+/** Nearest dated run by run number, preferring the one before it. */
+function nearestRun(events: RawEventData[], runNumber: number): RawEventData | undefined {
+  let best: RawEventData | undefined;
+  for (const e of events) {
+    const d = Math.abs((e.runNumber ?? 0) - runNumber);
+    const bestD = best ? Math.abs((best.runNumber ?? 0) - runNumber) : Infinity;
+    if (d < bestD || (d === bestD && (e.runNumber ?? 0) < (best?.runNumber ?? 0))) best = e;
+  }
+  return best;
+}
+
+/** Anchor date + a week per run number, kept only if it lands in the stated month within 3 days. */
+function inferFromSequence(anchor: RawEventData, row: PendingRow): string | undefined {
+  const inferred = new Date(Date.parse(`${anchor.date}T12:00:00Z`) + (row.runNumber - (anchor.runNumber ?? 0)) * WEEK_MS);
+  const fits = inferred.getUTCMonth() === row.month && Math.abs(inferred.getUTCDate() - row.day) <= 3;
+  return fits ? inferred.toISOString().slice(0, 10) : undefined;
+}
+
+/**
+ * Parse the hareline paragraphs. A Date cell naming a day that doesn't exist
+ * ("31st November", #2848) is dated from the weekly run sequence instead: the
+ * nearest run with a real date, plus a week per run number. The inferred date is
+ * kept only when it falls in the stated month within 3 days of the stated day,
+ * and every inference or skip is reported, never applied silently.
+ *
+ * Exported for unit testing.
+ */
+export function parseSh3Paragraphs(
+  texts: string[],
+  sourceUrl: string,
+  referenceDate: Date = new Date(),
+): { events: RawEventData[]; dateInferences: string[]; skippedInvalidDates: string[] } {
+  const events: RawEventData[] = [];
+  const pending: PendingRow[] = [];
+  for (const text of texts) {
+    const event = parseSh3Paragraph(text, sourceUrl, referenceDate);
+    if (event) {
+      events.push(event);
+      continue;
+    }
+    const run = /Run\s*#\s*(\d+)/i.exec(text);
+    const stated = DAY_MONTH_RE.exec(captureLabel(text, DATE_RE) ?? "");
+    if (run && stated) {
+      pending.push({
+        text,
+        runNumber: Number.parseInt(run[1], 10),
+        day: Number.parseInt(stated[1], 10),
+        month: MONTHS.indexOf(stated[2].toLowerCase()),
+        stated: stated[0],
+      });
+    }
+  }
+
+  const dateInferences: string[] = [];
+  const skippedInvalidDates: string[] = [];
+  // Anchors must be near the scrape date: forwardDate rolls a just-past run
+  // ("9th November" read on 10 Nov) into next year, which would skew the sequence.
+  const anchors = events.filter((e) => Math.abs(Date.parse(`${e.date}T12:00:00Z`) - referenceDate.getTime()) < 120 * 86_400_000);
+  for (const row of pending) {
+    const anchor = nearestRun(anchors, row.runNumber);
+    const inferred = anchor ? inferFromSequence(anchor, row) : undefined;
+    const event = inferred ? parseSh3Paragraph(row.text, sourceUrl, referenceDate, inferred) : null;
+    if (event && anchor) {
+      events.push(event);
+      dateInferences.push(
+        `Run #${row.runNumber}: "${row.stated}" is not a real date; filed on ${event.date} from run #${anchor.runNumber} on ${anchor.date}`,
+      );
+    } else {
+      skippedInvalidDates.push(`Run #${row.runNumber}: "${row.stated}" is not a real date and the run sequence gives no date in that month`);
+    }
+  }
+  for (const message of [...dateInferences, ...skippedInvalidDates]) console.warn(`[sh3-au] ${message}`);
+  return { events, dateInferences, skippedInvalidDates };
+}
+
 export class Sh3AuAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -259,16 +346,14 @@ export class Sh3AuAdapter implements SourceAdapter {
     const page = await fetchHTMLPage(url);
     if (!page.ok) return page.result;
 
-    const events: RawEventData[] = [];
     const paragraphs = page.$(".entry.clr > p");
+    const texts: string[] = [];
     paragraphs.each((_i, el) => {
       const text = page.$(el).text().replace(/\s+/g, " ").trim();
-      if (!text) return;
       // Skip header paragraphs that have no `Run #` anchor.
-      if (!/Run\s*#/i.test(text)) return;
-      const event = parseSh3Paragraph(text, url);
-      if (event) events.push(event);
+      if (/Run\s*#/i.test(text)) texts.push(text);
     });
+    const { events, dateInferences, skippedInvalidDates } = parseSh3Paragraphs(texts, url);
 
     // Surface zero-result scrapes as parse errors so the reconciler does
     // not cancel live events when the WordPress markup drifts.
@@ -291,6 +376,8 @@ export class Sh3AuAdapter implements SourceAdapter {
           fetchMethod: "html-scrape",
           paragraphsFound: paragraphs.length,
           eventsParsed: events.length,
+          dateInferences,
+          skippedInvalidDates,
           fetchDurationMs: page.fetchDurationMs,
         },
       },
