@@ -180,6 +180,7 @@ import { HarrierCentralAdapter } from "./harrier-central/adapter";
 import { FacebookHostedEventsAdapter } from "./facebook-hosted-events/adapter";
 import { HashStatsAdapter } from "./hashstats/adapter";
 import { RiyadhH3Adapter } from "./html-scraper/riyadh-h3";
+import { HellgateHashAdapter } from "./html-scraper/hellgate-hash";
 
 const adapters: Partial<Record<SourceType, () => SourceAdapter>> = {
   HTML_SCRAPER: () => new HashNYCAdapter(), // default HTML scraper
@@ -409,6 +410,10 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: onHost("lvh3.org"), name: "LVH3Adapter", factory: () => new LVH3Adapter() },
   // ── Idaho ──
   { pattern: onHost("boiseh3.org"), name: "BoiseH3Adapter", factory: () => new BoiseH3Adapter() },
+  // ── Montana ──
+  // Hellgate H3 (Missoula) — WordPress REST posts, one per run, labeled body
+  // (When/Date/bare date line drift across 2013→now); no run numbers.
+  { pattern: onHost("missoulahash.org"), name: "HellgateHashAdapter", factory: () => new HellgateHashAdapter() },
   { pattern: onHost("nswhhh.info"), name: "NSWHHHAdapter", factory: () => new NSWHHHAdapter() },
   // ── Philippines ──
   { pattern: onHost("cebuhash.wordpress.com", { subdomains: "none" }), name: "CebuHashAdapter", factory: () => new CebuHashAdapter() },

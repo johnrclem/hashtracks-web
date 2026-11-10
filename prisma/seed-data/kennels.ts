@@ -3093,6 +3093,34 @@ export const KENNELS: KennelSeed[] = [
       description: "Weekly Monday-night hash in Boise, Idaho. 'A drinking club with a running problem.' Part of the worldwide Hash House Harriers tradition; meets every Monday for a run and beer.",
       latitude: 43.615, longitude: -116.2023,
     },
+    // ===== MONTANA =====
+    {
+      kennelCode: "hellgate-h3",
+      shortName: "Hellgate H3",
+      fullName: "Missoula Hellgate Hash House Harriers",
+      region: "Missoula, MT",
+      country: "USA",
+      website: "https://www.missoulahash.org",
+      facebookUrl: "https://www.facebook.com/groups/50040467745",
+      logoUrl: "/kennel-logos/hellgate-h3.jpg", // self-hosted site icon (cover.jpg); magic bytes confirmed JPEG
+      // Flat fields are the fallback; scheduleRules is authoritative.
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "3:30 PM", // most common 2026 pre-lube; real times vary 12:30–3:30 PM
+      scheduleFrequency: "Monthly",
+      scheduleNotes: "Mostly the 3rd Saturday of the month; start times vary, roughly 12–4 pm.",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA", confidence: "MEDIUM", label: "3rd Saturday (usual)", displayOrder: 0 },
+      ],
+      foundedYear: 2002, // HHH Genealogy: "First Run: 30 Sep 2002"; 100th trail 2015-01-17
+      hashCash: "$5",
+      dogFriendly: true, // post "Trail:" lines ("A to A; Dog friendly")
+      walkersWelcome: true, // 2021 post: "Walker/Runner/Dog friendly"
+      description:
+        "Missoula, Montana's Hash House Harriers: a drinking club with a running problem. Hellgate meets monthly, mostly on the 3rd Saturday, for a hounds-versus-hares trail around town or up into the mountains. Annual favorites include a Red Dress Run and a summer campout. No running experience needed; virgins and visiting hashers are welcome.",
+      latitude: 46.87,
+      longitude: -114,
+      // contactEmail omitted on purpose: Half-Mind lists individuals' personal details.
+    },
     // ===== COLORADO =====
     // Denver Metro
     {

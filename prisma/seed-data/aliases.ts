@@ -312,6 +312,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "hswtf-h3": ["HSWTF Hash", "HSWTF H3", "Holy Shit What The Fuck"],
     // ===== IDAHO =====
     "boiseh3": ["BoiseH3", "Boise H3", "Boise Hash", "Boise HHH", "Boise Hash House Harriers"],
+    // Bare "MH3"/"HH3"/"HHH" omitted: taken or collision-prone.
+    "hellgate-h3": ["Hellgate H3", "Hellgate HHH", "Hellgate Hash", "Hellgate Hash House Harriers", "Missoula H3", "Missoula Hash", "Missoula Hellgate H3", "Missoula Hellgate Hash House Harriers", "Hellgate (Missoula) H3"],
     // ===== COLORADO =====
     "dh3-co": ["Denver Hash", "Denver H3", "DH3", "DenverH3"],
     "mihi-huha": ["Mile High Humpin Hash", "MiHiHuHa", "Mile High H3", "MHHH3"],

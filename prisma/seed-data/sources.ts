@@ -3592,6 +3592,19 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["boiseh3"],
     },
+    // ===== MONTANA =====
+    {
+      name: "Hellgate H3 Website",
+      url: "https://www.missoulahash.org",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      // WordPress REST posts (latest 30). Past runs come from the one-shot backfill;
+      // upcomingOnly clamps reconcile to the future so they're never cancelled.
+      config: { upcomingOnly: true },
+      kennelCodes: ["hellgate-h3"],
+    },
     // ===== COLORADO =====
     // --- Denver H3 (Google Calendar) ---
     // #1649 — Boulder Hash cross-posts BH3/Toga events to the Denver kennel
