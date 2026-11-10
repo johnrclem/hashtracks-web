@@ -5,7 +5,7 @@ import { PostHogProvider as PHProvider, usePostHog } from "posthog-js/react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, Suspense, type ReactNode } from "react";
 import { registerVisitRecency } from "@/lib/analytics";
-import { getVisitRecency, pageviewVisitProperties } from "@/lib/visit-recency";
+import { nextPageviewVisitProperties } from "@/lib/visit-recency";
 
 if (
   typeof window !== "undefined" &&
@@ -36,13 +36,11 @@ function PostHogPageView() {
     if (!pathname || !ph) return;
     const url = `${pathname}${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`;
     if (url !== lastRef.current) {
-      // Only the first pageview of a page load can be the visitor's first of the day.
-      const isFirstPageviewOfLoad = lastRef.current === "";
       lastRef.current = url;
-      ph.capture("$pageview", {
-        $current_url: url,
-        ...pageviewVisitProperties(getVisitRecency(), isFirstPageviewOfLoad),
-      });
+      const visitProperties = nextPageviewVisitProperties();
+      // Keep the super property current if the local day rolled over in an open tab.
+      registerVisitRecency();
+      ph.capture("$pageview", { $current_url: url, ...visitProperties });
     }
   }, [pathname, searchParams, ph]);
 

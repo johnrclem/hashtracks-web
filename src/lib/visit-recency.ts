@@ -50,33 +50,39 @@ export function readAndRecordVisit(storage: StorageLike | null | undefined, now:
   }
 }
 
-/**
- * Properties for a `$pageview`. Only the first pageview of a page load can be
- * the visitor's first of the day; later client-side navigations report false.
- * When storage was unavailable the property is omitted rather than guessed.
- */
-export function pageviewVisitProperties(
-  recency: VisitRecency,
-  isFirstPageviewOfLoad: boolean,
-): { first_visit_today?: boolean } {
-  if (recency === "unknown") return {};
-  return { first_visit_today: isFirstPageviewOfLoad && recency !== "same_day" };
+function browserStorage(): StorageLike | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
 }
 
-let cachedRecency: VisitRecency | null = null;
+// Per page load, but keyed by local date: a tab left open overnight
+// re-classifies on the next day's first navigation.
+let cached: { day: string; recency: VisitRecency } | null = null;
+let firstMarkedDay: string | null = null;
+
+/** Visit recency for today. Reads and updates storage once per local day per page load. */
+export function getVisitRecency(now: Date = new Date()): VisitRecency {
+  const today = localYmd(now);
+  if (cached?.day !== today) {
+    cached = { day: today, recency: readAndRecordVisit(browserStorage(), now) };
+  }
+  return cached.recency;
+}
 
 /**
- * Visit recency for the current page load. Reads and updates storage once, so
- * client-side navigations within the same load don't re-count the visit.
+ * Visit properties for the next `$pageview`. `first_visit_today` is true only
+ * on the first pageview of the visitor's local day (once per page load, and
+ * not when an earlier page load already counted today). Omitted when storage
+ * is unavailable rather than guessed.
  */
-export function getVisitRecency(): VisitRecency {
-  if (cachedRecency) return cachedRecency;
-  let storage: StorageLike | null = null;
-  try {
-    storage = typeof window === "undefined" ? null : window.localStorage;
-  } catch {
-    storage = null;
-  }
-  cachedRecency = readAndRecordVisit(storage, new Date());
-  return cachedRecency;
+export function nextPageviewVisitProperties(now: Date = new Date()): { first_visit_today?: boolean } {
+  const recency = getVisitRecency(now);
+  if (recency === "unknown") return {};
+  const today = localYmd(now);
+  const isFirst = firstMarkedDay !== today && recency !== "same_day";
+  firstMarkedDay = today;
+  return { first_visit_today: isFirst };
 }

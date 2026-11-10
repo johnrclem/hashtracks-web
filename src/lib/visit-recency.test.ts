@@ -1,7 +1,6 @@
 import {
   LAST_VISIT_STORAGE_KEY,
   classifyVisit,
-  pageviewVisitProperties,
   readAndRecordVisit,
 } from "./visit-recency";
 
@@ -83,19 +82,48 @@ describe("readAndRecordVisit", () => {
   });
 });
 
-describe("pageviewVisitProperties", () => {
-  it("marks only the first pageview of a page load as the first visit today", () => {
-    expect(pageviewVisitProperties("returning_1_7d", true)).toEqual({ first_visit_today: true });
-    expect(pageviewVisitProperties("new", true)).toEqual({ first_visit_today: true });
-    expect(pageviewVisitProperties("returning_1_7d", false)).toEqual({ first_visit_today: false });
+describe("nextPageviewVisitProperties", () => {
+  // Module state is per page load; load a fresh copy per test with a fake localStorage.
+  let storage: ReturnType<typeof memoryStorage>;
+  let mod: typeof import("./visit-recency");
+
+  beforeEach(async () => {
+    storage = memoryStorage();
+    vi.stubGlobal("window", { localStorage: storage });
+    vi.resetModules();
+    mod = await import("./visit-recency");
   });
 
-  it("does not count a same-day reload as a first visit", () => {
-    expect(pageviewVisitProperties("same_day", true)).toEqual({ first_visit_today: false });
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  it("omits the property when storage was unavailable", () => {
-    expect(pageviewVisitProperties("unknown", true)).toEqual({});
-    expect(pageviewVisitProperties("unknown", false)).toEqual({});
+  const nov10 = new Date(2026, 10, 10, 9, 0);
+  const nov10Later = new Date(2026, 10, 10, 21, 0);
+  const nov11 = new Date(2026, 10, 11, 8, 0);
+
+  it("marks only the first pageview of the day as the first visit", () => {
+    expect(mod.nextPageviewVisitProperties(nov10)).toEqual({ first_visit_today: true });
+    expect(mod.nextPageviewVisitProperties(nov10Later)).toEqual({ first_visit_today: false });
+  });
+
+  it("does not count a reload when an earlier page load already counted today", () => {
+    storage.data.set(LAST_VISIT_STORAGE_KEY, "2026-11-10");
+    expect(mod.getVisitRecency(nov10)).toBe("same_day");
+    expect(mod.nextPageviewVisitProperties(nov10)).toEqual({ first_visit_today: false });
+  });
+
+  it("counts a new day in a tab left open overnight", () => {
+    expect(mod.nextPageviewVisitProperties(nov10)).toEqual({ first_visit_today: true });
+    expect(mod.getVisitRecency(nov11)).toBe("returning_1_7d");
+    expect(mod.nextPageviewVisitProperties(nov11)).toEqual({ first_visit_today: true });
+    expect(storage.data.get(LAST_VISIT_STORAGE_KEY)).toBe("2026-11-11");
+  });
+
+  it("omits the property when storage is unavailable", async () => {
+    vi.stubGlobal("window", {});
+    vi.resetModules();
+    const fresh = await import("./visit-recency");
+    expect(fresh.nextPageviewVisitProperties(nov10)).toEqual({});
   });
 });
