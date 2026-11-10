@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 // fetchHTMLPage (real) calls safeFetch, which does a DNS SSRF check — mock the
 // safe-fetch seam so the fetch() tests stay offline (matches mijas-hash).
@@ -95,6 +97,16 @@ describe("parseRunLine", () => {
     // mis-binding the venue as the hare.
     expect(parseRunLine("8-Jun-26 Revs 29i James street, Glenfield", REF)).toBeNull();
     expect(parseRunLine("8-Jun-26\tRevs 29i James street", REF)).toBeNull();
+  });
+
+  it("splits a two-field row whose hare and venue are joined by ' - ' (Nov 2026)", () => {
+    const event = parseRunLine("23-Nov-26\tDio - 61A Holly Street, Avondale", new Date("2026-11-08T00:00:00Z"));
+    expect(event).toMatchObject({ date: "2026-11-23", hares: "Dio", location: "61A Holly Street, Avondale" });
+  });
+
+  it("drops a stray dash in front of the venue", () => {
+    const event = parseRunLine("16-Nov-26\tChina & Shakespeare\t- 49 Sprott Rd., Kohimarama", new Date("2026-11-08T00:00:00Z"));
+    expect(event).toMatchObject({ hares: "China & Shakespeare", location: "49 Sprott Rd., Kohimarama" });
   });
 
   it("recovers a space-delimited row when fields are separated by 2+ spaces (#2558)", () => {
@@ -199,6 +211,23 @@ describe("AucklandHashAdapter.fetch", () => {
     expect(byDate["2026-06-24"].hares).toBe("Butcher"); // space-delimited row (#2558)
     expect(byDate["2026-06-24"].location).toBe("6 Waterstone Way, Henderson. Birthday Run");
     expect(byDate["2026-07-06"].hares).toBeUndefined(); // Hare Wanted placeholder
+  });
+
+  it("parses the live Nov 2026 page, including the ' - ' joined row", async () => {
+    vi.setSystemTime(new Date("2026-11-10T00:00:00Z"));
+    // Upcoming Runs block of the live homepage, 2026-11-10 (Special Event text, which
+    // carries a contact phone number, cut off).
+    const live = readFileSync(path.join(__dirname, "fixtures/auckland-h3-upcoming-2026-11-10.html.fixture"), "utf8");
+    mockSafeFetch.mockResolvedValueOnce(new Response(live, { status: 200 }));
+
+    const result = await runFetch();
+
+    expect(result.errors).toEqual([]);
+    expect(result.events.map((e) => [e.date, e.hares, e.location])).toEqual([
+      ["2026-11-09", "Mr Big", "10 Crown Lynn Place, New Lynn"],
+      ["2026-11-16", "China & Shakespeare", "49 Sprott Rd., Kohimarama"],
+      ["2026-11-23", "Dio", "61A Holly Street, Avondale"],
+    ]);
   });
 
   it("surfaces a parse error (blocks reconcile) when a run row loses its tabs", async () => {

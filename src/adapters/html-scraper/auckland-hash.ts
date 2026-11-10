@@ -103,6 +103,19 @@ export function parseStartTime(notes: string): string {
 }
 
 /**
+ * A row with only two fields sometimes joins hare and venue with " - " instead
+ * of a tab ("23-Nov-26\tDio - 61A Holly Street, Avondale", Nov 2026). Split the
+ * second field on its first " - " so it reads as `<date> <hare> <venue>`. Any
+ * other two-field row is left alone and still fails loud in parseRunLine.
+ */
+function splitHareVenue(parts: string[]): string[] {
+  if (parts.length !== 2) return parts;
+  const sep = parts[1].indexOf(" - ");
+  if (sep <= 0) return parts;
+  return [parts[0], parts[1].slice(0, sep).trim(), parts[1].slice(sep + 3).trim()];
+}
+
+/**
  * Parse one TAB-delimited run row (`<date>\t<hare>\t<venue/notes>`) into
  * RawEventData. The tab delimiter makes multi-word hares ("Loose Change",
  * "Hard to Port") unambiguous — no greedy boundary heuristic needed. Returns
@@ -123,11 +136,13 @@ export function parseRunLine(
   // 2+ spaces→tab) avoid a tab/space alternation regex. `venue` below rejoins
   // any over-split tail with a space, so a 2+-space run inside a venue (e.g. a
   // folded continuation line) is harmless.
-  const parts = row
-    .replace(/\t/g, "  ")
-    .replace(/ {2,}/g, "\t")
-    .split("\t")
-    .map((p) => p.trim());
+  const parts = splitHareVenue(
+    row
+      .replace(/\t/g, "  ")
+      .replace(/ {2,}/g, "\t")
+      .split("\t")
+      .map((p) => p.trim()),
+  );
   const dateRaw = parts[0] ?? "";
   const date = chronoParseDate(dateRaw.replaceAll("-", " "), "en-GB", referenceDate, {
     forwardDate: true,
@@ -146,7 +161,8 @@ export function parseRunLine(
     ? undefined
     : normalizeHaresField(hareRaw);
 
-  const venue = parts.slice(2).join(" ").replaceAll(/\s+/g, " ").trim();
+  // Some rows keep a stray dash in front of the venue ("\t- 49 Sprott Rd.").
+  const venue = parts.slice(2).join(" ").replaceAll(/\s+/g, " ").trim().replace(/^-\s*/, "");
   // cleanLocationName returns null for placeholders ("Venue TBC"), CTA copy,
   // and empties — the source always provides the venue field, so null is the
   // correct explicit-clear (not undefined). Real venues pass through verbatim.

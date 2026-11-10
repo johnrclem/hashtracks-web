@@ -3,9 +3,13 @@
  *
  * Scrapes https://www.hhhs.org.sg/hareline for upcoming Monday runs.
  * The site is Wix-hosted with a cross-origin "Table Master" iframe holding
- * the hareline — requires browser rendering via the NAS Playwright service.
+ * the hareline. The widget loads its data as CSV from its own JSON endpoint,
+ * so we read that directly (`fetchWixTableMasterCsv`). Until Nov 2026 we
+ * headless-rendered the Wix page and pulled the iframe's table: 37–45 s per
+ * render against a 45 s client timeout, and ~41 timeout alerts in 90 days.
  *
- * Table columns: Run#, Date, Hares, Location, Notes
+ * Table columns: Run#, Date, Hares, Location, Notes (the CSV's run-number
+ * header is blank).
  * Date format: "29 December 2025" (D MMMM YYYY — full month, 4-digit year)
  *
  * Single kennel: HHHS (Singapore, founded 1962 — the 2nd hash kennel in the world).
@@ -24,23 +28,16 @@
  */
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
-import {
-  stripPlaceholder,
-  buildDateWindow,
-  fetchBrowserRenderedPage,
-} from "../utils";
-import { extractWixTableRows, parseDayMonthYearDate } from "./wix-table-master";
+import { stripPlaceholder, buildDateWindow } from "../utils";
+import { fetchWixTableMasterCsv, parseDayMonthYearDate } from "./wix-table-master";
 
 const KENNEL_CODE = "hhhs";
 const DISPLAY_NAME = "HHHS";
 const DEFAULT_START_TIME = "18:00";
-const SOURCE_TIMEZONE = "Asia/Singapore";
 /**
- * Wix Table Master iframe compId. Substring-matched against the iframe `src`.
- * The hareline page hosts two iframes (Table Master + Wix Chat); matching the
- * specific compId disambiguates so we don't render the chat widget by mistake.
- * Confirmed by inspecting SSR HTML at https://www.hhhs.org.sg/hareline (the
- * Table Master parent `<div id="comp-jxzijgcm">`).
+ * Wix component id of the hareline's Table Master widget (the page also hosts
+ * a Wix Chat widget). Confirmed in the SSR HTML of
+ * https://www.hhhs.org.sg/hareline (`<div id="comp-jxzijgcm">`).
  */
 const TABLE_MASTER_COMP_ID = "comp-jxzijgcm";
 
@@ -74,7 +71,10 @@ export function buildColumnMap(headers: string[]): Map<string, number> {
   const map = new Map<string, number>();
   for (let i = 0; i < headers.length; i++) {
     const normalized = normalizeHeader(headers[i]);
-    if (normalized === "run" || normalized === "runnumber") map.set("runNumber", i);
+    // The CSV leaves the run-number header blank (the widget shows "Run#").
+    if (normalized === "run" || normalized === "runnumber" || (i === 0 && normalized === "")) {
+      map.set("runNumber", i);
+    }
     else if (normalized === "date") map.set("date", i);
     else if (normalized === "hares" || normalized === "hare") map.set("hares", i);
     else if (normalized === "location" || normalized === "venue") map.set("location", i);
@@ -195,23 +195,24 @@ export class HHHSAdapter implements SourceAdapter {
     const sourceUrl = source.url;
     const { minDate, maxDate } = buildDateWindow(options?.days ?? 365);
 
-    // Wix renders Table Master cell text client-side via Intl.DateTimeFormat;
-    // pinning the browser timezone keeps date strings stable (#960 BCH3 fix).
-    const page = await fetchBrowserRenderedPage(sourceUrl, {
-      waitFor: "iframe[title='Table Master']",
-      frameUrl: TABLE_MASTER_COMP_ID,
-      timezoneId: SOURCE_TIMEZONE,
-      timeout: 25000,
-    });
+    const fetchStart = Date.now();
+    const csv = await fetchWixTableMasterCsv(sourceUrl, TABLE_MASTER_COMP_ID);
+    const fetchDurationMs = Date.now() - fetchStart;
+    if (!csv.ok) {
+      const message = `HHHS Table Master fetch failed: ${csv.error}`;
+      return { events: [], errors: [message], errorDetails: { fetch: [{ url: sourceUrl, message }] } };
+    }
 
-    if (!page.ok) {
-      return page.result;
+    const [headers = [], ...rows] = csv.rows;
+    const columnMap = buildColumnMap(headers);
+    // A header drift (no Date column) or an empty sheet must not read as "no
+    // runs": reconcile would cancel the whole hareline.
+    if (!columnMap.has("date") || rows.length === 0) {
+      const message = `HHHS Table Master CSV has no Date column or no rows (headers: ${headers.join("|")})`;
+      return { events: [], errors: [message], errorDetails: { parse: [{ row: 0, error: message }] } };
     }
 
     const events: RawEventData[] = [];
-    const { headers, rows } = extractWixTableRows(page.$);
-    const columnMap = buildColumnMap(headers);
-
     for (const cells of rows) {
       const parsed = parseHHHSRow(cells, columnMap);
       if (!parsed) continue;
@@ -225,11 +226,11 @@ export class HHHSAdapter implements SourceAdapter {
     return {
       events,
       errors: [],
-      structureHash: page.structureHash,
       diagnosticContext: {
-        fetchMethod: "browser-render",
+        fetchMethod: "table-master-csv",
+        rowsFetched: rows.length,
         totalEvents: events.length,
-        fetchDurationMs: page.fetchDurationMs,
+        fetchDurationMs,
         adapter: "HHHSAdapter",
         displayName: DISPLAY_NAME,
       },
