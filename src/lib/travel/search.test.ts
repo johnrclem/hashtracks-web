@@ -778,6 +778,58 @@ describe("executeTravelSearch", () => {
     expect(result.destinations[0].broaderRadiusKm).toBe(150);
   });
 
+  it("suggests the nearest confirmed run outside the radius when only possible activity is in range", async () => {
+    // Design review V1: a kennel in range with only a LOW-confidence schedule
+    // used to end the search on "check directly". Now the nearest confirmed
+    // run in the broader ring is surfaced alongside the in-range possibles.
+    const lowRule: MockScheduleRule = {
+      ...testRule,
+      id: "r-low",
+      rrule: "FREQ=WEEKLY;BYDAY=SA",
+      confidence: "LOW",
+    };
+    const activeDistantKennel: MockKennel = {
+      ...testKennel,
+      id: "k-active-distant",
+      slug: "distant-h3",
+      shortName: "Distant H3",
+      latitude: 34.3, // ~60km north — only in the broader ring
+      longitude: -84.39,
+    };
+    const distantEvent: MockEvent = { ...testEvent, id: "e-distant", kennelId: "k-active-distant" };
+    const prisma = createMockPrisma([testKennel, activeDistantKennel], [distantEvent], [lowRule]);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    expect(result.emptyState).toBe("no_confirmed");
+    expect(result.possible.some((p) => p.kennelId === "k-atl")).toBe(true);
+    expect(result.destinations[0].nearestConfirmed?.radiusKm).toBe(150);
+    expect(result.destinations[0].nearestConfirmed?.confirmed.map((c) => c.eventId)).toEqual(["e-distant"]);
+    // The in-range answer is kept; the suggestion doesn't replace it.
+    expect(result.destinations[0].broaderRadiusKm).toBeUndefined();
+  });
+
+  it("skips the outside-radius suggestion for the saved-trips dashboard (skipWeather)", async () => {
+    const lowRule: MockScheduleRule = { ...testRule, id: "r-low", rrule: "FREQ=WEEKLY;BYDAY=SA", confidence: "LOW" };
+    const distantKennel: MockKennel = { ...testKennel, id: "k-far", slug: "far-h3", latitude: 34.3, longitude: -84.39 };
+    const prisma = createMockPrisma(
+      [testKennel, distantKennel],
+      [{ ...testEvent, id: "e-far", kennelId: "k-far" }],
+      [lowRule],
+    );
+    const result = await executeTravelSearch(prisma, { ...baseParams, skipWeather: true });
+
+    expect(result.emptyState).toBe("no_confirmed");
+    expect(result.destinations[0].nearestConfirmed).toBeUndefined();
+  });
+
+  it("does not suggest outside runs when a confirmed run is in range", async () => {
+    const prisma = createMockPrisma([testKennel], [testEvent], []);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    expect(result.confirmed.length).toBeGreaterThan(0);
+    expect(result.destinations[0].nearestConfirmed).toBeUndefined();
+  });
+
   it("collapses Possible rows to one per kennel (#793)", async () => {
     // Weekly CADENCE rule fires multiple times in a 14-day window, and
     // scoreConfidence downgrades it to LOW when there's no evidence.

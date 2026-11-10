@@ -197,7 +197,23 @@ export interface DestinationResult {
     likely: LikelyResult[];
     possible: PossibleResult[];
   };
+  /**
+   * The nearest confirmed runs just outside the search radius (out to
+   * `radiusKm`), set only when the search radius had kennels but no confirmed
+   * run on the trip dates. Shown beside the in-radius likely/possible rows so
+   * an empty answer still points somewhere real.
+   */
+  nearestConfirmed?: NearestConfirmed<ConfirmedResult>;
 }
+
+/** Confirmed runs just outside a stop's search radius, found out to `radiusKm`. */
+export interface NearestConfirmed<T> {
+  radiusKm: number;
+  confirmed: T[];
+}
+
+/** How many out-of-radius confirmed runs to suggest when none are in range. */
+const NEAREST_CONFIRMED_LIMIT = 3;
 
 export interface TravelSearchResults {
   /** Flattened primary-pass results across all stops, each tagged with destinationIndex. */
@@ -293,6 +309,11 @@ export function byDateTimeDistance<T extends { date: Date; startTime: string | n
   );
 }
 
+/** Nearest first. */
+function byDistance<T extends { distanceKm: number }>(a: T, b: T): number {
+  return a.distanceKm - b.distanceKm;
+}
+
 // ============================================================================
 // Main search function
 // ============================================================================
@@ -323,6 +344,8 @@ export async function executeTravelSearch(
         allKennels,
         filters: params.filters,
         now,
+        // Multi-stop views and the saved-trips dashboard (skipWeather) never show them.
+        wantNearestConfirmed: params.destinations.length === 1 && !params.skipWeather,
       }),
     ),
   );
@@ -367,7 +390,7 @@ export async function executeTravelSearch(
 
   confirmed.sort(byDateTimeDistance);
   likely.sort(byDateTimeDistance);
-  possible.sort((a, b) => a.distanceKm - b.distanceKm);
+  possible.sort(byDistance);
 
   return {
     confirmed,
@@ -390,6 +413,8 @@ interface StopContext {
   allKennels: VisibleKennel[];
   filters: TravelSearchParams["filters"];
   now: Date;
+  /** Only single-stop page searches render nearest-confirmed suggestions. */
+  wantNearestConfirmed: boolean;
 }
 
 interface WeatherInput {
@@ -823,7 +848,7 @@ async function runStopSearch(
 
     filtered.confirmed.sort(byDateTimeDistance);
     filtered.likely.sort(byDateTimeDistance);
-    filtered.possible.sort((a, b) => a.distanceKm - b.distanceKm);
+    filtered.possible.sort(byDistance);
 
     // Possible rows display only "Timing varies" + distance, so multiple
     // cadence hits for the same kennel (weekly rule firing twice in a
@@ -890,6 +915,20 @@ async function runStopSearch(
     emptyState = "no_confirmed";
   }
 
+  // "No posted trails for your exact dates": look out to the broader radius
+  // for the nearest confirmed runs so the answer isn't only "check directly"
+  // (design review V1). Runs the full pipeline but keeps only confirmed rows;
+  // weather isn't loaded for them.
+  let nearestConfirmed: DestinationResult["nearestConfirmed"];
+  if (ctx.wantNearestConfirmed && emptyState === "no_confirmed" && horizonTier !== "none") {
+    broader = computeBroader();
+    if (broader.length > 0) {
+      const { filtered: ring } = await runPipelineFor(broader);
+      const confirmed = ring.confirmed.sort(byDistance).slice(0, NEAREST_CONFIRMED_LIMIT);
+      if (confirmed.length > 0) nearestConfirmed = { radiusKm: broaderRadiusKm, confirmed };
+    }
+  }
+
   return {
     destination: {
       index,
@@ -905,6 +944,7 @@ async function runStopSearch(
       // label every primary-only search as expanded.
       broaderRadiusKm: primaryEffectivelyEmpty ? broaderRadiusKm : undefined,
       broaderResults: broaderResultsObj,
+      nearestConfirmed,
     },
     primaryRows: {
       confirmed: primaryEffectivelyEmpty ? [] : filtered.confirmed,

@@ -62,6 +62,7 @@ export const RADIUS_META: Record<
   25: { label: "Metro", description: "~15 mi" },
   50: { label: "Region", description: "~30 mi" },
   100: { label: "Far", description: "~60 mi" },
+  200: { label: "Road trip", description: "~125 mi" },
 };
 
 export const RADIUS_OPTIONS = RADIUS_TIERS.map((value) => ({
