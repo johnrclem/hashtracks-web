@@ -1308,7 +1308,9 @@ export const SOURCES = [
       type: "HASHREGO" as const,
       trustLevel: 8,
       scrapeFreq: "daily",
-      scrapeDays: 90,
+      // Hash Rego is mostly used to announce big events (campouts, weekends,
+      // Party Gras), often 6+ months out; a 90-day window missed them.
+      scrapeDays: 365,
       // #1578 follow-up — added moa2h3 so MoA2H3 events (e.g. Red Dress Run)
       // on the Hash Rego index get scraped instead of being filtered out by
       // the source-kennel guard. The detail page hostKennelName is
