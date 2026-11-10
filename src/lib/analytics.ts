@@ -1,4 +1,5 @@
 import posthog from "posthog-js";
+import { getVisitRecency } from "@/lib/visit-recency";
 
 /**
  * Custom analytics events tracked in PostHog.
@@ -235,23 +236,48 @@ export function capture<E extends keyof AnalyticsEventMap>(
   posthog.capture(event, properties);
 }
 
-/**
- * Identify the current user in PostHog with person properties.
- */
-export function identifyUser(
-  userId: string,
-  properties?: Record<string, unknown>,
-) {
+// PostHog runs with `persistence: "memory"`, so identity and super properties
+// live only for the current page load. Track who was identified so repeat
+// calls (effects re-running) don't send duplicate identify events.
+let identifiedKey: string | null = null;
+
+/** Tag every event on this page load with new-vs-returning (see visit-recency.ts). */
+export function registerVisitRecency() {
   if (typeof window === "undefined") return;
   if (!posthog.__loaded) return;
-  posthog.identify(userId, properties);
+  posthog.register({ visit_recency: getVisitRecency() });
 }
 
 /**
- * Reset PostHog identity (call on logout).
+ * Identify the signed-in user in PostHog. Safe to call repeatedly. Admins are
+ * tagged as internal traffic (PostHog's `$internal_or_test_user` person
+ * property, plus an `internal_user` event property) so they can be filtered
+ * out of visitor numbers. Pageviews sent before this call are merged into the
+ * person by PostHog's identify merge.
+ */
+export function identifyUser(userId: string, options: { isAdmin: boolean }) {
+  if (typeof window === "undefined") return;
+  if (!posthog.__loaded) return;
+  const key = `${userId}|${options.isAdmin}`;
+  if (identifiedKey === key) return;
+  posthog.identify(
+    userId,
+    options.isAdmin ? { is_admin: true, $internal_or_test_user: true } : { is_admin: false },
+  );
+  if (options.isAdmin) posthog.register({ internal_user: true });
+  identifiedKey = key;
+}
+
+/**
+ * Reset PostHog identity after a sign-out. A no-op for visitors who were never
+ * identified on this page load, so it doesn't wipe their super properties.
  */
 export function resetIdentity() {
   if (typeof window === "undefined") return;
   if (!posthog.__loaded) return;
+  if (identifiedKey === null) return;
   posthog.reset();
+  identifiedKey = null;
+  // reset() clears super properties; keep new-vs-returning on later events.
+  registerVisitRecency();
 }

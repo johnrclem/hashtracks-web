@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getOrCreateUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatRelativeTime } from "@/lib/format";
+import { isAdminUser } from "@/lib/clerk-roles";
 import { MismanDashboard } from "@/components/misman/MismanDashboard";
 
 export default async function MismanPage() {
@@ -32,8 +33,7 @@ export default async function MismanPage() {
   const clerkUser = await (
     await import("@clerk/nextjs/server")
   ).currentUser();
-  const isSiteAdmin =
-    (clerkUser?.publicMetadata as { role?: string } | null)?.role === "admin";
+  const isSiteAdmin = isAdminUser(clerkUser);
 
   // Get pending requests — site admins see all, mismans see their kennels
   const managedKennelIds = mismanKennels.map((mk) => mk.kennel.id);

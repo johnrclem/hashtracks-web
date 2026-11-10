@@ -51,7 +51,11 @@ export const config = {
     // literal (required: Next statically analyzes this middleware matcher at
     // build time, so no String.raw/template expressions here) that also avoids
     // the escaped-backslash smell.
-    "/((?!_next|[^?]*[.](?:html?|css|js(?!on)|jpe?g|webp|avif|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|xml|txt)).*)",
+    // `ingest/` is the PostHog reverse proxy (rewritten in next.config.ts). It
+    // must skip Clerk: otherwise auth.protect() rewrites every signed-out
+    // visitor's analytics request to the 404 page and PostHog only ever sees
+    // signed-in users.
+    "/((?!_next|ingest/|[^?]*[.](?:html?|css|js(?!on)|jpe?g|webp|avif|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|xml|txt)).*)",
     // Always run for API routes
     "/(api|trpc)(.*)",
   ],

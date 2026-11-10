@@ -4,6 +4,8 @@ import posthog from "posthog-js";
 import { PostHogProvider as PHProvider, usePostHog } from "posthog-js/react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, Suspense, type ReactNode } from "react";
+import { registerVisitRecency } from "@/lib/analytics";
+import { nextPageviewVisitProperties } from "@/lib/visit-recency";
 
 if (
   typeof window !== "undefined" &&
@@ -21,6 +23,7 @@ if (
     capture_pageview: false, // manual via PostHogPageView
     capture_pageleave: true,
   });
+  registerVisitRecency();
 }
 
 function PostHogPageView() {
@@ -34,7 +37,10 @@ function PostHogPageView() {
     const url = `${pathname}${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`;
     if (url !== lastRef.current) {
       lastRef.current = url;
-      ph.capture("$pageview", { $current_url: url });
+      const visitProperties = nextPageviewVisitProperties();
+      // Keep the super property current if the local day rolled over in an open tab.
+      registerVisitRecency();
+      ph.capture("$pageview", { $current_url: url, ...visitProperties });
     }
   }, [pathname, searchParams, ph]);
 
