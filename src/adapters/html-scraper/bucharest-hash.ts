@@ -117,7 +117,7 @@ function words(text: string): string[] {
 
 function stripWrappingQuotes(text: string): string {
   const quotes = "\"'“”„";
-  return quotes.includes(text.charAt(0)) && quotes.includes(text.charAt(text.length - 1))
+  return quotes.includes(text.charAt(0)) && quotes.includes(text.at(-1) ?? "")
     ? text.slice(1, -1).trim()
     : text;
 }
@@ -211,9 +211,9 @@ function isTimeOnly(text: string): boolean {
 /** "A, B + C and D" → sorted "A, B, C, D"; blank → undefined. */
 export function splitHares(text: string): string | undefined {
   const names = clean(text)
-    .replaceAll(/\(\s*\+\s*([^)]*)\)/g, ",$1") // "Just Jan (+IBL)" → "Just Jan, IBL"
-    .replaceAll(/\b(?:co[ -]?)?hares?\s*:/gi, ",") // "Hare: X Co Hare: Y"
-    .split(/\s+and\s+|[,+&]/i)
+    .replaceAll(/\(\+ ?([^)]*)\)/g, ",$1") // "Just Jan (+IBL)" → "Just Jan, IBL"
+    .replaceAll(/\b(?:co[ -]?)?hares? ?:/gi, ",") // "Hare: X Co Hare: Y"
+    .split(/ and |[,+&]/i) // input is whitespace-collapsed
     .map((s) => s.trim())
     .filter((s) => /\p{L}/u.test(s)); // drops "??"
   if (names.length === 0) return undefined;

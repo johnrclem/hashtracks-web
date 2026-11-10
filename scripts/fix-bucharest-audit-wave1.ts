@@ -48,7 +48,7 @@ interface Fix {
 
 const clean = (text: string | undefined) => (text ?? "").replaceAll(/\s+/g, " ").trim();
 
-runOneShot(async ({ prisma, apply }) => {
+void runOneShot(async ({ prisma, apply }) => {
   const res = await safeFetch(CSV_URL, { headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)" } });
   const csv = await res.text();
   if (!res.ok || !csv.startsWith("Run #")) throw new Error(`Sheet fetch failed: HTTP ${res.status}`);
@@ -102,7 +102,7 @@ runOneShot(async ({ prisma, apply }) => {
 
   // B. #1170 "No trail".
   const noTrail = byRun.get("bh3-ro#1170");
-  if (noTrail && noTrail.status === "CONFIRMED" && !noTrail.adminCancelledAt) {
+  if (noTrail?.status === "CONFIRMED" && !noTrail.adminCancelledAt) {
     fixes.push({
       id: noTrail.id,
       label: `bh3-ro #1170 ${noTrail.date.toISOString().slice(0, 10)} → CANCELLED`,
