@@ -258,6 +258,26 @@ const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "
 const DAY_MONTH_RE = /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]{0,6}\b/i;
 const WEEK_MS = 7 * 86_400_000;
 
+interface PendingRow { text: string; runNumber: number; day: number; month: number; stated: string }
+
+/** Nearest dated run by run number, preferring the one before it. */
+function nearestRun(events: RawEventData[], runNumber: number): RawEventData | undefined {
+  let best: RawEventData | undefined;
+  for (const e of events) {
+    const d = Math.abs((e.runNumber ?? 0) - runNumber);
+    const bestD = best ? Math.abs((best.runNumber ?? 0) - runNumber) : Infinity;
+    if (d < bestD || (d === bestD && (e.runNumber ?? 0) < (best?.runNumber ?? 0))) best = e;
+  }
+  return best;
+}
+
+/** Anchor date + a week per run number, kept only if it lands in the stated month within 3 days. */
+function inferFromSequence(anchor: RawEventData, row: PendingRow): string | undefined {
+  const inferred = new Date(Date.parse(`${anchor.date}T12:00:00Z`) + (row.runNumber - (anchor.runNumber ?? 0)) * WEEK_MS);
+  const fits = inferred.getUTCMonth() === row.month && Math.abs(inferred.getUTCDate() - row.day) <= 3;
+  return fits ? inferred.toISOString().slice(0, 10) : undefined;
+}
+
 /**
  * Parse the hareline paragraphs. A Date cell naming a day that doesn't exist
  * ("31st November", #2848) is dated from the weekly run sequence instead: the
@@ -273,7 +293,7 @@ export function parseSh3Paragraphs(
   referenceDate: Date = new Date(),
 ): { events: RawEventData[]; dateInferences: string[]; skippedInvalidDates: string[] } {
   const events: RawEventData[] = [];
-  const pending: { text: string; runNumber: number; day: number; month: number; stated: string }[] = [];
+  const pending: PendingRow[] = [];
   for (const text of texts) {
     const event = parseSh3Paragraph(text, sourceUrl, referenceDate);
     if (event) {
@@ -299,19 +319,9 @@ export function parseSh3Paragraphs(
   // ("9th November" read on 10 Nov) into next year, which would skew the sequence.
   const anchors = events.filter((e) => Math.abs(Date.parse(`${e.date}T12:00:00Z`) - referenceDate.getTime()) < 120 * 86_400_000);
   for (const row of pending) {
-    // Nearest dated run by run number, preferring the one before it.
-    let anchor: RawEventData | undefined;
-    for (const e of anchors) {
-      const d = Math.abs((e.runNumber ?? 0) - row.runNumber);
-      const best = anchor ? Math.abs((anchor.runNumber ?? 0) - row.runNumber) : Infinity;
-      if (d < best || (d === best && (e.runNumber ?? 0) < (anchor?.runNumber ?? 0))) anchor = e;
-    }
-    const inferred = anchor
-      ? new Date(Date.parse(`${anchor.date}T12:00:00Z`) + (row.runNumber - (anchor.runNumber ?? 0)) * WEEK_MS)
-      : undefined;
-    const fits = inferred?.getUTCMonth() === row.month && Math.abs((inferred?.getUTCDate() ?? 0) - row.day) <= 3;
-    const event =
-      fits && inferred ? parseSh3Paragraph(row.text, sourceUrl, referenceDate, inferred.toISOString().slice(0, 10)) : null;
+    const anchor = nearestRun(anchors, row.runNumber);
+    const inferred = anchor ? inferFromSequence(anchor, row) : undefined;
+    const event = inferred ? parseSh3Paragraph(row.text, sourceUrl, referenceDate, inferred) : null;
     if (event && anchor) {
       events.push(event);
       dateInferences.push(

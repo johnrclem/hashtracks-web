@@ -22,7 +22,7 @@ import { runOneShot } from "./lib/one-shot";
 const EVENT_ID = "cmuyjb26p001e04l9edm8yx97";
 const NOV_9 = new Date("2026-11-09T12:00:00Z");
 
-runOneShot(async ({ prisma, apply }) => {
+void runOneShot(async ({ prisma, apply }) => {
   const row = await prisma.event.findUnique({
     where: { id: EVENT_ID },
     select: { id: true, date: true, runNumber: true, title: true, haresText: true, locationName: true, status: true, kennel: { select: { kennelCode: true } } },
