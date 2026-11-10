@@ -46,4 +46,4 @@ SET status = 'RESOLVED', "resolvedAt" = NOW() AT TIME ZONE 'UTC',
 FROM "Source" s
 WHERE a."sourceId" = s.id
   AND s.name = 'Berlin H3 iCal Feed' AND s.type = 'ICAL_FEED'::"SourceType"
-  AND a.status IN ('OPEN', 'ACKNOWLEDGED');
+  AND a.status IN ('OPEN', 'ACKNOWLEDGED', 'SNOOZED');
