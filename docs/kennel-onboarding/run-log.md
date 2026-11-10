@@ -1722,6 +1722,13 @@ _(latest handoff: Taoyuan Metro H3 2026-06-23 — 🇹🇼 Taiwan's 5th kennel, 
 - Half-Mind: a `LOCATION=Montana` query returned 0 listings because locations are stored as `MT`; `HASHCLUB=Hellgate` found it.
 - Refill: first non-US Half-Mind sweep (274 verified listings with a website; 110 probed by curl after excluding seeded, handed-off and bad-URL listings). Queued 6 with live evidence: Worthy Winchester (Tribe), High Wycombe (ICS), Lagos (WP), Zagreb (Sheets), Sheffield (Blogger), Kennet Valley (WP). More leads in the queue's Leads note. Queue depth 6, short of ~20.
 
+## 2026-11-09 — Worthy Winchester H3 (Winchester, England 🇬🇧) — ✅ handed off
+- Desktop runner. Preflight: no `onboarding-blocked` issue, backlog 4 (< 10), no no-op streak. Took queue rank 1. Dedupe: 556 live slugs, no `worthy`/`winchester`.
+- Source: `HTML_SCRAPER` on the existing `TribeEventsAdapter` (`https://worthyh3.com`). Ran the real adapter against the live site: 0 errors, 8 events. **Not strictly config-only:** titles read `Run 2159 – <venue>`, so `extractHashRunNumber` returns nothing and most venues sit in the title. ~30–40 LoC of additive flags + new Winchester metro. Handoff: `handoffs/2026-11-09-worthy-h3.md`.
+- Events verified: 8 upcoming (#2159 2026-11-09 → #2166 2027-01-01), 4 past in Tribe.
+- History: Tribe holds only 12 events, but WP page 219 (`/most-runners-on-a-hash`) has 905 rows; 864 usable runs 1996-03-11 → 2026-08-17 after dropping duplicate Covid Zoom rows and correcting 3 year typos. Coverage gaps (2016–18, 2025) are in the source.
+- Metadata: founded 1984-01-18 (kennel About; Half-Mind says 01-17), Monday 6:45 PM, dogs + walkers welcome, Half-Mind #1221 verified 2026-10-16. hashCash unverifiable, left blank. No socials found. Wibbly Wobbly winter Wednesday series is not in the feed.
+- Refill: 6 new rows verified from the 2026-11-08 leads (Burnie, Chardonnay, Isle of Wight, Hursley, Hinterland, Samford). Queue depth 11, short of ~20.
 ## 2026-11-10 — High Wycombe H3 (High Wycombe, England 🇬🇧) — ✅ handed off
 - Desktop runner. Preflight: no `onboarding-blocked` issue, backlog 4 (< 10), no no-op streak. Rank 1 (Worthy Winchester) skipped: open PR #2836 (2026-11-09; `test` passed, `claude-review` failed) already hands it off, so took rank 2. Dedupe: 556 live slugs, no `wycombe`/`hw*`.
 - Source: `HTML_SCRAPER`, the home-page run list at `https://www.hwh3.co.uk/` (hares, venue + town, postcode, Maps coords) joined by date to `hash-cal.ics` (200 `text/calendar`, 9 VEVENTs), whose `UID:HASHID<n>` is the run number. **NEW ~150–200 LoC `HighWycombeHashAdapter`.** New `High Wycombe` UK metro. Handoff: `handoffs/2026-11-10-hwh3.md`.
