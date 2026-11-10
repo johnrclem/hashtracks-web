@@ -201,6 +201,7 @@ describe("field cleaners", () => {
     expect(scrubContactDetails("Tent drop off (msg 406-210-2271 for address) by Wed")).toBe("Tent drop off by Wed");
     expect(scrubContactDetails("Drop off tents to VM house (406-210-2271 for address)")).toBe("Drop off tents to VM house");
     expect(scrubContactDetails("Email someone@example.com or call (406) 555-1234")).toBe("Email or call");
+    expect(scrubContactDetails("Bring a vessel\nmail someone@example.com\nOn-On")).toBe("Bring a vessel\nmail \nOn-On");
   });
   it("buildDescription drops the schedule footer and mapped labels", () => {
     const desc = buildDescription(htmlToLines(BARE_LINE_2018.content), "Saturday, December 8th");

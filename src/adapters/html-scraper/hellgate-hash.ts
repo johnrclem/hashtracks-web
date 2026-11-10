@@ -49,7 +49,6 @@ const TITLE_YEAR_TAIL_RE = /, ?(\d{4}) ?$/;
 // Lines are whitespace-collapsed, so single optional spaces suffice ("3:30 pm", "2 p.m.", "12:00pm").
 const TIME_RE = /\b(\d{1,2})(?::(\d{2}))? ?([ap])\.? ?m\b/i;
 const PHONE_RE = /(?:\(\d{3}\)\s?|\b\d{3}[-.\s]?)\d{3}[-.]\d{4}\b/g;
-const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
 const MS_PER_DAY = 86_400_000;
 const MAX_RANGE_DAYS = 4;
 
@@ -301,10 +300,18 @@ export function costIfNotDefault(raw: string | undefined): string | undefined {
   return amount && amount !== DEFAULT_HASH_CASH ? raw : undefined;
 }
 
+/** "someone@example.com" → true. Procedural, so no backtracking regex (Sonar S8786). */
+function looksLikeEmail(token: string): boolean {
+  const at = token.indexOf("@");
+  return at > 0 && token.indexOf(".", at) > at + 1;
+}
+
 export function scrubContactDetails(text: string): string {
   return text
     .replaceAll(PHONE_RE, "")
-    .replaceAll(EMAIL_RE, "")
+    .split(/(\s)/) // keep the separators so line breaks survive
+    .filter((token) => !looksLikeEmail(token))
+    .join("")
     .replaceAll(/ {2,}/g, " ")
     .replaceAll("( ", "(")
     .replaceAll(" )", ")")
