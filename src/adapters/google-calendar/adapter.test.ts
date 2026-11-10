@@ -6014,6 +6014,18 @@ describe("NOH3 titleLocationPattern — 'Start @ {address}' (#2022)", () => {
     expect(noh3Config.titleLocationPattern).toBeDefined();
   });
 
+  it("reads hares from 'Join X, Y and Z for this hash!' but not 'join us for' (#2849)", () => {
+    const harePatterns = (noh3Config as { harePatterns?: string[] }).harePatterns ?? [];
+    const opts = { compiledHarePatterns: compilePatterns(harePatterns) };
+    const hares = (description: string) =>
+      buildRawEventFromGCalItem(testGCalEvent({ summary: "Hash #1983", description }), noh3Config, opts)?.hares;
+    expect(hares("Join Lil Blow Peep, Bent OvaBoard and Yank My Doodle for this hash! $8 hash cash.")).toBe(
+      "Lil Blow Peep, Bent OvaBoard and Yank My Doodle",
+    );
+    expect(hares("Join Spit in My Face and Cavity Search at Oscars for the full moon.")).toBe("Spit in My Face and Cavity Search");
+    expect(hares("It's a free beer social, so come and join us for a brew or two!")).toBeUndefined();
+  });
+
   it("extracts locationName from the title and leaves a clean title", () => {
     const result = buildRawEventFromGCalItem(
       testGCalEvent({

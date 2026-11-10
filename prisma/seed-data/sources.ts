@@ -5238,6 +5238,9 @@ export const SOURCES = [
           String.raw`([A-Za-z0-9][A-Za-z0-9 ,'’&]+?)\s+are\s+leading\b`,
           String.raw`([A-Za-z0-9][A-Za-z0-9 ,'’&]+?)\s+are\s+(?:your |the |trusty )*hares\b`,
           String.raw`([A-Za-z0-9][A-Za-z0-9 ,'’&]+?)\s+are\s+taking\s+us\b`,
+          // #2849: "Join X, Y and Z for this hash!" / "… for a fun Labor Day hash".
+          // Not "join us/her for…"; an " at <place>" before "for" is skipped.
+          String.raw`Join\s+(?!(?:us|her|him|them|me)\b)([A-Za-z0-9][A-Za-z0-9 ,'’&]+?)(?:\s+at\s+[A-Za-z0-9 ,'’&]+?)?\s+for\b`,
         ],
         // NOH3 packs the start location into the title: "Hash #1961, Start @
         // Metairie Ave and Hesper Ave." with an empty GCal LOCATION field
