@@ -148,6 +148,7 @@ const EXPECTED_SOURCES_BY_ADAPTER: Readonly<Record<string, readonly string[]>> =
   HashStatsAdapter: ["LVH3 HashStats", "QCH4 HashStats", "SCH4 HashStats", "SCH4BASH HashStats", "SWOT HashStats"],
   Hayama4HAdapter: ["Hayama 4H Website"],
   HertsHashAdapter: ["Herts H3 Website Hareline"],
+  HighWycombeHashAdapter: ["High Wycombe H3 Website"],
   HimalayanHashAdapter: ["Himalayan H3 Website"],
   Hkh3Adapter: ["HK H3 Homepage"],
   HockessinAdapter: ["Hockessin H3 Website"],

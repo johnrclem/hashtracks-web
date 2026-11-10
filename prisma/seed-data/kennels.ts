@@ -7414,6 +7414,31 @@ export const KENNELS: KennelSeed[] = [
       // dogFriendly: unstated.
     },
     {
+      // Site brands itself "HWH3", but a <=4-char shortName makes friendlyKennelName fall
+      // back to fullName, so the longer form is the shortName and "HWH3" is an alias.
+      kennelCode: "hwh3",
+      shortName: "High Wycombe H3",
+      fullName: "High Wycombe Hash House Harriers",
+      region: "High Wycombe",
+      country: "UK",
+      website: "https://www.hwh3.co.uk/",
+      // twitterHandle "_hwh3" omitted: the home page says the Twitter hashbot "isn't going to be resurrected".
+      logoUrl: "https://www.hwh3.co.uk/site/assets/images/logo.svg", // stable theme asset (not tokenized); rendered unoptimized
+      foundedYear: 1991, // /about/: first run Tue 5 March 1991, The Stag and Huntsmen, Hambleden (Half-Mind #1153 agrees)
+      dogFriendly: true, // home page: "You and your dog are welcome"
+      walkersWelcome: true, // /about/join-us/: long (~5 mi) and short (~3.4 mi) trails; walkers welcomed
+      scheduleFrequency: "Weekly",
+      // Flat fields are the fallback; scheduleRules is authoritative.
+      scheduleDayOfWeek: "Tuesday",
+      scheduleTime: "7:45 PM", // 12-hour Kennel.scheduleTime; scheduleRules.startTime stays 24-hour
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=TU", startTime: "19:45", label: "Weekly Tuesday" },
+      ],
+      description:
+        "Weekly Tuesday-evening hash through the Chilterns countryside, starting from a pub within about 10 miles of High Wycombe. Long (~5 mi) and short (~3.4 mi) trails; dogs and walkers welcome. Running since 1991.",
+      // hashCash: unpublished. lat/lng: omitted — the kennel roams between pubs.
+    },
+    {
       kennelCode: "newch3",
       slug: "new-cotswold-h3", // pinned — toSlug("N.E.W. Cotswold H3") would give "n-e-w-cotswold-h3"
       shortName: "N.E.W. Cotswold H3",
