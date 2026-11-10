@@ -72,6 +72,12 @@ describe("parseBerlinRun", () => {
     expect(event.description).not.toContain("<");
   });
 
+  it("falls back to a 'Who: Trail laid by' line when the hares field is empty", () => {
+    const run = { ...byName("Run #2359"), hares: null, event_description: "<p>Who: Trail laid by Limp Wrist, with beer</p>" };
+    const outcome = parseBerlinRun(run);
+    expect("event" in outcome && outcome.event.hares).toBe("Limp Wrist");
+  });
+
   it("takes the run number from the title, not the drifting run_number field", () => {
     expect(eventOf("Run #2320").runNumber).toBe(2320);
     expect(eventOf("BH3 Halloween Run 2024").runNumber).toBeUndefined();
@@ -123,6 +129,13 @@ describe("BerlinH3ApiAdapter.fetch", () => {
     expect(result.diagnosticContext).toMatchObject({
       runsFetched: 9, eventsParsed: 6, skipped: { deleted: 1, hidden: 1, "event-type": 1 },
     });
+  });
+
+  it("reports a malformed row without dropping the others", async () => {
+    respond([RUNS[0], { id: 9, event_name: null }]);
+    const result = await new BerlinH3ApiAdapter().fetch(source, { days: 365 * 30 });
+    expect(result.events).toHaveLength(1);
+    expect(result.errors).toEqual(["Berlin H3 API: row 1 is missing id, event_name or start_date"]);
   });
 
   it("fails loud on an empty or non-array payload so reconcile stays off", async () => {

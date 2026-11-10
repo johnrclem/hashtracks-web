@@ -23,6 +23,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { extractHashRunNumber, filterEventsByWindow, stripHtmlTags } from "../utils";
 import { safeFetch } from "../safe-fetch";
+import { extractHares } from "../hare-extraction";
 
 const DEFAULT_URL = "https://www.berlin-h3.eu/api/v1/runs/all";
 const DEFAULT_DAYS = 365;
@@ -96,6 +97,13 @@ function buildDescription(run: BerlinApiRun): string | undefined {
   return parts.length > 0 ? parts.join("\n\n") : undefined;
 }
 
+/** Older posts name the hares only in the body: "Who: Trail laid by X" (#838). */
+const WHO_HARE_PATTERNS = [String.raw`(?:^|\n)\s*Who:\s*Trail\s+laid\s+by\s+([^,\n]+)`];
+
+function haresFromDescription(description: string | undefined): string | undefined {
+  return description ? extractHares(description, WHO_HARE_PATTERNS) ?? undefined : undefined;
+}
+
 export type BerlinRunOutcome =
   | { event: RawEventData }
   | { skipped: "deleted" | "hidden" | "event-type" }
@@ -114,6 +122,7 @@ export function parseBerlinRun(run: BerlinApiRun): BerlinRunOutcome {
   if (!start) return { error: `run ${run.id}: unparseable start_date "${run.start_date}"` };
   const end = splitLocalIso(run.end_date);
 
+  const description = buildDescription(run);
   const location = nonEmpty(run.location_name);
   const street = nonEmpty(run.geo_location_name);
   const coords =
@@ -128,8 +137,8 @@ export function parseBerlinRun(run: BerlinApiRun): BerlinRunOutcome {
       // carries 2317. The title's "#N" is the number the kennel announced.
       runNumber: extractHashRunNumber(run.event_name),
       title: nonEmpty(run.event_name),
-      description: buildDescription(run),
-      hares: nonEmpty(run.hares),
+      description,
+      hares: nonEmpty(run.hares) ?? haresFromDescription(description),
       location: location ?? street,
       locationStreet: location && street && street !== location ? street : undefined,
       locationUrl: nonEmpty(run.geo_map_url),
@@ -143,17 +152,11 @@ export function parseBerlinRun(run: BerlinApiRun): BerlinRunOutcome {
   };
 }
 
-function isRunArray(body: unknown): body is BerlinApiRun[] {
+function isRunRow(row: unknown): row is BerlinApiRun {
+  const r = row as Partial<BerlinApiRun> | null;
   return (
-    Array.isArray(body) &&
-    body.every(
-      (r) =>
-        typeof r === "object" &&
-        r !== null &&
-        typeof (r as BerlinApiRun).id === "number" &&
-        typeof (r as BerlinApiRun).event_name === "string" &&
-        typeof (r as BerlinApiRun).start_date === "string",
-    )
+    typeof r === "object" && r !== null &&
+    typeof r.id === "number" && typeof r.event_name === "string" && typeof r.start_date === "string"
   );
 }
 
@@ -163,7 +166,7 @@ export class BerlinH3ApiAdapter implements SourceAdapter {
   async fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
     const url = source.url || DEFAULT_URL;
     const fetchStart = Date.now();
-    let runs: BerlinApiRun[];
+    let runs: unknown[];
     try {
       const res = await safeFetch(url, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)", Accept: "application/json" },
@@ -172,7 +175,7 @@ export class BerlinH3ApiAdapter implements SourceAdapter {
       const body: unknown = await res.json();
       // An HTML error page or an empty list must not read as "every run was
       // removed": reconcile would cancel the whole kennel.
-      if (!isRunArray(body) || body.length === 0) throw new Error("unexpected payload (not a non-empty run array)");
+      if (!Array.isArray(body) || body.length === 0) throw new Error("unexpected payload (not a non-empty run array)");
       runs = body;
     } catch (err) {
       const message = `Berlin H3 API: fetch failed: ${err instanceof Error ? err.message : String(err)}`;
@@ -182,7 +185,12 @@ export class BerlinH3ApiAdapter implements SourceAdapter {
     const parsed: RawEventData[] = [];
     const errors: string[] = [];
     const skipped: Record<string, number> = {};
-    for (const run of runs) {
+    for (const [i, run] of runs.entries()) {
+      // One malformed row is reported; it doesn't sink the other runs.
+      if (!isRunRow(run)) {
+        errors.push(`Berlin H3 API: row ${i} is missing id, event_name or start_date`);
+        continue;
+      }
       const outcome = parseBerlinRun(run);
       if ("event" in outcome) parsed.push(outcome.event);
       else if ("skipped" in outcome) skipped[outcome.skipped] = (skipped[outcome.skipped] ?? 0) + 1;
