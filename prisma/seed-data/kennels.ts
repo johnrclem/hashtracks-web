@@ -212,8 +212,15 @@ export const KENNELS: KennelSeed[] = [
       instagramHandle: "syrononh4",
       contactEmail: "syracusehashruns@gmail.com",
       scheduleDayOfWeek: "Monday", scheduleFrequency: "Weekly", scheduleTime: "6:09 PM",
-      scheduleNotes: "Mondays 6:09 PM (Apr-Sep); Saturdays 1:00 PM (Oct-Mar).",
+      scheduleNotes: "Mondays 6:09 PM (Apr-Sep); Saturdays 2:09 PM (Oct-Mar).",
       hashCash: "$7", foundedYear: 2012,
+      // Seasonal: the flat Monday fields became a year-round Monday rule, which mispredicted
+      // every winter Saturday (#2837). 2026: Saturdays to Mar 28, Mondays Apr 6 → Oct 5
+      // ("Last Regular Monday Trail" Sep 28), Saturdays from Oct 10, all at 2:09 PM.
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;BYDAY=MO", startTime: "18:09", label: "Summer", validFrom: "04-01", validUntil: "09-30", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SA", startTime: "14:09", label: "Winter", validFrom: "10-01", validUntil: "03-31", displayOrder: 1 },
+      ],
       description: "Weekly hash in Central New York with seasonal schedule: Monday evenings in summer, Saturday afternoons in winter.",
       latitude: 43.05, longitude: -76.15,
     },
@@ -306,11 +313,13 @@ export const KENNELS: KennelSeed[] = [
     {
       kennelCode: "beantown", shortName: "Beantown", fullName: "Beantown City Hash House Harriers", region: "Boston, MA", hashCash: "$5", contactEmail: "HashCash@beantown.cityhash.org",
       // Seasonal (corrected — a prior fix wrongly flattened this to year-round Sunday):
-      // summer Sundays (May–Sep), winter Wednesdays (Oct–Apr) per 2yr independent history.
+      // summer Sundays 2:30 PM, winter Wednesdays 6:30 PM. The switches fall around Oct 20 and
+      // Apr 20, not Oct 1 / May 1 (Sundays ran to Oct 12 2025 and Oct 18 2026; Wednesdays to
+      // Apr 15 2026) — the month-boundary windows tripped rule-drift (#2837).
       scheduleDayOfWeek: "Sunday", scheduleFrequency: "Weekly",
       scheduleRules: [
-        { rrule: "FREQ=WEEKLY;BYDAY=SU", label: "Summer", validFrom: "05-01", validUntil: "09-30", displayOrder: 0 },
-        { rrule: "FREQ=WEEKLY;BYDAY=WE", label: "Winter", validFrom: "10-01", validUntil: "04-30", displayOrder: 1 },
+        { rrule: "FREQ=WEEKLY;BYDAY=SU", startTime: "14:30", label: "Summer", validFrom: "04-21", validUntil: "10-20", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;BYDAY=WE", startTime: "18:30", label: "Winter", validFrom: "10-21", validUntil: "04-20", displayOrder: 1 },
       ],
     },
     {
