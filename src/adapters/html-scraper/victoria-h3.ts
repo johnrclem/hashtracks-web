@@ -162,7 +162,9 @@ function isNoteLabel(label: string): boolean {
   );
 }
 // "Hares Sweet Deeriere and Barley Legal" — a hare line written without a colon (#2853).
-const BARE_HARES_LINE_RE = /^hares?\s+(?=\S)/i;
+// Plural only, so a venue line like "Hare and Hounds Pub" isn't read as hares.
+const BARE_HARES_LINE_RE = /^hares\s+(?=\S)/i;
+const BR_MARK = "";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -208,9 +210,11 @@ function linearize($: cheerio.CheerioAPI): string[] {
   const lines: string[] = [];
   // A hard break inside one paragraph starts a new line: "Hares X<br>What: $5"
   // must not read as one "Hares X What:" label (#2853).
-  $(TEXT_BLOCK_SELECTOR).find("br").replaceWith("\n");
+  // A private-use mark, not "\n": source-HTML newlines inside a paragraph are
+  // ordinary whitespace and must not split it.
+  $(TEXT_BLOCK_SELECTOR).find("br").replaceWith(BR_MARK);
   $(TEXT_BLOCK_SELECTOR).each((_, el) => {
-    for (const part of $(el).text().split("\n")) {
+    for (const part of $(el).text().split(BR_MARK)) {
       const text = part.replace(/\s+/g, " ").trim();
       if (text) lines.push(text);
     }

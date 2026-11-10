@@ -295,13 +295,17 @@ export function parseSh3Paragraphs(
 
   const dateInferences: string[] = [];
   const skippedInvalidDates: string[] = [];
+  // Anchors must be near the scrape date: forwardDate rolls a just-past run
+  // ("9th November" read on 10 Nov) into next year, which would skew the sequence.
+  const anchors = events.filter((e) => Math.abs(Date.parse(`${e.date}T12:00:00Z`) - referenceDate.getTime()) < 120 * 86_400_000);
   for (const row of pending) {
     // Nearest dated run by run number, preferring the one before it.
-    const anchor = [...events].sort(
-      (a, b) =>
-        Math.abs((a.runNumber ?? 0) - row.runNumber) - Math.abs((b.runNumber ?? 0) - row.runNumber) ||
-        (a.runNumber ?? 0) - (b.runNumber ?? 0),
-    )[0];
+    let anchor: RawEventData | undefined;
+    for (const e of anchors) {
+      const d = Math.abs((e.runNumber ?? 0) - row.runNumber);
+      const best = anchor ? Math.abs((anchor.runNumber ?? 0) - row.runNumber) : Infinity;
+      if (d < best || (d === best && (e.runNumber ?? 0) < (anchor?.runNumber ?? 0))) anchor = e;
+    }
     const inferred = anchor
       ? new Date(Date.parse(`${anchor.date}T12:00:00Z`) + (row.runNumber - (anchor.runNumber ?? 0)) * WEEK_MS)
       : undefined;

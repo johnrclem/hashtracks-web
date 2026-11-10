@@ -981,9 +981,15 @@ const HASH_CASH_PROSE_RE = /(\$\d{1,3}(?:\.\d{2})?) hash cash\b/i;
  * "30 Henry Thomas Dr, New Orleans" share "henry" and "thomas".
  */
 function sharesPlaceWord(titleLocation: string, location: string): boolean {
-  const locationWords = new Set(location.toLowerCase().match(/\p{L}{4,}/gu) ?? []);
-  return (titleLocation.toLowerCase().match(/\p{L}{4,}/gu) ?? []).some((w) => locationWords.has(w));
+  const words = (text: string) => (text.toLowerCase().match(/\p{L}{4,}/gu) ?? []).filter((w) => !GENERIC_PLACE_WORDS.has(w));
+  const locationWords = new Set(words(location));
+  return words(titleLocation).some((w) => locationWords.has(w));
 }
+/** Street/venue words two different places often share ("Audubon Park" vs "City Park"). */
+const GENERIC_PLACE_WORDS = new Set([
+  "park", "street", "avenue", "road", "drive", "place", "square", "lane", "boulevard", "parking",
+  "city", "north", "south", "east", "west", "center", "centre", "start",
+]);
 
 /**
  * Last-resort hare extraction for a mid-line `Hare: Name` label that the shared
