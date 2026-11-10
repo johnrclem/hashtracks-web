@@ -227,6 +227,19 @@ describe("VictoriaH3Adapter parser", () => {
     expect(e?.title).toBe("May Day Madness");
   });
 
+  it("reads a colon-less Hares line split from 'What:' by a <br> (#2853, live VK9 #78)", () => {
+    const html = `<!DOCTYPE html><html><body>
+      ${p("Up Cumming Hashes and Hashing Events 2026")}
+      ${p("Victoria K9 H3 #78 The Remembrance Day Run")}
+      ${p("Wednesxday, November 11, 2:30 pm")}
+      <p>Hares Sweet Deeriere and Barley Legal<br/>What: $5 includes craft beer, canine treats and human drink stop. </p>
+      ${p("Next page")}
+    </body></html>`;
+    const e = parseVictoriaH3Page(html, SOURCE_URL).events.find((x) => x.runNumber === 78);
+    expect(e?.hares).toBe("Sweet Deeriere and Barley Legal");
+    expect(e?.description).toBe("What: $5 includes craft beer, canine treats and human drink stop.");
+  });
+
   it("fails loud per kennel when one kennel drops out (protects reconcile)", () => {
     // Only VH3 present — dsmh3 + vk9h3 missing should each raise an error so
     // scrape.ts skips reconcile and doesn't cancel their future runs.

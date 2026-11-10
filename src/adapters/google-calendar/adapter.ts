@@ -570,7 +570,8 @@ const DATE_RANGE_PAREN_RE = /\b\d{1,2}\s*\/\s*\d{1,2}\b/;
 // "(new location)", "(location TBD)" — is a location note, never a hare name.
 // Treated as instructional so it's stripped from the title and never promoted
 // to hares. Joins the same global reject family as NON_NAME / ACRONYM / etc.
-const LOCATION_QUALIFIER_PAREN_RE = /\blocation\b/i;
+// #2849 NOH3: "(parking lot)" is the same kind of venue note.
+const LOCATION_QUALIFIER_PAREN_RE = /\b(?:location|parking)\b/i;
 const MAX_HARE_PAREN_LENGTH = 40;
 
 /**
@@ -969,7 +970,19 @@ export function extractCostFromDescription(description: string): string | undefi
     if (/^\d+(?:\.\d{1,2})?$/.test(value)) return `$${value}`;
     return normalizeCostSigil(value);
   }
-  return undefined;
+  // #2849 NOH3 writes the cost as prose: "$8 hash cash."
+  return HASH_CASH_PROSE_RE.exec(description)?.[1];
+}
+const HASH_CASH_PROSE_RE = /(\$\d{1,3}(?:\.\d{2})?) hash cash\b/i;
+
+/**
+ * True when the title's location text and the GCal LOCATION field share a
+ * place word of 4+ letters: "Henry Thomas Dr. (parking lot)" and
+ * "30 Henry Thomas Dr, New Orleans" share "henry" and "thomas".
+ */
+function sharesPlaceWord(titleLocation: string, location: string): boolean {
+  const locationWords = new Set(location.toLowerCase().match(/\p{L}{4,}/gu) ?? []);
+  return (titleLocation.toLowerCase().match(/\p{L}{4,}/gu) ?? []).some((w) => locationWords.has(w));
 }
 
 /**
@@ -1823,20 +1836,23 @@ export function buildRawEventFromGCalItem(
   // Title-embedded location extraction (#1222 Capital H3): the source has no
   // separate item.location and packs the address into the title after the
   // hare names. Try each pattern in order; first capture-group hit wins.
-  // Reject placeholders like "venue TBC" via isPlaceholder().
-  if (!location && compiledTitleLocationPatterns?.length) {
+  // Reject placeholders like "venue TBC" via isPlaceholder(). When the GCal
+  // LOCATION field is set it wins, but the title's copy of the same place is
+  // still stripped (#2849 NOH3: "Hash #1983- Start @ Henry Thomas Dr. (parking
+  // lot)" with LOCATION "30 Henry Thomas Dr, …"). A capture that shares no word
+  // with LOCATION stays in the title: on EWH3 it can be a hare's name.
+  if (compiledTitleLocationPatterns?.length) {
     for (const re of compiledTitleLocationPatterns) {
       const locMatch = re.exec(title);
-      if (locMatch?.[1]) {
-        const candidate = locMatch[1].trim().replace(/[.,;:\s]+$/, "").trim(); // NOSONAR — anchored end-of-string char-class
-        if (candidate && !isPlaceholder(candidate) && !containsPlaceholderToken(candidate)) {
-          location = candidate;
-          title = (title.slice(0, locMatch.index) + title.slice(locMatch.index + locMatch[0].length))
-            .replaceAll(/^\s*[-–—:]+\s*|\s*[-–—:]+\s*$/g, "") // NOSONAR — anchored char-class alternation, mirrors title-hare strip
-            .trim();
-          break;
-        }
-      }
+      if (!locMatch?.[1]) continue;
+      const candidate = locMatch[1].trim().replace(/[.,;:\s]+$/, "").trim(); // NOSONAR — anchored end-of-string char-class
+      if (!candidate || isPlaceholder(candidate) || containsPlaceholderToken(candidate)) continue;
+      if (location && !sharesPlaceWord(candidate, location)) break;
+      location ??= candidate;
+      title = (title.slice(0, locMatch.index) + title.slice(locMatch.index + locMatch[0].length))
+        .replaceAll(/^\s*[-–—:]+\s*|\s*[-–—:]+\s*$/g, "") // NOSONAR — anchored char-class alternation, mirrors title-hare strip
+        .trim();
+      break;
     }
   }
 

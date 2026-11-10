@@ -158,9 +158,11 @@ function isCostLabel(label: string): boolean {
 }
 function isNoteLabel(label: string): boolean {
   return getLabelTokens(label).some(
-    (t) => t.startsWith("on-after") || t.startsWith("onafter") || t.startsWith("note"),
+    (t) => t.startsWith("on-after") || t.startsWith("onafter") || t.startsWith("note") || t === "what",
   );
 }
+// "Hares Sweet Deeriere and Barley Legal" — a hare line written without a colon (#2853).
+const BARE_HARES_LINE_RE = /^hares?\s+(?=\S)/i;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -204,9 +206,14 @@ interface CardData {
 /** Linearize the page into visible text-block lines, in document order. */
 function linearize($: cheerio.CheerioAPI): string[] {
   const lines: string[] = [];
+  // A hard break inside one paragraph starts a new line: "Hares X<br>What: $5"
+  // must not read as one "Hares X What:" label (#2853).
+  $(TEXT_BLOCK_SELECTOR).find("br").replaceWith("\n");
   $(TEXT_BLOCK_SELECTOR).each((_, el) => {
-    const text = $(el).text().replace(/\s+/g, " ").trim();
-    if (text) lines.push(text);
+    for (const part of $(el).text().split("\n")) {
+      const text = part.replace(/\s+/g, " ").trim();
+      if (text) lines.push(text);
+    }
   });
   return lines;
 }
@@ -400,6 +407,9 @@ function applyCardLine(
     if (value && !TBA_RE.test(value)) descParts.push(line);
   } else if (SUBTITLE_RE.test(line)) {
     descParts.push(line);
+  } else if (colonIdx < 0 && BARE_HARES_LINE_RE.test(line)) {
+    if (haresNeededIn(line)) card.haresNeeded = true;
+    applyHareValue(card, line.replace(BARE_HARES_LINE_RE, ""));
   } else {
     applyCardDateLine(card, line);
   }

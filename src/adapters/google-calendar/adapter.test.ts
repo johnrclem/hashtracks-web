@@ -4746,6 +4746,11 @@ describe("extractCostFromDescription (#774)", () => {
     expect(extractCostFromDescription("Hash Cash: TBD")).toBeUndefined();
   });
 
+  it("reads NOH3's prose form '$8 hash cash' (#2849)", () => {
+    expect(extractCostFromDescription("Join X for this hash! $8 hash cash. 6pm show, 6:30pm go.")).toBe("$8");
+    expect(extractCostFromDescription("Bring cash for the hash")).toBeUndefined();
+  });
+
   it("truncates at embedded next-field label (HTML-collapsed)", () => {
     // When HTML stripping collapses fields onto one line, EVENT_FIELD_LABEL_RE
     // truncates at the next recognized label so the value doesn't leak.
@@ -6026,6 +6031,43 @@ describe("NOH3 titleLocationPattern — 'Start @ {address}' (#2022)", () => {
     expect(result).not.toBeNull();
     expect(result!.location).toBe("Metairie Ave and Hesper Ave");
     expect(result!.title).toBe("Hash #1961");
+  });
+
+  // #2849: the live #1983 item has a LOCATION, so the title's "Start @" span used to
+  // stay, and its "(parking lot)" was promoted to hares.
+  const run1983 = {
+    summary: "Hash #1983- Start @ Henry Thomas Dr. (parking lot)",
+    location: "30 Henry Thomas Dr, New Orleans, LA 70124, USA",
+    start: { date: "2026-11-09" },
+    end: { date: "2026-11-10" },
+    description:
+      "Join Lil Blow Peep, Bent OvaBoard and Yank My Doodle for this hash! $8 hash cash. 6pm show, 6:30pm go. Start at the parking lot at 30 Henry Thomas Dr., near the Children's Museum in City Park.",
+  };
+  const opts = { compiledTitleLocationPatterns: compilePatterns([noh3Config.titleLocationPattern as string], "i") };
+
+  it("strips the title's copy of the LOCATION and never files '(parking lot)' as hares", () => {
+    const result = buildRawEventFromGCalItem(testGCalEvent(run1983), noh3Config, opts);
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("Hash #1983");
+    expect(result!.location).toBe("30 Henry Thomas Dr, New Orleans, LA 70124, USA");
+    expect(result!.hares).not.toBe("parking lot");
+    expect(result!.cost).toBe("$8");
+  });
+
+  it("keeps a title capture that names a different place than LOCATION", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({ ...run1983, summary: "Hash #1984, Start @ Metairie Ave and Hesper Ave." }),
+      noh3Config,
+      opts,
+    );
+    expect(result!.title).toBe("Hash #1984, Start @ Metairie Ave and Hesper Ave.");
+    expect(result!.location).toBe("30 Henry Thomas Dr, New Orleans, LA 70124, USA");
+  });
+
+  it("drops a '(parking lot)' title parenthetical instead of filing it as hares", () => {
+    const result = buildRawEventFromGCalItem(testGCalEvent({ summary: "Hash #1985 (parking lot)" }), { defaultKennelTag: "noh3" });
+    expect(result!.hares).toBeUndefined();
+    expect(result!.title).toBe("Hash #1985");
   });
 });
 
