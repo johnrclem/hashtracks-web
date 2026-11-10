@@ -495,10 +495,12 @@ describe("generateStructureHash", () => {
       expectSameHash(feed(item), feed(item.repeat(10)));
     });
 
+    // Checks that deep nesting can't overflow the stack, not speed. Parsing 20k levels takes a few
+    // seconds on a slow CI runner, which exceeded vitest's 5 s default (flaked on #2867).
     it("survives a pathologically deep document", () => {
       const deep = "<div class=\"a\">".repeat(20_000) + "x" + "</div>".repeat(20_000);
       expect(generateStructureHash(deep)).toMatch(HASH_FORMAT);
-    });
+    }, 30_000);
   });
 });
 
