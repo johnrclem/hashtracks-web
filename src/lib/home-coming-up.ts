@@ -8,6 +8,7 @@ import { MAX_NEARBY_RADIUS_KM, pickNearby, pickWorld, type ComingUpCandidate } f
 import { prisma } from "@/lib/db";
 import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
 import { boundingBoxForRadiusKm, getEventCoordsFromRegionData } from "@/lib/geo";
+import { composeUtcStart } from "@/lib/timezone";
 import type { VisitorArea } from "@/lib/visitor-area";
 
 const DAY_MS = 86_400_000;
@@ -62,23 +63,37 @@ function toCandidate(row: ComingUpRow): ComingUpEvent {
     row.latitude != null && row.longitude != null
       ? { lat: row.latitude, lng: row.longitude }
       : getEventCoordsFromRegionData(row.kennel.latitude, row.kennel.longitude, row.kennel.regionRef);
+  const timezone = row.timezone ?? row.kennel.regionRef.timezone;
   return {
     ...row,
-    timezone: row.timezone ?? row.kennel.regionRef.timezone,
+    timezone,
+    // Rebuild the start from the shown start time: a rescrape that drops the
+    // time can leave the old startTime but reset dateUtc to UTC noon.
+    dateUtc: composeUtcStart(row.date, row.startTime, timezone) ?? row.dateUtc,
     latitude: coords?.lat ?? null,
     longitude: coords?.lng ?? null,
   };
 }
 
-/** Kennels whose own pin, or region center when they have none, is near the visitor. */
-function nearbyKennelWhere(area: VisitorArea): Prisma.KennelWhereInput {
+/**
+ * Runs whose own pin is near the visitor, or whose kennel's pin (else its
+ * region center) is. Exact distances are checked afterwards in pickNearby.
+ */
+function nearbyEventWhere(area: VisitorArea): Prisma.EventWhereInput {
   const box = boundingBoxForRadiusKm(area.latitude, area.longitude, MAX_NEARBY_RADIUS_KM);
   const lat = { gte: box.minLat, lte: box.maxLat };
   const lng = { gte: box.minLng, lte: box.maxLng };
   return {
     OR: [
       { latitude: lat, longitude: lng },
-      { OR: [{ latitude: null }, { longitude: null }], regionRef: { centroidLat: lat, centroidLng: lng } },
+      {
+        kennel: {
+          OR: [
+            { latitude: lat, longitude: lng },
+            { OR: [{ latitude: null }, { longitude: null }], regionRef: { centroidLat: lat, centroidLng: lng } },
+          ],
+        },
+      },
     ],
   };
 }
@@ -87,14 +102,14 @@ async function findCandidates(
   from: Date,
   to: Date,
   take: number,
-  kennel?: Prisma.KennelWhereInput,
+  near?: Prisma.EventWhereInput,
 ): Promise<ComingUpEvent[]> {
   const rows = await prisma.event.findMany({
     where: {
       ...DISPLAY_EVENT_WHERE,
       date: { gte: from, lte: to },
-      // AND keeps DISPLAY_EVENT_WHERE's hidden-kennel guard instead of replacing its `kennel` key.
-      ...(kennel ? { AND: [{ kennel }] } : {}),
+      // AND keeps DISPLAY_EVENT_WHERE's hidden-kennel guard intact.
+      ...(near ? { AND: [near] } : {}),
     },
     select: COMING_UP_SELECT,
     orderBy: [{ date: "asc" }, { id: "asc" }],
@@ -117,7 +132,7 @@ export async function getComingUp(area: VisitorArea | null, now: Date = new Date
       from,
       addDays(todayUtcNoon, NEARBY_WINDOW_DAYS),
       NEARBY_CANDIDATE_CAP,
-      nearbyKennelWhere(area),
+      nearbyEventWhere(area),
     );
     const nearby = pickNearby(candidates, area, now, COMING_UP_LIMIT);
     if (nearby) {

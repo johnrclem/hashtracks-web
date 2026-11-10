@@ -32,6 +32,11 @@ describe("isStillAhead", () => {
     expect(isStillAhead(run("old", "2026-11-09", null, "America/Chicago", 29.95, -90.07), now)).toBe(false);
   });
 
+  it("falls back to the local-date check when a start time has no composed instant", () => {
+    const row = { ...run("x", "2026-11-10", "18:00", "America/Chicago", 29.95, -90.07), dateUtc: null };
+    expect(isStillAhead(row, now)).toBe(true);
+  });
+
   it("keeps yesterday's UTC date when it is still that day locally", () => {
     // 01:00 UTC Nov 11 is 15:00 Nov 10 in Honolulu; an 18:00 run there hasn't started.
     const early = new Date("2026-11-11T01:00:00Z");
