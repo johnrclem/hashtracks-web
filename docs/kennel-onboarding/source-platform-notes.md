@@ -3193,3 +3193,9 @@ where the long-cadence uncovered kennels live.
 - **A date-prefixed title can be wrong too.** `Dec 18th, 2025: January Hash…` (published 2025-01-14; body `Saturday January 18th`) means: if the months differ, trust the body and infer the year from publish date.
 - **`post.modified` is the liveness signal** for a pre-posted schedule. `date` says nothing about whether the kennel still maintains it.
 - **Only anchored title patterns count as dates.** `January 2019 Hash` and `July 9 Holes O' Glory Hash` both look like dates to a loose parser.
+
+## ProcessWire "millipedia" kennel sites — run list + ICS whose UID is the run number (High Wycombe H3, 2026-11-10, VERIFIED via curl; adapter not yet built)
+- `hwh3.co.uk` is server-rendered ProcessWire (assets under `/site/assets/`, footer credit millipedia). The home page's `.runs_list > .rl_entry` holds `.rl_date` (date + `.text-muted` time), optional `.rl_title`, `.rl_venue` (link + `.text-muted` town, or bare `Venue TBA`), `.rl_loc` (postcode + `maps.google.com/maps?q=lat,lng`), `.rl_hares` (hasher links joined by ` &amp; `) and optional `.rl_extra`.
+- The site's `hash-cal.ics` has no hares and a junk `Hash! <venue>` SUMMARY, but **`UID:HASHID<n>` is the run number** (cross-checked against `/hashes/<n>/`). `DTEND` is always DTSTART + 2h, a template, so don't treat it as a real end time. LOCATION and SUMMARY double-encode entities (`&amp\;`, `&#039;`), and placeholders read `Dunno where...`.
+- The archive is `/hashes/?y=YYYY`: one server-rendered table per year (No./Date/Where/Hare/Distance/Hilliness), with no pagination inside a year.
+- **PII trap:** hare links are `/hashers/<slug>/`, and some slugs are real names. Keep only the link text.
