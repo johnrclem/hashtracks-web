@@ -75,6 +75,7 @@ import { MerseyThirstdaysAdapter } from "./html-scraper/mersey-thirstdays";
 import { BullMoonAdapter } from "./html-scraper/bull-moon";
 import { GlasgowH3Adapter } from "./html-scraper/glasgow-h3";
 import { FrankfurtHashAdapter } from "./html-scraper/frankfurt-hash";
+import { BerlinH3ApiAdapter } from "./html-scraper/berlin-h3-api";
 import { VoodooH3Adapter } from "./html-scraper/voodoo-h3";
 import { CapeFearH3Adapter } from "./html-scraper/cape-fear-h3";
 import { KCH3Adapter } from "./html-scraper/kch3";
@@ -299,6 +300,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: onHost("glasgowh3.co.uk"), name: "GlasgowH3Adapter", factory: () => new GlasgowH3Adapter() },
   { pattern: onHost("h5hashers.org.uk"), name: "H5HareHoundsAdapter", factory: () => new H5HareHoundsAdapter() },
   { pattern: onHost("frankfurt-hash.de"), name: "FrankfurtHashAdapter", factory: () => new FrankfurtHashAdapter() },
+  { pattern: onHost("berlin-h3.eu", { path: "/api/v1/runs" }), name: "BerlinH3ApiAdapter", factory: () => new BerlinH3ApiAdapter() },
   { pattern: onHost("voodoohash.com"), name: "VoodooH3Adapter", factory: () => new VoodooH3Adapter() },
   { pattern: onHost("capefearh3.com"), name: "CapeFearH3Adapter", factory: () => new CapeFearH3Adapter() },
   { pattern: onHost("bruh3.eu"), name: "BruH3Adapter", factory: () => new BruH3Adapter() },

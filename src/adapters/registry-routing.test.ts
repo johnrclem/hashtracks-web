@@ -73,6 +73,7 @@ const EXPECTED_SOURCES_BY_ADAPTER: Readonly<Record<string, readonly string[]>> =
   BangkokHashAdapter: ["Bangkok Full Moon Hash", "Bangkok Thursday Hash", "Siam Sunday Hash"],
   BangkokMondayHashAdapter: ["Bangkok Monday H3 Hareline"],
   BarnesHashAdapter: ["Barnes Hash Hare Line"],
+  BerlinH3ApiAdapter: ["Berlin H3 Run API"],
   Bfh3Adapter: ["Blooming Fools H3 Website"],
   BfmSpecialEventsAdapter: ["BFM Special Events"],
   BigHumpAdapter: ["Big Hump H3 Hareline"],
