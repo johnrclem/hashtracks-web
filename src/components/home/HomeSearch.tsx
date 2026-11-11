@@ -1,28 +1,21 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Crosshair, Loader2 } from "lucide-react";
-import { geocodeDestination, resolveDestinationTimezone } from "@/app/travel/actions";
-import { DestinationInput } from "@/components/travel/DestinationInput";
+import { geocodeDestinationWithTimezone } from "@/app/travel/actions";
+import { DestinationInput, type PlaceSelection } from "@/components/travel/DestinationInput";
 import { getBrowserLocation } from "@/hooks/useGeolocation";
 import { capture } from "@/lib/analytics";
 import { presetDateRange, type DateRange, type HomeDatePreset } from "@/lib/home-search";
-import { buildTravelSearchUrl } from "@/lib/travel/url";
-
-export interface HomeSearchPlace {
-  label: string;
-  latitude: number;
-  longitude: number;
-  timezone?: string | null;
-}
+import {
+  buildTravelSearchUrl,
+  DEFAULT_SEARCH_RADIUS_KM,
+  isValidDateRange,
+  NEAR_ME_RADIUS_KM,
+} from "@/lib/travel/url";
 
 type DateChoice = HomeDatePreset | "custom";
-
-/** Same default radius as a Travel search and the Popular destinations cards. */
-const SEARCH_RADIUS_KM = 50;
-/** Same radius as Travel's own "near me" shortcut: the browser location is precise. */
-const NEAR_ME_RADIUS_KM = 25;
 
 const DATE_CHOICES: { value: DateChoice; label: string }[] = [
   { value: "week", label: "This week" },
@@ -37,7 +30,7 @@ const CHIP_OFF = "border-foreground/20 bg-background font-medium hover:border-fo
 
 interface HomeSearchProps {
   /** The visitor's approximate area from their IP, prefilled when known. */
-  guessedPlace: HomeSearchPlace | null;
+  guessedPlace: PlaceSelection | null;
 }
 
 /**
@@ -47,33 +40,32 @@ interface HomeSearchProps {
 export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
   const router = useRouter();
   const whereId = useId();
-  const [place, setPlace] = useState<HomeSearchPlace | null>(guessedPlace);
-  const [usingGuess, setUsingGuess] = useState(guessedPlace !== null);
+  const [place, setPlace] = useState<PlaceSelection | null>(guessedPlace);
+  const usingGuess = guessedPlace !== null && place === guessedPlace;
+  // Text typed into the place field, for a submit without a picked suggestion.
+  // A ref, not state: only submit reads it, so keystrokes needn't re-render the form.
+  const typedText = useRef("");
   const [dateChoice, setDateChoice] = useState<DateChoice>("week");
   const [custom, setCustom] = useState<DateRange>(() => presetDateRange("week", new Date()));
   const [error, setError] = useState<string | null>(null);
-  // Text typed into the place field, for a submit without a picked suggestion.
-  const [typedText, setTypedText] = useState("");
   const [navigating, startNavigation] = useTransition();
-  const [locating, setLocating] = useState(false);
-  const [resolving, setResolving] = useState(false);
-  const busy = navigating || locating || resolving;
+  /** A lookup in flight before navigating: the browser location or a typed place. */
+  const [pending, setPending] = useState<"locate" | "resolve" | null>(null);
+  const busy = navigating || pending !== null;
 
   /** The chosen dates, or null (with an error shown) when a custom range is invalid. */
   function validDates(): DateRange | null {
     const dates = dateChoice === "custom" ? custom : presetDateRange(dateChoice, new Date());
-    if (!dates.startDate || !dates.endDate || dates.startDate > dates.endDate) {
-      setError("Pick a start date on or before the end date.");
-      return null;
-    }
-    return dates;
+    if (isValidDateRange(dates.startDate, dates.endDate)) return dates;
+    setError("Pick a start date on or before the end date.");
+    return null;
   }
 
-  function search(target: HomeSearchPlace, dates: DateRange, radiusKm: number, usedNearMe: boolean) {
+  function search(target: PlaceSelection, dates: DateRange, nearMe: boolean) {
     capture("home_search_submitted", {
       datePreset: dateChoice,
-      usedNearMe,
-      usedLocationGuess: !usedNearMe && usingGuess,
+      usedNearMe: nearMe,
+      usedLocationGuess: !nearMe && usingGuess,
     });
     startNavigation(() => {
       router.push(
@@ -83,7 +75,7 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
           startDate: dates.startDate,
           endDate: dates.endDate,
           label: target.label,
-          radiusKm,
+          radiusKm: nearMe ? NEAR_ME_RADIUS_KM : DEFAULT_SEARCH_RADIUS_KM,
           timezone: target.timezone,
         }),
       );
@@ -91,51 +83,43 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
   }
 
   /** Look up a typed place the visitor didn't pick from the suggestions. */
-  async function resolveTyped(text: string): Promise<HomeSearchPlace | null> {
-    const found = await geocodeDestination(text);
-    if ("error" in found) return null;
-    const tz = await resolveDestinationTimezone(found.latitude, found.longitude).catch(() => null);
-    return { ...found, timezone: tz && "timezone" in tz ? tz.timezone : null };
+  async function resolveTyped(text: string): Promise<PlaceSelection | null> {
+    setPending("resolve");
+    try {
+      const found = await geocodeDestinationWithTimezone(text);
+      return "error" in found ? null : found;
+    } catch {
+      return null;
+    } finally {
+      setPending(null);
+    }
   }
 
   async function handleSubmit() {
     setError(null);
     const dates = validDates();
     if (!dates) return;
-    let target = place;
-    if (!target && typedText.trim()) {
-      setResolving(true);
-      try {
-        target = await resolveTyped(typedText);
-      } catch {
-        target = null;
-      } finally {
-        setResolving(false);
-      }
-    }
-    if (!target) {
-      setError(
-        typedText.trim()
-          ? `We couldn't find "${typedText.trim()}". Try picking a town from the list.`
-          : "Type a town, or use Near me.",
-      );
+    const text = typedText.current.trim();
+    const target = place ?? (text ? await resolveTyped(text) : null);
+    if (target) {
+      search(target, dates, false);
       return;
     }
-    search(target, dates, SEARCH_RADIUS_KM, false);
+    setError(text ? `We couldn't find "${text}". Try picking a town from the list.` : "Type a town, or use Near me.");
   }
 
   async function handleNearMe() {
     setError(null);
     const dates = validDates();
     if (!dates) return;
-    setLocating(true);
+    setPending("locate");
     try {
       const { lat, lng } = await getBrowserLocation();
-      search({ label: "Near me", latitude: lat, longitude: lng }, dates, NEAR_ME_RADIUS_KM, true);
+      search({ label: "Near me", latitude: lat, longitude: lng }, dates, true);
     } catch {
       setError("We couldn't get your location. Search for a town instead.");
     } finally {
-      setLocating(false);
+      setPending(null);
     }
   }
 
@@ -156,15 +140,15 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
           <DestinationInput
             id={whereId}
             value={guessedPlace?.label ?? ""}
-            onTextChange={setTypedText}
+            onTextChange={(text) => {
+              typedText.current = text;
+            }}
             onChange={(selected) => {
               setPlace(selected);
-              setUsingGuess(false);
               setError(null);
             }}
             onClear={() => {
               setPlace(null);
-              setUsingGuess(false);
               setError(null);
             }}
             resolvedHint={usingGuess ? "Your approximate location" : undefined}
@@ -226,7 +210,7 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
             disabled={busy}
             className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-orange-600 px-7 text-base font-semibold text-white transition-colors hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70"
           >
-            {navigating || resolving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {navigating || pending === "resolve" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Find runs
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </button>
@@ -238,8 +222,8 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
             disabled={busy}
             className="inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
           >
-            {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Crosshair className="h-3.5 w-3.5" />}
-            {locating ? "Finding you…" : "Near me"}
+            {pending === "locate" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Crosshair className="h-3.5 w-3.5" />}
+            {pending === "locate" ? "Finding you…" : "Near me"}
           </button>
         </div>
       </div>

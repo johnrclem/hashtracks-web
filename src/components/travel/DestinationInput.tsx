@@ -5,10 +5,11 @@ import { APIProvider, useMapsLibrary } from "@vis.gl/react-google-maps";
 import { MapPin, X, Loader2 } from "lucide-react";
 import {
   geocodeDestination,
+  geocodeDestinationWithTimezone,
   resolveDestinationTimezone,
 } from "@/app/travel/actions";
 
-interface PlaceSelection {
+export interface PlaceSelection {
   label: string;
   latitude: number;
   longitude: number;
@@ -384,23 +385,12 @@ function DestinationInputFallback({
   const handleSubmit = async () => {
     if (!inputValue.trim()) return;
     setIsLoading(true);
-    const result = await geocodeDestination(inputValue);
+    // Mirror the autocomplete path: also resolve the time zone so trip
+    // start times render in the destination's local zone, not UTC.
+    const result = await geocodeDestinationWithTimezone(inputValue);
     if (!("error" in result)) {
-      // Mirror the autocomplete path: also resolve timezone so trip
-      // start times render in the destination's local zone, not UTC.
-      let timezone: string | undefined;
-      try {
-        const tzResult = await resolveDestinationTimezone(result.latitude, result.longitude);
-        if ("timezone" in tzResult) timezone = tzResult.timezone;
-      } catch (err) {
-        console.error("[travel] timezone lookup failed", err);
-      }
-      onChange({
-        label: result.label,
-        latitude: result.latitude,
-        longitude: result.longitude,
-        timezone,
-      });
+      const { label, latitude, longitude, timezone } = result;
+      onChange({ label, latitude, longitude, timezone });
       setInputValue(result.label);
       setResolvedLabel(result.label);
     }

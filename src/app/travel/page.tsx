@@ -7,7 +7,7 @@ import { getOrCreateUser } from "@/lib/auth";
 import { executeTravelSearch } from "@/lib/travel/search";
 import { findExistingSavedSearch } from "@/app/travel/actions";
 import { MAX_RADIUS_KM, snapRadiusToTier } from "@/lib/travel/limits";
-import { utcYmd } from "@/lib/travel/url";
+import { DEFAULT_SEARCH_RADIUS_KM, utcYmd } from "@/lib/travel/url";
 import {
   serializeTravelResults,
   type AttendanceMap,
@@ -104,7 +104,7 @@ export default async function TravelPage({ searchParams }: TravelPageProps) {
   // Floor to a whole number — Prisma's Int column rejects fractions.
   const requestedRadius = Math.max(
     1,
-    Math.min(MAX_RADIUS_KM, Number.parseInt(r ?? "50", 10) || 50),
+    Math.min(MAX_RADIUS_KM, Number.parseInt(r ?? "", 10) || DEFAULT_SEARCH_RADIUS_KM),
   );
   // Snap server-side so SSR and the post-mount client snap agree.
   const radiusKm = snapRadiusToTier(requestedRadius);

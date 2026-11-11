@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { POPULAR_DESTINATIONS } from "@/lib/travel/popular-destinations";
 import { capture } from "@/lib/analytics";
-import { buildTravelSearchUrl, localYmd } from "@/lib/travel/url";
+import { buildTravelSearchUrl, DEFAULT_SEARCH_RADIUS_KM, localYmd } from "@/lib/travel/url";
 
 interface PopularDestinationCardsProps {
   /** Which page shows the cards, for analytics. */
@@ -39,7 +39,7 @@ export function PopularDestinationCards({ surface, animate = true }: Readonly<Po
                 startDate: fromStr,
                 endDate: toStr,
                 label: dest.city,
-                radiusKm: 50,
+                radiusKm: DEFAULT_SEARCH_RADIUS_KM,
                 timezone: dest.timezone,
               }),
             );

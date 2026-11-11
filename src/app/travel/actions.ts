@@ -870,6 +870,28 @@ export async function geocodeDestination(
   return { success: true, ...geo };
 }
 
+/**
+ * Geocode a typed place and resolve its time zone in one round trip. The
+ * time zone is best-effort: a failed lookup leaves it undefined.
+ *
+ * No auth required — called during form interaction.
+ */
+export async function geocodeDestinationWithTimezone(
+  query: string,
+): Promise<ActionResult<{ label: string; latitude: number; longitude: number; timezone?: string }>> {
+  const geo = await geocodeDestination(query);
+  if ("error" in geo) return geo;
+  const { label, latitude, longitude } = geo;
+  let timezone: string | undefined;
+  try {
+    const tz = await resolveDestinationTimezone(latitude, longitude);
+    if ("timezone" in tz) timezone = tz.timezone;
+  } catch (err) {
+    console.error("[travel] timezone lookup failed", err);
+  }
+  return { success: true, label, latitude, longitude, timezone };
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================

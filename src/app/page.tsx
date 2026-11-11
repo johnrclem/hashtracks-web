@@ -11,8 +11,8 @@ import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { activeKennelWhere } from "@/lib/activity-status";
 import { getTodayUtcNoon } from "@/lib/date";
 import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
-import { getComingUp, getYourWeek, type ComingUp } from "@/lib/home-coming-up";
-import { parseVisitorArea, type VisitorArea } from "@/lib/visitor-area";
+import { getHomeComingUp } from "@/lib/home-coming-up";
+import { parseVisitorArea } from "@/lib/visitor-area";
 import { FadeInSection, RegionTicker } from "@/components/home/HeroAnimations";
 import { HomeSearch } from "@/components/home/HomeSearch";
 import { PopularDestinationCards } from "@/components/travel/PopularDestinations";
@@ -35,22 +35,6 @@ export const metadata: Metadata = {
   },
 };
 
-/**
- * Signed-in hashers who follow kennels see those kennels' runs ("Your week");
- * everyone else, or anyone whose kennels have nothing on, sees runs near them.
- */
-async function loadComingUp(clerkId: string | null, area: VisitorArea | null): Promise<ComingUp> {
-  if (!clerkId) return getComingUp(area);
-  // Both in parallel: the nearby fallback costs one query, a waterfall costs a round trip.
-  const [yourWeek, nearby] = await Promise.all([
-    prisma.userKennel
-      .findMany({ where: { user: { clerkId } }, select: { kennelId: true } })
-      .then((follows) => getYourWeek(follows.map((f) => f.kennelId))),
-    getComingUp(area),
-  ]);
-  return yourWeek ?? nearby;
-}
-
 export default async function HomePage() {
   const [clerkUser, requestHeaders] = await Promise.all([currentUser(), headers()]);
   const userId = clerkUser?.id ?? null;
@@ -69,7 +53,7 @@ export default async function HomePage() {
         .findMany({ where: { isHidden: false }, select: { regionId: true }, distinct: ["regionId"] })
         .then((rows) => rows.length),
       prisma.source.count({ where: { enabled: true } }),
-      loadComingUp(userId, visitorArea),
+      getHomeComingUp(userId, visitorArea),
       prisma.region
         .findMany({
           where: { level: "METRO" },
@@ -132,7 +116,7 @@ export default async function HomePage() {
                     label: visitorArea.city,
                     latitude: visitorArea.latitude,
                     longitude: visitorArea.longitude,
-                    timezone: visitorArea.timezone,
+                    timezone: visitorArea.timezone ?? undefined,
                   }
                 : null
             }

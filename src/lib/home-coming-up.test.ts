@@ -5,7 +5,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { prisma } from "@/lib/db";
-import { getYourWeek } from "./home-coming-up";
+import { getHomeComingUp, getYourWeek } from "./home-coming-up";
 
 const mockFindMany = vi.mocked(prisma.event.findMany);
 
@@ -44,17 +44,14 @@ describe("getYourWeek", () => {
     mockFindMany.mockReset();
   });
 
-  it("returns null without querying when the hasher follows no kennels", async () => {
-    expect(await getYourWeek([], NOW)).toBeNull();
-    expect(mockFindMany).not.toHaveBeenCalled();
-  });
-
-  it("scopes the query to followed kennels, as host or co-host, over the next week", async () => {
+  it("scopes the query to the hasher's followed kennels, as host or co-host, over the next week", async () => {
     mockFindMany.mockResolvedValue([] as never);
-    await getYourWeek(["k1", "k2"], NOW);
+    await getYourWeek("user_1", NOW);
 
     const where = mockFindMany.mock.calls[0][0]?.where as Record<string, unknown>;
-    expect(where.AND).toEqual([{ eventKennels: { some: { kennelId: { in: ["k1", "k2"] } } } }]);
+    expect(where.AND).toEqual([
+      { eventKennels: { some: { kennel: { members: { some: { user: { clerkId: "user_1" } } } } } } },
+    ]);
     expect(where.date).toEqual({
       gte: new Date(Date.UTC(2026, 10, 10, 12)),
       lte: new Date(Date.UTC(2026, 10, 18, 12)),
@@ -64,14 +61,40 @@ describe("getYourWeek", () => {
   it("returns null when none of the followed kennels has a run ahead", async () => {
     // Nov 10 has already passed in New York.
     mockFindMany.mockResolvedValue([row("past", 10, null)] as never);
-    expect(await getYourWeek(["k1"], NOW)).toBeNull();
+    expect(await getYourWeek("user_1", NOW)).toBeNull();
   });
 
   it("lists runs still ahead, soonest first, under the Your week heading", async () => {
     mockFindMany.mockResolvedValue([row("later", 14, "14:00"), row("sooner", 12, "19:00")] as never);
-    const result = await getYourWeek(["k1"], NOW);
+    const result = await getYourWeek("user_1", NOW);
 
     expect(result?.heading).toBe("Your week");
     expect(result?.events.map((e) => e.id)).toEqual(["sooner", "later"]);
+  });
+});
+
+describe("getHomeComingUp", () => {
+  beforeEach(() => {
+    mockFindMany.mockReset();
+  });
+
+  it("shows Your week when the signed-in hasher's kennels have runs ahead", async () => {
+    mockFindMany.mockResolvedValueOnce([row("mine", 12, "19:00")] as never);
+    const result = await getHomeComingUp("user_1", null, NOW);
+    expect(result.heading).toBe("Your week");
+    expect(mockFindMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the next runs anywhere when their kennels have nothing on", async () => {
+    mockFindMany.mockResolvedValueOnce([] as never).mockResolvedValueOnce([row("any", 12, "19:00")] as never);
+    const result = await getHomeComingUp("user_1", null, NOW);
+    expect(result.heading).toBe("Coming up around the world");
+    expect(result.events.map((e) => e.id)).toEqual(["any"]);
+  });
+
+  it("skips the Your week query for signed-out visitors", async () => {
+    mockFindMany.mockResolvedValueOnce([] as never);
+    await getHomeComingUp(null, null, NOW);
+    expect(mockFindMany).toHaveBeenCalledTimes(1);
   });
 });
