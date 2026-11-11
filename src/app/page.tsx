@@ -40,15 +40,15 @@ export const metadata: Metadata = {
  * everyone else, or anyone whose kennels have nothing on, sees runs near them.
  */
 async function loadComingUp(clerkId: string | null, area: VisitorArea | null): Promise<ComingUp> {
-  if (clerkId) {
-    const follows = await prisma.userKennel.findMany({
-      where: { user: { clerkId } },
-      select: { kennelId: true },
-    });
-    const yourWeek = await getYourWeek(follows.map((f) => f.kennelId));
-    if (yourWeek) return yourWeek;
-  }
-  return getComingUp(area);
+  if (!clerkId) return getComingUp(area);
+  // Both in parallel: the nearby fallback costs one query, a waterfall costs a round trip.
+  const [yourWeek, nearby] = await Promise.all([
+    prisma.userKennel
+      .findMany({ where: { user: { clerkId } }, select: { kennelId: true } })
+      .then((follows) => getYourWeek(follows.map((f) => f.kennelId))),
+    getComingUp(area),
+  ]);
+  return yourWeek ?? nearby;
 }
 
 export default async function HomePage() {

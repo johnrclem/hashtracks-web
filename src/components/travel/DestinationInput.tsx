@@ -25,6 +25,8 @@ interface DestinationInputProps {
   id?: string;
   /** Text under a resolved place; defaults to "Location confirmed". */
   resolvedHint?: string;
+  /** Called with the raw text on every edit, so a form can resolve typed-but-unpicked text. */
+  onTextChange?: (text: string) => void;
 }
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
@@ -52,6 +54,7 @@ function DestinationAutocomplete({
   autoFocus,
   id,
   resolvedHint = "Location confirmed",
+  onTextChange,
 }: DestinationInputProps) {
   const placesLib = useMapsLibrary("places") as typeof google.maps.places | null;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -256,6 +259,7 @@ function DestinationAutocomplete({
           onChange={(e) => {
             const val = e.target.value;
             setInputValue(val);
+            onTextChange?.(val);
             if (isResolved) {
               setIsResolved(false);
               currentSelectionRef.current = "";
@@ -269,7 +273,7 @@ function DestinationAutocomplete({
           }}
           onKeyDown={handleKeyDown}
           placeholder="City or destination"
-          aria-label="Destination"
+          aria-label={id ? undefined : "Destination"}
           // Combobox pattern (WAI-ARIA 1.2): the input opens a listbox of
           // place suggestions. role="combobox" makes the implicit pattern
           // explicit so jsx-a11y's role-supports-aria-props understands
@@ -366,6 +370,7 @@ function DestinationInputFallback({
   onClear,
   autoFocus,
   id,
+  onTextChange,
 }: DestinationInputProps) {
   const [inputValue, setInputValue] = useState(value);
   const [isLoading, setIsLoading] = useState(false);
@@ -411,6 +416,7 @@ function DestinationInputFallback({
         onChange={(e) => {
           const next = e.target.value;
           setInputValue(next);
+          onTextChange?.(next);
           if (!next.trim()) {
             setResolvedLabel(null);
             onClear();
@@ -426,7 +432,7 @@ function DestinationInputFallback({
         }}
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSubmit(); } }}
         placeholder="City or destination"
-        aria-label="Destination"
+        aria-label={id ? undefined : "Destination"}
         autoFocus={autoFocus}
         className="
           w-full bg-transparent font-display text-lg font-medium

@@ -1,8 +1,9 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Crosshair, Loader2 } from "lucide-react";
+import { geocodeDestination, resolveDestinationTimezone } from "@/app/travel/actions";
 import { DestinationInput } from "@/components/travel/DestinationInput";
 import { getBrowserLocation } from "@/hooks/useGeolocation";
 import { capture } from "@/lib/analytics";
@@ -51,8 +52,12 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
   const [dateChoice, setDateChoice] = useState<DateChoice>("week");
   const [custom, setCustom] = useState<DateRange>(() => presetDateRange("week", new Date()));
   const [error, setError] = useState<string | null>(null);
-  const [navigating, setNavigating] = useState(false);
+  // Text typed into the place field, for a submit without a picked suggestion.
+  const [typedText, setTypedText] = useState("");
+  const [navigating, startNavigation] = useTransition();
   const [locating, setLocating] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const busy = navigating || locating || resolving;
 
   /** The chosen dates, or null (with an error shown) when a custom range is invalid. */
   function validDates(): DateRange | null {
@@ -70,28 +75,53 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
       usedNearMe,
       usedLocationGuess: !usedNearMe && usingGuess,
     });
-    setNavigating(true);
-    router.push(
-      buildTravelSearchUrl({
-        latitude: target.latitude,
-        longitude: target.longitude,
-        startDate: dates.startDate,
-        endDate: dates.endDate,
-        label: target.label,
-        radiusKm,
-        timezone: target.timezone,
-      }),
-    );
+    startNavigation(() => {
+      router.push(
+        buildTravelSearchUrl({
+          latitude: target.latitude,
+          longitude: target.longitude,
+          startDate: dates.startDate,
+          endDate: dates.endDate,
+          label: target.label,
+          radiusKm,
+          timezone: target.timezone,
+        }),
+      );
+    });
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (!place) {
-      setError("Choose a town from the list, or use Near me.");
+  /** Look up a typed place the visitor didn't pick from the suggestions. */
+  async function resolveTyped(text: string): Promise<HomeSearchPlace | null> {
+    const found = await geocodeDestination(text);
+    if ("error" in found) return null;
+    const tz = await resolveDestinationTimezone(found.latitude, found.longitude).catch(() => null);
+    return { ...found, timezone: tz && "timezone" in tz ? tz.timezone : null };
+  }
+
+  async function handleSubmit() {
+    setError(null);
+    const dates = validDates();
+    if (!dates) return;
+    let target = place;
+    if (!target && typedText.trim()) {
+      setResolving(true);
+      try {
+        target = await resolveTyped(typedText);
+      } catch {
+        target = null;
+      } finally {
+        setResolving(false);
+      }
+    }
+    if (!target) {
+      setError(
+        typedText.trim()
+          ? `We couldn't find "${typedText.trim()}". Try picking a town from the list.`
+          : "Type a town, or use Near me.",
+      );
       return;
     }
-    const dates = validDates();
-    if (dates) search(place, dates, SEARCH_RADIUS_KM, false);
+    search(target, dates, SEARCH_RADIUS_KM, false);
   }
 
   async function handleNearMe() {
@@ -111,7 +141,10 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
 
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSubmit().catch(() => {});
+      }}
       aria-label="Find runs"
       className="mx-auto mt-8 w-full max-w-4xl rounded-2xl border bg-card p-3 text-left shadow-lg sm:p-4"
     >
@@ -123,6 +156,7 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
           <DestinationInput
             id={whereId}
             value={guessedPlace?.label ?? ""}
+            onTextChange={setTypedText}
             onChange={(selected) => {
               setPlace(selected);
               setUsingGuess(false);
@@ -189,10 +223,10 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
         <div className="flex flex-col justify-center gap-1">
           <button
             type="submit"
-            disabled={navigating}
+            disabled={busy}
             className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-orange-600 px-7 text-base font-semibold text-white transition-colors hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70"
           >
-            {navigating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {navigating || resolving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Find runs
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </button>
@@ -201,7 +235,7 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
             onClick={() => {
               handleNearMe().catch(() => {});
             }}
-            disabled={locating || navigating}
+            disabled={busy}
             className="inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
           >
             {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Crosshair className="h-3.5 w-3.5" />}
