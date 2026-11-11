@@ -59,6 +59,37 @@ export const MASS_CANCEL_MIN = 10;
 /** Fraction of in-window CONFIRMED candidates above which a pass is blocked. */
 export const MASS_CANCEL_FRACTION = 0.3;
 
+/** One (event, source) backing row for an orphaned event. */
+export interface EventBacking {
+  eventId: string | null;
+  sourceId: string;
+  source: { enabled: boolean };
+}
+
+/**
+ * Orphaned events another source shields from cancellation by `sourceId`:
+ * any enabled source's row, or a disabled source's row for a run `sourceId`
+ * never reported. A disabled source may be retired (its stale rows must not
+ * outvote the live source that dropped the run) or paused for an outage (its
+ * runs must not be cancelled by a partial secondary that never listed them).
+ */
+export function protectedByOtherSources(
+  sourceId: string,
+  rows: EventBacking[],
+): Set<string> {
+  const own = new Set<string>();
+  const disabledOnly = new Set<string>();
+  const shielded = new Set<string>();
+  for (const { eventId, sourceId: rowSource, source } of rows) {
+    if (!eventId) continue;
+    if (rowSource === sourceId) own.add(eventId);
+    else if (source.enabled) shielded.add(eventId);
+    else disabledOnly.add(eventId);
+  }
+  for (const id of disabledOnly) if (!own.has(id)) shielded.add(id);
+  return shielded;
+}
+
 /**
  * Mass-cancel circuit breaker. A single reconcile pass that would cancel more
  * than {@link MASS_CANCEL_MIN} events AND more than
@@ -162,7 +193,8 @@ function bucketScrapedRows(
  * - Fall within the scrape time window
  * - Belong to a kennel linked to this source
  * - Are currently CONFIRMED
- * - Have NO RawEvents from any other source (sole-source events)
+ * - Have NO RawEvents from another enabled source, nor from a disabled source
+ *   unless this source reported the run too (`protectedByOtherSources`)
  * - Were not returned in the current scrape results
  * - If past-dated, fall within the scrape's past coverage for their kennel
  *   (`isPastOutsideCoverage`); `upcomingOnly` skips the past side entirely
@@ -370,18 +402,13 @@ export async function reconcileStaleEvents(
     return { cancelled: 0, cancelledEventIds: [], multiSourcePreserved: 0, ...baseDiag };
   }
 
-  // Check which orphaned events have RawEvents from other sources (single query)
-  const orphanedEventIds = orphaned.map((e) => e.id);
-  const rawEventsFromOtherSources = await prisma.rawEvent.groupBy({
-    by: ["eventId"],
-    where: {
-      eventId: { in: orphanedEventIds },
-      sourceId: { not: sourceId },
-    },
+  // Who backs each orphaned event (single query on the RawEvent.eventId index)
+  const backing = await prisma.rawEvent.findMany({
+    where: { eventId: { in: orphaned.map((e) => e.id) } },
+    select: { eventId: true, sourceId: true, source: { select: { enabled: true } } },
+    distinct: ["eventId", "sourceId"],
   });
-  const eventsWithOtherSources = new Set(
-    rawEventsFromOtherSources.map((g) => g.eventId),
-  );
+  const eventsWithOtherSources = protectedByOtherSources(sourceId, backing);
   const cancelledEventIds = orphaned
     .filter((event) => !eventsWithOtherSources.has(event.id))
     .map((event) => event.id);

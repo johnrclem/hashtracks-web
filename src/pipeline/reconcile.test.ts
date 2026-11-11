@@ -6,7 +6,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     sourceKennel: { findMany: vi.fn() },
     event: { findMany: vi.fn(), updateMany: vi.fn() },
-    rawEvent: { groupBy: vi.fn() },
+    rawEvent: { groupBy: vi.fn(), findMany: vi.fn() },
   },
 }));
 
@@ -20,6 +20,7 @@ import {
   reconcileStaleEvents,
   shouldBlockMassCancel,
   isPastOutsideCoverage,
+  protectedByOtherSources,
   MASS_CANCEL_MIN,
 } from "./reconcile";
 
@@ -27,6 +28,14 @@ const mockSourceKennelFind = vi.mocked(prisma.sourceKennel.findMany);
 const mockEventFindMany = vi.mocked(prisma.event.findMany);
 const mockEventUpdateMany = vi.mocked(prisma.event.updateMany);
 const mockRawEventGroupBy = vi.mocked(prisma.rawEvent.groupBy);
+const mockRawEventFindMany = vi.mocked(prisma.rawEvent.findMany);
+
+/** Backing rows: each event also has a RawEvent from another, enabled source. */
+function otherSource(...eventIds: string[]) {
+  return eventIds.map((eventId) => ({
+    eventId, sourceId: "src_other", source: { enabled: true },
+  })) as never;
+}
 const mockResolve = vi.mocked(resolveKennelTag);
 
 /**
@@ -79,6 +88,7 @@ beforeEach(() => {
   mockSourceKennelFind.mockResolvedValue([{ kennelId: "kennel_1" }] as never);
   mockResolve.mockResolvedValue({ kennelId: "kennel_1", matched: true });
   mockEventUpdateMany.mockResolvedValue({ count: 0 } as never);
+  mockRawEventFindMany.mockResolvedValue([] as never);
 });
 
 afterEach(() => {
@@ -98,7 +108,6 @@ describe("reconcileStaleEvents", () => {
     ] as never);
 
     // No orphaned events have RawEvents from other sources
-    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
@@ -121,7 +130,7 @@ describe("reconcileStaleEvents", () => {
     ] as never);
 
     // evt_2 has RawEvents from another source
-    mockRawEventGroupBy.mockResolvedValueOnce([{ eventId: "evt_2" }] as never);
+    mockRawEventFindMany.mockResolvedValueOnce(otherSource("evt_2"));
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
@@ -146,7 +155,7 @@ describe("reconcileStaleEvents", () => {
     ] as never);
 
     // evt_merged still has a RawEvent from the hareline sheet source.
-    mockRawEventGroupBy.mockResolvedValueOnce([{ eventId: "evt_merged" }] as never);
+    mockRawEventFindMany.mockResolvedValueOnce(otherSource("evt_merged"));
 
     const result = await reconcileStaleEvents("src_calendar", calendarScrape, 90);
 
@@ -169,7 +178,7 @@ describe("reconcileStaleEvents", () => {
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
     expect(result.cancelled).toBe(0);
-    expect(mockRawEventGroupBy).not.toHaveBeenCalled();
+    expect(mockRawEventFindMany).not.toHaveBeenCalled();
   });
 
   it("returns zero when no kennels are linked to the source", async () => {
@@ -187,7 +196,7 @@ describe("reconcileStaleEvents", () => {
     const result = await reconcileStaleEvents("src_1", [buildRawEvent()], 90);
 
     expect(result.cancelled).toBe(0);
-    expect(mockRawEventGroupBy).not.toHaveBeenCalled();
+    expect(mockRawEventFindMany).not.toHaveBeenCalled();
   });
 
   it("skips events with unresolved kennel tags in scrape results", async () => {
@@ -208,7 +217,6 @@ describe("reconcileStaleEvents", () => {
     ] as never);
 
     // evt_1 is orphaned because the unresolved tag didn't add "kennel_1:2026-02-14" to the set
-    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
@@ -240,7 +248,6 @@ describe("reconcileStaleEvents", () => {
     ] as never);
 
     // evt_3 has no other sources
-    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
@@ -274,7 +281,7 @@ describe("reconcileStaleEvents", () => {
     expect(result.cancelled).toBe(0);
     expect(result.cancelledEventIds).toEqual([]);
     expect(mockEventUpdateMany).not.toHaveBeenCalled();
-    expect(mockRawEventGroupBy).not.toHaveBeenCalled();
+    expect(mockRawEventFindMany).not.toHaveBeenCalled();
   });
 
   it("cancels one half of a double-header when only the other is returned", async () => {
@@ -301,7 +308,6 @@ describe("reconcileStaleEvents", () => {
     ] as never);
 
     // evt_2 has no RawEvents from other sources
-    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
@@ -342,7 +348,7 @@ describe("reconcileStaleEvents", () => {
     expect(result.cancelled).toBe(0);
     expect(result.cancelledEventIds).toEqual([]);
     expect(mockEventUpdateMany).not.toHaveBeenCalled();
-    expect(mockRawEventGroupBy).not.toHaveBeenCalled();
+    expect(mockRawEventFindMany).not.toHaveBeenCalled();
   });
 
   it("matches when adapter emits ISO timestamp instead of YYYY-MM-DD (slot-key normalization)", async () => {
@@ -481,7 +487,6 @@ describe("reconcileStaleEvents", () => {
       mockEvent("evt_stale", "kennel_2", "2026-02-21"),
     ] as never);
 
-    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
@@ -535,7 +540,7 @@ describe("reconcileStaleEvents", () => {
 
     expect(result.cancelled).toBe(0);
     expect(mockEventUpdateMany).not.toHaveBeenCalled();
-    expect(mockRawEventGroupBy).not.toHaveBeenCalled();
+    expect(mockRawEventFindMany).not.toHaveBeenCalled();
   });
 
   it("restricts candidates to canonical rows only", async () => {
@@ -567,7 +572,7 @@ describe("reconcileStaleEvents", () => {
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
     expect(result.cancelled).toBe(0);
-    expect(mockRawEventGroupBy).not.toHaveBeenCalled();
+    expect(mockRawEventFindMany).not.toHaveBeenCalled();
   });
 
   it("scopes reconciliation to scrapedKennelIds subset when provided", async () => {
@@ -590,7 +595,6 @@ describe("reconcileStaleEvents", () => {
     ] as never);
 
     // evt_2 is orphaned and sole-source
-    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90, ["kennel_1"]);
 
@@ -623,7 +627,6 @@ describe("reconcileStaleEvents", () => {
     ] as never);
 
     // Both orphaned events are sole-source (no other sources)
-    mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
@@ -741,7 +744,7 @@ describe("reconcileStaleEvents", () => {
     ] as never);
 
     // evt_3 has another source
-    mockRawEventGroupBy.mockResolvedValueOnce([{ eventId: "evt_3" }] as never);
+    mockRawEventFindMany.mockResolvedValueOnce(otherSource("evt_3"));
 
     const result = await reconcileStaleEvents("src_1", scrapedEvents, 90);
 
@@ -823,9 +826,7 @@ describe("reconcileStaleEvents", () => {
 
     it("blocks a pass that would cancel >10 events and >30% of this source's candidates", async () => {
       mockEventFindMany.mockResolvedValueOnce(candidates(20) as never);
-      mockRawEventGroupBy
-        .mockResolvedValueOnce([] as never) // other-source check: none
-        .mockResolvedValueOnce(ownBacked(20) as never); // denominator: all 20 are ours
+      mockRawEventGroupBy.mockResolvedValueOnce(ownBacked(20) as never); // denominator: all 20 are ours
 
       // Scrape still returns 5 of 20 → 15 sole-source orphans (75%).
       const result = await reconcileStaleEvents("src_1", scrapeFirst(5), 90);
@@ -835,7 +836,7 @@ describe("reconcileStaleEvents", () => {
       expect(result.massCancelBlocked).toEqual({ wouldCancel: 15, candidatesExamined: 20 });
       expect(mockEventUpdateMany).not.toHaveBeenCalled();
       // Denominator query is scoped to this source.
-      expect(mockRawEventGroupBy.mock.calls[1][0]).toMatchObject({ where: { sourceId: "src_1" } });
+      expect(mockRawEventGroupBy.mock.calls[0][0]).toMatchObject({ where: { sourceId: "src_1" } });
     });
 
     it("is not diluted by candidates only other sources supply", async () => {
@@ -843,12 +844,11 @@ describe("reconcileStaleEvents", () => {
       // them. Losing 15 of its own 20 is 75% — block — even though it is only
       // 15% of everything in the kennel.
       mockEventFindMany.mockResolvedValueOnce(candidates(100) as never);
-      mockRawEventGroupBy
-        .mockResolvedValueOnce(
-          // evt_15..evt_99 are backed by other sources → not sole-source orphans.
-          Array.from({ length: 85 }, (_, i) => ({ eventId: `evt_${15 + i}` })) as never,
-        )
-        .mockResolvedValueOnce(ownBacked(20) as never);
+      // evt_15..evt_99 are backed by other sources → not sole-source orphans.
+      mockRawEventFindMany.mockResolvedValueOnce(
+        otherSource(...Array.from({ length: 85 }, (_, i) => `evt_${15 + i}`)),
+      );
+      mockRawEventGroupBy.mockResolvedValueOnce(ownBacked(20) as never);
 
       const result = await reconcileStaleEvents("src_1", [], 90);
 
@@ -858,7 +858,6 @@ describe("reconcileStaleEvents", () => {
 
     it("applies the same pass when allowMassCancel is set", async () => {
       mockEventFindMany.mockResolvedValueOnce(candidates(20) as never);
-      mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
       const result = await reconcileStaleEvents(
         "src_1", scrapeFirst(5), 90, undefined, false, { allowMassCancel: true },
@@ -868,26 +867,23 @@ describe("reconcileStaleEvents", () => {
       expect(result.massCancelBlocked).toBeUndefined();
       expect(mockEventUpdateMany).toHaveBeenCalledTimes(1);
       // No denominator query when the operator overrode the breaker.
-      expect(mockRawEventGroupBy).toHaveBeenCalledTimes(1);
+      expect(mockRawEventGroupBy).not.toHaveBeenCalled();
     });
 
     it("lets small passes through without the extra query", async () => {
       mockEventFindMany.mockResolvedValueOnce(candidates(12) as never);
-      mockRawEventGroupBy.mockResolvedValueOnce([] as never);
 
       // 10 of 12 orphaned (83%) but at the absolute floor → not blocked.
       const result = await reconcileStaleEvents("src_1", scrapeFirst(2), 90);
 
       expect(result.cancelled).toBe(MASS_CANCEL_MIN);
       expect(result.massCancelBlocked).toBeUndefined();
-      expect(mockRawEventGroupBy).toHaveBeenCalledTimes(1);
+      expect(mockRawEventGroupBy).not.toHaveBeenCalled();
     });
 
     it("lets large passes through when they are a small share of the source", async () => {
       mockEventFindMany.mockResolvedValueOnce(candidates(100) as never);
-      mockRawEventGroupBy
-        .mockResolvedValueOnce([] as never)
-        .mockResolvedValueOnce(ownBacked(100) as never);
+      mockRawEventGroupBy.mockResolvedValueOnce(ownBacked(100) as never);
 
       // 20 of 100 orphaned (20%) → under the fraction → applied.
       const result = await reconcileStaleEvents("src_1", scrapeFirst(80), 90);
@@ -899,8 +895,8 @@ describe("reconcileStaleEvents", () => {
     it("counts only sole-source orphans toward the breaker", async () => {
       mockEventFindMany.mockResolvedValueOnce(candidates(20) as never);
       // 15 orphans, but 10 have another source → only 5 would be cancelled.
-      mockRawEventGroupBy.mockResolvedValueOnce(
-        Array.from({ length: 10 }, (_, i) => ({ eventId: `evt_${5 + i}` })) as never,
+      mockRawEventFindMany.mockResolvedValueOnce(
+        otherSource(...Array.from({ length: 10 }, (_, i) => `evt_${5 + i}`)),
       );
 
       const result = await reconcileStaleEvents("src_1", scrapeFirst(5), 90);
@@ -931,7 +927,7 @@ describe("past-side coverage guard", () => {
 
   beforeEach(() => {
     vi.setSystemTime(NOW);
-    mockRawEventGroupBy.mockResolvedValue([] as never);
+    mockRawEventFindMany.mockResolvedValue([] as never);
   });
 
   it("preserves past runs a forward-only fetch dropped, and still cancels a removed future run", async () => {
@@ -955,7 +951,7 @@ describe("past-side coverage guard", () => {
     expect(result.cancelledEventIds).toEqual(["removed"]);
     expect(result.pastOutsideCoverage).toBe(2);
     // Only the in-coverage orphan reaches the other-source lookup.
-    expect(mockRawEventGroupBy.mock.calls[0][0]).toMatchObject({
+    expect(mockRawEventFindMany.mock.calls[0][0]).toMatchObject({
       where: { eventId: { in: ["removed"] } },
     });
   });
@@ -1025,7 +1021,7 @@ describe("past-side coverage guard", () => {
     expect(result.cancelled).toBe(0);
     expect(result.massCancelBlocked).toBeUndefined();
     expect(result.pastOutsideCoverage).toBe(20);
-    expect(mockRawEventGroupBy).not.toHaveBeenCalled();
+    expect(mockRawEventFindMany).not.toHaveBeenCalled();
     expect(mockEventUpdateMany).not.toHaveBeenCalled();
   });
 });
@@ -1037,9 +1033,7 @@ describe("past-side coverage guard: breaker denominator", () => {
     const past = weeklyCandidates(100, "2026-10-31", -1, "past_");
     const future = weeklyCandidates(20, "2026-11-14", 7, "up_");
     mockEventFindMany.mockResolvedValueOnce([...past, ...future] as never);
-    mockRawEventGroupBy
-      .mockResolvedValueOnce([] as never) // other-source check
-      .mockResolvedValueOnce(future.map((c) => ({ eventId: c.id })) as never);
+    mockRawEventGroupBy.mockResolvedValueOnce(future.map((c) => ({ eventId: c.id })) as never);
     const scraped = future.slice(0, 5).map((c) =>
       buildRawEvent({ date: toIsoDateString(c.date), kennelTags: ["BoBBH3"] }),
     );
@@ -1047,7 +1041,7 @@ describe("past-side coverage guard: breaker denominator", () => {
     const result = await reconcileStaleEvents("src_1", scraped, 180);
 
     expect(result.massCancelBlocked).toEqual({ wouldCancel: 15, candidatesExamined: 20 });
-    expect(mockRawEventGroupBy.mock.calls[1][0]).toMatchObject({
+    expect(mockRawEventGroupBy.mock.calls[0][0]).toMatchObject({
       where: { eventId: { in: future.map((c) => c.id) } },
     });
     expect(mockEventUpdateMany).not.toHaveBeenCalled();
@@ -1076,4 +1070,84 @@ describe("isPastOutsideCoverage", () => {
     expect(check("k1", "2026-10-17")).toBe(false);
     expect(check("k1", "2026-10-24")).toBe(false);
   });
+});
+
+describe("disabled-source protection", () => {
+  /** One RawEvent row: which event, which source, and whether that source is enabled. */
+  type Row = { eventId: string; sourceId: string; enabled: boolean };
+
+  function fakeRawEvents(rows: Row[]) {
+    mockRawEventFindMany.mockResolvedValueOnce(
+      rows.map(({ eventId, sourceId, enabled }) => ({ eventId, sourceId, source: { enabled } })) as never,
+    );
+  }
+
+  beforeEach(() => {
+    mockEventFindMany.mockResolvedValueOnce([
+      mockEvent("kept", "kennel_1", "2026-02-14"),
+      mockEvent("dropped", "kennel_1", "2026-02-21"),
+    ] as never);
+  });
+
+  const scraped = [buildRawEvent({ date: "2026-02-14", kennelTags: ["BoBBH3"] })];
+
+  it("cancels a run this source reported and dropped, even though a disabled source also has it", async () => {
+    // Retired iCal feed or static schedule (disabled) and its replacement both
+    // ingested the run; the replacement no longer returns it.
+    fakeRawEvents([
+      { eventId: "dropped", sourceId: "src_1", enabled: true },
+      { eventId: "dropped", sourceId: "src_retired", enabled: false },
+    ]);
+
+    const result = await reconcileStaleEvents("src_1", scraped, 90);
+
+    expect(result.cancelledEventIds).toEqual(["dropped"]);
+    expect(result.multiSourcePreserved).toBe(0);
+  });
+
+  it("keeps a run only a disabled source ever reported (paused primary)", async () => {
+    // Primary paused during an outage; a partial secondary never listed this run.
+    fakeRawEvents([{ eventId: "dropped", sourceId: "src_paused", enabled: false }]);
+
+    const result = await reconcileStaleEvents("src_1", scraped, 90);
+
+    expect(result.cancelledEventIds).toEqual([]);
+    expect(result.multiSourcePreserved).toBe(1);
+  });
+
+  it.each([
+    // [rows as (sourceId, enabled), shielded?]
+    [[["src_other", true]], true],
+    [[["src_1", true], ["src_other", true]], true],
+    [[["src_off", false]], true],
+    [[["src_1", true], ["src_off", false]], false],
+    [[["src_1", true]], false],
+  ] as const)("protectedByOtherSources(%j) → %s", (rows, shielded) => {
+    const backing = rows.map(([sourceId, enabled]) => ({
+      eventId: "e", sourceId, source: { enabled },
+    }));
+    expect(protectedByOtherSources("src_1", backing).has("e")).toBe(shielded);
+  });
+
+  it("ignores RawEvents not yet linked to an event", () => {
+    expect(
+      protectedByOtherSources("src_1", [
+        { eventId: null, sourceId: "src_other", source: { enabled: true } },
+      ]).size,
+    ).toBe(0);
+  });
+
+  it("keeps a run another enabled source still backs", async () => {
+    fakeRawEvents([
+      { eventId: "dropped", sourceId: "src_1", enabled: true },
+      { eventId: "dropped", sourceId: "src_other", enabled: true },
+      { eventId: "dropped", sourceId: "src_retired", enabled: false },
+    ]);
+
+    const result = await reconcileStaleEvents("src_1", scraped, 90);
+
+    expect(result.cancelledEventIds).toEqual([]);
+    expect(result.multiSourcePreserved).toBe(1);
+  });
+
 });
