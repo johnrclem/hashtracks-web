@@ -3206,3 +3206,16 @@ where the long-cadence uncovered kennels live.
 - **A shallow Tribe archive doesn't mean no history.** Here REST held 12 events in total, while a stats page rendered a 905-row run table through wpDataTables (SSR in `wp/v2/pages/<id>`). List `wp/v2/pages` and look for Statistics-style pages before concluding there's no backfill.
 - **Those tables are hand-kept.** Expect year typos around New Year, duplicated blocks (Covid Zoom rows twice each) and other kennels' run numbers.
 - Don't trust TEC's loader text as a count: `42 events found` sat beside 6 distinct event URLs (unexplained).
+
+## Self-hosted WordPress "one post per run" — entity-decoded titles + publish-date year fix (Lagos H3, 2026-11-11)
+Verified by `curl` of `https://lagosh3.com/wp-json/wp/v2/posts?per_page=100` (69 posts, 59 runs).
+- **Decode HTML entities before matching run numbers in `title.rendered`.** Non-run titles such as
+  `Who can or cannot be iced during a hash &#8220;circle&#8221;` turn into fake run numbers 8220/8217 under a
+  naive `#(\d+)` regex. Match `RUN\s*#\s*(\d{4})` on the decoded title.
+- **Bodies can carry a wrong year** (`DATE: 9TH FEB, 2025` in a post published 2026-02-08). Closest-to-publish
+  year inference (the Hellgate rule) fixed both cases and changed no correct post.
+- **Uppercase ordinals** (`19TH JAN`, `1ST SEPT`) — make suffix stripping case-insensitive; `SEPT` needs mapping.
+- **`curl -sI` (HEAD) on this host hung > 2 min while GET answered in ~1.4 s.** If a HEAD check stalls, use
+  `curl -s -D headers.txt -o body` instead before calling a source dead.
+- **Payment boilerplate in Nigerian/African club posts often includes bank account numbers and phone numbers**
+  in every post. Keep it out of `description` and scrub committed fixtures.
