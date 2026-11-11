@@ -52,6 +52,15 @@ Lessons from the Nov 2026 maintenance triage. Every rule here comes from a real 
   year" turns already-run rows into next-year phantoms (Hash House Horrors, Nov 2026). Anchor
   years on run numbers: anchor run + Δrun × cadence (memory `reference_runnumber_anchored_year_inference`).
 
+## Retiring a source
+- **Replaced for good: set `retiredAt` along with `enabled = false`** in the retirement
+  migration. A disabled source that isn't retired is treated as paused, so its RawEvents
+  keep shielding runs its replacement never listed. A retired source stops shielding
+  upcoming runs inside the replacement's scrape coverage
+  (`protectedByOtherSources` in `src/pipeline/reconcile.ts`).
+- **Never retire archive or backfill sources.** Their RawEvents are the history they exist to
+  protect. Leave `retiredAt` null on sources paused for an outage too.
+
 ## After merging
 - **Verify in prod with a scrape**, not only locally: `POST https://www.hashtracks.xyz/api/cron/scrape/<sourceId>`
   with `Authorization: Bearer $CRON_SECRET`, then read the new `ScrapeLog` row.

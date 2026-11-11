@@ -63,25 +63,31 @@ export const MASS_CANCEL_FRACTION = 0.3;
 export interface EventBacking {
   eventId: string | null;
   sourceId: string;
-  source: { enabled: boolean };
+  source: { enabled: boolean; retiredAt: Date | null };
 }
 
 /**
  * Orphaned events another source shields from cancellation by `sourceId`:
- * any enabled source's row, or a disabled source's row for a run `sourceId`
- * never reported. A disabled source may be retired (its stale rows must not
- * outvote the live source that dropped the run) or paused for an outage (its
- * runs must not be cancelled by a partial secondary that never listed them).
+ * - an enabled source's row always shields;
+ * - a disabled source's row shields only a run `sourceId` never reported, so a
+ *   partial secondary can't cancel a paused primary's runs during an outage;
+ * - a retired source's row (`Source.retiredAt`) shields nothing for the events
+ *   in `retiredCannotShield`, the upcoming runs inside this scrape's coverage:
+ *   its replacement has listed that date range and the run isn't there.
+ *   Elsewhere it counts as disabled. Past runs it recorded are real history
+ *   even when the newer feed lacks them, and a run beyond the replacement's
+ *   furthest row may just not be posted there yet.
  */
 export function protectedByOtherSources(
   sourceId: string,
   rows: EventBacking[],
+  retiredCannotShield: ReadonlySet<string> = new Set(),
 ): Set<string> {
   const own = new Set<string>();
   const disabledOnly = new Set<string>();
   const shielded = new Set<string>();
   for (const { eventId, sourceId: rowSource, source } of rows) {
-    if (!eventId) continue;
+    if (!eventId || (source.retiredAt && retiredCannotShield.has(eventId))) continue;
     if (rowSource === sourceId) own.add(eventId);
     else if (source.enabled) shielded.add(eventId);
     else disabledOnly.add(eventId);
@@ -131,6 +137,8 @@ interface ScrapedBuckets {
   scrapedBySlot: Map<string, RawEventData[]>;
   /** kennelId → earliest scraped YYYY-MM-DD (the kennel's past coverage). */
   earliestScrapedByKennel: Map<string, string>;
+  /** kennelId → latest scraped YYYY-MM-DD. */
+  latestScrapedByKennel: Map<string, string>;
   /** Kennels with at least one unparseable scraped date. */
   kennelsWithUnparseableDates: Set<string>;
 }
@@ -152,6 +160,7 @@ function bucketScrapedRows(
 ): ScrapedBuckets {
   const scrapedBySlot = new Map<string, RawEventData[]>();
   const earliestScrapedByKennel = new Map<string, string>();
+  const latestScrapedByKennel = new Map<string, string>();
   const kennelsWithUnparseableDates = new Set<string>();
   for (const [i, event] of scrapedEvents.entries()) {
     const { kennelId, matched } = resolutions[i];
@@ -174,6 +183,10 @@ function bucketScrapedRows(
     if (earliest === undefined || dateKey < earliest) {
       earliestScrapedByKennel.set(kennelId, dateKey);
     }
+    const latest = latestScrapedByKennel.get(kennelId);
+    if (latest === undefined || dateKey > latest) {
+      latestScrapedByKennel.set(kennelId, dateKey);
+    }
     const key = `${kennelId}:${dateKey}`;
     let list = scrapedBySlot.get(key);
     if (!list) {
@@ -182,7 +195,9 @@ function bucketScrapedRows(
     }
     list.push(event);
   }
-  return { scrapedBySlot, earliestScrapedByKennel, kennelsWithUnparseableDates };
+  return {
+    scrapedBySlot, earliestScrapedByKennel, latestScrapedByKennel, kennelsWithUnparseableDates,
+  };
 }
 
 /**
@@ -193,8 +208,9 @@ function bucketScrapedRows(
  * - Fall within the scrape time window
  * - Belong to a kennel linked to this source
  * - Are currently CONFIRMED
- * - Have NO RawEvents from another enabled source, nor from a disabled source
- *   unless this source reported the run too (`protectedByOtherSources`)
+ * - Have NO RawEvents from another enabled source, nor from a disabled one
+ *   unless this source reported the run too; a retired source protects no
+ *   upcoming run inside this scrape's coverage (`protectedByOtherSources`)
  * - Were not returned in the current scrape results
  * - If past-dated, fall within the scrape's past coverage for their kennel
  *   (`isPastOutsideCoverage`); `upcomingOnly` skips the past side entirely
@@ -224,7 +240,9 @@ export async function reconcileStaleEvents(
   const resolutions = await Promise.all(
     scrapedEvents.map((event) => resolveKennelTag(event.kennelTags[0], sourceId)),
   );
-  const { scrapedBySlot, earliestScrapedByKennel, kennelsWithUnparseableDates } =
+  const {
+    scrapedBySlot, earliestScrapedByKennel, latestScrapedByKennel, kennelsWithUnparseableDates,
+  } =
     bucketScrapedRows(scrapedEvents, resolutions, sourceId);
 
   // Get all kennel IDs linked to this source
@@ -405,10 +423,18 @@ export async function reconcileStaleEvents(
   // Who backs each orphaned event (single query on the RawEvent.eventId index)
   const backing = await prisma.rawEvent.findMany({
     where: { eventId: { in: orphaned.map((e) => e.id) } },
-    select: { eventId: true, sourceId: true, source: { select: { enabled: true } } },
+    select: { eventId: true, sourceId: true, source: { select: { enabled: true, retiredAt: true } } },
     distinct: ["eventId", "sourceId"],
   });
-  const eventsWithOtherSources = protectedByOtherSources(sourceId, backing);
+  const upcomingInCoverage = new Set(
+    orphaned
+      .filter((c) => {
+        const latest = latestScrapedByKennel.get(c.kennelId);
+        return c.date >= now && latest !== undefined && toIsoDateString(c.date) <= latest;
+      })
+      .map((c) => c.id),
+  );
+  const eventsWithOtherSources = protectedByOtherSources(sourceId, backing, upcomingInCoverage);
   const cancelledEventIds = orphaned
     .filter((event) => !eventsWithOtherSources.has(event.id))
     .map((event) => event.id);

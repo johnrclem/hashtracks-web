@@ -223,6 +223,11 @@ model Source {
   healthStatus  SourceHealth   @default(UNKNOWN)
   scrapeDays    Int            @default(90) // Lookback window in days for cron
   enabled       Boolean        @default(true) // False = skip in cron (temporary disable)
+  // Set when a disabled source is permanently replaced (not paused). Reconcile
+  // then ignores its RawEvents entirely, so the replacement can cancel runs the
+  // site removed. Leave null on paused sources and on archive / backfill
+  // sources, whose RawEvents are the history they exist to protect.
+  retiredAt     DateTime?
   // Manual baseline boundary: health checks ignore ScrapeLog rows with
   // startedAt < this value when computing rolling averages. Set after a
   // code-led adapter improvement so stale baselines don't fire false
