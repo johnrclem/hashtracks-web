@@ -1115,7 +1115,21 @@ describe("disabled-source protection", () => {
     expect(result.multiSourcePreserved).toBe(1);
   });
 
-  it("ignores RawEvents not yet linked to an event", async () => {
+  it.each([
+    // [rows as (sourceId, enabled), shielded?]
+    [[["src_other", true]], true],
+    [[["src_1", true], ["src_other", true]], true],
+    [[["src_off", false]], true],
+    [[["src_1", true], ["src_off", false]], false],
+    [[["src_1", true]], false],
+  ] as const)("protectedByOtherSources(%j) → %s", (rows, shielded) => {
+    const backing = rows.map(([sourceId, enabled]) => ({
+      eventId: "e", sourceId, source: { enabled },
+    }));
+    expect(protectedByOtherSources("src_1", backing).has("e")).toBe(shielded);
+  });
+
+  it("ignores RawEvents not yet linked to an event", () => {
     expect(
       protectedByOtherSources("src_1", [
         { eventId: null, sourceId: "src_other", source: { enabled: true } },
