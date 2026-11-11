@@ -14,9 +14,11 @@ import type { VisitorArea } from "@/lib/visitor-area";
 const DAY_MS = 86_400_000;
 const COMING_UP_LIMIT = 6;
 const NEARBY_WINDOW_DAYS = 7;
+const YOUR_WEEK_WINDOW_DAYS = 7;
 const WORLD_WINDOW_DAYS = 2;
 // Generous caps: the candidate sets are filtered and sorted in memory.
 const NEARBY_CANDIDATE_CAP = 300;
+const YOUR_WEEK_CANDIDATE_CAP = 300;
 const WORLD_CANDIDATE_CAP = 400;
 
 const COMING_UP_SELECT = {
@@ -55,6 +57,10 @@ export interface ComingUp {
 
 function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * DAY_MS);
+}
+
+function utcNoonOf(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12));
 }
 
 /** Where the run is: the event's own pin, else the kennel's, else its region's center. */
@@ -102,14 +108,15 @@ async function findCandidates(
   from: Date,
   to: Date,
   take: number,
-  near?: Prisma.EventWhereInput,
+  /** Extra filter: runs near the visitor, or from given kennels. */
+  scope?: Prisma.EventWhereInput,
 ): Promise<ComingUpEvent[]> {
   const rows = await prisma.event.findMany({
     where: {
       ...DISPLAY_EVENT_WHERE,
       date: { gte: from, lte: to },
       // AND keeps DISPLAY_EVENT_WHERE's hidden-kennel guard intact.
-      ...(near ? { AND: [near] } : {}),
+      ...(scope ? { AND: [scope] } : {}),
     },
     select: COMING_UP_SELECT,
     orderBy: [{ date: "asc" }, { id: "asc" }],
@@ -123,7 +130,7 @@ async function findCandidates(
  * guess finds runs within range, otherwise the next runs anywhere.
  */
 export async function getComingUp(area: VisitorArea | null, now: Date = new Date()): Promise<ComingUp> {
-  const todayUtcNoon = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12));
+  const todayUtcNoon = utcNoonOf(now);
   // A day of slack: west of UTC, "yesterday's" date can still be today locally.
   const from = addDays(todayUtcNoon, -1);
 
@@ -149,5 +156,29 @@ export async function getComingUp(area: VisitorArea | null, now: Date = new Date
     events: pickWorld(candidates, now, COMING_UP_LIMIT),
     heading: "Coming up around the world",
     subheading: "The next runs anywhere, in each kennel's local time",
+  };
+}
+
+/**
+ * "Your week" for a signed-in hasher: the next runs from the kennels they
+ * follow (as host or co-host) over the next seven days. Null when they follow
+ * no kennels or none of them has a run coming up, so the caller can fall back
+ * to `getComingUp`.
+ */
+export async function getYourWeek(kennelIds: string[], now: Date = new Date()): Promise<ComingUp | null> {
+  if (kennelIds.length === 0) return null;
+  const todayUtcNoon = utcNoonOf(now);
+  const candidates = await findCandidates(
+    addDays(todayUtcNoon, -1),
+    addDays(todayUtcNoon, YOUR_WEEK_WINDOW_DAYS),
+    YOUR_WEEK_CANDIDATE_CAP,
+    { eventKennels: { some: { kennelId: { in: kennelIds } } } },
+  );
+  const events = pickWorld(candidates, now, COMING_UP_LIMIT);
+  if (events.length === 0) return null;
+  return {
+    events,
+    heading: "Your week",
+    subheading: `Runs from the kennels you follow in the next ${YOUR_WEEK_WINDOW_DAYS} days`,
   };
 }

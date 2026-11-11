@@ -1,17 +1,22 @@
 /**
  * Approximate visitor location from Vercel's request geolocation headers.
  *
- * Vercel adds `x-vercel-ip-latitude`, `x-vercel-ip-longitude` and
- * `x-vercel-ip-city` (URL-encoded) to every request it serves. They are an
- * IP-based guess — no browser prompt, nothing stored — and are absent on
- * localhost, where callers fall back to non-local content.
+ * Vercel adds `x-vercel-ip-latitude`, `x-vercel-ip-longitude`,
+ * `x-vercel-ip-city` (URL-encoded) and `x-vercel-ip-timezone` to every
+ * request it serves. They are an IP-based guess — no browser prompt, nothing
+ * stored — and are absent on localhost, where callers fall back to non-local
+ * content.
  */
+
+import { isValidTimezone } from "@/lib/timezone";
 
 export interface VisitorArea {
   latitude: number;
   longitude: number;
   /** City name for display, or null when Vercel didn't provide one. */
   city: string | null;
+  /** IANA time zone, or null when missing or not a valid zone. */
+  timezone: string | null;
 }
 
 function parseCoordinate(raw: string | null, limit: number): number | null {
@@ -36,5 +41,11 @@ export function parseVisitorArea(headers: Pick<Headers, "get">): VisitorArea | n
   const latitude = parseCoordinate(headers.get("x-vercel-ip-latitude"), 90);
   const longitude = parseCoordinate(headers.get("x-vercel-ip-longitude"), 180);
   if (latitude === null || longitude === null) return null;
-  return { latitude, longitude, city: decodeCity(headers.get("x-vercel-ip-city")) };
+  const timezone = headers.get("x-vercel-ip-timezone");
+  return {
+    latitude,
+    longitude,
+    city: decodeCity(headers.get("x-vercel-ip-city")),
+    timezone: timezone && isValidTimezone(timezone) ? timezone : null,
+  };
 }

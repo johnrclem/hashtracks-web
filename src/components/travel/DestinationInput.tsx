@@ -21,6 +21,10 @@ interface DestinationInputProps {
   onChange: (place: PlaceSelection) => void;
   onClear: () => void;
   autoFocus?: boolean;
+  /** Input id, so a visible `<label htmlFor>` elsewhere can point at it. */
+  id?: string;
+  /** Text under a resolved place; defaults to "Location confirmed". */
+  resolvedHint?: string;
 }
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
@@ -46,6 +50,8 @@ function DestinationAutocomplete({
   onChange,
   onClear,
   autoFocus,
+  id,
+  resolvedHint = "Location confirmed",
 }: DestinationInputProps) {
   const placesLib = useMapsLibrary("places") as typeof google.maps.places | null;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -244,6 +250,7 @@ function DestinationAutocomplete({
       <div className="flex items-center gap-2">
         <input
           ref={inputRef}
+          id={id}
           type="text"
           value={inputValue}
           onChange={(e) => {
@@ -306,7 +313,7 @@ function DestinationAutocomplete({
       {isResolved && !isLoading && (
         <div className="mt-1 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
           <MapPin className="h-3 w-3" />
-          Location confirmed
+          {resolvedHint}
         </div>
       )}
 
@@ -358,14 +365,16 @@ function DestinationInputFallback({
   onChange,
   onClear,
   autoFocus,
+  id,
 }: DestinationInputProps) {
   const [inputValue, setInputValue] = useState(value);
   const [isLoading, setIsLoading] = useState(false);
   // Track the most recently resolved label so we can detect post-resolve
   // edits and clear stale parent coords. Without this, "Boston" → typo
   // edit to "Bostono" would keep Boston's lat/lng in parent state and
-  // submit a stale-coord search (Codex finding).
-  const [resolvedLabel, setResolvedLabel] = useState<string | null>(null);
+  // submit a stale-coord search (Codex finding). A prefilled `value` arrives
+  // already resolved (the parent holds its coords), so editing it clears too.
+  const [resolvedLabel, setResolvedLabel] = useState<string | null>(value || null);
 
   const handleSubmit = async () => {
     if (!inputValue.trim()) return;
@@ -396,6 +405,7 @@ function DestinationInputFallback({
   return (
     <div className="flex items-center gap-2">
       <input
+        id={id}
         type="text"
         value={inputValue}
         onChange={(e) => {

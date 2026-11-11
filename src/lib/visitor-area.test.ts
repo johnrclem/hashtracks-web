@@ -10,7 +10,16 @@ describe("parseVisitorArea", () => {
           "x-vercel-ip-city": "New%20Orleans",
         }),
       ),
-    ).toEqual({ latitude: 29.9511, longitude: -90.0715, city: "New Orleans" });
+    ).toEqual({ latitude: 29.9511, longitude: -90.0715, city: "New Orleans", timezone: null });
+  });
+
+  it("keeps a valid time zone and drops an invalid one", () => {
+    const base = { "x-vercel-ip-latitude": "29.95", "x-vercel-ip-longitude": "-90.07" };
+    expect(
+      parseVisitorArea(new Headers({ ...base, "x-vercel-ip-timezone": "America/Chicago" }))?.timezone,
+    ).toBe("America/Chicago");
+    expect(parseVisitorArea(new Headers({ ...base, "x-vercel-ip-timezone": "Not/AZone" }))?.timezone).toBeNull();
+    expect(parseVisitorArea(new Headers({ ...base, "x-vercel-ip-timezone": "CST" }))?.timezone).toBeNull();
   });
 
   it("decodes non-ASCII city names", () => {

@@ -156,6 +156,17 @@ interface TravelCalendarExportedProps {
 
 interface TravelPopularDestinationClickedProps {
   destinationSlug: string;
+  /** Which page the card was on. */
+  surface: "travel" | "home";
+}
+
+interface HomeSearchSubmittedProps {
+  /** The date choice searched with. */
+  datePreset: "week" | "weekend" | "custom";
+  /** Searched from the browser's location ("Near me") instead of a place. */
+  usedNearMe: boolean;
+  /** Searched the place guessed from the visitor's IP, unchanged. */
+  usedLocationGuess: boolean;
 }
 
 interface TravelFilterAppliedProps {
@@ -218,6 +229,8 @@ interface AnalyticsEventMap {
   travel_calendar_exported: TravelCalendarExportedProps;
   travel_near_me_clicked: Record<string, never>;
   travel_popular_destination_clicked: TravelPopularDestinationClickedProps;
+  // Homepage
+  home_search_submitted: HomeSearchSubmittedProps;
   travel_filter_applied: TravelFilterAppliedProps;
   travel_multidest_view_changed: TravelMultidestViewChangedProps;
   travel_leg_added: TravelLegCountChangedProps;
