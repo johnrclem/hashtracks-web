@@ -13,15 +13,22 @@ import type { Prisma } from "@/generated/prisma/client";
  * is meant to fix. The detail-page lookup intentionally drops this filter
  * (see `getEventDetail`) so a deep-link to a child page still resolves.
  */
+/**
+ * A stopped kennel's generated (schedule-only) runs disappear everywhere,
+ * reversibly: restarting clears stoppedAt and they return. Every display
+ * where-builder must include this; combine via `AND` when a `NOT` already exists.
+ */
+export const HIDE_STOPPED_SCHEDULE_RUNS = {
+  NOT: { isScheduleOnly: true, kennel: { stoppedAt: { not: null } } },
+} as const satisfies Prisma.EventWhereInput;
+
 export const DISPLAY_EVENT_WHERE = {
   status: { not: "CANCELLED" },
   isManualEntry: { not: true },
   isCanonical: true,
   kennel: { isHidden: false },
   parentEventId: null,
-  // A stopped kennel's generated (schedule-only) runs disappear everywhere,
-  // reversibly: restarting clears stoppedAt and they return.
-  NOT: { isScheduleOnly: true, kennel: { stoppedAt: { not: null } } },
+  ...HIDE_STOPPED_SCHEDULE_RUNS,
 } as const satisfies Prisma.EventWhereInput;
 
 /**

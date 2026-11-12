@@ -1,3 +1,4 @@
+import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type ActivityStatus = "active" | "possibly-inactive" | "inactive" | "unknown";
@@ -49,6 +50,7 @@ export function upcomingConfirmedEventWhere(todayUtcNoon: Date) {
     date: { gte: todayUtcNoon },
     status: "CONFIRMED",
     isCanonical: true,
+    ...HIDE_STOPPED_SCHEDULE_RUNS,
   } as const satisfies Prisma.EventWhereInput;
 }
 

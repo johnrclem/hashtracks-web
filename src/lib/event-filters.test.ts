@@ -1,3 +1,4 @@
+import { upcomingConfirmedEventWhere } from "@/lib/activity-status";
 import {
   DISPLAY_EVENT_WHERE,
   DISPLAYABLE_EVENT_NO_PARENT_WHERE,
@@ -5,6 +6,7 @@ import {
   endsBefore,
   endsOnOrAfter,
   eventEndMs,
+  HIDE_STOPPED_SCHEDULE_RUNS,
 } from "@/lib/event-filters";
 
 describe("DISPLAY_EVENT_WHERE", () => {
@@ -26,6 +28,14 @@ describe("DISPLAY_EVENT_WHERE stopped kennels", () => {
       kennel: { stoppedAt: { not: null } },
     });
     expect(DISPLAYABLE_EVENT_NO_PARENT_WHERE.NOT).toEqual(DISPLAY_EVENT_WHERE.NOT);
+  });
+});
+
+describe("HIDE_STOPPED_SCHEDULE_RUNS", () => {
+  it("is shared by every display where-builder", () => {
+    expect(DISPLAY_EVENT_WHERE).toMatchObject(HIDE_STOPPED_SCHEDULE_RUNS);
+    expect(DISPLAYABLE_EVENT_NO_PARENT_WHERE).toMatchObject(HIDE_STOPPED_SCHEDULE_RUNS);
+    expect(upcomingConfirmedEventWhere(new Date())).toMatchObject(HIDE_STOPPED_SCHEDULE_RUNS);
   });
 });
 

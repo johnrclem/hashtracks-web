@@ -6,10 +6,11 @@ vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
 vi.mock("@/pipeline/kennel-evidence", () => ({ refreshKennelEvidence: vi.fn() }));
 
 const tx = {
+  $queryRaw: vi.fn(),
   kennel: { findUnique: vi.fn() },
   source: { findMany: vi.fn(), updateMany: vi.fn() },
   scheduleRule: { findMany: vi.fn(), updateMany: vi.fn() },
-  kennelConfirmation: { create: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+  kennelConfirmation: { create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
 };
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -36,6 +37,7 @@ beforeEach(() => {
   vi.mocked(getAdminUser).mockResolvedValue(mockAdmin as never);
   vi.mocked(prisma.kennel.findUnique).mockResolvedValue({ id: "k1", slug: "k-h3", region: "Nowhere" } as never);
   tx.kennel.findUnique.mockResolvedValue(noEvidence);
+  tx.kennelConfirmation.findFirst.mockResolvedValue(null);
   tx.source.findMany.mockResolvedValue([]);
   tx.scheduleRule.findMany.mockResolvedValue([]);
 });
@@ -133,26 +135,37 @@ describe("kennel status actions", () => {
     expect(refreshKennelEvidence).toHaveBeenCalledWith(["k1"], expect.any(Date));
   });
 
-  it("restartKennel re-enables exactly the recorded sources and rules and sets revertedAt", async () => {
-    tx.kennelConfirmation.findFirst.mockResolvedValue({
-      id: "c1", disabledSourceIds: ["s1"], deactivatedRuleIds: ["r1", "r2"],
-    });
+  it("restartKennel re-enables the union of all open stops' sources and rules and reverts each", async () => {
+    tx.kennelConfirmation.findMany.mockResolvedValue([
+      { id: "c2", disabledSourceIds: [], deactivatedRuleIds: [] },
+      { id: "c1", disabledSourceIds: ["s1"], deactivatedRuleIds: ["r1", "r2"] },
+    ]);
     const result = await restartKennel("k1");
     expect(result).toEqual({ success: true, enabledSources: 1, reactivatedRules: 2 });
-    expect(tx.kennelConfirmation.findFirst).toHaveBeenCalledWith(
+    expect(tx.kennelConfirmation.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { kennelId: "k1", kind: "STOPPED", revertedAt: null } }),
     );
+    expect(tx.$queryRaw).toHaveBeenCalled();
     expect(tx.source.updateMany).toHaveBeenCalledWith({ where: { id: { in: ["s1"] } }, data: { enabled: true } });
     expect(tx.scheduleRule.updateMany).toHaveBeenCalledWith({ where: { id: { in: ["r1", "r2"] } }, data: { isActive: true } });
-    expect(tx.kennelConfirmation.update).toHaveBeenCalledWith({
-      where: { id: "c1" },
+    expect(tx.kennelConfirmation.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["c2", "c1"] } },
       data: { revertedAt: expect.any(Date) },
     });
     expect(refreshKennelEvidence).toHaveBeenCalledWith(["k1"], expect.any(Date));
   });
 
+  it("stopKennel refuses while an un-reverted stop exists, and locks the kennel row first", async () => {
+    tx.kennelConfirmation.findFirst.mockResolvedValue({ id: "c1" });
+    const result = await stopKennel("k1", goodInput);
+    expect(result).toEqual({ error: "Already stopped — restart it first." });
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(tx.kennelConfirmation.create).not.toHaveBeenCalled();
+    expect(refreshKennelEvidence).not.toHaveBeenCalled();
+  });
+
   it("restartKennel errors when there is no un-reverted stop", async () => {
-    tx.kennelConfirmation.findFirst.mockResolvedValue(null);
+    tx.kennelConfirmation.findMany.mockResolvedValue([]);
     const result = await restartKennel("k1");
     expect(result).toHaveProperty("error");
     expect(tx.source.updateMany).not.toHaveBeenCalled();

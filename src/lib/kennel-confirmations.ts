@@ -42,6 +42,11 @@ function formatDay(d: Date, now: Date): string {
   }).format(d);
 }
 
+/** Serialize stop/restart per kennel: lock the Kennel row until the transaction ends. */
+async function lockKennel(tx: Pick<typeof prisma, "$queryRaw">, kennelId: string) {
+  await tx.$queryRaw`SELECT id FROM "Kennel" WHERE id = ${kennelId} FOR UPDATE`;
+}
+
 export function validateStatusInput(input: StatusInput, now: Date): ValidInput | { error: string } {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(input.observedOn ?? "");
   if (!m) return { error: "Enter the date as YYYY-MM-DD" };
@@ -123,11 +128,17 @@ export async function stopKennelFor(
   if ("error" in valid) return valid;
 
   const outcome = await prisma.$transaction(async (tx) => {
+    await lockKennel(tx, kennelId);
     const kennel = await tx.kennel.findUnique({
       where: { id: kennelId },
       select: { id: true, lastRunSeenAt: true, lastConfirmedAt: true, nextRunPostedAt: true },
     });
     if (!kennel) return { error: "Kennel not found" } as const;
+    const open = await tx.kennelConfirmation.findFirst({
+      where: { kennelId, kind: "STOPPED", revertedAt: null },
+      select: { id: true },
+    });
+    if (open) return { error: "Already stopped — restart it first." } as const;
     const later = evidenceAfter(kennel, valid.observedAt, now);
     if (later) return { error: `Can't stop this kennel as of that date: ${later}` } as const;
 
@@ -182,23 +193,29 @@ export async function restartKennelFor(
   now: Date = new Date(),
 ): Promise<RestartResult> {
   const outcome = await prisma.$transaction(async (tx) => {
-    const stop = await tx.kennelConfirmation.findFirst({
+    await lockKennel(tx, kennelId);
+    const stops = await tx.kennelConfirmation.findMany({
       where: { kennelId, kind: "STOPPED", revertedAt: null },
       orderBy: [{ observedAt: "desc" }, { createdAt: "desc" }],
     });
-    if (!stop) return { error: "This kennel has no stop to undo" } as const;
+    if (stops.length === 0) return { error: "This kennel has no stop to undo" } as const;
 
-    if (stop.disabledSourceIds.length) {
-      await tx.source.updateMany({ where: { id: { in: stop.disabledSourceIds } }, data: { enabled: true } });
+    const sourceIds = [...new Set(stops.flatMap((s) => s.disabledSourceIds))];
+    const ruleIds = [...new Set(stops.flatMap((s) => s.deactivatedRuleIds))];
+    if (sourceIds.length) {
+      await tx.source.updateMany({ where: { id: { in: sourceIds } }, data: { enabled: true } });
     }
-    if (stop.deactivatedRuleIds.length) {
-      await tx.scheduleRule.updateMany({ where: { id: { in: stop.deactivatedRuleIds } }, data: { isActive: true } });
+    if (ruleIds.length) {
+      await tx.scheduleRule.updateMany({ where: { id: { in: ruleIds } }, data: { isActive: true } });
     }
-    await tx.kennelConfirmation.update({ where: { id: stop.id }, data: { revertedAt: now } });
+    await tx.kennelConfirmation.updateMany({
+      where: { id: { in: stops.map((s) => s.id) } },
+      data: { revertedAt: now },
+    });
     return {
       success: true,
-      enabledSources: stop.disabledSourceIds.length,
-      reactivatedRules: stop.deactivatedRuleIds.length,
+      enabledSources: sourceIds.length,
+      reactivatedRules: ruleIds.length,
     } as const;
   });
 

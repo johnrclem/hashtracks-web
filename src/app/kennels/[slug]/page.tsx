@@ -1,3 +1,4 @@
+import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -145,7 +146,7 @@ export default async function KennelDetailPage({
       // #1023 step 2. The umbrella itself only appears on its host kennel's
       // page (its `kennelId` is the host's), so dropping the filter doesn't
       // pollute other kennel pages with parents they don't host.
-      where: { eventKennels: { some: { kennelId: kennel.id } }, status: { not: "CANCELLED" }, isManualEntry: { not: true }, isCanonical: true },
+      where: { eventKennels: { some: { kennelId: kennel.id } }, status: { not: "CANCELLED" }, isManualEntry: { not: true }, isCanonical: true, ...HIDE_STOPPED_SCHEDULE_RUNS },
       include: {
         kennel: {
           select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
@@ -168,6 +169,7 @@ export default async function KennelDetailPage({
             isManualEntry: { not: true },
             isCanonical: true,
             kennel: { isHidden: false },
+            ...HIDE_STOPPED_SCHEDULE_RUNS,
           },
           orderBy: { date: "asc" },
           select: {

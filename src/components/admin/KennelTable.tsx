@@ -46,6 +46,8 @@ import { toast } from "sonner";
 type Kennel = AdminKennelData & {
   _count: { members: number; aliases: number };
   evidence: SerializedKennelEvidence;
+  /** An un-reverted STOPPED confirmation exists (Restart stays available). */
+  hasOpenStop: boolean;
 };
 
 interface KennelTableProps {
@@ -169,7 +171,7 @@ function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[
   const [statusMode, setStatusMode] = useState<StatusDialogMode | null>(null);
   const router = useRouter();
   const evidence = toKennelEvidence(kennel.evidence);
-  const isStopped = evidence.stoppedAt !== null;
+  const isStopped = kennel.hasOpenStop || evidence.stoppedAt !== null;
   const statusLine = getStatusLine(evidence);
 
   function handleRestart() {
