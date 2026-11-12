@@ -162,7 +162,7 @@ export function parseGoHashRun(
   config: GoHashConfig,
   sourceUrl: string,
 ): RawEventData | null {
-  const rawDate = run.run_date?.trim();
+  const rawDate = typeof run.run_date === "string" ? run.run_date.trim() : undefined;
   if (!rawDate) return null;
   // Expect ISO date "YYYY-MM-DD" — validate strictly
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate);

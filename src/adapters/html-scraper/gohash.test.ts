@@ -101,6 +101,10 @@ describe("parseGoHashRun", () => {
     expect(parseGoHashRun(reversed, config, "x")?.hares).toBe("Fleabag, Oyster Licker");
   });
 
+  it("returns null for a non-string run_date from the API", () => {
+    expect(parseGoHashRun({ run_number: 1, run_date: 20261119 as never }, { kennelTag: "x" }, "https://x")).toBeNull();
+  });
+
   it("returns null when run_date is missing or malformed", () => {
     expect(parseGoHashRun({ run_number: 1 }, config, "x")).toBeNull();
     expect(parseGoHashRun({ run_date: "April 13" }, config, "x")).toBeNull();

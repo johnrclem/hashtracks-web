@@ -148,6 +148,8 @@ function parseHeadingDate(text: string, now: Date): { date: string; title?: stri
     const day = Number.parseInt(dayText, 10);
     if (day < 1 || day > 31) continue;
     const { year, rest } = takeYear(dm ? afterMonth.slice(dm[0].length) : afterMonth);
+    // An explicit year is trusted only near `now`: "11 November 1918" in prose isn't a run.
+    if (year !== undefined && Math.abs(year - now.getUTCFullYear()) > 1) continue;
     const date = year === undefined ? resolveForwardDate(monthIdx, day, now) : explicitDate(year, monthIdx, day);
     if (!date) continue;
     const title = rest.trim();
@@ -208,7 +210,10 @@ function parseWhereLine(lines: string[]): string | undefined {
   let value = line.slice(WHERE_LABEL.length).trim();
   if (value.toLowerCase().startsWith(MEETING_POINT_LABEL)) value = value.slice(MEETING_POINT_LABEL.length).trim();
   if (value.toLowerCase().endsWith(LINK_TEXT_SUFFIX)) value = value.slice(0, -LINK_TEXT_SUFFIX.length);
-  return cleanVenue(value);
+  // The line is the venue alone, so only a trailing '.' goes ("St. Paul's" stays whole).
+  value = value.trim();
+  if (value.endsWith(".")) value = value.slice(0, -1).trim();
+  return value && !PLACEHOLDER_VENUE_RE.test(value) ? value : undefined;
 }
 
 function parseCost(prose: string): string | undefined {
@@ -405,13 +410,17 @@ function splitHeading(heading: Block): { afterRun: string; extraLines: string[] 
 
 const TITLE_QUOTES = new Set(['"', "'", "\u201C", "\u201D"]);
 
-/** "KHHH Run #2744: “The Hills Are Alive …”" in the body → the run's own name. */
+/**
+ * "KHHH Run #2744: “The Hills Are Alive …”" in the body → the run's own name.
+ * Only a quoted name counts, so "Run #2745: details soon" never becomes a title.
+ */
 function findNamedTitle(lines: string[], runNumber: number): string | undefined {
   const marker = `#${runNumber}:`;
   for (const line of lines) {
     const at = line.indexOf(marker);
     if (at < 0) continue;
     const name = line.slice(at + marker.length).trim();
+    if (!TITLE_QUOTES.has(name[0]) || !TITLE_QUOTES.has(name.at(-1) ?? "")) continue;
     let from = 0;
     let to = name.length;
     while (from < to && TITLE_QUOTES.has(name[from])) from++;
@@ -434,8 +443,8 @@ interface RunDate {
 
 /**
  * Date and title for a run. Three heading shapes:
- * - "#2732 June 27 Saturday Night Run": date then title on one line; a two-line
- *   "#2734 July 11 <br> 7-eleven Joint Night Run" takes the next line as title.
+ * - "#2732 June 27 Saturday Night Run": date then title; in a <br>-split
+ *   "#2734 July 11 <br> 7-eleven Joint Night Run" every later line is title too.
  * - "#2745 Saturday Afternoon Run <br> … Election Day: <br> November 28, 2026"
  *   (2026-11): title first, date in the heading's later lines.
  * - "#2744 Saturday Afternoon Run" / "#2743 and 2744 WEEKEND AWAY …": no date in
@@ -445,9 +454,9 @@ function parseRunDate(blocks: Block[], start: number, end: number, now: Date): R
   const { afterRun, extraLines } = splitHeading(blocks[start]);
   const head = parseHeadingDate(afterRun, now);
   if (head) {
-    if (head.title || extraLines.length === 0) return { ...head, leadLines: extraLines };
-    const [title, ...leadLines] = extraLines;
-    return { date: head.date, title, leadLines };
+    // Everything after the date is title, across lines, as before the 2026-11 layout.
+    const title = [head.title, ...extraLines].filter(Boolean).join(" ") || undefined;
+    return { date: head.date, title, leadLines: [] };
   }
   const title = afterRun.replace(EXTRA_RUN_PREFIX_RE, "").trim() || undefined;
   const fromLines = parseHeadingDate(extraLines.join(" "), now);

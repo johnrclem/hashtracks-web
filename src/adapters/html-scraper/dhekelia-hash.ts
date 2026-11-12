@@ -56,8 +56,9 @@ function oneSeparatorCandidates(head: string, tail: string): string[] {
     // "D/MYYYY": the year is the tail's last four digits, the month the rest.
     const date = toIsoDate(Number(head), Number(tail.slice(0, -4)), Number(tail.slice(-4)));
     if (head.length <= 2 && date) out.push(date);
-  } else {
+  } else if (head.length >= 3) {
     // "DM/YYYY": split the head into a 1–2 digit day and month every way it fits.
+    // A 2-digit head ("12/2026") reads as month/year, so it is never split.
     for (let dayLen = 1; dayLen <= 2; dayLen++) {
       const monthLen = head.length - dayLen;
       if (monthLen < 1 || monthLen > 2) continue;

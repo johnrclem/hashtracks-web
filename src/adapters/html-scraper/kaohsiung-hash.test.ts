@@ -235,3 +235,38 @@ describe("parseKaohsiungHashPage — 2026-11 layout", () => {
     expect(past.map((r) => r.date)).toEqual(["2026-11-14", "2026-11-28"]);
   });
 });
+
+describe("parseKaohsiungHashPage — date and title edge cases", () => {
+  const now = new Date("2026-11-12T12:00:00Z");
+  const page = (...blocks: string[]) => blocks.map((b) => `<div data-testid="richTextElement">${b}</div>`).join("\n");
+
+  it("skips a month word with no day ('you may bring') and reads the real date", () => {
+    const { runs } = parseKaohsiungHashPage(
+      page("<h2>#2746 Saturday Run<br>Hashers may bring torches.<br>December 5, 2026</h2>"),
+      now,
+    );
+    expect(runs[0]).toMatchObject({ date: "2026-12-05", title: "Saturday Run" });
+  });
+
+  it("ignores an explicit year far from now ('11 November 1918')", () => {
+    const { runs } = parseKaohsiungHashPage(
+      page("<h2>#2746 Remembrance Run<br>Remembering 11 November 1918<br>Saturday 21 November 2026</h2>"),
+      now,
+    );
+    expect(runs[0].date).toBe("2026-11-21");
+  });
+
+  it("keeps every heading line after the date in the title", () => {
+    const { runs } = parseKaohsiungHashPage(page("<h2>#2750 December 12 Joint Run<br>with Kaohsiung 7/11 H3</h2>"), now);
+    expect(runs[0].title).toBe("Joint Run with Kaohsiung 7/11 H3");
+  });
+
+  it("takes a body 'Run #N:' name only when quoted", () => {
+    const { runs } = parseKaohsiungHashPage(
+      page("<h2>#2750 December 12 Night Run</h2>", "<p>KHHH Run #2750: details soon</p><p>Where: St. Paul's Church HERE</p>"),
+      now,
+    );
+    expect(runs[0].title).toBe("Night Run");
+    expect(runs[0].location).toBe("St. Paul's Church");
+  });
+});

@@ -232,3 +232,13 @@ bring: hash cash, a rake to help with leaves, artifacts, Cranium lamps.&nbsp;</s
     expect(event).toMatchObject({ date: "2026-11-16", startTime: "18:40", hares: "Silver Fairy" });
   });
 });
+
+describe("parseBoiseH3Page — prose after a heading note", () => {
+  it("keeps prose after the first note out of the location but still reads a date there", () => {
+    const html = `
+<div data-testid="richTextElement"><h1>Hash #2020-Pub crawl<br>Bar X<br>bring: a torch<br>Wear pink<br>Monday, 11/23/2026, 6:40 PM</h1></div>
+<div data-testid="richTextElement"><p>Hare: Someone</p></div>`;
+    const { event } = parseBoiseH3Page(html, "https://www.boiseh3.org");
+    expect(event).toMatchObject({ location: "Bar X", date: "2026-11-23", startTime: "18:40", hares: "Someone" });
+  });
+});

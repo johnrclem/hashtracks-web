@@ -85,7 +85,8 @@ export function parseBoiseH3Page(
   // read like the blocks below it.
   const allHeadLines = headingLines($heading);
   const headIdx = allHeadLines.findIndex((l) => HEADING_RE.test(l));
-  const headText = allHeadLines[headIdx] ?? cleanLine($heading.text());
+  // Fallback keeps the raw newlines so HEADING_RE's `.+` stops at the first line.
+  const headText = allHeadLines[headIdx] ?? $heading.text().trim();
   const headMatch = HEADING_RE.exec(headText);
   if (!headMatch) {
     return { event: null, error: `could not parse heading: ${headText.slice(0, 80)}` };
@@ -96,7 +97,17 @@ export function parseBoiseH3Page(
   const $richContainer = $heading.closest('[data-testid="richTextElement"]');
   const $walkFrom = $richContainer.length ? $richContainer : $heading;
 
-  const lines: string[] = headIdx >= 0 ? allHeadLines.slice(headIdx + 1) : [];
+  // Venue lines come first. After the first note ("On after …", "bring: …")
+  // keep only date and hare lines, so free prose can't merge into the location.
+  const extraHeadLines = headIdx >= 0 ? allHeadLines.slice(headIdx + 1) : [];
+  const firstNote = extraHeadLines.findIndex((l) => SKIP_LINE_RE.test(l));
+  const lines: string[] =
+    firstNote < 0
+      ? extraHeadLines
+      : [
+          ...extraHeadLines.slice(0, firstNote),
+          ...extraHeadLines.slice(firstNote).filter((l) => parseDateTimeLine(l) || HARES_RE.test(l)),
+        ];
   $walkFrom.nextAll().each((_i, el) => {
     if ($(el).is("h1, h2, h3, h4, h5, h6")) return false;
     // Wix pads empty blocks with U+200B ("wixGuard"), so a "​"-only line
