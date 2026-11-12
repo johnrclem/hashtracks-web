@@ -222,6 +222,16 @@ describe("GoHashAdapter.fetch", () => {
     expect(result.errors[0]).toContain("site API failed");
   });
 
+  it("also falls back to the site API when the page has no state at all", async () => {
+    mockSafeFetch
+      .mockResolvedValueOnce(new Response(`<html><body><div id="root"></div></body></html>`, { status: 200 }))
+      .mockResolvedValueOnce(json({ kennel: { slug: "hhhp" } }))
+      .mockResolvedValueOnce(json(API_RUNS));
+    const result = await new GoHashAdapter().fetch(source("https://www.hashhouseharrietspenang.com", "hhhpenang"));
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(2);
+  });
+
   it("keeps a real empty SSR hareline as zero events, with no API call", async () => {
     const empty = `<script>window.__INITIAL_STATE__ = {"runs":{"runs":[]}};</script>`;
     mockSafeFetch.mockResolvedValueOnce(new Response(empty, { status: 200 }));

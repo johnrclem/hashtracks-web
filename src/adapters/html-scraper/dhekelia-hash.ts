@@ -19,7 +19,7 @@ import * as cheerio from "cheerio";
 import type { CheerioAPI } from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
-import { decodeEntities, filterEventsByWindow } from "../utils";
+import { decodeEntities, filterEventsByWindow, isoDate } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 
@@ -29,42 +29,24 @@ const PAGE_URL = "https://dhekelia-h3.com/info/";
 const FIRST_LABEL = "hash number:";
 
 const DATE_RE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
-const ONE_SEPARATOR_RE = /^(\d{1,4})\/(\d{4,6})$/;
+// One separator missing: "11/112026" (D/MYYYY) or "1111/2026" (DM/YYYY). A
+// 2-digit head ("12/2026") reads as month/year, so the DM form needs 3–4 digits.
+const NO_YEAR_SLASH_RE = /^(\d{1,2})\/(\d{1,2})(\d{4})$/;
+const NO_DAY_SLASH_RE = /^(\d{3,4})\/(\d{4})$/;
 const TIME_RE = /^(\d{1,2})[.:](\d{2})$/;
 
 function clean(text: string): string {
   return decodeEntities(text).replaceAll(/\s+/g, " ").trim();
 }
 
-/** Valid calendar date → "YYYY-MM-DD"; null for day/month overflow. */
-function toIsoDate(day: number, month: number, year: number): string | null {
-  const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) {
-    return null;
-  }
-  return d.toISOString().slice(0, 10);
-}
-
-/**
- * Readings of a date typed with one separator missing: "11/112026" (no slash
- * before the year) or "1111/2026" (none between day and month). The year is
- * always the last four digits; the day and month are 1–2 digits each.
- */
-function oneSeparatorCandidates(head: string, tail: string): string[] {
+/** Valid day/month splits of a 3–4 digit "DM" run ("1111" → 11/11; "111" → 1/11 and 11/1). */
+function dayMonthSplits(digits: string, year: number): string[] {
   const out: string[] = [];
-  if (tail.length > 4) {
-    // "D/MYYYY": the year is the tail's last four digits, the month the rest.
-    const date = toIsoDate(Number(head), Number(tail.slice(0, -4)), Number(tail.slice(-4)));
-    if (head.length <= 2 && date) out.push(date);
-  } else if (head.length >= 3) {
-    // "DM/YYYY": split the head into a 1–2 digit day and month every way it fits.
-    // A 2-digit head ("12/2026") reads as month/year, so it is never split.
-    for (let dayLen = 1; dayLen <= 2; dayLen++) {
-      const monthLen = head.length - dayLen;
-      if (monthLen < 1 || monthLen > 2) continue;
-      const date = toIsoDate(Number(head.slice(0, dayLen)), Number(head.slice(dayLen)), Number(tail));
-      if (date) out.push(date);
-    }
+  for (let dayLen = 1; dayLen <= 2; dayLen++) {
+    const monthLen = digits.length - dayLen;
+    if (monthLen < 1 || monthLen > 2) continue;
+    const date = isoDate(year, Number(digits.slice(dayLen)), Number(digits.slice(0, dayLen)));
+    if (date) out.push(date);
   }
   return out;
 }
@@ -76,12 +58,12 @@ function oneSeparatorCandidates(head: string, tail: string): string[] {
  */
 export function parseDhekeliaDate(text: string): string | null {
   const trimmed = text.trim();
-  const m = DATE_RE.exec(trimmed);
-  if (m) return toIsoDate(Number(m[1]), Number(m[2]), Number(m[3]));
-  const partial = ONE_SEPARATOR_RE.exec(trimmed);
-  if (!partial) return null;
-  const candidates = new Set(oneSeparatorCandidates(partial[1], partial[2]));
-  return candidates.size === 1 ? [...candidates][0] : null;
+  const m = DATE_RE.exec(trimmed) ?? NO_YEAR_SLASH_RE.exec(trimmed);
+  if (m) return isoDate(Number(m[3]), Number(m[2]), Number(m[1]));
+  const noDaySlash = NO_DAY_SLASH_RE.exec(trimmed);
+  if (!noDaySlash) return null;
+  const splits = dayMonthSplits(noDaySlash[1], Number(noDaySlash[2]));
+  return splits.length === 1 ? splits[0] : null;
 }
 
 /** "16.00" → "16:00"; undefined if malformed. */

@@ -256,6 +256,15 @@ describe("parseKaohsiungHashPage — date and title edge cases", () => {
     expect(runs[0].date).toBe("2026-11-21");
   });
 
+  it("never takes a later paragraph's date for a 'When: TBD'", () => {
+    const { runs, parseErrors } = parseKaohsiungHashPage(
+      page("<h2>#2751 Mystery Run</h2>", "<p>When: TBD</p><p>Info: last year's run was on 21 November 2026.</p>"),
+      now,
+    );
+    expect(runs).toEqual([]);
+    expect(parseErrors.map((e) => e.error)).toEqual(["Kaohsiung H3: could not parse date for run #2751"]);
+  });
+
   it("keeps every heading line after the date in the title", () => {
     const { runs } = parseKaohsiungHashPage(page("<h2>#2750 December 12 Joint Run<br>with Kaohsiung 7/11 H3</h2>"), now);
     expect(runs[0].title).toBe("Joint Run with Kaohsiung 7/11 H3");

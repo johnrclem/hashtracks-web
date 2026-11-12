@@ -39,10 +39,12 @@ import { safeFetch } from "../safe-fetch";
  * appended to `source.url`.
  *
  * A tenant whose hareline page renders client-side (no `runs` in the SSR
- * state) is read through goHash's site API instead; see `fetchGoHashApiRuns`.
+ * state, or no state at all) is read through goHash's site API instead; see
+ * `fetchGoHashApiRuns`.
  *
- * Used by: Penang H3 (penanghash3.org, 1965, 7th-oldest in the world) and
- * Hash House Harriets Penang (hashhouseharrietspenang.com, 1972).
+ * Used by: Mother Hash (motherhash.org), KL Full Moon (klfullmoonhash.com),
+ * Penang H3 (penanghash3.org, 1965, 7th-oldest in the world) and Hash House
+ * Harriets Penang (hashhouseharrietspenang.com, 1972).
  */
 
 export interface GoHashConfig {
@@ -222,11 +224,6 @@ const API_HEADERS = {
   Accept: "application/json",
 };
 
-/** "/hareline/past" reads past runs; any other hareline path reads upcoming ones. */
-function harelineDirection(harelinePath: string): "upcoming" | "past" {
-  return harelinePath.replace(/\/+$/, "").endsWith("/past") ? "past" : "upcoming";
-}
-
 async function fetchJson(url: string): Promise<unknown> {
   const res = await safeFetch(url, { headers: API_HEADERS });
   if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
@@ -234,23 +231,19 @@ async function fetchJson(url: string): Promise<unknown> {
 }
 
 /**
- * Runs from goHash's site API, which the SPA itself calls: `/api/site/kennel`
- * names the tenant's kennel slug, `/api/site/kennels/{slug}/runs?direction=…`
- * lists its runs in the same shape as `__INITIAL_STATE__.runs.runs`. Used when a
- * tenant's hareline page renders client-side (Harriets Penang, 2026-11: the SSR
- * state holds only `detection`). Throws on any unexpected payload.
- *
- * Exported for unit testing.
+ * Upcoming runs from goHash's site API, which the SPA itself calls:
+ * `/api/site/kennel` names the tenant's kennel slug, and
+ * `/api/site/kennels/{slug}/runs?direction=upcoming` lists its runs in the same
+ * shape as `__INITIAL_STATE__.runs.runs`. Used when a tenant's hareline page
+ * renders client-side (Harriets Penang, 2026-11: the SSR state holds only
+ * `detection`). Throws on any unexpected payload.
  */
-export async function fetchGoHashApiRuns(
-  origin: string,
-  direction: "upcoming" | "past",
-): Promise<GoHashRun[]> {
+async function fetchGoHashApiRuns(origin: string): Promise<GoHashRun[]> {
   const kennelBody = (await fetchJson(`${origin}/api/site/kennel`)) as { kennel?: { slug?: unknown } } | null;
   const slug = kennelBody?.kennel?.slug;
   if (typeof slug !== "string" || !slug) throw new Error("no kennel slug in /api/site/kennel");
   const runsBody = (await fetchJson(
-    `${origin}/api/site/kennels/${encodeURIComponent(slug)}/runs?direction=${direction}`,
+    `${origin}/api/site/kennels/${encodeURIComponent(slug)}/runs?direction=upcoming`,
   )) as { runs?: unknown } | null;
   if (!Array.isArray(runsBody?.runs)) throw new Error(`no runs array from the ${slug} runs API`);
   return runsBody.runs.filter((r): r is GoHashRun => typeof r === "object" && r !== null);
@@ -282,34 +275,28 @@ export class GoHashAdapter implements SourceAdapter {
       return { events: [], errors: ["GoHashAdapter: source.url is required"] };
     }
 
-    const harelinePath = config.harelinePath ?? "/hareline/upcoming";
-    const url = resolveHarelineUrl(baseUrl, harelinePath);
+    const url = resolveHarelineUrl(baseUrl, config.harelinePath ?? "/hareline/upcoming");
     const page = await fetchHTMLPage(url);
     if (!page.ok) return page.result;
 
-    const state = extractInitialState(page.html);
-    if (!state) {
-      const message = "GoHashAdapter: __INITIAL_STATE__ not found in page HTML";
-      const errorDetails: ErrorDetails = {
-        parse: [{ row: 0, error: message, rawText: page.html.slice(0, 500) }],
-      };
-      return { events: [], errors: [message], errorDetails };
-    }
-
     // An SSR page carries the runs (an empty array is a real empty hareline). A
-    // client-rendered one carries no `runs` at all, so read the site API instead
-    // and fail loud if that breaks too, rather than report a silent 0 events.
-    let rawRuns = state.runs?.runs;
+    // client-rendered one carries no `runs`, or no state at all, so read the
+    // site API instead and fail loud if that breaks too, rather than report a
+    // silent 0 events.
+    let rawRuns = extractInitialState(page.html)?.runs?.runs;
     let fetchMethod = "gohash-initial-state";
     if (!Array.isArray(rawRuns)) {
       try {
-        rawRuns = await fetchGoHashApiRuns(new URL(url).origin, harelineDirection(harelinePath));
+        rawRuns = await fetchGoHashApiRuns(new URL(url).origin);
         fetchMethod = "gohash-site-api";
       } catch (err) {
-        const message = `GoHashAdapter: no runs in page state and the site API failed: ${
+        const message = `GoHashAdapter: no runs in the page state and the site API failed: ${
           err instanceof Error ? err.message : String(err)
         }`;
-        return { events: [], errors: [message], errorDetails: { fetch: [{ url, message }] } };
+        const errorDetails: ErrorDetails = {
+          parse: [{ row: 0, error: message, rawText: page.html.slice(0, 500) }],
+        };
+        return { events: [], errors: [message], errorDetails };
       }
     }
     const events: RawEventData[] = [];

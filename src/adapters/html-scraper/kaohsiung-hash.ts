@@ -7,8 +7,10 @@ import {
   fetchHTMLPage,
   filterEventsByWindow,
   formatAmPmTime,
+  isoDate,
   normalizeHaresField,
   stripZeroWidth,
+  trimEdgeChars,
 } from "../utils";
 
 const KENNEL_TAG = "kaohsiung-h3";
@@ -111,12 +113,6 @@ function resolveForwardDate(monthIdx: number, day: number, now: Date): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-/** An explicit "YYYY-MM-DD" (UTC); null when the day overflows the month. */
-function explicitDate(year: number, monthIdx: number, day: number): string | null {
-  const d = new Date(Date.UTC(year, monthIdx, day, 12, 0, 0));
-  return d.getUTCMonth() === monthIdx && d.getUTCDate() === day ? d.toISOString().slice(0, 10) : null;
-}
-
 // A day written before the month ("Saturday, 14 November 2026"), matched on the
 // text that precedes the month word once trailing space is trimmed.
 const DAY_BEFORE_MONTH_RE = /(?:^|\D)(\d{1,2})$/;
@@ -150,7 +146,7 @@ function parseHeadingDate(text: string, now: Date): { date: string; title?: stri
     const { year, rest } = takeYear(dm ? afterMonth.slice(dm[0].length) : afterMonth);
     // An explicit year is trusted only near `now`: "11 November 1918" in prose isn't a run.
     if (year !== undefined && Math.abs(year - now.getUTCFullYear()) > 1) continue;
-    const date = year === undefined ? resolveForwardDate(monthIdx, day, now) : explicitDate(year, monthIdx, day);
+    const date = year === undefined ? resolveForwardDate(monthIdx, day, now) : isoDate(year, monthIdx + 1, day);
     if (!date) continue;
     const title = rest.trim();
     return { date, title: title || undefined };
@@ -184,16 +180,17 @@ function parseStartTime(prose: string, title: string | undefined): string | unde
 // word ("timeet at"); `\s+` absorbs arbitrary spacing before the venue text.
 const MEET_AT_RE = /\bmeet at\s+/i;
 
-/** Venue text up to the first '.', or undefined for empty/placeholder text. */
-function cleanVenue(text: string): string | undefined {
-  const dot = text.indexOf(".");
-  const venue = (dot >= 0 ? text.slice(0, dot) : text).trim();
+/** The venue, or undefined when empty or a placeholder ("Stay tuned", "TBA"). */
+function realVenue(venue: string): string | undefined {
   return venue && !PLACEHOLDER_VENUE_RE.test(venue) ? venue : undefined;
 }
 
 function parseLocation(prose: string): string | undefined {
   const m = MEET_AT_RE.exec(prose);
-  return m ? cleanVenue(prose.slice(m.index + m[0].length)) : undefined;
+  if (!m) return undefined;
+  const rest = prose.slice(m.index + m[0].length);
+  const dot = rest.indexOf(".");
+  return realVenue((dot >= 0 ? rest.slice(0, dot) : rest).trim());
 }
 
 const WHERE_LABEL = "where:";
@@ -213,7 +210,7 @@ function parseWhereLine(lines: string[]): string | undefined {
   // The line is the venue alone, so only a trailing '.' goes ("St. Paul's" stays whole).
   value = value.trim();
   if (value.endsWith(".")) value = value.slice(0, -1).trim();
-  return value && !PLACEHOLDER_VENUE_RE.test(value) ? value : undefined;
+  return realVenue(value);
 }
 
 function parseCost(prose: string): string | undefined {
@@ -269,7 +266,7 @@ function parseRunBody(blocks: Block[], start: number, end: number, leadLines: st
   let labelHares: string | undefined;
   let h1Hares: string | undefined;
   let locationUrl: string | undefined;
-  const proseParts = leadLines.length > 0 ? [leadLines.join(" ")] : [];
+  const proseParts = [...leadLines];
   const lines = [...leadLines];
   for (let i = start + 1; i < end; i++) {
     const block = blocks[i];
@@ -364,7 +361,9 @@ const EXTRA_RUN_PREFIX_RE = /^(?:and|&|\/|-)\s*#?\d{3,5}\s*/i;
 /**
  * Fallback for headings that carry no date (#2743 "WEEKEND AWAY GUANZILING HOT
  * SPRINGS TAINAN", 2026-11): the date lives only in a body "When: Saturday
- * November 7th Hares off at Noon …" line. Parse the first date after "When:".
+ * November 7th Hares off at Noon …" line. The date must be on the When: line
+ * itself, so a date later in the block ("Info: … 21 November") never stands in
+ * for a "When: TBD".
  */
 function parseWhenLineDate(
   blocks: Block[],
@@ -377,7 +376,8 @@ function parseWhenLineDate(
     if (!m) continue;
     // Prose dates carry ordinals ("November 7th"); DAY_RE expects a bare day.
     const whenText = blocks[i].text.slice(m.index + m[0].length).replace(ORDINAL_SUFFIX_RE, "$1");
-    const parsed = parseHeadingDate(whenText, now);
+    const whenLine = blocks[i].lines.find((l) => WHEN_LABEL_RE.test(l)) ?? "";
+    const parsed = parseHeadingDate(whenLine.replace(WHEN_LABEL_RE, "").replace(ORDINAL_SUFFIX_RE, "$1"), now);
     if (!parsed) return null;
     // Only the first day's clause belongs to this run: "Saturday November 7
     // Hares off at Noon And Sunday November 8 Hares off at 11:00 AM" → cut at
@@ -399,16 +399,14 @@ function parseDayScheduleTime(daySchedule: string): string | undefined {
 
 /** The heading line's text after "#NNNN", plus the heading block's later lines. */
 function splitHeading(heading: Block): { afterRun: string; extraLines: string[] } {
+  // The number sits on one line unless a <br> splits "#" from its digits.
   const idx = heading.lines.findIndex((l) => RUN_RE.test(l));
-  const headLine = idx >= 0 ? heading.lines[idx] : heading.text;
+  const [headLine, extraLines] = idx >= 0 ? [heading.lines[idx], heading.lines.slice(idx + 1)] : [heading.text, []];
   const m = RUN_RE.exec(headLine);
-  return {
-    afterRun: m ? headLine.slice(m.index + m[0].length).trim() : "",
-    extraLines: idx >= 0 ? heading.lines.slice(idx + 1) : [],
-  };
+  return { afterRun: m ? headLine.slice(m.index + m[0].length).trim() : "", extraLines };
 }
 
-const TITLE_QUOTES = new Set(['"', "'", "\u201C", "\u201D"]);
+const TITLE_QUOTES = "\"'\u201C\u201D";
 
 /**
  * "KHHH Run #2744: “The Hills Are Alive …”" in the body → the run's own name.
@@ -420,12 +418,8 @@ function findNamedTitle(lines: string[], runNumber: number): string | undefined 
     const at = line.indexOf(marker);
     if (at < 0) continue;
     const name = line.slice(at + marker.length).trim();
-    if (!TITLE_QUOTES.has(name[0]) || !TITLE_QUOTES.has(name.at(-1) ?? "")) continue;
-    let from = 0;
-    let to = name.length;
-    while (from < to && TITLE_QUOTES.has(name[from])) from++;
-    while (to > from && TITLE_QUOTES.has(name[to - 1])) to--;
-    const title = name.slice(from, to).trim();
+    if (name.length < 2 || !TITLE_QUOTES.includes(name[0]) || !TITLE_QUOTES.includes(name.at(-1) ?? "")) continue;
+    const title = trimEdgeChars(name, TITLE_QUOTES).trim();
     if (title) return title;
   }
   return undefined;
@@ -459,8 +453,11 @@ function parseRunDate(blocks: Block[], start: number, end: number, now: Date): R
     return { date: head.date, title, leadLines: [] };
   }
   const title = afterRun.replace(EXTRA_RUN_PREFIX_RE, "").trim() || undefined;
-  const fromLines = parseHeadingDate(extraLines.join(" "), now);
-  if (fromLines) return { date: fromLines.date, title: title ?? fromLines.title, leadLines: extraLines };
+  // The first later heading line that holds a date ("November 28, 2026").
+  for (const line of extraLines) {
+    const fromLine = parseHeadingDate(line, now);
+    if (fromLine) return { date: fromLine.date, title: title ?? fromLine.title, leadLines: extraLines };
+  }
   const fromWhen = parseWhenLineDate(blocks, start, end, now);
   return fromWhen ? { ...fromWhen, title, leadLines: extraLines } : null;
 }

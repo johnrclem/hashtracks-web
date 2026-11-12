@@ -101,13 +101,9 @@ export function parseBoiseH3Page(
   // keep only date and hare lines, so free prose can't merge into the location.
   const extraHeadLines = headIdx >= 0 ? allHeadLines.slice(headIdx + 1) : [];
   const firstNote = extraHeadLines.findIndex((l) => SKIP_LINE_RE.test(l));
-  const lines: string[] =
-    firstNote < 0
-      ? extraHeadLines
-      : [
-          ...extraHeadLines.slice(0, firstNote),
-          ...extraHeadLines.slice(firstNote).filter((l) => parseDateTimeLine(l) || HARES_RE.test(l)),
-        ];
+  const lines = extraHeadLines.filter(
+    (l, i) => firstNote < 0 || i < firstNote || parseDateTimeLine(l) !== null || HARES_RE.test(l),
+  );
   $walkFrom.nextAll().each((_i, el) => {
     if ($(el).is("h1, h2, h3, h4, h5, h6")) return false;
     // Wix pads empty blocks with U+200B ("wixGuard"), so a "​"-only line

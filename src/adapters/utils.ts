@@ -484,6 +484,27 @@ export function normalizeHaresField(hares: string | null | undefined): string | 
 }
 
 /**
+ * Build a UTC-noon "YYYY-MM-DD" string from numeric components (1-based month),
+ * or null for an out-of-range or impossible calendar date.
+ */
+export function isoDate(year: number, month: number, day: number): string | null {
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  // Reject impossible calendar dates ("31st June", "30th February"). Without this,
+  // the merge path's parseUtcNoonDate would roll an overflow onto a different real
+  // day (31 Jun → 1 Jul), silently moving the run — the opposite of why an adapter
+  // trusts an explicit date. Round-trip through Date to validate.
+  const probe = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  if (
+    probe.getUTCFullYear() !== year ||
+    probe.getUTCMonth() !== month - 1 ||
+    probe.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/**
  * Filter events to those within `±days` of now. Honors the adapter
  * contract that fetch() should respect `options.days` (which is itself
  * sourced from `source.scrapeDays`). Events are keyed by their
