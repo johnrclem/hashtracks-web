@@ -38,6 +38,25 @@ describe("refreshScheduleOnlyFlags", () => {
     expect(sql).toContain(`"isScheduleOnly"`);
   });
 
+  it("counts blank and placeholder hares as no hares, matching isPlaceholderText", async () => {
+    await refreshScheduleOnlyFlags("all");
+    const query = lastQuery();
+    const sql = sqlText(query);
+    // Trims tabs and newlines too, not only spaces.
+    const trimmed = `regexp_replace(r."rawData"->>'hares', '^[[:space:]]+|[[:space:]]+$', '', 'g')`;
+    expect(sql).toContain(`COALESCE(${trimmed}, '') = ''`);
+    // One case-insensitive anchored pattern per isPlaceholderText regex (src/adapters/utils.ts).
+    expect(sql).toContain(`${trimmed} ~* '^(venue[[:space:]-]+)?(tbd|tba|tbc)$'`);
+    expect(sql).toContain(
+      `${trimmed} ~* '^(n/a|none|null|needed|required|registration|sign[[:space:]_-]*up!?|volunteer|vacant|[?]{1,3})$'`,
+    );
+    expect(sql).toContain(
+      `${trimmed} ~* '^(hares?[[:space:]]+(needed|required|wanted)|needs?[[:space:]]+(a[[:space:]]+)?hares?)[[:>:]]'`,
+    );
+    // The patterns are SQL constants, not bind parameters.
+    expect(query.values).toEqual([]);
+  });
+
   it("never flags an event with no RawEvent", async () => {
     await refreshScheduleOnlyFlags("all");
     const sql = sqlText(lastQuery());

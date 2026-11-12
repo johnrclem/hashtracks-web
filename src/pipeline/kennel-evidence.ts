@@ -15,18 +15,36 @@ import { prisma } from "@/lib/db";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** `rawData.hares` with leading and trailing whitespace (spaces, tabs, newlines) removed. */
+const RAW_HARES_TRIMMED_SQL = Prisma.sql`regexp_replace(r."rawData"->>'hares', '^[[:space:]]+|[[:space:]]+$', '', 'g')`;
+
+/**
+ * The RawEvent names no hares: `hares` is absent, null, blank, or a placeholder.
+ * The placeholders are exactly the forms `isPlaceholderText` in
+ * src/adapters/utils.ts rejects, case-insensitive after trimming, one pattern
+ * each for PLACEHOLDER_TBD_RE, PLACEHOLDER_OTHER_RE and
+ * PLACEHOLDER_HARES_NEEDED_RE (`[[:>:]]` is Postgres's end-of-word, JS `\b`).
+ * Adapters keep placeholders like "TBD" in `hares` on purpose (hare-extraction.ts).
+ */
+const RAW_NO_HARES_SQL = Prisma.sql`(
+  COALESCE(${RAW_HARES_TRIMMED_SQL}, '') = ''
+  OR ${RAW_HARES_TRIMMED_SQL} ~* '^(venue[[:space:]-]+)?(tbd|tba|tbc)$'
+  OR ${RAW_HARES_TRIMMED_SQL} ~* '^(n/a|none|null|needed|required|registration|sign[[:space:]_-]*up!?|volunteer|vacant|[?]{1,3})$'
+  OR ${RAW_HARES_TRIMMED_SQL} ~* '^(hares?[[:space:]]+(needed|required|wanted)|needs?[[:space:]]+(a[[:space:]]+)?hares?)[[:>:]]'
+)`;
+
 /**
  * "This RawEvent is a posted run", for a RawEvent aliased `r` joined to its
  * Source aliased `s`. A RawEvent is a schedule projection, not a posted run,
  * when it comes from a STATIC_SCHEDULE source, or when it is an instance of a
  * repeating Google Calendar series (`rawData.recurringSeriesId`) that carries
- * nothing run-specific: no hares and no run number.
+ * nothing run-specific: no hares (placeholders count as none) and no run number.
  */
 export const POSTED_RUN_RAW_SQL = Prisma.sql`(
   s.type <> 'STATIC_SCHEDULE'
   AND NOT (
     NULLIF(r."rawData"->>'recurringSeriesId', '') IS NOT NULL
-    AND NULLIF(BTRIM(r."rawData"->>'hares'), '') IS NULL
+    AND ${RAW_NO_HARES_SQL}
     AND r."rawData"->>'runNumber' IS NULL
   )
 )`;
