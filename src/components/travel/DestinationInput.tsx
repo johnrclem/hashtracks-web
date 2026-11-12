@@ -381,6 +381,7 @@ function DestinationInputFallback({
   onClear,
   autoFocus,
   id,
+  resolvedHint = "Location confirmed",
   onTextChange,
   submitOnEnter = false,
 }: DestinationInputProps) {
@@ -434,7 +435,7 @@ function DestinationInputFallback({
         onKeyDown={(e) => {
           if (e.key !== "Enter" || submitOnEnter) return;
           e.preventDefault();
-          handleSubmit();
+          handleSubmit().catch(() => {});
         }}
         placeholder="City or destination"
         aria-label={id ? undefined : "Destination"}
@@ -446,6 +447,9 @@ function DestinationInputFallback({
         "
       />
       {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+      {resolvedLabel !== null && !isLoading && (
+        <span className="text-xs text-emerald-600 dark:text-emerald-400">{resolvedHint}</span>
+      )}
     </div>
   );
 }

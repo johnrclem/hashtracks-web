@@ -180,7 +180,7 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
           {dateChoice === "custom" && (
             <div className="mt-2 flex flex-wrap gap-2 text-sm">
               <label className="flex items-center gap-1.5">
-                From
+                <span>From</span>
                 <input
                   type="date"
                   value={custom.startDate}
@@ -192,7 +192,7 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
                 />
               </label>
               <label className="flex items-center gap-1.5">
-                To
+                <span>To</span>
                 <input
                   type="date"
                   value={custom.endDate}
