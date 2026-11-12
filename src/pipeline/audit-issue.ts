@@ -77,7 +77,30 @@ function githubPostInit(token: string, body: unknown): RequestInit {
   };
 }
 
-export function buildCronActions(): FilerActions {
+/**
+ * GitHub asks integrations to leave at least a second between mutating
+ * requests, or it starts returning secondary-rate-limit 403s. Callers that
+ * write in bulk pass this as `minWriteGapMs`.
+ */
+export const GITHUB_MIN_WRITE_GAP_MS = 1_000;
+
+/** Returns a function that waits until at least `gapMs` has passed since its
+ *  previous call. The first call never waits. */
+function createWritePacer(gapMs: number): () => Promise<void> {
+  let lastWriteAt: number | null = null;
+  return async () => {
+    const wait = lastWriteAt === null ? 0 : lastWriteAt + gapMs - Date.now();
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+    lastWriteAt = Date.now();
+  };
+}
+
+/**
+ * `minWriteGapMs` spaces this instance's issue creates and comments (default
+ * 0: unpaced). Reads (`listOpenIssuesByKennel`) are never paced.
+ */
+export function buildCronActions({ minWriteGapMs = 0 }: { minWriteGapMs?: number } = {}): FilerActions {
+  const paceWrite = createWritePacer(minWriteGapMs);
   return {
     createIssue: async ({ title, body, labels }) => {
       const token = process.env.GITHUB_TOKEN;
@@ -86,6 +109,7 @@ export function buildCronActions(): FilerActions {
         return null;
       }
       const repo = getValidatedRepo();
+      await paceWrite();
       try {
         // SSRF-safe: URL constructor anchors the request to the
         // api.github.com origin literal; repo from validated env.
@@ -126,6 +150,7 @@ export function buildCronActions(): FilerActions {
       }
       if (!Number.isInteger(issueNumber) || issueNumber <= 0) return false;
       const repo = getValidatedRepo();
+      await paceWrite();
       try {
         // Same SSRF guard as createIssue. issueNumber bounded above.
         const url = new URL(
