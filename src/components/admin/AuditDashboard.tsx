@@ -50,6 +50,7 @@ import {
 } from "@/app/admin/audit/actions";
 import { AuditStreamPanel } from "@/components/admin/AuditStreamPanel";
 import { buildDeepDivePrompt } from "@/lib/admin/deep-dive-prompt";
+import { DISCARD_REASON_MAX } from "@/lib/admin/audit-discard-reason";
 import { HASHTRACKS_REPO } from "@/lib/github-repo";
 import { formatTimeInZone } from "@/lib/timezone";
 import { Button } from "@/components/ui/button";
@@ -892,7 +893,7 @@ function CopyHarelinePromptButton({ prompt }: Readonly<{ prompt: string }>) {
  * Pending chrome-stream findings the agent deposited via /api/audit/submit-finding,
  * awaiting promotion to GitHub issues. The daily promotion cron files them
  * automatically; "Promote now" runs the same path on demand, and "Reject"
- * drops a draft so it's never filed.
+ * discards a draft, with a recorded reason, so it's never filed.
  */
 function PendingDraftsCard({ drafts }: Readonly<{ drafts: PendingDraftRow[] | null }>) {
   const router = useRouter();
@@ -909,12 +910,8 @@ function PendingDraftsCard({ drafts }: Readonly<{ drafts: PendingDraftRow[] | nu
     });
   }
 
-  function handleReject(id: string) {
-    startTransition(async () => {
-      await rejectDraft(id);
-      router.refresh();
-    });
-  }
+  // The draft whose discard reason is being typed (one at a time).
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
 
   return (
     <section className="space-y-5">
@@ -975,20 +972,83 @@ function PendingDraftsCard({ drafts }: Readonly<{ drafts: PendingDraftRow[] | nu
                     {d.status === "ERROR" && d.errorReason ? ` · ${d.errorReason}` : ""}
                   </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleReject(d.id)}
-                  disabled={pending}
-                >
-                  Reject
-                </Button>
+                {rejectingId === d.id ? (
+                  <DiscardDraftForm
+                    draft={d}
+                    disabled={pending}
+                    onCancel={() => setRejectingId(null)}
+                    onDiscarded={() => {
+                      setRejectingId(null);
+                      router.refresh();
+                    }}
+                  />
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setRejectingId(d.id)}
+                    disabled={pending}
+                  >
+                    Reject
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
         )}
       </div>
     </section>
+  );
+}
+
+/** Inline "why discard?" form for one queued draft. Mounted only while open,
+ *  so its reason and error start empty each time. */
+function DiscardDraftForm({
+  draft,
+  disabled,
+  onCancel,
+  onDiscarded,
+}: Readonly<{
+  draft: PendingDraftRow;
+  disabled: boolean;
+  onCancel: () => void;
+  onDiscarded: () => void;
+}>) {
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    startTransition(async () => {
+      const result = await rejectDraft(draft.id, reason);
+      if (result.ok) onDiscarded();
+      else setError(result.error);
+    });
+  }
+
+  const busy = disabled || pending;
+  return (
+    <form className="flex shrink-0 flex-col items-end gap-1" onSubmit={handleSubmit}>
+      <div className="flex items-center gap-2">
+        <Input
+          aria-label={`Why discard "${draft.title}"`}
+          placeholder="Why discard? e.g. stale: fixed in #1234"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          maxLength={DISCARD_REASON_MAX}
+          className="h-8 w-64 text-xs"
+          autoFocus
+        />
+        <Button type="submit" variant="destructive" size="sm" disabled={busy}>
+          Discard
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={busy}>
+          Cancel
+        </Button>
+      </div>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+    </form>
   );
 }
 

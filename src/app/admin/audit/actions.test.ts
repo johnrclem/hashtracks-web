@@ -26,6 +26,9 @@ vi.mock("@/lib/db", () => ({
       groupBy: vi.fn(),
       aggregate: vi.fn(),
     },
+    auditFindingDraft: {
+      updateMany: vi.fn(),
+    },
   },
 }));
 vi.mock("@/pipeline/audit-issue-sync", () => ({
@@ -83,6 +86,7 @@ import {
   getAuditSyncFreshness,
   resyncAuditIssues,
   getAuditAutomationHeartbeat,
+  rejectDraft,
 } from "./actions";
 import {
   computeQueueSnapshotId,
@@ -262,6 +266,45 @@ describe("deleteSuppression", () => {
     mockSupDeleteMany.mockResolvedValue({ count: 0 } as never);
     await expect(deleteSuppression("sup_missing")).resolves.toBeUndefined();
     expect(mockSupDeleteMany).toHaveBeenCalledWith({ where: { id: "sup_missing" } });
+  });
+});
+
+describe("rejectDraft", () => {
+  const mockDraftUpdate = vi.mocked(prisma.auditFindingDraft.updateMany);
+
+  it("requires admin", async () => {
+    mockAdmin.mockResolvedValue(null);
+    await expect(rejectDraft("d1", "stale")).rejects.toThrow("Unauthorized");
+    expect(mockDraftUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each([["blank", "   "], ["too long", "x".repeat(501)]])(
+    "refuses a %s reason without touching the row",
+    async (_label, reason) => {
+      const result = await rejectDraft("d1", reason);
+      expect(result.ok).toBe(false);
+      expect(mockDraftUpdate).not.toHaveBeenCalled();
+    },
+  );
+
+  it("discards a queued draft and records the trimmed reason", async () => {
+    mockDraftUpdate.mockResolvedValue({ count: 1 } as never);
+    const result = await rejectDraft("d1", "  stale: backfill applied 2026-11-12 ");
+    expect(result).toEqual({ ok: true });
+    expect(mockDraftUpdate).toHaveBeenCalledWith({
+      where: { id: "d1", status: { in: ["PENDING", "ERROR"] } },
+      data: expect.objectContaining({
+        status: "REJECTED",
+        errorReason: "discarded by admin: stale: backfill applied 2026-11-12",
+      }),
+    });
+    expect(mockRevalidate).toHaveBeenCalledWith("/admin/audit");
+  });
+
+  it("reports a draft that already left the queue", async () => {
+    mockDraftUpdate.mockResolvedValue({ count: 0 } as never);
+    const result = await rejectDraft("d1", "stale");
+    expect(result).toEqual({ ok: false, error: "That finding already left the queue." });
   });
 });
 

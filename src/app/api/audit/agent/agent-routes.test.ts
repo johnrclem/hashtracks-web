@@ -8,15 +8,22 @@ vi.mock("@/lib/admin/audit-suppressions-md", () => ({
   SUPPRESSIONS_RESPONSE_HEADERS: { "Content-Type": "text/markdown; charset=utf-8" },
 }));
 vi.mock("@/lib/admin/audit-submit", () => ({ handleAuditSubmission: vi.fn() }));
+vi.mock("@/lib/admin/audit-draft-queue", () => ({
+  loadQueuedDrafts: vi.fn(),
+  discardQueuedDraft: vi.fn(),
+}));
 
 import { NextResponse } from "next/server";
 
+import { discardQueuedDraft, loadQueuedDrafts } from "@/lib/admin/audit-draft-queue";
 import { handleAuditSubmission } from "@/lib/admin/audit-submit";
 import { renderSuppressionsMarkdown } from "@/lib/admin/audit-suppressions-md";
 import type { DeepDiveCandidate } from "@/lib/admin/deep-dive-queue";
 import { loadDeepDiveQueue } from "@/lib/admin/deep-dive-queue";
 import { loadHarelinePromptInputs } from "@/lib/admin/hareline-prompt-inputs";
 import { AUDIT_AGENT_SUBMITTER_ID } from "@/lib/audit-agent-auth";
+import { POST as discardDraft } from "./drafts/discard/route";
+import { GET as getDrafts } from "./drafts/route";
 import { GET as getHarelinePrompt } from "./hareline-prompt/route";
 import { GET as getNextDeepDive } from "./next-deep-dive/route";
 import { POST as submitFinding } from "./submit-finding/route";
@@ -41,10 +48,10 @@ function get(path: string, token: string | null = TOKEN): Request {
   return new Request(`${BASE}/${path}`, { headers });
 }
 
-function post(body: unknown, token: string | null = TOKEN): Request {
+function post(body: unknown, token: string | null = TOKEN, path = "submit-finding"): Request {
   const headers = new Headers({ "content-type": "application/json" });
   if (token !== null) headers.set("authorization", `Bearer ${token}`);
-  return new Request(`${BASE}/submit-finding`, { method: "POST", headers, body: JSON.stringify(body) });
+  return new Request(`${BASE}/${path}`, { method: "POST", headers, body: JSON.stringify(body) });
 }
 
 const original = process.env.AUDIT_AGENT_TOKEN;
@@ -62,6 +69,8 @@ describe("agent routes reject requests without the token", () => {
     ["hareline-prompt", () => getHarelinePrompt(get("hareline-prompt", "wrong".repeat(10)))],
     ["suppressions", () => getSuppressions(get("suppressions", null))],
     ["submit-finding", () => submitFinding(post({ kind: "completion" }, null))],
+    ["drafts", () => getDrafts(get("drafts", null))],
+    ["drafts/discard", () => discardDraft(post({ draftId: "d1", reason: "stale" }, null, "drafts/discard"))],
   ])("%s → 401 and touches no data", async (_label, call) => {
     const res = await call();
     expect(res.status).toBe(401);
@@ -69,6 +78,53 @@ describe("agent routes reject requests without the token", () => {
     expect(loadHarelinePromptInputs).not.toHaveBeenCalled();
     expect(renderSuppressionsMarkdown).not.toHaveBeenCalled();
     expect(handleAuditSubmission).not.toHaveBeenCalled();
+    expect(loadQueuedDrafts).not.toHaveBeenCalled();
+    expect(discardQueuedDraft).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/audit/agent/drafts", () => {
+  it("lists queued drafts for one kennel with its short name", async () => {
+    vi.mocked(loadQueuedDrafts).mockResolvedValue([
+      { id: "d1", ruleSlug: "source-coverage-gap", kennel: { shortName: "NYCH3" } },
+    ] as never);
+    const res = await getDrafts(get("drafts?kennelCode=nych3&includeBody=1"));
+    expect(res.status).toBe(200);
+    expect(loadQueuedDrafts).toHaveBeenCalledWith({ kennelCode: "nych3", limit: 100, includeBody: true });
+    expect((await res.json()).data).toEqual([
+      { id: "d1", ruleSlug: "source-coverage-gap", kennelShortName: "NYCH3" },
+    ]);
+  });
+});
+
+describe("POST /api/audit/agent/drafts/discard", () => {
+  const discard = (body: unknown) => discardDraft(post(body, TOKEN, "drafts/discard"));
+
+  it("returns 400 without a draftId and doesn't touch the queue", async () => {
+    const res = await discard({ reason: "stale" });
+    expect(res.status).toBe(400);
+    expect(discardQueuedDraft).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when the reason is rejected", async () => {
+    vi.mocked(discardQueuedDraft).mockResolvedValue("invalid-reason");
+    const res = await discard({ draftId: "d1", reason: "  " });
+    expect(res.status).toBe(400);
+    expect((await res.json()).data).toBeNull();
+  });
+
+  it("discards as the agent", async () => {
+    vi.mocked(discardQueuedDraft).mockResolvedValue("discarded");
+    const res = await discard({ draftId: "d1", reason: "stale: fixed in #2900" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ data: { discarded: true } });
+    expect(discardQueuedDraft).toHaveBeenCalledWith("d1", "stale: fixed in #2900", "agent");
+  });
+
+  it("returns 404 when the draft already left the queue", async () => {
+    vi.mocked(discardQueuedDraft).mockResolvedValue("not-queued");
+    const res = await discard({ draftId: "gone", reason: "stale" });
+    expect(res.status).toBe(404);
   });
 });
 
