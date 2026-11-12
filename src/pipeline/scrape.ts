@@ -5,6 +5,7 @@ import { hasAnyErrors } from "@/adapters/types";
 import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
 import { reconcileStaleEvents } from "./reconcile";
+import { refreshScheduleOnlyFlags, refreshKennelEvidence } from "./kennel-evidence";
 import { computeFillRates } from "./fill-rates";
 import type { FieldFillRates } from "./fill-rates";
 import { analyzeHealth, persistAlerts, autoResolveCleared } from "./health";
@@ -670,6 +671,22 @@ export async function scrapeSource(
       expectedZero: scrapeResult.diagnosticContext?.expectedZero === true,
       ...regimeContext,
     });
+
+    // Refresh the cached schedule-only flags and kennel evidence this scrape
+    // may have changed. Flags first: evidence reads them. Non-blocking.
+    try {
+      await refreshScheduleOnlyFlags({ sourceId, since: startedAt });
+      const links = await prisma.sourceKennel.findMany({
+        where: { sourceId },
+        select: { kennelId: true },
+      });
+      await refreshKennelEvidence([...new Set(links.map((l) => l.kennelId))]);
+    } catch (err) {
+      console.error(
+        `[scrape] kennel evidence refresh failed for ${sourceId}:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
 
     // Post-merge housekeeping is best-effort: a Next.js request-scope error
     // here must not roll back an already-persisted scrape. The Hareline
