@@ -5,7 +5,9 @@
  * kennel's own archive at hwh3.co.uk/hashes/?y=YYYY holds one table per year
  * (No. / Date / Where / Hare / Distance / Hilliness). A throwaway parser over
  * ?y=2008 … ?y=2026 froze it on 2026-11-10: 919 past runs, #916 (1 Jul 2008)
- * → #1878 (3 Nov 2026). Run numbers are unique and never go backwards in
+ * → #1878 (3 Nov 2026). #1879 (10 Nov 2026) was added on 2026-11-12: it left the
+ * live Runs list before the first prod scrape, so neither source had it. Its
+ * 19:45 start is from the live list seen on 2026-11-10. Run numbers are unique and never go backwards in
  * date; 44 numbers are absent on the site (e.g. 996–998, 1100–1114) and are not
  * invented. #994 and #995 share 22 Dec 2009 on the site; they differ on run
  * number, so merge keeps both.
@@ -34,7 +36,7 @@ runBackfillScript({
   fetchEvents: async () => {
     const events = history as RawEventData[];
     if (events.length === 0) {
-      throw new Error("hwh3-history.json is empty — expected 919 frozen runs. Aborting.");
+      throw new Error("hwh3-history.json is empty — expected 920 frozen runs. Aborting.");
     }
     return events;
   },
