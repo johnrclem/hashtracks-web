@@ -2,20 +2,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockAdmin = { id: "admin_1", clerkId: "clerk_admin", email: "admin@test.com" };
 
-vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
+vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn(), getRosterGroupId: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     kennel: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
     region: { findUnique: vi.fn() },
     kennelAlias: { deleteMany: vi.fn() },
-    sourceKennel: { deleteMany: vi.fn() },
+    sourceKennel: { deleteMany: vi.fn(), findMany: vi.fn() },
+    event: { findMany: vi.fn() },
     kennelAttendance: { count: vi.fn() },
     eventKennel: { count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
-    kennelHasher: { deleteMany: vi.fn() },
+    kennelHasher: { deleteMany: vi.fn(), findMany: vi.fn() },
     kennelHasherLink: { deleteMany: vi.fn() },
     rosterGroupKennel: { deleteMany: vi.fn() },
     mismanRequest: { deleteMany: vi.fn() },
-    userKennel: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() },
+    userKennel: { findUnique: vi.fn(), findMany: vi.fn(), upsert: vi.fn(), update: vi.fn() },
     user: { findUnique: vi.fn() },
     $transaction: vi.fn((arr: unknown[]) => Promise.all(arr)),
   },
@@ -38,6 +39,7 @@ import {
   assignMismanRole,
   revokeMismanRole,
   deduplicateEventKennels,
+  mergeKennels,
 } from "./actions";
 
 const mockAdminAuth = vi.mocked(getAdminUser);
@@ -567,5 +569,47 @@ describe("region ISR revalidation (#1461)", () => {
     const result = await toggleKennelVisibility("k1");
     expect(result).toEqual({ success: true, isHidden: true });
     expect(mockRevalidatePath).toHaveBeenCalledWith(regionPath("Boston, MA"));
+  });
+});
+
+describe("mergeKennels", () => {
+  function makeTx() {
+    return {
+      eventKennel: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
+      event: { updateMany: vi.fn() },
+      userKennel: { updateMany: vi.fn() },
+      kennelHasher: { updateMany: vi.fn() },
+      mismanRequest: { updateMany: vi.fn() },
+      sourceKennel: { updateMany: vi.fn() },
+      kennelConfirmation: { updateMany: vi.fn() },
+      kennelAlias: { deleteMany: vi.fn() },
+      rosterGroupKennel: { deleteMany: vi.fn() },
+      kennel: { delete: vi.fn() },
+    };
+  }
+
+  it("moves the merged-away kennel's confirmations (incl. an open stop) to the target before deleting it", async () => {
+    const counts = { events: 0, members: 0, kennelHashers: 0, mismanRequests: 0, sources: 1, aliases: 0 };
+    mockKennelFindUnique
+      .mockResolvedValueOnce({ id: "src", shortName: "Src", slug: "src", region: "Boston, MA", _count: counts } as never)
+      .mockResolvedValueOnce({ id: "tgt", shortName: "Tgt", slug: "tgt", region: "Boston, MA" } as never);
+    vi.mocked(prisma.event.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.userKennel.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.sourceKennel.findMany).mockResolvedValue([] as never);
+    const tx = makeTx();
+    vi.mocked(prisma.$transaction).mockImplementationOnce((async (fn: (t: unknown) => unknown) => fn(tx)) as never);
+
+    expect(await mergeKennels("src", "tgt", false)).toEqual({ success: true });
+
+    expect(tx.kennelConfirmation.updateMany).toHaveBeenCalledWith({
+      where: { kennelId: "src" },
+      data: { kennelId: "tgt" },
+    });
+    // Same transaction, before the cascade delete would drop them.
+    expect(tx.kennelConfirmation.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.kennel.delete.mock.invocationCallOrder[0],
+    );
+    expect(tx.kennel.delete).toHaveBeenCalledWith({ where: { id: "src" } });
   });
 });

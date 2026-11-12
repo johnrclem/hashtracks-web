@@ -838,6 +838,12 @@ export async function mergeKennels(
         where: { kennelId: sourceKennel.id },
         data: { kennelId: targetKennel.id },
       });
+      // Confirmations would cascade-delete with the kennel. An open STOPPED one
+      // records the sources it disabled (now the target's), so keep it restartable.
+      await tx.kennelConfirmation.updateMany({
+        where: { kennelId: sourceKennel.id },
+        data: { kennelId: targetKennel.id },
+      });
       await tx.kennelAlias.deleteMany({
         where: { kennelId: sourceKennel.id },
       });
