@@ -19,7 +19,7 @@ export type DiscardActor = "admin" | "agent";
 
 /** Queued drafts, PENDING before ERROR, oldest first within each. The body is
  *  only read when asked for: it can be up to 32 KB a row. */
-export async function loadQueuedDrafts({
+export function loadQueuedDrafts({
   kennelCode,
   limit,
   includeBody = false,
