@@ -388,22 +388,32 @@ export async function geocodeAddress(
 }
 
 /**
- * Result types that name an area, not a place to meet. A state, county or
- * region centroid is never a trail start: #2908 pinned the placeholder venue
+ * Result types that name an area, not a place to meet. A state or region
+ * centroid is never a trail start: #2908 pinned the placeholder venue
  * "Rhode Island" to the state centroid, then labelled it "North Kingstown".
  */
-const AREA_RESULT_TYPES = new Set([
-  "country",
-  "administrative_area_level_1",
-  "administrative_area_level_2",
-  "colloquial_area",
-]);
+const AREA_RESULT_TYPES = new Set(["country", "administrative_area_level_1", "colloquial_area"]);
+
+/**
+ * Countries whose `administrative_area_level_2` is a county ("Palm Beach
+ * County", "Hertfordshire"). Elsewhere level 2 is often a district small
+ * enough to be a fair pin (a Thai amphoe, a Taiwan district), so it stays.
+ */
+const COUNTY_LEVEL_2_COUNTRIES = new Set(["US", "GB"]);
 
 /** Components that put a result inside a town. */
 const TOWN_COMPONENT_TYPES = new Set(["locality", "postal_town", "sublocality", "administrative_area_level_3"]);
 
-/** Components too broad to confirm a town ("England", "United States"). */
-const BROAD_COMPONENT_TYPES = new Set(["country", "administrative_area_level_1"]);
+/**
+ * Components whose name can confirm the town a venue's text names. Roads and
+ * buildings are left out: a "Church Road" exists in every town.
+ */
+const PLACE_NAME_TYPES = new Set([
+  ...TOWN_COMPONENT_TYPES,
+  "neighborhood",
+  "administrative_area_level_2",
+  "administrative_area_level_4",
+]);
 
 /** A venue geocode further than this from the kennel is the wrong city. */
 export const VENUE_MAX_DISTANCE_KM = 200;
@@ -462,7 +472,8 @@ function placesNamedBy(location?: string | null, street?: string | null): { town
   const postcodes = segments.flatMap((s) => s.match(UK_POSTCODE_RE) ?? []).map(compactPostcode);
   const towns = segments
     .map((s) => placeKey(s.replace(UK_POSTCODE_RE, " ").replace(/\d+/g, " ")))
-    .filter((key) => /[a-z]{3}/.test(key));
+    // A town has a 3-letter word and few words; longer segments are notes ("park on the verge").
+    .filter((key) => /[a-z]{3}/.test(key) && key.split(" ").length <= 3);
   return { towns, postcodes };
 }
 
@@ -472,18 +483,20 @@ function resultInNamedPlace(
   named: { towns: string[]; postcodes: string[] },
 ): boolean {
   if (named.towns.length === 0 && named.postcodes.length === 0) return true;
-  const local = components.filter((c) => !c.types.some((t) => BROAD_COMPONENT_TYPES.has(t)));
-  const postcodeMatch = local.some(
+  const postcodeMatch = components.some(
     (c) => c.types.includes("postal_code") && named.postcodes.includes(compactPostcode(c.long_name)),
   );
   if (postcodeMatch) return true;
-  const names = local.flatMap((c) => [placeKey(c.long_name), placeKey(c.short_name)]).filter((n) => n.length >= 3);
+  const names = components
+    .filter((c) => c.types.some((t) => PLACE_NAME_TYPES.has(t)))
+    .flatMap((c) => [placeKey(c.long_name), placeKey(c.short_name)])
+    .filter((n) => n.length >= 3);
   return named.towns.some((town) => names.some((name) => name.includes(town) || town.includes(name)));
 }
 
 /**
  * Why a forward-geocode result can't be an event venue, or null when it can.
- * Rejects area centroids (state, county, region), whole roads ("A38, United
+ * Rejects area centroids (state, US/UK county, region), whole roads ("A38, United
  * Kingdom", #2914), anything over `VENUE_MAX_DISTANCE_KM` from the kennel, and
  * anything over `VENUE_TOWN_CHECK_KM` that isn't in a town or postcode the
  * venue text names.
@@ -494,8 +507,10 @@ export function venueGeocodeRejection(
   biasCenter?: { lat: number; lng: number } | null,
 ): string | null {
   const types = result.types ?? [];
-  if (types.some((t) => AREA_RESULT_TYPES.has(t))) return `an area, not a venue (${types.join("|")})`;
   const components = result.components ?? [];
+  const country = components.find((c) => c.types.includes("country"))?.short_name ?? "";
+  const isCounty = types.includes("administrative_area_level_2") && COUNTY_LEVEL_2_COUNTRIES.has(country);
+  if (isCounty || types.some((t) => AREA_RESULT_TYPES.has(t))) return `an area, not a venue (${types.join("|")})`;
   const inTown = components.some((c) => c.types.some((t) => TOWN_COMPONENT_TYPES.has(t)));
   if (types.includes("route") && !inTown) return "a whole road, not a venue";
   if (!biasCenter) return null;

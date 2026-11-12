@@ -692,6 +692,33 @@ describe("venueGeocodeRejection", () => {
     expect(venueGeocodeRejection(mildenhall, { location: "Half Moon", street: "Mildenhal, IP28 7HS" }, cambridge)).toBeNull();
   });
 
+  it("rejects a US county centroid but keeps a district elsewhere", () => {
+    const county = (country: string): GeocodeResult => ({
+      lat: 26.65,
+      lng: -80.27,
+      types: ["administrative_area_level_2", "political"],
+      components: [comp("Some County", "administrative_area_level_2"), comp(country, "country", country)],
+    });
+    const pbh3 = { lat: 26.7, lng: -80.1 };
+    expect(venueGeocodeRejection(county("US"), { location: "Palm Beach County, FL" }, pbh3)).toMatch(/^an area/);
+    expect(venueGeocodeRejection(county("TH"), { location: "Bang Lamung" }, pbh3)).toBeNull();
+  });
+
+  it("does not confirm a town from a road name or a long note", () => {
+    const wrongTown: GeocodeResult = {
+      lat: 52.0305,
+      lng: 0.074,
+      types: ["premise"],
+      components: [comp("Church Road", "route"), comp("Great Chishill", "locality")],
+    };
+    const bedford = { lat: 52.136, lng: -0.467 };
+    expect(venueGeocodeRejection(wrongTown, { location: "The Pheasant", street: "12 Church Road, Bedford" }, bedford)).toMatch(
+      /outside the town/,
+    );
+    // Only a note after the venue: nothing to check, so the far hit stands.
+    expect(venueGeocodeRejection(wrongTown, { location: "Village Hall, park on the verge please" }, bedford)).toBeNull();
+  });
+
   it("rejects anything over 200 km from the kennel", () => {
     expect(venueGeocodeRejection({ lat: 53.4808, lng: -2.2426 }, { location: "Pub" }, EXETER)).toMatch(/km from the kennel$/);
   });
