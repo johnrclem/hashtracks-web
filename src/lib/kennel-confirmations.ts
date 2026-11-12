@@ -42,6 +42,20 @@ function formatDay(d: Date, now: Date): string {
   }).format(d);
 }
 
+/**
+ * Refresh the kennel's cached evidence after its write has committed. A failure
+ * is logged, not thrown: the write landed, so the action must still report
+ * success (a retried stop would otherwise say "Already stopped"), and the
+ * nightly refresh repairs the cache.
+ */
+async function refreshAfterWrite(kennelId: string, now: Date): Promise<void> {
+  try {
+    await refreshKennelEvidence([kennelId], now);
+  } catch (err) {
+    console.error("[kennel-status] evidence refresh failed; the nightly refresh will repair it", { kennelId }, err);
+  }
+}
+
 /** Serialize stop/restart per kennel: lock the Kennel row until the transaction ends. */
 async function lockKennel(tx: Pick<typeof prisma, "$queryRaw">, kennelId: string) {
   await tx.$queryRaw`SELECT id FROM "Kennel" WHERE id = ${kennelId} FOR UPDATE`;
@@ -114,7 +128,7 @@ export async function confirmKennelRunningFor(
       },
     });
   });
-  await refreshKennelEvidence([kennelId], now);
+  await refreshAfterWrite(kennelId, now);
   return { success: true };
 }
 
@@ -184,7 +198,7 @@ export async function stopKennelFor(
     } as const;
   });
 
-  if (outcome.success) await refreshKennelEvidence([kennelId], now);
+  if (outcome.success) await refreshAfterWrite(kennelId, now);
   return outcome;
 }
 
@@ -219,7 +233,7 @@ export async function restartKennelFor(
     } as const;
   });
 
-  if (outcome.success) await refreshKennelEvidence([kennelId], now);
+  if (outcome.success) await refreshAfterWrite(kennelId, now);
   return outcome;
 }
 

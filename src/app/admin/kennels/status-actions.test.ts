@@ -164,6 +164,31 @@ describe("kennel status actions", () => {
     expect(refreshKennelEvidence).not.toHaveBeenCalled();
   });
 
+  it("a failed evidence refresh after the write still reports success and is logged", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    for (let i = 0; i < 3; i++) {
+      vi.mocked(refreshKennelEvidence).mockRejectedValueOnce(new Error("connection reset"));
+    }
+    tx.kennelConfirmation.findMany.mockResolvedValue([
+      { id: "c1", disabledSourceIds: ["s1"], deactivatedRuleIds: [] },
+    ]);
+
+    expect(await confirmKennelRunning("k1", goodInput)).toEqual({ success: true });
+    expect(await stopKennel("k1", goodInput)).toEqual({ success: true, disabledSources: 0, deactivatedRules: 0 });
+    expect(await restartKennel("k1")).toEqual({ success: true, enabledSources: 1, reactivatedRules: 0 });
+
+    expect(refreshKennelEvidence).toHaveBeenCalledTimes(3);
+    expect(consoleError).toHaveBeenCalledTimes(3);
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining("evidence refresh failed"),
+      { kennelId: "k1" },
+      expect.any(Error),
+    );
+    // The actions still finish: audit + cache busts run after the refresh.
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/kennels");
+    consoleError.mockRestore();
+  });
+
   it("restartKennel errors when there is no un-reverted stop", async () => {
     tx.kennelConfirmation.findMany.mockResolvedValue([]);
     const result = await restartKennel("k1");
