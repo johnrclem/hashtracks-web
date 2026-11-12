@@ -11,15 +11,11 @@ import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { activeKennelWhere } from "@/lib/activity-status";
 import { getTodayUtcNoon } from "@/lib/date";
 import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
-import { getComingUp } from "@/lib/home-coming-up";
+import { getHomeComingUp } from "@/lib/home-coming-up";
 import { parseVisitorArea } from "@/lib/visitor-area";
-import {
-  AnimatedCounter,
-  FadeInSection,
-  PulseDot,
-  RegionTicker,
-} from "@/components/home/HeroAnimations";
-import { FindRunsSection } from "@/components/home/FindRunsSection";
+import { FadeInSection, RegionTicker } from "@/components/home/HeroAnimations";
+import { HomeSearch } from "@/components/home/HomeSearch";
+import { PopularDestinationCards } from "@/components/travel/PopularDestinations";
 import { Calendar, BookOpen, Users, MapPin, ArrowRight, Beer, Zap, Globe, ClipboardList, Clock, Footprints } from "lucide-react";
 
 const HOME_TITLE = "HashTracks — Find Hash House Harrier runs near you";
@@ -57,7 +53,7 @@ export default async function HomePage() {
         .findMany({ where: { isHidden: false }, select: { regionId: true }, distinct: ["regionId"] })
         .then((rows) => rows.length),
       prisma.source.count({ where: { enabled: true } }),
-      getComingUp(visitorArea),
+      getHomeComingUp(userId, visitorArea),
       prisma.region
         .findMany({
           where: { level: "METRO" },
@@ -72,7 +68,7 @@ export default async function HomePage() {
       {/* ═══════════════════════════════════════════════
           HERO
        ═══════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden px-4 pb-16 pt-8 sm:pt-14 sm:pb-24">
+      <section className="relative overflow-hidden px-4 pb-12 pt-8 sm:pt-14 sm:pb-16">
         {/* Background texture */}
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.035] dark:opacity-[0.06]"
@@ -86,9 +82,13 @@ export default async function HomePage() {
         <div className="pointer-events-none absolute -bottom-20 right-1/4 h-64 w-64 rounded-full bg-rose-200/20 dark:bg-rose-800/15 blur-3xl" />
 
         <div className="relative mx-auto max-w-5xl text-center">
-          {/* Main headline */}
+          {/* Live counts + headline */}
           <FadeInSection>
-            <h1 className="mx-auto max-w-3xl text-5xl font-extrabold tracking-tight sm:text-7xl">
+            <p className="font-mono text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              {upcomingCount.toLocaleString("en-US")} upcoming runs · {kennelCount.toLocaleString("en-US")}{" "}
+              active kennels · {regionCount.toLocaleString("en-US")} regions
+            </p>
+            <h1 className="mx-auto mt-4 max-w-3xl text-4xl font-extrabold tracking-tight sm:text-6xl">
               Find your next
               <span className="relative mx-2 inline-block">
                 <span className="relative z-10">trail</span>
@@ -101,86 +101,50 @@ export default async function HomePage() {
             </h1>
           </FadeInSection>
 
-          {/* Subhead */}
           <FadeInSection delay={100}>
-            <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground sm:text-xl">
-              HashTracks aggregates harelines from{" "}
-              <span className="font-semibold text-foreground">{kennelCount}</span>{" "}
-              active kennels into one calendar. Discover runs, track your attendance,
-              and never miss circle again.
+            <p className="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-muted-foreground">
+              Every hash in one place. Search a town and your dates to see which runs are on,
+              and how far away they are.
             </p>
           </FadeInSection>
 
-          {/* CTA buttons */}
-          <FadeInSection delay={200}>
-            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
-              {userId ? (
-                <>
-                  <Link
-                    href="/hareline"
-                    className="group inline-flex h-12 items-center gap-2 rounded-full bg-orange-600 px-8 text-sm font-semibold text-white transition-all hover:gap-3 hover:bg-orange-700"
-                  >
-                    View Hareline
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                  </Link>
-                  <Link
-                    href="/logbook"
-                    className="inline-flex h-12 items-center gap-2 rounded-full border border-foreground/20 px-8 text-sm font-semibold transition-colors hover:border-foreground/40 hover:bg-foreground/[0.03]"
-                  >
-                    My Logbook
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Link
-                    href="/sign-up"
-                    className="group inline-flex h-12 items-center gap-2 rounded-full bg-orange-600 px-8 text-sm font-semibold text-white transition-all hover:gap-3 hover:bg-orange-700"
-                  >
-                    Get Started — It&apos;s Free
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                  </Link>
-                  <Link
-                    href="/hareline"
-                    className="inline-flex h-12 items-center gap-2 rounded-full border border-foreground/20 px-8 text-sm font-semibold transition-colors hover:border-foreground/40 hover:bg-foreground/[0.03]"
-                  >
-                    Browse Events
-                  </Link>
-                </>
-              )}
-            </div>
-          </FadeInSection>
+          {/* The main action: search a place and dates → Travel results */}
+          <HomeSearch
+            guessedPlace={
+              visitorArea?.city
+                ? {
+                    label: visitorArea.city,
+                    latitude: visitorArea.latitude,
+                    longitude: visitorArea.longitude,
+                    timezone: visitorArea.timezone ?? undefined,
+                  }
+                : null
+            }
+          />
 
-          {/* Live stats bar */}
-          <FadeInSection delay={300}>
-            <div className="mx-auto mt-10 flex max-w-lg flex-wrap items-center justify-center gap-8 sm:gap-12">
-              <div className="text-center">
-                <div className="text-3xl font-bold tracking-tight sm:text-4xl">
-                  <AnimatedCounter target={upcomingCount} />
-                </div>
-                <div className="mt-1 flex items-center justify-center text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Upcoming Runs <PulseDot />
-                </div>
-              </div>
-              <div className="h-8 w-px bg-foreground/10" aria-hidden="true" />
-              <div className="text-center">
-                <div className="text-3xl font-bold tracking-tight sm:text-4xl">
-                  <AnimatedCounter target={kennelCount} />
-                </div>
-                <div className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Active kennels
-                </div>
-              </div>
-              <div className="h-8 w-px bg-foreground/10" aria-hidden="true" />
-              <div className="text-center">
-                <div className="text-3xl font-bold tracking-tight sm:text-4xl">
-                  <AnimatedCounter target={regionCount} />
-                </div>
-                <div className="mt-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Regions
-                </div>
-              </div>
-            </div>
-          </FadeInSection>
+          <p className="mt-5 text-sm text-muted-foreground">
+            {userId ? (
+              <>
+                Or open the{" "}
+                <Link href="/hareline" className="font-medium text-foreground underline underline-offset-4 hover:text-orange-700">
+                  full hareline
+                </Link>{" "}
+                or{" "}
+                <Link href="/logbook" className="font-medium text-foreground underline underline-offset-4 hover:text-orange-700">
+                  your logbook
+                </Link>
+                .
+              </>
+            ) : (
+              <>
+                New here?{" "}
+                <Link href="/sign-up" className="font-medium text-foreground underline underline-offset-4 hover:text-orange-700">
+                  Create a free account
+                </Link>{" "}
+                to save trips and log your runs.
+              </>
+            )}
+          </p>
         </div>
       </section>
 
@@ -191,15 +155,6 @@ export default async function HomePage() {
         <div className="border-y border-foreground/5 bg-foreground/[0.015]">
           <RegionTicker regions={regionNames} />
         </div>
-      )}
-
-      {/* ═══════════════════════════════════════════════
-          FIND RUNS NEAR YOU
-       ═══════════════════════════════════════════════ */}
-      {regionNames.length > 0 && (
-        <FadeInSection>
-          <FindRunsSection regions={regionNames} />
-        </FadeInSection>
       )}
 
       {/* ═══════════════════════════════════════════════
@@ -323,6 +278,31 @@ export default async function HomePage() {
               View all events <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════
+          GOING SOMEWHERE? — TRAVEL BAND
+       ═══════════════════════════════════════════════ */}
+      <section className="border-t border-foreground/5 bg-foreground/[0.015] px-4 py-10 sm:py-14">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+            <div className="max-w-xl">
+              <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Going somewhere?</h2>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                Search a city and your dates. You&apos;ll see confirmed runs, likely runs from each
+                kennel&apos;s usual schedule, and how far each one is from where you&apos;re staying.
+              </p>
+            </div>
+            <Link
+              href="/travel"
+              className="group inline-flex items-center gap-1.5 rounded-full border border-foreground/20 px-5 py-2.5 text-sm font-semibold transition-colors hover:border-foreground/40 hover:bg-foreground/[0.03]"
+            >
+              Plan a trip
+              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+          <PopularDestinationCards surface="home" animate={false} />
         </div>
       </section>
 

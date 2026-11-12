@@ -3,8 +3,7 @@
  * Used for attendance date comparisons — events are stored as UTC noon
  * to avoid DST issues (PRD Appendix F.4).
  */
-export function getTodayUtcNoon(): number {
-  const now = new Date();
+export function getTodayUtcNoon(now: Date = new Date()): number {
   return Date.UTC(
     now.getUTCFullYear(),
     now.getUTCMonth(),

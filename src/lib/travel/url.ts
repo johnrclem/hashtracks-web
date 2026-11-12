@@ -3,6 +3,16 @@
  * `src/app/travel/page.tsx` parses via `getParam`. Centralized so callers
  * (NearMeShortcut, SavedTripCard, future entry points) round-trip cleanly.
  */
+/** Default radius for a place search (Travel form, homepage, popular destinations). */
+export const DEFAULT_SEARCH_RADIUS_KM = 50;
+/** Radius for a "near me" search: the browser's location is precise. */
+export const NEAR_ME_RADIUS_KM = 25;
+
+/** True when both YYYY-MM-DD dates are set and the start is on or before the end. */
+export function isValidDateRange(startDate: string, endDate: string): boolean {
+  return Boolean(startDate && endDate && startDate <= endDate);
+}
+
 export interface TravelSearchUrlParams {
   latitude: number;
   longitude: number;

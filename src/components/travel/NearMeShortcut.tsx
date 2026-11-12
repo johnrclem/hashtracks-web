@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Crosshair, Loader2 } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { buildTravelSearchUrl, localYmd } from "@/lib/travel/url";
+import { buildTravelSearchUrl, localYmd, NEAR_ME_RADIUS_KM } from "@/lib/travel/url";
 import { capture } from "@/lib/analytics";
 
 export function NearMeShortcut() {
@@ -23,7 +23,7 @@ export function NearMeShortcut() {
         startDate: localYmd(today),
         endDate: localYmd(twoWeeksOut),
         label: "Near me",
-        radiusKm: 25,
+        radiusKm: NEAR_ME_RADIUS_KM,
       }),
     );
   }, [router]);

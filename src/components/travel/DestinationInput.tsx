@@ -5,10 +5,11 @@ import { APIProvider, useMapsLibrary } from "@vis.gl/react-google-maps";
 import { MapPin, X, Loader2 } from "lucide-react";
 import {
   geocodeDestination,
+  geocodeDestinationWithTimezone,
   resolveDestinationTimezone,
 } from "@/app/travel/actions";
 
-interface PlaceSelection {
+export interface PlaceSelection {
   label: string;
   latitude: number;
   longitude: number;
@@ -21,6 +22,17 @@ interface DestinationInputProps {
   onChange: (place: PlaceSelection) => void;
   onClear: () => void;
   autoFocus?: boolean;
+  /** Input id, so a visible `<label htmlFor>` elsewhere can point at it. */
+  id?: string;
+  /** Text under a resolved place; defaults to "Location confirmed". */
+  resolvedHint?: string;
+  /** Called with the raw text on every edit, so a form can resolve typed-but-unpicked text. */
+  onTextChange?: (text: string) => void;
+  /**
+   * Let Enter submit the surrounding form unless a suggestion is highlighted.
+   * The form then resolves typed-but-unpicked text itself (see `onTextChange`).
+   */
+  submitOnEnter?: boolean;
 }
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
@@ -46,6 +58,10 @@ function DestinationAutocomplete({
   onChange,
   onClear,
   autoFocus,
+  id,
+  resolvedHint = "Location confirmed",
+  onTextChange,
+  submitOnEnter = false,
 }: DestinationInputProps) {
   const placesLib = useMapsLibrary("places") as typeof google.maps.places | null;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -214,13 +230,16 @@ function DestinationAutocomplete({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
+      const highlighted = showDropdown && selectedIndex >= 0 && suggestions[selectedIndex];
+      // Nothing highlighted: let the surrounding form submit.
+      if (!highlighted && submitOnEnter) return;
       e.preventDefault();
-      if (showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]) {
+      if (highlighted) {
         // Both selectPlace + fallbackGeocode handle their own errors
         // internally (try/catch with fallback). The .catch() here is a
         // no-op that exists to satisfy ESLint's no-floating-promises
         // without using the `void` operator that SonarCloud flags.
-        selectPlace(suggestions[selectedIndex]).catch(() => {});
+        selectPlace(highlighted).catch(() => {});
       } else if (inputValue.trim() && !isResolved) {
         // No suggestion selected — geocode server-side
         fallbackGeocode(inputValue).catch(() => {});
@@ -244,11 +263,13 @@ function DestinationAutocomplete({
       <div className="flex items-center gap-2">
         <input
           ref={inputRef}
+          id={id}
           type="text"
           value={inputValue}
           onChange={(e) => {
             const val = e.target.value;
             setInputValue(val);
+            onTextChange?.(val);
             if (isResolved) {
               setIsResolved(false);
               currentSelectionRef.current = "";
@@ -262,7 +283,7 @@ function DestinationAutocomplete({
           }}
           onKeyDown={handleKeyDown}
           placeholder="City or destination"
-          aria-label="Destination"
+          aria-label={id ? undefined : "Destination"}
           // Combobox pattern (WAI-ARIA 1.2): the input opens a listbox of
           // place suggestions. role="combobox" makes the implicit pattern
           // explicit so jsx-a11y's role-supports-aria-props understands
@@ -291,6 +312,7 @@ function DestinationAutocomplete({
               setShowDropdown(false);
               setIsResolved(false);
               currentSelectionRef.current = "";
+              onTextChange?.("");
               onClear();
               inputRef.current?.focus();
             }}
@@ -306,7 +328,7 @@ function DestinationAutocomplete({
       {isResolved && !isLoading && (
         <div className="mt-1 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
           <MapPin className="h-3 w-3" />
-          Location confirmed
+          {resolvedHint}
         </div>
       )}
 
@@ -358,35 +380,29 @@ function DestinationInputFallback({
   onChange,
   onClear,
   autoFocus,
+  id,
+  resolvedHint = "Location confirmed",
+  onTextChange,
+  submitOnEnter = false,
 }: DestinationInputProps) {
   const [inputValue, setInputValue] = useState(value);
   const [isLoading, setIsLoading] = useState(false);
   // Track the most recently resolved label so we can detect post-resolve
   // edits and clear stale parent coords. Without this, "Boston" → typo
   // edit to "Bostono" would keep Boston's lat/lng in parent state and
-  // submit a stale-coord search (Codex finding).
-  const [resolvedLabel, setResolvedLabel] = useState<string | null>(null);
+  // submit a stale-coord search (Codex finding). A prefilled `value` arrives
+  // already resolved (the parent holds its coords), so editing it clears too.
+  const [resolvedLabel, setResolvedLabel] = useState<string | null>(value || null);
 
   const handleSubmit = async () => {
     if (!inputValue.trim()) return;
     setIsLoading(true);
-    const result = await geocodeDestination(inputValue);
+    // Mirror the autocomplete path: also resolve the time zone so trip
+    // start times render in the destination's local zone, not UTC.
+    const result = await geocodeDestinationWithTimezone(inputValue);
     if (!("error" in result)) {
-      // Mirror the autocomplete path: also resolve timezone so trip
-      // start times render in the destination's local zone, not UTC.
-      let timezone: string | undefined;
-      try {
-        const tzResult = await resolveDestinationTimezone(result.latitude, result.longitude);
-        if ("timezone" in tzResult) timezone = tzResult.timezone;
-      } catch (err) {
-        console.error("[travel] timezone lookup failed", err);
-      }
-      onChange({
-        label: result.label,
-        latitude: result.latitude,
-        longitude: result.longitude,
-        timezone,
-      });
+      const { label, latitude, longitude, timezone } = result;
+      onChange({ label, latitude, longitude, timezone });
       setInputValue(result.label);
       setResolvedLabel(result.label);
     }
@@ -396,11 +412,13 @@ function DestinationInputFallback({
   return (
     <div className="flex items-center gap-2">
       <input
+        id={id}
         type="text"
         value={inputValue}
         onChange={(e) => {
           const next = e.target.value;
           setInputValue(next);
+          onTextChange?.(next);
           if (!next.trim()) {
             setResolvedLabel(null);
             onClear();
@@ -414,9 +432,13 @@ function DestinationInputFallback({
             onClear();
           }
         }}
-        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSubmit(); } }}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || submitOnEnter) return;
+          e.preventDefault();
+          handleSubmit().catch(() => {});
+        }}
         placeholder="City or destination"
-        aria-label="Destination"
+        aria-label={id ? undefined : "Destination"}
         autoFocus={autoFocus}
         className="
           w-full bg-transparent font-display text-lg font-medium
@@ -425,6 +447,9 @@ function DestinationInputFallback({
         "
       />
       {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+      {resolvedLabel !== null && !isLoading && (
+        <span className="text-xs text-emerald-600 dark:text-emerald-400">{resolvedHint}</span>
+      )}
     </div>
   );
 }

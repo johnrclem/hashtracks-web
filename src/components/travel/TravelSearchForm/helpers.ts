@@ -1,4 +1,5 @@
 import { snapRadiusToTier } from "@/lib/travel/limits";
+import { DEFAULT_SEARCH_RADIUS_KM, isValidDateRange } from "@/lib/travel/url";
 import type { InitialLegValues, LegState } from "./types";
 
 export function makeEmptyLeg(id: string): LegState {
@@ -10,7 +11,7 @@ export function makeEmptyLeg(id: string): LegState {
     timezone: "",
     startDate: "",
     endDate: "",
-    radiusKm: 50,
+    radiusKm: DEFAULT_SEARCH_RADIUS_KM,
     coordsResolved: false,
   };
 }
@@ -52,7 +53,7 @@ export function legToDestParams(leg: LegState) {
 }
 
 export function legDatesValid(leg: LegState): boolean {
-  return Boolean(leg.startDate && leg.endDate && leg.startDate <= leg.endDate);
+  return isValidDateRange(leg.startDate, leg.endDate);
 }
 
 export function legReadyToSubmit(leg: LegState): boolean {
