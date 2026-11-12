@@ -9,6 +9,9 @@
  * deleted in PR B. Old rule = visible AND (lastEventDate >= today-89d at UTC noon
  * OR an upcoming CONFIRMED canonical event, incl. co-hosted via EventKennel).
  *
+ * Refuses to run (exit 1) while no Event has isScheduleOnly=true, i.e. before
+ * the first nightly evidence refresh.
+ *
  * Usage:
  *   npx tsx scripts/kennel-status-review.ts [--now YYYY-MM-DD]
  * Against production add BACKFILL_ALLOW_SELF_SIGNED_CERT=1 (a read).
@@ -40,6 +43,21 @@ const cell = (s: string | null | undefined): string =>
   (s ?? "-").replaceAll("|", "\\|").replaceAll("\n", " ");
 
 async function run(prisma: PrismaClient, now: Date): Promise<void> {
+  // Before the first evidence refresh no event is flagged schedule-only, so
+  // generated runs still count as runs and this list would be wrong.
+  const flagged = await prisma.event.findFirst({
+    where: { isScheduleOnly: true },
+    select: { id: true },
+  });
+  if (!flagged) {
+    console.error(
+      "No event is flagged schedule-only yet, so the evidence refresh has not run. " +
+        "Wait for the first nightly refresh (the 12:00 UTC audit), then run this again.",
+    );
+    process.exitCode = 1;
+    return;
+  }
+
   const todayNoon = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12),
   );
