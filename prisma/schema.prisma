@@ -43,6 +43,8 @@ model User {
   // Travel Mode saved searches
   travelSearches      TravelSearch[]
   travelDestinations  TravelDestination[]
+  // Kennel status confirmations
+  kennelConfirmations KennelConfirmation[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 }
@@ -168,6 +170,11 @@ model Kennel {
   walkersWelcome Boolean? // null = unknown
   isHidden       Boolean   @default(false) // Hide from public directory/hareline
   lastEventDate  DateTime? // Cached: MAX(event.date) for activity status computation
+  lastRunSeenAt    DateTime? // Cached: latest past real (non-schedule-only) event date; written by Task 3's status refresh
+  nextRunPostedAt  DateTime? // Cached: earliest upcoming real (non-schedule-only) event date; written by Task 3's status refresh
+  lastConfirmedAt  DateTime? // Cached: latest un-reverted RUNNING KennelConfirmation.observedAt; written by Task 3's refresh and Task 6's actions
+  stoppedAt        DateTime? // Cached: observedAt of an un-reverted STOPPED KennelConfirmation, else null; written by Task 3's refresh and Task 6's actions
+  confirmations  KennelConfirmation[]
 
   aliases           KennelAlias[]
   sources           SourceKennel[]
@@ -394,6 +401,7 @@ model Event {
   isSeriesParent    Boolean     @default(false)
   parentEventId     String?
   status            EventStatus @default(CONFIRMED)
+  isScheduleOnly    Boolean     @default(false) // True when every backing RawEvent is STATIC_SCHEDULE (a projection, not evidence a run happened); written by the merge pipeline (Task 3)
   adminCancelledAt        DateTime? // null = no admin override; non-null = locked
   adminCancelledBy        String?   // Clerk userId of admin who set the override
   adminCancellationReason String?   // free-text reason; validated 3–500 chars at action layer
@@ -1369,4 +1377,29 @@ model TravelDestination {
   // Date range invariant: endDate >= startDate. Enforced via CHECK constraint
   // in migration SQL since Prisma can't express CHECK constraints in schema.prisma.
   // Application layer also validates as a second line of defense.
+}
+
+enum KennelConfirmationKind {
+  RUNNING
+  STOPPED
+}
+
+/// Admin-recorded evidence that a kennel is (still) running or has stopped.
+/// Written by Task 6's server actions; drives Kennel.lastConfirmedAt / stoppedAt.
+model KennelConfirmation {
+  id                 String                 @id @default(cuid())
+  kennelId           String
+  kennel             Kennel                 @relation(fields: [kennelId], references: [id], onDelete: Cascade)
+  kind               KennelConfirmationKind
+  observedAt         DateTime // UTC noon of the day the evidence was observed
+  note               String
+  url                String?
+  createdById        String
+  createdBy          User                   @relation(fields: [createdById], references: [id])
+  disabledSourceIds  String[]               @default([]) // Sources disabled by a STOPPED confirmation (restored on revert)
+  deactivatedRuleIds String[]               @default([]) // ScheduleRules deactivated by a STOPPED confirmation (restored on revert)
+  revertedAt         DateTime?
+  createdAt          DateTime               @default(now())
+
+  @@index([kennelId, kind, observedAt])
 }
