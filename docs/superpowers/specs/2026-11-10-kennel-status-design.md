@@ -1,8 +1,8 @@
 # Kennel status: "Is it running?" and "What do we have?"
 
-**Date:** 2026-11-10 · **Updated:** 2026-11-11 · **Status:** draft, revised after an adversarial
-review and a builder check. The owner answered the four open questions on 2026-11-11 (recorded
-below). The design as a whole is not yet approved.
+**Date:** 2026-11-10 · **Updated:** 2026-11-12 · **Status:** approved by the owner on 2026-11-12,
+after an adversarial review, a builder check and the owner's answers to its four open questions
+(recorded below).
 **Replaces in part:** [2026-03-30-kennel-activity-status-design.md](2026-03-30-kennel-activity-status-design.md)
 **Related:** [core-users.md](../../core-users.md) · [now-list-plan.md](../../now-list-plan.md)
 
@@ -240,8 +240,7 @@ dialog. Revisit when there are users to supply it.
 
 ## Decided by the owner
 
-- Test the split between "is it running" and "what we have" (2026-11-10). Not yet approved as
-  final.
+- Split "is it running" from "what we have" (tested 2026-11-10; design approved 2026-11-12).
 - List Half-Mind kennels we lack when confident they're live and we can link to their hareline.
 - Kennel-officer tools are out of scope.
 

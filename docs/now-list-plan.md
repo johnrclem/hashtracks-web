@@ -168,8 +168,8 @@ status first would delay the homepage by weeks and blur the before/after reading
 ## Next: kennel status (T2, widened)
 
 **Design:** [superpowers/specs/2026-11-10-kennel-status-design.md](superpowers/specs/2026-11-10-kennel-status-design.md)
-(draft, revised after an adversarial review and a builder check; the owner answered its four
-open questions on 2026-11-11).
+(approved by the owner on 2026-11-12, after an adversarial review, a builder check and the
+owner's answers to its four open questions).
 
 **The problem:** today's badge is one verdict computed from our own run data, so it can't tell
 "the kennel stopped" from "we don't get its runs". Live kennels we can't read look dead, and
@@ -183,13 +183,13 @@ and credit, without looking dead or alive by accident.
 
 | PR | What | Size | Depends on |
 |---|---|---|---|
-| **Status 1** | Shared "real run" rule; status from real evidence; one dated line for non-running kennels; coverage on the kennel page; admin confirmations and stop; generated runs labeled in Travel and the Hareline | M–L | Design approval; hand review of the ~37 kennels that leave Running, in the week before release |
+| **Status 1** | Shared "real run" rule; status from real evidence; one dated line for non-running kennels; coverage on the kennel page; admin confirmations and stop; generated runs labeled in Travel and the Hareline | M–L | Design approved 2026-11-12; hand review of the ~37 kennels that leave Running, in the week before release |
 | **Status 2** | Travel bridge ("Other kennels near [place]"), then Half-Mind as a source: sync into discovery like Harrier Central / Hash Rego, one-region pilot reviewed by the owner, listing-only kennels (`noindex`), linked back to Half-Mind | M | Status 1; finding a Half-Mind data endpoint that answers ordinary requests |
 
 The first draft's hasher confirmations phase is cut: there aren't enough signed-in users yet.
 Four weeks after Status 1, review with live data whether generated runs belong under Likely.
 
-Sizes are guesses until the design is approved and planned.
+Sizes are guesses until Status 1 is planned.
 
 ## Risks
 
