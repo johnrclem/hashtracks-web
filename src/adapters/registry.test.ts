@@ -128,7 +128,7 @@ describe("getAdapter", () => {
   });
 
   it("returns BarnesHashAdapter for barnesh3.com URL", () => {
-    expect(getAdapter("HTML_SCRAPER", "http://www.barnesh3.com/HareLine.htm")).toBeInstanceOf(BarnesHashAdapter);
+    expect(getAdapter("HTML_SCRAPER", "https://barnesh3.com/hareline/")).toBeInstanceOf(BarnesHashAdapter);
   });
 
   it("returns OCH3Adapter for och3.org.uk URL", () => {
