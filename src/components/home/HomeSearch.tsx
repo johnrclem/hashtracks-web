@@ -101,6 +101,8 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
     if (!dates) return;
     const text = typedText.current.trim();
     const target = place ?? (text ? await resolveTyped(text) : null);
+    // The visitor edited the field while the lookup ran: that result is stale.
+    if (!place && typedText.current.trim() !== text) return;
     if (target) {
       search(target, dates, false);
       return;
@@ -142,7 +144,9 @@ export function HomeSearch({ guessedPlace }: Readonly<HomeSearchProps>) {
             value={guessedPlace?.label ?? ""}
             onTextChange={(text) => {
               typedText.current = text;
+              if (error) setError(null);
             }}
+            submitOnEnter
             onChange={(selected) => {
               setPlace(selected);
               setError(null);

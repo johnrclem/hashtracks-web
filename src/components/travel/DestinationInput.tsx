@@ -28,6 +28,11 @@ interface DestinationInputProps {
   resolvedHint?: string;
   /** Called with the raw text on every edit, so a form can resolve typed-but-unpicked text. */
   onTextChange?: (text: string) => void;
+  /**
+   * Let Enter submit the surrounding form unless a suggestion is highlighted.
+   * The form then resolves typed-but-unpicked text itself (see `onTextChange`).
+   */
+  submitOnEnter?: boolean;
 }
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
@@ -56,6 +61,7 @@ function DestinationAutocomplete({
   id,
   resolvedHint = "Location confirmed",
   onTextChange,
+  submitOnEnter = false,
 }: DestinationInputProps) {
   const placesLib = useMapsLibrary("places") as typeof google.maps.places | null;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -224,13 +230,16 @@ function DestinationAutocomplete({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
+      const highlighted = showDropdown && selectedIndex >= 0 && suggestions[selectedIndex];
+      // Nothing highlighted: let the surrounding form submit.
+      if (!highlighted && submitOnEnter) return;
       e.preventDefault();
-      if (showDropdown && selectedIndex >= 0 && suggestions[selectedIndex]) {
+      if (highlighted) {
         // Both selectPlace + fallbackGeocode handle their own errors
         // internally (try/catch with fallback). The .catch() here is a
         // no-op that exists to satisfy ESLint's no-floating-promises
         // without using the `void` operator that SonarCloud flags.
-        selectPlace(suggestions[selectedIndex]).catch(() => {});
+        selectPlace(highlighted).catch(() => {});
       } else if (inputValue.trim() && !isResolved) {
         // No suggestion selected — geocode server-side
         fallbackGeocode(inputValue).catch(() => {});
@@ -303,6 +312,7 @@ function DestinationAutocomplete({
               setShowDropdown(false);
               setIsResolved(false);
               currentSelectionRef.current = "";
+              onTextChange?.("");
               onClear();
               inputRef.current?.focus();
             }}
@@ -372,6 +382,7 @@ function DestinationInputFallback({
   autoFocus,
   id,
   onTextChange,
+  submitOnEnter = false,
 }: DestinationInputProps) {
   const [inputValue, setInputValue] = useState(value);
   const [isLoading, setIsLoading] = useState(false);
@@ -420,7 +431,11 @@ function DestinationInputFallback({
             onClear();
           }
         }}
-        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSubmit(); } }}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter" || submitOnEnter) return;
+          e.preventDefault();
+          handleSubmit();
+        }}
         placeholder="City or destination"
         aria-label={id ? undefined : "Destination"}
         autoFocus={autoFocus}
