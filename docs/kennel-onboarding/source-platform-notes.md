@@ -3219,3 +3219,21 @@ Verified by `curl` of `https://lagosh3.com/wp-json/wp/v2/posts?per_page=100` (69
   `curl -s -D headers.txt -o body` instead before calling a source dead.
 - **Payment boilerplate in Nigerian/African club posts often includes bank account numbers and phone numbers**
   in every post. Keep it out of `description` and scrub committed fixtures.
+
+## Google Sheets with one tab per YEAR + dot-separated dates (learned from Zagreb H4, 2026-11-12, VERIFIED via curl)
+- **Year-per-tab sheets need no `gid`.** Zagreb's sheet has tabs `2026`, `2025`, … `2011`. `GoogleSheetsAdapter`
+  already auto-discovers tabs whose titles start with a digit (Sheets API, newest-first) and stops at the first
+  tab with no events in the window. Leave out `gid`/`tabs` so the kennel's next-year tab is picked up
+  automatically. A fixed `gid` (the one in the website embed) silently goes stale every January.
+- List every tab and its gid without an API key: `curl -sL <sheet>/htmlview | grep -oE '\{name: "[^"]*"[^}]*gid: "[0-9]+"'`.
+  `gviz/tq?tqx=out:csv&sheet=<tab name>` returns the same rows the adapter reads.
+- **`parseDate` (as of 2026-11-12) splits only on `/` and `-`.** European `D.M.YYYY` (`2.1.2026`) and
+  `D.M.YYYY.` with a trailing dot return `null`, so every row is dropped. `dayFirst: true` alone doesn't fix
+  it; the adapter needs the `.`-separator change (Zagreb handoff). Once that lands, dot-dated sheets are
+  config-only.
+- **Hyperlinked cells lose their target in every anonymous export.** Zagreb's `RUN START` map links were absent
+  from the CSV, the gviz JSON and the rendered `pubhtml` (0 anchors). Don't promise `locationUrl` from a sheet
+  hyperlink without checking.
+- Old year tabs drift a lot: duplicated column blocks, a missing header row, a different layout in the oldest
+  tabs, December tabs that preview next year's first run, and a tab carrying the next year's rows shifted by
+  a week. For a backfill, prefer the tab whose name matches the date's year and check run-number monotonicity.
