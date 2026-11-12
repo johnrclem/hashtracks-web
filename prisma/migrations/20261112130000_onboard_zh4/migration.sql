@@ -62,21 +62,23 @@ WHERE k."kennelCode" = 'zh4'
 ON CONFLICT ("kennelId", alias) DO NOTHING;
 
 -- 4. Seasonal schedule rules (seed `scheduleRules`; Vercel never seeds, so inline).
+--    The summer rule is MEDIUM and anchored on the latest summer run (2026-06-01):
+--    the summer cadence has been irregular.
 INSERT INTO "ScheduleRule" (
   id, "kennelId", rrule, "anchorDate", "startTime", confidence, source, "sourceReference",
   "lastValidatedAt", "isActive", label, "validFrom", "validUntil", "displayOrder",
   "createdAt", "updatedAt"
 )
 SELECT
-  t.id, k.id, t.rrule, t.anchor, t.start_time, 'HIGH'::"ScheduleConfidence",
+  t.id, k.id, t.rrule, t.anchor, t.start_time, t.conf::"ScheduleConfidence",
   'SEED_DATA'::"ScheduleRuleSource", 'KennelSeed.scheduleRules[zh4]',
   NOW() AT TIME ZONE 'UTC', true, t.label, t.valid_from, t.valid_until, t.ord,
   NOW() AT TIME ZONE 'UTC', NOW() AT TIME ZONE 'UTC'
 FROM "Kennel" k,
      (VALUES
-       ('sr_zh4_1', 'FREQ=WEEKLY;INTERVAL=2;BYDAY=SA', '2026-11-14', '11:00', 'Autumn–spring Saturdays', '09-15', '04-30', 0),
-       ('sr_zh4_2', 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO', '2025-05-12', '18:00', 'Summer Monday evenings', '05-01', '09-14', 1))
-       AS t(id, rrule, anchor, start_time, label, valid_from, valid_until, ord)
+       ('sr_zh4_1', 'FREQ=WEEKLY;INTERVAL=2;BYDAY=SA', '2026-11-14', 'HIGH', '11:00', 'Autumn–spring Saturdays', '09-15', '04-30', 0),
+       ('sr_zh4_2', 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO', '2026-06-01', 'MEDIUM', '18:00', 'Summer Monday evenings', '05-01', '09-14', 1))
+       AS t(id, rrule, anchor, conf, start_time, label, valid_from, valid_until, ord)
 WHERE k."kennelCode" = 'zh4'
 ON CONFLICT ("kennelId", rrule, source) DO NOTHING;
 

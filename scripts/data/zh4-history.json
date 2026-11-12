@@ -586,8 +586,8 @@
     ],
     "runNumber": 1846,
     "hares": "Gusano Rojo",
-    "location": "\"Planinarski dom Nad Vugrovcem (Mountain House above Vugrovec) Vugrovec Gornji",
-    "locationUrl": "https://www.google.com/maps/search/?api=1&query=%22Planinarski%20dom%20Nad%20Vugrovcem%20(Mountain%20House%20above%20Vugrovec)%20Vugrovec%20Gornji",
+    "location": "Planinarski dom Nad Vugrovcem (Mountain House above Vugrovec) Vugrovec Gornji",
+    "locationUrl": "https://www.google.com/maps/search/?api=1&query=Planinarski%20dom%20Nad%20Vugrovcem%20%28Mountain%20House%20above%20Vugrovec%29%20Vugrovec%20Gornji",
     "startTime": "10:45",
     "sourceUrl": "https://docs.google.com/spreadsheets/d/1lYHbq66X4aPfirLQR0jBtVsYIX3qLTwgEpOQo1FgM-M"
   },
@@ -7478,7 +7478,7 @@
       "zh4"
     ],
     "runNumber": 2427,
-    "hares": "Antibiotics\nBring headlight or any kind of light",
+    "hares": "Antibiotics",
     "location": null,
     "startTime": "11:00",
     "sourceUrl": "https://docs.google.com/spreadsheets/d/1lYHbq66X4aPfirLQR0jBtVsYIX3qLTwgEpOQo1FgM-M"

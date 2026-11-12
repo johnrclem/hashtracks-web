@@ -27,7 +27,8 @@
  *   #2501 "6.11.2025" → 2025-12-06 (after #2500 22.11.2025)
  * Other edits: #2060 "Hash Weekend" (same date and time as #2059) has no
  * startTime, so merge keeps both runs; #1797's hare is omitted (the hash name
- * contains a racial slur).
+ * contains a racial slur); #2427's hare cell drops a trailing "Bring headlight…"
+ * note; #1846's start point loses a stray leading quote.
  *
  * Fill: hares 698, location 593, startTime 715, runNumber 716, title 0 (merge
  * synthesizes "Zagreb H4 Trail #N").

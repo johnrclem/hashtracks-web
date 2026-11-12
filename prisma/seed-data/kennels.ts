@@ -6823,7 +6823,7 @@ export const KENNELS: KennelSeed[] = [
       scheduleNotes: "Fortnightly Saturday 11:00 from autumn to spring; Monday 18:00 evenings in summer; anniversary run every 2 January. Start point per run on the ZH4 run-schedule sheet.",
       scheduleRules: [
         { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", startTime: "11:00", label: "Autumn–spring Saturdays", anchorDate: "2026-11-14", validFrom: "09-15", validUntil: "04-30", displayOrder: 0 },
-        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO", startTime: "18:00", label: "Summer Monday evenings", anchorDate: "2025-05-12", validFrom: "05-01", validUntil: "09-14", displayOrder: 1 },
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO", confidence: "MEDIUM", startTime: "18:00", label: "Summer Monday evenings", anchorDate: "2026-06-01", validFrom: "05-01", validUntil: "09-14", displayOrder: 1 },
       ],
       // hashCash / gm / hareRaiser left blank: unverifiable or stale (2019 election post).
       description:
