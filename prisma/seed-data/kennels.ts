@@ -1637,6 +1637,13 @@ export const KENNELS: KennelSeed[] = [
       // Bare "bsh3" is Black Sheep H3 (Atlanta) → CH-suffixed code; bare "BSH3" alias omitted.
       kennelCode: "bsh3-ch", shortName: "Basel-Stadt H3", fullName: "Basel-Stadt Hash House Harriers",
       region: "Basel", country: "Switzerland",
+      website: "https://basel.harrier.eu.org/",
+      logoUrl: "/kennel-logos/bsh3-ch.gif", // self-hosted from the site menu's img/bsh3-logo.gif; magic bytes confirmed GIF
+      contactEmail: "onsec-bsh3@harrier.eu.org", // On-Sec role alias, the kennel RSS feed's managingEditor
+      mailingListUrl: "https://basel.harrier.eu.org/lists/",
+      foundedYear: 1996, // contacts page: "GM 1996-2003 (Runs #1 - #94)"; Half-Mind #1073 first hash 1996-01-13
+      founder: "Richard 'Jammies' Rader (co-founders Mel 'Mad Max' Byron, Martin 'Mealticket' Palmer)", // Half-Mind #1073
+      // Parent hash (Half-Mind): Orlando H3 — not in HashTracks, so no parentKennelCode.
       hashCash: "CHF 5",
       walkersWelcome: true,
       // Legacy flat fields kept for fallback only — scheduleRules below are authoritative.
@@ -2288,6 +2295,9 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Friday", scheduleTime: "7:30 PM", scheduleFrequency: "Full Moon",
       scheduleNotes: "Friday nearest the full moon, 7:30 PM.",
       foundedYear: 1991, // Half-Mind #447 DOB 1991-06-06; calendar "HOTH3 Analversary" series anchored 1991-06-06
+      founder: "Deep Throat (co-founder Rearender)", // Half-Mind #447 (founder field spells it "Deap"; its contact list "Deep")
+      // Parent hash: Half-Mind #447 gives both Yongsan Kimchi H3 and Samurai H3 — unresolved, left unset.
+      hashCash: "$5", // Hill Country GCal run notes: #501 "Bring $5.00", #503 "five bucks", #504 "Bring: … -$5"
       logoUrl: "/kennel-logos/hoth3.png", // self-hosted from hch3.net/images/HOTc.PNG; magic bytes confirmed PNG
       description: "Full-moon hash for the Killeen / Belton / Harker Heights area, running on the Friday nearest each full moon at 7:30 PM since June 1991. Sister kennel of Hill Country H3.",
     },
@@ -3090,6 +3100,8 @@ export const KENNELS: KennelSeed[] = [
       logoUrl: "/kennel-logos/boiseh3.png",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:40 PM", scheduleFrequency: "Weekly",
       hashCash: "$7",
+      foundedYear: 1988, // Half-Mind #247 first hash 1988-03-28
+      founder: "Dave & Karma", // Half-Mind #247. Parent hash Third Herd H3 is not in HashTracks.
       description: "Weekly Monday-night hash in Boise, Idaho. 'A drinking club with a running problem.' Part of the worldwide Hash House Harriers tradition; meets every Monday for a run and beer.",
       latitude: 43.615, longitude: -116.2023,
     },
@@ -3107,16 +3119,19 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Saturday",
       scheduleTime: "3:30 PM", // most common 2026 pre-lube; real times vary 12:30–3:30 PM
       scheduleFrequency: "Monthly",
-      scheduleNotes: "Mostly the 3rd Saturday of the month; start times vary, roughly 12–4 pm.",
+      // missoulahash.org: "Organized hashes occur every 4 weeks or so with a casual pickup hash in between."
+      scheduleNotes: "Organized hash mostly on the 3rd Saturday of the month (start times vary, roughly 12–4 pm), with a casual pickup hash in between. Informal Wednesday Night Hump Club from 5 PM; location varies.",
       scheduleRules: [
         { rrule: "FREQ=MONTHLY;BYDAY=3SA", confidence: "MEDIUM", label: "3rd Saturday (usual)", displayOrder: 0 },
       ],
       foundedYear: 2002, // HHH Genealogy: "First Run: 30 Sep 2002"; 100th trail 2015-01-17
+      founder: "Brian 'Clark Kunt' Kerns", // Half-Mind #317: "Founded Aug 2002 by Brian \"Clark Kunt\" Kerns, formerly from Houston HHH"
+      parentKennelCode: "h4-tx", // Half-Mind #317 parent hash: Houston H3
       hashCash: "$5",
       dogFriendly: true, // post "Trail:" lines ("A to A; Dog friendly")
       walkersWelcome: true, // 2021 post: "Walker/Runner/Dog friendly"
       description:
-        "Missoula, Montana's Hash House Harriers: a drinking club with a running problem. Hellgate meets monthly, mostly on the 3rd Saturday, for a hounds-versus-hares trail around town or up into the mountains. Annual favorites include a Red Dress Run and a summer campout. No running experience needed; virgins and visiting hashers are welcome.",
+        "Missoula, Montana's Hash House Harriers: a drinking club with a running problem. Hellgate usually meets twice a month: an organized hounds-versus-hares trail every four weeks or so, mostly on the 3rd Saturday, around town or up into the mountains, with a casual pickup hash in between. Locals also gather for an informal Wednesday Night Hump Club. Annual favorites include a Red Dress Run and a summer campout. No running experience needed; virgins and visiting hashers are welcome.",
       latitude: 46.87,
       longitude: -114,
       // contactEmail omitted on purpose: Half-Mind lists individuals' personal details.
@@ -3427,6 +3442,10 @@ export const KENNELS: KennelSeed[] = [
       ],
       hashCash: "$8 ($4 non-drinkers)",
       foundedYear: 1987,
+      founder: "Geoff 'Little Tooter' Jumper", // homepage: "DH3's inaugural run was held on June 28, 1987, when founder, Geoff “Little Tooter” Jumper…"
+      parentKennelCode: "lrh3", // Half-Mind #376 parent hash: Little Rock H3
+      mailingListUrl: "https://eepurl.com/be8tcf", // homepage "Join The Email List" (Mailchimp)
+      logoUrl: "/kennel-logos/dh3-oh.png", // self-hosted WP site icon (cropped-favicon512, resized to 160px); magic bytes confirmed PNG
       description: "Ohio's oldest hash kennel — first run June 28, 1987. Hashes every other Saturday plus full moon evenings, with annual specials like the New Year's Day Hangover Hash, Spring Formal, World Peace Through Beer and a Red Dress run joint with sister kennel Sin City H4. Parent of SWOT, Miami Valley, UnMASKED, ON-IN and DH4.",
       latitude: 39.76, longitude: -84.19,
     },
@@ -4676,6 +4695,8 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Saturday",
       scheduleTime: "4:00 PM", // 12-hour Kennel.scheduleTime: "3:45pm SHOW, Map is posted @ 4:00pm"
       scheduleFrequency: "Weekly",
+      scheduleNotes: "Show at 3:45 PM; the trail map is posted at 4:00 PM.",
+      contactEmail: "guamhash@gmail.com", // homepage WHEN/WHERE "Email:" block — the kennel's general address
       description:
         "The original Guam hash and Mother Hash of Micronesia, founded 1981 — Guam's Worst Drinking Club, drinkers with a running problem. A-to-B 'live' trails through jungle, swamp, mountain, river and coastline every Saturday.",
       latitude: 13.4732, // PDN building meeting point, Hagåtña
@@ -5025,9 +5046,13 @@ export const KENNELS: KennelSeed[] = [
         "Devonport Hash House Harriers — 'The Odd Sock Hash' — a weekly Monday-evening hash on Tasmania's " +
         "north-west coast, running around Devonport, Ulverstone, Latrobe, Port Sorell and the surrounding area. " +
         "6:30pm for a 6:45pm sharp start; bring a torch.",
+      foundedYear: 1980, // Half-Mind #1539 first hash 1980-11-01; run #2341 on 2026-11-09 fits a weekly ~1980 start
+      founder: "Tony 'Black Traka' Morrell (co-founder Clive 'Beast of Bahai' Olberry)", // Half-Mind #1539; spelling per dhash.com
+      // Parent hash (Half-Mind): Burnie H3 — not in HashTracks. contactEmail omitted: the only address is an individual's.
+      logoUrl: "/kennel-logos/devonport-h3.jpg", // self-hosted Half-Mind c1539 footprints (same motif as the FB avatar); magic bytes confirmed JPEG
       latitude: -41.1789,
       longitude: 146.351,
-      // foundedYear / dogFriendly / walkersWelcome: unverified — omitted. logo: only a 1100x200 banner — omitted.
+      // dogFriendly / walkersWelcome: unverified — omitted.
     },
     {
       kennelCode: "mel-new-moon", shortName: "Melbourne New Moon", fullName: "Melbourne New Moon Hash House Harriers",
@@ -5639,6 +5664,7 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/groups/1111927273013754",
       instagramHandle: "cebu_hash_house_harriers",
       foundedYear: 1997, // /about/a-brief-history-of-cebu-hhh/: "Cebu Hash started in July 1997"
+      founder: "Pothole, Stubbles & Mrs. Stubbles", // same history page; hash names only
       scheduleDayOfWeek: "Sunday",
       scheduleTime: "2:00 PM", // home: "we often meet around 2pm or sometimes earlier"
       scheduleFrequency: "Weekly",
@@ -6432,7 +6458,10 @@ export const KENNELS: KennelSeed[] = [
       scheduleFrequency: "Weekly",
       hashCash: "50 Lei", // carrd: "Cost: 50 Lei"
       walkersWelcome: true, // carrd: "drinking/running/walking club"
-      // logoUrl omitted — the Carrd site has photos only, no logo.
+      whatsappUrl: "https://chat.whatsapp.com/FqSN2eIcR2U9UoxpM6Tha0", // carrd: "We use WhatsApp as our primary source for trail information"
+      founder: "Leo Henneberry", // Half-Mind #1051 (which dates the first hash 1987-09-09; the carrd's own "1986" is kept)
+      parentKennelCode: "warsaw-h3", // Half-Mind #1051 parent hash: Warsaw
+      // logoUrl omitted — the Carrd site has photos only; Half-Mind's c1051 "logo" is a 2025 Brewfest graphic.
       description:
         "The Bucharest Hash House Harriers — a drinking/running/walking club established in 1986. " +
         "A mixed group of expats and locals exploring the city on Sunday afternoon trails that end " +
@@ -6447,7 +6476,10 @@ export const KENNELS: KennelSeed[] = [
       region: "Bucharest",
       country: "Romania",
       website: "https://bucharesthash.carrd.co/",
-      facebookUrl: "https://www.facebook.com/BucharestHashHouseHarriersandHarrierettes",
+      facebookUrl: "https://www.facebook.com/groups/526499763230605", // "Bucharest Full Moon H3" group (Half-Mind #1052)
+      instagramHandle: "bucharest_hash", // shared with BH3; carrd Contact section
+      whatsappUrl: "https://chat.whatsapp.com/FqSN2eIcR2U9UoxpM6Tha0", // shared BH3/BFMH3 trail-info group on the carrd
+      logoUrl: "/kennel-logos/bfmh3-ro.jpg", // self-hosted carrd image07 (BFMH3 badge, cropped and resized to 256px); magic bytes confirmed JPEG
       foundedYear: 2025, // first Full Moon run (FM #1) on the shared hareline: 14 Feb 2025
       scheduleDayOfWeek: "Friday",
       scheduleTime: "7:00 PM", // carrd: "Meets monthly on the Friday closest to the full moon at 19:00"
@@ -6766,6 +6798,9 @@ export const KENNELS: KennelSeed[] = [
       website: "https://grenadahash.com/",
       facebookUrl: "https://www.facebook.com/groups/grenadahash", // gotothehash.net/caribbean.html (Feb 2026)
       foundedYear: 1985, // /about-us/: "founded by Paul “Rigor Mortis” Slinger in 1985"
+      founder: "Paul 'Rigor Mortis' Slinger (co-founder John Kelly)", // /about-us/; co-founder from Half-Mind #48
+      // Parent hash (Half-Mind #48): Port of Spain H3 — not in HashTracks. Half-Mind's club email is not
+      // published on grenadahash.com (contact form only), so contactEmail stays unset.
       // No scheduleTime: the On On moves with the season (4:00 PM in Aug, 3:30 PM in Nov).
       scheduleDayOfWeek: "Saturday",
       scheduleFrequency: "Weekly",
@@ -7010,6 +7045,11 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "da2b", shortName: "DA2B", fullName: "Devon A to B Hash House Harriers",
       region: "Plymouth", country: "UK",
       website: "https://devonatobh3.blogspot.com/",
+      facebookUrl: "https://www.facebook.com/groups/268975896556665/", // "Devon A To B Hash" group (Half-Mind #1121)
+      foundedYear: 2007, // Half-Mind #1121 first hash 2007-06-02; blog "Archived words and photos 2007-2010"
+      founder: "Richard 'Cathusalem' Padmore", // Half-Mind #1121
+      parentKennelCode: "isca-h3", // Half-Mind #1121 parent hash: Isca H3
+      // contactEmail omitted: the blog Contacts page (archive ends 2018) can't confirm the Hare Raiser box is still read.
       logoUrl: "/kennel-logos/da2b.png", // self-hosted from HC blob; magic bytes confirmed PNG
       scheduleDayOfWeek: "Saturday", scheduleTime: "12:30 PM", scheduleFrequency: "Monthly",
       scheduleNotes: "First Saturday of the month — A-to-B 'mystery tour', 8+ miles, beer stops, transport back to start.",
@@ -7068,6 +7108,9 @@ export const KENNELS: KennelSeed[] = [
         { rrule: "CADENCE=WEEKLY;BYDAY=SA", confidence: "LOW", startTime: "14:30", label: "Saturday afternoon" },
       ],
       hashCash: "₦3,000", // HC price 3000, currency NGN
+      // First run 15 Nov 1997 (HHH Genealogy + Half-Mind #930); HC run #700 on 2022-11-25 is the "Silver Jubilee".
+      foundedYear: 1997,
+      founder: "Tony 'Hash Mouth' Bowles (co-founder Brian Smith)", // HHH Genealogy + Half-Mind #930
       latitude: 9.0765, longitude: 7.3986,
       description:
         "Abuja Hash House Harriers — the Hash House Harriers kennel of Nigeria's Federal Capital Territory. 'A drinking " +
@@ -7085,15 +7128,26 @@ export const KENNELS: KennelSeed[] = [
         { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", confidence: "MEDIUM", startTime: "17:00", anchorDate: "2026-10-31", label: "Fortnightly Saturday" },
       ],
       // hashCash omitted — HC "5 TL" is implausible for a run fee; foundedYear unverifiable.
+      facebookUrl: "https://www.facebook.com/IncirlikH3/", // FB page "Incirlik Hash House Harriers"
+      description:
+        "Big Lik Hash House Harriers (Incirlik H3) — the İncirlik hash near Adana, Turkey. A social club that " +
+        "runs, sings and drinks beer on fortnightly Saturday trails, always welcoming new members.",
       latitude: 37.0017, longitude: 35.4259, // Incirlik Air Base
     },
     {
       kennelCode: "hannover-h3", shortName: "Hannover H3", fullName: "Hannover Hash House Harriers",
       region: "Hannover", country: "Germany",
+      website: "https://www.hannoverhash.de/",
       logoUrl: "/kennel-logos/hannover-h3.png", // self-hosted from HC blob; magic bytes confirmed PNG
       // Sunday noon — both HC runs (#1088 2026-10-25, #1089 2026-11-29) are Sundays (the handoff said Saturday).
-      scheduleDayOfWeek: "Sunday", scheduleTime: "12:00 PM",
-      scheduleNotes: "Cadence unconfirmed (two Harrier Central runs so far); per-event dates and times come from Harrier Central.",
+      // hannoverhash.de/hareline: "We run every second Sunday and every last Sunday of the month".
+      scheduleDayOfWeek: "Sunday", scheduleTime: "12:00 PM", scheduleFrequency: "Twice monthly",
+      scheduleNotes: "Second and last Sunday of the month; per-event dates and times come from Harrier Central.",
+      foundedYear: 1984, // Half-Mind #1011 first hash 1984-12-27; run #1091 in Dec 2026 fits
+      founder: "Jürgen 'Old Rock' Ruder", // Half-Mind #1011. Parent hash Yangon H3 is not in HashTracks.
+      description:
+        "Hannover Hash House Harriers — 'a drinking club with a running problem', hashing in and around " +
+        "Hannover since 1984 on the second and last Sunday of each month.",
       hashCash: "€5", // HC price 5, € currency symbol
       latitude: 52.3759, longitude: 9.732,
     },
@@ -7109,9 +7163,19 @@ export const KENNELS: KennelSeed[] = [
       region: "Bridgetown", country: "Barbados",
       logoUrl: "/kennel-logos/bbh3.png", // self-hosted from HC blob; magic bytes confirmed PNG
       scheduleDayOfWeek: "Sunday", scheduleTime: "6:00 AM", // every HC run is a Sunday 06:00–06:30
+      // Half-Mind #765: "Bash is the last Sunday of each month"; the 2026-27 hareline (#106-#118) agrees,
+      // except a pre-Christmas ride on Dec 20. Half-Mind's 08:00 loses to HC's 06:00.
+      scheduleFrequency: "Monthly",
+      scheduleNotes: "Last Sunday of the month (the occasional exception, such as a pre-Christmas ride).",
+      website: "https://hashcruise2020.simplesite.com/313623591", // BBH3 hareline page (Half-Mind #765)
+      facebookUrl: "https://www.facebook.com/groups/776267715843858/", // "Barbados Bike Hash House Harriers" group
+      foundedYear: 2016, // Half-Mind #765 first hash 2016-03-27 (the last Sunday of March 2016)
+      founder: "Francie 'China Brush' Ammon", // Half-Mind #765; admin of the FB group
+      parentKennelCode: "barbados-h3", // Half-Mind #765 parent hash: Barbados H3
       description:
         "Barbados Bike H3 — the Barbados bike hash ('bike bash'), a mountain-bike sibling of the " +
-        "Barbados Hash House Harriers, riding around Christ Church / Bridgetown, Barbados.",
+        "Barbados Hash House Harriers, riding around Christ Church / Bridgetown, Barbados, on the last " +
+        "Sunday of each month. Helmet and mountain bike required.",
     },
     {
       kennelCode: "sunh3", shortName: "SUNH3", fullName: "Shenanagains Under Nightfall",
@@ -7138,12 +7202,18 @@ export const KENNELS: KennelSeed[] = [
       country: "UK",
       website: "https://dlh3.org.uk",
       facebookUrl: "https://www.facebook.com/groups/153125188050687",
-      scheduleFrequency: "Monthly",
+      contactEmail: "devonlunaticshashhouseharriers@gmail.com", // dlh3.org.uk mailto (email list + hare sign-up)
+      scheduleFrequency: "Full Moon", // dlh3.org.uk: "Running throughout Devon every full moon"
       scheduleTime: "7:30 PM", // 12-hr profile field; full-moon date drifts across weekdays — no fixed scheduleDayOfWeek
+      // Kennel GCal: "10th Birthday Hash" 2020-10-31 and "100th Hash" 2018-11-23 → 2010. Half-Mind #1122's
+      // 1996-11-27 first-hash date conflicts with the kennel's own calendar, which wins.
+      foundedYear: 2010,
+      founder: "Stuart 'Rambo' Bondi", // Half-Mind #1122; the GCal has "Rambo's Full Moon Memorial Hash" (2022-10-09)
+      parentKennelCode: "tvh3", // Half-Mind #1122 parent hash: Teign Valley H3 [GB 1984]
       description:
         "Devon Lunatics Hash House Harriers — a full-moon hash running throughout Devon (Exeter and the surrounding East/South Devon area). 'A drinking club with a running problem.'",
       logoUrl: "/kennel-logos/dlh3-gb.png", // self-hosted from dlh3.org.uk; magic bytes confirmed PNG
-      // foundedYear / hashCash / dogFriendly / walkersWelcome: unverifiable — omitted (flagged)
+      // hashCash / dogFriendly / walkersWelcome: unverifiable — omitted (flagged)
     },
     {
       kennelCode: "sh4",
@@ -7224,6 +7294,10 @@ export const KENNELS: KennelSeed[] = [
       website: "https://cityofexeterhhh.blogspot.com/",
       facebookUrl: "https://www.facebook.com/groups/cityofexeterh3",
       instagramHandle: "coe.h3",
+      whatsappUrl: "https://chat.whatsapp.com/FJSBEQQ7eHA29uhwELBlVS", // blog header "join our WhatsApp group"
+      contactEmail: "info@cityofexeterh3.org.uk", // intro page: "please contact us … info@CityofExeterH3.org.uk"
+      founder: "Mike 'Groucho' Rock", // Half-Mind #1114. Parent hash Laarbruch H3 is not in HashTracks.
+      // GM omitted: the blog sidebar's "Wide Receiver" is headed "2024/25 mismanagement" (stale).
       scheduleDayOfWeek: "Sunday",
       scheduleTime: "11:00 AM", // 12-hr seed convention; adapter startTime stays 24-hr "11:00"
       scheduleFrequency: "Weekly",
@@ -7288,6 +7362,9 @@ export const KENNELS: KennelSeed[] = [
       region: "Bedford",
       country: "UK",
       website: "https://www.h5hashers.org.uk/",
+      logoUrl: "/kennel-logos/h5-gb.png", // self-hosted site header images/h5logo2021_small.png; magic bytes confirmed PNG
+      contactEmail: "info@h5hashers.org.uk", // site footer "Contact us"
+      mailingListUrl: "https://www.h5hashers.org.uk/news.shtml", // nav "Join Our Mailing List" (eNews)
       foundedYear: 1991, // homepage: "Hashing since 1991"
       scheduleDayOfWeek: "Sunday",
       scheduleTime: "11:00 AM", // 12-hr; Bank Holiday Mondays 4pm (adapter startTime "16:00")
@@ -7369,6 +7446,9 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "cambridge-h3", shortName: "Cambridge H3", fullName: "Cambridge Hash House Harriers", region: "Cambridge", country: "UK",
       website: "https://www.ch3.co.uk/",
       foundedYear: 1978, // Hashtory: started from a Cambridge Evening News personal ad, 11 Sep 1978
+      founder: "Howard Taylor", // Hashtory: placed the ad; "an inaugural runner with the Bankok Hash in Thailand in 1977"
+      parentKennelCode: "bkk-h3", // Half-Mind #1104 parent hash: Bangkok H3
+      contactEmail: "enquiries@ch3.co.uk", // /contacts: "Use this for general enquiries"
       scheduleDayOfWeek: "Sunday", scheduleTime: "11:00 AM", scheduleFrequency: "Weekly",
       hashCash: "£3 (first run free)",
       description:
@@ -7549,6 +7629,10 @@ export const KENNELS: KennelSeed[] = [
       website: "https://c2h3.co.uk",
       logoUrl: "/kennel-logos/c2h3-gb.png", // self-hosted from c2h3.co.uk; magic bytes confirm PNG
       foundedYear: 1981, // History page: "established on 25th January 1981" (the 1984 meta tag is boilerplate)
+      // New to Hashing: "established on 25th January 1981 by PMW and Basil" (Half-Mind #1110: PMW = Mike Wallace;
+      // its co-founder list names others — the kennel's own site wins).
+      founder: "Mike 'PMW' Wallace & Basil",
+      parentKennelCode: "lsw-h3", // Half-Mind #1110 parent hash: Little Sai Wan H3
       walkersWelcome: true,
       // Fallback only — the iCal carries the real per-run day/time (Sunday daytimes in winter).
       scheduleFrequency: "Weekly",
@@ -7580,6 +7664,11 @@ export const KENNELS: KennelSeed[] = [
       facebookUrl: "https://www.facebook.com/chichesterhhh",
       logoUrl: "/kennel-logos/ch3-gb.avif", // self-hosted from the kennel's Harrier Central upload; magic bytes confirm AVIF
       foundedYear: 1983,
+      founder: "Phil Spooner (co-founder Andrew Tarry)", // Half-Mind #1112 (first hash 1983-09-11)
+      parentKennelCode: "motherh3", // Half-Mind #1112 parent hash: Kuala Lumpur H3
+      gm: "Cock Burns & Bika", // contacts.php "Joint Masters" (page updated 10 Nov 2026)
+      hareRaiser: "Bambi", // contacts.php "Hare Razor"
+      mailingListUrl: "https://www.chihhh.org.uk/latest.php", // "Subscribe to get 'ChichesterHashNotes' delivered by email"
       hashCash: "Free",
       dogFriendly: true,
       walkersWelcome: true,
