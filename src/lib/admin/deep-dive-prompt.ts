@@ -76,9 +76,12 @@ ${SCHEMA_GAP_FIELDS_MD}
 4. **Historical events** — does the source list past events that aren't in HashTracks? The right path depends on the source type:
    - **For API-backed sources that enumerate a complete window** (\`GOOGLE_CALENDAR\`, \`ICAL_FEED\`, \`MEETUP\`, \`HARRIER_CENTRAL\`, \`HASHREGO\`): note the event count and date range, and an admin can trigger a wide-window scrape via the per-source cron endpoint to pull them through the normal merge pipeline. Don't try to run the cron yourself — it's auth-protected.
    - **For partial-enumeration sources** (\`HTML_SCRAPER\`, \`GOOGLE_SHEETS\`, anywhere the adapter paginates, tops out at a row limit, or only shows an upcoming window): a wider scrape window is **unsafe** because the reconcile step cancels events the adapter didn't return. For those, propose a **one-shot DB insert** that adds the historical rows without touching the adapter. Count the events and summarize the available fields (title, date, start time, hares, location, description, run number, cost).
+   - File history that was never loaded with ruleSlug \`historical-events-gap\`. A run missing from inside a date range we already scrape is an adapter bug, not a history gap: give it a descriptive slug such as \`source-event-missing\`.
 5. **Stale defaults** — does the HashTracks page show default placeholder titles like "${kennel.shortName} Trail" instead of event-specific titles from the source?
 6. **Cross-reference** — does this kennel appear on aggregator sites (Harrier Central, Hash Rego, hashruns.org) with extra data we don't have?
-7. **Source coverage gap** — are there other source pages for this kennel (e.g. Facebook events, additional calendars, blog) that we don't already track?
+7. **Source coverage gap** — are there other source pages for this kennel (e.g. Facebook events, additional calendars, blog) that we don't already track? File each with ruleSlug \`source-coverage-gap\`, the page URL, and what it has that we lack (upcoming runs, history, fields).
+
+Findings filed with \`source-coverage-gap\` or \`historical-events-gap\` go to the kennel-onboarding automation, which adds sources and loads history. Use those two slugs exactly so they get there.
 8. **Half-Mind directory cross-check.**
    - **Find the listing:** search the kennel on Half-Mind's directory (${HALF_MIND_DIRECTORY_URL}) by club name and country, or open a country list such as \`${HALF_MIND_DIRECTORY_URL}p_list1.php?country=Ireland\`. The site rejects scripted requests (HTTP 406), so open it in the browser.
    - **Compare** the listing with the HashTracks kennel page: status (Alive, Sleeping or Dead, plus the last-verified date), usual schedule, website, contact, founder, first-run date and parent hash.

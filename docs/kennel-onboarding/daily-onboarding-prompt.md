@@ -148,7 +148,10 @@ the other preflight checks.
 ## Step 1 — Pick today's target
 
 **First, open `onboarding-candidate` issues.** These are audit findings about a source HashTracks
-doesn't track yet: a live kennel's untracked hareline, or a new kennel. List them with
+doesn't track yet (a live kennel's untracked hareline, or a new kennel), or about history a source
+holds that HashTracks never loaded. The audit promoter adds the label to findings filed with the
+`source-coverage-gap` or `historical-events-gap` rule. For a history gap, the handoff is a
+history backfill for an existing kennel. List them with
 `gh issue list --state open --label onboarding-candidate --json number,title,body,comments`. Skip
 any that already carry a comment linking a handoff. Take the oldest remaining one as today's target.
 It's a normal source-add or new-kennel handoff, with these extras:

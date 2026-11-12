@@ -20,6 +20,33 @@ export const ALERT_LABEL = "alert";
  *  `gh issue list -l audit:needs-decision` for triage. */
 export const NEEDS_DECISION_LABEL = "audit:needs-decision";
 
+/**
+ * Routes a finding to the nightly kennel-onboarding research task, which works
+ * these issues before its own target queue (`docs/kennel-onboarding/
+ * daily-onboarding-prompt.md`, Step 1). Applied at promotion time to findings
+ * whose rule is in {@link SOURCE_GAP_RULE_SLUGS}.
+ */
+export const ONBOARDING_CANDIDATE_LABEL = "onboarding-candidate";
+
+/**
+ * Rule slugs for "HashTracks doesn't load this": a source page we don't track,
+ * or history a source holds that was never backfilled. That's onboarding work
+ * (a new source, adapter or one-shot import), not an adapter bug. The deep-dive
+ * prompt asks for the first two; the third is a synonym earlier runs used.
+ * A run missing *inside* a window we already scrape is not on this list: that's
+ * an adapter or reconcile bug.
+ */
+export const SOURCE_GAP_RULE_SLUGS: readonly string[] = [
+  "source-coverage-gap",
+  "historical-events-gap",
+  "historical-coverage-gap",
+];
+
+/** True when a finding's rule routes it to the onboarding automation. */
+export function isSourceGapRule(ruleSlug: string): boolean {
+  return SOURCE_GAP_RULE_SLUGS.includes(ruleSlug);
+}
+
 export const STREAM_LABELS = {
   AUTOMATED: "audit:automated",
   CHROME_EVENT: "audit:chrome-event",
