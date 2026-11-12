@@ -1,5 +1,5 @@
-import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import type { Prisma } from "@/generated/prisma/client";
+import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 
 export type ActivityStatus = "active" | "possibly-inactive" | "inactive" | "unknown";
 

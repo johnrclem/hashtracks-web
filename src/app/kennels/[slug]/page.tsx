@@ -1,8 +1,8 @@
-import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import { toSlug } from "@/lib/kennel-utils";
 import { formatSchedule, stripMarkdown } from "@/lib/format";
 import { SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
