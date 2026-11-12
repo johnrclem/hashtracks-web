@@ -19,6 +19,16 @@ describe("DISPLAY_EVENT_WHERE", () => {
   });
 });
 
+describe("DISPLAY_EVENT_WHERE stopped kennels", () => {
+  it("display filter hides schedule-only runs of stopped kennels", () => {
+    expect(DISPLAY_EVENT_WHERE.NOT).toEqual({
+      isScheduleOnly: true,
+      kennel: { stoppedAt: { not: null } },
+    });
+    expect(DISPLAYABLE_EVENT_NO_PARENT_WHERE.NOT).toEqual(DISPLAY_EVENT_WHERE.NOT);
+  });
+});
+
 describe("DISPLAYABLE_EVENT_NO_PARENT_WHERE", () => {
   // Used by surfaces that address an event (or a series child) directly by id —
   // the detail-page child timeline and the crawlable per-event OG image route.
