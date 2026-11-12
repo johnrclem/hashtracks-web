@@ -401,7 +401,7 @@ model Event {
   isSeriesParent    Boolean     @default(false)
   parentEventId     String?
   status            EventStatus @default(CONFIRMED)
-  isScheduleOnly    Boolean     @default(false) // True when every backing RawEvent is STATIC_SCHEDULE (a projection, not evidence a run happened); written by the merge pipeline (Task 3)
+  isScheduleOnly    Boolean     @default(false) // True when the event has ≥1 RawEvent and every one is a schedule projection (STATIC_SCHEDULE, or a detail-less repeating GCal instance), not evidence a run happened; written by refreshScheduleOnlyFlags (src/pipeline/kennel-evidence.ts)
   adminCancelledAt        DateTime? // null = no admin override; non-null = locked
   adminCancelledBy        String?   // Clerk userId of admin who set the override
   adminCancellationReason String?   // free-text reason; validated 3–500 chars at action layer
