@@ -37,7 +37,7 @@ vi.mock("@/lib/geo", async (importOriginal) => {
   return {
     ...actual,
     extractCoordsFromMapsUrl: vi.fn(() => null),
-    geocodeAddress: vi.fn(async () => null),
+    geocodeVenue: vi.fn(async () => null),
     resolveShortMapsUrl: vi.fn(async () => null),
     reverseGeocode: vi.fn(async () => null),
     parseDMSFromLocation: vi.fn(() => null),
@@ -847,13 +847,13 @@ describe("processRawEvents", () => {
 
   it("resolves coords by geocoding the venue (not direct lat/lng) + fills map URL & locationCity", async () => {
     // Exercises the resolveCoords path that derives coords from the venue string
-    // via geocodeAddress (not raw lat/lng), the map-URL backfill, and the
+    // via geocodeVenue (not raw lat/lng), the map-URL backfill, and the
     // reverse-geocode locationCity fill (CodeRabbit nitpick). Venue is null on
     // the canonical → venue-compatible, so name + pin fill from this source.
     // (extractCoordsFromMapsUrl is stubbed to null in this file, so the goo.gl
-    // URL yields no coords — coords must come from geocodeAddress.)
-    const { geocodeAddress, reverseGeocode } = await import("@/lib/geo");
-    vi.mocked(geocodeAddress).mockResolvedValueOnce({ lat: 51.5, lng: -0.12, formattedAddress: "London, UK" } as never);
+    // URL yields no coords — coords must come from geocodeVenue.)
+    const { geocodeVenue, reverseGeocode } = await import("@/lib/geo");
+    vi.mocked(geocodeVenue).mockResolvedValueOnce({ lat: 51.5, lng: -0.12, formattedAddress: "London, UK" } as never);
     vi.mocked(reverseGeocode).mockResolvedValueOnce("London");
     mockSourceFind.mockResolvedValueOnce(sourceRow({
       trustLevel: 5,
@@ -2156,8 +2156,8 @@ describe("dropCachedCoords signal (#957)", () => {
     // Adapter emits no coords, no locationUrl, but signals the cache is stale.
     // Without dropCachedCoords, resolveCoords' existingCoords short-circuit
     // would return the stored bad pin and the geocode would never run.
-    const { geocodeAddress } = await import("@/lib/geo");
-    vi.mocked(geocodeAddress).mockResolvedValueOnce({
+    const { geocodeVenue } = await import("@/lib/geo");
+    vi.mocked(geocodeVenue).mockResolvedValueOnce({
       lat: 35.7295, lng: 139.7109, formattedAddress: "Ikebukuro, Toshima, Tokyo, Japan",
     } as never);
 
@@ -2188,9 +2188,40 @@ describe("dropCachedCoords signal (#957)", () => {
     expect(updateCall.data.longitude).toBe(139.7109);
   });
 
+  it("geocodes the venue together with its street line (town + postcode)", async () => {
+    // A bare pub name matches a same-named pub elsewhere (H5 "The Pheasant" →
+    // Great Chishill, 35 km from Bedford); the street line disambiguates it.
+    const { geocodeVenue } = await import("@/lib/geo");
+    const geoSpy = vi.mocked(geocodeVenue);
+    geoSpy.mockClear();
+    geoSpy.mockResolvedValueOnce({ lat: 52.155, lng: -0.448 } as never);
+
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, latitude: 52.03, longitude: 0.07, locationAddress: null },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({
+        location: "The Pheasant",
+        locationStreet: "Bedford, MK41 8YR",
+        latitude: undefined,
+        longitude: undefined,
+        dropCachedCoords: true,
+      }),
+    ]);
+
+    expect(geoSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ location: "The Pheasant", street: "Bedford, MK41 8YR" }),
+    );
+    const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(updateCall.data.latitude).toBe(52.155);
+  });
+
   it("clears stored coords + city when dropCachedCoords is set and re-geocode returns null", async () => {
-    const { geocodeAddress } = await import("@/lib/geo");
-    vi.mocked(geocodeAddress).mockResolvedValueOnce(null as never);
+    const { geocodeVenue } = await import("@/lib/geo");
+    vi.mocked(geocodeVenue).mockResolvedValueOnce(null as never);
 
     mockRawEventFind.mockResolvedValueOnce(null);
     mockEventFindMany.mockResolvedValueOnce([
@@ -2224,8 +2255,8 @@ describe("dropCachedCoords signal (#957)", () => {
     // Sanity check: without the signal, the existingCoords cache must continue
     // to short-circuit so we don't burn a Google Geocoding API call on every
     // scrape of an unchanged event.
-    const { geocodeAddress } = await import("@/lib/geo");
-    const geoSpy = vi.mocked(geocodeAddress);
+    const { geocodeVenue } = await import("@/lib/geo");
+    const geoSpy = vi.mocked(geocodeVenue);
     geoSpy.mockClear();
 
     mockRawEventFind.mockResolvedValueOnce(null);
