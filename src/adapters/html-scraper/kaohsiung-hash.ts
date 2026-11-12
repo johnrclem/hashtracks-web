@@ -1,4 +1,6 @@
 import * as cheerio from "cheerio";
+import type { CheerioAPI } from "cheerio";
+import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ParseError } from "../types";
 import {
@@ -66,6 +68,10 @@ const PLACEHOLDER_VENUE_RE = /\b(stay tuned|tba|tbd|to come|to be (?:announced|d
 
 interface Block {
   text: string;
+  /** Visual lines (`<p>`/heading/`<br>` breaks); `text` keeps the raw concatenation. */
+  lines: string[];
+  /** The block is only `<h1>`s: the 2026-11 layout's unlabelled hare names. */
+  isH1: boolean;
   mapsUrl?: string;
 }
 
@@ -105,29 +111,49 @@ function resolveForwardDate(monthIdx: number, day: number, now: Date): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-function findMonth(afterRun: string): { monthIdx: number; afterMonth: string } | null {
-  for (const m of afterRun.matchAll(MONTH_WORD_RE)) {
-    const monthIdx = MONTH_INDEX.get(m[0].toLowerCase());
-    if (monthIdx !== undefined) {
-      return { monthIdx, afterMonth: afterRun.slice(m.index + m[0].length) };
-    }
-  }
-  return null;
+/** An explicit "YYYY-MM-DD" (UTC); null when the day overflows the month. */
+function explicitDate(year: number, monthIdx: number, day: number): string | null {
+  const d = new Date(Date.UTC(year, monthIdx, day, 12, 0, 0));
+  return d.getUTCMonth() === monthIdx && d.getUTCDate() === day ? d.toISOString().slice(0, 10) : null;
 }
 
-function parseHeadingDate(afterRun: string, now: Date): { date: string; title?: string } | null {
-  const month = findMonth(afterRun);
-  if (!month) return null;
-  const { monthIdx, afterMonth } = month;
+// A day written before the month ("Saturday, 14 November 2026"), matched on the
+// text that precedes the month word once trailing space is trimmed.
+const DAY_BEFORE_MONTH_RE = /(?:^|\D)(\d{1,2})$/;
+const YEAR_RE = /^(\d{4})\b/;
 
-  const dm = DAY_RE.exec(afterMonth);
-  if (!dm) return null;
-  const day = Number.parseInt(dm[1], 10);
-  if (day < 1 || day > 31) return null;
+/** Consume an optional ", 2026" year after the day/month; procedural to stay Sonar-clean. */
+function takeYear(text: string): { year?: number; rest: string } {
+  let s = text.trimStart();
+  if (s.startsWith(",")) s = s.slice(1).trimStart();
+  const m = YEAR_RE.exec(s);
+  return m ? { year: Number(m[1]), rest: s.slice(m[0].length) } : { rest: text };
+}
 
-  const date = resolveForwardDate(monthIdx, day, now);
-  const title = afterMonth.slice(dm.index + dm[0].length).trim();
-  return { date, title: title || undefined };
+/**
+ * First "Month D" ("November 28, 2026") or "D Month" ("14 November 2026") date
+ * in `text`. A month word with no adjacent day ("you may bring") is skipped. An
+ * explicit year is honoured; a year-less date resolves forward. The text after
+ * the date is returned as the title candidate.
+ */
+function parseHeadingDate(text: string, now: Date): { date: string; title?: string } | null {
+  for (const m of text.matchAll(MONTH_WORD_RE)) {
+    const monthIdx = MONTH_INDEX.get(m[0].toLowerCase());
+    if (monthIdx === undefined) continue;
+    const afterMonth = text.slice(m.index + m[0].length);
+    const dm = DAY_RE.exec(afterMonth);
+    const bm = dm ? null : DAY_BEFORE_MONTH_RE.exec(text.slice(0, m.index).trimEnd());
+    const dayText = dm?.[1] ?? bm?.[1];
+    if (!dayText) continue;
+    const day = Number.parseInt(dayText, 10);
+    if (day < 1 || day > 31) continue;
+    const { year, rest } = takeYear(dm ? afterMonth.slice(dm[0].length) : afterMonth);
+    const date = year === undefined ? resolveForwardDate(monthIdx, day, now) : explicitDate(year, monthIdx, day);
+    if (!date) continue;
+    const title = rest.trim();
+    return { date, title: title || undefined };
+  }
+  return null;
 }
 
 function parseStartTime(prose: string, title: string | undefined): string | undefined {
@@ -156,15 +182,33 @@ function parseStartTime(prose: string, title: string | undefined): string | unde
 // word ("timeet at"); `\s+` absorbs arbitrary spacing before the venue text.
 const MEET_AT_RE = /\bmeet at\s+/i;
 
+/** Venue text up to the first '.', or undefined for empty/placeholder text. */
+function cleanVenue(text: string): string | undefined {
+  const dot = text.indexOf(".");
+  const venue = (dot >= 0 ? text.slice(0, dot) : text).trim();
+  return venue && !PLACEHOLDER_VENUE_RE.test(venue) ? venue : undefined;
+}
+
 function parseLocation(prose: string): string | undefined {
   const m = MEET_AT_RE.exec(prose);
-  if (!m) return undefined;
-  let rest = prose.slice(m.index + m[0].length);
-  const dot = rest.indexOf(".");
-  if (dot >= 0) rest = rest.slice(0, dot);
-  rest = rest.trim();
-  if (!rest || PLACEHOLDER_VENUE_RE.test(rest)) return undefined;
-  return rest;
+  return m ? cleanVenue(prose.slice(m.index + m[0].length)) : undefined;
+}
+
+const WHERE_LABEL = "where:";
+const MEETING_POINT_LABEL = "meeting point:";
+const LINK_TEXT_SUFFIX = " here";
+
+/**
+ * Venue from a "Where: Meeting point: Guanyinshan Triangle Park HERE" line
+ * (2026-11 layout), with the label, "Meeting point:" and the "HERE" link text dropped.
+ */
+function parseWhereLine(lines: string[]): string | undefined {
+  const line = lines.find((l) => l.toLowerCase().startsWith(WHERE_LABEL));
+  if (!line) return undefined;
+  let value = line.slice(WHERE_LABEL.length).trim();
+  if (value.toLowerCase().startsWith(MEETING_POINT_LABEL)) value = value.slice(MEETING_POINT_LABEL.length).trim();
+  if (value.toLowerCase().endsWith(LINK_TEXT_SUFFIX)) value = value.slice(0, -LINK_TEXT_SUFFIX.length);
+  return cleanVenue(value);
 }
 
 function parseCost(prose: string): string | undefined {
@@ -172,14 +216,15 @@ function parseCost(prose: string): string | undefined {
   return m ? m[0].trim() : undefined;
 }
 
-/**
- * Parse the Kaohsiung H3 /run-information page. Each run is a sequence of
- * Wix `[data-testid="richTextElement"]` blocks: a "#NNNN Month Day Title"
- * heading, free-form prose (time, cost, "Meet at …", a maps link), a
- * "Your Hares:" label, then the hare names. Blocks are walked in document
- * order and grouped by run heading.
- */
-/** Flatten the Wix rich-text blocks (text + first valid maps link) in order. */
+/** A block's visual lines: one per `<p>`/heading, split again at each `<br>`. */
+function blockLines($: CheerioAPI, el: AnyNode): string[] {
+  const $copy = $(el).clone();
+  $copy.find("br").replaceWith("\n");
+  $copy.find("p, h1, h2, h3, h4, h5, h6, li").append("\n");
+  return $copy.text().split("\n").map(normalizeText).filter(Boolean);
+}
+
+/** Flatten the Wix rich-text blocks (text, lines, first valid maps link) in order. */
 function collectBlocks(html: string): Block[] {
   const $ = cheerio.load(html);
   const blocks: Block[] = [];
@@ -193,35 +238,58 @@ function collectBlocks(html: string): Block[] {
       const href = $(a).attr("href")?.trim();
       if (href && isValidMapsUrl(href)) mapsUrl = href;
     });
-    blocks.push({ text, mapsUrl });
+    const children = $el.children();
+    const isH1 = children.length > 0 && children.not("h1").length === 0;
+    blocks.push({ text, lines: blockLines($, el), isH1, mapsUrl });
   });
   return blocks;
 }
 
 const HARES_LABEL_RE = /^your hares:?$/i;
 
-/** Collect a run's body blocks: hares (after a "Your Hares:" label) + prose. */
-function parseRunBody(
-  blocks: Block[],
-  start: number,
-  end: number,
-): { hares?: string; locationUrl?: string; prose: string } {
-  let hares: string | undefined;
+interface RunBody {
+  hares?: string;
+  location?: string;
+  locationUrl?: string;
+  prose: string;
+  lines: string[];
+}
+
+/**
+ * Collect a run's body: hares (the block after a "Your Hares:" label, else an
+ * unlabelled `<h1>` block, else an inline "Hares:" sentence), the venue, and the
+ * prose. `leadLines` are prose lines from the heading block itself.
+ */
+function parseRunBody(blocks: Block[], start: number, end: number, leadLines: string[]): RunBody {
+  let labelHares: string | undefined;
+  let h1Hares: string | undefined;
   let locationUrl: string | undefined;
-  const proseParts: string[] = [];
+  const proseParts = leadLines.length > 0 ? [leadLines.join(" ")] : [];
+  const lines = [...leadLines];
   for (let i = start + 1; i < end; i++) {
     const block = blocks[i];
     if (HARES_LABEL_RE.test(block.text)) {
       const next = blocks[i + 1];
-      if (next && i + 1 < end) hares = normalizeHaresField(next.text);
+      if (next && i + 1 < end) labelHares = normalizeHaresField(next.text);
       i += 1; // consume the hares value block
       continue;
     }
+    if (block.isH1 && h1Hares === undefined) {
+      h1Hares = normalizeHaresField(block.text);
+      continue;
+    }
     proseParts.push(block.text);
+    lines.push(...block.lines);
     locationUrl ??= block.mapsUrl;
   }
   const prose = proseParts.join(" ");
-  return { hares: hares ?? parseInlineHares(prose), locationUrl, prose };
+  return {
+    hares: labelHares ?? h1Hares ?? parseInlineHares(prose),
+    location: parseLocation(prose) ?? parseWhereLine(lines),
+    locationUrl,
+    prose,
+    lines,
+  };
 }
 
 // "Hares: Trojan Whores, Seldom Cums and River Horse." — the inline form some
@@ -291,16 +359,14 @@ const EXTRA_RUN_PREFIX_RE = /^(?:and|&|\/|-)\s*#?\d{3,5}\s*/i;
 /**
  * Fallback for headings that carry no date (#2743 "WEEKEND AWAY GUANZILING HOT
  * SPRINGS TAINAN", 2026-11): the date lives only in a body "When: Saturday
- * November 7th Hares off at Noon …" line. Parse the first date after "When:";
- * the heading text (minus any extra run number) becomes the title.
+ * November 7th Hares off at Noon …" line. Parse the first date after "When:".
  */
 function parseWhenLineDate(
   blocks: Block[],
   start: number,
   end: number,
-  afterRun: string,
   now: Date,
-): { date: string; title?: string; daySchedule: string } | null {
+): { date: string; daySchedule: string } | null {
   for (let i = start + 1; i < end; i++) {
     const m = WHEN_LABEL_RE.exec(blocks[i].text);
     if (!m) continue;
@@ -308,14 +374,13 @@ function parseWhenLineDate(
     const whenText = blocks[i].text.slice(m.index + m[0].length).replace(ORDINAL_SUFFIX_RE, "$1");
     const parsed = parseHeadingDate(whenText, now);
     if (!parsed) return null;
-    const title = afterRun.replace(EXTRA_RUN_PREFIX_RE, "").trim();
     // Only the first day's clause belongs to this run: "Saturday November 7
     // Hares off at Noon And Sunday November 8 Hares off at 11:00 AM" → cut at
     // the second month name so Sunday's time is never borrowed. (Adjacent <p>s
     // can concatenate with no space — "NoonAnd Sunday" — so don't split on "and".)
     const monthHits = [...whenText.matchAll(MONTH_WORD_RE)].filter((h) => MONTH_INDEX.has(h[0].toLowerCase()));
     const daySchedule = monthHits.length > 1 ? whenText.slice(0, monthHits[1].index) : whenText;
-    return { date: parsed.date, title: title || undefined, daySchedule };
+    return { date: parsed.date, daySchedule };
   }
   return null;
 }
@@ -325,6 +390,70 @@ function parseDayScheduleTime(daySchedule: string): string | undefined {
   // Leading boundary only: tolerates "NoonAnd" run-ons, still rejects "afternoon".
   if (/\bnoon/i.test(daySchedule)) return "12:00";
   return parseStartTime(daySchedule, undefined);
+}
+
+/** The heading line's text after "#NNNN", plus the heading block's later lines. */
+function splitHeading(heading: Block): { afterRun: string; extraLines: string[] } {
+  const idx = heading.lines.findIndex((l) => RUN_RE.test(l));
+  const headLine = idx >= 0 ? heading.lines[idx] : heading.text;
+  const m = RUN_RE.exec(headLine);
+  return {
+    afterRun: m ? headLine.slice(m.index + m[0].length).trim() : "",
+    extraLines: idx >= 0 ? heading.lines.slice(idx + 1) : [],
+  };
+}
+
+const TITLE_QUOTES = new Set(['"', "'", "\u201C", "\u201D"]);
+
+/** "KHHH Run #2744: “The Hills Are Alive …”" in the body → the run's own name. */
+function findNamedTitle(lines: string[], runNumber: number): string | undefined {
+  const marker = `#${runNumber}:`;
+  for (const line of lines) {
+    const at = line.indexOf(marker);
+    if (at < 0) continue;
+    const name = line.slice(at + marker.length).trim();
+    let from = 0;
+    let to = name.length;
+    while (from < to && TITLE_QUOTES.has(name[from])) from++;
+    while (to > from && TITLE_QUOTES.has(name[to - 1])) to--;
+    const title = name.slice(from, to).trim();
+    if (title) return title;
+  }
+  return undefined;
+}
+
+interface RunDate {
+  date: string;
+  /** Title from the heading ("Saturday Night Run"), if any. */
+  title?: string;
+  /** Heading-block lines that are prose rather than title. */
+  leadLines: string[];
+  /** Set when the date came from a body "When:" line. */
+  daySchedule?: string;
+}
+
+/**
+ * Date and title for a run. Three heading shapes:
+ * - "#2732 June 27 Saturday Night Run": date then title on one line; a two-line
+ *   "#2734 July 11 <br> 7-eleven Joint Night Run" takes the next line as title.
+ * - "#2745 Saturday Afternoon Run <br> … Election Day: <br> November 28, 2026"
+ *   (2026-11): title first, date in the heading's later lines.
+ * - "#2744 Saturday Afternoon Run" / "#2743 and 2744 WEEKEND AWAY …": no date in
+ *   the heading at all; it comes from a body "When:" line.
+ */
+function parseRunDate(blocks: Block[], start: number, end: number, now: Date): RunDate | null {
+  const { afterRun, extraLines } = splitHeading(blocks[start]);
+  const head = parseHeadingDate(afterRun, now);
+  if (head) {
+    if (head.title || extraLines.length === 0) return { ...head, leadLines: extraLines };
+    const [title, ...leadLines] = extraLines;
+    return { date: head.date, title, leadLines };
+  }
+  const title = afterRun.replace(EXTRA_RUN_PREFIX_RE, "").trim() || undefined;
+  const fromLines = parseHeadingDate(extraLines.join(" "), now);
+  if (fromLines) return { date: fromLines.date, title: title ?? fromLines.title, leadLines: extraLines };
+  const fromWhen = parseWhenLineDate(blocks, start, end, now);
+  return fromWhen ? { ...fromWhen, title, leadLines: extraLines } : null;
 }
 
 /** Build one run from its heading block + body, or a parse error on drift. */
@@ -339,10 +468,8 @@ function buildRun(
   if (!rm) return {};
   const runNumber = Number.parseInt(rm[1], 10);
 
-  const afterRun = heading.slice(rm.index + rm[0].length).trim();
-  const dateParsed: { date: string; title?: string; daySchedule?: string } | null =
-    parseHeadingDate(afterRun, now) ?? parseWhenLineDate(blocks, start, end, afterRun, now);
-  if (!dateParsed) {
+  const dated = parseRunDate(blocks, start, end, now);
+  if (!dated) {
     // A numbered run whose date no longer parses is markup drift, NOT a
     // legitimately-absent run. Record a parse error so fetch() suppresses
     // reconcile.ts — silently dropping it would let the reconciler false-CANCEL
@@ -359,46 +486,51 @@ function buildRun(
     };
   }
 
-  const rawTitle = dateParsed.title;
-  const { hares, locationUrl, prose } = parseRunBody(blocks, start, end);
+  const body = parseRunBody(blocks, start, end, dated.leadLines);
   return {
     run: {
       runNumber,
-      date: dateParsed.date,
-      // Trust the source-provided title — the heading after the date is the
-      // run's real name ("Saturday Night Run", "7-eleven Joint Night Run"),
-      // single- or multi-line. Headings with no text after the date leave
-      // rawTitle undefined → merge synthesizes "Kaohsiung H3 Trail #N" (#2225).
-      title: rawTitle,
-      hares,
-      location: parseLocation(prose),
-      locationUrl,
+      date: dated.date,
+      // Trust the source-provided title: the body's "Run #N: “name”" line, else
+      // the heading's ("Saturday Night Run", "7-eleven Joint Night Run"). With
+      // neither, merge synthesizes "Kaohsiung H3 Trail #N" (#2225).
+      title: findNamedTitle(body.lines, runNumber) ?? dated.title,
+      hares: body.hares,
+      location: body.location,
+      locationUrl: body.locationUrl,
       startTime:
-        dateParsed.daySchedule === undefined
-          ? parseStartTime(prose, rawTitle)
-          : parseDayScheduleTime(dateParsed.daySchedule),
-      cost: parseCost(prose),
-      description: prose || undefined,
+        dated.daySchedule === undefined
+          ? parseStartTime(body.prose, dated.title)
+          : parseDayScheduleTime(dated.daySchedule),
+      cost: parseCost(body.prose),
+      description: body.prose || undefined,
     },
   };
 }
 
 /**
  * Parse the Kaohsiung H3 /run-information page. Each run is a sequence of
- * Wix `[data-testid="richTextElement"]` blocks: a "#NNNN Month Day Title"
- * heading, free-form prose (time, cost, "Meet at …", a maps link), a
- * "Your Hares:" label, then the hare names. Blocks are walked in document
- * order and grouped by run heading.
+ * Wix `[data-testid="richTextElement"]` blocks: a "#NNNN …" heading, free-form
+ * prose (time, cost, "Meet at …"/"Where: …", a maps link) and the hare names
+ * (after a "Your Hares:" label, or since 2026-11 an unlabelled `<h1>`). Blocks
+ * are walked in document order and grouped by run heading; see parseRunDate
+ * for the heading shapes.
  */
 export function parseKaohsiungHashPage(
   html: string,
   now: Date,
 ): { runs: ParsedRun[]; blockCount: number; parseErrors: ParseError[] } {
   const blocks = collectBlocks(html);
-  const runStarts = blocks.reduce<number[]>((acc, b, i) => {
-    if (RUN_RE.test(b.text)) acc.push(i);
-    return acc;
-  }, []);
+  // A block that repeats the current run's number ("KHHH Run #2744: …" under the
+  // "#2744 …" heading, 2026-11) is that run's body, not a new run.
+  const runStarts: number[] = [];
+  let currentRun: string | undefined;
+  blocks.forEach((b, i) => {
+    const m = RUN_RE.exec(b.text);
+    if (!m || m[1] === currentRun) return;
+    runStarts.push(i);
+    currentRun = m[1];
+  });
 
   const runs: ParsedRun[] = [];
   const parseErrors: ParseError[] = [];

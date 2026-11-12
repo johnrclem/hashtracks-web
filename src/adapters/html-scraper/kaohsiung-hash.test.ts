@@ -170,3 +170,68 @@ describe("parseInlineHares", () => {
     expect(parseInlineHares("When: Saturday Hares off at Noon")).toBeUndefined();
   });
 });
+
+// 2026-11-12 live shape (trimmed): a dateless "#2744" heading whose body block
+// repeats "Run #2744:" and carries a day-first "When:" date; hares are an
+// unlabelled <h1>; "#2745" is one <br>-split heading with the date in its lines.
+const NOV_2026_FIXTURE = `
+<div data-testid="richTextElement"><h3><span>KAOHSIUNG HASH HOUSE HARRIERS</span></h3></div>
+<div data-testid="richTextElement"><h2 class="font_2"><span>#2744 Saturday Afternoon Run</span></h2></div>
+<div data-testid="richTextElement"><p class="font_8"><span>KHHH Run #2744: &ldquo;The Hills Are Alive with the Sound of Karaoke and Gunshots&rdquo;</span></p>
+<p class="font_8"><br>
+<span>When: Saturday, 14 November 2026<br>
+Time: Meet: 1:00 PM;&nbsp;</span><span>Hares off: 1:30 PM</span></p>
+<p class="font_8"><span>Where: Meeting point: Guanyinshan Triangle Park (觀音山三角公園) <a href="https://maps.app.goo.gl/WorVoCijQEPNNzsP7">HERE</a></span></p>
+<p class="font_8"><span>&#8203;</span></p>
+<p class="font_8"><span>Info: In November 1918, the guns fell silent. This, you will discover, in November 2026!</span></p></div>
+<div data-testid="richTextElement"><h1 class="font_0"><span><span>Why Hold Out? and Happy Hour</span></span></h1></div>
+<div data-testid="richTextElement"><h2 class="font_2"><span>#2745 Saturday Afternoon Run<br>
+<br>
+This will be an afternoon run on Taiwanese Midterm Election Day:<br>
+November 28, 2026&nbsp;<br>
+<br>
+Be ready to start around 13:00<br>
+<br>
+On On!</span></h2></div>
+<div data-testid="richTextElement"><h1 class="font_0"><span><span>Topless Goblin and Brendok (Virgin)</span></span></h1></div>
+`;
+
+describe("parseKaohsiungHashPage — 2026-11 layout", () => {
+  const { runs, parseErrors } = parseKaohsiungHashPage(NOV_2026_FIXTURE, new Date("2026-11-12T12:00:00Z"));
+  const run2744 = runs.find((r) => r.runNumber === 2744);
+  const run2745 = runs.find((r) => r.runNumber === 2745);
+
+  it("treats a body block repeating the run number as body, not a second run", () => {
+    expect(parseErrors).toEqual([]);
+    expect(runs.map((r) => r.runNumber)).toEqual([2744, 2745]);
+  });
+
+  it("reads a day-first When: date and the body's named title", () => {
+    expect(run2744).toMatchObject({
+      date: "2026-11-14",
+      title: "The Hills Are Alive with the Sound of Karaoke and Gunshots",
+      startTime: "13:00",
+      location: "Guanyinshan Triangle Park (觀音山三角公園)",
+      locationUrl: "https://maps.app.goo.gl/WorVoCijQEPNNzsP7",
+    });
+  });
+
+  it("takes hares from an unlabelled <h1> block", () => {
+    expect(run2744?.hares).toBe("Why Hold Out? and Happy Hour");
+    expect(run2745?.hares).toBe("Topless Goblin and Brendok (Virgin)");
+  });
+
+  it("dates a <br>-split heading from its later lines and keeps its first line as title", () => {
+    expect(run2745).toMatchObject({
+      date: "2026-11-28",
+      title: "Saturday Afternoon Run",
+      startTime: "13:00",
+    });
+    expect(run2745?.description).toContain("Be ready to start around 13:00");
+  });
+
+  it("honours an explicit year instead of resolving forward", () => {
+    const { runs: past } = parseKaohsiungHashPage(NOV_2026_FIXTURE, new Date("2027-06-01T12:00:00Z"));
+    expect(past.map((r) => r.date)).toEqual(["2026-11-14", "2026-11-28"]);
+  });
+});
