@@ -29,22 +29,58 @@ const PAGE_URL = "https://dhekelia-h3.com/info/";
 const FIRST_LABEL = "hash number:";
 
 const DATE_RE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+const ONE_SEPARATOR_RE = /^(\d{1,4})\/(\d{4,6})$/;
 const TIME_RE = /^(\d{1,2})[.:](\d{2})$/;
 
 function clean(text: string): string {
   return decodeEntities(text).replaceAll(/\s+/g, " ").trim();
 }
 
-/** "4/11/2026" (D/M/YYYY) → "2026-11-04"; null if malformed. */
-export function parseDhekeliaDate(text: string): string | null {
-  const m = DATE_RE.exec(text.trim());
-  if (!m) return null;
-  const day = Number.parseInt(m[1], 10);
-  const month = Number.parseInt(m[2], 10);
-  const year = Number.parseInt(m[3], 10);
+/** Valid calendar date → "YYYY-MM-DD"; null for day/month overflow. */
+function toIsoDate(day: number, month: number, year: number): string | null {
   const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
+  if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) {
+    return null;
+  }
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Readings of a date typed with one separator missing: "11/112026" (no slash
+ * before the year) or "1111/2026" (none between day and month). The year is
+ * always the last four digits; the day and month are 1–2 digits each.
+ */
+function oneSeparatorCandidates(head: string, tail: string): string[] {
+  const out: string[] = [];
+  if (tail.length > 4) {
+    // "D/MYYYY": the year is the tail's last four digits, the month the rest.
+    const date = toIsoDate(Number(head), Number(tail.slice(0, -4)), Number(tail.slice(-4)));
+    if (head.length <= 2 && date) out.push(date);
+  } else {
+    // "DM/YYYY": split the head into a 1–2 digit day and month every way it fits.
+    for (let dayLen = 1; dayLen <= 2; dayLen++) {
+      const monthLen = head.length - dayLen;
+      if (monthLen < 1 || monthLen > 2) continue;
+      const date = toIsoDate(Number(head.slice(0, dayLen)), Number(head.slice(dayLen)), Number(tail));
+      if (date) out.push(date);
+    }
+  }
+  return out;
+}
+
+/**
+ * "4/11/2026" (D/M/YYYY) → "2026-11-04"; null if malformed. A date with one
+ * missing separator ("11/112026", seen 2026-11) is accepted only when exactly
+ * one reading is a valid date: "111/2026" (1/11 or 11/1) stays null.
+ */
+export function parseDhekeliaDate(text: string): string | null {
+  const trimmed = text.trim();
+  const m = DATE_RE.exec(trimmed);
+  if (m) return toIsoDate(Number(m[1]), Number(m[2]), Number(m[3]));
+  const partial = ONE_SEPARATOR_RE.exec(trimmed);
+  if (!partial) return null;
+  const candidates = new Set(oneSeparatorCandidates(partial[1], partial[2]));
+  return candidates.size === 1 ? [...candidates][0] : null;
 }
 
 /** "16.00" → "16:00"; undefined if malformed. */

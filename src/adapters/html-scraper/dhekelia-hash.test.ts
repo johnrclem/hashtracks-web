@@ -22,6 +22,22 @@ describe("Dhekelia parsing", () => {
     expect(parseDhekeliaDate("4/11/2026")).toBe("2026-11-04");
     expect(parseDhekeliaDate("31/2/2026")).toBeNull();
     expect(parseDhekeliaTime("16.00")).toBe("16:00");
+  });
+
+  it("accepts a date with one missing separator only when unambiguous", () => {
+    // Live page 2026-11-12: run #3142 typed as "11/112026".
+    expect(parseDhekeliaDate("11/112026")).toBe("2026-11-11");
+    expect(parseDhekeliaDate("4/12026")).toBe("2026-01-04");
+    expect(parseDhekeliaDate("1111/2026")).toBe("2026-11-11");
+    expect(parseDhekeliaDate("131/2026")).toBe("2026-01-13"); // 1/31 isn't a month
+    // 1/11 or 11/1: ambiguous, so rejected.
+    expect(parseDhekeliaDate("111/2026")).toBeNull();
+    // Overflow and anything looser stay rejected.
+    expect(parseDhekeliaDate("11/132026")).toBeNull();
+    expect(parseDhekeliaDate("111/12026")).toBeNull();
+    expect(parseDhekeliaDate("11112026")).toBeNull();
+    expect(parseDhekeliaDate("11/11/26")).toBeNull();
+    expect(parseDhekeliaDate("11-11-2026")).toBeNull();
     expect(parseDhekeliaTime("TBA")).toBeUndefined();
   });
 
