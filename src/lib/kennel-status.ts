@@ -81,10 +81,15 @@ export function getStatusLine(e: KennelEvidence, now: Date = new Date()): Status
   }
   const newest = newestEvidence(e, now);
   if (newest === null) return { kind: "never" };
-  if (e.lastConfirmedAt && (!e.lastRunSeenAt || e.lastConfirmedAt > e.lastRunSeenAt)) {
+  // "Checked" only when the confirmation is the newest evidence and newer than
+  // the last run; otherwise the last run is the newest date, which may be a
+  // posted run that is now past.
+  const confirmed = e.lastConfirmedAt ? toUtcNoon(e.lastConfirmedAt) : null;
+  const seen = e.lastRunSeenAt ? toUtcNoon(e.lastRunSeenAt) : null;
+  if (e.lastConfirmedAt && confirmed === newest && (seen === null || confirmed > seen)) {
     return { kind: "checked", date: e.lastConfirmedAt };
   }
-  return { kind: "last-run", date: e.lastRunSeenAt ?? new Date(newest) };
+  return { kind: "last-run", date: new Date(newest) };
 }
 
 function formatStatusDate(date: Date, now: Date): string {

@@ -83,6 +83,19 @@ describe("getStatusLine", () => {
     const lastRunSeenAt = offset(-150);
     expect(getStatusLine(ev({ lastRunSeenAt, lastConfirmedAt: offset(-300) }), NOW)).toEqual({ kind: "last-run", date: lastRunSeenAt });
   });
+
+  it("a past posted run newer than the last run seen shows last-run with the posted date", () => {
+    const nextRunPostedAt = offset(-150);
+    const e = ev({ lastRunSeenAt: offset(-200), nextRunPostedAt });
+    expect(getKennelState(e, NOW)).toBe("quiet");
+    expect(getStatusLine(e, NOW)).toEqual({ kind: "last-run", date: nextRunPostedAt });
+  });
+
+  it("a past posted run newer than a confirmation shows last-run, not checked", () => {
+    const nextRunPostedAt = offset(-150);
+    const e = ev({ lastRunSeenAt: offset(-300), lastConfirmedAt: offset(-200), nextRunPostedAt });
+    expect(getStatusLine(e, NOW)).toEqual({ kind: "last-run", date: nextRunPostedAt });
+  });
 });
 
 describe("formatStatusLine", () => {
