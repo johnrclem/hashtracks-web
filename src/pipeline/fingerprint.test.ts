@@ -91,6 +91,26 @@ describe("generateFingerprint", () => {
     expect(generateFingerprint(baseline)).toBe(generateFingerprint(withExplicitUndefined));
   });
 
+  // Kennel Status 1 — recurringSeriesId marks a repeating GCal instance. Gated
+  // like locationStreet: events without it must hash exactly as they did before
+  // the field existed (hash pinned from the pre-change implementation).
+  it("fingerprint is unchanged when recurringSeriesId is undefined", () => {
+    expect(generateFingerprint(buildRawEvent())).toBe(
+      "1762145116564be677bf903067f26218803e69c062c87915d2532ae60781c977",
+    );
+    expect(generateFingerprint(buildRawEvent({ recurringSeriesId: undefined }))).toBe(
+      generateFingerprint(buildRawEvent()),
+    );
+  });
+
+  it("fingerprint changes when recurringSeriesId is set", () => {
+    const a = generateFingerprint(buildRawEvent());
+    const b = generateFingerprint(buildRawEvent({ recurringSeriesId: "abc" }));
+    const c = generateFingerprint(buildRawEvent({ recurringSeriesId: "xyz" }));
+    expect(b).not.toBe(a);
+    expect(c).not.toBe(b);
+  });
+
   // #1950 stability guard — the lower-trust enrich branch now fills cost +
   // endTime onto the canonical. Both fields already participate in the
   // fingerprint (cost/endTime are WS6 tokens), so a RawEvent that newly carries

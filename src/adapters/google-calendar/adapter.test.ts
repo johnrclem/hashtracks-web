@@ -1143,6 +1143,25 @@ describe("CTA placeholder event skip", () => {
   });
 });
 
+describe("recurringSeriesId (Kennel Status 1)", () => {
+  it("sets recurringSeriesId from an instance's recurringEventId", () => {
+    const raw = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Fort Eustis Hash", recurringEventId: "abc" }),
+      { defaultKennelTag: "feh3" },
+    );
+    expect(raw?.recurringSeriesId).toBe("abc");
+  });
+
+  it("leaves recurringSeriesId undefined for one-off events", () => {
+    const raw = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Fort Eustis Hash" }),
+      { defaultKennelTag: "feh3" },
+    );
+    expect(raw).not.toBeNull();
+    expect(raw?.recurringSeriesId).toBeUndefined();
+  });
+});
+
 describe("dormant recurring series suppression — suppressICalUids (#1708)", () => {
   const DORMANT_UID = "20qb7gao7553kajq5de1s5kra4_R20210304T020000@google.com";
 

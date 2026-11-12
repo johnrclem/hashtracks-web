@@ -2203,6 +2203,8 @@ export function buildRawEventFromGCalItem(
     ...(endDate ? { endDate } : {}),
     cost,
     sourceUrl: item.htmlLink,
+    // Gated so one-off events never carry the key (stable fingerprint + rawData).
+    ...(item.recurringEventId ? { recurringSeriesId: item.recurringEventId } : {}),
   };
   if (gcalIdMap && item.id) gcalIdMap.set(event, item.id);
   if (allDayEventSet && isAllDay) allDayEventSet.add(event);

@@ -44,6 +44,14 @@ export interface RawEventData {
    * follow-up; same gating pattern as `endDate`).
    */
   locationStreet?: string | null;
+  /**
+   * Google Calendar `recurringEventId`: set only when the item is an instance of
+   * a repeating event. Downstream status logic reads it as
+   * `rawData->>'recurringSeriesId'` to tell a schedule projection (repeating
+   * instance with no hares or run number) from a posted run. Fingerprinted via a
+   * gated spread, so events without it hash exactly as before.
+   */
+  recurringSeriesId?: string;
   locationUrl?: string; // Google Maps or other maps URL
   latitude?: number;
   longitude?: number;
