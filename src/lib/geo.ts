@@ -316,39 +316,35 @@ interface GeocodeApiResponse {
 
 /** GET a Geocoding API URL with a 5 s timeout. Null on a non-2xx response; throws on a network error. */
 async function fetchGeocodeJson(url: string): Promise<GeocodeApiResponse | null> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    return res.ok ? ((await res.json()) as GeocodeApiResponse) : null;
-  } finally {
-    clearTimeout(timeout);
-  }
+  const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+  return res.ok ? ((await res.json()) as GeocodeApiResponse) : null;
 }
 
+type GeocodeOptions = {
+  regionBias?: string;
+  /**
+   * Viewport (SW|NE corners) to soft-bias results toward. `region` only
+   * disambiguates by country; `bounds` disambiguates *within* a country so
+   * terse local landmarks ("Union Station", "Clarendon") resolve to the
+   * kennel's metro instead of a same-named place elsewhere. Soft bias — Google
+   * still returns better out-of-viewport matches, so legit suburbs survive.
+   */
+  bounds?: { swLat: number; swLng: number; neLat: number; neLng: number };
+};
+
 /**
- * Geocode a text address using the Google Maps Geocoding API.
- * Returns the first result's coordinates, or null on failure.
- * Uses GOOGLE_CALENDAR_API_KEY (server-only, no HTTP referrer restrictions).
- * For event venues use `geocodeVenue`, which also rejects area and wrong-town hits.
+ * One forward-geocode request. `noMatch` is true only when Google found
+ * nothing (ZERO_RESULTS): another query may still work. Key, quota and
+ * network failures leave it false so callers stop instead of retrying.
  */
-export async function geocodeAddress(
+async function geocodeQuery(
   address: string,
-  options?: {
-    regionBias?: string;
-    /**
-     * Viewport (SW|NE corners) to soft-bias results toward. `region` only
-     * disambiguates by country; `bounds` disambiguates *within* a country so
-     * terse local landmarks ("Union Station", "Clarendon") resolve to the
-     * kennel's metro instead of a same-named place elsewhere. Soft bias — Google
-     * still returns better out-of-viewport matches, so legit suburbs survive.
-     */
-    bounds?: { swLat: number; swLng: number; neLat: number; neLng: number };
-  },
-): Promise<GeocodeResult | null> {
+  options?: GeocodeOptions,
+): Promise<{ result: GeocodeResult | null; noMatch: boolean }> {
+  const miss = { result: null, noMatch: false };
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
-  if (!apiKey || !address.trim()) return null;
-  if (isGeocodePlaceholder(address.trim())) return null;
+  if (!apiKey || !address.trim()) return miss;
+  if (isGeocodePlaceholder(address.trim())) return { result: null, noMatch: true };
 
   try {
     let url = `${GOOGLE_GEOCODE_BASE}?address=${encodeURIComponent(address)}&language=en&key=${apiKey}`;
@@ -360,31 +356,44 @@ export async function geocodeAddress(
       url += `&bounds=${b.swLat},${b.swLng}|${b.neLat},${b.neLng}`;
     }
     const data = await fetchGeocodeJson(url);
-    if (!data) return null;
+    if (!data) return miss;
 
     const first = data.results?.[0];
     if (data.status !== "OK" || !first) {
       // ZERO_RESULTS is expected for vague venue names ("Chez Crunchy") — warn.
       // Anything else (REQUEST_DENIED, OVER_QUERY_LIMIT, INVALID_REQUEST) points
       // at the API key or quota and stays an error so it surfaces in alerts.
-      const log = data.status === "ZERO_RESULTS" ? console.warn : console.error;
-      log(`Geocode failed for "${address}": ${data.status} ${data.error_message ?? ""}`);
-      return null;
+      const noMatch = data.status === "ZERO_RESULTS";
+      (noMatch ? console.warn : console.error)(`Geocode failed for "${address}": ${data.status} ${data.error_message ?? ""}`);
+      return { result: null, noMatch };
     }
 
     const lat = first.geometry?.location?.lat;
     const lng = first.geometry?.location?.lng;
-    if (typeof lat !== "number" || typeof lng !== "number") return null;
+    if (typeof lat !== "number" || typeof lng !== "number") return { result: null, noMatch: true };
     return {
-      lat,
-      lng,
-      formattedAddress: first.formatted_address,
-      types: first.types,
-      components: first.address_components,
+      result: {
+        lat,
+        lng,
+        formattedAddress: first.formatted_address,
+        types: first.types,
+        components: first.address_components,
+      },
+      noMatch: false,
     };
   } catch {
-    return null;
+    return miss;
   }
+}
+
+/**
+ * Geocode a text address using the Google Maps Geocoding API.
+ * Returns the first result's coordinates, or null on failure.
+ * Uses GOOGLE_CALENDAR_API_KEY (server-only, no HTTP referrer restrictions).
+ * For event venues use `geocodeVenue`, which also rejects area and wrong-town hits.
+ */
+export async function geocodeAddress(address: string, options?: GeocodeOptions): Promise<GeocodeResult | null> {
+  return (await geocodeQuery(address, options)).result;
 }
 
 /**
@@ -416,7 +425,7 @@ const PLACE_NAME_TYPES = new Set([
 ]);
 
 /** A venue geocode further than this from the kennel is the wrong city. */
-export const VENUE_MAX_DISTANCE_KM = 200;
+const VENUE_MAX_DISTANCE_KM = 200;
 
 /**
  * A venue geocode further than this from the kennel must be in a town or
@@ -426,29 +435,28 @@ export const VENUE_MAX_DISTANCE_KM = 200;
  */
 export const VENUE_TOWN_CHECK_KM = 25;
 
-/** UK postcode, e.g. "SG8 9PN" or "EC1A1BB". */
-const UK_POSTCODE_RE = /\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b/gi;
-
 /** Lowercase, accent- and punctuation-free form for comparing place names. */
 function placeKey(text: string): string {
   return text
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/\p{M}/gu, "")
     .replace(/['’]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
 
-function compactPostcode(code: string): string {
-  return code.replace(/\s/g, "").toUpperCase();
+/** Uppercase with whitespace removed, for finding a postcode inside free text. */
+function compact(text: string): string {
+  return text.replace(/\s/g, "").toUpperCase();
 }
 
 /**
  * Geocoding queries for a venue, best first. A bare pub name ("The Pheasant")
  * matches a same-named pub anywhere in the country, so when the adapter also
- * has a street line (town + postcode) it goes in the query. The venue alone is
- * the fallback for a street line Google can't parse.
+ * has a street line (town + postcode) it goes in the query, with the street
+ * line alone as the fallback. The bare venue is queried only when there is no
+ * street line.
  */
 export function buildVenueGeocodeQueries(location?: string | null, street?: string | null): string[] {
   const venue = location?.trim() ?? "";
@@ -460,38 +468,33 @@ export function buildVenueGeocodeQueries(location?: string | null, street?: stri
   // One line already holds the other ("SRO Lounge, 1807 Fifth Ave, …" as the street).
   if (venueKey && addressKey.includes(venueKey)) return [address];
   if (addressKey && venueKey.includes(addressKey)) return [venue];
-  return [`${venue}, ${address}`, venue];
+  return [`${venue}, ${address}`, address];
 }
 
 /**
- * Towns and postcodes a venue's text names: every comma segment of the street
- * line, plus the venue line after its first segment (the venue itself).
+ * True when the result sits in a town or postcode the venue text names, or
+ * the text names neither. Towns are the comma segments of the street line and
+ * of the venue line after its first segment (the venue itself), with digits
+ * dropped, so a postcode "SG8 9PN" leaves no town behind.
  */
-function placesNamedBy(location?: string | null, street?: string | null): { towns: string[]; postcodes: string[] } {
-  const segments = [...(location ?? "").split(",").slice(1), ...(street ?? "").split(",")];
-  const postcodes = segments.flatMap((s) => s.match(UK_POSTCODE_RE) ?? []).map(compactPostcode);
-  const towns = segments
-    .map((s) => placeKey(s.replace(UK_POSTCODE_RE, " ").replace(/\d+/g, " ")))
-    // A town has a 3-letter word and few words; longer segments are notes ("park on the verge").
-    .filter((key) => /[a-z]{3}/.test(key) && key.split(" ").length <= 3);
-  return { towns, postcodes };
-}
-
-/** True when the result sits in a town or postcode the venue text names, or the text names none. */
 function resultInNamedPlace(
   components: GeocodeComponent[],
-  named: { towns: string[]; postcodes: string[] },
+  venue: { location?: string | null; street?: string | null },
 ): boolean {
-  if (named.towns.length === 0 && named.postcodes.length === 0) return true;
-  const postcodeMatch = components.some(
-    (c) => c.types.includes("postal_code") && named.postcodes.includes(compactPostcode(c.long_name)),
-  );
-  if (postcodeMatch) return true;
+  const segments = [...(venue.location ?? "").split(",").slice(1), ...(venue.street ?? "").split(",")];
+  const towns = segments
+    .map((s) => placeKey(s.replace(/\d+/g, " ")))
+    // A town has a 3-letter word and few words; longer segments are notes ("park on the verge").
+    .filter((key) => /[a-z]{3}/.test(key) && key.split(" ").length <= 3);
+  const text = compact(segments.join(" "));
+  const postcode = components.find((c) => c.types.includes("postal_code"))?.long_name;
+  if (postcode && compact(postcode).length >= 4 && text.includes(compact(postcode))) return true;
+  if (towns.length === 0) return !/\d/.test(text);
   const names = components
     .filter((c) => c.types.some((t) => PLACE_NAME_TYPES.has(t)))
     .flatMap((c) => [placeKey(c.long_name), placeKey(c.short_name)])
     .filter((n) => n.length >= 3);
-  return named.towns.some((town) => names.some((name) => name.includes(town) || town.includes(name)));
+  return towns.some((town) => names.some((name) => name.includes(town) || town.includes(name)));
 }
 
 /**
@@ -516,15 +519,15 @@ export function venueGeocodeRejection(
   if (!biasCenter) return null;
   const km = haversineDistance(result.lat, result.lng, biasCenter.lat, biasCenter.lng);
   if (km > VENUE_MAX_DISTANCE_KM) return `${km.toFixed(0)}km from the kennel`;
-  if (km > VENUE_TOWN_CHECK_KM && !resultInNamedPlace(components, placesNamedBy(venue.location, venue.street))) {
+  if (km > VENUE_TOWN_CHECK_KM && !resultInNamedPlace(components, venue)) {
     return `${km.toFixed(0)}km from the kennel and outside the town the venue names`;
   }
   return null;
 }
 
 /**
- * Geocode an event venue: the venue with its street line, then the venue
- * alone, each viewport-biased toward `biasCenter` (the kennel) and dropped
+ * Geocode an event venue with the queries from `buildVenueGeocodeQueries`,
+ * each viewport-biased toward `biasCenter` (the kennel) and dropped
  * when `venueGeocodeRejection` flags it. Null when no query yields a usable pin.
  */
 export async function geocodeVenue(venue: {
@@ -536,8 +539,11 @@ export async function geocodeVenue(venue: {
   const { biasCenter } = venue;
   const bounds = biasCenter ? boundingBoxFromCenter(biasCenter.lat, biasCenter.lng) : undefined;
   for (const query of buildVenueGeocodeQueries(venue.location, venue.street)) {
-    const result = await geocodeAddress(query, { regionBias: venue.regionBias, bounds });
-    if (!result) continue;
+    const { result, noMatch } = await geocodeQuery(query, { regionBias: venue.regionBias, bounds });
+    if (!result) {
+      if (noMatch) continue;
+      return null; // key, quota or network trouble: the next query would fail the same way
+    }
     const rejection = venueGeocodeRejection(result, venue, biasCenter);
     if (!rejection) return result;
     console.warn(`Geocode rejected for "${query}": ${result.formattedAddress ?? `${result.lat},${result.lng}`} is ${rejection}`);

@@ -1309,11 +1309,9 @@ async function resolveCoords(
         : null;
     const biasCenter =
       event.countryOverride === undefined ? (kennelPoint ?? centroidPoint) : null;
-    // geocodeVenue sends the street line (town + postcode) with the venue and
-    // validates the hit against the bias point: area centroids, whole roads,
-    // >200km, or >25km in a town the venue text doesn't name are all dropped.
-    // (countryOverride trips have no bias point, so distance never rejects them
-    // — e.g. NTKH4's annual Taoyuan run.)
+    // geocodeVenue biases toward and validates against biasCenter (see
+    // venueGeocodeRejection). countryOverride trips have no bias point, so
+    // distance never rejects them — e.g. NTKH4's annual Taoyuan run.
     const geocoded = await geocodeVenue({
       location: event.location,
       street: event.locationStreet,

@@ -596,10 +596,10 @@ describe("reverseGeocode", () => {
 });
 
 describe("buildVenueGeocodeQueries", () => {
-  it("geocodes the venue with its street line first, then the venue alone", () => {
+  it("geocodes the venue with its street line first, then the street line alone", () => {
     expect(buildVenueGeocodeQueries("Fox and Duck", "Therfield, SG8 9PN")).toEqual([
       "Fox and Duck, Therfield, SG8 9PN",
-      "Fox and Duck",
+      "Therfield, SG8 9PN",
     ]);
   });
 
@@ -763,13 +763,22 @@ describe("geocodeVenue", () => {
     expect(url).toContain("&bounds=");
   });
 
-  it("falls back to the venue alone when the street line finds nothing", async () => {
+  it("falls back to the street line alone when venue + street finds nothing", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     const fetchSpy = mockGeocodeResponses({ status: "ZERO_RESULTS", results: [] }, hit(52.155, -0.448));
 
     const result = await geocodeVenue({ location: "The Pheasant", street: "Bedford, MK41 8YR" });
 
     expect(result).toMatchObject({ lat: 52.155, lng: -0.448 });
-    expect(fetchSpy.mock.calls[1][0]).toContain(`address=${encodeURIComponent("The Pheasant")}&`);
+    expect(fetchSpy.mock.calls[1][0]).toContain(`address=${encodeURIComponent("Bedford, MK41 8YR")}&`);
+  });
+
+  it("stops after a key or quota error instead of trying the next query", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchSpy = mockGeocodeResponses({ status: "OVER_QUERY_LIMIT", results: [] });
+
+    expect(await geocodeVenue({ location: "The Pheasant", street: "Bedford, MK41 8YR" })).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledOnce();
   });
 
   it("returns null when every hit is rejected", async () => {
