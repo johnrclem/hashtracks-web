@@ -11167,5 +11167,19 @@
     "trailLengthMinMiles": 4.5,
     "trailLengthMaxMiles": 4.5,
     "sourceUrl": "https://www.hwh3.co.uk/hashes/1878/"
+  },
+  {
+    "date": "2026-11-10",
+    "kennelTags": [
+      "hwh3"
+    ],
+    "runNumber": 1879,
+    "startTime": "19:45",
+    "location": "The Black Lion, Naphill",
+    "hares": "Zoë",
+    "trailLengthText": "7.87 km",
+    "trailLengthMinMiles": 4.89,
+    "trailLengthMaxMiles": 4.89,
+    "sourceUrl": "https://www.hwh3.co.uk/hashes/untitled-0261111161753/"
   }
 ]
