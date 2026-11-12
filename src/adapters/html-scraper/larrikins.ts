@@ -1,6 +1,6 @@
 import type { Source } from "@/generated/prisma/client";
 import type { ErrorDetails, RawEventData, ScrapeResult, SourceAdapter } from "../types";
-import { applyDateWindow, decodeEntities, fetchHTMLPage } from "../utils";
+import { applyDateWindow, decodeEntities, fetchHTMLPage, isPlaceholder } from "../utils";
 
 /**
  * Sydney Larrikins (Sydney South Harbour HHH "Tuesday Beers") — sydney.larrikins.org
@@ -14,11 +14,10 @@ import { applyDateWindow, decodeEntities, fetchHTMLPage } from "../utils";
  *   td.column-1  date    DD/MM/YYYY (UK style)
  *   td.column-2  run #
  *   td.column-3  hare
- *   td.column-4  always empty (kept for future enrichment)
+ *   td.column-4  location: a suburb ("Potts Point", "Cremorne") or "TBC" (#2851)
  *
- * Phase 1b ships the basic hareline only — the "Next Run" page (which
- * has location + start time + bring) is deferred to a future enrichment
- * pass.
+ * The "Next Run" page (street address + start time + bring) is still a
+ * future enrichment pass.
  */
 
 const KENNEL_TAG = "larrikins-au";
@@ -43,14 +42,16 @@ export function parseLarrikinsDate(raw: string): string | null {
 
 /**
  * Parse a single Larrikins row into a RawEventData. Returns null when
- * the row is missing the date or run number columns. Exported for unit
- * testing.
+ * the row is missing the date or run number columns. A blank or "TBC"
+ * location stays undefined so it never clears a venue another source set.
+ * Exported for unit testing.
  */
 export function parseLarrikinsRow(
   dateCell: string,
   runCell: string,
   hareCell: string,
   sourceUrl: string,
+  locationCell = "",
 ): RawEventData | null {
   const date = parseLarrikinsDate(dateCell);
   if (!date) return null;
@@ -58,11 +59,13 @@ export function parseLarrikinsRow(
   if (!runDigits) return null;
   const runNumber = Number.parseInt(runDigits, 10);
   const hares = hareCell.trim() || undefined;
+  const venue = locationCell.trim();
   return {
     date,
     kennelTags: [KENNEL_TAG],
     runNumber,
     hares,
+    location: venue && !isPlaceholder(venue) ? venue : undefined,
     sourceUrl,
   };
 }
@@ -85,8 +88,9 @@ export class LarrikinsAdapter implements SourceAdapter {
       const dateCell = decodeEntities($row.find("td.column-1").text());
       const runCell = decodeEntities($row.find("td.column-2").text());
       const hareCell = decodeEntities($row.find("td.column-3").text());
+      const locationCell = decodeEntities($row.find("td.column-4").text());
       if (!dateCell && !runCell) return;
-      const event = parseLarrikinsRow(dateCell, runCell, hareCell, url);
+      const event = parseLarrikinsRow(dateCell, runCell, hareCell, url, locationCell);
       if (event) events.push(event);
     });
 
