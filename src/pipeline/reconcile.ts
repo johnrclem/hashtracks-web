@@ -63,7 +63,7 @@ export const MASS_CANCEL_FRACTION = 0.3;
 export interface EventBacking {
   eventId: string | null;
   sourceId: string;
-  source: { enabled: boolean; retiredAt: Date | null };
+  source: { enabled: boolean; replacedById: string | null };
 }
 
 /**
@@ -71,23 +71,27 @@ export interface EventBacking {
  * - an enabled source's row always shields;
  * - a disabled source's row shields only a run `sourceId` never reported, so a
  *   partial secondary can't cancel a paused primary's runs during an outage;
- * - a retired source's row (`Source.retiredAt`) shields nothing for the events
- *   in `retiredCannotShield`, the upcoming runs inside this scrape's coverage:
- *   its replacement has listed that date range and the run isn't there.
- *   Elsewhere it counts as disabled. Past runs it recorded are real history
- *   even when the newer feed lacks them, and a run beyond the replacement's
- *   furthest row may just not be posted there yet.
+ * - a disabled source that `sourceId` replaced (`Source.replacedById`) shields
+ *   nothing for the events in `upcomingInCoverage`, the upcoming runs inside
+ *   this scrape's coverage: the replacement has listed that date range and the
+ *   run isn't there. Elsewhere it counts as disabled. Past runs it recorded are
+ *   real history even when the newer feed lacks them, a run beyond the
+ *   replacement's furthest row may just not be posted there yet, and another
+ *   source's coverage (a partial feed like Hash Rego) proves nothing about it.
  */
 export function protectedByOtherSources(
   sourceId: string,
   rows: EventBacking[],
-  retiredCannotShield: ReadonlySet<string> = new Set(),
+  upcomingInCoverage: ReadonlySet<string> = new Set(),
 ): Set<string> {
   const own = new Set<string>();
   const disabledOnly = new Set<string>();
   const shielded = new Set<string>();
   for (const { eventId, sourceId: rowSource, source } of rows) {
-    if (!eventId || (source.retiredAt && retiredCannotShield.has(eventId))) continue;
+    if (!eventId) continue;
+    const supersededHere =
+      !source.enabled && source.replacedById === sourceId && upcomingInCoverage.has(eventId);
+    if (supersededHere) continue;
     if (rowSource === sourceId) own.add(eventId);
     else if (source.enabled) shielded.add(eventId);
     else disabledOnly.add(eventId);
@@ -209,8 +213,8 @@ function bucketScrapedRows(
  * - Belong to a kennel linked to this source
  * - Are currently CONFIRMED
  * - Have NO RawEvents from another enabled source, nor from a disabled one
- *   unless this source reported the run too; a retired source protects no
- *   upcoming run inside this scrape's coverage (`protectedByOtherSources`)
+ *   unless this source reported the run too; a source this one replaced
+ *   protects no upcoming run inside this scrape's coverage (`protectedByOtherSources`)
  * - Were not returned in the current scrape results
  * - If past-dated, fall within the scrape's past coverage for their kennel
  *   (`isPastOutsideCoverage`); `upcomingOnly` skips the past side entirely
@@ -423,7 +427,7 @@ export async function reconcileStaleEvents(
   // Who backs each orphaned event (single query on the RawEvent.eventId index)
   const backing = await prisma.rawEvent.findMany({
     where: { eventId: { in: orphaned.map((e) => e.id) } },
-    select: { eventId: true, sourceId: true, source: { select: { enabled: true, retiredAt: true } } },
+    select: { eventId: true, sourceId: true, source: { select: { enabled: true, replacedById: true } } },
     distinct: ["eventId", "sourceId"],
   });
   const upcomingInCoverage = new Set(

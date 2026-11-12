@@ -33,7 +33,7 @@ const mockRawEventFindMany = vi.mocked(prisma.rawEvent.findMany);
 /** Backing rows: each event also has a RawEvent from another, enabled source. */
 function otherSource(...eventIds: string[]) {
   return eventIds.map((eventId) => ({
-    eventId, sourceId: "src_other", source: { enabled: true, retiredAt: null },
+    eventId, sourceId: "src_other", source: { enabled: true, replacedById: null },
   })) as never;
 }
 const mockResolve = vi.mocked(resolveKennelTag);
@@ -1074,12 +1074,12 @@ describe("isPastOutsideCoverage", () => {
 
 describe("disabled-source protection", () => {
   /** One RawEvent row: which event, which source, and whether that source is enabled. */
-  type Row = { eventId: string; sourceId: string; enabled: boolean; retired?: boolean };
+  type Row = { eventId: string; sourceId: string; enabled: boolean; replacedBy?: string };
 
   function fakeRawEvents(rows: Row[]) {
     mockRawEventFindMany.mockResolvedValueOnce(
-      rows.map(({ eventId, sourceId, enabled, retired }) => ({
-        eventId, sourceId, source: { enabled, retiredAt: retired ? new Date() : null },
+      rows.map(({ eventId, sourceId, enabled, replacedBy }) => ({
+        eventId, sourceId, source: { enabled, replacedById: replacedBy ?? null },
       })) as never,
     );
   }
@@ -1118,21 +1118,25 @@ describe("disabled-source protection", () => {
   });
 
   it.each([
-    // [rows as (sourceId, enabled, retired), upcoming run inside coverage?, shielded?]
-    [[["src_other", true, false]], true, true],
-    [[["src_1", true, false], ["src_other", true, false]], true, true],
-    [[["src_off", false, false]], true, true],
-    [[["src_1", true, false], ["src_off", false, false]], true, false],
-    [[["src_1", true, false]], true, false],
-    // Retired: shields nothing for an upcoming run inside coverage…
-    [[["src_gone", false, true]], true, false],
-    [[["src_gone", false, true], ["src_off", false, false]], true, true],
-    // …and counts as disabled anywhere else.
-    [[["src_gone", false, true]], false, true],
-    [[["src_1", true, false], ["src_gone", false, true]], false, false],
+    // [rows as (sourceId, enabled, replacedById), upcoming run inside coverage?, shielded?]
+    [[["src_other", true, null]], true, true],
+    [[["src_1", true, null], ["src_other", true, null]], true, true],
+    [[["src_off", false, null]], true, true],
+    [[["src_1", true, null], ["src_off", false, null]], true, false],
+    [[["src_1", true, null]], true, false],
+    // Replaced by src_1: shields nothing for an upcoming run inside coverage…
+    [[["src_gone", false, "src_1"]], true, false],
+    [[["src_gone", false, "src_1"], ["src_off", false, null]], true, true],
+    // …and counts as disabled anywhere else,
+    [[["src_gone", false, "src_1"]], false, true],
+    [[["src_1", true, null], ["src_gone", false, "src_1"]], false, false],
+    // including when another source replaced it (src_1 is a partial feed),
+    [[["src_gone", false, "src_new"]], true, true],
+    // and protects like any live source once it is re-enabled.
+    [[["src_1", true, null], ["src_gone", true, "src_1"]], true, true],
   ] as const)("protectedByOtherSources(%j, upcomingInCoverage=%s) → %s", (rows, inCoverage, shielded) => {
-    const backing = rows.map(([sourceId, enabled, retired]) => ({
-      eventId: "e", sourceId, source: { enabled, retiredAt: retired ? new Date() : null },
+    const backing = rows.map(([sourceId, enabled, replacedById]) => ({
+      eventId: "e", sourceId, source: { enabled, replacedById },
     }));
     const cannotShield = new Set(inCoverage ? ["e"] : []);
     expect(protectedByOtherSources("src_1", backing, cannotShield).has("e")).toBe(shielded);
@@ -1141,13 +1145,13 @@ describe("disabled-source protection", () => {
   it("ignores RawEvents not yet linked to an event", () => {
     expect(
       protectedByOtherSources("src_1", [
-        { eventId: null, sourceId: "src_other", source: { enabled: true, retiredAt: null } },
+        { eventId: null, sourceId: "src_other", source: { enabled: true, replacedById: null } },
       ]).size,
     ).toBe(0);
   });
 
-  describe("retired sources", () => {
-    const retiredOnly = [{ eventId: "dropped", sourceId: "src_retired", enabled: false, retired: true }];
+  describe("sources this one replaced", () => {
+    const retiredOnly = [{ eventId: "dropped", sourceId: "src_retired", enabled: false, replacedBy: "src_1" }];
 
     it("no longer shield an upcoming run inside the replacement's coverage", async () => {
       // The site removed the 02-21 run before the replacement's first scrape;
@@ -1159,6 +1163,18 @@ describe("disabled-source protection", () => {
 
       expect(result.cancelledEventIds).toEqual(["dropped"]);
       expect(result.multiSourcePreserved).toBe(0);
+    });
+
+    it("still shield it from a partial feed that is not the replacement", async () => {
+      // e.g. Hash Rego reconciling nych3 after HashNYC HTML → iCal: Hash Rego's
+      // coverage says nothing about runs only the old HTML scraper listed.
+      fakeRawEvents([{ ...retiredOnly[0], replacedBy: "src_ical" }]);
+      const covering = [...scraped, buildRawEvent({ date: "2026-02-28", kennelTags: ["BoBBH3"] })];
+
+      const result = await reconcileStaleEvents("src_1", covering, 90);
+
+      expect(result.cancelledEventIds).toEqual([]);
+      expect(result.multiSourcePreserved).toBe(1);
     });
 
     it("still shield a run past the replacement's furthest row (not posted there yet)", async () => {

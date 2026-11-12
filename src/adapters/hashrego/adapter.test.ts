@@ -2086,7 +2086,7 @@ function buildSource(configOverrides?: { kennelSlugs?: string[] }) {
     scrapeDays: 90,
     enabled: true,
     baselineResetAt: null,
-    retiredAt: null,
+    replacedById: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

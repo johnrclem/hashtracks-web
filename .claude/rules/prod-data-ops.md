@@ -53,13 +53,17 @@ Lessons from the Nov 2026 maintenance triage. Every rule here comes from a real 
   years on run numbers: anchor run + Δrun × cadence (memory `reference_runnumber_anchored_year_inference`).
 
 ## Retiring a source
-- **Replaced for good: set `retiredAt` along with `enabled = false`** in the retirement
-  migration. A disabled source that isn't retired is treated as paused, so its RawEvents
-  keep shielding runs its replacement never listed. A retired source stops shielding
-  upcoming runs inside the replacement's scrape coverage
-  (`protectedByOtherSources` in `src/pipeline/reconcile.ts`).
-- **Never retire archive or backfill sources.** Their RawEvents are the history they exist to
-  protect. Leave `retiredAt` null on sources paused for an outage too.
+- **Replaced for good: set `replacedById` (the replacement's id) along with `enabled = false`**
+  in the retirement migration. A disabled source without it is treated as paused, so its
+  RawEvents keep shielding runs its replacement never listed. With it, the replacement's
+  reconcile may cancel upcoming runs inside its scrape coverage that only the old source
+  listed (`protectedByOtherSources` in `src/pipeline/reconcile.ts`). Other sources linked to
+  the same kennel never get that override.
+- **Never link archive or backfill sources.** Their RawEvents are the history they exist to
+  protect. Leave `replacedById` null on sources paused for an outage too. Re-enabling a
+  replaced source restores its normal protection; clear the link if it's live again for good.
+- Coverage is the replacement's latest scraped date for the kennel, so one stray far-future
+  row (a pinned event) stretches it, the same failure `upcomingOnly` covers on the past side.
 
 ## After merging
 - **Verify in prod with a scrape**, not only locally: `POST https://www.hashtracks.xyz/api/cron/scrape/<sourceId>`
