@@ -1,6 +1,7 @@
 # Design Review: "Now" List Plan
 
-**Date:** 2026-11-10 · **Status:** approved by the owner on 2026-11-10
+**Date:** 2026-11-10 · **Status:** approved by the owner on 2026-11-10 · **Updated:** 2026-11-10
+(#2873, PR 2 and PR 3 merged; kennel status added as the next project)
 **Inputs:** [core-users.md](core-users.md) · design review page (claude.ai artifact "HashTracks Design Review") ·
 homepage mockups (claude.ai artifact "HashTracks Homepage Mockups")
 
@@ -80,7 +81,7 @@ back to Option C.
 ### Q5. How far does an empty Travel search look?
 
 - **Option A, chosen:** add a "Road trip" radius of 200 km. When a search finds no confirmed
-  runs, look up to 300 km and show the three nearest confirmed runs with distance and drive
+  runs, look up to 250 km and show the three nearest confirmed runs with distance and drive
   time, under a clear "Outside your search area" label.
 - Option B: just add the bigger radius, with no fallback. Visitors would still hit dead ends.
 
@@ -88,12 +89,12 @@ back to Option C.
 
 ## The work, as pull requests
 
-| PR | What | Size | Needs a design? | Depends on |
-|---|---|---|---|---|
-| **#2873** | M1: count signed-out visitors and returning visits | S | No | — |
-| **PR 2** | Homepage quick fixes: local "Coming Up", live counts, visible sections | S | No | Q1 |
-| **PR 3** | Travel: Road trip radius, nearest-runs fallback, coverage message | S–M | Small mockup | Q5 |
-| **PR 4** | Homepage search hero and travel band | M | Done: Direction A | Q2, Q3, Q4 |
+| PR | What | Size | Needs a design? | Depends on | State |
+|---|---|---|---|---|---|
+| **#2873** | M1: count signed-out visitors and returning visits | S | No | — | Merged |
+| **PR 2** (#2880) | Homepage quick fixes: local "Coming Up", live counts, visible sections | S | No | Q1 | Merged, not yet checked in prod |
+| **PR 3** (#2885) | Travel: Road trip radius, nearest-runs fallback, coverage message | S–M | Small mockup | Q5 | Merged, not yet checked in prod |
+| **PR 4** (#2901) | Homepage search hero and travel band | M | Done: Direction A | Q2, Q3, Q4 | In review |
 
 PR 2 and PR 3 don't touch the same files, so they can be built in parallel. PR 4 builds on
 PR 2's location code.
@@ -117,7 +118,8 @@ PR 2's location code.
 
 - **Road trip radius:** add 200 km to `RADIUS_TIERS` (`src/lib/travel/limits.ts`) and to
   `RADIUS_META` ("Road trip", about 125 mi).
-- **Nearest-runs fallback:** when confirmed runs are 0, run a second search out to 300 km and
+- **Nearest-runs fallback:** when confirmed runs are 0, run a second search out to 250 km (the existing
+  `MAX_RADIUS_KM`) and
   show up to three confirmed runs, nearest first, with distance and drive time.
 - **Coverage message:** "We may not track every kennel near Biloxi. Check Half-Mind's directory,
   or tell us about one." It links to Suggest a Kennel.
@@ -134,7 +136,8 @@ PR 2's location code.
   existing "Save trip" prompt asks for sign-in at the moment it's useful.
 - **Signed-in:** the same hero, plus "Your week" (Q4).
 - **Travel band:** "Going somewhere?" with `PopularDestinations` cards.
-- **New event:** `home_search_submitted { hasDates, usedNearMe }`.
+- **New event:** `home_search_submitted { datePreset, usedNearMe, usedLocationGuess }` (built
+  as this shape in #2901; `datePreset` is `week`, `weekend` or `custom`).
 - **Done when:** a first-time visitor on a phone can search a town in one step; homepage LCP is
   no worse; signed-out visitors no longer see sign-up as the main button.
 - **Files:** `src/app/page.tsx`, `src/components/home/FindRunsSection.tsx` (replaced), Travel
@@ -144,13 +147,49 @@ PR 2's location code.
 
 ## Sequence
 
-1. **This week:** merge #2873 and confirm in prod that `/ingest` accepts signed-out requests.
-   The baseline starts.
-2. **This week:** owner answers Q1–Q5 and picks a homepage mockup direction.
-3. **Week 1–2:** build PR 2 and PR 3, in parallel.
-4. **Week 2–3:** build PR 4 from the chosen mockup.
-5. **Four weeks after PR 4:** read the measures above and decide what's next (trust line,
+1. ~~Merge #2873 and confirm in prod that `/ingest` accepts signed-out requests.~~ Merged.
+   The baseline runs from here.
+2. ~~Owner answers Q1–Q5 and picks a homepage direction.~~ Done: Direction A, Option A for all.
+3. ~~Build PR 2 and PR 3.~~ Merged. Still to do: check both in production (PR 2 needs real
+   Vercel location headers, so it can only be checked there).
+4. **Now:** PR 4 is in review (#2901). In parallel, the kennel status design (below) goes through review and
+   owner approval. It is a document only until approved, so the two don't collide.
+5. **After PR 4:** build kennel status phase 1, then phase 2.
+6. **Four weeks after PR 4:** read the measures above and decide what's next (trust line,
    calendar feed, "near you this week" default).
+
+**Why PR 4 builds first:** it is fully designed and approved, it doesn't depend on the status
+work, and it changes the front door that the measures are watching. The status work is a
+multi-PR project that still needs owner decisions (see its design's open questions). Building
+status first would delay the homepage by weeks and blur the before/after reading.
+
+---
+
+## Next: kennel status (T2, widened)
+
+**Design:** [superpowers/specs/2026-11-10-kennel-status-design.md](superpowers/specs/2026-11-10-kennel-status-design.md)
+(approved by the owner on 2026-11-12, after an adversarial review, a builder check and the
+owner's answers to its four open questions).
+
+**The problem:** today's badge is one verdict computed from our own run data, so it can't tell
+"the kennel stopped" from "we don't get its runs". Live kennels we can't read look dead, and
+kennels kept alive only by runs generated from their usual schedule look active. Worse, 17% of
+upcoming runs Travel calls "Confirmed" are generated, not posted.
+
+**The idea:** one shared definition of a real run, and status built from the newest real,
+dated evidence. Coverage (what feeds we get) moves to the kennel page. Generated runs are labeled
+as "usual schedule" everywhere. Half-Mind kennels we lack can then be listed, with permission
+and credit, without looking dead or alive by accident.
+
+| PR | What | Size | Depends on |
+|---|---|---|---|
+| **Status 1** | Shared "real run" rule; status from real evidence; one dated line for non-running kennels; coverage on the kennel page; admin confirmations and stop; generated runs labeled in Travel and the Hareline | M–L | Design approved 2026-11-12; hand review of the ~37 kennels that leave Running, in the week before release |
+| **Status 2** | Travel bridge ("Other kennels near [place]"), then Half-Mind as a source: sync into discovery like Harrier Central / Hash Rego, one-region pilot reviewed by the owner, listing-only kennels (`noindex`), linked back to Half-Mind | M | Status 1; finding a Half-Mind data endpoint that answers ordinary requests |
+
+The first draft's hasher confirmations phase is cut: there aren't enough signed-in users yet.
+Four weeks after Status 1, review with live data whether generated runs belong under Likely.
+
+Sizes are guesses until Status 1 is planned.
 
 ## Risks
 
@@ -163,7 +202,7 @@ PR 2's location code.
 ## Not in this plan
 
 These come from the review's "Next" and "Later" lists and are deliberately left out: a trust
-line on every run (T1), kennel activity status (T2), town search on the Hareline (F4), "Near
+line on every run (T1), town search on the Hareline (F4), "Near
 you this week" as the Hareline default (R1), a calendar feed (R2), visitor info (V2), Places
 you've hashed (L1), one design language (review item D1), trip alerts and weekly email
 (V3, R3), big events, and kennel photos.
