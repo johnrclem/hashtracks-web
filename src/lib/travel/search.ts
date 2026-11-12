@@ -10,7 +10,7 @@
 
 import type { PrismaClient } from "@/generated/prisma/client";
 import { MAX_RADIUS_KM } from "@/lib/travel/limits";
-import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
+import { CANONICAL_EVENT_WHERE, HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import { INDEPENDENT_EVENT_WHERE } from "@/lib/event-eligibility";
 import { haversineDistance } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
@@ -584,6 +584,8 @@ async function runStopSearch(
     prisma.event.findMany({
       where: {
         ...CANONICAL_EVENT_WHERE,
+        // A stopped kennel's generated runs are hidden on every display surface.
+        ...HIDE_STOPPED_SCHEDULE_RUNS,
         // #1023 step 5: include co-hosted events at any nearby kennel.
         // The result construction below pivots metadata onto whichever
         // EventKennel.kennelId is in `nearbyIds` (not necessarily the
