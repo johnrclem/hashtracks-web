@@ -94,7 +94,7 @@ back to Option C.
 | **#2873** | M1: count signed-out visitors and returning visits | S | No | — | Merged |
 | **PR 2** (#2880) | Homepage quick fixes: local "Coming Up", live counts, visible sections | S | No | Q1 | Merged, not yet checked in prod |
 | **PR 3** (#2885) | Travel: Road trip radius, nearest-runs fallback, coverage message | S–M | Small mockup | Q5 | Merged, not yet checked in prod |
-| **PR 4** | Homepage search hero and travel band | M | Done: Direction A | Q2, Q3, Q4 | Next to build |
+| **PR 4** (#2901) | Homepage search hero and travel band | M | Done: Direction A | Q2, Q3, Q4 | In review |
 
 PR 2 and PR 3 don't touch the same files, so they can be built in parallel. PR 4 builds on
 PR 2's location code.
@@ -136,7 +136,8 @@ PR 2's location code.
   existing "Save trip" prompt asks for sign-in at the moment it's useful.
 - **Signed-in:** the same hero, plus "Your week" (Q4).
 - **Travel band:** "Going somewhere?" with `PopularDestinations` cards.
-- **New event:** `home_search_submitted { hasDates, usedNearMe }`.
+- **New event:** `home_search_submitted { datePreset, usedNearMe, usedLocationGuess }` (built
+  as this shape in #2901; `datePreset` is `week`, `weekend` or `custom`).
 - **Done when:** a first-time visitor on a phone can search a town in one step; homepage LCP is
   no worse; signed-out visitors no longer see sign-up as the main button.
 - **Files:** `src/app/page.tsx`, `src/components/home/FindRunsSection.tsx` (replaced), Travel
@@ -151,7 +152,7 @@ PR 2's location code.
 2. ~~Owner answers Q1–Q5 and picks a homepage direction.~~ Done: Direction A, Option A for all.
 3. ~~Build PR 2 and PR 3.~~ Merged. Still to do: check both in production (PR 2 needs real
    Vercel location headers, so it can only be checked there).
-4. **Now:** build PR 4. In parallel, the kennel status design (below) goes through review and
+4. **Now:** PR 4 is in review (#2901). In parallel, the kennel status design (below) goes through review and
    owner approval. It is a document only until approved, so the two don't collide.
 5. **After PR 4:** build kennel status phase 1, then phase 2.
 6. **Four weeks after PR 4:** read the measures above and decide what's next (trust line,
