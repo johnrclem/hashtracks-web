@@ -49,11 +49,31 @@ export const POSTED_RUN_RAW_SQL = Prisma.sql`(
   )
 )`;
 
+/**
+ * The RawEvent aliased `r` is its source's current copy of that instance: no
+ * RawEvent from the same source, with the same `rawData.sourceUrl`, linked to
+ * the same event was scraped after it. RawEvents are immutable and merge never
+ * unlinks an older one, so an older copy from the same source is superseded
+ * and must not count. `sourceUrl` keeps same-day double-headers apart (a
+ * Google Calendar `htmlLink` is unique per instance); a missing URL groups
+ * with other missing URLs. Copies scraped at the same instant both count.
+ */
+const CURRENT_RAW_SQL = Prisma.sql`NOT EXISTS (
+  SELECT 1
+  FROM "RawEvent" newer
+  WHERE newer."eventId" = r."eventId"
+    AND newer."sourceId" = r."sourceId"
+    AND (newer."rawData"->>'sourceUrl') IS NOT DISTINCT FROM (r."rawData"->>'sourceUrl')
+    AND newer."scrapedAt" > r."scrapedAt"
+)`;
+
 export type ScheduleOnlyScope = "all" | { sourceId: string; since: Date };
 
 /**
  * Recompute `Event.isScheduleOnly`: the event has ≥1 RawEvent and none of its
- * RawEvents is a posted run. An event with no RawEvent is never schedule-only.
+ * current RawEvents (the newest per source and `sourceUrl`, see
+ * `CURRENT_RAW_SQL`) is a posted run. An event with no RawEvent is never
+ * schedule-only.
  *
  * `"all"` covers every event. A source scope covers the events linked to that
  * source's RawEvents scraped at or after `since` (the scrape's start time).
@@ -87,7 +107,7 @@ export async function refreshScheduleOnlyFlags(scope: ScheduleOnlyScope): Promis
           SELECT 1
           FROM "RawEvent" r
           JOIN "Source" s ON s.id = r."sourceId"
-          WHERE r."eventId" = ev.id AND ${POSTED_RUN_RAW_SQL}
+          WHERE r."eventId" = ev.id AND ${POSTED_RUN_RAW_SQL} AND ${CURRENT_RAW_SQL}
         ) AS "isScheduleOnly"
       FROM "Event" ev
       ${eventFilter}
@@ -105,7 +125,8 @@ export async function refreshScheduleOnlyFlags(scope: ScheduleOnlyScope): Promis
  *   CONFIRMED logbook check-in or any misman `KennelAttendance`, and counts
  *   even when the event is schedule-only.
  * - `nextRunPostedAt`: the earliest real run dated today or later that has
- *   ≥1 RawEvent.
+ *   ≥1 RawEvent. Any RawEvent will do: an event with one always has a current
+ *   one, and whether it is a posted run is already in the cached flag.
  * - `lastConfirmedAt`: the newest un-reverted RUNNING confirmation.
  * - `stoppedAt`: the newest un-reverted STOPPED confirmation, kept only while
  *   no evidence date above is later than it; otherwise null, because kennels

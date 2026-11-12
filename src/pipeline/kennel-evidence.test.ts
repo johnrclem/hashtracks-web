@@ -57,6 +57,19 @@ describe("refreshScheduleOnlyFlags", () => {
     expect(query.values).toEqual([]);
   });
 
+  it("counts only each source's newest RawEvent per sourceUrl as a posted run", async () => {
+    await refreshScheduleOnlyFlags("all");
+    const sql = sqlText(lastQuery());
+    const postedRuns = sql.slice(sql.indexOf("AND NOT EXISTS ("), sql.indexOf(`AS "isScheduleOnly"`));
+    // An older RawEvent from the same source, for the same instance, is superseded:
+    // RawEvents are immutable and merge never unlinks the old ones (Ruling 11).
+    expect(postedRuns).toContain(
+      `NOT EXISTS ( SELECT 1 FROM "RawEvent" newer WHERE newer."eventId" = r."eventId" AND newer."sourceId" = r."sourceId" AND (newer."rawData"->>'sourceUrl') IS NOT DISTINCT FROM (r."rawData"->>'sourceUrl') AND newer."scrapedAt" > r."scrapedAt" )`,
+    );
+    // The guard sits inside the posted-run lookup, not the "has a RawEvent" check.
+    expect(sql).toContain(`EXISTS (SELECT 1 FROM "RawEvent" r WHERE r."eventId" = ev.id) AND NOT EXISTS (`);
+  });
+
   it("never flags an event with no RawEvent", async () => {
     await refreshScheduleOnlyFlags("all");
     const sql = sqlText(lastQuery());
@@ -75,7 +88,7 @@ describe("refreshScheduleOnlyFlags", () => {
     await refreshScheduleOnlyFlags("all");
     const query = lastQuery();
     expect(query.values).toEqual([]);
-    expect(sqlText(query)).not.toContain(`"scrapedAt"`);
+    expect(sqlText(query)).not.toContain(`r."scrapedAt" >=`);
   });
 
   it("scopes to one source's rows scraped since a time", async () => {
