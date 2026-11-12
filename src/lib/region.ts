@@ -2572,6 +2572,33 @@ export const REGION_SEED_DATA: RegionSeedRecord[] = [
     centroidLng: 20.4612,
     aliases: ["Belgrade, Serbia", "Beograd"],
   },
+  // ── Croatia (first 🇭🇷 kennel: Zagreb H4) — 2-level COUNTRY→METRO, mirrors the
+  //    Serbia/Belgrade precedent (no seed.ts stateMetroLinks). Blue palette —
+  //    neighbours use red (Serbia), orange (Hungary), teal (Austria); blue's other
+  //    owners (France, Scotland) aren't adjacent. ──
+  {
+    name: "Croatia",
+    country: "Croatia",
+    level: "COUNTRY",
+    timezone: "Europe/Zagreb",
+    abbrev: "HR",
+    colorClasses: "bg-blue-200 text-blue-800",
+    pinColor: "#2563eb",
+    centroidLat: 45.1,
+    centroidLng: 15.2,
+    aliases: ["Croatia", "Hrvatska"],
+  },
+  {
+    name: "Zagreb",
+    country: "Croatia",
+    timezone: "Europe/Zagreb",
+    abbrev: "ZAG",
+    colorClasses: "bg-blue-100 text-blue-700",
+    pinColor: "#3b82f6",
+    centroidLat: 45.815,
+    centroidLng: 15.982,
+    aliases: ["Zagreb, Croatia"],
+  },
   // ── Vietnam (first 🇻🇳 kennel: Saigon H3, Ho Chi Minh City) — 2-level
   //    COUNTRY→METRO, mirrors the Poland/Nepal/Cambodia precedent (no seed.ts
   //    stateMetroLinks needed). Cyan palette — distinct from every SE-Asia
@@ -4739,6 +4766,9 @@ const COUNTRY_INFERENCE_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   // doubles as US place names (Belgrade, MT / Belgrade, ME); "serbia"/"beograd" are
   // unambiguous. inferCountry() is first-match with USA as the default fallthrough.
   [/\b(serbia|srbija|beograd)\b/, "Serbia"],
+  // Croatia — "zagreb" is kept: unlike "belgrade"/"prague" it names no US or
+  // other-country place, so it can't misroute. Native spelling "hrvatska" too.
+  [/\b(croatia|hrvatska|zagreb)\b/, "Croatia"],
   // Czech Republic — country-name tokens only. "prague" is OMITTED because it
   // doubles as US place names (Prague, OK / Prague, NE); "czech"/"czechia"/"praha"
   // are unambiguous. inferCountry() is first-match with USA as the default fallthrough.
@@ -5072,6 +5102,8 @@ const STATE_GROUP_MAP: Record<string, string> = {
   "St George's": "Grenada",
   // Serbia
   "Belgrade": "Serbia",
+  // Croatia
+  "Zagreb": "Croatia",
   "Prague": "Czech Republic",
   // Cyprus
   "Larnaca": "Cyprus",
@@ -5341,6 +5373,8 @@ const COUNTRY_GROUP_MAP: Record<string, string> = {
   // Serbia — metro "Belgrade" resolves via STATE_GROUP_MAP first, so only the
   // country-group key "Serbia" is reachable here (mirrors the Barbados precedent).
   "Serbia": "Serbia",
+  // Croatia — metro "Zagreb" resolves via STATE_GROUP_MAP first (Serbia precedent).
+  "Croatia": "Croatia",
   // Czech Republic / Sierra Leone — metro "Prague"/"Freetown" resolves via
   // STATE_GROUP_MAP first, so only the country-group key is reachable here
   // (mirrors the Serbia precedent; a metro-name key would be a dead no-op —
@@ -5501,6 +5535,7 @@ const COUNTRY_CODE_TO_NAME: Record<string, string> = {
   JM: "Jamaica",
   GD: "Grenada",
   RS: "Serbia",
+  HR: "Croatia",
   CZ: "Czech Republic",
   CY: "Cyprus",
   VN: "Vietnam",

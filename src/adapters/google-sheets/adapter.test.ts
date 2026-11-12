@@ -21,6 +21,20 @@ describe("parseDate", () => {
     expect(parseDate("2026-03-29", undefined, { dayFirst: true })).toBe("2026-03-29"); // ISO unaffected
   });
 
+  it("reads dotted D.M.YYYY with an optional trailing dot when dayFirst (Zagreb H4)", () => {
+    expect(parseDate("2.1.2026", undefined, { dayFirst: true })).toBe("2026-01-02");
+    expect(parseDate("19.12.2026", undefined, { dayFirst: true })).toBe("2026-12-19");
+    expect(parseDate("11.10.2025.", undefined, { dayFirst: true })).toBe("2025-10-11");
+    expect(parseDate("11.11.17", undefined, { dayFirst: true })).toBe("2017-11-11"); // 2-digit year
+    expect(parseDate("31.2.2026", undefined, { dayFirst: true })).toBeNull(); // invalid day
+    expect(parseDate("2.1.", undefined, { dayFirst: true })).toBeNull(); // year missing
+  });
+
+  it("keeps dotted dates unsupported without dayFirst (month-first sheets unchanged)", () => {
+    expect(parseDate("2.1.2026")).toBeNull();
+    expect(parseDate("11.10.2025.")).toBeNull();
+  });
+
   it("parses weekday-prefixed YY-MM-DD (Summit 2026-2027 tab, #2333)", () => {
     expect(parseDate("Mon 26-06-22")).toBe("2026-06-22");
     expect(parseDate("Sat 26-06-27")).toBe("2026-06-27");

@@ -266,6 +266,7 @@ function parseWeekdayPrefixedTriple(cleaned: string): string | null {
  * - "Mon 26-06-22" (weekday + two-digit triple, weekday-validated)
  * - "6-15-25" (M-D-YY with hyphens)
  * - "7/1/2024" (M/D/YYYY with slashes; D/M/YYYY with `opts.dayFirst`)
+ * - "2.1.2026" / "11.10.2025." (D.M.YYYY, optional trailing dot — `opts.dayFirst` only)
  * - "6/13/22" (M/DD/YY with slashes)
  * - "2026-03-29" (YYYY-MM-DD ISO 8601)
  * - "2026/03/07" (YYYY/MM/DD)
@@ -301,7 +302,12 @@ export function parseDate(
   const weekdayTriple = parseWeekdayPrefixedTriple(cleaned);
   if (weekdayTriple) return weekdayTriple;
 
-  const parts = cleaned.split(/[/\-]/).map((s) => Number.parseInt(s, 10));
+  // With `dayFirst`, dots also separate ("2.1.2026", Zagreb H4) and one
+  // trailing dot is dropped ("11.10.2025."). Month-first sheets never write
+  // dotted dates, so dots stay unsupported there (unchanged behaviour).
+  const numeric = opts.dayFirst && cleaned.endsWith(".") ? cleaned.slice(0, -1) : cleaned;
+  const separator = opts.dayFirst ? /[/.\-]/ : /[/\-]/;
+  const parts = numeric.split(separator).map((s) => Number.parseInt(s, 10));
   if (parts.length !== 3 || parts.some(isNaN)) return null;
 
   let year: number, month: number, day: number;

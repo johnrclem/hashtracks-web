@@ -430,6 +430,17 @@ describe("inferCountry — Serbia (first 🇷🇸 kennel: BEER H3, Belgrade)", (
   });
 });
 
+describe("inferCountry — Croatia (first 🇭🇷 kennel: Zagreb H4)", () => {
+  it.each([
+    ["Croatia", "Croatia"],
+    ["Zagreb, Croatia", "Croatia"],
+    ["Zagreb", "Croatia"],
+    ["Hrvatska", "Croatia"],
+  ])("infers %s → Croatia", (name, country) => {
+    expect(inferCountry(name)).toBe(country);
+  });
+});
+
 describe("inferCountry — France metros (Lyon H3, Heraultics H3)", () => {
   it.each([
     ["Lyon, France", "France"], // via the "france" token (bare "lyon" is omitted)

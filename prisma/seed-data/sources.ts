@@ -9734,6 +9734,29 @@ export const SOURCES = [
       kennelCodes: ["mickleover-h3"],
     },
     {
+      name: "Zagreb H4 Run Schedule Sheet",
+      url: "https://docs.google.com/spreadsheets/d/1lYHbq66X4aPfirLQR0jBtVsYIX3qLTwgEpOQo1FgM-M",
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7,
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        // Past runs come from scripts/backfill-zh4-history.ts; keep reconcile future-only.
+        upcomingOnly: true,
+        sheetId: "1lYHbq66X4aPfirLQR0jBtVsYIX3qLTwgEpOQo1FgM-M",
+        // No gid/tabs: one tab per year ("2026", "2025", …) auto-discovered newest-first,
+        // so the kennel's new January tab is picked up without a config change.
+        // Header: Run No | Day | Date | Time | Hare | Run Start from | MAP. The Day column
+        // contradicts the dates and is left unmapped.
+        columns: { runNumber: 0, date: 2, startTime: 3, hares: 4, location: 5 },
+        dayFirst: true, // "2.1.2026" / "11.10.2025." (D.M.YYYY, optional trailing dot)
+        requireRunNumber: true, // drop un-numbered placeholder slot rows
+        kennelTagRules: { default: "zh4" },
+        startTimeRules: { byDayOfWeek: { Sat: "11:00", Mon: "18:00" }, default: "11:00" },
+      },
+      kennelCodes: ["zh4"],
+    },
+    {
       name: "Quorn H3 Runlog XML",
       url: "http://www.quornh3.org.uk/runlog.html", // NOSONAR — site is HTTP-only; adapter reads runlog<YYYY>.xml
       type: "HTML_SCRAPER" as const,
