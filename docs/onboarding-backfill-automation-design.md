@@ -1,6 +1,6 @@
 # Onboarding backfill automation: design
 
-**Status:** v5.2. Approved by adversarial review in round 5 (Appendix A); round 5's minor findings applied in v5.1. v5.2 aligns the design with the kennel status work (Status 1, #2923): the calendar series marker, the evidence refresh and the never-enabled archive source. Its review took rounds 7–9, and round 9 approved it. Pending owner review. Nothing is built yet. 2026-11-13.
+**Status:** v5.2. Approved by adversarial review in round 5 (Appendix A); round 5's minor findings applied in v5.1. v5.2 aligns the design with the kennel status work (Status 1, #2923): the calendar series marker, the evidence refresh and the never-enabled archive source. Its review took rounds 7–9, and round 9 approved it. Changes from PR comments were reviewed in rounds 10–12, and round 12 approved them. Pending owner review. Nothing is built yet. 2026-11-13.
 **Scope:** design only. Nothing here is built yet. No code, migration or prod write was made to produce it.
 **Related:** [`kennel-onboarding/implement-handoff-prompt.md`](kennel-onboarding/implement-handoff-prompt.md) (the implementer),
 [`kennel-onboarding/daily-onboarding-prompt.md`](kennel-onboarding/daily-onboarding-prompt.md) (research),
@@ -249,7 +249,7 @@ Each archive `scripts/data/<code>-history.json` gets a sibling
 | `sameDateGroups` | Every (kennel, date) with more than one row, with run numbers |
 | `runNumberExceptions` | Rows that break the strict run-number order (capped) |
 | `scheduleOnlyEstimate` | Informational, not part of `approvalHash`: about how many rows the kennel status rules will count as a usual schedule rather than a run, namely rows with a `recurringSeriesId`, no run number and no hares. CI computes it from the raw rows for the owner to read. The authoritative set is computed at plan from the rows as the merge will store them (9.2) |
-| `expectedGaps` | Declared by the curator: date ranges with no runs and a reason (seasonal break, pause), excluded from G20's gap rule. Each contains no archive row and is at most 120 days. All lie inside the archive's span, except at most one **trailing** gap, which starts after the archive's last row (a seasonal break between the archive and the live feed's first run). A trailing gap must recur in the archive's own history. In at least 2 of the 3 full calendar years before the archive's last row, leaving out 2020 and 2021, the archive must have a stretch with no runs that covers at least 80% of the gap's calendar days and is at most 1.5 times its length. Calendar windows wrap across the new year. Otherwise the backfill is supervised |
+| `expectedGaps` | Declared by the curator: date ranges with no runs and a reason (seasonal break, pause), excluded from G20's gap rule. Each contains no archive row and is at most 120 days. All lie inside the archive's span, except at most one **trailing** gap, which starts after the archive's last row (a seasonal break between the archive and the live feed's first run). A trailing gap must recur in the archive's own history. In at least 2 of the 3 most recent full calendar years before the archive's last row, the archive must have a stretch with no runs that covers at least 80% of the gap's calendar days and is at most 1.5 times its length. 2020 and 2021 don't count, so the window reaches back past them. Calendar windows wrap across the new year, and a wrapping window belongs to the year it starts in. Otherwise the backfill is supervised |
 | `curatedCorrections` | Declared by the curator: rows whose date or run number was changed from the source, excluded from G20's 95% count. At most 20 rows or 2% of rows, whichever is larger (Zagreb has about 12) |
 | `piiScan` | Scanner version and residual count (must be 0) |
 | `approvalHash` | SHA-256 over the canonical JSON of every field above except the sample titles, which depend on display names, and `scheduleOnlyEstimate`, which depends on placeholder rules that change between CI and plan |
@@ -1199,3 +1199,9 @@ were applied:
 |---|---|---|---|
 | R11-1 | material | "One earlier year" was too weak. A COVID shutdown, or a hole where the source lost pages, covers almost any calendar window. "Overlaps" accepted a single shared day, and the length test had no upper bound | The break must recur in at least 2 of the 3 full years before the archive's last row, leaving out 2020 and 2021. Each earlier stretch must cover at least 80% of the gap's calendar days and be at most 1.5 times its length. Windows wrap across the new year (6.1, 6.5) |
 | R11-2 | minor | G21 didn't say what happens to a row with no matching live event, such as a curated date change | Such rows, and every `curatedCorrections` row, are skipped and counted (G21) |
+
+**Round 12** — `APPROVE`. Both fixes close their findings, and no material problem remains. Its one wording note was applied:
+
+| # | Note | Applied |
+|---|---|---|
+| R12-1 | Whether leaving out 2020–21 shortens the 3-year window, and which year a break crossing the new year belongs to | The window reaches back past 2020–21; a wrapping window belongs to the year it starts in (6.1) |
