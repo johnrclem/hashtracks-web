@@ -698,7 +698,9 @@ export const SOURCES = [
     },
     {
       name: "Barnes Hash Hare Line",
-      url: "https://www.barnesh3.com/HareLine.htm",
+      // Nov 2026: the site moved to GitHub Pages and HareLine.htm is gone. The
+      // adapter reads the club's published Google Sheet named in /config.js.
+      url: "https://barnesh3.com/hareline/",
       type: "HTML_SCRAPER" as const,
       trustLevel: 6,
       scrapeFreq: "daily",
