@@ -14,6 +14,9 @@ import type { HarelineEvent } from "@/components/hareline/EventCard";
 import { MismanManagementSection } from "@/components/kennels/MismanManagementSection";
 import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
 import { KennelStats } from "@/components/kennels/KennelStats";
+import { HowWeKnow } from "@/components/kennels/HowWeKnow";
+import { getHowWeKnow } from "@/lib/kennel-how-we-know";
+import { serializeKennelEvidence } from "@/lib/kennel-status";
 import { KennelLogo } from "@/components/kennels/KennelLogo";
 import { TrailLocationMapClient } from "@/components/kennels/TrailLocationMapClient";
 import { EventTabs } from "@/components/kennels/EventTabs";
@@ -212,6 +215,8 @@ export default async function KennelDetailPage({
     });
     hasPendingMismanRequest = !!pendingRequest;
   }
+
+  const howWeKnow = await getHowWeKnow(kennel.id);
 
   // Split events into upcoming and past
   const now = new Date();
@@ -424,10 +429,22 @@ export default async function KennelDetailPage({
         totalEvents={totalEvents}
         oldestEventDate={oldestEventDate}
         nextRunDate={nextRunDate}
-        lastEventDate={kennel.lastEventDate ? kennel.lastEventDate.toISOString() : null}
+        lastRunSeenAt={kennel.lastRunSeenAt ? kennel.lastRunSeenAt.toISOString() : null}
         foundedYear={kennel.foundedYear}
         region={kennel.region ?? undefined}
       />
+      </FadeInSection>
+
+      {/* ── How we know (dated evidence + feed coverage) ── */}
+      <FadeInSection delay={250}>
+        <HowWeKnow
+          evidence={serializeKennelEvidence(kennel)}
+          coverage={howWeKnow.coverage}
+          items={howWeKnow.items.map((i) => ({ ...i, date: i.date.toISOString() }))}
+          website={kennel.website}
+          facebookUrl={kennel.facebookUrl}
+          kennelSlug={kennel.slug}
+        />
       </FadeInSection>
 
       {/* ── Event Tabs (Upcoming / Past) ── */}

@@ -9,7 +9,7 @@ interface KennelStatsProps {
   totalEvents: number;
   oldestEventDate: string | null;
   nextRunDate: string | null;
-  lastEventDate: string | null;
+  lastRunSeenAt: string | null;
   foundedYear?: number | null;
   region?: string;
 }
@@ -100,11 +100,11 @@ export function KennelStats({
   totalEvents,
   oldestEventDate,
   nextRunDate,
-  lastEventDate,
+  lastRunSeenAt,
   foundedYear,
   region,
 }: KennelStatsProps) {
-  if (totalEvents === 0 && !lastEventDate) return null;
+  if (totalEvents === 0 && !lastRunSeenAt) return null;
 
   const hex = region ? getRegionColor(region) : "#6b7280";
   const [r, g, b] = hexToRgb(hex);
@@ -152,10 +152,10 @@ export function KennelStats({
       value: formatNextRun(nextRunDate),
       label: "Next Run",
     });
-  } else if (lastEventDate) {
+  } else if (lastRunSeenAt) {
     stats.push({
       icon: <Clock className="h-5 w-5" />,
-      value: formatLastRun(lastEventDate),
+      value: formatLastRun(lastRunSeenAt),
       label: "Last Run",
     });
   }
