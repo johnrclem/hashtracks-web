@@ -2301,6 +2301,18 @@ export const KENNELS: KennelSeed[] = [
       logoUrl: "/kennel-logos/hoth3.png", // self-hosted from hch3.net/images/HOTc.PNG; magic bytes confirmed PNG
       description: "Full-moon hash for the Killeen / Belton / Harker Heights area, running on the Friday nearest each full moon at 7:30 PM since June 1991. Sister kennel of Hill Country H3.",
     },
+    {
+      // HOTH3's weekly Wednesday "hump day" hash: 567 runs on the shared
+      // hch3.net calendar, Dec 2010 → Oct 2021, none since. Split out of hoth3
+      // (WS4, 2026-11-12) so the full-moon kennel's history and schedule stay
+      // its own. Sole source: the frozen calendar archive.
+      kennelCode: "hoth3-humpin", shortName: "HOTH3 Humpin Hash", fullName: "Heart of Texas H3 Humpin' Hash",
+      region: "Killeen, TX", country: "USA",
+      website: "https://hch3.net/heart_of_texas_h3.htm",
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "7:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Wednesdays at 7 PM around Killeen / Harker Heights / Copperas Cove, 2010–2021. No runs listed since October 2021.",
+      description: "Heart of Texas H3's weekly Wednesday-evening hash in the Killeen area, run from December 2010 to October 2021. Currently dormant.",
+    },
     // ===== FLORIDA =====
     // --- Miami / South Florida ---
     {

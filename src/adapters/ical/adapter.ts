@@ -32,6 +32,9 @@ export interface ICalSourceConfig {
   dropImprobablePlaceholderTime?: boolean; // #2175 Charm City: clear startTime/endTime when a `#TBD`-style placeholder run also carries a junk late-night DTSTART (23:00–03:59) — the hare entered a throwaway time before the trail was scheduled. Opt-in so a legitimately late/early-morning trail on another feed that still uses a placeholder run number keeps its time.
   dashedTrailSummary?: boolean;        // Bicester H3: SUMMARY is "Trail # N - <hare> - <venue|TBC>", or for specials "Trail # N - 🎅 THEME 🎅Venue - <hares>". Takes the hares from the right segment and leaves the title undefined (merge synthesizes "<Kennel> Trail #N") unless the SUMMARY names a theme. See parseDashedTrailSummary.
   summaryGridRefVenue?: boolean;       // Chichester H3: SUMMARY is "<hares / theme>  <OS grid ref> <venue>" (e.g. "Bambi & Old Faithful  SU912194 Ambersham Common") or "<text>  TBA  see …" with no title and a link-only DESCRIPTION. Splits venue off the grid ref, uses the preamble as the description, takes hares from it only when it reads as a plain hare list, and leaves the title undefined so merge synthesizes "<Kennel> Trail #N". See splitGridRefSummary / gridRefPreambleHares.
+  descriptionStripPatterns?: string[]; // #2890 Cheltenham & Cotswold H3: regexes (case-insensitive) for DESCRIPTION lines that repeat other fields ("Hare(s): …", "Map: <url>", the event's own URL). Matching lines are dropped from the stored description; when nothing is left the description is explicitly cleared (`null`). Hares/location/cost are still read from the full DESCRIPTION.
+  ignoreEndTime?: boolean;             // #2891 Cheltenham & Cotswold H3: the feed's DTEND is a generator default (always DTSTART + 2h), not a finish time. Emits an explicit `null` endTime so stored values are cleared too.
+  sourceUrlOverride?: string;          // #2892 Cheltenham & Cotswold H3: the per-event URL redirects logged-out visitors to a login page; link every event to this public page instead.
   locationOmitIfMatches?: string[];    // Cheltenham & Cotswold H3: regexes (case-insensitive) for a LOCATION that is a placeholder, not a venue ("TORCHLIT"). A match drops the location AND the VEVENT's GEO, because the publisher geocoded the placeholder text into a bogus pin. Same semantics as the GenericHtml/GCal knob of the same name.
 }
 
@@ -308,26 +311,62 @@ export function splitGridRefSummary(summary: string): { preamble?: string; venue
 }
 
 // Words that mark a preamble as a theme / visit / special rather than a hare list.
+// "Hash Flash" is a hasher (#2895), not the word "hash".
 const GRID_PREAMBLE_THEME_RE =
-  /\?|\b(?:hash|hhh|visit|weekend|camp|joint|run|trail|bbq|christmas|hangover|party|birthday|raffle|awards|tba|volunteer|iow)\b/i;
+  /\?|\b(?:hash(?!\s+flash\b)|hhh|visit|weekend|camp|joint|run|trail|bbq|christmas|hangover|party|birthday|raffle|awards|tba|volunteer|iow|venue)\b/i;
 const HARE_LABEL_RE = /\bhares?\b/i;
+const HARE_LIST_CONNECTOR_RE = /&|,|\band\b/i;
+
+/**
+ * Hares from one " - " segment of a Chichester preamble. Without a theme word the
+ * whole segment is the hare list (`allowPlain`). With one, leading theme words
+ * are dropped ("IOW HHH Beer Pump & Proppy") and the names before the next theme
+ * word or "??" are kept ("Cock Burns & Linsey Hangover Hash"), but only when they
+ * read as a list, so a lone theme fragment ("Summer" from "Summer BBQ", "Worthy
+ * Winchester" from "Worthy Winchester and IOW Weekend") never becomes a hare
+ * (#2894). A dangling "and"/"&" counts only before "??", the unnamed co-hare
+ * ("Bika and ?? ON-IN…" → "Bika").
+ */
+function gridSegmentHares(segment: string, allowPlain: boolean): string | undefined {
+  let text = segment.replaceAll(/\([^)]*\)/g, " ").replaceAll(/\s+/g, " ").trim();
+  let themed = false;
+  let theme = GRID_PREAMBLE_THEME_RE.exec(text);
+  while (theme?.index === 0) {
+    themed = true;
+    text = text.slice(theme[0].length).replace(/^[\s?:,]+/, "");
+    theme = GRID_PREAMBLE_THEME_RE.exec(text);
+  }
+  const cutAtUnknownHare = theme?.[0] === "?";
+  if (theme) {
+    themed = true;
+    text = text.slice(0, theme.index);
+  }
+  const hares = text.replace(/(?:[\s,&]|\band\b)+$/i, "").trim(); // NOSONAR — anchored end-of-string strip of list connectors
+  const listEvidence = cutAtUnknownHare ? text : hares;
+  if ((themed || !allowPlain) && !HARE_LIST_CONNECTOR_RE.test(listEvidence)) return undefined;
+  return hares || undefined;
+}
 
 /**
  * Hares from a Chichester SUMMARY preamble, or undefined when it doesn't read
- * as a plain hare list. An explicit "Hare(s)" label wins ("Visit: Deepcut Hash.
+ * as a hare list. An explicit "Hare(s)" label wins ("Visit: Deepcut Hash.
  * Hares: Yorkie & Yellow Peril"); otherwise the text before " - " is used, minus
  * any parenthetical ("Bambi & Old Faithful - SUMMER BBQ" → "Bambi & Old Faithful").
- * Anything still carrying a theme word or "??" is rejected — the preamble is
- * kept as the description either way, so nothing is lost.
+ * A theme-only first segment ("Hangover - Old Faithful and Bambi - chez …") falls
+ * through to the next segment that reads as a list. The preamble is kept as the
+ * description either way, so nothing is lost.
  */
 export function gridRefPreambleHares(preamble: string | undefined): string | undefined {
   if (!preamble) return undefined;
-  let candidate = preamble;
-  const label = HARE_LABEL_RE.exec(candidate);
-  if (label) candidate = candidate.slice(label.index + label[0].length).replace(/^[\s:]+/, "");
-  candidate = candidate.split(" - ")[0].replaceAll(/\([^)]*\)/g, " ").replaceAll(/\s+/g, " ").trim();
-  if (!candidate || GRID_PREAMBLE_THEME_RE.test(candidate)) return undefined;
-  return candidate;
+  let text = preamble;
+  const label = HARE_LABEL_RE.exec(text);
+  if (label) text = text.slice(label.index + label[0].length).replace(/^[\s:]+/, "");
+  const segments = text.split(" - ");
+  for (let i = 0; i < segments.length; i++) {
+    const hares = gridSegmentHares(segments[i], i === 0);
+    if (hares) return hares;
+  }
+  return undefined;
 }
 
 /** Normalize ICS escape sequences in a description string. */
@@ -688,6 +727,7 @@ function buildRawEventFromVEvent(
   compiledLocationPatterns?: RegExp[],
   compiledCostPatterns?: RegExp[],
   compiledLocationOmit?: RegExp[],
+  compiledDescriptionStrip?: RegExp[],
 ): RawEventData | null {
   if (vevent.status === "CANCELLED") return null;
 
@@ -718,6 +758,7 @@ function buildRawEventFromVEvent(
   // endTime is HH:MM only, so cross-date DTEND values (overnight runs) are dropped.
   const endDt = vevent.end as DateWithTimeZone | undefined;
   let endTime: string | null | undefined = endDt && formatDate(endDt) === dateStr ? formatTime(endDt) : undefined;
+  if (config?.ignoreEndTime) endTime = null;
   // endDate (#1560) — populated only for multi-day ALL-DAY VEVENTs (DTSTART
   // and DTEND both VALUE=DATE, spanning >1 day). RFC 5545 makes all-day DTEND
   // exclusive (an event May 14–17 has DTEND=May 18), so the inclusive last day
@@ -891,24 +932,38 @@ function buildRawEventFromVEvent(
     title = undefined;
   }
 
+  let outDescription: string | null | undefined = config?.summaryGridRefVenue ? gridPreamble : description?.substring(0, 2000);
+  if (outDescription && compiledDescriptionStrip?.length) {
+    outDescription = stripDescriptionLines(outDescription, compiledDescriptionStrip);
+  }
+
   return {
     date: dateStr,
     kennelTags: [parsed.kennelTag],
     runNumber,
     title,
-    description: appendDescriptionSuffix(
-      (config?.summaryGridRefVenue ? gridPreamble : description?.substring(0, 2000)) || undefined,
-      config?.descriptionSuffix,
-    ),
+    description: outDescription === null
+      ? null
+      : appendDescriptionSuffix(outDescription || undefined, config?.descriptionSuffix),
     hares,
     location,
     locationUrl,
     startTime,
     endTime,
     cost,
-    sourceUrl: eventUrlIsMap ? undefined : eventUrl,
+    sourceUrl: config?.sourceUrlOverride ?? (eventUrlIsMap ? undefined : eventUrl),
     endDate,
   };
+}
+
+/**
+ * Drop every DESCRIPTION line a `descriptionStripPatterns` regex matches
+ * (#2890). Returns `null` when nothing is left, so merge clears a boilerplate
+ * description it stored earlier instead of preserving it.
+ */
+export function stripDescriptionLines(description: string, patterns: RegExp[]): string | null {
+  const kept = description.split("\n").filter((line) => !patterns.some((re) => re.test(line.trim())));
+  return kept.join("\n").replaceAll(/\n{3,}/g, "\n\n").trim() || null;
 }
 
 /**
@@ -1042,6 +1097,9 @@ export class ICalAdapter implements SourceAdapter {
     const compiledLocationOmit = config?.locationOmitIfMatches?.length
       ? compilePatterns(config.locationOmitIfMatches, "i")
       : undefined;
+    const compiledDescriptionStrip = config?.descriptionStripPatterns?.length
+      ? compilePatterns(config.descriptionStripPatterns, "i")
+      : undefined;
 
     let events: RawEventData[] = [];
     const errors: string[] = [];
@@ -1086,7 +1144,7 @@ export class ICalAdapter implements SourceAdapter {
           continue;
         }
 
-        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns, compiledRunNumberPatterns, compiledTitleHarePattern, compiledLocationPatterns, compiledCostPatterns, compiledLocationOmit);
+        const event = buildRawEventFromVEvent(vevent, config, compiledHarePatterns, compiledRunNumberPatterns, compiledTitleHarePattern, compiledLocationPatterns, compiledCostPatterns, compiledLocationOmit, compiledDescriptionStrip);
         if (event) events.push(event);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

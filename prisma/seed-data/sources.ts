@@ -1630,8 +1630,8 @@ export const SOURCES = [
       // Hill Country H3 (hch3.net) public Google Calendar. Also carries the
       // sister full-moon kennel Heart of Texas H3, plus Wako H3 (Waco, not
       // onboarded), an Austin H3 cross-post, Thursty Thursday rows and the
-      // owner's personal/holiday entries, so strict routing keeps only the two
-      // anchored prefixes. HOTH3 first so "HOT Humpin" never falls to HCH3.
+      // owner's personal/holiday entries, so strict routing keeps only the
+      // anchored prefixes. HOTH3 before HCH3 so "HOT Humpin" never falls to HCH3.
       // All-day entries ("HOTH3 Analversary", novelty days) stay dropped
       // (includeAllDayEvents off).
       // futureHorizonDays: the kennel edits instances of a biweekly template
@@ -1645,14 +1645,16 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         kennelPatterns: [
-          [String.raw`^Heart of Texas\b|^HOTH3\b|^HOT Humpin`, "hoth3"],
+          // The weekly Wednesday Humpin Hash (dormant since 2021) is its own kennel.
+          [String.raw`^(?:HOTH3|HOT)\s+Humpin`, "hoth3-humpin"],
+          [String.raw`^Heart of Texas\b|^HOTH3\b`, "hoth3"],
           [String.raw`^Hill Country\b|^HCH3\b`, "hch3"],
         ],
         strictKennelRouting: true,
         skipPatterns: ["Miss Management", "Pub Call"],
         futureHorizonDays: 100,
       },
-      kennelCodes: ["hch3", "hoth3"],
+      kennelCodes: ["hch3", "hoth3", "hoth3-humpin"],
     },
     {
       // Backfill-only provenance: 2010→2025 history is inserted once by
@@ -1668,7 +1670,7 @@ export const SOURCES = [
       scrapeFreq: "weekly",
       scrapeDays: 90,
       config: { upcomingOnly: true },
-      kennelCodes: ["hch3", "hoth3"],
+      kennelCodes: ["hch3", "hoth3", "hoth3-humpin"],
     },
     // ===== UPSTATE NEW YORK =====
     // --- Rochester (Google Calendar) ---
@@ -9636,9 +9638,11 @@ export const SOURCES = [
         defaultTitle: "Devon Lunatics H3",
         futureHorizonDays: 200, // upcoming events reach ~Dec (default cap 180 would just barely include them)
         // Summaries jam venue + hare after "Devon Lunatics H3 - "; strip the
-        // prefix, then route the "vytbc" (venue+hare-to-be-confirmed)
-        // placeholder that remains to the default title.
-        titleStripPatterns: [String.raw`^Devon Lunatics H3\s*-\s*`],
+        // prefix, then the "vytbc" (venue-yet-to-be-confirmed) placeholder, so
+        // "vytbc - AGPU" keeps "AGPU" (the AGM run) and a bare "vytbc" falls
+        // back to the default title. "vytbc - <name> & <name>" is the hare pair.
+        titleStripPatterns: [String.raw`^Devon Lunatics H3\s*-\s*`, String.raw`^vytbc\b\s*-?\s*`],
+        titleHarePattern: String.raw`\bvytbc\s*-\s*([^-]+?\s(?:&|and)\s[^-]+)$`,
         staleTitleAliases: { "dlh3-gb": ["vytbc"] },
         // No titleHarePattern — the post-strip venue/hare split is unreliable
         // (silent-corruption caution); location/coords come from the GCal
@@ -9668,12 +9672,24 @@ export const SOURCES = [
         includeAllDayEvents: true, // captures the multi-day "Roman Away Day" signature annual event
         defaultTitle: "Isca H3 Trail",
         defaultStartTime: "19:30",
-        // Summaries are "Isca H3 - {venue}[. {hare(s)}]"; strip the prefix.
-        // An all-empty remainder already falls back to defaultTitle. No
-        // titleHarePattern — the post-venue segment is inconsistently
-        // delimited (sometimes a hare, sometimes part of the venue); the
-        // structured LOCATION field is the reliable venue/geocode source.
-        titleStripPatterns: [String.raw`^Isca H3\s*-\s*`],
+        // Summaries are "Isca H3 - {venue}[. {hare(s)}][. {note}]" (since ~2024;
+        // older rows use "- Hare X" / ": X"). #2910: take hares from a
+        // "Hare(s)[:] X" tail, a " - X & Y" tail, else from the sentence after
+        // the venue unless it reads as a theme ("Christmas party!", "Drop Off's
+        // 30th"). The title keeps the venue; the trailing period is trimmed.
+        titleHarePattern: [
+          String.raw`\bHares?\b:?\s+((?:(?!\s-\s)[^.:()])+?)[.!]*$`,
+          String.raw`^Isca H3\s*-\s*\S.*?\s-\s+(?!OD\b|[^-.]*\b(?:party|birthdays?|picnic|bbq|swim|trail|run|hash)\b)([^-.:()]+?\s(?:&|and)\s[^-.:()]+?)[.!]*$`,
+          String.raw`\.\s+(?!OD\b|[^.!]*\b(?:party|birthdays?|fancy|dress|christmas|xmas|awards?|night|byob?|joint|trail|run|hash|theme|\d+(?:st|nd|rd|th))\b)([^.!?]+?)(?=[.!?](?:\s|$)|$)`,
+        ],
+        titleStripPatterns: [String.raw`^Isca H3\s*-\s*`, String.raw`\.\s*$`],
+        // LOCATION is sometimes only a maps.app.goo.gl shortlink: keep it as the
+        // locationUrl and show the title's venue sentence as the location.
+        titleLocationPattern: String.raw`^Isca H3\s*-\s*(?:AGPU\s*-\s*)?([^.]+?)(?:\.\s|\.?$)`,
+        titleLocationFillOnly: true,
+        // "Isca H3 - " placeholder rows carry only "Website: www.iscah3.uk" in
+        // DESCRIPTION; never promote it to the title.
+        summaryIsCanonicalTitle: true,
       },
       kennelCodes: ["isca-h3"],
     },
@@ -9949,6 +9965,13 @@ export const SOURCES = [
         // "TORCHLIT" (winter torch-lit runs, venue TBC) is geocoded by the site into a
         // pin in mid-Wales; drop it. "TORCHLIT <real venue>, <address>" is kept.
         locationOmitIfMatches: ["^TORCHLIT(?:-[^,]*)?$"],
+        // #2890: DESCRIPTION is a template that repeats the hares, an Apple Maps
+        // link and the event URL; keep only the run notes ("Torchlit").
+        descriptionStripPatterns: [String.raw`^Hare\(s\):`, String.raw`^Map:\s*https?://`, String.raw`^https?://c2h3\.co\.uk/\S*$`],
+        // #2891: every DTEND is DTSTART + 2h, a generator default.
+        ignoreEndTime: true,
+        // #2892: /runs/ and /events/ pages redirect logged-out visitors to a login form.
+        sourceUrlOverride: "https://c2h3.co.uk/upcoming-runs/",
       },
       kennelCodes: ["c2h3-gb"],
     },
@@ -9965,7 +9988,8 @@ export const SOURCES = [
         defaultKennelTag: "ch3-gb",
         upcomingOnly: true, // REQUIRED — rolling window ages runs off; reconcile would false-cancel them
         // Run number lives in the DESCRIPTION ("…/trashRun 1094 <br>…"); \b keeps "Run 1081a" unnumbered.
-        runNumberPatterns: ["Run (\\d+)\\b"],
+        // #2896: also accept the source's "Rin 1102" typo.
+        runNumberPatterns: ["R[ui]n (\\d+)\\b"],
         // SUMMARY = "<hares/theme>  <OS grid ref> <venue>"; DESCRIPTION is links only.
         summaryGridRefVenue: true,
       },

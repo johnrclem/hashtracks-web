@@ -8,8 +8,9 @@
  * GoogleCalendarAdapter config — strict kennelPatterns routing, all-day
  * markers + "Miss Management"/"Pub Call" + Wako/AH3/Thursty/personal rows
  * already excluded): 1,160 events, 2010-08-07 → 2025-11-01
- * (hch3 401, hoth3 759 — ~560 of the latter are the 2011–2021 weekly
- * "HOTH3 Humpin Hash").
+ * (hch3 401, hoth3 192, hoth3-humpin 567: the 2010–2021 weekly Wednesday
+ * "HOTH3 Humpin Hash", split into its own kennel 2026-11-12; literal "<br>" in
+ * 13 of its titles was normalized to a space).
  *
  * Curation when freezing:
  *  - Cutoff date < 2025-11-07, strictly before the live source's 365-day
