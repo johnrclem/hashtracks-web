@@ -1,7 +1,8 @@
 "use client";
 
 import { capture } from "@/lib/analytics";
-import { KennelStatusLine } from "@/components/kennels/KennelStatusLine";
+import { KennelStatusLine, kennelOwnPageUrl } from "@/components/kennels/KennelStatusLine";
+import { safeUrl } from "@/lib/safe-url";
 import type { SerializedKennelEvidence } from "@/lib/kennel-status";
 
 export type SerializedEvidenceItem = {
@@ -54,7 +55,10 @@ export function HowWeKnow({
   facebookUrl,
   kennelSlug,
 }: Readonly<HowWeKnowProps>) {
-  const ownPage = website ?? facebookUrl;
+  const ownPage = kennelOwnPageUrl(website, facebookUrl);
+  // The coverage sentence carries the link when we don't get their runs; the
+  // status line above it then drops its own copy so the link shows once.
+  const coverageHasLink = coverage.level === "none" && ownPage !== null;
 
   return (
     <section className="rounded-xl border border-border/50 bg-card p-4">
@@ -65,30 +69,34 @@ export function HowWeKnow({
         facebookUrl={facebookUrl}
         kennelSlug={kennelSlug}
         surface="kennel-page"
+        showOwnPageLink={!coverageHasLink}
       />
       {items.length > 0 && (
         <ul className="mt-2 space-y-1 text-sm">
-          {items.map((item) => (
-            <li key={`${item.kind}-${item.date}`}>
-              <span className="text-muted-foreground">{formatDate(item.date)}</span>
-              {" · "}
-              {KIND_LABEL[item.kind]}
-              {item.detail && <span className="text-muted-foreground">{` · ${item.detail}`}</span>}
-              {item.url && (
-                <>
-                  {" "}
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline underline-offset-2 hover:text-foreground"
-                  >
-                    link ↗
-                  </a>
-                </>
-              )}
-            </li>
-          ))}
+          {items.map((item) => {
+            const itemUrl = safeUrl(item.url);
+            return (
+              <li key={`${item.kind}-${item.date}`}>
+                <span className="text-muted-foreground">{formatDate(item.date)}</span>
+                {" · "}
+                {KIND_LABEL[item.kind]}
+                {item.detail && <span className="text-muted-foreground">{` · ${item.detail}`}</span>}
+                {itemUrl && (
+                  <>
+                    {" "}
+                    <a
+                      href={itemUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline underline-offset-2 hover:text-foreground"
+                    >
+                      link ↗
+                    </a>
+                  </>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
       <p className="mt-3 text-xs text-muted-foreground">

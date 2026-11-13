@@ -307,7 +307,8 @@ export default async function KennelDetailPage({
     .filter((n): n is number => n != null);
   const currentRunNumber = recentRunNumbers.length ? Math.max(...recentRunNumbers) : null;
   const oldestEventDate = events.length > 0 ? events[0].date.toISOString() : null;
-  const nextRunDate = upcoming.length > 0 ? upcoming[0].date : null;
+  const nextRun = upcoming.length > 0 ? upcoming[0] : null;
+  const nextRunDate = nextRun ? nextRun.date : null;
 
   // Trail locations for map (only events with precise coordinates)
   const trailLocations = events
@@ -430,6 +431,7 @@ export default async function KennelDetailPage({
         totalEvents={totalEvents}
         oldestEventDate={oldestEventDate}
         nextRunDate={nextRunDate}
+        nextRunIsScheduleOnly={nextRun?.isScheduleOnly === true}
         lastRunSeenAt={kennel.lastRunSeenAt ? kennel.lastRunSeenAt.toISOString() : null}
         foundedYear={kennel.foundedYear}
         region={kennel.region ?? undefined}

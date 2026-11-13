@@ -429,10 +429,12 @@ describe("hareline row mapper", () => {
     eventKennels: [],
   });
 
-  it("the hareline row mapper passes isScheduleOnly through", async () => {
+  it("the hareline row mapper passes isScheduleOnly through, omitting it when false", async () => {
     mockFindMany.mockResolvedValue([row(true), row(false)] as never);
     const { events } = await loadEventsForTimeMode("upcoming", NOW_MS);
-    expect(events.map((e) => e.isScheduleOnly)).toEqual([true, false]);
+    // false adds nothing to the cached payload (unstable_cache is capped near 2 MB).
+    expect(events.map((e) => e.isScheduleOnly)).toEqual([true, undefined]);
+    expect("isScheduleOnly" in JSON.parse(JSON.stringify(events[1]))).toBe(false);
     expect(mockFindMany.mock.calls[0][0]?.select).toMatchObject({ isScheduleOnly: true });
   });
 });

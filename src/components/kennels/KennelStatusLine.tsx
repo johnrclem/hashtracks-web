@@ -1,6 +1,7 @@
 "use client";
 
 import { capture } from "@/lib/analytics";
+import { safeUrl } from "@/lib/safe-url";
 import {
   formatStatusLine,
   getStatusLine,
@@ -15,6 +16,13 @@ interface KennelStatusLineProps {
   /** Used for the click-out analytics event. */
   kennelSlug: string;
   surface?: "card" | "kennel-page";
+  /** False hides the "check their page" link (e.g. when a nearby sentence already has it). */
+  showOwnPageLink?: boolean;
+}
+
+/** The kennel's own page: its website, else Facebook; http(s) only. */
+export function kennelOwnPageUrl(website: string | null, facebookUrl: string | null): string | null {
+  return safeUrl(website) ?? safeUrl(facebookUrl);
 }
 
 /**
@@ -29,12 +37,14 @@ export function KennelStatusLine({
   facebookUrl,
   kennelSlug,
   surface = "card",
+  showOwnPageLink = true,
 }: Readonly<KennelStatusLineProps>) {
   const now = new Date();
   const line = getStatusLine(toKennelEvidence(evidence), now);
   if (!line) return null;
 
-  const ownPage = line.kind === "never" ? (website ?? facebookUrl) : null;
+  const ownPage =
+    showOwnPageLink && line.kind === "never" ? kennelOwnPageUrl(website, facebookUrl) : null;
 
   return (
     <p className="mt-1.5 text-xs text-muted-foreground">

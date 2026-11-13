@@ -5,7 +5,7 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { formatDateShort, formatTimeCompact } from "@/lib/format";
-import { getDisplayTitle, getLocationDisplay } from "@/lib/event-display";
+import { getDisplayTitle, getLocationDisplay, SCHEDULE_ONLY_LABEL, SCHEDULE_ONLY_TITLE } from "@/lib/event-display";
 import { getRegionColor } from "@/lib/region";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { runningKennelWhere } from "@/lib/kennel-status";
@@ -223,6 +223,14 @@ export default async function HomePage() {
                           <span className="text-xs text-muted-foreground/50">
                             {formatDateShort(event.date.toISOString())}
                           </span>
+                          {event.isScheduleOnly && (
+                            <span
+                              className="rounded-full border border-dashed px-1.5 text-[10px] text-muted-foreground"
+                              title={SCHEDULE_ONLY_TITLE}
+                            >
+                              {SCHEDULE_ONLY_LABEL}
+                            </span>
+                          )}
                         </div>
                         {event.startTime && (
                           <span

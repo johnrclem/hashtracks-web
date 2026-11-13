@@ -1,5 +1,10 @@
 /** Shared display helpers for event cards (server + client safe). */
 
+/** Tag for runs generated from a kennel's usual schedule (not a posted run). */
+export const SCHEDULE_ONLY_LABEL = "Usual schedule";
+/** The tag's explanation: its hover title, and the sentence on detail views. */
+export const SCHEDULE_ONLY_TITLE = "From the kennel's usual schedule, not a posted run";
+
 export interface DisplayTitleEvent {
   title: string | null;
   runNumber: number | null;

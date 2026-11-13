@@ -45,10 +45,11 @@ export function KennelCard({ kennel }: KennelCardProps) {
 
   return (
     // Stretched link: the title's Link covers the card; the status line's
-    // "check their page" anchor sits above it (relative z-10) so the two
-    // anchors are siblings, never nested.
+    // "check their page" anchor and the region badge's tooltip sit above it
+    // (relative z-10) so the anchors are siblings, never nested. Keyboard
+    // focus on either link rings the whole card.
     <div className="relative h-full">
-      <div className={`rounded-lg border bg-card p-4 transition-colors hover:border-primary/50 hover:shadow-sm h-full flex flex-col${!kennel.nextEvent ? " opacity-60" : ""}`}>
+      <div className={`rounded-lg border bg-card p-4 transition-colors hover:border-primary/50 hover:shadow-sm has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring has-[a:focus-visible]:ring-offset-2 h-full flex flex-col${!kennel.nextEvent ? " opacity-60" : ""}`}>
         {/* Header: logo + shortName + region badge. Logo avatar mirrors the
             profile-page hero (src/app/kennels/[slug]/page.tsx) at card scale;
             initials are the null-logo fallback. */}
@@ -70,10 +71,13 @@ export function KennelCard({ kennel }: KennelCardProps) {
               }
             />
             <div className="min-w-0">
-              <h3 className="text-base font-bold leading-tight truncate" title={kennel.fullName}>
+              {/* No `title` here: the link's ::after covers the card, so a title on
+                  the link or the h3 would show the browser tooltip anywhere on it.
+                  The full name is the next line. */}
+              <h3 className="text-base font-bold leading-tight truncate">
                 <Link
                   href={`/kennels/${kennel.slug}`}
-                  className="after:absolute after:inset-0 after:content-['']"
+                  className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none"
                 >
                   {kennel.shortName}
                 </Link>
@@ -83,7 +87,7 @@ export function KennelCard({ kennel }: KennelCardProps) {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="relative z-10 flex items-center gap-1.5 shrink-0">
             <RegionBadge region={kennel.region} size="sm" />
           </div>
         </div>

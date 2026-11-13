@@ -20,7 +20,12 @@ import { composeUtcStart, formatTimeInZone, formatLocalTimeForDisplay, getTimezo
 import { useUnitsPreference } from "@/components/providers/units-preference-provider";
 import type { DailyWeather } from "@/lib/weather";
 import { getConditionEmoji, cToF } from "@/lib/weather-display";
-import { getDisplayTitle, getLocationDisplay } from "@/lib/event-display";
+import {
+  getDisplayTitle,
+  getLocationDisplay,
+  SCHEDULE_ONLY_LABEL,
+  SCHEDULE_ONLY_TITLE,
+} from "@/lib/event-display";
 import { ShiggyLevelFlames, TrailLengthLine, formatTrailLength } from "./TrailDifficulty";
 
 /**
@@ -175,9 +180,6 @@ function formatDate(iso: string): string {
 export function computeChipDate(event: { date: string }): string {
   return formatDate(event.date);
 }
-
-export const SCHEDULE_ONLY_LABEL = "Usual schedule";
-export const SCHEDULE_ONLY_TITLE = "From the kennel's usual schedule, not a posted run";
 
 /** The chip for runs generated from a usual schedule; null for posted runs. */
 export function scheduleOnlyChip(event: {

@@ -15,7 +15,7 @@ export interface KennelPin {
   slug: string;
   region: string;
   schedule: string | null;
-  nextEvent: { date: string; title: string | null } | null;
+  nextEvent: { date: string; title: string | null; isScheduleOnly: boolean } | null;
   lat: number;
   lng: number;
   color: string;

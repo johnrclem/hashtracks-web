@@ -26,6 +26,9 @@ interface KennelStatusDialogProps {
   onClose: () => void;
 }
 
+/** The note and link appear in the kennel page's "How we know" section. */
+const PUBLIC_NOTICE = "Shown publicly on the kennel page.";
+
 function todayUtc(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -88,7 +91,11 @@ export function KennelStatusDialog({ kennelId, kennelName, mode, onClose }: Read
               maxLength={500}
               onChange={(e) => setNote(e.target.value)}
               placeholder="e.g. Their Facebook page posted a trail for this Saturday"
+              aria-describedby={`status-note-help-${kennelId}`}
             />
+            <p id={`status-note-help-${kennelId}`} className="text-xs text-muted-foreground">
+              {PUBLIC_NOTICE}
+            </p>
           </div>
           <div className="space-y-1">
             <Label htmlFor={`status-url-${kennelId}`}>Link (optional)</Label>
@@ -98,7 +105,11 @@ export function KennelStatusDialog({ kennelId, kennelName, mode, onClose }: Read
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://"
+              aria-describedby={`status-url-help-${kennelId}`}
             />
+            <p id={`status-url-help-${kennelId}`} className="text-xs text-muted-foreground">
+              {PUBLIC_NOTICE}
+            </p>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>

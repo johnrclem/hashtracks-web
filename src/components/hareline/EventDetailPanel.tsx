@@ -11,9 +11,9 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { formatTimeRange, formatDateLong, formatDateRange, getLabelForUrl, stripMarkdown, stripUrlsFromText } from "@/lib/format";
-import { getFullLocationDisplay } from "@/lib/event-display";
+import { getFullLocationDisplay, SCHEDULE_ONLY_TITLE } from "@/lib/event-display";
 import type { HarelineEvent } from "./EventCard";
-import { computeDisplayTime, SCHEDULE_ONLY_TITLE } from "./EventCard";
+import { computeDisplayTime } from "./EventCard";
 import { SeriesChildTimeline } from "./SeriesChildTimeline";
 import { ShiggyLevelFlames, TrailLengthLine, formatTrailLength } from "./TrailDifficulty";
 import { useTimePreference } from "@/components/providers/time-preference-provider";

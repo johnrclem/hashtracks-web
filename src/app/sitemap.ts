@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db";
+import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { regionNameToSlug, regionBySlug } from "@/lib/region";
 
@@ -38,6 +39,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         // per-day trail pages (Strawberry Moon Trail, NYC Pride Watch Party!,
         // etc.) rather than only the umbrella parent.
         kennel: { isHidden: false },
+        // A stopped kennel's generated runs 404 on their event page.
+        ...HIDE_STOPPED_SCHEDULE_RUNS,
       },
       select: { id: true, updatedAt: true },
       orderBy: { date: "asc" },

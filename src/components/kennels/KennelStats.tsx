@@ -2,6 +2,7 @@
 
 import { AnimatedCounter } from "@/components/home/HeroAnimations";
 import { getRegionColor, hexToRgb } from "@/lib/region";
+import { SCHEDULE_ONLY_LABEL, SCHEDULE_ONLY_TITLE } from "@/lib/event-display";
 import { Calendar, Clock, ArrowRight, Hash } from "lucide-react";
 
 interface KennelStatsProps {
@@ -9,6 +10,8 @@ interface KennelStatsProps {
   totalEvents: number;
   oldestEventDate: string | null;
   nextRunDate: string | null;
+  /** The next run was generated from the kennel's usual schedule, not posted. */
+  nextRunIsScheduleOnly?: boolean;
   lastRunSeenAt: string | null;
   foundedYear?: number | null;
   region?: string;
@@ -100,6 +103,7 @@ export function KennelStats({
   totalEvents,
   oldestEventDate,
   nextRunDate,
+  nextRunIsScheduleOnly = false,
   lastRunSeenAt,
   foundedYear,
   region,
@@ -150,7 +154,8 @@ export function KennelStats({
     stats.push({
       icon: <ArrowRight className="h-5 w-5" />,
       value: formatNextRun(nextRunDate),
-      label: "Next Run",
+      label: nextRunIsScheduleOnly ? SCHEDULE_ONLY_LABEL : "Next Run",
+      hint: nextRunIsScheduleOnly ? SCHEDULE_ONLY_TITLE : undefined,
     });
   } else if (lastRunSeenAt) {
     stats.push({
