@@ -254,7 +254,7 @@ describe("scoreConfidence", () => {
     scheduleDayOfWeek: "Saturday",
     scheduleTime: "2:00 PM",
     scheduleFrequency: "Weekly",
-    lastEventDate: new Date(), // recently active
+    lastEvidenceAt: new Date(), // recently active
   };
 
   it("LOW confidence is never upgraded", () => {
@@ -279,7 +279,7 @@ describe("scoreConfidence", () => {
   it("MEDIUM degrades to LOW when kennel is inactive and no recent events", () => {
     const inactiveKennel = {
       ...kennel,
-      lastEventDate: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000), // 120 days ago
+      lastEvidenceAt: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000), // 120 days ago
     };
     expect(scoreConfidence("medium", inactiveKennel, 0, null)).toBe("low");
   });
@@ -303,9 +303,26 @@ describe("scoreConfidence", () => {
     expect(scoreConfidence("medium", kennel, 5, null)).toBe("medium");
   });
 
-  it("handles null lastEventDate gracefully", () => {
-    const noLastEvent = { ...kennel, lastEventDate: null };
+  it("handles null lastEvidenceAt gracefully", () => {
+    const noLastEvent = { ...kennel, lastEvidenceAt: null };
     expect(scoreConfidence("medium", noLastEvent, 3, new Date())).toBe("high");
+  });
+
+  it("the inactivity downgrade uses lastEvidenceAt", () => {
+    const stale = { ...kennel, lastEvidenceAt: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000) };
+    expect(scoreConfidence("high", stale, 10, null)).toBe("medium");
+    expect(scoreConfidence("high", { ...kennel, lastEvidenceAt: new Date() }, 10, null)).toBe("high");
+  });
+
+  it("a schedule-only kennel with a confirmation in the last 90 days keeps a HIGH rule as Likely", () => {
+    // No independent runs in the window (count 0) but an admin confirmed it recently.
+    const confirmed = { ...kennel, lastEvidenceAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) };
+    expect(scoreConfidence("high", confirmed, 0, null)).toBe("high");
+  });
+
+  it("a schedule-only kennel with no evidence in 90 days drops to Possible", () => {
+    const stale = { ...kennel, lastEvidenceAt: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000) };
+    expect(scoreConfidence("high", stale, 0, null)).toBe("low");
   });
 
   it("applies the agreement gate after the activity signals", () => {

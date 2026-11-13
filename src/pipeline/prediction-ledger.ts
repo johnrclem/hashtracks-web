@@ -24,6 +24,7 @@ import {
   scoreConfidence,
   buildRuleAgreementMap,
   selectBestProjections,
+  latestEvidenceAt,
   PREDICTION_MATCH_TOL_DAYS,
   PREDICTION_OBSERVE_TOL_DAYS,
   type ScheduleRuleInput,
@@ -183,7 +184,8 @@ interface KennelRow {
   scheduleDayOfWeek: string | null;
   scheduleTime: string | null;
   scheduleFrequency: string | null;
-  lastEventDate: Date | null;
+  lastRunSeenAt: Date | null;
+  lastConfirmedAt: Date | null;
 }
 interface RuleRow {
   id: string;
@@ -290,7 +292,7 @@ function buildKennelSnapshotRows(
   const agreement = buildRuleAgreementMap(ruleInputs, () => kEvents, now);
   const ctx: KennelContext = {
     id: k.id, shortName: k.shortName, scheduleDayOfWeek: k.scheduleDayOfWeek,
-    scheduleTime: k.scheduleTime, scheduleFrequency: k.scheduleFrequency, lastEventDate: k.lastEventDate,
+    scheduleTime: k.scheduleTime, scheduleFrequency: k.scheduleFrequency, lastEvidenceAt: latestEvidenceAt(k),
   };
 
   const scored = selectBestProjections(
@@ -400,7 +402,7 @@ export async function runPredictionLedger(
       where: { isHidden: false },
       select: {
         id: true, shortName: true, scheduleDayOfWeek: true,
-        scheduleTime: true, scheduleFrequency: true, lastEventDate: true,
+        scheduleTime: true, scheduleFrequency: true, lastRunSeenAt: true, lastConfirmedAt: true,
       },
     }) as Promise<KennelRow[]>,
     prisma.scheduleRule.findMany({

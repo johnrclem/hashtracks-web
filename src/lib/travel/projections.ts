@@ -54,7 +54,19 @@ export interface KennelContext {
   scheduleDayOfWeek: string | null;
   scheduleTime: string | null;
   scheduleFrequency: string | null;
-  lastEventDate: Date | null;
+  /** Later of the kennel's lastRunSeenAt and lastConfirmedAt; null when neither is set. */
+  lastEvidenceAt: Date | null;
+}
+
+/** The later of a kennel's last real run seen and its last admin confirmation. */
+export function latestEvidenceAt(k: {
+  lastRunSeenAt: Date | null;
+  lastConfirmedAt: Date | null;
+}): Date | null {
+  if (k.lastRunSeenAt && k.lastConfirmedAt) {
+    return k.lastRunSeenAt > k.lastConfirmedAt ? k.lastRunSeenAt : k.lastConfirmedAt;
+  }
+  return k.lastRunSeenAt ?? k.lastConfirmedAt;
 }
 
 export interface ConfirmedEventRef {
@@ -283,7 +295,7 @@ function deduplicateProjectionsByKennelDate<T extends ProjectedTrail>(projection
  * Scoring inputs (per PRD §10.3):
  * - Base confidence from ScheduleRule
  * - Historical consistency: confirmed event count in last 90 days
- * - Kennel activity: lastEventDate recency
+ * - Kennel activity: lastEvidenceAt recency
  * - Rule validation recency: lastValidatedAt on the rule
  * - Rule agreement: the rule's own hit rate against independent events over the
  *   last 12 weeks (`applyAgreementGate`) — optional; omitted ⇒ gate abstains
@@ -329,7 +341,7 @@ export function scoreConfidence(
   }
 
   // Degrade if kennel appears inactive
-  if (kennel.lastEventDate && now - kennel.lastEventDate.getTime() > NINETY_DAYS_MS) {
+  if (kennel.lastEvidenceAt && now - kennel.lastEvidenceAt.getTime() > NINETY_DAYS_MS) {
     if (score === "high") score = "medium";
   }
 

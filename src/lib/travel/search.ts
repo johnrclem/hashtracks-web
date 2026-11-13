@@ -26,6 +26,7 @@ import {
   filterProjectionsByHorizon,
   buildRuleAgreementMap,
   selectBestProjections,
+  latestEvidenceAt,
   CONFIRMED_EVENT_HORIZON_DAYS,
   AGREEMENT_LOOKBACK_DAYS,
   DAY_MS,
@@ -158,7 +159,7 @@ export interface PossibleResult extends DestinationTag {
   sourceLinks: SourceLink[];
   /** Most recent confirmed event for this kennel — preferring the
    *  in-window 12-week evidence event so the line moves as the kennel
-   *  posts; falling back to the kennel's all-time `lastEventDate` when
+   *  posts; falling back to the kennel's all-time `lastRunSeenAt` when
    *  no in-window evidence exists. Null only when the kennel has no
    *  event history at all. */
   lastConfirmedAt: Date | null;
@@ -269,7 +270,8 @@ interface NearbyKennel {
   region: string;
   latitude: number | null;
   longitude: number | null;
-  lastEventDate: Date | null;
+  lastRunSeenAt: Date | null;
+  lastConfirmedAt: Date | null;
   scheduleDayOfWeek: string | null;
   scheduleTime: string | null;
   scheduleFrequency: string | null;
@@ -586,6 +588,8 @@ async function runStopSearch(
         ...CANONICAL_EVENT_WHERE,
         // A stopped kennel's generated runs are hidden on every display surface.
         ...HIDE_STOPPED_SCHEDULE_RUNS,
+        // Generated runs (schedule projections) are not confirmations; they are re-projected below.
+        isScheduleOnly: false,
         // #1023 step 5: include co-hosted events at any nearby kennel.
         // The result construction below pivots metadata onto whichever
         // EventKennel.kennelId is in `nearbyIds` (not necessarily the
@@ -624,6 +628,8 @@ async function runStopSearch(
         ...CANONICAL_EVENT_WHERE,
         kennelId: { in: nearbyIds },
         status: "CONFIRMED",
+        // Generated runs are not evidence the kennel ran.
+        isScheduleOnly: false,
         date: { gte: twelveWeeksAgo, lte: now },
       },
       select: { kennelId: true, date: true },
@@ -818,13 +824,13 @@ async function runStopSearch(
     const kennel = kennelMap.get(proj.kennelId);
     const evidence = evidenceByKennel.get(proj.kennelId) ?? [];
     // Prefer the most-recent in-window event so the line moves as the kennel
-    // posts. Fall back to the kennel's all-time `lastEventDate` so a Low
+    // posts. Fall back to the kennel's all-time `lastRunSeenAt` so a Low
     // projection still anchors to *something* — even old history justifies
     // why we listed the kennel.
     const recentLast = evidence.length > 0
       ? new Date(evidence.reduce((max, e) => Math.max(max, e.date.getTime()), 0))
       : null;
-    const lastConfirmedAt = recentLast ?? kennel?.lastEventDate ?? null;
+    const lastConfirmedAt = recentLast ?? kennel?.lastRunSeenAt ?? null;
     return {
       type: "possible" as const,
       destinationIndex: index,
@@ -1003,7 +1009,8 @@ async function fetchAllVisibleKennels(prisma: PrismaClient) {
       region: true,
       latitude: true,
       longitude: true,
-      lastEventDate: true,
+      lastRunSeenAt: true,
+      lastConfirmedAt: true,
       scheduleDayOfWeek: true,
       scheduleTime: true,
       scheduleFrequency: true,
@@ -1078,7 +1085,7 @@ function scoreProjections(
       scheduleDayOfWeek: kennel.scheduleDayOfWeek,
       scheduleTime: kennel.scheduleTime,
       scheduleFrequency: kennel.scheduleFrequency,
-      lastEventDate: kennel.lastEventDate,
+      lastEvidenceAt: latestEvidenceAt(kennel),
     };
 
     // Use the specific rule's lastValidatedAt, not the kennel-level aggregate

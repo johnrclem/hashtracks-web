@@ -29,7 +29,8 @@ interface MockKennel {
   region: string;
   latitude: number | null;
   longitude: number | null;
-  lastEventDate: Date | null;
+  lastRunSeenAt: Date | null;
+  lastConfirmedAt: Date | null;
   scheduleDayOfWeek: string | null;
   scheduleTime: string | null;
   scheduleFrequency: string | null;
@@ -58,6 +59,8 @@ interface MockEvent {
   latitude: number | null;
   longitude: number | null;
   status: string;
+  /** Backed only by schedule projections (generated run). Defaults to false. */
+  isScheduleOnly?: boolean;
   kennel: { latitude: number | null; longitude: number | null } | null;
   eventLinks: { url: string; label: string }[];
   /** Multi-day series linkage. A child leg sets `parentEventId`; a series
@@ -115,6 +118,9 @@ function createMockPrisma(
             const allKennelIds = [e.kennelId, ...(e.coHostKennelIds ?? [])];
             return allKennelIds.some((id) => kennelInList.includes(id));
           });
+        }
+        if (where.isScheduleOnly === false) {
+          filtered = filtered.filter((e: MockEvent) => !e.isScheduleOnly);
         }
         if (where.status === "CONFIRMED") {
           filtered = filtered.filter((e: MockEvent) => e.status === "CONFIRMED");
@@ -184,7 +190,8 @@ const testKennel: MockKennel = {
   region: "Atlanta, GA",
   latitude: 33.75,
   longitude: -84.39,
-  lastEventDate: utcNoon("2026-04-05"),
+  lastRunSeenAt: utcNoon("2026-04-05"),
+  lastConfirmedAt: null,
   scheduleDayOfWeek: "Saturday",
   scheduleTime: "2:00 PM",
   scheduleFrequency: "Weekly",
@@ -452,6 +459,36 @@ describe("executeTravelSearch", () => {
     expect(result.confirmed[0].kennelName).toBe("Atlanta H3");
     expect(result.confirmed[0].kennelSlug).toBe("atlanta-h3");
     expect(result.confirmed[0].distanceTier).toBe("nearby");
+  });
+
+  it("a schedule-only run is not listed as confirmed, and its date is projected instead", async () => {
+    const generated: MockEvent = { ...testEvent, id: "e-generated", isScheduleOnly: true };
+    const prisma = createMockPrisma([testKennel], [generated], [testRule]);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    expect(result.confirmed).toHaveLength(0);
+    // The generated date is no longer "covered" by a confirmed event, so the rule projects it.
+    const apr18 = [...result.likely, ...result.possible].filter((r) =>
+      r.date?.toISOString().includes("2026-04-18"),
+    );
+    expect(apr18.length).toBeGreaterThan(0);
+  });
+
+  it("schedule-only runs don't count toward projection evidence", async () => {
+    const generated: MockEvent[] = Array.from({ length: 12 }, (_, i) => ({
+      ...testEvent,
+      id: `e-gen-${i}`,
+      isScheduleOnly: true,
+      date: new Date(utcNoon("2026-01-24").getTime() + i * 7 * 86_400_000),
+    }));
+    const prisma = createMockPrisma([testKennel], generated, [testRule]);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    // The evidence timeline counts none of the generated runs.
+    expect(result.likely.length).toBeGreaterThan(0);
+    for (const row of result.likely) {
+      expect(row.evidenceTimeline.totalEvents).toBe(0);
+    }
   });
 
   it("returns likely projections from schedule rules", async () => {
@@ -892,8 +929,8 @@ describe("executeTravelSearch", () => {
     expect(result.possible[0].lastConfirmedAt!.getTime()).toBe(recentEvidence.getTime());
   });
 
-  it("falls back to kennel.lastEventDate when no in-window evidence (#769)", async () => {
-    // No in-window evidence, but the kennel has an all-time `lastEventDate`
+  it("Possible row 'last posted' falls back to lastRunSeenAt, not lastEventDate", async () => {
+    // No in-window evidence, but the kennel has an all-time `lastRunSeenAt`
     // from outside the 12-week window. That older anchor should still
     // surface so the Possible card explains why we listed the kennel.
     const lowRule: MockScheduleRule = {
@@ -908,13 +945,13 @@ describe("executeTravelSearch", () => {
     expect(result.possible).toHaveLength(1);
     expect(result.possible[0].lastConfirmedAt).toBeInstanceOf(Date);
     expect(result.possible[0].lastConfirmedAt!.getTime()).toBe(
-      testKennel.lastEventDate!.getTime(),
+      testKennel.lastRunSeenAt!.getTime(),
     );
   });
 
   it("leaves lastConfirmedAt null when kennel has no history at all (#769)", async () => {
     // Truly history-less kennel: no in-window evidence AND no all-time
-    // lastEventDate. Render path hides the line in this case.
+    // lastRunSeenAt. Render path hides the line in this case.
     const lowRule: MockScheduleRule = {
       ...testRule,
       id: "r-low",
@@ -923,7 +960,7 @@ describe("executeTravelSearch", () => {
     };
     const historyLessKennel: MockKennel = {
       ...testKennel,
-      lastEventDate: null,
+      lastRunSeenAt: null,
     };
     const prisma = createMockPrisma([historyLessKennel], [], [lowRule]);
     const result = await executeTravelSearch(prisma, baseParams);
