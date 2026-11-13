@@ -3,6 +3,8 @@
  * and region pin colors for map rendering.
  */
 
+import { levenshtein } from "@/lib/fuzzy";
+
 /** Extract lat/lng from a Google Maps URL. Returns null if not parseable. */
 export function extractCoordsFromMapsUrl(url: string): { lat: number; lng: number } | null {
   if (!url) return null;
@@ -284,28 +286,72 @@ function isGeocodePlaceholder(address: string): boolean {
   return GEOCODE_PLACEHOLDER_RES.some((re) => re.test(address));
 }
 
+/** One address component of a Google Geocoding result (town, postcode, county…). */
+export interface GeocodeComponent {
+  long_name: string;
+  short_name: string;
+  types: string[];
+}
+
+/** A forward-geocode hit: the first result's point plus what Google says it is. */
+export interface GeocodeResult {
+  lat: number;
+  lng: number;
+  formattedAddress?: string;
+  /** Result types, e.g. ["premise", "street_address"], ["route"], ["administrative_area_level_1", "political"]. */
+  types?: string[];
+  components?: GeocodeComponent[];
+  /** Diagonal of the result's viewport in km: under 1 for a street, hundreds for a trunk road. */
+  viewportKm?: number;
+}
+
+interface GeocodeApiResult {
+  types?: string[];
+  formatted_address?: string;
+  address_components?: GeocodeComponent[];
+  geometry?: {
+    location?: { lat?: unknown; lng?: unknown };
+    viewport?: { northeast?: { lat: number; lng: number }; southwest?: { lat: number; lng: number } };
+  };
+}
+
+interface GeocodeApiResponse {
+  status?: string;
+  error_message?: string;
+  results?: GeocodeApiResult[];
+}
+
+/** GET a Geocoding API URL with a 5 s timeout. Null on a non-2xx response; throws on a network error. */
+async function fetchGeocodeJson(url: string): Promise<GeocodeApiResponse | null> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+  return res.ok ? ((await res.json()) as GeocodeApiResponse) : null;
+}
+
+type GeocodeOptions = {
+  regionBias?: string;
+  /**
+   * Viewport (SW|NE corners) to soft-bias results toward. `region` only
+   * disambiguates by country; `bounds` disambiguates *within* a country so
+   * terse local landmarks ("Union Station", "Clarendon") resolve to the
+   * kennel's metro instead of a same-named place elsewhere. Soft bias — Google
+   * still returns better out-of-viewport matches, so legit suburbs survive.
+   */
+  bounds?: { swLat: number; swLng: number; neLat: number; neLng: number };
+};
+
 /**
- * Geocode a text address using the Google Maps Geocoding API.
- * Returns the first result's coordinates, or null on failure.
- * Uses GOOGLE_CALENDAR_API_KEY (server-only, no HTTP referrer restrictions).
+ * One forward-geocode request. `noMatch` is true only when Google found
+ * nothing (ZERO_RESULTS): another query may still work. Key, quota and
+ * network failures leave it false so callers stop instead of retrying.
  */
-export async function geocodeAddress(
+async function geocodeQuery(
   address: string,
-  options?: {
-    regionBias?: string;
-    /**
-     * Viewport (SW|NE corners) to soft-bias results toward. `region` only
-     * disambiguates by country; `bounds` disambiguates *within* a country so
-     * terse local landmarks ("Union Station", "Clarendon") resolve to the
-     * kennel's metro instead of a same-named place elsewhere. Soft bias — Google
-     * still returns better out-of-viewport matches, so legit suburbs survive.
-     */
-    bounds?: { swLat: number; swLng: number; neLat: number; neLng: number };
-  },
-): Promise<{ lat: number; lng: number; formattedAddress?: string } | null> {
+  options?: GeocodeOptions,
+): Promise<{ result: GeocodeResult | null; noMatch: boolean }> {
+  const miss = { result: null, noMatch: false };
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
-  if (!apiKey || !address.trim()) return null;
-  if (isGeocodePlaceholder(address.trim())) return null;
+  if (!apiKey || !address.trim()) return miss;
+  if (isGeocodePlaceholder(address.trim())) return { result: null, noMatch: true };
 
   try {
     let url = `${GOOGLE_GEOCODE_BASE}?address=${encodeURIComponent(address)}&language=en&key=${apiKey}`;
@@ -316,29 +362,284 @@ export async function geocodeAddress(
       const b = options.bounds;
       url += `&bounds=${b.swLat},${b.swLng}|${b.neLat},${b.neLng}`;
     }
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return null;
+    const data = await fetchGeocodeJson(url);
+    if (!data) return miss;
 
-    const data = await res.json();
-    if (data.status !== "OK" || !data.results?.length) {
+    const first = data.results?.[0];
+    if (data.status !== "OK" || !first) {
       // ZERO_RESULTS is expected for vague venue names ("Chez Crunchy") — warn.
       // Anything else (REQUEST_DENIED, OVER_QUERY_LIMIT, INVALID_REQUEST) points
       // at the API key or quota and stays an error so it surfaces in alerts.
-      const log = data.status === "ZERO_RESULTS" ? console.warn : console.error;
-      log(`Geocode failed for "${address}": ${data.status} ${data.error_message ?? ""}`);
-      return null;
+      const noMatch = data.status === "ZERO_RESULTS";
+      (noMatch ? console.warn : console.error)(`Geocode failed for "${address}": ${data.status} ${data.error_message ?? ""}`);
+      return { result: null, noMatch };
     }
 
-    const { lat, lng } = data.results[0].geometry.location;
-    if (typeof lat !== "number" || typeof lng !== "number") return null;
-    const formattedAddress = data.results[0].formatted_address as string | undefined;
-    return { lat, lng, formattedAddress };
+    const lat = first.geometry?.location?.lat;
+    const lng = first.geometry?.location?.lng;
+    if (typeof lat !== "number" || typeof lng !== "number") return { result: null, noMatch: true };
+    const { northeast: ne, southwest: sw } = first.geometry?.viewport ?? {};
+    return {
+      result: {
+        lat,
+        lng,
+        formattedAddress: first.formatted_address,
+        types: first.types,
+        components: first.address_components,
+        viewportKm: ne && sw ? haversineDistance(sw.lat, sw.lng, ne.lat, ne.lng) : undefined,
+      },
+      noMatch: false,
+    };
   } catch {
-    return null;
+    return miss;
   }
+}
+
+/**
+ * Geocode a text address using the Google Maps Geocoding API.
+ * Returns the first result's coordinates, or null on failure.
+ * Uses GOOGLE_CALENDAR_API_KEY (server-only, no HTTP referrer restrictions).
+ * For event venues use `geocodeVenue`, which also rejects area and wrong-town hits.
+ */
+export async function geocodeAddress(address: string, options?: GeocodeOptions): Promise<GeocodeResult | null> {
+  return (await geocodeQuery(address, options)).result;
+}
+
+/**
+ * Result types that name an area, not a place to meet. A state or region
+ * centroid is never a trail start: #2908 pinned the placeholder venue
+ * "Rhode Island" to the state centroid, then labelled it "North Kingstown".
+ */
+const AREA_RESULT_TYPES = new Set(["country", "administrative_area_level_1", "colloquial_area"]);
+
+/**
+ * Countries whose `administrative_area_level_2` is a county ("Palm Beach
+ * County", "Hertfordshire"). Elsewhere level 2 is often a district small
+ * enough to be a fair pin (a Thai amphoe, a Taiwan district), so it stays.
+ */
+const COUNTY_LEVEL_2_COUNTRIES = new Set(["US", "GB"]);
+
+/**
+ * Countries whose level-1 areas are too big to confirm a venue's town
+ * ("England", "Illinois"). Elsewhere level 1 is a parish or province small
+ * enough to count ("St. Ann", Jamaica).
+ */
+const BROAD_LEVEL_1_COUNTRIES = new Set(["GB", "US", "CA", "AU"]);
+
+/**
+ * Components whose name can confirm the place a venue's text names. Roads and
+ * buildings are left out: a "Church Road" exists in every town. Level 1 is
+ * handled apart (see `BROAD_LEVEL_1_COUNTRIES`).
+ */
+const PLACE_NAME_TYPES = new Set([
+  "locality",
+  "postal_town",
+  "sublocality",
+  "administrative_area_level_3",
+  "neighborhood",
+  "administrative_area_level_2",
+  "administrative_area_level_4",
+]);
+
+/** A route result spanning more than this is a whole road ("A38": 397 km), not a street. */
+const WHOLE_ROAD_KM = 20;
+
+/** A venue geocode further than this from the kennel is the wrong city. */
+const VENUE_MAX_DISTANCE_KM = 200;
+
+/**
+ * A venue geocode further than this from the kennel must be in a town or
+ * postcode the venue text names. Google's viewport bias is soft, so a
+ * same-named place in another town still wins: "Mount Radford, Exeter"
+ * resolved to a house called Mt Radford in Wembdon, 58 km away (#2914).
+ */
+export const VENUE_TOWN_CHECK_KM = 25;
+
+/** Lowercase, accent- and punctuation-free form for comparing place names. */
+function placeKey(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/['’]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Uppercase with whitespace removed, for finding a postcode inside free text. */
+function compact(text: string): string {
+  return text.replace(/\s/g, "").toUpperCase();
+}
+
+/**
+ * Geocoding queries for a venue, best first. A bare pub name ("The Pheasant")
+ * matches a same-named pub anywhere in the country, so when the adapter also
+ * has a street line (town + postcode) it goes in the query, with the street
+ * line alone as the fallback. The bare venue is queried only when there is no
+ * street line.
+ */
+export function buildVenueGeocodeQueries(location?: string | null, street?: string | null): string[] {
+  const venue = location?.trim() ?? "";
+  const address = street?.trim() ?? "";
+  if (!address || isGeocodePlaceholder(address)) return venue ? [venue] : [];
+  if (!venue || isGeocodePlaceholder(venue)) return [address];
+  const venueKey = placeKey(venue);
+  const addressKey = placeKey(address);
+  // One line already holds the other ("SRO Lounge, 1807 Fifth Ave, …" as the street).
+  if (venueKey && addressKey.includes(venueKey)) return [address];
+  if (addressKey && venueKey.includes(addressKey)) return [venue];
+  return [`${venue}, ${address}`, address];
+}
+
+/** Last words that make a segment a street rather than a place ("Church Road"). */
+const STREET_SUFFIXES = new Set(["road", "rd", "street", "lane", "ln", "avenue", "ave", "drive", "dr", "close", "way"]);
+
+/**
+ * Place names among comma segments: digits dropped (so "SG8 9PN" leaves
+ * nothing), at least one 3-letter word, at most three words (longer segments
+ * are notes, "park on the verge"), and not a street.
+ */
+function placeTokens(segments: string[]): string[] {
+  return segments
+    .map((s) => placeKey(s.replace(/\d+/g, " ")))
+    .filter((key) => {
+      const words = key.split(" ");
+      return /[a-z]{3}/.test(key) && words.length <= 3 && !STREET_SUFFIXES.has(words.at(-1) ?? "");
+    });
+}
+
+/**
+ * True when the result sits in a place or postcode the venue text names, or
+ * the text names none. Places come from the street line and from the venue
+ * line after its first segment; the venue's own segment can confirm a match
+ * ("Janda Baik, Private Park") but never demands one, so a lone venue name is
+ * not checked. A hamlet Google leaves out of the components still counts when
+ * the formatted address names it.
+ */
+function resultInNamedPlace(
+  result: GeocodeResult,
+  venue: { location?: string | null; street?: string | null },
+): boolean {
+  const [venueHead = "", ...venueRest] = (venue.location ?? "").split(",");
+  const named = [...venueRest, ...(venue.street ?? "").split(",")];
+  const components = result.components ?? [];
+  const postcode = components.find((c) => c.types.includes("postal_code"))?.long_name;
+  if (postcode && compact(postcode).length >= 4 && compact(named.join(" ")).includes(compact(postcode))) return true;
+  // A broad level-1 area ("England") agrees with the text but can't confirm
+  // it: "Mount Radford, Exeter, England" must still match Exeter. A small one
+  // (a Jamaican parish) is as good as a town.
+  const country = components.find((c) => c.types.includes("country"))?.short_name ?? "";
+  const level1 = componentNames(components, (t) => t === "administrative_area_level_1");
+  const broad = BROAD_LEVEL_1_COUNTRIES.has(country) ? level1 : [];
+  const towns = placeTokens(named).filter((town) => !broad.some((region) => samePlaceName(town, region)));
+  if (towns.length === 0) return true;
+  const names = [...componentNames(components, (t) => PLACE_NAME_TYPES.has(t)), ...(broad.length ? [] : level1)];
+  const address = ` ${placeKey(result.formattedAddress ?? "")} `;
+  return [...towns, ...placeTokens([venueHead])].some(
+    (town) => address.includes(` ${town} `) || names.some((name) => samePlaceName(town, name)),
+  );
+}
+
+/** Comparable names (long and short) of the components with a matching type. */
+function componentNames(components: GeocodeComponent[], hasType: (type: string) => boolean): string[] {
+  return components
+    .filter((c) => c.types.some(hasType))
+    .flatMap((c) => [placeKey(c.long_name), placeKey(c.short_name)])
+    .filter((n) => n.length >= 3);
+}
+
+/**
+ * Place names match when one contains the other, or they differ only in
+ * spacing ("Minburi" / "Min Buri") or a typo ("Sedgeley" / "Sedgley",
+ * "Cincinnatti" / "Cincinnati"): one edit under 8 letters, two from 8.
+ */
+function samePlaceName(a: string, b: string): boolean {
+  if (a.includes(b) || b.includes(a)) return true;
+  const x = a.replace(/ /g, "");
+  const y = b.replace(/ /g, "");
+  const shorter = Math.min(x.length, y.length);
+  if (shorter < 5) return x === y;
+  return levenshtein(x, y) <= (shorter >= 8 ? 2 : 1);
+}
+
+/**
+ * Why a forward-geocode result can't be an event venue, or null when it can.
+ * Rejects area centroids (state, US/UK county, region), whole roads ("A38, United
+ * Kingdom", #2914), anything over `VENUE_MAX_DISTANCE_KM` from the kennel, and
+ * anything over `VENUE_TOWN_CHECK_KM` that isn't in a town or postcode the
+ * venue text names.
+ */
+export function venueGeocodeRejection(
+  result: GeocodeResult,
+  venue: { location?: string | null; street?: string | null },
+  biasCenter?: { lat: number; lng: number } | null,
+): string | null {
+  const types = result.types ?? [];
+  const components = result.components ?? [];
+  const country = components.find((c) => c.types.includes("country"))?.short_name ?? "";
+  const isCounty = types.includes("administrative_area_level_2") && COUNTY_LEVEL_2_COUNTRIES.has(country);
+  if (isCounty || types.some((t) => AREA_RESULT_TYPES.has(t))) return `an area, not a venue (${types.join("|")})`;
+  if (types.includes("route") && (result.viewportKm ?? 0) > WHOLE_ROAD_KM) return "a whole road, not a venue";
+  if (!biasCenter) return null;
+  const km = haversineDistance(result.lat, result.lng, biasCenter.lat, biasCenter.lng);
+  if (km > VENUE_MAX_DISTANCE_KM) return `${km.toFixed(0)}km from the kennel`;
+  if (km > VENUE_TOWN_CHECK_KM && !resultInNamedPlace(result, venue)) {
+    return `${km.toFixed(0)}km from the kennel and outside the town the venue names`;
+  }
+  return null;
+}
+
+/**
+ * Geocode an event venue with the queries from `buildVenueGeocodeQueries`,
+ * each viewport-biased toward `biasCenter` (the kennel) and dropped
+ * when `venueGeocodeRejection` flags it. Null when no query yields a usable pin.
+ */
+export async function geocodeVenue(venue: {
+  location?: string | null;
+  street?: string | null;
+  regionBias?: string;
+  biasCenter?: { lat: number; lng: number } | null;
+}): Promise<GeocodeResult | null> {
+  const { biasCenter } = venue;
+  const bounds = biasCenter ? boundingBoxFromCenter(biasCenter.lat, biasCenter.lng) : undefined;
+  for (const query of buildVenueGeocodeQueries(venue.location, venue.street)) {
+    const { result, noMatch } = await geocodeQuery(query, { regionBias: venue.regionBias, bounds });
+    if (!result) {
+      if (noMatch) continue;
+      return null; // key, quota or network trouble: the next query would fail the same way
+    }
+    const rejection = venueGeocodeRejection(result, venue, biasCenter);
+    if (!rejection) return result;
+    console.warn(`Geocode rejected for "${query}": ${result.formattedAddress ?? `${result.lat},${result.lng}`} is ${rejection}`);
+  }
+  return null;
+}
+
+/**
+ * Format a town for display: "Brooklyn, NY", "Therfield, England", "Dublin".
+ * #968: Google returns admin_area_level_1.short_name = "D" for County Dublin
+ * (an Eircode prefix, not a real abbreviation), which produced "Dublin, D".
+ * Drop the suffix only for IE so a legitimate 1-char admin code elsewhere
+ * (e.g., AR ISO 3166-2) survives.
+ */
+function formatTown(town: GeocodeComponent, components: GeocodeComponent[]): string {
+  const stateShort = components.find((c) => c.types.includes("administrative_area_level_1"))?.short_name;
+  const countryShort = components.find((c) => c.types.includes("country"))?.short_name;
+  if (!stateShort || (countryShort === "IE" && stateShort.length < 2)) return town.long_name;
+  return `${town.long_name}, ${stateShort}`;
+}
+
+/** The first locality any address names, else the first postal town. Plus-code results name no town. */
+function townFromAddresses(results: GeocodeApiResult[]): string | null {
+  const addresses = results.filter((r) => !r.types?.includes("plus_code"));
+  for (const type of ["locality", "postal_town"]) {
+    for (const address of addresses) {
+      const components = address.address_components ?? [];
+      const town = components.find((c) => c.types.includes(type));
+      if (town) return formatTown(town, components);
+    }
+  }
+  return null;
 }
 
 /**
@@ -351,44 +652,26 @@ export async function reverseGeocode(
 ): Promise<string | null> {
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
   if (!apiKey) return null;
+  const base = `${GOOGLE_GEOCODE_BASE}?latlng=${lat},${lng}&language=en&key=${apiKey}`;
 
   try {
-    const url = `${GOOGLE_GEOCODE_BASE}?latlng=${lat},${lng}&result_type=locality|sublocality&language=en&key=${apiKey}`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!res.ok) return null;
-
-    const data = await res.json();
-    if (data.status !== "OK" || !data.results?.length) return null;
-
-    const components = data.results[0].address_components as Array<{
-      long_name: string;
-      short_name: string;
-      types: string[];
-    }>;
-
-    const locality = components.find(
-      (c) => c.types.includes("locality") || c.types.includes("sublocality"),
-    );
-    const state = components.find((c) =>
-      c.types.includes("administrative_area_level_1"),
-    );
-
-    if (!locality) return null;
-    // #968: Google returns admin_area_level_1.short_name = "D" for County
-    // Dublin (an Eircode prefix, not a real abbreviation), which produced
-    // "Dublin, D". Drop the suffix only for IE so we don't accidentally
-    // strip a legitimate 1-char admin code elsewhere (e.g., AR ISO 3166-2).
-    const stateShort = state?.short_name;
-    const countryShort = components.find((c) => c.types.includes("country"))?.short_name;
-    if (countryShort === "IE" && stateShort && stateShort.length < 2) {
-      return locality.long_name;
+    // Town-typed results first, which keeps a borough ("Brooklyn, NY") ahead
+    // of the city a street address would name.
+    const towns = await fetchGeocodeJson(`${base}&result_type=locality|sublocality`);
+    if (!towns) return null;
+    if (towns.status === "OK") {
+      const components = towns.results?.[0]?.address_components ?? [];
+      const town = components.find((c) => c.types.includes("locality") || c.types.includes("sublocality"));
+      if (town) return formatTown(town, components);
+    } else if (towns.status !== "ZERO_RESULTS") {
+      return null; // key or quota trouble: a second request would fail the same way
     }
-    return stateShort
-      ? `${locality.long_name}, ${stateShort}`
-      : locality.long_name;
+
+    // #2860: a village rarely has a town-typed result of its own, so the
+    // filtered request comes back empty even though every address there names
+    // it ("The Green, Therfield, Royston SG8 9PN"). Read the town off those.
+    const addresses = await fetchGeocodeJson(base);
+    return addresses?.status === "OK" ? townFromAddresses(addresses.results ?? []) : null;
   } catch {
     return null;
   }

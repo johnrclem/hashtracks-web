@@ -1,4 +1,4 @@
-import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress, boundingBoxFromCenter, boundingBoxForRadiusKm, GEOCODE_VIEWPORT_DELTA_DEG, reverseGeocode, cityFromTimezone, resolveShortMapsUrl, parseDMSFromLocation, stripDMSFromLocation } from "./geo";
+import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress, boundingBoxFromCenter, boundingBoxForRadiusKm, GEOCODE_VIEWPORT_DELTA_DEG, reverseGeocode, cityFromTimezone, resolveShortMapsUrl, parseDMSFromLocation, stripDMSFromLocation, buildVenueGeocodeQueries, venueGeocodeRejection, geocodeVenue, type GeocodeResult } from "./geo";
 
 describe("extractCoordsFromMapsUrl", () => {
   it("parses @lat,lng,zoom path segment", () => {
@@ -403,6 +403,20 @@ describe("geocodeAddress", () => {
   });
 });
 
+/** Build a Geocoding API address component. */
+function comp(name: string, type: string, shortName = name) {
+  return { long_name: name, short_name: shortName, types: [type, "political"] };
+}
+
+/** Queue one mocked Geocoding API JSON response per fetch call, in order. */
+function mockGeocodeResponses(...bodies: unknown[]) {
+  const spy = vi.spyOn(globalThis, "fetch");
+  for (const body of bodies) {
+    spy.mockResolvedValueOnce({ ok: true, json: async () => body } as Response);
+  }
+  return spy;
+}
+
 describe("reverseGeocode", () => {
   const originalEnv = process.env.GOOGLE_CALENDAR_API_KEY;
 
@@ -454,33 +468,77 @@ describe("reverseGeocode", () => {
     expect(result).toBe("London");
   });
 
-  it("returns null when API returns ZERO_RESULTS", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ status: "ZERO_RESULTS", results: [] }),
-    } as Response);
+  it("returns null when both the town and the address lookups come back empty", async () => {
+    const fetchSpy = mockGeocodeResponses(
+      { status: "ZERO_RESULTS", results: [] },
+      { status: "ZERO_RESULTS", results: [] },
+    );
 
-    const result = await reverseGeocode(0, 0);
-    expect(result).toBeNull();
+    expect(await reverseGeocode(0, 0)).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
-  it("returns null when no locality component found", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
+  it("returns null when no address names a town", async () => {
+    mockGeocodeResponses(
+      { status: "OK", results: [{ address_components: [comp("USA", "country", "US")] }] },
+      { status: "OK", results: [{ types: ["country"], address_components: [comp("USA", "country", "US")] }] },
+    );
+
+    expect(await reverseGeocode(40, -74)).toBeNull();
+  });
+
+  // #2860: Google has no locality-typed result for most English villages, so
+  // the filtered lookup is empty even though the addresses name the village.
+  it("falls back to the village an address names when the town lookup is empty", async () => {
+    const fetchSpy = mockGeocodeResponses(
+      { status: "ZERO_RESULTS", results: [] },
+      {
         status: "OK",
         results: [
+          { types: ["plus_code"], address_components: [comp("2W8W+W8", "plus_code"), comp("Royston", "postal_town")] },
           {
+            types: ["premise", "street_address"],
             address_components: [
-              { long_name: "USA", short_name: "US", types: ["country"] },
+              comp("The Green", "premise"),
+              comp("Therfield", "locality"),
+              comp("Royston", "postal_town"),
+              comp("England", "administrative_area_level_1"),
+              comp("United Kingdom", "country", "GB"),
             ],
           },
         ],
-      }),
-    } as Response);
+      },
+    );
 
-    const result = await reverseGeocode(40, -74);
-    expect(result).toBeNull();
+    expect(await reverseGeocode(52.017349, -0.054246)).toBe("Therfield, England");
+    expect(fetchSpy.mock.calls[0][0]).toContain("result_type=locality|sublocality");
+    expect(fetchSpy.mock.calls[1][0]).not.toContain("result_type");
+  });
+
+  it("falls back to the postal town when no address names a locality", async () => {
+    mockGeocodeResponses(
+      { status: "ZERO_RESULTS", results: [] },
+      {
+        status: "OK",
+        results: [{
+          types: ["premise", "street_address"],
+          address_components: [
+            comp("Sandy Lane", "route"),
+            comp("Cannock", "postal_town"),
+            comp("England", "administrative_area_level_1"),
+          ],
+        }],
+      },
+    );
+
+    expect(await reverseGeocode(52.6935, -2.0492)).toBe("Cannock, England");
+  });
+
+  it("does not retry after a key or quota error", async () => {
+    const fetchSpy = mockGeocodeResponses({ status: "REQUEST_DENIED", results: [] });
+
+    expect(await reverseGeocode(40, -74)).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledOnce();
   });
 
   it("returns null when fetch fails", async () => {
@@ -534,6 +592,278 @@ describe("reverseGeocode", () => {
     expect(fetchSpy).toHaveBeenCalledOnce();
     const calledUrl = fetchSpy.mock.calls[0][0] as string;
     expect(calledUrl).toContain("language=en");
+  });
+});
+
+describe("buildVenueGeocodeQueries", () => {
+  it("geocodes the venue with its street line first, then the street line alone", () => {
+    expect(buildVenueGeocodeQueries("Fox and Duck", "Therfield, SG8 9PN")).toEqual([
+      "Fox and Duck, Therfield, SG8 9PN",
+      "Therfield, SG8 9PN",
+    ]);
+  });
+
+  it.each([
+    { case: "no street", location: "Central Park", street: null, expected: ["Central Park"] },
+    { case: "placeholder street", location: "The Lion Inn", street: "TBC", expected: ["The Lion Inn"] },
+    { case: "placeholder venue", location: "TBD", street: "Sandy Ln, Cannock, WS11 1RF", expected: ["Sandy Ln, Cannock, WS11 1RF"] },
+    { case: "street already holds the venue", location: "SRO Lounge", street: "SRO Lounge, 1807 Fifth Ave, San Diego, CA 92101", expected: ["SRO Lounge, 1807 Fifth Ave, San Diego, CA 92101"] },
+    { case: "venue already holds the street", location: "Shed, Lode, CB25 9ET", street: "Lode, CB25 9ET", expected: ["Shed, Lode, CB25 9ET"] },
+    { case: "nothing to geocode", location: "  ", street: undefined, expected: [] },
+  ])("$case", ({ location, street, expected }) => {
+    expect(buildVenueGeocodeQueries(location, street)).toEqual(expected);
+  });
+});
+
+describe("venueGeocodeRejection", () => {
+  const EXETER = { lat: 50.7184, lng: -3.5339 };
+  const BEDFORD = { lat: 52.136, lng: -0.467 };
+
+  // Real Geocoding API results captured 2026-11-12 (#2914, #2908, h5-gb finding).
+  const wembdonHouse: GeocodeResult = {
+    lat: 51.1342648,
+    lng: -3.0250285,
+    types: ["premise", "street_address"],
+    components: [
+      comp("Mt Radford", "premise"),
+      comp("Wembdon Hill", "route"),
+      comp("Wembdon", "locality"),
+      comp("Bridgwater", "postal_town"),
+      comp("Somerset", "administrative_area_level_2"),
+      comp("England", "administrative_area_level_1"),
+      comp("United Kingdom", "country", "GB"),
+      comp("TA6 7PX", "postal_code"),
+    ],
+  };
+
+  it("rejects a same-named place 58 km away in a town the venue doesn't name", () => {
+    expect(venueGeocodeRejection(wembdonHouse, { location: "Mount Radford, Exeter" }, EXETER)).toMatch(
+      /58km from the kennel and outside the town/,
+    );
+  });
+
+  it("accepts a far result whose place the venue text leads with", () => {
+    const jandaBaik: GeocodeResult = {
+      lat: 3.341,
+      lng: 101.84,
+      types: ["establishment"],
+      components: [comp("Kampung Janda Baik", "locality"), comp("Pahang", "administrative_area_level_1")],
+    };
+    expect(venueGeocodeRejection(jandaBaik, { location: "Janda Baik, Private Park" }, { lat: 3.1, lng: 101.6 })).toBeNull();
+  });
+
+  it("accepts a far result in the parish the venue names (level 1 in Jamaica)", () => {
+    const pera: GeocodeResult = {
+      lat: 17.89,
+      lng: -76.315,
+      types: ["establishment"],
+      components: [comp("Pera", "locality"), comp("St. Thomas Parish", "administrative_area_level_1")],
+    };
+    expect(venueGeocodeRejection(pera, { location: "Bowden Wharf, St. Thomas" }, { lat: 18.0, lng: -76.79 })).toBeNull();
+  });
+
+  it("still requires the named town when the text also names the region", () => {
+    expect(venueGeocodeRejection(wembdonHouse, { location: "Mount Radford, Exeter, England" }, EXETER)).toMatch(
+      /outside the town/,
+    );
+  });
+
+  it("lets a small level-1 area confirm a far pin (Jamaican parish)", () => {
+    const draxHall: GeocodeResult = {
+      lat: 18.43,
+      lng: -77.17,
+      types: ["establishment"],
+      components: [comp("St. Ann Parish", "administrative_area_level_1"), comp("Jamaica", "country", "JM")],
+    };
+    expect(
+      venueGeocodeRejection(draxHall, { location: "Hash Olympics, Drax Hall Beach, St. Ann" }, { lat: 18.0, lng: -76.79 }),
+    ).toBeNull();
+  });
+
+  it("rejects a whole road", () => {
+    const a38: GeocodeResult = {
+      lat: 51.5928546,
+      lng: -2.5251101,
+      types: ["route"],
+      components: [comp("A38", "route"), comp("England", "administrative_area_level_1"), comp("United Kingdom", "country", "GB")],
+      viewportKm: 397,
+    };
+    expect(venueGeocodeRejection(a38, { location: "Brightside A38" }, EXETER)).toBe("a whole road, not a venue");
+  });
+
+  it("rejects a state centroid even close to the kennel", () => {
+    const rhodeIsland: GeocodeResult = {
+      lat: 41.5800945,
+      lng: -71.4774291,
+      types: ["administrative_area_level_1", "political"],
+      components: [comp("Rhode Island", "administrative_area_level_1", "RI")],
+    };
+    expect(venueGeocodeRejection(rhodeIsland, { location: "Rhode Island" }, { lat: 41.824, lng: -71.4128 })).toMatch(
+      /^an area, not a venue/,
+    );
+  });
+
+  it("rejects a same-named pub in another town when the street names the right one", () => {
+    const greatChishill: GeocodeResult = {
+      lat: 52.0305,
+      lng: 0.074,
+      types: ["bar", "establishment"],
+      components: [comp("Great Chishill", "locality"), comp("Royston", "postal_town"), comp("SG8 8SR", "postal_code")],
+    };
+    expect(
+      venueGeocodeRejection(greatChishill, { location: "The Pheasant", street: "Bedford, MK41 8YR" }, BEDFORD),
+    ).toMatch(/outside the town/);
+  });
+
+  it("accepts a far result in the town or postcode the venue names", () => {
+    const mildenhall: GeocodeResult = {
+      lat: 52.345013,
+      lng: 0.522139,
+      types: ["bar", "establishment"],
+      components: [comp("Mildenhall", "locality"), comp("Bury Saint Edmunds", "postal_town"), comp("IP28 7HS", "postal_code")],
+    };
+    const cambridge = { lat: 52.2053, lng: 0.1218 };
+    expect(venueGeocodeRejection(mildenhall, { location: "Half Moon", street: "Mildenhall, IP28 7HS" }, cambridge)).toBeNull();
+    // A misspelt town still passes on its postcode.
+    expect(venueGeocodeRejection(mildenhall, { location: "Half Moon", street: "Mildenhal, IP28 7HS" }, cambridge)).toBeNull();
+  });
+
+  it("rejects a US county centroid but keeps a district elsewhere", () => {
+    const county = (country: string): GeocodeResult => ({
+      lat: 26.65,
+      lng: -80.27,
+      types: ["administrative_area_level_2", "political"],
+      components: [comp("Some County", "administrative_area_level_2"), comp(country, "country", country)],
+    });
+    const pbh3 = { lat: 26.7, lng: -80.1 };
+    expect(venueGeocodeRejection(county("US"), { location: "Palm Beach County, FL" }, pbh3)).toMatch(/^an area/);
+    expect(venueGeocodeRejection(county("TH"), { location: "Bang Lamung" }, pbh3)).toBeNull();
+  });
+
+  it("does not confirm a town from a road name or a long note", () => {
+    const wrongTown: GeocodeResult = {
+      lat: 52.0305,
+      lng: 0.074,
+      types: ["premise"],
+      components: [comp("Church Road", "route"), comp("Great Chishill", "locality")],
+    };
+    const bedford = { lat: 52.136, lng: -0.467 };
+    expect(venueGeocodeRejection(wrongTown, { location: "The Pheasant", street: "12 Church Road, Bedford" }, bedford)).toMatch(
+      /outside the town/,
+    );
+    // A note names no place, so it can't confirm the hit (nor, alone, reject it).
+    expect(venueGeocodeRejection(wrongTown, { location: "park on the verge please" }, bedford)).toBeNull();
+  });
+
+  it("accepts a far lone venue name: it names no place to check", () => {
+    expect(venueGeocodeRejection(wembdonHouse, { location: "Hulu Tamu Hotsprings" }, EXETER)).toBeNull();
+  });
+
+  it("accepts a hamlet the formatted address names but the components leave out", () => {
+    const dodfordInn: GeocodeResult = {
+      lat: 52.355,
+      lng: -2.091,
+      formattedAddress: "Whinfield Rd, Dodford, Bromsgrove B61 9BG, UK",
+      types: ["bar", "establishment"],
+      components: [comp("Whinfield Road", "route"), comp("Bromsgrove", "postal_town")],
+    };
+    expect(venueGeocodeRejection(dodfordInn, { location: "Dodford Inn, Dodford" }, { lat: 52.11, lng: -2.33 })).toBeNull();
+  });
+
+  it("keeps a street-sized road even with no town component", () => {
+    const parishRoad: GeocodeResult = {
+      lat: 17.89,
+      lng: -76.315,
+      types: ["route"],
+      components: [comp("Bowden Wharf Road", "route"), comp("St. Thomas Parish", "administrative_area_level_1"), comp("Jamaica", "country", "JM")],
+      viewportKm: 0.4,
+    };
+    expect(venueGeocodeRejection(parishRoad, { location: "Bowden Wharf, St. Thomas" }, { lat: 18.0, lng: -76.79 })).toBeNull();
+  });
+
+  it.each([
+    ["a misspelt town", "231 W. Fourth St., Cincinnatti", "Cincinnati"],
+    ["a town written without its space", "Minburi, Tong Romklao Market", "Min Buri"],
+  ])("accepts %s", (_case, location, town) => {
+    const result: GeocodeResult = { lat: 39.1, lng: -84.51, types: ["premise"], components: [comp(town, "locality")] };
+    expect(venueGeocodeRejection(result, { location }, { lat: 39.76, lng: -84.19 })).toBeNull();
+  });
+
+  it("rejects anything over 200 km from the kennel", () => {
+    expect(venueGeocodeRejection({ lat: 53.4808, lng: -2.2426 }, { location: "Pub" }, EXETER)).toMatch(/km from the kennel$/);
+  });
+
+  it("accepts any non-area result when there is no bias point", () => {
+    expect(venueGeocodeRejection(wembdonHouse, { location: "Mount Radford, Exeter" }, null)).toBeNull();
+  });
+});
+
+describe("geocodeVenue", () => {
+  const originalEnv = process.env.GOOGLE_CALENDAR_API_KEY;
+
+  beforeEach(() => {
+    process.env.GOOGLE_CALENDAR_API_KEY = "test-api-key";
+  });
+
+  afterEach(() => {
+    process.env.GOOGLE_CALENDAR_API_KEY = originalEnv;
+    vi.restoreAllMocks();
+  });
+
+  const hit = (lat: number, lng: number, components: unknown[] = []) => ({
+    status: "OK",
+    results: [{ types: ["establishment"], geometry: { location: { lat, lng } }, address_components: components }],
+  });
+
+  it("returns the venue + street hit and biases toward the kennel", async () => {
+    const fetchSpy = mockGeocodeResponses(hit(52.155, -0.448));
+
+    const result = await geocodeVenue({
+      location: "The Pheasant",
+      street: "Bedford, MK41 8YR",
+      regionBias: "gb",
+      biasCenter: { lat: 52.136, lng: -0.467 },
+    });
+
+    expect(result).toMatchObject({ lat: 52.155, lng: -0.448 });
+    expect(fetchSpy).toHaveBeenCalledOnce();
+    const url = fetchSpy.mock.calls[0][0] as string;
+    expect(url).toContain(`address=${encodeURIComponent("The Pheasant, Bedford, MK41 8YR")}`);
+    expect(url).toContain("&region=gb");
+    expect(url).toContain("&bounds=");
+  });
+
+  it("falls back to the street line alone when venue + street finds nothing", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchSpy = mockGeocodeResponses({ status: "ZERO_RESULTS", results: [] }, hit(52.155, -0.448));
+
+    const result = await geocodeVenue({ location: "The Pheasant", street: "Bedford, MK41 8YR" });
+
+    expect(result).toMatchObject({ lat: 52.155, lng: -0.448 });
+    expect(fetchSpy.mock.calls[1][0]).toContain(`address=${encodeURIComponent("Bedford, MK41 8YR")}&`);
+  });
+
+  it("stops after a key or quota error instead of trying the next query", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchSpy = mockGeocodeResponses({ status: "OVER_QUERY_LIMIT", results: [] });
+
+    expect(await geocodeVenue({ location: "The Pheasant", street: "Bedford, MK41 8YR" })).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledOnce();
+  });
+
+  it("returns null when every hit is rejected", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const farPub = hit(52.0305, 0.074, [comp("Great Chishill", "locality")]);
+    const fetchSpy = mockGeocodeResponses(farPub, farPub);
+
+    const result = await geocodeVenue({
+      location: "The Pheasant",
+      street: "Bedford, MK41 8YR",
+      biasCenter: { lat: 52.136, lng: -0.467 },
+    });
+
+    expect(result).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 });
 

@@ -7,7 +7,7 @@ import { regionTimezone, getLabelForUrl, stripUrlsFromText, timeToMinutes } from
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, resolveKennelTags, clearResolverCache } from "./kennel-resolver";
-import { extractCoordsFromMapsUrl, geocodeAddress, resolveShortMapsUrl, reverseGeocode, haversineDistance, boundingBoxFromCenter, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
+import { extractCoordsFromMapsUrl, geocodeVenue, resolveShortMapsUrl, reverseGeocode, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
 import { isPlaceholder, isThemelessPlaceholderTitle, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
 import { containsHarePii, scrubHarePii } from "@/adapters/hare-pii";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
@@ -1309,21 +1309,16 @@ async function resolveCoords(
         : null;
     const biasCenter =
       event.countryOverride === undefined ? (kennelPoint ?? centroidPoint) : null;
-    const geocoded = await geocodeAddress(event.location, {
+    // geocodeVenue biases toward and validates against biasCenter (see
+    // venueGeocodeRejection). countryOverride trips have no bias point, so
+    // distance never rejects them — e.g. NTKH4's annual Taoyuan run.
+    const geocoded = await geocodeVenue({
+      location: event.location,
+      street: event.locationStreet,
       regionBias,
-      bounds: biasCenter ? boundingBoxFromCenter(biasCenter.lat, biasCenter.lng) : undefined,
+      biasCenter,
     });
     if (geocoded) {
-      // Validate against the bias point: skip the geocode if it resolved >200km
-      // away — likely the wrong city/state. (countryOverride trips have no bias
-      // point, so they're never rejected here — e.g. NTKH4's annual Taoyuan run.)
-      if (biasCenter) {
-        const dist = haversineDistance(geocoded.lat, geocoded.lng, biasCenter.lat, biasCenter.lng);
-        if (dist > 200) {
-          console.warn(`Geocode validation: "${event.location}" resolved ${dist.toFixed(0)}km from kennel — skipping`);
-          return {};
-        }
-      }
       // If location contains non-English geographic terms, use the geocoder's
       // English formatted address instead (e.g., "Rochester, État de New York" → "Rochester, NY")
       const normalizedLocation = NON_ENGLISH_GEO_RE.test(event.location) && geocoded.formattedAddress
