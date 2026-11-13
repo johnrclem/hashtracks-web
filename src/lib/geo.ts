@@ -339,15 +339,46 @@ type GeocodeOptions = {
   bounds?: { swLat: number; swLng: number; neLat: number; neLng: number };
 };
 
+/** A forward lookup's outcome; see `geocodeQuery`. */
+type QueryOutcome = { result: GeocodeResult | null; noMatch: boolean };
+
 /**
- * One forward-geocode request. `noMatch` is true only when Google found
- * nothing (ZERO_RESULTS): another query may still work. Key, quota and
+ * Geocoding API answers kept for one scrape, so a venue repeated across its
+ * events costs one request. Keeps answers only, never key, quota or network
+ * failures: the next event retries those.
+ */
+export interface GeocodeCache {
+  /** Forward lookups by query, region bias and bounds. */
+  readonly forward: Map<string, QueryOutcome>;
+  /** Reverse lookups by exact lat/lng: a repeated venue repeats its point exactly. */
+  readonly reverse: Map<string, string | null>;
+}
+
+export function createGeocodeCache(): GeocodeCache {
+  return { forward: new Map(), reverse: new Map() };
+}
+
+/**
+ * One forward geocode, answered from `cache` when this query was already
+ * asked with the same region and bounds. `noMatch` is true only when Google
+ * found nothing (ZERO_RESULTS): another query may still work. Key, quota and
  * network failures leave it false so callers stop instead of retrying.
  */
 async function geocodeQuery(
   address: string,
   options?: GeocodeOptions,
-): Promise<{ result: GeocodeResult | null; noMatch: boolean }> {
+  cache?: GeocodeCache,
+): Promise<QueryOutcome> {
+  if (!cache) return requestGeocode(address, options);
+  const key = JSON.stringify([address, options?.regionBias, options?.bounds]);
+  const cached = cache.forward.get(key);
+  if (cached) return cached;
+  const outcome = await requestGeocode(address, options);
+  if (outcome.result || outcome.noMatch) cache.forward.set(key, outcome);
+  return outcome;
+}
+
+async function requestGeocode(address: string, options?: GeocodeOptions): Promise<QueryOutcome> {
   const miss = { result: null, noMatch: false };
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
   if (!apiKey || !address.trim()) return miss;
@@ -593,17 +624,22 @@ export function venueGeocodeRejection(
  * Geocode an event venue with the queries from `buildVenueGeocodeQueries`,
  * each viewport-biased toward `biasCenter` (the kennel) and dropped
  * when `venueGeocodeRejection` flags it. Null when no query yields a usable pin.
+ * With a `cache`, each query is requested once per region and bias center; the
+ * rejection check still runs per venue, since it reads the venue's own text.
  */
-export async function geocodeVenue(venue: {
-  location?: string | null;
-  street?: string | null;
-  regionBias?: string;
-  biasCenter?: { lat: number; lng: number } | null;
-}): Promise<GeocodeResult | null> {
-  const { biasCenter } = venue;
+export async function geocodeVenue(
+  venue: {
+    location?: string | null;
+    street?: string | null;
+    regionBias?: string;
+    biasCenter?: { lat: number; lng: number } | null;
+  },
+  cache?: GeocodeCache,
+): Promise<GeocodeResult | null> {
+  const { biasCenter, regionBias } = venue;
   const bounds = biasCenter ? boundingBoxFromCenter(biasCenter.lat, biasCenter.lng) : undefined;
   for (const query of buildVenueGeocodeQueries(venue.location, venue.street)) {
-    const { result, noMatch } = await geocodeQuery(query, { regionBias: venue.regionBias, bounds });
+    const { result, noMatch } = await geocodeQuery(query, { regionBias, bounds }, cache);
     if (!result) {
       if (noMatch) continue;
       return null; // key, quota or network trouble: the next query would fail the same way
@@ -645,35 +681,48 @@ function townFromAddresses(results: GeocodeApiResult[]): string | null {
 /**
  * Reverse geocode coordinates to a city string using the Google Maps Geocoding API.
  * Returns a display string like "Brooklyn, NY" or "London, England", or null on failure.
+ * With a `cache`, each point is looked up once.
  */
 export async function reverseGeocode(
   lat: number,
   lng: number,
+  cache?: GeocodeCache,
 ): Promise<string | null> {
+  const key = `${lat},${lng}`;
+  const cached = cache?.reverse.get(key);
+  if (cached !== undefined) return cached;
+  const town = await lookupTown(lat, lng);
+  if (town !== undefined) cache?.reverse.set(key, town);
+  return town ?? null;
+}
+
+/** The town at a point; null when Google names none, undefined on key, quota or network trouble. */
+async function lookupTown(lat: number, lng: number): Promise<string | null | undefined> {
   const apiKey = process.env.GOOGLE_CALENDAR_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) return undefined;
   const base = `${GOOGLE_GEOCODE_BASE}?latlng=${lat},${lng}&language=en&key=${apiKey}`;
 
   try {
     // Town-typed results first, which keeps a borough ("Brooklyn, NY") ahead
     // of the city a street address would name.
     const towns = await fetchGeocodeJson(`${base}&result_type=locality|sublocality`);
-    if (!towns) return null;
+    if (!towns) return undefined;
     if (towns.status === "OK") {
       const components = towns.results?.[0]?.address_components ?? [];
       const town = components.find((c) => c.types.includes("locality") || c.types.includes("sublocality"));
       if (town) return formatTown(town, components);
     } else if (towns.status !== "ZERO_RESULTS") {
-      return null; // key or quota trouble: a second request would fail the same way
+      return undefined; // key or quota trouble: a second request would fail the same way
     }
 
     // #2860: a village rarely has a town-typed result of its own, so the
     // filtered request comes back empty even though every address there names
     // it ("The Green, Therfield, Royston SG8 9PN"). Read the town off those.
     const addresses = await fetchGeocodeJson(base);
-    return addresses?.status === "OK" ? townFromAddresses(addresses.results ?? []) : null;
+    if (addresses?.status === "OK") return townFromAddresses(addresses.results ?? []);
+    return addresses?.status === "ZERO_RESULTS" ? null : undefined;
   } catch {
-    return null;
+    return undefined;
   }
 }
 
