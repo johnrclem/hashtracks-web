@@ -7,7 +7,7 @@ import { regionTimezone, getLabelForUrl, stripUrlsFromText, timeToMinutes } from
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, resolveKennelTags, clearResolverCache } from "./kennel-resolver";
-import { extractCoordsFromMapsUrl, geocodeVenue, resolveShortMapsUrl, reverseGeocode, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
+import { createGeocodeCache, extractCoordsFromMapsUrl, geocodeVenue, resolveShortMapsUrl, reverseGeocode, parseDMSFromLocation, stripDMSFromLocation, type GeocodeCache } from "@/lib/geo";
 import { isPlaceholder, isThemelessPlaceholderTitle, decodeEntities, replaceBrTags, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
 import { containsHarePii, scrubHarePii } from "@/adapters/hare-pii";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
@@ -443,6 +443,8 @@ interface MergeContext {
   kennelCache: Map<string, KennelCacheEntry>;
   /** Per-batch cache of short Maps URL → resolved full URL (avoids repeated HTTP calls). */
   shortUrlCache: Map<string, string | null>;
+  /** Per-batch Geocoding API answers, so a venue repeated across the batch costs one request. */
+  geocodeCache: GeocodeCache;
   /** Per-batch tracking: which canonical Event IDs have been matched for each kennel+date.
    *  Key = `${kennelId}:${dateIso}`, value = set of canonical Event IDs matched in this batch.
    *  Used to distinguish double-headers (same source, second event) from cross-source merges. */
@@ -1243,29 +1245,53 @@ function sanitizeLocationUrl(url: string | undefined): string | null {
   return url;
 }
 
+/** Comparable form of venue or street text: normalizeAddr folds case and "Road"/"Rd."; punctuation never names a different place. */
+function addrKey(text: string | null | undefined): string {
+  return normalizeAddr(text ?? "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
 /**
  * True when the adapter's venue differs from the one the canonical event
  * stores, so the cached pin belongs to another venue. Herts H3's hareline
  * shifted run #2244 from "The Plough, Datchworth" to "Chez No Eye Deer,
  * Letchworth", and the Datchworth pin stayed because only `locationUrl` was
  * compared. Compares what the update would store (sanitized; case, spacing,
- * punctuation and street abbreviations ignored). An adapter that omits the venue (`undefined`) or clears
- * it (`null`, handled as an explicit clear) makes no claim here.
+ * punctuation and street abbreviations ignored). A cleared venue (`null`) is
+ * handled as an explicit clear. An omitted venue (`undefined`) makes no claim,
+ * but a street line sent with it does: a street-only row is pinned on its street.
  */
 export function venueTextChanged(
   event: Pick<RawEventData, "location" | "locationStreet">,
   stored: { locationName: string | null; locationStreet: string | null },
 ): boolean {
-  if (event.location == null) return false;
+  if (event.location === null) return false;
+  if (event.location === undefined) {
+    return !!event.locationStreet && addrKey(event.locationStreet) !== addrKey(stored.locationStreet);
+  }
   // A non-English venue is stored as the geocoder's English address, so the texts never match.
   if (NON_ENGLISH_GEO_RE.test(event.location)) return false;
-  // normalizeAddr folds case and "Road"/"Rd."; punctuation never names a different venue.
-  const key = (text: string | null | undefined) =>
-    normalizeAddr(text ?? "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-  if (key(sanitizeLocation(event.location)) !== key(stored.locationName)) return true;
+  if (addrKey(sanitizeLocation(event.location)) !== addrKey(stored.locationName)) return true;
   // An omitted street makes no claim: a lower-trust source may have filled it,
   // and treating that as a change would re-geocode on every scrape.
-  return event.locationStreet !== undefined && key(event.locationStreet) !== key(stored.locationStreet);
+  return event.locationStreet !== undefined && addrKey(event.locationStreet) !== addrKey(stored.locationStreet);
+}
+
+/**
+ * Detect non-English geographic terms in a location string (e.g., French "État de New York").
+ * Letter lookarounds, not `\b`: `\b` only knows ASCII word characters, so it
+ * never fired before "É" after a space and "Rochester, État de New York" went unmatched.
+ */
+export const NON_ENGLISH_GEO_RE =
+  /(?<![\p{L}\p{N}_])(?:États?[ -]Unis|État de|Bundesland|Straße|Vereinigte Staaten|Provincia de|Comunidad de|Préfecture)(?![\p{L}\p{N}_])/iu;
+
+/**
+ * True when the row has text to geocode: a venue, or a street line with no
+ * venue (OKissMe #1579 rows carry only an address). An explicit clear
+ * (`location: null`, WS6 #1516) means the source has no venue, so a leftover
+ * street line isn't pinned either.
+ */
+function hasGeocodableVenue(event: Pick<RawEventData, "location" | "locationStreet">): boolean {
+  return event.location !== null && !!(event.location || event.locationStreet);
 }
 
 /**
@@ -1273,13 +1299,10 @@ export function venueTextChanged(
  * Optionally skips geocoding if the canonical event already has stored coords and
  * the location text hasn't changed.
  */
-/** Detect non-English geographic terms in a location string (e.g., French "État de New York"). */
-export const NON_ENGLISH_GEO_RE = /\b(?:États?[ -]Unis|État de|Bundesland|Straße|Vereinigte Staaten|Provincia de|Comunidad de|Préfecture)\b/i;
-
 async function resolveCoords(
   event: RawEventData,
-  existingCoords?: { latitude: number | null; longitude: number | null; locationAddress: string | null },
-  shortUrlCache?: Map<string, string | null>,
+  existingCoords: { latitude: number | null; longitude: number | null; locationAddress: string | null } | undefined,
+  caches: Pick<MergeContext, "shortUrlCache" | "geocodeCache">,
   kennelCoords?: { latitude: number | null; longitude: number | null; regionCentroidLat?: number | null; regionCentroidLng?: number | null },
   regionBias?: string,
 ): Promise<{ latitude?: number; longitude?: number; normalizedLocation?: string }> {
@@ -1307,10 +1330,10 @@ async function resolveCoords(
 
   // Try resolving short Maps URLs (maps.app.goo.gl) to full URLs with coordinates
   if (event.locationUrl) {
-    let resolvedUrl = shortUrlCache?.get(event.locationUrl);
+    let resolvedUrl = caches.shortUrlCache.get(event.locationUrl);
     if (resolvedUrl === undefined) {
       resolvedUrl = await resolveShortMapsUrl(event.locationUrl);
-      shortUrlCache?.set(event.locationUrl, resolvedUrl);
+      caches.shortUrlCache.set(event.locationUrl, resolvedUrl);
     }
     if (resolvedUrl) {
       const coords = extractCoordsFromMapsUrl(resolvedUrl);
@@ -1318,7 +1341,7 @@ async function resolveCoords(
     }
   }
 
-  if (event.location) {
+  if (hasGeocodableVenue(event)) {
     // Bias point = kennel coords, else the region centroid. When we have one and
     // this isn't a deliberate far-away trip (`countryOverride`), treat the event
     // as local: viewport-bias the geocode toward it (so terse landmarks like
@@ -1340,16 +1363,14 @@ async function resolveCoords(
     // geocodeVenue biases toward and validates against biasCenter (see
     // venueGeocodeRejection). countryOverride trips have no bias point, so
     // distance never rejects them — e.g. NTKH4's annual Taoyuan run.
-    const geocoded = await geocodeVenue({
-      location: event.location,
-      street: event.locationStreet,
-      regionBias,
-      biasCenter,
-    });
+    const geocoded = await geocodeVenue(
+      { location: event.location, street: event.locationStreet, regionBias, biasCenter },
+      caches.geocodeCache,
+    );
     if (geocoded) {
       // If location contains non-English geographic terms, use the geocoder's
       // English formatted address instead (e.g., "Rochester, État de New York" → "Rochester, NY")
-      const normalizedLocation = NON_ENGLISH_GEO_RE.test(event.location) && geocoded.formattedAddress
+      const normalizedLocation = event.location && NON_ENGLISH_GEO_RE.test(event.location) && geocoded.formattedAddress
         ? geocoded.formattedAddress
         : undefined;
       return { latitude: geocoded.lat, longitude: geocoded.lng, normalizedLocation };
@@ -1838,7 +1859,7 @@ async function upsertCanonicalEvent(
         latitude: existingEvent.latitude,
         longitude: existingEvent.longitude,
         locationAddress: existingEvent.locationAddress,
-      }, ctx.shortUrlCache, kennelData, resolveRegionBias(event, kennelData.country));
+      }, ctx, kennelData, resolveRegionBias(event, kennelData.country));
 
       const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
       // WS6 (#1516): adapters signal "this row lost its venue" via
@@ -1866,7 +1887,7 @@ async function upsertCanonicalEvent(
         const coordsChanged =
           coords.latitude !== existingEvent.latitude || coords.longitude !== existingEvent.longitude;
         if (coordsChanged || !existingEvent.locationCity) {
-          const rawCity = await reverseGeocode(coords.latitude, coords.longitude);
+          const rawCity = await reverseGeocode(coords.latitude, coords.longitude, ctx.geocodeCache);
           locationCity = suppressRedundantCity(locName, rawCity);
         }
       } else if (stalePin) {
@@ -2094,20 +2115,28 @@ async function upsertCanonicalEvent(
       // match could pin a *different* venue's coords under a higher-trust venue
       // name — a silent map/name mismatch. Strict equality is intentionally
       // conservative: on any doubt we skip rather than risk a wrong pin.
+      // A street-only row is pinned on its street, so that street must not
+      // contradict the (higher-trust) street that stays stored.
+      const streetConflict =
+        !event.location &&
+        !!event.locationStreet &&
+        existingEvent.locationStreet != null &&
+        addrKey(event.locationStreet) !== addrKey(existingEvent.locationStreet);
       const venueCompatible =
-        existingEvent.locationName == null ||
-        (event.location != null && sanitizeLocation(event.location) === existingEvent.locationName);
+        !streetConflict &&
+        (existingEvent.locationName == null ||
+          (event.location != null && sanitizeLocation(event.location) === existingEvent.locationName));
       // Only resolve when the canonical lacks coords AND this source carries a
       // coord signal (direct lat/lng, a maps URL, or a venue to geocode) — skip
       // the otherwise no-op async call. `existingCoords` is omitted: the null
       // guard means there's nothing cached to preserve.
       const eventHasCoordSignal =
-        event.latitude != null || event.longitude != null || !!event.locationUrl || !!event.location;
+        event.latitude != null || event.longitude != null || !!event.locationUrl || hasGeocodableVenue(event);
       if (venueCompatible && existingEvent.latitude == null && existingEvent.longitude == null && eventHasCoordSignal) {
         const coords = await resolveCoords(
           event,
           undefined,
-          ctx.shortUrlCache,
+          ctx,
           kennelData,
           resolveRegionBias(event, kennelData.country),
         );
@@ -2119,7 +2148,7 @@ async function upsertCanonicalEvent(
           if (!shouldSkipReverseGeocode(ctx.sourceType) && !existingEvent.locationCity) {
             const city = suppressRedundantCity(
               (enrichData.locationName as string | null | undefined) ?? existingEvent.locationName,
-              await reverseGeocode(coords.latitude, coords.longitude),
+              await reverseGeocode(coords.latitude, coords.longitude, ctx.geocodeCache),
             );
             if (city) enrichData.locationCity = city;
           }
@@ -2254,13 +2283,13 @@ async function upsertCanonicalEvent(
     if (shouldRestore) ctx.result.restored++;
   } else {
     // Create new canonical Event
-    const coords = await resolveCoords(event, undefined, ctx.shortUrlCache, kennelData, resolveRegionBias(event, kennelData.country));
+    const coords = await resolveCoords(event, undefined, ctx, kennelData, resolveRegionBias(event, kennelData.country));
     // Reverse-geocode city when coords are available (suppress when address already has state).
     // Canonical-location sources skip this entirely — see shouldSkipReverseGeocode.
     const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
     let locationCity: string | null = null;
     if (!shouldSkipReverseGeocode(ctx.sourceType) && coords.latitude != null && coords.longitude != null) {
-      locationCity = suppressRedundantCity(locName, await reverseGeocode(coords.latitude, coords.longitude));
+      locationCity = suppressRedundantCity(locName, await reverseGeocode(coords.latitude, coords.longitude, ctx.geocodeCache));
     }
     // Dual-write Event + primary EventKennel atomically (#1023 step 2).
     // Uses Prisma's nested create — one round-trip, one implicit tx.
@@ -3138,6 +3167,7 @@ export async function processRawEvents(
     linkedKennelIds,
     kennelCache,
     shortUrlCache,
+    geocodeCache: createGeocodeCache(),
     batchMatchedEvents,
     existingByFingerprint,
     eventBatch: {

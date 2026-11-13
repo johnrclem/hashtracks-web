@@ -2214,6 +2214,7 @@ describe("dropCachedCoords signal (#957)", () => {
 
     expect(geoSpy).toHaveBeenCalledWith(
       expect.objectContaining({ location: "The Pheasant", street: "Bedford, MK41 8YR" }),
+      expect.anything(),
     );
     const updateCall = mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
     expect(updateCall.data.latitude).toBe(52.155);
@@ -2318,6 +2319,7 @@ describe("venue change drops the cached pin (Herts #2244)", () => {
 
     expect(geoSpy).toHaveBeenCalledWith(
       expect.objectContaining({ location: "Chez No Eye Deer", street: "Aubreys, Letchworth Garden City, SG6 3TU" }),
+      expect.anything(),
     );
     const data = (mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
     expect(data).toMatchObject({ latitude: 51.979, longitude: -0.229, locationCity: "Letchworth Garden City, England" });
@@ -2337,12 +2339,140 @@ describe("venue change drops the cached pin (Herts #2244)", () => {
   });
 });
 
+describe("street-only venues", () => {
+  it("geocodes the street line when the row has no venue", async () => {
+    const { geocodeVenue, reverseGeocode } = await import("@/lib/geo");
+    const geoSpy = vi.mocked(geocodeVenue);
+    geoSpy.mockClear();
+    geoSpy.mockResolvedValueOnce({ lat: 42.28, lng: -83.74 } as never);
+    vi.mocked(reverseGeocode).mockResolvedValueOnce("Ann Arbor, MI");
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_street"));
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ location: undefined, locationStreet: "215 Chapin St, Ann Arbor, MI, 48103" }),
+    ]);
+
+    expect(geoSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ location: undefined, street: "215 Chapin St, Ann Arbor, MI, 48103" }),
+      expect.anything(),
+    );
+    const data = (mockEventCreate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data).toMatchObject({ latitude: 42.28, longitude: -83.74, locationCity: "Ann Arbor, MI" });
+  });
+
+  it("doesn't pin a leftover street line when the venue is explicitly cleared (WS6 #1516)", async () => {
+    const { geocodeVenue } = await import("@/lib/geo");
+    const geoSpy = vi.mocked(geocodeVenue);
+    geoSpy.mockClear();
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([{
+      id: "evt_clear_street",
+      trustLevel: 5,
+      locationName: "The Plough",
+      locationStreet: "5 Datchworth Green",
+      locationAddress: null,
+      latitude: 51.8495,
+      longitude: -0.1616,
+      locationCity: "Datchworth, England",
+    }] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ location: null, locationStreet: "5 Datchworth Green" })]);
+
+    expect(geoSpy).not.toHaveBeenCalled();
+    const data = (mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data).toMatchObject({ latitude: null, longitude: null, locationCity: null, locationName: null });
+  });
+});
+
+describe("street-only enrichment from a lower-trust source", () => {
+  const canonical = {
+    id: "evt_street",
+    trustLevel: 8,
+    locationName: null,
+    locationStreet: "5 Datchworth Green, Datchworth",
+    locationAddress: null,
+    locationCity: null,
+    latitude: null,
+    longitude: null,
+  };
+
+  it.each([
+    { case: "a different street", street: "High St, Ashwell", geocodes: false },
+    { case: "the stored street", street: "5 Datchworth green, Datchworth.", geocodes: true },
+  ])("pins $case only when it matches the stored street", async ({ street, geocodes }) => {
+    const { geocodeVenue } = await import("@/lib/geo");
+    const geoSpy = vi.mocked(geocodeVenue);
+    geoSpy.mockClear();
+    if (geocodes) geoSpy.mockResolvedValueOnce({ lat: 51.85, lng: -0.16 } as never);
+    mockSourceFind.mockResolvedValueOnce(sourceRow({ trustLevel: 5, type: "HTML_SCRAPER", kennels: [{ kennelId: "kennel_1" }] }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([canonical] as never);
+    mockEventUpdate.mockResolvedValueOnce(eventRow("evt_street"));
+
+    await processRawEvents("src_low", [buildRawEvent({ location: undefined, locationStreet: street })]);
+
+    expect(geoSpy).toHaveBeenCalledTimes(geocodes ? 1 : 0);
+    const update = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_street",
+    );
+    const data = (update?.[0] as { data: Record<string, unknown> } | undefined)?.data ?? {};
+    expect(data.latitude).toBe(geocodes ? 51.85 : undefined);
+  });
+});
+
+describe("per-batch geocode cache", () => {
+  it("hands one cache to every geocode and reverse-geocode in a batch", async () => {
+    const { geocodeVenue, reverseGeocode } = await import("@/lib/geo");
+    const geoSpy = vi.mocked(geocodeVenue);
+    const revSpy = vi.mocked(reverseGeocode);
+    geoSpy.mockClear();
+    revSpy.mockClear();
+    geoSpy.mockResolvedValueOnce({ lat: 40.78, lng: -73.97 } as never).mockResolvedValueOnce({ lat: 40.78, lng: -73.97 } as never);
+    mockRawEventFind.mockResolvedValue(null);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_a")).mockResolvedValueOnce(eventRow("evt_b"));
+    mockFingerprint.mockReturnValueOnce("fp_a").mockReturnValueOnce("fp_b");
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ date: "2026-04-01" }),
+      buildRawEvent({ date: "2026-04-08" }),
+    ]);
+
+    expect(geoSpy).toHaveBeenCalledTimes(2);
+    expect(revSpy).toHaveBeenCalledTimes(2);
+    const [[, firstCache], [, secondCache]] = geoSpy.mock.calls;
+    expect(firstCache).toBeDefined();
+    expect(secondCache).toBe(firstCache);
+    expect(revSpy.mock.calls.map((c) => c[2])).toEqual([firstCache, firstCache]);
+  });
+
+  it("starts each batch with an empty cache", async () => {
+    const { geocodeVenue } = await import("@/lib/geo");
+    const geoSpy = vi.mocked(geocodeVenue);
+    geoSpy.mockClear();
+    mockRawEventFind.mockResolvedValue(null);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_x")).mockResolvedValueOnce(eventRow("evt_y"));
+
+    await processRawEvents("src_1", [buildRawEvent({ date: "2026-04-01" })]);
+    await processRawEvents("src_1", [buildRawEvent({ date: "2026-04-01" })]);
+
+    const [[, firstCache], [, secondCache]] = geoSpy.mock.calls;
+    expect(secondCache).not.toBe(firstCache);
+  });
+});
+
 describe("venueTextChanged", () => {
   const stored = { locationName: "The Plough", locationStreet: "5 Datchworth Green, Dathworth" };
 
   it.each([
     { case: "same venue, other case and spacing", event: { location: "the  plough", locationStreet: "5 Datchworth Green,  Dathworth" }, expected: false },
     { case: "venue omitted", event: { location: undefined }, expected: false },
+    { case: "street-only row, same street", event: { location: undefined, locationStreet: "5 Datchworth green, Dathworth." }, expected: false },
+    { case: "street-only row, new street", event: { location: undefined, locationStreet: "High St, Ashwell" }, expected: true },
+    { case: "street-only row, street cleared", event: { location: undefined, locationStreet: null }, expected: false },
+    { case: "venue cleared, new street (explicit clear wins)", event: { location: null, locationStreet: "High St, Ashwell" }, expected: false },
     { case: "same venue, punctuation and abbreviations", event: { location: "The Plough.", locationStreet: "5 Datchworth Green Dathworth" }, expected: false },
     { case: "explicit clear (handled elsewhere)", event: { location: null }, expected: false },
     { case: "new venue", event: { location: "Chez No Eye Deer", locationStreet: "5 Datchworth Green, Dathworth" }, expected: true },
@@ -3647,9 +3777,19 @@ describe("NON_ENGLISH_GEO_RE", () => {
     expect(NON_ENGLISH_GEO_RE.test("123 Main St, Springfield, IL")).toBe(false);
   });
 
-  // Note: French patterns starting with É (État, États-Unis) don't match due to
-  // \b word boundary not firing on non-ASCII characters. This is a known limitation
-  // — the geocoder's language=en param handles French locations at the API level.
+  it("matches French terms that start with É after a space or comma", () => {
+    expect(NON_ENGLISH_GEO_RE.test("Rochester, État de New York")).toBe(true);
+    expect(NON_ENGLISH_GEO_RE.test("New York, États-Unis")).toBe(true);
+    expect(NON_ENGLISH_GEO_RE.test("Austin, Texas, État-Unis")).toBe(true);
+    expect(NON_ENGLISH_GEO_RE.test("États Unis")).toBe(true);
+  });
+
+  it("does not match a term inside a longer word", () => {
+    expect(NON_ENGLISH_GEO_RE.test("Hauptstraße 5")).toBe(false);
+    expect(NON_ENGLISH_GEO_RE.test("Straßenfest")).toBe(false);
+    expect(NON_ENGLISH_GEO_RE.test("Réétat de lieux")).toBe(false);
+    expect(NON_ENGLISH_GEO_RE.test("Bundeslandkreis")).toBe(false);
+  });
 });
 
 // ── suppressRedundantCity ──

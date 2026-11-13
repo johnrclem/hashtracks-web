@@ -1,4 +1,4 @@
-import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress, boundingBoxFromCenter, boundingBoxForRadiusKm, GEOCODE_VIEWPORT_DELTA_DEG, reverseGeocode, cityFromTimezone, resolveShortMapsUrl, parseDMSFromLocation, stripDMSFromLocation, buildVenueGeocodeQueries, venueGeocodeRejection, geocodeVenue, type GeocodeResult } from "./geo";
+import { extractCoordsFromMapsUrl, getEventCoords, getRegionColor, DEFAULT_PIN_COLOR, haversineDistance, geocodeAddress, boundingBoxFromCenter, boundingBoxForRadiusKm, GEOCODE_VIEWPORT_DELTA_DEG, reverseGeocode, cityFromTimezone, resolveShortMapsUrl, parseDMSFromLocation, stripDMSFromLocation, buildVenueGeocodeQueries, venueGeocodeRejection, geocodeVenue, createGeocodeCache, type GeocodeResult } from "./geo";
 
 describe("extractCoordsFromMapsUrl", () => {
   it("parses @lat,lng,zoom path segment", () => {
@@ -593,6 +593,56 @@ describe("reverseGeocode", () => {
     const calledUrl = fetchSpy.mock.calls[0][0] as string;
     expect(calledUrl).toContain("language=en");
   });
+
+  describe("with a per-scrape cache", () => {
+    const brooklyn = {
+      status: "OK",
+      results: [{ address_components: [comp("Brooklyn", "sublocality"), comp("New York", "administrative_area_level_1", "NY")] }],
+    };
+
+    it("looks each point up once", async () => {
+      const fetchSpy = mockGeocodeResponses(brooklyn);
+      const cache = createGeocodeCache();
+
+      expect(await reverseGeocode(40.6782, -73.9442, cache)).toBe("Brooklyn, NY");
+      expect(await reverseGeocode(40.6782, -73.9442, cache)).toBe("Brooklyn, NY");
+      expect(fetchSpy).toHaveBeenCalledOnce();
+    });
+
+    it("keeps a point with no town, so it isn't asked twice", async () => {
+      const fetchSpy = mockGeocodeResponses(
+        { status: "ZERO_RESULTS", results: [] },
+        { status: "ZERO_RESULTS", results: [] },
+      );
+      const cache = createGeocodeCache();
+
+      expect(await reverseGeocode(0, 0, cache)).toBeNull();
+      expect(await reverseGeocode(0, 0, cache)).toBeNull();
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it("asks again for a different point", async () => {
+      const fetchSpy = mockGeocodeResponses(brooklyn, brooklyn);
+      const cache = createGeocodeCache();
+
+      await reverseGeocode(40.6782, -73.9442, cache);
+      await reverseGeocode(40.6792, -73.9442, cache);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      { case: "a key or quota error", reply: () => mockGeocodeResponses({ status: "REQUEST_DENIED", results: [] }) },
+      { case: "a network error", reply: () => vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("Network error")) },
+    ])("doesn't keep $case", async ({ reply }) => {
+      reply();
+      const cache = createGeocodeCache();
+      expect(await reverseGeocode(40, -74, cache)).toBeNull();
+
+      const fetchSpy = mockGeocodeResponses(brooklyn);
+      expect(await reverseGeocode(40, -74, cache)).toBe("Brooklyn, NY");
+      expect(fetchSpy).toHaveBeenCalled();
+    });
+  });
 });
 
 describe("buildVenueGeocodeQueries", () => {
@@ -864,6 +914,74 @@ describe("geocodeVenue", () => {
 
     expect(result).toBeNull();
     expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("geocodes a street line with no venue", async () => {
+    const fetchSpy = mockGeocodeResponses(hit(28.54, -81.38));
+
+    expect(await geocodeVenue({ location: null, street: "215 Chapin St, Ann Arbor, MI, 48103" })).toMatchObject({ lat: 28.54 });
+    expect(fetchSpy.mock.calls[0][0]).toContain(`address=${encodeURIComponent("215 Chapin St, Ann Arbor, MI, 48103")}&`);
+  });
+
+  describe("with a per-scrape cache", () => {
+    const kennel = { lat: 52.136, lng: -0.467 };
+    const pheasant = { location: "The Pheasant", street: "Bedford, MK41 8YR", regionBias: "gb", biasCenter: kennel };
+
+    it("requests a repeated venue once", async () => {
+      const fetchSpy = mockGeocodeResponses(hit(52.155, -0.448));
+      const cache = createGeocodeCache();
+
+      expect(await geocodeVenue(pheasant, cache)).toMatchObject({ lat: 52.155 });
+      expect(await geocodeVenue(pheasant, cache)).toMatchObject({ lat: 52.155 });
+      expect(fetchSpy).toHaveBeenCalledOnce();
+    });
+
+    it("keeps a no-match, so the fallback query is the only new request", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const fetchSpy = mockGeocodeResponses({ status: "ZERO_RESULTS", results: [] }, hit(52.155, -0.448));
+      const cache = createGeocodeCache();
+
+      await geocodeVenue(pheasant, cache);
+      expect(await geocodeVenue(pheasant, cache)).toMatchObject({ lat: 52.155 });
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it.each([
+      { case: "region bias", other: { ...pheasant, regionBias: "us" } },
+      { case: "bias center", other: { ...pheasant, biasCenter: { lat: 52.2, lng: -0.4 } } },
+    ])("requests again when the $case differs", async ({ other }) => {
+      const fetchSpy = mockGeocodeResponses(hit(52.155, -0.448), hit(52.155, -0.448));
+      const cache = createGeocodeCache();
+
+      await geocodeVenue(pheasant, cache);
+      await geocodeVenue(other, cache);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
+    it("re-checks a cached hit against each venue's own text", async () => {
+      // Same street line, so the street-only fallback query is shared, but only
+      // the first venue's text names the far town the hit is in.
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const farHit = hit(52.0305, 0.074, [comp("Great Chishill", "locality")]);
+      const none = { status: "ZERO_RESULTS", results: [] };
+      const fetchSpy = mockGeocodeResponses(none, farHit, none);
+      const cache = createGeocodeCache();
+      const street = "Main Road";
+
+      expect(await geocodeVenue({ location: "Pub, Great Chishill", street, biasCenter: kennel }, cache)).not.toBeNull();
+      expect(await geocodeVenue({ location: "Pub, Bedford", street, biasCenter: kennel }, cache)).toBeNull();
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+    });
+
+    it("doesn't keep a quota error", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const fetchSpy = mockGeocodeResponses({ status: "OVER_QUERY_LIMIT", results: [] }, hit(52.155, -0.448));
+      const cache = createGeocodeCache();
+
+      expect(await geocodeVenue(pheasant, cache)).toBeNull();
+      expect(await geocodeVenue(pheasant, cache)).toMatchObject({ lat: 52.155 });
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
   });
 });
 
