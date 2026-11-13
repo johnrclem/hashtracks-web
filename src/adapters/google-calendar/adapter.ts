@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, replaceBrTags, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, isThemelessPlaceholderTitle, normalizeCostSigil, BARE_KENNEL_CODE_RE } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, replaceBrTags, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasHalfRunNumber, hasPlaceholderRunNumber, isThemelessPlaceholderTitle, normalizeCostSigil, BARE_KENNEL_CODE_RE } from "../utils";
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
@@ -124,6 +124,10 @@ export function extractRunNumber(
   // "#30") would otherwise let the stale description number reassert
   // itself and re-anchor the cleared run on the next merge.
   if (hasPlaceholderRunNumber(summary)) return null;
+
+  // 2a. A half run ("Trail# 1799.5", "Run #1154 & 1/2") has no number of its
+  // own; the description fallback would only hand back its parent's.
+  if (hasHalfRunNumber(summary)) return null;
 
   // 3. Dark / cancelled notices ("N2H3 is Dark", "N2H3 DARK", "No hash this
   // week") carry no run. Emit null (explicit clear) so a stale number from a
