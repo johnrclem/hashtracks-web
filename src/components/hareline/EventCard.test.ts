@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeChipDate, computeDisplayTime } from "./EventCard";
+import { computeChipDate, computeDisplayTime, scheduleOnlyChip } from "./EventCard";
 import { computeHeadingDate } from "./EventDetailPanel";
 import { formatDateInZone } from "@/lib/timezone";
 
@@ -177,5 +177,19 @@ describe("EventCard endTime range derivation (#2135)", () => {
     const { displayTimeStr, endTimeStr } = computeDisplayTime(noTz, EDT);
     expect(displayTimeStr).toBe("3:00 PM");
     expect(endTimeStr).toBe("7:00 PM");
+  });
+});
+
+describe("EventCard schedule-only chip", () => {
+  it("schedule-only events get the Usual schedule chip", () => {
+    expect(scheduleOnlyChip({ isScheduleOnly: true })).toEqual({
+      label: "Usual schedule",
+      title: "From the kennel's usual schedule, not a posted run",
+    });
+  });
+
+  it("posted runs and events without the flag get no chip", () => {
+    expect(scheduleOnlyChip({ isScheduleOnly: false })).toBeNull();
+    expect(scheduleOnlyChip({})).toBeNull();
   });
 });

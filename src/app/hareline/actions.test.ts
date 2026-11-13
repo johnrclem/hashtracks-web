@@ -393,3 +393,46 @@ describe("upcoming/past bucket on the day an event ends (#2452)", () => {
     expect(dateClause.OR).toEqual([{ endDate: null }, { endDate: { lt: expect.any(Date) } }]);
   });
 });
+
+describe("hareline row mapper", () => {
+  const row = (isScheduleOnly: boolean) => ({
+    id: "e1",
+    date: new Date("2026-06-01T12:00:00Z"),
+    dateUtc: null,
+    timezone: null,
+    kennelId: "k1",
+    runNumber: null,
+    title: null,
+    eventLabel: null,
+    haresText: null,
+    startTime: null,
+    endTime: null,
+    locationName: null,
+    locationCity: null,
+    status: "CONFIRMED",
+    latitude: null,
+    longitude: null,
+    trailLengthText: null,
+    trailLengthMinMiles: null,
+    trailLengthMaxMiles: null,
+    difficulty: null,
+    trailType: null,
+    dogFriendly: null,
+    prelube: null,
+    cost: null,
+    isScheduleOnly,
+    isSeriesParent: false,
+    parentEventId: null,
+    endDate: null,
+    childEvents: [],
+    kennel: null,
+    eventKennels: [],
+  });
+
+  it("the hareline row mapper passes isScheduleOnly through", async () => {
+    mockFindMany.mockResolvedValue([row(true), row(false)] as never);
+    const { events } = await loadEventsForTimeMode("upcoming", NOW_MS);
+    expect(events.map((e) => e.isScheduleOnly)).toEqual([true, false]);
+    expect(mockFindMany.mock.calls[0][0]?.select).toMatchObject({ isScheduleOnly: true });
+  });
+});

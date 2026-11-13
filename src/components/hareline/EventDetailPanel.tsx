@@ -13,7 +13,7 @@ import {
 import { formatTimeRange, formatDateLong, formatDateRange, getLabelForUrl, stripMarkdown, stripUrlsFromText } from "@/lib/format";
 import { getFullLocationDisplay } from "@/lib/event-display";
 import type { HarelineEvent } from "./EventCard";
-import { computeDisplayTime } from "./EventCard";
+import { computeDisplayTime, SCHEDULE_ONLY_TITLE } from "./EventCard";
 import { SeriesChildTimeline } from "./SeriesChildTimeline";
 import { ShiggyLevelFlames, TrailLengthLine, formatTrailLength } from "./TrailDifficulty";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
@@ -191,6 +191,10 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
             )}
           </div>
         </div>
+
+        {event.isScheduleOnly === true && (
+          <p className="text-sm text-muted-foreground">{SCHEDULE_ONLY_TITLE}</p>
+        )}
 
         {/* Title */}
         {event.title && (

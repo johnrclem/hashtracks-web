@@ -92,6 +92,9 @@ export type HarelineEvent = {
   /** #1316 — per-event hash cash override (free-form). #1571 — now surfaced on
    *  the medium-density card as a small chip (slim list payload carries it). */
   cost?: string | null;
+  /** True when the run is generated from the kennel's usual schedule rather
+   *  than a posted run. Undefined is treated as false. */
+  isScheduleOnly?: boolean;
   // Heavy / on-demand fields — undefined until `getEventDetail` resolves.
   locationStreet?: string | null;
   locationAddress?: string | null;
@@ -171,6 +174,18 @@ function formatDate(iso: string): string {
  */
 export function computeChipDate(event: { date: string }): string {
   return formatDate(event.date);
+}
+
+export const SCHEDULE_ONLY_LABEL = "Usual schedule";
+export const SCHEDULE_ONLY_TITLE = "From the kennel's usual schedule, not a posted run";
+
+/** The chip for runs generated from a usual schedule; null for posted runs. */
+export function scheduleOnlyChip(event: {
+  isScheduleOnly?: boolean;
+}): { label: string; title: string } | null {
+  return event.isScheduleOnly === true
+    ? { label: SCHEDULE_ONLY_LABEL, title: SCHEDULE_ONLY_TITLE }
+    : null;
 }
 
 /**
@@ -510,6 +525,16 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
           {/* Right cluster */}
           <div className="relative ml-auto flex items-center gap-2 shrink-0">
+            {scheduleOnlyChip(event) && (
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 text-muted-foreground border-dashed"
+                title={SCHEDULE_ONLY_TITLE}
+              >
+                {SCHEDULE_ONLY_LABEL}
+              </Badge>
+            )}
+
             {/* #1624 — shared-sheet sub-event badge (e.g. "Bayern Nash Hash") */}
             {event.eventLabel && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
@@ -699,6 +724,16 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
               {event.status === "TENTATIVE" && (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground border-dashed">
                   Tentative
+                </Badge>
+              )}
+
+              {scheduleOnlyChip(event) && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] px-1.5 py-0 text-muted-foreground border-dashed"
+                  title={SCHEDULE_ONLY_TITLE}
+                >
+                  {SCHEDULE_ONLY_LABEL}
                 </Badge>
               )}
 
