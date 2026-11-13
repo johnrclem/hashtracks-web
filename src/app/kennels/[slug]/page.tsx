@@ -15,7 +15,7 @@ import { MismanManagementSection } from "@/components/kennels/MismanManagementSe
 import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
 import { KennelStats } from "@/components/kennels/KennelStats";
 import { HowWeKnow } from "@/components/kennels/HowWeKnow";
-import { getHowWeKnow } from "@/lib/kennel-how-we-know";
+import { getHowWeKnowOrEmpty } from "@/lib/kennel-how-we-know";
 import { serializeKennelEvidence } from "@/lib/kennel-status";
 import { KennelLogo } from "@/components/kennels/KennelLogo";
 import { TrailLocationMapClient } from "@/components/kennels/TrailLocationMapClient";
@@ -136,7 +136,7 @@ export default async function KennelDetailPage({
     { name: kennel.shortName, url: `${baseUrl}/kennels/${kennel.slug}` },
   ]);
 
-  const [user, events, parentKennel] = await Promise.all([
+  const [user, events, parentKennel, howWeKnow] = await Promise.all([
     getOrCreateUser(),
     prisma.event.findMany({
       // #1023 step 5: filter via EventKennel join so co-host events
@@ -198,25 +198,26 @@ export default async function KennelDetailPage({
           select: { slug: true, shortName: true },
         })
       : Promise.resolve(null),
+    // Evidence already came with the kennel; a failure renders the section empty.
+    getHowWeKnowOrEmpty(kennel.id, kennel),
   ]);
 
   let isSubscribed = false;
   let userRole: string | null = null;
   let hasPendingMismanRequest = false;
   if (user) {
-    const subscription = await prisma.userKennel.findUnique({
-      where: { userId_kennelId: { userId: user.id, kennelId: kennel.id } },
-    });
+    const [subscription, pendingRequest] = await Promise.all([
+      prisma.userKennel.findUnique({
+        where: { userId_kennelId: { userId: user.id, kennelId: kennel.id } },
+      }),
+      prisma.mismanRequest.findFirst({
+        where: { userId: user.id, kennelId: kennel.id, status: "PENDING" },
+      }),
+    ]);
     isSubscribed = !!subscription;
     userRole = subscription?.role ?? null;
-
-    const pendingRequest = await prisma.mismanRequest.findFirst({
-      where: { userId: user.id, kennelId: kennel.id, status: "PENDING" },
-    });
     hasPendingMismanRequest = !!pendingRequest;
   }
-
-  const howWeKnow = await getHowWeKnow(kennel.id);
 
   // Split events into upcoming and past
   const now = new Date();
