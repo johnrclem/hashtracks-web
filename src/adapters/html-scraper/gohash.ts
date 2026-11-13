@@ -1,6 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { ErrorDetails, RawEventData, ScrapeResult, SourceAdapter } from "../types";
 import { applyDateWindow, fetchHTMLPage, normalizeHaresField, validateSourceConfig } from "../utils";
+import { safeFetch } from "../safe-fetch";
 
 /**
  * Shared adapter for goHash.app-hosted kennel sites.
@@ -37,8 +38,13 @@ import { applyDateWindow, fetchHTMLPage, normalizeHaresField, validateSourceConf
  * If `harelinePath` is omitted the adapter defaults to `/hareline/upcoming`
  * appended to `source.url`.
  *
- * Used by: Penang H3 (penanghash3.org, 1965, 7th-oldest in the world) and
- * Hash House Harriets Penang (hashhouseharrietspenang.com, 1972).
+ * A tenant whose hareline page renders client-side (no `runs` in the SSR
+ * state, or no state at all) is read through goHash's site API instead; see
+ * `fetchGoHashApiRuns`.
+ *
+ * Used by: Mother Hash (motherhash.org), KL Full Moon (klfullmoonhash.com),
+ * Penang H3 (penanghash3.org, 1965, 7th-oldest in the world) and Hash House
+ * Harriets Penang (hashhouseharrietspenang.com, 1972).
  */
 
 export interface GoHashConfig {
@@ -158,7 +164,7 @@ export function parseGoHashRun(
   config: GoHashConfig,
   sourceUrl: string,
 ): RawEventData | null {
-  const rawDate = run.run_date?.trim();
+  const rawDate = typeof run.run_date === "string" ? run.run_date.trim() : undefined;
   if (!rawDate) return null;
   // Expect ISO date "YYYY-MM-DD" — validate strictly
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(rawDate);
@@ -213,6 +219,36 @@ export function parseGoHashRun(
   };
 }
 
+const API_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (compatible; HashTracks-Scraper)",
+  Accept: "application/json",
+};
+
+async function fetchJson(url: string): Promise<unknown> {
+  const res = await safeFetch(url, { headers: API_HEADERS });
+  if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
+  return res.json();
+}
+
+/**
+ * Upcoming runs from goHash's site API, which the SPA itself calls:
+ * `/api/site/kennel` names the tenant's kennel slug, and
+ * `/api/site/kennels/{slug}/runs?direction=upcoming` lists its runs in the same
+ * shape as `__INITIAL_STATE__.runs.runs`. Used when a tenant's hareline page
+ * renders client-side (Harriets Penang, 2026-11: the SSR state holds only
+ * `detection`). Throws on any unexpected payload.
+ */
+async function fetchGoHashApiRuns(origin: string): Promise<GoHashRun[]> {
+  const kennelBody = (await fetchJson(`${origin}/api/site/kennel`)) as { kennel?: { slug?: unknown } } | null;
+  const slug = kennelBody?.kennel?.slug;
+  if (typeof slug !== "string" || !slug) throw new Error("no kennel slug in /api/site/kennel");
+  const runsBody = (await fetchJson(
+    `${origin}/api/site/kennels/${encodeURIComponent(slug)}/runs?direction=upcoming`,
+  )) as { runs?: unknown } | null;
+  if (!Array.isArray(runsBody?.runs)) throw new Error(`no runs array from the ${slug} runs API`);
+  return runsBody.runs.filter((r): r is GoHashRun => typeof r === "object" && r !== null);
+}
+
 /** Resolve the full hareline URL the adapter should fetch. */
 function resolveHarelineUrl(baseUrl: string, harelinePath: string): string {
   if (/^https?:/.test(harelinePath)) return harelinePath;
@@ -243,16 +279,26 @@ export class GoHashAdapter implements SourceAdapter {
     const page = await fetchHTMLPage(url);
     if (!page.ok) return page.result;
 
-    const state = extractInitialState(page.html);
-    if (!state) {
-      const message = "GoHashAdapter: __INITIAL_STATE__ not found in page HTML";
-      const errorDetails: ErrorDetails = {
-        parse: [{ row: 0, error: message, rawText: page.html.slice(0, 500) }],
-      };
-      return { events: [], errors: [message], errorDetails };
+    // An SSR page carries the runs (an empty array is a real empty hareline). A
+    // client-rendered one carries no `runs`, or no state at all, so read the
+    // site API instead and fail loud if that breaks too, rather than report a
+    // silent 0 events.
+    let rawRuns = extractInitialState(page.html)?.runs?.runs;
+    let fetchMethod = "gohash-initial-state";
+    if (!Array.isArray(rawRuns)) {
+      try {
+        rawRuns = await fetchGoHashApiRuns(new URL(url).origin);
+        fetchMethod = "gohash-site-api";
+      } catch (err) {
+        const message = `GoHashAdapter: no runs in the page state and the site API failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`;
+        const errorDetails: ErrorDetails = {
+          parse: [{ row: 0, error: message, rawText: page.html.slice(0, 500) }],
+        };
+        return { events: [], errors: [message], errorDetails };
+      }
     }
-
-    const rawRuns = state.runs?.runs ?? [];
     const events: RawEventData[] = [];
     let skipped = 0;
     for (const run of rawRuns) {
@@ -268,7 +314,7 @@ export class GoHashAdapter implements SourceAdapter {
         errors: [],
         structureHash: page.structureHash,
         diagnosticContext: {
-          fetchMethod: "gohash-initial-state",
+          fetchMethod,
           runsFound: rawRuns.length,
           runsSkipped: skipped,
           eventsParsed: events.length,

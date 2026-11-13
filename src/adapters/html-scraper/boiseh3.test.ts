@@ -202,3 +202,43 @@ describe("parseBoiseH3Page — inline hare in the heading (#2821)", () => {
     expect(parseBoiseH3Page(page(""), "https://www.boiseh3.org").event?.hares).toBe("Bookocker spaniel");
   });
 });
+
+// 2026-11-12 live shape (trimmed): the venue moved into the heading as <br> lines.
+describe("parseBoiseH3Page — venue lines inside the heading", () => {
+  const html = `
+<div data-testid="richTextElement"><h1 class="font_0"><span>Hash #2019-a real Rakeish event<br>
+casa de Silver Fairy<br>
+&nbsp;1920 18th St Boise 83702<br>
+On after we will be in the garage, probably dog friendly,&nbsp;<br>
+bring: hash cash, a rake to help with leaves, artifacts, Cranium lamps.&nbsp;</span></h1></div>
+<div data-testid="richTextElement"><p>Monday, 11/16/2026, 6:40 PM</p></div>
+<div data-testid="richTextElement"><p>&#8203;</p></div>
+<div data-testid="richTextElement"><p>Trail: A to A</p></div>
+<div data-testid="richTextElement"><p>Bring:<br>&#9679; $7 Hash Cash<br>&#9679; Virgins</p><p>&#8203;Rakes</p></div>
+<div data-testid="richTextElement"><p>Hare:Silver Fairy</p></div>
+<div data-testid="richTextElement"><h1>We need Hares!&nbsp;</h1></div>`;
+  const { event } = parseBoiseH3Page(html, "https://www.boiseh3.org");
+
+  it("takes the title from the heading's first line only", () => {
+    expect(event?.runNumber).toBe(2019);
+    expect(event?.title).toBe("a real Rakeish event");
+  });
+
+  it("reads the venue from the heading lines, skipping the on-after and bring notes", () => {
+    expect(event?.location).toBe("casa de Silver Fairy, 1920 18th St Boise 83702");
+  });
+
+  it("still reads the date, time and hare from the blocks below", () => {
+    expect(event).toMatchObject({ date: "2026-11-16", startTime: "18:40", hares: "Silver Fairy" });
+  });
+});
+
+describe("parseBoiseH3Page — prose after a heading note", () => {
+  it("keeps prose after the first note out of the location but still reads a date there", () => {
+    const html = `
+<div data-testid="richTextElement"><h1>Hash #2020-Pub crawl<br>Bar X<br>bring: a torch<br>Wear pink<br>Monday, 11/23/2026, 6:40 PM</h1></div>
+<div data-testid="richTextElement"><p>Hare: Someone</p></div>`;
+    const { event } = parseBoiseH3Page(html, "https://www.boiseh3.org");
+    expect(event).toMatchObject({ location: "Bar X", date: "2026-11-23", startTime: "18:40", hares: "Someone" });
+  });
+});

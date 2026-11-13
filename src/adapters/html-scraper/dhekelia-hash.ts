@@ -19,7 +19,7 @@ import * as cheerio from "cheerio";
 import type { CheerioAPI } from "cheerio";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
-import { decodeEntities, filterEventsByWindow } from "../utils";
+import { decodeEntities, filterEventsByWindow, isoDate } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { generateStructureHash } from "@/pipeline/structure-hash";
 
@@ -29,22 +29,41 @@ const PAGE_URL = "https://dhekelia-h3.com/info/";
 const FIRST_LABEL = "hash number:";
 
 const DATE_RE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+// One separator missing: "11/112026" (D/MYYYY) or "1111/2026" (DM/YYYY). A
+// 2-digit head ("12/2026") reads as month/year, so the DM form needs 3–4 digits.
+const NO_YEAR_SLASH_RE = /^(\d{1,2})\/(\d{1,2})(\d{4})$/;
+const NO_DAY_SLASH_RE = /^(\d{3,4})\/(\d{4})$/;
 const TIME_RE = /^(\d{1,2})[.:](\d{2})$/;
 
 function clean(text: string): string {
   return decodeEntities(text).replaceAll(/\s+/g, " ").trim();
 }
 
-/** "4/11/2026" (D/M/YYYY) → "2026-11-04"; null if malformed. */
+/** Valid day/month splits of a 3–4 digit "DM" run ("1111" → 11/11; "111" → 1/11 and 11/1). */
+function dayMonthSplits(digits: string, year: number): string[] {
+  const out: string[] = [];
+  for (let dayLen = 1; dayLen <= 2; dayLen++) {
+    const monthLen = digits.length - dayLen;
+    if (monthLen < 1 || monthLen > 2) continue;
+    const date = isoDate(year, Number(digits.slice(dayLen)), Number(digits.slice(0, dayLen)));
+    if (date) out.push(date);
+  }
+  return out;
+}
+
+/**
+ * "4/11/2026" (D/M/YYYY) → "2026-11-04"; null if malformed. A date with one
+ * missing separator ("11/112026", seen 2026-11) is accepted only when exactly
+ * one reading is a valid date: "111/2026" (1/11 or 11/1) stays null.
+ */
 export function parseDhekeliaDate(text: string): string | null {
-  const m = DATE_RE.exec(text.trim());
-  if (!m) return null;
-  const day = Number.parseInt(m[1], 10);
-  const month = Number.parseInt(m[2], 10);
-  const year = Number.parseInt(m[3], 10);
-  const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return null;
-  return d.toISOString().slice(0, 10);
+  const trimmed = text.trim();
+  const m = DATE_RE.exec(trimmed) ?? NO_YEAR_SLASH_RE.exec(trimmed);
+  if (m) return isoDate(Number(m[3]), Number(m[2]), Number(m[1]));
+  const noDaySlash = NO_DAY_SLASH_RE.exec(trimmed);
+  if (!noDaySlash) return null;
+  const splits = dayMonthSplits(noDaySlash[1], Number(noDaySlash[2]));
+  return splits.length === 1 ? splits[0] : null;
 }
 
 /** "16.00" → "16:00"; undefined if malformed. */

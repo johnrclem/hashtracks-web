@@ -1,4 +1,6 @@
 import * as cheerio from "cheerio";
+import type { Cheerio } from "cheerio";
+import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { fetchHTMLPage, chronoParseDate, parse12HourTime } from "../utils";
@@ -10,9 +12,22 @@ const HEADING_RE = /Hash\s*[#＃]\s*(\d+)(?:\s*[-–]\s*(.+))?/i;
 const DATE_RE = /(\d{1,2}\/\d{1,2}\/\d{2,4})/;
 const TIME_RE = /(\d{1,2}:\d{2}) ?(AM|PM)/i;
 const HARES_RE = /^Hares?:\s*(\S.*)$/i;
-// Lines that aren't location candidates: section labels, bullet items, hash-cash boilerplate.
-const SKIP_LINE_RE = /^(?:Trail:|Bring:|[●•]|\$\d+\s*Hash\s*Cash)/iu;
+// Lines that aren't location candidates: section labels, bullet items, hash-cash
+// boilerplate, and the "On after we will be in the garage" note.
+const SKIP_LINE_RE = /^(?:Trail:|Bring:|[●•]|\$\d+\s*Hash\s*Cash|On[- ]?after\b)/iu;
 const ZERO_WIDTH_RE = /[\u200B-\u200D\u2060\uFEFF]/g;
+
+/** Strip Wix's U+200B padding (which `\s` and trim() keep) and collapse whitespace. */
+function cleanLine(text: string): string {
+  return text.replace(ZERO_WIDTH_RE, "").replace(/\s+/g, " ").trim();
+}
+
+/** A heading's `<br>`-separated lines, cleaned, empties dropped. */
+function headingLines($heading: Cheerio<AnyNode>): string[] {
+  const $copy = $heading.clone();
+  $copy.find("br").replaceWith("\n");
+  return $copy.text().split("\n").map(cleanLine).filter(Boolean);
+}
 // The site sometimes puts the hare in the heading: "Hash #2018-Westys players club  Hare: X" (#2821).
 const INLINE_HARE_RE = /(?:^|\s)Hares?:/i;
 
@@ -34,6 +49,29 @@ function splitInlineHare(heading: string | undefined): { title?: string; hares?:
   return {
     title: text.slice(0, idx).trim() || undefined,
     hares: cleanAndFilterHares(text.slice(colon + 1)) ?? undefined,
+  };
+}
+
+/**
+ * The heading's "Hash #…" line, and the lines after it. Since 2026-11 the
+ * heading can carry the venue as <br> lines ("Hash #2019-a real Rakeish event /
+ * casa de Silver Fairy / 1920 18th St Boise 83702 / On after … / bring: …"),
+ * which are read like the blocks below it. Venue lines come first: after the
+ * first note only date and hare lines are kept, so free prose can't merge into
+ * the location.
+ */
+function splitHeading($heading: Cheerio<AnyNode>): { headText: string; extraLines: string[] } {
+  const all = headingLines($heading);
+  const headIdx = all.findIndex((l) => HEADING_RE.test(l));
+  // Fallback keeps the raw newlines so HEADING_RE's `.+` stops at the first line.
+  if (headIdx < 0) return { headText: $heading.text().trim(), extraLines: [] };
+  const after = all.slice(headIdx + 1);
+  const firstNote = after.findIndex((l) => SKIP_LINE_RE.test(l));
+  return {
+    headText: all[headIdx],
+    extraLines: after.filter(
+      (l, i) => firstNote < 0 || i < firstNote || parseDateTimeLine(l) !== null || HARES_RE.test(l),
+    ),
   };
 }
 
@@ -64,7 +102,8 @@ export function parseBoiseH3Page(
     return { event: null, error: "no upcoming-hash heading found on page" };
   }
 
-  const headText = $heading.text().trim();
+  // `lines` starts with the heading's own venue lines; the blocks below follow.
+  const { headText, extraLines: lines } = splitHeading($heading);
   const headMatch = HEADING_RE.exec(headText);
   if (!headMatch) {
     return { event: null, error: `could not parse heading: ${headText.slice(0, 80)}` };
@@ -75,12 +114,11 @@ export function parseBoiseH3Page(
   const $richContainer = $heading.closest('[data-testid="richTextElement"]');
   const $walkFrom = $richContainer.length ? $richContainer : $heading;
 
-  const lines: string[] = [];
   $walkFrom.nextAll().each((_i, el) => {
     if ($(el).is("h1, h2, h3, h4, h5, h6")) return false;
-    // Wix pads empty blocks with U+200B ("wixGuard"), which `\s` and trim()
-    // don't remove, so a "​"-only line became the location (Nov 2026).
-    const text = $(el).text().replace(ZERO_WIDTH_RE, "").replace(/\s+/g, " ").trim();
+    // Wix pads empty blocks with U+200B ("wixGuard"), so a "​"-only line
+    // became the location (Nov 2026); cleanLine strips it.
+    const text = cleanLine($(el).text());
     if (text) lines.push(text);
     return true;
   });

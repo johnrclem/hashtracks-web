@@ -38,7 +38,10 @@ import type {
   ErrorDetails,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, applyDateWindow, type FetchHTMLResult } from "../utils";
+import { fetchHTMLPage, applyDateWindow, isoDate, type FetchHTMLResult } from "../utils";
+
+// Kept for creek-hash.test.ts, which predates the move to utils.
+export { isoDate };
 
 const HOME_URL = "https://www.creekhash.org/";
 const KENNEL_TAG = "ch3-ae";
@@ -73,24 +76,6 @@ const DETAIL_LABELS_TO_READ = new Set(["time", "location", "hares"]);
 // ---------------------------------------------------------------------------
 // Pure parse helpers (exported for unit testing)
 // ---------------------------------------------------------------------------
-
-/** Build a UTC-noon "YYYY-MM-DD" string from numeric components, or null. */
-export function isoDate(year: number, month: number, day: number): string | null {
-  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return null;
-  // Reject impossible calendar dates ("31st June", "30th February"). Without this,
-  // the merge path's parseUtcNoonDate would roll an overflow onto a different real
-  // day (31 Jun → 1 Jul), silently moving the run — the opposite of why we trust
-  // the title date in the first place. Round-trip through Date to validate.
-  const probe = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  if (
-    probe.getUTCFullYear() !== year ||
-    probe.getUTCMonth() !== month - 1 ||
-    probe.getUTCDate() !== day
-  ) {
-    return null;
-  }
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
 
 /** Normalize a single clock string ("7:05" / "19:00") to "HH:MM", or undefined. */
 export function parseClock(text: string | null | undefined): string | undefined {
