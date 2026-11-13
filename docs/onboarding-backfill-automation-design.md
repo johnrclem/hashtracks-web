@@ -249,7 +249,7 @@ Each archive `scripts/data/<code>-history.json` gets a sibling
 | `sameDateGroups` | Every (kennel, date) with more than one row, with run numbers |
 | `runNumberExceptions` | Rows that break the strict run-number order (capped) |
 | `scheduleOnlyEstimate` | Informational, not part of `approvalHash`: about how many rows the kennel status rules will count as a usual schedule rather than a run, namely rows with a `recurringSeriesId`, no run number and no hares. CI computes it from the raw rows for the owner to read. The authoritative set is computed at plan from the rows as the merge will store them (9.2) |
-| `expectedGaps` | Declared by the curator: date ranges with no runs and a reason (seasonal break, pause), excluded from G20's gap rule. Each contains no archive row and is at most 120 days |
+| `expectedGaps` | Declared by the curator: date ranges with no runs and a reason (seasonal break, pause), excluded from G20's gap rule. Each contains no archive row and is at most 120 days. All lie inside the archive's span, except at most one **trailing** gap, which starts after the archive's last row (a seasonal break between the archive and the live feed's first run) |
 | `curatedCorrections` | Declared by the curator: rows whose date or run number was changed from the source, excluded from G20's 95% count. At most 20 rows or 2% of rows, whichever is larger (Zagreb has about 12) |
 | `piiScan` | Scanner version and residual count (must be 0) |
 | `approvalHash` | SHA-256 over the canonical JSON of every field above except the sample titles, which depend on display names, and `scheduleOnlyEstimate`, which depends on placeholder rules that change between CI and plan |
@@ -264,7 +264,7 @@ shows.
 - The manifest recomputed from the archive equals the committed one in every `approvalHash` field
   that can be derived from the archive. The two declared fields, `expectedGaps` and
   `curatedCorrections`, can't be recomputed; CI checks their shape and caps instead (every row index
-  exists, every gap lies inside the archive's span and contains no row) and includes them in the hash.
+  exists, every gap contains no row, and every gap except one trailing gap lies inside the archive's span) and includes them in the hash.
 - Every row has a `YYYY-MM-DD` date before `frozenAt` in `kennelTimezone`, and one kennel tag in
   `expectedKennelCodes`.
 - PII residual is 0 (8.2).
@@ -347,7 +347,10 @@ to a live feed that doesn't have it. So:
 - **No gap.** If the archive ends before `C`, the distance from its last row to `C` must be at most 1.5
   times the archive's median interval between run dates over its last 20 rows, not counting any gap
   the manifest declares in `expectedGaps` (a date range and a reason, such as a seasonal break). CI
-  shows declared gaps in its summary, so the owner's label covers them. An "upcoming runs only" feed
+  shows declared gaps in its summary, so the owner's label covers them. A trailing gap, between the
+  archive's last row and `C`, is checked at plan against the split point: it must end on or before
+  `C`, otherwise the run is `BLOCKED`. Because `C` is the origin's earliest past event, no live run can
+  then fall inside it. An "upcoming runs only" feed
   starts at the first run it listed, so an archive frozen long before the merge fails this and must be
   re-frozen (and re-labelled).
 - **The live feed really has its stretch.** For the numbered archive rows dated from `C` to
@@ -413,7 +416,9 @@ overwrites, so it needs the same step-up and single-use nonce as undo (10.3). Un
 
 Adopted archives (6.6), including Music City and Zagreb, get **no** cutoff automatically: adoption
 writes nothing. The Zagreb examples above (#2501, #1797) stay exposed to a wide re-scrape exactly as
-today, until the owner sets a cutoff for the kennel from the admin page (same step-up).
+today, until the owner sets a cutoff for the kennel from the admin page (same step-up). Setting one also
+closes the automated path for that kennel, because G19 refuses a kennel that already has a cutoff.
+That is intended, since Phase 2 allows one archive per kennel. Clearing the cutoff reopens it.
 
 ### 6.6 Adoption of backfills applied by hand
 
@@ -475,7 +480,10 @@ reasons about existing events give counts only; the dates are shown only in the 
 ### 7.3 Who drives the steps
 
 - **The implementer**, in Phase A after the first prod scrape: `plan`; `advance` until done (at most
-  40 calls); `verify`; the public-page check; one PR comment.
+  40 calls that write rows; the cutoff call and calls that return while waiting for running scrapes
+  don't count, and it waits at most 15 minutes for those); `verify`; the public-page check; one PR
+  comment. If the run is still `APPLYING` when it stops, the daily cron resumes it, and the PR comment
+  says the apply continues there.
 - **The daily `backfill-watch` cron** (Vercel cron, `CRON_SECRET`): resumes runs whose lease expired,
   retries `WAITING` runs, plans approved manifests from the last 30 days that have no run, re-verifies
   runs from the last 7 days, and raises the liveness errors in 11.3. In Phase 2 it never starts a
@@ -510,7 +518,7 @@ A guard either passes or stops the run; none warns and continues. Terminal failu
 | G12 | **Binding:** the archive source is disabled, `archiveOnly`, `replacedById` null, and of the origin's type; exactly one source has that name | plan, every batch | terminal |
 | G13 | **Size and rate:** rows ≤ `BACKFILL_MAX_ROWS` (2,000) is terminal; more than 2 applies started per UTC day is retryable | plan | terminal / retryable |
 | G14 | **Batch result:** no create-only violation; `created` equals the batch's rows; `updated`, `restored`, `blocked`, `eventErrors` are 0; every created event's primary kennel is the expected one, its date is the row's date, and its `isScheduleOnly` is the plan's value; V3 and V4 (9.3) pass | every batch | terminal (`HALTED`) |
-| G15 | **Guard code untouched:** the PR changes nothing under `src/lib/backfill/**`, the PII scanner, `src/pipeline/merge.ts`, `src/pipeline/kennel-resolver.ts`, `src/pipeline/fingerprint.ts`, `src/pipeline/scrape.ts`, `src/pipeline/reconcile.ts`, `src/lib/event-write.ts`, `src/app/admin/sources/actions.ts`, the shared kennel-page stats function, `prisma/schema.prisma`, the CI manifest script, `.github/workflows/**` or the agent routes | plan | terminal (the owner can still apply by hand) |
+| G15 | **Guard code untouched:** the PR changes nothing under `src/lib/backfill/**`, the PII scanner, `src/pipeline/merge.ts`, `src/pipeline/kennel-resolver.ts`, `src/pipeline/fingerprint.ts`, `src/pipeline/scrape.ts`, `src/pipeline/reconcile.ts`, `src/lib/event-write.ts`, `src/app/admin/sources/actions.ts`, `src/pipeline/kennel-evidence.ts` (the posted-run rule behind the expected flags), `src/lib/event-filters.ts` (the display filter V1 and V2 use), the shared kennel-page stats function, `prisma/schema.prisma`, the CI manifest script, `.github/workflows/**` or the agent routes | plan | terminal (the owner can still apply by hand) |
 | G16 | **Kill switch:** env `BACKFILL_AUTOMATION` is `apply` (`off` and `shadow` refuse `advance`) | every call | `403` |
 | G17 | **Migration shape**, checked with a real SQL parser (`libpg_query`), allow-list only: `INSERT … ON CONFLICT DO NOTHING` or `INSERT … SELECT … WHERE NOT EXISTS` into `Kennel`, `KennelAlias`, `Region`, `Source`, `SourceKennel` and `ScheduleRule`; and `UPDATE "Region"` setting only `parentId` and `updatedAt`, whose target rows are restricted by literal names that the same migration inserts. No other statements, no CTE that modifies data, no `DO` blocks, and no function calls other than `NOW()` and `timezone()` with a literal zone (the parser's form of `NOW() AT TIME ZONE 'UTC'`, used by all eight recent onboarding migrations). A Phase 0 test checks the rule against those eight; any that update a region they didn't insert are reviewed with the owner before the rule ships. Crafted bypasses must fail it. A `Source` insert that sets `archiveOnly` to true must also set `enabled` to the literal `false`: `enabled` defaults to true, so leaving it out would break the CHECK in 11.1, fail `migrate deploy` in the production build and block every later deploy. G17 only decides whether the **backfill** is automated; the migration itself still ships through the ordinary code-merge review | CI, plan | terminal |
 | G18 | **One live feed:** in prod, the kennel is linked to exactly one enabled source, the origin, plus the archive source | plan, every batch | terminal |
@@ -672,12 +680,12 @@ A V1–V4 failure is `VERIFY_FAILED` (or `HALTED` mid-run) with the check and ro
 
 ### 9.4 The Zagreb 716-vs-715 case
 
-On 2026-11-13 the hand apply reported `created=716` and the kennel page showed 715. The page counts
+On the evening of 2026-11-12, US Eastern, just after #2904 merged (03:24 UTC on 2026-11-13), the hand apply reported `created=716` and the kennel page showed 715. The page counts
 unique dates, not events (`src/app/kennels/[slug]/page.tsx`: `uniqueDates = new Set(events.map(date))`).
 The archive has 716 rows on 715 dates: #2059 and #2060 are both on 2014-10-04 and stay separate events
 because their run numbers differ (the merge's run-number veto, #2656).
 
-A count alone doesn't prove nothing is missing, so this was checked row by row on 2026-11-12 against the
+A count alone doesn't prove nothing is missing, so this was checked row by row the same evening against the
 public page payload: the page lists 716 distinct events on 715 unique dates; every archive
 (date, run number) pair appears exactly once; and the page shows no event outside the archive. V2 is
 that check, automated.
@@ -870,6 +878,7 @@ when its heartbeat is over 26 hours old. Silence counts as failure.
 | `scripts/lib/backfill-runner.ts` | `reportAndApplyBackfill` throws when `archiveCutoffDropped` is above 0 |
 | `src/lib/event-write.ts` | Optional nested RawEvent in `createEventWithKennel` |
 | `src/pipeline/scrape.ts` | Refuse to scrape, or force-scrape, an `archiveOnly` source; count `archiveCutoffDropped` rows |
+| `src/pipeline/kennel-evidence.ts` | Export `CURRENT_RAW_SQL` with no behaviour change, so G21's overlap check reuses the newest-copy rule instead of copying it. The plan already imports the exported `POSTED_RUN_RAW_SQL` |
 | `src/app/admin/sources/actions.ts` | `deleteSource` and `toggleSourceEnabled` refuse an `archiveOnly` source; `updateSource` refuses an actual change to its name, type or kennel links (comparing submitted links with the existing set) |
 | `src/app/kennels/[slug]/page.tsx` | Move the event query, filters and unique-date count into a shared function |
 | `scripts/lib/delete-leaked-event.ts` | Move to `src/lib`; add canonical recompute for touched slots |
@@ -1160,3 +1169,15 @@ were applied:
 |---|---|---|
 | R9-1 | G21's "stored before the marker existed" cut-off was undefined, and an early one fails closed | A constant set once in Phase 0: the earliest `scrapedAt` of a calendar RawEvent carrying the marker, plus one hour. Early versus late trade-off stated (G21) |
 | R9-2 | V1's pass rule after a rule change was implicit | Stated as three steps: the plan's value passes; a rule change with an unchanged stored row passes with a note; anything else fails (9.3) |
+
+### PR review comments on v5.2 (Claude and Codex bots on #2943)
+
+| Source | Comment | Resolution |
+|---|---|---|
+| Claude 1 | The Zagreb apply (2026-11-13) and its check (2026-11-12) were dated in different time zones | Both happened the evening #2904 merged; the text now gives US Eastern and UTC (9.4) |
+| Claude 2 | `CURRENT_RAW_SQL` is module-private, so G21 might be built on a second copy of the rule | Phase 0 exports it with no behaviour change (12.1) |
+| Claude 3 | G15 doesn't list `src/pipeline/kennel-evidence.ts` or `src/lib/event-filters.ts`, though G14, V1 and V2 depend on them | Both added to G15 (8.1) |
+| Claude 4 | Unclear whether `advance` calls that make no progress count against the implementer's 40 | Only calls that write rows count. Waiting is capped at 15 minutes, and the cron resumes a run left `APPLYING` (7.3) |
+| Claude 5 | Setting a cutoff on an adopted kennel closes the automated path through G19 | Stated as intended, and clearing the cutoff reopens it (6.5) |
+| Claude 6 | Music City sits exactly at the 5% unnumbered limit | Already stated: it enters by adoption, not a Phase 2 plan. No change |
+| Codex P2 | `expectedGaps` had to lie inside the archive's span, so a seasonal break between the archive's last row and `C` could never be declared, and G20 blocked | At most one trailing gap may start after the archive's last row. At plan it must end on or before `C`, so no live run can fall inside it (6.1, 6.2, 6.5) |
