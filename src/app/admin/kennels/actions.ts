@@ -12,6 +12,7 @@ import { safeUrl } from "@/lib/safe-url";
 import { ensureKennelLabel, deleteKennelLabel } from "@/pipeline/kennel-label-sync";
 import { regionNameToSlug, regionSlug } from "@/lib/region";
 import { checkLogoUrl } from "@/lib/logo-url";
+import { refreshAfterWrite } from "@/lib/kennel-confirmations";
 
 /**
  * Bust the ISR-cached region landing page (`/kennels/region/[slug]`, which sets
@@ -856,6 +857,9 @@ export async function mergeKennels(
     },
     { timeout: 120_000, maxWait: 10_000 },
   );
+  // The target now holds the merged-away kennel's events and any open stop.
+  // Refresh after the commit: the refresh reads outside the transaction.
+  await refreshAfterWrite(targetKennel.id, new Date());
 
   console.log("[admin-audit] mergeKennels", JSON.stringify({
     adminId: admin.id,

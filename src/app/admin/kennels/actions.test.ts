@@ -21,6 +21,7 @@ vi.mock("@/lib/db", () => ({
     $transaction: vi.fn((arr: unknown[]) => Promise.all(arr)),
   },
 }));
+vi.mock("@/pipeline/kennel-evidence", () => ({ refreshKennelEvidence: vi.fn() }));
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
   revalidateTag: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("next/cache", () => ({
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { refreshKennelEvidence } from "@/pipeline/kennel-evidence";
 import { regionNameToSlug, regionSlug } from "@/lib/region";
 import {
   createKennel,
@@ -611,5 +613,14 @@ describe("mergeKennels", () => {
       tx.kennel.delete.mock.invocationCallOrder[0],
     );
     expect(tx.kennel.delete).toHaveBeenCalledWith({ where: { id: "src" } });
+    // The target now holds the moved events and any open stop: refresh its
+    // cached evidence after the transaction commits, before busting caches.
+    expect(refreshKennelEvidence).toHaveBeenCalledWith(["tgt"], expect.any(Date));
+    expect(vi.mocked(prisma.$transaction).mock.invocationCallOrder.at(-1)).toBeLessThan(
+      vi.mocked(refreshKennelEvidence).mock.invocationCallOrder[0],
+    );
+    expect(vi.mocked(refreshKennelEvidence).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(revalidatePath).mock.invocationCallOrder[0],
+    );
   });
 });
