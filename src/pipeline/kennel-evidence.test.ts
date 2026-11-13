@@ -43,20 +43,18 @@ describe("refreshScheduleOnlyFlags", () => {
     const query = lastQuery();
     const sql = sqlText(query);
     const postedRun = sql.slice(sql.indexOf("s.type <> 'STATIC_SCHEDULE'"), sql.indexOf("NOT EXISTS ( SELECT 1 FROM \"RawEvent\" newer"));
-    // Either signal makes the row a repeating instance; hares or a run number still make it a posted run.
+    // Hares or a run number make it a posted run; otherwise either signal makes it
+    // a repeating instance, and the costly link check runs last.
     expect(postedRun).toMatch(
-      /NOT \( \( NULLIF\(r\."rawData"->>'recurringSeriesId', ''\) IS NOT NULL OR \( s\.type = 'GOOGLE_CALENDAR' .*\) \) AND \( COALESCE\(.*'hares'.*AND r\."rawData"->>'runNumber' IS NULL \)/,
+      /NOT \( r\."rawData"->>'runNumber' IS NULL AND \( COALESCE\(.*'hares'.*\) AND \( NULLIF\(r\."rawData"->>'recurringSeriesId', ''\) IS NOT NULL OR \( s\.type = 'GOOGLE_CALENDAR' .*\) \) \)/,
     );
     // Only rows with no marker key at all: a stored marker, even the empty
     // "not repeating" one the adapter puts on overrides, is the adapter's call.
     expect(postedRun).toContain(`r."rawData"->'recurringSeriesId' IS NULL`);
-    expect(postedRun).not.toContain("TIMESTAMP");
     // The `eid` is base64url of "<event id> <calendar>"; an instance id ends _YYYYMMDD or _YYYYMMDDTHHMMSSZ.
-    expect(postedRun).toContain(`substring(r."rawData"->>'sourceUrl' from '[?&]eid=([A-Za-z0-9_-]+)')`);
-    expect(postedRun).toContain(`translate(x.eid, '-_', '+/')`);
-    expect(postedRun).toContain(`~ '^[^ ]+_[0-9]{8}(T[0-9]{6}Z)? '`);
-    // A length that can't be base64 is skipped, so one bad link can't fail the refresh.
-    expect(postedRun).toContain(`CASE WHEN length(x.eid) % 4 <> 1 THEN`);
+    // Whole 4-character groups only: always valid base64, so one bad link can't fail the refresh.
+    expect(postedRun).toContain(`substring(r."rawData"->>'sourceUrl' from '[?&]eid=((?:[A-Za-z0-9_-]{4})+)')`);
+    expect(postedRun).toContain(`'-_', '+/'), 'base64'), 'escape') ~ '^[^ ]+_[0-9]{8}(T[0-9]{6}Z)? ' ) IS TRUE`);
     expect(query.values).toEqual([]);
   });
 

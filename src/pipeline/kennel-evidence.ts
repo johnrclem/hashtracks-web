@@ -46,19 +46,18 @@ const RAW_NO_HARES_SQL = Prisma.sql`(
  * Rows the adapter writes now always carry the key on an instance-shaped id
  * (`""` on an override of a non-repeating event), so a stored key is the
  * adapter's call and the link is read only when the key is absent.
- * An `eid` whose length can't be base64 is not an instance, so one bad link
- * can't fail the refresh.
+ * Only whole 4-character groups of the `eid` are decoded: that is always valid
+ * base64 with no padding, so one bad link can't fail the refresh, and the 1–3
+ * characters dropped belong to the calendar, after the event id.
  */
 const PRE_MARKER_GCAL_INSTANCE_SQL = Prisma.sql`(
   s.type = 'GOOGLE_CALENDAR'
   AND r."rawData"->'recurringSeriesId' IS NULL
-  AND COALESCE((
-    SELECT CASE WHEN length(x.eid) % 4 <> 1 THEN
-      encode(decode(rpad(translate(x.eid, '-_', '+/'), (length(x.eid) + 3) / 4 * 4, '='), 'base64'), 'escape')
-        ~ '^[^ ]+_[0-9]{8}(T[0-9]{6}Z)? '
-    END
-    FROM (SELECT substring(r."rawData"->>'sourceUrl' from '[?&]eid=([A-Za-z0-9_-]+)') AS eid) x
-  ), false)
+  AND (
+    encode(decode(translate(
+      substring(r."rawData"->>'sourceUrl' from '[?&]eid=((?:[A-Za-z0-9_-]{4})+)'),
+      '-_', '+/'), 'base64'), 'escape') ~ '^[^ ]+_[0-9]{8}(T[0-9]{6}Z)? '
+  ) IS TRUE
 )`;
 
 /**
@@ -68,16 +67,17 @@ const PRE_MARKER_GCAL_INSTANCE_SQL = Prisma.sql`(
  * repeating Google Calendar series (`rawData.recurringSeriesId`, or
  * `PRE_MARKER_GCAL_INSTANCE_SQL` for older rows) that carries nothing
  * run-specific: no hares (placeholders count as none) and no run number.
+ * The cheap checks come first, so the link is read only for detail-less rows.
  */
 export const POSTED_RUN_RAW_SQL = Prisma.sql`(
   s.type <> 'STATIC_SCHEDULE'
   AND NOT (
-    (
+    r."rawData"->>'runNumber' IS NULL
+    AND ${RAW_NO_HARES_SQL}
+    AND (
       NULLIF(r."rawData"->>'recurringSeriesId', '') IS NOT NULL
       OR ${PRE_MARKER_GCAL_INSTANCE_SQL}
     )
-    AND ${RAW_NO_HARES_SQL}
-    AND r."rawData"->>'runNumber' IS NULL
   )
 )`;
 
