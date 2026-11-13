@@ -1018,8 +1018,11 @@ function DiscardDraftForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const busy = disabled || pending;
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy) return; // Enter in the input submits even while the button is disabled.
     startTransition(async () => {
       const result = await rejectDraft(draft.id, reason);
       if (result.ok) onDiscarded();
@@ -1027,7 +1030,6 @@ function DiscardDraftForm({
     });
   }
 
-  const busy = disabled || pending;
   return (
     <form className="flex shrink-0 flex-col items-end gap-1" onSubmit={handleSubmit}>
       <div className="flex items-center gap-2">
