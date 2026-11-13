@@ -111,6 +111,13 @@ describe("generateFingerprint", () => {
     expect(c).not.toBe(b);
   });
 
+  it("fingerprint changes when recurringSeriesId is the empty 'not repeating' marker", () => {
+    const a = generateFingerprint(buildRawEvent());
+    const empty = generateFingerprint(buildRawEvent({ recurringSeriesId: "" }));
+    expect(empty).not.toBe(a);
+    expect(empty).not.toBe(generateFingerprint(buildRawEvent({ recurringSeriesId: "abc" })));
+  });
+
   // #1950 stability guard — the lower-trust enrich branch now fills cost +
   // endTime onto the canonical. Both fields already participate in the
   // fingerprint (cost/endTime are WS6 tokens), so a RawEvent that newly carries

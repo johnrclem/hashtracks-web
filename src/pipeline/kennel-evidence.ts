@@ -34,16 +34,48 @@ const RAW_NO_HARES_SQL = Prisma.sql`(
 )`;
 
 /**
+ * A Google Calendar RawEvent stored without the repeating-series marker key
+ * (`rawData.recurringSeriesId`), whose Google link names a repeating instance.
+ *
+ * The marker shipped on 2026-11-13 (PR #2923). RawEvents are immutable and a
+ * calendar re-fetches only its scrape window, so instances outside its first
+ * window after that (older runs, and runs past the future horizon) keep their
+ * unmarked RawEvent for good. Their `sourceUrl` is Google's `htmlLink`, whose
+ * `eid` is base64url of "<event id> <calendar>"; an instance's event id ends in
+ * `_YYYYMMDD` (all-day) or `_YYYYMMDDTHHMMSSZ`, and a one-off's never does.
+ * Rows the adapter writes now always carry the key on an instance-shaped id
+ * (`""` on an override of a non-repeating event), so a stored key is the
+ * adapter's call and the link is read only when the key is absent.
+ * An `eid` whose length can't be base64 is not an instance, so one bad link
+ * can't fail the refresh.
+ */
+const PRE_MARKER_GCAL_INSTANCE_SQL = Prisma.sql`(
+  s.type = 'GOOGLE_CALENDAR'
+  AND r."rawData"->'recurringSeriesId' IS NULL
+  AND COALESCE((
+    SELECT CASE WHEN length(x.eid) % 4 <> 1 THEN
+      encode(decode(rpad(translate(x.eid, '-_', '+/'), (length(x.eid) + 3) / 4 * 4, '='), 'base64'), 'escape')
+        ~ '^[^ ]+_[0-9]{8}(T[0-9]{6}Z)? '
+    END
+    FROM (SELECT substring(r."rawData"->>'sourceUrl' from '[?&]eid=([A-Za-z0-9_-]+)') AS eid) x
+  ), false)
+)`;
+
+/**
  * "This RawEvent is a posted run", for a RawEvent aliased `r` joined to its
  * Source aliased `s`. A RawEvent is a schedule projection, not a posted run,
  * when it comes from a STATIC_SCHEDULE source, or when it is an instance of a
- * repeating Google Calendar series (`rawData.recurringSeriesId`) that carries
- * nothing run-specific: no hares (placeholders count as none) and no run number.
+ * repeating Google Calendar series (`rawData.recurringSeriesId`, or
+ * `PRE_MARKER_GCAL_INSTANCE_SQL` for older rows) that carries nothing
+ * run-specific: no hares (placeholders count as none) and no run number.
  */
 export const POSTED_RUN_RAW_SQL = Prisma.sql`(
   s.type <> 'STATIC_SCHEDULE'
   AND NOT (
-    NULLIF(r."rawData"->>'recurringSeriesId', '') IS NOT NULL
+    (
+      NULLIF(r."rawData"->>'recurringSeriesId', '') IS NOT NULL
+      OR ${PRE_MARKER_GCAL_INSTANCE_SQL}
+    )
     AND ${RAW_NO_HARES_SQL}
     AND r."rawData"->>'runNumber' IS NULL
   )

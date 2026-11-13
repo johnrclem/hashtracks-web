@@ -50,6 +50,10 @@ export interface RawEventData {
    * `rawData->>'recurringSeriesId'` to tell a schedule projection (repeating
    * instance with no hares or run number) from a posted run. Fingerprinted via a
    * gated spread, so events without it hash exactly as before.
+   *
+   * `""` marks an override of a non-repeating event: its id looks like an
+   * instance's, and rows stored with no key at all are read by that id
+   * (`PRE_MARKER_GCAL_INSTANCE_SQL` in src/pipeline/kennel-evidence.ts).
    */
   recurringSeriesId?: string;
   locationUrl?: string; // Google Maps or other maps URL

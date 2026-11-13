@@ -2523,8 +2523,9 @@ export class GoogleCalendarAdapter implements SourceAdapter {
           const event = buildRawEventFromGCalItem(item, sourceConfig, { ...compiled, gcalIdMap, allDayEventSet, summaryMap });
           // An override the primary call didn't return belongs to a master
           // with no RRULE: an individually posted run, not a repeating-schedule
-          // instance, so it must not carry the schedule marker.
-          if (event && orphanOverrides) delete event.recurringSeriesId;
+          // instance. Its id looks like an instance's, so it carries the empty
+          // "not repeating" marker rather than none (see RawEventData).
+          if (event && orphanOverrides) event.recurringSeriesId = "";
           if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
