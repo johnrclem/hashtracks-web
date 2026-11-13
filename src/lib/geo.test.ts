@@ -661,6 +661,12 @@ describe("venueGeocodeRejection", () => {
     expect(venueGeocodeRejection(pera, { location: "Bowden Wharf, St. Thomas" }, { lat: 18.0, lng: -76.79 })).toBeNull();
   });
 
+  it("still requires the named town when the text also names the region", () => {
+    expect(venueGeocodeRejection(wembdonHouse, { location: "Mount Radford, Exeter, England" }, EXETER)).toMatch(
+      /outside the town/,
+    );
+  });
+
   it("rejects a whole road", () => {
     const a38: GeocodeResult = {
       lat: 51.5928546,

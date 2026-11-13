@@ -421,9 +421,8 @@ const COUNTY_LEVEL_2_COUNTRIES = new Set(["US", "GB"]);
 
 /**
  * Components whose name can confirm the place a venue's text names. Roads and
- * buildings are left out: a "Church Road" exists in every town. Level 1 stays
- * in because it is a parish or province in some countries ("St. Thomas",
- * Jamaica); only the country is too broad.
+ * buildings are left out: a "Church Road" exists in every town. Level 1 is
+ * handled apart (see `resultInNamedPlace`).
  */
 const PLACE_NAME_TYPES = new Set([
   "locality",
@@ -431,7 +430,6 @@ const PLACE_NAME_TYPES = new Set([
   "sublocality",
   "administrative_area_level_3",
   "neighborhood",
-  "administrative_area_level_1",
   "administrative_area_level_2",
   "administrative_area_level_4",
 ]);
@@ -520,16 +518,25 @@ function resultInNamedPlace(
   const components = result.components ?? [];
   const postcode = components.find((c) => c.types.includes("postal_code"))?.long_name;
   if (postcode && compact(postcode).length >= 4 && compact(named.join(" ")).includes(compact(postcode))) return true;
-  const required = placeTokens(named);
-  if (required.length === 0) return true;
-  const names = components
-    .filter((c) => c.types.some((t) => PLACE_NAME_TYPES.has(t)))
-    .flatMap((c) => [placeKey(c.long_name), placeKey(c.short_name)])
-    .filter((n) => n.length >= 3);
+  // A level-1 area the result is in ("England", or a Jamaican parish like
+  // "St. Thomas") agrees with the text but can't confirm it when the text also
+  // names a town: "Mount Radford, Exeter, England" must still match Exeter.
+  const regions = componentNames(components, (t) => t === "administrative_area_level_1");
+  const towns = placeTokens(named).filter((town) => !regions.some((region) => samePlaceName(town, region)));
+  if (towns.length === 0) return true;
+  const names = componentNames(components, (t) => PLACE_NAME_TYPES.has(t));
   const address = ` ${placeKey(result.formattedAddress ?? "")} `;
-  return [...required, ...placeTokens([venueHead])].some(
+  return [...towns, ...placeTokens([venueHead])].some(
     (town) => address.includes(` ${town} `) || names.some((name) => samePlaceName(town, name)),
   );
+}
+
+/** Comparable names (long and short) of the components with a matching type. */
+function componentNames(components: GeocodeComponent[], hasType: (type: string) => boolean): string[] {
+  return components
+    .filter((c) => c.types.some(hasType))
+    .flatMap((c) => [placeKey(c.long_name), placeKey(c.short_name)])
+    .filter((n) => n.length >= 3);
 }
 
 /**

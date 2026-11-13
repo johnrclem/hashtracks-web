@@ -5,7 +5,8 @@
  * `reverseGeocode`, but existing canonical Events keep their cached pins (the
  * merge only re-geocodes when locationUrl changes), so they need this repair.
  *
- * Candidates (never Harrier Central-only events). A "geocoded" pin is one with
+ * Candidates (never Harrier Central-only events; overseas runs flagged with
+ * `countryOverride` only ever get a city). A "geocoded" pin is one with
  * no source lat/lng and no Google Maps link (a streetmap.co.uk, OpenStreetMap
  * or what3words link gives merge no coords, so it geocodes the venue — H5):
  *   A. Geocoded pin, street line present, city missing or
@@ -115,7 +116,9 @@ WITH ev AS (
          e.latitude, e.longitude, e."locationCity",
          bool_and(s.type = 'HARRIER_CENTRAL') AS hc_only,
          bool_or(r."rawData"->>'latitude' IS NOT NULL
-                 OR coalesce(r."rawData"->>'locationUrl', '') ~* 'google\.|goo\.gl|g\.page') AS src_coords
+                 OR coalesce(r."rawData"->>'locationUrl', '') ~* 'google\.|goo\.gl|g\.page') AS src_coords,
+         -- Overseas runs (countryOverride) skip merge's kennel bias and distance checks; so does this repair.
+         bool_or(r."rawData" ? 'countryOverride') AS overseas
   FROM "Event" e
   JOIN "RawEvent" r ON r."eventId" = e.id
   JOIN "Source" s ON s.id = r."sourceId"
@@ -136,8 +139,8 @@ WITH ev AS (
 ), b AS (
   SELECT d.*,
     CASE
-      WHEN NOT src_coords AND "locationStreet" IS NOT NULL AND NOT city_named THEN 'A'
-      WHEN NOT src_coords AND "locationStreet" IS NULL AND km > ${VENUE_TOWN_CHECK_KM} AND NOT city_named THEN 'B'
+      WHEN NOT src_coords AND NOT overseas AND "locationStreet" IS NOT NULL AND NOT city_named THEN 'A'
+      WHEN NOT src_coords AND NOT overseas AND "locationStreet" IS NULL AND km > ${VENUE_TOWN_CHECK_KM} AND NOT city_named THEN 'B'
       WHEN "locationCity" IS NULL AND (position(',' in "locationName") = 0 OR "locationStreet" IS NOT NULL) THEN 'C'
     END AS bucket
   FROM d
@@ -156,6 +159,10 @@ class LookupCache {
   async get<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
     if (!(key in this.data)) this.data[key] = await fetcher();
     return this.data[key] as T;
+  }
+  async refresh<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+    delete this.data[key];
+    return this.get(key, fetcher);
   }
   save(): void {
     if (this.path) writeFileSync(this.path, JSON.stringify(this.data));
@@ -182,10 +189,11 @@ async function planRow(c: Candidate, cache: LookupCache): Promise<Pick<PlanRow, 
   const venue = { location: c.locationName, street: c.locationStreet };
   const bias = regionBias(c.country);
   const kennelKey = kennel ? `${kennel.lat},${kennel.lng}` : "-";
-  const hit = await cache.get<GeocodeResult | null>(
-    `venue|${JSON.stringify([c.locationName, c.locationStreet, bias, kennelKey])}`,
-    () => geocodeVenue({ ...venue, regionBias: bias, biasCenter: kennel }),
-  );
+  const lookup = () => geocodeVenue({ ...venue, regionBias: bias, biasCenter: kennel });
+  const venueKey = `venue|${JSON.stringify([c.locationName, c.locationStreet, bias, kennelKey])}`;
+  let hit = await cache.get<GeocodeResult | null>(venueKey, lookup);
+  // A hit cached under older rules is re-checked; if the rules now reject it, look again.
+  if (hit && venueGeocodeRejection(hit, venue, kennel)) hit = await cache.refresh(venueKey, lookup);
 
   if (hit) {
     const shift = haversineDistance(hit.lat, hit.lng, c.latitude, c.longitude);
