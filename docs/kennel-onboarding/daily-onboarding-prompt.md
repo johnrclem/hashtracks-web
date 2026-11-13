@@ -148,7 +148,10 @@ the other preflight checks.
 ## Step 1 — Pick today's target
 
 **First, open `onboarding-candidate` issues.** These are audit findings about a source HashTracks
-doesn't track yet: a live kennel's untracked hareline, or a new kennel. List them with
+doesn't track yet (a live kennel's untracked hareline, or a new kennel), or about history a source
+holds that HashTracks never loaded. The audit promoter adds the label to findings filed with the
+`source-coverage-gap` or `historical-events-gap` rule. For a history gap, the handoff is a
+history backfill for an existing kennel. List them with
 `gh issue list --state open --label onboarding-candidate --json number,title,body,comments`. Skip
 any that already carry a comment linking a handoff. Take the oldest remaining one as today's target.
 It's a normal source-add or new-kennel handoff, with these extras:
@@ -156,6 +159,15 @@ It's a normal source-add or new-kennel handoff, with these extras:
 - Put `Closes #N` in its `▶ FOR CLAUDE CODE` directive, so the implementing PR closes the issue.
 - After Step 9 merges the handoff, comment the handoff link on the issue. Leave the issue open.
 - If the source turns out dead, comment the evidence and close the issue as not planned.
+- **History gap on a live kennel:** the kennel is seeded and its source works, so Step 2's
+  seeded/handed-off checks and the decision matrix's "already live" row would skip it. They don't
+  apply here. Instead, check whether *this backfill* was already delivered:
+  `ls docs/kennel-onboarding/handoffs/*-<code>-history*.md`,
+  `gh pr list --state all --search "<code> backfill"`, and `ls scripts/data/ | grep -i <code>`.
+  If none hit, write a history-backfill handoff named `<date>-<code>-history.md`: the archive's
+  URL and shape, the date or run-number range, an estimated count, and a frozen-JSON + loader plan
+  routed through the merge pipeline (the implementer's Build step 6). If one hits, comment the
+  link on the issue and pick the next candidate.
 
 Otherwise, open `target-queue.md`. Take the **top row whose Status is `queued`** (lowest Rank first). If
 none are `queued`, jump to **Step 8's refill logic**, refill, then pick the new #1. Mark the

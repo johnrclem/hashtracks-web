@@ -74,6 +74,18 @@ describe("promoteAuditDrafts", () => {
     expectMarkedWith({ status: "FILED", issueNumber: 42 });
   });
 
+  it.each([
+    ["source-coverage-gap", true],
+    ["historical-events-gap", true],
+    ["hares-theme-leak", false],
+  ])("labels a %s draft for onboarding: %s", async (ruleSlug, routed) => {
+    mockFindMany.mockResolvedValue([draft({ ruleSlug })] as never);
+    await promoteAuditDrafts();
+    const { labels } = mockFile.mock.calls[0][0];
+    expect(labels).toEqual(expect.arrayContaining(["audit", "alert", "kennel:nych3"]));
+    expect(labels.includes("onboarding-candidate")).toBe(routed);
+  });
+
   it("marks a recurred outcome RECURRED with the filer tier", async () => {
     mockFindMany.mockResolvedValue([draft()] as never);
     mockFile.mockResolvedValue({

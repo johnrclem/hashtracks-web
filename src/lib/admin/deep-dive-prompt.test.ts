@@ -54,6 +54,8 @@ const CONTAINS_CASES: readonly ContainsCase[] = [
   ["verify-current-state pre-step", ["Verify current state before flagging", "spot-check 2-3 of the highest run-numbered events"]],
   // Historical-backfill routing by source type. Wide-window scrapes trigger reconcile (which cancels sole-source events) — safe for complete-enumeration APIs, unsafe for partial-enumeration sources.
   ["historical backfill by source type", ["Historical events", "`GOOGLE_CALENDAR`", "`ICAL_FEED`", "`MEETUP`", "`HARRIER_CENTRAL`", "`HASHREGO`", "`HTML_SCRAPER`", "`GOOGLE_SHEETS`", "wider scrape window is **unsafe**", "one-shot DB insert", "auth-protected"]],
+  // Source gaps use fixed rule slugs so the promoter can label them onboarding-candidate.
+  ["fixed slugs for source and history gaps", ["ruleSlug `source-coverage-gap`", "ruleSlug `historical-events-gap`", "an adapter bug, not a history gap", "kennel-onboarding automation"]],
   // Schema-gap framing — fields with no visible event-card slot get tagged as schema-gap, not extraction bugs.
   ["schema-gap framing anchored on event-card visibility", ["schema gap", "visible home on a HashTracks event card", "shiggy level"]],
   // Verbatim-source contract on filing bodies. Earlier audits synthesized expected values the adapter couldn't emit.

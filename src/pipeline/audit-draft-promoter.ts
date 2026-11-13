@@ -25,7 +25,9 @@ import { buildCanonicalBlock } from "@/lib/audit-canonical";
 import {
   AUDIT_LABEL,
   ALERT_LABEL,
+  ONBOARDING_CANDIDATE_LABEL,
   STREAM_LABELS,
+  isSourceGapRule,
   kennelLabel,
 } from "@/lib/audit-labels";
 import { AUDIT_STREAM, type AuditStream } from "@/lib/audit-stream-meta";
@@ -219,6 +221,8 @@ async function promoteOneDraft(
     ALERT_LABEL,
     streamLabel(draft.stream),
     kennelLabel(draft.kennelCode),
+    // Untracked sources and missing history go to the onboarding automation.
+    ...(isSourceGapRule(draft.ruleSlug) ? [ONBOARDING_CANDIDATE_LABEL] : []),
   ];
   const outcome = await fileAuditFinding(
     {
