@@ -3237,3 +3237,9 @@ Verified by `curl` of `https://lagosh3.com/wp-json/wp/v2/posts?per_page=100` (69
 - Old year tabs drift a lot: duplicated column blocks, a missing header row, a different layout in the oldest
   tabs, December tabs that preview next year's first run, and a tab carrying the next year's rows shifted by
   a week. For a backfill, prefer the tab whose name matches the date's year and check run-number monotonicity.
+
+## WordPress custom post types missing from REST — use the core `wp-sitemap` (learned from IndyScent H3, 2026-11-13)
+- A plugin CPT (IndyScent's `ht_hash_event`, the "Hash Tracker" plugin) can be absent from `/wp-json/wp/v2/types`, so no REST route exists. WordPress core still lists every published CPT post in `/wp-sitemap.xml` → `wp-sitemap-posts-<cpt>-1.xml`. On indyhhh.com that sitemap held the same 37 URLs as walking `/hashes/page/1…4/` (page 5 = 404), so it is the quickest complete inventory. Verified by `curl` + `diff`.
+- The "Hash Tracker" detail page carries clean labelled fields (`📅 Date:`, `⏰ Time:`, `🐇 Hares:`), coords only in a Google Maps `…/dir/?api=1&destination=<lat>,<lng>` link, and an "Add to Calendar" `data:text/calendar` link whose `DTEND` is always `DTSTART + 3h` (template default, not a real end time).
+- **Slugs are copy-pasted and their run numbers lag the title** (`hash-1117-tia-bday-trail` is `Hash #1118`, `…-nash-hash-copy` slugs are off by one). Read the run number from the `<h1>` only.
+- Dedupe without DB access: the public `hashtracks.xyz/kennels/<slug>` HTML embeds the event list in its RSC payload; `grep -o 'runNumber\\":[0-9]*'` lists the run numbers prod already shows. Date↔run pairing from a naive text window is unreliable, so use it for the run-number set only.
