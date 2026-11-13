@@ -27,6 +27,7 @@ import {
   buildRuleAgreementMap,
   selectBestProjections,
   latestEvidenceAt,
+  isKennelInactive,
   CONFIRMED_EVENT_HORIZON_DAYS,
   AGREEMENT_LOOKBACK_DAYS,
   DAY_MS,
@@ -141,6 +142,10 @@ export interface LikelyResult extends DestinationTag {
   explanation: string;
   evidenceWindow: string;
   evidenceTimeline: EvidenceTimeline;
+  /** The kennel's admin "checked running" date when that confirmation is its
+   *  newest evidence and is recent (≤90 days); the card shows it in place of
+   *  "0 runs in the last 12 weeks". Null otherwise. */
+  checkedRunningAt: Date | null;
   sourceLinks: SourceLink[];
 }
 
@@ -247,6 +252,9 @@ export interface TravelSearchResults {
 // ============================================================================
 
 const TWELVE_WEEKS_MS = 12 * 7 * DAY_MS;
+
+/** Explanation on rows built from a generated run that no projection covers. */
+export const SCHEDULE_ONLY_EXPLANATION = "From their usual schedule";
 /** Row cap on the rule-agreement evidence query (independent runs over ~14 weeks). */
 const AGREEMENT_EVENT_ROW_CAP = 5_000;
 
@@ -578,18 +586,19 @@ async function runStopSearch(
     // Steps 3–5 + 8: Three independent DB queries run in parallel (saves ~2 round-trips)
     const twelveWeeksAgo = new Date(now.getTime() - TWELVE_WEEKS_MS);
     const agreementLookback = new Date(now.getTime() - AGREEMENT_LOOKBACK_DAYS * DAY_MS);
-    const [confirmedEvents, scheduleRules, evidenceEvents, independentEvents] = await Promise.all([
+    const [windowEvents, scheduleRules, evidenceEvents, independentEvents] = await Promise.all([
     // Step 3: Confirmed events in date window. Allowed past the 365-day
     // projection horizon (real NYE events 18mo out still render) but
     // bounded by CONFIRMED_EVENT_HORIZON_DAYS + a row cap so a pathological
     // date range can't time out the function or bust the RSC payload limit.
+    // Generated (schedule-only) runs come back too and are split off below:
+    // they are not confirmations, but one no projection covers still becomes
+    // a Likely/Possible row (Step 9b) — one query, no extra round trip.
     prisma.event.findMany({
       where: {
         ...CANONICAL_EVENT_WHERE,
         // A stopped kennel's generated runs are hidden on every display surface.
         ...HIDE_STOPPED_SCHEDULE_RUNS,
-        // Generated runs (schedule projections) are not confirmations; they are re-projected below.
-        isScheduleOnly: false,
         // #1023 step 5: include co-hosted events at any nearby kennel.
         // The result construction below pivots metadata onto whichever
         // EventKennel.kennelId is in `nearbyIds` (not necessarily the
@@ -651,6 +660,10 @@ async function runStopSearch(
       take: AGREEMENT_EVENT_ROW_CAP,
     }),
   ]);
+  // Generated runs (schedule projections) are not confirmations; rules re-project
+  // them in Step 6 and Step 9b keeps the ones no projection covers.
+  const confirmedEvents = windowEvents.filter((e) => !e.isScheduleOnly);
+  const scheduleOnlyEvents = windowEvents.filter((e) => e.isScheduleOnly);
   const evidenceByKennel = groupBy(evidenceEvents, (e) => e.kennelId);
   const independentByKennel = groupBy(
     independentEvents.flatMap((e) =>
@@ -711,7 +724,23 @@ async function runStopSearch(
     }));
   });
   const dedupedProjections = deduplicateAgainstConfirmed(scoredProjections, confirmedRefs);
-  const horizonFilteredProjections = filterProjectionsByHorizon(dedupedProjections, horizonTier);
+  const ruleProjections = filterProjectionsByHorizon(dedupedProjections, horizonTier);
+
+  // Step 9b (Ruling 20): a generated run no dated projection or real run covers
+  // on that kennel + date (a kennel with no active rule, or a rule that doesn't
+  // land there) stays visible as Likely, or Possible once the kennel's evidence
+  // is stale — the same horizon and filters as projected rows.
+  const scheduleRunProjections = filterProjectionsByHorizon(
+    uncoveredScheduleRuns(scheduleOnlyEvents, {
+      nearbyIdsSet,
+      kennelMap,
+      covered: [...ruleProjections, ...confirmedRefs],
+      projectionEndDate,
+      now,
+    }),
+    horizonTier,
+  );
+  const horizonFilteredProjections = [...ruleProjections, ...scheduleRunProjections];
 
   // Step 10: Classify into likely vs possible
   const likelyProjections = horizonFilteredProjections.filter(
@@ -816,6 +845,7 @@ async function runStopSearch(
         evidenceByKennel.get(proj.kennelId) ?? [],
         now,
       ),
+      checkedRunningAt: recentConfirmation(kennel, now),
       sourceLinks: buildSourceLinks(kennel),
     };
   });
@@ -1050,6 +1080,72 @@ function distanceTier(distanceKm: number): DistanceTier {
   if (distanceKm <= 10) return "nearby";
   if (distanceKm <= 25) return "area";
   return "drive";
+}
+
+/**
+ * Generated (schedule-only) runs that nothing else covers, as projection-shaped
+ * rows: one per (nearby kennel, date), skipping any date a dated projection or
+ * a real confirmed run already covers for that kennel, and dates past the
+ * projection horizon. Medium (Likely) unless the kennel's evidence is stale
+ * (> 90 days, the projection inactivity rule) → low (Possible). Co-hosted runs
+ * pivot onto the nearby kennel exactly like confirmed rows. Events must be
+ * sorted by date.
+ */
+function uncoveredScheduleRuns(
+  events: {
+    kennelId: string;
+    eventKennels: { kennelId: string }[];
+    date: Date;
+    startTime: string | null;
+  }[],
+  ctx: {
+    nearbyIdsSet: Set<string>;
+    kennelMap: Map<string, NearbyKennel>;
+    /** Dated projections (after dedupe + horizon) and real confirmed-run refs. */
+    covered: ReadonlyArray<{ kennelId: string; date: Date | null }>;
+    projectionEndDate: Date;
+    now: Date;
+  },
+): ProjectedTrail[] {
+  const dayKey = (kennelId: string, date: Date) => `${kennelId}:${date.toISOString().slice(0, 10)}`;
+  const taken = new Set<string>();
+  for (const c of ctx.covered) {
+    if (c.date) taken.add(dayKey(c.kennelId, c.date));
+  }
+
+  const rows: ProjectedTrail[] = [];
+  for (const event of events) {
+    if (event.date.getTime() > ctx.projectionEndDate.getTime()) continue;
+    const kennelId = ctx.nearbyIdsSet.has(event.kennelId)
+      ? event.kennelId
+      : matchedNearbyKennelIds(event.eventKennels, ctx.nearbyIdsSet)[0];
+    const kennel = kennelId ? ctx.kennelMap.get(kennelId) : undefined;
+    if (!kennel) continue;
+    const key = dayKey(kennel.id, event.date);
+    if (taken.has(key)) continue;
+    taken.add(key);
+    rows.push({
+      kennelId: kennel.id,
+      date: event.date,
+      startTime: event.startTime,
+      confidence: isKennelInactive(latestEvidenceAt(kennel), ctx.now.getTime()) ? "low" : "medium",
+      scheduleRuleId: "", // not from a rule: the kennel's generated run itself
+      explanation: SCHEDULE_ONLY_EXPLANATION,
+      evidenceWindow: "",
+    });
+  }
+  return rows;
+}
+
+/**
+ * The kennel's last admin confirmation when it is its newest evidence (no later
+ * run seen) and recent by the inactivity rule; null otherwise.
+ */
+function recentConfirmation(kennel: NearbyKennel | undefined, now: Date): Date | null {
+  const confirmed = kennel?.lastConfirmedAt ?? null;
+  if (!confirmed) return null;
+  if (kennel?.lastRunSeenAt && kennel.lastRunSeenAt > confirmed) return null;
+  return isKennelInactive(confirmed, now.getTime()) ? null : confirmed;
 }
 
 /** Apply confidence scoring to each projection using kennel activity + rule-specific context. */

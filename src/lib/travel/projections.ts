@@ -58,6 +58,18 @@ export interface KennelContext {
   lastEvidenceAt: Date | null;
 }
 
+/** Days without evidence after which a kennel reads as inactive. */
+const INACTIVITY_DAYS = 90;
+
+/**
+ * The inactivity rule: evidence older than 90 days. Null evidence (never seen)
+ * is no signal, so it is never inactive (Ruling 21). Shared by the projection
+ * downgrade (`scoreConfidence`) and Travel's generated-run rows.
+ */
+export function isKennelInactive(lastEvidenceAt: Date | null, now: number): boolean {
+  return lastEvidenceAt !== null && now - lastEvidenceAt.getTime() > INACTIVITY_DAYS * 24 * 60 * 60 * 1000;
+}
+
 /** The later of a kennel's last real run seen and its last admin confirmation. */
 export function latestEvidenceAt(k: {
   lastRunSeenAt: Date | null;
@@ -317,7 +329,6 @@ export function scoreConfidence(
   // LOW is terminal — never upgrade possible-activity rules
   if (baseConfidence === "low") return "low";
 
-  const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
   const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
   const ONE_EIGHTY_DAYS_MS = 180 * 24 * 60 * 60 * 1000;
 
@@ -341,7 +352,7 @@ export function scoreConfidence(
   }
 
   // Degrade if kennel appears inactive
-  if (kennel.lastEvidenceAt && now - kennel.lastEvidenceAt.getTime() > NINETY_DAYS_MS) {
+  if (isKennelInactive(kennel.lastEvidenceAt, now)) {
     if (score === "high") score = "medium";
   }
 

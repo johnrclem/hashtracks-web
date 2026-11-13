@@ -491,6 +491,164 @@ describe("executeTravelSearch", () => {
     }
   });
 
+  describe("schedule-only runs no projection covers (Ruling 20)", () => {
+    const generatedApr18: MockEvent = {
+      ...testEvent,
+      id: "e-gen-apr18",
+      isScheduleOnly: true,
+      title: null,
+      runNumber: null,
+      haresText: null,
+      startTime: "14:00",
+    };
+
+    it("a no-rule kennel's schedule-only run appears under Likely", async () => {
+      const prisma = createMockPrisma([testKennel], [generatedApr18], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.confirmed).toHaveLength(0);
+      expect(result.likely).toHaveLength(1);
+      expect(result.likely[0]).toMatchObject({
+        kennelId: "k-atl",
+        kennelName: "Atlanta H3",
+        confidence: "medium",
+        explanation: "From their usual schedule",
+        startTime: "14:00",
+        distanceTier: "nearby",
+      });
+      expect(result.likely[0].date.toISOString()).toBe("2026-04-18T12:00:00.000Z");
+      expect(result.likely[0].evidenceTimeline.weeks).toHaveLength(12);
+      expect(result.likely[0].sourceLinks.map((l) => l.type)).toContain("website");
+      expect(result.possible).toHaveLength(0);
+      expect(result.emptyState).toBe("no_confirmed");
+    });
+
+    it("a no-rule kennel with no evidence at all keeps the run under Likely", async () => {
+      const neverSeen: MockKennel = { ...testKennel, lastRunSeenAt: null, lastConfirmedAt: null };
+      const prisma = createMockPrisma([neverSeen], [generatedApr18], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely.map((r) => r.explanation)).toEqual(["From their usual schedule"]);
+      expect(result.possible).toHaveLength(0);
+    });
+
+    it("with evidence older than 90 days the run appears under Possible instead", async () => {
+      const stale: MockKennel = { ...testKennel, lastRunSeenAt: utcNoon("2025-12-01") };
+      const prisma = createMockPrisma([stale], [generatedApr18], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely).toHaveLength(0);
+      expect(result.possible).toHaveLength(1);
+      expect(result.possible[0]).toMatchObject({
+        kennelId: "k-atl",
+        confidence: "low",
+        explanation: "From their usual schedule",
+      });
+      expect(result.possible[0].date?.toISOString()).toBe("2026-04-18T12:00:00.000Z");
+      // "Last posted" falls back to the kennel's last real run, as projected Possible rows do.
+      expect(result.possible[0].lastConfirmedAt?.getTime()).toBe(utcNoon("2025-12-01").getTime());
+    });
+
+    it("a kennel whose rule covers that date gets no duplicate row", async () => {
+      // Twelve Saturday runs keep the weekly rule Likely (see the next test).
+      const evidence: MockEvent[] = Array.from({ length: 12 }, (_, i) => ({
+        ...testEvent,
+        id: `e-ev-${i}`,
+        date: new Date(utcNoon("2026-01-24").getTime() + i * 7 * 86_400_000),
+      }));
+      const prisma = createMockPrisma([testKennel], [...evidence, generatedApr18], [testRule]);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      const apr18 = result.likely.filter((r) => r.date.toISOString().startsWith("2026-04-18"));
+      expect(apr18).toHaveLength(1);
+      expect(apr18[0].explanation).not.toBe("From their usual schedule");
+    });
+
+    it("a schedule-only run on the date of a real posted run adds nothing", async () => {
+      const prisma = createMockPrisma([testKennel], [testEvent, generatedApr18], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.confirmed.map((r) => r.eventId)).toEqual(["e1"]);
+      expect(result.likely).toHaveLength(0);
+    });
+
+    it("respects the confidence filter like projected rows", async () => {
+      const prisma = createMockPrisma([testKennel], [generatedApr18], []);
+      const result = await executeTravelSearch(prisma, {
+        ...baseParams,
+        filters: { confidence: ["high"] },
+      });
+      expect(result.likely).toHaveLength(0);
+    });
+
+    it("pivots a co-hosted generated run onto the nearby co-host", async () => {
+      const londonKennel: MockKennel = {
+        ...testKennel,
+        id: "k-london",
+        slug: "london-h3",
+        shortName: "London H3",
+        latitude: 51.5,
+        longitude: -0.13,
+      };
+      const coHosted: MockEvent = { ...generatedApr18, kennelId: "k-london", coHostKennelIds: ["k-atl"] };
+      const prisma = createMockPrisma([testKennel, londonKennel], [coHosted], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely.map((r) => r.kennelId)).toEqual(["k-atl"]);
+    });
+  });
+
+  describe("Likely evidence for kennels with no evidence events (Ruling 21)", () => {
+    const highRule: MockScheduleRule = { ...testRule, id: "r-high", confidence: "HIGH" };
+
+    it("a HIGH rule for a kennel never seen running stays Likely, with no confirmation date", async () => {
+      const neverSeen: MockKennel = { ...testKennel, lastRunSeenAt: null, lastConfirmedAt: null };
+      const prisma = createMockPrisma([neverSeen], [], [highRule]);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely.length).toBeGreaterThan(0);
+      for (const row of result.likely) {
+        expect(row.confidence).toBe("high");
+        expect(row.evidenceTimeline.totalEvents).toBe(0);
+        expect(row.checkedRunningAt).toBeNull();
+      }
+    });
+
+    it("a HIGH rule for a kennel last seen more than 90 days ago drops to Possible", async () => {
+      const stale: MockKennel = { ...testKennel, lastRunSeenAt: utcNoon("2025-12-01"), lastConfirmedAt: null };
+      const prisma = createMockPrisma([stale], [], [highRule]);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely).toHaveLength(0);
+      expect(result.possible.map((r) => r.kennelId)).toEqual(["k-atl"]);
+    });
+
+    it("a recent confirmation with no run seen keeps a HIGH rule Likely and dates the card", async () => {
+      const checked: MockKennel = { ...testKennel, lastRunSeenAt: null, lastConfirmedAt: utcNoon("2026-04-01") };
+      const prisma = createMockPrisma([checked], [], [highRule]);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely.length).toBeGreaterThan(0);
+      for (const row of result.likely) {
+        expect(row.confidence).toBe("high");
+        expect(row.checkedRunningAt?.getTime()).toBe(utcNoon("2026-04-01").getTime());
+      }
+    });
+
+    it("a confirmation older than the last run seen doesn't date the card", async () => {
+      const ranSince: MockKennel = {
+        ...testKennel,
+        lastRunSeenAt: utcNoon("2026-04-05"),
+        lastConfirmedAt: utcNoon("2026-03-01"),
+      };
+      const prisma = createMockPrisma([ranSince], [], [highRule]);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely.length).toBeGreaterThan(0);
+      expect(result.likely.every((r) => r.checkedRunningAt === null)).toBe(true);
+    });
+  });
+
   it("returns likely projections from schedule rules", async () => {
     // Post-scoreConfidence-gate: Medium requires ≥1 evidence event in the
     // 12-week window, and the rule-agreement gate demotes a weekly rule whose

@@ -10,6 +10,7 @@ import {
   startOfUtcDay,
   cityToIata,
   formatLegDateRange,
+  likelyEvidenceCaption,
 } from "./format";
 
 describe("formatDateCompact", () => {
@@ -235,5 +236,27 @@ describe("formatLegDateRange", () => {
 
   it("renders a same-day leg as 'Apr 20–20'", () => {
     expect(formatLegDateRange("2026-04-20", "2026-04-20")).toBe("Apr 20–20");
+  });
+});
+
+describe("likelyEvidenceCaption", () => {
+  const NOW = new Date("2026-04-14T12:00:00Z");
+  const timeline = (totalEvents: number) => ({ weeks: new Array(12).fill(false), totalEvents });
+
+  it("counts runs when the timeline has any", () => {
+    expect(likelyEvidenceCaption({ evidenceTimeline: timeline(1), checkedRunningAt: null }, NOW))
+      .toBe("1 run in the last 12 weeks");
+    expect(likelyEvidenceCaption({ evidenceTimeline: timeline(3), checkedRunningAt: "2026-04-01T12:00:00.000Z" }, NOW))
+      .toBe("3 runs in the last 12 weeks");
+  });
+
+  it("says 'From their usual schedule' instead of '0 runs'", () => {
+    expect(likelyEvidenceCaption({ evidenceTimeline: timeline(0), checkedRunningAt: null }, NOW))
+      .toBe("From their usual schedule");
+  });
+
+  it("dates a recent admin confirmation when there are no runs", () => {
+    expect(likelyEvidenceCaption({ evidenceTimeline: timeline(0), checkedRunningAt: "2026-04-01T12:00:00.000Z" }, NOW))
+      .toBe("Checked running · Apr 1");
   });
 });

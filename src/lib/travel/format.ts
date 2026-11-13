@@ -2,6 +2,8 @@
  * Shared formatting helpers for Travel Mode components.
  */
 
+import { formatStatusLine } from "@/lib/kennel-status";
+
 /**
  * Format a YYYY-MM-DD string as "Apr 14" by default, or "Mon, Apr 14" with
  * `withWeekday: true`. UTC tz keeps the DOW consistent with the UTC-noon
@@ -309,4 +311,22 @@ export function cityToIata(label: string): string {
   const consonants = letters.replace(/[aeiou]/g, "");
   const candidate = (consonants + letters).toUpperCase();
   return candidate.slice(0, 3).padEnd(3, "X");
+}
+
+/**
+ * Caption under a Likely card's 12-week evidence dots. With no runs in the
+ * window, "0 runs in the last 12 weeks" next to a confidence badge reads as a
+ * contradiction, so say where the date comes from instead: a recent admin
+ * confirmation ("Checked running · Apr 1"), else the usual schedule.
+ */
+export function likelyEvidenceCaption(
+  result: { evidenceTimeline: { totalEvents: number }; checkedRunningAt: string | null },
+  now: Date = new Date(),
+): string {
+  const n = result.evidenceTimeline.totalEvents;
+  if (n > 0) return `${n} run${n === 1 ? "" : "s"} in the last 12 weeks`;
+  if (result.checkedRunningAt) {
+    return formatStatusLine({ kind: "checked", date: new Date(result.checkedRunningAt) }, now);
+  }
+  return "From their usual schedule";
 }

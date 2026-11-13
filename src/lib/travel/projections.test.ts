@@ -12,6 +12,8 @@ import {
   measureRuleAgreement,
   buildRuleAgreementMap,
   selectBestProjections,
+  isKennelInactive,
+  latestEvidenceAt,
   type ScheduleRuleInput,
   type ConfirmedEventRef,
 } from "./projections";
@@ -882,5 +884,26 @@ describe("projectTrails — seasonal gating (#1390)", () => {
       utcNoon("2026-07-31"),
     );
     expect(projections.length).toBeGreaterThan(0);
+  });
+});
+
+describe("isKennelInactive / latestEvidenceAt", () => {
+  const NOW = Date.UTC(2026, 3, 14, 12);
+  const daysAgo = (n: number) => new Date(NOW - n * 86_400_000);
+
+  it("never-seen (null) evidence is no signal, so never inactive", () => {
+    expect(isKennelInactive(null, NOW)).toBe(false);
+  });
+
+  it("is inactive only past 90 days", () => {
+    expect(isKennelInactive(daysAgo(90), NOW)).toBe(false);
+    expect(isKennelInactive(daysAgo(91), NOW)).toBe(true);
+  });
+
+  it("latestEvidenceAt takes the later of the run seen and the confirmation", () => {
+    expect(latestEvidenceAt({ lastRunSeenAt: daysAgo(10), lastConfirmedAt: daysAgo(3) })).toEqual(daysAgo(3));
+    expect(latestEvidenceAt({ lastRunSeenAt: daysAgo(3), lastConfirmedAt: daysAgo(10) })).toEqual(daysAgo(3));
+    expect(latestEvidenceAt({ lastRunSeenAt: null, lastConfirmedAt: daysAgo(10) })).toEqual(daysAgo(10));
+    expect(latestEvidenceAt({ lastRunSeenAt: null, lastConfirmedAt: null })).toBeNull();
   });
 });
