@@ -122,7 +122,7 @@ A handoff older than **30 days** must have its source re-verified live before yo
 
 ### Adapter tier
 
-**Adapter tier: OFF.** The owner switches it ON by merging a PR that changes the word OFF on this line
+**Adapter tier: ON.** The owner switches it ON by merging a PR that changes the word OFF on this line
 to ON. That happens only after the first supervised new-adapter onboards (High Wycombe and Hellgate,
 November 2026) have merged; use them as reference implementations.
 
