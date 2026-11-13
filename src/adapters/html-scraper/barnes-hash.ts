@@ -25,15 +25,20 @@ const KENNEL_TAG = "barnesh3";
 const DEFAULT_URL = "https://barnesh3.com/hareline/";
 const DEFAULT_START_TIME = "19:30";
 const USER_AGENT = "Mozilla/5.0 (compatible; HashTracks-Scraper)";
-const RUNS_CSV_RE = /\brunsCsvUrl:\s*"([^"]*)"/;
-const VENUES_CSV_RE = /\bvenuesCsvUrl:\s*"([^"]*)"/;
+const RUNS_CSV_RE = /\brunsCsvUrl:\s*"([^"]*)"/g;
+const VENUES_CSV_RE = /\bvenuesCsvUrl:\s*"([^"]*)"/g;
 const TIME_RE = /^(\d{1,2})[:.](\d{2})$/;
 const HARE_SEPARATOR_RE = /\s+(?:&|and)\s+/gi;
 
+/** The last assignment of a key wins, as with config.js's own `Object.assign` overrides. */
+function lastHttpsValue(configJs: string, re: RegExp): string | undefined {
+  const value = [...configJs.matchAll(re)].at(-1)?.[1];
+  return value?.startsWith("https://") ? value : undefined;
+}
+
 /** The published-sheet CSV links in the site's config.js. Exported for tests. */
 export function findSheetUrls(configJs: string): { runsCsvUrl?: string; venuesCsvUrl?: string } {
-  const https = (m: RegExpExecArray | null) => (m?.[1].startsWith("https://") ? m[1] : undefined);
-  return { runsCsvUrl: https(RUNS_CSV_RE.exec(configJs)), venuesCsvUrl: https(VENUES_CSV_RE.exec(configJs)) };
+  return { runsCsvUrl: lastHttpsValue(configJs, RUNS_CSV_RE), venuesCsvUrl: lastHttpsValue(configJs, VENUES_CSV_RE) };
 }
 
 function clean(value: string | undefined): string | undefined {
@@ -87,7 +92,10 @@ export function parseBarnesRuns(
 
     const runDigits = rec.get("run")?.trim();
     const runNumber = runDigits && /^\d+$/.test(runDigits) ? Number.parseInt(runDigits, 10) : undefined;
-    const location = clean(rec.get("venue"));
+    const venueRaw = rec.get("venue")?.trim();
+    const location = clean(venueRaw);
+    // A "TBA" venue is an explicit clear, so a pub that fell through doesn't linger.
+    const venueCleared = !location && Boolean(venueRaw);
     const locationStreet = location ? venues.get(venueKey(location)) : undefined;
     const time = TIME_RE.exec(rec.get("start")?.trim() ?? "");
 
@@ -98,8 +106,8 @@ export function parseBarnesRuns(
       // Kept from the old HareLine.htm adapter so titles don't drift.
       title: runNumber ? `Barnes Hash Run #${runNumber}` : undefined,
       hares: parseHares(rec.get("hares")),
-      location,
-      locationStreet,
+      location: venueCleared ? null : location,
+      locationStreet: venueCleared ? null : locationStreet,
       locationUrl: locationStreet ? googleMapsSearchUrl(`${location}, ${locationStreet}`) : undefined,
       startTime: time ? `${time[1].padStart(2, "0")}:${time[2]}` : DEFAULT_START_TIME,
       description: clean(rec.get("notes")),
@@ -129,19 +137,20 @@ export class BarnesHashAdapter implements SourceAdapter {
     let csvUrls: ReturnType<typeof findSheetUrls>;
     try {
       csvUrls = findSheetUrls(await fetchText(new URL("/config.js", pageUrl).href));
-      if (!csvUrls.runsCsvUrl) throw new Error("runsCsvUrl not found in config.js (site drift?)");
-      runsCsv = await fetchText(csvUrls.runsCsvUrl);
+      const { runsCsvUrl, venuesCsvUrl } = csvUrls;
+      if (!runsCsvUrl) throw new Error("runsCsvUrl not found in config.js (site drift?)");
+      const runsFetch = fetchText(runsCsvUrl);
+      // Venues only add the street address; a failure there isn't worth failing the scrape.
+      const venuesFetch = venuesCsvUrl
+        ? fetchText(venuesCsvUrl).catch((err: unknown) => {
+            venuesError = err instanceof Error ? err.message : String(err);
+            return "";
+          })
+        : Promise.resolve("");
+      [runsCsv, venuesCsv] = await Promise.all([runsFetch, venuesFetch]);
     } catch (err) {
       const message = `Barnes H3: ${err instanceof Error ? err.message : String(err)}`;
       return { events: [], errors: [message], errorDetails: { fetch: [{ url: pageUrl, message }] } };
-    }
-    // Venues only add the street address; a failure there isn't worth failing the scrape.
-    if (csvUrls.venuesCsvUrl) {
-      try {
-        venuesCsv = await fetchText(csvUrls.venuesCsvUrl);
-      } catch (err) {
-        venuesError = err instanceof Error ? err.message : String(err);
-      }
     }
 
     const events = parseBarnesRuns(runsCsv, parseBarnesVenues(venuesCsv), pageUrl);

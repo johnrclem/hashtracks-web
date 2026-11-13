@@ -11,12 +11,12 @@
 -- DATA-ONLY. Vercel runs `prisma migrate deploy`, never `db seed`, so the live
 -- row is converged here; prisma/seed-data carries the same value.
 --
--- Idempotent: guarded on the old URL, so a re-run or a later admin edit is a
--- no-op.
+-- Idempotent: guarded on the old HareLine.htm URL (any scheme, host or case),
+-- so a re-run or a later admin edit is a no-op.
 
 UPDATE "Source"
 SET url = 'https://barnesh3.com/hareline/',
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE name = 'Barnes Hash Hare Line'
   AND type::text = 'HTML_SCRAPER'
-  AND url IN ('https://www.barnesh3.com/HareLine.htm', 'http://www.barnesh3.com/HareLine.htm');
+  AND url ILIKE '%barnesh3.com/hareline.htm%';

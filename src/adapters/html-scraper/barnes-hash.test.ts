@@ -39,6 +39,11 @@ describe("findSheetUrls", () => {
     expect(findSheetUrls(CONFIG_JS)).toEqual({ runsCsvUrl: RUNS_URL, venuesCsvUrl: VENUES_URL });
   });
 
+  it("lets a later Object.assign override win, like the site's own config", () => {
+    const overridden = `${CONFIG_JS}\nObject.assign(window.HARELINE_CONFIG, { runsCsvUrl: "https://docs.google.com/new.csv" });`;
+    expect(findSheetUrls(overridden).runsCsvUrl).toBe("https://docs.google.com/new.csv");
+  });
+
   it("ignores blank or non-https links", () => {
     expect(findSheetUrls(`runsCsvUrl: "", venuesCsvUrl: "/data/venues.csv"`)).toEqual({
       runsCsvUrl: undefined,
@@ -86,8 +91,10 @@ describe("parseBarnesRuns", () => {
     expect(byRun(2147)).toMatchObject({ hares: "Le Pro, Specky", startTime: "19:00", locationStreet: "Portsmouth Rd, Guildford, GU2 4EB" });
   });
 
-  it("drops a TBA venue, clears a 'Hare Wanted' hare, and leaves a blank hare unknown", () => {
-    expect(byRun(2150)?.location).toBeUndefined();
+  it("clears a TBA venue and a 'Hare Wanted' hare, and leaves blank cells unknown", () => {
+    expect(byRun(2150)?.location).toBeNull();
+    expect(byRun(2150)?.locationStreet).toBeNull();
+    expect(byRun(2151)?.location).toBeUndefined();
     expect(byRun(2150)?.description).toBe("Christmas lights run!");
     expect(byRun(2151)?.hares).toBeNull();
     expect(byRun(2152)?.hares).toBeUndefined();
