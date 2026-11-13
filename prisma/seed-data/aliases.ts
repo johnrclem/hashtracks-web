@@ -758,6 +758,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // ===== GRENADA ===== (bare "GH3" OMITTED — Glasgow H3)
     "gh3-gd": ["Grenada H3", "Grenada Hash", "Grenada HHH", "Grenada Hash House Harriers"],
     "beerh3": ["BEER H3", "BEERH3", "Belgrade EER H3", "Belgrade Eastern European Revival H3", "Belgrade Hash", "Beograd Hash"],
+    // ===== CROATIA ===== ("Zagreb H3" is Half-Mind #980's listing name)
+    "zh4": ["Zagreb H4", "ZH4", "ZGH4", "Zagreb H3", "Zagreb Hash", "Zagreb Hash House Harriers", "Zagreb Hash House Harriers and Harriettes"],
     // ===== HC BATCH-11 =====
     // bare "PH3"/"PHHH" OMITTED — taken by ph3-my/pattaya-h3 and princeton-h3/ph3-my/phuket-tinmen respectively.
     "ph3-cz": ["Prague H3", "Prague Hash", "Prague HHH", "Praha H3", "PH3-CZ", "Prague Hash House Harriers"],

@@ -6867,6 +6867,36 @@ export const KENNELS: KennelSeed[] = [
       latitude: 44.8125,
       longitude: 20.4612,
     },
+    // ===== CROATIA ===== (first 🇭🇷 kennel)
+    {
+      kennelCode: "zh4", // clear; "zh3" is Zürich
+      shortName: "Zagreb H4", // not "ZH4": ≤4 chars → friendlyKennelName would fall back to fullName
+      fullName: "Zagreb Hash House Harriers & Harriettes",
+      region: "Zagreb",
+      country: "Croatia",
+      website: "https://www.zagrebhash.com/",
+      facebookUrl: "https://www.facebook.com/groups/1057978007592892/",
+      logoUrl: "/kennel-logos/zh4.png", // self-hosted from genealogy.gotothehash.net/logos/79.png; magic bytes PNG
+      foundedYear: 1975, // first run 2 Jan 1975 (genealogy, Half-Mind #980, site tagline agree)
+      founder: "Paul Redmond",
+      signatureEvent: "Anniversary run every 2 January (Šumski prečac, top of Pantovčak)",
+      // Flat fields are the fallback; scheduleRules is authoritative.
+      scheduleDayOfWeek: "Saturday",
+      scheduleTime: "11:00 AM",
+      scheduleFrequency: "Biweekly",
+      scheduleNotes: "Fortnightly Saturday 11:00 from autumn to spring; Monday 18:00 evenings in summer; anniversary run every 2 January. Start point per run on the ZH4 run-schedule sheet.",
+      scheduleRules: [
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=SA", startTime: "11:00", label: "Autumn–spring Saturdays", anchorDate: "2026-11-14", validFrom: "09-15", validUntil: "04-30", displayOrder: 0 },
+        { rrule: "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO", confidence: "MEDIUM", startTime: "18:00", label: "Summer Monday evenings", anchorDate: "2026-06-01", validFrom: "05-01", validUntil: "09-14", displayOrder: 1 },
+      ],
+      // hashCash / gm / hareRaiser left blank: unverifiable or stale (2019 election post).
+      description:
+        "Zagreb's hash, founded on 2 January 1975 by Paul Redmond of the Washington DC H3, and one of the oldest kennels in Europe. " +
+        "Trails run fortnightly on Saturday mornings from autumn to spring and on Monday evenings in summer, mostly in the Medvednica hills above the city, " +
+        "with an anniversary run every 2 January from the top of Pantovčak.",
+      latitude: 45.81,
+      longitude: 15.98,
+    },
     // ===== HC BATCH-11 ===== (4 config-only Harrier Central kennels)
     {
       // bare "PH3" taken by ph3-my (Petaling) / pattaya-h3 → country-suffixed, matching HC's own slug PH3-CZ
