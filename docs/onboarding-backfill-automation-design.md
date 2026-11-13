@@ -249,7 +249,7 @@ Each archive `scripts/data/<code>-history.json` gets a sibling
 | `sameDateGroups` | Every (kennel, date) with more than one row, with run numbers |
 | `runNumberExceptions` | Rows that break the strict run-number order (capped) |
 | `scheduleOnlyEstimate` | Informational, not part of `approvalHash`: about how many rows the kennel status rules will count as a usual schedule rather than a run, namely rows with a `recurringSeriesId`, no run number and no hares. CI computes it from the raw rows for the owner to read. The authoritative set is computed at plan from the rows as the merge will store them (9.2) |
-| `expectedGaps` | Declared by the curator: date ranges with no runs and a reason (seasonal break, pause), excluded from G20's gap rule. Each contains no archive row and is at most 120 days. All lie inside the archive's span, except at most one **trailing** gap, which starts after the archive's last row (a seasonal break between the archive and the live feed's first run) |
+| `expectedGaps` | Declared by the curator: date ranges with no runs and a reason (seasonal break, pause), excluded from G20's gap rule. Each contains no archive row and is at most 120 days. All lie inside the archive's span, except at most one **trailing** gap, which starts after the archive's last row (a seasonal break between the archive and the live feed's first run). A trailing gap must recur in the archive's own history: in at least one earlier year, the archive has a stretch with no runs that is at least 80% as long as the declared gap and overlaps the same calendar dates. Otherwise the backfill is supervised |
 | `curatedCorrections` | Declared by the curator: rows whose date or run number was changed from the source, excluded from G20's 95% count. At most 20 rows or 2% of rows, whichever is larger (Zagreb has about 12) |
 | `piiScan` | Scanner version and residual count (must be 0) |
 | `approvalHash` | SHA-256 over the canonical JSON of every field above except the sample titles, which depend on display names, and `scheduleOnlyEstimate`, which depends on placeholder rules that change between CI and plan |
@@ -264,7 +264,7 @@ shows.
 - The manifest recomputed from the archive equals the committed one in every `approvalHash` field
   that can be derived from the archive. The two declared fields, `expectedGaps` and
   `curatedCorrections`, can't be recomputed; CI checks their shape and caps instead (every row index
-  exists, every gap contains no row, and every gap except one trailing gap lies inside the archive's span) and includes them in the hash.
+  exists, every gap contains no row, every gap except one trailing gap lies inside the archive's span, and a trailing gap recurs in an earlier year of the archive). The summary shows how many median run intervals each gap removes from G20's gap rule and includes them in the hash.
 - Every row has a `YYYY-MM-DD` date before `frozenAt` in `kennelTimezone`, and one kennel tag in
   `expectedKennelCodes`.
 - PII residual is 0 (8.2).
@@ -350,7 +350,10 @@ to a live feed that doesn't have it. So:
   shows declared gaps in its summary, so the owner's label covers them. A trailing gap, between the
   archive's last row and `C`, is checked at plan against the split point: it must end on or before
   `C`, otherwise the run is `BLOCKED`. Because `C` is the origin's earliest past event, no live run can
-  then fall inside it. An "upcoming runs only" feed
+  then fall inside it. A trailing gap needs more care than an internal one. With the archive ending
+  before `C`, the 95% check below has no rows to count, so the gap rule is G20's only check. A gap
+  labelled "seasonal" without evidence could hide a stale archive. So CI accepts a trailing gap only
+  if the archive's own history shows the same break in an earlier year (6.1). An "upcoming runs only" feed
   starts at the first run it listed, so an archive frozen long before the merge fails this and must be
   re-frozen (and re-labelled).
 - **The live feed really has its stretch.** For the numbered archive rows dated from `C` to
@@ -482,8 +485,8 @@ reasons about existing events give counts only; the dates are shown only in the 
 - **The implementer**, in Phase A after the first prod scrape: `plan`; `advance` until done (at most
   40 calls that write rows; the cutoff call and calls that return while waiting for running scrapes
   don't count, and it waits at most 15 minutes for those); `verify`; the public-page check; one PR
-  comment. If the run is still `APPLYING` when it stops, the daily cron resumes it, and the PR comment
-  says the apply continues there.
+  comment. If the run is still `APPLYING` when it stops, the `backfill-watch` cron resumes it, and the PR
+  comment says the apply continues there.
 - **The daily `backfill-watch` cron** (Vercel cron, `CRON_SECRET`): resumes runs whose lease expired,
   retries `WAITING` runs, plans approved manifests from the last 30 days that have no run, re-verifies
   runs from the last 7 days, and raises the liveness errors in 11.3. In Phase 2 it never starts a
@@ -524,7 +527,7 @@ A guard either passes or stops the run; none warns and continues. Terminal failu
 | G18 | **One live feed:** in prod, the kennel is linked to exactly one enabled source, the origin, plus the archive source | plan, every batch | terminal |
 | G19 | **One archive per kennel:** no earlier run for this kennel has written anything (status `APPLYING` or later, unless it was fully `UNDONE`), and the kennel has no cutoff yet | plan | terminal |
 | G20 | **The stretches join:** `C` is in the past; no gap between the archive's last row and `C` beyond 1.5 median run intervals; the live feed shows at least 95% of the archive rows dated from `C` to `frozenAt` (6.5) | plan, before the first batch | terminal (`WAITING` while the origin backs no past event) |
-| G21 | **Calendar series marker:** for a `GOOGLE_CALENDAR` origin, every row in the archive file has the `recurringSeriesId` key, as the series id or an explicit `null`. If a capture or a hand edit dropped the field, a repeating calendar entry would be stored as a run, and the nightly status refresh could never correct it. This key check reads the file as committed: in CI, and at plan step 1, before step 4 removes the `null`s. The plan also checks the overlap at step 6. Each archive row from `C` to `frozenAt` is compared with the origin's current RawEvent for the same `sourceUrl`, using the same newest-copy rule as `CURRENT_RAW_SQL`. A RawEvent stored before the adapter began emitting the marker (#2923) is skipped, because RawEvents are immutable and events that haven't been re-scraped since keep a copy without it. "Before" is a fixed constant, set once in Phase 0 from the data: the earliest `scrapedAt` of any calendar RawEvent carrying `recurringSeriesId`, plus one hour. That margin covers old function instances still finishing during the rollout. Content can't decide it, since an absent key means both "one-off event" and "stored before #2923". A cut-off set too early brings back the false block; one set too late only skips a few more rows. Every compared row must carry the same marker. The run records how many rows were compared and how many skipped; a skip is not a failure | CI and plan step 1 (key present), plan step 6 (overlap agrees) | terminal |
+| G21 | **Calendar series marker:** for a `GOOGLE_CALENDAR` origin, every row in the archive file has the `recurringSeriesId` key, as the series id or an explicit `null`. If a capture or a hand edit dropped the field, a repeating calendar entry would be stored as a run, and the nightly status refresh could never correct it. This key check reads the file as committed: in CI, and at plan step 1, before step 4 removes the `null`s. The plan also checks the overlap at step 6. Each archive row from `C` to `frozenAt` is compared with the origin's current RawEvent for the same `sourceUrl` linked to the kennel's event on the row's date, using the same newest-copy rule as `CURRENT_RAW_SQL`. If several current copies match, all must agree; copies with no `eventId` are ignored. A RawEvent stored before the adapter began emitting the marker (#2923) is skipped, because RawEvents are immutable and events that haven't been re-scraped since keep a copy without it. "Before" is a fixed constant, set once in Phase 0 from the data: the earliest `scrapedAt` of any calendar RawEvent carrying `recurringSeriesId`, plus one hour. That margin covers old function instances still finishing during the rollout. Content can't decide it, since an absent key means both "one-off event" and "stored before #2923". A cut-off set too early brings back the false block; one set too late only skips a few more rows. Every compared row must carry the same marker. The run records how many rows were compared and how many skipped; a skip is not a failure | CI and plan step 1 (key present), plan step 6 (overlap agrees) | terminal |
 
 A `HALTED` run stops where it is. Nothing is rolled back automatically, because an automatic delete
 would be a prod write without the owner's OK. Every row already written is complete (9.1), so a halted
@@ -1177,7 +1180,14 @@ were applied:
 | Claude 1 | The Zagreb apply (2026-11-13) and its check (2026-11-12) were dated in different time zones | Both happened the evening #2904 merged; the text now gives US Eastern and UTC (9.4) |
 | Claude 2 | `CURRENT_RAW_SQL` is module-private, so G21 might be built on a second copy of the rule | Phase 0 exports it with no behaviour change (12.1) |
 | Claude 3 | G15 doesn't list `src/pipeline/kennel-evidence.ts` or `src/lib/event-filters.ts`, though G14, V1 and V2 depend on them | Both added to G15 (8.1) |
-| Claude 4 | Unclear whether `advance` calls that make no progress count against the implementer's 40 | Only calls that write rows count. Waiting is capped at 15 minutes, and the cron resumes a run left `APPLYING` (7.3) |
+| Claude 4 | Unclear whether `advance` calls that make no progress count against the implementer's 40 | Only calls that write rows count. Waiting is capped at 15 minutes, and the `backfill-watch` cron resumes a run left `APPLYING` (7.3) |
 | Claude 5 | Setting a cutoff on an adopted kennel closes the automated path through G19 | Stated as intended, and clearing the cutoff reopens it (6.5) |
 | Claude 6 | Music City sits exactly at the 5% unnumbered limit | Already stated: it enters by adoption, not a Phase 2 plan. No change |
 | Codex P2 | `expectedGaps` had to lie inside the archive's span, so a seasonal break between the archive's last row and `C` could never be declared, and G20 blocked | At most one trailing gap may start after the archive's last row. At plan it must end on or before `C`, so no live run can fall inside it (6.1, 6.2, 6.5) |
+
+**Round 10 (confirmation of these changes)** — `NEEDS-CHANGES`: 1 material, 1 minor.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R10-1 | material | A fake trailing gap hides missing runs. With the archive ending before `C`, the 95% check has nothing to count, so the gap rule is G20's only check. A "seasonal break" label with no evidence could cover about 120 days of missing runs, which undoes the "re-freeze if stale" protection | A trailing gap must recur in the archive's own history: at least one earlier year with a run-free stretch at least 80% as long, overlapping the same calendar dates. CI shows how many median intervals each gap removes (6.1, 6.2, 6.5) |
+| R10-2 | minor | G21's "current RawEvent per `sourceUrl`" was underspecified: one URL can back two events, and copies with no `eventId` count as current | Compare against the copy linked to the kennel's event on the row's date; several current copies must all agree; copies with no `eventId` are ignored (G21) |
