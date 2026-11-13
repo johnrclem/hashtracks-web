@@ -675,7 +675,9 @@ export async function scrapeSource(
     // Refresh the cached schedule-only flags and kennel evidence this scrape
     // may have changed. Flags first: evidence reads them. Non-blocking.
     try {
-      await refreshScheduleOnlyFlags({ sourceId, since: startedAt });
+      // A forced scrape deleted this source's older RawEvents, so an event it
+      // didn't return again is outside the since-scope: refresh every flag.
+      await refreshScheduleOnlyFlags(force ? "all" : { sourceId, since: startedAt });
       const links = await prisma.sourceKennel.findMany({
         where: { sourceId },
         select: { kennelId: true },

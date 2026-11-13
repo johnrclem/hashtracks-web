@@ -120,6 +120,13 @@ describe("scrapeSource", () => {
     expect(flagsMock.mock.invocationCallOrder[0]).toBeLessThan(evidenceMock.mock.invocationCallOrder[0]);
   });
 
+  it("a forced scrape refreshes every event's flag, since it deleted RawEvents the since-scope can't see", async () => {
+    mockSourceKennelFind.mockResolvedValue([{ kennelId: "k1" }] as never);
+    await scrapeSource("src_1", { force: true });
+    expect(vi.mocked(refreshScheduleOnlyFlags)).toHaveBeenCalledWith("all");
+    expect(vi.mocked(refreshKennelEvidence)).toHaveBeenCalledWith(["k1"]);
+  });
+
   it("a refresh failure is logged and doesn't fail the scrape", async () => {
     mockSourceKennelFind.mockResolvedValue([{ kennelId: "k1" }] as never);
     vi.mocked(refreshScheduleOnlyFlags).mockRejectedValueOnce(new Error("boom"));
