@@ -2,6 +2,7 @@ import Link from "next/link";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { KennelStatusLine } from "@/components/kennels/KennelStatusLine";
 import { KennelLogo } from "@/components/kennels/KennelLogo";
+import { kennelOwnPageUrl } from "@/lib/safe-url";
 import { nextRunLabel } from "@/lib/kennel-directory";
 import type { SerializedKennelEvidence } from "@/lib/kennel-status";
 import { formatSchedule, formatDateShort, type ScheduleSlot } from "@/lib/format";
@@ -94,8 +95,7 @@ export function KennelCard({ kennel }: KennelCardProps) {
 
         <KennelStatusLine
           evidence={kennel.evidence}
-          website={kennel.website ?? null}
-          facebookUrl={kennel.facebookUrl ?? null}
+          ownPageUrl={kennelOwnPageUrl(kennel.website ?? null, kennel.facebookUrl ?? null)}
           kennelSlug={kennel.slug}
         />
 

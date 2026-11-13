@@ -91,11 +91,8 @@ export function KennelStatusDialog({ kennelId, kennelName, mode, onClose }: Read
               maxLength={500}
               onChange={(e) => setNote(e.target.value)}
               placeholder="e.g. Their Facebook page posted a trail for this Saturday"
-              aria-describedby={`status-note-help-${kennelId}`}
+              aria-describedby={`status-public-notice-${kennelId}`}
             />
-            <p id={`status-note-help-${kennelId}`} className="text-xs text-muted-foreground">
-              {PUBLIC_NOTICE}
-            </p>
           </div>
           <div className="space-y-1">
             <Label htmlFor={`status-url-${kennelId}`}>Link (optional)</Label>
@@ -105,12 +102,12 @@ export function KennelStatusDialog({ kennelId, kennelName, mode, onClose }: Read
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://"
-              aria-describedby={`status-url-help-${kennelId}`}
+              aria-describedby={`status-public-notice-${kennelId}`}
             />
-            <p id={`status-url-help-${kennelId}`} className="text-xs text-muted-foreground">
-              {PUBLIC_NOTICE}
-            </p>
           </div>
+          <p id={`status-public-notice-${kennelId}`} className="text-xs text-muted-foreground">
+            {PUBLIC_NOTICE}
+          </p>
           {error && <p className="text-sm text-destructive">{error}</p>}
         </div>
         <DialogFooter>

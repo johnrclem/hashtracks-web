@@ -11,6 +11,11 @@ export function safeUrl(value: string | null | undefined): string | null {
   return null;
 }
 
+/** The kennel's own page: its website, else Facebook; http(s) only. */
+export function kennelOwnPageUrl(website: string | null, facebookUrl: string | null): string | null {
+  return safeUrl(website) ?? safeUrl(facebookUrl);
+}
+
 const LOGO_PREFIX = "/kennel-logos/";
 const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"];
 

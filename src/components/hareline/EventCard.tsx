@@ -14,6 +14,7 @@ import { formatTime, formatTimeRange, formatDateRange } from "@/lib/format";
 import { AttendanceBadge } from "@/components/logbook/AttendanceBadge";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { RegionBadge } from "./RegionBadge";
+import { ScheduleOnlyTag } from "./ScheduleOnlyTag";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { getRegionColor } from "@/lib/region";
 import { composeUtcStart, formatTimeInZone, formatLocalTimeForDisplay, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
@@ -23,8 +24,6 @@ import { getConditionEmoji, cToF } from "@/lib/weather-display";
 import {
   getDisplayTitle,
   getLocationDisplay,
-  SCHEDULE_ONLY_LABEL,
-  SCHEDULE_ONLY_TITLE,
 } from "@/lib/event-display";
 import { ShiggyLevelFlames, TrailLengthLine, formatTrailLength } from "./TrailDifficulty";
 
@@ -179,15 +178,6 @@ function formatDate(iso: string): string {
  */
 export function computeChipDate(event: { date: string }): string {
   return formatDate(event.date);
-}
-
-/** The chip for runs generated from a usual schedule; null for posted runs. */
-export function scheduleOnlyChip(event: {
-  isScheduleOnly?: boolean;
-}): { label: string; title: string } | null {
-  return event.isScheduleOnly === true
-    ? { label: SCHEDULE_ONLY_LABEL, title: SCHEDULE_ONLY_TITLE }
-    : null;
 }
 
 /**
@@ -527,15 +517,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
           {/* Right cluster */}
           <div className="relative ml-auto flex items-center gap-2 shrink-0">
-            {scheduleOnlyChip(event) && (
-              <Badge
-                variant="outline"
-                className="text-[10px] px-1.5 py-0 text-muted-foreground border-dashed"
-                title={SCHEDULE_ONLY_TITLE}
-              >
-                {SCHEDULE_ONLY_LABEL}
-              </Badge>
-            )}
+            <ScheduleOnlyTag isScheduleOnly={event.isScheduleOnly} />
 
             {/* #1624 — shared-sheet sub-event badge (e.g. "Bayern Nash Hash") */}
             {event.eventLabel && (
@@ -729,15 +711,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
                 </Badge>
               )}
 
-              {scheduleOnlyChip(event) && (
-                <Badge
-                  variant="outline"
-                  className="text-[10px] px-1.5 py-0 text-muted-foreground border-dashed"
-                  title={SCHEDULE_ONLY_TITLE}
-                >
-                  {SCHEDULE_ONLY_LABEL}
-                </Badge>
-              )}
+              <ScheduleOnlyTag isScheduleOnly={event.isScheduleOnly} />
 
               {/* #1624 — shared-sheet sub-event badge (e.g. "Bayern Nash Hash") */}
               {event.eventLabel && (

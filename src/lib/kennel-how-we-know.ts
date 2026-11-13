@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import type { KennelEvidence } from "@/lib/kennel-status";
+import { DAY_MS, toUtcNoon, type KennelEvidence } from "@/lib/kennel-status";
+import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
 
 /**
  * Kennel page "How we know": the newest dated evidence behind a kennel's status
@@ -24,13 +25,8 @@ export interface HowWeKnow {
   items: EvidenceItem[];
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const COVERAGE_WINDOW_DAYS = 180;
 const MAX_ITEMS = 3;
-
-function toUtcNoon(date: Date): number {
-  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0);
-}
 
 /** The event is attached to this kennel, as primary or as a co-host. */
 function forKennel(kennelId: string) {
@@ -40,7 +36,7 @@ function forKennel(kennelId: string) {
 /** Real runs only: canonical, not cancelled, not hand-entered. */
 function realRunEventWhere(kennelId: string) {
   return {
-    isCanonical: true,
+    ...CANONICAL_EVENT_WHERE,
     status: { not: "CANCELLED" as const },
     isManualEntry: false,
     ...forKennel(kennelId),

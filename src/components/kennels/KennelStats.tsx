@@ -9,9 +9,8 @@ interface KennelStatsProps {
   currentRunNumber: number | null;
   totalEvents: number;
   oldestEventDate: string | null;
-  nextRunDate: string | null;
-  /** The next run was generated from the kennel's usual schedule, not posted. */
-  nextRunIsScheduleOnly?: boolean;
+  /** isScheduleOnly: the next run was generated from the usual schedule, not posted. */
+  nextRun: { date: string; isScheduleOnly: boolean } | null;
   lastRunSeenAt: string | null;
   foundedYear?: number | null;
   region?: string;
@@ -102,8 +101,7 @@ export function KennelStats({
   currentRunNumber,
   totalEvents,
   oldestEventDate,
-  nextRunDate,
-  nextRunIsScheduleOnly = false,
+  nextRun,
   lastRunSeenAt,
   foundedYear,
   region,
@@ -150,12 +148,12 @@ export function KennelStats({
     });
   }
 
-  if (nextRunDate) {
+  if (nextRun) {
     stats.push({
       icon: <ArrowRight className="h-5 w-5" />,
-      value: formatNextRun(nextRunDate),
-      label: nextRunIsScheduleOnly ? SCHEDULE_ONLY_LABEL : "Next Run",
-      hint: nextRunIsScheduleOnly ? SCHEDULE_ONLY_TITLE : undefined,
+      value: formatNextRun(nextRun.date),
+      label: nextRun.isScheduleOnly ? SCHEDULE_ONLY_LABEL : "Next Run",
+      hint: nextRun.isScheduleOnly ? SCHEDULE_ONLY_TITLE : undefined,
     });
   } else if (lastRunSeenAt) {
     stats.push({

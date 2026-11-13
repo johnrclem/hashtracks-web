@@ -1,7 +1,8 @@
 "use client";
 
-import { capture } from "@/lib/analytics";
-import { KennelStatusLine, kennelOwnPageUrl } from "@/components/kennels/KennelStatusLine";
+import { KennelStatusLine } from "@/components/kennels/KennelStatusLine";
+import { OwnPageLink } from "@/components/kennels/OwnPageLink";
+import { formatDateMedium } from "@/lib/format";
 import { safeUrl } from "@/lib/safe-url";
 import type { SerializedKennelEvidence } from "@/lib/kennel-status";
 
@@ -21,8 +22,8 @@ interface HowWeKnowProps {
   evidence: SerializedKennelEvidence;
   coverage: SerializedCoverage;
   items: SerializedEvidenceItem[];
-  website: string | null;
-  facebookUrl: string | null;
+  /** The kennel's own page (kennelOwnPageUrl); null = no link. */
+  ownPageUrl: string | null;
   kennelSlug: string;
 }
 
@@ -33,15 +34,6 @@ const KIND_LABEL: Record<SerializedEvidenceItem["kind"], string> = {
   stopped: "Stopped",
 };
 
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(iso));
-}
-
 function formatSources(names: string[]): string {
   return new Intl.ListFormat("en-US", { style: "long", type: "conjunction" }).format(names);
 }
@@ -51,11 +43,9 @@ export function HowWeKnow({
   evidence,
   coverage,
   items,
-  website,
-  facebookUrl,
+  ownPageUrl: ownPage,
   kennelSlug,
 }: Readonly<HowWeKnowProps>) {
-  const ownPage = kennelOwnPageUrl(website, facebookUrl);
   // The coverage sentence carries the link when we don't get their runs; the
   // status line above it then drops its own copy so the link shows once.
   const coverageHasLink = coverage.level === "none" && ownPage !== null;
@@ -65,11 +55,9 @@ export function HowWeKnow({
       <h2 className="text-sm font-semibold">How we know</h2>
       <KennelStatusLine
         evidence={evidence}
-        website={website}
-        facebookUrl={facebookUrl}
+        ownPageUrl={coverageHasLink ? null : ownPage}
         kennelSlug={kennelSlug}
         surface="kennel-page"
-        showOwnPageLink={!coverageHasLink}
       />
       {items.length > 0 && (
         <ul className="mt-2 space-y-1 text-sm">
@@ -77,7 +65,7 @@ export function HowWeKnow({
             const itemUrl = safeUrl(item.url);
             return (
               <li key={`${item.kind}-${item.date}`}>
-                <span className="text-muted-foreground">{formatDate(item.date)}</span>
+                <span className="text-muted-foreground">{formatDateMedium(item.date)}</span>
                 {" · "}
                 {KIND_LABEL[item.kind]}
                 {item.detail && <span className="text-muted-foreground">{` · ${item.detail}`}</span>}
@@ -109,17 +97,9 @@ export function HowWeKnow({
             {ownPage && (
               <>
                 {" "}
-                <a
-                  href={ownPage}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline underline-offset-2 hover:text-foreground"
-                  onClick={() =>
-                    capture("kennel_own_page_clicked", { kennelSlug, surface: "kennel-page" })
-                  }
-                >
+                <OwnPageLink href={ownPage} kennelSlug={kennelSlug} surface="kennel-page">
                   Check their page ↗
-                </a>
+                </OwnPageLink>
               </>
             )}
           </>

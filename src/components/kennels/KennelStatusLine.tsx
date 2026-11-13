@@ -1,7 +1,6 @@
 "use client";
 
-import { capture } from "@/lib/analytics";
-import { safeUrl } from "@/lib/safe-url";
+import { OwnPageLink } from "@/components/kennels/OwnPageLink";
 import {
   formatStatusLine,
   getStatusLine,
@@ -11,18 +10,11 @@ import {
 
 interface KennelStatusLineProps {
   evidence: SerializedKennelEvidence;
-  website: string | null;
-  facebookUrl: string | null;
+  /** The kennel's own page (kennelOwnPageUrl); null hides the "check their page" link. */
+  ownPageUrl: string | null;
   /** Used for the click-out analytics event. */
   kennelSlug: string;
   surface?: "card" | "kennel-page";
-  /** False hides the "check their page" link (e.g. when a nearby sentence already has it). */
-  showOwnPageLink?: boolean;
-}
-
-/** The kennel's own page: its website, else Facebook; http(s) only. */
-export function kennelOwnPageUrl(website: string | null, facebookUrl: string | null): string | null {
-  return safeUrl(website) ?? safeUrl(facebookUrl);
 }
 
 /**
@@ -33,18 +25,15 @@ export function kennelOwnPageUrl(website: string | null, facebookUrl: string | n
  */
 export function KennelStatusLine({
   evidence,
-  website,
-  facebookUrl,
+  ownPageUrl,
   kennelSlug,
   surface = "card",
-  showOwnPageLink = true,
 }: Readonly<KennelStatusLineProps>) {
   const now = new Date();
   const line = getStatusLine(toKennelEvidence(evidence), now);
   if (!line) return null;
 
-  const ownPage =
-    showOwnPageLink && line.kind === "never" ? kennelOwnPageUrl(website, facebookUrl) : null;
+  const ownPage = line.kind === "never" ? ownPageUrl : null;
 
   return (
     <p className="mt-1.5 text-xs text-muted-foreground">
@@ -52,18 +41,9 @@ export function KennelStatusLine({
       {ownPage && (
         <>
           {" · "}
-          <a
-            href={ownPage}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative z-10 underline underline-offset-2 hover:text-foreground"
-            onClick={(e) => {
-              e.stopPropagation();
-              capture("kennel_own_page_clicked", { kennelSlug, surface });
-            }}
-          >
+          <OwnPageLink href={ownPage} kennelSlug={kennelSlug} surface={surface} aboveCardLink>
             check their page ↗
-          </a>
+          </OwnPageLink>
         </>
       )}
     </p>

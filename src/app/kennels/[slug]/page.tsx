@@ -14,6 +14,7 @@ import type { HarelineEvent } from "@/components/hareline/EventCard";
 import { MismanManagementSection } from "@/components/kennels/MismanManagementSection";
 import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
 import { KennelStats } from "@/components/kennels/KennelStats";
+import { kennelOwnPageUrl } from "@/lib/safe-url";
 import { HowWeKnow } from "@/components/kennels/HowWeKnow";
 import { getHowWeKnowOrEmpty } from "@/lib/kennel-how-we-know";
 import { serializeKennelEvidence } from "@/lib/kennel-status";
@@ -309,7 +310,6 @@ export default async function KennelDetailPage({
   const currentRunNumber = recentRunNumbers.length ? Math.max(...recentRunNumbers) : null;
   const oldestEventDate = events.length > 0 ? events[0].date.toISOString() : null;
   const nextRun = upcoming.length > 0 ? upcoming[0] : null;
-  const nextRunDate = nextRun ? nextRun.date : null;
 
   // Trail locations for map (only events with precise coordinates)
   const trailLocations = events
@@ -431,8 +431,7 @@ export default async function KennelDetailPage({
         currentRunNumber={currentRunNumber}
         totalEvents={totalEvents}
         oldestEventDate={oldestEventDate}
-        nextRunDate={nextRunDate}
-        nextRunIsScheduleOnly={nextRun?.isScheduleOnly === true}
+        nextRun={nextRun ? { date: nextRun.date, isScheduleOnly: nextRun.isScheduleOnly === true } : null}
         lastRunSeenAt={kennel.lastRunSeenAt ? kennel.lastRunSeenAt.toISOString() : null}
         foundedYear={kennel.foundedYear}
         region={kennel.region ?? undefined}
@@ -445,8 +444,7 @@ export default async function KennelDetailPage({
           evidence={serializeKennelEvidence(kennel)}
           coverage={howWeKnow.coverage}
           items={howWeKnow.items.map((i) => ({ ...i, date: i.date.toISOString() }))}
-          website={kennel.website}
-          facebookUrl={kennel.facebookUrl}
+          ownPageUrl={kennelOwnPageUrl(kennel.website, kennel.facebookUrl)}
           kennelSlug={kennel.slug}
         />
       </FadeInSection>

@@ -8,6 +8,7 @@
  */
 import type { Prisma } from "@/generated/prisma/client";
 import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
+import { SCHEDULE_ONLY_LABEL } from "@/lib/event-display";
 import {
   serializeKennelEvidence,
   type KennelEvidence,
@@ -38,7 +39,7 @@ export function upcomingConfirmedEventWhere(todayUtcNoon: Date) {
 
 /** Footer label for a directory card's next run. */
 export function nextRunLabel(next: { isScheduleOnly: boolean }): string {
-  return next.isScheduleOnly ? "Usual schedule: " : "Next run: ";
+  return next.isScheduleOnly ? `${SCHEDULE_ONLY_LABEL}: ` : "Next run: ";
 }
 
 /** Minimal shape this helper needs from a Prisma upcoming-event row. */

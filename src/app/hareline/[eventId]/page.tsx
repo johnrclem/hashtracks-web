@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { getOrCreateUser, getAdminUser, getMismanUserForEvent } from "@/lib/auth";
 import { getStravaConnection } from "@/app/strava/actions";
 import { Badge } from "@/components/ui/badge";
+import { ScheduleOnlyTag } from "@/components/hareline/ScheduleOnlyTag";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -30,7 +31,7 @@ import { RestoreEventButton } from "@/components/admin/RestoreEventButton";
 import { stripMarkdown, stripUrlsFromText, formatRelativeTime, formatDateRange } from "@/lib/format";
 import { SeriesChildTimeline } from "@/components/hareline/SeriesChildTimeline";
 import type { HarelineSeriesChild } from "@/components/hareline/EventCard";
-import { getFullLocationDisplay, SCHEDULE_ONLY_LABEL, SCHEDULE_ONLY_TITLE } from "@/lib/event-display";
+import { getFullLocationDisplay, SCHEDULE_ONLY_TITLE } from "@/lib/event-display";
 import { buildEventJsonLd, buildBreadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 // #1560 PR E.6 — `childEvents` rendered on the umbrella page mirror the
@@ -477,15 +478,7 @@ export default async function EventDetailPage({
           {event.status === "TENTATIVE" && (
             <Badge variant="outline">Tentative</Badge>
           )}
-          {event.isScheduleOnly && (
-            <Badge
-              variant="outline"
-              className="text-muted-foreground border-dashed"
-              title={SCHEDULE_ONLY_TITLE}
-            >
-              {SCHEDULE_ONLY_LABEL}
-            </Badge>
-          )}
+          <ScheduleOnlyTag isScheduleOnly={event.isScheduleOnly} variant="page" />
           {/* #1560 PR E.6 — `+ N TRAILS` pill mirrors EventDetailPanel's
               series-parent badge styling. */}
           {isSeriesParent && childCount > 0 && (

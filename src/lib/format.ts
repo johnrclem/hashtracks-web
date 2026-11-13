@@ -180,6 +180,19 @@ export function formatDateShort(iso: string): string {
 }
 
 /**
+ * Format ISO date string to medium display: "Feb 18, 2026".
+ * Uses UTC to match the date storage convention (UTC noon).
+ */
+export function formatDateMedium(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
  * Format ISO date string to long display: "Monday, March 2, 2026".
  * Uses UTC to match the date storage convention (UTC noon).
  */
