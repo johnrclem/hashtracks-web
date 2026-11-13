@@ -19,7 +19,7 @@
 
 import { prisma } from "@/lib/db";
 import { fileAuditFinding, type FilerActions } from "./audit-filer";
-import { buildCronActions } from "./audit-issue";
+import { GITHUB_MIN_WRITE_GAP_MS, buildCronActions } from "./audit-issue";
 import { loadSuppressions } from "./audit-runner";
 import { buildCanonicalBlock } from "@/lib/audit-canonical";
 import {
@@ -37,8 +37,12 @@ import { AUDIT_STREAM, type AuditStream } from "@/lib/audit-stream-meta";
  * (3) because these drafts are agent-verified against source and the agent is
  * itself capped at 8 findings/run — they're high-signal and human-curated, so a
  * larger drain is appropriate while still bounding a runaway-agent blast radius.
+ *
+ * Sized to clear a normal day's inflow (~15 drafts from five daily deep dives
+ * plus the hareline audit, Nov 2026) and still work down a backlog. At 12 the
+ * queue grew by ~3 a day and drafts went stale before they were filed.
  */
-const MAX_PROMOTIONS_PER_RUN = 12;
+export const MAX_PROMOTIONS_PER_RUN = 30;
 
 /** ERROR drafts retry until this attempt count, then they're left for admin attention. */
 const MAX_PROMOTE_ATTEMPTS = 3;
@@ -73,7 +77,7 @@ function streamLabel(stream: AuditStream): string {
 }
 
 /**
- * Promote up to MAX_PROMOTIONS_PER_RUN queued drafts. Idempotent and
+ * Promote up to MAX_PROMOTIONS_PER_RUN queued drafts, oldest first. Idempotent and
  * concurrency-safe: an optimistic CAS on `promoteAttempts` claims each draft
  * before the GitHub side-effect, so a cron run and a manual "Promote now" can't
  * double-process the same row. Even under a lost claim, `fileAuditFinding`'s
@@ -81,7 +85,9 @@ function streamLabel(stream: AuditStream): string {
  * duplicate issue).
  */
 export async function promoteAuditDrafts(): Promise<PromotionSummary> {
-  const actions = buildCronActions();
+  // Paced: a full batch is up to 30 creates/comments, and GitHub rate-limits
+  // mutating requests sent less than a second apart.
+  const actions = buildCronActions({ minWriteGapMs: GITHUB_MIN_WRITE_GAP_MS });
   const suppressions = await loadSuppressions();
 
   const drafts = (await prisma.auditFindingDraft.findMany({
