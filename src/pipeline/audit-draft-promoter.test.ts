@@ -10,6 +10,7 @@ vi.mock("@/lib/db", () => ({
 }));
 vi.mock("@/pipeline/audit-filer", () => ({ fileAuditFinding: vi.fn() }));
 vi.mock("@/pipeline/audit-issue", () => ({
+  GITHUB_MIN_WRITE_GAP_MS: 1_000,
   buildCronActions: vi.fn(() => ({
     createIssue: vi.fn(),
     postComment: vi.fn(),
@@ -26,8 +27,9 @@ vi.mock("@/lib/audit-canonical", () => ({
 
 import { prisma } from "@/lib/db";
 import { fileAuditFinding } from "@/pipeline/audit-filer";
+import { buildCronActions } from "@/pipeline/audit-issue";
 import { loadSuppressions } from "@/pipeline/audit-runner";
-import { promoteAuditDrafts } from "./audit-draft-promoter";
+import { MAX_PROMOTIONS_PER_RUN, promoteAuditDrafts } from "./audit-draft-promoter";
 
 const mockFindMany = vi.mocked(prisma.auditFindingDraft.findMany);
 const mockUpdateMany = vi.mocked(prisma.auditFindingDraft.updateMany);
@@ -159,9 +161,17 @@ describe("promoteAuditDrafts", () => {
     expectMarkedWith({ status: "ERROR", errorReason: "boom" });
   });
 
-  it("caps the scan at MAX_PROMOTIONS_PER_RUN", async () => {
+  it("caps the scan at MAX_PROMOTIONS_PER_RUN, oldest first", async () => {
     mockFindMany.mockResolvedValue([] as never);
     await promoteAuditDrafts();
-    expect(mockFindMany).toHaveBeenCalledWith(expect.objectContaining({ take: 12 }));
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: MAX_PROMOTIONS_PER_RUN, orderBy: { submittedAt: "asc" } }),
+    );
+  });
+
+  it("asks for GitHub actions paced a second apart", async () => {
+    mockFindMany.mockResolvedValue([] as never);
+    await promoteAuditDrafts();
+    expect(buildCronActions).toHaveBeenCalledWith({ minWriteGapMs: 1_000 });
   });
 });
