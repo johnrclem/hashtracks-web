@@ -1,6 +1,6 @@
 # Onboarding backfill automation: design
 
-**Status:** Draft v4, revised after adversarial review rounds 1–3. Pending re-review, then owner review. 2026-11-13.
+**Status:** Draft v5, revised after adversarial review rounds 1–4. Pending re-review, then owner review. 2026-11-13.
 **Scope:** design only. Nothing here is built yet. No code, migration or prod write was made to produce it.
 **Related:** [`kennel-onboarding/implement-handoff-prompt.md`](kennel-onboarding/implement-handoff-prompt.md) (the implementer),
 [`kennel-onboarding/daily-onboarding-prompt.md`](kennel-onboarding/daily-onboarding-prompt.md) (research),
@@ -29,8 +29,9 @@ Seven decisions carry most of the safety:
    stamped one, or differs from it only by merges of `main`. The implementer merges with
    `--match-head-commit`, using the same check.
 2. **The live feed owns its stretch; the archive owns everything before it.** The split point is the
-   earliest run the kennel's live feed has in prod. Archive rows from that date on are left to the
-   live feed. Rows before it are written by the backfill, and nothing may already exist on their dates.
+   earliest past run the kennel's live feed has in prod. Archive rows from that date on are left to
+   the live feed, which must actually have them; rows before it are written by the backfill, and
+   nothing may already exist on their dates. A gap between the two stretches blocks the run.
 3. **The archive gets its own source and a cutoff.** Rows bind to a disabled archive source that is
    never scraped, as six existing archive sources do. When the apply starts, the kennel gets an
    archive cutoff, and from then on the merge drops any other source's row for that kennel dated
@@ -112,9 +113,9 @@ up the source by name, checks that at least one `SourceKennel` link exists, and 
   | Origin type | Rule for each row's `sourceUrl` |
   |---|---|
   | `GOOGLE_SHEETS` | Equals the origin's sheet URL (same sheet id) |
-  | `GOOGLE_CALENDAR` | An event link whose `eid`, base64-decoded, names the origin's calendar id (Google's `@g`/`@m` short forms expanded) |
+  | `GOOGLE_CALENDAR` | An event link whose `eid`, base64-decoded, names the origin's calendar id (Google's short domain forms `@g`, `@m`, `@v`, `@i` expanded) |
   | `MEETUP` | Path starts with the origin's group, `/<groupUrlname>/events/` |
-  | `HTML_SCRAPER` | Same host as the origin's URL, path under the origin's path |
+  | `HTML_SCRAPER` | Same host as the origin's URL, path under the origin's path, and the origin's query parameters present with the same values. Only if no source linked to another kennel uses that host; a shared host (for example `sfh3.com`, which serves 13 kennels) is supervised |
 
   Other types (Facebook, Harrier Central, Hash Rego, iCal) are supervised until a rule is defined
   and tested for them.
@@ -166,7 +167,7 @@ The design therefore aims at two different things:
 | Actor / credential | Through the app it can | Through the app it can't |
 |---|---|---|
 | Owner | Add or remove `owner-approved`; resume, halt or undo from `/admin/backfills` after step-up with a second factor; change env flags | |
-| Scheduled agents | Open PRs, merge approved PRs, call the backfill agent API | Resume, halt or undo (step-up needs a passkey or TOTP code). Outside the app they hold owner-level secrets (4.1) |
+| Scheduled agents | Open PRs, merge approved PRs, call the backfill agent API. Halt a run by removing the label (T1) | Resume, undo or clear a cutoff (step-up needs a passkey or TOTP code). Outside the app they hold owner-level secrets (4.1) |
 | `BACKFILL_AGENT_TOKEN` | Plan, preview, advance a run the owner approved, check a PR's approval, read status | Approve, choose an archive, resume, undo, read user data |
 | `GITHUB_APPROVAL_READ_TOKEN` (server, new, fine-grained, read-only) | Read PRs, labels, statuses, commits and file contents | Add labels or statuses, merge, push |
 | The server's issue-filing credential | Today: the owner's repo-scope PAT, which can label, push and merge as the owner. **H3 replaces it** with a GitHub App limited to issues, whose actions show as the App, so A2 rejects any label it adds | |
@@ -298,7 +299,7 @@ At plan time and before every batch, using `GITHUB_APPROVAL_READ_TOKEN`:
 | A1 | The PR is merged into `main`; its merge commit `S` is an ancestor of the deployed commit (`VERCEL_GIT_COMMIT_SHA`) | The onboarding migration is live, and the code judging the archive includes the PR |
 | A2 | The PR carries `owner-approved` now, and the newest `labeled owner-approved` event was made by `OWNER_GITHUB_LOGIN` | Removing the label stops the run at the next batch. After H3 no server credential can make this event |
 | A3 | A `backfill/approved` status created by `github-actions[bot]` exists on a SHA `H`, names this PR, and was created after that label event | The label was added while `H` was the head |
-| A4 | **The merged head is the stamped head, up to merges of `main`.** GitHub's record of the PR's head at merge is `M`. Either `M = H`, or every commit after `H` up to `M` is a merge of `main` and the PR's own change is identical at `H` and `M`: the same set of paths with the same statuses (added, modified, removed, renamed); for each path, either the same blob at both, or the same ordered sequence of added and removed lines per hunk. A binary file, or a file whose patch GitHub omits, must have the same blob | Covers every file the backfill depends on (the migration, seed data, archive, manifest) and catches a force-push, a post-label commit or a web-editor conflict fix that changes the PR's own lines. A merge of `main` alone passes |
+| A4 | **The merged head is the stamped head, up to merges of `main`.** GitHub's record of the PR's head at merge is `M`. Either `M = H`, or every commit after `H` up to `M` is a merge of `main` and the PR's own change is identical at `H` and `M`: the same set of paths with the same statuses (added, modified, removed, renamed); for each path, either the same blob at both, or the same ordered sequence of added and removed lines across the whole file (not per hunk, since a change on `main` nearby can merge or split hunks). A binary file, or a file whose patch GitHub omits, must have the same blob | Covers every file the backfill depends on (the migration, seed data, archive, manifest) and catches a force-push, a post-label commit or a web-editor conflict fix that changes the PR's own lines. A merge of `main` alone passes |
 | A5 | The manifest is the PR's only manifest, and no other non-preview run exists for its `manifestSha256` | One approval, one apply |
 | A6 | The PR changes no guard path (G15), and its migrations pass G17 | The PR can't edit the checks that judge it, or change existing data to make a guard pass |
 
@@ -319,12 +320,26 @@ after the merge.
 
 ### 6.5 The archive source and the archive cutoff
 
-**The split point.** At plan time the server finds `C`, the earliest date of any event of the kennel
-backed by the origin (the kennel's only enabled source, G18). If the origin backs no event yet, `C` is
-today. Archive rows dated **from `C` on** belong to the live feed: they are reported but not written.
+**The split point.** At plan time the server finds `C`, the earliest date before today of any event of
+the kennel backed by the origin (the kennel's only enabled source, G18). `C` is therefore always in
+the past. If the origin backs no past event yet (an "upcoming runs only" feed right after its first
+scrape, or a first scrape that returned nothing), the run is `WAITING` until it does; the server never
+falls back to today. Archive rows dated **from `C` on** belong to the live feed and are not written.
 Rows dated **before `C`** are the backfill's to write, and their dates must have no existing event of
-any kind (G9). Because `C` is the live feed's own earliest run, the two stretches meet without a gap:
-the live feed has everything from `C`, and the backfill writes everything before it.
+any kind (G9).
+
+**The two stretches must actually join** (G20). A wrong `C` would otherwise quietly drop history: a
+stray early origin event (a year-inference phantom, a typo'd old row) would hand most of the archive
+to a live feed that doesn't have it. So:
+- **No gap.** If the archive ends before `C`, the distance from its last row to `C` must be at most 1.5
+  times the archive's median interval between run dates over its last 20 rows. An "upcoming runs only"
+  feed starts at the first run it listed, so an archive frozen long before the merge fails this and
+  must be re-frozen.
+- **The live feed really has its stretch.** For the archive rows dated from `C` to `frozenAt`, the
+  kennel's displayed events must contain at least 95% of them by (date, run number), or by date for
+  unnumbered rows. Otherwise the run is `BLOCKED`, with the counts.
+
+V2 applies the same 95% threshold at verify.
 
 **The archive source.** The backfill's rows bind to a dedicated source, like the six archive sources
 already seeded: `enabled: false`, a new `Source.archiveOnly = true` column, `config.upcomingOnly: true`
@@ -332,11 +347,14 @@ as a backstop, `replacedById` null, linked to the one kennel, `trustLevel` no hi
 The onboarding migration creates it next to the live source. `scrapeSource` refuses to scrape or
 force-scrape it, and `deleteSource` refuses to delete it (both would hard-delete its RawEvents).
 
-**The archive cutoff.** When the first batch starts, the server sets `Kennel.archiveCutoffDate = C`
-(and `archiveCutoffRunId`). From then on, the merge drops, before creating a RawEvent, any row from a
-source other than the kennel's archive source whose resolved kennel has a cutoff and whose date is
-before it. Co-host rows don't add the kennel as a secondary on such dates either. The scrape log counts
-these rows as `archiveCutoffDropped`.
+**The archive cutoff.** The first `advance` call sets `Kennel.archiveCutoffDate = C` (and
+`archiveCutoffRunId`) and writes nothing else (9.2). From then on, the merge drops, before creating a
+RawEvent, any row from a source other than the kennel's archive source whose resolved kennel has a
+cutoff and whose date is before it. Because `C` is always in the past, the drop never touches today's
+or upcoming runs. Co-host rows don't add the kennel as a secondary on such dates either. The merge
+result and the scrape log count these rows as `archiveCutoffDropped`. Separately, the ±30-day
+date-correction query, for every source, skips events whose only backing is an `archiveOnly` source,
+so a live row dated after `C` can't move an archive event either.
 
 | Risk | How the cutoff and the archive source remove it |
 |---|---|
@@ -348,10 +366,15 @@ these rows as `archiveCutoffDropped`.
 | A forced re-scrape or source delete wipes the backfill's RawEvents | The archive source can't be scraped or deleted |
 | Proving a RawEvent is the backfill's | Nothing but backfills writes to an archive source |
 
-The cutoff can't hide existing live data: G18 and G9 make sure no event of the kennel before `C` is
-backed by an enabled source when the cutoff is set. The cost is deliberate: a source added to the
-kennel later can't bring in history before `C` until the owner clears the cutoff in the admin page.
-Undo clears it.
+The cutoff can't hide existing live data: before any row is written, the server re-checks that no event
+of the kennel before `C` is backed by an enabled source (9.2), after any scrape that was running when
+the cutoff was set has finished. The cost is deliberate: a source added to the kennel later can't bring
+in history before `C` until the owner clears the cutoff. Clearing it re-exposes the archive to
+overwrites, so it needs the same step-up and single-use nonce as undo (10.3). Undo clears it.
+
+Adopted archives (6.6), including Music City and Zagreb, get **no** cutoff automatically: adoption
+writes nothing. The Zagreb examples above (#2501, #1797) stay exposed to a wide re-scrape exactly as
+today, until the owner sets a cutoff for the kennel from the admin page (same step-up).
 
 ### 6.6 Adoption of backfills applied by hand
 
@@ -372,7 +395,8 @@ plan reports how many fall before `C` (written) and from `C` on (left to the liv
 the written ones.
 
 **Retryable (`WAITING`)**, the watch cron tries again: deploy not yet containing `S`; stamp not yet
-present; GitHub or database unavailable; the daily apply limit reached.
+present; the origin backs no past event yet; GitHub or database unavailable; the daily apply limit
+reached.
 
 **Terminal (`BLOCKED`):** everything else. The partial unique index on `manifestSha256` covers every
 status except `PREVIEW`, so a blocked manifest can't be planned again. To try again, the implementer
@@ -395,7 +419,7 @@ promise is that nothing behind it edits event data.
 | `GET /approval/:pr` | A2–A4 against the PR's current head, for the implementer's merge step; returns the approved head SHA | none |
 | `POST /preview { prNumber }` | Plans an **open** PR's archive at its head against prod, for the PR body. Status `PREVIEW`, never applicable. For a new kennel the split point isn't known until the first live scrape, so the preview says so and checks everything else | Run row only |
 | `POST /plan { prNumber }` | A1–A6, then every plan guard and the matcher simulation. Returns `PLANNED`, `WAITING` or `BLOCKED` | Run row only |
-| `POST /runs/:id/advance` | One batch of a `PLANNED` or `APPLYING` run (the first one also sets the cutoff), or its final step | The cutoff; events, through the merge pipeline in backfill mode |
+| `POST /runs/:id/advance` | The next step of a `PLANNED` or `APPLYING` run: set the cutoff (first call), one batch, or the final step | The cutoff; events, through the merge pipeline in backfill mode |
 | `POST /runs/:id/verify` | The checks in 9.3 | Run row only |
 | `GET /runs/:id` | Status, counts, reason codes, verification result | none |
 
@@ -416,9 +440,10 @@ reasons about existing events give counts only; the dates are shown only in the 
 - **The daily `backfill-watch` cron** (Vercel cron, `CRON_SECRET`): resumes runs whose lease expired,
   retries `WAITING` runs, plans approved manifests from the last 30 days that have no run, re-verifies
   runs from the last 7 days, and raises the liveness errors in 11.3. In Phase 2 it never starts a
-  fresh apply; that stays with the implementer so each start has a report beside it.
-- **The owner**, from `/admin/backfills`: the same steps, plus resume, halt, undo and clearing a
-  cutoff.
+  fresh apply; that is enforced in the cron's code. Starting an apply is open to any holder of the
+  token; that it is the implementer, with a report beside it, is a rule in its manual.
+- **The owner**, from `/admin/backfills`: the same steps, plus resume, halt, undo, and setting or
+  clearing a cutoff (the last four with step-up, 10.3).
 
 QStash is not used. `self-healing-v2-plan.md` found its retries leave no trace, and a step function
 with three independent callers needs no queue.
@@ -436,7 +461,7 @@ A guard either passes or stops the run; none warns and continues. Terminal failu
 | G2 | Recomputed manifest equals the committed one in every `approvalHash` field | CI, plan | terminal |
 | G3 | Every row dated before today in `kennelTimezone`; future rows are an error, not skipped as `reportAndApplyBackfill` does | CI, plan | terminal |
 | G4 | **Routing:** one tag per row, equal to the single expected `kennelCode`, resolving through the real resolver at the exact-`kennelCode` stage; the archive source is linked to that kennel and nothing else | plan, every batch | terminal |
-| G5 | **Origin and provenance:** the origin is linked to the expected kennel only, has no `kennelPatterns` or `defaultKennelTag` naming another kennel, is of a supported type, and every row's `sourceUrl` passes that type's rule (section 3) | CI, plan | terminal |
+| G5 | **Origin and provenance:** the origin is linked to the expected kennel only, has no `kennelPatterns` or `defaultKennelTag` naming another kennel, is of a supported type, and every row's `sourceUrl` passes that type's rule (section 3), including the shared-host refusal for websites (checked against prod sources at plan) | CI, plan | terminal |
 | G6 | **Sibling mention:** no row's title, hares, location or description names another kennel (code, short name or alias) in the same region | CI (seed data), plan (prod aliases) | terminal |
 | G7 | **Run numbers:** strictly increasing in (date, run) order within the caps; no row before `C` has a run number any existing event of the kennel already has | CI (order), plan, every batch | terminal |
 | G8 | **PII:** zero phone numbers or email addresses in every string field, URLs also checked after decoding (8.2) | before commit, CI, plan, every batch | terminal |
@@ -448,9 +473,10 @@ A guard either passes or stops the run; none warns and continues. Terminal failu
 | G14 | **Batch result:** no create-only violation; `created` equals the batch's rows; `updated`, `restored`, `blocked`, `eventErrors` are 0; every created event's primary kennel is the expected one and its date is the row's date; V3 and V4 (9.3) pass | every batch | terminal (`HALTED`) |
 | G15 | **Guard code untouched:** the PR changes nothing under `src/lib/backfill/**`, the PII scanner, `src/pipeline/merge.ts`, `src/pipeline/kennel-resolver.ts`, `src/pipeline/fingerprint.ts`, `src/pipeline/scrape.ts`, `src/pipeline/reconcile.ts`, `src/lib/event-write.ts`, `src/app/admin/sources/actions.ts`, the shared kennel-page stats function, `prisma/schema.prisma`, the CI manifest script, `.github/workflows/**` or the agent routes | plan | terminal (the owner can still apply by hand) |
 | G16 | **Kill switch:** env `BACKFILL_AUTOMATION` is `apply` (`off` and `shadow` refuse `advance`) | every call | `403` |
-| G17 | **Migration shape**, checked with a real SQL parser (`libpg_query`), allow-list only: `INSERT … ON CONFLICT DO NOTHING` or `INSERT … SELECT … WHERE NOT EXISTS` into `Kennel`, `KennelAlias`, `Region`, `Source`, `SourceKennel` and `ScheduleRule`; and `UPDATE "Region"` setting only `parentId` and `updatedAt`. No other statements, no CTE that modifies data, no `DO` blocks, no function calls other than `NOW()`. The last eight onboarding migrations all pass this rule (a Phase 0 test), and crafted bypasses must fail it | CI, plan | terminal |
+| G17 | **Migration shape**, checked with a real SQL parser (`libpg_query`), allow-list only: `INSERT … ON CONFLICT DO NOTHING` or `INSERT … SELECT … WHERE NOT EXISTS` into `Kennel`, `KennelAlias`, `Region`, `Source`, `SourceKennel` and `ScheduleRule`; and `UPDATE "Region"` setting only `parentId` and `updatedAt`, whose target rows are restricted by literal names that the same migration inserts. No other statements, no CTE that modifies data, no `DO` blocks, and no function calls other than `NOW()` and `timezone()` with a literal zone (the parser's form of `NOW() AT TIME ZONE 'UTC'`, used by all eight recent onboarding migrations). A Phase 0 test checks the rule against those eight; any that update a region they didn't insert are reviewed with the owner before the rule ships. Crafted bypasses must fail it. G17 only decides whether the **backfill** is automated; the migration itself still ships through the ordinary code-merge review | CI, plan | terminal |
 | G18 | **One live feed:** in prod, the kennel is linked to exactly one enabled source, the origin, plus the archive source | plan, every batch | terminal |
 | G19 | **One archive per kennel:** no earlier run for this kennel has written anything (status `APPLYING` or later, unless it was fully `UNDONE`), and the kennel has no cutoff yet | plan | terminal |
+| G20 | **The stretches join:** `C` is in the past; no gap between the archive's last row and `C` beyond 1.5 median run intervals; the live feed shows at least 95% of the archive rows dated from `C` to `frozenAt` (6.5) | plan, before the first batch | terminal (`WAITING` while the origin backs no past event) |
 
 A `HALTED` run stops where it is. Nothing is rolled back automatically, because an automatic delete
 would be a prod write without the owner's OK. Every row already written is complete (9.1), so a halted
@@ -505,9 +531,12 @@ commit that touches `scripts/data/`.
 4. **Rows with `seriesId`, more than one kennel tag, or `externalLinks` are rejected**, since their
    extra writes happen after the per-row create.
 
-Separately, for **every** source, the archive-cutoff drop in 6.5. It runs at the top of the loop: the
-row's kennel tag is resolved (the resolver is cached), and a row before that kennel's cutoff from any
-source other than its archive source is dropped and counted.
+Separately, for **every** source, the two archive protections in 6.5: the cutoff drop and the
+date-correction skip. The drop runs at the top of the loop: the row's kennel tag is resolved (the
+resolver is cached), and a row before that kennel's cutoff from any source other than its archive
+source is dropped and counted in the result as `archiveCutoffDropped`. The hand-run loader's
+`reportAndApplyBackfill` throws when that count is above 0, so a supervised backfill for a kennel with
+a cutoff fails loudly instead of reporting `created=0`.
 
 `Kennel.lastEventDate` is still updated after the loop; it is a derived field, recomputed at the end of
 the run and after undo.
@@ -517,7 +546,7 @@ the run and after undo.
 **Plan** (read-only):
 1. A1–A6; fetch manifest and archive at `S`; G2.
 2. Resolve the archive source, origin and kennel; G4, G5, G12, G18, G19.
-3. Find `C` (6.5); split the rows.
+3. Find `C` (6.5); split the rows; G20.
 4. Normalise each row the way `processRawEvents` does before fingerprinting, on a copy, and compute its
    fingerprint.
 5. G3, G6, G7, G8, G9, G11, G13; the matcher simulation (G10) over the rows before `C`.
@@ -529,8 +558,15 @@ the run and after undo.
 **Apply** (one `advance` call = one batch of rows before `C`):
 - **Lease.** `advance` sets `leaseToken` and `leaseExpiresAt = now + 6 min` with one conditional update
   that succeeds only if the lease is free or expired.
-- **Cutoff.** The first batch sets `Kennel.archiveCutoffDate = C` in the same transaction that moves
-  the run to `APPLYING`. From then on, no live row for an archive date can be stored.
+- **Cutoff, in two steps.** The first `advance` call, in one transaction, recomputes `C` and halts if
+  it differs from the plan's; then it sets `Kennel.archiveCutoffDate = C`, moves the run to `APPLYING`
+  and records the time. It writes no rows. A scrape already running at that moment read the kennel's
+  settings before the cutoff existed and could still store an event before `C`. So the next `advance`
+  writes nothing until every `ScrapeLog` row for the kennel's sources that was `RUNNING` at the cutoff
+  time has finished (at most the 300 s function limit, plus the 10-minute stale-log rule). Then it
+  re-checks that no event of the kennel before `C` is backed by an enabled source, and G20 again. Only
+  if both hold does it write the first batch; otherwise the run halts with the cutoff in place, for the
+  owner.
 - **Batch.** The next rows in plan order. Same-date groups are never split. The first batch is 50 rows;
   later ones are sized from the measured time per row to use at most 150 s of the 300 s limit, capped at
   200.
@@ -543,10 +579,11 @@ the run and after undo.
 - **Finish.** When every row before `C` has an item: recompute `lastEventDate`, set `APPLIED`, run
   `verify`.
 
-**Races with live scrapes.** Between plan and the first batch, a wide re-scrape could still store a row
-on an archive date; the per-batch G9 re-check catches it and the run halts before writing that batch.
-Once the cutoff is set, no other source's row before `C` reaches the merge, so nothing can race the
-writes. Other sources' rows from `C` on are the live feed's, as before.
+**Races with live scrapes.** Between plan and the cutoff, a wide re-scrape could store events before
+`C`, on archive dates or on others; the post-cutoff re-check catches both and the run halts before
+writing anything. Once the cutoff is in force and the scrapes that predate it have finished, no other
+source's row before `C` reaches the merge, so nothing can race the writes. Other sources' rows from `C`
+on are the live feed's, as before.
 
 ### 9.3 Verify
 
@@ -556,7 +593,7 @@ batch, as part of G14. All are row checks:
 | # | Check |
 |---|---|
 | V1 | Every item's event exists, is `CONFIRMED` and canonical, has the expected kennel as primary, and passes the kennel page's own display filter. The page's query and filters move into one shared function used by both the page and `verify` |
-| V2 | Every written archive (date, run number) appears in the kennel's displayed events. The implementer checks the same on the public page payload, from its own clone's copy of the archive. Rows from `C` on, which the live feed owns, are reported (present or not) but don't fail the run |
+| V2 | Every written archive (date, run number) appears in the kennel's displayed events, and at least 95% of the rows from `C` to `frozenAt` do too (the live feed's stretch, G20); the missing ones are listed. The implementer checks the same on the public page payload, from its own clone's copy of the archive |
 | V3 | **Static history unchanged.** A hash over every pre-existing event of the kennel dated within 30 days of a written row's date that **no enabled source backs** (id, date, status, `isCanonical`, primary kennel, run number, title, hares, location fields, `parentEventId`), taken at plan time, is unchanged. Live-backed events are left out, because their sources update them every day; a run that wrongly touched one would already have failed the in-merge check or G14's `updated = 0` |
 | V4 | No written row's (kennel, date) slot shows any event other than the run's own |
 | V5 | The public page's `totalEvents` equals the shared function's count at the same moment |
@@ -590,8 +627,9 @@ that check, automated.
 3. **V1 fails, not canonical:** another event took the slot after the apply; V4 fails too. Inspect,
    then decide which event is wrong.
 4. **V1 fails, wrong kennel:** G14 should have halted. Undo the run.
-5. **V2 reports a live-owned row missing:** the live feed doesn't have that run. That's for the live
-   source or a supervised fix; the run itself is fine.
+5. **V2 lists live-owned rows missing:** the live feed doesn't have those runs. Under the 5% threshold
+   that's for the live source or a supervised fix. Over it, `C` was probably wrong (a stray early
+   origin event): undo, fix the stray event, and re-submit.
 6. **V2 fails for a written row while V1 passes:** the page filters something the shared function
    doesn't, so the two have drifted. Fix the shared function.
 7. **V3 fails:** static history changed. If the run did it, undo; otherwise find the writer.
@@ -629,8 +667,9 @@ Undo deletes data, so it gets a dry run with counts and the owner's OK. It runs 
 the strict multi-factor level** (Clerk reverification `strict_mfa`: a passkey or TOTP code). Clerk's
 reverification is a freshness window for the whole session, so on success the server mints a
 single-use nonce bound to this run and this action, valid for 2 minutes, and the undo or resume
-request must carry it. A saved password isn't enough, so an agent driving a signed-in browser can't pass
-it. The owner's account needs a second factor before Phase 2. No token can start an undo or a resume.
+request must carry it. The same step-up and nonce guard resume, and setting or clearing a kennel's
+cutoff. A saved password isn't enough, so an agent driving a signed-in browser can't pass it. The
+owner's account needs a second factor before Phase 2. No token can start any of these.
 
 **Undo plan** (read-only), from the run's items:
 - **events to delete:** created by the run, carrying only the run's RawEvent, with no `Attendance`, no
@@ -707,7 +746,8 @@ when its heartbeat is over 26 hours old. Silence counts as failure.
 
 | Area | Change |
 |---|---|
-| `src/pipeline/merge.ts` | Extract the read-only matcher from `upsertCanonicalEvent`; add `backfill` mode (any match throws, atomic per-row create, no cluster linker, reject series, multi-tag and link rows); add the archive-cutoff drop for all sources. Default behaviour unchanged for kennels without a cutoff. New tests for every match path in both modes and for the drop |
+| `src/pipeline/merge.ts` | Extract the read-only matcher from `upsertCanonicalEvent`; add `backfill` mode (any match throws, atomic per-row create, no cluster linker, reject series, multi-tag and link rows); add the archive-cutoff drop and `archiveCutoffDropped` count for all sources; the date-correction query skips archive-only events. Default behaviour unchanged for kennels without archive-only events. New tests for every match path in both modes, the drop and the skip |
+| `scripts/lib/backfill-runner.ts` | `reportAndApplyBackfill` throws when `archiveCutoffDropped` is above 0 |
 | `src/lib/event-write.ts` | Optional nested RawEvent in `createEventWithKennel` |
 | `src/pipeline/scrape.ts` | Refuse to scrape, or force-scrape, an `archiveOnly` source; count `archiveCutoffDropped` rows |
 | `src/app/admin/sources/actions.ts` | `deleteSource` refuses an `archiveOnly` source |
@@ -722,7 +762,8 @@ when its heartbeat is over 26 hours old. Silence counts as failure.
 **Implementer** (`implement-handoff-prompt.md`):
 - Build: the onboarding migration also creates the disabled archive source, linked to the kennel only,
   and passes G17. Freeze the archive up to `frozenAt`; the plan leaves to the live feed whatever it
-  already has. Run the PII scanner and generate the manifest before the first commit that touches
+  already has. For an "upcoming runs only" origin, the archive must reach the last run before the
+  merge (G20's gap rule), so re-freeze if the PR waits long for review. Run the PII scanner and generate the manifest before the first commit that touches
   `scripts/data/`. Call `POST /preview` and put its result in the PR body, with a link to CI's manifest
   summary.
 - Phase A merge step: replace the label-vs-commit-date comparison with `GET /approval/:pr`, then
@@ -765,7 +806,7 @@ owner-only resume and undo with a second factor, and the owner's stamped label a
 | Any PR change after the label (push, force-push, web-editor merge) | A4 requires the merged head to be the stamped head up to merges of `main`; the implementer merges with `--match-head-commit` |
 | Agent adds `owner-approved` itself, or forges a stamp with a workflow on a branch | T1: not stopped. Owner accepts for Phase 2; H1 before Phase 3 |
 | PR edits the stamp workflow or guard code | `pull_request_target` runs `main`'s workflow; G15 refuses the PR |
-| PR's migration deletes or changes existing data | G17 allow-list checked with a real SQL parser; A4 binds the migration to the stamp |
+| PR's migration deletes or changes existing data | The code-merge review, as today; the migration runs on deploy whatever this design decides. G17 (a real SQL parser and an allow-list) only keeps such a PR's backfill from being automated; A4 binds the migration to the stamp |
 | Several manifests, or a regenerated one, in one PR | CI and A5: exactly one new manifest and archive per PR |
 | Fork PR or collaborator | Must be merged into `main` and labelled by `OWNER_GITHUB_LOGIN` |
 | Stolen `BACKFILL_AGENT_TOKEN` | Plans or advances only approved runs, which would run anyway; no approve, resume, undo or user data |
@@ -773,7 +814,11 @@ owner-only resume and undo with a second factor, and the owner's stamped label a
 | Stolen owner PAT or `DATABASE_URL` from the Mac | Owner-level compromise, outside what this design can contain (4.1); H2 |
 | Same manifest replayed, re-planned after a block, or after undo | Partial unique index covers every non-preview status; G19 one archive per kennel; a retry needs a new file, label and stamp |
 | Row moves or merges into an existing event | In-merge "any match throws"; G10 at plan; G9 overlap; G7 run numbers |
-| Wide re-scrape reaches archive dates: overwrite, date move, duplicate, resurrected row or redaction | Archive cutoff drops other sources' rows before the cutoff before anything is stored |
+| Wide re-scrape reaches archive dates: overwrite, date move, duplicate, resurrected row or redaction | Archive cutoff drops other sources' rows before the cutoff before anything is stored; the date-correction query skips archive-only events, so a later live row can't move one either. Adopted archives have no cutoff unless the owner sets one |
+| The split point is wrong: future (upcoming-only feed), today (empty first scrape), or years back (a stray early origin event) | `C` is always a past origin-backed date, else `WAITING`; G20 blocks a gap between the archive and `C` and requires the live feed to show 95% of its stretch; V2 re-checks the same |
+| A scrape running when the cutoff is set stores an event before it | The first batch waits for every scrape that predates the cutoff to finish, then re-checks that nothing before `C` is live-backed |
+| Rows from a shared website host labelled as one kennel's | G5 refuses a website host that any other kennel's source uses, and requires the origin's query parameters |
+| Supervised hand loader for a kennel with a cutoff silently creates nothing | The merge reports `archiveCutoffDropped`; the loader throws when it's above 0 |
 | Dropped rows leave tombstones after undo | Nothing is stored for them; undo clears the cutoff |
 | Co-hosted existing event on an archive date | G9 checks `EventKennel` membership |
 | Rows really from an aggregator, labelled as the kennel's own feed | G5 per-type provenance rule on every row; strict run numbers with capped exceptions (G7); G6 sibling mentions; one live feed per kennel (G18) |
@@ -791,7 +836,7 @@ owner-only resume and undo with a second factor, and the owner's stamped label a
 | Actions slow to stamp | Missing stamp is retryable |
 | Undo deletes something a user added | Required-empty relations, row locks, foreign RawEvent check, keep-and-report |
 | Undo leaves a hidden event or an orphan | Canonical recompute per slot; RawEvents hard-deleted |
-| Undo or resume triggered through a signed-in browser | Clerk `strict_mfa` step-up plus a single-use nonce per action |
+| Undo, resume, or a cutoff set or cleared through a signed-in browser | Clerk `strict_mfa` step-up plus a single-use nonce per action |
 | "Created" doesn't match the page | Row checks V1–V4; totals informational (9.3, 9.4) |
 | The loop dies quietly | Watch cron, `CronHeartbeat`, Sentry, digest |
 | Geocoding cost and latency | Batch timing measured per batch; 2,000-row cap; same geocoding as today's hand applies |
@@ -877,3 +922,19 @@ v4 removes the first two rather than patching them.
 | R3-7 | minor | The merge step could merge a different head than it checked | `gh pr merge --squash --match-head-commit <approved SHA>` (6.4, 12.2) |
 | R3-8 | minor | Clerk reverification is session-wide, not per action; `deleteSource` wipes an archive source's RawEvents; CI can't know whether an earlier manifest was applied; `recomputeCanonical` writes outside the nested create for same-date groups | Single-use action nonce after step-up (10.3); `deleteSource` refuses `archiveOnly` sources (6.5); "one archive per kennel" moved to the server (G19); the canonical recompute is predicted by G10 and named as the one write outside the per-row create (9.1) |
 | R3-9 | minor | COVERED/CREATE couldn't be known before merge, and curated dates inside the live window made "no cut-off" burn manifests (Zagreb #2501 would block) | The split point is the live feed's earliest run, found after the first scrape; rows from it on are never checked against live events, so a curated date in the live feed's stretch can't block the run (6.5) |
+
+### Round 4 (design v4) — `NEEDS-CHANGES`: 1 material, 4 minor
+
+Status of earlier findings: R2-1/R3-1 closed (one residue each, below); R3-2 closed by removing COVERED
+rows; R3-3 and R1-6/R2-4 closed for Sheets, Google Calendar and Meetup, not for websites on shared
+hosts; R3-4 largely closed; R3-5 and R1-7/R2-3 closed; R3-6 closed; R3-7, R3-8, R3-9 and R2-2 closed.
+The reviewer also checked that the cutoff drop leaves reconcile, fill rates, kennel evidence and health
+counts unaffected.
+
+| # | Severity | Finding | Resolution in v5 |
+|---|---|---|---|
+| R4-1 | material | Nothing checked that the split point joins the archive to the live feed. `C` could be in the future (upcoming-only feeds), so the cutoff dropped new upcoming runs; today (empty first scrape), leaving a permanent gap; or years back (a stray early origin event), handing most of the archive to a live feed that doesn't have it, and still ending `VERIFIED`. A wide re-scrape between plan and the first batch could also store live events before `C` that the cutoff would then freeze | `C` is the earliest **past** origin-backed date, else `WAITING`; G20 blocks a gap of more than 1.5 median run intervals and requires the live feed to show 95% of its stretch; V2 checks the same at verify (6.5, 8.1, 9.3). The cutoff is set on its own; the first batch waits for scrapes that predate it, recomputes `C`, and re-checks that nothing before `C` is live-backed (9.2) |
+| R4-2 | minor | The website provenance rule passed shared hosts (`sfh3.com` serves 13 kennels) and ignored query parameters | Websites only on a host no other kennel's source uses, with the origin's query parameters required; otherwise supervised (section 3, G5) |
+| R4-3 | minor | G17 would reject the eight migrations it promised to pass (`NOW() AT TIME ZONE` parses as `timezone()`), and the allowed Region update had no bound | `timezone()` with a literal zone allowed; Region updates limited to rows the same migration inserts; the Phase 0 test, with owner review of any migration that falls outside (G17) |
+| R4-4 | minor | A live row after `C` could still date-correct an archive event before it; per-hunk comparison could give false A4 mismatches; a hand loader for a kennel with a cutoff would report `created=0` silently | Date-correction query skips archive-only events (6.5); A4 compares the whole file's ordered +/- lines; the merge reports `archiveCutoffDropped` and the loader throws on it (9.1, 12.1). Adopted archives' lack of a cutoff is now stated (6.5) |
+| R4-5 | minor | Still overstated: G17 "stops" bad migrations (it only stops the automated backfill); clearing a cutoff had no step-up; agents can halt by removing the label; "the implementer starts every apply" is a manual rule | Reworded (sections 14, 4.2, 7.3); setting or clearing a cutoff needs `strict_mfa` and a nonce (6.5, 10.3) |
