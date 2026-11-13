@@ -152,3 +152,22 @@ describe("BarnesHashAdapter.fetch", () => {
     expect(result.errors[0]).toContain("0 runs parsed");
   });
 });
+
+describe("BarnesHashAdapter.fetch — pinned sheet URLs", () => {
+  beforeEach(() => mockSafeFetch.mockReset());
+
+  it("skips config.js when source.config pins the sheet URLs", async () => {
+    mockSafeFetch
+      .mockResolvedValueOnce(new Response(RUNS_CSV, { status: 200 }))
+      .mockResolvedValueOnce(new Response(VENUES_CSV, { status: 200 }));
+    const source = {
+      id: "s",
+      url: "https://barnesh3.com/hareline/",
+      scrapeDays: 3650,
+      config: { runsCsvUrl: RUNS_URL, venuesCsvUrl: VENUES_URL },
+    } as never;
+    const result = await new BarnesHashAdapter().fetch(source);
+    expect(mockSafeFetch.mock.calls.map((c) => String(c[0]))).toEqual([RUNS_URL, VENUES_URL]);
+    expect(result.events).toHaveLength(6);
+  });
+});

@@ -1,8 +1,8 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult } from "../types";
 import { safeFetch } from "../safe-fetch";
-import { parseCSV } from "../google-sheets/adapter";
-import { applyDateWindow, chronoParseDate, googleMapsSearchUrl, isPlaceholder, normalizeHaresField } from "../utils";
+import { parseCSV, parseSheetStartTimeCell } from "../google-sheets/adapter";
+import { applyDateWindow, chronoParseDate, googleMapsSearchUrl, normalizeHaresField, stripPlaceholder } from "../utils";
 
 /**
  * Barnes Hash House Harriers (BarnesH3) — weekly Wednesday 19:30 runs around
@@ -18,32 +18,41 @@ import { applyDateWindow, chronoParseDate, googleMapsSearchUrl, isPlaceholder, n
  *
  * Venue names join the two. The site's `/hareline.ics` and `/data/*.csv` are
  * build-time copies that lag the sheet, so they're not used. The sheet URLs are
- * rediscovered on every scrape, so a republished sheet keeps working.
+ * rediscovered on every scrape, so a republished sheet keeps working;
+ * `config.runsCsvUrl` / `config.venuesCsvUrl` pin them instead.
  */
 
 const KENNEL_TAG = "barnesh3";
 const DEFAULT_URL = "https://barnesh3.com/hareline/";
 const DEFAULT_START_TIME = "19:30";
 const USER_AGENT = "Mozilla/5.0 (compatible; HashTracks-Scraper)";
-const RUNS_CSV_RE = /\brunsCsvUrl:\s*"([^"]*)"/g;
-const VENUES_CSV_RE = /\bvenuesCsvUrl:\s*"([^"]*)"/g;
-const TIME_RE = /^(\d{1,2})[:.](\d{2})$/;
+const SHEET_URL_RE = /\b(runsCsvUrl|venuesCsvUrl):\s*"([^"]*)"/g;
 const HARE_SEPARATOR_RE = /\s+(?:&|and)\s+/gi;
 
-/** The last assignment of a key wins, as with config.js's own `Object.assign` overrides. */
-function lastHttpsValue(configJs: string, re: RegExp): string | undefined {
-  const value = [...configJs.matchAll(re)].at(-1)?.[1];
-  return value?.startsWith("https://") ? value : undefined;
+interface SheetUrls {
+  runsCsvUrl?: string;
+  venuesCsvUrl?: string;
 }
 
-/** The published-sheet CSV links in the site's config.js. Exported for tests. */
-export function findSheetUrls(configJs: string): { runsCsvUrl?: string; venuesCsvUrl?: string } {
-  return { runsCsvUrl: lastHttpsValue(configJs, RUNS_CSV_RE), venuesCsvUrl: lastHttpsValue(configJs, VENUES_CSV_RE) };
+const httpsOnly = (url: unknown) => (typeof url === "string" && url.startsWith("https://") ? url : undefined);
+
+/**
+ * The published-sheet CSV links in the site's config.js. The last assignment of
+ * a key wins, as with config.js's own `Object.assign` overrides. Exported for tests.
+ */
+export function findSheetUrls(configJs: string): SheetUrls {
+  const last = Object.fromEntries([...configJs.matchAll(SHEET_URL_RE)].map((m) => [m[1], m[2]]));
+  return { runsCsvUrl: httpsOnly(last.runsCsvUrl), venuesCsvUrl: httpsOnly(last.venuesCsvUrl) };
 }
 
+/** Cell text with whitespace collapsed; undefined when empty or a placeholder. */
 function clean(value: string | undefined): string | undefined {
-  const v = value?.replaceAll(/\s+/g, " ").trim();
-  return v && !isPlaceholder(v) ? v : undefined;
+  return stripPlaceholder(value?.replaceAll(/\s+/g, " "));
+}
+
+/** Blank cell → undefined (unknown); placeholder ("TBA", "Hare Wanted") → null (explicit clear). */
+function cellOrClear(raw: string | undefined): string | null | undefined {
+  return raw?.trim() ? (clean(raw) ?? null) : undefined;
 }
 
 /** Header-keyed rows: `header` names (lowercased) → cell text. */
@@ -54,25 +63,13 @@ function csvRecords(csv: string): Map<string, string>[] {
   return rows.map((row) => new Map(keys.map((k, i) => [k, row[i] ?? ""])));
 }
 
-/** Hare names; "Hare Wanted" is null (explicit clear) so merge scrubs a dropped hare. */
-function parseHares(raw: string | undefined): string | null | undefined {
-  const text = raw?.trim();
-  if (!text) return undefined;
-  const hares = clean(text);
-  return hares ? normalizeHaresField(hares.replaceAll(HARE_SEPARATOR_RE, ", ")) : null;
-}
-
-function venueKey(name: string): string {
-  return name.replaceAll(/\s+/g, " ").trim().toLowerCase();
-}
-
-/** Venue name → "Address, Postcode", from the venues sheet. Exported for tests. */
+/** Venue name (lowercased) → "Address, Postcode", from the venues sheet. Exported for tests. */
 export function parseBarnesVenues(csv: string): Map<string, string> {
   const venues = new Map<string, string>();
   for (const rec of csvRecords(csv)) {
     const name = clean(rec.get("venue"));
     const street = [clean(rec.get("address")), clean(rec.get("postcode"))].filter(Boolean).join(", ");
-    if (name && street) venues.set(venueKey(name), street);
+    if (name && street) venues.set(name.toLowerCase(), street);
   }
   return venues;
 }
@@ -92,12 +89,10 @@ export function parseBarnesRuns(
 
     const runDigits = rec.get("run")?.trim();
     const runNumber = runDigits && /^\d+$/.test(runDigits) ? Number.parseInt(runDigits, 10) : undefined;
-    const venueRaw = rec.get("venue")?.trim();
-    const location = clean(venueRaw);
-    // A "TBA" venue is an explicit clear, so a pub that fell through doesn't linger.
-    const venueCleared = !location && Boolean(venueRaw);
-    const locationStreet = location ? venues.get(venueKey(location)) : undefined;
-    const time = TIME_RE.exec(rec.get("start")?.trim() ?? "");
+    // A "TBA" venue or "Hare Wanted" clears what was there before; a blank cell is unknown.
+    const location = cellOrClear(rec.get("venue"));
+    const locationStreet = location ? venues.get(location.toLowerCase()) : location;
+    const hares = cellOrClear(rec.get("hares"));
 
     events.push({
       date,
@@ -105,11 +100,11 @@ export function parseBarnesRuns(
       runNumber,
       // Kept from the old HareLine.htm adapter so titles don't drift.
       title: runNumber ? `Barnes Hash Run #${runNumber}` : undefined,
-      hares: parseHares(rec.get("hares")),
-      location: venueCleared ? null : location,
-      locationStreet: venueCleared ? null : locationStreet,
+      hares: hares ? normalizeHaresField(hares.replaceAll(HARE_SEPARATOR_RE, ", ")) : hares,
+      location,
+      locationStreet,
       locationUrl: locationStreet ? googleMapsSearchUrl(`${location}, ${locationStreet}`) : undefined,
-      startTime: time ? `${time[1].padStart(2, "0")}:${time[2]}` : DEFAULT_START_TIME,
+      startTime: parseSheetStartTimeCell(rec.get("start")) ?? DEFAULT_START_TIME,
       description: clean(rec.get("notes")),
       sourceUrl,
     });
@@ -123,37 +118,47 @@ async function fetchText(url: string): Promise<string> {
   return res.text();
 }
 
+/**
+ * The runs and venues CSVs. Their URLs come from `source.config` when pinned
+ * (for an outage where config.js changed shape), else from the site's config.js.
+ * Venues only add the street address, so their failure is reported, not thrown.
+ */
+async function fetchSheets(pageUrl: string, pinned: SheetUrls) {
+  const urls = pinned.runsCsvUrl ? pinned : findSheetUrls(await fetchText(new URL("/config.js", pageUrl).href));
+  const { runsCsvUrl, venuesCsvUrl } = urls;
+  if (!runsCsvUrl) throw new Error("runsCsvUrl not found in config.js (site drift?)");
+  let venuesError: string | undefined;
+  const [runsCsv, venuesCsv] = await Promise.all([
+    fetchText(runsCsvUrl),
+    venuesCsvUrl
+      ? fetchText(venuesCsvUrl).catch((err: unknown) => {
+          venuesError = err instanceof Error ? err.message : String(err);
+          return "";
+        })
+      : "",
+  ]);
+  return { runsCsvUrl, runsCsv, venuesCsv, venuesError };
+}
+
 export class BarnesHashAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
   async fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
     const pageUrl = source.url || DEFAULT_URL;
     const days = options?.days ?? source.scrapeDays ?? 90;
+    const config = (source.config ?? {}) as Record<string, unknown>;
+    const pinned = { runsCsvUrl: httpsOnly(config.runsCsvUrl), venuesCsvUrl: httpsOnly(config.venuesCsvUrl) };
     const fetchStart = Date.now();
 
-    let runsCsv: string;
-    let venuesCsv = "";
-    let venuesError: string | undefined;
-    let csvUrls: ReturnType<typeof findSheetUrls>;
+    let sheets: Awaited<ReturnType<typeof fetchSheets>>;
     try {
-      csvUrls = findSheetUrls(await fetchText(new URL("/config.js", pageUrl).href));
-      const { runsCsvUrl, venuesCsvUrl } = csvUrls;
-      if (!runsCsvUrl) throw new Error("runsCsvUrl not found in config.js (site drift?)");
-      const runsFetch = fetchText(runsCsvUrl);
-      // Venues only add the street address; a failure there isn't worth failing the scrape.
-      const venuesFetch = venuesCsvUrl
-        ? fetchText(venuesCsvUrl).catch((err: unknown) => {
-            venuesError = err instanceof Error ? err.message : String(err);
-            return "";
-          })
-        : Promise.resolve("");
-      [runsCsv, venuesCsv] = await Promise.all([runsFetch, venuesFetch]);
+      sheets = await fetchSheets(pageUrl, pinned);
     } catch (err) {
       const message = `Barnes H3: ${err instanceof Error ? err.message : String(err)}`;
       return { events: [], errors: [message], errorDetails: { fetch: [{ url: pageUrl, message }] } };
     }
 
-    const events = parseBarnesRuns(runsCsv, parseBarnesVenues(venuesCsv), pageUrl);
+    const events = parseBarnesRuns(sheets.runsCsv, parseBarnesVenues(sheets.venuesCsv), pageUrl);
     const errors = events.length === 0 ? ["Barnes H3: 0 runs parsed from the runs sheet (header drift?)"] : [];
     return applyDateWindow(
       {
@@ -161,8 +166,8 @@ export class BarnesHashAdapter implements SourceAdapter {
         errors,
         diagnosticContext: {
           fetchMethod: "published-sheet-csv",
-          runsCsvUrl: csvUrls.runsCsvUrl,
-          venuesError,
+          runsCsvUrl: sheets.runsCsvUrl,
+          venuesError: sheets.venuesError,
           fetchDurationMs: Date.now() - fetchStart,
         },
       },
