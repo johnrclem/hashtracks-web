@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
-import { ActivityStatusBadge } from "@/components/kennels/ActivityStatusBadge";
+import { KennelStatusLine } from "@/components/kennels/KennelStatusLine";
 import { KennelLogo } from "@/components/kennels/KennelLogo";
+import { nextRunLabel } from "@/lib/kennel-directory";
+import type { SerializedKennelEvidence } from "@/lib/kennel-status";
 import { formatSchedule, formatDateShort, type ScheduleSlot } from "@/lib/format";
 
 export interface KennelCardData {
@@ -21,8 +23,10 @@ export interface KennelCardData {
   scheduleTime: string | null;
   scheduleFrequency: string | null;
   scheduleRules?: ScheduleSlot[] | null;
-  nextEvent: { date: string; title: string | null } | null;
-  lastEventDate: string | null;
+  website?: string | null;
+  facebookUrl?: string | null;
+  nextEvent: { date: string; title: string | null; isScheduleOnly: boolean } | null;
+  evidence: SerializedKennelEvidence;
 }
 
 interface KennelCardProps {
@@ -40,7 +44,10 @@ export function KennelCard({ kennel }: KennelCardProps) {
     : false;
 
   return (
-    <Link href={`/kennels/${kennel.slug}`}>
+    // Stretched link: the title's Link covers the card; the status line's
+    // "check their page" anchor sits above it (relative z-10) so the two
+    // anchors are siblings, never nested.
+    <div className="relative h-full">
       <div className={`rounded-lg border bg-card p-4 transition-colors hover:border-primary/50 hover:shadow-sm h-full flex flex-col${!kennel.nextEvent ? " opacity-60" : ""}`}>
         {/* Header: logo + shortName + region badge. Logo avatar mirrors the
             profile-page hero (src/app/kennels/[slug]/page.tsx) at card scale;
@@ -64,7 +71,12 @@ export function KennelCard({ kennel }: KennelCardProps) {
             />
             <div className="min-w-0">
               <h3 className="text-base font-bold leading-tight truncate" title={kennel.fullName}>
-                {kennel.shortName}
+                <Link
+                  href={`/kennels/${kennel.slug}`}
+                  className="after:absolute after:inset-0 after:content-['']"
+                >
+                  {kennel.shortName}
+                </Link>
               </h3>
               <p className="text-sm text-muted-foreground truncate">
                 {kennel.fullName}
@@ -72,10 +84,16 @@ export function KennelCard({ kennel }: KennelCardProps) {
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <ActivityStatusBadge lastEventDate={kennel.lastEventDate} hasUpcomingEvent={!!kennel.nextEvent} />
             <RegionBadge region={kennel.region} size="sm" />
           </div>
         </div>
+
+        <KennelStatusLine
+          evidence={kennel.evidence}
+          website={kennel.website ?? null}
+          facebookUrl={kennel.facebookUrl ?? null}
+          kennelSlug={kennel.slug}
+        />
 
         {/* Schedule + founded */}
         {(schedule || kennel.foundedYear) && (
@@ -100,7 +118,7 @@ export function KennelCard({ kennel }: KennelCardProps) {
         <div className="mt-3 pt-2 border-t text-xs">
           {kennel.nextEvent ? (
             <>
-              <span className="text-muted-foreground">Next run: </span>
+              <span className="text-muted-foreground">{nextRunLabel(kennel.nextEvent)}</span>
               <span className={isNextSoon ? "font-semibold text-blue-600 dark:text-blue-400" : ""}>
                 {formatDateShort(kennel.nextEvent.date)}
               </span>
@@ -110,6 +128,6 @@ export function KennelCard({ kennel }: KennelCardProps) {
           )}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

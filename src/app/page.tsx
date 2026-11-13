@@ -8,7 +8,7 @@ import { formatDateShort, formatTimeCompact } from "@/lib/format";
 import { getDisplayTitle, getLocationDisplay } from "@/lib/event-display";
 import { getRegionColor } from "@/lib/region";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
-import { activeKennelWhere } from "@/lib/activity-status";
+import { runningKennelWhere } from "@/lib/kennel-status";
 import { getTodayUtcNoon } from "@/lib/date";
 import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
 import { getHomeComingUp } from "@/lib/home-coming-up";
@@ -47,8 +47,8 @@ export default async function HomePage() {
       prisma.event.count({
         where: { ...DISPLAY_EVENT_WHERE, date: { gte: todayUtcNoon } },
       }),
-      // Same rule as the Kennel Directory's default "active" view.
-      prisma.kennel.count({ where: activeKennelWhere() }),
+      // Kennels with recent evidence of running (see kennel-status.ts).
+      prisma.kennel.count({ where: runningKennelWhere() }),
       prisma.kennel
         .findMany({ where: { isHidden: false }, select: { regionId: true }, distinct: ["regionId"] })
         .then((rows) => rows.length),
