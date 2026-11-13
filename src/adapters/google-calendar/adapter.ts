@@ -646,6 +646,14 @@ function isInitialsWordplay(title: string, inner: string, parenIndex: number): b
   return innerInitials === initials.toLowerCase();
 }
 
+/** A titleLocationPattern capture with trailing punctuation trimmed, or undefined
+ *  when it is empty or a vacancy placeholder ("venue TBC", "3 - vacant"). */
+function titleLocationCandidate(match: RegExpExecArray | null): string | undefined {
+  const candidate = match?.[1]?.trim().replace(/[.,;:\s]+$/, "").trim(); // NOSONAR — anchored end-of-string char-class
+  if (!candidate || isPlaceholder(candidate) || containsPlaceholderToken(candidate)) return undefined;
+  return candidate;
+}
+
 /**
  * Minimum plausible hash-event title length. Below this, with no other
  * structured field, the summary is almost certainly a data-entry artifact
@@ -1042,6 +1050,9 @@ const NON_ADDRESS_SUFFIX_RE = /\bstart\s+location\s*$/i;
  *  LOCATION field instead of leaving it blank (#2081 Morgantown). Anchored
  *  whole-string so a real venue containing the word "provided" survives. */
 const NON_ADDRESS_NO_LOCATION_RE = /^no location provided$/i;
+/** "See calendar details" / "See details" / "See below" pointers in the GCal
+ *  LOCATION field (LDS H3 on the Whoreman calendar): a CTA, not a venue. */
+const NON_ADDRESS_SEE_DETAILS_RE = /^see\s+(?:(?:calendar|event)\s+)?(?:details|below)\b/i;
 
 /** Returns true if text starts with instruction phrasing rather than an address.
  *  Patterns are split across multiple small regexes so each stays under
@@ -1055,7 +1066,8 @@ function isNonAddressText(text: string): boolean {
     NON_ADDRESS_LABEL_TRAIL_RE.test(t) ||
     NON_ADDRESS_PAYMENT_RE.test(t) ||
     NON_ADDRESS_SUFFIX_RE.test(t) ||
-    NON_ADDRESS_NO_LOCATION_RE.test(t)
+    NON_ADDRESS_NO_LOCATION_RE.test(t) ||
+    NON_ADDRESS_SEE_DETAILS_RE.test(t)
   );
 }
 
@@ -1099,6 +1111,10 @@ interface CalendarSourceConfig {
    *  hit wins. The matched span is stripped from the title. Candidates that
    *  trip `isPlaceholder()` (e.g. "venue TBC") are rejected (#1222). */
   titleLocationPattern?: string | string[];
+  /** #2910 Isca H3: the title names the venue. Apply `titleLocationPattern`
+   *  only when LOCATION is a bare maps URL (kept as `locationUrl`), never strip
+   *  the venue from the title, and keep a LOCATION that equals the title. */
+  titleLocationFillOnly?: boolean;
   /**
    * When true, the `titleHarePattern` span is stripped from the title even when
    * the canonical hare came from the description (#1884 MH3-Mpls: title
@@ -1547,7 +1563,9 @@ export function buildRawEventFromGCalItem(
   const { dateISO, startTime } = extractDateTimeFromGCalItem(item.start, sourceConfig?.timezone);
   if (!dateISO) return null;
   const endParts = item.end ? extractDateTimeFromGCalItem(item.end, sourceConfig?.timezone) : undefined;
-  const summary = decodeEntities(item.summary);
+  // Some calendar owners type literal "<br>" into SUMMARY (Hill Country H3,
+  // 2010–11: "HOTH3 <br>Humpin Hash"); it must never reach the title.
+  const summary = decodeEntities(item.summary).replaceAll(/\s*<br\s*\/?>\s*/gi, " ").trim();
 
   // Skip events whose summary matches any configured skip pattern (e.g., cross-kennel posts)
   if (compiledSkipPatterns?.length) {
@@ -1847,12 +1865,26 @@ export function buildRawEventFromGCalItem(
   // still stripped (#2849 NOH3: "Hash #1983- Start @ Henry Thomas Dr. (parking
   // lot)" with LOCATION "30 Henry Thomas Dr, …"). A capture that shares no word
   // with LOCATION stays in the title: on EWH3 it can be a hare's name.
-  if (compiledTitleLocationPatterns?.length) {
+  // #2910 Isca H3: with `titleLocationFillOnly` the title IS the venue. It only
+  // labels a LOCATION that is just a maps link (the link stays as the
+  // locationUrl, so it still drives the pin), and the title is left as it is.
+  const titleIsVenue = sourceConfig?.titleLocationFillOnly === true;
+  let locationUrlFromField: string | undefined;
+  if (compiledTitleLocationPatterns?.length && titleIsVenue) {
+    if (location && /^https?:\/\//i.test(location)) {
+      for (const re of compiledTitleLocationPatterns) {
+        const candidate = titleLocationCandidate(re.exec(title));
+        if (!candidate) continue;
+        locationUrlFromField = location;
+        location = candidate;
+        break;
+      }
+    }
+  } else if (compiledTitleLocationPatterns?.length) {
     for (const re of compiledTitleLocationPatterns) {
       const locMatch = re.exec(title);
-      if (!locMatch?.[1]) continue;
-      const candidate = locMatch[1].trim().replace(/[.,;:\s]+$/, "").trim(); // NOSONAR — anchored end-of-string char-class
-      if (!candidate || isPlaceholder(candidate) || containsPlaceholderToken(candidate)) continue;
+      const candidate = titleLocationCandidate(locMatch);
+      if (!locMatch || !candidate) continue;
       if (location && !sharesPlaceWord(candidate, location)) break;
       location ??= candidate;
       title = (title.slice(0, locMatch.index) + title.slice(locMatch.index + locMatch[0].length))
@@ -1954,7 +1986,8 @@ export function buildRawEventFromGCalItem(
   }
 
   // Strip " - LocationName" from title when location was already extracted
-  if (location && title.toLowerCase().endsWith(` - ${location.toLowerCase()}`)) {
+  // (Not with titleLocationFillOnly, which promises to leave the title.)
+  if (location && !titleIsVenue && title.toLowerCase().endsWith(` - ${location.toLowerCase()}`)) {
     title = title.slice(0, -(` - ${location}`).length).trim();
   }
   // #815 GyNO: the endsWith strip above only fires on exact-location suffixes;
@@ -2162,7 +2195,8 @@ export function buildRawEventFromGCalItem(
   // Some kennels paste the event name into the GCal LOCATION field instead of an
   // address ("Juneteenth parade downtown" in both summary and location); drop
   // the duplicate so it doesn't masquerade as a geocodable location.
-  if (location && location.trim().toLowerCase() === finalTitle?.trim().toLowerCase()) {
+  // Not with titleLocationFillOnly, where the title is the venue by design.
+  if (location && !titleIsVenue && location.trim().toLowerCase() === finalTitle?.trim().toLowerCase()) {
     location = undefined;
   }
 
@@ -2192,7 +2226,7 @@ export function buildRawEventFromGCalItem(
     description: appendDescriptionSuffix(description, sourceConfig?.descriptionSuffix),
     hares,
     location: locationIsUrl ? undefined : location,
-    locationUrl: location ? (locationIsUrl ? location : mapsUrl(location)) : undefined,
+    locationUrl: locationUrlFromField ?? (location ? (locationIsUrl ? location : mapsUrl(location)) : undefined),
     latitude,
     longitude,
     startTime: resolvedStartTime,

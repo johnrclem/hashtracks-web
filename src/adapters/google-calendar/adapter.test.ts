@@ -21,6 +21,7 @@ import {
   looksLikeHareName,
 } from "./adapter";
 import { compilePatterns, isThemelessPlaceholderTitle } from "../utils";
+import { compileKennelPatterns } from "../kennel-patterns";
 import type { RawEventData } from "../types";
 import { SOURCES } from "../../../prisma/seed-data/sources";
 
@@ -6698,5 +6699,110 @@ describe("buildRawEventFromGCalItem — multi-day all-day endDate", () => {
     );
     expect(result?.date).toBe("2026-10-02");
     expect(result?.endDate).toBeUndefined();
+  });
+});
+
+// ── WS4 calendar-feed leaks (2026-11-12) — run against the real seed configs ──
+describe("WS4 calendar-feed leaks", () => {
+  type SeedConfig = {
+    titleHarePattern?: string | string[];
+    titleStripPatterns?: string[];
+    titleLocationPattern?: string | string[];
+    kennelPatterns?: [string, string | string[]][];
+  } & Record<string, unknown>;
+  function seedConfig(name: string): SeedConfig {
+    const source = SOURCES.find((s) => s.name === name);
+    if (!source) throw new Error(`missing seed source ${name}`);
+    return source.config as SeedConfig;
+  }
+  const asArray = (p: string | string[] | undefined) => (p === undefined ? [] : Array.isArray(p) ? p : [p]);
+  function build(item: Record<string, unknown>, config: SeedConfig) {
+    return buildRawEventFromGCalItem(testGCalEvent(item), config as never, {
+      compiledTitleHarePatterns: compilePatterns(asArray(config.titleHarePattern), "i"),
+      compiledTitleStripPatterns: compilePatterns(config.titleStripPatterns ?? [], "i"),
+      compiledTitleLocationPatterns: compilePatterns(asArray(config.titleLocationPattern), "i"),
+    });
+  }
+
+  describe("Devon Lunatics 'vytbc' placeholder", () => {
+    const config = seedConfig("Devon Lunatics H3 Google Calendar");
+    it.each([
+      ["Devon Lunatics H3 - vytbc - AGPU", "AGPU", undefined],
+      ["Devon Lunatics H3 - vytbc - Buzby & Night Screecher", "Devon Lunatics H3", "Buzby & Night Screecher"],
+      ["Devon Lunatics H3 - vytbc", "Devon Lunatics H3", undefined],
+      ["Devon Lunatics H3 - Christmas Party - Chez Buzby & Night Screecher", "Christmas Party - Chez Buzby & Night Screecher", undefined],
+    ])("%s", (summary, title, hares) => {
+      const e = build({ summary }, config);
+      expect(e?.title).toBe(title);
+      expect(e?.hares).toBe(hares);
+    });
+  });
+
+  describe("Isca H3 hares and shortlink venues (#2910)", () => {
+    const config = seedConfig("Isca H3 Google Calendar");
+    it.each([
+      ["Isca H3 - 1600th! Holman Way CP, Topsham. Hares: Adonis & Buzby", "1600th! Holman Way CP, Topsham", "Adonis & Buzby"],
+      ["Isca H3 - Chudleigh CP. Chardonnay.", "Chudleigh CP", "Chardonnay"],
+      ["Isca H3 - The Old Rydon Inn, Kingsteignton. Wide and Tight. Tight's birthday!", "The Old Rydon Inn, Kingsteignton. Tight's birthday!", "Wide and Tight"],
+      ["Isca H3 - Clyst St Mary car park - Buzby & Night Screecher", "Clyst St Mary car park", "Buzby & Night Screecher"],
+      ["Isca H3 - Four Firs, Woodbury Common - Hare Mad Max", "Four Firs, Woodbury Common", "Mad Max"],
+      // Themes after the venue are not hares.
+      ["Isca H3 - The Lord Nelson, Topsham. Christmas party!", "The Lord Nelson, Topsham. Christmas party!", undefined],
+      ["Isca H3 - Haven Banks 3 CP, Exeter Quay. Drop Off's 30th.", "Haven Banks 3 CP, Exeter Quay. Drop Off's 30th", undefined],
+      ["Isca H3 - Hare and Hounds, Putts Corner", "Hare and Hounds, Putts Corner", undefined],
+    ])("%s", (summary, title, hares) => {
+      const e = build({ summary, description: "Website: www.iscah3.uk" }, config);
+      expect(e?.title).toBe(title);
+      expect(e?.hares).toBe(hares);
+    });
+
+    it("labels a shortlink-only LOCATION with the title's venue and keeps the link", () => {
+      const e = build({
+        summary: "Isca H3 - Magelake Hall CP, Uffculme. Meaty Whore.",
+        location: "https://maps.app.goo.gl/yNxTHEf9QBqfGgNn8",
+      }, config);
+      expect(e?.title).toBe("Magelake Hall CP, Uffculme");
+      expect(e?.location).toBe("Magelake Hall CP, Uffculme");
+      expect(e?.locationUrl).toBe("https://maps.app.goo.gl/yNxTHEf9QBqfGgNn8");
+      expect(e?.hares).toBe("Meaty Whore");
+    });
+
+    it("leaves a structured LOCATION alone and never fills an empty one from the title", () => {
+      const real = build({ summary: "Isca H3 - Chudleigh CP. Chardonnay.", location: "Chudleigh Car Park, Chudleigh, Newton Abbot, UK" }, config);
+      expect(real?.location).toBe("Chudleigh Car Park, Chudleigh, Newton Abbot, UK");
+      const none = build({ summary: "Isca H3 - Sandford Orchards. Woody." }, config);
+      expect(none?.location).toBeUndefined();
+    });
+
+    it("titles an empty placeholder row with the default, not the description boilerplate", () => {
+      expect(build({ summary: "Isca H3 - ", description: "Website: www.iscah3.uk" }, config)?.title).toBe("Isca H3 Trail");
+    });
+  });
+
+  it.each(["See calendar details", "See details", "see event details", "See below"])(
+    "drops a '%s' LOCATION pointer (LDS H3)",
+    (location) => {
+      const e = buildRawEventFromGCalItem(
+        testGCalEvent({ summary: "LDS #700", location, description: "Hare: TBD\nWhere: TBD" }),
+        { defaultKennelTag: "lds-h3" },
+      );
+      expect(e?.location).toBeUndefined();
+      expect(e?.locationUrl).toBeUndefined();
+    },
+  );
+
+  it("keeps a real venue that starts with 'See'", () => {
+    const e = buildRawEventFromGCalItem(testGCalEvent({ summary: "Trail", location: "Seeburg Park, 1 Main St" }), { defaultKennelTag: "x" });
+    expect(e?.location).toBe("Seeburg Park, 1 Main St");
+  });
+
+  it("turns a literal <br> in SUMMARY into a space and routes the Humpin Hash to its own kennel", () => {
+    const config = seedConfig("Hill Country H3 Google Calendar");
+    const opts = { compiledKennelPatterns: compileKennelPatterns(config.kennelPatterns ?? []) };
+    const humpin = buildRawEventFromGCalItem(testGCalEvent({ summary: "HOTH3 <br>Humpin Hash<br>Oh the weather outside is frightful..." }), config as never, opts);
+    expect(humpin?.kennelTags).toEqual(["hoth3-humpin"]);
+    expect(humpin?.title).toBe("HOTH3 Humpin Hash Oh the weather outside is frightful...");
+    const fullMoon = buildRawEventFromGCalItem(testGCalEvent({ summary: "Heart of Texas H3 Beaver Fool Moon Trail #505" }), config as never, opts);
+    expect(fullMoon?.kennelTags).toEqual(["hoth3"]);
   });
 });

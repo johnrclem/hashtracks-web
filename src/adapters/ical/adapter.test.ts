@@ -2520,6 +2520,68 @@ describe("ICalAdapter — dangling backslashes + locationOmitIfMatches", () => {
   });
 });
 
+// Cheltenham & Cotswold H3 — verbatim live VEVENTs (2026-11-12). DESCRIPTION is a
+// generated template (hares, Apple Maps link, the login-walled event URL) and
+// DTEND is always DTSTART + 2h (#2890, #2891, #2892).
+const C2H3_TEMPLATE_ICS = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "PRODID:-//C2H3//Cheltenham & Cotswold HHH//EN",
+  "BEGIN:VEVENT",
+  "UID:run-12519@c2h3.co.uk",
+  "DTSTART:20261115T143000",
+  "DTEND:20261115T163000",
+  "SUMMARY:Run #2849 — Farmers Arms",
+  String.raw`LOCATION:Farmers Arms\, Lower Apperley GL19 4DR`,
+  String.raw`DESCRIPTION:Hare(s): Instant whip\, Herr Flash\nMap: https://maps.apple.com/?q=Farmers+Arms%2C+Lower+Apperley+GL19+4DR\nhttps://c2h3.co.uk/runs/run-2849/`,
+  "URL:https://c2h3.co.uk/runs/run-2849/",
+  "END:VEVENT",
+  "BEGIN:VEVENT",
+  "UID:run-12545@c2h3.co.uk",
+  "DTSTART:20261118T190000",
+  "DTEND:20261118T210000",
+  "SUMMARY:Run #2850 — The Five Alls",
+  String.raw`LOCATION:The Five Alls\, Bath Rd\, Cheltenham\, GL53 7ND`,
+  String.raw`DESCRIPTION:Hare(s): Randiflora\, Horney\nTorchlit\nMap: https://maps.apple.com/?q=The+Five+Alls%2C+Bath+Rd%2C+Cheltenham%2C+GL53+7ND\nhttps://c2h3.co.uk/runs/run-2850/`,
+  "URL:https://c2h3.co.uk/runs/run-2850/",
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n");
+
+describe("ICalAdapter — descriptionStripPatterns, ignoreEndTime, sourceUrlOverride (C2H3)", () => {
+  const C2H3_CONFIG = {
+    defaultKennelTag: "c2h3-gb",
+    descriptionStripPatterns: [String.raw`^Hare\(s\):`, String.raw`^Map:\s*https?://`, String.raw`^https?://c2h3\.co\.uk/\S*$`],
+    ignoreEndTime: true,
+    sourceUrlOverride: "https://c2h3.co.uk/upcoming-runs/",
+  };
+  beforeEach(() => vi.restoreAllMocks());
+
+  it("keeps only the run notes, clears a boilerplate-only description, drops DTEND and the login link", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(C2H3_TEMPLATE_ICS, { status: 200 }));
+    const result = await new ICalAdapter().fetch(buildMockSource({ config: C2H3_CONFIG }), { days: 9999 });
+    const byRun = new Map(result.events.map((e) => [e.runNumber, e]));
+    // Hares are still read from the full DESCRIPTION.
+    expect(byRun.get(2850)?.hares).toBe("Randiflora, Horney");
+    expect(byRun.get(2850)?.description).toBe("Torchlit");
+    expect(byRun.get(2849)?.description).toBeNull();
+    for (const e of result.events) {
+      expect(e.endTime).toBeNull();
+      expect(e.sourceUrl).toBe("https://c2h3.co.uk/upcoming-runs/");
+    }
+  });
+
+  it("leaves description, end time and link alone without the knobs", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(C2H3_TEMPLATE_ICS, { status: 200 }));
+    const result = await new ICalAdapter().fetch(buildMockSource({ config: { defaultKennelTag: "c2h3-gb" } }), { days: 9999 });
+    const e = result.events.find((x) => x.runNumber === 2850);
+    expect(e?.description).toContain("Map: https://maps.apple.com/");
+    expect(e?.endTime).toBeDefined();
+    expect(e?.endTime).not.toBeNull();
+    expect(e?.sourceUrl).toBe("https://c2h3.co.uk/runs/run-2850/");
+  });
+});
+
 // Chichester H3 (chihhh.org.uk/diary) — verbatim live VEVENTs. SUMMARY is
 // "<hares / theme>  <OS grid ref> <venue>"; coords live in a maps.google.co.uk
 // `?q=loc:` URL; venue-TBA runs carry a 0,0 placeholder; one special has a
@@ -2648,7 +2710,7 @@ describe("ICalAdapter — Chichester H3 grid-ref SUMMARY (summaryGridRefVenue)",
     expect(result.diagnosticContext?.skippedInvalidDate).toBe(1);
     const iow = result.events.find((x) => x.date === "2026-03-15");
     expect(iow?.runNumber).toBeUndefined();
-    expect(iow?.hares).toBeUndefined();
+    expect(iow?.hares).toBe("Beer Pump & Proppy"); // #2894: leading "IOW HHH" is the visit, not a hare
   });
 });
 
@@ -2676,9 +2738,25 @@ describe("Chichester grid-ref helpers", () => {
     ["Prancer and crew  (Vixen's birthday) - Clocks go forward", "Prancer and crew"],
     ["Joint H4 and CH3 run - Hare Ravinous Curls", "Ravinous Curls"],
     ["Hare: Nutcracker - Joint run with H4 & neighbours", "Nutcracker"],
-    ["Hangover - Old Faithful and Bambi - chez Old Faithful & Pru", undefined],
+    // #2894: a theme word or "??" no longer throws away the names before it.
+    ["Hangover - Old Faithful and Bambi - chez Old Faithful & Pru", "Old Faithful and Bambi"],
     ["Worthy Winchester and IOW Weekend", undefined],
-    ["Cock Burn & ?? Chichester Architectural Highlights trail", undefined],
+    ["Cock Burn & ?? Chichester Architectural Highlights trail", "Cock Burn"],
+    ["Bika and ?? ON-IN at Hunston Community Club", "Bika"],
+    ["Cock Burns & Linsey Hangover Hash", "Cock Burns & Linsey"],
+    ["IOW HHH Beer Pump & Proppy", "Beer Pump & Proppy"],
+    [
+      "Olive Oyl and Sausage Lottery Christmas Hash & Seasonal Garb - around Chichester with a treasure trail!",
+      "Olive Oyl and Sausage Lottery",
+    ],
+    ["Summer BBQ at the Pub", undefined],
+    // A later " - " segment is a fallback only when it is a theme-free list.
+    ["Christmas Party - Joint with H4 & neighbours", undefined],
+    // #2896: the labelled hares stop at "venue".
+    ["Hangover Hash Hares Not The Messiah and Bambi venue Chez Cock Burns. Awards, Raffle", "Not The Messiah and Bambi"],
+    // #2895: "Hash Flash" is a hasher, not the word "hash".
+    ["Hash Flash & Panda", "Hash Flash & Panda"],
+    ["The Mikulas Run - Hash Flash & Amanda the Panda", "Hash Flash & Amanda the Panda"],
     [undefined, undefined],
   ])("gridRefPreambleHares(%j) → %j", (preamble, expected) => {
     expect(gridRefPreambleHares(preamble)).toBe(expected);
