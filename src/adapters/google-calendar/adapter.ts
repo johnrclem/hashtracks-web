@@ -2470,7 +2470,11 @@ export class GoogleCalendarAdapter implements SourceAdapter {
       ? new WeakMap<RawEventData, string>()
       : undefined;
 
-    const buildEvents = (items: GCalEvent[], filter?: (item: GCalEvent) => boolean): void => {
+    const buildEvents = (
+      items: GCalEvent[],
+      filter?: (item: GCalEvent) => boolean,
+      orphanOverrides = false,
+    ): void => {
       let eventIndex = 0;
       for (const item of items) {
         if (filter && !filter(item)) {
@@ -2479,6 +2483,10 @@ export class GoogleCalendarAdapter implements SourceAdapter {
         }
         try {
           const event = buildRawEventFromGCalItem(item, sourceConfig, { ...compiled, gcalIdMap, allDayEventSet, summaryMap });
+          // An override the primary call didn't return belongs to a master
+          // with no RRULE: an individually posted run, not a repeating-schedule
+          // instance, so it must not carry the schedule marker.
+          if (event && orphanOverrides) delete event.recurringSeriesId;
           if (event) events.push(event);
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
@@ -2524,7 +2532,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
         if (!item.recurringEventId || !item.originalStartTime) return false;
         if (item.id && primaryIds.has(item.id)) return false;
         return true;
-      });
+      }, true);
       exceptionsRecovered = events.length - before;
     } catch (err) {
       // Never let the exception-recovery call break primary results — log and continue.
