@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, compilePatterns, appendDescriptionSuffix, isPlaceholder, extractHashRunNumber, hasPlaceholderRunNumber, cleanLocationName, eqTrimLc, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE } from "../utils";
+import { googleMapsSearchUrl, compilePatterns, stripHtmlIfTagged, appendDescriptionSuffix, isPlaceholder, extractHashRunNumber, hasPlaceholderRunNumber, cleanLocationName, eqTrimLc, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE } from "../utils";
 import { safeFetch } from "../safe-fetch";
 import { enrichSFH3Events, markSFH3SeriesMembership } from "../html-scraper/sfh3-detail-enrichment";
 import { enrichBerlinH3Events } from "../html-scraper/berlin-h3-detail-enrichment";
@@ -252,7 +252,7 @@ const TITLE_HARE_THEME_SUFFIX_RE = /\b(?:run|walk|jog|ride|bike|hike)$/i;
 // property); `goo.gl/maps` is the legacy short form. Both recognized so the
 // map pin surfaces as locationUrl.
 const MAPS_URL_PATTERN =
-  /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.(?:com|co\.[a-z]{2})|maps\.app\.goo\.gl|goo\.gl\/maps)\S*/i;
+  /https?:\/\/(?:www\.)?(?:google\.com\/maps|maps\.google\.(?:com|co\.[a-z]{2})|maps\.app\.goo\.gl|goo\.gl\/maps)[^\s"'<>]*/i; // stops at a quote or tag, so an <a href> URL comes out whole
 
 /**
  * Drop a backslash left dangling at the end of a line. Malvern H3's feed
@@ -779,7 +779,10 @@ function buildRawEventFromVEvent(
       endDate = formatDate(inclusiveEnd);
     }
   }
-  const description = stripLineEndBackslashes(paramValue(vevent.description));
+  // Timely (Jacksonville H3) sends DESCRIPTION as HTML; read fields from, and
+  // store, its text. Plain-text descriptions pass through unchanged.
+  const rawIcsDescription = stripLineEndBackslashes(paramValue(vevent.description));
+  const description = stripHtmlIfTagged(rawIcsDescription);
   let hares = description ? extractHaresFromDescription(description, compiledHarePatterns) : undefined;
   // Track whether the hare came from the SUMMARY (titleHarePattern) vs the
   // description — the #2160 title-is-hare suppression below only fires for
@@ -855,7 +858,8 @@ function buildRawEventFromVEvent(
   const locationUrl = resolveLocationUrl(
     geo,
     location ?? undefined,
-    description,
+    // The raw text keeps a maps URL that only lives in an HTML <a href>.
+    rawIcsDescription,
     eventMapUrl,
   );
 

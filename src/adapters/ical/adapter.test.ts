@@ -2582,6 +2582,40 @@ describe("ICalAdapter — descriptionStripPatterns, ignoreEndTime, sourceUrlOver
   });
 });
 
+// Jacksonville H3's Timely feed sends DESCRIPTION as HTML (avatar image,
+// <h2> heading, <div>/<br> body). Shape copied from the live feed.
+const TIMELY_HTML_ICS = [
+  "BEGIN:VCALENDAR",
+  "VERSION:2.0",
+  "PRODID:-//Timely//EN",
+  "BEGIN:VEVENT",
+  "UID:timely-1@example.com",
+  "DTSTART:20261121T140000",
+  "SUMMARY:JaxH3 Trail #1234",
+  String.raw`DESCRIPTION:<div class='ai1ec-event-avatar alignleft timely'><img src='https://example.com/a.jpg' /></div><h2>Event Description</h2>\n<div>Hares: Snatch Shot &amp; Bambi<br>Bring a flashlight</div>`,
+  "END:VEVENT",
+  "END:VCALENDAR",
+].join("\r\n");
+
+describe("ICalAdapter — HTML DESCRIPTION (Jacksonville Timely)", () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it("stores the text and reads hares from it", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(TIMELY_HTML_ICS, { status: 200 }));
+    const result = await new ICalAdapter().fetch(buildMockSource({ config: { defaultKennelTag: "jax-h3" } }), { days: 9999 });
+    const e = result.events[0];
+    expect(e.description).toBe("Event Description\n\nHares: Snatch Shot & Bambi\nBring a flashlight");
+    expect(e.hares).toBe("Snatch Shot & Bambi");
+  });
+
+  it("keeps a maps URL that only appears in an <a href>", async () => {
+    const ics = TIMELY_HTML_ICS.replace("Bring a flashlight", `<a href='https://maps.google.com/?q=Riverside+Park'>Map</a>`);
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(ics, { status: 200 }));
+    const result = await new ICalAdapter().fetch(buildMockSource({ config: { defaultKennelTag: "jax-h3" } }), { days: 9999 });
+    expect(result.events[0].locationUrl).toBe("https://maps.google.com/?q=Riverside+Park");
+  });
+});
+
 // Chichester H3 (chihhh.org.uk/diary) — verbatim live VEVENTs. SUMMARY is
 // "<hares / theme>  <OS grid ref> <venue>"; coords live in a maps.google.co.uk
 // `?q=loc:` URL; venue-TBA runs carry a 0,0 placeholder; one special has a

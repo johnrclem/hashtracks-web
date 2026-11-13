@@ -7,10 +7,18 @@
  * days back, so history is frozen here (2026-11-07 pull through the live
  * GoogleCalendarAdapter config — strict kennelPatterns routing, all-day
  * markers + "Miss Management"/"Pub Call" + Wako/AH3/Thursty/personal rows
- * already excluded): 1,160 events, 2010-08-07 → 2025-11-01
- * (hch3 401, hoth3 192, hoth3-humpin 567: the 2010–2021 weekly Wednesday
+ * already excluded): 1,167 events, 2010-08-07 → 2025-11-01
+ * (hch3 408, hoth3 192, hoth3-humpin 567: the 2010–2021 weekly Wednesday
  * "HOTH3 Humpin Hash", split into its own kennel 2026-11-12; literal "<br>" in
  * 13 of its titles was normalized to a space).
+ *
+ * Seven 2010–11 HCH3 runs (Trails 290, 292, 294, 295, 297, 298, 300) are
+ * titled "Hill Contry H3 …" in the calendar, so strict routing dropped them
+ * from the first freeze. They were added 2026-11-13 from the same adapter with
+ * a typo-tolerant `^Hill Co(?:u)?ntry\b` pattern, title typo corrected.
+ * They load via scripts/backfill-hch3-hill-contry.ts. Don't re-run this
+ * script in full since 2026-11-12: kennelTags are in the RawEvent
+ * fingerprint, so the 567 retagged Humpin rows would be ingested again.
  *
  * Curation when freezing:
  *  - Cutoff date < 2025-11-07, strictly before the live source's 365-day
@@ -41,7 +49,7 @@ runBackfillScript({
   fetchEvents: async () => {
     const events = history as RawEventData[];
     if (events.length === 0) {
-      throw new Error("hch3-history.json is empty — expected 1,160 frozen events. Aborting.");
+      throw new Error("hch3-history.json is empty — expected 1,167 frozen events. Aborting.");
     }
     return events;
   },

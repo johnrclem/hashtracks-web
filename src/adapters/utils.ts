@@ -124,7 +124,8 @@ export function stripHtmlTags(
   text: string,
   separator = " ",
 ): string {
-  const withBr = text.replace(/<br\s*\/?>/gi, separator);
+  // `<br\b[^>]*>` also catches `<br class="…" />` (Timely and Facebook paste markup).
+  const withBr = text.replace(/<br\b[^>]*>/gi, separator);
   // Insert replacement before closing block-level tags so paragraph boundaries survive .text()
   const withBlocks = withBr.replace(/<\/(?:p|div|li|tr|blockquote|h[1-6])\s*>/gi, separator);
   const $ = cheerio.load(withBlocks);
@@ -133,6 +134,39 @@ export function stripHtmlTags(
     .replace(/[^\S\r\n]+/g, " ")
     .replace(/ *\n */g, "\n")
     .trim();
+}
+
+/**
+ * Replace literal `<br>` tags left in plain text, which would otherwise show
+ * on screen. Titles pass " ", list-like fields (hares, venue) ", ", and
+ * descriptions "\n" (keeping at most one blank line). Empty segments from
+ * doubled or trailing tags are dropped. Text without a `<br` is unchanged.
+ */
+export function replaceBrTags(text: string, separator: " " | ", " | "\n"): string {
+  if (!/<br/i.test(text)) return text;
+  if (separator === "\n") {
+    return collapseBlankLines(text.replaceAll(/[ \t]*<br\b[^>]*>/gi, "\n")).trim();
+  }
+  return text.split(/<br\b[^>]*>/i).map((s) => s.trim()).filter(Boolean).join(separator);
+}
+
+/** Keep at most one blank line between paragraphs. */
+function collapseBlankLines(text: string): string {
+  return text.replaceAll(/\n{3,}/g, "\n\n");
+}
+
+/** A common HTML tag that a feed author left in a plain-text field. */
+const COMMON_HTML_TAG_RE = /<\/?(?:a|b|blockquote|br|div|em|font|h[1-6]|hr|i|img|li|ol|p|span|strong|table|td|tr|u|ul)\b[^>]*>/i;
+
+/**
+ * Convert a plain-text field that arrived as HTML (Jacksonville H3's Timely
+ * iCal DESCRIPTION) to text via `stripHtmlTags`. Text with no common HTML tag is returned
+ * unchanged, so a "<3" or "< 5 miles" in an ordinary description survives.
+ * Keeps at most one blank line between paragraphs.
+ */
+export function stripHtmlIfTagged(text: string | undefined): string | undefined {
+  if (!text || !COMMON_HTML_TAG_RE.test(text)) return text;
+  return collapseBlankLines(stripHtmlTags(text, "\n"));
 }
 
 /**

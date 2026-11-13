@@ -1,7 +1,7 @@
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { googleMapsSearchUrl, decodeEntities, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, isThemelessPlaceholderTitle, normalizeCostSigil, BARE_KENNEL_CODE_RE } from "../utils";
+import { googleMapsSearchUrl, decodeEntities, replaceBrTags, stripHtmlTags, compilePatterns, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE, CTA_EMBEDDED_PATTERNS, appendDescriptionSuffix, dedupeRepeatedDescription, isPlaceholder, parse12HourTime, formatAmPmTime, stripNonEnglishCountry, extractHashRunNumber, hasPlaceholderRunNumber, isThemelessPlaceholderTitle, normalizeCostSigil, BARE_KENNEL_CODE_RE } from "../utils";
 import { matchKennelPatterns, matchCompiledKennelPatterns, compileKennelPatterns, type KennelPattern, type CompiledKennelPattern } from "../kennel-patterns";
 import { LOCATION_EMAIL_CTA_RE } from "@/pipeline/audit-checks";
 import { parseDMSFromLocation } from "@/lib/geo";
@@ -1565,7 +1565,7 @@ export function buildRawEventFromGCalItem(
   const endParts = item.end ? extractDateTimeFromGCalItem(item.end, sourceConfig?.timezone) : undefined;
   // Some calendar owners type literal "<br>" into SUMMARY (Hill Country H3,
   // 2010–11: "HOTH3 <br>Humpin Hash"); it must never reach the title.
-  const summary = decodeEntities(item.summary).replaceAll(/\s*<br\s*\/?>\s*/gi, " ").trim();
+  const summary = replaceBrTags(decodeEntities(item.summary), " ").trim();
 
   // Skip events whose summary matches any configured skip pattern (e.g., cross-kennel posts)
   if (compiledSkipPatterns?.length) {

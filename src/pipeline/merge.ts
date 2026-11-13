@@ -8,7 +8,7 @@ import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, resolveKennelTags, clearResolverCache } from "./kennel-resolver";
 import { extractCoordsFromMapsUrl, geocodeVenue, resolveShortMapsUrl, reverseGeocode, parseDMSFromLocation, stripDMSFromLocation } from "@/lib/geo";
-import { isPlaceholder, isThemelessPlaceholderTitle, decodeEntities, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
+import { isPlaceholder, isThemelessPlaceholderTitle, decodeEntities, replaceBrTags, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
 import { containsHarePii, scrubHarePii } from "@/adapters/hare-pii";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
 import { levenshtein } from "@/lib/fuzzy";
@@ -98,10 +98,13 @@ function resolveEndDateUpdate(
 }
 
 function sanitizeRawFields(event: RawEventData): void {
-  if (event.title) event.title = decodeEntities(event.title);
-  if (event.hares) event.hares = decodeEntities(event.hares);
-  if (event.location) event.location = decodeEntities(event.location);
-  if (event.description) event.description = decodeEntities(event.description);
+  // Decode first so an encoded `&lt;br&gt;` is caught too. Every one of these
+  // fields renders as plain text, so a literal `<br>` would show on screen.
+  const clean = (text: string, separator: " " | ", " | "\n") => replaceBrTags(decodeEntities(text), separator);
+  if (event.title) event.title = clean(event.title, " ");
+  if (event.hares) event.hares = clean(event.hares, ", ");
+  if (event.location) event.location = clean(event.location, ", ");
+  if (event.description) event.description = clean(event.description, "\n");
 
   // Extract "Hared by X" from title to hares field (e.g., H5 Harrisburg calendar).
   // Gate on `=== undefined` (no signal), NOT `!event.hares`: an adapter that
