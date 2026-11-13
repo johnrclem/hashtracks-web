@@ -4096,6 +4096,23 @@ export const KENNELS: KennelSeed[] = [
       description: "Nashville's biweekly Wednesday evening hash. Founded 2021.",
       latitude: 36.16, longitude: -86.78,
     },
+    {
+      kennelCode: "mch3-tn", shortName: "Music City H3", fullName: "Music City Hash House Harriers", region: "Nashville, TN",
+      website: "https://musiccityhash.com",
+      logoUrl: "https://musiccityhash.com/wp-content/uploads/2024/11/cropped-OGLogoTran-1.png",
+      // scheduleDayOfWeek/scheduleTime kept as fallback; scheduleRules is authoritative.
+      scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "1st, 3rd & 5th Saturdays (usually 2 PM), plus full moons and specials. Annual DELIVERANCE campout the 3rd weekend in July.",
+      // One rule per ordinal: parseRRule rejects a multi-ordinal BYDAY list.
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=1SA", startTime: "14:00", label: "1st Saturday", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=3SA", startTime: "14:00", label: "3rd Saturday", displayOrder: 1 },
+        { rrule: "FREQ=MONTHLY;BYDAY=5SA", startTime: "14:00", label: "5th Saturday", displayOrder: 2 },
+      ],
+      hashCash: "$5", foundedYear: 1991,
+      description: "Nashville's original hash, running since June 1991. Saturday-afternoon trails on the 1st, 3rd and 5th Saturdays, plus full moons and the annual Deliverance campout in July. Adults 21+ only.",
+      latitude: 36.16, longitude: -86.78,
+    },
 
     // ── Tennessee: Chattanooga ──
     {

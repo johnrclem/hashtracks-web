@@ -485,6 +485,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "mh3-tn": ["Memphis Hash", "Memphis H3", "Memphis HHH", "MH3 Memphis"],
     "gynoh3": ["GyNO H3", "GyNO Hash", "GyNO HHH"],
     "bushwhackersh3": ["Bushwhackers", "Bushwhackers H3", "Bushwhackers HHH", "BH3 Nashville"],
+    // Bare "MCH3" is omitted: it belongs to Mexico City H3 (mch3).
+    "mch3-tn": ["Music City H3", "Music City Hash", "Music City Hash House Harriers", "Music City (Nashville) H3", "MCH3 Nashville", "Nashville H3"],
     "choochooh3": ["Choo Choo", "Choo-Choo", "Choo Choo H3", "Choo-Choo H3", "Chattanooga Hash", "Chattanooga H3", "Chattanooga Choo Choo", "Chattanooga HHH"],
 
     // ===== MISSOURI =====
