@@ -49,7 +49,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, isReplaceableDefaultTitle, normalizeThemeTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked, isImplausibleEndTime, hasConflictingRunNumber } from "./merge";
+import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, isReplaceableDefaultTitle, normalizeThemeTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked, isImplausibleEndTime, hasConflictingRunNumber, venueTextChanged } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -2267,6 +2267,8 @@ describe("dropCachedCoords signal (#957)", () => {
         latitude: 40.7,
         longitude: -74.0,
         locationAddress: null,
+        locationName: "central  park",
+        locationStreet: null,
       },
     ] as never);
     mockEventUpdate.mockResolvedValueOnce({} as never);
@@ -2285,6 +2287,72 @@ describe("dropCachedCoords signal (#957)", () => {
     expect(updateCall.data.latitude).toBe(40.7);
     expect(updateCall.data.longitude).toBe(-74.0);
     expect(geoSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("venue change drops the cached pin (Herts #2244)", () => {
+  const storedPlough = {
+    id: "evt_1",
+    trustLevel: 5,
+    latitude: 51.8495,
+    longitude: -0.1616,
+    locationAddress: null,
+    locationName: "The Plough",
+    locationStreet: "5 Datchworth Green, Dathworth",
+    locationCity: "Datchworth, England",
+  };
+
+  it("re-geocodes when the venue text changes", async () => {
+    const { geocodeVenue, reverseGeocode } = await import("@/lib/geo");
+    const geoSpy = vi.mocked(geocodeVenue);
+    geoSpy.mockClear();
+    geoSpy.mockResolvedValueOnce({ lat: 51.979, lng: -0.229 } as never);
+    vi.mocked(reverseGeocode).mockResolvedValueOnce("Letchworth Garden City, England");
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([storedPlough] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ location: "Chez No Eye Deer", locationStreet: "Aubreys, Letchworth Garden City, SG6 3TU" }),
+    ]);
+
+    expect(geoSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ location: "Chez No Eye Deer", street: "Aubreys, Letchworth Garden City, SG6 3TU" }),
+    );
+    const data = (mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data).toMatchObject({ latitude: 51.979, longitude: -0.229, locationCity: "Letchworth Garden City, England" });
+  });
+
+  it("clears the old pin and city when the new venue doesn't geocode", async () => {
+    const { geocodeVenue } = await import("@/lib/geo");
+    vi.mocked(geocodeVenue).mockResolvedValueOnce(null as never);
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([storedPlough] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ location: "Somewhere new" })]);
+
+    const data = (mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data).toMatchObject({ latitude: null, longitude: null, locationCity: null });
+  });
+});
+
+describe("venueTextChanged", () => {
+  const stored = { locationName: "The Plough", locationStreet: "5 Datchworth Green, Dathworth" };
+
+  it.each([
+    { case: "same venue, other case and spacing", event: { location: "the  plough", locationStreet: "5 Datchworth Green,  Dathworth" }, expected: false },
+    { case: "venue omitted", event: { location: undefined }, expected: false },
+    { case: "same venue, punctuation and abbreviations", event: { location: "The Plough.", locationStreet: "5 Datchworth Green Dathworth" }, expected: false },
+    { case: "explicit clear (handled elsewhere)", event: { location: null }, expected: false },
+    { case: "new venue", event: { location: "Chez No Eye Deer", locationStreet: "5 Datchworth Green, Dathworth" }, expected: true },
+    { case: "same venue, new street", event: { location: "The Plough", locationStreet: "High St, Ashwell" }, expected: true },
+    { case: "street omitted (no claim)", event: { location: "The Plough" }, expected: false },
+    { case: "street explicitly cleared", event: { location: "The Plough", locationStreet: null }, expected: true },
+    { case: "venue now a placeholder", event: { location: "TBD", locationStreet: "5 Datchworth Green, Dathworth" }, expected: true },
+    { case: "non-English venue (stored as an English address)", event: { location: "Frankfurt, Bundesland Hessen" }, expected: false },
+  ])("$case", ({ event, expected }) => {
+    expect(venueTextChanged(event, stored)).toBe(expected);
   });
 });
 
