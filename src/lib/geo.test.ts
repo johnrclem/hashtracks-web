@@ -666,7 +666,8 @@ describe("venueGeocodeRejection", () => {
       lat: 51.5928546,
       lng: -2.5251101,
       types: ["route"],
-      components: [comp("A38", "route"), comp("United Kingdom", "country", "GB")],
+      components: [comp("A38", "route"), comp("England", "administrative_area_level_1"), comp("United Kingdom", "country", "GB")],
+      viewportKm: 397,
     };
     expect(venueGeocodeRejection(a38, { location: "Brightside A38" }, EXETER)).toBe("a whole road, not a venue");
   });
@@ -733,6 +734,32 @@ describe("venueGeocodeRejection", () => {
     );
     // A note names no place, so it can't confirm the hit (nor, alone, reject it).
     expect(venueGeocodeRejection(wrongTown, { location: "park on the verge please" }, bedford)).toBeNull();
+  });
+
+  it("accepts a far lone venue name: it names no place to check", () => {
+    expect(venueGeocodeRejection(wembdonHouse, { location: "Hulu Tamu Hotsprings" }, EXETER)).toBeNull();
+  });
+
+  it("accepts a hamlet the formatted address names but the components leave out", () => {
+    const dodfordInn: GeocodeResult = {
+      lat: 52.355,
+      lng: -2.091,
+      formattedAddress: "Whinfield Rd, Dodford, Bromsgrove B61 9BG, UK",
+      types: ["bar", "establishment"],
+      components: [comp("Whinfield Road", "route"), comp("Bromsgrove", "postal_town")],
+    };
+    expect(venueGeocodeRejection(dodfordInn, { location: "Dodford Inn, Dodford" }, { lat: 52.11, lng: -2.33 })).toBeNull();
+  });
+
+  it("keeps a street-sized road even with no town component", () => {
+    const parishRoad: GeocodeResult = {
+      lat: 17.89,
+      lng: -76.315,
+      types: ["route"],
+      components: [comp("Bowden Wharf Road", "route"), comp("St. Thomas Parish", "administrative_area_level_1"), comp("Jamaica", "country", "JM")],
+      viewportKm: 0.4,
+    };
+    expect(venueGeocodeRejection(parishRoad, { location: "Bowden Wharf, St. Thomas" }, { lat: 18.0, lng: -76.79 })).toBeNull();
   });
 
   it("rejects anything over 200 km from the kennel", () => {

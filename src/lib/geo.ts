@@ -299,13 +299,18 @@ export interface GeocodeResult {
   /** Result types, e.g. ["premise", "street_address"], ["route"], ["administrative_area_level_1", "political"]. */
   types?: string[];
   components?: GeocodeComponent[];
+  /** Diagonal of the result's viewport in km: under 1 for a street, hundreds for a trunk road. */
+  viewportKm?: number;
 }
 
 interface GeocodeApiResult {
   types?: string[];
   formatted_address?: string;
   address_components?: GeocodeComponent[];
-  geometry?: { location?: { lat?: unknown; lng?: unknown } };
+  geometry?: {
+    location?: { lat?: unknown; lng?: unknown };
+    viewport?: { northeast?: { lat: number; lng: number }; southwest?: { lat: number; lng: number } };
+  };
 }
 
 interface GeocodeApiResponse {
@@ -371,6 +376,7 @@ async function geocodeQuery(
     const lat = first.geometry?.location?.lat;
     const lng = first.geometry?.location?.lng;
     if (typeof lat !== "number" || typeof lng !== "number") return { result: null, noMatch: true };
+    const { northeast: ne, southwest: sw } = first.geometry?.viewport ?? {};
     return {
       result: {
         lat,
@@ -378,6 +384,7 @@ async function geocodeQuery(
         formattedAddress: first.formatted_address,
         types: first.types,
         components: first.address_components,
+        viewportKm: ne && sw ? haversineDistance(sw.lat, sw.lng, ne.lat, ne.lng) : undefined,
       },
       noMatch: false,
     };
@@ -410,9 +417,6 @@ const AREA_RESULT_TYPES = new Set(["country", "administrative_area_level_1", "co
  */
 const COUNTY_LEVEL_2_COUNTRIES = new Set(["US", "GB"]);
 
-/** Components that put a result inside a town. */
-const TOWN_COMPONENT_TYPES = new Set(["locality", "postal_town", "sublocality", "administrative_area_level_3"]);
-
 /**
  * Components whose name can confirm the place a venue's text names. Roads and
  * buildings are left out: a "Church Road" exists in every town. Level 1 stays
@@ -420,12 +424,18 @@ const TOWN_COMPONENT_TYPES = new Set(["locality", "postal_town", "sublocality", 
  * Jamaica); only the country is too broad.
  */
 const PLACE_NAME_TYPES = new Set([
-  ...TOWN_COMPONENT_TYPES,
+  "locality",
+  "postal_town",
+  "sublocality",
+  "administrative_area_level_3",
   "neighborhood",
   "administrative_area_level_1",
   "administrative_area_level_2",
   "administrative_area_level_4",
 ]);
+
+/** A route result spanning more than this is a whole road ("A38": 397 km), not a street. */
+const WHOLE_ROAD_KM = 20;
 
 /** A venue geocode further than this from the kennel is the wrong city. */
 const VENUE_MAX_DISTANCE_KM = 200;
@@ -474,31 +484,50 @@ export function buildVenueGeocodeQueries(location?: string | null, street?: stri
   return [`${venue}, ${address}`, address];
 }
 
+/** Last words that make a segment a street rather than a place ("Church Road"). */
+const STREET_SUFFIXES = new Set(["road", "rd", "street", "lane", "ln", "avenue", "ave", "drive", "dr", "close", "way"]);
+
+/**
+ * Place names among comma segments: digits dropped (so "SG8 9PN" leaves
+ * nothing), at least one 3-letter word, at most three words (longer segments
+ * are notes, "park on the verge"), and not a street.
+ */
+function placeTokens(segments: string[]): string[] {
+  return segments
+    .map((s) => placeKey(s.replace(/\d+/g, " ")))
+    .filter((key) => {
+      const words = key.split(" ");
+      return /[a-z]{3}/.test(key) && words.length <= 3 && !STREET_SUFFIXES.has(words.at(-1) ?? "");
+    });
+}
+
 /**
  * True when the result sits in a place or postcode the venue text names, or
- * the text names neither. Places are the comma segments of the venue and
- * street lines with digits dropped, so a postcode "SG8 9PN" leaves no place
- * behind. The venue's own segment counts too: free-text venues often lead
- * with the place ("Janda Baik, Private Park").
+ * the text names none. Places come from the street line and from the venue
+ * line after its first segment; the venue's own segment can confirm a match
+ * ("Janda Baik, Private Park") but never demands one, so a lone venue name is
+ * not checked. A hamlet Google leaves out of the components still counts when
+ * the formatted address names it.
  */
 function resultInNamedPlace(
-  components: GeocodeComponent[],
+  result: GeocodeResult,
   venue: { location?: string | null; street?: string | null },
 ): boolean {
-  const segments = [...(venue.location ?? "").split(","), ...(venue.street ?? "").split(",")];
-  const towns = segments
-    .map((s) => placeKey(s.replace(/\d+/g, " ")))
-    // A town has a 3-letter word and few words; longer segments are notes ("park on the verge").
-    .filter((key) => /[a-z]{3}/.test(key) && key.split(" ").length <= 3);
-  const text = compact(segments.join(" "));
+  const [venueHead = "", ...venueRest] = (venue.location ?? "").split(",");
+  const named = [...venueRest, ...(venue.street ?? "").split(",")];
+  const components = result.components ?? [];
   const postcode = components.find((c) => c.types.includes("postal_code"))?.long_name;
-  if (postcode && compact(postcode).length >= 4 && text.includes(compact(postcode))) return true;
-  if (towns.length === 0) return !/\d/.test(text);
+  if (postcode && compact(postcode).length >= 4 && compact(named.join(" ")).includes(compact(postcode))) return true;
+  const required = placeTokens(named);
+  if (required.length === 0) return true;
   const names = components
     .filter((c) => c.types.some((t) => PLACE_NAME_TYPES.has(t)))
     .flatMap((c) => [placeKey(c.long_name), placeKey(c.short_name)])
     .filter((n) => n.length >= 3);
-  return towns.some((town) => names.some((name) => name.includes(town) || town.includes(name)));
+  const address = ` ${placeKey(result.formattedAddress ?? "")} `;
+  return [...required, ...placeTokens([venueHead])].some(
+    (town) => address.includes(` ${town} `) || names.some((name) => name.includes(town) || town.includes(name)),
+  );
 }
 
 /**
@@ -518,12 +547,11 @@ export function venueGeocodeRejection(
   const country = components.find((c) => c.types.includes("country"))?.short_name ?? "";
   const isCounty = types.includes("administrative_area_level_2") && COUNTY_LEVEL_2_COUNTRIES.has(country);
   if (isCounty || types.some((t) => AREA_RESULT_TYPES.has(t))) return `an area, not a venue (${types.join("|")})`;
-  const inTown = components.some((c) => c.types.some((t) => TOWN_COMPONENT_TYPES.has(t)));
-  if (types.includes("route") && !inTown) return "a whole road, not a venue";
+  if (types.includes("route") && (result.viewportKm ?? 0) > WHOLE_ROAD_KM) return "a whole road, not a venue";
   if (!biasCenter) return null;
   const km = haversineDistance(result.lat, result.lng, biasCenter.lat, biasCenter.lng);
   if (km > VENUE_MAX_DISTANCE_KM) return `${km.toFixed(0)}km from the kennel`;
-  if (km > VENUE_TOWN_CHECK_KM && !resultInNamedPlace(components, venue)) {
+  if (km > VENUE_TOWN_CHECK_KM && !resultInNamedPlace(result, venue)) {
     return `${km.toFixed(0)}km from the kennel and outside the town the venue names`;
   }
   return null;
