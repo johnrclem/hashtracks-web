@@ -5,37 +5,51 @@
  * `reverseGeocode`, but existing canonical Events keep their cached pins (the
  * merge only re-geocodes when locationUrl changes), so they need this repair.
  *
- * Only events whose pin came from our geocoder (no source lat/lng, no maps
- * URL, not Harrier Central-only) and whose city is missing or doesn't appear
- * in the venue text are touched:
- *   A. street line present, city missing or not named in the venue/street
- *      → re-geocode with venue + street.
- *   B. no street line, pin over 25 km from the kennel, city missing or not
- *      named in the venue → re-geocode (now rejects areas / roads / wrong towns).
- *   C. bare venue name (no comma), pin present, city missing → city only.
+ * Candidates (never Harrier Central-only events, never rows with a maps URL):
+ *   A. Geocoded pin (no source lat/lng), street line present, city missing or
+ *      not named in the venue/street text → re-geocode venue + street.
+ *   B. Geocoded pin, no street line, over 25 km from the kennel, city missing
+ *      or not named in the venue text → re-geocode the venue.
+ *   C. Any other pin with no city whose venue is a bare name or has a street
+ *      line (incl. source pins like Cambridge H3) → city only.
  *
- * Outcomes per event:
- *   MOVE  new pin > 1 km from the old one → new lat/lng + city.
- *   CLEAR no usable pin and the old one was > 25 km out → lat/lng/city null.
- *   CITY  pin kept, city filled.
- *   KEEP  nothing to change (not written).
+ * Outcomes:
+ *   MOVE   the new pin is > 1 km from the old one and no further from the
+ *          kennel (or within 25 km of it) → new lat/lng + city. A farther
+ *          "move" is refused: "The Gate, Bratton" must not jump from a wrong
+ *          Birmingham pin to Bratton in Wiltshire.
+ *   CLEAR  the old pin is provably wrong: the venue-only lookup that produced
+ *          it lands within 1 km of it and `venueGeocodeRejection` rejects it
+ *          (an area centroid, a whole road, a far town the text doesn't name).
+ *   CITY   the pin is confirmed (or came from the source) → city filled.
+ *   KEEP   nothing provable to change; not written.
  *
- * Geocoding API calls are deduplicated by query and by rounded coordinates.
- * Dry run writes the plan to --plan (default scratch file); --apply reads that
- * plan and writes only rows whose stored pin and city still match it, in one
- * transaction. No API calls happen on --apply.
+ * API results are cached in --cache (JSON), so a re-run costs nothing for
+ * lookups already made. Dry run writes the plan to --plan; --apply reads that
+ * plan and writes only rows whose pin and city still match it, in one
+ * transaction, with no API calls.
  *
- *   Dry run: BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/repair-ws2-venue-geocoding.ts --plan /tmp/plan.json
- *   Apply:   BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/repair-ws2-venue-geocoding.ts --plan /tmp/plan.json --apply
+ *   Dry run: BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/repair-ws2-venue-geocoding.ts --plan plan.json --cache cache.json
+ *   Apply:   BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/repair-ws2-venue-geocoding.ts --plan plan.json --apply
  *   Env:     DATABASE_URL, GOOGLE_CALENDAR_API_KEY
  */
-import { readFileSync, writeFileSync } from "node:fs";
-import { geocodeVenue, haversineDistance, reverseGeocode, VENUE_TOWN_CHECK_KM } from "@/lib/geo";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  boundingBoxFromCenter,
+  geocodeAddress,
+  geocodeVenue,
+  haversineDistance,
+  reverseGeocode,
+  venueGeocodeRejection,
+  VENUE_TOWN_CHECK_KM,
+  type GeocodeResult,
+} from "@/lib/geo";
 import { suppressRedundantCity } from "@/pipeline/merge";
 import { runOneShot } from "./lib/one-shot";
 
 type Bucket = "A" | "B" | "C";
 type Outcome = "MOVE" | "CLEAR" | "CITY" | "KEEP";
+type Point = { lat: number; lng: number };
 
 interface Candidate {
   id: string;
@@ -61,13 +75,14 @@ interface PlanRow {
   runNumber: number | null;
   bucket: Bucket;
   outcome: Outcome;
+  reason: string;
   venue: string;
   street: string | null;
   before: { lat: number; lng: number; city: string | null };
   after: { lat: number | null; lng: number | null; city: string | null };
 }
 
-const MOVE_THRESHOLD_KM = 1;
+const SAME_PIN_KM = 1;
 
 /** Same mapping as merge.ts countryToRegionBias. */
 function regionBias(country: string | null): string | undefined {
@@ -83,7 +98,6 @@ function argValue(flag: string): string | undefined {
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
-/** The town part of a stored city ("Wembdon, England" → "Wembdon"). */
 const CANDIDATES_SQL = `
 WITH ev AS (
   SELECT e.id, e."kennelId", e.date, e."runNumber", e."locationName", e."locationStreet",
@@ -106,98 +120,108 @@ WITH ev AS (
             coalesce(ev."locationStreet", '') || ' ' || ev."locationName"
           ) ILIKE '%' || split_part(ev."locationCity", ',', 1) || '%') AS city_named
   FROM ev JOIN "Kennel" k ON k.id = ev."kennelId"
-  WHERE NOT ev.hc_only AND NOT ev.src_coords
+  WHERE NOT ev.hc_only
+), b AS (
+  SELECT d.*,
+    CASE
+      WHEN NOT src_coords AND "locationStreet" IS NOT NULL AND NOT city_named THEN 'A'
+      WHEN NOT src_coords AND "locationStreet" IS NULL AND km > ${VENUE_TOWN_CHECK_KM} AND NOT city_named THEN 'B'
+      WHEN "locationCity" IS NULL AND (position(',' in "locationName") = 0 OR "locationStreet" IS NOT NULL) THEN 'C'
+    END AS bucket
+  FROM d
 )
 SELECT id, "kennelCode", country, date, "runNumber", "locationName", "locationStreet",
-       latitude, longitude, "locationCity", klat, klng, km,
-       CASE
-         WHEN "locationStreet" IS NOT NULL AND NOT city_named THEN 'A'
-         WHEN "locationStreet" IS NULL AND km > ${VENUE_TOWN_CHECK_KM} AND NOT city_named THEN 'B'
-         ELSE 'C'
-       END AS bucket
-FROM d
-WHERE ("locationStreet" IS NOT NULL AND NOT city_named)
-   OR ("locationStreet" IS NULL AND km > ${VENUE_TOWN_CHECK_KM} AND NOT city_named)
-   OR ("locationCity" IS NULL AND position(',' in "locationName") = 0)
+       latitude, longitude, "locationCity", klat, klng, km, bucket
+FROM b WHERE bucket IS NOT NULL
 ORDER BY "kennelCode", date`;
 
-async function buildPlan(candidates: Candidate[]): Promise<PlanRow[]> {
-  const venueCache = new Map<string, Promise<{ lat: number; lng: number } | null>>();
-  const cityCache = new Map<string, Promise<string | null>>();
-  const cityAt = (lat: number, lng: number) => {
-    const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
-    if (!cityCache.has(key)) cityCache.set(key, reverseGeocode(lat, lng));
-    return cityCache.get(key)!;
+/** API lookups memoised in a JSON file so a re-run never pays twice. */
+class LookupCache {
+  private readonly data: Record<string, unknown>;
+  constructor(private readonly path: string | undefined) {
+    this.data = path && existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : {};
+  }
+  async get<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+    if (!(key in this.data)) this.data[key] = await fetcher();
+    return this.data[key] as T;
+  }
+  save(): void {
+    if (this.path) writeFileSync(this.path, JSON.stringify(this.data));
+  }
+}
+
+async function planRow(c: Candidate, cache: LookupCache): Promise<Pick<PlanRow, "outcome" | "reason" | "after">> {
+  const before = { lat: c.latitude, lng: c.longitude, city: c.locationCity };
+  const cityAt = async (lat: number, lng: number) =>
+    suppressRedundantCity(
+      c.locationName,
+      await cache.get(`rev|${lat.toFixed(3)},${lng.toFixed(3)}`, () => reverseGeocode(lat, lng)),
+    );
+  const fillCity = async (reason: string) => {
+    const city = await cityAt(c.latitude, c.longitude);
+    return city
+      ? { outcome: "CITY" as const, reason, after: { ...before, city } }
+      : { outcome: "KEEP" as const, reason: `${reason}; no town found`, after: before };
   };
 
-  const plan: PlanRow[] = [];
-  for (const c of candidates) {
-    const before = { lat: c.latitude, lng: c.longitude, city: c.locationCity };
-    let after: PlanRow["after"] = { ...before };
+  if (c.bucket === "C") return fillCity("city only");
 
-    if (c.bucket === "C") {
-      const city = suppressRedundantCity(c.locationName, await cityAt(c.latitude, c.longitude));
-      if (city) after = { ...before, city };
-    } else {
-      const biasCenter = c.klat != null && c.klng != null ? { lat: c.klat, lng: c.klng } : null;
-      const key = JSON.stringify([c.locationName, c.locationStreet, c.country, biasCenter]);
-      if (!venueCache.has(key)) {
-        venueCache.set(key, geocodeVenue({
-          location: c.locationName,
-          street: c.locationStreet,
-          regionBias: regionBias(c.country),
-          biasCenter,
-        }));
-      }
-      const hit = await venueCache.get(key)!;
-      if (hit && haversineDistance(hit.lat, hit.lng, c.latitude, c.longitude) > MOVE_THRESHOLD_KM) {
-        after = { lat: hit.lat, lng: hit.lng, city: suppressRedundantCity(c.locationName, await cityAt(hit.lat, hit.lng)) };
-      } else if (!hit && (c.km ?? 0) > VENUE_TOWN_CHECK_KM) {
-        after = { lat: null, lng: null, city: null };
-      } else if (!c.locationCity) {
-        const city = suppressRedundantCity(c.locationName, await cityAt(c.latitude, c.longitude));
-        if (city) after = { ...before, city };
-      }
+  const kennel: Point | null = c.klat != null && c.klng != null ? { lat: c.klat, lng: c.klng } : null;
+  const venue = { location: c.locationName, street: c.locationStreet };
+  const bias = regionBias(c.country);
+  const kennelKey = kennel ? `${kennel.lat},${kennel.lng}` : "-";
+  const hit = await cache.get<GeocodeResult | null>(
+    `venue|${JSON.stringify([c.locationName, c.locationStreet, bias, kennelKey])}`,
+    () => geocodeVenue({ ...venue, regionBias: bias, biasCenter: kennel }),
+  );
+
+  if (hit) {
+    const shift = haversineDistance(hit.lat, hit.lng, c.latitude, c.longitude);
+    if (shift <= SAME_PIN_KM) {
+      return before.city ? { outcome: "KEEP", reason: "pin confirmed", after: before } : fillCity("pin confirmed");
     }
-
-    let outcome: Outcome = "KEEP";
-    if (after.lat == null) outcome = "CLEAR";
-    else if (after.lat !== before.lat || after.lng !== before.lng) outcome = "MOVE";
-    else if (after.city !== before.city) outcome = "CITY";
-
-    plan.push({
-      id: c.id,
-      kennelCode: c.kennelCode,
-      date: c.date.toISOString().slice(0, 10),
-      runNumber: c.runNumber,
-      bucket: c.bucket,
-      outcome,
-      venue: c.locationName,
-      street: c.locationStreet,
-      before,
-      after,
-    });
+    const newKm = kennel ? haversineDistance(hit.lat, hit.lng, kennel.lat, kennel.lng) : 0;
+    if (newKm <= VENUE_TOWN_CHECK_KM || c.km == null || newKm <= c.km) {
+      return {
+        outcome: "MOVE",
+        reason: `moved ${shift.toFixed(0)}km`,
+        after: { lat: hit.lat, lng: hit.lng, city: await cityAt(hit.lat, hit.lng) },
+      };
+    }
   }
-  console.log(`Geocoding API: ${venueCache.size} forward queries, ${cityCache.size} reverse lookups (plus fallbacks).`);
-  return plan;
+
+  // No better pin. Clear the old one only if its own lookup is now rejected.
+  const original = await cache.get<GeocodeResult | null>(
+    `addr|${JSON.stringify([c.locationName, bias, kennelKey])}`,
+    () => geocodeAddress(c.locationName, {
+      regionBias: bias,
+      bounds: kennel ? boundingBoxFromCenter(kennel.lat, kennel.lng) : undefined,
+    }),
+  );
+  const samePin = original && haversineDistance(original.lat, original.lng, c.latitude, c.longitude) <= SAME_PIN_KM;
+  const rejection = samePin ? venueGeocodeRejection(original, venue, kennel) : null;
+  if (rejection) {
+    return { outcome: "CLEAR", reason: `old pin is ${rejection}`, after: { lat: null, lng: null, city: null } };
+  }
+  return { outcome: "KEEP", reason: hit ? "move would land farther from the kennel" : "unproven", after: before };
 }
 
 function summarize(plan: PlanRow[]): void {
-  const now = new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
   const byKennel = new Map<string, Record<Outcome, number>>();
+  const total: Record<Outcome, number> = { MOVE: 0, CLEAR: 0, CITY: 0, KEEP: 0 };
   for (const row of plan) {
     const counts = byKennel.get(row.kennelCode) ?? { MOVE: 0, CLEAR: 0, CITY: 0, KEEP: 0 };
     counts[row.outcome]++;
+    total[row.outcome]++;
     byKennel.set(row.kennelCode, counts);
   }
-  const total = { MOVE: 0, CLEAR: 0, CITY: 0, KEEP: 0 };
-  for (const counts of byKennel.values()) for (const o of Object.keys(total) as Outcome[]) total[o] += counts[o];
-  const upcoming = plan.filter((r) => r.outcome !== "KEEP" && r.date >= now).length;
+  const writes = (c: Record<Outcome, number>) => c.MOVE + c.CLEAR + c.CITY;
+  const upcoming = plan.filter((r) => r.outcome !== "KEEP" && r.date >= today).length;
   console.log(`\nCandidates ${plan.length}: MOVE ${total.MOVE}, CLEAR ${total.CLEAR}, CITY ${total.CITY}, KEEP ${total.KEEP}; upcoming writes ${upcoming}`);
   console.log("\nkennel                 MOVE CLEAR  CITY  KEEP");
-  const rows = [...byKennel.entries()].sort((a, b) => b[1].MOVE + b[1].CLEAR + b[1].CITY - (a[1].MOVE + a[1].CLEAR + a[1].CITY));
-  for (const [kennel, c] of rows) {
-    if (c.MOVE + c.CLEAR + c.CITY === 0) continue;
+  for (const [kennel, c] of [...byKennel.entries()].sort((a, b) => writes(b[1]) - writes(a[1]))) {
+    if (writes(c) === 0) continue;
     console.log(`${kennel.padEnd(22)} ${String(c.MOVE).padStart(4)} ${String(c.CLEAR).padStart(5)} ${String(c.CITY).padStart(5)} ${String(c.KEEP).padStart(5)}`);
   }
 }
@@ -213,12 +237,7 @@ void runOneShot(async ({ prisma, apply }) => {
       for (const row of plan) {
         // Only rows whose pin and city are still what the plan saw.
         const res = await tx.event.updateMany({
-          where: {
-            id: row.id,
-            latitude: row.before.lat,
-            longitude: row.before.lng,
-            locationCity: row.before.city,
-          },
+          where: { id: row.id, latitude: row.before.lat, longitude: row.before.lng, locationCity: row.before.city },
           data: { latitude: row.after.lat, longitude: row.after.lng, locationCity: row.after.city },
         });
         n += res.count;
@@ -233,10 +252,29 @@ void runOneShot(async ({ prisma, apply }) => {
     ...c,
     km: c.km == null ? null : Number(c.km),
   }));
-  console.log(`Matched ${candidates.length} candidate event(s): A ${candidates.filter((c) => c.bucket === "A").length}, B ${candidates.filter((c) => c.bucket === "B").length}, C ${candidates.filter((c) => c.bucket === "C").length}`);
+  const count = (b: Bucket) => candidates.filter((c) => c.bucket === b).length;
+  console.log(`Matched ${candidates.length} candidate event(s): A ${count("A")}, B ${count("B")}, C ${count("C")}`);
   if (process.argv.includes("--count-only")) return;
 
-  const plan = await buildPlan(candidates);
+  const cache = new LookupCache(argValue("--cache"));
+  const plan: PlanRow[] = [];
+  try {
+    for (const c of candidates) {
+      plan.push({
+        id: c.id,
+        kennelCode: c.kennelCode,
+        date: c.date.toISOString().slice(0, 10),
+        runNumber: c.runNumber,
+        bucket: c.bucket,
+        venue: c.locationName,
+        street: c.locationStreet,
+        before: { lat: c.latitude, lng: c.longitude, city: c.locationCity },
+        ...(await planRow(c, cache)),
+      });
+    }
+  } finally {
+    cache.save();
+  }
   writeFileSync(planPath, JSON.stringify(plan, null, 1));
   summarize(plan);
   console.log(`\nPlan written to ${planPath}. Re-run with --apply to write it.`);

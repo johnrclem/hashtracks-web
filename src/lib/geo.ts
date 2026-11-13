@@ -414,12 +414,15 @@ const COUNTY_LEVEL_2_COUNTRIES = new Set(["US", "GB"]);
 const TOWN_COMPONENT_TYPES = new Set(["locality", "postal_town", "sublocality", "administrative_area_level_3"]);
 
 /**
- * Components whose name can confirm the town a venue's text names. Roads and
- * buildings are left out: a "Church Road" exists in every town.
+ * Components whose name can confirm the place a venue's text names. Roads and
+ * buildings are left out: a "Church Road" exists in every town. Level 1 stays
+ * in because it is a parish or province in some countries ("St. Thomas",
+ * Jamaica); only the country is too broad.
  */
 const PLACE_NAME_TYPES = new Set([
   ...TOWN_COMPONENT_TYPES,
   "neighborhood",
+  "administrative_area_level_1",
   "administrative_area_level_2",
   "administrative_area_level_4",
 ]);
@@ -472,16 +475,17 @@ export function buildVenueGeocodeQueries(location?: string | null, street?: stri
 }
 
 /**
- * True when the result sits in a town or postcode the venue text names, or
- * the text names neither. Towns are the comma segments of the street line and
- * of the venue line after its first segment (the venue itself), with digits
- * dropped, so a postcode "SG8 9PN" leaves no town behind.
+ * True when the result sits in a place or postcode the venue text names, or
+ * the text names neither. Places are the comma segments of the venue and
+ * street lines with digits dropped, so a postcode "SG8 9PN" leaves no place
+ * behind. The venue's own segment counts too: free-text venues often lead
+ * with the place ("Janda Baik, Private Park").
  */
 function resultInNamedPlace(
   components: GeocodeComponent[],
   venue: { location?: string | null; street?: string | null },
 ): boolean {
-  const segments = [...(venue.location ?? "").split(",").slice(1), ...(venue.street ?? "").split(",")];
+  const segments = [...(venue.location ?? "").split(","), ...(venue.street ?? "").split(",")];
   const towns = segments
     .map((s) => placeKey(s.replace(/\d+/g, " ")))
     // A town has a 3-letter word and few words; longer segments are notes ("park on the verge").

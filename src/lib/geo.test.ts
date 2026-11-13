@@ -641,8 +641,24 @@ describe("venueGeocodeRejection", () => {
     );
   });
 
-  it("accepts the same far result when the venue names no town to check against", () => {
-    expect(venueGeocodeRejection(wembdonHouse, { location: "Mount Radford" }, EXETER)).toBeNull();
+  it("accepts a far result whose place the venue text leads with", () => {
+    const jandaBaik: GeocodeResult = {
+      lat: 3.341,
+      lng: 101.84,
+      types: ["establishment"],
+      components: [comp("Kampung Janda Baik", "locality"), comp("Pahang", "administrative_area_level_1")],
+    };
+    expect(venueGeocodeRejection(jandaBaik, { location: "Janda Baik, Private Park" }, { lat: 3.1, lng: 101.6 })).toBeNull();
+  });
+
+  it("accepts a far result in the parish the venue names (level 1 in Jamaica)", () => {
+    const pera: GeocodeResult = {
+      lat: 17.89,
+      lng: -76.315,
+      types: ["establishment"],
+      components: [comp("Pera", "locality"), comp("St. Thomas Parish", "administrative_area_level_1")],
+    };
+    expect(venueGeocodeRejection(pera, { location: "Bowden Wharf, St. Thomas" }, { lat: 18.0, lng: -76.79 })).toBeNull();
   });
 
   it("rejects a whole road", () => {
@@ -715,8 +731,8 @@ describe("venueGeocodeRejection", () => {
     expect(venueGeocodeRejection(wrongTown, { location: "The Pheasant", street: "12 Church Road, Bedford" }, bedford)).toMatch(
       /outside the town/,
     );
-    // Only a note after the venue: nothing to check, so the far hit stands.
-    expect(venueGeocodeRejection(wrongTown, { location: "Village Hall, park on the verge please" }, bedford)).toBeNull();
+    // A note names no place, so it can't confirm the hit (nor, alone, reject it).
+    expect(venueGeocodeRejection(wrongTown, { location: "park on the verge please" }, bedford)).toBeNull();
   });
 
   it("rejects anything over 200 km from the kennel", () => {
