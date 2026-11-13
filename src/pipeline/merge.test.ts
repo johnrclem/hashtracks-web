@@ -2387,6 +2387,42 @@ describe("street-only venues", () => {
   });
 });
 
+describe("street-only enrichment from a lower-trust source", () => {
+  const canonical = {
+    id: "evt_street",
+    trustLevel: 8,
+    locationName: null,
+    locationStreet: "5 Datchworth Green, Datchworth",
+    locationAddress: null,
+    locationCity: null,
+    latitude: null,
+    longitude: null,
+  };
+
+  it.each([
+    { case: "a different street", street: "High St, Ashwell", geocodes: false },
+    { case: "the stored street", street: "5 Datchworth green, Datchworth.", geocodes: true },
+  ])("pins $case only when it matches the stored street", async ({ street, geocodes }) => {
+    const { geocodeVenue } = await import("@/lib/geo");
+    const geoSpy = vi.mocked(geocodeVenue);
+    geoSpy.mockClear();
+    if (geocodes) geoSpy.mockResolvedValueOnce({ lat: 51.85, lng: -0.16 } as never);
+    mockSourceFind.mockResolvedValueOnce(sourceRow({ trustLevel: 5, type: "HTML_SCRAPER", kennels: [{ kennelId: "kennel_1" }] }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([canonical] as never);
+    mockEventUpdate.mockResolvedValueOnce(eventRow("evt_street"));
+
+    await processRawEvents("src_low", [buildRawEvent({ location: undefined, locationStreet: street })]);
+
+    expect(geoSpy).toHaveBeenCalledTimes(geocodes ? 1 : 0);
+    const update = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_street",
+    );
+    const data = (update?.[0] as { data: Record<string, unknown> } | undefined)?.data ?? {};
+    expect(data.latitude).toBe(geocodes ? 51.85 : undefined);
+  });
+});
+
 describe("per-batch geocode cache", () => {
   it("hands one cache to every geocode and reverse-geocode in a batch", async () => {
     const { geocodeVenue, reverseGeocode } = await import("@/lib/geo");
@@ -2433,6 +2469,10 @@ describe("venueTextChanged", () => {
   it.each([
     { case: "same venue, other case and spacing", event: { location: "the  plough", locationStreet: "5 Datchworth Green,  Dathworth" }, expected: false },
     { case: "venue omitted", event: { location: undefined }, expected: false },
+    { case: "street-only row, same street", event: { location: undefined, locationStreet: "5 Datchworth green, Dathworth." }, expected: false },
+    { case: "street-only row, new street", event: { location: undefined, locationStreet: "High St, Ashwell" }, expected: true },
+    { case: "street-only row, street cleared", event: { location: undefined, locationStreet: null }, expected: false },
+    { case: "venue cleared, new street (explicit clear wins)", event: { location: null, locationStreet: "High St, Ashwell" }, expected: false },
     { case: "same venue, punctuation and abbreviations", event: { location: "The Plough.", locationStreet: "5 Datchworth Green Dathworth" }, expected: false },
     { case: "explicit clear (handled elsewhere)", event: { location: null }, expected: false },
     { case: "new venue", event: { location: "Chez No Eye Deer", locationStreet: "5 Datchworth Green, Dathworth" }, expected: true },

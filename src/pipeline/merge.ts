@@ -1245,29 +1245,35 @@ function sanitizeLocationUrl(url: string | undefined): string | null {
   return url;
 }
 
+/** Comparable form of venue or street text: normalizeAddr folds case and "Road"/"Rd."; punctuation never names a different place. */
+function addrKey(text: string | null | undefined): string {
+  return normalizeAddr(text ?? "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
 /**
  * True when the adapter's venue differs from the one the canonical event
  * stores, so the cached pin belongs to another venue. Herts H3's hareline
  * shifted run #2244 from "The Plough, Datchworth" to "Chez No Eye Deer,
  * Letchworth", and the Datchworth pin stayed because only `locationUrl` was
  * compared. Compares what the update would store (sanitized; case, spacing,
- * punctuation and street abbreviations ignored). An adapter that omits the venue (`undefined`) or clears
- * it (`null`, handled as an explicit clear) makes no claim here.
+ * punctuation and street abbreviations ignored). A cleared venue (`null`) is
+ * handled as an explicit clear. An omitted venue (`undefined`) makes no claim,
+ * but a street line sent with it does: a street-only row is pinned on its street.
  */
 export function venueTextChanged(
   event: Pick<RawEventData, "location" | "locationStreet">,
   stored: { locationName: string | null; locationStreet: string | null },
 ): boolean {
-  if (event.location == null) return false;
+  if (event.location === null) return false;
+  if (event.location === undefined) {
+    return !!event.locationStreet && addrKey(event.locationStreet) !== addrKey(stored.locationStreet);
+  }
   // A non-English venue is stored as the geocoder's English address, so the texts never match.
   if (NON_ENGLISH_GEO_RE.test(event.location)) return false;
-  // normalizeAddr folds case and "Road"/"Rd."; punctuation never names a different venue.
-  const key = (text: string | null | undefined) =>
-    normalizeAddr(text ?? "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-  if (key(sanitizeLocation(event.location)) !== key(stored.locationName)) return true;
+  if (addrKey(sanitizeLocation(event.location)) !== addrKey(stored.locationName)) return true;
   // An omitted street makes no claim: a lower-trust source may have filled it,
   // and treating that as a change would re-geocode on every scrape.
-  return event.locationStreet !== undefined && key(event.locationStreet) !== key(stored.locationStreet);
+  return event.locationStreet !== undefined && addrKey(event.locationStreet) !== addrKey(stored.locationStreet);
 }
 
 /**
@@ -2109,9 +2115,17 @@ async function upsertCanonicalEvent(
       // match could pin a *different* venue's coords under a higher-trust venue
       // name — a silent map/name mismatch. Strict equality is intentionally
       // conservative: on any doubt we skip rather than risk a wrong pin.
+      // A street-only row is pinned on its street, so that street must not
+      // contradict the (higher-trust) street that stays stored.
+      const streetConflict =
+        !event.location &&
+        !!event.locationStreet &&
+        existingEvent.locationStreet != null &&
+        addrKey(event.locationStreet) !== addrKey(existingEvent.locationStreet);
       const venueCompatible =
-        existingEvent.locationName == null ||
-        (event.location != null && sanitizeLocation(event.location) === existingEvent.locationName);
+        !streetConflict &&
+        (existingEvent.locationName == null ||
+          (event.location != null && sanitizeLocation(event.location) === existingEvent.locationName));
       // Only resolve when the canonical lacks coords AND this source carries a
       // coord signal (direct lat/lng, a maps URL, or a venue to geocode) — skip
       // the otherwise no-op async call. `existingCoords` is omitted: the null
