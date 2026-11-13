@@ -21,6 +21,7 @@ import {
   stripNonEnglishCountry,
   applyWeekdayShift,
   hasPlaceholderRunNumber,
+  hasHalfRunNumber,
   extractHashRunNumber,
   buildRunHareTitle,
   normalizeCostSigil,
@@ -1012,6 +1013,14 @@ describe("applyWeekdayShift", () => {
 // fullwidth variants without changing behavior on existing ASCII callers
 // (Phoenix HHH, every GCal source).
 describe("extractHashRunNumber", () => {
+  it("leaves a half run unnumbered (NOH3 #1799.5, #1154 & 1/2)", () => {
+    expect(extractHashRunNumber("New Orleans H3 Trail# 1799.5 Piston Penis & Boner Lisa (trail)")).toBeUndefined();
+    expect(extractHashRunNumber("NOH3 Pickup Hash Run #1154 & 1/2 LSU Tailgate Hash")).toBeUndefined();
+    expect(extractHashRunNumber("NOH3 Hash Run #1181. Irish Italian parade")).toBe(1181);
+    expect(extractHashRunNumber("Run #1154 & friends")).toBe(1154);
+    expect(extractHashRunNumber("SFH3 #2274.69: Nice Trail")).toBe(2274);
+  });
+
   it.each<[string, string | undefined, number | undefined]>([
     // ASCII baseline (existing callers must not regress)
     ["ASCII basic", "Run #132", 132],
@@ -1075,6 +1084,12 @@ describe("buildRunHareTitle (#1973 NSWHHH)", () => {
 // "explicit placeholder" so the merge pipeline's tri-state can clear stale
 // runNumbers from prior scrapes.
 describe("hasPlaceholderRunNumber", () => {
+  it("does not treat a half run as a placeholder (callers gate titles and filters on it)", () => {
+    expect(hasPlaceholderRunNumber("New Orleans H3 Trail# 1799.5")).toBe(false);
+    expect(hasHalfRunNumber("New Orleans H3 Trail# 1799.5")).toBe(true);
+    expect(hasHalfRunNumber("NOH3 Hash Run #1181. Irish Italian parade")).toBe(false);
+  });
+
   it.each<[string, string | undefined, boolean]>([
     // Houston H4 #1272
     ["#1272 X-suffix double", "H4 Run #25XX— Erections", true],

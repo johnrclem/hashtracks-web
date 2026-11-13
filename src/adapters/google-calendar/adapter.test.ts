@@ -656,6 +656,10 @@ describe("extractRunNumber", () => {
     expect(extractRunNumber("Beantown #255: Trail")).toBe(255);
   });
 
+  it("clears the number of a half run instead of reading it from the description (NOH3 #1799.5)", () => {
+    expect(extractRunNumber("New Orleans H3 Trail# 1799.5 Piston Penis", "Trail #1799.5 at Wally Pontiff")).toBeNull();
+  });
+
   it("extracts BH3 #N from description", () => {
     expect(extractRunNumber("Weekly Run", "BH3 #2784\nDetails")).toBe(2784);
   });

@@ -864,10 +864,29 @@ export const BARE_KENNEL_CODE_RE = /^[A-Za-z][A-Za-z\d]*H\d$/;
  * keeps the pattern provably linear for Sonar S5852/S5843.
  */
 const HASH_RUN_NUMBER_RE = /[#＃][\s:]*(\d+)(?=$|[\s:\-–—,.()/])/;
+/**
+ * What follows a half run's number: "Trail# 1799.5", "Run #1154 & 1/2". Only
+ * ".5" — other decimals are jokes on a real run (SFH3 "#2274.69" is run 2274).
+ */
+const HALF_RUN_SUFFIX_RE = /^(?:\.5(?!\d)| ?(?:&|and) ?1\/2)/i;
+
+const isHalfRunMatch = (text: string, m: RegExpExecArray) =>
+  HALF_RUN_SUFFIX_RE.test(text.slice(m.index + m[0].length));
+
+/**
+ * True when the `#NNN` in `text` is a half run ("Trail# 1799.5", "Run #1154 &
+ * 1/2"). It shares its parent run's number, so taking NNN would give two
+ * events the same run number (NOH3 #1154, #1799).
+ */
+export function hasHalfRunNumber(text: string): boolean {
+  const m = HASH_RUN_NUMBER_RE.exec(text);
+  return m !== null && isHalfRunMatch(text, m);
+}
+
 export function extractHashRunNumber(text: string | undefined): number | undefined {
   if (!text) return undefined;
   const m = HASH_RUN_NUMBER_RE.exec(text);
-  if (!m) return undefined;
+  if (!m || isHalfRunMatch(text, m)) return undefined;
   const n = Number.parseInt(m[1], 10);
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
