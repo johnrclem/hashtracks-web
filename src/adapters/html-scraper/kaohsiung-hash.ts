@@ -132,18 +132,24 @@ function takeYear(text: string): { year?: number; rest: string } {
  * explicit year is honoured; a year-less date resolves forward. The text after
  * the date is returned as the title candidate.
  */
+/** The day next to a month word: after it ("November 28") or before it ("14 November"). */
+function dayAroundMonth(before: string, afterMonth: string): { day: number; rest: string } | null {
+  const dm = DAY_RE.exec(afterMonth);
+  const dayText = dm?.[1] ?? DAY_BEFORE_MONTH_RE.exec(before.trimEnd())?.[1];
+  if (!dayText) return null;
+  const day = Number.parseInt(dayText, 10);
+  if (day < 1 || day > 31) return null;
+  return { day, rest: dm ? afterMonth.slice(dm[0].length) : afterMonth };
+}
+
 function parseHeadingDate(text: string, now: Date): { date: string; title?: string } | null {
   for (const m of text.matchAll(MONTH_WORD_RE)) {
     const monthIdx = MONTH_INDEX.get(m[0].toLowerCase());
     if (monthIdx === undefined) continue;
-    const afterMonth = text.slice(m.index + m[0].length);
-    const dm = DAY_RE.exec(afterMonth);
-    const bm = dm ? null : DAY_BEFORE_MONTH_RE.exec(text.slice(0, m.index).trimEnd());
-    const dayText = dm?.[1] ?? bm?.[1];
-    if (!dayText) continue;
-    const day = Number.parseInt(dayText, 10);
-    if (day < 1 || day > 31) continue;
-    const { year, rest } = takeYear(dm ? afterMonth.slice(dm[0].length) : afterMonth);
+    const found = dayAroundMonth(text.slice(0, m.index), text.slice(m.index + m[0].length));
+    if (!found) continue;
+    const { day } = found;
+    const { year, rest } = takeYear(found.rest);
     // An explicit year is trusted only near `now`: "11 November 1918" in prose isn't a run.
     if (year !== undefined && Math.abs(year - now.getUTCFullYear()) > 1) continue;
     const date = year === undefined ? resolveForwardDate(monthIdx, day, now) : isoDate(year, monthIdx + 1, day);

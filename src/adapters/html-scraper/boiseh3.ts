@@ -52,6 +52,29 @@ function splitInlineHare(heading: string | undefined): { title?: string; hares?:
   };
 }
 
+/**
+ * The heading's "Hash #…" line, and the lines after it. Since 2026-11 the
+ * heading can carry the venue as <br> lines ("Hash #2019-a real Rakeish event /
+ * casa de Silver Fairy / 1920 18th St Boise 83702 / On after … / bring: …"),
+ * which are read like the blocks below it. Venue lines come first: after the
+ * first note only date and hare lines are kept, so free prose can't merge into
+ * the location.
+ */
+function splitHeading($heading: Cheerio<AnyNode>): { headText: string; extraLines: string[] } {
+  const all = headingLines($heading);
+  const headIdx = all.findIndex((l) => HEADING_RE.test(l));
+  // Fallback keeps the raw newlines so HEADING_RE's `.+` stops at the first line.
+  if (headIdx < 0) return { headText: $heading.text().trim(), extraLines: [] };
+  const after = all.slice(headIdx + 1);
+  const firstNote = after.findIndex((l) => SKIP_LINE_RE.test(l));
+  return {
+    headText: all[headIdx],
+    extraLines: after.filter(
+      (l, i) => firstNote < 0 || i < firstNote || parseDateTimeLine(l) !== null || HARES_RE.test(l),
+    ),
+  };
+}
+
 function mergeLocation(existing: string | undefined, line: string): string {
   if (!existing) return line;
   return existing.includes(line) ? existing : `${existing}, ${line}`;
@@ -79,14 +102,8 @@ export function parseBoiseH3Page(
     return { event: null, error: "no upcoming-hash heading found on page" };
   }
 
-  // Since 2026-11 the heading itself can carry the venue as <br> lines:
-  // "Hash #2019-a real Rakeish event / casa de Silver Fairy / 1920 18th St
-  // Boise 83702 / On after … / bring: …". Lines after the "Hash #" one are
-  // read like the blocks below it.
-  const allHeadLines = headingLines($heading);
-  const headIdx = allHeadLines.findIndex((l) => HEADING_RE.test(l));
-  // Fallback keeps the raw newlines so HEADING_RE's `.+` stops at the first line.
-  const headText = allHeadLines[headIdx] ?? $heading.text().trim();
+  // `lines` starts with the heading's own venue lines; the blocks below follow.
+  const { headText, extraLines: lines } = splitHeading($heading);
   const headMatch = HEADING_RE.exec(headText);
   if (!headMatch) {
     return { event: null, error: `could not parse heading: ${headText.slice(0, 80)}` };
@@ -97,13 +114,6 @@ export function parseBoiseH3Page(
   const $richContainer = $heading.closest('[data-testid="richTextElement"]');
   const $walkFrom = $richContainer.length ? $richContainer : $heading;
 
-  // Venue lines come first. After the first note ("On after …", "bring: …")
-  // keep only date and hare lines, so free prose can't merge into the location.
-  const extraHeadLines = headIdx >= 0 ? allHeadLines.slice(headIdx + 1) : [];
-  const firstNote = extraHeadLines.findIndex((l) => SKIP_LINE_RE.test(l));
-  const lines = extraHeadLines.filter(
-    (l, i) => firstNote < 0 || i < firstNote || parseDateTimeLine(l) !== null || HARES_RE.test(l),
-  );
   $walkFrom.nextAll().each((_i, el) => {
     if ($(el).is("h1, h2, h3, h4, h5, h6")) return false;
     // Wix pads empty blocks with U+200B ("wixGuard"), so a "​"-only line
