@@ -38,6 +38,26 @@ describe("refreshScheduleOnlyFlags", () => {
     expect(sql).toContain(`"isScheduleOnly"`);
   });
 
+  it("reads a repeating instance from the Google link on calendar rows stored without the marker", async () => {
+    await refreshScheduleOnlyFlags("all");
+    const query = lastQuery();
+    const sql = sqlText(query);
+    const postedRun = sql.slice(sql.indexOf("s.type <> 'STATIC_SCHEDULE'"), sql.indexOf("NOT EXISTS ( SELECT 1 FROM \"RawEvent\" newer"));
+    // Hares or a run number make it a posted run; otherwise either signal makes it
+    // a repeating instance, and the costly link check runs last.
+    expect(postedRun).toMatch(
+      /NOT \( r\."rawData"->>'runNumber' IS NULL AND \( COALESCE\(.*'hares'.*\) AND \( NULLIF\(r\."rawData"->>'recurringSeriesId', ''\) IS NOT NULL OR \( s\.type = 'GOOGLE_CALENDAR' .*\) \) \)/,
+    );
+    // Only rows with no marker key at all: a stored marker, even the empty
+    // "not repeating" one the adapter puts on overrides, is the adapter's call.
+    expect(postedRun).toContain(`r."rawData"->'recurringSeriesId' IS NULL`);
+    // The `eid` is base64url of "<event id> <calendar>"; an instance id ends _YYYYMMDD or _YYYYMMDDTHHMMSSZ.
+    // Whole 4-character groups only: always valid base64, so one bad link can't fail the refresh.
+    expect(postedRun).toContain(`substring(r."rawData"->>'sourceUrl' from '[?&]eid=((?:[A-Za-z0-9_-]{4})+)')`);
+    expect(postedRun).toContain(`'-_', '+/'), 'base64'), 'escape') ~ '^[^ ]+_[0-9]{8}(T[0-9]{6}Z)? ' ) IS TRUE`);
+    expect(query.values).toEqual([]);
+  });
+
   it("counts blank and placeholder hares as no hares, matching isPlaceholderText", async () => {
     await refreshScheduleOnlyFlags("all");
     const query = lastQuery();

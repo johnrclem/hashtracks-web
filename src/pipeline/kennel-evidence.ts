@@ -34,18 +34,50 @@ const RAW_NO_HARES_SQL = Prisma.sql`(
 )`;
 
 /**
+ * A Google Calendar RawEvent stored without the repeating-series marker key
+ * (`rawData.recurringSeriesId`), whose Google link names a repeating instance.
+ *
+ * The marker shipped on 2026-11-13 (PR #2923). RawEvents are immutable and a
+ * calendar re-fetches only its scrape window, so instances outside its first
+ * window after that (older runs, and runs past the future horizon) keep their
+ * unmarked RawEvent for good. Their `sourceUrl` is Google's `htmlLink`, whose
+ * `eid` is base64url of "<event id> <calendar>"; an instance's event id ends in
+ * `_YYYYMMDD` (all-day) or `_YYYYMMDDTHHMMSSZ`, and a one-off's never does.
+ * Rows the adapter writes now always carry the key on an instance-shaped id
+ * (`""` on an override of a non-repeating event), so a stored key is the
+ * adapter's call and the link is read only when the key is absent.
+ * Only whole 4-character groups of the `eid` are decoded: that is always valid
+ * base64 with no padding, so one bad link can't fail the refresh, and the 1–3
+ * characters dropped belong to the calendar, after the event id.
+ */
+const PRE_MARKER_GCAL_INSTANCE_SQL = Prisma.sql`(
+  s.type = 'GOOGLE_CALENDAR'
+  AND r."rawData"->'recurringSeriesId' IS NULL
+  AND (
+    encode(decode(translate(
+      substring(r."rawData"->>'sourceUrl' from '[?&]eid=((?:[A-Za-z0-9_-]{4})+)'),
+      '-_', '+/'), 'base64'), 'escape') ~ '^[^ ]+_[0-9]{8}(T[0-9]{6}Z)? '
+  ) IS TRUE
+)`;
+
+/**
  * "This RawEvent is a posted run", for a RawEvent aliased `r` joined to its
  * Source aliased `s`. A RawEvent is a schedule projection, not a posted run,
  * when it comes from a STATIC_SCHEDULE source, or when it is an instance of a
- * repeating Google Calendar series (`rawData.recurringSeriesId`) that carries
- * nothing run-specific: no hares (placeholders count as none) and no run number.
+ * repeating Google Calendar series (`rawData.recurringSeriesId`, or
+ * `PRE_MARKER_GCAL_INSTANCE_SQL` for older rows) that carries nothing
+ * run-specific: no hares (placeholders count as none) and no run number.
+ * The cheap checks come first, so the link is read only for detail-less rows.
  */
 export const POSTED_RUN_RAW_SQL = Prisma.sql`(
   s.type <> 'STATIC_SCHEDULE'
   AND NOT (
-    NULLIF(r."rawData"->>'recurringSeriesId', '') IS NOT NULL
+    r."rawData"->>'runNumber' IS NULL
     AND ${RAW_NO_HARES_SQL}
-    AND r."rawData"->>'runNumber' IS NULL
+    AND (
+      NULLIF(r."rawData"->>'recurringSeriesId', '') IS NOT NULL
+      OR ${PRE_MARKER_GCAL_INSTANCE_SQL}
+    )
   )
 )`;
 
