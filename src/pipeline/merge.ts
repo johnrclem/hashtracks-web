@@ -1241,17 +1241,12 @@ function sanitizeLocationUrl(url: string | undefined): string | null {
 }
 
 /**
- * Resolve coordinates for a raw event: explicit coords → URL extraction → geocode fallback.
- * Optionally skips geocoding if the canonical event already has stored coords and
- * the location text hasn't changed.
- */
-/**
  * True when the adapter's venue differs from the one the canonical event
  * stores, so the cached pin belongs to another venue. Herts H3's hareline
  * shifted run #2244 from "The Plough, Datchworth" to "Chez No Eye Deer,
  * Letchworth", and the Datchworth pin stayed because only `locationUrl` was
- * compared. Compares what the update would store (sanitized, whitespace- and
- * case-insensitive). An adapter that omits the venue (`undefined`) or clears
+ * compared. Compares what the update would store (sanitized; case, spacing,
+ * punctuation and street abbreviations ignored). An adapter that omits the venue (`undefined`) or clears
  * it (`null`, handled as an explicit clear) makes no claim here.
  */
 export function venueTextChanged(
@@ -1261,13 +1256,20 @@ export function venueTextChanged(
   if (event.location == null) return false;
   // A non-English venue is stored as the geocoder's English address, so the texts never match.
   if (NON_ENGLISH_GEO_RE.test(event.location)) return false;
-  const key = (text: string | null | undefined) => (text ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  // normalizeAddr folds case and "Road"/"Rd."; punctuation never names a different venue.
+  const key = (text: string | null | undefined) =>
+    normalizeAddr(text ?? "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   if (key(sanitizeLocation(event.location)) !== key(stored.locationName)) return true;
   // An omitted street makes no claim: a lower-trust source may have filled it,
   // and treating that as a change would re-geocode on every scrape.
   return event.locationStreet !== undefined && key(event.locationStreet) !== key(stored.locationStreet);
 }
 
+/**
+ * Resolve coordinates for a raw event: explicit coords → URL extraction → geocode fallback.
+ * Optionally skips geocoding if the canonical event already has stored coords and
+ * the location text hasn't changed.
+ */
 /** Detect non-English geographic terms in a location string (e.g., French "État de New York"). */
 export const NON_ENGLISH_GEO_RE = /\b(?:États?[ -]Unis|État de|Bundesland|Straße|Vereinigte Staaten|Provincia de|Comunidad de|Préfecture)\b/i;
 
@@ -1840,6 +1842,14 @@ async function upsertCanonicalEvent(
       // `event.location === null`. Used below to clear city + locationAddress
       // + coords so a row whose venue was scrubbed doesn't keep stale data.
       const isExplicitLocationClear = event.location === null;
+      // The stored pin no longer fits this event: the map URL changed, the
+      // adapter flagged the cache stale (#957), the venue changed, or it was
+      // cleared (WS6 #1516). If no new coords resolve, pin and city both go.
+      const stalePin =
+        (event.locationUrl !== undefined && (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)) ||
+        event.dropCachedCoords ||
+        venueChanged ||
+        isExplicitLocationClear;
 
       // Reverse-geocode city when we have new coords and locationCity isn't already set.
       // Canonical-location sources (HARRIER_CENTRAL) skip the reverse-geocode entirely on
@@ -1856,17 +1866,9 @@ async function upsertCanonicalEvent(
           const rawCity = await reverseGeocode(coords.latitude, coords.longitude);
           locationCity = suppressRedundantCity(locName, rawCity);
         }
-      } else if (
-        (event.locationUrl !== undefined && (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)) ||
-        event.dropCachedCoords ||
-        venueChanged ||
-        isExplicitLocationClear
-      ) {
-        // Coords cleared (locationUrl change, adapter dropCachedCoords #957,
-        // a new venue that didn't geocode, or adapter explicit-clear
-        // `event.location === null` from WS6 #1516)
-        // — also clear city so we don't display a stale Tokyo "Chiyoda"
-        // against a now-uncoordinated event.
+      } else if (stalePin) {
+        // Coords cleared — also clear city so we don't display a stale Tokyo
+        // "Chiyoda" against a now-uncoordinated event.
         locationCity = null;
       }
 
@@ -1984,18 +1986,10 @@ async function upsertCanonicalEvent(
           // Preserve first source's URL; subsequent sources get EventLinks
           sourceUrl: existingEvent.sourceUrl ?? event.sourceUrl,
           trustLevel: ctx.trustLevel,
-          // Write coords if resolved; clear if locationAddress changed and no new coords
-          // (prevents stale pins when an event moves to an unparseable location URL),
-          // when the adapter signalled the cached coords are stale and the
-          // re-geocode came up empty (HC fallback-pin recovery — #957), or when
-          // the adapter sent an explicit-clear `event.location === null` (WS6
-          // #1516 — joint-run annotation rows must drop stale lat/lng too).
+          // Write coords if resolved; clear them if the stored pin is stale (see stalePin).
           ...(coords.latitude != null && coords.longitude != null
             ? { latitude: coords.latitude, longitude: coords.longitude }
-            : (event.locationUrl !== undefined && (event.locationUrl ?? null) !== (existingEvent.locationAddress ?? null)) ||
-                event.dropCachedCoords ||
-                venueChanged ||
-                isExplicitLocationClear
+            : stalePin
               ? { latitude: null, longitude: null }
               : {}),
           // Reverse-geocoded city (only set when computed above)

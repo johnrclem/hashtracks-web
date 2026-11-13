@@ -2343,6 +2343,7 @@ describe("venueTextChanged", () => {
   it.each([
     { case: "same venue, other case and spacing", event: { location: "the  plough", locationStreet: "5 Datchworth Green,  Dathworth" }, expected: false },
     { case: "venue omitted", event: { location: undefined }, expected: false },
+    { case: "same venue, punctuation and abbreviations", event: { location: "The Plough.", locationStreet: "5 Datchworth Green Dathworth" }, expected: false },
     { case: "explicit clear (handled elsewhere)", event: { location: null }, expected: false },
     { case: "new venue", event: { location: "Chez No Eye Deer", locationStreet: "5 Datchworth Green, Dathworth" }, expected: true },
     { case: "same venue, new street", event: { location: "The Plough", locationStreet: "High St, Ashwell" }, expected: true },
