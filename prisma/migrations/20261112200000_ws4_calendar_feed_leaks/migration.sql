@@ -18,8 +18,9 @@
 --     the literal "<br>" in 13 of their titles.
 --  4. LDS H3: clear the "See calendar details" location on 5 upcoming runs.
 --  5. Berlin H3 / Full Moon: drop the "Hash Cash … / Location URL: …" block the
---     retired iCal feed appended to 14 descriptions; placeholder-only
---     remainders ("details cuming") are cleared.
+--     retired iCal feed appended to 14 descriptions; a remainder that is only
+--     a placeholder ("details cuming", "Details below.", "More info coming
+--     soon...") is cleared.
 --  6. Devon Lunatics: the 2 "vytbc - …" titles.
 --  7. Isca H3: 41 placeholder runs titled "Website: www.iscah3.uk".
 --  8. Cheltenham & Cotswold: the same description / end time / link fixes on
@@ -142,7 +143,7 @@ WHERE k.id = e."kennelId" AND k."kennelCode" = 'lds-h3'
 UPDATE "Event" e
 SET description = CASE
       WHEN btrim(regexp_replace(e.description, '\s*(Hash Cash:[^\n]*\n)?Location URL:[^\n]*$', ''))
-           ~* '^(details\M.{0,30}|more info coming soon\.*|)$' THEN NULL
+           ~* '^(details (are )?cuming[ .]*|details below\.?|more info coming soon\.*|)$' THEN NULL
       ELSE btrim(regexp_replace(e.description, '\s*(Hash Cash:[^\n]*\n)?Location URL:[^\n]*$', ''))
     END,
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
