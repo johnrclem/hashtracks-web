@@ -5,8 +5,10 @@
  * `reverseGeocode`, but existing canonical Events keep their cached pins (the
  * merge only re-geocodes when locationUrl changes), so they need this repair.
  *
- * Candidates (never Harrier Central-only events, never rows with a maps URL):
- *   A. Geocoded pin (no source lat/lng), street line present, city missing or
+ * Candidates (never Harrier Central-only events). A "geocoded" pin is one with
+ * no source lat/lng and no Google Maps link (a streetmap.co.uk, OpenStreetMap
+ * or what3words link gives merge no coords, so it geocodes the venue — H5):
+ *   A. Geocoded pin, street line present, city missing or
  *      not named in the venue/street text → re-geocode venue + street.
  *   B. Geocoded pin, no street line, over 25 km from the kennel, city missing
  *      or not named in the venue text → re-geocode the venue.
@@ -31,6 +33,7 @@
  * transaction, with no API calls.
  *
  *   Dry run: BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/repair-ws2-venue-geocoding.ts --plan plan.json --cache cache.json
+ *   Rehearse the write (BEGIN … ROLLBACK): add --apply --rollback
  *   Apply:   BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npx tsx scripts/repair-ws2-venue-geocoding.ts --plan plan.json --apply
  *   Env:     DATABASE_URL, GOOGLE_CALENDAR_API_KEY
  */
@@ -111,12 +114,13 @@ WITH ev AS (
   SELECT e.id, e."kennelId", e.date, e."runNumber", e."locationName", e."locationStreet",
          e.latitude, e.longitude, e."locationCity",
          bool_and(s.type = 'HARRIER_CENTRAL') AS hc_only,
-         bool_or(r."rawData"->>'latitude' IS NOT NULL OR coalesce(r."rawData"->>'locationUrl', '') <> '') AS src_coords
+         bool_or(r."rawData"->>'latitude' IS NOT NULL
+                 OR coalesce(r."rawData"->>'locationUrl', '') ~* 'google\.|goo\.gl|g\.page') AS src_coords
   FROM "Event" e
   JOIN "RawEvent" r ON r."eventId" = e.id
   JOIN "Source" s ON s.id = r."sourceId"
   WHERE e.latitude IS NOT NULL AND e.longitude IS NOT NULL
-    AND e."locationName" IS NOT NULL AND e."locationAddress" IS NULL
+    AND e."locationName" IS NOT NULL
   GROUP BY e.id
 ), d AS (
   SELECT ev.*, k."kennelCode", k.country, k.latitude AS klat, k.longitude AS klng,
@@ -238,21 +242,28 @@ void runOneShot(async ({ prisma, apply }) => {
   const planPath = argValue("--plan") ?? "ws2-venue-geocoding-plan.json";
 
   if (apply) {
+    const rollback = process.argv.includes("--rollback");
     const plan = (JSON.parse(readFileSync(planPath, "utf8")) as PlanRow[]).filter((r) => r.outcome !== "KEEP");
-    console.log(`Applying ${plan.length} planned rows from ${planPath}`);
-    const written = await prisma.$transaction(async (tx) => {
-      let n = 0;
-      for (const row of plan) {
-        // Only rows whose pin and city are still what the plan saw.
-        const res = await tx.event.updateMany({
-          where: { id: row.id, latitude: row.before.lat, longitude: row.before.lng, locationCity: row.before.city },
-          data: { latitude: row.after.lat, longitude: row.after.lng, locationCity: row.after.city },
-        });
-        n += res.count;
-      }
-      return n;
-    }, { timeout: 600_000, maxWait: 60_000 });
-    console.log(`✓ Updated ${written} of ${plan.length} event(s); ${plan.length - written} changed since the plan and were skipped.`);
+    console.log(`${rollback ? "Rehearsing (rolled back)" : "Applying"} ${plan.length} planned rows from ${planPath}`);
+    const written: Record<Outcome, number> = { MOVE: 0, CLEAR: 0, CITY: 0, KEEP: 0 };
+    const ROLLBACK = new Error("rollback rehearsal");
+    try {
+      await prisma.$transaction(async (tx) => {
+        for (const row of plan) {
+          // Only rows whose pin and city are still what the plan saw.
+          const res = await tx.event.updateMany({
+            where: { id: row.id, latitude: row.before.lat, longitude: row.before.lng, locationCity: row.before.city },
+            data: { latitude: row.after.lat, longitude: row.after.lng, locationCity: row.after.city },
+          });
+          written[row.outcome] += res.count;
+        }
+        if (rollback) throw ROLLBACK;
+      }, { timeout: 600_000, maxWait: 60_000 });
+    } catch (err) {
+      if (err !== ROLLBACK) throw err;
+    }
+    const total = written.MOVE + written.CLEAR + written.CITY;
+    console.log(`${rollback ? "Would update" : "✓ Updated"} ${total} of ${plan.length} event(s): MOVE ${written.MOVE}, CLEAR ${written.CLEAR}, CITY ${written.CITY}; ${plan.length - total} changed since the plan and were skipped.`);
     return;
   }
 
