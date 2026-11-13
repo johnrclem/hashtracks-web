@@ -762,6 +762,14 @@ describe("venueGeocodeRejection", () => {
     expect(venueGeocodeRejection(parishRoad, { location: "Bowden Wharf, St. Thomas" }, { lat: 18.0, lng: -76.79 })).toBeNull();
   });
 
+  it.each([
+    ["a misspelt town", "231 W. Fourth St., Cincinnatti", "Cincinnati"],
+    ["a town written without its space", "Minburi, Tong Romklao Market", "Min Buri"],
+  ])("accepts %s", (_case, location, town) => {
+    const result: GeocodeResult = { lat: 39.1, lng: -84.51, types: ["premise"], components: [comp(town, "locality")] };
+    expect(venueGeocodeRejection(result, { location }, { lat: 39.76, lng: -84.19 })).toBeNull();
+  });
+
   it("rejects anything over 200 km from the kennel", () => {
     expect(venueGeocodeRejection({ lat: 53.4808, lng: -2.2426 }, { location: "Pub" }, EXETER)).toMatch(/km from the kennel$/);
   });

@@ -15,9 +15,10 @@
  *
  * Outcomes:
  *   MOVE   the new pin is > 1 km from the old one and no further from the
- *          kennel (or within 25 km of it) → new lat/lng + city. A farther
- *          "move" is refused: "The Gate, Bratton" must not jump from a wrong
- *          Birmingham pin to Bratton in Wiltshire.
+ *          kennel, within 25 km of it, or in the street line's postcode →
+ *          new lat/lng + city. Any other farther "move" is refused: "The
+ *          Gate, Bratton" must not jump from a wrong Birmingham pin to
+ *          Bratton in Wiltshire.
  *   CLEAR  the old pin is provably wrong: the venue-only lookup that produced
  *          it lands within 1 km of it and `venueGeocodeRejection` rejects it
  *          (an area centroid, a whole road, a far town the text doesn't name).
@@ -83,6 +84,13 @@ interface PlanRow {
 }
 
 const SAME_PIN_KM = 1;
+
+/** True when the result's postcode appears in the street line ("…, Lyndhurst SO43 7AA"). */
+function inStreetPostcode(result: GeocodeResult, street: string | null): boolean {
+  const squash = (s: string) => s.replace(/\s/g, "").toUpperCase();
+  const postcode = result.components?.find((c) => c.types.includes("postal_code"))?.long_name;
+  return !!postcode && !!street && squash(postcode).length >= 4 && squash(street).includes(squash(postcode));
+}
 
 /** Same mapping as merge.ts countryToRegionBias. */
 function regionBias(country: string | null): string | undefined {
@@ -181,7 +189,7 @@ async function planRow(c: Candidate, cache: LookupCache): Promise<Pick<PlanRow, 
       return before.city ? { outcome: "KEEP", reason: "pin confirmed", after: before } : fillCity("pin confirmed");
     }
     const newKm = kennel ? haversineDistance(hit.lat, hit.lng, kennel.lat, kennel.lng) : 0;
-    if (newKm <= VENUE_TOWN_CHECK_KM || c.km == null || newKm <= c.km) {
+    if (newKm <= VENUE_TOWN_CHECK_KM || c.km == null || newKm <= c.km || inStreetPostcode(hit, c.locationStreet)) {
       return {
         outcome: "MOVE",
         reason: `moved ${shift.toFixed(0)}km`,

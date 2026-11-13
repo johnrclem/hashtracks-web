@@ -3,6 +3,8 @@
  * and region pin colors for map rendering.
  */
 
+import { levenshtein } from "@/lib/fuzzy";
+
 /** Extract lat/lng from a Google Maps URL. Returns null if not parseable. */
 export function extractCoordsFromMapsUrl(url: string): { lat: number; lng: number } | null {
   if (!url) return null;
@@ -526,8 +528,22 @@ function resultInNamedPlace(
     .filter((n) => n.length >= 3);
   const address = ` ${placeKey(result.formattedAddress ?? "")} `;
   return [...required, ...placeTokens([venueHead])].some(
-    (town) => address.includes(` ${town} `) || names.some((name) => name.includes(town) || town.includes(name)),
+    (town) => address.includes(` ${town} `) || names.some((name) => samePlaceName(town, name)),
   );
+}
+
+/**
+ * Place names match when one contains the other, or they differ only in
+ * spacing ("Minburi" / "Min Buri") or a typo ("Sedgeley" / "Sedgley",
+ * "Cincinnatti" / "Cincinnati"): one edit under 8 letters, two from 8.
+ */
+function samePlaceName(a: string, b: string): boolean {
+  if (a.includes(b) || b.includes(a)) return true;
+  const x = a.replace(/ /g, "");
+  const y = b.replace(/ /g, "");
+  const shorter = Math.min(x.length, y.length);
+  if (shorter < 5) return x === y;
+  return levenshtein(x, y) <= (shorter >= 8 ? 2 : 1);
 }
 
 /**
