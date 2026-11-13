@@ -1263,8 +1263,9 @@ export function venueTextChanged(
   if (NON_ENGLISH_GEO_RE.test(event.location)) return false;
   const key = (text: string | null | undefined) => (text ?? "").replace(/\s+/g, " ").trim().toLowerCase();
   if (key(sanitizeLocation(event.location)) !== key(stored.locationName)) return true;
-  // A street line omitted alongside a venue is stored as null (#1579).
-  return key(event.locationStreet) !== key(stored.locationStreet);
+  // An omitted street makes no claim: a lower-trust source may have filled it,
+  // and treating that as a change would re-geocode on every scrape.
+  return event.locationStreet !== undefined && key(event.locationStreet) !== key(stored.locationStreet);
 }
 
 /** Detect non-English geographic terms in a location string (e.g., French "État de New York"). */

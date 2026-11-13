@@ -2346,7 +2346,8 @@ describe("venueTextChanged", () => {
     { case: "explicit clear (handled elsewhere)", event: { location: null }, expected: false },
     { case: "new venue", event: { location: "Chez No Eye Deer", locationStreet: "5 Datchworth Green, Dathworth" }, expected: true },
     { case: "same venue, new street", event: { location: "The Plough", locationStreet: "High St, Ashwell" }, expected: true },
-    { case: "street dropped", event: { location: "The Plough" }, expected: true },
+    { case: "street omitted (no claim)", event: { location: "The Plough" }, expected: false },
+    { case: "street explicitly cleared", event: { location: "The Plough", locationStreet: null }, expected: true },
     { case: "venue now a placeholder", event: { location: "TBD", locationStreet: "5 Datchworth Green, Dathworth" }, expected: true },
     { case: "non-English venue (stored as an English address)", event: { location: "Frankfurt, Bundesland Hessen" }, expected: false },
   ])("$case", ({ event, expected }) => {
