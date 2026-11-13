@@ -151,6 +151,10 @@ export const MEDICAL_SKIP_RES: readonly RegExp[] = [
   /^\s*sleep\s+study\b/i,
   /^\s*(?:medical|telehealth|virtual)\s+(?:appointment|visit|consultation|consult)\b/i,
   /\bremote\s+visit\b/i,
+  // Devon Lunatics PII: NHS GP booking systems (accuRx) put the consultation
+  // mode first: "In-person appointment", "Telephone appointment", …
+  /^\s*(?:in[-\s]person|telephone|phone|video|face[-\s]to[-\s]face)\s+(?:appointment|consultation|consult)\b/i,
+  /^\s*(?:gp|nurse|hospital|dental|dentist|doctor)(?:'s)?\s+appointment\b/i,
 ];
 
 /**

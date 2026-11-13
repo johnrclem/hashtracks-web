@@ -1287,6 +1287,13 @@ describe("medical appointment filter (#1690)", () => {
     "Telehealth visit with Dr. Banana",
     "Virtual consultation tomorrow",
     "Annual physical Remote visit",
+    // Devon Lunatics PII: NHS accuRx booking entries.
+    "In-person appointment",
+    "Telephone appointment",
+    "Video consultation",
+    "Face to face appointment",
+    "GP appointment",
+    "Nurse appointment",
   ])("drops medical/personal appointment title: %s", (summary) => {
     const result = buildRawEventFromGCalItem(
       testGCalEvent({ summary }),
@@ -1305,6 +1312,21 @@ describe("medical appointment filter (#1690)", () => {
         description: "Telehealth via Zoom. Bring water and prep paperwork.",
       }),
       { defaultKennelTag: "h4-tx" },
+    );
+    expect(result).toBeNull();
+  });
+
+  // Verbatim Devon Lunatics calendar entry: surgery name in LOCATION and an
+  // accuRx link in DESCRIPTION. Neither may rescue it.
+  it("drops an NHS 'In-person appointment' with a surgery location and booking link", () => {
+    const result = buildRawEventFromGCalItem(
+      testGCalEvent({
+        summary: "In-person appointment",
+        location: "Topsham Surgery",
+        description:
+          "See more appointment details: https://accurx.nhs.uk/c/p-example\nThe length of this calendar event is just a guide.",
+      }),
+      { defaultKennelTag: "dlh3-gb", defaultTitle: "Devon Lunatics H3" },
     );
     expect(result).toBeNull();
   });
