@@ -9,6 +9,8 @@ import {
   validateSourceConfig,
   decodeEntities,
   stripHtmlTags,
+  replaceBrTags,
+  stripHtmlIfTagged,
   buildUrlVariantCandidates,
   validateSourceUrl,
   chronoParseDate,
@@ -229,6 +231,41 @@ describe("decodeEntities", () => {
   });
 });
 
+describe("replaceBrTags", () => {
+  it("joins single-line fields with a space", () => {
+    expect(replaceBrTags("Hill Contry H3<br>Trail 294", " ")).toBe("Hill Contry H3 Trail 294");
+    expect(replaceBrTags("NOH3 Hash Run #1172 <br> Hares: IME", " ")).toBe("NOH3 Hash Run #1172 Hares: IME");
+    expect(replaceBrTags("tums the enemy maker<BR/>", " ")).toBe("tums the enemy maker");
+    expect(replaceBrTags("HOTH3\n<br>Humpin Hash", " ")).toBe("HOTH3 Humpin Hash");
+  });
+
+  it("joins venue and hare lines with a comma, dropping empty segments", () => {
+    expect(replaceBrTags("Oxbjergvej Parkinglot<br> Glostrup", ", ")).toBe("Oxbjergvej Parkinglot, Glostrup");
+    expect(replaceBrTags("Mud Flaps<br><br>Pap Smear<br>", ", ")).toBe("Mud Flaps, Pap Smear");
+    expect(replaceBrTags("HARE: X<br class='html-br' style='font-family:Segoe UI' />LOCATION: Y", " ")).toBe("HARE: X LOCATION: Y");
+  });
+
+  it("turns <br> into line breaks in a description, keeping at most one blank line", () => {
+    expect(replaceBrTags("Hares: X<br>Pack out 11:30<br><br><br>Bring a whistle", "\n"))
+      .toBe("Hares: X\nPack out 11:30\n\nBring a whistle");
+  });
+
+  it("returns text without a <br> unchanged", () => {
+    expect(replaceBrTags("  Two  spaces  ", " ")).toBe("  Two  spaces  ");
+  });
+});
+
+describe("stripHtmlIfTagged", () => {
+  it("converts an HTML description to text", () => {
+    expect(stripHtmlIfTagged("<h2>Event Description</h2><div>Hares: Snatch Shot<br>On-after: Bar</div>"))
+      .toBe("Event Description\nHares: Snatch Shot\nOn-after: Bar");
+  });
+
+  it("leaves plain text with angle brackets alone", () => {
+    expect(stripHtmlIfTagged("We <3 shiggy\nTrail < 5 miles")).toBe("We <3 shiggy\nTrail < 5 miles");
+  });
+});
+
 describe("stripHtmlTags", () => {
   it("strips basic HTML tags", () => {
     expect(stripHtmlTags("<p>Hello <b>world</b></p>")).toBe("Hello world");
@@ -238,6 +275,11 @@ describe("stripHtmlTags", () => {
     expect(stripHtmlTags("line1<br>line2")).toBe("line1 line2");
     expect(stripHtmlTags("line1<br/>line2")).toBe("line1 line2");
     expect(stripHtmlTags("line1<br />line2")).toBe("line1 line2");
+  });
+
+  it("converts a <br> that carries attributes", () => {
+    expect(stripHtmlTags("<span>START DATE: 11/21</span><br class='html-br' style='color:#000' /><span>START TIME: 2:30</span>", "\n"))
+      .toBe("START DATE: 11/21\nSTART TIME: 2:30");
   });
 
   it("converts <br> to custom replacement", () => {

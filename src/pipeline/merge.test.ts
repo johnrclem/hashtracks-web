@@ -2624,6 +2624,29 @@ describe("time/cost field clearing on update (#530)", () => {
   );
 });
 
+describe("literal <br> in text fields", () => {
+  it("becomes a space in the title, a comma in hares and venue, and a line break in the description", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_br"));
+
+    await processRawEvents("src_1", [
+      buildRawEvent({
+        title: "Hill Country H3<br>Trail 294",
+        hares: "Tums &amp; Tater<br>Blackout<br>",
+        location: "GROTESK Cafe<br />Teglholmsgade 36",
+        description: "Hares out 11:15<br>Pack out 11:30&lt;br&gt;On-after TBD",
+      }),
+    ]);
+
+    const data = (mockEventCreate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data.title).toBe("Hill Country H3 Trail 294");
+    expect(data.haresText).toBe("Tums & Tater, Blackout");
+    expect(data.locationName).toBe("GROTESK Cafe, Teglholmsgade 36");
+    expect(data.description).toBe("Hares out 11:15\nPack out 11:30\nOn-after TBD");
+  });
+});
+
 describe("sanitizeLocationUrl", () => {
   it("filters Google My Maps viewer URLs from locationAddress on create", async () => {
     mockRawEventFind.mockResolvedValueOnce(null);
