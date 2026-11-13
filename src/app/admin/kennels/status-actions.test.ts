@@ -164,6 +164,22 @@ describe("kennel status actions", () => {
     expect(refreshKennelEvidence).not.toHaveBeenCalled();
   });
 
+  it("confirmKennelRunning refuses while an un-reverted stop exists, under the kennel lock", async () => {
+    tx.kennelConfirmation.findFirst.mockResolvedValue({ id: "c1" });
+    const result = await confirmKennelRunning("k1", goodInput);
+    expect(result).toEqual({ error: "This kennel is stopped — restart it first." });
+    expect(tx.$queryRaw).toHaveBeenCalled();
+    expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      tx.kennelConfirmation.findFirst.mock.invocationCallOrder[0],
+    );
+    expect(tx.kennelConfirmation.findFirst).toHaveBeenCalledWith({
+      where: { kennelId: "k1", kind: "STOPPED", revertedAt: null },
+      select: { id: true },
+    });
+    expect(tx.kennelConfirmation.create).not.toHaveBeenCalled();
+    expect(refreshKennelEvidence).not.toHaveBeenCalled();
+  });
+
   it("a failed evidence refresh after the write still reports success and is logged", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     for (let i = 0; i < 3; i++) {

@@ -48,7 +48,8 @@ function formatDay(d: Date, now: Date): string {
  * success (a retried stop would otherwise say "Already stopped"), and the
  * nightly refresh repairs the cache.
  */
-async function refreshAfterWrite(kennelId: string, now: Date): Promise<void> {
+/** Refresh one kennel's cached evidence after a write; a failure is logged, never thrown. */
+export async function refreshAfterWrite(kennelId: string, now: Date): Promise<void> {
   try {
     await refreshKennelEvidence([kennelId], now);
   } catch (err) {
@@ -116,7 +117,15 @@ export async function confirmKennelRunningFor(
   const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { id: true } });
   if (!kennel) return { error: "Kennel not found" };
 
-  await prisma.$transaction(async (tx) => {
+  const outcome = await prisma.$transaction(async (tx) => {
+    await lockKennel(tx, kennelId);
+    // A stop keeps its schedule sources and rules off; a later confirmation
+    // would clear stoppedAt and show "Running" while they stay off.
+    const open = await tx.kennelConfirmation.findFirst({
+      where: { kennelId, kind: "STOPPED", revertedAt: null },
+      select: { id: true },
+    });
+    if (open) return { error: "This kennel is stopped — restart it first." } as const;
     await tx.kennelConfirmation.create({
       data: {
         kennelId,
@@ -127,9 +136,10 @@ export async function confirmKennelRunningFor(
         createdById: adminId,
       },
     });
+    return { success: true } as const;
   });
-  await refreshAfterWrite(kennelId, now);
-  return { success: true };
+  if (outcome.success) await refreshAfterWrite(kennelId, now);
+  return outcome;
 }
 
 export async function stopKennelFor(
