@@ -20,6 +20,8 @@ import { DASHBOARD_STREAMS } from "@/lib/audit-stream-meta";
 import { computeStaleness, daysAgo, easternDate } from "@/lib/admin/audit-dates";
 import { AUDIT_AGENT_SUBMITTER_ID } from "@/lib/audit-agent-auth";
 import { loadHarelinePromptInputs } from "@/lib/admin/hareline-prompt-inputs";
+import { discardQueuedDraft, loadQueuedDrafts } from "@/lib/admin/audit-draft-queue";
+import { DISCARD_REASON_MAX } from "@/lib/admin/audit-discard-reason";
 import {
   ACTIVE_EVENT_WINDOW_DAYS,
   loadDeepDiveQueue,
@@ -1053,23 +1055,7 @@ const PENDING_DRAFTS_LIMIT = 100;
  *  (stuck after the retry cap, so they don't accumulate invisibly). Admin-only. */
 export async function getPendingDrafts(): Promise<PendingDraftRow[]> {
   await requireAdmin();
-  const drafts = await prisma.auditFindingDraft.findMany({
-    where: { status: { in: ["PENDING", "ERROR"] } },
-    // PENDING before ERROR, then oldest-first within each.
-    orderBy: [{ status: "asc" }, { submittedAt: "asc" }],
-    take: PENDING_DRAFTS_LIMIT,
-    select: {
-      id: true,
-      stream: true,
-      status: true,
-      kennelCode: true,
-      ruleSlug: true,
-      title: true,
-      errorReason: true,
-      submittedAt: true,
-      kennel: { select: { shortName: true } },
-    },
-  });
+  const drafts = await loadQueuedDrafts({ limit: PENDING_DRAFTS_LIMIT });
   return drafts.map((d) => ({
     id: d.id,
     stream: d.stream,
@@ -1083,14 +1069,24 @@ export async function getPendingDrafts(): Promise<PendingDraftRow[]> {
   }));
 }
 
-/** Reject a draft so it's never filed. Works on PENDING or stuck-ERROR rows. Admin-only. */
-export async function rejectDraft(id: string): Promise<void> {
+/**
+ * Discard a queued draft so it's never filed, recording why (for example
+ * "stale: the history backfill was applied on 2026-11-12"). Works on PENDING or
+ * stuck-ERROR rows. Admin-only.
+ */
+export async function rejectDraft(
+  id: string,
+  reason: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireAdmin();
-  await prisma.auditFindingDraft.updateMany({
-    where: { id, status: { in: ["PENDING", "ERROR"] } },
-    data: { status: "REJECTED", promotedAt: new Date() },
-  });
+  const outcome = await discardQueuedDraft(id, reason, "admin");
+  if (outcome === "invalid-reason") {
+    return { ok: false, error: `Give a reason (1–${DISCARD_REASON_MAX} characters).` };
+  }
   revalidatePath("/admin/audit");
+  return outcome === "discarded"
+    ? { ok: true }
+    : { ok: false, error: "That finding already left the queue." };
 }
 
 /** Promote all eligible queued drafts to GitHub issues now (same path the cron runs). Admin-only. */

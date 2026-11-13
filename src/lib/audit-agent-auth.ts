@@ -11,8 +11,10 @@
  *
  * The agent instead presents `Authorization: Bearer <AUDIT_AGENT_TOKEN>`. Scope
  * is deliberately narrow:
- * - read: the next deep-dive kennel and prompt, the hareline prompt, suppressions
- * - write: queue a finding, record a deep-dive completion
+ * - read: the next deep-dive kennel and prompt, the hareline prompt,
+ *   suppressions, the findings still waiting in the review queue
+ * - write: queue a finding, record a deep-dive completion, discard a queued
+ *   finding with a reason (it's marked REJECTED, never deleted)
  * Nothing behind this token publishes externally or edits event data.
  *
  * Fails closed: if the env var is unset or shorter than {@link MIN_TOKEN_LENGTH},
