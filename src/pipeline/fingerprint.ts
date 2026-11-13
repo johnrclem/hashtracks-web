@@ -142,6 +142,13 @@ export function generateFingerprint(data: RawEventData): string {
     ...(data.latitude === undefined && data.longitude === undefined
       ? []
       : [`geo=${data.latitude ?? ""},${data.longitude ?? ""}`]),
+    // Kennel Status 1 — recurringSeriesId (GCal repeating-instance marker). Same
+    // gated-spread pattern as locationStreet/endDate above: one-off events carry
+    // no key and fingerprint exactly as before; only repeating instances
+    // re-fingerprint, a one-time re-merge wave for those rows.
+    ...(data.recurringSeriesId === undefined
+      ? []
+      : [`recurringSeriesId=${data.recurringSeriesId}`]),
   ].join("|");
 
   return createHash("sha256").update(input).digest("hex");

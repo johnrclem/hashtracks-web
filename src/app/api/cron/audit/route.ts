@@ -8,6 +8,7 @@ import {
 } from "@/pipeline/audit-runner";
 import { fileAuditIssues } from "@/pipeline/audit-issue";
 import { backfillLastEventDates } from "@/pipeline/backfill-last-event";
+import { refreshScheduleOnlyFlags, refreshKennelEvidence } from "@/pipeline/kennel-evidence";
 
 /**
  * Daily data quality audit endpoint.
@@ -28,6 +29,15 @@ export async function POST(request: Request) {
       if (backfilled > 0) console.log(`[audit] lastEventDate backfill: ${backfilled} kennels updated`);
     } catch (err) {
       console.error("[audit] lastEventDate backfill failed:", err instanceof Error ? err.message : err);
+    }
+
+    // Refresh schedule-only flags, then kennel evidence (reads the flags). Non-blocking.
+    try {
+      const flagged = await refreshScheduleOnlyFlags("all");
+      const evidence = await refreshKennelEvidence();
+      console.log(`[audit] kennel evidence refresh: ${flagged} events flagged, ${evidence} kennels updated`);
+    } catch (err) {
+      console.error("[audit] kennel evidence refresh failed:", err instanceof Error ? err.message : err);
     }
 
     // Re-apply merge sanitizers to any stale rows in the audit window before

@@ -5,11 +5,23 @@ import { KennelForm } from "@/components/admin/KennelForm";
 import { KennelMergeDialog } from "@/components/admin/KennelMergeDialog";
 import { BackfillCoordsButton } from "@/components/admin/BackfillCoordsButton";
 import { Button } from "@/components/ui/button";
+import { KENNEL_EVIDENCE_SELECT, serializeKennelEvidence } from "@/lib/kennel-status";
+
+function pickEvidence(k: Record<keyof typeof KENNEL_EVIDENCE_SELECT, Date | null>) {
+  return {
+    lastRunSeenAt: k.lastRunSeenAt,
+    nextRunPostedAt: k.nextRunPostedAt,
+    lastConfirmedAt: k.lastConfirmedAt,
+    stoppedAt: k.stoppedAt,
+  };
+}
 
 export default async function AdminKennelsPage() {
-  const [kennels, regions] = await Promise.all([
+  const [kennels, regions, openStops] = await Promise.all([
     prisma.kennel.findMany({
       orderBy: [{ region: "asc" }, { shortName: "asc" }],
+      // Evidence columns are scalars, so they are already on each row; the
+      // select constant documents (and type-checks) which ones the table reads.
       include: {
         aliases: { select: { alias: true } },
         _count: { select: { members: true, aliases: true } },
@@ -19,7 +31,15 @@ export default async function AdminKennelsPage() {
       orderBy: [{ country: "asc" }, { name: "asc" }],
       select: { id: true, name: true, country: true, abbrev: true },
     }),
+    // Kennels with an un-reverted STOPPED confirmation keep a Restart action even
+    // after newer evidence cleared stoppedAt, so their disabled sources/rules stay recoverable.
+    prisma.kennelConfirmation.findMany({
+      where: { kind: "STOPPED", revertedAt: null },
+      distinct: ["kennelId"],
+      select: { kennelId: true },
+    }),
   ]);
+  const openStopIds = new Set(openStops.map((s) => s.kennelId));
 
   const regionOptions = regions.map((r) => ({
     id: r.id,
@@ -68,6 +88,8 @@ export default async function AdminKennelsPage() {
     isHidden: k.isHidden,
     latitude: k.latitude,
     longitude: k.longitude,
+    hasOpenStop: openStopIds.has(k.id),
+    evidence: serializeKennelEvidence(pickEvidence(k)),
   }));
 
   const missingCoordsCount = serialized.filter(isMissingCoords).length;

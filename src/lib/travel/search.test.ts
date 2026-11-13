@@ -10,6 +10,7 @@ vi.mock("@/lib/weather", () => ({
 }));
 
 import { getWeatherForEvents } from "@/lib/weather";
+import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import {
   executeTravelSearch,
   byDateTimeDistance,
@@ -700,6 +701,16 @@ describe("executeTravelSearch", () => {
     const result = await executeTravelSearch(prisma, baseParams);
 
     expect(result.confirmed).toHaveLength(0);
+  });
+
+  it("hides a stopped kennel's schedule-only runs from the confirmed query", async () => {
+    const prisma = createMockPrisma([testKennel], [testEvent], []);
+    await executeTravelSearch(prisma, baseParams);
+
+    // The confirmed-events query is the one that includes event links.
+    const findMany = (prisma as { event: { findMany: ReturnType<typeof vi.fn> } }).event.findMany;
+    const confirmedCall = findMany.mock.calls.find(([args]) => args.include !== undefined);
+    expect(confirmedCall?.[0].where).toMatchObject(HIDE_STOPPED_SCHEDULE_RUNS);
   });
 
   it("returns no_coverage when no kennels in any radius", async () => {

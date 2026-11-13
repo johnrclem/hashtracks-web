@@ -7,6 +7,7 @@ import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { buildNextEventMap, serializeKennelWithNext } from "@/lib/kennel-directory";
 import { getActivityStatus } from "@/lib/activity-status";
 import { getTodayUtcNoon } from "@/lib/date";
+import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import { generateRegionIntro, buildRegionItemListJsonLd, buildBreadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
 import { collectKennelWeekdays, SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
@@ -48,7 +49,7 @@ export async function generateMetadata({
       _count: {
         select: {
           eventKennels: {
-            where: { event: { date: { gte: todayMeta }, status: "CONFIRMED", isCanonical: true } },
+            where: { event: { date: { gte: todayMeta }, status: "CONFIRMED", isCanonical: true, ...HIDE_STOPPED_SCHEDULE_RUNS } },
           },
         },
       },
@@ -125,6 +126,8 @@ export default async function RegionPage({
         date: { gte: todayUtc },
         status: "CONFIRMED",
         isCanonical: true,
+        // A stopped kennel's generated runs don't count as its next run.
+        ...HIDE_STOPPED_SCHEDULE_RUNS,
         eventKennels: { some: { kennel: { region: region.name, isHidden: false } } },
       },
       orderBy: { date: "asc" },

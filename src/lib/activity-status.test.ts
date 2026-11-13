@@ -87,7 +87,7 @@ describe("activeSinceUtcNoon / activeKennelWhere", () => {
         { lastEventDate: { gte: new Date("2026-08-13T12:00:00Z") } },
         {
           eventKennels: {
-            some: { event: { date: { gte: new Date("2026-11-10T12:00:00Z") }, status: "CONFIRMED", isCanonical: true } },
+            some: { event: { date: { gte: new Date("2026-11-10T12:00:00Z") }, status: "CONFIRMED", isCanonical: true, NOT: { isScheduleOnly: true, kennel: { stoppedAt: { not: null } } } } },
           },
         },
       ],

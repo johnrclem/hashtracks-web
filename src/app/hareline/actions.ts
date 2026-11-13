@@ -19,7 +19,7 @@
 import { unstable_cache } from "next/cache";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { DISPLAY_EVENT_WHERE, DISPLAYABLE_EVENT_NO_PARENT_WHERE, endsBefore, endsOnOrAfter } from "@/lib/event-filters";
+import { HIDE_STOPPED_SCHEDULE_RUNS, DISPLAY_EVENT_WHERE, DISPLAYABLE_EVENT_NO_PARENT_WHERE, endsBefore, endsOnOrAfter } from "@/lib/event-filters";
 // Tag constant lives in a plain module — a `"use server"` file can only
 // export async functions, so any non-function export (even a string)
 // makes Next strip all exports and fail the build at import sites.
@@ -201,6 +201,7 @@ const HARELINE_EVENT_SELECT = {
       isManualEntry: { not: true },
       isCanonical: true,
       kennel: { isHidden: false },
+      ...HIDE_STOPPED_SCHEDULE_RUNS,
     },
     orderBy: { date: "asc" },
     select: {

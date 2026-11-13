@@ -1144,6 +1144,25 @@ describe("CTA placeholder event skip", () => {
   });
 });
 
+describe("recurringSeriesId (Kennel Status 1)", () => {
+  it("sets recurringSeriesId from an instance's recurringEventId", () => {
+    const raw = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Fort Eustis Hash", recurringEventId: "abc" }),
+      { defaultKennelTag: "feh3" },
+    );
+    expect(raw?.recurringSeriesId).toBe("abc");
+  });
+
+  it("leaves recurringSeriesId undefined for one-off events", () => {
+    const raw = buildRawEventFromGCalItem(
+      testGCalEvent({ summary: "Fort Eustis Hash" }),
+      { defaultKennelTag: "feh3" },
+    );
+    expect(raw).not.toBeNull();
+    expect(raw?.recurringSeriesId).toBeUndefined();
+  });
+});
+
 describe("dormant recurring series suppression — suppressICalUids (#1708)", () => {
   const DORMANT_UID = "20qb7gao7553kajq5de1s5kra4_R20210304T020000@google.com";
 
@@ -5322,6 +5341,9 @@ describe("GoogleCalendarAdapter — RECURRENCE-ID override recovery (#1021/#1024
         expect(res.events).toHaveLength(3);
         expect(res.events.map(e => e.date).sort((a, b) => a.localeCompare(b))).toEqual(["2024-08-01", "2024-09-15", "2024-10-30"]);
         expect(res.diagnosticContext?.exceptionsRecovered).toBe(3);
+        // An orphan override of a non-recurring master is an individually
+        // posted run, not a repeating-schedule instance (Kennel Status 1).
+        expect(res.events.map(e => e.recurringSeriesId)).toEqual([undefined, undefined, undefined]);
       } finally {
         fetchSpy.mockRestore();
       }

@@ -3,7 +3,10 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteKennel, toggleKennelVisibility } from "@/app/admin/kennels/actions";
-import { MoreHorizontal, Eye, EyeOff, AlertTriangle, ExternalLink } from "lucide-react";
+import { restartKennel } from "@/app/admin/kennels/status-actions";
+import { formatStatusLine, getStatusLine, toKennelEvidence, type SerializedKennelEvidence } from "@/lib/kennel-status";
+import { KennelStatusDialog, type StatusDialogMode } from "./KennelStatusDialog";
+import { MoreHorizontal, Eye, EyeOff, CircleCheck, CirclePause, Play, AlertTriangle, ExternalLink } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -40,7 +43,12 @@ import type { RegionOption } from "./RegionCombobox";
 import type { AdminKennelData } from "./kennel-data-types";
 import { toast } from "sonner";
 
-type Kennel = AdminKennelData & { _count: { members: number; aliases: number } };
+type Kennel = AdminKennelData & {
+  _count: { members: number; aliases: number };
+  evidence: SerializedKennelEvidence;
+  /** An un-reverted STOPPED confirmation exists (Restart stays available). */
+  hasOpenStop: boolean;
+};
 
 interface KennelTableProps {
   kennels: Kennel[];
@@ -133,6 +141,7 @@ export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
               <TableHead className="sticky left-0 bg-background z-10">Short Name</TableHead>
               <TableHead className="hidden sm:table-cell">Full Name</TableHead>
               <TableHead>Region</TableHead>
+              <TableHead className="hidden md:table-cell">Status</TableHead>
               <TableHead className="hidden sm:table-cell text-center">Aliases</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -140,7 +149,7 @@ export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
           <TableBody>
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-sm text-muted-foreground py-8">
+                <TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-8">
                   No kennels match your search.
                 </TableCell>
               </TableRow>
@@ -159,7 +168,23 @@ export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
 function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[] }) {
   const [isPending, startTransition] = useTransition();
   const [showDelete, setShowDelete] = useState(false);
+  const [statusMode, setStatusMode] = useState<StatusDialogMode | null>(null);
   const router = useRouter();
+  const evidence = toKennelEvidence(kennel.evidence);
+  const isStopped = kennel.hasOpenStop || evidence.stoppedAt !== null;
+  const statusLine = getStatusLine(evidence);
+
+  function handleRestart() {
+    startTransition(async () => {
+      const result = await restartKennel(kennel.id);
+      if ("error" in result) {
+        toast.error(result.error);
+      } else {
+        toast.success("Kennel restarted");
+      }
+      router.refresh();
+    });
+  }
 
   function handleDelete() {
     startTransition(async () => {
@@ -206,6 +231,9 @@ function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[
           <span className="text-sm">{kennel.region}</span>
         </span>
       </TableCell>
+      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+        {statusLine ? formatStatusLine(statusLine) : "Running"}
+      </TableCell>
       <TableCell className="hidden sm:table-cell text-center">{kennel._count.aliases}</TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
@@ -240,6 +268,18 @@ function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[
                   <><EyeOff className="mr-2 size-4" /> Hide Kennel</>
                 )}
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setStatusMode("running")} disabled={isPending}>
+                <CircleCheck className="mr-2 size-4" /> Confirm running
+              </DropdownMenuItem>
+              {isStopped ? (
+                <DropdownMenuItem onClick={handleRestart} disabled={isPending}>
+                  <Play className="mr-2 size-4" /> Restart kennel
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => setStatusMode("stopped")} disabled={isPending}>
+                  <CirclePause className="mr-2 size-4" /> Mark stopped
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
                 onClick={() => setShowDelete(true)}
@@ -249,6 +289,12 @@ function KennelRow({ kennel, regions }: { kennel: Kennel; regions: RegionOption[
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <KennelStatusDialog
+            kennelId={kennel.id}
+            kennelName={kennel.shortName}
+            mode={statusMode}
+            onClose={() => setStatusMode(null)}
+          />
           <AlertDialog open={showDelete} onOpenChange={setShowDelete}>
             <AlertDialogContent>
               <AlertDialogHeader>

@@ -31,6 +31,11 @@ vi.mock("./reconcile", () => ({
   })),
 }));
 
+vi.mock("./kennel-evidence", () => ({
+  refreshScheduleOnlyFlags: vi.fn(() => Promise.resolve(0)),
+  refreshKennelEvidence: vi.fn(() => Promise.resolve(0)),
+}));
+
 vi.mock("./fill-rates", () => ({
   computeFillRates: vi.fn(() => ({
     title: 100, location: 80, hares: 50, startTime: 90, runNumber: 70,
@@ -62,6 +67,7 @@ import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
 import { analyzeHealth } from "./health";
 import { reconcileStaleEvents } from "./reconcile";
+import { refreshScheduleOnlyFlags, refreshKennelEvidence } from "./kennel-evidence";
 import { scrapeSource } from "./scrape";
 import { revalidateTag } from "next/cache";
 import { after } from "next/server";
@@ -100,6 +106,38 @@ beforeEach(() => {
 });
 
 describe("scrapeSource", () => {
+  it("refreshes schedule-only flags for this source since the scrape started, then the source's kennels", async () => {
+    mockSourceKennelFind.mockResolvedValue([{ kennelId: "k1" }, { kennelId: "k2" }, { kennelId: "k1" }] as never);
+    const before = Date.now();
+    await scrapeSource("src_1");
+    const flagsMock = vi.mocked(refreshScheduleOnlyFlags);
+    const evidenceMock = vi.mocked(refreshKennelEvidence);
+    expect(flagsMock).toHaveBeenCalledTimes(1);
+    const scope = flagsMock.mock.calls[0][0] as { sourceId: string; since: Date };
+    expect(scope.sourceId).toBe("src_1");
+    expect(scope.since.getTime()).toBeGreaterThanOrEqual(before);
+    expect(evidenceMock).toHaveBeenCalledWith(["k1", "k2"]);
+    expect(flagsMock.mock.invocationCallOrder[0]).toBeLessThan(evidenceMock.mock.invocationCallOrder[0]);
+  });
+
+  it("a forced scrape refreshes every event's flag, since it deleted RawEvents the since-scope can't see", async () => {
+    mockSourceKennelFind.mockResolvedValue([{ kennelId: "k1" }] as never);
+    await scrapeSource("src_1", { force: true });
+    expect(vi.mocked(refreshScheduleOnlyFlags)).toHaveBeenCalledWith("all");
+    expect(vi.mocked(refreshKennelEvidence)).toHaveBeenCalledWith(["k1"]);
+  });
+
+  it("a refresh failure is logged and doesn't fail the scrape", async () => {
+    mockSourceKennelFind.mockResolvedValue([{ kennelId: "k1" }] as never);
+    vi.mocked(refreshScheduleOnlyFlags).mockRejectedValueOnce(new Error("boom"));
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const result = await scrapeSource("src_1");
+    expect(result.success).toBe(true);
+    expect(errSpy).toHaveBeenCalledWith(expect.stringContaining("kennel evidence refresh failed"), "boom");
+    expect(vi.mocked(refreshKennelEvidence)).not.toHaveBeenCalled();
+    errSpy.mockClear();
+  });
+
   it("throws when source not found", async () => {
     mockSourceFind.mockResolvedValueOnce(null);
     await expect(scrapeSource("missing_id")).rejects.toThrow("Source not found");
