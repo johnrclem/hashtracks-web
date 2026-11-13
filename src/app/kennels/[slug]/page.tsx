@@ -267,6 +267,7 @@ export default async function KennelDetailPage({
     dogFriendly: e.dogFriendly,
     prelube: e.prelube,
     cost: e.cost,
+    isScheduleOnly: e.isScheduleOnly,
     isSeriesParent: e.isSeriesParent,
     parentEventId: e.parentEventId,
     endDate: e.endDate ? e.endDate.toISOString() : null,
