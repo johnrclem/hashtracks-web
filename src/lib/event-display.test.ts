@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getLocationDisplay } from "./event-display";
+import { getFullLocationDisplay, getLocationDisplay } from "./event-display";
 
 describe("getLocationDisplay", () => {
   it("returns name with city appended when city not in name", () => {
@@ -79,5 +79,51 @@ describe("getLocationDisplay — full international address (#2815)", () => {
       locationName: "Turning Wheels Craft Brewery, P. Almendras St, Cebu City, 6000 Cebu, Philippines",
       locationCity: "Mabolo, Central Visayas",
     })).toBe("Turning Wheels Craft Brewery, P. Almendras St, Cebu City, 6000 Cebu, Philippines");
+  });
+});
+
+describe("getFullLocationDisplay", () => {
+  const full = (locationName: string | null, locationStreet: string | null, locationCity: string | null = null) =>
+    getFullLocationDisplay({ locationName, locationStreet, locationCity });
+
+  it("puts the venue before a street line that omits it (#2859)", () => {
+    expect(full("Fox and Duck", "Therfield, SG8 9PN")).toBe("Fox and Duck, Therfield, SG8 9PN");
+  });
+
+  it("shows the street alone when it already contains the venue", () => {
+    expect(full("SRO Lounge", "SRO Lounge, 1807 Fifth Ave, San Diego, CA 92101"))
+      .toBe("SRO Lounge, 1807 Fifth Ave, San Diego, CA 92101");
+  });
+
+  it("ignores case and punctuation when matching the venue in the street", () => {
+    expect(full("St. Cloud", "4935 E Irlo Bronson Memorial Hwy, St Cloud, FL 34771"))
+      .toBe("4935 E Irlo Bronson Memorial Hwy, St Cloud, FL 34771");
+  });
+
+  it("matches whole words only", () => {
+    expect(full("Ely", "Elysian Fields, CB1 2PF")).toBe("Ely, Elysian Fields, CB1 2PF");
+  });
+
+  it("shows the venue alone when it already contains the street", () => {
+    expect(full("Fox and Duck, Therfield, SG8 9PN", "Therfield, SG8 9PN", "Therfield, England"))
+      .toBe("Fox and Duck, Therfield, SG8 9PN");
+  });
+
+  it("does not repeat an address-shaped venue name", () => {
+    expect(full("850 Garfield Ave, Milford, OH 45150, USA", "840 Garfield Ave, Milford, OH 45150, USA"))
+      .toBe("840 Garfield Ave, Milford, OH 45150, USA");
+  });
+
+  it("strips URLs from the venue name", () => {
+    expect(full("The Pub https://maps.app.goo.gl/abc", "1 High St")).toBe("The Pub, 1 High St");
+  });
+
+  it("falls back to name and city when there is no street", () => {
+    expect(full("The Rusty Bucket", null, "Boston, MA")).toBe("The Rusty Bucket, Boston, MA");
+    expect(full("The Rusty Bucket", "   ", "Boston, MA")).toBe("The Rusty Bucket, Boston, MA");
+  });
+
+  it("shows the street when there is no venue name", () => {
+    expect(full(null, "1 High St")).toBe("1 High St");
   });
 });
