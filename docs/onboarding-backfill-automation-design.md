@@ -246,8 +246,8 @@ Each archive `scripts/data/<code>-history.json` gets a sibling
 | `perKennel[code]` | `rows`, `uniqueDates`, `firstDate`, `lastDate`, rows without a run number, field fill counts, three sample titles |
 | `sameDateGroups` | Every (kennel, date) with more than one row, with run numbers |
 | `runNumberExceptions` | Rows that break the strict run-number order (capped) |
-| `expectedGaps` | Date ranges with no runs and a reason (seasonal break, pause), excluded from G20's gap rule |
-| `curatedCorrections` | Rows whose date or run number the curator changed from the source, excluded from G20's 95% count |
+| `expectedGaps` | Declared by the curator: date ranges with no runs and a reason (seasonal break, pause), excluded from G20's gap rule. Each contains no archive row and is at most 120 days |
+| `curatedCorrections` | Declared by the curator: rows whose date or run number was changed from the source, excluded from G20's 95% count. At most 20 rows or 2% of rows, whichever is larger (Zagreb has about 12) |
 | `piiScan` | Scanner version and residual count (must be 0) |
 | `approvalHash` | SHA-256 over the canonical JSON of every field above except the sample titles, which depend on display names |
 
@@ -258,7 +258,10 @@ A required CI job, `backfill-manifest`, runs on every PR that touches `scripts/d
 shows.
 
 **Every manifest:**
-- The manifest recomputed from the archive equals the committed one in every `approvalHash` field.
+- The manifest recomputed from the archive equals the committed one in every `approvalHash` field
+  that can be derived from the archive. The two declared fields, `expectedGaps` and
+  `curatedCorrections`, can't be recomputed; CI checks their shape and caps instead (every row index
+  exists, every gap lies inside the archive's span and contains no row) and includes them in the hash.
 - Every row has a `YYYY-MM-DD` date before `frozenAt` in `kennelTimezone`, and one kennel tag in
   `expectedKennelCodes`.
 - PII residual is 0 (8.2).
@@ -343,7 +346,8 @@ to a live feed that doesn't have it. So:
   `frozenAt`, the kennel's displayed events must contain at least 95% of them by (date, run number).
   Rows the manifest lists in `curatedCorrections` (rows whose date or run number the curator changed
   from the source) and unnumbered rows are left out of both sides of that count, since a date alone
-  could match an unrelated event. Otherwise the run is `BLOCKED`, with the counts.
+  could match an unrelated event. At least 10 rows, or half of the stretch's rows, must remain to be
+  counted, so the exclusions can't empty the check. Otherwise the run is `BLOCKED`, with the counts.
 
 V2 applies the same 95% threshold at verify.
 
@@ -360,9 +364,12 @@ cutoff and whose date is before it. Because `C` is always in the past, the drop 
 or upcoming runs. Co-host rows don't add the kennel as a secondary on such dates either. The merge
 result and the scrape log count these rows as `archiveCutoffDropped`. Separately, the ±30-day
 date-correction query, for every source, skips events whose only backing is an `archiveOnly` source,
-so a live row dated after `C` can't move an archive event either. When that skip suppresses a match
-(a live row with the same run number within 30 days of an archive event), the row is dropped rather
-than created as a second event with the same run number, and counted as `archiveCorrectionSkipped`.
+so a live row dated after `C` can't move an archive event either. A live row with the same run number
+as an archive event within 30 days of it would otherwise become a second event with that run number.
+So, at the top of the loop next to the cutoff drop and before any RawEvent is stored, such a row is
+dropped and counted as `archiveCorrectionSkipped` (a per-batch prefetch of the kennel's archive-only
+events keeps this to one query). Nothing is stored, so no tombstone is left: after an undo the row
+simply creates its event.
 The digest shows that count, because it means the live feed and the archive disagree about a run's
 date.
 
@@ -576,7 +583,10 @@ the run and after undo.
   time has finished. A `RUNNING` row older than 10 minutes counts as finished: the scrape function
   can't live past its 300 s limit, and stale rows are otherwise only marked `FAILED` when the source's
   next scrape starts, which can be a day later. Callers of the merge that write no `ScrapeLog` (the
-  hand loaders, the Atlanta deep-backfill route) aren't waited for; they are supervised paths. Then it
+  hand loaders, the Atlanta deep-backfill route) aren't waited for; they are supervised paths. Nor is a
+  `scrapeSource` call from a local script, which writes a `ScrapeLog` row but has no time limit: the
+  supervised-session rule is not to run a wide one-shot scrape for a kennel while its backfill is
+  `APPLYING` (the digest lists those), and V3, V4 and the 7-day re-checks catch one that does. Then it
   re-checks that no event of the kennel before `C` is backed by an enabled source, and G20 again. Only
   if both hold does it write the first batch; otherwise the run halts with the cutoff in place, for the
   owner.
@@ -971,3 +981,16 @@ The minor findings were applied in v5.1:
 | R5-3 | G20 blocks seasonal kennels, and counts curated fixes as missing; each block burns a manifest | Manifest declares `expectedGaps` and `curatedCorrections`, shown in CI's summary and excluded from G20 (6.1, 6.5) |
 | R5-4 | With date-correction skipping archive events, a live row could become a second event with the same run number | Such a row is dropped and counted as `archiveCorrectionSkipped`, shown in the digest (6.5, 11.2) |
 | R5-5 | Unnumbered rows matched on date alone | Left out of both sides of the 95% count; written rows are checked through their recorded event ids (6.5, 9.3) |
+
+### Round 6 (v5.1, confirmation of the minor fixes) — `APPROVE`
+
+The reviewer checked only the v5 → v5.1 diff and confirmed each R5 fix resolves its finding: "None of
+these is blocking or material. The round 5 approval stands." Its notes, all minor, were applied in the
+final text:
+
+| # | Note | Applied |
+|---|---|---|
+| N-1 | Unlimited `curatedCorrections` or `expectedGaps` could switch G20 off (for example a freeze-tool bug marking most rows "curated") | Capped: corrections at most 20 rows or 2%; gaps at most 120 days and containing no row; at least 10 rows (or half the stretch) must remain counted (6.1, 6.5) |
+| N-2 | G2 can't recompute curator-declared fields | They are declared inputs: CI checks shape and caps and hashes them, but doesn't recompute them (6.2) |
+| N-3 | Where an `archiveCorrectionSkipped` row is stored was unspecified; marking it processed would recreate the tombstone R3-1 removed | The check runs at the top of the loop with the cutoff drop, before any RawEvent is stored (6.5) |
+| R5-2 residue | A `scrapeSource` call from a local script has no time limit, so the 10-minute rule doesn't bound it | Stated as a supervised-session rule, with V3, V4 and the 7-day re-checks as detection (9.2) |
