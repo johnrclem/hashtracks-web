@@ -420,9 +420,16 @@ const AREA_RESULT_TYPES = new Set(["country", "administrative_area_level_1", "co
 const COUNTY_LEVEL_2_COUNTRIES = new Set(["US", "GB"]);
 
 /**
+ * Countries whose level-1 areas are too big to confirm a venue's town
+ * ("England", "Illinois"). Elsewhere level 1 is a parish or province small
+ * enough to count ("St. Ann", Jamaica).
+ */
+const BROAD_LEVEL_1_COUNTRIES = new Set(["GB", "US", "CA", "AU"]);
+
+/**
  * Components whose name can confirm the place a venue's text names. Roads and
  * buildings are left out: a "Church Road" exists in every town. Level 1 is
- * handled apart (see `resultInNamedPlace`).
+ * handled apart (see `BROAD_LEVEL_1_COUNTRIES`).
  */
 const PLACE_NAME_TYPES = new Set([
   "locality",
@@ -518,13 +525,15 @@ function resultInNamedPlace(
   const components = result.components ?? [];
   const postcode = components.find((c) => c.types.includes("postal_code"))?.long_name;
   if (postcode && compact(postcode).length >= 4 && compact(named.join(" ")).includes(compact(postcode))) return true;
-  // A level-1 area the result is in ("England", or a Jamaican parish like
-  // "St. Thomas") agrees with the text but can't confirm it when the text also
-  // names a town: "Mount Radford, Exeter, England" must still match Exeter.
-  const regions = componentNames(components, (t) => t === "administrative_area_level_1");
-  const towns = placeTokens(named).filter((town) => !regions.some((region) => samePlaceName(town, region)));
+  // A broad level-1 area ("England") agrees with the text but can't confirm
+  // it: "Mount Radford, Exeter, England" must still match Exeter. A small one
+  // (a Jamaican parish) is as good as a town.
+  const country = components.find((c) => c.types.includes("country"))?.short_name ?? "";
+  const level1 = componentNames(components, (t) => t === "administrative_area_level_1");
+  const broad = BROAD_LEVEL_1_COUNTRIES.has(country) ? level1 : [];
+  const towns = placeTokens(named).filter((town) => !broad.some((region) => samePlaceName(town, region)));
   if (towns.length === 0) return true;
-  const names = componentNames(components, (t) => PLACE_NAME_TYPES.has(t));
+  const names = [...componentNames(components, (t) => PLACE_NAME_TYPES.has(t)), ...(broad.length ? [] : level1)];
   const address = ` ${placeKey(result.formattedAddress ?? "")} `;
   return [...towns, ...placeTokens([venueHead])].some(
     (town) => address.includes(` ${town} `) || names.some((name) => samePlaceName(town, name)),

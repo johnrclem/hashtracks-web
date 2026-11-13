@@ -631,6 +631,7 @@ describe("venueGeocodeRejection", () => {
       comp("Bridgwater", "postal_town"),
       comp("Somerset", "administrative_area_level_2"),
       comp("England", "administrative_area_level_1"),
+      comp("United Kingdom", "country", "GB"),
       comp("TA6 7PX", "postal_code"),
     ],
   };
@@ -665,6 +666,18 @@ describe("venueGeocodeRejection", () => {
     expect(venueGeocodeRejection(wembdonHouse, { location: "Mount Radford, Exeter, England" }, EXETER)).toMatch(
       /outside the town/,
     );
+  });
+
+  it("lets a small level-1 area confirm a far pin (Jamaican parish)", () => {
+    const draxHall: GeocodeResult = {
+      lat: 18.43,
+      lng: -77.17,
+      types: ["establishment"],
+      components: [comp("St. Ann Parish", "administrative_area_level_1"), comp("Jamaica", "country", "JM")],
+    };
+    expect(
+      venueGeocodeRejection(draxHall, { location: "Hash Olympics, Drax Hall Beach, St. Ann" }, { lat: 18.0, lng: -76.79 }),
+    ).toBeNull();
   });
 
   it("rejects a whole road", () => {
