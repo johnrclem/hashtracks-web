@@ -1,12 +1,13 @@
 # Onboarding backfill automation: design
 
-**Status:** v5.1. Approved by adversarial review in round 5 (Appendix A); round 5's minor findings applied in v5.1. Pending owner review. Nothing is built yet. 2026-11-13.
+**Status:** v5.2. Approved by adversarial review in round 5 (Appendix A); round 5's minor findings applied in v5.1. v5.2 aligns the design with the kennel status work (Status 1, #2923): the calendar series marker, the evidence refresh and the never-enabled archive source. Its review took rounds 7–9, and round 9 approved it. Pending owner review. Nothing is built yet. 2026-11-13.
 **Scope:** design only. Nothing here is built yet. No code, migration or prod write was made to produce it.
 **Related:** [`kennel-onboarding/implement-handoff-prompt.md`](kennel-onboarding/implement-handoff-prompt.md) (the implementer),
 [`kennel-onboarding/daily-onboarding-prompt.md`](kennel-onboarding/daily-onboarding-prompt.md) (research),
 [`self-healing-v2-plan.md`](self-healing-v2-plan.md) (same shape: scheduled task + owner gate + server endpoints),
 [`ops/audit-fixer-task.md`](ops/audit-fixer-task.md), [`ops/daily-digest-task.md`](ops/daily-digest-task.md),
-[`../.claude/rules/prod-data-ops.md`](../.claude/rules/prod-data-ops.md).
+[`../.claude/rules/prod-data-ops.md`](../.claude/rules/prod-data-ops.md),
+[`superpowers/specs/2026-11-10-kennel-status-design.md`](superpowers/specs/2026-11-10-kennel-status-design.md) (kennel status; section 9.6 here).
 
 ## 1. Summary
 
@@ -93,6 +94,7 @@ up the source by name, checks that at least one `SourceKennel` link exists, and 
 | Event + primary kennel link in one nested create | `createEventWithKennel` in `src/lib/event-write.ts` |
 | Race-safe event delete that refuses user data | `scripts/lib/delete-leaked-event.ts` (`RequireZeroCount`, `FOR UPDATE`, `ForeignRawSourceError`) |
 | Read-only ops snapshot for the digest | `GET /api/audit/agent/ops-digest`, `buildOpsDigest` |
+| Kennel status evidence: `Event.isScheduleOnly` and the kennel's cached evidence dates (`lastRunSeenAt`, `nextRunPostedAt`, `lastConfirmedAt`, `stoppedAt`) | `refreshScheduleOnlyFlags` and `refreshKennelEvidence` in `src/pipeline/kennel-evidence.ts`, run by `scrapeSource` after every scrape and by the daily audit cron |
 
 ## 3. Goals and non-goals
 
@@ -246,10 +248,11 @@ Each archive `scripts/data/<code>-history.json` gets a sibling
 | `perKennel[code]` | `rows`, `uniqueDates`, `firstDate`, `lastDate`, rows without a run number, field fill counts, three sample titles |
 | `sameDateGroups` | Every (kennel, date) with more than one row, with run numbers |
 | `runNumberExceptions` | Rows that break the strict run-number order (capped) |
+| `scheduleOnlyEstimate` | Informational, not part of `approvalHash`: about how many rows the kennel status rules will count as a usual schedule rather than a run, namely rows with a `recurringSeriesId`, no run number and no hares. CI computes it from the raw rows for the owner to read. The authoritative set is computed at plan from the rows as the merge will store them (9.2) |
 | `expectedGaps` | Declared by the curator: date ranges with no runs and a reason (seasonal break, pause), excluded from G20's gap rule. Each contains no archive row and is at most 120 days |
 | `curatedCorrections` | Declared by the curator: rows whose date or run number was changed from the source, excluded from G20's 95% count. At most 20 rows or 2% of rows, whichever is larger (Zagreb has about 12) |
 | `piiScan` | Scanner version and residual count (must be 0) |
-| `approvalHash` | SHA-256 over the canonical JSON of every field above except the sample titles, which depend on display names |
+| `approvalHash` | SHA-256 over the canonical JSON of every field above except the sample titles, which depend on display names, and `scheduleOnlyEstimate`, which depends on placeholder rules that change between CI and plan |
 
 ### 6.2 CI makes the manifest honest and shows it to the owner
 
@@ -275,8 +278,13 @@ shows.
 - The Phase 2 scope rules in section 3, checked against the seed data: single-kennel origin of a
   supported type, the row-provenance rule for that type, no `seriesId` or `externalLinks`, strict
   run-number order with the caps.
-- The archive source in the seed data is disabled, `archiveOnly`, linked to the kennel only.
+- The archive source in the seed data is disabled, `archiveOnly`, linked to the kennel only, and the
+  migration's insert of it sets `enabled` to the literal `false` (G17).
 - Every migration the PR adds passes G17.
+- For a `GOOGLE_CALENDAR` origin, every row carries the `recurringSeriesId` key, either as the series
+  id or as an explicit `null` (G21). The summary shows `scheduleOnlyEstimate` and how many rows have an
+  `eid` naming a repeating instance but a `null` marker. The adapter drops the marker on orphan
+  overrides, so that count is for the owner to read, not a failure.
 
 **`adopt-only` manifests** need only the checks for every manifest, plus: the PR adds just the
 manifest, for an existing archive it doesn't change.
@@ -356,6 +364,20 @@ already seeded: `enabled: false`, a new `Source.archiveOnly = true` column, `con
 as a backstop, `replacedById` null, linked to the one kennel, `trustLevel` no higher than the origin's.
 The onboarding migration creates it next to the live source. `scrapeSource` refuses to scrape or
 force-scrape it, and `deleteSource` refuses to delete it (both would hard-delete its RawEvents).
+It is never enabled. A database CHECK, `NOT ("archiveOnly" AND enabled)`, enforces this against every
+writer: admin actions, the seed and migrations alike. `toggleSourceEnabled` refuses it with a clear
+message, and `updateSource` refuses an actual change to an `archiveOnly` source's name, type or kennel links. The admin form always resubmits the links, so it compares them with the existing set rather than refusing every save; G12 binds the source by name, so a rename is refused too. If
+it were enabled, the dispatcher would send it to `scrapeSource` every day only to be refused. The
+kennel page's coverage line (kennel status, Status 1 Task 9) counts enabled sources other than
+STATIC_SCHEDULE that produced a real run in the last 180 days, so it would also name the archive as the
+kennel's live feed. With the CHECK, both of them can rely on `enabled` alone. The source's type matters
+too: the status rules count a RawEvent from any type except STATIC_SCHEDULE, so G12 pins the archive
+source's type to the origin's.
+
+Each archive RawEvent stores the row as the merge leaves it after its pre-write clean-up
+(`sanitizeRawFields`: entities decoded, `<br>` replaced, "Hared by X" moved from the title to `hares`),
+`recurringSeriesId` included. The kennel status rules therefore judge archive rows exactly as they judge
+live ones (9.6).
 
 **The archive cutoff.** The first `advance` call sets `Kennel.archiveCutoffDate = C` (and
 `archiveCutoffRunId`) and writes nothing else (9.2). From then on, the merge drops, before creating a
@@ -485,15 +507,16 @@ A guard either passes or stops the run; none warns and continues. Terminal failu
 | G9 | **No overlap before the split point:** for every row before `C`, no existing event, in any status, canonical or not, has the kennel as primary **or** co-host (`EventKennel`) on that date | plan, every batch | terminal |
 | G10 | **Matcher says CREATE:** the merge's own matcher, run read-only over the rows before `C` in apply order, with each simulated create added to its same-day pool, returns CREATE for every one: no same-day, fuzzy, cross-window or date-correction match. It also predicts that `recomputeCanonical` changes nothing for same-date groups | plan | terminal |
 | G11 | **Counts:** per kennel, rows before `C` plus rows from `C` on equal the manifest's `rows`; on a fresh plan, no row's fingerprint already exists on the archive source | plan | terminal |
-| G12 | **Binding:** the archive source is disabled, `archiveOnly`, `replacedById` null; exactly one source has that name | plan, every batch | terminal |
+| G12 | **Binding:** the archive source is disabled, `archiveOnly`, `replacedById` null, and of the origin's type; exactly one source has that name | plan, every batch | terminal |
 | G13 | **Size and rate:** rows ≤ `BACKFILL_MAX_ROWS` (2,000) is terminal; more than 2 applies started per UTC day is retryable | plan | terminal / retryable |
-| G14 | **Batch result:** no create-only violation; `created` equals the batch's rows; `updated`, `restored`, `blocked`, `eventErrors` are 0; every created event's primary kennel is the expected one and its date is the row's date; V3 and V4 (9.3) pass | every batch | terminal (`HALTED`) |
+| G14 | **Batch result:** no create-only violation; `created` equals the batch's rows; `updated`, `restored`, `blocked`, `eventErrors` are 0; every created event's primary kennel is the expected one, its date is the row's date, and its `isScheduleOnly` is the plan's value; V3 and V4 (9.3) pass | every batch | terminal (`HALTED`) |
 | G15 | **Guard code untouched:** the PR changes nothing under `src/lib/backfill/**`, the PII scanner, `src/pipeline/merge.ts`, `src/pipeline/kennel-resolver.ts`, `src/pipeline/fingerprint.ts`, `src/pipeline/scrape.ts`, `src/pipeline/reconcile.ts`, `src/lib/event-write.ts`, `src/app/admin/sources/actions.ts`, the shared kennel-page stats function, `prisma/schema.prisma`, the CI manifest script, `.github/workflows/**` or the agent routes | plan | terminal (the owner can still apply by hand) |
 | G16 | **Kill switch:** env `BACKFILL_AUTOMATION` is `apply` (`off` and `shadow` refuse `advance`) | every call | `403` |
-| G17 | **Migration shape**, checked with a real SQL parser (`libpg_query`), allow-list only: `INSERT … ON CONFLICT DO NOTHING` or `INSERT … SELECT … WHERE NOT EXISTS` into `Kennel`, `KennelAlias`, `Region`, `Source`, `SourceKennel` and `ScheduleRule`; and `UPDATE "Region"` setting only `parentId` and `updatedAt`, whose target rows are restricted by literal names that the same migration inserts. No other statements, no CTE that modifies data, no `DO` blocks, and no function calls other than `NOW()` and `timezone()` with a literal zone (the parser's form of `NOW() AT TIME ZONE 'UTC'`, used by all eight recent onboarding migrations). A Phase 0 test checks the rule against those eight; any that update a region they didn't insert are reviewed with the owner before the rule ships. Crafted bypasses must fail it. G17 only decides whether the **backfill** is automated; the migration itself still ships through the ordinary code-merge review | CI, plan | terminal |
+| G17 | **Migration shape**, checked with a real SQL parser (`libpg_query`), allow-list only: `INSERT … ON CONFLICT DO NOTHING` or `INSERT … SELECT … WHERE NOT EXISTS` into `Kennel`, `KennelAlias`, `Region`, `Source`, `SourceKennel` and `ScheduleRule`; and `UPDATE "Region"` setting only `parentId` and `updatedAt`, whose target rows are restricted by literal names that the same migration inserts. No other statements, no CTE that modifies data, no `DO` blocks, and no function calls other than `NOW()` and `timezone()` with a literal zone (the parser's form of `NOW() AT TIME ZONE 'UTC'`, used by all eight recent onboarding migrations). A Phase 0 test checks the rule against those eight; any that update a region they didn't insert are reviewed with the owner before the rule ships. Crafted bypasses must fail it. A `Source` insert that sets `archiveOnly` to true must also set `enabled` to the literal `false`: `enabled` defaults to true, so leaving it out would break the CHECK in 11.1, fail `migrate deploy` in the production build and block every later deploy. G17 only decides whether the **backfill** is automated; the migration itself still ships through the ordinary code-merge review | CI, plan | terminal |
 | G18 | **One live feed:** in prod, the kennel is linked to exactly one enabled source, the origin, plus the archive source | plan, every batch | terminal |
 | G19 | **One archive per kennel:** no earlier run for this kennel has written anything (status `APPLYING` or later, unless it was fully `UNDONE`), and the kennel has no cutoff yet | plan | terminal |
 | G20 | **The stretches join:** `C` is in the past; no gap between the archive's last row and `C` beyond 1.5 median run intervals; the live feed shows at least 95% of the archive rows dated from `C` to `frozenAt` (6.5) | plan, before the first batch | terminal (`WAITING` while the origin backs no past event) |
+| G21 | **Calendar series marker:** for a `GOOGLE_CALENDAR` origin, every row in the archive file has the `recurringSeriesId` key, as the series id or an explicit `null`. If a capture or a hand edit dropped the field, a repeating calendar entry would be stored as a run, and the nightly status refresh could never correct it. This key check reads the file as committed: in CI, and at plan step 1, before step 4 removes the `null`s. The plan also checks the overlap at step 6. Each archive row from `C` to `frozenAt` is compared with the origin's current RawEvent for the same `sourceUrl`, using the same newest-copy rule as `CURRENT_RAW_SQL`. A RawEvent stored before the adapter began emitting the marker (#2923) is skipped, because RawEvents are immutable and events that haven't been re-scraped since keep a copy without it. "Before" is a fixed constant, set once in Phase 0 from the data: the earliest `scrapedAt` of any calendar RawEvent carrying `recurringSeriesId`, plus one hour. That margin covers old function instances still finishing during the rollout. Content can't decide it, since an absent key means both "one-off event" and "stored before #2923". A cut-off set too early brings back the false block; one set too late only skips a few more rows. Every compared row must carry the same marker. The run records how many rows were compared and how many skipped; a skip is not a failure | CI and plan step 1 (key present), plan step 6 (overlap agrees) | terminal |
 
 A `HALTED` run stops where it is. Nothing is rolled back automatically, because an automatic delete
 would be a prod write without the owner's OK. Every row already written is complete (9.1), so a halted
@@ -556,28 +579,39 @@ source is dropped and counted in the result as `archiveCutoffDropped`. The hand-
 a cutoff fails loudly instead of reporting `created=0`.
 
 `Kennel.lastEventDate` is still updated after the loop; it is a derived field, recomputed at the end of
-the run and after undo.
+the run and after undo. Backfill mode doesn't go through `scrapeSource`, so it doesn't get the two
+kennel status refreshes `scrapeSource` runs after every scrape. The run calls them itself, at the end
+(9.2) and after undo (10.3).
 
 ### 9.2 Plan, then apply
 
 **Plan** (read-only):
-1. A1–A6; fetch manifest and archive at `S`; G2.
+1. A1–A6; fetch manifest and archive at `S`; G2; G21's key check on the archive file.
 2. Resolve the archive source, origin and kennel; G4, G5, G12, G18, G19.
 3. Find `C` (6.5); split the rows; G20.
-4. Normalise each row the way `processRawEvents` does before fingerprinting, on a copy, and compute its
-   fingerprint.
-5. G3, G6, G7, G8, G9, G11, G13; the matcher simulation (G10) over the rows before `C`.
-6. Record the V3 snapshot.
-7. Store the plan: `C`, per-kennel counts before and from `C`, row order, batch boundaries, and
-   `planHash` (SHA-256 of the approval hash, source ids, kennel id, `C` and the ordered fingerprints of
-   the rows to write).
+4. Normalise each row the way `processRawEvents` does before fingerprinting (`sanitizeRawFields`
+   included), on a copy, and compute its fingerprint. An explicit `recurringSeriesId: null` from the
+   archive file is turned into an absent key first, so the fingerprint and the stored row match a live
+   one-off event's. The `null` exists only to prove the capture kept the field (G21).
+5. Compute each row's expected `isScheduleOnly` by evaluating `POSTED_RUN_RAW_SQL` itself in the prod
+   database, over the normalised rows as `jsonb` (built with `JSON.stringify` of the same normalised
+   object the merge will store) with the archive source's type. Doing it in SQL means no second copy
+   of the rule can drift from it, whether through whitespace, word boundaries, an empty or zero run
+   number, or the placeholder list. Each archive event has exactly one RawEvent, so the refresh's
+   newest-copy test (`CURRENT_RAW_SQL`) can't change the answer.
+6. G3, G6, G7, G8, G9, G11, G13, G21's overlap check; the matcher simulation (G10) over the rows
+   before `C`.
+7. Record the V3 snapshot.
+8. Store the plan: `C`, per-kennel counts before and from `C`, row order, batch boundaries, each row's
+   expected `isScheduleOnly`, and `planHash` (SHA-256 of the approval hash, source ids, kennel id, `C`,
+   the ordered fingerprints of the rows to write and their expected flags).
 
 **Apply** (one `advance` call = one batch of rows before `C`):
 - **Lease.** `advance` sets `leaseToken` and `leaseExpiresAt = now + 6 min` with one conditional update
   that succeeds only if the lease is free or expired.
 - **Cutoff, in two steps.** The first `advance` call, in one transaction, recomputes `C` and halts if
   it differs from the plan's; then it sets `Kennel.archiveCutoffDate = C`, moves the run to `APPLYING`
-  and records the time. It writes no rows. A scrape already running at that moment read the kennel's
+  and records the time and the kennel's status line (9.6). It writes no rows. A scrape already running at that moment read the kennel's
   settings before the cutoff existed and could still store an event before `C`. So the next `advance`
   writes nothing until every `ScrapeLog` row for the kennel's sources that was `RUNNING` at the cutoff
   time has finished. A `RUNNING` row older than 10 minutes counts as finished: the scrape function
@@ -594,13 +628,21 @@ the run and after undo.
   later ones are sized from the measured time per row to use at most 150 s of the 300 s limit, capped at
   200.
 - **Steps:** G1, G4, G8, G9 (for the batch's rows), G12, G16, G18 → record the batch's row indexes as
-  `inFlightBatch` → merge in backfill mode → for each row, read the RawEvent by (archive source,
+  `inFlightBatch` → merge in backfill mode; each row's nested create sets the event's `isScheduleOnly`
+  to the plan's expected value, so an origin scrape that refreshes the kennel's evidence mid-run never
+  reads a usual-schedule archive row as a real run → for each row, read the RawEvent by (archive source,
   fingerprint) and write a `BackfillRunItem` → G14 → clear `inFlightBatch`, advance the cursor, release
   the lease (one short transaction, 30 s timeout).
 - **No long transactions.** Each row is its own nested create; bookkeeping holds at most 200 small
   inserts. Nothing like the 76 s delete that hit P2028.
-- **Finish.** When every row before `C` has an item: recompute `lastEventDate`, set `APPLIED`, run
-  `verify`.
+- **Finish.** When every row before `C` has an item, recompute `lastEventDate`, then run
+  `refreshScheduleOnlyFlags({ sourceId: <archive source>, since: <epoch> })` and then
+  `refreshKennelEvidence([kennel])`, in that order, because the second reads the flags the first writes.
+  The archive source holds only this run's RawEvents (G19; undo hard-deletes them), so scoping by
+  source alone covers exactly the written events. No app-clock `since` is needed. Record the kennel's
+  status line again, then set `APPLIED` and run `verify`. `APPLIED` is set only after both refreshes
+  succeed. If one throws, the run stays `APPLYING` with every row written, and the next `advance`
+  retries only the finish step. The daily audit cron runs both refreshes as a backstop.
 
 **Races with live scrapes.** Between plan and the cutoff, a wide re-scrape could store events before
 `C`, on archive dates or on others; the post-cutoff re-check catches both and the run halts before
@@ -615,8 +657,8 @@ batch, as part of G14. All are row checks:
 
 | # | Check |
 |---|---|
-| V1 | Every item's event exists, is `CONFIRMED` and canonical, has the expected kennel as primary, and passes the kennel page's own display filter. The page's query and filters move into one shared function used by both the page and `verify` |
-| V2 | Every written archive (date, run number) appears in the kennel's displayed events, and at least 95% of the counted rows from `C` to `frozenAt` do too (the live feed's stretch, with G20's exclusions); the missing ones are listed. The implementer checks the same on the public page payload, from its own clone's copy of the archive |
+| V1 | Every item's event exists, is `CONFIRMED` and canonical, has the expected kennel as primary, and passes the kennel page's own display filter. The page's query and filters move into one shared function used by both the page and `verify`. For `CREATED` items, the event's `isScheduleOnly` equals the plan's expected value, which proves the series marker made it from the archive to the flag. The flag check passes if the flag equals the plan's value. Otherwise it passes with a "rule changed" note if all three hold: the deployed commit differs from the plan's; the stored RawEvent's fingerprint equals the plan's; and the flag equals the rule re-run on the stored `rawData`. Otherwise it fails. A stopped kennel's page hides its usual-schedule events (`HIDE_STOPPED_SCHEDULE_RUNS` in `src/lib/event-filters.ts`), so while `stoppedAt` is set, rows the plan expects to be schedule-only are checked against the display filter without that clause. Being hidden by the stop is correct, not a failure |
+| V2 | Every written archive (date, run number) appears in the kennel's displayed events, and at least 95% of the counted rows from `C` to `frozenAt` do too (the live feed's stretch, with G20's exclusions); the missing ones are listed. Rows V1 excuses because of a stop are excused here too. The implementer checks the same on the public page payload, from its own clone's copy of the archive |
 | V3 | **Static history unchanged.** A hash over every pre-existing event of the kennel dated within 30 days of a written row's date that **no enabled source backs** (id, date, status, `isCanonical`, primary kennel, run number, title, hares, location fields, `parentEventId`), taken at plan time, is unchanged. Live-backed events are left out, because their sources update them every day; a run that wrongly touched one would already have failed the in-merge check or G14's `updated = 0` |
 | V4 | No written row's (kennel, date) slot shows any event other than the run's own |
 | V5 | The public page's `totalEvents` equals the shared function's count at the same moment |
@@ -656,8 +698,56 @@ that check, automated.
 6. **V2 fails for a written row while V1 passes:** the page filters something the shared function
    doesn't, so the two have drifted. Fix the shared function.
 7. **V3 fails:** static history changed. If the run did it, undo; otherwise find the writer.
-8. **Totals differ but V1–V4 pass:** expected. Same-date rows, live events and cancellations all move
-   totals.
+8. **V1 fails on `isScheduleOnly` alone:** the event is right, and only the flag disagrees with the
+   plan. A rule change from a deploy is recorded as a note rather than a failure (V1). The plan and the
+   refresh evaluate the same SQL on the same stored row, so a failure here means either something
+   rewrote the flag or the stored `rawData` differs from the plan's row. Find the writer.
+9. **Schedule-only rows hidden on a stopped kennel:** not a failure (V1). They return if the kennel is
+   restarted.
+10. **Totals differ but V1–V4 pass:** expected. Same-date rows, live events and cancellations all move
+    totals.
+
+### 9.6 Effect on kennel status
+
+The kennel status rules ([spec](superpowers/specs/2026-11-10-kennel-status-design.md)) split "is it
+running?" from "what do we have?". Here is how a backfill fits them.
+
+- **Archive rows count as real runs**, except those the plan expects to be schedule-only. They are
+  dated records from the kennel's own sheet, calendar or site, backed by a RawEvent from a source of the
+  origin's type (never STATIC_SCHEDULE) and not entered by hand, so this is intended. The flag is right
+  from the moment each row is created (9.2), not only after the finish refresh.
+- **They rarely change the status line.** Every archive row is dated before `C`, and `C` is a past event
+  the origin backs. The archive changes `lastRunSeenAt` only when none of the live feed's past events
+  is itself a real run, for example a calendar whose past entries are all bare repeating instances.
+  Then the archive's last row becomes "Last run we saw", and "How we know" names the archive source.
+  That is true, so name archive sources as a source a reader understands ("<Kennel> run history"). In
+  that case coverage can still say "We don't get their runs": no live feed has produced a real run.
+  Both statements hold.
+- **Upcoming runs are untouched, but past evidence feeds Travel.** Every row is in the past, so
+  `nextRunPostedAt`, Travel's Confirmed list and the Hareline's "usual schedule" tag don't change.
+  Travel's projection scoring does read past evidence: the inactivity downgrade
+  (`src/lib/travel/projections.ts`, `lastEventDate` today, the last real run once the status plan's
+  Travel task lands) and the evidence and agreement gates over about the last 12 weeks of independent
+  runs (`src/lib/travel/search.ts`). Rule drift and the prediction ledger read the same runs. For an
+  "upcoming runs only" origin, archive rows near `C` can fall inside those windows and raise a Likely or
+  Possible row. That's intended, since they are real runs, and the status-line change below is what
+  makes it visible.
+- **A stop can be overturned.** `refreshKennelEvidence` keeps `stoppedAt` only while no evidence is
+  later than it. An archive row dated after an admin stop clears the stop, which is correct: the
+  kennel's own records show it ran after that date. The run stores the kennel's status line before its
+  first write and after its finish refresh, and undo does the same. The digest lists every run or undo
+  that changed one. While a stop stands, the kennel page hides the archive's schedule-only rows like
+  any other usual-schedule run, and verification allows for that (V1).
+- **Kennels with a usual schedule stay out of Phase 2.** G18 allows one enabled source, so a kennel
+  with a STATIC_SCHEDULE source never gets that far, and no generated run can sit on an archive date.
+  Stopping a kennel disables its unshared STATIC_SCHEDULE sources, so a stopped kennel can pass G18.
+  Its leftover generated past events on archive dates then fail G9, and the run blocks rather than
+  overwriting them. Once Phase 3 admits kennels with a schedule source, expect this block often.
+  Create-only is never loosened, so such events would have to be retired before the run, never
+  overwritten by it.
+- **A calendar of bare repeating entries can't be wrongly joined.** If the origin's past events are
+  only repeating instances with no run number, they can't match numbered archive rows, so G20's 95%
+  check blocks, or `C` sits where the archive already ends.
 
 ## 10. Idempotency, partial failure, resume and undo
 
@@ -717,8 +807,11 @@ do any of the step-up actions.
   remain the audit trail.
 - After the deletes: `isCanonical` is recomputed for every touched slot (the delete helper doesn't do
   it, and an event that lost the canonical pick to a run event would otherwise stay hidden);
-  `Kennel.lastEventDate` and the schedule-only flags are recomputed; V3 is checked against the
-  plan-time snapshot.
+  `Kennel.lastEventDate` is recomputed; then `refreshKennelEvidence([kennel])` runs. It reads
+  `isCanonical`, so it runs after that recompute, and "Last run we saw" can't keep pointing at a
+  deleted run. Kept events' flags need no refresh, because their RawEvents are untouched. The kennel's
+  status line is recorded before the first delete and after this refresh (9.6). V3 is checked against
+  the plan-time snapshot.
 - Last, if nothing was kept, the kennel's cutoff is cleared, so live sources process those dates
   normally again. Nothing was stored for the dropped rows, so the next wide scrape simply sees them as
   new. If events were kept, the cutoff stays until the owner decides about them.
@@ -744,8 +837,9 @@ on (run id, row index).
 
 **`CronHeartbeat`:** one row per job name with last start, last finish, last result.
 
-**`Source.archiveOnly`:** boolean, default false. **`Kennel.archiveCutoffDate`** and
-**`Kennel.archiveCutoffRunId`:** nullable.
+**`Source.archiveOnly`:** boolean, default false, with a hand-written CHECK
+`NOT ("archiveOnly" AND enabled)` in the same migration (Prisma can't express it in the schema).
+**`Kennel.archiveCutoffDate`** and **`Kennel.archiveCutoffRunId`:** nullable.
 
 `RawEvent` and `Event` gain no column.
 
@@ -755,7 +849,7 @@ on (run id, row index).
 `BLOCKED`, `HALTED`, `VERIFY_FAILED`, or `WAITING` for over 24 hours; leases expired over an hour;
 approved manifests merged over 48 hours ago without a `VERIFIED` run; PII leak flags; the
 `archiveCutoffDropped` and `archiveCorrectionSkipped` counts from the last day's scrapes, per kennel;
-and the watch cron's heartbeat.
+runs that changed their kennel's status line, before and after (9.6); and the watch cron's heartbeat.
 `docs/ops/daily-digest-task.md` puts every blocked, halted or failed run, every leak flag and every
 approved-but-unapplied manifest under **Needs you today**.
 
@@ -776,11 +870,11 @@ when its heartbeat is over 26 hours old. Silence counts as failure.
 | `scripts/lib/backfill-runner.ts` | `reportAndApplyBackfill` throws when `archiveCutoffDropped` is above 0 |
 | `src/lib/event-write.ts` | Optional nested RawEvent in `createEventWithKennel` |
 | `src/pipeline/scrape.ts` | Refuse to scrape, or force-scrape, an `archiveOnly` source; count `archiveCutoffDropped` rows |
-| `src/app/admin/sources/actions.ts` | `deleteSource` refuses an `archiveOnly` source |
+| `src/app/admin/sources/actions.ts` | `deleteSource` and `toggleSourceEnabled` refuse an `archiveOnly` source; `updateSource` refuses an actual change to its name, type or kennel links (comparing submitted links with the existing set) |
 | `src/app/kennels/[slug]/page.tsx` | Move the event query, filters and unique-date count into a shared function |
 | `scripts/lib/delete-leaked-event.ts` | Move to `src/lib`; add canonical recompute for touched slots |
 | `prisma/schema.prisma` | `Source.archiveOnly`, `Kennel.archiveCutoffDate` and `archiveCutoffRunId`, `BackfillRun`, `BackfillRunItem`, `CronHeartbeat` |
-| New | `src/lib/backfill/**` (manifest, PII scanner, provenance rules, migration checker, plan, apply, verify, undo); agent routes; admin page with Clerk `strict_mfa` reverification and single-use action nonces; watch cron; `approval-stamp.yml`; `backfill-manifest` CI job |
+| New | `src/lib/backfill/**` (manifest with `scheduleOnlyEstimate` and G21, PII scanner, provenance rules, migration checker, plan with the expected `isScheduleOnly` from `POSTED_RUN_RAW_SQL`, apply with the kennel status refreshes, verify, undo); agent routes; admin page with Clerk `strict_mfa` reverification and single-use action nonces; watch cron; `approval-stamp.yml`; `backfill-manifest` CI job |
 | Ops (owner) | `GITHUB_APPROVAL_READ_TOKEN` created; H3 (issue-filing GitHub App) before Phase 2; a second factor on the owner's Clerk account |
 
 ### 12.2 Manuals
@@ -789,7 +883,9 @@ when its heartbeat is over 26 hours old. Silence counts as failure.
 - Build: the onboarding migration also creates the disabled archive source, linked to the kennel only,
   and passes G17. Freeze the archive up to `frozenAt`; the plan leaves to the live feed whatever it
   already has. For an "upcoming runs only" origin, the archive must reach the last run before the
-  merge (G20's gap rule), so re-freeze if the PR waits long for review. Run the PII scanner and generate the manifest before the first commit that touches
+  merge (G20's gap rule), so re-freeze if the PR waits long for review. For a calendar origin, keep
+  each row's `recurringSeriesId` as the adapter emits it, writing an explicit `null` when it has none
+  (G21). Run the PII scanner and generate the manifest before the first commit that touches
   `scripts/data/`. Call `POST /preview` and put its result in the PR body, with a link to CI's manifest
   summary.
 - Phase A merge step: replace the label-vs-commit-date comparison with `GET /approval/:pr`, then
@@ -816,7 +912,7 @@ also be undone; until then, `adopt-only` manifests bring them into the record.
 
 | Phase | What runs | Entry | Exit |
 |---|---|---|---|
-| 0. Build | Section 12.1. `BACKFILL_AUTOMATION=off` | This design approved | Unit tests for every guard, every merge match path in both modes, the cutoff drop, the provenance rules (against real Sheets, GCal, Meetup and website archives) and the migration checker (the last eight onboarding migrations pass, crafted bypasses fail); plan, apply, crash-resume and undo tested end to end against a local copy of prod |
+| 0. Build | Section 12.1. `BACKFILL_AUTOMATION=off` | This design approved | Unit tests for every guard, every merge match path in both modes, the cutoff drop, the provenance rules (against real Sheets, GCal, Meetup and website archives) and the migration checker (the last eight onboarding migrations pass, crafted bypasses fail, and a sample onboarding migration that creates an archive source applies cleanly to a local database with the CHECK in place); plan, apply, crash-resume and undo tested end to end against a local copy of prod |
 | 1. Shadow | `BACKFILL_AUTOMATION=shadow`. The implementer runs `plan` and posts it; the owner still applies by hand and compares. The approval endpoint runs beside the implementer's old merge check and any disagreement is reported | Phase 0 merged | `adopt-only` manifests for Music City and Zagreb come out `ADOPTED`; 5 new backfills where the shadow plan's written-row count equals what the hand apply created, every block was correct, and no PII false positive went unexplained; no disagreement between the approval endpoint and the owner's intent |
 | 2. Apply behind the label | `BACKFILL_AUTOMATION=apply`, Phase 2 scope (section 3), 2,000-row cap, 2 applies a day, the implementer starts every apply | Phase 1 exit; H3 done; the owner's Clerk second factor; the owner's written acceptance of T1 and of H1/H2's absence | 10 applied runs, all `VERIFIED` first time or explained, no undo needed for a wrong write, no 7-day re-check failure |
 | 3. Loosen | One change at a time: multi-kennel origins or several live sources **only with per-row routing provenance** (the freeze tool records which pattern matched each row, default-bucket rows are forbidden, CI re-derives the routing from the origin's config); more origin types; a higher cap; the watch cron starting approved applies | Phase 2 exit **and** H1 **and** H2 | Owner's call per change |
@@ -866,6 +962,15 @@ owner-only resume and undo with a second factor, and the owner's stamped label a
 | "Created" doesn't match the page | Row checks V1–V4; totals informational (9.3, 9.4) |
 | The loop dies quietly | Watch cron, `CronHeartbeat`, Sentry, digest |
 | Geocoding cost and latency | Batch timing measured per batch; 2,000-row cap; same geocoding as today's hand applies |
+| A calendar archive drops or invents the repeating-series marker, so usual-schedule entries are stored as runs | G21: the key on every row of the committed file, and agreement with the origin's current RawEvents on the overlap at plan (RawEvents stored before the marker existed are skipped and counted); the CI summary counts instance-shaped `eid`s with a `null` marker |
+| The manifest's schedule-only rule drifts from `POSTED_RUN_RAW_SQL` (whitespace, word boundaries, `runNumber` forms, placeholder edits, the merge's clean-up) | No second rule: the plan evaluates the SQL itself on rows normalised as the merge stores them; the manifest's estimate is outside `approvalHash`, so a placeholder edit can't block an approved run |
+| Usual-schedule archive rows read as real runs mid-run | The nested create sets `isScheduleOnly` from the plan, so a mid-run evidence refresh sees the right flag |
+| The kennel's status shows a stale or deleted "Last run we saw" after an apply or undo | Both run the kennel status refreshes themselves (9.2, 10.3); `APPLIED` waits for them; the daily audit cron is the backstop |
+| An archive source is enabled, renamed, retyped or relinked and shown as the kennel's live feed | Database CHECK against enabling; `toggleSourceEnabled` and `updateSource` refuse; G12 pins disabled, the name and the origin's type on every batch |
+| An onboarding migration inserts the archive source without `enabled = false`, so the CHECK fails `migrate deploy` and blocks later deploys | G17 and CI require the literal `false`; a Phase 0 test applies a sample migration locally |
+| A deploy that changes the posted-run rule makes correct runs fail their 7-day re-checks | V1 records a rule change as a note when the stored row still equals the plan's |
+| A stopped kennel's schedule-only archive rows fail verification as missing | V1 and V2 check them without the stop clause while `stoppedAt` is set |
+| A backfill quietly changes a kennel's status or Travel tier, or overturns a stop | Intended when the archive shows later runs; the before and after status lines of every apply and undo are stored and shown in the digest (9.6) |
 
 ## 15. Decisions for the owner
 
@@ -994,3 +1099,64 @@ final text:
 | N-2 | G2 can't recompute curator-declared fields | They are declared inputs: CI checks shape and caps and hashes them, but doesn't recompute them (6.2) |
 | N-3 | Where an `archiveCorrectionSkipped` row is stored was unspecified; marking it processed would recreate the tombstone R3-1 removed | The check runs at the top of the loop with the cutoff drop, before any RawEvent is stored (6.5) |
 | R5-2 residue | A `scrapeSource` call from a local script has no time limit, so the 10-minute rule doesn't bound it | Stated as a supervised-session rule, with V3, V4 and the 7-day re-checks as detection (9.2) |
+
+### Round 7 (v5.2, alignment with kennel status) — `NEEDS-CHANGES`: 2 material, 7 minor
+
+v5.2 aligned the design with the kennel status work merged after round 6 (Status 1, #2923:
+`Event.isScheduleOnly`, the kennel's cached evidence dates, and the posted-run rule in
+`src/pipeline/kennel-evidence.ts`). It made three changes:
+- calendar archives keep `recurringSeriesId` (G21);
+- apply and undo run the status refreshes themselves;
+- an archive source can never be enabled.
+
+It also added section 9.6. A fresh reviewer confirmed the following against the code:
+- the refresh order;
+- that kept events need no flag refresh;
+- the stop, `nextRunPostedAt` and coverage claims.
+
+It found that nothing earlier rounds closed was reopened, and nothing blocking. Every code claim below
+was re-checked before being accepted.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R7-1 | material | The manifest's schedule-only rule wasn't the SQL's. `rawData` is the row after `sanitizeRawFields`, which can move "Hared by X" from the title into `hares`. JS and Postgres treat whitespace and word boundaries differently. `runNumber` `""` and `0` behave differently in each. Hashing the set into `approvalHash` would turn any placeholder edit between CI and plan into a terminal block | The plan computes the expected flags by evaluating `POSTED_RUN_RAW_SQL` itself over the normalised rows and stores them in the plan. The manifest keeps only an informational estimate outside `approvalHash`. Section 6.5 now says the merge's clean-up runs before storage (6.1, 6.5, 9.2) |
+| R7-2 | material | The kennel page hides a stopped kennel's schedule-only events (`HIDE_STOPPED_SCHEDULE_RUNS`), so V1 and V2 would fail on correctly written rows | While `stoppedAt` is set, those rows are checked without that clause; a new item in 9.5 (9.3, 9.5) |
+| R7-3 | minor | "Travel's Likely and Possible lists don't change" was wrong: the inactivity downgrade and the 12-week evidence and agreement gates read past runs | Reworded: past archive rows can raise Travel rows, by design, and the status-line change in the digest surfaces it. The "How we know" versus coverage case is explained (9.6) |
+| R7-4 | minor | G21 passes an archive with `null` written on every row | At plan, archive rows on the overlap must carry the same marker as the live origin RawEvent with the same `sourceUrl`. CI counts instance-shaped `eid`s that have a `null` marker (6.2, G21) |
+| R7-5 | minor | New events default to `isScheduleOnly = false`, so a mid-run origin scrape could count schedule-only archive rows as runs. A refresh failure's effect on `APPLIED` was unspecified | The nested create sets the flag from the plan. `APPLIED` waits for both refreshes, and a failure retries the finish step (9.2) |
+| R7-6 | minor | The refresh's `since` rested on the app clock | The scope is the archive source with `since` at epoch, since that source holds only this run's RawEvents (9.2) |
+| R7-7 | minor | The seed, `updateSource` and migrations could enable, retype or relink the archive source, and type decides real runs | A database CHECK `NOT ("archiveOnly" AND enabled)`; `updateSource` refuses type, link and `enabled` changes; G12 pins the origin's type (6.5, 8.1, 11.1, 12.1) |
+| R7-8 | minor | An explicit `null` marker would reach the fingerprint (the gate tests `=== undefined`) | The plan turns an explicit `null` into an absent key before normalising (9.2) |
+| R7-9 | minor | The flag check should cover `CREATED` items only; the set was described as calendar-only; undo didn't record status lines | V1 checks `CREATED` items; the plan computes flags for every origin type; undo records status lines (9.3, 9.2, 10.3) |
+
+### Round 8 (v5.2, confirmation of the R7 fixes) — `NEEDS-CHANGES`: 1 material, 4 minor
+
+The reviewer confirmed the R7 fixes. Evaluating the rule in SQL at plan gives the same answer as the
+refresh on the stored row:
+- each archive event has exactly one RawEvent;
+- the stored `rawData` is the same sanitised object;
+- every field the rule reads is in the fingerprint, so a clean-up change halts the run.
+
+Setting `isScheduleOnly` at create adds no column, and V3 doesn't hash it. The CHECK leaves the six
+existing archive sources (`archiveOnly` false), the seed sync and kennel restart untouched.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R8-1 | material | The overlap check would block every calendar origin scraped before #2923. RawEvents are immutable, so origin events not re-scraped since then keep a copy without the marker, and a correct capture "mismatches" | Compare only with the origin's current RawEvent per `sourceUrl` (the `CURRENT_RAW_SQL` rule), and skip RawEvents stored before the marker existed. Compared and skipped rows are counted; a skip is not a failure (G21) |
+| R8-2 | minor | `Source.enabled` defaults to true, so an archive insert without `enabled = false` violates the CHECK and fails `migrate deploy` | G17 and CI require the literal `false`; a Phase 0 test applies a sample onboarding migration locally (6.2, 8.1, 13) |
+| R8-3 | minor | `updateSource` always recreates the links, so refusing every save would block config edits. `enabled` isn't one of its fields. Renames weren't covered, though G12 binds by name | It refuses actual changes to the name, type or links, comparing the links with the existing set (6.5, 12.1) |
+| R8-4 | minor | G21's key check ran after step 4 had removed the `null`s | The key check reads the committed file at plan step 1; only the overlap check runs at step 6 (9.2, 8.1) |
+| R8-5 | minor | A deploy that changes the rule would fail correct runs' 7-day re-checks; G14 didn't check the flag set at create | V1 records a rule change as a note when the stored row still equals the plan's; G14 checks each created flag (9.3, 9.5, 8.1) |
+
+### Round 9 (v5.2, confirmation of the R8 fixes) — `APPROVE`
+
+The reviewer confirmed all five R8 fixes and found nothing blocking or material: "The approval stands."
+It noted that one-off origin events keep their fingerprints across #2923 (the marker is a gated
+fingerprint token), so most of them are skipped by the overlap check and only repeating instances
+scraped since are compared. That is expected, and the recorded counts show it. Its two wording points
+were applied:
+
+| # | Note | Applied |
+|---|---|---|
+| R9-1 | G21's "stored before the marker existed" cut-off was undefined, and an early one fails closed | A constant set once in Phase 0: the earliest `scrapedAt` of a calendar RawEvent carrying the marker, plus one hour. Early versus late trade-off stated (G21) |
+| R9-2 | V1's pass rule after a rule change was implicit | Stated as three steps: the plan's value passes; a rule change with an unchanged stored row passes with a note; anything else fails (9.3) |
