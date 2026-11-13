@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { promoteAuditDrafts } from "@/pipeline/audit-draft-promoter";
 
+/** A full batch (30 drafts, paced a second apart for GitHub) takes ~1–2 minutes. */
+export const maxDuration = 300;
+
 /**
  * Promote queued chrome-stream audit findings into GitHub issues.
  *

@@ -1,4 +1,4 @@
-import { fileAuditIssues } from "./audit-issue";
+import { buildCronActions, fileAuditIssues } from "./audit-issue";
 import type { AuditGroup } from "./audit-runner";
 
 const {
@@ -322,5 +322,36 @@ describe("fileAuditIssues", () => {
       (c) => (c[1] as { method?: string } | undefined)?.method === "POST",
     );
     expect(createCalls).toHaveLength(3);
+  });
+});
+
+describe("buildCronActions write pacing", () => {
+  function okResponse() {
+    return { ok: true, json: async () => ({ html_url: "https://x/1", number: 1 }) };
+  }
+
+  it("spaces creates and comments by minWriteGapMs", async () => {
+    const callTimes: number[] = [];
+    mockFetch.mockImplementation(async () => {
+      callTimes.push(Date.now());
+      return okResponse();
+    });
+    const actions = buildCronActions({ minWriteGapMs: 40 });
+    await actions.createIssue({ title: "a", body: "b", labels: [] });
+    await actions.postComment(1, "c");
+    await actions.createIssue({ title: "d", body: "e", labels: [] });
+    expect(callTimes).toHaveLength(3);
+    // setTimeout can fire a millisecond early; allow for that.
+    expect(callTimes[1] - callTimes[0]).toBeGreaterThanOrEqual(38);
+    expect(callTimes[2] - callTimes[1]).toBeGreaterThanOrEqual(38);
+  });
+
+  it("is unpaced by default", async () => {
+    mockFetch.mockImplementation(async () => okResponse());
+    const actions = buildCronActions();
+    const started = Date.now();
+    await actions.createIssue({ title: "a", body: "b", labels: [] });
+    await actions.createIssue({ title: "c", body: "d", labels: [] });
+    expect(Date.now() - started).toBeLessThan(500);
   });
 });

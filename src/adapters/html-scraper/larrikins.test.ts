@@ -38,4 +38,17 @@ describe("larrikins parseLarrikinsRow", () => {
     expect(e).not.toBeNull();
     expect(e!.hares).toBeUndefined();
   });
+
+  // #2851 — the fourth column now carries the suburb ("10/11/2026 2520 Lost in Fourskin Potts Point").
+  it("reads the location column", () => {
+    const e = parseLarrikinsRow("10/11/2026", "2520", "Lost in Fourskin", URL, " Potts Point ");
+    expect(e!.location).toBe("Potts Point");
+    expect(e!.runNumber).toBe(2520);
+  });
+
+  it("leaves a blank or TBC location undefined so it clears nothing", () => {
+    expect(parseLarrikinsRow("24/11/2026", "2522", "TBC", URL, "TBC")!.location).toBeUndefined();
+    expect(parseLarrikinsRow("24/11/2026", "2522", "TBC", URL, "")!.location).toBeUndefined();
+    expect(parseLarrikinsRow("24/11/2026", "2522", "TBC", URL)!.location).toBeUndefined();
+  });
 });
