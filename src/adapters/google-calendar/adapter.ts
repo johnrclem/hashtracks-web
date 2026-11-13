@@ -646,6 +646,14 @@ function isInitialsWordplay(title: string, inner: string, parenIndex: number): b
   return innerInitials === initials.toLowerCase();
 }
 
+/** A titleLocationPattern capture with trailing punctuation trimmed, or undefined
+ *  when it is empty or a vacancy placeholder ("venue TBC", "3 - vacant"). */
+function titleLocationCandidate(match: RegExpExecArray | null): string | undefined {
+  const candidate = match?.[1]?.trim().replace(/[.,;:\s]+$/, "").trim(); // NOSONAR — anchored end-of-string char-class
+  if (!candidate || isPlaceholder(candidate) || containsPlaceholderToken(candidate)) return undefined;
+  return candidate;
+}
+
 /**
  * Minimum plausible hash-event title length. Below this, with no other
  * structured field, the summary is almost certainly a data-entry artifact
@@ -1865,8 +1873,8 @@ export function buildRawEventFromGCalItem(
   if (compiledTitleLocationPatterns?.length && titleIsVenue) {
     if (location && /^https?:\/\//i.test(location)) {
       for (const re of compiledTitleLocationPatterns) {
-        const candidate = re.exec(title)?.[1]?.trim().replace(/[.,;:\s]+$/, "").trim(); // NOSONAR — anchored end-of-string char-class
-        if (!candidate || isPlaceholder(candidate) || containsPlaceholderToken(candidate)) continue;
+        const candidate = titleLocationCandidate(re.exec(title));
+        if (!candidate) continue;
         locationUrlFromField = location;
         location = candidate;
         break;
@@ -1875,9 +1883,8 @@ export function buildRawEventFromGCalItem(
   } else if (compiledTitleLocationPatterns?.length) {
     for (const re of compiledTitleLocationPatterns) {
       const locMatch = re.exec(title);
-      if (!locMatch?.[1]) continue;
-      const candidate = locMatch[1].trim().replace(/[.,;:\s]+$/, "").trim(); // NOSONAR — anchored end-of-string char-class
-      if (!candidate || isPlaceholder(candidate) || containsPlaceholderToken(candidate)) continue;
+      const candidate = titleLocationCandidate(locMatch);
+      if (!locMatch || !candidate) continue;
       if (location && !sharesPlaceWord(candidate, location)) break;
       location ??= candidate;
       title = (title.slice(0, locMatch.index) + title.slice(locMatch.index + locMatch[0].length))

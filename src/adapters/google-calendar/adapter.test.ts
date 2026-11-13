@@ -6749,6 +6749,7 @@ describe("WS4 calendar-feed leaks", () => {
       // Themes after the venue are not hares.
       ["Isca H3 - The Lord Nelson, Topsham. Christmas party!", "The Lord Nelson, Topsham. Christmas party!", undefined],
       ["Isca H3 - Haven Banks 3 CP, Exeter Quay. Drop Off's 30th.", "Haven Banks 3 CP, Exeter Quay. Drop Off's 30th", undefined],
+      ["Isca H3 - Hare and Hounds, Putts Corner", "Hare and Hounds, Putts Corner", undefined],
     ])("%s", (summary, title, hares) => {
       const e = build({ summary, description: "Website: www.iscah3.uk" }, config);
       expect(e?.title).toBe(title);

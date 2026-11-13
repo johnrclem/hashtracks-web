@@ -9678,7 +9678,7 @@ export const SOURCES = [
         // the venue unless it reads as a theme ("Christmas party!", "Drop Off's
         // 30th"). The title keeps the venue; the trailing period is trimmed.
         titleHarePattern: [
-          String.raw`\bHares?\b:?\s+((?:(?!\s-\s)[^.:()])+?)[.!]*$`,
+          String.raw`\bHares?\b(?!\s+(?:&|and)\s+Hounds\b):?\s+((?:(?!\s-\s)[^.:()])+?)[.!]*$`,
           String.raw`^Isca H3\s*-\s*\S.*?\s-\s+(?!OD\b|[^-.]*\b(?:party|birthdays?|picnic|bbq|swim|trail|run|hash)\b)([^-.:()]+?\s(?:&|and)\s[^-.:()]+?)[.!]*$`,
           String.raw`\.\s+(?!OD\b|[^.!]*\b(?:party|birthdays?|fancy|dress|christmas|xmas|awards?|night|byob?|joint|trail|run|hash|theme|\d+(?:st|nd|rd|th))\b)([^.!?]+?)(?=[.!?](?:\s|$)|$)`,
         ],

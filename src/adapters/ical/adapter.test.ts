@@ -2750,6 +2750,8 @@ describe("Chichester grid-ref helpers", () => {
       "Olive Oyl and Sausage Lottery",
     ],
     ["Summer BBQ at the Pub", undefined],
+    // A later " - " segment is a fallback only when it is a theme-free list.
+    ["Christmas Party - Joint with H4 & neighbours", undefined],
     // #2896: the labelled hares stop at "venue".
     ["Hangover Hash Hares Not The Messiah and Bambi venue Chez Cock Burns. Awards, Raffle", "Not The Messiah and Bambi"],
     // #2895: "Hash Flash" is a hasher, not the word "hash".

@@ -319,7 +319,7 @@ const HARE_LIST_CONNECTOR_RE = /&|,|\band\b/i;
 
 /**
  * Hares from one " - " segment of a Chichester preamble. Without a theme word the
- * whole segment is the hare list (`allowPlain`). With one, leading theme words
+ * first segment is the hare list; a later segment must be a theme-free list. With one, leading theme words
  * are dropped ("IOW HHH Beer Pump & Proppy") and the names before the next theme
  * word or "??" are kept ("Cock Burns & Linsey Hangover Hash"), but only when they
  * read as a list, so a lone theme fragment ("Summer" from "Summer BBQ", "Worthy
@@ -327,7 +327,7 @@ const HARE_LIST_CONNECTOR_RE = /&|,|\band\b/i;
  * (#2894). A dangling "and"/"&" counts only before "??", the unnamed co-hare
  * ("Bika and ?? ON-IN…" → "Bika").
  */
-function gridSegmentHares(segment: string, allowPlain: boolean): string | undefined {
+function gridSegmentHares(segment: string, isFirst: boolean): string | undefined {
   let text = segment.replaceAll(/\([^)]*\)/g, " ").replaceAll(/\s+/g, " ").trim();
   let themed = false;
   let theme = GRID_PREAMBLE_THEME_RE.exec(text);
@@ -343,7 +343,9 @@ function gridSegmentHares(segment: string, allowPlain: boolean): string | undefi
   }
   const hares = text.replace(/(?:[\s,&]|\band\b)+$/i, "").trim(); // NOSONAR — anchored end-of-string strip of list connectors
   const listEvidence = cutAtUnknownHare ? text : hares;
-  if ((themed || !allowPlain) && !HARE_LIST_CONNECTOR_RE.test(listEvidence)) return undefined;
+  // A later segment is only a fallback, so it must be a theme-free list.
+  if (!isFirst && themed) return undefined;
+  if ((themed || !isFirst) && !HARE_LIST_CONNECTOR_RE.test(listEvidence)) return undefined;
   return hares || undefined;
 }
 

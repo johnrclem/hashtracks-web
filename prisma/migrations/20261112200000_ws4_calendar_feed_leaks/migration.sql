@@ -37,7 +37,7 @@ SET config = COALESCE(config, '{}'::jsonb) || t.patch,
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 FROM (VALUES
   ('Devon Lunatics H3 Google Calendar', 'GOOGLE_CALENDAR', '{"titleStripPatterns":["^Devon Lunatics H3\\s*-\\s*","^vytbc\\b\\s*-?\\s*"],"titleHarePattern":"\\bvytbc\\s*-\\s*([^-]+?\\s(?:&|and)\\s[^-]+)$"}'::jsonb),
-  ('Isca H3 Google Calendar', 'GOOGLE_CALENDAR', '{"titleHarePattern":["\\bHares?\\b:?\\s+((?:(?!\\s-\\s)[^.:()])+?)[.!]*$","^Isca H3\\s*-\\s*\\S.*?\\s-\\s+(?!OD\\b|[^-.]*\\b(?:party|birthdays?|picnic|bbq|swim|trail|run|hash)\\b)([^-.:()]+?\\s(?:&|and)\\s[^-.:()]+?)[.!]*$","\\.\\s+(?!OD\\b|[^.!]*\\b(?:party|birthdays?|fancy|dress|christmas|xmas|awards?|night|byob?|joint|trail|run|hash|theme|\\d+(?:st|nd|rd|th))\\b)([^.!?]+?)(?=[.!?](?:\\s|$)|$)"],"titleStripPatterns":["^Isca H3\\s*-\\s*","\\.\\s*$"],"titleLocationPattern":"^Isca H3\\s*-\\s*(?:AGPU\\s*-\\s*)?([^.]+?)(?:\\.\\s|\\.?$)","titleLocationFillOnly":true,"summaryIsCanonicalTitle":true}'::jsonb),
+  ('Isca H3 Google Calendar', 'GOOGLE_CALENDAR', '{"titleHarePattern":["\\bHares?\\b(?!\\s+(?:&|and)\\s+Hounds\\b):?\\s+((?:(?!\\s-\\s)[^.:()])+?)[.!]*$","^Isca H3\\s*-\\s*\\S.*?\\s-\\s+(?!OD\\b|[^-.]*\\b(?:party|birthdays?|picnic|bbq|swim|trail|run|hash)\\b)([^-.:()]+?\\s(?:&|and)\\s[^-.:()]+?)[.!]*$","\\.\\s+(?!OD\\b|[^.!]*\\b(?:party|birthdays?|fancy|dress|christmas|xmas|awards?|night|byob?|joint|trail|run|hash|theme|\\d+(?:st|nd|rd|th))\\b)([^.!?]+?)(?=[.!?](?:\\s|$)|$)"],"titleStripPatterns":["^Isca H3\\s*-\\s*","\\.\\s*$"],"titleLocationPattern":"^Isca H3\\s*-\\s*(?:AGPU\\s*-\\s*)?([^.]+?)(?:\\.\\s|\\.?$)","titleLocationFillOnly":true,"summaryIsCanonicalTitle":true}'::jsonb),
   ('Hill Country H3 Google Calendar', 'GOOGLE_CALENDAR', '{"kennelPatterns":[["^(?:HOTH3|HOT)\\s+Humpin","hoth3-humpin"],["^Heart of Texas\\b|^HOTH3\\b","hoth3"],["^Hill Country\\b|^HCH3\\b","hch3"]]}'::jsonb),
   ('Cheltenham & Cotswold H3 iCal Feed', 'ICAL_FEED', '{"descriptionStripPatterns":["^Hare\\(s\\):","^Map:\\s*https?://","^https?://c2h3\\.co\\.uk/\\S*$"],"ignoreEndTime":true,"sourceUrlOverride":"https://c2h3.co.uk/upcoming-runs/"}'::jsonb),
   ('Chichester H3 iCal Feed', 'ICAL_FEED', '{"runNumberPatterns":["R[ui]n (\\d+)\\b"]}'::jsonb)
@@ -85,13 +85,27 @@ JOIN "Kennel" k ON k.id = e."kennelId"
 WHERE k."kennelCode" = 'hoth3'
   AND e.title ~ '^(HOTH3|HOT)\s*(<br\s*/?>)?\s*Humpin';
 
+-- Same as scripts/lib/event-reassign.ts: when the target is already a co-host,
+-- drop the old row and make the target primary; otherwise re-point the row.
+DELETE FROM "EventKennel" ek
+USING "Kennel" ok, "Kennel" nk
+WHERE ok."kennelCode" = 'hoth3' AND nk."kennelCode" = 'hoth3-humpin'
+  AND ek."kennelId" = ok.id
+  AND ek."eventId" IN (SELECT id FROM ws4_humpin)
+  AND EXISTS (SELECT 1 FROM "EventKennel" x WHERE x."eventId" = ek."eventId" AND x."kennelId" = nk.id);
+
+UPDATE "EventKennel" ek
+SET "isPrimary" = true
+FROM "Kennel" nk
+WHERE nk."kennelCode" = 'hoth3-humpin' AND ek."kennelId" = nk.id
+  AND ek."eventId" IN (SELECT id FROM ws4_humpin) AND ek."isPrimary" = false;
+
 UPDATE "EventKennel" ek
 SET "kennelId" = nk.id
 FROM "Kennel" nk, "Kennel" ok
 WHERE nk."kennelCode" = 'hoth3-humpin' AND ok."kennelCode" = 'hoth3'
   AND ek."kennelId" = ok.id
-  AND ek."eventId" IN (SELECT id FROM ws4_humpin)
-  AND NOT EXISTS (SELECT 1 FROM "EventKennel" x WHERE x."eventId" = ek."eventId" AND x."kennelId" = nk.id);
+  AND ek."eventId" IN (SELECT id FROM ws4_humpin);
 
 UPDATE "Event" e
 SET "kennelId" = nk.id, "updatedAt" = NOW() AT TIME ZONE 'UTC'
@@ -156,8 +170,9 @@ WHERE k.id = e."kennelId" AND k."kennelCode" = 'isca-h3' AND e.title = 'Website:
 
 -- 8. Cheltenham & Cotswold: mirror descriptionStripPatterns / ignoreEndTime / sourceUrlOverride.
 UPDATE "Event" e
-SET description = NULLIF(btrim(regexp_replace(e.description,
-      '^[ \t]*(Hare\(s\):[^\n]*|Map:[ \t]*https?://[^\n]*|https?://c2h3\.co\.uk/[^\s]*[ \t]*(?=\n|$))\n?', '', 'gn'), E' \t\n'), ''),
+SET description = NULLIF(btrim(regexp_replace(regexp_replace(e.description,
+      '^[ \t]*(Hare\(s\):[^\n]*|Map:[ \t]*https?://[^\n]*|https?://c2h3\.co\.uk/[^\s]*[ \t]*(?=\n|$))\n?', '', 'gn'),
+      '\n{3,}', E'\n\n', 'g'), E' \t\n'), ''),
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
 FROM "Kennel" k
 WHERE k.id = e."kennelId" AND k."kennelCode" = 'c2h3-gb'
