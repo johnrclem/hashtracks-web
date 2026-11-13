@@ -1,6 +1,6 @@
 # Onboarding backfill automation: design
 
-**Status:** Draft v5, revised after adversarial review rounds 1–4. Pending re-review, then owner review. 2026-11-13.
+**Status:** v5.1. Approved by adversarial review in round 5 (Appendix A); round 5's minor findings applied in v5.1. Pending owner review. Nothing is built yet. 2026-11-13.
 **Scope:** design only. Nothing here is built yet. No code, migration or prod write was made to produce it.
 **Related:** [`kennel-onboarding/implement-handoff-prompt.md`](kennel-onboarding/implement-handoff-prompt.md) (the implementer),
 [`kennel-onboarding/daily-onboarding-prompt.md`](kennel-onboarding/daily-onboarding-prompt.md) (research),
@@ -246,6 +246,8 @@ Each archive `scripts/data/<code>-history.json` gets a sibling
 | `perKennel[code]` | `rows`, `uniqueDates`, `firstDate`, `lastDate`, rows without a run number, field fill counts, three sample titles |
 | `sameDateGroups` | Every (kennel, date) with more than one row, with run numbers |
 | `runNumberExceptions` | Rows that break the strict run-number order (capped) |
+| `expectedGaps` | Date ranges with no runs and a reason (seasonal break, pause), excluded from G20's gap rule |
+| `curatedCorrections` | Rows whose date or run number the curator changed from the source, excluded from G20's 95% count |
 | `piiScan` | Scanner version and residual count (must be 0) |
 | `approvalHash` | SHA-256 over the canonical JSON of every field above except the sample titles, which depend on display names |
 
@@ -332,12 +334,16 @@ any kind (G9).
 stray early origin event (a year-inference phantom, a typo'd old row) would hand most of the archive
 to a live feed that doesn't have it. So:
 - **No gap.** If the archive ends before `C`, the distance from its last row to `C` must be at most 1.5
-  times the archive's median interval between run dates over its last 20 rows. An "upcoming runs only"
-  feed starts at the first run it listed, so an archive frozen long before the merge fails this and
-  must be re-frozen.
-- **The live feed really has its stretch.** For the archive rows dated from `C` to `frozenAt`, the
-  kennel's displayed events must contain at least 95% of them by (date, run number), or by date for
-  unnumbered rows. Otherwise the run is `BLOCKED`, with the counts.
+  times the archive's median interval between run dates over its last 20 rows, not counting any gap
+  the manifest declares in `expectedGaps` (a date range and a reason, such as a seasonal break). CI
+  shows declared gaps in its summary, so the owner's label covers them. An "upcoming runs only" feed
+  starts at the first run it listed, so an archive frozen long before the merge fails this and must be
+  re-frozen (and re-labelled).
+- **The live feed really has its stretch.** For the numbered archive rows dated from `C` to
+  `frozenAt`, the kennel's displayed events must contain at least 95% of them by (date, run number).
+  Rows the manifest lists in `curatedCorrections` (rows whose date or run number the curator changed
+  from the source) and unnumbered rows are left out of both sides of that count, since a date alone
+  could match an unrelated event. Otherwise the run is `BLOCKED`, with the counts.
 
 V2 applies the same 95% threshold at verify.
 
@@ -354,7 +360,11 @@ cutoff and whose date is before it. Because `C` is always in the past, the drop 
 or upcoming runs. Co-host rows don't add the kennel as a secondary on such dates either. The merge
 result and the scrape log count these rows as `archiveCutoffDropped`. Separately, the ±30-day
 date-correction query, for every source, skips events whose only backing is an `archiveOnly` source,
-so a live row dated after `C` can't move an archive event either.
+so a live row dated after `C` can't move an archive event either. When that skip suppresses a match
+(a live row with the same run number within 30 days of an archive event), the row is dropped rather
+than created as a second event with the same run number, and counted as `archiveCorrectionSkipped`.
+The digest shows that count, because it means the live feed and the archive disagree about a run's
+date.
 
 | Risk | How the cutoff and the archive source remove it |
 |---|---|
@@ -563,7 +573,10 @@ the run and after undo.
   and records the time. It writes no rows. A scrape already running at that moment read the kennel's
   settings before the cutoff existed and could still store an event before `C`. So the next `advance`
   writes nothing until every `ScrapeLog` row for the kennel's sources that was `RUNNING` at the cutoff
-  time has finished (at most the 300 s function limit, plus the 10-minute stale-log rule). Then it
+  time has finished. A `RUNNING` row older than 10 minutes counts as finished: the scrape function
+  can't live past its 300 s limit, and stale rows are otherwise only marked `FAILED` when the source's
+  next scrape starts, which can be a day later. Callers of the merge that write no `ScrapeLog` (the
+  hand loaders, the Atlanta deep-backfill route) aren't waited for; they are supervised paths. Then it
   re-checks that no event of the kennel before `C` is backed by an enabled source, and G20 again. Only
   if both hold does it write the first batch; otherwise the run halts with the cutoff in place, for the
   owner.
@@ -593,7 +606,7 @@ batch, as part of G14. All are row checks:
 | # | Check |
 |---|---|
 | V1 | Every item's event exists, is `CONFIRMED` and canonical, has the expected kennel as primary, and passes the kennel page's own display filter. The page's query and filters move into one shared function used by both the page and `verify` |
-| V2 | Every written archive (date, run number) appears in the kennel's displayed events, and at least 95% of the rows from `C` to `frozenAt` do too (the live feed's stretch, G20); the missing ones are listed. The implementer checks the same on the public page payload, from its own clone's copy of the archive |
+| V2 | Every written archive (date, run number) appears in the kennel's displayed events, and at least 95% of the counted rows from `C` to `frozenAt` do too (the live feed's stretch, with G20's exclusions); the missing ones are listed. The implementer checks the same on the public page payload, from its own clone's copy of the archive |
 | V3 | **Static history unchanged.** A hash over every pre-existing event of the kennel dated within 30 days of a written row's date that **no enabled source backs** (id, date, status, `isCanonical`, primary kennel, run number, title, hares, location fields, `parentEventId`), taken at plan time, is unchanged. Live-backed events are left out, because their sources update them every day; a run that wrongly touched one would already have failed the in-merge check or G14's `updated = 0` |
 | V4 | No written row's (kennel, date) slot shows any event other than the run's own |
 | V5 | The public page's `totalEvents` equals the shared function's count at the same moment |
@@ -667,9 +680,11 @@ Undo deletes data, so it gets a dry run with counts and the owner's OK. It runs 
 the strict multi-factor level** (Clerk reverification `strict_mfa`: a passkey or TOTP code). Clerk's
 reverification is a freshness window for the whole session, so on success the server mints a
 single-use nonce bound to this run and this action, valid for 2 minutes, and the undo or resume
-request must carry it. The same step-up and nonce guard resume, and setting or clearing a kennel's
-cutoff. A saved password isn't enough, so an agent driving a signed-in browser can't pass it. The
-owner's account needs a second factor before Phase 2. No token can start any of these.
+request must carry it. The same step-up and nonce guard resume, setting a cutoff by hand (for example
+on an adopted kennel) and clearing one. Setting the cutoff inside an approved run (9.2) is covered by
+that run's approval and needs no step-up. A saved password isn't enough, so an agent driving a
+signed-in browser can't pass it. The owner's account needs a second factor before Phase 2. No token can
+do any of the step-up actions.
 
 **Undo plan** (read-only), from the run's items:
 - **events to delete:** created by the run, carrying only the run's RawEvent, with no `Attendance`, no
@@ -729,7 +744,8 @@ on (run id, row index).
 `buildOpsDigest` gains a `backfills` block: runs from the last 7 days with status and counts; runs in
 `BLOCKED`, `HALTED`, `VERIFY_FAILED`, or `WAITING` for over 24 hours; leases expired over an hour;
 approved manifests merged over 48 hours ago without a `VERIFIED` run; PII leak flags; the
-`archiveCutoffDropped` counts from the last day's scrapes, per kennel; and the watch cron's heartbeat.
+`archiveCutoffDropped` and `archiveCorrectionSkipped` counts from the last day's scrapes, per kennel;
+and the watch cron's heartbeat.
 `docs/ops/daily-digest-task.md` puts every blocked, halted or failed run, every leak flag and every
 approved-but-unapplied manifest under **Needs you today**.
 
@@ -938,3 +954,20 @@ counts unaffected.
 | R4-3 | minor | G17 would reject the eight migrations it promised to pass (`NOW() AT TIME ZONE` parses as `timezone()`), and the allowed Region update had no bound | `timezone()` with a literal zone allowed; Region updates limited to rows the same migration inserts; the Phase 0 test, with owner review of any migration that falls outside (G17) |
 | R4-4 | minor | A live row after `C` could still date-correct an archive event before it; per-hunk comparison could give false A4 mismatches; a hand loader for a kennel with a cutoff would report `created=0` silently | Date-correction query skips archive-only events (6.5); A4 compares the whole file's ordered +/- lines; the merge reports `archiveCutoffDropped` and the loader throws on it (9.1, 12.1). Adopted archives' lack of a cutoff is now stated (6.5) |
 | R4-5 | minor | Still overstated: G17 "stops" bad migrations (it only stops the automated backfill); clearing a cutoff had no step-up; agents can halt by removing the label; "the implementer starts every apply" is a manual rule | Reworded (sections 14, 4.2, 7.3); setting or clearing a cutoff needs `strict_mfa` and a nonce (6.5, 10.3) |
+
+### Round 5 (design v5) — `APPROVE`, with 5 minor findings
+
+All round 4 findings closed. The reviewer found no remaining blocking or material issue: "the approval
+binding, create-only, atomic rows, the archive source, the cutoff, the per-row verification, the undo
+controls and the trust statements all hold against the code I re-checked." It also confirmed that the
+date-correction skip changes no existing behaviour, since no source has `archiveOnly` set today.
+
+The minor findings were applied in v5.1:
+
+| # | Finding | Resolution in v5.1 |
+|---|---|---|
+| R5-1 | §10.3 required step-up to set a cutoff, while the token-driven run sets one | Step-up covers setting a cutoff by hand and clearing one; setting it inside an approved run is covered by that run's approval (10.3) |
+| R5-2 | The wait on running scrapes could last a day, because stale `RUNNING` rows are only failed when the source's next scrape starts | A `RUNNING` row older than 10 minutes counts as finished; supervised callers that write no `ScrapeLog` are named (9.2) |
+| R5-3 | G20 blocks seasonal kennels, and counts curated fixes as missing; each block burns a manifest | Manifest declares `expectedGaps` and `curatedCorrections`, shown in CI's summary and excluded from G20 (6.1, 6.5) |
+| R5-4 | With date-correction skipping archive events, a live row could become a second event with the same run number | Such a row is dropped and counted as `archiveCorrectionSkipped`, shown in the digest (6.5, 11.2) |
+| R5-5 | Unnumbered rows matched on date alone | Left out of both sides of the 95% count; written rows are checked through their recorded event ids (6.5, 9.3) |
