@@ -26,8 +26,10 @@ import {
   findDryRunEscapes,
   noTransactionReason,
 } from "@/lib/migration-sql/transaction";
+import { scriptSslConfig } from "./lib/db-pool";
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+/** Commands whose changes the per-table insert/update/delete counts include. */
+const COUNTED_COMMANDS = new Set(["INSERT", "UPDATE", "DELETE", "MERGE", "SELECT", "SET"]);
 
 function fail(code: number, lines: string[]): never {
   for (const line of lines) console.error(line);
@@ -35,14 +37,9 @@ function fail(code: number, lines: string[]): never {
 }
 
 function resolveMigrationFile(arg: string): string {
-  const file = existsSync(arg) && statSync(arg).isDirectory() ? path.join(arg, "migration.sql") : arg;
+  const file = statSync(arg, { throwIfNoEntry: false })?.isDirectory() ? path.join(arg, "migration.sql") : arg;
   if (!existsSync(file)) fail(2, [`No migration file at ${file}`]);
   return file;
-}
-
-function sslFor(url: string): pg.ClientConfig["ssl"] {
-  if (url.includes("sslmode=disable") || LOCAL_HOSTS.has(new URL(url).hostname)) return false;
-  return { rejectUnauthorized: process.env.BACKFILL_ALLOW_SELF_SIGNED_CERT !== "1" };
 }
 
 interface StatementResult {
@@ -74,17 +71,25 @@ async function main() {
   const parsed = await parseMigrationSql(sql);
   if (!parsed.ok) fail(2, [`Refused: ${file} does not parse as Postgres SQL: ${parsed.error}`]);
   const shape = analyzeTransactionShape(parsed.statements);
-  const problems = [...shape.problems, ...findDryRunEscapes(shape.body)];
-  if (problems.length > 0) fail(2, [`Refused: ${file}`, ...problems.map((p) => `  - ${p}`)]);
+  const problems = shape.ok ? findDryRunEscapes(shape.body) : shape.problems;
+  if (!shape.ok || problems.length > 0) {
+    fail(2, [`Refused: ${file}`, ...problems.map((p) => `  - ${p}`)]);
+  }
+  // The file's own SET LOCAL runs after ours and wins, so say when it changes the limits.
+  const ownTimeouts = shape.body.filter(
+    (s) => s.type === "VariableSetStmt" && /^(lock|statement)_timeout$/.test(String(s.node.name)),
+  );
 
   const url = process.env.DATABASE_URL;
   if (!url) fail(2, ["DATABASE_URL is not set"]);
   const client = new pg.Client({
     connectionString: url,
-    ssl: sslFor(url),
+    ssl: scriptSslConfig(url),
     application_name: "migration-dry-run",
   });
   await client.connect();
+  const currentXid = async (): Promise<string> =>
+    (await client.query("SELECT pg_current_xact_id()::text AS xid")).rows[0].xid;
 
   const results: StatementResult[] = [];
   let failure: { index: number; sqlstate?: string; message: string } | undefined;
@@ -94,7 +99,7 @@ async function main() {
     await client.query("BEGIN");
     await client.query("SET LOCAL lock_timeout = '5s'");
     await client.query("SET LOCAL statement_timeout = '60s'");
-    const xid = (await client.query("SELECT pg_current_xact_id()::text AS xid")).rows[0].xid;
+    const xid = await currentXid();
 
     for (const stmt of shape.body) {
       try {
@@ -110,7 +115,7 @@ async function main() {
     if (!failure) {
       // Every statement must have run in the transaction opened above. A different xid means it
       // ended early and later statements autocommitted.
-      const after = (await client.query("SELECT pg_current_xact_id()::text AS xid")).rows[0].xid;
+      const after = await currentXid();
       endedEarly = after !== xid;
       deltas = (
         await client.query<TableDelta>(
@@ -127,6 +132,9 @@ async function main() {
   }
 
   console.log(`Dry run of ${file} (${shape.shape}, ${shape.body.length} statements)`);
+  for (const s of ownTimeouts) {
+    console.log(`  note: statement ${s.index + 1} sets its own ${String(s.node.name)}, replacing the dry run's limit`);
+  }
   for (const r of results) {
     console.log(`  #${r.index + 1}  ${r.command}${r.rowCount === null ? "" : `  ${r.rowCount} rows`}`);
   }
@@ -138,6 +146,12 @@ async function main() {
     if (deltas.length === 0) console.log("  (none)");
     for (const d of deltas) {
       console.log(`  ${d.relname}: +${d.inserted} inserted, ${d.updated} updated, ${d.deleted} deleted`);
+    }
+    // TRUNCATE and DDL change data without touching these counters.
+    const uncounted = results.filter((r) => !COUNTED_COMMANDS.has(r.command));
+    if (uncounted.length > 0) {
+      console.log("Not reflected in the counts above (TRUNCATE, DDL and the like):");
+      for (const r of uncounted) console.log(`  #${r.index + 1}  ${r.command}`);
     }
   }
   if (endedEarly) {

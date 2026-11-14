@@ -41,15 +41,14 @@ describe("parseMigrationSql", () => {
 describe("analyzeTransactionShape", () => {
   it("accepts one leading BEGIN and one trailing COMMIT", async () => {
     const result = analyzeTransactionShape(await statements(WRAPPED));
-    expect(result.problems).toEqual([]);
-    expect(result.shape).toBe("wrapped");
-    expect(result.body.map((s) => s.type)).toEqual(["VariableSetStmt", "InsertStmt"]);
+    expect(result).toMatchObject({ ok: true, shape: "wrapped" });
+    expect(result.ok && result.body.map((s) => s.type)).toEqual(["VariableSetStmt", "InsertStmt"]);
   });
 
   it("accepts a file with no transaction control", async () => {
     const result = analyzeTransactionShape(await statements(INSERT));
-    expect(result.shape).toBe("bare");
-    expect(result.body).toHaveLength(1);
+    expect(result).toMatchObject({ ok: true, shape: "bare" });
+    expect(result.ok && result.body).toHaveLength(1);
   });
 
   it.each([
@@ -66,8 +65,8 @@ describe("analyzeTransactionShape", () => {
     ["PREPARE TRANSACTION", `BEGIN;\n${INSERT}\nPREPARE TRANSACTION 'x';`],
   ])("refuses %s", async (_label, sql) => {
     const result = analyzeTransactionShape(await statements(sql));
-    expect(result.problems.length).toBeGreaterThan(0);
-    expect(result.shape).toBeUndefined();
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.problems.length).toBeGreaterThan(0);
   });
 });
 

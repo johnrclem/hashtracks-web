@@ -18,15 +18,17 @@ const NO_TRANSACTION_MARKER_RE = /^--[ \t]*migration:[ \t]*no-transaction[ \t]*\
 /** "wrapped": one leading BEGIN and one trailing COMMIT. "bare": no transaction control at all. */
 export type TransactionShape = "wrapped" | "bare";
 
-export interface ShapeResult {
-  shape?: TransactionShape;
-  /** The statements between the wrapper, or every statement when bare. */
-  body: MigrationStatement[];
-  problems: string[];
-}
+export type ShapeResult =
+  | {
+      ok: true;
+      shape: TransactionShape;
+      /** The statements between the wrapper, or every statement when bare. */
+      body: MigrationStatement[];
+    }
+  | { ok: false; problems: string[] };
 
-function transactionKind(stmt: MigrationStatement): string | undefined {
-  return stmt.type === "TransactionStmt" ? String(stmt.node.kind) : undefined;
+function transactionKind(stmt: MigrationStatement | undefined): string | undefined {
+  return stmt?.type === "TransactionStmt" ? String(stmt.node.kind) : undefined;
 }
 
 function describe(stmt: MigrationStatement): string {
@@ -41,29 +43,21 @@ function describe(stmt: MigrationStatement): string {
  * COMMIT AND CHAIN, savepoints, PREPARE TRANSACTION) is a problem.
  */
 export function analyzeTransactionShape(statements: MigrationStatement[]): ShapeResult {
-  const first = statements[0];
   const last = statements.at(-1);
-  const opens = first !== undefined && transactionKind(first) === "TRANS_STMT_BEGIN";
-  const closes =
+  const wrapped =
     statements.length > 1 &&
-    last !== undefined &&
+    transactionKind(statements[0]) === "TRANS_STMT_BEGIN" &&
     transactionKind(last) === "TRANS_STMT_COMMIT" &&
-    !last.node.chain;
-
-  const wrapper = new Set<MigrationStatement>();
-  if (opens && closes) {
-    wrapper.add(first);
-    wrapper.add(last);
-  }
-  const strays = statements.filter((s) => s.type === "TransactionStmt" && !wrapper.has(s));
-  const problems = strays.map(
-    (s) =>
-      `${describe(s)}: transaction control is allowed only as one leading BEGIN and one trailing COMMIT`,
-  );
-  if (problems.length > 0) return { body: [], problems };
-
-  if (wrapper.size > 0) return { shape: "wrapped", body: statements.slice(1, -1), problems };
-  return { shape: "bare", body: statements, problems };
+    !last?.node.chain;
+  const body = wrapped ? statements.slice(1, -1) : statements;
+  const problems = body
+    .filter((s) => s.type === "TransactionStmt")
+    .map(
+      (s) =>
+        `${describe(s)}: transaction control is allowed only as one leading BEGIN and one trailing COMMIT`,
+    );
+  if (problems.length > 0) return { ok: false, problems };
+  return { ok: true, shape: wrapped ? "wrapped" : "bare", body };
 }
 
 export function noTransactionReason(sql: string): string | undefined {
@@ -111,7 +105,7 @@ export async function checkNewMigration(sql: string): Promise<string[]> {
   }
 
   const shape = analyzeTransactionShape(statements);
-  if (shape.problems.length > 0) return shape.problems;
+  if (!shape.ok) return shape.problems;
   if (shape.shape !== "wrapped") {
     return [
       "must start with BEGIN; and end with COMMIT; (prisma migrate deploy autocommits each statement otherwise)",
@@ -143,7 +137,8 @@ function callsOutOfTransactionFunction(node: unknown): boolean {
 
 /**
  * Statements a dry run refuses because their effects escape the transaction or reach outside the
- * database. This guards against mistakes; it is not a sandbox for hostile SQL.
+ * database. This guards against mistakes; it is not a sandbox for hostile SQL: dynamic SQL inside
+ * a DO block body is a string the parser never sees.
  */
 export function findDryRunEscapes(statements: MigrationStatement[]): string[] {
   const problems: string[] = [];

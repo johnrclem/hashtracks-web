@@ -2,7 +2,9 @@
  * Splits a migration file into statements with Postgres's own parser (libpg_query, Postgres 17
  * grammar, matching Railway). Comments, string literals and dollar-quoted bodies can't hide a
  * statement from it the way they can from a regex or a line scan. Shared by the dry-run tool,
- * the CI migration check and, later, the G17 allow-list checker.
+ * the CI migration check and, later, the G17 allow-list checker. Keep app code (routes, server
+ * actions) from importing it: Next.js would try to bundle the parser's WASM file. If that ever
+ * becomes necessary, add "libpg-query" to serverExternalPackages in next.config.ts first.
  */
 import { loadModule, parseSync } from "libpg-query";
 
