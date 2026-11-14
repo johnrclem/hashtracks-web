@@ -237,9 +237,13 @@ Before writing code, add `in-progress` to the issue and comment
 5. **Configuration reaches prod only through a data migration.** Vercel runs `migrate deploy`, never
    `db seed`. Change `prisma/seed-data/` **and** add
    `prisma/migrations/<timestamp>_audit_fix_<N>/migration.sql`, an idempotent UPDATE guarded so a
-   re-run is a no-op. Copy the shape of the most recent config migration. If a local `hashtracks_dev`
-   database answers on localhost, dry-run the migration there inside `BEGIN; … ROLLBACK;` and record
-   the row counts. Never run it against prod; the PR asks the owner to.
+   re-run is a no-op. Follow the template in
+   [`docs/ops/system.md#migrations`](system.md#migrations): `BEGIN;`, then
+   `SET LOCAL lock_timeout = '5s';`, then the UPDATE, then `COMMIT;`. CI fails the PR otherwise.
+   If a local `hashtracks_dev` database answers on localhost, dry-run the migration there with
+   `DATABASE_URL=postgresql://$(whoami)@localhost:5432/hashtracks_dev npm run migration:dry-run --
+   prisma/migrations/<dir>` and record the row counts. Never run it against prod; the PR asks the
+   owner to.
 6. **Stored events.** If the fix changes how a display field is extracted, existing events keep the
    old value. Say so in the PR body with the affected kennel, field and approximate count, and give
    the owner the cleanup approach. Don't write or run a cleanup yourself.
@@ -250,8 +254,9 @@ Before writing code, add `in-progress` to the issue and comment
    - the issue's sample, before and after, and the live-verify numbers;
    - the files changed and why the fix stays within this manual's scope;
    - for a migration, the owner's dry-run command:
-     `( echo 'BEGIN;'; cat prisma/migrations/<dir>/migration.sql; echo 'ROLLBACK;' ) | psql "$DATABASE_URL" -v ON_ERROR_STOP=1`
-     plus your local dry-run counts, if you have them;
+     `BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npm run migration:dry-run -- prisma/migrations/<dir>`
+     plus your local dry-run counts, if you have them. Never suggest piping the file into `psql`
+     between `BEGIN` and `ROLLBACK`: psql commits at the file's own `COMMIT;`;
    - any stored-event cleanup the owner needs to run after merge;
    - `Refs #<N>`, not `Closes`: Phase B closes the issue once the public page shows the fix;
    - this line: **"Owner: review, then add the `owner-approved` label. The audit fixer merges it on
