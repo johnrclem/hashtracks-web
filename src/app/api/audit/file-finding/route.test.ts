@@ -95,6 +95,9 @@ function buildReq(opts: ApiPostInit = {}): Request {
 }
 
 const fetchMock = vi.fn();
+/** Answers the GitHub-search dedup gate's GET (open issues for the kennel).
+ *  Defaults to "no open issues"; writes (POSTs) go to `fetchMock`. */
+const listFetchMock = vi.fn();
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 /** Recur-tier existing issue used across the postComment failure tests. */
@@ -131,7 +134,10 @@ function mockResponseBody(text: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubGlobal("fetch", fetchMock);
+  listFetchMock.mockResolvedValue({ ok: true, json: async () => [] });
+  vi.stubGlobal("fetch", (url: unknown, init?: { method?: string }) =>
+    init?.method ? fetchMock(url, init) : listFetchMock(url, init),
+  );
   process.env.GITHUB_TOKEN = "ghp_test";
   mockAdmin.mockResolvedValue({ id: "u_admin", email: "a@b.com" } as never);
   mockFindNonce.mockResolvedValue(nonceRow() as never);
@@ -432,9 +438,20 @@ describe("POST /api/audit/file-finding", () => {
     delete process.env.GITHUB_TOKEN;
     const res = await POST(buildReq());
     expect(res.status).toBe(502);
+    // Without a token the dedup search can't run, so the filer stops before create.
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "[audit-file-finding] createIssue: GITHUB_TOKEN not set",
+      "[audit-file-finding] listOpenIssuesByKennel: GITHUB_TOKEN not set",
     );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 502 without creating when the GitHub dedup search fails (fail closed)", async () => {
+    listFetchMock.mockResolvedValue({ ok: false, status: 503, ...mockResponseBody("unavailable") });
+    const res = await POST(buildReq());
+    expect(res.status).toBe(502);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("GitHub open-issue search failed; refusing to file a possible duplicate");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("logs failed postComment status + body on recur-comment path (#1468)", async () => {

@@ -13,15 +13,22 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-function createPrismaClient() {
-  const pool = new Pool({
+/** Connection settings shared by the Prisma pool and one-off clients (`advisory-lock.ts`). */
+export function pgConnectionOptions() {
+  return {
     connectionString: process.env.DATABASE_URL,
-    // Vercel serverless: keep pool small to avoid exhausting Railway's connection limit across many concurrent function instances
-    max: isProduction ? 2 : 10,
-    idleTimeoutMillis: IDLE_TIMEOUT_MS,
     // Fail fast when Postgres refuses or stalls, instead of hanging until the function times out.
     connectionTimeoutMillis: 10_000,
     ssl: isProduction ? { rejectUnauthorized: false } : undefined,
+  };
+}
+
+function createPrismaClient() {
+  const pool = new Pool({
+    ...pgConnectionOptions(),
+    // Vercel serverless: keep pool small to avoid exhausting Railway's connection limit across many concurrent function instances
+    max: isProduction ? 2 : 10,
+    idleTimeoutMillis: IDLE_TIMEOUT_MS,
   });
   // An idle client whose connection drops (Railway proxy, server restart) emits
   // "error" on the pool; with no listener Node treats it as uncaught.

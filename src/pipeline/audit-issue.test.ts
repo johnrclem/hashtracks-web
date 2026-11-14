@@ -49,6 +49,15 @@ function buildGroup(overrides: Partial<AuditGroup> = {}): AuditGroup {
   };
 }
 
+/** Answers the dedup gate's GET with "no open issues" and every POST with `created`. */
+function githubCreates(created: { html_url: string; number: number }) {
+  mockFetch.mockImplementation(async (_url: unknown, init?: { method?: string }) =>
+    init?.method === "POST"
+      ? { ok: true, json: async () => created }
+      : { ok: true, json: async () => [] },
+  );
+}
+
 /** Return a fresh syncedAt within the staleness window. */
 function freshSyncResult() {
   return { _max: { syncedAt: new Date() } };
@@ -107,10 +116,7 @@ describe("fileAuditIssues", () => {
   });
 
   it("creates issues for groups not in the mirror", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ html_url: "https://github.com/test/42", number: 42 }),
-    });
+    githubCreates({ html_url: "https://github.com/test/42", number: 42 });
 
     const result = await fileAuditIssues([buildGroup()]);
     expect(result).toEqual(["https://github.com/test/42"]);
@@ -190,10 +196,7 @@ describe("fileAuditIssues", () => {
     // so cron-filed issues must carry the audit-canonical block. The sync
     // pipeline reads the block on next upsert and populates
     // AuditIssue.fingerprint without re-deriving the hash.
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ html_url: "https://github.com/test/1", number: 1 }),
-    });
+    githubCreates({ html_url: "https://github.com/test/1", number: 1 });
 
     await fileAuditIssues([buildGroup({ rule: "hare-url", category: "hares" })]);
 
@@ -211,10 +214,7 @@ describe("fileAuditIssues", () => {
   it("omits the canonical block for non-fingerprintable rules", async () => {
     // Imperative-only rules (hare-cta-text, title-raw-kennel-code, etc.)
     // aren't in the registry — issues for them stay un-fingerprinted.
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ html_url: "https://github.com/test/2", number: 2 }),
-    });
+    githubCreates({ html_url: "https://github.com/test/2", number: 2 });
 
     await fileAuditIssues([buildGroup({ rule: "hare-cta-text", category: "hares" })]);
 
@@ -353,5 +353,35 @@ describe("buildCronActions write pacing", () => {
     await actions.createIssue({ title: "a", body: "b", labels: [] });
     await actions.createIssue({ title: "c", body: "d", labels: [] });
     expect(Date.now() - started).toBeLessThan(500);
+  });
+});
+
+describe("buildCronActions listOpenIssuesByKennel", () => {
+  it("returns the open issues (PRs dropped) when GitHub answers", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => [
+        { number: 5, html_url: "https://x/5", title: "t", body: null },
+        { number: 6, html_url: "https://x/6", title: "pr", body: "b", pull_request: {} },
+      ],
+    });
+    const issues = await buildCronActions().listOpenIssuesByKennel("nych3");
+    expect(issues).toEqual([{ number: 5, htmlUrl: "https://x/5", title: "t", body: "" }]);
+  });
+
+  it("returns null (fail closed) on a non-OK response", async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 502, text: async () => "bad gateway" });
+    expect(await buildCronActions().listOpenIssuesByKennel("nych3")).toBeNull();
+  });
+
+  it("returns null (fail closed) on a timeout", async () => {
+    mockFetch.mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError"));
+    expect(await buildCronActions().listOpenIssuesByKennel("nych3")).toBeNull();
+  });
+
+  it("returns null when GITHUB_TOKEN is missing", async () => {
+    delete process.env.GITHUB_TOKEN;
+    expect(await buildCronActions().listOpenIssuesByKennel("nych3")).toBeNull();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });

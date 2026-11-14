@@ -181,7 +181,7 @@ export function buildCronActions({ minWriteGapMs = 0 }: { minWriteGapMs?: number
         reportAuditFilerFailure("cron", "createIssue", {
           error: "GITHUB_TOKEN not set (listOpenIssuesByKennel)",
         });
-        return [];
+        return null;
       }
       // The kennelCode is interpolated into the `labels` query param; reject
       // anything that isn't GitHub-label-safe so the gate never builds a
@@ -205,7 +205,7 @@ export function buildCronActions({ minWriteGapMs = 0 }: { minWriteGapMs?: number
           console.error(
             `[audit-issue] listOpenIssuesByKennel ${res.status} for ${kennelCode}`,
           );
-          return [];
+          return null;
         }
         const issues = (await res.json()) as Array<{
           number: number;
@@ -225,7 +225,7 @@ export function buildCronActions({ minWriteGapMs = 0 }: { minWriteGapMs?: number
           }));
       } catch (err) {
         console.error("[audit-issue] listOpenIssuesByKennel threw:", err);
-        return [];
+        return null;
       }
     },
   };

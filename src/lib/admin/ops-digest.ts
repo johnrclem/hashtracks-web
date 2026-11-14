@@ -41,8 +41,17 @@ export interface OpsDigest {
   largeCancellations24h: LargeCancellation[];
   /** Kennels whose every enabled source found 0 events on its latest successful scrape. */
   allZeroKennels: string[];
-  auditQueue: { pending: number; oldestPendingAt: string | null };
+  auditQueue: {
+    pending: number;
+    oldestPendingAt: string | null;
+    /** PENDING drafts submitted more than {@link STALE_PENDING_HOURS} hours ago.
+     *  The promoter runs hourly, so any of these means it is stuck or failing. */
+    stalePending: number;
+  };
 }
+
+/** A PENDING draft older than this has missed at least one hourly promoter run. */
+export const STALE_PENDING_HOURS = 2;
 
 /** Postgres COUNT/SUM come back as bigint; the JSON response needs plain numbers. */
 const num = (v: unknown): number => (v == null ? 0 : Number(v));
@@ -103,7 +112,10 @@ export async function buildOpsDigest(now: Date = new Date()): Promise<OpsDigest>
         HAVING max(l."eventsFound") = 0
         ORDER BY k."kennelCode"`,
       prisma.$queryRaw<Array<Record<string, unknown>>>`
-        SELECT count(*) AS pending, min("submittedAt") AS oldest
+        SELECT count(*) AS pending, min("submittedAt") AS oldest,
+               count(*) FILTER (
+                 WHERE "submittedAt" < now() - make_interval(hours => ${STALE_PENDING_HOURS}::int)
+               ) AS stale
         FROM "AuditFindingDraft" WHERE status = 'PENDING'`,
     ]);
 
@@ -139,6 +151,10 @@ export async function buildOpsDigest(now: Date = new Date()): Promise<OpsDigest>
       eventsCancelled: num(r.eventsCancelled),
     })),
     allZeroKennels: zeroRows.map((r) => String(r.kennelCode)),
-    auditQueue: { pending: num(q.pending), oldestPendingAt: iso(q.oldest) },
+    auditQueue: {
+      pending: num(q.pending),
+      oldestPendingAt: iso(q.oldest),
+      stalePending: num(q.stale),
+    },
   };
 }

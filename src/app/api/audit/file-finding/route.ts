@@ -249,6 +249,8 @@ function errorMessageFor(reason: FilerErrorReason): string {
       return "Filing-mirror DB update failed after successful GitHub comment; retry is safe";
     case "create-failed":
       return "GitHub issue creation failed";
+    case "github-list-failed":
+      return "GitHub open-issue search failed; refusing to file a possible duplicate";
   }
 }
 
@@ -386,7 +388,7 @@ function buildApiActions(): FilerActions {
         reportAuditFilerFailure("chrome", "createIssue", {
           error: "GITHUB_TOKEN not set (listOpenIssuesByKennel)",
         });
-        return [];
+        return null;
       }
       if (!isValidKennelCode(kennelCode)) return [];
       const repo = getValidatedRepo();
@@ -408,7 +410,7 @@ function buildApiActions(): FilerActions {
           console.error(
             `${LOG_PREFIX} listOpenIssuesByKennel GitHub API ${res.status}: ${errBody}`,
           );
-          return [];
+          return null;
         }
         const issues = (await res.json()) as Array<{
           number: number;
@@ -427,7 +429,7 @@ function buildApiActions(): FilerActions {
           }));
       } catch (err) {
         console.error(`${LOG_PREFIX} listOpenIssuesByKennel fetch threw:`, err);
-        return [];
+        return null;
       }
     },
   };
