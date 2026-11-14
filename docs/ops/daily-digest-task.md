@@ -22,7 +22,7 @@ Every Bash call starts in the owner's live checkout (/Users/johnclem/Developer/h
 
 1. **Prod health:**
    `TOKEN=$(grep -m1 '^AUDIT_AGENT_TOKEN=' /Users/johnclem/Developer/hashtracks-web/.env | cut -d= -f2- | tr -d '"'); curl -s -H "Authorization: Bearer $TOKEN" https://www.hashtracks.xyz/api/audit/agent/ops-digest`
-   The JSON `data` has: `scrapes24h`, `failingSources` (with failure `streak`), `openAlerts`, `alertsCreated24h`, `largeCancellations24h`, `allZeroKennels`, `auditQueue`. If the call fails, say so at the top of the digest and carry on with the rest. Do NOT fall back to psql.
+   The JSON `data` has: `scrapes24h`, `failingSources` (with failure `streak`), `openAlerts`, `alertsCreated24h`, `largeCancellations24h`, `allZeroKennels`, `auditQueue` (with `stalePending`), `failedMigrations`. If the call fails, say so at the top of the digest and carry on with the rest. Do NOT fall back to psql.
 2. **Scheduled automations:** use the scheduled-tasks tools to list the last runs of `hashtracks-kennel-deep-dive`, `hashtracks-hareline-audit`, `hashtracks-kennel-onboarding`, `hashtracks-kennel-implement` and `hashtracks-audit-fixer`. Flag any run that failed, any task that hasn't run on schedule in the last 26 hours (deep dive: about every 5 hours), and any summary mentioning "blocked", "denied", "STUCK" or "PR OPEN". If those tools aren't available, say so.
 3. **GitHub** (`gh`, read-only, repo johnrclem/hashtracks-web):
    - Open PRs waiting on the owner: label `onboarding-impl` or `audit-fix` without `owner-approved`, any PR with failing checks, and any PR open longer than 3 days.
@@ -33,6 +33,8 @@ Every Bash call starts in the owner's live checkout (/Users/johnclem/Developer/h
 ## Judge
 
 Compare with yesterday's digest file, if it exists, and call out what's new, what got worse and what cleared. Rules of thumb:
+- Any `failedMigrations` row goes first under "Needs you today": every deploy is blocked until the owner recovers it. Name the migration and link the runbook, `docs/ops/system.md#when-a-migration-fails-in-prod`.
+- `auditQueue.stalePending` above 0 means the hourly filing run is stuck or failing. Put it under "Needs you today".
 - A failure streak of 3 or more is an incident.
 - Any `largeCancellations24h` row is urgent.
 - Grand Strand H3's Facebook source failing is a known soft block.
