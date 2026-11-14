@@ -14,8 +14,8 @@ backfill, or seed the database, don't — this manual says how far you go.
 1. **Never touch the owner's live checkout** (`/Users/johnclem/Developer/hashtracks-web`) with git
    or writes. Work in the implementer's own clone (`$WORK`, see Setup). You may *read* the live
    checkout's `.env` and use its `node_modules` read-only.
-2. **No prod writes.** Prod access is limited to read-only queries and dry-runs inside
-   `BEGIN … ROLLBACK`. Never run `prisma db seed`, `prisma migrate deploy`, `db push`, a backfill
+2. **No prod writes.** Prod access is limited to read-only queries and migration dry-runs with
+   `npm run migration:dry-run` (never by piping a file into `psql`). Never run `prisma db seed`, `prisma migrate deploy`, `db push`, a backfill
    apply (`BACKFILL_APPLY`), or any UPDATE/INSERT/DELETE outside a rolled-back transaction.
 3. **The owner approves every merge.** The `owner-approved` label on GitHub is the owner's OK.
    **Never add that label yourself, and never merge an `onboarding-impl` PR without it.**
@@ -155,9 +155,14 @@ adapter.
    **Not onboardable** below instead of opening a code PR.
 4. **Data-only migration** in `prisma/migrations/<timestamp>_onboard_<code>/migration.sql`. Copy the
    shape of the most recent `*_onboard_*` migration (idempotent INSERTs, guarded so a re-run is a
-   no-op). Seed changes reach prod only through this migration.
-5. **Dry-run the migration against prod** inside `BEGIN; … ROLLBACK;` and record per-statement row
-   counts. Never commit the transaction.
+   no-op), wrapped per the template in
+   [`docs/ops/system.md#migrations`](../ops/system.md#migrations): `BEGIN;`, then
+   `SET LOCAL lock_timeout = '5s';`, the INSERTs, then `COMMIT;`. CI fails the PR otherwise. Seed
+   changes reach prod only through this migration.
+5. **Dry-run the migration against prod** and record per-statement row counts:
+   `(set -a; . /Users/johnclem/Developer/hashtracks-web/.env; set +a; BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npm run migration:dry-run -- prisma/migrations/<dir>)`.
+   The tool always rolls back. Never pipe the file into `psql` between `BEGIN` and `ROLLBACK`:
+   psql commits at the file's own `COMMIT;`.
 6. **History backfill** (only if the handoff has one): follow the recent precedent (frozen JSON under
    `scripts/data/` + a loader routed through the merge pipeline). Run it in **dry-run mode only** and
    record per-kennel counts and the exact apply command for the owner.

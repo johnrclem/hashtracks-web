@@ -17,6 +17,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # The PR merge commit plus its first parent (the base tip), for the migration check.
+          fetch-depth: 2
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -24,6 +27,17 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      # New migrations must be wrapped in BEGIN/COMMIT with SET LOCAL lock_timeout, and existing
+      # ones are immutable. See docs/ops/system.md#migrations.
+      - name: Migration check
+        if: github.event_name == 'pull_request'
+        # The migration-recovery label allows editing a migration that failed in prod and never
+        # applied. Add the label, then re-run this job.
+        run: |
+          set -o pipefail
+          git diff --name-status --no-renames HEAD^1 HEAD -- prisma/migrations \
+            | npx tsx scripts/ci/check-migrations.ts --stdin ${{ contains(github.event.pull_request.labels.*.name, 'migration-recovery') && '--allow-modified' || '' }}
 
       - name: Type check
         run: npx tsc --noEmit

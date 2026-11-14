@@ -10,7 +10,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "postinstall": "prisma generate",
-    "prisma": "node scripts/safe-prisma.mjs"
+    "prisma": "node scripts/safe-prisma.mjs",
+    "migration:dry-run": "tsx scripts/migration-dry-run.ts",
+    "check:migrations": "git diff --name-status --no-renames origin/main HEAD -- prisma/migrations | tsx scripts/ci/check-migrations.ts --stdin"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.3",
@@ -68,6 +70,7 @@
     "dotenv": "^17.2.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
+    "libpg-query": "17.8.2",
     "prisma": "^7.3.0",
     "shadcn": "^3.8.4",
     "tailwindcss": "^4",
