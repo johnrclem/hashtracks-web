@@ -1,4 +1,4 @@
-const DEFAULT_SITE_URL = "https://www.hashtracks.xyz";
+export const DEFAULT_SITE_URL = "https://www.hashtracks.xyz";
 
 export function getCanonicalSiteUrl(): string {
   const rawUrl = process.env.NEXT_PUBLIC_APP_URL || DEFAULT_SITE_URL;

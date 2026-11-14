@@ -16,9 +16,10 @@
  */
 import "dotenv/config";
 import { Client } from "@upstash/qstash";
+import { DEFAULT_SITE_URL } from "../src/lib/site-url";
 
 /** The apex domain 308-redirects to www, so schedules target www directly. */
-const BASE_URL = "https://www.hashtracks.xyz";
+const BASE_URL = DEFAULT_SITE_URL;
 /** Hosts older schedules may still target; their schedules are replaced. */
 const LEGACY_BASE_URLS = ["https://hashtracks.xyz", "https://hashtracks.com"];
 
@@ -54,14 +55,18 @@ async function main() {
     const destination = `${BASE_URL}${spec.path}`;
     const targets = new Set([BASE_URL, ...LEGACY_BASE_URLS].map((base) => `${base}${spec.path}`));
 
-    for (const s of existing.filter((s) => targets.has(s.destination))) {
-      console.log(`Deleting schedule ${s.scheduleId} (${s.destination})`);
-      await client.schedules.delete(s.scheduleId);
-    }
-
+    // Create before deleting, so a failed create never leaves the path unscheduled.
     const schedule = await client.schedules.create({ destination, cron: spec.cron, retries: 3 });
     console.log(`Created ${spec.description}: ${schedule.scheduleId}`);
     console.log(`  Cron: ${spec.cron}  Destination: ${destination}`);
+
+    const old = existing.filter(
+      (s) => targets.has(s.destination) && s.scheduleId !== schedule.scheduleId,
+    );
+    for (const s of old) {
+      console.log(`Deleting old schedule ${s.scheduleId} (${s.destination})`);
+      await client.schedules.delete(s.scheduleId);
+    }
   }
 
   console.log("\nVerify at: https://console.upstash.com -> QStash -> Schedules");

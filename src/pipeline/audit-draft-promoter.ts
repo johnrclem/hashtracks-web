@@ -58,7 +58,8 @@ export const DEFAULT_PROMOTER_MAX_DURATION_S = 300;
 /** Slack past `maxDuration` before Postgres ends an abandoned lock transaction. */
 const LOCK_IDLE_SLACK_S = 30;
 
-/** Fixed advisory-lock key: one promoter run at a time, across every instance. */
+/** Fixed advisory-lock key: one promoter run at a time, across every instance.
+ *  Must differ from the audit-issue sync's key (`audit-issue-sync.ts`). */
 export const PROMOTER_LOCK_KEY = 0x41_44_50_52; // "ADPR"
 
 export interface PromotionSummary {
@@ -162,10 +163,23 @@ async function promoteUnderLock(): Promise<PromotionSummary> {
   // would fork a DUPLICATE. Defer the sibling to a later run. (Codex P2 #2298.)
   const processedKeys = new Set<string>();
 
+  // Once GitHub can't answer the dedup search, it's down for this run: leave the
+  // rest of the batch untouched (no claim, no fetch) instead of timing out on each.
+  let gitHubUnavailable = false;
+
   for (const draft of drafts) {
+    if (gitHubUnavailable) {
+      summary.deferred += 1;
+      continue;
+    }
     try {
       const kind = await promoteOneDraft(draft, actions, suppressions, processedKeys);
-      if (kind !== "skipped") summary[kind] += 1;
+      if (kind === "github-unavailable") {
+        gitHubUnavailable = true;
+        summary.deferred += 1;
+      } else if (kind !== "skipped") {
+        summary[kind] += 1;
+      }
     } catch (err) {
       // Failure isolation: an unexpected throw (network/DB hiccup) must not abort
       // the whole batch and strand every later draft. (Gemini high #2298.)
@@ -194,7 +208,8 @@ type PromotionOutcomeKind =
   | "rejected"
   | "errored"
   | "deferred"
-  | "skipped";
+  | "skipped"
+  | "github-unavailable";
 
 /**
  * Promote a single draft through the suppression → dedup → claim → file pipeline.
@@ -303,7 +318,7 @@ async function promoteOneDraft(
       data: { errorReason: outcome.reason, promoteAttempts: { decrement: 1 } },
     });
     console.warn(`[promote-audit] GitHub dedup search failed; left draft ${draft.id} ${draft.status}`);
-    return "deferred";
+    return "github-unavailable";
   }
   // Filer error: leave ERROR (retryable until the cap). Don't add to processedKeys
   // — no issue exists, so a sibling may still legitimately file.

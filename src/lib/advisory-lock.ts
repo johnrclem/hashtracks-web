@@ -11,6 +11,7 @@
  * suspended connection could stay held indefinitely.
  */
 import { Client } from "pg";
+import { pgConnectionOptions } from "@/lib/db";
 
 export type AdvisoryLockResult<T> = { acquired: true; result: T } | { acquired: false };
 
@@ -24,19 +25,15 @@ export async function withAdvisoryXactLock<T>(
   if (!Number.isSafeInteger(idleTimeoutMs) || idleTimeoutMs <= 0) {
     throw new Error(`Invalid idle timeout: ${idleTimeoutMs}`);
   }
-  const client = new Client({
-    connectionString: process.env.DATABASE_URL,
-    connectionTimeoutMillis: 10_000,
-    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : undefined,
-  });
+  const client = new Client(pgConnectionOptions());
   // A dropped connection emits "error"; without a listener Node treats it as uncaught.
   client.on("error", (err) => {
     console.error("[advisory-lock] connection error:", err.message);
   });
 
-  await client.connect();
   let inTransaction = false;
   try {
+    await client.connect();
     await client.query(`SET idle_in_transaction_session_timeout = ${idleTimeoutMs}`);
     await client.query("BEGIN");
     inTransaction = true;

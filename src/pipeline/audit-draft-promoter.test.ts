@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/db", () => ({
+  pgConnectionOptions: () => ({}),
   prisma: {
     auditFindingDraft: {
       findMany: vi.fn(),
@@ -288,5 +289,21 @@ describe("promoteAuditDrafts when GitHub can't answer", () => {
     expect(mockUpdateMany).not.toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: expect.anything() }) }),
     );
+  });
+
+  it("stops at the first GitHub list failure and leaves the rest of the batch untouched", async () => {
+    mockFindMany.mockResolvedValue([
+      draft({ id: "d1" }),
+      draft({ id: "d2", ruleSlug: "location-leak" }),
+      draft({ id: "d3", ruleSlug: "time-leak" }),
+    ] as never);
+    mockFile.mockResolvedValue({ action: "error", reason: "github-list-failed" } as never);
+
+    const summary = await promoteAuditDrafts();
+
+    expect(summary).toMatchObject({ considered: 3, deferred: 3, errored: 0 });
+    expect(mockFile).toHaveBeenCalledTimes(1);
+    // One claim + one give-back for d1; d2 and d3 were never claimed.
+    expect(mockUpdateMany).toHaveBeenCalledTimes(2);
   });
 });
