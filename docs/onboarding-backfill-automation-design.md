@@ -1,6 +1,6 @@
 # Onboarding backfill automation: design
 
-**Status:** v5.3, amended 2026-11-14 after PR review. Approved by adversarial review in round 20; Appendix A records every round. The owner approved all ten decisions in section 15 on 2026-11-13, and decision 7's step-up was rebuilt in that review (10.3, T4). Nothing is built yet.
+**Status:** v5.3, amended 2026-11-14 after PR review. Adversarial review: approved in round 20 (Appendix A records every round). Owner approval of section 15: 2026-11-13. The owner approved all ten decisions in section 15 on 2026-11-13, and decision 7's step-up was rebuilt in that review (10.3, T4). Nothing is built yet.
 **Scope:** design only. Nothing here is built yet. No code, migration or prod write was made to produce it.
 **Related:** [`kennel-onboarding/implement-handoff-prompt.md`](kennel-onboarding/implement-handoff-prompt.md) (the implementer),
 [`kennel-onboarding/daily-onboarding-prompt.md`](kennel-onboarding/daily-onboarding-prompt.md) (research),
@@ -870,14 +870,17 @@ Clerk's clock runs ahead of the server's (normally under a second). An accepted 
 runs in batches under its lease, as apply does.
 
 **Step-up probe.** The admin page also has a probe that runs the same three checks when it mints a
-nonce and when it uses one, spends the nonce, and writes only an audit row. It can wait before
-fetching the token for its use. The late case can't be tested any other way: the page sends each
+nonce and when it uses one, spends the nonce, and writes only an audit row. It can be late in two
+ways: wait before fetching the token for its use, which check 2 refuses, or fetch that token straight
+away and hold it, which check 3 refuses. The late cases can't be tested any other way: the page sends each
 action as soon as the code is entered, and before Phase 2 there is no run to resume or undo.
 
 Phase 0 tests refusal for: no second factor; `fva` missing or malformed; a second value of 1 or more;
 a token 60 seconds old or more, or with no `iat`; and a valid nonce sent with a token that fails a
 check, each even when Clerk's check passes. It also tests, with the probe on Clerk's development
-instance, that a real TOTP step-up passes.
+instance, that a real TOTP step-up passes. And it reads the `fva` of a token that the Backend API
+mints for a session with no recent second factor (`sessions.getToken`), which settles the question
+below before Phase 2.
 
 **What is left.** For up to two minutes after each second-factor use by the owner, that browser
 session passes checks 2 and 3, when the nonce is minted and when it is used. Clerk's own sensitive
@@ -893,8 +896,9 @@ values can't be read back, but every deployment decrypts them, so code in a buil
 can read any value scoped to that build's environment (4.1). With the live key, an agent could remove the owner's second factors through Clerk's Backend
 API, sign in as the owner with a sign-in token and enrol its own TOTP; the digest would still see TOTP
 and backup codes on. The Backend API can also mint a token for an existing session
-(`sessions.getToken`). Whether such a token carries `fva` hasn't been checked; if it does, one minted
-for the owner's phone session within its two minutes would pass, and the phone rule wouldn't stop it.
+(`sessions.getToken`). Whether such a token carries `fva` hasn't been checked yet (Phase 0 checks it);
+if it does, one minted for the owner's phone session within its two minutes would pass, and the phone
+rule wouldn't stop it.
 The server itself must hold the live key, so a leak from Vercel reaches as far (4.1). H2 takes Vercel
 access off the scheduled tasks and keeps production secrets out of builds of code the owner hasn't
 approved (with H1's ruleset on `main`).
@@ -906,8 +910,9 @@ codes switched off, and passkeys didn't count as a second factor. Before Phase 2
   add a second factor, so an agent could otherwise enrol its own.
 - Phone codes stay off as a second factor.
 - Clerk's window for its own sensitive actions is set to its minimum.
-- The owner then runs the step-up probe on production twice: once straight through, which passes, and
-  once waiting 70 seconds before fetching the token for its use, which check 2 refuses. Phase 0's
+- The owner then runs the step-up probe on production three times: once straight through, which
+  passes; once waiting 70 seconds before fetching the token for its use, which check 2 refuses; and
+  once fetching that token straight away and holding it 70 seconds, which check 3 refuses. Phase 0's
   development-instance test can't show this, because production's factor settings and
   sensitive-action window differ.
 
@@ -980,7 +985,8 @@ on (run id, row index).
 **`BackfillStepUpNonce`:** `nonceHash`; Clerk session id; action (`RESUME`, `UNDO`, `SET_CUTOFF`,
 `CLEAR_CUTOFF`, `PROBE`); run id or kennel id (both null for the probe); `expiresAt`; `consumedAt`;
 the result of the checks on use. Unique on `nonceHash`, the same pattern as `AuditFilingNonce`. The
-step-up probe's audit record is its row here; the probe writes nothing else.
+step-up probe's audit record is its row here; the probe writes nothing else. The expiry doesn't set
+the two-minute window, since the checks on use do. It only limits how long an unused nonce lingers.
 
 **`Source.archiveOnly`:** boolean, default false, with a hand-written CHECK
 `NOT ("archiveOnly" AND enabled)` in the same migration (Prisma can't express it in the schema).
@@ -1021,7 +1027,7 @@ when its heartbeat is over 26 hours old. Silence counts as failure.
 | `scripts/lib/delete-leaked-event.ts` | Move to `src/lib`; add canonical recompute for touched slots |
 | `prisma/schema.prisma` | `Source.archiveOnly`, `Kennel.archiveCutoffDate` and `archiveCutoffRunId`, `BackfillRun`, `BackfillRunItem`, `CronHeartbeat`, `BackfillStepUpNonce` |
 | New | `src/lib/backfill/**` (manifest with `scheduleOnlyEstimate` and G21, PII scanner, provenance rules, migration checker, plan with the expected `isScheduleOnly` from `POSTED_RUN_RAW_SQL`, apply with the kennel status refreshes, verify, undo); agent routes; admin page with Clerk `strict_mfa` reverification, the server's own checks on `fva` and `iat` (10.3), run when a nonce is minted and again when it is used, a fresh verification per action, single-use action nonces bound to the session and expiring after 2 minutes, the step-up probe, and the undo plan's hash on the undo confirm; a Clerk Backend API check of the owner's second factors for the Phase 2 entry and the digest; watch cron; `approval-stamp.yml`; `backfill-manifest` CI job |
-| Ops (owner) | Before Phase 1: `BACKFILL_AGENT_TOKEN` and `GITHUB_APPROVAL_READ_TOKEN` set in Vercel, scoped to Production only, so a preview build of an agent's branch never gets them; the same for the GitHub App's credentials later. Before Phase 2: H3 (the issue-filing GitHub App; the server's GitHub calls today touch only issues, labels and repo metadata, so the App needs Issues and read-only Metadata, and the filing-health probe is reworked); the authenticator app and backup codes switched on in Clerk production and the owner enrolled from the phone in one sitting, with phone codes off and Clerk's sensitive-action window at its minimum, then the step-up probe run twice on production (10.3) |
+| Ops (owner) | Before Phase 1: `BACKFILL_AGENT_TOKEN` and `GITHUB_APPROVAL_READ_TOKEN` set in Vercel, scoped to Production only, so a preview build of an agent's branch never gets them; the same for the GitHub App's credentials later. Before Phase 2: H3 (the issue-filing GitHub App; the server's GitHub calls today touch only issues, labels and repo metadata, so the App needs Issues and read-only Metadata, and the filing-health probe is reworked); the authenticator app and backup codes switched on in Clerk production and the owner enrolled from the phone in one sitting, with phone codes off and Clerk's sensitive-action window at its minimum, then the step-up probe run three times on production (10.3) |
 
 ### 12.2 Manuals
 
@@ -1058,9 +1064,9 @@ also be undone; until then, `adopt-only` manifests bring them into the record.
 
 | Phase | What runs | Entry | Exit |
 |---|---|---|---|
-| 0. Build | Section 12.1. `BACKFILL_AUTOMATION=off` | This design approved | Unit tests for every guard, every merge match path in both modes, the cutoff drop, the provenance rules (against real Sheets, GCal, Meetup and website archives) and the migration checker (the last eight onboarding migrations pass, crafted bypasses fail, and a sample onboarding migration that creates an archive source applies cleanly to a local database with the CHECK in place); the step-up refuses no second factor, a missing or malformed `fva`, and a second-factor age of 1 minute or more, a token 60 seconds old or more or with no `iat`, and a valid nonce sent with a token that fails a check, even when Clerk's check passes, while a real TOTP step-up through the probe on Clerk's development instance passes (10.3); plan, apply, crash-resume and undo tested end to end against a local copy of prod |
+| 0. Build | Section 12.1. `BACKFILL_AUTOMATION=off` | This design approved | Unit tests for every guard, every merge match path in both modes, the cutoff drop, the provenance rules (against real Sheets, GCal, Meetup and website archives) and the migration checker (the last eight onboarding migrations pass, crafted bypasses fail, and a sample onboarding migration that creates an archive source applies cleanly to a local database with the CHECK in place); the step-up refuses no second factor, a missing or malformed `fva`, and a second-factor age of 1 minute or more, a token 60 seconds old or more or with no `iat`, and a valid nonce sent with a token that fails a check, even when Clerk's check passes, while a real TOTP step-up through the probe on Clerk's development instance passes, and the `fva` of a session token minted through the Backend API (`sessions.getToken`) is read and recorded (10.3); plan, apply, crash-resume and undo tested end to end against a local copy of prod |
 | 1. Shadow | `BACKFILL_AUTOMATION=shadow`. The implementer runs `plan` and posts it; the owner still applies by hand and compares. The approval endpoint runs beside the implementer's old merge check and any disagreement is reported | Phase 0 merged | `adopt-only` manifests for Music City and Zagreb come out `ADOPTED`; 5 new backfills where the shadow plan's written-row count equals what the hand apply created, every block was correct, and no PII false positive went unexplained; no disagreement between the approval endpoint and the owner's intent |
-| 2. Apply behind the label | `BACKFILL_AUTOMATION=apply`, Phase 2 scope (section 3), 2,000-row cap, 2 applies a day, the implementer starts every apply | Phase 1 exit; H3 done; the owner enrolled in TOTP with backup codes and no phone second factor, as read through Clerk's Backend API; on production, one probe step-up passed and one late attempt was refused (10.3); the owner's written acceptance of T1 and T4 and of H1/H2's absence | 10 applied runs, all `VERIFIED` first time or explained, no undo needed for a wrong write, no 7-day re-check failure |
+| 2. Apply behind the label | `BACKFILL_AUTOMATION=apply`, Phase 2 scope (section 3), 2,000-row cap, 2 applies a day, the implementer starts every apply | Phase 1 exit; H3 done; the owner enrolled in TOTP with backup codes and no phone second factor, as read through Clerk's Backend API; on production, one probe step-up passed and both late attempts were refused (10.3); the owner's written acceptance of T1 and T4 and of H1/H2's absence | 10 applied runs, all `VERIFIED` first time or explained, no undo needed for a wrong write, no 7-day re-check failure |
 | 3. Loosen | One change at a time: multi-kennel origins or several live sources **only with per-row routing provenance** (the freeze tool records which pattern matched each row, default-bucket rows are forbidden, CI re-derives the routing from the origin's config); more origin types; a higher cap; the watch cron starting approved applies | Phase 2 exit **and** H1 **and** H2 | Owner's call per change |
 
 **Never loosened:** create-only, the archive binding and cutoff for automated applies, the PII guard,
@@ -1154,7 +1160,7 @@ What the owner still has to do, and when:
     of the build.
   - In Clerk production, in one sitting with the scheduled tasks paused: switch on the authenticator
     app and backup codes, enrol from the phone, keep phone codes off as a second
-    factor, set Clerk's sensitive-action window to its minimum, and run the step-up probe twice
+    factor, set Clerk's sensitive-action window to its minimum, and run the step-up probe three times
     (10.3).
   - Accept T1 and T4, and the absence of H1 and H2, in writing.
   - From then on, do step-up actions from the phone.
@@ -1465,3 +1471,12 @@ CodeRabbit (P-1, P-2) and the Claude PR review (P-3 to P-8) commented after roun
 | # | Note | Applied |
 |---|---|---|
 | R20-1 | Section 15's change note credited rounds 16–18 and described only H2's first widening | Credits rounds 16–19 and states H2's full condition (15) |
+
+**Claude PR review of round 20's commit** — no blockers. Four minor notes were applied without a new round, as after rounds 5 and 15. A fifth, comparing Clerk's `user.updated` with the digest to flag a factor change, is left for a later phase.
+
+| # | Note | Applied |
+|---|---|---|
+| C-1 | Whether a Backend-API-minted token carries `fva` decides whether the phone rule holds against a leaked live key; it's cheap to check | A Phase 0 test reads it (10.3, 13) |
+| C-2 | With the checks rerun on use, the nonce's expiry no longer sets the window | Said in 11.1 |
+| C-3 | The probe's late case tested only check 2 on production | A second late mode holds a fresh token for 70 seconds, which check 3 refuses; production runs the probe three times (10.3, 12.1, 13, 15) |
+| C-4 | "Approved" in the header could be read as the owner's approval | "Adversarial review: approved in round 20. Owner approval of section 15: 2026-11-13" |
