@@ -9,7 +9,8 @@ import { Tooltip, TooltipProvider, TooltipTrigger } from "./tooltip";
 // rendered null for these, causing hydration mismatches; radix-ui >= 1.5.0 is
 // required.
 
-// The shape Flight's createLazyChunkWrapper produces for a resolved chunk.
+// The shape Flight's createLazyChunkWrapper produces for a resolved chunk
+// (modeled on React 19.2's react-server-dom client, as bundled by Next 16).
 // `then` is required: Slot only unwraps a lazy whose _payload is promise-like.
 function rscLazy(element: ReactElement): ReactNode {
   const chunk = {

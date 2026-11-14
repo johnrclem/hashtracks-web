@@ -54,7 +54,9 @@ describe("Header theme toggle hydration", () => {
 
   it("lets the dark: variant pick the toggle icon instead of JS", () => {
     const html = renderHeader(undefined);
-    expect(html).toContain("lucide-sun h-4 w-4 dark:hidden");
-    expect(html).toContain("lucide-moon hidden h-4 w-4 dark:block");
+    const iconClasses = (name: string) =>
+      html.match(new RegExp(`class="([^"]*lucide-${name}\\b[^"]*)"`))?.[1].split(" ") ?? [];
+    expect(iconClasses("sun")).toContain("dark:hidden");
+    expect(iconClasses("moon")).toEqual(expect.arrayContaining(["hidden", "dark:block"]));
   });
 });
