@@ -48,29 +48,31 @@ if (!QSTASH_TOKEN) {
 
 const client = new Client({ token: QSTASH_TOKEN });
 
+/** Create `spec`'s schedule, then delete any older one for the same path.
+ *  Creating first means a failed create never leaves the path unscheduled. */
+async function replaceSchedule(spec: ScheduleSpec, existing: Array<{ scheduleId: string; destination: string }>) {
+  const destination = `${BASE_URL}${spec.path}`;
+  const targets = new Set([BASE_URL, ...LEGACY_BASE_URLS].map((base) => `${base}${spec.path}`));
+
+  const schedule = await client.schedules.create({ destination, cron: spec.cron, retries: 3 });
+  console.log(`Created ${spec.description}: ${schedule.scheduleId}`);
+  console.log(`  Cron: ${spec.cron}  Destination: ${destination}`);
+
+  const old = existing.filter(
+    (s) => targets.has(s.destination) && s.scheduleId !== schedule.scheduleId,
+  );
+  await Promise.all(
+    old.map((s) => {
+      console.log(`Deleting old schedule ${s.scheduleId} (${s.destination})`);
+      return client.schedules.delete(s.scheduleId);
+    }),
+  );
+}
+
 async function main() {
   const existing = await client.schedules.list();
-
-  for (const spec of SCHEDULES) {
-    const destination = `${BASE_URL}${spec.path}`;
-    const targets = new Set([BASE_URL, ...LEGACY_BASE_URLS].map((base) => `${base}${spec.path}`));
-
-    // Create before deleting, so a failed create never leaves the path unscheduled.
-    const schedule = await client.schedules.create({ destination, cron: spec.cron, retries: 3 });
-    console.log(`Created ${spec.description}: ${schedule.scheduleId}`);
-    console.log(`  Cron: ${spec.cron}  Destination: ${destination}`);
-
-    const old = existing.filter(
-      (s) => targets.has(s.destination) && s.scheduleId !== schedule.scheduleId,
-    );
-    await Promise.all(
-      old.map((s) => {
-        console.log(`Deleting old schedule ${s.scheduleId} (${s.destination})`);
-        return client.schedules.delete(s.scheduleId);
-      }),
-    );
-  }
-
+  // Each schedule targets a different path, so they can be replaced independently.
+  await Promise.all(SCHEDULES.map((spec) => replaceSchedule(spec, existing)));
   console.log("\nVerify at: https://console.upstash.com -> QStash -> Schedules");
 }
 
