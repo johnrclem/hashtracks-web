@@ -24,6 +24,13 @@ vi.mock("@/lib/db", () => ({
     },
   },
 }));
+// The promoter's run lock opens its own pg connection; run the job directly here.
+vi.mock("@/lib/advisory-lock", () => ({
+  withAdvisoryXactLock: vi.fn(async (_key: number, _idleMs: number, job: () => Promise<unknown>) => ({
+    acquired: true,
+    result: await job(),
+  })),
+}));
 vi.mock("@/pipeline/audit-issue-sync", () => ({ syncAuditIssues: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/pipeline/audit-filer", () => ({ fileAuditFinding: vi.fn() }));
