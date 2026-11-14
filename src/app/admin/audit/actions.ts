@@ -1075,8 +1075,6 @@ export interface PendingDraftRow {
 
 const PENDING_DRAFTS_LIMIT = 100;
 
-/** Reviewable chrome-stream findings: PENDING (awaiting promotion) + ERROR
- *  (stuck after the retry cap, so they don't accumulate invisibly). Admin-only. */
 /**
  * Every rule slug agents have submitted, so a filed (and recurring) agent rule
  * stays suppressible after its draft leaves the queue.
@@ -1090,6 +1088,8 @@ export async function getAgentRuleSlugs(): Promise<string[]> {
   return rows.map(r => r.ruleSlug);
 }
 
+/** Reviewable chrome-stream findings: PENDING (awaiting promotion) + ERROR
+ *  (stuck after the retry cap, so they don't accumulate invisibly). Admin-only. */
 export async function getPendingDrafts(): Promise<PendingDraftRow[]> {
   await requireAdmin();
   const drafts = await loadQueuedDrafts({ limit: PENDING_DRAFTS_LIMIT });
