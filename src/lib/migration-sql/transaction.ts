@@ -66,8 +66,9 @@ export function noTransactionReason(sql: string): string | undefined {
 }
 
 /**
- * The one statement the marker exists for. Prisma sends a file to Postgres as one query string,
- * and CREATE INDEX CONCURRENTLY fails inside a multi-statement string, so it must be alone.
+ * The one statement the marker exists for. CREATE INDEX CONCURRENTLY fails in any transaction
+ * block, including the implicit one Postgres opens for a multi-statement query string, so it must
+ * be alone in its file whichever way Prisma sends the file.
  * (ALTER TYPE … ADD VALUE runs in a transaction since Postgres 12 and needs no marker.)
  */
 function isConcurrentIndex(stmt: MigrationStatement): boolean {
