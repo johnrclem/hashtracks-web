@@ -13,7 +13,8 @@ Prod changes only through committed migration files. On production builds Vercel
 `prisma migrate deploy`, which applies each pending file. Two facts shape every rule below:
 
 - **`migrate deploy` does not wrap a file in a transaction.** Each statement commits on its own,
-  so a file that fails halfway leaves the first half applied (#2937).
+  so a file that fails halfway leaves the first half applied (#2937). Checked on Prisma 7 on
+  2026-11-14: a file of `CREATE TABLE`, `INSERT`, then a failing `INSERT` left the table in place.
 - **A failed migration blocks every later deploy.** Its `_prisma_migrations` row stays unfinished
   until someone runs `prisma migrate resolve`, and until then no deploy can migrate.
 
