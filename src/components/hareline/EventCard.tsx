@@ -14,13 +14,17 @@ import { formatTime, formatTimeRange, formatDateRange } from "@/lib/format";
 import { AttendanceBadge } from "@/components/logbook/AttendanceBadge";
 import type { AttendanceData } from "@/components/logbook/CheckInButton";
 import { RegionBadge } from "./RegionBadge";
+import { ScheduleOnlyTag } from "./ScheduleOnlyTag";
 import { useTimePreference } from "@/components/providers/time-preference-provider";
 import { getRegionColor } from "@/lib/region";
 import { composeUtcStart, formatTimeInZone, formatLocalTimeForDisplay, getTimezoneAbbreviation, getBrowserTimezone } from "@/lib/timezone";
 import { useUnitsPreference } from "@/components/providers/units-preference-provider";
 import type { DailyWeather } from "@/lib/weather";
 import { getConditionEmoji, cToF } from "@/lib/weather-display";
-import { getDisplayTitle, getLocationDisplay } from "@/lib/event-display";
+import {
+  getDisplayTitle,
+  getLocationDisplay,
+} from "@/lib/event-display";
 import { ShiggyLevelFlames, TrailLengthLine, formatTrailLength } from "./TrailDifficulty";
 
 /**
@@ -92,6 +96,9 @@ export type HarelineEvent = {
   /** #1316 — per-event hash cash override (free-form). #1571 — now surfaced on
    *  the medium-density card as a small chip (slim list payload carries it). */
   cost?: string | null;
+  /** True when the run is generated from the kennel's usual schedule rather
+   *  than a posted run. Undefined is treated as false. */
+  isScheduleOnly?: boolean;
   // Heavy / on-demand fields — undefined until `getEventDetail` resolves.
   locationStreet?: string | null;
   locationAddress?: string | null;
@@ -510,6 +517,8 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
           {/* Right cluster */}
           <div className="relative ml-auto flex items-center gap-2 shrink-0">
+            <ScheduleOnlyTag isScheduleOnly={event.isScheduleOnly} />
+
             {/* #1624 — shared-sheet sub-event badge (e.g. "Bayern Nash Hash") */}
             {event.eventLabel && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
@@ -701,6 +710,8 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
                   Tentative
                 </Badge>
               )}
+
+              <ScheduleOnlyTag isScheduleOnly={event.isScheduleOnly} />
 
               {/* #1624 — shared-sheet sub-event badge (e.g. "Bayern Nash Hash") */}
               {event.eventLabel && (

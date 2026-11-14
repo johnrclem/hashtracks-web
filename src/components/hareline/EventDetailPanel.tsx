@@ -11,7 +11,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { formatTimeRange, formatDateLong, formatDateRange, getLabelForUrl, stripMarkdown, stripUrlsFromText } from "@/lib/format";
-import { getFullLocationDisplay } from "@/lib/event-display";
+import { getFullLocationDisplay, SCHEDULE_ONLY_TITLE } from "@/lib/event-display";
 import type { HarelineEvent } from "./EventCard";
 import { computeDisplayTime } from "./EventCard";
 import { SeriesChildTimeline } from "./SeriesChildTimeline";
@@ -191,6 +191,10 @@ export function EventDetailPanel({ event, attendance, isAuthenticated, onDismiss
             )}
           </div>
         </div>
+
+        {event.isScheduleOnly === true && (
+          <p className="text-sm text-muted-foreground">{SCHEDULE_ONLY_TITLE}</p>
+        )}
 
         {/* Title */}
         {event.title && (

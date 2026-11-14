@@ -4,7 +4,7 @@ import Link from "next/link";
 import { SignalHigh, SignalMedium, ExternalLink, Info, MapPin } from "lucide-react";
 import { formatTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceWithWalk } from "@/lib/travel/format";
+import { formatDistanceWithWalk, likelyEvidenceCaption } from "@/lib/travel/format";
 import { capture } from "@/lib/analytics";
 import { KennelNameTooltip } from "@/components/shared/KennelNameTooltip";
 import { ConfidenceMeter } from "./ConfidenceMeter";
@@ -25,6 +25,8 @@ interface LikelyCardProps {
     explanation: string;
     evidenceWindow: string;
     evidenceTimeline: { weeks: boolean[]; totalEvents: number };
+    /** ISO date of a recent admin "checked running" confirmation, or null. */
+    checkedRunningAt: string | null;
     sourceLinks: { url: string; label: string; type: string }[];
   };
 }
@@ -111,6 +113,7 @@ export function LikelyCard({ result }: LikelyCardProps) {
         <div className="mt-4">
           <EvidenceTimeline
             timeline={result.evidenceTimeline}
+            caption={likelyEvidenceCaption(result)}
             accentClass={
               result.confidence === "high"
                 ? "border-sky-500 dark:border-sky-400"

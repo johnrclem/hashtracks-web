@@ -78,6 +78,10 @@ export interface HarelineListEvent {
   /** #1316 — per-event hash cash override (two-tier model, #1571). Null ⇒
    *  inherit the kennel default. Surfaced on the card as a small chip (#1571). */
   cost: string | null;
+  /** True when only schedule projections back this run (not a posted run).
+   *  Omitted (undefined) for posted runs so false rows add nothing to the
+   *  cached payload (`unstable_cache` is capped near 2 MB). */
+  isScheduleOnly?: true;
   /** #1560 — multi-day series + standalone date-range support. */
   isSeriesParent: boolean | null;
   parentEventId: string | null;
@@ -188,6 +192,7 @@ const HARELINE_EVENT_SELECT = {
   dogFriendly: true,
   prelube: true,
   cost: true,
+  isScheduleOnly: true,
   // #1560 — multi-day series metadata + inline children list.
   isSeriesParent: true,
   parentEventId: true,
@@ -329,6 +334,7 @@ function mapRowToCachedEvent(e: HarelineEventRow): CachedHarelineEvent {
     dogFriendly: e.dogFriendly,
     prelube: e.prelube,
     cost: e.cost,
+    isScheduleOnly: e.isScheduleOnly || undefined,
     isSeriesParent: e.isSeriesParent,
     parentEventId: e.parentEventId,
     endDate: e.endDate ? e.endDate.toISOString() : null,

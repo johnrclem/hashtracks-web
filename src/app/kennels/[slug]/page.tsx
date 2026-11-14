@@ -14,6 +14,10 @@ import type { HarelineEvent } from "@/components/hareline/EventCard";
 import { MismanManagementSection } from "@/components/kennels/MismanManagementSection";
 import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
 import { KennelStats } from "@/components/kennels/KennelStats";
+import { kennelOwnPageUrl } from "@/lib/safe-url";
+import { HowWeKnow } from "@/components/kennels/HowWeKnow";
+import { getHowWeKnowOrEmpty } from "@/lib/kennel-how-we-know";
+import { serializeKennelEvidence } from "@/lib/kennel-status";
 import { KennelLogo } from "@/components/kennels/KennelLogo";
 import { TrailLocationMapClient } from "@/components/kennels/TrailLocationMapClient";
 import { EventTabs } from "@/components/kennels/EventTabs";
@@ -133,7 +137,7 @@ export default async function KennelDetailPage({
     { name: kennel.shortName, url: `${baseUrl}/kennels/${kennel.slug}` },
   ]);
 
-  const [user, events, parentKennel] = await Promise.all([
+  const [user, events, parentKennel, howWeKnow] = await Promise.all([
     getOrCreateUser(),
     prisma.event.findMany({
       // #1023 step 5: filter via EventKennel join so co-host events
@@ -195,21 +199,24 @@ export default async function KennelDetailPage({
           select: { slug: true, shortName: true },
         })
       : Promise.resolve(null),
+    // Evidence already came with the kennel; a failure renders the section empty.
+    getHowWeKnowOrEmpty(kennel.id, kennel),
   ]);
 
   let isSubscribed = false;
   let userRole: string | null = null;
   let hasPendingMismanRequest = false;
   if (user) {
-    const subscription = await prisma.userKennel.findUnique({
-      where: { userId_kennelId: { userId: user.id, kennelId: kennel.id } },
-    });
+    const [subscription, pendingRequest] = await Promise.all([
+      prisma.userKennel.findUnique({
+        where: { userId_kennelId: { userId: user.id, kennelId: kennel.id } },
+      }),
+      prisma.mismanRequest.findFirst({
+        where: { userId: user.id, kennelId: kennel.id, status: "PENDING" },
+      }),
+    ]);
     isSubscribed = !!subscription;
     userRole = subscription?.role ?? null;
-
-    const pendingRequest = await prisma.mismanRequest.findFirst({
-      where: { userId: user.id, kennelId: kennel.id, status: "PENDING" },
-    });
     hasPendingMismanRequest = !!pendingRequest;
   }
 
@@ -262,6 +269,7 @@ export default async function KennelDetailPage({
     dogFriendly: e.dogFriendly,
     prelube: e.prelube,
     cost: e.cost,
+    isScheduleOnly: e.isScheduleOnly,
     isSeriesParent: e.isSeriesParent,
     parentEventId: e.parentEventId,
     endDate: e.endDate ? e.endDate.toISOString() : null,
@@ -301,7 +309,7 @@ export default async function KennelDetailPage({
     .filter((n): n is number => n != null);
   const currentRunNumber = recentRunNumbers.length ? Math.max(...recentRunNumbers) : null;
   const oldestEventDate = events.length > 0 ? events[0].date.toISOString() : null;
-  const nextRunDate = upcoming.length > 0 ? upcoming[0].date : null;
+  const nextRun = upcoming.length > 0 ? upcoming[0] : null;
 
   // Trail locations for map (only events with precise coordinates)
   const trailLocations = events
@@ -423,11 +431,22 @@ export default async function KennelDetailPage({
         currentRunNumber={currentRunNumber}
         totalEvents={totalEvents}
         oldestEventDate={oldestEventDate}
-        nextRunDate={nextRunDate}
-        lastEventDate={kennel.lastEventDate ? kennel.lastEventDate.toISOString() : null}
+        nextRun={nextRun ? { date: nextRun.date, isScheduleOnly: nextRun.isScheduleOnly === true } : null}
+        lastRunSeenAt={kennel.lastRunSeenAt ? kennel.lastRunSeenAt.toISOString() : null}
         foundedYear={kennel.foundedYear}
         region={kennel.region ?? undefined}
       />
+      </FadeInSection>
+
+      {/* ── How we know (dated evidence + feed coverage) ── */}
+      <FadeInSection delay={250}>
+        <HowWeKnow
+          evidence={serializeKennelEvidence(kennel)}
+          coverage={howWeKnow.coverage}
+          items={howWeKnow.items.map((i) => ({ ...i, date: i.date.toISOString() }))}
+          ownPageUrl={kennelOwnPageUrl(kennel.website, kennel.facebookUrl)}
+          kennelSlug={kennel.slug}
+        />
       </FadeInSection>
 
       {/* ── Event Tabs (Upcoming / Past) ── */}

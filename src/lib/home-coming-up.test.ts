@@ -28,6 +28,7 @@ function row(id: string, day: number, startTime: string | null) {
     startTime,
     locationName: null,
     locationCity: null,
+    isScheduleOnly: false,
     kennel: {
       shortName: "NYCH3",
       fullName: "New York City H3",
@@ -38,6 +39,18 @@ function row(id: string, day: number, startTime: string | null) {
     },
   };
 }
+
+describe("Coming Up select", () => {
+  beforeEach(() => {
+    mockFindMany.mockReset();
+  });
+
+  it("carries isScheduleOnly so the homepage card can tag generated runs", async () => {
+    mockFindMany.mockResolvedValue([] as never);
+    await getYourWeek("user_1", NOW);
+    expect(mockFindMany.mock.calls[0][0]?.select).toMatchObject({ isScheduleOnly: true });
+  });
+});
 
 describe("getYourWeek", () => {
   beforeEach(() => {

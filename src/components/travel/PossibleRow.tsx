@@ -11,7 +11,7 @@ export interface PossibleRowData {
   sourceLinks: { url: string; label: string; type: string }[];
   /** Most recent confirmed event for this kennel — preferring the
    *  in-window 12-week evidence; falling back to the kennel's all-time
-   *  `lastEventDate` if the kennel has no recent activity. Null/undefined
+   *  `lastRunSeenAt` if the kennel has no recent activity. Null/undefined
    *  only when the kennel has no event history at all. */
   lastConfirmedAt?: string | null;
 }
