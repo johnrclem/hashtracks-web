@@ -45,11 +45,12 @@ Rules:
 - **Schema migrations too.** Generate with `npm run prisma -- migrate dev --create-only --name
   <change>`, add the three wrapper lines to the generated SQL, then run `npm run prisma -- migrate
   dev` to apply it locally.
-- **Statements that can't run in a transaction** (`CREATE INDEX CONCURRENTLY`, `ALTER TYPE … ADD
-  VALUE`) go in a migration of their own, containing only such statements, whose first line is
-  `-- migration: no-transaction (<reason>)`.
+- **`CREATE INDEX CONCURRENTLY`** can't run in a transaction, so it goes alone in a migration of
+  its own, exactly one statement, whose first line is `-- migration: no-transaction (<reason>)`.
+  (`ALTER TYPE … ADD VALUE` runs in a transaction on Postgres 12 and later; wrap it normally.)
 - **Migration files are immutable once merged.** Editing one changes its checksum and blocks
-  deploys. To change something, add a new migration.
+  deploys. To change something, add a new migration. The one exception is fixing a migration that
+  failed in prod and never applied (below); that PR carries the `migration-recovery` label.
 
 CI enforces all of this on every pull request (`npm run check:migrations`, run by
 `.github/workflows/ci.yml`). It checks only the migrations a PR adds or changes, using Postgres's
@@ -89,8 +90,9 @@ runs these steps, since each writes to prod.
 1. **Find out what applied.** A file written to the template rolled back as a whole, so nothing
    applied. An older file without the wrapper may have applied its first statements: check each
    one against prod.
-2. **If nothing applied:** fix the file (it never ran anywhere, so editing it is safe), then mark
-   it rolled back and redeploy:
+2. **If nothing applied:** fix the file in a PR labelled `migration-recovery` (it never applied
+   anywhere, so editing it is safe; the label lets CI accept the edit; re-run CI after adding it).
+   Then mark it rolled back and let the merge redeploy:
    `npx prisma migrate resolve --rolled-back <migration_name>`.
 3. **If part applied:** either finish the remaining statements by hand and mark it applied
    (`npx prisma migrate resolve --applied <migration_name>`), or undo the applied part and mark it

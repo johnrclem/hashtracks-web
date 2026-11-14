@@ -97,24 +97,22 @@ describe("checkNewMigration", () => {
     ]);
   });
 
-  it("allows a marked no-transaction migration of concurrent indexes and enum values", async () => {
+  it("allows a marked no-transaction migration holding one concurrent index", async () => {
     const sql = [
       "-- migration: no-transaction (CREATE INDEX CONCURRENTLY on a busy table)",
       `CREATE INDEX CONCURRENTLY "Event_date_idx" ON "Event" ("date");`,
-      `ALTER TYPE "AlertType" ADD VALUE 'NEW_KIND';`,
     ].join("\n");
     expect(noTransactionReason(sql)).toBe("CREATE INDEX CONCURRENTLY on a busy table");
     expect(await checkNewMigration(sql)).toEqual([]);
   });
 
-  it("refuses other statements in a no-transaction migration", async () => {
-    const sql = [
-      "-- migration: no-transaction (index)",
-      `CREATE INDEX CONCURRENTLY "Event_date_idx" ON "Event" ("date");`,
-      `UPDATE "Event" SET status = 'CANCELLED';`,
-      `ALTER TYPE "AlertType" RENAME VALUE 'A' TO 'B';`,
-    ].join("\n");
-    expect(await checkNewMigration(sql)).toHaveLength(2);
+  it.each([
+    ["two concurrent indexes", `CREATE INDEX CONCURRENTLY "a" ON "Event" ("date");\nCREATE INDEX CONCURRENTLY "b" ON "Event" ("kennelId");`],
+    ["an enum value", `ALTER TYPE "AlertType" ADD VALUE 'NEW_KIND';`],
+    ["an index plus an UPDATE", `CREATE INDEX CONCURRENTLY "a" ON "Event" ("date");\nUPDATE "Event" SET status = 'CANCELLED';`],
+  ])("refuses a no-transaction migration with %s", async (_label, body) => {
+    const sql = `-- migration: no-transaction (index)\n${body}`;
+    expect(await checkNewMigration(sql)).toEqual([expect.stringContaining("exactly one CREATE INDEX CONCURRENTLY")]);
   });
 
   it("requires a reason on the no-transaction marker", async () => {

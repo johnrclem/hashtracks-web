@@ -32,7 +32,9 @@ jobs:
       # ones are immutable. See docs/ops/system.md#migrations.
       - name: Migration check
         if: github.event_name == 'pull_request'
-        run: npx tsx scripts/ci/check-migrations.ts --base HEAD^1
+        # The migration-recovery label allows editing a migration that failed in prod and never
+        # applied. Add the label, then re-run this job.
+        run: npx tsx scripts/ci/check-migrations.ts --base HEAD^1 ${{ contains(github.event.pull_request.labels.*.name, 'migration-recovery') && '--allow-modified' || '' }}
 
       - name: Type check
         run: npx tsc --noEmit

@@ -65,12 +65,13 @@ export function noTransactionReason(sql: string): string | undefined {
   return match ? match[1].trim() : undefined;
 }
 
-/** Statements that cannot run inside a transaction block, which the marker exists for. */
-function isNonTransactionalDdl(stmt: MigrationStatement): boolean {
-  if (stmt.type === "IndexStmt") return stmt.node.concurrent === true;
-  // ALTER TYPE … ADD VALUE has `newVal` and no `oldVal`; RENAME VALUE has both.
-  if (stmt.type === "AlterEnumStmt") return stmt.node.newVal !== undefined && stmt.node.oldVal === undefined;
-  return false;
+/**
+ * The one statement the marker exists for. Prisma sends a file to Postgres as one query string,
+ * and CREATE INDEX CONCURRENTLY fails inside a multi-statement string, so it must be alone.
+ * (ALTER TYPE … ADD VALUE runs in a transaction since Postgres 12 and needs no marker.)
+ */
+function isConcurrentIndex(stmt: MigrationStatement): boolean {
+  return stmt.type === "IndexStmt" && stmt.node.concurrent === true;
 }
 
 function isLocalLockTimeout(stmt: MigrationStatement | undefined): boolean {
@@ -84,8 +85,8 @@ function isLocalLockTimeout(stmt: MigrationStatement | undefined): boolean {
 /**
  * The CI rule for a newly added migration file. Either:
  * - wrapped: BEGIN; SET LOCAL lock_timeout = '…'; …; COMMIT; with no other transaction control; or
- * - marked `-- migration: no-transaction (<reason>)` and made only of statements that cannot run in
- *   a transaction (CREATE INDEX CONCURRENTLY, ALTER TYPE … ADD VALUE).
+ * - marked `-- migration: no-transaction (<reason>)` and made of the one statement that can't run in
+ *   a transaction: exactly one CREATE INDEX CONCURRENTLY.
  */
 export async function checkNewMigration(sql: string): Promise<string[]> {
   const parsed = await parseMigrationSql(sql);
@@ -96,12 +97,10 @@ export async function checkNewMigration(sql: string): Promise<string[]> {
   const reason = noTransactionReason(sql);
   if (reason !== undefined) {
     if (reason === "") return ["the no-transaction marker needs a reason in its parentheses"];
-    return statements
-      .filter((s) => !isNonTransactionalDdl(s))
-      .map(
-        (s) =>
-          `${describe(s)}: a no-transaction migration may contain only CREATE INDEX CONCURRENTLY or ALTER TYPE … ADD VALUE`,
-      );
+    if (statements.length === 1 && isConcurrentIndex(statements[0])) return [];
+    return [
+      "a no-transaction migration must contain exactly one CREATE INDEX CONCURRENTLY and nothing else",
+    ];
   }
 
   const shape = analyzeTransactionShape(statements);
