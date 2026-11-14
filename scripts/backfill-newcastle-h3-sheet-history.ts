@@ -25,6 +25,7 @@ import type { RawEventData } from "@/adapters/types";
 import history from "./data/newcastle-h3-sheet-history.json";
 
 const LIVE_ADAPTER_START = "2026-01-04";
+const EXPECTED_ROWS = 666; // frozen extract size; the test asserts the same number
 
 runBackfillScript({
   sourceName: "Newcastle H3 Hareline Sheet",
@@ -32,9 +33,9 @@ runBackfillScript({
   label: "Loading frozen Newcastle H3 (newcastle-h3) hareline-sheet archive",
   fetchEvents: async () => {
     const events = (history as RawEventData[]).filter((e) => e.date < LIVE_ADAPTER_START);
-    if (events.length < 600) {
+    if (events.length !== EXPECTED_ROWS) {
       throw new Error(
-        `newcastle-h3-sheet-history.json has ${events.length} pre-${LIVE_ADAPTER_START} rows — expected ~666. Aborting.`,
+        `newcastle-h3-sheet-history.json has ${events.length} pre-${LIVE_ADAPTER_START} rows — expected ${EXPECTED_ROWS}. Aborting.`,
       );
     }
     return events;
