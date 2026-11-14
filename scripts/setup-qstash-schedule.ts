@@ -63,10 +63,12 @@ async function main() {
     const old = existing.filter(
       (s) => targets.has(s.destination) && s.scheduleId !== schedule.scheduleId,
     );
-    for (const s of old) {
-      console.log(`Deleting old schedule ${s.scheduleId} (${s.destination})`);
-      await client.schedules.delete(s.scheduleId);
-    }
+    await Promise.all(
+      old.map((s) => {
+        console.log(`Deleting old schedule ${s.scheduleId} (${s.destination})`);
+        return client.schedules.delete(s.scheduleId);
+      }),
+    );
   }
 
   console.log("\nVerify at: https://console.upstash.com -> QStash -> Schedules");

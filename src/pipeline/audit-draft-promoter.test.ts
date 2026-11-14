@@ -219,6 +219,9 @@ describe("promoteAuditDrafts", () => {
   });
 });
 
+// The real self-freeing behavior (Postgres ending an abandoned lock transaction
+// after idle_in_transaction_session_timeout) needs a live database, so it was
+// verified by hand against the local copy (PR #3007), not in CI.
 describe("promoteAuditDrafts run lock", () => {
   it("two concurrent runs file each draft once; the second skips as locked", async () => {
     mockFindMany.mockResolvedValue([
