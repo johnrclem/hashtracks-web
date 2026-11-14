@@ -34,7 +34,7 @@ It ships in stages: first diagnosing only, then opening PRs, and only then retir
 ### 2.2 Why it failed
 
 **Confirmed:**
-- `GITHUB_REPOSITORY` is not set in Vercel Production. [`auto-issue.ts:15`](../src/pipeline/auto-issue.ts) reads it with no default and returns silently when it's missing. `verify-fixes.ts` does the same. The audit path uses `src/lib/github-repo.ts`, which has a default, so it kept working and hid the problem.
+- `GITHUB_REPOSITORY` is not set in Vercel Production. `auto-issue.ts:15` (since removed) read it with no default and returns silently when it's missing. `verify-fixes.ts` does the same. The audit path uses `src/lib/github-repo.ts`, which has a default, so it kept working and hid the problem.
 - Nothing reports whether the loop is alive, so it was dead for five months with its docs saying complete.
 - Models are pinned to `claude-sonnet-4-6` and `claude-opus-4-6`.
 

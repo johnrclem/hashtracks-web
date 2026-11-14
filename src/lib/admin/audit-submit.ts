@@ -14,15 +14,17 @@ import { NextResponse } from "next/server";
 
 import { computeDraftContentHash } from "@/lib/audit-nonce";
 import { redactFinding } from "@/lib/audit-redact";
+import { RULE_SLUG_RE } from "@/lib/audit-rule-slug";
 import { prisma } from "@/lib/db";
 import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
+
+export { RULE_SLUG_RE };
 
 const TITLE_MAX = 256;
 const BODY_MAX = 32_768;
 const EVENT_IDS_MAX = 50;
 const EVENT_ID_MAX = 64;
 const SUMMARY_MAX = 500;
-const RULE_SLUG_RE = /^[a-z0-9-]{1,64}$/;
 
 interface FindingRequest {
   kind: "finding";

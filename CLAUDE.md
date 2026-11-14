@@ -27,8 +27,8 @@ logbook + kennel directory.
 - **Kennel geocoding:** lat/lng on Kennel model, backfill via Google Geocoding API, Near Me distance filter (client-side Haversine)
 - **Region hierarchy:** RegionLevel enum (COUNTRY/STATE_PROVINCE/METRO), parent-child linking
 - **Analytics:** PostHog (client + server), Sentry error tracking (client + server + edge), Vercel Speed Insights
-- **CI/CD:** GitHub Actions (type check + lint + tests on all PRs); Claude Code automation for issue triage + auto-fix
-- **Self-healing:** paused. The 2026 loop (alert → GitHub issue → Claude triage → auto-fix PR) never produced a fix, and its workflows are being retired. The replacement is in `docs/self-healing-v2-plan.md`.
+- **CI/CD:** GitHub Actions (type check + lint + tests on all PRs); Claude Code workflows for interactive `@claude` mentions and PR review
+- **Self-healing:** paused. The 2026 loop (alert → GitHub issue → Claude triage → auto-fix PR) never produced a fix; its alert-filing code and its three triage/autofix/post-merge workflows were removed in Nov 2026. The replacement is in `docs/self-healing-v2-plan.md`.
 - **Deployment:** Vercel (auto-deploy from main branch)
 
 ## Data Flow
@@ -74,7 +74,7 @@ logbook + kennel directory.
 - GOOGLE_CALENDAR_API_KEY= # For Google Calendar + Sheets APIs
 - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY= # For MapView (interactive) + EventLocationMap (static) — browser-exposed by design
 - GOOGLE_WEATHER_API_KEY= # Server-only (NOT NEXT_PUBLIC_) — same GCP project as Maps
-- GITHUB_TOKEN=           # GitHub PAT with repo scope (for filing issues from alerts, user feedback, auto-issue dedup + rate limiting)
+- GITHUB_TOKEN=           # GitHub PAT with repo scope (for filing audit issues, alert issues from the admin alerts page, and user feedback)
 - STRAVA_CLIENT_ID=      # Strava OAuth app client ID
 - STRAVA_CLIENT_SECRET=  # Strava OAuth app client secret
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (production: https://www.hashtracks.xyz)
@@ -160,8 +160,6 @@ logbook + kennel directory.
 - `src/pipeline/reconcile.ts` — Stale event reconciliation (cancels removed source events)
 - `src/pipeline/fill-rates.ts` — Per-field fill rate computation for RawEvents
 - `src/pipeline/structure-hash.ts` — HTML structural fingerprinting (SHA-256)
-- `src/pipeline/auto-issue.ts` — Auto-file GitHub issues from alerts (adapter resolution, rate limiting, cooldown, dedup, AGENT_CONTEXT) (dormant: reads `GITHUB_REPOSITORY`, which Vercel doesn't set, so nothing has been filed since 2026-06; to be replaced per `docs/self-healing-v2-plan.md`)
-- `src/pipeline/verify-fixes.ts` — Post-merge fix verification (removes pending-verification label, posts confirmation comment) (dormant: reads `GITHUB_REPOSITORY`, which Vercel doesn't set, so nothing has been filed since 2026-06; to be replaced per `docs/self-healing-v2-plan.md`)
 - `src/pipeline/html-analysis.ts` — Reusable HTML event analysis + Gemini column mapping (no auth, used by research pipeline)
 - `src/pipeline/source-research.ts` — Autonomous source research pipeline (URL discovery, classification, analysis, proposal persistence)
 - `src/pipeline/prediction-ledger.ts` — Travel Mode prospective prediction ledger: snapshots forward HIGH/MEDIUM predictions weekly, scores matured ones HIT/MISS/PRECONFIRMED/UNOBSERVED against real events (frozen-source, drift-proof)
@@ -260,9 +258,6 @@ logbook + kennel directory.
 - `src/test/factories.ts` — Shared test data builders
 - `.github/workflows/ci.yml` — CI gate: type check, lint, tests on all PRs + push to main
 - `.github/workflows/claude.yml` — Claude Code interactive (issue/PR @claude mentions, label_trigger: claude-fix)
-- `.github/workflows/claude-issue-triage.yml` — AI triage: reads alert issue, posts confidence-scored diagnosis, labels claude-autofix or needs-human — **to be disabled** (never produced a fix; see `docs/self-healing-v2-plan.md`)
-- `.github/workflows/claude-autofix.yml` — AI fix: implements code changes, runs tests, creates PR (safe zone: adapters, seed.ts, test files only; rate-limited to 5 PRs/day) — **to be disabled** (never produced a fix; see `docs/self-healing-v2-plan.md`)
-- `.github/workflows/claude-post-merge.yml` — Post-merge: adds pending-verification label + tracking comment on linked issue — **to be disabled** (never produced a fix; see `docs/self-healing-v2-plan.md`)
 
 ## Documentation
 - `docs/source-onboarding-playbook.md` — Step-by-step guide for adding new data sources

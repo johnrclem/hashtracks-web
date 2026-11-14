@@ -10,8 +10,6 @@ import { computeFillRates } from "./fill-rates";
 import type { FieldFillRates } from "./fill-rates";
 import { analyzeHealth, persistAlerts, autoResolveCleared } from "./health";
 import { computeConfigHash } from "./config-hash";
-import { autoFileIssuesForAlerts } from "./auto-issue";
-import { verifyResolvedAutoFixes } from "./verify-fixes";
 import { attemptAiRecovery, isAiRecoveryAvailable } from "@/lib/ai/parse-recovery";
 import { validateSourceUrl } from "@/adapters/utils";
 import { compileSilentSkipRules, matchSilentSkip } from "@/adapters/skip-rules";
@@ -294,7 +292,7 @@ async function updateScrapeLogWithResults(params: ScrapeLogUpdateParams): Promis
   });
 }
 
-/** Run health analysis, update source health, persist alerts, and auto-file GitHub issues. */
+/** Run health analysis, update source health, persist alerts, and auto-resolve cleared ones. */
 async function runHealthAndAlerts(
   sourceId: string,
   scrapeLogId: string,
@@ -312,23 +310,7 @@ async function runHealthAndAlerts(
     },
   });
 
-  const newAlertIds = new Set<string>();
-
-  if (health.alerts.length > 0) {
-    const alertIds = await persistAlerts(sourceId, scrapeLogId, health.alerts);
-
-    for (const id of alertIds) newAlertIds.add(id);
-
-    // Auto-file GitHub issues for newly created alerts (self-healing pipeline)
-    if (alertIds.length > 0) {
-      try {
-        await autoFileIssuesForAlerts(sourceId, alertIds);
-      } catch (err) {
-        // Non-fatal: don't break the scrape pipeline if issue filing fails
-        console.error("[auto-issue] Failed to auto-file issues:", err);
-      }
-    }
-  }
+  await persistAlerts(sourceId, scrapeLogId, health.alerts);
 
   // Auto-resolve alerts whose condition has cleared on this scrape
   try {
@@ -344,33 +326,6 @@ async function runHealthAndAlerts(
     await autoResolveCleared(sourceId, candidateTypes, healthInput.scrapeFailed, health.checkedTypes);
   } catch (err) {
     console.error("[auto-resolve] Failed to auto-resolve cleared alerts:", err);
-  }
-
-  // Retry filing for existing OPEN alerts that were never filed (e.g., previous GITHUB_TOKEN missing)
-  try {
-    const unfiledAlerts = await prisma.alert.findMany({
-      where: {
-        sourceId,
-        status: "OPEN",
-        repairLog: { equals: Prisma.DbNull },
-      },
-      select: { id: true },
-    });
-    const unfiledIds = unfiledAlerts
-      .map((a) => a.id)
-      .filter((id) => !newAlertIds.has(id));
-    if (unfiledIds.length > 0) {
-      await autoFileIssuesForAlerts(sourceId, unfiledIds);
-    }
-  } catch (err) {
-    console.error("[auto-issue] Failed to retry unfiled alerts:", err);
-  }
-
-  // Verify resolved auto-fixes: remove "pending-verification" labels from confirmed fixes
-  try {
-    await verifyResolvedAutoFixes(sourceId);
-  } catch (err) {
-    console.error("[verify-fixes] Failed to verify resolved auto-fixes:", err);
   }
 }
 

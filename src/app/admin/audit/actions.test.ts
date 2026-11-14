@@ -205,11 +205,34 @@ describe("createSuppression", () => {
     ).rejects.toThrow("Unauthorized");
   });
 
-  it("rejects unknown rules", async () => {
+  it("rejects malformed rule slugs", async () => {
     mockAdmin.mockResolvedValue({ id: "u_1", email: "a@b.com" } as never);
     await expect(
-      createSuppression({ kennelCode: "X", rule: "made-up-rule", reason: "long enough reason" }),
-    ).rejects.toThrow("Unknown audit rule");
+      createSuppression({ kennelCode: "X", rule: "Bad Rule!", reason: "long enough reason" }),
+    ).rejects.toThrow("Invalid audit rule slug");
+    expect(mockSupCreate).not.toHaveBeenCalled();
+  });
+
+  it("accepts an agent rule slug that is not a built-in rule", async () => {
+    mockAdmin.mockResolvedValue({ id: "u_1", email: "a@b.com" } as never);
+    mockSupCreate.mockResolvedValue({
+      id: "sup_2",
+      kennelCode: "nych3",
+      rule: "hares-theme-leak",
+      reason: "known source quirk",
+      createdBy: "a@b.com",
+      createdAt: new Date(),
+      kennel: { shortName: "NYCH3" },
+    } as never);
+    const row = await createSuppression({
+      kennelCode: "nych3",
+      rule: "hares-theme-leak",
+      reason: "known source quirk",
+    });
+    expect(row.rule).toBe("hares-theme-leak");
+    expect(mockSupCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ rule: "hares-theme-leak" }) }),
+    );
   });
 
   it("rejects short reasons", async () => {
@@ -405,30 +428,66 @@ describe("getDeepDiveQueue", () => {
 });
 
 describe("getDeepDiveCoverage", () => {
-  const mockKennelCount = vi.mocked(prisma.kennel.count);
+  const mockKennelFindMany = vi.mocked(prisma.kennel.findMany);
+  const mockLogGroupBy = vi.mocked(prisma.auditLog.groupBy);
+  const NOW = new Date("2026-11-14T17:00:00Z");
 
-  it("computes coverage stats and projected full cycle", async () => {
-    // Two parallel count() calls: total active, then active+audited
-    mockKennelCount.mockResolvedValueOnce(100 as never).mockResolvedValueOnce(3 as never);
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /**
+   * `active` kennels K0..K(active-1). `firstDives` maps a kennel index to how many
+   * days ago its first deep dive was.
+   */
+  function mockKennels(active: number, firstDives: Record<number, number>, extra: { kennelCode: string; daysAgo: number }[] = []) {
+    mockKennelFindMany.mockResolvedValueOnce(
+      Array.from({ length: active }, (_, i) => ({ kennelCode: `K${i}` })) as never,
+    );
+    mockLogGroupBy.mockResolvedValueOnce([
+      ...Object.entries(firstDives).map(([i, d]) => ({ kennelCode: `K${i}`, daysAgo: d })),
+      ...extra,
+    ].map(r => ({
+      kennelCode: r.kennelCode,
+      _min: { createdAt: new Date(NOW.getTime() - r.daysAgo * 86_400_000) },
+    })) as never);
+  }
+
+  it("projects the full cycle from kennels first covered in the last 7 days", async () => {
+    // 3 audited, 2 of them first covered this week → 2/7 a day; 97 left → 340 days.
+    mockKennels(100, { 0: 30, 1: 2, 2: 5 });
 
     const result = await getDeepDiveCoverage();
     expect(result.audited).toBe(3);
     expect(result.total).toBe(100);
     expect(result.percent).toBe(3);
-    expect(result.projectedFullCycleDate).not.toBeNull();
+    expect(result.projectedFullCycleDate).toBe("2027-10-20");
   });
 
-  it("returns null projection when fully covered", async () => {
-    mockKennelCount.mockResolvedValueOnce(2 as never).mockResolvedValueOnce(2 as never);
+  it("ignores re-dives: a kennel first covered before the window doesn't count", async () => {
+    // K0's first dive was 30 days ago; a re-dive this week doesn't show in _min.
+    mockKennels(10, { 0: 30 });
     const result = await getDeepDiveCoverage();
-    expect(result.percent).toBe(100);
+    expect(result.audited).toBe(1);
     expect(result.projectedFullCycleDate).toBeNull();
   });
 
-  it("clamps audited to total even if backend returns inconsistent values", async () => {
-    mockKennelCount.mockResolvedValueOnce(5 as never).mockResolvedValueOnce(5 as never);
+  it("ignores deep dives of kennels that are no longer active", async () => {
+    mockKennels(2, {}, [{ kennelCode: "GONE", daysAgo: 1 }]);
     const result = await getDeepDiveCoverage();
-    expect(result.audited).toBeLessThanOrEqual(result.total);
+    expect(result.audited).toBe(0);
+    expect(result.projectedFullCycleDate).toBeNull();
+  });
+
+  it("returns null projection when fully covered", async () => {
+    mockKennels(2, { 0: 1, 1: 1 });
+    const result = await getDeepDiveCoverage();
+    expect(result.percent).toBe(100);
+    expect(result.projectedFullCycleDate).toBeNull();
   });
 });
 
