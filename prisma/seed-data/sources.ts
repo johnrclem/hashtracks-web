@@ -8380,6 +8380,30 @@ export const SOURCES = [
       kennelCodes: ["newcastle-h3"],
     },
     {
+      name: "Newcastle H3 Hareline Sheet",
+      url: "https://docs.google.com/spreadsheets/d/1qnLx61q1rYYagsZuWoAToBYi3ENY0E6Wt2OnJEXeFj4/edit", // hareline.nhhh.co.uk redirects here
+      type: "GOOGLE_SHEETS" as const,
+      trustLevel: 7, // below HC (8): the sheet fills NULLs, HC keeps winning conflicts
+      scrapeFreq: "daily",
+      scrapeDays: 365,
+      config: {
+        sheetId: "1qnLx61q1rYYagsZuWoAToBYi3ENY0E6Wt2OnJEXeFj4",
+        // Tab names are not year-prefixed, so auto-discovery finds none → explicit names (gviz by name).
+        // Add "The Hareline - 2027" once the kennel fills in real venues (it's a pre-filled template today).
+        tabs: ["The Hareline - 2026"],
+        // gviz CSV drops the blank rows above the header → skipRows 0. Col 3 is a stale second "Date": unmapped.
+        columns: { runNumber: 0, date: 2, location: 4, address: 5, hares: 7, description: 8 },
+        dayFirst: true, // "04/01/2026" = 4 Jan
+        requireRunNumber: true,
+        kennelTagRules: { default: "newcastle-h3" },
+        // No time column. Weekly Wednesday 19:00; first-Sunday 11:30 (matches HC prod Sundays).
+        // No default: weekend away runs (Fri/Sat) get no guessed time.
+        startTimeRules: { byDayOfWeek: { Wed: "19:00", Sun: "11:30" } },
+        upcomingOnly: true, // year tab; HC stays the cancellation authority
+      },
+      kennelCodes: ["newcastle-h3"],
+    },
+    {
       name: "Wyre Forest HHH Website",
       url: "https://www.wyreforesthhh.org.uk/index.php",
       type: "HTML_SCRAPER" as const,
