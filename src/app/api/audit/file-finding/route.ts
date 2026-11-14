@@ -294,8 +294,8 @@ function githubPostInit(token: string, body: unknown): RequestInit {
  * tainted-URL rule sees the literal-template directly inside fetch.
  *
  * Separate from `buildCronActions` in `src/pipeline/audit-issue.ts`
- * by design — cron is server-internal so it can use the simpler
- * `auto-issue.ts` envelope, while this public-route version layers
+ * by design — cron is server-internal so it can use a simpler
+ * envelope, while this public-route version layers
  * on `URL` constructor + `getValidatedRepo()` + integer guard.
  */
 function buildApiActions(): FilerActions {

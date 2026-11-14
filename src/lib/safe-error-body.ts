@@ -7,7 +7,7 @@
  * reading once we have enough bytes — this keeps the defensive bound on the
  * read itself rather than post-decode slicing, so a misbehaving upstream
  * cannot pressure memory or latency even before truncation. Used by every
- * audit-filer / health-probe / auto-issue site that logs an upstream error
+ * audit-filer / health-probe site that logs an upstream error
  * body to console or Sentry — keeping the cap consistent here prevents the
  * next defensive review (or runtime OOM) from pointing at one site that
  * forgot the bound.

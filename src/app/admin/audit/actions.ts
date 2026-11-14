@@ -10,7 +10,8 @@ import {
 import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
-import { KNOWN_AUDIT_RULES, type AuditFinding } from "@/pipeline/audit-checks";
+import type { AuditFinding } from "@/pipeline/audit-checks";
+import { RULE_SLUG_RE } from "@/lib/audit-rule-slug";
 import { syncAuditIssues, type SyncResult } from "@/pipeline/audit-issue-sync";
 import {
   promoteAuditDrafts,
@@ -226,8 +227,10 @@ export async function createSuppression(input: {
   const admin = await getAdminUser();
   if (!admin) throw new Error("Unauthorized");
 
-  if (!(KNOWN_AUDIT_RULES as readonly string[]).includes(input.rule)) {
-    throw new Error(`Unknown audit rule: ${input.rule}`);
+  // Any well-formed rule slug: built-in rules and the free-form slugs agents
+  // submit with their findings share the same shape (RULE_SLUG_RE).
+  if (!RULE_SLUG_RE.test(input.rule)) {
+    throw new Error(`Invalid audit rule slug: ${input.rule}`);
   }
   if (input.reason.trim().length < 10) {
     throw new Error("Reason must be at least 10 characters");
@@ -382,31 +385,52 @@ export interface DeepDiveCoverage {
   projectedFullCycleDate: string | null;
 }
 
-/** Counts how many active kennels have at least one deep dive on record. */
+/** Window for the deep-dive run rate behind the full-cycle projection. */
+const DEEP_DIVE_RATE_WINDOW_DAYS = 7;
+
+/**
+ * Counts how many active kennels have at least one deep dive on record, and
+ * projects the full-cycle date from the last week's run rate: kennels whose
+ * first deep dive fell in that week. Re-dives of covered kennels don't move
+ * coverage, so they don't count. With none, there is no rate to project from,
+ * so the date is null rather than a guess.
+ */
 export async function getDeepDiveCoverage(): Promise<DeepDiveCoverage> {
   await requireAdmin();
-  const activeSince = daysAgo(ACTIVE_EVENT_WINDOW_DAYS);
-  const activeWhere = {
-    isHidden: false,
-    sources: { some: { source: { enabled: true } } },
-    events: { some: { date: { gte: activeSince } } },
-  };
-
-  const [total, audited] = await Promise.all([
-    prisma.kennel.count({ where: activeWhere }),
-    prisma.kennel.count({
+  const [activeKennels, firstDives] = await Promise.all([
+    prisma.kennel.findMany({
       where: {
-        ...activeWhere,
-        auditLogs: { some: { type: "KENNEL_DEEP_DIVE" } },
+        isHidden: false,
+        sources: { some: { source: { enabled: true } } },
+        events: { some: { date: { gte: daysAgo(ACTIVE_EVENT_WINDOW_DAYS) } } },
       },
+      select: { kennelCode: true },
+    }),
+    prisma.auditLog.groupBy({
+      by: ["kennelCode"],
+      where: { type: "KENNEL_DEEP_DIVE", kennelCode: { not: null } },
+      _min: { createdAt: true },
     }),
   ]);
 
+  const firstDiveAt = new Map(firstDives.map(r => [r.kennelCode, r._min.createdAt]));
+  const rateSince = daysAgo(DEEP_DIVE_RATE_WINDOW_DAYS);
+  let audited = 0;
+  let newlyCovered = 0;
+  for (const { kennelCode } of activeKennels) {
+    const first = firstDiveAt.get(kennelCode);
+    if (!first) continue;
+    audited += 1;
+    if (first >= rateSince) newlyCovered += 1;
+  }
+
+  const total = activeKennels.length;
   const percent = total > 0 ? Math.round((audited / total) * 100) : 0;
-  const remaining = Math.max(0, total - audited);
+  const remaining = total - audited;
+  const coveredPerDay = newlyCovered / DEEP_DIVE_RATE_WINDOW_DAYS;
   const projectedDate =
-    remaining > 0
-      ? new Date(Date.now() + remaining * 86_400_000).toISOString().split("T")[0]
+    remaining > 0 && coveredPerDay > 0
+      ? easternDate(daysAgo(-Math.ceil(remaining / coveredPerDay)))
       : null;
 
   return { audited, total, percent, projectedFullCycleDate: projectedDate };
@@ -1050,6 +1074,19 @@ export interface PendingDraftRow {
 }
 
 const PENDING_DRAFTS_LIMIT = 100;
+
+/**
+ * Every rule slug agents have submitted, so a filed (and recurring) agent rule
+ * stays suppressible after its draft leaves the queue.
+ */
+export async function getAgentRuleSlugs(): Promise<string[]> {
+  await requireAdmin();
+  const rows = await prisma.auditFindingDraft.findMany({
+    distinct: ["ruleSlug"],
+    select: { ruleSlug: true },
+  });
+  return rows.map(r => r.ruleSlug);
+}
 
 /** Reviewable chrome-stream findings: PENDING (awaiting promotion) + ERROR
  *  (stuck after the retry cap, so they don't accumulate invisibly). Admin-only. */

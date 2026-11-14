@@ -13,6 +13,7 @@ import {
   getHarelinePromptInputs,
   getAuditSyncFreshness,
   getPendingDrafts,
+  getAgentRuleSlugs,
   getAuditAutomationHeartbeat,
 } from "./actions";
 import { KNOWN_AUDIT_RULES } from "@/pipeline/audit-checks";
@@ -60,6 +61,7 @@ export default async function AuditPage() {
     syncFreshnessResult,
     pendingDraftsResult,
     heartbeatResult,
+    agentRuleSlugs,
   ] = await Promise.all([
     getAuditTrends().catch(() => []),
     getTopOffenders().catch(() => []),
@@ -89,6 +91,8 @@ export default async function AuditPage() {
     getPendingDrafts().catch(() => null),
     // `null` on failure renders "status unavailable", never a false all-clear.
     getAuditAutomationHeartbeat().catch(() => null),
+    // On failure the dialog falls back to the built-in rules only.
+    getAgentRuleSlugs().catch(() => []),
   ]);
 
   // Pre-mint a queue token per candidate at page render so the dialog
@@ -101,6 +105,11 @@ export default async function AuditPage() {
     deepDiveQueueResult.map((k) => k.kennelCode),
   );
 
+  // Suppressible rules: the built-in audit rules plus every agent rule slug.
+  const suppressibleRules = [
+    ...new Set([...KNOWN_AUDIT_RULES, ...agentRuleSlugs]),
+  ];
+
   return (
     <>
       <AuditSyncStatus freshness={syncFreshnessResult} />
@@ -111,7 +120,7 @@ export default async function AuditPage() {
         recentRuns={runsResult}
         suppressions={suppressionsResult}
         kennels={kennels}
-        knownRules={[...KNOWN_AUDIT_RULES]}
+        knownRules={suppressibleRules}
         deepDiveQueue={deepDiveQueueResult}
         deepDiveCoverage={deepDiveCoverageResult}
         deepDiveTokens={deepDiveTokens}

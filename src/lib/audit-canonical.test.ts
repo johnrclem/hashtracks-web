@@ -39,7 +39,7 @@ describe("emitCanonicalBlock", () => {
   it("escapes `-->` inside string fields so the comment envelope can't be terminated early", () => {
     // Kennel codes are slug-shaped today, but defensively a future
     // payload field could contain `-->` and would otherwise truncate
-    // the comment block. Mirrors the same defense in auto-issue.ts.
+    // the comment block.
     const block = emitCanonicalBlock({
       ...SAMPLE,
       kennelCode: "weird-->code",
