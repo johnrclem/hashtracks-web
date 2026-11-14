@@ -51,9 +51,9 @@ const MAX_PROMOTE_ATTEMPTS = 3;
 /**
  * `maxDuration` (seconds) of the function a run lives in. The cron route passes its
  * own exported `maxDuration`; this default covers the admin "Promote now" action,
- * which runs under the platform default (also 300 s). If that action or its page
- * (`src/app/admin/audit/page.tsx`) ever gets a longer `maxDuration`, raise this
- * too, or the lock could free itself while a run is still filing.
+ * which runs under the admin audit page's `maxDuration` (`src/app/admin/audit/page.tsx`,
+ * also 300 s). If that ever grows, raise this too, or the lock could free itself
+ * while a run is still filing.
  */
 export const DEFAULT_PROMOTER_MAX_DURATION_S = 300;
 
