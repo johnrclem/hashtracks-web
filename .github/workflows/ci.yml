@@ -34,7 +34,10 @@ jobs:
         if: github.event_name == 'pull_request'
         # The migration-recovery label allows editing a migration that failed in prod and never
         # applied. Add the label, then re-run this job.
-        run: npx tsx scripts/ci/check-migrations.ts --base HEAD^1 ${{ contains(github.event.pull_request.labels.*.name, 'migration-recovery') && '--allow-modified' || '' }}
+        run: |
+          set -o pipefail
+          git diff --name-status --no-renames HEAD^1 HEAD -- prisma/migrations \
+            | npx tsx scripts/ci/check-migrations.ts --stdin ${{ contains(github.event.pull_request.labels.*.name, 'migration-recovery') && '--allow-modified' || '' }}
 
       - name: Type check
         run: npx tsc --noEmit

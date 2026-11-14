@@ -12,7 +12,7 @@
     "postinstall": "prisma generate",
     "prisma": "node scripts/safe-prisma.mjs",
     "migration:dry-run": "tsx scripts/migration-dry-run.ts",
-    "check:migrations": "tsx scripts/ci/check-migrations.ts"
+    "check:migrations": "git diff --name-status --no-renames origin/main HEAD -- prisma/migrations | tsx scripts/ci/check-migrations.ts --stdin"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.3",
