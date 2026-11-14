@@ -154,6 +154,14 @@ export function cleanOfh3Title(title: string): string {
   // dangling separator it leaves is cleaned by the trailing/leading-dash tidy
   // below — kept out of this regex to avoid an `\s*-?\s*` ReDoS shape (S5852).
   t = t.replace(/^[A-Za-z]+\s+\d{1,2},?\s+\d{4}/, "");
+  // Date-first titles ("November 14, 2026 | OFH3 Trail #404 - Theme", #2909)
+  // leave a "|" separator ahead of the boilerplate prefix: drop it and strip
+  // the prefix again.
+  t = t.trim();
+  if (t.startsWith("|")) {
+    t = t.slice(1).trim();
+    t = t.replace(/^OFH3\s+Trail\s+#\d+\s*-\s*/i, "");
+  }
   // Strip dot-form dates ("5.9.26", "12.20.25") wherever they appear. No
   // surrounding `\s*` (S5852) — the whitespace collapse below tidies the gap.
   t = t.replace(/\d{1,2}\.\d{1,2}\.\d{2,4}/g, " ");
