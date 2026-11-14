@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { LocateFixed, Search, X } from "lucide-react";
 import { REGION_CENTROIDS, getRegionColor, getEventCoords } from "@/lib/geo";
 import { formatSchedule, formatDateShort } from "@/lib/format";
+import { nextRunLabel } from "@/lib/kennel-directory";
 import { useMapColorScheme } from "@/hooks/useMapColorScheme";
 import { ClusteredKennelMarkers, type KennelPin } from "./ClusteredKennelMarkers";
 import { ColocatedKennelList } from "./ColocatedKennelList";
@@ -396,7 +397,7 @@ export default function KennelMapView({ kennels, onRegionSelect, onBoundsFilter 
                     <p className="text-xs">
                       {pin.nextEvent ? (
                         <>
-                          <span className="font-medium">Next run:</span>{" "}
+                          <span className="font-medium">{nextRunLabel(pin.nextEvent).trim()}</span>{" "}
                           {formatDateShort(pin.nextEvent.date)}
                           {pin.nextEvent.title && (
                             <span className="text-muted-foreground"> — {pin.nextEvent.title}</span>

@@ -12,6 +12,8 @@ import {
   measureRuleAgreement,
   buildRuleAgreementMap,
   selectBestProjections,
+  isKennelInactive,
+  latestEvidenceAt,
   type ScheduleRuleInput,
   type ConfirmedEventRef,
 } from "./projections";
@@ -254,7 +256,7 @@ describe("scoreConfidence", () => {
     scheduleDayOfWeek: "Saturday",
     scheduleTime: "2:00 PM",
     scheduleFrequency: "Weekly",
-    lastEventDate: new Date(), // recently active
+    lastEvidenceAt: new Date(), // recently active
   };
 
   it("LOW confidence is never upgraded", () => {
@@ -279,7 +281,7 @@ describe("scoreConfidence", () => {
   it("MEDIUM degrades to LOW when kennel is inactive and no recent events", () => {
     const inactiveKennel = {
       ...kennel,
-      lastEventDate: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000), // 120 days ago
+      lastEvidenceAt: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000), // 120 days ago
     };
     expect(scoreConfidence("medium", inactiveKennel, 0, null)).toBe("low");
   });
@@ -303,9 +305,26 @@ describe("scoreConfidence", () => {
     expect(scoreConfidence("medium", kennel, 5, null)).toBe("medium");
   });
 
-  it("handles null lastEventDate gracefully", () => {
-    const noLastEvent = { ...kennel, lastEventDate: null };
+  it("handles null lastEvidenceAt gracefully", () => {
+    const noLastEvent = { ...kennel, lastEvidenceAt: null };
     expect(scoreConfidence("medium", noLastEvent, 3, new Date())).toBe("high");
+  });
+
+  it("the inactivity downgrade uses lastEvidenceAt", () => {
+    const stale = { ...kennel, lastEvidenceAt: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000) };
+    expect(scoreConfidence("high", stale, 10, null)).toBe("medium");
+    expect(scoreConfidence("high", { ...kennel, lastEvidenceAt: new Date() }, 10, null)).toBe("high");
+  });
+
+  it("a schedule-only kennel with a confirmation in the last 90 days keeps a HIGH rule as Likely", () => {
+    // No independent runs in the window (count 0) but an admin confirmed it recently.
+    const confirmed = { ...kennel, lastEvidenceAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) };
+    expect(scoreConfidence("high", confirmed, 0, null)).toBe("high");
+  });
+
+  it("a schedule-only kennel with no evidence in 90 days drops to Possible", () => {
+    const stale = { ...kennel, lastEvidenceAt: new Date(Date.now() - 120 * 24 * 60 * 60 * 1000) };
+    expect(scoreConfidence("high", stale, 0, null)).toBe("low");
   });
 
   it("applies the agreement gate after the activity signals", () => {
@@ -865,5 +884,26 @@ describe("projectTrails — seasonal gating (#1390)", () => {
       utcNoon("2026-07-31"),
     );
     expect(projections.length).toBeGreaterThan(0);
+  });
+});
+
+describe("isKennelInactive / latestEvidenceAt", () => {
+  const NOW = Date.UTC(2026, 3, 14, 12);
+  const daysAgo = (n: number) => new Date(NOW - n * 86_400_000);
+
+  it("never-seen (null) evidence is no signal, so never inactive", () => {
+    expect(isKennelInactive(null, NOW)).toBe(false);
+  });
+
+  it("is inactive only past 90 days", () => {
+    expect(isKennelInactive(daysAgo(90), NOW)).toBe(false);
+    expect(isKennelInactive(daysAgo(91), NOW)).toBe(true);
+  });
+
+  it("latestEvidenceAt takes the later of the run seen and the confirmation", () => {
+    expect(latestEvidenceAt({ lastRunSeenAt: daysAgo(10), lastConfirmedAt: daysAgo(3) })).toEqual(daysAgo(3));
+    expect(latestEvidenceAt({ lastRunSeenAt: daysAgo(3), lastConfirmedAt: daysAgo(10) })).toEqual(daysAgo(3));
+    expect(latestEvidenceAt({ lastRunSeenAt: null, lastConfirmedAt: daysAgo(10) })).toEqual(daysAgo(10));
+    expect(latestEvidenceAt({ lastRunSeenAt: null, lastConfirmedAt: null })).toBeNull();
   });
 });

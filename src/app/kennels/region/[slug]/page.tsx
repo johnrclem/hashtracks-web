@@ -5,8 +5,7 @@ import { prisma } from "@/lib/db";
 import { regionBySlug } from "@/lib/region";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { buildNextEventMap, serializeKennelWithNext } from "@/lib/kennel-directory";
-import { getActivityStatus } from "@/lib/activity-status";
-import { getTodayUtcNoon } from "@/lib/date";
+import { runningKennelWhere, KENNEL_EVIDENCE_SELECT } from "@/lib/kennel-status";
 import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import { generateRegionIntro, buildRegionItemListJsonLd, buildBreadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
 import { collectKennelWeekdays, SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
@@ -28,36 +27,20 @@ export async function generateMetadata({
 
   const baseUrl = getCanonicalSiteUrl();
 
-  // Count active kennels for description
-  const todayMeta = new Date(getTodayUtcNoon());
-  const kennels = await prisma.kennel.findMany({
-    where: { region: region.name, isHidden: false },
-    select: {
-      id: true,
-      lastEventDate: true,
-      scheduleDayOfWeek: true,
-      scheduleRules: {
-        where: { isActive: true },
-        select: { rrule: true },
-      },
-      // #1023 spec D8: directory counts include co-hosted events for both
-      // kennels — go through the EventKennel join so a kennel that's only
-      // a secondary co-host on upcoming events still reads as "active".
-      // `isCanonical: true` matches the next-event-map query below + the
-      // page intro's canonical-only event derivation so the metadata stat
-      // and the rendered page agree.
-      _count: {
-        select: {
-          eventKennels: {
-            where: { event: { date: { gte: todayMeta }, status: "CONFIRMED", isCanonical: true, ...HIDE_STOPPED_SCHEDULE_RUNS } },
-          },
+  // Count running kennels for description
+  const [kennels, activeCount] = await Promise.all([
+    prisma.kennel.findMany({
+      where: { region: region.name, isHidden: false },
+      select: {
+        scheduleDayOfWeek: true,
+        scheduleRules: {
+          where: { isActive: true },
+          select: { rrule: true },
         },
       },
-    },
-  });
-  const activeCount = kennels.filter(
-    (k) => getActivityStatus(k.lastEventDate, k._count.eventKennels > 0) === "active",
-  ).length;
+    }),
+    prisma.kennel.count({ where: { ...runningKennelWhere(), region: region.name } }),
+  ]);
   // #1390: include both legacy flat `scheduleDayOfWeek` AND any scheduleRules
   // BYDAY days. A kennel migrated to scheduleRules-only must still contribute
   // to the region intro/metadata day list.
@@ -95,7 +78,7 @@ export default async function RegionPage({
   const now = new Date();
   const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0));
 
-  const [kennels, upcomingEvents] = await Promise.all([
+  const [kennels, upcomingEvents, activeCount] = await Promise.all([
     prisma.kennel.findMany({
       where: { region: region.name, isHidden: false },
       orderBy: [{ fullName: "asc" }],
@@ -115,7 +98,9 @@ export default async function RegionPage({
         scheduleTime: true,
         scheduleFrequency: true,
         scheduleRules: SCHEDULE_RULES_SELECT,
-        lastEventDate: true,
+        website: true,
+        facebookUrl: true,
+        ...KENNEL_EVIDENCE_SELECT,
       },
     }),
     // #1023 spec D8: include co-hosted events. The nested `eventKennels`
@@ -134,12 +119,14 @@ export default async function RegionPage({
       select: {
         date: true,
         title: true,
+        isScheduleOnly: true,
         eventKennels: {
           where: { kennel: { region: region.name, isHidden: false } },
           select: { kennelId: true },
         },
       },
     }),
+    prisma.kennel.count({ where: { ...runningKennelWhere(), region: region.name } }),
   ]);
 
   // #1023 spec D8: attribute each event to every region-matching kennel
@@ -148,9 +135,6 @@ export default async function RegionPage({
   const kennelsWithNext = kennels.map((k) => serializeKennelWithNext(k, nextEventMap));
 
   // Compute intro
-  const activeCount = kennels.filter(
-    (k) => getActivityStatus(k.lastEventDate, nextEventMap.has(k.id)) === "active",
-  ).length;
   // #1390: same union semantics as the metadata-side `days` derivation above.
   const days = [...new Set(kennels.flatMap((k) => collectKennelWeekdays(k)))];
   const intro = generateRegionIntro(region.name, activeCount, days);

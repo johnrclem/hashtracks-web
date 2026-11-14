@@ -9,6 +9,7 @@ import {
   regionAbbrev,
   regionColorClasses,
   formatDateShort,
+  formatDateMedium,
   formatDateRange,
   formatSchedule,
   instagramUrl,
@@ -114,6 +115,15 @@ describe("formatDateShort", () => {
   it("uses UTC to avoid date shift", () => {
     // A date stored as UTC noon should not shift to previous day
     expect(formatDateShort("2026-01-01T12:00:00.000Z")).toBe("Thu, Jan 1");
+  });
+});
+
+describe("formatDateMedium", () => {
+  it("formats UTC noon date with the year", () => {
+    expect(formatDateMedium("2026-02-18T12:00:00.000Z")).toBe("Feb 18, 2026");
+  });
+  it("uses UTC to avoid date shift", () => {
+    expect(formatDateMedium("2026-01-01T00:30:00.000Z")).toBe("Jan 1, 2026");
   });
 });
 

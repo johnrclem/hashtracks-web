@@ -36,8 +36,9 @@ export interface SerializedConfirmed extends Omit<ConfirmedRow, "date"> {
   attendance: AttendanceEntry | null;
 }
 
-export interface SerializedLikely extends Omit<LikelyRow, "date"> {
+export interface SerializedLikely extends Omit<LikelyRow, "date" | "checkedRunningAt"> {
   date: string;
+  checkedRunningAt: string | null;
 }
 
 export interface SerializedPossible
@@ -74,7 +75,11 @@ function serializeConfirmed(
 }
 
 function serializeLikely(r: LikelyRow): SerializedLikely {
-  return { ...r, date: r.date.toISOString() };
+  return {
+    ...r,
+    date: r.date.toISOString(),
+    checkedRunningAt: r.checkedRunningAt?.toISOString() ?? null,
+  };
 }
 
 function serializePossible(r: PossibleRow): SerializedPossible {

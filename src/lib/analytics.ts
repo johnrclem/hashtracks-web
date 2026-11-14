@@ -24,6 +24,11 @@ interface KennelProfileViewProps {
   region?: string;
 }
 
+interface KennelOwnPageClickedProps {
+  kennelSlug: string;
+  surface: "card" | "kennel-page";
+}
+
 interface CheckInProps {
   kennelSlug: string;
   status: "intending" | "confirmed";
@@ -190,6 +195,7 @@ interface AnalyticsEventMap {
   hareline_view: HarelineViewProps;
   event_detail_view: EventDetailViewProps;
   kennel_profile_view: KennelProfileViewProps;
+  kennel_own_page_clicked: KennelOwnPageClickedProps;
   check_in: CheckInProps;
   kennel_subscribe: KennelSubscribeProps;
   kennel_unsubscribe: KennelUnsubscribeProps;

@@ -229,4 +229,19 @@ describe("generateRegionIntro", () => {
     expect(result).not.toContain("undefined");
     expect(result).toContain("2");
   });
+
+  it("drops the count clause when no kennel is running", () => {
+    expect(generateRegionIntro("Denver, CO", 0, ["Sunday"])).toBe(
+      "Find hash house harrier kennels in Denver, CO below.",
+    );
+    expect(generateRegionIntro("Denver, CO", 0, [])).toBe(
+      "Find hash house harrier kennels in Denver, CO below.",
+    );
+  });
+
+  it("keeps the existing copy when kennels are running", () => {
+    expect(generateRegionIntro("Denver, CO", 1, ["Sunday"])).toBe(
+      "Denver, CO has 1 active kennel with runs on Sundays. Find your next trail below.",
+    );
+  });
 });

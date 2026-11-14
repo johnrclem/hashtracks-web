@@ -28,7 +28,7 @@ const RUNNING_EVIDENCE_DAYS = 90;
 const QUIET_EVIDENCE_DAYS = 365;
 /** A posted run this many days out (or fewer) means running. */
 const POSTED_AHEAD_DAYS = 60;
-const DAY_MS = 1000 * 60 * 60 * 24;
+export const DAY_MS = 1000 * 60 * 60 * 24;
 
 export const KENNEL_EVIDENCE_SELECT = {
   lastRunSeenAt: true,
@@ -37,7 +37,7 @@ export const KENNEL_EVIDENCE_SELECT = {
   stoppedAt: true,
 } as const satisfies Prisma.KennelSelect;
 
-function toUtcNoon(date: Date): number {
+export function toUtcNoon(date: Date): number {
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0);
 }
 

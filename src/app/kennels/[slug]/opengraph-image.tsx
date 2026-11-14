@@ -1,7 +1,6 @@
 import { ImageResponse } from "next/og";
 import { prisma } from "@/lib/db";
-import { getActivityStatus } from "@/lib/activity-status";
-import { getTodayUtcNoon } from "@/lib/date";
+import { getKennelState, KENNEL_EVIDENCE_SELECT } from "@/lib/kennel-status";
 import { formatSchedule } from "@/lib/format";
 import { SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
 
@@ -13,31 +12,18 @@ export const contentType = "image/png";
 
 export default async function OgImage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const todayUtc = new Date(getTodayUtcNoon());
   const kennel = await prisma.kennel.findUnique({
     where: { slug },
     select: {
       shortName: true,
       fullName: true,
       region: true,
-      lastEventDate: true,
+      ...KENNEL_EVIDENCE_SELECT,
       scheduleDayOfWeek: true,
       scheduleTime: true,
       scheduleFrequency: true,
       scheduleRules: SCHEDULE_RULES_SELECT,
       isHidden: true,
-      // #1023 spec D8: count co-hosted events too — go through the
-      // EventKennel join so a kennel that's only a secondary on upcoming
-      // events still reads as "active" on its own page's OG image.
-      // `isCanonical: true` matches the kennel page's event list query
-      // so the OG status badge agrees with what the page actually shows.
-      _count: {
-        select: {
-          eventKennels: {
-            where: { event: { date: { gte: todayUtc }, status: "CONFIRMED", isCanonical: true } },
-          },
-        },
-      },
     },
   });
 
@@ -50,9 +36,21 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
     );
   }
 
-  const status = getActivityStatus(kennel.lastEventDate, kennel._count.eventKennels > 0);
-  const statusText = status === "active" ? "Active" : status === "possibly-inactive" ? "Possibly Inactive" : status === "inactive" ? "Inactive" : "";
-  const statusColor = status === "active" ? "#4ade80" : status === "possibly-inactive" ? "#facc15" : status === "inactive" ? "#f87171" : "#71717a";
+  const state = getKennelState(kennel);
+  const STATUS_LABELS = {
+    running: "Running",
+    quiet: "Quiet lately",
+    "not-seen": "No recent runs seen",
+    stopped: "Stopped",
+  } as const;
+  const STATUS_COLORS = {
+    running: "#4ade80",
+    quiet: "#facc15",
+    "not-seen": "#71717a",
+    stopped: "#f87171",
+  } as const;
+  const statusText = STATUS_LABELS[state];
+  const statusColor = STATUS_COLORS[state];
   const schedule = formatSchedule(kennel) ?? "";
 
   return new ImageResponse(

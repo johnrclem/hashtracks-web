@@ -132,7 +132,7 @@ function kennelCtx(k: KennelRow, lastEventDateAsOf: Date | null): KennelContext 
     scheduleDayOfWeek: k.scheduleDayOfWeek,
     scheduleTime: k.scheduleTime,
     scheduleFrequency: k.scheduleFrequency,
-    lastEventDate: lastEventDateAsOf,
+    lastEvidenceAt: lastEventDateAsOf,
   };
 }
 
@@ -862,7 +862,7 @@ async function runAudit(prisma: PrismaClient): Promise<void> {
     "",
     "- **MEDIUM→HIGH boost (`confirmedEventCount >= 3` & validated <30d):** compare HIGH vs MEDIUM precision in Part B. If MEDIUM ±1d precision is already ≳HIGH, the boost bar may be too high (or the 30-day validation gate too strict, since most rules lack `lastValidatedAt`).",
     "- **MEDIUM→LOW on zero evidence:** how many kennels sit in POSSIBLE purely because `confirmedEventCount === 0`? Cross-check against C.1/C.2 — these are recoverable with better evidence windows or backfill.",
-    "- **Kennel-inactive degrade (`lastEventDate > 90d` → HIGH→MEDIUM):** count HIGH rules degraded only by staleness whose history is otherwise regular (unfairly-degraded). If large, widen to 120–135d.",
+    "- **Kennel-inactive degrade (`lastEvidenceAt > 90d` → HIGH→MEDIUM):** count HIGH rules degraded only by staleness whose history is otherwise regular (unfairly-degraded). If large, widen to 120–135d.",
     "- **Horizon bounds (180/365):** Part A shows how much MEDIUM coverage exists between 180–365d that the UI currently hides for late-start trips. If material, consider surfacing MEDIUM further out with a stronger caveat.",
     "",
     "---",

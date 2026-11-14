@@ -3,6 +3,8 @@ import type { EvidenceTimeline as EvidenceTimelineData } from "@/lib/travel/proj
 interface EvidenceTimelineProps {
   timeline: EvidenceTimelineData;
   accentClass?: string;
+  /** Replaces the default "N runs in the last 12 weeks" caption. */
+  caption?: string;
 }
 
 /**
@@ -10,8 +12,9 @@ interface EvidenceTimelineProps {
  * Grouped in sets of 4 with a baseline rule and current-week bracket.
  * Server component — pure SVG, no client state.
  */
-export function EvidenceTimeline({ timeline, accentClass }: EvidenceTimelineProps) {
+export function EvidenceTimeline({ timeline, accentClass, caption }: EvidenceTimelineProps) {
   const { weeks, totalEvents } = timeline;
+  const captionText = caption ?? `${totalEvents} run${totalEvents === 1 ? "" : "s"} in the last 12 weeks`;
 
   return (
     <div
@@ -61,7 +64,7 @@ export function EvidenceTimeline({ timeline, accentClass }: EvidenceTimelineProp
 
       {/* Caption */}
       <div className="mt-1.5 font-mono text-[11px] text-muted-foreground">
-        {totalEvents} run{totalEvents !== 1 ? "s" : ""} in the last 12 weeks
+        {captionText}
       </div>
     </div>
   );
