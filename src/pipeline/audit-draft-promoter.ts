@@ -31,6 +31,7 @@ import {
   kennelLabel,
 } from "@/lib/audit-labels";
 import { AUDIT_STREAM, type AuditStream } from "@/lib/audit-stream-meta";
+import { withAdvisoryXactLock } from "@/lib/advisory-lock";
 
 /**
  * Per-run GitHub-write cap. Higher than the structural cron's MAX_ISSUES_PER_RUN
@@ -47,7 +48,22 @@ export const MAX_PROMOTIONS_PER_RUN = 30;
 /** ERROR drafts retry until this attempt count, then they're left for admin attention. */
 const MAX_PROMOTE_ATTEMPTS = 3;
 
+/**
+ * `maxDuration` (seconds) of the function a run lives in. The cron route passes its
+ * own exported `maxDuration`; this default covers the admin "Promote now" action,
+ * which runs under the platform default (also 300 s).
+ */
+export const DEFAULT_PROMOTER_MAX_DURATION_S = 300;
+
+/** Slack past `maxDuration` before Postgres ends an abandoned lock transaction. */
+const LOCK_IDLE_SLACK_S = 30;
+
+/** Fixed advisory-lock key: one promoter run at a time, across every instance. */
+export const PROMOTER_LOCK_KEY = 0x41_44_50_52; // "ADPR"
+
 export interface PromotionSummary {
+  /** Set when another run held the promoter lock; nothing was read or filed. */
+  skipped?: "locked";
   considered: number;
   filed: number;
   recurred: number;
@@ -55,8 +71,13 @@ export interface PromotionSummary {
   rejected: number;
   errored: number;
   /** Drafts deferred to a later run because a sibling with the same dedup key
-   *  was already processed this batch (see the in-run dedup guard). */
+   *  was already processed this batch (see the in-run dedup guard), or because
+   *  GitHub couldn't answer the dedup search (left PENDING, see `github-list-failed`). */
   deferred: number;
+}
+
+function emptySummary(): PromotionSummary {
+  return { considered: 0, filed: 0, recurred: 0, suppressed: 0, rejected: 0, errored: 0, deferred: 0 };
 }
 
 interface PromotableDraft {
@@ -84,7 +105,27 @@ function streamLabel(stream: AuditStream): string {
  * strict tier is the backstop (a re-file becomes a recurrence comment, never a
  * duplicate issue).
  */
-export async function promoteAuditDrafts(): Promise<PromotionSummary> {
+export async function promoteAuditDrafts({
+  maxDurationSeconds = DEFAULT_PROMOTER_MAX_DURATION_S,
+}: { maxDurationSeconds?: number } = {}): Promise<PromotionSummary> {
+  // One run at a time: the hourly QStash run, the daily Vercel backstop and an
+  // admin "Promote now" can overlap. Two overlapping runs would each file one of
+  // two sibling drafts (the in-run dedup guard below only sees its own batch), so
+  // a second run skips instead of waiting. See `withAdvisoryXactLock` for why a
+  // run killed mid-way can't leave the lock stuck.
+  const run = await withAdvisoryXactLock(
+    PROMOTER_LOCK_KEY,
+    (maxDurationSeconds + LOCK_IDLE_SLACK_S) * 1000,
+    promoteUnderLock,
+  );
+  if (!run.acquired) {
+    console.log("[promote-audit] Another promoter run holds the lock; skipping.");
+    return { ...emptySummary(), skipped: "locked" };
+  }
+  return run.result;
+}
+
+async function promoteUnderLock(): Promise<PromotionSummary> {
   // Paced: a full batch is up to 30 creates/comments, and GitHub rate-limits
   // mutating requests sent less than a second apart.
   const actions = buildCronActions({ minWriteGapMs: GITHUB_MIN_WRITE_GAP_MS });
@@ -111,15 +152,7 @@ export async function promoteAuditDrafts(): Promise<PromotionSummary> {
     },
   })) as PromotableDraft[];
 
-  const summary: PromotionSummary = {
-    considered: drafts.length,
-    filed: 0,
-    recurred: 0,
-    suppressed: 0,
-    rejected: 0,
-    errored: 0,
-    deferred: 0,
-  };
+  const summary: PromotionSummary = { ...emptySummary(), considered: drafts.length };
 
   // In-run dedup guard (mutated by promoteOneDraft). Two PENDING drafts that map
   // to the SAME GitHub issue — same fingerprint, or same kennel+rule for
@@ -259,6 +292,18 @@ async function promoteOneDraft(
       `[promote-audit] Recurred (${outcome.tier}) draft ${draft.id} → issue #${outcome.issueNumber}`,
     );
     return "recurred";
+  }
+  // GitHub couldn't answer the dedup search, so nothing was filed: filing blind
+  // could fork a duplicate. Leave the draft in its status (PENDING stays PENDING)
+  // with the reason, and hand back the attempt so an outage can't use up an
+  // ERROR draft's retries. The next hourly run tries again.
+  if (outcome.reason === "github-list-failed") {
+    await prisma.auditFindingDraft.updateMany({
+      where: { id: draft.id, status: draft.status },
+      data: { errorReason: outcome.reason, promoteAttempts: { decrement: 1 } },
+    });
+    console.warn(`[promote-audit] GitHub dedup search failed; left draft ${draft.id} ${draft.status}`);
+    return "deferred";
   }
   // Filer error: leave ERROR (retryable until the cap). Don't add to processedKeys
   // — no issue exists, so a sibling may still legitimately file.
