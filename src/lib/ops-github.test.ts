@@ -61,6 +61,11 @@ describe("createOpsGithub", () => {
     );
   });
 
+  it("reports an unreadable 200 body as GithubUnavailableError", async () => {
+    const fetchMock = vi.fn(async () => new Response("<html>not json", { status: 200 }));
+    await expect(createOpsGithub("tok", fetchMock as never).listOpenPulls()).rejects.toThrow(GithubUnavailableError);
+  });
+
   it("creates, comments on and closes issues", async () => {
     const fetchMock = vi.fn(async () => json({ number: 4100 }, 201));
     const gh = createOpsGithub("tok", fetchMock as never);

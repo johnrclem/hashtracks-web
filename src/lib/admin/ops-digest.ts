@@ -115,13 +115,15 @@ async function loadWatchdogStates(): Promise<WatchdogState[]> {
     }));
 }
 
+/** `github` undefined means "from the environment", built inside the guard so a bad env can't fail the digest. */
 async function loadApprovalsWaiting(
-  github: OpsGithub | null,
+  github: OpsGithub | null | undefined,
   now: Date,
 ): Promise<OpsDigest["approvalsWaiting"]> {
-  if (!github) return { prs: null, error: "GITHUB_TOKEN is not set" };
   try {
-    const pulls = await github.listOpenPulls();
+    const client = github === undefined ? opsGithubFromEnv() : github;
+    if (!client) return { prs: null, error: "GITHUB_TOKEN is not set" };
+    const pulls = await client.listOpenPulls();
     return {
       prs: pulls.filter(isWaitingOnOwner).map((pr) => ({
         number: pr.number,
@@ -146,7 +148,7 @@ const iso = (v: unknown): string | null => (v instanceof Date ? v.toISOString() 
 
 export async function buildOpsDigest(
   now: Date = new Date(),
-  github: OpsGithub | null = opsGithubFromEnv(),
+  github?: OpsGithub | null,
 ): Promise<OpsDigest> {
   const [
     scrapeRows,

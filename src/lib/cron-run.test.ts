@@ -69,6 +69,20 @@ describe("withCronRun", () => {
     });
   });
 
+  it("records `success: false` (dispatch with failed publishes) as FAILED, even with HTTP 200", async () => {
+    await withCronRun("cron:dispatch", async () =>
+      NextResponse.json({ data: { success: false, dispatched: 0, failed: 120 } }),
+    )(request());
+    expect(update).toHaveBeenCalledWith({
+      where: { id: "run-1" },
+      data: expect.objectContaining({
+        status: "FAILED",
+        summary: "the route reported success: false",
+        metrics: { success: false, dispatched: 0, failed: 120 },
+      }),
+    });
+  });
+
   it("records a partial (207) response as SUCCESS, noting the status", async () => {
     await withCronRun("cron:sync-audit-issues", async () => NextResponse.json({ data: {} }, { status: 207 }))(request());
     expect(update).toHaveBeenCalledWith({

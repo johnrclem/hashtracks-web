@@ -38,7 +38,9 @@ export const POST = withCronRun("cron:sync-audit-issues", async () => {
   // returning 200 on a partially-stale mirror would hide the problem from
   // cron monitoring and the dashboard would silently drift. Surface any
   // partial failure as a 207 (Multi-Status) so Vercel's cron health check
-  // fails loudly and operators notice.
+  // fails loudly and operators notice. `withCronRun` records the 207 as a
+  // run that happened (summary "HTTP 207"): a partial sync keeps the
+  // watchdog's liveness check satisfied; only a 500 or a missed run alarms.
   const status = issueSync.errors.length > 0 ? 207 : 200;
   return NextResponse.json({ data: { labelSync: labelSyncSummary, issueSync } }, { status });
 });

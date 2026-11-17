@@ -141,4 +141,17 @@ describe("buildOpsDigest", () => {
     const noToken = await buildOpsDigest(new Date(), null);
     expect(noToken.approvalsWaiting).toEqual({ prs: null, error: "GITHUB_TOKEN is not set" });
   });
+
+  it("keeps the rest of the digest when the env-built GitHub client can't be made", async () => {
+    queryRaw.mockResolvedValue([] as never);
+    vi.stubEnv("GITHUB_TOKEN", "tok");
+    vi.stubEnv("GITHUB_REPOSITORY", "not a repo");
+    try {
+      const digest = await buildOpsDigest(new Date());
+      expect(digest.approvalsWaiting).toEqual({ prs: null, error: "Invalid GITHUB_REPOSITORY format: not a repo" });
+      expect(digest.scrapes24h.runs).toBe(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });

@@ -94,7 +94,10 @@ async function finishAutomationRun(
  *     export const POST = withCronRun("cron:audit", async () => NextResponse.json({ data }));
  *     export const GET = POST;
  *
- * A response with status 400 or above is recorded as FAILED, with its `error` as the summary.
+ * A response with status 400 or above, or a body with `data.success === false` (dispatch, when any
+ * publish failed), is recorded as FAILED, so it doesn't count toward the cron's liveness. Any other
+ * 2xx is a SUCCESS: a route's partial result (`sync-audit-issues`' 207) is a run that happened, with
+ * `HTTP 207` as the summary.
  */
 export function withCronRun(
   automation: CronJobId,
@@ -111,10 +114,13 @@ export function withCronRun(
     try {
       const res = await handler(request, auth);
       const body = await readBody(res);
-      const error = (body as { error?: unknown } | null)?.error;
-      const failed = res.status >= 400;
-      const summary =
-        typeof error === "string" ? error : failed || res.status !== 200 ? `HTTP ${res.status}` : null;
+      const { error, data } = (body ?? {}) as { error?: unknown; data?: { success?: unknown } | null };
+      const reportedFailure = data?.success === false;
+      const failed = res.status >= 400 || reportedFailure;
+      let summary: string | null = null;
+      if (typeof error === "string") summary = error;
+      else if (res.status !== 200) summary = `HTTP ${res.status}`;
+      else if (reportedFailure) summary = "the route reported success: false";
       await finishAutomationRun(runId, failed ? "FAILED" : "SUCCESS", summary, scalarMetrics(body));
       return res;
     } catch (err) {

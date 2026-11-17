@@ -29,6 +29,8 @@ class MemoryStore implements WatchdogStore {
   rows = new Map<string, StateRow>();
   private locked = false;
   failSetIssueOnce = false;
+  failRecordSentOnce = false;
+  housekeepingRuns: Date[] = [];
   constructor(private clock: () => Date) {}
 
   async withLock<T>(job: () => Promise<T>) {
@@ -79,21 +81,17 @@ class MemoryStore implements WatchdogStore {
     });
   }
   async markRecovered(id: string, since: Date, now: Date) {
-    return this.update(id, (r) => r.status === "OVERDUE" && +r.since === +since, {
-      status: "OK",
-      since: now,
-      alertedAt: null,
-      emailedAt: null,
-    });
+    return this.update(id, (r) => r.status === "OVERDUE" && +r.since === +since, { status: "OK", since: now });
   }
-  async claimAlert(id: string, since: Date, now: Date) {
-    return !!this.update(id, (r) => r.status === "OVERDUE" && +r.since === +since && !r.alertedAt, { alertedAt: now });
+  async recordSent(id: string, since: Date, field: "alertedAt" | "emailedAt", at: Date) {
+    if (this.failRecordSentOnce) {
+      this.failRecordSentOnce = false;
+      throw new Error("connection reset (crash between sending and recording)");
+    }
+    this.update(id, (r) => r.status === "OVERDUE" && +r.since === +since && r[field] === null, { [field]: at });
   }
-  async claimEmail(id: string, since: Date, now: Date) {
-    return !!this.update(id, (r) => r.status === "OVERDUE" && +r.since === +since && !r.emailedAt, { emailedAt: now });
-  }
-  async releaseEmail(id: string, since: Date, claimedAt: Date) {
-    this.update(id, (r) => +r.since === +since && +(r.emailedAt ?? 0) === +claimedAt, { emailedAt: null });
+  async clearOwed(id: string, field: "alertedAt" | "emailedAt", value: Date) {
+    this.update(id, (r) => r.status === "OK" && +(r[field] ?? 0) === +value, { [field]: null });
   }
   async setIssue(id: string, since: Date, issueNumber: number) {
     if (this.failSetIssueOnce) {
@@ -106,6 +104,10 @@ class MemoryStore implements WatchdogStore {
     this.update(id, (r) => r.status === "OK" && r.issueNumber === issueNumber, { issueNumber: null });
   }
   async deleteRunsBefore() {
+    return 0;
+  }
+  async closeAbandonedRuns(_cutoff: Date, now: Date) {
+    this.housekeepingRuns.push(now);
     return 0;
   }
 }
@@ -122,6 +124,7 @@ interface FakeIssue {
 class FakeGithub implements OpsGithub {
   issues: FakeIssue[] = [];
   down = false;
+  closeFailsOnce = false;
   private next = 4000;
   private check() {
     if (this.down) throw new Error("GitHub GET /issues: HTTP 502");
@@ -150,18 +153,22 @@ class FakeGithub implements OpsGithub {
   }
   async close(n: number) {
     this.check();
+    if (this.closeFailsOnce) {
+      this.closeFailsOnce = false;
+      throw new Error("GitHub PATCH /issues: HTTP 502");
+    }
     this.issues.find((i) => i.number === n)!.open = false;
   }
 }
 
 class FakeAlarms implements AlarmSink {
   overdueEvents: Array<{ automation: string; since: Date }> = [];
-  recoveredEvents: Array<{ automation: string; outageSince: Date }> = [];
+  recoveredEvents: Array<{ automation: string; alertedAt: Date }> = [];
   overdue(e: { automation: string; since: Date }) {
     this.overdueEvents.push({ automation: e.automation, since: e.since });
   }
-  recovered(e: { automation: string; outageSince: Date }) {
-    this.recoveredEvents.push({ automation: e.automation, outageSince: e.outageSince });
+  recovered(e: { automation: string; alertedAt: Date }) {
+    this.recoveredEvents.push({ automation: e.automation, alertedAt: e.alertedAt });
   }
   async flush() {}
 }
@@ -173,12 +180,13 @@ class FakeMailer implements Mailer {
   configured() {
     return this.isConfigured;
   }
+  /** Like Resend: a repeated idempotency key is accepted but not delivered again. */
   async send(email: OwnerEmail): Promise<NotifyResult> {
     if (this.failNext) {
       this.failNext = false;
       return { sent: false, reason: "Resend: 503" };
     }
-    this.sent.push(email);
+    if (!this.sent.some((e) => e.idempotencyKey === email.idempotencyKey)) this.sent.push(email);
     return { sent: true, id: `email-${this.sent.length}` };
   }
 }
@@ -253,18 +261,41 @@ describe("runWatchdog: one alarm per outage, one recovery", () => {
 
   it("resuming sends one recovery: a Sentry info event, one email, a comment and a close", async () => {
     for (let hour = 0; hour <= 30; hour++) await h.tick(at(hour));
-    const outageSince = h.store.rows.get("cron:audit")!.since;
+    const alarmAt = h.store.rows.get("cron:audit")!.alertedAt;
 
     job.output.lastSeen = at(30.5);
     for (let hour = 31; hour <= 40; hour++) await h.tick(at(hour));
 
-    expect(h.alarms.recoveredEvents).toEqual([{ automation: "cron:audit", outageSince }]);
+    expect(h.alarms.recoveredEvents).toEqual([{ automation: "cron:audit", alertedAt: alarmAt }]);
     expect(h.mailer.sent.map((e) => e.subject)).toEqual(["cron:audit task is overdue", "Recovered: cron:audit task"]);
     const [issue] = opsIssues(h.github, "cron:audit");
     expect(issue.open).toBe(false);
     expect(issue.comments).toHaveLength(1);
     expect(issue.comments[0]).toMatch(/^<!-- ops:cron:audit -->\nRecovered at /);
-    expect(h.store.rows.get("cron:audit")).toMatchObject({ status: "OK", issueNumber: null });
+    expect(h.store.rows.get("cron:audit")).toMatchObject({ status: "OK", issueNumber: null, alertedAt: null, emailedAt: null });
+  });
+
+  it("a recovery email that fails is retried until it's sent, once", async () => {
+    for (let hour = 0; hour <= 30; hour++) await h.tick(at(hour));
+    job.output.lastSeen = at(30.5);
+    h.mailer.failNext = true;
+    await h.tick(at(31));
+    expect(h.mailer.sent.map((e) => e.subject)).toEqual(["cron:audit task is overdue"]);
+    await h.tick(at(32));
+    await h.tick(at(33));
+    expect(h.mailer.sent.map((e) => e.subject)).toEqual(["cron:audit task is overdue", "Recovered: cron:audit task"]);
+  });
+
+  it("a failed close leaves no trail of recovery comments", async () => {
+    for (let hour = 0; hour <= 30; hour++) await h.tick(at(hour));
+    job.output.lastSeen = at(30.5);
+    h.github.closeFailsOnce = true;
+    await h.tick(at(31));
+    await h.tick(at(32));
+    await h.tick(at(33));
+    const [issue] = opsIssues(h.github, "cron:audit");
+    expect(issue.open).toBe(false);
+    expect(issue.comments).toHaveLength(1);
   });
 
   it("a second outage gets its own Sentry fingerprint (since) and its own issue", async () => {
@@ -304,7 +335,7 @@ describe("runWatchdog: overlapping runs and crashes", () => {
     expect(h.mailer.sent).toHaveLength(1);
   });
 
-  it("even without the lock, the conditional updates give one state change, one Sentry alarm and one email", async () => {
+  it("even without the lock: one state change, one Sentry issue (fingerprint) and one email delivered", async () => {
     const job = controllable("cron:audit", 26);
     const h = harness([job.spec]);
     job.output.lastSeen = T0;
@@ -313,8 +344,31 @@ describe("runWatchdog: overlapping runs and crashes", () => {
     const [a, b] = await Promise.all([runWatchdog(h.deps()), runWatchdog(h.deps())]);
 
     expect(a.wentOverdue + b.wentOverdue).toBe(1);
-    expect(h.alarms.overdueEvents).toHaveLength(1);
+    expect(new Set(h.alarms.overdueEvents.map((e) => +e.since)).size).toBe(1);
     expect(h.mailer.sent).toHaveLength(1);
+  });
+
+  it("a crash between sending an alarm and recording it repeats the alarm, never loses it", async () => {
+    const job = controllable("cron:audit", 26);
+    const h = harness([job.spec]);
+    job.output.lastSeen = T0;
+    await h.tick(at(0));
+    h.store.failRecordSentOnce = true;
+    await h.tick(at(27));
+    expect(h.store.rows.get("cron:audit")!.alertedAt).toBeNull();
+    await h.tick(at(28));
+    await h.tick(at(29));
+    expect(h.alarms.overdueEvents.map((e) => +e.since)).toEqual([+at(27), +at(27)]);
+    expect(h.store.rows.get("cron:audit")!.alertedAt).not.toBeNull();
+    expect(h.mailer.sent).toHaveLength(1);
+  });
+
+  it("closes abandoned runs and prunes only in the housekeeping hours (03 and 15 UTC)", async () => {
+    const job = controllable("cron:audit", 26);
+    const h = harness([job.spec]);
+    job.output.lastSeen = T0;
+    for (let hour = 0; hour < 24; hour++) await h.tick(at(hour + 0.3));
+    expect(h.store.housekeepingRuns.map((d) => d.getUTCHours())).toEqual([3, 15]);
   });
 
   it("a crash between creating the issue and recording it never leaves two issues", async () => {
@@ -468,6 +522,19 @@ describe("runWatchdog: the Mac mini", () => {
     expect(h.github.issues.map((i) => i.title)).toEqual(["ops: Mac mini silent, no scheduled task is producing output"]);
     expect(h.mailer.sent).toHaveLength(1);
     for (const id of ["deep-dive", "hareline-audit", "ops-digest"]) expect(h.store.rows.get(id)!.status).toBe("OK");
+  });
+
+  it("checks that can't run don't clear the Mac alarm", async () => {
+    const { h, tasks } = macHarness();
+    for (let hour = 0; hour <= 40; hour++) await h.tick(at(hour));
+    expect(h.store.rows.get(MAC_MINI_ID)!.status).toBe("OVERDUE");
+
+    for (const t of tasks) t.output.broken = true;
+    const run = await h.tick(at(41));
+    expect(run).toMatchObject({ unknown: 4 });
+    expect(h.store.rows.get(MAC_MINI_ID)!.status).toBe("OVERDUE");
+    expect(h.alarms.recoveredEvents).toHaveLength(0);
+    expect(h.github.issues[0].open).toBe(true);
   });
 
   it("when the Mac comes back, the tasks get a full window before their own alarms", async () => {

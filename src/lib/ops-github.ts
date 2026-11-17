@@ -136,7 +136,12 @@ export function createOpsGithub(token: string, fetchImpl: typeof fetch = fetch):
       throw new GithubUnavailableError(`GitHub ${init.method ?? "GET"} ${path} failed: ${err instanceof Error ? err.message : String(err)}`);
     }
     if (!res.ok) throw new GithubUnavailableError(`GitHub ${init.method ?? "GET"} ${path}: HTTP ${res.status}`);
-    return res.status === 204 ? null : res.json();
+    if (res.status === 204) return null;
+    try {
+      return await res.json();
+    } catch (err) {
+      throw new GithubUnavailableError(`GitHub ${init.method ?? "GET"} ${path}: unreadable body: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   async function list(path: string, params: URLSearchParams, limit: number): Promise<Json[]> {

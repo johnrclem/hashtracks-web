@@ -9,13 +9,16 @@
  *   `status = 'OVERDUE'`. Only the run whose update returns the row acts on the change, so an
  *   overlapping run (the QStash run and the Vercel backstop, or a QStash retry) never acts twice.
  *   Runs are also serialised by an advisory lock (`runWatchdogExclusive`).
- * - **Alarms survive a crash.** An OVERDUE row records `alertedAt` (Sentry), `issueNumber` (the
- *   `lane:ops` issue) and `emailedAt`; every run delivers whichever is still missing. Sentry and
- *   email are claimed with a conditional update before they're sent. An issue is found by its
- *   `<!-- ops:<automation> -->` marker among the open `lane:ops` issues before one is created, so
- *   a crash between creating and recording it never leaves two.
- * - **On recovery** it sends a Sentry info event and one recovered email (if the alarm was
- *   emailed), then comments on the issue and closes it.
+ * - **Notices survive a crash.** An OVERDUE row records `alertedAt` (Sentry), `issueNumber` (the
+ *   `lane:ops` issue) and `emailedAt`, each written only after that notice went out; every run
+ *   delivers whichever is still missing. A crash between sending and recording can repeat a
+ *   notice, never lose one: a repeated Sentry event joins the outage's own Sentry issue (its
+ *   fingerprint), a repeated email carries the same Resend idempotency key, and an issue is found
+ *   by its `<!-- ops:<automation> -->` marker among the open `lane:ops` issues before one is
+ *   created.
+ * - **Recovery notices are owed the same way.** A recovery leaves the outage's `alertedAt`,
+ *   `emailedAt` and `issueNumber` on the now-OK row; each run sends what they stand for (a Sentry
+ *   info event, a recovered email, a close and a comment) and clears each once it's done.
  * - **Mac mini.** When no scheduled task on the Mac mini is OK and at least one is overdue, it
  *   raises one "Mac mini silent" alarm and leaves the tasks' own alarm states alone.
  * - **Blocked on the owner is not down.** A BLOCKED_ON_OWNER verdict counts as OK for alarms.
@@ -40,9 +43,17 @@ import { emailOwner, ownerEmailConfigured, type OwnerEmail, type NotifyResult } 
 import type { GhIssue, GhPull, OpsGithub } from "@/lib/ops-github";
 
 export const OPS_LABEL = "lane:ops";
-/** Run rows are kept this long; the watchdog deletes older ones once a day, in this UTC hour. */
+/** Run rows are kept this long. */
 export const RUN_RETENTION_DAYS = 90;
-const PRUNE_HOUR_UTC = 3;
+/** A RUNNING row older than this was killed (the longest cron `maxDuration` is 300 s). */
+const ABANDONED_RUN_MS = 3_600_000;
+/**
+ * Housekeeping (pruning old runs, closing abandoned ones) runs in these UTC hours: the hourly
+ * QStash run at 03:20 and the 15:40 Vercel backstop, so it still happens if QStash stops.
+ */
+const HOUSEKEEPING_HOURS_UTC = new Set([3, 15]);
+/** The open lane:ops issues read before filing; a full page is reported, as a marker might be missed. */
+const OPS_ISSUE_LIMIT = 300;
 export const WATCHDOG_LOCK_KEY = 0x4f_50_57_44; // "OPWD"
 
 const DAY_MS = 86_400_000;
@@ -72,19 +83,22 @@ export interface WatchdogStore {
   recordCheck(id: string, verdict: AutomationVerdict, detail: string, now: Date): Promise<void>;
   /** OK → OVERDUE. Returns the row only to the run that made the change. */
   markOverdue(id: string, now: Date): Promise<StateRow | null>;
-  /** OVERDUE (entered at `since`) → OK. Returns the row only to the run that made the change. */
+  /**
+   * OVERDUE (entered at `since`) → OK. Keeps `alertedAt`, `emailedAt` and `issueNumber`: they
+   * are the recovery notices still owed. Returns the row only to the run that made the change.
+   */
   markRecovered(id: string, since: Date, now: Date): Promise<StateRow | null>;
-  /** Claim the outage's Sentry alarm; true only for the run that claimed it. */
-  claimAlert(id: string, since: Date, now: Date): Promise<boolean>;
-  /** Claim the outage's email; true only for the run that claimed it. */
-  claimEmail(id: string, since: Date, now: Date): Promise<boolean>;
-  /** Undo a claim whose send failed, so the next run retries. */
-  releaseEmail(id: string, since: Date, claimedAt: Date): Promise<void>;
+  /** Record that the outage's Sentry alarm (`alertedAt`) or email (`emailedAt`) went out. */
+  recordSent(id: string, since: Date, field: "alertedAt" | "emailedAt", at: Date): Promise<void>;
   /** Record the outage's issue, if none is recorded yet. */
   setIssue(id: string, since: Date, issueNumber: number): Promise<void>;
+  /** Clear a recovery notice once it's delivered (only on an OK row still holding `value`). */
+  clearOwed(id: string, field: "alertedAt" | "emailedAt", value: Date): Promise<void>;
   /** Forget an issue once it's closed after a recovery. */
   clearIssue(id: string, issueNumber: number): Promise<void>;
   deleteRunsBefore(cutoff: Date): Promise<number>;
+  /** Mark RUNNING rows started before `cutoff` as FAILED: their function was killed. */
+  closeAbandonedRuns(cutoff: Date, now: Date): Promise<number>;
 }
 
 const STATE_SELECT = {
@@ -130,27 +144,16 @@ export function prismaWatchdogStore({ lockIdleMs }: { lockIdleMs: number }): Wat
     async markRecovered(id, since, now) {
       const [row] = await s.updateManyAndReturn({
         where: { automation: id, status: "OVERDUE", since },
-        data: { status: "OK", since: now, alertedAt: null, emailedAt: null },
+        data: { status: "OK", since: now },
         select: STATE_SELECT,
       });
       return row ?? null;
     },
-    async claimAlert(id, since, now) {
-      const { count } = await s.updateMany({
-        where: { automation: id, status: "OVERDUE", since, alertedAt: null },
-        data: { alertedAt: now },
-      });
-      return count === 1;
+    async recordSent(id, since, field, at) {
+      await s.updateMany({ where: { automation: id, status: "OVERDUE", since, [field]: null }, data: { [field]: at } });
     },
-    async claimEmail(id, since, now) {
-      const { count } = await s.updateMany({
-        where: { automation: id, status: "OVERDUE", since, emailedAt: null },
-        data: { emailedAt: now },
-      });
-      return count === 1;
-    },
-    async releaseEmail(id, since, claimedAt) {
-      await s.updateMany({ where: { automation: id, since, emailedAt: claimedAt }, data: { emailedAt: null } });
+    async clearOwed(id, field, value) {
+      await s.updateMany({ where: { automation: id, status: "OK", [field]: value }, data: { [field]: null } });
     },
     async setIssue(id, since, issueNumber) {
       await s.updateMany({
@@ -165,6 +168,13 @@ export function prismaWatchdogStore({ lockIdleMs }: { lockIdleMs: number }): Wat
       const { count } = await prisma.automationRun.deleteMany({ where: { startedAt: { lt: cutoff } } });
       return count;
     },
+    async closeAbandonedRuns(cutoff, now) {
+      const { count } = await prisma.automationRun.updateMany({
+        where: { status: "RUNNING", startedAt: { lt: cutoff } },
+        data: { status: "FAILED", finishedAt: now, summary: "no end recorded: the function timed out or was killed" },
+      });
+      return count;
+    },
   };
 }
 
@@ -173,8 +183,8 @@ export function prismaWatchdogStore({ lockIdleMs }: { lockIdleMs: number }): Wat
 export interface AlarmSink {
   /** Error-level event, its own Sentry issue per automation per outage. */
   overdue(e: { automation: string; label: string; since: Date; detail: string }): void;
-  /** Info-level event when an outage ends. */
-  recovered(e: { automation: string; label: string; outageSince: Date; detail: string }): void;
+  /** Info-level event when an outage ends; `alertedAt` (the outage's alarm time) keys its fingerprint. */
+  recovered(e: { automation: string; label: string; alertedAt: Date; detail: string }): void;
   flush(): Promise<void>;
 }
 
@@ -189,12 +199,12 @@ export const sentryAlarms: AlarmSink = {
       extra: { detail, since: since.toISOString() },
     });
   },
-  recovered({ automation, label, outageSince, detail }) {
+  recovered({ automation, label, alertedAt, detail }) {
     Sentry.captureMessage(`Ops watchdog: ${label} recovered`, {
       level: "info",
-      fingerprint: ["ops-watchdog-recovered", automation, outageSince.toISOString()],
+      fingerprint: ["ops-watchdog-recovered", automation, alertedAt.toISOString()],
       tags: { ops_watchdog: "recovered", automation },
-      extra: { detail, outageSince: outageSince.toISOString() },
+      extra: { detail, alertedAt: alertedAt.toISOString() },
     });
   },
   async flush() {
@@ -252,9 +262,16 @@ async function evaluate(spec: AutomationSpec, ctx: CheckContext): Promise<Evalua
   }
 }
 
-/** No desktop task is OK and at least one is overdue: the Mac mini itself has gone quiet. */
+/**
+ * No desktop task is OK and at least one is overdue: the Mac mini itself has gone quiet.
+ * BLOCKED_ON_OWNER doesn't count as alive here: it is read from open PRs on GitHub, not from
+ * anything the Mac produced. With no task OK or overdue but some checks failing, the verdict is
+ * UNKNOWN, so a failed observation never clears (or raises) the Mac alarm.
+ */
 function macMiniEvaluation(desktop: Evaluation[]): Evaluation {
-  const silent = !desktop.some((e) => e.verdict === "OK") && desktop.some((e) => e.verdict === "OVERDUE");
+  const has = (v: AutomationVerdict) => desktop.some((e) => e.verdict === v);
+  const verdict: AutomationVerdict = has("OK") ? "OK" : has("OVERDUE") ? "OVERDUE" : has("UNKNOWN") ? "UNKNOWN" : "OK";
+  const silent = verdict === "OVERDUE";
   return {
     id: MAC_MINI_ID,
     label: MAC_MINI_LABEL,
@@ -263,10 +280,11 @@ function macMiniEvaluation(desktop: Evaluation[]): Evaluation {
     alarmTitle: "Mac mini silent, no scheduled task is producing output",
     runbook:
       "Check that the Mac mini is awake, online and signed in, and that Claude Code's scheduled tasks are enabled. The tasks' own alarms are held while this one is open.",
-    verdict: silent ? "OVERDUE" : "OK",
-    detail: silent
-      ? `no scheduled task produced output: ${desktop.map((e) => `${e.label} ${e.verdict}`).join(", ")}`
-      : "at least one scheduled task is producing output",
+    verdict,
+    detail:
+      verdict === "OK"
+        ? "at least one scheduled task is producing output, or none is overdue"
+        : `${silent ? "no scheduled task produced output" : "couldn't check the scheduled tasks"}: ${desktop.map((e) => `${e.label} ${e.verdict}`).join(", ")}`,
     expectations: desktop.map((e) => ({ what: e.label, ok: e.verdict !== "OVERDUE", seen: e.detail })),
   };
 }
@@ -299,11 +317,12 @@ function alarmEmail(ev: Evaluation, since: Date): OwnerEmail {
   };
 }
 
-function recoveredEmail(ev: Evaluation, outageSince: Date, now: Date): OwnerEmail {
+/** `alarmEmailedAt` identifies the outage: the time its alarm email went out. */
+function recoveredEmail(ev: Evaluation, recoveredAt: Date, alarmEmailedAt: Date): OwnerEmail {
   return {
     subject: `Recovered: ${ev.label}`,
-    text: `${ev.label} recovered at ${now.toISOString()} (overdue since ${outageSince.toISOString()}).\n\n${ev.detail}`,
-    idempotencyKey: `ops-watchdog/${ev.id}/${outageSince.getTime()}/recovered`,
+    text: `${ev.label} recovered at ${recoveredAt.toISOString()} (alarm emailed ${alarmEmailedAt.toISOString()}).\n\n${ev.detail}`,
+    idempotencyKey: `ops-watchdog/${ev.id}/${alarmEmailedAt.getTime()}/recovered`,
   };
 }
 
@@ -331,13 +350,14 @@ export interface WatchdogSummary {
   issuesClosed: number;
   emailsSent: number;
   prunedRuns: number;
+  abandonedRuns: number;
   errorCount: number;
   overdueAutomations: string[];
   errors: string[];
 }
 
 export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> {
-  const { store, github, alarms, mailer, now } = deps;
+  const { store, github, now } = deps;
   const specs = deps.specs ?? AUTOMATIONS;
 
   await store.ensureStates([...specs.map((s) => s.id), MAC_MINI_ID]);
@@ -384,6 +404,7 @@ export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> 
     issuesClosed: 0,
     emailsSent: 0,
     prunedRuns: 0,
+    abandonedRuns: 0,
     errorCount: 0,
     overdueAutomations: [],
     errors: [],
@@ -401,30 +422,28 @@ export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> 
       if (ev.verdict === "OVERDUE") {
         if (await store.markOverdue(ev.id, now)) summary.wentOverdue++;
       } else if (prev?.status === "OVERDUE") {
-        const won = await store.markRecovered(ev.id, prev.since, now);
-        if (won) {
-          summary.recovered++;
-          alarms.recovered({ automation: ev.id, label: ev.label, outageSince: prev.since, detail: ev.detail });
-          if (prev.emailedAt) {
-            const res = await mailer.send(recoveredEmail(ev, prev.since, now));
-            if (res.sent) summary.emailsSent++;
-            else fail(`recovered email for ${ev.id}`, res.reason);
-          }
-        }
+        // The recovery notices are delivered below, from what the row still owes.
+        if (await store.markRecovered(ev.id, prev.since, now)) summary.recovered++;
       }
     } catch (err) {
       fail(ev.id, err);
     }
   }
 
-  // 3. Deliver what each state still owes: alarms for outages, closes for recoveries.
+  // 3. Deliver what each state still owes: alarms for outages, notices for recoveries.
   // The open lane:ops issues are listed at most once per run, however many outages need one.
   let opsIssues: Promise<GhIssue[]> | null = null;
   const run: AlarmRun = {
     deps,
     summary,
     fail,
-    openOpsIssues: (gh) => (opsIssues ??= gh.listIssues({ labels: OPS_LABEL, state: "open", limit: 300 })),
+    openOpsIssues: (gh) => {
+      opsIssues ??= gh.listIssues({ labels: OPS_LABEL, state: "open", limit: OPS_ISSUE_LIMIT }).then((list) => {
+        if (list.length >= OPS_ISSUE_LIMIT) fail("lane:ops issues", `${list.length} open; a marker may be missed`);
+        return list;
+      });
+      return opsIssues;
+    },
   };
   const after = await store.loadStates();
   for (const row of after.values()) {
@@ -432,30 +451,22 @@ export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> 
     if (!ev) continue; // no longer registered
     try {
       if (row.status === "OVERDUE") await deliverAlarm(row, ev, run);
-      else if (row.issueNumber !== null && github) {
-        await github.comment(
-          row.issueNumber,
-          `${issueMarker(row.automation)}\nRecovered at ${row.since.toISOString()}: ${ev.detail}\n\nClosing.`,
-        );
-        await github.close(row.issueNumber);
-        await store.clearIssue(row.automation, row.issueNumber);
-        summary.issuesClosed++;
-      }
+      else await deliverRecovery(row, ev, run);
     } catch (err) {
       fail(`deliver ${row.automation}`, err);
     }
     if (row.status === "OVERDUE") summary.overdueAutomations.push(row.automation);
   }
 
-  if (now.getUTCHours() === PRUNE_HOUR_UTC) {
+  if (HOUSEKEEPING_HOURS_UTC.has(now.getUTCHours())) {
     try {
       summary.prunedRuns = await store.deleteRunsBefore(new Date(now.getTime() - RUN_RETENTION_DAYS * DAY_MS));
+      summary.abandonedRuns = await store.closeAbandonedRuns(new Date(now.getTime() - ABANDONED_RUN_MS), now);
     } catch (err) {
-      fail("prune runs", err);
+      fail("housekeeping", err);
     }
   }
 
-  await alarms.flush();
   summary.errorCount = summary.errors.length;
   return summary;
 }
@@ -472,8 +483,10 @@ async function deliverAlarm(row: StateRow, ev: Evaluation, run: AlarmRun): Promi
   const { summary, fail } = run;
   const id = row.automation;
 
-  if (!row.alertedAt && (await store.claimAlert(id, row.since, now))) {
+  if (!row.alertedAt) {
     alarms.overdue({ automation: id, label: ev.label, since: row.since, detail: ev.detail });
+    await alarms.flush();
+    await store.recordSent(id, row.since, "alertedAt", now);
     summary.alarmsSent++;
   }
 
@@ -496,13 +509,44 @@ async function deliverAlarm(row: StateRow, ev: Evaluation, run: AlarmRun): Promi
     }
   }
 
-  if (!row.emailedAt && mailer.configured() && (await store.claimEmail(id, row.since, now))) {
+  if (!row.emailedAt && mailer.configured()) {
     const res = await mailer.send(alarmEmail(ev, row.since));
-    if (res.sent) summary.emailsSent++;
-    else {
-      await store.releaseEmail(id, row.since, now);
-      fail(`email for ${id}`, res.reason);
+    if (res.sent) {
+      await store.recordSent(id, row.since, "emailedAt", now);
+      summary.emailsSent++;
+    } else fail(`email for ${id}`, res.reason);
+  }
+}
+
+/** Send the recovery notices an OK row still owes, clearing each once it's done. */
+async function deliverRecovery(row: StateRow, ev: Evaluation, run: AlarmRun): Promise<void> {
+  const { store, github, alarms, mailer } = run.deps;
+  const id = row.automation;
+
+  if (row.alertedAt) {
+    alarms.recovered({ automation: id, label: ev.label, alertedAt: row.alertedAt, detail: ev.detail });
+    await alarms.flush();
+    await store.clearOwed(id, "alertedAt", row.alertedAt);
+  }
+
+  if (row.emailedAt) {
+    if (!mailer.configured()) {
+      await store.clearOwed(id, "emailedAt", row.emailedAt); // nowhere to send it any more
+    } else {
+      const res = await mailer.send(recoveredEmail(ev, row.since, row.emailedAt));
+      if (res.sent) {
+        await store.clearOwed(id, "emailedAt", row.emailedAt);
+        run.summary.emailsSent++;
+      } else run.fail(`recovered email for ${id}`, res.reason);
     }
+  }
+
+  if (row.issueNumber !== null && github) {
+    // Close before commenting: a failed close then never leaves a trail of "Recovered" comments.
+    await github.close(row.issueNumber);
+    await github.comment(row.issueNumber, `${issueMarker(id)}\nRecovered at ${row.since.toISOString()}: ${ev.detail}`);
+    await store.clearIssue(id, row.issueNumber);
+    run.summary.issuesClosed++;
   }
 }
 
