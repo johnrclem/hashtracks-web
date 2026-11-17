@@ -9,8 +9,9 @@ vi.mock("@/lib/db", () => ({
     event: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     eventKennel: { create: vi.fn(), upsert: vi.fn() },
     eventLink: { upsert: vi.fn(), createMany: vi.fn() },
-    kennel: { findUnique: vi.fn(), updateMany: vi.fn() },
+    kennel: { findUnique: vi.fn(), findMany: vi.fn().mockResolvedValue([]), updateMany: vi.fn() },
     $executeRaw: vi.fn().mockResolvedValue(0),
+    $queryRaw: vi.fn().mockResolvedValue([]),
     $transaction: vi.fn(),
   },
 }));
@@ -49,7 +50,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, isReplaceableDefaultTitle, normalizeThemeTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked, isImplausibleEndTime, hasConflictingRunNumber, venueTextChanged } from "./merge";
+import { processRawEvents, simulateBackfillMerge, prepareRowForMerge, CreateOnlyViolation, BackfillRowRejected, type MatchPath, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, isReplaceableDefaultTitle, normalizeThemeTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked, isImplausibleEndTime, hasConflictingRunNumber, venueTextChanged } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -997,6 +998,7 @@ describe("processRawEvents", () => {
       created: 0, createdEventIds: [], updated: 0, skipped: 0, blocked: 0, restored: 0,
       unmatched: [], blockedTags: [], eventErrors: 0, eventErrorMessages: [],
       mergeErrorDetails: [], sampleBlocked: [], sampleSkipped: [],
+      archiveCutoffDropped: 0, archiveCorrectionSkipped: 0,
     });
   });
 
@@ -6328,5 +6330,406 @@ describe("hasConflictingRunNumber (#2656)", () => {
     expect(hasConflictingRunNumber({ runNumber: null }, { runNumber: 40 })).toBe(false);
     expect(hasConflictingRunNumber({ runNumber: 39 }, { runNumber: undefined })).toBe(false);
     expect(hasConflictingRunNumber({ runNumber: 39 }, {})).toBe(false);
+  });
+});
+
+
+// ── Onboarding backfill: matcher paths in both modes, archive cutoff (design 6.5, 9.1) ──
+
+const SAT = "2026-02-14";
+const satNoon = new Date(Date.UTC(2026, 1, 14, 12));
+const sunNoon = new Date(Date.UTC(2026, 1, 15, 12));
+const archiveSource = { trustLevel: 5, type: "GOOGLE_SHEETS", archiveOnly: true, enabled: false, kennels: [{ kennelId: "kennel_1" }] };
+const liveSource = { trustLevel: 5, type: "GOOGLE_SHEETS", archiveOnly: false, enabled: true, kennels: [{ kennelId: "kennel_1" }] };
+
+type PoolRow = Record<string, unknown> & { id: string };
+function poolRow(id: string, overrides: Record<string, unknown> = {}): PoolRow {
+  return { id, kennelId: "kennel_1", trustLevel: 5, runNumber: null, title: null, haresText: null, startTime: null, sourceUrl: null, eventLabel: null, status: "CONFIRMED", isCanonical: true, parentEventId: null, isSeriesParent: false, adminCancelledAt: null, createdAt: new Date("2026-01-01"), ...overrides };
+}
+
+interface MatchScenario {
+  path: MatchPath | "duplicate-fingerprint";
+  /** The existing row the incoming row lands on in ordinary mode. */
+  target: string;
+  pool?: PoolRow[];
+  rows: Array<Partial<import("@/adapters/types").RawEventData>>;
+  setup?: () => void;
+}
+
+const MATCH_SCENARIOS: MatchScenario[] = [
+  {
+    path: "same-day",
+    target: "evt_sole",
+    pool: [poolRow("evt_sole", { runNumber: 41, sourceUrl: "https://other" })],
+    rows: [{ runNumber: undefined, sourceUrl: "https://sheet" }],
+  },
+  {
+    path: "same-day-url",
+    target: "evt_url",
+    pool: [poolRow("evt_url", { sourceUrl: "https://sheet/1" }), poolRow("evt_other", { sourceUrl: "https://sheet/2" })],
+    rows: [{ sourceUrl: "https://sheet/1" }],
+  },
+  {
+    path: "same-day-run",
+    target: "evt_run",
+    pool: [poolRow("evt_run", { runNumber: 2100, sourceUrl: "https://a" }), poolRow("evt_other", { runNumber: 2099, sourceUrl: "https://b" })],
+    rows: [{ runNumber: 2100, sourceUrl: "https://c" }],
+  },
+  {
+    path: "same-day-time",
+    target: "evt_time",
+    pool: [poolRow("evt_time", { startTime: "14:00", sourceUrl: "https://a" }), poolRow("evt_other", { startTime: "19:00", sourceUrl: "https://b" })],
+    rows: [{ runNumber: undefined, startTime: "14:00", sourceUrl: "https://c" }],
+  },
+  {
+    path: "same-day-title",
+    target: "evt_title",
+    pool: [poolRow("evt_title", { title: "Valentine's Day Trail", sourceUrl: "https://a" }), poolRow("evt_other", { title: "Other", sourceUrl: "https://b" })],
+    rows: [{ runNumber: undefined, startTime: undefined, sourceUrl: "https://c" }],
+  },
+  {
+    path: "theme",
+    target: "evt_run",
+    pool: [
+      poolRow("evt_run", { runNumber: 1025, title: "Hashmas", sourceUrl: "https://sheet" }),
+      poolRow("evt_stub", { title: "Seattle H3 Trail", sourceUrl: "https://cal/stub" }),
+    ],
+    rows: [{ kennelTags: ["sh3-wa"], runNumber: undefined, title: "SH3 Hashmas", hares: undefined, location: undefined, startTime: undefined, sourceUrl: "https://cal/hashmas" }],
+  },
+  {
+    path: "placeholder",
+    target: "evt_stub",
+    pool: [
+      poolRow("evt_stub", { title: "Seattle H3 Trail", sourceUrl: "https://cal/stub" }),
+      poolRow("evt_special", { title: "SH3 Red Dress Run", sourceUrl: "https://cal/special" }),
+    ],
+    rows: [{ kennelTags: ["sh3-wa"], runNumber: 1028, title: "Erections", hares: "HFU", sourceUrl: "https://sheet", startTime: undefined }],
+  },
+  {
+    path: "fuzzy-window",
+    target: "evt_sun",
+    pool: [poolRow("evt_sun", { date: sunNoon, title: "Valentine's Day Trail", runNumber: 2100, startTime: "14:00", sourceUrl: "https://other" })],
+    rows: [{}],
+    setup: () => vi.stubEnv("MERGE_FUZZY_DEDUP", "true"),
+  },
+  {
+    path: "date-correction",
+    target: "evt_moved",
+    pool: [],
+    rows: [{ runNumber: 2100, sourceUrl: "https://sheet/run-2100" }],
+    setup: () => {
+      vi.mocked(prisma.event.findFirst).mockResolvedValue(
+        poolRow("evt_moved", { date: sunNoon, runNumber: 2100, sourceUrl: "https://sheet/run-2100" }) as never,
+      );
+    },
+  },
+  {
+    // Two rows of one batch on one date with the same run number: the second
+    // lands on the event the first just created.
+    path: "same-day",
+    target: "evt_new",
+    pool: [],
+    rows: [{ runNumber: 2100 }, { runNumber: 2100, sourceUrl: "https://hashnyc.com/2" }],
+    setup: () => mockFingerprint.mockImplementation((e) => `fp_${e.sourceUrl}`),
+  },
+  {
+    path: "duplicate-fingerprint",
+    target: "evt_dup",
+    pool: [],
+    rows: [{}],
+    setup: () => mockRawEventFind.mockResolvedValueOnce({ id: "raw_dup", processed: true, eventId: "evt_dup" }),
+  },
+];
+
+function stageScenario(sc: MatchScenario, source: typeof archiveSource): void {
+  mockSourceFind.mockResolvedValue(source as never);
+  // A fresh copy per test: the merge patches its per-batch pool in place.
+  if (sc.pool) mockEventFindMany.mockResolvedValueOnce(sc.pool.map((r) => ({ ...r })) as never);
+  mockEventCreate.mockResolvedValue(eventRow("evt_new", { date: satNoon, runNumber: 2100, sourceUrl: "https://hashnyc.com", startTime: "14:00", trustLevel: 5, isCanonical: true }));
+  mockEventUpdate.mockImplementation((async (args: { where: { id: string } }) => eventRow(args.where.id)) as never);
+  sc.setup?.();
+}
+
+function scenarioRows(sc: MatchScenario) {
+  return sc.rows.map((r) => buildRawEvent({ date: SAT, ...r }));
+}
+
+describe("onboarding backfill: every match path", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  describe.each(MATCH_SCENARIOS.map((sc, i) => [`${sc.path} #${i}`, sc] as const))("%s", (_label, sc) => {
+    it("ordinary mode lands the row on the existing event", async () => {
+      stageScenario(sc, liveSource);
+      const result = await processRawEvents("src_live", scenarioRows(sc));
+      if (sc.path === "duplicate-fingerprint") {
+        expect(result.skipped).toBe(1);
+        expect(mockRawEventCreate).not.toHaveBeenCalled();
+        return;
+      }
+      const lastRowCreates = sc.rows.length > 1 ? 1 : 0; // the batch-duplicate case creates its first row
+      expect(mockEventCreate).toHaveBeenCalledTimes(lastRowCreates);
+      expect(mockEventUpdate.mock.calls.some(
+        (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === sc.target,
+      )).toBe(true);
+    });
+
+    it("backfill mode throws CreateOnlyViolation before writing that row", async () => {
+      stageScenario(sc, archiveSource);
+      const writesBefore = sc.rows.length - 1; // rows before the matching one are created
+      const err = await processRawEvents("src_archive", scenarioRows(sc), { backfill: {} }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(CreateOnlyViolation);
+      expect((err as CreateOnlyViolation).path).toBe(sc.path);
+      expect((err as CreateOnlyViolation).index).toBe(sc.rows.length - 1);
+      expect(mockEventCreate).toHaveBeenCalledTimes(writesBefore);
+      expect(mockEventUpdate).not.toHaveBeenCalled();
+      expect(mockRawEventCreate).not.toHaveBeenCalled();
+    });
+
+    it("simulation reports the same path and writes nothing", async () => {
+      stageScenario(sc, archiveSource);
+      const sim = await simulateBackfillMerge("src_archive", scenarioRows(sc));
+      expect(sim.rows.at(-1)).toMatchObject({ outcome: "MATCH", path: sc.path });
+      expect(mockEventCreate).not.toHaveBeenCalled();
+      expect(mockEventUpdate).not.toHaveBeenCalled();
+      expect(mockRawEventCreate).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("onboarding backfill mode: creates", () => {
+  beforeEach(() => {
+    mockSourceFind.mockResolvedValue(archiveSource as never);
+    mockEventCreate.mockImplementation((async (args: { data: { runNumber?: number } }) =>
+      eventRow(`evt_${args.data.runNumber}`, { date: satNoon, runNumber: args.data.runNumber, trustLevel: 5, isCanonical: true, createdAt: new Date() })) as never);
+  });
+
+  it("writes RawEvent, Event and primary kennel link in one nested create", async () => {
+    const row = buildRawEvent({ date: SAT, runNumber: 7 });
+    const result = await processRawEvents("src_archive", [row], { backfill: { scheduleOnly: new Map([[row, true]]) } });
+    expect(result.created).toBe(1);
+    expect(mockRawEventCreate).not.toHaveBeenCalled();
+    const data = (mockEventCreate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data.isScheduleOnly).toBe(true);
+    expect(data.eventKennels).toEqual({ create: { kennelId: "kennel_1", isPrimary: true } });
+    expect(data.rawEvents).toMatchObject({
+      create: { sourceId: "src_archive", fingerprint: DEFAULT_MOCK_FINGERPRINT, processed: true, rawData: expect.objectContaining({ runNumber: 7 }) },
+    });
+    // No post-loop flush is needed: the RawEvent is born processed and linked.
+    expect(vi.mocked(prisma.$executeRaw)).not.toHaveBeenCalled();
+  });
+
+  it("stores the row as sanitized, before the kennel-title rewrite", async () => {
+    const row = buildRawEvent({ date: SAT, title: undefined, hares: "A &amp; B", runNumber: 8 });
+    await processRawEvents("src_archive", [row], { backfill: {} });
+    const raw = (mockEventCreate.mock.calls[0][0] as { data: { rawEvents: { create: { rawData: Record<string, unknown> } } } }).data.rawEvents.create.rawData;
+    expect(raw.hares).toBe("A & B");
+    expect(raw.title).toBeUndefined();
+  });
+
+  it("creates same-date rows with different run numbers as separate events", async () => {
+    mockFingerprint.mockImplementation((e) => `fp_${e.runNumber}`);
+    const result = await processRawEvents("src_archive", [
+      buildRawEvent({ date: SAT, runNumber: 2059 }),
+      buildRawEvent({ date: SAT, runNumber: 2060 }),
+    ], { backfill: {} });
+    expect(result.created).toBe(2);
+    expect(mockEventUpdate).not.toHaveBeenCalled();
+  });
+
+  it("refuses a source that isn't a disabled archive source", async () => {
+    mockSourceFind.mockResolvedValue(liveSource as never);
+    await expect(processRawEvents("src_live", [buildRawEvent()], { backfill: {} })).rejects.toThrow(/archive source/);
+    mockSourceFind.mockResolvedValue({ ...archiveSource, enabled: true } as never);
+    await expect(processRawEvents("src_x", [buildRawEvent()], { backfill: {} })).rejects.toThrow(/archive source/);
+    expect(mockEventCreate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["series", { seriesId: "s1" }],
+    ["series", { seriesParent: true }],
+    ["multi-kennel", { kennelTags: ["a", "b"] }],
+    ["external-links", { externalLinks: [{ url: "https://x", label: "x" }] }],
+  ] satisfies Array<[string, Partial<import("@/adapters/types").RawEventData>]>)("rejects a %s row before writing any row of the batch", async (reason, overrides) => {
+    const err = await processRawEvents("src_archive", [
+      buildRawEvent({ date: SAT, runNumber: 1 }),
+      buildRawEvent({ date: SAT, runNumber: 2, ...overrides }),
+    ], { backfill: {} }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(BackfillRowRejected);
+    expect(err).toMatchObject({ index: 1, reason });
+    expect(mockEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects unresolved and unlinked kennels", async () => {
+    mockResolve.mockResolvedValueOnce({ kennelId: null, matched: false } as never);
+    await expect(processRawEvents("src_archive", [buildRawEvent()], { backfill: {} })).rejects.toMatchObject({ reason: "unresolved-kennel" });
+    mockResolve.mockResolvedValueOnce({ kennelId: "kennel_2", matched: true });
+    await expect(processRawEvents("src_archive", [buildRawEvent()], { backfill: {} })).rejects.toMatchObject({ reason: "unlinked-kennel" });
+  });
+
+  it("skips the same-title cluster linker", async () => {
+    await processRawEvents("src_archive", [buildRawEvent({ date: SAT })], { backfill: {} });
+    // The linker's first read is an event.findMany with a `date: { gte }` window
+    // over the source's kennels; backfill mode never issues it.
+    const linkerCalls = mockEventFindMany.mock.calls.filter(
+      ([args]) => (args as { where?: { date?: { gte?: unknown } } })?.where?.date?.gte !== undefined,
+    );
+    expect(linkerCalls).toHaveLength(0);
+  });
+
+  it("simulation predicts CREATE for distinct runs and flags a canonical demotion", async () => {
+    mockFingerprint.mockImplementation((e) => `fp_${e.runNumber}_${e.title}`);
+    const ok = await simulateBackfillMerge("src_archive", [
+      buildRawEvent({ date: SAT, runNumber: 1 }),
+      buildRawEvent({ date: SAT, runNumber: 2 }),
+    ]);
+    expect(ok.rows.map((r) => r.outcome)).toEqual(["CREATE", "CREATE"]);
+    expect(ok.canonicalChangeSlots).toEqual([]);
+    expect(mockEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("prepareRowForMerge normalises a copy the way the merge stores it", () => {
+    const row = buildRawEvent({ title: "Run Hared by Alice", hares: undefined });
+    const { event, fingerprint } = prepareRowForMerge(row);
+    expect(event.hares).toBe("Alice");
+    expect(event.title).toBe("Run");
+    expect(row.title).toBe("Run Hared by Alice"); // the input is untouched
+    expect(fingerprint).toBe(DEFAULT_MOCK_FINGERPRINT);
+  });
+});
+
+describe("archive cutoff and correction skip (every source)", () => {
+  const cutoff = new Date(Date.UTC(2026, 1, 10, 12)); // rows before 2026-02-10 are the archive's
+  afterEach(() => vi.mocked(prisma.kennel.findMany).mockResolvedValue([] as never));
+
+  beforeEach(() => {
+    mockSourceFind.mockResolvedValue(liveSource as never);
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([{ id: "kennel_1", archiveCutoffDate: cutoff }] as never);
+    mockEventCreate.mockResolvedValue(eventRow("evt_new"));
+  });
+
+  it("drops a live row dated before the kennel's cutoff before storing anything", async () => {
+    const result = await processRawEvents("src_live", [buildRawEvent({ date: "2026-02-01" })]);
+    expect(result.archiveCutoffDropped).toBe(1);
+    expect(result.archiveDropsByKennel).toEqual({ kennel_1: { cutoff: 1, correction: 0 } });
+    expect(mockRawEventCreate).not.toHaveBeenCalled();
+    expect(mockEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("drops it even when its fingerprint already exists (no refresh of the old event)", async () => {
+    mockRawEventFind.mockResolvedValueOnce({ id: "raw_old", processed: true, eventId: "evt_old" });
+    const result = await processRawEvents("src_live", [buildRawEvent({ date: "2026-02-01" })]);
+    expect(result.archiveCutoffDropped).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(vi.mocked(prisma.event.findUnique)).not.toHaveBeenCalled();
+  });
+
+  it("keeps rows on or after the cutoff", async () => {
+    const result = await processRawEvents("src_live", [buildRawEvent({ date: "2026-02-10" })]);
+    expect(result.archiveCutoffDropped).toBe(0);
+    expect(result.created).toBe(1);
+  });
+
+  it("keeps the kennel's own archive source's rows (backfill mode)", async () => {
+    mockSourceFind.mockResolvedValue(archiveSource as never);
+    const result = await processRawEvents("src_archive", [buildRawEvent({ date: "2026-02-01" })], { backfill: {} });
+    expect(result.created).toBe(1);
+  });
+
+  it("leaves kennels without a cutoff alone", async () => {
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([{ id: "kennel_9", archiveCutoffDate: cutoff }] as never);
+    const result = await processRawEvents("src_live", [buildRawEvent({ date: "2026-02-01" })]);
+    expect(result.archiveCutoffDropped).toBe(0);
+    expect(result.created).toBe(1);
+  });
+
+  it("doesn't add a kennel as a co-host on a date before its cutoff", async () => {
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([{ id: "kennel_2", archiveCutoffDate: cutoff }] as never);
+    mockResolve.mockImplementation((async (tag: string) =>
+      tag === "COHOST" ? { kennelId: "kennel_2", matched: true } : { kennelId: "kennel_1", matched: true }) as never);
+    await processRawEvents("src_live", [buildRawEvent({ date: "2026-02-01", kennelTags: ["NYCH3", "COHOST"] })]);
+    expect(vi.mocked(prisma.eventKennel.upsert)).not.toHaveBeenCalled();
+    await processRawEvents("src_live", [buildRawEvent({ date: "2026-02-12", kennelTags: ["NYCH3", "COHOST"] })]);
+    expect(vi.mocked(prisma.eventKennel.upsert)).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips a live row carrying an archive-only event's run number within 30 days", async () => {
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ kennelId: "kennel_1", date: satNoon, runNumber: 2100 }] as never);
+    const result = await processRawEvents("src_live", [buildRawEvent({ date: "2026-03-01", runNumber: 2100 })]);
+    expect(result.archiveCorrectionSkipped).toBe(1);
+    expect(mockRawEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("processes a live row whose run number matches an archive event more than 30 days away", async () => {
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ kennelId: "kennel_1", date: satNoon, runNumber: 2100 }] as never);
+    const result = await processRawEvents("src_live", [buildRawEvent({ date: "2026-04-01", runNumber: 2100 })]);
+    expect(result.archiveCorrectionSkipped).toBe(0);
+    expect(result.created).toBe(1);
+  });
+
+  it("the date-correction query never moves an archive-only event", async () => {
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([] as never);
+    await processRawEvents("src_live", [buildRawEvent({ date: SAT, runNumber: 2100 })]);
+    const where = (vi.mocked(prisma.event.findFirst).mock.calls[0][0] as { where: Record<string, unknown> }).where;
+    expect(where.NOT).toEqual({
+      AND: [{ rawEvents: { some: {} } }, { rawEvents: { every: { source: { archiveOnly: true } } } }],
+    });
+  });
+});
+
+describe("onboarding backfill mode: review fixes", () => {
+  beforeEach(() => {
+    mockSourceFind.mockResolvedValue(archiveSource as never);
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([] as never);
+  });
+
+  it("date correction matches in backfill mode even when the candidate out-trusts the archive", async () => {
+    mockSourceFind.mockResolvedValue({ ...archiveSource, trustLevel: 3 } as never);
+    vi.mocked(prisma.event.findFirst).mockResolvedValue(
+      poolRow("evt_live", { date: sunNoon, runNumber: 2100, trustLevel: 8, sourceUrl: "https://sheet/x" }) as never,
+    );
+    const err = await processRawEvents("src_archive", [buildRawEvent({ date: SAT, runNumber: 2100, sourceUrl: "https://sheet/x" })], { backfill: {} }).catch((e: unknown) => e);
+    expect(err).toMatchObject({ path: "date-correction" });
+    // ...and the query looks at cancelled and archive-backed candidates too.
+    const where = (vi.mocked(prisma.event.findFirst).mock.calls[0][0] as { where: Record<string, unknown> }).where;
+    expect(where).not.toHaveProperty("status");
+    expect(where).not.toHaveProperty("NOT");
+  });
+
+  it("rejects a row dated on or after its kennel's archive cutoff", async () => {
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([{ id: "kennel_1", archiveCutoffDate: satNoon }] as never);
+    await expect(processRawEvents("src_archive", [buildRawEvent({ date: SAT })], { backfill: {} }))
+      .rejects.toMatchObject({ reason: "after-cutoff" });
+    expect(mockEventCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unparseable date before writing, and simulation reports it", async () => {
+    await expect(processRawEvents("src_archive", [buildRawEvent({ date: "2014-13-45" })], { backfill: {} }))
+      .rejects.toMatchObject({ reason: "bad-date" });
+    const sim = await simulateBackfillMerge("src_archive", [buildRawEvent({ date: "not-a-date" })]);
+    expect(sim.rows).toEqual([{ index: 0, outcome: "REJECTED", reason: "bad-date" }]);
+  });
+
+  it("simulation predicts a canonical change over the create's whole slot, existing rows included", async () => {
+    // Two existing runs the incoming row matches on no tier; one of them is
+    // (wrongly) non-canonical, so the apply's recompute over the slot would promote it.
+    mockEventFindMany.mockResolvedValueOnce([
+      poolRow("evt_9", { runNumber: 9, sourceUrl: "https://a" }),
+      poolRow("evt_10", { runNumber: 10, sourceUrl: "https://b", isCanonical: false }),
+    ] as never);
+    const sim = await simulateBackfillMerge("src_archive", [buildRawEvent({ date: SAT, runNumber: 2100, sourceUrl: "https://mine" })]);
+    expect(sim.rows[0]).toMatchObject({ outcome: "CREATE" });
+    expect(sim.canonicalChangeSlots).toEqual([`kennel_1:${SAT}`]);
+  });
+
+  it("the correction skip keys on the sub-run label too (#1848)", async () => {
+    mockSourceFind.mockResolvedValue(liveSource as never);
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ kennelId: "kennel_1", date: satNoon, runNumber: 1999, eventLabel: "a" }] as never);
+    mockEventCreate.mockResolvedValue(eventRow("evt_new"));
+    const result = await processRawEvents("src_live", [buildRawEvent({ date: "2026-02-20", runNumber: 1999, eventLabel: "b" })]);
+    expect(result.archiveCorrectionSkipped).toBe(0);
+    expect(result.created).toBe(1);
   });
 });

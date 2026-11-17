@@ -12,7 +12,7 @@ import { isPlaceholder, isThemelessPlaceholderTitle, decodeEntities, replaceBrTa
 import { containsHarePii, scrubHarePii } from "@/adapters/hare-pii";
 import { LOCATION_EMAIL_CTA_RE } from "./audit-checks";
 import { levenshtein } from "@/lib/fuzzy";
-import { createEventWithKennel } from "@/lib/event-write";
+import { createEventWithKennel, type EventCreateScalars } from "@/lib/event-write";
 import { detectVenueWeekendEndDate } from "./venue-weekend";
 import { linkSameTitleConsecutiveClusters } from "./same-title-cluster";
 
@@ -460,7 +460,39 @@ interface MergeContext {
    *  mirrored on CREATE via `rememberCreatedEvent` and on UPDATE via
    *  in-place patching at the upsert site. */
   eventBatch: EventBatchState;
+  /** Archive protections for this batch (design 6.5). */
+  archive: ArchiveGuard;
+  /**
+   * Backfill mode (design 9.1): every candidate counts as a match, whatever
+   * its trust, status or backing, so nothing the matcher could land on is
+   * ever created alongside.
+   */
+  createOnly: boolean;
   result: MergeResult;
+}
+
+/**
+ * Archive protections, loaded once per batch (onboarding backfill design 6.5).
+ * A kennel with an archive cutoff takes no row dated before it from any source
+ * but its own archive source, and a live row may not carry the run number of
+ * an archive-only event within 30 days of it.
+ */
+interface ArchiveGuard {
+  /** The source being merged is an archive source. */
+  sourceIsArchive: boolean;
+  cutoffByKennel: Map<string, Date>;
+  /** Archive-only events with a run number near the batch's dates, by primary kennel. */
+  archiveEventsByKennel: Map<string, Array<{ date: Date; runNumber: number; eventLabel: string | null }>>;
+}
+
+interface BackfillState {
+  /** The plan's expected `isScheduleOnly` per row (design 9.2 step 5); absent rows get false. */
+  scheduleOnly: Map<RawEventData, boolean>;
+  /** Read-only simulation (design G10): run the matcher, write nothing. */
+  simulate: boolean;
+  /** Each simulated create's whole slot (existing same-day rows plus the creates), for the canonical prediction. */
+  simulatedSlots: Map<string, EventRow[]>;
+  outcomes: BackfillRowOutcome[];
 }
 
 interface EventBatchState {
@@ -1498,6 +1530,10 @@ async function findFuzzyDuplicateInWindow(
 
   for (const c of candidates) {
     if (sameSourceEventIds.has(c.id)) continue;
+    // A simulated backfill create (plan, G10) is this source's own row.
+    if (c.id.startsWith("sim:")) continue;
+    // Design 6.5: an ordinary row never lands on (and moves) archive history.
+    if (!ctx.createOnly && c.date instanceof Date && isBeforeArchiveCutoff(kennelId, c.date, ctx)) continue;
 
     const candTitle = normalizeTitleForFuzzy(c.title);
     if (!candTitle) continue;
@@ -1528,16 +1564,113 @@ export function hasConflictingRunNumber(
 }
 
 /**
- * Create or update the canonical Event record and link the RawEvent to it.
- * Returns the canonical event ID.
+ * How the matcher tied an incoming row to an existing canonical Event. Every
+ * path is a MATCH; the backfill mode refuses all of them (design 9.1).
  */
-async function upsertCanonicalEvent(
+export type MatchPath =
+  | "same-day"
+  | "same-day-url"
+  | "same-day-run"
+  | "same-day-time"
+  | "same-day-title"
+  | "same-day-url-fallback"
+  | "theme"
+  | "placeholder"
+  | "fuzzy-window"
+  | "date-correction";
+
+interface CanonicalMatch {
+  /** The canonical row the incoming row lands on, or null for CREATE. */
+  existing: EventRow | null;
+  path: MatchPath | null;
+  /** The match moves the row to the incoming date (fuzzy window, date correction). */
+  crossWindow: boolean;
+  /** The kennel's events on the incoming date (a fresh array the caller may mutate). */
+  sameDayEvents: EventRow[];
+  kennelData: KennelCacheEntry;
+}
+
+/**
+ * The scalar data for a new canonical Event: geocoded coords and city, the
+ * sanitized display fields, and `dateUtc` composed in the kennel's timezone.
+ * Shared by the ordinary CREATE branch and the backfill mode's per-row create.
+ */
+async function buildNewEventData(
   event: RawEventData,
   kennelId: string,
-  rawEventId: string,
+  eventDate: Date,
+  kennelData: KennelCacheEntry,
   ctx: MergeContext,
-): Promise<string> {
-  const eventDate = parseUtcNoonDate(event.date);
+): Promise<EventCreateScalars> {
+  const timezone = regionTimezone(kennelData.region);
+  // Default to noon if no start time is provided, or composition fails
+  const dateUtc = composeUtcStart(eventDate, event.startTime, timezone) ?? eventDate;
+  const coords = await resolveCoords(event, undefined, ctx, kennelData, resolveRegionBias(event, kennelData.country));
+  // Reverse-geocode city when coords are available (suppress when address already has state).
+  // Canonical-location sources skip this entirely — see shouldSkipReverseGeocode.
+  const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
+  let locationCity: string | null = null;
+  if (!shouldSkipReverseGeocode(ctx.sourceType) && coords.latitude != null && coords.longitude != null) {
+    locationCity = suppressRedundantCity(locName, await reverseGeocode(coords.latitude, coords.longitude, ctx.geocodeCache));
+  }
+  return {
+    ...eventScalarFields(event, kennelId, eventDate, ctx.trustLevel),
+    dateUtc,
+    timezone,
+    locationName: locName,
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+    locationCity,
+  };
+}
+
+/**
+ * The fields of a new Event that come straight from the row: no geocoding, no
+ * timezone. Shared by `buildNewEventData` and the backfill simulation's rows.
+ */
+function eventScalarFields(event: RawEventData, kennelId: string, eventDate: Date, trustLevel: number) {
+  return {
+    kennelId,
+    date: eventDate,
+    // endDate (#1560) — set on series parents + standalone date-range events.
+    // Adapter emits "YYYY-MM-DD"; parseUtcNoonDate normalizes to UTC noon.
+    endDate: event.endDate ? parseUtcNoonDate(event.endDate) : null,
+    runNumber: event.runNumber ?? null,
+    title: sanitizeTitle(event.title),
+    description: event.description,
+    eventLabel: event.eventLabel,
+    haresText: sanitizeHares(event.hares),
+    locationStreet: event.locationStreet ?? null,
+    locationAddress: sanitizeLocationUrl(event.locationUrl),
+    startTime: event.startTime,
+    // #2395 — defensive on create too: a single source emitting an inverted
+    // 1:30 PM → 9:00 AM span is bogus; store the start, drop the bad end.
+    endTime: isImplausibleEndTime(event.startTime, event.endTime) ? null : event.endTime,
+    cost: event.cost,
+    trailLengthText: event.trailLengthText,
+    trailLengthMinMiles: event.trailLengthMinMiles,
+    trailLengthMaxMiles: event.trailLengthMaxMiles,
+    difficulty: event.difficulty,
+    trailType: event.trailType,
+    dogFriendly: event.dogFriendly,
+    prelube: event.prelube,
+    sourceUrl: event.sourceUrl ?? null,
+    trustLevel,
+  };
+}
+
+/**
+ * The read-only half of `upsertCanonicalEvent`: decide whether an incoming row
+ * matches an existing canonical Event (and how), without writing anything.
+ * Reads go through the per-batch caches, plus the date-correction query and the
+ * fuzzy probe's same-source lookup.
+ */
+async function findCanonicalMatch(
+  event: RawEventData,
+  kennelId: string,
+  eventDate: Date,
+  ctx: MergeContext,
+): Promise<CanonicalMatch> {
 
   // Read sameDayEvents from the per-batch per-kennel cache instead of issuing
   // a per-event `event.findMany` (#1287). The pool is sorted by createdAt asc
@@ -1567,6 +1700,7 @@ async function upsertCanonicalEvent(
   // - Different source, same event → first match → update + EventLink
   const batchKey = `${kennelId}:${eventDate.toISOString()}`;
   let existingEvent: (typeof sameDayEvents)[number] | null = null;
+  let path: MatchPath | null = null;
   if (sameDayEvents.length === 1) {
     const sole = sameDayEvents[0];
     const alreadyMatchedInBatch = ctx.batchMatchedEvents.get(batchKey)?.has(sole.id) ?? false;
@@ -1587,6 +1721,7 @@ async function upsertCanonicalEvent(
     } else {
       existingEvent = sole; // Cross-source or first match — backward-compatible
     }
+    if (existingEvent) path = "same-day";
   } else if (sameDayEvents.length > 1) {
     // #2157 — a hareline sheet can legitimately emit two runs on one date
     // (Munich #938 + #939 both on 2026-06-20), so EVERY row shares this source's
@@ -1601,21 +1736,27 @@ async function upsertCanonicalEvent(
       : [];
     if (urlMatches.length === 1) {
       existingEvent = urlMatches[0];
+      path = "same-day-url";
     }
     if (!existingEvent && event.runNumber != null) {
       // Only match when runNumber resolves to exactly one row. Ambiguous
       // groups (same run # at distinct URLs) are genuine multi-part events
       // that the selector keeps split via (runNumber, sourceUrl) keying.
       const runMatches = sameDayEvents.filter(e => e.runNumber === event.runNumber);
-      if (runMatches.length === 1) existingEvent = runMatches[0];
+      if (runMatches.length === 1) {
+        existingEvent = runMatches[0];
+        path = "same-day-run";
+      }
     }
     // #2656 — the weaker startTime/title tiers must never land on a sibling whose
     // run number conflicts with the incoming row's (a distinct double-header run).
     if (!existingEvent && event.startTime) {
       existingEvent = sameDayEvents.find(e => e.startTime === event.startTime && !hasConflictingRunNumber(e, event)) ?? null;
+      if (existingEvent) path = "same-day-time";
     }
     if (!existingEvent && event.title) {
       existingEvent = sameDayEvents.find(e => e.title === event.title && !hasConflictingRunNumber(e, event)) ?? null;
+      if (existingEvent) path = "same-day-title";
     }
     // Degenerate fallback — multiple rows share this URL and the incoming row
     // carries NO disambiguating signal at all (no runNumber/startTime/title), so
@@ -1627,6 +1768,7 @@ async function upsertCanonicalEvent(
     if (!existingEvent && urlMatches.length > 1
         && event.runNumber == null && !event.startTime && !event.title) {
       existingEvent = urlMatches[0];
+      path = "same-day-url-fallback";
     }
   }
 
@@ -1669,7 +1811,10 @@ async function upsertCanonicalEvent(
       const themeMatches = crossSourceSiblings.filter(
         (e) => normalizeThemeTitle(e.title, kennelData) === incomingTheme && !conflictsWithIncoming(e),
       );
-      if (themeMatches.length === 1) existingEvent = themeMatches[0];
+      if (themeMatches.length === 1) {
+        existingEvent = themeMatches[0];
+        path = "theme";
+      }
     }
 
     // Tier B — content-free placeholder absorption. A placeholder carries no
@@ -1695,17 +1840,16 @@ async function upsertCanonicalEvent(
         const placeholders = crossSourceSiblings.filter(rowIsPlaceholder);
         if (placeholders.length === 1) existingEvent = placeholders[0];
       }
+      if (existingEvent) path = "placeholder";
     }
   }
 
   // ±48h fuzzy cross-source dedup (#990) — only when nothing matched same-day,
   // the feature flag is on, and the incoming event isn't part of a series.
-  // Splices the matched row into sameDayEvents so recomputeCanonical operates
-  // on the matched row's bucket. The matched row's ORIGINAL date is captured
-  // here so we can recanonicalize that abandoned bucket after the update
-  // physically moves the row to the incoming source's date.
-  let crossWindowMatch = false;
-  let crossWindowOldDate: Date | null = null;
+  // The caller splices the matched row into sameDayEvents so recomputeCanonical
+  // operates on the matched row's bucket, and recanonicalizes the abandoned
+  // bucket at the row's original date after the update moves it.
+  let crossWindow = false;
   if (
     !existingEvent
     && sameDayEvents.length === 0
@@ -1715,9 +1859,8 @@ async function upsertCanonicalEvent(
     const fuzzy = await findFuzzyDuplicateInWindow(event, kennelId, eventDate, ctx);
     if (fuzzy) {
       existingEvent = fuzzy;
-      sameDayEvents.push(fuzzy);
-      crossWindowMatch = true;
-      crossWindowOldDate = fuzzy.date;
+      path = "fuzzy-window";
+      crossWindow = true;
     }
   }
 
@@ -1770,12 +1913,24 @@ async function upsertCanonicalEvent(
         },
         parentEventId: null,
         isSeriesParent: false,
-        status: { not: "CANCELLED" },
+        // Backfill mode sees every candidate, cancelled and archive-backed ones
+        // included, so it throws rather than creating a second run N beside one.
+        ...(ctx.createOnly
+          ? {}
+          : {
+              status: { not: "CANCELLED" as const },
+              // Design 6.5: never move an event whose only backing is an archive
+              // source. Its date is curated history; a live row near it must not
+              // shift it. Events with no RawEvent at all keep the old behaviour.
+              NOT: { AND: [{ rawEvents: { some: {} } }, { rawEvents: { every: { source: { archiveOnly: true } } } }] },
+            }),
       },
       orderBy: { updatedAt: "desc" },
       select: EVENT_CACHE_SELECT,
     });
-    if (correction && ctx.trustLevel >= correction.trustLevel) {
+    // The trust gate decides whether an ordinary scrape may move the event;
+    // in backfill mode any candidate is a match (and a create-only violation).
+    if (correction && (ctx.createOnly || ctx.trustLevel >= correction.trustLevel)) {
       console.info(
         `[merge.date-correction] kennelId=${kennelId} sourceUrl=${event.sourceUrl} ` +
           `runNumber=${event.runNumber} ` +
@@ -1783,11 +1938,32 @@ async function upsertCanonicalEvent(
           `eventId=${correction.id}`,
       );
       existingEvent = correction;
-      sameDayEvents.push(correction);
-      crossWindowMatch = true;
-      crossWindowOldDate = correction.date;
+      path = "date-correction";
+      crossWindow = true;
     }
   }
+
+  return { existing: existingEvent, path, crossWindow, sameDayEvents, kennelData };
+}
+
+/**
+ * Create or update the canonical Event record and link the RawEvent to it.
+ * Returns the canonical event ID.
+ */
+async function upsertCanonicalEvent(
+  event: RawEventData,
+  kennelId: string,
+  rawEventId: string,
+  ctx: MergeContext,
+): Promise<string> {
+  const eventDate = parseUtcNoonDate(event.date);
+  const match = await findCanonicalMatch(event, kennelId, eventDate, ctx);
+  const { sameDayEvents, kennelData } = match;
+  const existingEvent = match.existing;
+  const crossWindowMatch = match.crossWindow;
+  const crossWindowOldDate: Date | null = crossWindowMatch && existingEvent ? existingEvent.date : null;
+  if (crossWindowMatch && existingEvent) sameDayEvents.push(existingEvent);
+  const batchKey = `${kennelId}:${eventDate.toISOString()}`;
 
   const region = kennelData.region;
 
@@ -2282,51 +2458,12 @@ async function upsertCanonicalEvent(
     ctx.result.updated++;
     if (shouldRestore) ctx.result.restored++;
   } else {
-    // Create new canonical Event
-    const coords = await resolveCoords(event, undefined, ctx, kennelData, resolveRegionBias(event, kennelData.country));
-    // Reverse-geocode city when coords are available (suppress when address already has state).
-    // Canonical-location sources skip this entirely — see shouldSkipReverseGeocode.
-    const locName = coords.normalizedLocation ?? sanitizeLocation(event.location);
-    let locationCity: string | null = null;
-    if (!shouldSkipReverseGeocode(ctx.sourceType) && coords.latitude != null && coords.longitude != null) {
-      locationCity = suppressRedundantCity(locName, await reverseGeocode(coords.latitude, coords.longitude, ctx.geocodeCache));
-    }
-    // Dual-write Event + primary EventKennel atomically (#1023 step 2).
-    // Uses Prisma's nested create — one round-trip, one implicit tx.
-    const newEvent = await createEventWithKennel(prisma, {
-      kennelId,
-      date: eventDate,
-      // endDate (#1560) — set on series parents + standalone date-range events.
-      // Adapter emits "YYYY-MM-DD"; parseUtcNoonDate normalizes to UTC noon.
-      endDate: event.endDate ? parseUtcNoonDate(event.endDate) : null,
-      dateUtc,
-      timezone,
-      runNumber: event.runNumber,
-      title: sanitizeTitle(event.title),
-      description: event.description,
-      eventLabel: event.eventLabel,
-      haresText: sanitizeHares(event.hares),
-      locationName: locName,
-      locationStreet: event.locationStreet ?? null,
-      locationAddress: sanitizeLocationUrl(event.locationUrl),
-      startTime: event.startTime,
-      // #2395 — defensive on create too: a single source emitting an inverted
-      // 1:30 PM → 9:00 AM span is bogus; store the start, drop the bad end.
-      endTime: isImplausibleEndTime(event.startTime, event.endTime) ? null : event.endTime,
-      cost: event.cost,
-      trailLengthText: event.trailLengthText,
-      trailLengthMinMiles: event.trailLengthMinMiles,
-      trailLengthMaxMiles: event.trailLengthMaxMiles,
-      difficulty: event.difficulty,
-      trailType: event.trailType,
-      dogFriendly: event.dogFriendly,
-      prelube: event.prelube,
-      sourceUrl: event.sourceUrl,
-      trustLevel: ctx.trustLevel,
-      latitude: coords.latitude,
-      longitude: coords.longitude,
-      locationCity,
-    });
+    // Create new canonical Event. Dual-write Event + primary EventKennel
+    // atomically (#1023 step 2): Prisma's nested create — one round-trip, one implicit tx.
+    const newEvent = await createEventWithKennel(
+      prisma,
+      await buildNewEventData(event, kennelId, eventDate, kennelData, ctx),
+    );
 
     targetEventId = newEvent.id;
     sameDayEvents.push(newEvent); // keep finalCandidates consistent for recomputeCanonical
@@ -2359,6 +2496,9 @@ async function upsertCanonicalEvent(
     const coHostIds = new Set<string>();
     for (const r of resolved) {
       if (!r.matched || !r.kennelId || r.kennelId === kennelId) continue;
+      // Design 6.5: a co-host row doesn't add a kennel as a secondary on a date
+      // before that kennel's archive cutoff.
+      if (isBeforeArchiveCutoff(r.kennelId, eventDate, ctx)) continue;
       coHostIds.add(r.kennelId);
     }
     await Promise.all(
@@ -2584,6 +2724,19 @@ async function linkMultiDaySeries(
   }
 }
 
+/** Fix the event title using the kennel's display name (not the raw adapter tag). */
+function applyKennelTitle(event: RawEventData, kennelData: KennelCacheEntry): void {
+  const sanitized = sanitizeTitle(event.title);
+  if (!sanitized) {
+    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || event.kennelTags[0];
+    event.title = event.runNumber
+      ? `${displayName} Trail #${event.runNumber}`
+      : `${displayName} Trail`;
+  } else {
+    event.title = rewriteStaleDefaultTitle(sanitized, kennelData.kennelCode, kennelData.shortName, kennelData.fullName, kennelData.aliases);
+  }
+}
+
 /**
  * Process a single new raw event: create RawEvent, resolve kennel, upsert canonical Event,
  * create EventLinks. Returns the canonical event ID or null if unresolvable.
@@ -2689,16 +2842,7 @@ async function processNewRawEvent(
 
   // Fix the event title using the kennel's display name (not the raw adapter tag).
   // Must happen AFTER kennel resolution so we have access to shortName/fullName.
-  const kennelData = await resolveKennelData(kennelId, ctx);
-  const sanitized = sanitizeTitle(event.title);
-  if (!sanitized) {
-    const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || event.kennelTags[0];
-    event.title = event.runNumber
-      ? `${displayName} Trail #${event.runNumber}`
-      : `${displayName} Trail`;
-  } else {
-    event.title = rewriteStaleDefaultTitle(sanitized, kennelData.kennelCode, kennelData.shortName, kennelData.fullName, kennelData.aliases);
-  }
+  applyKennelTitle(event, await resolveKennelData(kennelId, ctx));
 
   const targetEventId = await upsertCanonicalEvent(event, kennelId, rawEvent.id, ctx);
   // Mirror DB state into the dedup map *immediately* after upsertCanonicalEvent
@@ -3052,6 +3196,495 @@ function recordMergeError(
   }
 }
 
+// ── Archive protections and backfill mode (docs/onboarding-backfill-automation-design.md 6.5, 9.1) ──
+
+const ARCHIVE_CORRECTION_WINDOW_MS = SAME_SOURCE_URL_DEDUP_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+/**
+ * Load the batch's archive protections: every kennel's archive cutoff, and the
+ * archive-only events (backed by no source but archive sources) with a run
+ * number within 30 days of the batch's dates. Both sets are tiny (only kennels
+ * with an automated backfill have them), so this is two small queries a batch.
+ */
+async function loadArchiveGuard(
+  sourceIsArchive: boolean,
+  linkedKennelIds: Set<string>,
+  batchDates: Date[],
+): Promise<ArchiveGuard> {
+  const ms = batchDates.map((d) => d.getTime());
+  const wantArchiveEvents = !sourceIsArchive && ms.length > 0 && linkedKennelIds.size > 0;
+  const [cutoffKennels, rows] = await Promise.all([
+    prisma.kennel.findMany({
+      where: { archiveCutoffDate: { not: null } },
+      select: { id: true, archiveCutoffDate: true },
+    }),
+    wantArchiveEvents
+      ? prisma.$queryRaw<Array<{ kennelId: string; date: Date; runNumber: number; eventLabel: string | null }>>`
+      SELECT DISTINCT e."kennelId", e."date", e."runNumber", e."eventLabel"
+      FROM "Source" s
+      JOIN "RawEvent" r ON r."sourceId" = s.id
+      JOIN "Event" e ON e.id = r."eventId"
+      WHERE s."archiveOnly"
+        AND e."kennelId" = ANY(${[...linkedKennelIds]})
+        AND e."runNumber" IS NOT NULL
+        AND e."date" BETWEEN ${new Date(Math.min(...ms) - ARCHIVE_CORRECTION_WINDOW_MS)} AND ${new Date(Math.max(...ms) + ARCHIVE_CORRECTION_WINDOW_MS)}
+        AND NOT EXISTS (
+          SELECT 1 FROM "RawEvent" r2 JOIN "Source" s2 ON s2.id = r2."sourceId"
+          WHERE r2."eventId" = e.id AND NOT s2."archiveOnly"
+        )
+    `
+      : Promise.resolve([]),
+  ]);
+  const cutoffByKennel = new Map<string, Date>();
+  for (const k of cutoffKennels ?? []) {
+    if (k.archiveCutoffDate) cutoffByKennel.set(k.id, k.archiveCutoffDate);
+  }
+  const archiveEventsByKennel = new Map<string, Array<{ date: Date; runNumber: number; eventLabel: string | null }>>();
+  for (const row of rows ?? []) {
+    const list = archiveEventsByKennel.get(row.kennelId) ?? [];
+    list.push({ date: row.date, runNumber: row.runNumber, eventLabel: row.eventLabel ?? null });
+    archiveEventsByKennel.set(row.kennelId, list);
+  }
+  return { sourceIsArchive, cutoffByKennel, archiveEventsByKennel };
+}
+
+/**
+ * True when the kennel's archive cutoff is after `date` and the source being
+ * merged isn't the kennel's own archive source. Used for the primary kennel
+ * (drop the row) and for co-hosts (don't add the kennel as a secondary).
+ */
+function isBeforeArchiveCutoff(kennelId: string, date: Date, ctx: MergeContext): boolean {
+  const cutoff = ctx.archive.cutoffByKennel.get(kennelId);
+  if (!cutoff || date.getTime() >= cutoff.getTime()) return false;
+  return !(ctx.archive.sourceIsArchive && ctx.linkedKennelIds.has(kennelId));
+}
+
+/**
+ * Why an ordinary scrape row must be dropped before anything is stored, or null
+ * to process it (design 6.5). `cutoff`: its kennel's archive cutoff is after
+ * its date. `correction`: it carries the run number of an archive-only event of
+ * its kennel within 30 days, so it would otherwise become a second event with
+ * that run number (the date-correction path skips archive-only events). Nothing
+ * is stored for a dropped row, so it leaves no tombstone: once the cutoff is
+ * cleared (or the archive undone) the row processes normally.
+ */
+async function archiveDropReason(
+  event: RawEventData,
+  ctx: MergeContext,
+): Promise<{ reason: "cutoff" | "correction"; kennelId: string } | null> {
+  const guard = ctx.archive;
+  if (guard.cutoffByKennel.size === 0 && guard.archiveEventsByKennel.size === 0) return null;
+  const { kennelId, matched } = await resolveKennelTag(event.kennelTags[0], ctx.sourceId);
+  if (!matched || !kennelId) return null;
+  let date: Date;
+  try {
+    date = parseUtcNoonDate(event.date);
+  } catch {
+    return null; // the normal path records the bad date
+  }
+  if (Number.isNaN(date.getTime())) return null;
+  if (isBeforeArchiveCutoff(kennelId, date, ctx)) return { reason: "cutoff", kennelId };
+  if (!guard.sourceIsArchive && event.runNumber != null) {
+    const near = guard.archiveEventsByKennel.get(kennelId) ?? [];
+    const t = date.getTime();
+    // Same keys as the date-correction query: run number and sub-run label (#1848).
+    const label = event.eventLabel ?? null;
+    if (near.some((a) => a.runNumber === event.runNumber && a.eventLabel === label && Math.abs(a.date.getTime() - t) <= ARCHIVE_CORRECTION_WINDOW_MS)) {
+      return { reason: "correction", kennelId };
+    }
+  }
+  return null;
+}
+
+function countArchiveDrop(reason: "cutoff" | "correction", kennelId: string, result: MergeResult): void {
+  if (reason === "cutoff") result.archiveCutoffDropped = (result.archiveCutoffDropped ?? 0) + 1;
+  else result.archiveCorrectionSkipped = (result.archiveCorrectionSkipped ?? 0) + 1;
+  const byKennel = (result.archiveDropsByKennel ??= {});
+  const entry = (byKennel[kennelId] ??= { cutoff: 0, correction: 0 });
+  entry[reason]++;
+}
+
+/** Thrown in backfill mode when a row would match an existing event (design 9.1). */
+export class CreateOnlyViolation extends Error {
+  constructor(
+    readonly index: number,
+    readonly path: MatchPath | "duplicate-fingerprint",
+  ) {
+    super(`Backfill row ${index} would match an existing event (${path}); backfill mode only creates`);
+    this.name = "CreateOnlyViolation";
+  }
+}
+
+export type BackfillRejectReason =
+  | "series"
+  | "multi-kennel"
+  | "external-links"
+  | "unresolved-kennel"
+  | "unlinked-kennel"
+  | "empty"
+  | "sanitize-error"
+  | "fingerprint-error"
+  | "bad-date"
+  | "after-cutoff";
+
+/** Thrown in backfill mode for a row the mode can't write atomically (design 9.1). */
+export class BackfillRowRejected extends Error {
+  constructor(
+    readonly index: number,
+    readonly reason: BackfillRejectReason,
+  ) {
+    super(`Backfill row ${index} rejected: ${reason}`);
+    this.name = "BackfillRowRejected";
+  }
+}
+
+export type BackfillRowOutcome =
+  | { index: number; outcome: "CREATE"; fingerprint: string; kennelId: string; date: string }
+  | { index: number; outcome: "MATCH"; path: MatchPath | "duplicate-fingerprint" }
+  | { index: number; outcome: "REJECTED"; reason: BackfillRejectReason };
+
+export interface BackfillMergeOptions {
+  /** Expected `isScheduleOnly` per row object (design 9.2 step 5). Rows not in the map get false. */
+  scheduleOnly?: Map<RawEventData, boolean>;
+}
+
+export interface BackfillSimulation {
+  rows: BackfillRowOutcome[];
+  /** `kennelId:date` slots where the canonical recompute after the creates would demote a row. */
+  canonicalChangeSlots: string[];
+}
+
+/**
+ * Normalise a row exactly as the merge does before fingerprinting and storing
+ * it (`sanitizeRawFields`), on a deep copy. Backfill mode stores this object as
+ * the RawEvent's `rawData`, so the plan evaluates the posted-run rule on it.
+ */
+export function prepareRowForMerge(event: RawEventData): { event: RawEventData; fingerprint: string } {
+  const copy = structuredClone(event);
+  sanitizeRawFields(copy);
+  return { event: copy, fingerprint: generateFingerprint(copy) };
+}
+
+/** A real calendar date in `YYYY-MM-DD` form: "2014-13-45" doesn't roll over into 2015. */
+function isStrictIsoDate(date: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const d = parseUtcNoonDate(date);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === date;
+}
+
+function backfillShapeRejection(event: RawEventData): BackfillRejectReason | null {
+  if (!isStrictIsoDate(event.date)) return "bad-date";
+  if (event.seriesId || event.seriesParent) return "series";
+  if (event.kennelTags.length !== 1) return "multi-kennel";
+  if (event.externalLinks?.length) return "external-links";
+  return null;
+}
+
+/** The row a backfill create puts in the per-batch pools when simulating (no DB write). */
+function simulatedEventRow(
+  event: RawEventData,
+  kennelId: string,
+  eventDate: Date,
+  index: number,
+  ctx: MergeContext,
+): EventRow {
+  const f = eventScalarFields(event, kennelId, eventDate, ctx.trustLevel);
+  return {
+    ...f,
+    id: `sim:${index}`,
+    description: f.description ?? null,
+    eventLabel: f.eventLabel ?? null,
+    startTime: f.startTime ?? null,
+    endTime: f.endTime ?? null,
+    cost: f.cost ?? null,
+    trailLengthText: f.trailLengthText ?? null,
+    trailLengthMinMiles: f.trailLengthMinMiles ?? null,
+    trailLengthMaxMiles: f.trailLengthMaxMiles ?? null,
+    difficulty: f.difficulty ?? null,
+    trailType: f.trailType ?? null,
+    dogFriendly: f.dogFriendly ?? null,
+    prelube: f.prelube ?? null,
+    dateUtc: eventDate,
+    timezone: null,
+    locationName: sanitizeLocation(event.location),
+    locationCity: null,
+    latitude: null,
+    longitude: null,
+    isSeriesParent: false,
+    parentEventId: null,
+    status: "CONFIRMED",
+    adminCancelledAt: null,
+    createdAt: new Date(index),
+    isCanonical: true,
+  };
+}
+
+/**
+ * One backfill row (design 9.1). Decides CREATE or MATCH with the read-only
+ * matcher; any MATCH, including onto an event this run just created, is a
+ * create-only violation. In apply mode a non-CREATE throws before any write for
+ * the row, and a CREATE is one nested write of the RawEvent (processed), the
+ * Event and its primary kennel link. In simulate mode nothing is written and
+ * the create is mirrored into the batch's pools instead.
+ */
+async function processBackfillRow(
+  event: RawEventData,
+  index: number,
+  fingerprint: string,
+  ctx: MergeContext,
+  state: BackfillState,
+): Promise<BackfillRowOutcome> {
+  const fail = (o: BackfillRowOutcome): BackfillRowOutcome => {
+    if (!state.simulate) {
+      if (o.outcome === "MATCH") throw new CreateOnlyViolation(index, o.path);
+      if (o.outcome === "REJECTED") throw new BackfillRowRejected(index, o.reason);
+    }
+    return o;
+  };
+
+  if (ctx.existingByFingerprint.has(fingerprint)) {
+    return fail({ index, outcome: "MATCH", path: "duplicate-fingerprint" });
+  }
+  const { kennelId, matched } = await resolveKennelTag(event.kennelTags[0], ctx.sourceId);
+  if (!matched || !kennelId) return fail({ index, outcome: "REJECTED", reason: "unresolved-kennel" });
+  if (!ctx.linkedKennelIds.has(kennelId)) return fail({ index, outcome: "REJECTED", reason: "unlinked-kennel" });
+
+  // The RawEvent stores the row as it stands now, after sanitizeRawFields and
+  // before the kennel-title rewrite, exactly as an ordinary scrape stores it.
+  const rawData = structuredClone(event) as unknown as Prisma.InputJsonValue;
+  const kennelData = await resolveKennelData(kennelId, ctx);
+  applyKennelTitle(event, kennelData);
+
+  const eventDate = parseUtcNoonDate(event.date);
+  // The archive writes only before its kennel's cutoff (design 6.5); from the
+  // cutoff on the stretch is the live feed's.
+  const cutoff = ctx.archive.cutoffByKennel.get(kennelId);
+  if (cutoff && eventDate.getTime() >= cutoff.getTime()) return fail({ index, outcome: "REJECTED", reason: "after-cutoff" });
+  const match = await findCanonicalMatch(event, kennelId, eventDate, ctx);
+  if (match.existing && match.path) return fail({ index, outcome: "MATCH", path: match.path });
+
+  const batchKey = `${kennelId}:${eventDate.toISOString()}`;
+  let created: EventRow;
+  if (state.simulate) {
+    created = simulatedEventRow(event, kennelId, eventDate, index, ctx);
+    // Apply recomputes canonical over the slot's existing rows plus the create.
+    state.simulatedSlots.set(`${kennelId}:${event.date}`, [...match.sameDayEvents, created]);
+  } else {
+    created = await createEventWithKennel(
+      prisma,
+      {
+        ...(await buildNewEventData(event, kennelId, eventDate, kennelData, ctx)),
+        isScheduleOnly: state.scheduleOnly.get(event) ?? false,
+      },
+      { rawEvent: { sourceId: ctx.sourceId, fingerprint, rawData } },
+    );
+    ctx.result.created++;
+    ctx.result.createdEventIds.push(created.id);
+    const previousMax = ctx.eventBatch.kennelMaxDates.get(kennelId);
+    if (!previousMax || previousMax.getTime() < eventDate.getTime()) {
+      ctx.eventBatch.kennelMaxDates.set(kennelId, eventDate);
+    }
+  }
+  rememberCreatedEvent(kennelId, created, ctx);
+  const batchMatched = ctx.batchMatchedEvents.get(batchKey) ?? new Set<string>();
+  batchMatched.add(created.id);
+  ctx.batchMatchedEvents.set(batchKey, batchMatched);
+  ctx.existingByFingerprint.set(fingerprint, { id: `raw:${index}`, fingerprint, processed: true, eventId: created.id });
+
+  // The one write outside the row's create (design 9.1): a no-op for a single
+  // row and for a same-date group whose run numbers differ. The plan predicts
+  // it (canonicalChangeSlots) and the run's batch check fails on any change.
+  if (!state.simulate) await recomputeCanonical([...match.sameDayEvents, created]);
+
+  return { index, outcome: "CREATE", fingerprint, kennelId, date: event.date };
+}
+
+/**
+ * `kennelId:date` slots where the canonical recompute after the creates would
+ * change any row's flag: demote a row, or promote a non-canonical one.
+ */
+function predictCanonicalChanges(slots: Map<string, EventRow[]>): string[] {
+  const changed: string[] = [];
+  for (const [key, slot] of slots) {
+    const picked = slot.length === 1 ? new Set([slot[0].id]) : pickCanonicalEventIds(slot);
+    if (slot.some((e) => picked.has(e.id) !== e.isCanonical)) changed.push(key);
+  }
+  return changed;
+}
+
+/**
+ * Backfill mode (design 9.1): a batch of archive rows bound to a disabled
+ * archive source. Every row is checked for shape first, so a series, multi-tag
+ * or link row stops the batch before anything is written. Then each row is
+ * created atomically or, on any match, the batch throws before writing that
+ * row. No cluster linker, EventLinks, co-hosts or post-loop RawEvent flush.
+ */
+async function processBackfillBatch(
+  sourceId: string,
+  events: RawEventData[],
+  options: BackfillMergeOptions,
+  simulate: boolean,
+): Promise<{ result: MergeResult; outcomes: BackfillRowOutcome[]; simulatedSlots: Map<string, EventRow[]> }> {
+  const result = emptyMergeResult();
+  const source = await prisma.source.findUnique({
+    where: { id: sourceId },
+    select: { trustLevel: true, type: true, archiveOnly: true, enabled: true, kennels: { select: { kennelId: true } } },
+  });
+  if (!source) throw new Error(`Source not found: ${sourceId}`);
+  if (!source.archiveOnly || source.enabled) {
+    throw new Error(`Backfill mode needs a disabled archive source; ${sourceId} is not one`);
+  }
+
+  const state: BackfillState = {
+    scheduleOnly: options.scheduleOnly ?? new Map(),
+    simulate,
+    simulatedSlots: new Map(),
+    outcomes: [],
+  };
+
+  // Sanitize, fingerprint and shape-check every row before the first write.
+  const fingerprints: Array<string | null> = [];
+  for (let i = 0; i < events.length; i++) {
+    const shape = backfillShapeRejection(events[i]);
+    let reason: BackfillRejectReason | null = shape;
+    let fingerprint: string | null = null;
+    if (!reason) {
+      try {
+        sanitizeRawFields(events[i]);
+      } catch {
+        reason = "sanitize-error";
+      }
+    }
+    if (!reason) {
+      try {
+        fingerprint = generateFingerprint(events[i]);
+      } catch {
+        reason = "fingerprint-error";
+      }
+    }
+    if (reason) {
+      if (!simulate) throw new BackfillRowRejected(i, reason);
+      state.outcomes.push({ index: i, outcome: "REJECTED", reason });
+    }
+    fingerprints.push(fingerprint);
+  }
+
+  const valid = fingerprints.filter((f): f is string => f !== null);
+  const prefetched = await prefetchExistingByFingerprint(sourceId, [...new Set(valid)]);
+  clearResolverCache();
+  const batchDates = collectBatchDates(events.filter((_, i) => fingerprints[i] !== null));
+  const linkedKennelIds = new Set(source.kennels.map((sk) => sk.kennelId));
+  const ctx = createMergeContext({
+    sourceId,
+    trustLevel: source.trustLevel,
+    sourceType: source.type,
+    linkedKennelIds,
+    prefetched,
+    batchDates,
+    archive: await loadArchiveGuard(true, linkedKennelIds, batchDates),
+    createOnly: true,
+    result,
+  });
+
+  for (let i = 0; i < events.length; i++) {
+    const fingerprint = fingerprints[i];
+    if (fingerprint === null) continue;
+    state.outcomes.push(await processBackfillRow(events[i], i, fingerprint, ctx, state));
+  }
+  state.outcomes.sort((a, b) => a.index - b.index);
+
+  if (!simulate) await flushKennelMaxDates(ctx);
+  return { result, outcomes: state.outcomes, simulatedSlots: state.simulatedSlots };
+}
+
+/**
+ * The plan's read-only run of the merge over a backfill's rows (design G10):
+ * the same matcher, in apply order, with each simulated create added to its
+ * same-day pool. Writes nothing. Rows are modified in place exactly as the
+ * apply would modify them, so pass copies.
+ */
+export async function simulateBackfillMerge(
+  sourceId: string,
+  events: RawEventData[],
+): Promise<BackfillSimulation> {
+  const { outcomes, simulatedSlots } = await processBackfillBatch(sourceId, events, {}, true);
+  return { rows: outcomes, canonicalChangeSlots: predictCanonicalChanges(simulatedSlots) };
+}
+
+function emptyMergeResult(): MergeResult {
+  return {
+    created: 0,
+    createdEventIds: [],
+    updated: 0,
+    skipped: 0,
+    unmatched: [],
+    blocked: 0,
+    blockedTags: [],
+    restored: 0,
+    eventErrors: 0,
+    eventErrorMessages: [],
+    mergeErrorDetails: [],
+    sampleBlocked: [],
+    sampleSkipped: [],
+    archiveCutoffDropped: 0,
+    archiveCorrectionSkipped: 0,
+  };
+}
+
+/** Union of UTC-noon dates across the batch — drives the per-kennel prefetch (#1287). */
+function collectBatchDates(events: RawEventData[]): Date[] {
+  const batchDates: Date[] = [];
+  const seenDates = new Set<number>();
+  for (const e of events) {
+    try {
+      const d = parseUtcNoonDate(e.date);
+      const t = d.getTime();
+      if (!Number.isNaN(t) && !seenDates.has(t)) {
+        seenDates.add(t);
+        batchDates.push(d);
+      }
+    } catch {
+      // ignore — recordMergeError handles per-event date errors
+    }
+  }
+  return batchDates;
+}
+
+function createMergeContext(args: {
+  sourceId: string;
+  trustLevel: number;
+  sourceType: SourceType | null;
+  linkedKennelIds: Set<string>;
+  prefetched: ExistingRawEventEntry[];
+  batchDates: Date[];
+  archive: ArchiveGuard;
+  createOnly: boolean;
+  result: MergeResult;
+}): MergeContext {
+  return {
+    sourceId: args.sourceId,
+    trustLevel: args.trustLevel,
+    sourceType: args.sourceType,
+    linkedKennelIds: args.linkedKennelIds,
+    kennelCache: new Map(),
+    shortUrlCache: new Map(),
+    geocodeCache: createGeocodeCache(),
+    batchMatchedEvents: new Map(),
+    existingByFingerprint: new Map(args.prefetched.map((r) => [r.fingerprint, r])),
+    eventBatch: {
+      dates: args.batchDates,
+      sameDayByKennel: new Map(),
+      fuzzyPoolByKennel: new Map(),
+      kennelMaxDates: new Map(),
+      processedRawEvents: new Map(),
+      pendingEventLinks: new Map(),
+    },
+    archive: args.archive,
+    createOnly: args.createOnly,
+    result: args.result,
+  };
+}
+
 /**
  * Process raw events from a scrape into RawEvent records and canonical Events.
  *
@@ -3067,22 +3700,26 @@ function recordMergeError(
 export async function processRawEvents(
   sourceId: string,
   events: RawEventData[],
+  options?: {
+    /**
+     * Backfill mode (design 9.1), used only by the onboarding backfill: the
+     * source must be a disabled archive source; any match throws
+     * `CreateOnlyViolation` before writing that row; each row is one atomic
+     * nested create; series, multi-tag and link rows throw `BackfillRowRejected`.
+     *
+     * Pass the archive's rows as they are in the file (with an explicit
+     * `recurringSeriesId: null` already removed), NOT `prepareRowForMerge`
+     * output: the merge sanitizes them itself, and sanitizing twice isn't
+     * idempotent (`&amp;lt;` decodes on each pass). `scheduleOnly` is keyed by
+     * the very row objects passed here.
+     */
+    backfill?: BackfillMergeOptions;
+  },
 ): Promise<MergeResult> {
-  const result: MergeResult = {
-    created: 0,
-    createdEventIds: [],
-    updated: 0,
-    skipped: 0,
-    unmatched: [],
-    blocked: 0,
-    blockedTags: [],
-    restored: 0,
-    eventErrors: 0,
-    eventErrorMessages: [],
-    mergeErrorDetails: [],
-    sampleBlocked: [],
-    sampleSkipped: [],
-  };
+  if (options?.backfill) {
+    return (await processBackfillBatch(sourceId, events, options.backfill, false)).result;
+  }
+  const result = emptyMergeResult();
 
   // Sanitize raw fields BEFORE fingerprint computation so any inferred
   // values (HTML-decoded text, Hared-by-X extraction, venue-weekend
@@ -3122,6 +3759,7 @@ export async function processRawEvents(
       select: {
         trustLevel: true,
         type: true,
+        archiveOnly: true,
         kennels: { select: { kennelId: true } },
       },
     }),
@@ -3133,53 +3771,19 @@ export async function processRawEvents(
 
   clearResolverCache();
 
-  const existingByFingerprint = new Map<string, ExistingRawEventEntry>(
-    prefetchedRawEvents.map((r) => [r.fingerprint, r]),
-  );
-
-  const kennelCache = new Map<string, KennelCacheEntry>();
-  const shortUrlCache = new Map<string, string | null>();
-  const batchMatchedEvents = new Map<string, Set<string>>();
-
-  // Union of UTC-noon dates across the batch — drives the per-kennel
-  // prefetch in `ensureKennelEventCache` (#1287). Skip events whose
-  // fingerprint precompute failed (their dates may be unparseable).
-  const batchDates: Date[] = [];
-  const seenDates = new Set<number>();
-  for (const e of events) {
-    if (!fingerprintByEvent.has(e)) continue;
-    try {
-      const d = parseUtcNoonDate(e.date);
-      const t = d.getTime();
-      if (!Number.isNaN(t) && !seenDates.has(t)) {
-        seenDates.add(t);
-        batchDates.push(d);
-      }
-    } catch {
-      // ignore — recordMergeError handles per-event date errors below
-    }
-  }
-
-  const ctx: MergeContext = {
+  // Skip events whose fingerprint precompute failed (their dates may be unparseable).
+  const batchDates = collectBatchDates(events.filter((e) => fingerprintByEvent.has(e)));
+  const ctx = createMergeContext({
     sourceId,
     trustLevel,
     sourceType,
     linkedKennelIds,
-    kennelCache,
-    shortUrlCache,
-    geocodeCache: createGeocodeCache(),
-    batchMatchedEvents,
-    existingByFingerprint,
-    eventBatch: {
-      dates: batchDates,
-      sameDayByKennel: new Map(),
-      fuzzyPoolByKennel: new Map(),
-      kennelMaxDates: new Map(),
-      processedRawEvents: new Map(),
-      pendingEventLinks: new Map(),
-    },
+    prefetched: prefetchedRawEvents,
+    batchDates,
+    archive: await loadArchiveGuard(source?.archiveOnly ?? false, linkedKennelIds, batchDates),
+    createOnly: false,
     result,
-  };
+  });
 
   const seriesGroups = new Map<string, SeriesMember[]>();
 
@@ -3190,6 +3794,14 @@ export async function processRawEvents(
     const fingerprint = fingerprintByEvent.get(event);
     if (fingerprint === undefined) continue;
     try {
+      // Archive protections (design 6.5) run before anything is stored, the
+      // duplicate-fingerprint refresh included.
+      const drop = await archiveDropReason(event, ctx);
+      if (drop) {
+        countArchiveDrop(drop.reason, drop.kennelId, result);
+        continue;
+      }
+
       const dupResult = await handleDuplicateFingerprint(event, fingerprint, ctx);
       if (dupResult !== false) {
         if (dupResult) queueEventLinks(dupResult, event.externalLinks, ctx);
@@ -3281,42 +3893,43 @@ export async function processRawEvents(
     });
   }
 
-  // Flush per-kennel max event dates as a single batched write per kennel
-  // (#1287 — replaces the per-event `$executeRaw UPDATE "Kennel"`). The
-  // OR-NULL-or-LT guard in `where` preserves the "only update if newer"
-  // semantic. `updatedAt` auto-updates via Prisma's @updatedAt.
-  //
-  // `allSettled` (not `all`) so a transient DB error on one kennel's cache
-  // write doesn't reject the whole batch — pre-#1287 the equivalent
-  // `$executeRaw` was inside the per-event try/catch and a single failure
-  // was recorded as `eventErrors` while the batch still completed.
-  // `lastEventDate` is a non-critical UI-cache field (used by the kennel
-  // directory's "recently active" filter); a missed update self-heals on
-  // the next scrape.
-  if (ctx.eventBatch.kennelMaxDates.size > 0) {
-    const entries = [...ctx.eventBatch.kennelMaxDates];
-    const settled = await Promise.allSettled(
-      entries.map(([kennelId, maxDate]) =>
-        prisma.kennel.updateMany({
-          where: {
-            id: kennelId,
-            OR: [{ lastEventDate: null }, { lastEventDate: { lt: maxDate } }],
-          },
-          data: { lastEventDate: maxDate },
-        }),
-      ),
-    );
-    for (let i = 0; i < settled.length; i++) {
-      const outcome = settled[i];
-      if (outcome.status === "rejected") {
-        const [kennelId] = entries[i];
-        console.error(
-          `[merge] lastEventDate flush failed for kennel ${kennelId}:`,
-          outcome.reason,
-        );
-      }
-    }
-  }
+  await flushKennelMaxDates(ctx);
 
   return result;
+}
+
+/**
+ * Flush per-kennel max event dates as a single batched write per kennel
+ * (#1287 — replaces the per-event `$executeRaw UPDATE "Kennel"`). The
+ * OR-NULL-or-LT guard in `where` preserves the "only update if newer"
+ * semantic. `updatedAt` auto-updates via Prisma's @updatedAt.
+ *
+ * `allSettled` (not `all`) so a transient DB error on one kennel's cache
+ * write doesn't reject the whole batch. `lastEventDate` is a non-critical
+ * UI-cache field (used by the kennel directory's "recently active" filter);
+ * a missed update self-heals on the next scrape.
+ */
+async function flushKennelMaxDates(ctx: MergeContext): Promise<void> {
+  const entries = [...ctx.eventBatch.kennelMaxDates];
+  const settled = await Promise.allSettled(
+    entries.map(([kennelId, maxDate]) =>
+      prisma.kennel.updateMany({
+        where: {
+          id: kennelId,
+          OR: [{ lastEventDate: null }, { lastEventDate: { lt: maxDate } }],
+        },
+        data: { lastEventDate: maxDate },
+      }),
+    ),
+  );
+  for (let i = 0; i < settled.length; i++) {
+    const outcome = settled[i];
+    if (outcome.status === "rejected") {
+      const [kennelId] = entries[i];
+      console.error(
+        `[merge] lastEventDate flush failed for kennel ${kennelId}:`,
+        outcome.reason,
+      );
+    }
+  }
 }
