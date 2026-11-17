@@ -160,6 +160,9 @@ export async function refreshScheduleOnlyFlags(scope: ScheduleOnlyScope): Promis
  *   ≥1 RawEvent. Any RawEvent will do: an event with one always has a current
  *   one, and whether it is a posted run is already in the cached flag.
  * - `lastConfirmedAt`: the newest un-reverted RUNNING confirmation.
+ * - `lastConfirmedVia`: the `via` (ADMIN or HALF_MIND) of that newest RUNNING confirmation.
+ * - `listingOnly`: stays true only while the kennel has no seen or posted run;
+ *   real evidence clears it, and nothing here ever sets it.
  * - `stoppedAt`: the newest un-reverted STOPPED confirmation, kept only while
  *   no evidence date above is later than it; otherwise null, because kennels
  *   restart. A stop dated the same day as the evidence stands, matching the
@@ -238,6 +241,7 @@ export async function refreshKennelEvidence(
       SELECT
         c."kennelId",
         MAX(c."observedAt") FILTER (WHERE c.kind = 'RUNNING') AS "lastConfirmed",
+        (array_agg(c.via ORDER BY c."observedAt" DESC, c."createdAt" DESC) FILTER (WHERE c.kind = 'RUNNING'))[1] AS "lastConfirmedVia",
         MAX(c."observedAt") FILTER (WHERE c.kind = 'STOPPED') AS "lastStopped"
       FROM "KennelConfirmation" c
       JOIN target t ON t.id = c."kennelId"
@@ -250,6 +254,7 @@ export async function refreshKennelEvidence(
         GREATEST(pr."maxDate", ad."maxDate") AS "lastRunSeenAt",
         nr."minDate" AS "nextRunPostedAt",
         cf."lastConfirmed" AS "lastConfirmedAt",
+        cf."lastConfirmedVia",
         cf."lastStopped"
       FROM target t
       LEFT JOIN past_runs pr ON pr."kennelId" = t.id
@@ -263,14 +268,19 @@ export async function refreshKennelEvidence(
         ev."lastRunSeenAt",
         ev."nextRunPostedAt",
         ev."lastConfirmedAt",
+        ev."lastConfirmedVia",
+        k."listingOnly" AND ev."lastRunSeenAt" IS NULL AND ev."nextRunPostedAt" IS NULL AS "listingOnly",
         CASE WHEN ev."lastStopped" >= COALESCE(GREATEST(ev."lastRunSeenAt", ev."lastConfirmedAt", ev."nextRunPostedAt"), ev."lastStopped") THEN ev."lastStopped" END AS "stoppedAt"
       FROM evidence ev
+      JOIN "Kennel" k ON k.id = ev.id
     )
     UPDATE "Kennel" k
     SET
       "lastRunSeenAt" = c."lastRunSeenAt",
       "nextRunPostedAt" = c."nextRunPostedAt",
       "lastConfirmedAt" = c."lastConfirmedAt",
+      "lastConfirmedVia" = c."lastConfirmedVia",
+      "listingOnly" = c."listingOnly",
       "stoppedAt" = c."stoppedAt",
       "updatedAt" = NOW() AT TIME ZONE 'UTC'
     FROM computed c
@@ -279,6 +289,8 @@ export async function refreshKennelEvidence(
         k."lastRunSeenAt" IS DISTINCT FROM c."lastRunSeenAt"
         OR k."nextRunPostedAt" IS DISTINCT FROM c."nextRunPostedAt"
         OR k."lastConfirmedAt" IS DISTINCT FROM c."lastConfirmedAt"
+        OR k."lastConfirmedVia" IS DISTINCT FROM c."lastConfirmedVia"
+        OR k."listingOnly" IS DISTINCT FROM c."listingOnly"
         OR k."stoppedAt" IS DISTINCT FROM c."stoppedAt"
       )
   `);

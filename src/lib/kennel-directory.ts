@@ -92,7 +92,7 @@ export function serializeKennelWithNext<K extends KennelForDirectorySerialize>(
   nextEvent: { date: string; title: string | null; isScheduleOnly: boolean } | null;
   evidence: SerializedKennelEvidence;
 } {
-  const { lastRunSeenAt, nextRunPostedAt, lastConfirmedAt, stoppedAt, ...rest } = kennel;
+  const { lastRunSeenAt, nextRunPostedAt, lastConfirmedAt, lastConfirmedVia, stoppedAt, ...rest } = kennel;
   const next = nextEventMap.get(kennel.id);
   return {
     ...rest,
@@ -100,6 +100,6 @@ export function serializeKennelWithNext<K extends KennelForDirectorySerialize>(
     nextEvent: next
       ? { date: next.date.toISOString(), title: next.title, isScheduleOnly: next.isScheduleOnly }
       : null,
-    evidence: serializeKennelEvidence({ lastRunSeenAt, nextRunPostedAt, lastConfirmedAt, stoppedAt }),
+    evidence: serializeKennelEvidence({ lastRunSeenAt, nextRunPostedAt, lastConfirmedAt, lastConfirmedVia, stoppedAt }),
   };
 }

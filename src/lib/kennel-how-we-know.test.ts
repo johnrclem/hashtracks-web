@@ -21,6 +21,7 @@ const NO_EVIDENCE = {
   lastRunSeenAt: null,
   nextRunPostedAt: null,
   lastConfirmedAt: null,
+  lastConfirmedVia: null,
   stoppedAt: null,
 };
 
@@ -133,6 +134,7 @@ describe("getHowWeKnow items", () => {
       lastRunSeenAt: d("2026-11-01"),
       nextRunPostedAt: d("2026-11-20"),
       lastConfirmedAt: d("2026-10-15"),
+      lastConfirmedVia: null,
       stoppedAt: d("2026-08-01"),
     };
     vi.mocked(prisma.rawEvent.findFirst).mockResolvedValue({ source: { name: "Hash Calendar" } } as never);

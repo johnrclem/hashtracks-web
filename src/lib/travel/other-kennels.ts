@@ -65,6 +65,7 @@ export function selectOtherKennels(
         lastRunSeenAt: k.lastRunSeenAt,
         nextRunPostedAt: k.nextRunPostedAt,
         lastConfirmedAt: k.lastConfirmedAt,
+        lastConfirmedVia: k.lastConfirmedVia,
         stoppedAt: k.stoppedAt,
       },
       ownPageUrl: kennelOwnPageUrl(k.website, k.facebookUrl),

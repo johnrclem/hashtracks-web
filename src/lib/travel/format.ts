@@ -326,7 +326,11 @@ export function likelyEvidenceCaption(
   const n = result.evidenceTimeline.totalEvents;
   if (n > 0) return `${n} run${n === 1 ? "" : "s"} in the last 12 weeks`;
   if (result.checkedRunningAt) {
-    return formatStatusLine({ kind: "checked", date: new Date(result.checkedRunningAt) }, now);
+    return formatStatusLine(
+      // Task 4: credit Half-Mind checks
+      { kind: "checked", via: "ADMIN", date: new Date(result.checkedRunningAt) },
+      now,
+    );
   }
   return "From their usual schedule";
 }

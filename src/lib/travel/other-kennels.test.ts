@@ -25,6 +25,7 @@ function candidate(over: Partial<OtherKennelCandidate> & { id: string }): OtherK
     lastRunSeenAt: QUIET,
     nextRunPostedAt: null,
     lastConfirmedAt: null,
+    lastConfirmedVia: null,
     stoppedAt: null,
     ...over,
   };

@@ -5,13 +5,14 @@ import { KennelForm } from "@/components/admin/KennelForm";
 import { KennelMergeDialog } from "@/components/admin/KennelMergeDialog";
 import { BackfillCoordsButton } from "@/components/admin/BackfillCoordsButton";
 import { Button } from "@/components/ui/button";
-import { KENNEL_EVIDENCE_SELECT, serializeKennelEvidence } from "@/lib/kennel-status";
+import { serializeKennelEvidence, type KennelEvidence } from "@/lib/kennel-status";
 
-function pickEvidence(k: Record<keyof typeof KENNEL_EVIDENCE_SELECT, Date | null>) {
+function pickEvidence(k: KennelEvidence) {
   return {
     lastRunSeenAt: k.lastRunSeenAt,
     nextRunPostedAt: k.nextRunPostedAt,
     lastConfirmedAt: k.lastConfirmedAt,
+    lastConfirmedVia: k.lastConfirmedVia,
     stoppedAt: k.stoppedAt,
   };
 }

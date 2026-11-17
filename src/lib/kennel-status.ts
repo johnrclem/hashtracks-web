@@ -12,13 +12,19 @@ export interface KennelEvidence {
   lastRunSeenAt: Date | null;
   nextRunPostedAt: Date | null;
   lastConfirmedAt: Date | null;
+  lastConfirmedVia: ConfirmationVia | null;
   stoppedAt: Date | null;
 }
 
-export type SerializedKennelEvidence = { [K in keyof KennelEvidence]: string | null };
+export type ConfirmationVia = "ADMIN" | "HALF_MIND";
+
+export type SerializedKennelEvidence = {
+  [K in keyof KennelEvidence]: K extends "lastConfirmedVia" ? ConfirmationVia | null : string | null;
+};
 
 export type StatusLine =
-  | { kind: "last-run" | "checked" | "next-posted" | "stopped"; date: Date }
+  | { kind: "last-run" | "next-posted" | "stopped"; date: Date }
+  | { kind: "checked"; via: ConfirmationVia; date: Date }
   | { kind: "never" };
 
 /**
@@ -46,6 +52,7 @@ export const KENNEL_EVIDENCE_SELECT = {
   lastRunSeenAt: true,
   nextRunPostedAt: true,
   lastConfirmedAt: true,
+  lastConfirmedVia: true,
   stoppedAt: true,
 } as const satisfies Prisma.KennelSelect;
 
@@ -85,8 +92,25 @@ export function getKennelState(e: KennelEvidence, now: Date = new Date()): Kenne
   return "not-seen";
 }
 
-export function getStatusLine(e: KennelEvidence, now: Date = new Date()): StatusLine | null {
+/**
+ * A running kennel whose only running evidence is a Half-Mind check: drop the
+ * check and it is no longer running. Such a kennel shows the Half-Mind line.
+ */
+export function isHalfMindDeciding(e: KennelEvidence, now: Date = new Date()): boolean {
+  if (e.stoppedAt || e.lastConfirmedVia !== "HALF_MIND") return false;
+  if (getKennelState(e, now) !== "running") return false;
+  return getKennelState({ ...e, lastConfirmedAt: null }, now) !== "running";
+}
+
+export function getStatusLine(
+  e: KennelEvidence,
+  now: Date = new Date(),
+  opts: { listingOnly?: boolean } = {},
+): StatusLine | null {
   if (e.stoppedAt) return { kind: "stopped", date: e.stoppedAt };
+  if (e.lastConfirmedAt && (isHalfMindDeciding(e, now) || opts.listingOnly)) {
+    return { kind: "checked", via: e.lastConfirmedVia ?? "ADMIN", date: e.lastConfirmedAt };
+  }
   if (getKennelState(e, now) === "running") return null;
   if (e.nextRunPostedAt && toUtcNoon(e.nextRunPostedAt) > postedAheadLimit(now).getTime()) {
     return { kind: "next-posted", date: e.nextRunPostedAt };
@@ -99,7 +123,7 @@ export function getStatusLine(e: KennelEvidence, now: Date = new Date()): Status
   const confirmed = e.lastConfirmedAt ? toUtcNoon(e.lastConfirmedAt) : null;
   const seen = e.lastRunSeenAt ? toUtcNoon(e.lastRunSeenAt) : null;
   if (e.lastConfirmedAt && confirmed === newest && (seen === null || confirmed > seen)) {
-    return { kind: "checked", date: e.lastConfirmedAt };
+    return { kind: "checked", via: e.lastConfirmedVia ?? "ADMIN", date: e.lastConfirmedAt };
   }
   return { kind: "last-run", date: new Date(newest) };
 }
@@ -120,7 +144,9 @@ export function formatStatusLine(line: StatusLine, now: Date = new Date()): stri
     case "last-run":
       return `Last run we saw · ${formatStatusDate(line.date, now)}`;
     case "checked":
-      return `Checked running · ${formatStatusDate(line.date, now)}`;
+      return line.via === "HALF_MIND"
+        ? `Half-Mind listing checked · ${formatStatusDate(line.date, now)}`
+        : `Checked running · ${formatStatusDate(line.date, now)}`;
     case "next-posted":
       return `Next run posted · ${formatStatusDate(line.date, now)}`;
     case "stopped":
@@ -156,6 +182,7 @@ export function serializeKennelEvidence(e: KennelEvidence): SerializedKennelEvid
     lastRunSeenAt: e.lastRunSeenAt?.toISOString() ?? null,
     nextRunPostedAt: e.nextRunPostedAt?.toISOString() ?? null,
     lastConfirmedAt: e.lastConfirmedAt?.toISOString() ?? null,
+    lastConfirmedVia: e.lastConfirmedVia,
     stoppedAt: e.stoppedAt?.toISOString() ?? null,
   };
 }
@@ -166,6 +193,7 @@ export function toKennelEvidence(s: SerializedKennelEvidence): KennelEvidence {
     lastRunSeenAt: d(s.lastRunSeenAt),
     nextRunPostedAt: d(s.nextRunPostedAt),
     lastConfirmedAt: d(s.lastConfirmedAt),
+    lastConfirmedVia: s.lastConfirmedVia,
     stoppedAt: d(s.stoppedAt),
   };
 }

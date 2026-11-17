@@ -193,6 +193,19 @@ describe("refreshKennelEvidence", () => {
     }
   });
 
+  it("caches the newest RUNNING confirmation's via and the listingOnly flag", async () => {
+    await refreshKennelEvidence(undefined, NOW);
+    const sql = sqlText(lastQuery());
+    expect(sql).toContain(
+      `(array_agg(c.via ORDER BY c."observedAt" DESC, c."createdAt" DESC) FILTER (WHERE c.kind = 'RUNNING'))[1] AS "lastConfirmedVia"`,
+    );
+    expect(sql).toContain(`k."lastConfirmedVia" IS DISTINCT FROM c."lastConfirmedVia"`);
+    expect(sql).toContain(`"listingOnly" = c."listingOnly"`);
+    expect(sql).toContain(`k."listingOnly" AND ev."lastRunSeenAt" IS NULL AND ev."nextRunPostedAt" IS NULL`);
+    expect(sql).toContain(`k."listingOnly" IS DISTINCT FROM c."listingOnly"`);
+    expect(sql).not.toContain(`"SourceKennel"`);
+  });
+
   it("refreshes every kennel when no ids are given", async () => {
     await refreshKennelEvidence(undefined, NOW);
     const query = lastQuery();

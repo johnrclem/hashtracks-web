@@ -7,6 +7,7 @@ import {
   serializeKennelEvidence,
   toKennelEvidence,
   ownPageFor,
+  isHalfMindDeciding,
   type KennelEvidence,
 } from "@/lib/kennel-status";
 
@@ -17,7 +18,7 @@ function offset(n: number): Date {
 }
 
 function ev(partial: Partial<KennelEvidence> = {}): KennelEvidence {
-  return { lastRunSeenAt: null, nextRunPostedAt: null, lastConfirmedAt: null, stoppedAt: null, ...partial };
+  return { lastRunSeenAt: null, nextRunPostedAt: null, lastConfirmedAt: null, lastConfirmedVia: null, stoppedAt: null, ...partial };
 }
 
 describe("getKennelState", () => {
@@ -77,7 +78,7 @@ describe("getStatusLine", () => {
 
   it("a confirmation newer than the last run shows checked", () => {
     const lastConfirmedAt = offset(-120);
-    expect(getStatusLine(ev({ lastRunSeenAt: offset(-200), lastConfirmedAt }), NOW)).toEqual({ kind: "checked", date: lastConfirmedAt });
+    expect(getStatusLine(ev({ lastRunSeenAt: offset(-200), lastConfirmedAt }), NOW)).toEqual({ kind: "checked", via: "ADMIN", date: lastConfirmedAt });
   });
 
   it("shows last-run otherwise", () => {
@@ -99,13 +100,53 @@ describe("getStatusLine", () => {
   });
 });
 
+describe("Half-Mind credit", () => {
+  const decided = () => ev({ lastConfirmedVia: "HALF_MIND", lastConfirmedAt: offset(-20), lastRunSeenAt: offset(-200) });
+
+  it("shows the Half-Mind line for a running kennel when the check is what keeps it running", () => {
+    expect(getKennelState(decided(), NOW)).toBe("running");
+    expect(isHalfMindDeciding(decided(), NOW)).toBe(true);
+    expect(getStatusLine(decided(), NOW)).toEqual({ kind: "checked", via: "HALF_MIND", date: offset(-20) });
+  });
+
+  it("stays null when real evidence also keeps it running (Savannah case)", () => {
+    const e = ev({ lastConfirmedVia: "HALF_MIND", lastConfirmedAt: offset(-46), lastRunSeenAt: offset(-47) });
+    expect(isHalfMindDeciding(e, NOW)).toBe(false);
+    expect(getStatusLine(e, NOW)).toBeNull();
+  });
+
+  it("stays null when a run is posted within 60 days", () => {
+    const e = { ...decided(), nextRunPostedAt: offset(10) };
+    expect(getStatusLine(e, NOW)).toBeNull();
+  });
+
+  it("stays null for an ADMIN check", () => {
+    const e = { ...decided(), lastConfirmedVia: "ADMIN" as const };
+    expect(getStatusLine(e, NOW)).toBeNull();
+  });
+
+  it("is false when stopped", () => {
+    expect(isHalfMindDeciding({ ...decided(), stoppedAt: offset(-1) }, NOW)).toBe(false);
+  });
+
+  it("listingOnly shows the newest confirmation even when running", () => {
+    const e = ev({ lastConfirmedVia: "ADMIN", lastConfirmedAt: offset(-5) });
+    expect(getStatusLine(e, NOW, { listingOnly: true })).toEqual({ kind: "checked", via: "ADMIN", date: offset(-5) });
+  });
+
+  it("listingOnly with no confirmation shows never", () => {
+    expect(getStatusLine(ev(), NOW, { listingOnly: true })).toEqual({ kind: "never" });
+  });
+});
+
 describe("formatStatusLine", () => {
   it("uses MMM d this year and MMM yyyy otherwise", () => {
     const thisYear = new Date("2026-03-05T12:00:00Z");
     const lastYear = new Date("2025-11-20T12:00:00Z");
     expect(formatStatusLine({ kind: "last-run", date: thisYear }, NOW)).toBe("Last run we saw · Mar 5");
     expect(formatStatusLine({ kind: "last-run", date: lastYear }, NOW)).toBe("Last run we saw · Nov 2025");
-    expect(formatStatusLine({ kind: "checked", date: thisYear }, NOW)).toBe("Checked running · Mar 5");
+    expect(formatStatusLine({ kind: "checked", via: "ADMIN", date: thisYear }, NOW)).toBe("Checked running · Mar 5");
+    expect(formatStatusLine({ kind: "checked", via: "HALF_MIND", date: thisYear }, NOW)).toBe("Half-Mind listing checked · Mar 5");
     expect(formatStatusLine({ kind: "next-posted", date: new Date("2027-02-14T12:00:00Z") }, NOW)).toBe("Next run posted · Feb 2027");
     expect(formatStatusLine({ kind: "stopped", date: lastYear }, NOW)).toBe("Stopped · Nov 2025");
     expect(formatStatusLine({ kind: "never" }, NOW)).toBe("No runs seen on HashTracks");
@@ -140,7 +181,7 @@ describe("where clauses", () => {
 
 describe("serialization", () => {
   it("serialize/toKennelEvidence round-trip", () => {
-    const e = ev({ lastRunSeenAt: offset(-3), stoppedAt: offset(2) });
+    const e = ev({ lastRunSeenAt: offset(-3), stoppedAt: offset(2), lastConfirmedVia: "HALF_MIND" });
     const s = serializeKennelEvidence(e);
     expect(s.lastRunSeenAt).toBe("2026-11-07T12:00:00.000Z");
     expect(s.nextRunPostedAt).toBeNull();

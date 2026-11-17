@@ -15,7 +15,7 @@ import { INDEPENDENT_EVENT_WHERE } from "@/lib/event-eligibility";
 import { haversineDistance } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import { safeUrl } from "@/lib/safe-url";
-import { KENNEL_EVIDENCE_SELECT } from "@/lib/kennel-status";
+import { KENNEL_EVIDENCE_SELECT, type ConfirmationVia } from "@/lib/kennel-status";
 import {
   selectOtherKennels,
   shouldShowOtherKennels,
@@ -291,6 +291,7 @@ interface NearbyKennel {
   longitude: number | null;
   lastRunSeenAt: Date | null;
   lastConfirmedAt: Date | null;
+  lastConfirmedVia: ConfirmationVia | null;
   nextRunPostedAt: Date | null;
   stoppedAt: Date | null;
   scheduleDayOfWeek: string | null;

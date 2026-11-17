@@ -8,6 +8,7 @@ const evidence = {
   lastRunSeenAt: new Date("2026-10-01T12:00:00Z"),
   nextRunPostedAt: null,
   lastConfirmedAt: null,
+  lastConfirmedVia: null,
   stoppedAt: null,
 };
 
@@ -36,6 +37,7 @@ describe("serializeKennelWithNext", () => {
       lastRunSeenAt: "2026-10-01T12:00:00.000Z",
       nextRunPostedAt: null,
       lastConfirmedAt: null,
+      lastConfirmedVia: null,
       stoppedAt: null,
     });
     expect(out.nextEvent).toEqual({ date: next.toISOString(), title: null, isScheduleOnly: true });
