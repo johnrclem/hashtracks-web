@@ -68,6 +68,10 @@ logbook + kennel directory.
 - CRON_SECRET=            # Secret for cron auth (Bearer token fallback)
 - AUDIT_QUEUE_TOKEN_SECRET= # HMAC secret for deep-dive queue-snapshot tokens (issue #1160). 32+ random bytes; rotate independently from CRON_SECRET.
 - AUDIT_AGENT_TOKEN=      # Bearer token for the scheduled audit agent (`/api/audit/agent/*`: next deep-dive kennel, hareline prompt, suppressions, submit-finding). 32+ chars; unset = agent API disabled. Also in the local `.env` the scheduled task reads.
+- BACKFILL_AUTOMATION=    # Onboarding backfill kill switch (G16): `off` (default, every agent call refused), `shadow` (plan/preview/verify only), `apply`. See docs/onboarding-backfill-automation-design.md.
+- BACKFILL_AGENT_TOKEN=   # Bearer token for `/api/agent/backfill/*`. 32+ chars; unset = backfill agent API disabled. Production only.
+- GITHUB_APPROVAL_READ_TOKEN= # Fine-grained read-only PAT for the backfill approval checks (pull requests, contents, commit statuses, issues for label events and search). Production only.
+- OWNER_CLERK_USER_ID=    # The owner's Clerk user id: the only account that may step up on /admin/backfills (unset = every step-up refused), and the digest's second-factor check.
 - QSTASH_TOKEN=           # Upstash QStash API token (fan-out job dispatch)
 - QSTASH_CURRENT_SIGNING_KEY= # QStash signature verification (current key)
 - QSTASH_NEXT_SIGNING_KEY=    # QStash signature verification (next key for rotation)

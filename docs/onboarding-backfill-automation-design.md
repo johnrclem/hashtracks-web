@@ -1,7 +1,7 @@
 # Onboarding backfill automation: design
 
-**Status:** v5.3, amended 2026-11-14 after PR review. Adversarial review: approved in round 20 (Appendix A records every round). Owner approval of section 15: 2026-11-13. The owner approved all ten decisions in section 15 on 2026-11-13, and decision 7's step-up was rebuilt in that review (10.3, T4). Phase 0 build started 2026-11-17, as the PR stack in 12.1a.
-**Scope:** design. No code, migration or prod write was made to produce it; the build follows 12.1a.
+**Status:** v5.3, amended 2026-11-14 after PR review. Adversarial review: approved in round 20 (Appendix A records every round). Owner approval of section 15: 2026-11-13. The owner approved all ten decisions in section 15 on 2026-11-13, and decision 7's step-up was rebuilt in that review (10.3, T4). **Phase 0 is built** (2026-11-17): the PR stack in 12.1a, #3039 (schema, merged), #3040, #3041, #3042, #3045 and this PR. `BACKFILL_AUTOMATION` is `off`. Phase 1 waits for the owner's steps in 12.1b.
+**Scope:** design, and the record of what Phase 0 built (12.1a, 12.1b).
 **Related:** [`kennel-onboarding/implement-handoff-prompt.md`](kennel-onboarding/implement-handoff-prompt.md) (the implementer),
 [`kennel-onboarding/daily-onboarding-prompt.md`](kennel-onboarding/daily-onboarding-prompt.md) (research),
 [`self-healing-v2-plan.md`](self-healing-v2-plan.md) (same shape: scheduled task + owner gate + server endpoints),
@@ -1047,6 +1047,24 @@ it on.
 Each PR runs `npx tsc --noEmit`, `npm run lint` and `npm test`, then `/simplify` and an adversarial
 review, before it opens. The env vars stay unset: the owner sets `BACKFILL_AGENT_TOKEN` and
 `GITHUB_APPROVAL_READ_TOKEN` (Production only) after the stack merges.
+
+### 12.1b Phase 0 as built: deviations and open owner steps
+
+What the build changed from the text above, each found in review:
+
+- **Clerk's check level (10.3).** The server asks Clerk for `{ level: "second_factor", afterMinutes: 1 }`, not `strict_mfa`. Clerk defines `strict_mfa` as both factors within 10 minutes, so a TOTP-only step-up would be refused unless the owner had also signed in within 10 minutes. The server's own `fva[1] === 0` check is the binding one and still refuses an account with no second factor. The page sends a freshly fetched session token with each request; the server verifies it and requires it to belong to the signed-in session, so the probe's late modes can be tested.
+- **Owner only.** The step-up actions require the Clerk user id in `OWNER_CLERK_USER_ID` (a new production variable); unset, every step-up is refused. Any admin can still halt.
+- **Label removal halts.** A removed label is retryable while no run exists and halts a run under way (10.2). A4 compares the PR's own change against S's first parent, not today's `main`.
+- **G21 cut-off.** `G21_MARKER_SINCE` is 2026-11-13T07:00Z (PR #2923 merged at 03:06Z; the first daily dispatch on that code ran at 06:00Z; plus one hour). A prod query for the earliest calendar RawEvent carrying the key can tighten it.
+- **Undo** builds its plan from every RawEvent of the archive source, so it also covers rows a crashed batch wrote before their items were recorded.
+
+Phase 0 exit items in section 13 that need the owner (each touches Clerk's development instance):
+
+- A real TOTP step-up through the probe on the development instance: enable the authenticator app there, enrol a test admin, set `OWNER_CLERK_USER_ID` locally, run the probe from `/admin/backfills` on `npm run dev`.
+- The `fva` of a token minted through the Backend API: `npx tsx scripts/backfill/clerk-backend-token-fva.ts <sessionId>` with the development key, and record the output here.
+
+End-to-end tests of plan, apply, crash-resume and undo run against a local copy of prod:
+`BACKFILL_E2E_DATABASE_URL=postgresql://<you>@localhost:5432/<db> npx vitest run src/lib/backfill/backfill.e2e.test.ts` (skipped in CI).
 
 ### 12.2 Manuals
 

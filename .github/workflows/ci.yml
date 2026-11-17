@@ -47,3 +47,30 @@ jobs:
 
       - name: Tests
         run: npm test
+
+  # Backfill manifests (docs/onboarding-backfill-automation-design.md 6.2): recompute each
+  # manifest from its committed archive, check the Phase 2 scope against the seed data, and
+  # write the numbers the owner approves into this job's summary. Passes when the PR has no
+  # manifest, so it can be a required check.
+  backfill-manifest:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # The PR merge commit plus its first parent (the base tip).
+          fetch-depth: 2
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check backfill manifests
+        run: |
+          set -o pipefail
+          git diff --name-status --no-renames HEAD^1 HEAD \
+            | npx tsx scripts/ci/check-backfill-manifest.ts --stdin

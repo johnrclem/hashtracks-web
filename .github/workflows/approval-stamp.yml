@@ -1,0 +1,34 @@
+# Stamps the PR head the owner approved (docs/onboarding-backfill-automation-design.md 6.3).
+#
+# When `owner-approved` is added, this sets the commit status `backfill/approved` on the head
+# GitHub reports at that moment, naming the PR. The backfill server applies an archive only if
+# the head that merged is the stamped head, up to merges of main (A3, A4).
+#
+# `pull_request_target` always runs this file from main, so a PR can't change what it does.
+# It never checks out or runs PR code: it reads two fields of the event and writes one status.
+name: Approval stamp
+
+on:
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  statuses: write
+
+jobs:
+  stamp:
+    if: github.event.label.name == 'owner-approved' && github.event.sender.login == 'johnrclem'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Stamp the approved head
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api --method POST "repos/${REPO}/statuses/${HEAD_SHA}" \
+            -f state=success \
+            -f context=backfill/approved \
+            -f description="Approved by the owner for PR #${PR_NUMBER}"

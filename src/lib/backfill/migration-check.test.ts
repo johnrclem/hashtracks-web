@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, it, expect } from "vitest";
-import { checkMigrationForBackfill } from "./migration-check";
+import { checkMigrationForBackfill, findSourceInserts } from "./migration-check";
 import { SAMPLE_ARCHIVE_ONBOARDING, wrap } from "./migration-check.test-fixtures";
 
 /** The last eight onboarding migrations on main when G17 shipped (design 8.1, section 13). */
@@ -57,5 +57,15 @@ describe("G17 migration checker", () => {
   it("refuses a COMMIT mid-file and an unparseable file", async () => {
     expect((await checkMigrationForBackfill(`BEGIN;\n${KENNEL}\nCOMMIT;\nDELETE FROM "Event";\nCOMMIT;`)).length).toBeGreaterThan(0);
     expect(await checkMigrationForBackfill(`BEGIN;\n\\! rm -rf /\nCOMMIT;`)).toEqual([expect.stringMatching(/parse error/)]);
+  });
+});
+
+describe("findSourceInserts (CI's archive-source check)", () => {
+  it("reads the archive source's literal id, archiveOnly and enabled", async () => {
+    expect(await findSourceInserts(SAMPLE_ARCHIVE_ONBOARDING, "G17 Test H3 run history")).toEqual([
+      { id: "src_g17_archive", archiveOnly: true, enabled: false },
+    ]);
+    expect(await findSourceInserts(SAMPLE_ARCHIVE_ONBOARDING, "G17 Test Sheet")).toEqual([{ id: "src_g17_live", archiveOnly: undefined, enabled: true }]);
+    expect(await findSourceInserts(SAMPLE_ARCHIVE_ONBOARDING, "Nope")).toEqual([]);
   });
 });

@@ -236,3 +236,26 @@ export async function checkMigrationForBackfill(sql: string): Promise<string[]> 
   }
   return problems;
 }
+
+/**
+ * The `INSERT INTO "Source"` rows of a migration whose `name` is `sourceName`,
+ * with their literal `id`, `archiveOnly` and `enabled` values (CI, design 6.2).
+ */
+export async function findSourceInserts(
+  sql: string,
+  sourceName: string,
+): Promise<Array<{ id: string | undefined; archiveOnly: boolean | undefined; enabled: boolean | undefined }>> {
+  const parsed = await parseMigrationSql(sql);
+  if (!parsed.ok) return [];
+  const out: Array<{ id: string | undefined; archiveOnly: boolean | undefined; enabled: boolean | undefined }> = [];
+  for (const s of parsed.statements) {
+    if (s.type !== "InsertStmt" || obj(s.node.relation)?.relname !== "Source") continue;
+    const cols = insertColumns(s.node);
+    for (const row of valuesRows(s.node) ?? []) {
+      if (stringLiteral(row[cols.indexOf("name")]) !== sourceName) continue;
+      const at = (c: string) => (cols.includes(c) ? row[cols.indexOf(c)] : undefined);
+      out.push({ id: stringLiteral(at("id")), archiveOnly: boolLiteral(at("archiveOnly")), enabled: boolLiteral(at("enabled")) });
+    }
+  }
+  return out;
+}
