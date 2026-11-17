@@ -1765,6 +1765,8 @@ async function findCanonicalMatch(
     // distinct run (e.g. a newly-added third same-date run) — leave existingEvent
     // null so it creates its own canonical rather than welding onto an arbitrary
     // sibling and re-opening the cross-row bleed (#2157 Codex review).
+    // Not reachable from processRawEvents today: applyKennelTitle always sets
+    // a title before matching. Kept for direct callers; don't "fix" it away.
     if (!existingEvent && urlMatches.length > 1
         && event.runNumber == null && !event.startTime && !event.title) {
       existingEvent = urlMatches[0];
@@ -3211,9 +3213,17 @@ async function loadArchiveGuard(
   linkedKennelIds: Set<string>,
   batchDates: Date[],
 ): Promise<ArchiveGuard> {
-  const ms = batchDates.map((d) => d.getTime());
-  const wantArchiveEvents = !sourceIsArchive && ms.length > 0 && linkedKennelIds.size > 0;
+  // One pass, not Math.min(...array): a huge batch would overflow the call's argument limit.
+  let minMs = Infinity;
+  let maxMs = -Infinity;
+  for (const d of batchDates) {
+    minMs = Math.min(minMs, d.getTime());
+    maxMs = Math.max(maxMs, d.getTime());
+  }
+  const wantArchiveEvents = !sourceIsArchive && batchDates.length > 0 && linkedKennelIds.size > 0;
   const [cutoffKennels, rows] = await Promise.all([
+    // Every kennel with a cutoff, not only this source's: a row resolving to
+    // an unlinked kennel is dropped too, before anything is stored for it.
     prisma.kennel.findMany({
       where: { archiveCutoffDate: { not: null } },
       select: { id: true, archiveCutoffDate: true },
@@ -3227,7 +3237,7 @@ async function loadArchiveGuard(
       WHERE s."archiveOnly"
         AND e."kennelId" = ANY(${[...linkedKennelIds]})
         AND e."runNumber" IS NOT NULL
-        AND e."date" BETWEEN ${new Date(Math.min(...ms) - ARCHIVE_CORRECTION_WINDOW_MS)} AND ${new Date(Math.max(...ms) + ARCHIVE_CORRECTION_WINDOW_MS)}
+        AND e."date" BETWEEN ${new Date(minMs - ARCHIVE_CORRECTION_WINDOW_MS)} AND ${new Date(maxMs + ARCHIVE_CORRECTION_WINDOW_MS)}
         AND NOT EXISTS (
           SELECT 1 FROM "RawEvent" r2 JOIN "Source" s2 ON s2.id = r2."sourceId"
           WHERE r2."eventId" = e.id AND NOT s2."archiveOnly"
@@ -3414,6 +3424,8 @@ function simulatedEventRow(
     parentEventId: null,
     status: "CONFIRMED",
     adminCancelledAt: null,
+    // A synthetic ordering key (row order), not a real timestamp: the canonical
+    // picker's createdAt tiebreak then follows apply order, as the real creates do.
     createdAt: new Date(index),
     isCanonical: true,
   };
