@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/db", () => ({ prisma: { $queryRaw: vi.fn() } }));
+vi.mock("@/lib/backfill/digest", () => ({ buildBackfillDigest: vi.fn().mockResolvedValue(null), ownerSecondFactors: vi.fn().mockResolvedValue(null) }));
 
 import { prisma } from "@/lib/db";
 import { buildOpsDigest } from "./ops-digest";

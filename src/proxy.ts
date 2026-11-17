@@ -18,6 +18,10 @@ const isPublicRoute = createRouteMatcher([
   // Scheduled audit agent: no Clerk session. Every handler enforces the
   // AUDIT_AGENT_TOKEN bearer itself (src/lib/audit-agent-auth.ts).
   "/api/audit/agent/(.*)",
+  // Onboarding backfill agent: no Clerk session. Every handler enforces the
+  // BACKFILL_AGENT_TOKEN bearer and the BACKFILL_AUTOMATION kill switch
+  // itself (src/lib/backfill/agent.ts).
+  "/api/agent/backfill/(.*)",
   "/api/auth/strava(.*)",
   "/kennels(.*)",
   "/hareline(.*)",
