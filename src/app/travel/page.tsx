@@ -4,7 +4,11 @@ import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@/lib/db";
 import { TravelSearchStatus } from "@/generated/prisma/client";
 import { getOrCreateUser } from "@/lib/auth";
-import { executeTravelSearch } from "@/lib/travel/search";
+import {
+  executeTravelSearch,
+  ROWLESS_EMPTY_STATES,
+  type EmptyStateKind,
+} from "@/lib/travel/search";
 import { findExistingSavedSearch } from "@/app/travel/actions";
 import { MAX_RADIUS_KM, snapRadiusToTier } from "@/lib/travel/limits";
 import { DEFAULT_SEARCH_RADIUS_KM, utcYmd } from "@/lib/travel/url";
@@ -443,13 +447,6 @@ function parseFilterParams(filterParams: SearchParamsRecord): {
 }
 
 /**
- * Empty states where no stop has a row to show. The banner says it all; an
- * empty TravelResults under it would add "No results match the active
- * filters", which is only true when filters hid rows (emptyState "none").
- */
-const ROWLESS_EMPTY_STATES = new Set(["no_runs", "no_coverage", "out_of_horizon"]);
-
-/**
  * Pick which result set to render based on emptyState. Replaces a
  * three-level nested ternary in TravelResultsServer (SonarCloud "no
  * nested ternary"). Returns null when no result set is appropriate
@@ -465,7 +462,7 @@ function selectResultsToRender<T extends {
   likely: unknown;
   possible: unknown;
 }>(
-  emptyState: string,
+  emptyState: EmptyStateKind,
   serialized: T,
   isMultiStop: boolean,
 ): T | null {
@@ -594,8 +591,7 @@ async function SavedTripPage({
   // arrays so single-stop saved trips still render meaningful results.
   // Multi-stop saved trips already have broader merged into the flat
   // arrays by `serializeTravelResults({ mergeBroader: true })`, so the
-  // swap is a no-op and we pass serializedResults through, unless every
-  // stop came up rowless.
+  // swap is a no-op and we pass serializedResults through.
   const resultsToRender = selectResultsToRender(
     serializedResults.emptyState,
     serializedResults,

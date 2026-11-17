@@ -2,9 +2,10 @@ import { Globe, CalendarX, CalendarOff, Compass, AlertTriangle, Clock } from "lu
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { CoverageNote } from "./CoverageNote";
+import type { EmptyStateKind } from "@/lib/travel/search";
 
 interface EmptyStatesProps {
-  variant: "no_coverage" | "no_confirmed" | "no_nearby" | "no_runs" | "out_of_horizon" | "error";
+  variant: Exclude<EmptyStateKind, "none"> | "error";
   broaderRadiusKm?: number;
   /** Destination city, for the coverage note. */
   place?: string;

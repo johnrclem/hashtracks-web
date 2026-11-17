@@ -179,6 +179,17 @@ export type EmptyStateKind =
   | "out_of_horizon";
 
 /**
+ * Empty states with no row anywhere to show: the banner is the whole answer.
+ * Rendering an empty TravelResults under one would add "No results match the
+ * active filters", which is only true for an empty `none` (filters hid rows).
+ */
+export const ROWLESS_EMPTY_STATES: ReadonlySet<EmptyStateKind> = new Set<EmptyStateKind>([
+  "no_runs",
+  "no_coverage",
+  "out_of_horizon",
+]);
+
+/**
  * Per-stop summary. Every stop gets one of these, even if it had zero
  * results, so the UI can render per-stop hints ("Paris: out of horizon")
  * without collapsing to a single aggregate message.
@@ -989,13 +1000,8 @@ async function runStopSearch(
 /**
  * Pick a stop's empty state once at least one kennel was searched (a stop
  * with no kennels in either radius returns `no_coverage` before this runs).
- *
- * A stop that found nothing on the trip dates gets a state that says so,
- * whatever filters are active: `out_of_horizon` past the projection horizon,
- * `no_runs` otherwise. Before `no_runs` existed this fell through to `none`,
- * and an empty `none` makes TravelResults print "No results match the active
- * filters" with no filters active. `none` with no rows now only means the
- * user's filters hid every row.
+ * Nothing on the dates gets a rowless state whatever filters are active, so
+ * an empty `none` only ever means the filters hid every row.
  *
  *   - out_of_horizon: nothing found and the dates are past the 365-day horizon
  *   - no_runs: kennels searched, nothing posted or projected for the dates
