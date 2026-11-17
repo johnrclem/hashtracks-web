@@ -320,9 +320,11 @@ async function TravelResultsServer({
       // Multi-stop: skip the broader-swap since top-level arrays already
       // contain merged primary + all-stops-broader (see serialization above).
       // Single-stop: swap broader arrays in place on `no_nearby`.
-      const resultsToRender = isMultiStop
-        ? serializedResults
-        : selectResultsToRender(results.emptyState, serializedResults);
+      const resultsToRender = selectResultsToRender(
+        results.emptyState,
+        serializedResults,
+        isMultiStop,
+      );
 
       return (
         <>
@@ -441,10 +443,21 @@ function parseFilterParams(filterParams: SearchParamsRecord): {
 }
 
 /**
+ * Empty states where no stop has a row to show. The banner says it all; an
+ * empty TravelResults under it would add "No results match the active
+ * filters", which is only true when filters hid rows (emptyState "none").
+ */
+const ROWLESS_EMPTY_STATES = new Set(["no_runs", "no_coverage", "out_of_horizon"]);
+
+/**
  * Pick which result set to render based on emptyState. Replaces a
  * three-level nested ternary in TravelResultsServer (SonarCloud "no
  * nested ternary"). Returns null when no result set is appropriate
- * (no_coverage / error path).
+ * (rowless empty states / error path).
+ *
+ * Multi-stop arrays already merge every stop's broader rows (see
+ * `serializeTravelResults({ mergeBroader: true })`), so there is no swap;
+ * they render unless every stop came up rowless.
  */
 function selectResultsToRender<T extends {
   broaderResults?: { confirmed: T["confirmed"]; likely: T["likely"]; possible: T["possible"] };
@@ -454,7 +467,9 @@ function selectResultsToRender<T extends {
 }>(
   emptyState: string,
   serialized: T,
+  isMultiStop: boolean,
 ): T | null {
+  if (isMultiStop) return ROWLESS_EMPTY_STATES.has(emptyState) ? null : serialized;
   if (emptyState === "no_confirmed") return serialized;
   if (emptyState === "no_nearby" && serialized.broaderResults) {
     return {
@@ -579,10 +594,13 @@ async function SavedTripPage({
   // arrays so single-stop saved trips still render meaningful results.
   // Multi-stop saved trips already have broader merged into the flat
   // arrays by `serializeTravelResults({ mergeBroader: true })`, so the
-  // swap is a no-op and we pass serializedResults through.
-  const resultsToRender = isMultiStop
-    ? serializedResults
-    : selectResultsToRender(serializedResults.emptyState, serializedResults);
+  // swap is a no-op and we pass serializedResults through, unless every
+  // stop came up rowless.
+  const resultsToRender = selectResultsToRender(
+    serializedResults.emptyState,
+    serializedResults,
+    isMultiStop,
+  );
 
   const firstLeg = search.destinations[0];
   const lastLeg = search.destinations.at(-1)!;

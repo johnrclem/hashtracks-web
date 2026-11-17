@@ -1,10 +1,10 @@
-import { Globe, CalendarX, Compass, AlertTriangle, Clock } from "lucide-react";
+import { Globe, CalendarX, CalendarOff, Compass, AlertTriangle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { CoverageNote } from "./CoverageNote";
 
 interface EmptyStatesProps {
-  variant: "no_coverage" | "no_confirmed" | "no_nearby" | "out_of_horizon" | "error";
+  variant: "no_coverage" | "no_confirmed" | "no_nearby" | "no_runs" | "out_of_horizon" | "error";
   broaderRadiusKm?: number;
   /** Destination city, for the coverage note. */
   place?: string;
@@ -44,6 +44,13 @@ const STATES: Record<
       props.broaderRadiusKm != null
         ? `We expanded the search to ${props.broaderRadiusKm} km. Worth a drive?`
         : "We expanded the search to a wider area. Worth a drive?",
+    coverageNote: true,
+  },
+  no_runs: {
+    icon: CalendarOff,
+    headline: "No runs posted or expected for your dates.",
+    body: (props) =>
+      `None of the kennels we track near ${props.place || "here"} has a trail posted for these dates, and their usual schedules don't land on them either. Try other dates or a wider radius.`,
     coverageNote: true,
   },
   out_of_horizon: {
