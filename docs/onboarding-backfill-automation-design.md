@@ -187,8 +187,9 @@ The design therefore aims at two different things:
 ### 4.3 Assumptions and hardening
 
 - **T1. Anything acting as the owner's GitHub account can approve.** Agents run `gh` as the owner. An
-  agent could add the label itself, and the stamp workflow would record it. It could also forge a
-  stamp: any workflow on a branch it pushes can ask for `statuses: write` and write a status as
+  agent acting as the owner could add the label itself, and the stamp workflow would record it (a label
+  added by the agent or server GitHub App is ignored: the workflow stamps only an owner-sent event). It
+  could also forge a stamp: any workflow on a branch it pushes can ask for `statuses: write` and write a status as
   `github-actions[bot]`, with any `target_url` it likes. The stamp protects against **mistakes**
   (a push or force-push after the label, a stale branch), not against an agent misusing the owner's
   credential. That is the same assumption that already guards every code merge. Phase 2 needs the
@@ -329,7 +330,9 @@ file from `main`, so a PR can't change what this workflow does.
 
 The context name, the description format and the A2–A4 evaluation live in one module,
 `src/lib/backfill/approval-stamp.ts`, which the workflow and the server (6.4) both use, so the stamp and
-the check can't diverge. v5.3 had a separate `approval-stamp.yml`; one workflow now stamps and
+the check can't diverge. The module also reads the owner's login, `OWNER_GITHUB_LOGIN`, for both
+sides, and a test asserts the workflow passes that same value, so the stamp and A2 can't disagree about
+who the owner is. v5.3 had a separate `approval-stamp.yml`; one workflow now stamps and
 evaluates, so the two can't race.
 
 This makes the stamp reliable against mistakes. It does not make it unforgeable: as T1 says, a
@@ -1092,7 +1095,7 @@ also be undone; until then, `adopt-only` manifests bring them into the record.
 
 | Phase | What runs | Entry | Exit |
 |---|---|---|---|
-| 0. Build | Section 12.1. `BACKFILL_AUTOMATION=off` | This design approved | Unit tests for every guard, every merge match path in both modes, the cutoff drop, the provenance rules (against real Sheets, GCal, Meetup and website archives) and the migration checker (the last eight onboarding migrations pass, crafted bypasses fail, and a sample onboarding migration that creates an archive source applies cleanly to a local database with the CHECK in place); the step-up refuses no second factor, a missing or malformed `fva`, and a second-factor age of 1 minute or more, a token 60 seconds old or more or with no `iat`, and a valid nonce sent with a token that fails a check, even when Clerk's check passes, while a real TOTP step-up through the probe on Clerk's development instance passes, and the `fva` of a session token minted through the Backend API (`sessions.getToken`) is read and recorded (10.3); plan, apply, crash-resume and undo tested end to end against a local copy of prod |
+| 0. Build | Section 12.1. `BACKFILL_AUTOMATION=off` | This design approved | Unit tests for every guard, every merge match path in both modes, the cutoff drop, the provenance rules (against real Sheets, GCal, Meetup and website archives) and the migration checker (the last eight onboarding migrations pass, a fixture written to the migration template passes, crafted bypasses fail, and a sample onboarding migration that creates an archive source applies cleanly to a local database with the CHECK in place); the step-up refuses no second factor, a missing or malformed `fva`, and a second-factor age of 1 minute or more, a token 60 seconds old or more or with no `iat`, and a valid nonce sent with a token that fails a check, even when Clerk's check passes, while a real TOTP step-up through the probe on Clerk's development instance passes, and the `fva` of a session token minted through the Backend API (`sessions.getToken`) is read and recorded (10.3); plan, apply, crash-resume and undo tested end to end against a local copy of prod |
 | 1. Shadow | `BACKFILL_AUTOMATION=shadow`. The implementer runs `plan` and posts it; the owner still applies by hand and compares. The approval endpoint runs beside the implementer's old merge check and any disagreement is reported | Phase 0 merged, and the ops `write-gate` workflow (ops plan S4) is live and stamping (6.3) | `adopt-only` manifests for Music City and Zagreb come out `ADOPTED`; 5 new backfills where the shadow plan's written-row count equals what the hand apply created, every block was correct, and no PII false positive went unexplained; no disagreement between the approval endpoint and the owner's intent |
 | 2. Apply behind the label | `BACKFILL_AUTOMATION=apply`, Phase 2 scope (section 3), 2,000-row cap, 2 applies a day, the implementer starts every apply | Phase 1 exit; H3 done; the owner enrolled in TOTP with backup codes and no phone second factor, as read through Clerk's Backend API; on production, one probe step-up passed and both late attempts were refused (10.3); the owner's written acceptance of T1 and T4 and of H1/H2's absence | 10 applied runs, all `VERIFIED` first time or explained, no undo needed for a wrong write, no 7-day re-check failure |
 | 3. Loosen | One change at a time: multi-kennel origins or several live sources **only with per-row routing provenance** (the freeze tool records which pattern matched each row, default-bucket rows are forbidden, CI re-derives the routing from the origin's config); more origin types; a higher cap; the watch cron starting approved applies | Phase 2 exit **and** H1 **and** H2 | Owner's call per change |
@@ -1518,3 +1521,5 @@ CodeRabbit (P-1, P-2) and the Claude PR review (P-3 to P-8) commented after roun
 | O6-3 | major | G17 moving to `src/lib/migration-sql/` left it outside G15 | G15 adds `src/lib/migration-sql/**`, `scripts/ci/**` and the `libpg-query` package entries (8.1) |
 | O6-4 | minor | Two cron-liveness records | `AutomationRun` only; `CronHeartbeat` dropped by a later migration (11.1–11.3, 12.1, 14) |
 | O6-5 | minor | `libpg-query` is a devDependency the server can't load | PR 4 moves it to `dependencies` and `serverExternalPackages` and proves it on a preview (12.1a) |
+
+Round 7 of that review: `APPROVE`. Its notes were applied: T1's wording now says only an owner-sent label is stamped (4.3); one source for the owner's login, with a test (6.3); the template fixture is in Phase 0's exit criteria (13).
