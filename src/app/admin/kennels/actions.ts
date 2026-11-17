@@ -839,8 +839,11 @@ export async function mergeKennels(
         where: { kennelId: sourceKennel.id },
         data: { kennelId: targetKennel.id },
       });
+      // Never move an archive link, even one created after the check above: it
+      // stays on the source kennel, so the kennel.delete below fails on its
+      // foreign key and the whole merge rolls back (design 6.5).
       await tx.sourceKennel.updateMany({
-        where: { kennelId: sourceKennel.id },
+        where: { kennelId: sourceKennel.id, source: { archiveOnly: false } },
         data: { kennelId: targetKennel.id },
       });
       // Confirmations would cascade-delete with the kennel. An open STOPPED one

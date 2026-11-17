@@ -21,6 +21,7 @@ import {
   checkSize,
   checkStretchGap,
   medianRunInterval,
+  originRoutesElsewhere,
   touchedGuardPaths,
 } from "./guards";
 
@@ -140,6 +141,25 @@ describe("pure guards", () => {
       { row: 0, kennelCode: "kh3" },
       { row: 2, kennelCode: "kh3" },
     ]);
+  });
+
+  it("G5 origin config: reads only each kennelPatterns destination", () => {
+    expect(originRoutesElsewhere(null, "zh4")).toBe(false);
+    expect(originRoutesElsewhere({ defaultKennelTag: "zh4", kennelPatterns: [["zagreb|ZH4", "zh4"], ["full moon", ["zh4"]]] }, "zh4")).toBe(false);
+    // A word in the regex is not a destination.
+    expect(originRoutesElsewhere({ kennelPatterns: [["other-kennel", "zh4"]] }, "zh4")).toBe(false);
+    expect(originRoutesElsewhere({ kennelPatterns: [["ZH4", "zh4"], ["KH3", "kh3"]] }, "zh4")).toBe(true);
+    expect(originRoutesElsewhere({ kennelPatterns: [["joint", ["zh4", "KH3"]]] }, "zh4")).toBe(true);
+    expect(originRoutesElsewhere({ defaultKennelTag: "kh3" }, "zh4")).toBe(true);
+    expect(originRoutesElsewhere({ kennelPatterns: [["x"]] }, "zh4")).toBe(true);
+    expect(originRoutesElsewhere({ kennelPatterns: "zh4" }, "zh4")).toBe(true);
+  });
+
+  it("G15: the migration-sql checker, CI scripts and libpg-query's package entries", () => {
+    expect(touchedGuardPaths(["src/lib/migration-sql/g17.ts", "scripts/ci/check-migrations.ts"])).toHaveLength(2);
+    expect(touchedGuardPaths(["package.json"], { "package.json": '@@ -1 +1 @@\n-"libpg-query": "17.8.2"\n+"libpg-query": "17.9.0"' })).toEqual(["package.json"]);
+    expect(touchedGuardPaths(["package.json"], { "package.json": '@@ -1 +1 @@\n-"zod": "3"\n+"zod": "4"' })).toEqual([]);
+    expect(touchedGuardPaths(["package-lock.json"])).toEqual(["package-lock.json"]); // no patch to read: guarded
   });
 
   it("G15: guard paths", () => {

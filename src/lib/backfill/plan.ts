@@ -15,7 +15,7 @@ import { canonicalJson, isoDay, sha256 } from "./canonical";
 import { checkDeclaredFields, compareManifest, orderedIndexes, parseArchive, type BackfillManifest, type ExpectedGap } from "./manifest";
 import { scanArchiveForPii } from "./pii";
 import { checkRowProvenance, websiteHosts } from "./provenance";
-import { checkMigrationForBackfill } from "./migration-check";
+import { checkMigrationForBackfill } from "@/lib/migration-sql/g17";
 import {
   G21_MARKER_SINCE,
   checkLiveCoverage,
@@ -27,6 +27,7 @@ import {
   checkSiblingMentions,
   checkSize,
   checkStretchGap,
+  originRoutesElsewhere,
   touchedGuardPaths,
 } from "./guards";
 import { recordStep } from "./run-state";
@@ -72,6 +73,8 @@ export interface PlanInput {
   archiveBytes: string;
   /** Every path the PR changes, for G15 and A5. */
   changedFiles: readonly string[];
+  /** GitHub's patch per changed file, where it gave one (G15's package-file check). */
+  changedPatches?: Readonly<Record<string, string | undefined>>;
   /** The SQL of every migration the PR adds, for G17. */
   migrationSql: readonly string[];
   /** S, H, M from the approval check; null for a PREVIEW of an open PR. */
@@ -141,12 +144,7 @@ async function resolveSources(manifest: BackfillManifest): Promise<Resolved> {
   if (archive.type !== origin.type) problems.push("G12: the archive source's type must be the origin's");
   if (archive.trustLevel > origin.trustLevel) problems.push("G12: the archive source's trust may not exceed the origin's");
   if (origin.kennels.length !== 1 || origin.kennels[0].kennelId !== kennel!.id) problems.push("G5: the origin must be linked to the kennel only");
-  const cfg = (origin.config ?? {}) as { kennelPatterns?: unknown; defaultKennelTag?: unknown };
-  const patternCodes = JSON.stringify(cfg.kennelPatterns ?? []).match(/"[a-z0-9-]+"/g) ?? [];
-  const namesOther =
-    (typeof cfg.defaultKennelTag === "string" && cfg.defaultKennelTag !== kennel!.kennelCode) ||
-    (Array.isArray(cfg.kennelPatterns) && cfg.kennelPatterns.length > 0 && patternCodes.some((c) => c !== `"${kennel!.kennelCode}"`));
-  if (namesOther) problems.push("G5: the origin's kennelPatterns or defaultKennelTag route to another kennel");
+  if (originRoutesElsewhere(origin.config, kennel!.kennelCode)) problems.push("G5: the origin's kennelPatterns or defaultKennelTag route to another kennel");
 
   const linked = await prisma.sourceKennel.findMany({
     where: { kennelId: kennel!.id },
@@ -410,7 +408,7 @@ async function computePlan(input: PlanInput, manifest: BackfillManifest, now: Da
   // 1. A5, A6, G2, G21 key check.
   const manifests = input.changedFiles.filter((f) => /^scripts\/data\/[a-z0-9-]+-history[a-z0-9-]*\.manifest\.json$/.test(f));
   block(manifests.length === 1 && manifests[0] === input.manifestPath ? [] : ["A5: the PR must carry exactly this one manifest"]);
-  block(touchedGuardPaths(input.changedFiles).map((p) => `G15: the PR changes guard path ${p}`));
+  block(touchedGuardPaths(input.changedFiles, input.changedPatches).map((p) => `G15: the PR changes guard path ${p}`));
   for (const sql of input.migrationSql) block((await checkMigrationForBackfill(sql)).map((p) => `G17: ${p}`));
   let rawRows: RawEventData[];
   try {

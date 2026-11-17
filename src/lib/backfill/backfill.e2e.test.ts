@@ -153,10 +153,12 @@ describe.skipIf(!LOCAL)("backfill end to end (local database)", () => {
     const crashed = stored.toWrite.slice(plan.FIRST_BATCH_ROWS, plan.FIRST_BATCH_ROWS + 20).map((r) => r.index);
     const rows = JSON.parse(r1Bytes) as RawEventData[];
     await merge.processRawEvents(ids.archive, crashed.slice(0, 5).map((i) => plan.normalizeArchiveRow(rows[i])), { backfill: {} });
+    // A row no plan fingerprint matches: the undo must still delete its event before UNDONE.
+    await merge.processRawEvents(ids.archive, [plan.normalizeArchiveRow({ ...rows[crashed[10]], title: "Unplanned" })], { backfill: {} });
     await prisma.backfillRun.update({ where: { id: planned.run.id }, data: { inFlightBatch: crashed, leaseToken: "dead", leaseExpiresAt: new Date(Date.now() - 1000) } });
 
     const { plan: undoPlan, hash } = await undo.buildUndoPlan(planned.run.id);
-    expect(undoPlan.deleteEventIds).toHaveLength(plan.FIRST_BATCH_ROWS + 5);
+    expect(undoPlan.deleteEventIds).toHaveLength(plan.FIRST_BATCH_ROWS + 6);
     let u = await undo.applyUndo(planned.run.id, { confirmedHash: hash, by: "admin" });
     for (let i = 0; i < 5 && u.status === "UNDOING"; i++) u = await undo.applyUndo(planned.run.id, { by: "admin" });
     expect(u.status).toBe("UNDONE");
@@ -287,7 +289,7 @@ describe.skipIf(!LOCAL)("backfill end to end (local database)", () => {
   }, 120_000);
 
   it("applies a sample onboarding migration that creates an archive source, with the CHECK in place", async () => {
-    const { SAMPLE_ARCHIVE_ONBOARDING } = await import("./migration-check.test-fixtures");
+    const { SAMPLE_ARCHIVE_ONBOARDING } = await import("@/lib/migration-sql/g17.test-fixtures");
     const { Client } = await import("pg");
     const client = new Client({ connectionString: URL_ });
     await client.connect();
