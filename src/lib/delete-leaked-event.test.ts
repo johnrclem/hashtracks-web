@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/pipeline/merge", () => ({ recomputeCanonicalForSlot: vi.fn() }));
+
 import {
   deleteLeakedEvent,
   DeleteSafetyViolationError,
   ForeignRawSourceError,
+  recomputeCanonicalForSlots,
 } from "./delete-leaked-event";
+import { recomputeCanonicalForSlot } from "@/pipeline/merge";
 import type { PrismaClient } from "@/generated/prisma/client";
 
 /**
@@ -145,5 +149,18 @@ describe("deleteLeakedEvent safety invariant", () => {
     expect(tx.rawEvent.findFirst.mock.invocationCallOrder[0]).toBeLessThan(
       tx.rawEvent.deleteMany.mock.invocationCallOrder[0],
     );
+  });
+});
+
+describe("recomputeCanonicalForSlots", () => {
+  it("recomputes each touched (kennel, date) slot once", async () => {
+    const d = new Date("2020-01-04T12:00:00Z");
+    const n = await recomputeCanonicalForSlots([
+      { kennelId: "k1", date: d },
+      { kennelId: "k1", date: new Date(d) },
+      { kennelId: "k2", date: d },
+    ]);
+    expect(n).toBe(2);
+    expect(vi.mocked(recomputeCanonicalForSlot).mock.calls).toEqual([["k1", d], ["k2", d]]);
   });
 });

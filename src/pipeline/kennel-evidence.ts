@@ -90,7 +90,7 @@ export const POSTED_RUN_RAW_SQL = Prisma.sql`(
  * Google Calendar `htmlLink` is unique per instance); a missing URL groups
  * with other missing URLs. Copies scraped at the same instant both count.
  */
-const CURRENT_RAW_SQL = Prisma.sql`NOT EXISTS (
+export const CURRENT_RAW_SQL = Prisma.sql`NOT EXISTS (
   SELECT 1
   FROM "RawEvent" newer
   WHERE newer."eventId" = r."eventId"

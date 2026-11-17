@@ -7,6 +7,7 @@ import { scrapeSource } from "@/pipeline/scrape";
 import { resolveKennelTag, clearResolverCache, mapKennelTag } from "@/pipeline/kennel-resolver";
 import { buildKennelIdentifiers, createKennelRecord } from "@/lib/kennel-utils";
 import type { Prisma } from "@/generated/prisma/client";
+import { ARCHIVE_SOURCE_LOCKED, isArchiveSource } from "@/lib/archive-source";
 
 interface RepairLogEntry {
   action: string;
@@ -290,6 +291,7 @@ export async function createKennelFromAlert(
 
   const alert = await prisma.alert.findUnique({ where: { id: alertId } });
   if (!alert) return { error: "Alert not found" };
+  if (await isArchiveSource(alert.sourceId)) return { error: ARCHIVE_SOURCE_LOCKED };
 
   const result = await createKennelRecord(kennelData, tag);
   if ("error" in result) return result;
@@ -334,6 +336,7 @@ export async function linkKennelToSource(
 
   const alert = await prisma.alert.findUnique({ where: { id: alertId } });
   if (!alert) return { error: "Alert not found" };
+  if (await isArchiveSource(alert.sourceId)) return { error: ARCHIVE_SOURCE_LOCKED };
 
   // Resolve the tag to a kennel
   clearResolverCache();

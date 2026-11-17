@@ -13,6 +13,7 @@
  * and EventKennel cascade automatically.
  */
 import type { PrismaClient } from "@/generated/prisma/client";
+import { recomputeCanonicalForSlot } from "@/pipeline/merge";
 
 /**
  * Relations a caller can require to be empty for a hard-delete to proceed.
@@ -74,7 +75,7 @@ export async function deleteLeakedEvent(
    * not hard-delete an event another source has since merged onto.
    */
   forbidForeignRawSourceId?: string,
-): Promise<void> {
+): Promise<"deleted" | "missing"> {
   const existing = await prisma.event.findUnique({
     where: { id: eventId },
     select: {
@@ -87,14 +88,14 @@ export async function deleteLeakedEvent(
   });
   if (!existing) {
     console.log(`Event ${eventId} already gone — nothing to do.`);
-    return;
+    return "missing";
   }
   console.log(`Found: ${existing.title} on ${existing.date.toISOString()} (kennel ${existing.kennelId})`);
   console.log(
     `  related rows: ${existing._count.hares} EventHare, ${existing._count.attendances} Attendance, ${existing._count.kennelAttendances} KennelAttendance`,
   );
 
-  await prisma.$transaction(async (tx) => {
+  const outcome = await prisma.$transaction(async (tx): Promise<"deleted" | "missing"> => {
     // Lock the parent Event for the transaction's lifetime. A concurrent
     // scrape/merge linking a NEW child row needs FOR KEY SHARE on this row
     // (FK insert/update); FOR UPDATE conflicts, so any such writer blocks
@@ -110,7 +111,7 @@ export async function deleteLeakedEvent(
     `;
     if (locked.length === 0) {
       console.log(`Event ${eventId} vanished before lock — nothing to delete.`);
-      return;
+      return "missing";
     }
 
     // Provenance guard (under the lock, before any delete): refuse if a
@@ -156,6 +157,27 @@ export async function deleteLeakedEvent(
     console.log(
       `Deleted ${hareDeleted.count} EventHare(s), ${attDeleted.count} Attendance(s), ${kaDeleted.count} KennelAttendance(s), ${rawDeleted.count} RawEvent(s), ${ekDeleted.count} EventKennel(s), and the Event itself.`,
     );
-  });
+    return "deleted";
+  }, { timeout: 30_000 });
   console.log("Done.");
+  return outcome;
+}
+
+/**
+ * Recompute `isCanonical` for every (kennel, date) slot a set of hard deletes
+ * touched. The delete itself doesn't: an event that lost the canonical pick to
+ * a deleted one would otherwise stay hidden. Each slot is recomputed once.
+ * Server-side: it uses the app's `prisma` singleton, not an injected client.
+ */
+export async function recomputeCanonicalForSlots(
+  slots: ReadonlyArray<{ kennelId: string; date: Date }>,
+): Promise<number> {
+  const seen = new Set<string>();
+  for (const { kennelId, date } of slots) {
+    const key = `${kennelId}:${date.toISOString()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    await recomputeCanonicalForSlot(kennelId, date);
+  }
+  return seen.size;
 }

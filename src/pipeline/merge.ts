@@ -3165,6 +3165,21 @@ async function recomputeCanonical(
   await prisma.$transaction(ops);
 }
 
+/**
+ * Recompute `isCanonical` for one (kennel, date) slot from the database, for
+ * writers outside the merge loop: a hard delete can leave a sibling that lost
+ * the canonical pick to the deleted event hidden (onboarding backfill design
+ * 10.3, undo).
+ */
+export async function recomputeCanonicalForSlot(kennelId: string, date: Date): Promise<void> {
+  const slot = await prisma.event.findMany({
+    where: { kennelId, date },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: EVENT_CACHE_SELECT,
+  });
+  await recomputeCanonical(slot);
+}
+
 /** Record a merge error in the result context. */
 function recordMergeError(
   event: RawEventData,

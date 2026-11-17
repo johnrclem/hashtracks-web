@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockAdmin = { id: "admin_1", clerkId: "clerk_admin", email: "admin@test.com" };
 
+vi.mock("@/lib/archive-source", () => ({
+  ARCHIVE_SOURCE_LOCKED: "archive source",
+  ARCHIVE_KENNEL_LOCKED: "archive kennel",
+  isArchiveSource: vi.fn().mockResolvedValue(false),
+  kennelHasArchiveSource: vi.fn().mockResolvedValue(false),
+}));
 vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn(), getRosterGroupId: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -622,5 +628,16 @@ describe("mergeKennels", () => {
     expect(vi.mocked(refreshKennelEvidence).mock.invocationCallOrder[0]).toBeLessThan(
       vi.mocked(revalidatePath).mock.invocationCallOrder[0],
     );
+  });
+});
+
+describe("archive kennels (onboarding backfill design 6.5)", () => {
+  it("refuses to delete or merge away a kennel that has an archive source", async () => {
+    const guard = await import("@/lib/archive-source");
+    vi.mocked(guard.kennelHasArchiveSource).mockResolvedValue(true);
+    const { deleteKennel, mergeKennels } = await import("./actions");
+    expect(await deleteKennel("k1")).toEqual({ error: "archive kennel" });
+    expect(await mergeKennels("k1", "k2", false)).toEqual({ error: "archive kennel" });
+    vi.mocked(guard.kennelHasArchiveSource).mockResolvedValue(false);
   });
 });

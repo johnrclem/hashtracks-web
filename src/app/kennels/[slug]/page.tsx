@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
+import { getKennelPageEvents, countKennelPageEvents } from "@/lib/kennel-page-events";
 import { toSlug } from "@/lib/kennel-utils";
 import { formatSchedule, stripMarkdown } from "@/lib/format";
 import { SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
@@ -139,59 +139,7 @@ export default async function KennelDetailPage({
 
   const [user, events, parentKennel, howWeKnow] = await Promise.all([
     getOrCreateUser(),
-    prisma.event.findMany({
-      // #1023 step 5: filter via EventKennel join so co-host events
-      // (where this kennel is a secondary, not the primary) appear here too.
-      // #1560 PR F: NO `parentEventId: null` filter — series children whose
-      // primary kennel is this kennel (e.g. GGFM Friday Strawberry Moon as
-      // a child of NYCH3's 5-Boro umbrella) must appear on this kennel's
-      // page. The `eventKennels.some` join correctly fans out to children
-      // because each child gets its own primary `EventKennel` row per
-      // #1023 step 2. The umbrella itself only appears on its host kennel's
-      // page (its `kennelId` is the host's), so dropping the filter doesn't
-      // pollute other kennel pages with parents they don't host.
-      where: { eventKennels: { some: { kennelId: kennel.id } }, status: { not: "CANCELLED" }, isManualEntry: { not: true }, isCanonical: true, ...HIDE_STOPPED_SCHEDULE_RUNS },
-      include: {
-        kennel: {
-          select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
-        },
-        // Populate co-host kennels (#1023 step 5) — surfaces the
-        // "Cherry City × OH3" conjunction in EventCard for multi-kennel
-        // events. Empty array for the common single-kennel case.
-        eventKennels: {
-          where: { isPrimary: false },
-          select: {
-            kennel: { select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true } },
-          },
-          orderBy: { kennel: { shortName: "asc" } },
-        },
-        // #1560 — per-trail children for series parents. Slim select to
-        // match the HarelineSeriesChild shape consumed by EventCard.
-        childEvents: {
-          where: {
-            status: { not: "CANCELLED" },
-            isManualEntry: { not: true },
-            isCanonical: true,
-            kennel: { isHidden: false },
-            ...HIDE_STOPPED_SCHEDULE_RUNS,
-          },
-          orderBy: { date: "asc" },
-          select: {
-            id: true,
-            date: true,
-            dateUtc: true,
-            timezone: true,
-            title: true,
-            haresText: true,
-            startTime: true,
-            status: true,
-            locationName: true,
-            runNumber: true,
-          },
-        },
-      },
-      orderBy: { date: "asc" },
-    }),
+    getKennelPageEvents(kennel.id),
     // Skip hidden parents — linking would 404. Card falls back to raw text.
     kennel.parentKennelCode
       ? prisma.kennel.findFirst({
@@ -292,9 +240,7 @@ export default async function KennelDetailPage({
   const upcoming = serialized.filter((e) => eventEndMs(e) >= todayUtc);
   const past = serialized.filter((e) => eventEndMs(e) < todayUtc).reverse();
 
-  // Stats — use unique date count for resilience against duplicate canonical events
-  const uniqueDates = new Set(events.map(e => e.date.toISOString().split("T")[0]));
-  const totalEvents = uniqueDates.size;
+  const totalEvents = countKennelPageEvents(events);
   // "Latest Run" = highest run number among the most recent COMPLETED runs
   // (date < today). Past-only on purpose (#2385): kennels like T3H3 pre-populate
   // weekly placeholders far into the future (e.g. "#500 - Hare TBD" in 2027), so

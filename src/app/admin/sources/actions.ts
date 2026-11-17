@@ -10,6 +10,7 @@ import { scrapeSource } from "@/pipeline/scrape";
 import { validateSourceConfig } from "./config-validation";
 import { buildKennelIdentifiers, createKennelRecord } from "@/lib/kennel-utils";
 import { nameTypeConflictError } from "@/app/admin/shared/source-errors";
+import { ARCHIVE_SOURCE_LOCKED, isArchiveSource } from "@/lib/archive-source";
 
 /** Parse and validate config JSON from form input. Returns the parsed value or an error. */
 function parseConfigJson(
@@ -150,6 +151,22 @@ export async function updateSource(sourceId: string, formData: FormData) {
 
   const ids = kennelIds.split(",").map(id => id.trim()).filter(Boolean);
 
+  // An archive source's name binds it to its run (G12), its type must stay the
+  // origin's, and its one kennel link is the archive's kennel. The form always
+  // resubmits the links, so compare them with the existing set.
+  const current = await prisma.source.findUnique({
+    where: { id: sourceId },
+    select: { archiveOnly: true, name: true, type: true, trustLevel: true, kennels: { select: { kennelId: true } } },
+  });
+  if (current?.archiveOnly) {
+    const sorted = (list: string[]) => [...new Set(list)].sort().join(",");
+    const sameLinks = sorted(ids) === sorted(current.kennels.map((k) => k.kennelId));
+    // Trust stays at most the origin's (design 6.5), as the run recorded it.
+    if (name !== current.name || type !== current.type || trustLevel !== current.trustLevel || !sameLinks) {
+      return { error: ARCHIVE_SOURCE_LOCKED };
+    }
+  }
+
   try {
     await prisma.$transaction([
       prisma.sourceKennel.deleteMany({ where: { sourceId } }),
@@ -182,6 +199,8 @@ export async function updateSource(sourceId: string, formData: FormData) {
 export async function deleteSource(sourceId: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
+  // Deleting hard-deletes the source's RawEvents, which for an archive source are the backfill's record.
+  if (await isArchiveSource(sourceId)) return { error: ARCHIVE_SOURCE_LOCKED };
 
   await prisma.$transaction([
     prisma.rawEvent.deleteMany({ where: { sourceId } }),
@@ -203,6 +222,7 @@ export async function linkKennelToSourceDirect(
 ) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Unauthorized" };
+  if (await isArchiveSource(sourceId)) return { error: ARCHIVE_SOURCE_LOCKED };
 
   clearResolverCache();
   const { kennelId, matched } = await resolveKennelTag(kennelTag);
@@ -262,6 +282,8 @@ export async function createAliasForSource(
 ) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Unauthorized" };
+  // The alias would be followed by a forced re-scrape, which an archive source refuses.
+  if (await isArchiveSource(sourceId)) return { error: ARCHIVE_SOURCE_LOCKED };
 
   // Check alias doesn't already exist
   const existing = await prisma.kennelAlias.findFirst({
@@ -291,6 +313,8 @@ export async function createAliasForSource(
 export async function toggleSourceEnabled(sourceId: string, enabled: boolean) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
+  // The database CHECK refuses it too; this gives the admin a clear message.
+  if (enabled && (await isArchiveSource(sourceId))) return { error: ARCHIVE_SOURCE_LOCKED };
 
   await prisma.source.update({
     where: { id: sourceId },
@@ -361,6 +385,7 @@ export async function createKennelForSource(
 ) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Unauthorized" };
+  if (await isArchiveSource(sourceId)) return { error: ARCHIVE_SOURCE_LOCKED };
 
   const result = await createKennelRecord(kennelData, tag);
   if ("error" in result) return result;
@@ -417,6 +442,9 @@ export async function unlinkKennelFromSource(
 ): Promise<{ success: boolean; error?: string }> {
   const admin = await getAdminUser();
   if (!admin) return { success: false, error: "Unauthorized" };
+
+  const link = await prisma.sourceKennel.findUnique({ where: { id: sourceKennelId }, select: { sourceId: true } });
+  if (link && (await isArchiveSource(link.sourceId))) return { success: false, error: ARCHIVE_SOURCE_LOCKED };
 
   const deleted = await prisma.sourceKennel.delete({
     where: { id: sourceKennelId },
