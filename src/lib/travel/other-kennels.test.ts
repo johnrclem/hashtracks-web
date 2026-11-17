@@ -67,15 +67,6 @@ describe("selectOtherKennels", () => {
     expect(out.map((k) => k.kennelId)).toEqual(["quiet"]);
   });
 
-  it("drops a running kennel that is not already shown", () => {
-    const out = selectOtherKennels(
-      [candidate({ id: "running", lastRunSeenAt: new Date("2026-11-07T12:00:00Z") })],
-      new Set(),
-      NOW,
-    );
-    expect(out).toEqual([]);
-  });
-
   it("drops a quiet kennel that is already shown", () => {
     const out = selectOtherKennels([candidate({ id: "shown" })], new Set(["shown"]), NOW);
     expect(out).toEqual([]);

@@ -98,6 +98,10 @@ function serializePossible(r: PossibleRow): SerializedPossible {
   };
 }
 
+function serializeOtherKennel(k: OtherKennel): SerializedOtherKennel {
+  return { ...k, evidence: serializeKennelEvidence(k.evidence) };
+}
+
 function serializeDestinations(
   destinations: SearchResults["destinations"],
 ): SerializedDestination[] {
@@ -167,9 +171,6 @@ export function serializeTravelResults(
           confirmed: stopNearest.confirmed.map((r) => serializeConfirmed(r, attendanceMap)),
         }
       : undefined,
-    otherKennels: stopOtherKennels?.map((k) => ({
-      ...k,
-      evidence: serializeKennelEvidence(k.evidence),
-    })),
+    otherKennels: stopOtherKennels?.map(serializeOtherKennel),
   };
 }

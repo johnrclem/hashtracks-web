@@ -317,6 +317,13 @@ async function TravelResultsServer({
       </>
     );
 
+    const otherKennelsSection = serializedResults.otherKennels && (
+      <OtherKennelsSection
+        place={extractCityName(destination)}
+        kennels={serializedResults.otherKennels}
+      />
+    );
+
     if (results.emptyState !== "none") {
       // Multi-stop: skip the broader-swap since top-level arrays already
       // contain merged primary + all-stops-broader (see serialization above).
@@ -343,12 +350,7 @@ async function TravelResultsServer({
               destinations={serializedResults.destinations}
             />
           )}
-          {serializedResults.otherKennels && (
-            <OtherKennelsSection
-              place={extractCityName(destination)}
-              kennels={serializedResults.otherKennels}
-            />
-          )}
+          {otherKennelsSection}
         </>
       );
     }
@@ -361,12 +363,7 @@ async function TravelResultsServer({
           results={serializedResults}
           destinations={serializedResults.destinations}
         />
-        {serializedResults.otherKennels && (
-          <OtherKennelsSection
-            place={extractCityName(destination)}
-            kennels={serializedResults.otherKennels}
-          />
-        )}
+        {otherKennelsSection}
       </>
     );
   } catch (err) {
