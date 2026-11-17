@@ -32,6 +32,11 @@ export interface LargeCancellation {
   eventsCancelled: number;
 }
 
+export interface FailedMigration {
+  name: string;
+  startedAt: string;
+}
+
 export interface OpsDigest {
   generatedAt: string;
   scrapes24h: { runs: number; failed: number; eventsCreated: number; eventsCancelled: number };
@@ -48,6 +53,11 @@ export interface OpsDigest {
      *  The promoter runs hourly, so any of these means it is stuck or failing. */
     stalePending: number;
   };
+  /**
+   * Migrations that started but neither finished nor were rolled back. Any row blocks every later
+   * deploy until the owner runs `prisma migrate resolve` (docs/ops/system.md#migrations).
+   */
+  failedMigrations: FailedMigration[];
 }
 
 /** A PENDING draft older than this has missed at least one hourly promoter run. */
@@ -58,7 +68,7 @@ const num = (v: unknown): number => (v == null ? 0 : Number(v));
 const iso = (v: unknown): string | null => (v instanceof Date ? v.toISOString() : null);
 
 export async function buildOpsDigest(now: Date = new Date()): Promise<OpsDigest> {
-  const [scrapeRows, failingRows, alertRows, createdRows, cancelRows, zeroRows, queueRows] =
+  const [scrapeRows, failingRows, alertRows, createdRows, cancelRows, zeroRows, queueRows, migrationRows] =
     await Promise.all([
       prisma.$queryRaw<Array<Record<string, unknown>>>`
         SELECT count(*) AS runs,
@@ -117,6 +127,10 @@ export async function buildOpsDigest(now: Date = new Date()): Promise<OpsDigest>
                  WHERE "submittedAt" < now() - make_interval(hours => ${STALE_PENDING_HOURS}::int)
                ) AS stale
         FROM "AuditFindingDraft" WHERE status = 'PENDING'`,
+      prisma.$queryRaw<Array<Record<string, unknown>>>`
+        SELECT migration_name, started_at FROM "_prisma_migrations"
+        WHERE finished_at IS NULL AND rolled_back_at IS NULL
+        ORDER BY started_at`,
     ]);
 
   const s = scrapeRows[0] ?? {};
@@ -156,5 +170,9 @@ export async function buildOpsDigest(now: Date = new Date()): Promise<OpsDigest>
       oldestPendingAt: iso(q.oldest),
       stalePending: num(q.stale),
     },
+    failedMigrations: migrationRows.map((r) => ({
+      name: String(r.migration_name),
+      startedAt: iso(r.started_at) ?? "",
+    })),
   };
 }
