@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { KennelStatusLine } from "@/components/kennels/KennelStatusLine";
 import { TravelHintBadge } from "./TravelHintBadge";
+import { formatDistanceShort } from "@/lib/travel/format";
 import { otherKennelsBrowseLink, otherKennelsHeading } from "@/lib/travel/other-kennels";
 import type { SerializedOtherKennel } from "@/lib/travel/serialize";
 
@@ -17,7 +18,7 @@ export function OtherKennelsSection({
 
   return (
     <section aria-labelledby="other-kennels-heading" className="mx-auto mt-10 max-w-3xl">
-      <TravelHintBadge glyph="○" label="Kennels in your area" ariaLabel="Kennels in your area" />
+      <TravelHintBadge glyph="○" label="Inside your search area" ariaLabel="Inside your search area" />
       <div className="mb-4 flex items-baseline gap-3 border-b border-border pb-2">
         <h2 id="other-kennels-heading" className="font-display text-lg font-medium">
           {otherKennelsHeading(place)}
@@ -35,7 +36,7 @@ export function OtherKennelsSection({
               </Link>
               <span className="text-sm text-muted-foreground">{k.fullName}</span>
               <span className="ml-auto font-mono text-xs text-muted-foreground">
-                {Math.round(k.distanceKm)} km
+                {formatDistanceShort(k.distanceKm)}
               </span>
             </div>
             <KennelStatusLine

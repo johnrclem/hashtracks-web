@@ -981,13 +981,19 @@ async function runStopSearch(
   }
 
   // "Other kennels near here": thin single-stop answers list quiet in-radius
-  // kennels the rows above don't already show. `filtered` holds whichever pass
-  // was adopted, so broader-pass rows are covered by the shown ids.
+  // kennels the rows above don't already show. When the broader pass was
+  // adopted, `filtered` holds ring rows, not primary-radius runs, so the
+  // primary radius showed 0 runs and the "fewer than 3" check counts 0. The
+  // shown ids still come from `filtered`: ring rows are outside the radius, so
+  // they never hide an in-radius candidate, and the ids stay correct either way.
   let otherKennels: OtherKennel[] | undefined;
+  const inRadiusRuns = primaryEffectivelyEmpty
+    ? { confirmed: 0, likely: 0 }
+    : { confirmed: filtered.confirmed.length, likely: filtered.likely.length };
   if (
     ctx.wantNearestConfirmed &&
     primary.length > 0 &&
-    shouldShowOtherKennels(filtered.confirmed.length, filtered.likely.length)
+    shouldShowOtherKennels(inRadiusRuns.confirmed, inRadiusRuns.likely)
   ) {
     const shownKennelIds = new Set(
       [...filtered.confirmed, ...filtered.likely, ...filtered.possible].map((r) => r.kennelId),

@@ -1,8 +1,9 @@
 /**
  * Amber mono "tell-the-user-you-helped" badge used by Travel Mode when the
  * service made a non-obvious revision: expanding the radius, snapping to a
- * tier, auto-promoting Possible activity over an empty Confirmed list.
- * Single component so the three call sites can't drift in styling.
+ * tier, auto-promoting Possible activity over an empty Confirmed list. Also
+ * labels the "Inside your search area" section of quiet kennels (glyph ○).
+ * Single component so the call sites can't drift in styling.
  */
 export function TravelHintBadge({
   glyph,
