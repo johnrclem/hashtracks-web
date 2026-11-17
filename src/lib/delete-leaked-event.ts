@@ -167,6 +167,8 @@ export async function deleteLeakedEvent(
  * Recompute `isCanonical` for every (kennel, date) slot a set of hard deletes
  * touched. The delete itself doesn't: an event that lost the canonical pick to
  * a deleted one would otherwise stay hidden. Each slot is recomputed once.
+ * Idempotent: recomputing a slot that is already right changes nothing, so a
+ * retry after a partial failure is safe.
  * Server-side: it uses the app's `prisma` singleton, not an injected client.
  */
 export async function recomputeCanonicalForSlots(
