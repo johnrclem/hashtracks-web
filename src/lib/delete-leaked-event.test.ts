@@ -24,6 +24,8 @@ type RelationCounts = {
   kennelAttendances?: number;
   rawEvents?: number;
   eventKennels?: number;
+  /** Hares entered by a user or misman (the forbidUserHares probe). */
+  userHares?: number;
 };
 
 function buildPrisma(
@@ -36,7 +38,10 @@ function buildPrisma(
   const queryRaw = vi.fn().mockResolvedValue(lockedRows);
   const tx = {
     $queryRaw: queryRaw,
-    eventHare: { deleteMany: vi.fn().mockResolvedValue({ count: counts.hares ?? 0 }) },
+    eventHare: {
+      deleteMany: vi.fn().mockResolvedValue({ count: counts.hares ?? 0 }),
+      count: vi.fn().mockResolvedValue(counts.userHares ?? 0),
+    },
     attendance: { deleteMany: vi.fn().mockResolvedValue({ count: counts.attendances ?? 0 }) },
     kennelAttendance: {
       deleteMany: vi.fn().mockResolvedValue({ count: counts.kennelAttendances ?? 0 }),
@@ -149,6 +154,18 @@ describe("deleteLeakedEvent safety invariant", () => {
     expect(tx.rawEvent.findFirst.mock.invocationCallOrder[0]).toBeLessThan(
       tx.rawEvent.deleteMany.mock.invocationCallOrder[0],
     );
+  });
+});
+
+describe("forbidUserHares (backfill undo)", () => {
+  beforeEach(() => vi.spyOn(console, "log").mockImplementation(() => {}));
+
+  it("refuses under the lock when a user or misman hare is attached, and deletes scraped hares otherwise", async () => {
+    const blocked = buildPrisma({ hares: 1, userHares: 1 });
+    await expect(deleteLeakedEvent(blocked.prisma, "evt_1", [], "src_a", { forbidUserHares: true })).rejects.toBeInstanceOf(DeleteSafetyViolationError);
+    expect(blocked.eventDelete).not.toHaveBeenCalled();
+    const scraped = buildPrisma({ hares: 2, userHares: 0 });
+    expect(await deleteLeakedEvent(scraped.prisma, "evt_1", [], "src_a", { forbidUserHares: true })).toBe("deleted");
   });
 });
 
