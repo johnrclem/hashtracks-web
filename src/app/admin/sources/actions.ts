@@ -159,7 +159,7 @@ export async function updateSource(sourceId: string, formData: FormData) {
     select: { archiveOnly: true, name: true, type: true, trustLevel: true, kennels: { select: { kennelId: true } } },
   });
   if (current?.archiveOnly) {
-    const sorted = (list: string[]) => [...new Set(list)].sort().join(",");
+    const sorted = (list: string[]) => [...new Set(list)].sort((a, b) => a.localeCompare(b)).join(",");
     const sameLinks = sorted(ids) === sorted(current.kennels.map((k) => k.kennelId));
     // Trust stays at most the origin's (design 6.5), as the run recorded it.
     if (name !== current.name || type !== current.type || trustLevel !== current.trustLevel || !sameLinks) {
