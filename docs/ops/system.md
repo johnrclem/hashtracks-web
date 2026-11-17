@@ -4,8 +4,93 @@ How HashTracks keeps about 460 changing sources accurate and keeps adding kennel
 queue, the automations, the gates on prod writes, and what to do when one breaks. Every task
 manual links here.
 
-This page is being built in steps. The migrations section is complete; lanes, automations and
-gates follow.
+It describes what runs today. Planned changes are marked **planned**: the ops plan adds lane
+labels, a watchdog, bot identities and an auto-approve tier for insert-only onboarding migrations
+over the coming weeks, and this page changes as each one lands.
+
+## The three loops
+
+| Loop | Detects | Repairs | Where the work waits |
+|---|---|---|---|
+| **Scraper health** | Each scrape writes a `ScrapeLog`; `src/pipeline/health.ts` raises `Alert` rows | A supervised session, from `/admin/alerts` | `/admin/alerts`; the "File GitHub Issue" button |
+| **Data quality** | The daily audit cron, the kennel deep dive and the hareline audit submit findings | The audit fixer task, through `audit-fix` PRs | GitHub issues labelled `audit` |
+| **Coverage** | The daily onboarding task researches one kennel and writes a handoff | The implementer task builds config-only handoffs into `onboarding-impl` PRs; history backfills are applied by the owner | `docs/kennel-onboarding/`, `onboarding-impl` PRs |
+
+Detection doesn't wait on repair. If a queue grows two weeks running, add repair capacity;
+don't throttle the audits.
+
+## How a finding becomes an issue
+
+1. A finding is submitted as an `AuditFindingDraft` row (`PENDING`) through the agent API
+   (`/api/audit/agent/*`) or by the audit cron.
+2. The promoter (`src/pipeline/audit-draft-promoter.ts`) files it as a GitHub issue, deduped
+   against open issues. It runs hourly via QStash, with the daily 14:00 UTC Vercel cron as a
+   backstop, under a transaction-scoped advisory lock so two runs never file the same draft. If
+   GitHub can't answer the dedup check, the draft stays `PENDING` and is retried next hour.
+3. The mirror cron (`/api/cron/sync-audit-issues`, 12:30 UTC) copies `audit` issues into
+   `AuditIssue` for `/admin/audit`.
+4. An issue closes only after a prod scrape or a page check confirms the fix.
+
+A `PENDING` draft older than 2 hours means filing is stuck: the daily digest flags it.
+
+**Planned:** every issue gets exactly one lane label (`lane:incident`, `lane:defect`,
+`lane:coverage`, `lane:decision`, `lane:ops`), and the mirror syncs lanes too.
+
+## Automations
+
+**Vercel crons** (`vercel.json`, UTC): scrape dispatch 06:00 (fans out per-source scrapes
+through QStash), audit 12:00, audit-issue mirror 12:30, finding promoter 14:00 (backstop),
+travel-draft GC 03:00, scrape-log GC 03:30, Strava cache purge 03:45, prediction ledger Monday
+08:00, rule drift Monday 09:00.
+
+**QStash schedules** (`scripts/setup-qstash-schedule.ts`, run once by the owner after a change):
+the hourly finding promoter.
+
+**Scheduled tasks on the Mac mini** (Claude Code, local time; each `SKILL.md` follows a manual in
+this repo):
+
+| Task | When | Manual | Output |
+|---|---|---|---|
+| `hashtracks-kennel-deep-dive` | 5 times a day | agent API prompts | findings via `/api/audit/agent/*` |
+| `hashtracks-hareline-audit` | daily 08:30 | agent API prompts | findings via `/api/audit/agent/*` |
+| `hashtracks-ops-digest` | daily 07:15 | [`daily-digest-task.md`](daily-digest-task.md) | `~/Developer/hashtracks-ops-digests/<date>.md`, phone push when something needs the owner |
+| `hashtracks-audit-fixer` | daily 10:30 | [`audit-fixer-task.md`](audit-fixer-task.md) | `audit-fix` PRs |
+| `hashtracks-kennel-onboarding` | daily 03:00 | [`daily-onboarding-prompt.md`](../kennel-onboarding/daily-onboarding-prompt.md) | handoff PRs (docs only) |
+| `hashtracks-kennel-implement` | daily 05:00 | [`implement-handoff-prompt.md`](../kennel-onboarding/implement-handoff-prompt.md) | `onboarding-impl` PRs |
+
+An automation that runs but produces nothing is down. Today the digest is the only check;
+**planned:** a watchdog judges each automation by the side effects it must leave (AuditLog rows,
+drafts, agent API calls, PRs, scrape logs) and emails the owner when one stops.
+
+## Gates on prod writes
+
+- **Agents never write to prod.** Prod changes through committed migrations, applied by
+  `migrate deploy` on the production build, or through owner-run scripts.
+- **The owner approves every agent PR that writes data:** the `owner-approved` label on an
+  `audit-fix` or `onboarding-impl` PR. Agents never add that label.
+- **Every prod write is dry-run first, with counts shown to the owner:** migrations with the
+  dry-run tool below; backfills and cleanups with their own dry-run mode
+  (`.claude/rules/prod-data-ops.md`).
+- **Never run `prisma db seed` against prod.** Seed data reaches prod only through a migration.
+- **History backfills** are applied by the owner (`BACKFILL_APPLY=1`). Automating them is
+  designed in [`docs/onboarding-backfill-automation-design.md`](../onboarding-backfill-automation-design.md).
+
+**Planned:** branch protection with a single `write-gate` check, GitHub App identities for the
+server and the agents, and an auto-approve tier for onboarding migrations that only insert new
+kennels.
+
+## Measures
+
+The digest reports these; the targets say when to add repair capacity.
+
+| Measure | Target |
+|---|---|
+| Finding to filed issue, median | under 90 minutes |
+| Defect filed to fixed, median | 3 days or less |
+| Open audit issues | flat or falling week over week |
+| Open issues older than 30 days | none without a decision question |
+| Alerts per week | 40 or fewer |
+| Owner review latency | under 24 hours |
 
 ## Migrations
 

@@ -4,6 +4,9 @@ Living document tracking what's been built, what's next, and where we're headed.
 
 Last updated: 2026-03-29
 
+> **Stale.** This roadmap hasn't been updated since March 2026. For how the site is kept running
+> today (audits, fixes, onboarding, prod-write gates), see [`docs/ops/system.md`](ops/system.md).
+
 **Competitive context:** See [competitive-analysis.md](competitive-analysis.md) for detailed analysis of Harrier Central (the primary competitor), user pain points from their GitHub issues, and strategic positioning rationale behind these priorities.
 
 **User research:** See [facebook-user-research.md](facebook-user-research.md) for analysis of the 16.6K-member Hash House Harriers Facebook group. Key finding: the #1 post type is "Is there a hash in [location]?" — validating Discovery & Travel UX as the next highest-priority feature area.

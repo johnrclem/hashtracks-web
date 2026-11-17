@@ -260,6 +260,7 @@ logbook + kennel directory.
 - `.github/workflows/claude.yml` — Claude Code interactive (issue/PR @claude mentions, label_trigger: claude-fix)
 
 ## Documentation
+- `docs/ops/system.md` — Ops system: the three loops (scraper health, data quality, coverage), automations, prod-write gates, measures, migration template + dry run + failed-migration runbook
 - `docs/source-onboarding-playbook.md` — Step-by-step guide for adding new data sources
 - `docs/roadmap.md` — Implementation roadmap for source scaling, historical import, monitoring
 - `docs/competitive-analysis.md` — Harrier Central competitor analysis and strategic positioning
