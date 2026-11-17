@@ -4,7 +4,6 @@ import { KennelStatusLine } from "@/components/kennels/KennelStatusLine";
 import { OwnPageLink } from "@/components/kennels/OwnPageLink";
 import { formatDateMedium } from "@/lib/format";
 import { safeUrl } from "@/lib/safe-url";
-import { halfMindListingUrl } from "@/lib/half-mind";
 import { confirmedLabel } from "@/lib/kennel-how-we-know-label";
 import type { ConfirmationVia, SerializedKennelEvidence } from "@/lib/kennel-status";
 
