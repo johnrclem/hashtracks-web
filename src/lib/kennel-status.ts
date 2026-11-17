@@ -156,6 +156,23 @@ export function formatStatusLine(line: StatusLine, now: Date = new Date()): stri
   }
 }
 
+/**
+ * The credited Half-Mind line for a surface that otherwise shows only the state
+ * label (the share image), or null to keep that label. Set when the status line
+ * credits Half-Mind and the check decides what is shown: a running kennel kept
+ * running only by the check, or a listing-only kennel.
+ */
+export function halfMindCreditLabel(
+  e: KennelEvidence,
+  now: Date = new Date(),
+  opts: { listingOnly?: boolean } = {},
+): string | null {
+  const line = getStatusLine(e, now, opts);
+  if (line?.kind !== "checked" || line.via !== "HALF_MIND") return null;
+  if (!opts.listingOnly && !isHalfMindDeciding(e, now)) return null;
+  return formatStatusLine(line, now);
+}
+
 function evidenceWhere(now: Date, days: number): Prisma.KennelWhereInput {
   const since = windowStart(now, days);
   return {

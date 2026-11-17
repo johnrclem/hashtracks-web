@@ -166,6 +166,15 @@ describe("getHowWeKnow Half-Mind check", () => {
       url: "https://half-mind.com/regionalwebsite/p_list1.php?ID=19",
     });
   });
+
+  it("drops the generated note as detail, so the label and date don't show twice", async () => {
+    const evidence = { ...NO_EVIDENCE, lastConfirmedAt: d("2026-10-07"), lastConfirmedVia: "HALF_MIND" as const };
+    vi.mocked(prisma.kennelConfirmation.findMany).mockResolvedValue([
+      { kind: "RUNNING", via: "HALF_MIND", observedAt: d("2026-10-07"), note: "Half-Mind listing checked Oct 7, 2026", url: null },
+    ] as never);
+    const { items } = await getHowWeKnow("k1", evidence, NOW, "19");
+    expect(items[0]).toMatchObject({ kind: "confirmed", via: "HALF_MIND", detail: null });
+  });
 });
 
 describe("getHowWeKnow listing-only kennels", () => {

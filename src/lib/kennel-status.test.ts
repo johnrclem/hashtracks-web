@@ -8,6 +8,7 @@ import {
   toKennelEvidence,
   ownPageFor,
   isHalfMindDeciding,
+  halfMindCreditLabel,
   type KennelEvidence,
 } from "@/lib/kennel-status";
 
@@ -136,6 +137,35 @@ describe("Half-Mind credit", () => {
 
   it("listingOnly with no confirmation shows never", () => {
     expect(getStatusLine(ev(), NOW, { listingOnly: true })).toEqual({ kind: "never" });
+  });
+});
+
+describe("halfMindCreditLabel (the share image's label)", () => {
+  const decided = () => ev({ lastConfirmedVia: "HALF_MIND", lastConfirmedAt: offset(-20), lastRunSeenAt: offset(-200) });
+  it("credits Half-Mind when the check is what keeps the kennel running", () => {
+    expect(halfMindCreditLabel(decided(), NOW)).toBe("Half-Mind listing checked · Oct 21");
+  });
+
+  it("credits Half-Mind for a listing-only kennel whose newest check is Half-Mind's, running or not", () => {
+    expect(halfMindCreditLabel(decided(), NOW, { listingOnly: true })).toBe("Half-Mind listing checked · Oct 21");
+    const quiet = ev({ lastConfirmedVia: "HALF_MIND", lastConfirmedAt: offset(-200) });
+    expect(halfMindCreditLabel(quiet, NOW, { listingOnly: true })).toBe("Half-Mind listing checked · Apr 24");
+  });
+
+  it("is null when the kennel's own runs keep it running (Savannah case)", () => {
+    const e = ev({ lastConfirmedVia: "HALF_MIND", lastConfirmedAt: offset(-46), lastRunSeenAt: offset(-47) });
+    expect(halfMindCreditLabel(e, NOW)).toBeNull();
+  });
+
+  it("is null for an ADMIN check, even on a listing-only kennel", () => {
+    expect(halfMindCreditLabel({ ...decided(), lastConfirmedVia: "ADMIN" }, NOW)).toBeNull();
+    expect(halfMindCreditLabel({ ...decided(), lastConfirmedVia: "ADMIN" }, NOW, { listingOnly: true })).toBeNull();
+  });
+
+  it("is null for a stopped kennel, and for a quiet sourced kennel (its state label stays)", () => {
+    expect(halfMindCreditLabel({ ...decided(), stoppedAt: offset(-1) }, NOW, { listingOnly: true })).toBeNull();
+    const quiet = ev({ lastConfirmedVia: "HALF_MIND", lastConfirmedAt: offset(-200), lastRunSeenAt: offset(-300) });
+    expect(halfMindCreditLabel(quiet, NOW)).toBeNull();
   });
 });
 

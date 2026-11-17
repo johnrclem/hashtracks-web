@@ -201,9 +201,20 @@ describe("refreshKennelEvidence", () => {
     );
     expect(sql).toContain(`k."lastConfirmedVia" IS DISTINCT FROM c."lastConfirmedVia"`);
     expect(sql).toContain(`"listingOnly" = c."listingOnly"`);
-    expect(sql).toContain(`k."listingOnly" AND ev."lastRunSeenAt" IS NULL AND ev."nextRunPostedAt" IS NULL`);
     expect(sql).toContain(`k."listingOnly" IS DISTINCT FROM c."listingOnly"`);
     expect(sql).not.toContain(`"SourceKennel"`);
+  });
+
+  it("clears listingOnly only on a real past run or a posted upcoming run, never on attendance", async () => {
+    await refreshKennelEvidence(undefined, NOW);
+    const sql = sqlText(lastQuery());
+    // lastRealRunAt is past_runs alone; lastRunSeenAt also folds in attendance,
+    // which a manual logbook entry by any signed-in user can create.
+    expect(sql).toContain(`pr."maxDate" AS "lastRealRunAt"`);
+    expect(sql).toContain(`GREATEST(pr."maxDate", ad."maxDate") AS "lastRunSeenAt"`);
+    expect(sql).toContain(`k."listingOnly" AND ev."lastRealRunAt" IS NULL AND ev."nextRunPostedAt" IS NULL AS "listingOnly"`);
+    expect(sql).not.toContain(`ev."lastRunSeenAt" IS NULL`);
+    expect(sql).not.toMatch(/ad\."maxDate"\)? AS "lastRealRunAt"/);
   });
 
   it("refreshes every kennel when no ids are given", async () => {

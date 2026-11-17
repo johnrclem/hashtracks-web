@@ -161,8 +161,9 @@ export async function refreshScheduleOnlyFlags(scope: ScheduleOnlyScope): Promis
  *   one, and whether it is a posted run is already in the cached flag.
  * - `lastConfirmedAt`: the newest un-reverted RUNNING confirmation.
  * - `lastConfirmedVia`: the `via` (ADMIN or HALF_MIND) of that newest RUNNING confirmation.
- * - `listingOnly`: stays true only while the kennel has no seen or posted run;
- *   real evidence clears it, and nothing here ever sets it.
+ * - `listingOnly`: stays true only while the kennel has no real past run and no
+ *   posted upcoming run. Attendance never clears it: a manual logbook entry is
+ *   not a real source. Nothing here ever sets it.
  * - `stoppedAt`: the newest un-reverted STOPPED confirmation, kept only while
  *   no evidence date above is later than it; otherwise null, because kennels
  *   restart. A stop dated the same day as the evidence stands, matching the
@@ -252,6 +253,7 @@ export async function refreshKennelEvidence(
       SELECT
         t.id,
         GREATEST(pr."maxDate", ad."maxDate") AS "lastRunSeenAt",
+        pr."maxDate" AS "lastRealRunAt",
         nr."minDate" AS "nextRunPostedAt",
         cf."lastConfirmed" AS "lastConfirmedAt",
         cf."lastConfirmedVia",
@@ -269,7 +271,7 @@ export async function refreshKennelEvidence(
         ev."nextRunPostedAt",
         ev."lastConfirmedAt",
         ev."lastConfirmedVia",
-        k."listingOnly" AND ev."lastRunSeenAt" IS NULL AND ev."nextRunPostedAt" IS NULL AS "listingOnly",
+        k."listingOnly" AND ev."lastRealRunAt" IS NULL AND ev."nextRunPostedAt" IS NULL AS "listingOnly",
         CASE WHEN ev."lastStopped" >= COALESCE(GREATEST(ev."lastRunSeenAt", ev."lastConfirmedAt", ev."nextRunPostedAt"), ev."lastStopped") THEN ev."lastStopped" END AS "stoppedAt"
       FROM evidence ev
       JOIN "Kennel" k ON k.id = ev.id

@@ -151,7 +151,9 @@ export async function getHowWeKnow(
       kind: "confirmed",
       via,
       date: evidence.lastConfirmedAt,
-      detail: running?.note ?? null,
+      // A Half-Mind check's note is generated ("Half-Mind listing checked {date}"),
+      // so it would only repeat the label and the date.
+      detail: via === "HALF_MIND" ? null : (running?.note ?? null),
       // A Half-Mind check has no link of its own: point at the listing.
       url: running?.url ?? (via === "HALF_MIND" && halfMindListingId ? halfMindListingUrl(halfMindListingId) : null),
     });
