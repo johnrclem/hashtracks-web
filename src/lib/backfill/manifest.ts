@@ -7,7 +7,7 @@
  * committed manifest (G2), so the counts the owner approves are the archive's.
  */
 import type { RawEventData } from "@/adapters/types";
-import { addDays, canonicalJson, daysBetween, sha256 } from "./canonical";
+import { addDays, byCodeUnit, canonicalJson, daysBetween, sha256 } from "./canonical";
 import { PII_SCANNER_VERSION, scanArchiveForPii } from "./pii";
 
 export const MANIFEST_VERSION = 1;
@@ -134,7 +134,7 @@ function isScheduleShaped(row: RawEventData): boolean {
 }
 
 function perKennelStats(rows: readonly RawEventData[]): PerKennelStats {
-  const dates = rows.map((r) => r.date).sort();
+  const dates = rows.map((r) => r.date).sort(byCodeUnit);
   const fill: Record<string, number> = {};
   for (const f of FILL_FIELDS) fill[f] = rows.filter((r) => r[f] != null && r[f] !== "").length;
   const ordered = [...rows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
@@ -182,7 +182,7 @@ export function buildManifest(archiveBytes: string, declaration: ManifestDeclara
     binding: declaration.binding,
     kennelTimezone: declaration.kennelTimezone,
     frozenAt: declaration.frozenAt,
-    expectedKennelCodes: [...declaration.expectedKennelCodes].sort(),
+    expectedKennelCodes: [...declaration.expectedKennelCodes].sort(byCodeUnit),
     perKennel,
     sameDateGroups,
     runNumberExceptions: findRunNumberExceptions(rows).slice(0, 50),
@@ -257,7 +257,7 @@ export function checkDeclaredFields(manifest: ManifestDeclaration, rows: readonl
     seenRows.add(c.row);
   }
 
-  const dates = rows.map((r) => r.date).sort();
+  const dates = rows.map((r) => r.date).sort(byCodeUnit);
   const first = dates[0];
   const last = dates.at(-1);
   let trailing = 0;

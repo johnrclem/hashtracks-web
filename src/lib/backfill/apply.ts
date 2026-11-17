@@ -14,7 +14,7 @@ import { parseUtcNoonDate } from "@/lib/date";
 import { formatYmdInTimezone } from "@/lib/timezone";
 import { processRawEvents, prepareRowForMerge, BackfillRowRejected, CreateOnlyViolation } from "@/pipeline/merge";
 import { refreshKennelEvidence, refreshScheduleOnlyFlags } from "@/pipeline/kennel-evidence";
-import { isoDay } from "./canonical";
+import { byCodeUnit, isoDay } from "./canonical";
 import { parseArchive } from "./manifest";
 import { scanArchiveForPii } from "./pii";
 import { checkLiveCoverage, checkRowRouting, checkStretchGap } from "./guards";
@@ -191,7 +191,7 @@ async function preFirstBatchChecks(ctx: StepContext, rows: RawEventData[]): Prom
     where: { kennelId: run.kennelId, date: { lt: parseUtcNoonDate(plan.splitDate) }, rawEvents: { some: { source: { enabled: true } } } },
   });
   const problems = liveBacked > 0 ? [`cutoff: ${liveBacked} events before the split point are backed by an enabled source`] : [];
-  problems.push(...checkStretchGap(rows.map((r) => r.date).sort(), plan.splitDate, plan.expectedGaps).map((p) => `G20: ${p}`));
+  problems.push(...checkStretchGap(rows.map((r) => r.date).sort(byCodeUnit), plan.splitDate, plan.expectedGaps).map((p) => `G20: ${p}`));
   const coverage = checkLiveCoverage(
     plan.liveOwned.map((i) => ({ index: i, date: rows[i].date, runNumber: rows[i].runNumber })),
     new Set(plan.corrections),
