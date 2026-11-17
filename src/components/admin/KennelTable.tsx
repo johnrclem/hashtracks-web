@@ -53,10 +53,12 @@ type Kennel = AdminKennelData & {
 interface KennelTableProps {
   kennels: Kennel[];
   regions: RegionOption[];
+  /** Seeds the search box (deep link from the Half-Mind review badge). */
+  initialSearch?: string;
 }
 
-export function KennelTable({ kennels, regions }: Readonly<KennelTableProps>) {
-  const [search, setSearch] = useState("");
+export function KennelTable({ kennels, regions, initialSearch = "" }: Readonly<KennelTableProps>) {
+  const [search, setSearch] = useState(initialSearch);
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [showMissingOnly, setShowMissingOnly] = useState(false);
 

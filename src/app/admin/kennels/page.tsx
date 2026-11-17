@@ -17,7 +17,10 @@ function pickEvidence(k: KennelEvidence) {
   };
 }
 
-export default async function AdminKennelsPage() {
+export default async function AdminKennelsPage({
+  searchParams,
+}: Readonly<{ searchParams: Promise<{ q?: string }> }>) {
+  const { q } = await searchParams;
   const [kennels, regions, openStops] = await Promise.all([
     prisma.kennel.findMany({
       orderBy: [{ region: "asc" }, { shortName: "asc" }],
@@ -122,7 +125,7 @@ export default async function AdminKennelsPage() {
       </div>
 
       <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
-        <KennelTable kennels={serialized} regions={regionOptions} />
+        <KennelTable kennels={serialized} regions={regionOptions} initialSearch={q ?? ""} />
       </div>
     </div>
   );
