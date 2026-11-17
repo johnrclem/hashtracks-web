@@ -31,15 +31,17 @@ const SECRET_PLACEHOLDER = "[secret]";
 
 // `user:password@` in a URL, such as a database URL quoted in an error message.
 const URL_CREDENTIALS_RE = /(?<=:\/\/)[^\s/@:]+:[^\s/@]+(?=@)/g;
-// Every query parameter; the name decides whether its value is a secret. A closing bracket or
-// quote ends the value, so a markdown link or a quoted URL keeps its punctuation.
-const QUERY_PARAM_RE = /(?<=[?&])([\w.-]+)=([^&#\s"'`<>)\]]+)/g;
+// Every query parameter; the name decides whether its value is a secret. `;` and `\u0026` also
+// start one, for HTML-escaped (`&amp;`) and JSON-escaped URLs. A closing bracket, a quote or a
+// backslash ends the value, so a markdown link or a quoted or escaped URL keeps its punctuation.
+const QUERY_PARAM_RE = /(?<=[?&;]|\\u0026)([\w.-]+)=([^&#\s"'`<>)\]\\]+)/g;
 const SECRET_NAME_RE = /(?:key|token|sig|signature|secret|password)$/i;
 // `.env` lines and inline assignments: `GOOGLE_CALENDAR_API_KEY=…`, `CRON_SECRET="…"`.
-const ENV_ASSIGNMENT_RE = /\b([A-Z][A-Z\d_]*(?:KEY|TOKEN|SECRET|PASSWORD))=(?!\[secret\])("[^"\n]*"|'[^'\n]*'|\S+)/g;
+// A value already replaced, or a shell reference (`$VAR`, `$(…)`), is left as it is.
+const ENV_ASSIGNMENT_RE = /\b([A-Z][A-Z\d_]*(?:KEY|TOKEN|SECRET|PASSWORD))=(?!\[secret\]|\$)("[^"\n]*"|'[^'\n]*'|[^\s"']\S*)/g;
 const GOOGLE_API_KEY_RE = /AIza[\w-]{30,}/g;
-// Eight characters at least, so prose ("bearer of …") is left alone.
-const BEARER_RE = /(?<=\bBearer\s+)[\w.~+/-]{8,}=*/gi;
+// Sixteen characters at least, so prose ("the bearer acknowledged …") is left alone.
+const BEARER_RE = /(?<=\bBearer\s+)[\w.~+/-]{16,}=*/gi;
 const GITHUB_TOKEN_RE = /\b(?:gh[pousr]_[A-Za-z\d]{30,}|github_pat_\w{30,})/g;
 const SK_KEY_RE = /\bsk_(?:live|test)_\w{16,}/g;
 
@@ -53,8 +55,10 @@ export function scrubSecrets(text: string): { text: string; removals: number } {
 
   const result = text
     .replaceAll(URL_CREDENTIALS_RE, replace)
-    .replaceAll(QUERY_PARAM_RE, (param: string, name: string) =>
-      SECRET_NAME_RE.test(name) ? `${name}=${replace()}` : param,
+    // A shell reference (`?key=$GOOGLE_CALENDAR_API_KEY`) holds no secret, and keeps a pasted
+    // command runnable.
+    .replaceAll(QUERY_PARAM_RE, (param: string, name: string, value: string) =>
+      SECRET_NAME_RE.test(name) && !value.startsWith("$") ? `${name}=${replace()}` : param,
     )
     .replaceAll(ENV_ASSIGNMENT_RE, (_match: string, name: string) => `${name}=${replace()}`)
     .replaceAll(GOOGLE_API_KEY_RE, replace)

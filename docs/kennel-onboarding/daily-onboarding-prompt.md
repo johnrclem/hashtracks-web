@@ -88,6 +88,9 @@ the run always sees what has already landed, and Step 2 dedupes against it.
   API keys, tokens, credentials in URLs, phone numbers and email addresses. Files you commit (the
   handoff, a retro) get `--secrets-only` instead, which keeps the kennel's published contact details:
   `npx tsx scripts/scrub.ts --secrets-only < <file> > "$TMPDIR/clean.md" && mv "$TMPDIR/clean.md" <file>`.
+  The scrubber needs the `node_modules` link from Step 0. If it can't run, don't post or commit raw
+  probe output: deliver the handoff without pasted URLs or command output, post only fixed wording,
+  and report "scrubber unavailable".
 - **Node (for any read-only probes):** `eval "$(fnm env)" && fnm use 20` if needed. You will NOT
   run `prisma db seed` or the full pipeline here — that happens in Claude Code.
 - **Queue:** [`target-queue.md`](target-queue.md)

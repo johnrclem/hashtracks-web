@@ -142,7 +142,8 @@ or a hasher's phone number. GitHub keeps every edit, so a leak can't be taken ba
 3. Post the scrubbed file: `gh issue comment <N> --body-file "$TMPDIR/body.clean.md"`,
    `gh pr create … --body-file "$TMPDIR/body.clean.md"`. Never post with `--body "<text>"`.
 
-Titles and labels carry no pasted output.
+If the scrubber can't run, don't post the raw text. Post only fixed wording with no pasted
+output, and report "scrubber unavailable". Titles and labels carry no pasted output.
 
 ## Phase A — merge what the owner approved (always first)
 
@@ -233,7 +234,8 @@ gh issue list --state open --label <lane> --limit 300 \
 `onboarding-candidate` issues belong to the onboarding automation. Work down the list:
 
 - Skip a kennel from preflight 3.
-- Drop from each kennel's issues any number in the preflight 2 list. Skip a kennel left with none.
+- Drop from each kennel's issues any number in the preflight 2 list. Skip a kennel left with none;
+  a kennel whose oldest issues were dropped takes the place of its oldest remaining one.
 - Triage the first remaining kennel's issues, oldest first, as below. If none qualifies, move to the
   next kennel. Triage **at most 12 issues per run** in all.
 

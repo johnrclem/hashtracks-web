@@ -98,7 +98,8 @@ issue body:
 3. Post the scrubbed file with `--body-file "$TMPDIR/body.clean.md"`. Never post with
    `--body "<text>"`.
 
-Titles and labels carry no pasted output.
+If the scrubber can't run, don't post the raw text. Post only fixed wording with no pasted
+output, and report "scrubber unavailable". Titles and labels carry no pasted output.
 
 ## Phase A — merge what the owner approved (always first)
 

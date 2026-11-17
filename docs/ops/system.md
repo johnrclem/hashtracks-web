@@ -123,7 +123,8 @@ FLAG=$(curl -fsSL --max-time 20 https://raw.githubusercontent.com/johnrclem/hash
 ```
 
 It prints the login the run acts as, which each task puts in its report. If it prints
-`preflight: STOP`, the run stops before any other step. It reads this flag, on `main`:
+`preflight: STOP`, the run stops before any other step. The digest is the one exception: it
+writes nothing to GitHub, so it carries on and reports the failure first under "Needs you today". It reads this flag, on `main`:
 
 Identity preflight: LOG
 

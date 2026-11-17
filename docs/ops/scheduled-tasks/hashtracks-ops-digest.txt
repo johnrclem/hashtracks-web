@@ -6,7 +6,7 @@ Step 1, before anything else, is the identity preflight:
 
   FLAG=$(curl -fsSL --max-time 20 https://raw.githubusercontent.com/johnrclem/hashtracks-web/main/docs/ops/system.md | grep -m1 '^Identity preflight:'); LOGIN=$(gh api user --jq .login 2>/dev/null); echo "preflight: login=${LOGIN:-unknown} | ${FLAG:-flag missing}"; case "$FLAG" in "Identity preflight: LOG"*|"Identity preflight: STOP unless $LOGIN") echo "preflight: OK" ;; *) echo "preflight: STOP" ;; esac
 
-Put the login under "Automations" in the digest. If it prints `preflight: STOP`, stop here and report "preflight failed: <login>".
+Put the login under "Automations" in the digest. If it prints `preflight: STOP`, carry on (the digest only reads, and it is how the owner hears of the failure) and put "identity preflight failed: <login>" first under "Needs you today".
 
 Then read the manual from main, and follow its procedure exactly: Gather, Judge, Write, Notify.
 

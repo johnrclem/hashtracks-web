@@ -23,7 +23,9 @@ describe("scrubSecrets", () => {
     ],
     ["a value inside a markdown link", "[feed](https://example.com/x?key=abc)", "[feed](https://example.com/x?key=[secret])"],
     ["a bare Google API key", `"key": "${FAKE_GOOGLE_KEY}"`, `"key": "[secret]"`],
-    ["a bearer token", "Authorization: Bearer abc.def-ghi_jkl", "Authorization: Bearer [secret]"],
+    ["a bearer token", "Authorization: Bearer abc.def-ghi_jkl-mno", "Authorization: Bearer [secret]"],
+    ["an HTML-escaped query value", "/events?maxResults=250&amp;token=abc123", "/events?maxResults=250&amp;token=[secret]"],
+    ["a JSON-escaped query value", String.raw`"url": "/x?a=1\u0026sig=abc123"`, String.raw`"url": "/x?a=1\u0026sig=[secret]"`],
     ["a GitHub token", `token ${FAKE_GITHUB_TOKEN} expired`, "token [secret] expired"],
     ["a Clerk secret key", `sk_live_${"k".repeat(24)}`, "[secret]"],
     [
@@ -40,14 +42,16 @@ describe("scrubSecrets", () => {
   it.each([
     ["ordinary query values", "https://www.hashtracks.xyz/kennels/nych3?tab=events&page=2"],
     ["an env reference in a command", 'curl -H "Authorization: Bearer $TOKEN" https://www.hashtracks.xyz/api'],
-    ["prose", "The bearer of the news said the key point is the token gesture."],
+    ["prose", "The bearer acknowledged that the key point is the token gesture."],
+    ["a shell reference in a query", 'curl "https://example.com/x?key=$GOOGLE_CALENDAR_API_KEY"'],
+    ["a shell reference in an assignment", "CRON_SECRET=$(grep -m1 '^CRON_SECRET=' .env)"],
     ["a non-secret env line", "NEXT_PUBLIC_APP_URL=https://www.hashtracks.xyz"],
   ])("keeps %s", (_label, input) => {
     expect(secrets(input)).toBe(input);
   });
 
   it("counts each removal once", () => {
-    const text = `https://example.com/x?API_KEY=one&token=two\nBearer abcdefghij\n${FAKE_GOOGLE_KEY}`;
+    const text = `https://example.com/x?API_KEY=one&token=two\nBearer abcdefghijklmnopq\n${FAKE_GOOGLE_KEY}`;
     expect(scrubSecrets(text)).toEqual({
       text: "https://example.com/x?API_KEY=[secret]&token=[secret]\nBearer [secret]\n[secret]",
       removals: 4,

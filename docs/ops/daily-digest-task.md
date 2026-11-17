@@ -33,8 +33,10 @@ Before anything else:
 FLAG=$(curl -fsSL --max-time 20 https://raw.githubusercontent.com/johnrclem/hashtracks-web/main/docs/ops/system.md | grep -m1 '^Identity preflight:'); LOGIN=$(gh api user --jq .login 2>/dev/null); echo "preflight: login=${LOGIN:-unknown} | ${FLAG:-flag missing}"; case "$FLAG" in "Identity preflight: LOG"*|"Identity preflight: STOP unless $LOGIN") echo "preflight: OK" ;; *) echo "preflight: STOP" ;; esac
 ```
 
-Put the login under "Automations". If it prints `preflight: STOP`, stop and report
-"preflight failed: <login>". ([`system.md#identity`](system.md#identity) explains the flag.)
+Put the login under "Automations". If it prints `preflight: STOP`, don't stop: unlike the other
+tasks, the digest makes no GitHub writes, and it is how the owner hears that the identity is broken.
+Carry on and put "identity preflight failed: <login>" first under "Needs you today".
+([`system.md#identity`](system.md#identity) explains the flag.)
 
 ## Gather (use exactly these sources)
 
@@ -85,13 +87,14 @@ Put the login under "Automations". If it prints `preflight: STOP`, stop and repo
 
 **"Needs you today"** lists only what the owner alone can act on, in this order:
 
+1. **Identity preflight failed** (Step 1), if it did.
 1. **Failed migrations:** any `failedMigrations` row. Every deploy is blocked until the owner
    recovers it. Name the migration and link the runbook,
    `docs/ops/system.md#when-a-migration-fails-in-prod`.
 2. **Overdue automations:** a task that hasn't run on schedule, whose last run failed, or that
    reported "preflight failed"; `auditQueue.stalePending` above 0 (the hourly filing run is stuck or
    failing); and any automation the watchdog marks `OVERDUE`. An automation the watchdog marks
-   `BLOCKED_ON_OWNER` is waiting on approvals (item 3), not down.
+   `BLOCKED_ON_OWNER` is waiting on approvals (below), not down.
 3. **Approvals waiting:** each PR from Gather 3, oldest first, with its age and checks, plus any PR
    an agent reported as "re-approval needed". The oldest age is the owner review latency (target:
    under 24 hours).
