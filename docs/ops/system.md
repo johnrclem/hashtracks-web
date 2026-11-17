@@ -68,24 +68,25 @@ the hourly finding promoter.
 
 **Scheduled tasks on the Mac mini** (Claude Code desktop app, local time):
 
-| Task | When | Manual | Output | Branch prefix |
-|---|---|---|---|---|
-| `hashtracks-kennel-deep-dive` | 5 times a day | its prompt, plus the agent API's | findings via `/api/audit/agent/*` | `deep-dive/` (reserved; never pushes) |
-| `hashtracks-hareline-audit` | daily 08:30 | its prompt, plus the agent API's | findings via `/api/audit/agent/*` | `hareline-audit/` (reserved; never pushes) |
-| `hashtracks-ops-digest` | daily 07:15 | [`daily-digest-task.md`](daily-digest-task.md) | `~/Developer/hashtracks-ops-digests/<date>.md`, phone push when something needs the owner | `ops-digest/` (reserved; never pushes) |
-| `hashtracks-audit-fixer` | daily 10:30 | [`audit-fixer-task.md`](audit-fixer-task.md) | `audit-fix` PRs | `audit-fix/` |
-| `hashtracks-kennel-onboarding` | daily 03:00 | [`daily-onboarding-prompt.md`](../kennel-onboarding/daily-onboarding-prompt.md) | handoff PRs (docs only) | `onboarding/` |
-| `hashtracks-kennel-implement` | daily 05:00 | [`implement-handoff-prompt.md`](../kennel-onboarding/implement-handoff-prompt.md) | `onboarding-impl` PRs and retros | `onboard/` |
+| Task | When | Manual | Output |
+|---|---|---|---|
+| `hashtracks-kennel-deep-dive` | 5 times a day | its prompt, plus the agent API's | findings via `/api/audit/agent/*` |
+| `hashtracks-hareline-audit` | daily 08:30 | its prompt, plus the agent API's | findings via `/api/audit/agent/*` |
+| `hashtracks-ops-digest` | daily 07:15 | [`daily-digest-task.md`](daily-digest-task.md) | `~/Developer/hashtracks-ops-digests/<date>.md`, phone push when something needs the owner |
+| `hashtracks-audit-fixer` | daily 10:30 | [`audit-fixer-task.md`](audit-fixer-task.md) | `audit-fix` PRs |
+| `hashtracks-kennel-onboarding` | daily 03:00 | [`daily-onboarding-prompt.md`](../kennel-onboarding/daily-onboarding-prompt.md) | handoff PRs (docs only) |
+| `hashtracks-kennel-implement` | daily 05:00 | [`implement-handoff-prompt.md`](../kennel-onboarding/implement-handoff-prompt.md) | `onboarding-impl` PRs and retros |
 
 The audit fixer stays at one run a day until owner review latency (below) is under 24 hours.
 Before then, more runs only lengthen the review queue.
 
 **Task prompts.** Each task's prompt lives in this repo as
 [`scheduled-tasks/<task>.txt`](scheduled-tasks/README.md); the task itself holds only a pointer of
-a few lines, from [`scheduled-tasks/pointers/`](scheduled-tasks/pointers/), that reads the prompt
+four lines, from [`scheduled-tasks/pointers/`](scheduled-tasks/pointers/), that fetches the prompt
 from `main` and follows it. A prompt change is therefore a reviewed PR, and the owner pastes
 pointers only when a pointer itself changes. The digest compares each task's `SKILL.md` with its
-pointer every morning and flags drift.
+pointer every morning and flags drift. Each task's branch prefix is in
+[Branch prefixes](#branch-prefixes).
 
 **Watchdog (building, S2).** An automation that runs but produces nothing is down. Until the
 watchdog lands, the digest's look at the task runs is the only check. Then:
@@ -116,7 +117,8 @@ as, set up through an agent root (`~/Developer/hashtracks-agents/`) whose settin
 an empty `gh` config and a `gh` shim that mints the App's token; and a "HashTracks Server" App
 for the server's own GitHub reads and writes.
 
-**Preflight.** Step 1 of every task prompt runs this, before anything else:
+**Preflight.** Step 1 of every task runs this, before anything else (it's in the task's manual, or
+in its prompt for the deep dive and the hareline audit, which have no manual of their own):
 
 ```bash
 FLAG=$(curl -fsSL --max-time 20 https://raw.githubusercontent.com/johnrclem/hashtracks-web/main/docs/ops/system.md | grep -m1 '^Identity preflight:'); LOGIN=$(gh api user --jq .login 2>/dev/null); echo "preflight: login=${LOGIN:-unknown} | ${FLAG:-flag missing}"; case "$FLAG" in "Identity preflight: LOG"*|"Identity preflight: STOP unless $LOGIN") echo "preflight: OK" ;; *) echo "preflight: STOP" ;; esac

@@ -37,8 +37,7 @@ const URL_CREDENTIALS_RE = /(?<=:\/\/)[^\s/@:]+:[^\s/@]+(?=@)/g;
 const QUERY_PARAM_RE = /(?<=[?&;]|\\u0026)([\w.-]+)=([^&#\s"'`<>)\]\\]+)/g;
 const SECRET_NAME_RE = /(?:key|token|sig|signature|secret|password)$/i;
 // `.env` lines and inline assignments: `GOOGLE_CALENDAR_API_KEY=…`, `CRON_SECRET="…"`.
-// A value already replaced, or a shell reference (`$VAR`, `$(…)`), is left as it is.
-const ENV_ASSIGNMENT_RE = /\b([A-Z][A-Z\d_]*(?:KEY|TOKEN|SECRET|PASSWORD))=(?!\[secret\]|\$)("[^"\n]*"|'[^'\n]*'|[^\s"']\S*)/g;
+const ENV_ASSIGNMENT_RE = /\b([A-Z][A-Z\d_]*(?:KEY|TOKEN|SECRET|PASSWORD))=("[^"\n]*"|'[^'\n]*'|[^\s"']\S*)/g;
 const GOOGLE_API_KEY_RE = /AIza[\w-]{30,}/g;
 // Sixteen characters at least, so prose ("the bearer acknowledged …") is left alone.
 const BEARER_RE = /(?<=\bBearer\s+)[\w.~+/-]{16,}=*/gi;
@@ -60,7 +59,10 @@ export function scrubSecrets(text: string): { text: string; removals: number } {
     .replaceAll(QUERY_PARAM_RE, (param: string, name: string, value: string) =>
       SECRET_NAME_RE.test(name) && !value.startsWith("$") ? `${name}=${replace()}` : param,
     )
-    .replaceAll(ENV_ASSIGNMENT_RE, (_match: string, name: string) => `${name}=${replace()}`)
+    // A value the query rule already replaced, or a shell reference (`$VAR`, `$(…)`), stays.
+    .replaceAll(ENV_ASSIGNMENT_RE, (assignment: string, name: string, value: string) =>
+      value.startsWith(SECRET_PLACEHOLDER) || value.startsWith("$") ? assignment : `${name}=${replace()}`,
+    )
     .replaceAll(GOOGLE_API_KEY_RE, replace)
     .replaceAll(BEARER_RE, replace)
     .replaceAll(GITHUB_TOKEN_RE, replace)

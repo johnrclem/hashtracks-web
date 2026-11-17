@@ -7,27 +7,26 @@ app can't quietly drift from the manuals.
 - **`<task>.txt`** is the task's prompt: its role, the identity preflight, where its manual is,
   and the rules it never breaks. Edit these in PRs.
 - **`pointers/<task>.txt`** is the only text the scheduled task holds: four lines that fetch the
-  prompt from `main` and follow it. The owner pastes a pointer into the app once, and again only if
-  that pointer changes.
+  prompt from `main` over HTTPS and follow it. The owner pastes a pointer into the app once, and
+  again only if that pointer changes; a change to a prompt, a manual or a reset line needs no paste.
+  The three tasks that write (fixer, implementer, research) reset their own clone as their prompt's
+  first step.
 - The ops digest compares each task's `~/.claude/scheduled-tasks/<task>/SKILL.md` with its pointer
   every morning and lists any drift under "Needs you today"
   ([`daily-digest-task.md`](../daily-digest-task.md), Gather 5).
-- `prompts.test.ts` checks that every prompt carries the same identity preflight as
-  [`system.md#identity`](../system.md#identity), that every reset line keeps
-  `.claude/settings.local.json`, and that every pointer reads its own prompt.
+- `prompts.test.ts` checks that every manual (or prompt, for the two tasks without one) carries
+  the identity preflight from [`system.md#identity`](../system.md#identity), that every reset line
+  keeps `.claude/settings.local.json`, that every pointer fetches its own prompt, and that every
+  prompt names its branch prefix from [`system.md#branch-prefixes`](../system.md#branch-prefixes).
 
-| Task | Pointer reads the prompt from | Manual | Branch prefix |
-|---|---|---|---|
-| `hashtracks-audit-fixer` | its clone, `~/Developer/hashtracks-audit-fixer`, reset to `origin/main` | [`audit-fixer-task.md`](../audit-fixer-task.md) | `audit-fix/` |
-| `hashtracks-kennel-implement` | its clone, `~/Developer/hashtracks-implementer`, reset to `origin/main` | [`implement-handoff-prompt.md`](../../kennel-onboarding/implement-handoff-prompt.md) | `onboard/` |
-| `hashtracks-kennel-onboarding` | its clone, `~/Developer/hashtracks-research`, reset to `origin/main` | [`daily-onboarding-prompt.md`](../../kennel-onboarding/daily-onboarding-prompt.md) | `onboarding/` |
-| `hashtracks-kennel-deep-dive` | `main`, over HTTPS (the task has no clone) | the prompt itself, plus the agent API's | `deep-dive/` (reserved) |
-| `hashtracks-hareline-audit` | `main`, over HTTPS (the task has no clone) | the prompt itself, plus the agent API's | `hareline-audit/` (reserved) |
-| `hashtracks-ops-digest` | `main`, over HTTPS (the task has no clone) | [`daily-digest-task.md`](../daily-digest-task.md) | `ops-digest/` (reserved) |
-
-The three read-only tasks fetch from `raw.githubusercontent.com` rather than keep a clone: they
-never run git, and reading `main` directly means they never follow a feature branch in the owner's
-live checkout.
+| Task | Clone | Manual |
+|---|---|---|
+| `hashtracks-audit-fixer` | `~/Developer/hashtracks-audit-fixer` | [`audit-fixer-task.md`](../audit-fixer-task.md) |
+| `hashtracks-kennel-implement` | `~/Developer/hashtracks-implementer` | [`implement-handoff-prompt.md`](../../kennel-onboarding/implement-handoff-prompt.md) |
+| `hashtracks-kennel-onboarding` | `~/Developer/hashtracks-research` | [`daily-onboarding-prompt.md`](../../kennel-onboarding/daily-onboarding-prompt.md) |
+| `hashtracks-kennel-deep-dive` | none (read-only) | the prompt itself, plus the agent API's |
+| `hashtracks-hareline-audit` | none (read-only) | the prompt itself, plus the agent API's |
+| `hashtracks-ops-digest` | none (read-only) | [`daily-digest-task.md`](../daily-digest-task.md) |
 
 ## Pasting the pointers (owner)
 

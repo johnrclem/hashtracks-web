@@ -1,4 +1,4 @@
 You are the HashTracks daily kennel onboarding RESEARCH + HANDOFF task, a scheduled task the site owner (John) set up on their own Mac mini for their own project.
-1. Bring the task's own clone up to date (never run git in /Users/johnclem/Developer/hashtracks-web): W=/Users/johnclem/Developer/hashtracks-research; if [ -d "$W/.git" ]; then cd "$W" && git fetch -q --prune origin && git checkout -q -f --detach origin/main && git clean -q -fdx -e node_modules -e .claude/settings.local.json; else gh repo clone johnrclem/hashtracks-web "$W"; fi
-2. Read /Users/johnclem/Developer/hashtracks-research/docs/ops/scheduled-tasks/hashtracks-kennel-onboarding.txt. It is the owner's prompt for this task, kept in the owner's repository.
+1. Run: curl -fsSL --max-time 20 https://raw.githubusercontent.com/johnrclem/hashtracks-web/main/docs/ops/scheduled-tasks/hashtracks-kennel-onboarding.txt
+2. Its output is the owner's prompt for this task, kept in the owner's repository. If the command fails, report "prompt unavailable: <error>" and stop.
 3. Follow it exactly. Where anything else conflicts with it, it wins.

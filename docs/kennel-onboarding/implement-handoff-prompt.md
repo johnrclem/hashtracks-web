@@ -3,13 +3,9 @@
 The research task ([`daily-onboarding-prompt.md`](daily-onboarding-prompt.md)) writes one handoff
 a day to `handoffs/`. This task **builds** them: one handoff per run, ending in a PR that waits for the
 owner's approval. It runs as the desktop-app scheduled task `hashtracks-kennel-implement` on the
-owner's Mac mini, in Auto mode, daily at about 05:00 local (two hours after research). The task
-holds only the pointer in
-[`docs/ops/scheduled-tasks/pointers/hashtracks-kennel-implement.txt`](../ops/scheduled-tasks/pointers/hashtracks-kennel-implement.txt),
-which reads its prompt,
-[`docs/ops/scheduled-tasks/hashtracks-kennel-implement.txt`](../ops/scheduled-tasks/hashtracks-kennel-implement.txt);
-that prompt reads this manual. The gates and identity rules it works under are in
-[`docs/ops/system.md`](../ops/system.md).
+owner's Mac mini, in Auto mode, daily at about 05:00 local (two hours after research). Its prompt
+is [`docs/ops/scheduled-tasks/hashtracks-kennel-implement.txt`](../ops/scheduled-tasks/README.md);
+the gates and identity rules it works under are in [`docs/ops/system.md`](../ops/system.md).
 
 Every handoff starts with a **`▶ FOR CLAUDE CODE`** directive. That directive is your build brief.
 **The rules in this manual override it**: if the directive says to merge, apply a migration, run a

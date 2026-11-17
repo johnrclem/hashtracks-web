@@ -75,19 +75,17 @@ the run always sees what has already landed, and Step 2 dedupes against it.
   - **Branches start with `onboarding/`,** and no other prefix (`onboarding/handoff-<date>-<code>`,
     `onboarding/noop-<date>`, and their `-r2` rebuilds). The write gate treats that prefix as this
     task's ([`system.md#branch-prefixes`](../ops/system.md#branch-prefixes)).
-  - **The task's prompt** lives in
-    [`docs/ops/scheduled-tasks/hashtracks-kennel-onboarding.txt`](../ops/scheduled-tasks/hashtracks-kennel-onboarding.txt);
-    the scheduled task holds only the pointer in
-    [`docs/ops/scheduled-tasks/pointers/`](../ops/scheduled-tasks/pointers/). The gates and identity
-    rules it works under are in [`docs/ops/system.md`](../ops/system.md).
+  - **The task's prompt** is
+    [`docs/ops/scheduled-tasks/hashtracks-kennel-onboarding.txt`](../ops/scheduled-tasks/README.md);
+    the gates and identity rules it works under are in [`docs/ops/system.md`](../ops/system.md).
 - **Posting and the scrubber.** Probe output comes from local runs that can use the keys in the
   Mac's `.env` (a Google Calendar API URL carries the key), and GitHub keeps every edit. Before
   posting **any** PR body, comment or issue body, write it to a file under `$TMPDIR`, scrub it with
   `cd /Users/johnclem/Developer/hashtracks-research && npx tsx scripts/scrub.ts < "$TMPDIR/body.md" > "$TMPDIR/body.clean.md"`,
   and post the result with `--body-file "$TMPDIR/body.clean.md"`, never `--body "<text>"`. It removes
   API keys, tokens, credentials in URLs, phone numbers and email addresses. Files you commit (the
-  handoff, a retro) get `--secrets-only` instead, which keeps the kennel's published contact details:
-  `npx tsx scripts/scrub.ts --secrets-only < <file> > "$TMPDIR/clean.md" && mv "$TMPDIR/clean.md" <file>`.
+  handoff, a retro) get `--secrets-only` instead, which keeps the kennel's published contact details
+  (the command is at the end of Step 7).
   The scrubber needs the `node_modules` link from Step 0. If it can't run, don't post or commit raw
   probe output: deliver the handoff without pasted URLs or command output, post only fixed wording,
   and report "scrubber unavailable".

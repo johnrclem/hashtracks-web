@@ -61,10 +61,9 @@ Carry on and put "identity preflight failed: <login>" first under "Needs you tod
      For each: number, title, age, whether its checks pass, and the migration dry-run counts if its
      body gives them.
    - **Decision questions:** open issues waiting on an owner decision. Until S1's relabel, they
-     carry `audit:needs-decision`; afterwards, `lane:decision`. Read both and merge by number:
+     carry `audit:needs-decision`; afterwards, `lane:decision`. One query reads both:
      ```bash
-     gh issue list --state open --label lane:decision --json number,title,createdAt
-     gh issue list --state open --label audit:needs-decision --json number,title,createdAt
+     gh issue list --state open --search 'label:"lane:decision","audit:needs-decision"' --json number,title,createdAt
      ```
    - Any other PR with failing checks, and any PR open longer than 3 days.
    - Issues created in the last 24 hours, by label.
