@@ -109,20 +109,45 @@ describe("Half-Mind confirmations", () => {
     expect(prisma.kennelConfirmation.create).not.toHaveBeenCalled();
   });
 
-  it("revertHalfMindChecksFor reverts only the kennel's open Half-Mind running checks", async () => {
+  it("revertHalfMindChecksFor reverts only the kennel's open Half-Mind running checks for that listing", async () => {
     const open1 = confirmation({ observedAt: d("2026-10-07") });
     const open2 = confirmation({ observedAt: d("2026-09-07") });
     const admin = confirmation({ via: "ADMIN", url: null, observedAt: d("2026-10-10") });
     const old = confirmation({ observedAt: d("2026-08-07"), revertedAt: d("2026-09-01") });
     const other = confirmation({ kennelId: "k2", observedAt: d("2026-10-07") });
-    rows.push(open1, open2, admin, old, other);
+    const otherListing = confirmation({ url: V, observedAt: d("2026-10-12") });
+    rows.push(open1, open2, admin, old, other, otherListing);
 
-    expect(await revertHalfMindChecksFor("k1", NOW)).toBe(2);
+    expect(await revertHalfMindChecksFor("k1", U, NOW)).toBe(2);
     expect(open1.revertedAt).toEqual(NOW);
     expect(open2.revertedAt).toEqual(NOW);
     expect(admin.revertedAt).toBeNull();
     expect(old.revertedAt).toEqual(d("2026-09-01"));
     expect(other.revertedAt).toBeNull();
+    expect(otherListing.revertedAt).toBeNull();
     expect(refreshKennelEvidence).toHaveBeenCalledWith(["k1"], NOW);
+  });
+
+  describe("requireHalfMindListingId", () => {
+    const holding = (listingId: string | null) =>
+      vi.mocked(prisma.kennel.findUnique)
+        .mockResolvedValueOnce({ id: "k1" } as never) // the existence check, before the lock
+        .mockResolvedValueOnce({ halfMindListingId: listingId } as never); // under the lock
+
+    it("records the check while the kennel still holds the listing", async () => {
+      holding("19");
+      const opts = { ...halfMind, requireHalfMindListingId: "19" };
+      expect(await confirmKennelRunningFor("admin-1", "k1", check, NOW, opts)).toEqual({ success: true });
+      expect(prisma.$queryRaw).toHaveBeenCalled();
+      expect(rows).toHaveLength(1);
+    });
+
+    it.each([null, "88"])("skips the write when an unlink cleared the listing first (now %s)", async (listingId) => {
+      holding(listingId);
+      const opts = { ...halfMind, requireHalfMindListingId: "19" };
+      expect(await confirmKennelRunningFor("admin-1", "k1", check, NOW, opts)).toEqual({ skipped: true });
+      expect(prisma.kennelConfirmation.create).not.toHaveBeenCalled();
+      expect(refreshKennelEvidence).not.toHaveBeenCalled();
+    });
   });
 });

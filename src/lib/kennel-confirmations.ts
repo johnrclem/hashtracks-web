@@ -19,7 +19,8 @@ type ValidInput = { observedAt: Date; note: string; url: string | null };
 
 /**
  * `skipped`: a Half-Mind check for that listing is already as new (only with
- * `onlyIfNewerForUrl`). `stopped`: the kennel is stopped (only with
+ * `onlyIfNewerForUrl`), or the kennel no longer holds the listing (only with
+ * `requireHalfMindListingId`). `stopped`: the kennel is stopped (only with
  * `via: "HALF_MIND"`; admin callers get the error text instead).
  */
 export type ConfirmResult = { success: true } | { skipped: true } | { stopped: true } | { error: string };
@@ -33,6 +34,12 @@ export interface ConfirmOptions {
    * the new date. Per listing, so an undone wrong link never blocks the right one.
    */
   onlyIfNewerForUrl?: string;
+  /**
+   * Write only while the kennel still holds this Half-Mind listing, checked
+   * under the kennel lock, so a sync that read the holder before an unlink
+   * can't record a check after it.
+   */
+  requireHalfMindListingId?: string;
 }
 export type StopResult =
   | { success: true; disabledSources: number; deactivatedRules: number }
@@ -148,6 +155,10 @@ export async function confirmKennelRunningFor(
 
   const outcome = await prisma.$transaction(async (tx): Promise<ConfirmResult> => {
     await lockKennel(tx, kennelId);
+    if (opts.requireHalfMindListingId) {
+      const holder = await tx.kennel.findUnique({ where: { id: kennelId }, select: { halfMindListingId: true } });
+      if (holder?.halfMindListingId !== opts.requireHalfMindListingId) return { skipped: true };
+    }
     if (opts.onlyIfNewerForUrl) {
       // Reverted checks count too: an unlinked listing's old date must not come back.
       const asNew = await tx.kennelConfirmation.findFirst({
@@ -180,10 +191,18 @@ export async function confirmKennelRunningFor(
   return outcome;
 }
 
-/** Undo a kennel's Half-Mind checks (on unlink): revert its open HALF_MIND running confirmations. */
-export async function revertHalfMindChecksFor(kennelId: string, now: Date = new Date()): Promise<number> {
+/**
+ * Undo one listing's checks on a kennel (on unlink): revert its open HALF_MIND
+ * running confirmations whose url is that listing's URL. Checks from any other
+ * listing stay.
+ */
+export async function revertHalfMindChecksFor(
+  kennelId: string,
+  listingUrl: string,
+  now: Date = new Date(),
+): Promise<number> {
   const { count } = await prisma.kennelConfirmation.updateMany({
-    where: { kennelId, via: "HALF_MIND", kind: "RUNNING", revertedAt: null },
+    where: { kennelId, via: "HALF_MIND", kind: "RUNNING", url: listingUrl, revertedAt: null },
     data: { revertedAt: now },
   });
   await refreshAfterWrite(kennelId, now);

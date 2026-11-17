@@ -425,6 +425,24 @@ describe("Hash Rego actions refuse Half-Mind rows", () => {
     expect(mockDiscoveryUpdate).not.toHaveBeenCalled();
   });
 
+  it("dismissDiscovery dismisses a NEW Half-Mind row only while it is still NEW", async () => {
+    mockDiscoveryFind.mockResolvedValue({ status: "NEW", matchedKennelId: null, externalSource: "HALFMIND" } as never);
+    mockDiscoveryUpdateMany.mockResolvedValue({ count: 1 } as never);
+    expect(await dismissDiscovery("disc-hm")).toEqual({ success: true });
+    expect(mockDiscoveryUpdateMany).toHaveBeenCalledWith({
+      where: { id: "disc-hm", status: "NEW" },
+      data: { status: "DISMISSED", processedBy: "admin-1", processedAt: expect.any(Date) },
+    });
+    expect(mockDiscoveryUpdate).not.toHaveBeenCalled();
+  });
+
+  it("dismissDiscovery refuses when a Half-Mind link landed after the row was read", async () => {
+    mockDiscoveryFind.mockResolvedValue({ status: "NEW", matchedKennelId: null, externalSource: "HALFMIND" } as never);
+    mockDiscoveryUpdateMany.mockResolvedValue({ count: 0 } as never);
+    expect(await dismissDiscovery("disc-hm")).toEqual({ error: "Only a NEW Half-Mind row can be dismissed." });
+    expect(mockDiscoveryUpdate).not.toHaveBeenCalled();
+  });
+
   it("bulkDismissDiscoveries skips LINKED and ADDED Half-Mind rows", async () => {
     mockDiscoveryFindMany.mockResolvedValue([] as never);
     mockDiscoveryUpdateMany.mockResolvedValue({ count: 3 } as never);

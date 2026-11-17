@@ -148,8 +148,16 @@ export async function dismissDiscovery(id: string) {
     where: { id },
     select: { status: true, matchedKennelId: true, externalSource: true },
   });
-  if (existing && isHalfMindRow(existing) && existing.status !== "NEW") {
-    return { error: HALF_MIND_DISMISS_NEW_ONLY };
+  if (existing && isHalfMindRow(existing)) {
+    if (existing.status !== "NEW") return { error: HALF_MIND_DISMISS_NEW_ONLY };
+    // Conditional: a Half-Mind link or add may have landed since the read above.
+    const { count } = await prisma.kennelDiscovery.updateMany({
+      where: { id, status: "NEW" },
+      data: { status: "DISMISSED", processedBy: admin.id, processedAt: new Date() },
+    });
+    if (count === 0) return { error: HALF_MIND_DISMISS_NEW_ONLY };
+    revalidatePath("/admin/discovery");
+    return { success: true };
   }
   if (existing?.status === "MATCHED" && existing.matchedKennelId) {
     const hashRegoSourceId = await getHashRegoSourceId();

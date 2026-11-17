@@ -166,7 +166,9 @@ async function refreshCheck(
     kennelId,
     halfMindCheckInput(listing.id, checkedAt),
     ctx.now,
-    { via: "HALF_MIND", onlyIfNewerForUrl: url },
+    // `holders` was read before the loop: re-check under the kennel lock so an
+    // unlink that lands mid-sync isn't followed by a fresh check.
+    { via: "HALF_MIND", onlyIfNewerForUrl: url, requireHalfMindListingId: listing.id },
   );
   if ("success" in outcome) {
     ctx.result.refreshedChecks++;

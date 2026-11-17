@@ -10,7 +10,7 @@ import { revalidatePath } from "next/cache";
 import type { KennelDiscovery, Prisma } from "@/generated/prisma/client";
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { HALF_MIND_DISMISS_NEW_ONLY, HALF_MIND_EXTERNAL_SOURCE } from "@/lib/half-mind";
+import { HALF_MIND_DISMISS_NEW_ONLY, HALF_MIND_EXTERNAL_SOURCE, halfMindListingUrl } from "@/lib/half-mind";
 import { confirmKennelRunningFor, revertHalfMindChecksFor } from "@/lib/kennel-confirmations";
 import { revalidateKennel } from "@/lib/kennel-revalidate";
 import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
@@ -38,6 +38,15 @@ async function loadHalfMindRow(
 function alreadyLinkedTo(shortName: string): string {
   return `That Half-Mind listing is already linked to ${shortName}.`;
 }
+
+function kennelHasListing(shortName: string, listingId: string): string {
+  return `${shortName} is already linked to Half-Mind listing #${listingId}. Unlink it first.`;
+}
+
+const LINK_NEW_ONLY = "Only a NEW Half-Mind row can be linked.";
+
+/** Thrown inside a transaction to refuse and roll back with a message for the admin. */
+class Refusal extends Error {}
 
 async function listingHolder(listingId: string) {
   return prisma.kennel.findUnique({
@@ -108,7 +117,7 @@ export async function linkHalfMindListing(
   const loaded = await loadHalfMindRow(discoveryId);
   if ("error" in loaded) return loaded;
   const { adminId, row } = loaded;
-  if (row.status !== "NEW") return { error: "Only a NEW Half-Mind row can be linked." };
+  if (row.status !== "NEW") return { error: LINK_NEW_ONLY };
 
   const kennel = await prisma.kennel.findUnique({
     where: { id: kennelId },
@@ -116,23 +125,37 @@ export async function linkHalfMindListing(
   });
   if (!kennel) return { error: "Kennel not found" };
   if (kennel.halfMindListingId && kennel.halfMindListingId !== row.externalSlug) {
-    return {
-      error: `${kennel.shortName} is already linked to Half-Mind listing #${kennel.halfMindListingId}. Unlink it first.`,
-    };
+    return { error: kennelHasListing(kennel.shortName, kennel.halfMindListingId) };
   }
   const holder = await listingHolder(row.externalSlug);
   if (holder && holder.id !== kennelId) return { error: alreadyLinkedTo(holder.shortName) };
 
   const now = new Date();
   try {
+    // The checks above are re-made by the writes themselves: a link to this
+    // kennel, a link of this row or a dismiss may have landed since.
     await prisma.$transaction(async (tx) => {
-      await tx.kennel.update({ where: { id: kennelId }, data: { halfMindListingId: row.externalSlug } });
-      await tx.kennelDiscovery.update({
-        where: { id: row.id },
+      const claimed = await tx.kennel.updateMany({
+        where: { id: kennelId, OR: [{ halfMindListingId: null }, { halfMindListingId: row.externalSlug }] },
+        data: { halfMindListingId: row.externalSlug },
+      });
+      if (claimed.count === 0) {
+        const current = await tx.kennel.findUnique({
+          where: { id: kennelId },
+          select: { shortName: true, halfMindListingId: true },
+        });
+        throw new Refusal(
+          current?.halfMindListingId ? kennelHasListing(current.shortName, current.halfMindListingId) : "Kennel not found",
+        );
+      }
+      const marked = await tx.kennelDiscovery.updateMany({
+        where: { id: row.id, status: "NEW" },
         data: { status: "LINKED", matchedKennelId: kennelId, processedBy: adminId, processedAt: now },
       });
+      if (marked.count === 0) throw new Refusal(LINK_NEW_ONLY);
     });
   } catch (err) {
+    if (err instanceof Refusal) return { error: err.message };
     // A concurrent link won the unique halfMindListingId.
     if (!isUniqueConstraintViolation(err, ["halfMindListingId"])) throw err;
     const winner = await listingHolder(row.externalSlug);
@@ -145,7 +168,7 @@ export async function linkHalfMindListing(
   return warning ? { success: true, warning } : { success: true };
 }
 
-/** Undo a link: clear the kennel's listing, revert its Half-Mind checks, put the row back to NEW. */
+/** Undo a link: clear the kennel's listing, revert that listing's checks, put the row back to NEW. */
 export async function unlinkHalfMindListing(discoveryId: string): Promise<{ success: true } | { error: string }> {
   const loaded = await loadHalfMindRow(discoveryId);
   if ("error" in loaded) return loaded;
@@ -153,8 +176,8 @@ export async function unlinkHalfMindListing(discoveryId: string): Promise<{ succ
   if (row.status !== "LINKED" || !row.matchedKennelId) return { error: "Only a linked Half-Mind row can be unlinked." };
   const kennelId = row.matchedKennelId;
 
-  await prisma.$transaction(async (tx) => {
-    await tx.kennel.updateMany({
+  const cleared = await prisma.$transaction(async (tx) => {
+    const { count } = await tx.kennel.updateMany({
       where: { id: kennelId, halfMindListingId: row.externalSlug },
       data: { halfMindListingId: null },
     });
@@ -162,9 +185,13 @@ export async function unlinkHalfMindListing(discoveryId: string): Promise<{ succ
       where: { id: row.id },
       data: { status: "NEW", matchedKennelId: null, processedBy: null, processedAt: null },
     });
+    return count;
   });
-  // After the listing id is cleared, so the sync can't refresh the kennel again.
-  await revertHalfMindChecksFor(kennelId, new Date());
+  // After the listing id is cleared, so the sync (which re-checks the holder
+  // under the kennel lock) can't refresh the kennel again. Only this listing's
+  // checks, and only when this unlink cleared it: a kennel that now holds
+  // another listing keeps that listing's checks.
+  if (cleared > 0) await revertHalfMindChecksFor(kennelId, halfMindListingUrl(row.externalSlug), new Date());
   revalidatePath("/admin/discovery");
   await revalidateKennel(kennelId);
   return { success: true };
@@ -221,10 +248,12 @@ export async function dismissHalfMindListing(discoveryId: string): Promise<{ suc
   const { adminId, row } = loaded;
   if (row.status !== "NEW") return { error: HALF_MIND_DISMISS_NEW_ONLY };
 
-  await prisma.kennelDiscovery.update({
-    where: { id: row.id },
+  // Conditional: a link or add may have landed since the row was read.
+  const { count } = await prisma.kennelDiscovery.updateMany({
+    where: { id: row.id, status: "NEW" },
     data: { status: "DISMISSED", processedBy: adminId, processedAt: new Date() },
   });
+  if (count === 0) return { error: HALF_MIND_DISMISS_NEW_ONLY };
   revalidatePath("/admin/discovery");
   return { success: true };
 }

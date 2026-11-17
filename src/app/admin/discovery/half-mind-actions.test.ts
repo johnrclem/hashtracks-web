@@ -54,7 +54,16 @@ vi.mock("@/lib/db", async () => {
     scheduleRule: { create: vi.fn(), createMany: vi.fn() },
     $queryRaw: vi.fn(),
   };
-  prisma.$transaction = vi.fn(async (fn: (tx: unknown) => unknown) => fn(prisma));
+  // Like Postgres, a throw inside the transaction rolls back its writes.
+  prisma.$transaction = vi.fn(async (fn: (tx: unknown) => unknown) => {
+    const snapshot = Object.entries(tables).map(([name, rows]) => [name, rows.map((r) => ({ ...r }))] as const);
+    try {
+      return await fn(prisma);
+    } catch (err) {
+      for (const [name, rows] of snapshot) tables[name as keyof typeof tables].splice(0, Infinity, ...rows);
+      throw err;
+    }
+  });
   return { prisma };
 });
 vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
@@ -251,8 +260,8 @@ describe("linkHalfMindListing", () => {
     });
     expect(kennel("k-pf").halfMindListingId).toBeNull();
     expect(discovery("d-19").status).toBe("NEW");
-    expect(prisma.kennel.update).not.toHaveBeenCalled();
-    expect(prisma.kennelDiscovery.update).not.toHaveBeenCalled();
+    expect(prisma.kennel.updateMany).not.toHaveBeenCalled();
+    expect(prisma.kennelDiscovery.updateMany).not.toHaveBeenCalled();
     expect(tables.kennelConfirmation).toHaveLength(0);
   });
 
@@ -266,14 +275,41 @@ describe("linkHalfMindListing", () => {
   });
 
   it("maps a concurrent P2002 on halfMindListingId to the already-linked message", async () => {
-    vi.mocked(prisma.kennel.update).mockImplementationOnce((async () => {
-      kennel("k-bs").halfMindListingId = "19"; // another admin linked it first
-      throw buildPrismaUniqueViolation(["halfMindListingId"]);
-    }) as never);
+    // Another admin linked the listing to Black Sheep after our pre-check read no holder.
+    kennel("k-bs").halfMindListingId = "19";
+    const realFind = vi.mocked(prisma.kennel.findUnique).getMockImplementation()!;
+    vi.mocked(prisma.kennel.findUnique)
+      .mockImplementationOnce(realFind) // the kennel being linked
+      .mockResolvedValueOnce(null); // the holder pre-check, read before the other link committed
+    vi.mocked(prisma.kennel.updateMany).mockRejectedValueOnce(buildPrismaUniqueViolation(["halfMindListingId"]));
     expect(await linkHalfMindListing("d-19", "k-pf")).toEqual({
       error: "That Half-Mind listing is already linked to Black Sheep H3.",
     });
+    expect(kennel("k-pf").halfMindListingId).toBeNull();
     expect(discovery("d-19").status).toBe("NEW");
+    expect(tables.kennelConfirmation).toHaveLength(0);
+  });
+
+  it("refuses, writing nothing, when the kennel took another listing after the pre-check", async () => {
+    // A second link to Peach Fuzz committed between our read and our write.
+    vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce(
+      { id: "k-pf", shortName: "Peach Fuzz H3", halfMindListingId: null } as never,
+    );
+    kennel("k-pf").halfMindListingId = "88";
+    expect(await linkHalfMindListing("d-19", "k-pf")).toEqual({
+      error: "Peach Fuzz H3 is already linked to Half-Mind listing #88. Unlink it first.",
+    });
+    expect(kennel("k-pf").halfMindListingId).toBe("88");
+    expect(discovery("d-19")).toMatchObject({ status: "NEW", matchedKennelId: null });
+    expect(tables.kennelConfirmation).toHaveLength(0);
+  });
+
+  it.each(["DISMISSED", "LINKED"])("refuses, writing nothing, when the row became %s after it was read", async (status) => {
+    vi.mocked(prisma.kennelDiscovery.findUnique).mockResolvedValueOnce({ ...discovery("d-19") } as never);
+    discovery("d-19").status = status;
+    expect(await linkHalfMindListing("d-19", "k-pf")).toEqual({ error: "Only a NEW Half-Mind row can be linked." });
+    expect(kennel("k-pf").halfMindListingId).toBeNull();
+    expect(discovery("d-19")).toMatchObject({ status, matchedKennelId: null });
     expect(tables.kennelConfirmation).toHaveLength(0);
   });
 });
@@ -284,7 +320,7 @@ describe("unlinkHalfMindListing", () => {
     expect(await unlinkHalfMindListing("d-19")).toEqual({ success: true });
 
     expect(kennel("k-pf").halfMindListingId).toBeNull();
-    expect(revertHalfMindChecksFor).toHaveBeenCalledWith("k-pf", NOW);
+    expect(revertHalfMindChecksFor).toHaveBeenCalledWith("k-pf", PF_URL, NOW);
     expect(runningChecks().every((c) => c.revertedAt)).toBe(true);
     expect(discovery("d-19")).toMatchObject({ status: "NEW", matchedKennelId: null });
 
@@ -316,6 +352,32 @@ describe("unlinkHalfMindListing", () => {
   it("refuses a row that isn't linked", async () => {
     expect(await unlinkHalfMindListing("d-19")).toHaveProperty("error");
     expect(revertHalfMindChecksFor).not.toHaveBeenCalled();
+  });
+
+  it("reverts only the unlinked listing's checks", async () => {
+    await linkHalfMindListing("d-19", "k-pf");
+    const otherUrl = halfMindListingUrl("88");
+    tables.kennelConfirmation.push({
+      id: "c-88", kennelId: "k-pf", kind: "RUNNING", via: "HALF_MIND", url: otherUrl,
+      observedAt: new Date("2026-11-01T12:00:00Z"), revertedAt: null,
+    });
+
+    await unlinkHalfMindListing("d-19");
+
+    const byUrl = (url: string) => runningChecks().filter((c) => c.url === url);
+    expect(byUrl(PF_URL).every((c) => c.revertedAt)).toBe(true);
+    expect(byUrl(otherUrl)).toEqual([expect.objectContaining({ revertedAt: null })]);
+  });
+
+  it("skips the revert when the kennel no longer holds the listing", async () => {
+    await linkHalfMindListing("d-19", "k-pf");
+    kennel("k-pf").halfMindListingId = "88"; // the row was stranded: its kennel holds another listing
+
+    expect(await unlinkHalfMindListing("d-19")).toEqual({ success: true });
+
+    expect(kennel("k-pf").halfMindListingId).toBe("88");
+    expect(revertHalfMindChecksFor).not.toHaveBeenCalled();
+    expect(discovery("d-19")).toMatchObject({ status: "NEW", matchedKennelId: null });
   });
 });
 
@@ -404,6 +466,13 @@ describe("dismissHalfMindListing", () => {
     discovery("d-19").status = status;
     expect(await dismissHalfMindListing("d-19")).toEqual({ error: "Only a NEW Half-Mind row can be dismissed." });
     expect(discovery("d-19").status).toBe(status);
+  });
+
+  it("refuses when a link landed after the row was read", async () => {
+    vi.mocked(prisma.kennelDiscovery.findUnique).mockResolvedValueOnce({ ...discovery("d-19") } as never);
+    Object.assign(discovery("d-19"), { status: "LINKED", matchedKennelId: "k-pf" });
+    expect(await dismissHalfMindListing("d-19")).toEqual({ error: "Only a NEW Half-Mind row can be dismissed." });
+    expect(discovery("d-19")).toMatchObject({ status: "LINKED", matchedKennelId: "k-pf", processedBy: null });
   });
 });
 

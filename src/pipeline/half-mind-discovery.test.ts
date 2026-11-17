@@ -184,7 +184,8 @@ describe("syncHalfMindDiscovery: refreshing linked kennels", () => {
       "k-pf",
       { observedOn: "2026-10-07", note: "Half-Mind listing checked Oct 7, 2026", url: PF_URL },
       NOW,
-      { via: "HALF_MIND", onlyIfNewerForUrl: PF_URL },
+      // The holder is re-checked under the kennel lock, so an unlink mid-sync wins.
+      { via: "HALF_MIND", onlyIfNewerForUrl: PF_URL, requireHalfMindListingId: "19" },
     );
     expect(result.refreshedChecks).toBe(1);
     expect(revalidateKennel).toHaveBeenCalledWith("k-pf");
