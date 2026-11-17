@@ -1,5 +1,14 @@
 import { createHash } from "node:crypto";
 
+/**
+ * Code-unit order, for every sort whose result is hashed or compared: unlike
+ * localeCompare it doesn't depend on the server's locale or ICU data.
+ */
+export function byCodeUnit(a: string, b: string): number {
+  if (a === b) return 0;
+  return a < b ? -1 : 1;
+}
+
 /** SHA-256 hex of a string (UTF-8) or bytes. */
 export function sha256(data: string | Uint8Array): string {
   return createHash("sha256").update(data).digest("hex");
@@ -18,7 +27,7 @@ function sortKeys(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortKeys);
   if (value && typeof value === "object" && !(value instanceof Date)) {
     const out: Record<string, unknown> = {};
-    for (const key of Object.keys(value).sort()) {
+    for (const key of Object.keys(value).sort(byCodeUnit)) {
       const v = (value as Record<string, unknown>)[key];
       if (v !== undefined) out[key] = sortKeys(v);
     }

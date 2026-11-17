@@ -10,7 +10,7 @@ import { Prisma, type BackfillRun } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { deleteLeakedEvent, DeleteSafetyViolationError, ForeignRawSourceError, recomputeCanonicalForSlots } from "@/lib/delete-leaked-event";
 import { refreshKennelEvidence } from "@/pipeline/kennel-evidence";
-import { canonicalJson, sha256 } from "./canonical";
+import { byCodeUnit, canonicalJson, sha256 } from "./canonical";
 import { acquireLease, appendStep, kennelStatusLine, mergeStatusLines, recomputeLastEventDate, recordStep, releaseLease } from "./run-state";
 import { v3Snapshot } from "./verify";
 import type { StoredPlan } from "./plan";
@@ -78,7 +78,7 @@ export async function buildUndoPlan(runId: string): Promise<{ plan: UndoPlan; ha
     }
   }
   const slots = [...new Map(events.map((e) => [`${e.kennelId}:${e.date.toISOString()}`, { kennelId: e.kennelId, date: e.date.toISOString().slice(0, 10) }])).values()];
-  const plan: UndoPlan = { runId, deleteEventIds: deleteEventIds.sort(), keep, rawEventsToDelete, slots };
+  const plan: UndoPlan = { runId, deleteEventIds: deleteEventIds.sort(byCodeUnit), keep, rawEventsToDelete, slots };
   return { plan, hash: sha256(canonicalJson(plan)) };
 }
 

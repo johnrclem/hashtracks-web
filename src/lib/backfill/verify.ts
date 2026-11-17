@@ -170,5 +170,5 @@ async function flagMatchesChangedRule(
     FROM "RawEvent" r JOIN "Source" s ON s.id = r."sourceId"
     WHERE r.id = ${rawEventId}
   `);
-  return rows.length === 1 && rows[0].fingerprint === plannedFingerprint && !rows[0].posted === flag;
+  return rows.length === 1 && rows[0].fingerprint === plannedFingerprint && rows[0].posted !== flag;
 }
