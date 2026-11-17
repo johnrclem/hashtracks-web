@@ -633,7 +633,7 @@ describe("executeTravelSearch", () => {
       expect(result.likely.length).toBeGreaterThan(0);
       for (const row of result.likely) {
         expect(row.confidence).toBe("high");
-        expect(row.checkedRunningAt?.getTime()).toBe(utcNoon("2026-04-01").getTime());
+        expect(row.checkedRunningAt).toEqual({ date: utcNoon("2026-04-01"), via: "ADMIN" });
       }
     });
 

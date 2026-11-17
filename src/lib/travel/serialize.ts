@@ -13,7 +13,7 @@
  */
 
 import type { executeTravelSearch, NearestConfirmed } from "./search";
-import { serializeKennelEvidence, type SerializedKennelEvidence } from "@/lib/kennel-status";
+import { serializeKennelEvidence, type ConfirmationVia, type SerializedKennelEvidence } from "@/lib/kennel-status";
 import type { OtherKennel } from "./other-kennels";
 
 type SearchResults = Awaited<ReturnType<typeof executeTravelSearch>>;
@@ -40,7 +40,7 @@ export interface SerializedConfirmed extends Omit<ConfirmedRow, "date"> {
 
 export interface SerializedLikely extends Omit<LikelyRow, "date" | "checkedRunningAt"> {
   date: string;
-  checkedRunningAt: string | null;
+  checkedRunningAt: { date: string; via: ConfirmationVia } | null;
 }
 
 export interface SerializedPossible
@@ -86,7 +86,9 @@ function serializeLikely(r: LikelyRow): SerializedLikely {
   return {
     ...r,
     date: r.date.toISOString(),
-    checkedRunningAt: r.checkedRunningAt?.toISOString() ?? null,
+    checkedRunningAt: r.checkedRunningAt
+      ? { date: r.checkedRunningAt.date.toISOString(), via: r.checkedRunningAt.via }
+      : null,
   };
 }
 

@@ -60,6 +60,7 @@ export default async function KennelsPage() {
         scheduleRules: SCHEDULE_RULES_SELECT,
         website: true,
         facebookUrl: true,
+        halfMindListingId: true,
         ...KENNEL_EVIDENCE_SELECT,
       },
     }),

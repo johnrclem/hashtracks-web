@@ -153,6 +153,21 @@ describe("getHowWeKnow items", () => {
   });
 });
 
+describe("getHowWeKnow Half-Mind check", () => {
+  it("maps a Half-Mind confirmation to via + the listing url", async () => {
+    const evidence = { ...NO_EVIDENCE, lastConfirmedAt: d("2026-10-15"), lastConfirmedVia: "HALF_MIND" as const };
+    vi.mocked(prisma.kennelConfirmation.findMany).mockResolvedValue([
+      { kind: "RUNNING", via: "HALF_MIND", observedAt: d("2026-10-15"), note: "Listed active", url: null },
+    ] as never);
+    const { items } = await getHowWeKnow("k1", evidence, NOW, "19");
+    expect(items[0]).toMatchObject({
+      kind: "confirmed",
+      via: "HALF_MIND",
+      url: "https://half-mind.com/regionalwebsite/p_list1.php?ID=19",
+    });
+  });
+});
+
 describe("getHowWeKnowOrEmpty", () => {
   it("logs a failure and renders an empty section instead of taking down the page", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});

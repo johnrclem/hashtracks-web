@@ -2,6 +2,7 @@ import Link from "next/link";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { KennelStatusLine } from "@/components/kennels/KennelStatusLine";
 import { KennelLogo } from "@/components/kennels/KennelLogo";
+import { halfMindListingUrl } from "@/lib/half-mind";
 import { kennelOwnPageUrl } from "@/lib/safe-url";
 import { nextRunLabel } from "@/lib/kennel-directory";
 import type { SerializedKennelEvidence } from "@/lib/kennel-status";
@@ -26,6 +27,7 @@ export interface KennelCardData {
   scheduleRules?: ScheduleSlot[] | null;
   website?: string | null;
   facebookUrl?: string | null;
+  halfMindListingId?: string | null;
   nextEvent: { date: string; title: string | null; isScheduleOnly: boolean } | null;
   evidence: SerializedKennelEvidence;
 }
@@ -97,6 +99,7 @@ export function KennelCard({ kennel }: KennelCardProps) {
           evidence={kennel.evidence}
           ownPageUrl={kennelOwnPageUrl(kennel.website ?? null, kennel.facebookUrl ?? null)}
           kennelSlug={kennel.slug}
+          listingUrl={kennel.halfMindListingId ? halfMindListingUrl(kennel.halfMindListingId) : null}
         />
 
         {/* Schedule + founded */}

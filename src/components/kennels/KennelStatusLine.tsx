@@ -9,6 +9,8 @@ import {
   type SerializedKennelEvidence,
 } from "@/lib/kennel-status";
 
+const LISTING_WORDS = "Half-Mind listing";
+
 interface KennelStatusLineProps {
   evidence: SerializedKennelEvidence;
   /** The kennel's own page (kennelOwnPageUrl); null hides the "check their page" link. */
@@ -18,6 +20,8 @@ interface KennelStatusLineProps {
   surface?: "card" | "kennel-page" | "travel";
   /** Link the kennel's own page on dated lines too, not only when we have never seen a run. */
   showOwnPage?: boolean;
+  /** The kennel's Half-Mind listing page; links "Half-Mind listing" on a Half-Mind check line. */
+  listingUrl?: string | null;
 }
 
 /**
@@ -32,16 +36,37 @@ export function KennelStatusLine({
   kennelSlug,
   surface = "card",
   showOwnPage = false,
+  listingUrl = null,
 }: Readonly<KennelStatusLineProps>) {
   const now = new Date();
   const line = getStatusLine(toKennelEvidence(evidence), now);
   if (!line) return null;
 
   const ownPage = ownPageFor(line, ownPageUrl, showOwnPage);
+  const text = formatStatusLine(line, now);
+  const linkedListing =
+    line.kind === "checked" && line.via === "HALF_MIND" && listingUrl && text.startsWith(LISTING_WORDS)
+      ? listingUrl
+      : null;
 
   return (
     <p className="mt-1.5 text-xs text-muted-foreground">
-      {formatStatusLine(line, now)}
+      {linkedListing ? (
+        <>
+          <a
+            href={linkedListing}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="relative z-10 underline underline-offset-2 hover:text-foreground"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {LISTING_WORDS}
+          </a>
+          {text.slice(LISTING_WORDS.length)}
+        </>
+      ) : (
+        text
+      )}
       {ownPage && (
         <>
           {" · "}

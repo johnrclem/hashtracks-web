@@ -89,15 +89,26 @@ export function validateStatusInput(input: StatusInput, now: Date): ValidInput |
 }
 
 /** The newest evidence dated after `observedAt`, as a sentence fragment, or null. */
-function evidenceAfter(
-  k: { lastRunSeenAt: Date | null; lastConfirmedAt: Date | null; nextRunPostedAt: Date | null },
+export function evidenceAfter(
+  k: {
+    lastRunSeenAt: Date | null;
+    lastConfirmedAt: Date | null;
+    lastConfirmedVia: "ADMIN" | "HALF_MIND" | null;
+    nextRunPostedAt: Date | null;
+  },
   observedAt: Date,
   now: Date,
 ): string | null {
   const limit = toUtcNoon(observedAt);
   const candidates = [
     { at: k.lastRunSeenAt, text: (s: string) => `HashTracks saw a run on ${s}` },
-    { at: k.lastConfirmedAt, text: (s: string) => `an admin confirmed this kennel running on ${s}` },
+    {
+      at: k.lastConfirmedAt,
+      text: (s: string) =>
+        k.lastConfirmedVia === "HALF_MIND"
+          ? `the Half-Mind listing was checked on ${s}`
+          : `an admin confirmed this kennel running on ${s}`,
+    },
     { at: k.nextRunPostedAt, text: (s: string) => `a run is posted for ${s}` },
   ]
     .filter((c): c is { at: Date; text: (s: string) => string } => !!c.at && toUtcNoon(c.at) > limit)
@@ -155,7 +166,13 @@ export async function stopKennelFor(
     await lockKennel(tx, kennelId);
     const kennel = await tx.kennel.findUnique({
       where: { id: kennelId },
-      select: { id: true, lastRunSeenAt: true, lastConfirmedAt: true, nextRunPostedAt: true },
+      select: {
+        id: true,
+        lastRunSeenAt: true,
+        lastConfirmedAt: true,
+        lastConfirmedVia: true,
+        nextRunPostedAt: true,
+      },
     });
     if (!kennel) return { error: "Kennel not found" } as const;
     const open = await tx.kennelConfirmation.findFirst({

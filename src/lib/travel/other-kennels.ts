@@ -21,6 +21,7 @@ export type OtherKennelCandidate = KennelEvidence & {
   facebookUrl: string | null;
   distanceKm: number;
   listingOnly: boolean;
+  halfMindListingId: string | null;
 };
 
 export interface OtherKennel {
@@ -33,6 +34,7 @@ export interface OtherKennel {
   evidence: KennelEvidence;
   ownPageUrl: string | null;
   listingOnly: boolean;
+  halfMindListingId: string | null;
 }
 
 export function shouldShowOtherKennels(confirmedCount: number, likelyCount: number): boolean {
@@ -70,6 +72,7 @@ export function selectOtherKennels(
       },
       ownPageUrl: kennelOwnPageUrl(k.website, k.facebookUrl),
       listingOnly: k.listingOnly,
+      halfMindListingId: k.halfMindListingId,
     }));
 }
 

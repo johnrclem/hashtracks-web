@@ -22,6 +22,7 @@ function candidate(over: Partial<OtherKennelCandidate> & { id: string }): OtherK
     facebookUrl: null,
     distanceKm: 5,
     listingOnly: false,
+    halfMindListingId: null,
     lastRunSeenAt: QUIET,
     nextRunPostedAt: null,
     lastConfirmedAt: null,

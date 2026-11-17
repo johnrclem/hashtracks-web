@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { DAY_MS, toUtcNoon, type KennelEvidence } from "@/lib/kennel-status";
+import { DAY_MS, toUtcNoon, type ConfirmationVia, type KennelEvidence } from "@/lib/kennel-status";
+import { halfMindListingUrl } from "@/lib/half-mind";
 import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
 
 /**
@@ -13,12 +14,9 @@ export type KennelCoverage =
   | { level: "schedule" }
   | { level: "none" };
 
-export interface EvidenceItem {
-  kind: "last-run" | "next-posted" | "confirmed" | "stopped";
-  date: Date;
-  detail: string | null;
-  url: string | null;
-}
+export type EvidenceItem =
+  | { kind: "last-run" | "next-posted" | "stopped"; date: Date; detail: string | null; url: string | null }
+  | { kind: "confirmed"; via: ConfirmationVia; date: Date; detail: string | null; url: string | null };
 
 export interface HowWeKnow {
   coverage: KennelCoverage;
@@ -115,6 +113,7 @@ export async function getHowWeKnow(
   kennelId: string,
   evidence: KennelEvidence,
   now: Date = new Date(),
+  halfMindListingId: string | null = null,
 ): Promise<HowWeKnow> {
   const lastRunAt = evidence.lastRunSeenAt;
   const nextPostedAt =
@@ -127,7 +126,7 @@ export async function getHowWeKnow(
     prisma.kennelConfirmation.findMany({
       where: { kennelId, revertedAt: null },
       orderBy: { observedAt: "desc" },
-      select: { kind: true, observedAt: true, note: true, url: true },
+      select: { kind: true, via: true, observedAt: true, note: true, url: true },
     }),
     lastRunAt ? runSourceName(kennelId, lastRunAt) : Promise.resolve(null),
     nextPostedAt ? runSourceName(kennelId, nextPostedAt) : Promise.resolve(null),
@@ -144,11 +143,14 @@ export async function getHowWeKnow(
     items.push({ kind: "next-posted", date: nextPostedAt, detail: nextPostedSource, url: null });
   }
   if (evidence.lastConfirmedAt) {
+    const via = evidence.lastConfirmedVia ?? "ADMIN";
     items.push({
       kind: "confirmed",
+      via,
       date: evidence.lastConfirmedAt,
       detail: running?.note ?? null,
-      url: running?.url ?? null,
+      // A Half-Mind check has no link of its own: point at the listing.
+      url: running?.url ?? (via === "HALF_MIND" && halfMindListingId ? halfMindListingUrl(halfMindListingId) : null),
     });
   }
   if (evidence.stoppedAt) {
@@ -175,9 +177,10 @@ export async function getHowWeKnowOrEmpty(
   kennelId: string,
   evidence: KennelEvidence,
   now: Date = new Date(),
+  halfMindListingId: string | null = null,
 ): Promise<HowWeKnow> {
   try {
-    return await getHowWeKnow(kennelId, evidence, now);
+    return await getHowWeKnow(kennelId, evidence, now, halfMindListingId);
   } catch (err) {
     console.error(`[kennel-page] "How we know" failed for kennel ${kennelId}; rendering it empty`, err);
     return NO_HOW_WE_KNOW;

@@ -16,6 +16,7 @@ import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
 import { KennelStats } from "@/components/kennels/KennelStats";
 import { kennelOwnPageUrl } from "@/lib/safe-url";
 import { HowWeKnow } from "@/components/kennels/HowWeKnow";
+import { halfMindListingUrl } from "@/lib/half-mind";
 import { getHowWeKnowOrEmpty } from "@/lib/kennel-how-we-know";
 import { serializeKennelEvidence } from "@/lib/kennel-status";
 import { KennelLogo } from "@/components/kennels/KennelLogo";
@@ -200,7 +201,7 @@ export default async function KennelDetailPage({
         })
       : Promise.resolve(null),
     // Evidence already came with the kennel; a failure renders the section empty.
-    getHowWeKnowOrEmpty(kennel.id, kennel),
+    getHowWeKnowOrEmpty(kennel.id, kennel, new Date(), kennel.halfMindListingId),
   ]);
 
   let isSubscribed = false;
@@ -446,6 +447,7 @@ export default async function KennelDetailPage({
           items={howWeKnow.items.map((i) => ({ ...i, date: i.date.toISOString() }))}
           ownPageUrl={kennelOwnPageUrl(kennel.website, kennel.facebookUrl)}
           kennelSlug={kennel.slug}
+          listingUrl={kennel.halfMindListingId ? halfMindListingUrl(kennel.halfMindListingId) : null}
         />
       </FadeInSection>
 

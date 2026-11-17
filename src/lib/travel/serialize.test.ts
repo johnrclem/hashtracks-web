@@ -21,6 +21,7 @@ const quiet: OtherKennel = {
   },
   ownPageUrl: "https://quiet.example.org/",
   listingOnly: false,
+  halfMindListingId: null,
 };
 
 function results(otherKennels?: OtherKennel[]): SearchResults {

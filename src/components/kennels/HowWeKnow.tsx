@@ -4,14 +4,13 @@ import { KennelStatusLine } from "@/components/kennels/KennelStatusLine";
 import { OwnPageLink } from "@/components/kennels/OwnPageLink";
 import { formatDateMedium } from "@/lib/format";
 import { safeUrl } from "@/lib/safe-url";
-import type { SerializedKennelEvidence } from "@/lib/kennel-status";
+import { halfMindListingUrl } from "@/lib/half-mind";
+import { confirmedLabel } from "@/lib/kennel-how-we-know-label";
+import type { ConfirmationVia, SerializedKennelEvidence } from "@/lib/kennel-status";
 
-export type SerializedEvidenceItem = {
-  kind: "last-run" | "next-posted" | "confirmed" | "stopped";
-  date: string;
-  detail: string | null;
-  url: string | null;
-};
+export type SerializedEvidenceItem =
+  | { kind: "last-run" | "next-posted" | "stopped"; date: string; detail: string | null; url: string | null }
+  | { kind: "confirmed"; via: ConfirmationVia; date: string; detail: string | null; url: string | null };
 
 export type SerializedCoverage =
   | { level: "full"; sourceNames: string[] }
@@ -25,14 +24,19 @@ interface HowWeKnowProps {
   /** The kennel's own page (kennelOwnPageUrl); null = no link. */
   ownPageUrl: string | null;
   kennelSlug: string;
+  /** The kennel's Half-Mind listing page, when it has one. */
+  listingUrl?: string | null;
 }
 
-const KIND_LABEL: Record<SerializedEvidenceItem["kind"], string> = {
+const KIND_LABEL = {
   "last-run": "Last run seen",
   "next-posted": "Next run posted",
-  confirmed: "Checked running",
   stopped: "Stopped",
-};
+} as const;
+
+function itemLabel(item: SerializedEvidenceItem): string {
+  return item.kind === "confirmed" ? confirmedLabel(item.via) : KIND_LABEL[item.kind];
+}
 
 function formatSources(names: string[]): string {
   return new Intl.ListFormat("en-US", { style: "long", type: "conjunction" }).format(names);
@@ -45,6 +49,7 @@ export function HowWeKnow({
   items,
   ownPageUrl: ownPage,
   kennelSlug,
+  listingUrl = null,
 }: Readonly<HowWeKnowProps>) {
   // The coverage sentence carries the link when we don't get their runs; the
   // status line above it then drops its own copy so the link shows once.
@@ -58,6 +63,7 @@ export function HowWeKnow({
         ownPageUrl={coverageHasLink ? null : ownPage}
         kennelSlug={kennelSlug}
         surface="kennel-page"
+        listingUrl={listingUrl}
       />
       {items.length > 0 && (
         <ul className="mt-2 space-y-1 text-sm">
@@ -67,7 +73,7 @@ export function HowWeKnow({
               <li key={`${item.kind}-${item.date}`}>
                 <span className="text-muted-foreground">{formatDateMedium(item.date)}</span>
                 {" · "}
-                {KIND_LABEL[item.kind]}
+                {itemLabel(item)}
                 {item.detail && <span className="text-muted-foreground">{` · ${item.detail}`}</span>}
                 {itemUrl && (
                   <>

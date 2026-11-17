@@ -25,8 +25,8 @@ interface LikelyCardProps {
     explanation: string;
     evidenceWindow: string;
     evidenceTimeline: { weeks: boolean[]; totalEvents: number };
-    /** ISO date of a recent admin "checked running" confirmation, or null. */
-    checkedRunningAt: string | null;
+    /** A recent "checked running" confirmation (ISO date + who made it), or null. */
+    checkedRunningAt: { date: string; via: "ADMIN" | "HALF_MIND" } | null;
     sourceLinks: { url: string; label: string; type: string }[];
   };
 }

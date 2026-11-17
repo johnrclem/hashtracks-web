@@ -202,4 +202,9 @@ describe("ownPageFor", () => {
   it("returns null when the kennel has no own page", () => {
     expect(ownPageFor({ kind: "never" }, null, true)).toBeNull();
   });
+  it("returns the url for a Half-Mind checked line even without showOwnPage", () => {
+    const line = { kind: "checked", via: "HALF_MIND", date: new Date() } as const;
+    expect(ownPageFor(line, url, false)).toBe(url);
+    expect(ownPageFor({ ...line, via: "ADMIN" }, url, false)).toBeNull();
+  });
 });

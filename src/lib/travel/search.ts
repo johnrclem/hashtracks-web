@@ -151,7 +151,7 @@ export interface LikelyResult extends DestinationTag {
   /** The kennel's admin "checked running" date when that confirmation is its
    *  newest evidence and is recent (≤90 days); the card shows it in place of
    *  "0 runs in the last 12 weeks". Null otherwise. */
-  checkedRunningAt: Date | null;
+  checkedRunningAt: { date: Date; via: ConfirmationVia } | null;
   sourceLinks: SourceLink[];
 }
 
@@ -300,6 +300,7 @@ interface NearbyKennel {
   website: string | null;
   facebookUrl: string | null;
   instagramHandle: string | null;
+  halfMindListingId: string | null;
   distanceKm: number;
   regionRef: { pinColor: string; centroidLat: number | null; centroidLng: number | null } | null;
 }
@@ -1083,6 +1084,7 @@ async function fetchAllVisibleKennels(prisma: PrismaClient) {
       website: true,
       facebookUrl: true,
       instagramHandle: true,
+      halfMindListingId: true,
       regionRef: { select: { pinColor: true, centroidLat: true, centroidLng: true } },
     },
   });
@@ -1177,11 +1179,15 @@ function uncoveredScheduleRuns(
  * The kennel's last admin confirmation when it is its newest evidence (no later
  * run seen) and recent by the inactivity rule; null otherwise.
  */
-function recentConfirmation(kennel: NearbyKennel | undefined, now: Date): Date | null {
+function recentConfirmation(
+  kennel: NearbyKennel | undefined,
+  now: Date,
+): { date: Date; via: ConfirmationVia } | null {
   const confirmed = kennel?.lastConfirmedAt ?? null;
   if (!confirmed) return null;
   if (kennel?.lastRunSeenAt && kennel.lastRunSeenAt > confirmed) return null;
-  return isKennelInactive(confirmed, now.getTime()) ? null : confirmed;
+  if (isKennelInactive(confirmed, now.getTime())) return null;
+  return { date: confirmed, via: kennel?.lastConfirmedVia ?? "ADMIN" };
 }
 
 /** Apply confidence scoring to each projection using kennel activity + rule-specific context. */

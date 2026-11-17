@@ -28,15 +28,17 @@ export type StatusLine =
   | { kind: "never" };
 
 /**
- * The own-page URL to link from a status line: always for a never-seen kennel,
- * and for dated lines only when the surface asks for it (the Travel list).
+ * The own-page URL to link from a status line: always for a never-seen kennel
+ * or a Half-Mind check (a listing is weaker than the kennel's own page), and
+ * for other dated lines only when the surface asks for it (the Travel list).
  */
 export function ownPageFor(
   line: StatusLine,
   ownPageUrl: string | null,
   showOwnPage: boolean,
 ): string | null {
-  return line.kind === "never" || showOwnPage ? ownPageUrl : null;
+  const halfMindChecked = line.kind === "checked" && line.via === "HALF_MIND";
+  return line.kind === "never" || halfMindChecked || showOwnPage ? ownPageUrl : null;
 }
 
 // Day-count thresholds: the single source of truth for state and SQL filters.

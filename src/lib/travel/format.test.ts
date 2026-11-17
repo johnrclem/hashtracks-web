@@ -246,7 +246,7 @@ describe("likelyEvidenceCaption", () => {
   it("counts runs when the timeline has any", () => {
     expect(likelyEvidenceCaption({ evidenceTimeline: timeline(1), checkedRunningAt: null }, NOW))
       .toBe("1 run in the last 12 weeks");
-    expect(likelyEvidenceCaption({ evidenceTimeline: timeline(3), checkedRunningAt: "2026-04-01T12:00:00.000Z" }, NOW))
+    expect(likelyEvidenceCaption({ evidenceTimeline: timeline(3), checkedRunningAt: { date: "2026-04-01T12:00:00.000Z", via: "ADMIN" as const } }, NOW))
       .toBe("3 runs in the last 12 weeks");
   });
 
@@ -256,7 +256,16 @@ describe("likelyEvidenceCaption", () => {
   });
 
   it("dates a recent admin confirmation when there are no runs", () => {
-    expect(likelyEvidenceCaption({ evidenceTimeline: timeline(0), checkedRunningAt: "2026-04-01T12:00:00.000Z" }, NOW))
+    expect(likelyEvidenceCaption({ evidenceTimeline: timeline(0), checkedRunningAt: { date: "2026-04-01T12:00:00.000Z", via: "ADMIN" as const } }, NOW))
       .toBe("Checked running · Apr 1");
+  });
+
+  it("credits a Half-Mind check", () => {
+    expect(
+      likelyEvidenceCaption(
+        { evidenceTimeline: timeline(0), checkedRunningAt: { date: "2026-04-01T12:00:00.000Z", via: "HALF_MIND" } },
+        NOW,
+      ),
+    ).toBe("Half-Mind listing checked · Apr 1");
   });
 });

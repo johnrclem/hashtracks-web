@@ -100,6 +100,7 @@ export default async function RegionPage({
         scheduleRules: SCHEDULE_RULES_SELECT,
         website: true,
         facebookUrl: true,
+        halfMindListingId: true,
         ...KENNEL_EVIDENCE_SELECT,
       },
     }),
