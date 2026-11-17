@@ -23,7 +23,8 @@ describe("buildOpsDigest", () => {
       .mockResolvedValueOnce([{ n: BigInt(3) }] as never)
       .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([{ kennelCode: "hogtownh3" }] as never)
-      .mockResolvedValueOnce([{ pending: BigInt(52), oldest: at, stale: BigInt(4) }] as never);
+      .mockResolvedValueOnce([{ pending: BigInt(52), oldest: at, stale: BigInt(4) }] as never)
+      .mockResolvedValueOnce([{ migration_name: "20261113100000_noh3_history_cleanup", started_at: at }] as never);
 
     const digest = await buildOpsDigest(new Date("2026-11-10T15:00:00Z"));
 
@@ -36,6 +37,9 @@ describe("buildOpsDigest", () => {
     expect(digest.largeCancellations24h).toEqual([]);
     expect(digest.allZeroKennels).toEqual(["hogtownh3"]);
     expect(digest.auditQueue).toEqual({ pending: 52, oldestPendingAt: at.toISOString(), stalePending: 4 });
+    expect(digest.failedMigrations).toEqual([
+      { name: "20261113100000_noh3_history_cleanup", startedAt: at.toISOString() },
+    ]);
     expect(JSON.parse(JSON.stringify(digest))).toEqual(digest);
   });
 
@@ -45,5 +49,6 @@ describe("buildOpsDigest", () => {
     expect(digest.scrapes24h).toEqual({ runs: 0, failed: 0, eventsCreated: 0, eventsCancelled: 0 });
     expect(digest.auditQueue).toEqual({ pending: 0, oldestPendingAt: null, stalePending: 0 });
     expect(digest.alertsCreated24h).toBe(0);
+    expect(digest.failedMigrations).toEqual([]);
   });
 });
