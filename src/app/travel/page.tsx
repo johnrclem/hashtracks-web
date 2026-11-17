@@ -337,6 +337,7 @@ async function TravelResultsServer({
             variant={results.emptyState}
             broaderRadiusKm={stop?.broaderRadiusKm}
             place={extractCityName(destination)}
+            horizonTier={results.meta.horizonTier}
           />
           {serializedResults.nearestConfirmed && (
             <NearestConfirmedSection {...serializedResults.nearestConfirmed} />
@@ -685,6 +686,7 @@ async function SavedTripPage({
           variant={serializedResults.emptyState}
           broaderRadiusKm={serializedResults.destinations[0]?.broaderRadiusKm}
           place={extractCityName(serializedResults.destinations[0]?.label ?? search.name ?? "")}
+          horizonTier={serializedResults.meta.horizonTier}
         />
       )}
       {serializedResults.nearestConfirmed && (

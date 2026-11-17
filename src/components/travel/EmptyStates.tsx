@@ -3,12 +3,28 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { CoverageNote } from "./CoverageNote";
 import type { EmptyStateKind } from "@/lib/travel/search";
+import type { ProjectionHorizonTier } from "@/lib/travel/projections";
 
 interface EmptyStatesProps {
   variant: Exclude<EmptyStateKind, "none"> | "error";
   broaderRadiusKm?: number;
   /** Destination city, for the coverage note. */
   place?: string;
+  /** How far ahead the search projects schedules; `no_runs` hedges past "all". */
+  horizonTier?: ProjectionHorizonTier;
+}
+
+/**
+ * `no_runs` body. Past the 6-month mark the search drops medium-confidence
+ * schedules (`filterProjectionsByHorizon`), so it can't say a kennel's usual
+ * run misses the dates, only that none was posted.
+ */
+export function noRunsBody(place: string | undefined, horizonTier: ProjectionHorizonTier | undefined): string {
+  const nonePosted = `None of the kennels we track near ${place || "here"} has a trail posted for these dates`;
+  if (horizonTier && horizonTier !== "all") {
+    return `${nonePosted}. This far ahead we only project fixed schedules, so a kennel with a looser one may still run. Check back closer to your trip.`;
+  }
+  return `${nonePosted}, and their usual schedules don't land on them either. Try other dates or a wider radius.`;
 }
 
 const STATES: Record<
@@ -50,8 +66,7 @@ const STATES: Record<
   no_runs: {
     icon: CalendarOff,
     headline: "No runs posted or expected for your dates.",
-    body: (props) =>
-      `None of the kennels we track near ${props.place || "here"} has a trail posted for these dates, and their usual schedules don't land on them either. Try other dates or a wider radius.`,
+    body: (props) => noRunsBody(props.place, props.horizonTier),
     coverageNote: true,
   },
   out_of_horizon: {
