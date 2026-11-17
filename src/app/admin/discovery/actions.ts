@@ -10,6 +10,18 @@ import {
 import { clearResolverCache } from "@/pipeline/kennel-resolver";
 import { normalizeTrailDay } from "@/adapters/hashrego/kennel-api";
 import { createKennelFromDiscovery } from "@/app/admin/shared/kennel-creation";
+import { HALF_MIND_DISMISS_NEW_ONLY, HALF_MIND_EXTERNAL_SOURCE } from "@/lib/half-mind";
+
+/**
+ * Half-Mind rows have their own actions (half-mind-actions.ts): these Hash Rego
+ * actions would write a global alias from the numeric listing id and a Hash
+ * Rego SourceKennel.
+ */
+const HALF_MIND_ROW_ERROR = "Use the Half-Mind actions for Half-Mind rows.";
+
+function isHalfMindRow(discovery: { externalSource: string }): boolean {
+  return discovery.externalSource === HALF_MIND_EXTERNAL_SOURCE;
+}
 
 /** Look up the HASHREGO source id (null if none configured). */
 async function getHashRegoSourceId(): Promise<string | null> {
@@ -47,6 +59,7 @@ export async function linkDiscoveryToKennel(discoveryId: string, kennelId: strin
     where: { id: discoveryId },
   });
   if (!discovery) return { error: "Discovery not found" };
+  if (isHalfMindRow(discovery)) return { error: HALF_MIND_ROW_ERROR };
 
   const kennel = await prisma.kennel.findUnique({
     where: { id: kennelId },
@@ -97,6 +110,7 @@ export async function addKennelFromDiscovery(
     where: { id: discoveryId },
   });
   if (!discovery) return { error: "Discovery not found" };
+  if (isHalfMindRow(discovery)) return { error: HALF_MIND_ROW_ERROR };
 
   // Add the Hash Rego slug as an extra alias if it differs from shortName
   const extraAliases: string[] = [];
@@ -132,8 +146,11 @@ export async function dismissDiscovery(id: string) {
   // LINKED / ADDED rows are admin-confirmed and intentionally untouched.
   const existing = await prisma.kennelDiscovery.findUnique({
     where: { id },
-    select: { status: true, matchedKennelId: true },
+    select: { status: true, matchedKennelId: true, externalSource: true },
   });
+  if (existing && isHalfMindRow(existing) && existing.status !== "NEW") {
+    return { error: HALF_MIND_DISMISS_NEW_ONLY };
+  }
   if (existing?.status === "MATCHED" && existing.matchedKennelId) {
     const hashRegoSourceId = await getHashRegoSourceId();
     if (hashRegoSourceId) {
@@ -179,8 +196,12 @@ export async function bulkDismissDiscoveries(ids: string[]) {
     }
   }
 
+  // Linked and added Half-Mind rows are undone through their own actions.
   await prisma.kennelDiscovery.updateMany({
-    where: { id: { in: ids } },
+    where: {
+      id: { in: ids },
+      OR: [{ externalSource: { not: HALF_MIND_EXTERNAL_SOURCE } }, { status: "NEW" }],
+    },
     data: {
       status: "DISMISSED",
       processedBy: admin.id,
@@ -226,6 +247,7 @@ export async function confirmMatch(id: string) {
     where: { id },
   });
   if (!discovery) return { error: "Discovery not found" };
+  if (isHalfMindRow(discovery)) return { error: HALF_MIND_ROW_ERROR };
   if (discovery.status !== "MATCHED") return { error: "Can only confirm MATCHED discoveries" };
   if (!discovery.matchedKennelId) return { error: "No matched kennel" };
 
@@ -262,7 +284,7 @@ export async function getDiscoveryPrefill(discoveryId: string) {
       select: {
         externalSlug: true, name: true, website: true, contactEmail: true,
         yearStarted: true, trailPrice: true, schedule: true, location: true,
-        paymentInfo: true,
+        paymentInfo: true, externalSource: true,
       },
     }),
     prisma.region.findMany({
@@ -271,6 +293,7 @@ export async function getDiscoveryPrefill(discoveryId: string) {
     }),
   ]);
   if (!discovery) return { error: "Discovery not found" };
+  if (isHalfMindRow(discovery)) return { error: HALF_MIND_ROW_ERROR };
 
   // Try to find a matching region by location string (in-memory match)
   let suggestedRegionId: string | null = null;

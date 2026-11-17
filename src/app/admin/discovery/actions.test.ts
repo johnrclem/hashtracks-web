@@ -16,7 +16,7 @@ vi.mock("@/lib/db", () => ({
       update: vi.fn(),
       updateMany: vi.fn(),
     },
-    region: { findUnique: vi.fn() },
+    region: { findUnique: vi.fn(), findMany: vi.fn() },
     $transaction: vi.fn((fn: (tx: unknown) => Promise<unknown>) =>
       fn({
         kennel: {
@@ -68,7 +68,9 @@ import {
   confirmMatch,
   dismissDiscovery,
   bulkDismissDiscoveries,
+  getDiscoveryPrefill,
 } from "./actions";
+import { matchesWhere } from "@/test/prisma-where";
 
 const mockAdmin = vi.mocked(getAdminUser);
 const mockSourceFind = vi.mocked(prisma.source.findFirst);
@@ -366,5 +368,77 @@ describe("bulkDismissDiscoveries", () => {
 
     await bulkDismissDiscoveries(["a", "b"]);
     expect(mockSourceKennelDeleteMany).not.toHaveBeenCalled();
+  });
+});
+
+// ---- Half-Mind rows are off limits to the Hash Rego actions ----
+
+describe("Hash Rego actions refuse Half-Mind rows", () => {
+  const halfMindRow = {
+    ...fakeDiscovery,
+    id: "disc-hm",
+    externalSource: "HALFMIND",
+    externalSlug: "19",
+    status: "MATCHED",
+    matchedKennelId: "kennel-1",
+  };
+  const refusal = { error: "Use the Half-Mind actions for Half-Mind rows." };
+
+  beforeEach(() => {
+    mockDiscoveryFind.mockResolvedValue(halfMindRow as never);
+    mockKennelFind.mockResolvedValue(fakeKennel as never);
+    mockSourceFind.mockResolvedValue(fakeHashRegoSource as never);
+    vi.mocked(prisma.region.findMany).mockResolvedValue([] as never);
+  });
+
+  function expectNothingWritten() {
+    expect(mockSourceKennelUpsert).not.toHaveBeenCalled();
+    expect(mockKennelAliasCreate).not.toHaveBeenCalled();
+    expect(mockDiscoveryUpdate).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  }
+
+  it("linkDiscoveryToKennel refuses", async () => {
+    expect(await linkDiscoveryToKennel("disc-hm", "kennel-1")).toEqual(refusal);
+    expectNothingWritten();
+  });
+
+  it("addKennelFromDiscovery refuses", async () => {
+    expect(
+      await addKennelFromDiscovery("disc-hm", { shortName: "PFH3", fullName: "Peach Fuzz H3", regionId: "region-1" }),
+    ).toEqual(refusal);
+    expectNothingWritten();
+  });
+
+  it("confirmMatch refuses", async () => {
+    expect(await confirmMatch("disc-hm")).toEqual(refusal);
+    expectNothingWritten();
+  });
+
+  it("getDiscoveryPrefill refuses", async () => {
+    expect(await getDiscoveryPrefill("disc-hm")).toEqual(refusal);
+  });
+
+  it("dismissDiscovery refuses a Half-Mind row that isn't NEW", async () => {
+    mockDiscoveryFind.mockResolvedValue({ status: "LINKED", matchedKennelId: "kennel-1", externalSource: "HALFMIND" } as never);
+    expect(await dismissDiscovery("disc-hm")).toEqual({ error: "Only a NEW Half-Mind row can be dismissed." });
+    expect(mockDiscoveryUpdate).not.toHaveBeenCalled();
+  });
+
+  it("bulkDismissDiscoveries skips LINKED and ADDED Half-Mind rows", async () => {
+    mockDiscoveryFindMany.mockResolvedValue([] as never);
+    mockDiscoveryUpdateMany.mockResolvedValue({ count: 3 } as never);
+    const rows = [
+      { id: "a", externalSource: "HASHREGO", status: "NEW" },
+      { id: "b", externalSource: "HALFMIND", status: "LINKED" },
+      { id: "c", externalSource: "HALFMIND", status: "ADDED" },
+      { id: "d", externalSource: "HALFMIND", status: "NEW" },
+      { id: "e", externalSource: "HASHREGO", status: "LINKED" },
+    ];
+
+    await bulkDismissDiscoveries(rows.map((r) => r.id));
+
+    const { where } = mockDiscoveryUpdateMany.mock.calls[0][0] as { where: Record<string, unknown> };
+    expect(rows.filter((r) => matchesWhere(r, where)).map((r) => r.id)).toEqual(["a", "d", "e"]);
   });
 });

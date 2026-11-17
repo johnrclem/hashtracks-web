@@ -3,9 +3,9 @@ import { safeUrl } from "@/lib/safe-url";
 import { refreshKennelEvidence } from "@/pipeline/kennel-evidence";
 
 /**
- * DB work for the admin kennel-status actions (src/app/admin/kennels/status-actions.ts).
- * Kept out of the "use server" file so these admin-id-taking functions are not
- * exposed as client-callable server actions.
+ * DB work for the admin kennel-status actions (src/app/admin/kennels/status-actions.ts)
+ * and the Half-Mind discovery sync and actions. Kept out of the "use server" files
+ * so these admin-id-taking functions are not exposed as client-callable server actions.
  */
 
 export interface StatusInput {
@@ -17,7 +17,23 @@ export interface StatusInput {
 
 type ValidInput = { observedAt: Date; note: string; url: string | null };
 
-export type ConfirmResult = { success: true } | { error: string };
+/**
+ * `skipped`: a Half-Mind check for that listing is already as new (only with
+ * `onlyIfNewerForUrl`). `stopped`: the kennel is stopped (only with
+ * `via: "HALF_MIND"`; admin callers get the error text instead).
+ */
+export type ConfirmResult = { success: true } | { skipped: true } | { stopped: true } | { error: string };
+
+export interface ConfirmOptions {
+  /** Who vouches for the running state. Defaults to ADMIN. */
+  via?: "ADMIN" | "HALF_MIND";
+  /**
+   * A Half-Mind listing URL. Skip the write when any HALF_MIND confirmation for
+   * this kennel with exactly this url, reverted or not, is observed on or after
+   * the new date. Per listing, so an undone wrong link never blocks the right one.
+   */
+  onlyIfNewerForUrl?: string;
+}
 export type StopResult =
   | { success: true; disabledSources: number; deactivatedRules: number }
   | { error: string };
@@ -122,21 +138,31 @@ export async function confirmKennelRunningFor(
   kennelId: string,
   input: StatusInput,
   now: Date = new Date(),
+  opts: ConfirmOptions = {},
 ): Promise<ConfirmResult> {
   const valid = validateStatusInput(input, now);
   if ("error" in valid) return valid;
   const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { id: true } });
   if (!kennel) return { error: "Kennel not found" };
+  const halfMind = opts.via === "HALF_MIND";
 
-  const outcome = await prisma.$transaction(async (tx) => {
+  const outcome = await prisma.$transaction(async (tx): Promise<ConfirmResult> => {
     await lockKennel(tx, kennelId);
+    if (opts.onlyIfNewerForUrl) {
+      // Reverted checks count too: an unlinked listing's old date must not come back.
+      const asNew = await tx.kennelConfirmation.findFirst({
+        where: { kennelId, via: "HALF_MIND", url: opts.onlyIfNewerForUrl, observedAt: { gte: valid.observedAt } },
+        select: { id: true },
+      });
+      if (asNew) return { skipped: true };
+    }
     // A stop keeps its schedule sources and rules off; a later confirmation
     // would clear stoppedAt and show "Running" while they stay off.
     const open = await tx.kennelConfirmation.findFirst({
       where: { kennelId, kind: "STOPPED", revertedAt: null },
       select: { id: true },
     });
-    if (open) return { error: "This kennel is stopped — restart it first." } as const;
+    if (open) return halfMind ? { stopped: true } : { error: "This kennel is stopped — restart it first." };
     await tx.kennelConfirmation.create({
       data: {
         kennelId,
@@ -145,12 +171,23 @@ export async function confirmKennelRunningFor(
         note: valid.note,
         url: valid.url,
         createdById: adminId,
+        ...(halfMind ? { via: "HALF_MIND" as const } : {}),
       },
     });
-    return { success: true } as const;
+    return { success: true };
   });
-  if (outcome.success) await refreshAfterWrite(kennelId, now);
+  if ("success" in outcome) await refreshAfterWrite(kennelId, now);
   return outcome;
+}
+
+/** Undo a kennel's Half-Mind checks (on unlink): revert its open HALF_MIND running confirmations. */
+export async function revertHalfMindChecksFor(kennelId: string, now: Date = new Date()): Promise<number> {
+  const { count } = await prisma.kennelConfirmation.updateMany({
+    where: { kennelId, via: "HALF_MIND", kind: "RUNNING", revertedAt: null },
+    data: { revertedAt: now },
+  });
+  await refreshAfterWrite(kennelId, now);
+  return count;
 }
 
 export async function stopKennelFor(

@@ -16,11 +16,29 @@ export interface KennelFromDiscoveryData {
   scheduleDayOfWeek?: string;
   scheduleFrequency?: string;
   paymentLink?: string;
+  // Half-Mind listing-only kennels. Each is written only when given; latitude
+  // and longitude otherwise come from the discovery record.
+  listingOnly?: boolean;
+  halfMindListingId?: string;
+  facebookUrl?: string | null;
+  scheduleNotes?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+/** The optional Half-Mind fields that were given, ready for `kennel.create`. */
+function givenListingFields(data: KennelFromDiscoveryData) {
+  return {
+    ...(data.listingOnly === undefined ? {} : { listingOnly: data.listingOnly }),
+    ...(data.halfMindListingId === undefined ? {} : { halfMindListingId: data.halfMindListingId }),
+    ...(data.facebookUrl === undefined ? {} : { facebookUrl: safeUrl(data.facebookUrl) }),
+    ...(data.scheduleNotes === undefined ? {} : { scheduleNotes: data.scheduleNotes }),
+  };
 }
 
 /**
  * Shared kennel creation from a KennelDiscovery record.
- * Used by both research and Hash Rego discovery flows.
+ * Used by the research, Hash Rego and Half-Mind discovery flows.
  *
  * @param discoveryId - KennelDiscovery record to mark as ADDED
  * @param adminId - ID of the admin user performing the action
@@ -75,8 +93,9 @@ export async function createKennelFromDiscovery(
           scheduleFrequency: data.scheduleFrequency || null,
           paymentLink: safeUrl(data.paymentLink),
           // Copy coordinates from discovery record (Hash Rego, research pipeline)
-          latitude: discovery.latitude,
-          longitude: discovery.longitude,
+          latitude: data.latitude === undefined ? discovery.latitude : data.latitude,
+          longitude: data.longitude === undefined ? discovery.longitude : data.longitude,
+          ...givenListingFields(data),
           aliases: {
             create: allAliases.map((alias) => ({ alias })),
           },
