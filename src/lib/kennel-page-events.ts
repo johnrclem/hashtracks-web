@@ -8,6 +8,14 @@ import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
  * so the two can't drift.
  */
 
+/** What the page shows of any event, top-level or a series child. */
+const VISIBLE_EVENT = {
+  status: { not: "CANCELLED" },
+  isManualEntry: { not: true },
+  isCanonical: true,
+  ...HIDE_STOPPED_SCHEDULE_RUNS,
+} as const satisfies Prisma.EventWhereInput;
+
 /**
  * The page's filter: every canonical, non-cancelled, non-manual event the kennel
  * hosts or co-hosts (#1023 step 5), series children included (#1560 PR F).
@@ -21,14 +29,6 @@ export function kennelPageEventWhere(
   const { NOT: _stopClause, ...withoutStop } = VISIBLE_EVENT;
   return { eventKennels: { some: { kennelId } }, ...(options?.ignoreStop ? withoutStop : VISIBLE_EVENT) };
 }
-
-/** What the page shows of any event, top-level or a series child. */
-const VISIBLE_EVENT = {
-  status: { not: "CANCELLED" },
-  isManualEntry: { not: true },
-  isCanonical: true,
-  ...HIDE_STOPPED_SCHEDULE_RUNS,
-} as const satisfies Prisma.EventWhereInput;
 
 export async function getKennelPageEvents(kennelId: string) {
   return prisma.event.findMany({

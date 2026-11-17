@@ -1,6 +1,6 @@
 # Onboarding backfill automation: design
 
-**Status:** v5.3, amended 2026-11-14 after PR review. Adversarial review: approved in round 20 (Appendix A records every round). Owner approval of section 15: 2026-11-13. The owner approved all ten decisions in section 15 on 2026-11-13, and decision 7's step-up was rebuilt in that review (10.3, T4). **Phase 0 is built** (2026-11-17): the PR stack in 12.1a, #3039 (schema, merged), #3040, #3041, #3042, #3045 and #3047. `BACKFILL_AUTOMATION` is `off`. Phase 1 waits for the owner's steps in 12.1b.
+**Status:** v5.4, amended 2026-11-17 to fit the ops system (`docs/ops/system.md`, ops plan amendment v6): the approval stamp comes from the ops `write-gate` workflow (6.3), cron liveness is recorded in `AutomationRun` (11), G17 accepts the migration template and G15 protects its checker (8.1), and Phase 1 waits for the gate (13). v5.3 was amended 2026-11-14 after PR review. Adversarial review: approved in round 20 (Appendix A records every round). Owner approval of section 15: 2026-11-13. The owner approved all ten decisions in section 15 on 2026-11-13, and decision 7's step-up was rebuilt in that review (10.3, T4). **Phase 0 is built** (2026-11-17): the PR stack in 12.1a, #3039 (schema, merged), #3040, #3041, #3042, #3045 and #3047. `BACKFILL_AUTOMATION` is `off`. Phase 1 waits for the gate (13) and the owner's steps in 12.1b.
 **Scope:** design, and the record of what Phase 0 built (12.1a, 12.1b).
 **Related:** [`kennel-onboarding/implement-handoff-prompt.md`](kennel-onboarding/implement-handoff-prompt.md) (the implementer),
 [`kennel-onboarding/daily-onboarding-prompt.md`](kennel-onboarding/daily-onboarding-prompt.md) (research),
@@ -180,15 +180,16 @@ The design therefore aims at two different things:
 | `BACKFILL_AGENT_TOKEN` | Plan, preview, advance a run the owner approved, check a PR's approval, read status | Approve, choose an archive, resume, undo, read user data |
 | `GITHUB_APPROVAL_READ_TOKEN` (server, new, fine-grained, read-only) | Read PRs, labels, statuses, commits and file contents | Add labels or statuses, merge, push |
 | The server's issue-filing credential | Today: the owner's repo-scope PAT, which can label, push and merge as the owner. **H3 replaces it** with a GitHub App limited to issues, whose actions show as the App, so A2 rejects any label it adds | |
-| `approval-stamp` workflow (`pull_request_target` on `main`) | Record the head SHA when `owner-approved` is added | Run PR code (it never checks it out) |
+| `write-gate` workflow (the ops system's gate, `pull_request_target` on `main`) | Record the head SHA when the owner adds `owner-approved` | Run PR code (it never checks it out) |
 | CI | Recompute and check manifests and migrations; render the manifest in its check summary | Write anything outside GitHub |
 | Anyone on the internet | Open a PR from a fork; read the public repo and pages | Get a PR merged or labelled |
 
 ### 4.3 Assumptions and hardening
 
 - **T1. Anything acting as the owner's GitHub account can approve.** Agents run `gh` as the owner. An
-  agent could add the label itself, and the stamp workflow would record it. It could also forge a
-  stamp: any workflow on a branch it pushes can ask for `statuses: write` and write a status as
+  agent acting as the owner could add the label itself, and the stamp workflow would record it (a label
+  added by the agent or server GitHub App is ignored: the workflow stamps only an owner-sent event). It
+  could also forge a stamp: any workflow on a branch it pushes can ask for `statuses: write` and write a status as
   `github-actions[bot]`, with any `target_url` it likes. The stamp protects against **mistakes**
   (a push or force-push after the label, a stale branch), not against an agent misusing the owner's
   credential. That is the same assumption that already guards every code merge. Phase 2 needs the
@@ -235,7 +236,7 @@ The design therefore aims at two different things:
  write manifest (hashes, counts)      scope rules, PII,         samples, preview plan
  migration adds archive source        migration shape;          adds `owner-approved`
  POST /preview → plan in PR body      summary in check run          │
-                                                          approval-stamp workflow records
+                                                          write-gate workflow records
                                                           the head SHA at that moment
    implementer Phase A: approval check; merge with --match-head-commit; deploy; first prod scrape
                                                 │
@@ -320,11 +321,19 @@ kennel, overlap) happen on the server (G9, G18, G19).
 
 ### 6.3 Stamping the approval
 
-A workflow on `main`, `approval-stamp.yml`, runs on `pull_request_target` with `types: [labeled]`.
-When the label is `owner-approved`, it sets a commit status `backfill/approved` on
+The ops system's single gate workflow on `main`, `write-gate.yml` (ops plan S4, `docs/ops/system.md`),
+runs on `pull_request_target`. When the event is `labeled` with `owner-approved` and the sender is the
+owner's account (type `User`), it sets a commit status `backfill/approved` on
 `github.event.pull_request.head.sha` (the head GitHub reports at that moment), with the PR number in
 its description. It never checks out or runs PR code. `pull_request_target` always runs the workflow
 file from `main`, so a PR can't change what this workflow does.
+
+The context name, the description format and the A2–A4 evaluation live in one module,
+`src/lib/backfill/approval-stamp.ts`, which the workflow and the server (6.4) both use, so the stamp and
+the check can't diverge. The module also reads the owner's login, `OWNER_GITHUB_LOGIN`, for both
+sides, and a test asserts the workflow passes that same value, so the stamp and A2 can't disagree about
+who the owner is. v5.3 had a separate `approval-stamp.yml`; one workflow now stamps and
+evaluates, so the two can't race.
 
 This makes the stamp reliable against mistakes. It does not make it unforgeable: as T1 says, a
 workflow on any branch pushed with the owner's credential can also write such a status.
@@ -548,9 +557,9 @@ A guard either passes or stops the run; none warns and continues. Terminal failu
 | G12 | **Binding:** the archive source is disabled, `archiveOnly`, `replacedById` null, and of the origin's type; exactly one source has that name | plan, every batch | terminal |
 | G13 | **Size and rate:** rows ≤ `BACKFILL_MAX_ROWS` (2,000) is terminal; more than 2 applies started per UTC day is retryable | plan | terminal / retryable |
 | G14 | **Batch result:** no create-only violation; `created` equals the batch's rows; `updated`, `restored`, `blocked`, `eventErrors` are 0; every created event's primary kennel is the expected one, its date is the row's date, and its `isScheduleOnly` is the plan's value; V3 and V4 (9.3) pass | every batch | terminal (`HALTED`) |
-| G15 | **Guard code untouched:** the PR changes nothing under `src/lib/backfill/**`, the PII scanner, `src/pipeline/merge.ts`, `src/pipeline/kennel-resolver.ts`, `src/pipeline/fingerprint.ts`, `src/pipeline/scrape.ts`, `src/pipeline/reconcile.ts`, `src/lib/event-write.ts`, `src/app/admin/sources/actions.ts`, `src/pipeline/kennel-evidence.ts` (the posted-run rule behind the expected flags), `src/lib/event-filters.ts` (the display filter V1 and V2 use), the shared kennel-page stats function, `prisma/schema.prisma`, the CI manifest script, `.github/workflows/**` or the agent routes | plan | terminal (the owner can still apply by hand) |
+| G15 | **Guard code untouched:** the PR changes nothing under `src/lib/backfill/**`, the PII scanner, `src/pipeline/merge.ts`, `src/pipeline/kennel-resolver.ts`, `src/pipeline/fingerprint.ts`, `src/pipeline/scrape.ts`, `src/pipeline/reconcile.ts`, `src/lib/event-write.ts`, `src/app/admin/sources/actions.ts`, `src/pipeline/kennel-evidence.ts` (the posted-run rule behind the expected flags), `src/lib/event-filters.ts` (the display filter V1 and V2 use), the shared kennel-page stats function, `prisma/schema.prisma`, the CI manifest script, `src/lib/migration-sql/**` (G17's checker and its parser), `scripts/ci/**`, the `libpg-query` entries in `package.json` or `package-lock.json`, `.github/workflows/**` or the agent routes | plan | terminal (the owner can still apply by hand) |
 | G16 | **Kill switch:** env `BACKFILL_AUTOMATION` is `apply` (`off` and `shadow` refuse `advance`) | every call | `403` |
-| G17 | **Migration shape**, checked with a real SQL parser (`libpg_query`), allow-list only: `INSERT … ON CONFLICT DO NOTHING` or `INSERT … SELECT … WHERE NOT EXISTS` into `Kennel`, `KennelAlias`, `Region`, `Source`, `SourceKennel` and `ScheduleRule`; and `UPDATE "Region"` setting only `parentId` and `updatedAt`, whose target rows are restricted by literal names that the same migration inserts. No other statements, no CTE that modifies data, no `DO` blocks, and no function calls other than `NOW()` and `timezone()` with a literal zone (the parser's form of `NOW() AT TIME ZONE 'UTC'`, used by all eight recent onboarding migrations). A Phase 0 test checks the rule against those eight; any that update a region they didn't insert are reviewed with the owner before the rule ships. Crafted bypasses must fail it. A `Source` insert that sets `archiveOnly` to true must also set `enabled` to the literal `false`: `enabled` defaults to true, so leaving it out would break the CHECK in 11.1, fail `migrate deploy` in the production build and block every later deploy. G17 only decides whether the **backfill** is automated; the migration itself still ships through the ordinary code-merge review | CI, plan | terminal |
+| G17 | **Migration shape**, checked with a real SQL parser (`libpg_query`), allow-list only: `INSERT … ON CONFLICT DO NOTHING` or `INSERT … SELECT … WHERE NOT EXISTS` into `Kennel`, `KennelAlias`, `Region`, `Source`, `SourceKennel` and `ScheduleRule`; and `UPDATE "Region"` setting only `parentId` and `updatedAt`, whose target rows are restricted by literal names that the same migration inserts. No other statements, no CTE that modifies data, no `DO` blocks, and no function calls other than `NOW()` and `timezone()` with a literal zone (the parser's form of `NOW() AT TIME ZONE 'UTC'`, used by all eight recent onboarding migrations). Transaction control is allowed only as the migration template's wrapper (`docs/ops/system.md#migrations`): exactly one leading `BEGIN`, then exactly one `SET LOCAL lock_timeout = '<literal>'`, and exactly one trailing `COMMIT`; any other transaction control or setting fails. The checker lives in `src/lib/migration-sql/g17.ts`, on the parser CI's migration check uses. A Phase 0 test checks the rule against those eight and against a fixture written to the template; any that update a region they didn't insert are reviewed with the owner before the rule ships. Crafted bypasses must fail it. A `Source` insert that sets `archiveOnly` to true must also set `enabled` to the literal `false`: `enabled` defaults to true, so leaving it out would break the CHECK in 11.1, fail `migrate deploy` in the production build and block every later deploy. G17 only decides whether the **backfill** is automated; the migration itself still ships through the ordinary code-merge review | CI, plan | terminal |
 | G18 | **One live feed:** in prod, the kennel is linked to exactly one enabled source, the origin, plus the archive source | plan, every batch | terminal |
 | G19 | **One archive per kennel:** no earlier run for this kennel has written anything (status `APPLYING` or later, unless it was fully `UNDONE`), and the kennel has no cutoff yet | plan | terminal |
 | G20 | **The stretches join:** `C` is in the past; no gap between the archive's last row and `C` beyond 1.5 median run intervals; the live feed shows at least 95% of the archive rows dated from `C` to `frozenAt` (6.5) | plan, before the first batch | terminal (`WAITING` while the origin backs no past event) |
@@ -980,7 +989,9 @@ hand-written partial unique index on `manifestSha256` for every status except `P
 `rawEventId`; `eventId`; batch index; `undoneAt`, `undoOutcome` (deleted, or kept with reason). Unique
 on (run id, row index).
 
-**`CronHeartbeat`:** one row per job name with last start, last finish, last result.
+**`CronHeartbeat`:** created by PR 1 but unused. Cron runs are recorded in the ops system's
+`AutomationRun` through `withCronRun()` (`docs/ops/system.md`). Once PR 5 has merged, a later migration
+drops this table with `DROP TABLE IF EXISTS`, after a prod dry run shows it empty.
 
 **`BackfillStepUpNonce`:** `nonceHash`; Clerk session id; action (`RESUME`, `UNDO`, `SET_CUTOFF`,
 `CLEAR_CUTOFF`, `PROBE`); run id or kennel id (both null for the probe); `expiresAt`; `consumedAt`;
@@ -1000,7 +1011,7 @@ the two-minute window, since the checks on use do. It only limits how long an un
 `BLOCKED`, `HALTED`, `VERIFY_FAILED`, or `WAITING` for over 24 hours; leases expired over an hour;
 approved manifests merged over 48 hours ago without a `VERIFIED` run; PII leak flags; the
 `archiveCutoffDropped` and `archiveCorrectionSkipped` counts from the last day's scrapes, per kennel;
-runs that changed their kennel's status line, before and after (9.6); and the watch cron's heartbeat.
+runs that changed their kennel's status line, before and after (9.6); and the watch cron's latest run (`AutomationRun`, 11.3).
 `docs/ops/daily-digest-task.md` puts every blocked, halted or failed run, every leak flag and every
 approved-but-unapplied manifest under **Needs you today**.
 
@@ -1008,8 +1019,9 @@ approved-but-unapplied manifest under **Needs you today**.
 
 The watch cron raises a Sentry error when a run has been `APPLYING` with an expired lease for over 2
 hours; a run has been `HALTED` or `VERIFY_FAILED` for over 24 hours; an approved manifest has no
-`VERIFIED` run 48 hours after merge; or a 7-day re-check fails. The digest flags the watch cron itself
-when its heartbeat is over 26 hours old. Silence counts as failure.
+`VERIFIED` run 48 hours after merge; or a 7-day re-check fails. The ops system's watchdog flags the watch
+cron itself when its last `AutomationRun` is over 26 hours old (the cron is registered in
+`src/lib/automation-registry.ts`), and the digest shows that state. Silence counts as failure.
 
 ## 12. What changes in existing code and manuals
 
@@ -1025,8 +1037,8 @@ when its heartbeat is over 26 hours old. Silence counts as failure.
 | `src/app/admin/sources/actions.ts` | `deleteSource` and `toggleSourceEnabled` refuse an `archiveOnly` source; `updateSource` refuses an actual change to its name, type or kennel links (comparing submitted links with the existing set) |
 | `src/app/kennels/[slug]/page.tsx` | Move the event query, filters and unique-date count into a shared function |
 | `scripts/lib/delete-leaked-event.ts` | Move to `src/lib`; add canonical recompute for touched slots |
-| `prisma/schema.prisma` | `Source.archiveOnly`, `Kennel.archiveCutoffDate` and `archiveCutoffRunId`, `BackfillRun`, `BackfillRunItem`, `CronHeartbeat`, `BackfillStepUpNonce` |
-| New | `src/lib/backfill/**` (manifest with `scheduleOnlyEstimate` and G21, PII scanner, provenance rules, migration checker, plan with the expected `isScheduleOnly` from `POSTED_RUN_RAW_SQL`, apply with the kennel status refreshes, verify, undo); agent routes; admin page with Clerk `strict_mfa` reverification, the server's own checks on `fva` and `iat` (10.3), run when a nonce is minted and again when it is used, a fresh verification per action, single-use action nonces bound to the session and expiring after 2 minutes, the step-up probe, and the undo plan's hash on the undo confirm; a Clerk Backend API check of the owner's second factors for the Phase 2 entry and the digest; watch cron; `approval-stamp.yml`; `backfill-manifest` CI job |
+| `prisma/schema.prisma` | `Source.archiveOnly`, `Kennel.archiveCutoffDate` and `archiveCutoffRunId`, `BackfillRun`, `BackfillRunItem`, `CronHeartbeat` (superseded by the ops system's `AutomationRun`, 11.1), `BackfillStepUpNonce` |
+| New | `src/lib/backfill/**` (manifest with `scheduleOnlyEstimate` and G21, PII scanner, provenance rules, plan with the expected `isScheduleOnly` from `POSTED_RUN_RAW_SQL`, apply with the kennel status refreshes, verify, undo); agent routes; admin page with Clerk `strict_mfa` reverification, the server's own checks on `fva` and `iat` (10.3), run when a nonce is minted and again when it is used, a fresh verification per action, single-use action nonces bound to the session and expiring after 2 minutes, the step-up probe, and the undo plan's hash on the undo confirm; a Clerk Backend API check of the owner's second factors for the Phase 2 entry and the digest; watch cron (inside the ops system's `withCronRun()`); the shared stamp module `src/lib/backfill/approval-stamp.ts`, used by the ops `write-gate.yml` (6.3); the G17 checker `src/lib/migration-sql/g17.ts`; `libpg-query` moved to `dependencies` and `serverExternalPackages`; `backfill-manifest` CI job |
 | Ops (owner) | Before Phase 1: `BACKFILL_AGENT_TOKEN` and `GITHUB_APPROVAL_READ_TOKEN` set in Vercel, scoped to Production only, so a preview build of an agent's branch never gets them; the same for the GitHub App's credentials later. Before Phase 2: H3 (the issue-filing GitHub App; the server's GitHub calls today touch only issues, labels and repo metadata, so the App needs Issues and read-only Metadata, and the filing-health probe is reworked); the authenticator app and backup codes switched on in Clerk production and the owner enrolled from the phone in one sitting, with phone codes off and Clerk's sensitive-action window at its minimum, then the step-up probe run three times on production (10.3) |
 
 ### 12.1a Phase 0 build order
@@ -1037,12 +1049,12 @@ it on.
 
 | # | PR | Contents | Merged by |
 |---|---|---|---|
-| 1 | Schema | One migration: `Source.archiveOnly` with the CHECK `NOT ("archiveOnly" AND enabled)`, `Kennel.archiveCutoffDate` and `archiveCutoffRunId`, `BackfillRun` (with the partial unique index on `manifestSha256`), `BackfillRunItem`, `CronHeartbeat`, `BackfillStepUpNonce`. No code reads the new columns yet | Owner |
+| 1 | Schema | One migration: `Source.archiveOnly` with the CHECK `NOT ("archiveOnly" AND enabled)`, `Kennel.archiveCutoffDate` and `archiveCutoffRunId`, `BackfillRun` (with the partial unique index on `manifestSha256`), `BackfillRunItem`, `CronHeartbeat`, `BackfillStepUpNonce`. No code reads the new columns yet. Merged as #3039, applied 2026-11-17 | Owner |
 | 2 | Merge pipeline | The read-only matcher pulled out of `upsertCanonicalEvent`; `backfill` mode (any match throws `CreateOnlyViolation` before writing, one nested RawEvent + Event + kennel-link create per row, no cluster linker, series, multi-tag and link rows rejected); the cutoff drop and the date-correction skip for every source, with `archiveCutoffDropped` and `archiveCorrectionSkipped` counts; the nested RawEvent in `createEventWithKennel`; `reportAndApplyBackfill` throws on drops; `scrapeSource` refuses an archive source and logs the counts. Tests for every match path in both modes | Claude, after 1 |
 | 3 | Supporting changes | `CURRENT_RAW_SQL` exported; the admin source actions refuse to delete, enable, rename, retype or relink an archive source; the kennel page's event query, filters and counts moved into a shared function; the event-delete helper moved to `src/lib` with the per-slot canonical recompute | Claude, after 2 |
-| 4 | Backfill library | `src/lib/backfill/**`: manifest and `approvalHash`, PII scanner, per-type provenance rules, G17 migration checker (on the existing `src/lib/migration-sql` parser), every guard, plan, apply (lease, cutoff, batches, finish refreshes), verify (V1–V5) and undo (plan, hash-bound apply). End-to-end tests of plan, apply, crash-resume and undo against a local database | Claude, after 3 |
-| 5 | Routes, admin page, cron | `/api/agent/backfill/*` behind `BACKFILL_AGENT_TOKEN` and the G16 kill switch; the GitHub approval check (A1–A6) with `GITHUB_APPROVAL_READ_TOKEN`; `/admin/backfills` with the Clerk `strict_mfa` step-up, the server's own `fva` and `iat` checks and single-use nonces, the step-up probe; the `backfill-watch` cron with `CronHeartbeat`; the digest's `backfills` block | Claude, after 4 |
-| 6 | Workflows and CI | `.github/workflows/approval-stamp.yml`; the `backfill-manifest` CI job and its summary; the design's Status line set to "Phase 0 built" | Claude, after 5 |
+| 4 | Backfill library | `src/lib/backfill/**`: manifest and `approvalHash`, PII scanner, per-type provenance rules, G17 migration checker as `src/lib/migration-sql/g17.ts` (on the existing parser, accepting the template's wrapper, with a template-shaped fixture); `libpg-query` moved to `dependencies` and added to `serverExternalPackages`, with a Vercel preview proving a server route can parse SQL; every guard, plan, apply (lease, cutoff, batches, finish refreshes), verify (V1–V5) and undo (plan, hash-bound apply). End-to-end tests of plan, apply, crash-resume and undo against a local database | Claude, after 3 |
+| 5 | Routes, admin page, cron | `/api/agent/backfill/*` behind `BACKFILL_AGENT_TOKEN` and the G16 kill switch; the GitHub approval check (A1–A6) with `GITHUB_APPROVAL_READ_TOKEN`, through the shared stamp module (6.3); `/admin/backfills` with the Clerk `strict_mfa` step-up, the server's own `fva` and `iat` checks and single-use nonces, the step-up probe; the `backfill-watch` cron inside `withCronRun()`, registered in `src/lib/automation-registry.ts` (11.3); the digest's `backfills` block | Claude, after 4 and after the ops plan's S2 merges |
+| 6 | CI | The `backfill-manifest` CI job and its summary, a required check in the ops ruleset; the design's Status line set to "Phase 0 built". No stamp workflow: the ops `write-gate.yml` stamps (6.3) | Claude, after 5 and after the ops plan's S4 merges |
 
 Each PR runs `npx tsc --noEmit`, `npm run lint` and `npm test`, then `/simplify` and an adversarial
 review, before it opens. The env vars stay unset: the owner sets `BACKFILL_AGENT_TOKEN` and
@@ -1101,8 +1113,8 @@ also be undone; until then, `adopt-only` manifests bring them into the record.
 
 | Phase | What runs | Entry | Exit |
 |---|---|---|---|
-| 0. Build | Section 12.1. `BACKFILL_AUTOMATION=off` | This design approved | Unit tests for every guard, every merge match path in both modes, the cutoff drop, the provenance rules (against real Sheets, GCal, Meetup and website archives) and the migration checker (the last eight onboarding migrations pass, crafted bypasses fail, and a sample onboarding migration that creates an archive source applies cleanly to a local database with the CHECK in place); the step-up refuses no second factor, a missing or malformed `fva`, and a second-factor age of 1 minute or more, a token 60 seconds old or more or with no `iat`, and a valid nonce sent with a token that fails a check, even when Clerk's check passes, while a real TOTP step-up through the probe on Clerk's development instance passes, and the `fva` of a session token minted through the Backend API (`sessions.getToken`) is read and recorded (10.3); plan, apply, crash-resume and undo tested end to end against a local copy of prod |
-| 1. Shadow | `BACKFILL_AUTOMATION=shadow`. The implementer runs `plan` and posts it; the owner still applies by hand and compares. The approval endpoint runs beside the implementer's old merge check and any disagreement is reported | Phase 0 merged | `adopt-only` manifests for Music City and Zagreb come out `ADOPTED`; 5 new backfills where the shadow plan's written-row count equals what the hand apply created, every block was correct, and no PII false positive went unexplained; no disagreement between the approval endpoint and the owner's intent |
+| 0. Build | Section 12.1. `BACKFILL_AUTOMATION=off` | This design approved | Unit tests for every guard, every merge match path in both modes, the cutoff drop, the provenance rules (against real Sheets, GCal, Meetup and website archives) and the migration checker (the last eight onboarding migrations pass, a fixture written to the migration template passes, crafted bypasses fail, and a sample onboarding migration that creates an archive source applies cleanly to a local database with the CHECK in place); the step-up refuses no second factor, a missing or malformed `fva`, and a second-factor age of 1 minute or more, a token 60 seconds old or more or with no `iat`, and a valid nonce sent with a token that fails a check, even when Clerk's check passes, while a real TOTP step-up through the probe on Clerk's development instance passes, and the `fva` of a session token minted through the Backend API (`sessions.getToken`) is read and recorded (10.3); plan, apply, crash-resume and undo tested end to end against a local copy of prod |
+| 1. Shadow | `BACKFILL_AUTOMATION=shadow`. The implementer runs `plan` and posts it; the owner still applies by hand and compares. The approval endpoint runs beside the implementer's old merge check and any disagreement is reported | Phase 0 merged, and the ops `write-gate` workflow (ops plan S4) is live and stamping (6.3) | `adopt-only` manifests for Music City and Zagreb come out `ADOPTED`; 5 new backfills where the shadow plan's written-row count equals what the hand apply created, every block was correct, and no PII false positive went unexplained; no disagreement between the approval endpoint and the owner's intent |
 | 2. Apply behind the label | `BACKFILL_AUTOMATION=apply`, Phase 2 scope (section 3), 2,000-row cap, 2 applies a day, the implementer starts every apply | Phase 1 exit; H3 done; the owner enrolled in TOTP with backup codes and no phone second factor, as read through Clerk's Backend API; on production, one probe step-up passed and both late attempts were refused (10.3); the owner's written acceptance of T1 and T4 and of H1/H2's absence | 10 applied runs, all `VERIFIED` first time or explained, no undo needed for a wrong write, no 7-day re-check failure |
 | 3. Loosen | One change at a time: multi-kennel origins or several live sources **only with per-row routing provenance** (the freeze tool records which pattern matched each row, default-bucket rows are forbidden, CI re-derives the routing from the origin's config); more origin types; a higher cap; the watch cron starting approved applies | Phase 2 exit **and** H1 **and** H2 | Owner's call per change |
 
@@ -1153,7 +1165,7 @@ label as the approval.
 | An agent uses the two minutes after the owner's own second-factor use, in the same browser | Step-ups are done from the phone, and agents' Chrome holds no HashTracks admin session. Accepted as T4, not enforced (4.3, 10.3) |
 | An agent enrols its own second factor before the owner does | The owner switches it on and enrols from the phone in one sitting, with the scheduled tasks paused. The Phase 2 entry check and the daily digest read the owner's factors through Clerk's Backend API; they catch a removed factor or an added phone factor, not a swapped TOTP or regenerated backup codes (T4, 10.3) |
 | "Created" doesn't match the page | Row checks V1–V4; totals informational (9.3, 9.4) |
-| The loop dies quietly | Watch cron, `CronHeartbeat`, Sentry, digest |
+| The loop dies quietly | Watch cron, the ops watchdog reading `AutomationRun`, Sentry, digest |
 | Geocoding cost and latency | Batch timing measured per batch; 2,000-row cap; same geocoding as today's hand applies |
 | A calendar archive drops or invents the repeating-series marker, so usual-schedule entries are stored as runs | G21: the key on every row of the committed file, and agreement with the origin's current RawEvents on the overlap at plan (RawEvents stored before the marker existed are skipped and counted); the CI summary counts instance-shaped `eid`s with a `null` marker |
 | The manifest's schedule-only rule drifts from `POSTED_RUN_RAW_SQL` (whitespace, word boundaries, `runNumber` forms, placeholder edits, the merge's clean-up) | No second rule: the plan evaluates the SQL itself on rows normalised as the merge stores them; the manifest's estimate is outside `approvalHash`, so a placeholder edit can't block an approved run |
@@ -1517,3 +1529,15 @@ CodeRabbit (P-1, P-2) and the Claude PR review (P-3 to P-8) commented after roun
 | C-2 | With the checks rerun on use, the nonce's expiry no longer sets the window | Said in 11.1 |
 | C-3 | The probe's late case tested only check 2 on production | A second late mode holds a fresh token for 70 seconds, which check 3 refuses; production runs the probe three times (10.3, 12.1, 13, 15) |
 | C-4 | "Approved" in the header could be read as the owner's approval | "Adversarial review: approved in round 20. Owner approval of section 15: 2026-11-13" |
+
+**v5.4 (2026-11-17): fitting the ops system.** The ops plan (amendment v6) adopted this build's order. Its adversarial reviewer (that plan's round 6) returned `APPROVE WITH REQUIRED CHANGES`; these were applied here.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| O6-1 | major | With the stamp moved to the ops `write-gate`, Phase 1 (shadow) could start before any stamp exists, so every approval check would disagree | Phase 1's entry adds "the ops `write-gate` is live and stamping" (13); 6.3 names the workflow and one shared stamp module |
+| O6-2 | major | G17's "no other statements" refused the migration template's `BEGIN` / `SET LOCAL lock_timeout` / `COMMIT`, so every new onboarding migration would fail A6 | G17 allows exactly that wrapper, with a template-shaped test fixture (8.1, 12.1a) |
+| O6-3 | major | G17 moving to `src/lib/migration-sql/` left it outside G15 | G15 adds `src/lib/migration-sql/**`, `scripts/ci/**` and the `libpg-query` package entries (8.1) |
+| O6-4 | minor | Two cron-liveness records | `AutomationRun` only; `CronHeartbeat` dropped by a later migration (11.1–11.3, 12.1, 14) |
+| O6-5 | minor | `libpg-query` is a devDependency the server can't load | PR 4 moves it to `dependencies` and `serverExternalPackages` and proves it on a preview (12.1a) |
+
+Round 7 of that review: `APPROVE`. Its notes were applied: T1's wording now says only an owner-sent label is stamped (4.3); one source for the owner's login, with a test (6.3); the template fixture is in Phase 0's exit criteria (13).

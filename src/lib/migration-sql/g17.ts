@@ -7,7 +7,9 @@
  *   into Kennel, KennelAlias, Region, Source, SourceKennel and ScheduleRule;
  * - `UPDATE "Region"` setting only parentId and updatedAt, whose target rows
  *   are restricted by literal names that the same migration inserts;
- * - `SET LOCAL lock_timeout` and the BEGIN/COMMIT wrapper.
+ * - transaction control only as the migration template's wrapper
+ *   (docs/ops/system.md#migrations): one leading `BEGIN`, then one
+ *   `SET LOCAL lock_timeout = '<literal>'`, and one trailing `COMMIT`.
  *
  * Nothing else: no CTE that modifies data, no DO blocks, and no function calls
  * but NOW() and timezone() with a literal zone. A Source insert that sets
@@ -20,8 +22,8 @@
  * Import from scripts and server-only code: the parser loads a WASM module (see
  * src/lib/migration-sql/parse.ts).
  */
-import { parseMigrationSql, type MigrationStatement } from "@/lib/migration-sql/parse";
-import { analyzeTransactionShape } from "@/lib/migration-sql/transaction";
+import { parseMigrationSql, type MigrationStatement } from "./parse";
+import { analyzeTransactionShape } from "./transaction";
 
 type Node = Record<string, unknown>;
 
@@ -207,6 +209,20 @@ function insertedRegionNames(statements: MigrationStatement[]): Set<string> {
   return out;
 }
 
+/** The template's `SET LOCAL lock_timeout = '<literal>'`, as the first statement inside BEGIN … COMMIT. */
+function isTemplateLockTimeout(stmt: MigrationStatement, shape: { shape: string; body: MigrationStatement[] }): boolean {
+  const args = (stmt.node.args as unknown[]) ?? [];
+  return (
+    shape.shape === "wrapped" &&
+    shape.body[0] === stmt &&
+    stmt.node.kind === "VAR_SET_VALUE" &&
+    stmt.node.name === "lock_timeout" &&
+    stmt.node.is_local === true &&
+    args.length === 1 &&
+    stringLiteral(args[0]) !== undefined
+  );
+}
+
 /** G17's problems with one migration file; an empty list passes. */
 export async function checkMigrationForBackfill(sql: string): Promise<string[]> {
   const parsed = await parseMigrationSql(sql);
@@ -226,8 +242,8 @@ export async function checkMigrationForBackfill(sql: string): Promise<string[]> 
         checkRegionUpdate(stmt, regions, problems);
         break;
       case "VariableSetStmt":
-        if (stmt.node.name !== "lock_timeout" || stmt.node.is_local !== true) {
-          problems.push(`statement ${stmt.index + 1}: only SET LOCAL lock_timeout is allowed`);
+        if (!isTemplateLockTimeout(stmt, shape)) {
+          problems.push(`statement ${stmt.index + 1}: the only setting allowed is the template's SET LOCAL lock_timeout = '<literal>', first after BEGIN`);
         }
         break;
       default:

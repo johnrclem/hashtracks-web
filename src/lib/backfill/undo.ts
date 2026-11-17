@@ -11,7 +11,7 @@ import { prisma } from "@/lib/db";
 import { deleteLeakedEvent, DeleteSafetyViolationError, ForeignRawSourceError, recomputeCanonicalForSlots } from "@/lib/delete-leaked-event";
 import { refreshKennelEvidence } from "@/pipeline/kennel-evidence";
 import { byCodeUnit, canonicalJson, sha256 } from "./canonical";
-import { acquireLease, appendStep, kennelStatusLine, mergeStatusLines, recomputeLastEventDate, recordStep, releaseLease } from "./run-state";
+import { acquireLease, appendStep, kennelStatusLine, LeaseLostError, mergeStatusLines, recomputeLastEventDate, recordStep, releaseLease } from "./run-state";
 import { v3Snapshot } from "./verify";
 import type { StoredPlan } from "./plan";
 
@@ -112,22 +112,30 @@ export async function applyUndo(runId: string, opts: { confirmedHash?: string; b
       }
       plan = fresh.plan;
       const before = await kennelStatusLine(run.kennelId!, now);
-      await prisma.backfillRun.update({
-        where: { id: runId },
-        data: {
-          status: "UNDOING",
-          undoPlan: plan as unknown as Prisma.InputJsonValue,
-          undoPlanHash: fresh.hash,
-          statusLines: mergeStatusLines(run.statusLines, "beforeUndo", before),
+      const confirmedPlan = plan;
+      // One transaction: a crash can't leave the run UNDOING with events unitemized or keeps unmarked.
+      await prisma.$transaction(
+        async (tx) => {
+          const moved = await tx.backfillRun.updateMany({
+            where: { id: runId, leaseToken: token },
+            data: {
+              status: "UNDOING",
+              undoPlan: confirmedPlan as unknown as Prisma.InputJsonValue,
+              undoPlanHash: fresh.hash,
+              statusLines: mergeStatusLines(run.statusLines, "beforeUndo", before),
+            },
+          });
+          if (moved.count !== 1) throw new LeaseLostError(runId);
+          await itemizeUnrecorded(tx, run, confirmedPlan);
+          for (const reason of new Set(confirmedPlan.keep.map((k) => k.reason))) {
+            await tx.backfillRunItem.updateMany({
+              where: { runId, eventId: { in: confirmedPlan.keep.filter((k) => k.reason === reason).map((k) => k.eventId) } },
+              data: { undoneAt: now, undoOutcome: "KEPT", undoReason: reason },
+            });
+          }
         },
-      });
-      await itemizeUnrecorded(run, plan);
-      for (const reason of new Set(plan.keep.map((k) => k.reason))) {
-        await prisma.backfillRunItem.updateMany({
-          where: { runId, eventId: { in: plan.keep.filter((k) => k.reason === reason).map((k) => k.eventId) } },
-          data: { undoneAt: now, undoOutcome: "KEPT", undoReason: reason },
-        });
-      }
+        { timeout: 60_000, maxWait: 10_000 },
+      );
       await appendStep(runId, recordStep("undo-confirm", opts.by, now, { hash: fresh.hash }));
     }
     if (!plan) throw new Error(`Run ${runId} is UNDOING without a stored undo plan`);
@@ -156,38 +164,61 @@ export async function applyUndo(runId: string, opts: { confirmedHash?: string; b
 
     const remaining = await prisma.backfillRunItem.count({ where: { runId, undoneAt: null, eventId: { in: plan.deleteEventIds } } });
     if (remaining > 0) {
-      await releaseLease(runId, token);
-      return { status: "UNDOING", run: await prisma.backfillRun.findUniqueOrThrow({ where: { id: runId } }), deleted: pending.length, kept: 0 };
+      if (!(await releaseLease(runId, token))) throw new LeaseLostError(runId);
+      const kept = await prisma.backfillRunItem.count({ where: { runId, undoOutcome: "KEPT" } });
+      return { status: "UNDOING", run: await prisma.backfillRun.findUniqueOrThrow({ where: { id: runId } }), deleted: pending.length, kept };
     }
     return await finishUndo(await prisma.backfillRun.findUniqueOrThrow({ where: { id: runId } }), plan, token, opts.by, now);
   } catch (err) {
+    if (err instanceof LeaseLostError) return { status: "BUSY" };
     await releaseLease(runId, token);
     throw err;
   }
 }
 
 /**
- * Give every event the undo will touch an item: rows a crashed batch wrote
- * have none. Matched to the plan's rows by the RawEvent's fingerprint.
+ * Give every event the undo will touch an item, since the undo loop and its
+ * finish check run on items: rows a crashed batch wrote have none. An item
+ * takes its plan row by the RawEvent's fingerprint; an event no plan row
+ * matches gets a negative row index, so it is still deleted and counted.
  */
-async function itemizeUnrecorded(run: BackfillRun, plan: UndoPlan): Promise<void> {
+async function itemizeUnrecorded(tx: Prisma.TransactionClient, run: BackfillRun, plan: UndoPlan): Promise<void> {
+  const [items, raws] = await Promise.all([
+    tx.backfillRunItem.findMany({ where: { runId: run.id }, select: { rowIndex: true, eventId: true } }),
+    tx.rawEvent.findMany({
+      where: { sourceId: run.archiveSourceId!, eventId: { in: [...plan.deleteEventIds, ...plan.keep.map((k) => k.eventId)] } },
+      select: { id: true, fingerprint: true, eventId: true },
+      orderBy: { id: "asc" },
+    }),
+  ]);
   const stored = run.plan as unknown as StoredPlan | null;
-  if (!stored) return;
-  const byFp = new Map(stored.toWrite.map((r) => [r.fingerprint, r.index]));
-  const raws = await prisma.rawEvent.findMany({
-    where: { sourceId: run.archiveSourceId!, eventId: { in: [...plan.deleteEventIds, ...plan.keep.map((k) => k.eventId)] } },
-    select: { id: true, fingerprint: true, eventId: true },
-  });
-  await prisma.backfillRunItem.createMany({
-    data: raws
-      .filter((r) => byFp.has(r.fingerprint))
-      .map((r) => ({ runId: run.id, rowIndex: byFp.get(r.fingerprint)!, outcome: "CREATED" as const, fingerprint: r.fingerprint, rawEventId: r.id, eventId: r.eventId })),
-    skipDuplicates: true,
-  });
+  const byFp = new Map((stored?.toWrite ?? []).map((r) => [r.fingerprint, r.index]));
+  const itemized = new Set(items.map((i) => i.eventId));
+  const usedRows = new Set(items.map((i) => i.rowIndex));
+  let spare = Math.min(0, ...usedRows) - 1;
+  const data: Prisma.BackfillRunItemCreateManyInput[] = [];
+  for (const r of raws) {
+    if (itemized.has(r.eventId)) continue;
+    itemized.add(r.eventId);
+    let rowIndex = byFp.get(r.fingerprint);
+    if (rowIndex === undefined || usedRows.has(rowIndex)) rowIndex = spare--;
+    usedRows.add(rowIndex);
+    data.push({ runId: run.id, rowIndex, outcome: "CREATED", fingerprint: r.fingerprint, rawEventId: r.id, eventId: r.eventId });
+  }
+  if (data.length) await tx.backfillRunItem.createMany({ data });
 }
 
 async function finishUndo(run: BackfillRun, plan: UndoPlan, token: string, by: string, now: Date): Promise<UndoResult> {
   const kennelId = run.kennelId!;
+  // UNDONE may clear the cutoff, so every planned delete must have an outcome first.
+  const resolved = await prisma.backfillRunItem.findMany({
+    where: { runId: run.id, undoneAt: { not: null }, eventId: { in: plan.deleteEventIds } },
+    select: { eventId: true },
+    distinct: ["eventId"],
+  });
+  if (resolved.length !== plan.deleteEventIds.length) {
+    throw new Error(`Run ${run.id}: ${plan.deleteEventIds.length - resolved.length} planned deletes have no outcome`);
+  }
   await recomputeCanonicalForSlots(plan.slots.map((s) => ({ kennelId: s.kennelId, date: new Date(`${s.date}T12:00:00.000Z`) })));
   await recomputeLastEventDate(kennelId);
   await refreshKennelEvidence([kennelId], now);
@@ -208,7 +239,7 @@ async function finishUndo(run: BackfillRun, plan: UndoPlan, token: string, by: s
     if (kept === 0) {
       await tx.kennel.updateMany({ where: { id: kennelId, archiveCutoffRunId: run.id }, data: { archiveCutoffDate: null, archiveCutoffRunId: null } });
     }
-    await tx.backfillRun.updateMany({
+    const moved = await tx.backfillRun.updateMany({
       where: { id: run.id, leaseToken: token },
       data: {
         status: "UNDONE",
@@ -218,6 +249,8 @@ async function finishUndo(run: BackfillRun, plan: UndoPlan, token: string, by: s
         statusLines: mergeStatusLines(run.statusLines, "afterUndo", after),
       },
     });
+    // Lost the lease: roll back the cutoff change too; the holder finishes the undo.
+    if (moved.count !== 1) throw new LeaseLostError(run.id);
   });
   await appendStep(run.id, recordStep("undo-finish", by, now, { deleted, kept }));
   return { status: "UNDONE", run: await prisma.backfillRun.findUniqueOrThrow({ where: { id: run.id } }), deleted, kept };

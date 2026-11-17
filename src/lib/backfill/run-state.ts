@@ -54,6 +54,14 @@ export async function acquireLease(runId: string, statuses: BackfillRunStatus[],
   return taken.count === 1 ? token : null;
 }
 
+/** Another caller took the run's lease (ours expired) mid-step: stop without writing more. */
+export class LeaseLostError extends Error {
+  constructor(runId: string) {
+    super(`Lost the lease on backfill run ${runId}`);
+    this.name = "LeaseLostError";
+  }
+}
+
 /** Release the lease if we still hold it, applying `data` in the same update. */
 export async function releaseLease(runId: string, token: string, data: Prisma.BackfillRunUpdateManyMutationInput = {}): Promise<boolean> {
   const released = await prisma.backfillRun.updateMany({

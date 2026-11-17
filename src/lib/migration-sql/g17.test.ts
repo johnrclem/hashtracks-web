@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, it, expect } from "vitest";
-import { checkMigrationForBackfill, findSourceInserts } from "./migration-check";
-import { SAMPLE_ARCHIVE_ONBOARDING, wrap } from "./migration-check.test-fixtures";
+import { checkMigrationForBackfill, findSourceInserts } from "./g17";
+import { SAMPLE_ARCHIVE_ONBOARDING, TEMPLATE_ONBOARDING, wrap } from "./g17.test-fixtures";
 
 /** The last eight onboarding migrations on main when G17 shipped (design 8.1, section 13). */
 const ONBOARDING = readdirSync("prisma/migrations")
@@ -16,6 +16,10 @@ describe("G17 migration checker", () => {
     expect(ONBOARDING).toHaveLength(8);
     const sql = readFileSync(`prisma/migrations/${dir}/migration.sql`, "utf8");
     expect(await checkMigrationForBackfill(sql)).toEqual([]);
+  });
+
+  it("passes a migration written to the template (BEGIN, SET LOCAL lock_timeout, COMMIT)", async () => {
+    expect(await checkMigrationForBackfill(TEMPLATE_ONBOARDING)).toEqual([]);
   });
 
   it("passes a sample onboarding migration that creates an archive source", async () => {
@@ -43,8 +47,10 @@ describe("G17 migration checker", () => {
     ["an enabled archive source", `INSERT INTO "Source" (id, enabled, "archiveOnly") VALUES ('s', true, true) ON CONFLICT DO NOTHING;`, /without enabled = false/],
     ["a non-literal archiveOnly", `INSERT INTO "Source" (id, enabled, "archiveOnly") VALUES ('s', false, 1 = 1) ON CONFLICT DO NOTHING;`, /non-literal/],
     ["an archive source through SELECT", `INSERT INTO "Source" (id, enabled, "archiveOnly") SELECT 's', false, true WHERE NOT EXISTS (SELECT 1 FROM "Source" WHERE id = 's');`, /must use VALUES/],
-    ["another SET", `SET LOCAL session_replication_role = replica;`, /only SET LOCAL lock_timeout/],
-    ["a session-level lock_timeout", `SET lock_timeout = '1s';`, /only SET LOCAL lock_timeout/],
+    ["another SET", `SET LOCAL session_replication_role = replica;`, /the only setting allowed/],
+    ["a session-level lock_timeout", `SET lock_timeout = '1s';`, /the only setting allowed/],
+    ["a second lock_timeout later in the file", `SET LOCAL lock_timeout = '0';`, /the only setting allowed/],
+    ["a lock_timeout to DEFAULT", `SET LOCAL lock_timeout TO DEFAULT;`, /the only setting allowed/],
     ["RETURNING", `INSERT INTO "Kennel" (id) VALUES ('k') ON CONFLICT DO NOTHING RETURNING id;`, /RETURNING/],
     ["ALTER TABLE", `ALTER TABLE "Source" DROP CONSTRAINT "Source_archiveOnly_not_enabled";`, /AlterTableStmt is not allowed/],
   ];
@@ -52,6 +58,12 @@ describe("G17 migration checker", () => {
   it.each(BYPASSES)("refuses %s", async (_label, body, expected) => {
     const problems = await checkMigrationForBackfill(wrap(`${KENNEL}\n${body}`));
     expect(problems.join("\n")).toMatch(expected);
+  });
+
+  it("refuses the lock_timeout outside a BEGIN … COMMIT wrapper, or not first", async () => {
+    expect((await checkMigrationForBackfill(`SET LOCAL lock_timeout = '5s';\n${KENNEL}`)).join()).toMatch(/the only setting allowed/);
+    expect((await checkMigrationForBackfill(`BEGIN;\n${KENNEL}\nSET LOCAL lock_timeout = '5s';\nCOMMIT;`)).join()).toMatch(/the only setting allowed/);
+    expect((await checkMigrationForBackfill(`BEGIN;\nSET LOCAL lock_timeout = '5s';\nSAVEPOINT a;\n${KENNEL}\nCOMMIT;`)).length).toBeGreaterThan(0);
   });
 
   it("refuses a COMMIT mid-file and an unparseable file", async () => {

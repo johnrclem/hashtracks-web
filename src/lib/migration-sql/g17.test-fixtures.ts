@@ -22,3 +22,17 @@ INSERT INTO "SourceKennel" (id, "sourceId", "kennelId")
 SELECT 'sk_g17_archive', 'src_g17_archive', 'knl_g17_test'
 WHERE NOT EXISTS (SELECT 1 FROM "SourceKennel" WHERE "sourceId" = 'src_g17_archive' AND "kennelId" = 'knl_g17_test');
 `);
+
+/** A migration written to the template in docs/ops/system.md#migrations (design 8.1, G17). */
+export const TEMPLATE_ONBOARDING = `-- Onboard Template H3 (Templateville). Refs #0.
+BEGIN;
+SET LOCAL lock_timeout = '5s';
+
+-- Inserts are idempotent: a re-run must be a no-op.
+INSERT INTO "Kennel" (id, "kennelCode", "shortName", "fullName", slug, region, "regionId", country, "createdAt", "updatedAt")
+VALUES ('knl_tpl', 'tpl-h3', 'Template H3', 'Template Hash House Harriers', 'template-h3', 'Templateville', 'rgn_tpl', 'USA', NOW() AT TIME ZONE 'UTC', NOW() AT TIME ZONE 'UTC')
+ON CONFLICT DO NOTHING;
+INSERT INTO "KennelAlias" (id, "kennelId", alias) VALUES ('ka_tpl', 'knl_tpl', 'TPLH3') ON CONFLICT DO NOTHING;
+
+COMMIT;
+`;

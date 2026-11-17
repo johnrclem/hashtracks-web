@@ -45,6 +45,25 @@ export function checkRowRouting(rows: readonly RawEventData[], kennelCode: strin
   return bad;
 }
 
+/**
+ * G5 (origin config): true when the origin could route an event to a kennel
+ * other than `kennelCode`. Reads only each kennelPatterns entry's destination
+ * (`[regex, code | code[]]`), never its regex, and treats an entry it can't
+ * read as routing elsewhere.
+ */
+export function originRoutesElsewhere(config: unknown, kennelCode: string): boolean {
+  const cfg = (config ?? {}) as { kennelPatterns?: unknown; defaultKennelTag?: unknown };
+  if (cfg.defaultKennelTag !== undefined && cfg.defaultKennelTag !== null && cfg.defaultKennelTag !== kennelCode) return true;
+  if (cfg.kennelPatterns === undefined || cfg.kennelPatterns === null) return false;
+  if (!Array.isArray(cfg.kennelPatterns)) return true;
+  return cfg.kennelPatterns.some((entry) => {
+    if (!Array.isArray(entry) || entry.length !== 2) return true;
+    const dest: unknown = entry[1];
+    const codes = Array.isArray(dest) ? dest : [dest];
+    return codes.length === 0 || codes.some((c) => c !== kennelCode);
+  });
+}
+
 /** Section 3: one tag, no series, no external links per row. */
 export function checkRowShape(rows: readonly RawEventData[]): number[] {
   const bad: number[] = [];
@@ -136,14 +155,24 @@ export const GUARD_PATHS: readonly string[] = [
   "src/app/admin/backfills/",
   "src/app/api/agent/backfill/",
   "src/app/api/cron/backfill-watch/",
-  "scripts/ci/check-backfill-manifest.ts",
+  "scripts/ci/",
   "prisma/schema.prisma",
   ".github/workflows/",
 ];
 
-/** G15: the guard paths among a PR's changed files. */
-export function touchedGuardPaths(changedFiles: readonly string[]): string[] {
-  return changedFiles.filter((f) => GUARD_PATHS.some((g) => (g.endsWith("/") ? f.startsWith(g) : f === g)));
+/** The package files whose `libpg-query` entries are guarded (G15: G17's parser). */
+const PACKAGE_FILES = new Set(["package.json", "package-lock.json"]);
+
+/**
+ * G15: the guard paths among a PR's changed files. `patches` (GitHub's per-file
+ * patch) decides whether a package-file change touches `libpg-query`; a
+ * package file changed without a patch to read counts as touching it.
+ */
+export function touchedGuardPaths(changedFiles: readonly string[], patches: Readonly<Record<string, string | undefined>> = {}): string[] {
+  return changedFiles.filter((f) => {
+    if (PACKAGE_FILES.has(f)) return patches[f] === undefined || patches[f]!.includes("libpg-query");
+    return GUARD_PATHS.some((g) => (g.endsWith("/") ? f.startsWith(g) : f === g));
+  });
 }
 
 /** Days of [a, b] (inclusive) that fall inside any of the gaps. */

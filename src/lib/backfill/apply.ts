@@ -28,7 +28,7 @@ import {
   occupiedDateCount,
   type StoredPlan,
 } from "./plan";
-import { acquireLease, appendStep, haltRun, kennelStatusLine, mergeStatusLines, recomputeLastEventDate, recordStep, releaseLease } from "./run-state";
+import { acquireLease, appendStep, haltRun, kennelStatusLine, LeaseLostError, mergeStatusLines, recomputeLastEventDate, recordStep, releaseLease } from "./run-state";
 import { v3Snapshot, v4Intruders, verifyRows, type VerificationResult } from "./verify";
 
 /** At most 200 rows a batch, sized to use at most 150 s of the 300 s limit (9.2). */
@@ -106,6 +106,8 @@ export async function advanceRun(runId: string, opts: AdvanceOptions): Promise<A
     if (ctx.plan.toWrite.some((r) => !done.has(r.index))) return await batchStep(ctx);
     return await finishStep(ctx);
   } catch (err) {
+    // Someone else holds the run now; they carry on from where it is.
+    if (err instanceof LeaseLostError) return { status: "BUSY" };
     // An unexpected error (database, network): release the lease so the next
     // call retries; every written row is complete (10.2).
     await releaseLease(runId, token);
@@ -126,32 +128,40 @@ async function createdItemIndexes(runId: string): Promise<Set<number>> {
 async function cutoffStep(ctx: StepContext): Promise<AdvanceResult> {
   const { run, plan, now } = ctx;
   const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const [startedToday, applying] = await Promise.all([
-    prisma.backfillRun.count({ where: { cutoffSetAt: { gte: dayStart } } }),
-    prisma.backfillRun.count({ where: { status: "APPLYING", id: { not: run.id } } }),
-  ]);
-  if (startedToday >= MAX_APPLIES_PER_DAY) return release(ctx, "WAITING", "G13: two applies already started today");
-  if (applying > 0) return release(ctx, "WAITING", "another run is APPLYING");
   const splitNow = await findSplitDate(run.kennelId, run.originSourceId, formatYmdInTimezone(now, plan.kennelTimezone));
   if (splitNow !== plan.splitDate) return halt(ctx, [`cutoff: the split point moved from ${plan.splitDate} to ${splitNow ?? "none"}`]);
   const before = await kennelStatusLine(run.kennelId, now);
-  const set = await prisma.$transaction(async (tx) => {
+  // Admission (one run APPLYING, G13's daily cap) and the cutoff commit together
+  // under one lock, so two runs for different kennels can't both be admitted.
+  const outcome = await prisma.$transaction(async (tx) => {
+    // One key for every run: admission is global (one run APPLYING at a time).
+    await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('backfill-apply-admission'))::text`;
+    const [startedToday, applying] = await Promise.all([
+      tx.backfillRun.count({ where: { cutoffSetAt: { gte: dayStart } } }),
+      tx.backfillRun.count({ where: { status: "APPLYING", id: { not: run.id } } }),
+    ]);
+    if (startedToday >= MAX_APPLIES_PER_DAY) return "g13" as const;
+    if (applying > 0) return "applying" as const;
     const kennel = await tx.kennel.updateMany({
       where: { id: run.kennelId, archiveCutoffDate: null },
       data: { archiveCutoffDate: parseUtcNoonDate(plan.splitDate), archiveCutoffRunId: run.id },
     });
-    if (kennel.count !== 1) return false;
+    if (kennel.count !== 1) return "taken" as const;
     await tx.backfillRunItem.createMany({
       data: plan.liveOwned.map((rowIndex) => ({ runId: run.id, rowIndex, outcome: "LIVE_OWNED" as const })),
       skipDuplicates: true,
     });
-    await tx.backfillRun.updateMany({
+    const moved = await tx.backfillRun.updateMany({
       where: { id: run.id, leaseToken: ctx.token },
       data: { status: "APPLYING", cutoffSetAt: now, statusLines: mergeStatusLines(run.statusLines, "before", before) },
     });
-    return true;
+    // Lost the lease: roll the cutoff back and let the lease holder carry on.
+    if (moved.count !== 1) throw new LeaseLostError(run.id);
+    return "set" as const;
   });
-  if (!set) return halt(ctx, ["G19: the kennel gained an archive cutoff since the plan"]);
+  if (outcome === "g13") return release(ctx, "WAITING", "G13: two applies already started today");
+  if (outcome === "applying") return release(ctx, "WAITING", "another run is APPLYING");
+  if (outcome === "taken") return halt(ctx, ["G19: the kennel gained an archive cutoff since the plan"]);
   await appendStep(run.id, recordStep("cutoff", ctx.opts.by, now, { splitDate: plan.splitDate }));
   return release(ctx, "CUTOFF_SET");
 }
@@ -356,7 +366,8 @@ async function finishStep(ctx: StepContext): Promise<AdvanceResult> {
   await refreshScheduleOnlyFlags({ sourceId: run.archiveSourceId, since: new Date(0) });
   await refreshKennelEvidence([run.kennelId], now);
   const after = await kennelStatusLine(run.kennelId, now);
-  await releaseLease(run.id, ctx.token, { status: "APPLIED", statusLines: mergeStatusLines(run.statusLines, "after", after) });
+  const finished = await releaseLease(run.id, ctx.token, { status: "APPLIED", statusLines: mergeStatusLines(run.statusLines, "after", after) });
+  if (!finished) throw new LeaseLostError(run.id);
   await appendStep(run.id, recordStep("finish", opts.by, now));
   try {
     const result = await runVerification(run.id, opts.archiveBytes, opts.deployedSha, now);

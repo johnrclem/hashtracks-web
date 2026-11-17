@@ -26,7 +26,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // libpg-query loads a WASM parser; the backfill plan (G17) runs it in routes.
+  // libpg-query loads a WASM parser; the backfill plan (G17) runs it in server routes.
   serverExternalPackages: ["node-ical", "libpg-query"],
   images: {
     // FIRST-PARTY ONLY. The public `/_next/image` optimizer fetches whatever

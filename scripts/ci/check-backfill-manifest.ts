@@ -20,7 +20,7 @@ import { addDays, daysBetween } from "@/lib/backfill/canonical";
 import { checkDeclaredFields, compareManifest, parseArchive, type BackfillManifest } from "@/lib/backfill/manifest";
 import { scanArchiveForPii, summarizePiiHits } from "@/lib/backfill/pii";
 import { checkRowProvenance, SUPPORTED_ORIGIN_TYPES, websiteHosts } from "@/lib/backfill/provenance";
-import { checkMigrationForBackfill, findSourceInserts } from "@/lib/backfill/migration-check";
+import { checkMigrationForBackfill, findSourceInserts } from "@/lib/migration-sql/g17";
 import { checkRowDates, checkRowRouting, checkRowShape, checkRunOrder, checkSeriesMarkerKeys, checkSize, medianRunInterval } from "@/lib/backfill/guards";
 import type { SourceType } from "@/generated/prisma/client";
 
