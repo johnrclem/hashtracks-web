@@ -9,7 +9,7 @@ export function TravelHintBadge({
   label,
   ariaLabel,
 }: Readonly<{
-  glyph: "◆" | "◇";
+  glyph: "◆" | "◇" | "○";
   label: string;
   ariaLabel: string;
 }>) {

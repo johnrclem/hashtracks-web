@@ -21,6 +21,18 @@ export type StatusLine =
   | { kind: "last-run" | "checked" | "next-posted" | "stopped"; date: Date }
   | { kind: "never" };
 
+/**
+ * The own-page URL to link from a status line: always for a never-seen kennel,
+ * and for dated lines only when the surface asks for it (the Travel list).
+ */
+export function ownPageFor(
+  line: StatusLine,
+  ownPageUrl: string | null,
+  showOwnPage: boolean,
+): string | null {
+  return line.kind === "never" || showOwnPage ? ownPageUrl : null;
+}
+
 // Day-count thresholds: the single source of truth for state and SQL filters.
 /** Evidence this recent (today = day 1) means running. */
 const RUNNING_EVIDENCE_DAYS = 90;

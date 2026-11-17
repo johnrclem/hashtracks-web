@@ -4,6 +4,7 @@ import { OwnPageLink } from "@/components/kennels/OwnPageLink";
 import {
   formatStatusLine,
   getStatusLine,
+  ownPageFor,
   toKennelEvidence,
   type SerializedKennelEvidence,
 } from "@/lib/kennel-status";
@@ -14,7 +15,9 @@ interface KennelStatusLineProps {
   ownPageUrl: string | null;
   /** Used for the click-out analytics event. */
   kennelSlug: string;
-  surface?: "card" | "kennel-page";
+  surface?: "card" | "kennel-page" | "travel";
+  /** Link the kennel's own page on dated lines too, not only when we have never seen a run. */
+  showOwnPage?: boolean;
 }
 
 /**
@@ -28,12 +31,13 @@ export function KennelStatusLine({
   ownPageUrl,
   kennelSlug,
   surface = "card",
+  showOwnPage = false,
 }: Readonly<KennelStatusLineProps>) {
   const now = new Date();
   const line = getStatusLine(toKennelEvidence(evidence), now);
   if (!line) return null;
 
-  const ownPage = line.kind === "never" ? ownPageUrl : null;
+  const ownPage = ownPageFor(line, ownPageUrl, showOwnPage);
 
   return (
     <p className="mt-1.5 text-xs text-muted-foreground">
