@@ -6733,3 +6733,19 @@ describe("onboarding backfill mode: review fixes", () => {
     expect(result.created).toBe(1);
   });
 });
+
+describe("simulation matches apply on the run's own earlier rows", () => {
+  beforeEach(() => {
+    mockSourceFind.mockResolvedValue(archiveSource as never);
+    vi.mocked(prisma.kennel.findMany).mockResolvedValue([] as never);
+  });
+
+  it("predicts the date-correction match onto an earlier simulated row (Codex review on #3040)", async () => {
+    mockFingerprint.mockImplementation((e) => `fp_${e.date}`);
+    const sim = await simulateBackfillMerge("src_archive", [
+      buildRawEvent({ date: "2026-02-07", runNumber: 2100, sourceUrl: "https://sheet/x" }),
+      buildRawEvent({ date: SAT, runNumber: 2100, sourceUrl: "https://sheet/x" }),
+    ]);
+    expect(sim.rows.map((r) => r.outcome === "MATCH" ? r.path : r.outcome)).toEqual(["CREATE", "date-correction"]);
+  });
+});
