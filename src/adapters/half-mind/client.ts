@@ -67,8 +67,8 @@ function num(v: unknown): number | null {
 function mapStatus(row: Record<string, unknown>): Exclude<HalfMindStatus, "missing"> {
   const status = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
   const state = typeof row.current_state === "string" ? row.current_state.trim().toLowerCase() : "";
-  if (status === "dead" || state.startsWith("dead")) return "dead";
-  if (status === "active" || state.startsWith("alive")) return "alive";
+  if (status === "dead" || state.includes("dead")) return "dead";
+  if (state === "alive and verified") return "alive";
   return "unknown";
 }
 

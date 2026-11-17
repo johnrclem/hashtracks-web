@@ -53,6 +53,11 @@ describe("parseHalfMindResponse", () => {
     expect(one({ status: "dead" })).toBe("dead");
     expect(one({ status: "active", current_state: "Alive and Verified" })).toBe("alive");
     expect(one({ current_state: "UNKNOWN" })).toBe("unknown");
+    expect(one({ status: "active", current_state: "Unknown" })).toBe("unknown");
+    expect(one({ current_state: "Alive" })).toBe("unknown");
+    expect(one({ current_state: "Alive but unverified" })).toBe("unknown");
+    expect(one({ current_state: "Probably dead" })).toBe("dead");
+    expect(one({ status: "DEAD" })).toBe("dead");
   });
 
   it.each(["<html>", { error: "x" }, { items: "nope" }])("reports one error for bad body %j", (body) => {
