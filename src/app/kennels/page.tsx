@@ -61,6 +61,8 @@ export default async function KennelsPage() {
         website: true,
         facebookUrl: true,
         halfMindListingId: true,
+        listingOnly: true,
+        scheduleNotes: true,
         ...KENNEL_EVIDENCE_SELECT,
       },
     }),

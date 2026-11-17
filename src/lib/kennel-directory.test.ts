@@ -2,6 +2,7 @@ import {
   buildNextEventMap,
   serializeKennelWithNext,
   nextRunLabel,
+  kennelCardView,
 } from "@/lib/kennel-directory";
 
 const evidence = {
@@ -53,5 +54,46 @@ describe("nextRunLabel", () => {
   it("directory card footer label is 'Usual schedule:' for a schedule-only next event", () => {
     expect(nextRunLabel({ isScheduleOnly: true })).toBe("Usual schedule: ");
     expect(nextRunLabel({ isScheduleOnly: false })).toBe("Next run: ");
+  });
+});
+
+describe("serializeKennelWithNext listing-only passthrough", () => {
+  it("passes listingOnly and scheduleNotes through", () => {
+    const out = serializeKennelWithNext(
+      { id: "k1", region: "Atlanta, GA", listingOnly: true, scheduleNotes: "Saturdays 2pm", ...evidence },
+      new Map(),
+    );
+    expect(out.listingOnly).toBe(true);
+    expect(out.scheduleNotes).toBe("Saturdays 2pm");
+  });
+});
+
+describe("kennelCardView", () => {
+  const base = { listingOnly: false, scheduleNotes: null, schedule: null, hasNextEvent: false };
+
+  it("dims and shows the footer for an ordinary kennel with no next run", () => {
+    expect(kennelCardView(base)).toEqual({ scheduleText: null, dimmed: true, showNoUpcomingFooter: true });
+  });
+
+  it("does not dim a kennel with a next run", () => {
+    expect(kennelCardView({ ...base, hasNextEvent: true }).dimmed).toBe(false);
+  });
+
+  it("shows Usually: notes for a listing-only kennel with no structured schedule", () => {
+    expect(kennelCardView({ ...base, listingOnly: true, scheduleNotes: "Saturdays 2pm" })).toEqual({
+      scheduleText: "Usually: Saturdays 2pm",
+      dimmed: false,
+      showNoUpcomingFooter: false,
+    });
+  });
+
+  it("prefers the structured schedule when there is one", () => {
+    expect(
+      kennelCardView({ ...base, listingOnly: true, scheduleNotes: "x", schedule: "Saturdays" }).scheduleText,
+    ).toBe("Saturdays");
+  });
+
+  it("never shows notes for a non-listing kennel", () => {
+    expect(kennelCardView({ ...base, scheduleNotes: "Seasonal" }).scheduleText).toBeNull();
   });
 });

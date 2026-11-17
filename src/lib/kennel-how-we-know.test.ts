@@ -168,6 +168,14 @@ describe("getHowWeKnow Half-Mind check", () => {
   });
 });
 
+describe("getHowWeKnow listing-only kennels", () => {
+  it("has listing coverage and skips the feed lookups", async () => {
+    const { coverage } = await getHowWeKnow("k1", NO_EVIDENCE, NOW, "19", true);
+    expect(coverage).toEqual({ level: "listing" });
+    expect(prisma.sourceKennel.findMany).not.toHaveBeenCalled();
+  });
+});
+
 describe("getHowWeKnowOrEmpty", () => {
   it("logs a failure and renders an empty section instead of taking down the page", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});

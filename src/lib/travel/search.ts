@@ -301,6 +301,7 @@ interface NearbyKennel {
   facebookUrl: string | null;
   instagramHandle: string | null;
   halfMindListingId: string | null;
+  listingOnly: boolean;
   distanceKm: number;
   regionRef: { pinColor: string; centroidLat: number | null; centroidLng: number | null } | null;
 }
@@ -999,12 +1000,7 @@ async function runStopSearch(
     const shownKennelIds = new Set(
       [...filtered.confirmed, ...filtered.likely, ...filtered.possible].map((r) => r.kennelId),
     );
-    // listingOnly is false until the column exists (Task 8).
-    const picked = selectOtherKennels(
-      primary.map((k) => ({ ...k, listingOnly: false })),
-      shownKennelIds,
-      ctx.now,
-    );
+    const picked = selectOtherKennels(primary, shownKennelIds, ctx.now);
     if (picked.length > 0) otherKennels = picked;
   }
 
@@ -1085,6 +1081,7 @@ async function fetchAllVisibleKennels(prisma: PrismaClient) {
       facebookUrl: true,
       instagramHandle: true,
       halfMindListingId: true,
+      listingOnly: true,
       regionRef: { select: { pinColor: true, centroidLat: true, centroidLng: true } },
     },
   });

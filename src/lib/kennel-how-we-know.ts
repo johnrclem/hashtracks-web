@@ -12,6 +12,7 @@ import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
 export type KennelCoverage =
   | { level: "full"; sourceNames: string[] }
   | { level: "schedule" }
+  | { level: "listing" }
   | { level: "none" };
 
 export type EvidenceItem =
@@ -114,6 +115,7 @@ export async function getHowWeKnow(
   evidence: KennelEvidence,
   now: Date = new Date(),
   halfMindListingId: string | null = null,
+  listingOnly = false,
 ): Promise<HowWeKnow> {
   const lastRunAt = evidence.lastRunSeenAt;
   const nextPostedAt =
@@ -122,7 +124,8 @@ export async function getHowWeKnow(
       : null;
 
   const [coverage, confirmations, lastRunSource, nextPostedSource] = await Promise.all([
-    getCoverage(kennelId, now),
+    // A listing-only kennel has no feeds: all we have is the Half-Mind listing.
+    listingOnly ? Promise.resolve<KennelCoverage>({ level: "listing" }) : getCoverage(kennelId, now),
     prisma.kennelConfirmation.findMany({
       where: { kennelId, revertedAt: null },
       orderBy: { observedAt: "desc" },
@@ -178,9 +181,10 @@ export async function getHowWeKnowOrEmpty(
   evidence: KennelEvidence,
   now: Date = new Date(),
   halfMindListingId: string | null = null,
+  listingOnly = false,
 ): Promise<HowWeKnow> {
   try {
-    return await getHowWeKnow(kennelId, evidence, now, halfMindListingId);
+    return await getHowWeKnow(kennelId, evidence, now, halfMindListingId, listingOnly);
   } catch (err) {
     console.error(`[kennel-page] "How we know" failed for kennel ${kennelId}; rendering it empty`, err);
     return NO_HOW_WE_KNOW;

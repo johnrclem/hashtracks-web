@@ -14,6 +14,15 @@ export function safeJsonLd(data: unknown): string {
   return JSON.stringify(data).replace(/<\/script/gi, "<\\/script");
 }
 
+/**
+ * Robots metadata for a kennel page. A listing-only kennel (known only from
+ * Half-Mind) is noindex so we do not rank thin pages; crawlers still follow
+ * its links. Ordinary kennels add nothing, so the site default applies.
+ */
+export function kennelRobots(listingOnly: boolean | null | undefined): { index: false; follow: true } | undefined {
+  return listingOnly ? { index: false, follow: true } : undefined;
+}
+
 // ── JSON-LD Builders ──
 
 interface KennelJsonLdInput {

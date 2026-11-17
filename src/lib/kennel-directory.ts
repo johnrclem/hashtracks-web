@@ -103,3 +103,24 @@ export function serializeKennelWithNext<K extends KennelForDirectorySerialize>(
     evidence: serializeKennelEvidence({ lastRunSeenAt, nextRunPostedAt, lastConfirmedAt, lastConfirmedVia, stoppedAt }),
   };
 }
+
+/**
+ * Display decisions for a directory card. A listing-only kennel has no
+ * runs by design, so it is not dimmed, has no "No upcoming runs" footer
+ * (its status line carries the evidence and the link out), and shows the
+ * Half-Mind schedule notes when it has no structured schedule.
+ */
+export function kennelCardView(k: {
+  listingOnly?: boolean | null;
+  scheduleNotes?: string | null;
+  schedule: string | null;
+  hasNextEvent: boolean;
+}): { scheduleText: string | null; dimmed: boolean; showNoUpcomingFooter: boolean } {
+  const listing = k.listingOnly === true;
+  const notes = k.scheduleNotes?.trim();
+  return {
+    scheduleText: k.schedule ?? (listing && notes ? `Usually: ${notes}` : null),
+    dimmed: !k.hasNextEvent && !listing,
+    showNoUpcomingFooter: !k.hasNextEvent && !listing,
+  };
+}

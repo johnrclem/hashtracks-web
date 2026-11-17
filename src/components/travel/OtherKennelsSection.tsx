@@ -46,6 +46,7 @@ export function OtherKennelsSection({
               kennelSlug={k.slug}
               surface="travel"
               showOwnPage
+              listingOnly={k.listingOnly}
               listingUrl={k.halfMindListingId ? halfMindListingUrl(k.halfMindListingId) : null}
             />
           </li>

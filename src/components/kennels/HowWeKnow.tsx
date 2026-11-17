@@ -14,6 +14,7 @@ export type SerializedEvidenceItem =
 export type SerializedCoverage =
   | { level: "full"; sourceNames: string[] }
   | { level: "schedule" }
+  | { level: "listing" }
   | { level: "none" };
 
 interface HowWeKnowProps {
@@ -25,6 +26,8 @@ interface HowWeKnowProps {
   kennelSlug: string;
   /** The kennel's Half-Mind listing page, when it has one. */
   listingUrl?: string | null;
+  /** Half-Mind-only kennel: its status line links the own page on every state. */
+  listingOnly?: boolean;
 }
 
 const KIND_LABEL = {
@@ -49,6 +52,7 @@ export function HowWeKnow({
   ownPageUrl: ownPage,
   kennelSlug,
   listingUrl = null,
+  listingOnly = false,
 }: Readonly<HowWeKnowProps>) {
   // The coverage sentence carries the link when we don't get their runs; the
   // status line above it then drops its own copy so the link shows once.
@@ -63,6 +67,7 @@ export function HowWeKnow({
         kennelSlug={kennelSlug}
         surface="kennel-page"
         listingUrl={listingUrl}
+        listingOnly={listingOnly}
       />
       {items.length > 0 && (
         <ul className="mt-2 space-y-1 text-sm">
@@ -96,6 +101,24 @@ export function HowWeKnow({
         {coverage.level === "full" && `We get their runs from ${formatSources(coverage.sourceNames)}.`}
         {coverage.level === "schedule" &&
           "We only know their usual schedule. Check their page for actual runs."}
+        {coverage.level === "listing" && (
+          <>
+            We only know their{" "}
+            {listingUrl ? (
+              <a
+                href={listingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                Half-Mind listing
+              </a>
+            ) : (
+              "Half-Mind listing"
+            )}
+            .
+          </>
+        )}
         {coverage.level === "none" && (
           <>
             We don&apos;t get their runs.

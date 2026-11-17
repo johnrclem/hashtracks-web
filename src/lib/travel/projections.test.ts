@@ -50,6 +50,10 @@ describe("projectTrails", () => {
   const windowStart = utcNoon("2026-04-01");
   const windowEnd = utcNoon("2026-04-30");
 
+  it("yields no projections for a kennel with no ScheduleRule (listing-only kennels)", () => {
+    expect(projectTrails([], windowStart, windowEnd)).toEqual([]);
+  });
+
   it("generates weekly Saturday dates within window", () => {
     const rules = [makeRule()];
     const results = projectTrails(rules, windowStart, windowEnd);

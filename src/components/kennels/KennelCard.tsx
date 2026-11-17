@@ -4,7 +4,7 @@ import { KennelStatusLine } from "@/components/kennels/KennelStatusLine";
 import { KennelLogo } from "@/components/kennels/KennelLogo";
 import { halfMindListingUrl } from "@/lib/half-mind";
 import { kennelOwnPageUrl } from "@/lib/safe-url";
-import { nextRunLabel } from "@/lib/kennel-directory";
+import { kennelCardView, nextRunLabel } from "@/lib/kennel-directory";
 import type { SerializedKennelEvidence } from "@/lib/kennel-status";
 import { formatSchedule, formatDateShort, type ScheduleSlot } from "@/lib/format";
 
@@ -28,6 +28,8 @@ export interface KennelCardData {
   website?: string | null;
   facebookUrl?: string | null;
   halfMindListingId?: string | null;
+  listingOnly?: boolean;
+  scheduleNotes?: string | null;
   nextEvent: { date: string; title: string | null; isScheduleOnly: boolean } | null;
   evidence: SerializedKennelEvidence;
 }
@@ -37,7 +39,14 @@ interface KennelCardProps {
 }
 
 export function KennelCard({ kennel }: KennelCardProps) {
-  const schedule = formatSchedule(kennel);
+  const structured = formatSchedule(kennel);
+  const view = kennelCardView({
+    listingOnly: kennel.listingOnly,
+    scheduleNotes: kennel.scheduleNotes,
+    schedule: structured,
+    hasNextEvent: kennel.nextEvent !== null,
+  });
+  const schedule = view.scheduleText;
   // eslint-disable-next-line react-hooks/purity
   const now = Date.now();
 
@@ -52,7 +61,7 @@ export function KennelCard({ kennel }: KennelCardProps) {
     // (relative z-10) so the anchors are siblings, never nested. Keyboard
     // focus on either link rings the whole card.
     <div className="relative h-full">
-      <div className={`rounded-lg border bg-card p-4 transition-colors hover:border-primary/50 hover:shadow-sm has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring has-[a:focus-visible]:ring-offset-2 h-full flex flex-col${!kennel.nextEvent ? " opacity-60" : ""}`}>
+      <div className={`rounded-lg border bg-card p-4 transition-colors hover:border-primary/50 hover:shadow-sm has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring has-[a:focus-visible]:ring-offset-2 h-full flex flex-col${view.dimmed ? " opacity-60" : ""}`}>
         {/* Header: logo + shortName + region badge. Logo avatar mirrors the
             profile-page hero (src/app/kennels/[slug]/page.tsx) at card scale;
             initials are the null-logo fallback. */}
@@ -99,6 +108,7 @@ export function KennelCard({ kennel }: KennelCardProps) {
           evidence={kennel.evidence}
           ownPageUrl={kennelOwnPageUrl(kennel.website ?? null, kennel.facebookUrl ?? null)}
           kennelSlug={kennel.slug}
+          listingOnly={kennel.listingOnly}
           listingUrl={kennel.halfMindListingId ? halfMindListingUrl(kennel.halfMindListingId) : null}
         />
 
@@ -121,7 +131,9 @@ export function KennelCard({ kennel }: KennelCardProps) {
         {/* Spacer to push next run to bottom */}
         <div className="flex-1" />
 
-        {/* Next run */}
+        {/* Next run. A listing-only kennel omits the footer: its status line
+            already shows the dated evidence and the link out. */}
+        {(kennel.nextEvent || view.showNoUpcomingFooter) && (
         <div className="mt-3 pt-2 border-t text-xs">
           {kennel.nextEvent ? (
             <>
@@ -134,6 +146,7 @@ export function KennelCard({ kennel }: KennelCardProps) {
             <span className="text-muted-foreground italic">No upcoming runs</span>
           )}
         </div>
+        )}
       </div>
     </div>
   );

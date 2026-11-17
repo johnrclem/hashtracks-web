@@ -101,6 +101,8 @@ export default async function RegionPage({
         website: true,
         facebookUrl: true,
         halfMindListingId: true,
+        listingOnly: true,
+        scheduleNotes: true,
         ...KENNEL_EVIDENCE_SELECT,
       },
     }),

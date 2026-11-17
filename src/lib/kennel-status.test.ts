@@ -207,4 +207,8 @@ describe("ownPageFor", () => {
     expect(ownPageFor(line, url, false)).toBe(url);
     expect(ownPageFor({ ...line, via: "ADMIN" }, url, false)).toBeNull();
   });
+  it("returns the url for an ADMIN checked line when showOwnPage is set (listing-only kennels)", () => {
+    const line = { kind: "checked", via: "ADMIN", date: new Date() } as const;
+    expect(ownPageFor(line, url, true)).toBe(url);
+  });
 });

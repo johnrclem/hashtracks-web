@@ -5,6 +5,7 @@ import {
   buildRegionItemListJsonLd,
   buildWebSiteJsonLd,
   generateRegionIntro,
+  kennelRobots,
   safeJsonLd,
 } from "@/lib/seo";
 
@@ -243,5 +244,16 @@ describe("generateRegionIntro", () => {
     expect(generateRegionIntro("Denver, CO", 1, ["Sunday"])).toBe(
       "Denver, CO has 1 active kennel with runs on Sundays. Find your next trail below.",
     );
+  });
+});
+
+describe("kennelRobots", () => {
+  it("noindexes a listing-only kennel but lets crawlers follow its links", () => {
+    expect(kennelRobots(true)).toEqual({ index: false, follow: true });
+  });
+
+  it("adds nothing for a normal kennel", () => {
+    expect(kennelRobots(false)).toBeUndefined();
+    expect(kennelRobots(null)).toBeUndefined();
   });
 });

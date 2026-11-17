@@ -22,6 +22,8 @@ interface KennelStatusLineProps {
   showOwnPage?: boolean;
   /** The kennel's Half-Mind listing page; links "Half-Mind listing" on a Half-Mind check line. */
   listingUrl?: string | null;
+  /** Half-Mind-only kennel: always shows a status line and links its own page. */
+  listingOnly?: boolean;
 }
 
 /**
@@ -37,12 +39,13 @@ export function KennelStatusLine({
   surface = "card",
   showOwnPage = false,
   listingUrl = null,
+  listingOnly = false,
 }: Readonly<KennelStatusLineProps>) {
   const now = new Date();
-  const line = getStatusLine(toKennelEvidence(evidence), now);
+  const line = getStatusLine(toKennelEvidence(evidence), now, { listingOnly });
   if (!line) return null;
 
-  const ownPage = ownPageFor(line, ownPageUrl, showOwnPage);
+  const ownPage = ownPageFor(line, ownPageUrl, listingOnly || showOwnPage);
   const text = formatStatusLine(line, now);
   const linkedListing =
     line.kind === "checked" && line.via === "HALF_MIND" && listingUrl && text.startsWith(LISTING_WORDS)

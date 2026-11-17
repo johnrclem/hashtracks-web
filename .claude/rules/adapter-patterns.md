@@ -95,6 +95,8 @@ A single Source row often feeds multiple kennels (aggregator calendars, multi-ke
 
 **When to onboard sibling kennels:** Each sibling needs its own Source row reading the same CSV URL with its own `groupFilter` and `kennelTagRules.default`. Distinct run-number sequences and active hashers are the trigger; sourceless directory entries violate the no-sourceless-kennels rule.
 
+**Exception: listing-only kennels.** A kennel with `Kennel.listingOnly: true` (created from a Half-Mind listing via the admin discovery queue) is the spec-approved exception to "no sourceless kennels". It has no Source, no ScheduleRule and no events by design; the page is `noindex`, out of the sitemap and the Hareline, and shown in Travel only under "Other kennels near". Audits and onboarding tools must leave it alone (do not flag it as sourceless, and do not attach a STATIC_SCHEDULE to it).
+
 **Joint-trail / co-host rows:** A row like `Group = "MH3 / BNH"` legitimately belongs to both kennels — `tokenizeGroupCell` keeps it under whichever filter is active. The merge pipeline records both via `EventKennel` rows when `RawEventData.kennelTags` carries both codes; see "kennelTags" in Required Conventions.
 
 ## Testing Pattern
