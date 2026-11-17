@@ -316,7 +316,7 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
 - Modify: the card data plumbing, for `halfMindListingId`:
   - `KennelCardData` in `src/components/kennels/KennelCard.tsx` (around line 10);
   - `serializeKennelWithNext` in `src/lib/kennel-directory.ts`;
-  - the selects in `src/app/kennels/page.tsx` (around lines 44–63), `src/app/kennels/region/[slug]/page.tsx` (around lines 85–103) and `src/app/kennels/[slug]/page.tsx`.
+  - the selects in `src/app/kennels/page.tsx` (around lines 44–63) and `src/app/kennels/region/[slug]/page.tsx` (around lines 85–103). The kennel page's query uses `include`, so it needs no select change.
 - Modify: `src/components/kennels/HowWeKnow.tsx` (around line 33), `src/lib/kennel-how-we-know.ts` (+ test)
 - Modify: `src/lib/kennel-confirmations.ts`: the `evidenceAfter` stop-refusal copy (around line 100) (+ test)
 - Modify: `src/components/kennels/KennelStatusLine.tsx` (+ test): `ownPageFor` also returns the url for a HALF_MIND `checked` line, and a new `listingUrl` prop.
@@ -468,10 +468,17 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
       - refuses with nothing written when the listing is already on another kennel: `That Half-Mind listing is already linked to <shortName>.`;
       - refuses when the kennel already has a different listing: `<shortName> is already linked to Half-Mind listing #<id>. Unlink it first.`;
       - maps a P2002 on `halfMindListingId` to the first message.
-    - `unlinkHalfMindListing` clears `halfMindListingId`, calls `revertHalfMindChecksFor`, and sets the row back to NEW with `matchedKennelId: null`.
-      - A later sync of the same listing at the same `lastVerifiedAt` records nothing: the per-listing comparison counts reverted checks.
-      - Linking the kennel to a different listing with an older check date still records that check.
+    - `unlinkHalfMindListing` clears `halfMindListingId`, calls `revertHalfMindChecksFor`, and sets the row back to NEW with `matchedKennelId: null`. After that, the sync no longer refreshes the kennel, because no kennel holds the listing id.
+    - **Relink, then sync:**
+      1. link records the check;
+      2. unlink reverts it;
+      3. relinking the same listing records the current check again, without the flag;
+      4. a sync at the same `lastVerifiedAt` then returns `{ skipped: true }`.
     - `bulkDismissDiscoveries` skips LINKED and ADDED HALFMIND rows.
+  - `kennel-confirmations.test.ts`: test the per-listing comparison directly.
+    - With `onlyIfNewerForUrl: U`, the write is skipped when a **reverted** HALF_MIND check with `url: U` has an equal or later `observedAt`.
+    - It is recorded when the only existing check has a different url, even with a later date.
+    - A HALF_MIND write on a stopped kennel returns `{ stopped: true }`.
     - `addListingOnlyKennel`:
       - refuses, returning `duplicateOf`, when the row's best candidate scores ≥ 0.8, unless `confirmNotDuplicate`;
       - creates the kennel with `listingOnly: true`, `halfMindListingId`, `latitude`/`longitude`, `website`, `facebookUrl`, `scheduleNotes` = the cleaned schedule and the given region, through the shared creation helper;
@@ -533,13 +540,15 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
 ### Task 8: Listing-only kennels on public pages
 
 **Files:**
-- Modify: `src/app/kennels/[slug]/page.tsx` (`generateMetadata`; select `listingOnly`, `halfMindListingId`)
+- Modify: `src/app/kennels/[slug]/page.tsx`: `generateMetadata`, and pass `listingOnly` to its `KennelStatusLine`. Its query uses `include`, so the new columns arrive without a select change.
+- Modify: `src/components/kennels/KennelStatusLine.tsx`: a `listingOnly` prop, passed to `getStatusLine` and used to set `showOwnPage`.
+- Modify: `src/components/travel/OtherKennelsSection.tsx`: pass each row's `listingOnly` to `KennelStatusLine`.
 - Modify: `src/lib/kennel-how-we-know.ts` (+ test), `src/components/kennels/HowWeKnow.tsx` (coverage `level: "listing"`)
 - Modify: `src/app/kennels/page.tsx` (select around lines 44–63) and `src/app/kennels/region/[slug]/page.tsx` (select around lines 85–103). Each adds `listingOnly` and `scheduleNotes`; `halfMindListingId` arrived in Task 4. Evidence comes in through `KENNEL_EVIDENCE_SELECT`.
 - Modify: `src/lib/kennel-directory.ts` (+ test): `serializeKennelWithNext` passes `listingOnly` and `scheduleNotes` through.
 - Modify: `src/components/kennels/KennelCard.tsx`: `KennelCardData` gains `listingOnly` and `scheduleNotes`. The card passes `listingOnly` to `KennelStatusLine`, which passes it to `getStatusLine` and sets `showOwnPage`.
 - Modify: `src/app/sitemap.ts`
-- Modify: `src/lib/travel/search.ts`: the select adds `listingOnly` and `halfMindListingId`, and Task 1's candidate mapping uses the real values.
+- Modify: `src/lib/travel/search.ts`: the select adds `listingOnly` (`halfMindListingId` arrived in Task 4), and Task 1's candidate mapping uses the real value.
 - Modify: `.claude/rules/adapter-patterns.md` and `docs/source-onboarding-playbook.md`: note that listing-only kennels are the spec-approved exception to "no sourceless kennels", so audit and onboarding tools leave them alone.
 
 - [ ] **Step 1: Write the failing tests.**
@@ -607,6 +616,9 @@ The spec says "re-sync verified dates on a schedule (**if permitted**)". The cro
 - **Refresh confirmations:** these are recorded as the admin who linked the listing (`processedBy`). The link was reviewed; only the date is new, and `via = HALF_MIND` shows the origin.
 - **Storage:** only listings that pass the bar are stored, plus rows already in the queue. This avoids adding about 1,000 unreviewable rows next to the 590 Hash Rego ones.
 - **Dead and missing listings:** these are flags for the owner. A linked kennel keeps its last credited check until it ages out or the owner stops or unlinks it.
+- **Running kennels with no rules (R3-1, accepted):** the bridge follows the spec's wording, "quiet and listing-only kennels". A kennel with no schedule rules that a Half-Mind check makes running, and that has no posted run on the trip dates, appears nowhere in Travel. The example is SLUT H3: last run Jul 2, no active rules, Half-Mind check Oct 17. Pilot impact is about nil.
+  - Widening the bridge to running kennels that appear in no result row would need a dated line for running kennels too, which Status 1 deliberately hides. That's a follow-up for the four-week Travel review.
+- **The deciding test drops every confirmation, not only the Half-Mind one (R3-5):** `isHalfMindDeciding` tests "not running with `lastConfirmedAt: null`". A kennel an older admin check would also keep running can still show the Half-Mind line. That line is honest and credited, so this is accepted.
 
 ## Revision log
 
@@ -648,3 +660,13 @@ The spec says "re-sync verified dates on a schedule (**if permitted**)". The cro
 | R2-8 search, region, creation helper | the page loads the kennel list and centroids; nearest-centroid region prefill; `kennel-creation.ts` fields (Tasks 6–7) |
 | R2-9 bulk dismiss | guarded (Task 6) |
 | Hash Rego guard reason | corrected: the narrow guard stays, and the pre-existing GEMINI misuse is a separate follow-up |
+
+**R3 re-review (2026-11-17): APPROVE**, with 5 Minor findings, folded in:
+
+| Finding | Resolution |
+|---|---|
+| R3-1 bridge leaves out running kennels with no rules | accepted per the spec's wording; SLUT H3 named in "My calls"; widening is a four-week-review follow-up |
+| R3-2 `listingOnly` not passed on the bridge and kennel page | both pass it; `KennelStatusLine.tsx` added to Task 8's files |
+| R3-3 duplicate `halfMindListingId` additions | removed from Task 8; the kennel page needs no select change (it uses `include`) |
+| R3-4 unlink test's reason | rewritten; direct per-listing tests in `kennel-confirmations.test.ts`, plus relink-then-sync |
+| R3-5 deciding test drops admin checks too | accepted and noted in "My calls" |
