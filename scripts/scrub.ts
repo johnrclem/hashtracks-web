@@ -37,7 +37,8 @@ const URL_CREDENTIALS_RE = /(?<=:\/\/)[^\s/@:]+:[^\s/@]+(?=@)/g;
 const QUERY_PARAM_RE = /(?<=[?&;]|\\u0026)([\w.-]+)=([^&#\s"'`<>)\]\\]+)/g;
 const SECRET_NAME_RE = /(?:key|token|sig|signature|secret|password)$/i;
 // `.env` lines and inline assignments: `GOOGLE_CALENDAR_API_KEY=…`, `CRON_SECRET="…"`.
-const ENV_ASSIGNMENT_RE = /\b([A-Z][A-Z\d_]*(?:KEY|TOKEN|SECRET|PASSWORD))=("[^"\n]*"|'[^'\n]*'|[^\s"']\S*)/g;
+// A backtick ends the value, so markdown code (`CRON_SECRET=abc`) keeps its closing backtick.
+const ENV_ASSIGNMENT_RE = /\b([A-Z][A-Z\d_]*(?:KEY|TOKEN|SECRET|PASSWORD))=("[^"\n]*"|'[^'\n]*'|[^\s"'`][^\s`]*)/g;
 const GOOGLE_API_KEY_RE = /AIza[\w-]{30,}/g;
 // Sixteen characters at least, so prose ("the bearer acknowledged …") is left alone.
 const BEARER_RE = /(?<=\bBearer\s+)[\w.~+/-]{16,}=*/gi;

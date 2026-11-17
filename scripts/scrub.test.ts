@@ -35,6 +35,8 @@ describe("scrubSecrets", () => {
     ],
     ["a .env line", "GOOGLE_CALENDAR_API_KEY=abc123", "GOOGLE_CALENDAR_API_KEY=[secret]"],
     ["a quoted .env value", 'CRON_SECRET="s3cr3t value"', "CRON_SECRET=[secret]"],
+    ["an assignment in markdown code", "run `CRON_SECRET=abc123 npm test`", "run `CRON_SECRET=[secret] npm test`"],
+    ["a value ending at a backtick", "`API_KEY=abc123`", "`API_KEY=[secret]`"],
   ])("removes %s", (_label, input, expected) => {
     expect(secrets(input)).toBe(expected);
   });
@@ -46,6 +48,7 @@ describe("scrubSecrets", () => {
     ["a shell reference in a query", 'curl "https://example.com/x?key=$GOOGLE_CALENDAR_API_KEY"'],
     ["a shell reference in an assignment", "CRON_SECRET=$(grep -m1 '^CRON_SECRET=' .env)"],
     ["a non-secret env line", "NEXT_PUBLIC_APP_URL=https://www.hashtracks.xyz"],
+    ["a bare name in markdown code", "`NAME_KEY=` assignments"],
   ])("keeps %s", (_label, input) => {
     expect(secrets(input)).toBe(input);
   });
