@@ -88,12 +88,13 @@ async function recordRowCheck(adminId: string, kennelId: string, row: KennelDisc
   return "recorded";
 }
 
-function linkWarning(outcome: CheckOutcome): string | undefined {
+/** What to tell the admin when a link or add recorded no check; undefined when it did. */
+function checkWarning(done: "Linked" | "Added", outcome: CheckOutcome): string | undefined {
   if (outcome === "recorded") return undefined;
-  if (outcome === "too-old") return "Linked; the Half-Mind check is too old to record.";
-  if (outcome === "stopped") return "Linked; the kennel is stopped, so the check was not recorded.";
-  if (outcome === "not-alive") return "Linked; Half-Mind doesn't mark this kennel alive, so the check was not recorded.";
-  return `Linked; the check was not recorded: ${outcome.error}`;
+  if (outcome === "too-old") return `${done}; the Half-Mind check is too old to record.`;
+  if (outcome === "stopped") return `${done}; the kennel is stopped, so the check was not recorded.`;
+  if (outcome === "not-alive") return `${done}; Half-Mind doesn't mark this kennel alive, so the check was not recorded.`;
+  return `${done}; the check was not recorded: ${outcome.error}`;
 }
 
 /** Run the Half-Mind sync for the pilot scopes. */
@@ -162,7 +163,7 @@ export async function linkHalfMindListing(
     return { error: alreadyLinkedTo(winner?.shortName ?? "another kennel") };
   }
 
-  const warning = linkWarning(await recordRowCheck(adminId, kennelId, row, now));
+  const warning = checkWarning("Linked", await recordRowCheck(adminId, kennelId, row, now));
   revalidatePath("/admin/discovery");
   await revalidateKennel(kennelId);
   return warning ? { success: true, warning } : { success: true };
@@ -202,7 +203,7 @@ export async function addListingOnlyKennel(
   discoveryId: string,
   data: { shortName: string; fullName: string; regionId: string },
   opts: { confirmNotDuplicate?: boolean } = {},
-): Promise<{ success: true; kennelId: string } | { error: string; duplicateOf?: Candidate }> {
+): Promise<{ success: true; kennelId: string; warning?: string } | { error: string; duplicateOf?: Candidate }> {
   const loaded = await loadHalfMindRow(discoveryId);
   if ("error" in loaded) return loaded;
   const { adminId, row } = loaded;
@@ -235,10 +236,10 @@ export async function addListingOnlyKennel(
   });
   if ("error" in result) return result;
 
-  await recordRowCheck(adminId, result.kennelId, row, new Date());
+  const warning = checkWarning("Added", await recordRowCheck(adminId, result.kennelId, row, new Date()));
   revalidatePath("/admin/discovery");
   await revalidateKennel(result.kennelId);
-  return { success: true, kennelId: result.kennelId };
+  return warning ? { success: true, kennelId: result.kennelId, warning } : { success: true, kennelId: result.kennelId };
 }
 
 /** Dismiss a NEW Half-Mind row (a duplicate or a listing we don't want). */

@@ -4,6 +4,7 @@
  * only the fields we need (never contact emails).
  */
 import { safeFetch } from "@/adapters/safe-fetch";
+import { toUtcNoon } from "@/lib/kennel-status";
 import { safeUrl } from "@/lib/safe-url";
 
 export const HALF_MIND_API_URL = "https://half-mind.com/api/v1/kennels.php";
@@ -38,7 +39,10 @@ export interface HalfMindListing {
 export interface HalfMindResult {
   listings: HalfMindListing[];
   truncated: boolean;
+  /** Request-level failures (network, non-200, non-JSON, wrong shape): the response is unusable. */
   errors: string[];
+  /** Rows skipped as malformed; the other listings are good, but the response is incomplete. */
+  rowErrors: string[];
 }
 
 const DAY_MS = 86_400_000;
@@ -72,7 +76,7 @@ function mapStatus(row: Record<string, unknown>): Exclude<HalfMindStatus, "missi
   return "unknown";
 }
 
-/** "YYYY-MM-DD[ HH:MM:SS]" -> that date at UTC noon; null when invalid or after `now`. */
+/** "YYYY-MM-DD[ HH:MM:SS]" -> that date at UTC noon; null when invalid or after today's UTC date. */
 function parseVerifiedAt(v: unknown, now: Date): Date | null {
   if (typeof v !== "string") return null;
   const datePart = v.trim().slice(0, 10);
@@ -82,7 +86,7 @@ function parseVerifiedAt(v: unknown, now: Date): Date | null {
   if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d) || y < 1990) return null;
   const date = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
   if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return null;
-  return date.getTime() > now.getTime() ? null : date;
+  return date.getTime() > toUtcNoon(now) ? null : date;
 }
 
 function to12Hour(token: string): string | null {
@@ -148,19 +152,19 @@ export function cleanHalfMindSchedule(raw: unknown): string | null {
 
 export function parseHalfMindResponse(body: unknown, now: Date): HalfMindResult {
   if (!isRecord(body) || !Array.isArray(body.items)) {
-    return { listings: [], truncated: false, errors: ["Half-Mind response had an unexpected shape"] };
+    return { listings: [], truncated: false, errors: ["Half-Mind response had an unexpected shape"], rowErrors: [] };
   }
   const listings: HalfMindListing[] = [];
-  const errors: string[] = [];
+  const rowErrors: string[] = [];
   body.items.forEach((row: unknown, index: number) => {
     if (!isRecord(row)) {
-      errors.push(`Half-Mind row ${index} is not an object`);
+      rowErrors.push(`Half-Mind row ${index} is not an object`);
       return;
     }
     const idNum = num(row.id);
     const name = str(row.name);
     if (idNum === null || name === null) {
-      errors.push(`Half-Mind row ${index} is missing id or name`);
+      rowErrors.push(`Half-Mind row ${index} is missing id or name`);
       return;
     }
     listings.push({
@@ -178,16 +182,19 @@ export function parseHalfMindResponse(body: unknown, now: Date): HalfMindResult 
       facebookUrl: safeUrl(str(row.facebook)),
     });
   });
-  return { listings, truncated: body.truncated === true, errors };
+  return { listings, truncated: body.truncated === true, errors: [], rowErrors };
 }
 
-/** A Half-Mind check counts only when the listing claims active, was verified within a year, and gives a page and a pin. */
+/**
+ * A Half-Mind check counts only when the listing claims active, was verified
+ * within a year (by UTC date, today counting as day 1), and gives a page and a pin.
+ */
 export function passesImportBar(
   l: Pick<HalfMindListing, "status" | "lastVerifiedAt" | "website" | "facebookUrl" | "latitude" | "longitude">,
   now: Date,
 ): boolean {
   if (l.status !== "alive" || !l.lastVerifiedAt) return false;
-  if (now.getTime() - l.lastVerifiedAt.getTime() > MAX_VERIFIED_AGE_DAYS * DAY_MS) return false;
+  if (toUtcNoon(now) - toUtcNoon(l.lastVerifiedAt) >= MAX_VERIFIED_AGE_DAYS * DAY_MS) return false;
   if (!l.website && !l.facebookUrl) return false;
   return l.latitude !== null && l.longitude !== null;
 }
@@ -196,7 +203,7 @@ export async function fetchHalfMindListings(scope: HalfMindScope, now: Date = ne
   const params = new URLSearchParams({ country: scope.country });
   if (scope.state) params.set("state", scope.state);
   params.set("dead", "1");
-  const fail = (msg: string): HalfMindResult => ({ listings: [], truncated: false, errors: [msg] });
+  const fail = (msg: string): HalfMindResult => ({ listings: [], truncated: false, errors: [msg], rowErrors: [] });
 
   let res: Response;
   try {

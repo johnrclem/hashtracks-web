@@ -441,9 +441,23 @@ describe("addListingOnlyKennel", () => {
     ]);
   });
 
-  it("adds a stale row without recording a check", async () => {
+  it("adds a stale row without recording a check, and says so", async () => {
     discovery("d-301").externalCheckedAt = new Date("2025-01-10T12:00:00Z");
-    expect(await addListingOnlyKennel("d-301", form)).toMatchObject({ success: true });
+    expect(await addListingOnlyKennel("d-301", form)).toEqual({
+      success: true,
+      kennelId: expect.any(String),
+      warning: "Added; the Half-Mind check is too old to record.",
+    });
+    expect(runningChecks()).toHaveLength(0);
+  });
+
+  it("adds a row Half-Mind no longer marks alive without recording a check, and says so", async () => {
+    discovery("d-301").externalStatus = "dead";
+    expect(await addListingOnlyKennel("d-301", form)).toEqual({
+      success: true,
+      kennelId: expect.any(String),
+      warning: "Added; Half-Mind doesn't mark this kennel alive, so the check was not recorded.",
+    });
     expect(runningChecks()).toHaveLength(0);
   });
 

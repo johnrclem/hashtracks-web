@@ -256,6 +256,18 @@ describe("syncHalfMindDiscovery: dead and missing listings", () => {
     expect(stopKennelFor).not.toHaveBeenCalled();
   });
 
+  it("does not flag every linked listing missing on an empty, untruncated response", async () => {
+    existingRows = [
+      linkedRow({ id: "d-77", externalSlug: "77", matchedKennelId: "k-bs" }),
+      linkedRow({ id: "d-19", externalSlug: "19", status: "ADDED" }),
+    ];
+    vi.mocked(fetchHalfMindListings).mockResolvedValue(respond([]));
+    const result = await syncHalfMindDiscovery([GA], NOW);
+
+    expect(prisma.kennelDiscovery.updateMany).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ fetched: 0, flaggedDeadOrMissing: 0, errors: [] });
+  });
+
   it("does not flag missing listings when the response was truncated", async () => {
     existingRows = [linkedRow({ id: "d-77", externalSlug: "77", matchedKennelId: "k-bs" })];
     vi.mocked(fetchHalfMindListings).mockResolvedValue(respond([raw()], true));
@@ -267,6 +279,20 @@ describe("syncHalfMindDiscovery: dead and missing listings", () => {
 });
 
 describe("syncHalfMindDiscovery: client errors", () => {
+  it("upserts the valid rows despite row errors, records them, and skips missing-detection", async () => {
+    existingRows = [linkedRow({ id: "d-77", externalSlug: "77", matchedKennelId: "k-bs" })];
+    vi.mocked(fetchHalfMindListings).mockResolvedValue(respond([raw(), { name: "No Id H3" }]));
+
+    const result = await syncHalfMindDiscovery([GA], NOW);
+
+    expect(prisma.kennelDiscovery.upsert).toHaveBeenCalledTimes(1);
+    expect(upsertArg().create).toMatchObject({ externalSlug: "19", externalScope: "USA/GA" });
+    expect(result.errors).toEqual(["USA/GA: Half-Mind row 1 is missing id or name"]);
+    expect(result).toMatchObject({ fetched: 1, created: 1, flaggedDeadOrMissing: 0 });
+    // The skipped row could be the "missing" linked listing: don't flag it.
+    expect(prisma.kennelDiscovery.updateMany).not.toHaveBeenCalled();
+  });
+
   it("records a scope's errors, writes nothing for it, and still runs the next scope", async () => {
     const AL = { country: "USA", state: "AL" };
     existingRows = [linkedRow({ id: "d-77", externalSlug: "77" })];

@@ -11,7 +11,7 @@ import {
   passesImportBar,
   scopeKey,
 } from "./client";
-import { HALF_MIND_GA_FIXTURE } from "./fixtures";
+import { HALF_MIND_GA_FIXTURE } from "./fixtures/georgia";
 
 const NOW = new Date("2026-11-17T12:00:00Z");
 const parsed = parseHalfMindResponse(HALF_MIND_GA_FIXTURE, NOW);
@@ -28,6 +28,7 @@ describe("parseHalfMindResponse", () => {
   it("parses the Georgia fixture", () => {
     expect(parsed.listings).toHaveLength(25);
     expect(parsed.errors).toEqual([]);
+    expect(parsed.rowErrors).toEqual([]);
     const pf = byName("Peach Fuzz H3");
     expect(pf.id).toBe("19");
     expect(pf.status).toBe("alive");
@@ -66,12 +67,17 @@ describe("parseHalfMindResponse", () => {
     expect(r.errors).toHaveLength(1);
   });
 
-  it("skips rows missing id or name with an index-only error", () => {
-    const r = parseHalfMindResponse({ items: [{ id: 1, name: "Ok" }, { name: "SECRET" }, { id: 3 }] }, NOW);
+  it("skips rows missing id or name with an index-only row error, apart from request errors", () => {
+    const r = parseHalfMindResponse({ items: [{ id: 1, name: "Ok" }, { name: "SECRET" }, { id: 3 }, "x"] }, NOW);
     expect(r.listings).toHaveLength(1);
-    expect(r.errors).toHaveLength(2);
-    expect(r.errors[0]).toContain("1");
-    expect(r.errors.join(" ")).not.toContain("SECRET");
+    expect(r.errors).toEqual([]);
+    expect(r.rowErrors).toHaveLength(3);
+    expect(r.rowErrors[0]).toContain("1");
+    expect(r.rowErrors.join(" ")).not.toContain("SECRET");
+  });
+
+  it("a bad body is a request error with no row errors", () => {
+    expect(parseHalfMindResponse({ items: "nope" }, NOW)).toMatchObject({ errors: [expect.any(String)], rowErrors: [] });
   });
 
   it("nulls lastVerifiedAt for null, zero, garbage and future dates", () => {
@@ -79,6 +85,14 @@ describe("parseHalfMindResponse", () => {
       const r = parseHalfMindResponse({ items: [{ id: 1, name: "X", last_verified: v }] }, NOW);
       expect(r.listings[0].lastVerifiedAt).toBeNull();
     }
+  });
+
+  it("keeps a check dated today when now is before 12:00 UTC", () => {
+    const morning = new Date("2026-11-17T08:00:00Z");
+    const today = parseHalfMindResponse({ items: [{ id: 1, name: "X", last_verified: "2026-11-17 06:30:00" }] }, morning);
+    expect(today.listings[0].lastVerifiedAt?.toISOString()).toBe("2026-11-17T12:00:00.000Z");
+    const tomorrow = parseHalfMindResponse({ items: [{ id: 1, name: "X", last_verified: "2026-11-18 00:00:00" }] }, morning);
+    expect(tomorrow.listings[0].lastVerifiedAt).toBeNull();
   });
 
   it("passes truncated through", () => {
@@ -120,6 +134,20 @@ describe("passesImportBar", () => {
   it("accepts Facebook alone", () =>
     expect(passesImportBar({ ...good, website: null, facebookUrl: "https://facebook.com/x" }, NOW)).toBe(true));
   it("fails with null coordinates", () => expect(passesImportBar({ ...good, latitude: null }, NOW)).toBe(false));
+
+  // Today is day 1, so day 365 is 364 days back and a check exactly 365 days old fails,
+  // whatever the time of day.
+  it.each(["2026-11-17T00:30:00Z", "2026-11-17T08:00:00Z", NOW.toISOString(), "2026-11-17T23:30:00Z"])(
+    "counts days by UTC date at the 365-day edge (now %s)",
+    (iso) => {
+      const now = new Date(iso);
+      expect(passesImportBar({ ...good, lastVerifiedAt: new Date("2025-11-18T12:00:00Z") }, now)).toBe(true);
+      expect(passesImportBar({ ...good, lastVerifiedAt: new Date("2025-11-17T12:00:00Z") }, now)).toBe(false);
+    },
+  );
+
+  it("passes a check dated today before 12:00 UTC", () =>
+    expect(passesImportBar({ ...good, lastVerifiedAt: new Date("2026-11-17T12:00:00Z") }, new Date("2026-11-17T08:00:00Z"))).toBe(true));
 });
 
 describe("fetchHalfMindListings", () => {

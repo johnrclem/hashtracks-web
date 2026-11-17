@@ -403,7 +403,9 @@ function AddForm({
           }
           return;
         }
-        toast.success(`Kennel "${shortName}" created`);
+        // As for link: a warning says the kennel was created but no check was recorded.
+        if (result.warning) toast.warning(result.warning);
+        else toast.success(`Kennel "${shortName}" created`);
         onDone();
       } catch (err) {
         toast.error(errorText(err));

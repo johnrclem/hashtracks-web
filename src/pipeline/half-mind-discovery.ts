@@ -224,10 +224,12 @@ async function syncScope(scope: HalfMindScope, ctx: SyncContext) {
   const key = scopeKey(scope);
   const response = await fetchHalfMindListings(scope, ctx.now);
   if (response.errors.length > 0) {
-    // Any error makes the scope's picture unreliable: write nothing for it.
+    // A request-level failure makes the scope's picture unreliable: write nothing for it.
     ctx.result.errors.push(...response.errors.map((e) => `${key}: ${e}`));
     return;
   }
+  // Malformed rows are skipped and reported; the valid rows are still good.
+  ctx.result.errors.push(...response.rowErrors.map((e) => `${key}: ${e}`));
   const { listings } = response;
   ctx.result.fetched += listings.length;
   const ids = listings.map((l) => l.id);
@@ -260,7 +262,9 @@ async function syncScope(scope: HalfMindScope, ctx: SyncContext) {
   }
 
   // A complete response that no longer lists a linked listing: flag it, never stop the kennel.
-  if (response.truncated) return;
+  // Not complete: truncated, rows skipped (a skipped row may be the listing),
+  // or nothing listed at all (more likely a glitch than every kennel gone).
+  if (response.truncated || response.rowErrors.length > 0 || listings.length === 0) return;
   const listed = new Set(ids);
   const missing = rows.filter(
     (r) => r.externalScope === key && LINKED_STATUSES.has(r.status) && !listed.has(r.externalSlug),
