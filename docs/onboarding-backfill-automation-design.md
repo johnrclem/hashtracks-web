@@ -1,7 +1,7 @@
 # Onboarding backfill automation: design
 
-**Status:** v5.3, amended 2026-11-14 after PR review. Adversarial review: approved in round 20 (Appendix A records every round). Owner approval of section 15: 2026-11-13. The owner approved all ten decisions in section 15 on 2026-11-13, and decision 7's step-up was rebuilt in that review (10.3, T4). Nothing is built yet.
-**Scope:** design only. Nothing here is built yet. No code, migration or prod write was made to produce it.
+**Status:** v5.3, amended 2026-11-14 after PR review. Adversarial review: approved in round 20 (Appendix A records every round). Owner approval of section 15: 2026-11-13. The owner approved all ten decisions in section 15 on 2026-11-13, and decision 7's step-up was rebuilt in that review (10.3, T4). Phase 0 build started 2026-11-17, as the PR stack in 12.1a.
+**Scope:** design. No code, migration or prod write was made to produce it; the build follows 12.1a.
 **Related:** [`kennel-onboarding/implement-handoff-prompt.md`](kennel-onboarding/implement-handoff-prompt.md) (the implementer),
 [`kennel-onboarding/daily-onboarding-prompt.md`](kennel-onboarding/daily-onboarding-prompt.md) (research),
 [`self-healing-v2-plan.md`](self-healing-v2-plan.md) (same shape: scheduled task + owner gate + server endpoints),
@@ -1028,6 +1028,25 @@ when its heartbeat is over 26 hours old. Silence counts as failure.
 | `prisma/schema.prisma` | `Source.archiveOnly`, `Kennel.archiveCutoffDate` and `archiveCutoffRunId`, `BackfillRun`, `BackfillRunItem`, `CronHeartbeat`, `BackfillStepUpNonce` |
 | New | `src/lib/backfill/**` (manifest with `scheduleOnlyEstimate` and G21, PII scanner, provenance rules, migration checker, plan with the expected `isScheduleOnly` from `POSTED_RUN_RAW_SQL`, apply with the kennel status refreshes, verify, undo); agent routes; admin page with Clerk `strict_mfa` reverification, the server's own checks on `fva` and `iat` (10.3), run when a nonce is minted and again when it is used, a fresh verification per action, single-use action nonces bound to the session and expiring after 2 minutes, the step-up probe, and the undo plan's hash on the undo confirm; a Clerk Backend API check of the owner's second factors for the Phase 2 entry and the digest; watch cron; `approval-stamp.yml`; `backfill-manifest` CI job |
 | Ops (owner) | Before Phase 1: `BACKFILL_AGENT_TOKEN` and `GITHUB_APPROVAL_READ_TOKEN` set in Vercel, scoped to Production only, so a preview build of an agent's branch never gets them; the same for the GitHub App's credentials later. Before Phase 2: H3 (the issue-filing GitHub App; the server's GitHub calls today touch only issues, labels and repo metadata, so the App needs Issues and read-only Metadata, and the filing-health probe is reworked); the authenticator app and backup codes switched on in Clerk production and the owner enrolled from the phone in one sitting, with phone codes off and Clerk's sensitive-action window at its minimum, then the step-up probe run three times on production (10.3) |
+
+### 12.1a Phase 0 build order
+
+Phase 0 ships as a stack of PRs, each based on the one before, so each can be reviewed alone.
+`BACKFILL_AUTOMATION` stays `off` throughout: nothing below writes events until a later phase turns
+it on.
+
+| # | PR | Contents | Merged by |
+|---|---|---|---|
+| 1 | Schema | One migration: `Source.archiveOnly` with the CHECK `NOT ("archiveOnly" AND enabled)`, `Kennel.archiveCutoffDate` and `archiveCutoffRunId`, `BackfillRun` (with the partial unique index on `manifestSha256`), `BackfillRunItem`, `CronHeartbeat`, `BackfillStepUpNonce`. No code reads the new columns yet | Owner |
+| 2 | Merge pipeline | The read-only matcher pulled out of `upsertCanonicalEvent`; `backfill` mode (any match throws `CreateOnlyViolation` before writing, one nested RawEvent + Event + kennel-link create per row, no cluster linker, series, multi-tag and link rows rejected); the cutoff drop and the date-correction skip for every source, with `archiveCutoffDropped` and `archiveCorrectionSkipped` counts; the nested RawEvent in `createEventWithKennel`; `reportAndApplyBackfill` throws on drops; `scrapeSource` refuses an archive source and logs the counts. Tests for every match path in both modes | Claude, after 1 |
+| 3 | Supporting changes | `CURRENT_RAW_SQL` exported; the admin source actions refuse to delete, enable, rename, retype or relink an archive source; the kennel page's event query, filters and counts moved into a shared function; the event-delete helper moved to `src/lib` with the per-slot canonical recompute | Claude, after 2 |
+| 4 | Backfill library | `src/lib/backfill/**`: manifest and `approvalHash`, PII scanner, per-type provenance rules, G17 migration checker (on the existing `src/lib/migration-sql` parser), every guard, plan, apply (lease, cutoff, batches, finish refreshes), verify (V1–V5) and undo (plan, hash-bound apply). End-to-end tests of plan, apply, crash-resume and undo against a local database | Claude, after 3 |
+| 5 | Routes, admin page, cron | `/api/agent/backfill/*` behind `BACKFILL_AGENT_TOKEN` and the G16 kill switch; the GitHub approval check (A1–A6) with `GITHUB_APPROVAL_READ_TOKEN`; `/admin/backfills` with the Clerk `strict_mfa` step-up, the server's own `fva` and `iat` checks and single-use nonces, the step-up probe; the `backfill-watch` cron with `CronHeartbeat`; the digest's `backfills` block | Claude, after 4 |
+| 6 | Workflows and CI | `.github/workflows/approval-stamp.yml`; the `backfill-manifest` CI job and its summary; the design's Status line set to "Phase 0 built" | Claude, after 5 |
+
+Each PR runs `npx tsc --noEmit`, `npm run lint` and `npm test`, then `/simplify` and an adversarial
+review, before it opens. The env vars stay unset: the owner sets `BACKFILL_AGENT_TOKEN` and
+`GITHUB_APPROVAL_READ_TOKEN` (Production only) after the stack merges.
 
 ### 12.2 Manuals
 
