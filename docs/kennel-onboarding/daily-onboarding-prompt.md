@@ -72,6 +72,22 @@ the run always sees what has already landed, and Step 2 dedupes against it.
     flag it, and keep going. Never wait.
   - **Pushing:** use the gh credential helper, because the macOS keychain helper fails on push:
     `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push -u origin HEAD`.
+  - **Branches start with `onboarding/`,** and no other prefix (`onboarding/handoff-<date>-<code>`,
+    `onboarding/noop-<date>`, and their `-r2` rebuilds). The write gate treats that prefix as this
+    task's ([`system.md#branch-prefixes`](../ops/system.md#branch-prefixes)).
+  - **The task's prompt** lives in
+    [`docs/ops/scheduled-tasks/hashtracks-kennel-onboarding.txt`](../ops/scheduled-tasks/hashtracks-kennel-onboarding.txt);
+    the scheduled task holds only the pointer in
+    [`docs/ops/scheduled-tasks/pointers/`](../ops/scheduled-tasks/pointers/). The gates and identity
+    rules it works under are in [`docs/ops/system.md`](../ops/system.md).
+- **Posting and the scrubber.** Probe output comes from local runs that can use the keys in the
+  Mac's `.env` (a Google Calendar API URL carries the key), and GitHub keeps every edit. Before
+  posting **any** PR body, comment or issue body, write it to a file under `$TMPDIR`, scrub it with
+  `cd /Users/johnclem/Developer/hashtracks-research && npx tsx scripts/scrub.ts < "$TMPDIR/body.md" > "$TMPDIR/body.clean.md"`,
+  and post the result with `--body-file "$TMPDIR/body.clean.md"`, never `--body "<text>"`. It removes
+  API keys, tokens, credentials in URLs, phone numbers and email addresses. Files you commit (the
+  handoff, a retro) get `--secrets-only` instead, which keeps the kennel's published contact details:
+  `npx tsx scripts/scrub.ts --secrets-only < <file> > "$TMPDIR/clean.md" && mv "$TMPDIR/clean.md" <file>`.
 - **Node (for any read-only probes):** `eval "$(fnm env)" && fnm use 20` if needed. You will NOT
   run `prisma db seed` or the full pipeline here — that happens in Claude Code.
 - **Queue:** [`target-queue.md`](target-queue.md)
@@ -89,14 +105,24 @@ the run always sees what has already landed, and Step 2 dedupes against it.
 
 ## Step 0 — Preflight (exit early unless there is real work)
 
-Run these before any research. Each exit writes **one line** to the run log (Step 9 still
+**Identity first.** Before anything else, run the identity preflight:
+
+```bash
+FLAG=$(curl -fsSL --max-time 20 https://raw.githubusercontent.com/johnrclem/hashtracks-web/main/docs/ops/system.md | grep -m1 '^Identity preflight:'); LOGIN=$(gh api user --jq .login 2>/dev/null); echo "preflight: login=${LOGIN:-unknown} | ${FLAG:-flag missing}"; case "$FLAG" in "Identity preflight: LOG"*|"Identity preflight: STOP unless $LOGIN") echo "preflight: OK" ;; *) echo "preflight: STOP" ;; esac
+```
+
+Put the login in the Step 10 report. If it prints `preflight: STOP`, stop the run, write nothing,
+and report "preflight failed: <login>". While the flag on `main` says `LOG`, it only logs
+([`system.md#identity`](../ops/system.md#identity)).
+
+Then run these before any research. Each exit writes **one line** to the run log (Step 9 still
 delivers it) and reports it in Step 10. Do not write a multi-paragraph "NO ONBOARD" essay.
 
 ```bash
 WORK=/Users/johnclem/Developer/hashtracks-research
 if [ -d "$WORK/.git" ]; then
   # The previous run's branch was pushed; discarding its local leftovers is expected.
-  cd "$WORK" && git fetch -q --prune origin && git checkout -q -f --detach origin/main && git clean -q -fdx -e node_modules
+  cd "$WORK" && git fetch -q --prune origin && git checkout -q -f --detach origin/main && git clean -q -fdx -e node_modules -e .claude/settings.local.json
 else
   gh repo clone johnrclem/hashtracks-web "$WORK" && cd "$WORK"
 fi
@@ -1031,6 +1057,13 @@ the brief — no separate prompt needed._
 Putting the directive at the **top** means the file works whether it's pasted into Claude Code or
 piped in whole by an automated runner.
 
+Before Step 8, scrub the handoff for secrets: it's a public file, and a pasted Calendar or Sheets
+URL can carry an API key. `--secrets-only` keeps the kennel's published contact details:
+
+```bash
+cd /Users/johnclem/Developer/hashtracks-research && F=docs/kennel-onboarding/handoffs/<file>.md && npx tsx scripts/scrub.ts --secrets-only < "$F" > "$TMPDIR/handoff.clean.md" && mv "$TMPDIR/handoff.clean.md" "$F"
+```
+
 ## Step 8 — Update the queue + run log; refill if low
 
 1. In `target-queue.md`, set the target's Status to `handed-off` (or `blocked` with reason / 
@@ -1075,9 +1108,11 @@ git add docs/kennel-onboarding/                            # only this dir chang
 git diff --cached --stat                                   # expect: your handoff + appended log/queue lines
 git commit -m "docs(kennel-onboarding): hand off <shortName> (<region>)"
 git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push -u origin HEAD
+echo "Daily onboarding run $(date +%F). Handoff: docs/kennel-onboarding/handoffs/<file>.md" \
+  | npx tsx scripts/scrub.ts > "$TMPDIR/pr-body.md"           # every posted body is scrubbed
 PR=$(gh pr create --base main --label onboarding-handoff \
   --title "docs(kennel-onboarding): hand off <shortName> (<region>)" \
-  --body "Daily onboarding run $(date +%F). Handoff: docs/kennel-onboarding/handoffs/<file>.md")
+  --body-file "$TMPDIR/pr-body.md")
 # GitHub auto-merge is disabled for this repo. The script waits for the CI `test` check to register,
 # polls for at most 25 minutes, refuses anything outside docs/kennel-onboarding/, then squash-merges.
 bash scripts/onboarding-merge-handoff-pr.sh "$PR"; echo "merge-exit=$?"
@@ -1099,7 +1134,8 @@ Report the script's exit code in Step 10:
   1b tries again, the triage session picks up 🟡 PR OPEN reports, and a 🔴 REFUSED PR needs a human look.
 - **Delivery failure is never silent.** If the push or `gh pr create` fails, open an
   `onboarding-blocked` issue. Paste the error and the full handoff body (or a
-  link to the pushed branch). A handoff must reach the owner one way or another. Then report
+  link to the pushed branch), scrubbed and posted with `--body-file` as in "Posting and the
+  scrubber" above. A handoff must reach the owner one way or another. Then report
   🔴 UNDELIVERED in Step 10.
 - Never touch `/Users/johnclem/Developer/hashtracks-web` with git. Never branch or commit
   anywhere but `$WORK`. Never change code or seed files.
@@ -1107,8 +1143,8 @@ Report the script's exit code in Step 10:
 
 ## Step 10 — Report
 
-Return a one-line summary: kennel, source type, adapter (config-only or new), handoff file path,
-events verified, and the backlog count remaining.
+Return a one-line summary: the login from the identity preflight, kennel, source type, adapter
+(config-only or new), handoff file path, events verified, and the backlog count remaining.
 
 Get the backlog count from the helper rather than guessing — it is the authoritative audit. Run it
 against the clone (without `HASHTRACKS_REPO` it reads the owner's checkout). Don't delete the clone;
