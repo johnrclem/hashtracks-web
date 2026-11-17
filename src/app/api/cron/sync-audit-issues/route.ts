@@ -34,13 +34,12 @@ export const POST = withCronRun("cron:sync-audit-issues", async () => {
 
   const issueSync = await syncAuditIssues();
   // Per-issue failures are collected in `issueSync.errors[]` rather than
-  // thrown, so the sync always completes as much work as possible. But
-  // returning 200 on a partially-stale mirror would hide the problem from
-  // cron monitoring and the dashboard would silently drift. Surface any
-  // partial failure as a 207 (Multi-Status) so Vercel's cron health check
-  // fails loudly and operators notice. `withCronRun` records the 207 as a
-  // run that happened (summary "HTTP 207"): a partial sync keeps the
-  // watchdog's liveness check satisfied; only a 500 or a missed run alarms.
+  // thrown, so the sync always completes as much work as possible. A partial
+  // failure answers 207 (Multi-Status) instead of 200, so it stands out in the
+  // response and in the run row: `withCronRun` records the 207 as a SUCCESS
+  // with summary "HTTP 207". A partial sync therefore keeps the watchdog's
+  // liveness check satisfied. The watchdog marks this cron overdue only once
+  // its last successful run is more than 26 hours old (missed or 500 runs).
   const status = issueSync.errors.length > 0 ? 207 : 200;
   return NextResponse.json({ data: { labelSync: labelSyncSummary, issueSync } }, { status });
 });
