@@ -11,6 +11,7 @@ vi.mock("@/lib/weather", () => ({
 
 import { getWeatherForEvents } from "@/lib/weather";
 import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
+import type { ConfirmationVia } from "@/lib/kennel-status";
 import {
   executeTravelSearch,
   byDateTimeDistance,
@@ -31,7 +32,7 @@ interface MockKennel {
   longitude: number | null;
   lastRunSeenAt: Date | null;
   lastConfirmedAt: Date | null;
-  lastConfirmedVia?: "ADMIN" | "HALF_MIND" | null;
+  lastConfirmedVia?: ConfirmationVia | null;
   nextRunPostedAt?: Date | null;
   stoppedAt?: Date | null;
   scheduleDayOfWeek: string | null;

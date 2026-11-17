@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import type { ConfirmationVia } from "@/lib/kennel-status";
 import { safeUrl } from "@/lib/safe-url";
 import { refreshKennelEvidence } from "@/pipeline/kennel-evidence";
 
@@ -27,7 +28,7 @@ export type ConfirmResult = { success: true } | { skipped: true } | { stopped: t
 
 export interface ConfirmOptions {
   /** Who vouches for the running state. Defaults to ADMIN. */
-  via?: "ADMIN" | "HALF_MIND";
+  via?: ConfirmationVia;
   /**
    * A Half-Mind listing URL. Skip the write when any HALF_MIND confirmation for
    * this kennel with exactly this url, reverted or not, is observed on or after
@@ -116,7 +117,7 @@ export function evidenceAfter(
   k: {
     lastRunSeenAt: Date | null;
     lastConfirmedAt: Date | null;
-    lastConfirmedVia: "ADMIN" | "HALF_MIND" | null;
+    lastConfirmedVia: ConfirmationVia | null;
     nextRunPostedAt: Date | null;
   },
   observedAt: Date,

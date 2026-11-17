@@ -18,6 +18,7 @@ import {
   type HalfMindListing,
   type HalfMindScope,
 } from "@/adapters/half-mind/client";
+import { formatDateMedium } from "@/lib/format";
 import { HALF_MIND_EXTERNAL_SOURCE, halfMindListingUrl } from "@/lib/half-mind";
 import { confirmKennelRunningFor, type StatusInput } from "@/lib/kennel-confirmations";
 import { revalidateKennel } from "@/lib/kennel-revalidate";
@@ -28,8 +29,6 @@ import {
   type KennelGeoData,
 } from "@/pipeline/kennel-discovery";
 import type { FuzzyCandidate } from "@/lib/fuzzy";
-
-export { HALF_MIND_EXTERNAL_SOURCE } from "@/lib/half-mind";
 
 /** Pilot scope. More regions are a one-line change after the owner reviews the pilot. */
 export const HALF_MIND_SYNC_SCOPES: HalfMindScope[] = [{ country: "USA", state: "GA" }];
@@ -49,17 +48,11 @@ export interface HalfMindSyncResult {
 
 /** The confirmation note for a Half-Mind check, e.g. "Half-Mind listing checked Oct 7, 2026". */
 export function halfMindCheckNote(checkedAt: Date): string {
-  const day = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(checkedAt);
-  return `Half-Mind listing checked ${day}`;
+  return `Half-Mind listing checked ${formatDateMedium(checkedAt.toISOString())}`;
 }
 
-/** The confirmation input that credits a listing's check. */
-export function halfMindCheckInput(listingId: string, checkedAt: Date): StatusInput {
+/** The confirmation input that credits a listing's check; its `url` is the listing's. */
+export function halfMindCheckInput(listingId: string, checkedAt: Date): StatusInput & { url: string } {
   return {
     observedOn: checkedAt.toISOString().slice(0, 10),
     note: halfMindCheckNote(checkedAt),
@@ -74,10 +67,10 @@ type BarFields = Pick<
 
 /** The import bar, re-checked at action time against what the last sync stored on the row. */
 export function rowPassesImportBar(row: BarFields, now: Date): boolean {
-  const status = row.externalStatus === "alive" || row.externalStatus === "dead" ? row.externalStatus : "unknown";
   return passesImportBar(
     {
-      status,
+      // Only "alive" can pass; every other stored status fails alike.
+      status: row.externalStatus === "alive" ? "alive" : "unknown",
       lastVerifiedAt: row.externalCheckedAt,
       website: row.website,
       facebookUrl: row.facebookUrl,
@@ -149,26 +142,22 @@ function listingFields(listing: HalfMindListing, key: string, ctx: SyncContext) 
 }
 
 /** Record a linked kennel's newer Half-Mind check, crediting the admin who linked it. */
-async function refreshCheck(
-  listing: HalfMindListing,
-  checkedAt: Date,
-  row: StoredRow,
-  kennelId: string,
-  ctx: SyncContext,
-) {
+async function refreshCheck(listing: HalfMindListing, row: StoredRow, kennelId: string, ctx: SyncContext) {
+  // A listing that passes the bar always has a check date.
+  if (!listing.lastVerifiedAt) return;
   if (!row.processedBy) {
     ctx.result.errors.push(`Half-Mind listing ${listing.id}: linked row has no reviewer, so its check was not refreshed`);
     return;
   }
-  const url = halfMindListingUrl(listing.id);
+  const input = halfMindCheckInput(listing.id, listing.lastVerifiedAt);
   const outcome = await confirmKennelRunningFor(
     row.processedBy,
     kennelId,
-    halfMindCheckInput(listing.id, checkedAt),
+    input,
     ctx.now,
     // `holders` was read before the loop: re-check under the kennel lock so an
     // unlink that lands mid-sync isn't followed by a fresh check.
-    { via: "HALF_MIND", onlyIfNewerForUrl: url, requireHalfMindListingId: listing.id },
+    { via: "HALF_MIND", onlyIfNewerForUrl: input.url, requireHalfMindListingId: listing.id },
   );
   if ("success" in outcome) {
     ctx.result.refreshedChecks++;
@@ -214,9 +203,8 @@ async function syncListing(
   if (!LINKED_STATUSES.has(row.status)) return;
   if (listing.status === "dead") ctx.result.flaggedDeadOrMissing++;
   // Refresh only while the row's kennel still holds this listing (an unlink clears it).
-  // (A listing passing the bar always has a check date.)
-  if (passes && listing.lastVerifiedAt && holderId && holderId === row.matchedKennelId) {
-    await refreshCheck(listing, listing.lastVerifiedAt, row, holderId, ctx);
+  if (passes && holderId && holderId === row.matchedKennelId) {
+    await refreshCheck(listing, row, holderId, ctx);
   }
 }
 

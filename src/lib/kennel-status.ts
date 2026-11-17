@@ -18,8 +18,8 @@ export interface KennelEvidence {
 
 export type ConfirmationVia = "ADMIN" | "HALF_MIND";
 
-export type SerializedKennelEvidence = {
-  [K in keyof KennelEvidence]: K extends "lastConfirmedVia" ? ConfirmationVia | null : string | null;
+export type SerializedKennelEvidence = Omit<{ [K in keyof KennelEvidence]: string | null }, "lastConfirmedVia"> & {
+  lastConfirmedVia: ConfirmationVia | null;
 };
 
 export type StatusLine =
@@ -139,21 +139,33 @@ function formatStatusDate(date: Date, now: Date): string {
   }).format(date);
 }
 
-export function formatStatusLine(line: StatusLine, now: Date = new Date()): string {
+/** The words a Half-Mind check line links to the listing. */
+export const HALF_MIND_LISTING_WORDS = "Half-Mind listing";
+
+/**
+ * A status line in two parts: `linkText`, set only on a Half-Mind check line,
+ * is the words to link to the listing, and `rest` is everything after them.
+ */
+export function statusLineParts(line: StatusLine, now: Date = new Date()): { linkText?: string; rest: string } {
   switch (line.kind) {
     case "never":
-      return "No runs seen on HashTracks";
+      return { rest: "No runs seen on HashTracks" };
     case "last-run":
-      return `Last run we saw · ${formatStatusDate(line.date, now)}`;
+      return { rest: `Last run we saw · ${formatStatusDate(line.date, now)}` };
     case "checked":
       return line.via === "HALF_MIND"
-        ? `Half-Mind listing checked · ${formatStatusDate(line.date, now)}`
-        : `Checked running · ${formatStatusDate(line.date, now)}`;
+        ? { linkText: HALF_MIND_LISTING_WORDS, rest: ` checked · ${formatStatusDate(line.date, now)}` }
+        : { rest: `Checked running · ${formatStatusDate(line.date, now)}` };
     case "next-posted":
-      return `Next run posted · ${formatStatusDate(line.date, now)}`;
+      return { rest: `Next run posted · ${formatStatusDate(line.date, now)}` };
     case "stopped":
-      return `Stopped · ${formatStatusDate(line.date, now)}`;
+      return { rest: `Stopped · ${formatStatusDate(line.date, now)}` };
   }
+}
+
+export function formatStatusLine(line: StatusLine, now: Date = new Date()): string {
+  const { linkText = "", rest } = statusLineParts(line, now);
+  return linkText + rest;
 }
 
 /**
@@ -167,9 +179,9 @@ export function halfMindCreditLabel(
   now: Date = new Date(),
   opts: { listingOnly?: boolean } = {},
 ): string | null {
+  if (!opts.listingOnly && !isHalfMindDeciding(e, now)) return null;
   const line = getStatusLine(e, now, opts);
   if (line?.kind !== "checked" || line.via !== "HALF_MIND") return null;
-  if (!opts.listingOnly && !isHalfMindDeciding(e, now)) return null;
   return formatStatusLine(line, now);
 }
 

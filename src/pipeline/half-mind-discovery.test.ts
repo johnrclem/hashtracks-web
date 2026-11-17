@@ -21,9 +21,9 @@ import { prisma } from "@/lib/db";
 import { fetchHalfMindListings, parseHalfMindResponse, type HalfMindResult } from "@/adapters/half-mind/client";
 import { confirmKennelRunningFor, stopKennelFor } from "@/lib/kennel-confirmations";
 import { revalidateKennel } from "@/lib/kennel-revalidate";
-import { halfMindListingUrl } from "@/lib/half-mind";
+import { HALF_MIND_EXTERNAL_SOURCE, halfMindListingUrl } from "@/lib/half-mind";
+import type { RankedCandidate } from "@/pipeline/kennel-discovery";
 import {
-  HALF_MIND_EXTERNAL_SOURCE,
   HALF_MIND_SYNC_SCOPES,
   halfMindCheckNote,
   syncHalfMindDiscovery,
@@ -127,7 +127,7 @@ describe("syncHalfMindDiscovery: new listings", () => {
       externalCheckedAt: new Date("2026-10-07T12:00:00Z"),
       matchScore: 1,
     });
-    const candidates = upsertArg().create.matchCandidates as { id: string; shortName: string; score: number }[];
+    const candidates = upsertArg().create.matchCandidates as RankedCandidate[];
     expect(candidates.length).toBeGreaterThan(0);
     expect(candidates.length).toBeLessThanOrEqual(3);
     expect(candidates.map((c) => c.score)).toEqual([...candidates.map((c) => c.score)].sort((a, b) => b - a));

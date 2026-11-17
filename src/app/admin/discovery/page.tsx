@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { DiscoveryTable } from "@/components/admin/DiscoveryTable";
 import { HalfMindDiscoveryTable } from "@/components/admin/HalfMindDiscoveryTable";
 import { HALF_MIND_EXTERNAL_SOURCE } from "@/lib/half-mind";
+import type { RankedCandidate } from "@/pipeline/kennel-discovery";
 
 export const metadata = { title: "Kennel Discovery — HashTracks Admin" };
 export const maxDuration = 300;
@@ -74,7 +75,7 @@ export default async function DiscoveryPage({
           typeof c === "object" && c !== null &&
           "id" in c && "shortName" in c && "score" in c,
       )
-      ? (d.matchCandidates as Array<{ id: string; shortName: string; score: number }>)
+      ? (d.matchCandidates as RankedCandidate[])
       : null,
     matchedKennel: d.matchedKennel,
     lastSeenAt: d.lastSeenAt.toISOString(),
@@ -157,9 +158,9 @@ async function HalfMindView() {
   );
 }
 
-function parseCandidates(json: unknown): Array<{ id: string; shortName: string; score: number }> | null {
+function parseCandidates(json: unknown): RankedCandidate[] | null {
   if (!Array.isArray(json)) return null;
-  const out: Array<{ id: string; shortName: string; score: number }> = [];
+  const out: RankedCandidate[] = [];
   for (const c of json) {
     if (typeof c !== "object" || c === null) continue;
     const { id, shortName, score } = c as Record<string, unknown>;

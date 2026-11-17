@@ -10,7 +10,8 @@ import {
 import { clearResolverCache } from "@/pipeline/kennel-resolver";
 import { normalizeTrailDay } from "@/adapters/hashrego/kennel-api";
 import { createKennelFromDiscovery } from "@/app/admin/shared/kennel-creation";
-import { HALF_MIND_DISMISS_NEW_ONLY, HALF_MIND_EXTERNAL_SOURCE } from "@/lib/half-mind";
+import { HALF_MIND_EXTERNAL_SOURCE } from "@/lib/half-mind";
+import { dismissHalfMindListing } from "@/app/admin/discovery/half-mind-actions";
 
 /**
  * Half-Mind rows have their own actions (half-mind-actions.ts): these Hash Rego
@@ -148,17 +149,7 @@ export async function dismissDiscovery(id: string) {
     where: { id },
     select: { status: true, matchedKennelId: true, externalSource: true },
   });
-  if (existing && isHalfMindRow(existing)) {
-    if (existing.status !== "NEW") return { error: HALF_MIND_DISMISS_NEW_ONLY };
-    // Conditional: a Half-Mind link or add may have landed since the read above.
-    const { count } = await prisma.kennelDiscovery.updateMany({
-      where: { id, status: "NEW" },
-      data: { status: "DISMISSED", processedBy: admin.id, processedAt: new Date() },
-    });
-    if (count === 0) return { error: HALF_MIND_DISMISS_NEW_ONLY };
-    revalidatePath("/admin/discovery");
-    return { success: true };
-  }
+  if (existing && isHalfMindRow(existing)) return dismissHalfMindListing(id);
   if (existing?.status === "MATCHED" && existing.matchedKennelId) {
     const hashRegoSourceId = await getHashRegoSourceId();
     if (hashRegoSourceId) {

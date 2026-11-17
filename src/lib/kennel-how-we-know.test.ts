@@ -54,7 +54,7 @@ describe("getHowWeKnow coverage", () => {
       realRunSource("B Calendar"),
       realRunSource("A Meetup"),
     ] as never);
-    const { coverage } = await getHowWeKnow("k1", NO_EVIDENCE, NOW);
+    const { coverage } = await getHowWeKnow("k1", NO_EVIDENCE, { now: NOW });
     expect(coverage).toEqual({ level: "full", sourceNames: ["A Meetup", "B Calendar"] });
   });
 
@@ -64,7 +64,7 @@ describe("getHowWeKnow coverage", () => {
       link("Static", "STATIC_SCHEDULE"),
       link("Retired", "MEETUP", false),
     ] as never);
-    await getHowWeKnow("k1", NO_EVIDENCE, NOW);
+    await getHowWeKnow("k1", NO_EVIDENCE, { now: NOW });
 
     const args = vi.mocked(prisma.rawEvent.groupBy).mock.calls[0][0] as {
       by: string[];
@@ -84,15 +84,15 @@ describe("getHowWeKnow coverage", () => {
     vi.mocked(prisma.sourceKennel.findMany).mockResolvedValue([
       link("Static", "STATIC_SCHEDULE"),
     ] as never);
-    expect((await getHowWeKnow("k1", NO_EVIDENCE, NOW)).coverage).toEqual({ level: "schedule" });
+    expect((await getHowWeKnow("k1", NO_EVIDENCE, { now: NOW })).coverage).toEqual({ level: "schedule" });
 
     vi.mocked(prisma.sourceKennel.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.scheduleRule.count).mockResolvedValue(1 as never);
-    expect((await getHowWeKnow("k1", NO_EVIDENCE, NOW)).coverage).toEqual({ level: "schedule" });
+    expect((await getHowWeKnow("k1", NO_EVIDENCE, { now: NOW })).coverage).toEqual({ level: "schedule" });
   });
 
   it("coverage is none with no sources or rules", async () => {
-    expect((await getHowWeKnow("k1", NO_EVIDENCE, NOW)).coverage).toEqual({ level: "none" });
+    expect((await getHowWeKnow("k1", NO_EVIDENCE, { now: NOW })).coverage).toEqual({ level: "none" });
   });
 
   it("a linked feed with no real run in 180 days does not count as full", async () => {
@@ -101,7 +101,7 @@ describe("getHowWeKnow coverage", () => {
     ] as never);
     // The date floor is in the query (asserted above), so nothing comes back.
     vi.mocked(prisma.rawEvent.groupBy).mockResolvedValue([] as never);
-    expect((await getHowWeKnow("k1", NO_EVIDENCE, NOW)).coverage).toEqual({ level: "none" });
+    expect((await getHowWeKnow("k1", NO_EVIDENCE, { now: NOW })).coverage).toEqual({ level: "none" });
   });
 
   it("a feed that only returns schedule-only events reads as schedule, not none", async () => {
@@ -109,7 +109,7 @@ describe("getHowWeKnow coverage", () => {
       link("Philly Calendar", "GOOGLE_CALENDAR"),
     ] as never);
     vi.mocked(prisma.event.findFirst).mockResolvedValue({ id: "e-gen" } as never);
-    expect((await getHowWeKnow("k1", NO_EVIDENCE, NOW)).coverage).toEqual({ level: "schedule" });
+    expect((await getHowWeKnow("k1", NO_EVIDENCE, { now: NOW })).coverage).toEqual({ level: "schedule" });
     const where = vi.mocked(prisma.event.findFirst).mock.calls[0][0]?.where as Record<string, unknown>;
     expect(where).toMatchObject({
       isScheduleOnly: true,
@@ -122,7 +122,7 @@ describe("getHowWeKnow coverage", () => {
     vi.mocked(prisma.sourceKennel.findMany).mockResolvedValue([
       link("Retired", "GOOGLE_CALENDAR", false),
     ] as never);
-    expect((await getHowWeKnow("k1", NO_EVIDENCE, NOW)).coverage).toEqual({ level: "none" });
+    expect((await getHowWeKnow("k1", NO_EVIDENCE, { now: NOW })).coverage).toEqual({ level: "none" });
     expect(prisma.rawEvent.groupBy).not.toHaveBeenCalled();
     expect(prisma.event.findFirst).not.toHaveBeenCalled();
   });
@@ -142,7 +142,7 @@ describe("getHowWeKnow items", () => {
       { kind: "STOPPED", observedAt: d("2026-08-01"), note: "Gone", url: "https://x.test/s" },
       { kind: "RUNNING", observedAt: d("2026-10-15"), note: "Checked FB", url: "https://x.test/r" },
     ] as never);
-    const { items } = await getHowWeKnow("k1", evidence, NOW);
+    const { items } = await getHowWeKnow("k1", evidence, { now: NOW });
     expect(items.map((i) => i.kind)).toEqual(["next-posted", "last-run", "confirmed"]);
     expect(items[1].detail).toBe("Hash Calendar");
     expect(items[2]).toMatchObject({ detail: "Checked FB", url: "https://x.test/r" });
@@ -159,7 +159,7 @@ describe("getHowWeKnow Half-Mind check", () => {
     vi.mocked(prisma.kennelConfirmation.findMany).mockResolvedValue([
       { kind: "RUNNING", via: "HALF_MIND", observedAt: d("2026-10-15"), note: "Listed active", url: null },
     ] as never);
-    const { items } = await getHowWeKnow("k1", evidence, NOW, "19");
+    const { items } = await getHowWeKnow("k1", evidence, { now: NOW, halfMindListingId: "19" });
     expect(items[0]).toMatchObject({
       kind: "confirmed",
       via: "HALF_MIND",
@@ -172,14 +172,14 @@ describe("getHowWeKnow Half-Mind check", () => {
     vi.mocked(prisma.kennelConfirmation.findMany).mockResolvedValue([
       { kind: "RUNNING", via: "HALF_MIND", observedAt: d("2026-10-07"), note: "Half-Mind listing checked Oct 7, 2026", url: null },
     ] as never);
-    const { items } = await getHowWeKnow("k1", evidence, NOW, "19");
+    const { items } = await getHowWeKnow("k1", evidence, { now: NOW, halfMindListingId: "19" });
     expect(items[0]).toMatchObject({ kind: "confirmed", via: "HALF_MIND", detail: null });
   });
 });
 
 describe("getHowWeKnow listing-only kennels", () => {
   it("has listing coverage and skips the feed lookups", async () => {
-    const { coverage } = await getHowWeKnow("k1", NO_EVIDENCE, NOW, "19", true);
+    const { coverage } = await getHowWeKnow("k1", NO_EVIDENCE, { now: NOW, halfMindListingId: "19", listingOnly: true });
     expect(coverage).toEqual({ level: "listing" });
     expect(prisma.sourceKennel.findMany).not.toHaveBeenCalled();
   });
@@ -189,7 +189,7 @@ describe("getHowWeKnowOrEmpty", () => {
   it("logs a failure and renders an empty section instead of taking down the page", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(prisma.sourceKennel.findMany).mockRejectedValue(new Error("db down"));
-    await expect(getHowWeKnowOrEmpty("k1", NO_EVIDENCE, NOW)).resolves.toEqual({
+    await expect(getHowWeKnowOrEmpty("k1", NO_EVIDENCE, { now: NOW })).resolves.toEqual({
       coverage: { level: "none" },
       items: [],
     });
@@ -199,7 +199,7 @@ describe("getHowWeKnowOrEmpty", () => {
 
   it("passes a successful result through", async () => {
     vi.mocked(prisma.scheduleRule.count).mockResolvedValue(1 as never);
-    await expect(getHowWeKnowOrEmpty("k1", NO_EVIDENCE, NOW)).resolves.toEqual({
+    await expect(getHowWeKnowOrEmpty("k1", NO_EVIDENCE, { now: NOW })).resolves.toEqual({
       coverage: { level: "schedule" },
       items: [],
     });

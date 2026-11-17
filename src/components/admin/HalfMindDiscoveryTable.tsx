@@ -31,8 +31,11 @@ import {
   halfMindStatusBadge,
   nearestRegionId,
   searchKennels,
+  type PickerKennel,
 } from "@/lib/admin/half-mind-review";
+import { formatDateMedium } from "@/lib/format";
 import { safeUrl } from "@/lib/safe-url";
+import type { RankedCandidate } from "@/pipeline/kennel-discovery";
 
 export type HalfMindRow = {
   id: string;
@@ -48,11 +51,10 @@ export type HalfMindRow = {
   website: string | null;
   facebookUrl: string | null;
   status: string;
-  matchCandidates: Array<{ id: string; shortName: string; score: number }> | null;
+  matchCandidates: RankedCandidate[] | null;
   matchedKennel: { id: string; shortName: string; slug: string } | null;
 };
 
-export type PickerKennel = { id: string; shortName: string; fullName: string; region: string };
 export type CentroidRegion = RegionOption & { centroidLat: number | null; centroidLng: number | null };
 
 type Tab = "NEW" | "LINKED" | "ADDED" | "DISMISSED" | "ALL";
@@ -68,9 +70,19 @@ function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** The sync's counts as a toast, e.g. "scopes: 1, fetched: 12, ...". */
+function syncSummary(result: object): string {
+  return (
+    Object.entries(result)
+      .filter(([, v]) => typeof v === "number")
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(", ") || "Half-Mind sync finished"
+  );
+}
+
 function formatChecked(iso: string | null): string {
   if (!iso) return "never checked";
-  return `checked ${new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}`;
+  return `checked ${formatDateMedium(iso)}`;
 }
 
 interface Props {
@@ -88,8 +100,12 @@ export function HalfMindDiscoveryTable({ rows, regions, kennels }: Readonly<Prop
 
   const visible = tab === "ALL" ? rows : rows.filter((r) => r.status === tab);
 
-  /** Run a server action, toast its outcome and refresh. */
-  function run(fn: () => Promise<{ error?: string; warning?: string } | { success: true }>, ok: string, after?: () => void) {
+  /** Run a server action, toast its outcome (`ok`, or `ok(result)`) and refresh. */
+  function run(
+    fn: () => Promise<{ error?: string; warning?: string } | { success: true }>,
+    ok: string | ((result: object) => string),
+    after?: () => void,
+  ) {
     startTransition(async () => {
       try {
         const result = await fn();
@@ -99,7 +115,7 @@ export function HalfMindDiscoveryTable({ rows, regions, kennels }: Readonly<Prop
         }
         const warning = "warning" in result ? result.warning : undefined;
         if (warning) toast.warning(warning);
-        else toast.success(ok);
+        else toast.success(typeof ok === "string" ? ok : ok(result));
         after?.();
         router.refresh();
       } catch (err) {
@@ -109,25 +125,7 @@ export function HalfMindDiscoveryTable({ rows, regions, kennels }: Readonly<Prop
   }
 
   function handleSync() {
-    startTransition(async () => {
-      try {
-        const result = await runHalfMindSync();
-        if ("error" in result) {
-          toast.error(result.error);
-          return;
-        }
-        const { success: _ok, ...counts } = result;
-        toast.success(
-          Object.entries(counts)
-            .filter(([, v]) => typeof v === "number")
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(", ") || "Half-Mind sync finished",
-        );
-        router.refresh();
-      } catch (err) {
-        toast.error(errorText(err));
-      }
-    });
+    run(runHalfMindSync, syncSummary);
   }
 
   return (
@@ -182,17 +180,20 @@ export function HalfMindDiscoveryTable({ rows, regions, kennels }: Readonly<Prop
           linking && run(() => linkHalfMindListing(linking.id, kennelId), "Linked to kennel", () => setLinking(null))
         }
       />
-      <AddDialog
-        row={adding}
-        regions={regions}
-        isPending={isPending}
-        onClose={() => setAdding(null)}
-        onDone={() => {
-          setAdding(null);
-          router.refresh();
-        }}
-        startTransition={startTransition}
-      />
+      {/* Keyed on the row so the prefill resets per listing. */}
+      {adding && (
+        <AddForm
+          key={adding.id}
+          row={adding}
+          regions={regions}
+          isPending={isPending}
+          onClose={() => setAdding(null)}
+          onDone={() => {
+            setAdding(null);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -214,6 +215,7 @@ function HalfMindRowView({
 }>) {
   const actions = halfMindRowActions(r.status);
   const badge = halfMindStatusBadge(r.status, r.externalStatus);
+  const statusBadge = badge && <Badge variant="destructive">{badge}</Badge>;
   const website = safeUrl(r.website);
   const facebook = safeUrl(r.facebookUrl);
   const listing = safeUrl(r.externalUrl);
@@ -225,12 +227,11 @@ function HalfMindRowView({
           <span className="font-medium">{r.name}</span>
           <Badge variant="outline">{r.status}</Badge>
           {r.externalStatus && <Badge variant="secondary">{r.externalStatus}</Badge>}
-          {badge && r.matchedKennel && (
-            <Link href={adminKennelStatusHref(r.matchedKennel.shortName)}>
-              <Badge variant="destructive">{badge}</Badge>
-            </Link>
+          {statusBadge && r.matchedKennel ? (
+            <Link href={adminKennelStatusHref(r.matchedKennel.shortName)}>{statusBadge}</Link>
+          ) : (
+            statusBadge
           )}
-          {badge && !r.matchedKennel && <Badge variant="destructive">{badge}</Badge>}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
           {r.location && <span>{r.location}</span>}
@@ -337,50 +338,21 @@ function LinkDialog({
   );
 }
 
-function AddDialog({
-  row,
-  regions,
-  isPending,
-  onClose,
-  onDone,
-  startTransition,
-}: Readonly<{
-  row: HalfMindRow | null;
-  regions: CentroidRegion[];
-  isPending: boolean;
-  onClose: () => void;
-  onDone: () => void;
-  startTransition: (fn: () => Promise<void>) => void;
-}>) {
-  // Re-key the form on the row so the prefill resets per listing.
-  return row ? (
-    <AddForm
-      key={row.id}
-      row={row}
-      regions={regions}
-      isPending={isPending}
-      onClose={onClose}
-      onDone={onDone}
-      startTransition={startTransition}
-    />
-  ) : null;
-}
-
 function AddForm({
   row,
   regions,
   isPending,
   onClose,
   onDone,
-  startTransition,
 }: Readonly<{
   row: HalfMindRow;
   regions: CentroidRegion[];
+  /** The table's own action is still running. */
   isPending: boolean;
   onClose: () => void;
   onDone: () => void;
-  startTransition: (fn: () => Promise<void>) => void;
 }>) {
+  const [isSubmitting, startTransition] = useTransition();
   const [shortName, setShortName] = useState(row.name);
   const [fullName, setFullName] = useState(row.name);
   const [regionId, setRegionId] = useState(nearestRegionId(row.latitude, row.longitude, regions) ?? "");
@@ -439,7 +411,7 @@ function AddForm({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={isPending || !shortName.trim() || !fullName.trim() || !regionId}>
+          <Button onClick={submit} disabled={isPending || isSubmitting || !shortName.trim() || !fullName.trim() || !regionId}>
             {duplicate ? "Add anyway" : "Create Kennel"}
           </Button>
         </DialogFooter>

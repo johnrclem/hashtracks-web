@@ -72,18 +72,17 @@ describe("kennelCardView", () => {
   const base = { listingOnly: false, scheduleNotes: null, schedule: null, hasNextEvent: false };
 
   it("dims and shows the footer for an ordinary kennel with no next run", () => {
-    expect(kennelCardView(base)).toEqual({ scheduleText: null, dimmed: true, showNoUpcomingFooter: true });
+    expect(kennelCardView(base)).toEqual({ scheduleText: null, noUpcoming: true });
   });
 
   it("does not dim a kennel with a next run", () => {
-    expect(kennelCardView({ ...base, hasNextEvent: true }).dimmed).toBe(false);
+    expect(kennelCardView({ ...base, hasNextEvent: true }).noUpcoming).toBe(false);
   });
 
   it("shows Usually: notes for a listing-only kennel with no structured schedule", () => {
     expect(kennelCardView({ ...base, listingOnly: true, scheduleNotes: "Saturdays 2pm" })).toEqual({
       scheduleText: "Usually: Saturdays 2pm",
-      dimmed: false,
-      showNoUpcomingFooter: false,
+      noUpcoming: false,
     });
   });
 

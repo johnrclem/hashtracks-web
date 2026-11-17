@@ -204,7 +204,7 @@ export default async function KennelDetailPage({
         })
       : Promise.resolve(null),
     // Evidence already came with the kennel; a failure renders the section empty.
-    getHowWeKnowOrEmpty(kennel.id, kennel, new Date(), kennel.halfMindListingId, kennel.listingOnly),
+    getHowWeKnowOrEmpty(kennel.id, kennel, { halfMindListingId: kennel.halfMindListingId, listingOnly: kennel.listingOnly }),
   ]);
 
   let isSubscribed = false;
@@ -450,7 +450,7 @@ export default async function KennelDetailPage({
           items={howWeKnow.items.map((i) => ({ ...i, date: i.date.toISOString() }))}
           ownPageUrl={kennelOwnPageUrl(kennel.website, kennel.facebookUrl)}
           kennelSlug={kennel.slug}
-          listingUrl={kennel.halfMindListingId ? halfMindListingUrl(kennel.halfMindListingId) : null}
+          listingUrl={halfMindListingUrl(kennel.halfMindListingId)}
           listingOnly={kennel.listingOnly}
         />
       </FadeInSection>

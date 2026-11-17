@@ -47,7 +47,7 @@ export function OtherKennelsSection({
               surface="travel"
               showOwnPage
               listingOnly={k.listingOnly}
-              listingUrl={k.halfMindListingId ? halfMindListingUrl(k.halfMindListingId) : null}
+              listingUrl={halfMindListingUrl(k.halfMindListingId)}
             />
           </li>
         ))}

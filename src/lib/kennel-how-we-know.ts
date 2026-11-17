@@ -105,6 +105,14 @@ async function runSourceName(kennelId: string, date: Date): Promise<string | nul
   return row?.source.name ?? null;
 }
 
+export interface HowWeKnowOptions {
+  now?: Date;
+  /** The kennel's Half-Mind listing: a Half-Mind check links to it. */
+  halfMindListingId?: string | null;
+  /** A listing-only kennel: its coverage is the Half-Mind listing. */
+  listingOnly?: boolean;
+}
+
 /**
  * "How we know" for one kennel. `evidence` is the kennel's cached evidence,
  * which the kennel page has already loaded. Every query runs in parallel
@@ -113,9 +121,7 @@ async function runSourceName(kennelId: string, date: Date): Promise<string | nul
 export async function getHowWeKnow(
   kennelId: string,
   evidence: KennelEvidence,
-  now: Date = new Date(),
-  halfMindListingId: string | null = null,
-  listingOnly = false,
+  { now = new Date(), halfMindListingId = null, listingOnly = false }: HowWeKnowOptions = {},
 ): Promise<HowWeKnow> {
   const lastRunAt = evidence.lastRunSeenAt;
   const nextPostedAt =
@@ -155,7 +161,7 @@ export async function getHowWeKnow(
       // so it would only repeat the label and the date.
       detail: via === "HALF_MIND" ? null : (running?.note ?? null),
       // A Half-Mind check has no link of its own: point at the listing.
-      url: running?.url ?? (via === "HALF_MIND" && halfMindListingId ? halfMindListingUrl(halfMindListingId) : null),
+      url: running?.url ?? (via === "HALF_MIND" ? halfMindListingUrl(halfMindListingId) : null),
     });
   }
   if (evidence.stoppedAt) {
@@ -181,12 +187,10 @@ export const NO_HOW_WE_KNOW: HowWeKnow = { coverage: { level: "none" }, items: [
 export async function getHowWeKnowOrEmpty(
   kennelId: string,
   evidence: KennelEvidence,
-  now: Date = new Date(),
-  halfMindListingId: string | null = null,
-  listingOnly = false,
+  opts: HowWeKnowOptions = {},
 ): Promise<HowWeKnow> {
   try {
-    return await getHowWeKnow(kennelId, evidence, now, halfMindListingId, listingOnly);
+    return await getHowWeKnow(kennelId, evidence, opts);
   } catch (err) {
     console.error(`[kennel-page] "How we know" failed for kennel ${kennelId}; rendering it empty`, err);
     return NO_HOW_WE_KNOW;

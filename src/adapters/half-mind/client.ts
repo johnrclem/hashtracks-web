@@ -4,13 +4,16 @@
  * only the fields we need (never contact emails).
  */
 import { safeFetch } from "@/adapters/safe-fetch";
-import { toUtcNoon } from "@/lib/kennel-status";
+import { DAY_MS, toUtcNoon } from "@/lib/kennel-status";
 import { safeUrl } from "@/lib/safe-url";
 
 export const HALF_MIND_API_URL = "https://half-mind.com/api/v1/kennels.php";
 export const HALF_MIND_USER_AGENT = "HashTracks/1.0 (+https://www.hashtracks.xyz)";
 
-export type HalfMindStatus = "alive" | "unknown" | "dead" | "missing";
+/** A listing's status as Half-Mind reports it. */
+export type HalfMindListingStatus = "alive" | "unknown" | "dead";
+/** A stored row's `externalStatus`: the listing's status, or "missing" once a complete response stops listing it. */
+export type HalfMindStatus = HalfMindListingStatus | "missing";
 
 export interface HalfMindScope {
   country: string;
@@ -29,7 +32,7 @@ export interface HalfMindListing {
   country: string;
   latitude: number | null;
   longitude: number | null;
-  status: Exclude<HalfMindStatus, "missing">;
+  status: HalfMindListingStatus;
   lastVerifiedAt: Date | null;
   schedule: string | null;
   website: string | null;
@@ -45,9 +48,13 @@ export interface HalfMindResult {
   rowErrors: string[];
 }
 
-const DAY_MS = 86_400_000;
 const MAX_VERIFIED_AGE_DAYS = 365;
 const TIME_RE = /^(\d{1,2}):(\d{2})$/;
+
+/** A request-level failure: the response is unusable. */
+function fail(msg: string): HalfMindResult {
+  return { listings: [], truncated: false, errors: [msg], rowErrors: [] };
+}
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -68,7 +75,7 @@ function num(v: unknown): number | null {
   return null;
 }
 
-function mapStatus(row: Record<string, unknown>): Exclude<HalfMindStatus, "missing"> {
+function mapStatus(row: Record<string, unknown>): HalfMindListingStatus {
   const status = typeof row.status === "string" ? row.status.trim().toLowerCase() : "";
   const state = typeof row.current_state === "string" ? row.current_state.trim().toLowerCase() : "";
   if (status === "dead" || state.includes("dead")) return "dead";
@@ -152,7 +159,7 @@ export function cleanHalfMindSchedule(raw: unknown): string | null {
 
 export function parseHalfMindResponse(body: unknown, now: Date): HalfMindResult {
   if (!isRecord(body) || !Array.isArray(body.items)) {
-    return { listings: [], truncated: false, errors: ["Half-Mind response had an unexpected shape"], rowErrors: [] };
+    return fail("Half-Mind response had an unexpected shape");
   }
   const listings: HalfMindListing[] = [];
   const rowErrors: string[] = [];
@@ -203,7 +210,6 @@ export async function fetchHalfMindListings(scope: HalfMindScope, now: Date = ne
   const params = new URLSearchParams({ country: scope.country });
   if (scope.state) params.set("state", scope.state);
   params.set("dead", "1");
-  const fail = (msg: string): HalfMindResult => ({ listings: [], truncated: false, errors: [msg], rowErrors: [] });
 
   let res: Response;
   try {

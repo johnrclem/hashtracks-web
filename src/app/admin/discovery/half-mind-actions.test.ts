@@ -14,6 +14,7 @@ const tables = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", async () => {
   const { matchesWhere } = await import("@/test/prisma-where");
+  const { buildPrismaUniqueViolation } = await import("@/test/factories");
   let seq = 0;
   const fakeTable = (name: keyof typeof tables) => {
     const rows = () => tables[name];
@@ -35,6 +36,11 @@ vi.mock("@/lib/db", async () => {
       }),
       updateMany: vi.fn(async ({ where, data }: { where: Row; data: Row }) => {
         const hits = rows().filter((r) => matchesWhere(r, where));
+        // Like Postgres, Kennel.halfMindListingId is unique.
+        const taken = (r: Row) => !hits.includes(r) && r.halfMindListingId === data.halfMindListingId;
+        if (name === "kennel" && data.halfMindListingId != null && rows().some(taken)) {
+          throw buildPrismaUniqueViolation(["halfMindListingId"]);
+        }
         for (const r of hits) Object.assign(r, data);
         return { count: hits.length };
       }),
@@ -260,7 +266,6 @@ describe("linkHalfMindListing", () => {
     });
     expect(kennel("k-pf").halfMindListingId).toBeNull();
     expect(discovery("d-19").status).toBe("NEW");
-    expect(prisma.kennel.updateMany).not.toHaveBeenCalled();
     expect(prisma.kennelDiscovery.updateMany).not.toHaveBeenCalled();
     expect(tables.kennelConfirmation).toHaveLength(0);
   });
@@ -275,12 +280,8 @@ describe("linkHalfMindListing", () => {
   });
 
   it("maps a concurrent P2002 on halfMindListingId to the already-linked message", async () => {
-    // Another admin linked the listing to Black Sheep after our pre-check read no holder.
+    // Another admin linked the listing to Black Sheep while this link ran.
     kennel("k-bs").halfMindListingId = "19";
-    const realFind = vi.mocked(prisma.kennel.findUnique).getMockImplementation()!;
-    vi.mocked(prisma.kennel.findUnique)
-      .mockImplementationOnce(realFind) // the kennel being linked
-      .mockResolvedValueOnce(null); // the holder pre-check, read before the other link committed
     vi.mocked(prisma.kennel.updateMany).mockRejectedValueOnce(buildPrismaUniqueViolation(["halfMindListingId"]));
     expect(await linkHalfMindListing("d-19", "k-pf")).toEqual({
       error: "That Half-Mind listing is already linked to Black Sheep H3.",
@@ -290,7 +291,7 @@ describe("linkHalfMindListing", () => {
     expect(tables.kennelConfirmation).toHaveLength(0);
   });
 
-  it("refuses, writing nothing, when the kennel took another listing after the pre-check", async () => {
+  it("refuses, writing nothing, when the kennel took another listing after it was read", async () => {
     // A second link to Peach Fuzz committed between our read and our write.
     vi.mocked(prisma.kennel.findUnique).mockResolvedValueOnce(
       { id: "k-pf", shortName: "Peach Fuzz H3", halfMindListingId: null } as never,

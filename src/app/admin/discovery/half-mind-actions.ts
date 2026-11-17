@@ -10,18 +10,16 @@ import { revalidatePath } from "next/cache";
 import type { KennelDiscovery, Prisma } from "@/generated/prisma/client";
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { HALF_MIND_DISMISS_NEW_ONLY, HALF_MIND_EXTERNAL_SOURCE, halfMindListingUrl } from "@/lib/half-mind";
+import { HALF_MIND_EXTERNAL_SOURCE, halfMindListingUrl } from "@/lib/half-mind";
 import { confirmKennelRunningFor, revertHalfMindChecksFor } from "@/lib/kennel-confirmations";
 import { revalidateKennel } from "@/lib/kennel-revalidate";
 import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import { createKennelFromDiscovery } from "@/app/admin/shared/kennel-creation";
 import { halfMindCheckInput, rowPassesImportBar, syncHalfMindDiscovery } from "@/pipeline/half-mind-discovery";
+import type { RankedCandidate } from "@/pipeline/kennel-discovery";
 
 /** A stored candidate at or above this score makes "Add" ask for confirmation first. */
 const DUPLICATE_SCORE = 0.8;
-
-type Candidate = { id: string; shortName: string; score: number };
-type CheckOutcome = "recorded" | "not-alive" | "too-old" | "stopped" | { error: string };
 
 /** The admin plus the Half-Mind row an action works on, or why it must refuse. */
 async function loadHalfMindRow(
@@ -44,6 +42,8 @@ function kennelHasListing(shortName: string, listingId: string): string {
 }
 
 const LINK_NEW_ONLY = "Only a NEW Half-Mind row can be linked.";
+/** Only an unreviewed row may be dismissed; linked and added ones are undone elsewhere. */
+const DISMISS_NEW_ONLY = "Only a NEW Half-Mind row can be dismissed.";
 
 /** Thrown inside a transaction to refuse and roll back with a message for the admin. */
 class Refusal extends Error {}
@@ -56,9 +56,9 @@ async function listingHolder(listingId: string) {
 }
 
 /** The best stored candidate, read defensively from the row's JSON. */
-function bestCandidate(json: Prisma.JsonValue | null): Candidate | null {
+function bestCandidate(json: Prisma.JsonValue | null): RankedCandidate | null {
   if (!Array.isArray(json)) return null;
-  let best: Candidate | null = null;
+  let best: RankedCandidate | null = null;
   for (const c of json) {
     if (typeof c !== "object" || c === null || Array.isArray(c)) continue;
     const { id, shortName, score } = c;
@@ -71,11 +71,20 @@ function bestCandidate(json: Prisma.JsonValue | null): Candidate | null {
 /**
  * Credit the row's Half-Mind check to a kennel an admin just linked or added,
  * when the row still passes the import bar. No `onlyIfNewerForUrl`: a deliberate
- * relink after an unlink records the current check again.
+ * relink after an unlink records the current check again. Returns what to tell
+ * the admin when no check was recorded, or undefined when one was.
  */
-async function recordRowCheck(adminId: string, kennelId: string, row: KennelDiscovery, now: Date): Promise<CheckOutcome> {
-  if (row.externalStatus !== "alive") return "not-alive";
-  if (!row.externalCheckedAt || !rowPassesImportBar(row, now)) return "too-old";
+async function recordRowCheck(
+  done: "Linked" | "Added",
+  adminId: string,
+  kennelId: string,
+  row: KennelDiscovery,
+  now: Date,
+): Promise<string | undefined> {
+  if (row.externalStatus !== "alive") {
+    return `${done}; Half-Mind doesn't mark this kennel alive, so the check was not recorded.`;
+  }
+  if (!row.externalCheckedAt || !rowPassesImportBar(row, now)) return `${done}; the Half-Mind check is too old to record.`;
   const outcome = await confirmKennelRunningFor(
     adminId,
     kennelId,
@@ -83,18 +92,9 @@ async function recordRowCheck(adminId: string, kennelId: string, row: KennelDisc
     now,
     { via: "HALF_MIND" },
   );
-  if ("stopped" in outcome) return "stopped";
-  if ("error" in outcome) return outcome;
-  return "recorded";
-}
-
-/** What to tell the admin when a link or add recorded no check; undefined when it did. */
-function checkWarning(done: "Linked" | "Added", outcome: CheckOutcome): string | undefined {
-  if (outcome === "recorded") return undefined;
-  if (outcome === "too-old") return `${done}; the Half-Mind check is too old to record.`;
-  if (outcome === "stopped") return `${done}; the kennel is stopped, so the check was not recorded.`;
-  if (outcome === "not-alive") return `${done}; Half-Mind doesn't mark this kennel alive, so the check was not recorded.`;
-  return `${done}; the check was not recorded: ${outcome.error}`;
+  if ("stopped" in outcome) return `${done}; the kennel is stopped, so the check was not recorded.`;
+  if ("error" in outcome) return `${done}; the check was not recorded: ${outcome.error}`;
+  return undefined;
 }
 
 /** Run the Half-Mind sync for the pilot scopes. */
@@ -120,21 +120,14 @@ export async function linkHalfMindListing(
   const { adminId, row } = loaded;
   if (row.status !== "NEW") return { error: LINK_NEW_ONLY };
 
-  const kennel = await prisma.kennel.findUnique({
-    where: { id: kennelId },
-    select: { id: true, shortName: true, halfMindListingId: true },
-  });
+  const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: { id: true } });
   if (!kennel) return { error: "Kennel not found" };
-  if (kennel.halfMindListingId && kennel.halfMindListingId !== row.externalSlug) {
-    return { error: kennelHasListing(kennel.shortName, kennel.halfMindListingId) };
-  }
-  const holder = await listingHolder(row.externalSlug);
-  if (holder && holder.id !== kennelId) return { error: alreadyLinkedTo(holder.shortName) };
 
   const now = new Date();
   try {
-    // The checks above are re-made by the writes themselves: a link to this
-    // kennel, a link of this row or a dismiss may have landed since.
+    // The writes make the checks: a kennel that already holds another listing
+    // and a row that is no longer NEW refuse here, and a listing another kennel
+    // holds fails the unique halfMindListingId.
     await prisma.$transaction(async (tx) => {
       const claimed = await tx.kennel.updateMany({
         where: { id: kennelId, OR: [{ halfMindListingId: null }, { halfMindListingId: row.externalSlug }] },
@@ -157,13 +150,13 @@ export async function linkHalfMindListing(
     });
   } catch (err) {
     if (err instanceof Refusal) return { error: err.message };
-    // A concurrent link won the unique halfMindListingId.
+    // Another kennel holds the listing (the unique halfMindListingId).
     if (!isUniqueConstraintViolation(err, ["halfMindListingId"])) throw err;
     const winner = await listingHolder(row.externalSlug);
     return { error: alreadyLinkedTo(winner?.shortName ?? "another kennel") };
   }
 
-  const warning = checkWarning("Linked", await recordRowCheck(adminId, kennelId, row, now));
+  const warning = await recordRowCheck("Linked", adminId, kennelId, row, now);
   revalidatePath("/admin/discovery");
   await revalidateKennel(kennelId);
   return warning ? { success: true, warning } : { success: true };
@@ -203,7 +196,7 @@ export async function addListingOnlyKennel(
   discoveryId: string,
   data: { shortName: string; fullName: string; regionId: string },
   opts: { confirmNotDuplicate?: boolean } = {},
-): Promise<{ success: true; kennelId: string; warning?: string } | { error: string; duplicateOf?: Candidate }> {
+): Promise<{ success: true; kennelId: string; warning?: string } | { error: string; duplicateOf?: RankedCandidate }> {
   const loaded = await loadHalfMindRow(discoveryId);
   if ("error" in loaded) return loaded;
   const { adminId, row } = loaded;
@@ -229,14 +222,12 @@ export async function addListingOnlyKennel(
     website: row.website ?? undefined,
     facebookUrl: row.facebookUrl,
     scheduleNotes: row.schedule,
-    latitude: row.latitude,
-    longitude: row.longitude,
     listingOnly: true,
     halfMindListingId: row.externalSlug,
   });
   if ("error" in result) return result;
 
-  const warning = checkWarning("Added", await recordRowCheck(adminId, result.kennelId, row, new Date()));
+  const warning = await recordRowCheck("Added", adminId, result.kennelId, row, new Date());
   revalidatePath("/admin/discovery");
   await revalidateKennel(result.kennelId);
   return warning ? { success: true, kennelId: result.kennelId, warning } : { success: true, kennelId: result.kennelId };
@@ -247,14 +238,14 @@ export async function dismissHalfMindListing(discoveryId: string): Promise<{ suc
   const loaded = await loadHalfMindRow(discoveryId);
   if ("error" in loaded) return loaded;
   const { adminId, row } = loaded;
-  if (row.status !== "NEW") return { error: HALF_MIND_DISMISS_NEW_ONLY };
+  if (row.status !== "NEW") return { error: DISMISS_NEW_ONLY };
 
   // Conditional: a link or add may have landed since the row was read.
   const { count } = await prisma.kennelDiscovery.updateMany({
     where: { id: row.id, status: "NEW" },
     data: { status: "DISMISSED", processedBy: adminId, processedAt: new Date() },
   });
-  if (count === 0) return { error: HALF_MIND_DISMISS_NEW_ONLY };
+  if (count === 0) return { error: DISMISS_NEW_ONLY };
   revalidatePath("/admin/discovery");
   return { success: true };
 }

@@ -56,7 +56,8 @@ export function nearestRegionId(
   return bestId;
 }
 
-type PickerKennel = { id: string; shortName: string; fullName: string; region: string };
+/** A kennel the Link picker can offer. */
+export type PickerKennel = { id: string; shortName: string; fullName: string; region: string };
 
 /** Client-side name search for the Link picker; empty query returns nothing, capped at `limit`. */
 export function searchKennels<T extends PickerKennel>(kennels: readonly T[], query: string, limit = 8): T[] {

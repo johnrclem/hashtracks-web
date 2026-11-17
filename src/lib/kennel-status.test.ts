@@ -2,6 +2,7 @@ import {
   getKennelState,
   getStatusLine,
   formatStatusLine,
+  statusLineParts,
   runningKennelWhere,
   listedKennelWhere,
   serializeKennelEvidence,
@@ -180,6 +181,25 @@ describe("formatStatusLine", () => {
     expect(formatStatusLine({ kind: "next-posted", date: new Date("2027-02-14T12:00:00Z") }, NOW)).toBe("Next run posted · Feb 2027");
     expect(formatStatusLine({ kind: "stopped", date: lastYear }, NOW)).toBe("Stopped · Nov 2025");
     expect(formatStatusLine({ kind: "never" }, NOW)).toBe("No runs seen on HashTracks");
+  });
+});
+
+describe("statusLineParts", () => {
+  const date = new Date("2026-03-05T12:00:00Z");
+
+  it("splits a Half-Mind check line into the listing words and the rest", () => {
+    expect(statusLineParts({ kind: "checked", via: "HALF_MIND", date }, NOW)).toEqual({
+      linkText: "Half-Mind listing",
+      rest: " checked · Mar 5",
+    });
+  });
+
+  it("puts every other line in rest", () => {
+    expect(statusLineParts({ kind: "checked", via: "ADMIN", date }, NOW)).toEqual({ rest: "Checked running · Mar 5" });
+    expect(statusLineParts({ kind: "last-run", date }, NOW)).toEqual({ rest: "Last run we saw · Mar 5" });
+    expect(statusLineParts({ kind: "next-posted", date }, NOW)).toEqual({ rest: "Next run posted · Mar 5" });
+    expect(statusLineParts({ kind: "stopped", date }, NOW)).toEqual({ rest: "Stopped · Mar 5" });
+    expect(statusLineParts({ kind: "never" }, NOW)).toEqual({ rest: "No runs seen on HashTracks" });
   });
 });
 

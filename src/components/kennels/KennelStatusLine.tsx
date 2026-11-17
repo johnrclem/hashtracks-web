@@ -2,14 +2,12 @@
 
 import { OwnPageLink } from "@/components/kennels/OwnPageLink";
 import {
-  formatStatusLine,
   getStatusLine,
   ownPageFor,
+  statusLineParts,
   toKennelEvidence,
   type SerializedKennelEvidence,
 } from "@/lib/kennel-status";
-
-const LISTING_WORDS = "Half-Mind listing";
 
 interface KennelStatusLineProps {
   evidence: SerializedKennelEvidence;
@@ -46,30 +44,24 @@ export function KennelStatusLine({
   if (!line) return null;
 
   const ownPage = ownPageFor(line, ownPageUrl, listingOnly || showOwnPage);
-  const text = formatStatusLine(line, now);
-  const linkedListing =
-    line.kind === "checked" && line.via === "HALF_MIND" && listingUrl && text.startsWith(LISTING_WORDS)
-      ? listingUrl
-      : null;
+  const { linkText, rest } = statusLineParts(line, now);
 
   return (
     <p className="mt-1.5 text-xs text-muted-foreground">
-      {linkedListing ? (
-        <>
-          <a
-            href={linkedListing}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative z-10 underline underline-offset-2 hover:text-foreground"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {LISTING_WORDS}
-          </a>
-          {text.slice(LISTING_WORDS.length)}
-        </>
+      {linkText && listingUrl ? (
+        <a
+          href={listingUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="relative z-10 underline underline-offset-2 hover:text-foreground"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {linkText}
+        </a>
       ) : (
-        text
+        linkText
       )}
+      {rest}
       {ownPage && (
         <>
           {" · "}
