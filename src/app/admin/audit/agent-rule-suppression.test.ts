@@ -27,13 +27,6 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/pipeline/audit-issue-sync", () => ({ syncAuditIssues: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/pipeline/audit-filer", () => ({ fileAuditFinding: vi.fn() }));
-// The promoter's run lock has its own tests; here it always acquires.
-vi.mock("@/lib/advisory-lock", () => ({
-  withAdvisoryXactLock: async (_key: number, _timeoutMs: number, fn: () => Promise<unknown>) => ({
-    acquired: true,
-    result: await fn(),
-  }),
-}));
 vi.mock("@/pipeline/audit-issue", () => ({
   GITHUB_MIN_WRITE_GAP_MS: 1_000,
   buildCronActions: vi.fn(() => ({
