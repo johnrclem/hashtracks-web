@@ -1,6 +1,6 @@
 # Onboarding backfill automation: design
 
-**Status:** v5.3, amended 2026-11-14 after PR review. Adversarial review: approved in round 20 (Appendix A records every round). Owner approval of section 15: 2026-11-13. The owner approved all ten decisions in section 15 on 2026-11-13, and decision 7's step-up was rebuilt in that review (10.3, T4). **Phase 0 is built** (2026-11-17): the PR stack in 12.1a, #3039 (schema, merged), #3040, #3041, #3042, #3045 and this PR. `BACKFILL_AUTOMATION` is `off`. Phase 1 waits for the owner's steps in 12.1b.
+**Status:** v5.3, amended 2026-11-14 after PR review. Adversarial review: approved in round 20 (Appendix A records every round). Owner approval of section 15: 2026-11-13. The owner approved all ten decisions in section 15 on 2026-11-13, and decision 7's step-up was rebuilt in that review (10.3, T4). **Phase 0 is built** (2026-11-17): the PR stack in 12.1a, #3039 (schema, merged), #3040, #3041, #3042, #3045 and #3047. `BACKFILL_AUTOMATION` is `off`. Phase 1 waits for the owner's steps in 12.1b.
 **Scope:** design, and the record of what Phase 0 built (12.1a, 12.1b).
 **Related:** [`kennel-onboarding/implement-handoff-prompt.md`](kennel-onboarding/implement-handoff-prompt.md) (the implementer),
 [`kennel-onboarding/daily-onboarding-prompt.md`](kennel-onboarding/daily-onboarding-prompt.md) (research),
