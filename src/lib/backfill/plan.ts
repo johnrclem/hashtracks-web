@@ -27,6 +27,7 @@ import {
   checkSiblingMentions,
   checkSize,
   checkStretchGap,
+  originRoutesElsewhere,
   touchedGuardPaths,
 } from "./guards";
 import { recordStep } from "./run-state";
@@ -143,12 +144,7 @@ async function resolveSources(manifest: BackfillManifest): Promise<Resolved> {
   if (archive.type !== origin.type) problems.push("G12: the archive source's type must be the origin's");
   if (archive.trustLevel > origin.trustLevel) problems.push("G12: the archive source's trust may not exceed the origin's");
   if (origin.kennels.length !== 1 || origin.kennels[0].kennelId !== kennel!.id) problems.push("G5: the origin must be linked to the kennel only");
-  const cfg = (origin.config ?? {}) as { kennelPatterns?: unknown; defaultKennelTag?: unknown };
-  const patternCodes = JSON.stringify(cfg.kennelPatterns ?? []).match(/"[a-z0-9-]+"/g) ?? [];
-  const namesOther =
-    (typeof cfg.defaultKennelTag === "string" && cfg.defaultKennelTag !== kennel!.kennelCode) ||
-    (Array.isArray(cfg.kennelPatterns) && cfg.kennelPatterns.length > 0 && patternCodes.some((c) => c !== `"${kennel!.kennelCode}"`));
-  if (namesOther) problems.push("G5: the origin's kennelPatterns or defaultKennelTag route to another kennel");
+  if (originRoutesElsewhere(origin.config, kennel!.kennelCode)) problems.push("G5: the origin's kennelPatterns or defaultKennelTag route to another kennel");
 
   const linked = await prisma.sourceKennel.findMany({
     where: { kennelId: kennel!.id },

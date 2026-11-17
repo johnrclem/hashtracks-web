@@ -45,6 +45,25 @@ export function checkRowRouting(rows: readonly RawEventData[], kennelCode: strin
   return bad;
 }
 
+/**
+ * G5 (origin config): true when the origin could route an event to a kennel
+ * other than `kennelCode`. Reads only each kennelPatterns entry's destination
+ * (`[regex, code | code[]]`), never its regex, and treats an entry it can't
+ * read as routing elsewhere.
+ */
+export function originRoutesElsewhere(config: unknown, kennelCode: string): boolean {
+  const cfg = (config ?? {}) as { kennelPatterns?: unknown; defaultKennelTag?: unknown };
+  if (cfg.defaultKennelTag !== undefined && cfg.defaultKennelTag !== null && cfg.defaultKennelTag !== kennelCode) return true;
+  if (cfg.kennelPatterns === undefined || cfg.kennelPatterns === null) return false;
+  if (!Array.isArray(cfg.kennelPatterns)) return true;
+  return cfg.kennelPatterns.some((entry) => {
+    if (!Array.isArray(entry) || entry.length !== 2) return true;
+    const dest: unknown = entry[1];
+    const codes = Array.isArray(dest) ? dest : [dest];
+    return codes.length === 0 || codes.some((c) => c !== kennelCode);
+  });
+}
+
 /** Section 3: one tag, no series, no external links per row. */
 export function checkRowShape(rows: readonly RawEventData[]): number[] {
   const bad: number[] = [];
