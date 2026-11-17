@@ -1,6 +1,7 @@
 import { restoreEnv } from "@/test/env";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/db", () => ({ prisma: { automationRun: { create: vi.fn() } } }));
 vi.mock("@/lib/admin/deep-dive-queue", () => ({ loadDeepDiveQueue: vi.fn() }));
 vi.mock("@/lib/admin/hareline-prompt-inputs", () => ({ loadHarelinePromptInputs: vi.fn() }));
 vi.mock("@/lib/admin/audit-suppressions-md", () => ({
@@ -14,6 +15,8 @@ vi.mock("@/lib/admin/audit-draft-queue", () => ({
 }));
 
 import { NextResponse } from "next/server";
+
+import { prisma } from "@/lib/db";
 
 import { discardQueuedDraft, loadQueuedDrafts } from "@/lib/admin/audit-draft-queue";
 import { handleAuditSubmission } from "@/lib/admin/audit-submit";
@@ -189,5 +192,13 @@ describe("POST /api/audit/agent/submit-finding", () => {
     const res = await submitFinding(post(body));
     expect(res.status).toBe(201);
     expect(handleAuditSubmission).toHaveBeenCalledWith(body, AUDIT_AGENT_SUBMITTER_ID);
+  });
+
+  it("records the authenticated call for the ops watchdog", async () => {
+    vi.mocked(handleAuditSubmission).mockResolvedValue(NextResponse.json({ data: { queued: true } }, { status: 201 }));
+    await submitFinding(post({ kind: "completion" }));
+    expect(prisma.automationRun.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ automation: "agent:submit-finding", kind: "AGENT_CALL" }),
+    });
   });
 });
