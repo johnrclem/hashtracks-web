@@ -3251,3 +3251,11 @@ Verified by `curl` of `https://lagosh3.com/wp-json/wp/v2/posts?per_page=100` (69
 - Columns and date formats change **between tabs of the same sheet**: Newcastle's 2015–2020 tabs are US `M/D/YY` with two hare columns, 2021+ are `D/M/YYYY` with different column order, and the 2014 tab has no year in any cell. One live `dayFirst` source can only cover the newer tabs; the older ones go through a frozen backfill.
 - A template-style tab can hold a stale duplicate "Date" column (Newcastle's 2026/2027 tabs). Leave it unmapped.
 - Cross-check each row's own weekday cell against the parsed date to find typos (`20/10/2023` in a 2021 tab, `11/32023`, `02/17/15` in a 2016 tab). It caught ~10 bad dates in 600 rows.
+
+## one.com / simplesite site builder — static page, `p.textnormal` line list (learned from Barbados Bike H3, 2026-11-15, VERIFIED via curl)
+
+- **Detection:** host `*.simplesite.com`, assets from `impro.usercontent.one`, classes like `Preview_componentWrapper__…`, `styles_contentContainer__…`. Response is `Apache` + Varnish with `vary: x-is-ai-bot`.
+- **Feed reality:** plain `curl` returns the full page, 200, no JS needed. A hareline is typed as one `<p class="textnormal">` per run inside a single text component (`hashcruise2020.simplesite.com/313623591`, 14 lines). Blank spacer lines are `<p class="textnormal"><br></p>`.
+- **Format:** `#N Sunday Month D - Hare` with no year, a `2026 - 2027` `<h3>` above the list, run number as a prefix on **the same line as its own date**, and one special row with no number (`Sunday November 29 (60th Independence Ride)`). Roll the year when the month decreases.
+- **🔴 `innerText` misleads:** read as flattened text, the `#N` token looks like it belongs to the previous line. An audit issue built from it was off by one. Always read the raw `<p>` boundaries.
+- Page footer `Edited: YYYY-MM-DD` is the owner's last edit; use it as a staleness signal.
