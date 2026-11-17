@@ -3474,6 +3474,11 @@ async function processBackfillRow(
   if (cutoff && eventDate.getTime() >= cutoff.getTime()) return fail({ index, outcome: "REJECTED", reason: "after-cutoff" });
   const match = await findCanonicalMatch(event, kennelId, eventDate, ctx);
   if (match.existing && match.path) return fail({ index, outcome: "MATCH", path: match.path });
+  // The date-correction probe reads the database, which in a simulation lacks
+  // the rows simulated so far; apply would see those it created. Check them here.
+  if (state.simulate && simulatedDateCorrection(event, kennelId, eventDate, state)) {
+    return fail({ index, outcome: "MATCH", path: "date-correction" });
+  }
 
   const batchKey = `${kennelId}:${eventDate.toISOString()}`;
   let created: EventRow;
@@ -3509,6 +3514,21 @@ async function processBackfillRow(
   if (!state.simulate) await recomputeCanonical([...match.sameDayEvents, created]);
 
   return { index, outcome: "CREATE", fingerprint, kennelId, date: event.date };
+}
+
+/** A simulated create the date-correction probe would land this row on (same keys as the probe, within 30 days). */
+function simulatedDateCorrection(event: RawEventData, kennelId: string, eventDate: Date, state: BackfillState): boolean {
+  if (!event.sourceUrl || event.runNumber == null) return false;
+  const t = eventDate.getTime();
+  for (const slot of state.simulatedSlots.values()) {
+    for (const row of slot) {
+      if (!row.id.startsWith("sim:") || row.kennelId !== kennelId) continue;
+      const dt = Math.abs(row.date.getTime() - t);
+      if (dt > 0 && dt <= ARCHIVE_CORRECTION_WINDOW_MS && row.sourceUrl === event.sourceUrl
+        && row.runNumber === event.runNumber && (row.eventLabel ?? null) === (event.eventLabel ?? null)) return true;
+    }
+  }
+  return false;
 }
 
 /**
