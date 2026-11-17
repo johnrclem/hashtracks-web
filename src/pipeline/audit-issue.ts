@@ -2,7 +2,7 @@
  * File GitHub issues from audit findings using the GitHub REST API.
  * Files up to MAX_ISSUES_PER_RUN issues per cron run, one per top
  * audit group. All issues are filed with just `audit`+`alert`+stream
- * and kennel labels; admins add `claude-autofix` manually after triaging.
+ * and kennel labels.
  *
  * Dedup is fingerprint-based (via the shared `audit-filer` module):
  *   - Strict tier: open AuditIssue with same fingerprint → comment +
@@ -57,8 +57,8 @@ const MIRROR_STALE_MS = 25 * 60 * 60 * 1000; // 25 hours
  * `src/app/api/audit/file-finding/route.ts`: the api path uses
  * `URL` constructor + `getValidatedRepo()` + an integer guard on
  * issueNumber so Codacy's tainted-URL rule sees a literal-template
- * URL bound directly to `fetch`. Cron is server-internal and inherits
- * the existing `auto-issue.ts` envelope (template URL + `getValidatedRepo()`).
+ * URL bound directly to `fetch`. Cron is server-internal, so it uses a
+ * simpler envelope (template URL + `getValidatedRepo()`).
  * Don't unify the two without addressing both constraints.
  */
 /** Standard POST init for any GitHub repos/* call. Mirrors the api
