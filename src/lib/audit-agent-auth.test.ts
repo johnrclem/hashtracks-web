@@ -1,7 +1,7 @@
 import { restoreEnv } from "@/test/env";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/db", () => ({ prisma: { automationRun: { create: vi.fn() } } }));
+vi.mock("@/lib/db", () => ({ prisma: { automationRun: { create: vi.fn(async () => ({ id: "run-1" })) } } }));
 
 import { prisma } from "@/lib/db";
 import { agentCallName, hasValidAgentToken, rejectUnlessAgent } from "./audit-agent-auth";

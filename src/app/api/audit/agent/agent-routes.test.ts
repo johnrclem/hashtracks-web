@@ -1,7 +1,7 @@
 import { restoreEnv } from "@/test/env";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/db", () => ({ prisma: { automationRun: { create: vi.fn() } } }));
+vi.mock("@/lib/db", () => ({ prisma: { automationRun: { create: vi.fn(async () => ({ id: "run-1" })) } } }));
 vi.mock("@/lib/admin/deep-dive-queue", () => ({ loadDeepDiveQueue: vi.fn() }));
 vi.mock("@/lib/admin/hareline-prompt-inputs", () => ({ loadHarelinePromptInputs: vi.fn() }));
 vi.mock("@/lib/admin/audit-suppressions-md", () => ({
