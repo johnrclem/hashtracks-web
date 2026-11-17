@@ -19,7 +19,7 @@ The work ships as two PRs:
 - **PR A** (Tasks 1–2): the Travel bridge, which works with kennels we already have.
 - **PR B** (Tasks 3–9): the Half-Mind import, listing-only kennels and the refresh.
 
-PR B starts only after the owner answers the open question below.
+PR B is unblocked: the owner answered the open question on 2026-11-17 (see "Owner answer").
 
 **Tech Stack:** Next.js 16 App Router, Prisma 7 / Postgres, Vitest, Tailwind + shadcn/ui.
 
@@ -52,7 +52,13 @@ PR B starts only after the owner answers the open question below.
   - Only Southeast Xtra H3 would become listing-only.
   - Half-Mind holds some kennels more than once: Houston County H4, Middle Georgia H4 and Slackers on Trail H3 all point at `mgh4.com`.
 
-## Open question for the owner (answer before PR B starts)
+## Owner answer (2026-11-17): yes
+
+> "Half-Mind checks count as running evidence if they claim a kennel is active."
+
+A Half-Mind check counts as running evidence only when the listing claims the kennel is active, meaning `externalStatus === "alive"` ("Alive and Verified"). The import bar already requires that at sync time and again when an admin acts, and the refresh records a newer check only when it passes the bar. A dated check on a listing that is "Unknown" or dead never becomes evidence. This plan is written for this answer, so PR B is unblocked.
+
+The original question, kept for the record:
 
 **Should a Half-Mind check count as full running evidence?**
 - **Yes, with credit everywhere (recommended):** like an admin confirmation, it would set the kennel's state, lift its generated runs from Possible to Likely in Travel, and feed prediction confidence.
