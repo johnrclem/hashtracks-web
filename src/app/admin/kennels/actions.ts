@@ -13,6 +13,7 @@ import { ensureKennelLabel, deleteKennelLabel } from "@/pipeline/kennel-label-sy
 import { regionNameToSlug, regionSlug } from "@/lib/region";
 import { checkLogoUrl } from "@/lib/logo-url";
 import { refreshAfterWrite } from "@/lib/kennel-confirmations";
+import { ARCHIVE_KENNEL_LOCKED, kennelHasArchiveSource } from "@/lib/archive-source";
 
 /**
  * Bust the ISR-cached region landing page (`/kennels/region/[slug]`, which sets
@@ -389,6 +390,7 @@ export async function updateKennel(kennelId: string, formData: FormData) {
 export async function deleteKennel(kennelId: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
+  if (await kennelHasArchiveSource(kennelId)) return { error: ARCHIVE_KENNEL_LOCKED };
 
   // Check for events, members, or attendance
   const kennel = await prisma.kennel.findUnique({
@@ -708,6 +710,8 @@ export async function mergeKennels(
 ): Promise<MergeResult> {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
+  // Merging would move an archive source's single link to another kennel (design 6.5).
+  if (await kennelHasArchiveSource(sourceKennelId)) return { error: ARCHIVE_KENNEL_LOCKED };
 
   // 1. Load both kennels with counts
   const sourceKennel = await prisma.kennel.findUnique({
@@ -835,8 +839,11 @@ export async function mergeKennels(
         where: { kennelId: sourceKennel.id },
         data: { kennelId: targetKennel.id },
       });
+      // Never move an archive link, even one created after the check above: it
+      // stays on the source kennel, so the kennel.delete below fails on its
+      // foreign key and the whole merge rolls back (design 6.5).
       await tx.sourceKennel.updateMany({
-        where: { kennelId: sourceKennel.id },
+        where: { kennelId: sourceKennel.id, source: { archiveOnly: false } },
         data: { kennelId: targetKennel.id },
       });
       // Confirmations would cascade-delete with the kennel. An open STOPPED one

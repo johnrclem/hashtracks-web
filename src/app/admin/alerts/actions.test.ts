@@ -2,6 +2,12 @@
 
 const mockAdmin = { id: "admin_1", clerkId: "clerk_admin" };
 
+vi.mock("@/lib/archive-source", () => ({
+  ARCHIVE_SOURCE_LOCKED: "archive source",
+  ARCHIVE_KENNEL_LOCKED: "archive kennel",
+  isArchiveSource: vi.fn().mockResolvedValue(false),
+  kennelHasArchiveSource: vi.fn().mockResolvedValue(false),
+}));
 vi.mock("@/lib/auth", () => ({
   getAdminUser: vi.fn(),
 }));

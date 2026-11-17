@@ -15,7 +15,7 @@
  */
 import "dotenv/config";
 import { prisma } from "@/lib/db";
-import { deleteLeakedEvent } from "./lib/delete-leaked-event";
+import { deleteLeakedEvent } from "@/lib/delete-leaked-event";
 
 const EVENT_TO_DELETE = "cmphcgutv001g04jljb96mv3g";
 
