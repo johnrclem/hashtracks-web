@@ -13,40 +13,40 @@ datasource db {
 // ── USERS ──
 
 model User {
-  id                  String               @id @default(cuid())
-  clerkId             String               @unique
-  hashName            String? // Public display name (primary identity)
-  nerdName            String? // Real name (private by default)
-  email               String               @unique
-  bio                 String?
-  avatarUrl           String? // User-uploaded profile photo (Vercel Blob URL); overrides the Clerk image
-  clerkImageUrl       String? // Mirror of Clerk's OAuth/account image, synced on sign-in (fallback avatar)
-  hideClerkImage      Boolean              @default(false) // Suppress the account photo; show the generic HHH foot mark instead
-  attendanceVisibility ProfileVisibility   @default(PRIVATE) // Opt-in: list this hasher on past events they attended
-  timeDisplayPref     TimeDisplayPref      @default(EVENT_LOCAL)
-  homeKennels         UserKennel[]
-  attendances         Attendance[]
-  hareCredits         EventHare[]
+  id                   String               @id @default(cuid())
+  clerkId              String               @unique
+  hashName             String? // Public display name (primary identity)
+  nerdName             String? // Real name (private by default)
+  email                String               @unique
+  bio                  String?
+  avatarUrl            String? // User-uploaded profile photo (Vercel Blob URL); overrides the Clerk image
+  clerkImageUrl        String? // Mirror of Clerk's OAuth/account image, synced on sign-in (fallback avatar)
+  hideClerkImage       Boolean              @default(false) // Suppress the account photo; show the generic HHH foot mark instead
+  attendanceVisibility ProfileVisibility    @default(PRIVATE) // Opt-in: list this hasher on past events they attended
+  timeDisplayPref      TimeDisplayPref      @default(EVENT_LOCAL)
+  homeKennels          UserKennel[]
+  attendances          Attendance[]
+  hareCredits          EventHare[]
   // Misman relations
-  kennelHasherLinks   KennelHasherLink[]
-  mismanRequests      MismanRequest[]
-  recordedAttendances KennelAttendance[]   @relation("RecordedAttendances")
-  sentInvites         MismanInvite[]       @relation("SentInvites")
-  acceptedInvites     MismanInvite[]       @relation("AcceptedInvites")
-  rosterGroupRequests RosterGroupRequest[]
+  kennelHasherLinks    KennelHasherLink[]
+  mismanRequests       MismanRequest[]
+  recordedAttendances  KennelAttendance[]   @relation("RecordedAttendances")
+  sentInvites          MismanInvite[]       @relation("SentInvites")
+  acceptedInvites      MismanInvite[]       @relation("AcceptedInvites")
+  rosterGroupRequests  RosterGroupRequest[]
   // Strava
-  stravaConnection    StravaConnection?
+  stravaConnection     StravaConnection?
   // Manual events
-  submittedEvents     Event[]              @relation("SubmittedEvents")
+  submittedEvents      Event[]              @relation("SubmittedEvents")
   // Kennel suggestions
-  kennelRequests      KennelRequest[]
+  kennelRequests       KennelRequest[]
   // Travel Mode saved searches
-  travelSearches      TravelSearch[]
-  travelDestinations  TravelDestination[]
+  travelSearches       TravelSearch[]
+  travelDestinations   TravelDestination[]
   // Kennel status confirmations
-  kennelConfirmations KennelConfirmation[]
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  kennelConfirmations  KennelConfirmation[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
 }
 
 enum TimeDisplayPref {
@@ -153,11 +153,11 @@ model Kennel {
   contactName     String? // "Grand Master: Mudflap"
 
   // ── PROFILE (#1415) ──
-  gm                String? // Current GM (e.g., "Titty Kitty")
-  hareRaiser        String? // Hare raiser (e.g., "Rock Hard")
-  signatureEvent    String? // Annual event / turnover (e.g., "Humpin campout, June/July")
-  founder           String? // Founder (e.g., "Wrap It Up")
-  parentKennelCode  String? // kennelCode of parent/sponsor kennel
+  gm               String? // Current GM (e.g., "Titty Kitty")
+  hareRaiser       String? // Hare raiser (e.g., "Rock Hard")
+  signatureEvent   String? // Annual event / turnover (e.g., "Humpin campout, June/July")
+  founder          String? // Founder (e.g., "Wrap It Up")
+  parentKennelCode String? // kennelCode of parent/sponsor kennel
 
   // ── DETAILS ──
   hashCash    String? // "$5", "Free", "$7/$10 visitor"
@@ -166,40 +166,47 @@ model Kennel {
   logoUrl     String?
 
   // ── FLAGS ──
-  dogFriendly    Boolean? // null = unknown
-  walkersWelcome Boolean? // null = unknown
-  isHidden       Boolean   @default(false) // Hide from public directory/hareline
-  lastEventDate  DateTime? // Cached: MAX(event.date) for activity status computation
-  lastRunSeenAt    DateTime? // Cached: latest past real (non-schedule-only) event date; written by Task 3's status refresh
-  nextRunPostedAt  DateTime? // Cached: earliest upcoming real (non-schedule-only) event date; written by Task 3's status refresh
-  lastConfirmedAt  DateTime? // Cached: latest un-reverted RUNNING KennelConfirmation.observedAt; written by Task 3's refresh and Task 6's actions
-  stoppedAt        DateTime? // Cached: observedAt of an un-reverted STOPPED KennelConfirmation, else null; written by Task 3's refresh and Task 6's actions
-  confirmations  KennelConfirmation[]
+  dogFriendly        Boolean? // null = unknown
+  walkersWelcome     Boolean? // null = unknown
+  isHidden           Boolean              @default(false) // Hide from public directory/hareline
+  lastEventDate      DateTime? // Cached: MAX(event.date) for activity status computation
+  lastRunSeenAt      DateTime? // Cached: latest past real (non-schedule-only) event date; written by Task 3's status refresh
+  nextRunPostedAt    DateTime? // Cached: earliest upcoming real (non-schedule-only) event date; written by Task 3's status refresh
+  lastConfirmedAt    DateTime? // Cached: latest un-reverted RUNNING KennelConfirmation.observedAt; written by Task 3's refresh and Task 6's actions
+  stoppedAt          DateTime? // Cached: observedAt of an un-reverted STOPPED KennelConfirmation, else null; written by Task 3's refresh and Task 6's actions
+  // Archive cutoff (onboarding backfill design 6.5): while set, the merge drops
+  // any other source's row for this kennel dated before it. Set by a backfill
+  // run's first advance (archiveCutoffRunId) or by the owner after a step-up.
+  archiveCutoffDate  DateTime?
+  archiveCutoffRunId String?
+  archiveCutoffRun   BackfillRun?         @relation("KennelArchiveCutoffRun", fields: [archiveCutoffRunId], references: [id], onDelete: SetNull)
+  backfillRuns       BackfillRun[]        @relation("BackfillRunKennel")
+  confirmations      KennelConfirmation[]
 
-  aliases           KennelAlias[]
-  sources           SourceKennel[]
-  events            Event[]
+  aliases             KennelAlias[]
+  sources             SourceKennel[]
+  events              Event[]
   /// Multi-kennel join (#1023). Coexists with `events` (single FK) until
   /// step 7 of the rollout drops Event.kennelId; until then dual-write keeps
   /// the two in sync so legacy single-FK readers still work.
-  eventKennels      EventKennel[]
-  members           UserKennel[]
+  eventKennels        EventKennel[]
+  members             UserKennel[]
   // Misman relations
-  kennelHashers     KennelHasher[]
-  mismanRequests    MismanRequest[]
-  mismanInvites     MismanInvite[]
-  rosterGroups      RosterGroupKennel[]
-  discoveries       KennelDiscovery[]
-  sourceProposals   SourceProposal[]
-  auditLogs         AuditLog[]          @relation("AuditLogKennel")
-  auditSuppressions AuditSuppression[]  @relation("AuditSuppressionKennel")
-  auditIssues       AuditIssue[]        @relation("AuditIssueKennel")
-  auditFindingDrafts AuditFindingDraft[] @relation("AuditFindingDraftKennel")
+  kennelHashers       KennelHasher[]
+  mismanRequests      MismanRequest[]
+  mismanInvites       MismanInvite[]
+  rosterGroups        RosterGroupKennel[]
+  discoveries         KennelDiscovery[]
+  sourceProposals     SourceProposal[]
+  auditLogs           AuditLog[]           @relation("AuditLogKennel")
+  auditSuppressions   AuditSuppression[]   @relation("AuditSuppressionKennel")
+  auditIssues         AuditIssue[]         @relation("AuditIssueKennel")
+  auditFindingDrafts  AuditFindingDraft[]  @relation("AuditFindingDraftKennel")
   // Travel Mode
   scheduleRules       ScheduleRule[]
   predictionSnapshots PredictionSnapshot[]
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 
   @@unique([shortName, regionId])
   @@index([regionId])
@@ -218,39 +225,45 @@ model KennelAlias {
 // ── SOURCES ──
 
 model Source {
-  id            String         @id @default(cuid())
-  name          String // "HashNYC Website"
-  url           String // "https://hashnyc.com"
-  type          SourceType
-  config        Json? // Adapter-specific config (CSS selectors, calendar ID, etc.)
-  trustLevel    Int            @default(5) // 1-10 scale
-  scrapeFreq    String         @default("daily") // "hourly", "daily", "weekly"
-  lastScrapeAt  DateTime?
-  lastSuccessAt DateTime?
-  healthStatus  SourceHealth   @default(UNKNOWN)
-  scrapeDays    Int            @default(90) // Lookback window in days for cron
-  enabled       Boolean        @default(true) // False = skip in cron (temporary disable)
+  id                    String         @id @default(cuid())
+  name                  String // "HashNYC Website"
+  url                   String // "https://hashnyc.com"
+  type                  SourceType
+  config                Json? // Adapter-specific config (CSS selectors, calendar ID, etc.)
+  trustLevel            Int            @default(5) // 1-10 scale
+  scrapeFreq            String         @default("daily") // "hourly", "daily", "weekly"
+  lastScrapeAt          DateTime?
+  lastSuccessAt         DateTime?
+  healthStatus          SourceHealth   @default(UNKNOWN)
+  scrapeDays            Int            @default(90) // Lookback window in days for cron
+  enabled               Boolean        @default(true) // False = skip in cron (temporary disable)
   // Set on a disabled source that `replacedBy` permanently superseded (not one
   // paused for an outage). The replacement's reconcile may then cancel upcoming
   // runs inside its scrape coverage that only this source listed. Leave null on
   // paused sources and on archive / backfill sources, whose RawEvents are the
   // history they exist to protect. See protectedByOtherSources.
-  replacedById  String?
-  replacedBy    Source?        @relation("SourceReplacement", fields: [replacedById], references: [id], onDelete: SetNull)
-  replaces      Source[]       @relation("SourceReplacement")
+  replacedById          String?
+  replacedBy            Source?        @relation("SourceReplacement", fields: [replacedById], references: [id], onDelete: SetNull)
+  replaces              Source[]       @relation("SourceReplacement")
   // Manual baseline boundary: health checks ignore ScrapeLog rows with
   // startedAt < this value when computing rolling averages. Set after a
   // code-led adapter improvement so stale baselines don't fire false
   // FIELD_FILL_DROP / EVENT_COUNT_ANOMALY alerts. Auto-managed regime
   // shifts (config edits) flow through ScrapeLog.configHash separately.
-  baselineResetAt DateTime?
-  kennels       SourceKennel[]
-  rawEvents     RawEvent[]
-  scrapeLogs    ScrapeLog[]
-  alerts        Alert[]
-  eventLinks    EventLink[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  baselineResetAt       DateTime?
+  // An archive source holds one backfill's rows (onboarding backfill design 6.5).
+  // It is never scraped, deleted or enabled: a hand-written CHECK in
+  // 20261117120000_add_backfill_run_tables forbids archiveOnly AND enabled.
+  archiveOnly           Boolean        @default(false)
+  kennels               SourceKennel[]
+  rawEvents             RawEvent[]
+  scrapeLogs            ScrapeLog[]
+  alerts                Alert[]
+  eventLinks            EventLink[]
+  backfillRunsAsArchive BackfillRun[]  @relation("BackfillRunArchiveSource")
+  backfillRunsAsOrigin  BackfillRun[]  @relation("BackfillRunOriginSource")
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
   // (name, type) is the seed upsert identity — see prisma/seed.ts ensureSources
   // and #817 for the HARRIER_CENTRAL collapse that motivated this constraint.
@@ -358,63 +371,63 @@ model RawEvent {
 }
 
 model Event {
-  id                String      @id @default(cuid())
-  kennelId          String
-  date              DateTime // Event date (UTC noon to avoid DST issues)
-  dateUtc           DateTime? // Same moment in UTC (for cross-timezone queries)
+  id                      String      @id @default(cuid())
+  kennelId                String
+  date                    DateTime // Event date (UTC noon to avoid DST issues)
+  dateUtc                 DateTime? // Same moment in UTC (for cross-timezone queries)
   /// Last day of a multi-day event (UTC noon), inclusive. Set on series PARENTS
   /// (umbrella that spans children) and on single-row date-range events that
   /// have no children (e.g. one-registration weekend campouts). null = single-day.
-  endDate           DateTime?
-  timezone          String? // IANA timezone (e.g., "America/New_York")
-  runNumber         Int? // Kennel-specific sequential number
-  title             String? // Trail/event name
-  description       String?
-  eventLabel        String? // Short badge label for shared-sheet sub-events (e.g. "Bayern Nash Hash", "Birthday"). See #1624.
-  haresText         String? // Display text: "Mudflap, Just Simon"
-  locationName      String? // Start location name (venue or first line of address)
-  locationStreet    String? // Full street address, e.g. "SRO Lounge, 1807 Fifth Ave, San Diego, CA 92101"
-  locationCity      String? // Reverse-geocoded city, e.g. "Williamsport, MD"
-  locationAddress   String? // Maps URL for directions
-  latitude          Float?
-  longitude         Float?
-  startTime         String? // Local time string "HH:MM" — NOT a timestamp
-  endTime           String? // Local time string "HH:MM" — same convention as startTime
-  cost              String? // Free-form: "$10", "$5 cash / $10 card", "Free for virgins"
+  endDate                 DateTime?
+  timezone                String? // IANA timezone (e.g., "America/New_York")
+  runNumber               Int? // Kennel-specific sequential number
+  title                   String? // Trail/event name
+  description             String?
+  eventLabel              String? // Short badge label for shared-sheet sub-events (e.g. "Bayern Nash Hash", "Birthday"). See #1624.
+  haresText               String? // Display text: "Mudflap, Just Simon"
+  locationName            String? // Start location name (venue or first line of address)
+  locationStreet          String? // Full street address, e.g. "SRO Lounge, 1807 Fifth Ave, San Diego, CA 92101"
+  locationCity            String? // Reverse-geocoded city, e.g. "Williamsport, MD"
+  locationAddress         String? // Maps URL for directions
+  latitude                Float?
+  longitude               Float?
+  startTime               String? // Local time string "HH:MM" — NOT a timestamp
+  endTime                 String? // Local time string "HH:MM" — same convention as startTime
+  cost                    String? // Free-form: "$10", "$5 cash / $10 card", "Free for virgins"
   /// Verbatim trail-length string from the source ("3-5 Miles", "2.69 (miles)", "13 miles").
   /// Preserves source intent for display; min/max below carry the parsed numerics.
-  trailLengthText      String?
-  trailLengthMinMiles  Float? // Parsed lower bound; equal to max when source is fixed (e.g. "2.69" → min=max=2.69).
-  trailLengthMaxMiles  Float? // Parsed upper bound; for ranges only ("3-5 Miles" → min=3, max=5).
+  trailLengthText         String?
+  trailLengthMinMiles     Float? // Parsed lower bound; equal to max when source is fixed (e.g. "2.69" → min=max=2.69).
+  trailLengthMaxMiles     Float? // Parsed upper bound; for ranges only ("3-5 Miles" → min=3, max=5).
   /// Shiggy Scale (1–5). Range validated at adapter layer — Prisma can't enforce.
   /// User-facing label is "Shiggy Level" (hash vernacular); DB column stays generic so other
   /// adapters' "rating"/"hardness" fields can land in the same column later.
-  difficulty           Int?
+  difficulty              Int?
   /// Trail layout description, verbatim from source ("A to A", "A to B", "Live Hare", etc.).
-  trailType            String?
+  trailType               String?
   /// Whether dogs are welcome at the trail. null = unknown / source didn't say.
-  dogFriendly          Boolean?
+  dogFriendly             Boolean?
   /// Pre-event meetup venue/time, free-form text.
-  prelube              String?
-  sourceUrl         String? // Link to original event page
-  trustLevel        Int         @default(5)
-  isSeriesParent    Boolean     @default(false)
-  parentEventId     String?
-  status            EventStatus @default(CONFIRMED)
-  isScheduleOnly    Boolean     @default(false) // True when the event has ≥1 RawEvent and every one is a schedule projection (STATIC_SCHEDULE, or a detail-less repeating GCal instance), not evidence a run happened; written by refreshScheduleOnlyFlags (src/pipeline/kennel-evidence.ts)
+  prelube                 String?
+  sourceUrl               String? // Link to original event page
+  trustLevel              Int         @default(5)
+  isSeriesParent          Boolean     @default(false)
+  parentEventId           String?
+  status                  EventStatus @default(CONFIRMED)
+  isScheduleOnly          Boolean     @default(false) // True when the event has ≥1 RawEvent and every one is a schedule projection (STATIC_SCHEDULE, or a detail-less repeating GCal instance), not evidence a run happened; written by refreshScheduleOnlyFlags (src/pipeline/kennel-evidence.ts)
   adminCancelledAt        DateTime? // null = no admin override; non-null = locked
-  adminCancelledBy        String?   // Clerk userId of admin who set the override
-  adminCancellationReason String?   // free-text reason; validated 3–500 chars at action layer
-  adminAuditLog           Json?     // append-only history of cancel/uncancel transitions
-  isManualEntry     Boolean     @default(false)
-  submittedByUserId String?
-  submittedBy       User?       @relation("SubmittedEvents", fields: [submittedByUserId], references: [id])
+  adminCancelledBy        String? // Clerk userId of admin who set the override
+  adminCancellationReason String? // free-text reason; validated 3–500 chars at action layer
+  adminAuditLog           Json? // append-only history of cancel/uncancel transitions
+  isManualEntry           Boolean     @default(false)
+  submittedByUserId       String?
+  submittedBy             User?       @relation("SubmittedEvents", fields: [submittedByUserId], references: [id])
   /// When two sources disagree on (kennelId, date) and the merge pipeline
   /// can't collapse them into one row, every row persists for audit
   /// fidelity but only ONE is canonical — display paths filter on
   /// isCanonical: true. Selector: highest trustLevel, then highest
   /// completeness score, then oldest createdAt (stable).
-  isCanonical       Boolean     @default(true)
+  isCanonical             Boolean     @default(true)
 
   kennel            Kennel             @relation(fields: [kennelId], references: [id])
   parentEvent       Event?             @relation("EventSeries", fields: [parentEventId], references: [id])
@@ -506,19 +519,19 @@ enum HareSourceType {
 // ── ATTENDANCE ──
 
 model Attendance {
-  id                 String             @id @default(cuid())
-  userId             String
-  eventId            String
-  status             AttendanceStatus   @default(CONFIRMED)
-  participationLevel ParticipationLevel @default(RUN)
-  stravaUrl          String?
+  id                  String             @id @default(cuid())
+  userId              String
+  eventId             String
+  status              AttendanceStatus   @default(CONFIRMED)
+  participationLevel  ParticipationLevel @default(RUN)
+  stravaUrl           String?
   // True when stravaUrl was attached from the Strava API (suggestion / picker),
   // false when the user pasted it. Disconnect clears only auto-linked URLs.
-  stravaUrlAutoLinked Boolean           @default(false)
-  beezThere          Boolean            @default(false)
-  notes              String? // User's personal notes
-  isVerified         Boolean            @default(false) // Verified by misman (v2)
-  verifiedBy         String? // Misman user ID (v2)
+  stravaUrlAutoLinked Boolean            @default(false)
+  beezThere           Boolean            @default(false)
+  notes               String? // User's personal notes
+  isVerified          Boolean            @default(false) // Verified by misman (v2)
+  verifiedBy          String? // Misman user ID (v2)
 
   user      User     @relation(fields: [userId], references: [id])
   event     Event    @relation(fields: [eventId], references: [id])
@@ -1039,14 +1052,14 @@ enum AuditIssueEventType {
 }
 
 model AuditIssue {
-  id              String            @id @default(cuid())
-  githubNumber    Int               @unique
+  id              String      @id @default(cuid())
+  githubNumber    Int         @unique
   stream          AuditStream
   state           String // "open" | "closed"
   title           String
   htmlUrl         String
   kennelCode      String?
-  kennel          Kennel?           @relation("AuditIssueKennel", fields: [kennelCode], references: [kennelCode])
+  kennel          Kennel?     @relation("AuditIssueKennel", fields: [kennelCode], references: [kennelCode])
   githubCreatedAt DateTime // GitHub issue.created_at
   githubClosedAt  DateTime? // GitHub issue.closed_at — current closure only
   // GitHub `state_reason` ("completed" | "not_planned" | "reopened" | null).
@@ -1064,8 +1077,8 @@ model AuditIssue {
   // fingerprint regardless of which event sample surfaced the finding —
   // so cross-stream coalescing works.
   fingerprint            String? // sha256 hex
-  affectedEventIds       String[] @default([]) // event IDs sampled into this issue (matches prod default)
-  recurrenceCount        Int               @default(0) // bumps each time the same fingerprint fires
+  affectedEventIds       String[]  @default([]) // event IDs sampled into this issue (matches prod default)
+  recurrenceCount        Int       @default(0) // bumps each time the same fingerprint fires
   escalatedAt            DateTime? // set once when recurrenceCount crosses threshold
   escalatedToIssueNumber Int? // GitHub issue number of the meta-escalation issue
 
@@ -1087,15 +1100,15 @@ model AuditIssue {
 // Hash-not-raw: only the HMAC hash is persisted; the raw nonce never
 // lives at rest.
 model AuditFilingNonce {
-  id          String    @id @default(cuid())
-  nonceHash   String    @unique
-  adminUserId String // Clerk user.id
-  kennelCode  String
-  ruleSlug    String
-  payloadHash String // sha256 over (stream, kennelCode, ruleSlug, title, sortedEventIds, bodyMarkdown)
-  expiresAt   DateTime
-  consumedAt  DateTime?
-  createdAt   DateTime  @default(now())
+  id               String    @id @default(cuid())
+  nonceHash        String    @unique
+  adminUserId      String // Clerk user.id
+  kennelCode       String
+  ruleSlug         String
+  payloadHash      String // sha256 over (stream, kennelCode, ruleSlug, title, sortedEventIds, bodyMarkdown)
+  expiresAt        DateTime
+  consumedAt       DateTime?
+  createdAt        DateTime  @default(now())
   // Idempotency cache for retry-safe filing. Populated by
   // /api/audit/file-finding after a successful GitHub side effect
   // (issue created OR coalesce comment posted). On retry with the
@@ -1262,27 +1275,27 @@ enum PredictionOutcome {
 }
 
 model PredictionSnapshot {
-  id                  String            @id @default(cuid())
-  kennelId            String
-  scheduleRuleId      String? // rule that produced it (nullable if later removed)
-  predictedDate       DateTime // UTC noon target date
-  startTimeKey        String // startTime or "" sentinel — part of identity (NULL-safe)
-  startTime           String? // display value
-  confidence          ScheduleConfidence // FROZEN at snapshot time
-  horizonBucket       Int // nominal target band: 180 | 90 | 30
-  daysOutAtSnapshot   Int // ACTUAL days-out when captured — report by this, not the nominal band
-  snapshotAt          DateTime          @default(now())
+  id                   String             @id @default(cuid())
+  kennelId             String
+  scheduleRuleId       String? // rule that produced it (nullable if later removed)
+  predictedDate        DateTime // UTC noon target date
+  startTimeKey         String // startTime or "" sentinel — part of identity (NULL-safe)
+  startTime            String? // display value
+  confidence           ScheduleConfidence // FROZEN at snapshot time
+  horizonBucket        Int // nominal target band: 180 | 90 | 30
+  daysOutAtSnapshot    Int // ACTUAL days-out when captured — report by this, not the nominal band
+  snapshotAt           DateTime           @default(now())
   // Contamination gate, computed with the SAME ±tol as scoring (not exact-date):
-  confirmedAtSnapshot Boolean
-  preexistingEventId  String? // the already-on-books event that made it PRECONFIRMED
+  confirmedAtSnapshot  Boolean
+  preexistingEventId   String? // the already-on-books event that made it PRECONFIRMED
   // Frozen provenance: the independent (non-STATIC_SCHEDULE) source ids that existed
   // for this kennel at snapshot time — scoring decides observability from these.
-  independentSourceIds String[]          @default([])
-  outcome             PredictionOutcome @default(PENDING)
-  scoredAt            DateTime?
-  matchedEventId      String? // independent event that confirmed it (±tol)
-  matchToleranceDays  Int?
-  kennel              Kennel            @relation(fields: [kennelId], references: [id], onDelete: Cascade)
+  independentSourceIds String[]           @default([])
+  outcome              PredictionOutcome  @default(PENDING)
+  scoredAt             DateTime?
+  matchedEventId       String? // independent event that confirmed it (±tol)
+  matchToleranceDays   Int?
+  kennel               Kennel             @relation(fields: [kennelId], references: [id], onDelete: Cascade)
 
   // startTimeKey in the identity so a morning + evening run on the same date/band
   // are two rows, scored independently (Codex review on PR #2154).
@@ -1304,18 +1317,18 @@ model RuleDriftSnapshot {
 }
 
 enum TravelSearchStatus {
-  DRAFT    // Multi-dest trips auto-save as DRAFT once the user adds leg 2. Invisible
-           // from /travel/saved; reachable by URL; converts to ACTIVE on explicit Save.
+  DRAFT // Multi-dest trips auto-save as DRAFT once the user adds leg 2. Invisible
+  // from /travel/saved; reachable by URL; converts to ACTIVE on explicit Save.
   ACTIVE
   ARCHIVED
 }
 
 model TravelSearch {
-  id           String              @id @default(cuid())
-  userId       String
-  name         String? // Auto-generated or user-provided label
-  status       TravelSearchStatus  @default(ACTIVE)
-  lastViewedAt DateTime? // Updated on revisit for sort order + "Fresh" status detection
+  id                 String              @id @default(cuid())
+  userId             String
+  name               String? // Auto-generated or user-provided label
+  status             TravelSearchStatus  @default(ACTIVE)
+  lastViewedAt       DateTime? // Updated on revisit for sort order + "Fresh" status detection
   // SHA-256 of the ordered itinerary tuple (placeId-or-coords, dates, radius,
   // position per stop). Powers O(1) dedup across multi-stop trips. Partial
   // unique on (userId, itinerarySignature) WHERE status='ACTIVE' AND
@@ -1324,10 +1337,10 @@ model TravelSearch {
   // serializer may not byte-match computeItinerarySignature() — those rows
   // stay NULL until the app rewrites them on next save/update.
   itinerarySignature String?             @db.VarChar(64)
-  user         User                @relation(fields: [userId], references: [id])
-  destinations TravelDestination[]
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
+  user               User                @relation(fields: [userId], references: [id])
+  destinations       TravelDestination[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   // Compound key target for TravelDestination's compound FK. Guarantees
   // the destination's denormalized userId can never drift from its
@@ -1344,7 +1357,7 @@ model TravelDestination {
   // migration; position on the parent itinerary (0..2) now scopes uniqueness
   // via the @@unique below. FK lookups still need this column indexed.
   travelSearchId String
-  position       Int                // 0-indexed; v1 caps at 0..2 (3 stops max)
+  position       Int // 0-indexed; v1 caps at 0..2 (3 stops max)
   // Denormalized from TravelSearch.userId. Consistency guaranteed at the
   // DB layer by a compound FK back to TravelSearch(id, userId) — see the
   // @relation below — so the two userIds can never disagree.
@@ -1368,15 +1381,15 @@ model TravelDestination {
   user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt      DateTime           @default(now())
 
+  // Date range invariant: endDate >= startDate. Enforced via CHECK constraint
+  // in migration SQL since Prisma can't express CHECK constraints in schema.prisma.
+  // Application layer also validates as a second line of defense.
+
   // Ordering guarantee within a trip: each position slot fills exactly once.
   @@unique([travelSearchId, position])
   @@index([travelSearchId])
   @@index([userId])
   @@index([userId, status])
-
-  // Date range invariant: endDate >= startDate. Enforced via CHECK constraint
-  // in migration SQL since Prisma can't express CHECK constraints in schema.prisma.
-  // Application layer also validates as a second line of defense.
 }
 
 enum KennelConfirmationKind {
@@ -1402,4 +1415,164 @@ model KennelConfirmation {
   createdAt          DateTime               @default(now())
 
   @@index([kennelId, kind, observedAt])
+}
+
+// ── Onboarding backfill automation (docs/onboarding-backfill-automation-design.md, 11.1) ──
+
+enum BackfillRunStatus {
+  PREVIEW
+  WAITING
+  BLOCKED
+  PLANNED
+  ADOPTED
+  APPLYING
+  HALTED
+  APPLIED
+  VERIFIED
+  VERIFY_FAILED
+  UNDOING
+  UNDONE
+}
+
+enum BackfillBinding {
+  ARCHIVE_SOURCE
+  ADOPT_ONLY
+}
+
+/// One backfill of one approved archive manifest. A hand-written partial unique
+/// index allows one non-PREVIEW run per `manifestSha256` (design 6.7, A5).
+model BackfillRun {
+  id              String            @id @default(cuid())
+  prNumber        Int
+  /// S: the PR's merge commit on main. Null for a PREVIEW of an open PR.
+  mergeSha        String?
+  /// H: the head SHA the approval-stamp workflow stamped.
+  stampedSha      String?
+  /// M: GitHub's record of the PR head at merge.
+  mergedHeadSha   String?
+  manifestPath    String
+  manifestSha256  String
+  archiveSha256   String
+  approvalHash    String
+  binding         BackfillBinding
+  planHash        String?
+  archiveSourceId String?
+  archiveSource   Source?           @relation("BackfillRunArchiveSource", fields: [archiveSourceId], references: [id])
+  originSourceId  String?
+  originSource    Source?           @relation("BackfillRunOriginSource", fields: [originSourceId], references: [id])
+  kennelId        String?
+  kennel          Kennel?           @relation("BackfillRunKennel", fields: [kennelId], references: [id])
+  /// C: the earliest past date of a kennel event backed by the origin (design 6.5).
+  splitDate       DateTime?
+  status          BackfillRunStatus
+  reasonCodes     String[]          @default([])
+  /// Per-kennel counts before and from C, and the batch boundaries.
+  counts          Json?
+  /// The stored plan: row order, batch boundaries, fingerprints and each row's
+  /// expected isScheduleOnly (design 9.2 step 8).
+  plan            Json?
+  /// V3 snapshot hash over the static history near the written rows (design 9.3).
+  v3SnapshotHash  String?
+  /// Commit the plan was computed on (VERCEL_GIT_COMMIT_SHA).
+  plannedOnSha    String?
+  /// Index into the plan's row order of the next row to write.
+  cursor          Int               @default(0)
+  /// Row indexes of the batch being merged; set before, cleared after (design 10.2).
+  inFlightBatch   Json?
+  leaseToken      String?
+  leaseExpiresAt  DateTime?
+  /// When the first advance set the kennel's archive cutoff (design 9.2).
+  cutoffSetAt     DateTime?
+  /// Batch log: index, rows, duration, deployed commit, caller.
+  batchLog        Json              @default("[]")
+  /// Who started each step: backfill-agent, backfill-watch or an admin's user id.
+  stepLog         Json              @default("[]")
+  /// The kennel's status line before the first write and after the finish (design 9.6).
+  statusLines     Json?
+  verification    Json?
+  verifiedAt      DateTime?
+  /// The undo plan the owner confirmed; its hash is checked again on confirm (design 10.3).
+  undoPlan        Json?
+  undoPlanHash    String?
+  items           BackfillRunItem[]
+  cutoffKennels   Kennel[]          @relation("KennelArchiveCutoffRun")
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([status])
+  @@index([kennelId])
+  @@index([prNumber])
+}
+
+enum BackfillItemOutcome {
+  CREATED
+  LIVE_OWNED
+  ADOPTED
+}
+
+enum BackfillUndoOutcome {
+  DELETED
+  KEPT
+}
+
+/// One archive row of a run, keyed by its index in the archive file (design 10.1).
+/// `rawEventId` and `eventId` are plain ids, not foreign keys: undo hard-deletes
+/// the rows and the item stays as the audit record.
+model BackfillRunItem {
+  id          String               @id @default(cuid())
+  runId       String
+  run         BackfillRun          @relation(fields: [runId], references: [id])
+  rowIndex    Int
+  outcome     BackfillItemOutcome
+  fingerprint String?
+  rawEventId  String?
+  eventId     String?
+  batchIndex  Int?
+  undoneAt    DateTime?
+  undoOutcome BackfillUndoOutcome?
+  undoReason  String?
+  createdAt   DateTime             @default(now())
+
+  @@unique([runId, rowIndex])
+  @@index([eventId])
+}
+
+/// Liveness record for a cron job: one row per job name (design 11.3).
+model CronHeartbeat {
+  jobName        String    @id
+  lastStartedAt  DateTime?
+  lastFinishedAt DateTime?
+  lastResult     Json?
+  updatedAt      DateTime  @updatedAt
+}
+
+enum BackfillStepUpAction {
+  RESUME
+  UNDO
+  SET_CUTOFF
+  CLEAR_CUTOFF
+  PROBE
+}
+
+/// Single-use nonce for an owner step-up action on /admin/backfills (design 10.3).
+/// Bound to the Clerk session, the action and its run or kennel. The row is also
+/// the step-up probe's audit record.
+model BackfillStepUpNonce {
+  id             String               @id @default(cuid())
+  nonceHash      String               @unique
+  clerkSessionId String
+  adminUserId    String
+  action         BackfillStepUpAction
+  runId          String?
+  kennelId       String?
+  /// Hash of what the action is bound to beyond run/kennel: the undo plan's hash, a cutoff date.
+  payloadHash    String?
+  /// Results of the server's checks when the nonce was minted and when it was used.
+  mintChecks     Json?
+  useChecks      Json?
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  createdAt      DateTime             @default(now())
+
+  @@index([clerkSessionId])
 }
