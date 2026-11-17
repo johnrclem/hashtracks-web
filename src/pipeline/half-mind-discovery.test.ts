@@ -4,6 +4,7 @@ vi.mock("@/lib/db", () => ({
     kennelAlias: { findMany: vi.fn(), create: vi.fn() },
     sourceKennel: { upsert: vi.fn(), create: vi.fn() },
     kennelDiscovery: { findMany: vi.fn(), upsert: vi.fn(), updateMany: vi.fn() },
+    kennelConfirmation: { groupBy: vi.fn() },
   },
 }));
 vi.mock("@/adapters/safe-fetch", () => ({ safeFetch: vi.fn() }));
@@ -87,6 +88,7 @@ beforeEach(() => {
   vi.mocked(prisma.kennelDiscovery.findMany).mockImplementation((async () => existingRows) as never);
   vi.mocked(prisma.kennelDiscovery.upsert).mockResolvedValue({} as never);
   vi.mocked(prisma.kennelDiscovery.updateMany).mockResolvedValue({ count: 0 } as never);
+  vi.mocked(prisma.kennelConfirmation.groupBy).mockResolvedValue([] as never);
   vi.mocked(fetchHalfMindListings).mockResolvedValue(respond([raw()]));
   vi.mocked(confirmKennelRunningFor).mockResolvedValue({ success: true });
 });
@@ -157,6 +159,23 @@ describe("syncHalfMindDiscovery: new listings", () => {
 });
 
 describe("syncHalfMindDiscovery: stored rows", () => {
+  it("re-ranks a NEW row's candidates", async () => {
+    existingRows = [linkedRow({ status: "NEW", matchedKennelId: null })];
+    await syncHalfMindDiscovery([GA], NOW);
+    expect(upsertArg().update).toMatchObject({
+      matchCandidates: expect.arrayContaining([{ id: "k-pf", shortName: "Peach Fuzz H3", score: 1 }]),
+      matchScore: 1,
+    });
+  });
+
+  it.each(["LINKED", "ADDED", "DISMISSED"])("keeps a %s row's stored candidates", async (status) => {
+    existingRows = [linkedRow({ status })];
+    await syncHalfMindDiscovery([GA], NOW);
+    expect(upsertArg().update).not.toHaveProperty("matchCandidates");
+    expect(upsertArg().update).not.toHaveProperty("matchScore");
+    expect(upsertArg().update).toMatchObject({ name: "Peach Fuzz H3", externalStatus: "alive" });
+  });
+
   it.each(["NEW", "LINKED", "ADDED", "DISMISSED"])("updates a %s row's fields and keeps its status", async (status) => {
     existingRows = [linkedRow({ status, matchedKennelId: null })];
     vi.mocked(fetchHalfMindListings).mockResolvedValue(
@@ -188,7 +207,46 @@ describe("syncHalfMindDiscovery: refreshing linked kennels", () => {
       { via: "HALF_MIND", onlyIfNewerForUrl: PF_URL, requireHalfMindListingId: "19" },
     );
     expect(result.refreshedChecks).toBe(1);
-    expect(revalidateKennel).toHaveBeenCalledWith("k-pf");
+    // A check never changes the hareline.
+    expect(revalidateKennel).toHaveBeenCalledWith("k-pf", { hareline: false });
+  });
+
+  it("reads the newest recorded check per kennel and listing, reverted ones included", async () => {
+    await syncHalfMindDiscovery([GA], NOW);
+    expect(prisma.kennelConfirmation.groupBy).toHaveBeenCalledWith({
+      by: ["kennelId", "url"],
+      _max: { observedAt: true },
+      where: { via: "HALF_MIND", url: { in: [PF_URL] } },
+    });
+  });
+
+  it("makes no confirmKennelRunningFor call for a check no newer than the one recorded", async () => {
+    existingRows = [linkedRow()];
+    linkedKennels = [{ id: "k-pf", halfMindListingId: "19" }];
+    vi.mocked(prisma.kennelConfirmation.groupBy).mockResolvedValue([
+      { kennelId: "k-pf", url: PF_URL, _max: { observedAt: new Date("2026-10-07T12:00:00Z") } },
+    ] as never);
+
+    const result = await syncHalfMindDiscovery([GA], NOW);
+
+    expect(confirmKennelRunningFor).not.toHaveBeenCalled();
+    expect(revalidateKennel).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ updated: 1, refreshedChecks: 0, skippedStopped: 0, errors: [] });
+  });
+
+  it("records a check newer than the one recorded, and ignores another kennel's checks", async () => {
+    existingRows = [linkedRow()];
+    linkedKennels = [{ id: "k-pf", halfMindListingId: "19" }];
+    vi.mocked(prisma.kennelConfirmation.groupBy).mockResolvedValue([
+      { kennelId: "k-pf", url: PF_URL, _max: { observedAt: new Date("2026-09-01T12:00:00Z") } },
+      // An earlier link of the same listing to another kennel.
+      { kennelId: "k-bs", url: PF_URL, _max: { observedAt: new Date("2026-10-07T12:00:00Z") } },
+    ] as never);
+
+    const result = await syncHalfMindDiscovery([GA], NOW);
+
+    expect(confirmKennelRunningFor).toHaveBeenCalledTimes(1);
+    expect(result.refreshedChecks).toBe(1);
   });
 
   it("does not refresh a row whose kennel no longer holds the listing", async () => {

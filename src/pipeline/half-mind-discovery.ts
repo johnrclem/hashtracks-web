@@ -17,11 +17,13 @@ import {
   scopeKey,
   type HalfMindListing,
   type HalfMindScope,
+  type HalfMindStatus,
 } from "@/adapters/half-mind/client";
 import { formatDateMedium } from "@/lib/format";
 import { HALF_MIND_EXTERNAL_SOURCE, halfMindListingUrl } from "@/lib/half-mind";
 import { confirmKennelRunningFor, type StatusInput } from "@/lib/kennel-confirmations";
 import { revalidateKennel } from "@/lib/kennel-revalidate";
+import { toUtcNoon } from "@/lib/kennel-status";
 import {
   loadDiscoveryCandidates,
   rankDiscoveryCandidates,
@@ -137,8 +139,23 @@ function listingFields(listing: HalfMindListing, key: string, ctx: SyncContext) 
     externalCheckedAt: listing.lastVerifiedAt,
     externalScope: key,
     lastSeenAt: ctx.now,
-    ...rankListing(listing, ctx),
   };
+}
+
+/** Key for the newest check recorded for one listing URL on one kennel. */
+function checkKey(kennelId: string, url: string | null): string {
+  return `${kennelId} ${url}`;
+}
+
+/**
+ * Whether a listing's check is newer, by UTC date, than the newest one already
+ * recorded for it on the kennel. The in-lock `onlyIfNewerForUrl` test, made
+ * first so an unchanged check costs no transaction; the in-lock one still
+ * guards against a check recorded since.
+ */
+function isNewerCheck(checkedAt: Date | null, recordedAt: Date | null | undefined): boolean {
+  if (!checkedAt) return false;
+  return !recordedAt || recordedAt.getTime() < toUtcNoon(checkedAt);
 }
 
 /** Record a linked kennel's newer Half-Mind check, crediting the admin who linked it. */
@@ -161,7 +178,8 @@ async function refreshCheck(listing: HalfMindListing, row: StoredRow, kennelId: 
   );
   if ("success" in outcome) {
     ctx.result.refreshedChecks++;
-    await revalidateKennel(kennelId);
+    // A check never changes the hareline, so its cached event list stays.
+    await revalidateKennel(kennelId, { hareline: false });
   } else if ("stopped" in outcome) {
     ctx.result.skippedStopped++;
   } else if ("error" in outcome) {
@@ -173,6 +191,7 @@ async function syncListing(
   listing: HalfMindListing,
   row: StoredRow | undefined,
   holderId: string | undefined,
+  recordedCheckAt: Date | null | undefined,
   key: string,
   ctx: SyncContext,
 ) {
@@ -181,7 +200,11 @@ async function syncListing(
   // Only listings that pass the bar enter the queue; stored rows always refresh.
   if (!row && !passes) return;
 
-  const fields = listingFields(listing, key, ctx);
+  // Only a NEW row's candidates are read (review and Add); a reviewed row keeps its stored ones.
+  const fields = {
+    ...listingFields(listing, key, ctx),
+    ...(row && row.status !== "NEW" ? {} : rankListing(listing, ctx)),
+  };
   await prisma.kennelDiscovery.upsert({
     where: {
       externalSource_externalSlug: { externalSource: HALF_MIND_EXTERNAL_SOURCE, externalSlug: listing.id },
@@ -202,8 +225,9 @@ async function syncListing(
   ctx.result.updated++;
   if (!LINKED_STATUSES.has(row.status)) return;
   if (listing.status === "dead") ctx.result.flaggedDeadOrMissing++;
-  // Refresh only while the row's kennel still holds this listing (an unlink clears it).
-  if (passes && holderId && holderId === row.matchedKennelId) {
+  // Refresh only while the row's kennel still holds this listing (an unlink
+  // clears it), and only with a check newer than the one already recorded.
+  if (passes && holderId && holderId === row.matchedKennelId && isNewerCheck(listing.lastVerifiedAt, recordedCheckAt)) {
     await refreshCheck(listing, row, holderId, ctx);
   }
 }
@@ -222,7 +246,7 @@ async function syncScope(scope: HalfMindScope, ctx: SyncContext) {
   ctx.result.fetched += listings.length;
   const ids = listings.map((l) => l.id);
 
-  const [rows, holders] = await Promise.all([
+  const [rows, holders, recordedChecks] = await Promise.all([
     prisma.kennelDiscovery.findMany({
       where: {
         externalSource: HALF_MIND_EXTERNAL_SOURCE,
@@ -237,13 +261,23 @@ async function syncScope(scope: HalfMindScope, ctx: SyncContext) {
       where: { halfMindListingId: { in: ids } },
       select: { id: true, halfMindListingId: true },
     }),
+    // The newest check per kennel and listing. Reverted ones count, as they do
+    // under the kennel lock: an unlinked listing's old date must not come back.
+    prisma.kennelConfirmation.groupBy({
+      by: ["kennelId", "url"],
+      _max: { observedAt: true },
+      where: { via: "HALF_MIND", url: { in: ids.map((id) => halfMindListingUrl(id)) } },
+    }),
   ]);
   const rowBySlug = new Map(rows.map((r) => [r.externalSlug, r]));
   const holderByListing = new Map(holders.map((k) => [k.halfMindListingId, k.id]));
+  const recordedCheckAt = new Map(recordedChecks.map((c) => [checkKey(c.kennelId, c.url), c._max.observedAt]));
 
   for (const listing of listings) {
+    const holderId = holderByListing.get(listing.id);
+    const recordedAt = holderId ? recordedCheckAt.get(checkKey(holderId, halfMindListingUrl(listing.id))) : undefined;
     try {
-      await syncListing(listing, rowBySlug.get(listing.id), holderByListing.get(listing.id), key, ctx);
+      await syncListing(listing, rowBySlug.get(listing.id), holderId, recordedAt, key, ctx);
     } catch (err) {
       ctx.result.errors.push(`Half-Mind listing ${listing.id}: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -260,7 +294,7 @@ async function syncScope(scope: HalfMindScope, ctx: SyncContext) {
   if (missing.length === 0) return;
   await prisma.kennelDiscovery.updateMany({
     where: { id: { in: missing.map((r) => r.id) } },
-    data: { externalStatus: "missing" },
+    data: { externalStatus: "missing" satisfies HalfMindStatus },
   });
   ctx.result.flaggedDeadOrMissing += missing.length;
 }

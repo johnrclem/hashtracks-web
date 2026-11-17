@@ -158,7 +158,7 @@ export async function linkHalfMindListing(
 
   const warning = await recordRowCheck("Linked", adminId, kennelId, row, now);
   revalidatePath("/admin/discovery");
-  await revalidateKennel(kennelId);
+  await revalidateKennel(kennelId, { hareline: false });
   return warning ? { success: true, warning } : { success: true };
 }
 
@@ -187,7 +187,7 @@ export async function unlinkHalfMindListing(discoveryId: string): Promise<{ succ
   // another listing keeps that listing's checks.
   if (cleared > 0) await revertHalfMindChecksFor(kennelId, halfMindListingUrl(row.externalSlug), new Date());
   revalidatePath("/admin/discovery");
-  await revalidateKennel(kennelId);
+  await revalidateKennel(kennelId, { hareline: false });
   return { success: true };
 }
 
@@ -229,7 +229,7 @@ export async function addListingOnlyKennel(
 
   const warning = await recordRowCheck("Added", adminId, result.kennelId, row, new Date());
   revalidatePath("/admin/discovery");
-  await revalidateKennel(result.kennelId);
+  await revalidateKennel(result.kennelId, { hareline: false });
   return warning ? { success: true, kennelId: result.kennelId, warning } : { success: true, kennelId: result.kennelId };
 }
 

@@ -48,6 +48,21 @@ vi.mock("@/lib/db", async () => {
         const row = await find({ where });
         return row ? Object.assign(row, update) : create({ data: c });
       }),
+      // `by` plus `_max` only.
+      groupBy: vi.fn(async ({ by, _max, where }: { by: string[]; _max: Record<string, true>; where?: Row }) => {
+        const groups = new Map<string, Row & { _max: Row }>();
+        for (const r of rows().filter((x) => matchesWhere(x, where))) {
+          const key = JSON.stringify(by.map((f) => r[f]));
+          const group = groups.get(key) ?? { ...Object.fromEntries(by.map((f) => [f, r[f]])), _max: {} };
+          for (const f of Object.keys(_max)) {
+            const v = r[f] as Date;
+            const best = group._max[f] as Date | undefined;
+            if (!best || v > best) group._max[f] = v;
+          }
+          groups.set(key, group);
+        }
+        return [...groups.values()];
+      }),
     };
   };
   const prisma: Record<string, unknown> = {
@@ -344,10 +359,22 @@ describe("unlinkHalfMindListing", () => {
     vi.mocked(confirmKennelRunningFor).mockClear();
     const result = await syncHalfMindDiscovery(undefined, NOW);
 
-    expect(confirmKennelRunningFor).toHaveBeenCalledTimes(1);
-    expect(await vi.mocked(confirmKennelRunningFor).mock.results[0].value).toEqual({ skipped: true });
+    // The pre-gate sees the recorded check: no transaction at all.
+    expect(confirmKennelRunningFor).not.toHaveBeenCalled();
     expect(result.refreshedChecks).toBe(0);
     expect(runningChecks()).toHaveLength(2);
+  });
+
+  it("after a relink to another kennel, the sync gates on that kennel's own recorded check", async () => {
+    await linkHalfMindListing("d-19", "k-pf");
+    await unlinkHalfMindListing("d-19");
+    await linkHalfMindListing("d-19", "k-bs");
+    expect(runningChecks().filter((c) => c.kennelId === "k-bs" && !c.revertedAt)).toHaveLength(1);
+
+    vi.mocked(confirmKennelRunningFor).mockClear();
+    const result = await syncHalfMindDiscovery(undefined, NOW);
+    expect(confirmKennelRunningFor).not.toHaveBeenCalled();
+    expect(result.refreshedChecks).toBe(0);
   });
 
   it("refuses a row that isn't linked", async () => {
