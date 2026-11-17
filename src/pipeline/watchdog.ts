@@ -270,8 +270,16 @@ async function evaluate(spec: AutomationSpec, ctx: CheckContext): Promise<Evalua
  */
 function macMiniEvaluation(desktop: Evaluation[]): Evaluation {
   const has = (v: AutomationVerdict) => desktop.some((e) => e.verdict === v);
-  const verdict: AutomationVerdict = has("OK") ? "OK" : has("OVERDUE") ? "OVERDUE" : has("UNKNOWN") ? "UNKNOWN" : "OK";
-  const silent = verdict === "OVERDUE";
+  let verdict: AutomationVerdict = "OK";
+  if (!has("OK") && has("OVERDUE")) verdict = "OVERDUE";
+  else if (!has("OK") && has("UNKNOWN")) verdict = "UNKNOWN";
+  const tasks = desktop.map((e) => `${e.label} ${e.verdict}`).join(", ");
+  const details: Record<AutomationVerdict, string> = {
+    OK: "at least one scheduled task is producing output, or none is overdue",
+    OVERDUE: `no scheduled task produced output: ${tasks}`,
+    UNKNOWN: `couldn't check the scheduled tasks: ${tasks}`,
+    BLOCKED_ON_OWNER: tasks,
+  };
   return {
     id: MAC_MINI_ID,
     label: MAC_MINI_LABEL,
@@ -281,18 +289,18 @@ function macMiniEvaluation(desktop: Evaluation[]): Evaluation {
     runbook:
       "Check that the Mac mini is awake, online and signed in, and that Claude Code's scheduled tasks are enabled. The tasks' own alarms are held while this one is open.",
     verdict,
-    detail:
-      verdict === "OK"
-        ? "at least one scheduled task is producing output, or none is overdue"
-        : `${silent ? "no scheduled task produced output" : "couldn't check the scheduled tasks"}: ${desktop.map((e) => `${e.label} ${e.verdict}`).join(", ")}`,
+    detail: details[verdict],
     expectations: desktop.map((e) => ({ what: e.label, ok: e.verdict !== "OVERDUE", seen: e.detail })),
   };
 }
 
 // ── Issue and email text ────────────────────────────────────────────────────
 
+/** A markdown table cell: pipes escaped. */
+const cell = (text: string) => text.replaceAll("|", String.raw`\|`);
+
 function issueBody(ev: Evaluation, since: Date): string {
-  const rows = ev.expectations.map((e) => `| ${e.ok ? "✅" : "❌"} ${e.what} | ${e.seen.replaceAll("|", "\\|")} |`);
+  const rows = ev.expectations.map((e) => `| ${e.ok ? "✅" : "❌"} ${e.what} | ${cell(e.seen)} |`);
   return [
     issueMarker(ev.id),
     `**${ev.label}** has been overdue since ${since.toISOString()}.`,
@@ -357,15 +365,34 @@ export interface WatchdogSummary {
 }
 
 export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> {
-  const { store, github, now } = deps;
   const specs = deps.specs ?? AUTOMATIONS;
+  await deps.store.ensureStates([...specs.map((s) => s.id), MAC_MINI_ID]);
+  const before = await deps.store.loadStates();
 
-  await store.ensureStates([...specs.map((s) => s.id), MAC_MINI_ID]);
-  const before = await store.loadStates();
+  const { all, holdDesktop } = await evaluateAll(specs, before, deps);
+  const summary = newSummary(all);
+  const fail = (what: string, err: unknown) =>
+    summary.errors.push(`${what}: ${err instanceof Error ? err.message : String(err)}`.slice(0, 300));
 
-  // 1. Evaluate. Desktop tasks count gaps from the Mac mini's last recovery at the earliest.
+  await applyTransitions(all, before, holdDesktop, deps, summary, fail);
+  await deliverOwed(new Map(all.map((e) => [e.id, e])), deps, summary, fail);
+  if (HOUSEKEEPING_HOURS_UTC.has(deps.now.getUTCHours())) await housekeeping(deps, summary, fail);
+
+  summary.errorCount = summary.errors.length;
+  return summary;
+}
+
+type Fail = (what: string, err: unknown) => void;
+
+/** 1. Evaluate every automation, then the Mac mini from its desktop tasks. */
+async function evaluateAll(
+  specs: readonly AutomationSpec[],
+  before: Map<string, StateRow>,
+  { github, now }: WatchdogDeps,
+): Promise<{ all: Evaluation[]; holdDesktop: boolean }> {
+  // Desktop tasks count gaps from the Mac mini's last recovery at the earliest.
   const mac = before.get(MAC_MINI_ID);
-  const macResumedAt = mac && mac.status === "OK" && mac.since > mac.createdAt ? mac.since : undefined;
+  const macResumedAt = mac?.status === "OK" && mac.since > mac.createdAt ? mac.since : undefined;
   let pulls: Promise<GhPull[]> | null = null;
   const openPulls = () => {
     if (!github) return Promise.reject(new Error("GITHUB_TOKEN is not set"));
@@ -387,11 +414,12 @@ export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> 
   // While the Mac is silent, and in the run that sees it come back, its tasks' own alarm states
   // are held. From the next run their gaps count from the recovery (`macResumedAt`).
   const holdDesktop = macEval.verdict === "OVERDUE" || mac?.status === "OVERDUE";
-  const all = [...evals, macEval];
-  const byId = new Map(all.map((e) => [e.id, e]));
+  return { all: [...evals, macEval], holdDesktop };
+}
 
+function newSummary(all: Evaluation[]): WatchdogSummary {
   const count = (verdict: AutomationVerdict) => all.filter((e) => e.verdict === verdict).length;
-  const summary: WatchdogSummary = {
+  return {
     checked: all.length,
     ok: count("OK"),
     blockedOnOwner: count("BLOCKED_ON_OWNER"),
@@ -409,28 +437,43 @@ export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> 
     overdueAutomations: [],
     errors: [],
   };
-  const fail = (what: string, err: unknown) =>
-    summary.errors.push(`${what}: ${err instanceof Error ? err.message : String(err)}`.slice(0, 300));
+}
 
-  // 2. Record verdicts and make state changes. Only the run whose conditional update wins acts.
+/** 2. Record verdicts and make state changes. Only the run whose conditional update wins acts. */
+async function applyTransitions(
+  all: Evaluation[],
+  before: Map<string, StateRow>,
+  holdDesktop: boolean,
+  { store, now }: WatchdogDeps,
+  summary: WatchdogSummary,
+  fail: Fail,
+): Promise<void> {
   for (const ev of all) {
     try {
       await store.recordCheck(ev.id, ev.verdict, ev.detail, now);
-      if (ev.verdict === "UNKNOWN" || (holdDesktop && ev.host === "mac-mini" && ev.id !== MAC_MINI_ID)) continue;
+      const held = holdDesktop && ev.host === "mac-mini" && ev.id !== MAC_MINI_ID;
+      if (ev.verdict === "UNKNOWN" || held) continue;
 
       const prev = before.get(ev.id);
       if (ev.verdict === "OVERDUE") {
         if (await store.markOverdue(ev.id, now)) summary.wentOverdue++;
-      } else if (prev?.status === "OVERDUE") {
-        // The recovery notices are delivered below, from what the row still owes.
-        if (await store.markRecovered(ev.id, prev.since, now)) summary.recovered++;
+      } else if (prev?.status === "OVERDUE" && (await store.markRecovered(ev.id, prev.since, now))) {
+        // The recovery notices are delivered next, from what the row still owes.
+        summary.recovered++;
       }
     } catch (err) {
       fail(ev.id, err);
     }
   }
+}
 
-  // 3. Deliver what each state still owes: alarms for outages, notices for recoveries.
+/** 3. Deliver what each state still owes: alarms for outages, notices for recoveries. */
+async function deliverOwed(
+  byId: Map<string, Evaluation>,
+  deps: WatchdogDeps,
+  summary: WatchdogSummary,
+  fail: Fail,
+): Promise<void> {
   // The open lane:ops issues are listed at most once per run, however many outages need one.
   let opsIssues: Promise<GhIssue[]> | null = null;
   const run: AlarmRun = {
@@ -445,8 +488,7 @@ export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> 
       return opsIssues;
     },
   };
-  const after = await store.loadStates();
-  for (const row of after.values()) {
+  for (const row of (await deps.store.loadStates()).values()) {
     const ev = byId.get(row.automation);
     if (!ev) continue; // no longer registered
     try {
@@ -457,29 +499,27 @@ export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> 
     }
     if (row.status === "OVERDUE") summary.overdueAutomations.push(row.automation);
   }
+}
 
-  if (HOUSEKEEPING_HOURS_UTC.has(now.getUTCHours())) {
-    try {
-      summary.prunedRuns = await store.deleteRunsBefore(new Date(now.getTime() - RUN_RETENTION_DAYS * DAY_MS));
-      summary.abandonedRuns = await store.closeAbandonedRuns(new Date(now.getTime() - ABANDONED_RUN_MS), now);
-    } catch (err) {
-      fail("housekeeping", err);
-    }
+/** Prune old run rows and close abandoned RUNNING ones. */
+async function housekeeping({ store, now }: WatchdogDeps, summary: WatchdogSummary, fail: Fail): Promise<void> {
+  try {
+    summary.prunedRuns = await store.deleteRunsBefore(new Date(now.getTime() - RUN_RETENTION_DAYS * DAY_MS));
+    summary.abandonedRuns = await store.closeAbandonedRuns(new Date(now.getTime() - ABANDONED_RUN_MS), now);
+  } catch (err) {
+    fail("housekeeping", err);
   }
-
-  summary.errorCount = summary.errors.length;
-  return summary;
 }
 
 interface AlarmRun {
   deps: WatchdogDeps;
   summary: WatchdogSummary;
-  fail: (what: string, err: unknown) => void;
+  fail: Fail;
   openOpsIssues: (github: OpsGithub) => Promise<GhIssue[]>;
 }
 
 async function deliverAlarm(row: StateRow, ev: Evaluation, run: AlarmRun): Promise<void> {
-  const { store, github, alarms, mailer, now } = run.deps;
+  const { store, alarms, mailer, now } = run.deps;
   const { summary, fail } = run;
   const id = row.automation;
 
@@ -491,23 +531,7 @@ async function deliverAlarm(row: StateRow, ev: Evaluation, run: AlarmRun): Promi
   }
 
   // Filed only from a run that sees the outage itself; an UNKNOWN check has no reason to show.
-  if (row.issueNumber === null && ev.verdict === "OVERDUE") {
-    if (!github) {
-      fail(`issue for ${id}`, "GITHUB_TOKEN is not set");
-    } else {
-      try {
-        const open = await run.openOpsIssues(github);
-        const existing = open.find((i) => !i.pull && i.body.includes(issueMarker(id)));
-        const number =
-          existing?.number ??
-          (await github.createIssue({ title: `ops: ${ev.alarmTitle}`, body: issueBody(ev, row.since), labels: [OPS_LABEL] }));
-        if (!existing) summary.issuesOpened++;
-        await store.setIssue(id, row.since, number);
-      } catch (err) {
-        fail(`issue for ${id}`, err);
-      }
-    }
-  }
+  if (row.issueNumber === null && ev.verdict === "OVERDUE") await ensureIssue(row, ev, run);
 
   if (!row.emailedAt && mailer.configured()) {
     const res = await mailer.send(alarmEmail(ev, row.since));
@@ -515,6 +539,27 @@ async function deliverAlarm(row: StateRow, ev: Evaluation, run: AlarmRun): Promi
       await store.recordSent(id, row.since, "emailedAt", now);
       summary.emailsSent++;
     } else fail(`email for ${id}`, res.reason);
+  }
+}
+
+/** Find the outage's open issue by its marker, or file one, and record it. */
+async function ensureIssue(row: StateRow, ev: Evaluation, run: AlarmRun): Promise<void> {
+  const { store, github } = run.deps;
+  const id = row.automation;
+  if (!github) {
+    run.fail(`issue for ${id}`, "GITHUB_TOKEN is not set");
+    return;
+  }
+  try {
+    const open = await run.openOpsIssues(github);
+    const existing = open.find((i) => !i.pull && i.body.includes(issueMarker(id)));
+    const number =
+      existing?.number ??
+      (await github.createIssue({ title: `ops: ${ev.alarmTitle}`, body: issueBody(ev, row.since), labels: [OPS_LABEL] }));
+    if (!existing) run.summary.issuesOpened++;
+    await store.setIssue(id, row.since, number);
+  } catch (err) {
+    run.fail(`issue for ${id}`, err);
   }
 }
 

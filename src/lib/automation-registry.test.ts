@@ -93,6 +93,8 @@ describe("fresh", () => {
 });
 
 describe("registry", () => {
+  beforeEach(() => vi.clearAllMocks());
+
   it("has unique ids and covers every cron, desktop task and pipeline", () => {
     const ids = AUTOMATIONS.map((a) => a.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -111,8 +113,6 @@ describe("registry", () => {
       ]),
     );
   });
-
-  beforeEach(() => vi.clearAllMocks());
 
   it.each(Object.values(AGENT_CALLS))("%s names a real agent route (rejectUnlessAgent's naming)", (call) => {
     const route = path.join(process.cwd(), "src/app/api/audit/agent", call.slice("agent:".length), "route.ts");

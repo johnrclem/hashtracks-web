@@ -73,9 +73,10 @@ export interface OpsGithub {
 }
 
 const date = (v: unknown): Date | null => (typeof v === "string" ? new Date(v) : null);
+const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const labelNames = (v: unknown): string[] =>
   Array.isArray(v)
-    ? v.map((l) => (typeof l === "string" ? l : String((l as { name?: unknown })?.name ?? ""))).filter(Boolean)
+    ? v.map((l) => (typeof l === "string" ? l : str((l as { name?: unknown } | null)?.name))).filter(Boolean)
     : [];
 
 type Json = Record<string, unknown>;
@@ -84,8 +85,8 @@ function parseIssue(raw: Json): GhIssue {
   const pr = raw.pull_request as Json | undefined;
   return {
     number: Number(raw.number),
-    title: String(raw.title ?? ""),
-    body: typeof raw.body === "string" ? raw.body : "",
+    title: str(raw.title),
+    body: str(raw.body),
     labels: labelNames(raw.labels),
     createdAt: date(raw.created_at) ?? new Date(0),
     closedAt: date(raw.closed_at),
@@ -96,23 +97,23 @@ function parseIssue(raw: Json): GhIssue {
 function parsePull(raw: Json): GhPull {
   return {
     number: Number(raw.number),
-    title: String(raw.title ?? ""),
-    url: String(raw.html_url ?? ""),
+    title: str(raw.title),
+    url: str(raw.html_url),
     draft: raw.draft === true,
     labels: labelNames(raw.labels),
     createdAt: date(raw.created_at) ?? new Date(0),
-    headSha: String((raw.head as Json | undefined)?.sha ?? ""),
+    headSha: str((raw.head as Json | undefined)?.sha),
   };
 }
 
 function parseComment(raw: Json): GhComment | null {
   // issue_url ends in /issues/<n> for comments on issues and pull requests alike.
-  const match = /\/issues\/(\d+)$/.exec(String(raw.issue_url ?? ""));
+  const match = /\/issues\/(\d+)$/.exec(str(raw.issue_url));
   if (!match) return null;
   return {
     issueNumber: Number(match[1]),
     createdAt: date(raw.created_at) ?? new Date(0),
-    body: typeof raw.body === "string" ? raw.body : "",
+    body: str(raw.body),
     byBot: (raw.user as Json | undefined)?.type === "Bot",
   };
 }
@@ -147,12 +148,14 @@ export function createOpsGithub(token: string, fetchImpl: typeof fetch = fetch):
   async function list(path: string, params: URLSearchParams, limit: number): Promise<Json[]> {
     const out: Json[] = [];
     params.set("per_page", String(Math.min(limit, PER_PAGE)));
-    for (let page = 1; out.length < limit; page++) {
-      params.set("page", String(page));
+    let page = 1;
+    let more = true;
+    while (more && out.length < limit) {
+      params.set("page", String(page++));
       const rows = await call(`${path}?${params}`);
       if (!Array.isArray(rows)) throw new GithubUnavailableError(`GitHub GET ${path}: not a list`);
       out.push(...(rows as Json[]));
-      if (rows.length < PER_PAGE) break;
+      more = rows.length === PER_PAGE;
     }
     return out.slice(0, limit);
   }
