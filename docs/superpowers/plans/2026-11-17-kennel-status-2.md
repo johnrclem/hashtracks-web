@@ -58,7 +58,9 @@ PR B starts only after the owner answers the open question below.
 - **Yes, with credit everywhere (recommended):** like an admin confirmation, it would set the kennel's state, lift its generated runs from Possible to Likely in Travel, and feed prediction confidence.
 - **No:** it only shows as a credited line, and it never changes state or Travel.
 
-A Half-Mind check is a volunteer confirming the listing, not a posted run. Half-Mind's own UI keeps "Last verified" apart from the listing's state, and a checker can answer "Don't know". This plan is written for **yes**. Tasks 3–4 list exactly where "no" would differ: `latestEvidenceAt`, `KENNEL_EVIDENCE_SELECT` consumers and the refresh SQL.
+A Half-Mind check is a volunteer confirming the listing, not a posted run. Half-Mind's own UI keeps "Last verified" apart from the listing's state, and a checker can answer "Don't know". This plan is written for **yes**.
+
+**If the owner answers no, stop.** Revise Tasks 1, 3, 4 and 8 and get the plan re-reviewed before PR B starts. A "no" version needs a separate cached `lastListingCheckAt`, from which a listing-only kennel takes its state, directory visibility, bridge eligibility and credit line, while existing kennels ignore it. Without that, a listing-only kennel has no evidence at all: it reads as "not seen", the "Active only" filter hides it, the bridge skips it, and it shows "No runs seen on HashTracks" with no credit.
 
 ## Global Constraints
 
@@ -88,7 +90,11 @@ A Half-Mind check is a volunteer confirming the listing, not a posted run. Half-
   - HowWeKnow label: `Half-Mind listing checked`;
   - coverage sentence: `We only know their Half-Mind listing`.
   - The listing URL is `https://half-mind.com/regionalwebsite/p_list1.php?ID={id}`. Never write "Checked running" or "Confirmed running" for a Half-Mind check.
-- **When the credit line shows:** wherever a Half-Mind check is the deciding evidence. That means `lastConfirmedVia` is `HALF_MIND`, the check is newer than `lastRunSeenAt` and is the newest evidence, and no run is posted within 60 days. The credit line then shows even when the state is running. This covers every listing-only kennel.
+- **When the credit line shows:**
+  - When the state is not running, the existing rule picks the line, and a Half-Mind `checked` line reads `Half-Mind listing checked · {d}`.
+  - When the state is running, the Half-Mind line shows only when the check decides it. That means `lastConfirmedVia` is `HALF_MIND`, and the kennel would not be running without the check: `getKennelState` with `lastConfirmedAt: null` is not `"running"`.
+  - A running kennel with its own recent runs (Savannah H3: run Oct 1, check Oct 2) shows no line, as in Status 1.
+- **Listing-only kennels always show a status line:** the deciding check's line, or `Checked running · {d}` when an admin confirmation is newest. They always show the link out to the kennel's own page.
 - **Listing-only kennel:**
   - no `ScheduleRule` rows, so never in Travel predictions or the Hareline;
   - kennel page `robots: { index: false, follow: true }`;
@@ -256,16 +262,20 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
   - `KennelEvidence.lastConfirmedVia: "ADMIN" | "HALF_MIND" | null`, added to `KENNEL_EVIDENCE_SELECT` and the serialize/parse pair.
   - The `StatusLine` `"checked"` variant gains `via: "ADMIN" | "HALF_MIND"`.
   - `export function isHalfMindDeciding(e: KennelEvidence, now?: Date): boolean`
+  - `getStatusLine(e: KennelEvidence, now?: Date, opts?: { listingOnly?: boolean }): StatusLine | null`
 
 - [ ] **Step 1: Write the failing tests.**
   - `kennel-status.test.ts`:
     - `formatStatusLine({ kind: "checked", via: "HALF_MIND", date })` returns `Half-Mind listing checked · Oct 7`. With `via: "ADMIN"` it still returns `Checked running · Oct 7`.
     - `getStatusLine` returns `{ kind: "checked", via: "HALF_MIND", date }`, not null, for a running kennel when `isHalfMindDeciding`:
       - `lastConfirmedVia: "HALF_MIND"`, `lastConfirmedAt` 20 days ago, `lastRunSeenAt` 200 days ago, no posted run.
-    - It still returns null when:
-      - the newest evidence is a run seen after the check;
+    - It still returns null for a running kennel when:
+      - **the Savannah case:** `lastRunSeenAt` 47 days ago and a HALF_MIND check 46 days ago;
       - or a posted run sits within 60 days;
       - or the check is an ADMIN one.
+    - With `{ listingOnly: true }`:
+      - a running kennel whose newest confirmation is ADMIN returns `{ kind: "checked", via: "ADMIN", date }`;
+      - one with no confirmation returns `{ kind: "never" }`.
   - `kennel-evidence.test.ts`:
     - the SQL selects the newest RUNNING confirmation's `via` into `"lastConfirmedVia"`, and compares it with `IS DISTINCT FROM`;
     - `"listingOnly"` is set from `k."listingOnly" AND c."lastRunSeenAt" IS NULL AND c."nextRunPostedAt" IS NULL`, and the change guard compares it. The SQL never mentions `"SourceKennel"` for this.
@@ -280,10 +290,15 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
   - In `kennel-status.ts`, `isHalfMindDeciding` holds when all of these hold:
     - not stopped;
     - `lastConfirmedVia === "HALF_MIND"`;
-    - `lastConfirmedAt` equals the newest evidence and is newer than `lastRunSeenAt`, or `lastRunSeenAt` is null;
-    - no `nextRunPostedAt` in [today, today+60].
-  - `getStatusLine` returns the HALF_MIND `checked` line when `isHalfMindDeciding`, before its `running → null` check. Otherwise it attaches `via: e.lastConfirmedVia ?? "ADMIN"` to `checked`.
+    - the state is `"running"`;
+    - `getKennelState({ ...e, lastConfirmedAt: null }, now)` is not `"running"`.
+  - `getStatusLine`, before its `running → null` check:
+    - returns the HALF_MIND `checked` line when `isHalfMindDeciding`;
+    - with `opts.listingOnly` and a `lastConfirmedAt`, returns the `checked` line with `via: e.lastConfirmedVia ?? "ADMIN"`.
+
+    Elsewhere it attaches `via: e.lastConfirmedVia ?? "ADMIN"` to `checked`.
   - `formatStatusLine` picks the copy by `via`.
+  - The admin `KennelTable` keeps its rule of showing the line when there is one (`KennelTable.tsx:175`, `235`). A Half-Mind-decided kennel there reads `Half-Mind listing checked · …` instead of "Running", which tells the admin what is keeping it running.
 
 - [ ] **Step 5: Run** `npx tsc --noEmit` and fix every flagged `KennelEvidence` literal by adding `lastConfirmedVia: null`. Leave `src/lib/travel/format.ts:329` for Task 4; give it an explicit `via: "ADMIN"` only as a temporary placeholder. Run `npx vitest run src/lib src/pipeline`. Expected: PASS.
 
@@ -292,8 +307,16 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
 ### Task 4: Credit the Half-Mind check on every surface
 
 **Files:**
-- Modify: `src/lib/travel/search.ts`: `recentConfirmation` (around line 1144) and the `checkedRunningAt` assignment (around line 848) carry `via`.
+- Modify: `src/lib/travel/search.ts`:
+  - `recentConfirmation` (around line 1144) and the `checkedRunningAt` assignment (around line 848) carry `via`;
+  - the `fetchAllVisibleKennels` select adds `halfMindListingId`;
+  - `OtherKennelCandidate` and `OtherKennel` (Task 1) gain `halfMindListingId: string | null`.
+- Modify: `src/lib/travel/serialize.ts` (around lines 39–42 and 81) and `src/components/travel/LikelyCard.tsx` (around line 29): the `checkedRunningAt` shape.
 - Modify: `src/lib/travel/format.ts`: `likelyEvidenceCaption` (around line 329).
+- Modify: the card data plumbing, for `halfMindListingId`:
+  - `KennelCardData` in `src/components/kennels/KennelCard.tsx` (around line 10);
+  - `serializeKennelWithNext` in `src/lib/kennel-directory.ts`;
+  - the selects in `src/app/kennels/page.tsx` (around lines 44–63), `src/app/kennels/region/[slug]/page.tsx` (around lines 85–103) and `src/app/kennels/[slug]/page.tsx`.
 - Modify: `src/components/kennels/HowWeKnow.tsx` (around line 33), `src/lib/kennel-how-we-know.ts` (+ test)
 - Modify: `src/lib/kennel-confirmations.ts`: the `evidenceAfter` stop-refusal copy (around line 100) (+ test)
 - Modify: `src/components/kennels/KennelStatusLine.tsx` (+ test): `ownPageFor` also returns the url for a HALF_MIND `checked` line, and a new `listingUrl` prop.
@@ -315,8 +338,8 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
 
 - [ ] **Step 2: Implement.**
   - When the line is a HALF_MIND `checked` line and `listingUrl` is set, `KennelStatusLine` renders the words `Half-Mind listing` as a link to it. The link is above the card's stretched link (`aboveCardLink`) and opens in a new tab with `rel="noopener noreferrer"`.
-  - Pass `listingUrl` from every caller that has `halfMindListingId`: the card, the kennel page and the bridge row. Each selects `halfMindListingId`.
-  - **If the owner answers "no" to the open question:** also exclude HALF_MIND confirmations from `latestEvidenceAt` (`projections.ts:73–82`) and from the refresh's `lastConfirmedAt`. That means adding a separate cached `lastListingCheckAt` instead; Task 3's tests then change. With "yes", nothing more is needed here.
+  - Pass `listingUrl={id ? halfMindListingUrl(id) : null}` from the card, the kennel page and the bridge row, using the `halfMindListingId` this task adds to their data.
+  - This task is written for the owner's "yes". For "no", see the open question: stop and re-plan.
 
 - [ ] **Step 3: Run** `npx tsc --noEmit` and `npx vitest run src/lib src/components`. Expected: PASS. Commit `feat(kennel-status): credit Half-Mind checks in status lines, Travel and How we know`.
 
@@ -391,9 +414,13 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
   - `export async function loadDiscoveryCandidates(): Promise<{ candidates: FuzzyCandidate[]; geoMap: Map<string, KennelGeoData> }>`, the kennel + alias load now inline in `syncKennelDiscovery` (around lines 254–295);
   - `export function rankDiscoveryCandidates(names: string[], geo: DiscoveryGeoContext, candidates: FuzzyCandidate[], geoMap: Map<string, KennelGeoData>): { id: string; shortName: string; score: number }[]`. It returns the top 3 by geo-adjusted score at **every** score, best first. `computeMatchResult` keeps its MATCHED/NEW thresholds on top of it.
 - Create: `src/lib/kennel-revalidate.ts`. Move `revalidateKennel` out of `src/app/admin/kennels/status-actions.ts` into it, as a plain module, and import it back there.
-- Modify: `src/lib/kennel-confirmations.ts`. `confirmKennelRunningFor` gains a trailing `opts?: { via?: "ADMIN" | "HALF_MIND"; onlyIfNewerThanHalfMindChecks?: boolean }`. With the second flag, it skips the write when any HALF_MIND confirmation for the kennel, reverted or not, has `observedAt` ≥ the new one. The comparison runs inside the transaction after `lockKennel`, and a skip returns `{ skipped: true }`.
+- Modify: `src/lib/kennel-confirmations.ts`. `confirmKennelRunningFor` gains a trailing `opts?: { via?: "ADMIN" | "HALF_MIND"; onlyIfNewerForUrl?: string }`.
+  - **`onlyIfNewerForUrl`** holds a listing URL. The write is skipped when any HALF_MIND confirmation for the kennel with that `url`, reverted or not, has `observedAt` ≥ the new one. The comparison is per listing, so a wrong link that is undone never blocks the right listing. It runs inside the transaction after `lockKennel`, and a skip returns `{ skipped: true }`.
+  - **With `via: "HALF_MIND"`, a stopped kennel returns `{ stopped: true }`** instead of the error text. ADMIN callers keep today's error.
   - Add `export async function revertHalfMindChecksFor(kennelId: string, now?: Date): Promise<number>`, which sets `revertedAt` on the kennel's un-reverted HALF_MIND RUNNING confirmations and calls `refreshAfterWrite`.
-- Modify: `src/app/admin/discovery/actions.ts`. `linkDiscoveryToKennel`, `addKennelFromDiscovery`, `confirmMatch` and `getDiscoveryPrefill` return `{ error: "Use the Half-Mind actions for Half-Mind rows." }` when `externalSource === "HALFMIND"`. `dismissDiscovery` refuses a HALFMIND row unless its status is NEW.
+- Modify: `src/app/admin/shared/kennel-creation.ts`. `createKennelFromDiscovery` accepts these optional fields, written only when given: `listingOnly`, `halfMindListingId`, `facebookUrl`, `scheduleNotes`, `latitude`, `longitude`.
+- Modify: `src/app/admin/discovery/actions.ts`. `linkDiscoveryToKennel`, `addKennelFromDiscovery`, `confirmMatch` and `getDiscoveryPrefill` return `{ error: "Use the Half-Mind actions for Half-Mind rows." }` when `externalSource === "HALFMIND"`. `dismissDiscovery` and `bulkDismissDiscoveries` refuse, or skip, a HALFMIND row unless its status is NEW.
+  - The guard is narrow on purpose. These actions already misbehave on AI-discovery (GEMINI) rows: a global alias plus a Hash Rego `SourceKennel` with a non-Hash Rego slug. That predates this plan and is filed as a separate follow-up, out of scope here.
 - Create: `src/pipeline/half-mind-discovery.ts` (+ test), `src/app/admin/discovery/half-mind-actions.ts` (+ test)
 
 **Interfaces:**
@@ -421,8 +448,12 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
       A listing that fails the bar and isn't stored writes nothing.
     - **1.0 match:** an exact-name listing stores that kennel as candidate #1 with score 1. The row stays NEW, and no `SourceKennel` or alias is written.
     - **Existing rows:** an existing row of any status gets its fields updated and keeps its status.
-    - **Refresh, newer check:** for a LINKED or ADDED row whose kennel has `halfMindListingId` = the id, a newer `lastVerifiedAt` that passes the bar calls `confirmKennelRunningFor` once. The call carries `via: "HALF_MIND"`, `onlyIfNewerThanHalfMindChecks: true`, `observedOn` = the check date, note = `halfMindCheckNote(date)` and url = `halfMindListingUrl(id)`. `createdById` is the row's `processedBy`.
-    - **Refresh, skipped:** a `{ skipped: true }` result increments nothing. A stopped kennel increments `skippedStopped` and adds no error.
+    - **Refresh, newer check:** for a LINKED or ADDED row whose kennel has `halfMindListingId` = the id, a `lastVerifiedAt` that passes the bar calls `confirmKennelRunningFor` once. The call carries:
+      - `via: "HALF_MIND"` and `onlyIfNewerForUrl: halfMindListingUrl(id)`;
+      - `observedOn` = the check date, note = `halfMindCheckNote(date)` and url = `halfMindListingUrl(id)`;
+      - `createdById` = the row's `processedBy`.
+    - **Refresh, unusable date:** a LINKED row whose listing now has `last_verified` null, `"0000-00-00 00:00:00"` or a future date makes no `confirmKennelRunningFor` call, and the row's other fields still update.
+    - **Refresh, skipped or stopped:** a `{ skipped: true }` result increments nothing. A `{ stopped: true }` result increments `skippedStopped` and adds no error.
     - **Dead or missing:**
       - a linked listing with `status: "dead"` sets `externalStatus: "dead"` and increments `flaggedDeadOrMissing`;
       - a linked listing absent from a scope response with `truncated: false` sets `externalStatus: "missing"`. With `truncated: true` it doesn't;
@@ -432,12 +463,15 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
     - Non-admin callers are refused, and so are non-HALFMIND rows.
     - `linkHalfMindListing`:
       - sets `kennel.halfMindListingId` and makes the row `LINKED` with `matchedKennelId`, `processedBy` and `processedAt`;
-      - records a HALF_MIND confirmation only when the row passes the bar at action time (`externalStatus === "alive"` and `externalCheckedAt` within 365 days). A stale row links without one and returns `warning: "Linked; the Half-Mind check is too old to record."`;
-      - on a stopped kennel, links and returns `warning: "Linked; the kennel is stopped, so the check was not recorded."`;
+      - records a HALF_MIND confirmation only when the row passes the bar at action time (`externalStatus === "alive"` and `externalCheckedAt` within 365 days). It does not pass `onlyIfNewerForUrl`, so a deliberate relink after an unlink records the current check again. A stale row links without one and returns `warning: "Linked; the Half-Mind check is too old to record."`;
+      - on a stopped kennel (`{ stopped: true }`), links and returns `warning: "Linked; the kennel is stopped, so the check was not recorded."`;
       - refuses with nothing written when the listing is already on another kennel: `That Half-Mind listing is already linked to <shortName>.`;
       - refuses when the kennel already has a different listing: `<shortName> is already linked to Half-Mind listing #<id>. Unlink it first.`;
       - maps a P2002 on `halfMindListingId` to the first message.
-    - `unlinkHalfMindListing` clears `halfMindListingId`, calls `revertHalfMindChecksFor`, and sets the row back to NEW with `matchedKennelId: null`. A later sync of the same `lastVerifiedAt` records nothing, because the comparison counts reverted checks.
+    - `unlinkHalfMindListing` clears `halfMindListingId`, calls `revertHalfMindChecksFor`, and sets the row back to NEW with `matchedKennelId: null`.
+      - A later sync of the same listing at the same `lastVerifiedAt` records nothing: the per-listing comparison counts reverted checks.
+      - Linking the kennel to a different listing with an older check date still records that check.
+    - `bulkDismissDiscoveries` skips LINKED and ADDED HALFMIND rows.
     - `addListingOnlyKennel`:
       - refuses, returning `duplicateOf`, when the row's best candidate scores ≥ 0.8, unless `confirmNotDuplicate`;
       - creates the kennel with `listingOnly: true`, `halfMindListingId`, `latitude`/`longitude`, `website`, `facebookUrl`, `scheduleNotes` = the cleaned schedule and the given region, through the shared creation helper;
@@ -467,6 +501,11 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
 - [ ] **Step 1: Add a source switch.**
   - The default view shows every row except `HALFMIND`, so the current Hash Rego and AI-discovery view is unchanged. `?source=halfmind` shows Half-Mind rows only.
   - The admin nav badge keeps counting every NEW row, Half-Mind ones included. Accepted: they need review too.
+  - With `?source=halfmind`, the page also loads:
+    - every visible kennel as `{ id, shortName, fullName, region }` (about 500 rows), for the Link picker's client-side name search;
+    - region centroids (`centroidLat`, `centroidLng`) in its existing region query.
+
+    The Add form prefills the region whose centroid is closest to the listing's coordinates.
 
 - [ ] **Step 2: Half-Mind rows show:**
   - name, location, `externalStatus`, the check date, a `Half-Mind listing ↗` link, website/Facebook links and the schedule text;
@@ -496,9 +535,9 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
 **Files:**
 - Modify: `src/app/kennels/[slug]/page.tsx` (`generateMetadata`; select `listingOnly`, `halfMindListingId`)
 - Modify: `src/lib/kennel-how-we-know.ts` (+ test), `src/components/kennels/HowWeKnow.tsx` (coverage `level: "listing"`)
-- Modify: `src/app/kennels/page.tsx` (select around lines 44–63) and `src/app/kennels/region/[slug]/page.tsx` (select around lines 85–103). Each adds `listingOnly`, `halfMindListingId` and `scheduleNotes`. Evidence comes in through `KENNEL_EVIDENCE_SELECT`.
-- Modify: `src/lib/kennel-directory.ts` (+ test): `KennelCardData` gains `listingOnly`, `halfMindListingId` and `scheduleNotes`, and `serializeKennelWithNext` passes them and `lastConfirmedVia` through.
-- Modify: `src/components/kennels/KennelCard.tsx`
+- Modify: `src/app/kennels/page.tsx` (select around lines 44–63) and `src/app/kennels/region/[slug]/page.tsx` (select around lines 85–103). Each adds `listingOnly` and `scheduleNotes`; `halfMindListingId` arrived in Task 4. Evidence comes in through `KENNEL_EVIDENCE_SELECT`.
+- Modify: `src/lib/kennel-directory.ts` (+ test): `serializeKennelWithNext` passes `listingOnly` and `scheduleNotes` through.
+- Modify: `src/components/kennels/KennelCard.tsx`: `KennelCardData` gains `listingOnly` and `scheduleNotes`. The card passes `listingOnly` to `KennelStatusLine`, which passes it to `getStatusLine` and sets `showOwnPage`.
 - Modify: `src/app/sitemap.ts`
 - Modify: `src/lib/travel/search.ts`: the select adds `listingOnly` and `halfMindListingId`, and Task 1's candidate mapping uses the real values.
 - Modify: `.claude/rules/adapter-patterns.md` and `docs/source-onboarding-playbook.md`: note that listing-only kennels are the spec-approved exception to "no sourceless kennels", so audit and onboarding tools leave them alone.
@@ -507,7 +546,8 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
   - `kennel-how-we-know.test.ts`: a listing-only kennel gets coverage `{ level: "listing" }`, rendered `We only know their Half-Mind listing`.
   - The sitemap test: the kennel query's `where` includes `listingOnly: false`.
   - The kennel page metadata: `robots` is `{ index: false, follow: true }` when `listingOnly`, and absent otherwise. Put it in a pure `kennelRobots(listingOnly)` helper so it can be tested.
-  - `kennel-directory.test.ts`: `serializeKennelWithNext` passes the new fields through.
+  - `kennel-directory.test.ts`: `serializeKennelWithNext` passes `listingOnly` and `scheduleNotes` through.
+  - `KennelStatusLine.test.ts`: for a listing-only kennel, `ownPageFor` returns the url for an ADMIN `checked` line too. The component passes `showOwnPage` when `listingOnly`.
   - `projections`: a kennel with no `ScheduleRule` yields no Likely or Possible rows. This should already pass; assert it.
   - `selectOtherKennels` (search test): a running listing-only kennel from the real select appears in the bridge.
 
@@ -515,7 +555,7 @@ PR B's Vercel preview will fail to build with P2022: `/kennels` prerenders and s
   - The kennel card for a listing-only kennel:
     - shows `Usually: {scheduleNotes}` in its schedule slot when the structured schedule fields are empty;
     - is not dimmed when its state is running;
-    - omits the "No upcoming runs" footer, because its status line carries the dated credit and the link out.
+    - omits the "No upcoming runs" footer, because its status line always shows, with the dated evidence and the link out.
 
 - [ ] **Step 3: Verify in the browser.**
   - The listing-only kennel from Task 7 shows in the directory with `Half-Mind listing checked · Oct 30 · check their page ↗`, and the Half-Mind words are linked.
@@ -593,3 +633,18 @@ The spec says "re-sync verified dates on a schedule (**if permitted**)". The cro
 | R1-17 stale rows and duplicate listings | bar re-checked at action time; one listing per kennel, duplicates dismissed (Global Constraints, Task 6) |
 | R1-18 duplication, rules, research | `loadDiscoveryCandidates` extracted; rules/playbook note; source research picking up Half-Mind rows is accepted as useful (Tasks 6, 8) |
 | R1-19 pilot breadth | accepted; owner step 5 prefers a next scope with more kennels we lack |
+
+**R2 re-review (2026-11-17): CHANGES REQUIRED, 0 Critical, 1 Important, 8 Minor.** Resolved in this revision:
+
+| Finding | Resolution |
+|---|---|
+| R2-1 wrong "no" branch | "If the owner answers no, stop": revise Tasks 1/3/4/8 and re-review; what a "no" version needs is stated (open question, Task 4) |
+| R2-2 newest vs deciding | `isHalfMindDeciding` = HALF_MIND and not running without the check; Savannah test; admin table behavior stated (Task 3) |
+| R2-3 listing-only with an ADMIN check | listing-only kennels always show a line and the link out (Global Constraints, Tasks 3, 8) |
+| R2-4 listing-link plumbing | `halfMindListingId` card/bridge/page plumbing moved into Task 4; `KennelCardData`'s real file; `serialize.ts` and `LikelyCard.tsx` listed |
+| R2-5 stopped by error text | `{ stopped: true }` for HALF_MIND callers (Task 6) |
+| R2-6 per-kennel comparison | `onlyIfNewerForUrl` compares per listing; the link action doesn't use it (Task 6) |
+| R2-7 refresh unusable-date test | added (Task 6) |
+| R2-8 search, region, creation helper | the page loads the kennel list and centroids; nearest-centroid region prefill; `kennel-creation.ts` fields (Tasks 6–7) |
+| R2-9 bulk dismiss | guarded (Task 6) |
+| Hash Rego guard reason | corrected: the narrow guard stays, and the pre-existing GEMINI misuse is a separate follow-up |
