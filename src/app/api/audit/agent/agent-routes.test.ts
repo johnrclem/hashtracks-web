@@ -197,8 +197,10 @@ describe("POST /api/audit/agent/submit-finding", () => {
   it("records the authenticated call for the ops watchdog", async () => {
     vi.mocked(handleAuditSubmission).mockResolvedValue(NextResponse.json({ data: { queued: true } }, { status: 201 }));
     await submitFinding(post({ kind: "completion" }));
-    expect(prisma.automationRun.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ automation: "agent:submit-finding", kind: "AGENT_CALL" }),
-    });
+    expect(prisma.automationRun.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ automation: "agent:submit-finding", kind: "AGENT_CALL" }),
+      }),
+    );
   });
 });

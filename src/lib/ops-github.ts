@@ -192,9 +192,8 @@ export function opsGithubFromEnv(): OpsGithub | null {
   return token ? createOpsGithub(token) : null;
 }
 
-/** Labels on agent PRs that merge only once the owner adds `owner-approved`. */
-export const OWNER_GATED_LABELS = ["audit-fix", "onboarding-impl"] as const;
-export const OWNER_APPROVED_LABEL = "owner-approved";
+/** The owner's approval on an agent PR (`audit-fix`, `onboarding-impl`); the agent then merges it. */
+const OWNER_APPROVED_LABEL = "owner-approved";
 /** Docs-only handoff PRs the research task merges itself. */
 const SELF_MERGED_LABEL = "onboarding-handoff";
 

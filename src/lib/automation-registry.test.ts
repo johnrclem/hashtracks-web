@@ -12,7 +12,10 @@ vi.mock("@/lib/db", () => ({
 
 import { prisma } from "@/lib/db";
 import type { GhComment, GhIssue, GhPull, OpsGithub } from "@/lib/ops-github";
-import { AUTOMATIONS, CRON_JOBS, fresh, type CheckContext } from "./automation-registry";
+import { existsSync } from "node:fs";
+import path from "node:path";
+
+import { AGENT_CALLS, AUTOMATIONS, CRON_JOBS, fresh, type CheckContext } from "./automation-registry";
 
 const HOUR = 3_600_000;
 const NOW = new Date("2026-11-17T12:00:00Z");
@@ -110,6 +113,11 @@ describe("registry", () => {
   });
 
   beforeEach(() => vi.clearAllMocks());
+
+  it.each(Object.values(AGENT_CALLS))("%s names a real agent route (rejectUnlessAgent's naming)", (call) => {
+    const route = path.join(process.cwd(), "src/app/api/audit/agent", call.slice("agent:".length), "route.ts");
+    expect(existsSync(route)).toBe(true);
+  });
 
   it("a cron reads its own latest successful run row", async () => {
     findRun.mockResolvedValue({ startedAt: ago(30) } as never);

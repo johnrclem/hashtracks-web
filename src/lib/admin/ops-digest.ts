@@ -8,7 +8,7 @@
  * Nothing here writes, and nothing is parameterised by the caller.
  */
 import type { AutomationStatus, AutomationVerdict } from "@/generated/prisma/client";
-import { automationLabel, PROMOTER_MAX_PENDING_HOURS } from "@/lib/automation-registry";
+import { automationLabel, loadFailedMigrations, PROMOTER_MAX_PENDING_HOURS } from "@/lib/automation-registry";
 import { prisma } from "@/lib/db";
 import { isWaitingOnOwner, opsGithubFromEnv, type OpsGithub } from "@/lib/ops-github";
 
@@ -77,7 +77,7 @@ export interface OpsDigest {
   auditQueue: {
     pending: number;
     oldestPendingAt: string | null;
-    /** PENDING drafts submitted more than {@link STALE_PENDING_HOURS} hours ago.
+    /** PENDING drafts submitted more than {@link PROMOTER_MAX_PENDING_HOURS} hours ago.
      *  The promoter runs hourly, so any of these means it is stuck or failing. */
     stalePending: number;
   };
@@ -95,13 +95,12 @@ export interface OpsDigest {
   approvalsWaiting: { prs: WaitingPr[] | null; error: string | null };
 }
 
-const STATUS_ORDER: Record<string, number> = { OVERDUE: 0, BLOCKED_ON_OWNER: 1, UNKNOWN: 2, OK: 3 };
+const VERDICT_ORDER: Record<AutomationVerdict, number> = { OVERDUE: 0, BLOCKED_ON_OWNER: 1, UNKNOWN: 2, OK: 3 };
 const HOUR_MS = 3_600_000;
 
 async function loadWatchdogStates(): Promise<WatchdogState[]> {
   const rows = await prisma.automationState.findMany({ orderBy: { automation: "asc" } });
-  const rank = (r: (typeof rows)[number]) =>
-    r.status === "OVERDUE" ? 0 : STATUS_ORDER[r.verdict ?? "UNKNOWN"] ?? STATUS_ORDER.UNKNOWN;
+  const rank = (r: (typeof rows)[number]) => (r.status === "OVERDUE" ? 0 : VERDICT_ORDER[r.verdict ?? "UNKNOWN"]);
   return rows
     .sort((a, b) => rank(a) - rank(b))
     .map((r) => ({
@@ -140,8 +139,6 @@ async function loadApprovalsWaiting(
   }
 }
 
-/** A PENDING draft older than this has missed at least one hourly promoter run (the watchdog's limit too). */
-export const STALE_PENDING_HOURS = PROMOTER_MAX_PENDING_HOURS;
 
 /** Postgres COUNT/SUM come back as bigint; the JSON response needs plain numbers. */
 const num = (v: unknown): number => (v == null ? 0 : Number(v));
@@ -217,13 +214,10 @@ export async function buildOpsDigest(
       prisma.$queryRaw<Array<Record<string, unknown>>>`
         SELECT count(*) AS pending, min("submittedAt") AS oldest,
                count(*) FILTER (
-                 WHERE "submittedAt" < now() - make_interval(hours => ${STALE_PENDING_HOURS}::int)
+                 WHERE "submittedAt" < now() - make_interval(hours => ${PROMOTER_MAX_PENDING_HOURS}::int)
                ) AS stale
         FROM "AuditFindingDraft" WHERE status = 'PENDING'`,
-      prisma.$queryRaw<Array<Record<string, unknown>>>`
-        SELECT migration_name, started_at FROM "_prisma_migrations"
-        WHERE finished_at IS NULL AND rolled_back_at IS NULL
-        ORDER BY started_at`,
+      loadFailedMigrations(),
       loadWatchdogStates(),
       loadApprovalsWaiting(github, now),
     ]);
@@ -265,10 +259,7 @@ export async function buildOpsDigest(
       oldestPendingAt: iso(q.oldest),
       stalePending: num(q.stale),
     },
-    failedMigrations: migrationRows.map((r) => ({
-      name: String(r.migration_name),
-      startedAt: iso(r.started_at) ?? "",
-    })),
+    failedMigrations: migrationRows.map((m) => ({ name: m.name, startedAt: m.startedAt.toISOString() })),
     watchdog,
     approvalsWaiting,
   };

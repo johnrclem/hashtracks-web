@@ -26,10 +26,9 @@
  * reports nothing about itself.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
-import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 
-import { prisma } from "@/lib/db";
+import { startAutomationRun } from "@/lib/cron-run";
 
 /** Minimum accepted secret length (e.g. `openssl rand -hex 32` → 64 chars). */
 export const MIN_TOKEN_LENGTH = 32;
@@ -79,19 +78,6 @@ export function agentCallName(req: Request): string {
   return `agent:${name || "unknown"}`;
 }
 
-/** Record an authenticated agent call. A failed write never blocks the call. */
-async function recordAgentCall(req: Request): Promise<void> {
-  const automation = agentCallName(req);
-  try {
-    await prisma.automationRun.create({
-      data: { automation, kind: "AGENT_CALL", status: "SUCCESS", finishedAt: new Date() },
-    });
-  } catch (err) {
-    console.error(`[audit-agent-auth] couldn't record ${automation}:`, err);
-    Sentry.captureException(err, { tags: { automation } });
-  }
-}
-
 /**
  * Null when the request carries the agent token (the call is then recorded);
  * otherwise a ready 401 response.
@@ -100,6 +86,7 @@ export async function rejectUnlessAgent(req: Request): Promise<NextResponse | nu
   if (!hasValidAgentToken(req)) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
   }
-  await recordAgentCall(req);
+  // A failed write is reported to Sentry and never blocks the call.
+  await startAutomationRun(agentCallName(req), "AGENT_CALL", { status: "SUCCESS", finishedAt: new Date() });
   return null;
 }

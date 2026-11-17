@@ -24,11 +24,12 @@
 import * as Sentry from "@sentry/nextjs";
 
 import type { AutomationStatus, AutomationVerdict } from "@/generated/prisma/client";
-import { withAdvisoryXactLock } from "@/lib/advisory-lock";
+import { withAdvisoryXactLock, type AdvisoryLockResult } from "@/lib/advisory-lock";
 import {
   AUTOMATIONS,
   MAC_MINI_ID,
   MAC_MINI_LABEL,
+  OPS_MARKER_PREFIX,
   type AutomationHost,
   type AutomationSpec,
   type CheckContext,
@@ -36,7 +37,7 @@ import {
 } from "@/lib/automation-registry";
 import { prisma } from "@/lib/db";
 import { emailOwner, ownerEmailConfigured, type OwnerEmail, type NotifyResult } from "@/lib/notify";
-import type { GhPull, OpsGithub } from "@/lib/ops-github";
+import type { GhIssue, GhPull, OpsGithub } from "@/lib/ops-github";
 
 export const OPS_LABEL = "lane:ops";
 /** Run rows are kept this long; the watchdog deletes older ones once a day, in this UTC hour. */
@@ -46,7 +47,7 @@ export const WATCHDOG_LOCK_KEY = 0x4f_50_57_44; // "OPWD"
 
 const DAY_MS = 86_400_000;
 
-export const issueMarker = (automation: string) => `<!-- ops:${automation} -->`;
+export const issueMarker = (automation: string) => `${OPS_MARKER_PREFIX}${automation} -->`;
 
 // ── Store ───────────────────────────────────────────────────────────────────
 
@@ -64,7 +65,7 @@ export interface StateRow {
 /** The watchdog's reads and conditional writes. Each write is one atomic statement. */
 export interface WatchdogStore {
   /** Run `job` unless another watchdog run holds the lock. */
-  withLock<T>(job: () => Promise<T>): Promise<{ acquired: true; result: T } | { acquired: false }>;
+  withLock<T>(job: () => Promise<T>): Promise<AdvisoryLockResult<T>>;
   /** Insert an OK row for each automation that has none. */
   ensureStates(ids: string[]): Promise<void>;
   loadStates(): Promise<Map<string, StateRow>>;
@@ -215,15 +216,28 @@ export interface Evaluation {
   label: string;
   host: AutomationHost;
   cadence: string;
+  /** Issue title and email subject while overdue. */
+  alarmTitle: string;
+  /** What the owner should check, in the issue. */
+  runbook: string;
   verdict: AutomationVerdict;
   detail: string;
   expectations: Expectation[];
 }
 
+const DEFAULT_RUNBOOK = "Check the automation's latest run or log. See `docs/ops/system.md` for what it should produce.";
+
 const describe = (es: Expectation[]) => es.map((e) => `${e.what}: ${e.seen}`).join("; ");
 
 async function evaluate(spec: AutomationSpec, ctx: CheckContext): Promise<Evaluation> {
-  const base = { id: spec.id, label: spec.label, host: spec.host, cadence: spec.cadence };
+  const base = {
+    id: spec.id,
+    label: spec.label,
+    host: spec.host,
+    cadence: spec.cadence,
+    alarmTitle: spec.alarmTitle ?? `${spec.label} is overdue`,
+    runbook: spec.runbook ?? DEFAULT_RUNBOOK,
+  };
   try {
     const { expectations, blockedOnOwner } = await spec.check(ctx);
     const failing = expectations.filter((e) => !e.ok);
@@ -246,6 +260,9 @@ function macMiniEvaluation(desktop: Evaluation[]): Evaluation {
     label: MAC_MINI_LABEL,
     host: "mac-mini",
     cadence: "always on; runs every scheduled task",
+    alarmTitle: "Mac mini silent, no scheduled task is producing output",
+    runbook:
+      "Check that the Mac mini is awake, online and signed in, and that Claude Code's scheduled tasks are enabled. The tasks' own alarms are held while this one is open.",
     verdict: silent ? "OVERDUE" : "OK",
     detail: silent
       ? `no scheduled task produced output: ${desktop.map((e) => `${e.label} ${e.verdict}`).join(", ")}`
@@ -256,12 +273,6 @@ function macMiniEvaluation(desktop: Evaluation[]): Evaluation {
 
 // ── Issue and email text ────────────────────────────────────────────────────
 
-function issueTitle(ev: Evaluation): string {
-  if (ev.id === MAC_MINI_ID) return "ops: Mac mini silent, no scheduled task is producing output";
-  if (ev.id === "migrations") return "ops: a failed migration is blocking deploys";
-  return `ops: ${ev.label} is overdue`;
-}
-
 function issueBody(ev: Evaluation, since: Date): string {
   const rows = ev.expectations.map((e) => `| ${e.ok ? "✅" : "❌"} ${e.what} | ${e.seen.replaceAll("|", "\\|")} |`);
   return [
@@ -270,10 +281,11 @@ function issueBody(ev: Evaluation, since: Date): string {
     "",
     `Runs: ${ev.cadence}.`,
     "",
-    ...(rows.length > 0 ? ["| Expected | Seen |", "|---|---|", ...rows, ""] : [`Seen: ${ev.detail}`, ""]),
-    ev.id === MAC_MINI_ID
-      ? "Check that the Mac mini is awake, online and signed in, and that Claude Code's scheduled tasks are enabled. The tasks' own alarms are held while this one is open."
-      : "Check the automation's latest run or log. See `docs/ops/system.md` for what it should produce.",
+    "| Expected | Seen |",
+    "|---|---|",
+    ...rows,
+    "",
+    ev.runbook,
     "",
     "_Filed by the ops watchdog (`/api/cron/watchdog`). It comments and closes this issue when the automation recovers._",
   ].join("\n");
@@ -281,9 +293,17 @@ function issueBody(ev: Evaluation, since: Date): string {
 
 function alarmEmail(ev: Evaluation, since: Date): OwnerEmail {
   return {
-    subject: issueTitle(ev).replace(/^ops: /, ""),
+    subject: ev.alarmTitle,
     text: `${ev.label} has been overdue since ${since.toISOString()}.\n\n${ev.detail}\n\nRuns: ${ev.cadence}.`,
     idempotencyKey: `ops-watchdog/${ev.id}/${since.getTime()}/overdue`,
+  };
+}
+
+function recoveredEmail(ev: Evaluation, outageSince: Date, now: Date): OwnerEmail {
+  return {
+    subject: `Recovered: ${ev.label}`,
+    text: `${ev.label} recovered at ${now.toISOString()} (overdue since ${outageSince.toISOString()}).\n\n${ev.detail}`,
+    idempotencyKey: `ops-watchdog/${ev.id}/${outageSince.getTime()}/recovered`,
   };
 }
 
@@ -319,25 +339,6 @@ export interface WatchdogSummary {
 export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> {
   const { store, github, alarms, mailer, now } = deps;
   const specs = deps.specs ?? AUTOMATIONS;
-  const summary: WatchdogSummary = {
-    checked: 0,
-    ok: 0,
-    blockedOnOwner: 0,
-    overdue: 0,
-    unknown: 0,
-    wentOverdue: 0,
-    recovered: 0,
-    alarmsSent: 0,
-    issuesOpened: 0,
-    issuesClosed: 0,
-    emailsSent: 0,
-    prunedRuns: 0,
-    errorCount: 0,
-    overdueAutomations: [],
-    errors: [],
-  };
-  const fail = (what: string, err: unknown) =>
-    summary.errors.push(`${what}: ${err instanceof Error ? err.message : String(err)}`.slice(0, 300));
 
   await store.ensureStates([...specs.map((s) => s.id), MAC_MINI_ID]);
   const before = await store.loadStates();
@@ -369,14 +370,29 @@ export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> 
   const all = [...evals, macEval];
   const byId = new Map(all.map((e) => [e.id, e]));
 
+  const count = (verdict: AutomationVerdict) => all.filter((e) => e.verdict === verdict).length;
+  const summary: WatchdogSummary = {
+    checked: all.length,
+    ok: count("OK"),
+    blockedOnOwner: count("BLOCKED_ON_OWNER"),
+    overdue: count("OVERDUE"),
+    unknown: count("UNKNOWN"),
+    wentOverdue: 0,
+    recovered: 0,
+    alarmsSent: 0,
+    issuesOpened: 0,
+    issuesClosed: 0,
+    emailsSent: 0,
+    prunedRuns: 0,
+    errorCount: 0,
+    overdueAutomations: [],
+    errors: [],
+  };
+  const fail = (what: string, err: unknown) =>
+    summary.errors.push(`${what}: ${err instanceof Error ? err.message : String(err)}`.slice(0, 300));
+
   // 2. Record verdicts and make state changes. Only the run whose conditional update wins acts.
   for (const ev of all) {
-    summary.checked++;
-    if (ev.verdict === "OK") summary.ok++;
-    else if (ev.verdict === "BLOCKED_ON_OWNER") summary.blockedOnOwner++;
-    else if (ev.verdict === "OVERDUE") summary.overdue++;
-    else summary.unknown++;
-
     try {
       await store.recordCheck(ev.id, ev.verdict, ev.detail, now);
       if (ev.verdict === "UNKNOWN" || (holdDesktop && ev.host === "mac-mini" && ev.id !== MAC_MINI_ID)) continue;
@@ -390,11 +406,7 @@ export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> 
           summary.recovered++;
           alarms.recovered({ automation: ev.id, label: ev.label, outageSince: prev.since, detail: ev.detail });
           if (prev.emailedAt) {
-            const res = await mailer.send({
-              subject: `Recovered: ${ev.label}`,
-              text: `${ev.label} recovered at ${now.toISOString()} (overdue since ${prev.since.toISOString()}).\n\n${ev.detail}`,
-              idempotencyKey: `ops-watchdog/${ev.id}/${prev.since.getTime()}/recovered`,
-            });
+            const res = await mailer.send(recoveredEmail(ev, prev.since, now));
             if (res.sent) summary.emailsSent++;
             else fail(`recovered email for ${ev.id}`, res.reason);
           }
@@ -406,12 +418,20 @@ export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> 
   }
 
   // 3. Deliver what each state still owes: alarms for outages, closes for recoveries.
+  // The open lane:ops issues are listed at most once per run, however many outages need one.
+  let opsIssues: Promise<GhIssue[]> | null = null;
+  const run: AlarmRun = {
+    deps,
+    summary,
+    fail,
+    openOpsIssues: (gh) => (opsIssues ??= gh.listIssues({ labels: OPS_LABEL, state: "open", limit: 300 })),
+  };
   const after = await store.loadStates();
   for (const row of after.values()) {
     const ev = byId.get(row.automation);
     if (!ev) continue; // no longer registered
     try {
-      if (row.status === "OVERDUE") await deliverAlarm(row, ev, deps, summary, fail);
+      if (row.status === "OVERDUE") await deliverAlarm(row, ev, run);
       else if (row.issueNumber !== null && github) {
         await github.comment(
           row.issueNumber,
@@ -440,13 +460,16 @@ export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> 
   return summary;
 }
 
-async function deliverAlarm(
-  row: StateRow,
-  ev: Evaluation,
-  { store, github, alarms, mailer, now }: WatchdogDeps,
-  summary: WatchdogSummary,
-  fail: (what: string, err: unknown) => void,
-): Promise<void> {
+interface AlarmRun {
+  deps: WatchdogDeps;
+  summary: WatchdogSummary;
+  fail: (what: string, err: unknown) => void;
+  openOpsIssues: (github: OpsGithub) => Promise<GhIssue[]>;
+}
+
+async function deliverAlarm(row: StateRow, ev: Evaluation, run: AlarmRun): Promise<void> {
+  const { store, github, alarms, mailer, now } = run.deps;
+  const { summary, fail } = run;
   const id = row.automation;
 
   if (!row.alertedAt && (await store.claimAlert(id, row.since, now))) {
@@ -460,11 +483,11 @@ async function deliverAlarm(
       fail(`issue for ${id}`, "GITHUB_TOKEN is not set");
     } else {
       try {
-        const open = await github.listIssues({ labels: OPS_LABEL, state: "open", limit: 300 });
+        const open = await run.openOpsIssues(github);
         const existing = open.find((i) => !i.pull && i.body.includes(issueMarker(id)));
         const number =
           existing?.number ??
-          (await github.createIssue({ title: issueTitle(ev), body: issueBody(ev, row.since), labels: [OPS_LABEL] }));
+          (await github.createIssue({ title: `ops: ${ev.alarmTitle}`, body: issueBody(ev, row.since), labels: [OPS_LABEL] }));
         if (!existing) summary.issuesOpened++;
         await store.setIssue(id, row.since, number);
       } catch (err) {

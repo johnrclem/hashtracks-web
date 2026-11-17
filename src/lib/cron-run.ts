@@ -46,10 +46,17 @@ async function readBody(res: Response): Promise<unknown> {
   }
 }
 
-/** Start a run row. Returns null (and reports to Sentry) when the row can't be written. */
-export async function startAutomationRun(automation: string, kind: AutomationRunKind): Promise<string | null> {
+/**
+ * Write a run row (RUNNING unless `done` says otherwise). Returns its id, or null (reported to
+ * Sentry) when the row can't be written: recording never blocks the work it records.
+ */
+export async function startAutomationRun(
+  automation: string,
+  kind: AutomationRunKind,
+  done?: { status: AutomationRunStatus; finishedAt: Date },
+): Promise<string | null> {
   try {
-    const run = await prisma.automationRun.create({ data: { automation, kind }, select: { id: true } });
+    const run = await prisma.automationRun.create({ data: { automation, kind, ...done }, select: { id: true } });
     return run.id;
   } catch (err) {
     console.error(`[cron-run] couldn't record the start of ${automation}:`, err);
@@ -58,7 +65,7 @@ export async function startAutomationRun(automation: string, kind: AutomationRun
   }
 }
 
-export async function finishAutomationRun(
+async function finishAutomationRun(
   id: string | null,
   status: AutomationRunStatus,
   summary: string | null,

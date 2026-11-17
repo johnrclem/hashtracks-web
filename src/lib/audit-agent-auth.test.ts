@@ -72,9 +72,11 @@ describe("rejectUnlessAgent", () => {
 
   it("returns null for a valid token and records the call, named by its route", async () => {
     expect(await rejectUnlessAgent(request(`Bearer ${TOKEN}`))).toBeNull();
-    expect(createRun).toHaveBeenCalledWith({
-      data: expect.objectContaining({ automation: "agent:next-deep-dive", kind: "AGENT_CALL", status: "SUCCESS" }),
-    });
+    expect(createRun).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ automation: "agent:next-deep-dive", kind: "AGENT_CALL", status: "SUCCESS" }),
+      }),
+    );
   });
 
   it("still lets the call through when the run row can't be written", async () => {

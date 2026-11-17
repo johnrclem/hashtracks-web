@@ -11,7 +11,8 @@
  * `withCronRun("<its id>", …)`; `cron-routes.test.ts` fails until both are done.
  */
 import { prisma } from "@/lib/db";
-import { OWNER_APPROVED_LABEL, type GhPull, type OpsGithub } from "@/lib/ops-github";
+import { isWaitingOnOwner, type GhPull, type OpsGithub } from "@/lib/ops-github";
+import { RECUR_COMMENT_PREFIX } from "@/pipeline/audit-filer";
 
 export type AutomationHost = "vercel" | "mac-mini";
 
@@ -52,8 +53,23 @@ export interface AutomationSpec {
   host: AutomationHost;
   /** When it runs, in words. */
   cadence: string;
+  /** Issue title and email subject while overdue; default "<label> is overdue". */
+  alarmTitle?: string;
+  /** What the owner should check, shown in the issue; default points at `docs/ops/system.md`. */
+  runbook?: string;
   check(ctx: CheckContext): Promise<CheckResult>;
 }
+
+/** Every watchdog issue body and comment starts with `<!-- ops:<automation> -->`. */
+export const OPS_MARKER_PREFIX = "<!-- ops:";
+
+/** Agent API calls the checks read, as `rejectUnlessAgent` names them (`agent:` + route path). */
+export const AGENT_CALLS = {
+  submitFinding: "agent:submit-finding",
+  discardDraft: "agent:drafts/discard",
+  harelinePrompt: "agent:hareline-prompt",
+  opsDigest: "agent:ops-digest",
+} as const;
 
 const HOUR_MS = 3_600_000;
 
@@ -70,7 +86,8 @@ function hoursAgo(then: Date, now: Date): string {
  * haven't run since their run rows began.
  */
 export function fresh(what: string, lastSeen: Date | null, maxAgeHours: number, ctx: CheckContext): Expectation {
-  const from = latest(lastSeen ?? ctx.trackedSince, ctx.resumedAt) ?? ctx.trackedSince;
+  const base = lastSeen ?? ctx.trackedSince;
+  const from = ctx.resumedAt && ctx.resumedAt > base ? ctx.resumedAt : base;
   const ok = ctx.now.getTime() - from.getTime() <= maxAgeHours * HOUR_MS;
   const seen = lastSeen
     ? `last one ${hoursAgo(lastSeen, ctx.now)}`
@@ -96,11 +113,9 @@ async function lastRun(automations: string[]): Promise<Date | null> {
   return row?.startedAt ?? null;
 }
 
-/** Owner-gated PRs with `label` still waiting for `owner-approved`. */
+/** Open PRs with `label` still waiting on the owner. */
 async function waitingPulls(ctx: CheckContext, label: string): Promise<GhPull[]> {
-  return (await ctx.openPulls()).filter(
-    (pr) => !pr.draft && pr.labels.includes(label) && !pr.labels.includes(OWNER_APPROVED_LABEL),
-  );
+  return (await ctx.openPulls()).filter((pr) => pr.labels.includes(label) && isWaitingOnOwner(pr));
 }
 
 function blockedWhen(waiting: GhPull[], limit: number, label: string): string | undefined {
@@ -156,7 +171,7 @@ const SKIPPY_MAX_AGE = 78;
 const FIXER_BLOCKED_AT = 4;
 const IMPLEMENTER_BLOCKED_AT = 2;
 /** Comments the server posts itself (the filer's recurrence note, the watchdog's own); not the fixer's work. */
-const SERVER_COMMENT_PREFIXES = ["**Still recurring on", "<!-- ops:"];
+const SERVER_COMMENT_PREFIXES = [RECUR_COMMENT_PREFIX, OPS_MARKER_PREFIX];
 
 const desktopSpecs: AutomationSpec[] = [
   {
@@ -171,7 +186,7 @@ const desktopSpecs: AutomationSpec[] = [
           orderBy: { createdAt: "desc" },
           select: { createdAt: true },
         }),
-        lastRun(["agent:submit-finding", "agent:drafts/discard"]),
+        lastRun([AGENT_CALLS.submitFinding, AGENT_CALLS.discardDraft]),
       ]);
       return {
         expectations: [
@@ -188,7 +203,7 @@ const desktopSpecs: AutomationSpec[] = [
     cadence: "daily 08:30 (Mac mini, local time)",
     check: async (ctx) => {
       const [call, draft] = await Promise.all([
-        lastRun(["agent:hareline-prompt"]),
+        lastRun([AGENT_CALLS.harelinePrompt]),
         prisma.auditFindingDraft.findFirst({
           where: { stream: "CHROME_EVENT" },
           orderBy: { submittedAt: "desc" },
@@ -209,7 +224,7 @@ const desktopSpecs: AutomationSpec[] = [
     host: "mac-mini",
     cadence: "daily 07:15 (Mac mini, local time)",
     check: async (ctx) => ({
-      expectations: [fresh("an ops-digest call", await lastRun(["agent:ops-digest"]), DAILY_MAX_AGE, ctx)],
+      expectations: [fresh("an ops-digest call", await lastRun([AGENT_CALLS.opsDigest]), DAILY_MAX_AGE, ctx)],
     }),
   },
   {
@@ -292,6 +307,20 @@ export const PROMOTER_MAX_PENDING_HOURS = 2;
 /** An unfinished migration younger than this may still be running in a production build. */
 const MIGRATION_IN_FLIGHT_MINUTES = 15;
 
+/**
+ * Migrations that started but neither finished nor were rolled back (excluding any still in
+ * flight). Each blocks every later deploy until the owner runs `prisma migrate resolve`
+ * (docs/ops/system.md#migrations). Shared by the watchdog and the ops digest.
+ */
+export async function loadFailedMigrations(): Promise<Array<{ name: string; startedAt: Date }>> {
+  const rows = await prisma.$queryRaw<Array<{ migration_name: string; started_at: Date }>>`
+    SELECT migration_name, started_at FROM "_prisma_migrations"
+    WHERE finished_at IS NULL AND rolled_back_at IS NULL
+      AND started_at < now() - make_interval(mins => ${MIGRATION_IN_FLIGHT_MINUTES}::int)
+    ORDER BY started_at`;
+  return rows.map((r) => ({ name: r.migration_name, startedAt: r.started_at }));
+}
+
 const pipelineSpecs: AutomationSpec[] = [
   {
     id: "scraping",
@@ -332,22 +361,16 @@ const pipelineSpecs: AutomationSpec[] = [
     label: "Prisma migrations",
     host: "vercel",
     cadence: "applied by `migrate deploy` on each production build",
+    alarmTitle: "a failed migration is blocking deploys",
+    runbook: 'Follow docs/ops/system.md, "When a migration fails in prod". Only the owner runs `prisma migrate resolve`.',
     check: async () => {
-      // A migration `migrate deploy` is still applying also has finished_at NULL; give it time.
-      const failed = await prisma.$queryRaw<Array<{ migration_name: string }>>`
-        SELECT migration_name FROM "_prisma_migrations"
-        WHERE finished_at IS NULL AND rolled_back_at IS NULL
-          AND started_at < now() - make_interval(mins => ${MIGRATION_IN_FLIGHT_MINUTES}::int)
-        ORDER BY started_at`;
+      const failed = await loadFailedMigrations();
       return {
         expectations: [
           {
             what: "no failed migration (`finished_at` and `rolled_back_at` both NULL)",
             ok: failed.length === 0,
-            seen:
-              failed.length === 0
-                ? "none"
-                : `${failed.map((m) => m.migration_name).join(", ")}: deploys can't migrate until it's resolved (docs/ops/system.md, "When a migration fails in prod")`,
+            seen: failed.length === 0 ? "none" : `${failed.map((m) => m.name).join(", ")}: deploys can't migrate`,
           },
         ],
       };
