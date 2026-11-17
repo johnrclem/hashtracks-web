@@ -157,6 +157,7 @@ describe("registry", () => {
     const { expectations } = await spec("migrations").check(ctx());
     expect(expectations[0].ok).toBe(false);
     expect(expectations[0].seen).toMatch(/^20261117163940_add_automation_run_state: deploys can't migrate/);
+    expect(String(vi.mocked(prisma.$queryRaw).mock.calls[0][0])).toMatch(/started_at < now\(\) - make_interval/);
   });
 
   it("GitHub-based checks throw without a token (the watchdog records UNKNOWN)", async () => {
@@ -173,7 +174,8 @@ describe("registry", () => {
           return [];
         },
         comments: [
-          { issueNumber: 2901, createdAt: ago(1), body: "Still recurring on 2026-11-17", byBot: false },
+          { issueNumber: 2901, createdAt: ago(1), body: "**Still recurring on 2026-11-17.**\n\nbody", byBot: false },
+          { issueNumber: 2901, createdAt: ago(1.5), body: "<!-- ops:x -->\nRecovered at …", byBot: false },
           { issueNumber: 2901, createdAt: ago(2), body: "LGTM", byBot: true },
           { issueNumber: 3040, createdAt: ago(3), body: "owner note on a PR", byBot: false },
           { issueNumber: 2901, createdAt: ago(20), body: "Fixed in #2974; checked the live page.", byBot: false },

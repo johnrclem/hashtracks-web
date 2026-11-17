@@ -70,7 +70,13 @@ class MemoryStore implements WatchdogStore {
     return { ...row };
   }
   async markOverdue(id: string, now: Date) {
-    return this.update(id, (r) => r.status === "OK", { status: "OVERDUE", since: now, alertedAt: null, emailedAt: null });
+    return this.update(id, (r) => r.status === "OK", {
+      status: "OVERDUE",
+      since: now,
+      alertedAt: null,
+      emailedAt: null,
+      issueNumber: null,
+    });
   }
   async markRecovered(id: string, since: Date, now: Date) {
     return this.update(id, (r) => r.status === "OVERDUE" && +r.since === +since, {
@@ -325,6 +331,22 @@ describe("runWatchdog: overlapping runs and crashes", () => {
     const issues = opsIssues(h.github, "cron:audit");
     expect(issues).toHaveLength(1);
     expect(h.store.rows.get("cron:audit")!.issueNumber).toBe(issues[0].number);
+  });
+
+  it("a new outage doesn't inherit an issue whose close was cut short", async () => {
+    const job = controllable("cron:audit", 26);
+    const h = harness([job.spec]);
+    job.output.lastSeen = T0;
+    await h.tick(at(0));
+    await h.tick(at(27));
+    const [first] = opsIssues(h.github, "cron:audit");
+    // Recovered, and the issue closed, but the run died before forgetting it.
+    h.store.rows.get("cron:audit")!.status = "OK";
+    first.open = false;
+    await h.tick(at(40));
+    const issues = opsIssues(h.github, "cron:audit");
+    expect(issues.map((i) => i.open)).toEqual([false, true]);
+    expect(h.store.rows.get("cron:audit")!.issueNumber).toBe(issues[1].number);
   });
 
   it("GitHub down at alarm time: Sentry and email still go out, the issue follows once GitHub is back", async () => {

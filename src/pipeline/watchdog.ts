@@ -39,8 +39,9 @@ import { emailOwner, ownerEmailConfigured, type OwnerEmail, type NotifyResult } 
 import type { GhPull, OpsGithub } from "@/lib/ops-github";
 
 export const OPS_LABEL = "lane:ops";
-/** Run rows are kept this long; the watchdog deletes older ones. */
+/** Run rows are kept this long; the watchdog deletes older ones once a day, in this UTC hour. */
 export const RUN_RETENTION_DAYS = 90;
+const PRUNE_HOUR_UTC = 3;
 export const WATCHDOG_LOCK_KEY = 0x4f_50_57_44; // "OPWD"
 
 const DAY_MS = 86_400_000;
@@ -118,7 +119,9 @@ export function prismaWatchdogStore({ lockIdleMs }: { lockIdleMs: number }): Wat
     async markOverdue(id, now) {
       const [row] = await s.updateManyAndReturn({
         where: { automation: id, status: "OK" },
-        data: { status: "OVERDUE", since: now, alertedAt: null, emailedAt: null },
+        // issueNumber is cleared too: one left over from a recovery whose close was cut short may
+        // already be closed. A still-open one is found again by its marker.
+        data: { status: "OVERDUE", since: now, alertedAt: null, emailedAt: null, issueNumber: null },
         select: STATE_SELECT,
       });
       return row ?? null;
@@ -424,10 +427,12 @@ export async function runWatchdog(deps: WatchdogDeps): Promise<WatchdogSummary> 
     if (row.status === "OVERDUE") summary.overdueAutomations.push(row.automation);
   }
 
-  try {
-    summary.prunedRuns = await store.deleteRunsBefore(new Date(now.getTime() - RUN_RETENTION_DAYS * DAY_MS));
-  } catch (err) {
-    fail("prune runs", err);
+  if (now.getUTCHours() === PRUNE_HOUR_UTC) {
+    try {
+      summary.prunedRuns = await store.deleteRunsBefore(new Date(now.getTime() - RUN_RETENTION_DAYS * DAY_MS));
+    } catch (err) {
+      fail("prune runs", err);
+    }
   }
 
   await alarms.flush();
@@ -449,7 +454,8 @@ async function deliverAlarm(
     summary.alarmsSent++;
   }
 
-  if (row.issueNumber === null) {
+  // Filed only from a run that sees the outage itself; an UNKNOWN check has no reason to show.
+  if (row.issueNumber === null && ev.verdict === "OVERDUE") {
     if (!github) {
       fail(`issue for ${id}`, "GITHUB_TOKEN is not set");
     } else {

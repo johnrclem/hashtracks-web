@@ -155,8 +155,8 @@ const SKIPPY_MAX_AGE = 78;
 /** The fixer and implementer are blocked, not down, once this many of their PRs wait on the owner. */
 const FIXER_BLOCKED_AT = 4;
 const IMPLEMENTER_BLOCKED_AT = 2;
-/** Comments the server posts itself; they aren't the fixer's work. */
-const SERVER_COMMENT_PREFIXES = ["Still recurring on", "<!-- ops:"];
+/** Comments the server posts itself (the filer's recurrence note, the watchdog's own); not the fixer's work. */
+const SERVER_COMMENT_PREFIXES = ["**Still recurring on", "<!-- ops:"];
 
 const desktopSpecs: AutomationSpec[] = [
   {
@@ -289,6 +289,8 @@ const desktopSpecs: AutomationSpec[] = [
 
 /** A PENDING draft older than this has missed at least one hourly promoter run. */
 export const PROMOTER_MAX_PENDING_HOURS = 2;
+/** An unfinished migration younger than this may still be running in a production build. */
+const MIGRATION_IN_FLIGHT_MINUTES = 15;
 
 const pipelineSpecs: AutomationSpec[] = [
   {
@@ -331,9 +333,11 @@ const pipelineSpecs: AutomationSpec[] = [
     host: "vercel",
     cadence: "applied by `migrate deploy` on each production build",
     check: async () => {
+      // A migration `migrate deploy` is still applying also has finished_at NULL; give it time.
       const failed = await prisma.$queryRaw<Array<{ migration_name: string }>>`
         SELECT migration_name FROM "_prisma_migrations"
         WHERE finished_at IS NULL AND rolled_back_at IS NULL
+          AND started_at < now() - make_interval(mins => ${MIGRATION_IN_FLIGHT_MINUTES}::int)
         ORDER BY started_at`;
       return {
         expectations: [
