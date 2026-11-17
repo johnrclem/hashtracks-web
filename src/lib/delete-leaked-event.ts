@@ -75,6 +75,14 @@ export async function deleteLeakedEvent(
    * not hard-delete an event another source has since merged onto.
    */
   forbidForeignRawSourceId?: string,
+  options?: {
+    /**
+     * Refuse (DeleteSafetyViolationError on `hares`) when a hare entered by a
+     * user or a misman is attached at delete time; scraped hares are deleted
+     * with the event. Checked under the lock (backfill undo, design 10.3).
+     */
+    forbidUserHares?: boolean;
+  },
 ): Promise<"deleted" | "missing"> {
   const existing = await prisma.event.findUnique({
     where: { id: eventId },
@@ -125,6 +133,13 @@ export async function deleteLeakedEvent(
       if (foreign) {
         throw new ForeignRawSourceError(eventId, foreign.sourceId);
       }
+    }
+
+    if (options?.forbidUserHares) {
+      const userHares = await tx.eventHare.count({
+        where: { eventId, OR: [{ userId: { not: null } }, { sourceType: { not: "SCRAPED" } }] },
+      });
+      if (userHares > 0) throw new DeleteSafetyViolationError(eventId, { hares: userHares });
     }
 
     const hareDeleted = await tx.eventHare.deleteMany({ where: { eventId } });
