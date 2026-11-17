@@ -264,4 +264,10 @@ export interface MergeResult {
   mergeErrorDetails?: Array<{ fingerprint?: string; reason: string }>; // Phase 2A: Structured merge errors
   sampleBlocked?: EventSample[]; // Phase 2B: 3-5 example blocked events
   sampleSkipped?: EventSample[]; // Phase 2B: 3-5 example skipped events
+  /** Rows dropped because their kennel has an archive cutoff after the row's date (onboarding backfill design 6.5). */
+  archiveCutoffDropped?: number;
+  /** Rows dropped because they carry the run number of an archive-only event within 30 days (design 6.5). */
+  archiveCorrectionSkipped?: number;
+  /** The two counts above, per resolved kennel id. */
+  archiveDropsByKennel?: Record<string, { cutoff: number; correction: number }>;
 }
