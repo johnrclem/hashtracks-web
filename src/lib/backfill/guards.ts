@@ -136,14 +136,24 @@ export const GUARD_PATHS: readonly string[] = [
   "src/app/admin/backfills/",
   "src/app/api/agent/backfill/",
   "src/app/api/cron/backfill-watch/",
-  "scripts/ci/check-backfill-manifest.ts",
+  "scripts/ci/",
   "prisma/schema.prisma",
   ".github/workflows/",
 ];
 
-/** G15: the guard paths among a PR's changed files. */
-export function touchedGuardPaths(changedFiles: readonly string[]): string[] {
-  return changedFiles.filter((f) => GUARD_PATHS.some((g) => (g.endsWith("/") ? f.startsWith(g) : f === g)));
+/** The package files whose `libpg-query` entries are guarded (G15: G17's parser). */
+const PACKAGE_FILES = new Set(["package.json", "package-lock.json"]);
+
+/**
+ * G15: the guard paths among a PR's changed files. `patches` (GitHub's per-file
+ * patch) decides whether a package-file change touches `libpg-query`; a
+ * package file changed without a patch to read counts as touching it.
+ */
+export function touchedGuardPaths(changedFiles: readonly string[], patches: Readonly<Record<string, string | undefined>> = {}): string[] {
+  return changedFiles.filter((f) => {
+    if (PACKAGE_FILES.has(f)) return patches[f] === undefined || patches[f]!.includes("libpg-query");
+    return GUARD_PATHS.some((g) => (g.endsWith("/") ? f.startsWith(g) : f === g));
+  });
 }
 
 /** Days of [a, b] (inclusive) that fall inside any of the gaps. */

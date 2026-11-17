@@ -142,6 +142,13 @@ describe("pure guards", () => {
     ]);
   });
 
+  it("G15: the migration-sql checker, CI scripts and libpg-query's package entries", () => {
+    expect(touchedGuardPaths(["src/lib/migration-sql/g17.ts", "scripts/ci/check-migrations.ts"])).toHaveLength(2);
+    expect(touchedGuardPaths(["package.json"], { "package.json": '@@ -1 +1 @@\n-"libpg-query": "17.8.2"\n+"libpg-query": "17.9.0"' })).toEqual(["package.json"]);
+    expect(touchedGuardPaths(["package.json"], { "package.json": '@@ -1 +1 @@\n-"zod": "3"\n+"zod": "4"' })).toEqual([]);
+    expect(touchedGuardPaths(["package-lock.json"])).toEqual(["package-lock.json"]); // no patch to read: guarded
+  });
+
   it("G15: guard paths", () => {
     expect(touchedGuardPaths(["scripts/data/x-history.json", "src/pipeline/merge.ts", ".github/workflows/ci.yml", "src/lib/backfill/plan.ts", "src/pipeline/merge.test.ts.bak"]))
       .toEqual(["src/pipeline/merge.ts", ".github/workflows/ci.yml", "src/lib/backfill/plan.ts"]);

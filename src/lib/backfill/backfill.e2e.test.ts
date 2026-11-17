@@ -287,7 +287,7 @@ describe.skipIf(!LOCAL)("backfill end to end (local database)", () => {
   }, 120_000);
 
   it("applies a sample onboarding migration that creates an archive source, with the CHECK in place", async () => {
-    const { SAMPLE_ARCHIVE_ONBOARDING } = await import("./migration-check.test-fixtures");
+    const { SAMPLE_ARCHIVE_ONBOARDING } = await import("@/lib/migration-sql/g17.test-fixtures");
     const { Client } = await import("pg");
     const client = new Client({ connectionString: URL_ });
     await client.connect();

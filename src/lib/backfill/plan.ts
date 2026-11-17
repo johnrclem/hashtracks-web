@@ -15,7 +15,7 @@ import { canonicalJson, isoDay, sha256 } from "./canonical";
 import { checkDeclaredFields, compareManifest, orderedIndexes, parseArchive, type BackfillManifest, type ExpectedGap } from "./manifest";
 import { scanArchiveForPii } from "./pii";
 import { checkRowProvenance, websiteHosts } from "./provenance";
-import { checkMigrationForBackfill } from "./migration-check";
+import { checkMigrationForBackfill } from "@/lib/migration-sql/g17";
 import {
   G21_MARKER_SINCE,
   checkLiveCoverage,
@@ -72,6 +72,8 @@ export interface PlanInput {
   archiveBytes: string;
   /** Every path the PR changes, for G15 and A5. */
   changedFiles: readonly string[];
+  /** GitHub's patch per changed file, where it gave one (G15's package-file check). */
+  changedPatches?: Readonly<Record<string, string | undefined>>;
   /** The SQL of every migration the PR adds, for G17. */
   migrationSql: readonly string[];
   /** S, H, M from the approval check; null for a PREVIEW of an open PR. */
@@ -410,7 +412,7 @@ async function computePlan(input: PlanInput, manifest: BackfillManifest, now: Da
   // 1. A5, A6, G2, G21 key check.
   const manifests = input.changedFiles.filter((f) => /^scripts\/data\/[a-z0-9-]+-history[a-z0-9-]*\.manifest\.json$/.test(f));
   block(manifests.length === 1 && manifests[0] === input.manifestPath ? [] : ["A5: the PR must carry exactly this one manifest"]);
-  block(touchedGuardPaths(input.changedFiles).map((p) => `G15: the PR changes guard path ${p}`));
+  block(touchedGuardPaths(input.changedFiles, input.changedPatches).map((p) => `G15: the PR changes guard path ${p}`));
   for (const sql of input.migrationSql) block((await checkMigrationForBackfill(sql)).map((p) => `G17: ${p}`));
   let rawRows: RawEventData[];
   try {
