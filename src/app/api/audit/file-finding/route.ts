@@ -52,8 +52,7 @@ import {
 import { getValidatedRepo } from "@/lib/github-repo";
 import {
   AUDIT_LABEL,
-  ALERT_LABEL,
-  STREAM_LABELS,
+  auditIssueLabels,
   kennelLabel,
   isValidKennelCode,
 } from "@/lib/audit-labels";
@@ -173,14 +172,11 @@ export async function POST(req: Request): Promise<NextResponse> {
       ? AuditStream.CHROME_KENNEL
       : AuditStream.CHROME_EVENT;
 
-  const labels = [
-    AUDIT_LABEL,
-    ALERT_LABEL,
-    body.stream === "CHROME_KENNEL"
-      ? STREAM_LABELS.CHROME_KENNEL
-      : STREAM_LABELS.CHROME_EVENT,
-    kennelLabel(body.kennelCode),
-  ];
+  const labels = auditIssueLabels({
+    stream: dbStream,
+    kennelCode: body.kennelCode,
+    ruleSlug: body.ruleSlug,
+  });
 
   const outcome = await fileAuditFinding(
     {

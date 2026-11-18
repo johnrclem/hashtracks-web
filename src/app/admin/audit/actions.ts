@@ -688,6 +688,13 @@ function emptyStreamPoint(date: string): StreamTrendPoint {
 }
 
 /**
+ * The mirror also holds issues that carry only a lane label (an Alerts-page
+ * incident, a watchdog `lane:ops` issue). They mirror as stream UNKNOWN, so every
+ * per-stream audit stat below counts only issues labelled `audit`.
+ */
+const AUDIT_LABELED = { hasAuditLabel: true } as const;
+
+/**
  * Daily opened/closed/reopened counts per stream over the trailing window.
  * Source of truth is AuditIssueEvent (append-only) so reopen cycles and
  * manual relabels are reflected truthfully. Returns a continuous timeline
@@ -697,7 +704,7 @@ function emptyStreamPoint(date: string): StreamTrendPoint {
 export async function getStreamTrends(days = STREAM_TREND_DAYS): Promise<StreamTrendPoint[]> {
   await requireAdmin();
   const events = await prisma.auditIssueEvent.findMany({
-    where: { occurredAt: { gte: daysAgo(days) } },
+    where: { occurredAt: { gte: daysAgo(days) }, issue: AUDIT_LABELED },
     select: { type: true, stream: true, fromStream: true, occurredAt: true },
   });
 
@@ -763,11 +770,11 @@ export async function getOpenIssueCountsByStream(): Promise<StreamOpenCounts[]> 
   const [snapshot, recentEvents] = await Promise.all([
     prisma.auditIssue.groupBy({
       by: ["stream"],
-      where: { state: "open", delistedAt: null },
+      where: { state: "open", delistedAt: null, ...AUDIT_LABELED },
       _count: { _all: true },
     }),
     prisma.auditIssueEvent.findMany({
-      where: { occurredAt: { gte: daysAgo(7) } },
+      where: { occurredAt: { gte: daysAgo(7) }, issue: AUDIT_LABELED },
       select: { type: true, stream: true, fromStream: true },
     }),
   ]);
@@ -853,6 +860,7 @@ export async function getCloseReasonRatiosByStream(
     where: {
       state: "closed",
       delistedAt: null,
+      ...AUDIT_LABELED,
       githubClosedAt: { gte: daysAgo(days) },
     },
     _count: { _all: true },
@@ -908,7 +916,7 @@ export interface RecentOpenIssue {
 export async function getRecentOpenIssues(limit = 30): Promise<RecentOpenIssue[]> {
   await requireAdmin();
   return prisma.auditIssue.findMany({
-    where: { state: "open", delistedAt: null },
+    where: { state: "open", delistedAt: null, ...AUDIT_LABELED },
     select: {
       githubNumber: true,
       title: true,

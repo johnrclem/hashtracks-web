@@ -1,4 +1,15 @@
-import { detectRuleDrift, dominantWeekday, judgeDrift, sentinelWeekdays, weekdayName } from "./rule-drift";
+vi.mock("@/lib/ops-github", () => ({ opsGithubFromEnv: vi.fn() }));
+
+import { opsGithubFromEnv } from "@/lib/ops-github";
+import {
+  detectRuleDrift,
+  dominantWeekday,
+  fileRuleDriftIssue,
+  judgeDrift,
+  sentinelWeekdays,
+  weekdayName,
+  type DriftFinding,
+} from "./rule-drift";
 
 // UTC-noon dates on known weekdays. 2026-06-01 is a Monday.
 const MON = "2026-06-01"; // Mon
@@ -143,5 +154,38 @@ describe("detectRuleDrift — LOW cadence sentinel suppression (#2454)", () => {
       now,
     );
     expect(findings.map((f) => f.kennelCode)).toEqual(["dh3-ae"]);
+  });
+});
+
+describe("fileRuleDriftIssue", () => {
+  const finding = { kennelCode: "nych3", shortName: "NYCH3", region: "New York City, NY", predictedWeekdays: ["Mon"], actualWeekday: "Sat", actualShare: 0.8, recentEventCount: 5, activeRules: "FREQ=WEEKLY;BYDAY=MO" } as unknown as DriftFinding;
+  const github = { listIssues: vi.fn(), createIssue: vi.fn() };
+
+  beforeEach(() => {
+    vi.mocked(opsGithubFromEnv).mockReturnValue(github as never);
+    github.listIssues.mockReset();
+    github.createIssue.mockReset();
+  });
+
+  it("files one issue in the defect lane when none is open", async () => {
+    github.listIssues.mockResolvedValue([]);
+    github.createIssue.mockResolvedValue(1);
+    expect(await fileRuleDriftIssue([finding])).toEqual({ filed: true, reason: "issue created" });
+    expect(github.listIssues).toHaveBeenCalledWith({ labels: "rule-drift", state: "open", limit: 1 });
+    const issue = github.createIssue.mock.calls[0][0];
+    expect(issue.labels).toEqual(["rule-drift", "lane:defect"]);
+    expect(issue.body).toContain("NYCH3");
+  });
+
+  it("files nothing while a rule-drift issue is open", async () => {
+    github.listIssues.mockResolvedValue([{ number: 9 }]);
+    expect(await fileRuleDriftIssue([finding])).toEqual({ filed: false, reason: "open rule-drift issue exists" });
+    expect(github.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("files nothing when GitHub can't answer the dedup check", async () => {
+    github.listIssues.mockRejectedValue(new Error("HTTP 502"));
+    expect((await fileRuleDriftIssue([finding])).filed).toBe(false);
+    expect(github.createIssue).not.toHaveBeenCalled();
   });
 });
