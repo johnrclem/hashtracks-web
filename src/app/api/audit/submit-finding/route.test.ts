@@ -198,6 +198,13 @@ describe("POST /api/audit/submit-finding — finding", () => {
       expect(storedLabels()).toEqual(["lane:decision"]);
     });
 
+    it("hashes a decision request apart from the same finding without one", async () => {
+      await POST(buildApiPostRequest(URL, VALID_FINDING));
+      await POST(buildApiPostRequest(URL, { ...VALID_FINDING, labels: ["lane:decision"] }));
+      const [plain, decision] = mockDraftCreate.mock.calls.map(([arg]) => arg.data.contentHash);
+      expect(decision).not.toBe(plain);
+    });
+
     it.each([
       ["another lane", ["lane:defect"]],
       ["an origin label", ["audit"]],

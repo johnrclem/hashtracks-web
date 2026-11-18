@@ -512,6 +512,8 @@ async function tryBridge(
       fingerprint: null,
       state: "open",
       delistedAt: null,
+      // Lane-only rows (an Alerts-page incident) are never audit findings.
+      hasAuditLabel: true,
     },
     select: {
       id: true,
@@ -681,6 +683,7 @@ async function tryCoarseDedup(
         fingerprint: null,
         state: "open",
         delistedAt: null,
+        hasAuditLabel: true,
         ...(titleFilter ? { title: titleFilter } : {}),
       },
       select: {

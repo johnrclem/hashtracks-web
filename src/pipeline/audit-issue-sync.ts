@@ -274,11 +274,8 @@ export function fetchAllAuditIssues(token: string): Promise<GitHubIssue[]> {
  * listing throws, so the sync never delists rows it simply failed to read.
  */
 export async function fetchMirroredIssues(token: string): Promise<GitHubIssue[]> {
-  const byNumber = new Map<number, GitHubIssue>();
-  for (const label of MIRRORED_LABELS) {
-    for (const issue of await fetchIssuesWithLabel(token, label)) byNumber.set(issue.number, issue);
-  }
-  return [...byNumber.values()];
+  const listings = await Promise.all(MIRRORED_LABELS.map((label) => fetchIssuesWithLabel(token, label)));
+  return [...new Map(listings.flat().map((issue) => [issue.number, issue])).values()];
 }
 
 /**

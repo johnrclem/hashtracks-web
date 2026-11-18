@@ -524,9 +524,9 @@ ${getSuggestedApproach(alert.type, ctx)}
   // Map alert type to label. The lane routes the issue; `alert:*` and `severity:*` say what it is.
   const typeLabel = `alert:${alert.type.toLowerCase().replace(/_/g, "-")}`;
   const severityLabel = `severity:${alert.severity.toLowerCase()}`;
-  const labels = [LANE_LABELS.incident, typeLabel, severityLabel, ...(await incidentKennelLabels(alert.sourceId))];
 
   try {
+    const labels = [LANE_LABELS.incident, typeLabel, severityLabel, ...(await incidentKennelLabels(alert.sourceId))];
     const res = await fetch(
       "https://api.github.com/repos/johnrclem/hashtracks-web/issues",
       {

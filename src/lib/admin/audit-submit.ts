@@ -128,12 +128,14 @@ async function handleFinding(rawReq: FindingRequest, adminId: string): Promise<N
   const req = { ...rawReq, kennelCode: kennel.kennelCode, title, bodyMarkdown };
 
   const eventIds = req.eventIds ?? [];
+  const labels = [...new Set(req.labels ?? [])];
   const contentHash = computeDraftContentHash({
     stream: req.stream,
     kennelCode: req.kennelCode,
     ruleSlug: req.ruleSlug,
     eventIds,
     bodyMarkdown: req.bodyMarkdown,
+    labels,
   });
 
   try {
@@ -145,7 +147,7 @@ async function handleFinding(rawReq: FindingRequest, adminId: string): Promise<N
         title: req.title,
         bodyMarkdown: req.bodyMarkdown,
         affectedEventIds: eventIds,
-        labels: [...new Set(req.labels ?? [])],
+        labels,
         contentHash,
         submittedByUserId: adminId,
       },
