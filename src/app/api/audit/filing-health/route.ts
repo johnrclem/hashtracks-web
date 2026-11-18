@@ -1,29 +1,28 @@
 /**
  * Audit filing-health probe.
  *
- * GET-only, admin-gated. Runs two non-mutating GitHub probes with the same
- * `GITHUB_TOKEN` the filing routes use, then renders a single status object
- * the admin audit page surfaces as a chip:
+ * GET-only, admin-gated. Checks the credential the filing routes use (`serverGithubAuth`: the
+ * "HashTracks Server" GitHub App, or the owner's `GITHUB_TOKEN` until cutover) with non-mutating
+ * GitHub probes, then renders a single status object the admin audit page surfaces as a chip:
  *
- *   1. `GET /rate_limit` — confirms the token is syntactically accepted and
- *      reports remaining core-API budget. Detects the #1494 root cause
- *      (expired token → 401) and rate-limit exhaustion (403 with
- *      `x-ratelimit-remaining: 0`).
- *   2. `GET /repos/{owner}/{repo}` — confirms the token has access to the
- *      configured repo AND that its permissions include `push: true`, which
- *      is the GitHub-side signal for "can create issues and post comments"
- *      on a fine-grained PAT. Without this second probe, a token that's
- *      valid but scoped to the wrong repo or downgraded to read-only would
- *      pass `/rate_limit` and render a green chip while every actual
- *      filing 401s — Codex adversarial review on PR #1509.
+ *   1. `GET /rate_limit` — confirms the token is accepted and reports remaining core-API budget.
+ *      Detects an expired or revoked token (401, the #1494 root cause) and rate-limit exhaustion
+ *      (403 with `x-ratelimit-remaining: 0`).
+ *   2. Write capability. For the App: the installation token's granted permissions include
+ *      `issues: write` (GitHub returns them when it mints the token). For the PAT fallback:
+ *      `GET /repos/{owner}/{repo}` reports a role that can manage issues (admin, maintain, push or
+ *      triage), so a token scoped to the wrong repo or downgraded to read-only can't render green
+ *      while every filing 401s (Codex adversarial review on PR #1509).
  *
- * Neither probe mutates state, so the endpoint is safe to call on every
- * dashboard render. GitHub docs:
+ * The PAT fallback is reported as `warn` until the App replaces it (docs/ops/system.md#identity).
+ * No probe mutates state, so the endpoint is safe to call on every dashboard render. GitHub docs:
  *   https://docs.github.com/en/rest/rate-limit
  *   https://docs.github.com/en/rest/repos/repos#get-a-repository
+ *   https://docs.github.com/en/rest/apps/apps#create-an-installation-access-token-for-an-app
  */
 import { NextResponse } from "next/server";
 import { getAdminUser } from "@/lib/auth";
+import { serverGithubAuth, type ServerGithubAuth } from "@/lib/github-app";
 import { getValidatedRepo } from "@/lib/github-repo";
 import { safeErrorBody } from "@/lib/safe-error-body";
 
@@ -51,8 +50,9 @@ interface RepoResponse {
 }
 
 export interface FilingHealthResult {
-  /** `ok` — token validated, repo accessible, write capability confirmed.
-   *  `warn` — token works but remaining core-API budget is dangerously low.
+  /** `ok` — the App's token works and can write issues.
+   *  `warn` — the token works, but it is the owner's PAT fallback, or the remaining core-API
+   *  budget is dangerously low.
    *  `error` — token missing, rejected, lacks repo access or write capability,
    *  or GitHub unreachable. */
   status: "ok" | "warn" | "error";
@@ -72,9 +72,11 @@ export interface FilingHealthResult {
  * shows the message verbatim in its tooltip, so a clear sentence here
  * saves the admin a log dive.
  */
-function rateLimitErrorMessageFor(res: Response, body: string): string {
+function rateLimitErrorMessageFor(res: Response, body: string, source: ServerGithubAuth["source"]): string {
   if (res.status === 401) {
-    return "GitHub rejected the token (401 Bad Credentials). Rotate GITHUB_TOKEN in Vercel prod env.";
+    return source === "app"
+      ? "GitHub rejected the server App's installation token (401). Check the App is installed on the repo and its key in Vercel prod env is current."
+      : "GitHub rejected the token (401 Bad Credentials). Rotate GITHUB_TOKEN in Vercel prod env.";
   }
   if (res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0") {
     // Guard: a misbehaving GitHub proxy or future format change could ship a
@@ -118,17 +120,30 @@ export async function GET(): Promise<NextResponse<FilingHealthResult>> {
   }
 
   const repo = getValidatedRepo();
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) {
+  let auth: ServerGithubAuth | null;
+  try {
+    auth = await serverGithubAuth();
+  } catch (err) {
     return NextResponse.json(
       {
         status: "error",
-        message: "GITHUB_TOKEN is not set on this deployment",
+        message: `The server GitHub App failed: ${err instanceof Error ? err.message : String(err)}`,
         repo,
       },
       { status: 200 },
     );
   }
+  if (!auth) {
+    return NextResponse.json(
+      {
+        status: "error",
+        message: "No GitHub credential on this deployment. Set GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY and GITHUB_APP_INSTALLATION_ID (docs/ops/system.md#identity).",
+        repo,
+      },
+      { status: 200 },
+    );
+  }
+  const token = auth.token;
 
   // Probe 1: /rate_limit — token liveness + budget
   let rateLimit: { remaining: number; limit: number; reset: number };
@@ -142,7 +157,7 @@ export async function GET(): Promise<NextResponse<FilingHealthResult>> {
     if (!res.ok) {
       const body = await safeErrorBody(res);
       return NextResponse.json(
-        { status: "error", message: rateLimitErrorMessageFor(res, body), repo },
+        { status: "error", message: rateLimitErrorMessageFor(res, body, auth.source), repo },
         { status: 200 },
       );
     }
@@ -170,7 +185,24 @@ export async function GET(): Promise<NextResponse<FilingHealthResult>> {
     );
   }
 
-  // Probe 2: /repos/{repo} — repo access + write-capability check
+  if (auth.source === "app") {
+    const issues = auth.permissions?.issues ?? "none";
+    if (issues !== "write") {
+      return NextResponse.json(
+        {
+          status: "error",
+          message: `The server App's token can't write issues (issues: ${issues}). Give the App Issues: Read and write, then accept the new permission on its installation.`,
+          repo,
+          remaining: rateLimit.remaining,
+          resetAt: rateLimit.reset,
+        },
+        { status: 200 },
+      );
+    }
+    return budgetResult(rateLimit, repo, `The server App can file issues on ${repo}.`, "ok");
+  }
+
+  // Probe 2 (PAT fallback): /repos/{repo} — repo access + write-capability check
   try {
     const url = new URL(`/repos/${repo}`, "https://api.github.com");
     const res = await fetch(url, {
@@ -237,15 +269,29 @@ export async function GET(): Promise<NextResponse<FilingHealthResult>> {
     );
   }
 
-  const status = rateLimit.remaining < LOW_REMAINING_THRESHOLD ? "warn" : "ok";
-  const message =
-    status === "warn"
-      ? `Token works and can write to ${repo}, but only ${rateLimit.remaining}/${rateLimit.limit} core calls remain until reset.`
-      : `Token works and can write to ${repo}. ${rateLimit.remaining}/${rateLimit.limit} core calls remain.`;
+  return budgetResult(
+    rateLimit,
+    repo,
+    `Filing with the owner's GITHUB_TOKEN fallback, which can write to ${repo}. Create the HashTracks Server App to replace it (docs/ops/system.md#identity).`,
+    "warn",
+  );
+}
+
+/** The final chip: `base` plus the remaining budget, downgraded to `warn` when the budget is low. */
+function budgetResult(
+  rateLimit: { remaining: number; limit: number; reset: number },
+  repo: string,
+  base: string,
+  status: "ok" | "warn",
+): NextResponse<FilingHealthResult> {
+  const low = rateLimit.remaining < LOW_REMAINING_THRESHOLD;
+  const budget = low
+    ? `Only ${rateLimit.remaining}/${rateLimit.limit} core calls remain until reset.`
+    : `${rateLimit.remaining}/${rateLimit.limit} core calls remain.`;
   return NextResponse.json(
     {
-      status,
-      message,
+      status: low ? "warn" : status,
+      message: `${base} ${budget}`,
       repo,
       remaining: rateLimit.remaining,
       resetAt: rateLimit.reset,

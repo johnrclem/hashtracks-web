@@ -4,13 +4,17 @@ vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
 vi.mock("@/lib/github-repo", () => ({
   getValidatedRepo: () => "johnrclem/hashtracks-web",
 }));
+vi.mock("@/lib/github-app", () => ({ serverGithubAuth: vi.fn() }));
 
 import { GET } from "./route";
 import { getAdminUser } from "@/lib/auth";
+import { serverGithubAuth, type ServerGithubAuth } from "@/lib/github-app";
 
 const mockedAdmin = vi.mocked(getAdminUser);
+const mockedAuth = vi.mocked(serverGithubAuth);
 
-const ORIGINAL_TOKEN = process.env.GITHUB_TOKEN;
+const PAT: ServerGithubAuth = { token: "test-token", source: "pat-fallback", permissions: null };
+const APP: ServerGithubAuth = { token: "ghs_app", source: "app", permissions: { issues: "write", metadata: "read" } };
 
 let fetchSpy: ReturnType<typeof vi.spyOn>;
 
@@ -28,13 +32,11 @@ beforeEach(() => {
   // Cast-to-Awaited matches the documented codebase convention but avoids
   // Sonar S4325 by naming the precise expected type instead of `as never`.
   mockedAdmin.mockResolvedValue({ id: "u1" } as Awaited<ReturnType<typeof getAdminUser>>);
-  process.env.GITHUB_TOKEN = "test-token";
+  mockedAuth.mockResolvedValue(PAT);
 });
 
 afterEach(() => {
   fetchSpy.mockRestore();
-  if (ORIGINAL_TOKEN === undefined) delete process.env.GITHUB_TOKEN;
-  else process.env.GITHUB_TOKEN = ORIGINAL_TOKEN;
 });
 
 describe("GET /api/audit/filing-health", () => {
@@ -46,13 +48,47 @@ describe("GET /api/audit/filing-health", () => {
     expect(body.status).toBe("error");
   });
 
-  it("reports error when GITHUB_TOKEN is missing", async () => {
-    delete process.env.GITHUB_TOKEN;
+  it("reports error when no GitHub credential is configured", async () => {
+    mockedAuth.mockResolvedValueOnce(null);
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status).toBe("error");
-    expect(body.message).toMatch(/GITHUB_TOKEN/);
+    expect(body.message).toMatch(/GITHUB_APP_ID/);
+  });
+
+  describe("with the server App", () => {
+    it("returns ok when the token works and can write issues", async () => {
+      mockedAuth.mockResolvedValueOnce(APP);
+      fetchSpy.mockResolvedValueOnce(okRateLimit());
+      const body = await (await GET()).json();
+      expect(body).toMatchObject({ status: "ok", remaining: 4321, resetAt: 9999 });
+      expect(body.message).toMatch(/server App can file issues on johnrclem\/hashtracks-web/);
+      // The App's permissions come with its token; no collaborator-role probe.
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns error when the App can't write issues", async () => {
+      mockedAuth.mockResolvedValueOnce({ ...APP, permissions: { issues: "read" } });
+      fetchSpy.mockResolvedValueOnce(okRateLimit());
+      const body = await (await GET()).json();
+      expect(body.status).toBe("error");
+      expect(body.message).toMatch(/can't write issues \(issues: read\)/);
+    });
+
+    it("returns error when the App fails to mint a token", async () => {
+      mockedAuth.mockRejectedValueOnce(new Error("GitHub App POST /app/installations/:id/access_tokens: HTTP 401"));
+      const body = await (await GET()).json();
+      expect(body.status).toBe("error");
+      expect(body.message).toMatch(/server GitHub App failed: .*HTTP 401/);
+    });
+
+    it("gives an App-specific hint on a 401", async () => {
+      mockedAuth.mockResolvedValueOnce(APP);
+      fetchSpy.mockResolvedValueOnce(new Response("Bad credentials", { status: 401 }));
+      const body = await (await GET()).json();
+      expect(body.message).toMatch(/server App's installation token/);
+    });
   });
 
   it("surfaces a 401 from GitHub as a token-rotation hint", async () => {
@@ -65,12 +101,13 @@ describe("GET /api/audit/filing-health", () => {
     expect(body.message).toMatch(/Rotate GITHUB_TOKEN/);
   });
 
-  it("returns ok with remaining budget when both probes succeed and token has push", async () => {
+  it("returns warn (the owner's PAT fallback) with remaining budget when both probes succeed and token has push", async () => {
     fetchSpy.mockResolvedValueOnce(okRateLimit());
     fetchSpy.mockResolvedValueOnce(okRepoWithPush());
     const res = await GET();
     const body = await res.json();
-    expect(body.status).toBe("ok");
+    expect(body.status).toBe("warn");
+    expect(body.message).toMatch(/GITHUB_TOKEN fallback/);
     expect(body.remaining).toBe(4321);
     expect(body.resetAt).toBe(9999);
     expect(body.message).toMatch(/can write to johnrclem\/hashtracks-web/);
@@ -82,7 +119,7 @@ describe("GET /api/audit/filing-health", () => {
     const res = await GET();
     const body = await res.json();
     expect(body.status).toBe("warn");
-    expect(body.message).toMatch(/can write to johnrclem\/hashtracks-web/);
+    expect(body.message).toMatch(/Only 12\/5000 core calls remain/);
   });
 
   // Codex adversarial review on PR #1509: /rate_limit alone could green-light
@@ -106,8 +143,9 @@ describe("GET /api/audit/filing-health", () => {
     );
     const res = await GET();
     const body = await res.json();
-    // admin implies push at the GitHub-API contract level; we accept it.
-    expect(body.status).toBe("ok");
+    // admin implies push at the GitHub-API contract level; we accept it (as the fallback).
+    expect(body.status).toBe("warn");
+    expect(body.message).toMatch(/can write to/);
   });
 
   // Regression for Codex P1 on PR #1509: fine-grained PATs scoped to
@@ -123,7 +161,8 @@ describe("GET /api/audit/filing-health", () => {
     );
     const res = await GET();
     const body = await res.json();
-    expect(body.status).toBe("ok");
+    expect(body.status).toBe("warn");
+    expect(body.message).toMatch(/can write to/);
   });
 
   it("returns error with 404 hint when the repo is invisible to the token", async () => {

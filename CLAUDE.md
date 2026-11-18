@@ -74,7 +74,10 @@ logbook + kennel directory.
 - GOOGLE_CALENDAR_API_KEY= # For Google Calendar + Sheets APIs
 - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY= # For MapView (interactive) + EventLocationMap (static) — browser-exposed by design
 - GOOGLE_WEATHER_API_KEY= # Server-only (NOT NEXT_PUBLIC_) — same GCP project as Maps
-- GITHUB_TOKEN=           # GitHub PAT with repo scope (for filing audit issues, alert issues from the admin alerts page, and user feedback)
+- GITHUB_APP_ID=          # "HashTracks Server" GitHub App (Production only): files and mirrors issues, reads PRs. See infra/github-apps/README.md
+- GITHUB_APP_INSTALLATION_ID= # Its installation on the repo (optional: looked up when unset)
+- GITHUB_APP_PRIVATE_KEY= # Its PEM private key (real newlines or \n escapes). Once any GITHUB_APP_* is set, GITHUB_TOKEN is never used
+- GITHUB_TOKEN=           # Cutover fallback only: the owner's PAT, used while no GITHUB_APP_* is set (src/lib/github-app.ts). Remove after the App is live
 - STRAVA_CLIENT_ID=      # Strava OAuth app client ID
 - STRAVA_CLIENT_SECRET=  # Strava OAuth app client secret
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (production: https://www.hashtracks.xyz)

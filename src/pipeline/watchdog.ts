@@ -40,6 +40,7 @@ import {
   type Expectation,
 } from "@/lib/automation-registry";
 import { prisma } from "@/lib/db";
+import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
 import { emailOwner, ownerEmailConfigured, type OwnerEmail, type NotifyResult } from "@/lib/notify";
 import type { GhIssue, GhPull, OpsGithub } from "@/lib/ops-github";
 
@@ -396,7 +397,7 @@ async function evaluateAll(
   const macResumedAt = mac?.status === "OK" && mac.since > mac.createdAt ? mac.since : undefined;
   let pulls: Promise<GhPull[]> | null = null;
   const openPulls = () => {
-    if (!github) return Promise.reject(new Error("GITHUB_TOKEN is not set"));
+    if (!github) return Promise.reject(new Error(NO_GITHUB_CREDENTIAL));
     pulls ??= github.listOpenPulls();
     return pulls;
   };
@@ -548,7 +549,7 @@ async function ensureIssue(row: StateRow, ev: Evaluation, run: AlarmRun): Promis
   const { store, github } = run.deps;
   const id = row.automation;
   if (!github) {
-    run.fail(`issue for ${id}`, "GITHUB_TOKEN is not set");
+    run.fail(`issue for ${id}`, NO_GITHUB_CREDENTIAL);
     return;
   }
   try {

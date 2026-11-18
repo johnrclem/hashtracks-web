@@ -11,6 +11,7 @@ import type { AutomationStatus, AutomationVerdict } from "@/generated/prisma/cli
 import { automationLabel, loadFailedMigrations, PROMOTER_MAX_PENDING_HOURS } from "@/lib/automation-registry";
 import { prisma } from "@/lib/db";
 import { buildBackfillDigest, ownerSecondFactors, type BackfillDigest, type SecondFactorStatus } from "@/lib/backfill/digest";
+import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
 import { isWaitingOnOwner, opsGithubFromEnv, type OpsGithub } from "@/lib/ops-github";
 
 export interface FailingSource {
@@ -131,7 +132,7 @@ async function loadApprovalsWaiting(
 ): Promise<OpsDigest["approvalsWaiting"]> {
   try {
     const client = github === undefined ? opsGithubFromEnv() : github;
-    if (!client) return { prs: null, error: "GITHUB_TOKEN is not set" };
+    if (!client) return { prs: null, error: NO_GITHUB_CREDENTIAL };
     const pulls = await client.listOpenPulls();
     return {
       prs: pulls.filter(isWaitingOnOwner).map((pr) => ({

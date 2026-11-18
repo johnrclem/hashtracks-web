@@ -10,6 +10,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { ARCHIVE_SOURCE_LOCKED, isArchiveSource } from "@/lib/archive-source";
 import { LANE_LABELS, isValidKennelCode, kennelLabel } from "@/lib/audit-labels";
 import { scrubSecrets } from "@/lib/audit-redact";
+import { NO_GITHUB_CREDENTIAL, serverGithubToken } from "@/lib/github-app";
 import { getValidatedRepo } from "@/lib/github-repo";
 
 interface RepairLogEntry {
@@ -463,8 +464,8 @@ export async function createIssueFromAlert(alertId: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Unauthorized" };
 
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) return { error: "GITHUB_TOKEN not configured" };
+  const token = await serverGithubToken();
+  if (!token) return { error: NO_GITHUB_CREDENTIAL };
 
   const alert = await prisma.alert.findUnique({
     where: { id: alertId },

@@ -49,6 +49,7 @@ import {
   computePayloadHash,
   type FilingPayload,
 } from "@/lib/audit-nonce";
+import { NO_GITHUB_CREDENTIAL, serverGithubToken } from "@/lib/github-app";
 import { getValidatedRepo } from "@/lib/github-repo";
 import {
   AUDIT_LABEL,
@@ -299,10 +300,10 @@ function githubPostInit(token: string, body: unknown): RequestInit {
 function buildApiActions(): FilerActions {
   return {
     createIssue: async ({ title, body, labels }) => {
-      const token = process.env.GITHUB_TOKEN;
+      const token = await serverGithubToken();
       if (!token) {
-        console.error(`${LOG_PREFIX} createIssue: GITHUB_TOKEN not set`);
-        reportAuditFilerFailure("chrome", "createIssue", { error: "GITHUB_TOKEN not set" });
+        console.error(`${LOG_PREFIX} createIssue: ${NO_GITHUB_CREDENTIAL}`);
+        reportAuditFilerFailure("chrome", "createIssue", { error: NO_GITHUB_CREDENTIAL });
         return null;
       }
       const repo = getValidatedRepo();
@@ -341,11 +342,11 @@ function buildApiActions(): FilerActions {
       }
     },
     postComment: async (issueNumber, body) => {
-      const token = process.env.GITHUB_TOKEN;
+      const token = await serverGithubToken();
       if (!token) {
-        console.error(`${LOG_PREFIX} postComment: GITHUB_TOKEN not set`);
+        console.error(`${LOG_PREFIX} postComment: ${NO_GITHUB_CREDENTIAL}`);
         reportAuditFilerFailure("chrome", "postComment", {
-          error: "GITHUB_TOKEN not set",
+          error: NO_GITHUB_CREDENTIAL,
           issueNumber,
         });
         return false;
@@ -378,11 +379,11 @@ function buildApiActions(): FilerActions {
       }
     },
     listOpenIssuesByKennel: async (kennelCode) => {
-      const token = process.env.GITHUB_TOKEN;
+      const token = await serverGithubToken();
       if (!token) {
-        console.error(`${LOG_PREFIX} listOpenIssuesByKennel: GITHUB_TOKEN not set`);
+        console.error(`${LOG_PREFIX} listOpenIssuesByKennel: ${NO_GITHUB_CREDENTIAL}`);
         reportAuditFilerFailure("chrome", "createIssue", {
-          error: "GITHUB_TOKEN not set (listOpenIssuesByKennel)",
+          error: `${NO_GITHUB_CREDENTIAL} (listOpenIssuesByKennel)`,
         });
         return null;
       }

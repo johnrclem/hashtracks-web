@@ -169,7 +169,7 @@ describe("registry", () => {
   });
 
   it("GitHub-based checks throw without a token (the watchdog records UNKNOWN)", async () => {
-    await expect(spec("audit-fixer").check(ctx())).rejects.toThrow(/GITHUB_TOKEN/);
+    await expect(spec("audit-fixer").check(ctx())).rejects.toThrow(/no GitHub credential/);
   });
 
   describe("audit fixer", () => {

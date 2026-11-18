@@ -84,8 +84,10 @@ export function AuditSyncStatus({
             <p className="text-muted-foreground">
               Every widget below reads from the GitHub audit mirror, which a
               daily cron refreshes. The sync has not succeeded recently — most
-              likely an expired <code className="font-mono">GITHUB_TOKEN</code>.
-              Rotate the token in Vercel, then re-sync.
+              likely the server&apos;s GitHub credential (the HashTracks Server
+              App, or the <code className="font-mono">GITHUB_TOKEN</code>{" "}
+              fallback) is failing. Check the filing-health chip, fix the
+              credential in Vercel, then re-sync.
             </p>
           </div>
         </div>

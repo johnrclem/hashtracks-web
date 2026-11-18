@@ -15,6 +15,7 @@
  */
 
 import { prisma } from "@/lib/db";
+import { NO_GITHUB_CREDENTIAL, serverGithubToken } from "@/lib/github-app";
 import { getValidatedRepo } from "@/lib/github-repo";
 import {
   LANE_DESCRIPTION_PREFIX,
@@ -309,8 +310,8 @@ async function applyLabelActions(
  * refresh that runs in the same route.
  */
 export async function syncKennelLabels(opts: { apply: boolean }): Promise<SyncLabelsResult> {
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) throw new Error("GITHUB_TOKEN not set");
+  const token = await serverGithubToken();
+  if (!token) throw new Error(NO_GITHUB_CREDENTIAL);
 
   const [kennels, existingLabels] = await Promise.all([
     prisma.kennel.findMany({
@@ -407,7 +408,7 @@ export async function ensureKennelLabel(
   if (!isValidKennelCode(kennelCode)) {
     return { ok: true, action: "invalid" };
   }
-  const token = process.env.GITHUB_TOKEN;
+  const token = await serverGithubToken();
   if (!token) {
     return { ok: true, action: "missing-token" };
   }
@@ -459,7 +460,7 @@ export async function deleteKennelLabel(
   if (!isValidKennelCode(kennelCode)) {
     return { ok: true, action: "invalid" };
   }
-  const token = process.env.GITHUB_TOKEN;
+  const token = await serverGithubToken();
   if (!token) {
     return { ok: true, action: "missing-token" };
   }

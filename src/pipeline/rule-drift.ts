@@ -21,6 +21,7 @@ import type { Prisma, PrismaClient, ScheduleConfidence } from "@/generated/prism
 import { LANE_LABELS } from "@/lib/audit-labels";
 import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
 import { EVENT_ELIGIBILITY_SELECT, isEligibleActual } from "@/lib/event-eligibility";
+import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
 import { opsGithubFromEnv } from "@/lib/ops-github";
 import { windowOverlapsSeason } from "@/lib/schedule-season";
 import { projectTrails, type ScheduleRuleInput } from "@/lib/travel/projections";
@@ -270,7 +271,7 @@ export async function fileRuleDriftIssue(findings: DriftFinding[]): Promise<{ fi
   try {
     // Inside the try: a malformed GITHUB_REPOSITORY throws while building the client.
     const github = opsGithubFromEnv();
-    if (!github) return { filed: false, reason: "no GITHUB_TOKEN" };
+    if (!github) return { filed: false, reason: NO_GITHUB_CREDENTIAL };
     const open = await github.listIssues({ labels: DRIFT_LABEL, state: "open", limit: 1 });
     if (open.length > 0) return { filed: false, reason: "open rule-drift issue exists" };
     await github.createIssue({
