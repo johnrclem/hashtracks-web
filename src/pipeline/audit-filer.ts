@@ -5,9 +5,9 @@
  * endpoint (`/api/audit/file-finding`) call into `fileAuditFinding`,
  * which:
  *
- *   0. Removes phone numbers and personal emails from the title and
- *      body (`redactFindingInput`). Every step below works on that
- *      redacted copy, so nothing unredacted can reach GitHub.
+ *   0. Removes secrets, phone numbers and personal emails from the
+ *      title and body (`redactFindingInput`). Every step below works on
+ *      that redacted copy, so nothing unredacted can reach GitHub.
  *   1. Computes the fingerprint via `buildCanonicalBlock`. Rules
  *      flagged `fingerprint: false` in the registry skip the fingerprint
  *      tiers entirely and fall through to a fresh-issue create — the
@@ -75,6 +75,7 @@ import { redactFinding } from "@/lib/audit-redact";
 import { toIsoDateString } from "@/lib/date";
 import {
   AUDIT_LABEL,
+  LANE_LABELS,
   NEEDS_DECISION_LABEL,
   kennelLabel,
 } from "@/lib/audit-labels";
@@ -300,7 +301,7 @@ async function tryEscalate(
         input,
         newRecurrenceCount,
       ),
-      labels: [AUDIT_LABEL, NEEDS_DECISION_LABEL, kennelLabel(input.kennelCode)],
+      labels: [AUDIT_LABEL, NEEDS_DECISION_LABEL, kennelLabel(input.kennelCode), LANE_LABELS.decision],
     });
   } catch (err) {
     console.error(
@@ -889,7 +890,7 @@ async function lookUpKennelWebsite(kennelCode: string): Promise<string | null> {
 }
 
 /**
- * Last personal-data pass before GitHub. The submit endpoint already redacts, but
+ * Last secret and personal-data pass before GitHub. The submit endpoint already redacts, but
  * a draft queued before that guard existed, and the cron and file-finding paths,
  * only pass through here. Later steps use only this redacted copy, so a fresh
  * issue and a recurrence comment are both covered.
@@ -899,7 +900,7 @@ async function redactFindingInput(input: FileFindingInput): Promise<FileFindingI
   const { title, bodyMarkdown, redactions } = redactFinding(input, kennelWebsite);
   if (redactions > 0) {
     console.warn(
-      `[audit-filer] Removed ${redactions} personal-data match(es) from ${input.kennelCode}/${input.ruleSlug} before filing`,
+      `[audit-filer] Removed ${redactions} secret or personal-data match(es) from ${input.kennelCode}/${input.ruleSlug} before filing`,
     );
   }
   return { ...input, title, bodyMarkdown };

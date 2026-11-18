@@ -22,15 +22,8 @@ import { fileAuditFinding, type FilerActions } from "./audit-filer";
 import { GITHUB_MIN_WRITE_GAP_MS, buildCronActions } from "./audit-issue";
 import { loadSuppressions } from "./audit-runner";
 import { buildCanonicalBlock } from "@/lib/audit-canonical";
-import {
-  AUDIT_LABEL,
-  ALERT_LABEL,
-  ONBOARDING_CANDIDATE_LABEL,
-  STREAM_LABELS,
-  isSourceGapRule,
-  kennelLabel,
-} from "@/lib/audit-labels";
-import { AUDIT_STREAM, type AuditStream } from "@/lib/audit-stream-meta";
+import { auditIssueLabels } from "@/lib/audit-labels";
+import type { AuditStream } from "@/lib/audit-stream-meta";
 import { withAdvisoryXactLock } from "@/lib/advisory-lock";
 
 /**
@@ -92,12 +85,8 @@ interface PromotableDraft {
   bodyMarkdown: string;
   status: "PENDING" | "ERROR";
   promoteAttempts: number;
-}
-
-function streamLabel(stream: AuditStream): string {
-  return stream === AUDIT_STREAM.CHROME_KENNEL
-    ? STREAM_LABELS.CHROME_KENNEL
-    : STREAM_LABELS.CHROME_EVENT;
+  /** Labels the agent requested at submit (validated there): `lane:decision` or none. */
+  labels: string[];
 }
 
 /**
@@ -152,6 +141,7 @@ async function promoteUnderLock(): Promise<PromotionSummary> {
       bodyMarkdown: true,
       status: true,
       promoteAttempts: true,
+      labels: true,
     },
   })) as PromotableDraft[];
 
@@ -266,14 +256,14 @@ async function promoteOneDraft(
   });
   if (claim.count === 0) return "skipped";
 
-  const labels = [
-    AUDIT_LABEL,
-    ALERT_LABEL,
-    streamLabel(draft.stream),
-    kennelLabel(draft.kennelCode),
-    // Untracked sources and missing history go to the onboarding automation.
-    ...(isSourceGapRule(draft.ruleSlug) ? [ONBOARDING_CANDIDATE_LABEL] : []),
-  ];
+  // The lane follows the rule (untracked sources and missing history are
+  // coverage), unless the agent asked for the owner's decision.
+  const labels = auditIssueLabels({
+    stream: draft.stream,
+    kennelCode: draft.kennelCode,
+    ruleSlug: draft.ruleSlug,
+    requestedLabels: draft.labels,
+  });
   const outcome = await fileAuditFinding(
     {
       stream: draft.stream,

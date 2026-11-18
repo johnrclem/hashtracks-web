@@ -21,9 +21,12 @@ describe("planKennelLabelSync", () => {
     kennel("philly-h3", "Philly H3"),
   ];
 
+  /** The 3 stream labels and the 5 lane labels every plan carries. */
+  const FIXED_LABELS = 3 + 5;
+
   it("creates labels for every kennel when the repo is empty", () => {
     const plan = planKennelLabelSync(KENNELS, []);
-    expect(plan.created).toBe(3 + 3); // 3 kennels + 3 stream labels
+    expect(plan.created).toBe(3 + FIXED_LABELS); // 3 kennels + streams + lanes
     expect(plan.updated).toBe(0);
     expect(plan.skippedCanonical).toBe(0);
     expect(plan.skippedExternal).toBe(0);
@@ -34,6 +37,14 @@ describe("planKennelLabelSync", () => {
     expect(createNames).toContain("audit:automated");
     expect(createNames).toContain("audit:chrome-event");
     expect(createNames).toContain("audit:chrome-kennel");
+    expect(createNames).toEqual(
+      expect.arrayContaining(["lane:incident", "lane:defect", "lane:coverage", "lane:decision", "lane:ops"]),
+    );
+  });
+
+  it("canonicalizes a lane label GitHub auto-created gray", () => {
+    const plan = planKennelLabelSync([], [label({ name: "lane:ops", color: "ededed", description: null })]);
+    expect(plan.actions).toContainEqual(expect.objectContaining({ kind: "update", name: "lane:ops", color: "b60205" }));
   });
 
   it("canonicalizes gray auto-created labels (grandfathering PR #580 backfill)", () => {
@@ -61,8 +72,8 @@ describe("planKennelLabelSync", () => {
     const plan = planKennelLabelSync(KENNELS.slice(0, 1), existing);
     const skips = plan.actions.filter((a) => a.kind === "skip");
     expect(skips.map((s) => s.name)).toContain("kennel:agnews");
-    // Still creates the 3 stream labels since they're missing.
-    expect(plan.created).toBe(3);
+    // Still creates the stream and lane labels since they're missing.
+    expect(plan.created).toBe(FIXED_LABELS);
     expect(plan.updated).toBe(0);
   });
 
@@ -79,7 +90,7 @@ describe("planKennelLabelSync", () => {
     expect(externals).toHaveLength(1);
     expect(externals[0].name).toBe("kennel:agnews");
     expect(plan.updated).toBe(0);
-    expect(plan.created).toBe(3); // stream labels only
+    expect(plan.created).toBe(FIXED_LABELS); // stream and lane labels only
   });
 
   it("rejects kennelCodes that fail the label-safety regex", () => {
@@ -88,8 +99,8 @@ describe("planKennelLabelSync", () => {
       [],
     );
     expect(plan.invalidKennelCodes).toEqual(["Agnews!", "has space"]);
-    // Valid kennel still plans its label + the 3 streams
-    expect(plan.created).toBe(4);
+    // Valid kennel still plans its label + the streams and lanes
+    expect(plan.created).toBe(1 + FIXED_LABELS);
   });
 
   it("treats canonical-description labels as already owned", () => {

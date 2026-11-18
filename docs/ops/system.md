@@ -24,9 +24,10 @@ running, add repair capacity; don't throttle the audits.
 ## Lanes
 
 Every unit of work is a GitHub issue with exactly one lane label. Admin pages only display issues;
-they hold no work of their own. **Building (S1):** the labels, lane routing in the promoter, the
-audit cron and rule drift, and a one-shot relabel of the open issues. Until the relabel runs, no
-issue carries a lane label, and the tasks fall back to the labels used today (below).
+they hold no work of their own. Every issue the server files now carries its lane. **Building
+(S1):** the one-shot relabel of the open issues (`scripts/relabel-open-issues-lanes.ts`), which
+waits on the owner's approval. Until it runs, older issues carry no lane label, and the tasks fall
+back to the labels used today (below).
 
 | Label | Meaning | Filed by | Worked by |
 |---|---|---|---|
@@ -37,8 +38,27 @@ issue carries a lane label, and the tasks fall back to the labels used today (be
 | `lane:ops` | An automation or pipeline stopped | the watchdog | a supervised session |
 
 - `audit`, `audit:*` and `kennel:*` stay as origin labels. `alert` is retired from audit issues.
+- **How a finding gets its lane** (`laneForRule` in `src/lib/audit-labels.ts`, used by the
+  promoter, the audit cron and `/api/audit/file-finding`): a source-gap rule (`source-coverage-gap`,
+  `historical-events-gap` and their synonyms) → `lane:coverage`, which also gets
+  `onboarding-candidate` until 2026-12-18; `schema-gap` → `lane:decision`; anything else →
+  `lane:defect`. Escalation meta-issues (`audit:needs-decision`) → `lane:decision`. Rule drift →
+  `lane:defect`. In-app user feedback → `lane:decision`.
+- **Agents request `lane:decision`, and nothing else,** with `"labels": ["lane:decision"]` on a
+  finding, putting the question on the body's first line. The submit endpoint rejects any other
+  label (400).
+- **Incident issues carry `kennel:*` labels** for each kennel the alerting source feeds, so the
+  fixer's incident skip finds them.
 - The fixer takes only `lane:defect`, and skips kennels that have an open `lane:incident`.
-- The mirror syncs issues labelled `audit` or any `lane:*`, and records the lane.
+- The mirror syncs issues labelled `audit` or any `lane:*`, and records the lane in
+  `AuditIssue.lane`. A lane-only issue mirrors as stream `UNKNOWN` with `hasAuditLabel = false`,
+  and the per-stream stats on `/admin/audit` count only `audit` issues.
+- The label sync (part of `/api/cron/sync-audit-issues`) keeps each lane label's color and
+  description.
+- **Secrets never reach GitHub from the server.** Every issue body and comment the server files
+  passes through `scrubSecrets` (`src/lib/audit-redact.ts`): `key=`/`token=`/`sig=` query values,
+  `AIza…` keys, bearer tokens, URL credentials and the like. `scripts/scrub.ts` uses the same
+  patterns.
 - **Until the relabel:** the fixer works `audit` issues and switches to `lane:defect` by itself once
   any issue carries it; the digest reads `audit:needs-decision` as well as `lane:decision`.
 
@@ -50,8 +70,8 @@ issue carries a lane label, and the tasks fall back to the labels used today (be
    against open issues. It runs hourly via QStash, with the daily 14:00 UTC Vercel cron as a
    backstop, under a transaction-scoped advisory lock so two runs never file the same draft. If
    GitHub can't answer the dedup check, the draft stays `PENDING` and is retried next hour.
-3. The mirror cron (`/api/cron/sync-audit-issues`, 12:30 UTC) copies `audit` issues into
-   `AuditIssue` for `/admin/audit`.
+3. The mirror cron (`/api/cron/sync-audit-issues`, 12:30 UTC) copies `audit` and `lane:*` issues
+   into `AuditIssue` for `/admin/audit`.
 4. An issue closes only after a prod scrape or a page check confirms the fix.
 
 A `PENDING` draft older than 2 hours means filing is stuck: the daily digest flags it.

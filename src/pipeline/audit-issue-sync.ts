@@ -1,10 +1,17 @@
 /**
- * Sync GitHub `audit`-labeled issues into the AuditIssue mirror + AuditIssueEvent log.
+ * Sync GitHub issues labelled `audit` or any `lane:*` into the AuditIssue mirror +
+ * AuditIssueEvent log.
  *
- * Strategy: full-pull every run (not incremental). At the current scale of ~150
- * audit issues this is 1-2 GH API pages and lets every sync re-evaluate stream
- * + kennel labels from current state. Avoids the `since=` trap where a manual
- * relabel never gets observed because the issue's `updated_at` didn't change.
+ * Strategy: full-pull every run (not incremental). GitHub's `labels` filter is an
+ * AND, so the corpus is one listing per label (`audit` and each lane), merged by
+ * issue number. That's about ten pages at ~1000 audit issues, and lets every sync
+ * re-evaluate stream, kennel and lane labels from current state. Avoids the `since=`
+ * trap where a manual relabel never gets observed because the issue's `updated_at`
+ * didn't change.
+ *
+ * An issue with a lane label but no `audit` (an incident from the Alerts page, a
+ * watchdog `lane:ops` issue, rule drift) mirrors as stream UNKNOWN with
+ * `hasAuditLabel: false`, so the per-stream audit stats can leave it out.
  *
  * On every issue we diff the freshly-resolved values against the prior snapshot
  * row (looked up by githubNumber) and emit AuditIssueEvent rows for each
@@ -27,6 +34,9 @@ import { prisma } from "@/lib/db";
 import { AuditStream, AuditIssueEventType } from "@/generated/prisma/client";
 import {
   AUDIT_LABEL,
+  LANE_LABELS,
+  type Lane,
+  parseLaneLabel,
   parseStreamLabel,
   parseKennelLabel,
 } from "@/lib/audit-labels";
@@ -108,6 +118,28 @@ export function resolveStream(labelNames: readonly string[]): StreamResolution {
   if (matches.length === 0) return { stream: AuditStream.UNKNOWN, conflict: false };
   if (matches.length === 1) return { stream: matches[0], conflict: false };
   return { stream: AuditStream.UNKNOWN, conflict: true };
+}
+
+export interface LaneResolution {
+  lane: Lane | null;
+  /** True when the label set carried more than one lane label. */
+  conflict: boolean;
+}
+
+/**
+ * Resolve an issue's lane from its `lane:*` labels, the way `resolveStream` does
+ * streams: one lane label → that lane, none → null, more than one → null with
+ * `conflict: true` so the caller keeps the prior lane and reports it.
+ */
+export function resolveLane(labelNames: readonly string[]): LaneResolution {
+  const lanes = new Set<Lane>();
+  for (const name of labelNames) {
+    const lane = parseLaneLabel(name);
+    if (lane) lanes.add(lane);
+  }
+  if (lanes.size > 1) return { lane: null, conflict: true };
+  const [lane = null] = lanes;
+  return { lane, conflict: false };
 }
 
 /**
@@ -202,15 +234,18 @@ export function resolveKennel(
   return null;
 }
 
+/** The labels whose issues the mirror holds: `audit` and every lane. */
+export const MIRRORED_LABELS: readonly string[] = [AUDIT_LABEL, ...Object.values(LANE_LABELS)];
+
 /**
- * Paginate the GitHub Issues API for `audit`-labeled issues in any state.
+ * Paginate the GitHub Issues API for issues with `label`, in any state.
  * Filters out pull requests (the issues endpoint returns both).
  */
-export async function fetchAllAuditIssues(token: string): Promise<GitHubIssue[]> {
+async function fetchIssuesWithLabel(token: string, label: string): Promise<GitHubIssue[]> {
   const repo = getValidatedRepo();
   const issues: GitHubIssue[] = [];
   for (let page = 1; page <= MAX_PAGES; page++) {
-    const url = `https://api.github.com/repos/${repo}/issues?labels=${AUDIT_LABEL}&state=all&per_page=${PAGE_SIZE}&page=${page}`;
+    const url = `https://api.github.com/repos/${repo}/issues?labels=${encodeURIComponent(label)}&state=all&per_page=${PAGE_SIZE}&page=${page}`;
     const res = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -227,6 +262,23 @@ export async function fetchAllAuditIssues(token: string): Promise<GitHubIssue[]>
     if (batch.length < PAGE_SIZE) break;
   }
   return issues;
+}
+
+/** Every `audit`-labelled issue in any state. */
+export function fetchAllAuditIssues(token: string): Promise<GitHubIssue[]> {
+  return fetchIssuesWithLabel(token, AUDIT_LABEL);
+}
+
+/**
+ * Every issue labelled `audit` or any lane, in any state, each once. A failed
+ * listing throws, so the sync never delists rows it simply failed to read.
+ */
+export async function fetchMirroredIssues(token: string): Promise<GitHubIssue[]> {
+  const byNumber = new Map<number, GitHubIssue>();
+  for (const label of MIRRORED_LABELS) {
+    for (const issue of await fetchIssuesWithLabel(token, label)) byNumber.set(issue.number, issue);
+  }
+  return [...byNumber.values()];
 }
 
 /**
@@ -352,7 +404,7 @@ interface EventToAppend {
 const SYNC_LOCK_KEY = 0x4155_4954; // "AUIT" — arbitrary 32-bit constant
 
 /**
- * Run a full sync against the GitHub `audit`-labeled corpus. Updates the
+ * Run a full sync against the mirrored corpus (`audit` and `lane:*`). Updates the
  * AuditIssue snapshot table and appends AuditIssueEvent rows for every
  * transition observed since the previous sync. Wrapped in a transaction
  * with a Postgres advisory lock so concurrent runs are serialized — two
@@ -360,8 +412,8 @@ const SYNC_LOCK_KEY = 0x4155_4954; // "AUIT" — arbitrary 32-bit constant
  * state and double-emit lifecycle events.
  *
  * Stale-row reconciliation: any AuditIssue row whose githubNumber is NOT
- * in the freshly-fetched audit corpus (e.g. an operator removed the
- * `audit` label, or the issue was deleted) is dropped from the snapshot
+ * in the freshly-fetched corpus (e.g. an operator removed the `audit`
+ * and lane labels, or the issue was deleted) is dropped from the snapshot
  * so the dashboard stops counting it. The event log keeps its prior
  * OPENED/CLOSED history — only the current-state mirror is removed.
  */
@@ -372,7 +424,7 @@ export async function syncAuditIssues(): Promise<SyncResult> {
   }
 
   // Fetch outside the transaction — network I/O shouldn't hold a DB lock.
-  const issues = await fetchAllAuditIssues(token);
+  const issues = await fetchMirroredIssues(token);
   const result: SyncResult = {
     scanned: issues.length,
     opened: 0,
@@ -424,6 +476,8 @@ export async function syncAuditIssues(): Promise<SyncResult> {
       try {
         const labelNames = extractLabelNames(issue.labels);
         const streamResolution = resolveStream(labelNames);
+        const laneResolution = resolveLane(labelNames);
+        const hasAuditLabel = labelNames.includes(AUDIT_LABEL);
         const kennelCode = resolveKennel(labelNames, knownKennelCodes);
         const githubCreatedAt = new Date(issue.created_at);
         const githubClosedAt = issue.closed_at ? new Date(issue.closed_at) : null;
@@ -443,6 +497,17 @@ export async function syncAuditIssues(): Promise<SyncResult> {
           );
         } else {
           stream = streamResolution.stream;
+        }
+
+        // Same rule for two lane labels: keep the prior lane and report it.
+        let lane: string | null;
+        if (laneResolution.conflict) {
+          lane = prior?.lane ?? null;
+          result.errors.push(
+            `#${issue.number}: more than one lane label — preserving prior lane=${lane ?? "none"}`,
+          );
+        } else {
+          lane = laneResolution.lane;
         }
 
         const newEvents = diffIssue(
@@ -495,6 +560,8 @@ export async function syncAuditIssues(): Promise<SyncResult> {
             githubClosedAt: githubClosedAt ?? undefined,
             closeReason: issue.state_reason ?? undefined,
             fingerprint: insertFingerprint ?? undefined,
+            lane,
+            hasAuditLabel,
           },
           update: {
             stream,
@@ -506,6 +573,8 @@ export async function syncAuditIssues(): Promise<SyncResult> {
             closeReason: issue.state_reason ?? null,
             // Intentionally NOT updating `fingerprint` here. See
             // comment above on insert-only semantics.
+            lane,
+            hasAuditLabel,
             delistedAt: null,
             ...escalationReset,
           },

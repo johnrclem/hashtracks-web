@@ -14,9 +14,11 @@
  * - **secrets** (always): credentials in URLs, query values whose name ends in key, token, sig,
  *   signature, secret or password, `.env`-style `NAME_KEY=value` assignments, Google API keys
  *   (`AIza…`), bearer tokens, GitHub tokens and Clerk/Stripe-style `sk_live_`/`sk_test_` keys;
- * - **personal data** (unless `--secrets-only`): phone numbers and email addresses, through
- *   `redactPersonalData` in `src/lib/audit-redact.ts`, the filter the server applies to audit
- *   findings. `--kennel-website` keeps addresses on that kennel's own domain, as the server does.
+ * - **personal data** (unless `--secrets-only`): phone numbers and email addresses.
+ *   `--kennel-website` keeps addresses on that kennel's own domain, as the server does.
+ *
+ * Both come from `src/lib/audit-redact.ts`, the filter the server applies to everything it posts,
+ * so this CLI and the server can't drift apart.
  *
  * `--secrets-only` is for files committed as data, such as a handoff, whose kennel contact details
  * are meant to be there.
@@ -25,52 +27,7 @@
  */
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { redactPersonalData } from "@/lib/audit-redact";
-
-const REDACTION_MARK = "[secret]";
-
-// `user:password@` in a URL, such as a database URL quoted in an error message.
-const URL_CREDENTIALS_RE = /(?<=:\/\/)[^\s/@:]+:[^\s/@]+(?=@)/g;
-// Every query parameter; the name decides whether its value is a secret. `;` and `\u0026` also
-// start one, for HTML-escaped (`&amp;`) and JSON-escaped URLs. A closing bracket, a quote or a
-// backslash ends the value, so a markdown link or a quoted or escaped URL keeps its punctuation.
-const QUERY_PARAM_RE = /(?<=[?&;]|\\u0026)([\w.-]+)=([^&#\s"'`<>)\]\\]+)/g;
-const SECRET_NAME_RE = /(?:key|token|sig|signature|secret|password)$/i;
-// `.env` lines and inline assignments: `GOOGLE_CALENDAR_API_KEY=…`, `CRON_SECRET="…"`.
-// A backtick ends the value, so markdown code (`CRON_SECRET=abc`) keeps its closing backtick.
-const ENV_ASSIGNMENT_RE = /\b([A-Z][A-Z\d_]*(?:KEY|TOKEN|SECRET|PASSWORD))=("[^"\n]*"|'[^'\n]*'|[^\s"'`][^\s`]*)/g;
-const GOOGLE_API_KEY_RE = /AIza[\w-]{30,}/g;
-// Sixteen characters at least, so prose ("the bearer acknowledged …") is left alone.
-const BEARER_RE = /(?<=\bBearer\s+)[\w.~+/-]{16,}=*/gi;
-const GITHUB_TOKEN_RE = /\b(?:gh[pousr]_[A-Za-z\d]{30,}|github_pat_\w{30,})/g;
-const SK_KEY_RE = /\bsk_(?:live|test)_\w{16,}/g;
-
-/** Replace secrets with `[secret]`. Rules run in order, so later ones see earlier placeholders. */
-export function scrubSecrets(text: string): { text: string; removals: number } {
-  let removals = 0;
-  const replace = (): string => {
-    removals += 1;
-    return REDACTION_MARK;
-  };
-
-  const result = text
-    .replaceAll(URL_CREDENTIALS_RE, replace)
-    // A shell reference (`?key=$GOOGLE_CALENDAR_API_KEY`) holds no secret, and keeps a pasted
-    // command runnable.
-    .replaceAll(QUERY_PARAM_RE, (param: string, name: string, value: string) =>
-      SECRET_NAME_RE.test(name) && !value.startsWith("$") ? `${name}=${replace()}` : param,
-    )
-    // A value the query rule already replaced, or a shell reference (`$VAR`, `$(…)`), stays.
-    .replaceAll(ENV_ASSIGNMENT_RE, (assignment: string, name: string, value: string) =>
-      value.startsWith(REDACTION_MARK) || value.startsWith("$") ? assignment : `${name}=${replace()}`,
-    )
-    .replaceAll(GOOGLE_API_KEY_RE, replace)
-    .replaceAll(BEARER_RE, replace)
-    .replaceAll(GITHUB_TOKEN_RE, replace)
-    .replaceAll(SK_KEY_RE, replace);
-
-  return { text: result, removals };
-}
+import { scrubForGitHub, scrubSecrets } from "@/lib/audit-redact";
 
 export interface ScrubOptions {
   /** The kennel's website; an email address on its domain is kept. */
@@ -81,10 +38,9 @@ export interface ScrubOptions {
 
 /** Remove secrets, then (unless `secretsOnly`) phone numbers and email addresses. */
 export function scrub(text: string, options: ScrubOptions = {}): { text: string; removals: number } {
-  const secrets = scrubSecrets(text);
-  if (options.secretsOnly) return secrets;
-  const personal = redactPersonalData(secrets.text, options.kennelWebsite);
-  return { text: personal.text, removals: secrets.removals + personal.redactions };
+  if (options.secretsOnly) return scrubSecrets(text);
+  const { text: scrubbed, redactions } = scrubForGitHub(text, options.kennelWebsite);
+  return { text: scrubbed, removals: redactions };
 }
 
 const USAGE =

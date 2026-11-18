@@ -1066,8 +1066,8 @@ model AuditIssue {
   // Populated by the sync pipeline; powers the closed-not-planned ratio panel
   // (P2) and is the strongest signal that the audit prompt over-flagged.
   closeReason     String?
-  delistedAt      DateTime? // non-null when the issue has fallen out of the audit corpus
-  // (operator removed the `audit` label, issue deleted, etc.)
+  delistedAt      DateTime? // non-null when the issue has fallen out of the mirrored corpus
+  // (operator removed the `audit` and lane labels, issue deleted, etc.)
   // Preserves the AuditIssueEvent trail for historical trends
   // instead of the cascade-delete codex flagged as a data-loss risk.
 
@@ -1082,6 +1082,13 @@ model AuditIssue {
   escalatedAt            DateTime? // set once when recurrenceCount crosses threshold
   escalatedToIssueNumber Int? // GitHub issue number of the meta-escalation issue
 
+  // The issue's lane label without its `lane:` prefix ("incident", "defect", "coverage",
+  // "decision", "ops"): who works it (docs/ops/system.md "Lanes"). Null when it has none.
+  lane          String?
+  // The mirror also holds issues that carry only a lane label. They mirror as stream
+  // UNKNOWN, so the per-stream audit stats count only rows where this is true.
+  hasAuditLabel Boolean @default(true)
+
   syncedAt DateTime          @updatedAt
   events   AuditIssueEvent[]
 
@@ -1089,6 +1096,7 @@ model AuditIssue {
   @@index([kennelCode])
   @@index([delistedAt])
   @@index([fingerprint])
+  @@index([lane, state])
 }
 
 // Single-use, payload-bound nonces minted by /api/audit/mint-filing-nonce

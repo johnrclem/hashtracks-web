@@ -8,7 +8,9 @@
  * Auth is `GITHUB_TOKEN` for now (the ops plan's S4 swaps in the server GitHub App; only
  * {@link opsGithubFromEnv} reads the token). Every call fails loudly with
  * {@link GithubUnavailableError}: callers treat that as "couldn't check", never as "nothing there".
+ * Every issue and comment it posts passes through `scrubSecrets` first: the repo is public.
  */
+import { scrubSecrets } from "@/lib/audit-redact";
 import { getValidatedRepo } from "@/lib/github-repo";
 
 const API_ORIGIN = "https://api.github.com";
@@ -177,13 +179,16 @@ export function createOpsGithub(token: string, fetchImpl: typeof fetch = fetch):
         .filter((c): c is GhComment => c !== null);
     },
     async createIssue({ title, body, labels }) {
-      const created = (await call("/issues", { method: "POST", body: JSON.stringify({ title, body, labels }) })) as Json;
+      const created = (await call("/issues", {
+        method: "POST",
+        body: JSON.stringify({ title: scrubSecrets(title).text, body: scrubSecrets(body).text, labels }),
+      })) as Json;
       const number = Number(created?.number);
       if (!Number.isInteger(number)) throw new GithubUnavailableError("GitHub created an issue without a number");
       return number;
     },
     async comment(issueNumber, body) {
-      await call(`/issues/${issueNumber}/comments`, { method: "POST", body: JSON.stringify({ body }) });
+      await call(`/issues/${issueNumber}/comments`, { method: "POST", body: JSON.stringify({ body: scrubSecrets(body).text }) });
     },
     async close(issueNumber) {
       await call(`/issues/${issueNumber}`, {

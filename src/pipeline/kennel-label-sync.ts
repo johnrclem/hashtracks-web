@@ -1,8 +1,9 @@
 /**
- * Kennel + stream label sync for the GitHub audit pipeline.
+ * Kennel, stream and lane label sync for the GitHub audit pipeline.
  *
- * Ensures every kennel in the DB has a canonical `kennel:<kennelCode>` label
- * and every audit stream has a canonical `audit:<stream>` label. Cleans up
+ * Ensures every kennel in the DB has a canonical `kennel:<kennelCode>` label,
+ * every audit stream a canonical `audit:<stream>` label and every lane a
+ * canonical `lane:<lane>` label. Cleans up
  * legacy gray labels that the PR #580 side-effect POSTs left behind.
  *
  * Ownership is claimed by either (a) an empty description, (b) a description
@@ -16,6 +17,8 @@
 import { prisma } from "@/lib/db";
 import { getValidatedRepo } from "@/lib/github-repo";
 import {
+  LANE_DESCRIPTION_PREFIX,
+  LANE_LABEL_META,
   STREAM_LABEL_META,
   GRAY_DEFAULT_COLOR,
   KENNEL_LABEL_COLOR,
@@ -23,7 +26,6 @@ import {
   STREAM_DESCRIPTION_PREFIX,
   isValidKennelCode,
   kennelLabel,
-  type StreamLabelName,
 } from "@/lib/audit-labels";
 
 /** Outcome of a per-kennel label lifecycle call. Never throws to callers. */
@@ -168,7 +170,7 @@ function buildKennelCanonical(
   };
 }
 
-/** Build the canonical label list for every kennel + every audit stream. */
+/** Build the canonical label list for every kennel, audit stream and lane. */
 function buildCanonicalLabels(
   kennels: ReadonlyArray<{ kennelCode: string; shortName: string | null }>,
   invalid: string[],
@@ -181,15 +183,14 @@ function buildCanonicalLabels(
     }
     canonical.push(buildKennelCanonical(k.kennelCode, k.shortName));
   }
-  for (const [name, meta] of Object.entries(STREAM_LABEL_META) as Array<
-    [StreamLabelName, { color: string; description: string }]
-  >) {
-    canonical.push({
-      name,
-      color: meta.color,
-      description: meta.description,
-      ownershipPrefix: STREAM_DESCRIPTION_PREFIX,
-    });
+  const metaGroups = [
+    [STREAM_LABEL_META, STREAM_DESCRIPTION_PREFIX],
+    [LANE_LABEL_META, LANE_DESCRIPTION_PREFIX],
+  ] as const;
+  for (const [metaByName, ownershipPrefix] of metaGroups) {
+    for (const [name, meta] of Object.entries(metaByName)) {
+      canonical.push({ name, color: meta.color, description: meta.description, ownershipPrefix });
+    }
   }
   return canonical;
 }

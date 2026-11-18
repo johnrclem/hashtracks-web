@@ -27,8 +27,9 @@ const CONTAINS_CASES: readonly ContainsCase[] = [
   ["queued + deduped response shapes", ["\"queued\": true", "\"deduped\"", "Don't resubmit."]],
   // JSON body carries the finding kind + stream + kennel slot.
   ["finding payload shape", ["\"kind\": \"finding\"", "\"stream\": \"CHROME_EVENT\"", "\"kennelCode\": \"{KENNEL_CODE}\""]],
-  // Server applies the labels at promotion time; the agent never sets them.
-  ["server-applied labels", ["audit:chrome-event", "kennel:{KENNEL_CODE}"]],
+  // Server applies the labels at promotion time; the agent may only ask for the decision lane.
+  ["server-applied labels", ["audit:chrome-event", "kennel:{KENNEL_CODE}", "one lane label"]],
+  ["the one label an agent may set", ["\"labels\": [\"lane:decision\"]", "Any other label is rejected"]],
   // Findings become public GitHub issues, and the last-resort format asks for
   // verbatim values, so the rule has to say it applies to those too.
   ["personal-data rule", ["Never quote a phone number", "personal email", "even in a verbatim", "Describe it instead"]],
@@ -39,6 +40,10 @@ describe("renderFilingInstructions — hareline (chrome-event)", () => {
     for (const substring of expected) {
       expect(HARELINE).toContain(substring);
     }
+  });
+
+  it("no longer promises the retired `alert` label", () => {
+    expect(HARELINE).not.toContain("`alert`");
   });
 
   it("drops the old external-publish paths (mint / file / URL-prefill)", () => {

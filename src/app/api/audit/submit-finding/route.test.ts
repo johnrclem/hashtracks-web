@@ -168,6 +168,53 @@ describe("POST /api/audit/submit-finding — finding", () => {
         bodyMarkdown: VALID_FINDING.bodyMarkdown,
       });
     });
+
+    it("removes an API key quoted from a scrape error", async () => {
+      const key = `AIza${"x".repeat(35)}`;
+      await POST(
+        buildApiPostRequest(URL, { ...VALID_FINDING, bodyMarkdown: `Fetch failed: /calendars/x/events?key=${key}` }),
+      );
+      expect(storedDraft().bodyMarkdown).toBe("Fetch failed: /calendars/x/events?key=[secret]");
+    });
+  });
+
+  describe("requested labels", () => {
+    const storedLabels = () => mockDraftCreate.mock.calls[0][0].data.labels;
+
+    beforeEach(() => {
+      mockDraftCreate.mockResolvedValue({ id: "draft_labels" } as never);
+    });
+
+    it("stores no labels when none are requested", async () => {
+      await POST(buildApiPostRequest(URL, VALID_FINDING));
+      expect(storedLabels()).toEqual([]);
+    });
+
+    it("stores lane:decision, once", async () => {
+      const res = await POST(
+        buildApiPostRequest(URL, { ...VALID_FINDING, labels: ["lane:decision", "lane:decision"] }),
+      );
+      expect(res.status).toBe(201);
+      expect(storedLabels()).toEqual(["lane:decision"]);
+    });
+
+    it.each([
+      ["another lane", ["lane:defect"]],
+      ["an origin label", ["audit"]],
+      ["the retired alert label", ["alert"]],
+      ["decision plus another label", ["lane:decision", "kennel:other"]],
+    ])("400 on %s, and queues nothing", async (_label, labels) => {
+      const res = await POST(buildApiPostRequest(URL, { ...VALID_FINDING, labels }));
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toContain("lane:decision");
+      expect(mockDraftCreate).not.toHaveBeenCalled();
+    });
+
+    it("400 when labels isn't a list of strings", async () => {
+      const res = await POST(buildApiPostRequest(URL, { ...VALID_FINDING, labels: "lane:decision" }));
+      expect(res.status).toBe(400);
+      expect(mockDraftCreate).not.toHaveBeenCalled();
+    });
   });
 });
 

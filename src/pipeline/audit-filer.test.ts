@@ -653,6 +653,7 @@ describe("fileAuditFinding — recurrence escalation", () => {
     expect(metaCall.labels).toContain("audit");
     expect(metaCall.labels).toContain("audit:needs-decision");
     expect(metaCall.labels).toContain("kennel:nych3");
+    expect(metaCall.labels.filter((l) => l.startsWith("lane:"))).toEqual(["lane:decision"]);
     expect(metaCall.title).toContain("NYCH3");
     expect(metaCall.title).toContain("hare-url");
 

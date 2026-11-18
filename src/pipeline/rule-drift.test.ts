@@ -1,4 +1,13 @@
-import { detectRuleDrift, dominantWeekday, judgeDrift, sentinelWeekdays, weekdayName } from "./rule-drift";
+import type { MockInstance } from "vitest";
+import {
+  detectRuleDrift,
+  dominantWeekday,
+  fileRuleDriftIssue,
+  judgeDrift,
+  sentinelWeekdays,
+  weekdayName,
+  type DriftFinding,
+} from "./rule-drift";
 
 // UTC-noon dates on known weekdays. 2026-06-01 is a Monday.
 const MON = "2026-06-01"; // Mon
@@ -143,5 +152,35 @@ describe("detectRuleDrift — LOW cadence sentinel suppression (#2454)", () => {
       now,
     );
     expect(findings.map((f) => f.kennelCode)).toEqual(["dh3-ae"]);
+  });
+});
+
+describe("fileRuleDriftIssue", () => {
+  const finding = { kennelCode: "nych3", shortName: "NYCH3", region: "New York City, NY", predictedWeekdays: ["Mon"], actualWeekday: "Sat", actualShare: 0.8, recentEventCount: 5, activeRules: "FREQ=WEEKLY;BYDAY=MO" } as unknown as DriftFinding;
+  let fetchSpy: MockInstance<typeof fetch>;
+
+  beforeEach(() => {
+    process.env.GITHUB_TOKEN = "test-token";
+  });
+  afterEach(() => {
+    fetchSpy.mockRestore();
+    delete process.env.GITHUB_TOKEN;
+  });
+
+  it("files one issue in the defect lane when none is open", async () => {
+    fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ number: 1 }), { status: 201 }));
+    expect(await fileRuleDriftIssue([finding])).toEqual({ filed: true, reason: "issue created" });
+    const body = JSON.parse(String(fetchSpy.mock.calls[1][1]?.body));
+    expect(body.labels).toEqual(["rule-drift", "lane:defect"]);
+    expect(body.body).toContain("NYCH3");
+  });
+
+  it("files nothing while a rule-drift issue is open", async () => {
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("[{}]", { status: 200 }));
+    expect(await fileRuleDriftIssue([finding])).toEqual({ filed: false, reason: "open rule-drift issue exists" });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });

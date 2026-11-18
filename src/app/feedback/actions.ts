@@ -1,5 +1,7 @@
 "use server";
 
+import { LANE_LABELS } from "@/lib/audit-labels";
+import { scrubSecrets } from "@/lib/audit-redact";
 import { getOrCreateUser } from "@/lib/auth";
 
 type FeedbackState = {
@@ -123,7 +125,8 @@ ${description}
 
 *Submitted via HashTracks in-app feedback*`);
 
-  const labels = ["user-feedback", CATEGORY_LABELS[category] || "feedback"];
+  // Feedback waits on the owner's call, so it goes to the decision lane the digest reads.
+  const labels = ["user-feedback", CATEGORY_LABELS[category] || "feedback", LANE_LABELS.decision];
 
   try {
     const res = await fetch(
@@ -135,7 +138,7 @@ ${description}
           Accept: "application/vnd.github+json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ title: issueTitle, body: issueBody, labels }),
+        body: JSON.stringify({ title: scrubSecrets(issueTitle).text, body: scrubSecrets(issueBody).text, labels }),
       },
     );
 

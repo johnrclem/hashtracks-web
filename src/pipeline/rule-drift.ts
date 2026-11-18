@@ -18,8 +18,11 @@
  * Reuses the real engine (projectTrails) + isEligibleActual so detection matches production.
  */
 import type { Prisma, PrismaClient, ScheduleConfidence } from "@/generated/prisma/client";
+import { LANE_LABELS } from "@/lib/audit-labels";
+import { scrubSecrets } from "@/lib/audit-redact";
 import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
 import { EVENT_ELIGIBILITY_SELECT, isEligibleActual } from "@/lib/event-eligibility";
+import { getValidatedRepo } from "@/lib/github-repo";
 import { windowOverlapsSeason } from "@/lib/schedule-season";
 import { projectTrails, type ScheduleRuleInput } from "@/lib/travel/projections";
 
@@ -227,4 +230,73 @@ export async function writeRuleDriftSnapshot(prisma: PrismaClient, findings: Dri
   await prisma.ruleDriftSnapshot.create({
     data: { driftCount: findings.length, findings: findings as unknown as Prisma.InputJsonValue },
   });
+}
+
+// ── GitHub issue ──────────────────────────────────────────────────────────────
+
+/** The origin label; rule-drift issues dedupe on it. */
+const DRIFT_LABEL = "rule-drift";
+
+function renderIssueBody(findings: DriftFinding[]): string {
+  const rows = findings
+    .map(
+      (f) =>
+        `| ${f.shortName} (\`${f.kennelCode}\`) | ${f.region} | ${f.predictedWeekdays.join("/")} | **${f.actualWeekday}** (${Math.round(f.actualShare * 100)}%, ${f.recentEventCount} ev) | \`${f.activeRules}\` |`,
+    )
+    .join("\n");
+  return [
+    "Detected by the weekly rule-drift check (`/api/cron/rule-drift`). Each kennel below has an",
+    "active schedule rule whose currently-projected weekday disagrees with its recent independent",
+    "events — likely a **seasonal switch**, a permanent schedule change, or a rule that flattened a",
+    "seasonal kennel. Fix by authoring/correcting the kennel's `scheduleRules[]` (seasonal slots use",
+    "`validFrom`/`validUntil`); see the seasonal-detector workflow.",
+    "",
+    "| Kennel | Region | Rule predicts | Recent actual | Active rule(s) |",
+    "|---|---|---|---|---|",
+    rows,
+    "",
+    "_Close this issue once addressed; the next run re-files if drift remains._",
+  ].join("\n");
+}
+
+/**
+ * File one rule-drift issue (`rule-drift`, `lane:defect`) unless one is already open. Never
+ * throws: a GitHub failure comes back as `filed: false` with the reason, so the cron still
+ * records its snapshot and run.
+ */
+export async function fileRuleDriftIssue(findings: DriftFinding[]): Promise<{ filed: boolean; reason: string }> {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return { filed: false, reason: "no GITHUB_TOKEN" };
+  const repo = getValidatedRepo();
+  const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "Content-Type": "application/json" };
+
+  // A fetch timeout/abort REJECTS rather than returning a non-OK Response, so wrap the calls and
+  // convert any throw into a "don't file" reason — a transient GitHub error must degrade gracefully,
+  // not bubble up and 500 the cron (Codex review on PR #2169).
+  try {
+    // Dedup: skip if an open rule-drift issue already exists. Bail out (don't file) if the check
+    // itself fails — a transient non-2xx must NOT fall through to POSTing a possibly-duplicate issue.
+    const existing = await fetch(
+      `https://api.github.com/repos/${repo}/issues?state=open&labels=${encodeURIComponent(DRIFT_LABEL)}&per_page=1`,
+      { headers, signal: AbortSignal.timeout(15_000) },
+    );
+    if (!existing.ok) return { filed: false, reason: `github dedup check failed: ${existing.status}` };
+    const open = (await existing.json()) as unknown[];
+    if (Array.isArray(open) && open.length > 0) return { filed: false, reason: "open rule-drift issue exists" };
+
+    const res = await fetch(`https://api.github.com/repos/${repo}/issues`, {
+      method: "POST",
+      headers,
+      signal: AbortSignal.timeout(15_000),
+      body: JSON.stringify({
+        title: `Schedule-rule drift: ${findings.length} kennel(s) predicting the wrong weekday`,
+        body: scrubSecrets(renderIssueBody(findings)).text,
+        labels: [DRIFT_LABEL, LANE_LABELS.defect],
+      }),
+    });
+    if (!res.ok) return { filed: false, reason: `github ${res.status}` };
+    return { filed: true, reason: "issue created" };
+  } catch (err) {
+    return { filed: false, reason: `github request failed: ${err instanceof Error ? err.message : "unknown"}` };
+  }
 }
