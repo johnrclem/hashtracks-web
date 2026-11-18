@@ -4,10 +4,9 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     backfillRun: { findMany: vi.fn() },
     scrapeLog: { findMany: vi.fn() },
-    cronHeartbeat: { findUnique: vi.fn() },
+    automationRun: { findFirst: vi.fn() },
   },
 }));
-vi.mock("./watch", () => ({ WATCH_JOB: "backfill-watch" }));
 
 import { prisma } from "@/lib/db";
 import { buildBackfillDigest } from "./digest";
@@ -30,7 +29,7 @@ describe("backfills digest block (11.2)", () => {
       { diagnosticContext: { archiveCutoff: { byKennel: { k1: { cutoff: 2, correction: 0 } } } } },
       { diagnosticContext: { archiveCutoff: { byKennel: { k1: { cutoff: 1, correction: 1 } } } } },
     ] as never);
-    vi.mocked(prisma.cronHeartbeat.findUnique).mockResolvedValue({ lastFinishedAt: new Date("2026-11-18T07:20:00Z") } as never);
+    vi.mocked(prisma.automationRun.findFirst).mockResolvedValue({ finishedAt: new Date("2026-11-18T07:20:00Z") } as never);
 
     const d = await buildBackfillDigest(NOW);
     expect(d.recentRuns).toHaveLength(3);

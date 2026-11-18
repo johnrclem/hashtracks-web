@@ -5,12 +5,11 @@
  * approved manifests from the last 30 days that have no run, re-verifies
  * runs from the last 7 days, and raises the liveness errors. It never starts
  * a fresh apply: PLANNED runs wait for the implementer or the owner (Phase 2).
- * Its own liveness is the CronHeartbeat row the digest reads.
+ * Its own liveness is the AutomationRun row its route's `withCronRun` records.
  */
 import * as Sentry from "@sentry/nextjs";
-import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { BACKFILL_WATCH_ID, WATCH_JOB, backfillMode } from "./agent";
+import { BACKFILL_WATCH_ID, backfillMode } from "./agent";
 import { listApprovedManifestPrs, RetryableApprovalError } from "./approval";
 import { advanceFromCaller, planFromPr, verifyFromCaller } from "./service";
 
@@ -44,12 +43,6 @@ async function step(report: WatchReport, label: string, fn: () => Promise<void>)
 export async function runBackfillWatch(now = new Date()): Promise<WatchReport> {
   const mode = backfillMode();
   const report: WatchReport = { mode, resumed: [], replanned: [], planned: [], reverified: [], alerts: [], errors: [] };
-  await prisma.cronHeartbeat.upsert({
-    where: { jobName: WATCH_JOB },
-    create: { jobName: WATCH_JOB, lastStartedAt: now },
-    update: { lastStartedAt: now },
-  });
-
   if (mode === "apply") {
     await step(report, "resume", async () => {
       const stuck = await prisma.backfillRun.findMany({ where: { status: "APPLYING", OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lt: now } }] }, select: { id: true } });
@@ -116,9 +109,5 @@ export async function runBackfillWatch(now = new Date()): Promise<WatchReport> {
     for (const r of stale) alert(report, `run ${r.id} has been ${r.status} too long`);
   });
 
-  await prisma.cronHeartbeat.update({
-    where: { jobName: WATCH_JOB },
-    data: { lastFinishedAt: new Date(), lastResult: report as unknown as Prisma.InputJsonValue },
-  });
   return report;
 }

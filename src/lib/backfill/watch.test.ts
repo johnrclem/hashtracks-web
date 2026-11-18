@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("@sentry/nextjs", () => ({ captureMessage: vi.fn(), captureException: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
-    cronHeartbeat: { upsert: vi.fn(), update: vi.fn() },
     backfillRun: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
@@ -25,12 +24,10 @@ describe("backfill-watch (7.3, 11.3)", () => {
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  it("off: records its heartbeat and liveness only, and touches no run", async () => {
+  it("off: touches no run (the route's withCronRun records liveness)", async () => {
     vi.stubEnv("BACKFILL_AUTOMATION", "off");
     const report = await runBackfillWatch(NOW);
     expect(report.mode).toBe("off");
-    expect(prisma.cronHeartbeat.upsert).toHaveBeenCalled();
-    expect(prisma.cronHeartbeat.update).toHaveBeenCalled();
     expect(advanceFromCaller).not.toHaveBeenCalled();
     expect(planFromPr).not.toHaveBeenCalled();
   });

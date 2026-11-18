@@ -28,7 +28,7 @@ function line(v: unknown, key: string): string | null {
 }
 
 export async function buildBackfillDigest(now: Date = new Date()): Promise<BackfillDigest> {
-  const [recent, attention, logs, heartbeat] = await Promise.all([
+  const [recent, attention, logs, lastWatch] = await Promise.all([
     prisma.backfillRun.findMany({
       where: { updatedAt: { gt: new Date(now.getTime() - 7 * 24 * HOUR) }, status: { not: "PREVIEW" } },
       select: { id: true, prNumber: true, status: true, counts: true, reasonCodes: true, statusLines: true },
@@ -48,7 +48,11 @@ export async function buildBackfillDigest(now: Date = new Date()): Promise<Backf
       where: { startedAt: { gt: new Date(now.getTime() - 24 * HOUR) }, diagnosticContext: { path: ["archiveCutoff"], not: "null" } },
       select: { diagnosticContext: true },
     }),
-    prisma.cronHeartbeat.findUnique({ where: { jobName: WATCH_JOB } }),
+    prisma.automationRun.findFirst({
+      where: { automation: WATCH_JOB, status: "SUCCESS" },
+      orderBy: { startedAt: "desc" },
+      select: { finishedAt: true },
+    }),
   ]);
   const drops: BackfillDigest["archiveDrops24h"] = {};
   for (const log of logs) {
@@ -67,7 +71,7 @@ export async function buildBackfillDigest(now: Date = new Date()): Promise<Backf
       if (before !== null && after !== null && before !== after) changes.push({ id: r.id, before, after });
     }
   }
-  const lastFinished = heartbeat?.lastFinishedAt ?? null;
+  const lastFinished = lastWatch?.finishedAt ?? null;
   return {
     recentRuns: recent.map((r) => ({ id: r.id, prNumber: r.prNumber, status: r.status, counts: r.counts })),
     needsYou: attention.map((r) => ({
