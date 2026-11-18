@@ -47,8 +47,12 @@ mkdir -p "$ROOT"
 ROOT="$(cd "$ROOT" && pwd)"
 if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then die "$ROOT is inside a git repository; pick a folder outside every clone"; fi
 
+# PATH without the root's own bin (so a re-install finds the real gh) and without fnm's per-shell
+# directories, which vanish when that shell exits.
+BASE_PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -vxF "$ROOT/bin" | grep -v 'fnm_multishells' | paste -sd: -)"
+
 # 2. Scripts, the key and the config.
-REAL_GH="$(PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -vxF "$ROOT/bin" | paste -sd: -)" command -v gh || true)"
+REAL_GH="$(export PATH="$BASE_PATH"; command -v gh || true)"
 [[ -x "$REAL_GH" ]] || die "gh isn't installed (brew install gh)"
 mkdir -p "$ROOT/bin" "$ROOT/.agent/gh-empty" "$ROOT/.claude"
 chmod 700 "$ROOT/.agent"
@@ -67,7 +71,7 @@ BOT_ID="$(curl -fsS --max-time 20 "https://api.github.com/users/$(jq -rn --arg l
 echo "Agent App OK: acts as $BOT"
 
 # 4. Settings: the env block, and the repo's permissions plus this folder's extras.
-AGENT_PATH="$ROOT/bin:$(printf '%s' "$PATH" | tr ':' '\n' | grep -vxF "$ROOT/bin" | paste -sd: -)"
+AGENT_PATH="$ROOT/bin:$BASE_PATH"
 jq -n \
   --slurpfile repo "$REPO/.claude/settings.json" \
   --slurpfile extra "$SRC/settings.extra.json" \

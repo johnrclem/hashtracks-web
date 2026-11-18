@@ -21,7 +21,10 @@ if [[ -n "${1:-}" ]]; then
 else
   repo_settings="$(curl -fsSL --max-time 20 https://raw.githubusercontent.com/johnrclem/hashtracks-web/main/.claude/settings.json)"
 fi
-[[ -n "$repo_settings" ]] || problems+=("the repo's .claude/settings.json is unreadable")
+if ! jq -e '.permissions.deny | type == "array"' <<<"$repo_settings" >/dev/null 2>&1; then
+  problems+=("the repo's .claude/settings.json is unreadable")
+  repo_settings=""
+fi
 
 if ! jq -e . "$LOCAL" >/dev/null 2>&1; then
   problems+=("$LOCAL is missing or not JSON")
@@ -51,7 +54,8 @@ fi
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 && problems+=("the root is inside a git repository")
 
 if ((${#problems[@]})); then
-  (IFS='; '; echo "root-settings: DRIFT: ${problems[*]}")
+  joined="$(printf '%s; ' "${problems[@]}")"
+  echo "root-settings: DRIFT: ${joined%; }"
   exit 1
 fi
 echo "root-settings: OK"
