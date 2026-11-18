@@ -4,7 +4,11 @@ import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@/lib/db";
 import { TravelSearchStatus } from "@/generated/prisma/client";
 import { getOrCreateUser } from "@/lib/auth";
-import { executeTravelSearch } from "@/lib/travel/search";
+import {
+  executeTravelSearch,
+  ROWLESS_EMPTY_STATES,
+  type EmptyStateKind,
+} from "@/lib/travel/search";
 import { findExistingSavedSearch } from "@/app/travel/actions";
 import { MAX_RADIUS_KM, snapRadiusToTier } from "@/lib/travel/limits";
 import { DEFAULT_SEARCH_RADIUS_KM, utcYmd } from "@/lib/travel/url";
@@ -320,9 +324,11 @@ async function TravelResultsServer({
       // Multi-stop: skip the broader-swap since top-level arrays already
       // contain merged primary + all-stops-broader (see serialization above).
       // Single-stop: swap broader arrays in place on `no_nearby`.
-      const resultsToRender = isMultiStop
-        ? serializedResults
-        : selectResultsToRender(results.emptyState, serializedResults);
+      const resultsToRender = selectResultsToRender(
+        results.emptyState,
+        serializedResults,
+        isMultiStop,
+      );
 
       return (
         <>
@@ -331,6 +337,7 @@ async function TravelResultsServer({
             variant={results.emptyState}
             broaderRadiusKm={stop?.broaderRadiusKm}
             place={extractCityName(destination)}
+            horizonTier={results.meta.horizonTier}
           />
           {serializedResults.nearestConfirmed && (
             <NearestConfirmedSection {...serializedResults.nearestConfirmed} />
@@ -444,7 +451,11 @@ function parseFilterParams(filterParams: SearchParamsRecord): {
  * Pick which result set to render based on emptyState. Replaces a
  * three-level nested ternary in TravelResultsServer (SonarCloud "no
  * nested ternary"). Returns null when no result set is appropriate
- * (no_coverage / error path).
+ * (rowless empty states / error path).
+ *
+ * Multi-stop arrays already merge every stop's broader rows (see
+ * `serializeTravelResults({ mergeBroader: true })`), so there is no swap;
+ * they render unless every stop came up rowless.
  */
 function selectResultsToRender<T extends {
   broaderResults?: { confirmed: T["confirmed"]; likely: T["likely"]; possible: T["possible"] };
@@ -452,9 +463,11 @@ function selectResultsToRender<T extends {
   likely: unknown;
   possible: unknown;
 }>(
-  emptyState: string,
+  emptyState: EmptyStateKind,
   serialized: T,
+  isMultiStop: boolean,
 ): T | null {
+  if (isMultiStop) return ROWLESS_EMPTY_STATES.has(emptyState) ? null : serialized;
   if (emptyState === "no_confirmed") return serialized;
   if (emptyState === "no_nearby" && serialized.broaderResults) {
     return {
@@ -580,9 +593,11 @@ async function SavedTripPage({
   // Multi-stop saved trips already have broader merged into the flat
   // arrays by `serializeTravelResults({ mergeBroader: true })`, so the
   // swap is a no-op and we pass serializedResults through.
-  const resultsToRender = isMultiStop
-    ? serializedResults
-    : selectResultsToRender(serializedResults.emptyState, serializedResults);
+  const resultsToRender = selectResultsToRender(
+    serializedResults.emptyState,
+    serializedResults,
+    isMultiStop,
+  );
 
   const firstLeg = search.destinations[0];
   const lastLeg = search.destinations.at(-1)!;
@@ -671,6 +686,7 @@ async function SavedTripPage({
           variant={serializedResults.emptyState}
           broaderRadiusKm={serializedResults.destinations[0]?.broaderRadiusKm}
           place={extractCityName(serializedResults.destinations[0]?.label ?? search.name ?? "")}
+          horizonTier={serializedResults.meta.horizonTier}
         />
       )}
       {serializedResults.nearestConfirmed && (

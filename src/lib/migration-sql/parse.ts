@@ -2,9 +2,10 @@
  * Splits a migration file into statements with Postgres's own parser (libpg_query, Postgres 17
  * grammar, matching Railway). Comments, string literals and dollar-quoted bodies can't hide a
  * statement from it the way they can from a regex or a line scan. Shared by the dry-run tool,
- * the CI migration check and, later, the G17 allow-list checker. Keep app code (routes, server
- * actions) from importing it: Next.js would try to bundle the parser's WASM file. If that ever
- * becomes necessary, add "libpg-query" to serverExternalPackages in next.config.ts first.
+ * the CI migration check and the backfill's G17 checker (`g17.ts`), which the backfill plan runs
+ * in server routes. `libpg-query` is a production dependency and in `serverExternalPackages`
+ * (next.config.ts), so Next.js leaves its WASM file to Node instead of bundling it;
+ * `/api/health/sql-parser` proves that on every deploy.
  */
 import { loadModule, parseSync } from "libpg-query";
 

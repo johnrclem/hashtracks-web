@@ -192,6 +192,8 @@ export function TravelResults({
         this check, a search that surfaces only low-confidence possibles
         would stack "No results match the active filters" directly on top
         of "Possible activity · N kennels".
+        Searches with nothing on their dates get a rowless banner instead
+        (ROWLESS_EMPTY_STATES), so this only shows when filters hid rows.
       */}
       {renderedTiers.length === 0 && filteredPossibleAll.length === 0 && (
         <div className="mt-10 text-center text-sm text-muted-foreground">
