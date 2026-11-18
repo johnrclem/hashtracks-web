@@ -8,7 +8,7 @@
 # Exits non-zero, printing nothing on stdout, if anything fails: a missing config or key, a bad key,
 # or GitHub refusing. Callers (the gh shim, git) then stop instead of falling back to the owner.
 # Needs bash, openssl, curl and jq, all of which ship with macOS. Config: <root>/.agent/config,
-# written by install.sh (APP_ID, INSTALLATION_ID, KEY_FILE).
+# written by install.sh (APP_ID, INSTALLATION_ID, KEY_FILE; the shim also reads REAL_GH, BOT_LOGIN).
 
 set -euo pipefail
 

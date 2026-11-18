@@ -95,8 +95,8 @@ Carry on and put "identity preflight failed: <login>" first under "Needs you tod
      ```
      Flag "ruleset off" only once main's `system.md` says the ruleset is in force:
      `curl -fsSL --max-time 20 https://raw.githubusercontent.com/johnrclem/hashtracks-web/main/docs/ops/system.md | grep -m1 '^Main ruleset:'`
-     prints `Main ruleset: REQUIRED`. While it prints `Main ruleset: PENDING`, report the state
-     without flagging it.
+     prints `Main ruleset: REQUIRED` (the line lives in `system.md#the-ruleset`). Otherwise report
+     the state without flagging it.
    - **Owner-path merges:** PRs merged in the last 24 hours by the owner's own authorship without
      `owner-approved`, which the write gate passed as owner-authored (T1's detection):
      ```bash

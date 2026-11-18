@@ -68,11 +68,10 @@ if [ -d "$OWNER_NM/.bin" ]; then [ -e node_modules ] || ln -s "$OWNER_NM" node_m
 npx prisma generate >/dev/null
 ```
 
-**Every Bash call starts in the task's folder,** the agent root (`/Users/johnclem/Developer/hashtracks-agents`, not a git repository; until the owner re-points the task, the owner's live checkout), and neither `cd` nor shell variables carry
+**Every Bash call starts in the task's folder** ([`system.md#identity`](../ops/system.md#identity)), never your clone, and neither `cd` nor shell variables carry
 over to the next call. Begin **every** command with
 `cd /Users/johnclem/Developer/hashtracks-implementer &&`, and use absolute paths under it with the
-Read/Edit/Write tools. A command run without that prefix acts on the wrong folder, and on the live checkout breaks
-golden rule 1.
+Read/Edit/Write tools. A command run without that prefix doesn't act on the clone.
 
 Env for live verification and read-only DB queries comes from the owner's `.env`. Load it only into
 the command that needs it, for example:

@@ -57,7 +57,7 @@ the run always sees what has already landed, and Step 2 dedupes against it.
   go there, and **only** under `docs/kennel-onboarding/` (handoff, queue, run log, platform notes).
   Step 9 delivers them as a PR through GitHub. Until November 2026 each run made a new temp clone,
   but the runner isn't allowed to delete one, so they piled up (7 clones, about 550 MB).
-  **Every Bash call starts in the task's folder**, the agent root (`/Users/johnclem/Developer/hashtracks-agents`, not a git repository; until the owner re-points the task, the owner's live checkout), and neither `cd` nor shell variables carry
+  **Every Bash call starts in the task's folder** ([`system.md#identity`](../ops/system.md#identity)), never your clone, and neither `cd` nor shell variables carry
   over to the next call. Begin every command that touches the clone with
   `cd /Users/johnclem/Developer/hashtracks-research && WORK=$PWD &&`, so the `$WORK` paths in the
   blocks below resolve.

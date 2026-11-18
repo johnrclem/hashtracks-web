@@ -12,7 +12,14 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 BIN="$ROOT/bin"
-REAL_GH="$(sed -n 's/^REAL_GH=//p' "$ROOT/.agent/config" 2>/dev/null | head -1)"
+conf() { sed -n "s/^$1=//p" "$ROOT/.agent/config" 2>/dev/null | head -1; }
+REAL_GH="$(conf REAL_GH)"
+
+# git's `store` and `erase` need no answer, so they need no token.
+if [[ "${1:-}" == "auth" && "${2:-}" == "git-credential" && "${3:-}" != "get" ]]; then
+  cat >/dev/null
+  exit 0
+fi
 
 if ! token="$("$BIN/mint-token.sh")" || [[ -z "$token" ]]; then
   echo "agent-gh: couldn't mint a HashTracks Agent token, so gh will not run (docs/ops/system.md#identity)" >&2
@@ -21,8 +28,10 @@ fi
 unset GITHUB_TOKEN
 export GH_TOKEN="$token"
 
+# The mint above proves the key and the installation; install.sh recorded the login GitHub gave it.
 if [[ "${1:-}" == "api" && ( "${2:-}" == "user" || "${2:-}" == "/user" ) ]]; then
-  login="$("$BIN/mint-token.sh" --login)" || exit 97
+  login="$(conf BOT_LOGIN)"
+  [[ -n "$login" ]] || { echo "agent-gh: no BOT_LOGIN in $ROOT/.agent/config (run install.sh)" >&2; exit 97; }
   if [[ " $* " == *" --jq .login "* ]]; then
     printf '%s\n' "$login"
   else
@@ -32,10 +41,8 @@ if [[ "${1:-}" == "api" && ( "${2:-}" == "user" || "${2:-}" == "/user" ) ]]; the
 fi
 
 if [[ "${1:-}" == "auth" && "${2:-}" == "git-credential" ]]; then
-  if [[ "${3:-}" == "get" ]]; then
-    cat >/dev/null # git's request; the answer doesn't depend on it
-    printf 'protocol=https\nhost=github.com\nusername=x-access-token\npassword=%s\n' "$token"
-  fi
+  cat >/dev/null # git's request; the answer doesn't depend on it
+  printf 'protocol=https\nhost=github.com\nusername=x-access-token\npassword=%s\n' "$token"
   exit 0
 fi
 

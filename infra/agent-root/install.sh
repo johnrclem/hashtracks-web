@@ -8,8 +8,9 @@
 #
 # It:
 #   1. refuses a root inside a git repository (a task's reset must never reach it);
-#   2. copies the gh shim and the token minter into <root>/bin (bin/gh is the shim), and writes
-#      <root>/.agent/config (App id, installation id, key path, the real gh);
+#   2. copies the gh shim and the token minter into <root>/bin (bin/gh is the shim), copies the key
+#      to <root>/.agent/app.pem, and writes <root>/.agent/config (App id, installation id, key path,
+#      the real gh, the bot login);
 #   3. checks it can mint a token and read the bot's login;
 #   4. writes <root>/.claude/settings.local.json: an env block (an empty GH_CONFIG_DIR, empty
 #      GITHUB_TOKEN and GH_TOKEN, GH_REPO, PATH with the shim first) plus the repo's
@@ -59,14 +60,18 @@ chmod 700 "$ROOT/.agent"
 install -m 755 "$SRC/bin/agent-gh.sh" "$SRC/bin/mint-token.sh" "$SRC/bin/check-root.sh" "$ROOT/bin/"
 ln -sf agent-gh.sh "$ROOT/bin/gh"
 KEY_FILE="$ROOT/.agent/app.pem"
-if [[ ! "$KEY" -ef "$KEY_FILE" ]]; then install -m 600 "$KEY" "$KEY_FILE"; fi
-chmod 600 "$KEY_FILE"
+install -m 600 "$KEY" "$KEY_FILE"
 umask 077
-printf 'APP_ID=%s\nINSTALLATION_ID=%s\nKEY_FILE=%s\nREAL_GH=%s\n' "$APP_ID" "$INSTALLATION_ID" "$KEY_FILE" "$REAL_GH" >"$ROOT/.agent/config"
+write_config() {
+  printf 'APP_ID=%s\nINSTALLATION_ID=%s\nKEY_FILE=%s\nREAL_GH=%s\nBOT_LOGIN=%s\n' \
+    "$APP_ID" "$INSTALLATION_ID" "$KEY_FILE" "$REAL_GH" "${1:-}" >"$ROOT/.agent/config"
+}
+write_config
 
 # 3. Prove it works before anything points at it.
 "$ROOT/bin/mint-token.sh" >/dev/null || die "couldn't mint a token: check the ids, the key, and that the App is installed on the repository"
 BOT="$("$ROOT/bin/mint-token.sh" --login)" || die "couldn't read the App's login"
+write_config "$BOT"
 BOT_ID="$(curl -fsS --max-time 20 "https://api.github.com/users/$(jq -rn --arg l "$BOT" '$l|@uri')" | jq -er .id)" || die "couldn't look up $BOT"
 echo "Agent App OK: acts as $BOT"
 
