@@ -305,12 +305,21 @@ describe("scrubSecrets", () => {
     ["ordinary query values", "https://www.hashtracks.xyz/kennels/nych3?tab=events&page=2"],
     ["an env reference in a command", 'curl -H "Authorization: Bearer $TOKEN" https://www.hashtracks.xyz/api'],
     ["prose", "The bearer acknowledged that the key point is the token gesture."],
-    ["a shell reference in a query", 'curl "https://example.com/x?key=$GOOGLE_CALENDAR_API_KEY"'],
-    ["a shell reference in an assignment", "CRON_SECRET=$(grep -m1 '^CRON_SECRET=' .env)"],
     ["a non-secret env line", "NEXT_PUBLIC_APP_URL=https://www.hashtracks.xyz"],
     ["a bare name in markdown code", "`NAME_KEY=` assignments"],
   ])("keeps %s", (_label, input) => {
     expect(secrets(input)).toBe(input);
+  });
+
+  it.each([
+    ["a shell reference in a query", 'curl "https://example.com/x?key=$GOOGLE_CALENDAR_API_KEY"'],
+    ["a shell reference in an assignment", "CRON_SECRET=$(grep -m1 '^CRON_SECRET=' .env)"],
+  ])("keeps %s when asked to (the CLI)", (_label, input) => {
+    expect(scrubSecrets(input, { keepShellReferences: true }).text).toBe(input);
+  });
+
+  it("removes a $NAME value from a logged URL by default (the server)", () => {
+    expect(secrets("GET /feed?token=$TOKEN → 401")).toBe("GET /feed?token=[secret] → 401");
   });
 
   it("counts each removal once", () => {
@@ -337,6 +346,7 @@ describe("scrubSecrets — review follow-ups", () => {
     ["a lowercase dollar value", "GET /feed?token=$sample1 → 401", "GET /feed?token=[secret] → 401"],
     ["a value that only starts like a shell name", "GET /feed?token=$TOKEN.literal", "GET /feed?token=[secret]"],
     ["a token after a semicolon-separated parameter", "/feed?page=2;token=sample", "/feed?page=2;token=[secret]"],
+    ["a semicolon inside a token value", "/feed?token=sample;tail&page=2", "/feed?token=[secret]&page=2"],
   ])("removes %s", (_label, input, expected) => {
     expect(scrubSecrets(input).text).toBe(expected);
   });

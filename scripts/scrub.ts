@@ -38,9 +38,11 @@ export interface ScrubOptions {
 
 /** Remove secrets, then (unless `secretsOnly`) phone numbers and email addresses. */
 export function scrub(text: string, options: ScrubOptions = {}): { text: string; removals: number } {
+  // Agents paste commands, so `$NAME` references are kept here (the server never keeps them).
+  const keep = { keepShellReferences: true };
   const { text: scrubbed, redactions } = options.secretsOnly
-    ? scrubSecrets(text)
-    : scrubForGitHub(text, options.kennelWebsite);
+    ? scrubSecrets(text, keep)
+    : scrubForGitHub(text, options.kennelWebsite, keep);
   return { text: scrubbed, removals: redactions };
 }
 

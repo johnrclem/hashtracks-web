@@ -64,15 +64,16 @@ const URL_CREDENTIALS_RE = /(?<=:\/\/)[^\s/@:?#]+:[^\s/@?#]+(?=@)/g;
 // Every query parameter; the name decides whether its value is a secret. `;` and `\u0026` also
 // start one, for HTML-escaped (`&amp;`) and JSON-escaped URLs. A closing bracket, a quote or a
 // backslash ends the value, so a markdown link or a quoted or escaped URL keeps its punctuation.
-const QUERY_PARAM_RE = /(?<=[?&;]|\\u0026)([\w.-]+)=([^&;#\s"'`<>)\]\\]+)/g;
+// A `;` ends the value only when another `name=` follows it, so `?token=a;b` is removed whole.
+const QUERY_PARAM_RE = /(?<=[?&;]|\\u0026)([\w.-]+)=((?:[^&;#\s"'`<>)\]\\]|;(?![\w.-]+=))+)/g;
 // `key`, `token`, `sig` and the longer names, alone or as a suffix (`access_token`, `api_key`).
 const SECRET_NAME_RE = /(?:key|token|sig|signature|secret|password)$/i;
 // `.env` lines and inline assignments: `GOOGLE_CALENDAR_API_KEY=…`, `CRON_SECRET="…"`.
 // A backtick ends the value, so markdown code (`CRON_SECRET=abc`) keeps its closing backtick.
 const ENV_ASSIGNMENT_RE = /\b([A-Z][A-Z\d_]*(?:KEY|TOKEN|SECRET|PASSWORD))=("[^"\n]*"|'[^'\n]*'|[^\s"'`][^\s`]*)/g;
-// A shell reference holds no secret: the whole value is `$NAME` or `${NAME}`, or starts a
-// command substitution `$(…`. Anything else after a `$` (`$sample`, `$TOKEN.literal`) can be a
-// literal credential in a logged URL, so it's redacted.
+// With `keepShellReferences` (the CLI, for commands agents paste), a value that is a whole
+// `$NAME` or `${NAME}`, or starts a `$(…` substitution, holds no secret and stays. The server
+// scrubs logged diagnostics, where `$TOKEN` can be a literal credential, so it never keeps them.
 const SHELL_REFERENCE_RE = /^\$(?:[A-Z_][A-Z\d_]*|\{[A-Z_][A-Z\d_]*\}|\(.*)$/;
 const GOOGLE_API_KEY_RE = /AIza[\w-]{30,}/g;
 // Sixteen characters at least, so prose ("the bearer acknowledged …") is left alone.
@@ -87,7 +88,11 @@ const SK_KEY_RE = /\bsk_(?:live|test)_\w{16,}/g;
  * API keys (`AIza…`), bearer tokens, GitHub tokens and Clerk/Stripe-style `sk_live_`/`sk_test_`
  * keys. Rules run in order, so later ones see earlier placeholders.
  */
-export function scrubSecrets(text: string): { text: string; redactions: number } {
+export function scrubSecrets(
+  text: string,
+  { keepShellReferences = false }: { keepShellReferences?: boolean } = {},
+): { text: string; redactions: number } {
+  const isShellReference = (value: string): boolean => keepShellReferences && SHELL_REFERENCE_RE.test(value);
   let redactions = 0;
   const replace = (): string => {
     redactions += 1;
@@ -100,13 +105,13 @@ export function scrubSecrets(text: string): { text: string; redactions: number }
     // command runnable.
     // An already-scrubbed value (`[secret`, cut at its `]`) stays, so a second pass changes nothing.
     .replaceAll(QUERY_PARAM_RE, (param: string, name: string, value: string) =>
-      SECRET_NAME_RE.test(name) && !SHELL_REFERENCE_RE.test(value) && value !== REDACTION_MARK.slice(0, -1)
+      SECRET_NAME_RE.test(name) && !isShellReference(value) && value !== REDACTION_MARK.slice(0, -1)
         ? `${name}=${replace()}`
         : param,
     )
     // A value the query rule already replaced, or a shell reference (`$VAR`, `$(…)`), stays.
     .replaceAll(ENV_ASSIGNMENT_RE, (assignment: string, name: string, value: string) =>
-      value.startsWith(REDACTION_MARK) || SHELL_REFERENCE_RE.test(value) ? assignment : `${name}=${replace()}`,
+      value.startsWith(REDACTION_MARK) || isShellReference(value) ? assignment : `${name}=${replace()}`,
     )
     .replaceAll(GOOGLE_API_KEY_RE, replace)
     .replaceAll(BEARER_RE, replace)
@@ -267,8 +272,9 @@ export function redactPersonalData(
 export function scrubForGitHub(
   text: string,
   kennelWebsite?: string | null,
+  options: { keepShellReferences?: boolean } = {},
 ): { text: string; redactions: number } {
-  const secrets = scrubSecrets(text);
+  const secrets = scrubSecrets(text, options);
   const personal = redactPersonalData(secrets.text, kennelWebsite);
   return { text: personal.text, redactions: secrets.redactions + personal.redactions };
 }

@@ -21,6 +21,12 @@ Fetched https://www.googleapis.com/calendar/v3/calendars/x/events?key=[secret]`,
     expect(scrub(body, { secretsOnly: true }).text).toContain("?key=[secret]");
   });
 
+  it("keeps shell references in pasted commands", () => {
+    const command = 'curl "https://example.com/x?key=$GOOGLE_CALENDAR_API_KEY"';
+    expect(scrub(command).text).toBe(command);
+    expect(scrub(command, { secretsOnly: true }).text).toBe(command);
+  });
+
   it("keeps an address on the kennel's own domain", () => {
     const text = "Mismanagement: gm@example-h3.org; hare: whiff@example.com";
     expect(scrub(text, { kennelWebsite: "https://www.example-h3.org" }).text).toBe(
