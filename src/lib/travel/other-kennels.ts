@@ -21,6 +21,7 @@ export type OtherKennelCandidate = KennelEvidence & {
   facebookUrl: string | null;
   distanceKm: number;
   listingOnly: boolean;
+  halfMindListingId: string | null;
 };
 
 export interface OtherKennel {
@@ -33,6 +34,7 @@ export interface OtherKennel {
   evidence: KennelEvidence;
   ownPageUrl: string | null;
   listingOnly: boolean;
+  halfMindListingId: string | null;
 }
 
 export function shouldShowOtherKennels(confirmedCount: number, likelyCount: number): boolean {
@@ -65,15 +67,19 @@ export function selectOtherKennels(
         lastRunSeenAt: k.lastRunSeenAt,
         nextRunPostedAt: k.nextRunPostedAt,
         lastConfirmedAt: k.lastConfirmedAt,
+        lastConfirmedVia: k.lastConfirmedVia,
         stoppedAt: k.stoppedAt,
       },
       ownPageUrl: kennelOwnPageUrl(k.website, k.facebookUrl),
       listingOnly: k.listingOnly,
+      halfMindListingId: k.halfMindListingId,
     }));
 }
 
 export function otherKennelsHeading(place: string): string {
-  return `Other kennels near ${place}`;
+  const name = place.trim();
+  // A saved trip can have no label, which would leave "Other kennels near " dangling.
+  return name ? `Other kennels near ${name}` : "Other kennels nearby";
 }
 
 /** Link to the closest listed kennel's region page, or the directory when it has no slug. */

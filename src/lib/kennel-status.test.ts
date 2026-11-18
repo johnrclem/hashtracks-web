@@ -2,11 +2,14 @@ import {
   getKennelState,
   getStatusLine,
   formatStatusLine,
+  statusLineParts,
   runningKennelWhere,
   listedKennelWhere,
   serializeKennelEvidence,
   toKennelEvidence,
   ownPageFor,
+  isHalfMindDeciding,
+  halfMindCreditLabel,
   type KennelEvidence,
 } from "@/lib/kennel-status";
 
@@ -17,7 +20,7 @@ function offset(n: number): Date {
 }
 
 function ev(partial: Partial<KennelEvidence> = {}): KennelEvidence {
-  return { lastRunSeenAt: null, nextRunPostedAt: null, lastConfirmedAt: null, stoppedAt: null, ...partial };
+  return { lastRunSeenAt: null, nextRunPostedAt: null, lastConfirmedAt: null, lastConfirmedVia: null, stoppedAt: null, ...partial };
 }
 
 describe("getKennelState", () => {
@@ -77,7 +80,7 @@ describe("getStatusLine", () => {
 
   it("a confirmation newer than the last run shows checked", () => {
     const lastConfirmedAt = offset(-120);
-    expect(getStatusLine(ev({ lastRunSeenAt: offset(-200), lastConfirmedAt }), NOW)).toEqual({ kind: "checked", date: lastConfirmedAt });
+    expect(getStatusLine(ev({ lastRunSeenAt: offset(-200), lastConfirmedAt }), NOW)).toEqual({ kind: "checked", via: "ADMIN", date: lastConfirmedAt });
   });
 
   it("shows last-run otherwise", () => {
@@ -99,16 +102,104 @@ describe("getStatusLine", () => {
   });
 });
 
+describe("Half-Mind credit", () => {
+  const decided = () => ev({ lastConfirmedVia: "HALF_MIND", lastConfirmedAt: offset(-20), lastRunSeenAt: offset(-200) });
+
+  it("shows the Half-Mind line for a running kennel when the check is what keeps it running", () => {
+    expect(getKennelState(decided(), NOW)).toBe("running");
+    expect(isHalfMindDeciding(decided(), NOW)).toBe(true);
+    expect(getStatusLine(decided(), NOW)).toEqual({ kind: "checked", via: "HALF_MIND", date: offset(-20) });
+  });
+
+  it("stays null when real evidence also keeps it running (Savannah case)", () => {
+    const e = ev({ lastConfirmedVia: "HALF_MIND", lastConfirmedAt: offset(-46), lastRunSeenAt: offset(-47) });
+    expect(isHalfMindDeciding(e, NOW)).toBe(false);
+    expect(getStatusLine(e, NOW)).toBeNull();
+  });
+
+  it("stays null when a run is posted within 60 days", () => {
+    const e = { ...decided(), nextRunPostedAt: offset(10) };
+    expect(getStatusLine(e, NOW)).toBeNull();
+  });
+
+  it("stays null for an ADMIN check", () => {
+    const e = { ...decided(), lastConfirmedVia: "ADMIN" as const };
+    expect(getStatusLine(e, NOW)).toBeNull();
+  });
+
+  it("is false when stopped", () => {
+    expect(isHalfMindDeciding({ ...decided(), stoppedAt: offset(-1) }, NOW)).toBe(false);
+  });
+
+  it("listingOnly shows the newest confirmation even when running", () => {
+    const e = ev({ lastConfirmedVia: "ADMIN", lastConfirmedAt: offset(-5) });
+    expect(getStatusLine(e, NOW, { listingOnly: true })).toEqual({ kind: "checked", via: "ADMIN", date: offset(-5) });
+  });
+
+  it("listingOnly with no confirmation shows never", () => {
+    expect(getStatusLine(ev(), NOW, { listingOnly: true })).toEqual({ kind: "never" });
+  });
+});
+
+describe("halfMindCreditLabel (the share image's label)", () => {
+  const decided = () => ev({ lastConfirmedVia: "HALF_MIND", lastConfirmedAt: offset(-20), lastRunSeenAt: offset(-200) });
+  it("credits Half-Mind when the check is what keeps the kennel running", () => {
+    expect(halfMindCreditLabel(decided(), NOW)).toBe("Half-Mind listing checked · Oct 21");
+  });
+
+  it("credits Half-Mind for a listing-only kennel whose newest check is Half-Mind's, running or not", () => {
+    expect(halfMindCreditLabel(decided(), NOW, { listingOnly: true })).toBe("Half-Mind listing checked · Oct 21");
+    const quiet = ev({ lastConfirmedVia: "HALF_MIND", lastConfirmedAt: offset(-200) });
+    expect(halfMindCreditLabel(quiet, NOW, { listingOnly: true })).toBe("Half-Mind listing checked · Apr 24");
+  });
+
+  it("is null when the kennel's own runs keep it running (Savannah case)", () => {
+    const e = ev({ lastConfirmedVia: "HALF_MIND", lastConfirmedAt: offset(-46), lastRunSeenAt: offset(-47) });
+    expect(halfMindCreditLabel(e, NOW)).toBeNull();
+  });
+
+  it("is null for an ADMIN check, even on a listing-only kennel", () => {
+    expect(halfMindCreditLabel({ ...decided(), lastConfirmedVia: "ADMIN" }, NOW)).toBeNull();
+    expect(halfMindCreditLabel({ ...decided(), lastConfirmedVia: "ADMIN" }, NOW, { listingOnly: true })).toBeNull();
+  });
+
+  it("is null for a stopped kennel, and for a quiet sourced kennel (its state label stays)", () => {
+    expect(halfMindCreditLabel({ ...decided(), stoppedAt: offset(-1) }, NOW, { listingOnly: true })).toBeNull();
+    const quiet = ev({ lastConfirmedVia: "HALF_MIND", lastConfirmedAt: offset(-200), lastRunSeenAt: offset(-300) });
+    expect(halfMindCreditLabel(quiet, NOW)).toBeNull();
+  });
+});
+
 describe("formatStatusLine", () => {
   it("uses MMM d this year and MMM yyyy otherwise", () => {
     const thisYear = new Date("2026-03-05T12:00:00Z");
     const lastYear = new Date("2025-11-20T12:00:00Z");
     expect(formatStatusLine({ kind: "last-run", date: thisYear }, NOW)).toBe("Last run we saw · Mar 5");
     expect(formatStatusLine({ kind: "last-run", date: lastYear }, NOW)).toBe("Last run we saw · Nov 2025");
-    expect(formatStatusLine({ kind: "checked", date: thisYear }, NOW)).toBe("Checked running · Mar 5");
+    expect(formatStatusLine({ kind: "checked", via: "ADMIN", date: thisYear }, NOW)).toBe("Checked running · Mar 5");
+    expect(formatStatusLine({ kind: "checked", via: "HALF_MIND", date: thisYear }, NOW)).toBe("Half-Mind listing checked · Mar 5");
     expect(formatStatusLine({ kind: "next-posted", date: new Date("2027-02-14T12:00:00Z") }, NOW)).toBe("Next run posted · Feb 2027");
     expect(formatStatusLine({ kind: "stopped", date: lastYear }, NOW)).toBe("Stopped · Nov 2025");
     expect(formatStatusLine({ kind: "never" }, NOW)).toBe("No runs seen on HashTracks");
+  });
+});
+
+describe("statusLineParts", () => {
+  const date = new Date("2026-03-05T12:00:00Z");
+
+  it("splits a Half-Mind check line into the listing words and the rest", () => {
+    expect(statusLineParts({ kind: "checked", via: "HALF_MIND", date }, NOW)).toEqual({
+      linkText: "Half-Mind listing",
+      rest: " checked · Mar 5",
+    });
+  });
+
+  it("puts every other line in rest", () => {
+    expect(statusLineParts({ kind: "checked", via: "ADMIN", date }, NOW)).toEqual({ rest: "Checked running · Mar 5" });
+    expect(statusLineParts({ kind: "last-run", date }, NOW)).toEqual({ rest: "Last run we saw · Mar 5" });
+    expect(statusLineParts({ kind: "next-posted", date }, NOW)).toEqual({ rest: "Next run posted · Mar 5" });
+    expect(statusLineParts({ kind: "stopped", date }, NOW)).toEqual({ rest: "Stopped · Mar 5" });
+    expect(statusLineParts({ kind: "never" }, NOW)).toEqual({ rest: "No runs seen on HashTracks" });
   });
 });
 
@@ -140,7 +231,7 @@ describe("where clauses", () => {
 
 describe("serialization", () => {
   it("serialize/toKennelEvidence round-trip", () => {
-    const e = ev({ lastRunSeenAt: offset(-3), stoppedAt: offset(2) });
+    const e = ev({ lastRunSeenAt: offset(-3), stoppedAt: offset(2), lastConfirmedVia: "HALF_MIND" });
     const s = serializeKennelEvidence(e);
     expect(s.lastRunSeenAt).toBe("2026-11-07T12:00:00.000Z");
     expect(s.nextRunPostedAt).toBeNull();
@@ -160,5 +251,14 @@ describe("ownPageFor", () => {
   });
   it("returns null when the kennel has no own page", () => {
     expect(ownPageFor({ kind: "never" }, null, true)).toBeNull();
+  });
+  it("returns the url for a Half-Mind checked line even without showOwnPage", () => {
+    const line = { kind: "checked", via: "HALF_MIND", date: new Date() } as const;
+    expect(ownPageFor(line, url, false)).toBe(url);
+    expect(ownPageFor({ ...line, via: "ADMIN" }, url, false)).toBeNull();
+  });
+  it("returns the url for an ADMIN checked line when showOwnPage is set (listing-only kennels)", () => {
+    const line = { kind: "checked", via: "ADMIN", date: new Date() } as const;
+    expect(ownPageFor(line, url, true)).toBe(url);
   });
 });

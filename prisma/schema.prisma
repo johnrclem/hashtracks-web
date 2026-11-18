@@ -174,6 +174,10 @@ model Kennel {
   nextRunPostedAt    DateTime? // Cached: earliest upcoming real (non-schedule-only) event date; written by Task 3's status refresh
   lastConfirmedAt    DateTime? // Cached: latest un-reverted RUNNING KennelConfirmation.observedAt; written by Task 3's refresh and Task 6's actions
   stoppedAt          DateTime? // Cached: observedAt of an un-reverted STOPPED KennelConfirmation, else null; written by Task 3's refresh and Task 6's actions
+  lastConfirmedVia   ConfirmationVia? // Cached: `via` of the newest un-reverted RUNNING KennelConfirmation
+  /// Created from a Half-Mind listing with no HashTracks evidence yet; cleared by the evidence refresh once a run is seen or posted.
+  listingOnly        Boolean              @default(false)
+  halfMindListingId  String?              @unique
   // Archive cutoff (onboarding backfill design 6.5): while set, the merge drops
   // any other source's row for this kennel dated before it. Set by a backfill
   // run's first advance (archiveCutoffRunId) or by the owner after a step-up.
@@ -919,13 +923,17 @@ model KennelDiscovery {
   externalUrl    String? // "https://hashrego.com/kennels/EWH3/"
 
   // Rich profile data from /api/kennels/{slug}
-  website      String? // "http://www.ewh3.com/"
-  contactEmail String? // "EWH3GMs@gmail.com"
-  yearStarted  Int? // 1999
-  trailPrice   Int? // 10 (in dollars)
-  logoUrl      String? // S3 URL (may be temporary)
-  memberCount  Int? // 283
-  paymentInfo  Json? // {paypal: "email", venmo: "@handle", squareCash: "tag"}
+  website           String? // "http://www.ewh3.com/"
+  contactEmail      String? // "EWH3GMs@gmail.com"
+  yearStarted       Int? // 1999
+  trailPrice        Int? // 10 (in dollars)
+  logoUrl           String? // S3 URL (may be temporary)
+  memberCount       Int? // 283
+  externalStatus    String? // Half-Mind: listing's own status claim (e.g. "active")
+  externalCheckedAt DateTime? // Half-Mind: when the listing was last checked
+  externalScope     String? // Half-Mind scope, e.g. "USA/GA"
+  facebookUrl       String?
+  paymentInfo       Json? // {paypal: "email", venmo: "@handle", squareCash: "tag"}
 
   status          DiscoveryStatus @default(NEW)
   matchedKennelId String?
@@ -1399,6 +1407,11 @@ model TravelDestination {
   @@index([userId, status])
 }
 
+enum ConfirmationVia {
+  ADMIN
+  HALF_MIND
+}
+
 enum KennelConfirmationKind {
   RUNNING
   STOPPED
@@ -1411,6 +1424,7 @@ model KennelConfirmation {
   kennelId           String
   kennel             Kennel                 @relation(fields: [kennelId], references: [id], onDelete: Cascade)
   kind               KennelConfirmationKind
+  via                ConfirmationVia        @default(ADMIN)
   observedAt         DateTime // UTC noon of the day the evidence was observed
   note               String
   url                String?

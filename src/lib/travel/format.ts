@@ -2,7 +2,7 @@
  * Shared formatting helpers for Travel Mode components.
  */
 
-import { formatStatusLine } from "@/lib/kennel-status";
+import { formatStatusLine, type ConfirmationVia } from "@/lib/kennel-status";
 
 /**
  * Format a YYYY-MM-DD string as "Apr 14" by default, or "Mon, Apr 14" with
@@ -320,13 +320,16 @@ export function cityToIata(label: string): string {
  * confirmation ("Checked running · Apr 1"), else the usual schedule.
  */
 export function likelyEvidenceCaption(
-  result: { evidenceTimeline: { totalEvents: number }; checkedRunningAt: string | null },
+  result: { evidenceTimeline: { totalEvents: number }; checkedRunningAt: { date: string; via: ConfirmationVia } | null },
   now: Date = new Date(),
 ): string {
   const n = result.evidenceTimeline.totalEvents;
   if (n > 0) return `${n} run${n === 1 ? "" : "s"} in the last 12 weeks`;
   if (result.checkedRunningAt) {
-    return formatStatusLine({ kind: "checked", date: new Date(result.checkedRunningAt) }, now);
+    return formatStatusLine(
+      { kind: "checked", via: result.checkedRunningAt.via, date: new Date(result.checkedRunningAt.date) },
+      now,
+    );
   }
   return "From their usual schedule";
 }

@@ -92,7 +92,7 @@ export function serializeKennelWithNext<K extends KennelForDirectorySerialize>(
   nextEvent: { date: string; title: string | null; isScheduleOnly: boolean } | null;
   evidence: SerializedKennelEvidence;
 } {
-  const { lastRunSeenAt, nextRunPostedAt, lastConfirmedAt, stoppedAt, ...rest } = kennel;
+  const { lastRunSeenAt, nextRunPostedAt, lastConfirmedAt, lastConfirmedVia, stoppedAt, ...rest } = kennel;
   const next = nextEventMap.get(kennel.id);
   return {
     ...rest,
@@ -100,6 +100,27 @@ export function serializeKennelWithNext<K extends KennelForDirectorySerialize>(
     nextEvent: next
       ? { date: next.date.toISOString(), title: next.title, isScheduleOnly: next.isScheduleOnly }
       : null,
-    evidence: serializeKennelEvidence({ lastRunSeenAt, nextRunPostedAt, lastConfirmedAt, stoppedAt }),
+    evidence: serializeKennelEvidence({ lastRunSeenAt, nextRunPostedAt, lastConfirmedAt, lastConfirmedVia, stoppedAt }),
+  };
+}
+
+/**
+ * Display decisions for a directory card. `noUpcoming`: an ordinary kennel
+ * with no next run, so the card is dimmed and says "No upcoming runs". A
+ * listing-only kennel has no runs by design, so it is neither (its status line
+ * carries the evidence and the link out), and shows the Half-Mind schedule
+ * notes when it has no structured schedule.
+ */
+export function kennelCardView(k: {
+  listingOnly?: boolean | null;
+  scheduleNotes?: string | null;
+  schedule: string | null;
+  hasNextEvent: boolean;
+}): { scheduleText: string | null; noUpcoming: boolean } {
+  const listing = k.listingOnly === true;
+  const notes = k.scheduleNotes?.trim();
+  return {
+    scheduleText: k.schedule ?? (listing && notes ? `Usually: ${notes}` : null),
+    noUpcoming: !k.hasNextEvent && !listing,
   };
 }

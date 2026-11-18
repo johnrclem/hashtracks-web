@@ -6,6 +6,7 @@ import { formatTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceWithWalk, likelyEvidenceCaption } from "@/lib/travel/format";
 import { capture } from "@/lib/analytics";
+import type { ConfirmationVia } from "@/lib/kennel-status";
 import { KennelNameTooltip } from "@/components/shared/KennelNameTooltip";
 import { ConfidenceMeter } from "./ConfidenceMeter";
 import { EvidenceTimeline } from "./EvidenceTimeline";
@@ -25,8 +26,8 @@ interface LikelyCardProps {
     explanation: string;
     evidenceWindow: string;
     evidenceTimeline: { weeks: boolean[]; totalEvents: number };
-    /** ISO date of a recent admin "checked running" confirmation, or null. */
-    checkedRunningAt: string | null;
+    /** A recent "checked running" confirmation (ISO date + who made it), or null. */
+    checkedRunningAt: { date: string; via: ConfirmationVia } | null;
     sourceLinks: { url: string; label: string; type: string }[];
   };
 }

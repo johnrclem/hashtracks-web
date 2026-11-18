@@ -16,10 +16,12 @@ const quiet: OtherKennel = {
     lastRunSeenAt: new Date("2026-06-02T12:00:00Z"),
     nextRunPostedAt: null,
     lastConfirmedAt: null,
+    lastConfirmedVia: null,
     stoppedAt: null,
   },
   ownPageUrl: "https://quiet.example.org/",
   listingOnly: false,
+  halfMindListingId: null,
 };
 
 function results(otherKennels?: OtherKennel[]): SearchResults {
@@ -52,6 +54,7 @@ describe("serializeTravelResults otherKennels", () => {
           lastRunSeenAt: "2026-06-02T12:00:00.000Z",
           nextRunPostedAt: null,
           lastConfirmedAt: null,
+          lastConfirmedVia: null,
           stoppedAt: null,
         },
       },

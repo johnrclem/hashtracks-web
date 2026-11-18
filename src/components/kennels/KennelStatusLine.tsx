@@ -2,9 +2,9 @@
 
 import { OwnPageLink } from "@/components/kennels/OwnPageLink";
 import {
-  formatStatusLine,
   getStatusLine,
   ownPageFor,
+  statusLineParts,
   toKennelEvidence,
   type SerializedKennelEvidence,
 } from "@/lib/kennel-status";
@@ -18,6 +18,10 @@ interface KennelStatusLineProps {
   surface?: "card" | "kennel-page" | "travel";
   /** Link the kennel's own page on dated lines too, not only when we have never seen a run. */
   showOwnPage?: boolean;
+  /** The kennel's Half-Mind listing page; links "Half-Mind listing" on a Half-Mind check line. */
+  listingUrl?: string | null;
+  /** Half-Mind-only kennel: always shows a status line and links its own page. */
+  listingOnly?: boolean;
 }
 
 /**
@@ -32,16 +36,32 @@ export function KennelStatusLine({
   kennelSlug,
   surface = "card",
   showOwnPage = false,
+  listingUrl = null,
+  listingOnly = false,
 }: Readonly<KennelStatusLineProps>) {
   const now = new Date();
-  const line = getStatusLine(toKennelEvidence(evidence), now);
+  const line = getStatusLine(toKennelEvidence(evidence), now, { listingOnly });
   if (!line) return null;
 
-  const ownPage = ownPageFor(line, ownPageUrl, showOwnPage);
+  const ownPage = ownPageFor(line, ownPageUrl, listingOnly || showOwnPage);
+  const { linkText, rest } = statusLineParts(line, now);
 
   return (
     <p className="mt-1.5 text-xs text-muted-foreground">
-      {formatStatusLine(line, now)}
+      {linkText && listingUrl ? (
+        <a
+          href={listingUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="relative z-10 underline underline-offset-2 hover:text-foreground"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {linkText}
+        </a>
+      ) : (
+        linkText
+      )}
+      {rest}
       {ownPage && (
         <>
           {" · "}

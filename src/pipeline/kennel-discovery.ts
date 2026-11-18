@@ -252,47 +252,11 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
     .map((k) => k.slug);
 
   // Step 4: Fetch API profiles (active only) + load kennels/aliases in parallel
-  const [profiles, existingKennels, existingAliases] = await Promise.all([
+  const [profiles, { candidates, geoMap }] = await Promise.all([
     fetchKennelProfiles(activeSlugs),
-    prisma.kennel.findMany({
-      select: {
-        id: true, shortName: true, fullName: true,
-        country: true,
-        regionRef: { select: { centroidLat: true, centroidLng: true } },
-      },
-      where: { isHidden: false },
-      orderBy: { shortName: "asc" },
-    }),
-    prisma.kennelAlias.findMany({
-      select: { kennelId: true, alias: true },
-    }),
+    loadDiscoveryCandidates(),
   ]);
   enriched = profiles.size;
-
-  // Build fuzzy candidates with aliases
-  const aliasMap = new Map<string, string[]>();
-  for (const a of existingAliases) {
-    const existing = aliasMap.get(a.kennelId) || [];
-    existing.push(a.alias);
-    aliasMap.set(a.kennelId, existing);
-  }
-
-  const candidates: FuzzyCandidate[] = existingKennels.map((k) => ({
-    id: k.id,
-    shortName: k.shortName,
-    fullName: k.fullName,
-    aliases: aliasMap.get(k.id),
-  }));
-
-  // Build geo lookup for candidate kennels (region centroid + country)
-  const geoMap = new Map<string, KennelGeoData>();
-  for (const k of existingKennels) {
-    geoMap.set(k.id, {
-      country: k.country,
-      centroidLat: k.regionRef?.centroidLat ?? null,
-      centroidLng: k.regionRef?.centroidLng ?? null,
-    });
-  }
 
   // Look up HASHREGO source once so auto-matches can create SourceKennel rows.
   const hashRegoSource = await prisma.source.findFirst({
@@ -441,6 +405,99 @@ async function updateTerminalDiscovery(
   });
 }
 
+/**
+ * Load every visible kennel (with its aliases) as a fuzzy-match candidate,
+ * plus each kennel's geo context (country + region centroid).
+ */
+export async function loadDiscoveryCandidates(): Promise<{
+  candidates: FuzzyCandidate[];
+  geoMap: Map<string, KennelGeoData>;
+}> {
+  const [existingKennels, existingAliases] = await Promise.all([
+    prisma.kennel.findMany({
+      select: {
+        id: true, shortName: true, fullName: true,
+        country: true,
+        regionRef: { select: { centroidLat: true, centroidLng: true } },
+      },
+      where: { isHidden: false },
+      orderBy: { shortName: "asc" },
+    }),
+    prisma.kennelAlias.findMany({
+      select: { kennelId: true, alias: true },
+    }),
+  ]);
+
+  // Build fuzzy candidates with aliases
+  const aliasMap = new Map<string, string[]>();
+  for (const a of existingAliases) {
+    const existing = aliasMap.get(a.kennelId) || [];
+    existing.push(a.alias);
+    aliasMap.set(a.kennelId, existing);
+  }
+
+  const candidates: FuzzyCandidate[] = existingKennels.map((k) => ({
+    id: k.id,
+    shortName: k.shortName,
+    fullName: k.fullName,
+    aliases: aliasMap.get(k.id),
+  }));
+
+  // Build geo lookup for candidate kennels (region centroid + country)
+  const geoMap = new Map<string, KennelGeoData>();
+  for (const k of existingKennels) {
+    geoMap.set(k.id, {
+      country: k.country,
+      centroidLat: k.regionRef?.centroidLat ?? null,
+      centroidLng: k.regionRef?.centroidLng ?? null,
+    });
+  }
+  return { candidates, geoMap };
+}
+
+/** A ranked match candidate; `score` is the geo-adjusted score. */
+export interface RankedCandidate {
+  id: string;
+  shortName: string;
+  score: number;
+}
+
+/**
+ * Rank existing kennels against a discovery's names: the best fuzzy score per
+ * kennel across all names, geo-adjusted, top 3 at any score, best first.
+ * Scores are unclamped (they can exceed 1 or drop below 0) so ranking and
+ * thresholds keep full fidelity; store them through `roundMatchScore`.
+ */
+export function rankDiscoveryCandidates(
+  names: string[],
+  geo: DiscoveryGeoContext,
+  candidates: FuzzyCandidate[],
+  geoMap: Map<string, KennelGeoData>,
+): RankedCandidate[] {
+  // Limit 5 per name so more candidates survive geo filtering
+  const bestByKennel = new Map<string, RankedCandidate>();
+  for (const m of names.flatMap((name) => fuzzyMatch(name, candidates, 5))) {
+    const existing = bestByKennel.get(m.id);
+    if (!existing || m.score > existing.score) {
+      bestByKennel.set(m.id, m);
+    }
+  }
+
+  // Apply geo penalty to each candidate's text score (unclamped for ranking fidelity)
+  const geoAdjusted = [...bestByKennel.values()].map((m) => {
+    const candidateGeo = geoMap.get(m.id);
+    const rawScore = candidateGeo ? applyGeoPenalty(m.score, geo, candidateGeo) : m.score;
+    return { ...m, score: rawScore };
+  });
+
+  return geoAdjusted.toSorted((a, b) => b.score - a.score).slice(0, 3);
+}
+
+/** Clamp a ranked score to [0, 1] and round it to 2 decimals, for persistence/display. */
+export function roundMatchScore(score: number): number {
+  return Math.round(Math.min(1, Math.max(0, score)) * 100) / 100;
+}
+
 /** Compute fuzzy match result for a discovered kennel against existing DB kennels. */
 function computeMatchResult(
   kennel: DiscoveredKennel,
@@ -448,47 +505,25 @@ function computeMatchResult(
   candidates: FuzzyCandidate[],
   geoMap: Map<string, KennelGeoData>,
 ): MatchResult {
-  // Increase limit from 3 → 5 so more candidates survive geo filtering
-  const slugMatches = fuzzyMatch(kennel.slug, candidates, 5);
-  const nameMatches = fuzzyMatch(profile?.name || kennel.name, candidates, 5);
-
-  const allMatches = [...slugMatches, ...nameMatches];
-  const bestByKennel = new Map<string, { id: string; shortName: string; score: number }>();
-  for (const m of allMatches) {
-    const existing = bestByKennel.get(m.id);
-    if (!existing || m.score > existing.score) {
-      bestByKennel.set(m.id, m);
-    }
-  }
-
   // Build discovery geo context from directory coords + profile country
   const discoveryGeo: DiscoveryGeoContext = {
     lat: kennel.latitude ?? null,
     lng: kennel.longitude ?? null,
     country: profile?.country ?? parseCountryFromLocation(kennel.location),
   };
-
-  // Apply geo penalty to each candidate's text score (unclamped for ranking fidelity)
-  const geoAdjusted = [...bestByKennel.values()].map((m) => {
-    const candidateGeo = geoMap.get(m.id);
-    const rawScore = candidateGeo
-      ? applyGeoPenalty(m.score, discoveryGeo, candidateGeo)
-      : m.score;
-    return { ...m, score: rawScore };
-  });
-
-  // Rank on unclamped scores for tie-breaking fidelity
-  const ranked = geoAdjusted.toSorted((a, b) => b.score - a.score);
+  const ranked = rankDiscoveryCandidates(
+    [kennel.slug, profile?.name || kennel.name],
+    discoveryGeo,
+    candidates,
+    geoMap,
+  );
   const best = ranked[0];
-
-  // Clamp to [0, 1] only for persistence/display
-  const clamp = (s: number) => Math.min(1, Math.max(0, s));
 
   if (best && best.score >= AUTO_MATCH_THRESHOLD) {
     return {
       status: "MATCHED",
       matchedKennelId: best.id,
-      matchScore: Math.round(clamp(best.score) * 100) / 100,
+      matchScore: roundMatchScore(best.score),
       matchCandidates: Prisma.DbNull,
     };
   }
@@ -497,11 +532,10 @@ function computeMatchResult(
     return {
       status: "NEW",
       matchedKennelId: null,
-      matchScore: Math.round(clamp(best.score) * 100) / 100,
+      matchScore: roundMatchScore(best.score),
       matchCandidates: ranked
         .filter((m) => m.score >= CANDIDATE_THRESHOLD)
-        .slice(0, 3)
-        .map((m) => ({ id: m.id, shortName: m.shortName, score: Math.round(clamp(m.score) * 100) / 100 })) as unknown as Prisma.InputJsonValue,
+        .map((m) => ({ id: m.id, shortName: m.shortName, score: roundMatchScore(m.score) })) as unknown as Prisma.InputJsonValue,
     };
   }
 
