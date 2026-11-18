@@ -10,6 +10,7 @@
 import type { AutomationStatus, AutomationVerdict } from "@/generated/prisma/client";
 import { automationLabel, loadFailedMigrations, PROMOTER_MAX_PENDING_HOURS } from "@/lib/automation-registry";
 import { prisma } from "@/lib/db";
+import { buildBackfillDigest, ownerSecondFactors, type BackfillDigest, type SecondFactorStatus } from "@/lib/backfill/digest";
 import { isWaitingOnOwner, opsGithubFromEnv, type OpsGithub } from "@/lib/ops-github";
 
 export interface FailingSource {
@@ -86,6 +87,14 @@ export interface OpsDigest {
    * deploy until the owner runs `prisma migrate resolve` (docs/ops/system.md#migrations).
    */
   failedMigrations: FailedMigration[];
+  /**
+   * Onboarding backfill runs (design 11.2): blocked, halted or failed runs, leak flags, archive
+   * drops, status-line changes and the watch cron's heartbeat. Null if the block failed to load,
+   * so a backfill bug never hides the rest of the digest.
+   */
+  backfills: BackfillDigest | null;
+  /** The owner's second factors through Clerk (10.3); null when OWNER_CLERK_USER_ID is unset or Clerk failed. */
+  ownerSecondFactors: SecondFactorStatus | null;
   /** Overdue first, then blocked on the owner, unknown and OK. */
   watchdog: WatchdogState[];
   /**
@@ -226,8 +235,21 @@ export async function buildOpsDigest(
 
   const s = scrapeRows[0] ?? {};
   const q = queueRows[0] ?? {};
+  const [backfills, secondFactors] = await Promise.all([
+    buildBackfillDigest(now).catch((err) => {
+      console.error("[ops-digest] backfills block failed:", err);
+      return null;
+    }),
+    ownerSecondFactors().catch((err) => {
+      console.error("[ops-digest] second-factor check failed:", err);
+      return null;
+    }),
+  ]);
+
   return {
     generatedAt: now.toISOString(),
+    backfills,
+    ownerSecondFactors: secondFactors,
     scrapes24h: {
       runs: num(s.runs),
       failed: num(s.failed),

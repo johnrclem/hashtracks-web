@@ -16,6 +16,7 @@ import {
   Bell,
   BarChart3,
   ShieldCheck,
+  History,
   Target,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -42,6 +43,7 @@ export const TAB_ROUTES: TabRoute[] = [
   { value: "events", href: "/admin/events", label: "Events", icon: Calendar, description: "Browse, filter, and manage canonical events." },
   { value: "alerts", href: "/admin/alerts", label: "Alerts", icon: Bell, description: "Monitor source health alerts and take repair actions." },
   { value: "audit", href: "/admin/audit", label: "Audit", icon: ShieldCheck, description: "Daily data quality audit trends, top offenders, and suppressions." },
+  { value: "backfills", href: "/admin/backfills", label: "Backfills", icon: History, description: "Onboarding backfill runs: plans, applies, verification, undo and archive cutoffs." },
   { value: "analytics", href: "/admin/analytics", label: "Analytics", icon: BarChart3, description: "Community health, user engagement, and operational metrics." },
   { value: "predictions", href: "/admin/predictions", label: "Predictions", icon: Target, description: "Travel Mode forward-prediction ledger, rule-drift findings, and schedule-rule coverage." },
 ];
