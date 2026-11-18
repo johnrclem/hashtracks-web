@@ -51,7 +51,7 @@ import { PrismaClient, type Source } from "@/generated/prisma/client";
 import { getAdapter } from "@/adapters/registry";
 import { backfillLastEventDates } from "@/pipeline/backfill-last-event";
 import { createScriptPool } from "./lib/db-pool";
-import { deleteLeakedEvent } from "./lib/delete-leaked-event";
+import { deleteLeakedEvent } from "@/lib/delete-leaked-event";
 
 const EXECUTE = process.argv.includes("--execute");
 const KENNEL_CODE = "pedalfiles";

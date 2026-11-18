@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import * as Sentry from "@sentry/nextjs";
-import { verifyCronAuth } from "@/lib/cron-auth";
+import { withCronRun } from "@/lib/cron-run";
 import { purgeExpiredStravaCache } from "@/lib/strava/sync";
 import { STRAVA_CACHE_TTL_HOURS } from "@/lib/strava/constants";
 
@@ -17,35 +16,19 @@ import { STRAVA_CACHE_TTL_HOURS } from "@/lib/strava/constants";
  * Triggered by Vercel Cron (GET) or QStash (POST) or manually with
  * Bearer CRON_SECRET.
  */
-export async function POST(request: Request) {
-  const auth = await verifyCronAuth(request);
-  if (!auth.authenticated) {
-    return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    const result = await purgeExpiredStravaCache();
-    console.log(
-      `[strava-cache-purge] deleted ${result.deleted} cached activities fetched before ${result.olderThan.toISOString()}`,
-    );
-    return NextResponse.json({
-      data: {
-        deleted: result.deleted,
-        olderThan: result.olderThan.toISOString(),
-        ttlHours: STRAVA_CACHE_TTL_HOURS,
-      },
-    });
-  } catch (err) {
-    console.error("[strava-cache-purge] failed:", err);
-    Sentry.captureException(err);
-    return NextResponse.json(
-      { data: null, error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
-}
+export const POST = withCronRun("cron:strava-cache-purge", async () => {
+  const result = await purgeExpiredStravaCache();
+  console.log(
+    `[strava-cache-purge] deleted ${result.deleted} cached activities fetched before ${result.olderThan.toISOString()}`,
+  );
+  return NextResponse.json({
+    data: {
+      deleted: result.deleted,
+      olderThan: result.olderThan.toISOString(),
+      ttlHours: STRAVA_CACHE_TTL_HOURS,
+    },
+  });
+});
 
 /** Vercel Cron triggers GET requests. */
-export async function GET(request: Request) {
-  return POST(request);
-}
+export const GET = POST;

@@ -26,7 +26,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["node-ical"],
+  // libpg-query loads a WASM parser; the backfill plan (G17) runs it in server routes.
+  serverExternalPackages: ["node-ical", "libpg-query"],
   images: {
     // FIRST-PARTY ONLY. The public `/_next/image` optimizer fetches whatever
     // URL it's handed, so a wildcard host would expose an arbitrary-HTTPS

@@ -143,6 +143,15 @@ describe("scrapeSource", () => {
     await expect(scrapeSource("missing_id")).rejects.toThrow("Source not found");
   });
 
+  it("refuses an archive source, forced or not, before logging or deleting anything", async () => {
+    for (const force of [false, true]) {
+      mockSourceFind.mockResolvedValueOnce({ ...fakeSource, archiveOnly: true, enabled: false } as never);
+      await expect(scrapeSource("src_archive", { force })).rejects.toThrow("archive source");
+    }
+    expect(prisma.scrapeLog.create).not.toHaveBeenCalled();
+    expect(prisma.rawEvent.deleteMany).not.toHaveBeenCalled();
+  });
+
   it("creates ScrapeLog record", async () => {
     await scrapeSource("src_1");
     expect(mockLogCreate).toHaveBeenCalledWith(

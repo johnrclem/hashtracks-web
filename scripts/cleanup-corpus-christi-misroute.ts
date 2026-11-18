@@ -44,7 +44,7 @@ import { backfillLastEventDates } from "@/pipeline/backfill-last-event";
 import { resolveUpdatedTitle } from "@/pipeline/merge";
 import { GoogleCalendarAdapter } from "@/adapters/google-calendar/adapter";
 import type { Source } from "@/generated/prisma/client";
-import { deleteLeakedEvent } from "./lib/delete-leaked-event";
+import { deleteLeakedEvent } from "@/lib/delete-leaked-event";
 
 /** Kennel display fields needed to synthesize/rewrite a title on reassignment. */
 interface KennelMeta {

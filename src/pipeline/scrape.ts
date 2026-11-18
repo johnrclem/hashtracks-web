@@ -356,6 +356,12 @@ export async function scrapeSource(
   if (!source) {
     throw new Error(`Source not found: ${sourceId}`);
   }
+  // An archive source holds a backfill's rows and nothing else (onboarding
+  // backfill design 6.5). A scrape, and above all a forced one, which
+  // hard-deletes the source's RawEvents, would destroy that history.
+  if (source.archiveOnly) {
+    throw new Error(`Source ${sourceId} is an archive source; archive sources are never scraped`);
+  }
 
   const days = options?.days ?? source.scrapeDays ?? 90;
 
@@ -598,6 +604,14 @@ export async function scrapeSource(
     if (slugMapScopeMismatch) diagnosticContext.slugMapScopeMismatch = true;
     if (mergeResult.restored > 0) diagnosticContext.eventsRestored = mergeResult.restored;
     if (silentSkip.skipped > 0) diagnosticContext.silentlySkipped = silentSkip;
+    if ((mergeResult.archiveCutoffDropped ?? 0) + (mergeResult.archiveCorrectionSkipped ?? 0) > 0) {
+      // Rows dropped by a kennel's archive cutoff (design 6.5), for the digest.
+      diagnosticContext.archiveCutoff = {
+        dropped: mergeResult.archiveCutoffDropped ?? 0,
+        correctionSkipped: mergeResult.archiveCorrectionSkipped ?? 0,
+        byKennel: mergeResult.archiveDropsByKennel ?? {},
+      };
+    }
 
     await updateScrapeLogWithResults({
       scrapeLogId: scrapeLog.id, startedAt, scrapeResult, mergeResult,

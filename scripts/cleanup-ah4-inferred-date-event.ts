@@ -26,7 +26,7 @@
 
 import "dotenv/config";
 import { prisma } from "@/lib/db";
-import { deleteLeakedEvent } from "./lib/delete-leaked-event";
+import { deleteLeakedEvent } from "@/lib/delete-leaked-event";
 
 const SOURCE_NAME = "Atlanta Hash Board";
 const KENNEL_CODE = "ah4";

@@ -41,7 +41,7 @@ import {
   deleteLeakedEvent,
   DeleteSafetyViolationError,
   ForeignRawSourceError,
-} from "./lib/delete-leaked-event";
+} from "@/lib/delete-leaked-event";
 
 const KENNEL_CODE = "vth3";
 export const PLACEHOLDER_TITLE_PREFIX = "Future VTH3 Run";
