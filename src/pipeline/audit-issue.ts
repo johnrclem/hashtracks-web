@@ -322,7 +322,8 @@ async function getExistingAuditIssueTitles(token: string): Promise<string[]> {
     const lastSync = latest._max.syncedAt;
     if (lastSync && Date.now() - lastSync.getTime() < MIRROR_STALE_MS) {
       const openIssues = await prisma.auditIssue.findMany({
-        where: { state: "open", delistedAt: null },
+        // The same corpus as the GitHub fallback below: issues labelled `audit`.
+        where: { state: "open", delistedAt: null, hasAuditLabel: true },
         select: { title: true },
       });
       return openIssues.map((i: { title: string }) => i.title);

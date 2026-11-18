@@ -1,4 +1,6 @@
-import type { MockInstance } from "vitest";
+vi.mock("@/lib/ops-github", () => ({ opsGithubFromEnv: vi.fn() }));
+
+import { opsGithubFromEnv } from "@/lib/ops-github";
 import {
   detectRuleDrift,
   dominantWeekday,
@@ -157,30 +159,33 @@ describe("detectRuleDrift — LOW cadence sentinel suppression (#2454)", () => {
 
 describe("fileRuleDriftIssue", () => {
   const finding = { kennelCode: "nych3", shortName: "NYCH3", region: "New York City, NY", predictedWeekdays: ["Mon"], actualWeekday: "Sat", actualShare: 0.8, recentEventCount: 5, activeRules: "FREQ=WEEKLY;BYDAY=MO" } as unknown as DriftFinding;
-  let fetchSpy: MockInstance<typeof fetch>;
+  const github = { listIssues: vi.fn(), createIssue: vi.fn() };
 
   beforeEach(() => {
-    process.env.GITHUB_TOKEN = "test-token";
-  });
-  afterEach(() => {
-    fetchSpy.mockRestore();
-    delete process.env.GITHUB_TOKEN;
+    vi.mocked(opsGithubFromEnv).mockReturnValue(github as never);
+    github.listIssues.mockReset();
+    github.createIssue.mockReset();
   });
 
   it("files one issue in the defect lane when none is open", async () => {
-    fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ number: 1 }), { status: 201 }));
+    github.listIssues.mockResolvedValue([]);
+    github.createIssue.mockResolvedValue(1);
     expect(await fileRuleDriftIssue([finding])).toEqual({ filed: true, reason: "issue created" });
-    const body = JSON.parse(String(fetchSpy.mock.calls[1][1]?.body));
-    expect(body.labels).toEqual(["rule-drift", "lane:defect"]);
-    expect(body.body).toContain("NYCH3");
+    expect(github.listIssues).toHaveBeenCalledWith({ labels: "rule-drift", state: "open", limit: 1 });
+    const issue = github.createIssue.mock.calls[0][0];
+    expect(issue.labels).toEqual(["rule-drift", "lane:defect"]);
+    expect(issue.body).toContain("NYCH3");
   });
 
   it("files nothing while a rule-drift issue is open", async () => {
-    fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("[{}]", { status: 200 }));
+    github.listIssues.mockResolvedValue([{ number: 9 }]);
     expect(await fileRuleDriftIssue([finding])).toEqual({ filed: false, reason: "open rule-drift issue exists" });
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(github.createIssue).not.toHaveBeenCalled();
+  });
+
+  it("files nothing when GitHub can't answer the dedup check", async () => {
+    github.listIssues.mockRejectedValue(new Error("HTTP 502"));
+    expect((await fileRuleDriftIssue([finding])).filed).toBe(false);
+    expect(github.createIssue).not.toHaveBeenCalled();
   });
 });

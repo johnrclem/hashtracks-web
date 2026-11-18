@@ -22,19 +22,19 @@ import {
   AUDIT_LABEL,
   LANE_LABEL_META,
   LANE_LABELS,
-  LANES,
+  isLane,
   NEEDS_DECISION_LABEL,
   ONBOARDING_CANDIDATE_LABEL,
   laneForRule,
-  parseLaneLabel,
   type Lane,
 } from "@/lib/audit-labels";
 import { parseAuditIdentity } from "@/lib/audit-canonical";
 import { getValidatedRepo } from "@/lib/github-repo";
+import { extractLabelNames, resolveLane, type GitHubIssue } from "@/pipeline/audit-issue-sync";
+import { DRIFT_LABEL } from "@/pipeline/rule-drift";
 
 const ALERT_LABEL = "alert";
 const FIXER_SKIP_LABEL = "audit-fixer:skip";
-const RULE_DRIFT_LABEL = "rule-drift";
 const USER_FEEDBACK_LABEL = "user-feedback";
 const ENHANCEMENT_LABEL = "enhancement";
 
@@ -74,9 +74,10 @@ export interface PlannedChange {
  */
 export function proposeLane(issue: OpenIssue): Proposal {
   const labels = new Set(issue.labels);
-  const lanes = [...labels].map(parseLaneLabel).filter((lane): lane is Lane => lane !== null);
-  if (lanes.length > 1) return { lane: null, reason: `conflict: ${lanes.join(", ")}`, conflict: true };
-  if (lanes.length === 1) return { lane: lanes[0], reason: "already labelled" };
+  // The same one-lane rule the mirror applies.
+  const existing = resolveLane(issue.labels);
+  if (existing.conflict) return { lane: null, reason: "conflict: more than one lane label", conflict: true };
+  if (existing.lane) return { lane: existing.lane, reason: "already labelled" };
 
   if (labels.has(NEEDS_DECISION_LABEL)) return { lane: "decision", reason: NEEDS_DECISION_LABEL };
   if (labels.has(ONBOARDING_CANDIDATE_LABEL)) return { lane: "coverage", reason: ONBOARDING_CANDIDATE_LABEL };
@@ -90,7 +91,7 @@ export function proposeLane(issue: OpenIssue): Proposal {
     if (labels.has(FIXER_SKIP_LABEL)) return { lane: "decision", reason: FIXER_SKIP_LABEL };
     return { lane: "defect", reason: ruleSlug ? `rule ${ruleSlug}` : "audit finding" };
   }
-  if (labels.has(RULE_DRIFT_LABEL)) return { lane: "defect", reason: RULE_DRIFT_LABEL };
+  if (labels.has(DRIFT_LABEL)) return { lane: "defect", reason: DRIFT_LABEL };
   if (labels.has(USER_FEEDBACK_LABEL)) return { lane: "decision", reason: USER_FEEDBACK_LABEL };
   if (labels.has(ENHANCEMENT_LABEL)) return { lane: "decision", reason: ENHANCEMENT_LABEL };
   return { lane: null, reason: "no rule matches; pass --set" };
@@ -127,8 +128,8 @@ export function parseArgs(args: readonly string[]): { apply: boolean; overrides:
     if (arg !== "--set") return null;
     const match = /^(\d+)=([a-z]+)$/.exec(args[i + 1] ?? "");
     const lane = match?.[2];
-    if (!match || !lane || !(LANES as readonly string[]).includes(lane)) return null;
-    overrides.set(Number(match[1]), lane as Lane);
+    if (!match || !lane || !isLane(lane)) return null;
+    overrides.set(Number(match[1]), lane);
     i += 1;
   }
   return { apply, overrides };
@@ -191,7 +192,7 @@ async function fetchOpenIssues(token: string): Promise<OpenIssue[]> {
       number: number;
       title: string;
       body: string | null;
-      labels: Array<{ name: string } | string>;
+      labels: GitHubIssue["labels"];
       pull_request?: unknown;
     }>;
     for (const raw of batch) {
@@ -200,7 +201,7 @@ async function fetchOpenIssues(token: string): Promise<OpenIssue[]> {
         number: raw.number,
         title: raw.title,
         body: raw.body ?? "",
-        labels: raw.labels.map((l) => (typeof l === "string" ? l : l.name)),
+        labels: extractLabelNames(raw.labels),
       });
     }
     if (batch.length < PER_PAGE) return issues.sort((a, b) => a.number - b.number);

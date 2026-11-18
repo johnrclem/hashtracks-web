@@ -81,10 +81,10 @@ const SK_KEY_RE = /\bsk_(?:live|test)_\w{16,}/g;
  * API keys (`AIza…`), bearer tokens, GitHub tokens and Clerk/Stripe-style `sk_live_`/`sk_test_`
  * keys. Rules run in order, so later ones see earlier placeholders.
  */
-export function scrubSecrets(text: string): { text: string; removals: number } {
-  let removals = 0;
+export function scrubSecrets(text: string): { text: string; redactions: number } {
+  let redactions = 0;
   const replace = (): string => {
-    removals += 1;
+    redactions += 1;
     return SECRET_PLACEHOLDER;
   };
 
@@ -104,7 +104,7 @@ export function scrubSecrets(text: string): { text: string; removals: number } {
     .replaceAll(GITHUB_TOKEN_RE, replace)
     .replaceAll(SK_KEY_RE, replace);
 
-  return { text: result, removals };
+  return { text: result, redactions };
 }
 
 // ── Personal data ──
@@ -260,7 +260,7 @@ export function scrubForGitHub(
 ): { text: string; redactions: number } {
   const secrets = scrubSecrets(text);
   const personal = redactPersonalData(secrets.text, kennelWebsite);
-  return { text: personal.text, redactions: secrets.removals + personal.redactions };
+  return { text: personal.text, redactions: secrets.redactions + personal.redactions };
 }
 
 /**

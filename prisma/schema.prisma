@@ -1096,7 +1096,6 @@ model AuditIssue {
   @@index([kennelCode])
   @@index([delistedAt])
   @@index([fingerprint])
-  @@index([lane, state])
 }
 
 // Single-use, payload-bound nonces minted by /api/audit/mint-filing-nonce

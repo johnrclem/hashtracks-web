@@ -9,6 +9,4 @@ SET LOCAL lock_timeout = '5s';
 ALTER TABLE "AuditIssue" ADD COLUMN "lane" TEXT,
 ADD COLUMN "hasAuditLabel" BOOLEAN NOT NULL DEFAULT true;
 
-CREATE INDEX "AuditIssue_lane_state_idx" ON "AuditIssue"("lane", "state");
-
 COMMIT;

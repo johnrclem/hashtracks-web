@@ -235,7 +235,7 @@ export function resolveKennel(
 }
 
 /** The labels whose issues the mirror holds: `audit` and every lane. */
-export const MIRRORED_LABELS: readonly string[] = [AUDIT_LABEL, ...Object.values(LANE_LABELS)];
+const MIRRORED_LABELS: readonly string[] = [AUDIT_LABEL, ...Object.values(LANE_LABELS)];
 
 /**
  * Paginate the GitHub Issues API for issues with `label`, in any state.
@@ -497,14 +497,9 @@ export async function syncAuditIssues(): Promise<SyncResult> {
         }
 
         // Same rule for two lane labels: keep the prior lane and report it.
-        let lane: string | null;
+        const lane = laneResolution.conflict ? (prior?.lane ?? null) : laneResolution.lane;
         if (laneResolution.conflict) {
-          lane = prior?.lane ?? null;
-          result.errors.push(
-            `#${issue.number}: more than one lane label — preserving prior lane=${lane ?? "none"}`,
-          );
-        } else {
-          lane = laneResolution.lane;
+          result.errors.push(`#${issue.number}: more than one lane label — preserving prior lane=${lane ?? "none"}`);
         }
 
         const newEvents = diffIssue(

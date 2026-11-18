@@ -99,7 +99,7 @@ describe("fileAuditIssues", () => {
     await fileAuditIssues([buildGroup()]);
 
     expect(mockFindMany).toHaveBeenCalledWith({
-      where: { state: "open", delistedAt: null },
+      where: { state: "open", delistedAt: null, hasAuditLabel: true },
       select: { title: true },
     });
   });

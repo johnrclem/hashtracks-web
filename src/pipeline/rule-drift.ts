@@ -19,10 +19,9 @@
  */
 import type { Prisma, PrismaClient, ScheduleConfidence } from "@/generated/prisma/client";
 import { LANE_LABELS } from "@/lib/audit-labels";
-import { scrubSecrets } from "@/lib/audit-redact";
 import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
 import { EVENT_ELIGIBILITY_SELECT, isEligibleActual } from "@/lib/event-eligibility";
-import { getValidatedRepo } from "@/lib/github-repo";
+import { opsGithubFromEnv } from "@/lib/ops-github";
 import { windowOverlapsSeason } from "@/lib/schedule-season";
 import { projectTrails, type ScheduleRuleInput } from "@/lib/travel/projections";
 
@@ -235,7 +234,7 @@ export async function writeRuleDriftSnapshot(prisma: PrismaClient, findings: Dri
 // ── GitHub issue ──────────────────────────────────────────────────────────────
 
 /** The origin label; rule-drift issues dedupe on it. */
-const DRIFT_LABEL = "rule-drift";
+export const DRIFT_LABEL = "rule-drift";
 
 function renderIssueBody(findings: DriftFinding[]): string {
   const rows = findings
@@ -265,36 +264,19 @@ function renderIssueBody(findings: DriftFinding[]): string {
  * records its snapshot and run.
  */
 export async function fileRuleDriftIssue(findings: DriftFinding[]): Promise<{ filed: boolean; reason: string }> {
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) return { filed: false, reason: "no GITHUB_TOKEN" };
-  const repo = getValidatedRepo();
-  const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json", "Content-Type": "application/json" };
-
-  // A fetch timeout/abort REJECTS rather than returning a non-OK Response, so wrap the calls and
-  // convert any throw into a "don't file" reason — a transient GitHub error must degrade gracefully,
-  // not bubble up and 500 the cron (Codex review on PR #2169).
+  const github = opsGithubFromEnv();
+  if (!github) return { filed: false, reason: "no GITHUB_TOKEN" };
+  // Any GitHub failure (timeout, non-2xx) throws GithubUnavailableError; it becomes a "don't file"
+  // reason, so a transient error neither 500s the cron (Codex review on PR #2169) nor falls through
+  // a failed dedup check to a possibly-duplicate issue. The client scrubs secrets from what it posts.
   try {
-    // Dedup: skip if an open rule-drift issue already exists. Bail out (don't file) if the check
-    // itself fails — a transient non-2xx must NOT fall through to POSTing a possibly-duplicate issue.
-    const existing = await fetch(
-      `https://api.github.com/repos/${repo}/issues?state=open&labels=${encodeURIComponent(DRIFT_LABEL)}&per_page=1`,
-      { headers, signal: AbortSignal.timeout(15_000) },
-    );
-    if (!existing.ok) return { filed: false, reason: `github dedup check failed: ${existing.status}` };
-    const open = (await existing.json()) as unknown[];
-    if (Array.isArray(open) && open.length > 0) return { filed: false, reason: "open rule-drift issue exists" };
-
-    const res = await fetch(`https://api.github.com/repos/${repo}/issues`, {
-      method: "POST",
-      headers,
-      signal: AbortSignal.timeout(15_000),
-      body: JSON.stringify({
-        title: `Schedule-rule drift: ${findings.length} kennel(s) predicting the wrong weekday`,
-        body: scrubSecrets(renderIssueBody(findings)).text,
-        labels: [DRIFT_LABEL, LANE_LABELS.defect],
-      }),
+    const open = await github.listIssues({ labels: DRIFT_LABEL, state: "open", limit: 1 });
+    if (open.length > 0) return { filed: false, reason: "open rule-drift issue exists" };
+    await github.createIssue({
+      title: `Schedule-rule drift: ${findings.length} kennel(s) predicting the wrong weekday`,
+      body: renderIssueBody(findings),
+      labels: [DRIFT_LABEL, LANE_LABELS.defect],
     });
-    if (!res.ok) return { filed: false, reason: `github ${res.status}` };
     return { filed: true, reason: "issue created" };
   } catch (err) {
     return { filed: false, reason: `github request failed: ${err instanceof Error ? err.message : "unknown"}` };

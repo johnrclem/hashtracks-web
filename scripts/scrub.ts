@@ -38,8 +38,9 @@ export interface ScrubOptions {
 
 /** Remove secrets, then (unless `secretsOnly`) phone numbers and email addresses. */
 export function scrub(text: string, options: ScrubOptions = {}): { text: string; removals: number } {
-  if (options.secretsOnly) return scrubSecrets(text);
-  const { text: scrubbed, redactions } = scrubForGitHub(text, options.kennelWebsite);
+  const { text: scrubbed, redactions } = options.secretsOnly
+    ? scrubSecrets(text)
+    : scrubForGitHub(text, options.kennelWebsite);
   return { text: scrubbed, removals: redactions };
 }
 

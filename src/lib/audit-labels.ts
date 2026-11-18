@@ -79,11 +79,15 @@ export const LANE_LABELS = {
 
 export type LaneLabelName = (typeof LANE_LABELS)[Lane];
 
+export function isLane(value: string): value is Lane {
+  return (LANES as readonly string[]).includes(value);
+}
+
 /** Match a lane label and return its lane, or null. */
 export function parseLaneLabel(label: string): Lane | null {
   if (!label.startsWith(LANE_PREFIX)) return null;
   const lane = label.slice(LANE_PREFIX.length);
-  return (LANES as readonly string[]).includes(lane) ? (lane as Lane) : null;
+  return isLane(lane) ? lane : null;
 }
 
 /**
@@ -117,10 +121,10 @@ export function auditIssueLabels(input: {
   ruleSlug: string;
   requestedLabels?: readonly string[];
 }): string[] {
-  const lane: Lane = input.requestedLabels?.includes(LANE_LABELS.decision)
-    ? "decision"
-    : laneForRule(input.ruleSlug);
-  const stream = STREAM_LABEL_BY_STREAM[input.stream];
+  // A requested lane (validated at submit against AGENT_REQUESTABLE_LABELS) wins over the rule's.
+  const requested = (input.requestedLabels ?? []).map(parseLaneLabel).find((lane) => lane !== null);
+  const lane: Lane = requested ?? laneForRule(input.ruleSlug);
+  const stream = input.stream === AUDIT_STREAM.UNKNOWN ? null : STREAM_LABELS[input.stream];
   return [
     AUDIT_LABEL,
     ...(stream ? [stream] : []),
@@ -141,14 +145,6 @@ export type StreamLabelName = (typeof STREAM_LABELS)[AuditStreamKey];
 
 /** All stream sub-labels as a flat array for `.includes()` checks during sync. */
 export const ALL_STREAM_LABELS: readonly string[] = Object.values(STREAM_LABELS);
-
-/** UNKNOWN has no sub-label: it's what an issue without one mirrors as. */
-const STREAM_LABEL_BY_STREAM: Record<AuditStream, StreamLabelName | null> = {
-  [AUDIT_STREAM.AUTOMATED]: STREAM_LABELS.AUTOMATED,
-  [AUDIT_STREAM.CHROME_EVENT]: STREAM_LABELS.CHROME_EVENT,
-  [AUDIT_STREAM.CHROME_KENNEL]: STREAM_LABELS.CHROME_KENNEL,
-  [AUDIT_STREAM.UNKNOWN]: null,
-};
 
 /** Build the kennel attribution label for a given kennelCode. */
 export function kennelLabel(kennelCode: string): string {

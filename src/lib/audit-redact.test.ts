@@ -317,7 +317,7 @@ describe("scrubSecrets", () => {
     const text = `https://example.com/x?API_KEY=one&token=two\nBearer abcdefghijklmnopq\n${FAKE_GOOGLE_KEY}`;
     expect(scrubSecrets(text)).toEqual({
       text: "https://example.com/x?API_KEY=[secret]&token=[secret]\nBearer [secret]\n[secret]",
-      removals: 4,
+      redactions: 4,
     });
   });
 });

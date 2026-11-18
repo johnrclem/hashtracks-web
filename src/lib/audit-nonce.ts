@@ -113,7 +113,7 @@ export interface DraftContentParts {
   ruleSlug: string;
   eventIds: readonly string[];
   bodyMarkdown: string;
-  /** Labels the agent requested (`lane:decision`), if any. */
+  /** Labels the agent requested (`lane:decision`), if any, without duplicates. */
   labels?: readonly string[];
 }
 
@@ -121,7 +121,7 @@ export function computeDraftContentHash(parts: DraftContentParts): string {
   const sortedEventIds = [...parts.eventIds].sort((a, b) => a.localeCompare(b));
   // Requested labels count only when present, so a finding without any hashes as it
   // always did, and a later request for `lane:decision` queues instead of deduping away.
-  const labels = [...new Set(parts.labels ?? [])].sort((a, b) => a.localeCompare(b));
+  const labels = [...(parts.labels ?? [])].sort((a, b) => a.localeCompare(b));
   const canonical = JSON.stringify([
     parts.stream,
     parts.kennelCode,
