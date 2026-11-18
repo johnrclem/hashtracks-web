@@ -3259,3 +3259,9 @@ Verified by `curl` of `https://lagosh3.com/wp-json/wp/v2/posts?per_page=100` (69
 - **Format:** `#N Sunday Month D - Hare` with no year, a `2026 - 2027` `<h3>` above the list, run number as a prefix on **the same line as its own date**, and one special row with no number (`Sunday November 29 (60th Independence Ride)`). Roll the year when the month decreases.
 - **🔴 `innerText` misleads:** read as flattened text, the `#N` token looks like it belongs to the previous line. An audit issue built from it was off by one. Always read the raw `<p>` boundaries.
 - Page footer `Edited: YYYY-MM-DD` is the owner's last edit; use it as a staleness signal.
+
+## harrier.eu.org PHP hash-kennel sites — numbered run list + per-run detail page (learned from Basel-Stadt H3, 2026-11-18, VERIFIED via curl on all 396 pages)
+- `basel.harrier.eu.org/hareline.php` ("Receding Hareline") is one static page with every run as `<li><a title="Run #N" href="runs.php?run=N">Run #N: DD/MM/YYYY venue (hare/hare)</a>`, contiguous from #1 (1996-01-13). Section headings are `<li><b>…</b>`. Dates are **DD/MM/YYYY**; venue can itself contain parentheses, so take the LAST paren group as hares; `TBD` means unknown.
+- The list carries no time, coords or description. The detail page `runs.php?run=N` has `Date:`, `Time:` (always present), `Place:`, `Hare(s):`, `Details:` and, on ~57% of pages, `var lat = …; var lng = …;` (else `Coordinates: Unknown`). Hare emails are obfuscated as `write_mail("id","domain","Name")` before the plain name. Detail text can hold phone numbers/emails: scrub.
+- The list shows only runs that have venue/hare data. The **next run is an auto-created placeholder** visible only on `runs.php?run=N+1` and in `rss.php` (one `<item>`, title `Run #N: <Month> <D>th <YYYY>`): Place `TBD`, hare `Who knows... maybe you?`. Filter both strings.
+- Intermittent `HTTP/2 framing` / connection-reset errors on single detail pages: retry (worked with `--http1.1`).
