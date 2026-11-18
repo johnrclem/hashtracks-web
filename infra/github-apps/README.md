@@ -56,5 +56,5 @@ the fallback from `src/lib/github-app.ts`.
 
 ## Agent App: put it on the Mac
 
-Save the key into the agent root (for example `convert <code> ~/Developer/hashtracks-agents/.agent/app.pem`),
-then follow `infra/agent-root/README.md`.
+Save the key outside the root (`convert <code> ~/hashtracks-agent-app.pem`), then follow
+`infra/agent-root/README.md`: its `install.sh` copies the key into the root with the right modes.
