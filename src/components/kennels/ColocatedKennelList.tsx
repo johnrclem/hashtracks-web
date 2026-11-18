@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { formatDateShort } from "@/lib/format";
+import { nextRunLabel } from "@/lib/kennel-directory";
 import type { KennelPin } from "./ClusteredKennelMarkers";
 
 interface ColocatedKennelListProps {
@@ -63,7 +64,8 @@ function KennelRows({
               {pin.schedule && <>{pin.schedule} · </>}
               {pin.nextEvent ? (
                 <span className="font-medium text-foreground/80">
-                  Next: {formatDateShort(pin.nextEvent.date)}
+                  {nextRunLabel(pin.nextEvent)}
+                  {formatDateShort(pin.nextEvent.date)}
                   {pin.nextEvent.title && (
                     <span className="font-normal text-muted-foreground">
                       {" "}— {pin.nextEvent.title}

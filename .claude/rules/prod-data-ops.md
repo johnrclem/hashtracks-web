@@ -13,8 +13,11 @@ Lessons from the Nov 2026 maintenance triage. Every rule here comes from a real 
 
 ## Before any write
 - **Dry run first, show counts, get the owner's OK.** This applies to backfills, cleanups,
-  restores and one-shot UPDATEs. A migration counts as a write: dry-run it against prod inside
-  `BEGIN; … ROLLBACK;` and report the per-statement row counts.
+  restores and one-shot UPDATEs. A migration counts as a write: dry-run it against prod with
+  `BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npm run migration:dry-run -- prisma/migrations/<dir>` and
+  report the per-statement row counts. Never pipe a migration into `psql` between `BEGIN` and
+  `ROLLBACK`: psql commits at the file's own `COMMIT;`. New migrations follow the template in
+  `docs/ops/system.md#migrations` (`BEGIN;`, `SET LOCAL lock_timeout`, …, `COMMIT;`); CI enforces it.
 - **A preview must show where each event will be filed, not just how many dates are new.** A
   wide GCal backfill whose preview counted only new (kennel, date) slots filed ~1,100 sibling
   kennels' runs under OH3. The source's `defaultKennelTag` caught everything that matched no

@@ -52,7 +52,6 @@ const SUFFIX = "-->";
  * `-->` inside any string field is escaped to `--&gt;` so the comment
  * envelope can't be terminated early by a malicious or accidental
  * payload (e.g. a future kennelCode containing the literal sequence).
- * Mirrors the same defense in `src/pipeline/auto-issue.ts`.
  */
 export function emitCanonicalBlock(block: Omit<CanonicalBlock, "v">): string {
   const payload: CanonicalBlock = { v: CANONICAL_SCHEMA_VERSION, ...block };

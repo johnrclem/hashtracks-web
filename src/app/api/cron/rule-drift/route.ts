@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import * as Sentry from "@sentry/nextjs";
-import { verifyCronAuth } from "@/lib/cron-auth";
+import { withCronRun } from "@/lib/cron-run";
 import { prisma } from "@/lib/db";
 import { getValidatedRepo } from "@/lib/github-repo";
 import { detectRuleDrift, writeRuleDriftSnapshot, type DriftFinding } from "@/pipeline/rule-drift";
@@ -76,31 +75,16 @@ async function fileDriftIssue(findings: DriftFinding[]): Promise<{ filed: boolea
   }
 }
 
-export async function POST(request: Request) {
-  const auth = await verifyCronAuth(request);
-  if (!auth.authenticated) {
-    return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
-  }
-  try {
-    const findings = await detectRuleDrift(prisma);
-    // Persist every run (even 0 drift) so /admin/predictions shows "last checked" + findings
-    // without re-running the heavy sweep on the page path.
-    await writeRuleDriftSnapshot(prisma, findings);
-    let issue = { filed: false, reason: "no drift" };
-    if (findings.length > 0) issue = await fileDriftIssue(findings);
-    console.log(`[rule-drift] ${findings.length} drifted kennel(s); issue: ${issue.reason}`);
-    return NextResponse.json({ data: { driftCount: findings.length, issue, findings } });
-  } catch (err) {
-    console.error("[rule-drift] failed:", err);
-    Sentry.captureException(err);
-    return NextResponse.json(
-      { data: null, error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
-}
+export const POST = withCronRun("cron:rule-drift", async () => {
+  const findings = await detectRuleDrift(prisma);
+  // Persist every run (even 0 drift) so /admin/predictions shows "last checked" + findings
+  // without re-running the heavy sweep on the page path.
+  await writeRuleDriftSnapshot(prisma, findings);
+  let issue = { filed: false, reason: "no drift" };
+  if (findings.length > 0) issue = await fileDriftIssue(findings);
+  console.log(`[rule-drift] ${findings.length} drifted kennel(s); issue: ${issue.reason}`);
+  return NextResponse.json({ data: { driftCount: findings.length, issue, findings } });
+});
 
 /** Vercel Cron triggers GET requests. */
-export async function GET(request: Request) {
-  return POST(request);
-}
+export const GET = POST;

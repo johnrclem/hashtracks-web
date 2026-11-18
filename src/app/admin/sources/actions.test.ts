@@ -229,3 +229,49 @@ describe("updateSourceKennelSlug", () => {
     });
   });
 });
+
+describe("archive sources (onboarding backfill design 6.5)", () => {
+  const archive = { archiveOnly: true, name: "Zagreb H4 run history", type: "ICAL_FEED", trustLevel: 5, kennels: [{ kennelId: "k1" }] };
+  function form(overrides: Record<string, string> = {}): FormData {
+    const fd = new FormData();
+    const values = { name: archive.name, url: "https://x", type: archive.type, kennelIds: "k1", ...overrides };
+    for (const [k, v] of Object.entries(values)) fd.set(k, v);
+    return fd;
+  }
+
+  beforeEach(() => mockSourceFindUnique.mockResolvedValue(archive as never));
+
+  it("refuses delete, enable, relink, a new kennel and a new alias", async () => {
+    const { toggleSourceEnabled, createAliasForSource } = await import("./actions");
+    expect(await createKennelForSource("s1", "x", { shortName: "X", fullName: "X", region: "R" })).toMatchObject({ error: expect.stringContaining("archive source") });
+    expect(await deleteSource("s1")).toMatchObject({ error: expect.stringContaining("archive source") });
+    expect(await toggleSourceEnabled("s1", true)).toMatchObject({ error: expect.stringContaining("archive source") });
+    expect(await linkKennelToSourceDirect("s1", "x")).toMatchObject({ error: expect.stringContaining("archive source") });
+    expect(await createAliasForSource("s1", "x", "k2")).toMatchObject({ error: expect.stringContaining("archive source") });
+    expect(prisma.source.delete).not.toHaveBeenCalled();
+    expect(prisma.source.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a rename", { name: "Renamed" }],
+    ["a retype", { type: "HTML_SCRAPER" }],
+    ["a relink", { kennelIds: "k1, k2" }],
+    ["a trust change", { trustLevel: "9" }],
+  ])("updateSource refuses %s", async (_label, overrides) => {
+    expect(await updateSource("s1", form(overrides))).toMatchObject({ error: expect.stringContaining("archive source") });
+    expect(prisma.source.update).not.toHaveBeenCalled();
+  });
+
+  it("updateSource accepts a save that resubmits the same name, type and links", async () => {
+    vi.mocked(prisma.sourceKennel.deleteMany).mockResolvedValue({ count: 1 } as never);
+    vi.mocked(prisma.source.update).mockResolvedValue({} as never);
+    expect(await updateSource("s1", form({ scrapeDays: "30" }))).toEqual({ success: true });
+  });
+
+  it("unlinkKennelFromSource refuses an archive source's link", async () => {
+    const { unlinkKennelFromSource } = await import("./actions");
+    vi.mocked(prisma.sourceKennel.findUnique).mockResolvedValue({ sourceId: "s1" } as never);
+    expect(await unlinkKennelFromSource("sk1")).toMatchObject({ success: false });
+    expect(prisma.sourceKennel.delete).not.toHaveBeenCalled();
+  });
+});

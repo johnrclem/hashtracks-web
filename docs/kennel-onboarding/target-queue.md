@@ -23,7 +23,9 @@ Manneke Piss = `bmph3`).
 > Cooperative: John can reorder, add, or strike rows anytime. The daily run respects the current
 > top `queued` row.
 
-**Latest top-line (2026-11-13 — IndyScent H3 history backfill, Indianapolis, IN):** ✅ handed off (`handoffs/2026-11-13-indyh3-history.md`) from `onboarding-candidate` issue #1353 (labelled 2026-11-12), not from this queue. No new kennel or source: a frozen-JSON backfill of 32 past runs (6 aged-out 2026 runs from the `ht_hash_event` archive + 26 numbered 2016–2022 "Hash Trash" blog posts) through the merge pipeline. Queue unchanged: 8 `queued` (ranks 5–12), no refill.
+**Latest top-line (2026-11-14 — Newcastle H3 hareline Sheet, Newcastle upon Tyne, England):** ✅ handed off (`handoffs/2026-11-14-newcastle-h3-sheet.md`) from `onboarding-candidate` issue #2591, not from this queue. Source-add, config-only `GOOGLE_SHEETS` (explicit tab name, `dayFirst`, live-probed: 122 events, 0 errors) plus a frozen ~669-row 2014–2025 archive backfill. Issues #1526, #2315, #2400 skipped: each has a recon comment deferring it to profile/schema work or a blocked Drive API, so none is a source-add. Queue unchanged: 8 `queued`, no refill.
+
+**Prior top-line (2026-11-13 — IndyScent H3 history backfill, Indianapolis, IN):** ✅ handed off (`handoffs/2026-11-13-indyh3-history.md`) from `onboarding-candidate` issue #1353 (labelled 2026-11-12), not from this queue. No new kennel or source: a frozen-JSON backfill of 32 past runs (6 aged-out 2026 runs from the `ht_hash_event` archive + 26 numbered 2016–2022 "Hash Trash" blog posts) through the merge pipeline. Queue unchanged: 8 `queued` (ranks 5–12), no refill.
 
 **Prior top-line (2026-11-12 — Zagreb H4, Zagreb, Croatia):** ✅ handed off (`handoffs/2026-11-12-zh4.md`): first Croatia kennel (new COUNTRY + Zagreb METRO), existing `GoogleSheetsAdapter` with year-tab auto-discovery plus a ~10 LoC `parseDate` dot-separator change, ~700-run frozen-dataset backfill 2010–2025. Queue depth 8 `queued` (> 5), no refill.
 

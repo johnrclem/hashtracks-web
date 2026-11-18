@@ -1,0 +1,1525 @@
+# Onboarding backfill automation: design
+
+**Status:** v5.4, amended 2026-11-17 to fit the ops system (`docs/ops/system.md`, ops plan amendment v6): the approval stamp comes from the ops `write-gate` workflow (6.3), cron liveness is recorded in `AutomationRun` (11), G17 accepts the migration template and G15 protects its checker (8.1), and Phase 1 waits for the gate (13). v5.3 was amended 2026-11-14 after PR review. Adversarial review: approved in round 20 (Appendix A records every round). Owner approval of section 15: 2026-11-13. The owner approved all ten decisions in section 15 on 2026-11-13, and decision 7's step-up was rebuilt in that review (10.3, T4). Phase 0 build started 2026-11-17, as the PR stack in 12.1a.
+**Scope:** design. No code, migration or prod write was made to produce it; the build follows 12.1a.
+**Related:** [`kennel-onboarding/implement-handoff-prompt.md`](kennel-onboarding/implement-handoff-prompt.md) (the implementer),
+[`kennel-onboarding/daily-onboarding-prompt.md`](kennel-onboarding/daily-onboarding-prompt.md) (research),
+[`self-healing-v2-plan.md`](self-healing-v2-plan.md) (same shape: scheduled task + owner gate + server endpoints),
+[`ops/audit-fixer-task.md`](ops/audit-fixer-task.md), [`ops/daily-digest-task.md`](ops/daily-digest-task.md),
+[`../.claude/rules/prod-data-ops.md`](../.claude/rules/prod-data-ops.md),
+[`superpowers/specs/2026-11-10-kennel-status-design.md`](superpowers/specs/2026-11-10-kennel-status-design.md) (kennel status; section 9.6 here).
+
+## 1. Summary
+
+Kennel onboarding is automated up to the merge. The research task writes a handoff, the implementer
+builds it into a PR, the owner adds `owner-approved`, and the implementer merges, waits for the
+deploy and runs one prod scrape. The history backfill is the one step a human still does by hand:
+the implementer only reports `BACKFILL_APPLY=1 npx tsx scripts/backfill-<code>-history.ts`, and the
+owner (or a session the owner starts) runs it from a laptop.
+
+This design moves the backfill into the app. The owner's single `owner-approved` label approves the
+backfill too, but only the exact PR content that was there when the label went on. The server
+re-checks everything against prod, writes each archive row as one all-or-nothing unit through the
+merge pipeline, records every row so the run can be undone, and verifies row by row that the kennel
+page shows what it wrote.
+
+Seven decisions carry most of the safety:
+
+1. **Approval is bound to the PR's content at label time.** When the owner adds the label, a workflow
+   on `main` stamps the PR's head commit. The server applies only if the head that merged is the
+   stamped one, or differs from it only by merges of `main`. The implementer merges with
+   `--match-head-commit`, using the same check.
+2. **The live feed owns its stretch; the archive owns everything before it.** The split point is the
+   earliest past run the kennel's live feed has in prod. Archive rows from that date on are left to
+   the live feed, which must actually have them; rows before it are written by the backfill, and
+   nothing may already exist on their dates. A gap between the two stretches blocks the run.
+3. **The archive gets its own source and a cutoff.** Rows bind to a disabled archive source that is
+   never scraped, as six existing archive sources do. When the apply starts, the kennel gets an
+   archive cutoff, and from then on the merge drops any other source's row for that kennel dated
+   before it, before writing anything. Wide re-scrapes therefore can't duplicate, move, overwrite or
+   resurrect curated history.
+4. **The backfill only creates, and the merge enforces it before writing.** In backfill mode any match
+   onto an existing event throws before any write for that row.
+5. **Each row is written atomically.** The RawEvent, the Event and its kennel link are one nested
+   create, so a crash leaves each row fully written or not at all.
+6. **The server decides, the agent only nudges.** The scheduled task can ask the server to plan or take
+   the next step of an approved run. Resume, undo, and setting or clearing a cutoff by hand need the
+   owner with a second factor.
+7. **Verification checks rows, not totals.** Every written archive (date, run number) must appear on
+   the public kennel page. The Zagreb "716 created, 715 shown" case is the page counting unique dates;
+   all 716 runs are there (section 9.4).
+
+Phase 2 scope is deliberately narrow: one kennel with one live feed, rows provably from that feed,
+run numbers strictly increasing, at most 2,000 rows. Rollout is shadow first, then apply behind the
+label, then loosening only on evidence and only after agents and the server stop holding the owner's
+GitHub identity.
+
+## 2. Today, and why the backfill stops at a human
+
+### 2.1 The current flow
+
+| Step | Who | Where |
+|---|---|---|
+| Research writes a handoff (archive source noted) | `hashtracks-kennel-onboarding` task | Mac mini, docs-only PR |
+| Implementer freezes `scripts/data/<code>-history.json`, writes the loader, dry-runs it, scrubs phones and emails, opens the PR | `hashtracks-kennel-implement` task | Mac mini, own clone |
+| Owner reviews, adds `owner-approved` | Owner | GitHub |
+| Implementer merges, waits for the deploy, checks the migration, runs one prod scrape | implementer Phase A | GitHub + `POST /api/cron/scrape/<id>` |
+| Backfill apply | **Owner, by hand** | laptop, `BACKFILL_APPLY=1` |
+
+`runBackfillScript` (`scripts/lib/backfill-runner.ts`) in dry-run mode never touches the database: it
+parses the archive, drops rows dated today or later, and prints three samples. The apply mode looks
+up the source by name, checks that at least one `SourceKennel` link exists, and calls
+`processRawEvents` once with every row. It throws if any row was blocked by the source-kennel guard.
+
+### 2.2 Why it isn't automated yet
+
+| Reason | Evidence |
+|---|---|
+| Unattended tasks can't reach prod's database | Auto mode refused an unattended task's read-only prod queries on 2026-11-09 (`self-healing-v2-plan.md` §4.2). This session's own read-only query was refused the same way on 2026-11-12. |
+| Misroutes are silent and large | A wide GCal backfill filed about 1,100 sibling kennels' runs under OH3 because unmatched rows fell into `defaultKennelTag` (`prod-data-ops.md`). |
+| Archives carry personal data | The first implementer run's scrub caught only dashed numbers and left 5 (`implement-handoff-prompt.md` Build step 6). The repo is public. |
+| Bulk writes are hard to reverse | Nothing records which rows a backfill created. A 1,112-row delete hit Prisma's 5 s interactive-transaction default (P2028) at 76 s and rolled back. |
+| Reconcile can cancel backfilled runs | A backfill bound to a wide-window live source is cancelled by that source's next reconcile (the Summit Full Moon near-miss, PR #2606), which is why archive sources exist. |
+| The merge isn't transactional per batch | A RawEvent's `processed` flag and `eventId` are written only by the flush after the loop (`src/pipeline/merge.ts` ~3226). A crash in between leaves new events whose RawEvents look orphaned, and the orphan path re-processes them. |
+| Live scrapes reach far back | The scrape route accepts `days` up to 1,825 (`src/app/api/cron/scrape/[sourceId]/route.ts` ~57), as do alert re-scrapes (`rescrapeFromAlert`). A live row can land on any archive date. |
+| Counts don't obviously match the page | Zagreb H4: 716 created, kennel page shows 715 (section 9.4). |
+
+### 2.3 What already works and is reused
+
+| Pattern | Where |
+|---|---|
+| Bearer-token agent API that fails closed | `src/lib/audit-agent-auth.ts`, `src/app/api/audit/agent/*` |
+| Server-side backfill through the merge pipeline | `src/app/api/admin/atlanta-deep-backfill/route.ts` (dry run, then `apply: true`) |
+| Disabled archive sources that shield history from reconcile | "Summit Full Moon H3 Archive" and five others in `prisma/seed-data/sources.ts`; `protectedByOtherSources` in `src/pipeline/reconcile.ts` |
+| Dropping a source's rows before they're stored | the per-source `silentlySkipPatterns` filter |
+| Event + primary kennel link in one nested create | `createEventWithKennel` in `src/lib/event-write.ts` |
+| Race-safe event delete that refuses user data | `scripts/lib/delete-leaked-event.ts` (`RequireZeroCount`, `FOR UPDATE`, `ForeignRawSourceError`) |
+| Read-only ops snapshot for the digest | `GET /api/audit/agent/ops-digest`, `buildOpsDigest` |
+| Kennel status evidence: `Event.isScheduleOnly` and the kennel's cached evidence dates (`lastRunSeenAt`, `nextRunPostedAt`, `lastConfirmedAt`, `stoppedAt`) | `refreshScheduleOnlyFlags` and `refreshKennelEvidence` in `src/pipeline/kennel-evidence.ts`, run by `scrapeSource` after every scrape and by the daily audit cron |
+
+## 3. Goals and non-goals
+
+**Goals**
+- From the owner's `owner-approved` label to a verified backfill with no human step, for the Phase 2
+  scope below.
+- Every write is preceded by a dry run whose counts the owner approved, and any drift blocks it.
+- Every applied run can be undone exactly.
+- The owner learns of every apply, block and failure from the PR and the daily digest, without
+  reading logs.
+
+**Phase 2 scope (what automation accepts at first)**
+- One kennel per archive. In prod, that kennel is linked to exactly one enabled source, the **origin**:
+  the live feed the archive was frozen from. The origin is linked to that kennel only and has no
+  `kennelPatterns` or `defaultKennelTag` routing to anyone else.
+- The origin's type has a defined row-provenance rule (G5), so each row provably came from it:
+
+  | Origin type | Rule for each row's `sourceUrl` |
+  |---|---|
+  | `GOOGLE_SHEETS` | Equals the origin's sheet URL (same sheet id) |
+  | `GOOGLE_CALENDAR` | An event link whose `eid`, base64-decoded, names the origin's calendar id (Google's short domain forms `@g`, `@m`, `@v`, `@i` expanded) |
+  | `MEETUP` | Path starts with the origin's group, `/<groupUrlname>/events/` |
+  | `HTML_SCRAPER` | Same host as the origin's URL, path under the origin's path, and the origin's query parameters present with the same values. Only if no source linked to another kennel uses that host; a shared host (for example `sfh3.com`, which serves 13 kennels) is supervised |
+
+  Other types (Facebook, Harrier Central, Hash Rego, iCal) are supervised until a rule is defined
+  and tested for them.
+- One kennel tag per row, no `seriesId`, no `externalLinks`.
+- Run numbers **strictly increase** in (date, run) order, with at most 5 rows and at most 1% of rows
+  listed as exceptions. At most 5% of rows may lack a run number.
+- Bound to a dedicated archive source (section 6.5). The PR's migrations pass G17.
+- At most 2,000 rows.
+
+Zagreb H4 (716 rows, all numbered, one sheet URL) fits. Music City H3 (320 rows, 16 unnumbered, which is
+exactly 5%, all on `musiccityhash.com`) fits at the limit. Both are already applied by hand and enter
+the record through adoption (section 6.6), which writes nothing and doesn't need the Phase 2 scope.
+
+**Non-goals**
+- Enriching or correcting existing events from an archive. An archive row on a date that already has
+  an event blocks the run.
+- Hardening the live feed's own stretch. Rows from the split date on are the live feed's, with the same
+  exposure every kennel's recent history has today (forced re-scrapes, reconcile).
+- Multi-kennel archives, multi-kennel feeds and kennels with several live sources, until per-row
+  routing provenance exists (section 13, Phase 3). This is the OH3 class.
+- Wide live-source backfills (`scrapeSource(days: 9999)`), which route by patterns at run time.
+- Archives above the cap (SDH3's 7,649 runs would be one).
+- Restores of cancelled runs, phantom cleanups and other one-shot data fixes.
+- Running the backfill before the onboarding PR is merged and deployed.
+- Changing what the owner does to approve. The label stays the one action; only the checks behind it
+  get stronger.
+
+## 4. Trust model
+
+### 4.1 What is actually enforced, and by what
+
+The honest boundary is the owner's Mac mini. Every scheduled task there runs as the owner's OS user,
+can read the owner's `.env` (`DATABASE_URL`, `CRON_SECRET`, the repo-scope `GITHUB_TOKEN` PAT, and
+any new token), and runs `gh` as the owner's GitHub account. The Vercel CLI there has a stored login
+and is linked to this project, so a task may be able to read production environment variables, such
+as the live `CLERK_SECRET_KEY` (10.3). Any deployment an agent can trigger is another route: every
+pushed branch gets a preview build, preview builds share the prod `DATABASE_URL`, and a build gets
+the decrypted value of every variable scoped to its environment. Connectors on the Mac also give it
+the owner's mailbox, the owner's signed-in Chrome, Vercel and the Clerk dashboard; the Clerk connector
+can change the production instance's settings. So "agents don't write prod's database"
+and "agents never add `owner-approved`" are **prompt rules, not capabilities**. A misbehaving or
+hijacked agent can already do far more damage with `DATABASE_URL` than with anything this design
+adds.
+
+The design therefore aims at two different things:
+
+| Threat | Protection |
+|---|---|
+| **Mistakes**: a bad archive, a misroute, PII, overlap with live data, drift after approval, a race, a crash halfway, a wrong count | Machine guards on the server, independent of who calls them. This is the main purpose |
+| **A misbehaving agent on the Mac** | Not solved here. The design removes the *need* for agents to touch the database or run backfill scripts, and makes every automated write recorded, visible and undoable. H1 and H2 (4.3) would turn the prompt rules into real limits: the tasks reach none of the owner's credentials or sessions, and no build of code the owner hasn't approved gets production secrets. They are entry conditions for Phase 3 |
+| **Someone outside the Mac** (internet, fork PRs, a leaked server credential) | Real limits, listed in 4.2, once H3 is done (a Phase 2 entry condition). Fork PRs only while Vercel's fork protection is on, so a fork PR doesn't build until a team member authorises it: until H2, preview builds get the prod `DATABASE_URL`. Not for the production secrets the server must hold, such as `DATABASE_URL` and the live `CLERK_SECRET_KEY`: a leak gives them in full (10.3) |
+
+### 4.2 Actors and credentials
+
+| Actor / credential | Through the app it can | Through the app it can't |
+|---|---|---|
+| Owner | Add or remove `owner-approved`; halt a run from `/admin/backfills`; resume, undo, set a cutoff by hand or clear one there, each after its own step-up with a second factor (10.3); change env flags | |
+| Scheduled agents | Open PRs, merge approved PRs, call the backfill agent API. Halt a run by removing the label (T1) | Resume, undo, set a cutoff by hand or clear one (each needs a fresh second-factor step-up that the server checks itself, 10.3), except as T4 accepts, or with the owner-level secrets they hold outside the app (4.1, 10.3) |
+| `BACKFILL_AGENT_TOKEN` | Plan, preview, advance a run the owner approved, check a PR's approval, read status | Approve, choose an archive, resume, undo, read user data |
+| `GITHUB_APPROVAL_READ_TOKEN` (server, new, fine-grained, read-only) | Read PRs, labels, statuses, commits and file contents | Add labels or statuses, merge, push |
+| The server's issue-filing credential | Today: the owner's repo-scope PAT, which can label, push and merge as the owner. **H3 replaces it** with a GitHub App limited to issues, whose actions show as the App, so A2 rejects any label it adds | |
+| `write-gate` workflow (the ops system's gate, `pull_request_target` on `main`) | Record the head SHA when the owner adds `owner-approved` | Run PR code (it never checks it out) |
+| CI | Recompute and check manifests and migrations; render the manifest in its check summary | Write anything outside GitHub |
+| Anyone on the internet | Open a PR from a fork; read the public repo and pages | Get a PR merged or labelled |
+
+### 4.3 Assumptions and hardening
+
+- **T1. Anything acting as the owner's GitHub account can approve.** Agents run `gh` as the owner. An
+  agent acting as the owner could add the label itself, and the stamp workflow would record it (a label
+  added by the agent or server GitHub App is ignored: the workflow stamps only an owner-sent event). It
+  could also forge a stamp: any workflow on a branch it pushes can ask for `statuses: write` and write a status as
+  `github-actions[bot]`, with any `target_url` it likes. The stamp protects against **mistakes**
+  (a push or force-push after the label, a stale branch), not against an agent misusing the owner's
+  credential. That is the same assumption that already guards every code merge. Phase 2 needs the
+  owner's written acceptance of T1; Phase 3 needs H1.
+- **T2. GitHub's records are honest; git's are not.** Label events, statuses and merge records come
+  from GitHub. Commit dates are set by whoever commits and are never used.
+- **T3. Deployed code on `main` is trusted.** A PR that changes guard code is refused for automated
+  apply (G15), so an onboarding PR can't weaken the checks that judge it.
+- **T4. A browser session the owner just used with a second factor acts as the owner.** For up to two
+  minutes after each TOTP or backup code, the session passes the step-up check (10.3), and Clerk's
+  own sensitive actions, such as changing a second factor, stay open for its window. An agent driving
+  that browser could undo a run, swap the owner's TOTP for its own or regenerate the backup codes, and
+  the digest can't see either change. So the owner does step-up actions from the phone and keeps no
+  HashTracks admin session in the Chrome that agents drive. The Clerk connector on the Mac (4.1) can also change the instance's settings,
+  such as switching phone codes on; H2 removes it. Like T1, this is accepted, not enforced.
+- **H1. Agents get their own GitHub identity** (a GitHub App or machine user). PRs are then authored
+  by the bot, the owner can submit a GitHub "Approve" review bound to a commit, and the server can
+  require the approval to come from the owner's account and nothing else. A ruleset on `main` also
+  requires the owner's approving review of the latest commit, dismisses stale approvals and gives the
+  bot no bypass. Without it the bot could merge code the owner never approved, and `main`'s
+  production build gets every production secret. Phase 3 entry.
+- **H2. Scheduled tasks hold no credential or session of the owner's**: no `.env` secrets
+  (`DATABASE_URL`, `CRON_SECRET`, the owner PAT), no owner `gh` login, no CLI logins (Vercel
+  included), no connectors acting as the owner (Vercel, the Clerk dashboard, the mailbox) and no
+  signed-in browser sessions of the owner's. A mailbox would let an agent take an emailed sign-in code,
+  and a signed-in GitHub session would let it submit the owner's approving review. And no build of
+  code the owner hasn't approved gets production secrets. Preview gets no Production values (its own database,
+  Clerk's development instance, and its own tokens or none), or agents' branches don't deploy; merges
+  to `main` need the owner's review (H1). Without this, pushing a branch is enough to run code with
+  production secrets. Once backfills, the digest and audits all run through narrow APIs, the tasks
+  only need narrow tokens. Phase 3 entry.
+- **H3. The server stops holding the owner's identity.** Issue filing moves to a GitHub App limited to
+  issues (with read access to repo metadata), and approval checks use the read-only token. The
+  filing-health probe (`src/app/api/audit/filing-health/route.ts`), which today requires a write-class role on
+  the repo (admin, maintain, push or triage), is reworked to check the App's issue permission. A leak from Vercel then can't forge an
+  approval. Phase 2 entry.
+
+## 5. Design overview
+
+```
+ implementer (PR)                     CI                        owner
+ ─────────────────                    ──                        ─────
+ freeze archive, scrub PII            recompute manifest;  ──►  reads CI's manifest summary,
+ write manifest (hashes, counts)      scope rules, PII,         samples, preview plan
+ migration adds archive source        migration shape;          adds `owner-approved`
+ POST /preview → plan in PR body      summary in check run          │
+                                                          write-gate workflow records
+                                                          the head SHA at that moment
+   implementer Phase A: approval check; merge with --match-head-commit; deploy; first prod scrape
+                                                │
+ app server (prod) ─────────────────────────────▼──────────────────────────────────────
+ POST /plan     approval: stamp + merged head; recompute manifest; split at the live feed's
+                earliest run; every guard; matcher says CREATE → PLANNED, WAITING or BLOCKED
+ POST /advance  set the kennel's archive cutoff (first batch); re-check approval + guards;
+                merge one batch in backfill mode (any match throws, one atomic write per row);
+                record items; slot + snapshot checks → APPLYING … APPLIED / HALTED
+ POST /verify   every written row visible on the page; nothing pre-existing changed
+                → VERIFIED / VERIFY_FAILED
+ daily cron     resume expired leases, retry WAITING, plan unplanned approvals, 7-day re-verify,
+                liveness errors
+ admin UI       owner: halt; with a step-up each: resume, undo (with its own dry run), set or clear a cutoff
+ every scrape   archive cutoff: other sources' rows for the kennel before the cutoff are dropped
+                                                │
+                     implementer comments on the PR · digest reports every run
+```
+
+## 6. The approval model
+
+### 6.1 The manifest
+
+Each archive `scripts/data/<code>-history.json` gets a sibling
+`scripts/data/<code>-history.manifest.json`, generated by one shared library function:
+
+| Field | Meaning |
+|---|---|
+| `version` | Manifest format version |
+| `archivePath`, `archiveSha256` | The archive file and the SHA-256 of its exact bytes |
+| `sourceName` | The source the rows bind to: the archive source, or for `adopt-only` the source they were applied to |
+| `originSourceName` | The seeded live source the archive was frozen from |
+| `binding` | `archive-source` (Phase 2 applies) or `adopt-only` (section 6.6) |
+| `kennelTimezone`, `frozenAt` | For the "past rows only" rule |
+| `expectedKennelCodes` | Exactly one kennel in Phase 2 |
+| `perKennel[code]` | `rows`, `uniqueDates`, `firstDate`, `lastDate`, rows without a run number, field fill counts, three sample titles |
+| `sameDateGroups` | Every (kennel, date) with more than one row, with run numbers |
+| `runNumberExceptions` | Rows that break the strict run-number order (capped) |
+| `scheduleOnlyEstimate` | Informational, not part of `approvalHash`: about how many rows the kennel status rules will count as a usual schedule rather than a run, namely rows with a `recurringSeriesId`, no run number and no hares. CI computes it from the raw rows for the owner to read. The authoritative set is computed at plan from the rows as the merge will store them (9.2) |
+| `expectedGaps` | Declared by the curator: date ranges with no runs and a reason (seasonal break, pause), excluded from G20's gap rule. Each contains no archive row and is at most 120 days. All lie inside the archive's span, except at most one **trailing** gap, which starts after the archive's last row (a seasonal break between the archive and the live feed's first run). A trailing gap must recur in the archive's own history. In at least 2 of the 3 most recent full calendar years before the archive's last row, the archive must have a stretch with no runs that covers at least 80% of the gap's calendar days and is at most 1.5 times its length. 2020 and 2021 don't count, so the window reaches back past them. Calendar windows wrap across the new year, and a wrapping window belongs to the year it starts in. Otherwise the backfill is supervised |
+| `curatedCorrections` | Declared by the curator: rows whose date or run number was changed from the source, excluded from G20's 95% count. At most 20 rows or 2% of rows, whichever is larger (Zagreb has about 12) |
+| `piiScan` | Scanner version and residual count (must be 0) |
+| `approvalHash` | SHA-256 over the canonical JSON of every field above except the sample titles, which depend on display names, and `scheduleOnlyEstimate`, which depends on placeholder rules that change between CI and plan |
+
+### 6.2 CI makes the manifest honest and shows it to the owner
+
+A required CI job, `backfill-manifest`, runs on every PR that touches `scripts/data/*-history*` or
+`prisma/migrations/`. Its script lives under a guard path (G15), so a PR can't change the numbers it
+shows.
+
+**Every manifest:**
+- The manifest recomputed from the archive equals the committed one in every `approvalHash` field
+  that can be derived from the archive. The two declared fields, `expectedGaps` and
+  `curatedCorrections`, can't be recomputed; CI checks their shape and caps instead (every row index
+  exists, every gap contains no row, every gap except one trailing gap lies inside the archive's span, and a trailing gap recurs in most recent earlier years of the archive, as 6.1 defines). The summary shows how many median run intervals each gap removes from G20's gap rule and includes them in the hash.
+- Every row has a `YYYY-MM-DD` date before `frozenAt` in `kennelTimezone`, and one kennel tag in
+  `expectedKennelCodes`.
+- PII residual is 0 (8.2).
+- The per-kennel table, samples, same-date groups, run-number exceptions and approval hash go into the
+  job's **check-run summary**. The owner reads the numbers there, derived by CI from the committed
+  file, not from a PR body the agent wrote.
+
+**`archive-source` manifests also need:**
+- The PR adds **exactly one** archive and **one** manifest, both new files, and changes nothing else
+  under `scripts/data/*-history*`.
+- The Phase 2 scope rules in section 3, checked against the seed data: single-kennel origin of a
+  supported type, the row-provenance rule for that type, no `seriesId` or `externalLinks`, strict
+  run-number order with the caps.
+- The archive source in the seed data is disabled, `archiveOnly`, linked to the kennel only, and the
+  migration's insert of it sets `enabled` to the literal `false` (G17).
+- Every migration the PR adds passes G17.
+- For a `GOOGLE_CALENDAR` origin, every row carries the `recurringSeriesId` key, either as the series
+  id or as an explicit `null` (G21). The summary shows `scheduleOnlyEstimate` and how many rows have an
+  `eid` naming a repeating instance but a `null` marker. The adapter drops the marker on orphan
+  overrides, so that count is for the owner to read, not a failure.
+
+**`adopt-only` manifests** need only the checks for every manifest, plus: the PR adds just the
+manifest, for an existing archive it doesn't change.
+
+CI has no prod access, so the checks that need prod (the kennel's sources in prod, earlier runs for the
+kennel, overlap) happen on the server (G9, G18, G19).
+
+### 6.3 Stamping the approval
+
+The ops system's single gate workflow on `main`, `write-gate.yml` (ops plan S4, `docs/ops/system.md`),
+runs on `pull_request_target`. When the event is `labeled` with `owner-approved` and the sender is the
+owner's account (type `User`), it sets a commit status `backfill/approved` on
+`github.event.pull_request.head.sha` (the head GitHub reports at that moment), with the PR number in
+its description. It never checks out or runs PR code. `pull_request_target` always runs the workflow
+file from `main`, so a PR can't change what this workflow does.
+
+The context name, the description format and the A2–A4 evaluation live in one module,
+`src/lib/backfill/approval-stamp.ts`, which the workflow and the server (6.4) both use, so the stamp and
+the check can't diverge. The module also reads the owner's login, `OWNER_GITHUB_LOGIN`, for both
+sides, and a test asserts the workflow passes that same value, so the stamp and A2 can't disagree about
+who the owner is. v5.3 had a separate `approval-stamp.yml`; one workflow now stamps and
+evaluates, so the two can't race.
+
+This makes the stamp reliable against mistakes. It does not make it unforgeable: as T1 says, a
+workflow on any branch pushed with the owner's credential can also write such a status.
+
+### 6.4 What the server checks before it treats a PR as approved
+
+At plan time and before every batch, using `GITHUB_APPROVAL_READ_TOKEN`:
+
+| # | Check | Why |
+|---|---|---|
+| A1 | The PR is merged into `main`; its merge commit `S` is an ancestor of the deployed commit (`VERCEL_GIT_COMMIT_SHA`) | The onboarding migration is live, and the code judging the archive includes the PR |
+| A2 | The PR carries `owner-approved` now, and the newest `labeled owner-approved` event was made by `OWNER_GITHUB_LOGIN` | Removing the label stops the run at the next batch. After H3 no server credential can make this event |
+| A3 | A `backfill/approved` status created by `github-actions[bot]` exists on a SHA `H`, names this PR, and was created after that label event | The label was added while `H` was the head |
+| A4 | **The merged head is the stamped head, up to merges of `main`.** GitHub's record of the PR's head at merge is `M`. Either `M = H`, or every commit after `H` up to `M` is a merge of `main` and the PR's own change is identical at `H` and `M`: the same set of paths with the same statuses (added, modified, removed, renamed); for each path, either the same blob at both, or the same ordered sequence of added and removed lines across the whole file (not per hunk, since a change on `main` nearby can merge or split hunks). A binary file, or a file whose patch GitHub omits, must have the same blob | Covers every file the backfill depends on (the migration, seed data, archive, manifest) and catches a force-push, a post-label commit or a web-editor conflict fix that changes the PR's own lines. A merge of `main` alone passes |
+| A5 | The manifest is the PR's only manifest, and no other non-preview run exists for its `manifestSha256` | One approval, one apply |
+| A6 | The PR changes no guard path (G15), and its migrations pass G17 | The PR can't edit the checks that judge it, or change existing data to make a guard pass |
+
+A missing stamp, or a GitHub API error, is **retryable** (`WAITING`): Actions may simply be slow. A
+stamp that fails A3 or A4 is terminal.
+
+The manifest and archive are fetched with GitHub's contents API at `S`, for this repository only, with
+the path matching `^scripts/data/[a-z0-9-]+-history[a-z0-9-]*\.(manifest\.)?json$` and a 10 MB cap.
+The server never fetches a URL supplied by a caller.
+
+**The code merge uses the same check.** The implementer's Phase A merge step today compares the label
+time with the head commit's date, which T2 says to distrust. It changes to calling
+`GET /api/agent/backfill/approval/:pr` (read-only), which runs A2–A4 against the PR's current head and
+returns the head SHA it approved. The implementer then merges with
+`gh pr merge --squash --match-head-commit <that SHA>`, so GitHub refuses the merge if the head moved
+in between. This is still the agent following its manual, but it is the same check the server applies
+after the merge.
+
+### 6.5 The archive source and the archive cutoff
+
+**The split point.** At plan time the server finds `C`, the earliest date before today of any event of
+the kennel backed by the origin (the kennel's only enabled source, G18). `C` is therefore always in
+the past. If the origin backs no past event yet (an "upcoming runs only" feed right after its first
+scrape, or a first scrape that returned nothing), the run is `WAITING` until it does; the server never
+falls back to today. Archive rows dated **from `C` on** belong to the live feed and are not written.
+Rows dated **before `C`** are the backfill's to write, and their dates must have no existing event of
+any kind (G9).
+
+**The two stretches must actually join** (G20). A wrong `C` would otherwise quietly drop history: a
+stray early origin event (a year-inference phantom, a typo'd old row) would hand most of the archive
+to a live feed that doesn't have it. So:
+- **No gap.** If the archive ends before `C`, the distance from its last row to `C` must be at most 1.5
+  times the archive's median interval between run dates over its last 20 rows, not counting any gap
+  the manifest declares in `expectedGaps` (a date range and a reason, such as a seasonal break). CI
+  shows declared gaps in its summary, so the owner's label covers them. A trailing gap, between the
+  archive's last row and `C`, is checked at plan against the split point: it must end on or before
+  `C`, otherwise the run is `BLOCKED`. Because `C` is the origin's earliest past event, no live run can
+  then fall inside it. A trailing gap needs more care than an internal one. With the archive ending
+  before `C`, the 95% check below has no rows to count, so the gap rule is G20's only check. A gap
+  labelled "seasonal" without evidence could hide a stale archive. So CI accepts a trailing gap only
+  if the archive's own history shows the same break in most recent years (6.1). A single long pause,
+  such as a COVID shutdown, or a hole in the source's pages, isn't enough. An "upcoming runs only" feed
+  starts at the first run it listed, so an archive frozen long before the merge fails this and must be
+  re-frozen (and re-labelled).
+- **The live feed really has its stretch.** For the numbered archive rows dated from `C` to
+  `frozenAt`, the kennel's displayed events must contain at least 95% of them by (date, run number).
+  Rows the manifest lists in `curatedCorrections` (rows whose date or run number the curator changed
+  from the source) and unnumbered rows are left out of both sides of that count, since a date alone
+  could match an unrelated event. At least 10 rows, or half of the stretch's rows, must remain to be
+  counted, so the exclusions can't empty the check. Otherwise the run is `BLOCKED`, with the counts.
+
+V2 applies the same 95% threshold at verify.
+
+**The archive source.** The backfill's rows bind to a dedicated source, like the six archive sources
+already seeded: `enabled: false`, a new `Source.archiveOnly = true` column, `config.upcomingOnly: true`
+as a backstop, `replacedById` null, linked to the one kennel, `trustLevel` no higher than the origin's.
+The onboarding migration creates it next to the live source. `scrapeSource` refuses to scrape or
+force-scrape it, and `deleteSource` refuses to delete it (both would hard-delete its RawEvents).
+It is never enabled. A database CHECK, `NOT ("archiveOnly" AND enabled)`, enforces this against every
+writer: admin actions, the seed and migrations alike. `toggleSourceEnabled` refuses it with a clear
+message, and `updateSource` refuses an actual change to an `archiveOnly` source's name, type or kennel links. The admin form always resubmits the links, so it compares them with the existing set rather than refusing every save; G12 binds the source by name, so a rename is refused too. If
+it were enabled, the dispatcher would send it to `scrapeSource` every day only to be refused. The
+kennel page's coverage line (kennel status, Status 1 Task 9) counts enabled sources other than
+STATIC_SCHEDULE that produced a real run in the last 180 days, so it would also name the archive as the
+kennel's live feed. With the CHECK, both of them can rely on `enabled` alone. The source's type matters
+too: the status rules count a RawEvent from any type except STATIC_SCHEDULE, so G12 pins the archive
+source's type to the origin's.
+
+Each archive RawEvent stores the row as the merge leaves it after its pre-write clean-up
+(`sanitizeRawFields`: entities decoded, `<br>` replaced, "Hared by X" moved from the title to `hares`),
+`recurringSeriesId` included. The kennel status rules therefore judge archive rows exactly as they judge
+live ones (9.6).
+
+**The archive cutoff.** The first `advance` call sets `Kennel.archiveCutoffDate = C` (and
+`archiveCutoffRunId`) and writes nothing else (9.2). From then on, the merge drops, before creating a
+RawEvent, any row from a source other than the kennel's archive source whose resolved kennel has a
+cutoff and whose date is before it. Because `C` is always in the past, the drop never touches today's
+or upcoming runs. Co-host rows don't add the kennel as a secondary on such dates either. The merge
+result and the scrape log count these rows as `archiveCutoffDropped`. Separately, the ±30-day
+date-correction query, for every source, skips events whose only backing is an `archiveOnly` source,
+so a live row dated after `C` can't move an archive event either. A live row with the same run number
+as an archive event within 30 days of it would otherwise become a second event with that run number.
+So, at the top of the loop next to the cutoff drop and before any RawEvent is stored, such a row is
+dropped and counted as `archiveCorrectionSkipped` (a per-batch prefetch of the kennel's archive-only
+events keeps this to one query). Nothing is stored, so no tombstone is left: after an undo the row
+simply creates its event.
+The digest shows that count, because it means the live feed and the archive disagree about a run's
+date.
+
+| Risk | How the cutoff and the archive source remove it |
+|---|---|
+| A wide re-scrape (`days` up to 1,825) reaches archive dates and overwrites a curated event, or moves it with the ±30-day date-correction path | The row is dropped before the matcher sees it |
+| The re-scrape brings back a row the curator removed (Music City's non-trail rows, cancelled runs, "Hare Needed" slots), or puts a curated date back (Zagreb #2501 on the sheet's 2025-11-06) as a duplicate | Dropped: the date is before the cutoff |
+| A redaction comes back (Zagreb #1797's hare, left out because it contains a racial slur) | Dropped |
+| A dropped row leaves a tombstone that blocks it forever | No RawEvent is stored, so nothing is left behind; once the cutoff is cleared, the rows process normally |
+| Reconcile cancels archive events | Their only backing is the disabled archive source, and other sources' rows never attach to them, so `protectedByOtherSources` shields them from every other source |
+| A forced re-scrape or source delete wipes the backfill's RawEvents | The archive source can't be scraped or deleted |
+| Proving a RawEvent is the backfill's | Nothing but backfills writes to an archive source |
+
+The cutoff can't hide existing live data: before any row is written, the server re-checks that no event
+of the kennel before `C` is backed by an enabled source (9.2), after any scrape that was running when
+the cutoff was set has finished. The cost is deliberate: a source added to the kennel later can't bring
+in history before `C` until the owner clears the cutoff. Clearing it re-exposes the archive to
+overwrites, so it needs the same step-up and single-use nonce as undo (10.3). Undo clears it.
+
+Adopted archives (6.6), including Music City and Zagreb, get **no** cutoff automatically: adoption
+writes nothing. The Zagreb examples above (#2501, #1797) stay exposed to a wide re-scrape exactly as
+today, until the owner sets a cutoff for the kennel from the admin page (same step-up). Setting one also
+closes the automated path for that kennel, because G19 refuses a kennel that already has a cutoff.
+That is intended, since Phase 2 allows one archive per kennel. Clearing the cutoff reopens it.
+
+### 6.6 Adoption of backfills applied by hand
+
+An `adopt-only` manifest describes an archive already applied by hand. Its plan must find, for every
+row, an event of the kennel on that date with that run number (or, for unnumbered rows, the only event
+on that date), backed by the stated source. It then records the items and ends `ADOPTED` without
+writing anything and without setting a cutoff. If any row has no such event, it is `BLOCKED`. It
+matches on (kennel, date, run number), not fingerprints, because the merge's pre-fingerprint clean-up
+changes over time (last on 2026-11-12, #2935) and would make old fingerprints miss. This is how the
+Music City and Zagreb backfills enter the run record.
+
+### 6.7 Drift, retries and re-submission
+
+**No write when:** the merged content isn't the stamped content (A4); the recomputed manifest differs
+from the committed one in any `approvalHash` field (G2); any row before `C` isn't a clean CREATE (G7,
+G9, G10); or any other terminal guard fails. The counts the owner approved are the manifest's rows; the
+plan reports how many fall before `C` (written) and from `C` on (left to the live feed), and V2 checks
+the written ones.
+
+**Retryable (`WAITING`)**, the watch cron tries again: deploy not yet containing `S`; stamp not yet
+present; the origin backs no past event yet; GitHub or database unavailable; the daily apply limit
+reached.
+
+**Terminal (`BLOCKED`):** everything else. The partial unique index on `manifestSha256` covers every
+status except `PREVIEW`, so a blocked manifest can't be planned again. To try again, the implementer
+opens a new PR with a new archive file under a new name (`<code>-history-r2.json` and its manifest).
+The server accepts it only if no earlier run for the kennel ever wrote anything (G19). It needs a new
+label and stamp.
+
+## 7. Server endpoints
+
+### 7.1 Token
+
+A new secret, `BACKFILL_AGENT_TOKEN` (32+ characters), checked like `AUDIT_AGENT_TOKEN` but with its
+own env var, failing closed when unset or short. It is not `AUDIT_AGENT_TOKEN`, whose documented
+promise is that nothing behind it edits event data.
+
+### 7.2 Routes (`/api/agent/backfill/*`, all `maxDuration = 300`)
+
+| Route | Effect | Writes |
+|---|---|---|
+| `GET /approval/:pr` | A2–A4 against the PR's current head, for the implementer's merge step; returns the approved head SHA | none |
+| `POST /preview { prNumber }` | Plans an **open** PR's archive at its head against prod, for the PR body. Status `PREVIEW`, never applicable. For a new kennel the split point isn't known until the first live scrape, so the preview says so and checks everything else | Run row only |
+| `POST /plan { prNumber }` | A1–A6, then every plan guard and the matcher simulation. Returns `PLANNED`, `WAITING` or `BLOCKED` | Run row only |
+| `POST /runs/:id/advance` | The next step of a `PLANNED` or `APPLYING` run: set the cutoff (first call), one batch, or the final step | The cutoff; events, through the merge pipeline in backfill mode |
+| `POST /runs/:id/verify` | The checks in 9.3 | Run row only |
+| `GET /runs/:id` | Status, counts, reason codes, verification result | none |
+
+`HALTED` runs resume only from `/admin/backfills`, never through the token.
+
+**What responses and PR text may contain:** counts, kennel codes, the archive's own dates, run
+numbers and sample titles (all already public in the repo), reason codes. **Never:** matched PII text,
+dates or details of existing prod events (some are private manual entries), user data, secrets. Block
+reasons about existing events give counts only; the dates are shown only in the admin page.
+
+**Limits:** one `preview`/`plan` per PR per 10 minutes; one run `APPLYING` at a time across the app;
+`advance` returns `409` while another caller holds the lease.
+
+### 7.3 Who drives the steps
+
+- **The implementer**, in Phase A after the first prod scrape: `plan`; `advance` until done (at most
+  40 calls that write rows; the cutoff call and calls that return while waiting for running scrapes
+  don't count, and it waits at most 15 minutes for those); `verify`; the public-page check; one PR
+  comment. If the run is still `APPLYING` when it stops, the `backfill-watch` cron resumes it, and the PR
+  comment says the apply continues there.
+- **The daily `backfill-watch` cron** (Vercel cron, `CRON_SECRET`): resumes runs whose lease expired,
+  retries `WAITING` runs, plans approved manifests from the last 30 days that have no run, re-verifies
+  runs from the last 7 days, and raises the liveness errors in 11.3. In Phase 2 it never starts a
+  fresh apply; that is enforced in the cron's code. Starting an apply is open to any holder of the
+  token; that it is the implementer, with a report beside it, is a rule in its manual.
+- **The owner**, from `/admin/backfills`: the same steps, plus halt, and, each with its own step-up
+  (10.3), resume, undo, and setting or clearing a cutoff.
+
+QStash is not used. `self-healing-v2-plan.md` found its retries leave no trace, and a step function
+with three independent callers needs no queue.
+
+## 8. Guards
+
+A guard either passes or stops the run; none warns and continues. Terminal failures end in `BLOCKED`
+(at plan) or `HALTED` (mid-run). Retryable ones end in `WAITING`.
+
+### 8.1 The list
+
+| # | Guard | Checked at | Failure |
+|---|---|---|---|
+| G1 | Approval A1–A6 (missing stamp, deploy lag and GitHub errors are retryable) | plan, every batch | terminal / retryable |
+| G2 | Recomputed manifest equals the committed one in every `approvalHash` field | CI, plan | terminal |
+| G3 | Every row dated before today in `kennelTimezone`; future rows are an error, not skipped as `reportAndApplyBackfill` does | CI, plan | terminal |
+| G4 | **Routing:** one tag per row, equal to the single expected `kennelCode`, resolving through the real resolver at the exact-`kennelCode` stage; the archive source is linked to that kennel and nothing else | plan, every batch | terminal |
+| G5 | **Origin and provenance:** the origin is linked to the expected kennel only, has no `kennelPatterns` or `defaultKennelTag` naming another kennel, is of a supported type, and every row's `sourceUrl` passes that type's rule (section 3), including the shared-host refusal for websites (checked against prod sources at plan) | CI, plan | terminal |
+| G6 | **Sibling mention:** no row's title, hares, location or description names another kennel (code, short name or alias) in the same region | CI (seed data), plan (prod aliases) | terminal |
+| G7 | **Run numbers:** strictly increasing in (date, run) order within the caps; no row before `C` has a run number any existing event of the kennel already has | CI (order), plan, every batch | terminal |
+| G8 | **PII:** zero phone numbers or email addresses in every string field, URLs also checked after decoding (8.2) | before commit, CI, plan, every batch | terminal |
+| G9 | **No overlap before the split point:** for every row before `C`, no existing event, in any status, canonical or not, has the kennel as primary **or** co-host (`EventKennel`) on that date | plan, every batch | terminal |
+| G10 | **Matcher says CREATE:** the merge's own matcher, run read-only over the rows before `C` in apply order, with each simulated create added to its same-day pool, returns CREATE for every one: no same-day, fuzzy, cross-window or date-correction match. It also predicts that `recomputeCanonical` changes nothing for same-date groups | plan | terminal |
+| G11 | **Counts:** per kennel, rows before `C` plus rows from `C` on equal the manifest's `rows`; on a fresh plan, no row's fingerprint already exists on the archive source | plan | terminal |
+| G12 | **Binding:** the archive source is disabled, `archiveOnly`, `replacedById` null, and of the origin's type; exactly one source has that name | plan, every batch | terminal |
+| G13 | **Size and rate:** rows ≤ `BACKFILL_MAX_ROWS` (2,000) is terminal; more than 2 applies started per UTC day is retryable | plan | terminal / retryable |
+| G14 | **Batch result:** no create-only violation; `created` equals the batch's rows; `updated`, `restored`, `blocked`, `eventErrors` are 0; every created event's primary kennel is the expected one, its date is the row's date, and its `isScheduleOnly` is the plan's value; V3 and V4 (9.3) pass | every batch | terminal (`HALTED`) |
+| G15 | **Guard code untouched:** the PR changes nothing under `src/lib/backfill/**`, the PII scanner, `src/pipeline/merge.ts`, `src/pipeline/kennel-resolver.ts`, `src/pipeline/fingerprint.ts`, `src/pipeline/scrape.ts`, `src/pipeline/reconcile.ts`, `src/lib/event-write.ts`, `src/app/admin/sources/actions.ts`, `src/pipeline/kennel-evidence.ts` (the posted-run rule behind the expected flags), `src/lib/event-filters.ts` (the display filter V1 and V2 use), the shared kennel-page stats function, `prisma/schema.prisma`, the CI manifest script, `src/lib/migration-sql/**` (G17's checker and its parser), `scripts/ci/**`, the `libpg-query` entries in `package.json` or `package-lock.json`, `.github/workflows/**` or the agent routes | plan | terminal (the owner can still apply by hand) |
+| G16 | **Kill switch:** env `BACKFILL_AUTOMATION` is `apply` (`off` and `shadow` refuse `advance`) | every call | `403` |
+| G17 | **Migration shape**, checked with a real SQL parser (`libpg_query`), allow-list only: `INSERT … ON CONFLICT DO NOTHING` or `INSERT … SELECT … WHERE NOT EXISTS` into `Kennel`, `KennelAlias`, `Region`, `Source`, `SourceKennel` and `ScheduleRule`; and `UPDATE "Region"` setting only `parentId` and `updatedAt`, whose target rows are restricted by literal names that the same migration inserts. No other statements, no CTE that modifies data, no `DO` blocks, and no function calls other than `NOW()` and `timezone()` with a literal zone (the parser's form of `NOW() AT TIME ZONE 'UTC'`, used by all eight recent onboarding migrations). Transaction control is allowed only as the migration template's wrapper (`docs/ops/system.md#migrations`): exactly one leading `BEGIN`, then exactly one `SET LOCAL lock_timeout = '<literal>'`, and exactly one trailing `COMMIT`; any other transaction control or setting fails. The checker lives in `src/lib/migration-sql/g17.ts`, on the parser CI's migration check uses. A Phase 0 test checks the rule against those eight and against a fixture written to the template; any that update a region they didn't insert are reviewed with the owner before the rule ships. Crafted bypasses must fail it. A `Source` insert that sets `archiveOnly` to true must also set `enabled` to the literal `false`: `enabled` defaults to true, so leaving it out would break the CHECK in 11.1, fail `migrate deploy` in the production build and block every later deploy. G17 only decides whether the **backfill** is automated; the migration itself still ships through the ordinary code-merge review | CI, plan | terminal |
+| G18 | **One live feed:** in prod, the kennel is linked to exactly one enabled source, the origin, plus the archive source | plan, every batch | terminal |
+| G19 | **One archive per kennel:** no earlier run for this kennel has written anything (status `APPLYING` or later, unless it was fully `UNDONE`), and the kennel has no cutoff yet | plan | terminal |
+| G20 | **The stretches join:** `C` is in the past; no gap between the archive's last row and `C` beyond 1.5 median run intervals; the live feed shows at least 95% of the archive rows dated from `C` to `frozenAt` (6.5) | plan, before the first batch | terminal (`WAITING` while the origin backs no past event) |
+| G21 | **Calendar series marker:** for a `GOOGLE_CALENDAR` origin, every row in the archive file has the `recurringSeriesId` key, as the series id or an explicit `null`. If a capture or a hand edit dropped the field, a repeating calendar entry would be stored as a run, and the nightly status refresh could never correct it. This key check reads the file as committed: in CI, and at plan step 1, before step 4 removes the `null`s. The plan also checks the overlap at step 6. Each archive row from `C` to `frozenAt` is compared with the origin's current RawEvent for the same `sourceUrl` linked to the kennel's event on the row's date, using the same newest-copy rule as `CURRENT_RAW_SQL`. If several current copies match, all must agree; copies with no `eventId` are ignored. Rows listed in `curatedCorrections`, and rows with no current copy on their date, are skipped and counted, not failed. A RawEvent stored before the adapter began emitting the marker (#2923) is skipped, because RawEvents are immutable and events that haven't been re-scraped since keep a copy without it. "Before" is a fixed constant, set once in Phase 0 from the data: the earliest `scrapedAt` of any calendar RawEvent carrying `recurringSeriesId`, plus one hour. That margin covers old function instances still finishing during the rollout. Content can't decide it, since an absent key means both "one-off event" and "stored before #2923". A cut-off set too early brings back the false block; one set too late only skips a few more rows. Every compared row must carry the same marker. The run records how many rows were compared and how many skipped; a skip is not a failure | CI and plan step 1 (key present), plan step 6 (overlap agrees) | terminal |
+
+A `HALTED` run stops where it is. Nothing is rolled back automatically, because an automatic delete
+would be a prod write without the owner's OK. Every row already written is complete (9.1), so a halted
+run is always consistent for the owner to resume or undo.
+
+### 8.2 The PII scanner
+
+One module, used by the implementer before it commits, by CI and by the server, so the three can't
+disagree. It covers every format already seen in archives: dashed, spaced, dotted and parenthesised
+North American numbers, bare 10-digit numbers, 7-digit local numbers (`286-0444`), international
+`+CC` numbers, Croatian and other European mobile shapes, and emails including `name (at) domain`. It
+scans every string field, and URL fields again after percent-decoding (the Zagreb archive had a phone
+number inside a Maps URL). It reports row index, field and pattern id, **never the matched text**. It
+fails closed and has no allowlist.
+
+**Out of scope, accepted risk:** home addresses and private individuals' real names. Archives are
+public kennel schedules; curation at freeze time is the control for these.
+
+**A hit after push is a leak, not a bug to patch.** The repo is public, so a hit in CI or at plan time
+means the data is already published, and a fix-up commit leaves it in the branch history and in the
+PR's `refs/pull/N/head`. The response:
+1. Close the PR and delete the branch; never apply it.
+2. Ask GitHub support to purge the PR's cached refs (only GitHub can remove `refs/pull/*`).
+3. Rebuild from a fresh branch with the scrubbed archive under a new name, in a new PR.
+4. The digest reports the leak as "Needs you today" until the owner marks it handled.
+
+The scanner's real job is at freeze time, before the first push. The implementer runs it before every
+commit that touches `scripts/data/`.
+
+## 9. Plan, apply and verify
+
+### 9.1 Changes to the merge pipeline
+
+`processRawEvents` gains a `backfill` option, used only by this system:
+
+1. **Any match throws.** Matching is pulled out of `upsertCanonicalEvent` into a read-only step that
+   returns CREATE or MATCH (with its path: same-day, fuzzy window, cross-window, date-correction,
+   orphan adoption). In backfill mode **any** MATCH, including one onto an event the run itself just
+   created, throws `CreateOnlyViolation` before any write for that row. The ±30-day date-correction
+   path (same `sourceUrl`, run number and label, `merge.ts` ~1726) matters most: archive rows carry
+   the origin's URL, and curated date fixes are routine.
+2. **One atomic write per row.** The RawEvent (with `processed: true`) is created inside the same
+   nested create as the Event and its primary `EventKennel`, extending `createEventWithKennel`. There
+   is never a RawEvent without its event, or an event waiting for the post-loop flush to link its
+   RawEvent. After the create, `recomputeCanonical` still runs for the slot (`merge.ts` ~2356). For a
+   single row it's a no-op. For a same-date group whose rows have different run numbers, every row
+   stays canonical and it's also a no-op; G10 predicts this, and any write it does make fails G14.
+   That call is the one write outside the per-row create.
+3. **No cluster linker.** The same-title cluster linker only reads events from yesterday onward
+   (`src/pipeline/same-title-cluster.ts` ~241), so it can't link a past archive row; it would only
+   re-link the kennel's upcoming live events as a side effect. Backfill mode skips it.
+4. **Rows with `seriesId`, more than one kennel tag, or `externalLinks` are rejected**, since their
+   extra writes happen after the per-row create.
+
+Separately, for **every** source, the two archive protections in 6.5: the cutoff drop and the
+date-correction skip. The drop runs at the top of the loop: the row's kennel tag is resolved (the
+resolver is cached), and a row before that kennel's cutoff from any source other than its archive
+source is dropped and counted in the result as `archiveCutoffDropped`. The hand-run loader's
+`reportAndApplyBackfill` throws when that count is above 0, so a supervised backfill for a kennel with
+a cutoff fails loudly instead of reporting `created=0`.
+
+`Kennel.lastEventDate` is still updated after the loop; it is a derived field, recomputed at the end of
+the run and after undo. Backfill mode doesn't go through `scrapeSource`, so it doesn't get the two
+kennel status refreshes `scrapeSource` runs after every scrape. The run calls them itself, at the end
+(9.2) and after undo (10.3).
+
+### 9.2 Plan, then apply
+
+**Plan** (read-only):
+1. A1–A6; fetch manifest and archive at `S`; G2; G21's key check on the archive file.
+2. Resolve the archive source, origin and kennel; G4, G5, G12, G18, G19.
+3. Find `C` (6.5); split the rows; G20.
+4. Normalise each row the way `processRawEvents` does before fingerprinting (`sanitizeRawFields`
+   included), on a copy, and compute its fingerprint. An explicit `recurringSeriesId: null` from the
+   archive file is turned into an absent key first, so the fingerprint and the stored row match a live
+   one-off event's. The `null` exists only to prove the capture kept the field (G21).
+5. Compute each row's expected `isScheduleOnly` by evaluating `POSTED_RUN_RAW_SQL` itself in the prod
+   database, over the normalised rows as `jsonb` (built with `JSON.stringify` of the same normalised
+   object the merge will store) with the archive source's type. Doing it in SQL means no second copy
+   of the rule can drift from it, whether through whitespace, word boundaries, an empty or zero run
+   number, or the placeholder list. Each archive event has exactly one RawEvent, so the refresh's
+   newest-copy test (`CURRENT_RAW_SQL`) can't change the answer.
+6. G3, G6, G7, G8, G9, G11, G13, G21's overlap check; the matcher simulation (G10) over the rows
+   before `C`.
+7. Record the V3 snapshot.
+8. Store the plan: `C`, per-kennel counts before and from `C`, row order, batch boundaries, each row's
+   expected `isScheduleOnly`, and `planHash` (SHA-256 of the approval hash, source ids, kennel id, `C`,
+   the ordered fingerprints of the rows to write and their expected flags).
+
+**Apply** (one `advance` call = one batch of rows before `C`):
+- **Lease.** `advance` sets `leaseToken` and `leaseExpiresAt = now + 6 min` with one conditional update
+  that succeeds only if the lease is free or expired.
+- **Cutoff, in two steps.** The first `advance` call, in one transaction, recomputes `C` and halts if
+  it differs from the plan's; then it sets `Kennel.archiveCutoffDate = C`, moves the run to `APPLYING`
+  and records the time and the kennel's status line (9.6). It writes no rows. A scrape already running at that moment read the kennel's
+  settings before the cutoff existed and could still store an event before `C`. So the next `advance`
+  writes nothing until every `ScrapeLog` row for the kennel's sources that was `RUNNING` at the cutoff
+  time has finished. A `RUNNING` row older than 10 minutes counts as finished: the scrape function
+  can't live past its 300 s limit, and stale rows are otherwise only marked `FAILED` when the source's
+  next scrape starts, which can be a day later. Callers of the merge that write no `ScrapeLog` (the
+  hand loaders, the Atlanta deep-backfill route) aren't waited for; they are supervised paths. Nor is a
+  `scrapeSource` call from a local script, which writes a `ScrapeLog` row but has no time limit: the
+  supervised-session rule is not to run a wide one-shot scrape for a kennel while its backfill is
+  `APPLYING` (the digest lists those), and V3, V4 and the 7-day re-checks catch one that does. Then it
+  re-checks that no event of the kennel before `C` is backed by an enabled source, and G20 again. Only
+  if both hold does it write the first batch; otherwise the run halts with the cutoff in place, for the
+  owner.
+- **Batch.** The next rows in plan order. Same-date groups are never split. The first batch is 50 rows;
+  later ones are sized from the measured time per row to use at most 150 s of the 300 s limit, capped at
+  200.
+- **Steps:** G1, G4, G8, G9 (for the batch's rows), G12, G16, G18 → record the batch's row indexes as
+  `inFlightBatch` → merge in backfill mode; each row's nested create sets the event's `isScheduleOnly`
+  to the plan's expected value, so an origin scrape that refreshes the kennel's evidence mid-run never
+  reads a usual-schedule archive row as a real run → for each row, read the RawEvent by (archive source,
+  fingerprint) and write a `BackfillRunItem` → G14 → clear `inFlightBatch`, advance the cursor, release
+  the lease (one short transaction, 30 s timeout).
+- **No long transactions.** Each row is its own nested create; bookkeeping holds at most 200 small
+  inserts. Nothing like the 76 s delete that hit P2028.
+- **Finish.** When every row before `C` has an item, recompute `lastEventDate`, then run
+  `refreshScheduleOnlyFlags({ sourceId: <archive source>, since: <epoch> })` and then
+  `refreshKennelEvidence([kennel])`, in that order, because the second reads the flags the first writes.
+  The archive source holds only this run's RawEvents (G19; undo hard-deletes them), so scoping by
+  source alone covers exactly the written events. No app-clock `since` is needed. Record the kennel's
+  status line again, then set `APPLIED` and run `verify`. `APPLIED` is set only after both refreshes
+  succeed. If one throws, the run stays `APPLYING` with every row written, and the next `advance`
+  retries only the finish step. The daily audit cron runs both refreshes as a backstop.
+
+**Races with live scrapes.** Between plan and the cutoff, a wide re-scrape could store events before
+`C`, on archive dates or on others; the post-cutoff re-check catches both and the run halts before
+writing anything. Once the cutoff is in force and the scrapes that predate it have finished, no other
+source's row before `C` reaches the merge, so nothing can race the writes. Other sources' rows from `C`
+on are the live feed's, as before.
+
+### 9.3 Verify
+
+`verify` runs after the last batch and daily for 7 days afterwards. V3 and V4 also run after every
+batch, as part of G14. All are row checks:
+
+| # | Check |
+|---|---|
+| V1 | Every item's event exists, is `CONFIRMED` and canonical, has the expected kennel as primary, and passes the kennel page's own display filter. The page's query and filters move into one shared function used by both the page and `verify`. For `CREATED` items, the event's `isScheduleOnly` equals the plan's expected value, which proves the series marker made it from the archive to the flag. The flag check passes if the flag equals the plan's value. Otherwise it passes with a "rule changed" note if all three hold: the deployed commit differs from the plan's; the stored RawEvent's fingerprint equals the plan's; and the flag equals the rule re-run on the stored `rawData`. Otherwise it fails. A stopped kennel's page hides its usual-schedule events (`HIDE_STOPPED_SCHEDULE_RUNS` in `src/lib/event-filters.ts`), so while `stoppedAt` is set, rows the plan expects to be schedule-only are checked against the display filter without that clause. Being hidden by the stop is correct, not a failure |
+| V2 | Every written archive (date, run number) appears in the kennel's displayed events, and at least 95% of the counted rows from `C` to `frozenAt` do too (the live feed's stretch, with G20's exclusions); the missing ones are listed. Rows V1 excuses because of a stop are excused here too. The implementer checks the same on the public page payload, from its own clone's copy of the archive |
+| V3 | **Static history unchanged.** A hash over every pre-existing event of the kennel dated within 30 days of a written row's date that **no enabled source backs** (id, date, status, `isCanonical`, primary kennel, run number, title, hares, location fields, `parentEventId`), taken at plan time, is unchanged. Live-backed events are left out, because their sources update them every day; a run that wrongly touched one would already have failed the in-merge check or G14's `updated = 0` |
+| V4 | No written row's (kennel, date) slot shows any event other than the run's own |
+| V5 | The public page's `totalEvents` equals the shared function's count at the same moment |
+
+The count chain (rows → written → visible → unique dates, before and after) is reported for the owner
+to read but is not pass or fail: totals can balance while rows are wrong, and live scrapes change
+totals every day.
+
+A V1–V4 failure is `VERIFY_FAILED` (or `HALTED` mid-run) with the check and row indexes. During the
+7-day re-checks it also raises a Sentry error and appears under "Needs you" in the digest.
+
+### 9.4 The Zagreb 716-vs-715 case
+
+On the evening of 2026-11-12, US Eastern, just after #2904 merged (03:24 UTC on 2026-11-13), the hand apply reported `created=716` and the kennel page showed 715. The page counts
+unique dates, not events (`src/app/kennels/[slug]/page.tsx`: `uniqueDates = new Set(events.map(date))`).
+The archive has 716 rows on 715 dates: #2059 and #2060 are both on 2014-10-04 and stay separate events
+because their run numbers differ (the merge's run-number veto, #2656).
+
+A count alone doesn't prove nothing is missing, so this was checked row by row the same evening against the
+public page payload: the page lists 716 distinct events on 715 unique dates; every archive
+(date, run number) pair appears exactly once; and the page shows no event outside the archive. V2 is
+that check, automated.
+
+### 9.5 Reconciling a mismatch
+
+1. Read the run's verification result (`GET /runs/:id` or the admin page). The failing check and row
+   indexes name the cause.
+2. **V1 fails, event `CANCELLED`:** something cancelled it after the apply. The archive binding and the
+   cutoff should make this impossible, so treat it as a bug: check the reconciliation context of the
+   latest `ScrapeLog` rows for the kennel's sources.
+3. **V1 fails, not canonical:** another event took the slot after the apply; V4 fails too. Inspect,
+   then decide which event is wrong.
+4. **V1 fails, wrong kennel:** G14 should have halted. Undo the run.
+5. **V2 lists live-owned rows missing:** the live feed doesn't have those runs. Under the 5% threshold
+   that's for the live source or a supervised fix. Over it, `C` was probably wrong (a stray early
+   origin event): undo, fix the stray event, and re-submit.
+6. **V2 fails for a written row while V1 passes:** the page filters something the shared function
+   doesn't, so the two have drifted. Fix the shared function.
+7. **V3 fails:** static history changed. If the run did it, undo; otherwise find the writer.
+8. **V1 fails on `isScheduleOnly` alone:** the event is right, and only the flag disagrees with the
+   plan. A rule change from a deploy is recorded as a note rather than a failure (V1). The plan and the
+   refresh evaluate the same SQL on the same stored row, so a failure here means either something
+   rewrote the flag or the stored `rawData` differs from the plan's row. Find the writer.
+9. **Schedule-only rows hidden on a stopped kennel:** not a failure (V1). They return if the kennel is
+   restarted.
+10. **Totals differ but V1–V4 pass:** expected. Same-date rows, live events and cancellations all move
+    totals.
+
+### 9.6 Effect on kennel status
+
+The kennel status rules ([spec](superpowers/specs/2026-11-10-kennel-status-design.md)) split "is it
+running?" from "what do we have?". Here is how a backfill fits them.
+
+- **Archive rows count as real runs**, except those the plan expects to be schedule-only. They are
+  dated records from the kennel's own sheet, calendar or site, backed by a RawEvent from a source of the
+  origin's type (never STATIC_SCHEDULE) and not entered by hand, so this is intended. The flag is right
+  from the moment each row is created (9.2), not only after the finish refresh.
+- **They rarely change the status line.** Every archive row is dated before `C`, and `C` is a past event
+  the origin backs. The archive changes `lastRunSeenAt` only when none of the live feed's past events
+  is itself a real run, for example a calendar whose past entries are all bare repeating instances.
+  Then the archive's last row becomes "Last run we saw", and "How we know" names the archive source.
+  That is true, so name archive sources as a source a reader understands ("<Kennel> run history"). In
+  that case coverage can still say "We don't get their runs": no live feed has produced a real run.
+  Both statements hold.
+- **Upcoming runs are untouched, but past evidence feeds Travel.** Every row is in the past, so
+  `nextRunPostedAt`, Travel's Confirmed list and the Hareline's "usual schedule" tag don't change.
+  Travel's projection scoring does read past evidence: the inactivity downgrade
+  (`src/lib/travel/projections.ts`, `lastEventDate` today, the last real run once the status plan's
+  Travel task lands) and the evidence and agreement gates over about the last 12 weeks of independent
+  runs (`src/lib/travel/search.ts`). Rule drift and the prediction ledger read the same runs. For an
+  "upcoming runs only" origin, archive rows near `C` can fall inside those windows and raise a Likely or
+  Possible row. That's intended, since they are real runs, and the status-line change below is what
+  makes it visible.
+- **A stop can be overturned.** `refreshKennelEvidence` keeps `stoppedAt` only while no evidence is
+  later than it. An archive row dated after an admin stop clears the stop, which is correct: the
+  kennel's own records show it ran after that date. The run stores the kennel's status line before its
+  first write and after its finish refresh, and undo does the same. The digest lists every run or undo
+  that changed one. While a stop stands, the kennel page hides the archive's schedule-only rows like
+  any other usual-schedule run, and verification allows for that (V1).
+- **Kennels with a usual schedule stay out of Phase 2.** G18 allows one enabled source, so a kennel
+  with a STATIC_SCHEDULE source never gets that far, and no generated run can sit on an archive date.
+  Stopping a kennel disables its unshared STATIC_SCHEDULE sources, so a stopped kennel can pass G18.
+  Its leftover generated past events on archive dates then fail G9, and the run blocks rather than
+  overwriting them. Once Phase 3 admits kennels with a schedule source, expect this block often.
+  Create-only is never loosened, so such events would have to be retired before the run, never
+  overwritten by it.
+- **A calendar of bare repeating entries can't be wrongly joined.** If the origin's past events are
+  only repeating instances with no run number, they can't match numbered archive rows, so G20's 95%
+  check blocks, or `C` sits where the archive already ends.
+
+## 10. Idempotency, partial failure, resume and undo
+
+### 10.1 Idempotency
+
+- One run per approved manifest (A5 and the unique index), one archive per kennel (G19). Calling
+  `plan` again returns the existing run.
+- `advance` on a finished run is a no-op that returns its status.
+- Items are keyed by **row index**, so a deploy that changes fingerprint normalisation mid-run can't
+  make done rows look new. The run records the deployed commit for each batch. If a resumed batch's
+  fingerprints no longer match the plan's, the run halts instead of writing.
+
+### 10.2 Partial failure and resume
+
+Each row is atomic and the archive source has no other writer, so recovery needs no guessing.
+
+| Failure | State left | Recovery |
+|---|---|---|
+| Timeout or crash during the merge | Some rows of `inFlightBatch` fully written, the rest not; lease held | Lease expires after 6 min. The next `advance` reads each in-flight row's RawEvent by (archive source, fingerprint): present means done, so its item is recorded from the RawEvent's `eventId`; absent means not done. It continues with the rows not done and never re-runs the merge for a done row |
+| Crash after the merge, before bookkeeping | Same | Same |
+| A terminal guard fails mid-run | `HALTED`; every written row complete and recorded; cutoff in place | Owner: resume from the admin page after fixing the cause, or undo |
+| Database, GitHub or deploy not ready | Nothing written | `WAITING`; the next `advance` or the watch cron retries |
+| Mac mini off | Run sits in `PLANNED` or `APPLYING` | Watch cron resumes `APPLYING`; `PLANNED` waits for the implementer or owner in Phase 2 |
+| Label removed mid-run | `HALTED` at the next batch | Re-label (a new stamp on the same content, which A4 accepts), then the owner resumes; or undo |
+
+### 10.3 Undo
+
+Undo deletes data, so it gets a dry run with counts and the owner's OK. It runs only from
+`/admin/backfills/<runId>`, under the owner's Clerk admin session, after a **step-up with a second
+factor**. The step-up guards four actions: resume, undo, setting a cutoff by hand (for example on an
+adopted kennel) and clearing one. Halting needs none, since an agent can already halt a run by
+removing the label. Setting the cutoff inside an approved run (9.2) is covered by that run's approval
+and needs no step-up. No token can do any of the four. Reading a plan, the undo plan included, needs no
+step-up. The admin page asks for the code only when the owner confirms, so time spent reading counts
+doesn't use up check 2's one-minute limit (below).
+
+**The second factor is a TOTP code, with its backup codes.** Passkeys are left out: a passkey in the
+Mac's keychain is on the Mac, and Clerk accepts a passkey as a reverification second factor only from
+API version 2026-08-20. Phone codes are left out too, because a text message can reach the Mac. The
+TOTP secret and the backup codes stay off the Mac: in an authenticator app on the owner's phone, or in
+a password manager that asks the owner before each use. The server can't tell a TOTP code from a backup
+code: Clerk's session token records how long ago each factor level was verified (`fva`), not which
+factor. So a backup code passes the step-up too, which is acceptable because the backup codes are kept
+off the Mac as well. "TOTP only" means TOTP and its backup codes, with phone codes and passkeys off;
+the server can't enforce it.
+
+**The owner does step-up actions from the phone**, where no agent runs, and keeps no HashTracks admin
+session in the Chrome that agents drive. The checks below hold either way; this rule is what closes the
+window they leave (T4 in 4.3).
+
+**Clerk's check alone isn't enough.** The step-up uses Clerk reverification at `strict_mfa`, but:
+- When the user has no second factor, Clerk downgrades the request to the first factor. Its
+  reverification guide says so, and the installed `@clerk/shared` code does it. The step-up would then
+  accept an email code or a saved password, both within an agent's reach, or pass with no prompt for 10
+  minutes after any sign-in, Google included.
+- Even with a second factor, Clerk's check is a freshness window. For 10 minutes after any
+  second-factor use, the owner's own sign-in included, every request from that browser passes with no
+  prompt.
+- Clerk marks the server-side check, `has({ reverification })`, as public beta.
+
+**So the server adds its own checks.** When it mints a nonce, and again when the nonce is used, all
+three must pass:
+1. `has({ reverification: "strict_mfa" })`.
+2. The session's factor-verification ages (Clerk's `fva` claim, `[first, second]` in whole minutes;
+   `-1` means no second factor, or one never verified) are present and well formed, and the second
+   value is 0: the owner entered a second-factor code within the last minute. A missing or malformed
+   value is a refusal.
+3. The session token was issued less than 60 seconds ago (`iat`), by the server's clock. A token
+   stamped up to 5 seconds in the future counts as fresh, the same skew Clerk's own token check
+   allows. A missing or non-numeric `iat` is a refusal. `fva` is fixed when the token is minted, so an
+   older token could still read 0 after the minute has passed.
+
+The admin page starts a fresh verification for every action (Clerk's `session.startVerification`),
+then sends a freshly fetched token (`getToken({ skipCache: true })`). Each action therefore costs the
+owner a code. On success the server mints a single-use nonce bound to this session, this action and
+its run (or, for a cutoff set or cleared by hand, its kennel), which expires 2 minutes after it is minted
+(`BackfillStepUpNonce`, 11.1). The request that performs the action carries the
+nonce and its own freshly fetched token, and the server runs all three checks again on that request.
+Checking only when the nonce is minted would let a nonce minted late in the window be used after the
+window had closed. So no action is accepted more than two minutes after its code, plus any amount
+Clerk's clock runs ahead of the server's (normally under a second). An accepted resume or undo then
+runs in batches under its lease, as apply does.
+
+**Step-up probe.** The admin page also has a probe that runs the same three checks when it mints a
+nonce and when it uses one, spends the nonce, and writes only an audit row. It can be late in two
+ways: wait before fetching the token for its use, which check 2 refuses, or fetch that token straight
+away and hold it, which check 3 refuses. The late cases can't be tested any other way: the page sends each
+action as soon as the code is entered, and before Phase 2 there is no run to resume or undo.
+
+Phase 0 tests refusal for: no second factor; `fva` missing or malformed; a second value of 1 or more;
+a token 60 seconds old or more, or with no `iat`; and a valid nonce sent with a token that fails a
+check, each even when Clerk's check passes. It also tests, with the probe on Clerk's development
+instance, that a real TOTP step-up passes. And it reads the `fva` of a token that the Backend API
+mints for a session with no recent second factor (`sessions.getToken`), which settles the question
+below before Phase 2.
+
+**What is left.** For up to two minutes after each second-factor use by the owner, that browser
+session passes checks 2 and 3, when the nonce is minted and when it is used. Clerk's own sensitive
+actions, such as changing a second factor, are open for its configured window (at least a minute)
+after any sign-in or step-up. An agent driving that browser could use either. The phone rule above is
+what prevents it, and 4.3 records it as T4.
+
+**With the phone rule, the step-up stops an agent that can only drive a browser. One holding
+owner-level secrets is the case 4.1 leaves unsolved.** For example, the Mac's `.env` holds the
+development instance's `CLERK_SECRET_KEY`, but the production key is in Vercel. A task may be able to
+read it through the Vercel CLI's stored login or the Vercel connector. Secret (formerly Sensitive)
+values can't be read back, but every deployment decrypts them, so code in a build an agent triggers
+can read any value scoped to that build's environment (4.1). With the live key, an agent could remove the owner's second factors through Clerk's Backend
+API, sign in as the owner with a sign-in token and enrol its own TOTP; the digest would still see TOTP
+and backup codes on. The Backend API can also mint a token for an existing session
+(`sessions.getToken`). Whether such a token carries `fva` hasn't been checked yet (Phase 0 checks it);
+if it does, one minted for the owner's phone session within its two minutes would pass, and the phone
+rule wouldn't stop it.
+The server itself must hold the live key, so a leak from Vercel reaches as far (4.1). H2 takes Vercel
+access off the scheduled tasks and keeps production secrets out of builds of code the owner hasn't
+approved (with H1's ruleset on `main`).
+
+**Switching it on.** On 2026-11-13 the Clerk production instance had the authenticator app and backup
+codes switched off, and passkeys didn't count as a second factor. Before Phase 2:
+- The owner switches on the authenticator app and backup codes, and enrols from the phone, in one
+  sitting with the scheduled tasks paused. Until the owner enrols, Clerk would accept an email code to
+  add a second factor, so an agent could otherwise enrol its own.
+- Phone codes stay off as a second factor.
+- Clerk's window for its own sensitive actions is set to its minimum.
+- The owner then runs the step-up probe on production three times: once straight through, which
+  passes; once waiting 70 seconds before fetching the token for its use, which check 2 refuses; and
+  once fetching that token straight away and holding it 70 seconds, which check 3 refuses. Phase 0's
+  development-instance test can't show this, because production's factor settings and
+  sensitive-action window differ.
+
+Switching these on lets users add a second factor; no one has to. A Phase 2 entry check reads the
+owner's Clerk user through the Backend API: TOTP and backup codes on, no phone number reserved for a
+second factor. The daily digest repeats that check, so it catches a removed second factor or an added
+phone factor. It can't see a swapped TOTP or regenerated backup codes (T4).
+
+**If the phone is lost**, halting still works and nothing else stops; only the four actions wait. The
+owner signs in with a backup code and enrols the authenticator app on a new phone, again in one
+sitting with the scheduled tasks paused. If the backup codes are lost too, the owner's second factors
+are removed through Clerk's Backend API (`disableUserMFA`, run from a machine no agent uses, with a
+live key the owner takes from the Clerk dashboard, ideally one made for this and revoked afterwards),
+in that same sitting with the tasks paused: until the new enrolment, Clerk would accept
+an email code to add a factor. The enrolment above is then repeated.
+
+**Undo plan** (read-only), from the run's items:
+- **events to delete:** created by the run, carrying only the run's RawEvent, with no `Attendance`, no
+  `KennelAttendance`, and no `EventHare` row linked to a user or entered by a misman;
+- **events to keep, with the reason:** a user or misman attached data, or another source's RawEvent
+  joined it (the cutoff should prevent this). A kept event is left exactly as it is, run RawEvent
+  included, and listed for the owner. The merge can't rebuild an event from its remaining RawEvents, so
+  stripping only the run's RawEvent would leave the archive's values with no record of where they came
+  from;
+- **RawEvents to delete:** the run's, except those on kept events;
+- **slots to recompute:** every (kennel, date) the run touched.
+
+**Undo apply**, after the owner confirms those counts. The confirm carries the undo plan's hash, and
+the server refuses it if the plan, recomputed then, differs, so nothing that changed while the owner
+read the counts is deleted unseen:
+- One event per transaction through the existing hard-delete helper, moved from `scripts/lib` to
+  `src/lib`: `FOR UPDATE` lock, required-empty user relations, a foreign RawEvent at delete time rolls
+  that event back and moves it to "kept". 30 s timeout per transaction. Batched under a lease and
+  resumable, like apply.
+- RawEvents are **hard-deleted**, never unlinked. An unprocessed RawEvent with no event is re-adopted by
+  the merge's orphan path, which would quietly recreate the event. The items and the archive in git
+  remain the audit trail.
+- After the deletes: `isCanonical` is recomputed for every touched slot (the delete helper doesn't do
+  it, and an event that lost the canonical pick to a run event would otherwise stay hidden);
+  `Kennel.lastEventDate` is recomputed; then `refreshKennelEvidence([kennel])` runs. It reads
+  `isCanonical`, so it runs after that recompute, and "Last run we saw" can't keep pointing at a
+  deleted run. Kept events' flags need no refresh, because their RawEvents are untouched. The kennel's
+  status line is recorded before the first delete and after this refresh (9.6). V3 is checked against
+  the plan-time snapshot.
+- Last, if nothing was kept, the kennel's cutoff is cleared, so live sources process those dates
+  normally again. Nothing was stored for the dropped rows, so the next wide scrape simply sees them as
+  new. If events were kept, the cutoff stays until the owner decides about them.
+
+The run becomes `UNDONE`. Its approval is spent; a new archive for the kennel can be submitted (G19).
+
+## 11. Audit trail and liveness
+
+### 11.1 Schema (one migration, e.g. `<ts>_add_backfill_run_tables`)
+
+**`BackfillRun`:** id; PR number; merge SHA `S`; stamped SHA `H`; merged head `M`; manifest path;
+`manifestSha256`; `archiveSha256`; `approvalHash`; `planHash`; archive and origin source ids; kennel
+id; split point `C`; status (`PREVIEW`, `WAITING`, `BLOCKED`, `PLANNED`, `ADOPTED`, `APPLYING`,
+`HALTED`, `APPLIED`, `VERIFIED`, `VERIFY_FAILED`, `UNDOING`, `UNDONE`); reason codes; counts before and
+from `C`, and batch boundaries (JSON); the V3 snapshot hash; cursor; `inFlightBatch`; `leaseToken`,
+`leaseExpiresAt`; batch log (index, rows, duration, deployed commit); verification results (JSON); who
+started each step (`backfill-agent`, `backfill-watch`, or the admin's user id); timestamps. A
+hand-written partial unique index on `manifestSha256` for every status except `PREVIEW`.
+
+**`BackfillRunItem`:** run id; row index; outcome (`CREATED`, `LIVE_OWNED`, `ADOPTED`); fingerprint;
+`rawEventId`; `eventId`; batch index; `undoneAt`, `undoOutcome` (deleted, or kept with reason). Unique
+on (run id, row index).
+
+**`CronHeartbeat`:** created by PR 1 but unused. Cron runs are recorded in the ops system's
+`AutomationRun` through `withCronRun()` (`docs/ops/system.md`). Once PR 5 has merged, a later migration
+drops this table with `DROP TABLE IF EXISTS`, after a prod dry run shows it empty.
+
+**`BackfillStepUpNonce`:** `nonceHash`; Clerk session id; action (`RESUME`, `UNDO`, `SET_CUTOFF`,
+`CLEAR_CUTOFF`, `PROBE`); run id or kennel id (both null for the probe); `expiresAt`; `consumedAt`;
+the result of the checks on use. Unique on `nonceHash`, the same pattern as `AuditFilingNonce`. The
+step-up probe's audit record is its row here; the probe writes nothing else. The expiry doesn't set
+the two-minute window, since the checks on use do. It only limits how long an unused nonce lingers.
+
+**`Source.archiveOnly`:** boolean, default false, with a hand-written CHECK
+`NOT ("archiveOnly" AND enabled)` in the same migration (Prisma can't express it in the schema).
+**`Kennel.archiveCutoffDate`** and **`Kennel.archiveCutoffRunId`:** nullable.
+
+`RawEvent` and `Event` gain no column.
+
+### 11.2 Ops digest
+
+`buildOpsDigest` gains a `backfills` block: runs from the last 7 days with status and counts; runs in
+`BLOCKED`, `HALTED`, `VERIFY_FAILED`, or `WAITING` for over 24 hours; leases expired over an hour;
+approved manifests merged over 48 hours ago without a `VERIFIED` run; PII leak flags; the
+`archiveCutoffDropped` and `archiveCorrectionSkipped` counts from the last day's scrapes, per kennel;
+runs that changed their kennel's status line, before and after (9.6); and the watch cron's latest run (`AutomationRun`, 11.3).
+`docs/ops/daily-digest-task.md` puts every blocked, halted or failed run, every leak flag and every
+approved-but-unapplied manifest under **Needs you today**.
+
+### 11.3 Liveness
+
+The watch cron raises a Sentry error when a run has been `APPLYING` with an expired lease for over 2
+hours; a run has been `HALTED` or `VERIFY_FAILED` for over 24 hours; an approved manifest has no
+`VERIFIED` run 48 hours after merge; or a 7-day re-check fails. The ops system's watchdog flags the watch
+cron itself when its last `AutomationRun` is over 26 hours old (the cron is registered in
+`src/lib/automation-registry.ts`), and the digest shows that state. Silence counts as failure.
+
+## 12. What changes in existing code and manuals
+
+### 12.1 Code (Phase 0)
+
+| Area | Change |
+|---|---|
+| `src/pipeline/merge.ts` | Extract the read-only matcher from `upsertCanonicalEvent`; add `backfill` mode (any match throws, atomic per-row create, no cluster linker, reject series, multi-tag and link rows); add the archive-cutoff drop and `archiveCutoffDropped` count for all sources; the date-correction query skips archive-only events. Default behaviour unchanged for kennels without archive-only events. New tests for every match path in both modes, the drop and the skip |
+| `scripts/lib/backfill-runner.ts` | `reportAndApplyBackfill` throws when `archiveCutoffDropped` is above 0 |
+| `src/lib/event-write.ts` | Optional nested RawEvent in `createEventWithKennel` |
+| `src/pipeline/scrape.ts` | Refuse to scrape, or force-scrape, an `archiveOnly` source; count `archiveCutoffDropped` rows |
+| `src/pipeline/kennel-evidence.ts` | Export `CURRENT_RAW_SQL` with no behaviour change, so G21's overlap check reuses the newest-copy rule instead of copying it. The plan already imports the exported `POSTED_RUN_RAW_SQL` |
+| `src/app/admin/sources/actions.ts` | `deleteSource` and `toggleSourceEnabled` refuse an `archiveOnly` source; `updateSource` refuses an actual change to its name, type or kennel links (comparing submitted links with the existing set) |
+| `src/app/kennels/[slug]/page.tsx` | Move the event query, filters and unique-date count into a shared function |
+| `scripts/lib/delete-leaked-event.ts` | Move to `src/lib`; add canonical recompute for touched slots |
+| `prisma/schema.prisma` | `Source.archiveOnly`, `Kennel.archiveCutoffDate` and `archiveCutoffRunId`, `BackfillRun`, `BackfillRunItem`, `CronHeartbeat` (superseded by the ops system's `AutomationRun`, 11.1), `BackfillStepUpNonce` |
+| New | `src/lib/backfill/**` (manifest with `scheduleOnlyEstimate` and G21, PII scanner, provenance rules, plan with the expected `isScheduleOnly` from `POSTED_RUN_RAW_SQL`, apply with the kennel status refreshes, verify, undo); agent routes; admin page with Clerk `strict_mfa` reverification, the server's own checks on `fva` and `iat` (10.3), run when a nonce is minted and again when it is used, a fresh verification per action, single-use action nonces bound to the session and expiring after 2 minutes, the step-up probe, and the undo plan's hash on the undo confirm; a Clerk Backend API check of the owner's second factors for the Phase 2 entry and the digest; watch cron (inside the ops system's `withCronRun()`); the shared stamp module `src/lib/backfill/approval-stamp.ts`, used by the ops `write-gate.yml` (6.3); the G17 checker `src/lib/migration-sql/g17.ts`; `libpg-query` moved to `dependencies` and `serverExternalPackages`; `backfill-manifest` CI job |
+| Ops (owner) | Before Phase 1: `BACKFILL_AGENT_TOKEN` and `GITHUB_APPROVAL_READ_TOKEN` set in Vercel, scoped to Production only, so a preview build of an agent's branch never gets them; the same for the GitHub App's credentials later. Before Phase 2: H3 (the issue-filing GitHub App; the server's GitHub calls today touch only issues, labels and repo metadata, so the App needs Issues and read-only Metadata, and the filing-health probe is reworked); the authenticator app and backup codes switched on in Clerk production and the owner enrolled from the phone in one sitting, with phone codes off and Clerk's sensitive-action window at its minimum, then the step-up probe run three times on production (10.3) |
+
+### 12.1a Phase 0 build order
+
+Phase 0 ships as a stack of PRs, each based on the one before, so each can be reviewed alone.
+`BACKFILL_AUTOMATION` stays `off` throughout: nothing below writes events until a later phase turns
+it on.
+
+| # | PR | Contents | Merged by |
+|---|---|---|---|
+| 1 | Schema | One migration: `Source.archiveOnly` with the CHECK `NOT ("archiveOnly" AND enabled)`, `Kennel.archiveCutoffDate` and `archiveCutoffRunId`, `BackfillRun` (with the partial unique index on `manifestSha256`), `BackfillRunItem`, `CronHeartbeat`, `BackfillStepUpNonce`. No code reads the new columns yet. Merged as #3039, applied 2026-11-17 | Owner |
+| 2 | Merge pipeline | The read-only matcher pulled out of `upsertCanonicalEvent`; `backfill` mode (any match throws `CreateOnlyViolation` before writing, one nested RawEvent + Event + kennel-link create per row, no cluster linker, series, multi-tag and link rows rejected); the cutoff drop and the date-correction skip for every source, with `archiveCutoffDropped` and `archiveCorrectionSkipped` counts; the nested RawEvent in `createEventWithKennel`; `reportAndApplyBackfill` throws on drops; `scrapeSource` refuses an archive source and logs the counts. Tests for every match path in both modes | Claude, after 1 |
+| 3 | Supporting changes | `CURRENT_RAW_SQL` exported; the admin source actions refuse to delete, enable, rename, retype or relink an archive source; the kennel page's event query, filters and counts moved into a shared function; the event-delete helper moved to `src/lib` with the per-slot canonical recompute | Claude, after 2 |
+| 4 | Backfill library | `src/lib/backfill/**`: manifest and `approvalHash`, PII scanner, per-type provenance rules, G17 migration checker as `src/lib/migration-sql/g17.ts` (on the existing parser, accepting the template's wrapper, with a template-shaped fixture); `libpg-query` moved to `dependencies` and added to `serverExternalPackages`, with a Vercel preview proving a server route can parse SQL; every guard, plan, apply (lease, cutoff, batches, finish refreshes), verify (V1–V5) and undo (plan, hash-bound apply). End-to-end tests of plan, apply, crash-resume and undo against a local database | Claude, after 3 |
+| 5 | Routes, admin page, cron | `/api/agent/backfill/*` behind `BACKFILL_AGENT_TOKEN` and the G16 kill switch; the GitHub approval check (A1–A6) with `GITHUB_APPROVAL_READ_TOKEN`, through the shared stamp module (6.3); `/admin/backfills` with the Clerk `strict_mfa` step-up, the server's own `fva` and `iat` checks and single-use nonces, the step-up probe; the `backfill-watch` cron inside `withCronRun()`, registered in `src/lib/automation-registry.ts` (11.3); the digest's `backfills` block | Claude, after 4 and after the ops plan's S2 merges |
+| 6 | CI | The `backfill-manifest` CI job and its summary, a required check in the ops ruleset; the design's Status line set to "Phase 0 built". No stamp workflow: the ops `write-gate.yml` stamps (6.3) | Claude, after 5 and after the ops plan's S4 merges |
+
+Each PR runs `npx tsc --noEmit`, `npm run lint` and `npm test`, then `/simplify` and an adversarial
+review, before it opens. The env vars stay unset: the owner sets `BACKFILL_AGENT_TOKEN` and
+`GITHUB_APPROVAL_READ_TOKEN` (Production only) after the stack merges.
+
+### 12.2 Manuals
+
+**Implementer** (`implement-handoff-prompt.md`):
+- Build: the onboarding migration also creates the disabled archive source, linked to the kennel only,
+  and passes G17. Freeze the archive up to `frozenAt`; the plan leaves to the live feed whatever it
+  already has. For an "upcoming runs only" origin, the archive must reach the last run before the
+  merge (G20's gap rule), so re-freeze if the PR waits long for review. For a calendar origin, keep
+  each row's `recurringSeriesId` as the adapter emits it, writing an explicit `null` when it has none
+  (G21). Run the PII scanner and generate the manifest before the first commit that touches
+  `scripts/data/`. Call `POST /preview` and put its result in the PR body, with a link to CI's manifest
+  summary.
+- Phase A merge step: replace the label-vs-commit-date comparison with `GET /approval/:pr`, then
+  `gh pr merge --squash --match-head-commit <approved SHA>`.
+- Phase A step 6 becomes: after the first prod scrape, `plan`; if `PLANNED`, `advance` until done;
+  `verify`; check every written archive (date, run) on the public page; comment on the PR. One-line
+  report: `backfill: <code> VERIFIED <written> written, <live> left to the live feed`, or the block or
+  halt reason.
+- On any PII hit after push: follow the leak response in 8.2; never push a fix-up to the same PR.
+- Golden rule 2 gains one exception: calling the backfill agent API for a PR the owner approved.
+
+**Research** (`daily-onboarding-prompt.md`): a history handoff names its origin source and says whether
+the archive fits the Phase 2 scope (one live feed, a supported origin type, strict run numbers) or needs
+a supervised apply.
+
+**Digest** (`docs/ops/daily-digest-task.md`): the `backfills` block, leak flags, cutoff drop counts and
+the watch cron.
+
+The hand-run `scripts/backfill-<code>-history.ts` loaders stay as the supervised path for everything
+outside Phase 2 scope. They should later call the same library with a local run record so hand runs can
+also be undone; until then, `adopt-only` manifests bring them into the record.
+
+## 13. Rollout
+
+| Phase | What runs | Entry | Exit |
+|---|---|---|---|
+| 0. Build | Section 12.1. `BACKFILL_AUTOMATION=off` | This design approved | Unit tests for every guard, every merge match path in both modes, the cutoff drop, the provenance rules (against real Sheets, GCal, Meetup and website archives) and the migration checker (the last eight onboarding migrations pass, a fixture written to the migration template passes, crafted bypasses fail, and a sample onboarding migration that creates an archive source applies cleanly to a local database with the CHECK in place); the step-up refuses no second factor, a missing or malformed `fva`, and a second-factor age of 1 minute or more, a token 60 seconds old or more or with no `iat`, and a valid nonce sent with a token that fails a check, even when Clerk's check passes, while a real TOTP step-up through the probe on Clerk's development instance passes, and the `fva` of a session token minted through the Backend API (`sessions.getToken`) is read and recorded (10.3); plan, apply, crash-resume and undo tested end to end against a local copy of prod |
+| 1. Shadow | `BACKFILL_AUTOMATION=shadow`. The implementer runs `plan` and posts it; the owner still applies by hand and compares. The approval endpoint runs beside the implementer's old merge check and any disagreement is reported | Phase 0 merged, and the ops `write-gate` workflow (ops plan S4) is live and stamping (6.3) | `adopt-only` manifests for Music City and Zagreb come out `ADOPTED`; 5 new backfills where the shadow plan's written-row count equals what the hand apply created, every block was correct, and no PII false positive went unexplained; no disagreement between the approval endpoint and the owner's intent |
+| 2. Apply behind the label | `BACKFILL_AUTOMATION=apply`, Phase 2 scope (section 3), 2,000-row cap, 2 applies a day, the implementer starts every apply | Phase 1 exit; H3 done; the owner enrolled in TOTP with backup codes and no phone second factor, as read through Clerk's Backend API; on production, one probe step-up passed and both late attempts were refused (10.3); the owner's written acceptance of T1 and T4 and of H1/H2's absence | 10 applied runs, all `VERIFIED` first time or explained, no undo needed for a wrong write, no 7-day re-check failure |
+| 3. Loosen | One change at a time: multi-kennel origins or several live sources **only with per-row routing provenance** (the freeze tool records which pattern matched each row, default-bucket rows are forbidden, CI re-derives the routing from the origin's config); more origin types; a higher cap; the watch cron starting approved applies | Phase 2 exit **and** H1 **and** H2 | Owner's call per change |
+
+**Never loosened:** create-only, the archive binding and cutoff for automated applies, the PII guard,
+owner-only resume, undo and hand-set or cleared cutoffs with a second factor, and the owner's stamped
+label as the approval.
+
+## 14. Failure modes considered
+
+| Failure | What stops it |
+|---|---|
+| Agent rewrites the PR body after approval | The owner reads CI's summary; the server reads committed files only |
+| Any PR change after the label (push, force-push, web-editor merge) | A4 requires the merged head to be the stamped head up to merges of `main`; the implementer merges with `--match-head-commit` |
+| Agent adds `owner-approved` itself, or forges a stamp with a workflow on a branch | T1: not stopped. Owner accepts for Phase 2; H1 before Phase 3 |
+| PR edits the stamp workflow or guard code | `pull_request_target` runs `main`'s workflow; G15 refuses the PR |
+| PR's migration deletes or changes existing data | The code-merge review, as today; the migration runs on deploy whatever this design decides. G17 (a real SQL parser and an allow-list) only keeps such a PR's backfill from being automated; A4 binds the migration to the stamp |
+| Several manifests, or a regenerated one, in one PR | CI and A5: exactly one new manifest and archive per PR |
+| Fork PR or collaborator | Must be merged into `main` and labelled by `OWNER_GITHUB_LOGIN` |
+| Stolen `BACKFILL_AGENT_TOKEN` | Plans or advances only approved runs, which would run anyway; no approve, resume, undo or user data |
+| Stolen server GitHub credential | After H3: the read-only token can't label; the issues App's labels fail A2. Before H3 it is the owner's PAT, which is why H3 is a Phase 2 entry condition |
+| Stolen owner PAT or `DATABASE_URL` from the Mac, production secrets (the live `CLERK_SECRET_KEY` among them) read from Vercel, or code in a build an agent triggers using the secrets that build gets | Owner-level compromise, outside what this design can contain (4.1, 10.3); H2 |
+| Same manifest replayed, re-planned after a block, or after undo | Partial unique index covers every non-preview status; G19 one archive per kennel; a retry needs a new file, label and stamp |
+| Row moves or merges into an existing event | In-merge "any match throws"; G10 at plan; G9 overlap; G7 run numbers |
+| Wide re-scrape reaches archive dates: overwrite, date move, duplicate, resurrected row or redaction | Archive cutoff drops other sources' rows before the cutoff before anything is stored; the date-correction query skips archive-only events, so a later live row can't move one either. Adopted archives have no cutoff unless the owner sets one |
+| The split point is wrong: future (upcoming-only feed), today (empty first scrape), or years back (a stray early origin event) | `C` is always a past origin-backed date, else `WAITING`; G20 blocks a gap between the archive and `C` and requires the live feed to show 95% of its stretch; V2 re-checks the same |
+| A scrape running when the cutoff is set stores an event before it | The first batch waits for every scrape that predates the cutoff to finish, then re-checks that nothing before `C` is live-backed |
+| Rows from a shared website host labelled as one kennel's | G5 refuses a website host that any other kennel's source uses, and requires the origin's query parameters |
+| Supervised hand loader for a kennel with a cutoff silently creates nothing | The merge reports `archiveCutoffDropped`; the loader throws when it's above 0 |
+| Dropped rows leave tombstones after undo | Nothing is stored for them; undo clears the cutoff |
+| Co-hosted existing event on an archive date | G9 checks `EventKennel` membership |
+| Rows really from an aggregator, labelled as the kennel's own feed | G5 per-type provenance rule on every row; strict run numbers with capped exceptions (G7); G6 sibling mentions; one live feed per kennel (G18) |
+| Origin type whose URLs can't prove provenance (Facebook) | Not in Phase 2 |
+| Phone number or email in the archive | Scanner before commit, CI, plan, every batch; leak response if after push |
+| Private event dates in public text | Responses and PR text carry counts only about existing events |
+| Forced re-scrape or source delete wipes the run's RawEvents | Archive source can't be scraped, force-scraped or deleted |
+| Reconcile cancels backfilled runs | Disabled archive source shields them, and the cutoff keeps other sources' RawEvents off them; 7-day re-check |
+| Live feed's own stretch is fragile | Non-goal: the same exposure as every kennel today; V2 reports missing live-owned rows |
+| Crash mid-batch | Atomic rows; resume by fingerprint on an exclusive source; the merge never re-runs a done row |
+| Same-date group split across batches | Never split; G10 predicts the group and the canonical recompute; G14 requires one event per row |
+| Long transaction timeout (P2028) | No transaction spans more than one row's create or 200 bookkeeping inserts |
+| Deploy changes fingerprints mid-run | Items keyed by row index; fingerprint mismatch on resume halts |
+| Onboarding migration not yet live | A1 retryable until the deploy contains `S`; G12 finds no archive source otherwise |
+| Actions slow to stamp | Missing stamp is retryable |
+| Undo deletes something a user added | Required-empty relations, row locks, foreign RawEvent check, keep-and-report |
+| Undo leaves a hidden event or an orphan | Canonical recompute per slot; RawEvents hard-deleted |
+| Undo, resume, or a cutoff set or cleared through a signed-in browser | Clerk `strict_mfa` step-up, plus the server's own check that a second factor was used within the last minute (`fva`) and a fresh token, run when the nonce is minted and again when it is used; a single-use nonce per action; step-ups done from the phone (10.3, T4) |
+| Clerk downgrades the step-up to the first factor because the account has no second factor | The server refuses unless `fva` shows a second factor used within the last minute (10.3) |
+| An agent uses the two minutes after the owner's own second-factor use, in the same browser | Step-ups are done from the phone, and agents' Chrome holds no HashTracks admin session. Accepted as T4, not enforced (4.3, 10.3) |
+| An agent enrols its own second factor before the owner does | The owner switches it on and enrols from the phone in one sitting, with the scheduled tasks paused. The Phase 2 entry check and the daily digest read the owner's factors through Clerk's Backend API; they catch a removed factor or an added phone factor, not a swapped TOTP or regenerated backup codes (T4, 10.3) |
+| "Created" doesn't match the page | Row checks V1–V4; totals informational (9.3, 9.4) |
+| The loop dies quietly | Watch cron, the ops watchdog reading `AutomationRun`, Sentry, digest |
+| Geocoding cost and latency | Batch timing measured per batch; 2,000-row cap; same geocoding as today's hand applies |
+| A calendar archive drops or invents the repeating-series marker, so usual-schedule entries are stored as runs | G21: the key on every row of the committed file, and agreement with the origin's current RawEvents on the overlap at plan (RawEvents stored before the marker existed are skipped and counted); the CI summary counts instance-shaped `eid`s with a `null` marker |
+| The manifest's schedule-only rule drifts from `POSTED_RUN_RAW_SQL` (whitespace, word boundaries, `runNumber` forms, placeholder edits, the merge's clean-up) | No second rule: the plan evaluates the SQL itself on rows normalised as the merge stores them; the manifest's estimate is outside `approvalHash`, so a placeholder edit can't block an approved run |
+| Usual-schedule archive rows read as real runs mid-run | The nested create sets `isScheduleOnly` from the plan, so a mid-run evidence refresh sees the right flag |
+| The kennel's status shows a stale or deleted "Last run we saw" after an apply or undo | Both run the kennel status refreshes themselves (9.2, 10.3); `APPLIED` waits for them; the daily audit cron is the backstop |
+| An archive source is enabled, renamed, retyped or relinked and shown as the kennel's live feed | Database CHECK against enabling; `toggleSourceEnabled` and `updateSource` refuse; G12 pins disabled, the name and the origin's type on every batch |
+| An onboarding migration inserts the archive source without `enabled = false`, so the CHECK fails `migrate deploy` and blocks later deploys | G17 and CI require the literal `false`; a Phase 0 test applies a sample migration locally |
+| A deploy that changes the posted-run rule makes correct runs fail their 7-day re-checks | V1 records a rule change as a note when the stored row still equals the plan's |
+| A stopped kennel's schedule-only archive rows fail verification as missing | V1 and V2 check them without the stop clause while `stoppedAt` is set |
+| A backfill quietly changes a kennel's status or Travel tier, or overturns a stop | Intended when the archive shows later runs; the before and after status lines of every apply and undo are stored and shown in the digest (9.6) |
+
+## 15. Decisions for the owner
+
+The owner approved all ten on 2026-11-13. Decision 7 was changed during that review (10.3): the
+server now checks the second factor itself. On 2026-11-14, after that approval, PR review and
+adversarial rounds 16–19 clarified decision 7 (a backup code passes too) and added two items to the
+owner's list below: a production test of the step-up, and scoping the new tokens to Production only.
+They also widened H1 (a ruleset on `main` requiring the owner's review) and H2 (the tasks hold none of
+the owner's credentials or sessions, and no build of code the owner hasn't approved gets production
+secrets), which widens what decision 9's acceptance of their absence covers (Appendix A, P-1, P-4,
+R17-1, R18-1, R19-1).
+
+| # | Decision |
+|---|---|
+| 1 | Automated applies bind to a dedicated archive source, and the kennel gets an archive cutoff; live-source binding stays manual |
+| 2 | The live feed keeps the stretch from its earliest run on; the backfill writes only before it, and only on empty dates |
+| 3 | A kennel with an archive cutoff takes no history from other sources before it until the owner clears the cutoff |
+| 4 | Phase 2 accepts one-feed kennels with Sheets, Google Calendar, Meetup or website origins; anything else is supervised |
+| 5 | The implementer's code-merge check moves to the same approval stamp, with `--match-head-commit` |
+| 6 | A new `BACKFILL_AGENT_TOKEN`; a read-only `GITHUB_APPROVAL_READ_TOKEN`; issue filing moves to a GitHub App (H3) before Phase 2 |
+| 7 | Resume, undo, and setting or clearing a cutoff by hand only from the admin page, each after a TOTP code (or a backup code) entered on the phone. Clerk's check falls back to the first factor for an account without a second factor, and it is a 10-minute window, so the server also requires `fva` to show a second factor used within the last minute (10.3, T4) |
+| 8 | Phase 2 cap: 2,000 rows a run, 2 applies a day |
+| 9 | Phase 2 needs the owner's written acceptance of T1 and T4 and of H1/H2's absence; Phase 3 needs H1 and H2 |
+| 10 | Onboarding PRs whose migrations fall outside G17, or that touch guard code, get hand-applied backfills |
+
+What the owner still has to do, and when:
+- **Before Phase 1:** set `BACKFILL_AGENT_TOKEN` and `GITHUB_APPROVAL_READ_TOKEN` in Vercel, scoped to
+  Production only.
+- **Before Phase 2:**
+  - H3: create the issue-filing GitHub App and put its credentials in Vercel, Production only; the code change is part
+    of the build.
+  - In Clerk production, in one sitting with the scheduled tasks paused: switch on the authenticator
+    app and backup codes, enrol from the phone, keep phone codes off as a second
+    factor, set Clerk's sensitive-action window to its minimum, and run the step-up probe three times
+    (10.3).
+  - Accept T1 and T4, and the absence of H1 and H2, in writing.
+  - From then on, do step-up actions from the phone.
+
+## Appendix A. Adversarial review record
+
+The gate: an adversarial review must approve this design before anything is built.
+
+**Reviewer.** `/codex:adversarial-review` was tried first (2026-11-12). Codex refused to start: the
+ChatGPT account it runs under doesn't support the configured `gpt-5.5`, nor `gpt-5.4` passed with
+`--model`. The review was therefore done by an independent Claude subagent with no part in writing the
+design. It read the design and the code it depends on, and was told to attack data-loss paths, approval
+bypass, replay, token theft, PII leaks, misrouting, races with scrapes and reconcile, partial writes,
+undo and verification, and to verify every claim the design makes about existing code. It could only
+read; it made no edits and no prod queries. Every finding's code claims were re-checked against the
+repo before being accepted; all held.
+
+### Round 1 (design v1) — `NEEDS-CHANGES`: 2 blocking, 7 material, 2 minor
+
+| # | Severity | Finding | Resolution in v2 |
+|---|---|---|---|
+| R1-1 | blocking | v1 checked "create only" after the write. The merge's ±30-day date-correction path (`merge.ts` ~1726) can **move** an existing event that has the same `sourceUrl` and run number, and archive rows carry the live URL. G7 looked only at the exact (kennel, date) and only at the primary kennel | Create-only enforced inside the merge before any write; plan runs the matcher read-only and requires CREATE for every row; overlap check covers co-hosts; run numbers may not repeat existing ones |
+| R1-2 | blocking | Crash recovery and undo assumed fingerprint dedup. In fact `processed`/`eventId` are written only by the post-loop flush, so after a crash the orphan path re-processes rows; a re-run could fold #2060 into #2059 and still pass as `JOINED_RUN_EVENT`; undo could leave sourceless events | Each row is one atomic nested create (RawEvent + Event + kennel link); recovery reads done rows from the exclusive archive source and never re-runs the merge for them; `JOINED_RUN_EVENT` removed, every row must create its own event |
+| R1-3 | material | `scrapeSource(force)` hard-deletes every RawEvent of a source; with a live-source binding that wipes provenance and reconcile shielding | Automated applies bind only to a disabled `archiveOnly` source that `scrapeSource` refuses to scrape |
+| R1-4 | material | v1's A3 used the earliest check suite for the head SHA, which a force-push back to a pre-label commit passes; the update-branch exception checked a merge's shape, not its content | `approval-stamp` workflow on `pull_request_target` stamps the head at label time; the server compares merged and stamped content |
+| R1-5 | material | Count-based verification can pass while rows are wrong, fails falsely as live data changes, can't see modified existing events; undo didn't recompute `isCanonical` | Row checks V1–V4 with a pre-existing snapshot; totals informational only; undo recomputes canonical per slot; the Zagreb case re-verified row by row |
+| R1-6 | material | Exact kennel codes just move the OH3 misroute to freeze time; nothing re-checks routing | Phase 2 requires a single-kennel origin; sibling-mention guard covers hares and location; run-number sequence guard; multi-kennel only with per-row routing provenance in Phase 3 |
+| R1-7 | material | The actor boundaries were prompt rules: every task reads the shared `.env` and the owner's `gh` credential; the server's `GITHUB_TOKEN` is the owner's PAT; agents may drive a signed-in browser | Trust model rewritten to say what is and isn't enforced; read-only server token; step-up for resume and undo; H2 added |
+| R1-8 | material | A PR could carry several manifests or regenerate one; the owner saw counts only through the agent-written PR body | Exactly one new manifest and archive per PR; CI renders the manifest into its check summary |
+| R1-9 | material | A PII hit in CI is already public; private manual-entry dates could leak through block reasons; addresses and names were unaddressed | Leak response defined; counts only about existing events; addresses and names stated as accepted risk |
+| R1-10 | minor | `BLOCKED` excluded from the unique index allowed replays; `advance` couldn't resume `HALTED`; the Phase 1 exit couldn't pass because the two existing archives have no manifests | Terminal vs retryable split, index covers every non-preview status; resume is admin-only; `adopt-only` manifests |
+| R1-11 | minor | False claims: the cluster linker only reads events from yesterday on; #2059/#2060 stay apart because of the run-number veto (#2656), not the missing start time | Corrected; backfill mode skips the cluster linker |
+
+### Round 2 (design v2) — `NEEDS-CHANGES`: 4 material, 3 minor
+
+Status of round 1: R1-1, R1-2, R1-3, R1-5, R1-8, R1-9 and R1-11 closed; R1-4 closed for honest mistakes
+but not for forgery or files other than the archive; R1-6 not closed; R1-7 and R1-10 partly closed.
+
+| # | Severity | Finding | Resolution in v3 |
+|---|---|---|---|
+| R2-1 | material | v2 claimed live feeds can't reach archive dates. They can: `days` up to 1,825 on the scrape route and alert re-scrapes, raised `scrapeDays`, and the overlap rule was empty when the first scrape returned nothing. A live row would then overwrite archive fields, move dates back (Zagreb #2501), restore the redacted #1797 hare, and break the reconcile shield | v3 added a "history lock" on matches and COVERED rows. **Both replaced in v4** (see round 3) by the archive cutoff (6.5) |
+| R2-2 | material | The stamp bound only the archive and manifest, but the backfill depends on the whole PR (migration, seed, links), and code merges still used commit dates | A4 covers every PR file; G17 limits migrations; the implementer's merge step uses the same approval check. Refined in v4 (R3-4, R3-6, R3-7) |
+| R2-3 | material | Section 14 overclaimed: with the owner PAT an agent can push a workflow that writes a status as `github-actions[bot]`; the server's `GITHUB_TOKEN` is the owner's PAT; a password-only step-up can be passed by an agent with a saved password | H3 (server off the owner's identity) is a Phase 2 entry; step-up requires `strict_mfa`; wording "through the app". v3's Actions-run check was itself overclaimed; v4 drops it and states the forgery under T1 (R3-5) |
+| R2-4 | material | The single-kennel origin was only the agent's claim; `runNumberExceptions` had no limit | Row provenance against the origin; strict run numbers with capped exceptions. v4 makes provenance per origin type (R3-3) |
+| R2-5 | minor | v2 threw only on matches to events the run didn't create, so a later archive row could date-correct the run's own earlier event | Any match throws in backfill mode; strict run numbers |
+| R2-6 | minor | Terminal blocks were a dead end: missing stamp or GitHub error was terminal, G2 compared display samples, CI forbade changing the archive | Missing stamp and GitHub errors are `WAITING`; G2 compares `approvalHash` fields only; re-submission under a new archive name |
+| R2-7 | minor | MCH3's 16 unnumbered rows failed CI, so its adoption failed; adoption by fingerprint breaks when clean-up rules change (#2935); guard paths incomplete; V3 omitted hares and location and would halt on live edits; V4 not per batch | Scope rules only for `archive-source` manifests; adoption by (kennel, date, run number); G15 extended; V3 covers hares and location but only events no enabled source backs; V3 and V4 per batch |
+
+### Round 3 (design v3) — `NEEDS-CHANGES`: 5 material, 4 minor
+
+Status of earlier findings: R1-4 closed for mistakes; R1-6/R2-4 not closed; R1-7/R2-3 partly closed;
+R1-10/R2-6 closed except one CI claim; R2-1 not closed; R2-2 closed in design with holes; R2-5 and R2-7
+closed.
+
+The round's findings clustered in mechanisms v3 had added (the history lock, COVERED rows, G17, A4).
+v4 removes the first two rather than patching them.
+
+| # | Severity | Finding | Resolution in v4 |
+|---|---|---|---|
+| R3-1 | material | The history lock stopped overwrites but not duplicates (a blocked date move created a second #2501), resurrections of curator-dropped rows, or permanent tombstones (`processed: true, eventId: null` rows skipped forever, never released by undo or deletes) | History lock removed. The kennel's archive cutoff drops other sources' rows before the cutoff **before a RawEvent is stored**, so there is nothing to duplicate, resurrect or leave behind; undo clears the cutoff (6.5, 9.1, 10.3) |
+| R3-2 | material | COVERED rows got none of the archive source's protection: forced re-scrapes, reconcile and the lock all left them exposed | COVERED removed. The split point is the live feed's earliest run; rows from it on are the live feed's, stated as a non-goal with the same exposure every kennel has today; the backfill only writes before it, on empty dates (6.5, section 3) |
+| R3-3 | material | The `sourceUrl` tie can't work for Google Calendar (`htmlLink`, never the calendar id) or Facebook, the class behind the OH3 incident | Per-type provenance rules: Sheets id, GCal `eid` decoded to the calendar id, Meetup group, website host and path; other types supervised (section 3, G5); tested against real archives in Phase 0 |
+| R3-4 | material | G17 rejected all 8 recent onboarding migrations (`UPDATE "Region"` parent links, `ScheduleRule` inserts), and a data-modifying CTE passed a naive check | Allow-list extended to `ScheduleRule` and Region parent updates; checked with a real SQL parser; no data-modifying CTEs, `DO` blocks or functions beyond `NOW()`; Phase 0 test that the 8 pass and bypasses fail (G17) |
+| R3-5 | material | A3's Actions-run check doesn't stop a forged stamp: a workflow on a pushed branch can request `statuses: write` and point `target_url` at the genuine run; §6.3 misstated GitHub | Claim dropped; T1 now states that an agent can forge a stamp and that the stamp protects against mistakes only (4.3, 6.3, section 14) |
+| R3-6 | minor | A4's comparison missed deleted or renamed paths, binary files and omitted patches, and ignored line order | A4 now requires: the merged head is the stamped head, or differs only by merges of `main`; the same set of paths with the same statuses; per path the same blob or the same ordered lines per hunk; binary or patch-less files blob-equal (6.4) |
+| R3-7 | minor | The merge step could merge a different head than it checked | `gh pr merge --squash --match-head-commit <approved SHA>` (6.4, 12.2) |
+| R3-8 | minor | Clerk reverification is session-wide, not per action; `deleteSource` wipes an archive source's RawEvents; CI can't know whether an earlier manifest was applied; `recomputeCanonical` writes outside the nested create for same-date groups | Single-use action nonce after step-up (10.3); `deleteSource` refuses `archiveOnly` sources (6.5); "one archive per kennel" moved to the server (G19); the canonical recompute is predicted by G10 and named as the one write outside the per-row create (9.1) |
+| R3-9 | minor | COVERED/CREATE couldn't be known before merge, and curated dates inside the live window made "no cut-off" burn manifests (Zagreb #2501 would block) | The split point is the live feed's earliest run, found after the first scrape; rows from it on are never checked against live events, so a curated date in the live feed's stretch can't block the run (6.5) |
+
+### Round 4 (design v4) — `NEEDS-CHANGES`: 1 material, 4 minor
+
+Status of earlier findings: R2-1/R3-1 closed (one residue each, below); R3-2 closed by removing COVERED
+rows; R3-3 and R1-6/R2-4 closed for Sheets, Google Calendar and Meetup, not for websites on shared
+hosts; R3-4 largely closed; R3-5 and R1-7/R2-3 closed; R3-6 closed; R3-7, R3-8, R3-9 and R2-2 closed.
+The reviewer also checked that the cutoff drop leaves reconcile, fill rates, kennel evidence and health
+counts unaffected.
+
+| # | Severity | Finding | Resolution in v5 |
+|---|---|---|---|
+| R4-1 | material | Nothing checked that the split point joins the archive to the live feed. `C` could be in the future (upcoming-only feeds), so the cutoff dropped new upcoming runs; today (empty first scrape), leaving a permanent gap; or years back (a stray early origin event), handing most of the archive to a live feed that doesn't have it, and still ending `VERIFIED`. A wide re-scrape between plan and the first batch could also store live events before `C` that the cutoff would then freeze | `C` is the earliest **past** origin-backed date, else `WAITING`; G20 blocks a gap of more than 1.5 median run intervals and requires the live feed to show 95% of its stretch; V2 checks the same at verify (6.5, 8.1, 9.3). The cutoff is set on its own; the first batch waits for scrapes that predate it, recomputes `C`, and re-checks that nothing before `C` is live-backed (9.2) |
+| R4-2 | minor | The website provenance rule passed shared hosts (`sfh3.com` serves 13 kennels) and ignored query parameters | Websites only on a host no other kennel's source uses, with the origin's query parameters required; otherwise supervised (section 3, G5) |
+| R4-3 | minor | G17 would reject the eight migrations it promised to pass (`NOW() AT TIME ZONE` parses as `timezone()`), and the allowed Region update had no bound | `timezone()` with a literal zone allowed; Region updates limited to rows the same migration inserts; the Phase 0 test, with owner review of any migration that falls outside (G17) |
+| R4-4 | minor | A live row after `C` could still date-correct an archive event before it; per-hunk comparison could give false A4 mismatches; a hand loader for a kennel with a cutoff would report `created=0` silently | Date-correction query skips archive-only events (6.5); A4 compares the whole file's ordered +/- lines; the merge reports `archiveCutoffDropped` and the loader throws on it (9.1, 12.1). Adopted archives' lack of a cutoff is now stated (6.5) |
+| R4-5 | minor | Still overstated: G17 "stops" bad migrations (it only stops the automated backfill); clearing a cutoff had no step-up; agents can halt by removing the label; "the implementer starts every apply" is a manual rule | Reworded (sections 14, 4.2, 7.3); setting or clearing a cutoff needs `strict_mfa` and a nonce (6.5, 10.3) |
+
+### Round 5 (design v5) — `APPROVE`, with 5 minor findings
+
+All round 4 findings closed. The reviewer found no remaining blocking or material issue: "the approval
+binding, create-only, atomic rows, the archive source, the cutoff, the per-row verification, the undo
+controls and the trust statements all hold against the code I re-checked." It also confirmed that the
+date-correction skip changes no existing behaviour, since no source has `archiveOnly` set today.
+
+The minor findings were applied in v5.1:
+
+| # | Finding | Resolution in v5.1 |
+|---|---|---|
+| R5-1 | §10.3 required step-up to set a cutoff, while the token-driven run sets one | Step-up covers setting a cutoff by hand and clearing one; setting it inside an approved run is covered by that run's approval (10.3) |
+| R5-2 | The wait on running scrapes could last a day, because stale `RUNNING` rows are only failed when the source's next scrape starts | A `RUNNING` row older than 10 minutes counts as finished; supervised callers that write no `ScrapeLog` are named (9.2) |
+| R5-3 | G20 blocks seasonal kennels, and counts curated fixes as missing; each block burns a manifest | Manifest declares `expectedGaps` and `curatedCorrections`, shown in CI's summary and excluded from G20 (6.1, 6.5) |
+| R5-4 | With date-correction skipping archive events, a live row could become a second event with the same run number | Such a row is dropped and counted as `archiveCorrectionSkipped`, shown in the digest (6.5, 11.2) |
+| R5-5 | Unnumbered rows matched on date alone | Left out of both sides of the 95% count; written rows are checked through their recorded event ids (6.5, 9.3) |
+
+### Round 6 (v5.1, confirmation of the minor fixes) — `APPROVE`
+
+The reviewer checked only the v5 → v5.1 diff and confirmed each R5 fix resolves its finding: "None of
+these is blocking or material. The round 5 approval stands." Its notes, all minor, were applied in the
+final text:
+
+| # | Note | Applied |
+|---|---|---|
+| N-1 | Unlimited `curatedCorrections` or `expectedGaps` could switch G20 off (for example a freeze-tool bug marking most rows "curated") | Capped: corrections at most 20 rows or 2%; gaps at most 120 days and containing no row; at least 10 rows (or half the stretch) must remain counted (6.1, 6.5) |
+| N-2 | G2 can't recompute curator-declared fields | They are declared inputs: CI checks shape and caps and hashes them, but doesn't recompute them (6.2) |
+| N-3 | Where an `archiveCorrectionSkipped` row is stored was unspecified; marking it processed would recreate the tombstone R3-1 removed | The check runs at the top of the loop with the cutoff drop, before any RawEvent is stored (6.5) |
+| R5-2 residue | A `scrapeSource` call from a local script has no time limit, so the 10-minute rule doesn't bound it | Stated as a supervised-session rule, with V3, V4 and the 7-day re-checks as detection (9.2) |
+
+### Round 7 (v5.2, alignment with kennel status) — `NEEDS-CHANGES`: 2 material, 7 minor
+
+v5.2 aligned the design with the kennel status work merged after round 6 (Status 1, #2923:
+`Event.isScheduleOnly`, the kennel's cached evidence dates, and the posted-run rule in
+`src/pipeline/kennel-evidence.ts`). It made three changes:
+- calendar archives keep `recurringSeriesId` (G21);
+- apply and undo run the status refreshes themselves;
+- an archive source can never be enabled.
+
+It also added section 9.6. A fresh reviewer confirmed the following against the code:
+- the refresh order;
+- that kept events need no flag refresh;
+- the stop, `nextRunPostedAt` and coverage claims.
+
+It found that nothing earlier rounds closed was reopened, and nothing blocking. Every code claim below
+was re-checked before being accepted.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R7-1 | material | The manifest's schedule-only rule wasn't the SQL's. `rawData` is the row after `sanitizeRawFields`, which can move "Hared by X" from the title into `hares`. JS and Postgres treat whitespace and word boundaries differently. `runNumber` `""` and `0` behave differently in each. Hashing the set into `approvalHash` would turn any placeholder edit between CI and plan into a terminal block | The plan computes the expected flags by evaluating `POSTED_RUN_RAW_SQL` itself over the normalised rows and stores them in the plan. The manifest keeps only an informational estimate outside `approvalHash`. Section 6.5 now says the merge's clean-up runs before storage (6.1, 6.5, 9.2) |
+| R7-2 | material | The kennel page hides a stopped kennel's schedule-only events (`HIDE_STOPPED_SCHEDULE_RUNS`), so V1 and V2 would fail on correctly written rows | While `stoppedAt` is set, those rows are checked without that clause; a new item in 9.5 (9.3, 9.5) |
+| R7-3 | minor | "Travel's Likely and Possible lists don't change" was wrong: the inactivity downgrade and the 12-week evidence and agreement gates read past runs | Reworded: past archive rows can raise Travel rows, by design, and the status-line change in the digest surfaces it. The "How we know" versus coverage case is explained (9.6) |
+| R7-4 | minor | G21 passes an archive with `null` written on every row | At plan, archive rows on the overlap must carry the same marker as the live origin RawEvent with the same `sourceUrl`. CI counts instance-shaped `eid`s that have a `null` marker (6.2, G21) |
+| R7-5 | minor | New events default to `isScheduleOnly = false`, so a mid-run origin scrape could count schedule-only archive rows as runs. A refresh failure's effect on `APPLIED` was unspecified | The nested create sets the flag from the plan. `APPLIED` waits for both refreshes, and a failure retries the finish step (9.2) |
+| R7-6 | minor | The refresh's `since` rested on the app clock | The scope is the archive source with `since` at epoch, since that source holds only this run's RawEvents (9.2) |
+| R7-7 | minor | The seed, `updateSource` and migrations could enable, retype or relink the archive source, and type decides real runs | A database CHECK `NOT ("archiveOnly" AND enabled)`; `updateSource` refuses type, link and `enabled` changes; G12 pins the origin's type (6.5, 8.1, 11.1, 12.1) |
+| R7-8 | minor | An explicit `null` marker would reach the fingerprint (the gate tests `=== undefined`) | The plan turns an explicit `null` into an absent key before normalising (9.2) |
+| R7-9 | minor | The flag check should cover `CREATED` items only; the set was described as calendar-only; undo didn't record status lines | V1 checks `CREATED` items; the plan computes flags for every origin type; undo records status lines (9.3, 9.2, 10.3) |
+
+### Round 8 (v5.2, confirmation of the R7 fixes) — `NEEDS-CHANGES`: 1 material, 4 minor
+
+The reviewer confirmed the R7 fixes. Evaluating the rule in SQL at plan gives the same answer as the
+refresh on the stored row:
+- each archive event has exactly one RawEvent;
+- the stored `rawData` is the same sanitised object;
+- every field the rule reads is in the fingerprint, so a clean-up change halts the run.
+
+Setting `isScheduleOnly` at create adds no column, and V3 doesn't hash it. The CHECK leaves the six
+existing archive sources (`archiveOnly` false), the seed sync and kennel restart untouched.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R8-1 | material | The overlap check would block every calendar origin scraped before #2923. RawEvents are immutable, so origin events not re-scraped since then keep a copy without the marker, and a correct capture "mismatches" | Compare only with the origin's current RawEvent per `sourceUrl` (the `CURRENT_RAW_SQL` rule), and skip RawEvents stored before the marker existed. Compared and skipped rows are counted; a skip is not a failure (G21) |
+| R8-2 | minor | `Source.enabled` defaults to true, so an archive insert without `enabled = false` violates the CHECK and fails `migrate deploy` | G17 and CI require the literal `false`; a Phase 0 test applies a sample onboarding migration locally (6.2, 8.1, 13) |
+| R8-3 | minor | `updateSource` always recreates the links, so refusing every save would block config edits. `enabled` isn't one of its fields. Renames weren't covered, though G12 binds by name | It refuses actual changes to the name, type or links, comparing the links with the existing set (6.5, 12.1) |
+| R8-4 | minor | G21's key check ran after step 4 had removed the `null`s | The key check reads the committed file at plan step 1; only the overlap check runs at step 6 (9.2, 8.1) |
+| R8-5 | minor | A deploy that changes the rule would fail correct runs' 7-day re-checks; G14 didn't check the flag set at create | V1 records a rule change as a note when the stored row still equals the plan's; G14 checks each created flag (9.3, 9.5, 8.1) |
+
+### Round 9 (v5.2, confirmation of the R8 fixes) — `APPROVE`
+
+The reviewer confirmed all five R8 fixes and found nothing blocking or material: "The approval stands."
+It noted that one-off origin events keep their fingerprints across #2923 (the marker is a gated
+fingerprint token), so most of them are skipped by the overlap check and only repeating instances
+scraped since are compared. That is expected, and the recorded counts show it. Its two wording points
+were applied:
+
+| # | Note | Applied |
+|---|---|---|
+| R9-1 | G21's "stored before the marker existed" cut-off was undefined, and an early one fails closed | A constant set once in Phase 0: the earliest `scrapedAt` of a calendar RawEvent carrying the marker, plus one hour. Early versus late trade-off stated (G21) |
+| R9-2 | V1's pass rule after a rule change was implicit | Stated as three steps: the plan's value passes; a rule change with an unchanged stored row passes with a note; anything else fails (9.3) |
+
+### PR review comments on v5.2 (Claude and Codex bots on #2943)
+
+| Source | Comment | Resolution |
+|---|---|---|
+| Claude 1 | The Zagreb apply (2026-11-13) and its check (2026-11-12) were dated in different time zones | Both happened the evening #2904 merged; the text now gives US Eastern and UTC (9.4) |
+| Claude 2 | `CURRENT_RAW_SQL` is module-private, so G21 might be built on a second copy of the rule | Phase 0 exports it with no behaviour change (12.1) |
+| Claude 3 | G15 doesn't list `src/pipeline/kennel-evidence.ts` or `src/lib/event-filters.ts`, though G14, V1 and V2 depend on them | Both added to G15 (8.1) |
+| Claude 4 | Unclear whether `advance` calls that make no progress count against the implementer's 40 | Only calls that write rows count. Waiting is capped at 15 minutes, and the `backfill-watch` cron resumes a run left `APPLYING` (7.3) |
+| Claude 5 | Setting a cutoff on an adopted kennel closes the automated path through G19 | Stated as intended, and clearing the cutoff reopens it (6.5) |
+| Claude 6 | Music City sits exactly at the 5% unnumbered limit | Already stated: it enters by adoption, not a Phase 2 plan. No change |
+| Codex P2 | `expectedGaps` had to lie inside the archive's span, so a seasonal break between the archive's last row and `C` could never be declared, and G20 blocked | At most one trailing gap may start after the archive's last row. At plan it must end on or before `C`, so no live run can fall inside it (6.1, 6.2, 6.5) |
+
+**Round 10 (confirmation of these changes)** — `NEEDS-CHANGES`: 1 material, 1 minor.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R10-1 | material | A fake trailing gap hides missing runs. With the archive ending before `C`, the 95% check has nothing to count, so the gap rule is G20's only check. A "seasonal break" label with no evidence could cover about 120 days of missing runs, which undoes the "re-freeze if stale" protection | A trailing gap must recur in the archive's own history: at least one earlier year with a run-free stretch at least 80% as long, overlapping the same calendar dates. CI shows how many median intervals each gap removes (6.1, 6.2, 6.5) |
+| R10-2 | minor | G21's "current RawEvent per `sourceUrl`" was underspecified: one URL can back two events, and copies with no `eventId` count as current | Compare against the copy linked to the kennel's event on the row's date; several current copies must all agree; copies with no `eventId` are ignored (G21) |
+
+**Round 11** — `NEEDS-CHANGES`: 1 material, 1 minor.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R11-1 | material | "One earlier year" was too weak. A COVID shutdown, or a hole where the source lost pages, covers almost any calendar window. "Overlaps" accepted a single shared day, and the length test had no upper bound | The break must recur in at least 2 of the 3 full years before the archive's last row, leaving out 2020 and 2021. Each earlier stretch must cover at least 80% of the gap's calendar days and be at most 1.5 times its length. Windows wrap across the new year (6.1, 6.5) |
+| R11-2 | minor | G21 didn't say what happens to a row with no matching live event, such as a curated date change | Such rows, and every `curatedCorrections` row, are skipped and counted (G21) |
+
+**Round 12** — `APPROVE`. Both fixes close their findings, and no material problem remains. Its one wording note was applied:
+
+| # | Note | Applied |
+|---|---|---|
+| R12-1 | Whether leaving out 2020–21 shortens the 3-year window, and which year a break crossing the new year belongs to | The window reaches back past 2020–21; a wrapping window belongs to the year it starts in (6.1) |
+
+### Owner review of section 15 (2026-11-13)
+
+The owner approved all ten defaults. Checking decision 7 against the live setup turned up one gap:
+
+| # | Finding | Resolution |
+|---|---|---|
+| O-1 | The step-up relied on Clerk's `strict_mfa`, but the Clerk production instance had the authenticator app and backup codes switched off, and passkeys didn't count as a second factor. Clerk's reverification guide says a `second_factor` or `multi_factor` request is downgraded to the first factor when the user has no second factor. So the step-up would have accepted an email code or a saved password, both within an agent's reach. Clerk also marks the server-side check public beta | The server checks the session's `fva` claim itself; a Phase 0 test covers the refusals; the TOTP secret and backup codes stay off the Mac; before Phase 2 the owner switches on the authenticator app and backup codes in Clerk production and enrols. Rounds 13 and 14 changed this further (header, 4.1, 4.2, 4.3, 5, 7.3, 10.3, 12.1, 13, 14, 15) |
+
+**Round 13 (v5.3)** — `NEEDS-CHANGES`: 2 material, 6 minor. The reviewer confirmed the downgrade in the installed `@clerk/shared` code: with a second-factor age of `-1`, `multi_factor` returns the first-factor result.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R13-1 | material | For 10 minutes after any second-factor use, the owner's own sign-in included, every request from that browser passes both checks with no prompt, so an agent driving it could mint nonces for any run and action. The nonce didn't tie one second-factor use to one action | The server requires an unused reverification id (Clerk's `session.reverification_id` in the session token): one action per step-up, and a sign-in alone never counts. The admin page starts a fresh verification for every action. A spent id refuses the owner's own request, so a theft shows. Phase 0 confirms the id's behaviour; if it doesn't hold, the fallback is a second-factor age of exactly 0, and 4.3 records the window left (10.3). **Replaced in round 14** |
+| R13-2 | material | Between switching on the authenticator app and the owner enrolling, Clerk accepts the strongest factor available (an email code) to add a second factor, so an agent could enrol its own. `fva` can't tell which factor was used, and phone codes could reach the Mac | Switch on and enrol in one sitting, with the scheduled tasks paused, scanning with the phone; phone codes stay off; Clerk's sensitive-action window at its minimum; a Phase 2 entry check and the daily digest read the owner's factors through Clerk's Backend API (10.3, 13, 14, 15) |
+| R13-3 | minor | Clerk's `strict_mfa` passes only for a second-factor age under 10 (0 to 9); the doc said "0 to 10". A missing `fva`, and whether `has()` must pass too, were unstated | "0 to 9"; all three checks must pass; a missing or malformed `fva` is a refusal; Phase 0 tests age 10 and missing values (10.3, 13) |
+| R13-4 | minor | Clerk's reverification first factors don't include OAuth; a Google sign-in passes only by being recent. Passwords were left out | Reworded: an email code or a saved password, or no prompt for 10 minutes after any sign-in, Google included (10.3) |
+| R13-5 | minor | A passkey in the Mac's keychain is on the Mac; as a reverification second factor a passkey also needs Clerk API version 2026-08-20. The Clerk connector on the Mac can change production settings | TOTP only; passkeys and phone codes left out, with reasons. The Clerk connector is listed in 4.1 and H2 (4.1, 4.3, 10.3) |
+| R13-6 | minor | The server's GitHub calls also include `GET /rate_limit` and `GET /repos/{repo}`, and the filing-health probe requires a write-class role | "Issues, labels and repo metadata"; H3 reworks the filing-health probe (4.3, 12.1) |
+| R13-7 | minor | Which actions need a step-up differed between 4.2, 5, 7.3, 10.3 and section 15; the header still led with v5.2; section 15 mixed "the owner" and "you" | One list everywhere: resume, undo, setting a cutoff by hand, clearing one; halting needs none. Header leads with v5.3; section 15 says "the owner" |
+| R13-8 | minor | "requires a second factor of no one" was hard to read | "lets users add a second factor; no one has to" |
+
+**Round 14** — `NEEDS-CHANGES`: 2 material, 3 minor.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R14-1 | material | Clerk's guide says a new `reverification_id` is minted when a reverification **starts**, not when it completes. Within the window after the owner's own second-factor use, an agent in that browser can start one and get a fresh, unused id with no prompt. So the id proves nothing, and "one action per step-up" didn't hold | The id check is dropped. The server requires a second factor used within the last minute (`fva` second value 0), and the admin page starts a fresh verification for each action. The minute left is stated as T4 in 4.3 and closed by a rule: step-up actions are done from the phone, and agents' Chrome holds no HashTracks admin session (4.3, 10.3, 14, 15) |
+| R14-2 | material | Clerk's own sensitive actions, changing a second factor included, stay open for its window (at least a minute) after any sign-in or step-up. An agent in that browser could swap the TOTP or regenerate the backup codes, and the digest's check would still pass. The Clerk connector can also change instance settings | Recorded as T4: accepted, closed by the phone rule, with the Clerk connector removed by H2. The digest is now said to catch a removed factor or an added phone factor, not a swapped TOTP or regenerated backup codes. Enrolment happens from the phone (4.1, 4.3, 10.3, 14) |
+| R14-3 | minor | The fallback moved an `fva` rule into the id check, the Phase 0 exit needed the id "confirmed", and 4.3 recorded nothing | Gone with the id. Phase 0 tests name concrete refusals. 4.3 records T4 now (4.3, 13) |
+| R14-4 | minor | Section 1 item 6 and "Never loosened" still listed only resume and undo | Both list resume, undo, and setting or clearing a cutoff by hand (1, 13) |
+| R14-5 | minor | The filing-health probe accepts admin, maintain, push or triage, not only `push` | "A write-class role (admin, maintain, push or triage)" (4.3) |
+
+**Round 15** — `APPROVE`. The rewrite is coherent and the mistake-level guards work: requiring `fva` to be present, well formed and at 0 closes the downgrade, and doesn't depend on the beta `has()`. Its four minor notes were applied:
+
+| # | Note | Applied |
+|---|---|---|
+| R15-1 | `fva` is fixed when the session token is minted, so a token minted within the minute still reads 0 later; and Phase 0 tested only refusals | The client sends a freshly fetched token after the step-up; the server also requires a token issued less than 60 seconds ago (`iat`), so the window is under two minutes; Phase 0 tests that a real TOTP step-up passes on Clerk's development instance (4.3, 10.3, 13) |
+| R15-2 | Regenerated backup codes were named in R14-2 but not in T4, 10.3 or section 14 | "A swapped TOTP or regenerated backup codes" in each (4.3, 10.3, 14) |
+| R15-3 | 4.2 said agents can't resume or undo, without citing T4 | "except as T4 accepts" (4.2) |
+| R15-4 | The header didn't name round 15 | Added |
+
+
+### PR comments on v5.3 (2026-11-14)
+
+CodeRabbit (P-1, P-2) and the Claude PR review (P-3 to P-8) commented after round 15. Each was checked against the doc before it was taken.
+
+| # | Comment | Resolution |
+|---|---|---|
+| P-1 | A backup code also sets `fva`'s second value to 0, so the checks don't enforce "TOTP only" | Stated: the token carries factor ages, not the factor; a backup code passes and is acceptable because the codes stay off the Mac; "TOTP only" means TOTP and its backup codes, with phone codes and passkeys off, and the server can't enforce it (10.3, T4, decision 7) |
+| P-2 | The checks ran only when the nonce was minted, and the nonce lived 2 minutes, so an action could run about 4 minutes after its code while T4 said two | The action's own request carries a fresh token and passes all three checks again, so T4's two minutes holds; Phase 0 tests a valid nonce with a failing token (10.3, 12.1, 13, 14) |
+| P-3 | Undo's dry run would eat the one-minute window if the code came first | Reading a plan needs no step-up; the page asks for the code when the owner confirms (10.3) |
+| P-4 | The development-instance test doesn't cover production's settings | Before Phase 2 the owner runs the step-up probe on production: once straight through, which passes, and once late, which is refused (10.3, 12.1, 13, 15) |
+| P-5 | Same as P-1 | As P-1 |
+| P-6 | No recovery if the phone is lost | Halting still works; a backup code enrols a new phone; if those are lost too, the factors are removed through the Backend API in one sitting with the tasks paused, and enrolment is repeated (10.3) |
+| P-7 | Clock skew on `iat` | The server's clock, with Clerk's own 5-second skew allowance (10.3) |
+| P-8 | The status line mixed five rounds of history | Shortened; the history is here |
+
+**Round 16** — `NEEDS-CHANGES`: 2 material, 9 minor. The reviewer checked `@clerk/backend` 2.33.0 (`DEFAULT_CLOCK_SKEW_IN_MS` 5 s; `assertIssuedAtClaim` skips a missing `iat`; `disableUserMFA`, `createSignInToken`, `sessions.getToken` present) and `@clerk/shared` 3.47.2 (`fva` is minutes passed and experimental; no claim names the factor used; backup codes are a reverification second factor), and counted the Mac's key prefixes without printing values.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R16-1 | material | The fixes for P-1 to P-8 said `CLERK_SECRET_KEY` in the Mac's `.env` reached past T4. That key is the development instance's (`sk_test_`); no `.env` file holds the live key. The live key is in Vercel, and the Mac's Vercel CLI is signed in and linked to the project | 4.1, 10.3, H2 and section 14 now name the route: the Vercel CLI or connector reading production environment variables. H2 takes Vercel access off the scheduled tasks; the Backend API chain stays as an example of what the live key allows |
+| R16-2 | material | The production test couldn't be run as written: before Phase 2 there is no run to resume or undo, setting a cutoff is a prod write, and the page sends each action as soon as the code is entered | A step-up probe: the same three checks at mint and on use, a nonce spent, only an audit row written, and an optional wait before the token for its use. The production test and Phase 0's real step-up use it (10.3, 12.1, 13, 15) |
+| R16-3 | minor | Section 13's Phase 0 row lacked the nonce-with-failing-token test; 12.1 lacked the use-time checks, `iat` and the production test; 10.3 still said the checks run "before it mints a nonce" | Added to 12.1 and 13; "when it mints a nonce, and again when the nonce is used" (10.3) |
+| R16-4 | minor | The two-minute bound holds only while Clerk's and the server's clocks agree; resume and undo keep running in batches after acceptance; a missing `iat` wasn't refused | "Accepted" within two minutes, plus any amount Clerk's clock runs ahead (normally under a second); batches under the lease named; a missing or non-numeric `iat` is a refusal (10.3, 13) |
+| R16-5 | minor | "TOTP only" was defined as no other second factor switched on, but backup codes are switched on | TOTP and its backup codes, with phone codes and passkeys off (10.3, P-1) |
+| R16-6 | minor | The nonce lost its lifetime | Expires 2 minutes after minting, bound to the session as well as the run and action (10.3, 12.1) |
+| R16-7 | minor | "The step-up guards against mistakes" misdescribed it; 4.2 cited only T4; `sessions.getToken` could mint a token for the owner's phone session; the server must hold the live key, so a leak from Vercel reaches as far | "The step-up stops an agent that can only drive a browser; one holding owner-level secrets is the case 4.1 leaves unsolved." 4.2 cites 4.1's secrets; the `getToken` path is named as unchecked; 4.1's "leaked server credential" row makes an exception for this key (4.1, 4.2, 10.3) |
+| R16-8 | minor | Removing all second factors needs the live key and leaves the account open to an email-code enrolment while it's done | Run with the live key from a machine no agent uses, in the same sitting with the tasks paused; "enrols the authenticator app on a new phone" (10.3) |
+| R16-9 | minor | The header claimed round 16's approval before it happened; decision 7 and the owner's to-do list changed after the owner's approval | The header names the approving round once it exists; section 15 notes the 2026-11-14 changes |
+| R16-10 | minor | Separating reading from confirming lets the undo plan drift in between | The confirm carries the undo plan's hash; a recomputed plan that differs is refused (10.3, 12.1) |
+| R16-11 | minor | A forward reference, a hard-to-parse Phase 2 entry, an overlong line | Reworded (4.1, 10.3, 13) |
+
+**Round 17** — `NEEDS-CHANGES`: 1 material, 3 minor. The reviewer confirmed the round-16 resolutions, and that the probe's 70-second wait is refused by check 2 and nothing else. It also checked `vercel.json`, CLAUDE.md, `prisma/schema.prisma`, the Vercel connector's schemas (loaded, never called), the installed Vercel CLI and Vercel's public page on Sensitive variables.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R17-1 | material | Vercel decrypts Secret (formerly Sensitive) values in every deployment, and every pushed branch gets a preview build, which shares the prod `DATABASE_URL`. So taking the Vercel login away doesn't remove the route, and "H1 and H2 make the prompt rules real limits" was false while previews get production secrets. 4.1's leaked-credential exception named only the Clerk key. A `BACKFILL_AGENT_TOKEN` reaching Preview would let a PR's own code serve the agent API against the prod database, outside T3 and G15 | 4.1 names deployments an agent can trigger as a route. H2 now also keeps production secrets out of builds agents can trigger (Preview gets its own database and Clerk's development instance, or agents' branches don't deploy). 4.1's exception covers `DATABASE_URL` too. The new tokens and the App's credentials are scoped to Production only (4.1, 4.3, 10.3, 12.1, 14, 15). "Secret (formerly Sensitive) values can't be read back, but every deployment decrypts them"; "a stored Vercel CLI login" |
+| R17-2 | minor | No table held the step-up nonces or the probe's audit record | `BackfillStepUpNonce`, on the `AuditFilingNonce` pattern; the probe writes only its row there (10.3, 11.1, 12.1) |
+| R17-3 | minor | The lost-phone recovery didn't say where the owner gets the live key | From the Clerk dashboard, ideally a key made for this and revoked afterwards (10.3) |
+| R17-4 | minor | "The step-up stops an agent that can only drive a browser" holds only with the phone rule; 4.2 said "owner-level secrets" twice; T4 was badly wrapped | "With the phone rule, …"; 4.2 merged; T4 re-wrapped (4.2, 4.3, 10.3) |
+
+**Round 18** — `NEEDS-CHANGES`: 1 material, 3 minor. The reviewer confirmed the round-17 resolutions apart from R18-1, that section 13's Phase 2 and 3 entries match the new H2, and that GitHub Actions workflows reference no production secret.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R18-1 | material | Agents can also trigger a production build by merging: they merge approved PRs and `main` deploys to production. H1 didn't require `main`'s branch protection to need the owner's review, so a bot identity could merge code the owner never approved, and H2's condition couldn't be met as written | H1 adds a ruleset on `main`: the owner's approving review of the latest commit, stale approvals dismissed, no bypass for the bot. H2 and 4.1 now say "no build of code the owner hasn't approved gets production secrets" (4.1, 4.3, 10.3) |
+| R18-2 | minor | H2's remedy separated only the database and Clerk; Preview-scoped tokens (`CRON_SECRET`, `AUDIT_AGENT_TOKEN`, the PAT before H3) would still reach previews | "Preview gets no Production values: its own database, Clerk's development instance, and its own tokens or none" (4.3) |
+| R18-3 | minor | The nonce binding named only a cutoff set by hand | "a cutoff set or cleared by hand" (10.3) |
+| R18-4 | minor | Section 15's change note credited only PR review and didn't say H1 and H2 had widened under decision 9 | Credits PR review and rounds 16–18; says H1 and H2 widened, and so does what decision 9's acceptance covers (15) |
+
+**Round 19** — `NEEDS-CHANGES`: 1 material, 1 minor. The reviewer confirmed all four round-18 resolutions.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R19-1 | material | H2 left the tasks the owner's mailbox and signed-in Chrome. A mailbox can take an emailed sign-in code for Vercel or Railway; a signed-in GitHub session can submit the owner's approving review, which H1's ruleset and the server's check both accept. So "H1 and H2 would turn the prompt rules into real limits" still didn't hold | H2 is stated generally: the tasks hold no credential or session of the owner's (`.env` secrets, the owner's `gh` login, CLI logins, connectors acting as the owner including the mailbox, signed-in browser sessions), and no build of code the owner hasn't approved gets production secrets. 4.1 says the same (4.1, 4.3) |
+| R19-2 | minor | The fork-PR limit rests on Vercel's fork protection, unstated | Stated in 4.1: fork PRs are limited only while fork protection is on, since until H2 previews get the prod `DATABASE_URL` |
+
+**Round 20** — `APPROVE`. The reviewer confirmed both round-19 fixes: H2 now names the routes that mattered, 4.1's "real limits" claim is conditional on exactly what H2 requires, and the fork-protection condition is stated. One minor note was applied:
+
+| # | Note | Applied |
+|---|---|---|
+| R20-1 | Section 15's change note credited rounds 16–18 and described only H2's first widening | Credits rounds 16–19 and states H2's full condition (15) |
+
+**Claude PR review of round 20's commit** — no blockers. Four minor notes were applied without a new round, as after rounds 5 and 15. A fifth, comparing Clerk's `user.updated` with the digest to flag a factor change, is left for a later phase.
+
+| # | Note | Applied |
+|---|---|---|
+| C-1 | Whether a Backend-API-minted token carries `fva` decides whether the phone rule holds against a leaked live key; it's cheap to check | A Phase 0 test reads it (10.3, 13) |
+| C-2 | With the checks rerun on use, the nonce's expiry no longer sets the window | Said in 11.1 |
+| C-3 | The probe's late case tested only check 2 on production | A second late mode holds a fresh token for 70 seconds, which check 3 refuses; production runs the probe three times (10.3, 12.1, 13, 15) |
+| C-4 | "Approved" in the header could be read as the owner's approval | "Adversarial review: approved in round 20. Owner approval of section 15: 2026-11-13" |
+
+**v5.4 (2026-11-17): fitting the ops system.** The ops plan (amendment v6) adopted this build's order. Its adversarial reviewer (that plan's round 6) returned `APPROVE WITH REQUIRED CHANGES`; these were applied here.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| O6-1 | major | With the stamp moved to the ops `write-gate`, Phase 1 (shadow) could start before any stamp exists, so every approval check would disagree | Phase 1's entry adds "the ops `write-gate` is live and stamping" (13); 6.3 names the workflow and one shared stamp module |
+| O6-2 | major | G17's "no other statements" refused the migration template's `BEGIN` / `SET LOCAL lock_timeout` / `COMMIT`, so every new onboarding migration would fail A6 | G17 allows exactly that wrapper, with a template-shaped test fixture (8.1, 12.1a) |
+| O6-3 | major | G17 moving to `src/lib/migration-sql/` left it outside G15 | G15 adds `src/lib/migration-sql/**`, `scripts/ci/**` and the `libpg-query` package entries (8.1) |
+| O6-4 | minor | Two cron-liveness records | `AutomationRun` only; `CronHeartbeat` dropped by a later migration (11.1–11.3, 12.1, 14) |
+| O6-5 | minor | `libpg-query` is a devDependency the server can't load | PR 4 moves it to `dependencies` and `serverExternalPackages` and proves it on a preview (12.1a) |
+
+Round 7 of that review: `APPROVE`. Its notes were applied: T1's wording now says only an owner-sent label is stamped (4.3); one source for the owner's login, with a test (6.3); the template fixture is in Phase 0's exit criteria (13).

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { verifyCronAuth } from "@/lib/cron-auth";
+import { withCronRun } from "@/lib/cron-run";
 import { getQStashClient } from "@/lib/qstash";
 import { shouldScrape, staggerDelaySeconds } from "@/pipeline/schedule";
 
@@ -9,12 +9,7 @@ import { shouldScrape, staggerDelaySeconds } from "@/pipeline/schedule";
  * and publishes a QStash message per source to `/api/cron/scrape/[sourceId]`.
  * Supports `?force=true` query param to bypass schedule checks (all sources treated as due).
  */
-export async function POST(request: Request) {
-  const auth = await verifyCronAuth(request);
-  if (!auth.authenticated) {
-    return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
-  }
-
+export const POST = withCronRun("cron:dispatch", async (request, auth) => {
   const url = new URL(request.url);
   const force = url.searchParams.get("force") === "true";
 
@@ -123,12 +118,7 @@ export async function POST(request: Request) {
       results,
     },
   });
-}
+});
 
-/**
- * GET handler that delegates to POST for Vercel Cron compatibility.
- * Vercel Cron sends GET requests; this wrapper allows a seamless transition to QStash.
- */
-export async function GET(request: Request) {
-  return POST(request);
-}
+/** Vercel Cron sends GET requests; QStash and manual runs POST. */
+export const GET = POST;

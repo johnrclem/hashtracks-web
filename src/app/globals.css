@@ -142,17 +142,11 @@
   }
 }
 
-/* Region badge dark mode safelist — generated at runtime by withDarkVariants() in region.ts
-   dark:bg-slate-900/40 dark:text-slate-200 dark:bg-rose-900/40 dark:text-rose-200
-   dark:bg-blue-900/40 dark:text-blue-200 dark:bg-cyan-900/40 dark:text-cyan-200
-   dark:bg-violet-900/40 dark:text-violet-200 dark:bg-emerald-900/40 dark:text-emerald-200
-   dark:bg-amber-900/40 dark:text-amber-200 dark:bg-sky-900/40 dark:text-sky-200
-   dark:bg-red-900/40 dark:text-red-200 dark:bg-green-900/40 dark:text-green-200
-   dark:bg-yellow-900/40 dark:text-yellow-200 dark:bg-indigo-900/40 dark:text-indigo-200
-   dark:bg-teal-900/40 dark:text-teal-200 dark:bg-orange-900/40 dark:text-orange-200
-   dark:bg-fuchsia-900/40 dark:text-fuchsia-200 dark:bg-pink-900/40 dark:text-pink-200
-   dark:bg-gray-900/40 dark:text-gray-200 dark:bg-stone-900/40 dark:text-stone-200
-   dark:bg-lime-900/40 dark:text-lime-200 dark:bg-purple-900/40 dark:text-purple-200 */
+/* Region badge dark-mode safelist. withDarkVariants() in src/lib/region.ts builds
+   `dark:bg-<color>-900/40 dark:text-<color>-200` at runtime, so the class names never
+   appear literally in source and Tailwind would not generate them. Keep this color list
+   in sync with REGION_SEED_DATA (region-dark-safelist.test.ts enforces it). */
+@source inline("dark:bg-{amber,blue,cyan,emerald,fuchsia,gray,green,indigo,lime,orange,pink,purple,red,rose,sky,slate,stone,teal,violet,yellow}-900/40 dark:text-{amber,blue,cyan,emerald,fuchsia,gray,green,indigo,lime,orange,pink,purple,red,rose,sky,slate,stone,teal,violet,yellow}-200");
 
 /* Region ticker scroll animation */
 @keyframes ticker {

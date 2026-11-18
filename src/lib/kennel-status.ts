@@ -21,6 +21,18 @@ export type StatusLine =
   | { kind: "last-run" | "checked" | "next-posted" | "stopped"; date: Date }
   | { kind: "never" };
 
+/**
+ * The own-page URL to link from a status line: always for a never-seen kennel,
+ * and for dated lines only when the surface asks for it (the Travel list).
+ */
+export function ownPageFor(
+  line: StatusLine,
+  ownPageUrl: string | null,
+  showOwnPage: boolean,
+): string | null {
+  return line.kind === "never" || showOwnPage ? ownPageUrl : null;
+}
+
 // Day-count thresholds: the single source of truth for state and SQL filters.
 /** Evidence this recent (today = day 1) means running. */
 const RUNNING_EVIDENCE_DAYS = 90;
@@ -28,7 +40,7 @@ const RUNNING_EVIDENCE_DAYS = 90;
 const QUIET_EVIDENCE_DAYS = 365;
 /** A posted run this many days out (or fewer) means running. */
 const POSTED_AHEAD_DAYS = 60;
-const DAY_MS = 1000 * 60 * 60 * 24;
+export const DAY_MS = 1000 * 60 * 60 * 24;
 
 export const KENNEL_EVIDENCE_SELECT = {
   lastRunSeenAt: true,
@@ -37,7 +49,7 @@ export const KENNEL_EVIDENCE_SELECT = {
   stoppedAt: true,
 } as const satisfies Prisma.KennelSelect;
 
-function toUtcNoon(date: Date): number {
+export function toUtcNoon(date: Date): number {
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0);
 }
 

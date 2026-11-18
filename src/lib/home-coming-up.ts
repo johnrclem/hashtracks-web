@@ -34,6 +34,8 @@ const COMING_UP_SELECT = {
   startTime: true,
   locationName: true,
   locationCity: true,
+  // Generated from a usual schedule: the card shows a small "Usual schedule" tag.
+  isScheduleOnly: true,
   kennel: {
     select: {
       shortName: true,

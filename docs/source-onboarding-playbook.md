@@ -161,7 +161,9 @@ Open `https://half-mind.com/regionalwebsite/p_list1.php?state=XX` (2-letter stat
 In `prisma/seed.ts`:
 - Add kennel entries to the `kennels` array with `shortName`, `fullName`, `region`
 - Add aliases to the `kennelAliases` record (case-insensitive matching)
-- Run `npx prisma db seed` to create them
+- Locally, run `npx prisma db seed` against your local database to create them. Prod gets them only
+  through a data migration (see [`docs/ops/system.md#migrations`](ops/system.md#migrations)); never
+  run `db seed` against prod.
 
 ### 5. Choose or build adapter type
 
@@ -385,7 +387,8 @@ The `GenericHtmlAdapter` is config-driven — most adapter authoring effort here
 ### 10. Test locally
 
 ```bash
-# Seed the new kennels and source
+# Seed the new kennels and source into your LOCAL database (never prod; prod gets them
+# through a data migration, see docs/ops/system.md#migrations)
 npx prisma db seed
 
 # Start dev server

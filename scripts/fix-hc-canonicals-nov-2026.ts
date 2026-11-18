@@ -21,7 +21,7 @@
  */
 import "dotenv/config";
 import { prisma } from "@/lib/db";
-import { deleteLeakedEvent } from "./lib/delete-leaked-event";
+import { deleteLeakedEvent } from "@/lib/delete-leaked-event";
 
 interface Fix {
   id: string;

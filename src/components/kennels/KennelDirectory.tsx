@@ -22,7 +22,7 @@ import {
   collectKennelWeekdays,
   collectKennelFrequencies,
 } from "@/lib/format";
-import { getActivityStatus } from "@/lib/activity-status";
+import { getKennelState, toKennelEvidence } from "@/lib/kennel-status";
 
 const KennelMapView = dynamic(() => import("./KennelMapView"), {
   ssr: false,
@@ -258,8 +258,8 @@ export function KennelDirectory({ kennels }: KennelDirectoryProps) {
       }
       // Active only
       if (showActiveOnly) {
-        const status = getActivityStatus(k.lastEventDate ? new Date(k.lastEventDate) : null, !!k.nextEvent);
-        if (status !== "active") return false;
+        const state = getKennelState(toKennelEvidence(k.evidence));
+        if (state !== "running" && state !== "quiet") return false;
       }
       // Near me distance filter
       if (nearMeDistance != null && geoState.status === "granted") {

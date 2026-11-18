@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import * as Sentry from "@sentry/nextjs";
-import { verifyCronAuth } from "@/lib/cron-auth";
+import { withCronRun } from "@/lib/cron-run";
 import { runScrapeLogGc } from "@/pipeline/scrape-log-gc";
 
 /**
@@ -15,36 +14,20 @@ import { runScrapeLogGc } from "@/pipeline/scrape-log-gc";
  *
  * Triggered by Vercel Cron (GET) or QStash (POST) or manually with Bearer CRON_SECRET.
  */
-export async function POST(request: Request) {
-  const auth = await verifyCronAuth(request);
-  if (!auth.authenticated) {
-    return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    const result = await runScrapeLogGc();
-    console.log(
-      `[scrape-log-gc] deleted ${result.deleted} logs in ${result.batches} batch(es), keeping ${result.keptPerSource} per source (+ ${result.keptSuccessPerSource} SUCCESS floor)`,
-    );
-    return NextResponse.json({
-      data: {
-        deleted: result.deleted,
-        keptPerSource: result.keptPerSource,
-        keptSuccessPerSource: result.keptSuccessPerSource,
-        batches: result.batches,
-      },
-    });
-  } catch (err) {
-    console.error("[scrape-log-gc] failed:", err);
-    Sentry.captureException(err);
-    return NextResponse.json(
-      { data: null, error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
-}
+export const POST = withCronRun("cron:scrape-log-gc", async () => {
+  const result = await runScrapeLogGc();
+  console.log(
+    `[scrape-log-gc] deleted ${result.deleted} logs in ${result.batches} batch(es), keeping ${result.keptPerSource} per source (+ ${result.keptSuccessPerSource} SUCCESS floor)`,
+  );
+  return NextResponse.json({
+    data: {
+      deleted: result.deleted,
+      keptPerSource: result.keptPerSource,
+      keptSuccessPerSource: result.keptSuccessPerSource,
+      batches: result.batches,
+    },
+  });
+});
 
 /** Vercel Cron triggers GET requests. */
-export async function GET(request: Request) {
-  return POST(request);
-}
+export const GET = POST;

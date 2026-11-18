@@ -5346,8 +5346,10 @@ describe("GoogleCalendarAdapter — RECURRENCE-ID override recovery (#1021/#1024
         expect(res.events.map(e => e.date).sort((a, b) => a.localeCompare(b))).toEqual(["2024-08-01", "2024-09-15", "2024-10-30"]);
         expect(res.diagnosticContext?.exceptionsRecovered).toBe(3);
         // An orphan override of a non-recurring master is an individually
-        // posted run, not a repeating-schedule instance (Kennel Status 1).
-        expect(res.events.map(e => e.recurringSeriesId)).toEqual([undefined, undefined, undefined]);
+        // posted run, not a repeating-schedule instance (Kennel Status 1). Its
+        // id looks like an instance's, so it says so explicitly: an empty
+        // marker, which also re-fingerprints rows stored before the marker.
+        expect(res.events.map(e => e.recurringSeriesId)).toEqual(["", "", ""]);
       } finally {
         fetchSpy.mockRestore();
       }

@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
-import { upcomingConfirmedEventWhere } from "@/lib/activity-status";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import Link from "next/link";
 import { regionAbbrev, regionNameToSlug } from "@/lib/region";
-import { buildNextEventMap, serializeKennelWithNext } from "@/lib/kennel-directory";
+import { buildNextEventMap, serializeKennelWithNext, upcomingConfirmedEventWhere } from "@/lib/kennel-directory";
+import { KENNEL_EVIDENCE_SELECT } from "@/lib/kennel-status";
 import { SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
 import { buildRegionItemListJsonLd, safeJsonLd } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
@@ -58,7 +58,9 @@ export default async function KennelsPage() {
         scheduleTime: true,
         scheduleFrequency: true,
         scheduleRules: SCHEDULE_RULES_SELECT,
-        lastEventDate: true,
+        website: true,
+        facebookUrl: true,
+        ...KENNEL_EVIDENCE_SELECT,
       },
     }),
     // #1023 spec D8: include co-hosted events. The nested `eventKennels`
@@ -66,7 +68,6 @@ export default async function KennelsPage() {
     // kennel-link rows the directory actually attributes to.
     prisma.event.findMany({
       where: {
-        // Shared with activeKennelWhere, so the homepage's active count matches this directory.
         ...upcomingConfirmedEventWhere(todayUtc),
         eventKennels: { some: { kennel: { isHidden: false } } },
       },
@@ -74,6 +75,7 @@ export default async function KennelsPage() {
       select: {
         date: true,
         title: true,
+        isScheduleOnly: true,
         eventKennels: {
           where: { kennel: { isHidden: false } },
           select: { kennelId: true },

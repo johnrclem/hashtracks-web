@@ -4,6 +4,9 @@ Living document tracking what's been built, what's next, and where we're headed.
 
 Last updated: 2026-03-29
 
+> **Stale.** This roadmap hasn't been updated since March 2026. For how the site is kept running
+> today (audits, fixes, onboarding, prod-write gates), see [`docs/ops/system.md`](ops/system.md).
+
 **Competitive context:** See [competitive-analysis.md](competitive-analysis.md) for detailed analysis of Harrier Central (the primary competitor), user pain points from their GitHub issues, and strategic positioning rationale behind these priorities.
 
 **User research:** See [facebook-user-research.md](facebook-user-research.md) for analysis of the 16.6K-member Hash House Harriers Facebook group. Key finding: the #1 post type is "Is there a hash in [location]?" — validating Discovery & Travel UX as the next highest-priority feature area.
@@ -275,9 +278,9 @@ See [misman-attendance-requirements.md](misman-attendance-requirements.md) and [
 - [x] Self-healing actions: re-scrape, create alias/kennel, file GitHub issue — all from alert card
 - [x] Repair history timeline, auto-resolve for stable structure changes
 - [x] **CI gate:** GitHub Actions enforces type check + lint + tests on all PRs (`.github/workflows/ci.yml`)
-- [x] **Auto-issue filing:** Critical/warning alerts auto-create GitHub issues with structured AGENT_CONTEXT (`src/pipeline/auto-issue.ts`)
-- [x] **AI triage:** Claude Sonnet analyzes issues, posts confidence-scored diagnosis, labels for auto-fix or human review
-- [x] **AI auto-fix:** Claude Opus implements fixes for high-confidence issues (adapters, seed.ts, test files), creates PRs validated by CI
+- [x] **Auto-issue filing:** Critical/warning alerts auto-create GitHub issues with structured AGENT_CONTEXT (retired Nov 2026: it never produced a fix; see `docs/self-healing-v2-plan.md`)
+- [x] **AI triage:** Claude Sonnet analyzes issues, posts confidence-scored diagnosis, labels for auto-fix or human review (workflow retired Nov 2026)
+- [x] **AI auto-fix:** Claude Opus implements fixes for high-confidence issues (adapters, seed.ts, test files), creates PRs validated by CI (workflow retired Nov 2026)
 - [x] Architecture plan with confidence scoring rubric: see [self-healing-automation-plan.md](self-healing-automation-plan.md)
 
 ### Scrape Logging — COMPLETE

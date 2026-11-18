@@ -1,19 +1,53 @@
 /**
- * One-time script to create a QStash schedule for hourly scrape dispatch.
+ * Create (or re-create) the QStash schedules HashTracks relies on.
  *
  * Usage:
  *   eval "$(fnm env)" && fnm use 20 && npx tsx scripts/setup-qstash-schedule.ts
  *
+ * Idempotent: for each schedule below it deletes every existing QStash schedule
+ * that targets the same path on any of our hosts, then creates one fresh. Schedules
+ * for other paths are left alone.
+ *
  * Prerequisites:
  *   - QSTASH_TOKEN in .env
+ *
+ * Quota: dispatch fans out to roughly 500 messages a day; the hourly promoter
+ * and the hourly watchdog add 24 each.
  */
 import "dotenv/config";
 import { Client } from "@upstash/qstash";
+import { DEFAULT_SITE_URL } from "../src/lib/site-url";
+
+/** The apex domain 308-redirects to www, so schedules target www directly. */
+const BASE_URL = DEFAULT_SITE_URL;
+/** Hosts older schedules may still target; their schedules are replaced. */
+const LEGACY_BASE_URLS = ["https://hashtracks.xyz", "https://hashtracks.com"];
+
+interface ScheduleSpec {
+  path: string;
+  cron: string;
+  description: string;
+}
+
+const SCHEDULES: ScheduleSpec[] = [
+  { path: "/api/cron/dispatch", cron: "0 * * * *", description: "scrape dispatch, hourly" },
+  {
+    // At :05 so a finding submitted just before the hour is filed within the hour.
+    // The daily Vercel cron (vercel.json) stays as a backstop.
+    path: "/api/cron/promote-audit-findings",
+    cron: "5 * * * *",
+    description: "audit-finding promotion, hourly",
+  },
+  {
+    // At :20, clear of dispatch (:00) and the promoter (:05). The daily Vercel cron
+    // (vercel.json, 15:40 UTC) is the backstop, and alarms if this schedule stops.
+    path: "/api/cron/watchdog",
+    cron: "20 * * * *",
+    description: "ops watchdog, hourly",
+  },
+];
 
 const QSTASH_TOKEN = process.env.QSTASH_TOKEN;
-const DESTINATION = "https://hashtracks.xyz/api/cron/dispatch";
-const OLD_DESTINATION = "https://hashtracks.com/api/cron/dispatch";
-
 if (!QSTASH_TOKEN) {
   console.error("ERROR: QSTASH_TOKEN is not set in .env");
   process.exit(1);
@@ -21,31 +55,31 @@ if (!QSTASH_TOKEN) {
 
 const client = new Client({ token: QSTASH_TOKEN });
 
+/** Create `spec`'s schedule, then delete any older one for the same path.
+ *  Creating first means a failed create never leaves the path unscheduled. */
+async function replaceSchedule(spec: ScheduleSpec, existing: Array<{ scheduleId: string; destination: string }>) {
+  const destination = `${BASE_URL}${spec.path}`;
+  const targets = new Set([BASE_URL, ...LEGACY_BASE_URLS].map((base) => `${base}${spec.path}`));
+
+  const schedule = await client.schedules.create({ destination, cron: spec.cron, retries: 3 });
+  console.log(`Created ${spec.description}: ${schedule.scheduleId}`);
+  console.log(`  Cron: ${spec.cron}  Destination: ${destination}`);
+
+  const old = existing.filter(
+    (s) => targets.has(s.destination) && s.scheduleId !== schedule.scheduleId,
+  );
+  await Promise.all(
+    old.map((s) => {
+      console.log(`Deleting old schedule ${s.scheduleId} (${s.destination})`);
+      return client.schedules.delete(s.scheduleId);
+    }),
+  );
+}
+
 async function main() {
   const existing = await client.schedules.list();
-
-  // Clean up ALL existing schedules targeting either old or current destination
-  const toDelete = existing.filter(
-    (s) => s.destination === OLD_DESTINATION || s.destination === DESTINATION,
-  );
-  for (const s of toDelete) {
-    console.log(`Deleting schedule ${s.scheduleId} (${s.destination})`);
-    await client.schedules.delete(s.scheduleId);
-    console.log("  Deleted.");
-  }
-
-  console.log(`\nCreating hourly schedule -> ${DESTINATION}`);
-
-  const schedule = await client.schedules.create({
-    destination: DESTINATION,
-    cron: "0 * * * *",
-    retries: 3,
-  });
-
-  console.log("Schedule created successfully!");
-  console.log("  Schedule ID:", schedule.scheduleId);
-  console.log("  Cron: 0 * * * * (every hour)");
-  console.log("  Destination:", DESTINATION);
+  // Each schedule targets a different path, so they can be replaced independently.
+  await Promise.all(SCHEDULES.map((spec) => replaceSchedule(spec, existing)));
   console.log("\nVerify at: https://console.upstash.com -> QStash -> Schedules");
 }
 

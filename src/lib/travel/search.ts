@@ -15,6 +15,12 @@ import { INDEPENDENT_EVENT_WHERE } from "@/lib/event-eligibility";
 import { haversineDistance } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import { safeUrl } from "@/lib/safe-url";
+import { KENNEL_EVIDENCE_SELECT } from "@/lib/kennel-status";
+import {
+  selectOtherKennels,
+  shouldShowOtherKennels,
+  type OtherKennel,
+} from "@/lib/travel/other-kennels";
 import { getWeatherForEvents, type DailyWeather } from "@/lib/weather";
 import {
   projectTrails,
@@ -26,6 +32,8 @@ import {
   filterProjectionsByHorizon,
   buildRuleAgreementMap,
   selectBestProjections,
+  latestEvidenceAt,
+  isKennelInactive,
   CONFIRMED_EVENT_HORIZON_DAYS,
   AGREEMENT_LOOKBACK_DAYS,
   DAY_MS,
@@ -140,6 +148,10 @@ export interface LikelyResult extends DestinationTag {
   explanation: string;
   evidenceWindow: string;
   evidenceTimeline: EvidenceTimeline;
+  /** The kennel's admin "checked running" date when that confirmation is its
+   *  newest evidence and is recent (≤90 days); the card shows it in place of
+   *  "0 runs in the last 12 weeks". Null otherwise. */
+  checkedRunningAt: Date | null;
   sourceLinks: SourceLink[];
 }
 
@@ -158,7 +170,7 @@ export interface PossibleResult extends DestinationTag {
   sourceLinks: SourceLink[];
   /** Most recent confirmed event for this kennel — preferring the
    *  in-window 12-week evidence event so the line moves as the kennel
-   *  posts; falling back to the kennel's all-time `lastEventDate` when
+   *  posts; falling back to the kennel's all-time `lastRunSeenAt` when
    *  no in-window evidence exists. Null only when the kennel has no
    *  event history at all. */
   lastConfirmedAt: Date | null;
@@ -168,8 +180,20 @@ export type EmptyStateKind =
   | "none"
   | "no_confirmed"
   | "no_nearby"
+  | "no_runs"
   | "no_coverage"
   | "out_of_horizon";
+
+/**
+ * Empty states with no row anywhere to show: the banner is the whole answer.
+ * Rendering an empty TravelResults under one would add "No results match the
+ * active filters", which is only true for an empty `none` (filters hid rows).
+ */
+export const ROWLESS_EMPTY_STATES: ReadonlySet<EmptyStateKind> = new Set<EmptyStateKind>([
+  "no_runs",
+  "no_coverage",
+  "out_of_horizon",
+]);
 
 /**
  * Per-stop summary. Every stop gets one of these, even if it had zero
@@ -204,6 +228,11 @@ export interface DestinationResult {
    * an empty answer still points somewhere real.
    */
   nearestConfirmed?: NearestConfirmed<ConfirmedResult>;
+  /**
+   * Single-stop only: quiet in-radius kennels the results don't already show,
+   * set when the search has fewer than FEW_RUNS_THRESHOLD confirmed + likely runs.
+   */
+  otherKennels?: OtherKennel[];
 }
 
 /** Confirmed runs just outside a stop's search radius, found out to `radiusKm`. */
@@ -228,6 +257,7 @@ export interface TravelSearchResults {
    *   - Every stop `out_of_horizon` → `out_of_horizon`
    *   - Every stop empty with at least one `no_nearby` → `no_nearby`
    *   - Every stop's confirmed empty but some likely/possible anywhere → `no_confirmed`
+   *   - Every stop rowless with at least one `no_runs` → `no_runs`
    *   - Any stop has confirmed results → `none`
    * Per-stop empty states still live on `destinations[i].emptyState` for
    * local hints; this field only drives the full-page banner.
@@ -246,6 +276,9 @@ export interface TravelSearchResults {
 // ============================================================================
 
 const TWELVE_WEEKS_MS = 12 * 7 * DAY_MS;
+
+/** Explanation on rows built from a generated run that no projection covers. */
+export const SCHEDULE_ONLY_EXPLANATION = "From their usual schedule";
 /** Row cap on the rule-agreement evidence query (independent runs over ~14 weeks). */
 const AGREEMENT_EVENT_ROW_CAP = 5_000;
 
@@ -269,7 +302,10 @@ interface NearbyKennel {
   region: string;
   latitude: number | null;
   longitude: number | null;
-  lastEventDate: Date | null;
+  lastRunSeenAt: Date | null;
+  lastConfirmedAt: Date | null;
+  nextRunPostedAt: Date | null;
+  stoppedAt: Date | null;
   scheduleDayOfWeek: string | null;
   scheduleTime: string | null;
   scheduleFrequency: string | null;
@@ -576,11 +612,14 @@ async function runStopSearch(
     // Steps 3–5 + 8: Three independent DB queries run in parallel (saves ~2 round-trips)
     const twelveWeeksAgo = new Date(now.getTime() - TWELVE_WEEKS_MS);
     const agreementLookback = new Date(now.getTime() - AGREEMENT_LOOKBACK_DAYS * DAY_MS);
-    const [confirmedEvents, scheduleRules, evidenceEvents, independentEvents] = await Promise.all([
+    const [windowEvents, scheduleRules, evidenceEvents, independentEvents] = await Promise.all([
     // Step 3: Confirmed events in date window. Allowed past the 365-day
     // projection horizon (real NYE events 18mo out still render) but
     // bounded by CONFIRMED_EVENT_HORIZON_DAYS + a row cap so a pathological
     // date range can't time out the function or bust the RSC payload limit.
+    // Generated (schedule-only) runs come back too and are split off below:
+    // they are not confirmations, but one no projection covers still becomes
+    // a Likely/Possible row (Step 9b) — one query, no extra round trip.
     prisma.event.findMany({
       where: {
         ...CANONICAL_EVENT_WHERE,
@@ -624,6 +663,8 @@ async function runStopSearch(
         ...CANONICAL_EVENT_WHERE,
         kennelId: { in: nearbyIds },
         status: "CONFIRMED",
+        // Generated runs are not evidence the kennel ran.
+        isScheduleOnly: false,
         date: { gte: twelveWeeksAgo, lte: now },
       },
       select: { kennelId: true, date: true },
@@ -645,6 +686,10 @@ async function runStopSearch(
       take: AGREEMENT_EVENT_ROW_CAP,
     }),
   ]);
+  // Generated runs (schedule projections) are not confirmations; rules re-project
+  // them in Step 6 and Step 9b keeps the ones no projection covers.
+  const confirmedEvents = windowEvents.filter((e) => !e.isScheduleOnly);
+  const scheduleOnlyEvents = windowEvents.filter((e) => e.isScheduleOnly);
   const evidenceByKennel = groupBy(evidenceEvents, (e) => e.kennelId);
   const independentByKennel = groupBy(
     independentEvents.flatMap((e) =>
@@ -705,7 +750,23 @@ async function runStopSearch(
     }));
   });
   const dedupedProjections = deduplicateAgainstConfirmed(scoredProjections, confirmedRefs);
-  const horizonFilteredProjections = filterProjectionsByHorizon(dedupedProjections, horizonTier);
+  const ruleProjections = filterProjectionsByHorizon(dedupedProjections, horizonTier);
+
+  // Step 9b (Ruling 20): a generated run no dated projection or real run covers
+  // on that kennel + date (a kennel with no active rule, or a rule that doesn't
+  // land there) stays visible as Likely, or Possible once the kennel's evidence
+  // is stale — the same horizon and filters as projected rows.
+  const scheduleRunProjections = filterProjectionsByHorizon(
+    uncoveredScheduleRuns(scheduleOnlyEvents, {
+      nearbyIdsSet,
+      kennelMap,
+      covered: [...ruleProjections, ...confirmedRefs],
+      projectionEndDate,
+      now,
+    }),
+    horizonTier,
+  );
+  const horizonFilteredProjections = [...ruleProjections, ...scheduleRunProjections];
 
   // Step 10: Classify into likely vs possible
   const likelyProjections = horizonFilteredProjections.filter(
@@ -810,6 +871,7 @@ async function runStopSearch(
         evidenceByKennel.get(proj.kennelId) ?? [],
         now,
       ),
+      checkedRunningAt: recentConfirmation(kennel, now),
       sourceLinks: buildSourceLinks(kennel),
     };
   });
@@ -818,13 +880,13 @@ async function runStopSearch(
     const kennel = kennelMap.get(proj.kennelId);
     const evidence = evidenceByKennel.get(proj.kennelId) ?? [];
     // Prefer the most-recent in-window event so the line moves as the kennel
-    // posts. Fall back to the kennel's all-time `lastEventDate` so a Low
+    // posts. Fall back to the kennel's all-time `lastRunSeenAt` so a Low
     // projection still anchors to *something* — even old history justifies
     // why we listed the kennel.
     const recentLast = evidence.length > 0
       ? new Date(evidence.reduce((max, e) => Math.max(max, e.date.getTime()), 0))
       : null;
-    const lastConfirmedAt = recentLast ?? kennel?.lastEventDate ?? null;
+    const lastConfirmedAt = recentLast ?? kennel?.lastRunSeenAt ?? null;
     return {
       type: "possible" as const,
       destinationIndex: index,
@@ -867,6 +929,8 @@ async function runStopSearch(
   let passWeatherInputs = firstPass.weatherInputs;
   let nearbyKennels = firstPassKennels;
   let primaryEffectivelyEmpty = primary.length === 0;
+  // Rows the shown pass found on the trip dates before the user's filters.
+  let unfilteredTotal = firstPass.unfilteredTotal;
 
   // Retry broader only when primary had kennels but produced NO unfiltered
   // results — i.e. the radius is genuinely dormant. If the primary had
@@ -884,38 +948,23 @@ async function runStopSearch(
         passWeatherInputs = broaderPass.weatherInputs;
         nearbyKennels = broader;
         primaryEffectivelyEmpty = true;
+        unfilteredTotal = broaderPass.unfilteredTotal;
       }
     }
   }
 
-  // Step 16: Determine empty state.
-  // The empty state reflects what the user should see, independent of filters:
-  // - no_coverage: zero kennels found even in broader pass
-  // - no_nearby: primary radius had zero kennels, but broader pass found some
-  // - no_confirmed: confirmed events empty, but likely/possible exist
-  // - out_of_horizon: nothing in range past the 365-day projection horizon
-  // - none: has results in the primary radius
-  let emptyState: EmptyStateKind = "none";
-  let broaderResultsObj: DestinationResult["broaderResults"];
-
-  const totalResults =
-    filtered.confirmed.length + filtered.likely.length + filtered.possible.length;
-
-  if (primaryEffectivelyEmpty && broader.length > 0) {
-    emptyState = "no_nearby";
-    broaderResultsObj = {
-      confirmed: filtered.confirmed,
-      likely: filtered.likely,
-      possible: filtered.possible,
-    };
-  } else if (totalResults === 0 && horizonTier === "none") {
-    // Past the 365-day projection horizon and nobody posted an event that
-    // far out. Differentiate from "no_confirmed" so EmptyStates copy can
-    // explain the situation instead of implying the filter is the issue.
-    emptyState = "out_of_horizon";
-  } else if (filtered.confirmed.length === 0 && (filtered.likely.length > 0 || filtered.possible.length > 0)) {
-    emptyState = "no_confirmed";
-  }
+  // Step 16: Determine empty state (no_coverage returned early above).
+  const emptyState = chooseStopEmptyState({
+    horizonTier,
+    unfilteredTotal,
+    showsBroaderPass: primaryEffectivelyEmpty,
+    confirmedCount: filtered.confirmed.length,
+    likelyOrPossibleCount: filtered.likely.length + filtered.possible.length,
+  });
+  const broaderResultsObj: DestinationResult["broaderResults"] =
+    emptyState === "no_nearby"
+      ? { confirmed: filtered.confirmed, likely: filtered.likely, possible: filtered.possible }
+      : undefined;
 
   // "No posted trails for your exact dates": look out to the broader radius
   // for the nearest confirmed runs so the answer isn't only "check directly"
@@ -929,6 +978,32 @@ async function runStopSearch(
       const confirmed = ring.confirmed.sort(byDistance).slice(0, NEAREST_CONFIRMED_LIMIT);
       if (confirmed.length > 0) nearestConfirmed = { radiusKm: broaderRadiusKm, confirmed };
     }
+  }
+
+  // The rows this stop shows for its own radius. When the broader pass was
+  // adopted, `filtered` holds ring rows instead, and the radius showed none.
+  const primaryRows: StopOutcome["primaryRows"] = primaryEffectivelyEmpty
+    ? { confirmed: [], likely: [], possible: [] }
+    : { confirmed: filtered.confirmed, likely: filtered.likely, possible: filtered.possible };
+
+  // "Other kennels near here": thin single-stop answers list quiet in-radius
+  // kennels that no shown row already covers.
+  let otherKennels: OtherKennel[] | undefined;
+  if (
+    ctx.wantNearestConfirmed &&
+    primary.length > 0 &&
+    shouldShowOtherKennels(primaryRows.confirmed.length, primaryRows.likely.length)
+  ) {
+    const shownKennelIds = new Set(
+      [...filtered.confirmed, ...filtered.likely, ...filtered.possible].map((r) => r.kennelId),
+    );
+    // listingOnly is false until the column exists (Task 8).
+    const picked = selectOtherKennels(
+      primary.map((k) => ({ ...k, listingOnly: false })),
+      shownKennelIds,
+      ctx.now,
+    );
+    if (picked.length > 0) otherKennels = picked;
   }
 
   return {
@@ -947,12 +1022,9 @@ async function runStopSearch(
       broaderRadiusKm: primaryEffectivelyEmpty ? broaderRadiusKm : undefined,
       broaderResults: broaderResultsObj,
       nearestConfirmed,
+      otherKennels,
     },
-    primaryRows: {
-      confirmed: primaryEffectivelyEmpty ? [] : filtered.confirmed,
-      likely: primaryEffectivelyEmpty ? [] : filtered.likely,
-      possible: primaryEffectivelyEmpty ? [] : filtered.possible,
-    },
+    primaryRows,
     weatherInputs: passWeatherInputs,
   };
 }
@@ -962,15 +1034,46 @@ async function runStopSearch(
 // ============================================================================
 
 /**
+ * Pick a stop's empty state once at least one kennel was searched (a stop
+ * with no kennels in either radius returns `no_coverage` before this runs).
+ * Nothing on the dates gets a rowless state whatever filters are active, so
+ * an empty `none` only ever means the filters hid every row.
+ *
+ *   - out_of_horizon: nothing found and the dates are past the 365-day horizon
+ *   - no_runs: kennels searched, nothing posted or projected for the dates
+ *   - no_nearby: the radius came up empty, the broader ring has rows
+ *   - no_confirmed: no confirmed rows, but likely/possible ones to show
+ *   - none: confirmed rows to show, or rows the active filters hid
+ */
+export function chooseStopEmptyState(input: {
+  horizonTier: ProjectionHorizonTier;
+  /** Rows the shown pass found on the trip dates before filters ran. */
+  unfilteredTotal: number;
+  /** The radius had no kennels or no rows, so the stop shows the broader ring. */
+  showsBroaderPass: boolean;
+  /** Counts after filters. */
+  confirmedCount: number;
+  likelyOrPossibleCount: number;
+}): EmptyStateKind {
+  if (input.unfilteredTotal === 0) {
+    return input.horizonTier === "none" ? "out_of_horizon" : "no_runs";
+  }
+  if (input.showsBroaderPass) return "no_nearby";
+  if (input.confirmedCount === 0 && input.likelyOrPossibleCount > 0) return "no_confirmed";
+  return "none";
+}
+
+/**
  * Aggregate per-stop empty states into a single top-level banner state.
  *
  * Priority: surface the most optimistic (actionable) state first. If any
  * stop has real results (`none`), suppress the banner entirely. Otherwise
  * prefer projection-bearing states (`no_nearby`, `no_confirmed`) over
- * hard empties (`no_coverage`, `out_of_horizon`), since the former means
- * the user has something to act on. Among hard empties, `no_coverage`
- * beats `out_of_horizon` — a missing-data region is more useful to flag
- * than a future date the user can't change.
+ * rowless ones (`no_runs`, `no_coverage`, `out_of_horizon`), since the
+ * former means the user has something to act on. Among rowless states,
+ * `no_runs` comes first (we know kennels there), then `no_coverage` beats
+ * `out_of_horizon` — a missing-data region is more useful to flag than a
+ * future date the user can't change.
  *
  * Per-stop states still live on `destinations[i].emptyState` for per-leg
  * inline hints; this field only drives the full-page banner.
@@ -980,6 +1083,7 @@ function aggregateEmptyState(stops: DestinationResult[]): EmptyStateKind {
   if (stops.some((s) => s.emptyState === "none")) return "none";
   if (stops.some((s) => s.emptyState === "no_nearby")) return "no_nearby";
   if (stops.some((s) => s.emptyState === "no_confirmed")) return "no_confirmed";
+  if (stops.some((s) => s.emptyState === "no_runs")) return "no_runs";
   if (stops.some((s) => s.emptyState === "no_coverage")) return "no_coverage";
   return "out_of_horizon";
 }
@@ -1003,7 +1107,7 @@ async function fetchAllVisibleKennels(prisma: PrismaClient) {
       region: true,
       latitude: true,
       longitude: true,
-      lastEventDate: true,
+      ...KENNEL_EVIDENCE_SELECT,
       scheduleDayOfWeek: true,
       scheduleTime: true,
       scheduleFrequency: true,
@@ -1045,6 +1149,72 @@ function distanceTier(distanceKm: number): DistanceTier {
   return "drive";
 }
 
+/**
+ * Generated (schedule-only) runs that nothing else covers, as projection-shaped
+ * rows: one per (nearby kennel, date), skipping any date a dated projection or
+ * a real confirmed run already covers for that kennel, and dates past the
+ * projection horizon. Medium (Likely) unless the kennel's evidence is stale
+ * (> 90 days, the projection inactivity rule) → low (Possible). Co-hosted runs
+ * pivot onto the nearby kennel exactly like confirmed rows. Events must be
+ * sorted by date.
+ */
+function uncoveredScheduleRuns(
+  events: {
+    kennelId: string;
+    eventKennels: { kennelId: string }[];
+    date: Date;
+    startTime: string | null;
+  }[],
+  ctx: {
+    nearbyIdsSet: Set<string>;
+    kennelMap: Map<string, NearbyKennel>;
+    /** Dated projections (after dedupe + horizon) and real confirmed-run refs. */
+    covered: ReadonlyArray<{ kennelId: string; date: Date | null }>;
+    projectionEndDate: Date;
+    now: Date;
+  },
+): ProjectedTrail[] {
+  const dayKey = (kennelId: string, date: Date) => `${kennelId}:${date.toISOString().slice(0, 10)}`;
+  const taken = new Set<string>();
+  for (const c of ctx.covered) {
+    if (c.date) taken.add(dayKey(c.kennelId, c.date));
+  }
+
+  const rows: ProjectedTrail[] = [];
+  for (const event of events) {
+    if (event.date.getTime() > ctx.projectionEndDate.getTime()) continue;
+    const kennelId = ctx.nearbyIdsSet.has(event.kennelId)
+      ? event.kennelId
+      : matchedNearbyKennelIds(event.eventKennels, ctx.nearbyIdsSet)[0];
+    const kennel = kennelId ? ctx.kennelMap.get(kennelId) : undefined;
+    if (!kennel) continue;
+    const key = dayKey(kennel.id, event.date);
+    if (taken.has(key)) continue;
+    taken.add(key);
+    rows.push({
+      kennelId: kennel.id,
+      date: event.date,
+      startTime: event.startTime,
+      confidence: isKennelInactive(latestEvidenceAt(kennel), ctx.now.getTime()) ? "low" : "medium",
+      scheduleRuleId: "", // not from a rule: the kennel's generated run itself
+      explanation: SCHEDULE_ONLY_EXPLANATION,
+      evidenceWindow: "",
+    });
+  }
+  return rows;
+}
+
+/**
+ * The kennel's last admin confirmation when it is its newest evidence (no later
+ * run seen) and recent by the inactivity rule; null otherwise.
+ */
+function recentConfirmation(kennel: NearbyKennel | undefined, now: Date): Date | null {
+  const confirmed = kennel?.lastConfirmedAt ?? null;
+  if (!confirmed) return null;
+  if (kennel?.lastRunSeenAt && kennel.lastRunSeenAt > confirmed) return null;
+  return isKennelInactive(confirmed, now.getTime()) ? null : confirmed;
+}
+
 /** Apply confidence scoring to each projection using kennel activity + rule-specific context. */
 function scoreProjections(
   projections: ProjectedTrail[],
@@ -1078,7 +1248,7 @@ function scoreProjections(
       scheduleDayOfWeek: kennel.scheduleDayOfWeek,
       scheduleTime: kennel.scheduleTime,
       scheduleFrequency: kennel.scheduleFrequency,
-      lastEventDate: kennel.lastEventDate,
+      lastEvidenceAt: latestEvidenceAt(kennel),
     };
 
     // Use the specific rule's lastValidatedAt, not the kennel-level aggregate

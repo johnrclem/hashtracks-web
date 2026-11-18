@@ -192,6 +192,12 @@ export function generateRegionIntro(
   activeKennelCount: number,
   scheduleDays: string[],
 ): string {
+  // "has 0 active kennels with runs on Sundays" contradicts itself; with no
+  // running kennel, invite browsing without a count.
+  if (activeKennelCount === 0) {
+    return `Find hash house harrier kennels in ${regionName} below.`;
+  }
+
   const uniqueDays = [...new Set(scheduleDays)];
   const daysSummary = formatDaysSummary(uniqueDays);
 
