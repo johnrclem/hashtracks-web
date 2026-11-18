@@ -133,11 +133,31 @@ watchdog lands, the digest's look at the task runs is the only check. Then:
 
 ## Identity
 
-Scheduled tasks act on GitHub through `gh`. Today `gh` is logged in as the owner, so an agent's PR
-looks like the owner's. **Building (S4):** a "HashTracks Agent" GitHub App that every task acts
-as, set up through an agent root (`~/Developer/hashtracks-agents/`) whose settings give each session
-an empty `gh` config and a `gh` shim that mints the App's token; and a "HashTracks Server" App
-for the server's own GitHub reads and writes.
+Two GitHub Apps replace the owner's personal token ([`infra/github-apps/`](../../infra/github-apps/README.md)):
+
+- **HashTracks Server** (Issues: read and write; Pull requests, Contents, Metadata: read) is the
+  server's identity on Vercel: issue filing, the audit mirror, labels, alerts, feedback, rule drift,
+  the watchdog and the digest (`src/lib/github-app.ts`). Until its env is set the server falls back
+  to `GITHUB_TOKEN`; the filing-health chip shows which one is in use. Approval checks keep the
+  read-only `GITHUB_APPROVAL_READ_TOKEN`.
+- **HashTracks Agent** (Contents, Pull requests, Issues: read and write; Checks, Commit statuses:
+  read; no Workflows, Administration or Actions) is the identity every scheduled task acts as. Its
+  bot is `hashtracks-agent[bot]`. Agent PRs are authored by the bot, and the bot can't push a
+  workflow change or change settings.
+
+**The agent root.** Every task starts in `~/Developer/hashtracks-agents/`
+([`infra/agent-root/`](../../infra/agent-root/README.md)), which is not a git repository, so no
+task's reset can reach it. Its `.claude/settings.local.json` applies to the whole session: `gh`
+gets an empty config (`GH_CONFIG_DIR`), `GITHUB_TOKEN` and `GH_TOKEN` are empty, `GH_REPO` names
+this repository, and `PATH` puts a `gh` shim first. The shim mints a fresh App token for every call
+and exits without running anything if minting fails. Each task clone pushes through the same shim
+(its only git credential helper) and commits as the bot. The root copies the repo's deny list (the
+digest flags drift) and, as a speed bump, denies commands that set `GH_CONFIG_DIR` or a token or call
+`gh` by absolute path. Deliberate overrides remain possible; they fall under T1. A session started
+anywhere else doesn't get these settings, which the preflight below catches.
+
+Until the owner does the S4 steps, `gh` on the Mac is still the owner's login, so an agent's PR looks
+like the owner's.
 
 **Preflight.** Step 1 of every task runs this, before anything else (it's in the task's manual, or
 in its prompt for the deep dive and the hareline audit, which have no manual of their own):
@@ -152,9 +172,18 @@ writes nothing to GitHub, so it carries on and reports the failure first under "
 
 Identity preflight: LOG
 
-While the flag is `LOG`, the preflight only logs. S4 switches it, once the Apps exist, the root is
-set up, every task is re-pointed to the root and each of the six has logged the bot's login on a
-real scheduled run, by changing the line to exactly `Identity preflight: STOP unless <bot login>`.
+While the flag is `LOG`, the preflight only logs. The switch happens in this order:
+
+1. The Apps exist, the root is installed, and every task is re-pointed to the root.
+2. Each of the six tasks logs `login=hashtracks-agent[bot]` on a real scheduled run.
+3. A docs PR changes the line to exactly `Identity preflight: STOP unless hashtracks-agent[bot]`,
+   and switches the manuals' merge steps to `scripts/agent-merge-pr.sh`, which refuses to run as
+   anyone but the bot.
+4. The owner applies the [ruleset](#write-gate) and changes the line below to
+   `Main ruleset: REQUIRED`.
+
+Main ruleset: PENDING
+
 From then on a run whose `gh` isn't the bot stops before its first GitHub write: a missing settings
 file, the wrong start folder or a broken shim each surface here. A missing or unreadable flag line
 also stops the run.

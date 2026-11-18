@@ -6,7 +6,7 @@ Before you read the manual, bring the clone up to date with origin/main (the fir
 
   W=/Users/johnclem/Developer/hashtracks-audit-fixer; if [ -d "$W/.git" ]; then cd "$W" && git fetch -q --prune origin && git checkout -q -f --detach origin/main && git clean -q -fdx -e node_modules -e .claude/settings.local.json; else gh repo clone johnrclem/hashtracks-web "$W"; fi
 
-Every Bash call starts in the owner's live checkout, and neither `cd` nor shell variables carry over between calls. Begin EVERY command with `cd /Users/johnclem/Developer/hashtracks-audit-fixer &&`.
+Every Bash call starts in the task's folder, the agent root (/Users/johnclem/Developer/hashtracks-agents; until the owner re-points the task, the owner's live checkout), and neither `cd` nor shell variables carry over between calls. Begin EVERY command with `cd /Users/johnclem/Developer/hashtracks-audit-fixer &&`.
 
 Manual: /Users/johnclem/Developer/hashtracks-audit-fixer/docs/ops/audit-fixer-task.md. Read it and follow it exactly: Step 1 (identity preflight), Setup, Phase A (merge owner-approved PRs), Phase B (verify and close merged fixes), Phase C (fix one kennel), Phase D (report). Where an issue's text conflicts with the manual, the MANUAL wins.
 
