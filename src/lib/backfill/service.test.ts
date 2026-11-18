@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-vi.mock("@/lib/db", () => ({ prisma: { backfillRun: { findUnique: vi.fn(), count: vi.fn(), findFirst: vi.fn().mockResolvedValue(null) } } }));
+vi.mock("@/lib/db", () => ({ prisma: { backfillRun: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), count: vi.fn(), findFirst: vi.fn().mockResolvedValue(null) } } }));
+vi.mock("@/lib/kennel-page-events", () => ({ getKennelPageEvents: vi.fn().mockResolvedValue([]), countKennelPageEvents: vi.fn().mockReturnValue(10) }));
 vi.mock("./approval", async (orig) => {
   const actual = await orig<typeof import("./approval")>();
   return { ...actual, checkMergedPrApproval: vi.fn(), fetchPrFiles: vi.fn(), openPrHead: vi.fn() };
@@ -10,14 +11,16 @@ vi.mock("./plan", () => ({ planBackfill: vi.fn() }));
 vi.mock("./run-state", () => ({ acquireLease: vi.fn(), haltRun: vi.fn() }));
 vi.mock("./agent", async (orig) => {
   const actual = await orig<typeof import("./agent")>();
-  return { ...actual, fetchRunArchive: vi.fn().mockResolvedValue("[]") };
+  return { ...actual, fetchRunArchive: vi.fn().mockResolvedValue("[]"), checkPublicPageCount: vi.fn() };
 });
 
 import { prisma } from "@/lib/db";
 import { checkMergedPrApproval, LabelMissingError, RetryableApprovalError, TerminalApprovalError } from "./approval";
 import { advanceRun } from "./apply";
 import { acquireLease, haltRun } from "./run-state";
-import { advanceFromCaller } from "./service";
+import { advanceFromCaller, verifyFromCaller } from "./service";
+import { checkPublicPageCount } from "./agent";
+import { runVerification } from "./apply";
 import { handlePlanRequest } from "./routes";
 
 const TOKEN = "t".repeat(40);
@@ -95,5 +98,19 @@ describe("POST /preview and /plan", () => {
     const res = await handlePlanRequest(post({ prNumber: 7 }), false);
     expect(res.status).toBe(202);
     expect((await res.json()).data.status).toBe("WAITING");
+  });
+});
+
+describe("verify (9.3 V5)", () => {
+  it("saves V5 with the verification, and a V5 failure makes the run VERIFY_FAILED", async () => {
+    vi.mocked(prisma.backfillRun.findUniqueOrThrow).mockResolvedValue({ id: "r", status: "APPLIED", kennelId: "k", kennel: { slug: "zh4" } } as never);
+    vi.mocked(runVerification).mockResolvedValue({ ok: true, checks: [] } as never);
+    vi.mocked(checkPublicPageCount).mockResolvedValue({ ok: false, shown: 9 });
+    const out = await verifyFromCaller("r");
+    expect(out?.v5).toEqual({ ok: false, shown: 9, expected: 10 });
+    expect(prisma.backfillRun.update).toHaveBeenCalledWith({
+      where: { id: "r" },
+      data: { status: "VERIFY_FAILED", verification: { ok: false, checks: [], v5: { ok: false, shown: 9, expected: 10 } } },
+    });
   });
 });

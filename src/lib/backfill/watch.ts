@@ -40,6 +40,14 @@ async function step(report: WatchReport, label: string, fn: () => Promise<void>)
   }
 }
 
+/** When the run's apply finished: the time of its `finish` step (apply.ts), or null before then. */
+export function applyFinishedAt(stepLog: unknown): Date | null {
+  if (!Array.isArray(stepLog)) return null;
+  const finish = stepLog.findLast((s: unknown) => (s as { step?: unknown })?.step === "finish") as { at?: unknown } | undefined;
+  const at = typeof finish?.at === "string" ? new Date(finish.at) : null;
+  return at && !Number.isNaN(at.getTime()) ? at : null;
+}
+
 export async function runBackfillWatch(now = new Date()): Promise<WatchReport> {
   const mode = backfillMode();
   const report: WatchReport = { mode, resumed: [], replanned: [], planned: [], reverified: [], alerts: [], errors: [] };
@@ -81,10 +89,12 @@ export async function runBackfillWatch(now = new Date()): Promise<WatchReport> {
     await step(report, "reverify", async () => {
       const recent = await prisma.backfillRun.findMany({
         where: { status: { in: ["APPLIED", "VERIFIED", "VERIFY_FAILED"] }, OR: [{ verifiedAt: null }, { verifiedAt: { lt: new Date(now.getTime() - 20 * HOUR) } }], updatedAt: { gt: new Date(now.getTime() - 8 * DAY) } },
-        select: { id: true, cutoffSetAt: true },
+        select: { id: true, stepLog: true },
       });
       for (const r of recent) {
-        if (r.cutoffSetAt && now.getTime() - r.cutoffSetAt.getTime() > 7 * DAY) continue;
+        // Seven days of re-checks from when the apply finished, however long the apply took.
+        const finishedAt = applyFinishedAt(r.stepLog);
+        if (finishedAt && now.getTime() - finishedAt.getTime() > 7 * DAY) continue;
         const verified = await verifyFromCaller(r.id);
         if (!verified) continue;
         const ok = verified.result.ok && (verified.v5?.ok ?? true);
