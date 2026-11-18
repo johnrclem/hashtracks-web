@@ -246,6 +246,16 @@ describe("ensureKennelLabel", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("reports an error, not missing-token, when the configured App can't give a token", async () => {
+    delete process.env.GITHUB_TOKEN;
+    vi.stubEnv("GITHUB_APP_ID", "12345"); // no key: the App is configured but unusable
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const outcome = await ensureKennelLabel("agnews", "Agnews");
+    vi.unstubAllEnvs();
+    expect(outcome).toMatchObject({ ok: false, action: "error" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("captures errors from failed GETs without throwing", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse(500, { message: "boom" }));
     const outcome = await ensureKennelLabel("agnews", "Agnews");

@@ -66,7 +66,7 @@ describe("createServerGithubAuth", () => {
     const fetchImpl = vi.fn(async () => tokenResponse());
     const auth = createServerGithubAuth({ env: appEnv, fetchImpl: fetchImpl as never, now: () => clock });
     await auth.get();
-    clock = Date.parse("2026-11-18T12:56:00Z"); // 4 minutes left
+    clock = Date.parse("2026-11-18T12:46:00Z"); // 14 minutes left
     await auth.get();
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });

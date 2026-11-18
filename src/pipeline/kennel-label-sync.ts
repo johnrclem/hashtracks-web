@@ -15,7 +15,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import { NO_GITHUB_CREDENTIAL, serverGithubToken } from "@/lib/github-app";
+import { NO_GITHUB_CREDENTIAL, serverGithubAuth, serverGithubToken } from "@/lib/github-app";
 import { getValidatedRepo } from "@/lib/github-repo";
 import {
   LANE_DESCRIPTION_PREFIX,
@@ -398,6 +398,19 @@ async function deleteLabel(
 }
 
 /**
+ * The token for a per-kennel label write: `missing-token` when nothing is configured (benign), an
+ * error outcome when the configured App fails.
+ */
+async function labelToken(): Promise<{ token: string } | { outcome: KennelLabelOutcome }> {
+  try {
+    const auth = await serverGithubAuth();
+    return auth ? { token: auth.token } : { outcome: { ok: true, action: "missing-token" } };
+  } catch (err) {
+    return { outcome: { ok: false, action: "error", error: err instanceof Error ? err.message : String(err) } };
+  }
+}
+
+/**
  * Ensure the canonical `kennel:<code>` label exists for a newly created
  * kennel. Never throws — returns a structured outcome so the caller can log.
  */
@@ -408,10 +421,9 @@ export async function ensureKennelLabel(
   if (!isValidKennelCode(kennelCode)) {
     return { ok: true, action: "invalid" };
   }
-  const token = await serverGithubToken();
-  if (!token) {
-    return { ok: true, action: "missing-token" };
-  }
+  const got = await labelToken();
+  if ("outcome" in got) return got.outcome;
+  const { token } = got;
   const canonical = buildKennelCanonical(kennelCode, shortName);
   try {
     const existing = await fetchLabel(token, canonical.name);
@@ -460,10 +472,9 @@ export async function deleteKennelLabel(
   if (!isValidKennelCode(kennelCode)) {
     return { ok: true, action: "invalid" };
   }
-  const token = await serverGithubToken();
-  if (!token) {
-    return { ok: true, action: "missing-token" };
-  }
+  const got = await labelToken();
+  if ("outcome" in got) return got.outcome;
+  const { token } = got;
   try {
     const result = await deleteLabel(token, kennelLabel(kennelCode));
     return { ok: true, action: result };

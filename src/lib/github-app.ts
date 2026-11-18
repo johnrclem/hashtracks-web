@@ -15,12 +15,16 @@
  * safe. To retire it, delete `patFallback` and its tests.
  */
 import { createPrivateKey, sign } from "node:crypto";
-import { getValidatedRepo } from "@/lib/github-repo";
+import * as Sentry from "@sentry/nextjs";
+import { getValidatedRepo, GITHUB_API_ORIGIN, githubHeaders } from "@/lib/github-repo";
 
-const API_ORIGIN = "https://api.github.com";
 const TIMEOUT_MS = 10_000;
-/** Mint a new token once the cached one has less than this left (they last an hour). */
-const REFRESH_MARGIN_MS = 5 * 60_000;
+/**
+ * Mint a new token once the cached one has less than this left (they last an hour). Wider than any
+ * function's run (Vercel caps them well under 15 minutes), so a token taken at the start of a run
+ * outlives it.
+ */
+const REFRESH_MARGIN_MS = 15 * 60_000;
 const INSTALLATION_ID_RE = /^\d{1,12}$/;
 
 /** What call sites say when no credential is available; the reason is in the logs. */
@@ -50,12 +54,14 @@ interface AppConfig {
 
 type Env = Record<string, string | undefined>;
 
+const anyAppVar = (env: Env): boolean => Boolean(env.GITHUB_APP_ID || env.GITHUB_APP_PRIVATE_KEY || env.GITHUB_APP_INSTALLATION_ID);
+
 /** `null`: no App variable is set. Throws when only some are, so a typo never falls back to the PAT. */
 function readAppConfig(env: Env): AppConfig | null {
   const appId = env.GITHUB_APP_ID?.trim() || "";
   const key = env.GITHUB_APP_PRIVATE_KEY?.trim() || "";
   const installationId = env.GITHUB_APP_INSTALLATION_ID?.trim() || "";
-  if (!appId && !key && !installationId) return null;
+  if (!anyAppVar(env)) return null;
   if (!appId || !key) throw new GithubAppError("the server GitHub App needs both GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY");
   if (installationId && !INSTALLATION_ID_RE.test(installationId)) {
     throw new GithubAppError("GITHUB_APP_INSTALLATION_ID must be a number");
@@ -94,22 +100,19 @@ export function createServerGithubAuth(
   const now = options.now ?? Date.now;
   let cached: { key: string; auth: ServerGithubAuth; expiresAt: number } | null = null;
   let inflight: { key: string; promise: Promise<ServerGithubAuth> } | null = null;
+  /** Looked up once when GITHUB_APP_INSTALLATION_ID is unset; an installation's id doesn't change. */
+  let foundInstallationId: string | null = null;
   let warnedFallback = false;
 
   async function appCall(path: string, jwt: string, init: RequestInit = {}): Promise<Record<string, unknown>> {
-    const url = new URL(path, API_ORIGIN);
+    const url = new URL(path, GITHUB_API_ORIGIN);
     // Installation ids are no secret, but keep messages stable across installations.
     const what = `GitHub App ${init.method ?? "GET"} ${path.replaceAll(/\d+/g, ":id")}`;
     let res: Response;
     try {
       res = await fetchImpl(url, {
         ...init,
-        headers: {
-          Authorization: `Bearer ${jwt}`,
-          Accept: "application/vnd.github+json",
-          "Content-Type": "application/json",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
+        headers: githubHeaders(jwt),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
     } catch (err) {
@@ -122,11 +125,11 @@ export function createServerGithubAuth(
   async function mint(cfg: AppConfig): Promise<ServerGithubAuth & { expiresAt: number }> {
     const repo = getValidatedRepo();
     const jwt = appJwt(cfg.appId, cfg.privateKey, now());
-    let installationId = cfg.installationId;
+    let installationId = cfg.installationId ?? foundInstallationId;
     if (!installationId) {
       const found = String((await appCall(`/repos/${repo}/installation`, jwt)).id ?? "");
       if (!INSTALLATION_ID_RE.test(found)) throw new GithubAppError("the server App isn't installed on the repository");
-      installationId = found;
+      installationId = foundInstallationId = found;
     }
     // Scope the token to this one repository, whatever else the App is installed on.
     const body = await appCall(`/app/installations/${installationId}/access_tokens`, jwt, {
@@ -153,7 +156,7 @@ export function createServerGithubAuth(
   return {
     configured() {
       const env = envNow();
-      return Boolean(env.GITHUB_APP_ID || env.GITHUB_APP_PRIVATE_KEY || env.GITHUB_APP_INSTALLATION_ID || env.GITHUB_TOKEN);
+      return anyAppVar(env) || Boolean(env.GITHUB_TOKEN);
     },
     async get() {
       const env = envNow();
@@ -178,6 +181,8 @@ export function createServerGithubAuth(
 }
 
 const serverAuth = createServerGithubAuth();
+/** Each distinct failure goes to Sentry once per process; a broken App would otherwise send one per call. */
+const reportedFailures = new Set<string>();
 
 /** True when the server has some GitHub credential configured. */
 export function hasServerGithubCredential(): boolean {
@@ -197,7 +202,13 @@ export async function serverGithubToken(): Promise<string | null> {
   try {
     return (await serverAuth.get())?.token ?? null;
   } catch (err) {
-    console.error("[github-app] couldn't get a GitHub token:", err instanceof Error ? err.message : String(err));
+    // Callers only see "no credential", so make the App's own failure visible.
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[github-app] couldn't get a GitHub token:", message);
+    if (!reportedFailures.has(message)) {
+      reportedFailures.add(message);
+      Sentry.captureException(err, { tags: { github_app: "token" } });
+    }
     return null;
   }
 }

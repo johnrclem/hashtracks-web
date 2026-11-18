@@ -12,9 +12,8 @@
  */
 import { scrubSecrets } from "@/lib/audit-redact";
 import { hasServerGithubCredential, requireServerGithubToken } from "@/lib/github-app";
-import { getValidatedRepo } from "@/lib/github-repo";
+import { getValidatedRepo, GITHUB_API_ORIGIN, githubHeaders } from "@/lib/github-repo";
 
-const API_ORIGIN = "https://api.github.com";
 const TIMEOUT_MS = 15_000;
 const PER_PAGE = 100;
 
@@ -129,16 +128,10 @@ export function createOpsGithub(auth: GithubTokenSource, fetchImpl: typeof fetch
 
   async function call(path: string, init: RequestInit = {}): Promise<unknown> {
     // The URL constructor anchors every request to api.github.com.
-    const url = new URL(`/repos/${repo}${path}`, API_ORIGIN);
+    const url = new URL(`/repos/${repo}${path}`, GITHUB_API_ORIGIN);
     let res: Response;
     try {
-      const token = typeof auth === "string" ? auth : await auth();
-      const headers = {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      };
+      const headers = githubHeaders(typeof auth === "string" ? auth : await auth());
       res = await fetchImpl(url, { ...init, headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
     } catch (err) {
       throw new GithubUnavailableError(`GitHub ${init.method ?? "GET"} ${path} failed: ${err instanceof Error ? err.message : String(err)}`);

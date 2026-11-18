@@ -1,9 +1,9 @@
 "use server";
 
-import { serverGithubToken } from "@/lib/github-app";
 import { LANE_LABELS } from "@/lib/audit-labels";
 import { scrubSecrets } from "@/lib/audit-redact";
 import { getOrCreateUser } from "@/lib/auth";
+import { serverGithubToken } from "@/lib/github-app";
 
 type FeedbackState = {
   success?: boolean;
