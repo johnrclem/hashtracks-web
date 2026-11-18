@@ -8399,7 +8399,9 @@ export const SOURCES = [
         // No time column. Weekly Wednesday 19:00; first-Sunday 11:30 (matches HC prod Sundays).
         // No default: weekend away runs (Fri/Sat) get no guessed time.
         startTimeRules: { byDayOfWeek: { Wed: "19:00", Sun: "11:30" } },
-        upcomingOnly: true, // year tab; HC stays the cancellation authority
+        // Reconcile only cancels future runs. A run listed by both HC and the sheet stays
+        // CONFIRMED until both drop it: each source's RawEvent shields it from the other's reconcile.
+        upcomingOnly: true,
       },
       kennelCodes: ["newcastle-h3"],
     },

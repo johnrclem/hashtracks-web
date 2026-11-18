@@ -8,7 +8,7 @@
  * frozen extract of the archive through the merge pipeline, bound to the
  * "Newcastle H3 Hareline Sheet" source (upcomingOnly:true → never reconciled/cancelled).
  *
- * Frozen JSON: run number, date, hares (joined + sorted), venue, street, notes.
+ * Frozen JSON: run number, date, hares (as written in the sheet), venue, street, notes.
  * No start times (the sheet has none). Phone/email scrubbed. Fixes applied from each
  * row's own Day cell (#1328, #1640, #1628 year/format typos; #1443, #1469, #1474,
  * #1590, #1714, #1715 one-day slips). Undated rows (#1200, #1251), the cancelled #1609
@@ -24,19 +24,17 @@ import { runBackfillScript } from "./lib/backfill-runner";
 import type { RawEventData } from "@/adapters/types";
 import history from "./data/newcastle-h3-sheet-history.json";
 
-const LIVE_ADAPTER_START = "2026-01-04";
-const EXPECTED_ROWS = 666; // frozen extract size; the test asserts the same number
+// Frozen extract size. The test asserts the same count and that every row is before 2026-01-04.
+const EXPECTED_ROWS = 666;
 
 runBackfillScript({
   sourceName: "Newcastle H3 Hareline Sheet",
   kennelTimezone: "Europe/London",
   label: "Loading frozen Newcastle H3 (newcastle-h3) hareline-sheet archive",
   fetchEvents: async () => {
-    const events = (history as RawEventData[]).filter((e) => e.date < LIVE_ADAPTER_START);
+    const events = history as RawEventData[];
     if (events.length !== EXPECTED_ROWS) {
-      throw new Error(
-        `newcastle-h3-sheet-history.json has ${events.length} pre-${LIVE_ADAPTER_START} rows — expected ${EXPECTED_ROWS}. Aborting.`,
-      );
+      throw new Error(`newcastle-h3-sheet-history.json has ${events.length} rows — expected ${EXPECTED_ROWS}. Aborting.`);
     }
     return events;
   },
