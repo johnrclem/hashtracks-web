@@ -6,8 +6,8 @@
  *
  * A PR passes in one of three ways:
  *   1. a valid owner approval (A2–A4, `src/lib/backfill/approval-stamp.ts`);
- *   2. owner-authored and low-risk: a branch outside the agent prefixes, no migration change and
- *      no workflow change;
+ *   2. owner-authored and low-risk: the owner opened it and pushed its head, from a branch outside
+ *      the agent prefixes, with no migration change and no workflow change;
  *   3. bot-authored and data-only: every path in the onboarding data allow-list.
  * A workflow change passes only the first way.
  */
@@ -15,6 +15,17 @@ import { MIGRATION_DIR_PREFIX } from "./migration-changes";
 
 /** The commit status the gate sets on the PR head, and the ruleset requires. */
 export const GATE_CONTEXT = "write-gate";
+/**
+ * Who moved the head: set by the workflow's `record-pusher` job on every opened, synchronize and
+ * reopened event, as "<login> (<type>)". The agent App can't write statuses.
+ */
+export const PUSHER_CONTEXT = "write-gate/pusher";
+
+/** Parses a pusher status description; null when it isn't one. */
+export function parsePusher(description: string | null | undefined): { login: string; type: string } | null {
+  const match = /^(\S+) \((\w+)\)$/.exec(description ?? "");
+  return match ? { login: match[1], type: match[2] } : null;
+}
 /** The agent App's bot account (`<app slug>[bot]`). The workflow may override it (`AGENT_BOT_LOGIN`). */
 export const DEFAULT_AGENT_BOT_LOGIN = "hashtracks-agent[bot]";
 
@@ -79,6 +90,8 @@ export type ApprovalResult =
 
 export interface GateInput {
   author: { login: string; type: string };
+  /** Who pushed the current head ({@link PUSHER_CONTEXT}), or null when it wasn't recorded. */
+  headPusher: { login: string; type: string } | null;
   headRef: string;
   /** The head is in this repository, not a fork. */
   sameRepo: boolean;
@@ -116,7 +129,9 @@ export function evaluateGate(input: GateInput): GateVerdict {
   }
 
   const touchesWorkflows = all.some(isWorkflowPath);
-  const ownerAuthored = author.login === input.ownerLogin && author.type === "User";
+  const isOwner = (who: { login: string; type: string } | null) => who?.login === input.ownerLogin && who.type === "User";
+  // The owner opened it AND pushed its head: a bot push onto an owner's branch needs the label.
+  const ownerAuthored = isOwner(author) && isOwner(input.headPusher);
   if (ownerAuthored && !touchesWorkflows && writeClass !== "write:migration" && !isAgentBranch(input.headRef)) {
     return verdict("success", "Owner-authored, no migration or workflow change.", "owner-authored", writeClass);
   }

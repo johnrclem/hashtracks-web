@@ -45,7 +45,11 @@ REVIEW_CHECK="${ONBOARDING_REVIEW_CHECK:-claude-review}"
 ALLOWED_RE='^docs/kennel-onboarding/(handoffs/.+|run-log\.md|target-queue\.md|source-platform-notes\.md)$'
 
 # 1. Refuse anything outside the allow-list. This enforces the manual's rule at merge time.
-files="$(gh pr diff "$PR" --name-only)" || { echo "PR OPEN: could not list changed files for $PR" >&2; exit 4; }
+# Every path the PR touches, the old path of a rename included (`gh pr diff --name-only` lists only
+# the new one, so a manual renamed into handoffs/ would slip through).
+num="$(gh pr view "$PR" --json number --jq .number)" || { echo "PR OPEN: could not read $PR" >&2; exit 4; }
+files="$(gh api "repos/{owner}/{repo}/pulls/${num}/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)')" \
+  || { echo "PR OPEN: could not list changed files for $PR" >&2; exit 4; }
 outside="$(printf '%s\n' "$files" | grep -v '^$' | { grep -Ev "$ALLOWED_RE" || true; })"
 outside="$(printf '%s\n' "$outside" "$(printf '%s\n' "$files" | grep -E -- '-prompt\.md$' || true)" | grep -v '^$' | sort -u || true)"
 if [[ -n "$outside" ]]; then

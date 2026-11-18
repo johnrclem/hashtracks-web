@@ -8,6 +8,8 @@ import {
   DEFAULT_AGENT_BOT_LOGIN,
   evaluateGate,
   isOnboardingData,
+  parsePusher,
+  PUSHER_CONTEXT,
   type ApprovalResult,
   type ChangedFile,
   type GateInput,
@@ -26,6 +28,7 @@ const file = (filename: string, status = "modified"): ChangedFile => ({ filename
 function gate(overrides: Partial<GateInput>) {
   return evaluateGate({
     author: OWNER,
+    headPusher: OWNER,
     headRef: "claude/some-feature",
     sameRepo: true,
     files: [file("src/lib/x.ts")],
@@ -35,6 +38,19 @@ function gate(overrides: Partial<GateInput>) {
     ...overrides,
   });
 }
+
+describe("parsePusher", () => {
+  it("reads the record-pusher description, and nothing else", () => {
+    expect(parsePusher("johnrclem (User)")).toEqual({ login: "johnrclem", type: "User" });
+    expect(parsePusher("hashtracks-agent[bot] (Bot)")).toEqual({ login: "hashtracks-agent[bot]", type: "Bot" });
+    expect(parsePusher("Evaluating…")).toBeNull();
+    expect(parsePusher(null)).toBeNull();
+  });
+
+  it("matches what the workflow writes", () => {
+    expect(read(".github/workflows/write-gate.yml")).toContain(`-f context=${PUSHER_CONTEXT} -f state=success -f "description=$SENDER ($SENDER_TYPE)"`);
+  });
+});
 
 describe("classify", () => {
   it.each([
@@ -93,6 +109,12 @@ describe("evaluateGate", () => {
       expect(v).toMatchObject({ state: "failure", path: null });
       expect(v.description).toMatch(/workflows/);
       expect(gate({ files: [file(".github/actions/setup/action.yml")] }).state).toBe("failure");
+    });
+
+    it("needs the owner to have pushed the head: a bot push onto the owner's branch needs the label", () => {
+      expect(gate({ headPusher: BOT })).toMatchObject({ state: "pending", path: null });
+      expect(gate({ headPusher: null })).toMatchObject({ state: "pending", path: null });
+      expect(gate({ headPusher: BOT, approval: APPROVED }).path).toBe("approval");
     });
 
     it("doesn't treat a bot or another user named like the owner as the owner", () => {
@@ -158,7 +180,9 @@ describe("kept in step with the rest of the repo", () => {
   it("the workflow never checks out or runs the pull request's code", () => {
     expect(workflow).toMatch(/^\s+pull_request_target:/m);
     expect(workflow).toContain("ref: ${{ github.event.repository.default_branch }}");
-    expect(workflow).not.toMatch(/github\.event\.pull_request\.head\.(sha|ref)|refs\/pull\//);
+    // The PR's head SHA may name a commit status, never a checkout.
+    expect(workflow).not.toMatch(/ref:\s*\$\{\{\s*github\.event\.pull_request|github\.event\.pull_request\.head\.ref|refs\/pull\//);
+    expect(workflow.match(/uses: actions\/checkout/g)).toHaveLength(1);
     expect(workflow).not.toMatch(/contents:\s*write/);
   });
 

@@ -22,14 +22,16 @@ import {
   approvalClient,
   checkOpenPrApproval,
   ownerGithubLogin,
-  RetryableApprovalError,
   STAMP_CONTEXT,
   stampDescription,
+  TerminalApprovalError,
 } from "@/lib/backfill/approval-stamp";
 import {
   DEFAULT_AGENT_BOT_LOGIN,
   evaluateGate,
   GATE_CONTEXT,
+  parsePusher,
+  PUSHER_CONTEXT,
   WRITE_CLASSES,
   type ApprovalResult,
   type ChangedFile,
@@ -87,7 +89,8 @@ async function approvalFor(prNumber: number, token: string): Promise<ApprovalRes
     return { kind: "approved", stampedSha: approved.stampedSha };
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    return err instanceof RetryableApprovalError ? { kind: "waiting", reason } : { kind: "refused", reason };
+    // Only a terminal verdict refuses; anything unexpected may pass on the next event.
+    return err instanceof TerminalApprovalError ? { kind: "refused", reason } : { kind: "waiting", reason };
   }
 }
 
@@ -128,8 +131,14 @@ async function main(): Promise<void> {
 
   // 3. Classify and evaluate the PR's head as it is now.
   const files = await gh.list<ChangedFile>(`/pulls/${number}/files`);
+  // Statuses come newest first; only the workflow's own count.
+  const headStatuses = await gh.get<Array<{ context: string; description: string | null; creator?: { login: string } | null }>>(
+    `/commits/${head}/statuses?per_page=100`,
+  );
+  const pusher = headStatuses.find((s) => s.context === PUSHER_CONTEXT && s.creator?.login === "github-actions[bot]");
   const verdict = evaluateGate({
     author: pr.user,
+    headPusher: parsePusher(pusher?.description),
     headRef: pr.head.ref,
     sameRepo: pr.head.repo?.full_name === APPROVAL_REPO,
     files,
@@ -148,7 +157,7 @@ async function main(): Promise<void> {
   const summary = [
     `### write-gate: ${verdict.state}`,
     "",
-    `- PR #${number}, head \`${head.slice(0, 7)}\`, branch \`${pr.head.ref}\`, author \`${pr.user.login}\` (${pr.user.type})`,
+    `- PR #${number}, head \`${head.slice(0, 7)}\`, branch \`${pr.head.ref}\`, author \`${pr.user.login}\` (${pr.user.type}), head pushed by ${pusher?.description ?? "unrecorded"}`,
     `- Class: \`${verdict.writeClass}\`; passed by: ${verdict.path ?? "nothing"}`,
     `- ${verdict.description}`,
     ...notes.map((n) => `- ${n}`),

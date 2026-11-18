@@ -223,8 +223,8 @@ goes on last, after the Apps exist and every task runs as the bot ([Identity](#i
      - **A valid approval:** `owner-approved` is on the PR now, the newest label event was the
        owner's, a stamp was made after it, and the head is the stamped head apart from merges of
        `main` (A2–A4). A push after the label fails it; removing the label revokes it.
-     - **Owner-authored and low-risk:** the owner's own PR, from a branch outside the
-       [agent prefixes](#branch-prefixes), with no change under `prisma/migrations/` and none under
+     - **Owner-authored and low-risk:** the owner's own PR whose head the owner pushed, from a
+       branch outside the [agent prefixes](#branch-prefixes), with no change under `prisma/migrations/` and none under
        `.github/workflows/` or `.github/actions/`. Interactive sessions run `gh` as the owner, so
        their PRs pass this way (T1). The digest lists every PR merged this way in the last 24 hours.
      - **Agent data-only:** the agent bot's PR (`hashtracks-agent[bot]`, or the repository
@@ -235,7 +235,9 @@ goes on last, after the Apps exist and every task runs as the bot ([Identity](#i
   4. **Fails** a workflow change without a valid approval, and any fork PR. A PR that is only
      waiting for the owner stays `pending`.
 
-  Runs for one PR queue in order. If a label's run is dropped from the queue (two newer events
+  A separate job, never queued, records who moved the head on every push (`write-gate/pusher`,
+  "<login> (<type>)"), so a bot's push onto the owner's branch needs the label like any agent change.
+  Gate runs for one PR queue in order. If a label's run is dropped from the queue (two newer events
   arrived while one ran), its stamp is never written: re-add the label.
 - **`scripts/agent-merge-pr.sh <pr>`** is how a task merges. It stops unless `gh` acts as the bot,
   waits for CI's `test` check and a `write-gate` success set by `github-actions[bot]` on the head,
@@ -253,7 +255,8 @@ Actions; force pushes and deletion blocked. The owner applies it, last:
 gh api -X POST repos/johnrclem/hashtracks-web/rulesets --input infra/github-rulesets/main.json
 ```
 
-Once backfill PR 6 adds the `backfill-manifest` job, add it to `required_status_checks` the same
+Before applying it, give every open PR a `write-gate` status (a PR opened before the gate landed
+has none and would wait forever): push to it, or add and remove any label. Once backfill PR 6 adds the `backfill-manifest` job, add it to `required_status_checks` the same
 way (edit the file, then `gh api -X PUT repos/johnrclem/hashtracks-web/rulesets/<id> --input …`).
 If GitHub never matches a pinned check (the PR waits for "Expected"), drop that check's
 `integration_id` and apply again.

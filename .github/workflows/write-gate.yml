@@ -16,14 +16,35 @@ on:
 
 permissions: {}
 
-# One run per PR at a time, in order, so an older run can't overwrite a newer verdict. If a
-# label's run is dropped from the queue, its stamp is never written: re-add the label.
-concurrency:
-  group: write-gate-${{ github.event.pull_request.number }}
-  cancel-in-progress: false
-
 jobs:
+  # Records who moved the head ("<login> (<type>)") as the write-gate/pusher status, so the gate's
+  # owner-authored path can require that the owner pushed it. Never queued, so never dropped.
+  record-pusher:
+    if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.action == 'reopened'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      statuses: write
+    steps:
+      - name: Record the pusher on the head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          SENDER: ${{ github.event.sender.login }}
+          SENDER_TYPE: ${{ github.event.sender.type }}
+        run: gh api -X POST "repos/$REPO/statuses/$SHA" -f context=write-gate/pusher -f state=success -f "description=$SENDER ($SENDER_TYPE)"
+
   gate:
+    needs: record-pusher
+    # Run even when record-pusher was skipped (label events) or failed; without a recorded pusher
+    # the owner-authored path simply doesn't apply.
+    if: always()
+    # One gate run per PR at a time, in order, so an older run can't overwrite a newer verdict. If a
+    # label's run is dropped from the queue, its stamp is never written: re-add the label.
+    concurrency:
+      group: write-gate-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
