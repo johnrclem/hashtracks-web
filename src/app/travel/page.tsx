@@ -4,11 +4,8 @@ import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@/lib/db";
 import { TravelSearchStatus } from "@/generated/prisma/client";
 import { getOrCreateUser } from "@/lib/auth";
-import {
-  executeTravelSearch,
-  ROWLESS_EMPTY_STATES,
-  type EmptyStateKind,
-} from "@/lib/travel/search";
+import { executeTravelSearch } from "@/lib/travel/search";
+import { selectResultsToRender } from "@/lib/travel/render-selection";
 import { findExistingSavedSearch } from "@/app/travel/actions";
 import { MAX_RADIUS_KM, snapRadiusToTier } from "@/lib/travel/limits";
 import { DEFAULT_SEARCH_RADIUS_KM, utcYmd } from "@/lib/travel/url";
@@ -448,39 +445,6 @@ function parseFilterParams(filterParams: SearchParamsRecord): {
 }
 
 /**
- * Pick which result set to render based on emptyState. Replaces a
- * three-level nested ternary in TravelResultsServer (SonarCloud "no
- * nested ternary"). Returns null when no result set is appropriate
- * (rowless empty states / error path).
- *
- * Multi-stop arrays already merge every stop's broader rows (see
- * `serializeTravelResults({ mergeBroader: true })`), so there is no swap;
- * they render unless every stop came up rowless.
- */
-function selectResultsToRender<T extends {
-  broaderResults?: { confirmed: T["confirmed"]; likely: T["likely"]; possible: T["possible"] };
-  confirmed: unknown;
-  likely: unknown;
-  possible: unknown;
-}>(
-  emptyState: EmptyStateKind,
-  serialized: T,
-  isMultiStop: boolean,
-): T | null {
-  if (isMultiStop) return ROWLESS_EMPTY_STATES.has(emptyState) ? null : serialized;
-  if (emptyState === "no_confirmed") return serialized;
-  if (emptyState === "no_nearby" && serialized.broaderResults) {
-    return {
-      ...serialized,
-      confirmed: serialized.broaderResults.confirmed,
-      likely: serialized.broaderResults.likely,
-      possible: serialized.broaderResults.possible,
-    };
-  }
-  return null;
-}
-
-/**
  * Server component for `/travel?savedTripId=<id>`. Fetches the saved
  * trip (DRAFT or ACTIVE), runs executeTravelSearch across all its
  * destinations, and renders the multi-stop TravelResults branch. Only
@@ -587,17 +551,16 @@ async function SavedTripPage({
   }
 
   const isMultiStop = search.destinations.length > 1;
-  // Mirror TravelResultsServer's branch: when the primary radius came
-  // back empty (no_nearby), `selectResultsToRender` swaps in the broader
-  // arrays so single-stop saved trips still render meaningful results.
-  // Multi-stop saved trips already have broader merged into the flat
-  // arrays by `serializeTravelResults({ mergeBroader: true })`, so the
-  // swap is a no-op and we pass serializedResults through.
+  // Same selection as TravelResultsServer, for every empty state including
+  // `none`: a trip edited down to one leg stays on `?savedTripId=`, so this
+  // page renders single-stop trips too. Hero counts and Export below read
+  // the same rows, so they always match the list.
   const resultsToRender = selectResultsToRender(
     serializedResults.emptyState,
     serializedResults,
     isMultiStop,
   );
+  const renderedRows = resultsToRender ?? { confirmed: [], likely: [], possible: [] };
 
   const firstLeg = search.destinations[0];
   const lastLeg = search.destinations.at(-1)!;
@@ -620,17 +583,6 @@ async function SavedTripPage({
   }));
   const tripWindowStart = utcYmd(firstLeg.startDate);
   const tripWindowEnd = utcYmd(lastLeg.endDate);
-
-  // Mirror TravelResultsServer's broader-swap for single-stop
-  // `no_nearby`: hero counts + Export must reflect whatever the list
-  // below is actually rendering. Multi-stop already has broader
-  // merged into `serializedResults.confirmed` by
-  // `serializeTravelResults({ mergeBroader: true })`, so this swap
-  // is a no-op there.
-  const exportableConfirmed =
-    serializedResults.emptyState === "no_nearby" && serializedResults.broaderResults
-      ? serializedResults.broaderResults.confirmed
-      : serializedResults.confirmed;
 
   const stop0 = serializedResults.destinations[0];
 
@@ -655,12 +607,12 @@ async function SavedTripPage({
     // SavedTripPage only renders saved trips; hydrate the Saved badge
     // state from the row we just fetched.
     initialSavedId: search.id,
-    confirmedCount: exportableConfirmed.length,
-    likelyCount: serializedResults.likely.length,
-    possibleCount: serializedResults.possible.length,
+    confirmedCount: renderedRows.confirmed.length,
+    likelyCount: renderedRows.likely.length,
+    possibleCount: renderedRows.possible.length,
     noCoverage: serializedResults.emptyState === "no_coverage",
     horizonTier: serializedResults.meta.horizonTier,
-    confirmedEvents: exportableConfirmed.map(toExportableConfirmedEvent),
+    confirmedEvents: renderedRows.confirmed.map(toExportableConfirmedEvent),
     legs: isMultiStop ? heroLegs : undefined,
   };
 
