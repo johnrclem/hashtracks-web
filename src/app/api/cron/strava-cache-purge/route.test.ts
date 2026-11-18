@@ -1,9 +1,13 @@
 import { GET, POST } from "./route";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { prisma } from "@/lib/db";
 import { purgeExpiredStravaCache } from "@/lib/strava/sync";
 
 vi.mock("@/lib/cron-auth");
 vi.mock("@sentry/nextjs", () => ({ captureException: vi.fn() }));
+vi.mock("@/lib/db", () => ({
+  prisma: { automationRun: { create: vi.fn(), update: vi.fn() } },
+}));
 vi.mock("@/lib/strava/sync", () => ({
   purgeExpiredStravaCache: vi.fn(),
 }));
@@ -16,6 +20,7 @@ describe("/api/cron/strava-cache-purge", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(verifyCronAuth).mockResolvedValue({ authenticated: true, method: "bearer" });
+    vi.mocked(prisma.automationRun.create).mockResolvedValue({ id: "run-1" } as never);
   });
 
   it("returns 401 without cron auth and purges nothing", async () => {
