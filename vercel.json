@@ -18,6 +18,10 @@
       "schedule": "0 14 * * *"
     },
     {
+      "path": "/api/cron/backfill-watch",
+      "schedule": "15 7 * * *"
+    },
+    {
       "path": "/api/cron/travel-draft-gc",
       "schedule": "0 3 * * *"
     },

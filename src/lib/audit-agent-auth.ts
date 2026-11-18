@@ -48,7 +48,16 @@ function digest(value: string): Buffer {
  * length mismatch and the comparison leaks no length information.
  */
 export function hasValidAgentToken(req: Request): boolean {
-  const expected = process.env.AUDIT_AGENT_TOKEN?.trim();
+  return bearerMatches(req, process.env.AUDIT_AGENT_TOKEN);
+}
+
+/**
+ * True when the request's bearer token equals `secret`. Fails closed when the
+ * secret is unset or shorter than {@link MIN_TOKEN_LENGTH}. Shared by every
+ * agent API (audit, backfill), each with its own secret.
+ */
+export function bearerMatches(req: Request, secret: string | undefined): boolean {
+  const expected = secret?.trim();
   if (!expected || expected.length < MIN_TOKEN_LENGTH) return false;
 
   const header = req.headers.get("authorization");
