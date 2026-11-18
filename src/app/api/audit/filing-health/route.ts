@@ -143,66 +143,77 @@ export async function GET(): Promise<NextResponse<FilingHealthResult>> {
       { status: 200 },
     );
   }
-  const token = auth.token;
+  const probe = await probeRateLimit(auth, repo);
+  if ("response" in probe) return probe.response;
+  return auth.source === "app" ? appResult(auth, probe.rateLimit, repo) : patResult(auth.token, probe.rateLimit, repo);
+}
 
-  // Probe 1: /rate_limit — token liveness + budget
-  let rateLimit: { remaining: number; limit: number; reset: number };
+type RateLimit = { remaining: number; limit: number; reset: number };
+
+/** Probe 1: `/rate_limit` — the token works, and how much core-API budget is left. */
+async function probeRateLimit(
+  auth: ServerGithubAuth,
+  repo: string,
+): Promise<{ rateLimit: RateLimit } | { response: NextResponse<FilingHealthResult> }> {
   try {
     const url = new URL("/rate_limit", "https://api.github.com");
     const res = await fetch(url, {
       method: "GET",
-      headers: githubAuthHeaders(token),
+      headers: githubAuthHeaders(auth.token),
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
     if (!res.ok) {
       const body = await safeErrorBody(res);
-      return NextResponse.json(
+      return { response: NextResponse.json(
         { status: "error", message: rateLimitErrorMessageFor(res, body, auth.source), repo },
         { status: 200 },
-      );
+      ) };
     }
     const json = (await res.json()) as RateLimitResponse;
     const core = json.resources?.core;
     if (!core) {
-      return NextResponse.json(
+      return { response: NextResponse.json(
         {
           status: "error",
           message: "GitHub /rate_limit returned a payload with no core block",
           repo,
         },
         { status: 200 },
-      );
+      ) };
     }
-    rateLimit = core;
+    return { rateLimit: core };
   } catch (err) {
-    return NextResponse.json(
+    return { response: NextResponse.json(
       {
         status: "error",
         message: `Could not reach GitHub /rate_limit: ${err instanceof Error ? err.message : String(err)}`,
         repo,
       },
       { status: 200 },
+    ) };
+  }
+}
+
+/** The App's write capability comes with its token: `permissions.issues`. */
+function appResult(auth: ServerGithubAuth, rateLimit: RateLimit, repo: string): NextResponse<FilingHealthResult> {
+  const issues = auth.permissions?.issues ?? "none";
+  if (issues !== "write") {
+    return NextResponse.json(
+      {
+        status: "error",
+        message: `The server App's token can't write issues (issues: ${issues}). Give the App Issues: Read and write, then accept the new permission on its installation.`,
+        repo,
+        remaining: rateLimit.remaining,
+        resetAt: rateLimit.reset,
+      },
+      { status: 200 },
     );
   }
+  return budgetResult(rateLimit, repo, `The server App can file issues on ${repo}.`, "ok");
+}
 
-  if (auth.source === "app") {
-    const issues = auth.permissions?.issues ?? "none";
-    if (issues !== "write") {
-      return NextResponse.json(
-        {
-          status: "error",
-          message: `The server App's token can't write issues (issues: ${issues}). Give the App Issues: Read and write, then accept the new permission on its installation.`,
-          repo,
-          remaining: rateLimit.remaining,
-          resetAt: rateLimit.reset,
-        },
-        { status: 200 },
-      );
-    }
-    return budgetResult(rateLimit, repo, `The server App can file issues on ${repo}.`, "ok");
-  }
-
-  // Probe 2 (PAT fallback): /repos/{repo} — repo access + write-capability check
+/** Probe 2 (PAT fallback): `/repos/{repo}` — repo access and an issue-management role. */
+async function patResult(token: string, rateLimit: RateLimit, repo: string): Promise<NextResponse<FilingHealthResult>> {
   try {
     const url = new URL(`/repos/${repo}`, "https://api.github.com");
     const res = await fetch(url, {
@@ -279,7 +290,7 @@ export async function GET(): Promise<NextResponse<FilingHealthResult>> {
 
 /** The final chip: `base` plus the remaining budget, downgraded to `warn` when the budget is low. */
 function budgetResult(
-  rateLimit: { remaining: number; limit: number; reset: number },
+  rateLimit: RateLimit,
   repo: string,
   base: string,
   status: "ok" | "warn",

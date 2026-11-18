@@ -127,7 +127,8 @@ export function createServerGithubAuth(
     const jwt = appJwt(cfg.appId, cfg.privateKey, now());
     let installationId = cfg.installationId ?? foundInstallationId;
     if (!installationId) {
-      const found = String((await appCall(`/repos/${repo}/installation`, jwt)).id ?? "");
+      const id = (await appCall(`/repos/${repo}/installation`, jwt)).id;
+      const found = typeof id === "number" || typeof id === "string" ? String(id) : "";
       if (!INSTALLATION_ID_RE.test(found)) throw new GithubAppError("the server App isn't installed on the repository");
       installationId = foundInstallationId = found;
     }
