@@ -173,8 +173,11 @@ function headers(token: string): Record<string, string> {
 }
 
 async function github(token: string, pathname: string, init: RequestInit = {}): Promise<Response> {
-  // The URL constructor anchors every request to api.github.com.
+  // Every path is built in this file, and the URL constructor plus the origin check pin each
+  // request to api.github.com.
   const url = new URL(`/repos/${getValidatedRepo()}${pathname}`, API_ORIGIN);
+  if (url.origin !== API_ORIGIN) throw new Error(`Refusing a request off ${API_ORIGIN}: ${url.origin}`);
+  // nosemgrep: rules_lgpl_javascript_ssrf_rule-node-ssrf
   return fetch(url, { ...init, headers: headers(token), signal: AbortSignal.timeout(TIMEOUT_MS) });
 }
 
