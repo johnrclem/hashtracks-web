@@ -49,7 +49,7 @@ const DISMISS_NEW_ONLY = "Only a NEW Half-Mind row can be dismissed.";
 /** Thrown inside a transaction to refuse and roll back with a message for the admin. */
 class Refusal extends Error {}
 
-async function listingHolder(listingId: string) {
+function listingHolder(listingId: string) {
   return prisma.kennel.findUnique({
     where: { halfMindListingId: listingId },
     select: { id: true, shortName: true },

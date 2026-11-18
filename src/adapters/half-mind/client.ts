@@ -107,6 +107,12 @@ function to12Hour(token: string): string | null {
   return min === "00" ? `${h12} ${suffix}` : `${h12}:${min} ${suffix}`;
 }
 
+/** A trailing DST or ST marks a seasonal schedule. */
+const SEASON_SUFFIX = new Map([
+  ["DST", "(summer)"],
+  ["ST", "(winter)"],
+]);
+
 function cleanScheduleEntry(entry: string): string | null {
   const words = entry.split(/\s+/).filter(Boolean);
   const out: string[] = [];
@@ -116,22 +122,12 @@ function cleanScheduleEntry(entry: string): string | null {
       skipNext = false;
       continue;
     }
-    const lower = w.toLowerCase();
-    if (lower === "all" && words.at(i + 1)?.toLowerCase() === "year") {
+    if (w.toLowerCase() === "all" && words.at(i + 1)?.toLowerCase() === "year") {
       skipNext = true;
       continue;
     }
-    if (i === words.length - 1 && words.length > 1) {
-      if (w === "DST") {
-        out.push("(summer)");
-        continue;
-      }
-      if (w === "ST") {
-        out.push("(winter)");
-        continue;
-      }
-    }
-    out.push(to12Hour(w) ?? w);
+    const season = i === words.length - 1 && words.length > 1 ? SEASON_SUFFIX.get(w) : undefined;
+    out.push(season ?? to12Hour(w) ?? w);
   }
   const text = out.join(" ").trim();
   if (text === "" || text.toLowerCase() === "variable") return null;
