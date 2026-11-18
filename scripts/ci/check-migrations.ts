@@ -14,26 +14,7 @@
  * `--allow-modified`. The edited file must still pass the checks.
  */
 import { readFileSync } from "node:fs";
-import { checkNewMigration } from "@/lib/migration-sql/transaction";
-
-const MIGRATION_FILE_RE = /^prisma\/migrations\/[^/]+\/migration\.sql$/;
-
-interface ChangedFile {
-  status: string;
-  file: string;
-}
-
-/** Parses `git diff --name-status` output, keeping only migration.sql files. */
-function parseNameStatus(out: string): ChangedFile[] {
-  return out
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => {
-      const [status, file] = line.split("\t");
-      return { status, file };
-    })
-    .filter((c) => MIGRATION_FILE_RE.test(c.file));
-}
+import { checkMigrationChange, parseNameStatus, type MigrationChange } from "./migration-changes";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -45,26 +26,19 @@ async function main() {
     process.exit(2);
   }
 
-  const changes: ChangedFile[] = fromStdin
+  const changes: MigrationChange[] = fromStdin
     ? parseNameStatus(readFileSync(0, "utf8"))
     : files.map((file) => ({ status: "A", file }));
 
   let failed = false;
-  for (const { status, file } of changes) {
-    if (status === "D" || (status !== "A" && !allowModified)) {
-      console.log(
-        `::error file=${file}::Migration files are immutable once added (git status ${status}). Add a new migration instead, or see docs/ops/system.md for fixing a migration that failed in prod.`,
-      );
-      failed = true;
-      continue;
-    }
-    const problems = await checkNewMigration(readFileSync(file, "utf8"));
+  for (const change of changes) {
+    const problems = await checkMigrationChange(change, (file) => readFileSync(file, "utf8"), allowModified);
     if (problems.length === 0) {
-      console.log(`ok  ${file}`);
+      console.log(`ok  ${change.file}`);
       continue;
     }
     failed = true;
-    for (const problem of problems) console.log(`::error file=${file}::${problem}`);
+    for (const problem of problems) console.log(`::error file=${change.file}::${problem}`);
   }
   if (changes.length === 0) console.log("No migration files added or changed.");
   if (failed) {

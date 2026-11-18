@@ -1,0 +1,54 @@
+# The ops write gate (docs/ops/system.md#write-gate, ops plan S4).
+#
+# Runs on pull_request_target, so GitHub always uses main's copy of this file and of the scripts it
+# runs: a pull request can't change what judges it. SAFETY: this job checks out MAIN ONLY and reads
+# the pull request through the API, as data. Never check out, install or run the PR's code here;
+# with pull_request_target that code would run with this job's write token.
+#
+# It stamps `backfill/approved` when the owner adds `owner-approved`, classifies the PR
+# (write:docs / write:code / write:migration / write:insert-auto), and sets the `write-gate`
+# status that main's ruleset requires.
+name: write-gate
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions: {}
+
+# One run per PR at a time, in order, so an older run can't overwrite a newer verdict. If a
+# label's run is dropped from the queue, its stamp is never written: re-add the label.
+concurrency:
+  group: write-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      statuses: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # main's dependencies; no install scripts are needed to run the gate.
+      - run: npm ci --ignore-scripts
+
+      - name: Stamp, classify and evaluate
+        run: npx tsx scripts/ci/write-gate-run.ts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          # Must equal the default in src/lib/backfill/approval-stamp.ts (write-gate.test.ts checks it).
+          OWNER_GITHUB_LOGIN: johnrclem
+          AGENT_BOT_LOGIN: ${{ vars.AGENT_BOT_LOGIN }}

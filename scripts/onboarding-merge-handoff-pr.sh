@@ -13,7 +13,7 @@
 #   0  merged (or, with --dry-run, would merge or would re-run a lone failed review check)
 #   1  a check failed or was cancelled; PR left open
 #   2  CI didn't finish within the deadline; PR left open
-#   3  the PR changes files outside docs/kennel-onboarding/; refused, PR left open
+#   3  the PR changes a file outside the onboarding data allow-list; refused, PR left open
 #   4  CI passed but `gh pr merge` failed; PR left open
 #   64 usage error
 #
@@ -39,13 +39,17 @@ WAIT_SECS="${ONBOARDING_CI_WAIT_SECS:-1500}"
 POLL_SECS="${ONBOARDING_CI_POLL_SECS:-30}"
 APPEAR_SECS="${ONBOARDING_CI_APPEAR_SECS:-300}"
 REVIEW_CHECK="${ONBOARDING_REVIEW_CHECK:-claude-review}"
-ALLOWED_PREFIX="docs/kennel-onboarding/"
+# The onboarding data allow-list, the same as the write gate's (scripts/ci/write-gate.ts,
+# isOnboardingData; write-gate.test.ts keeps them equal): handoffs and retros, the run log, the target
+# queue and the platform notes. Never a manual (*-prompt.md), docs/ops, .claude or CLAUDE.md.
+ALLOWED_RE='^docs/kennel-onboarding/(handoffs/.+|run-log\.md|target-queue\.md|source-platform-notes\.md)$'
 
-# 1. Refuse anything that isn't docs-only. This enforces the manual's rule at merge time.
+# 1. Refuse anything outside the allow-list. This enforces the manual's rule at merge time.
 files="$(gh pr diff "$PR" --name-only)" || { echo "PR OPEN: could not list changed files for $PR" >&2; exit 4; }
-outside="$(printf '%s\n' "$files" | grep -v '^$' | grep -v "^${ALLOWED_PREFIX}" || true)"
+outside="$(printf '%s\n' "$files" | grep -v '^$' | { grep -Ev "$ALLOWED_RE" || true; })"
+outside="$(printf '%s\n' "$outside" "$(printf '%s\n' "$files" | grep -E -- '-prompt\.md$' || true)" | grep -v '^$' | sort -u || true)"
 if [[ -n "$outside" ]]; then
-  echo "REFUSED: $PR changes files outside ${ALLOWED_PREFIX}:" >&2
+  echo "REFUSED: $PR changes files outside the onboarding data allow-list:" >&2
   printf '%s\n' "$outside" >&2
   exit 3
 fi
@@ -119,7 +123,7 @@ done
 
 # 4. Merge.
 if (( DRY_RUN )); then
-  echo "DRY RUN: all checks green and docs-only; would squash-merge $PR"
+  echo "DRY RUN: all checks green and data-only; would squash-merge $PR"
   exit 0
 fi
 if ! out="$(gh pr merge "$PR" --squash 2>&1)"; then
