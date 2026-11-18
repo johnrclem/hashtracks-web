@@ -26,7 +26,7 @@ interface KennelProfileViewProps {
 
 interface KennelOwnPageClickedProps {
   kennelSlug: string;
-  surface: "card" | "kennel-page";
+  surface: "card" | "kennel-page" | "travel";
 }
 
 interface CheckInProps {

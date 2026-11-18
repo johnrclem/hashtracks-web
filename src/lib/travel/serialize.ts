@@ -13,6 +13,8 @@
  */
 
 import type { executeTravelSearch, NearestConfirmed } from "./search";
+import { serializeKennelEvidence, type SerializedKennelEvidence } from "@/lib/kennel-status";
+import type { OtherKennel } from "./other-kennels";
 
 type SearchResults = Awaited<ReturnType<typeof executeTravelSearch>>;
 type ConfirmedRow = SearchResults["confirmed"][number];
@@ -47,6 +49,10 @@ export interface SerializedPossible
   lastConfirmedAt: string | null;
 }
 
+export type SerializedOtherKennel = Omit<OtherKennel, "evidence"> & {
+  evidence: SerializedKennelEvidence;
+};
+
 export interface SerializedTravelResults {
   emptyState: SearchResults["emptyState"];
   meta: SearchResults["meta"];
@@ -61,6 +67,8 @@ export interface SerializedTravelResults {
   };
   /** Single-stop only (the search computes it only then): nearest confirmed runs outside the radius. */
   nearestConfirmed?: NearestConfirmed<SerializedConfirmed>;
+  /** Single-stop only: quiet kennels in range that the results don't show. */
+  otherKennels?: SerializedOtherKennel[];
 }
 
 function serializeConfirmed(
@@ -88,6 +96,10 @@ function serializePossible(r: PossibleRow): SerializedPossible {
     date: r.date?.toISOString() ?? null,
     lastConfirmedAt: r.lastConfirmedAt?.toISOString() ?? null,
   };
+}
+
+function serializeOtherKennel(k: OtherKennel): SerializedOtherKennel {
+  return { ...k, evidence: serializeKennelEvidence(k.evidence) };
 }
 
 function serializeDestinations(
@@ -136,6 +148,7 @@ export function serializeTravelResults(
   // on `no_nearby` keeps working as it does on main today.
   const stopBroader = results.destinations[0]?.broaderResults;
   const stopNearest = results.destinations[0]?.nearestConfirmed;
+  const stopOtherKennels = results.destinations[0]?.otherKennels;
   return {
     emptyState: results.emptyState,
     meta: results.meta,
@@ -158,5 +171,6 @@ export function serializeTravelResults(
           confirmed: stopNearest.confirmed.map((r) => serializeConfirmed(r, attendanceMap)),
         }
       : undefined,
+    otherKennels: stopOtherKennels?.map(serializeOtherKennel),
   };
 }
