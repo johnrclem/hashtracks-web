@@ -24,23 +24,18 @@ import {
   type PrApproval,
   type PullRequest,
 } from "./approval-stamp";
+import { MIGRATION_FILE_RE } from "@/lib/migration-sql/paths";
 
 export {
-  APPROVAL_LABEL,
-  APPROVAL_REPO,
   checkOpenPrApproval,
   LabelMissingError,
   RetryableApprovalError,
-  STAMP_CONTEXT,
-  STAMP_CREATOR,
   TerminalApprovalError,
   type ApprovalContext,
   type FetchLike,
-  type PrApproval,
 } from "./approval-stamp";
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const ARCHIVE_PATH_RE = /^scripts\/data\/[a-z0-9-]+-history[a-z0-9-]*\.(manifest\.)?json$/;
-const MIGRATION_PATH_RE = /^prisma\/migrations\/[^/]+\/migration\.sql$/;
 
 /** A1: S is an ancestor of the deployed commit (the deploy contains the PR). */
 async function checkDeployed(gh: GitHub, mergeSha: string, deployedSha: string | null): Promise<void> {
@@ -95,7 +90,7 @@ export interface PrFiles {
 }
 
 async function fileAt(gh: GitHub, path: string, ref: string): Promise<string> {
-  if (!ARCHIVE_PATH_RE.test(path) && !MIGRATION_PATH_RE.test(path)) throw new TerminalApprovalError(`refusing to fetch ${path}`);
+  if (!ARCHIVE_PATH_RE.test(path) && !MIGRATION_FILE_RE.test(path)) throw new TerminalApprovalError(`refusing to fetch ${path}`);
   const res = await gh.raw(`/contents/${path}?ref=${ref}`, "application/vnd.github.raw+json");
   const length = Number(res.headers.get("content-length") ?? 0);
   if (length > MAX_FILE_BYTES) throw new TerminalApprovalError(`${path} is over 10 MB`);
@@ -123,7 +118,7 @@ export async function fetchPrFiles(prNumber: number, ref: string, ctx: ApprovalC
   }
   if (!ARCHIVE_PATH_RE.test(archivePath) || archivePath.endsWith(".manifest.json")) throw new TerminalApprovalError("G2: the manifest names an archive outside scripts/data");
   const migrationSql = await Promise.all(
-    files.filter((f) => f.status === "added" && MIGRATION_PATH_RE.test(f.filename)).map((f) => fileAt(gh, f.filename, ref)),
+    files.filter((f) => f.status === "added" && MIGRATION_FILE_RE.test(f.filename)).map((f) => fileAt(gh, f.filename, ref)),
   );
   return { changedFiles, manifestPath: manifests[0], manifestBytes, archivePath, archiveBytes: await fileAt(gh, archivePath, ref), migrationSql };
 }

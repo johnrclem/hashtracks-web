@@ -3,8 +3,7 @@
  * migration check (`check-migrations.ts`) and the write gate (`write-gate.ts`), so the two agree
  * on what a migration change is. No I/O: callers pass file lists and contents in.
  */
-export const MIGRATION_DIR_PREFIX = "prisma/migrations/";
-export const MIGRATION_FILE_RE = /^prisma\/migrations\/[^/]+\/migration\.sql$/;
+import { MIGRATION_FILE_RE } from "@/lib/migration-sql/paths";
 
 export interface MigrationChange {
   /** git's name-status letter: A added, M modified, D deleted, … */

@@ -11,7 +11,7 @@
  *   3. bot-authored and data-only: every path in the onboarding data allow-list.
  * A workflow change passes only the first way.
  */
-import { MIGRATION_DIR_PREFIX } from "./migration-changes";
+import { MIGRATION_DIR_PREFIX } from "@/lib/migration-sql/paths";
 
 /** The commit status the gate sets on the PR head, and the ruleset requires. */
 export const GATE_CONTEXT = "write-gate";
@@ -61,11 +61,11 @@ export function isOnboardingData(path: string): boolean {
 }
 
 /** Workflow definitions, and the local actions they can run. */
-export function isWorkflowPath(path: string): boolean {
+function isWorkflowPath(path: string): boolean {
   return path.startsWith(".github/workflows/") || path.startsWith(".github/actions/");
 }
 
-export function isAgentBranch(ref: string): boolean {
+function isAgentBranch(ref: string): boolean {
   return AGENT_BRANCH_PREFIXES.some((prefix) => ref.startsWith(prefix));
 }
 
@@ -101,7 +101,7 @@ export interface GateInput {
   agentBotLogin: string;
 }
 
-export type GatePath = "approval" | "owner-authored" | "agent-data-only" | null;
+type GatePath = "approval" | "owner-authored" | "agent-data-only" | null;
 
 export interface GateVerdict {
   state: "success" | "pending" | "failure";

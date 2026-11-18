@@ -52,23 +52,26 @@ if [[ ! "$head" =~ ^[0-9a-f]{40}$ ]]; then
   exit 4
 fi
 
-# The newest write-gate status on the head, as "state<TAB>creator"; empty until the gate has run.
-gate_status() {
-  gh api "repos/{owner}/{repo}/commits/${head}/statuses?per_page=100" \
-    --jq "[.[] | select(.context == \"$GATE\")][0] | select(. != null) | \"\(.state)\t\(.creator.login)\"" 2>/dev/null || true
+# One read per poll: "name<TAB>bucket" for every check and status context (CI's test and the gate
+# included). `gh pr checks` exits non-zero while anything is pending or failing, so ignore it.
+checks() {
+  gh pr checks "$PR" --json name,bucket --jq '.[] | "\(.name)\t\(.bucket)"' 2>/dev/null || true
 }
+bucket_of() { awk -F'\t' -v n="$1" '$1 == n { print $2; exit }' <<<"$rows"; }
 
-# CI's check on the head: pass, fail, pending, or empty while it hasn't registered.
-ci_bucket() {
-  gh pr checks "$PR" --json name,bucket --jq ".[] | select(.name == \"$CI_CHECK\") | .bucket" 2>/dev/null | head -1 || true
+# Who set the newest write-gate status on the head (checked once, when it reports success).
+gate_creator() {
+  gh api "repos/{owner}/{repo}/commits/${head}/statuses?per_page=100" \
+    --jq "[.[] | select(.context == \"$GATE\")][0].creator.login // empty" 2>/dev/null || true
 }
 
 # 2. Wait for CI and the gate, on this exact head.
 deadline=$((SECONDS + WAIT_SECS))
 while :; do
-  IFS=$'\t' read -r gate_state gate_creator <<<"$(gate_status)"
-  ci="$(ci_bucket)"
-  if [[ "$gate_state" == "failure" || "$gate_state" == "error" ]]; then
+  rows="$(checks)"
+  gate_state="$(bucket_of "$GATE")"
+  ci="$(bucket_of "$CI_CHECK")"
+  if [[ "$gate_state" == "fail" || "$gate_state" == "cancel" ]]; then
     echo "PR OPEN: the write gate refused $PR at ${head:0:7}" >&2
     exit 1
   fi
@@ -76,8 +79,8 @@ while :; do
     echo "PR OPEN: CI's '$CI_CHECK' check failed on $PR" >&2
     exit 1
   fi
-  if [[ "$gate_state" == "success" && "$ci" == "pass" ]]; then
-    if [[ "$gate_creator" != "$GATE_CREATOR" ]]; then
+  if [[ "$gate_state" == "pass" && "$ci" == "pass" ]]; then
+    if [[ "$(gate_creator)" != "$GATE_CREATOR" ]]; then
       echo "PR OPEN: the '$GATE' status on $PR wasn't set by $GATE_CREATOR" >&2
       exit 1
     fi

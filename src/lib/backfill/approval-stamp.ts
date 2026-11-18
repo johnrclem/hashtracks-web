@@ -126,7 +126,7 @@ export interface PullRequest {
   labels: Array<{ name: string }>;
 }
 interface IssueEvent { event: string; label?: { name: string }; actor?: { login: string } | null; created_at: string }
-interface CommitStatus { context: string; description: string | null; creator?: { login: string } | null; created_at: string; state: string }
+export interface CommitStatus { context: string; description: string | null; creator?: { login: string } | null; created_at: string; state: string }
 interface CompareFile { filename: string; status: string; sha: string; patch?: string; previous_filename?: string }
 interface Commit { sha: string; parents: Array<{ sha: string }> }
 export interface Compare { status: string; files?: CompareFile[]; commits?: Commit[] }

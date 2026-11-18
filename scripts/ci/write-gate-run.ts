@@ -20,11 +20,16 @@ import {
   APPROVAL_LABEL,
   APPROVAL_REPO,
   approvalClient,
-  checkOpenPrApproval,
+  checkStampedHead,
   ownerGithubLogin,
+  refuseFork,
   STAMP_CONTEXT,
+  STAMP_CREATOR,
   stampDescription,
   TerminalApprovalError,
+  type CommitStatus,
+  type GitHub,
+  type PullRequest as ApprovalPullRequest,
 } from "@/lib/backfill/approval-stamp";
 import {
   DEFAULT_AGENT_BOT_LOGIN,
@@ -45,12 +50,10 @@ interface GateEvent {
   pull_request: { number: number; head: { sha: string } };
 }
 
-interface PullRequest {
-  number: number;
-  head: { sha: string; ref: string; repo: { full_name: string } | null };
+type PullRequest = ApprovalPullRequest & {
+  head: { ref: string };
   user: { login: string; type: string };
-  labels: Array<{ name: string }>;
-}
+};
 
 const SHA_RE = /^[0-9a-f]{40}$/;
 
@@ -82,11 +85,11 @@ function setStatus(sha: string, context: string, state: GateVerdict["state"], de
   return write(`/statuses/${sha}`, "POST", { context, state, description, target_url: targetUrl });
 }
 
-/** A2–A4 for the PR's current head, as the gate's three outcomes. */
-async function approvalFor(prNumber: number, token: string): Promise<ApprovalResult> {
+/** A2–A4 for the PR as read (the same snapshot the gate classifies), as the gate's three outcomes. */
+async function approvalFor(gh: GitHub, pr: PullRequest): Promise<ApprovalResult> {
   try {
-    const approved = await checkOpenPrApproval(prNumber, { token });
-    return { kind: "approved", stampedSha: approved.stampedSha };
+    refuseFork(pr);
+    return { kind: "approved", stampedSha: await checkStampedHead(gh, pr, pr.base.sha) };
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     // Only a terminal verdict refuses; anything unexpected may pass on the next event.
@@ -130,19 +133,20 @@ async function main(): Promise<void> {
   }
 
   // 3. Classify and evaluate the PR's head as it is now.
-  const files = await gh.list<ChangedFile>(`/pulls/${number}/files`);
-  // Statuses come newest first; only the workflow's own count.
-  const headStatuses = await gh.get<Array<{ context: string; description: string | null; creator?: { login: string } | null }>>(
-    `/commits/${head}/statuses?per_page=100`,
-  );
-  const pusher = headStatuses.find((s) => s.context === PUSHER_CONTEXT && s.creator?.login === "github-actions[bot]");
+  const [files, headStatuses, approval] = await Promise.all([
+    gh.list<ChangedFile>(`/pulls/${number}/files`),
+    // Newest first; only statuses the workflow itself set count.
+    gh.get<CommitStatus[]>(`/commits/${head}/statuses?per_page=100`),
+    approvalFor(gh, pr),
+  ]);
+  const pusher = headStatuses.find((s) => s.context === PUSHER_CONTEXT && s.creator?.login === STAMP_CREATOR);
   const verdict = evaluateGate({
     author: pr.user,
     headPusher: parsePusher(pusher?.description),
     headRef: pr.head.ref,
     sameRepo: pr.head.repo?.full_name === APPROVAL_REPO,
     files,
-    approval: await approvalFor(number, token),
+    approval,
     ownerLogin: owner,
     agentBotLogin: agentBot,
   });

@@ -2,6 +2,9 @@
 #
 # onboarding-merge-handoff-pr.sh — wait for CI on a daily-onboarding handoff PR, then squash-merge it.
 #
+# To be folded into agent-merge-pr.sh (allow-list pre-check, then exec it) once the tasks run as
+# the agent bot (docs/ops/system.md#write-gate).
+#
 # Used by Step 9 of docs/kennel-onboarding/daily-onboarding-prompt.md. GitHub auto-merge is disabled
 # for this repo, so the unattended runner waits for CI itself. Bash only, so it works on stock macOS
 # without GNU `timeout`.
@@ -50,8 +53,10 @@ ALLOWED_RE='^docs/kennel-onboarding/(handoffs/.+|run-log\.md|target-queue\.md|so
 num="$(gh pr view "$PR" --json number --jq .number)" || { echo "PR OPEN: could not read $PR" >&2; exit 4; }
 files="$(gh api "repos/{owner}/{repo}/pulls/${num}/files" --paginate --jq '.[] | .filename, (.previous_filename // empty)')" \
   || { echo "PR OPEN: could not list changed files for $PR" >&2; exit 4; }
-outside="$(printf '%s\n' "$files" | grep -v '^$' | { grep -Ev "$ALLOWED_RE" || true; })"
-outside="$(printf '%s\n' "$outside" "$(printf '%s\n' "$files" | grep -E -- '-prompt\.md$' || true)" | grep -v '^$' | sort -u || true)"
+outside="$(while IFS= read -r p; do
+  [[ -z "$p" ]] && continue
+  [[ "$p" =~ $ALLOWED_RE && "$p" != *-prompt.md ]] || echo "$p"
+done <<<"$files" | sort -u)"
 if [[ -n "$outside" ]]; then
   echo "REFUSED: $PR changes files outside the onboarding data allow-list:" >&2
   printf '%s\n' "$outside" >&2
