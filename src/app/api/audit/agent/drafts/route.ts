@@ -13,7 +13,7 @@ import { rejectUnlessAgent } from "@/lib/audit-agent-auth";
 const DRAFTS_LIMIT = 100;
 
 export async function GET(req: Request): Promise<NextResponse> {
-  const rejected = rejectUnlessAgent(req);
+  const rejected = await rejectUnlessAgent(req);
   if (rejected) return rejected;
 
   const params = new URL(req.url).searchParams;

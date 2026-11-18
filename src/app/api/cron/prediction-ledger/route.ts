@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import * as Sentry from "@sentry/nextjs";
-import { verifyCronAuth } from "@/lib/cron-auth";
+import { withCronRun } from "@/lib/cron-run";
 import { prisma } from "@/lib/db";
 import { runPredictionLedger } from "@/pipeline/prediction-ledger";
 
@@ -17,31 +16,15 @@ import { runPredictionLedger } from "@/pipeline/prediction-ledger";
  */
 export const maxDuration = 300;
 
-export async function POST(request: Request) {
-  const auth = await verifyCronAuth(request);
-  if (!auth.authenticated) {
-    return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
-    const result = await runPredictionLedger(prisma);
-    console.log(
-      `[prediction-ledger] scored ${result.scored} (${JSON.stringify(result.outcomes)}), ` +
-        `re-scored ${result.rescored} (${JSON.stringify(result.rescoredTo)}), ` +
-        `+${result.snapshotsCreated} snapshots`,
-    );
-    return NextResponse.json({ data: result });
-  } catch (err) {
-    console.error("[prediction-ledger] failed:", err);
-    Sentry.captureException(err);
-    return NextResponse.json(
-      { data: null, error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
-}
+export const POST = withCronRun("cron:prediction-ledger", async () => {
+  const result = await runPredictionLedger(prisma);
+  console.log(
+    `[prediction-ledger] scored ${result.scored} (${JSON.stringify(result.outcomes)}), ` +
+      `re-scored ${result.rescored} (${JSON.stringify(result.rescoredTo)}), ` +
+      `+${result.snapshotsCreated} snapshots`,
+  );
+  return NextResponse.json({ data: result });
+});
 
 /** Vercel Cron triggers GET requests. */
-export async function GET(request: Request) {
-  return POST(request);
-}
+export const GET = POST;

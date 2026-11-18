@@ -47,7 +47,7 @@ import {
   deleteLeakedEvent,
   DeleteSafetyViolationError,
   ForeignRawSourceError,
-} from "./lib/delete-leaked-event";
+} from "@/lib/delete-leaked-event";
 
 const SOURCE_NAME = "Richmond H3 Google Calendar";
 const RVAH3 = "rvah3";

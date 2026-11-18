@@ -2087,6 +2087,7 @@ function buildSource(configOverrides?: { kennelSlugs?: string[] }) {
     enabled: true,
     baselineResetAt: null,
     replacedById: null,
+    archiveOnly: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

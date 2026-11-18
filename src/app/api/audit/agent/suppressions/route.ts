@@ -9,7 +9,7 @@ import {
 import { rejectUnlessAgent } from "@/lib/audit-agent-auth";
 
 export async function GET(req: Request): Promise<Response> {
-  const rejected = rejectUnlessAgent(req);
+  const rejected = await rejectUnlessAgent(req);
   if (rejected) return rejected;
 
   return new Response(await renderSuppressionsMarkdown(), {

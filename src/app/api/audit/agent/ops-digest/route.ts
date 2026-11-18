@@ -8,7 +8,7 @@ import { buildOpsDigest } from "@/lib/admin/ops-digest";
 import { rejectUnlessAgent } from "@/lib/audit-agent-auth";
 
 export async function GET(req: Request): Promise<NextResponse> {
-  const rejected = rejectUnlessAgent(req);
+  const rejected = await rejectUnlessAgent(req);
   if (rejected) return rejected;
 
   return NextResponse.json({ data: await buildOpsDigest() });

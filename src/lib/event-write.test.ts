@@ -25,6 +25,22 @@ describe("createEventWithKennel", () => {
     expect(result).toEqual({ id: "evt-1", kennelId: "k-1" });
   });
 
+  it("nests a processed RawEvent in the same create when one is passed (backfill mode)", async () => {
+    const tx = { event: { create: vi.fn().mockResolvedValue({ id: "evt-1" }) } };
+    await createEventWithKennel(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      tx as any,
+      { kennelId: "k-1", date: new Date(Date.UTC(2026, 0, 1, 12)), trustLevel: 5 },
+      { rawEvent: { sourceId: "src-a", fingerprint: "fp", rawData: { date: "2026-01-01" } } },
+    );
+    expect(tx.event.create).toHaveBeenCalledOnce();
+    const data = tx.event.create.mock.calls[0][0].data;
+    expect(data.rawEvents).toEqual({
+      create: { sourceId: "src-a", fingerprint: "fp", rawData: { date: "2026-01-01" }, processed: true },
+    });
+    expect(data.eventKennels).toEqual({ create: { kennelId: "k-1", isPrimary: true } });
+  });
+
   it("propagates Prisma create failure (caller's surrounding tx, if any, rolls back)", async () => {
     const tx = {
       event: {

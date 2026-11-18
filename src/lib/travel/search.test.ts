@@ -15,6 +15,7 @@ import type { ConfirmationVia } from "@/lib/kennel-status";
 import {
   executeTravelSearch,
   byDateTimeDistance,
+  chooseStopEmptyState,
   type TravelSearchParams,
   type DestinationParams,
 } from "./search";
@@ -1298,6 +1299,81 @@ describe("executeTravelSearch", () => {
     expect(filtered.confirmed).toHaveLength(0);
   });
 
+  describe("empty states when nothing is on the trip dates", () => {
+    // ~60km north of Atlanta: outside the 50km radius, inside the 150km ring.
+    const dormantRingKennel: MockKennel = {
+      ...testKennel,
+      id: "k-ring",
+      slug: "ring-h3",
+      shortName: "Ring H3",
+      latitude: 34.3,
+      longitude: -84.39,
+    };
+
+    it("returns no_runs, not none, when the radius has kennels but no rows (Wichita)", async () => {
+      // The radius kennel has no event and no schedule rule on the dates, and
+      // the broader ring has no kennels. This used to end on "none", which
+      // made TravelResults print "No results match the active filters".
+      const prisma = createMockPrisma([testKennel], [], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.emptyState).toBe("no_runs");
+      expect(result.destinations[0].emptyState).toBe("no_runs");
+      expect(result.destinations[0].kennelsSearched).toBe(1);
+      expect(result.destinations[0].broaderRadiusKm).toBeUndefined();
+      expect(result.destinations[0].broaderResults).toBeUndefined();
+      expect(result.confirmed).toHaveLength(0);
+      expect(result.likely).toHaveLength(0);
+      expect(result.possible).toHaveLength(0);
+    });
+
+    it("returns no_runs when the broader ring has kennels but no rows either", async () => {
+      const prisma = createMockPrisma([testKennel, dormantRingKennel], [], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.emptyState).toBe("no_runs");
+      // The ring found nothing, so the search wasn't widened.
+      expect(result.destinations[0].broaderRadiusKm).toBeUndefined();
+      expect(result.destinations[0].broaderResults).toBeUndefined();
+    });
+
+    it("returns no_runs, not no_nearby, when only the ring has kennels and none runs", async () => {
+      // "Nothing within range — but the region is active" was false here.
+      const prisma = createMockPrisma([dormantRingKennel], [], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.emptyState).toBe("no_runs");
+      expect(result.destinations[0].broaderResults).toBeUndefined();
+      // The search did reach out to the ring.
+      expect(result.destinations[0].broaderRadiusKm).toBe(150);
+    });
+
+    it("returns no_runs whatever filters are active", async () => {
+      const prisma = createMockPrisma([testKennel], [], []);
+      const result = await executeTravelSearch(prisma, {
+        ...baseParams,
+        filters: { distanceTier: ["drive"] },
+      });
+
+      expect(result.emptyState).toBe("no_runs");
+    });
+
+    it("keeps none when the active filters hide every row", async () => {
+      // The genuinely filtered-empty case: TravelResults' "No results match
+      // the active filters" is true here and stays.
+      const prisma = createMockPrisma([testKennel], [testEvent], []);
+      const result = await executeTravelSearch(prisma, {
+        ...baseParams,
+        filters: { distanceTier: ["drive"] },
+      });
+
+      expect(result.emptyState).toBe("none");
+      expect(result.confirmed).toHaveLength(0);
+      expect(result.likely).toHaveLength(0);
+      expect(result.possible).toHaveLength(0);
+    });
+  });
+
   it("clamps end date to the 365-day HIGH horizon", async () => {
     const prisma = createMockPrisma([testKennel], [], [testRule]);
     const result = await executeTravelSearch(prisma, {
@@ -1518,6 +1594,30 @@ describe("executeTravelSearch multi-destination", () => {
     expect(result.emptyState).toBe("out_of_horizon");
   });
 
+  it("keeps the aggregate at none when one stop has rows and another has no runs", async () => {
+    const londonEvent: MockEvent = { ...testEvent, id: "e-london", kennelId: "k-london", date: utcNoon("2026-04-21") };
+    const prisma = createMockPrisma([londonKennel, parisKennel], [londonEvent], []);
+    const result = await executeTravelSearch(prisma, {
+      destinations: [londonStop, parisStop],
+    });
+
+    expect(result.destinations[0].emptyState).toBe("none");
+    expect(result.destinations[1].emptyState).toBe("no_runs");
+    expect(result.emptyState).toBe("none");
+  });
+
+  it("aggregates no_runs over no_coverage: we know kennels on one leg", async () => {
+    // London: kennel with nothing on the dates. Paris: no kennel within 150km.
+    const prisma = createMockPrisma([londonKennel], [], []);
+    const result = await executeTravelSearch(prisma, {
+      destinations: [londonStop, parisStop],
+    });
+
+    expect(result.destinations[0].emptyState).toBe("no_runs");
+    expect(result.destinations[1].emptyState).toBe("no_coverage");
+    expect(result.emptyState).toBe("no_runs");
+  });
+
   it("aggregates horizonTier to worst-case across stops", async () => {
     // One stop near-term ("all"), one stop 2 years out ("none"). Aggregate
     // must surface the "none" so UI copy explains why Likely is sparse.
@@ -1582,6 +1682,33 @@ describe("executeTravelSearch multi-destination", () => {
     const batchInput = mockedWeather.mock.calls[0][0];
     expect(batchInput).toHaveLength(3);
     expect(batchInput.map((e) => e.id).sort()).toEqual(["e-atl", "e-london", "e-paris"]);
+  });
+});
+
+describe("chooseStopEmptyState", () => {
+  const withRows = {
+    horizonTier: "all" as const,
+    unfilteredTotal: 3,
+    showsBroaderPass: false,
+    confirmedCount: 1,
+    likelyOrPossibleCount: 2,
+  };
+  const nothingOnDates = { ...withRows, unfilteredTotal: 0, confirmedCount: 0, likelyOrPossibleCount: 0 };
+
+  it.each([
+    { label: "nothing on the dates", input: nothingOnDates, expected: "no_runs" },
+    { label: "nothing on the dates, high-tier horizon", input: { ...nothingOnDates, horizonTier: "high" as const }, expected: "no_runs" },
+    { label: "nothing on the dates in the ring either", input: { ...nothingOnDates, showsBroaderPass: true }, expected: "no_runs" },
+    { label: "nothing on the dates past the horizon", input: { ...nothingOnDates, horizonTier: "none" as const }, expected: "out_of_horizon" },
+    { label: "nothing past the horizon, ring searched", input: { ...nothingOnDates, horizonTier: "none" as const, showsBroaderPass: true }, expected: "out_of_horizon" },
+    { label: "ring rows shown", input: { ...withRows, showsBroaderPass: true }, expected: "no_nearby" },
+    { label: "ring rows all hidden by filters", input: { ...withRows, showsBroaderPass: true, confirmedCount: 0, likelyOrPossibleCount: 0 }, expected: "no_nearby" },
+    { label: "likely/possible rows only", input: { ...withRows, confirmedCount: 0 }, expected: "no_confirmed" },
+    { label: "confirmed rows", input: withRows, expected: "none" },
+    { label: "filters hid every row", input: { ...withRows, confirmedCount: 0, likelyOrPossibleCount: 0 }, expected: "none" },
+    { label: "filters hid every row past the horizon", input: { ...withRows, horizonTier: "none" as const, confirmedCount: 0, likelyOrPossibleCount: 0 }, expected: "none" },
+  ])("$label → $expected", ({ input, expected }) => {
+    expect(chooseStopEmptyState(input)).toBe(expected);
   });
 });
 

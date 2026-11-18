@@ -38,6 +38,10 @@
       "schedule": "0 9 * * 1"
     },
     {
+      "path": "/api/cron/watchdog",
+      "schedule": "40 15 * * *"
+    },
+    {
       "path": "/api/cron/half-mind-sync",
       "schedule": "0 10 * * 1"
     }

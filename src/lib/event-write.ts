@@ -5,7 +5,7 @@ import type { Prisma, Event } from "@/generated/prisma/client";
  * `eventKennels` write — accepting it from callers would let a future caller
  * smuggle extra primary rows that bypass the helper's invariant.
  */
-type EventCreateScalars = Omit<
+export type EventCreateScalars = Omit<
   Prisma.EventUncheckedCreateInput,
   | "eventKennels"
   | "attendances"
@@ -30,16 +30,42 @@ type EventCreateScalars = Omit<
  * enforces the single-primary invariant at the DB level — no race window
  * where an event could exist without a primary EventKennel row.
  */
+/**
+ * The Event's RawEvent, created in the same nested write (onboarding backfill
+ * design 9.1): the RawEvent, the Event and its primary EventKennel land
+ * together or not at all, and the RawEvent is born `processed` and linked, so
+ * no post-loop flush is needed. Used only by the merge's backfill mode.
+ */
+export interface NestedRawEvent {
+  sourceId: string;
+  fingerprint: string;
+  rawData: Prisma.InputJsonValue;
+}
+
 export async function createEventWithKennel(
   client: Prisma.TransactionClient,
   data: EventCreateScalars,
+  options?: { rawEvent?: NestedRawEvent },
 ): Promise<Event> {
+  const raw = options?.rawEvent;
   return client.event.create({
     data: {
       ...data,
       eventKennels: {
         create: { kennelId: data.kennelId, isPrimary: true },
       },
+      ...(raw
+        ? {
+            rawEvents: {
+              create: {
+                sourceId: raw.sourceId,
+                fingerprint: raw.fingerprint,
+                rawData: raw.rawData,
+                processed: true,
+              },
+            },
+          }
+        : {}),
     },
   });
 }
