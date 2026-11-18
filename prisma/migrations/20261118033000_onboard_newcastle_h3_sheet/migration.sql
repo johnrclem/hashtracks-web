@@ -10,6 +10,7 @@
 -- the frozen archive backfill is never cancelled.
 
 BEGIN;
+SET LOCAL lock_timeout = '5s';
 
 INSERT INTO "Source" (
   id, name, url, type, config, "trustLevel", "scrapeFreq", "scrapeDays",
