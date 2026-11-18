@@ -79,12 +79,12 @@ export async function haltRun(runId: string, token: string, reasons: string[]): 
 /** The kennel's public status line, as the kennel page shows it (9.6). */
 export async function kennelStatusLine(kennelId: string, now = new Date()): Promise<{ at: string; line: string; evidence: Record<string, string | null> }> {
   const kennel = await prisma.kennel.findUnique({ where: { id: kennelId }, select: KENNEL_EVIDENCE_SELECT });
-  const evidence = kennel ?? { lastRunSeenAt: null, nextRunPostedAt: null, lastConfirmedAt: null, stoppedAt: null };
+  const evidence = kennel ?? { lastRunSeenAt: null, nextRunPostedAt: null, lastConfirmedAt: null, lastConfirmedVia: null, stoppedAt: null };
   const line = getStatusLine(evidence, now);
   return {
     at: now.toISOString(),
     line: line ? formatStatusLine(line, now) : "",
-    evidence: Object.fromEntries(Object.entries(evidence).map(([k, v]) => [k, v ? (v as Date).toISOString() : null])),
+    evidence: Object.fromEntries(Object.entries(evidence).map(([k, v]) => [k, v instanceof Date ? v.toISOString() : (v ?? null)])),
   };
 }
 

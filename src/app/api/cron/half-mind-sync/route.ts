@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
-import { verifyCronAuth } from "@/lib/cron-auth";
+import { withCronRun } from "@/lib/cron-run";
 import { syncHalfMindDiscovery } from "@/pipeline/half-mind-discovery";
 
 /**
@@ -13,38 +13,23 @@ import { syncHalfMindDiscovery } from "@/pipeline/half-mind-discovery";
  *
  * Triggered by Vercel Cron (GET) or QStash (POST) or manually with Bearer CRON_SECRET.
  */
-export async function POST(request: Request) {
-  const auth = await verifyCronAuth(request);
-  if (!auth.authenticated) {
-    return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
-  }
+export const POST = withCronRun("cron:half-mind-sync", async () => {
   if (process.env.HALF_MIND_SYNC_ENABLED !== "true") {
     return NextResponse.json({ data: { skipped: "disabled" } });
   }
-  try {
-    const result = await syncHalfMindDiscovery();
-    console.log(
-      `[half-mind-sync] scopes=${result.scopes} fetched=${result.fetched} created=${result.created} updated=${result.updated} refreshed=${result.refreshedChecks} errors=${result.errors.length}`,
-    );
-    if (result.errors.length > 0) {
-      // Counts only: error strings can carry listing text.
-      Sentry.captureMessage("Half-Mind sync finished with errors", {
-        level: "warning",
-        extra: { errorCount: result.errors.length, scopeCount: result.scopes },
-      });
-    }
-    return NextResponse.json({ data: result });
-  } catch (err) {
-    console.error("[half-mind-sync] failed:", err);
-    Sentry.captureException(err);
-    return NextResponse.json(
-      { data: null, error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
+  const result = await syncHalfMindDiscovery();
+  console.log(
+    `[half-mind-sync] scopes=${result.scopes} fetched=${result.fetched} created=${result.created} updated=${result.updated} refreshed=${result.refreshedChecks} errors=${result.errors.length}`,
+  );
+  if (result.errors.length > 0) {
+    // Counts only: error strings can carry listing text.
+    Sentry.captureMessage("Half-Mind sync finished with errors", {
+      level: "warning",
+      extra: { errorCount: result.errors.length, scopeCount: result.scopes },
+    });
   }
-}
+  return NextResponse.json({ data: result });
+});
 
 /** Vercel Cron triggers GET requests. */
-export async function GET(request: Request) {
-  return POST(request);
-}
+export const GET = POST;

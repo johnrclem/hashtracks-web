@@ -1,10 +1,14 @@
 import { GET, POST } from "./route";
 import { verifyCronAuth } from "@/lib/cron-auth";
+import { prisma } from "@/lib/db";
 import { syncHalfMindDiscovery, type HalfMindSyncResult } from "@/pipeline/half-mind-discovery";
 import * as Sentry from "@sentry/nextjs";
 
 vi.mock("@/lib/cron-auth");
 vi.mock("@/pipeline/half-mind-discovery", () => ({ syncHalfMindDiscovery: vi.fn() }));
+vi.mock("@/lib/db", () => ({
+  prisma: { automationRun: { create: vi.fn(), update: vi.fn() } },
+}));
 vi.mock("@sentry/nextjs", () => ({ captureMessage: vi.fn(), captureException: vi.fn() }));
 
 function req(method = "GET"): Request {
@@ -30,6 +34,7 @@ describe("half-mind-sync cron", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(verifyCronAuth).mockResolvedValue({ authenticated: true, method: "bearer" });
+    vi.mocked(prisma.automationRun.create).mockResolvedValue({ id: "run-1" } as never);
     vi.stubEnv("HALF_MIND_SYNC_ENABLED", "true");
   });
   afterEach(() => vi.unstubAllEnvs());
@@ -81,7 +86,7 @@ describe("half-mind-sync cron", () => {
     expect(Sentry.captureMessage).toHaveBeenCalledTimes(1);
     const [msg, ctx] = vi.mocked(Sentry.captureMessage).mock.calls[0];
     expect(JSON.stringify([msg, ctx])).not.toContain("secret row text");
-    expect(JSON.stringify(ctx)).toContain("2");
+    expect(ctx).toMatchObject({ extra: { errorCount: 2, scopeCount: 1 } });
   });
 
   it("returns 500 and captures the exception when the sync throws", async () => {
