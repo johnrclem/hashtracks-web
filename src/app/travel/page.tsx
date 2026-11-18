@@ -21,6 +21,7 @@ import { TripSummary } from "@/components/travel/TripSummary";
 import { toExportableConfirmedEvent } from "@/lib/travel/export";
 import { EmptyStates } from "@/components/travel/EmptyStates";
 import { NearestConfirmedSection } from "@/components/travel/NearestConfirmedSection";
+import { OtherKennelsSection } from "@/components/travel/OtherKennelsSection";
 import { extractCityName } from "@/lib/travel/format";
 import { TravelHero } from "@/components/travel/TravelHero";
 import { PopularDestinations } from "@/components/travel/PopularDestinations";
@@ -317,6 +318,13 @@ async function TravelResultsServer({
       </>
     );
 
+    const otherKennelsSection = serializedResults.otherKennels && (
+      <OtherKennelsSection
+        place={extractCityName(destination)}
+        kennels={serializedResults.otherKennels}
+      />
+    );
+
     if (results.emptyState !== "none") {
       // Multi-stop: skip the broader-swap since top-level arrays already
       // contain merged primary + all-stops-broader (see serialization above).
@@ -346,6 +354,7 @@ async function TravelResultsServer({
               destinations={serializedResults.destinations}
             />
           )}
+          {otherKennelsSection}
         </>
       );
     }
@@ -358,6 +367,7 @@ async function TravelResultsServer({
           results={serializedResults}
           destinations={serializedResults.destinations}
         />
+        {otherKennelsSection}
       </>
     );
   } catch (err) {
@@ -649,6 +659,12 @@ async function SavedTripPage({
           destination={search.name ?? ""}
           results={resultsToRender}
           destinations={serializedResults.destinations}
+        />
+      )}
+      {serializedResults.otherKennels && (
+        <OtherKennelsSection
+          place={extractCityName(serializedResults.destinations[0]?.label ?? search.name ?? "")}
+          kennels={serializedResults.otherKennels}
         />
       )}
     </div>

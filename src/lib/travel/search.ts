@@ -15,6 +15,12 @@ import { INDEPENDENT_EVENT_WHERE } from "@/lib/event-eligibility";
 import { haversineDistance } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import { safeUrl } from "@/lib/safe-url";
+import { KENNEL_EVIDENCE_SELECT } from "@/lib/kennel-status";
+import {
+  selectOtherKennels,
+  shouldShowOtherKennels,
+  type OtherKennel,
+} from "@/lib/travel/other-kennels";
 import { getWeatherForEvents, type DailyWeather } from "@/lib/weather";
 import {
   projectTrails,
@@ -222,6 +228,11 @@ export interface DestinationResult {
    * an empty answer still points somewhere real.
    */
   nearestConfirmed?: NearestConfirmed<ConfirmedResult>;
+  /**
+   * Single-stop only: quiet in-radius kennels the results don't already show,
+   * set when the search has fewer than FEW_RUNS_THRESHOLD confirmed + likely runs.
+   */
+  otherKennels?: OtherKennel[];
 }
 
 /** Confirmed runs just outside a stop's search radius, found out to `radiusKm`. */
@@ -293,6 +304,8 @@ interface NearbyKennel {
   longitude: number | null;
   lastRunSeenAt: Date | null;
   lastConfirmedAt: Date | null;
+  nextRunPostedAt: Date | null;
+  stoppedAt: Date | null;
   scheduleDayOfWeek: string | null;
   scheduleTime: string | null;
   scheduleFrequency: string | null;
@@ -967,6 +980,32 @@ async function runStopSearch(
     }
   }
 
+  // The rows this stop shows for its own radius. When the broader pass was
+  // adopted, `filtered` holds ring rows instead, and the radius showed none.
+  const primaryRows: StopOutcome["primaryRows"] = primaryEffectivelyEmpty
+    ? { confirmed: [], likely: [], possible: [] }
+    : { confirmed: filtered.confirmed, likely: filtered.likely, possible: filtered.possible };
+
+  // "Other kennels near here": thin single-stop answers list quiet in-radius
+  // kennels that no shown row already covers.
+  let otherKennels: OtherKennel[] | undefined;
+  if (
+    ctx.wantNearestConfirmed &&
+    primary.length > 0 &&
+    shouldShowOtherKennels(primaryRows.confirmed.length, primaryRows.likely.length)
+  ) {
+    const shownKennelIds = new Set(
+      [...filtered.confirmed, ...filtered.likely, ...filtered.possible].map((r) => r.kennelId),
+    );
+    // listingOnly is false until the column exists (Task 8).
+    const picked = selectOtherKennels(
+      primary.map((k) => ({ ...k, listingOnly: false })),
+      shownKennelIds,
+      ctx.now,
+    );
+    if (picked.length > 0) otherKennels = picked;
+  }
+
   return {
     destination: {
       index,
@@ -983,12 +1022,9 @@ async function runStopSearch(
       broaderRadiusKm: primaryEffectivelyEmpty ? broaderRadiusKm : undefined,
       broaderResults: broaderResultsObj,
       nearestConfirmed,
+      otherKennels,
     },
-    primaryRows: {
-      confirmed: primaryEffectivelyEmpty ? [] : filtered.confirmed,
-      likely: primaryEffectivelyEmpty ? [] : filtered.likely,
-      possible: primaryEffectivelyEmpty ? [] : filtered.possible,
-    },
+    primaryRows,
     weatherInputs: passWeatherInputs,
   };
 }
@@ -1071,8 +1107,7 @@ async function fetchAllVisibleKennels(prisma: PrismaClient) {
       region: true,
       latitude: true,
       longitude: true,
-      lastRunSeenAt: true,
-      lastConfirmedAt: true,
+      ...KENNEL_EVIDENCE_SELECT,
       scheduleDayOfWeek: true,
       scheduleTime: true,
       scheduleFrequency: true,

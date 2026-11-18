@@ -8,7 +8,7 @@ interface OwnPageLinkProps {
   href: string;
   /** Used for the click-out analytics event. */
   kennelSlug: string;
-  surface: "card" | "kennel-page";
+  surface: "card" | "kennel-page" | "travel";
   /** Sit above a card's stretched link and keep the click from navigating the card. */
   aboveCardLink?: boolean;
   children: ReactNode;

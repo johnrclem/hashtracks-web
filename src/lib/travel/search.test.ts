@@ -32,6 +32,8 @@ interface MockKennel {
   longitude: number | null;
   lastRunSeenAt: Date | null;
   lastConfirmedAt: Date | null;
+  nextRunPostedAt?: Date | null;
+  stoppedAt?: Date | null;
   scheduleDayOfWeek: string | null;
   scheduleTime: string | null;
   scheduleFrequency: string | null;
@@ -1035,6 +1037,78 @@ describe("executeTravelSearch", () => {
 
     expect(result.confirmed.length).toBeGreaterThan(0);
     expect(result.destinations[0].nearestConfirmed).toBeUndefined();
+  });
+
+  describe("other kennels (Status 2 bridge)", () => {
+    // "Today" is 2026-04-14, so a run last seen 2025-10-01 is quiet.
+    const quietKennel: MockKennel = {
+      ...testKennel,
+      id: "k-quiet",
+      slug: "quiet-h3",
+      shortName: "Quiet H3",
+      lastRunSeenAt: utcNoon("2025-10-01"),
+    };
+
+    it("lists a quiet in-radius kennel when the search is thin", async () => {
+      const prisma = createMockPrisma([quietKennel], [], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.destinations[0].otherKennels?.map((k) => k.kennelId)).toEqual(["k-quiet"]);
+      expect(result.destinations[0].otherKennels?.[0].evidence.lastRunSeenAt).toEqual(utcNoon("2025-10-01"));
+    });
+
+    it("leaves otherKennels unset when nothing qualifies", async () => {
+      const prisma = createMockPrisma([testKennel], [testEvent], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.destinations[0].otherKennels).toBeUndefined();
+    });
+
+    it("does not compute them for a multi-stop search", async () => {
+      const prisma = createMockPrisma([quietKennel], [], []);
+      const result = await executeTravelSearch(prisma, {
+        destinations: [baseDestination, { ...baseDestination, startDate: "2026-04-26", endDate: "2026-04-28" }],
+      });
+
+      expect(result.destinations.every((d) => d.otherKennels === undefined)).toBe(true);
+    });
+
+    it("sets no otherKennels when in-radius runs reach the threshold", async () => {
+      const active = ["a", "b", "c"].map((x): MockKennel => ({ ...testKennel, id: `k-${x}`, slug: `${x}-h3`, shortName: `${x} H3` }));
+      const events = active.map((k): MockEvent => ({ ...testEvent, id: `e-${k.id}`, kennelId: k.id }));
+      const prisma = createMockPrisma([...active, quietKennel], events, []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.confirmed.length + result.likely.length).toBeGreaterThanOrEqual(3);
+      expect(result.destinations[0].otherKennels).toBeUndefined();
+    });
+
+    it("still lists the quiet in-radius kennel when only the broader pass has 3+ runs", async () => {
+      const distant = ["x", "y", "z"].map((n): MockKennel => ({
+        ...testKennel,
+        id: `k-far-${n}`,
+        slug: `far-${n}-h3`,
+        shortName: `Far ${n} H3`,
+        latitude: 34.3,
+        longitude: -84.39,
+      }));
+      const events = distant.map((k): MockEvent => ({ ...testEvent, id: `e-${k.id}`, kennelId: k.id }));
+      const prisma = createMockPrisma([quietKennel, ...distant], events, []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.destinations[0].broaderRadiusKm).toBe(150);
+      expect(result.destinations[0].broaderResults!.confirmed.length).toBeGreaterThanOrEqual(3);
+      expect(result.destinations[0].otherKennels?.map((k) => k.kennelId)).toEqual(["k-quiet"]);
+    });
+
+    it("does not repeat a kennel that already has a Possible row", async () => {
+      const lowRule: MockScheduleRule = { ...testRule, id: "r-low", kennelId: "k-quiet", confidence: "LOW" };
+      const prisma = createMockPrisma([quietKennel], [], [lowRule]);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.possible.some((p) => p.kennelId === "k-quiet")).toBe(true);
+      expect(result.destinations[0].otherKennels).toBeUndefined();
+    });
   });
 
   it("collapses Possible rows to one per kennel (#793)", async () => {
