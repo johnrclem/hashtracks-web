@@ -12,7 +12,10 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 BIN="$ROOT/bin"
-conf() { sed -n "s/^$1=//p" "$ROOT/.agent/config" 2>/dev/null | head -1; }
+conf() {
+  local key="$1"
+  sed -n "s/^${key}=//p" "$ROOT/.agent/config" 2>/dev/null | head -1
+}
 REAL_GH="$(conf REAL_GH)"
 
 # git's `store` and `erase` need no answer, so they need no token.

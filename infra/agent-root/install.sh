@@ -72,7 +72,7 @@ write_config
 "$ROOT/bin/mint-token.sh" >/dev/null || die "couldn't mint a token: check the ids, the key, and that the App is installed on the repository"
 BOT="$("$ROOT/bin/mint-token.sh" --login)" || die "couldn't read the App's login"
 write_config "$BOT"
-BOT_ID="$(curl -fsS --max-time 20 "https://api.github.com/users/$(jq -rn --arg l "$BOT" '$l|@uri')" | jq -er .id)" || die "couldn't look up $BOT"
+BOT_ID="$(curl -fsS --proto '=https' --proto-redir '=https' --tlsv1.2 --max-time 20 "https://api.github.com/users/$(jq -rn --arg l "$BOT" '$l|@uri')" | jq -er .id)" || die "couldn't look up $BOT"
 echo "Agent App OK: acts as $BOT"
 
 # 4. Settings: the env block, and the repo's permissions plus this folder's extras.

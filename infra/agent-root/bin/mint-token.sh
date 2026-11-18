@@ -17,7 +17,10 @@ CONF="$ROOT/.agent/config"
 die() { echo "mint-token: $*" >&2; exit 1; }
 
 [[ -r "$CONF" ]] || die "no config at $CONF (run install.sh)"
-conf() { sed -n "s/^$1=//p" "$CONF" | head -1; }
+conf() {
+  local key="$1"
+  sed -n "s/^${key}=//p" "$CONF" | head -1
+}
 APP_ID="$(conf APP_ID)"
 INSTALLATION_ID="$(conf INSTALLATION_ID)"
 KEY_FILE="$(conf KEY_FILE)"
@@ -33,7 +36,7 @@ signature="$(printf '%s.%s' "$header" "$payload" | openssl dgst -sha256 -sign "$
 jwt="$header.$payload.$signature"
 
 api() {
-  curl -fsS --max-time 20 -H "Authorization: Bearer $jwt" -H 'Accept: application/vnd.github+json' \
+  curl -fsS --proto '=https' --proto-redir '=https' --tlsv1.2 --max-time 20 -H "Authorization: Bearer $jwt" -H 'Accept: application/vnd.github+json' \
     -H 'X-GitHub-Api-Version: 2022-11-28' "$@"
 }
 

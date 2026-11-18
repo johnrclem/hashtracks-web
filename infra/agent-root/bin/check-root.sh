@@ -19,7 +19,7 @@ problems=()
 if [[ -n "${1:-}" ]]; then
   repo_settings="$(cat "$1" 2>/dev/null)"
 else
-  repo_settings="$(curl -fsSL --max-time 20 https://raw.githubusercontent.com/johnrclem/hashtracks-web/main/.claude/settings.json)"
+  repo_settings="$(curl -fsSL --proto '=https' --proto-redir '=https' --tlsv1.2 --max-time 20 https://raw.githubusercontent.com/johnrclem/hashtracks-web/main/.claude/settings.json)"
 fi
 if ! jq -e '.permissions.deny | type == "array"' <<<"$repo_settings" >/dev/null 2>&1; then
   problems+=("the repo's .claude/settings.json is unreadable")
