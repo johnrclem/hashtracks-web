@@ -333,6 +333,10 @@ describe("scrubSecrets — review follow-ups", () => {
     expect(scrubSecrets(url).text).toBe(url);
   });
 
+  it("removes a literal dollar-prefixed value from a logged URL", () => {
+    expect(scrubSecrets("GET /feed?token=$sample1 → 401").text).toBe("GET /feed?token=[secret] → 401");
+  });
+
   it("changes nothing on a second pass", () => {
     const once = scrubSecrets("https://example.com/x?key=abc123&page=2").text;
     expect(scrubSecrets(once)).toEqual({ text: once, redactions: 0 });

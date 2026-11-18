@@ -70,6 +70,9 @@ const SECRET_NAME_RE = /(?:key|token|sig|signature|secret|password)$/i;
 // `.env` lines and inline assignments: `GOOGLE_CALENDAR_API_KEY=…`, `CRON_SECRET="…"`.
 // A backtick ends the value, so markdown code (`CRON_SECRET=abc`) keeps its closing backtick.
 const ENV_ASSIGNMENT_RE = /\b([A-Z][A-Z\d_]*(?:KEY|TOKEN|SECRET|PASSWORD))=("[^"\n]*"|'[^'\n]*'|[^\s"'`][^\s`]*)/g;
+// A shell reference holds no secret: `$NAME`, `${NAME}` or `$(…)`. A lowercase `$value` in a
+// logged URL can be a literal credential, so it doesn't count.
+const SHELL_REFERENCE_RE = /^\$(?:[A-Z_][A-Z\d_]*\b|\{|\()/;
 const GOOGLE_API_KEY_RE = /AIza[\w-]{30,}/g;
 // Sixteen characters at least, so prose ("the bearer acknowledged …") is left alone.
 const BEARER_RE = /(?<=\bBearer\s+)[\w.~+/-]{16,}=*/gi;
@@ -96,13 +99,13 @@ export function scrubSecrets(text: string): { text: string; redactions: number }
     // command runnable.
     // An already-scrubbed value (`[secret`, cut at its `]`) stays, so a second pass changes nothing.
     .replaceAll(QUERY_PARAM_RE, (param: string, name: string, value: string) =>
-      SECRET_NAME_RE.test(name) && !value.startsWith("$") && value !== REDACTION_MARK.slice(0, -1)
+      SECRET_NAME_RE.test(name) && !SHELL_REFERENCE_RE.test(value) && value !== REDACTION_MARK.slice(0, -1)
         ? `${name}=${replace()}`
         : param,
     )
     // A value the query rule already replaced, or a shell reference (`$VAR`, `$(…)`), stays.
     .replaceAll(ENV_ASSIGNMENT_RE, (assignment: string, name: string, value: string) =>
-      value.startsWith(REDACTION_MARK) || value.startsWith("$") ? assignment : `${name}=${replace()}`,
+      value.startsWith(REDACTION_MARK) || SHELL_REFERENCE_RE.test(value) ? assignment : `${name}=${replace()}`,
     )
     .replaceAll(GOOGLE_API_KEY_RE, replace)
     .replaceAll(BEARER_RE, replace)
