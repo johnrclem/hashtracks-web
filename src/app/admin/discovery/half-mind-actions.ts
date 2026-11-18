@@ -42,6 +42,7 @@ function kennelHasListing(shortName: string, listingId: string): string {
 }
 
 const LINK_NEW_ONLY = "Only a NEW Half-Mind row can be linked.";
+const ADD_NEW_ONLY = "Only a NEW Half-Mind row can be added.";
 /** Only an unreviewed row may be dismissed; linked and added ones are undone elsewhere. */
 const DISMISS_NEW_ONLY = "Only a NEW Half-Mind row can be dismissed.";
 
@@ -71,8 +72,9 @@ function bestCandidate(json: Prisma.JsonValue | null): RankedCandidate | null {
 /**
  * Credit the row's Half-Mind check to a kennel an admin just linked or added,
  * when the row still passes the import bar. No `onlyIfNewerForUrl`: a deliberate
- * relink after an unlink records the current check again. Returns what to tell
- * the admin when no check was recorded, or undefined when one was.
+ * relink after an unlink records the current check again. The holder is re-checked
+ * under the kennel lock, so an unlink that lands first leaves no check behind.
+ * Returns what to tell the admin when no check was recorded, or undefined when one was.
  */
 async function recordRowCheck(
   done: "Linked" | "Added",
@@ -90,8 +92,9 @@ async function recordRowCheck(
     kennelId,
     halfMindCheckInput(row.externalSlug, row.externalCheckedAt),
     now,
-    { via: "HALF_MIND" },
+    { via: "HALF_MIND", requireHalfMindListingId: row.externalSlug },
   );
+  if ("skipped" in outcome) return `${done}; the listing was unlinked meanwhile, so the check was not recorded.`;
   if ("stopped" in outcome) return `${done}; the kennel is stopped, so the check was not recorded.`;
   if ("error" in outcome) return `${done}; the check was not recorded: ${outcome.error}`;
   return undefined;
@@ -201,7 +204,7 @@ export async function addListingOnlyKennel(
   const loaded = await loadHalfMindRow(discoveryId);
   if ("error" in loaded) return loaded;
   const { adminId, row } = loaded;
-  if (row.status !== "NEW") return { error: "Only a NEW Half-Mind row can be added." };
+  if (row.status !== "NEW") return { error: ADD_NEW_ONLY };
   const shortName = data.shortName?.trim();
   const fullName = data.fullName?.trim();
   const regionId = data.regionId;
@@ -217,16 +220,23 @@ export async function addListingOnlyKennel(
   if (holder) return { error: alreadyLinkedTo(holder.shortName) };
 
   // No alias from the numeric id and no ScheduleRule: the listing is the only evidence.
-  const result = await createKennelFromDiscovery(row.id, adminId, {
-    shortName,
-    fullName,
-    regionId,
-    website: row.website ?? undefined,
-    facebookUrl: row.facebookUrl,
-    scheduleNotes: row.schedule,
-    listingOnly: true,
-    halfMindListingId: row.externalSlug,
-  });
+  // claimFromStatus: a dismiss or link that lands first rolls the new kennel back.
+  const result = await createKennelFromDiscovery(
+    row.id,
+    adminId,
+    {
+      shortName,
+      fullName,
+      regionId,
+      website: row.website ?? undefined,
+      facebookUrl: row.facebookUrl,
+      scheduleNotes: row.schedule,
+      listingOnly: true,
+      halfMindListingId: row.externalSlug,
+    },
+    [],
+    { claimFromStatus: "NEW", claimRefusal: ADD_NEW_ONLY },
+  );
   if ("error" in result) return result;
 
   const warning = await recordRowCheck("Added", adminId, result.kennelId, row, new Date());

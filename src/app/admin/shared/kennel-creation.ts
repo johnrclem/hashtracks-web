@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { Prisma as PrismaTypes } from "@/generated/prisma/client";
+import type { DiscoveryStatus, Prisma as PrismaTypes } from "@/generated/prisma/client";
 import { toSlug, toKennelCode } from "@/lib/kennel-utils";
 import { generateAliases, dedupeAliases } from "@/lib/auto-aliases";
 import { safeUrl } from "@/lib/safe-url";
@@ -23,6 +23,16 @@ export interface KennelFromDiscoveryData {
   scheduleNotes?: string | null;
 }
 
+export interface CreateFromDiscoveryOptions {
+  /**
+   * Mark the row ADDED only while it still has this status, inside the creating
+   * transaction. Another admin's dismiss or link that lands first rolls the kennel back.
+   */
+  claimFromStatus?: DiscoveryStatus;
+  /** The error returned when that claim fails. */
+  claimRefusal?: string;
+}
+
 /**
  * Shared kennel creation from a KennelDiscovery record.
  * Used by the research, Hash Rego and Half-Mind discovery flows.
@@ -31,6 +41,7 @@ export interface KennelFromDiscoveryData {
  * @param adminId - ID of the admin user performing the action
  * @param data - Kennel fields
  * @param extraAliases - Additional aliases (e.g., Hash Rego slug)
+ * @param opts - Optional conditional claim of the discovery row
  * @returns Created kennel ID or error string
  */
 export async function createKennelFromDiscovery(
@@ -38,6 +49,7 @@ export async function createKennelFromDiscovery(
   adminId: string,
   data: KennelFromDiscoveryData,
   extraAliases: string[] = [],
+  opts: CreateFromDiscoveryOptions = {},
 ): Promise<{ kennelId: string } | { error: string }> {
   const discovery = await prisma.kennelDiscovery.findUnique({ where: { id: discoveryId } });
   if (!discovery) return { error: "Discovery not found" };
@@ -94,15 +106,22 @@ export async function createKennelFromDiscovery(
         },
       });
 
-      await tx.kennelDiscovery.update({
-        where: { id: discoveryId },
-        data: {
-          status: "ADDED",
-          matchedKennelId: created.id,
-          processedBy: adminId,
-          processedAt: new Date(),
-        },
-      });
+      const marked = {
+        status: "ADDED" as const,
+        matchedKennelId: created.id,
+        processedBy: adminId,
+        processedAt: new Date(),
+      };
+      if (opts.claimFromStatus) {
+        const { count } = await tx.kennelDiscovery.updateMany({
+          where: { id: discoveryId, status: opts.claimFromStatus },
+          data: marked,
+        });
+        // Throwing rolls back the kennel created above.
+        if (count === 0) throw new Error(opts.claimRefusal ?? "This discovery was already reviewed.");
+      } else {
+        await tx.kennelDiscovery.update({ where: { id: discoveryId }, data: marked });
+      }
 
       return created;
     });

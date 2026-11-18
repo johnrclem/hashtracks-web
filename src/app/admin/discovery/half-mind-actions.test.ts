@@ -236,7 +236,7 @@ describe("linkHalfMindListing", () => {
       "k-pf",
       { observedOn: "2026-10-07", note: "Half-Mind listing checked Oct 7, 2026", url: PF_URL },
       NOW,
-      { via: "HALF_MIND" },
+      { via: "HALF_MIND", requireHalfMindListingId: "19" },
     );
     expect(runningChecks()).toEqual([
       expect.objectContaining({ kennelId: "k-pf", via: "HALF_MIND", observedAt: OCT_7, url: PF_URL, createdById: "admin-1" }),
@@ -271,6 +271,19 @@ describe("linkHalfMindListing", () => {
       warning: "Linked; the kennel is stopped, so the check was not recorded.",
     });
     expect(discovery("d-19").status).toBe("LINKED");
+    expect(runningChecks()).toHaveLength(0);
+  });
+
+  it("records no check when an unlink lands between the link and the check", async () => {
+    const actual = await vi.importActual<typeof import("@/lib/kennel-confirmations")>("@/lib/kennel-confirmations");
+    vi.mocked(confirmKennelRunningFor).mockImplementationOnce(async (...args) => {
+      kennel("k-pf").halfMindListingId = null; // another admin's unlink committed first
+      return actual.confirmKennelRunningFor(...args);
+    });
+    expect(await linkHalfMindListing("d-19", "k-pf")).toEqual({
+      success: true,
+      warning: "Linked; the listing was unlinked meanwhile, so the check was not recorded.",
+    });
     expect(runningChecks()).toHaveLength(0);
   });
 
@@ -352,7 +365,7 @@ describe("unlinkHalfMindListing", () => {
     expect(await linkHalfMindListing("d-19", "k-pf")).toEqual({ success: true });
 
     const relink = vi.mocked(confirmKennelRunningFor).mock.calls.at(-1)!;
-    expect(relink[4]).toEqual({ via: "HALF_MIND" });
+    expect(relink[4]).toEqual({ via: "HALF_MIND", requireHalfMindListingId: "19" });
     expect(runningChecks()).toHaveLength(2);
     expect(runningChecks().filter((c) => !c.revertedAt)).toHaveLength(1);
 
@@ -495,6 +508,19 @@ describe("addListingOnlyKennel", () => {
       error: "That Half-Mind listing is already linked to Black Sheep H3.",
     });
     expect(prisma.kennel.create).not.toHaveBeenCalled();
+  });
+
+  it.each(["DISMISSED", "LINKED"])("rolls the new kennel back when the row became %s after it was read", async (status) => {
+    vi.mocked(prisma.kennelDiscovery.findUnique).mockResolvedValueOnce({ ...discovery("d-301") } as never);
+    discovery("d-301").status = status;
+    const kennelsBefore = tables.kennel.length;
+
+    expect(await addListingOnlyKennel("d-301", form)).toEqual({ error: "Only a NEW Half-Mind row can be added." });
+
+    expect(prisma.kennel.create).toHaveBeenCalled();
+    expect(tables.kennel).toHaveLength(kennelsBefore);
+    expect(discovery("d-301")).toMatchObject({ status, matchedKennelId: null });
+    expect(runningChecks()).toHaveLength(0);
   });
 });
 
