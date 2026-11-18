@@ -322,7 +322,30 @@ describe("scrubSecrets", () => {
   });
 });
 
+describe("scrubSecrets — review follow-ups", () => {
+  it("removes a stateless GitHub App installation token", () => {
+    const token = `ghs_123456_${"a".repeat(20)}.${"b".repeat(30)}.${"c".repeat(20)}`;
+    expect(scrubSecrets(`token ${token} rejected`).text).toBe("token [secret] rejected");
+  });
+
+  it("leaves an @ in a query value alone: only the authority holds credentials", () => {
+    const url = "https://example.org:8443?owner=team@example.org";
+    expect(scrubSecrets(url).text).toBe(url);
+  });
+
+  it("changes nothing on a second pass", () => {
+    const once = scrubSecrets("https://example.com/x?key=abc123&page=2").text;
+    expect(scrubSecrets(once)).toEqual({ text: once, redactions: 0 });
+  });
+});
+
 describe("scrubForGitHub", () => {
+  it("keeps a scrubbed URL whole, so a run id after it isn't taken for a phone", () => {
+    expect(scrubForGitHub("https://example.org/feed?token=sample&run=2345678901").text).toBe(
+      "https://example.org/feed?token=[secret]&run=2345678901",
+    );
+  });
+
   it("removes secrets and personal data together", () => {
     const text = `Scrape failed: GET https://sheets.googleapis.com/v4/spreadsheets/x?key=${FAKE_GOOGLE_KEY} (hare 254-555-0142)`;
     expect(scrubForGitHub(text)).toEqual({

@@ -63,9 +63,11 @@ export interface PlannedChange {
   issue: OpenIssue;
   lane: Lane | null;
   reason: string;
-  /** The lane label to add, or null when it's already there (or there's no lane). */
-  addLabel: string | null;
+  /** Labels to add: the lane, plus `onboarding-candidate` on a coverage issue without it. */
+  addLabels: string[];
   dropAlert: boolean;
+  /** `--set` named a different lane than the one the issue already has; nothing is written. */
+  overrideRejected?: true;
 }
 
 /**
@@ -81,20 +83,22 @@ export function proposeLane(issue: OpenIssue): Proposal {
 
   if (labels.has(NEEDS_DECISION_LABEL)) return { lane: "decision", reason: NEEDS_DECISION_LABEL };
   if (labels.has(ONBOARDING_CANDIDATE_LABEL)) return { lane: "coverage", reason: ONBOARDING_CANDIDATE_LABEL };
-  if (labels.has(AUDIT_LABEL)) {
-    // The same rule → lane mapping the filers use for new issues.
-    const ruleSlug = parseAuditIdentity(issue.body)?.ruleSlug;
-    const ruleLane = ruleSlug ? laneForRule(ruleSlug) : "defect";
-    if (ruleLane !== "defect") return { lane: ruleLane, reason: `rule ${ruleSlug}` };
-    // The fixer has already looked at these and handed them back: they need a supervised
-    // session or the owner's call.
-    if (labels.has(FIXER_SKIP_LABEL)) return { lane: "decision", reason: FIXER_SKIP_LABEL };
-    return { lane: "defect", reason: ruleSlug ? `rule ${ruleSlug}` : "audit finding" };
-  }
+  if (labels.has(AUDIT_LABEL)) return proposeAuditLane(issue, labels);
   if (labels.has(DRIFT_LABEL)) return { lane: "defect", reason: DRIFT_LABEL };
   if (labels.has(USER_FEEDBACK_LABEL)) return { lane: "decision", reason: USER_FEEDBACK_LABEL };
   if (labels.has(ENHANCEMENT_LABEL)) return { lane: "decision", reason: ENHANCEMENT_LABEL };
   return { lane: null, reason: "no rule matches; pass --set" };
+}
+
+/** An audit issue's lane: the same rule → lane mapping the filers use for new issues. */
+function proposeAuditLane(issue: OpenIssue, labels: ReadonlySet<string>): Proposal {
+  const ruleSlug = parseAuditIdentity(issue.body)?.ruleSlug;
+  const ruleLane = ruleSlug ? laneForRule(ruleSlug) : "defect";
+  if (ruleLane !== "defect") return { lane: ruleLane, reason: `rule ${ruleSlug}` };
+  // The fixer has already looked at these and handed them back: they need a supervised
+  // session or the owner's call.
+  if (labels.has(FIXER_SKIP_LABEL)) return { lane: "decision", reason: FIXER_SKIP_LABEL };
+  return { lane: "defect", reason: ruleSlug ? `rule ${ruleSlug}` : "audit finding" };
 }
 
 /** Each issue's lane (an override wins over the proposal) and the label writes it needs. */
@@ -105,13 +109,21 @@ export function planRelabel(
   return issues.map((issue) => {
     const proposal = proposeLane(issue);
     const override = overrides.get(issue.number);
-    // A conflict is never resolved here: an override would only add a third lane label.
-    const useOverride = override !== undefined && !proposal.conflict;
+    // An override never stacks a second lane label: it applies only to an issue without one
+    // (adding a label doesn't remove the old lane), and a conflict is untangled by hand.
+    const hasLane = proposal.conflict || proposal.reason === "already labelled";
+    const overrideRejected = override !== undefined && hasLane && override !== proposal.lane;
+    const useOverride = override !== undefined && !overrideRejected;
     const lane = useOverride ? override : proposal.lane;
-    const reason = useOverride ? `--set (proposed: ${proposal.lane ?? "none"})` : proposal.reason;
-    const addLabel = lane && !issue.labels.includes(LANE_LABELS[lane]) ? LANE_LABELS[lane] : null;
-    const dropAlert = issue.labels.includes(AUDIT_LABEL) && issue.labels.includes(ALERT_LABEL);
-    return { issue, lane, reason, addLabel, dropAlert };
+    const reason = overrideRejected
+      ? `--set ${override} rejected: ${proposal.reason}`
+      : useOverride
+        ? `--set (proposed: ${proposal.lane ?? "none"})`
+        : proposal.reason;
+    const wanted = lane ? [LANE_LABELS[lane], ...(lane === "coverage" ? [ONBOARDING_CANDIDATE_LABEL] : [])] : [];
+    const addLabels = overrideRejected ? [] : wanted.filter((label) => !issue.labels.includes(label));
+    const dropAlert = !overrideRejected && issue.labels.includes(AUDIT_LABEL) && issue.labels.includes(ALERT_LABEL);
+    return { issue, lane, reason, addLabels, dropAlert, ...(overrideRejected ? { overrideRejected: true as const } : {}) };
   });
 }
 
@@ -128,20 +140,35 @@ export function parseArgs(args: readonly string[]): { apply: boolean; overrides:
     if (arg !== "--set") return null;
     const match = /^(\d+)=([a-z]+)$/.exec(args[i + 1] ?? "");
     const lane = match?.[2];
-    if (!match || !lane || !isLane(lane)) return null;
-    overrides.set(Number(match[1]), lane);
+    const issueNumber = Number(match?.[1]);
+    if (!match || !lane || !isLane(lane) || !Number.isSafeInteger(issueNumber) || issueNumber <= 0) return null;
+    overrides.set(issueNumber, lane);
     i += 1;
   }
   return { apply, overrides };
+}
+
+function needsWrite(change: PlannedChange): boolean {
+  return change.addLabels.length > 0 || change.dropAlert;
+}
+
+/**
+ * Problems that stop `--apply` before any write: an override naming an issue that isn't open,
+ * or one rejected because the issue already has a different lane.
+ */
+export function overrideProblems(plan: readonly PlannedChange[], overrides: ReadonlyMap<number, Lane>): string[] {
+  const open = new Set(plan.map((c) => c.issue.number));
+  return [
+    ...[...overrides.keys()].filter((n) => !open.has(n)).map((n) => `--set ${n}: not an open issue`),
+    ...plan.filter((c) => c.overrideRejected).map((c) => `#${c.issue.number}: ${c.reason}`),
+  ];
 }
 
 /** The dry-run listing: one line per issue, then the count per lane. */
 export function formatPlan(plan: readonly PlannedChange[]): string {
   const lines = plan.map((c) => {
     const lane = c.lane ? LANE_LABELS[c.lane] : "(no lane)";
-    const change = [c.addLabel ? `+${c.addLabel}` : null, c.dropAlert ? `-${ALERT_LABEL}` : null]
-      .filter(Boolean)
-      .join(" ");
+    const change = [...c.addLabels.map((label) => `+${label}`), ...(c.dropAlert ? [`-${ALERT_LABEL}`] : [])].join(" ");
     return `#${c.issue.number}\t${lane}\t${change || "no change"}\t${c.reason}\t${c.issue.title}`;
   });
   const perLane = new Map<string, number>();
@@ -150,7 +177,7 @@ export function formatPlan(plan: readonly PlannedChange[]): string {
     perLane.set(key, (perLane.get(key) ?? 0) + 1);
   }
   const counts = [...perLane.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([k, n]) => `${k}: ${n}`);
-  const writes = plan.filter((c) => c.addLabel || c.dropAlert).length;
+  const writes = plan.filter(needsWrite).length;
   const dropped = plan.filter((c) => c.dropAlert).length;
   return [
     "number\tlane\tchange\treason\ttitle",
@@ -225,17 +252,28 @@ async function ensureLaneLabels(token: string): Promise<void> {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** GitHub is throttling the batch; the remaining writes would only fail too. */
+class ThrottledError extends Error {}
+
+function check(res: Response, what: string): void {
+  if (res.ok) return;
+  const throttled = res.status === 429 || (res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0");
+  const retryAfter = res.headers.get("retry-after");
+  const message = `${what}: HTTP ${res.status}${retryAfter ? ` (retry after ${retryAfter}s)` : ""}`;
+  throw throttled ? new ThrottledError(message) : new Error(message);
+}
+
 async function applyChange(token: string, change: PlannedChange): Promise<void> {
   const base = issueNumberPath(change.issue.number);
-  if (change.addLabel) {
-    const res = await github(token, `${base}/labels`, { method: "POST", body: JSON.stringify({ labels: [change.addLabel] }) });
-    if (!res.ok) throw new Error(`add ${change.addLabel}: HTTP ${res.status}`);
+  if (change.addLabels.length > 0) {
+    const res = await github(token, `${base}/labels`, { method: "POST", body: JSON.stringify({ labels: change.addLabels }) });
+    check(res, `add ${change.addLabels.join(", ")}`);
     await sleep(WRITE_GAP_MS);
   }
   if (change.dropAlert) {
     const res = await github(token, `${base}/labels/${ALERT_LABEL}`, { method: "DELETE" });
     // 404: already gone, which is the goal.
-    if (!res.ok && res.status !== 404) throw new Error(`remove ${ALERT_LABEL}: HTTP ${res.status}`);
+    if (res.status !== 404) check(res, `remove ${ALERT_LABEL}`);
     await sleep(WRITE_GAP_MS);
   }
 }
@@ -251,18 +289,28 @@ async function main(): Promise<void> {
 
   const plan = planRelabel(await fetchOpenIssues(token), args.overrides);
   console.log(formatPlan(plan));
+  const problems = overrideProblems(plan, args.overrides);
+  for (const problem of problems) console.error(problem);
   if (!args.apply) {
     console.log("\nDry run: nothing written. Re-run with --apply once the owner has approved this list.");
     return;
   }
+  if (problems.length > 0) {
+    console.error("\nNothing written: fix the --set problems above first.");
+    process.exit(2);
+  }
 
   await ensureLaneLabels(token);
   const failures: string[] = [];
-  for (const change of plan.filter((c) => c.addLabel || c.dropAlert)) {
+  for (const change of plan.filter(needsWrite)) {
     try {
       await applyChange(token, change);
     } catch (err) {
       failures.push(`#${change.issue.number}: ${err instanceof Error ? err.message : String(err)}`);
+      if (err instanceof ThrottledError) {
+        failures.push("Stopped: GitHub is throttling. Re-run later; finished issues need no write.");
+        break;
+      }
     }
   }
   console.log(`\nApplied. ${failures.length} failure(s).`);

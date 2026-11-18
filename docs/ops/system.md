@@ -41,7 +41,8 @@ back to the labels used today (below).
 - **How a finding gets its lane** (`laneForRule` in `src/lib/audit-labels.ts`, used by the
   promoter, the audit cron and `/api/audit/file-finding`): a source-gap rule (`source-coverage-gap`,
   `historical-events-gap` and their synonyms) → `lane:coverage`, which also gets
-  `onboarding-candidate` until 2026-12-18; `schema-gap` → `lane:decision`; anything else →
+  `onboarding-candidate` (planned removal about 2026-12-18, once the research task reads
+  `lane:coverage`; until then every coverage filing carries it); `schema-gap` → `lane:decision`; anything else →
   `lane:defect`. Escalation meta-issues (`audit:needs-decision`) → `lane:decision`. Rule drift →
   `lane:defect`. In-app user feedback → `lane:decision`.
 - **Agents request `lane:decision`, and nothing else,** with `"labels": ["lane:decision"]` on a
@@ -55,10 +56,11 @@ back to the labels used today (below).
   and the per-stream stats on `/admin/audit` count only `audit` issues.
 - The label sync (part of `/api/cron/sync-audit-issues`) keeps each lane label's color and
   description.
-- **Secrets never reach GitHub from the server.** Every issue body and comment the server files
+- **The server scrubs secrets before posting.** Every issue body and comment the server files
   passes through `scrubSecrets` (`src/lib/audit-redact.ts`): `key=`/`token=`/`sig=` query values,
-  `AIza…` keys, bearer tokens, URL credentials and the like. `scripts/scrub.ts` uses the same
-  patterns.
+  `AIza…` keys, bearer tokens, URL credentials and the like. It removes those recognized
+  patterns, not every possible credential, so never paste a raw secret. `scripts/scrub.ts` uses
+  the same patterns.
 - **Until the relabel:** the fixer works `audit` issues and switches to `lane:defect` by itself once
   any issue carries it; the digest reads `audit:needs-decision` as well as `lane:decision`.
 

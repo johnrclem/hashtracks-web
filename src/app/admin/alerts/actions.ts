@@ -10,6 +10,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { ARCHIVE_SOURCE_LOCKED, isArchiveSource } from "@/lib/archive-source";
 import { LANE_LABELS, isValidKennelCode, kennelLabel } from "@/lib/audit-labels";
 import { scrubSecrets } from "@/lib/audit-redact";
+import { getValidatedRepo } from "@/lib/github-repo";
 
 interface RepairLogEntry {
   action: string;
@@ -528,7 +529,7 @@ ${getSuggestedApproach(alert.type, ctx)}
   try {
     const labels = [LANE_LABELS.incident, typeLabel, severityLabel, ...(await incidentKennelLabels(alert.sourceId))];
     const res = await fetch(
-      "https://api.github.com/repos/johnrclem/hashtracks-web/issues",
+      `https://api.github.com/repos/${getValidatedRepo()}/issues`,
       {
         method: "POST",
         headers: {

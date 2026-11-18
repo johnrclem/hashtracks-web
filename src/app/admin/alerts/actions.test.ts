@@ -663,6 +663,7 @@ describe("createIssueFromAlert", () => {
     const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
     expect(body.labels).toEqual(["lane:incident", "alert:scrape-failure", "severity:warning", "kennel:asssh3", "kennel:summit"]);
     expect(body.body).toContain("?key=[secret]");
+    expect(mockSourceKennelFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { sourceId: "src_1" } }));
     expect(body.body).not.toContain(key);
   });
 

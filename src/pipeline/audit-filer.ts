@@ -5,9 +5,9 @@
  * endpoint (`/api/audit/file-finding`) call into `fileAuditFinding`,
  * which:
  *
- *   0. Removes secrets, phone numbers and personal emails from the
- *      title and body (`redactFindingInput`). Every step below works on
- *      that redacted copy, so nothing unredacted can reach GitHub.
+ *   0. Removes recognized secret, phone and personal-email patterns from
+ *      the title and body (`redactFindingInput`). Every step below works
+ *      on that redacted copy.
  *   1. Computes the fingerprint via `buildCanonicalBlock`. Rules
  *      flagged `fingerprint: false` in the registry skip the fingerprint
  *      tiers entirely and fall through to a fresh-issue create — the
@@ -112,6 +112,9 @@ function extractRuleSlugFromTitle(title: string): string | null {
  */
 export const ESCALATION_THRESHOLD = 5;
 
+/** GitHub's issue-title limit. */
+const GITHUB_TITLE_MAX = 256;
+
 export interface FileFindingInput {
   stream: AuditStream;
   kennelCode: string;
@@ -210,6 +213,28 @@ function formatRecurComment(input: FileFindingInput): string {
 }
 
 /**
+ * True when the agent asked for the owner's call (`lane:decision`). A finding
+ * that only recurred would lose that request in a comment, so the mirror tiers
+ * escalate it at once and the GitHub-search tier files it fresh.
+ */
+function wantsDecision(input: FileFindingInput): boolean {
+  return input.labels.includes(LANE_LABELS.decision);
+}
+
+/** The meta-issue body when an agent asked for the owner's decision on a finding that is already open. */
+function formatDecisionRequestBody(
+  baseIssueNumber: number,
+  kennelShortName: string,
+  input: FileFindingInput,
+): string {
+  return [
+    `An audit agent asked for the owner's decision on **${input.ruleSlug}** for **${kennelShortName}**, which is already open as #${baseIssueNumber}.`,
+    "",
+    input.bodyMarkdown,
+  ].join("\n");
+}
+
+/**
  * Build the meta-issue body for an escalation. Pure function; takes
  * resolved kennel shortName so the formatting doesn't have to do its
  * own DB lookup.
@@ -268,7 +293,8 @@ async function tryEscalate(
   input: FileFindingInput,
   actions: FilerActions,
 ): Promise<number | undefined> {
-  if (newRecurrenceCount < ESCALATION_THRESHOLD) return undefined;
+  const decisionRequested = wantsDecision(input);
+  if (newRecurrenceCount < ESCALATION_THRESHOLD && !decisionRequested) return undefined;
 
   // Step 1: atomic claim. A row with `escalatedAt: null` flips to
   // `escalatedAt: now()` (with escalatedToIssueNumber still null —
@@ -294,13 +320,12 @@ async function tryEscalate(
   let meta: { number: number; htmlUrl: string } | null;
   try {
     meta = await actions.createIssue({
-      title: `[Audit Recurring] ${kennelShortName} — ${input.ruleSlug}: ${newRecurrenceCount}+ days unresolved`,
-      body: formatEscalationBody(
-        baseIssueNumber,
-        kennelShortName,
-        input,
-        newRecurrenceCount,
-      ),
+      title: decisionRequested
+        ? `[Decision] ${kennelShortName} — ${input.ruleSlug}: owner decision requested`
+        : `[Audit Recurring] ${kennelShortName} — ${input.ruleSlug}: ${newRecurrenceCount}+ days unresolved`,
+      body: decisionRequested
+        ? formatDecisionRequestBody(baseIssueNumber, kennelShortName, input)
+        : formatEscalationBody(baseIssueNumber, kennelShortName, input, newRecurrenceCount),
       labels: [AUDIT_LABEL, NEEDS_DECISION_LABEL, kennelLabel(input.kennelCode), LANE_LABELS.decision],
     });
   } catch (err) {
@@ -394,7 +419,7 @@ async function runStrictTier(
   actions: FilerActions,
 ): Promise<FileFindingOutcome | null> {
   const strict = await prisma.auditIssue.findFirst({
-    where: { fingerprint, state: "open", delistedAt: null },
+    where: { fingerprint, state: "open", delistedAt: null, hasAuditLabel: true },
     select: {
       id: true,
       githubNumber: true,
@@ -545,7 +570,7 @@ async function tryBridge(
     // tier already separates increment from comment for the same
     // reason; bridging now matches.
     const claimed = await prisma.auditIssue.updateMany({
-      where: { id: candidate.id, fingerprint: null },
+      where: { id: candidate.id, fingerprint: null, hasAuditLabel: true },
       data: { fingerprint },
     });
     if (claimed.count === 0) {
@@ -745,6 +770,7 @@ async function tryCoarseDedup(
           recurrenceCount: canonical.recurrenceCount,
           state: "open",
           delistedAt: null,
+          hasAuditLabel: true,
         },
         data: { recurrenceCount: { increment: 1 } },
       });
@@ -769,9 +795,10 @@ async function tryCoarseDedup(
           escalatedToIssueNumber: true,
           state: true,
           delistedAt: true,
+          hasAuditLabel: true,
         },
       });
-      if (refetched && refetched.state === "open" && !refetched.delistedAt) {
+      if (refetched && refetched.state === "open" && !refetched.delistedAt && refetched.hasAuditLabel) {
         return {
           action: "recurred",
           issueNumber: canonical.githubNumber,
@@ -856,6 +883,11 @@ async function tryGitHubSearchDedup(
     );
   });
   if (!match) return null;
+  // Not mirrored yet, so there's no row to escalate from: file the request as its own
+  // decision issue, linked to the open one.
+  if (wantsDecision(input)) {
+    return fileFresh({ ...input, bodyMarkdown: `Owner decision requested; already open as #${match.number}.\n\n${input.bodyMarkdown}` }, actions);
+  }
 
   const ok = await actions.postComment(match.number, formatRecurComment(input));
   if (!ok) {
@@ -900,13 +932,51 @@ async function lookUpKennelWebsite(kennelCode: string): Promise<string | null> {
  */
 async function redactFindingInput(input: FileFindingInput): Promise<FileFindingInput> {
   const kennelWebsite = await lookUpKennelWebsite(input.kennelCode);
-  const { title, bodyMarkdown, redactions } = redactFinding(input, kennelWebsite);
+  const redacted = redactFinding(input, kennelWebsite);
+  const { bodyMarkdown, redactions } = redacted;
+  // A secret shorter than its placeholder grows the title; GitHub caps titles at 256.
+  const title = redacted.title.slice(0, GITHUB_TITLE_MAX);
   if (redactions > 0) {
     console.warn(
       `[audit-filer] Removed ${redactions} secret or personal-data match(es) from ${input.kennelCode}/${input.ruleSlug} before filing`,
     );
   }
   return { ...input, title, bodyMarkdown };
+}
+
+/**
+ * Create a fresh issue. Embedding the canonical block lets the next sync round
+ * populate AuditIssue.fingerprint without a registry round-trip; the bridging tier
+ * is the safety net for rows created before it. The identity marker is ALWAYS
+ * embedded (even for non-fingerprintable rules) so the GitHub-search gate can
+ * recognize a future re-file regardless of title drift.
+ */
+async function fileFresh(input: FileFindingInput, actions: FilerActions): Promise<FileFindingOutcome> {
+  const canonical = buildCanonicalBlock({
+    stream: input.stream,
+    kennelCode: input.kennelCode,
+    ruleSlug: input.ruleSlug,
+  });
+  const identityMarker = emitIdentityMarker({
+    stream: input.stream,
+    kennelCode: input.kennelCode,
+    ruleSlug: input.ruleSlug,
+  });
+  const finalBody = canonical
+    ? `${input.bodyMarkdown}\n\n${emitCanonicalBlock(canonical)}\n${identityMarker}`
+    : `${input.bodyMarkdown}\n\n${identityMarker}`;
+  const created = await actions.createIssue({
+    title: input.title,
+    body: finalBody,
+    labels: input.labels,
+  });
+  if (!created) return { action: "error", reason: "create-failed" };
+
+  return {
+    action: "created",
+    issueNumber: created.number,
+    htmlUrl: created.htmlUrl,
+  };
 }
 
 /**
@@ -950,30 +1020,5 @@ export async function fileAuditFinding(
   const gitHubDedup = await tryGitHubSearchDedup(input, actions);
   if (gitHubDedup) return gitHubDedup;
 
-  // Embedding the canonical block on fresh creates lets the next
-  // sync round populate AuditIssue.fingerprint without a registry
-  // round-trip; the bridging tier above is the safety net for rows
-  // that were created before this PR. The identity marker is ALWAYS
-  // embedded (even for non-fingerprintable rules) so the GitHub-search
-  // gate can recognize a future re-file regardless of title drift.
-  const identityMarker = emitIdentityMarker({
-    stream: input.stream,
-    kennelCode: input.kennelCode,
-    ruleSlug: input.ruleSlug,
-  });
-  const finalBody = canonical
-    ? `${input.bodyMarkdown}\n\n${emitCanonicalBlock(canonical)}\n${identityMarker}`
-    : `${input.bodyMarkdown}\n\n${identityMarker}`;
-  const created = await actions.createIssue({
-    title: input.title,
-    body: finalBody,
-    labels: input.labels,
-  });
-  if (!created) return { action: "error", reason: "create-failed" };
-
-  return {
-    action: "created",
-    issueNumber: created.number,
-    htmlUrl: created.htmlUrl,
-  };
+  return fileFresh(input, actions);
 }

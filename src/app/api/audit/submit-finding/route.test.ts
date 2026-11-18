@@ -169,10 +169,9 @@ describe("POST /api/audit/submit-finding — finding", () => {
       });
     });
 
-    it("removes an API key quoted from a scrape error", async () => {
-      const key = `AIza${"x".repeat(35)}`;
+    it("removes a secret query value quoted from a scrape error", async () => {
       await POST(
-        buildApiPostRequest(URL, { ...VALID_FINDING, bodyMarkdown: `Fetch failed: /calendars/x/events?key=${key}` }),
+        buildApiPostRequest(URL, { ...VALID_FINDING, bodyMarkdown: "Fetch failed: /calendars/x/events?key=sample-value" }),
       );
       expect(storedDraft().bodyMarkdown).toBe("Fetch failed: /calendars/x/events?key=[secret]");
     });

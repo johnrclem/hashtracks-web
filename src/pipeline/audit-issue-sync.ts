@@ -259,9 +259,10 @@ async function fetchIssuesWithLabel(token: string, label: string): Promise<GitHu
     const batch = (await res.json()) as GitHubIssue[];
     // Skip pull requests — the /issues endpoint returns both.
     issues.push(...batch.filter((i) => !i.pull_request));
-    if (batch.length < PAGE_SIZE) break;
+    if (batch.length < PAGE_SIZE) return issues;
   }
-  return issues;
+  // A truncated listing would delist every row past the cap, so fail the sync instead.
+  throw new Error(`More than ${MAX_PAGES * PAGE_SIZE} issues labelled ${label}; raise MAX_PAGES`);
 }
 
 /** Every `audit`-labelled issue in any state. */
@@ -472,9 +473,12 @@ export async function syncAuditIssues(): Promise<SyncResult> {
     for (const issue of issues) {
       try {
         const labelNames = extractLabelNames(issue.labels);
-        const streamResolution = resolveStream(labelNames);
-        const laneResolution = resolveLane(labelNames);
         const hasAuditLabel = labelNames.includes(AUDIT_LABEL);
+        // A stream label left on an issue that lost `audit` doesn't make it an audit issue.
+        const streamResolution = hasAuditLabel
+          ? resolveStream(labelNames)
+          : { stream: AuditStream.UNKNOWN, conflict: false };
+        const laneResolution = resolveLane(labelNames);
         const kennelCode = resolveKennel(labelNames, knownKennelCodes);
         const githubCreatedAt = new Date(issue.created_at);
         const githubClosedAt = issue.closed_at ? new Date(issue.closed_at) : null;

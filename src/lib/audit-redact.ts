@@ -59,7 +59,8 @@ import { displayDomain } from "@/lib/format";
 const REDACTION_MARK = "[secret]";
 
 // `user:password@` in a URL, such as a database URL quoted in an error message.
-const URL_CREDENTIALS_RE = /(?<=:\/\/)[^\s/@:]+:[^\s/@]+(?=@)/g;
+// The authority only: a `?` or `#` ends it, so an `@` in a query value is left alone.
+const URL_CREDENTIALS_RE = /(?<=:\/\/)[^\s/@:?#]+:[^\s/@?#]+(?=@)/g;
 // Every query parameter; the name decides whether its value is a secret. `;` and `\u0026` also
 // start one, for HTML-escaped (`&amp;`) and JSON-escaped URLs. A closing bracket, a quote or a
 // backslash ends the value, so a markdown link or a quoted or escaped URL keeps its punctuation.
@@ -72,7 +73,8 @@ const ENV_ASSIGNMENT_RE = /\b([A-Z][A-Z\d_]*(?:KEY|TOKEN|SECRET|PASSWORD))=("[^"
 const GOOGLE_API_KEY_RE = /AIza[\w-]{30,}/g;
 // Sixteen characters at least, so prose ("the bearer acknowledged …") is left alone.
 const BEARER_RE = /(?<=\bBearer\s+)[\w.~+/-]{16,}=*/gi;
-const GITHUB_TOKEN_RE = /\b(?:gh[pousr]_[A-Za-z\d]{30,}|github_pat_\w{30,})/g;
+// Classic tokens, fine-grained PATs, and stateless App installation tokens (`ghs_<app id>_<JWT>`).
+const GITHUB_TOKEN_RE = /\b(?:ghs_\d+_[\w-]+\.[\w-]+\.[\w-]+|gh[pousr]_[A-Za-z\d]{30,}|github_pat_\w{30,})/g;
 const SK_KEY_RE = /\bsk_(?:live|test)_\w{16,}/g;
 
 /**
@@ -92,8 +94,11 @@ export function scrubSecrets(text: string): { text: string; redactions: number }
     .replaceAll(URL_CREDENTIALS_RE, replace)
     // A shell reference (`?key=$GOOGLE_CALENDAR_API_KEY`) holds no secret, and keeps a pasted
     // command runnable.
+    // An already-scrubbed value (`[secret`, cut at its `]`) stays, so a second pass changes nothing.
     .replaceAll(QUERY_PARAM_RE, (param: string, name: string, value: string) =>
-      SECRET_NAME_RE.test(name) && !value.startsWith("$") ? `${name}=${replace()}` : param,
+      SECRET_NAME_RE.test(name) && !value.startsWith("$") && value !== REDACTION_MARK.slice(0, -1)
+        ? `${name}=${replace()}`
+        : param,
     )
     // A value the query rule already replaced, or a shell reference (`$VAR`, `$(…)`), stays.
     .replaceAll(ENV_ASSIGNMENT_RE, (assignment: string, name: string, value: string) =>
@@ -118,7 +123,8 @@ const CONTEXT_CHARS = 32;
 // URLs are skipped by the phone rules so ids in links survive. A comma, semicolon
 // or pipe ends the token, so a number stuck to the end of a URL is still scanned.
 // The capture group makes `split` keep the URLs, at the odd indexes.
-const URL_RE = /((?:https?:\/\/|www\.)[^\s<>)\]"'`,;|]+)/i;
+// A `[secret]` placeholder stays part of the URL, so a scrubbed query value doesn't end it early.
+const URL_RE = /((?:https?:\/\/|www\.)(?:\[secret\]|[^\s<>)\]"'`,;|])+)/i;
 
 // iOS contact copies and many web pages separate digits with these. They become
 // plain separators first, so the rules below don't each have to list them.

@@ -283,7 +283,7 @@ describe("fileAuditFinding — bridging tier", () => {
     // when the comment fails or retries — review feedback from Qodo /
     // CodeRabbit / Codex on PR #1190.
     expect(mockUpdateMany).toHaveBeenCalledWith({
-      where: { id: "legacy_1", fingerprint: null },
+      where: { id: "legacy_1", fingerprint: null, hasAuditLabel: true },
       data: { fingerprint: "fp_hare-url_dummy" },
     });
     // Step 3: increment runs after comment success, in its own update.
@@ -928,6 +928,7 @@ describe("fileAuditFinding — coarse-dedup tier (non-fingerprintable rules)", (
         recurrenceCount: 2,
         state: "open",
         delistedAt: null,
+        hasAuditLabel: true,
       },
       data: { recurrenceCount: { increment: 1 } },
     });
@@ -1009,6 +1010,7 @@ describe("fileAuditFinding — coarse-dedup tier (non-fingerprintable rules)", (
       escalatedToIssueNumber: null,
       state: "open",
       delistedAt: null,
+      hasAuditLabel: true,
     } as never);
     const actions = buildActions();
 
@@ -1394,5 +1396,43 @@ describe("fileAuditFinding — GitHub-search dedup gate (#2308)", () => {
     expect(createCall.body).toContain("<!-- audit-identity:");
     expect(createCall.body).toContain('"kennelCode":"c2h3"');
     expect(createCall.body).toContain('"ruleSlug":"hare-cta-text"');
+  });
+});
+
+describe("fileAuditFinding — a decision request on a finding already open", () => {
+  const DECISION_INPUT = { ...BASE_INPUT, labels: ["audit", "kennel:nych3", "lane:decision"] };
+
+  it("files a linked decision issue at once instead of only commenting", async () => {
+    setupStrictHit(1);
+    mockUpdateMany.mockResolvedValueOnce({ count: 1 } as never); // escalation claim
+    const actions = buildActions({
+      createIssue: vi.fn().mockResolvedValue({ number: 777, htmlUrl: "https://github.com/x/y/issues/777" }),
+    });
+
+    const out = await fileAuditFinding(DECISION_INPUT, actions);
+
+    expect(out).toMatchObject({ action: "recurred", issueNumber: 100, escalatedToIssueNumber: 777 });
+    const meta = vi.mocked(actions.createIssue).mock.calls[0][0];
+    expect(meta.title).toContain("owner decision requested");
+    expect(meta.body).toContain("already open as #100");
+    expect(meta.labels).toContain("lane:decision");
+  });
+
+  it("files fresh, linked to the open issue, when only GitHub knows about it", async () => {
+    mockFindFirst.mockResolvedValue(null as never);
+    mockFindMany.mockResolvedValue([] as never);
+    const actions = buildActions({
+      listOpenIssuesByKennel: vi.fn().mockResolvedValue([
+        { number: 964, htmlUrl: "https://github.com/x/y/issues/964", title: DECISION_INPUT.title, body: "" },
+      ]),
+    });
+
+    const out = await fileAuditFinding(DECISION_INPUT, actions);
+
+    expect(out.action).toBe("created");
+    expect(actions.postComment).not.toHaveBeenCalled();
+    const created = vi.mocked(actions.createIssue).mock.calls[0][0];
+    expect(created.body).toContain("already open as #964");
+    expect(created.labels).toContain("lane:decision");
   });
 });

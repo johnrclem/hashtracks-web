@@ -264,12 +264,13 @@ function renderIssueBody(findings: DriftFinding[]): string {
  * records its snapshot and run.
  */
 export async function fileRuleDriftIssue(findings: DriftFinding[]): Promise<{ filed: boolean; reason: string }> {
-  const github = opsGithubFromEnv();
-  if (!github) return { filed: false, reason: "no GITHUB_TOKEN" };
   // Any GitHub failure (timeout, non-2xx) throws GithubUnavailableError; it becomes a "don't file"
   // reason, so a transient error neither 500s the cron (Codex review on PR #2169) nor falls through
   // a failed dedup check to a possibly-duplicate issue. The client scrubs secrets from what it posts.
   try {
+    // Inside the try: a malformed GITHUB_REPOSITORY throws while building the client.
+    const github = opsGithubFromEnv();
+    if (!github) return { filed: false, reason: "no GITHUB_TOKEN" };
     const open = await github.listIssues({ labels: DRIFT_LABEL, state: "open", limit: 1 });
     if (open.length > 0) return { filed: false, reason: "open rule-drift issue exists" };
     await github.createIssue({
