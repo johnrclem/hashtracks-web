@@ -47,7 +47,7 @@ HTML
     [[ -e "$key_file" ]] && { echo "refusing to overwrite $key_file" >&2; exit 1; }
     umask 077
     # The response holds the private key and the App's secrets: keep it out of the terminal.
-    response="$(curl -fsS -X POST -H 'Accept: application/vnd.github+json' \
+    response="$(curl -fsS --proto '=https' --proto-redir '=https' --tlsv1.2 -X POST -H 'Accept: application/vnd.github+json' \
       "https://api.github.com/app-manifests/${code}/conversions")" || { echo "GitHub refused the code (used, or older than an hour?)" >&2; exit 1; }
     printf '%s' "$response" | jq -er .pem >"$key_file"
     chmod 600 "$key_file"
