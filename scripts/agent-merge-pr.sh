@@ -57,7 +57,10 @@ fi
 checks() {
   gh pr checks "$PR" --json name,bucket --jq '.[] | "\(.name)\t\(.bucket)"' 2>/dev/null || true
 }
-bucket_of() { awk -F'\t' -v n="$1" '$1 == n { print $2; exit }' <<<"$rows"; }
+bucket_of() {
+  local name="$1"
+  awk -F'\t' -v n="$name" '$1 == n { print $2; exit }' <<<"$rows"
+}
 
 # Who set the newest write-gate status on the head (checked once, when it reports success).
 gate_creator() {

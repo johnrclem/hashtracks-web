@@ -145,7 +145,7 @@ export interface PrApproval {
 async function checkLabel(gh: GitHub, pr: PullRequest): Promise<string> {
   if (!pr.labels.some((l) => l.name === APPROVAL_LABEL)) throw new LabelMissingError(`A2: the PR doesn't carry ${APPROVAL_LABEL}`);
   const events = await gh.list<IssueEvent>(`/issues/${pr.number}/events`);
-  const labeled = events.filter((e) => e.event === "labeled" && e.label?.name === APPROVAL_LABEL).at(-1);
+  const labeled = events.findLast((e) => e.event === "labeled" && e.label?.name === APPROVAL_LABEL);
   if (!labeled) throw new RetryableApprovalError("A2: no labeled event yet");
   if (labeled.actor?.login !== ownerGithubLogin()) throw new TerminalApprovalError(`A2: ${APPROVAL_LABEL} was last added by ${labeled.actor?.login ?? "unknown"}, not the owner`);
   return labeled.created_at;

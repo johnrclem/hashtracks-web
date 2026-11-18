@@ -97,6 +97,25 @@ async function approvalFor(gh: GitHub, pr: PullRequest): Promise<ApprovalResult>
   }
 }
 
+/**
+ * The owner's `owner-approved` stamps the head GitHub reported with the label event; anyone else's
+ * (or a re-run of the owner's event started by someone else) gets a comment saying it was ignored.
+ * Returns a line for the summary.
+ */
+async function stampOrIgnore(event: GateEvent, owner: string, runUrl: string): Promise<string> {
+  const number = event.pull_request.number;
+  const byOwner = event.sender.login === owner && event.sender.type === "User";
+  const ownerRan = process.env.GITHUB_TRIGGERING_ACTOR === owner;
+  if (byOwner && ownerRan) {
+    await setStatus(event.pull_request.head.sha, STAMP_CONTEXT, "success", stampDescription(number), runUrl);
+    return `Stamped \`${STAMP_CONTEXT}\` on ${event.pull_request.head.sha.slice(0, 7)}.`;
+  }
+  const who = byOwner ? `a re-run started by \`${process.env.GITHUB_TRIGGERING_ACTOR ?? "unknown"}\`` : `\`${event.sender.login}\``;
+  const text = `The write gate ignored \`${APPROVAL_LABEL}\` from ${who}: only the owner's own label approves a pull request. Remove the label; it doesn't count.`;
+  await write(`/issues/${number}/comments`, "POST", { body: text });
+  return text;
+}
+
 async function main(): Promise<void> {
   if (env("GITHUB_REPOSITORY") !== APPROVAL_REPO) throw new Error(`the gate only runs on ${APPROVAL_REPO}`);
   const token = env("GITHUB_TOKEN");
@@ -115,22 +134,8 @@ async function main(): Promise<void> {
   const head = pr.head.sha;
   if (head !== event.pull_request.head.sha) await setStatus(head, GATE_CONTEXT, "pending", "Evaluating…", runUrl);
 
-  // 2. Stamp, or say why not. The stamp marks the head GitHub reported with the label event.
-  const notes: string[] = [];
-  if (event.action === "labeled" && event.label?.name === APPROVAL_LABEL) {
-    const byOwner = event.sender.login === owner && event.sender.type === "User";
-    // A re-run of the owner's label event by someone else must not stamp again.
-    const ownerRan = process.env.GITHUB_TRIGGERING_ACTOR === owner;
-    if (byOwner && ownerRan) {
-      await setStatus(event.pull_request.head.sha, STAMP_CONTEXT, "success", stampDescription(number), runUrl);
-      notes.push(`Stamped \`${STAMP_CONTEXT}\` on ${event.pull_request.head.sha.slice(0, 7)}.`);
-    } else {
-      const who = byOwner ? `a re-run started by \`${process.env.GITHUB_TRIGGERING_ACTOR ?? "unknown"}\`` : `\`${event.sender.login}\``;
-      const text = `The write gate ignored \`${APPROVAL_LABEL}\` from ${who}: only the owner's own label approves a pull request. Remove the label; it doesn't count.`;
-      await write(`/issues/${number}/comments`, "POST", { body: text });
-      notes.push(text);
-    }
-  }
+  // 2. Stamp, or say why not.
+  const notes = event.action === "labeled" && event.label?.name === APPROVAL_LABEL ? [await stampOrIgnore(event, owner, runUrl)] : [];
 
   // 3. Classify and evaluate the PR's head as it is now.
   const [files, headStatuses, approval] = await Promise.all([

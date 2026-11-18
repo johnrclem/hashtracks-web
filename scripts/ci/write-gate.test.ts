@@ -179,7 +179,7 @@ describe("kept in step with the rest of the repo", () => {
 
   it("the workflow never checks out or runs the pull request's code", () => {
     expect(workflow).toMatch(/^\s+pull_request_target:/m);
-    expect(workflow).toContain("ref: ${{ github.event.repository.default_branch }}");
+    expect(workflow).toMatch(/^\s+ref: main$/m);
     // The PR's head SHA may name a commit status, never a checkout.
     expect(workflow).not.toMatch(/ref:\s*\$\{\{\s*github\.event\.pull_request|github\.event\.pull_request\.head\.ref|refs\/pull\//);
     expect(workflow.match(/uses: actions\/checkout/g)).toHaveLength(1);
