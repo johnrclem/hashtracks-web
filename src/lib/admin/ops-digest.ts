@@ -3,11 +3,15 @@
  *
  * The task runs unattended on the owner's Mac, where auto mode refuses direct
  * `psql` reads of the production database. Instead it calls the token-authenticated
- * `/api/audit/agent/ops-digest` route, which runs only these fixed SELECT queries.
+ * `/api/audit/agent/ops-digest` route, which runs only these fixed SELECT queries,
+ * plus one GitHub read for the pull requests waiting on the owner.
  * Nothing here writes, and nothing is parameterised by the caller.
  */
+import type { AutomationStatus, AutomationVerdict } from "@/generated/prisma/client";
+import { automationLabel, loadFailedMigrations, PROMOTER_MAX_PENDING_HOURS } from "@/lib/automation-registry";
 import { prisma } from "@/lib/db";
 import { buildBackfillDigest, ownerSecondFactors, type BackfillDigest, type SecondFactorStatus } from "@/lib/backfill/digest";
+import { isWaitingOnOwner, opsGithubFromEnv, type OpsGithub } from "@/lib/ops-github";
 
 export interface FailingSource {
   name: string;
@@ -38,6 +42,30 @@ export interface FailedMigration {
   startedAt: string;
 }
 
+/** The ops watchdog's view of one automation (`AutomationState`). */
+export interface WatchdogState {
+  automation: string;
+  label: string;
+  /** Alarm state: OVERDUE means an alarm is out (Sentry, a `lane:ops` issue, email). */
+  status: AutomationStatus;
+  since: string;
+  /** Latest check: BLOCKED_ON_OWNER is no alarm, UNKNOWN means the check itself failed. */
+  verdict: AutomationVerdict | null;
+  detail: string | null;
+  checkedAt: string | null;
+  issueNumber: number | null;
+}
+
+export interface WaitingPr {
+  number: number;
+  title: string;
+  url: string;
+  labels: string[];
+  openedAt: string;
+  ageHours: number;
+  headSha: string;
+}
+
 export interface OpsDigest {
   generatedAt: string;
   scrapes24h: { runs: number; failed: number; eventsCreated: number; eventsCancelled: number };
@@ -50,7 +78,7 @@ export interface OpsDigest {
   auditQueue: {
     pending: number;
     oldestPendingAt: string | null;
-    /** PENDING drafts submitted more than {@link STALE_PENDING_HOURS} hours ago.
+    /** PENDING drafts submitted more than {@link PROMOTER_MAX_PENDING_HOURS} hours ago.
      *  The promoter runs hourly, so any of these means it is stuck or failing. */
     stalePending: number;
   };
@@ -67,18 +95,82 @@ export interface OpsDigest {
   backfills: BackfillDigest | null;
   /** The owner's second factors through Clerk (10.3); null when OWNER_CLERK_USER_ID is unset or Clerk failed. */
   ownerSecondFactors: SecondFactorStatus | null;
+  /** Overdue first, then blocked on the owner, unknown and OK. */
+  watchdog: WatchdogState[];
+  /**
+   * Open pull requests only the owner can move (not drafts, not yet `owner-approved`, not the
+   * research task's self-merged handoffs), oldest first. `prs` is null when GitHub couldn't be read.
+   */
+  approvalsWaiting: { prs: WaitingPr[] | null; error: string | null };
 }
 
-/** A PENDING draft older than this has missed at least one hourly promoter run. */
-export const STALE_PENDING_HOURS = 2;
+const VERDICT_ORDER: Record<AutomationVerdict, number> = { OVERDUE: 0, BLOCKED_ON_OWNER: 1, UNKNOWN: 2, OK: 3 };
+const HOUR_MS = 3_600_000;
+
+async function loadWatchdogStates(): Promise<WatchdogState[]> {
+  const rows = await prisma.automationState.findMany({ orderBy: { automation: "asc" } });
+  const rank = (r: (typeof rows)[number]) => (r.status === "OVERDUE" ? 0 : VERDICT_ORDER[r.verdict ?? "UNKNOWN"]);
+  return rows
+    .sort((a, b) => rank(a) - rank(b))
+    .map((r) => ({
+      automation: r.automation,
+      label: automationLabel(r.automation),
+      status: r.status,
+      since: r.since.toISOString(),
+      verdict: r.verdict,
+      detail: r.detail,
+      checkedAt: iso(r.checkedAt),
+      issueNumber: r.issueNumber,
+    }));
+}
+
+/** `github` undefined means "from the environment", built inside the guard so a bad env can't fail the digest. */
+async function loadApprovalsWaiting(
+  github: OpsGithub | null | undefined,
+  now: Date,
+): Promise<OpsDigest["approvalsWaiting"]> {
+  try {
+    const client = github === undefined ? opsGithubFromEnv() : github;
+    if (!client) return { prs: null, error: "GITHUB_TOKEN is not set" };
+    const pulls = await client.listOpenPulls();
+    return {
+      prs: pulls.filter(isWaitingOnOwner).map((pr) => ({
+        number: pr.number,
+        title: pr.title,
+        url: pr.url,
+        labels: pr.labels,
+        openedAt: pr.createdAt.toISOString(),
+        ageHours: Math.floor((now.getTime() - pr.createdAt.getTime()) / HOUR_MS),
+        headSha: pr.headSha,
+      })),
+      error: null,
+    };
+  } catch (err) {
+    return { prs: null, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 
 /** Postgres COUNT/SUM come back as bigint; the JSON response needs plain numbers. */
 const num = (v: unknown): number => (v == null ? 0 : Number(v));
 const iso = (v: unknown): string | null => (v instanceof Date ? v.toISOString() : null);
 
-export async function buildOpsDigest(now: Date = new Date()): Promise<OpsDigest> {
-  const [scrapeRows, failingRows, alertRows, createdRows, cancelRows, zeroRows, queueRows, migrationRows] =
-    await Promise.all([
+export async function buildOpsDigest(
+  now: Date = new Date(),
+  github?: OpsGithub | null,
+): Promise<OpsDigest> {
+  const [
+    scrapeRows,
+    failingRows,
+    alertRows,
+    createdRows,
+    cancelRows,
+    zeroRows,
+    queueRows,
+    migrationRows,
+    watchdog,
+    approvalsWaiting,
+  ] = await Promise.all([
       prisma.$queryRaw<Array<Record<string, unknown>>>`
         SELECT count(*) AS runs,
                count(*) FILTER (WHERE status = 'FAILED') AS failed,
@@ -133,13 +225,12 @@ export async function buildOpsDigest(now: Date = new Date()): Promise<OpsDigest>
       prisma.$queryRaw<Array<Record<string, unknown>>>`
         SELECT count(*) AS pending, min("submittedAt") AS oldest,
                count(*) FILTER (
-                 WHERE "submittedAt" < now() - make_interval(hours => ${STALE_PENDING_HOURS}::int)
+                 WHERE "submittedAt" < now() - make_interval(hours => ${PROMOTER_MAX_PENDING_HOURS}::int)
                ) AS stale
         FROM "AuditFindingDraft" WHERE status = 'PENDING'`,
-      prisma.$queryRaw<Array<Record<string, unknown>>>`
-        SELECT migration_name, started_at FROM "_prisma_migrations"
-        WHERE finished_at IS NULL AND rolled_back_at IS NULL
-        ORDER BY started_at`,
+      loadFailedMigrations(),
+      loadWatchdogStates(),
+      loadApprovalsWaiting(github, now),
     ]);
 
   const s = scrapeRows[0] ?? {};
@@ -192,9 +283,8 @@ export async function buildOpsDigest(now: Date = new Date()): Promise<OpsDigest>
       oldestPendingAt: iso(q.oldest),
       stalePending: num(q.stale),
     },
-    failedMigrations: migrationRows.map((r) => ({
-      name: String(r.migration_name),
-      startedAt: iso(r.started_at) ?? "",
-    })),
+    failedMigrations: migrationRows.map((m) => ({ name: m.name, startedAt: m.startedAt.toISOString() })),
+    watchdog,
+    approvalsWaiting,
   };
 }

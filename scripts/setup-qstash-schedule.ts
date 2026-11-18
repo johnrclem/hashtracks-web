@@ -12,7 +12,7 @@
  *   - QSTASH_TOKEN in .env
  *
  * Quota: dispatch fans out to roughly 500 messages a day; the hourly promoter
- * adds 24.
+ * and the hourly watchdog add 24 each.
  */
 import "dotenv/config";
 import { Client } from "@upstash/qstash";
@@ -37,6 +37,13 @@ const SCHEDULES: ScheduleSpec[] = [
     path: "/api/cron/promote-audit-findings",
     cron: "5 * * * *",
     description: "audit-finding promotion, hourly",
+  },
+  {
+    // At :20, clear of dispatch (:00) and the promoter (:05). The daily Vercel cron
+    // (vercel.json, 15:40 UTC) is the backstop, and alarms if this schedule stops.
+    path: "/api/cron/watchdog",
+    cron: "20 * * * *",
+    description: "ops watchdog, hourly",
   },
 ];
 

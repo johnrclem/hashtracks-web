@@ -27,7 +27,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { redactPersonalData } from "@/lib/audit-redact";
 
-const SECRET_PLACEHOLDER = "[secret]";
+const REDACTION_MARK = "[secret]";
 
 // `user:password@` in a URL, such as a database URL quoted in an error message.
 const URL_CREDENTIALS_RE = /(?<=:\/\/)[^\s/@:]+:[^\s/@]+(?=@)/g;
@@ -50,7 +50,7 @@ export function scrubSecrets(text: string): { text: string; removals: number } {
   let removals = 0;
   const replace = (): string => {
     removals += 1;
-    return SECRET_PLACEHOLDER;
+    return REDACTION_MARK;
   };
 
   const result = text
@@ -62,7 +62,7 @@ export function scrubSecrets(text: string): { text: string; removals: number } {
     )
     // A value the query rule already replaced, or a shell reference (`$VAR`, `$(…)`), stays.
     .replaceAll(ENV_ASSIGNMENT_RE, (assignment: string, name: string, value: string) =>
-      value.startsWith(SECRET_PLACEHOLDER) || value.startsWith("$") ? assignment : `${name}=${replace()}`,
+      value.startsWith(REDACTION_MARK) || value.startsWith("$") ? assignment : `${name}=${replace()}`,
     )
     .replaceAll(GOOGLE_API_KEY_RE, replace)
     .replaceAll(BEARER_RE, replace)

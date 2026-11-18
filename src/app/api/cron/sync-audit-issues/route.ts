@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyCronAuth } from "@/lib/cron-auth";
+import { withCronRun } from "@/lib/cron-run";
 import { syncAuditIssues } from "@/pipeline/audit-issue-sync";
 import { syncKennelLabels, summarizeLabelSync } from "@/pipeline/kennel-label-sync";
 
@@ -16,17 +16,12 @@ export const maxDuration = 300;
  *   1. Kennel + stream label sync — advisory. Failures are logged but never
  *      abort phase 2 because the audit sync can still function against
  *      whatever labels currently exist.
- *   2. Audit issue sync — load-bearing. Errors bubble up as 500.
+ *   2. Audit issue sync — load-bearing. Errors bubble up as 500 (via `withCronRun`).
  *
  * Triggered by Vercel Cron (GET) at 12:30 UTC or manually with Bearer
  * CRON_SECRET.
  */
-export async function POST(request: Request) {
-  const auth = await verifyCronAuth(request);
-  if (!auth.authenticated) {
-    return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
-  }
-
+export const POST = withCronRun("cron:sync-audit-issues", async () => {
   let labelSyncSummary: ReturnType<typeof summarizeLabelSync> | { error: string };
   try {
     const result = await syncKennelLabels({ apply: true });
@@ -37,28 +32,17 @@ export async function POST(request: Request) {
     labelSyncSummary = { error: message };
   }
 
-  try {
-    const issueSync = await syncAuditIssues();
-    // Per-issue failures are collected in `issueSync.errors[]` rather than
-    // thrown, so the sync always completes as much work as possible. But
-    // returning 200 on a partially-stale mirror would hide the problem from
-    // cron monitoring and the dashboard would silently drift. Surface any
-    // partial failure as a 207 (Multi-Status) so Vercel's cron health check
-    // fails loudly and operators notice.
-    const status = issueSync.errors.length > 0 ? 207 : 200;
-    return NextResponse.json(
-      { data: { labelSync: labelSyncSummary, issueSync } },
-      { status },
-    );
-  } catch (err) {
-    console.error("[sync-audit-issues] Fatal error:", err);
-    return NextResponse.json(
-      { data: null, error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
-}
+  const issueSync = await syncAuditIssues();
+  // Per-issue failures are collected in `issueSync.errors[]` rather than
+  // thrown, so the sync always completes as much work as possible. A partial
+  // failure answers 207 (Multi-Status) instead of 200, so it stands out in the
+  // response and in the run row: `withCronRun` records the 207 as a SUCCESS
+  // with summary "HTTP 207". A partial sync therefore keeps the watchdog's
+  // liveness check satisfied. The watchdog marks this cron overdue only once
+  // its last successful run is more than 26 hours old (missed or 500 runs).
+  const status = issueSync.errors.length > 0 ? 207 : 200;
+  return NextResponse.json({ data: { labelSync: labelSyncSummary, issueSync } }, { status });
+});
 
-export async function GET(request: Request) {
-  return POST(request);
-}
+/** Vercel Cron triggers GET requests. */
+export const GET = POST;

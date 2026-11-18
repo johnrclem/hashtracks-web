@@ -8,6 +8,7 @@ import { buildSource } from "@/test/factories";
 vi.mock("@/lib/db", () => ({
   prisma: {
     source: { findMany: vi.fn() },
+    automationRun: { create: vi.fn(), update: vi.fn() },
   },
 }));
 vi.mock("@/lib/cron-auth");
@@ -38,6 +39,7 @@ describe("POST /api/cron/dispatch", () => {
     vi.resetAllMocks();
     process.env.NEXT_PUBLIC_APP_URL = APP_URL;
     vi.mocked(verifyCronAuth).mockResolvedValue({ authenticated: true, method: "bearer" });
+    vi.mocked(prisma.automationRun.create).mockResolvedValue({ id: "run-1" } as never);
     mockPublishJSON = vi.fn().mockResolvedValue({ messageId: "msg-1" });
     vi.mocked(getQStashClient).mockReturnValue({ publishJSON: mockPublishJSON } as never);
   });

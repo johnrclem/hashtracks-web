@@ -11,7 +11,7 @@ import { AUDIT_AGENT_SUBMITTER_ID, rejectUnlessAgent } from "@/lib/audit-agent-a
 import { readJsonBody } from "@/lib/audit-api-auth";
 
 export async function POST(req: Request): Promise<NextResponse> {
-  const rejected = rejectUnlessAgent(req);
+  const rejected = await rejectUnlessAgent(req);
   if (rejected) return rejected;
   const parsed = await readJsonBody(req);
   if (!parsed.ok) return parsed.response;

@@ -10,7 +10,7 @@ import { loadHarelinePromptInputs } from "@/lib/admin/hareline-prompt-inputs";
 import { rejectUnlessAgent } from "@/lib/audit-agent-auth";
 
 export async function GET(req: Request): Promise<NextResponse> {
-  const rejected = rejectUnlessAgent(req);
+  const rejected = await rejectUnlessAgent(req);
   if (rejected) return rejected;
 
   const inputs = await loadHarelinePromptInputs();
