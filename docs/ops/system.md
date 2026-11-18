@@ -255,6 +255,11 @@ Actions; force pushes and deletion blocked. The owner applies it, last:
 gh api -X POST repos/johnrclem/hashtracks-web/rulesets --input infra/github-rulesets/main.json
 ```
 
+After applying it, change the line below to `Main ruleset: REQUIRED` in a docs PR; from then on
+the digest flags every day the ruleset is off.
+
+Main ruleset: PENDING
+
 Before applying it, give every open PR a `write-gate` status (a PR opened before the gate landed
 has none and would wait forever): push to it, or add and remove any label. Once backfill PR 6 adds the `backfill-manifest` job, add it to `required_status_checks` the same
 way (edit the file, then `gh api -X PUT repos/johnrclem/hashtracks-web/rulesets/<id> --input …`).
