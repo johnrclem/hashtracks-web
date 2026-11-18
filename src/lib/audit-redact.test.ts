@@ -333,8 +333,12 @@ describe("scrubSecrets — review follow-ups", () => {
     expect(scrubSecrets(url).text).toBe(url);
   });
 
-  it("removes a literal dollar-prefixed value from a logged URL", () => {
-    expect(scrubSecrets("GET /feed?token=$sample1 → 401").text).toBe("GET /feed?token=[secret] → 401");
+  it.each([
+    ["a lowercase dollar value", "GET /feed?token=$sample1 → 401", "GET /feed?token=[secret] → 401"],
+    ["a value that only starts like a shell name", "GET /feed?token=$TOKEN.literal", "GET /feed?token=[secret]"],
+    ["a token after a semicolon-separated parameter", "/feed?page=2;token=sample", "/feed?page=2;token=[secret]"],
+  ])("removes %s", (_label, input, expected) => {
+    expect(scrubSecrets(input).text).toBe(expected);
   });
 
   it("changes nothing on a second pass", () => {

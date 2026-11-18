@@ -64,15 +64,16 @@ const URL_CREDENTIALS_RE = /(?<=:\/\/)[^\s/@:?#]+:[^\s/@?#]+(?=@)/g;
 // Every query parameter; the name decides whether its value is a secret. `;` and `\u0026` also
 // start one, for HTML-escaped (`&amp;`) and JSON-escaped URLs. A closing bracket, a quote or a
 // backslash ends the value, so a markdown link or a quoted or escaped URL keeps its punctuation.
-const QUERY_PARAM_RE = /(?<=[?&;]|\\u0026)([\w.-]+)=([^&#\s"'`<>)\]\\]+)/g;
+const QUERY_PARAM_RE = /(?<=[?&;]|\\u0026)([\w.-]+)=([^&;#\s"'`<>)\]\\]+)/g;
 // `key`, `token`, `sig` and the longer names, alone or as a suffix (`access_token`, `api_key`).
 const SECRET_NAME_RE = /(?:key|token|sig|signature|secret|password)$/i;
 // `.env` lines and inline assignments: `GOOGLE_CALENDAR_API_KEY=…`, `CRON_SECRET="…"`.
 // A backtick ends the value, so markdown code (`CRON_SECRET=abc`) keeps its closing backtick.
 const ENV_ASSIGNMENT_RE = /\b([A-Z][A-Z\d_]*(?:KEY|TOKEN|SECRET|PASSWORD))=("[^"\n]*"|'[^'\n]*'|[^\s"'`][^\s`]*)/g;
-// A shell reference holds no secret: `$NAME`, `${NAME}` or `$(…)`. A lowercase `$value` in a
-// logged URL can be a literal credential, so it doesn't count.
-const SHELL_REFERENCE_RE = /^\$(?:[A-Z_][A-Z\d_]*\b|\{|\()/;
+// A shell reference holds no secret: the whole value is `$NAME` or `${NAME}`, or starts a
+// command substitution `$(…`. Anything else after a `$` (`$sample`, `$TOKEN.literal`) can be a
+// literal credential in a logged URL, so it's redacted.
+const SHELL_REFERENCE_RE = /^\$(?:[A-Z_][A-Z\d_]*|\{[A-Z_][A-Z\d_]*\}|\(.*)$/;
 const GOOGLE_API_KEY_RE = /AIza[\w-]{30,}/g;
 // Sixteen characters at least, so prose ("the bearer acknowledged …") is left alone.
 const BEARER_RE = /(?<=\bBearer\s+)[\w.~+/-]{16,}=*/gi;
