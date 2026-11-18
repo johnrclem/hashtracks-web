@@ -12,6 +12,7 @@
 
 import { NextResponse } from "next/server";
 
+import { AGENT_REQUESTABLE_LABELS } from "@/lib/audit-labels";
 import { computeDraftContentHash } from "@/lib/audit-nonce";
 import { redactFinding } from "@/lib/audit-redact";
 import { RULE_SLUG_RE } from "@/lib/audit-rule-slug";
@@ -34,6 +35,8 @@ interface FindingRequest {
   title: string;
   eventIds?: string[];
   bodyMarkdown: string;
+  /** Labels the agent requests for the issue; only `lane:decision` is accepted. */
+  labels?: string[];
 }
 
 interface CompletionRequest {
@@ -51,9 +54,13 @@ function isFindingRequest(v: Record<string, unknown>): v is FindingRequest & Rec
     typeof v.ruleSlug === "string" &&
     typeof v.title === "string" &&
     typeof v.bodyMarkdown === "string" &&
-    (v.eventIds === undefined ||
-      (Array.isArray(v.eventIds) && v.eventIds.every((id) => typeof id === "string")))
+    isOptionalStringArray(v.eventIds) &&
+    isOptionalStringArray(v.labels)
   );
+}
+
+function isOptionalStringArray(v: unknown): v is string[] | undefined {
+  return v === undefined || (Array.isArray(v) && v.every((item) => typeof item === "string"));
 }
 
 function isCompletionRequest(v: Record<string, unknown>): v is CompletionRequest & Record<string, unknown> {
@@ -80,6 +87,10 @@ function validateFinding(req: FindingRequest): string | null {
   const eventIds = req.eventIds ?? [];
   if (eventIds.length > EVENT_IDS_MAX) return `eventIds must be ≤${EVENT_IDS_MAX} entries`;
   if (eventIds.some((id) => id.length > EVENT_ID_MAX)) return `each eventId must be ≤${EVENT_ID_MAX} chars`;
+  // The lane comes from the rule; an agent can only ask for the owner's decision.
+  if ((req.labels ?? []).some((label) => !AGENT_REQUESTABLE_LABELS.includes(label))) {
+    return `labels may only contain ${AGENT_REQUESTABLE_LABELS.join(", ")}`;
+  }
   return null;
 }
 
@@ -112,17 +123,19 @@ async function handleFinding(rawReq: FindingRequest, adminId: string): Promise<N
   // Before the hash too, so the dedup key never depends on a removed value.
   const { title, bodyMarkdown, redactions } = redactFinding(rawReq, kennel.website);
   if (redactions > 0) {
-    console.warn(`[audit-submit] Removed ${redactions} personal-data match(es) from a ${kennel.kennelCode} finding`);
+    console.warn(`[audit-submit] Removed ${redactions} secret or personal-data match(es) from a ${kennel.kennelCode} finding`);
   }
   const req = { ...rawReq, kennelCode: kennel.kennelCode, title, bodyMarkdown };
 
   const eventIds = req.eventIds ?? [];
+  const labels = [...new Set(req.labels ?? [])];
   const contentHash = computeDraftContentHash({
     stream: req.stream,
     kennelCode: req.kennelCode,
     ruleSlug: req.ruleSlug,
     eventIds,
     bodyMarkdown: req.bodyMarkdown,
+    labels,
   });
 
   try {
@@ -134,6 +147,7 @@ async function handleFinding(rawReq: FindingRequest, adminId: string): Promise<N
         title: req.title,
         bodyMarkdown: req.bodyMarkdown,
         affectedEventIds: eventIds,
+        labels,
         contentHash,
         submittedByUserId: adminId,
       },
@@ -235,6 +249,6 @@ export async function handleAuditSubmission(body: unknown, submitterId: string):
   if (isCompletionRequest(v)) return handleCompletion(v, submitterId);
 
   return badRequest(
-    "Body must be {kind:'finding', stream, kennelCode, ruleSlug, title, eventIds?, bodyMarkdown} or {kind:'completion', kennelCode, findingsCount, summary}",
+    "Body must be {kind:'finding', stream, kennelCode, ruleSlug, title, eventIds?, bodyMarkdown, labels?} or {kind:'completion', kennelCode, findingsCount, summary}",
   );
 }

@@ -1,9 +1,9 @@
 /**
  * File GitHub issues from audit findings using the GitHub REST API.
  * Files up to MAX_ISSUES_PER_RUN issues per cron run, one per top
- * audit group. All issues are filed with just `audit`+`alert`+stream
- * and kennel labels; the audit fixer task (docs/ops/audit-fixer-task.md)
- * picks them up from there.
+ * audit group. Each issue gets `audit`, the stream and kennel labels and
+ * its rule's lane (`auditIssueLabels`); the audit fixer task
+ * (docs/ops/audit-fixer-task.md) picks `lane:defect` up from there.
  *
  * Dedup is fingerprint-based (via the shared `audit-filer` module):
  *   - Strict tier: open AuditIssue with same fingerprint → comment +
@@ -24,8 +24,7 @@ import { reportAuditFilerFailure } from "./audit-filer-telemetry";
 import { safeErrorBody } from "@/lib/safe-error-body";
 import {
   AUDIT_LABEL,
-  ALERT_LABEL,
-  STREAM_LABELS,
+  auditIssueLabels,
   kennelLabel,
   isValidKennelCode,
 } from "@/lib/audit-labels";
@@ -268,12 +267,11 @@ export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
     }
 
     const isCodeFix = !DATA_REMEDIATION_RULES.has(group.rule);
-    const labels = [
-      AUDIT_LABEL,
-      ALERT_LABEL,
-      STREAM_LABELS.AUTOMATED,
-      kennelLabel(group.kennelCode),
-    ];
+    const labels = auditIssueLabels({
+      stream: AUDIT_STREAM.AUTOMATED,
+      kennelCode: group.kennelCode,
+      ruleSlug: group.rule,
+    });
     const body = formatGroupIssueBody(group);
 
     const outcome = await fileAuditFinding(
@@ -324,7 +322,8 @@ async function getExistingAuditIssueTitles(token: string): Promise<string[]> {
     const lastSync = latest._max.syncedAt;
     if (lastSync && Date.now() - lastSync.getTime() < MIRROR_STALE_MS) {
       const openIssues = await prisma.auditIssue.findMany({
-        where: { state: "open", delistedAt: null },
+        // The same corpus as the GitHub fallback below: issues labelled `audit`.
+        where: { state: "open", delistedAt: null, hasAuditLabel: true },
         select: { title: true },
       });
       return openIssues.map((i: { title: string }) => i.title);

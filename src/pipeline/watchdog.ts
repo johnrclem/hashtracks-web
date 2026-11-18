@@ -28,6 +28,7 @@ import * as Sentry from "@sentry/nextjs";
 
 import type { AutomationStatus, AutomationVerdict } from "@/generated/prisma/client";
 import { withAdvisoryXactLock, type AdvisoryLockResult } from "@/lib/advisory-lock";
+import { LANE_LABELS } from "@/lib/audit-labels";
 import {
   AUTOMATIONS,
   MAC_MINI_ID,
@@ -42,7 +43,7 @@ import { prisma } from "@/lib/db";
 import { emailOwner, ownerEmailConfigured, type OwnerEmail, type NotifyResult } from "@/lib/notify";
 import type { GhIssue, GhPull, OpsGithub } from "@/lib/ops-github";
 
-export const OPS_LABEL = "lane:ops";
+export const OPS_LABEL = LANE_LABELS.ops;
 /** Run rows are kept this long. */
 export const RUN_RETENTION_DAYS = 90;
 /** A RUNNING row older than this was killed (the longest cron `maxDuration` is 300 s). */

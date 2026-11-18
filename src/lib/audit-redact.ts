@@ -1,14 +1,22 @@
 /**
- * Personal-data guard for audit findings.
+ * Secret and personal-data guard for what the server posts to GitHub.
  *
- * Audit findings become issues in a public GitHub repo, and agents quote source
- * text in them, so a hasher's phone number in a calendar description can end up
- * published. GitHub also keeps an issue's edit history, so a later fix doesn't
- * undo that. This module removes phone numbers and email addresses from a
- * finding's title and body. It runs twice:
+ * The repo is public and GitHub keeps an issue's edit history, so anything posted
+ * once stays public; a later fix doesn't undo it.
+ *
+ * - **Secrets** (`scrubSecrets`): adapters keep request URLs in `errorDetails`,
+ *   and the Google Calendar and Sheets adapters put the API key in them, so an
+ *   alert or a finding that quotes a scrape error can carry a live key. Every issue
+ *   body and comment the server files passes through `scrubSecrets`.
+ * - **Personal data** (`redactPersonalData`): agents quote source text in findings,
+ *   so a hasher's phone number in a calendar description can end up published.
+ *
+ * `redactFinding` applies both to a finding's title and body. It runs twice:
  *   1. `handleAuditSubmission`, before a finding is stored or hashed.
  *   2. `fileAuditFinding`, before anything reaches GitHub. That covers drafts
  *      queued before this guard existed and every other filing path.
+ * `scripts/scrub.ts` is the CLI for scheduled tasks posting with `gh`; it imports
+ * the patterns from here, so there is one copy.
  *
  * ## Kennel-published contacts
  * - **Phones are always removed, hash hotlines included.** A hotline is often one
@@ -40,10 +48,80 @@
  * numbers with no contact word are left alone: they can't be told from ids.
  *
  * A placeholder is seven characters, which no real phone number or address is
- * shorter than, so redacting can't push a validated title or body past its limit.
+ * shorter than, so redacting personal data can't push a validated title or body
+ * past its limit. A secret shorter than `[secret]` grows by a few characters.
  */
 
 import { displayDomain } from "@/lib/format";
+
+// ── Secrets ──
+
+const REDACTION_MARK = "[secret]";
+
+// `user:password@` in a URL, such as a database URL quoted in an error message.
+// The authority only: a `?` or `#` ends it, so an `@` in a query value is left alone.
+const URL_CREDENTIALS_RE = /(?<=:\/\/)[^\s/@:?#]+:[^\s/@?#]+(?=@)/g;
+// Every query parameter; the name decides whether its value is a secret. `;` and `\u0026` also
+// start one, for HTML-escaped (`&amp;`) and JSON-escaped URLs. A closing bracket, a quote or a
+// backslash ends the value, so a markdown link or a quoted or escaped URL keeps its punctuation.
+// A `;` ends the value only when another `name=` follows it, so `?token=a;b` is removed whole.
+const QUERY_PARAM_RE = /(?<=[?&;]|\\u0026)([\w.-]+)=((?:[^&;#\s"'`<>)\]\\]|;(?![\w.-]+=))+)/g;
+// `key`, `token`, `sig` and the longer names, alone or as a suffix (`access_token`, `api_key`).
+const SECRET_NAME_RE = /(?:key|token|sig|signature|secret|password)$/i;
+// `.env` lines and inline assignments: `GOOGLE_CALENDAR_API_KEY=…`, `CRON_SECRET="…"`.
+// A backtick ends the value, so markdown code (`CRON_SECRET=abc`) keeps its closing backtick.
+const ENV_ASSIGNMENT_RE = /\b([A-Z][A-Z\d_]*(?:KEY|TOKEN|SECRET|PASSWORD))=("[^"\n]*"|'[^'\n]*'|[^\s"'`][^\s`]*)/g;
+// With `keepShellReferences` (the CLI, for commands agents paste), a value that is a whole
+// `$NAME` or `${NAME}`, or starts a `$(…` substitution, holds no secret and stays. The server
+// scrubs logged diagnostics, where `$TOKEN` can be a literal credential, so it never keeps them.
+const SHELL_REFERENCE_RE = /^\$(?:[A-Z_][A-Z\d_]*|\{[A-Z_][A-Z\d_]*\}|\(.*)$/;
+const GOOGLE_API_KEY_RE = /AIza[\w-]{30,}/g;
+// Sixteen characters at least, so prose ("the bearer acknowledged …") is left alone.
+const BEARER_RE = /(?<=\bBearer\s+)[\w.~+/-]{16,}=*/gi;
+// Classic tokens, fine-grained PATs, and stateless App installation tokens (`ghs_<app id>_<JWT>`).
+const GITHUB_TOKEN_RE = /\b(?:ghs_\d+_[\w-]+\.[\w-]+\.[\w-]+|gh[pousr]_[A-Za-z\d]{30,}|github_pat_\w{30,})/g;
+const SK_KEY_RE = /\bsk_(?:live|test)_\w{16,}/g;
+
+/**
+ * Replace secrets with `[secret]`: credentials in URLs, query values whose name ends in key,
+ * token, sig, signature, secret or password, `.env`-style `NAME_KEY=value` assignments, Google
+ * API keys (`AIza…`), bearer tokens, GitHub tokens and Clerk/Stripe-style `sk_live_`/`sk_test_`
+ * keys. Rules run in order, so later ones see earlier placeholders.
+ */
+export function scrubSecrets(
+  text: string,
+  { keepShellReferences = false }: { keepShellReferences?: boolean } = {},
+): { text: string; redactions: number } {
+  const isShellReference = (value: string): boolean => keepShellReferences && SHELL_REFERENCE_RE.test(value);
+  let redactions = 0;
+  const replace = (): string => {
+    redactions += 1;
+    return REDACTION_MARK;
+  };
+
+  const result = text
+    .replaceAll(URL_CREDENTIALS_RE, replace)
+    // A shell reference (`?key=$GOOGLE_CALENDAR_API_KEY`) holds no secret, and keeps a pasted
+    // command runnable.
+    // An already-scrubbed value (`[secret`, cut at its `]`) stays, so a second pass changes nothing.
+    .replaceAll(QUERY_PARAM_RE, (param: string, name: string, value: string) =>
+      SECRET_NAME_RE.test(name) && !isShellReference(value) && value !== REDACTION_MARK.slice(0, -1)
+        ? `${name}=${replace()}`
+        : param,
+    )
+    // A value the query rule already replaced, or a shell reference (`$VAR`, `$(…)`), stays.
+    .replaceAll(ENV_ASSIGNMENT_RE, (assignment: string, name: string, value: string) =>
+      value.startsWith(REDACTION_MARK) || isShellReference(value) ? assignment : `${name}=${replace()}`,
+    )
+    .replaceAll(GOOGLE_API_KEY_RE, replace)
+    .replaceAll(BEARER_RE, replace)
+    .replaceAll(GITHUB_TOKEN_RE, replace)
+    .replaceAll(SK_KEY_RE, replace);
+
+  return { text: result, redactions };
+}
+
+// ── Personal data ──
 
 const PHONE_PLACEHOLDER = "[phone]";
 const EMAIL_PLACEHOLDER = "[email]";
@@ -54,7 +132,8 @@ const CONTEXT_CHARS = 32;
 // URLs are skipped by the phone rules so ids in links survive. A comma, semicolon
 // or pipe ends the token, so a number stuck to the end of a URL is still scanned.
 // The capture group makes `split` keep the URLs, at the odd indexes.
-const URL_RE = /((?:https?:\/\/|www\.)[^\s<>)\]"'`,;|]+)/i;
+// A `[secret]` placeholder stays part of the URL, so a scrubbed query value doesn't end it early.
+const URL_RE = /((?:https?:\/\/|www\.)(?:\[secret\]|[^\s<>)\]"'`,;|])+)/i;
 
 // iOS contact copies and many web pages separate digits with these. They become
 // plain separators first, so the rules below don't each have to list them.
@@ -189,13 +268,27 @@ export function redactPersonalData(
   return { text: redacted, redactions };
 }
 
-/** Redact the two public text fields of a finding. `redactions` totals both. */
+/** Remove secrets, then phone numbers and personal email addresses. */
+export function scrubForGitHub(
+  text: string,
+  kennelWebsite?: string | null,
+  options: { keepShellReferences?: boolean } = {},
+): { text: string; redactions: number } {
+  const secrets = scrubSecrets(text, options);
+  const personal = redactPersonalData(secrets.text, kennelWebsite);
+  return { text: personal.text, redactions: secrets.redactions + personal.redactions };
+}
+
+/**
+ * Scrub the two public text fields of a finding (`scrubForGitHub`).
+ * `redactions` totals both.
+ */
 export function redactFinding(
   finding: { title: string; bodyMarkdown: string },
   kennelWebsite?: string | null,
 ): { title: string; bodyMarkdown: string; redactions: number } {
-  const title = redactPersonalData(finding.title, kennelWebsite);
-  const body = redactPersonalData(finding.bodyMarkdown, kennelWebsite);
+  const title = scrubForGitHub(finding.title, kennelWebsite);
+  const body = scrubForGitHub(finding.bodyMarkdown, kennelWebsite);
   return {
     title: title.text,
     bodyMarkdown: body.text,

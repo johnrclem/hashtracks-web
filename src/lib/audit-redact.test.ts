@@ -1,6 +1,6 @@
 import { emitIdentityMarker } from "@/lib/audit-canonical";
 import { AUDIT_STREAM } from "@/lib/audit-stream-meta";
-import { redactFinding, redactPersonalData } from "./audit-redact";
+import { redactFinding, redactPersonalData, scrubForGitHub, scrubSecrets } from "./audit-redact";
 
 // Every number and address here is fictional on purpose: this repo is public, so
 // a real hasher's contact details must never be copied in as a fixture. NANP
@@ -257,5 +257,118 @@ describe("redactFinding", () => {
     expect(result.title).toBe("gm@kennel.example.org is stale");
     expect(result.bodyMarkdown).toBe("Use gm@kennel.example.org");
     expect(result.redactions).toBe(0);
+  });
+});
+
+// ── Secrets ──
+// Every key and token here is fake: same-shape filler. This repo is public.
+const FAKE_GOOGLE_KEY = `AIza${"x".repeat(35)}`;
+const FAKE_GITHUB_TOKEN = `ghp_${"A1".repeat(18)}`;
+
+const secrets = (text: string): string => scrubSecrets(text).text;
+
+describe("scrubSecrets", () => {
+  it.each([
+    [
+      "an API key in a Google Calendar URL",
+      `GET https://www.googleapis.com/calendar/v3/calendars/x/events?key=${FAKE_GOOGLE_KEY}&maxResults=250`,
+      "GET https://www.googleapis.com/calendar/v3/calendars/x/events?key=[secret]&maxResults=250",
+    ],
+    ["a token query value", "https://example.com/feed?token=abc123def", "https://example.com/feed?token=[secret]"],
+    ["a signature query value", "https://example.com/a.png?w=10&sig=0f9e8d7c", "https://example.com/a.png?w=10&sig=[secret]"],
+    [
+      "a name that ends in a secret word",
+      "https://example.com/x?access_token=t0k3n&X-Amz-Signature=deadbeef",
+      "https://example.com/x?access_token=[secret]&X-Amz-Signature=[secret]",
+    ],
+    ["a value inside a markdown link", "[feed](https://example.com/x?key=abc)", "[feed](https://example.com/x?key=[secret])"],
+    ["a bare Google API key", `"key": "${FAKE_GOOGLE_KEY}"`, `"key": "[secret]"`],
+    ["a bearer token", "Authorization: Bearer abc.def-ghi_jkl-mno", "Authorization: Bearer [secret]"],
+    ["an HTML-escaped query value", "/events?maxResults=250&amp;token=abc123", "/events?maxResults=250&amp;token=[secret]"],
+    ["a JSON-escaped query value", String.raw`"url": "/x?a=1\u0026sig=abc123"`, String.raw`"url": "/x?a=1\u0026sig=[secret]"`],
+    ["a GitHub token", `token ${FAKE_GITHUB_TOKEN} expired`, "token [secret] expired"],
+    ["a Clerk secret key", `sk_live_${"k".repeat(24)}`, "[secret]"],
+    [
+      "credentials in a database URL",
+      "connect failed: postgresql://postgres:hunter2@db.example.com:5432/railway",
+      "connect failed: postgresql://[secret]@db.example.com:5432/railway",
+    ],
+    ["a .env line", "GOOGLE_CALENDAR_API_KEY=abc123", "GOOGLE_CALENDAR_API_KEY=[secret]"],
+    ["a quoted .env value", 'CRON_SECRET="s3cr3t value"', "CRON_SECRET=[secret]"],
+    ["an assignment in markdown code", "run `CRON_SECRET=abc123 npm test`", "run `CRON_SECRET=[secret] npm test`"],
+    ["a value ending at a backtick", "`API_KEY=abc123`", "`API_KEY=[secret]`"],
+  ])("removes %s", (_label, input, expected) => {
+    expect(secrets(input)).toBe(expected);
+  });
+
+  it.each([
+    ["ordinary query values", "https://www.hashtracks.xyz/kennels/nych3?tab=events&page=2"],
+    ["an env reference in a command", 'curl -H "Authorization: Bearer $TOKEN" https://www.hashtracks.xyz/api'],
+    ["prose", "The bearer acknowledged that the key point is the token gesture."],
+    ["a non-secret env line", "NEXT_PUBLIC_APP_URL=https://www.hashtracks.xyz"],
+    ["a bare name in markdown code", "`NAME_KEY=` assignments"],
+  ])("keeps %s", (_label, input) => {
+    expect(secrets(input)).toBe(input);
+  });
+
+  it.each([
+    ["a shell reference in a query", 'curl "https://example.com/x?key=$GOOGLE_CALENDAR_API_KEY"'],
+    ["a shell reference in an assignment", "CRON_SECRET=$(grep -m1 '^CRON_SECRET=' .env)"],
+  ])("keeps %s when asked to (the CLI)", (_label, input) => {
+    expect(scrubSecrets(input, { keepShellReferences: true }).text).toBe(input);
+  });
+
+  it("removes a $NAME value from a logged URL by default (the server)", () => {
+    expect(secrets("GET /feed?token=$TOKEN → 401")).toBe("GET /feed?token=[secret] → 401");
+  });
+
+  it("counts each removal once", () => {
+    const text = `https://example.com/x?API_KEY=one&token=two\nBearer abcdefghijklmnopq\n${FAKE_GOOGLE_KEY}`;
+    expect(scrubSecrets(text)).toEqual({
+      text: "https://example.com/x?API_KEY=[secret]&token=[secret]\nBearer [secret]\n[secret]",
+      redactions: 4,
+    });
+  });
+});
+
+describe("scrubSecrets — review follow-ups", () => {
+  it("removes a stateless GitHub App installation token", () => {
+    const token = `ghs_123456_${"a".repeat(20)}.${"b".repeat(30)}.${"c".repeat(20)}`;
+    expect(scrubSecrets(`token ${token} rejected`).text).toBe("token [secret] rejected");
+  });
+
+  it("leaves an @ in a query value alone: only the authority holds credentials", () => {
+    const url = "https://example.org:8443?owner=team@example.org";
+    expect(scrubSecrets(url).text).toBe(url);
+  });
+
+  it.each([
+    ["a lowercase dollar value", "GET /feed?token=$sample1 → 401", "GET /feed?token=[secret] → 401"],
+    ["a value that only starts like a shell name", "GET /feed?token=$TOKEN.literal", "GET /feed?token=[secret]"],
+    ["a token after a semicolon-separated parameter", "/feed?page=2;token=sample", "/feed?page=2;token=[secret]"],
+    ["a semicolon inside a token value", "/feed?token=sample;tail&page=2", "/feed?token=[secret]&page=2"],
+  ])("removes %s", (_label, input, expected) => {
+    expect(scrubSecrets(input).text).toBe(expected);
+  });
+
+  it("changes nothing on a second pass", () => {
+    const once = scrubSecrets("https://example.com/x?key=abc123&page=2").text;
+    expect(scrubSecrets(once)).toEqual({ text: once, redactions: 0 });
+  });
+});
+
+describe("scrubForGitHub", () => {
+  it("keeps a scrubbed URL whole, so a run id after it isn't taken for a phone", () => {
+    expect(scrubForGitHub("https://example.org/feed?token=sample&run=2345678901").text).toBe(
+      "https://example.org/feed?token=[secret]&run=2345678901",
+    );
+  });
+
+  it("removes secrets and personal data together", () => {
+    const text = `Scrape failed: GET https://sheets.googleapis.com/v4/spreadsheets/x?key=${FAKE_GOOGLE_KEY} (hare 254-555-0142)`;
+    expect(scrubForGitHub(text)).toEqual({
+      text: "Scrape failed: GET https://sheets.googleapis.com/v4/spreadsheets/x?key=[secret] (hare [phone])",
+      redactions: 2,
+    });
   });
 });

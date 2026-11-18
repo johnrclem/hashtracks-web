@@ -374,7 +374,8 @@ describe("POST /api/audit/file-finding", () => {
     // AuditIssue.fingerprint on its next run (matches PR #1172).
     expect(requestBody.body).toContain("<!-- audit-canonical:");
     expect(requestBody.labels).toContain("audit");
-    expect(requestBody.labels).toContain("alert");
+    expect(requestBody.labels).not.toContain("alert");
+    expect(requestBody.labels).toContain("lane:defect");
     expect(requestBody.labels).toContain("audit:chrome-kennel");
     expect(requestBody.labels).toContain("kennel:nych3");
   });

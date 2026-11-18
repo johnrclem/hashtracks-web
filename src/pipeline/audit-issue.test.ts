@@ -99,7 +99,7 @@ describe("fileAuditIssues", () => {
     await fileAuditIssues([buildGroup()]);
 
     expect(mockFindMany).toHaveBeenCalledWith({
-      where: { state: "open", delistedAt: null },
+      where: { state: "open", delistedAt: null, hasAuditLabel: true },
       select: { title: true },
     });
   });
@@ -288,7 +288,7 @@ describe("fileAuditIssues", () => {
     expect(result).toEqual(["https://github.com/test/17"]);
     expect(mockUpdateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "legacy_1", fingerprint: null },
+        where: { id: "legacy_1", fingerprint: null, hasAuditLabel: true },
       }),
     );
     // Fetch was the bridging comment, not a fresh-create POST.

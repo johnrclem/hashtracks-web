@@ -44,7 +44,9 @@ Carry on and put "identity preflight failed: <login>" first under "Needs you tod
    `TOKEN=$(grep -m1 '^AUDIT_AGENT_TOKEN=' /Users/johnclem/Developer/hashtracks-web/.env | cut -d= -f2- | tr -d '"'); curl -s -H "Authorization: Bearer $TOKEN" https://www.hashtracks.xyz/api/audit/agent/ops-digest`
    The JSON `data` has: `scrapes24h`, `failingSources` (with failure `streak`), `openAlerts`,
    `alertsCreated24h`, `largeCancellations24h`, `allZeroKennels`, `auditQueue` (with
-   `stalePending`), `failedMigrations`. Once the watchdog lands (S2), it also carries each
+   `stalePending`), `failedMigrations`, `backfills` (onboarding backfill runs: `recentRuns`,
+   `needsYou`, `piiLeaks`, `archiveDrops24h`, `statusLineChanges`, `watch`; null if it failed to
+   load) and `ownerSecondFactors` (null until `OWNER_CLERK_USER_ID` is set). Once the watchdog lands (S2), it also carries each
    automation's state; use those states when present. If the call fails, say so at the top of the
    digest and carry on with the rest. Do NOT fall back to psql.
 2. **Scheduled automations:** use the scheduled-tasks tools to list the last runs of
@@ -98,11 +100,19 @@ Carry on and put "identity preflight failed: <login>" first under "Needs you tod
    an agent reported as "re-approval needed". The oldest age is the owner review latency (target:
    under 24 hours).
 4. **Decision questions:** each issue from Gather 3, with its one-line question and age.
-5. **Task prompt drift:** each `DRIFT` task from Gather 5, with "paste
+5. **Backfills:** every `backfills.needsYou` row (a blocked, halted or verify-failed run, a run
+   waiting over 24 hours, a lease expired over an hour) and every `backfills.piiLeaks` row. A PII
+   leak is already public: the response is in `docs/onboarding-backfill-automation-design.md` 8.2
+   (close the PR, ask GitHub to purge its refs, rebuild in a new PR). Also `backfills.watch.stale`
+   (the daily backfill-watch cron hasn't finished in 26 hours) and `ownerSecondFactors.ok` false
+   (TOTP or backup codes off, or a phone second factor).
+6. **Task prompt drift:** each `DRIFT` task from Gather 5, with "paste
    `docs/ops/scheduled-tasks/pointers/<task>.txt` into the task".
 
 Compare with yesterday's digest file, if it exists, and call out what's new, what got worse and
 what cleared. Rules of thumb for the other sections:
+- Report `backfills.archiveDrops24h` per kennel (a correction skip means the live feed and the
+  archive disagree on a run's date) and every `backfills.statusLineChanges` row (before and after).
 - A failure streak of 3 or more is an incident.
 - Any `largeCancellations24h` row is urgent.
 - Grand Strand H3's Facebook source failing is a known soft block.

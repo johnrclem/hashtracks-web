@@ -18,8 +18,10 @@
  * Reuses the real engine (projectTrails) + isEligibleActual so detection matches production.
  */
 import type { Prisma, PrismaClient, ScheduleConfidence } from "@/generated/prisma/client";
+import { LANE_LABELS } from "@/lib/audit-labels";
 import { CANONICAL_EVENT_WHERE } from "@/lib/event-filters";
 import { EVENT_ELIGIBILITY_SELECT, isEligibleActual } from "@/lib/event-eligibility";
+import { opsGithubFromEnv } from "@/lib/ops-github";
 import { windowOverlapsSeason } from "@/lib/schedule-season";
 import { projectTrails, type ScheduleRuleInput } from "@/lib/travel/projections";
 
@@ -227,4 +229,57 @@ export async function writeRuleDriftSnapshot(prisma: PrismaClient, findings: Dri
   await prisma.ruleDriftSnapshot.create({
     data: { driftCount: findings.length, findings: findings as unknown as Prisma.InputJsonValue },
   });
+}
+
+// ── GitHub issue ──────────────────────────────────────────────────────────────
+
+/** The origin label; rule-drift issues dedupe on it. */
+export const DRIFT_LABEL = "rule-drift";
+
+function renderIssueBody(findings: DriftFinding[]): string {
+  const rows = findings
+    .map(
+      (f) =>
+        `| ${f.shortName} (\`${f.kennelCode}\`) | ${f.region} | ${f.predictedWeekdays.join("/")} | **${f.actualWeekday}** (${Math.round(f.actualShare * 100)}%, ${f.recentEventCount} ev) | \`${f.activeRules}\` |`,
+    )
+    .join("\n");
+  return [
+    "Detected by the weekly rule-drift check (`/api/cron/rule-drift`). Each kennel below has an",
+    "active schedule rule whose currently-projected weekday disagrees with its recent independent",
+    "events — likely a **seasonal switch**, a permanent schedule change, or a rule that flattened a",
+    "seasonal kennel. Fix by authoring/correcting the kennel's `scheduleRules[]` (seasonal slots use",
+    "`validFrom`/`validUntil`); see the seasonal-detector workflow.",
+    "",
+    "| Kennel | Region | Rule predicts | Recent actual | Active rule(s) |",
+    "|---|---|---|---|---|",
+    rows,
+    "",
+    "_Close this issue once addressed; the next run re-files if drift remains._",
+  ].join("\n");
+}
+
+/**
+ * File one rule-drift issue (`rule-drift`, `lane:defect`) unless one is already open. Never
+ * throws: a GitHub failure comes back as `filed: false` with the reason, so the cron still
+ * records its snapshot and run.
+ */
+export async function fileRuleDriftIssue(findings: DriftFinding[]): Promise<{ filed: boolean; reason: string }> {
+  // Any GitHub failure (timeout, non-2xx) throws GithubUnavailableError; it becomes a "don't file"
+  // reason, so a transient error neither 500s the cron (Codex review on PR #2169) nor falls through
+  // a failed dedup check to a possibly-duplicate issue. The client scrubs secrets from what it posts.
+  try {
+    // Inside the try: a malformed GITHUB_REPOSITORY throws while building the client.
+    const github = opsGithubFromEnv();
+    if (!github) return { filed: false, reason: "no GITHUB_TOKEN" };
+    const open = await github.listIssues({ labels: DRIFT_LABEL, state: "open", limit: 1 });
+    if (open.length > 0) return { filed: false, reason: "open rule-drift issue exists" };
+    await github.createIssue({
+      title: `Schedule-rule drift: ${findings.length} kennel(s) predicting the wrong weekday`,
+      body: renderIssueBody(findings),
+      labels: [DRIFT_LABEL, LANE_LABELS.defect],
+    });
+    return { filed: true, reason: "issue created" };
+  } catch (err) {
+    return { filed: false, reason: `github request failed: ${err instanceof Error ? err.message : "unknown"}` };
+  }
 }

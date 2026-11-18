@@ -148,6 +148,8 @@ export const CRON_JOBS = [
   { id: "cron:prediction-ledger", cadence: "weekly, Monday 08:00 UTC", everyHours: 168, graceHours: 6 },
   { id: "cron:rule-drift", cadence: "weekly, Monday 09:00 UTC", everyHours: 168, graceHours: 6 },
   { id: "cron:half-mind-sync", cadence: "weekly, Monday 10:00 UTC (no-op unless HALF_MIND_SYNC_ENABLED)", everyHours: 168, graceHours: 6 },
+  // 26 h staleness (onboarding backfill design 11.3).
+  { id: "cron:backfill-watch", cadence: "daily 07:15 UTC", everyHours: 24, graceHours: 2 },
 ] as const satisfies ReadonlyArray<{ id: `cron:${string}`; cadence: string; everyHours: number; graceHours: number }>;
 
 export type CronJobId = (typeof CRON_JOBS)[number]["id"];
