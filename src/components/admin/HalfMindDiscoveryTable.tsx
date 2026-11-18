@@ -142,7 +142,7 @@ export function HalfMindDiscoveryTable({ rows, regions, kennels }: Readonly<Prop
         {TABS.map((t) => {
           const n = t.key === "ALL" ? rows.length : rows.filter((r) => r.status === t.key).length;
           return (
-            <Button key={t.key} variant={tab === t.key ? "default" : "outline"} size="sm" onClick={() => setTab(t.key)}>
+            <Button key={t.key} variant={tab === t.key ? "default" : "outline"} size="sm" onClick={() => { setTab(t.key); }}>
               {t.label}
               {n > 0 && (
                 <Badge variant={tab === t.key ? "secondary" : "outline"} className="ml-1.5">
@@ -163,10 +163,10 @@ export function HalfMindDiscoveryTable({ rows, regions, kennels }: Readonly<Prop
             key={r.id}
             row={r}
             isPending={isPending}
-            onLink={() => setLinking(r)}
-            onAdd={() => setAdding(r)}
-            onDismiss={() => run(() => dismissHalfMindListing(r.id), "Dismissed")}
-            onUnlink={() => run(() => unlinkHalfMindListing(r.id), "Unlinked")}
+            onLink={() => { setLinking(r); }}
+            onAdd={() => { setAdding(r); }}
+            onDismiss={() => { run(() => dismissHalfMindListing(r.id), "Dismissed"); }}
+            onUnlink={() => { run(() => unlinkHalfMindListing(r.id), "Unlinked"); }}
           />
         ))}
       </div>
@@ -175,10 +175,10 @@ export function HalfMindDiscoveryTable({ rows, regions, kennels }: Readonly<Prop
         row={linking}
         kennels={kennels}
         isPending={isPending}
-        onClose={() => setLinking(null)}
-        onPick={(kennelId) =>
-          linking && run(() => linkHalfMindListing(linking.id, kennelId), "Linked to kennel", () => setLinking(null))
-        }
+        onClose={() => { setLinking(null); }}
+        onPick={(kennelId) => {
+          if (linking) run(() => linkHalfMindListing(linking.id, kennelId), "Linked to kennel", () => { setLinking(null); });
+        }}
       />
       {/* Keyed on the row so the prefill resets per listing. */}
       {adding && (
@@ -187,7 +187,7 @@ export function HalfMindDiscoveryTable({ rows, regions, kennels }: Readonly<Prop
           row={adding}
           regions={regions}
           isPending={isPending}
-          onClose={() => setAdding(null)}
+          onClose={() => { setAdding(null); }}
           onDone={() => {
             setAdding(null);
             router.refresh();
@@ -313,7 +313,7 @@ function LinkDialog({
   const [query, setQuery] = useState("");
   const results = useMemo(() => searchKennels(kennels, query), [kennels, query]);
   return (
-    <Dialog open={row !== null} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={row !== null} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Link {row?.name}</DialogTitle>
@@ -321,14 +321,14 @@ function LinkDialog({
         </DialogHeader>
         <div className="grid gap-3">
           {row?.matchCandidates?.map((c) => (
-            <Button key={c.id} variant="outline" size="sm" className="justify-start" disabled={isPending} onClick={() => onPick(c.id)}>
+            <Button key={c.id} variant="outline" size="sm" className="justify-start" disabled={isPending} onClick={() => { onPick(c.id); }}>
               {c.shortName} ({Math.min(100, Math.round(c.score * 100))}%)
             </Button>
           ))}
-          <Input placeholder="Search kennels by name..." value={query} onChange={(e) => setQuery(e.target.value)} />
+          <Input placeholder="Search kennels by name..." value={query} onChange={(e) => { setQuery(e.target.value); }} />
           {query.trim() && results.length === 0 && <p className="text-xs text-muted-foreground">No kennels match.</p>}
           {results.map((k) => (
-            <Button key={k.id} variant="ghost" size="sm" className="justify-start" disabled={isPending} onClick={() => onPick(k.id)}>
+            <Button key={k.id} variant="ghost" size="sm" className="justify-start" disabled={isPending} onClick={() => { onPick(k.id); }}>
               {k.shortName} <span className="ml-2 text-xs text-muted-foreground">{k.region}</span>
             </Button>
           ))}
@@ -386,7 +386,7 @@ function AddForm({
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Add as listing-only kennel</DialogTitle>
@@ -399,7 +399,7 @@ function AddForm({
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="hm-full">Full Name</Label>
-            <Input id="hm-full" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            <Input id="hm-full" value={fullName} onChange={(e) => { setFullName(e.target.value); }} />
           </div>
           <div className="grid gap-1.5">
             <Label>Region</Label>

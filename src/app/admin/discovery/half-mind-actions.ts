@@ -194,7 +194,8 @@ export async function unlinkHalfMindListing(discoveryId: string): Promise<{ succ
 /** Create a listing-only kennel from a NEW Half-Mind row. */
 export async function addListingOnlyKennel(
   discoveryId: string,
-  data: { shortName: string; fullName: string; regionId: string },
+  // Optional fields: a server action's input comes from the client and is checked below.
+  data: { shortName?: string; fullName?: string; regionId?: string },
   opts: { confirmNotDuplicate?: boolean } = {},
 ): Promise<{ success: true; kennelId: string; warning?: string } | { error: string; duplicateOf?: RankedCandidate }> {
   const loaded = await loadHalfMindRow(discoveryId);
@@ -203,7 +204,8 @@ export async function addListingOnlyKennel(
   if (row.status !== "NEW") return { error: "Only a NEW Half-Mind row can be added." };
   const shortName = data.shortName?.trim();
   const fullName = data.fullName?.trim();
-  if (!shortName || !fullName || !data.regionId) return { error: "Short name, full name and region are required." };
+  const regionId = data.regionId;
+  if (!shortName || !fullName || !regionId) return { error: "Short name, full name and region are required." };
 
   if (!opts.confirmNotDuplicate) {
     const best = bestCandidate(row.matchCandidates);
@@ -218,7 +220,7 @@ export async function addListingOnlyKennel(
   const result = await createKennelFromDiscovery(row.id, adminId, {
     shortName,
     fullName,
-    regionId: data.regionId,
+    regionId,
     website: row.website ?? undefined,
     facebookUrl: row.facebookUrl,
     scheduleNotes: row.schedule,

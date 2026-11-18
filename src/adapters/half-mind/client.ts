@@ -110,11 +110,15 @@ function to12Hour(token: string): string | null {
 function cleanScheduleEntry(entry: string): string | null {
   const words = entry.split(/\s+/).filter(Boolean);
   const out: string[] = [];
-  for (let i = 0; i < words.length; i++) {
-    const w = words[i];
+  let skipNext = false;
+  for (const [i, w] of words.entries()) {
+    if (skipNext) {
+      skipNext = false;
+      continue;
+    }
     const lower = w.toLowerCase();
-    if (lower === "all" && words[i + 1]?.toLowerCase() === "year") {
-      i++;
+    if (lower === "all" && words.at(i + 1)?.toLowerCase() === "year") {
+      skipNext = true;
       continue;
     }
     if (i === words.length - 1 && words.length > 1) {
