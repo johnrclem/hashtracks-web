@@ -7,7 +7,7 @@ vi.mock("resend", () => ({
   }),
 }));
 
-import { emailOwner, ownerEmailConfigured } from "./notify";
+import { emailOwner, ownerEmailConfigured, senderAddress } from "./notify";
 
 const email = { subject: "Hareline audit is overdue", text: "details", idempotencyKey: "ops-watchdog/x/1/overdue" };
 
@@ -29,6 +29,7 @@ describe("emailOwner", () => {
     vi.stubEnv("RESEND_API_KEY", "re_test");
     vi.stubEnv("OWNER_EMAIL", "owner@example.com");
     vi.stubEnv("NOTIFY_FROM_EMAIL", "");
+    vi.stubEnv("RESEND_EMAIL_DOMAIN", "");
     send.mockResolvedValue({ data: { id: "em_1" }, error: null });
 
     expect(ownerEmailConfigured()).toBe(true);
@@ -51,5 +52,31 @@ describe("emailOwner", () => {
     expect(await emailOwner(email)).toEqual({ sent: false, reason: "Resend: domain not verified" });
     send.mockRejectedValueOnce(new Error("socket hang up"));
     expect(await emailOwner(email)).toEqual({ sent: false, reason: "Resend: socket hang up" });
+  });
+});
+
+describe("senderAddress", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("prefers NOTIFY_FROM_EMAIL", () => {
+    vi.stubEnv("NOTIFY_FROM_EMAIL", "Ops <ops@hashtracks.xyz>");
+    vi.stubEnv("RESEND_EMAIL_DOMAIN", "mail.example.com");
+    expect(senderAddress()).toBe("Ops <ops@hashtracks.xyz>");
+  });
+
+  it("falls back to ops@ the Marketplace sending domain, bare or as an address", () => {
+    vi.stubEnv("NOTIFY_FROM_EMAIL", "");
+    vi.stubEnv("RESEND_EMAIL_DOMAIN", " Mail.Example.com ");
+    expect(senderAddress()).toBe("HashTracks Ops <ops@mail.example.com>");
+    vi.stubEnv("RESEND_EMAIL_DOMAIN", "noreply@mail.example.com");
+    expect(senderAddress()).toBe("HashTracks Ops <ops@mail.example.com>");
+  });
+
+  it("ignores a malformed domain and uses Resend's test sender", () => {
+    vi.stubEnv("NOTIFY_FROM_EMAIL", "");
+    for (const bad of ["", "localhost", "evil.com>\nBcc: x@y.z", "-bad.com", "a..com"]) {
+      vi.stubEnv("RESEND_EMAIL_DOMAIN", bad);
+      expect(senderAddress()).toBe("HashTracks <onboarding@resend.dev>");
+    }
   });
 });
