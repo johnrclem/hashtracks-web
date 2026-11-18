@@ -5102,6 +5102,20 @@ export const SOURCES = [
       },
       kennelCodes: ["bsh3-ch"],
     },
+    {
+      name: "Basel-Stadt H3 Hareline",
+      url: "https://basel.harrier.eu.org/hareline.php",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 6, // kennel's own site; Meetup (7) keeps title/venue precedence, this fills run numbers/times
+      scrapeFreq: "daily",
+      scrapeDays: 365, // recent + forward window only; 1996–2025 history is the one-shot backfill
+      config: {
+        // Past rows age out of the adapter's window; reconcile must not cancel them or the backfilled history.
+        upcomingOnly: true,
+        kennelTag: "bsh3-ch",
+      },
+      kennelCodes: ["bsh3-ch"],
+    },
 
     // ===== AUSTRIA =====
     {

@@ -1,0 +1,80 @@
+<html>
+<head>
+<title>Basel-Stadt Hash House Harriers</title>
+<link type="text/css" rel="stylesheet" href="https://www.harrier.eu.org/style/bsh3.css">
+<script src="https://www.harrier.eu.org/style/functions.js"></script>
+</head>
+<body><table width="80%" align="center" cellpadding="10">
+<tr>
+<td colspan="4">
+<table width="100%">
+<td width="25%" align="left"><font size="-1"><a title="Previous run" href="?run=396">Run #396</a></font></td>
+<td width="50%" align="center"><b><span class="title">Run #397</span></b><br><font size="-2"><a title="Add run 397" href="edit/runs.php?mode=add">[Add]</a></font></td>
+<td width="25%" align="right"><font size="-2"><a title="Add next run" href="edit/runs.php?mode=add">[Add next run]</a></font></td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td nowrap align="right"><b>Date:</b></td>
+<td nowrap>Sunday, December 13th 2026</td>
+<td nowrap align="right"><b>Time:</b></td>
+<td nowrap>15:00</td>
+</tr>
+<tr>
+<td nowrap align="right"><b>Place:</b></td>
+<td nowrap>TBD</td>
+<td nowrap align="right"><b>Coordinates:</b></td>
+<td nowrap>
+Unknown</td>
+</tr>
+<tr><td align="right"><b>Hare:</b></td>
+<td>Who knows... maybe you?</td>
+<td rowspan="2" colspan="2" align="center">
+</td>
+</tr>
+<tr><td align="right"><b>Train&nbsp;Times:</b></td>
+<td>
+<span id="trains_recommended" style="display: block">
+No information available.
+</span>
+<tr>
+<td colspan="4" align="center">
+</td>
+</tr>
+
+
+<tr><td align="right" valign="top"><b>Details:</b></td>
+<td colspan="3">
+<p align="justify">
+No run details available.
+</p>
+</td>
+</tr>
+
+
+
+<tr>
+<td align="center" colspan="4">
+<table>
+<tr>
+<td><img src="img/onon_l.gif" width="120" height="125" alt="On on!"></td>
+<td><img src="img/onon_r.gif" width="120" height="125" alt="On on!"></td>
+<td><img src="img/onon_l.gif" width="120" height="125" alt="On on!"></td>
+<td><img src="img/onon_r.gif" width="120" height="125" alt="On on!"></td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+<script type="text/javascript">
+var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script type="text/javascript">
+var pageTracker = _gat._getTracker("UA-3830709-1");
+pageTracker._initData();
+pageTracker._trackPageview();
+</script>
+</body>
+</html>

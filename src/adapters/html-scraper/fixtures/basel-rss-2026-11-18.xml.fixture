@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+<channel>
+<title>Basel-Stadt Hash House Harriers</title>
+<link>http://basel.harrier.eu.org/</link>
+<description>Basel-Stadt Hash House Harriers RSS feed</description>
+<lastBuildDate>Wed, 18 Nov 2026 10:00:00 GMT</lastBuildDate>
+<language>en-us</language>
+<managingEditor>onsec-bsh3@harrier.eu.org</managingEditor>
+<webMaster>webmaster@harrier.eu.org</webMaster>
+<image>
+	<url>http://basel.harrier.eu.org/img/icon.png</url>
+	<title>Basel-Stadt Hash House Harriers</title>
+	<link>http://basel.harrier.eu.org/</link>
+</image>
+<item>
+	<title>Run #397: December 13th 2026</title>
+	<link>http://basel.harrier.eu.org/?src=rss&amp;run=397</link>
+	<guid>http://basel.harrier.eu.org/?src=rss&amp;run=397</guid>
+	<pubDate>Sun, 15 Nov 2026 23:00:00 GMT</pubDate>
+	<description>BSH3 run #397: December 13th 2026</description>
+</item>
+</channel>
+</rss>

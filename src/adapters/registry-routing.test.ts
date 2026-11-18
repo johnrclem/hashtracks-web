@@ -231,6 +231,7 @@ const EXPECTED_SOURCES_BY_ADAPTER: Readonly<Record<string, readonly string[]>> =
   VictoriaH3Adapter: ["Victoria H3 Gamma Site"],
   VindobonaH3Adapter: ["Vindobona H3 Hareline"],
   WarsawH3Adapter: ["Warsaw H3 Website"],
+  BaselHashAdapter: ["Basel-Stadt H3 Hareline"],
   WarwickHashAdapter: ["Warwick H3 Website"],
   WestLondonHashAdapter: ["West London Hash Website"],
   WyreForestHashAdapter: ["Wyre Forest HHH Website"],
