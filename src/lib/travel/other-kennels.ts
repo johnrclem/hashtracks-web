@@ -77,7 +77,9 @@ export function selectOtherKennels(
 }
 
 export function otherKennelsHeading(place: string): string {
-  return `Other kennels near ${place}`;
+  const name = place.trim();
+  // A saved trip can have no label, which would leave "Other kennels near " dangling.
+  return name ? `Other kennels near ${name}` : "Other kennels nearby";
 }
 
 /** Link to the closest listed kennel's region page, or the directory when it has no slug. */

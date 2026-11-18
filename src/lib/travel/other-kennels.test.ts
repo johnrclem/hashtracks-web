@@ -113,6 +113,11 @@ describe("otherKennelsHeading", () => {
   it("names the place", () => {
     expect(otherKennelsHeading("Savannah")).toBe("Other kennels near Savannah");
   });
+
+  it("falls back when the place is blank (a saved trip with no label)", () => {
+    expect(otherKennelsHeading("")).toBe("Other kennels nearby");
+    expect(otherKennelsHeading("   ")).toBe("Other kennels nearby");
+  });
 });
 
 describe("otherKennelsBrowseLink", () => {
