@@ -1576,3 +1576,73 @@ model BackfillStepUpNonce {
 
   @@index([clerkSessionId])
 }
+
+// ── Ops watchdog (docs/ops/system.md; ops plan S2) ───────────────────────────
+
+enum AutomationRunKind {
+  CRON
+  AGENT_CALL
+  WATCHDOG
+}
+
+enum AutomationRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+/// The watchdog's alarm state for an automation.
+enum AutomationStatus {
+  OK
+  OVERDUE
+}
+
+/// What the latest watchdog check concluded. BLOCKED_ON_OWNER meets the expectation without
+/// an alarm; UNKNOWN means the check itself failed, so the alarm state was left as it was.
+enum AutomationVerdict {
+  OK
+  BLOCKED_ON_OWNER
+  OVERDUE
+  UNKNOWN
+}
+
+/// One run of an automation, recorded by the server: a cron route (`withCronRun`), an
+/// authenticated agent API call (`rejectUnlessAgent`) or a watchdog pass. Agents report
+/// nothing about themselves. Rows older than 90 days are deleted by the watchdog.
+model AutomationRun {
+  id         String              @id @default(cuid())
+  /// "cron:audit", "agent:submit-finding", "watchdog", …
+  automation String
+  kind       AutomationRunKind
+  startedAt  DateTime            @default(now())
+  finishedAt DateTime?
+  status     AutomationRunStatus @default(RUNNING)
+  summary    String?
+  /// Scalar fields of the route's `data` response, e.g. `{ dispatched: 120, failed: 0 }`.
+  metrics    Json?
+
+  @@index([automation, startedAt])
+}
+
+/// One row per automation in `src/lib/automation-registry.ts`. `status` changes only
+/// through conditional updates (`WHERE status = 'OK'` / `'OVERDUE'`), so overlapping
+/// watchdog runs never both act on one change.
+model AutomationState {
+  automation  String             @id
+  status      AutomationStatus   @default(OK)
+  /// When the automation entered `status`.
+  since       DateTime           @default(now())
+  /// The `lane:ops` issue for the current outage. Still set after a recovery until the
+  /// issue has been commented on and closed.
+  issueNumber Int?
+  /// When the outage's Sentry alarm went out; NULL while OVERDUE means it is still owed.
+  alertedAt   DateTime?
+  /// When the outage's email went out; NULL while OVERDUE means it is still owed.
+  emailedAt   DateTime?
+  verdict     AutomationVerdict?
+  /// One line on what the latest check saw, e.g. "no hareline-prompt call for 31 h".
+  detail      String?
+  checkedAt   DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}

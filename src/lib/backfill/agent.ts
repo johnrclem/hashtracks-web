@@ -12,8 +12,8 @@ import { fetchArchiveAt, type ApprovalContext } from "./approval";
 /** Recorded in a run's step log for calls made with the agent token (11.1). */
 export const BACKFILL_AGENT_ID = "backfill-agent";
 export const BACKFILL_WATCH_ID = "backfill-watch";
-/** The watch cron's CronHeartbeat job name. */
-export const WATCH_JOB = "backfill-watch";
+/** The watch cron's automation id: its runs are AutomationRun rows (ops watchdog). */
+export const WATCH_JOB = "cron:backfill-watch";
 
 /**
  * G16, the kill switch: `off` refuses every agent call, `shadow` refuses

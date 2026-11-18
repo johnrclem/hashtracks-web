@@ -5,12 +5,11 @@
  * approved manifests from the last 30 days that have no run, re-verifies
  * runs from the last 7 days, and raises the liveness errors. It never starts
  * a fresh apply: PLANNED runs wait for the implementer or the owner (Phase 2).
- * Its own liveness is the CronHeartbeat row the digest reads.
+ * Its own liveness is the AutomationRun row its route's `withCronRun` records.
  */
 import * as Sentry from "@sentry/nextjs";
-import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { BACKFILL_WATCH_ID, WATCH_JOB, backfillMode } from "./agent";
+import { BACKFILL_WATCH_ID, backfillMode } from "./agent";
 import { listApprovedManifestPrs, RetryableApprovalError } from "./approval";
 import { advanceFromCaller, planFromPr, verifyFromCaller } from "./service";
 
@@ -41,15 +40,17 @@ async function step(report: WatchReport, label: string, fn: () => Promise<void>)
   }
 }
 
+/** When the run's apply finished: the time of its `finish` step (apply.ts), or null before then. */
+export function applyFinishedAt(stepLog: unknown): Date | null {
+  if (!Array.isArray(stepLog)) return null;
+  const finish = stepLog.findLast((s: unknown) => (s as { step?: unknown })?.step === "finish") as { at?: unknown } | undefined;
+  const at = typeof finish?.at === "string" ? new Date(finish.at) : null;
+  return at && !Number.isNaN(at.getTime()) ? at : null;
+}
+
 export async function runBackfillWatch(now = new Date()): Promise<WatchReport> {
   const mode = backfillMode();
   const report: WatchReport = { mode, resumed: [], replanned: [], planned: [], reverified: [], alerts: [], errors: [] };
-  await prisma.cronHeartbeat.upsert({
-    where: { jobName: WATCH_JOB },
-    create: { jobName: WATCH_JOB, lastStartedAt: now },
-    update: { lastStartedAt: now },
-  });
-
   if (mode === "apply") {
     await step(report, "resume", async () => {
       const stuck = await prisma.backfillRun.findMany({ where: { status: "APPLYING", OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { lt: now } }] }, select: { id: true } });
@@ -88,10 +89,12 @@ export async function runBackfillWatch(now = new Date()): Promise<WatchReport> {
     await step(report, "reverify", async () => {
       const recent = await prisma.backfillRun.findMany({
         where: { status: { in: ["APPLIED", "VERIFIED", "VERIFY_FAILED"] }, OR: [{ verifiedAt: null }, { verifiedAt: { lt: new Date(now.getTime() - 20 * HOUR) } }], updatedAt: { gt: new Date(now.getTime() - 8 * DAY) } },
-        select: { id: true, cutoffSetAt: true },
+        select: { id: true, stepLog: true },
       });
       for (const r of recent) {
-        if (r.cutoffSetAt && now.getTime() - r.cutoffSetAt.getTime() > 7 * DAY) continue;
+        // Seven days of re-checks from when the apply finished, however long the apply took.
+        const finishedAt = applyFinishedAt(r.stepLog);
+        if (finishedAt && now.getTime() - finishedAt.getTime() > 7 * DAY) continue;
         const verified = await verifyFromCaller(r.id);
         if (!verified) continue;
         const ok = verified.result.ok && (verified.v5?.ok ?? true);
@@ -116,9 +119,5 @@ export async function runBackfillWatch(now = new Date()): Promise<WatchReport> {
     for (const r of stale) alert(report, `run ${r.id} has been ${r.status} too long`);
   });
 
-  await prisma.cronHeartbeat.update({
-    where: { jobName: WATCH_JOB },
-    data: { lastFinishedAt: new Date(), lastResult: report as unknown as Prisma.InputJsonValue },
-  });
   return report;
 }

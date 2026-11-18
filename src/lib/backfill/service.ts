@@ -3,6 +3,7 @@
  * (docs/onboarding-backfill-automation-design.md 7.2, 7.3): approval, then the
  * library call. Every call re-reads GitHub; nothing trusts a caller's claim.
  */
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { countKennelPageEvents, getKennelPageEvents } from "@/lib/kennel-page-events";
@@ -97,7 +98,11 @@ export async function advanceFromCaller(runId: string, by: string, opts: { resum
   }
 }
 
-/** POST /runs/:id/verify: V1–V4, then V5 against the public kennel page. */
+/**
+ * POST /runs/:id/verify: V1–V4, then V5 against the public kennel page. V5 is
+ * saved with the run's verification, and a V5 failure makes the run
+ * VERIFY_FAILED, so the run page and the digest see what the caller saw.
+ */
 export async function verifyFromCaller(runId: string, ctx: ApprovalContext = {}) {
   const run = await prisma.backfillRun.findUniqueOrThrow({ where: { id: runId }, include: { kennel: { select: { slug: true } } } });
   if (!["APPLIED", "VERIFIED", "VERIFY_FAILED"].includes(run.status)) return null;
@@ -108,6 +113,14 @@ export async function verifyFromCaller(runId: string, ctx: ApprovalContext = {})
     const expected = countKennelPageEvents(await getKennelPageEvents(run.kennelId));
     const page = await checkPublicPageCount(run.kennel.slug, expected, getCanonicalSiteUrl());
     v5 = { ...page, expected };
+    const ok = result.ok && v5.ok;
+    await prisma.backfillRun.update({
+      where: { id: runId },
+      data: {
+        status: ok ? "VERIFIED" : "VERIFY_FAILED",
+        verification: { ...result, ok, v5 } as unknown as Prisma.InputJsonValue,
+      },
+    });
   }
   return { result, v5 };
 }

@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 vi.mock("@sentry/nextjs", () => ({ captureMessage: vi.fn(), captureException: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
-    cronHeartbeat: { upsert: vi.fn(), update: vi.fn() },
     backfillRun: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
@@ -14,7 +13,7 @@ import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@/lib/db";
 import { advanceFromCaller, planFromPr } from "./service";
 import { listApprovedManifestPrs } from "./approval";
-import { runBackfillWatch } from "./watch";
+import { applyFinishedAt, runBackfillWatch } from "./watch";
 
 const NOW = new Date("2026-11-20T07:15:00Z");
 
@@ -25,12 +24,10 @@ describe("backfill-watch (7.3, 11.3)", () => {
   });
   afterEach(() => vi.unstubAllEnvs());
 
-  it("off: records its heartbeat and liveness only, and touches no run", async () => {
+  it("off: touches no run (the route's withCronRun records liveness)", async () => {
     vi.stubEnv("BACKFILL_AUTOMATION", "off");
     const report = await runBackfillWatch(NOW);
     expect(report.mode).toBe("off");
-    expect(prisma.cronHeartbeat.upsert).toHaveBeenCalled();
-    expect(prisma.cronHeartbeat.update).toHaveBeenCalled();
     expect(advanceFromCaller).not.toHaveBeenCalled();
     expect(planFromPr).not.toHaveBeenCalled();
   });
@@ -55,5 +52,13 @@ describe("backfill-watch (7.3, 11.3)", () => {
     expect(advanceFromCaller).not.toHaveBeenCalled();
     expect(report.alerts.join()).toMatch(/#42/);
     expect(Sentry.captureMessage).toHaveBeenCalled();
+  });
+});
+
+describe("applyFinishedAt", () => {
+  it("is the time of the run's last finish step, or null before one", () => {
+    expect(applyFinishedAt([{ step: "cutoff", at: "2026-11-01T00:00:00.000Z" }])).toBeNull();
+    expect(applyFinishedAt([{ step: "cutoff", at: "2026-11-01T00:00:00.000Z" }, { step: "finish", at: "2026-11-12T08:00:00.000Z" }])?.toISOString()).toBe("2026-11-12T08:00:00.000Z");
+    expect(applyFinishedAt(null)).toBeNull();
   });
 });

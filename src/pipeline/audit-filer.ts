@@ -195,6 +195,9 @@ export interface FilerActions {
   >;
 }
 
+/** How every "still recurring" comment starts; the ops watchdog uses it to tell them from the fixer's. */
+export const RECUR_COMMENT_PREFIX = "**Still recurring on";
+
 /**
  * Format a "still recurring" comment posted on the existing open
  * issue when a finding fingerprints to (or bridges into) it. Includes
@@ -202,7 +205,7 @@ export interface FilerActions {
  * issue see the freshest event sample without scrolling the timeline.
  */
 function formatRecurComment(input: FileFindingInput): string {
-  return `**Still recurring on ${toIsoDateString(new Date())}.**\n\n${input.bodyMarkdown}`;
+  return `${RECUR_COMMENT_PREFIX} ${toIsoDateString(new Date())}.**\n\n${input.bodyMarkdown}`;
 }
 
 /**

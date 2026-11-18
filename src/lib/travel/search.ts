@@ -174,8 +174,20 @@ export type EmptyStateKind =
   | "none"
   | "no_confirmed"
   | "no_nearby"
+  | "no_runs"
   | "no_coverage"
   | "out_of_horizon";
+
+/**
+ * Empty states with no row anywhere to show: the banner is the whole answer.
+ * Rendering an empty TravelResults under one would add "No results match the
+ * active filters", which is only true for an empty `none` (filters hid rows).
+ */
+export const ROWLESS_EMPTY_STATES: ReadonlySet<EmptyStateKind> = new Set<EmptyStateKind>([
+  "no_runs",
+  "no_coverage",
+  "out_of_horizon",
+]);
 
 /**
  * Per-stop summary. Every stop gets one of these, even if it had zero
@@ -234,6 +246,7 @@ export interface TravelSearchResults {
    *   - Every stop `out_of_horizon` → `out_of_horizon`
    *   - Every stop empty with at least one `no_nearby` → `no_nearby`
    *   - Every stop's confirmed empty but some likely/possible anywhere → `no_confirmed`
+   *   - Every stop rowless with at least one `no_runs` → `no_runs`
    *   - Any stop has confirmed results → `none`
    * Per-stop empty states still live on `destinations[i].emptyState` for
    * local hints; this field only drives the full-page banner.
@@ -903,6 +916,8 @@ async function runStopSearch(
   let passWeatherInputs = firstPass.weatherInputs;
   let nearbyKennels = firstPassKennels;
   let primaryEffectivelyEmpty = primary.length === 0;
+  // Rows the shown pass found on the trip dates before the user's filters.
+  let unfilteredTotal = firstPass.unfilteredTotal;
 
   // Retry broader only when primary had kennels but produced NO unfiltered
   // results — i.e. the radius is genuinely dormant. If the primary had
@@ -920,38 +935,23 @@ async function runStopSearch(
         passWeatherInputs = broaderPass.weatherInputs;
         nearbyKennels = broader;
         primaryEffectivelyEmpty = true;
+        unfilteredTotal = broaderPass.unfilteredTotal;
       }
     }
   }
 
-  // Step 16: Determine empty state.
-  // The empty state reflects what the user should see, independent of filters:
-  // - no_coverage: zero kennels found even in broader pass
-  // - no_nearby: primary radius had zero kennels, but broader pass found some
-  // - no_confirmed: confirmed events empty, but likely/possible exist
-  // - out_of_horizon: nothing in range past the 365-day projection horizon
-  // - none: has results in the primary radius
-  let emptyState: EmptyStateKind = "none";
-  let broaderResultsObj: DestinationResult["broaderResults"];
-
-  const totalResults =
-    filtered.confirmed.length + filtered.likely.length + filtered.possible.length;
-
-  if (primaryEffectivelyEmpty && broader.length > 0) {
-    emptyState = "no_nearby";
-    broaderResultsObj = {
-      confirmed: filtered.confirmed,
-      likely: filtered.likely,
-      possible: filtered.possible,
-    };
-  } else if (totalResults === 0 && horizonTier === "none") {
-    // Past the 365-day projection horizon and nobody posted an event that
-    // far out. Differentiate from "no_confirmed" so EmptyStates copy can
-    // explain the situation instead of implying the filter is the issue.
-    emptyState = "out_of_horizon";
-  } else if (filtered.confirmed.length === 0 && (filtered.likely.length > 0 || filtered.possible.length > 0)) {
-    emptyState = "no_confirmed";
-  }
+  // Step 16: Determine empty state (no_coverage returned early above).
+  const emptyState = chooseStopEmptyState({
+    horizonTier,
+    unfilteredTotal,
+    showsBroaderPass: primaryEffectivelyEmpty,
+    confirmedCount: filtered.confirmed.length,
+    likelyOrPossibleCount: filtered.likely.length + filtered.possible.length,
+  });
+  const broaderResultsObj: DestinationResult["broaderResults"] =
+    emptyState === "no_nearby"
+      ? { confirmed: filtered.confirmed, likely: filtered.likely, possible: filtered.possible }
+      : undefined;
 
   // "No posted trails for your exact dates": look out to the broader radius
   // for the nearest confirmed runs so the answer isn't only "check directly"
@@ -998,15 +998,46 @@ async function runStopSearch(
 // ============================================================================
 
 /**
+ * Pick a stop's empty state once at least one kennel was searched (a stop
+ * with no kennels in either radius returns `no_coverage` before this runs).
+ * Nothing on the dates gets a rowless state whatever filters are active, so
+ * an empty `none` only ever means the filters hid every row.
+ *
+ *   - out_of_horizon: nothing found and the dates are past the 365-day horizon
+ *   - no_runs: kennels searched, nothing posted or projected for the dates
+ *   - no_nearby: the radius came up empty, the broader ring has rows
+ *   - no_confirmed: no confirmed rows, but likely/possible ones to show
+ *   - none: confirmed rows to show, or rows the active filters hid
+ */
+export function chooseStopEmptyState(input: {
+  horizonTier: ProjectionHorizonTier;
+  /** Rows the shown pass found on the trip dates before filters ran. */
+  unfilteredTotal: number;
+  /** The radius had no kennels or no rows, so the stop shows the broader ring. */
+  showsBroaderPass: boolean;
+  /** Counts after filters. */
+  confirmedCount: number;
+  likelyOrPossibleCount: number;
+}): EmptyStateKind {
+  if (input.unfilteredTotal === 0) {
+    return input.horizonTier === "none" ? "out_of_horizon" : "no_runs";
+  }
+  if (input.showsBroaderPass) return "no_nearby";
+  if (input.confirmedCount === 0 && input.likelyOrPossibleCount > 0) return "no_confirmed";
+  return "none";
+}
+
+/**
  * Aggregate per-stop empty states into a single top-level banner state.
  *
  * Priority: surface the most optimistic (actionable) state first. If any
  * stop has real results (`none`), suppress the banner entirely. Otherwise
  * prefer projection-bearing states (`no_nearby`, `no_confirmed`) over
- * hard empties (`no_coverage`, `out_of_horizon`), since the former means
- * the user has something to act on. Among hard empties, `no_coverage`
- * beats `out_of_horizon` — a missing-data region is more useful to flag
- * than a future date the user can't change.
+ * rowless ones (`no_runs`, `no_coverage`, `out_of_horizon`), since the
+ * former means the user has something to act on. Among rowless states,
+ * `no_runs` comes first (we know kennels there), then `no_coverage` beats
+ * `out_of_horizon` — a missing-data region is more useful to flag than a
+ * future date the user can't change.
  *
  * Per-stop states still live on `destinations[i].emptyState` for per-leg
  * inline hints; this field only drives the full-page banner.
@@ -1016,6 +1047,7 @@ function aggregateEmptyState(stops: DestinationResult[]): EmptyStateKind {
   if (stops.some((s) => s.emptyState === "none")) return "none";
   if (stops.some((s) => s.emptyState === "no_nearby")) return "no_nearby";
   if (stops.some((s) => s.emptyState === "no_confirmed")) return "no_confirmed";
+  if (stops.some((s) => s.emptyState === "no_runs")) return "no_runs";
   if (stops.some((s) => s.emptyState === "no_coverage")) return "no_coverage";
   return "out_of_horizon";
 }

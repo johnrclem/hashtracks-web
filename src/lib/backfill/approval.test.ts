@@ -1,4 +1,5 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import { isApprovalStamp, namesPr, ownerGithubLogin, stampDescription } from "./approval-stamp";
 import {
   checkMergedPrApproval,
   checkOpenPrApproval,
@@ -111,6 +112,34 @@ describe("approval A1–A4 (design 6.4)", () => {
     await expect(checkMergedPrApproval(7, D, ctx(w))).rejects.toThrow(/isn't a merge/);
   });
 
+  it("A4: accepts ordinary main commits that a merge brings in (only the first-parent chain must be merges)", async () => {
+    const w = mergeOfMain("@@ -0,0 +1 @@\n+INSERT 1");
+    const E = "e".repeat(40);
+    // The compare lists main's own commit E too: it isn't on the PR's first-parent chain.
+    w.compare[`${H}...${M}`] = { status: "ahead", commits: [{ sha: E, parents: [{ sha: F }] }, { sha: M, parents: [{ sha: H }, { sha: E }] }] };
+    expect((await checkMergedPrApproval(7, D, ctx(w))).stampedSha).toBe(H);
+  });
+
+  it("A4: refuses a compare GitHub may have cut short", async () => {
+    const w = mergeOfMain("@@ -0,0 +1 @@\n+INSERT 1");
+    const many = Array.from({ length: 300 }, (_, i) => ({ filename: `f${i}`, status: "added", sha: "1" }));
+    w.compare[`${F}...${H}`] = { files: many };
+    w.compare[`${F}...${M}`] = { files: many };
+    await expect(checkMergedPrApproval(7, D, ctx(w))).rejects.toThrow(/too many to compare/);
+  });
+
+  it("refuses a merged PR from a fork, or from a deleted fork", async () => {
+    const fork = world({ pr: { ...world().pr, head: { sha: H, repo: { full_name: "someone/fork" } } } });
+    await expect(checkMergedPrApproval(7, D, ctx(fork))).rejects.toBeInstanceOf(TerminalApprovalError);
+    const deleted = world({ pr: { ...world().pr, head: { sha: H, repo: null } } });
+    await expect(checkMergedPrApproval(7, D, ctx(deleted))).rejects.toBeInstanceOf(TerminalApprovalError);
+  });
+
+  it("a list longer than 30 pages is retryable, never read in part", async () => {
+    const w = world({ events: Array.from({ length: 100 }, () => ({ event: "commented", created_at: LABELED_AT })) });
+    await expect(checkMergedPrApproval(7, D, ctx(w))).rejects.toThrow(/more than 3000 items/);
+  });
+
   it("the open-PR check returns the approved head for --match-head-commit, and refuses a fork", async () => {
     const open = world({ pr: { ...world().pr, merged: false, merge_commit_sha: null } });
     expect(await checkOpenPrApproval(7, ctx(open))).toMatchObject({ stampedSha: H, headSha: H, mergeSha: null });
@@ -169,5 +198,22 @@ describe("fetchPrFiles", () => {
       contents: { "scripts/data/a-history.manifest.json": JSON.stringify({ archivePath: "../../.env" }) },
     });
     await expect(fetchPrFiles(7, S, ctx(outside))).rejects.toThrow(/outside scripts\/data/);
+  });
+});
+
+describe("approval stamp module (design 6.3)", () => {
+  it("the workflow's description passes the server's check for that PR only", () => {
+    const stamp = { context: "backfill/approved", state: "success", description: stampDescription(12), creator: { login: "github-actions[bot]" } };
+    expect(isApprovalStamp(stamp, 12)).toBe(true);
+    expect(isApprovalStamp(stamp, 1)).toBe(false);
+    expect(namesPr("#123", 12)).toBe(false);
+  });
+
+  it("reads the owner's login from OWNER_GITHUB_LOGIN, defaulting to the repo owner", () => {
+    vi.stubEnv("OWNER_GITHUB_LOGIN", "");
+    expect(ownerGithubLogin()).toBe("johnrclem");
+    vi.stubEnv("OWNER_GITHUB_LOGIN", "someone");
+    expect(ownerGithubLogin()).toBe("someone");
+    vi.unstubAllEnvs();
   });
 });

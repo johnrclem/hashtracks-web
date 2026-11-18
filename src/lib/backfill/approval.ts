@@ -8,12 +8,10 @@
  * stamp that fails A3 or A4 is terminal.
  */
 
+import { APPROVAL_LABEL, isApprovalStamp, ownerGithubLogin } from "./approval-stamp";
+
+export { APPROVAL_LABEL, STAMP_CONTEXT, STAMP_CREATOR } from "./approval-stamp";
 export const APPROVAL_REPO = "johnrclem/hashtracks-web";
-/** The only account whose label approves (A2). */
-export const OWNER_GITHUB_LOGIN = "johnrclem";
-export const APPROVAL_LABEL = "owner-approved";
-export const STAMP_CONTEXT = "backfill/approved";
-export const STAMP_CREATOR = "github-actions[bot]";
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const ARCHIVE_PATH_RE = /^scripts\/data\/[a-z0-9-]+-history[a-z0-9-]*\.(manifest\.)?json$/;
 const MIGRATION_PATH_RE = /^prisma\/migrations\/[^/]+\/migration\.sql$/;
@@ -32,6 +30,11 @@ export class TerminalApprovalError extends Error {}
 export class LabelMissingError extends RetryableApprovalError {}
 /** A stamp older than the label this recent may just be Actions catching up (A3). */
 const STAMP_GRACE_MS = 15 * 60 * 1000;
+const MAX_LIST_PAGES = 30;
+/** GitHub's compare lists at most 300 files: a full list may hide a change (A4). */
+const COMPARE_FILE_CAP = 300;
+/** Commits A4 walks from the head back to the stamp before giving up. */
+const MAX_FIRST_PARENT_STEPS = 100;
 
 class GitHub {
   constructor(private readonly token: string, private readonly fetchImpl: FetchLike) {}
@@ -56,16 +59,16 @@ class GitHub {
     return res;
   }
 
-  /** Every page of a list endpoint (100 per page, at most 30 pages). */
+  /** Every page of a list endpoint (100 per page). Refuses a list too long to read whole, never returns part of one. */
   async list<T>(path: string): Promise<T[]> {
     const out: T[] = [];
-    for (let page = 1; page <= 30; page++) {
-      const sep = path.includes("?") ? "&" : "?";
+    const sep = path.includes("?") ? "&" : "?";
+    for (let page = 1; page <= MAX_LIST_PAGES; page++) {
       const batch = await this.get<T[]>(`${path}${sep}per_page=100&page=${page}`);
       out.push(...batch);
-      if (batch.length < 100) break;
+      if (batch.length < 100) return out;
     }
-    return out;
+    throw new RetryableApprovalError(`GitHub list ${path.split("?")[0]} has more than ${MAX_LIST_PAGES * 100} items`);
   }
 }
 
@@ -81,7 +84,8 @@ interface PullRequest {
 interface IssueEvent { event: string; label?: { name: string }; actor?: { login: string } | null; created_at: string }
 interface CommitStatus { context: string; description: string | null; creator?: { login: string } | null; created_at: string; state: string }
 interface CompareFile { filename: string; status: string; sha: string; patch?: string; previous_filename?: string }
-interface Compare { status: string; files?: CompareFile[]; commits?: Array<{ sha: string; parents: Array<{ sha: string }> }> }
+interface Commit { sha: string; parents: Array<{ sha: string }> }
+interface Compare { status: string; files?: CompareFile[]; commits?: Commit[] }
 
 export interface PrApproval {
   prNumber: number;
@@ -99,18 +103,8 @@ async function checkLabel(gh: GitHub, pr: PullRequest): Promise<string> {
   const events = await gh.list<IssueEvent>(`/issues/${pr.number}/events`);
   const labeled = events.filter((e) => e.event === "labeled" && e.label?.name === APPROVAL_LABEL).at(-1);
   if (!labeled) throw new RetryableApprovalError("A2: no labeled event yet");
-  if (labeled.actor?.login !== OWNER_GITHUB_LOGIN) throw new TerminalApprovalError(`A2: ${APPROVAL_LABEL} was last added by ${labeled.actor?.login ?? "unknown"}, not the owner`);
+  if (labeled.actor?.login !== ownerGithubLogin()) throw new TerminalApprovalError(`A2: ${APPROVAL_LABEL} was last added by ${labeled.actor?.login ?? "unknown"}, not the owner`);
   return labeled.created_at;
-}
-
-/** The description names `#n` as a whole number (`#12` isn't `#123`). */
-function namesPr(description: string, n: number): boolean {
-  const token = `#${n}`;
-  for (let at = description.indexOf(token); at !== -1; at = description.indexOf(token, at + 1)) {
-    const next = description[at + token.length] ?? "";
-    if (!(next >= "0" && next <= "9")) return true;
-  }
-  return false;
 }
 
 /** A3: the newest commit of the PR carrying the stamp for this PR, made by Actions after the label. */
@@ -118,13 +112,7 @@ async function findStamp(gh: GitHub, pr: PullRequest, labeledAt: string): Promis
   const commits = await gh.list<{ sha: string }>(`/pulls/${pr.number}/commits`);
   for (const { sha } of [...commits].reverse()) {
     const statuses = await gh.list<CommitStatus>(`/commits/${sha}/statuses`);
-    const stamp = statuses.find(
-      (s) =>
-        s.context === STAMP_CONTEXT &&
-        s.state === "success" &&
-        s.creator?.login === STAMP_CREATOR &&
-        namesPr(s.description ?? "", pr.number),
-    );
+    const stamp = statuses.find((s) => isApprovalStamp(s, pr.number));
     if (!stamp) continue;
     if (stamp.created_at < labeledAt) {
       // Actions may not have stamped the new head yet; only an old label makes this final.
@@ -142,21 +130,45 @@ function changedLines(patch: string): string[] {
 }
 
 /**
- * A4: M is H, or every commit after H up to M is a merge (of main) and the
- * PR's own change is identical at H and M: the same paths with the same
- * statuses, and per path the same blob or the same ordered +/- lines.
+ * A4's first-parent rule: walking from M back along first parents reaches H,
+ * and every commit on that walk is a merge. Commits those merges bring in from
+ * main are not the PR's own and may be ordinary commits.
+ */
+async function checkFirstParentMerges(gh: GitHub, stamped: string, head: string, compared: readonly Commit[]): Promise<void> {
+  const known = new Map(compared.map((c) => [c.sha, c]));
+  let sha = head;
+  for (let step = 0; step < MAX_FIRST_PARENT_STEPS; step++) {
+    if (sha === stamped) return;
+    const commit = known.get(sha) ?? (await gh.get<Commit>(`/commits/${sha}`));
+    if (commit.parents.length < 2) throw new TerminalApprovalError("A4: a commit after the stamp isn't a merge of main");
+    sha = commit.parents[0].sha;
+  }
+  throw new TerminalApprovalError(`A4: the stamp is more than ${MAX_FIRST_PARENT_STEPS} merges behind the head`);
+}
+
+/** A compare's file list, refused when GitHub may have cut it short. */
+function comparedFiles(cmp: Compare): CompareFile[] {
+  const files = cmp.files ?? [];
+  if (files.length >= COMPARE_FILE_CAP) throw new TerminalApprovalError(`A4: the PR changes ${COMPARE_FILE_CAP} or more files, too many to compare`);
+  return files;
+}
+
+/**
+ * A4: M is H, or M follows H only by merges (of main) and the PR's own change
+ * is identical at H and M: the same paths with the same statuses, and per path
+ * the same blob or the same ordered +/- lines.
  */
 async function checkHeadMatchesStamp(gh: GitHub, stamped: string, head: string, base: string): Promise<void> {
   if (stamped === head) return;
   const between = await gh.get<Compare>(`/compare/${stamped}...${head}`);
   if (between.status !== "ahead") throw new TerminalApprovalError("A4: the head isn't a descendant of the stamped commit");
-  if ((between.commits ?? []).some((c) => c.parents.length < 2)) throw new TerminalApprovalError("A4: a commit after the stamp isn't a merge of main");
+  await checkFirstParentMerges(gh, stamped, head, between.commits ?? []);
   // A fixed base, not today's main: once a PR merges with a merge commit, both
   // diffs against current main would be empty and anything would pass.
   const [atStamp, atHead] = await Promise.all([gh.get<Compare>(`/compare/${base}...${stamped}`), gh.get<Compare>(`/compare/${base}...${head}`)]);
   const key = (f: CompareFile) => `${f.status}:${f.previous_filename ?? ""}:${f.filename}`;
-  const a = new Map((atStamp.files ?? []).map((f) => [f.filename, f]));
-  const b = new Map((atHead.files ?? []).map((f) => [f.filename, f]));
+  const a = new Map(comparedFiles(atStamp).map((f) => [f.filename, f]));
+  const b = new Map(comparedFiles(atHead).map((f) => [f.filename, f]));
   if (a.size !== b.size) throw new TerminalApprovalError("A4: the PR's own files differ between the stamp and the head");
   for (const [name, fa] of a) {
     const fb = b.get(name);
@@ -193,7 +205,7 @@ function client(ctx: ApprovalContext): GitHub {
 export async function checkOpenPrApproval(prNumber: number, ctx: ApprovalContext = {}): Promise<PrApproval> {
   const gh = client(ctx);
   const pr = await gh.get<PullRequest>(`/pulls/${prNumber}`);
-  if (pr.head.repo?.full_name !== APPROVAL_REPO) throw new TerminalApprovalError("the PR's head isn't in this repository");
+  refuseFork(pr);
   const labeledAt = await checkLabel(gh, pr);
   const stamped = await findStamp(gh, pr, labeledAt);
   await checkHeadMatchesStamp(gh, stamped, pr.head.sha, pr.base.sha);
@@ -203,8 +215,13 @@ export async function checkOpenPrApproval(prNumber: number, ctx: ApprovalContext
 /** An open PR's current head, for a preview (which runs before any label). Refuses a fork. */
 export async function openPrHead(prNumber: number, ctx: ApprovalContext = {}): Promise<string> {
   const pr = await client(ctx).get<PullRequest>(`/pulls/${prNumber}`);
-  if (pr.head.repo?.full_name !== APPROVAL_REPO) throw new TerminalApprovalError("the PR's head isn't in this repository");
+  refuseFork(pr);
   return pr.head.sha;
+}
+
+/** A fork's head (or a deleted fork's, which GitHub reports as null) never approves. */
+function refuseFork(pr: PullRequest): void {
+  if (pr.head.repo?.full_name !== APPROVAL_REPO) throw new TerminalApprovalError("the PR's head isn't in this repository");
 }
 
 /** A1–A4 for a merged PR, before plan and every batch (6.4). */
@@ -213,6 +230,7 @@ export async function checkMergedPrApproval(prNumber: number, deployedSha: strin
   const pr = await gh.get<PullRequest>(`/pulls/${prNumber}`);
   if (!pr.merged || !pr.merge_commit_sha) throw new RetryableApprovalError("A1: the PR isn't merged yet");
   if (pr.base.ref !== "main") throw new TerminalApprovalError("A1: the PR didn't merge into main");
+  refuseFork(pr);
   await checkDeployed(gh, pr.merge_commit_sha, deployedSha);
   const labeledAt = await checkLabel(gh, pr);
   const stamped = await findStamp(gh, pr, labeledAt);
