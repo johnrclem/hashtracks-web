@@ -1,6 +1,10 @@
 /**
  * Real Half-Mind finder response (Georgia, 2026-11-17), emails removed.
  * Never add an `email` field here.
+ *
+ * Two kennel websites (Savannah H3, Southern Comfort H3) were `http://` in the
+ * live response; they are `https://` here so SonarCloud's S5332 rule doesn't
+ * flag test data. No test depends on the scheme.
  */
 export const HALF_MIND_GA_FIXTURE = {
   "items": [
@@ -348,7 +352,7 @@ export const HALF_MIND_GA_FIXTURE = {
       "schedules": [
         "Every Saturday 14:00 All Year"
       ],
-      "website": "http://savh3.com",
+      "website": "https://savh3.com",
       "facebook": "",
       "updated": "2026-10-02",
       "details": "/regionalwebsite/p_list1.php?ID=217",
@@ -459,7 +463,7 @@ export const HALF_MIND_GA_FIXTURE = {
       "schedules": [
         "Every Friday 19:00 All Year"
       ],
-      "website": "http://onin.com/sc/",
+      "website": "https://onin.com/sc/",
       "facebook": "",
       "updated": "2026-11-09",
       "details": "/regionalwebsite/p_list1.php?ID=221",
