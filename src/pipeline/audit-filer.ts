@@ -156,7 +156,10 @@ export type FilerErrorReason =
   | "comment-failed-coarse"
   | "comment-failed-github"
   | "create-failed"
-  | "db-update-failed";
+  | "db-update-failed"
+  /** The GitHub dedup search couldn't list open issues (HTTP error, timeout,
+   *  missing token). Nothing was filed: creating blind could fork a duplicate. */
+  | "github-list-failed";
 
 /**
  * Function-typed (not method-shorthand) properties so callers can
@@ -178,17 +181,22 @@ export interface FilerActions {
   postComment: (issueNumber: number, body: string) => Promise<boolean>;
   /**
    * List OPEN audit issues carrying the `kennel:<code>` label, with their
-   * bodies, for the final GitHub-search dedup gate. Returns `[]` on any failure
-   * (missing token, invalid code, network/HTTP error) so a list failure can
-   * never block filing — the gate just falls through to create. The body is
-   * needed so the gate can read the embedded dedup identity marker.
+   * bodies, for the final GitHub-search dedup gate. Returns `null` when GitHub
+   * can't answer (missing token, network/HTTP error, timeout): the filer then
+   * fails closed with `github-list-failed` instead of creating a possible
+   * duplicate. `[]` means GitHub answered and there are no open issues (also
+   * returned for a code that can't be a label, since nothing can carry it).
+   * The body is needed so the gate can read the embedded dedup identity marker.
    */
   listOpenIssuesByKennel: (
     kennelCode: string,
   ) => Promise<
-    Array<{ number: number; htmlUrl: string; title: string; body: string }>
+    Array<{ number: number; htmlUrl: string; title: string; body: string }> | null
   >;
 }
+
+/** How every "still recurring" comment starts; the ops watchdog uses it to tell them from the fixer's. */
+export const RECUR_COMMENT_PREFIX = "**Still recurring on";
 
 /**
  * Format a "still recurring" comment posted on the existing open
@@ -197,7 +205,7 @@ export interface FilerActions {
  * issue see the freshest event sample without scrolling the timeline.
  */
 function formatRecurComment(input: FileFindingInput): string {
-  return `**Still recurring on ${toIsoDateString(new Date())}.**\n\n${input.bodyMarkdown}`;
+  return `${RECUR_COMMENT_PREFIX} ${toIsoDateString(new Date())}.**\n\n${input.bodyMarkdown}`;
 }
 
 /**
@@ -813,7 +821,8 @@ async function tryCoarseDedup(
  * (the issue is open on GitHub but not yet mirrored) and non-fingerprintable
  * chrome findings with free-form titles (no fingerprint, no parseable
  * title-slug). Returns the recurred outcome on a hit, an error on comment
- * failure, or null to fall through to a fresh create.
+ * failure or when GitHub can't list the open issues (fail closed), or null to
+ * fall through to a fresh create.
  *
  * `recurrenceCount` is reported as 0 on this path: we deliberately do NOT touch
  * the mirror row's counter here (the row may not be mirrored yet, and the whole
@@ -826,6 +835,7 @@ async function tryGitHubSearchDedup(
   actions: FilerActions,
 ): Promise<FileFindingOutcome | null> {
   const candidates = await actions.listOpenIssuesByKennel(input.kennelCode);
+  if (candidates === null) return { action: "error", reason: "github-list-failed" };
   if (candidates.length === 0) return null;
 
   const match = candidates.find((issue) => {

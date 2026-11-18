@@ -2,14 +2,16 @@
 
 import { AnimatedCounter } from "@/components/home/HeroAnimations";
 import { getRegionColor, hexToRgb } from "@/lib/region";
+import { SCHEDULE_ONLY_LABEL, SCHEDULE_ONLY_TITLE } from "@/lib/event-display";
 import { Calendar, Clock, ArrowRight, Hash } from "lucide-react";
 
 interface KennelStatsProps {
   currentRunNumber: number | null;
   totalEvents: number;
   oldestEventDate: string | null;
-  nextRunDate: string | null;
-  lastEventDate: string | null;
+  /** isScheduleOnly: the next run was generated from the usual schedule, not posted. */
+  nextRun: { date: string; isScheduleOnly: boolean } | null;
+  lastRunSeenAt: string | null;
   foundedYear?: number | null;
   region?: string;
 }
@@ -99,12 +101,12 @@ export function KennelStats({
   currentRunNumber,
   totalEvents,
   oldestEventDate,
-  nextRunDate,
-  lastEventDate,
+  nextRun,
+  lastRunSeenAt,
   foundedYear,
   region,
 }: KennelStatsProps) {
-  if (totalEvents === 0 && !lastEventDate) return null;
+  if (totalEvents === 0 && !lastRunSeenAt) return null;
 
   const hex = region ? getRegionColor(region) : "#6b7280";
   const [r, g, b] = hexToRgb(hex);
@@ -146,16 +148,17 @@ export function KennelStats({
     });
   }
 
-  if (nextRunDate) {
+  if (nextRun) {
     stats.push({
       icon: <ArrowRight className="h-5 w-5" />,
-      value: formatNextRun(nextRunDate),
-      label: "Next Run",
+      value: formatNextRun(nextRun.date),
+      label: nextRun.isScheduleOnly ? SCHEDULE_ONLY_LABEL : "Next Run",
+      hint: nextRun.isScheduleOnly ? SCHEDULE_ONLY_TITLE : undefined,
     });
-  } else if (lastEventDate) {
+  } else if (lastRunSeenAt) {
     stats.push({
       icon: <Clock className="h-5 w-5" />,
-      value: formatLastRun(lastEventDate),
+      value: formatLastRun(lastRunSeenAt),
       label: "Last Run",
     });
   }

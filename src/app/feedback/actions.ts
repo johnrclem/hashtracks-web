@@ -107,7 +107,7 @@ export async function submitFeedback(
     };
   }
 
-  // Sanitize @claude mentions to prevent accidental workflow triggering (matches auto-issue.ts pattern)
+  // Sanitize @claude mentions to prevent accidental workflow triggering (@claude mentions trigger the claude.yml workflow)
   const sanitize = (s: string) => s.replaceAll("@claude", "@\u200Bclaude");
 
   const issueTitle = sanitize(`[Feedback] ${title}`);

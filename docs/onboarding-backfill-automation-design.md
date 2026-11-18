@@ -1,7 +1,7 @@
 # Onboarding backfill automation: design
 
-**Status:** v5.2. Approved by adversarial review in round 5 (Appendix A); round 5's minor findings applied in v5.1. v5.2 aligns the design with the kennel status work (Status 1, #2923): the calendar series marker, the evidence refresh and the never-enabled archive source. Its review took rounds 7–9, and round 9 approved it. Changes from PR comments were reviewed in rounds 10–12, and round 12 approved them. Pending owner review. Nothing is built yet. 2026-11-13.
-**Scope:** design only. Nothing here is built yet. No code, migration or prod write was made to produce it.
+**Status:** v5.4, amended 2026-11-17 to fit the ops system (`docs/ops/system.md`, ops plan amendment v6): the approval stamp comes from the ops `write-gate` workflow (6.3), cron liveness is recorded in `AutomationRun` (11), G17 accepts the migration template and G15 protects its checker (8.1), and Phase 1 waits for the gate (13). v5.3 was amended 2026-11-14 after PR review. Adversarial review: approved in round 20 (Appendix A records every round). Owner approval of section 15: 2026-11-13. The owner approved all ten decisions in section 15 on 2026-11-13, and decision 7's step-up was rebuilt in that review (10.3, T4). Phase 0 build started 2026-11-17, as the PR stack in 12.1a.
+**Scope:** design. No code, migration or prod write was made to produce it; the build follows 12.1a.
 **Related:** [`kennel-onboarding/implement-handoff-prompt.md`](kennel-onboarding/implement-handoff-prompt.md) (the implementer),
 [`kennel-onboarding/daily-onboarding-prompt.md`](kennel-onboarding/daily-onboarding-prompt.md) (research),
 [`self-healing-v2-plan.md`](self-healing-v2-plan.md) (same shape: scheduled task + owner gate + server endpoints),
@@ -43,7 +43,8 @@ Seven decisions carry most of the safety:
 5. **Each row is written atomically.** The RawEvent, the Event and its kennel link are one nested
    create, so a crash leaves each row fully written or not at all.
 6. **The server decides, the agent only nudges.** The scheduled task can ask the server to plan or take
-   the next step of an approved run. Resume and undo need the owner with a second factor.
+   the next step of an approved run. Resume, undo, and setting or clearing a cutoff by hand need the
+   owner with a second factor.
 7. **Verification checks rows, not totals.** Every written archive (date, run number) must appear on
    the public kennel page. The Zagreb "716 created, 715 shown" case is the page counting unique dates;
    all 716 runs are there (section 9.4).
@@ -151,7 +152,13 @@ the record through adoption (section 6.6), which writes nothing and doesn't need
 
 The honest boundary is the owner's Mac mini. Every scheduled task there runs as the owner's OS user,
 can read the owner's `.env` (`DATABASE_URL`, `CRON_SECRET`, the repo-scope `GITHUB_TOKEN` PAT, and
-any new token), and runs `gh` as the owner's GitHub account. So "agents don't write prod's database"
+any new token), and runs `gh` as the owner's GitHub account. The Vercel CLI there has a stored login
+and is linked to this project, so a task may be able to read production environment variables, such
+as the live `CLERK_SECRET_KEY` (10.3). Any deployment an agent can trigger is another route: every
+pushed branch gets a preview build, preview builds share the prod `DATABASE_URL`, and a build gets
+the decrypted value of every variable scoped to its environment. Connectors on the Mac also give it
+the owner's mailbox, the owner's signed-in Chrome, Vercel and the Clerk dashboard; the Clerk connector
+can change the production instance's settings. So "agents don't write prod's database"
 and "agents never add `owner-approved`" are **prompt rules, not capabilities**. A misbehaving or
 hijacked agent can already do far more damage with `DATABASE_URL` than with anything this design
 adds.
@@ -161,27 +168,28 @@ The design therefore aims at two different things:
 | Threat | Protection |
 |---|---|
 | **Mistakes**: a bad archive, a misroute, PII, overlap with live data, drift after approval, a race, a crash halfway, a wrong count | Machine guards on the server, independent of who calls them. This is the main purpose |
-| **A misbehaving agent on the Mac** | Not solved here. The design removes the *need* for agents to touch the database or run backfill scripts, and makes every automated write recorded, visible and undoable. H1 and H2 (4.3) would turn the prompt rules into real limits; they are entry conditions for Phase 3 |
-| **Someone outside the Mac** (internet, fork PRs, a leaked server credential) | Real limits, listed in 4.2, once H3 is done (a Phase 2 entry condition) |
+| **A misbehaving agent on the Mac** | Not solved here. The design removes the *need* for agents to touch the database or run backfill scripts, and makes every automated write recorded, visible and undoable. H1 and H2 (4.3) would turn the prompt rules into real limits: the tasks reach none of the owner's credentials or sessions, and no build of code the owner hasn't approved gets production secrets. They are entry conditions for Phase 3 |
+| **Someone outside the Mac** (internet, fork PRs, a leaked server credential) | Real limits, listed in 4.2, once H3 is done (a Phase 2 entry condition). Fork PRs only while Vercel's fork protection is on, so a fork PR doesn't build until a team member authorises it: until H2, preview builds get the prod `DATABASE_URL`. Not for the production secrets the server must hold, such as `DATABASE_URL` and the live `CLERK_SECRET_KEY`: a leak gives them in full (10.3) |
 
 ### 4.2 Actors and credentials
 
 | Actor / credential | Through the app it can | Through the app it can't |
 |---|---|---|
-| Owner | Add or remove `owner-approved`; resume, halt or undo from `/admin/backfills` after step-up with a second factor; change env flags | |
-| Scheduled agents | Open PRs, merge approved PRs, call the backfill agent API. Halt a run by removing the label (T1) | Resume, undo or clear a cutoff (step-up needs a passkey or TOTP code). Outside the app they hold owner-level secrets (4.1) |
+| Owner | Add or remove `owner-approved`; halt a run from `/admin/backfills`; resume, undo, set a cutoff by hand or clear one there, each after its own step-up with a second factor (10.3); change env flags | |
+| Scheduled agents | Open PRs, merge approved PRs, call the backfill agent API. Halt a run by removing the label (T1) | Resume, undo, set a cutoff by hand or clear one (each needs a fresh second-factor step-up that the server checks itself, 10.3), except as T4 accepts, or with the owner-level secrets they hold outside the app (4.1, 10.3) |
 | `BACKFILL_AGENT_TOKEN` | Plan, preview, advance a run the owner approved, check a PR's approval, read status | Approve, choose an archive, resume, undo, read user data |
 | `GITHUB_APPROVAL_READ_TOKEN` (server, new, fine-grained, read-only) | Read PRs, labels, statuses, commits and file contents | Add labels or statuses, merge, push |
 | The server's issue-filing credential | Today: the owner's repo-scope PAT, which can label, push and merge as the owner. **H3 replaces it** with a GitHub App limited to issues, whose actions show as the App, so A2 rejects any label it adds | |
-| `approval-stamp` workflow (`pull_request_target` on `main`) | Record the head SHA when `owner-approved` is added | Run PR code (it never checks it out) |
+| `write-gate` workflow (the ops system's gate, `pull_request_target` on `main`) | Record the head SHA when the owner adds `owner-approved` | Run PR code (it never checks it out) |
 | CI | Recompute and check manifests and migrations; render the manifest in its check summary | Write anything outside GitHub |
 | Anyone on the internet | Open a PR from a fork; read the public repo and pages | Get a PR merged or labelled |
 
 ### 4.3 Assumptions and hardening
 
 - **T1. Anything acting as the owner's GitHub account can approve.** Agents run `gh` as the owner. An
-  agent could add the label itself, and the stamp workflow would record it. It could also forge a
-  stamp: any workflow on a branch it pushes can ask for `statuses: write` and write a status as
+  agent acting as the owner could add the label itself, and the stamp workflow would record it (a label
+  added by the agent or server GitHub App is ignored: the workflow stamps only an owner-sent event). It
+  could also forge a stamp: any workflow on a branch it pushes can ask for `statuses: write` and write a status as
   `github-actions[bot]`, with any `target_url` it likes. The stamp protects against **mistakes**
   (a push or force-push after the label, a stale branch), not against an agent misusing the owner's
   credential. That is the same assumption that already guards every code merge. Phase 2 needs the
@@ -190,14 +198,33 @@ The design therefore aims at two different things:
   from GitHub. Commit dates are set by whoever commits and are never used.
 - **T3. Deployed code on `main` is trusted.** A PR that changes guard code is refused for automated
   apply (G15), so an onboarding PR can't weaken the checks that judge it.
+- **T4. A browser session the owner just used with a second factor acts as the owner.** For up to two
+  minutes after each TOTP or backup code, the session passes the step-up check (10.3), and Clerk's
+  own sensitive actions, such as changing a second factor, stay open for its window. An agent driving
+  that browser could undo a run, swap the owner's TOTP for its own or regenerate the backup codes, and
+  the digest can't see either change. So the owner does step-up actions from the phone and keeps no
+  HashTracks admin session in the Chrome that agents drive. The Clerk connector on the Mac (4.1) can also change the instance's settings,
+  such as switching phone codes on; H2 removes it. Like T1, this is accepted, not enforced.
 - **H1. Agents get their own GitHub identity** (a GitHub App or machine user). PRs are then authored
   by the bot, the owner can submit a GitHub "Approve" review bound to a commit, and the server can
-  require the approval to come from the owner's account and nothing else. Phase 3 entry.
-- **H2. Scheduled tasks lose the owner-level secrets** (`DATABASE_URL`, `CRON_SECRET`, the owner PAT).
-  Once backfills, the digest and audits all run through narrow APIs, the tasks only need narrow
-  tokens. Phase 3 entry.
+  require the approval to come from the owner's account and nothing else. A ruleset on `main` also
+  requires the owner's approving review of the latest commit, dismisses stale approvals and gives the
+  bot no bypass. Without it the bot could merge code the owner never approved, and `main`'s
+  production build gets every production secret. Phase 3 entry.
+- **H2. Scheduled tasks hold no credential or session of the owner's**: no `.env` secrets
+  (`DATABASE_URL`, `CRON_SECRET`, the owner PAT), no owner `gh` login, no CLI logins (Vercel
+  included), no connectors acting as the owner (Vercel, the Clerk dashboard, the mailbox) and no
+  signed-in browser sessions of the owner's. A mailbox would let an agent take an emailed sign-in code,
+  and a signed-in GitHub session would let it submit the owner's approving review. And no build of
+  code the owner hasn't approved gets production secrets. Preview gets no Production values (its own database,
+  Clerk's development instance, and its own tokens or none), or agents' branches don't deploy; merges
+  to `main` need the owner's review (H1). Without this, pushing a branch is enough to run code with
+  production secrets. Once backfills, the digest and audits all run through narrow APIs, the tasks
+  only need narrow tokens. Phase 3 entry.
 - **H3. The server stops holding the owner's identity.** Issue filing moves to a GitHub App limited to
-  issues, and approval checks use the read-only token. A leak from Vercel then can't forge an
+  issues (with read access to repo metadata), and approval checks use the read-only token. The
+  filing-health probe (`src/app/api/audit/filing-health/route.ts`), which today requires a write-class role on
+  the repo (admin, maintain, push or triage), is reworked to check the App's issue permission. A leak from Vercel then can't forge an
   approval. Phase 2 entry.
 
 ## 5. Design overview
@@ -209,7 +236,7 @@ The design therefore aims at two different things:
  write manifest (hashes, counts)      scope rules, PII,         samples, preview plan
  migration adds archive source        migration shape;          adds `owner-approved`
  POST /preview → plan in PR body      summary in check run          │
-                                                          approval-stamp workflow records
+                                                          write-gate workflow records
                                                           the head SHA at that moment
    implementer Phase A: approval check; merge with --match-head-commit; deploy; first prod scrape
                                                 │
@@ -223,7 +250,7 @@ The design therefore aims at two different things:
                 → VERIFIED / VERIFY_FAILED
  daily cron     resume expired leases, retry WAITING, plan unplanned approvals, 7-day re-verify,
                 liveness errors
- admin UI       owner + second factor: resume, halt, undo (with its own dry run)
+ admin UI       owner: halt; with a step-up each: resume, undo (with its own dry run), set or clear a cutoff
  every scrape   archive cutoff: other sources' rows for the kennel before the cutoff are dropped
                                                 │
                      implementer comments on the PR · digest reports every run
@@ -294,11 +321,19 @@ kennel, overlap) happen on the server (G9, G18, G19).
 
 ### 6.3 Stamping the approval
 
-A workflow on `main`, `approval-stamp.yml`, runs on `pull_request_target` with `types: [labeled]`.
-When the label is `owner-approved`, it sets a commit status `backfill/approved` on
+The ops system's single gate workflow on `main`, `write-gate.yml` (ops plan S4, `docs/ops/system.md`),
+runs on `pull_request_target`. When the event is `labeled` with `owner-approved` and the sender is the
+owner's account (type `User`), it sets a commit status `backfill/approved` on
 `github.event.pull_request.head.sha` (the head GitHub reports at that moment), with the PR number in
 its description. It never checks out or runs PR code. `pull_request_target` always runs the workflow
 file from `main`, so a PR can't change what this workflow does.
+
+The context name, the description format and the A2–A4 evaluation live in one module,
+`src/lib/backfill/approval-stamp.ts`, which the workflow and the server (6.4) both use, so the stamp and
+the check can't diverge. The module also reads the owner's login, `OWNER_GITHUB_LOGIN`, for both
+sides, and a test asserts the workflow passes that same value, so the stamp and A2 can't disagree about
+who the owner is. v5.3 had a separate `approval-stamp.yml`; one workflow now stamps and
+evaluates, so the two can't race.
 
 This makes the stamp reliable against mistakes. It does not make it unforgeable: as T1 says, a
 workflow on any branch pushed with the owner's credential can also write such a status.
@@ -493,8 +528,8 @@ reasons about existing events give counts only; the dates are shown only in the 
   runs from the last 7 days, and raises the liveness errors in 11.3. In Phase 2 it never starts a
   fresh apply; that is enforced in the cron's code. Starting an apply is open to any holder of the
   token; that it is the implementer, with a report beside it, is a rule in its manual.
-- **The owner**, from `/admin/backfills`: the same steps, plus resume, halt, undo, and setting or
-  clearing a cutoff (the last four with step-up, 10.3).
+- **The owner**, from `/admin/backfills`: the same steps, plus halt, and, each with its own step-up
+  (10.3), resume, undo, and setting or clearing a cutoff.
 
 QStash is not used. `self-healing-v2-plan.md` found its retries leave no trace, and a step function
 with three independent callers needs no queue.
@@ -522,9 +557,9 @@ A guard either passes or stops the run; none warns and continues. Terminal failu
 | G12 | **Binding:** the archive source is disabled, `archiveOnly`, `replacedById` null, and of the origin's type; exactly one source has that name | plan, every batch | terminal |
 | G13 | **Size and rate:** rows ≤ `BACKFILL_MAX_ROWS` (2,000) is terminal; more than 2 applies started per UTC day is retryable | plan | terminal / retryable |
 | G14 | **Batch result:** no create-only violation; `created` equals the batch's rows; `updated`, `restored`, `blocked`, `eventErrors` are 0; every created event's primary kennel is the expected one, its date is the row's date, and its `isScheduleOnly` is the plan's value; V3 and V4 (9.3) pass | every batch | terminal (`HALTED`) |
-| G15 | **Guard code untouched:** the PR changes nothing under `src/lib/backfill/**`, the PII scanner, `src/pipeline/merge.ts`, `src/pipeline/kennel-resolver.ts`, `src/pipeline/fingerprint.ts`, `src/pipeline/scrape.ts`, `src/pipeline/reconcile.ts`, `src/lib/event-write.ts`, `src/app/admin/sources/actions.ts`, `src/pipeline/kennel-evidence.ts` (the posted-run rule behind the expected flags), `src/lib/event-filters.ts` (the display filter V1 and V2 use), the shared kennel-page stats function, `prisma/schema.prisma`, the CI manifest script, `.github/workflows/**` or the agent routes | plan | terminal (the owner can still apply by hand) |
+| G15 | **Guard code untouched:** the PR changes nothing under `src/lib/backfill/**`, the PII scanner, `src/pipeline/merge.ts`, `src/pipeline/kennel-resolver.ts`, `src/pipeline/fingerprint.ts`, `src/pipeline/scrape.ts`, `src/pipeline/reconcile.ts`, `src/lib/event-write.ts`, `src/app/admin/sources/actions.ts`, `src/pipeline/kennel-evidence.ts` (the posted-run rule behind the expected flags), `src/lib/event-filters.ts` (the display filter V1 and V2 use), the shared kennel-page stats function, `prisma/schema.prisma`, the CI manifest script, `src/lib/migration-sql/**` (G17's checker and its parser), `scripts/ci/**`, the `libpg-query` entries in `package.json` or `package-lock.json`, `.github/workflows/**` or the agent routes | plan | terminal (the owner can still apply by hand) |
 | G16 | **Kill switch:** env `BACKFILL_AUTOMATION` is `apply` (`off` and `shadow` refuse `advance`) | every call | `403` |
-| G17 | **Migration shape**, checked with a real SQL parser (`libpg_query`), allow-list only: `INSERT … ON CONFLICT DO NOTHING` or `INSERT … SELECT … WHERE NOT EXISTS` into `Kennel`, `KennelAlias`, `Region`, `Source`, `SourceKennel` and `ScheduleRule`; and `UPDATE "Region"` setting only `parentId` and `updatedAt`, whose target rows are restricted by literal names that the same migration inserts. No other statements, no CTE that modifies data, no `DO` blocks, and no function calls other than `NOW()` and `timezone()` with a literal zone (the parser's form of `NOW() AT TIME ZONE 'UTC'`, used by all eight recent onboarding migrations). A Phase 0 test checks the rule against those eight; any that update a region they didn't insert are reviewed with the owner before the rule ships. Crafted bypasses must fail it. A `Source` insert that sets `archiveOnly` to true must also set `enabled` to the literal `false`: `enabled` defaults to true, so leaving it out would break the CHECK in 11.1, fail `migrate deploy` in the production build and block every later deploy. G17 only decides whether the **backfill** is automated; the migration itself still ships through the ordinary code-merge review | CI, plan | terminal |
+| G17 | **Migration shape**, checked with a real SQL parser (`libpg_query`), allow-list only: `INSERT … ON CONFLICT DO NOTHING` or `INSERT … SELECT … WHERE NOT EXISTS` into `Kennel`, `KennelAlias`, `Region`, `Source`, `SourceKennel` and `ScheduleRule`; and `UPDATE "Region"` setting only `parentId` and `updatedAt`, whose target rows are restricted by literal names that the same migration inserts. No other statements, no CTE that modifies data, no `DO` blocks, and no function calls other than `NOW()` and `timezone()` with a literal zone (the parser's form of `NOW() AT TIME ZONE 'UTC'`, used by all eight recent onboarding migrations). Transaction control is allowed only as the migration template's wrapper (`docs/ops/system.md#migrations`): exactly one leading `BEGIN`, then exactly one `SET LOCAL lock_timeout = '<literal>'`, and exactly one trailing `COMMIT`; any other transaction control or setting fails. The checker lives in `src/lib/migration-sql/g17.ts`, on the parser CI's migration check uses. A Phase 0 test checks the rule against those eight and against a fixture written to the template; any that update a region they didn't insert are reviewed with the owner before the rule ships. Crafted bypasses must fail it. A `Source` insert that sets `archiveOnly` to true must also set `enabled` to the literal `false`: `enabled` defaults to true, so leaving it out would break the CHECK in 11.1, fail `migrate deploy` in the production build and block every later deploy. G17 only decides whether the **backfill** is automated; the migration itself still ships through the ordinary code-merge review | CI, plan | terminal |
 | G18 | **One live feed:** in prod, the kennel is linked to exactly one enabled source, the origin, plus the archive source | plan, every batch | terminal |
 | G19 | **One archive per kennel:** no earlier run for this kennel has written anything (status `APPLYING` or later, unless it was fully `UNDONE`), and the kennel has no cutoff yet | plan | terminal |
 | G20 | **The stretches join:** `C` is in the past; no gap between the archive's last row and `C` beyond 1.5 median run intervals; the live feed shows at least 95% of the archive rows dated from `C` to `frozenAt` (6.5) | plan, before the first batch | terminal (`WAITING` while the origin backs no past event) |
@@ -788,15 +823,120 @@ Each row is atomic and the archive source has no other writer, so recovery needs
 ### 10.3 Undo
 
 Undo deletes data, so it gets a dry run with counts and the owner's OK. It runs only from
-`/admin/backfills/<runId>`, under the owner's Clerk admin session with **step-up re-authentication at
-the strict multi-factor level** (Clerk reverification `strict_mfa`: a passkey or TOTP code). Clerk's
-reverification is a freshness window for the whole session, so on success the server mints a
-single-use nonce bound to this run and this action, valid for 2 minutes, and the undo or resume
-request must carry it. The same step-up and nonce guard resume, setting a cutoff by hand (for example
-on an adopted kennel) and clearing one. Setting the cutoff inside an approved run (9.2) is covered by
-that run's approval and needs no step-up. A saved password isn't enough, so an agent driving a
-signed-in browser can't pass it. The owner's account needs a second factor before Phase 2. No token can
-do any of the step-up actions.
+`/admin/backfills/<runId>`, under the owner's Clerk admin session, after a **step-up with a second
+factor**. The step-up guards four actions: resume, undo, setting a cutoff by hand (for example on an
+adopted kennel) and clearing one. Halting needs none, since an agent can already halt a run by
+removing the label. Setting the cutoff inside an approved run (9.2) is covered by that run's approval
+and needs no step-up. No token can do any of the four. Reading a plan, the undo plan included, needs no
+step-up. The admin page asks for the code only when the owner confirms, so time spent reading counts
+doesn't use up check 2's one-minute limit (below).
+
+**The second factor is a TOTP code, with its backup codes.** Passkeys are left out: a passkey in the
+Mac's keychain is on the Mac, and Clerk accepts a passkey as a reverification second factor only from
+API version 2026-08-20. Phone codes are left out too, because a text message can reach the Mac. The
+TOTP secret and the backup codes stay off the Mac: in an authenticator app on the owner's phone, or in
+a password manager that asks the owner before each use. The server can't tell a TOTP code from a backup
+code: Clerk's session token records how long ago each factor level was verified (`fva`), not which
+factor. So a backup code passes the step-up too, which is acceptable because the backup codes are kept
+off the Mac as well. "TOTP only" means TOTP and its backup codes, with phone codes and passkeys off;
+the server can't enforce it.
+
+**The owner does step-up actions from the phone**, where no agent runs, and keeps no HashTracks admin
+session in the Chrome that agents drive. The checks below hold either way; this rule is what closes the
+window they leave (T4 in 4.3).
+
+**Clerk's check alone isn't enough.** The step-up uses Clerk reverification at `strict_mfa`, but:
+- When the user has no second factor, Clerk downgrades the request to the first factor. Its
+  reverification guide says so, and the installed `@clerk/shared` code does it. The step-up would then
+  accept an email code or a saved password, both within an agent's reach, or pass with no prompt for 10
+  minutes after any sign-in, Google included.
+- Even with a second factor, Clerk's check is a freshness window. For 10 minutes after any
+  second-factor use, the owner's own sign-in included, every request from that browser passes with no
+  prompt.
+- Clerk marks the server-side check, `has({ reverification })`, as public beta.
+
+**So the server adds its own checks.** When it mints a nonce, and again when the nonce is used, all
+three must pass:
+1. `has({ reverification: "strict_mfa" })`.
+2. The session's factor-verification ages (Clerk's `fva` claim, `[first, second]` in whole minutes;
+   `-1` means no second factor, or one never verified) are present and well formed, and the second
+   value is 0: the owner entered a second-factor code within the last minute. A missing or malformed
+   value is a refusal.
+3. The session token was issued less than 60 seconds ago (`iat`), by the server's clock. A token
+   stamped up to 5 seconds in the future counts as fresh, the same skew Clerk's own token check
+   allows. A missing or non-numeric `iat` is a refusal. `fva` is fixed when the token is minted, so an
+   older token could still read 0 after the minute has passed.
+
+The admin page starts a fresh verification for every action (Clerk's `session.startVerification`),
+then sends a freshly fetched token (`getToken({ skipCache: true })`). Each action therefore costs the
+owner a code. On success the server mints a single-use nonce bound to this session, this action and
+its run (or, for a cutoff set or cleared by hand, its kennel), which expires 2 minutes after it is minted
+(`BackfillStepUpNonce`, 11.1). The request that performs the action carries the
+nonce and its own freshly fetched token, and the server runs all three checks again on that request.
+Checking only when the nonce is minted would let a nonce minted late in the window be used after the
+window had closed. So no action is accepted more than two minutes after its code, plus any amount
+Clerk's clock runs ahead of the server's (normally under a second). An accepted resume or undo then
+runs in batches under its lease, as apply does.
+
+**Step-up probe.** The admin page also has a probe that runs the same three checks when it mints a
+nonce and when it uses one, spends the nonce, and writes only an audit row. It can be late in two
+ways: wait before fetching the token for its use, which check 2 refuses, or fetch that token straight
+away and hold it, which check 3 refuses. The late cases can't be tested any other way: the page sends each
+action as soon as the code is entered, and before Phase 2 there is no run to resume or undo.
+
+Phase 0 tests refusal for: no second factor; `fva` missing or malformed; a second value of 1 or more;
+a token 60 seconds old or more, or with no `iat`; and a valid nonce sent with a token that fails a
+check, each even when Clerk's check passes. It also tests, with the probe on Clerk's development
+instance, that a real TOTP step-up passes. And it reads the `fva` of a token that the Backend API
+mints for a session with no recent second factor (`sessions.getToken`), which settles the question
+below before Phase 2.
+
+**What is left.** For up to two minutes after each second-factor use by the owner, that browser
+session passes checks 2 and 3, when the nonce is minted and when it is used. Clerk's own sensitive
+actions, such as changing a second factor, are open for its configured window (at least a minute)
+after any sign-in or step-up. An agent driving that browser could use either. The phone rule above is
+what prevents it, and 4.3 records it as T4.
+
+**With the phone rule, the step-up stops an agent that can only drive a browser. One holding
+owner-level secrets is the case 4.1 leaves unsolved.** For example, the Mac's `.env` holds the
+development instance's `CLERK_SECRET_KEY`, but the production key is in Vercel. A task may be able to
+read it through the Vercel CLI's stored login or the Vercel connector. Secret (formerly Sensitive)
+values can't be read back, but every deployment decrypts them, so code in a build an agent triggers
+can read any value scoped to that build's environment (4.1). With the live key, an agent could remove the owner's second factors through Clerk's Backend
+API, sign in as the owner with a sign-in token and enrol its own TOTP; the digest would still see TOTP
+and backup codes on. The Backend API can also mint a token for an existing session
+(`sessions.getToken`). Whether such a token carries `fva` hasn't been checked yet (Phase 0 checks it);
+if it does, one minted for the owner's phone session within its two minutes would pass, and the phone
+rule wouldn't stop it.
+The server itself must hold the live key, so a leak from Vercel reaches as far (4.1). H2 takes Vercel
+access off the scheduled tasks and keeps production secrets out of builds of code the owner hasn't
+approved (with H1's ruleset on `main`).
+
+**Switching it on.** On 2026-11-13 the Clerk production instance had the authenticator app and backup
+codes switched off, and passkeys didn't count as a second factor. Before Phase 2:
+- The owner switches on the authenticator app and backup codes, and enrols from the phone, in one
+  sitting with the scheduled tasks paused. Until the owner enrols, Clerk would accept an email code to
+  add a second factor, so an agent could otherwise enrol its own.
+- Phone codes stay off as a second factor.
+- Clerk's window for its own sensitive actions is set to its minimum.
+- The owner then runs the step-up probe on production three times: once straight through, which
+  passes; once waiting 70 seconds before fetching the token for its use, which check 2 refuses; and
+  once fetching that token straight away and holding it 70 seconds, which check 3 refuses. Phase 0's
+  development-instance test can't show this, because production's factor settings and
+  sensitive-action window differ.
+
+Switching these on lets users add a second factor; no one has to. A Phase 2 entry check reads the
+owner's Clerk user through the Backend API: TOTP and backup codes on, no phone number reserved for a
+second factor. The daily digest repeats that check, so it catches a removed second factor or an added
+phone factor. It can't see a swapped TOTP or regenerated backup codes (T4).
+
+**If the phone is lost**, halting still works and nothing else stops; only the four actions wait. The
+owner signs in with a backup code and enrols the authenticator app on a new phone, again in one
+sitting with the scheduled tasks paused. If the backup codes are lost too, the owner's second factors
+are removed through Clerk's Backend API (`disableUserMFA`, run from a machine no agent uses, with a
+live key the owner takes from the Clerk dashboard, ideally one made for this and revoked afterwards),
+in that same sitting with the tasks paused: until the new enrolment, Clerk would accept
+an email code to add a factor. The enrolment above is then repeated.
 
 **Undo plan** (read-only), from the run's items:
 - **events to delete:** created by the run, carrying only the run's RawEvent, with no `Attendance`, no
@@ -809,7 +949,9 @@ do any of the step-up actions.
 - **RawEvents to delete:** the run's, except those on kept events;
 - **slots to recompute:** every (kennel, date) the run touched.
 
-**Undo apply**, after the owner confirms those counts:
+**Undo apply**, after the owner confirms those counts. The confirm carries the undo plan's hash, and
+the server refuses it if the plan, recomputed then, differs, so nothing that changed while the owner
+read the counts is deleted unseen:
 - One event per transaction through the existing hard-delete helper, moved from `scripts/lib` to
   `src/lib`: `FOR UPDATE` lock, required-empty user relations, a foreign RawEvent at delete time rolls
   that event back and moves it to "kept". 30 s timeout per transaction. Batched under a lease and
@@ -847,7 +989,15 @@ hand-written partial unique index on `manifestSha256` for every status except `P
 `rawEventId`; `eventId`; batch index; `undoneAt`, `undoOutcome` (deleted, or kept with reason). Unique
 on (run id, row index).
 
-**`CronHeartbeat`:** one row per job name with last start, last finish, last result.
+**`CronHeartbeat`:** created by PR 1 but unused. Cron runs are recorded in the ops system's
+`AutomationRun` through `withCronRun()` (`docs/ops/system.md`). Once PR 5 has merged, a later migration
+drops this table with `DROP TABLE IF EXISTS`, after a prod dry run shows it empty.
+
+**`BackfillStepUpNonce`:** `nonceHash`; Clerk session id; action (`RESUME`, `UNDO`, `SET_CUTOFF`,
+`CLEAR_CUTOFF`, `PROBE`); run id or kennel id (both null for the probe); `expiresAt`; `consumedAt`;
+the result of the checks on use. Unique on `nonceHash`, the same pattern as `AuditFilingNonce`. The
+step-up probe's audit record is its row here; the probe writes nothing else. The expiry doesn't set
+the two-minute window, since the checks on use do. It only limits how long an unused nonce lingers.
 
 **`Source.archiveOnly`:** boolean, default false, with a hand-written CHECK
 `NOT ("archiveOnly" AND enabled)` in the same migration (Prisma can't express it in the schema).
@@ -861,7 +1011,7 @@ on (run id, row index).
 `BLOCKED`, `HALTED`, `VERIFY_FAILED`, or `WAITING` for over 24 hours; leases expired over an hour;
 approved manifests merged over 48 hours ago without a `VERIFIED` run; PII leak flags; the
 `archiveCutoffDropped` and `archiveCorrectionSkipped` counts from the last day's scrapes, per kennel;
-runs that changed their kennel's status line, before and after (9.6); and the watch cron's heartbeat.
+runs that changed their kennel's status line, before and after (9.6); and the watch cron's latest run (`AutomationRun`, 11.3).
 `docs/ops/daily-digest-task.md` puts every blocked, halted or failed run, every leak flag and every
 approved-but-unapplied manifest under **Needs you today**.
 
@@ -869,8 +1019,9 @@ approved-but-unapplied manifest under **Needs you today**.
 
 The watch cron raises a Sentry error when a run has been `APPLYING` with an expired lease for over 2
 hours; a run has been `HALTED` or `VERIFY_FAILED` for over 24 hours; an approved manifest has no
-`VERIFIED` run 48 hours after merge; or a 7-day re-check fails. The digest flags the watch cron itself
-when its heartbeat is over 26 hours old. Silence counts as failure.
+`VERIFIED` run 48 hours after merge; or a 7-day re-check fails. The ops system's watchdog flags the watch
+cron itself when its last `AutomationRun` is over 26 hours old (the cron is registered in
+`src/lib/automation-registry.ts`), and the digest shows that state. Silence counts as failure.
 
 ## 12. What changes in existing code and manuals
 
@@ -886,9 +1037,28 @@ when its heartbeat is over 26 hours old. Silence counts as failure.
 | `src/app/admin/sources/actions.ts` | `deleteSource` and `toggleSourceEnabled` refuse an `archiveOnly` source; `updateSource` refuses an actual change to its name, type or kennel links (comparing submitted links with the existing set) |
 | `src/app/kennels/[slug]/page.tsx` | Move the event query, filters and unique-date count into a shared function |
 | `scripts/lib/delete-leaked-event.ts` | Move to `src/lib`; add canonical recompute for touched slots |
-| `prisma/schema.prisma` | `Source.archiveOnly`, `Kennel.archiveCutoffDate` and `archiveCutoffRunId`, `BackfillRun`, `BackfillRunItem`, `CronHeartbeat` |
-| New | `src/lib/backfill/**` (manifest with `scheduleOnlyEstimate` and G21, PII scanner, provenance rules, migration checker, plan with the expected `isScheduleOnly` from `POSTED_RUN_RAW_SQL`, apply with the kennel status refreshes, verify, undo); agent routes; admin page with Clerk `strict_mfa` reverification and single-use action nonces; watch cron; `approval-stamp.yml`; `backfill-manifest` CI job |
-| Ops (owner) | `GITHUB_APPROVAL_READ_TOKEN` created; H3 (issue-filing GitHub App) before Phase 2; a second factor on the owner's Clerk account |
+| `prisma/schema.prisma` | `Source.archiveOnly`, `Kennel.archiveCutoffDate` and `archiveCutoffRunId`, `BackfillRun`, `BackfillRunItem`, `CronHeartbeat` (superseded by the ops system's `AutomationRun`, 11.1), `BackfillStepUpNonce` |
+| New | `src/lib/backfill/**` (manifest with `scheduleOnlyEstimate` and G21, PII scanner, provenance rules, plan with the expected `isScheduleOnly` from `POSTED_RUN_RAW_SQL`, apply with the kennel status refreshes, verify, undo); agent routes; admin page with Clerk `strict_mfa` reverification, the server's own checks on `fva` and `iat` (10.3), run when a nonce is minted and again when it is used, a fresh verification per action, single-use action nonces bound to the session and expiring after 2 minutes, the step-up probe, and the undo plan's hash on the undo confirm; a Clerk Backend API check of the owner's second factors for the Phase 2 entry and the digest; watch cron (inside the ops system's `withCronRun()`); the shared stamp module `src/lib/backfill/approval-stamp.ts`, used by the ops `write-gate.yml` (6.3); the G17 checker `src/lib/migration-sql/g17.ts`; `libpg-query` moved to `dependencies` and `serverExternalPackages`; `backfill-manifest` CI job |
+| Ops (owner) | Before Phase 1: `BACKFILL_AGENT_TOKEN` and `GITHUB_APPROVAL_READ_TOKEN` set in Vercel, scoped to Production only, so a preview build of an agent's branch never gets them; the same for the GitHub App's credentials later. Before Phase 2: H3 (the issue-filing GitHub App; the server's GitHub calls today touch only issues, labels and repo metadata, so the App needs Issues and read-only Metadata, and the filing-health probe is reworked); the authenticator app and backup codes switched on in Clerk production and the owner enrolled from the phone in one sitting, with phone codes off and Clerk's sensitive-action window at its minimum, then the step-up probe run three times on production (10.3) |
+
+### 12.1a Phase 0 build order
+
+Phase 0 ships as a stack of PRs, each based on the one before, so each can be reviewed alone.
+`BACKFILL_AUTOMATION` stays `off` throughout: nothing below writes events until a later phase turns
+it on.
+
+| # | PR | Contents | Merged by |
+|---|---|---|---|
+| 1 | Schema | One migration: `Source.archiveOnly` with the CHECK `NOT ("archiveOnly" AND enabled)`, `Kennel.archiveCutoffDate` and `archiveCutoffRunId`, `BackfillRun` (with the partial unique index on `manifestSha256`), `BackfillRunItem`, `CronHeartbeat`, `BackfillStepUpNonce`. No code reads the new columns yet. Merged as #3039, applied 2026-11-17 | Owner |
+| 2 | Merge pipeline | The read-only matcher pulled out of `upsertCanonicalEvent`; `backfill` mode (any match throws `CreateOnlyViolation` before writing, one nested RawEvent + Event + kennel-link create per row, no cluster linker, series, multi-tag and link rows rejected); the cutoff drop and the date-correction skip for every source, with `archiveCutoffDropped` and `archiveCorrectionSkipped` counts; the nested RawEvent in `createEventWithKennel`; `reportAndApplyBackfill` throws on drops; `scrapeSource` refuses an archive source and logs the counts. Tests for every match path in both modes | Claude, after 1 |
+| 3 | Supporting changes | `CURRENT_RAW_SQL` exported; the admin source actions refuse to delete, enable, rename, retype or relink an archive source; the kennel page's event query, filters and counts moved into a shared function; the event-delete helper moved to `src/lib` with the per-slot canonical recompute | Claude, after 2 |
+| 4 | Backfill library | `src/lib/backfill/**`: manifest and `approvalHash`, PII scanner, per-type provenance rules, G17 migration checker as `src/lib/migration-sql/g17.ts` (on the existing parser, accepting the template's wrapper, with a template-shaped fixture); `libpg-query` moved to `dependencies` and added to `serverExternalPackages`, with a Vercel preview proving a server route can parse SQL; every guard, plan, apply (lease, cutoff, batches, finish refreshes), verify (V1–V5) and undo (plan, hash-bound apply). End-to-end tests of plan, apply, crash-resume and undo against a local database | Claude, after 3 |
+| 5 | Routes, admin page, cron | `/api/agent/backfill/*` behind `BACKFILL_AGENT_TOKEN` and the G16 kill switch; the GitHub approval check (A1–A6) with `GITHUB_APPROVAL_READ_TOKEN`, through the shared stamp module (6.3); `/admin/backfills` with the Clerk `strict_mfa` step-up, the server's own `fva` and `iat` checks and single-use nonces, the step-up probe; the `backfill-watch` cron inside `withCronRun()`, registered in `src/lib/automation-registry.ts` (11.3); the digest's `backfills` block | Claude, after 4 and after the ops plan's S2 merges |
+| 6 | CI | The `backfill-manifest` CI job and its summary, a required check in the ops ruleset; the design's Status line set to "Phase 0 built". No stamp workflow: the ops `write-gate.yml` stamps (6.3) | Claude, after 5 and after the ops plan's S4 merges |
+
+Each PR runs `npx tsc --noEmit`, `npm run lint` and `npm test`, then `/simplify` and an adversarial
+review, before it opens. The env vars stay unset: the owner sets `BACKFILL_AGENT_TOKEN` and
+`GITHUB_APPROVAL_READ_TOKEN` (Production only) after the stack merges.
 
 ### 12.2 Manuals
 
@@ -925,13 +1095,14 @@ also be undone; until then, `adopt-only` manifests bring them into the record.
 
 | Phase | What runs | Entry | Exit |
 |---|---|---|---|
-| 0. Build | Section 12.1. `BACKFILL_AUTOMATION=off` | This design approved | Unit tests for every guard, every merge match path in both modes, the cutoff drop, the provenance rules (against real Sheets, GCal, Meetup and website archives) and the migration checker (the last eight onboarding migrations pass, crafted bypasses fail, and a sample onboarding migration that creates an archive source applies cleanly to a local database with the CHECK in place); plan, apply, crash-resume and undo tested end to end against a local copy of prod |
-| 1. Shadow | `BACKFILL_AUTOMATION=shadow`. The implementer runs `plan` and posts it; the owner still applies by hand and compares. The approval endpoint runs beside the implementer's old merge check and any disagreement is reported | Phase 0 merged | `adopt-only` manifests for Music City and Zagreb come out `ADOPTED`; 5 new backfills where the shadow plan's written-row count equals what the hand apply created, every block was correct, and no PII false positive went unexplained; no disagreement between the approval endpoint and the owner's intent |
-| 2. Apply behind the label | `BACKFILL_AUTOMATION=apply`, Phase 2 scope (section 3), 2,000-row cap, 2 applies a day, the implementer starts every apply | Phase 1 exit; H3 done; the owner's Clerk second factor; the owner's written acceptance of T1 and of H1/H2's absence | 10 applied runs, all `VERIFIED` first time or explained, no undo needed for a wrong write, no 7-day re-check failure |
+| 0. Build | Section 12.1. `BACKFILL_AUTOMATION=off` | This design approved | Unit tests for every guard, every merge match path in both modes, the cutoff drop, the provenance rules (against real Sheets, GCal, Meetup and website archives) and the migration checker (the last eight onboarding migrations pass, a fixture written to the migration template passes, crafted bypasses fail, and a sample onboarding migration that creates an archive source applies cleanly to a local database with the CHECK in place); the step-up refuses no second factor, a missing or malformed `fva`, and a second-factor age of 1 minute or more, a token 60 seconds old or more or with no `iat`, and a valid nonce sent with a token that fails a check, even when Clerk's check passes, while a real TOTP step-up through the probe on Clerk's development instance passes, and the `fva` of a session token minted through the Backend API (`sessions.getToken`) is read and recorded (10.3); plan, apply, crash-resume and undo tested end to end against a local copy of prod |
+| 1. Shadow | `BACKFILL_AUTOMATION=shadow`. The implementer runs `plan` and posts it; the owner still applies by hand and compares. The approval endpoint runs beside the implementer's old merge check and any disagreement is reported | Phase 0 merged, and the ops `write-gate` workflow (ops plan S4) is live and stamping (6.3) | `adopt-only` manifests for Music City and Zagreb come out `ADOPTED`; 5 new backfills where the shadow plan's written-row count equals what the hand apply created, every block was correct, and no PII false positive went unexplained; no disagreement between the approval endpoint and the owner's intent |
+| 2. Apply behind the label | `BACKFILL_AUTOMATION=apply`, Phase 2 scope (section 3), 2,000-row cap, 2 applies a day, the implementer starts every apply | Phase 1 exit; H3 done; the owner enrolled in TOTP with backup codes and no phone second factor, as read through Clerk's Backend API; on production, one probe step-up passed and both late attempts were refused (10.3); the owner's written acceptance of T1 and T4 and of H1/H2's absence | 10 applied runs, all `VERIFIED` first time or explained, no undo needed for a wrong write, no 7-day re-check failure |
 | 3. Loosen | One change at a time: multi-kennel origins or several live sources **only with per-row routing provenance** (the freeze tool records which pattern matched each row, default-bucket rows are forbidden, CI re-derives the routing from the origin's config); more origin types; a higher cap; the watch cron starting approved applies | Phase 2 exit **and** H1 **and** H2 | Owner's call per change |
 
 **Never loosened:** create-only, the archive binding and cutoff for automated applies, the PII guard,
-owner-only resume and undo with a second factor, and the owner's stamped label as the approval.
+owner-only resume, undo and hand-set or cleared cutoffs with a second factor, and the owner's stamped
+label as the approval.
 
 ## 14. Failure modes considered
 
@@ -946,7 +1117,7 @@ owner-only resume and undo with a second factor, and the owner's stamped label a
 | Fork PR or collaborator | Must be merged into `main` and labelled by `OWNER_GITHUB_LOGIN` |
 | Stolen `BACKFILL_AGENT_TOKEN` | Plans or advances only approved runs, which would run anyway; no approve, resume, undo or user data |
 | Stolen server GitHub credential | After H3: the read-only token can't label; the issues App's labels fail A2. Before H3 it is the owner's PAT, which is why H3 is a Phase 2 entry condition |
-| Stolen owner PAT or `DATABASE_URL` from the Mac | Owner-level compromise, outside what this design can contain (4.1); H2 |
+| Stolen owner PAT or `DATABASE_URL` from the Mac, production secrets (the live `CLERK_SECRET_KEY` among them) read from Vercel, or code in a build an agent triggers using the secrets that build gets | Owner-level compromise, outside what this design can contain (4.1, 10.3); H2 |
 | Same manifest replayed, re-planned after a block, or after undo | Partial unique index covers every non-preview status; G19 one archive per kennel; a retry needs a new file, label and stamp |
 | Row moves or merges into an existing event | In-merge "any match throws"; G10 at plan; G9 overlap; G7 run numbers |
 | Wide re-scrape reaches archive dates: overwrite, date move, duplicate, resurrected row or redaction | Archive cutoff drops other sources' rows before the cutoff before anything is stored; the date-correction query skips archive-only events, so a later live row can't move one either. Adopted archives have no cutoff unless the owner sets one |
@@ -971,9 +1142,12 @@ owner-only resume and undo with a second factor, and the owner's stamped label a
 | Actions slow to stamp | Missing stamp is retryable |
 | Undo deletes something a user added | Required-empty relations, row locks, foreign RawEvent check, keep-and-report |
 | Undo leaves a hidden event or an orphan | Canonical recompute per slot; RawEvents hard-deleted |
-| Undo, resume, or a cutoff set or cleared through a signed-in browser | Clerk `strict_mfa` step-up plus a single-use nonce per action |
+| Undo, resume, or a cutoff set or cleared through a signed-in browser | Clerk `strict_mfa` step-up, plus the server's own check that a second factor was used within the last minute (`fva`) and a fresh token, run when the nonce is minted and again when it is used; a single-use nonce per action; step-ups done from the phone (10.3, T4) |
+| Clerk downgrades the step-up to the first factor because the account has no second factor | The server refuses unless `fva` shows a second factor used within the last minute (10.3) |
+| An agent uses the two minutes after the owner's own second-factor use, in the same browser | Step-ups are done from the phone, and agents' Chrome holds no HashTracks admin session. Accepted as T4, not enforced (4.3, 10.3) |
+| An agent enrols its own second factor before the owner does | The owner switches it on and enrols from the phone in one sitting, with the scheduled tasks paused. The Phase 2 entry check and the daily digest read the owner's factors through Clerk's Backend API; they catch a removed factor or an added phone factor, not a swapped TOTP or regenerated backup codes (T4, 10.3) |
 | "Created" doesn't match the page | Row checks V1–V4; totals informational (9.3, 9.4) |
-| The loop dies quietly | Watch cron, `CronHeartbeat`, Sentry, digest |
+| The loop dies quietly | Watch cron, the ops watchdog reading `AutomationRun`, Sentry, digest |
 | Geocoding cost and latency | Batch timing measured per batch; 2,000-row cap; same geocoding as today's hand applies |
 | A calendar archive drops or invents the repeating-series marker, so usual-schedule entries are stored as runs | G21: the key on every row of the committed file, and agreement with the origin's current RawEvents on the overlap at plan (RawEvents stored before the marker existed are skipped and counted); the CI summary counts instance-shaped `eid`s with a `null` marker |
 | The manifest's schedule-only rule drifts from `POSTED_RUN_RAW_SQL` (whitespace, word boundaries, `runNumber` forms, placeholder edits, the merge's clean-up) | No second rule: the plan evaluates the SQL itself on rows normalised as the merge stores them; the manifest's estimate is outside `approvalHash`, so a placeholder edit can't block an approved run |
@@ -987,20 +1161,40 @@ owner-only resume and undo with a second factor, and the owner's stamped label a
 
 ## 15. Decisions for the owner
 
-These are this draft's defaults. Overrule any of them.
+The owner approved all ten on 2026-11-13. Decision 7 was changed during that review (10.3): the
+server now checks the second factor itself. On 2026-11-14, after that approval, PR review and
+adversarial rounds 16–19 clarified decision 7 (a backup code passes too) and added two items to the
+owner's list below: a production test of the step-up, and scoping the new tokens to Production only.
+They also widened H1 (a ruleset on `main` requiring the owner's review) and H2 (the tasks hold none of
+the owner's credentials or sessions, and no build of code the owner hasn't approved gets production
+secrets), which widens what decision 9's acceptance of their absence covers (Appendix A, P-1, P-4,
+R17-1, R18-1, R19-1).
 
-| # | Default |
+| # | Decision |
 |---|---|
 | 1 | Automated applies bind to a dedicated archive source, and the kennel gets an archive cutoff; live-source binding stays manual |
 | 2 | The live feed keeps the stretch from its earliest run on; the backfill writes only before it, and only on empty dates |
-| 3 | A kennel with an archive cutoff takes no history from other sources before it until you clear the cutoff |
+| 3 | A kennel with an archive cutoff takes no history from other sources before it until the owner clears the cutoff |
 | 4 | Phase 2 accepts one-feed kennels with Sheets, Google Calendar, Meetup or website origins; anything else is supervised |
 | 5 | The implementer's code-merge check moves to the same approval stamp, with `--match-head-commit` |
 | 6 | A new `BACKFILL_AGENT_TOKEN`; a read-only `GITHUB_APPROVAL_READ_TOKEN`; issue filing moves to a GitHub App (H3) before Phase 2 |
-| 7 | Resume and undo only from the admin page with a passkey or TOTP step-up |
+| 7 | Resume, undo, and setting or clearing a cutoff by hand only from the admin page, each after a TOTP code (or a backup code) entered on the phone. Clerk's check falls back to the first factor for an account without a second factor, and it is a 10-minute window, so the server also requires `fva` to show a second factor used within the last minute (10.3, T4) |
 | 8 | Phase 2 cap: 2,000 rows a run, 2 applies a day |
-| 9 | Phase 2 needs your written acceptance of T1 and of H1/H2's absence; Phase 3 needs H1 and H2 |
+| 9 | Phase 2 needs the owner's written acceptance of T1 and T4 and of H1/H2's absence; Phase 3 needs H1 and H2 |
 | 10 | Onboarding PRs whose migrations fall outside G17, or that touch guard code, get hand-applied backfills |
+
+What the owner still has to do, and when:
+- **Before Phase 1:** set `BACKFILL_AGENT_TOKEN` and `GITHUB_APPROVAL_READ_TOKEN` in Vercel, scoped to
+  Production only.
+- **Before Phase 2:**
+  - H3: create the issue-filing GitHub App and put its credentials in Vercel, Production only; the code change is part
+    of the build.
+  - In Clerk production, in one sitting with the scheduled tasks paused: switch on the authenticator
+    app and backup codes, enrol from the phone, keep phone codes off as a second
+    factor, set Clerk's sensitive-action window to its minimum, and run the step-up probe three times
+    (10.3).
+  - Accept T1 and T4, and the absence of H1 and H2, in writing.
+  - From then on, do step-up actions from the phone.
 
 ## Appendix A. Adversarial review record
 
@@ -1205,3 +1399,127 @@ were applied:
 | # | Note | Applied |
 |---|---|---|
 | R12-1 | Whether leaving out 2020–21 shortens the 3-year window, and which year a break crossing the new year belongs to | The window reaches back past 2020–21; a wrapping window belongs to the year it starts in (6.1) |
+
+### Owner review of section 15 (2026-11-13)
+
+The owner approved all ten defaults. Checking decision 7 against the live setup turned up one gap:
+
+| # | Finding | Resolution |
+|---|---|---|
+| O-1 | The step-up relied on Clerk's `strict_mfa`, but the Clerk production instance had the authenticator app and backup codes switched off, and passkeys didn't count as a second factor. Clerk's reverification guide says a `second_factor` or `multi_factor` request is downgraded to the first factor when the user has no second factor. So the step-up would have accepted an email code or a saved password, both within an agent's reach. Clerk also marks the server-side check public beta | The server checks the session's `fva` claim itself; a Phase 0 test covers the refusals; the TOTP secret and backup codes stay off the Mac; before Phase 2 the owner switches on the authenticator app and backup codes in Clerk production and enrols. Rounds 13 and 14 changed this further (header, 4.1, 4.2, 4.3, 5, 7.3, 10.3, 12.1, 13, 14, 15) |
+
+**Round 13 (v5.3)** — `NEEDS-CHANGES`: 2 material, 6 minor. The reviewer confirmed the downgrade in the installed `@clerk/shared` code: with a second-factor age of `-1`, `multi_factor` returns the first-factor result.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R13-1 | material | For 10 minutes after any second-factor use, the owner's own sign-in included, every request from that browser passes both checks with no prompt, so an agent driving it could mint nonces for any run and action. The nonce didn't tie one second-factor use to one action | The server requires an unused reverification id (Clerk's `session.reverification_id` in the session token): one action per step-up, and a sign-in alone never counts. The admin page starts a fresh verification for every action. A spent id refuses the owner's own request, so a theft shows. Phase 0 confirms the id's behaviour; if it doesn't hold, the fallback is a second-factor age of exactly 0, and 4.3 records the window left (10.3). **Replaced in round 14** |
+| R13-2 | material | Between switching on the authenticator app and the owner enrolling, Clerk accepts the strongest factor available (an email code) to add a second factor, so an agent could enrol its own. `fva` can't tell which factor was used, and phone codes could reach the Mac | Switch on and enrol in one sitting, with the scheduled tasks paused, scanning with the phone; phone codes stay off; Clerk's sensitive-action window at its minimum; a Phase 2 entry check and the daily digest read the owner's factors through Clerk's Backend API (10.3, 13, 14, 15) |
+| R13-3 | minor | Clerk's `strict_mfa` passes only for a second-factor age under 10 (0 to 9); the doc said "0 to 10". A missing `fva`, and whether `has()` must pass too, were unstated | "0 to 9"; all three checks must pass; a missing or malformed `fva` is a refusal; Phase 0 tests age 10 and missing values (10.3, 13) |
+| R13-4 | minor | Clerk's reverification first factors don't include OAuth; a Google sign-in passes only by being recent. Passwords were left out | Reworded: an email code or a saved password, or no prompt for 10 minutes after any sign-in, Google included (10.3) |
+| R13-5 | minor | A passkey in the Mac's keychain is on the Mac; as a reverification second factor a passkey also needs Clerk API version 2026-08-20. The Clerk connector on the Mac can change production settings | TOTP only; passkeys and phone codes left out, with reasons. The Clerk connector is listed in 4.1 and H2 (4.1, 4.3, 10.3) |
+| R13-6 | minor | The server's GitHub calls also include `GET /rate_limit` and `GET /repos/{repo}`, and the filing-health probe requires a write-class role | "Issues, labels and repo metadata"; H3 reworks the filing-health probe (4.3, 12.1) |
+| R13-7 | minor | Which actions need a step-up differed between 4.2, 5, 7.3, 10.3 and section 15; the header still led with v5.2; section 15 mixed "the owner" and "you" | One list everywhere: resume, undo, setting a cutoff by hand, clearing one; halting needs none. Header leads with v5.3; section 15 says "the owner" |
+| R13-8 | minor | "requires a second factor of no one" was hard to read | "lets users add a second factor; no one has to" |
+
+**Round 14** — `NEEDS-CHANGES`: 2 material, 3 minor.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R14-1 | material | Clerk's guide says a new `reverification_id` is minted when a reverification **starts**, not when it completes. Within the window after the owner's own second-factor use, an agent in that browser can start one and get a fresh, unused id with no prompt. So the id proves nothing, and "one action per step-up" didn't hold | The id check is dropped. The server requires a second factor used within the last minute (`fva` second value 0), and the admin page starts a fresh verification for each action. The minute left is stated as T4 in 4.3 and closed by a rule: step-up actions are done from the phone, and agents' Chrome holds no HashTracks admin session (4.3, 10.3, 14, 15) |
+| R14-2 | material | Clerk's own sensitive actions, changing a second factor included, stay open for its window (at least a minute) after any sign-in or step-up. An agent in that browser could swap the TOTP or regenerate the backup codes, and the digest's check would still pass. The Clerk connector can also change instance settings | Recorded as T4: accepted, closed by the phone rule, with the Clerk connector removed by H2. The digest is now said to catch a removed factor or an added phone factor, not a swapped TOTP or regenerated backup codes. Enrolment happens from the phone (4.1, 4.3, 10.3, 14) |
+| R14-3 | minor | The fallback moved an `fva` rule into the id check, the Phase 0 exit needed the id "confirmed", and 4.3 recorded nothing | Gone with the id. Phase 0 tests name concrete refusals. 4.3 records T4 now (4.3, 13) |
+| R14-4 | minor | Section 1 item 6 and "Never loosened" still listed only resume and undo | Both list resume, undo, and setting or clearing a cutoff by hand (1, 13) |
+| R14-5 | minor | The filing-health probe accepts admin, maintain, push or triage, not only `push` | "A write-class role (admin, maintain, push or triage)" (4.3) |
+
+**Round 15** — `APPROVE`. The rewrite is coherent and the mistake-level guards work: requiring `fva` to be present, well formed and at 0 closes the downgrade, and doesn't depend on the beta `has()`. Its four minor notes were applied:
+
+| # | Note | Applied |
+|---|---|---|
+| R15-1 | `fva` is fixed when the session token is minted, so a token minted within the minute still reads 0 later; and Phase 0 tested only refusals | The client sends a freshly fetched token after the step-up; the server also requires a token issued less than 60 seconds ago (`iat`), so the window is under two minutes; Phase 0 tests that a real TOTP step-up passes on Clerk's development instance (4.3, 10.3, 13) |
+| R15-2 | Regenerated backup codes were named in R14-2 but not in T4, 10.3 or section 14 | "A swapped TOTP or regenerated backup codes" in each (4.3, 10.3, 14) |
+| R15-3 | 4.2 said agents can't resume or undo, without citing T4 | "except as T4 accepts" (4.2) |
+| R15-4 | The header didn't name round 15 | Added |
+
+
+### PR comments on v5.3 (2026-11-14)
+
+CodeRabbit (P-1, P-2) and the Claude PR review (P-3 to P-8) commented after round 15. Each was checked against the doc before it was taken.
+
+| # | Comment | Resolution |
+|---|---|---|
+| P-1 | A backup code also sets `fva`'s second value to 0, so the checks don't enforce "TOTP only" | Stated: the token carries factor ages, not the factor; a backup code passes and is acceptable because the codes stay off the Mac; "TOTP only" means TOTP and its backup codes, with phone codes and passkeys off, and the server can't enforce it (10.3, T4, decision 7) |
+| P-2 | The checks ran only when the nonce was minted, and the nonce lived 2 minutes, so an action could run about 4 minutes after its code while T4 said two | The action's own request carries a fresh token and passes all three checks again, so T4's two minutes holds; Phase 0 tests a valid nonce with a failing token (10.3, 12.1, 13, 14) |
+| P-3 | Undo's dry run would eat the one-minute window if the code came first | Reading a plan needs no step-up; the page asks for the code when the owner confirms (10.3) |
+| P-4 | The development-instance test doesn't cover production's settings | Before Phase 2 the owner runs the step-up probe on production: once straight through, which passes, and once late, which is refused (10.3, 12.1, 13, 15) |
+| P-5 | Same as P-1 | As P-1 |
+| P-6 | No recovery if the phone is lost | Halting still works; a backup code enrols a new phone; if those are lost too, the factors are removed through the Backend API in one sitting with the tasks paused, and enrolment is repeated (10.3) |
+| P-7 | Clock skew on `iat` | The server's clock, with Clerk's own 5-second skew allowance (10.3) |
+| P-8 | The status line mixed five rounds of history | Shortened; the history is here |
+
+**Round 16** — `NEEDS-CHANGES`: 2 material, 9 minor. The reviewer checked `@clerk/backend` 2.33.0 (`DEFAULT_CLOCK_SKEW_IN_MS` 5 s; `assertIssuedAtClaim` skips a missing `iat`; `disableUserMFA`, `createSignInToken`, `sessions.getToken` present) and `@clerk/shared` 3.47.2 (`fva` is minutes passed and experimental; no claim names the factor used; backup codes are a reverification second factor), and counted the Mac's key prefixes without printing values.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R16-1 | material | The fixes for P-1 to P-8 said `CLERK_SECRET_KEY` in the Mac's `.env` reached past T4. That key is the development instance's (`sk_test_`); no `.env` file holds the live key. The live key is in Vercel, and the Mac's Vercel CLI is signed in and linked to the project | 4.1, 10.3, H2 and section 14 now name the route: the Vercel CLI or connector reading production environment variables. H2 takes Vercel access off the scheduled tasks; the Backend API chain stays as an example of what the live key allows |
+| R16-2 | material | The production test couldn't be run as written: before Phase 2 there is no run to resume or undo, setting a cutoff is a prod write, and the page sends each action as soon as the code is entered | A step-up probe: the same three checks at mint and on use, a nonce spent, only an audit row written, and an optional wait before the token for its use. The production test and Phase 0's real step-up use it (10.3, 12.1, 13, 15) |
+| R16-3 | minor | Section 13's Phase 0 row lacked the nonce-with-failing-token test; 12.1 lacked the use-time checks, `iat` and the production test; 10.3 still said the checks run "before it mints a nonce" | Added to 12.1 and 13; "when it mints a nonce, and again when the nonce is used" (10.3) |
+| R16-4 | minor | The two-minute bound holds only while Clerk's and the server's clocks agree; resume and undo keep running in batches after acceptance; a missing `iat` wasn't refused | "Accepted" within two minutes, plus any amount Clerk's clock runs ahead (normally under a second); batches under the lease named; a missing or non-numeric `iat` is a refusal (10.3, 13) |
+| R16-5 | minor | "TOTP only" was defined as no other second factor switched on, but backup codes are switched on | TOTP and its backup codes, with phone codes and passkeys off (10.3, P-1) |
+| R16-6 | minor | The nonce lost its lifetime | Expires 2 minutes after minting, bound to the session as well as the run and action (10.3, 12.1) |
+| R16-7 | minor | "The step-up guards against mistakes" misdescribed it; 4.2 cited only T4; `sessions.getToken` could mint a token for the owner's phone session; the server must hold the live key, so a leak from Vercel reaches as far | "The step-up stops an agent that can only drive a browser; one holding owner-level secrets is the case 4.1 leaves unsolved." 4.2 cites 4.1's secrets; the `getToken` path is named as unchecked; 4.1's "leaked server credential" row makes an exception for this key (4.1, 4.2, 10.3) |
+| R16-8 | minor | Removing all second factors needs the live key and leaves the account open to an email-code enrolment while it's done | Run with the live key from a machine no agent uses, in the same sitting with the tasks paused; "enrols the authenticator app on a new phone" (10.3) |
+| R16-9 | minor | The header claimed round 16's approval before it happened; decision 7 and the owner's to-do list changed after the owner's approval | The header names the approving round once it exists; section 15 notes the 2026-11-14 changes |
+| R16-10 | minor | Separating reading from confirming lets the undo plan drift in between | The confirm carries the undo plan's hash; a recomputed plan that differs is refused (10.3, 12.1) |
+| R16-11 | minor | A forward reference, a hard-to-parse Phase 2 entry, an overlong line | Reworded (4.1, 10.3, 13) |
+
+**Round 17** — `NEEDS-CHANGES`: 1 material, 3 minor. The reviewer confirmed the round-16 resolutions, and that the probe's 70-second wait is refused by check 2 and nothing else. It also checked `vercel.json`, CLAUDE.md, `prisma/schema.prisma`, the Vercel connector's schemas (loaded, never called), the installed Vercel CLI and Vercel's public page on Sensitive variables.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R17-1 | material | Vercel decrypts Secret (formerly Sensitive) values in every deployment, and every pushed branch gets a preview build, which shares the prod `DATABASE_URL`. So taking the Vercel login away doesn't remove the route, and "H1 and H2 make the prompt rules real limits" was false while previews get production secrets. 4.1's leaked-credential exception named only the Clerk key. A `BACKFILL_AGENT_TOKEN` reaching Preview would let a PR's own code serve the agent API against the prod database, outside T3 and G15 | 4.1 names deployments an agent can trigger as a route. H2 now also keeps production secrets out of builds agents can trigger (Preview gets its own database and Clerk's development instance, or agents' branches don't deploy). 4.1's exception covers `DATABASE_URL` too. The new tokens and the App's credentials are scoped to Production only (4.1, 4.3, 10.3, 12.1, 14, 15). "Secret (formerly Sensitive) values can't be read back, but every deployment decrypts them"; "a stored Vercel CLI login" |
+| R17-2 | minor | No table held the step-up nonces or the probe's audit record | `BackfillStepUpNonce`, on the `AuditFilingNonce` pattern; the probe writes only its row there (10.3, 11.1, 12.1) |
+| R17-3 | minor | The lost-phone recovery didn't say where the owner gets the live key | From the Clerk dashboard, ideally a key made for this and revoked afterwards (10.3) |
+| R17-4 | minor | "The step-up stops an agent that can only drive a browser" holds only with the phone rule; 4.2 said "owner-level secrets" twice; T4 was badly wrapped | "With the phone rule, …"; 4.2 merged; T4 re-wrapped (4.2, 4.3, 10.3) |
+
+**Round 18** — `NEEDS-CHANGES`: 1 material, 3 minor. The reviewer confirmed the round-17 resolutions apart from R18-1, that section 13's Phase 2 and 3 entries match the new H2, and that GitHub Actions workflows reference no production secret.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R18-1 | material | Agents can also trigger a production build by merging: they merge approved PRs and `main` deploys to production. H1 didn't require `main`'s branch protection to need the owner's review, so a bot identity could merge code the owner never approved, and H2's condition couldn't be met as written | H1 adds a ruleset on `main`: the owner's approving review of the latest commit, stale approvals dismissed, no bypass for the bot. H2 and 4.1 now say "no build of code the owner hasn't approved gets production secrets" (4.1, 4.3, 10.3) |
+| R18-2 | minor | H2's remedy separated only the database and Clerk; Preview-scoped tokens (`CRON_SECRET`, `AUDIT_AGENT_TOKEN`, the PAT before H3) would still reach previews | "Preview gets no Production values: its own database, Clerk's development instance, and its own tokens or none" (4.3) |
+| R18-3 | minor | The nonce binding named only a cutoff set by hand | "a cutoff set or cleared by hand" (10.3) |
+| R18-4 | minor | Section 15's change note credited only PR review and didn't say H1 and H2 had widened under decision 9 | Credits PR review and rounds 16–18; says H1 and H2 widened, and so does what decision 9's acceptance covers (15) |
+
+**Round 19** — `NEEDS-CHANGES`: 1 material, 1 minor. The reviewer confirmed all four round-18 resolutions.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| R19-1 | material | H2 left the tasks the owner's mailbox and signed-in Chrome. A mailbox can take an emailed sign-in code for Vercel or Railway; a signed-in GitHub session can submit the owner's approving review, which H1's ruleset and the server's check both accept. So "H1 and H2 would turn the prompt rules into real limits" still didn't hold | H2 is stated generally: the tasks hold no credential or session of the owner's (`.env` secrets, the owner's `gh` login, CLI logins, connectors acting as the owner including the mailbox, signed-in browser sessions), and no build of code the owner hasn't approved gets production secrets. 4.1 says the same (4.1, 4.3) |
+| R19-2 | minor | The fork-PR limit rests on Vercel's fork protection, unstated | Stated in 4.1: fork PRs are limited only while fork protection is on, since until H2 previews get the prod `DATABASE_URL` |
+
+**Round 20** — `APPROVE`. The reviewer confirmed both round-19 fixes: H2 now names the routes that mattered, 4.1's "real limits" claim is conditional on exactly what H2 requires, and the fork-protection condition is stated. One minor note was applied:
+
+| # | Note | Applied |
+|---|---|---|
+| R20-1 | Section 15's change note credited rounds 16–18 and described only H2's first widening | Credits rounds 16–19 and states H2's full condition (15) |
+
+**Claude PR review of round 20's commit** — no blockers. Four minor notes were applied without a new round, as after rounds 5 and 15. A fifth, comparing Clerk's `user.updated` with the digest to flag a factor change, is left for a later phase.
+
+| # | Note | Applied |
+|---|---|---|
+| C-1 | Whether a Backend-API-minted token carries `fva` decides whether the phone rule holds against a leaked live key; it's cheap to check | A Phase 0 test reads it (10.3, 13) |
+| C-2 | With the checks rerun on use, the nonce's expiry no longer sets the window | Said in 11.1 |
+| C-3 | The probe's late case tested only check 2 on production | A second late mode holds a fresh token for 70 seconds, which check 3 refuses; production runs the probe three times (10.3, 12.1, 13, 15) |
+| C-4 | "Approved" in the header could be read as the owner's approval | "Adversarial review: approved in round 20. Owner approval of section 15: 2026-11-13" |
+
+**v5.4 (2026-11-17): fitting the ops system.** The ops plan (amendment v6) adopted this build's order. Its adversarial reviewer (that plan's round 6) returned `APPROVE WITH REQUIRED CHANGES`; these were applied here.
+
+| # | Severity | Finding | Resolution |
+|---|---|---|---|
+| O6-1 | major | With the stamp moved to the ops `write-gate`, Phase 1 (shadow) could start before any stamp exists, so every approval check would disagree | Phase 1's entry adds "the ops `write-gate` is live and stamping" (13); 6.3 names the workflow and one shared stamp module |
+| O6-2 | major | G17's "no other statements" refused the migration template's `BEGIN` / `SET LOCAL lock_timeout` / `COMMIT`, so every new onboarding migration would fail A6 | G17 allows exactly that wrapper, with a template-shaped test fixture (8.1, 12.1a) |
+| O6-3 | major | G17 moving to `src/lib/migration-sql/` left it outside G15 | G15 adds `src/lib/migration-sql/**`, `scripts/ci/**` and the `libpg-query` package entries (8.1) |
+| O6-4 | minor | Two cron-liveness records | `AutomationRun` only; `CronHeartbeat` dropped by a later migration (11.1–11.3, 12.1, 14) |
+| O6-5 | minor | `libpg-query` is a devDependency the server can't load | PR 4 moves it to `dependencies` and `serverExternalPackages` and proves it on a preview (12.1a) |
+
+Round 7 of that review: `APPROVE`. Its notes were applied: T1's wording now says only an owner-sent label is stamped (4.3); one source for the owner's login, with a test (6.3); the template fixture is in Phase 0's exit criteria (13).

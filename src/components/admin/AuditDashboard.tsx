@@ -887,7 +887,7 @@ function CopyHarelinePromptButton({ prompt }: Readonly<{ prompt: string }>) {
   );
 }
 
-// ── Chrome Finding Review Queue ─────────────────────────────────────
+// ── Agent findings ──────────────────────────────────────────────────
 
 /**
  * Pending chrome-stream findings the agent deposited via /api/audit/submit-finding,
@@ -918,7 +918,7 @@ function PendingDraftsCard({ drafts }: Readonly<{ drafts: PendingDraftRow[] | nu
       <div className="flex items-center justify-between gap-4">
         <SectionHeader
           icon={Activity}
-          title="Chrome Finding Review Queue"
+          title="Agent findings"
           color="bg-purple-500/10 text-purple-500"
         />
         <Button

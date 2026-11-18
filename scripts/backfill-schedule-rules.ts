@@ -57,7 +57,7 @@ import { KENNELS, type KennelScheduleRuleSeed } from "../prisma/seed-data/kennel
 
 /**
  * Source-reference strings persisted on `ScheduleRule.sourceReference`. Centralized
- * here so the admin UI / verify-fixes tooling has one place to grep for the conventions.
+ * here so the admin UI and any tooling has one place to grep for the conventions.
  */
 const SOURCE_REF = {
   kennelDisplay: "Kennel.scheduleDayOfWeek/Frequency",

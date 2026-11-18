@@ -609,8 +609,7 @@ export async function persistAlerts(
   sourceId: string,
   scrapeLogId: string,
   alertCandidates: AlertCandidate[],
-): Promise<string[]> {
-  const createdAlertIds: string[] = [];
+): Promise<void> {
   for (const candidate of alertCandidates) {
     const existing = await prisma.alert.findFirst({
       where: {
@@ -638,7 +637,7 @@ export async function persistAlerts(
       continue;
     }
 
-    const created = await prisma.alert.create({
+    await prisma.alert.create({
       data: {
         sourceId,
         scrapeLogId,
@@ -649,9 +648,7 @@ export async function persistAlerts(
         ...(candidate.context ? { context: candidate.context as Prisma.InputJsonValue } : {}),
       },
     });
-    createdAlertIds.push(created.id);
   }
-  return createdAlertIds;
 }
 
 /** Compute average fill rate from recent scrape logs for a given field. */

@@ -32,7 +32,7 @@ export function Header() {
   const isAdmin = isAdminUser(user);
   const { preference, setPreference, isLoading } = useTimePreference();
   const { tempUnit, setTempUnit } = useUnitsPreference();
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const pathname = usePathname();
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
@@ -137,7 +137,11 @@ export function Header() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="hidden h-9 w-9 md:inline-flex" aria-label="Theme" title="Theme">
-                {resolvedTheme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                {/* Both icons render; the `dark` class next-themes sets on <html>
+                    before paint picks one. Branching on resolvedTheme here caused a
+                    hydration mismatch, since it is undefined on the server. */}
+                <Sun className="h-4 w-4 dark:hidden" />
+                <Moon className="hidden h-4 w-4 dark:block" />
                 <span className="sr-only">Toggle theme</span>
               </Button>
             </DropdownMenuTrigger>

@@ -1,4 +1,4 @@
-import { upcomingConfirmedEventWhere } from "@/lib/activity-status";
+import { upcomingConfirmedEventWhere } from "@/lib/kennel-directory";
 import {
   DISPLAY_EVENT_WHERE,
   DISPLAYABLE_EVENT_NO_PARENT_WHERE,

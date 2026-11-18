@@ -75,8 +75,6 @@ globs:
 - `src/pipeline/reconcile.ts` — Stale event reconciliation (cancels removed source events)
 - `src/pipeline/fill-rates.ts` — Per-field fill rate computation for RawEvents
 - `src/pipeline/structure-hash.ts` — HTML structural fingerprinting (SHA-256)
-- `src/pipeline/auto-issue.ts` — Auto-file GitHub issues from alerts (adapter resolution, rate limiting, cooldown, dedup, AGENT_CONTEXT) (dormant: reads `GITHUB_REPOSITORY`, which Vercel doesn't set, so nothing has been filed since 2026-06; to be replaced per `docs/self-healing-v2-plan.md`)
-- `src/pipeline/verify-fixes.ts` — Post-merge fix verification (removes pending-verification label, posts confirmation comment) (dormant: reads `GITHUB_REPOSITORY`, which Vercel doesn't set, so nothing has been filed since 2026-06; to be replaced per `docs/self-healing-v2-plan.md`)
 - `src/pipeline/html-analysis.ts` — Reusable HTML event analysis + Gemini column mapping (no auth, used by research pipeline)
 - `src/pipeline/source-research.ts` — Autonomous source research pipeline (URL discovery, classification, analysis, proposal persistence)
 - `src/pipeline/prediction-ledger.ts` — Travel Mode prospective prediction ledger (snapshot weekly + score matured HIT/MISS/PRECONFIRMED/UNOBSERVED, frozen-source)
@@ -189,9 +187,6 @@ globs:
 - `src/test/factories.ts` — Shared test data builders
 - `.github/workflows/ci.yml` — CI gate: type check, lint, tests on all PRs + push to main
 - `.github/workflows/claude.yml` — Claude Code interactive (issue/PR @claude mentions, label_trigger: claude-fix)
-- `.github/workflows/claude-issue-triage.yml` — AI triage: reads alert issue, posts confidence-scored diagnosis, labels claude-autofix or needs-human — **to be disabled** (never produced a fix; see `docs/self-healing-v2-plan.md`)
-- `.github/workflows/claude-autofix.yml` — AI fix: implements code changes, runs tests, creates PR (safe zone: adapters, seed.ts, test files only; rate-limited to 5 PRs/day) — **to be disabled** (never produced a fix; see `docs/self-healing-v2-plan.md`)
-- `.github/workflows/claude-post-merge.yml` — Post-merge: adds pending-verification label + tracking comment on linked issue — **to be disabled** (never produced a fix; see `docs/self-healing-v2-plan.md`)
 
 ## Documentation
 - `docs/source-onboarding-playbook.md` — Step-by-step guide for adding new data sources

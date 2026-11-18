@@ -134,6 +134,15 @@ async function mergeRawEventsForSource(
         `skipped=${result.skipped} blocked=${result.blocked} ` +
         `eventErrors=${result.eventErrors}`,
     );
+    const archiveDrops = (result.archiveCutoffDropped ?? 0) + (result.archiveCorrectionSkipped ?? 0);
+    if (archiveDrops > 0) {
+      throw new Error(
+        `${archiveDrops} rows DROPPED by an archive cutoff or an archive run number: a kennel in this ` +
+          `backfill has an automated archive (onboarding backfill design 6.5), so rows dated ` +
+          `before its cutoff are refused. Clear the cutoff from /admin/backfills (step-up) ` +
+          `before a supervised backfill, or leave that history to the archive.`,
+      );
+    }
     if (result.blocked > 0) {
       throw new Error(
         `${result.blocked} events BLOCKED by per-event source-kennel guard ` +

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/db";
+import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { regionNameToSlug, regionBySlug } from "@/lib/region";
 
@@ -20,11 +21,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const now = new Date();
   const activeDays = 90;
+  const DAY_MS = 1000 * 60 * 60 * 24;
 
   const [kennels, upcomingEvents] = await Promise.all([
     prisma.kennel.findMany({
       where: { isHidden: false },
-      select: { slug: true, region: true, lastEventDate: true, updatedAt: true },
+      select: { slug: true, region: true, nextRunPostedAt: true, lastRunSeenAt: true, updatedAt: true },
     }),
     prisma.event.findMany({
       where: {
@@ -37,6 +39,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         // per-day trail pages (Strawberry Moon Trail, NYC Pride Watch Party!,
         // etc.) rather than only the umbrella parent.
         kennel: { isHidden: false },
+        // A stopped kennel's generated runs 404 on their event page.
+        ...HIDE_STOPPED_SCHEDULE_RUNS,
       },
       select: { id: true, updatedAt: true },
       orderBy: { date: "asc" },
@@ -45,10 +49,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]);
 
   const kennelPages: MetadataRoute.Sitemap = kennels.map((kennel) => {
-    const daysSinceEvent = kennel.lastEventDate
-      ? Math.floor((now.getTime() - kennel.lastEventDate.getTime()) / (1000 * 60 * 60 * 24))
-      : Number.POSITIVE_INFINITY;
-    const isActive = daysSinceEvent < activeDays;
+    // Recent evidence: a run seen in the last 90 days or one still ahead.
+    const evidenceDates = [kennel.lastRunSeenAt, kennel.nextRunPostedAt]
+      .filter((d): d is Date => d !== null)
+      .map((d) => d.getTime());
+    const newest = evidenceDates.length ? Math.max(...evidenceDates) : null;
+    const isActive = newest !== null && (now.getTime() - newest) / DAY_MS < activeDays;
 
     return {
       url: `${baseUrl}/kennels/${encodeURIComponent(kennel.slug)}`,

@@ -14,6 +14,7 @@ import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import {
   executeTravelSearch,
   byDateTimeDistance,
+  chooseStopEmptyState,
   type TravelSearchParams,
   type DestinationParams,
 } from "./search";
@@ -29,7 +30,10 @@ interface MockKennel {
   region: string;
   latitude: number | null;
   longitude: number | null;
-  lastEventDate: Date | null;
+  lastRunSeenAt: Date | null;
+  lastConfirmedAt: Date | null;
+  nextRunPostedAt?: Date | null;
+  stoppedAt?: Date | null;
   scheduleDayOfWeek: string | null;
   scheduleTime: string | null;
   scheduleFrequency: string | null;
@@ -58,6 +62,8 @@ interface MockEvent {
   latitude: number | null;
   longitude: number | null;
   status: string;
+  /** Backed only by schedule projections (generated run). Defaults to false. */
+  isScheduleOnly?: boolean;
   kennel: { latitude: number | null; longitude: number | null } | null;
   eventLinks: { url: string; label: string }[];
   /** Multi-day series linkage. A child leg sets `parentEventId`; a series
@@ -115,6 +121,9 @@ function createMockPrisma(
             const allKennelIds = [e.kennelId, ...(e.coHostKennelIds ?? [])];
             return allKennelIds.some((id) => kennelInList.includes(id));
           });
+        }
+        if (where.isScheduleOnly === false) {
+          filtered = filtered.filter((e: MockEvent) => !e.isScheduleOnly);
         }
         if (where.status === "CONFIRMED") {
           filtered = filtered.filter((e: MockEvent) => e.status === "CONFIRMED");
@@ -184,7 +193,8 @@ const testKennel: MockKennel = {
   region: "Atlanta, GA",
   latitude: 33.75,
   longitude: -84.39,
-  lastEventDate: utcNoon("2026-04-05"),
+  lastRunSeenAt: utcNoon("2026-04-05"),
+  lastConfirmedAt: null,
   scheduleDayOfWeek: "Saturday",
   scheduleTime: "2:00 PM",
   scheduleFrequency: "Weekly",
@@ -452,6 +462,194 @@ describe("executeTravelSearch", () => {
     expect(result.confirmed[0].kennelName).toBe("Atlanta H3");
     expect(result.confirmed[0].kennelSlug).toBe("atlanta-h3");
     expect(result.confirmed[0].distanceTier).toBe("nearby");
+  });
+
+  it("a schedule-only run is not listed as confirmed, and its date is projected instead", async () => {
+    const generated: MockEvent = { ...testEvent, id: "e-generated", isScheduleOnly: true };
+    const prisma = createMockPrisma([testKennel], [generated], [testRule]);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    expect(result.confirmed).toHaveLength(0);
+    // The generated date is no longer "covered" by a confirmed event, so the rule projects it.
+    const apr18 = [...result.likely, ...result.possible].filter((r) =>
+      r.date?.toISOString().includes("2026-04-18"),
+    );
+    expect(apr18.length).toBeGreaterThan(0);
+  });
+
+  it("schedule-only runs don't count toward projection evidence", async () => {
+    const generated: MockEvent[] = Array.from({ length: 12 }, (_, i) => ({
+      ...testEvent,
+      id: `e-gen-${i}`,
+      isScheduleOnly: true,
+      date: new Date(utcNoon("2026-01-24").getTime() + i * 7 * 86_400_000),
+    }));
+    const prisma = createMockPrisma([testKennel], generated, [testRule]);
+    const result = await executeTravelSearch(prisma, baseParams);
+
+    // The evidence timeline counts none of the generated runs.
+    expect(result.likely.length).toBeGreaterThan(0);
+    for (const row of result.likely) {
+      expect(row.evidenceTimeline.totalEvents).toBe(0);
+    }
+  });
+
+  describe("schedule-only runs no projection covers (Ruling 20)", () => {
+    const generatedApr18: MockEvent = {
+      ...testEvent,
+      id: "e-gen-apr18",
+      isScheduleOnly: true,
+      title: null,
+      runNumber: null,
+      haresText: null,
+      startTime: "14:00",
+    };
+
+    it("a no-rule kennel's schedule-only run appears under Likely", async () => {
+      const prisma = createMockPrisma([testKennel], [generatedApr18], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.confirmed).toHaveLength(0);
+      expect(result.likely).toHaveLength(1);
+      expect(result.likely[0]).toMatchObject({
+        kennelId: "k-atl",
+        kennelName: "Atlanta H3",
+        confidence: "medium",
+        explanation: "From their usual schedule",
+        startTime: "14:00",
+        distanceTier: "nearby",
+      });
+      expect(result.likely[0].date.toISOString()).toBe("2026-04-18T12:00:00.000Z");
+      expect(result.likely[0].evidenceTimeline.weeks).toHaveLength(12);
+      expect(result.likely[0].sourceLinks.map((l) => l.type)).toContain("website");
+      expect(result.possible).toHaveLength(0);
+      expect(result.emptyState).toBe("no_confirmed");
+    });
+
+    it("a no-rule kennel with no evidence at all keeps the run under Likely", async () => {
+      const neverSeen: MockKennel = { ...testKennel, lastRunSeenAt: null, lastConfirmedAt: null };
+      const prisma = createMockPrisma([neverSeen], [generatedApr18], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely.map((r) => r.explanation)).toEqual(["From their usual schedule"]);
+      expect(result.possible).toHaveLength(0);
+    });
+
+    it("with evidence older than 90 days the run appears under Possible instead", async () => {
+      const stale: MockKennel = { ...testKennel, lastRunSeenAt: utcNoon("2025-12-01") };
+      const prisma = createMockPrisma([stale], [generatedApr18], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely).toHaveLength(0);
+      expect(result.possible).toHaveLength(1);
+      expect(result.possible[0]).toMatchObject({
+        kennelId: "k-atl",
+        confidence: "low",
+        explanation: "From their usual schedule",
+      });
+      expect(result.possible[0].date?.toISOString()).toBe("2026-04-18T12:00:00.000Z");
+      // "Last posted" falls back to the kennel's last real run, as projected Possible rows do.
+      expect(result.possible[0].lastConfirmedAt?.getTime()).toBe(utcNoon("2025-12-01").getTime());
+    });
+
+    it("a kennel whose rule covers that date gets no duplicate row", async () => {
+      // Twelve Saturday runs keep the weekly rule Likely (see the next test).
+      const evidence: MockEvent[] = Array.from({ length: 12 }, (_, i) => ({
+        ...testEvent,
+        id: `e-ev-${i}`,
+        date: new Date(utcNoon("2026-01-24").getTime() + i * 7 * 86_400_000),
+      }));
+      const prisma = createMockPrisma([testKennel], [...evidence, generatedApr18], [testRule]);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      const apr18 = result.likely.filter((r) => r.date.toISOString().startsWith("2026-04-18"));
+      expect(apr18).toHaveLength(1);
+      expect(apr18[0].explanation).not.toBe("From their usual schedule");
+    });
+
+    it("a schedule-only run on the date of a real posted run adds nothing", async () => {
+      const prisma = createMockPrisma([testKennel], [testEvent, generatedApr18], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.confirmed.map((r) => r.eventId)).toEqual(["e1"]);
+      expect(result.likely).toHaveLength(0);
+    });
+
+    it("respects the confidence filter like projected rows", async () => {
+      const prisma = createMockPrisma([testKennel], [generatedApr18], []);
+      const result = await executeTravelSearch(prisma, {
+        ...baseParams,
+        filters: { confidence: ["high"] },
+      });
+      expect(result.likely).toHaveLength(0);
+    });
+
+    it("pivots a co-hosted generated run onto the nearby co-host", async () => {
+      const londonKennel: MockKennel = {
+        ...testKennel,
+        id: "k-london",
+        slug: "london-h3",
+        shortName: "London H3",
+        latitude: 51.5,
+        longitude: -0.13,
+      };
+      const coHosted: MockEvent = { ...generatedApr18, kennelId: "k-london", coHostKennelIds: ["k-atl"] };
+      const prisma = createMockPrisma([testKennel, londonKennel], [coHosted], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely.map((r) => r.kennelId)).toEqual(["k-atl"]);
+    });
+  });
+
+  describe("Likely evidence for kennels with no evidence events (Ruling 21)", () => {
+    const highRule: MockScheduleRule = { ...testRule, id: "r-high", confidence: "HIGH" };
+
+    it("a HIGH rule for a kennel never seen running stays Likely, with no confirmation date", async () => {
+      const neverSeen: MockKennel = { ...testKennel, lastRunSeenAt: null, lastConfirmedAt: null };
+      const prisma = createMockPrisma([neverSeen], [], [highRule]);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely.length).toBeGreaterThan(0);
+      for (const row of result.likely) {
+        expect(row.confidence).toBe("high");
+        expect(row.evidenceTimeline.totalEvents).toBe(0);
+        expect(row.checkedRunningAt).toBeNull();
+      }
+    });
+
+    it("a HIGH rule for a kennel last seen more than 90 days ago drops to Possible", async () => {
+      const stale: MockKennel = { ...testKennel, lastRunSeenAt: utcNoon("2025-12-01"), lastConfirmedAt: null };
+      const prisma = createMockPrisma([stale], [], [highRule]);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely).toHaveLength(0);
+      expect(result.possible.map((r) => r.kennelId)).toEqual(["k-atl"]);
+    });
+
+    it("a recent confirmation with no run seen keeps a HIGH rule Likely and dates the card", async () => {
+      const checked: MockKennel = { ...testKennel, lastRunSeenAt: null, lastConfirmedAt: utcNoon("2026-04-01") };
+      const prisma = createMockPrisma([checked], [], [highRule]);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely.length).toBeGreaterThan(0);
+      for (const row of result.likely) {
+        expect(row.confidence).toBe("high");
+        expect(row.checkedRunningAt?.getTime()).toBe(utcNoon("2026-04-01").getTime());
+      }
+    });
+
+    it("a confirmation older than the last run seen doesn't date the card", async () => {
+      const ranSince: MockKennel = {
+        ...testKennel,
+        lastRunSeenAt: utcNoon("2026-04-05"),
+        lastConfirmedAt: utcNoon("2026-03-01"),
+      };
+      const prisma = createMockPrisma([ranSince], [], [highRule]);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.likely.length).toBeGreaterThan(0);
+      expect(result.likely.every((r) => r.checkedRunningAt === null)).toBe(true);
+    });
   });
 
   it("returns likely projections from schedule rules", async () => {
@@ -841,6 +1039,78 @@ describe("executeTravelSearch", () => {
     expect(result.destinations[0].nearestConfirmed).toBeUndefined();
   });
 
+  describe("other kennels (Status 2 bridge)", () => {
+    // "Today" is 2026-04-14, so a run last seen 2025-10-01 is quiet.
+    const quietKennel: MockKennel = {
+      ...testKennel,
+      id: "k-quiet",
+      slug: "quiet-h3",
+      shortName: "Quiet H3",
+      lastRunSeenAt: utcNoon("2025-10-01"),
+    };
+
+    it("lists a quiet in-radius kennel when the search is thin", async () => {
+      const prisma = createMockPrisma([quietKennel], [], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.destinations[0].otherKennels?.map((k) => k.kennelId)).toEqual(["k-quiet"]);
+      expect(result.destinations[0].otherKennels?.[0].evidence.lastRunSeenAt).toEqual(utcNoon("2025-10-01"));
+    });
+
+    it("leaves otherKennels unset when nothing qualifies", async () => {
+      const prisma = createMockPrisma([testKennel], [testEvent], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.destinations[0].otherKennels).toBeUndefined();
+    });
+
+    it("does not compute them for a multi-stop search", async () => {
+      const prisma = createMockPrisma([quietKennel], [], []);
+      const result = await executeTravelSearch(prisma, {
+        destinations: [baseDestination, { ...baseDestination, startDate: "2026-04-26", endDate: "2026-04-28" }],
+      });
+
+      expect(result.destinations.every((d) => d.otherKennels === undefined)).toBe(true);
+    });
+
+    it("sets no otherKennels when in-radius runs reach the threshold", async () => {
+      const active = ["a", "b", "c"].map((x): MockKennel => ({ ...testKennel, id: `k-${x}`, slug: `${x}-h3`, shortName: `${x} H3` }));
+      const events = active.map((k): MockEvent => ({ ...testEvent, id: `e-${k.id}`, kennelId: k.id }));
+      const prisma = createMockPrisma([...active, quietKennel], events, []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.confirmed.length + result.likely.length).toBeGreaterThanOrEqual(3);
+      expect(result.destinations[0].otherKennels).toBeUndefined();
+    });
+
+    it("still lists the quiet in-radius kennel when only the broader pass has 3+ runs", async () => {
+      const distant = ["x", "y", "z"].map((n): MockKennel => ({
+        ...testKennel,
+        id: `k-far-${n}`,
+        slug: `far-${n}-h3`,
+        shortName: `Far ${n} H3`,
+        latitude: 34.3,
+        longitude: -84.39,
+      }));
+      const events = distant.map((k): MockEvent => ({ ...testEvent, id: `e-${k.id}`, kennelId: k.id }));
+      const prisma = createMockPrisma([quietKennel, ...distant], events, []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.destinations[0].broaderRadiusKm).toBe(150);
+      expect(result.destinations[0].broaderResults!.confirmed.length).toBeGreaterThanOrEqual(3);
+      expect(result.destinations[0].otherKennels?.map((k) => k.kennelId)).toEqual(["k-quiet"]);
+    });
+
+    it("does not repeat a kennel that already has a Possible row", async () => {
+      const lowRule: MockScheduleRule = { ...testRule, id: "r-low", kennelId: "k-quiet", confidence: "LOW" };
+      const prisma = createMockPrisma([quietKennel], [], [lowRule]);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.possible.some((p) => p.kennelId === "k-quiet")).toBe(true);
+      expect(result.destinations[0].otherKennels).toBeUndefined();
+    });
+  });
+
   it("collapses Possible rows to one per kennel (#793)", async () => {
     // Weekly CADENCE rule fires multiple times in a 14-day window, and
     // scoreConfidence downgrades it to LOW when there's no evidence.
@@ -892,8 +1162,8 @@ describe("executeTravelSearch", () => {
     expect(result.possible[0].lastConfirmedAt!.getTime()).toBe(recentEvidence.getTime());
   });
 
-  it("falls back to kennel.lastEventDate when no in-window evidence (#769)", async () => {
-    // No in-window evidence, but the kennel has an all-time `lastEventDate`
+  it("Possible row 'last posted' falls back to lastRunSeenAt, not lastEventDate", async () => {
+    // No in-window evidence, but the kennel has an all-time `lastRunSeenAt`
     // from outside the 12-week window. That older anchor should still
     // surface so the Possible card explains why we listed the kennel.
     const lowRule: MockScheduleRule = {
@@ -908,13 +1178,13 @@ describe("executeTravelSearch", () => {
     expect(result.possible).toHaveLength(1);
     expect(result.possible[0].lastConfirmedAt).toBeInstanceOf(Date);
     expect(result.possible[0].lastConfirmedAt!.getTime()).toBe(
-      testKennel.lastEventDate!.getTime(),
+      testKennel.lastRunSeenAt!.getTime(),
     );
   });
 
   it("leaves lastConfirmedAt null when kennel has no history at all (#769)", async () => {
     // Truly history-less kennel: no in-window evidence AND no all-time
-    // lastEventDate. Render path hides the line in this case.
+    // lastRunSeenAt. Render path hides the line in this case.
     const lowRule: MockScheduleRule = {
       ...testRule,
       id: "r-low",
@@ -923,7 +1193,7 @@ describe("executeTravelSearch", () => {
     };
     const historyLessKennel: MockKennel = {
       ...testKennel,
-      lastEventDate: null,
+      lastRunSeenAt: null,
     };
     const prisma = createMockPrisma([historyLessKennel], [], [lowRule]);
     const result = await executeTravelSearch(prisma, baseParams);
@@ -1006,6 +1276,81 @@ describe("executeTravelSearch", () => {
 
     // Atlanta H3 is "nearby" so it should be filtered out
     expect(filtered.confirmed).toHaveLength(0);
+  });
+
+  describe("empty states when nothing is on the trip dates", () => {
+    // ~60km north of Atlanta: outside the 50km radius, inside the 150km ring.
+    const dormantRingKennel: MockKennel = {
+      ...testKennel,
+      id: "k-ring",
+      slug: "ring-h3",
+      shortName: "Ring H3",
+      latitude: 34.3,
+      longitude: -84.39,
+    };
+
+    it("returns no_runs, not none, when the radius has kennels but no rows (Wichita)", async () => {
+      // The radius kennel has no event and no schedule rule on the dates, and
+      // the broader ring has no kennels. This used to end on "none", which
+      // made TravelResults print "No results match the active filters".
+      const prisma = createMockPrisma([testKennel], [], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.emptyState).toBe("no_runs");
+      expect(result.destinations[0].emptyState).toBe("no_runs");
+      expect(result.destinations[0].kennelsSearched).toBe(1);
+      expect(result.destinations[0].broaderRadiusKm).toBeUndefined();
+      expect(result.destinations[0].broaderResults).toBeUndefined();
+      expect(result.confirmed).toHaveLength(0);
+      expect(result.likely).toHaveLength(0);
+      expect(result.possible).toHaveLength(0);
+    });
+
+    it("returns no_runs when the broader ring has kennels but no rows either", async () => {
+      const prisma = createMockPrisma([testKennel, dormantRingKennel], [], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.emptyState).toBe("no_runs");
+      // The ring found nothing, so the search wasn't widened.
+      expect(result.destinations[0].broaderRadiusKm).toBeUndefined();
+      expect(result.destinations[0].broaderResults).toBeUndefined();
+    });
+
+    it("returns no_runs, not no_nearby, when only the ring has kennels and none runs", async () => {
+      // "Nothing within range — but the region is active" was false here.
+      const prisma = createMockPrisma([dormantRingKennel], [], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.emptyState).toBe("no_runs");
+      expect(result.destinations[0].broaderResults).toBeUndefined();
+      // The search did reach out to the ring.
+      expect(result.destinations[0].broaderRadiusKm).toBe(150);
+    });
+
+    it("returns no_runs whatever filters are active", async () => {
+      const prisma = createMockPrisma([testKennel], [], []);
+      const result = await executeTravelSearch(prisma, {
+        ...baseParams,
+        filters: { distanceTier: ["drive"] },
+      });
+
+      expect(result.emptyState).toBe("no_runs");
+    });
+
+    it("keeps none when the active filters hide every row", async () => {
+      // The genuinely filtered-empty case: TravelResults' "No results match
+      // the active filters" is true here and stays.
+      const prisma = createMockPrisma([testKennel], [testEvent], []);
+      const result = await executeTravelSearch(prisma, {
+        ...baseParams,
+        filters: { distanceTier: ["drive"] },
+      });
+
+      expect(result.emptyState).toBe("none");
+      expect(result.confirmed).toHaveLength(0);
+      expect(result.likely).toHaveLength(0);
+      expect(result.possible).toHaveLength(0);
+    });
   });
 
   it("clamps end date to the 365-day HIGH horizon", async () => {
@@ -1228,6 +1573,30 @@ describe("executeTravelSearch multi-destination", () => {
     expect(result.emptyState).toBe("out_of_horizon");
   });
 
+  it("keeps the aggregate at none when one stop has rows and another has no runs", async () => {
+    const londonEvent: MockEvent = { ...testEvent, id: "e-london", kennelId: "k-london", date: utcNoon("2026-04-21") };
+    const prisma = createMockPrisma([londonKennel, parisKennel], [londonEvent], []);
+    const result = await executeTravelSearch(prisma, {
+      destinations: [londonStop, parisStop],
+    });
+
+    expect(result.destinations[0].emptyState).toBe("none");
+    expect(result.destinations[1].emptyState).toBe("no_runs");
+    expect(result.emptyState).toBe("none");
+  });
+
+  it("aggregates no_runs over no_coverage: we know kennels on one leg", async () => {
+    // London: kennel with nothing on the dates. Paris: no kennel within 150km.
+    const prisma = createMockPrisma([londonKennel], [], []);
+    const result = await executeTravelSearch(prisma, {
+      destinations: [londonStop, parisStop],
+    });
+
+    expect(result.destinations[0].emptyState).toBe("no_runs");
+    expect(result.destinations[1].emptyState).toBe("no_coverage");
+    expect(result.emptyState).toBe("no_runs");
+  });
+
   it("aggregates horizonTier to worst-case across stops", async () => {
     // One stop near-term ("all"), one stop 2 years out ("none"). Aggregate
     // must surface the "none" so UI copy explains why Likely is sparse.
@@ -1292,6 +1661,33 @@ describe("executeTravelSearch multi-destination", () => {
     const batchInput = mockedWeather.mock.calls[0][0];
     expect(batchInput).toHaveLength(3);
     expect(batchInput.map((e) => e.id).sort()).toEqual(["e-atl", "e-london", "e-paris"]);
+  });
+});
+
+describe("chooseStopEmptyState", () => {
+  const withRows = {
+    horizonTier: "all" as const,
+    unfilteredTotal: 3,
+    showsBroaderPass: false,
+    confirmedCount: 1,
+    likelyOrPossibleCount: 2,
+  };
+  const nothingOnDates = { ...withRows, unfilteredTotal: 0, confirmedCount: 0, likelyOrPossibleCount: 0 };
+
+  it.each([
+    { label: "nothing on the dates", input: nothingOnDates, expected: "no_runs" },
+    { label: "nothing on the dates, high-tier horizon", input: { ...nothingOnDates, horizonTier: "high" as const }, expected: "no_runs" },
+    { label: "nothing on the dates in the ring either", input: { ...nothingOnDates, showsBroaderPass: true }, expected: "no_runs" },
+    { label: "nothing on the dates past the horizon", input: { ...nothingOnDates, horizonTier: "none" as const }, expected: "out_of_horizon" },
+    { label: "nothing past the horizon, ring searched", input: { ...nothingOnDates, horizonTier: "none" as const, showsBroaderPass: true }, expected: "out_of_horizon" },
+    { label: "ring rows shown", input: { ...withRows, showsBroaderPass: true }, expected: "no_nearby" },
+    { label: "ring rows all hidden by filters", input: { ...withRows, showsBroaderPass: true, confirmedCount: 0, likelyOrPossibleCount: 0 }, expected: "no_nearby" },
+    { label: "likely/possible rows only", input: { ...withRows, confirmedCount: 0 }, expected: "no_confirmed" },
+    { label: "confirmed rows", input: withRows, expected: "none" },
+    { label: "filters hid every row", input: { ...withRows, confirmedCount: 0, likelyOrPossibleCount: 0 }, expected: "none" },
+    { label: "filters hid every row past the horizon", input: { ...withRows, horizonTier: "none" as const, confirmedCount: 0, likelyOrPossibleCount: 0 }, expected: "none" },
+  ])("$label → $expected", ({ input, expected }) => {
+    expect(chooseStopEmptyState(input)).toBe(expected);
   });
 });
 

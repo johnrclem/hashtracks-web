@@ -1373,6 +1373,16 @@ describe("fileAuditFinding — GitHub-search dedup gate (#2308)", () => {
     expect(actions.createIssue).not.toHaveBeenCalled();
   });
 
+  it("fails closed with github-list-failed (no create) when GitHub can't list open issues", async () => {
+    const actions = buildActions({ listOpenIssuesByKennel: vi.fn().mockResolvedValue(null) });
+
+    const out = await fileAuditFinding(COARSE_INPUT, actions);
+
+    expect(out).toEqual({ action: "error", reason: "github-list-failed" });
+    expect(actions.createIssue).not.toHaveBeenCalled();
+    expect(actions.postComment).not.toHaveBeenCalled();
+  });
+
   it("embeds the always-on identity marker on a fresh create so future re-files can match", async () => {
     const actions = buildActions(); // listOpenIssuesByKennel → [] (gate miss)
 

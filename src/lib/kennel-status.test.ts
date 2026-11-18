@@ -6,6 +6,7 @@ import {
   listedKennelWhere,
   serializeKennelEvidence,
   toKennelEvidence,
+  ownPageFor,
   type KennelEvidence,
 } from "@/lib/kennel-status";
 
@@ -144,5 +145,20 @@ describe("serialization", () => {
     expect(s.lastRunSeenAt).toBe("2026-11-07T12:00:00.000Z");
     expect(s.nextRunPostedAt).toBeNull();
     expect(toKennelEvidence(s)).toEqual(e);
+  });
+});
+
+describe("ownPageFor", () => {
+  const url = "https://example.org";
+  it("links a never-seen kennel's own page", () => {
+    expect(ownPageFor({ kind: "never" }, url, false)).toBe(url);
+  });
+  it("hides the link on a dated line unless asked to show it", () => {
+    const line = { kind: "last-run", date: offset(-100) } as const;
+    expect(ownPageFor(line, url, false)).toBeNull();
+    expect(ownPageFor(line, url, true)).toBe(url);
+  });
+  it("returns null when the kennel has no own page", () => {
+    expect(ownPageFor({ kind: "never" }, null, true)).toBeNull();
   });
 });
