@@ -50,7 +50,7 @@ vi.mock("@/pipeline/scrape", () => ({
 vi.mock("@/pipeline/kennel-resolver", () => ({
   resolveKennelTag: vi.fn(),
   clearResolverCache: vi.fn(),
-  mapKennelTag: vi.fn(() => null),
+  mapKennelTagForSource: vi.fn(async () => null),
 }));
 
 vi.mock("next/cache", () => ({

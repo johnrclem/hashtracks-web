@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { scrapeSource } from "@/pipeline/scrape";
-import { resolveKennelTag, clearResolverCache, mapKennelTag } from "@/pipeline/kennel-resolver";
+import { resolveKennelTag, clearResolverCache, mapKennelTagForSource } from "@/pipeline/kennel-resolver";
 import { buildKennelIdentifiers, createKennelRecord } from "@/lib/kennel-utils";
 import type { Prisma } from "@/generated/prisma/client";
 import { ARCHIVE_SOURCE_LOCKED, isArchiveSource } from "@/lib/archive-source";
@@ -56,6 +56,7 @@ async function autoResolveIfAllTagsMatched(
   alertId: string,
   alertContext: unknown,
   adminId: string,
+  sourceId: string,
 ): Promise<void> {
   const ctx = alertContext as { tags?: string[] } | null;
   if (!ctx?.tags) return;
@@ -86,14 +87,14 @@ async function autoResolveIfAllTagsMatched(
     byAlias.set(alias.alias.trim().toLowerCase(), alias.kennelId);
   }
 
-  const remaining = normalizedTags.filter((tag) => {
-    if (byKennelCode.has(tag) || byShortName.has(tag) || byAlias.has(tag)) return false;
-    const mappedTag = mapKennelTag(tag);
-    if (!mappedTag) return true;
-    const mappedNormalized = mappedTag.trim().toLowerCase();
-    return !(byKennelCode.has(mappedNormalized)
-      || byShortName.has(mappedNormalized)
-      || byAlias.has(mappedNormalized));
+  const known = (tag: string) => byKennelCode.has(tag) || byShortName.has(tag) || byAlias.has(tag);
+  const mappedTags = await Promise.all(
+    normalizedTags.map((tag) => (known(tag) ? null : mapKennelTagForSource(tag, sourceId))),
+  );
+  const remaining = normalizedTags.filter((tag, i) => {
+    if (known(tag)) return false;
+    const mappedTag = mappedTags[i];
+    return !mappedTag || !known(mappedTag.trim().toLowerCase());
   });
 
   if (remaining.length === 0) {
@@ -276,7 +277,7 @@ export async function createAliasFromAlert(
     await scrapeSource(alert.sourceId);
   }
 
-  await autoResolveIfAllTagsMatched(alertId, alert.context, admin.id);
+  await autoResolveIfAllTagsMatched(alertId, alert.context, admin.id, alert.sourceId);
 
   revalidatePath("/admin/alerts");
   revalidatePath(`/admin/sources/${alert.sourceId}`);
@@ -322,7 +323,7 @@ export async function createKennelFromAlert(
     await scrapeSource(alert.sourceId);
   }
 
-  await autoResolveIfAllTagsMatched(alertId, alert.context, admin.id);
+  await autoResolveIfAllTagsMatched(alertId, alert.context, admin.id, alert.sourceId);
 
   revalidatePath("/admin/alerts");
   revalidatePath(`/admin/sources/${alert.sourceId}`);
@@ -423,10 +424,13 @@ export async function linkKennelToSource(
       const lookup = (tag: string): string | undefined =>
         byKennelCode.get(tag) ?? byShortName.get(tag) ?? byAlias.get(tag);
 
-      const remaining = normalizedTags.filter((tag) => {
+      const mappedTags = await Promise.all(
+        normalizedTags.map((tag) => (lookup(tag) ? null : mapKennelTagForSource(tag, alert.sourceId))),
+      );
+      const remaining = normalizedTags.filter((tag, i) => {
         const direct = lookup(tag);
         if (direct) return !linkedIds.has(direct);
-        const mapped = mapKennelTag(tag);
+        const mapped = mappedTags[i];
         if (!mapped) return true;
         const mappedResolved = lookup(mapped.trim().toLowerCase());
         return !mappedResolved || !linkedIds.has(mappedResolved);

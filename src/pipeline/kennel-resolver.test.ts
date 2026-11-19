@@ -1,431 +1,247 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mapKennelTag, clearResolverCache, resolveKennelTag } from "./kennel-resolver";
 
-// ── mapKennelTag (pure function) ──
+// ── In-memory fake of the three tables the resolver reads ──
 
-describe("mapKennelTag", () => {
-  it("maps 'ballbuster' → bobbh3", () => {
-    expect(mapKennelTag("ballbuster")).toBe("bobbh3");
-  });
+interface FakeKennel {
+  id: string;
+  kennelCode: string;
+  shortName: string;
+  fullName: string;
+  aliases: string[];
+  sources: string[];
+}
 
-  it("maps 'bobbh3' → bobbh3", () => {
-    expect(mapKennelTag("bobbh3")).toBe("bobbh3");
-  });
+const db = vi.hoisted(() => ({
+  kennels: [] as FakeKennel[],
+  sources: new Map<string, unknown>(),
+}));
 
-  it("maps 'b3h4' → bobbh3", () => {
-    expect(mapKennelTag("b3h4")).toBe("bobbh3");
-  });
-
-  it("maps 'queens black knights' → qbk", () => {
-    expect(mapKennelTag("queens black knights")).toBe("qbk");
-  });
-
-  it("maps 'new amsterdam' → nah3", () => {
-    expect(mapKennelTag("new amsterdam")).toBe("nah3");
-  });
-
-  it("maps 'nass...' → nah3", () => {
-    expect(mapKennelTag("nassau hash")).toBe("nah3");
-  });
-
-  it("maps 'long island' → lil", () => {
-    expect(mapKennelTag("long island")).toBe("lil");
-  });
-
-  it("maps 'lunatics' → lil", () => {
-    expect(mapKennelTag("lunatics")).toBe("lil");
-  });
-
-  it("maps 'staten island' → si", () => {
-    expect(mapKennelTag("staten island")).toBe("si");
-  });
-
-  it("maps 'drinking practice' → drinking-practice-nyc", () => {
-    expect(mapKennelTag("drinking practice")).toBe("drinking-practice-nyc");
-  });
-
-  it("maps 'knickerbocker' → knick", () => {
-    expect(mapKennelTag("knickerbocker")).toBe("knick");
-  });
-
-  it("maps 'pink taco' → pink-taco", () => {
-    expect(mapKennelTag("pink taco")).toBe("pink-taco");
-  });
-
-  it("maps 'pt2h3' → pink-taco", () => {
-    expect(mapKennelTag("pt2h3")).toBe("pink-taco");
-  });
-
-  it("maps 'brooklyn' prefix → brh3", () => {
-    expect(mapKennelTag("brooklyn hash")).toBe("brh3");
-  });
-
-  it("maps 'brh3' prefix → brh3", () => {
-    expect(mapKennelTag("brh3")).toBe("brh3");
-  });
-
-  it("maps 'naww' → nawwh3", () => {
-    expect(mapKennelTag("naww")).toBe("nawwh3");
-  });
-
-  it("maps 'nah3' → nah3", () => {
-    expect(mapKennelTag("nah3")).toBe("nah3");
-  });
-
-  it("maps 'nyc' → nych3", () => {
-    expect(mapKennelTag("nyc")).toBe("nych3");
-  });
-
-  it("maps 'nych3' → nych3", () => {
-    expect(mapKennelTag("nych3")).toBe("nych3");
-  });
-
-  it("maps 'boston hash' → boh3", () => {
-    expect(mapKennelTag("boston hash")).toBe("boh3");
-  });
-
-  it("maps 'bh3' → boh3", () => {
-    expect(mapKennelTag("bh3")).toBe("boh3");
-  });
-
-  it("maps 'boh3' → boh3", () => {
-    expect(mapKennelTag("boh3")).toBe("boh3");
-  });
-
-  it("maps 'moon' → bos-moon", () => {
-    expect(mapKennelTag("moon")).toBe("bos-moon");
-  });
-
-  it("maps 'moom' (typo) → bos-moon", () => {
-    expect(mapKennelTag("moom")).toBe("bos-moon");
-  });
-
-  it("maps 'beantown' → beantown", () => {
-    expect(mapKennelTag("beantown")).toBe("beantown");
-  });
-
-  it("maps 'summit' → summit", () => {
-    expect(mapKennelTag("summit")).toBe("summit");
-  });
-
-  it("maps 'asssh3' → asssh3", () => {
-    expect(mapKennelTag("asssh3")).toBe("asssh3");
-  });
-
-  it("maps 'sfm' → sfm", () => {
-    expect(mapKennelTag("sfm")).toBe("sfm");
-  });
-
-  // #2650: bare "Queens" is Queens H3; QBK is a separate kennel.
-  it("maps 'queens' → queens-h3", () => {
-    expect(mapKennelTag("queens")).toBe("queens-h3");
-  });
-
-  it("maps 'queens h3 #249' → queens-h3", () => {
-    expect(mapKennelTag("queens h3 #249")).toBe("queens-h3");
-  });
-
-  it("does not map 'queensland' or 'south queensferry' to an NYC kennel", () => {
-    expect(mapKennelTag("queensland h3")).not.toBe("queens-h3");
-    expect(mapKennelTag("south queensferry")).not.toBe("queens-h3");
-  });
-
-  it("maps 'knick' → knick", () => {
-    expect(mapKennelTag("knick")).toBe("knick");
-  });
-
-  it("maps 'columbia' → columbia", () => {
-    expect(mapKennelTag("columbia")).toBe("columbia");
-  });
-
-  it("maps 'ggfm' → ggfm", () => {
-    expect(mapKennelTag("ggfm")).toBe("ggfm");
-  });
-
-  it("maps 'harriettes' → harriettes-nyc", () => {
-    expect(mapKennelTag("harriettes")).toBe("harriettes-nyc");
-  });
-
-  it("maps 'si' → si", () => {
-    expect(mapKennelTag("si")).toBe("si");
-  });
-
-  it("maps 'special' → special-nyc", () => {
-    expect(mapKennelTag("special")).toBe("special-nyc");
-  });
-
-  it("maps 'ch3' → ch3", () => {
-    expect(mapKennelTag("ch3")).toBe("ch3");
-  });
-
-  it("maps 'chicago' → ch3", () => {
-    expect(mapKennelTag("chicago hash")).toBe("ch3");
-  });
-
-  it("maps 'ben franklin' → bfm", () => {
-    expect(mapKennelTag("ben franklin")).toBe("bfm");
-  });
-
-  it("maps 'rumson' → rumson", () => {
-    expect(mapKennelTag("rumson")).toBe("rumson");
-  });
-
-  it("returns null for unknown input", () => {
-    expect(mapKennelTag("xyzzy123")).toBeNull();
-  });
-});
-
-// ── resolveKennelTag (DB-dependent) ──
+type Where = Record<string, unknown>;
+const ieq = (a: string, cond: unknown) =>
+  a.toLowerCase() === String((cond as { equals: string }).equals).toLowerCase();
+const linked = (k: FakeKennel, rel: unknown) =>
+  !rel || k.sources.includes((rel as { some: { sourceId: string } }).some.sourceId);
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    kennel: { findFirst: vi.fn() },
-    kennelAlias: { findFirst: vi.fn() },
+    kennel: {
+      findMany: vi.fn(async ({ where, take }: { where: Where; take?: number }) =>
+        db.kennels
+          .filter((k) =>
+            (["kennelCode", "shortName", "fullName"] as const).every(
+              (f) => !(f in where) || ieq(k[f], where[f]),
+            ) && linked(k, where.sources),
+          )
+          .sort((a, b) => a.kennelCode.localeCompare(b.kennelCode))
+          .slice(0, take)
+          .map((k) => ({ id: k.id, kennelCode: k.kennelCode })),
+      ),
+    },
+    kennelAlias: {
+      findMany: vi.fn(async ({ where, take }: { where: Where; take?: number }) =>
+        db.kennels
+          .filter(
+            (k) =>
+              k.aliases.some((a) => ieq(a, where.alias)) &&
+              linked(k, (where.kennel as { sources?: unknown } | undefined)?.sources),
+          )
+          .slice(0, take)
+          .map((k) => ({ kennel: { id: k.id, kennelCode: k.kennelCode } })),
+      ),
+    },
+    source: {
+      findUnique: vi.fn(async ({ where }: { where: { id: string } }) =>
+        db.sources.has(where.id) ? { config: db.sources.get(where.id) } : null,
+      ),
+    },
   },
 }));
 
 import { prisma } from "@/lib/db";
-const mockKennelFind = vi.mocked(prisma.kennel.findFirst);
-const mockAliasFind = vi.mocked(prisma.kennelAlias.findFirst);
+import {
+  clearResolverCache,
+  describeUnmatched,
+  mapKennelTagForSource,
+  resolveKennelTag,
+  resolveKennelTags,
+} from "./kennel-resolver";
 
-describe("resolveKennelTag", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+function kennel(k: Partial<FakeKennel> & { id: string; kennelCode: string }): FakeKennel {
+  return { shortName: k.kennelCode.toUpperCase(), fullName: `${k.kennelCode} HHH`, aliases: [], sources: [], ...k };
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  clearResolverCache();
+  db.kennels = [];
+  db.sources = new Map();
+});
+
+describe("resolveKennelTag — direct steps", () => {
+  it("returns unmatched for an empty or whitespace tag without querying", async () => {
+    expect(await resolveKennelTag("")).toEqual({ kennelId: null, matched: false });
+    expect(await resolveKennelTag("   ")).toEqual({ kennelId: null, matched: false });
+    expect(prisma.kennel.findMany).not.toHaveBeenCalled();
+  });
+
+  it("resolves by kennelCode, case-insensitively", async () => {
+    db.kennels = [kennel({ id: "k1", kennelCode: "dh3-tx" })];
+    expect(await resolveKennelTag("DH3-TX")).toEqual({ kennelId: "k1", matched: true });
+  });
+
+  it("resolves by shortName", async () => {
+    db.kennels = [kennel({ id: "k1", kennelCode: "nych3", shortName: "NYCH3" })];
+    expect(await resolveKennelTag("nych3")).toEqual({ kennelId: "k1", matched: true });
+  });
+
+  it("resolves by alias", async () => {
+    db.kennels = [kennel({ id: "k1", kennelCode: "nych3", aliases: ["NYC Hash"] })];
+    expect(await resolveKennelTag("nyc hash")).toEqual({ kennelId: "k1", matched: true });
+  });
+
+  it("returns plain unmatched when nothing matches", async () => {
+    db.kennels = [kennel({ id: "k1", kennelCode: "nych3" })];
+    expect(await resolveKennelTag("xyzzy")).toEqual({ kennelId: null, matched: false });
+  });
+
+  it("prefers the source-linked kennel when a short name is shared", async () => {
+    db.kennels = [
+      kennel({ id: "boston", kennelCode: "ch3-ma", shortName: "CH3", sources: ["src_boston"] }),
+      kennel({ id: "chicago", kennelCode: "ch3-il", shortName: "CH3" }),
+      kennel({ id: "charlotte", kennelCode: "ch3-nc", shortName: "CH3" }),
+    ];
+    expect(await resolveKennelTag("CH3", "src_boston")).toEqual({ kennelId: "boston", matched: true });
+  });
+
+  it("falls back to a single global match when the source-scoped lookup misses", async () => {
+    db.kennels = [kennel({ id: "k1", kennelCode: "nych3", aliases: ["Big Apple"] })];
+    expect(await resolveKennelTag("big apple", "src_other")).toEqual({ kennelId: "k1", matched: true });
+  });
+
+  it("caches per tag (case-insensitive) and per source", async () => {
+    db.kennels = [kennel({ id: "k1", kennelCode: "nych3" })];
+    await resolveKennelTag("NYCH3");
+    await resolveKennelTag("nych3");
+    expect(prisma.kennel.findMany).toHaveBeenCalledTimes(1);
+    await resolveKennelTag("nych3", "src_1");
+    expect(prisma.kennel.findMany).toHaveBeenCalledTimes(3); // scoped miss + global hit
     clearResolverCache();
-  });
-
-  it("returns unmatched for empty tag", async () => {
-    const result = await resolveKennelTag("");
-    expect(result).toEqual({ kennelId: null, matched: false });
-    expect(mockKennelFind).not.toHaveBeenCalled();
-  });
-
-  it("returns unmatched for whitespace-only tag", async () => {
-    const result = await resolveKennelTag("   ");
-    expect(result).toEqual({ kennelId: null, matched: false });
-  });
-
-  it("resolves via exact shortName match", async () => {
-    mockKennelFind.mockResolvedValueOnce(null);                          // kennelCode global miss
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_1" } as never);   // shortName hit
-    const result = await resolveKennelTag("NYCH3");
-    expect(result).toEqual({ kennelId: "kennel_1", matched: true });
-  });
-
-  it("resolves via alias match", async () => {
-    mockKennelFind.mockResolvedValueOnce(null);                          // kennelCode global miss
-    mockKennelFind.mockResolvedValueOnce(null);                          // shortName miss
-    mockAliasFind.mockResolvedValueOnce({ kennelId: "kennel_2" } as never);
-    const result = await resolveKennelTag("NYC Hash");
-    expect(result).toEqual({ kennelId: "kennel_2", matched: true });
-  });
-
-  it("resolves via pattern fallback", async () => {
-    // kennelCode miss, shortName miss, alias miss, then pattern maps "queens" → "queens-h3"
-    mockKennelFind.mockResolvedValueOnce(null);                            // kennelCode global miss
-    mockKennelFind.mockResolvedValueOnce(null);                            // initial shortName
-    mockAliasFind.mockResolvedValueOnce(null);                             // alias
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_queens_h3" } as never);  // pattern re-lookup
-    const result = await resolveKennelTag("queens");
-    expect(result).toEqual({ kennelId: "kennel_queens_h3", matched: true });
-  });
-
-  it("returns unmatched when all stages fail", async () => {
-    mockKennelFind.mockResolvedValue(null);
-    mockAliasFind.mockResolvedValue(null);
-    const result = await resolveKennelTag("xyzzy_unknown");
-    expect(result).toEqual({ kennelId: null, matched: false });
-  });
-
-  it("uses cache on second call", async () => {
-    mockKennelFind.mockResolvedValueOnce(null);                          // kennelCode global miss
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_1" } as never);   // shortName hit
-    await resolveKennelTag("NYCH3");
-    await resolveKennelTag("NYCH3");
-    expect(mockKennelFind).toHaveBeenCalledTimes(2); // kennelCode + shortName (first call only)
-  });
-
-  it("cache is cleared by clearResolverCache", async () => {
-    // First call: kennelCode miss (global) + shortName hit = 2 findFirst calls
-    mockKennelFind.mockResolvedValueOnce(null);                          // kennelCode global miss
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_1" } as never);   // shortName hit
-    await resolveKennelTag("NYCH3");
-    clearResolverCache();
-    // After cache clear: same 2 calls again
-    mockKennelFind.mockResolvedValueOnce(null);                          // kennelCode global miss
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_1" } as never);   // shortName hit
-    await resolveKennelTag("NYCH3");
-    expect(mockKennelFind).toHaveBeenCalledTimes(4);
-  });
-
-  it("normalizes case for cache key", async () => {
-    mockKennelFind.mockResolvedValueOnce(null);                          // kennelCode global miss
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_1" } as never);   // shortName hit
-    await resolveKennelTag("NYCH3");
-    const result = await resolveKennelTag("nych3");
-    expect(result).toEqual({ kennelId: "kennel_1", matched: true });
-    expect(mockKennelFind).toHaveBeenCalledTimes(2); // kennelCode + shortName (first call only)
-  });
-
-  it("prefers source-linked kennel when sourceId is provided", async () => {
-    mockKennelFind.mockResolvedValueOnce(null);                              // kennelCode source-scoped miss
-    mockKennelFind.mockResolvedValueOnce(null);                              // kennelCode global miss
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_boston" } as never);   // shortName source-scoped hit
-    const result = await resolveKennelTag("CH3", "source_123");
-    expect(result).toEqual({ kennelId: "kennel_boston", matched: true });
-    // Third call (shortName source-scoped) should include sourceKennels filter
-    expect(mockKennelFind).toHaveBeenNthCalledWith(3,
-      expect.objectContaining({
-        where: expect.objectContaining({
-          shortName: { equals: "CH3", mode: "insensitive" },
-          sources: { some: { sourceId: "source_123" } },
-        }),
-      }),
-    );
-  });
-
-  it("falls back to any kennel when source-scoped query misses", async () => {
-    mockKennelFind
-      .mockResolvedValueOnce(null)                              // kennelCode source-scoped miss
-      .mockResolvedValueOnce(null)                              // kennelCode global miss
-      .mockResolvedValueOnce(null)                              // shortName source-scoped miss
-      .mockResolvedValueOnce({ id: "kennel_any" } as never);    // shortName global hit
-    const result = await resolveKennelTag("CH3", "source_456");
-    expect(result).toEqual({ kennelId: "kennel_any", matched: true });
-    expect(mockKennelFind).toHaveBeenCalledTimes(4);
-  });
-
-  it("uses separate cache entries for different sourceIds", async () => {
-    // First call: kennelCode source-scoped hit
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_a" } as never);
-    await resolveKennelTag("CH3", "source_1");
-
-    // Second call: different sourceId, kennelCode source-scoped hit
-    mockKennelFind.mockResolvedValueOnce({ id: "kennel_b" } as never);
-    await resolveKennelTag("CH3", "source_2");
-
-    // Should have made 2 DB calls (different cache keys)
-    expect(mockKennelFind).toHaveBeenCalledTimes(2);
+    await resolveKennelTag("nych3");
+    expect(prisma.kennel.findMany).toHaveBeenCalledTimes(4);
   });
 });
 
-// ── source-scoped alias resolution (Step 2) ──
-
-describe("source-scoped alias resolution", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    clearResolverCache();
+describe("resolveKennelTag — ambiguity (R6)", () => {
+  it("returns unmatched with candidates when a global alias names two kennels", async () => {
+    db.kennels = [
+      kennel({ id: "a", kennelCode: "fmh3-sd", aliases: ["Full Moon"] }),
+      kennel({ id: "b", kennelCode: "cfmh3", aliases: ["full moon"] }),
+    ];
+    const result = await resolveKennelTag("Full Moon", "src_unrelated");
+    expect(result).toEqual({
+      kennelId: null,
+      matched: false,
+      reason: "ambiguous",
+      candidates: ["cfmh3", "fmh3-sd"],
+    });
+    expect(describeUnmatched("Full Moon", result)).toContain("cfmh3, fmh3-sd");
   });
 
-  it("resolves to source-linked kennel when same alias exists on two kennels", async () => {
-    // kennelCode: source-scoped miss + global miss
-    mockKennelFind.mockResolvedValueOnce(null);
-    mockKennelFind.mockResolvedValueOnce(null);
-    // shortName: source-scoped miss + global miss
-    mockKennelFind.mockResolvedValueOnce(null);
-    mockKennelFind.mockResolvedValueOnce(null);
-    // alias: source-scoped hit (the kennel linked to this source)
-    mockAliasFind.mockResolvedValueOnce({ kennelId: "kennel_source_linked" } as never);
+  it("returns ambiguous for a duplicated short name with no linked kennel", async () => {
+    db.kennels = [
+      kennel({ id: "a", kennelCode: "ch3-il", shortName: "CH3" }),
+      kennel({ id: "b", kennelCode: "ch3-nc", shortName: "CH3" }),
+    ];
+    expect(await resolveKennelTag("CH3")).toMatchObject({ matched: false, reason: "ambiguous" });
+    expect(await resolveKennelTag("ch3-nc")).toEqual({ kennelId: "b", matched: true });
+  });
 
-    const result = await resolveKennelTag("H4", "source_abc");
-    expect(result).toEqual({ kennelId: "kennel_source_linked", matched: true });
+  it("lets a later step settle a tag an earlier step found ambiguous", async () => {
+    db.kennels = [
+      kennel({ id: "a", kennelCode: "sh3-wa", shortName: "SH3" }),
+      kennel({ id: "b", kennelCode: "sh3-de", shortName: "SH3" }),
+      kennel({ id: "c", kennelCode: "sh3-sg", aliases: ["SH3"] }),
+    ];
+    expect(await resolveKennelTag("SH3")).toEqual({ kennelId: "c", matched: true });
+  });
 
-    // Verify the source-scoped alias query included the source filter
-    expect(mockAliasFind).toHaveBeenNthCalledWith(1,
-      expect.objectContaining({
-        where: expect.objectContaining({
-          alias: { equals: "H4", mode: "insensitive" },
-          kennel: { sources: { some: { sourceId: "source_abc" } } },
-        }),
-      }),
+  it("source-scoped hit wins over a globally ambiguous alias", async () => {
+    db.kennels = [
+      kennel({ id: "a", kennelCode: "h4-tx", aliases: ["H4"] }),
+      kennel({ id: "b", kennelCode: "h4-dc", aliases: ["H4"], sources: ["src_dc"] }),
+    ];
+    expect(await resolveKennelTag("H4", "src_dc")).toEqual({ kennelId: "b", matched: true });
+    expect((await resolveKennelTag("H4")).reason).toBe("ambiguous");
+  });
+
+  it("describes a plain miss as create-kennel-or-alias", () => {
+    expect(describeUnmatched("Foo", { kennelId: null, matched: false })).toBe(
+      'Create kennel or alias for "Foo"',
     );
-  });
-
-  it("falls back to global alias when no sourceId is provided", async () => {
-    // kennelCode: global miss
-    mockKennelFind.mockResolvedValueOnce(null);
-    // shortName: global miss
-    mockKennelFind.mockResolvedValueOnce(null);
-    // alias: global hit (no source-scoped call since no sourceId)
-    mockAliasFind.mockResolvedValueOnce({ kennelId: "kennel_global" } as never);
-
-    const result = await resolveKennelTag("H4");
-    expect(result).toEqual({ kennelId: "kennel_global", matched: true });
-
-    // Only one alias call (global), no source-scoped call
-    expect(mockAliasFind).toHaveBeenCalledTimes(1);
-    expect(mockAliasFind).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { alias: { equals: "H4", mode: "insensitive" } },
-      }),
-    );
-  });
-
-  it("falls through to global alias when source-scoped alias misses", async () => {
-    // kennelCode: source-scoped miss + global miss
-    mockKennelFind.mockResolvedValueOnce(null);
-    mockKennelFind.mockResolvedValueOnce(null);
-    // shortName: source-scoped miss + global miss
-    mockKennelFind.mockResolvedValueOnce(null);
-    mockKennelFind.mockResolvedValueOnce(null);
-    // alias: source-scoped miss, then global hit
-    mockAliasFind.mockResolvedValueOnce(null);
-    mockAliasFind.mockResolvedValueOnce({ kennelId: "kennel_global_fallback" } as never);
-
-    const result = await resolveKennelTag("H4", "source_xyz");
-    expect(result).toEqual({ kennelId: "kennel_global_fallback", matched: true });
-
-    // Two alias calls: source-scoped miss then global hit
-    expect(mockAliasFind).toHaveBeenCalledTimes(2);
   });
 });
 
-// ── kennelCode resolution (Step 0) ──
+describe("resolveKennelTag — full name (R6)", () => {
+  it("matches the full name of a kennel linked to the source", async () => {
+    db.kennels = [
+      kennel({ id: "oh3", kennelCode: "oh3", fullName: "Oregon Hash House Harriers", sources: ["src_rego"] }),
+    ];
+    expect(await resolveKennelTag("oregon hash house harriers", "src_rego")).toEqual({
+      kennelId: "oh3",
+      matched: true,
+    });
+  });
 
-describe("kennelCode resolution (Step 0)", () => {
+  it("ignores full names of kennels not linked to the source, and without a source", async () => {
+    db.kennels = [kennel({ id: "oh3", kennelCode: "oh3", fullName: "Oregon Hash House Harriers" })];
+    expect((await resolveKennelTag("Oregon Hash House Harriers", "src_rego")).matched).toBe(false);
+    expect((await resolveKennelTag("Oregon Hash House Harriers")).matched).toBe(false);
+  });
+});
+
+describe("resolveKennelTag — per-source patterns (R6)", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    clearResolverCache();
+    db.kennels = [
+      kennel({ id: "bfm", kennelCode: "bfm", sources: ["src_rego"] }),
+      kennel({ id: "moon", kennelCode: "bos-moon", sources: ["src_boston"] }),
+    ];
+    db.sources.set("src_rego", { kennelPatterns: [["^Ben Franklin Mob\\b", "bfm"]] });
+    db.sources.set("src_boston", { kennelPatterns: [["Boston Moo[mn]|\\bMo{2,}[mn]\\b", "bos-moon"]] });
+    db.sources.set("src_colorado", { kennelPatterns: [["Boulder H3", "bh3-co"]] });
   });
 
-  it("resolves via kennelCode when source-scoped", async () => {
-    mockKennelFind.mockResolvedValueOnce({ id: "dallas-id" } as never); // kennelCode source-scoped hit
-    const result = await resolveKennelTag("dh3-tx", "dfw-source-id");
-    expect(result.matched).toBe(true);
-    expect(result.kennelId).toBe("dallas-id");
-    // Verify it queried by kennelCode, not shortName
-    expect(mockKennelFind).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          kennelCode: { equals: "dh3-tx", mode: "insensitive" },
-        }),
-      }),
-    );
+  it("maps a tag with the source's own kennelPatterns", async () => {
+    expect(await resolveKennelTag("Ben Franklin Mob H3", "src_rego")).toEqual({ kennelId: "bfm", matched: true });
+    expect(await resolveKennelTag("MOOOOOOM TRAIL", "src_boston")).toEqual({ kennelId: "moon", matched: true });
   });
 
-  it("falls back to global kennelCode match without sourceId", async () => {
-    // Global kennelCode hit (no sourceId, so no source-scoped call)
-    mockKennelFind.mockResolvedValueOnce({ id: "dallas-id" } as never);
-    const result = await resolveKennelTag("dh3-tx");
-    expect(result.matched).toBe(true);
-    expect(result.kennelId).toBe("dallas-id");
+  it("no longer applies another source's patterns (the old global list)", async () => {
+    expect((await resolveKennelTag("Colorado Full Moon Hash", "src_colorado")).matched).toBe(false);
+    expect((await resolveKennelTag("Ben Franklin Mob H3", "src_boston")).matched).toBe(false);
+    expect((await resolveKennelTag("Ben Franklin Mob H3")).matched).toBe(false);
   });
 
-  it("falls back to global kennelCode when source-scoped misses", async () => {
-    mockKennelFind
-      .mockResolvedValueOnce(null)                            // kennelCode source-scoped miss
-      .mockResolvedValueOnce({ id: "dallas-id" } as never);   // kennelCode global hit
-    const result = await resolveKennelTag("dh3-tx", "other-source");
-    expect(result.matched).toBe(true);
-    expect(result.kennelId).toBe("dallas-id");
+  it("tolerates a source with no or malformed config", async () => {
+    db.sources.set("src_bad", { kennelPatterns: [["(", "bfm"], "junk", [1, 2]] });
+    expect(await mapKennelTagForSource("anything", "src_bad")).toBeNull();
+    expect(await mapKennelTagForSource("anything", "src_missing")).toBeNull();
+    expect(await mapKennelTagForSource("anything", undefined)).toBeNull();
   });
 
-  it("falls through to shortName match when kennelCode doesn't match", async () => {
-    mockKennelFind
-      .mockResolvedValueOnce(null)                              // kennelCode global miss
-      .mockResolvedValueOnce({ id: "denver-id" } as never);     // shortName hit
-    const result = await resolveKennelTag("DH3");
-    expect(result.matched).toBe(true);
-    expect(result.kennelId).toBe("denver-id");
+  it("loads a source's config once per run", async () => {
+    await resolveKennelTag("Ben Franklin Mob H3", "src_rego");
+    await resolveKennelTag("Ben Franklin Mob H4", "src_rego");
+    expect(prisma.source.findUnique).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("resolveKennelTags", () => {
+  it("preserves order and reports per-tag results", async () => {
+    db.kennels = [kennel({ id: "a", kennelCode: "nych3" }), kennel({ id: "b", kennelCode: "brh3" })];
+    expect(await resolveKennelTags(["brh3", "nope", "nych3"])).toEqual([
+      { kennelId: "b", matched: true },
+      { kennelId: null, matched: false },
+      { kennelId: "a", matched: true },
+    ]);
   });
 });
