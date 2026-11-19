@@ -172,7 +172,7 @@ While the flag is `LOG`, the preflight only logs. The switch happens in this ord
 3. A docs PR changes the line to exactly `Identity preflight: STOP unless hashtracks-agent[bot]`,
    and switches the manuals' merge steps to `scripts/agent-merge-pr.sh`, which refuses to run as
    anyone but the bot.
-4. The owner applies the ruleset on `main` ([write gate](#write-gate)).
+4. The owner applies the ruleset on `main` ([Gates on prod writes](#gates-on-prod-writes)).
 
 From then on a run whose `gh` isn't the bot stops before its first GitHub write: a missing settings
 file, the wrong start folder or a broken shim each surface here. A missing or unreadable flag line

@@ -49,11 +49,25 @@ ROOT="$(cd "$ROOT" && pwd)"
 if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then die "$ROOT is inside a git repository; pick a folder outside every clone"; fi
 
 # PATH without the root's own bin (so a re-install finds the real gh) and without fnm's per-shell
-# directories, which vanish when that shell exits.
+# directories, which vanish when that shell exits. When Node comes from one of those, keep the
+# directory it links to (fnm's installed version) instead.
+NODE_DIR=""
+NODE_BIN="$(command -v node || true)"
+if [[ "$NODE_BIN" == *fnm_multishells* ]]; then NODE_DIR="$(readlink -f "$(dirname "$NODE_BIN")")"; fi
 BASE_PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -vxF "$ROOT/bin" | grep -v 'fnm_multishells' | paste -sd: -)"
+if [[ -n "$NODE_DIR" && ":$BASE_PATH:" != *":$NODE_DIR:"* ]]; then
+  BASE_PATH="$BASE_PATH:$NODE_DIR"
+fi
+# Where a fixed tool name (node, npx, gh) resolves on BASE_PATH.
+on_base_path() {
+  local tool="$1"
+  env PATH="$BASE_PATH" /bin/sh -c "command -v $tool"
+}
+{ on_base_path node && on_base_path npx; } >/dev/null \
+  || die "node and npx must be on PATH without fnm's per-shell directories (install Node with Homebrew, or set an fnm default)"
 
 # 2. Scripts, the key and the config.
-REAL_GH="$(export PATH="$BASE_PATH"; command -v gh || true)"
+REAL_GH="$(on_base_path gh || true)"
 [[ -x "$REAL_GH" ]] || die "gh isn't installed (brew install gh)"
 mkdir -p "$ROOT/bin" "$ROOT/.agent/gh-empty" "$ROOT/.claude"
 chmod 700 "$ROOT/.agent"
