@@ -163,21 +163,21 @@ function resolveReconcileScope(
   pagination: PaginationOutcome | undefined,
   scrapedKennelIds: string[] | undefined,
   kennelIdsBySlug: ReadonlyMap<string, string[]>,
-  held: { events: readonly HeldEvent[]; kennelIds: readonly string[] } = { events: [], kennelIds: [] },
+  held?: { events: readonly HeldEvent[]; kennelIds: readonly string[] },
 ): { kennelIds: string[] | undefined } | null {
   if (pagination?.kennelPagesStopReason) return null;
   const fetchErrors = pagination?.kennelPageFetchErrors ?? 0;
   const failedSlugs = fetchErrors > 0 ? (pagination?.failedKennelSlugs ?? []) : [];
   // Every fetch failure must be pinned to a kennel, or nothing can be narrowed.
   if (failedSlugs.length !== fetchErrors) return null;
-  const skippedSlugs = [...failedSlugs, ...held.events.map((h) => h.accountSlug)];
+  const skippedSlugs = [...failedSlugs, ...(held?.events ?? []).map((h) => h.accountSlug)];
   if (skippedSlugs.length === 0) return { kennelIds: scrapedKennelIds };
 
   if (!scrapedKennelIds) return null;
   const skippedKennels = skippedSlugs.map((slug) => kennelIdsBySlug.get(slug.toUpperCase()));
   if (skippedKennels.includes(undefined)) return null;
 
-  const excluded = new Set([...skippedKennels.flat(), ...held.kennelIds]);
+  const excluded = new Set([...skippedKennels.flat(), ...(held?.kennelIds ?? [])]);
   const kennelIds = scrapedKennelIds.filter((id) => !excluded.has(id));
   // With every page failed nothing was read, so don't report a completed reconcile.
   return kennelIds.length > 0 ? { kennelIds } : null;
