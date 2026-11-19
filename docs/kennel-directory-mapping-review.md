@@ -183,7 +183,7 @@ Oregon H3 also lost its seeded `OregonH3` link to the "PDX GDR" event accounts, 
 The `Harriettes` score shows how near misses pass. "Harriettes" against dch4's alias "DC Harriettes" scores 0.77 plus the 0.3 containment boost, capped at 1.0. The directory pins the account in Harrisburg, about 150 km from DC, so the score drops by only 0.05, to 0.95.
 
 **Evidence that the wrong slugs are what gets scraped:**
-- every retained daily scrape log (from 2026-10-22) lists `Harriettes`, `SCH3`, `Noh` and `SoulH3`, and none lists `DCH4`, `WSH3`, `SoCoH3`, `NOH3`, `OregonH3` or `MOTOWNH3`;
+- every retained daily scrape log (retention starts 2026-10-22; the problem may be older) lists `Harriettes`, `SCH3`, `Noh` and `SoulH3`, and none lists `DCH4`, `WSH3`, `SoCoH3`, `NOH3`, `OregonH3` or `MOTOWNH3`;
 - the `Harriettes` raws were scraped from 2026-07-11;
 - a raw from `WSH3` shows that account was still scraped on 2026-06-03.
 
@@ -277,6 +277,7 @@ The global fallback picks among these with an unordered `findFirst`.
 ## 5. Recommendations, ranked
 
 The order matters. R2 must ship **before or with** R1, and R4 must wait for R1, R2 and a re-review.
+The table is in shipping order, so R2 comes before R1 even though both rank high.
 
 | # | Change | Value | Effort | Depends on | Unifies? |
 |---|---|---|---|---|---|
@@ -339,7 +340,9 @@ Ship one data migration, following `.claude/rules/prod-data-ops.md` (dry run, pe
 
 **Make it survive a reseed.** Add every link you want kept to the seed's `kennelCodes` and `kennelSlugMap`: the 8 above plus the 15 other links prod scrapes that the seed doesn't list (for example `gh3-gd`, `hellgate-h3`, `oxford-h3`, `dsmh3`, `sembach-h3`, `vbfmh3`). Otherwise remove the Hash Rego prune before anyone runs `db seed` again. Today a full seed would delete 4 of the 8 repairs and those 15 links.
 
-Best: deploy R1's migration in the same release as R2's code. If the data change lands first, then until R2 is deployed don't:
+Best: deploy R1's migration in the same release as R2's code. Write it so it can run twice: each
+statement updates a row only while it still holds the wrong value (`UPDATE … WHERE "externalSlug" = '<wrong slug>'`),
+so a re-run after a reseed or a sync changes nothing it shouldn't. If the data change lands first, then until R2 is deployed don't:
 - press **Sync Now** on the discovery page;
 - save the Hash Rego source form;
 - click the "Link Harriettes" alert repair;
@@ -446,7 +449,7 @@ All queries ran as `SELECT` under `default_transaction_read_only=on` against pro
 - **Discovery rows by source and status:** HASHREGO 869 (NEW 582, MATCHED 22, LINKED 260, DISMISSED 5); GEMINI 27; HALFMIND 0. `Kennel.halfMindListingId` doesn't exist in prod yet.
 - **Coverage:** 562 visible kennels; 236 visible kennels mapped to at least one Hash Rego account, so 326 are unmapped. 243 kennels are mapped in all (230 by an admin), and 34 have 2 or 3 accounts.
 - **Scrape links:** 38 Hash Rego `SourceKennel` rows (including `HellgateH3`, written by the 03:24 UTC sync), all with a slug and all distinct. Each `LINKED`/`MATCHED` row was joined to `SourceKennel` on the matched kennel, comparing slugs case-insensitively.
-- **Scrape logs:** `ScrapeLog.diagnosticContext.kennelSlugsConfigured`, retained from 2026-10-22: 29 slugs, then 30 from 11-06, then 37 from 11-09.
+- **Scrape logs:** `ScrapeLog.diagnosticContext.kennelSlugsConfigured`, retained from 2026-10-22 (the retention limit, not when the problem began): 29 slugs, then 30 from 11-06, then 37 from 11-09.
 - **Raw events:** Hash Rego `RawEvent` grouped by `rawData.kennelTags[0]` and the resulting event's kennel: 164 raws across 12 kennels, with 10 unprocessed raws in 4 tags. The three Harriettes raws are all for 2026-10-09, scraped 07-11, 07-31 and 09-10.
 - **Aliases:** `KennelAlias` grouped by `lower(alias)` across kennels, and the distinct aliases that equal another kennel's code or short name (85).
 - **Hash Rego public API:** `GET /api/kennels/{slug}/events/` for the ten slugs named in section 3.2 (one request each).
