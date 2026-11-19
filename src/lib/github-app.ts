@@ -56,7 +56,10 @@ type Env = Record<string, string | undefined>;
 
 const anyAppVar = (env: Env): boolean => Boolean(env.GITHUB_APP_ID || env.GITHUB_APP_PRIVATE_KEY || env.GITHUB_APP_INSTALLATION_ID);
 
-/** `null`: no App variable is set. Throws when only some are, so a typo never falls back to the PAT. */
+/**
+ * `null`: no App variable is set. Throws when only some are, so a typo never falls back to the PAT.
+ * A whitespace-only value counts as set (it fails as missing): deliberately fail-closed.
+ */
 function readAppConfig(env: Env): AppConfig | null {
   const appId = env.GITHUB_APP_ID?.trim() || "";
   const key = env.GITHUB_APP_PRIVATE_KEY?.trim() || "";
@@ -101,7 +104,7 @@ export function createServerGithubAuth(
   let cached: { key: string; auth: ServerGithubAuth; expiresAt: number } | null = null;
   let inflight: { key: string; promise: Promise<ServerGithubAuth> } | null = null;
   /** Looked up once when GITHUB_APP_INSTALLATION_ID is unset; an installation's id doesn't change. */
-  let foundInstallationId: string | null = null;
+  let found: { appId: string; installationId: string } | null = null;
   let warnedFallback = false;
 
   async function appCall(path: string, jwt: string, init: RequestInit = {}): Promise<Record<string, unknown>> {
@@ -125,12 +128,13 @@ export function createServerGithubAuth(
   async function mint(cfg: AppConfig): Promise<ServerGithubAuth & { expiresAt: number }> {
     const repo = getValidatedRepo();
     const jwt = appJwt(cfg.appId, cfg.privateKey, now());
-    let installationId = cfg.installationId ?? foundInstallationId;
+    let installationId = cfg.installationId ?? (found?.appId === cfg.appId ? found.installationId : null);
     if (!installationId) {
       const id = (await appCall(`/repos/${repo}/installation`, jwt)).id;
-      const found = typeof id === "number" || typeof id === "string" ? String(id) : "";
-      if (!INSTALLATION_ID_RE.test(found)) throw new GithubAppError("the server App isn't installed on the repository");
-      installationId = foundInstallationId = found;
+      const lookedUp = typeof id === "number" || typeof id === "string" ? String(id) : "";
+      if (!INSTALLATION_ID_RE.test(lookedUp)) throw new GithubAppError("the server App isn't installed on the repository");
+      installationId = lookedUp;
+      found = { appId: cfg.appId, installationId };
     }
     // Scope the token to this one repository, whatever else the App is installed on.
     const body = await appCall(`/app/installations/${installationId}/access_tokens`, jwt, {
@@ -138,7 +142,7 @@ export function createServerGithubAuth(
       body: JSON.stringify({ repositories: [repo.split("/")[1]] }),
     }).catch((err: unknown) => {
       // A reinstall gets a new installation id: look it up again on the next mint.
-      if (!cfg.installationId) foundInstallationId = null;
+      if (!cfg.installationId) found = null;
       throw err;
     });
     const token = typeof body.token === "string" ? body.token : "";

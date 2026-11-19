@@ -114,6 +114,11 @@ describe("createServerGithubAuth", () => {
     ).rejects.toThrow(/must be a number/);
   });
 
+  it("treats a whitespace-only App variable as set, and fails rather than falling back", async () => {
+    const auth = createServerGithubAuth({ env: { GITHUB_APP_ID: " ", GITHUB_TOKEN: "ghp_owner" } });
+    await expect(auth.get()).rejects.toThrow(/needs both/);
+  });
+
   it("uses GITHUB_TOKEN, with one warning, while no App variable is set", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const auth = createServerGithubAuth({ env: { GITHUB_TOKEN: "ghp_owner" } });
