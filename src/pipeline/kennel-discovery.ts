@@ -142,8 +142,19 @@ export interface DiscoverySyncResult {
   autoMatched: number;
   updated: number;
   enriched: number;
+  /** Confirmed (LINKED/ADDED) accounts newly flagged as gone from the directory. */
+  flaggedMissing: number;
   errors: string[];
 }
+
+/** `KennelDiscovery.externalStatus` for a confirmed account a complete directory read no longer lists. */
+export const HASHREGO_MISSING_STATUS = "missing";
+const CONFIRMED_STATUSES = new Set(["LINKED", "ADDED"]);
+/**
+ * A read that drops more than this share of the confirmed accounts is more
+ * likely a partial page than that many kennels leaving: flag none and report it.
+ */
+const MAX_MISSING_SHARE = 0.25;
 
 /**
  * Fetch the Hash Rego kennel directory, enrich with API profile data,
@@ -168,7 +179,7 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
       });
       if (!res.ok) {
         return {
-          totalDiscovered: 0, newKennels: 0, autoMatched: 0, updated: 0, enriched: 0,
+          totalDiscovered: 0, newKennels: 0, autoMatched: 0, updated: 0, enriched: 0, flaggedMissing: 0,
           errors: [`Directory fetch failed: HTTP ${res.status}`],
         };
       }
@@ -178,7 +189,7 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
     }
   } catch (err) {
     return {
-      totalDiscovered: 0, newKennels: 0, autoMatched: 0, updated: 0, enriched: 0,
+      totalDiscovered: 0, newKennels: 0, autoMatched: 0, updated: 0, enriched: 0, flaggedMissing: 0,
       errors: [`Directory fetch error: ${err}`],
     };
   }
@@ -186,7 +197,7 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
   const discovered = parseKennelDirectory(pageHtml);
   if (discovered.length === 0) {
     return {
-      totalDiscovered: 0, newKennels: 0, autoMatched: 0, updated: 0, enriched: 0,
+      totalDiscovered: 0, newKennels: 0, autoMatched: 0, updated: 0, enriched: 0, flaggedMissing: 0,
       errors: ["No kennels found in directory page — structure may have changed"],
     };
   }
@@ -195,7 +206,7 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
   // LINKED, DISMISSED, MATCHED) which skip re-scoring.
   const existingDiscoveries = await prisma.kennelDiscovery.findMany({
     where: { externalSource: EXTERNAL_SOURCE },
-    select: { externalSlug: true, status: true },
+    select: { id: true, externalSlug: true, status: true, externalStatus: true },
   });
 
   const discoveryPrevMap = new Map(
@@ -266,6 +277,7 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
           longitude: kennel.longitude,
           schedule,
           lastSeenAt: new Date(),
+          externalStatus: null,
           ...profileData,
           ...match,
         },
@@ -282,14 +294,48 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
     }
   }
 
+  const flaggedMissing = await flagMissingAccounts(discovered, existingDiscoveries, errors);
+
   return {
     totalDiscovered: discovered.length,
     newKennels,
     autoMatched,
     updated,
     enriched,
+    flaggedMissing,
     errors,
   };
+}
+
+/**
+ * Flag confirmed (LINKED/ADDED) accounts that this directory read no longer
+ * lists, as Half-Mind's sync does: `externalStatus = "missing"`, shown on
+ * /admin/discovery. Never changes a link or a status; a later read that lists
+ * the account again clears the flag. Only called after a complete read (the
+ * page fetched and parsed to at least one kennel), and skipped when the read
+ * drops more than MAX_MISSING_SHARE of the confirmed accounts.
+ */
+async function flagMissingAccounts(
+  discovered: DiscoveredKennel[],
+  existing: { id: string; externalSlug: string; status: string; externalStatus: string | null }[],
+  errors: string[],
+): Promise<number> {
+  const listed = new Set(discovered.map((k) => k.slug.toUpperCase()));
+  const confirmed = existing.filter((d) => CONFIRMED_STATUSES.has(d.status));
+  const gone = confirmed.filter((d) => !listed.has(d.externalSlug.toUpperCase()));
+  if (gone.length > confirmed.length * MAX_MISSING_SHARE) {
+    errors.push(
+      `Directory read lists ${confirmed.length - gone.length} of ${confirmed.length} confirmed accounts; not flagging ${gone.length} as missing (likely a partial page)`,
+    );
+    return 0;
+  }
+  const newlyGone = gone.filter((d) => d.externalStatus !== HASHREGO_MISSING_STATUS);
+  if (newlyGone.length === 0) return 0;
+  await prisma.kennelDiscovery.updateMany({
+    where: { id: { in: newlyGone.map((d) => d.id) } },
+    data: { externalStatus: HASHREGO_MISSING_STATUS },
+  });
+  return newlyGone.length;
 }
 
 /** Update a terminal-status discovery with fresh profile data (no re-matching). */
@@ -309,6 +355,8 @@ async function updateTerminalDiscovery(
     },
     data: {
       lastSeenAt: syncTimestamp,
+      // Listed again: clear a "missing" flag from an earlier read.
+      externalStatus: null,
       name: profile?.name || kennel.name,
       location: kennel.location || undefined,
       latitude: kennel.latitude,

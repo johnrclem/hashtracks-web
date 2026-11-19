@@ -714,6 +714,7 @@ export default async function SourceDetailPage({
                         kennelTag={sample.kennelTag}
                         allKennels={allKennels}
                         suggestions={sampleSuggestions.get(sample.kennelTag)}
+                        sourceType={source.type}
                       />
                     </div>
                   </div>
@@ -757,6 +758,7 @@ export default async function SourceDetailPage({
                         kennelTag={sample.kennelTag}
                         allKennels={allKennels}
                         suggestions={sampleSuggestions.get(sample.kennelTag)}
+                        sourceType={source.type}
                       />
                     </div>
                   </div>

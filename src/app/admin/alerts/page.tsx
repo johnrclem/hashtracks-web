@@ -56,7 +56,7 @@ export default async function AlertsPage({
     prisma.alert.findMany({
       where,
       include: {
-        source: { select: { name: true } },
+        source: { select: { name: true, type: true } },
       },
       orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
       take: 100,
@@ -125,6 +125,7 @@ export default async function AlertsPage({
     updatedAt: a.updatedAt.toISOString(),
     snoozedUntil: a.snoozedUntil?.toISOString() ?? null,
     sourceName: a.source.name,
+    sourceType: a.source.type,
   }));
 
   return (
