@@ -27,7 +27,7 @@ Auto mode refuses to create scheduled tasks, so the owner does this once.
      (09:00 ET) files the day's findings, and clear of research (03:00), the implementer (05:00)
      and the ops digest (07:15).
    - mode: Auto
-   - folder: `~/Developer/hashtracks-web`
+   - folder: `~/Developer/hashtracks-agents`, the agent root ([`system.md#identity`](system.md#identity); it must be the folder the task *starts* in)
    - description: `Merge owner-approved audit-fix PRs, verify and close fixed defects, then fix up to 6 of one kennel's defects in one audit-fix PR (manual: docs/ops/audit-fixer-task.md).`
    - prompt: the pointer in
      [`scheduled-tasks/pointers/hashtracks-audit-fixer.txt`](scheduled-tasks/pointers/hashtracks-audit-fixer.txt),
@@ -108,11 +108,10 @@ if [ -d "$OWNER_NM/.bin" ]; then [ -e node_modules ] || ln -s "$OWNER_NM" node_m
 npx prisma generate >/dev/null
 ```
 
-**Every Bash call starts in the owner's live checkout,** and neither `cd` nor shell variables carry
+**Every Bash call starts in the task's folder** ([`system.md#identity`](system.md#identity)), never your clone, and neither `cd` nor shell variables carry
 over to the next call. Begin **every** command with
 `cd /Users/johnclem/Developer/hashtracks-audit-fixer &&`, and use absolute paths under it with the
-Read/Edit/Write tools. A command run without that prefix acts on the live checkout, which breaks
-golden rule 1.
+Read/Edit/Write tools. A command run without that prefix doesn't act on the clone.
 
 Env for live verification comes from the owner's `.env`, loaded only into the command that needs it,
 for example `(set -a; . /Users/johnclem/Developer/hashtracks-web/.env; set +a; npx tsx scripts/<x>.ts)`.
