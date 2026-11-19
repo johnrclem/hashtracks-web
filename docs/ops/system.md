@@ -237,6 +237,9 @@ goes on last, after the Apps exist and every task runs as the bot ([Identity](#i
 
   A separate job, never queued, records who moved the head on every push (`write-gate/pusher`,
   "<login> (<type>)"), so a bot's push onto the owner's branch needs the label like any agent change.
+  Opening a PR records its opener, who vouches for a head pushed before the PR existed; reopening
+  records nothing, so a head pushed while the PR was closed doesn't get the owner path. The gate
+  judges only PRs into `main`.
   Gate runs for one PR queue in order. If a label's run is dropped from the queue (two newer events
   arrived while one ran), its stamp is never written: re-add the label.
 - **`scripts/agent-merge-pr.sh <pr>`** is how a task merges. It stops unless `gh` acts as the bot,

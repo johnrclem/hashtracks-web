@@ -13,14 +13,20 @@ name: write-gate
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, labeled, unlabeled]
+    # Only PRs into main. A status is per commit, so a verdict on a PR into another branch would
+    # also show on a main PR with the same head, judged against the wrong base.
+    branches: [main]
 
 permissions: {}
 
 jobs:
   # Records who moved the head ("<login> (<type>)") as the write-gate/pusher status, so the gate's
   # owner-authored path can require that the owner pushed it. Never queued, so never dropped.
+  # `synchronize` names the pusher. `opened` names the opener, who vouches for a head pushed before
+  # the PR existed. `reopened` records nothing: it moves no head, and a head pushed while the PR
+  # was closed stays unrecorded, so the owner path doesn't apply to it.
   record-pusher:
-    if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.action == 'reopened'
+    if: github.event.action == 'opened' || github.event.action == 'synchronize'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions:

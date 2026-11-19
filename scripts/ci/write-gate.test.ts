@@ -177,7 +177,13 @@ describe("kept in step with the rest of the repo", () => {
     expect(workflow).toMatch(new RegExp(`^\\s+OWNER_GITHUB_LOGIN: ${login}$`, "m"));
   });
 
-  it("the workflow never checks out or runs the pull request's code", () => {
+  it("the workflow judges only PRs into main, and records the pusher only on push and open", () => {
+    expect(workflow).toMatch(/^\s+branches: \[main\]$/m);
+    expect(workflow).toContain("if: github.event.action == 'opened' || github.event.action == 'synchronize'\n");
+    expect(workflow).not.toMatch(/record-pusher:[\s\S]*?reopened[\s\S]*?gate:/);
+  });
+
+    it("the workflow never checks out or runs the pull request's code", () => {
     expect(workflow).toMatch(/^\s+pull_request_target:/m);
     expect(workflow).toMatch(/^\s+ref: main$/m);
     // The PR's head SHA may name a commit status, never a checkout.

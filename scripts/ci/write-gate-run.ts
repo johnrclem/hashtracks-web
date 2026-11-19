@@ -39,6 +39,7 @@ import {
   PUSHER_CONTEXT,
   WRITE_CLASSES,
   type ApprovalResult,
+  type WriteClass,
   type ChangedFile,
   type GateVerdict,
 } from "./write-gate";
@@ -47,8 +48,11 @@ interface GateEvent {
   action: string;
   label?: { name: string };
   sender: { login: string; type: string };
-  pull_request: { number: number; head: { sha: string } };
+  pull_request: { number: number; head: { sha: string }; base: { ref: string } };
 }
+
+/** The only branch the gate judges (the workflow triggers for no other). */
+const GATED_BASE = "main";
 
 type PullRequest = ApprovalPullRequest & {
   head: { ref: string };
@@ -63,9 +67,8 @@ function env(name: string): string {
   return value;
 }
 
-/** Writes through the workflow's token. Reads go through the approval read client. */
-async function write(path: string, method: "POST" | "DELETE", body?: unknown): Promise<void> {
-  const res = await fetch(new URL(`/repos/${APPROVAL_REPO}${path}`, "https://api.github.com"), {
+function writeInit(method: "POST" | "DELETE", body?: unknown): RequestInit {
+  return {
     method,
     headers: {
       Authorization: `Bearer ${env("GITHUB_TOKEN")}`,
@@ -75,14 +78,40 @@ async function write(path: string, method: "POST" | "DELETE", body?: unknown): P
     },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(15_000),
-  });
-  // Removing a label that isn't there is fine.
-  if (!res.ok && !(method === "DELETE" && res.status === 404)) throw new Error(`GitHub ${method} ${path}: HTTP ${res.status}`);
+  };
 }
 
-function setStatus(sha: string, context: string, state: GateVerdict["state"], description: string, targetUrl: string): Promise<void> {
+function checkOk(res: Response, what: string): void {
+  if (!res.ok) throw new Error(`GitHub ${what}: HTTP ${res.status}`);
+}
+
+/** The only writes the gate makes, each to a fixed api.github.com path built from checked values. */
+function checkedPr(number: number): number {
+  if (!Number.isInteger(number) || number <= 0) throw new Error(`not a pull request number: ${number}`);
+  return number;
+}
+
+async function setStatus(sha: string, context: string, state: GateVerdict["state"], description: string, targetUrl: string): Promise<void> {
   if (!SHA_RE.test(sha)) throw new Error(`not a commit SHA: ${sha}`);
-  return write(`/statuses/${sha}`, "POST", { context, state, description, target_url: targetUrl });
+  const res = await fetch(new URL(`/repos/${APPROVAL_REPO}/statuses/${sha}`, "https://api.github.com"), writeInit("POST", { context, state, description, target_url: targetUrl }));
+  checkOk(res, `status ${context}`);
+}
+
+async function postComment(number: number, body: string): Promise<void> {
+  const res = await fetch(new URL(`/repos/${APPROVAL_REPO}/issues/${checkedPr(number)}/comments`, "https://api.github.com"), writeInit("POST", { body }));
+  checkOk(res, "comment");
+}
+
+async function addLabel(number: number, label: WriteClass): Promise<void> {
+  const res = await fetch(new URL(`/repos/${APPROVAL_REPO}/issues/${checkedPr(number)}/labels`, "https://api.github.com"), writeInit("POST", { labels: [label] }));
+  checkOk(res, "add label");
+}
+
+async function removeLabel(number: number, label: WriteClass): Promise<void> {
+  // `label` is one of the fixed write classes, never PR data.
+  const res = await fetch(new URL(`/repos/${APPROVAL_REPO}/issues/${checkedPr(number)}/labels/${encodeURIComponent(label)}`, "https://api.github.com"), writeInit("DELETE"));
+  // Removing a label that isn't there is fine.
+  if (res.status !== 404) checkOk(res, "remove label");
 }
 
 /** A2–A4 for the PR as read (the same snapshot the gate classifies), as the gate's three outcomes. */
@@ -112,7 +141,7 @@ async function stampOrIgnore(event: GateEvent, owner: string, runUrl: string): P
   }
   const who = byOwner ? `a re-run started by \`${process.env.GITHUB_TRIGGERING_ACTOR ?? "unknown"}\`` : `\`${event.sender.login}\``;
   const text = `The write gate ignored \`${APPROVAL_LABEL}\` from ${who}: only the owner's own label approves a pull request. Remove the label; it doesn't count.`;
-  await write(`/issues/${number}/comments`, "POST", { body: text });
+  await postComment(number, text);
   return text;
 }
 
@@ -122,6 +151,11 @@ async function main(): Promise<void> {
   const event = JSON.parse(readFileSync(env("GITHUB_EVENT_PATH"), "utf8")) as GateEvent;
   const number = event.pull_request.number;
   if (!Number.isInteger(number) || number <= 0) throw new Error("the event has no pull request number");
+  if (event.pull_request.base.ref !== GATED_BASE) {
+    // The workflow filters these out; never issue a verdict against another base.
+    console.log(`PR #${number} targets ${event.pull_request.base.ref}, not ${GATED_BASE}: nothing to judge.`);
+    return;
+  }
   const runUrl = `${process.env.GITHUB_SERVER_URL ?? "https://github.com"}/${APPROVAL_REPO}/actions/runs/${process.env.GITHUB_RUN_ID ?? ""}`;
   const owner = ownerGithubLogin();
   const agentBot = process.env.AGENT_BOT_LOGIN?.trim() || DEFAULT_AGENT_BOT_LOGIN;
@@ -131,6 +165,7 @@ async function main(): Promise<void> {
   //    must not leave the earlier success standing), then read the PR as it is now.
   await setStatus(event.pull_request.head.sha, GATE_CONTEXT, "pending", "Evaluating…", runUrl);
   const pr = await gh.get<PullRequest>(`/pulls/${number}`);
+  if (pr.base.ref !== GATED_BASE) throw new Error(`PR #${number} now targets ${pr.base.ref}, not ${GATED_BASE}`);
   const head = pr.head.sha;
   if (head !== event.pull_request.head.sha) await setStatus(head, GATE_CONTEXT, "pending", "Evaluating…", runUrl);
 
@@ -158,9 +193,9 @@ async function main(): Promise<void> {
 
   const labels = new Set(pr.labels.map((l) => l.name));
   for (const stale of WRITE_CLASSES.filter((c) => c !== verdict.writeClass && labels.has(c))) {
-    await write(`/issues/${number}/labels/${encodeURIComponent(stale)}`, "DELETE");
+    await removeLabel(number, stale);
   }
-  if (!labels.has(verdict.writeClass)) await write(`/issues/${number}/labels`, "POST", { labels: [verdict.writeClass] });
+  if (!labels.has(verdict.writeClass)) await addLabel(number, verdict.writeClass);
   await setStatus(head, GATE_CONTEXT, verdict.state, verdict.description, runUrl);
 
   const summary = [

@@ -39,7 +39,10 @@ GATE="write-gate"
 GATE_CREATOR="github-actions[bot]"
 CI_CHECK="test"
 
-# 1. Identity, before anything else.
+# 1. Identity, before anything else. An installation token can't call GET /user, so this relies on
+#    the agent root's gh shim (infra/agent-root/bin/agent-gh.sh): it mints a token first, exiting 97
+#    if it can't, and only then answers `gh api user` with the App's bot login. Outside the root,
+#    the real gh answers with the owner's login, and the script stops here.
 login="$(gh api user --jq .login 2>/dev/null || true)"
 if [[ "$login" != "$BOT" ]]; then
   echo "REFUSED: gh acts as '${login:-unknown}', not $BOT. Run from the agent root (docs/ops/system.md#identity)." >&2
