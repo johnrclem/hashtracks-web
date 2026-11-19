@@ -266,8 +266,12 @@ Main ruleset: PENDING
 Before applying it, give every open PR a `write-gate` status (a PR opened before the gate landed
 has none and would wait forever): push to it, or add and remove any label. Once backfill PR 6 adds the `backfill-manifest` job, add it to `required_status_checks` the same
 way (edit the file, then `gh api -X PUT repos/johnrclem/hashtracks-web/rulesets/<id> --input …`).
-If GitHub never matches a pinned check (the PR waits for "Expected"), drop that check's
-`integration_id` and apply again.
+Check the pins on a scratch PR straight after applying it. A `write-gate` status set by
+`github-actions[bot]` must satisfy the rule, and a status that someone posts with a personal token
+must not. GitHub documents app pinning for checks and isn't explicit about commit statuses. If the
+PR waits for "Expected" while the status exists, drop that check's `integration_id` and apply again.
+Only the owner can post statuses then, and `agent-merge-pr.sh` still checks who set it. A gate run
+that moves on after a push leaves the old head's `write-gate` status at pending. That's harmless.
 
 #### Break glass
 

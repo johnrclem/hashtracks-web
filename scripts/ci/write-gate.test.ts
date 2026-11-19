@@ -55,7 +55,12 @@ describe("parsePusher", () => {
 describe("classify", () => {
   it.each([
     [[file("docs/ops/system.md")], "write:docs"],
-    [[file("CLAUDE.md"), file("docs/kennel-onboarding/run-log.md")], "write:docs"],
+    [[file("docs/kennel-onboarding/run-log.md"), file("README.md")], "write:docs"],
+    // Markdown that steers agents is code, and so is anything under docs/ that isn't markdown.
+    [[file("CLAUDE.md")], "write:code"],
+    [[file(".claude/rules/adapter-patterns.md")], "write:code"],
+    [[file("docs/kennel-onboarding/daily-onboarding-prompt.md")], "write:code"],
+    [[file("docs/ops/scheduled-tasks/hashtracks-ops-digest.txt")], "write:code"],
     [[file("docs/x.md"), file("src/a.ts")], "write:code"],
     [[file("prisma/migrations/20261118_x/migration.sql", "added"), file("prisma/schema.prisma")], "write:migration"],
     // A rename out of the migrations folder still touches a migration.

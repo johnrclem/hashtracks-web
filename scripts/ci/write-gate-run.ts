@@ -91,6 +91,11 @@ function checkedPr(number: number): number {
   return number;
 }
 
+function checkedSha(sha: string): string {
+  if (!SHA_RE.test(sha)) throw new Error(`not a commit SHA: ${sha}`);
+  return sha;
+}
+
 /** The run's page, from a numeric run id only: a status link is never built from free text. */
 function runUrl(): string {
   const runId = Number(process.env.GITHUB_RUN_ID);
@@ -99,8 +104,7 @@ function runUrl(): string {
 }
 
 async function setStatus(sha: string, context: string, state: GateVerdict["state"], description: string): Promise<void> {
-  if (!SHA_RE.test(sha)) throw new Error(`not a commit SHA: ${sha}`);
-  const url = new URL(`/repos/${APPROVAL_REPO}/statuses/${sha}`, "https://api.github.com");
+  const url = new URL(`/repos/${APPROVAL_REPO}/statuses/${checkedSha(sha)}`, "https://api.github.com");
   const init = writeInit("POST", { context, state, description, target_url: runUrl() });
   const res = await fetch(url, init);
   checkOk(res, `status ${context}`);
@@ -129,13 +133,30 @@ async function removeLabel(number: number, label: WriteClass): Promise<void> {
   if (res.status !== 404) checkOk(res, "remove label");
 }
 
+/**
+ * Retries a write a few times. Used for the first pending status: until it lands, an earlier
+ * success on the same head still stands.
+ */
+async function withRetry(write: () => Promise<void>, attempts = 4): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await write();
+    } catch (err) {
+      if (attempt >= attempts) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 2_000 * attempt));
+    }
+  }
+}
+
 /** A2–A4 for the PR as read (the same snapshot the gate classifies), as the gate's three outcomes. */
 async function approvalFor(gh: GitHub, pr: PullRequest): Promise<ApprovalResult> {
   try {
     refuseFork(pr);
     return { kind: "approved", stampedSha: await checkStampedHead(gh, pr, pr.base.sha) };
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
+    let reason = err instanceof Error ? err.message : String(err);
+    // The label is on but its stamp never arrived: its gate run may have been dropped from the queue.
+    if (reason.startsWith("A3: no stamp yet") || reason.startsWith("A3: waiting")) reason += "; if it never comes, re-add owner-approved";
     // Only a terminal verdict refuses; anything unexpected may pass on the next event.
     return err instanceof TerminalApprovalError ? { kind: "refused", reason } : { kind: "waiting", reason };
   }
@@ -146,7 +167,7 @@ async function approvalFor(gh: GitHub, pr: PullRequest): Promise<ApprovalResult>
  * (or a re-run of the owner's event started by someone else) gets a comment saying it was ignored.
  * Returns a line for the summary.
  */
-async function stampOrIgnore(event: GateEvent, owner: string): Promise<string> {
+async function stampOrIgnore(gh: GitHub, event: GateEvent, owner: string): Promise<string> {
   const number = event.pull_request.number;
   const byOwner = event.sender.login === owner && event.sender.type === "User";
   const ownerRan = process.env.GITHUB_TRIGGERING_ACTOR === owner;
@@ -156,7 +177,9 @@ async function stampOrIgnore(event: GateEvent, owner: string): Promise<string> {
   }
   const who = byOwner ? `a re-run started by \`${process.env.GITHUB_TRIGGERING_ACTOR ?? "unknown"}\`` : `\`${event.sender.login}\``;
   const text = `The write gate ignored \`${APPROVAL_LABEL}\` from ${who}: only the owner's own label approves a pull request. Remove the label; it doesn't count.`;
-  await postComment(number, text);
+  // One comment per wording, however often the label is added or removed.
+  const comments = await gh.list<{ body?: string | null }>(`/issues/${number}/comments`);
+  if (!comments.some((c) => c.body === text)) await postComment(number, text);
   return text;
 }
 
@@ -177,14 +200,14 @@ async function main(): Promise<void> {
 
   // 1. Mark the event's head pending before anything can fail (an `unlabeled` run that crashed
   //    must not leave the earlier success standing), then read the PR as it is now.
-  await setStatus(event.pull_request.head.sha, GATE_CONTEXT, "pending", "Evaluating…");
+  await withRetry(() => setStatus(event.pull_request.head.sha, GATE_CONTEXT, "pending", "Evaluating…"));
   const pr = await gh.get<PullRequest>(`/pulls/${number}`);
   if (pr.base.ref !== GATED_BASE) throw new Error(`PR #${number} now targets ${pr.base.ref}, not ${GATED_BASE}`);
   const head = pr.head.sha;
   if (head !== event.pull_request.head.sha) await setStatus(head, GATE_CONTEXT, "pending", "Evaluating…");
 
   // 2. Stamp, or say why not.
-  const notes = event.action === "labeled" && event.label?.name === APPROVAL_LABEL ? [await stampOrIgnore(event, owner)] : [];
+  const notes = event.action === "labeled" && event.label?.name === APPROVAL_LABEL ? [await stampOrIgnore(gh, event, owner)] : [];
 
   // 3. Classify and evaluate the PR's head as it is now.
   const [files, headStatuses, approval] = await Promise.all([

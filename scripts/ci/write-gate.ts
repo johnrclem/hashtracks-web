@@ -76,8 +76,13 @@ function isAgentBranch(ref: string): boolean {
 export function classify(files: readonly ChangedFile[]): WriteClass {
   const all = paths(files);
   if (all.some((p) => p.startsWith(MIGRATION_DIR_PREFIX))) return "write:migration";
-  if (all.length > 0 && all.every((p) => p.endsWith(".md") || p.startsWith("docs/"))) return "write:docs";
+  if (all.length > 0 && all.every((p) => p.endsWith(".md") && !isAgentInstruction(p))) return "write:docs";
   return "write:code";
+}
+
+/** Markdown that steers agents (their manuals, settings and rules) behaves like code, not docs. */
+function isAgentInstruction(path: string): boolean {
+  return path.endsWith("-prompt.md") || path === "CLAUDE.md" || path.endsWith("/CLAUDE.md") || path.startsWith(".claude/");
 }
 
 /** The A2–A4 result for the PR's current head. */
@@ -135,6 +140,8 @@ export function evaluateGate(input: GateInput): GateVerdict {
   if (ownerAuthored && !touchesWorkflows && writeClass !== "write:migration" && !isAgentBranch(input.headRef)) {
     return verdict("success", "Owner-authored, no migration or workflow change.", "owner-authored", writeClass);
   }
+  // Unlike the owner path, this one needs no branch or pusher check: nothing in the allow-list
+  // runs, so the bot's authorship and the file list are enough.
   const agentAuthored = author.login === input.agentBotLogin && author.type === "Bot";
   if (agentAuthored && all.length > 0 && all.every(isOnboardingData)) {
     return verdict("success", "Agent data-only change (onboarding handoffs and logs).", "agent-data-only", writeClass);
