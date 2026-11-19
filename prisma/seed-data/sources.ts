@@ -9659,6 +9659,22 @@ export const SOURCES = [
       kennelCodes: ["bbh3"],
     },
     {
+      // Forward hareline from the kennel's own page (#2795). Trust 5 < Harrier Central (8): HC
+      // wins venue/time/run number once a run is posted there. Run numbers are deliberately not
+      // emitted (the page prints 13 numbers for 14 dates; the mapping is ambiguous).
+      name: "Barbados Bike H3 Hareline (website)",
+      url: "https://hashcruise2020.simplesite.com/313623591",
+      type: "HTML_SCRAPER" as const,
+      trustLevel: 5,
+      scrapeFreq: "daily",
+      scrapeDays: 450, // list reaches ~13 months ahead; 400 would drop the final row,
+      config: {
+        upcomingOnly: true,
+        defaultStartTime: "06:00", // HC shows every run Sun 06:00 (one 06:30)
+      },
+      kennelCodes: ["bbh3"],
+    },
+    {
       name: "Shenanagains Under Nightfall Harrier Central",
       url: "https://harriercentralpublicapi.azurewebsites.net/api/PortalApi/",
       type: "HARRIER_CENTRAL" as const,
