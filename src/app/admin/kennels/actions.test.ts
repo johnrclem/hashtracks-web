@@ -646,22 +646,22 @@ describe("mergeKennels", () => {
         status: { in: ["LINKED", "ADDED"] },
         NOT: { externalSlug: "123" },
       },
-      data: { matchedKennelId: "tgt", status: "MATCHED" },
+      data: { status: "NEW", matchedKennelId: null, processedBy: null, processedAt: null },
     });
   });
 
-  it("keeps the target's own Half-Mind listing and turns the merged kennel's link into a suggestion", async () => {
+  it("keeps the target's own Half-Mind listing and sends the merged kennel's link back to review", async () => {
     const tx = setupMerge({ halfMindListingId: "123" }, { halfMindListingId: "456" });
     expect(await mergeKennels("src", "tgt", false)).toEqual({ success: true });
     expect(tx.kennel.update).toHaveBeenCalledTimes(1);
     expect(tx.kennel.update).toHaveBeenCalledWith({ where: { id: "src" }, data: { halfMindListingId: null } });
     expect(tx.kennelDiscovery.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ NOT: { externalSlug: "456" } }),
-      data: { matchedKennelId: "tgt", status: "MATCHED" },
+      data: { status: "NEW", matchedKennelId: null, processedBy: null, processedAt: null },
     }));
   });
 
-  it("turns every Half-Mind link into a suggestion when neither kennel holds a listing", async () => {
+  it("sends every Half-Mind link back to review when neither kennel holds a listing", async () => {
     const tx = setupMerge();
     expect(await mergeKennels("src", "tgt", false)).toEqual({ success: true });
     expect(tx.kennelDiscovery.updateMany).toHaveBeenCalledWith({
@@ -671,7 +671,7 @@ describe("mergeKennels", () => {
         status: { in: ["LINKED", "ADDED"] },
         NOT: undefined,
       },
-      data: { matchedKennelId: "tgt", status: "MATCHED" },
+      data: { status: "NEW", matchedKennelId: null, processedBy: null, processedAt: null },
     });
   });
 

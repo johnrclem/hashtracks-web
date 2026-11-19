@@ -719,8 +719,9 @@ async function deduplicateSourceKennels(sourceKennelId: string, targetKennelId: 
  * - The Half-Mind listing moves when the target has none (`halfMindListingId`
  *   is unique, so it is cleared on the source first).
  * - Discovery rows move to the target, except Half-Mind rows for a listing the
- *   target does not hold (it already has a different one): those go back to
- *   MATCHED, a suggestion for the target, so an admin decides.
+ *   target does not hold (it already has a different one): those are unlinked
+ *   back to NEW, as `unlinkHalfMindListing` does. Half-Mind review only acts on
+ *   NEW rows, and the next sync re-ranks them, so an admin decides.
  */
 async function repointDirectoryIdentity(
   tx: Prisma.TransactionClient,
@@ -729,7 +730,7 @@ async function repointDirectoryIdentity(
 ): Promise<void> {
   // The listing the target holds after the merge. With none on either kennel,
   // every LINKED/ADDED Half-Mind row is a link without a listing behind it, so
-  // all of them become suggestions.
+  // all of them go back to review.
   const targetListing = target.halfMindListingId ?? source.halfMindListingId;
   if (source.halfMindListingId) {
     await tx.kennel.update({ where: { id: source.id }, data: { halfMindListingId: null } });
@@ -744,7 +745,7 @@ async function repointDirectoryIdentity(
       status: { in: ["LINKED", "ADDED"] },
       NOT: targetListing ? { externalSlug: targetListing } : undefined,
     },
-    data: { matchedKennelId: target.id, status: "MATCHED" },
+    data: { status: "NEW", matchedKennelId: null, processedBy: null, processedAt: null },
   });
   await tx.kennelDiscovery.updateMany({
     where: { matchedKennelId: source.id },
