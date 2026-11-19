@@ -12,7 +12,7 @@
  *      one `write:*` label.
  *
  * Env: GITHUB_TOKEN (the workflow's), GITHUB_REPOSITORY, GITHUB_EVENT_PATH, GITHUB_TRIGGERING_ACTOR,
- * OWNER_GITHUB_LOGIN, AGENT_BOT_LOGIN, and GITHUB_STEP_SUMMARY / GITHUB_SERVER_URL / GITHUB_RUN_ID
+ * OWNER_GITHUB_LOGIN, AGENT_BOT_LOGIN, and GITHUB_STEP_SUMMARY / GITHUB_RUN_ID
  * for the summary and links.
  */
 import { appendFileSync, readFileSync } from "node:fs";
@@ -91,10 +91,17 @@ function checkedPr(number: number): number {
   return number;
 }
 
-async function setStatus(sha: string, context: string, state: GateVerdict["state"], description: string, targetUrl: string): Promise<void> {
+/** The run's page, from a numeric run id only: a status link is never built from free text. */
+function runUrl(): string {
+  const runId = Number(process.env.GITHUB_RUN_ID);
+  const runs = `https://github.com/${APPROVAL_REPO}/actions`;
+  return Number.isSafeInteger(runId) && runId > 0 ? `${runs}/runs/${runId}` : runs;
+}
+
+async function setStatus(sha: string, context: string, state: GateVerdict["state"], description: string): Promise<void> {
   if (!SHA_RE.test(sha)) throw new Error(`not a commit SHA: ${sha}`);
   const url = new URL(`/repos/${APPROVAL_REPO}/statuses/${sha}`, "https://api.github.com");
-  const init = writeInit("POST", { context, state, description, target_url: targetUrl });
+  const init = writeInit("POST", { context, state, description, target_url: runUrl() });
   const res = await fetch(url, init);
   checkOk(res, `status ${context}`);
 }
@@ -139,12 +146,12 @@ async function approvalFor(gh: GitHub, pr: PullRequest): Promise<ApprovalResult>
  * (or a re-run of the owner's event started by someone else) gets a comment saying it was ignored.
  * Returns a line for the summary.
  */
-async function stampOrIgnore(event: GateEvent, owner: string, runUrl: string): Promise<string> {
+async function stampOrIgnore(event: GateEvent, owner: string): Promise<string> {
   const number = event.pull_request.number;
   const byOwner = event.sender.login === owner && event.sender.type === "User";
   const ownerRan = process.env.GITHUB_TRIGGERING_ACTOR === owner;
   if (byOwner && ownerRan) {
-    await setStatus(event.pull_request.head.sha, STAMP_CONTEXT, "success", stampDescription(number), runUrl);
+    await setStatus(event.pull_request.head.sha, STAMP_CONTEXT, "success", stampDescription(number));
     return `Stamped \`${STAMP_CONTEXT}\` on ${event.pull_request.head.sha.slice(0, 7)}.`;
   }
   const who = byOwner ? `a re-run started by \`${process.env.GITHUB_TRIGGERING_ACTOR ?? "unknown"}\`` : `\`${event.sender.login}\``;
@@ -164,21 +171,20 @@ async function main(): Promise<void> {
     console.log(`PR #${number} targets ${event.pull_request.base.ref}, not ${GATED_BASE}: nothing to judge.`);
     return;
   }
-  const runUrl = `${process.env.GITHUB_SERVER_URL ?? "https://github.com"}/${APPROVAL_REPO}/actions/runs/${process.env.GITHUB_RUN_ID ?? ""}`;
   const owner = ownerGithubLogin();
   const agentBot = process.env.AGENT_BOT_LOGIN?.trim() || DEFAULT_AGENT_BOT_LOGIN;
   const gh = approvalClient({ token });
 
   // 1. Mark the event's head pending before anything can fail (an `unlabeled` run that crashed
   //    must not leave the earlier success standing), then read the PR as it is now.
-  await setStatus(event.pull_request.head.sha, GATE_CONTEXT, "pending", "Evaluating…", runUrl);
+  await setStatus(event.pull_request.head.sha, GATE_CONTEXT, "pending", "Evaluating…");
   const pr = await gh.get<PullRequest>(`/pulls/${number}`);
   if (pr.base.ref !== GATED_BASE) throw new Error(`PR #${number} now targets ${pr.base.ref}, not ${GATED_BASE}`);
   const head = pr.head.sha;
-  if (head !== event.pull_request.head.sha) await setStatus(head, GATE_CONTEXT, "pending", "Evaluating…", runUrl);
+  if (head !== event.pull_request.head.sha) await setStatus(head, GATE_CONTEXT, "pending", "Evaluating…");
 
   // 2. Stamp, or say why not.
-  const notes = event.action === "labeled" && event.label?.name === APPROVAL_LABEL ? [await stampOrIgnore(event, owner, runUrl)] : [];
+  const notes = event.action === "labeled" && event.label?.name === APPROVAL_LABEL ? [await stampOrIgnore(event, owner)] : [];
 
   // 3. Classify and evaluate the PR's head as it is now.
   const [files, headStatuses, approval] = await Promise.all([
@@ -204,7 +210,7 @@ async function main(): Promise<void> {
     await removeLabel(number, stale);
   }
   if (!labels.has(verdict.writeClass)) await addLabel(number, verdict.writeClass);
-  await setStatus(head, GATE_CONTEXT, verdict.state, verdict.description, runUrl);
+  await setStatus(head, GATE_CONTEXT, verdict.state, verdict.description);
 
   const summary = [
     `### write-gate: ${verdict.state}`,
