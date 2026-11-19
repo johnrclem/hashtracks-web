@@ -53,6 +53,19 @@ if [[ -s "$ROOT/.agent/gh-empty/hosts.yml" ]]; then
 fi
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 && problems+=("the root is inside a git repository")
 
+# Each task clone still pushes only through the shim, over HTTPS.
+clones="$(sed -n 's/^CLONES=//p' "$ROOT/.agent/config" 2>/dev/null | head -1)"
+IFS=: read -r -a clone_list <<<"$clones"
+# The ${…+…} form keeps bash 3.2's `set -u` happy when the list is empty.
+for clone in ${clone_list[@]+"${clone_list[@]}"}; do
+  [[ -d "$clone/.git" ]] || continue
+  # An empty value resets git's helper list, so only the helpers after the last one are used.
+  helpers="$(git -C "$clone" config --get-all credential.helper 2>/dev/null \
+    | awk '$0 == "" { s = ""; next } { s = (s == "" ? $0 : s "|" $0) } END { print s }')"
+  [[ "$helpers" == "!$ROOT/bin/gh auth git-credential" ]] || problems+=("$clone: credential helper changed")
+  [[ "$(git -C "$clone" remote get-url --push origin 2>/dev/null)" == https://github.com/* ]] || problems+=("$clone: origin isn't HTTPS")
+done
+
 if ((${#problems[@]})); then
   joined="$(printf '%s; ' "${problems[@]}")"
   echo "root-settings: DRIFT: ${joined%; }"

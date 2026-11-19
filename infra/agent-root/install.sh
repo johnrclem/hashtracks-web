@@ -54,7 +54,12 @@ if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then die "$ROOT is inside
 NODE_DIR=""
 NODE_BIN="$(command -v node || true)"
 if [[ "$NODE_BIN" == *fnm_multishells* ]]; then NODE_DIR="$(readlink -f "$(dirname "$NODE_BIN")")"; fi
-BASE_PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -vxF "$ROOT/bin" | grep -v 'fnm_multishells' | paste -sd: -)"
+# Any directory whose gh is an agent-root shim goes too (this root's, or an older install's).
+BASE_PATH="$(printf '%s' "$PATH" | tr ':' '\n' | while IFS= read -r dir; do
+  [[ -z "$dir" || "$dir" == *fnm_multishells* ]] && continue
+  [[ "$(basename "$(readlink -f "$dir/gh" 2>/dev/null)")" == agent-gh.sh ]] && continue
+  printf '%s\n' "$dir"
+done | paste -sd: -)"
 if [[ -n "$NODE_DIR" && ":$BASE_PATH:" != *":$NODE_DIR:"* ]]; then
   BASE_PATH="$BASE_PATH:$NODE_DIR"
 fi
@@ -68,6 +73,8 @@ on_base_path() {
 
 # 2. Scripts, the key and the config.
 REAL_GH="$(on_base_path gh || true)"
+[[ -n "$REAL_GH" && "$(basename "$(readlink -f "$REAL_GH")")" != agent-gh.sh ]] \
+  || die "couldn't find the real gh on PATH (brew install gh)"
 [[ -x "$REAL_GH" ]] || die "gh isn't installed (brew install gh)"
 mkdir -p "$ROOT/bin" "$ROOT/.agent/gh-empty" "$ROOT/.claude"
 chmod 700 "$ROOT/.agent"
@@ -77,8 +84,8 @@ KEY_FILE="$ROOT/.agent/app.pem"
 install -m 600 "$KEY" "$KEY_FILE"
 umask 077
 write_config() {
-  printf 'APP_ID=%s\nINSTALLATION_ID=%s\nKEY_FILE=%s\nREAL_GH=%s\nBOT_LOGIN=%s\n' \
-    "$APP_ID" "$INSTALLATION_ID" "$KEY_FILE" "$REAL_GH" "${1:-}" >"$ROOT/.agent/config"
+  printf 'APP_ID=%s\nINSTALLATION_ID=%s\nKEY_FILE=%s\nREAL_GH=%s\nBOT_LOGIN=%s\nCLONES=%s\n' \
+    "$APP_ID" "$INSTALLATION_ID" "$KEY_FILE" "$REAL_GH" "${1:-}" "$(IFS=:; echo "${CLONES[*]}")" >"$ROOT/.agent/config"
 }
 write_config
 
@@ -94,8 +101,10 @@ AGENT_PATH="$ROOT/bin:$BASE_PATH"
 jq -n \
   --slurpfile repo "$REPO/.claude/settings.json" \
   --slurpfile extra "$SRC/settings.extra.json" \
-  --arg ghdir "$ROOT/.agent/gh-empty" --arg path "$AGENT_PATH" '
-  def merged(k): ((($repo[0].permissions[k]) // []) + (($extra[0].permissions[k]) // [])) | unique;
+  --arg ghdir "$ROOT/.agent/gh-empty" --arg path "$AGENT_PATH" --arg agentdir "/$ROOT/.agent/**" '
+  # The file tools never read or edit the App key or config (absolute path: "//" + ROOT).
+  def rootRules(k): if k == "deny" then ["Read(\($agentdir))", "Edit(\($agentdir))"] else [] end;
+  def merged(k): ((($repo[0].permissions[k]) // []) + (($extra[0].permissions[k]) // []) + rootRules(k)) | unique;
   {
     env: {
       GH_CONFIG_DIR: $ghdir,

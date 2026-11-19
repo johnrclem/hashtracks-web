@@ -32,10 +32,24 @@ unset GITHUB_TOKEN
 export GH_TOKEN="$token"
 
 # The mint above proves the key and the installation; install.sh recorded the login GitHub gave it.
-if [[ "${1:-}" == "api" && ( "${2:-}" == "user" || "${2:-}" == "/user" ) ]]; then
+# `gh api user` (or `/user`) in any argument order, with `.login` asked for as --jq/-q, with or
+# without "=", or not at all. The identity preflight (docs/ops/system.md#identity) uses
+# `gh api user --jq .login`; agent-root.test.ts pins these forms.
+asks_user=0
+asks_login=0
+prev=""
+for arg in "$@"; do
+  case "$arg" in
+    user | /user) [[ "$prev" == --jq || "$prev" == -q ]] || asks_user=1 ;;
+    --jq=.login | -q=.login) asks_login=1 ;;
+    .login) [[ "$prev" == --jq || "$prev" == -q ]] && asks_login=1 ;;
+  esac
+  prev="$arg"
+done
+if [[ "${1:-}" == "api" ]] && ((asks_user)); then
   login="$(conf BOT_LOGIN)"
   [[ -n "$login" ]] || { echo "agent-gh: no BOT_LOGIN in $ROOT/.agent/config (run install.sh)" >&2; exit 97; }
-  if [[ " $* " == *" --jq .login "* ]]; then
+  if ((asks_login)); then
     printf '%s\n' "$login"
   else
     printf '{"login":"%s","type":"Bot"}\n' "$login"

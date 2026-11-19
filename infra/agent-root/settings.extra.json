@@ -21,7 +21,8 @@
       "Bash(gh auth login*)",
       "Bash(gh auth token*)",
       "Bash(gh auth switch*)",
-      "Bash(*hashtracks-agents/.agent/*)"
+      "Bash(*.agent/*)",
+      "Bash(*.agent)"
     ]
   }
 }
