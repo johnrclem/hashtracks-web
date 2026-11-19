@@ -43,6 +43,7 @@ for arg in "$@"; do
     user | /user) [[ "$prev" == --jq || "$prev" == -q ]] || asks_user=1 ;;
     --jq=.login | -q=.login) asks_login=1 ;;
     .login) [[ "$prev" == --jq || "$prev" == -q ]] && asks_login=1 ;;
+    *) ;; # any other argument changes nothing
   esac
   prev="$arg"
 done
