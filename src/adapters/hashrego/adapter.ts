@@ -252,7 +252,9 @@ export class HashRegoAdapter implements SourceAdapter {
       for (const result of results) {
         detailPagesFetched++;
         if (result.status !== "fulfilled") {
+          // Its events are missing from this scrape, so reconcile must not run.
           detailPagesFailed++;
+          errors.push(`Detail processing failed: ${result.reason}`);
           continue;
         }
         if (result.value.held) heldEvents.push(result.value.held);
