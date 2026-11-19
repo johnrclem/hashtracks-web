@@ -93,23 +93,31 @@ function checkedPr(number: number): number {
 
 async function setStatus(sha: string, context: string, state: GateVerdict["state"], description: string, targetUrl: string): Promise<void> {
   if (!SHA_RE.test(sha)) throw new Error(`not a commit SHA: ${sha}`);
-  const res = await fetch(new URL(`/repos/${APPROVAL_REPO}/statuses/${sha}`, "https://api.github.com"), writeInit("POST", { context, state, description, target_url: targetUrl }));
+  const url = new URL(`/repos/${APPROVAL_REPO}/statuses/${sha}`, "https://api.github.com");
+  const init = writeInit("POST", { context, state, description, target_url: targetUrl });
+  const res = await fetch(url, init);
   checkOk(res, `status ${context}`);
 }
 
 async function postComment(number: number, body: string): Promise<void> {
-  const res = await fetch(new URL(`/repos/${APPROVAL_REPO}/issues/${checkedPr(number)}/comments`, "https://api.github.com"), writeInit("POST", { body }));
+  const url = new URL(`/repos/${APPROVAL_REPO}/issues/${checkedPr(number)}/comments`, "https://api.github.com");
+  const init = writeInit("POST", { body });
+  const res = await fetch(url, init);
   checkOk(res, "comment");
 }
 
 async function addLabel(number: number, label: WriteClass): Promise<void> {
-  const res = await fetch(new URL(`/repos/${APPROVAL_REPO}/issues/${checkedPr(number)}/labels`, "https://api.github.com"), writeInit("POST", { labels: [label] }));
+  const url = new URL(`/repos/${APPROVAL_REPO}/issues/${checkedPr(number)}/labels`, "https://api.github.com");
+  const init = writeInit("POST", { labels: [label] });
+  const res = await fetch(url, init);
   checkOk(res, "add label");
 }
 
 async function removeLabel(number: number, label: WriteClass): Promise<void> {
   // `label` is one of the fixed write classes, never PR data.
-  const res = await fetch(new URL(`/repos/${APPROVAL_REPO}/issues/${checkedPr(number)}/labels/${encodeURIComponent(label)}`, "https://api.github.com"), writeInit("DELETE"));
+  const url = new URL(`/repos/${APPROVAL_REPO}/issues/${checkedPr(number)}/labels/${encodeURIComponent(label)}`, "https://api.github.com");
+  const init = writeInit("DELETE");
+  const res = await fetch(url, init);
   // Removing a label that isn't there is fine.
   if (res.status !== 404) checkOk(res, "remove label");
 }
