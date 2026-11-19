@@ -16,16 +16,17 @@
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import type { RawEventData } from "@/adapters/types";
 import { SOURCES } from "../../prisma/seed-data/sources";
-import { addDays, daysBetween } from "@/lib/backfill/canonical";
+import { ARCHIVE_PATH_RE as HISTORY_RE } from "@/lib/backfill/approval";
+import { addDays, daysBetween, isRealYmd } from "@/lib/backfill/canonical";
 import { checkDeclaredFields, compareManifest, parseArchive, type BackfillManifest } from "@/lib/backfill/manifest";
 import { scanArchiveForPii, summarizePiiHits } from "@/lib/backfill/pii";
-import { checkRowProvenance, SUPPORTED_ORIGIN_TYPES, websiteHosts } from "@/lib/backfill/provenance";
-import { checkMigrationForBackfill, findSourceInserts } from "@/lib/migration-sql/g17";
-import { checkRowDates, checkRowRouting, checkRowShape, checkRunOrder, checkSeriesMarkerKeys, checkSize, medianRunInterval } from "@/lib/backfill/guards";
+import { checkRowProvenance, isRecurringInstanceEid, SUPPORTED_ORIGIN_TYPES, websiteHosts } from "@/lib/backfill/provenance";
+import { MIGRATION_FILE_RE } from "@/lib/migration-sql/paths";
+import { formatYmdInTimezone } from "@/lib/timezone";
+import { checkMigrationForBackfill, findSourceInserts, findSourceKennelSourceIds } from "@/lib/migration-sql/g17";
+import { checkRowDates, checkRowShape, checkRunOrder, checkSeriesMarkerKeys, checkSize, medianRunInterval, originRoutesElsewhere } from "@/lib/backfill/guards";
 import type { SourceType } from "@/generated/prisma/client";
 
-const HISTORY_RE = /^scripts\/data\/[a-z0-9-]+-history[a-z0-9-]*\.(manifest\.)?json$/;
-const MIGRATION_RE = /^prisma\/migrations\/[^/]+\/migration\.sql$/;
 
 interface Changed {
   status: string;
@@ -52,14 +53,6 @@ function parseNameStatus(out: string): Changed[] {
     });
 }
 
-/** A GCal event link whose event id is a repeating instance (`_YYYYMMDD`…), as kennel-evidence reads it. */
-function isInstanceEid(url: string | undefined): boolean {
-  const eid = url && /[?&]eid=([A-Za-z0-9_-]+)/.exec(url)?.[1];
-  if (!eid) return false;
-  const decoded = Buffer.from(eid, "base64url").toString("utf8");
-  return /^[^ ]+_\d{8}(T\d{6}Z)? /.test(decoded);
-}
-
 interface Report {
   path: string;
   problems: string[];
@@ -75,6 +68,7 @@ async function phase2Checks(manifest: BackfillManifest, rows: RawEventData[], ch
   }
   const sources = SOURCES as unknown as SeedSource[];
   const kennel = manifest.expectedKennelCodes[0];
+  const feedsOnlyKennel = (s: SeedSource) => s.kennelCodes?.length === 1 && s.kennelCodes[0] === kennel;
   if (manifest.expectedKennelCodes.length !== 1) p.push("Phase 2 takes exactly one kennel");
   if (manifest.sourceName === manifest.originSourceName) p.push("the archive source and the origin must be different sources");
   for (const name of [manifest.sourceName, manifest.originSourceName]) {
@@ -87,34 +81,56 @@ async function phase2Checks(manifest: BackfillManifest, rows: RawEventData[], ch
   if (!archive) p.push(`the archive source "${manifest.sourceName}" isn't in prisma/seed-data/sources.ts`);
   if (origin) {
     if (!SUPPORTED_ORIGIN_TYPES.has(origin.type)) p.push(`origin type ${origin.type} has no provenance rule (supervised)`);
-    if (JSON.stringify(origin.kennelCodes ?? []) !== JSON.stringify([kennel])) p.push("the origin must feed this kennel only");
-    const cfg = (origin.config ?? {}) as { kennelPatterns?: unknown; defaultKennelTag?: unknown };
-    if ((cfg.defaultKennelTag && cfg.defaultKennelTag !== kennel) || (Array.isArray(cfg.kennelPatterns) && cfg.kennelPatterns.length > 0)) {
-      p.push("the origin's kennelPatterns or defaultKennelTag route to another kennel");
-    }
+    if (!feedsOnlyKennel(origin)) p.push("the origin must feed this kennel only");
+    // The server's own G5 rule, so CI and the plan can't disagree.
+    if (originRoutesElsewhere(origin.config, kennel)) p.push("the origin's kennelPatterns or defaultKennelTag route to another kennel");
     const otherHosts = websiteHosts(sources.filter((s) => (s.kennelCodes ?? []).some((k) => k !== kennel)).map((s) => s.url));
     const provenance = checkRowProvenance({ type: origin.type, url: origin.url, config: origin.config ?? null }, rows.map((r) => r.sourceUrl), otherHosts);
     if (!provenance.ok) p.push(provenance.supervised ? `provenance: ${provenance.reason}` : `provenance: ${provenance.failures.length} rows' sourceUrl doesn't prove the origin`);
     if (origin.type === "GOOGLE_CALENDAR") {
       const missing = checkSeriesMarkerKeys(rows);
       if (missing.length) p.push(`G21: ${missing.length} rows lack the recurringSeriesId key (write an explicit null)`);
-      const nullOnInstance = rows.filter((r) => r.recurringSeriesId == null && isInstanceEid(r.sourceUrl)).length;
+      const nullOnInstance = rows.filter((r) => r.recurringSeriesId == null && isRecurringInstanceEid(r.sourceUrl)).length;
       report.summary.push(`- Calendar rows whose link names a repeating instance but carry a null series marker: **${nullOnInstance}** (the adapter drops the marker on orphan overrides; for the owner to read)`);
     }
   }
   if (archive) {
     if (archive.enabled !== false || archive.archiveOnly !== true) p.push("the archive source must be seeded with enabled: false and archiveOnly: true");
-    if (JSON.stringify(archive.kennelCodes ?? []) !== JSON.stringify([kennel])) p.push("the archive source must be linked to the kennel only");
+    if (!feedsOnlyKennel(archive)) p.push("the archive source must be linked to the kennel only");
     if (origin && archive.type !== origin.type) p.push("the archive source's type must be the origin's");
   }
   // The migration's own insert decides prod (the seed runs only locally): archiveOnly true, enabled false, literally.
   const inserts = (await Promise.all(migrationSql.map((sql) => findSourceInserts(sql, manifest.sourceName)))).flat();
   if (inserts.length !== 1) p.push(`an added migration must insert the archive source exactly once (found ${inserts.length})`);
   else if (inserts[0].archiveOnly !== true || inserts[0].enabled !== false) p.push("the migration must insert the archive source with archiveOnly = true and enabled = false, literally");
-  else if (inserts[0].id && !migrationSql.some((sql) => sql.includes("SourceKennel") && sql.includes(`'${inserts[0].id}'`))) p.push("no added migration links the archive source to its kennel");
+  else if (!inserts[0].id) p.push("the migration must give the archive source a literal id, so its kennel link can be checked");
+  else {
+    const linked = (await Promise.all(migrationSql.map(findSourceKennelSourceIds))).flat();
+    if (!linked.includes(inserts[0].id)) p.push("no added migration links the archive source to its kennel (an INSERT INTO \"SourceKennel\" with its literal sourceId)");
+  }
   if (checkRowShape(rows).length) p.push("rows with seriesId, seriesParent or externalLinks");
   p.push(...checkRunOrder(rows));
   p.push(...checkSize(rows.length));
+}
+
+/** The manifest fields the checks and the summary read; anything else missing is a load failure, not a crash. */
+function missingManifestFields(m: Partial<BackfillManifest>): string[] {
+  const need: Array<[keyof BackfillManifest, (v: unknown) => boolean]> = [
+    ["archivePath", (v) => typeof v === "string"],
+    ["archiveSha256", (v) => typeof v === "string"],
+    ["approvalHash", (v) => typeof v === "string"],
+    ["sourceName", (v) => typeof v === "string"],
+    ["originSourceName", (v) => typeof v === "string"],
+    ["frozenAt", (v) => typeof v === "string"],
+    ["kennelTimezone", (v) => typeof v === "string"],
+    ["perKennel", (v) => typeof v === "object" && v !== null && !Array.isArray(v)],
+    ["expectedKennelCodes", Array.isArray],
+    ["expectedGaps", Array.isArray],
+    ["curatedCorrections", Array.isArray],
+    ["sameDateGroups", Array.isArray],
+    ["runNumberExceptions", Array.isArray],
+  ];
+  return need.filter(([k, ok]) => !ok(m[k])).map(([k]) => k);
 }
 
 function failedToLoad(report: Report, err: unknown): Report {
@@ -128,16 +144,14 @@ async function checkManifest(path: string, changed: Changed[], migrationSql: str
   const p = report.problems;
   let manifest: BackfillManifest;
   let archiveBytes: string;
+  let rows: RawEventData[];
   try {
     manifest = JSON.parse(readFileSync(path, "utf8")) as BackfillManifest;
+    const missing = missingManifestFields(manifest);
+    if (missing.length) throw new Error(`the manifest lacks or mistypes: ${missing.join(", ")}`);
     if (!HISTORY_RE.test(manifest.archivePath) || manifest.archivePath.endsWith(".manifest.json")) throw new Error("archivePath isn't an archive under scripts/data");
     if (!existsSync(manifest.archivePath)) throw new Error(`${manifest.archivePath} doesn't exist`);
     archiveBytes = readFileSync(manifest.archivePath, "utf8");
-  } catch (err) {
-    return failedToLoad(report, err);
-  }
-  let rows: RawEventData[];
-  try {
     rows = parseArchive(archiveBytes);
   } catch (err) {
     return failedToLoad(report, err);
@@ -146,22 +160,22 @@ async function checkManifest(path: string, changed: Changed[], migrationSql: str
   // Every manifest.
   p.push(...compareManifest(manifest, archiveBytes).map((x) => `G2: ${x.detail}`));
   p.push(...checkDeclaredFields(manifest, rows).map((x) => x.detail));
-  // frozenAt must be a real date no later than tomorrow (UTC), so rows can't be dated in the future.
-  const tomorrow = addDays(new Date().toISOString().slice(0, 10), 1);
-  const frozenOk = /^\d{4}-\d{2}-\d{2}$/.test(manifest.frozenAt) && new Date(`${manifest.frozenAt}T12:00:00Z`).toISOString().slice(0, 10) === manifest.frozenAt;
-  if (!frozenOk || manifest.frozenAt > tomorrow) p.push(`frozenAt ${manifest.frozenAt} must be a real YYYY-MM-DD date, not in the future`);
-  const badDates = checkRowDates(rows, tomorrow, manifest.frozenAt);
+  // frozenAt must be a real date no later than today; rows must be before today and frozenAt. "Today"
+  // is the kennel's, as the server's G3 reads it.
+  const today = formatYmdInTimezone(new Date(), manifest.kennelTimezone);
+  if (!isRealYmd(manifest.frozenAt) || manifest.frozenAt > today) p.push(`frozenAt ${String(manifest.frozenAt)} must be a real YYYY-MM-DD date, not in the future`);
+  const badDates = checkRowDates(rows, today, manifest.frozenAt);
   if (badDates.length) p.push(`${badDates.length} rows aren't real dates before frozenAt (${manifest.frozenAt})`);
   const expected = new Set(manifest.expectedKennelCodes);
   const badTags = rows.filter((r) => r.kennelTags.length !== 1 || !expected.has(r.kennelTags[0])).length;
   if (badTags) p.push(`${badTags} rows don't carry exactly one expected kennel tag`);
+  if (manifest.piiScan?.residual) p.push(`G8: the manifest records ${manifest.piiScan.residual} residual PII hits`);
   const pii = scanArchiveForPii(rows);
   if (pii.length) p.push(`PII: ${pii.length} hits (${Object.entries(summarizePiiHits(pii)).map(([k, v]) => `${k} ×${v}`).join(", ")}). A hit after push is a leak: see design 8.2`);
 
   if (manifest.binding === "archive-source") {
     await phase2Checks(manifest, rows, changed, migrationSql, report);
     for (const sql of migrationSql) p.push(...(await checkMigrationForBackfill(sql)).map((x) => `G17: ${x}`));
-    if (manifest.expectedKennelCodes.length === 1 && checkRowRouting(rows, manifest.expectedKennelCodes[0]).length) p.push("G4: rows must carry exactly the expected kennel code");
   } else if (manifest.binding === "adopt-only") {
     const history = changed.filter((c) => HISTORY_RE.test(c.file));
     if (history.length !== 1 || history[0].file !== path || history[0].status !== "A") p.push("an adopt-only PR adds just the manifest, for an archive it doesn't change");
@@ -199,7 +213,7 @@ async function main() {
   const fromStdin = process.argv.includes("--stdin");
   const changed = fromStdin ? parseNameStatus(readFileSync(0, "utf8")) : process.argv.slice(2).map((file) => ({ status: "A", file }));
   const manifests = changed.filter((c) => c.status !== "D" && HISTORY_RE.test(c.file) && c.file.endsWith(".manifest.json")).map((c) => c.file);
-  const migrationSql = changed.filter((c) => c.status === "A" && MIGRATION_RE.test(c.file)).map((c) => readFileSync(c.file, "utf8"));
+  const migrationSql = changed.filter((c) => c.status === "A" && MIGRATION_FILE_RE.test(c.file)).map((c) => readFileSync(c.file, "utf8"));
   const summaryFile = process.env.GITHUB_STEP_SUMMARY;
   // An archive or manifest already on main is history someone applied: changing or deleting it
   // would let a later adopt-only PR adopt a rewrite. Flagged in the summary for the reviewer; not a

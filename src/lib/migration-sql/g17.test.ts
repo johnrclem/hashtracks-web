@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, it, expect } from "vitest";
-import { checkMigrationForBackfill, findSourceInserts } from "./g17";
+import { checkMigrationForBackfill, findSourceInserts, findSourceKennelSourceIds } from "./g17";
 import { SAMPLE_ARCHIVE_ONBOARDING, TEMPLATE_ONBOARDING, wrap } from "./g17.test-fixtures";
 
 /** The last eight onboarding migrations on main when G17 shipped (design 8.1, section 13). */
@@ -79,5 +79,19 @@ describe("findSourceInserts (CI's archive-source check)", () => {
     ]);
     expect(await findSourceInserts(SAMPLE_ARCHIVE_ONBOARDING, "G17 Test Sheet")).toEqual([{ id: "src_g17_live", archiveOnly: undefined, enabled: true }]);
     expect(await findSourceInserts(SAMPLE_ARCHIVE_ONBOARDING, "Nope")).toEqual([]);
+  });
+});
+
+describe("findSourceKennelSourceIds (CI's archive-link check)", () => {
+  it("reads the literal sourceId of VALUES and of the template's INSERT … SELECT … WHERE NOT EXISTS", async () => {
+    expect(await findSourceKennelSourceIds(SAMPLE_ARCHIVE_ONBOARDING)).toEqual(["src_g17_archive"]);
+    const values = wrap(`INSERT INTO "SourceKennel" (id, "sourceId", "kennelId") VALUES ('sk_a', 'src_a', 'knl_a'), ('sk_b', 'src_b', 'knl_a');`);
+    expect(await findSourceKennelSourceIds(values)).toEqual(["src_a", "src_b"]);
+  });
+
+  it("doesn't count the source's own INSERT or a link for another source", async () => {
+    const unlinked = wrap(`INSERT INTO "Source" (id, name, url, type, "trustLevel", enabled, "archiveOnly") VALUES ('src_x', 'X run history', 'https://example.org', 'HTML_SCRAPER'::"SourceType", 5, false, true);
+INSERT INTO "SourceKennel" (id, "sourceId", "kennelId") VALUES ('sk_o', 'src_origin', 'knl_a');`);
+    expect(await findSourceKennelSourceIds(unlinked)).toEqual(["src_origin"]);
   });
 });

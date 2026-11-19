@@ -159,3 +159,15 @@ export function websiteHosts(urls: readonly string[]): Set<string> {
   }
   return out;
 }
+
+/**
+ * True when a Google Calendar event link names one instance of a repeating
+ * event (its event id ends `_YYYYMMDD` or `_YYYYMMDDTHHMMSSZ`). Only whole
+ * 4-character groups of the `eid` are decoded, as kennel-evidence's SQL does,
+ * so the two read every link alike.
+ */
+export function isRecurringInstanceEid(url: string | null | undefined): boolean {
+  const eid = url ? /[?&]eid=((?:[A-Za-z0-9_-]{4})+)/.exec(url)?.[1] : undefined;
+  if (!eid) return false;
+  return /^[^ ]+_\d{8}(T\d{6}Z)? /.test(Buffer.from(eid, "base64url").toString("utf8"));
+}

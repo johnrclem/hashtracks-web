@@ -4,7 +4,7 @@
  * every batch call the same functions.
  */
 import type { RawEventData } from "@/adapters/types";
-import { addDays, daysBetween, median } from "./canonical";
+import { addDays, daysBetween, isRealYmd, median } from "./canonical";
 import {
   BACKFILL_MAX_ROWS,
   RUN_EXCEPTION_MAX_ROWS,
@@ -14,7 +14,6 @@ import {
   type ExpectedGap,
 } from "./manifest";
 
-const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * G21 cut-off: a Google Calendar RawEvent stored before the adapter emitted the
@@ -30,8 +29,7 @@ export const G21_MARKER_SINCE = new Date("2026-11-13T07:00:00Z");
 export function checkRowDates(rows: readonly RawEventData[], today: string, frozenAt: string): number[] {
   const bad: number[] = [];
   rows.forEach((r, i) => {
-    const valid = YMD.test(r.date) && new Date(`${r.date}T12:00:00Z`).toISOString().slice(0, 10) === r.date;
-    if (!valid || r.date >= today || r.date >= frozenAt) bad.push(i);
+    if (!isRealYmd(r.date) || r.date >= today || r.date >= frozenAt) bad.push(i);
   });
   return bad;
 }
