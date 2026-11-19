@@ -1,114 +1,173 @@
 import { prisma } from "@/lib/db";
+import {
+  compileKennelPatterns,
+  matchCompiledKennelPatterns,
+  type CompiledKennelPattern,
+  type KennelPattern,
+} from "@/adapters/kennel-patterns";
 
 /** Outcome of resolving a raw kennel tag to a database Kennel record. */
-interface ResolveResult {
+export interface ResolveResult {
   /** The matched Kennel ID, or null if no match was found. */
   kennelId: string | null;
-  /** Whether the tag was successfully matched (via exact, alias, or pattern). */
+  /** Whether the tag was resolved to exactly one kennel. */
   matched: boolean;
+  /**
+   * Set when the tag went unmatched because a lookup found two or more
+   * kennels and nothing narrowed it to one (R6). Callers report these
+   * like any unmatched tag, with the candidates in the message.
+   */
+  reason?: "ambiguous";
+  /** kennelCodes of the competing kennels, when `reason` is "ambiguous". */
+  candidates?: string[];
 }
 
-// In-memory cache for a single scrape run
-const cache = new Map<string, ResolveResult>();
+type KennelRow = { id: string; kennelCode: string };
 
-/** Clear the resolver cache (call between scrape runs) */
+/** Hit = one kennel; ambiguous = two or more; null = none. */
+type StepOutcome =
+  | { kind: "hit"; kennelId: string }
+  | { kind: "ambiguous"; candidates: string[] }
+  | null;
+
+const UNMATCHED: ResolveResult = { kennelId: null, matched: false };
+
+// In-memory caches for a single scrape run
+const cache = new Map<string, ResolveResult>();
+const sourcePatternCache = new Map<string, CompiledKennelPattern[]>();
+
+/** Clear the resolver caches (call between scrape runs and after alias/kennel/source edits). */
 export function clearResolverCache() {
   cache.clear();
+  sourcePatternCache.clear();
 }
 
-/** Step 0: Try kennelCode match (immutable identifier). Source-scoped first, then global. */
-async function resolveViaKennelCode(
-  normalized: string,
-  sourceId?: string,
-): Promise<ResolveResult | null> {
-  if (sourceId) {
-    const sourceLinked = await prisma.kennel.findFirst({
-      where: {
-        kennelCode: { equals: normalized, mode: "insensitive" },
-        sources: { some: { sourceId } },
-      },
-      select: { id: true },
-    });
-    if (sourceLinked) return { kennelId: sourceLinked.id, matched: true };
-  }
+function toOutcome(rows: KennelRow[]): StepOutcome {
+  if (rows.length === 0) return null;
+  if (rows.length === 1) return { kind: "hit", kennelId: rows[0].id };
+  return { kind: "ambiguous", candidates: rows.map((r) => r.kennelCode).sort((a, b) => a.localeCompare(b)) };
+}
 
-  const kennel = await prisma.kennel.findFirst({
-    where: { kennelCode: { equals: normalized, mode: "insensitive" } },
-    select: { id: true },
+const KENNEL_SELECT = { id: true, kennelCode: true } as const;
+
+/** Find up to two kennels for a field match; two means ambiguous. */
+function findKennels(
+  field: "kennelCode" | "shortName" | "fullName",
+  value: string,
+  sourceId?: string,
+): Promise<KennelRow[]> {
+  return prisma.kennel.findMany({
+    where: {
+      [field]: { equals: value, mode: "insensitive" },
+      ...(sourceId ? { sources: { some: { sourceId } } } : {}),
+    },
+    select: KENNEL_SELECT,
+    orderBy: { kennelCode: "asc" },
+    take: 2,
   });
-  if (kennel) return { kennelId: kennel.id, matched: true };
-
-  return null;
 }
 
-/** Step 1: Try exact shortName match. Source-scoped first, then global. Alias matching is handled separately by resolveViaAlias. */
-async function resolveViaExactMatch(
-  normalized: string,
-  sourceId?: string,
-): Promise<ResolveResult | null> {
-  if (sourceId) {
-    const sourceLinked = await prisma.kennel.findFirst({
-      where: {
-        shortName: { equals: normalized, mode: "insensitive" },
-        sources: { some: { sourceId } },
-      },
-      select: { id: true },
-    });
-    if (sourceLinked) return { kennelId: sourceLinked.id, matched: true };
-  }
-
-  const kennel = await prisma.kennel.findFirst({
-    where: { shortName: { equals: normalized, mode: "insensitive" } },
-    select: { id: true },
+/** Find up to two distinct kennels holding an alias; two means ambiguous. */
+async function findAliasKennels(value: string, sourceId?: string): Promise<KennelRow[]> {
+  const rows = await prisma.kennelAlias.findMany({
+    where: {
+      alias: { equals: value, mode: "insensitive" },
+      ...(sourceId ? { kennel: { sources: { some: { sourceId } } } } : {}),
+    },
+    select: { kennel: { select: KENNEL_SELECT } },
+    distinct: ["kennelId"],
+    orderBy: { kennelId: "asc" },
+    take: 2,
   });
-  if (kennel) return { kennelId: kennel.id, matched: true };
-
-  return null;
+  return rows.map((r) => r.kennel);
 }
 
-/** Step 2: Try alias match. Source-scoped first, then global. */
-async function resolveViaAlias(
-  normalized: string,
-  sourceId?: string,
-): Promise<ResolveResult | null> {
-  // Source-scoped first: prefer alias on a kennel linked to this source
+type Lookup = (value: string, sourceId?: string) => Promise<KennelRow[]>;
+
+const LOOKUPS: readonly Lookup[] = [
+  (v, s) => findKennels("kennelCode", v, s), // Step 0: immutable identifier
+  (v, s) => findKennels("shortName", v, s), // Step 1
+  findAliasKennels, // Step 2
+];
+
+/**
+ * Run one lookup source-scoped first, then global. A source-scoped hit wins
+ * over global matches, so a tag shared by several kennels still resolves
+ * when exactly one of them is linked to the source.
+ */
+async function runLookup(lookup: Lookup, value: string, sourceId?: string): Promise<StepOutcome> {
   if (sourceId) {
-    const linked = await prisma.kennelAlias.findFirst({
-      where: {
-        alias: { equals: normalized, mode: "insensitive" },
-        kennel: { sources: { some: { sourceId } } },
-      },
-      select: { kennelId: true },
-    });
-    if (linked) return { kennelId: linked.kennelId, matched: true };
+    const scoped = toOutcome(await lookup(value, sourceId));
+    if (scoped) return scoped;
   }
-  // Global fallback
-  const alias = await prisma.kennelAlias.findFirst({
-    where: { alias: { equals: normalized, mode: "insensitive" } },
-    select: { kennelId: true },
-  });
-  if (alias) return { kennelId: alias.kennelId, matched: true };
-  return null;
+  return toOutcome(await lookup(value));
 }
 
-/** Step 3: Pattern mapping + retry steps 0–2 with mapped kennelCode. */
-async function resolveViaPatternMapping(
-  normalized: string,
-  sourceId?: string,
-): Promise<ResolveResult | null> {
-  const mapped = mapKennelTag(normalized.toLowerCase());
+/**
+ * Steps 0–2 (kennelCode → shortName → alias). An ambiguous step does not
+ * stop the walk: a later step can still settle the tag on one kennel. The
+ * first ambiguity is reported only when no step finds exactly one.
+ */
+async function resolveDirect(value: string, sourceId?: string): Promise<StepOutcome> {
+  let firstAmbiguous: StepOutcome = null;
+  for (const lookup of LOOKUPS) {
+    const outcome = await runLookup(lookup, value, sourceId);
+    if (outcome?.kind === "hit") return outcome;
+    firstAmbiguous ??= outcome;
+  }
+  return firstAmbiguous;
+}
+
+/** Step 3: Kennel.fullName, limited to kennels linked to the source. */
+async function resolveViaFullName(value: string, sourceId?: string): Promise<StepOutcome> {
+  if (!sourceId) return null;
+  return toOutcome(await findKennels("fullName", value, sourceId));
+}
+
+/** The source's own `config.kennelPatterns`, compiled once per run. */
+async function loadSourcePatterns(sourceId: string): Promise<CompiledKennelPattern[]> {
+  const cached = sourcePatternCache.get(sourceId);
+  if (cached) return cached;
+  const source = await prisma.source.findUnique({
+    where: { id: sourceId },
+    select: { config: true },
+  });
+  const raw = (source?.config as { kennelPatterns?: unknown } | null)?.kennelPatterns;
+  const compiled = Array.isArray(raw)
+    ? compileKennelPatterns(raw.filter(isKennelPattern))
+    : [];
+  sourcePatternCache.set(sourceId, compiled);
+  return compiled;
+}
+
+function isKennelPattern(entry: unknown): entry is KennelPattern {
+  if (!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== "string") return false;
+  const value: unknown = entry[1];
+  return typeof value === "string"
+    || (Array.isArray(value) && value.length > 0 && value.every((v) => typeof v === "string"));
+}
+
+/**
+ * Map a raw tag to a kennelCode with the source's own `config.kennelPatterns`.
+ * Returns null without a source or when no pattern matches. Patterns are
+ * per source (R6): a "moon" or "summit" rule for one calendar no longer
+ * catches tags from every other source.
+ */
+export async function mapKennelTagForSource(
+  tag: string,
+  sourceId: string | undefined,
+): Promise<string | null> {
+  if (!sourceId) return null;
+  const compiled = await loadSourcePatterns(sourceId);
+  if (compiled.length === 0) return null;
+  return matchCompiledKennelPatterns(tag.trim(), compiled)[0] ?? null;
+}
+
+/** Step 4: source pattern mapping, then steps 0–2 again with the mapped kennelCode. */
+async function resolveViaSourcePatterns(value: string, sourceId?: string): Promise<StepOutcome> {
+  const mapped = await mapKennelTagForSource(value, sourceId);
   if (!mapped) return null;
-
-  const kennelCodeResult = await resolveViaKennelCode(mapped, sourceId);
-  if (kennelCodeResult) return kennelCodeResult;
-
-  const exactResult = await resolveViaExactMatch(mapped, sourceId);
-  if (exactResult) return exactResult;
-
-  const aliasResult = await resolveViaAlias(mapped, sourceId);
-  if (aliasResult) return aliasResult;
-
-  return null;
+  return resolveDirect(mapped, sourceId);
 }
 
 /**
@@ -128,110 +187,56 @@ export async function resolveKennelTags(
 /**
  * Resolve a raw kennel tag to a Kennel ID.
  *
- * Pipeline:
- * 0. Exact match on Kennel.kennelCode (case-insensitive, immutable identifier)
- *    - When source-scoped, prefer source-linked kennel
- * 1. Exact match on Kennel.shortName (case-insensitive)
- *    - When shortName is ambiguous (multiple regions), prefer source-linked kennel
- * 2. Case-insensitive match on KennelAlias.alias
- * 3. Pattern matching fallback (PRD Appendix D.2) → retry steps 0, 1, and 2 with mapped kennelCode
- * 4. No match → { kennelId: null, matched: false }
+ * Pipeline (each lookup source-scoped first, then global):
+ * 0. Kennel.kennelCode (case-insensitive, immutable identifier)
+ * 1. Kennel.shortName
+ * 2. KennelAlias.alias
+ * 3. Kennel.fullName — source-linked kennels only
+ * 4. The source's `config.kennelPatterns` → retry steps 0–2 with the mapped code
+ * 5. No match → `{ kennelId: null, matched: false }`
+ *
+ * A lookup that finds two or more kennels never picks one (R6). If no step
+ * finds exactly one kennel, the result is unmatched with
+ * `reason: "ambiguous"` and the competing kennelCodes.
  *
  * @param tag - Raw kennel tag from scraper
- * @param sourceId - Optional source ID for disambiguation when shortName matches multiple kennels
+ * @param sourceId - Source the tag came from; scopes lookups, full names and patterns
  */
 export async function resolveKennelTag(
   tag: string,
   sourceId?: string,
 ): Promise<ResolveResult> {
   const normalized = tag.trim();
-  if (!normalized) return { kennelId: null, matched: false };
+  if (!normalized) return { ...UNMATCHED };
 
   const cacheKey = sourceId ? `${normalized.toLowerCase()}:${sourceId}` : normalized.toLowerCase();
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  const kennelCodeResult = await resolveViaKennelCode(normalized, sourceId);
-  if (kennelCodeResult) { cache.set(cacheKey, kennelCodeResult); return kennelCodeResult; }
-
-  const exactResult = await resolveViaExactMatch(normalized, sourceId);
-  if (exactResult) { cache.set(cacheKey, exactResult); return exactResult; }
-
-  const aliasResult = await resolveViaAlias(normalized, sourceId);
-  if (aliasResult) { cache.set(cacheKey, aliasResult); return aliasResult; }
-
-  const patternResult = await resolveViaPatternMapping(normalized, sourceId);
-  if (patternResult) { cache.set(cacheKey, patternResult); return patternResult; }
-
-  const result = { kennelId: null, matched: false };
+  const result = await resolveUncached(normalized, sourceId);
   cache.set(cacheKey, result);
   return result;
 }
 
-/**
- * Pattern matching fallback from PRD Appendix D.2.
- * Data-driven: patterns are evaluated in order (multi-word first, then shorter).
- * Each entry maps a regex to the canonical kennelCode (immutable identifier).
- */
-const KENNEL_PATTERNS: readonly [RegExp, string][] = [
-  // Multi-word patterns FIRST (longer before shorter)
-  [/ballbuster|bobbh3|b3h4/, "bobbh3"],
-  [/queens black knights/, "qbk"],
-  [/(?:new amsterdam)|(?:^nass)/, "nah3"],
-  [/long island|lunatics/, "lil"],
-  [/staten island/, "si"],
-  [/drinking practice/, "drinking-practice-nyc"],
-  [/knickerbocker/, "knick"],
-  [/pink taco|pt2h3/, "pink-taco"],
-
-  // Brooklyn (before generic "br" patterns)
-  [/^(?:brooklyn|brh3)/, "brh3"],
-
-  // NAWW
-  [/naww/, "nawwh3"],
-
-  // NAH3
-  [/^nah3/, "nah3"],
-
-  // NYC (after more specific NYC-area kennels)
-  [/^(?:nyc|nych3)/, "nych3"],
-
-  // Boston area
-  [/^(?:boston hash|bh3|boh3)/, "boh3"],
-  [/moon|moom/, "bos-moon"],
-  [/beantown/, "beantown"],
-
-  // Remaining short patterns. A leading "Queens" is Queens H3 (#2650); Queens
-  // Black Knights is caught by the multi-word pattern above. Anchored so
-  // "Queensland" / "South Queensferry" tags don't land on an NYC kennel.
-  [/^queens\b/, "queens-h3"],
-  [/knick/, "knick"],
-  [/lil/, "lil"],
-  [/columbia/, "columbia"],
-  [/ggfm/, "ggfm"],
-  [/harriettes/, "harriettes-nyc"],
-  [/(?:si hash)|(?:^si$)/, "si"],
-  [/special/, "special-nyc"],
-
-  // Philadelphia
-  [/ben franklin|bfm/, "bfm"],
-  [/philly|hashphilly/, "philly-h3"],
-
-  // Chicago
-  [/(?:^ch3)|(?:chicago)/, "ch3"],
-
-  // Summit / NJ area
-  [/asssh3|all seasons summit shiggy/, "asssh3"],
-  [/(?:summit full moon)|(?:^sfm$)/, "sfm"],
-  [/summit/, "summit"],
-  [/rumson/, "rumson"],
-];
-
-/** Apply regex pattern matching to map a raw kennel tag to a canonical kennelCode. Returns null if no pattern matches. */
-export function mapKennelTag(input: string): string | null {
-  const normalized = input.trim();
-  for (const [pattern, result] of KENNEL_PATTERNS) {
-    if (pattern.test(normalized)) return result;
+async function resolveUncached(normalized: string, sourceId?: string): Promise<ResolveResult> {
+  let firstAmbiguous: StepOutcome = null;
+  const steps = [resolveDirect, resolveViaFullName, resolveViaSourcePatterns];
+  for (const step of steps) {
+    const outcome = await step(normalized, sourceId);
+    if (outcome?.kind === "hit") return { kennelId: outcome.kennelId, matched: true };
+    firstAmbiguous ??= outcome;
   }
-  return null;
+  if (firstAmbiguous?.kind === "ambiguous") {
+    return { kennelId: null, matched: false, reason: "ambiguous", candidates: firstAmbiguous.candidates };
+  }
+  return { ...UNMATCHED };
+}
+
+/** Human-readable reason for an unmatched tag, for samples and alerts. */
+export function describeUnmatched(tag: string, result: ResolveResult): string {
+  if (result.reason === "ambiguous") {
+    return `"${tag}" matches several kennels (${result.candidates?.join(", ") ?? "?"}); `
+      + "add an alias on the right kennel or link it to this source";
+  }
+  return `Create kennel or alias for "${tag}"`;
 }

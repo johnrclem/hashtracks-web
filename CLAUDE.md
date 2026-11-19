@@ -50,7 +50,7 @@ logbook + kennel directory.
 - Use `cuid()` for all IDs (Prisma default)
 - Dates stored as UTC noon to avoid DST issues (see PRD Appendix F.4)
 - `startTime` is a string "HH:MM" not a DateTime (many sources lack full timestamps)
-- Kennel resolution: kennelCode exact match → shortName exact match → alias match → pattern match (retries kennelCode + shortName + alias) → flag for admin
+- Kennel resolution: kennelCode exact match → shortName exact match → alias match → full name (source-linked kennels only) → the source's own `config.kennelPatterns` (retries kennelCode + shortName + alias) → flag for admin. Each lookup is source-scoped first, then global; a lookup that finds 2+ kennels never picks one, so the tag goes unmatched as "ambiguous" with the candidates in the alert sample
 - Source-kennel guard: merge pipeline blocks events for kennels not linked via `SourceKennel` → generates `SOURCE_KENNEL_MISMATCH` alert
 - EventLink: extensible link table (Hash Rego, Meetup, etc.) — created by merge pipeline from `RawEventData.externalLinks` or when a second source provides a different sourceUrl
 - Multi-day events: split into separate Event records linked via `parentEventId` + `isSeriesParent`, grouped by `RawEventData.seriesId`

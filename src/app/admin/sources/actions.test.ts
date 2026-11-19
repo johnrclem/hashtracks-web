@@ -161,6 +161,8 @@ describe("linkKennelToSourceDirect externalSlug", () => {
     mockSourceFindUnique.mockResolvedValue({ id: "s1", type: "HASHREGO" } as never);
 
     const result = await linkKennelToSourceDirect("s1", "Hash House Harriettes");
+    // Scoped to the source, so tags settled only by its kennelPatterns resolve (R6)
+    expect(mockResolveKennelTag).toHaveBeenCalledWith("Hash House Harriettes", "s1");
     expect(result).toEqual({ error: expect.stringContaining("account's slug") });
     expect(mockSKUpsert).not.toHaveBeenCalled();
   });

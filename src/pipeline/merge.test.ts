@@ -30,6 +30,7 @@ vi.mock("./kennel-resolver", () => {
       Promise.all(tags.map((t) => resolveKennelTag(t, sourceId))),
     ),
     clearResolverCache: vi.fn(),
+    describeUnmatched: vi.fn((tag: string) => `Create kennel or alias for "${tag}"`),
   };
 });
 

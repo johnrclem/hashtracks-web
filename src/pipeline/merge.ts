@@ -6,7 +6,7 @@ import { parseUtcNoonDate } from "@/lib/date";
 import { regionTimezone, getLabelForUrl, stripUrlsFromText, timeToMinutes } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
 import { generateFingerprint } from "./fingerprint";
-import { resolveKennelTag, resolveKennelTags, clearResolverCache } from "./kennel-resolver";
+import { resolveKennelTag, resolveKennelTags, clearResolverCache, describeUnmatched } from "./kennel-resolver";
 import { createGeocodeCache, extractCoordsFromMapsUrl, geocodeVenue, resolveShortMapsUrl, reverseGeocode, parseDMSFromLocation, stripDMSFromLocation, type GeocodeCache } from "@/lib/geo";
 import { isPlaceholder, isThemelessPlaceholderTitle, decodeEntities, replaceBrTags, HARE_BOILERPLATE_RE, CTA_EMBEDDED_PATTERNS } from "@/adapters/utils";
 import { containsHarePii, scrubHarePii } from "@/adapters/hare-pii";
@@ -811,8 +811,8 @@ async function collectSkippedAndBlockedSamples(
   const needBlockedSamples = ctx.result.sampleBlocked && ctx.result.sampleBlocked.length < 3;
   if (!needSkippedSamples && !needBlockedSamples) return;
 
-  const { kennelId: resolvedId, matched: resolvedMatch } =
-    await resolveKennelTag(event.kennelTags[0], ctx.sourceId);
+  const resolution = await resolveKennelTag(event.kennelTags[0], ctx.sourceId);
+  const { kennelId: resolvedId, matched: resolvedMatch } = resolution;
 
   if (!resolvedMatch || !resolvedId) {
     if (needSkippedSamples) {
@@ -820,7 +820,7 @@ async function collectSkippedAndBlockedSamples(
         reason: "UNMATCHED_TAG",
         kennelTag: event.kennelTags[0],
         event,
-        suggestedAction: `Create kennel or alias for "${event.kennelTags[0]}"`,
+        suggestedAction: describeUnmatched(event.kennelTags[0], resolution),
       });
     }
   } else if (!ctx.linkedKennelIds.has(resolvedId)) {
@@ -884,10 +884,12 @@ async function resolveAndGuardKennel(
   event: RawEventData,
   ctx: MergeContext,
 ): Promise<string | null> {
-  const { kennelId, matched } = await resolveKennelTag(event.kennelTags[0], ctx.sourceId);
+  const resolution = await resolveKennelTag(event.kennelTags[0], ctx.sourceId);
+  const { kennelId, matched } = resolution;
 
   if (!matched || !kennelId) {
-    // Flag for review — leave unprocessed
+    // Flag for review — leave unprocessed. Ambiguous tags (2+ kennels, R6)
+    // take this path too; the sample names the competing kennels.
     if (!ctx.result.unmatched.includes(event.kennelTags[0])) {
       ctx.result.unmatched.push(event.kennelTags[0]);
     }
@@ -896,7 +898,7 @@ async function resolveAndGuardKennel(
         reason: "UNMATCHED_TAG",
         kennelTag: event.kennelTags[0],
         event,
-        suggestedAction: `Create kennel or alias for "${event.kennelTags[0]}"`,
+        suggestedAction: describeUnmatched(event.kennelTags[0], resolution),
       });
     }
     return null;

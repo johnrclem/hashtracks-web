@@ -230,7 +230,7 @@ export async function linkKennelToSourceDirect(
   if (await isArchiveSource(sourceId)) return { error: ARCHIVE_SOURCE_LOCKED };
 
   clearResolverCache();
-  const { kennelId, matched } = await resolveKennelTag(kennelTag);
+  const { kennelId, matched } = await resolveKennelTag(kennelTag, sourceId);
   if (!matched || !kennelId) {
     return { error: `Cannot resolve "${kennelTag}" to a kennel` };
   }

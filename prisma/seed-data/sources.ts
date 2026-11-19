@@ -1387,6 +1387,12 @@ export const SOURCES = [
           // `\s*` allows zero spaces so this also covers the no-space form
           // "NYCH3" — no separate entry needed (Claude bot review).
           [String.raw`NYC\s*H3`, "nych3"],
+          // R6: the resolver no longer has a global regex list, so it reads
+          // these patterns for tags no code/name/alias settles. BFM's Hash
+          // Rego host name "Ben Franklin Mob H3" relied on the old global
+          // `ben franklin|bfm` rule. Anchored so a per-day section that only
+          // mentions BFM in passing isn't re-attributed.
+          [String.raw`^Ben Franklin Mob\b`, "bfm"],
         ],
       },
     },

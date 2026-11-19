@@ -53,8 +53,8 @@ vi.mock("@/pipeline/scrape", () => ({
 
 vi.mock("@/pipeline/kennel-resolver", () => ({
   resolveKennelTag: vi.fn(),
+  resolveKennelTags: vi.fn(),
   clearResolverCache: vi.fn(),
-  mapKennelTag: vi.fn(() => null),
 }));
 
 vi.mock("next/cache", () => ({
@@ -65,7 +65,7 @@ import { getAdminUser } from "@/lib/auth";
 import { isHashRegoSource } from "@/lib/hashrego-links";
 import { prisma } from "@/lib/db";
 import { scrapeSource } from "@/pipeline/scrape";
-import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
+import { resolveKennelTag, resolveKennelTags, clearResolverCache } from "@/pipeline/kennel-resolver";
 import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
 import {
   acknowledgeAlert,
@@ -95,6 +95,7 @@ const mockSourceKennelFindMany = vi.mocked(prisma.sourceKennel.findMany);
 const mockSourceKennelCreate = vi.mocked(prisma.sourceKennel.create);
 const mockScrape = vi.mocked(scrapeSource);
 const mockResolve = vi.mocked(resolveKennelTag);
+const mockResolveTags = vi.mocked(resolveKennelTags);
 const mockClearCache = vi.mocked(clearResolverCache);
 const mockRegionFind = vi.mocked(prisma.region.findFirst);
 
@@ -422,7 +423,7 @@ describe("createAliasFromAlert", () => {
     mockAliasFind.mockResolvedValueOnce(null as never);
     mockAliasCreate.mockResolvedValueOnce({} as never);
     mockKennelFind.mockResolvedValueOnce({ shortName: "NYCH3" } as never);
-    mockAliasFindMany.mockResolvedValueOnce([{ alias: "NewKennel", kennelId: "kennel_1" }] as never);
+    mockResolveTags.mockResolvedValueOnce([{ matched: true, kennelId: "kennel_1" }]);
     mockAlertUpdate.mockResolvedValueOnce({} as never); // repair log update
     mockAlertUpdate.mockResolvedValueOnce({} as never); // auto-resolve update
 
@@ -434,6 +435,26 @@ describe("createAliasFromAlert", () => {
     expect(mockAlertUpdate.mock.calls[1][0].data).toEqual(
       expect.objectContaining({ status: "RESOLVED" }),
     );
+    // Asks the resolver, scoped to the alert's source
+    expect(mockResolveTags).toHaveBeenCalledWith(["newkennel"], "src_1");
+  });
+
+  it("keeps the alert open while another tag is still ambiguous (R6)", async () => {
+    mockAlertFind.mockResolvedValueOnce(
+      baseAlert({ context: { tags: ["NewKennel", "Full Moon"] } }) as never,
+    );
+    mockAliasFind.mockResolvedValueOnce(null as never);
+    mockAliasCreate.mockResolvedValueOnce({} as never);
+    mockKennelFind.mockResolvedValueOnce({ shortName: "NYCH3" } as never);
+    mockResolveTags.mockResolvedValueOnce([
+      { matched: true, kennelId: "kennel_1" },
+      { matched: false, kennelId: null, reason: "ambiguous", candidates: ["cfmh3", "fmh3-sd"] },
+    ]);
+    mockAlertUpdate.mockResolvedValueOnce({} as never); // repair log update
+
+    await createAliasFromAlert("alert_1", "NewKennel", "kennel_1", false);
+
+    expect(mockAlertUpdate).toHaveBeenCalledTimes(1); // repair log only
   });
 
   it("triggers rescrape when rescrapeAfter=true", async () => {
@@ -504,9 +525,7 @@ describe("createKennelFromAlert", () => {
     );
     mockKennelFindFirst.mockResolvedValueOnce(null as never); // uniqueness check
     mockKennelCreate.mockResolvedValueOnce({ id: "new_kennel_1" } as never);
-    mockKennelFindMany.mockResolvedValueOnce([
-      { id: "new_kennel_1", kennelCode: "testtag", shortName: "TestH3" },
-    ] as never);
+    mockResolveTags.mockResolvedValueOnce([{ matched: true, kennelId: "new_kennel_1" }]);
     mockSourceKennelCreate.mockResolvedValueOnce({} as never);
     mockAlertUpdate.mockResolvedValueOnce({} as never); // repair log
     mockAlertUpdate.mockResolvedValueOnce({} as never); // auto-resolve
@@ -581,10 +600,7 @@ describe("linkKennelToSource", () => {
     mockSourceKennelCreate.mockResolvedValueOnce({} as never);
     mockKennelFind.mockResolvedValueOnce({ shortName: "NYCH3" } as never);
     mockAlertUpdate.mockResolvedValueOnce({} as never); // repair log
-    // Batched auto-resolve reads kennels/aliases/sourceKennels via findMany.
-    mockKennelFindMany.mockResolvedValueOnce([
-      { id: "kennel_1", kennelCode: "nych3", shortName: "NYCH3" },
-    ] as never);
+    mockResolveTags.mockResolvedValueOnce([{ matched: true, kennelId: "kennel_1" }]);
     mockSourceKennelFindMany.mockResolvedValueOnce([{ kennelId: "kennel_1" }] as never);
     mockAlertUpdate.mockResolvedValueOnce({} as never); // auto-resolve
 
@@ -595,9 +611,11 @@ describe("linkKennelToSource", () => {
     expect(mockAlertUpdate.mock.calls[1][0].data).toEqual(
       expect.objectContaining({ status: "RESOLVED" }),
     );
-    // Only the initial tag resolution should hit resolveKennelTag;
-    // the per-tag loop has been replaced with batched findMany lookups.
+    // The repair lookup is scoped to the alert's source, so tags that only
+    // the source's kennelPatterns settle still resolve (R6).
     expect(mockResolve).toHaveBeenCalledTimes(1);
+    expect(mockResolve).toHaveBeenCalledWith("NYCH3", "src_1");
+    expect(mockResolveTags).toHaveBeenCalledWith(["nych3"], "src_1");
   });
 });
 
