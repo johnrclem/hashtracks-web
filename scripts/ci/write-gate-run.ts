@@ -67,25 +67,10 @@ function env(name: string): string {
   return value;
 }
 
-function writeInit(method: "POST" | "DELETE", body?: unknown): RequestInit {
-  return {
-    method,
-    headers: {
-      Authorization: `Bearer ${env("GITHUB_TOKEN")}`,
-      Accept: "application/vnd.github+json",
-      "Content-Type": "application/json",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(15_000),
-  };
-}
-
 function checkOk(res: Response, what: string): void {
   if (!res.ok) throw new Error(`GitHub ${what}: HTTP ${res.status}`);
 }
 
-/** The only writes the gate makes, each to a fixed api.github.com path built from checked values. */
 function checkedPr(number: number): number {
   if (!Number.isInteger(number) || number <= 0) throw new Error(`not a pull request number: ${number}`);
   return number;
@@ -103,34 +88,50 @@ function runUrl(): string {
   return Number.isSafeInteger(runId) && runId > 0 ? `${runs}/runs/${runId}` : runs;
 }
 
-async function setStatus(sha: string, context: string, state: GateVerdict["state"], description: string): Promise<void> {
-  const url = new URL(`/repos/${APPROVAL_REPO}/statuses/${checkedSha(sha)}`, "https://api.github.com");
-  const init = writeInit("POST", { context, state, description, target_url: runUrl() });
-  const res = await fetch(url, init);
-  checkOk(res, `status ${context}`);
-}
+/**
+ * The only writes the gate makes, with the workflow's token, each to a fixed api.github.com path
+ * built from checked values. Reads go through the approval read client.
+ */
+class GateWriter {
+  constructor(
+    private readonly token: string,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
 
-async function postComment(number: number, body: string): Promise<void> {
-  const url = new URL(`/repos/${APPROVAL_REPO}/issues/${checkedPr(number)}/comments`, "https://api.github.com");
-  const init = writeInit("POST", { body });
-  const res = await fetch(url, init);
-  checkOk(res, "comment");
-}
+  private async send(path: string, method: "POST" | "DELETE", body?: unknown): Promise<Response> {
+    const url = new URL(`/repos/${APPROVAL_REPO}${path}`, "https://api.github.com");
+    return this.fetchImpl(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        Accept: "application/vnd.github+json",
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(15_000),
+    });
+  }
 
-async function addLabel(number: number, label: WriteClass): Promise<void> {
-  const url = new URL(`/repos/${APPROVAL_REPO}/issues/${checkedPr(number)}/labels`, "https://api.github.com");
-  const init = writeInit("POST", { labels: [label] });
-  const res = await fetch(url, init);
-  checkOk(res, "add label");
-}
+  async setStatus(sha: string, context: string, state: GateVerdict["state"], description: string): Promise<void> {
+    const res = await this.send(`/statuses/${checkedSha(sha)}`, "POST", { context, state, description, target_url: runUrl() });
+    checkOk(res, `status ${context}`);
+  }
 
-async function removeLabel(number: number, label: WriteClass): Promise<void> {
-  // `label` is one of the fixed write classes, never PR data.
-  const url = new URL(`/repos/${APPROVAL_REPO}/issues/${checkedPr(number)}/labels/${encodeURIComponent(label)}`, "https://api.github.com");
-  const init = writeInit("DELETE");
-  const res = await fetch(url, init);
-  // Removing a label that isn't there is fine.
-  if (res.status !== 404) checkOk(res, "remove label");
+  async comment(number: number, body: string): Promise<void> {
+    checkOk(await this.send(`/issues/${checkedPr(number)}/comments`, "POST", { body }), "comment");
+  }
+
+  async addLabel(number: number, label: WriteClass): Promise<void> {
+    checkOk(await this.send(`/issues/${checkedPr(number)}/labels`, "POST", { labels: [label] }), "add label");
+  }
+
+  async removeLabel(number: number, label: WriteClass): Promise<void> {
+    // `label` is one of the fixed write classes, never PR data.
+    const res = await this.send(`/issues/${checkedPr(number)}/labels/${encodeURIComponent(label)}`, "DELETE");
+    // Removing a label that isn't there is fine.
+    if (res.status !== 404) checkOk(res, "remove label");
+  }
 }
 
 /**
@@ -167,19 +168,19 @@ async function approvalFor(gh: GitHub, pr: PullRequest): Promise<ApprovalResult>
  * (or a re-run of the owner's event started by someone else) gets a comment saying it was ignored.
  * Returns a line for the summary.
  */
-async function stampOrIgnore(gh: GitHub, event: GateEvent, owner: string): Promise<string> {
+async function stampOrIgnore(gh: GitHub, writer: GateWriter, event: GateEvent, owner: string): Promise<string> {
   const number = event.pull_request.number;
   const byOwner = event.sender.login === owner && event.sender.type === "User";
   const ownerRan = process.env.GITHUB_TRIGGERING_ACTOR === owner;
   if (byOwner && ownerRan) {
-    await setStatus(event.pull_request.head.sha, STAMP_CONTEXT, "success", stampDescription(number));
+    await writer.setStatus(event.pull_request.head.sha, STAMP_CONTEXT, "success", stampDescription(number));
     return `Stamped \`${STAMP_CONTEXT}\` on ${event.pull_request.head.sha.slice(0, 7)}.`;
   }
   const who = byOwner ? `a re-run started by \`${process.env.GITHUB_TRIGGERING_ACTOR ?? "unknown"}\`` : `\`${event.sender.login}\``;
   const text = `The write gate ignored \`${APPROVAL_LABEL}\` from ${who}: only the owner's own label approves a pull request. Remove the label; it doesn't count.`;
   // One comment per wording, however often the label is added or removed.
   const comments = await gh.list<{ body?: string | null }>(`/issues/${number}/comments`);
-  if (!comments.some((c) => c.body === text)) await postComment(number, text);
+  if (!comments.some((c) => c.body === text)) await writer.comment(number, text);
   return text;
 }
 
@@ -197,17 +198,18 @@ async function main(): Promise<void> {
   const owner = ownerGithubLogin();
   const agentBot = process.env.AGENT_BOT_LOGIN?.trim() || DEFAULT_AGENT_BOT_LOGIN;
   const gh = approvalClient({ token });
+  const writer = new GateWriter(token);
 
   // 1. Mark the event's head pending before anything can fail (an `unlabeled` run that crashed
   //    must not leave the earlier success standing), then read the PR as it is now.
-  await withRetry(() => setStatus(event.pull_request.head.sha, GATE_CONTEXT, "pending", "Evaluating…"));
+  await withRetry(() => writer.setStatus(event.pull_request.head.sha, GATE_CONTEXT, "pending", "Evaluating…"));
   const pr = await gh.get<PullRequest>(`/pulls/${number}`);
   if (pr.base.ref !== GATED_BASE) throw new Error(`PR #${number} now targets ${pr.base.ref}, not ${GATED_BASE}`);
   const head = pr.head.sha;
-  if (head !== event.pull_request.head.sha) await setStatus(head, GATE_CONTEXT, "pending", "Evaluating…");
+  if (head !== event.pull_request.head.sha) await writer.setStatus(head, GATE_CONTEXT, "pending", "Evaluating…");
 
   // 2. Stamp, or say why not.
-  const notes = event.action === "labeled" && event.label?.name === APPROVAL_LABEL ? [await stampOrIgnore(gh, event, owner)] : [];
+  const notes = event.action === "labeled" && event.label?.name === APPROVAL_LABEL ? [await stampOrIgnore(gh, writer, event, owner)] : [];
 
   // 3. Classify and evaluate the PR's head as it is now.
   const [files, headStatuses, approval] = await Promise.all([
@@ -230,10 +232,10 @@ async function main(): Promise<void> {
 
   const labels = new Set(pr.labels.map((l) => l.name));
   for (const stale of WRITE_CLASSES.filter((c) => c !== verdict.writeClass && labels.has(c))) {
-    await removeLabel(number, stale);
+    await writer.removeLabel(number, stale);
   }
-  if (!labels.has(verdict.writeClass)) await addLabel(number, verdict.writeClass);
-  await setStatus(head, GATE_CONTEXT, verdict.state, verdict.description);
+  if (!labels.has(verdict.writeClass)) await writer.addLabel(number, verdict.writeClass);
+  await writer.setStatus(head, GATE_CONTEXT, verdict.state, verdict.description);
 
   const summary = [
     `### write-gate: ${verdict.state}`,
