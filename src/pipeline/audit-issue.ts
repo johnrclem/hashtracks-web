@@ -31,6 +31,7 @@ import {
 import { prisma } from "@/lib/db";
 import { AUDIT_STREAM } from "@/lib/audit-stream-meta";
 import { toIsoDateString } from "@/lib/date";
+import { NO_GITHUB_CREDENTIAL, serverGithubToken } from "@/lib/github-app";
 import { getValidatedRepo } from "@/lib/github-repo";
 import { fileAuditFinding, type FilerActions } from "./audit-filer";
 
@@ -51,7 +52,7 @@ const MAX_ISSUES_PER_RUN = 3;
 const MIRROR_STALE_MS = 25 * 60 * 60 * 1000; // 25 hours
 
 /**
- * Build the cron's GitHub IO actions on top of the GITHUB_TOKEN env.
+ * Build the cron's GitHub IO actions on top of the server App token (`serverGithubToken`).
  *
  * Deliberately separate from `buildApiActions` in
  * `src/app/api/audit/file-finding/route.ts`: the api path uses
@@ -103,9 +104,9 @@ export function buildCronActions({ minWriteGapMs = 0 }: { minWriteGapMs?: number
   const paceWrite = createWritePacer(minWriteGapMs);
   return {
     createIssue: async ({ title, body, labels }) => {
-      const token = process.env.GITHUB_TOKEN;
+      const token = await serverGithubToken();
       if (!token) {
-        reportAuditFilerFailure("cron", "createIssue", { error: "GITHUB_TOKEN not set" });
+        reportAuditFilerFailure("cron", "createIssue", { error: NO_GITHUB_CREDENTIAL });
         return null;
       }
       const repo = getValidatedRepo();
@@ -140,10 +141,10 @@ export function buildCronActions({ minWriteGapMs = 0 }: { minWriteGapMs?: number
       }
     },
     postComment: async (issueNumber, body) => {
-      const token = process.env.GITHUB_TOKEN;
+      const token = await serverGithubToken();
       if (!token) {
         reportAuditFilerFailure("cron", "postComment", {
-          error: "GITHUB_TOKEN not set",
+          error: NO_GITHUB_CREDENTIAL,
           issueNumber,
         });
         return false;
@@ -176,10 +177,10 @@ export function buildCronActions({ minWriteGapMs = 0 }: { minWriteGapMs?: number
       }
     },
     listOpenIssuesByKennel: async (kennelCode) => {
-      const token = process.env.GITHUB_TOKEN;
+      const token = await serverGithubToken();
       if (!token) {
         reportAuditFilerFailure("cron", "createIssue", {
-          error: "GITHUB_TOKEN not set (listOpenIssuesByKennel)",
+          error: `${NO_GITHUB_CREDENTIAL} (listOpenIssuesByKennel)`,
         });
         return null;
       }
@@ -238,9 +239,9 @@ export function buildCronActions({ minWriteGapMs = 0 }: { minWriteGapMs?: number
  * against a runner accidentally double-feeding the same group).
  */
 export async function fileAuditIssues(groups: AuditGroup[]): Promise<string[]> {
-  const token = process.env.GITHUB_TOKEN;
+  const token = await serverGithubToken();
   if (!token) {
-    console.error("[audit-issue] GITHUB_TOKEN not set");
+    console.error(`[audit-issue] ${NO_GITHUB_CREDENTIAL}`);
     return [];
   }
 

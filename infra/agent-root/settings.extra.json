@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash scripts/agent-merge-pr.sh*)",
+      "Bash(bash scripts/onboarding-merge-handoff-pr.sh*)",
+      "Bash(npx tsx scripts/scrub.ts*)",
+      "Bash(curl -fsSL --max-time 20 https://raw.githubusercontent.com/johnrclem/hashtracks-web/main/*)",
+      "Bash(gh api user*)",
+      "Bash(git fetch*)",
+      "Bash(git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push*)",
+      "Bash(*/hashtracks-agents/bin/check-root.sh*)"
+    ],
+    "deny": [
+      "Bash(*GH_CONFIG_DIR=*)",
+      "Bash(*GITHUB_TOKEN=*)",
+      "Bash(*GH_TOKEN=*)",
+      "Bash(*GH_ENTERPRISE_TOKEN=*)",
+      "Bash(/opt/homebrew/bin/gh*)",
+      "Bash(/usr/local/bin/gh*)",
+      "Bash(*/bin/gh *)",
+      "Bash(gh auth login*)",
+      "Bash(gh auth token*)",
+      "Bash(gh auth switch*)",
+      "Bash(*.agent/*)",
+      "Bash(*.agent)"
+    ]
+  }
+}

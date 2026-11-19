@@ -9,7 +9,7 @@ task prompts, and writes one file. It sends a phone push only when something nee
 - task id: `hashtracks-ops-digest`
 - schedule: daily at 07:15 (cron `15 7 * * *`)
 - mode: Auto
-- folder: `~/Developer/hashtracks-web`
+- folder: `~/Developer/hashtracks-agents`, the agent root ([`system.md#identity`](system.md#identity); it must be the folder the task *starts* in)
 - prompt: the pointer in
   [`scheduled-tasks/pointers/hashtracks-ops-digest.txt`](scheduled-tasks/pointers/hashtracks-ops-digest.txt),
   verbatim. It reads the task's prompt,
@@ -83,6 +83,27 @@ Carry on and put "identity preflight failed: <login>" first under "Needs you tod
    ```
    The `awk` drops the `SKILL.md` front matter (`name`, `description`); `diff -B -b` ignores blank
    lines and spacing. A `DRIFT` task runs a prompt that no PR reviewed, or an old one.
+6. **Identity and enforcement** ([`system.md#identity`](system.md#identity), [`#write-gate`](system.md#write-gate)).
+   All three only read.
+   - **Agent root:** `/Users/johnclem/Developer/hashtracks-agents/bin/check-root.sh`. It compares
+     the root's settings with main's `.claude/settings.json` and checks the env block that keeps `gh`
+     on the bot. It prints `root-settings: OK` or `root-settings: DRIFT: …`; if the file is missing,
+     report "agent root not installed".
+   - **Ruleset on main:**
+     ```bash
+     curl -fsS --max-time 20 https://api.github.com/repos/johnrclem/hashtracks-web/rules/branches/main | jq -r '[.[] | .type] as $t | [.[] | select(.type == "required_status_checks") | .parameters.required_status_checks[].context] as $c | if ($t | index("pull_request")) and ($t | index("non_fast_forward")) and ($c | index("write-gate")) and ($c | index("test")) then "ruleset: ON" else "ruleset: OFF (rules: \($t | join(",")); checks: \($c | join(",")))" end'
+     ```
+     Flag "ruleset off" only once main's `system.md` says the ruleset is in force:
+     `curl -fsSL --max-time 20 https://raw.githubusercontent.com/johnrclem/hashtracks-web/main/docs/ops/system.md | grep -m1 '^Main ruleset:'`
+     prints `Main ruleset: REQUIRED` (the line lives in `system.md#the-ruleset`). Otherwise report
+     the state without flagging it.
+   - **Owner-path merges:** PRs merged in the last 24 hours by the owner's own authorship without
+     `owner-approved`, which the write gate passed as owner-authored (T1's detection):
+     ```bash
+     gh pr list --state merged --search "merged:>=$(date -v-1d +%Y-%m-%d) author:johnrclem -label:owner-approved" --json number,title,headRefName,mergedAt
+     ```
+     List each with its branch. One on an agent prefix (`audit-fix/`, `onboarding/`, `onboard/`, …)
+     means an agent acted as the owner.
 
 ## Judge
 
@@ -108,6 +129,9 @@ Carry on and put "identity preflight failed: <login>" first under "Needs you tod
    (TOTP or backup codes off, or a phone second factor).
 6. **Task prompt drift:** each `DRIFT` task from Gather 5, with "paste
    `docs/ops/scheduled-tasks/pointers/<task>.txt` into the task".
+7. **Identity and enforcement:** "ruleset off" (once it has been applied: every day it stays off,
+   per the break-glass rules in `system.md#break-glass`); `root-settings: DRIFT`, with "re-run
+   `infra/agent-root/install.sh`"; and any owner-path merge from an agent-prefixed branch.
 
 Compare with yesterday's digest file, if it exists, and call out what's new, what got worse and
 what cleared. Rules of thumb for the other sections:
@@ -124,7 +148,8 @@ Write `/Users/johnclem/Developer/hashtracks-ops-digests/<YYYY-MM-DD>.md` (create
 needed) with these sections, each a few lines or a short table:
 1. **Needs you today** (empty is fine; say "Nothing").
 2. **Scrapes and alerts.**
-3. **Automations** (with the login each task ran as, and the prompt-drift result).
+3. **Automations** (with the login each task ran as, the prompt-drift result, the agent-root and
+   ruleset checks, and the owner-path merges from Gather 6).
 4. **PRs and issues.**
 5. **Sentry.**
 6. **Trends vs yesterday.**

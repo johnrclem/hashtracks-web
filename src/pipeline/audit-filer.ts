@@ -27,7 +27,7 @@
  *      mirror row even if this caller doesn't.
  *
  * GitHub I/O is dependency-injected via `FilerActions` so cron + api
- * can keep their own fetch envelopes (cron uses `GITHUB_TOKEN` env;
+ * can keep their own fetch envelopes (cron uses `serverGithubToken()`;
  * api uses the URL-constructor pattern that satisfies Codacy) and
  * tests can stub both calls cleanly.
  *

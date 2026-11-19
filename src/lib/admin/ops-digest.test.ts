@@ -6,6 +6,7 @@ vi.mock("@/lib/backfill/digest", () => ({ buildBackfillDigest: vi.fn().mockResol
 import { prisma } from "@/lib/db";
 import type { GhPull, OpsGithub } from "@/lib/ops-github";
 import { buildOpsDigest } from "./ops-digest";
+import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
 
 const queryRaw = vi.mocked(prisma.$queryRaw);
 const findStates = vi.mocked(prisma.automationState.findMany);
@@ -140,7 +141,7 @@ describe("buildOpsDigest", () => {
     expect(digest.scrapes24h.runs).toBe(0);
 
     const noToken = await buildOpsDigest(new Date(), null);
-    expect(noToken.approvalsWaiting).toEqual({ prs: null, error: "GITHUB_TOKEN is not set" });
+    expect(noToken.approvalsWaiting).toEqual({ prs: null, error: NO_GITHUB_CREDENTIAL });
   });
 
   it("keeps the rest of the digest when the env-built GitHub client can't be made", async () => {

@@ -1,0 +1,15 @@
+{
+  "name": "HashTracks Server",
+  "description": "The HashTracks server's GitHub identity: files and mirrors audit, alert, feedback and ops issues, and reads pull requests. It can't push, merge or change pull requests. docs/ops/system.md#identity",
+  "url": "https://www.hashtracks.xyz",
+  "redirect_url": "https://www.hashtracks.xyz/",
+  "hook_attributes": { "url": "https://www.hashtracks.xyz/", "active": false },
+  "public": false,
+  "default_permissions": {
+    "issues": "write",
+    "pull_requests": "read",
+    "contents": "read",
+    "metadata": "read"
+  },
+  "default_events": []
+}
