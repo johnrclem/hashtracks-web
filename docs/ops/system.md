@@ -270,8 +270,9 @@ goes on last, after the Apps exist and every task runs as the bot ([Identity](#i
 
 One ruleset on `main`, [`infra/github-rulesets/main.json`](../../infra/github-rulesets/main.json),
 with no bypass, not even for the owner: pull requests required (no review count), the checks `test`
-(CI's job: type check, lint, tests and the migration check) and `write-gate`, both pinned to GitHub
-Actions; force pushes and deletion blocked. The owner applies it, last:
+(CI's job: type check, lint, tests and the migration check), `write-gate` and `backfill-manifest`
+(CI's job that recomputes each backfill manifest from its archive and passes on a PR without one;
+onboarding backfill design 6.2), all pinned to GitHub Actions; force pushes and deletion blocked. The owner applies it, last:
 
 ```bash
 gh api -X POST repos/johnrclem/hashtracks-web/rulesets --input infra/github-rulesets/main.json
@@ -283,8 +284,10 @@ the digest flags every day the ruleset is off.
 Main ruleset: PENDING
 
 Before applying it, give every open PR a `write-gate` status (a PR opened before the gate landed
-has none and would wait forever): push to it, or add and remove any label. Once backfill PR 6 adds the `backfill-manifest` job, add it to `required_status_checks` the same
-way (edit the file, then `gh api -X PUT repos/johnrclem/hashtracks-web/rulesets/<id> --input …`).
+has none and would wait forever): push to it, or add and remove any label. A PR whose CI ran
+before the `backfill-manifest` job existed (backfill PR 6) has no such check either: push to it, or
+re-run its CI. If the ruleset is already on when that job lands, apply the edited file with
+`gh api -X PUT repos/johnrclem/hashtracks-web/rulesets/<id> --input …`.
 Check the pins on a scratch PR straight after applying it. A `write-gate` status set by
 `github-actions[bot]` must satisfy the rule, and a status that someone posts with a personal token
 must not. GitHub documents app pinning for checks and isn't explicit about commit statuses. If the
