@@ -446,21 +446,18 @@ describe("scrapeSource", () => {
       expect(mockReconcile.mock.calls[0][3]).toEqual(["k_nyc", "k_moa"]);
     });
 
-    it("maps failed slugs through the KennelDiscovery fallback too", async () => {
-      vi.spyOn(console, "warn").mockImplementationOnce(() => {});
-      hashRegoReturning({ kennelPageFetchErrors: 1, kennelPagesStopReason: null, failedKennelSlugs: ["BBB"] });
+    it("never falls back to KennelDiscovery slugs when no link has a slug", async () => {
+      hashRegoReturning({ kennelPageFetchErrors: 0, kennelPagesStopReason: null, failedKennelSlugs: [] });
       mockSourceKennelFind.mockResolvedValue([
         { externalSlug: null, kennelId: "k_a" },
-        { externalSlug: null, kennelId: "k_b" },
-      ] as never);
-      vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue([
-        { externalSlug: "AAA", matchedKennelId: "k_a" },
-        { externalSlug: "BBB", matchedKennelId: "k_b" },
       ] as never);
 
       await scrapeSource("src_hr");
 
-      expect(mockReconcile.mock.calls[0][3]).toEqual(["k_a"]);
+      // Discovery rows record identity only; they never choose what is scraped.
+      expect(prisma.kennelDiscovery.findMany).not.toHaveBeenCalled();
+      const fetchMock = vi.mocked(mockGetAdapter.mock.results[0].value.fetch);
+      expect(fetchMock.mock.calls[0][1]).toEqual(expect.objectContaining({ kennelSlugs: [] }));
     });
 
     it.each<[string, PaginationOutcome]>([

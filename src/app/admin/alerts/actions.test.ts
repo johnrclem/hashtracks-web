@@ -8,6 +8,10 @@ vi.mock("@/lib/archive-source", () => ({
   isArchiveSource: vi.fn().mockResolvedValue(false),
   kennelHasArchiveSource: vi.fn().mockResolvedValue(false),
 }));
+vi.mock("@/lib/hashrego-links", () => ({
+  HASHREGO_TAG_LINK_REFUSAL: "hash rego needs a slug",
+  isHashRegoSource: vi.fn().mockResolvedValue(false),
+}));
 vi.mock("@/lib/auth", () => ({
   getAdminUser: vi.fn(),
 }));
@@ -58,6 +62,7 @@ vi.mock("next/cache", () => ({
 }));
 
 import { getAdminUser } from "@/lib/auth";
+import { isHashRegoSource } from "@/lib/hashrego-links";
 import { prisma } from "@/lib/db";
 import { scrapeSource } from "@/pipeline/scrape";
 import { resolveKennelTag, resolveKennelTags, clearResolverCache } from "@/pipeline/kennel-resolver";
@@ -476,6 +481,15 @@ describe("createKennelFromAlert", () => {
     mockRegionFind.mockResolvedValue({ id: "region_1", name: "NYC" } as never);
   });
 
+  it("refuses a Hash Rego alert before creating a kennel", async () => {
+    mockAlertFind.mockResolvedValueOnce(baseAlert() as never);
+    vi.mocked(isHashRegoSource).mockResolvedValueOnce(true);
+
+    const result = await createKennelFromAlert("alert_1", "Siete Cerveza H3", kennelData, false);
+    expect(result).toEqual({ error: "hash rego needs a slug" });
+    expect(prisma.sourceKennel.create).not.toHaveBeenCalled();
+  });
+
   it("returns error when unauthorized", async () => {
     mockAuth.mockResolvedValueOnce(null as never);
     const result = await createKennelFromAlert("alert_1", "TestTag", kennelData, false);
@@ -533,6 +547,15 @@ describe("linkKennelToSource", () => {
     mockAuth.mockResolvedValueOnce(null as never);
     const result = await linkKennelToSource("alert_1", "NYCH3", false);
     expect(result).toEqual({ error: "Unauthorized" });
+  });
+
+  it("refuses a Hash Rego alert: a display-name tag is not an account slug", async () => {
+    mockAlertFind.mockResolvedValueOnce(baseAlert() as never);
+    vi.mocked(isHashRegoSource).mockResolvedValueOnce(true);
+
+    const result = await linkKennelToSource("alert_1", "Hash House Harriettes", false);
+    expect(result).toEqual({ error: "hash rego needs a slug" });
+    expect(prisma.sourceKennel.create).not.toHaveBeenCalled();
   });
 
   it("returns error when tag cannot be resolved", async () => {

@@ -17,52 +17,17 @@ import {
   type HashRegoKennelProfile,
 } from "@/adapters/hashrego/kennel-api";
 import { Prisma } from "@/generated/prisma/client";
-import { isUniqueConstraintViolation } from "@/lib/prisma-errors";
 import type { DiscoveredKennel } from "@/adapters/hashrego/kennel-directory-parser";
 
 const EXTERNAL_SOURCE = "HASHREGO";
 
 /**
- * Link a Hash Rego discovery to its matched kennel.
- *   - When `createAlias` is true: create a KennelAlias so the merge pipeline
- *     resolves the external slug to this kennel across all sources. Only use
- *     from admin-confirmed paths — aliases are a global namespace.
- *   - Always: upsert a SourceKennel row carrying `externalSlug` so the HASHREGO
- *     scraper picks up the slug. SourceKennel is source-scoped and reversible.
- *
- * Callers writing aliases should call `clearResolverCache()` from
- * `@/pipeline/kennel-resolver` after a batch. SourceKennel-only writes do not
- * affect the resolver cache.
- * Returns true if a SourceKennel row was written (source exists).
+ * Discovery rows are suggestions about identity ("this Hash Rego account is that
+ * kennel"). They never decide what the HASHREGO scraper fetches: scraped
+ * accounts are the source's `SourceKennel.externalSlug` rows, set by the seed's
+ * `kennelSlugMap` (or a data migration). A MATCHED row is a high-confidence
+ * suggestion waiting for an admin, never a link.
  */
-export async function linkDiscoveryKennelToHashRego(
-  kennelId: string,
-  externalSlug: string,
-  hashRegoSourceId: string | null,
-  { createAlias = true }: { createAlias?: boolean } = {},
-): Promise<boolean> {
-  if (createAlias) {
-    const kennel = await prisma.kennel.findUnique({
-      where: { id: kennelId },
-      select: { shortName: true },
-    });
-    if (kennel && externalSlug.toLowerCase() !== kennel.shortName.toLowerCase()) {
-      try {
-        await prisma.kennelAlias.create({ data: { kennelId, alias: externalSlug } });
-      } catch (e: unknown) {
-        // P2002 = unique constraint violation — alias already exists, safe to ignore
-        if (!isUniqueConstraintViolation(e)) throw e;
-      }
-    }
-  }
-  if (!hashRegoSourceId) return false;
-  await prisma.sourceKennel.upsert({
-    where: { sourceId_kennelId: { sourceId: hashRegoSourceId, kennelId } },
-    update: { externalSlug },
-    create: { sourceId: hashRegoSourceId, kennelId, externalSlug },
-  });
-  return true;
-}
 const AUTO_MATCH_THRESHOLD = 0.95;
 const CANDIDATE_THRESHOLD = 0.6;
 
@@ -227,24 +192,15 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
   }
 
   // Step 2: Load existing discoveries to identify terminal slugs (ADDED,
-  // LINKED, DISMISSED, MATCHED) which skip re-scoring. matchedKennelId is
-  // needed for the MATCHED self-healing guard (re-link if SourceKennel row
-  // was manually removed).
+  // LINKED, DISMISSED, MATCHED) which skip re-scoring.
   const existingDiscoveries = await prisma.kennelDiscovery.findMany({
     where: { externalSource: EXTERNAL_SOURCE },
-    select: { externalSlug: true, status: true, matchedKennelId: true },
+    select: { externalSlug: true, status: true },
   });
 
   const discoveryPrevMap = new Map(
     existingDiscoveries.map((d) => [d.externalSlug, d.status]),
   );
-  // Separate lookup for MATCHED discoveries that may need SourceKennel re-link.
-  const matchedKennelIds = new Map(
-    existingDiscoveries
-      .filter((d) => d.status === "MATCHED" && d.matchedKennelId)
-      .map((d) => [d.externalSlug, d.matchedKennelId!]),
-  );
-
   // Step 3: Split slugs — only fetch API profiles for non-terminal discoveries
   const terminalStatuses = new Set(["ADDED", "LINKED", "DISMISSED"]);
   const activeSlugs = discovered
@@ -258,25 +214,15 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
   ]);
   enriched = profiles.size;
 
-  // Look up HASHREGO source once so auto-matches can create SourceKennel rows.
-  const hashRegoSource = await prisma.source.findFirst({
-    where: { type: "HASHREGO" },
-    select: { id: true },
-  });
-  const hashRegoSourceId = hashRegoSource?.id ?? null;
-
   // Step 5: Process each discovered kennel
   const syncTimestamp = new Date();
   for (const kennel of discovered) {
     try {
       const profile = profiles.get(kennel.slug);
       const existingStatus = discoveryPrevMap.get(kennel.slug);
-      // MATCHED is semi-terminal: once a discovery auto-matches above 0.95
-      // and creates a SourceKennel link, subsequent syncs must NOT re-score
-      // it. Fuzzy scores naturally fluctuate near the threshold as the
-      // candidate pool evolves, causing MATCHED↔NEW flip-flops that delete
-      // and recreate SourceKennel rows every cycle. Only explicit admin
-      // actions (dismiss, confirm, unlink) should change the state.
+      // MATCHED is semi-terminal: once a discovery scores 0.95 or more,
+      // later syncs don't re-score it, so the suggestion an admin sees stays
+      // stable. Only explicit admin actions (confirm, link, dismiss) change it.
       const isTerminal = existingStatus === "ADDED" ||
         existingStatus === "LINKED" || existingStatus === "DISMISSED" ||
         existingStatus === "MATCHED";
@@ -288,23 +234,6 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
 
       if (isTerminal) {
         await updateTerminalDiscovery(kennel, profile, schedule, profileData, syncTimestamp);
-        // Self-healing: if a MATCHED discovery's SourceKennel row was
-        // manually removed (or the initial match happened when the HASHREGO
-        // source didn't exist), re-create it. The upsert is a no-op when the
-        // row already exists, so this is safe to call unconditionally.
-        const matchedKennelId = matchedKennelIds.get(kennel.slug);
-        if (existingStatus === "MATCHED" && matchedKennelId && hashRegoSourceId) {
-          try {
-            await linkDiscoveryKennelToHashRego(
-              matchedKennelId,
-              kennel.slug,
-              hashRegoSourceId,
-              { createAlias: false },
-            );
-          } catch (err) {
-            errors.push(`Error re-linking ${kennel.slug}: ${err}`);
-          }
-        }
         updated++;
         continue;
       }
@@ -347,21 +276,6 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
       } else {
         newKennels++;
         if (match.status === "MATCHED") autoMatched++;
-      }
-
-      if (match.status === "MATCHED" && match.matchedKennelId) {
-        try {
-          // Auto-match: SourceKennel only (source-scoped). Aliases are global
-          // and must wait for explicit admin confirmation via confirmMatch.
-          await linkDiscoveryKennelToHashRego(
-            match.matchedKennelId,
-            kennel.slug,
-            hashRegoSourceId,
-            { createAlias: false },
-          );
-        } catch (err) {
-          errors.push(`Error linking ${kennel.slug} to HASHREGO source: ${err}`);
-        }
       }
     } catch (err) {
       errors.push(`Error processing ${kennel.slug}: ${err}`);

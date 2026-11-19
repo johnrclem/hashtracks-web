@@ -87,6 +87,7 @@ const fakeAdmin = { id: "admin-1" };
 
 const fakeDiscovery = {
   id: "disc-1",
+  externalSource: "HASHREGO",
   externalSlug: "NewH3",
   name: "New Hash House Harriers",
   status: "NEW",
@@ -126,48 +127,24 @@ describe("linkDiscoveryToKennel", () => {
     mockDiscoveryFind.mockResolvedValue(fakeDiscovery as never);
     mockKennelFind.mockResolvedValue(fakeKennel as never);
     mockDiscoveryUpdate.mockResolvedValue({} as never);
-    mockSourceFind.mockResolvedValue(fakeHashRegoSource as never);
-    mockSourceKennelUpsert.mockResolvedValue({} as never);
   });
 
-  it("upserts SourceKennel with externalSlug", async () => {
+  it("records identity only: row LINKED, no scrape link, no alias", async () => {
     const result = await linkDiscoveryToKennel("disc-1", "kennel-1");
     expect(result).toEqual({ success: true });
 
-    // SourceKennel upserted with externalSlug
-    expect(mockSourceKennelUpsert).toHaveBeenCalledWith({
-      where: { sourceId_kennelId: { sourceId: "src-hr", kennelId: "kennel-1" } },
-      update: { externalSlug: "NewH3" },
-      create: { sourceId: "src-hr", kennelId: "kennel-1", externalSlug: "NewH3" },
+    expect(mockDiscoveryUpdate).toHaveBeenCalledWith({
+      where: { id: "disc-1" },
+      data: expect.objectContaining({ status: "LINKED", matchedKennelId: "kennel-1", processedBy: "admin-1" }),
     });
-  });
-
-  it("creates KennelAlias when slug differs from kennel shortName", async () => {
-    // fakeDiscovery.externalSlug = "NewH3", fakeKennel.shortName = "ExistingH3"
-    await linkDiscoveryToKennel("disc-1", "kennel-1");
-    expect(mockKennelAliasCreate).toHaveBeenCalledWith({
-      data: { kennelId: "kennel-1", alias: "NewH3" },
-    });
-  });
-
-  it("does not create KennelAlias when slug matches kennel shortName", async () => {
-    mockKennelFind.mockResolvedValue({ id: "kennel-1", shortName: "NewH3" } as never);
-    await linkDiscoveryToKennel("disc-1", "kennel-1");
+    expect(mockSourceKennelUpsert).not.toHaveBeenCalled();
     expect(mockKennelAliasCreate).not.toHaveBeenCalled();
   });
 
-  it("handles duplicate SourceKennel via upsert (no P2002)", async () => {
-    // upsert is idempotent — no error even if record exists
-    const result = await linkDiscoveryToKennel("disc-1", "kennel-1");
-    expect(result).toEqual({ success: true });
-  });
-
-  it("is a no-op if no HASHREGO source exists", async () => {
-    mockSourceFind.mockResolvedValue(null as never);
-
-    const result = await linkDiscoveryToKennel("disc-1", "kennel-1");
-    expect(result).toEqual({ success: true });
-    expect(mockSourceKennelUpsert).not.toHaveBeenCalled();
+  it("refuses an unknown kennel", async () => {
+    mockKennelFind.mockResolvedValue(null as never);
+    expect(await linkDiscoveryToKennel("disc-1", "nope")).toEqual({ error: "Kennel not found" });
+    expect(mockDiscoveryUpdate).not.toHaveBeenCalled();
   });
 });
 
@@ -176,11 +153,9 @@ describe("linkDiscoveryToKennel", () => {
 describe("addKennelFromDiscovery", () => {
   beforeEach(() => {
     mockDiscoveryFind.mockResolvedValue(fakeDiscovery as never);
-    mockSourceFind.mockResolvedValue(fakeHashRegoSource as never);
-    mockSourceKennelUpsert.mockResolvedValue({} as never);
   });
 
-  it("links new kennel to Hash Rego source after creation", async () => {
+  it("creates the kennel without linking it to the Hash Rego scraper", async () => {
     const result = await addKennelFromDiscovery("disc-1", {
       shortName: "NewH3",
       fullName: "New Hash House Harriers",
@@ -188,42 +163,7 @@ describe("addKennelFromDiscovery", () => {
     });
 
     expect(result).toEqual({ success: true, kennelId: "new-kennel-1" });
-
-    // Should have linked to Hash Rego source with the new kennel ID
-    expect(mockSourceFind).toHaveBeenCalledWith({
-      where: { type: "HASHREGO" },
-      select: { id: true },
-    });
-    expect(mockSourceKennelUpsert).toHaveBeenCalledWith({
-      where: { sourceId_kennelId: { sourceId: "src-hr", kennelId: "new-kennel-1" } },
-      update: { externalSlug: "NewH3" },
-      create: { sourceId: "src-hr", kennelId: "new-kennel-1", externalSlug: "NewH3" },
-    });
-  });
-
-  it("succeeds even if source linking throws", async () => {
-    mockSourceFind.mockRejectedValue(new Error("DB timeout"));
-
-    const result = await addKennelFromDiscovery("disc-1", {
-      shortName: "NewH3",
-      fullName: "New Hash House Harriers",
-      regionId: "region-1",
-    });
-
-    // Kennel creation succeeded despite linking failure
-    expect(result).toEqual({ success: true, kennelId: "new-kennel-1" });
-  });
-
-  it("is a no-op for source linking if no HASHREGO source", async () => {
-    mockSourceFind.mockResolvedValue(null as never);
-
-    const result = await addKennelFromDiscovery("disc-1", {
-      shortName: "NewH3",
-      fullName: "New Hash House Harriers",
-      regionId: "region-1",
-    });
-
-    expect(result).toEqual({ success: true, kennelId: "new-kennel-1" });
+    expect(mockSourceFind).not.toHaveBeenCalled();
     expect(mockSourceKennelUpsert).not.toHaveBeenCalled();
   });
 });
@@ -233,37 +173,18 @@ describe("addKennelFromDiscovery", () => {
 describe("confirmMatch", () => {
   beforeEach(() => {
     mockDiscoveryFind.mockResolvedValue(fakeMatchedDiscovery as never);
-    mockKennelFind.mockResolvedValue(fakeKennel as never);
     mockDiscoveryUpdate.mockResolvedValue({} as never);
-    mockSourceFind.mockResolvedValue(fakeHashRegoSource as never);
-    mockSourceKennelUpsert.mockResolvedValue({} as never);
   });
 
-  it("links matched kennel to Hash Rego source on confirm", async () => {
+  it("marks the suggestion LINKED without a scrape link or alias", async () => {
     const result = await confirmMatch("disc-2");
     expect(result).toEqual({ success: true });
 
-    expect(mockSourceFind).toHaveBeenCalledWith({
-      where: { type: "HASHREGO" },
-      select: { id: true },
+    expect(mockDiscoveryUpdate).toHaveBeenCalledWith({
+      where: { id: "disc-2" },
+      data: expect.objectContaining({ status: "LINKED" }),
     });
-    expect(mockSourceKennelUpsert).toHaveBeenCalledWith({
-      where: { sourceId_kennelId: { sourceId: "src-hr", kennelId: "kennel-1" } },
-      update: { externalSlug: "NewH3" },
-      create: { sourceId: "src-hr", kennelId: "kennel-1", externalSlug: "NewH3" },
-    });
-  });
-
-  it("creates KennelAlias when confirming a slug that differs from shortName", async () => {
-    await confirmMatch("disc-2");
-    expect(mockKennelAliasCreate).toHaveBeenCalledWith({
-      data: { kennelId: "kennel-1", alias: "NewH3" },
-    });
-  });
-
-  it("does not create KennelAlias when confirmed slug matches shortName", async () => {
-    mockKennelFind.mockResolvedValue({ id: "kennel-1", shortName: "NewH3" } as never);
-    await confirmMatch("disc-2");
+    expect(mockSourceKennelUpsert).not.toHaveBeenCalled();
     expect(mockKennelAliasCreate).not.toHaveBeenCalled();
   });
 
@@ -275,8 +196,7 @@ describe("confirmMatch", () => {
 
     const result = await confirmMatch("disc-2");
     expect(result).toEqual({ error: "Can only confirm MATCHED discoveries" });
-
-    expect(mockSourceFind).not.toHaveBeenCalled();
+    expect(mockDiscoveryUpdate).not.toHaveBeenCalled();
   });
 
   it("handles missing matched kennel ID", async () => {
@@ -295,79 +215,57 @@ describe("confirmMatch", () => {
 describe("dismissDiscovery", () => {
   beforeEach(() => {
     mockDiscoveryUpdate.mockResolvedValue({} as never);
-    mockSourceFind.mockResolvedValue(fakeHashRegoSource as never);
-    mockSourceKennelDeleteMany.mockResolvedValue({ count: 1 } as never);
   });
 
-  it("deletes stale SourceKennel when dismissing a MATCHED discovery", async () => {
-    mockDiscoveryFind.mockResolvedValue({
-      status: "MATCHED",
-      matchedKennelId: "kennel-1",
-    } as never);
+  it("only reviews the row: a scraped account keeps its link", async () => {
+    mockDiscoveryFind.mockResolvedValue({ externalSource: "HASHREGO" } as never);
 
     const result = await dismissDiscovery("disc-2");
     expect(result).toEqual({ success: true });
-
-    expect(mockSourceKennelDeleteMany).toHaveBeenCalledWith({
-      where: { sourceId: "src-hr", kennelId: "kennel-1" },
+    expect(mockDiscoveryUpdate).toHaveBeenCalledWith({
+      where: { id: "disc-2" },
+      data: expect.objectContaining({ status: "DISMISSED", processedBy: "admin-1" }),
     });
-  });
-
-  it("does NOT delete SourceKennel when dismissing a LINKED discovery", async () => {
-    // Admin-confirmed links must survive a later dismissal — the scraper
-    // routing stays in place and only the discovery row flips.
-    mockDiscoveryFind.mockResolvedValue({
-      status: "LINKED",
-      matchedKennelId: "kennel-1",
-    } as never);
-
-    await dismissDiscovery("disc-3");
     expect(mockSourceKennelDeleteMany).not.toHaveBeenCalled();
   });
 
-  it("does NOT delete SourceKennel when dismissing a NEW discovery", async () => {
-    mockDiscoveryFind.mockResolvedValue({
-      status: "NEW",
-      matchedKennelId: null,
-    } as never);
-
-    await dismissDiscovery("disc-4");
-    expect(mockSourceKennelDeleteMany).not.toHaveBeenCalled();
+  it("returns an error for a missing row", async () => {
+    mockDiscoveryFind.mockResolvedValue(null as never);
+    expect(await dismissDiscovery("gone")).toEqual({ error: "Discovery not found" });
   });
 });
 
 // ---- bulkDismissDiscoveries ----
 
 describe("bulkDismissDiscoveries", () => {
-  beforeEach(() => {
-    mockDiscoveryUpdateMany.mockResolvedValue({ count: 0 } as never);
-    mockSourceFind.mockResolvedValue(fakeHashRegoSource as never);
-    mockSourceKennelDeleteMany.mockResolvedValue({ count: 0 } as never);
-  });
+  it("dismisses the rows without touching scrape links", async () => {
+    mockDiscoveryUpdateMany.mockResolvedValue({ count: 2 } as never);
 
-  it("deletes SourceKennel only for MATCHED rows in a mixed batch", async () => {
-    mockDiscoveryFindMany.mockResolvedValue([
-      { status: "MATCHED", matchedKennelId: "k1" },
-      { status: "NEW", matchedKennelId: null },
-      { status: "MATCHED", matchedKennelId: "k2" },
-      { status: "LINKED", matchedKennelId: "k3" }, // admin-confirmed, preserved
-    ] as never);
-
-    await bulkDismissDiscoveries(["a", "b", "c", "d"]);
-
-    expect(mockSourceKennelDeleteMany).toHaveBeenCalledWith({
-      where: { sourceId: "src-hr", kennelId: { in: ["k1", "k2"] } },
-    });
-  });
-
-  it("skips SourceKennel delete when no MATCHED rows in the batch", async () => {
-    mockDiscoveryFindMany.mockResolvedValue([
-      { status: "NEW", matchedKennelId: null },
-      { status: "LINKED", matchedKennelId: "k1" },
-    ] as never);
-
-    await bulkDismissDiscoveries(["a", "b"]);
+    expect(await bulkDismissDiscoveries(["a", "b"])).toEqual({ success: true });
+    expect(mockDiscoveryUpdateMany).toHaveBeenCalledTimes(1);
     expect(mockSourceKennelDeleteMany).not.toHaveBeenCalled();
+  });
+});
+
+// ---- Gemini rows are research suggestions, not Hash Rego accounts ----
+
+describe("Hash Rego actions refuse Gemini rows", () => {
+  const geminiRow = { ...fakeMatchedDiscovery, externalSource: "GEMINI", externalSlug: "black-sheep-hhh" };
+  beforeEach(() => mockDiscoveryFind.mockResolvedValue(geminiRow as never));
+  const refusal = { error: expect.stringContaining("Hash Rego rows only") };
+
+  it("linkDiscoveryToKennel refuses", async () => {
+    expect(await linkDiscoveryToKennel("disc-2", "kennel-1")).toEqual(refusal);
+  });
+  it("confirmMatch refuses", async () => {
+    expect(await confirmMatch("disc-2")).toEqual(refusal);
+  });
+  it("addKennelFromDiscovery refuses", async () => {
+    expect(await addKennelFromDiscovery("disc-2", { shortName: "B", fullName: "B", regionId: "r" })).toEqual(refusal);
+  });
+  it("getDiscoveryPrefill refuses", async () => {
+    vi.mocked(prisma.region.findMany).mockResolvedValue([] as never);
+    expect(await getDiscoveryPrefill("disc-2")).toEqual(refusal);
   });
 });
 

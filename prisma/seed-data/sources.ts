@@ -1343,13 +1343,33 @@ export const SOURCES = [
       // #2501 — Pinelake has no Hash Rego account; its joint trails with AH4 come
       // from the shared "AH4_PLH3" account, filed under ph3-atl like the Atlanta
       // Hash Board does (host-name alias in aliases.ts).
-      kennelCodes: ["bfm", "ewh3", "wh4", "gfh3", "ch3", "dch4", "dcfmh3", "flour-city", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm", "mosh3", "tkdh3", "ph3-atl", "t3h3-va"],
+      //
+      // Hash Rego link repair (docs/kennel-directory-mapping-review.md, R1):
+      // this map is THE list of scraped Hash Rego accounts. The discovery page
+      // records identity only and never adds or changes a link, and the seed
+      // prunes any link not listed here, so every scraped account belongs here.
+      // - ch3 is "ChiH3": Hash Rego's "CH3" is Charlotte, NC.
+      // - gfh3 is gone: Hash Rego's "GFH3" is Great Falls, MT, not Virginia
+      //   (kennel hidden by migration 20261119000000_hashrego_link_repair).
+      // - philly-h3 is "PhillyH3" (Philadelphia Hash House Harriers), not the
+      //   "Philly Events" account.
+      // - The rest of the second block were linked in prod by discovery
+      //   auto-matches and verified 2026-11-18; listing them here keeps a
+      //   reseed from deleting them.
+      kennelCodes: [
+        "bfm", "ewh3", "wh4", "ch3", "dch4", "dcfmh3", "flour-city", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm", "mosh3", "tkdh3", "ph3-atl", "t3h3-va",
+        "noh3", "sch3-atl", "mh3-wv", "chh3", "philly-h3", "gh3-gd", "hch3", "hellgate-h3", "hoboh3", "hoth3", "mobh3", "oxford-h3", "sembach-h3", "sgh3", "ssh3-wa", "sbh3-ph", "blhhh", "dsmh3", "vbfmh3",
+      ],
       kennelSlugMap: {
-        bfm: "BFMH3", ewh3: "EWH3", wh4: "WH4", gfh3: "GFH3",
-        ch3: "CH3", dch4: "DCH4", dcfmh3: "DCFMH3", "flour-city": "FCH3", oh3: "OregonH3",
+        bfm: "BFMH3", ewh3: "EWH3", wh4: "WH4",
+        ch3: "ChiH3", dch4: "DCH4", dcfmh3: "DCFMH3", "flour-city": "FCH3", oh3: "OregonH3",
         wsh3: "WSH3", mrh3: "MRH3", bfh3: "BFH3", moa2h3: "MoA2H3",
         nych3: "NYCH3", ggfm: "GGFMH3", mosh3: "MoSH3", tkdh3: "TKDH3",
         "ph3-atl": "AH4_PLH3", "t3h3-va": "T3H3",
+        noh3: "NOH3", "sch3-atl": "SoCoH3", "mh3-wv": "MOTOWNH3", chh3: "CHH3", "philly-h3": "PhillyH3",
+        "gh3-gd": "GndH3", hch3: "HCH3", "hellgate-h3": "HellgateH3", hoboh3: "HOBO", hoth3: "HOTH3",
+        mobh3: "MOBH3", "oxford-h3": "OxfordH3", "sembach-h3": "SembachH3", sgh3: "SHH3", "ssh3-wa": "SouthH3",
+        "sbh3-ph": "SubicH3", blhhh: "TBLH3", dsmh3: "DSMH3", vbfmh3: "VBFMH3",
       },
       // Per-day kennel attribution config (PR D.5). Patterns matched
       // against each day's section text in a multi-day event's
