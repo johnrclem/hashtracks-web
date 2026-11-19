@@ -89,7 +89,7 @@ async function autoResolveIfAllTagsMatched(
 
   const known = (tag: string) => byKennelCode.has(tag) || byShortName.has(tag) || byAlias.has(tag);
   const mappedTags = await Promise.all(
-    normalizedTags.map((tag) => (known(tag) ? null : mapKennelTagForSource(tag, sourceId))),
+    normalizedTags.map(async (tag) => (known(tag) ? null : mapKennelTagForSource(tag, sourceId))),
   );
   const remaining = normalizedTags.filter((tag, i) => {
     if (known(tag)) return false;
@@ -425,7 +425,7 @@ export async function linkKennelToSource(
         byKennelCode.get(tag) ?? byShortName.get(tag) ?? byAlias.get(tag);
 
       const mappedTags = await Promise.all(
-        normalizedTags.map((tag) => (lookup(tag) ? null : mapKennelTagForSource(tag, alert.sourceId))),
+        normalizedTags.map(async (tag) => (lookup(tag) ? null : mapKennelTagForSource(tag, alert.sourceId))),
       );
       const remaining = normalizedTags.filter((tag, i) => {
         const direct = lookup(tag);

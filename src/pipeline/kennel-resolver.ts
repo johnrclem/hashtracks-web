@@ -45,13 +45,13 @@ export function clearResolverCache() {
 function toOutcome(rows: KennelRow[]): StepOutcome {
   if (rows.length === 0) return null;
   if (rows.length === 1) return { kind: "hit", kennelId: rows[0].id };
-  return { kind: "ambiguous", candidates: rows.map((r) => r.kennelCode).sort() };
+  return { kind: "ambiguous", candidates: rows.map((r) => r.kennelCode).sort((a, b) => a.localeCompare(b)) };
 }
 
 const KENNEL_SELECT = { id: true, kennelCode: true } as const;
 
 /** Find up to two kennels for a field match; two means ambiguous. */
-async function findKennels(
+function findKennels(
   field: "kennelCode" | "shortName" | "fullName",
   value: string,
   sourceId?: string,

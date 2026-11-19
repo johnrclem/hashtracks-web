@@ -13,8 +13,8 @@ SET config = jsonb_set(
   '{kennelPatterns}',
   COALESCE(config->'kennelPatterns', '[]'::jsonb) || '[["^Ben Franklin Mob\\b", "bfm"]]'::jsonb
 )
+-- Matched on type, not name: prod has exactly one HASHREGO source.
 WHERE type = 'HASHREGO'
-  AND name = 'Hash Rego'
   AND config IS NOT NULL
   AND NOT (COALESCE(config->'kennelPatterns', '[]'::jsonb) @> '[["^Ben Franklin Mob\\b", "bfm"]]'::jsonb);
 
