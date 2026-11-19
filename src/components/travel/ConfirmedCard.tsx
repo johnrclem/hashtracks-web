@@ -70,6 +70,20 @@ interface ConfirmedCardProps {
   };
 }
 
+
+/**
+ * The headline names run `n` as "#n", not as the start of a longer number (`#283` isn't `#2832`).
+ * Many adapters bake the run number into the title, so the pill would repeat it.
+ */
+export function namesRun(headline: string, n: number): boolean {
+  const token = `#${n}`;
+  for (let at = headline.indexOf(token); at !== -1; at = headline.indexOf(token, at + 1)) {
+    const next = headline.charAt(at + token.length);
+    if (next < "0" || next > "9") return true;
+  }
+  return false;
+}
+
 export function ConfirmedCard({ result }: ConfirmedCardProps) {
   const router = useRouter();
   const { tempUnit } = useUnitsPreference();
@@ -185,12 +199,8 @@ export function ConfirmedCard({ result }: ConfirmedCardProps) {
             {result.kennelRegion && (
               <RegionBadge region={result.kennelRegion} size="sm" />
             )}
-            {/* Suppress when the headline already names the run (e.g.
-                "London Hash Run #2832"). Many adapters bake the run
-                number into the title, so showing it again as a pill is
-                visual noise. The pill stays for sources whose titles
-                use a different pattern (or none at all). */}
-            {result.runNumber && !headline.includes(`#${result.runNumber}`) && (
+            {/* No pill when the headline already names this run. */}
+            {result.runNumber && !namesRun(headline, result.runNumber) && (
               <span className="flex-shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground/50">
                 #{result.runNumber}
               </span>
