@@ -658,7 +658,7 @@ function DiscoveryRow({
               Scraped
             </Badge>
           )}
-          {d.externalStatus === "missing" && (
+          {d.externalSource === "HASHREGO" && d.externalStatus === "missing" && (
             <Badge
               variant="destructive"
               className="text-xs"

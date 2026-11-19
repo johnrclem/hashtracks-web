@@ -727,6 +727,9 @@ async function repointDirectoryIdentity(
   source: { id: string; halfMindListingId: string | null },
   target: { id: string; halfMindListingId: string | null },
 ): Promise<void> {
+  // The listing the target holds after the merge. With none on either kennel,
+  // every LINKED/ADDED Half-Mind row is a link without a listing behind it, so
+  // all of them become suggestions.
   const targetListing = target.halfMindListingId ?? source.halfMindListingId;
   if (source.halfMindListingId) {
     await tx.kennel.update({ where: { id: source.id }, data: { halfMindListingId: null } });

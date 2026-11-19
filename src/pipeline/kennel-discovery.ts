@@ -155,6 +155,8 @@ const CONFIRMED_STATUSES = new Set(["LINKED", "ADDED"]);
  * likely a partial page than that many kennels leaving: flag none and report it.
  */
 const MAX_MISSING_SHARE = 0.25;
+/** The share guard applies only above this many missing accounts, so one leaving a small set is still flagged. */
+const MIN_MISSING_FOR_GUARD = 2;
 
 /**
  * Fetch the Hash Rego kennel directory, enrich with API profile data,
@@ -313,7 +315,9 @@ export async function syncKennelDiscovery(): Promise<DiscoverySyncResult> {
  * /admin/discovery. Never changes a link or a status; a later read that lists
  * the account again clears the flag. Only called after a complete read (the
  * page fetched and parsed to at least one kennel), and skipped when the read
- * drops more than MAX_MISSING_SHARE of the confirmed accounts.
+ * drops more than MAX_MISSING_SHARE of the confirmed accounts (and at least
+ * MIN_MISSING_FOR_GUARD of them). Until a read lists enough of them again, each
+ * sync repeats that error and flags no new rows; earlier flags stay.
  */
 async function flagMissingAccounts(
   discovered: DiscoveredKennel[],
@@ -323,7 +327,7 @@ async function flagMissingAccounts(
   const listed = new Set(discovered.map((k) => k.slug.toUpperCase()));
   const confirmed = existing.filter((d) => CONFIRMED_STATUSES.has(d.status));
   const gone = confirmed.filter((d) => !listed.has(d.externalSlug.toUpperCase()));
-  if (gone.length > confirmed.length * MAX_MISSING_SHARE) {
+  if (gone.length >= MIN_MISSING_FOR_GUARD && gone.length > confirmed.length * MAX_MISSING_SHARE) {
     errors.push(
       `Directory read lists ${confirmed.length - gone.length} of ${confirmed.length} confirmed accounts; not flagging ${gone.length} as missing (likely a partial page)`,
     );

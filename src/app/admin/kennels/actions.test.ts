@@ -661,6 +661,20 @@ describe("mergeKennels", () => {
     }));
   });
 
+  it("turns every Half-Mind link into a suggestion when neither kennel holds a listing", async () => {
+    const tx = setupMerge();
+    expect(await mergeKennels("src", "tgt", false)).toEqual({ success: true });
+    expect(tx.kennelDiscovery.updateMany).toHaveBeenCalledWith({
+      where: {
+        matchedKennelId: "src",
+        externalSource: "HALFMIND",
+        status: { in: ["LINKED", "ADDED"] },
+        NOT: undefined,
+      },
+      data: { matchedKennelId: "tgt", status: "MATCHED" },
+    });
+  });
+
   it("gives the target the merged kennel's Hash Rego slug when its own link has none", async () => {
     setupMerge();
     vi.mocked(prisma.sourceKennel.findMany).mockResolvedValue([{ sourceId: "hr", externalSlug: "NOH3" }] as never);

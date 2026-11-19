@@ -353,6 +353,18 @@ describe("syncKennelDiscovery", () => {
       expect(result.errors[0]).toMatch(/not flagging 7 as missing/);
     });
 
+    it("still flags a single missing account in a small set", async () => {
+      vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue(confirmedRows(2) as never);
+      vi.mocked(parseKennelDirectory).mockReturnValue([buildDiscovered({ slug: "K0" })]);
+
+      const result = await syncKennelDiscovery();
+      expect(prisma.kennelDiscovery.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ["d1"] } },
+        data: { externalStatus: "missing" },
+      });
+      expect(result.flaggedMissing).toBe(1);
+    });
+
     it("flags nothing when the directory read is not complete", async () => {
       vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue(confirmedRows(3) as never);
       vi.mocked(parseKennelDirectory).mockReturnValue([]);
