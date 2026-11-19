@@ -423,61 +423,25 @@ export async function scrapeSource(
 
     const adapter = getAdapter(source.type, source.url, source.config as Record<string, unknown> | null);
 
-    // For HASHREGO, load SourceKennel externalSlugs and pass to adapter.
-    // Falls back to KennelDiscovery matched slugs (scoped to linked kennels) if SourceKennel has none.
+    // For HASHREGO, the scraped accounts are the SourceKennel externalSlugs
+    // (set by the seed's kennelSlugMap). Discovery rows record identity only and
+    // are never a fallback: with no slugs the adapter fails loudly instead.
     // Also capture kennel IDs to scope reconciliation to scraped kennels only.
     let kennelSlugs: string[] | undefined;
     let scrapedKennelIds: string[] | undefined;
     let kennelIdsBySlug = new Map<string, string[]>();
     if (source.type === "HASHREGO") {
       const sks = await prisma.sourceKennel.findMany({
-        where: { sourceId },
+        where: { sourceId, externalSlug: { not: null } },
         select: { externalSlug: true, kennelId: true },
         orderBy: { externalSlug: "asc" },
       });
-      const dbSlugs = sks
-        .map((sk) => sk.externalSlug)
-        .filter((slug): slug is string => slug !== null);
-
-      if (dbSlugs.length > 0) {
-        kennelSlugs = dbSlugs;
-        scrapedKennelIds = sks
-          .filter((sk) => sk.externalSlug !== null)
-          .map((sk) => sk.kennelId);
-        kennelIdsBySlug = indexKennelsBySlug(
-          sks.map((sk) => ({ slug: sk.externalSlug, kennelId: sk.kennelId })),
-        );
-      } else {
-        // Safety fallback: use KennelDiscovery matched slugs scoped to linked kennels
-        const linkedKennelIds = sks.map((sk) => sk.kennelId);
-        if (linkedKennelIds.length > 0) {
-          const discoveries = await prisma.kennelDiscovery.findMany({
-            where: {
-              externalSource: "HASHREGO",
-              matchedKennelId: { in: linkedKennelIds },
-            },
-            select: { externalSlug: true, matchedKennelId: true },
-          });
-          const slugSet = new Set<string>();
-          const kennelIdSet = new Set<string>();
-          for (const d of discoveries) {
-            slugSet.add(d.externalSlug as string);
-            if (d.matchedKennelId != null) {
-              kennelIdSet.add(d.matchedKennelId);
-            }
-          }
-          if (slugSet.size > 0) {
-            console.warn(
-              `[scrape] HASHREGO: 0 SourceKennel slugs, falling back to ${slugSet.size} KennelDiscovery slugs`,
-            );
-            kennelSlugs = Array.from(slugSet);
-            scrapedKennelIds = Array.from(kennelIdSet);
-            kennelIdsBySlug = indexKennelsBySlug(
-              discoveries.map((d) => ({ slug: d.externalSlug, kennelId: d.matchedKennelId })),
-            );
-          }
-        }
-      }
+      const slugged = sks.filter((sk): sk is { externalSlug: string; kennelId: string } => !!sk.externalSlug);
+      kennelSlugs = slugged.map((sk) => sk.externalSlug);
+      scrapedKennelIds = slugged.map((sk) => sk.kennelId);
+      kennelIdsBySlug = indexKennelsBySlug(
+        slugged.map((sk) => ({ slug: sk.externalSlug, kennelId: sk.kennelId })),
+      );
     }
 
     // Config-driven slug-map sources (HashStats) scope their fetch to the

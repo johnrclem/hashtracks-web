@@ -3,34 +3,49 @@
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import {
-  syncKennelDiscovery,
-  linkDiscoveryKennelToHashRego,
-} from "@/pipeline/kennel-discovery";
-import { clearResolverCache } from "@/pipeline/kennel-resolver";
+import { syncKennelDiscovery } from "@/pipeline/kennel-discovery";
 import { normalizeTrailDay } from "@/adapters/hashrego/kennel-api";
 import { createKennelFromDiscovery } from "@/app/admin/shared/kennel-creation";
 import { HALF_MIND_EXTERNAL_SOURCE } from "@/lib/half-mind";
 import { dismissHalfMindListing } from "@/app/admin/discovery/half-mind-actions";
 
 /**
- * Half-Mind rows have their own actions (half-mind-actions.ts): these Hash Rego
- * actions would write a global alias from the numeric listing id and a Hash
- * Rego SourceKennel.
+ * These actions record identity only: "this Hash Rego account is that kennel".
+ * They never write a SourceKennel (what the HASHREGO scraper fetches is set by
+ * the seed's `kennelSlugMap` or a data migration) and never turn a Hash Rego
+ * slug into a global alias. Half-Mind rows have their own actions
+ * (half-mind-actions.ts); Gemini rows come from Source Research.
  */
+const HASH_REGO_SOURCE = "HASHREGO";
 const HALF_MIND_ROW_ERROR = "Use the Half-Mind actions for Half-Mind rows.";
+const NOT_HASH_REGO_ERROR = "This action is for Hash Rego rows only. Add research suggestions from Source Research.";
 
 function isHalfMindRow(discovery: { externalSource: string }): boolean {
   return discovery.externalSource === HALF_MIND_EXTERNAL_SOURCE;
 }
 
-/** Look up the HASHREGO source id (null if none configured). */
-async function getHashRegoSourceId(): Promise<string | null> {
-  const source = await prisma.source.findFirst({
-    where: { type: "HASHREGO" },
-    select: { id: true },
+/** Why a Hash Rego-only action refuses this row, or null when it may proceed. */
+function hashRegoOnlyRefusal(discovery: { externalSource: string }): string | null {
+  if (isHalfMindRow(discovery)) return HALF_MIND_ROW_ERROR;
+  if (discovery.externalSource !== HASH_REGO_SOURCE) return NOT_HASH_REGO_ERROR;
+  return null;
+}
+
+/**
+ * Stop scraping dismissed Hash Rego accounts: delete the HASHREGO SourceKennel
+ * rows whose slug is one of `slugs` (case-insensitive). A kennel's link to a
+ * different account is left alone.
+ */
+async function unlinkScrapedSlugs(slugs: string[]): Promise<void> {
+  if (slugs.length === 0) return;
+  const source = await prisma.source.findFirst({ where: { type: "HASHREGO" }, select: { id: true } });
+  if (!source) return;
+  await prisma.sourceKennel.deleteMany({
+    where: {
+      sourceId: source.id,
+      OR: slugs.map((slug) => ({ externalSlug: { equals: slug, mode: "insensitive" as const } })),
+    },
   });
-  return source?.id ?? null;
 }
 
 /** Run a full discovery sync: parse directory → enrich via API → fuzzy match → upsert. */
@@ -51,7 +66,7 @@ export async function runDiscoverySync() {
   }
 }
 
-/** Link a discovery to an existing kennel. Creates alias if slug differs from shortName. */
+/** Record that a Hash Rego account is an existing kennel (identity only; doesn't start scraping). */
 export async function linkDiscoveryToKennel(discoveryId: string, kennelId: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
@@ -60,17 +75,14 @@ export async function linkDiscoveryToKennel(discoveryId: string, kennelId: strin
     where: { id: discoveryId },
   });
   if (!discovery) return { error: "Discovery not found" };
-  if (isHalfMindRow(discovery)) return { error: HALF_MIND_ROW_ERROR };
+  const refusal = hashRegoOnlyRefusal(discovery);
+  if (refusal) return { error: refusal };
 
   const kennel = await prisma.kennel.findUnique({
     where: { id: kennelId },
-    select: { id: true, shortName: true },
+    select: { id: true },
   });
   if (!kennel) return { error: "Kennel not found" };
-
-  const hashRegoSourceId = await getHashRegoSourceId();
-  await linkDiscoveryKennelToHashRego(kennelId, discovery.externalSlug, hashRegoSourceId);
-  clearResolverCache();
 
   await prisma.kennelDiscovery.update({
     where: { id: discoveryId },
@@ -83,11 +95,10 @@ export async function linkDiscoveryToKennel(discoveryId: string, kennelId: strin
   });
 
   revalidatePath("/admin/discovery");
-  revalidatePath("/admin/sources");
   return { success: true };
 }
 
-/** Create a new kennel from discovery data with profile pre-fill. */
+/** Create a new kennel from discovery data with profile pre-fill (doesn't start scraping). */
 export async function addKennelFromDiscovery(
   discoveryId: string,
   data: {
@@ -111,28 +122,15 @@ export async function addKennelFromDiscovery(
     where: { id: discoveryId },
   });
   if (!discovery) return { error: "Discovery not found" };
-  if (isHalfMindRow(discovery)) return { error: HALF_MIND_ROW_ERROR };
+  const refusal = hashRegoOnlyRefusal(discovery);
+  if (refusal) return { error: refusal };
 
-  // Add the Hash Rego slug as an extra alias if it differs from shortName
-  const extraAliases: string[] = [];
-  if (discovery.externalSlug.toLowerCase() !== data.shortName.toLowerCase()) {
-    extraAliases.push(discovery.externalSlug);
-  }
-
-  const result = await createKennelFromDiscovery(discoveryId, admin.id, data, extraAliases);
+  // No alias from the Hash Rego slug: slugs like "CH3" collide across regions.
+  const result = await createKennelFromDiscovery(discoveryId, admin.id, data);
   if ("error" in result) return result;
-
-  try {
-    const hashRegoSourceId = await getHashRegoSourceId();
-    await linkDiscoveryKennelToHashRego(result.kennelId, discovery.externalSlug, hashRegoSourceId);
-  } catch (err) {
-    console.error("[discovery] Failed to link kennel to Hash Rego source:", err);
-  }
-  clearResolverCache();
 
   revalidatePath("/admin/discovery");
   revalidatePath("/admin/kennels");
-  revalidatePath("/admin/sources");
   revalidatePath("/kennels");
   return { success: true, kennelId: result.kennelId };
 }
@@ -142,22 +140,15 @@ export async function dismissDiscovery(id: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  // If this discovery was auto-linked (previous status MATCHED), drop the
-  // stale SourceKennel row so the scraper stops routing to that kennel.
-  // LINKED / ADDED rows are admin-confirmed and intentionally untouched.
+  // A dismissed Hash Rego account is no longer scraped. Only a link that holds
+  // this row's own slug is removed, never a kennel's link to another account.
   const existing = await prisma.kennelDiscovery.findUnique({
     where: { id },
-    select: { status: true, matchedKennelId: true, externalSource: true },
+    select: { externalSource: true, externalSlug: true },
   });
-  if (existing && isHalfMindRow(existing)) return dismissHalfMindListing(id);
-  if (existing?.status === "MATCHED" && existing.matchedKennelId) {
-    const hashRegoSourceId = await getHashRegoSourceId();
-    if (hashRegoSourceId) {
-      await prisma.sourceKennel.deleteMany({
-        where: { sourceId: hashRegoSourceId, kennelId: existing.matchedKennelId },
-      });
-    }
-  }
+  if (!existing) return { error: "Discovery not found" };
+  if (isHalfMindRow(existing)) return dismissHalfMindListing(id);
+  if (existing.externalSource === HASH_REGO_SOURCE) await unlinkScrapedSlugs([existing.externalSlug]);
 
   await prisma.kennelDiscovery.update({
     where: { id },
@@ -177,23 +168,12 @@ export async function bulkDismissDiscoveries(ids: string[]) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  // Same guardrail as dismissDiscovery — only strip auto-link SourceKennel
-  // rows for rows whose previous status was MATCHED.
+  // Same rule as dismissDiscovery: stop scraping exactly the dismissed accounts.
   const existing = await prisma.kennelDiscovery.findMany({
-    where: { id: { in: ids } },
-    select: { status: true, matchedKennelId: true },
+    where: { id: { in: ids }, externalSource: HASH_REGO_SOURCE },
+    select: { externalSlug: true },
   });
-  const autoLinkedKennelIds = existing
-    .filter((d) => d.status === "MATCHED" && d.matchedKennelId !== null)
-    .map((d) => d.matchedKennelId as string);
-  if (autoLinkedKennelIds.length > 0) {
-    const hashRegoSourceId = await getHashRegoSourceId();
-    if (hashRegoSourceId) {
-      await prisma.sourceKennel.deleteMany({
-        where: { sourceId: hashRegoSourceId, kennelId: { in: autoLinkedKennelIds } },
-      });
-    }
-  }
+  await unlinkScrapedSlugs(existing.map((d) => d.externalSlug));
 
   // Linked and added Half-Mind rows are undone through their own actions.
   await prisma.kennelDiscovery.updateMany({
@@ -237,7 +217,7 @@ export async function undismissDiscovery(id: string) {
   return { success: true };
 }
 
-/** Confirm an auto-matched discovery (MATCHED → LINKED). */
+/** Confirm a suggested match (MATCHED → LINKED). Identity only; doesn't start scraping. */
 export async function confirmMatch(id: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
@@ -246,17 +226,10 @@ export async function confirmMatch(id: string) {
     where: { id },
   });
   if (!discovery) return { error: "Discovery not found" };
-  if (isHalfMindRow(discovery)) return { error: HALF_MIND_ROW_ERROR };
+  const refusal = hashRegoOnlyRefusal(discovery);
+  if (refusal) return { error: refusal };
   if (discovery.status !== "MATCHED") return { error: "Can only confirm MATCHED discoveries" };
   if (!discovery.matchedKennelId) return { error: "No matched kennel" };
-
-  const hashRegoSourceId = await getHashRegoSourceId();
-  await linkDiscoveryKennelToHashRego(
-    discovery.matchedKennelId,
-    discovery.externalSlug,
-    hashRegoSourceId,
-  );
-  clearResolverCache();
 
   await prisma.kennelDiscovery.update({
     where: { id },
@@ -268,7 +241,6 @@ export async function confirmMatch(id: string) {
   });
 
   revalidatePath("/admin/discovery");
-  revalidatePath("/admin/sources");
   return { success: true };
 }
 
@@ -292,7 +264,8 @@ export async function getDiscoveryPrefill(discoveryId: string) {
     }),
   ]);
   if (!discovery) return { error: "Discovery not found" };
-  if (isHalfMindRow(discovery)) return { error: HALF_MIND_ROW_ERROR };
+  const refusal = hashRegoOnlyRefusal(discovery);
+  if (refusal) return { error: refusal };
 
   // Try to find a matching region by location string (in-memory match)
   let suggestedRegionId: string | null = null;

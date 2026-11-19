@@ -2,6 +2,7 @@
 
 import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { HASHREGO_TAG_LINK_REFUSAL } from "@/lib/hashrego-links";
 import { Prisma } from "@/generated/prisma/client";
 import type { SourceType } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
@@ -167,9 +168,14 @@ export async function updateSource(sourceId: string, formData: FormData) {
     }
   }
 
+  // Keep the links that stay, so their externalSlug (the Hash Rego account a
+  // link scrapes) survives a save; remove only the kennels taken off the form.
+  const linkedIds = new Set(current?.kennels.map((k) => k.kennelId) ?? []);
+  const newIds = [...new Set(ids)].filter((kennelId) => !linkedIds.has(kennelId));
+
   try {
     await prisma.$transaction([
-      prisma.sourceKennel.deleteMany({ where: { sourceId } }),
+      prisma.sourceKennel.deleteMany({ where: { sourceId, kennelId: { notIn: ids } } }),
       prisma.source.update({
         where: { id: sourceId },
         data: {
@@ -181,7 +187,7 @@ export async function updateSource(sourceId: string, formData: FormData) {
           scrapeDays: isNaN(scrapeDays) ? 90 : scrapeDays,
           config,
           kennels: {
-            create: ids.map((kennelId) => ({ kennelId })),
+            create: newIds.map((kennelId) => ({ kennelId })),
           },
         },
       }),
@@ -230,18 +236,17 @@ export async function linkKennelToSourceDirect(
     return { error: `Cannot resolve "${kennelTag}" to a kennel` };
   }
 
-  // Query source type to conditionally set externalSlug for HASHREGO
   const source = await prisma.source.findUnique({
     where: { id: sourceId },
     select: { type: true },
   });
   if (!source) return { error: "Source not found" };
+  if (source.type === "HASHREGO") return { error: HASHREGO_TAG_LINK_REFUSAL };
 
-  const slugData = source.type === "HASHREGO" ? { externalSlug: kennelTag.toUpperCase() } : {};
   await prisma.sourceKennel.upsert({
     where: { sourceId_kennelId: { sourceId, kennelId } },
-    update: slugData,
-    create: { sourceId, kennelId, ...slugData },
+    update: {},
+    create: { sourceId, kennelId },
   });
 
   // Auto-resolve any matching SOURCE_KENNEL_MISMATCH alert for this source
@@ -387,22 +392,20 @@ export async function createKennelForSource(
   if (!admin) return { error: "Unauthorized" };
   if (await isArchiveSource(sourceId)) return { error: ARCHIVE_SOURCE_LOCKED };
 
-  const result = await createKennelRecord(kennelData, tag);
-  if ("error" in result) return result;
-
-  // Query source type to conditionally set externalSlug for HASHREGO
   const source = await prisma.source.findUnique({
     where: { id: sourceId },
     select: { type: true },
   });
   if (!source) return { error: "Source not found" };
+  if (source.type === "HASHREGO") return { error: HASHREGO_TAG_LINK_REFUSAL };
 
-  // Link to source — use the original tag (HashRego slug), not the admin display name
-  const slugData = source.type === "HASHREGO" ? { externalSlug: tag.toUpperCase() } : {};
+  const result = await createKennelRecord(kennelData, tag);
+  if ("error" in result) return result;
+
   await prisma.sourceKennel.upsert({
     where: { sourceId_kennelId: { sourceId, kennelId: result.kennelId } },
-    update: slugData,
-    create: { sourceId, kennelId: result.kennelId, ...slugData },
+    update: {},
+    create: { sourceId, kennelId: result.kennelId },
   });
 
   await autoResolveUnmatchedAlerts(sourceId, admin.id);
@@ -427,7 +430,8 @@ export async function updateSourceKennelSlug(
 
   const updated = await prisma.sourceKennel.update({
     where: { id: sourceKennelId },
-    data: { externalSlug: externalSlug?.trim().toUpperCase() || null },
+    // Hash Rego slugs keep their case ("OregonH3"); matching is case-insensitive.
+    data: { externalSlug: externalSlug?.trim() || null },
     select: { sourceId: true },
   });
 

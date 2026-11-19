@@ -16,7 +16,7 @@ export default async function DiscoveryPage({
 
   // The default view is every row except Half-Mind's, which have their own screen.
   const notHalfMind = { externalSource: { not: HALF_MIND_EXTERNAL_SOURCE } };
-  const [discoveries, regions, statusCounts] = await Promise.all([
+  const [discoveries, regions, statusCounts, scrapedLinks] = await Promise.all([
     prisma.kennelDiscovery.findMany({
       where: notHalfMind,
       orderBy: [{ status: "asc" }, { name: "asc" }],
@@ -35,7 +35,13 @@ export default async function DiscoveryPage({
       where: notHalfMind,
       _count: true,
     }),
+    // What the HASHREGO scraper actually fetches: linking a row doesn't change it.
+    prisma.sourceKennel.findMany({
+      where: { source: { type: "HASHREGO" }, externalSlug: { not: null } },
+      select: { externalSlug: true },
+    }),
   ]);
+  const scrapedSlugs = new Set(scrapedLinks.map((l) => (l.externalSlug ?? "").toUpperCase()));
 
   const counts = {
     total: discoveries.length,
@@ -55,6 +61,7 @@ export default async function DiscoveryPage({
     id: d.id,
     externalSource: d.externalSource,
     externalSlug: d.externalSlug,
+    scraped: d.externalSource === "HASHREGO" && scrapedSlugs.has(d.externalSlug.toUpperCase()),
     name: d.name,
     location: d.location,
     latitude: d.latitude,
