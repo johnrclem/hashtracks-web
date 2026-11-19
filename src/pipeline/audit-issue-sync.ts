@@ -40,6 +40,7 @@ import {
   parseStreamLabel,
   parseKennelLabel,
 } from "@/lib/audit-labels";
+import { NO_GITHUB_CREDENTIAL, serverGithubToken } from "@/lib/github-app";
 import { getValidatedRepo } from "@/lib/github-repo";
 import { buildCanonicalBlock } from "@/lib/audit-canonical";
 
@@ -416,9 +417,9 @@ const SYNC_LOCK_KEY = 0x4155_4954; // "AUIT" — arbitrary 32-bit constant
  * OPENED/CLOSED history — only the current-state mirror is removed.
  */
 export async function syncAuditIssues(): Promise<SyncResult> {
-  const token = process.env.GITHUB_TOKEN;
+  const token = await serverGithubToken();
   if (!token) {
-    throw new Error("GITHUB_TOKEN not set");
+    throw new Error(NO_GITHUB_CREDENTIAL);
   }
 
   // Fetch outside the transaction — network I/O shouldn't hold a DB lock.

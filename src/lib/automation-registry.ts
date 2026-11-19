@@ -11,6 +11,7 @@
  * `withCronRun("<its id>", …)`; `cron-routes.test.ts` fails until both are done.
  */
 import { prisma } from "@/lib/db";
+import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
 import { isWaitingOnOwner, type GhPull, type OpsGithub } from "@/lib/ops-github";
 import { RECUR_COMMENT_PREFIX } from "@/pipeline/audit-filer";
 
@@ -41,7 +42,7 @@ export interface CheckContext {
    * has had its turn to run.
    */
   resumedAt?: Date;
-  /** Null when GITHUB_TOKEN is unset; GitHub-based checks then can't run. */
+  /** Null when the server has no GitHub credential; GitHub-based checks then can't run. */
   github: OpsGithub | null;
   /** Open pull requests, read at most once per watchdog run. */
   openPulls(): Promise<GhPull[]>;
@@ -99,7 +100,7 @@ const latest = (...dates: Array<Date | null | undefined>): Date | null =>
   dates.reduce<Date | null>((best, d) => (d && (!best || d > best) ? d : best), null);
 
 function requireGithub(ctx: CheckContext): OpsGithub {
-  if (!ctx.github) throw new Error("GITHUB_TOKEN is not set, so GitHub output can't be checked");
+  if (!ctx.github) throw new Error(`${NO_GITHUB_CREDENTIAL}, so GitHub output can't be checked`);
   return ctx.github;
 }
 

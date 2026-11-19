@@ -61,6 +61,7 @@ import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { scrapeSource } from "@/pipeline/scrape";
 import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
+import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
 import {
   acknowledgeAlert,
   snoozeAlert,
@@ -597,10 +598,10 @@ describe("createIssueFromAlert", () => {
     expect(result).toEqual({ error: "Unauthorized" });
   });
 
-  it("returns error when GITHUB_TOKEN not set", async () => {
+  it("returns error when no GitHub credential is set", async () => {
     delete process.env.GITHUB_TOKEN;
     const result = await createIssueFromAlert("alert_1");
-    expect(result).toEqual({ error: "GITHUB_TOKEN not configured" });
+    expect(result).toEqual({ error: NO_GITHUB_CREDENTIAL });
   });
 
   it("returns error when alert not found", async () => {

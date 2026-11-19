@@ -3,6 +3,8 @@
 import { LANE_LABELS } from "@/lib/audit-labels";
 import { scrubSecrets } from "@/lib/audit-redact";
 import { getOrCreateUser } from "@/lib/auth";
+import { serverGithubToken } from "@/lib/github-app";
+import { getValidatedRepo } from "@/lib/github-repo";
 
 type FeedbackState = {
   success?: boolean;
@@ -86,7 +88,7 @@ export async function submitFeedback(
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
 
-  const token = process.env.GITHUB_TOKEN;
+  const token = await serverGithubToken();
   if (!token) return { error: "Feedback system not configured" };
 
   const category = (formData.get("category") as string)?.trim() || "other";
@@ -130,7 +132,8 @@ ${description}
 
   try {
     const res = await fetch(
-      "https://api.github.com/repos/johnrclem/hashtracks-web/issues",
+      // The repository the App's token is scoped to.
+      new URL(`/repos/${getValidatedRepo()}/issues`, "https://api.github.com"),
       {
         method: "POST",
         headers: {

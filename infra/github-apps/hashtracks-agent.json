@@ -1,0 +1,17 @@
+{
+  "name": "HashTracks Agent",
+  "description": "The identity the HashTracks scheduled tasks act as: pushes agent branches, opens and merges their pull requests, files and comments on issues. No Workflows or Administration permission, so it can't change CI or settings. docs/ops/system.md#identity",
+  "url": "https://www.hashtracks.xyz",
+  "redirect_url": "https://www.hashtracks.xyz/",
+  "hook_attributes": { "url": "https://www.hashtracks.xyz/", "active": false },
+  "public": false,
+  "default_permissions": {
+    "contents": "write",
+    "pull_requests": "write",
+    "issues": "write",
+    "checks": "read",
+    "statuses": "read",
+    "metadata": "read"
+  },
+  "default_events": []
+}

@@ -18,3 +18,10 @@ vi.mock("node:dns/promises", () => ({
     { address: "93.184.216.34", family: 4 },
   ]),
 }));
+
+// Tests never pick up a real server GitHub App from the developer's shell or .env: with any
+// GITHUB_APP_* set, src/lib/github-app.ts would mint real tokens instead of using the test's
+// GITHUB_TOKEN. Tests of the App path pass their env to createServerGithubAuth explicitly.
+delete process.env.GITHUB_APP_ID;
+delete process.env.GITHUB_APP_PRIVATE_KEY;
+delete process.env.GITHUB_APP_INSTALLATION_ID;
