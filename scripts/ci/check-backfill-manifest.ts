@@ -17,7 +17,7 @@ import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import type { RawEventData } from "@/adapters/types";
 import { SOURCES } from "../../prisma/seed-data/sources";
 import { ARCHIVE_PATH_RE as HISTORY_RE } from "@/lib/backfill/approval";
-import { addDays, daysBetween, isRealYmd } from "@/lib/backfill/canonical";
+import { addDays, byCodeUnit, daysBetween, isRealYmd } from "@/lib/backfill/canonical";
 import { checkDeclaredFields, compareManifest, parseArchive, type BackfillManifest } from "@/lib/backfill/manifest";
 import { scanArchiveForPii, summarizePiiHits } from "@/lib/backfill/pii";
 import { checkRowProvenance, isRecurringInstanceEid, SUPPORTED_ORIGIN_TYPES, websiteHosts } from "@/lib/backfill/provenance";
@@ -171,7 +171,7 @@ async function checkManifest(path: string, changed: Changed[], migrationSql: str
   if (badTags) p.push(`${badTags} rows don't carry exactly one expected kennel tag`);
   if (manifest.piiScan?.residual) p.push(`G8: the manifest records ${manifest.piiScan.residual} residual PII hits`);
   const pii = scanArchiveForPii(rows);
-  if (pii.length) p.push(`PII: ${pii.length} hits (${Object.entries(summarizePiiHits(pii)).map(([k, v]) => `${k} ×${v}`).join(", ")}). A hit after push is a leak: see design 8.2`);
+  if (pii.length) p.push(`PII: ${pii.length} hits (${Object.entries(summarizePiiHits(pii)).map(([k, v]) => `${k} ×${String(v)}`).join(", ")}). A hit after push is a leak: see design 8.2`);
 
   if (manifest.binding === "archive-source") {
     await phase2Checks(manifest, rows, changed, migrationSql, report);
@@ -200,7 +200,7 @@ async function checkManifest(path: string, changed: Changed[], migrationSql: str
     `- Usual-schedule estimate (not part of the hash): ${manifest.scheduleOnlyEstimate}`,
     `- Curated corrections: ${manifest.curatedCorrections.length}`,
   );
-  const interval = medianRunInterval(rows.map((r) => r.date).sort(), []);
+  const interval = medianRunInterval(rows.map((r) => r.date).sort(byCodeUnit), []);
   for (const g of manifest.expectedGaps) {
     const days = daysBetween(g.start, addDays(g.end, 1));
     s.push(`- Declared gap ${g.start}..${g.end} (${g.reason}): ${days} days, about ${interval ? (days / interval).toFixed(1) : "?"} median run intervals removed from the gap rule`);

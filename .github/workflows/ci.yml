@@ -78,12 +78,14 @@ jobs:
           node-version: 20
           cache: npm
 
+      # No install scripts: the check needs no generated Prisma client, and tsx runs without
+      # esbuild's postinstall.
       - if: steps.scope.outputs.run == 'true'
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Check backfill manifests
         if: steps.scope.outputs.run == 'true'
         run: |
           set -o pipefail
           git diff --name-status --no-renames HEAD^1 HEAD \
-            | npx tsx scripts/ci/check-backfill-manifest.ts --stdin
+            | ./node_modules/.bin/tsx scripts/ci/check-backfill-manifest.ts --stdin
