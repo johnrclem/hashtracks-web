@@ -1356,6 +1356,10 @@ export const SOURCES = [
       // - The rest of the second block were linked in prod by discovery
       //   auto-matches and verified 2026-11-18; listing them here keeps a
       //   reseed from deleting them.
+      // Routing (R4): each event is filed under the kennel its account maps to
+      // here, not the detail page's host display name. The display name is only
+      // a cross-check: if it resolves to a different kennel, the event is held
+      // and reported in a SOURCE_KENNEL_MISMATCH alert.
       kennelCodes: [
         "bfm", "ewh3", "wh4", "ch3", "dch4", "dcfmh3", "flour-city", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm", "mosh3", "tkdh3", "ph3-atl", "t3h3-va",
         "noh3", "sch3-atl", "mh3-wv", "chh3", "philly-h3", "gh3-gd", "hch3", "hellgate-h3", "hoboh3", "hoth3", "mobh3", "oxford-h3", "sembach-h3", "sgh3", "ssh3-wa", "sbh3-ph", "blhhh", "dsmh3", "vbfmh3",

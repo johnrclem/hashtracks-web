@@ -485,8 +485,14 @@ function perDayLocationFields(
 export function splitToRawEvents(
   parsed: ParsedEvent,
   slug: string,
+  hostKennelCode?: string,
 ): RawEventData[] {
   const hashRegoUrl = `${BASE_URL}/events/${slug}`;
+  // R4: when the scrape pipeline maps the Hash Rego account to a kennel, file
+  // the event under that kennelCode. Without a mapping (ad-hoc scripts, an
+  // account linked to two kennels) fall back to the host display name, which
+  // the global resolver matches through aliases.
+  const hostKennelTag = hostKennelCode ?? (parsed.hostKennelName || parsed.kennelSlug);
   const externalLinks = [{ url: hashRegoUrl, label: "Hash Rego" }];
 
   if (!parsed.isMultiDay || parsed.dates.length <= 1) {
@@ -501,7 +507,7 @@ export function splitToRawEvents(
     return [
       {
         date,
-        kennelTags: [parsed.hostKennelName || parsed.kennelSlug],
+        kennelTags: [hostKennelTag],
         title: parsed.title,
         description: parsed.description,
         // #1126 — Hash Rego publishes a per-event registration cost ("$10");
@@ -541,17 +547,15 @@ export function splitToRawEvents(
   // whoever registered it on hashrego, not to a single day.
   const seriesId = slug; // Use the Hash Rego slug as series identifier
   const lastDate = parsed.dates.at(-1);
-  const hostKennelTag = parsed.hostKennelName || parsed.kennelSlug;
   const day1Code = parsed.perDayKennelCodes?.[0];
-  // Compare Day-1 override against the host kennel CODE (kennelSlug), not the
-  // display-name `hostKennelTag` (Codex/CodeRabbit P1, PR #1667). day1Code is
-  // a lowercase kennelCode from kennelPatterns ("ggfm", "nych3", …) whereas
-  // hostKennelTag is often a display name like "NYC H3" or an uppercase slug
-  // like "NYCH3". A direct string comparison would emit a spurious synthetic
-  // parent any time the patterns match the host kennel by name.
-  const hostKennelCode = parsed.kennelSlug.toLowerCase();
+  // Compare the Day-1 override (a lowercase kennelCode from kennelPatterns:
+  // "ggfm", "nych3", …) against the host's kennelCode. With an account mapping
+  // both sides are kennelCodes. Without one, the account slug is the closest
+  // stand-in (PR #1667): the display name ("NYC H3") never equals a code, so
+  // comparing against it would add a spurious synthetic parent.
+  const hostCodeForCompare = (hostKennelCode ?? parsed.kennelSlug).toLowerCase();
   const needsSyntheticParent =
-    day1Code !== undefined && day1Code.toLowerCase() !== hostKennelCode;
+    day1Code !== undefined && day1Code.toLowerCase() !== hostCodeForCompare;
 
   const buildChild = (date: string, i: number): RawEventData => {
     const dayLabel = `Day ${i + 1}`;

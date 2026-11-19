@@ -262,6 +262,32 @@ describe("SOURCE_KENNEL_MISMATCH alerts", () => {
     expect(alert!.title).toContain("1 kennel tag blocked");
     expect(alert!.title).not.toContain("tags");
   });
+  it("raises the alert for events held because the host name disagrees with the account (R4)", async () => {
+    const held = {
+      mappedKennelCode: "ch3",
+      conflictingTag: "Charlotte H3",
+      accountSlug: "ChiH3",
+      sourceUrl: "https://hashrego.com/events/chih3-trail",
+      date: "2026-12-05",
+    };
+    const result = await analyzeHealth("src_1", "log_1", baseInput({ heldEvents: [held] }));
+
+    const alert = result.alerts.find(a => a.type === "SOURCE_KENNEL_MISMATCH");
+    expect(alert).toBeDefined();
+    expect(alert!.title).toBe("1 event held: host kennel disagrees with account mapping");
+    expect(alert!.details).toContain('ChiH3 → ch3, but host "Charlotte H3" resolves elsewhere (2026-12-05)');
+    expect(alert!.context).toEqual({ tags: [], heldEvents: [held] });
+  });
+
+  it("combines blocked tags and held events into one alert", async () => {
+    const result = await analyzeHealth("src_1", "log_1", baseInput({
+      blockedTags: ["BoH3"],
+      heldEvents: [{ mappedKennelCode: "ch3", conflictingTag: "Charlotte H3", accountSlug: "ChiH3" }],
+    }));
+    const alerts = result.alerts.filter(a => a.type === "SOURCE_KENNEL_MISMATCH");
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].title).toBe("1 kennel tag blocked: not linked to source; 1 event held: host kennel disagrees with account mapping");
+  });
 });
 
 describe("regime-aware baseline (#1115)", () => {

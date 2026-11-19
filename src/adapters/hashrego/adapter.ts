@@ -1,6 +1,8 @@
 import type { Source } from "@/generated/prisma/client";
 import type {
   SourceAdapter,
+  AdapterFetchOptions,
+  HeldEvent,
   RawEventData,
   ScrapeResult,
   ErrorDetails,
@@ -11,6 +13,7 @@ import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
 import { normalizeCostSigil } from "../utils";
 import { generateStructureHash } from "@/pipeline/structure-hash";
+import { resolveKennelTag } from "@/pipeline/kennel-resolver";
 import {
   parseEventsIndex,
   parseEventDetail,
@@ -47,19 +50,32 @@ import { USER_AGENT } from "./constants";
  * 2. Filter to events from configured kennel slugs + date range
  * 3. Fetch matching event detail pages in parallel batches
  * 4. Parse into RawEventData entries (splitting multi-day events)
+ *
+ * Kennel routing (R4, docs/kennel-directory-mapping-review.md): each event is
+ * filed under the kennel its Hash Rego account maps to (`kennelCodesBySlug`,
+ * built from the source's SourceKennel rows). The account comes from the index
+ * row or the per-kennel API call that found the event. The detail page's host
+ * display name is only a cross-check: when it resolves to a different kennel,
+ * the event is held back and reported in `heldEvents` instead of published.
  */
 export class HashRegoAdapter implements SourceAdapter {
   type = "HASHREGO" as const;
 
   async fetch(
     source: Source,
-    options?: { days?: number; kennelSlugs?: string[] },
+    options?: AdapterFetchOptions,
   ): Promise<ScrapeResult> {
     const slugList = options?.kennelSlugs ?? [];
     if (slugList.length === 0) {
       return { events: [], errors: ["No kennel slugs provided — check SourceKennel.externalSlug is populated for this source"] };
     }
     const kennelSlugs = new Set(slugList.map((s) => s.toUpperCase()));
+    const codesBySlug = new Map(
+      Object.entries(options?.kennelCodesBySlug ?? {}).map(([slug, code]) => [slug.toUpperCase(), code]),
+    );
+    const codeFor = (accountSlug: string) => codesBySlug.get(accountSlug.toUpperCase());
+    const heldEvents: HeldEvent[] = [];
+    const heldKennelSlugs = new Set<string>();
 
     // Per-day kennel-attribution patterns from source config (PR D.5). Used
     // by the multi-day section parser to override a child day's kennelTag
@@ -141,6 +157,7 @@ export class HashRegoAdapter implements SourceAdapter {
     const kennelPagesChecked = kennelPages.results.map((r) => r.slug);
 
     for (const { slug, outcome } of kennelPages.results) {
+      const slugCode = codeFor(slug);
       if (outcome.kind === "fail") {
         const status = outcome.error.status;
         errorDetails.fetch ??= [];
@@ -169,7 +186,11 @@ export class HashRegoAdapter implements SourceAdapter {
       }
       if (outcome.rowParseErrors.length > 0) {
         errorDetails.parse ??= [];
-        errorDetails.parse.push(...outcome.rowParseErrors);
+        errorDetails.parse.push(
+          ...outcome.rowParseErrors.map((pe) =>
+            slugCode && pe.partialData ? { ...pe, partialData: { ...pe.partialData, kennelTags: [slugCode] } } : pe,
+          ),
+        );
         // Push each row's parse error text into top-level errors[] using
         // the SAME string as the ParseError.error field. AI recovery
         // (src/pipeline/scrape.ts:87) cleans up errors[] entries that
@@ -192,15 +213,35 @@ export class HashRegoAdapter implements SourceAdapter {
       }
       const batch = matchingEntries.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
-        batch.map((entry) => fetchAndParseDetail(entry, errors, errorDetails, kennelPatterns)),
+        batch.map(async (entry) => {
+          const mappedCode = codeFor(entry.kennelSlug);
+          const detail = await fetchAndParseDetail(entry, errors, errorDetails, kennelPatterns, mappedCode);
+          const conflict = mappedCode && detail.hostKennelName
+            ? await hostNameConflicts(detail.hostKennelName, mappedCode, source.id)
+            : false;
+          return { entry, mappedCode, detail, conflict };
+        }),
       );
       for (const result of results) {
         detailPagesFetched++;
-        if (result.status === "fulfilled") {
-          events.push(...result.value);
-        } else {
+        if (result.status !== "fulfilled") {
           detailPagesFailed++;
+          continue;
         }
+        const { entry, mappedCode, detail, conflict } = result.value;
+        if (conflict && mappedCode && detail.hostKennelName) {
+          // Hold, don't publish: the account and the host name disagree.
+          heldKennelSlugs.add(entry.kennelSlug);
+          heldEvents.push({
+            mappedKennelCode: mappedCode,
+            conflictingTag: detail.hostKennelName,
+            accountSlug: entry.kennelSlug,
+            sourceUrl: eventDetailUrl(entry.slug),
+            date: detail.events[0]?.date ?? parseHashRegoDate(entry.startDate) ?? undefined,
+          });
+          continue;
+        }
+        events.push(...detail.events);
       }
     }
 
@@ -213,10 +254,18 @@ export class HashRegoAdapter implements SourceAdapter {
     // Approximate fallback count from detail page errors (each error triggers createFromIndex)
     // Exclude kennel page fetch errors since those don't produce createFromIndex fallbacks
     const indexOnlyFallbacks = Math.max(0, (errorDetails.fetch?.length ?? 0) - failedKennelSlugs.length) + (errorDetails.parse?.length ?? 0);
+    // A held event is missing from this scrape, so its kennel must sit out
+    // reconcile like a kennel whose page failed: otherwise the event's existing
+    // canonical row would look removed and be cancelled.
+    const failedUpper = new Set(failedKennelSlugs.map((s) => s.toUpperCase()));
+    const reconcileExcludedSlugs = [
+      ...failedKennelSlugs,
+      ...[...heldKennelSlugs].filter((s) => !failedUpper.has(s.toUpperCase())),
+    ];
     const pagination: PaginationOutcome = {
-      kennelPageFetchErrors: failedKennelSlugs.length,
+      kennelPageFetchErrors: reconcileExcludedSlugs.length,
       kennelPagesStopReason,
-      failedKennelSlugs,
+      failedKennelSlugs: reconcileExcludedSlugs,
     };
 
     return {
@@ -225,7 +274,10 @@ export class HashRegoAdapter implements SourceAdapter {
       structureHash,
       errorDetails: hasErrorDetails ? errorDetails : undefined,
       pagination,
+      ...(heldEvents.length > 0 ? { heldEvents } : {}),
       diagnosticContext: {
+        kennelCodesMapped: codesBySlug.size,
+        heldForHostMismatch: heldEvents,
         totalIndexEntries: allEntries.length,
         matchingEntries: matchingEntries.length,
         kennelSlugsConfigured: slugList,
@@ -256,7 +308,8 @@ async function fetchAndParseDetail(
   errors: string[],
   errorDetails: ErrorDetails,
   kennelPatterns: KennelPatternConfig | undefined,
-): Promise<RawEventData[]> {
+  mappedCode: string | undefined,
+): Promise<{ events: RawEventData[]; hostKennelName?: string }> {
   try {
     const detailUrl = eventDetailUrl(entry.slug);
     const detailRes = await safeFetch(detailUrl, {
@@ -268,12 +321,15 @@ async function fetchAndParseDetail(
       (errorDetails.fetch ??= []).push(
         { url: detailUrl, status: detailRes.status, message: `HTTP ${detailRes.status}` },
       );
-      return createFromIndex(entry);
+      return { events: createFromIndex(entry, mappedCode) };
     }
 
     const detailHtml = await detailRes.text();
     const parsed = parseEventDetail(detailHtml, entry.slug, entry, kennelPatterns);
-    return splitToRawEvents(parsed, entry.slug);
+    return {
+      events: splitToRawEvents(parsed, entry.slug, mappedCode),
+      hostKennelName: parsed.hostKennelName,
+    };
   } catch (err) {
     // Use the same string in both errors[] and ParseError.error so AI
     // recovery (scrape.ts:87) can match-and-clean the errors[] entry on
@@ -289,12 +345,29 @@ async function fetchAndParseDetail(
       error: msg,
       rawText: `Slug: ${entry.slug}\nTitle: ${entry.title ?? "unknown"}\nDate: ${entry.startDate ?? "unknown"}`.slice(0, 2000),
       partialData: {
-        kennelTags: [entry.kennelSlug],
+        kennelTags: [mappedCode ?? entry.kennelSlug],
         sourceUrl: eventDetailUrl(entry.slug),
       },
     });
-    return createFromIndex(entry);
+    return { events: createFromIndex(entry, mappedCode) };
   }
+}
+
+/**
+ * True when the detail page's host display name resolves to a real kennel other
+ * than the one the account maps to. A name that resolves to nothing is not a
+ * conflict: the account mapping stands on its own.
+ */
+async function hostNameConflicts(
+  hostKennelName: string,
+  mappedCode: string,
+  sourceId: string,
+): Promise<boolean> {
+  const [named, mapped] = await Promise.all([
+    resolveKennelTag(hostKennelName, sourceId),
+    resolveKennelTag(mappedCode, sourceId),
+  ]);
+  return named.matched && named.kennelId !== null && named.kennelId !== mapped.kennelId;
 }
 
 /**
@@ -535,7 +608,7 @@ function readKennelPatterns(source: Source): KennelPatternConfig | undefined {
  * Create a basic RawEventData from index data when detail page fetch fails.
  * Less rich, but ensures we still capture the event.
  */
-function createFromIndex(entry: IndexEntry): RawEventData[] {
+function createFromIndex(entry: IndexEntry, mappedCode?: string): RawEventData[] {
   const date = parseHashRegoDate(entry.startDate);
   if (!date) return [];
 
@@ -545,7 +618,7 @@ function createFromIndex(entry: IndexEntry): RawEventData[] {
   return [
     {
       date,
-      kennelTags: [entry.kennelSlug],
+      kennelTags: [mappedCode ?? entry.kennelSlug],
       title: entry.title,
       // #1126 — preserve the index-table cost ("$10") even when the detail
       // fetch fails and we fall back to the index row. Normalize for parity

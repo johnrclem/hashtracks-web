@@ -131,6 +131,26 @@ function indexKennelsBySlug(
 }
 
 /**
+ * Map upper-cased external slug → kennelCode for slug-routed adapters (HASHREGO).
+ * A slug linked to two kennels is ambiguous, so it is left out and the adapter
+ * falls back to its display-name routing for that account.
+ */
+export function buildKennelCodesBySlug(
+  links: { slug: string; kennelCode: string }[],
+): Record<string, string> {
+  const codes = new Map<string, Set<string>>();
+  for (const { slug, kennelCode } of links) {
+    const key = slug.toUpperCase();
+    codes.set(key, (codes.get(key) ?? new Set()).add(kennelCode));
+  }
+  const bySlug: Record<string, string> = {};
+  for (const [slug, set] of codes) {
+    if (set.size === 1) bySlug[slug] = [...set][0];
+  }
+  return bySlug;
+}
+
+/**
  * Decide whether reconcile may run after a paginated fetch, and over which
  * kennels. Returns null to skip it.
  *
@@ -320,7 +340,7 @@ async function runHealthAndAlerts(
     if (healthInput.unmatchedTags.length > 0) {
       candidateTypes.add("UNMATCHED_TAGS");
     }
-    if (healthInput.blockedTags && healthInput.blockedTags.length > 0) {
+    if ((healthInput.blockedTags?.length ?? 0) > 0 || (healthInput.heldEvents?.length ?? 0) > 0) {
       candidateTypes.add("SOURCE_KENNEL_MISMATCH");
     }
     await autoResolveCleared(sourceId, candidateTypes, healthInput.scrapeFailed, health.checkedTypes);
@@ -430,17 +450,24 @@ export async function scrapeSource(
     let kennelSlugs: string[] | undefined;
     let scrapedKennelIds: string[] | undefined;
     let kennelIdsBySlug = new Map<string, string[]>();
+    let kennelCodesBySlug: Record<string, string> | undefined;
     if (source.type === "HASHREGO") {
       const sks = await prisma.sourceKennel.findMany({
         where: { sourceId, externalSlug: { not: null } },
-        select: { externalSlug: true, kennelId: true },
+        select: { externalSlug: true, kennelId: true, kennel: { select: { kennelCode: true } } },
         orderBy: { externalSlug: "asc" },
       });
-      const slugged = sks.filter((sk): sk is { externalSlug: string; kennelId: string } => !!sk.externalSlug);
+      const slugged = sks.filter(
+        (sk): sk is typeof sk & { externalSlug: string } => !!sk.externalSlug,
+      );
       kennelSlugs = slugged.map((sk) => sk.externalSlug);
       scrapedKennelIds = slugged.map((sk) => sk.kennelId);
       kennelIdsBySlug = indexKennelsBySlug(
         slugged.map((sk) => ({ slug: sk.externalSlug, kennelId: sk.kennelId })),
+      );
+      // R4: route each event by its account, not its host display name.
+      kennelCodesBySlug = buildKennelCodesBySlug(
+        slugged.map((sk) => ({ slug: sk.externalSlug, kennelCode: sk.kennel.kennelCode })),
       );
     }
 
@@ -480,7 +507,7 @@ export async function scrapeSource(
     }
 
     const fetchStart = Date.now();
-    const scrapeResult = await adapter.fetch(source, { days, kennelSlugs });
+    const scrapeResult = await adapter.fetch(source, { days, kennelSlugs, kennelCodesBySlug });
     const fetchDurationMs = Date.now() - fetchStart;
 
     // AI Recovery
@@ -590,6 +617,7 @@ export async function scrapeSource(
       errors: allErrors,
       unmatchedTags: mergeResult.unmatched,
       blockedTags: mergeResult.blockedTags,
+      heldEvents: scrapeResult.heldEvents,
       fillRates,
       structureHash: scrapeResult.structureHash,
       aiRecovery: aiRecovery && aiRecovery.attempted > 0

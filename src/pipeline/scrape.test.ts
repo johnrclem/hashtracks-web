@@ -68,7 +68,7 @@ import { processRawEvents } from "./merge";
 import { analyzeHealth } from "./health";
 import { reconcileStaleEvents } from "./reconcile";
 import { refreshScheduleOnlyFlags, refreshKennelEvidence } from "./kennel-evidence";
-import { scrapeSource } from "./scrape";
+import { scrapeSource, buildKennelCodesBySlug } from "./scrape";
 import { revalidateTag } from "next/cache";
 import { after } from "next/server";
 import type { PaginationOutcome } from "@/adapters/types";
@@ -411,9 +411,9 @@ describe("scrapeSource", () => {
   describe("reconcile scope when named kennel pages fail", () => {
     const hashRegoSource = { id: "src_hr", type: "HASHREGO", url: "https://hashrego.com/events" };
     const linkedSlugs = [
-      { externalSlug: "NYCH3", kennelId: "k_nyc" },
-      { externalSlug: "MoA2H3", kennelId: "k_moa" },
-      { externalSlug: null, kennelId: "k_unslugged" },
+      { externalSlug: "NYCH3", kennelId: "k_nyc", kennel: { kennelCode: "nych3" } },
+      { externalSlug: "MoA2H3", kennelId: "k_moa", kennel: { kennelCode: "moa2h3" } },
+      { externalSlug: null, kennelId: "k_unslugged", kennel: { kennelCode: "unslugged" } },
     ];
 
     function hashRegoReturning(pagination: PaginationOutcome) {
@@ -446,10 +446,22 @@ describe("scrapeSource", () => {
       expect(mockReconcile.mock.calls[0][3]).toEqual(["k_nyc", "k_moa"]);
     });
 
+    it("passes the account slug → kennelCode map so events route by account (R4)", async () => {
+      hashRegoReturning({ kennelPageFetchErrors: 0, kennelPagesStopReason: null, failedKennelSlugs: [] });
+
+      await scrapeSource("src_hr");
+
+      const fetchMock = vi.mocked(mockGetAdapter.mock.results[0].value.fetch);
+      expect(fetchMock.mock.calls[0][1]).toEqual(expect.objectContaining({
+        kennelSlugs: ["NYCH3", "MoA2H3"],
+        kennelCodesBySlug: { NYCH3: "nych3", MOA2H3: "moa2h3" },
+      }));
+    });
+
     it("never falls back to KennelDiscovery slugs when no link has a slug", async () => {
       hashRegoReturning({ kennelPageFetchErrors: 0, kennelPagesStopReason: null, failedKennelSlugs: [] });
       mockSourceKennelFind.mockResolvedValue([
-        { externalSlug: null, kennelId: "k_a" },
+        { externalSlug: null, kennelId: "k_a", kennel: { kennelCode: "a" } },
       ] as never);
 
       await scrapeSource("src_hr");
@@ -678,5 +690,23 @@ describe("scrapeSource", () => {
         expect.any(Error),
       );
     });
+  });
+});
+
+describe("buildKennelCodesBySlug", () => {
+  it("upper-cases slugs and maps each to its kennelCode", () => {
+    expect(buildKennelCodesBySlug([
+      { slug: "ChiH3", kennelCode: "ch3" },
+      { slug: "FCH3", kennelCode: "flour-city" },
+    ])).toEqual({ CHIH3: "ch3", FCH3: "flour-city" });
+  });
+
+  it("leaves out a slug linked to two kennels instead of guessing", () => {
+    expect(buildKennelCodesBySlug([
+      { slug: "TH3", kennelCode: "th3" },
+      { slug: "th3", kennelCode: "t3h3-va" },
+      { slug: "EWH3", kennelCode: "ewh3" },
+      { slug: "ewh3", kennelCode: "ewh3" },
+    ])).toEqual({ EWH3: "ewh3" });
   });
 });
