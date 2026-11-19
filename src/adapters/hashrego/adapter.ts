@@ -226,14 +226,23 @@ export class HashRegoAdapter implements SourceAdapter {
           const mappedCode = codeFor(entry.kennelSlug);
           const detail = await fetchAndParseDetail(entry, errors, errorDetails, kennelPatterns, mappedCode);
           const hostName = detail.hostKennelName;
-          if (!mappedCode || !hostName || !(await hostConflicts(hostName, mappedCode))) {
+          if (!mappedCode || !hostName) return { events: detail.events, held: null };
+          let conflict: boolean;
+          try {
+            conflict = await hostConflicts(hostName, mappedCode);
+          } catch (err) {
+            // The account mapping still stands, so publish; the error keeps the
+            // scrape from reconciling on an unchecked result.
+            errors.push(`Host kennel check failed for ${entry.slug}: ${err}`);
             return { events: detail.events, held: null };
           }
+          if (!conflict) return { events: detail.events, held: null };
           // Hold, don't publish: the account and the host name disagree.
           const held: HeldEvent = {
             mappedKennelCode: mappedCode,
             conflictingTag: hostName,
             accountSlug: entry.kennelSlug,
+            kennelTags: [...new Set([mappedCode, hostName, ...detail.events.flatMap((e) => e.kennelTags)])],
             sourceUrl: eventDetailUrl(entry.slug),
             date: detail.events[0]?.date ?? parseHashRegoDate(entry.startDate) ?? undefined,
           };

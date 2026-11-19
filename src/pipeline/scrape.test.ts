@@ -31,6 +31,15 @@ vi.mock("./reconcile", () => ({
   })),
 }));
 
+vi.mock("./kennel-resolver", () => ({
+  resolveKennelTags: vi.fn(async (tags: string[]) =>
+    tags.map((tag) => {
+      const kennelId = ({ moa2h3: "k_moa", "motown h3": "k_motown", ggfm: "k_ggfm" } as Record<string, string>)[tag.toLowerCase()];
+      return kennelId ? { kennelId, matched: true } : { kennelId: null, matched: false };
+    }),
+  ),
+}));
+
 vi.mock("./kennel-evidence", () => ({
   refreshScheduleOnlyFlags: vi.fn(() => Promise.resolve(0)),
   refreshKennelEvidence: vi.fn(() => Promise.resolve(0)),
@@ -467,7 +476,34 @@ describe("scrapeSource", () => {
           events: [{ date: "2026-02-14", kennelTags: ["nych3"] }],
           errors: [],
           pagination: { kennelPageFetchErrors: 0, kennelPagesStopReason: null, failedKennelSlugs: [] },
-          heldEvents: [{ mappedKennelCode: "moa2h3", conflictingTag: "Motown H3", accountSlug: "MoA2H3" }],
+          heldEvents: [{ mappedKennelCode: "moa2h3", conflictingTag: "Motown H3", accountSlug: "MoA2H3", kennelTags: ["moa2h3", "Motown H3"] }],
+        }),
+      } as never);
+
+      await scrapeSource("src_hr");
+
+      expect(mockReconcile.mock.calls[0][3]).toEqual(["k_nyc"]);
+    });
+
+    it("also keeps out every kennel a held event could already be published under", async () => {
+      // The held event may sit under the host-name kennel (legacy routing) or a
+      // per-day sibling kennel; reconcile must not cancel those rows either.
+      mockSourceFind.mockResolvedValue(hashRegoSource as never);
+      mockSourceKennelFind.mockResolvedValue([
+        ...linkedSlugs,
+        { externalSlug: "MOTOWN", kennelId: "k_motown", kennel: { kennelCode: "motown" } },
+        { externalSlug: "GGFMH3", kennelId: "k_ggfm", kennel: { kennelCode: "ggfm" } },
+      ] as never);
+      mockGetAdapter.mockReturnValue({
+        type: "HASHREGO",
+        fetch: vi.fn().mockResolvedValue({
+          events: [{ date: "2026-02-14", kennelTags: ["nych3"] }],
+          errors: [],
+          pagination: { kennelPageFetchErrors: 0, kennelPagesStopReason: null, failedKennelSlugs: [] },
+          heldEvents: [{
+            mappedKennelCode: "moa2h3", conflictingTag: "Motown H3", accountSlug: "MoA2H3",
+            kennelTags: ["moa2h3", "Motown H3", "ggfm", "Unknown Name"],
+          }],
         }),
       } as never);
 

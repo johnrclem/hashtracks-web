@@ -267,6 +267,7 @@ describe("SOURCE_KENNEL_MISMATCH alerts", () => {
       mappedKennelCode: "ch3",
       conflictingTag: "Charlotte H3",
       accountSlug: "ChiH3",
+      kennelTags: ["ch3", "Charlotte H3"],
       sourceUrl: "https://hashrego.com/events/chih3-trail",
       date: "2026-12-05",
     };
@@ -282,7 +283,7 @@ describe("SOURCE_KENNEL_MISMATCH alerts", () => {
   it("combines blocked tags and held events into one alert", async () => {
     const result = await analyzeHealth("src_1", "log_1", baseInput({
       blockedTags: ["BoH3"],
-      heldEvents: [{ mappedKennelCode: "ch3", conflictingTag: "Charlotte H3", accountSlug: "ChiH3" }],
+      heldEvents: [{ mappedKennelCode: "ch3", conflictingTag: "Charlotte H3", accountSlug: "ChiH3", kennelTags: ["ch3", "Charlotte H3"] }],
     }));
     const alerts = result.alerts.filter(a => a.type === "SOURCE_KENNEL_MISMATCH");
     expect(alerts).toHaveLength(1);

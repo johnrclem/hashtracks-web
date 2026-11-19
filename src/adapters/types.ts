@@ -274,6 +274,12 @@ export interface HeldEvent {
   conflictingTag: string;
   /** The account / external slug the event came from. */
   accountSlug: string;
+  /**
+   * Every kennel tag the event's rows could already be published under: the
+   * mapped code, the conflicting tag, and any per-day sibling kennels. Reconcile
+   * leaves all of them alone while the event is held.
+   */
+  kennelTags: string[];
   sourceUrl?: string;
   date?: string;
 }

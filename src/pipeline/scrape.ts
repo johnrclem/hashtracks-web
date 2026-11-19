@@ -5,6 +5,7 @@ import { hasAnyErrors } from "@/adapters/types";
 import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
 import { reconcileStaleEvents } from "./reconcile";
+import { resolveKennelTags } from "./kennel-resolver";
 import { refreshScheduleOnlyFlags, refreshKennelEvidence } from "./kennel-evidence";
 import { computeFillRates } from "./fill-rates";
 import type { FieldFillRates } from "./fill-rates";
@@ -154,31 +155,39 @@ export function buildKennelCodesBySlug(
  * early, skips reconcile for the whole source.
  *
  * Held events (an account whose host name resolves to another kennel) are
- * missing from the scrape the same way, so their accounts sit out too:
- * otherwise their existing canonical events would look removed.
+ * missing from the scrape the same way. Their accounts sit out, and so does
+ * every kennel the held event could already be published under
+ * (`heldKennelIds`): otherwise those existing canonical events would look removed.
  */
 function resolveReconcileScope(
   pagination: PaginationOutcome | undefined,
   scrapedKennelIds: string[] | undefined,
   kennelIdsBySlug: ReadonlyMap<string, string[]>,
-  heldEvents: readonly HeldEvent[] = [],
+  held: { events: readonly HeldEvent[]; kennelIds: readonly string[] } = { events: [], kennelIds: [] },
 ): { kennelIds: string[] | undefined } | null {
   if (pagination?.kennelPagesStopReason) return null;
   const fetchErrors = pagination?.kennelPageFetchErrors ?? 0;
   const failedSlugs = fetchErrors > 0 ? (pagination?.failedKennelSlugs ?? []) : [];
   // Every fetch failure must be pinned to a kennel, or nothing can be narrowed.
   if (failedSlugs.length !== fetchErrors) return null;
-  const skippedSlugs = [...failedSlugs, ...heldEvents.map((h) => h.accountSlug)];
+  const skippedSlugs = [...failedSlugs, ...held.events.map((h) => h.accountSlug)];
   if (skippedSlugs.length === 0) return { kennelIds: scrapedKennelIds };
 
   if (!scrapedKennelIds) return null;
   const skippedKennels = skippedSlugs.map((slug) => kennelIdsBySlug.get(slug.toUpperCase()));
   if (skippedKennels.includes(undefined)) return null;
 
-  const excluded = new Set(skippedKennels.flat());
+  const excluded = new Set([...skippedKennels.flat(), ...held.kennelIds]);
   const kennelIds = scrapedKennelIds.filter((id) => !excluded.has(id));
   // With every page failed nothing was read, so don't report a completed reconcile.
   return kennelIds.length > 0 ? { kennelIds } : null;
+}
+
+/** Kennel IDs for every tag a held event could already be published under. */
+async function resolveHeldKennelIds(heldEvents: readonly HeldEvent[], sourceId: string): Promise<string[]> {
+  const tags = [...new Set(heldEvents.flatMap((h) => h.kennelTags))];
+  const resolved = await resolveKennelTags(tags, sourceId);
+  return resolved.flatMap((r) => (r.kennelId ? [r.kennelId] : []));
 }
 
 /** Build the diagnostic context record, including AI recovery metrics. */
@@ -536,8 +545,12 @@ export async function scrapeSource(
     let reconcileEvaluated = false;
     let reconcileSuppressedKennels: string[] = [];
     let massCancelBlocked: { wouldCancel: number; candidatesExamined: number } | undefined;
+    const heldEvents = scrapeResult.heldEvents ?? [];
+    const heldKennelIds = heldEvents.length > 0
+      ? await resolveHeldKennelIds(heldEvents, sourceId)
+      : [];
     const reconcileScope = resolveReconcileScope(
-      scrapeResult.pagination, scrapedKennelIds, kennelIdsBySlug, scrapeResult.heldEvents,
+      scrapeResult.pagination, scrapedKennelIds, kennelIdsBySlug, { events: heldEvents, kennelIds: heldKennelIds },
     );
     // A zero-event scrape normally skips reconcile (an empty page is far more
     // often breakage than a real "everything was removed"). allowMassCancel is

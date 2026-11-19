@@ -2890,6 +2890,7 @@ describe("HashRegoAdapter account routing (R4)", () => {
         mappedKennelCode: "ewh3",
         conflictingTag: "Charlotte H3",
         accountSlug: "EWH3",
+        kennelTags: ["ewh3", "Charlotte H3"],
         sourceUrl: "https://hashrego.com/events/ewh3-1506-revenge",
         date: "2026-02-19",
       },
@@ -2901,6 +2902,20 @@ describe("HashRegoAdapter account routing (R4)", () => {
       failedKennelSlugs: [],
     });
     expect(result.diagnosticContext?.heldForHostMismatch).toBe(1);
+  });
+
+  it("publishes under the mapping but reports an error when the host check itself fails", async () => {
+    indexThenDetail(detailWithHost("EWH3", "Everyday is Wednesday H3"));
+    mockedResolveKennelTags.mockRejectedValue(new Error("db timeout"));
+
+    const result = await new HashRegoAdapter().fetch(buildSource(), {
+      days: 36500, kennelSlugs: ["EWH3"], kennelCodesBySlug: { EWH3: "ewh3" },
+    });
+
+    expect(result.events.map((e) => e.kennelTags)).toEqual([["ewh3"]]);
+    // errors[] keeps scrape.ts from reconciling on an unchecked result.
+    expect(result.errors).toEqual([expect.stringContaining("Host kennel check failed for ewh3-1506-revenge")]);
+    expect(result.heldEvents).toBeUndefined();
   });
 
   it("uses the mapped code on the index-only fallback when the detail page fails", async () => {
