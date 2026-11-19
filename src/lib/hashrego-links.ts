@@ -5,11 +5,11 @@ import { prisma } from "@/lib/db";
  * an account to scrape by its slug. A resolved kennel tag is a display name,
  * not a slug: "Hash House Harriettes" resolves to NYC's Harriettes but is
  * Seattle's account. So repair actions that link a kennel from a tag refuse
- * Hash Rego; its links are set on the source page with the account slug, or by
- * the seed's `kennelSlugMap`.
+ * Hash Rego. The scraped accounts are the seed's `kennelSlugMap`, shipped to
+ * prod with a data migration.
  */
 export const HASHREGO_TAG_LINK_REFUSAL =
-  "Hash Rego links need the account's slug. Link the kennel on the source page and set its slug there.";
+  "Hash Rego links need the account's slug: add the kennel and its slug to the Hash Rego kennelSlugMap in prisma/seed-data/sources.ts and ship a data migration.";
 
 /** Whether a source is the HASHREGO source. */
 export async function isHashRegoSource(sourceId: string): Promise<boolean> {

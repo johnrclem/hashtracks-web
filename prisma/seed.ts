@@ -28,7 +28,7 @@ const PROFILE_FIELDS = new Set([
   "twitterHandle", "discordUrl", "mailingListUrl", "whatsappUrl", "contactEmail",
   "contactName", "gm", "hareRaiser", "signatureEvent", "founder", "parentKennelCode",
   "foundedYear", "description", "logoUrl", "latitude", "longitude",
-  "walkersWelcome", "dogFriendly",
+  "walkersWelcome", "dogFriendly", "isHidden",
 ]);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

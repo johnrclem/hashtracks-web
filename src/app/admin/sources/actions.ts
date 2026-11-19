@@ -169,13 +169,15 @@ export async function updateSource(sourceId: string, formData: FormData) {
   }
 
   // Keep the links that stay, so their externalSlug (the Hash Rego account a
-  // link scrapes) survives a save; remove only the kennels taken off the form.
-  const linkedIds = new Set(current?.kennels.map((k) => k.kennelId) ?? []);
-  const newIds = [...new Set(ids)].filter((kennelId) => !linkedIds.has(kennelId));
-
+  // link scrapes) survives a save; remove only the kennels taken off the form,
+  // and add the new ones (skipDuplicates covers a link added concurrently).
   try {
     await prisma.$transaction([
       prisma.sourceKennel.deleteMany({ where: { sourceId, kennelId: { notIn: ids } } }),
+      prisma.sourceKennel.createMany({
+        data: [...new Set(ids)].map((kennelId) => ({ sourceId, kennelId })),
+        skipDuplicates: true,
+      }),
       prisma.source.update({
         where: { id: sourceId },
         data: {
@@ -186,9 +188,6 @@ export async function updateSource(sourceId: string, formData: FormData) {
           scrapeFreq,
           scrapeDays: isNaN(scrapeDays) ? 90 : scrapeDays,
           config,
-          kennels: {
-            create: newIds.map((kennelId) => ({ kennelId })),
-          },
         },
       }),
     ]);

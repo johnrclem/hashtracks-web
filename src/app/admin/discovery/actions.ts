@@ -11,9 +11,9 @@ import { dismissHalfMindListing } from "@/app/admin/discovery/half-mind-actions"
 
 /**
  * These actions record identity only: "this Hash Rego account is that kennel".
- * They never write a SourceKennel (what the HASHREGO scraper fetches is set by
- * the seed's `kennelSlugMap` or a data migration) and never turn a Hash Rego
- * slug into a global alias. Half-Mind rows have their own actions
+ * They never add, change or remove a SourceKennel (what the HASHREGO scraper
+ * fetches is set by the seed's `kennelSlugMap` and a data migration) and never
+ * turn a Hash Rego slug into a global alias. Half-Mind rows have their own actions
  * (half-mind-actions.ts); Gemini rows come from Source Research.
  */
 const HASH_REGO_SOURCE = "HASHREGO";
@@ -29,23 +29,6 @@ function hashRegoOnlyRefusal(discovery: { externalSource: string }): string | nu
   if (isHalfMindRow(discovery)) return HALF_MIND_ROW_ERROR;
   if (discovery.externalSource !== HASH_REGO_SOURCE) return NOT_HASH_REGO_ERROR;
   return null;
-}
-
-/**
- * Stop scraping dismissed Hash Rego accounts: delete the HASHREGO SourceKennel
- * rows whose slug is one of `slugs` (case-insensitive). A kennel's link to a
- * different account is left alone.
- */
-async function unlinkScrapedSlugs(slugs: string[]): Promise<void> {
-  if (slugs.length === 0) return;
-  const source = await prisma.source.findFirst({ where: { type: "HASHREGO" }, select: { id: true } });
-  if (!source) return;
-  await prisma.sourceKennel.deleteMany({
-    where: {
-      sourceId: source.id,
-      OR: slugs.map((slug) => ({ externalSlug: { equals: slug, mode: "insensitive" as const } })),
-    },
-  });
 }
 
 /** Run a full discovery sync: parse directory → enrich via API → fuzzy match → upsert. */
@@ -140,15 +123,14 @@ export async function dismissDiscovery(id: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
 
-  // A dismissed Hash Rego account is no longer scraped. Only a link that holds
-  // this row's own slug is removed, never a kennel's link to another account.
+  // Dismissing only reviews the row. It never stops a scrape: scraped accounts
+  // change through the seed's kennelSlugMap and a data migration.
   const existing = await prisma.kennelDiscovery.findUnique({
     where: { id },
-    select: { externalSource: true, externalSlug: true },
+    select: { externalSource: true },
   });
   if (!existing) return { error: "Discovery not found" };
   if (isHalfMindRow(existing)) return dismissHalfMindListing(id);
-  if (existing.externalSource === HASH_REGO_SOURCE) await unlinkScrapedSlugs([existing.externalSlug]);
 
   await prisma.kennelDiscovery.update({
     where: { id },
@@ -167,13 +149,6 @@ export async function dismissDiscovery(id: string) {
 export async function bulkDismissDiscoveries(ids: string[]) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Not authorized" };
-
-  // Same rule as dismissDiscovery: stop scraping exactly the dismissed accounts.
-  const existing = await prisma.kennelDiscovery.findMany({
-    where: { id: { in: ids }, externalSource: HASH_REGO_SOURCE },
-    select: { externalSlug: true },
-  });
-  await unlinkScrapedSlugs(existing.map((d) => d.externalSlug));
 
   // Linked and added Half-Mind rows are undone through their own actions.
   await prisma.kennelDiscovery.updateMany({

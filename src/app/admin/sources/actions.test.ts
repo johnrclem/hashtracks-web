@@ -6,7 +6,7 @@ vi.mock("@/lib/auth", () => ({ getAdminUser: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     source: { create: vi.fn(), update: vi.fn(), delete: vi.fn(), findUnique: vi.fn() },
-    sourceKennel: { create: vi.fn(), deleteMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    sourceKennel: { create: vi.fn(), createMany: vi.fn(), deleteMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), delete: vi.fn() },
     rawEvent: { count: vi.fn(), deleteMany: vi.fn() },
     alert: { findMany: vi.fn(), update: vi.fn() },
     kennel: { findFirst: vi.fn() },
@@ -95,10 +95,13 @@ describe("updateSource", () => {
     expect(prisma.sourceKennel.deleteMany).toHaveBeenCalledWith({
       where: { sourceId: "s1", kennelId: { notIn: ["k1", "k3"] } },
     });
+    // Existing rows (and their slugs) are left as they are; new ones are added.
+    expect(prisma.sourceKennel.createMany).toHaveBeenCalledWith({
+      data: [{ sourceId: "s1", kennelId: "k1" }, { sourceId: "s1", kennelId: "k3" }],
+      skipDuplicates: true,
+    });
     expect(prisma.source.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ kennels: { create: [{ kennelId: "k3" }] } }),
-      }),
+      expect.objectContaining({ data: expect.not.objectContaining({ kennels: expect.anything() }) }),
     );
   });
 });

@@ -16,7 +16,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "beantown": ["Beantown", "Beantown Hash", "Beantown City", "Beantown City H3", "Beantown City Hash"],
     "knick": ["Knick", "Knickerbocker", "Knickerbocker Hash"],
     "columbia": ["Columbia", "Columbia Hash"],
-    "ggfm": ["GGFM", "GGFM Hash"],
+    "ggfm": ["GGFM", "GGFM Hash", "Greater Gotham Full Moon Hash"],
     "harriettes-nyc": ["Harriettes", "Harriettes Hash", "Harriettes (NYC)", "Harriettes NYC"],
     "si": ["Staten Island", "SI", "SI Hash", "Staten Island Hash"],
     "drinking-practice-nyc": ["Drinking Practice", "NYC Drinking Practice", "NYC DP", "DP"],
@@ -49,8 +49,8 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // taken (Minneapolis t3h3 / Wellington t3h3-nz); the adapter routes by
     // kennelCode so no bare alias is needed for ingest.
     "t3h3-va": ["Tuesday Tuesday Tuesday H3", "Tuesday Tuesday Tuesday Hash House Harriers", "Tuesday Hash Norfolk", "Tuesday, Tuesday, Tuesday"],
-    "hoboh3": ["HOBO H3", "HOBO Hash House Harriers"],
-    "vbfmh3": ["VB Full Moon H3", "Virginia Beach Full Moon H3", "VBFM H3"],
+    "hoboh3": ["HOBO H3", "HOBO Hash House Harriers", "Tidewater HOBO Hash House Harriers"],
+    "vbfmh3": ["VB Full Moon H3", "Virginia Beach Full Moon H3", "VBFM H3", "Virginia Beach Full Moon Hash House Harriers"],
     "mosh3": ["Men of Shenanigans H3", "Men of Shenanigans"],
     "tkdh3": ["TKDH3 Hash", "Tidewater Knuckledraggers Hash House Harriers", "Tidewater Knuckledraggers"],
     "7h4": ["7H4", "Seven Hills Hash", "Seven Hills", "7 Hills Hash"],
@@ -123,7 +123,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "bah3": ["Baltimore Annapolis", "Baltimore Annapolis Hash"],
     "mvh3": ["Mount Vernon Hash", "Mount Vernon H3", "Mount Vernon"],
     "ofh3": ["Old Frederick", "Old Frederick Hash"],
-    "dcfmh3": ["DC Full Moon", "DC Full Moon Hash"],
+    "dcfmh3": ["DC Full Moon", "DC Full Moon Hash", "DC Full mOOn Hash House Harriers"],
     "gfh3": ["Great Falls", "Great Falls Hash"],
     "dch3": ["DC Hash", "DC Hash House Harriers", "the Men's Hash"],
     "oth4": ["Over the Hump"],
@@ -290,7 +290,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "ph4": ["Hump Hash", "Portland Hump Hash", "Portland Humpin Hash", "PH4", "Humpin Hash"],
     "stumph3": ["Stumptown Hash", "Stumptown H3", "StumpH3", "Stump"],
     "dwh3": ["Dead Whores Hash", "Dead Whores H3", "DWH3", "DWH"],
-    "oh3": ["Oregon Hash", "Oregon H3", "OH3", "OregonH3", "PDXGDRH3", "Oregon Hash House Harriers"],
+    "oh3": ["Oregon Hash", "Oregon H3", "OH3", "OregonH3", "Oregon Hash House Harriers"],
     "swh3-or": ["SWH3"],
     "tgif": ["TGIF Hash", "TGIF H3"],
     "salemh3": ["Salem Hash", "Salem H3", "SalemH3", "SH3 Salem"],
@@ -507,7 +507,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "abqh3": ["ABQ H3", "ABQ Hash", "Albuquerque Hash", "Albuquerque HHH", "ABQHHH"],
 
     // ===== ALABAMA =====
-    "mrh3": ["MRH3", "Mutha Rucker", "Mutha Rucker H3", "Mutha Rucker Hash", "Mutha Rucker HHH"],
+    "mrh3": ["MRH3", "Mutha Rucker", "Mutha Rucker H3", "Mutha Rucker Hash", "Mutha Rucker HHH", "Mutha Rucker Hash House Harriers"],
     "gch3": ["GCH3", "Gulf Coast", "Gulf Coast H3", "Gulf Coast Hash", "Gulf Coast HHH"],
     "wsh3": ["WSH3", "Wandering Soul", "Wandering Soul H3", "Wandering Soul Hash", "Wandering Soul HHH"],
 
@@ -785,7 +785,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     "ph3-sr": ["PH3-SR", "Paramaribo HHH", "Paramaribo Hash", "Paramaribo Hash House Harriers"],
     // bare "AH3" OMITTED — taken by Aloha / Amsterdam / Adelaide / Auckland.
     "abujah3": ["Abuja Hash", "Abuja HHH", "Abuja Hash House Harriers"],
-    "blhhh": ["BLHHH", "Big Lik HHH", "Big Lik Hash House Harriers", "Incirlik Hash"],
+    "blhhh": ["BLHHH", "Big Lik HHH", "Big Lik Hash House Harriers", "Incirlik Hash", "The Big Lik Hash House Harriers"],
     "hannover-h3": ["Hannover", "Hannover Hash House Harriers", "HANH3"],
     "mobh3": ["MOBH3", "Moon Over Barbados"],
     "bbh3": ["BBH3", "Barbados Bike", "Barbados Bike Hash"],
@@ -815,7 +815,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // bare "BH3" OMITTED — Buffalo H3 owns it globally.
     "bicester-h3": ["Bicester Hash", "Bicester HHH", "BH3 Bicester"],
     "hwh3": ["HWH3", "High Wycombe Hash", "High Wycombe HHH", "Wycombe Hash"],
-    "oxford-h3": ["Oxford Hash", "Oxford HHH", "OxfordH3", "Oxford Hash House Harriers"],
+    "oxford-h3": ["Oxford Hash", "Oxford HHH", "OxfordH3", "Oxford Hash House Harriers", "Oxford Hash House Harrirers"],
     "newch3": ["NEW Cotswold H3", "N.E.W. Cotswold HHH", "NEWCH3", "Cotswold H3", "Cotswold Hash", "New Cotswold Hash House Harriers"],
     // bare "MH3"/"MVH3" OMITTED — taken (Munich/Montreal/…; Mount Vernon).
     "malvern-h3": ["Malvern Hash House Harriers", "Malvern H3", "Malvern HHH"],

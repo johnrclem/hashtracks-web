@@ -215,32 +215,17 @@ describe("confirmMatch", () => {
 describe("dismissDiscovery", () => {
   beforeEach(() => {
     mockDiscoveryUpdate.mockResolvedValue({} as never);
-    mockSourceFind.mockResolvedValue(fakeHashRegoSource as never);
-    mockSourceKennelDeleteMany.mockResolvedValue({ count: 1 } as never);
   });
 
-  it("stops scraping exactly the dismissed account's slug, case-insensitively", async () => {
-    mockDiscoveryFind.mockResolvedValue({ externalSource: "HASHREGO", externalSlug: "Harriettes" } as never);
+  it("only reviews the row: a scraped account keeps its link", async () => {
+    mockDiscoveryFind.mockResolvedValue({ externalSource: "HASHREGO" } as never);
 
     const result = await dismissDiscovery("disc-2");
     expect(result).toEqual({ success: true });
-
-    expect(mockSourceKennelDeleteMany).toHaveBeenCalledWith({
-      where: {
-        sourceId: "src-hr",
-        OR: [{ externalSlug: { equals: "Harriettes", mode: "insensitive" } }],
-      },
+    expect(mockDiscoveryUpdate).toHaveBeenCalledWith({
+      where: { id: "disc-2" },
+      data: expect.objectContaining({ status: "DISMISSED", processedBy: "admin-1" }),
     });
-    // The filter names the slug, so a kennel's link to another account survives.
-    const where = mockSourceKennelDeleteMany.mock.calls[0][0]!.where;
-    expect(matchesWhere({ sourceId: "src-hr", externalSlug: "HARRIETTES" }, where)).toBe(true);
-    expect(matchesWhere({ sourceId: "src-hr", externalSlug: "DCH4" }, where)).toBe(false);
-  });
-
-  it("dismisses a Gemini row without touching scrape links", async () => {
-    mockDiscoveryFind.mockResolvedValue({ externalSource: "GEMINI", externalSlug: "black-sheep-hhh" } as never);
-
-    expect(await dismissDiscovery("disc-5")).toEqual({ success: true });
     expect(mockSourceKennelDeleteMany).not.toHaveBeenCalled();
   });
 
@@ -253,39 +238,11 @@ describe("dismissDiscovery", () => {
 // ---- bulkDismissDiscoveries ----
 
 describe("bulkDismissDiscoveries", () => {
-  beforeEach(() => {
-    mockDiscoveryUpdateMany.mockResolvedValue({ count: 0 } as never);
-    mockSourceFind.mockResolvedValue(fakeHashRegoSource as never);
-    mockSourceKennelDeleteMany.mockResolvedValue({ count: 0 } as never);
-  });
+  it("dismisses the rows without touching scrape links", async () => {
+    mockDiscoveryUpdateMany.mockResolvedValue({ count: 2 } as never);
 
-  it("stops scraping the dismissed Hash Rego slugs only", async () => {
-    mockDiscoveryFindMany.mockResolvedValue([
-      { externalSlug: "SCH3" },
-      { externalSlug: "Noh" },
-    ] as never);
-
-    await bulkDismissDiscoveries(["a", "b", "c"]);
-
-    expect(mockDiscoveryFindMany).toHaveBeenCalledWith({
-      where: { id: { in: ["a", "b", "c"] }, externalSource: "HASHREGO" },
-      select: { externalSlug: true },
-    });
-    expect(mockSourceKennelDeleteMany).toHaveBeenCalledWith({
-      where: {
-        sourceId: "src-hr",
-        OR: [
-          { externalSlug: { equals: "SCH3", mode: "insensitive" } },
-          { externalSlug: { equals: "Noh", mode: "insensitive" } },
-        ],
-      },
-    });
-  });
-
-  it("skips the link delete when no Hash Rego rows are in the batch", async () => {
-    mockDiscoveryFindMany.mockResolvedValue([] as never);
-
-    await bulkDismissDiscoveries(["a", "b"]);
+    expect(await bulkDismissDiscoveries(["a", "b"])).toEqual({ success: true });
+    expect(mockDiscoveryUpdateMany).toHaveBeenCalledTimes(1);
     expect(mockSourceKennelDeleteMany).not.toHaveBeenCalled();
   });
 });

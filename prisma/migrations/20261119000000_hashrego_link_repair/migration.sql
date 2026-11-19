@@ -15,10 +15,13 @@
 -- 3. Dismiss the wrong auto-matched discovery rows, plus the Portland Green
 --    Dress Run event accounts and the sister-kennel accounts, so no tool
 --    reads them as links. DISMISSED is terminal: the sync never re-scores it.
---    PhillyH3's row is linked to philly-h3. processedBy stays NULL (migration).
--- 4. Alias the restored accounts' Hash Rego display names, which the resolver
+--    PhillyH3's row is linked to philly-h3, and the 12 suggested (MATCHED)
+--    rows whose account the scraper already fetches are marked LINKED, so
+--    nothing scraped sits in the suggestion queue. processedBy stays NULL.
+-- 4. Alias the scraped accounts' Hash Rego display names that the resolver
 --    can't match today (it never reads Kennel.fullName), so their detail-page
---    events aren't dropped as unmatched.
+--    events aren't dropped as unmatched or caught by the global /moon/
+--    pattern. Drop oh3's "PDXGDRH3" alias: that event account is dismissed.
 --
 -- Idempotent; safe to re-apply. prisma/seed-data/sources.ts and aliases.ts
 -- carry the same state.
@@ -77,6 +80,20 @@ WHERE d."externalSource" = 'HASHREGO'
   AND k."kennelCode" = 'philly-h3'
   AND (d.status <> 'LINKED'::"DiscoveryStatus" OR d."matchedKennelId" IS DISTINCT FROM k.id);
 
+UPDATE "KennelDiscovery" d
+SET status = 'LINKED'::"DiscoveryStatus",
+    "processedAt" = NOW() AT TIME ZONE 'UTC',
+    "updatedAt" = NOW() AT TIME ZONE 'UTC'
+FROM "Kennel" k
+WHERE d."externalSource" = 'HASHREGO'
+  AND d.status = 'MATCHED'::"DiscoveryStatus"
+  AND d."matchedKennelId" = k.id
+  AND (k."kennelCode", d."externalSlug") IN (
+    ('dch4', 'DCH4'), ('gh3-gd', 'GndH3'), ('hch3', 'HCH3'), ('hellgate-h3', 'HellgateH3'),
+    ('hoboh3', 'HOBO'), ('hoth3', 'HOTH3'), ('mobh3', 'MOBH3'), ('oxford-h3', 'OxfordH3'),
+    ('sgh3', 'SHH3'), ('ssh3-wa', 'SouthH3'), ('sbh3-ph', 'SubicH3'), ('blhhh', 'TBLH3')
+  );
+
 -- 4. Display-name aliases.
 INSERT INTO "KennelAlias" (id, "kennelId", alias)
 SELECT 'ka_hr_repair_' || t.code, k.id, t.alias
@@ -85,9 +102,20 @@ FROM (VALUES
   ('mh3-wv', 'Morgantown Hash House Harriers'),
   ('noh3', 'New Orleans Hash House Harriers'),
   ('oh3', 'Oregon Hash House Harriers'),
-  ('philly-h3', 'Philadelphia Hash House Harriers')
+  ('philly-h3', 'Philadelphia Hash House Harriers'),
+  ('blhhh', 'The Big Lik Hash House Harriers'),
+  ('dcfmh3', 'DC Full mOOn Hash House Harriers'),
+  ('ggfm', 'Greater Gotham Full Moon Hash'),
+  ('hoboh3', 'Tidewater HOBO Hash House Harriers'),
+  ('mrh3', 'Mutha Rucker Hash House Harriers'),
+  ('oxford-h3', 'Oxford Hash House Harrirers'),
+  ('vbfmh3', 'Virginia Beach Full Moon Hash House Harriers')
 ) AS t(code, alias)
 JOIN "Kennel" k ON k."kennelCode" = t.code
 ON CONFLICT ("kennelId", alias) DO NOTHING;
+
+DELETE FROM "KennelAlias" a
+USING "Kennel" k
+WHERE a."kennelId" = k.id AND k."kennelCode" = 'oh3' AND a.alias = 'PDXGDRH3';
 
 COMMIT;
