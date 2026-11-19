@@ -35,7 +35,7 @@ function postGitHubIssue(findings: AuditFinding[]): void {
       "--title", title,
       "--label", "audit",
       "--label", "claude-fix",
-      "--label", "alert",
+      "--label", "lane:defect",
       "--body-file", bodyFile,
     ], { encoding: "utf8" });
     if (result.status === 0) {

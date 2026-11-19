@@ -12,25 +12,33 @@ export interface KennelEvidence {
   lastRunSeenAt: Date | null;
   nextRunPostedAt: Date | null;
   lastConfirmedAt: Date | null;
+  lastConfirmedVia: ConfirmationVia | null;
   stoppedAt: Date | null;
 }
 
-export type SerializedKennelEvidence = { [K in keyof KennelEvidence]: string | null };
+export type ConfirmationVia = "ADMIN" | "HALF_MIND";
+
+export type SerializedKennelEvidence = Omit<{ [K in keyof KennelEvidence]: string | null }, "lastConfirmedVia"> & {
+  lastConfirmedVia: ConfirmationVia | null;
+};
 
 export type StatusLine =
-  | { kind: "last-run" | "checked" | "next-posted" | "stopped"; date: Date }
+  | { kind: "last-run" | "next-posted" | "stopped"; date: Date }
+  | { kind: "checked"; via: ConfirmationVia; date: Date }
   | { kind: "never" };
 
 /**
- * The own-page URL to link from a status line: always for a never-seen kennel,
- * and for dated lines only when the surface asks for it (the Travel list).
+ * The own-page URL to link from a status line: always for a never-seen kennel
+ * or a Half-Mind check (a listing is weaker than the kennel's own page), and
+ * for other dated lines only when the surface asks for it (the Travel list).
  */
 export function ownPageFor(
   line: StatusLine,
   ownPageUrl: string | null,
   showOwnPage: boolean,
 ): string | null {
-  return line.kind === "never" || showOwnPage ? ownPageUrl : null;
+  const halfMindChecked = line.kind === "checked" && line.via === "HALF_MIND";
+  return line.kind === "never" || halfMindChecked || showOwnPage ? ownPageUrl : null;
 }
 
 // Day-count thresholds: the single source of truth for state and SQL filters.
@@ -46,6 +54,7 @@ export const KENNEL_EVIDENCE_SELECT = {
   lastRunSeenAt: true,
   nextRunPostedAt: true,
   lastConfirmedAt: true,
+  lastConfirmedVia: true,
   stoppedAt: true,
 } as const satisfies Prisma.KennelSelect;
 
@@ -85,8 +94,25 @@ export function getKennelState(e: KennelEvidence, now: Date = new Date()): Kenne
   return "not-seen";
 }
 
-export function getStatusLine(e: KennelEvidence, now: Date = new Date()): StatusLine | null {
+/**
+ * A running kennel whose only running evidence is a Half-Mind check: drop the
+ * check and it is no longer running. Such a kennel shows the Half-Mind line.
+ */
+export function isHalfMindDeciding(e: KennelEvidence, now: Date = new Date()): boolean {
+  if (e.stoppedAt || e.lastConfirmedVia !== "HALF_MIND") return false;
+  if (getKennelState(e, now) !== "running") return false;
+  return getKennelState({ ...e, lastConfirmedAt: null }, now) !== "running";
+}
+
+export function getStatusLine(
+  e: KennelEvidence,
+  now: Date = new Date(),
+  opts: { listingOnly?: boolean } = {},
+): StatusLine | null {
   if (e.stoppedAt) return { kind: "stopped", date: e.stoppedAt };
+  if (e.lastConfirmedAt && (isHalfMindDeciding(e, now) || opts.listingOnly)) {
+    return { kind: "checked", via: e.lastConfirmedVia ?? "ADMIN", date: e.lastConfirmedAt };
+  }
   if (getKennelState(e, now) === "running") return null;
   if (e.nextRunPostedAt && toUtcNoon(e.nextRunPostedAt) > postedAheadLimit(now).getTime()) {
     return { kind: "next-posted", date: e.nextRunPostedAt };
@@ -99,7 +125,7 @@ export function getStatusLine(e: KennelEvidence, now: Date = new Date()): Status
   const confirmed = e.lastConfirmedAt ? toUtcNoon(e.lastConfirmedAt) : null;
   const seen = e.lastRunSeenAt ? toUtcNoon(e.lastRunSeenAt) : null;
   if (e.lastConfirmedAt && confirmed === newest && (seen === null || confirmed > seen)) {
-    return { kind: "checked", date: e.lastConfirmedAt };
+    return { kind: "checked", via: e.lastConfirmedVia ?? "ADMIN", date: e.lastConfirmedAt };
   }
   return { kind: "last-run", date: new Date(newest) };
 }
@@ -113,19 +139,50 @@ function formatStatusDate(date: Date, now: Date): string {
   }).format(date);
 }
 
-export function formatStatusLine(line: StatusLine, now: Date = new Date()): string {
+/** The words a Half-Mind check line links to the listing. */
+export const HALF_MIND_LISTING_WORDS = "Half-Mind listing";
+
+/**
+ * A status line in two parts: `linkText`, set only on a Half-Mind check line,
+ * is the words to link to the listing, and `rest` is everything after them.
+ */
+export function statusLineParts(line: StatusLine, now: Date = new Date()): { linkText?: string; rest: string } {
   switch (line.kind) {
     case "never":
-      return "No runs seen on HashTracks";
+      return { rest: "No runs seen on HashTracks" };
     case "last-run":
-      return `Last run we saw · ${formatStatusDate(line.date, now)}`;
+      return { rest: `Last run we saw · ${formatStatusDate(line.date, now)}` };
     case "checked":
-      return `Checked running · ${formatStatusDate(line.date, now)}`;
+      return line.via === "HALF_MIND"
+        ? { linkText: HALF_MIND_LISTING_WORDS, rest: ` checked · ${formatStatusDate(line.date, now)}` }
+        : { rest: `Checked running · ${formatStatusDate(line.date, now)}` };
     case "next-posted":
-      return `Next run posted · ${formatStatusDate(line.date, now)}`;
+      return { rest: `Next run posted · ${formatStatusDate(line.date, now)}` };
     case "stopped":
-      return `Stopped · ${formatStatusDate(line.date, now)}`;
+      return { rest: `Stopped · ${formatStatusDate(line.date, now)}` };
   }
+}
+
+export function formatStatusLine(line: StatusLine, now: Date = new Date()): string {
+  const { linkText = "", rest } = statusLineParts(line, now);
+  return linkText + rest;
+}
+
+/**
+ * The credited Half-Mind line for a surface that otherwise shows only the state
+ * label (the share image), or null to keep that label. Set when the status line
+ * credits Half-Mind and the check decides what is shown: a running kennel kept
+ * running only by the check, or a listing-only kennel.
+ */
+export function halfMindCreditLabel(
+  e: KennelEvidence,
+  now: Date = new Date(),
+  opts: { listingOnly?: boolean } = {},
+): string | null {
+  if (!opts.listingOnly && !isHalfMindDeciding(e, now)) return null;
+  const line = getStatusLine(e, now, opts);
+  if (line?.kind !== "checked" || line.via !== "HALF_MIND") return null;
+  return formatStatusLine(line, now);
 }
 
 function evidenceWhere(now: Date, days: number): Prisma.KennelWhereInput {
@@ -156,6 +213,7 @@ export function serializeKennelEvidence(e: KennelEvidence): SerializedKennelEvid
     lastRunSeenAt: e.lastRunSeenAt?.toISOString() ?? null,
     nextRunPostedAt: e.nextRunPostedAt?.toISOString() ?? null,
     lastConfirmedAt: e.lastConfirmedAt?.toISOString() ?? null,
+    lastConfirmedVia: e.lastConfirmedVia,
     stoppedAt: e.stoppedAt?.toISOString() ?? null,
   };
 }
@@ -166,6 +224,7 @@ export function toKennelEvidence(s: SerializedKennelEvidence): KennelEvidence {
     lastRunSeenAt: d(s.lastRunSeenAt),
     nextRunPostedAt: d(s.nextRunPostedAt),
     lastConfirmedAt: d(s.lastConfirmedAt),
+    lastConfirmedVia: s.lastConfirmedVia,
     stoppedAt: d(s.stoppedAt),
   };
 }

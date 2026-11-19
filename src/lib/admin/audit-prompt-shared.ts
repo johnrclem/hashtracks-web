@@ -193,7 +193,9 @@ Response shapes:
 - \`{ "error": "Unknown kennelCode" }\` (422) — re-check the kennelCode and retry. Either the internal kennelCode or the kennel page's URL slug (last path segment of \`/kennels/<slug>\`) is accepted; the finding is stored under the internal code.
 - \`{ "error": "..." }\` (400) — malformed payload; fix the field it names and retry.
 
-You never set labels and never touch GitHub. The \`ruleSlug\` is lowercase-hyphenated (e.g. \`hares-theme-leak\`, \`title-raw-kennel-code\`); when the server later files the reviewed finding it applies the \`audit\`, \`alert\`, \`audit:${input.stream}\`, and \`kennel:${input.kennelLabel}\` labels and runs the cross-issue dedup, so duplicates of an already-open finding become recurrence comments rather than new issues.
+You never touch GitHub. The \`ruleSlug\` is lowercase-hyphenated (e.g. \`hares-theme-leak\`, \`title-raw-kennel-code\`); when the server later files the reviewed finding it applies the \`audit\`, \`audit:${input.stream}\`, and \`kennel:${input.kennelLabel}\` labels plus one lane label (chosen from the rule unless you request the decision lane, below), and runs the cross-issue dedup, so duplicates of an already-open finding become recurrence comments rather than new issues.
+
+The one label you may set: when only the owner can settle a finding (a product choice, not a fix anyone could make), add \`"labels": ["lane:decision"]\` and make the first line of \`bodyMarkdown\` the question, in one sentence. Any other label is rejected (400).
 
 **If you genuinely cannot reach the endpoint (last resort):** output the finding in this format and stop — an admin will pick it up from the run:
 

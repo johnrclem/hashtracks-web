@@ -168,6 +168,59 @@ describe("POST /api/audit/submit-finding — finding", () => {
         bodyMarkdown: VALID_FINDING.bodyMarkdown,
       });
     });
+
+    it("removes a secret query value quoted from a scrape error", async () => {
+      await POST(
+        buildApiPostRequest(URL, { ...VALID_FINDING, bodyMarkdown: "Fetch failed: /calendars/x/events?key=sample-value" }),
+      );
+      expect(storedDraft().bodyMarkdown).toBe("Fetch failed: /calendars/x/events?key=[secret]");
+    });
+  });
+
+  describe("requested labels", () => {
+    const storedLabels = () => mockDraftCreate.mock.calls[0][0].data.labels;
+
+    beforeEach(() => {
+      mockDraftCreate.mockResolvedValue({ id: "draft_labels" } as never);
+    });
+
+    it("stores no labels when none are requested", async () => {
+      await POST(buildApiPostRequest(URL, VALID_FINDING));
+      expect(storedLabels()).toEqual([]);
+    });
+
+    it("stores lane:decision, once", async () => {
+      const res = await POST(
+        buildApiPostRequest(URL, { ...VALID_FINDING, labels: ["lane:decision", "lane:decision"] }),
+      );
+      expect(res.status).toBe(201);
+      expect(storedLabels()).toEqual(["lane:decision"]);
+    });
+
+    it("hashes a decision request apart from the same finding without one", async () => {
+      await POST(buildApiPostRequest(URL, VALID_FINDING));
+      await POST(buildApiPostRequest(URL, { ...VALID_FINDING, labels: ["lane:decision"] }));
+      const [plain, decision] = mockDraftCreate.mock.calls.map(([arg]) => arg.data.contentHash);
+      expect(decision).not.toBe(plain);
+    });
+
+    it.each([
+      ["another lane", ["lane:defect"]],
+      ["an origin label", ["audit"]],
+      ["the retired alert label", ["alert"]],
+      ["decision plus another label", ["lane:decision", "kennel:other"]],
+    ])("400 on %s, and queues nothing", async (_label, labels) => {
+      const res = await POST(buildApiPostRequest(URL, { ...VALID_FINDING, labels }));
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toContain("lane:decision");
+      expect(mockDraftCreate).not.toHaveBeenCalled();
+    });
+
+    it("400 when labels isn't a list of strings", async () => {
+      const res = await POST(buildApiPostRequest(URL, { ...VALID_FINDING, labels: "lane:decision" }));
+      expect(res.status).toBe(400);
+      expect(mockDraftCreate).not.toHaveBeenCalled();
+    });
   });
 });
 

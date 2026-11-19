@@ -1063,6 +1063,14 @@ describe("getCloseReasonRatiosByStream", () => {
     const ratios = await getCloseReasonRatiosByStream(30);
     for (const r of ratios) expect(r.windowDays).toBe(30);
   });
+
+  it("counts only issues labelled audit, not lane-only ones mirrored as UNKNOWN", async () => {
+    mockGroupBy.mockResolvedValue([] as never);
+    await getCloseReasonRatiosByStream();
+    expect(mockGroupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ hasAuditLabel: true }) }),
+    );
+  });
 });
 
 describe("getAuditSyncFreshness", () => {

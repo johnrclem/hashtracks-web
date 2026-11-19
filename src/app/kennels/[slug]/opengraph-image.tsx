@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { prisma } from "@/lib/db";
-import { getKennelState, KENNEL_EVIDENCE_SELECT } from "@/lib/kennel-status";
+import { getKennelState, halfMindCreditLabel, KENNEL_EVIDENCE_SELECT } from "@/lib/kennel-status";
 import { formatSchedule } from "@/lib/format";
 import { SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
 
@@ -19,6 +19,7 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
       fullName: true,
       region: true,
       ...KENNEL_EVIDENCE_SELECT,
+      listingOnly: true,
       scheduleDayOfWeek: true,
       scheduleTime: true,
       scheduleFrequency: true,
@@ -36,7 +37,8 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
     );
   }
 
-  const state = getKennelState(kennel);
+  const now = new Date();
+  const state = getKennelState(kennel, now);
   const STATUS_LABELS = {
     running: "Running",
     quiet: "Quiet lately",
@@ -49,7 +51,8 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
     "not-seen": "#71717a",
     stopped: "#f87171",
   } as const;
-  const statusText = STATUS_LABELS[state];
+  // When a Half-Mind check decides what the page shows, say so, as the page does.
+  const statusText = halfMindCreditLabel(kennel, now, { listingOnly: kennel.listingOnly }) ?? STATUS_LABELS[state];
   const statusColor = STATUS_COLORS[state];
   const schedule = formatSchedule(kennel) ?? "";
 

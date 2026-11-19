@@ -15,7 +15,7 @@ import { INDEPENDENT_EVENT_WHERE } from "@/lib/event-eligibility";
 import { haversineDistance } from "@/lib/geo";
 import { parseUtcNoonDate } from "@/lib/date";
 import { safeUrl } from "@/lib/safe-url";
-import { KENNEL_EVIDENCE_SELECT } from "@/lib/kennel-status";
+import { KENNEL_EVIDENCE_SELECT, type ConfirmationVia } from "@/lib/kennel-status";
 import {
   selectOtherKennels,
   shouldShowOtherKennels,
@@ -151,7 +151,7 @@ export interface LikelyResult extends DestinationTag {
   /** The kennel's admin "checked running" date when that confirmation is its
    *  newest evidence and is recent (≤90 days); the card shows it in place of
    *  "0 runs in the last 12 weeks". Null otherwise. */
-  checkedRunningAt: Date | null;
+  checkedRunningAt: { date: Date; via: ConfirmationVia } | null;
   sourceLinks: SourceLink[];
 }
 
@@ -304,6 +304,7 @@ interface NearbyKennel {
   longitude: number | null;
   lastRunSeenAt: Date | null;
   lastConfirmedAt: Date | null;
+  lastConfirmedVia: ConfirmationVia | null;
   nextRunPostedAt: Date | null;
   stoppedAt: Date | null;
   scheduleDayOfWeek: string | null;
@@ -312,6 +313,8 @@ interface NearbyKennel {
   website: string | null;
   facebookUrl: string | null;
   instagramHandle: string | null;
+  halfMindListingId: string | null;
+  listingOnly: boolean;
   distanceKm: number;
   regionRef: { pinColor: string; centroidLat: number | null; centroidLng: number | null } | null;
 }
@@ -997,12 +1000,7 @@ async function runStopSearch(
     const shownKennelIds = new Set(
       [...filtered.confirmed, ...filtered.likely, ...filtered.possible].map((r) => r.kennelId),
     );
-    // listingOnly is false until the column exists (Task 8).
-    const picked = selectOtherKennels(
-      primary.map((k) => ({ ...k, listingOnly: false })),
-      shownKennelIds,
-      ctx.now,
-    );
+    const picked = selectOtherKennels(primary, shownKennelIds, ctx.now);
     if (picked.length > 0) otherKennels = picked;
   }
 
@@ -1114,6 +1112,8 @@ async function fetchAllVisibleKennels(prisma: PrismaClient) {
       website: true,
       facebookUrl: true,
       instagramHandle: true,
+      halfMindListingId: true,
+      listingOnly: true,
       regionRef: { select: { pinColor: true, centroidLat: true, centroidLng: true } },
     },
   });
@@ -1208,11 +1208,15 @@ function uncoveredScheduleRuns(
  * The kennel's last admin confirmation when it is its newest evidence (no later
  * run seen) and recent by the inactivity rule; null otherwise.
  */
-function recentConfirmation(kennel: NearbyKennel | undefined, now: Date): Date | null {
+function recentConfirmation(
+  kennel: NearbyKennel | undefined,
+  now: Date,
+): { date: Date; via: ConfirmationVia } | null {
   const confirmed = kennel?.lastConfirmedAt ?? null;
   if (!confirmed) return null;
   if (kennel?.lastRunSeenAt && kennel.lastRunSeenAt > confirmed) return null;
-  return isKennelInactive(confirmed, now.getTime()) ? null : confirmed;
+  if (isKennelInactive(confirmed, now.getTime())) return null;
+  return { date: confirmed, via: kennel?.lastConfirmedVia ?? "ADMIN" };
 }
 
 /** Apply confidence scoring to each projection using kennel activity + rule-specific context. */

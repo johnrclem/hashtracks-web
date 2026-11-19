@@ -81,6 +81,23 @@ describe("createOpsGithub", () => {
   });
 });
 
+describe("createOpsGithub scrubbing", () => {
+  it("removes secrets from the issues and comments it posts", async () => {
+    const key = `AIza${"x".repeat(35)}`;
+    const fetchMock = vi.fn(async () => json({ number: 4101 }, 201));
+    const gh = createOpsGithub("tok", fetchMock as never);
+    await gh.createIssue({ title: `t ${key}`, body: `GET /x?token=abc123&page=2`, labels: ["lane:ops"] });
+    await gh.comment(4101, "Authorization: Bearer abcdefghijklmnopqrstu");
+    const bodies = (fetchMock.mock.calls as unknown as Array<[URL, RequestInit]>).map(([, init]) =>
+      JSON.parse(String(init.body)),
+    );
+    expect(bodies).toEqual([
+      { title: "t [secret]", body: "GET /x?token=[secret]&page=2", labels: ["lane:ops"] },
+      { body: "Authorization: Bearer [secret]" },
+    ]);
+  });
+});
+
 describe("isWaitingOnOwner", () => {
   const pr = (labels: string[], draft = false) => ({ labels, draft }) as GhPull;
   it("is an open, non-draft PR not yet approved and not a self-merged handoff", () => {

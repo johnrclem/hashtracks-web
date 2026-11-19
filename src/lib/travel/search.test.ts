@@ -11,6 +11,7 @@ vi.mock("@/lib/weather", () => ({
 
 import { getWeatherForEvents } from "@/lib/weather";
 import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
+import type { ConfirmationVia } from "@/lib/kennel-status";
 import {
   executeTravelSearch,
   byDateTimeDistance,
@@ -32,6 +33,7 @@ interface MockKennel {
   longitude: number | null;
   lastRunSeenAt: Date | null;
   lastConfirmedAt: Date | null;
+  lastConfirmedVia?: ConfirmationVia | null;
   nextRunPostedAt?: Date | null;
   stoppedAt?: Date | null;
   scheduleDayOfWeek: string | null;
@@ -40,6 +42,7 @@ interface MockKennel {
   website: string | null;
   facebookUrl: string | null;
   instagramHandle: string | null;
+  listingOnly?: boolean;
   isHidden: boolean;
   regionRef: { pinColor: string; centroidLat: number | null; centroidLng: number | null } | null;
 }
@@ -634,7 +637,7 @@ describe("executeTravelSearch", () => {
       expect(result.likely.length).toBeGreaterThan(0);
       for (const row of result.likely) {
         expect(row.confidence).toBe("high");
-        expect(row.checkedRunningAt?.getTime()).toBe(utcNoon("2026-04-01").getTime());
+        expect(row.checkedRunningAt).toEqual({ date: utcNoon("2026-04-01"), via: "ADMIN" });
       }
     });
 
@@ -1055,6 +1058,24 @@ describe("executeTravelSearch", () => {
 
       expect(result.destinations[0].otherKennels?.map((k) => k.kennelId)).toEqual(["k-quiet"]);
       expect(result.destinations[0].otherKennels?.[0].evidence.lastRunSeenAt).toEqual(utcNoon("2025-10-01"));
+    });
+
+    it("lists a running listing-only kennel read from the real column", async () => {
+      const listing: MockKennel = {
+        ...testKennel,
+        id: "k-listing",
+        slug: "listing-h3",
+        shortName: "Listing H3",
+        listingOnly: true,
+        lastRunSeenAt: null,
+        lastConfirmedAt: utcNoon("2026-04-01"),
+        lastConfirmedVia: "HALF_MIND",
+      };
+      const prisma = createMockPrisma([listing], [], []);
+      const result = await executeTravelSearch(prisma, baseParams);
+
+      expect(result.destinations[0].otherKennels?.map((k) => k.kennelId)).toEqual(["k-listing"]);
+      expect(result.destinations[0].otherKennels?.[0].listingOnly).toBe(true);
     });
 
     it("leaves otherKennels unset when nothing qualifies", async () => {

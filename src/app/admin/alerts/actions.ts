@@ -8,6 +8,10 @@ import { resolveKennelTag, clearResolverCache, mapKennelTag } from "@/pipeline/k
 import { buildKennelIdentifiers, createKennelRecord } from "@/lib/kennel-utils";
 import type { Prisma } from "@/generated/prisma/client";
 import { ARCHIVE_SOURCE_LOCKED, isArchiveSource } from "@/lib/archive-source";
+import { LANE_LABELS, isValidKennelCode, kennelLabel } from "@/lib/audit-labels";
+import { scrubSecrets } from "@/lib/audit-redact";
+import { NO_GITHUB_CREDENTIAL, serverGithubToken } from "@/lib/github-app";
+import { getValidatedRepo } from "@/lib/github-repo";
 
 interface RepairLogEntry {
   action: string;
@@ -442,12 +446,26 @@ export async function linkKennelToSource(
   return { success: true, kennelName: kennel?.shortName };
 }
 
+/**
+ * `kennel:<code>` for each kennel the source feeds. The audit fixer skips any kennel with an
+ * open `lane:incident` issue (its source is failing, so a data fix would be premature), and it
+ * finds those kennels through these labels.
+ */
+async function incidentKennelLabels(sourceId: string): Promise<string[]> {
+  const links = await prisma.sourceKennel.findMany({
+    where: { sourceId },
+    select: { kennel: { select: { kennelCode: true } } },
+  });
+  const codes = new Set(links.map((link) => link.kennel.kennelCode).filter(isValidKennelCode));
+  return [...codes].sort((a, b) => a.localeCompare(b)).map(kennelLabel);
+}
+
 export async function createIssueFromAlert(alertId: string) {
   const admin = await getAdminUser();
   if (!admin) return { error: "Unauthorized" };
 
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) return { error: "GITHUB_TOKEN not configured" };
+  const token = await serverGithubToken();
+  if (!token) return { error: NO_GITHUB_CREDENTIAL };
 
   const alert = await prisma.alert.findUnique({
     where: { id: alertId },
@@ -505,13 +523,14 @@ ${getSuggestedApproach(alert.type, ctx)}
 ---
 *Created from HashTracks admin alert panel*`;
 
-  // Map alert type to label
+  // Map alert type to label. The lane routes the issue; `alert:*` and `severity:*` say what it is.
   const typeLabel = `alert:${alert.type.toLowerCase().replace(/_/g, "-")}`;
   const severityLabel = `severity:${alert.severity.toLowerCase()}`;
 
   try {
+    const labels = [LANE_LABELS.incident, typeLabel, severityLabel, ...(await incidentKennelLabels(alert.sourceId))];
     const res = await fetch(
-      "https://api.github.com/repos/johnrclem/hashtracks-web/issues",
+      `https://api.github.com/repos/${getValidatedRepo()}/issues`,
       {
         method: "POST",
         headers: {
@@ -519,10 +538,11 @@ ${getSuggestedApproach(alert.type, ctx)}
           Accept: "application/vnd.github+json",
           "Content-Type": "application/json",
         },
+        // Scrape errors quote request URLs, and some adapters put the API key in them.
         body: JSON.stringify({
-          title,
-          body,
-          labels: ["alert", typeLabel, severityLabel],
+          title: scrubSecrets(title).text,
+          body: scrubSecrets(body).text,
+          labels,
         }),
       },
     );

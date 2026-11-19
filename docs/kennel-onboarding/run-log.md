@@ -1772,3 +1772,11 @@ _(latest handoff: Taoyuan Metro H3 2026-06-23 — 🇹🇼 Taiwan's 5th kennel, 
 - **Issue premise corrected:** the issue maps `#106` to Nov 29. The markup puts each `#N` at the start of its own date's line, so Nov 29 is unnumbered and #106 = Dec 20 (14 dates, 13 numbers). Cadence argues the other way, so the source is ambiguous; the handoff tells the adapter NOT to emit `runNumber` and leave numbers to Harrier Central.
 - History: none on this page (HC holds #74–#105). Queue unchanged (4 `queued`; the refill owed since 2026-11-11 is still outstanding).
 - Note: `copy-newest-handoff.sh` will count this handoff as implemented immediately, because `bbh3` is already in `kennels.ts` with a source. Source-add handoffs for seeded kennels never show in the backlog audit.
+
+## 2026-11-18 — Basel-Stadt H3 hareline + history, source-add (Basel, Switzerland 🇨🇭) — ✅ handed off
+- Desktop runner (persistent `hashtracks-research` clone). Preflight: login `johnrclem`, no `onboarding-blocked` issue, no open handoff PRs, backlog 3 (< 10), no no-op streak. Target: oldest untriaged `onboarding-candidate` issue with no handoff, **#2798** (the older #1526/#2315/#2400 carry triage comments deferring them; #2591 and #2795 were handed off 11-14 and 11-15).
+- Source: `HTML_SCRAPER`, `https://basel.harrier.eu.org/hareline.php` (curl 200, static PHP). **NEW small ~90–130 LoC adapter** (list rows + per-run detail page for time/coords/description) plus a frozen-JSON backfill of runs #1–#376. Low-ish trust (6) `upcomingOnly` source beside the existing Meetup row.
+- Events verified: 396 list rows, contiguous #1–#396, 1996-01-13 → 2026-11-15; all 396 detail pages fetched, detail date == list date 396/396, time on 396/396, coords on 227/396, 0 default pins.
+- **Issue premise updated:** #396 has already run (2026-11-15). The next run #397 (2026-12-13, 15:00) exists only as an RSS item and detail-page placeholder (`TBD` place, hare "Who knows... maybe you?"), not in the hareline list. Handoff tells the adapter to probe RSS and drop both placeholder strings.
+- History: #1–#376 (1996-01 → 2025-03) missing from HashTracks. Handoff carries a PII checklist (32 pages with phone numbers, 30 with `@`).
+- Follow-ups: refill still owed (`queued` rows 4 ≤ 5; not done this run). Other `*.harrier.eu.org` kennel sites are an unprobed lead.

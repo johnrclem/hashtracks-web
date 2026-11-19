@@ -174,6 +174,10 @@ model Kennel {
   nextRunPostedAt    DateTime? // Cached: earliest upcoming real (non-schedule-only) event date; written by Task 3's status refresh
   lastConfirmedAt    DateTime? // Cached: latest un-reverted RUNNING KennelConfirmation.observedAt; written by Task 3's refresh and Task 6's actions
   stoppedAt          DateTime? // Cached: observedAt of an un-reverted STOPPED KennelConfirmation, else null; written by Task 3's refresh and Task 6's actions
+  lastConfirmedVia   ConfirmationVia? // Cached: `via` of the newest un-reverted RUNNING KennelConfirmation
+  /// Created from a Half-Mind listing with no HashTracks evidence yet; cleared by the evidence refresh once a run is seen or posted.
+  listingOnly        Boolean              @default(false)
+  halfMindListingId  String?              @unique
   // Archive cutoff (onboarding backfill design 6.5): while set, the merge drops
   // any other source's row for this kennel dated before it. Set by a backfill
   // run's first advance (archiveCutoffRunId) or by the owner after a step-up.
@@ -919,13 +923,17 @@ model KennelDiscovery {
   externalUrl    String? // "https://hashrego.com/kennels/EWH3/"
 
   // Rich profile data from /api/kennels/{slug}
-  website      String? // "http://www.ewh3.com/"
-  contactEmail String? // "EWH3GMs@gmail.com"
-  yearStarted  Int? // 1999
-  trailPrice   Int? // 10 (in dollars)
-  logoUrl      String? // S3 URL (may be temporary)
-  memberCount  Int? // 283
-  paymentInfo  Json? // {paypal: "email", venmo: "@handle", squareCash: "tag"}
+  website           String? // "http://www.ewh3.com/"
+  contactEmail      String? // "EWH3GMs@gmail.com"
+  yearStarted       Int? // 1999
+  trailPrice        Int? // 10 (in dollars)
+  logoUrl           String? // S3 URL (may be temporary)
+  memberCount       Int? // 283
+  externalStatus    String? // Half-Mind: listing's own status claim (e.g. "active")
+  externalCheckedAt DateTime? // Half-Mind: when the listing was last checked
+  externalScope     String? // Half-Mind scope, e.g. "USA/GA"
+  facebookUrl       String?
+  paymentInfo       Json? // {paypal: "email", venmo: "@handle", squareCash: "tag"}
 
   status          DiscoveryStatus @default(NEW)
   matchedKennelId String?
@@ -1066,8 +1074,8 @@ model AuditIssue {
   // Populated by the sync pipeline; powers the closed-not-planned ratio panel
   // (P2) and is the strongest signal that the audit prompt over-flagged.
   closeReason     String?
-  delistedAt      DateTime? // non-null when the issue has fallen out of the audit corpus
-  // (operator removed the `audit` label, issue deleted, etc.)
+  delistedAt      DateTime? // non-null when the issue has fallen out of the mirrored corpus
+  // (operator removed the `audit` and lane labels, issue deleted, etc.)
   // Preserves the AuditIssueEvent trail for historical trends
   // instead of the cascade-delete codex flagged as a data-loss risk.
 
@@ -1081,6 +1089,13 @@ model AuditIssue {
   recurrenceCount        Int       @default(0) // bumps each time the same fingerprint fires
   escalatedAt            DateTime? // set once when recurrenceCount crosses threshold
   escalatedToIssueNumber Int? // GitHub issue number of the meta-escalation issue
+
+  // The issue's lane label without its `lane:` prefix ("incident", "defect", "coverage",
+  // "decision", "ops"): who works it (docs/ops/system.md "Lanes"). Null when it has none.
+  lane          String?
+  // The mirror also holds issues that carry only a lane label. They mirror as stream
+  // UNKNOWN, so the per-stream audit stats count only rows where this is true.
+  hasAuditLabel Boolean @default(true)
 
   syncedAt DateTime          @updatedAt
   events   AuditIssueEvent[]
@@ -1392,6 +1407,11 @@ model TravelDestination {
   @@index([userId, status])
 }
 
+enum ConfirmationVia {
+  ADMIN
+  HALF_MIND
+}
+
 enum KennelConfirmationKind {
   RUNNING
   STOPPED
@@ -1404,6 +1424,7 @@ model KennelConfirmation {
   kennelId           String
   kennel             Kennel                 @relation(fields: [kennelId], references: [id], onDelete: Cascade)
   kind               KennelConfirmationKind
+  via                ConfirmationVia        @default(ADMIN)
   observedAt         DateTime // UTC noon of the day the evidence was observed
   note               String
   url                String?

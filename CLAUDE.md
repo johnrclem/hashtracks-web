@@ -66,6 +66,7 @@ logbook + kennel directory.
 - NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 - GEMINI_API_KEY=         # Google AI API key (Sprint 10+)
 - CRON_SECRET=            # Secret for cron auth (Bearer token fallback)
+- HALF_MIND_SYNC_ENABLED= # Weekly Half-Mind refresh cron; off unless exactly "true". Set it after Half-Mind's maintainer is OK with weekly reads.
 - AUDIT_QUEUE_TOKEN_SECRET= # HMAC secret for deep-dive queue-snapshot tokens (issue #1160). 32+ random bytes; rotate independently from CRON_SECRET.
 - AUDIT_AGENT_TOKEN=      # Bearer token for the scheduled audit agent (`/api/audit/agent/*`: next deep-dive kennel, hareline prompt, suppressions, submit-finding). 32+ chars; unset = agent API disabled. Also in the local `.env` the scheduled task reads.
 - BACKFILL_AUTOMATION=    # Onboarding backfill kill switch (G16): `off` (default, every agent call refused), `shadow` (plan/preview/verify only), `apply`. See docs/onboarding-backfill-automation-design.md.
@@ -78,7 +79,10 @@ logbook + kennel directory.
 - GOOGLE_CALENDAR_API_KEY= # For Google Calendar + Sheets APIs
 - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY= # For MapView (interactive) + EventLocationMap (static) — browser-exposed by design
 - GOOGLE_WEATHER_API_KEY= # Server-only (NOT NEXT_PUBLIC_) — same GCP project as Maps
-- GITHUB_TOKEN=           # GitHub PAT with repo scope (for filing audit issues, alert issues from the admin alerts page, and user feedback)
+- GITHUB_APP_ID=          # "HashTracks Server" GitHub App (Production only): files and mirrors issues, reads PRs. See infra/github-apps/README.md
+- GITHUB_APP_INSTALLATION_ID= # Its installation on the repo (optional: looked up when unset)
+- GITHUB_APP_PRIVATE_KEY= # Its PEM private key (real newlines or \n escapes). Once any GITHUB_APP_* is set, GITHUB_TOKEN is never used
+- GITHUB_TOKEN=           # Cutover fallback only: the owner's PAT, used while no GITHUB_APP_* is set (src/lib/github-app.ts). Remove after the App is live
 - STRAVA_CLIENT_ID=      # Strava OAuth app client ID
 - STRAVA_CLIENT_SECRET=  # Strava OAuth app client secret
 - NEXT_PUBLIC_APP_URL=    # Base URL for invite links (production: https://www.hashtracks.xyz)
@@ -247,7 +251,7 @@ logbook + kennel directory.
 - `src/app/admin/analytics/actions.ts` — Server actions for community health, user engagement, operational metrics
 - `src/app/admin/analytics/page.tsx` — Admin analytics dashboard (recharts)
 - `src/components/admin/AnalyticsDashboard.tsx` — Dashboard UI: charts, stat cards, tables (community/engagement/operational)
-- `vercel.json` — Vercel Cron config (QStash scrape dispatch 06:00 UTC; daily audit + audit-issue sync + travel-draft GC; weekly Mon prediction-ledger 08:00 + rule-drift 09:00 UTC)
+- `vercel.json` — Vercel Cron config (QStash scrape dispatch 06:00 UTC; daily audit + audit-issue sync + travel-draft GC; weekly Mon prediction-ledger 08:00 + rule-drift 09:00 + half-mind-sync 10:00 UTC)
 - `src/lib/qstash.ts` — QStash Client + Receiver singletons (Upstash fan-out queue)
 - `src/lib/cron-auth.ts` — Dual auth: QStash signature verification → Bearer CRON_SECRET fallback
 - `src/pipeline/schedule.ts` — Shared scheduling logic (shouldScrape, frequency intervals)
@@ -258,6 +262,7 @@ logbook + kennel directory.
 - `src/app/api/cron/travel-draft-gc/route.ts` — Daily (03:00 UTC) garbage collection of expired travel drafts
 - `src/app/api/cron/prediction-ledger/route.ts` — Weekly (Mon 08:00 UTC) prediction-ledger run (snapshot + score matured predictions)
 - `src/app/api/cron/rule-drift/route.ts` — Weekly (Mon 09:00 UTC) rule-drift check; files a deduped GitHub issue (label `rule-drift`) on wrong-weekday predictions
+- `src/app/api/cron/half-mind-sync/route.ts` — Weekly (Mon 10:00 UTC) Half-Mind refresh; no-op unless `HALF_MIND_SYNC_ENABLED=true`
 - `vitest.config.ts` — Test runner config (globals, path aliases)
 - `src/test/factories.ts` — Shared test data builders
 - `.github/workflows/ci.yml` — CI gate: type check, lint, tests on all PRs + push to main

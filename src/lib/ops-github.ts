@@ -5,13 +5,15 @@
  * left on GitHub, and files, comments on and closes its own `lane:ops` issues. The digest lists
  * the pull requests waiting on the owner.
  *
- * Auth is `GITHUB_TOKEN` for now (the ops plan's S4 swaps in the server GitHub App; only
- * {@link opsGithubFromEnv} reads the token). Every call fails loudly with
+ * Auth is the server GitHub App (`src/lib/github-app.ts`), with a fresh installation token per call
+ * from its cache. Every call fails loudly with
  * {@link GithubUnavailableError}: callers treat that as "couldn't check", never as "nothing there".
+ * Every issue and comment it posts passes through `scrubSecrets` first: the repo is public.
  */
-import { getValidatedRepo } from "@/lib/github-repo";
+import { scrubSecrets } from "@/lib/audit-redact";
+import { hasServerGithubCredential, requireServerGithubToken } from "@/lib/github-app";
+import { getValidatedRepo, GITHUB_API_ORIGIN, githubHeaders } from "@/lib/github-repo";
 
-const API_ORIGIN = "https://api.github.com";
 const TIMEOUT_MS = 15_000;
 const PER_PAGE = 100;
 
@@ -118,20 +120,18 @@ function parseComment(raw: Json): GhComment | null {
   };
 }
 
-export function createOpsGithub(token: string, fetchImpl: typeof fetch = fetch): OpsGithub {
+/** A fixed token, or a function that returns a current one (installation tokens expire hourly). */
+export type GithubTokenSource = string | (() => Promise<string>);
+
+export function createOpsGithub(auth: GithubTokenSource, fetchImpl: typeof fetch = fetch): OpsGithub {
   const repo = getValidatedRepo();
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    Accept: "application/vnd.github+json",
-    "Content-Type": "application/json",
-    "X-GitHub-Api-Version": "2022-11-28",
-  };
 
   async function call(path: string, init: RequestInit = {}): Promise<unknown> {
     // The URL constructor anchors every request to api.github.com.
-    const url = new URL(`/repos/${repo}${path}`, API_ORIGIN);
+    const url = new URL(`/repos/${repo}${path}`, GITHUB_API_ORIGIN);
     let res: Response;
     try {
+      const headers = githubHeaders(typeof auth === "string" ? auth : await auth());
       res = await fetchImpl(url, { ...init, headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
     } catch (err) {
       throw new GithubUnavailableError(`GitHub ${init.method ?? "GET"} ${path} failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -177,13 +177,16 @@ export function createOpsGithub(token: string, fetchImpl: typeof fetch = fetch):
         .filter((c): c is GhComment => c !== null);
     },
     async createIssue({ title, body, labels }) {
-      const created = (await call("/issues", { method: "POST", body: JSON.stringify({ title, body, labels }) })) as Json;
+      const created = (await call("/issues", {
+        method: "POST",
+        body: JSON.stringify({ title: scrubSecrets(title).text, body: scrubSecrets(body).text, labels }),
+      })) as Json;
       const number = Number(created?.number);
       if (!Number.isInteger(number)) throw new GithubUnavailableError("GitHub created an issue without a number");
       return number;
     },
     async comment(issueNumber, body) {
-      await call(`/issues/${issueNumber}/comments`, { method: "POST", body: JSON.stringify({ body }) });
+      await call(`/issues/${issueNumber}/comments`, { method: "POST", body: JSON.stringify({ body: scrubSecrets(body).text }) });
     },
     async close(issueNumber) {
       await call(`/issues/${issueNumber}`, {
@@ -194,10 +197,9 @@ export function createOpsGithub(token: string, fetchImpl: typeof fetch = fetch):
   };
 }
 
-/** The ops GitHub client, or null when `GITHUB_TOKEN` is unset. */
+/** The ops GitHub client, or null when the server has no GitHub credential configured. */
 export function opsGithubFromEnv(): OpsGithub | null {
-  const token = process.env.GITHUB_TOKEN;
-  return token ? createOpsGithub(token) : null;
+  return hasServerGithubCredential() ? createOpsGithub(requireServerGithubToken) : null;
 }
 
 /** The owner's approval on an agent PR (`audit-fix`, `onboarding-impl`); the agent then merges it. */

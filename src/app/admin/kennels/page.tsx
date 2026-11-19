@@ -5,18 +5,22 @@ import { KennelForm } from "@/components/admin/KennelForm";
 import { KennelMergeDialog } from "@/components/admin/KennelMergeDialog";
 import { BackfillCoordsButton } from "@/components/admin/BackfillCoordsButton";
 import { Button } from "@/components/ui/button";
-import { KENNEL_EVIDENCE_SELECT, serializeKennelEvidence } from "@/lib/kennel-status";
+import { serializeKennelEvidence, type KennelEvidence } from "@/lib/kennel-status";
 
-function pickEvidence(k: Record<keyof typeof KENNEL_EVIDENCE_SELECT, Date | null>) {
+function pickEvidence(k: KennelEvidence) {
   return {
     lastRunSeenAt: k.lastRunSeenAt,
     nextRunPostedAt: k.nextRunPostedAt,
     lastConfirmedAt: k.lastConfirmedAt,
+    lastConfirmedVia: k.lastConfirmedVia,
     stoppedAt: k.stoppedAt,
   };
 }
 
-export default async function AdminKennelsPage() {
+export default async function AdminKennelsPage({
+  searchParams,
+}: Readonly<{ searchParams: Promise<{ q?: string }> }>) {
+  const { q } = await searchParams;
   const [kennels, regions, openStops] = await Promise.all([
     prisma.kennel.findMany({
       orderBy: [{ region: "asc" }, { shortName: "asc" }],
@@ -121,7 +125,7 @@ export default async function AdminKennelsPage() {
       </div>
 
       <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
-        <KennelTable kennels={serialized} regions={regionOptions} />
+        <KennelTable kennels={serialized} regions={regionOptions} initialSearch={q ?? ""} />
       </div>
     </div>
   );

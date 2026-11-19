@@ -172,7 +172,7 @@ globs:
 - `src/components/admin/AnalyticsDashboard.tsx` — Dashboard UI: charts, stat cards, tables (community/engagement/operational)
 
 ## Infrastructure & CI
-- `vercel.json` — Vercel Cron config (QStash scrape dispatch 06:00 UTC; daily audit + audit-issue sync + travel-draft GC; weekly Mon prediction-ledger 08:00 + rule-drift 09:00 UTC)
+- `vercel.json` — Vercel Cron config (QStash scrape dispatch 06:00 UTC; daily audit + audit-issue sync + travel-draft GC; weekly Mon prediction-ledger 08:00 + rule-drift 09:00 + half-mind-sync 10:00 UTC)
 - `src/lib/qstash.ts` — QStash Client + Receiver singletons (Upstash fan-out queue)
 - `src/lib/cron-auth.ts` — Dual auth: QStash signature verification → Bearer CRON_SECRET fallback
 - `src/pipeline/schedule.ts` — Shared scheduling logic (shouldScrape, frequency intervals)

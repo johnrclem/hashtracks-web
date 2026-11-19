@@ -1,9 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from "vitest";
 import { AuditStream, AuditIssueEventType } from "@/generated/prisma/client";
+
+vi.mock("@/lib/db", () => ({ prisma: { $transaction: vi.fn() } }));
+
+import { prisma } from "@/lib/db";
 import {
   extractLabelNames,
+  resolveLane,
   resolveStream,
   resolveKennel,
+  syncAuditIssues,
   diffIssue,
   escalationResetForEvents,
   extractRuleSlugFromAutomatedTitle,
@@ -377,5 +383,106 @@ describe("audit-issue-sync — pure helpers", () => {
         recurrenceCount: 0,
       });
     });
+  });
+});
+
+describe("resolveLane", () => {
+  it("returns the one lane label's lane", () => {
+    expect(resolveLane(["audit", "lane:defect", "kennel:nych3"])).toEqual({ lane: "defect", conflict: false });
+  });
+
+  it("returns null without a lane label; onboarding-candidate is not one", () => {
+    expect(resolveLane(["audit", "onboarding-candidate"])).toEqual({ lane: null, conflict: false });
+  });
+
+  it("ignores an unknown lane:* label", () => {
+    expect(resolveLane(["lane:someday"])).toEqual({ lane: null, conflict: false });
+  });
+
+  it("reports a conflict for two different lanes", () => {
+    expect(resolveLane(["lane:defect", "lane:decision"])).toEqual({ lane: null, conflict: true });
+  });
+});
+
+describe("syncAuditIssues — lanes", () => {
+  const issue = (number: number, labels: string[]) => ({
+    number,
+    title: `Issue ${number}`,
+    body: "",
+    html_url: `https://github.com/x/y/issues/${number}`,
+    state: "open",
+    state_reason: null,
+    created_at: "2026-11-01T00:00:00Z",
+    closed_at: null,
+    labels: labels.map((name) => ({ name })),
+  });
+  const DEFECT = issue(1, ["audit", "audit:chrome-kennel", "kennel:nych3", "lane:defect"]);
+  const INCIDENT = issue(2, ["lane:incident", "alert:scrape-failure", "kennel:nych3"]);
+  const LEGACY = issue(3, ["audit", "alert"]);
+  const TWO_LANES = issue(4, ["audit", "lane:defect", "lane:decision"]);
+  const BY_LABEL: Record<string, unknown[]> = {
+    audit: [DEFECT, LEGACY, TWO_LANES],
+    "lane:defect": [DEFECT, TWO_LANES],
+    "lane:incident": [INCIDENT],
+    "lane:decision": [TWO_LANES],
+  };
+
+  const tx = {
+    $queryRaw: vi.fn(),
+    auditIssue: { findMany: vi.fn(), upsert: vi.fn(), updateMany: vi.fn() },
+    kennel: { findMany: vi.fn() },
+    auditIssueEvent: { createMany: vi.fn() },
+  };
+  let fetchSpy: MockInstance<typeof fetch>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.GITHUB_TOKEN = "test-token";
+    tx.$queryRaw.mockResolvedValue([{ pg_try_advisory_xact_lock: true }]);
+    tx.kennel.findMany.mockResolvedValue([{ kennelCode: "nych3" }]);
+    // Priors: #4 was last mirrored in the defect lane. Then the full-table listing.
+    tx.auditIssue.findMany
+      .mockResolvedValueOnce([
+        { githubNumber: 4, stream: AuditStream.UNKNOWN, state: "open", githubClosedAt: null, lane: "defect" },
+      ])
+      .mockResolvedValueOnce([]);
+    tx.auditIssue.upsert.mockImplementation(async ({ where }: { where: { githubNumber: number } }) => ({
+      id: `row-${where.githubNumber}`,
+    }));
+    vi.mocked(prisma.$transaction).mockImplementation((async (fn: (t: typeof tx) => Promise<unknown>) =>
+      fn(tx)) as never);
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const label = new URL(String(input)).searchParams.get("labels") ?? "";
+      return new Response(JSON.stringify(BY_LABEL[label] ?? []), { status: 200 });
+    });
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+    delete process.env.GITHUB_TOKEN;
+  });
+
+  const upserted = (number: number) =>
+    tx.auditIssue.upsert.mock.calls.map(([arg]) => arg).find((arg) => arg.where.githubNumber === number);
+
+  it("lists `audit` and every lane label, and mirrors each issue once", async () => {
+    const result = await syncAuditIssues();
+    const labels = fetchSpy.mock.calls.map(([url]) => new URL(String(url)).searchParams.get("labels"));
+    expect(labels).toEqual(["audit", "lane:incident", "lane:defect", "lane:coverage", "lane:decision", "lane:ops"]);
+    expect(result.scanned).toBe(4);
+    expect(tx.auditIssue.upsert).toHaveBeenCalledTimes(4);
+  });
+
+  it("records the lane, and keeps a lane-only issue out of the audit stats", async () => {
+    await syncAuditIssues();
+    expect(upserted(1)?.create).toMatchObject({ lane: "defect", hasAuditLabel: true, stream: AuditStream.CHROME_KENNEL });
+    expect(upserted(2)?.create).toMatchObject({ lane: "incident", hasAuditLabel: false, stream: AuditStream.UNKNOWN });
+    expect(upserted(3)?.create).toMatchObject({ lane: null, hasAuditLabel: true });
+  });
+
+  it("keeps the prior lane on a two-lane conflict and reports it", async () => {
+    const result = await syncAuditIssues();
+    expect(upserted(4)?.update).toMatchObject({ lane: "defect", hasAuditLabel: true });
+    expect(result.errors).toEqual([expect.stringContaining("#4: more than one lane label")]);
   });
 });

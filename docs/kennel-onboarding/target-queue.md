@@ -23,7 +23,9 @@ Manneke Piss = `bmph3`).
 > Cooperative: John can reorder, add, or strike rows anytime. The daily run respects the current
 > top `queued` row.
 
-**Latest top-line (2026-11-14 — Newcastle H3 hareline Sheet, Newcastle upon Tyne, England):** ✅ handed off (`handoffs/2026-11-14-newcastle-h3-sheet.md`) from `onboarding-candidate` issue #2591, not from this queue. Source-add, config-only `GOOGLE_SHEETS` (explicit tab name, `dayFirst`, live-probed: 122 events, 0 errors) plus a frozen ~669-row 2014–2025 archive backfill. Issues #1526, #2315, #2400 skipped: each has a recon comment deferring it to profile/schema work or a blocked Drive API, so none is a source-add. Queue unchanged: 8 `queued`, no refill.
+**Latest top-line (2026-11-18 — Basel-Stadt H3 hareline + history, Basel, Switzerland):** ✅ handed off (`handoffs/2026-11-18-bsh3-ch-hareline.md`) from `onboarding-candidate` issue #2798, not from this queue. Source-add: new ~90–130 LoC `basel.harrier.eu.org` list+detail adapter plus a frozen 376-run 1996–2025 backfill; #397 (next run) is an RSS/detail placeholder only. Queue unchanged: 4 `queued` (refill owed, not done this run).
+
+**Prior top-line (2026-11-14 — Newcastle H3 hareline Sheet, Newcastle upon Tyne, England):** ✅ handed off (`handoffs/2026-11-14-newcastle-h3-sheet.md`) from `onboarding-candidate` issue #2591, not from this queue. Source-add, config-only `GOOGLE_SHEETS` (explicit tab name, `dayFirst`, live-probed: 122 events, 0 errors) plus a frozen ~669-row 2014–2025 archive backfill. Issues #1526, #2315, #2400 skipped: each has a recon comment deferring it to profile/schema work or a blocked Drive API, so none is a source-add. Queue unchanged: 8 `queued`, no refill.
 
 **Prior top-line (2026-11-13 — IndyScent H3 history backfill, Indianapolis, IN):** ✅ handed off (`handoffs/2026-11-13-indyh3-history.md`) from `onboarding-candidate` issue #1353 (labelled 2026-11-12), not from this queue. No new kennel or source: a frozen-JSON backfill of 32 past runs (6 aged-out 2026 runs from the `ht_hash_event` archive + 26 numbered 2016–2022 "Hash Trash" blog posts) through the merge pipeline. Queue unchanged: 8 `queued` (ranks 5–12), no refill.
 

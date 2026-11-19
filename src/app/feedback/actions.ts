@@ -1,6 +1,10 @@
 "use server";
 
+import { LANE_LABELS } from "@/lib/audit-labels";
+import { scrubSecrets } from "@/lib/audit-redact";
 import { getOrCreateUser } from "@/lib/auth";
+import { serverGithubToken } from "@/lib/github-app";
+import { getValidatedRepo } from "@/lib/github-repo";
 
 type FeedbackState = {
   success?: boolean;
@@ -84,7 +88,7 @@ export async function submitFeedback(
   const user = await getOrCreateUser();
   if (!user) return { error: "Not authenticated" };
 
-  const token = process.env.GITHUB_TOKEN;
+  const token = await serverGithubToken();
   if (!token) return { error: "Feedback system not configured" };
 
   const category = (formData.get("category") as string)?.trim() || "other";
@@ -123,11 +127,13 @@ ${description}
 
 *Submitted via HashTracks in-app feedback*`);
 
-  const labels = ["user-feedback", CATEGORY_LABELS[category] || "feedback"];
+  // Feedback waits on the owner's call, so it goes to the decision lane the digest reads.
+  const labels = ["user-feedback", CATEGORY_LABELS[category] || "feedback", LANE_LABELS.decision];
 
   try {
     const res = await fetch(
-      "https://api.github.com/repos/johnrclem/hashtracks-web/issues",
+      // The repository the App's token is scoped to.
+      new URL(`/repos/${getValidatedRepo()}/issues`, "https://api.github.com"),
       {
         method: "POST",
         headers: {
@@ -135,7 +141,7 @@ ${description}
           Accept: "application/vnd.github+json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ title: issueTitle, body: issueBody, labels }),
+        body: JSON.stringify({ title: scrubSecrets(issueTitle).text, body: scrubSecrets(issueBody).text, labels }),
       },
     );
 

@@ -41,6 +41,7 @@ import { prisma } from "@/lib/db";
 import { computePayloadHash, type FilingPayload } from "@/lib/audit-nonce";
 import { buildApiPostRequest, type ApiPostInit } from "@/test/audit-request";
 import { POST } from "./route";
+import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
 
 const mockAdmin = vi.mocked(getAdminUser);
 const mockFindNonce = vi.mocked(prisma.auditFilingNonce.findUnique);
@@ -374,7 +375,8 @@ describe("POST /api/audit/file-finding", () => {
     // AuditIssue.fingerprint on its next run (matches PR #1172).
     expect(requestBody.body).toContain("<!-- audit-canonical:");
     expect(requestBody.labels).toContain("audit");
-    expect(requestBody.labels).toContain("alert");
+    expect(requestBody.labels).not.toContain("alert");
+    expect(requestBody.labels).toContain("lane:defect");
     expect(requestBody.labels).toContain("audit:chrome-kennel");
     expect(requestBody.labels).toContain("kennel:nych3");
   });
@@ -440,7 +442,7 @@ describe("POST /api/audit/file-finding", () => {
     expect(res.status).toBe(502);
     // Without a token the dedup search can't run, so the filer stops before create.
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "[audit-file-finding] listOpenIssuesByKennel: GITHUB_TOKEN not set",
+      `[audit-file-finding] listOpenIssuesByKennel: ${NO_GITHUB_CREDENTIAL}`,
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -477,7 +479,7 @@ describe("POST /api/audit/file-finding", () => {
     const res = await POST(buildReq());
     expect(res.status).toBe(502);
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      "[audit-file-finding] postComment: GITHUB_TOKEN not set",
+      `[audit-file-finding] postComment: ${NO_GITHUB_CREDENTIAL}`,
     );
     // No fetch attempted — the no-token guard short-circuits.
     expect(fetchMock).not.toHaveBeenCalled();

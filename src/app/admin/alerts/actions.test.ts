@@ -61,6 +61,7 @@ import { getAdminUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { scrapeSource } from "@/pipeline/scrape";
 import { resolveKennelTag, clearResolverCache } from "@/pipeline/kennel-resolver";
+import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
 import {
   acknowledgeAlert,
   snoozeAlert,
@@ -597,10 +598,10 @@ describe("createIssueFromAlert", () => {
     expect(result).toEqual({ error: "Unauthorized" });
   });
 
-  it("returns error when GITHUB_TOKEN not set", async () => {
+  it("returns error when no GitHub credential is set", async () => {
     delete process.env.GITHUB_TOKEN;
     const result = await createIssueFromAlert("alert_1");
-    expect(result).toEqual({ error: "GITHUB_TOKEN not configured" });
+    expect(result).toEqual({ error: NO_GITHUB_CREDENTIAL });
   });
 
   it("returns error when alert not found", async () => {
@@ -634,8 +635,37 @@ describe("createIssueFromAlert", () => {
     expect(fetchCall[0]).toContain("github.com/repos/johnrclem/hashtracks-web/issues");
     const body = JSON.parse(fetchCall[1]!.body as string);
     expect(body.title).toContain("hashnyc.com");
-    expect(body.labels).toContain("alert");
+    expect(body.labels).toContain("lane:incident");
+    expect(body.labels).not.toContain("alert");
     expect(body.labels).toContain("alert:unmatched-tags");
+  });
+
+  it("labels the source's kennels so the fixer skips them, and scrubs API keys", async () => {
+    const key = `AIza${"x".repeat(35)}`;
+    mockAlertFind.mockResolvedValueOnce({
+      ...baseAlert({
+        type: "SCRAPE_FAILURE",
+        context: { errorMessages: [`GET https://sheets.googleapis.com/v4/x?key=${key} → 403`] },
+      }),
+      source: { name: "Sheet", url: "https://docs.google.com/spreadsheets/d/x", type: "GOOGLE_SHEETS" },
+    } as never);
+    mockSourceKennelFindMany.mockResolvedValueOnce([
+      { kennel: { kennelCode: "summit" } },
+      { kennel: { kennelCode: "asssh3" } },
+      { kennel: { kennelCode: "summit" } },
+    ] as never);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ html_url: "https://github.com/test/issues/2", number: 2 }), { status: 201 }),
+    );
+    mockAlertUpdate.mockResolvedValueOnce({} as never);
+
+    await createIssueFromAlert("alert_1");
+
+    const body = JSON.parse(fetchSpy.mock.calls[0][1]!.body as string);
+    expect(body.labels).toEqual(["lane:incident", "alert:scrape-failure", "severity:warning", "kennel:asssh3", "kennel:summit"]);
+    expect(body.body).toContain("?key=[secret]");
+    expect(mockSourceKennelFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { sourceId: "src_1" } }));
+    expect(body.body).not.toContain(key);
   });
 
   it("returns error on GitHub API failure", async () => {

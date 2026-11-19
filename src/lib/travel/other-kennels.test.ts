@@ -22,9 +22,11 @@ function candidate(over: Partial<OtherKennelCandidate> & { id: string }): OtherK
     facebookUrl: null,
     distanceKm: 5,
     listingOnly: false,
+    halfMindListingId: null,
     lastRunSeenAt: QUIET,
     nextRunPostedAt: null,
     lastConfirmedAt: null,
+    lastConfirmedVia: null,
     stoppedAt: null,
     ...over,
   };
@@ -110,6 +112,11 @@ describe("selectOtherKennels", () => {
 describe("otherKennelsHeading", () => {
   it("names the place", () => {
     expect(otherKennelsHeading("Savannah")).toBe("Other kennels near Savannah");
+  });
+
+  it("falls back when the place is blank (a saved trip with no label)", () => {
+    expect(otherKennelsHeading("")).toBe("Other kennels nearby");
+    expect(otherKennelsHeading("   ")).toBe("Other kennels nearby");
   });
 });
 

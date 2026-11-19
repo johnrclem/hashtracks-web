@@ -6,7 +6,7 @@ Before you read the manual, bring the clone up to date with origin/main (the fir
 
   W=/Users/johnclem/Developer/hashtracks-research; if [ -d "$W/.git" ]; then cd "$W" && git fetch -q --prune origin && git checkout -q -f --detach origin/main && git clean -q -fdx -e node_modules -e .claude/settings.local.json; else gh repo clone johnrclem/hashtracks-web "$W"; fi
 
-Every Bash call starts in the owner's live checkout, and neither `cd` nor shell variables carry over between calls. Begin every command that touches the clone with `cd /Users/johnclem/Developer/hashtracks-research && WORK=$PWD &&`.
+Every Bash call starts in the task's folder (docs/ops/system.md#identity), never your clone, and neither `cd` nor shell variables carry over between calls. Begin every command that touches the clone with `cd /Users/johnclem/Developer/hashtracks-research && WORK=$PWD &&`.
 
 Manual: /Users/johnclem/Developer/hashtracks-research/docs/kennel-onboarding/daily-onboarding-prompt.md. Read it and follow it exactly, top to bottom: the identity preflight first, then Step 0 (preflight) through Step 10. Step 0 may tell you to stop right away: an open `onboarding-blocked` issue, an implementation backlog of 10 or more, or a no-op streak. Obey it. If anything here seems to conflict with the manual, the MANUAL wins.
 

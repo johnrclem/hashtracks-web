@@ -83,6 +83,7 @@ function draft(overrides: Record<string, unknown> = {}) {
     bodyMarkdown: "body",
     status: "PENDING",
     promoteAttempts: 0,
+    labels: [],
     ...overrides,
   };
 }
@@ -106,15 +107,20 @@ describe("promoteAuditDrafts", () => {
   });
 
   it.each([
-    ["source-coverage-gap", true],
-    ["historical-events-gap", true],
-    ["hares-theme-leak", false],
-  ])("labels a %s draft for onboarding: %s", async (ruleSlug, routed) => {
-    mockFindMany.mockResolvedValue([draft({ ruleSlug })] as never);
+    ["source-coverage-gap", [], "lane:coverage", true],
+    ["historical-events-gap", [], "lane:coverage", true],
+    ["hares-theme-leak", [], "lane:defect", false],
+    ["schema-gap", [], "lane:decision", false],
+    // The agent's request for the owner's call overrides the rule's lane.
+    ["source-coverage-gap", ["lane:decision"], "lane:decision", false],
+  ])("files a %s draft (requested %j) in %s; onboarding alias: %s", async (ruleSlug, requested, lane, alias) => {
+    mockFindMany.mockResolvedValue([draft({ ruleSlug, labels: requested })] as never);
     await promoteAuditDrafts();
     const { labels } = mockFile.mock.calls[0][0];
-    expect(labels).toEqual(expect.arrayContaining(["audit", "alert", "kennel:nych3"]));
-    expect(labels.includes("onboarding-candidate")).toBe(routed);
+    expect(labels).toEqual(expect.arrayContaining(["audit", "audit:chrome-event", "kennel:nych3", lane]));
+    expect(labels).not.toContain("alert");
+    expect(labels.filter((l: string) => l.startsWith("lane:"))).toEqual([lane]);
+    expect(labels.includes("onboarding-candidate")).toBe(alias);
   });
 
   it("marks a recurred outcome RECURRED with the filer tier", async () => {

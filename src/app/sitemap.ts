@@ -25,7 +25,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const [kennels, upcomingEvents] = await Promise.all([
     prisma.kennel.findMany({
-      where: { isHidden: false },
+      // Listing-only kennels are noindex; keep them out of the sitemap.
+      where: { isHidden: false, listingOnly: false },
       select: { slug: true, region: true, nextRunPostedAt: true, lastRunSeenAt: true, updatedAt: true },
     }),
     prisma.event.findMany({

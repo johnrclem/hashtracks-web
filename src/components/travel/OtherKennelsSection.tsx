@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { KennelStatusLine } from "@/components/kennels/KennelStatusLine";
+import { halfMindListingUrl } from "@/lib/half-mind";
 import { TravelHintBadge } from "./TravelHintBadge";
 import { formatDistanceShort } from "@/lib/travel/format";
 import { otherKennelsBrowseLink, otherKennelsHeading } from "@/lib/travel/other-kennels";
@@ -45,6 +46,8 @@ export function OtherKennelsSection({
               kennelSlug={k.slug}
               surface="travel"
               showOwnPage
+              listingOnly={k.listingOnly}
+              listingUrl={halfMindListingUrl(k.halfMindListingId)}
             />
           </li>
         ))}

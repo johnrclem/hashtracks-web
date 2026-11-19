@@ -16,6 +16,7 @@ import { QuickInfoCard } from "@/components/kennels/QuickInfoCard";
 import { KennelStats } from "@/components/kennels/KennelStats";
 import { kennelOwnPageUrl } from "@/lib/safe-url";
 import { HowWeKnow } from "@/components/kennels/HowWeKnow";
+import { halfMindListingUrl } from "@/lib/half-mind";
 import { getHowWeKnowOrEmpty } from "@/lib/kennel-how-we-know";
 import { serializeKennelEvidence } from "@/lib/kennel-status";
 import { KennelLogo } from "@/components/kennels/KennelLogo";
@@ -24,7 +25,7 @@ import { EventTabs } from "@/components/kennels/EventTabs";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { getRegionColor, regionNameToSlug } from "@/lib/region";
 import { FadeInSection } from "@/components/home/HeroAnimations";
-import { buildKennelJsonLd, buildBreadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
+import { buildKennelJsonLd, buildBreadcrumbJsonLd, safeJsonLd, kennelRobots } from "@/lib/seo";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { ShareButton } from "@/components/shared/ShareButton";
 import { eventEndMs } from "@/lib/event-filters";
@@ -66,6 +67,7 @@ export async function generateMetadata({
       scheduleTime: true,
       scheduleFrequency: true,
       scheduleRules: SCHEDULE_RULES_SELECT,
+      listingOnly: true,
     },
   });
   if (!kennel || kennel.isHidden) return { title: "Kennel · HashTracks" };
@@ -85,11 +87,13 @@ export async function generateMetadata({
     : raw;
 
   const baseUrl = getCanonicalSiteUrl();
+  const robots = kennelRobots(kennel.listingOnly);
   return {
     title,
     description,
     alternates: { canonical: `${baseUrl}/kennels/${slug}` },
     openGraph: { title, description, url: `${baseUrl}/kennels/${slug}` },
+    ...(robots && { robots }),
   };
 }
 
@@ -148,7 +152,7 @@ export default async function KennelDetailPage({
         })
       : Promise.resolve(null),
     // Evidence already came with the kennel; a failure renders the section empty.
-    getHowWeKnowOrEmpty(kennel.id, kennel),
+    getHowWeKnowOrEmpty(kennel.id, kennel, { halfMindListingId: kennel.halfMindListingId, listingOnly: kennel.listingOnly }),
   ]);
 
   let isSubscribed = false;
@@ -392,6 +396,8 @@ export default async function KennelDetailPage({
           items={howWeKnow.items.map((i) => ({ ...i, date: i.date.toISOString() }))}
           ownPageUrl={kennelOwnPageUrl(kennel.website, kennel.facebookUrl)}
           kennelSlug={kennel.slug}
+          listingUrl={halfMindListingUrl(kennel.halfMindListingId)}
+          listingOnly={kennel.listingOnly}
         />
       </FadeInSection>
 
