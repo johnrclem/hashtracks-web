@@ -3265,3 +3265,10 @@ Verified by `curl` of `https://lagosh3.com/wp-json/wp/v2/posts?per_page=100` (69
 - The list carries no time, coords or description. The detail page `runs.php?run=N` has `Date:`, `Time:` (always present), `Place:`, `Hare(s):`, `Details:` and, on ~57% of pages, `var lat = …; var lng = …;` (else `Coordinates: Unknown`). Hare emails are obfuscated as `write_mail("id","domain","Name")` before the plain name. Detail text can hold phone numbers/emails: scrub.
 - The list shows only runs that have venue/hare data. The **next run is an auto-created placeholder** visible only on `runs.php?run=N+1` and in `rss.php` (one `<item>`, title `Run #N: <Month> <D>th <YYYY>`): Place `TBD`, hare `Who knows... maybe you?`. Filter both strings.
 - Intermittent `HTTP/2 framing` / connection-reset errors on single detail pages: retry (worked with `--http1.1`).
+
+## Google Calendar with hand-typed summaries — shape census before writing hare patterns (learned from City of Exeter H3, 2026-11-19, VERIFIED via real adapter run)
+- `cityofexeterhhh.blogspot.com/p/hash-diary.html` embeds the calendar in an iframe; the id is the base64 `src=` param (`atob(...)` gives a gmail address). The public iCal (`.../ical/<id>/public/basic.ics`) returned `text/calendar` to plain `curl` here, and the Calendar API v3 call with the project key returned 200.
+- **Census the SUMMARY shapes across ALL years before choosing `titleHarePattern`.** This calendar mixes `Kennel - venue - hares`, `Kennel - venue`, `Kennel, venue, HARES` and a no-delimiter `Kennel venue hare`. A "last comma token = hare" rule mis-parsed `Blackborough Woods (Broad Road, near Forest Glade holiday park)` into a hare. Parse only the unambiguous shape; leave the rest blank.
+- Feed is UTC (`...Z`): without `config.timezone` summer 11:00 BST runs read 10:00.
+- Compare calendar dates with any frozen backfill JSON (`scripts/data/<code>-history.json`) to size the real gap before promising a backfill count.
+
