@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { HASHREGO_TAG_LINK_REFUSAL, isHashRegoSource } from "@/lib/hashrego-links";
 import { getAdminUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { scrapeSource } from "@/pipeline/scrape";
@@ -296,6 +297,7 @@ export async function createKennelFromAlert(
   const alert = await prisma.alert.findUnique({ where: { id: alertId } });
   if (!alert) return { error: "Alert not found" };
   if (await isArchiveSource(alert.sourceId)) return { error: ARCHIVE_SOURCE_LOCKED };
+  if (await isHashRegoSource(alert.sourceId)) return { error: HASHREGO_TAG_LINK_REFUSAL };
 
   const result = await createKennelRecord(kennelData, tag);
   if ("error" in result) return result;
@@ -341,6 +343,7 @@ export async function linkKennelToSource(
   const alert = await prisma.alert.findUnique({ where: { id: alertId } });
   if (!alert) return { error: "Alert not found" };
   if (await isArchiveSource(alert.sourceId)) return { error: ARCHIVE_SOURCE_LOCKED };
+  if (await isHashRegoSource(alert.sourceId)) return { error: HASHREGO_TAG_LINK_REFUSAL };
 
   // Resolve the tag to a kennel
   clearResolverCache();

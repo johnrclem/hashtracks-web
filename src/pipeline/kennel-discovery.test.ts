@@ -144,7 +144,7 @@ describe("syncKennelDiscovery", () => {
     );
   });
 
-  it("auto-matches with MATCHED status when score >= 0.95", async () => {
+  it("suggests a MATCHED row when score >= 0.95 but never links it", async () => {
     vi.mocked(parseKennelDirectory).mockReturnValue([
       buildDiscovered({ slug: "EWH3", name: "Everyday Is Wednesday H3", latitude: 38.9, longitude: -77.04 }),
     ]);
@@ -166,25 +166,13 @@ describe("syncKennelDiscovery", () => {
       }),
     );
 
-    // Regression for issue #548: auto-match must create a SourceKennel row so
-    // the HASHREGO scraper sees the slug.
-    expect(prisma.sourceKennel.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { sourceId_kennelId: { sourceId: "src-hashrego", kennelId: "k1" } },
-        create: expect.objectContaining({
-          sourceId: "src-hashrego",
-          kennelId: "k1",
-          externalSlug: "EWH3",
-        }),
-      }),
-    );
-
-    // Auto-match must NOT create a global KennelAlias — that write is a
-    // cross-source trust boundary reserved for admin-confirmed links.
+    // A suggestion never decides what the HASHREGO scraper fetches (wrong
+    // 0.95 matches replaced correct links in prod) and never writes an alias.
+    expect(prisma.sourceKennel.upsert).not.toHaveBeenCalled();
     expect(prisma.kennelAlias.create).not.toHaveBeenCalled();
   });
 
-  it("MATCHED is semi-terminal: subsequent sync updates profile but preserves SourceKennel", async () => {
+  it("MATCHED is semi-terminal: subsequent sync updates profile and writes no link", async () => {
     // A previously MATCHED discovery must NOT be re-scored on subsequent
     // syncs. Fuzzy scores fluctuate near the 0.95 threshold, causing
     // MATCHED↔NEW flip-flops that delete and recreate SourceKennel rows
@@ -204,13 +192,8 @@ describe("syncKennelDiscovery", () => {
     // Takes the updateTerminalDiscovery path — profile data refreshed,
     // no re-scoring, no SourceKennel deletion.
     expect(prisma.sourceKennel.deleteMany).not.toHaveBeenCalled();
-    // Self-healing: the SourceKennel link is re-ensured via upsert (no-op
-    // when the row already exists, creates it if manually removed).
-    expect(prisma.sourceKennel.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { sourceId_kennelId: { sourceId: "src-hashrego", kennelId: "k1" } },
-      }),
-    );
+    // No self-heal: a MATCHED row never re-writes a kennel's scrape link.
+    expect(prisma.sourceKennel.upsert).not.toHaveBeenCalled();
     // Discovery record updated with fresh profile data via the terminal path
     expect(prisma.kennelDiscovery.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -239,21 +222,6 @@ describe("syncKennelDiscovery", () => {
     // Terminal LINKED rows take the updateTerminalDiscovery branch; neither
     // the cleanup deleteMany nor the auto-match upsert should fire.
     expect(prisma.sourceKennel.deleteMany).not.toHaveBeenCalled();
-    expect(prisma.sourceKennel.upsert).not.toHaveBeenCalled();
-  });
-
-  it("auto-match skips SourceKennel upsert when no HASHREGO source exists", async () => {
-    vi.mocked(prisma.source.findFirst).mockResolvedValue(null as never);
-    vi.mocked(parseKennelDirectory).mockReturnValue([
-      buildDiscovered({ slug: "EWH3", name: "Everyday Is Wednesday H3", latitude: 38.9, longitude: -77.04 }),
-    ]);
-    vi.mocked(prisma.kennel.findMany).mockResolvedValue([
-      { id: "k1", shortName: "EWH3", fullName: "Everyday Is Wednesday H3", country: "USA", regionRef: { centroidLat: 38.9, centroidLng: -77.04 } },
-    ] as never);
-
-    const result = await syncKennelDiscovery();
-    expect(result.autoMatched).toBe(1);
-    expect(result.errors).toEqual([]);
     expect(prisma.sourceKennel.upsert).not.toHaveBeenCalled();
   });
 

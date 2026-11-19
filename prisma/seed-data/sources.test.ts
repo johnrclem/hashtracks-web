@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { SOURCES } from "./sources";
 
 describe("SOURCES seed data invariants (#817 regression guard)", () => {
@@ -122,5 +124,29 @@ describe("SOURCES seed data invariants (#817 regression guard)", () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("Hash Rego scraped accounts (docs/kennel-directory-mapping-review.md, R1)", () => {
+  const MIGRATION = join(__dirname, "../migrations/20261119000000_hashrego_link_repair/migration.sql");
+  const hashRego = SOURCES.find((s) => s.type === "HASHREGO") as { kennelSlugMap?: Record<string, string> } | undefined;
+  const slugMap = hashRego?.kennelSlugMap ?? {};
+
+  it("never maps a kennel to another kennel's Hash Rego account", () => {
+    // Other kennels' accounts (CH3 = Charlotte, GFH3 = Great Falls MT, ...) and
+    // the dismissed event / sister-kennel accounts.
+    const wrong = ["CH3", "GFH3", "SCH3", "Harriettes", "SoulH3", "Noh", "MFM", "HHSuck", "PDXGDR", "PDXGDRH3", "PhillyHash"];
+    const used = Object.values(slugMap).map((s) => s.toLowerCase());
+    expect(wrong.filter((s) => used.includes(s.toLowerCase()))).toEqual([]);
+    expect(slugMap).not.toHaveProperty("gfh3");
+  });
+
+  it("matches every slug the repair migration writes", () => {
+    const sql = readFileSync(MIGRATION, "utf8");
+    const start = sql.indexOf("-- 1. Correct slugs");
+    const block = sql.slice(start, sql.indexOf("-- 2.", start));
+    const pairs = [...block.matchAll(/\('([\w-]+)', '([^']+)'\)/g)].map(([, code, slug]) => [code, slug]);
+    expect(pairs).toHaveLength(9);
+    for (const [code, slug] of pairs) expect(slugMap[code]).toBe(slug);
   });
 });

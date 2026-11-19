@@ -52,6 +52,8 @@ type DiscoveryRecord = {
   id: string;
   externalSource: string;
   externalSlug: string;
+  /** The HASHREGO scraper fetches this account (set by the seed, not by linking). */
+  scraped: boolean;
   name: string;
   location: string | null;
   latitude: number | null;
@@ -90,7 +92,7 @@ interface DiscoveryTableProps {
 
 const STATUS_BADGES: Record<string, { variant: "default" | "secondary" | "outline" | "destructive"; label: string }> = {
   NEW: { variant: "default", label: "New" },
-  MATCHED: { variant: "secondary", label: "Auto-Matched" },
+  MATCHED: { variant: "secondary", label: "Suggested match" },
   ADDED: { variant: "outline", label: "Added" },
   LINKED: { variant: "outline", label: "Linked" },
   DISMISSED: { variant: "destructive", label: "Dismissed" },
@@ -163,7 +165,7 @@ export function DiscoveryTable({ discoveries, regions, counts }: DiscoveryTableP
             console.warn("[DiscoverySync] errors:", result.errors);
           }
           toast.success(
-            `Discovered ${result.totalDiscovered} kennels: ${result.newKennels} new, ${result.autoMatched} auto-matched, ${result.enriched} enriched`,
+            `Discovered ${result.totalDiscovered} kennels: ${result.newKennels} new, ${result.autoMatched} suggested matches, ${result.enriched} enriched`,
           );
           router.refresh();
         }
@@ -289,7 +291,7 @@ export function DiscoveryTable({ discoveries, regions, counts }: DiscoveryTableP
 
   const tabs: { key: FilterTab; label: string; count: number }[] = [
     { key: "review", label: "Needs Review", count: counts.new },
-    { key: "matched", label: "Auto-Matched", count: counts.matched },
+    { key: "matched", label: "Suggested", count: counts.matched },
     { key: "done", label: "Added/Linked", count: counts.addedLinked },
     { key: "dismissed", label: "Dismissed", count: counts.dismissed },
     { key: "all", label: "All", count: counts.total },
@@ -301,7 +303,7 @@ export function DiscoveryTable({ discoveries, regions, counts }: DiscoveryTableP
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Total Discovered" value={counts.total} />
         <StatCard label="Needs Review" value={counts.new} highlight={counts.new > 0} />
-        <StatCard label="Auto-Matched" value={counts.matched} />
+        <StatCard label="Suggested" value={counts.matched} />
         <StatCard label="Added / Linked" value={counts.addedLinked} />
       </div>
 
@@ -643,7 +645,18 @@ function DiscoveryRow({
 
       {/* Status */}
       <td className="px-3 py-2">
-        <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+        <div className="flex flex-wrap items-center gap-1">
+          <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+          {d.scraped && (
+            <Badge
+              variant="outline"
+              className="text-xs"
+              title="The Hash Rego scraper fetches this account. Linking a row never changes what is scraped; the seed's kennelSlugMap does."
+            >
+              Scraped
+            </Badge>
+          )}
+        </div>
       </td>
 
       {/* Actions */}

@@ -76,6 +76,10 @@ export interface KennelSeed {
   longitude?: number;
   walkersWelcome?: boolean; // null/undefined = unknown; surfaces the "walkers welcome" badge
   dogFriendly?: boolean; // null/undefined = unknown; surfaces the "dog-friendly" badge
+  // Applied when the seed creates the kennel. An existing kennel's hidden flag
+  // is never null, so the seed's null-fill leaves it alone: change it with a
+  // data migration.
+  isHidden?: boolean;
 }
 
 export const KENNELS: KennelSeed[] = [
@@ -697,6 +701,9 @@ export const KENNELS: KennelSeed[] = [
       website: "http://www.gfh3.org", foundedYear: 1982,
       scheduleNotes: "Wednesday 7:00 PM (Spring/Summer), Saturday 3:00 PM (Fall/Winter)",
       description: "Seasonal schedule: Wednesday evenings (spring/summer), Saturday afternoons (fall/winter). Est. 1982, 1400+ runs.",
+      // Hidden: no source. Hash Rego's "GFH3" account is Great Falls, MT, not
+      // this kennel (migration 20261119000000_hashrego_link_repair).
+      isHidden: true,
     },
     {
       kennelCode: "dch3", shortName: "DCH3", fullName: "DC Hash House Harriers", region: "Washington, DC",

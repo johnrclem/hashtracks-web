@@ -1,7 +1,8 @@
 /**
  * A small Prisma-style `where` matcher for in-memory test fakes. Supports field
- * equality (null matches a missing field, Dates compare by time), `in`, `not`,
- * `gte`, `lte`, `AND`, `OR` and `NOT`, plus compound unique keys such as
+ * equality (null matches a missing field, Dates compare by time), `equals`
+ * (with `mode: "insensitive"` for strings), `in`, `not`, `gte`, `lte`, `AND`,
+ * `OR` and `NOT`, plus compound unique keys such as
  * `externalSource_externalSlug: { externalSource, externalSlug }`. Anything else
  * throws, so a fake never silently matches a query it doesn't understand.
  */
@@ -22,8 +23,15 @@ function compare(value: unknown, arg: unknown): number {
   return a - b;
 }
 
-function matchOperator(value: unknown, op: string, arg: unknown): boolean {
+function sameInsensitive(a: unknown, b: unknown): boolean {
+  if (typeof a === "string" && typeof b === "string") return a.toLowerCase() === b.toLowerCase();
+  return same(a, b);
+}
+
+function matchOperator(value: unknown, op: string, arg: unknown, insensitive: boolean): boolean {
   switch (op) {
+    case "equals":
+      return insensitive ? sameInsensitive(value, arg) : same(value, arg);
     case "in":
       return (arg as unknown[]).some((x) => same(value, x));
     case "not":
@@ -39,7 +47,11 @@ function matchOperator(value: unknown, op: string, arg: unknown): boolean {
 
 function matchField(value: unknown, cond: unknown): boolean {
   if (!isPlainObject(cond)) return same(value, cond);
-  return Object.entries(cond).every(([op, arg]) => matchOperator(value, op, arg));
+  const { mode, ...ops } = cond;
+  if (mode !== undefined && mode !== "insensitive") {
+    throw new Error(`matchesWhere: unsupported mode "${String(mode)}"`);
+  }
+  return Object.entries(ops).every(([op, arg]) => matchOperator(value, op, arg, mode === "insensitive"));
 }
 
 function isCompoundKey(key: string, cond: unknown): cond is Row {
