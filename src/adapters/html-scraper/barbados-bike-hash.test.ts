@@ -25,7 +25,7 @@ function wrap(lines: string[], heading = "BBH3 (BASH) 2026 - 2027"): string {
 describe("parseLine", () => {
   it("reads date, hares and drops the ambiguous run number", () => {
     expect(parseLine("#106 Sunday December 20 - Slow Poke")).toEqual({
-      month: 12, day: 20, weekday: "sunday", hares: "Slow Poke", title: undefined,
+      month: 12, day: 20, weekday: 0, hares: "Slow Poke", title: undefined,
     });
   });
 
@@ -83,7 +83,27 @@ describe("parseHareline edge cases", () => {
     const { events, errors } = parseHareline($, 2026, URL);
     expect(events.map((e) => e.date)).toEqual(["2026-11-29", "2027-01-31"]);
     expect(errors).toHaveLength(1);
-    expect(errors[0]).toContain("not a valid Sunday");
+    expect(errors[0]).toContain("does not match its printed weekday");
+  });
+
+  it("keeps a legitimate non-Sunday row whose weekday matches its date", () => {
+    const $ = cheerio.load(wrap(["Sunday November 29", "Saturday December 19 - Special"]));
+    const { events, errors } = parseHareline($, 2026, URL);
+    expect(errors).toEqual([]);
+    expect(events.map((e) => e.date)).toEqual(["2026-11-29", "2026-12-19"]);
+  });
+
+  it("does not shift the year when the skipped row has a lower month", () => {
+    // Jan 4 2027 is a Monday, so the row is rejected; it must not roll the year for Dec 20.
+    const $ = cheerio.load(wrap(["Sunday November 29", "Sunday January 4", "Sunday December 20"]));
+    const { events, errors } = parseHareline($, 2026, URL);
+    expect(errors).toHaveLength(1);
+    expect(events.map((e) => e.date)).toEqual(["2026-11-29", "2026-12-20"]);
+  });
+
+  it("prefers the kennel heading over an unrelated heading year", () => {
+    const $ = cheerio.load(`<h1>Hash Cruise 2020</h1><h3>BBH3 (BASH) 2026 - 2027</h3>`);
+    expect(readYearAnchor($)).toBe(2026);
   });
 
   it("skips an impossible calendar date", () => {

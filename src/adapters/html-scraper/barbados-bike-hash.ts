@@ -6,30 +6,37 @@ import { applyDateWindow, fetchHTMLPage, MONTHS } from "../utils";
 const KENNEL_TAG = "bbh3";
 const DEFAULT_URL = "https://hashcruise2020.simplesite.com/313623591";
 const DEFAULT_DAYS = 450;
-/** The hareline lists Sunday runs only; a different weekday means a typo or a bad year roll. */
-const EXPECTED_WEEKDAY = "sunday";
-const WEEKDAYS = new Set(["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]);
+/** Weekday word → Date.getUTCDay(). A printed weekday that disagrees with the date means a typo or a bad year roll. */
+const WEEKDAYS: Record<string, number> = {
+  sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6,
+};
 const YEAR_RE = /\b(20\d{2})\b/;
 const HH_MM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-/** Collapse whitespace (including NBSP) so token splitting is predictable. */
+/** Collapse whitespace (JS `\s` already covers NBSP) so token splitting is predictable. */
 function clean(text: string): string {
-  return text.replaceAll(" ", " ").replaceAll(/\s+/g, " ").trim();
+  return text.replaceAll(/\s+/g, " ").trim();
 }
 
-/** First year in the list heading (`BBH3 (BASH) 2026 - 2027` → 2026), or null. */
+/**
+ * First year in the list heading (`BBH3 (BASH) 2026 - 2027` → 2026), or null.
+ * Headings naming the kennel win over other headings: the site itself is
+ * called "hashcruise2020", so an unrelated title could carry a stale year.
+ */
 export function readYearAnchor($: CheerioAPI): number | null {
+  const years: { year: number; kennel: boolean }[] = [];
   for (const el of $("h1, h2, h3, h4").toArray()) {
-    const m = YEAR_RE.exec(clean($(el).text()));
-    if (m) return Number.parseInt(m[1], 10);
+    const text = clean($(el).text());
+    const m = YEAR_RE.exec(text);
+    if (m) years.push({ year: Number.parseInt(m[1], 10), kennel: /bbh3|bash/i.test(text) });
   }
-  return null;
+  return (years.find((y) => y.kennel) ?? years[0])?.year ?? null;
 }
 
 export interface ParsedLine {
   month: number;
   day: number;
-  weekday: string;
+  weekday: number;
   hares?: string;
   title?: string;
 }
@@ -52,10 +59,10 @@ export function parseLine(raw: string): ParsedLine | null {
   }
   const tokens = text.split(" ");
   if (tokens.length < 3) return null;
-  const weekday = tokens[0].toLowerCase();
+  const weekday = WEEKDAYS[tokens[0].toLowerCase()];
   const month = MONTHS[tokens[1].toLowerCase()];
   const day = /^\d{1,2}$/.test(tokens[2]) ? Number.parseInt(tokens[2], 10) : Number.NaN;
-  if (!WEEKDAYS.has(weekday) || !month || !Number.isFinite(day)) return null;
+  if (weekday === undefined || !month || !Number.isFinite(day)) return null;
 
   // Leading space so a separator directly after the date (`Dec 20 - Slow Poke`) still matches " - ".
   let tail = ` ${tokens.slice(3).join(" ")}`;
@@ -75,7 +82,7 @@ export function parseLine(raw: string): ParsedLine | null {
 /**
  * Parse every hareline row. Dates carry no year: start at the heading's year
  * and roll forward when the month decreases (Dec → Jan). Each row is
- * validated (real calendar date, Sunday); a failing row is skipped with an
+ * validated (real calendar date whose weekday matches the printed one); a failing row is skipped with an
  * error rather than guessed, so a mistyped row cannot poison later years.
  */
 export function parseHareline(
@@ -92,18 +99,18 @@ export function parseHareline(
   for (const el of $("p.textnormal").toArray()) {
     const parsed = parseLine($(el).text());
     if (!parsed) continue;
-    if (prevMonth !== 0 && parsed.month < prevMonth) year += 1;
-    prevMonth = parsed.month;
+    // Tentative year roll: only committed once the row validates, so a mistyped row
+    // cannot shift the year for the rows after it.
+    const rowYear = prevMonth !== 0 && parsed.month < prevMonth ? year + 1 : year;
 
-    const d = new Date(Date.UTC(year, parsed.month - 1, parsed.day, 12, 0, 0));
+    const d = new Date(Date.UTC(rowYear, parsed.month - 1, parsed.day, 12, 0, 0));
     const valid = d.getUTCMonth() === parsed.month - 1 && d.getUTCDate() === parsed.day;
-    const isExpectedDay = valid && parsed.weekday === EXPECTED_WEEKDAY && d.getUTCDay() === 0;
-    if (!isExpectedDay) {
-      const label = `${parsed.weekday} ${parsed.month}/${parsed.day} (${year})`;
-      console.warn(`[barbados-bike-hash] skipping row that is not a valid Sunday: ${label}`);
-      errors.push(`Barbados Bike H3: row "${label}" is not a valid Sunday — skipped`);
+    if (!valid || d.getUTCDay() !== parsed.weekday) {
+      errors.push(`Barbados Bike H3: row month ${parsed.month} day ${parsed.day} (${rowYear}) does not match its printed weekday — skipped`);
       continue;
     }
+    year = rowYear;
+    prevMonth = parsed.month;
     events.push({
       date: d.toISOString().slice(0, 10),
       kennelTags: [KENNEL_TAG],
