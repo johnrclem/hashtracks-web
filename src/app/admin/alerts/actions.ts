@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getAdminUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { scrapeSource } from "@/pipeline/scrape";
-import { resolveKennelTag, clearResolverCache, mapKennelTagForSource } from "@/pipeline/kennel-resolver";
+import { resolveKennelTag, resolveKennelTags, clearResolverCache } from "@/pipeline/kennel-resolver";
 import { buildKennelIdentifiers, createKennelRecord } from "@/lib/kennel-utils";
 import type { Prisma } from "@/generated/prisma/client";
 import { ARCHIVE_SOURCE_LOCKED, isArchiveSource } from "@/lib/archive-source";
@@ -66,36 +66,12 @@ async function autoResolveIfAllTagsMatched(
   ));
   if (normalizedTags.length === 0) return;
 
-  const [kennels, aliases] = await Promise.all([
-    prisma.kennel.findMany({
-      select: { id: true, kennelCode: true, shortName: true },
-    }),
-    prisma.kennelAlias.findMany({
-      select: { alias: true, kennelId: true },
-    }),
-  ]);
-
-  const byKennelCode = new Map<string, string>();
-  const byShortName = new Map<string, string>();
-  const byAlias = new Map<string, string>();
-
-  for (const kennel of kennels) {
-    byKennelCode.set(kennel.kennelCode.trim().toLowerCase(), kennel.id);
-    byShortName.set(kennel.shortName.trim().toLowerCase(), kennel.id);
-  }
-  for (const alias of aliases) {
-    byAlias.set(alias.alias.trim().toLowerCase(), alias.kennelId);
-  }
-
-  const known = (tag: string) => byKennelCode.has(tag) || byShortName.has(tag) || byAlias.has(tag);
-  const mappedTags = await Promise.all(
-    normalizedTags.map(async (tag) => (known(tag) ? null : mapKennelTagForSource(tag, sourceId))),
-  );
-  const remaining = normalizedTags.filter((tag, i) => {
-    if (known(tag)) return false;
-    const mappedTag = mappedTags[i];
-    return !mappedTag || !known(mappedTag.trim().toLowerCase());
-  });
+  // Ask the resolver itself, scoped to the alert's source: a tag whose
+  // name exists but names 2+ kennels is still unmatched (R6), and a tag
+  // settled by the source's patterns or a linked full name counts as matched.
+  clearResolverCache();
+  const results = await resolveKennelTags(normalizedTags, sourceId);
+  const remaining = normalizedTags.filter((_, i) => !results[i].matched);
 
   if (remaining.length === 0) {
     await prisma.alert.update({
@@ -345,7 +321,7 @@ export async function linkKennelToSource(
 
   // Resolve the tag to a kennel
   clearResolverCache();
-  const { kennelId, matched } = await resolveKennelTag(kennelTag);
+  const { kennelId, matched } = await resolveKennelTag(kennelTag, alert.sourceId);
   if (!matched || !kennelId) {
     return { error: `Cannot resolve "${kennelTag}" to a kennel` };
   }
@@ -395,45 +371,18 @@ export async function linkKennelToSource(
       ctx.tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean),
     ));
     if (normalizedTags.length > 0) {
-      const [kennels, aliases, sourceKennels] = await Promise.all([
-        prisma.kennel.findMany({
-          select: { id: true, kennelCode: true, shortName: true },
-        }),
-        prisma.kennelAlias.findMany({
-          select: { alias: true, kennelId: true },
-        }),
+      clearResolverCache();
+      const [results, sourceKennels] = await Promise.all([
+        resolveKennelTags(normalizedTags, alert.sourceId),
         prisma.sourceKennel.findMany({
           where: { sourceId: alert.sourceId },
           select: { kennelId: true },
         }),
       ]);
-
-      const byKennelCode = new Map<string, string>();
-      const byShortName = new Map<string, string>();
-      const byAlias = new Map<string, string>();
-
-      for (const k of kennels) {
-        byKennelCode.set(k.kennelCode.trim().toLowerCase(), k.id);
-        byShortName.set(k.shortName.trim().toLowerCase(), k.id);
-      }
-      for (const a of aliases) {
-        byAlias.set(a.alias.trim().toLowerCase(), a.kennelId);
-      }
       const linkedIds = new Set(sourceKennels.map((sk) => sk.kennelId));
-
-      const lookup = (tag: string): string | undefined =>
-        byKennelCode.get(tag) ?? byShortName.get(tag) ?? byAlias.get(tag);
-
-      const mappedTags = await Promise.all(
-        normalizedTags.map(async (tag) => (lookup(tag) ? null : mapKennelTagForSource(tag, alert.sourceId))),
-      );
-      const remaining = normalizedTags.filter((tag, i) => {
-        const direct = lookup(tag);
-        if (direct) return !linkedIds.has(direct);
-        const mapped = mappedTags[i];
-        if (!mapped) return true;
-        const mappedResolved = lookup(mapped.trim().toLowerCase());
-        return !mappedResolved || !linkedIds.has(mappedResolved);
+      const remaining = normalizedTags.filter((_, i) => {
+        const { matched, kennelId } = results[i];
+        return !matched || !kennelId || !linkedIds.has(kennelId);
       });
 
       if (remaining.length === 0) {

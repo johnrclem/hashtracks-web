@@ -140,6 +140,8 @@ describe("linkKennelToSourceDirect externalSlug", () => {
     mockAlertFindMany.mockResolvedValue([] as never);
 
     const result = await linkKennelToSourceDirect("s1", "UH3");
+    // Scoped to the source, so tags settled only by its kennelPatterns resolve (R6)
+    expect(mockResolveKennelTag).toHaveBeenCalledWith("UH3", "s1");
     expect(result).toEqual({ success: true });
 
     // Should upsert SourceKennel with externalSlug
