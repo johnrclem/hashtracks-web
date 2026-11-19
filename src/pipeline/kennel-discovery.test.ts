@@ -2,7 +2,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     kennel: { findMany: vi.fn(), findUnique: vi.fn() },
     kennelAlias: { findMany: vi.fn(), create: vi.fn() },
-    kennelDiscovery: { findMany: vi.fn(), upsert: vi.fn(), update: vi.fn() },
+    kennelDiscovery: { findMany: vi.fn(), upsert: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     source: { findFirst: vi.fn() },
     sourceKennel: { upsert: vi.fn(), deleteMany: vi.fn() },
   },
@@ -281,6 +281,97 @@ describe("syncKennelDiscovery", () => {
     expect(result.updated).toBe(1);
     expect(prisma.kennelDiscovery.update).toHaveBeenCalledTimes(1);
     expect(prisma.kennelDiscovery.upsert).not.toHaveBeenCalled();
+  });
+
+  it("clears a missing flag when a confirmed account is listed again", async () => {
+    vi.mocked(parseKennelDirectory).mockReturnValue([buildDiscovered()]);
+    vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue([
+      { id: "d1", externalSlug: "TESTH3", status: "LINKED", externalStatus: "missing" },
+    ] as never);
+
+    const result = await syncKennelDiscovery();
+    expect(vi.mocked(prisma.kennelDiscovery.update).mock.calls[0][0].data).toMatchObject({ externalStatus: null });
+    expect(prisma.kennelDiscovery.updateMany).not.toHaveBeenCalled();
+    expect(result.flaggedMissing).toBe(0);
+  });
+
+  describe("confirmed accounts gone from the directory", () => {
+    function confirmedRows(n: number, status = "LINKED") {
+      return Array.from({ length: n }, (_, i) => ({
+        id: `d${i}`, externalSlug: `K${i}`, status, externalStatus: null,
+      }));
+    }
+
+    it("flags LINKED and ADDED rows the directory no longer lists, without touching links or status", async () => {
+      const rows = [
+        ...confirmedRows(6),
+        { id: "added", externalSlug: "GONEADD", status: "ADDED", externalStatus: null },
+        { id: "gone", externalSlug: "GoneH3", status: "LINKED", externalStatus: null },
+        // Unconfirmed rows are never flagged.
+        { id: "new", externalSlug: "NEWGONE", status: "NEW", externalStatus: null },
+        { id: "matched", externalSlug: "MATCHGONE", status: "MATCHED", externalStatus: null },
+        { id: "dismissed", externalSlug: "DISGONE", status: "DISMISSED", externalStatus: null },
+      ];
+      vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue(rows as never);
+      // Slugs compare case-insensitively.
+      vi.mocked(parseKennelDirectory).mockReturnValue(
+        confirmedRows(6).map((r) => buildDiscovered({ slug: r.externalSlug.toLowerCase() })),
+      );
+
+      const result = await syncKennelDiscovery();
+      expect(prisma.kennelDiscovery.updateMany).toHaveBeenCalledTimes(1);
+      expect(prisma.kennelDiscovery.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ["added", "gone"] } },
+        data: { externalStatus: "missing" },
+      });
+      expect(result.flaggedMissing).toBe(2);
+      expect(prisma.sourceKennel.upsert).not.toHaveBeenCalled();
+      expect(prisma.sourceKennel.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it("does not re-count rows already flagged", async () => {
+      vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue([
+        ...confirmedRows(8),
+        { id: "gone", externalSlug: "GONE", status: "LINKED", externalStatus: "missing" },
+      ] as never);
+      vi.mocked(parseKennelDirectory).mockReturnValue(
+        confirmedRows(8).map((r) => buildDiscovered({ slug: r.externalSlug })),
+      );
+
+      const result = await syncKennelDiscovery();
+      expect(prisma.kennelDiscovery.updateMany).not.toHaveBeenCalled();
+      expect(result.flaggedMissing).toBe(0);
+    });
+
+    it("flags nothing when the read drops too many confirmed accounts (likely a partial page)", async () => {
+      vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue(confirmedRows(8) as never);
+      vi.mocked(parseKennelDirectory).mockReturnValue([buildDiscovered({ slug: "K0" })]);
+
+      const result = await syncKennelDiscovery();
+      expect(prisma.kennelDiscovery.updateMany).not.toHaveBeenCalled();
+      expect(result.flaggedMissing).toBe(0);
+      expect(result.errors[0]).toMatch(/not flagging 7 as missing/);
+    });
+
+    it("still flags a single missing account in a small set", async () => {
+      vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue(confirmedRows(2) as never);
+      vi.mocked(parseKennelDirectory).mockReturnValue([buildDiscovered({ slug: "K0" })]);
+
+      const result = await syncKennelDiscovery();
+      expect(prisma.kennelDiscovery.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ["d1"] } },
+        data: { externalStatus: "missing" },
+      });
+      expect(result.flaggedMissing).toBe(1);
+    });
+
+    it("flags nothing when the directory read is not complete", async () => {
+      vi.mocked(prisma.kennelDiscovery.findMany).mockResolvedValue(confirmedRows(3) as never);
+      vi.mocked(parseKennelDirectory).mockReturnValue([]);
+
+      await syncKennelDiscovery();
+      expect(prisma.kennelDiscovery.updateMany).not.toHaveBeenCalled();
+    });
   });
 
   it("enriches with API profile data", async () => {

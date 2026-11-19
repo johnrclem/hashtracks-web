@@ -41,6 +41,8 @@ export interface AlertData {
   updatedAt: string;
   snoozedUntil: string | null;
   sourceName: string;
+  /** The source's type: HASHREGO alerts get no create-kennel repair (#3065 refuses it). */
+  sourceType?: string;
 }
 
 interface RepairLogEntry {
@@ -245,6 +247,7 @@ export function AlertCard({ alert, allKennels, suggestions }: AlertCardProps) {
                   tags={ctx.tags as string[]}
                   suggestions={suggestions ?? new Map()}
                   allKennels={allKennels}
+                  allowCreateKennel={alert.sourceType !== "HASHREGO"}
                 />
               ) : (
                 <AlertContextDisplay

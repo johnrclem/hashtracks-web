@@ -14,6 +14,7 @@ import { regionNameToSlug, regionSlug } from "@/lib/region";
 import { checkLogoUrl } from "@/lib/logo-url";
 import { refreshAfterWrite } from "@/lib/kennel-confirmations";
 import { ARCHIVE_KENNEL_LOCKED, kennelHasArchiveSource } from "@/lib/archive-source";
+import { HALF_MIND_EXTERNAL_SOURCE } from "@/lib/half-mind";
 
 /**
  * Bust the ISR-cached region landing page (`/kennels/region/[slug]`, which sets
@@ -677,24 +678,79 @@ export async function deduplicateEventKennels(
   }
 }
 
-/** Handle SourceKennel deduplication: delete source links that already exist on target. */
+/**
+ * Handle SourceKennel deduplication: when both kennels link the same source,
+ * delete the merged kennel's link. A Hash Rego link carries the account slug to
+ * scrape (`externalSlug`): if the target's link has none, it takes the merged
+ * kennel's slug first, so the account keeps being scraped. A target that already
+ * holds a different slug keeps its own (one slug per kennel and source).
+ */
 async function deduplicateSourceKennels(sourceKennelId: string, targetKennelId: string): Promise<void> {
   const sourceLinks = await prisma.sourceKennel.findMany({
     where: { kennelId: sourceKennelId },
-    select: { sourceId: true },
+    select: { sourceId: true, externalSlug: true },
   });
 
   for (const link of sourceLinks) {
     const existingLink = await prisma.sourceKennel.findUnique({
       where: { sourceId_kennelId: { sourceId: link.sourceId, kennelId: targetKennelId } },
+      select: { externalSlug: true },
     });
 
     if (existingLink) {
+      if (link.externalSlug && !existingLink.externalSlug) {
+        await prisma.sourceKennel.update({
+          where: { sourceId_kennelId: { sourceId: link.sourceId, kennelId: targetKennelId } },
+          data: { externalSlug: link.externalSlug },
+        });
+      }
       await prisma.sourceKennel.delete({
         where: { sourceId_kennelId: { sourceId: link.sourceId, kennelId: sourceKennelId } },
       });
     }
   }
+}
+
+/**
+ * Carry the merged kennel's directory identity to the target, inside the merge
+ * transaction. Without this the kennel delete nulls `matchedKennelId` and leaves
+ * LINKED discovery rows pointing at nothing.
+ *
+ * - The Half-Mind listing moves when the target has none (`halfMindListingId`
+ *   is unique, so it is cleared on the source first).
+ * - Discovery rows move to the target, except Half-Mind rows for a listing the
+ *   target does not hold (it already has a different one): those are unlinked
+ *   back to NEW, as `unlinkHalfMindListing` does. Half-Mind review only acts on
+ *   NEW rows, and the next sync re-ranks them, so an admin decides.
+ */
+async function repointDirectoryIdentity(
+  tx: Prisma.TransactionClient,
+  source: { id: string; halfMindListingId: string | null },
+  target: { id: string; halfMindListingId: string | null },
+): Promise<void> {
+  // The listing the target holds after the merge. With none on either kennel,
+  // every LINKED/ADDED Half-Mind row is a link without a listing behind it, so
+  // all of them go back to review.
+  const targetListing = target.halfMindListingId ?? source.halfMindListingId;
+  if (source.halfMindListingId) {
+    await tx.kennel.update({ where: { id: source.id }, data: { halfMindListingId: null } });
+    if (!target.halfMindListingId) {
+      await tx.kennel.update({ where: { id: target.id }, data: { halfMindListingId: source.halfMindListingId } });
+    }
+  }
+  await tx.kennelDiscovery.updateMany({
+    where: {
+      matchedKennelId: source.id,
+      externalSource: HALF_MIND_EXTERNAL_SOURCE,
+      status: { in: ["LINKED", "ADDED"] },
+      NOT: targetListing ? { externalSlug: targetListing } : undefined,
+    },
+    data: { status: "NEW", matchedKennelId: null, processedBy: null, processedAt: null },
+  });
+  await tx.kennelDiscovery.updateMany({
+    where: { matchedKennelId: source.id },
+    data: { matchedKennelId: target.id },
+  });
 }
 
 /**
@@ -732,7 +788,7 @@ export async function mergeKennels(
 
   const targetKennel = await prisma.kennel.findUnique({
     where: { id: targetKennelId },
-    select: { id: true, shortName: true, slug: true, region: true },
+    select: { id: true, shortName: true, slug: true, region: true, halfMindListingId: true },
   });
 
   if (!sourceKennel) return { error: "Source kennel not found" };
@@ -852,6 +908,7 @@ export async function mergeKennels(
         where: { kennelId: sourceKennel.id },
         data: { kennelId: targetKennel.id },
       });
+      await repointDirectoryIdentity(tx, sourceKennel, targetKennel);
       await tx.kennelAlias.deleteMany({
         where: { kennelId: sourceKennel.id },
       });

@@ -14,7 +14,7 @@ vi.mock("@/lib/db", () => ({
     kennel: { findFirst: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
     region: { findUnique: vi.fn() },
     kennelAlias: { deleteMany: vi.fn() },
-    sourceKennel: { deleteMany: vi.fn(), findMany: vi.fn() },
+    sourceKennel: { deleteMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
     event: { findMany: vi.fn() },
     kennelAttendance: { count: vi.fn() },
     eventKennel: { count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
@@ -590,11 +590,113 @@ describe("mergeKennels", () => {
       mismanRequest: { updateMany: vi.fn() },
       sourceKennel: { updateMany: vi.fn() },
       kennelConfirmation: { updateMany: vi.fn() },
+      kennelDiscovery: { updateMany: vi.fn() },
       kennelAlias: { deleteMany: vi.fn() },
       rosterGroupKennel: { deleteMany: vi.fn() },
-      kennel: { delete: vi.fn() },
+      kennel: { delete: vi.fn(), update: vi.fn() },
     };
   }
+
+  const zeroCounts = { events: 0, members: 0, kennelHashers: 0, mismanRequests: 0, sources: 1, aliases: 0 };
+  function setupMerge(
+    src: { halfMindListingId?: string | null } = {},
+    tgt: { halfMindListingId?: string | null } = {},
+  ) {
+    mockKennelFindUnique
+      .mockResolvedValueOnce({
+        id: "src", shortName: "Src", slug: "src", region: "Boston, MA", _count: zeroCounts,
+        halfMindListingId: src.halfMindListingId ?? null,
+      } as never)
+      .mockResolvedValueOnce({
+        id: "tgt", shortName: "Tgt", slug: "tgt", region: "Boston, MA",
+        halfMindListingId: tgt.halfMindListingId ?? null,
+      } as never);
+    vi.mocked(prisma.event.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.userKennel.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.kennelHasher.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.sourceKennel.findMany).mockResolvedValue([] as never);
+    const tx = makeTx();
+    vi.mocked(prisma.$transaction).mockImplementationOnce((async (fn: (t: unknown) => unknown) => fn(tx)) as never);
+    return tx;
+  }
+
+  it("repoints the merged kennel's discovery rows to the target before deleting it", async () => {
+    const tx = setupMerge();
+    expect(await mergeKennels("src", "tgt", false)).toEqual({ success: true });
+    expect(tx.kennelDiscovery.updateMany).toHaveBeenCalledWith({
+      where: { matchedKennelId: "src" },
+      data: { matchedKennelId: "tgt" },
+    });
+    expect(tx.kennelDiscovery.updateMany.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      tx.kennel.delete.mock.invocationCallOrder[0],
+    );
+    expect(tx.kennel.update).not.toHaveBeenCalled();
+  });
+
+  it("moves the Half-Mind listing when the target has none", async () => {
+    const tx = setupMerge({ halfMindListingId: "123" });
+    expect(await mergeKennels("src", "tgt", false)).toEqual({ success: true });
+    // Cleared on the source first: the column is unique.
+    expect(tx.kennel.update).toHaveBeenNthCalledWith(1, { where: { id: "src" }, data: { halfMindListingId: null } });
+    expect(tx.kennel.update).toHaveBeenNthCalledWith(2, { where: { id: "tgt" }, data: { halfMindListingId: "123" } });
+    expect(tx.kennelDiscovery.updateMany).toHaveBeenCalledWith({
+      where: {
+        matchedKennelId: "src",
+        externalSource: "HALFMIND",
+        status: { in: ["LINKED", "ADDED"] },
+        NOT: { externalSlug: "123" },
+      },
+      data: { status: "NEW", matchedKennelId: null, processedBy: null, processedAt: null },
+    });
+  });
+
+  it("keeps the target's own Half-Mind listing and sends the merged kennel's link back to review", async () => {
+    const tx = setupMerge({ halfMindListingId: "123" }, { halfMindListingId: "456" });
+    expect(await mergeKennels("src", "tgt", false)).toEqual({ success: true });
+    expect(tx.kennel.update).toHaveBeenCalledTimes(1);
+    expect(tx.kennel.update).toHaveBeenCalledWith({ where: { id: "src" }, data: { halfMindListingId: null } });
+    expect(tx.kennelDiscovery.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ NOT: { externalSlug: "456" } }),
+      data: { status: "NEW", matchedKennelId: null, processedBy: null, processedAt: null },
+    }));
+  });
+
+  it("sends every Half-Mind link back to review when neither kennel holds a listing", async () => {
+    const tx = setupMerge();
+    expect(await mergeKennels("src", "tgt", false)).toEqual({ success: true });
+    expect(tx.kennelDiscovery.updateMany).toHaveBeenCalledWith({
+      where: {
+        matchedKennelId: "src",
+        externalSource: "HALFMIND",
+        status: { in: ["LINKED", "ADDED"] },
+        NOT: undefined,
+      },
+      data: { status: "NEW", matchedKennelId: null, processedBy: null, processedAt: null },
+    });
+  });
+
+  it("gives the target the merged kennel's Hash Rego slug when its own link has none", async () => {
+    setupMerge();
+    vi.mocked(prisma.sourceKennel.findMany).mockResolvedValue([{ sourceId: "hr", externalSlug: "NOH3" }] as never);
+    vi.mocked(prisma.sourceKennel.findUnique).mockResolvedValueOnce({ externalSlug: null } as never);
+    expect(await mergeKennels("src", "tgt", false)).toEqual({ success: true });
+    expect(prisma.sourceKennel.update).toHaveBeenCalledWith({
+      where: { sourceId_kennelId: { sourceId: "hr", kennelId: "tgt" } },
+      data: { externalSlug: "NOH3" },
+    });
+    expect(prisma.sourceKennel.delete).toHaveBeenCalledWith({
+      where: { sourceId_kennelId: { sourceId: "hr", kennelId: "src" } },
+    });
+  });
+
+  it("keeps the target's own Hash Rego slug", async () => {
+    setupMerge();
+    vi.mocked(prisma.sourceKennel.findMany).mockResolvedValue([{ sourceId: "hr", externalSlug: "Noh" }] as never);
+    vi.mocked(prisma.sourceKennel.findUnique).mockResolvedValueOnce({ externalSlug: "NOH3" } as never);
+    expect(await mergeKennels("src", "tgt", false)).toEqual({ success: true });
+    expect(prisma.sourceKennel.update).not.toHaveBeenCalled();
+    expect(prisma.sourceKennel.delete).toHaveBeenCalled();
+  });
 
   it("moves the merged-away kennel's confirmations (incl. an open stop) to the target before deleting it", async () => {
     const counts = { events: 0, members: 0, kennelHashers: 0, mismanRequests: 0, sources: 1, aliases: 0 };

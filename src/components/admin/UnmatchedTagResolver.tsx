@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { HASHREGO_TAG_LINK_REFUSAL } from "@/lib/hashrego-link-refusal";
 import {
   createAliasFromAlert,
   createKennelFromAlert,
@@ -30,6 +31,11 @@ interface UnmatchedTagResolverProps {
   tags: string[];
   suggestions: Map<string, KennelOption[]>; // tag → top kennel matches
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
+  /**
+   * False for HASHREGO alerts: creating a kennel from a tag would link it to the
+   * source without an account slug, which the action refuses.
+   */
+  allowCreateKennel?: boolean;
 }
 
 export function UnmatchedTagResolver({
@@ -37,6 +43,7 @@ export function UnmatchedTagResolver({
   tags,
   suggestions,
   allKennels,
+  allowCreateKennel = true,
 }: UnmatchedTagResolverProps) {
   return (
     <div className="mt-2 space-y-3">
@@ -47,6 +54,7 @@ export function UnmatchedTagResolver({
           tag={tag}
           suggestions={suggestions.get(tag) ?? []}
           allKennels={allKennels}
+          allowCreateKennel={allowCreateKennel}
         />
       ))}
     </div>
@@ -58,11 +66,13 @@ function TagRow({
   tag,
   suggestions,
   allKennels,
+  allowCreateKennel,
 }: {
   alertId: string;
   tag: string;
   suggestions: KennelOption[];
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
+  allowCreateKennel: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<"pick" | "create">("pick");
@@ -218,12 +228,16 @@ function TagRow({
               />
               Re-scrape after mapping
             </label>
-            <button
-              className="text-[11px] text-primary hover:underline"
-              onClick={() => setMode("create")}
-            >
-              Create new kennel instead
-            </button>
+            {allowCreateKennel ? (
+              <button
+                className="text-[11px] text-primary hover:underline"
+                onClick={() => setMode("create")}
+              >
+                Create new kennel instead
+              </button>
+            ) : (
+              <span className="text-[11px] text-muted-foreground">{HASHREGO_TAG_LINK_REFUSAL}</span>
+            )}
           </div>
         </div>
       ) : (

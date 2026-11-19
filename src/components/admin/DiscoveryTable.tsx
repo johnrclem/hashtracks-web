@@ -54,6 +54,8 @@ type DiscoveryRecord = {
   externalSlug: string;
   /** The HASHREGO scraper fetches this account (set by the seed, not by linking). */
   scraped: boolean;
+  /** "missing" once a complete Hash Rego directory read stops listing a confirmed account. */
+  externalStatus: string | null;
   name: string;
   location: string | null;
   latitude: number | null;
@@ -165,7 +167,7 @@ export function DiscoveryTable({ discoveries, regions, counts }: DiscoveryTableP
             console.warn("[DiscoverySync] errors:", result.errors);
           }
           toast.success(
-            `Discovered ${result.totalDiscovered} kennels: ${result.newKennels} new, ${result.autoMatched} suggested matches, ${result.enriched} enriched`,
+            `Discovered ${result.totalDiscovered} kennels: ${result.newKennels} new, ${result.autoMatched} suggested matches, ${result.enriched} enriched${result.flaggedMissing ? `, ${result.flaggedMissing} confirmed accounts missing from the directory` : ""}`,
           );
           router.refresh();
         }
@@ -654,6 +656,15 @@ function DiscoveryRow({
               title="The Hash Rego scraper fetches this account. Linking a row never changes what is scraped; the seed's kennelSlugMap does."
             >
               Scraped
+            </Badge>
+          )}
+          {d.externalSource === "HASHREGO" && d.externalStatus === "missing" && (
+            <Badge
+              variant="destructive"
+              className="text-xs"
+              title="A complete Hash Rego directory read no longer lists this account. The link is unchanged: check whether the kennel moved accounts or stopped."
+            >
+              Missing from Hash Rego
             </Badge>
           )}
         </div>

@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { HASHREGO_TAG_LINK_REFUSAL } from "@/lib/hashrego-link-refusal";
 import {
   linkKennelToSourceDirect,
   createAliasForSource,
@@ -32,6 +33,8 @@ interface SampleEventActionsProps {
   kennelTag: string;
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
   suggestions?: KennelOption[];
+  /** HASHREGO: no link-from-tag or create-kennel buttons (the actions refuse them). */
+  sourceType?: string;
 }
 
 export function SampleEventActions({
@@ -40,8 +43,13 @@ export function SampleEventActions({
   kennelTag,
   allKennels,
   suggestions = [],
+  sourceType,
 }: SampleEventActionsProps) {
+  const isHashRego = sourceType === "HASHREGO";
   if (reason === "SOURCE_KENNEL_MISMATCH") {
+    if (isHashRego) {
+      return <span className="max-w-xs text-[11px] text-muted-foreground">{HASHREGO_TAG_LINK_REFUSAL}</span>;
+    }
     return (
       <LinkToSourceAction sourceId={sourceId} kennelTag={kennelTag} />
     );
@@ -54,6 +62,7 @@ export function SampleEventActions({
         kennelTag={kennelTag}
         allKennels={allKennels}
         suggestions={suggestions}
+        allowCreateKennel={!isHashRego}
       />
     );
   }
@@ -111,11 +120,13 @@ function UnmatchedTagAction({
   kennelTag,
   allKennels,
   suggestions,
+  allowCreateKennel,
 }: {
   sourceId: string;
   kennelTag: string;
   allKennels: { id: string; shortName: string; fullName: string; region: string }[];
   suggestions: KennelOption[];
+  allowCreateKennel: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [mode, setMode] = useState<"pick" | "create">("pick");
@@ -215,12 +226,14 @@ function UnmatchedTagAction({
           </Button>
         </div>
 
-        <button
-          className="text-[11px] text-primary hover:underline"
-          onClick={() => setMode("create")}
-        >
-          Create new kennel instead
-        </button>
+        {allowCreateKennel && (
+          <button
+            className="text-[11px] text-primary hover:underline"
+            onClick={() => setMode("create")}
+          >
+            Create new kennel instead
+          </button>
+        )}
       </div>
     );
   }

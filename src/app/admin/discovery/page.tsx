@@ -63,6 +63,7 @@ export default async function DiscoveryPage({
     externalSource: d.externalSource,
     externalSlug: d.externalSlug,
     scraped: d.externalSource === "HASHREGO" && scrapedSlugs.has(d.externalSlug.toUpperCase()),
+    externalStatus: d.externalStatus,
     name: d.name,
     location: d.location,
     latitude: d.latitude,
