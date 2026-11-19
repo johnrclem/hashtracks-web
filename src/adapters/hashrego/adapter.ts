@@ -362,8 +362,8 @@ async function fetchAndParseDetail(
 
 /**
  * True when the detail page's host display name resolves to a real kennel other
- * than the one the account maps to. A name that resolves to nothing is not a
- * conflict: the account mapping stands on its own.
+ * than the one the account maps to. A name (or mapped code) that resolves to
+ * nothing is not a conflict: the account mapping stands on its own.
  */
 async function hostNameConflicts(
   hostKennelName: string,
@@ -371,7 +371,8 @@ async function hostNameConflicts(
   sourceId: string,
 ): Promise<boolean> {
   const [named, mapped] = await resolveKennelTags([hostKennelName, mappedCode], sourceId);
-  return named.matched && named.kennelId !== null && named.kennelId !== mapped.kennelId;
+  // An unresolved mapped code (stale link) proves nothing, so it never holds.
+  return named.kennelId !== null && mapped.kennelId !== null && named.kennelId !== mapped.kennelId;
 }
 
 /**

@@ -2904,6 +2904,18 @@ describe("HashRegoAdapter account routing (R4)", () => {
     expect(result.diagnosticContext?.heldForHostMismatch).toBe(1);
   });
 
+  it("does not hold when the mapped code itself fails to resolve (stale link)", async () => {
+    indexThenDetail(detailWithHost("EWH3", "Charlotte H3"));
+    resolverFor({ "charlotte h3": "k_ch3_nc" });
+
+    const result = await new HashRegoAdapter().fetch(buildSource(), {
+      days: 36500, kennelSlugs: ["EWH3"], kennelCodesBySlug: { EWH3: "ewh3" },
+    });
+
+    expect(result.events.map((e) => e.kennelTags)).toEqual([["ewh3"]]);
+    expect(result.heldEvents).toBeUndefined();
+  });
+
   it("publishes under the mapping but reports an error when the host check itself fails", async () => {
     indexThenDetail(detailWithHost("EWH3", "Everyday is Wednesday H3"));
     mockedResolveKennelTags.mockRejectedValue(new Error("db timeout"));
