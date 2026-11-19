@@ -815,6 +815,7 @@ export const KENNEL_ALIASES: Record<string, string[]> = {
     // bare "BH3" OMITTED — Buffalo H3 owns it globally.
     "bicester-h3": ["Bicester Hash", "Bicester HHH", "BH3 Bicester"],
     "hwh3": ["HWH3", "High Wycombe Hash", "High Wycombe HHH", "Wycombe Hash"],
+    // "Harrirers" (sic) is Hash Rego's own spelling of the host name; keep it.
     "oxford-h3": ["Oxford Hash", "Oxford HHH", "OxfordH3", "Oxford Hash House Harriers", "Oxford Hash House Harrirers"],
     "newch3": ["NEW Cotswold H3", "N.E.W. Cotswold HHH", "NEWCH3", "Cotswold H3", "Cotswold Hash", "New Cotswold Hash House Harriers"],
     // bare "MH3"/"MVH3" OMITTED — taken (Munich/Montreal/…; Mount Vernon).
