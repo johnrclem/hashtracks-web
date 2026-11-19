@@ -136,6 +136,10 @@ export function createServerGithubAuth(
     const body = await appCall(`/app/installations/${installationId}/access_tokens`, jwt, {
       method: "POST",
       body: JSON.stringify({ repositories: [repo.split("/")[1]] }),
+    }).catch((err: unknown) => {
+      // A reinstall gets a new installation id: look it up again on the next mint.
+      if (!cfg.installationId) foundInstallationId = null;
+      throw err;
     });
     const token = typeof body.token === "string" ? body.token : "";
     const expiresAt = Date.parse(typeof body.expires_at === "string" ? body.expires_at : "");

@@ -61,6 +61,25 @@ describe("createServerGithubAuth", () => {
     ]);
   });
 
+  it("looks the installation up again after a failed mint (the App was reinstalled)", async () => {
+    let installation = 999;
+    let tokens = 0;
+    const fetchImpl = vi.fn(async (url: URL) => {
+      if (String(url).endsWith("/installation")) return json({ id: installation });
+      tokens++;
+      return String(url).includes(`/installations/${installation}/`) ? tokenResponse() : json({ message: "Not Found" }, 404);
+    });
+    const env = { GITHUB_APP_ID: "12345", GITHUB_APP_PRIVATE_KEY: PEM };
+    let clock = NOW;
+    const auth = createServerGithubAuth({ env, fetchImpl: fetchImpl as never, now: () => clock });
+    await auth.get();
+    installation = 1000; // reinstalled
+    clock = Date.parse("2026-11-18T12:50:00Z"); // the cached token is near expiry: mint again
+    await expect(auth.get()).rejects.toThrow(/HTTP 404/);
+    await expect(auth.get()).resolves.toMatchObject({ token: "ghs_app" });
+    expect(tokens).toBe(3);
+  });
+
   it("mints again when the cached token is about to expire", async () => {
     let clock = NOW;
     const fetchImpl = vi.fn(async () => tokenResponse());
