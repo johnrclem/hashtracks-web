@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
-import type { ErrorDetails, AiRecoverySummary, PaginationOutcome, ScrapeResult, MergeResult } from "@/adapters/types";
+import type { ErrorDetails, AiRecoverySummary, PaginationOutcome, ScrapeResult, MergeResult, HeldEvent } from "@/adapters/types";
 import { hasAnyErrors } from "@/adapters/types";
 import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
@@ -117,15 +117,13 @@ function buildCombinedErrorDetails(
   return { combined, hasErrors };
 }
 
-/** Index kennel IDs by upper-cased external slug, the form adapters report failures in. */
-function indexKennelsBySlug(
-  links: { slug: string | null; kennelId: string | null }[],
-): Map<string, string[]> {
-  const bySlug = new Map<string, string[]>();
-  for (const { slug, kennelId } of links) {
-    if (!slug || !kennelId) continue;
+/** Group values by upper-cased external slug, the form adapters report failures in. */
+function indexBySlug<T>(links: { slug: string | null; value: T | null }[]): Map<string, T[]> {
+  const bySlug = new Map<string, T[]>();
+  for (const { slug, value } of links) {
+    if (!slug || value === null) continue;
     const key = slug.toUpperCase();
-    bySlug.set(key, [...(bySlug.get(key) ?? []), kennelId]);
+    bySlug.set(key, [...(bySlug.get(key) ?? []), value]);
   }
   return bySlug;
 }
@@ -138,14 +136,10 @@ function indexKennelsBySlug(
 export function buildKennelCodesBySlug(
   links: { slug: string; kennelCode: string }[],
 ): Record<string, string> {
-  const codes = new Map<string, Set<string>>();
-  for (const { slug, kennelCode } of links) {
-    const key = slug.toUpperCase();
-    codes.set(key, (codes.get(key) ?? new Set()).add(kennelCode));
-  }
   const bySlug: Record<string, string> = {};
-  for (const [slug, set] of codes) {
-    if (set.size === 1) bySlug[slug] = [...set][0];
+  for (const [slug, codes] of indexBySlug(links.map((l) => ({ slug: l.slug, value: l.kennelCode })))) {
+    const distinct = new Set(codes);
+    if (distinct.size === 1) bySlug[slug] = codes[0];
   }
   return bySlug;
 }
@@ -158,21 +152,30 @@ export function buildKennelCodesBySlug(
  * names the kennel behind every failure, the other kennels still reconcile. A
  * failure that can't be pinned to a linked kennel, or a walk that stopped
  * early, skips reconcile for the whole source.
+ *
+ * Held events (an account whose host name resolves to another kennel) are
+ * missing from the scrape the same way, so their accounts sit out too:
+ * otherwise their existing canonical events would look removed.
  */
 function resolveReconcileScope(
   pagination: PaginationOutcome | undefined,
   scrapedKennelIds: string[] | undefined,
   kennelIdsBySlug: ReadonlyMap<string, string[]>,
+  heldEvents: readonly HeldEvent[] = [],
 ): { kennelIds: string[] | undefined } | null {
   if (pagination?.kennelPagesStopReason) return null;
-  if (!pagination?.kennelPageFetchErrors) return { kennelIds: scrapedKennelIds };
+  const fetchErrors = pagination?.kennelPageFetchErrors ?? 0;
+  const failedSlugs = fetchErrors > 0 ? (pagination?.failedKennelSlugs ?? []) : [];
+  // Every fetch failure must be pinned to a kennel, or nothing can be narrowed.
+  if (failedSlugs.length !== fetchErrors) return null;
+  const skippedSlugs = [...failedSlugs, ...heldEvents.map((h) => h.accountSlug)];
+  if (skippedSlugs.length === 0) return { kennelIds: scrapedKennelIds };
 
-  const failedSlugs = pagination.failedKennelSlugs ?? [];
-  if (!scrapedKennelIds || failedSlugs.length !== pagination.kennelPageFetchErrors) return null;
-  const failedKennels = failedSlugs.map((slug) => kennelIdsBySlug.get(slug.toUpperCase()));
-  if (failedKennels.includes(undefined)) return null;
+  if (!scrapedKennelIds) return null;
+  const skippedKennels = skippedSlugs.map((slug) => kennelIdsBySlug.get(slug.toUpperCase()));
+  if (skippedKennels.includes(undefined)) return null;
 
-  const excluded = new Set(failedKennels.flat());
+  const excluded = new Set(skippedKennels.flat());
   const kennelIds = scrapedKennelIds.filter((id) => !excluded.has(id));
   // With every page failed nothing was read, so don't report a completed reconcile.
   return kennelIds.length > 0 ? { kennelIds } : null;
@@ -462,8 +465,8 @@ export async function scrapeSource(
       );
       kennelSlugs = slugged.map((sk) => sk.externalSlug);
       scrapedKennelIds = slugged.map((sk) => sk.kennelId);
-      kennelIdsBySlug = indexKennelsBySlug(
-        slugged.map((sk) => ({ slug: sk.externalSlug, kennelId: sk.kennelId })),
+      kennelIdsBySlug = indexBySlug(
+        slugged.map((sk) => ({ slug: sk.externalSlug, value: sk.kennelId })),
       );
       // R4: route each event by its account, not its host display name.
       kennelCodesBySlug = buildKennelCodesBySlug(
@@ -533,7 +536,9 @@ export async function scrapeSource(
     let reconcileEvaluated = false;
     let reconcileSuppressedKennels: string[] = [];
     let massCancelBlocked: { wouldCancel: number; candidatesExamined: number } | undefined;
-    const reconcileScope = resolveReconcileScope(scrapeResult.pagination, scrapedKennelIds, kennelIdsBySlug);
+    const reconcileScope = resolveReconcileScope(
+      scrapeResult.pagination, scrapedKennelIds, kennelIdsBySlug, scrapeResult.heldEvents,
+    );
     // A zero-event scrape normally skips reconcile (an empty page is far more
     // often breakage than a real "everything was removed"). allowMassCancel is
     // the operator saying the removal is genuine, so it opts the empty case in.

@@ -13,7 +13,7 @@ import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
 import { normalizeCostSigil } from "../utils";
 import { generateStructureHash } from "@/pipeline/structure-hash";
-import { resolveKennelTag } from "@/pipeline/kennel-resolver";
+import { resolveKennelTags } from "@/pipeline/kennel-resolver";
 import {
   parseEventsIndex,
   parseEventDetail,
@@ -70,12 +70,21 @@ export class HashRegoAdapter implements SourceAdapter {
       return { events: [], errors: ["No kennel slugs provided — check SourceKennel.externalSlug is populated for this source"] };
     }
     const kennelSlugs = new Set(slugList.map((s) => s.toUpperCase()));
-    const codesBySlug = new Map(
-      Object.entries(options?.kennelCodesBySlug ?? {}).map(([slug, code]) => [slug.toUpperCase(), code]),
-    );
-    const codeFor = (accountSlug: string) => codesBySlug.get(accountSlug.toUpperCase());
+    const codesBySlug = options?.kennelCodesBySlug ?? {};
+    const codeFor = (accountSlug: string): string | undefined => codesBySlug[accountSlug.toUpperCase()];
     const heldEvents: HeldEvent[] = [];
-    const heldKennelSlugs = new Set<string>();
+    // One cross-check per (host name, mapped kennel): a batch usually repeats the
+    // pair, and the resolver caches only finished lookups.
+    const conflictChecks = new Map<string, Promise<boolean>>();
+    const hostConflicts = (hostName: string, mappedCode: string): Promise<boolean> => {
+      const key = `${hostName.toLowerCase()}|${mappedCode}`;
+      let check = conflictChecks.get(key);
+      if (!check) {
+        check = hostNameConflicts(hostName, mappedCode, source.id);
+        conflictChecks.set(key, check);
+      }
+      return check;
+    };
 
     // Per-day kennel-attribution patterns from source config (PR D.5). Used
     // by the multi-day section parser to override a child day's kennelTag
@@ -216,10 +225,19 @@ export class HashRegoAdapter implements SourceAdapter {
         batch.map(async (entry) => {
           const mappedCode = codeFor(entry.kennelSlug);
           const detail = await fetchAndParseDetail(entry, errors, errorDetails, kennelPatterns, mappedCode);
-          const conflict = mappedCode && detail.hostKennelName
-            ? await hostNameConflicts(detail.hostKennelName, mappedCode, source.id)
-            : false;
-          return { entry, mappedCode, detail, conflict };
+          const hostName = detail.hostKennelName;
+          if (!mappedCode || !hostName || !(await hostConflicts(hostName, mappedCode))) {
+            return { events: detail.events, held: null };
+          }
+          // Hold, don't publish: the account and the host name disagree.
+          const held: HeldEvent = {
+            mappedKennelCode: mappedCode,
+            conflictingTag: hostName,
+            accountSlug: entry.kennelSlug,
+            sourceUrl: eventDetailUrl(entry.slug),
+            date: detail.events[0]?.date ?? parseHashRegoDate(entry.startDate) ?? undefined,
+          };
+          return { events: [], held };
         }),
       );
       for (const result of results) {
@@ -228,20 +246,8 @@ export class HashRegoAdapter implements SourceAdapter {
           detailPagesFailed++;
           continue;
         }
-        const { entry, mappedCode, detail, conflict } = result.value;
-        if (conflict && mappedCode && detail.hostKennelName) {
-          // Hold, don't publish: the account and the host name disagree.
-          heldKennelSlugs.add(entry.kennelSlug);
-          heldEvents.push({
-            mappedKennelCode: mappedCode,
-            conflictingTag: detail.hostKennelName,
-            accountSlug: entry.kennelSlug,
-            sourceUrl: eventDetailUrl(entry.slug),
-            date: detail.events[0]?.date ?? parseHashRegoDate(entry.startDate) ?? undefined,
-          });
-          continue;
-        }
-        events.push(...detail.events);
+        if (result.value.held) heldEvents.push(result.value.held);
+        events.push(...result.value.events);
       }
     }
 
@@ -254,18 +260,10 @@ export class HashRegoAdapter implements SourceAdapter {
     // Approximate fallback count from detail page errors (each error triggers createFromIndex)
     // Exclude kennel page fetch errors since those don't produce createFromIndex fallbacks
     const indexOnlyFallbacks = Math.max(0, (errorDetails.fetch?.length ?? 0) - failedKennelSlugs.length) + (errorDetails.parse?.length ?? 0);
-    // A held event is missing from this scrape, so its kennel must sit out
-    // reconcile like a kennel whose page failed: otherwise the event's existing
-    // canonical row would look removed and be cancelled.
-    const failedUpper = new Set(failedKennelSlugs.map((s) => s.toUpperCase()));
-    const reconcileExcludedSlugs = [
-      ...failedKennelSlugs,
-      ...[...heldKennelSlugs].filter((s) => !failedUpper.has(s.toUpperCase())),
-    ];
     const pagination: PaginationOutcome = {
-      kennelPageFetchErrors: reconcileExcludedSlugs.length,
+      kennelPageFetchErrors: failedKennelSlugs.length,
       kennelPagesStopReason,
-      failedKennelSlugs: reconcileExcludedSlugs,
+      failedKennelSlugs,
     };
 
     return {
@@ -276,8 +274,8 @@ export class HashRegoAdapter implements SourceAdapter {
       pagination,
       ...(heldEvents.length > 0 ? { heldEvents } : {}),
       diagnosticContext: {
-        kennelCodesMapped: codesBySlug.size,
-        heldForHostMismatch: heldEvents,
+        kennelCodesMapped: Object.keys(codesBySlug).length,
+        heldForHostMismatch: heldEvents.length,
         totalIndexEntries: allEntries.length,
         matchingEntries: matchingEntries.length,
         kennelSlugsConfigured: slugList,
@@ -363,10 +361,7 @@ async function hostNameConflicts(
   mappedCode: string,
   sourceId: string,
 ): Promise<boolean> {
-  const [named, mapped] = await Promise.all([
-    resolveKennelTag(hostKennelName, sourceId),
-    resolveKennelTag(mappedCode, sourceId),
-  ]);
+  const [named, mapped] = await resolveKennelTags([hostKennelName, mappedCode], sourceId);
   return named.matched && named.kennelId !== null && named.kennelId !== mapped.kennelId;
 }
 

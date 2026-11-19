@@ -458,6 +458,24 @@ describe("scrapeSource", () => {
       }));
     });
 
+    it("keeps an account with a held event out of reconcile (R4)", async () => {
+      mockSourceFind.mockResolvedValue(hashRegoSource as never);
+      mockSourceKennelFind.mockResolvedValue(linkedSlugs as never);
+      mockGetAdapter.mockReturnValue({
+        type: "HASHREGO",
+        fetch: vi.fn().mockResolvedValue({
+          events: [{ date: "2026-02-14", kennelTags: ["nych3"] }],
+          errors: [],
+          pagination: { kennelPageFetchErrors: 0, kennelPagesStopReason: null, failedKennelSlugs: [] },
+          heldEvents: [{ mappedKennelCode: "moa2h3", conflictingTag: "Motown H3", accountSlug: "MoA2H3" }],
+        }),
+      } as never);
+
+      await scrapeSource("src_hr");
+
+      expect(mockReconcile.mock.calls[0][3]).toEqual(["k_nyc"]);
+    });
+
     it("never falls back to KennelDiscovery slugs when no link has a slug", async () => {
       hashRegoReturning({ kennelPageFetchErrors: 0, kennelPagesStopReason: null, failedKennelSlugs: [] });
       mockSourceKennelFind.mockResolvedValue([

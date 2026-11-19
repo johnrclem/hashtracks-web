@@ -17,7 +17,7 @@ import { HashRegoAdapter, apiToIndexEntry, normalizeHashRegoPrice } from "./adap
 import { HashRegoApiError, type HashRegoKennelEvent } from "./api";
 import ewh3Fixture from "./__fixtures__/api/kennel-ewh3-events.json";
 
-vi.mock("@/pipeline/kennel-resolver", () => ({ resolveKennelTag: vi.fn() }));
+vi.mock("@/pipeline/kennel-resolver", () => ({ resolveKennelTags: vi.fn() }));
 
 vi.mock("./api", async () => {
   const actual = await vi.importActual<typeof import("./api")>("./api");
@@ -29,8 +29,8 @@ vi.mock("./api", async () => {
 
 const { fetchKennelEvents } = await import("./api");
 const mockedFetchKennelEvents = vi.mocked(fetchKennelEvents);
-const { resolveKennelTag } = await import("@/pipeline/kennel-resolver");
-const mockedResolveKennelTag = vi.mocked(resolveKennelTag);
+const { resolveKennelTags } = await import("@/pipeline/kennel-resolver");
+const mockedResolveKennelTags = vi.mocked(resolveKennelTags);
 
 function buildApiRow(overrides: Partial<HashRegoKennelEvent> = {}): HashRegoKennelEvent {
   return {
@@ -2816,10 +2816,12 @@ function detailWithHost(kennelSlug: string, hostName: string, date = "February 1
 
 /** Resolver stand-in: lower-cased tag → kennelId; unknown tags don't match. */
 function resolverFor(table: Record<string, string>) {
-  mockedResolveKennelTag.mockImplementation(async (tag: string) => {
-    const kennelId = table[tag.trim().toLowerCase()];
-    return kennelId ? { kennelId, matched: true } : { kennelId: null, matched: false };
-  });
+  mockedResolveKennelTags.mockImplementation(async (tags: string[]) =>
+    tags.map((tag) => {
+      const kennelId = table[tag.trim().toLowerCase()];
+      return kennelId ? { kennelId, matched: true } : { kennelId: null, matched: false };
+    }),
+  );
 }
 
 describe("HashRegoAdapter account routing (R4)", () => {
@@ -2829,7 +2831,7 @@ describe("HashRegoAdapter account routing (R4)", () => {
     mockedFetchKennelEvents.mockImplementation(async (slug: string) => {
       throw new Error(`Unexpected fetchKennelEvents call for ${slug}`);
     });
-    mockedResolveKennelTag.mockReset();
+    mockedResolveKennelTags.mockReset();
     delete process.env.RESIDENTIAL_PROXY_URL;
     delete process.env.RESIDENTIAL_PROXY_KEY;
     vi.useFakeTimers();
@@ -2852,7 +2854,7 @@ describe("HashRegoAdapter account routing (R4)", () => {
     resolverFor({ ewh3: "k_ewh3", "everyday is wednesday h3": "k_ewh3" });
 
     const result = await new HashRegoAdapter().fetch(buildSource(), {
-      days: 36500, kennelSlugs: ["EWH3"], kennelCodesBySlug: { ewh3: "ewh3" },
+      days: 36500, kennelSlugs: ["EWH3"], kennelCodesBySlug: { EWH3: "ewh3" },
     });
 
     expect(result.events).toHaveLength(1);
@@ -2873,7 +2875,7 @@ describe("HashRegoAdapter account routing (R4)", () => {
     expect(result.heldEvents).toBeUndefined();
   });
 
-  it("holds the event when the host name resolves to a different kennel, and keeps that kennel out of reconcile", async () => {
+  it("holds the event when the host name resolves to a different kennel", async () => {
     indexThenDetail(detailWithHost("EWH3", "Charlotte H3"));
     resolverFor({ ewh3: "k_ewh3", "charlotte h3": "k_ch3_nc" });
 
@@ -2892,13 +2894,13 @@ describe("HashRegoAdapter account routing (R4)", () => {
         date: "2026-02-19",
       },
     ]);
-    // Held = missing from this scrape, so the kennel sits out reconcile.
+    // A held event is not a page failure; scrape.ts excludes its account from reconcile.
     expect(result.pagination).toEqual({
-      kennelPageFetchErrors: 1,
+      kennelPageFetchErrors: 0,
       kennelPagesStopReason: null,
-      failedKennelSlugs: ["EWH3"],
+      failedKennelSlugs: [],
     });
-    expect(result.diagnosticContext?.heldForHostMismatch).toEqual(result.heldEvents);
+    expect(result.diagnosticContext?.heldForHostMismatch).toBe(1);
   });
 
   it("uses the mapped code on the index-only fallback when the detail page fails", async () => {
@@ -2911,7 +2913,7 @@ describe("HashRegoAdapter account routing (R4)", () => {
     });
 
     expect(result.events[0].kennelTags).toEqual(["ewh3"]);
-    expect(mockedResolveKennelTag).not.toHaveBeenCalled();
+    expect(mockedResolveKennelTags).not.toHaveBeenCalled();
   });
 
   it("routes an event found by the per-kennel API call by that call's account", async () => {
@@ -2936,7 +2938,7 @@ describe("HashRegoAdapter account routing (R4)", () => {
     const result = await new HashRegoAdapter().fetch(buildSource(), { days: 36500, kennelSlugs: ["EWH3"] });
 
     expect(result.events[0].kennelTags).toEqual(["Everyday is Wednesday H3"]);
-    expect(mockedResolveKennelTag).not.toHaveBeenCalled();
+    expect(mockedResolveKennelTags).not.toHaveBeenCalled();
   });
 });
 
