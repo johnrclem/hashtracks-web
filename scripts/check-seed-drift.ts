@@ -21,6 +21,15 @@
  *
  * A disabled legacy row (a source whose type changed) can show missing links;
  * that is harmless while it stays disabled.
+ *
+ * Not covered:
+ * - ScheduleRule rows and kennel schedule/profile fields (the seed only fills
+ *   empty profile fields, so changes to them need a migration anyway);
+ * - alias differences in letter case only;
+ * - linked kennels missing from a top-level kennelSlugMap, which the seed would
+ *   set to a null slug;
+ * - duplicate (name, type) source rows, which make the seed throw (this script
+ *   uses the first).
  */
 import "dotenv/config";
 import { createScriptPool } from "./lib/db-pool";

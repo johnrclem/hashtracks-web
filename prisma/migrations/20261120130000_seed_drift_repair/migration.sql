@@ -25,9 +25,12 @@
 --      (replaced by the sheet in April) and "Rumson Weekly Runs (Static
 --      Recurring)" (an admin-made copy of the seeded Rumson schedule).
 --      Retire them with `replacedById`, never delete; their RawEvents stay.
+--      Kowloon's active STATIC_SCHEDULE Travel rule (weekly Monday) is left as
+--      is: its day is right. Rumson's new events will use the seeded title
+--      ("Rumson H3 Weekly Run") instead of the admin copy's text.
 --
 -- Placeholder deletes follow the provenance scoping of
--- (20260521020000_fix_se_asia_static_schedules). An event is deleted only
+-- 20260521020000_fix_se_asia_static_schedules. An event is deleted only
 -- when every one of its raws comes from the one static source being fixed.
 -- No deleted event has attendance, kennel attendance or hares (checked
 -- 2026-11-20).
@@ -101,7 +104,9 @@ SELECT 'mig_drift_jbh3_static_we', k.id, 'FREQ=WEEKLY;BYDAY=WE', '17:00', 'HIGH'
        'STATIC_SCHEDULE'::"ScheduleRuleSource", 'https://www.facebook.com/tjbhhh',
        NOW() AT TIME ZONE 'UTC', true, NOW() AT TIME ZONE 'UTC', NOW() AT TIME ZONE 'UTC'
 FROM "Kennel" k WHERE k."kennelCode" = 'jb-h3'
-ON CONFLICT ("kennelId", rrule, source) DO UPDATE SET "isActive" = true, "updatedAt" = NOW() AT TIME ZONE 'UTC';
+ON CONFLICT ("kennelId", rrule, source) DO UPDATE SET
+  "isActive" = true, "sourceReference" = EXCLUDED."sourceReference", "startTime" = EXCLUDED."startTime",
+  confidence = EXCLUDED.confidence, "lastValidatedAt" = EXCLUDED."lastValidatedAt", "updatedAt" = EXCLUDED."updatedAt";
 
 UPDATE "Kennel"
 SET "scheduleDayOfWeek" = 'Wednesday',
@@ -124,12 +129,18 @@ FROM "Kennel" k
 WHERE r."kennelId" = k.id AND k."kennelCode" = 'hebe-h3'
   AND r.rrule = 'FREQ=MONTHLY;BYDAY=1SA' AND r."isActive";
 
-INSERT INTO "ScheduleRule" (id, "kennelId", rrule, "startTime", confidence, source, "sourceReference", "lastValidatedAt", "isActive", "createdAt", "updatedAt", label)
-SELECT 'mig_drift_hebe_static_3sa', k.id, 'FREQ=MONTHLY;BYDAY=3SA', '15:00', 'HIGH'::"ScheduleConfidence",
-       'STATIC_SCHEDULE'::"ScheduleRuleSource", 'https://www.facebook.com/groups/HebeH3',
-       NOW() AT TIME ZONE 'UTC', true, NOW() AT TIME ZONE 'UTC', NOW() AT TIME ZONE 'UTC', 'Monthly'
+-- Same shape the seed's schedule-rule backfill produces for a kennel with
+-- seeded scheduleRules (#1492 absorb): an active SEED_DATA row for the 3SA rule,
+-- freshly validated. The old inactive STATIC_SCHEDULE 3SA row stays inactive.
+INSERT INTO "ScheduleRule" (id, "kennelId", rrule, "startTime", confidence, source, "sourceReference", "lastValidatedAt", "isActive", "createdAt", "updatedAt", label, "displayOrder")
+SELECT 'mig_drift_hebe_seed_3sa', k.id, 'FREQ=MONTHLY;BYDAY=3SA', '15:00', 'HIGH'::"ScheduleConfidence",
+       'SEED_DATA'::"ScheduleRuleSource", 'KennelSeed.scheduleRules[hebe-h3]',
+       NOW() AT TIME ZONE 'UTC', true, NOW() AT TIME ZONE 'UTC', NOW() AT TIME ZONE 'UTC', 'Monthly', 0
 FROM "Kennel" k WHERE k."kennelCode" = 'hebe-h3'
-ON CONFLICT ("kennelId", rrule, source) DO UPDATE SET "isActive" = true, "updatedAt" = NOW() AT TIME ZONE 'UTC';
+ON CONFLICT ("kennelId", rrule, source) DO UPDATE SET
+  "isActive" = true, label = EXCLUDED.label, "sourceReference" = EXCLUDED."sourceReference",
+  "startTime" = EXCLUDED."startTime", confidence = EXCLUDED.confidence,
+  "lastValidatedAt" = EXCLUDED."lastValidatedAt", "updatedAt" = EXCLUDED."updatedAt";
 
 UPDATE "Kennel"
 SET "scheduleNotes" = '3rd Saturday of the month at 3:00 PM in the Sai Kung area. Founded 2019.',
@@ -172,11 +183,17 @@ DELETE FROM "Attendance"       WHERE "eventId" IN (SELECT id FROM drift_ghost_ev
 DELETE FROM "KennelAttendance" WHERE "eventId" IN (SELECT id FROM drift_ghost_events);
 DELETE FROM "Event"            WHERE id        IN (SELECT id FROM drift_ghost_events);
 
--- Same predicate as src/pipeline/backfill-last-event.ts.
+-- Same predicate as src/pipeline/backfill-last-event.ts: canonical, not
+-- cancelled, not manual, as primary kennel or as a co-host.
 UPDATE "Kennel"
 SET "lastEventDate" = (
-  SELECT MAX(date) FROM "Event"
-  WHERE "kennelId" = "Kennel".id AND status::text <> 'CANCELLED' AND NOT "isManualEntry"
+  SELECT MAX(d) FROM (
+    SELECT e.date AS d FROM "Event" e
+    WHERE e."kennelId" = "Kennel".id AND e.status::text <> 'CANCELLED' AND NOT e."isManualEntry" AND e."isCanonical"
+    UNION ALL
+    SELECT e.date FROM "EventKennel" ek JOIN "Event" e ON e.id = ek."eventId"
+    WHERE ek."kennelId" = "Kennel".id AND e.status::text <> 'CANCELLED' AND NOT e."isManualEntry" AND e."isCanonical"
+  ) dates
 )
 WHERE id IN (SELECT "kennelId" FROM drift_affected_kennels);
 
@@ -191,6 +208,7 @@ FROM (VALUES
   ('Rumson Weekly Runs (Static Recurring)', 'Rumson H3 Static Schedule')
 ) AS t(old_name, repl_name)
 JOIN "Source" repl ON repl.name = t.repl_name
+  AND repl.type = (CASE WHEN t.repl_name = 'Kowloon H3 Hareline Sheet' THEN 'GOOGLE_SHEETS' ELSE 'STATIC_SCHEDULE' END)::"SourceType"
 WHERE old.name = t.old_name AND old.type = 'STATIC_SCHEDULE'::"SourceType"
   AND (old.enabled OR old."replacedById" IS DISTINCT FROM repl.id);
 
