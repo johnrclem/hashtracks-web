@@ -192,7 +192,7 @@ Build it when any of these happens:
    - In the merge update and enrich paths, compose `dateUtc` from `event.startTime ?? existingEvent.startTime`, and add a regression test.
    - In `refreshExistingEvent`, compose from the time the event will actually store, so `dateUtc` and `startTime` can't disagree.
    - **One-shot repair of all 366 mismatched events** to match `startTime` + timezone, which is the truth `EventTimeDisplay` already shows. Run a dry run with counts first, per `.claude/rules/prod-data-ops.md`, and report the 208 noon resets separately from the 158 others.
-   - **Follow-up issue** for the 158's root causes: local time stored as UTC, the one-hour offsets in some calendars, and refresh from another source's time. Until those are fixed, some of those rows can drift back.
+   - **Follow-up issue,** opened before PR 0 merges so the baseline has an owner, for the 158's root causes: local time stored as UTC, the one-hour offsets in some calendars, and refresh from another source's time. Until those are fixed, some of those rows can drift back.
 1. **PR A: Hash Rego parser cleanup** (`src/adapters/hashrego/parser.ts`), with fixtures from the real examples above.
    - **Placeholders are omitted (`undefined`), not blanked.**
      - Merge writes `""` and `null` as a clear: hares are sanitized to null, a location clear also drops the pin, and cost `""` is stored as is. Only an omitted field keeps the other source's value.
@@ -204,7 +204,8 @@ Build it when any of these happens:
      - Keep emitting the "(Day N)" fallback title for multi-day children, but stop it from overwriting a real title.
        - Most multi-day Hash Rego events have no other source for later days: WH4 Campout, MoSH3 ShiggyFest, DCH4 Book Bender, Party Gras! 2027. The fallback is their only name, and a new event created without a title shows just the kennel name.
        - Mark it with a flag on `RawEventData` (e.g. `titleIsFallback`) that merge's update path treats like a replaceable default. A calendar's real per-day trail name then survives.
-       - Add tests for both cases: a new event keeps "(Day 2)", and an existing real title isn't replaced.
+       - The flag covers only the case where the calendar arrives first. If Hash Rego arrives first (likely for new special events), the stored "(Day 2)" title must also count as replaceable. Teach `isReplaceableDefaultTitle` (`merge.ts` around 1063) that a title ending in " (Day N)" is a default, so a lower-trust calendar's real title fills it.
+       - Add tests for all three cases: a new event keeps "(Day 2)", an existing real title isn't replaced, and a later real calendar title replaces a stored "(Day 2)".
      - Use procedural tokenizing, not one big regex, to stay inside the Sonar S5852/S5843 limits (`.claude/rules/adapter-patterns.md`).
    - **This PR does change data:** fingerprints change, so in-window events re-merge at trust 8 on the first scrape after deploy.
    - **Clean up placeholders already stored:** a one-shot dry-run cleanup of canonical events that already store a Hash Rego placeholder, e.g. "Start Location TBA" on bfh3 10-30 and 12-12 and bfm 10-01 to 10-04. Consider teaching merge's `isPlaceholder` "Start Location TBA" and "TBA" for every source.
