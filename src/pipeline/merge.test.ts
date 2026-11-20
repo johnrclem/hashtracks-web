@@ -2492,7 +2492,7 @@ describe("venueTextChanged", () => {
 
 describe("dateUtc follows the start time the event keeps (noon-reset bug, 2026-11-20)", () => {
   // An update with no startTime keeps the stored time, so dateUtc must be
-  // composed from that time, not reset to UTC noon (208 prod events showed
+  // composed from that time, not reset to UTC noon (215 prod events showed
   // morning times for evening runs).
   const noon = (date: string) => new Date(`${date}T12:00:00Z`);
 

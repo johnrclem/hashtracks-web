@@ -780,6 +780,7 @@ async function refreshExistingEvent(
   // startTime shows (h5-hi showed 17:30 with a dateUtc of 03:15Z). Compose on
   // the event's own date too: a cross-window match can move Event.date away
   // from this raw's date. No stored time means nothing to compose.
+  // TODO(#3084): composeUtcStart picks the wrong month near Paraguay DST.
   const composedUtc = composeUtcStart(
     existingEvent?.date ?? eventDate,
     existingEvent?.startTime,
@@ -2108,8 +2109,9 @@ async function upsertCanonicalEvent(
       // dateUtc must follow the start time this update leaves on the event.
       // A raw with no startTime keeps the existing one (below), so composing
       // from the raw alone reset dateUtc to UTC noon while startTime kept its
-      // value: 208 prod events showed 8 AM-ish times (2026-11-20). An explicit
+      // value: 215 prod events showed 8 AM-ish times (2026-11-20). An explicit
       // null clears the time, and noon is then right.
+      // TODO(#3084): composeUtcStart picks the wrong month near Paraguay DST.
       const updateDateUtc = composeUtcStart(eventDate, effectiveStartTime, timezone) ?? eventDate;
 
       const updated = await prisma.event.update({
