@@ -32,7 +32,7 @@ What is left is real but small:
 
 **Prod checks, 2026-11-20:**
 - **Duplicates:** no two Hash Rego rows share a slug, ignoring case.
-- **Scraped accounts without a matching confirmed row:** `AH4_PLH3` → ph3-atl was linked by migration. Its confirmed row is `PH3`, whose kennel page 404s.
+- **Scraped accounts without a matching confirmed row:** `AH4_PLH3` → ph3-atl was linked by migration. Its confirmed row is `PH3`. That is Pinelake H3's own active account, marked annual-only, with no events now. It's a plausible future second account for ph3-atl.
 - **Hidden kennels:** 8 confirmed rows point at hidden kennels. One of them, `CUNTH3`, is probably wrong (review section 0).
 - **Kennels with two or more confirmed accounts:** 26. Three of them matter:
   - `lbh3`: `LBH3`, `LongBeach`;
@@ -59,11 +59,12 @@ What is left is real but small:
 
 **Rules:**
 - **Identity:** a row with status LINKED or ADDED is a confirmed identity. `matchedKennelId` on a NEW, MATCHED or DISMISSED row is only a candidate.
-- **Scraping (R3 decision kept):** `scraped` is set only by the seed's `kennelSlugMap` (shipped by migration) and by the source-page slug editor. Discovery actions never set it.
+- **Scraping (R3 decision kept):** `scraped` is set only by the seed's `kennelSlugMap` (shipped by migration). Discovery actions and the slug editor never set it.
   - The seed owns `scraped` on every HASHREGO row, whatever wrote the row. It sets it on the listed (kennel, slug) pairs and clears it everywhere else.
   - It never changes a row's status or kennel.
   - A value may be a list of slugs, for kennels with several scraped accounts.
   - It also keeps the `SourceKennel` link the guard needs for each scraped kennel.
+  - On a fresh database (local dev, `migrate reset`, tests) there are no discovery rows to flag. So for each listed (kennel, slug) pair with no row, the seed **upserts a confirmed row**, leaving existing rows' status and kennel alone. Otherwise a freshly seeded scraper would get no slugs.
 - **Scraped implies confirmed:** a row with `scraped = true` must be LINKED or ADDED, enforced by a check constraint or a seed test. `AH4_PLH3` gets a discovery row in the backfill.
 
 **Writers:**
@@ -74,8 +75,8 @@ What is left is real but small:
 | Discovery Dismiss / bulk dismiss | Dismissing a confirmed row ends the identity. If the row is scraped, refuse with the same message: scraping changes only through the seed. |
 | Half-Mind Link / Unlink / Add (`half-mind-actions.ts`, `admin/shared/kennel-creation.ts`) | Stop writing `Kennel.halfMindListingId`. The partial unique index does the one-listing check. |
 | Seed `linkKennelsToSource` (`prisma/seed.ts`) | Sets the `scraped` flags and keeps the `SourceKennel` links, as above. It stops writing `externalSlug`. |
-| Source-page slug editor | Toggles `scraped` on the kennel's confirmed rows. |
-| Kennel merge (`src/app/admin/kennels/actions.ts`) | Already moves discovery rows (R7). The Half-Mind conflict rule stays: the merged kennel's row goes back to NEW. |
+| Source-page slug editor | Becomes read-only for Hash Rego: it shows the scraped accounts and points to the seed map. The seed owns the flag and would silently revert an editor toggle on its next run, as it does with `externalSlug` today. |
+| Kennel merge (`src/app/admin/kennels/actions.ts`) | Already moves discovery rows (R7). **Order changes:** with the partial unique index, a conflicting confirmed Half-Mind row must be reset to NEW (`matchedKennelId = null`) *before* the other rows are repointed, or the move violates the index inside the transaction. Add a test. |
 
 **Readers:**
 - **`scrape.ts`:** builds the slug list and R4's map from HASHREGO rows that are scraped and LINKED or ADDED. A slug can belong to only one row, so R4's "skip a slug linked to two kennels" check can no longer trip.
@@ -89,7 +90,7 @@ Write the dual writes and the backfill in the **same release**, so nothing confi
 
 1. **Release 1** (one migration, dry-run per `.claude/rules/prod-data-ops.md`):
    - add the column and the partial index;
-   - insert a confirmed discovery row for `AH4_PLH3`, copying `processedAt` where a source row exists;
+   - insert a confirmed discovery row for `AH4_PLH3` (it has none), with `processedAt` set to the migration date and `processedBy` null, matching how migration `20261106210200` linked it;
    - set `scraped = true` on the 37 accounts in `SourceKennel` today;
    - for Half-Mind, mark nothing new. `Kennel.halfMindListingId` is 0 in prod, and each linked Half-Mind row already exists.
 
@@ -106,7 +107,7 @@ Write the dual writes and the backfill in the **same release**, so nothing confi
 Build it when any of these happens:
 - **A second account of a scraped kennel starts posting events we need.** Today none does:
   - `LongBeach` and `Richmond` aren't on the Hash Rego index;
-  - `PH3`'s kennel page 404s;
+  - `PH3` (Pinelake's annual-only account) has no events now;
   - `S-S-H3` is only a suggestion.
 - **Half-Mind links start to accumulate:** the pilot is reviewed and the sync covers more than Georgia.
 - **A third directory with one id per kennel is added,** such as the HHH Genealogy Project.
@@ -127,7 +128,7 @@ These 17 accounts are confirmed (LINKED) and were on the Hash Rego events index 
 | `sdh3`, `clh3-sd` (SDH3 hareline), `ih3` (website), `fth3`, `pch3` (Facebook) | **8**, a tie | Whichever source changed last overwrites title, time, location and pin. Live examples: sdh3 12/05 "Land of Misfit Hashers" 18:30 vs Hash Rego "Island of Misfit Hashers 2026" 18:00; ih3 1/30 "WInterhash #12" vs "IH3 CNY WinterHash 2027" |
 | `mh3-mn` | Google Calendar, 7 | **Date mismatch:** the calendar has No Wimps on 2027-01-15, Hash Rego on 01-16, giving two cards for one event |
 | `gatr-h3` | Static schedule, 3 (see section 6) | The Hash Rego weekend starts Friday 1/15. The "GATR H3 Monthly Trail" placeholder sits on Saturday 1/16 next to it |
-| `lbh3`, `rvah3` | Google Calendar / Meetup, 7 | Each has two confirmed Hash Rego accounts. Only the one on the index (`LBH3`, `RH3`) would be scraped, and the other stays identity only |
+| `lbh3`, `rvah3` | Google Calendar / Meetup, 7 | Each has two confirmed Hash Rego accounts. Only the one on the index (`LBH3`, `RH3`) would be scraped, and the other stays identity only. For lbh3, `LongBeach` looks like the official account (the kennel's own contact email, not annual-only), while `LBH3` is the one that posts Found'er Balls. Confirm which before choosing |
 | `lbh3`, `rvah3`, `twh3` | — | Three events carry Hash Rego's joke price **"$6969"**. Nothing in `src/adapters/hashrego` treats it as "no price", so the card would show it |
 | `eph3`, `gatr-h3`, `pch3`, `rvah3`, `rch3` | — | Their Hash Rego display names resolve to no kennel, so R4's hold-on-mismatch check can't protect them. Review their first events by hand |
 
