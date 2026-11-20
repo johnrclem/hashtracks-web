@@ -27,8 +27,8 @@
 - **After R4:** a scrape on 11-20 at 00:30 found 11 events on the 37 correct accounts. All 11 merged into existing events under the right kennels: 0 held, 0 unmatched, 0 cancelled. No Hash Rego alerts are open.
 
 ### Still open
-- **R5 (one record of external identity):** planned, not started. See [`kennel-external-ids-plan.md`](kennel-external-ids-plan.md). It recommends a cheaper step first.
-- **R8 (backlog):** 581 Hash Rego discovery rows are unreviewed.
+- **R5 (one record of external identity):** planned, not started. See [`kennel-external-ids-plan.md`](kennel-external-ids-plan.md). It recommends making the confirmed `KennelDiscovery` row the identity record, built only when a trigger fires. It also covers an optional step for special events from 17 confirmed accounts, and a GATR seed change that never reached prod.
+- **R8 (backlog):** 581 Hash Rego discovery rows are NEW, and 1 is a suggested match (`S-S-H3`).
 - **Owner checks left by R7:**
   - Repoint the `CUNTH3` row (Columbia University New Traditional H3, NYC) from the hidden London `cunth3` to `columbia`, if they are the same group.
   - `survivor-h3` is hidden but still has an enabled Facebook source with 0 events.

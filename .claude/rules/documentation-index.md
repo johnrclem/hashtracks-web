@@ -20,7 +20,7 @@ globs:
 - `docs/self-healing-v2-plan.md` -- Self-healing v2: review of the old loop and the scraper-doctor redesign
 - `docs/residential-proxy-spec.md` -- Architecture and deployment guide for residential proxy
 - `docs/kennel-directory-mapping-review.md` -- Review of Hash Rego / Half-Mind / resolver kennel mapping (R1-R8) with a shipped-status section; Hash Rego discovery links are identity only, the seed kennelSlugMap is the scraped list
-- `docs/kennel-external-ids-plan.md` -- R5 plan: scrape the 17 confirmed Hash Rego accounts first; a KennelExternalId table only when its triggers fire
+- `docs/kennel-external-ids-plan.md` -- R5 plan: confirmed KennelDiscovery row as the one identity record (+ scraped flag), built when triggered; optional Hash Rego special-events step with its risks; GATR seed-to-prod gap
 - `docs/hashnyc-ical-cutover.md` -- SHIPPED cutover: HashNYC HTML scraper -> iCal feed (relaunch label changes, NAWW-vs-NASS routing rule, 2026-11-14 Friendsgiving re-homed to nawwh3)
 - `infra/proxy-relay/` -- NAS-deployed residential proxy (Cloudflare Tunnel + Node.js forwarder)
 - `infra/browser-render/` -- NAS-hosted Playwright rendering service (Dockerfile + server.js)
