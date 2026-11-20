@@ -18,7 +18,7 @@ What is left is real but small:
 
 **Recommendation:**
 1. **R5 itself, when a trigger in section 4 fires:** don't add a new table. Make the confirmed `KennelDiscovery` row the one identity record (section 3). That is a smaller change than the original table, and it leaves one store instead of two.
-2. **Step 1, approved: special events from Hash Rego (section 5).** 17 confirmed Hash Rego accounts post events we don't scrape. Many kennels use Hash Rego only for weekends, campouts, red/green dress runs and parties, so we want them. Research on the 52 events already listed on both Hash Rego and a kennel's own source shows Hash Rego is usually the better source for cost, hares, location and title, once its own placeholders are cleaned. It also turned up a **live merge bug**: 366 events show the wrong time, because an update without a start time resets the stored timestamp to noon UTC.
+2. **Step 1, approved: special events from Hash Rego (section 5).** 17 confirmed Hash Rego accounts post events we don't scrape. Many kennels use Hash Rego only for weekends, campouts, red/green dress runs and parties, so we want them. Research on the 52 events already listed on both Hash Rego and a kennel's own source shows Hash Rego is usually the better source for cost, hares, location and title, once its own placeholders are cleaned. It also turned up **live time bugs**: 366 confirmed events store a timestamp that disagrees with their own start time. 208 of those come from one merge bug: an update without a start time resets the stored timestamp to noon UTC. The other 158 have other causes still to diagnose.
 
    The order:
    1. fix that bug (PR 0);
@@ -153,7 +153,12 @@ Build it when any of these happens:
 **Blocker, already live:**
 - **The bug:** when a source with equal or higher trust updates an event and sends no start time, the merge keeps `startTime` but resets `dateUtc` to UTC noon. `src/pipeline/merge.ts` around 1975 composes `dateUtc` from the incoming row's time only, then writes it unconditionally.
 - **What users see:** calendars show that time (8 AM in US Eastern), and "coming up" treats the event as already started.
-- **Scale today:** **366 confirmed events in 73 kennels** have a `dateUtc` that disagrees with their own start time and timezone, 56 of them upcoming. 208 of those 366 have the noon value (read-only check, 2026-11-20).
+- **Scale today:** **366 confirmed events in 73 kennels** have a `dateUtc` that disagrees with their own start time and timezone, 56 of them upcoming (read-only check, 2026-11-20).
+  - **208 are this bug:** the timestamp was reset to noon.
+  - **158 have other causes,** still to diagnose:
+    - a local time stored as UTC (wasatch-h3, slosh-h3: 19:00 stored as 19:00Z instead of 01:00Z);
+    - one-hour offsets (the Edmonton kennels, voodoo-h3);
+    - `refreshExistingEvent` (`merge.ts` around 765–796) composing `dateUtc` from the incoming source's time while the stored `startTime` came from another source (h5-hi: 17:30 shown as 03:15Z).
 - **Why it blocks trust 10:** Hash Rego never sends EWH3's times. At 10 it would win every EWH3 trail and reset each one to noon.
 - **The fix is PR 0 (5.6):** compute `dateUtc` from the incoming time, falling back to the existing event's time, and repair the 366 rows.
 
@@ -185,7 +190,9 @@ Build it when any of these happens:
 ### 5.6 Shipping sequence
 0. **PR 0: fix `dateUtc` on update (live bug, needed before trust 10).**
    - In the merge update and enrich paths, compose `dateUtc` from `event.startTime ?? existingEvent.startTime`, and add a regression test.
-   - One-shot repair of the 366 mismatched events: a dry run with counts first, per `.claude/rules/prod-data-ops.md`.
+   - In `refreshExistingEvent`, compose from the time the event will actually store, so `dateUtc` and `startTime` can't disagree.
+   - **One-shot repair of all 366 mismatched events** to match `startTime` + timezone, which is the truth `EventTimeDisplay` already shows. Run a dry run with counts first, per `.claude/rules/prod-data-ops.md`, and report the 208 noon resets separately from the 158 others.
+   - **Follow-up issue** for the 158's root causes: local time stored as UTC, the one-hour offsets in some calendars, and refresh from another source's time. Until those are fixed, some of those rows can drift back.
 1. **PR A: Hash Rego parser cleanup** (`src/adapters/hashrego/parser.ts`), with fixtures from the real examples above.
    - **Placeholders are omitted (`undefined`), not blanked.**
      - Merge writes `""` and `null` as a clear: hares are sanitized to null, a location clear also drops the pin, and cost `""` is stored as is. Only an omitted field keeps the other source's value.
@@ -194,7 +201,10 @@ Build it when any of these happens:
    - **Titles:**
      - Strip from the date onwards, including a Metro-station tail. Cover every format seen: "June 4, 2026, Dupont Circle (Red Line)", "7/16/2026, 2026", "30 July, 2026", "July 23rd 2026", "Thursday, October 8th, 2026, Red Line", "…Trail - Columbia Heights Metro".
      - Drop "[UPDATED]" prefixes and a doubled year.
-     - For multi-day children, omit the "(Day N)" fallback title, so a calendar's real per-day trail name stays.
+     - Keep emitting the "(Day N)" fallback title for multi-day children, but stop it from overwriting a real title.
+       - Most multi-day Hash Rego events have no other source for later days: WH4 Campout, MoSH3 ShiggyFest, DCH4 Book Bender, Party Gras! 2027. The fallback is their only name, and a new event created without a title shows just the kennel name.
+       - Mark it with a flag on `RawEventData` (e.g. `titleIsFallback`) that merge's update path treats like a replaceable default. A calendar's real per-day trail name then survives.
+       - Add tests for both cases: a new event keeps "(Day 2)", and an existing real title isn't replaced.
      - Use procedural tokenizing, not one big regex, to stay inside the Sonar S5852/S5843 limits (`.claude/rules/adapter-patterns.md`).
    - **This PR does change data:** fingerprints change, so in-window events re-merge at trust 8 on the first scrape after deploy.
    - **Clean up placeholders already stored:** a one-shot dry-run cleanup of canonical events that already store a Hash Rego placeholder, e.g. "Start Location TBA" on bfh3 10-30 and 12-12 and bfm 10-01 to 10-04. Consider teaching merge's `isPlaceholder` "Start Location TBA" and "TBA" for every source.
@@ -209,7 +219,7 @@ Build it when any of these happens:
 4. **After each deploy:**
    - run one prod scrape and read the ScrapeLog: expect 0 held, 0 cancelled and no `kennelPagesStopReason`;
    - check there's no `FIELD_FILL_DROP` alert on Hash Rego after PR A (the 30-point threshold is unlikely to fire, but check);
-   - count events with a start time whose `dateUtc` disagrees with it (expect 0 after PR 0), and pins cleared since the deploy;
+   - count events with a start time whose `dateUtc` disagrees with it: expect **0 new noon resets** after PR 0, and track the other causes against the 158 baseline until their follow-up lands. Count pins cleared since the deploy too;
    - watch `kennelPagesStopReason` for a week after PR C.
 
 ## 6. Separate fix: seed changes that never reached prod
