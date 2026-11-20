@@ -239,13 +239,49 @@ export interface ScrapeResult {
   pagination?: PaginationOutcome; // Set by multi-page adapters; gates reconcile
   diagnosticContext?: Record<string, unknown>; // Phase 3B: Per-adapter metadata
   aiRecovery?: AiRecoverySummary; // AI recovery results (populated by scrape pipeline)
+  heldEvents?: HeldEvent[]; // Found but not published: identity signals disagree
   sampleRows?: string[][]; // First 10 raw CSV rows from first tab (Google Sheets only — for AI column detection)
 }
 
 /** All adapters implement this interface */
 export interface SourceAdapter {
   type: SourceType;
-  fetch(source: Source, options?: { days?: number; kennelSlugs?: string[] }): Promise<ScrapeResult>;
+  fetch(source: Source, options?: AdapterFetchOptions): Promise<ScrapeResult>;
+}
+
+/** Options the scrape pipeline passes to `SourceAdapter.fetch`. */
+export interface AdapterFetchOptions {
+  days?: number;
+  /** HASHREGO: the Hash Rego accounts to scrape (SourceKennel.externalSlug). */
+  kennelSlugs?: string[];
+  /**
+   * HASHREGO: upper-cased account slug → kennelCode, from the same SourceKennel
+   * rows. Events are filed under the account's kennel rather than the detail
+   * page's host display name. Slugs linked to more than one kennel are left out.
+   */
+  kennelCodesBySlug?: Record<string, string>;
+}
+
+/**
+ * An event an adapter found but did not publish because two identity signals
+ * disagree (HASHREGO: the account slug maps to one kennel, the host display
+ * name resolves to another). Surfaced as a SOURCE_KENNEL_MISMATCH alert.
+ */
+export interface HeldEvent {
+  /** The kennel the source mapping files it under. */
+  mappedKennelCode: string;
+  /** The conflicting signal, e.g. the detail page's host display name. */
+  conflictingTag: string;
+  /** The account / external slug the event came from. */
+  accountSlug: string;
+  /**
+   * Every kennel tag the event's rows could already be published under: the
+   * mapped code, the conflicting tag, and any per-day sibling kennels. Reconcile
+   * leaves all of them alone while the event is held.
+   */
+  kennelTags: string[];
+  sourceUrl?: string;
+  date?: string;
 }
 
 /** Result of the merge pipeline processing */

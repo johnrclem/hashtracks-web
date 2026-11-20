@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { load as cheerioLoad } from "cheerio";
 import {
   parseEventsIndex,
@@ -17,6 +17,8 @@ import { HashRegoAdapter, apiToIndexEntry, normalizeHashRegoPrice } from "./adap
 import { HashRegoApiError, type HashRegoKennelEvent } from "./api";
 import ewh3Fixture from "./__fixtures__/api/kennel-ewh3-events.json";
 
+vi.mock("@/pipeline/kennel-resolver", () => ({ resolveKennelTags: vi.fn() }));
+
 vi.mock("./api", async () => {
   const actual = await vi.importActual<typeof import("./api")>("./api");
   return {
@@ -27,6 +29,8 @@ vi.mock("./api", async () => {
 
 const { fetchKennelEvents } = await import("./api");
 const mockedFetchKennelEvents = vi.mocked(fetchKennelEvents);
+const { resolveKennelTags } = await import("@/pipeline/kennel-resolver");
+const mockedResolveKennelTags = vi.mocked(resolveKennelTags);
 
 function buildApiRow(overrides: Partial<HashRegoKennelEvent> = {}): HashRegoKennelEvent {
   return {
@@ -2794,5 +2798,215 @@ Cost: ${rawCost}" />
     </body></html>`;
     const parsed = parseEventDetail(html, slug);
     expect(parsed.cost).toBe(expected);
+  });
+});
+
+// ── R4: route by Hash Rego account, cross-check the host display name ──
+
+/** A detail page for `slug` whose "Host Kennel:" block names `hostName`. */
+function detailWithHost(kennelSlug: string, hostName: string, date = "February 19, 2026"): string {
+  return `<html><head>
+    <meta property="og:title" content="02/19 Revenge Trail" />
+    <meta property="og:description" content="**When:** 7:00 PM Thursday, ${date}." />
+  </head><body>
+    <h4>Host Kennel:</h4>
+    <div><p><strong><a href="/kennels/${kennelSlug}/">${hostName}</a></strong></p></div>
+  </body></html>`;
+}
+
+/** Resolver stand-in: lower-cased tag → kennelId; unknown tags don't match. */
+function resolverFor(table: Record<string, string>) {
+  mockedResolveKennelTags.mockImplementation(async (tags: string[]) =>
+    tags.map((tag) => {
+      const kennelId = table[tag.trim().toLowerCase()];
+      return kennelId ? { kennelId, matched: true } : { kennelId: null, matched: false };
+    }),
+  );
+}
+
+describe("HashRegoAdapter account routing (R4)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockedFetchKennelEvents.mockReset();
+    mockedFetchKennelEvents.mockImplementation(async (slug: string) => {
+      throw new Error(`Unexpected fetchKennelEvents call for ${slug}`);
+    });
+    mockedResolveKennelTags.mockReset();
+    delete process.env.RESIDENTIAL_PROXY_URL;
+    delete process.env.RESIDENTIAL_PROXY_KEY;
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-01-01T12:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function indexThenDetail(detailHtml: string) {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    fetchSpy.mockResolvedValueOnce(new Response(detailHtml, { status: 200 }));
+    return fetchSpy;
+  }
+
+  it("files an index event under the account's kennelCode, not the host display name", async () => {
+    indexThenDetail(detailWithHost("EWH3", "Everyday is Wednesday H3"));
+    resolverFor({ ewh3: "k_ewh3", "everyday is wednesday h3": "k_ewh3" });
+
+    const result = await new HashRegoAdapter().fetch(buildSource(), {
+      days: 36500, kennelSlugs: ["EWH3"], kennelCodesBySlug: { EWH3: "ewh3" },
+    });
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].kennelTags).toEqual(["ewh3"]);
+    expect(result.heldEvents).toBeUndefined();
+    expect(result.pagination?.failedKennelSlugs).toEqual([]);
+  });
+
+  it("publishes under the mapped kennel when the host name resolves to nothing", async () => {
+    indexThenDetail(detailWithHost("EWH3", "Some Unaliased Display Name"));
+    resolverFor({ ewh3: "k_ewh3" });
+
+    const result = await new HashRegoAdapter().fetch(buildSource(), {
+      days: 36500, kennelSlugs: ["EWH3"], kennelCodesBySlug: { EWH3: "ewh3" },
+    });
+
+    expect(result.events.map((e) => e.kennelTags)).toEqual([["ewh3"]]);
+    expect(result.heldEvents).toBeUndefined();
+  });
+
+  it("holds the event when the host name resolves to a different kennel", async () => {
+    indexThenDetail(detailWithHost("EWH3", "Charlotte H3"));
+    resolverFor({ ewh3: "k_ewh3", "charlotte h3": "k_ch3_nc" });
+
+    const result = await new HashRegoAdapter().fetch(buildSource(), {
+      days: 36500, kennelSlugs: ["EWH3"], kennelCodesBySlug: { EWH3: "ewh3" },
+    });
+
+    expect(result.events).toHaveLength(0);
+    expect(result.errors).toEqual([]);
+    expect(result.heldEvents).toEqual([
+      {
+        mappedKennelCode: "ewh3",
+        conflictingTag: "Charlotte H3",
+        accountSlug: "EWH3",
+        kennelTags: ["ewh3", "Charlotte H3"],
+        sourceUrl: "https://hashrego.com/events/ewh3-1506-revenge",
+        date: "2026-02-19",
+      },
+    ]);
+    // A held event is not a page failure; scrape.ts excludes its account from reconcile.
+    expect(result.pagination).toEqual({
+      kennelPageFetchErrors: 0,
+      kennelPagesStopReason: null,
+      failedKennelSlugs: [],
+    });
+    expect(result.diagnosticContext?.heldForHostMismatch).toBe(1);
+  });
+
+  it("does not hold when the mapped code itself fails to resolve (stale link)", async () => {
+    indexThenDetail(detailWithHost("EWH3", "Charlotte H3"));
+    resolverFor({ "charlotte h3": "k_ch3_nc" });
+
+    const result = await new HashRegoAdapter().fetch(buildSource(), {
+      days: 36500, kennelSlugs: ["EWH3"], kennelCodesBySlug: { EWH3: "ewh3" },
+    });
+
+    expect(result.events.map((e) => e.kennelTags)).toEqual([["ewh3"]]);
+    expect(result.heldEvents).toBeUndefined();
+  });
+
+  it("publishes under the mapping but reports an error when the host check itself fails", async () => {
+    indexThenDetail(detailWithHost("EWH3", "Everyday is Wednesday H3"));
+    mockedResolveKennelTags.mockRejectedValue(new Error("db timeout"));
+
+    const result = await new HashRegoAdapter().fetch(buildSource(), {
+      days: 36500, kennelSlugs: ["EWH3"], kennelCodesBySlug: { EWH3: "ewh3" },
+    });
+
+    expect(result.events.map((e) => e.kennelTags)).toEqual([["ewh3"]]);
+    // errors[] keeps scrape.ts from reconciling on an unchecked result.
+    expect(result.errors).toEqual([expect.stringContaining("Host kennel check failed for ewh3-1506-revenge")]);
+    expect(result.heldEvents).toBeUndefined();
+  });
+
+  it("uses the mapped code on the index-only fallback when the detail page fails", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(new Response(INDEX_HTML, { status: 200 }));
+    fetchSpy.mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
+
+    const result = await new HashRegoAdapter().fetch(buildSource(), {
+      days: 36500, kennelSlugs: ["EWH3"], kennelCodesBySlug: { EWH3: "ewh3" },
+    });
+
+    expect(result.events[0].kennelTags).toEqual(["ewh3"]);
+    expect(mockedResolveKennelTags).not.toHaveBeenCalled();
+  });
+
+  it("routes an event found by the per-kennel API call by that call's account", async () => {
+    // NYCH3 is not in INDEX_HTML, so Step 2b's per-kennel API call finds it.
+    mockedFetchKennelEvents.mockImplementation(async (slug: string) => {
+      expect(slug).toBe("NYCH3");
+      return [buildApiRow({ slug: "nych3-trail-2026", start_time: "2026-03-07T14:00:00-05:00" })];
+    });
+    indexThenDetail(detailWithHost("NYCH3", "NYC H3", "March 7, 2026"));
+    resolverFor({ nych3: "k_nyc", "nyc h3": "k_nyc" });
+
+    const result = await new HashRegoAdapter().fetch(buildSource(), {
+      days: 36500, kennelSlugs: ["NYCH3"], kennelCodesBySlug: { NYCH3: "nych3" },
+    });
+
+    expect(result.events.map((e) => [e.date, e.kennelTags])).toEqual([["2026-03-07", ["nych3"]]]);
+  });
+
+  it("keeps display-name routing when no account mapping is passed", async () => {
+    indexThenDetail(detailWithHost("EWH3", "Everyday is Wednesday H3"));
+
+    const result = await new HashRegoAdapter().fetch(buildSource(), { days: 36500, kennelSlugs: ["EWH3"] });
+
+    expect(result.events[0].kennelTags).toEqual(["Everyday is Wednesday H3"]);
+    expect(mockedResolveKennelTags).not.toHaveBeenCalled();
+  });
+});
+
+describe("splitToRawEvents with a mapped host kennelCode (R4)", () => {
+  it("tags the synthetic parent and host-day children with the mapped code", () => {
+    const parsed = parseEventDetail(
+      FIVE_BORO_2026_HTML,
+      "nych3-5-boro-pub-crawl-2026",
+      FIVE_BORO_2026_INDEX_ENTRY,
+      FIVE_BORO_KENNEL_PATTERNS,
+    );
+    const events = splitToRawEvents(parsed, "nych3-5-boro-pub-crawl-2026", "nych3");
+    expect(events.map((e) => [e.date, e.kennelTags[0], e.seriesParent === true])).toEqual([
+      ["2026-06-26", "nych3", true],
+      ["2026-06-26", "ggfm", false],
+      ["2026-06-27", "nych3", false],
+      ["2026-06-28", "nych3", false],
+    ]);
+  });
+
+  it("compares the Day-1 override with the mapped code, not the account slug", () => {
+    // The GGFM account slug is "GGFMH3" but its kennelCode is "ggfm". A Day-1
+    // section naming GGFM is the host itself, so there is no synthetic parent.
+    const html = `<html><head>
+      <meta property="og:title" content="6/26 GGFM Weekend" />
+      <meta property="og:description" content='**FRIDAY 6/26 — GGFM Strawberry Moon Trail**
+Kickoff.
+**SATURDAY 6/27 — Recovery trail**
+Brunch.' />
+    </head><body><a href="/kennels/GGFMH3/">Greater Gotham Full Moon</a></body></html>`;
+    const parsed = parseEventDetail(
+      html,
+      "ggfmh3-weekend",
+      { slug: "ggfmh3-weekend", kennelSlug: "GGFMH3", title: "GGFM Weekend", startDate: "06/26/26", startTime: "", type: "Hash Weekend", cost: "" },
+      FIVE_BORO_KENNEL_PATTERNS,
+    );
+    expect(parsed.perDayKennelCodes?.[0]).toBe("ggfm");
+
+    const mapped = splitToRawEvents(parsed, "ggfmh3-weekend", "ggfm");
+    expect(mapped).toHaveLength(2);
+    expect(mapped[0].seriesParent).toBe(true);
+    expect(mapped.every((e) => e.kennelTags[0] === "ggfm")).toBe(true);
   });
 });

@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
-import type { ErrorDetails, AiRecoverySummary, PaginationOutcome, ScrapeResult, MergeResult } from "@/adapters/types";
+import type { ErrorDetails, AiRecoverySummary, PaginationOutcome, ScrapeResult, MergeResult, HeldEvent } from "@/adapters/types";
 import { hasAnyErrors } from "@/adapters/types";
 import { getAdapter } from "@/adapters/registry";
 import { processRawEvents } from "./merge";
 import { reconcileStaleEvents } from "./reconcile";
+import { resolveKennelTags } from "./kennel-resolver";
 import { refreshScheduleOnlyFlags, refreshKennelEvidence } from "./kennel-evidence";
 import { computeFillRates } from "./fill-rates";
 import type { FieldFillRates } from "./fill-rates";
@@ -117,15 +118,29 @@ function buildCombinedErrorDetails(
   return { combined, hasErrors };
 }
 
-/** Index kennel IDs by upper-cased external slug, the form adapters report failures in. */
-function indexKennelsBySlug(
-  links: { slug: string | null; kennelId: string | null }[],
-): Map<string, string[]> {
-  const bySlug = new Map<string, string[]>();
-  for (const { slug, kennelId } of links) {
-    if (!slug || !kennelId) continue;
+/** Group values by upper-cased external slug, the form adapters report failures in. */
+function indexBySlug<T>(links: { slug: string | null; value: T | null }[]): Map<string, T[]> {
+  const bySlug = new Map<string, T[]>();
+  for (const { slug, value } of links) {
+    if (!slug || value === null) continue;
     const key = slug.toUpperCase();
-    bySlug.set(key, [...(bySlug.get(key) ?? []), kennelId]);
+    bySlug.set(key, [...(bySlug.get(key) ?? []), value]);
+  }
+  return bySlug;
+}
+
+/**
+ * Map upper-cased external slug → kennelCode for slug-routed adapters (HASHREGO).
+ * A slug linked to two kennels is ambiguous, so it is left out and the adapter
+ * falls back to its display-name routing for that account.
+ */
+export function buildKennelCodesBySlug(
+  links: { slug: string; kennelCode: string }[],
+): Record<string, string> {
+  const bySlug: Record<string, string> = {};
+  for (const [slug, codes] of indexBySlug(links.map((l) => ({ slug: l.slug, value: l.kennelCode })))) {
+    const distinct = new Set(codes);
+    if (distinct.size === 1) bySlug[slug] = codes[0];
   }
   return bySlug;
 }
@@ -138,24 +153,41 @@ function indexKennelsBySlug(
  * names the kennel behind every failure, the other kennels still reconcile. A
  * failure that can't be pinned to a linked kennel, or a walk that stopped
  * early, skips reconcile for the whole source.
+ *
+ * Held events (an account whose host name resolves to another kennel) are
+ * missing from the scrape the same way. Their accounts sit out, and so does
+ * every kennel the held event could already be published under
+ * (`heldKennelIds`): otherwise those existing canonical events would look removed.
  */
 function resolveReconcileScope(
   pagination: PaginationOutcome | undefined,
   scrapedKennelIds: string[] | undefined,
   kennelIdsBySlug: ReadonlyMap<string, string[]>,
+  held?: { events: readonly HeldEvent[]; kennelIds: readonly string[] },
 ): { kennelIds: string[] | undefined } | null {
   if (pagination?.kennelPagesStopReason) return null;
-  if (!pagination?.kennelPageFetchErrors) return { kennelIds: scrapedKennelIds };
+  const fetchErrors = pagination?.kennelPageFetchErrors ?? 0;
+  const failedSlugs = fetchErrors > 0 ? (pagination?.failedKennelSlugs ?? []) : [];
+  // Every fetch failure must be pinned to a kennel, or nothing can be narrowed.
+  if (failedSlugs.length !== fetchErrors) return null;
+  const skippedSlugs = [...failedSlugs, ...(held?.events ?? []).map((h) => h.accountSlug)];
+  if (skippedSlugs.length === 0) return { kennelIds: scrapedKennelIds };
 
-  const failedSlugs = pagination.failedKennelSlugs ?? [];
-  if (!scrapedKennelIds || failedSlugs.length !== pagination.kennelPageFetchErrors) return null;
-  const failedKennels = failedSlugs.map((slug) => kennelIdsBySlug.get(slug.toUpperCase()));
-  if (failedKennels.includes(undefined)) return null;
+  if (!scrapedKennelIds) return null;
+  const skippedKennels = skippedSlugs.map((slug) => kennelIdsBySlug.get(slug.toUpperCase()));
+  if (skippedKennels.includes(undefined)) return null;
 
-  const excluded = new Set(failedKennels.flat());
+  const excluded = new Set([...skippedKennels.flat(), ...(held?.kennelIds ?? [])]);
   const kennelIds = scrapedKennelIds.filter((id) => !excluded.has(id));
   // With every page failed nothing was read, so don't report a completed reconcile.
   return kennelIds.length > 0 ? { kennelIds } : null;
+}
+
+/** Kennel IDs for every tag a held event could already be published under. */
+async function resolveHeldKennelIds(heldEvents: readonly HeldEvent[], sourceId: string): Promise<string[]> {
+  const tags = [...new Set(heldEvents.flatMap((h) => h.kennelTags))];
+  const resolved = await resolveKennelTags(tags, sourceId);
+  return resolved.flatMap((r) => (r.kennelId ? [r.kennelId] : []));
 }
 
 /** Build the diagnostic context record, including AI recovery metrics. */
@@ -320,7 +352,7 @@ async function runHealthAndAlerts(
     if (healthInput.unmatchedTags.length > 0) {
       candidateTypes.add("UNMATCHED_TAGS");
     }
-    if (healthInput.blockedTags && healthInput.blockedTags.length > 0) {
+    if ((healthInput.blockedTags?.length ?? 0) > 0 || (healthInput.heldEvents?.length ?? 0) > 0) {
       candidateTypes.add("SOURCE_KENNEL_MISMATCH");
     }
     await autoResolveCleared(sourceId, candidateTypes, healthInput.scrapeFailed, health.checkedTypes);
@@ -430,17 +462,24 @@ export async function scrapeSource(
     let kennelSlugs: string[] | undefined;
     let scrapedKennelIds: string[] | undefined;
     let kennelIdsBySlug = new Map<string, string[]>();
+    let kennelCodesBySlug: Record<string, string> | undefined;
     if (source.type === "HASHREGO") {
       const sks = await prisma.sourceKennel.findMany({
         where: { sourceId, externalSlug: { not: null } },
-        select: { externalSlug: true, kennelId: true },
+        select: { externalSlug: true, kennelId: true, kennel: { select: { kennelCode: true } } },
         orderBy: { externalSlug: "asc" },
       });
-      const slugged = sks.filter((sk): sk is { externalSlug: string; kennelId: string } => !!sk.externalSlug);
+      const slugged = sks.filter(
+        (sk): sk is typeof sk & { externalSlug: string } => !!sk.externalSlug,
+      );
       kennelSlugs = slugged.map((sk) => sk.externalSlug);
       scrapedKennelIds = slugged.map((sk) => sk.kennelId);
-      kennelIdsBySlug = indexKennelsBySlug(
-        slugged.map((sk) => ({ slug: sk.externalSlug, kennelId: sk.kennelId })),
+      kennelIdsBySlug = indexBySlug(
+        slugged.map((sk) => ({ slug: sk.externalSlug, value: sk.kennelId })),
+      );
+      // R4: route each event by its account, not its host display name.
+      kennelCodesBySlug = buildKennelCodesBySlug(
+        slugged.map((sk) => ({ slug: sk.externalSlug, kennelCode: sk.kennel.kennelCode })),
       );
     }
 
@@ -480,7 +519,7 @@ export async function scrapeSource(
     }
 
     const fetchStart = Date.now();
-    const scrapeResult = await adapter.fetch(source, { days, kennelSlugs });
+    const scrapeResult = await adapter.fetch(source, { days, kennelSlugs, kennelCodesBySlug });
     const fetchDurationMs = Date.now() - fetchStart;
 
     // AI Recovery
@@ -506,7 +545,13 @@ export async function scrapeSource(
     let reconcileEvaluated = false;
     let reconcileSuppressedKennels: string[] = [];
     let massCancelBlocked: { wouldCancel: number; candidatesExamined: number } | undefined;
-    const reconcileScope = resolveReconcileScope(scrapeResult.pagination, scrapedKennelIds, kennelIdsBySlug);
+    const heldEvents = scrapeResult.heldEvents ?? [];
+    const heldKennelIds = heldEvents.length > 0
+      ? await resolveHeldKennelIds(heldEvents, sourceId)
+      : [];
+    const reconcileScope = resolveReconcileScope(
+      scrapeResult.pagination, scrapedKennelIds, kennelIdsBySlug, { events: heldEvents, kennelIds: heldKennelIds },
+    );
     // A zero-event scrape normally skips reconcile (an empty page is far more
     // often breakage than a real "everything was removed"). allowMassCancel is
     // the operator saying the removal is genuine, so it opts the empty case in.
@@ -590,6 +635,7 @@ export async function scrapeSource(
       errors: allErrors,
       unmatchedTags: mergeResult.unmatched,
       blockedTags: mergeResult.blockedTags,
+      heldEvents: scrapeResult.heldEvents,
       fillRates,
       structureHash: scrapeResult.structureHash,
       aiRecovery: aiRecovery && aiRecovery.attempted > 0

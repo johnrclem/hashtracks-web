@@ -31,6 +31,15 @@ vi.mock("./reconcile", () => ({
   })),
 }));
 
+vi.mock("./kennel-resolver", () => ({
+  resolveKennelTags: vi.fn(async (tags: string[]) =>
+    tags.map((tag) => {
+      const kennelId = ({ moa2h3: "k_moa", "motown h3": "k_motown", ggfm: "k_ggfm" } as Record<string, string>)[tag.toLowerCase()];
+      return kennelId ? { kennelId, matched: true } : { kennelId: null, matched: false };
+    }),
+  ),
+}));
+
 vi.mock("./kennel-evidence", () => ({
   refreshScheduleOnlyFlags: vi.fn(() => Promise.resolve(0)),
   refreshKennelEvidence: vi.fn(() => Promise.resolve(0)),
@@ -68,7 +77,7 @@ import { processRawEvents } from "./merge";
 import { analyzeHealth } from "./health";
 import { reconcileStaleEvents } from "./reconcile";
 import { refreshScheduleOnlyFlags, refreshKennelEvidence } from "./kennel-evidence";
-import { scrapeSource } from "./scrape";
+import { scrapeSource, buildKennelCodesBySlug } from "./scrape";
 import { revalidateTag } from "next/cache";
 import { after } from "next/server";
 import type { PaginationOutcome } from "@/adapters/types";
@@ -411,9 +420,9 @@ describe("scrapeSource", () => {
   describe("reconcile scope when named kennel pages fail", () => {
     const hashRegoSource = { id: "src_hr", type: "HASHREGO", url: "https://hashrego.com/events" };
     const linkedSlugs = [
-      { externalSlug: "NYCH3", kennelId: "k_nyc" },
-      { externalSlug: "MoA2H3", kennelId: "k_moa" },
-      { externalSlug: null, kennelId: "k_unslugged" },
+      { externalSlug: "NYCH3", kennelId: "k_nyc", kennel: { kennelCode: "nych3" } },
+      { externalSlug: "MoA2H3", kennelId: "k_moa", kennel: { kennelCode: "moa2h3" } },
+      { externalSlug: null, kennelId: "k_unslugged", kennel: { kennelCode: "unslugged" } },
     ];
 
     function hashRegoReturning(pagination: PaginationOutcome) {
@@ -446,10 +455,67 @@ describe("scrapeSource", () => {
       expect(mockReconcile.mock.calls[0][3]).toEqual(["k_nyc", "k_moa"]);
     });
 
+    it("passes the account slug → kennelCode map so events route by account (R4)", async () => {
+      hashRegoReturning({ kennelPageFetchErrors: 0, kennelPagesStopReason: null, failedKennelSlugs: [] });
+
+      await scrapeSource("src_hr");
+
+      const fetchMock = vi.mocked(mockGetAdapter.mock.results[0].value.fetch);
+      expect(fetchMock.mock.calls[0][1]).toEqual(expect.objectContaining({
+        kennelSlugs: ["NYCH3", "MoA2H3"],
+        kennelCodesBySlug: { NYCH3: "nych3", MOA2H3: "moa2h3" },
+      }));
+    });
+
+    it("keeps an account with a held event out of reconcile (R4)", async () => {
+      mockSourceFind.mockResolvedValue(hashRegoSource as never);
+      mockSourceKennelFind.mockResolvedValue(linkedSlugs as never);
+      mockGetAdapter.mockReturnValue({
+        type: "HASHREGO",
+        fetch: vi.fn().mockResolvedValue({
+          events: [{ date: "2026-02-14", kennelTags: ["nych3"] }],
+          errors: [],
+          pagination: { kennelPageFetchErrors: 0, kennelPagesStopReason: null, failedKennelSlugs: [] },
+          heldEvents: [{ mappedKennelCode: "moa2h3", conflictingTag: "Motown H3", accountSlug: "MoA2H3", kennelTags: ["moa2h3", "Motown H3"] }],
+        }),
+      } as never);
+
+      await scrapeSource("src_hr");
+
+      expect(mockReconcile.mock.calls[0][3]).toEqual(["k_nyc"]);
+    });
+
+    it("also keeps out every kennel a held event could already be published under", async () => {
+      // The held event may sit under the host-name kennel (legacy routing) or a
+      // per-day sibling kennel; reconcile must not cancel those rows either.
+      mockSourceFind.mockResolvedValue(hashRegoSource as never);
+      mockSourceKennelFind.mockResolvedValue([
+        ...linkedSlugs,
+        { externalSlug: "MOTOWN", kennelId: "k_motown", kennel: { kennelCode: "motown" } },
+        { externalSlug: "GGFMH3", kennelId: "k_ggfm", kennel: { kennelCode: "ggfm" } },
+      ] as never);
+      mockGetAdapter.mockReturnValue({
+        type: "HASHREGO",
+        fetch: vi.fn().mockResolvedValue({
+          events: [{ date: "2026-02-14", kennelTags: ["nych3"] }],
+          errors: [],
+          pagination: { kennelPageFetchErrors: 0, kennelPagesStopReason: null, failedKennelSlugs: [] },
+          heldEvents: [{
+            mappedKennelCode: "moa2h3", conflictingTag: "Motown H3", accountSlug: "MoA2H3",
+            kennelTags: ["moa2h3", "Motown H3", "ggfm", "Unknown Name"],
+          }],
+        }),
+      } as never);
+
+      await scrapeSource("src_hr");
+
+      expect(mockReconcile.mock.calls[0][3]).toEqual(["k_nyc"]);
+    });
+
     it("never falls back to KennelDiscovery slugs when no link has a slug", async () => {
       hashRegoReturning({ kennelPageFetchErrors: 0, kennelPagesStopReason: null, failedKennelSlugs: [] });
       mockSourceKennelFind.mockResolvedValue([
-        { externalSlug: null, kennelId: "k_a" },
+        { externalSlug: null, kennelId: "k_a", kennel: { kennelCode: "a" } },
       ] as never);
 
       await scrapeSource("src_hr");
@@ -678,5 +744,23 @@ describe("scrapeSource", () => {
         expect.any(Error),
       );
     });
+  });
+});
+
+describe("buildKennelCodesBySlug", () => {
+  it("upper-cases slugs and maps each to its kennelCode", () => {
+    expect(buildKennelCodesBySlug([
+      { slug: "ChiH3", kennelCode: "ch3" },
+      { slug: "FCH3", kennelCode: "flour-city" },
+    ])).toEqual({ CHIH3: "ch3", FCH3: "flour-city" });
+  });
+
+  it("leaves out a slug linked to two kennels instead of guessing", () => {
+    expect(buildKennelCodesBySlug([
+      { slug: "TH3", kennelCode: "th3" },
+      { slug: "th3", kennelCode: "t3h3-va" },
+      { slug: "EWH3", kennelCode: "ewh3" },
+      { slug: "ewh3", kennelCode: "ewh3" },
+    ])).toEqual({ EWH3: "ewh3" });
   });
 });
