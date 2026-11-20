@@ -762,18 +762,29 @@ async function refreshExistingEvent(
   const region = await resolveRegion(kennelId, ctx);
   const timezone = regionTimezone(region);
   const eventDate = parseUtcNoonDate(event.date);
-  const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
 
   const existingEvent = await prisma.event.findUnique({
     where: { id: existingEventId },
     select: {
       trustLevel: true,
+      date: true,
       dateUtc: true,
       timezone: true,
+      startTime: true,
       status: true,
       adminCancelledAt: true,
     },
   });
+  // Compose from the start time the event stores, not this raw's: the stored
+  // time may come from another source, and dateUtc must agree with what
+  // startTime shows (h5-hi showed 17:30 with a dateUtc of 03:15Z). Compose on
+  // the event's own date too: a cross-window match can move Event.date away
+  // from this raw's date. No stored time means nothing to compose.
+  const composedUtc = composeUtcStart(
+    existingEvent?.date ?? eventDate,
+    existingEvent?.startTime,
+    timezone,
+  );
   // Auto-restore cancelled events when source still returns them. Runs even
   // when we can't compose a dateUtc (scraped row has no startTime) — otherwise
   // processed=true duplicates for rows without startTime stay CANCELLED forever
@@ -1972,9 +1983,6 @@ async function upsertCanonicalEvent(
   const region = kennelData.region;
 
   const timezone = regionTimezone(region);
-  const composedUtc = composeUtcStart(eventDate, event.startTime, timezone);
-  // Default to noon if no start time is provided, or composition fails
-  const dateUtc = composedUtc ?? eventDate;
 
   let targetEventId: string;
 
@@ -2097,6 +2105,12 @@ async function upsertCanonicalEvent(
       // `null`, which is not "implausible") still flows through.
       const effectiveStartTime = event.startTime !== undefined ? event.startTime : existingEvent.startTime;
       const skipInvertedEndTime = isImplausibleEndTime(effectiveStartTime, event.endTime);
+      // dateUtc must follow the start time this update leaves on the event.
+      // A raw with no startTime keeps the existing one (below), so composing
+      // from the raw alone reset dateUtc to UTC noon while startTime kept its
+      // value: 208 prod events showed 8 AM-ish times (2026-11-20). An explicit
+      // null clears the time, and noon is then right.
+      const updateDateUtc = composeUtcStart(eventDate, effectiveStartTime, timezone) ?? eventDate;
 
       const updated = await prisma.event.update({
         where: { id: existingEvent.id },
@@ -2185,7 +2199,7 @@ async function upsertCanonicalEvent(
           // recomputeCanonical for the new bucket. Same-day matches: `date`
           // unchanged, dateUtc/timezone refresh as before.
           ...(crossWindowMatch ? { date: eventDate } : {}),
-          dateUtc,
+          dateUtc: updateDateUtc,
           timezone,
           // Preserve first source's URL; subsequent sources get EventLinks
           sourceUrl: existingEvent.sourceUrl ?? event.sourceUrl,
