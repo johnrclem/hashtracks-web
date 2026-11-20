@@ -5201,15 +5201,12 @@ export const KENNELS: KennelSeed[] = [
       kennelCode: "jb-h3", shortName: "JB H3", fullName: "Johor Bahru Hash House Harriers",
       region: "Johor Bahru, MY", country: "Malaysia",
       facebookUrl: "https://www.facebook.com/tjbhhh",
-      // #1942: the Saturday 17:00 slot has NO verifiable live provenance. The only
-      // source (facebook.com/tjbhhh) is login-walled and no Malaysian hash directory
-      // reachable from here lists JB H3's current cadence. Conflicting historical
-      // evidence points to Wednesday (a 2010 JBHHH circular + colahhh.blogspot.com,
-      // last updated 2012, both list Wednesday runs). Kept as Saturday 17:00 —
-      // accepted-as-documented (triage PR #1512) — until a Johor-area hasher or a
-      // logged-in FB session confirms the current day/time. Low priority.
-      scheduleDayOfWeek: "Saturday", scheduleTime: "5:00 PM", scheduleFrequency: "Weekly",
-      scheduleNotes: "Weekly Saturday runs around Johor Bahru, just across the causeway from Singapore. Founded 1969.",
+      // #1942 / #2651: Wednesday, verified from facebook.com/tjbhhh run dates
+      // (29-Oct-2025, 12-Nov-2025, 13-May-2026, all Wednesdays). This is the
+      // original JBHHH. Matches the static source and migration
+      // 20261120130000_seed_drift_repair, which moved prod off the old Saturday.
+      scheduleDayOfWeek: "Wednesday", scheduleTime: "5:00 PM", scheduleFrequency: "Weekly",
+      scheduleNotes: "Weekly Wednesday evening runs around Johor Bahru, just across the causeway from Singapore. Founded 1969 (the original JBHHH).",
       foundedYear: 1969,
       description: "Founded in 1969 in Johor Bahru, JB H3 is the oldest hash kennel in Johor state. Located at the southern tip of peninsular Malaysia, just across the causeway from Singapore.",
       latitude: 1.4927, longitude: 103.7414,
@@ -5356,13 +5353,15 @@ export const KENNELS: KennelSeed[] = [
       scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Monthly",
       scheduleRules: [
         {
-          rrule: "FREQ=MONTHLY;BYDAY=1SA",
+          // #2651: 3rd Saturday (the original BYSETPOS=3 intent; 1SA came from a
+          // parser bug). Migration 20261120130000_seed_drift_repair moved prod.
+          rrule: "FREQ=MONTHLY;BYDAY=3SA",
           startTime: "15:00",
           label: "Monthly",
           displayOrder: 0,
         },
       ],
-      scheduleNotes: "1st Saturday of the month at 3:00 PM in the Sai Kung area. Founded 2019.",
+      scheduleNotes: "3rd Saturday of the month at 3:00 PM in the Sai Kung area. Founded 2019.",
       foundedYear: 2019,
       description: "Hong Kong's Sai Kung-area hash, founded in 2019. Monthly Saturday afternoon trails in the scenic eastern New Territories.",
       latitude: 22.3813, longitude: 114.2707,

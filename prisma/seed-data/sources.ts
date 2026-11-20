@@ -1568,7 +1568,23 @@ export const SOURCES = [
       config: { upcomingOnly: true },
       kennelCodes: ["dh3-tx", "duhhh", "noduhhh", "fwh3", "yakh3"],
     },
-    // --- El Paso (1 Google Calendar) ---
+    // --- El Paso (2 Google Calendars) ---
+    // El Paso H3 calendar: added in prod through the admin UI (2026-03-05) and
+    // never seeded. Copied from prod 2026-11-20 so a reseed or fresh DB keeps it.
+    {
+      name: "El Paso Hash House Harriers GCal",
+      url: "elpasohash@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 9,
+      scrapeFreq: "every_6h",
+      scrapeDays: 90,
+      config: {
+        calendarId: "elpasohash@gmail.com",
+        harePatterns: [String.raw`(?:^|\n)\s*WHO ARE THE HARES:\s*(.+)`],
+        defaultKennelTag: "EPH4",
+      },
+      kennelCodes: ["eph3"],
+    },
     {
       name: "BJH3 Google Calendar",
       url: "borderjumpersh3@gmail.com",
@@ -2208,6 +2224,18 @@ export const SOURCES = [
       kennelCodes: ["ctrh3"],
     },
     // ===== FLORIDA =====
+    // BVD H3 calendar: added in prod through the admin UI (2026-03-10) and never
+    // seeded. Copied from prod 2026-11-20 so a reseed or fresh DB keeps it.
+    {
+      name: "BVD H3 (Melbourne, FL)",
+      url: "bvdhashhouseharriers@gmail.com",
+      type: "GOOGLE_CALENDAR" as const,
+      trustLevel: 8,
+      scrapeFreq: "every_6h",
+      scrapeDays: 90,
+      config: { defaultKennelTag: "BVDH3" },
+      kennelCodes: ["bvd-h3"],
+    },
     // --- API-based sources ---
     {
       name: "Miami H3 Meetup",
