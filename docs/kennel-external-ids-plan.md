@@ -1,6 +1,6 @@
 # R5 Plan: One Record of External Kennel Identity
 
-**Status:** Plan for owner review, 2026-11-20 (revised after an adversarial review). Nothing here is built.
+**Status:** Step 1 (special events) approved by the owner on 2026-11-20; R5 itself waits for a trigger. Revised after two adversarial reviews and the owner's answers. Nothing here is built yet.
 **Follows:** [`kennel-directory-mapping-review.md`](kennel-directory-mapping-review.md), recommendation R5. R1, R2, R4, R6 and R7 have shipped; see that doc's section 0.
 **Evidence:** code on `main` at `f9d178fb`, read-only prod queries on 2026-11-20, the Hash Rego index as recorded in the 11-20 00:30 UTC prod scrape log, and public reads of hashrego.com.
 
@@ -18,7 +18,7 @@ What is left is real but small:
 
 **Recommendation:**
 1. **R5 itself, when a trigger in section 4 fires:** don't add a new table. Make the confirmed `KennelDiscovery` row the one identity record (section 3). That is a smaller change than the original table, and it leaves one store instead of two.
-2. **Separately, an optional step for special events, owner's choice (section 5):** 17 confirmed Hash Rego accounts post events we don't scrape. Those events are hash weekends, campouts, red/green dress runs and parties, not regular trails. Adding them has real costs and risks: up to 17 extra requests per scrape, trust ties that can overwrite better titles, and date mismatches that make duplicate cards. So it should go kennel by kennel, after a full dry merge, starting with the few kennels where it's clean.
+2. **Step 1, approved: special events from Hash Rego (section 5).** 17 confirmed Hash Rego accounts post events we don't scrape. Many kennels use Hash Rego only for weekends, campouts, red/green dress runs and parties, so we want them. Research on the 52 events already listed on both Hash Rego and a kennel's own source shows Hash Rego is the better source for cost, hares and location, but it carries its own placeholders. The order is: clean those placeholders in the parser, then rank Hash Rego above kennels' own sources (trust 10), then add the 17 accounts. Each change gets a dry merge on a prod copy first.
 3. **A deploy gap found on the way:** GATR's seed already disables its static schedule and adds a WordPress source, but prod has neither (section 6). It has nothing to do with Hash Rego and needs its own data migration.
 
 ## 2. Where things stand
@@ -112,53 +112,70 @@ Build it when any of these happens:
 - **Half-Mind links start to accumulate:** the pilot is reviewed and the sync covers more than Georgia.
 - **A third directory with one id per kennel is added,** such as the HHH Genealogy Project.
 
-## 5. Optional: special events from 17 confirmed accounts
+## 5. Step 1 (approved): special events from Hash Rego
 
-These 17 accounts are confirmed (LINKED) and were on the Hash Rego events index in the 11-20 00:30 UTC scrape log. Each profile's city matches its kennel's region. The live index rows are all special events: hash weekends, campouts, pub crawls, red/green dress runs, a holiday party and No Wimps. Each account has one or two.
+### 5.1 Owner decisions (2026-11-20)
+- **Yes to special events.** Many kennels use Hash Rego only for special events, so these 17 accounts are worth scraping.
+- **Hash Rego should almost always rank above a kennel's own site,** confirmed by comparing events listed on both (section 5.2).
 
-### 5.1 What it costs
+### 5.2 Research: events listed on both Hash Rego and a kennel's own source
+
+There are 52 canonical events in prod backed both by a Hash Rego raw event and by another source's, across the kennels scraped today (ewh3, wh4, bfm, nych3, ggfm, bfh3, moa2h3, mosh3, tkdh3). Comparing each source's latest raw event (read-only query, 2026-11-20):
+
+| Field | Hash Rego has it | Other sources have it | Notes |
+|---|---|---|---|
+| Cost | **46** | 5 | Hash Rego is the registration platform; others rarely list cost. 2 of its values are placeholders (`$0`) |
+| Hares | **41** | 30 | 4 Hash Rego values are placeholders: `TBA`, `NA`, `Away: 3:30pm` |
+| Location | **40** | 34 | Hash Rego often names the actual start (e.g. "Virginia Highlands Park, follow marks" where the website says "Pentagon City"). 7 Hash Rego values are placeholders: `Start Location TBA`, `TBA`, `Location TBD` |
+| Start time | 19 | **40** | Hash Rego often has no time (EWH3 never sets one). An empty value leaves the existing time alone, so this is safe |
+| Title | rich event names | mixed | Other sources' weak titles get fixed: GCal "Hares needed! Email the Hare Razor…", empty WH4 sheet titles, BFH3's empty titles, "Philly Hash". Hash Rego's weak titles: 25 EWH3 titles end with the date ("…Trail, June 4th, 2026"), plus "[UPDATED]" prefixes and a doubled year ("Green Dress Weekend 2027 2027") |
+
+**Conclusion:** your instinct holds. Hash Rego is the better source for cost, hares, location and title, once its own placeholders are cleaned. Ranking it first without cleaning would replace good data with "Start Location TBA" (seen on nych3's 5-Boro Pub Crawl and Pride party, ggfm's Strawberry Moon, bfm's FEARadelphia and bfh3's Jingle Balls) and with dated titles on every EWH3 trail.
+
+### 5.3 Recommended trust change
+- **Raise the Hash Rego source from trust 8 to 10.** The highest trust any enabled source uses today is 9 (11 sources, including the EWH3 website and the El Paso calendar). This puts Hash Rego above every kennel's own source, so the six kennels that would tie or lose today (`eph3` at 9; `sdh3`, `clh3-sd`, `ih3`, `fth3`, `pch3` at 8) resolve in Hash Rego's favour.
+- **Only after the parser cleanup (5.5, PR A).** Placeholders must come through as empty values, so they never overwrite real data.
+- **Trust also decides the date.** Merge uses trust when a higher-trust source moves an event to another date (`merge.ts` around lines 1937 and 2536). At 10, Hash Rego's date wins. For multi-day weekends that start on Friday on Hash Rego and on Saturday on a calendar (gatr-h3), or mismatched dates (mh3-mn No Wimps, 01-15 vs 01-16), the dry merge must show what happens before the trust change ships.
+- **It applies to all 54 kennels.** Trust is per source, so the change affects the 37 kennels already scraped too. EWH3 is the biggest: its trust-9 website currently wins titles.
+- **Existing events update only when Hash Rego's data changes.** Unchanged raws are skipped by fingerprint, so a one-off re-merge may be needed for the new ranking to show on existing events. The dry merge will say how many.
+
+### 5.4 What it costs
 - **Requests:** one extra per-account API call per scrape for each account once it is off the index. The index lists only upcoming events, and these accounts rotate off it after their event; 32 of today's 37 accounts already go this way. Every in-window event's detail page is also fetched on every scrape. Expect up to 17 API calls plus about 20 detail pages more per daily scrape.
 - **Time budget:** per-account calls share a 45-second budget (`STEP2B_BUDGET_MS`, `src/adapters/hashrego/adapter.ts`) with the index fetch. If the budget runs out, `kennelPagesStopReason = "budget_exhausted"` and reconcile is skipped for the whole source. Today's scrapes take 14–19 seconds.
 
-### 5.2 What can go wrong
+### 5.5 Remaining per-kennel risks (for the 17 new accounts)
 
-| Kennel(s) | Other source and trust | Risk |
+| Kennel(s) | Risk | Handling |
 |---|---|---|
-| `eph3` | Google Calendar, **9** | Hash Rego (8) loses every conflict, so it adds little |
-| `sdh3`, `clh3-sd` (SDH3 hareline), `ih3` (website), `fth3`, `pch3` (Facebook) | **8**, a tie | Whichever source changed last overwrites title, time, location and pin. Live examples: sdh3 12/05 "Land of Misfit Hashers" 18:30 vs Hash Rego "Island of Misfit Hashers 2026" 18:00; ih3 1/30 "WInterhash #12" vs "IH3 CNY WinterHash 2027" |
-| `mh3-mn` | Google Calendar, 7 | **Date mismatch:** the calendar has No Wimps on 2027-01-15, Hash Rego on 01-16, giving two cards for one event |
-| `gatr-h3` | Static schedule, 3 (see section 6) | The Hash Rego weekend starts Friday 1/15. The "GATR H3 Monthly Trail" placeholder sits on Saturday 1/16 next to it |
-| `lbh3`, `rvah3` | Google Calendar / Meetup, 7 | Each has two confirmed Hash Rego accounts. Only the one on the index (`LBH3`, `RH3`) would be scraped, and the other stays identity only. For lbh3, `LongBeach` looks like the official account (the kennel's own contact email, not annual-only), while `LBH3` is the one that posts Found'er Balls. Confirm which before choosing |
-| `lbh3`, `rvah3`, `twh3` | — | Three events carry Hash Rego's joke price **"$6969"**. Nothing in `src/adapters/hashrego` treats it as "no price", so the card would show it |
-| `eph3`, `gatr-h3`, `pch3`, `rvah3`, `rch3` | — | Their Hash Rego display names resolve to no kennel, so R4's hold-on-mismatch check can't protect them. Review their first events by hand |
+| `mh3-mn` | **Date mismatch:** the calendar has No Wimps on 2027-01-15, Hash Rego on 01-16 | The dry merge shows whether trust 10 moves the date or makes a duplicate. If the second, fix it by hand or hold the kennel back |
+| `gatr-h3` | The Hash Rego weekend starts Friday 1/15, and a static placeholder sits on Saturday 1/16 | Fixed by the separate GATR migration (section 6), which disables the static schedule |
+| `lbh3`, `rvah3` | Each has two confirmed Hash Rego accounts | Scrape the account that posts: `LBH3`, `RH3`. For lbh3, `LongBeach` looks like the official account (the kennel's own contact email, not annual-only), so check it too |
+| `lbh3`, `rvah3`, `twh3` | Three events carry Hash Rego's joke price **"$6969"** | PR A treats it as no price |
+| `eph3`, `gatr-h3`, `pch3`, `rvah3`, `rch3` | Their Hash Rego display names resolve to no kennel, so R4's hold-on-mismatch check can't protect them | Review their first events by hand after deploy |
 
-Trust is set per source, and there is one Hash Rego source for all 54 kennels this would cover (37 scraped today plus these 17). Lowering Hash Rego to "fill blanks only" would change the 37 kennels already scraped too. A per-kennel trust override doesn't exist; it would be new work.
-
-### 5.3 If you go ahead
-1. **Fix the price first:** treat "$6969", "$0" and similar placeholder prices as no cost in the Hash Rego parser, with tests.
-2. **Run a full dry merge** of all 17 on a fresh local copy of prod, the method R4 used. Report per kennel:
-   - new canonical events;
-   - fields overwritten on existing events;
-   - same-event-on-a-different-date pairs.
-3. **Choose kennels from that report.** Likely clean first: `tbh3-fl` (no enabled source at all), `ctrh3`, `rch3`, `savh3`, `jhav-h3`, `twh3`. Leave out `eph3` and the trust-8 ties until there is a per-kennel trust rule. Leave out `mh3-mn` and `gatr-h3` until their date and placeholder collisions are handled.
-4. **Add the chosen kennels** to the seed's `kennelCodes`/`kennelSlugMap`, with a migration that adds their links and slugs. Dry-run it on prod.
-5. **Check reconcile** before merging. Reconcile cancels an upcoming event in a scraped kennel only when no other source backs it, which includes events with no raw events at all (`protectedByOtherSources`, `src/pipeline/reconcile.ts`). Confirm that the chosen kennels have 0 upcoming events without raws; this was 0 for all 17 on 2026-11-20.
-6. **After deploy:**
+### 5.6 Shipping sequence
+1. **PR A: parser cleanup, no data change.** In `src/adapters/hashrego/parser.ts`, with tests from the real examples above:
+   - placeholder locations ("Start Location TBA", "TBA", "TBD", "Location TBD") become empty;
+   - placeholder hares ("TBA", "NA", "Away: …") become empty;
+   - placeholder costs ("$0", "$6969") become empty;
+   - titles lose a trailing date ("…, June 4th, 2026", "…, Thursday …"), an "[UPDATED]" prefix and a doubled year.
+2. **PR B: the trust change** (8 → 10 in the seed plus a migration).
+   - Before merging, run a dry merge on a fresh local copy of prod for the 37 scraped kennels. Report fields overwritten, date moves and events that would need a re-merge.
+   - If the report shows bad overwrites, stop and adjust.
+3. **PR C: the 17 accounts** (seed `kennelCodes`/`kennelSlugMap` plus a migration).
+   - Before merging, run a dry merge of all 17 at trust 10. Report per kennel: new events, fields overwritten, date moves, and same-event pairs on different dates.
+   - Drop any kennel whose report shows a problem until it's handled.
+   - Check reconcile: it cancels an upcoming event in a scraped kennel only when no other source backs it, which includes events with no raw events at all (`protectedByOtherSources`, `src/pipeline/reconcile.ts`). Confirm the chosen kennels have 0 upcoming events without raws; this was 0 for all 17 on 2026-11-20.
+4. **After each deploy:**
    - run one prod scrape and read the ScrapeLog: expect 0 held, 0 cancelled and no `kennelPagesStopReason`;
-   - watch `kennelPagesStopReason` for a week.
+   - watch `kennelPagesStopReason` for a week after PR C.
 
-## 6. Separate fix: GATR seed changes never reached prod
+## 6. Separate fix: seed changes that never reached prod
 
-The seed disables "GATR H3 Static Schedule" and adds "GATR H3 WordPress Trail Posts" (`prisma/seed-data/sources.ts`, around line 2388). In prod the static schedule is still enabled and the WordPress source doesn't exist. Seed changes reach prod only through a data migration, so this needs one:
-- disable the static source (or retire it with `replacedById`, per `.claude/rules/prod-data-ops.md`);
-- add the WordPress source and its link;
-- clean up placeholder events per the phantom-cleanup notes.
-
-It is worth a sweep for other seed sources that never reached prod.
+The seed disables "GATR H3 Static Schedule" and adds "GATR H3 WordPress Trail Posts" (`prisma/seed-data/sources.ts`, around line 2388). In prod the static schedule is still enabled and the WordPress source doesn't exist. Seed changes reach prod only through a data migration. The owner approved shipping it and sweeping for other seed changes that never reached prod. That work is its own PR, separate from this plan.
 
 ## 7. Open questions for the owner
 
-1. **Special events (section 5):** do you want them at all? If yes, only after the price fix and the dry merge, starting with the clean kennels.
-2. **Trust:** should Hash Rego beat a kennel's own website or Facebook (today they tie at 8), or should we build a per-kennel trust override before adding tied kennels?
+1. **Trust 10 and dates:** at trust 10, Hash Rego's date also wins when the dates differ. Should a calendar's date win over Hash Rego's? If so, merge needs a date-specific rule; the dry merge in PR B will show how often it matters.
+2. **lbh3 account:** scrape `LBH3`, the one that posts, or `LongBeach`, which looks official, or both once R5 allows several accounts per kennel?
 3. **R5 trigger:** is "a second account of a scraped kennel starts posting events we need", or "the Half-Mind sync covers more than Georgia", the trigger you want?
-4. **GATR (section 6):** ship the missing migration now, and sweep for other seed sources missing from prod?
