@@ -1,8 +1,38 @@
 # Kennel Directory Mapping: Review and Recommendations
 
-**Status:** Draft for owner review, 2026-11-18 (revised after an adversarial review)
+**Status:** Accepted. R1, R2, R3 (decision), R4, R6 and R7 shipped on 2026-11-19 and 11-20; R5 is planned in [`kennel-external-ids-plan.md`](kennel-external-ids-plan.md); R8 is open. See section 0. The rest of this doc is the review as written on 2026-11-18, before any of it shipped.
 **Scope:** how HashTracks maps two external kennel directories, Hash Rego and Half-Mind, to its own kennels, compared with how it resolves the kennels of its own scraped sources.
 **Evidence:** code on `main` at `5f9bfbbf`, open PR [#3050](https://github.com/johnrclem/hashtracks-web/pull/3050) (Half-Mind listings, stacked on [#3043](https://github.com/johnrclem/hashtracks-web/pull/3043)), read-only prod queries run 2026-11-18 03:30–05:30 UTC, and a few public Hash Rego API reads. This review changed no code, config or data. It ran only `SELECT`s. A Hash Rego discovery sync ran in prod at 03:24 UTC, just before the queries; it was not started by this review, and it wrote the `HellgateH3` link counted below.
+
+## 0. Status (2026-11-20)
+
+### Owner decisions
+- **R3: "Linked" means identity only.** A confirmed row on `/admin/discovery` says "this Hash Rego account is that kennel". It never starts or stops a scrape. The Hash Rego seed's `kennelSlugMap`, shipped with a data migration, is the only list of scraped accounts.
+- **Auto-linking:** none. A high fuzzy score is a "Suggested match" for an admin.
+- **gfh3:** hidden. Hash Rego's `GFH3` account is Great Falls, MT, not our Great Falls, VA.
+- **Extra accounts:** event accounts (PDX GDR) and sister-kennel accounts (Morgantown Fool Moon, Happy Heretics Suck) are dismissed. philly-h3 moved from "Philly Events" to `PhillyH3`.
+
+### What shipped
+
+| Rec | PR | Merged (UTC) | What changed |
+|---|---|---|---|
+| R1 + R2 | [#3065](https://github.com/johnrclem/hashtracks-web/pull/3065) | 11-19 12:55 | **Code:** discovery only suggests, and Confirm/Link/Add/Dismiss record identity without touching scrape links. Saving the source form keeps slugs, tag-based link repairs refuse Hash Rego, and the scraper never falls back to discovery rows. **Data:** migration `20261119000000_hashrego_link_repair` corrected 9 slugs (including ch3 → `ChiH3`), hid gfh3, settled 21 of the 22 suggested matches, aliased 12 display names and dropped one slug alias. **Seed:** it now lists all 37 scraped accounts. |
+| R6 | [#3074](https://github.com/johnrclem/hashtracks-web/pull/3074) | 11-19 18:22 | A name that matches 2+ kennels comes back unmatched ("ambiguous") instead of picking one. The global NYC/Boston regex list is gone; each source's own `kennelPatterns` apply. There is a full-name step for kennels linked to the source. Across the full archive, no tag that already became an event changed kennel. |
+| R7 | [#3073](https://github.com/johnrclem/hashtracks-web/pull/3073) | 11-19 18:26 | A kennel merge moves discovery rows, the Half-Mind listing id and a missing Hash Rego slug to the target. The sync flags confirmed accounts that are gone from the directory ("Missing from Hash Rego"). Hash Rego alerts no longer offer "Create/Link kennel". |
+| R4 | [#3075](https://github.com/johnrclem/hashtracks-web/pull/3075) | 11-20 00:28 | Hash Rego events are filed under the kennel their account maps to. If the host display name resolves to a different kennel, the event is held and raises an alert. On a prod copy the dry merge moved 0 events and duplicated 0. |
+| — | [#3054](https://github.com/johnrclem/hashtracks-web/pull/3054) | 11-19 18:03 | This review. |
+
+### Verified in prod
+- **After R1:** a scrape on 11-19 at 12:58 created DCH4's "Great 24-Hour Book Bender" (both days) and PhillyH3's 2027 Green Dress Run. Both had been missed.
+- **After R4:** a scrape on 11-20 at 00:30 found 11 events on the 37 correct accounts. All 11 merged into existing events under the right kennels: 0 held, 0 unmatched, 0 cancelled. No Hash Rego alerts are open.
+
+### Still open
+- **R5 (one record of external identity):** planned, not started. See [`kennel-external-ids-plan.md`](kennel-external-ids-plan.md). It recommends making the confirmed `KennelDiscovery` row the identity record, built only when a trigger fires. It also covers an optional step for special events from 17 confirmed accounts, and a GATR seed change that never reached prod.
+- **R8 (backlog):** 581 Hash Rego discovery rows are NEW, and 1 is a suggested match (`S-S-H3`).
+- **Owner checks left by R7:**
+  - Repoint the `CUNTH3` row (Columbia University New Traditional H3, NYC) from the hidden London `cunth3` to `columbia`, if they are the same group.
+  - `survivor-h3` is hidden but still has an enabled Facebook source with 0 events.
+- **Half-Mind Georgia pilot:** 6 listings are synced and none are linked yet. The weekly sync stays off until `HALF_MIND_SYNC_ENABLED` is set.
 
 ## 1. Summary
 
