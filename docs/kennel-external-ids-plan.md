@@ -229,7 +229,25 @@ The seed disables "GATR H3 Static Schedule" and adds "GATR H3 WordPress Trail Po
 
 ## 7. Open questions for the owner
 
+**Owner decision (2026-11-20) on questions 1 and 2:** build neither rule now. Ship PRs B and C as planned, then check how it performs in production (section 7.1) and decide from real evidence.
+
 1. **Corrections after Hash Rego owns an event:** at trust 10, a kennel's own site can only fill empty fields. Should a lower-trust source still be allowed to correct the date, time or start location (for example a calendar edit made after registration opened)? If yes, merge needs a field-specific rule.
 2. **The "almost" in "almost always":** should there be a per-kennel exception that lets a kennel's own source beat Hash Rego? It doesn't exist yet. Build it only if the PR B or PR C dry merge shows a kennel that needs it.
 3. **lbh3 account:** scrape `LBH3`, the one that posts, or `LongBeach`, which looks official, or both once R5 allows several accounts per kennel?
 4. **R5 trigger:** is "a second account of a scraped kennel starts posting events we need", or "the Half-Mind sync covers more than Georgia", the trigger you want?
+
+### 7.1 Production check after PRs B and C (owner decision)
+About four weeks after PR C deploys, review the 54 Hash Rego kennels in prod (read-only queries plus a look at the hareline):
+
+- **Corrections ignored:** events where a kennel's own source has a different time, start location or hares than the Hash Rego-owned event, and its value is newer. Did the kennel's later correction get lost?
+- **Weaker titles:** events whose title changed to Hash Rego's and reads worse than the kennel's own: dated, generic, or "(Day N)" where a real name exists.
+- **Date moves:** events whose date Hash Rego moved away from a kennel calendar's date. Who was right?
+- **Pins:** events whose map pin was cleared or moved after a Hash Rego location change.
+- **Duplicates:** two cards for one event on nearby dates (the mh3-mn No Wimps pattern).
+- **Feedback:** user reports or audit findings that mention these kennels.
+
+If any kennel shows a pattern, decide questions 1 and 2 then:
+- a field-specific correction rule in merge;
+- or a per-kennel exception to Hash Rego's trust.
+
+Otherwise close both questions.
