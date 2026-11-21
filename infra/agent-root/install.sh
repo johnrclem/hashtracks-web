@@ -55,7 +55,9 @@ NODE_DIR=""
 NODE_BIN="$(command -v node || true)"
 if [[ "$NODE_BIN" == *fnm_multishells* ]]; then NODE_DIR="$(readlink -f "$(dirname "$NODE_BIN")")"; fi
 # Any directory whose gh is an agent-root shim goes too (this root's, or an older install's).
-BASE_PATH="$(printf '%s' "$PATH" | tr ':' '\n' | while IFS= read -r dir; do
+# The trailing newline matters: `read` drops a last line without one, which lost the last PATH
+# entry (Homebrew's, on the owner's Mac, so node and gh went missing).
+BASE_PATH="$(printf '%s\n' "$PATH" | tr ':' '\n' | while IFS= read -r dir; do
   [[ -z "$dir" || "$dir" == *fnm_multishells* ]] && continue
   [[ "$(basename "$(readlink -f "$dir/gh" 2>/dev/null)")" == agent-gh.sh ]] && continue
   printf '%s\n' "$dir"
