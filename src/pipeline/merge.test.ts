@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { buildRawEvent, buildPrismaUniqueViolation } from "@/test/factories";
+import { composeUtcStart } from "@/lib/timezone";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -2486,6 +2487,136 @@ describe("venueTextChanged", () => {
     { case: "non-English venue (stored as an English address)", event: { location: "Frankfurt, Bundesland Hessen" }, expected: false },
   ])("$case", ({ event, expected }) => {
     expect(venueTextChanged(event, stored)).toBe(expected);
+  });
+});
+
+describe("dateUtc follows the start time the event keeps (noon-reset bug, 2026-11-20)", () => {
+  // An update with no startTime keeps the stored time, so dateUtc must be
+  // composed from that time, not reset to UTC noon (215 prod events showed
+  // morning times for evening runs).
+  const noon = (date: string) => new Date(`${date}T12:00:00Z`);
+
+  it("keeps dateUtc on the stored time when the higher-trust update has no startTime", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, startTime: "18:45" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ date: "2026-07-02", startTime: undefined })]);
+
+    const data = (mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data).not.toHaveProperty("startTime");
+    const expected = composeUtcStart(noon("2026-07-02"), "18:45", data.timezone as string);
+    expect(expected).not.toBeNull();
+    expect((data.dateUtc as Date).getTime()).toBe(expected!.getTime());
+    expect((data.dateUtc as Date).getTime()).not.toBe(noon("2026-07-02").getTime());
+  });
+
+  it("composes dateUtc from the new startTime when the update provides one", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, startTime: "18:45" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ date: "2026-07-02", startTime: "13:00" })]);
+
+    const data = (mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    const expected = composeUtcStart(noon("2026-07-02"), "13:00", data.timezone as string);
+    expect((data.dateUtc as Date).getTime()).toBe(expected!.getTime());
+  });
+
+  it("falls back to UTC noon when the update explicitly clears startTime", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, startTime: "18:45" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ date: "2026-07-02", startTime: null })]);
+
+    const data = (mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data.startTime).toBeNull();
+    expect((data.dateUtc as Date).getTime()).toBe(noon("2026-07-02").getTime());
+  });
+
+  it("refreshExistingEvent composes from the stored startTime, not the duplicate raw's", async () => {
+    // h5-hi: the stored time came from another source, and a refresh from this
+    // raw's own time made dateUtc disagree with the time the event shows.
+    mockRawEventFind.mockResolvedValueOnce({ id: "raw_existing", processed: true, eventId: "evt_1" } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      trustLevel: 5,
+      dateUtc: noon("2026-07-02"),
+      timezone: null,
+      startTime: "17:30",
+      status: "CONFIRMED",
+      adminCancelledAt: null,
+    } as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ date: "2026-07-02", startTime: "17:15" })]);
+
+    const data = (mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    const expected = composeUtcStart(noon("2026-07-02"), "17:30", data.timezone as string);
+    expect((data.dateUtc as Date).getTime()).toBe(expected!.getTime());
+  });
+
+  it("refreshExistingEvent composes on the event's date when a cross-window match moved it", async () => {
+    // The raw is dated 07-02, but another source moved the event to 07-03.
+    mockRawEventFind.mockResolvedValueOnce({ id: "raw_existing", processed: true, eventId: "evt_1" } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      trustLevel: 5,
+      date: noon("2026-07-03"),
+      dateUtc: noon("2026-07-03"),
+      timezone: "America/New_York",
+      startTime: "17:30",
+      status: "CONFIRMED",
+      adminCancelledAt: null,
+    } as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ date: "2026-07-02", startTime: "17:30" })]);
+
+    const data = (mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    const expected = composeUtcStart(noon("2026-07-03"), "17:30", data.timezone as string);
+    expect((data.dateUtc as Date).getTime()).toBe(expected!.getTime());
+  });
+
+  it("refreshExistingEvent does not touch dateUtc from a lower-trust duplicate", async () => {
+    mockRawEventFind.mockResolvedValueOnce({ id: "raw_existing", processed: true, eventId: "evt_1" } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      trustLevel: 10,
+      date: noon("2026-07-02"),
+      dateUtc: noon("2026-07-02"),
+      timezone: "America/New_York",
+      startTime: "17:30",
+      status: "CONFIRMED",
+      adminCancelledAt: null,
+    } as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ date: "2026-07-02", startTime: "17:30" })]);
+
+    expect(mockEventUpdate).not.toHaveBeenCalled();
+  });
+
+  it("refreshExistingEvent leaves dateUtc alone when the event stores no startTime", async () => {
+    mockRawEventFind.mockResolvedValueOnce({ id: "raw_existing", processed: true, eventId: "evt_1" } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      trustLevel: 5,
+      dateUtc: noon("2026-07-02"),
+      timezone: null,
+      startTime: null,
+      status: "CONFIRMED",
+      adminCancelledAt: null,
+    } as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ date: "2026-07-02", startTime: "17:15" })]);
+
+    const dateUtcWrite = mockEventUpdate.mock.calls.find(
+      (call: unknown[]) => "dateUtc" in ((call[0] as { data?: Record<string, unknown> })?.data ?? {}),
+    );
+    expect(dateUtcWrite).toBeUndefined();
   });
 });
 

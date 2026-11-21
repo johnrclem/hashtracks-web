@@ -40,6 +40,10 @@ jobs:
             | npx tsx scripts/ci/check-migrations.ts --stdin ${{ contains(github.event.pull_request.labels.*.name, 'migration-recovery') && '--allow-modified' || '' }}
 
       - name: Type check
+        # tsc peaks near 2.5 GB, at Node's default heap limit on the runner;
+        # it OOMed twice in a row on PR #3085 with no code change.
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
         run: npx tsc --noEmit
 
       - name: Lint
