@@ -1780,3 +1780,10 @@ _(latest handoff: Taoyuan Metro H3 2026-06-23 — 🇹🇼 Taiwan's 5th kennel, 
 - **Issue premise updated:** #396 has already run (2026-11-15). The next run #397 (2026-12-13, 15:00) exists only as an RSS item and detail-page placeholder (`TBD` place, hare "Who knows... maybe you?"), not in the hareline list. Handoff tells the adapter to probe RSS and drop both placeholder strings.
 - History: #1–#376 (1996-01 → 2025-03) missing from HashTracks. Handoff carries a PII checklist (32 pages with phone numbers, 30 with `@`).
 - Follow-ups: refill still owed (`queued` rows 4 ≤ 5; not done this run). Other `*.harrier.eu.org` kennel sites are an unprobed lead.
+
+## 2026-11-21 — Cambridge H3 /calendar + /runlist archive, source-add (Cambridge, England 🇬🇧) — ✅ handed off
+- Desktop runner. Preflight: login `johnrclem`, no `onboarding-blocked`, open handoff PR #3067 (coeh3) merged first, backlog 2 (< 10), no no-op streak. Target: oldest untriaged `onboarding-candidate` with no handoff and no triage comment, **#2861** (#1526/#2048/#2315/#2400 carry triage comments and stay parked).
+- Source: `HTML_SCRAPER` browserRender of `https://www.ch3.co.uk/calendar` (Blazor; curl returns a 3.8 KB shell). Extension of existing `CambridgeHashAdapter` (~40–70 LoC).
+- Events verified: 1 future row (Fri 2026-12-11 "Girton College - Dinner Dance", Event col "Run 2500" — collides with real trail #2500 on 2026-11-22, so no runNumber).
+- Bonus: `/runlist` is a full archive "Sep 2006 to the present" (runs ~1458→2504+; ~1,326 rows); only the newest season block was expanded/sampled, older blocks collapsed. `/past` is a 404 (seed comment stale). Backfill plan in handoff; prod overlap not checked.
+- Follow-ups: refill still owed (`queued` rows ≤ 5). Not done this run.

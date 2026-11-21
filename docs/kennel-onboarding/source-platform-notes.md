@@ -3265,3 +3265,8 @@ Verified by `curl` of `https://lagosh3.com/wp-json/wp/v2/posts?per_page=100` (69
 - The list carries no time, coords or description. The detail page `runs.php?run=N` has `Date:`, `Time:` (always present), `Place:`, `Hare(s):`, `Details:` and, on ~57% of pages, `var lat = …; var lng = …;` (else `Coordinates: Unknown`). Hare emails are obfuscated as `write_mail("id","domain","Name")` before the plain name. Detail text can hold phone numbers/emails: scrub.
 - The list shows only runs that have venue/hare data. The **next run is an auto-created placeholder** visible only on `runs.php?run=N+1` and in `rss.php` (one `<item>`, title `Run #N: <Month> <D>th <YYYY>`): Place `TBD`, hare `Who knows... maybe you?`. Filter both strings.
 - Intermittent `HTTP/2 framing` / connection-reset errors on single detail pages: retry (worked with `--http1.1`).
+
+## Blazor Server (ch3.co.uk, Cambridge H3) — added 2026-11-21
+- Plain `curl` returns a ~3.8 KB shell with a `<!--Blazor:...-->` descriptor; data streams over SignalR. Needs `browserRender`; wait ~5 s (or a table selector) before reading `<main>`.
+- Tables use `<table class="my-table cse-table">` with `<!--!-->` comment nodes between cells.
+- `/calendar` = future non-trail events only; `/runlist` = full archive (season blocks, older ones collapsed — UNVERIFIED how to expand; confirm at implementation time).
