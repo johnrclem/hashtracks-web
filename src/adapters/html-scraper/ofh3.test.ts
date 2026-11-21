@@ -98,6 +98,9 @@ describe("cleanOfh3Title", () => {
     ["OFH3 Trail #389 - August Muumuu Dress Trail! 8.09.25", "August Muumuu Dress Trail!"],
     ["OFH3 Trail #388 - July 12, 2025- July Trail!", "July Trail!"],
     [" OFH3 Trail #387 - June 1, 2025 - Tour Duh Hash Trail", "Tour Duh Hash Trail"],
+    // #2909: date-first title format with a "|" separator before the prefix.
+    ["November 14, 2026 | OFH3 Trail #404 - The 404 NOT FOUND Trail", "The 404 NOT FOUND Trail"],
+    ["November 14, 2026 | Theme Only Trail", "Theme Only Trail"],
   ])("keeps the theme for %s", (input, expected) => {
     expect(cleanOfh3Title(input)).toBe(expected);
   });
