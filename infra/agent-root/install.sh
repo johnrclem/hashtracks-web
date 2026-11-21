@@ -135,15 +135,17 @@ for clone in "${CLONES[@]}"; do
   echo "clone: $clone now pushes and commits as $BOT"
 done
 
-# 6. macOS's path_helper (often in ~/.zshrc) rebuilds PATH with the system and Homebrew dirs first,
-#    which would put the real gh ahead of the shim. This guard, at the end of ~/.zshrc, puts the shim
-#    back in front, in any session whose GH_CONFIG_DIR is an agent root's empty config (any --root).
-ZSHRC="$HOME/.zshrc"
-if ! grep -qF '*/.agent/gh-empty) export PATH=' "$ZSHRC" 2>/dev/null; then
-  # shellcheck disable=SC2016 # written literally; zsh expands it later
-  printf '\n# HashTracks agent root: put its gh shim first, after path_helper (infra/agent-root/README.md).\ncase "$GH_CONFIG_DIR" in */.agent/gh-empty) export PATH="${GH_CONFIG_DIR%%/.agent/gh-empty}/bin:$PATH" ;; esac\n' >>"$ZSHRC"
-  echo "Added the gh-shim PATH guard to the end of $ZSHRC"
+# 6. Claude Code starts each session's shell from a snapshot of the user's shell, and the snapshot
+#    sets PATH itself, so the settings' PATH (shim first) never applies. The settings' GH_CONFIG_DIR
+#    does. So a dispatcher goes where the snapshot's PATH finds it before Homebrew: ~/.local/bin/gh.
+#    It runs this root's shim when GH_CONFIG_DIR is an agent root's empty config, else the real gh.
+DISPATCHER="$HOME/.local/bin/gh"
+if [[ -e "$DISPATCHER" ]] && ! grep -q 'HashTracks gh dispatcher' "$DISPATCHER" 2>/dev/null; then
+  die "$DISPATCHER exists and isn't the HashTracks dispatcher; move it aside and re-run"
 fi
+mkdir -p "$HOME/.local/bin"
+install -m 755 "$SRC/bin/gh-dispatcher.sh" "$DISPATCHER"
+echo "Installed the gh dispatcher at $DISPATCHER"
 
 "$ROOT/bin/check-root.sh" "$REPO/.claude/settings.json" || true
 cat <<EOF
