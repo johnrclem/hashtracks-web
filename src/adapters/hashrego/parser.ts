@@ -306,18 +306,16 @@ export function parseEventDetail(
     endDate,
     perDayKennelCodes,
     perDayTitles: rawPerDayTitles,
-    perDayLocations: rawPerDayLocations,
+    perDayLocations,
     perDayAddresses,
     perDayMapsUrls,
-    perDayHares: rawPerDayHares,
+    perDayHares,
   } = extractDates(rawDescription, indexEntry, title, kennelPatterns, scheduleTabs);
   // Drop "[UPDATED]", a dated tail ("…Trail, June 4, 2026, Dupont Circle (Red
   // Line)") and a doubled year (plan section 5.6, PR A). After extractDates,
   // which reads the original title for venue-weekend words.
   title = cleanHashRegoTitle(title);
-  const perDayLocations = rawPerDayLocations?.map(cleanHashRegoLocation);
   const perDayTitles = rawPerDayTitles?.map((t) => (t ? cleanHashRegoTitle(t) : t));
-  const perDayHares = rawPerDayHares?.map(cleanHashRegoHares);
 
   // Clean description: remove structured fields we already extracted
   const description = cleanDescription(rawDescription);
@@ -484,11 +482,15 @@ function perDayLocationFields(
   // the day's own maps URL (or none, letting the street geocode). Only days with
   // no per-day location at all fall back to the whole-event values.
   const hasDayLocation = dayVenue !== undefined || dayStreet !== undefined;
+  const dayHares = parsed.perDayHares?.[i];
+  // Placeholders are dropped only after the fallback choice (PR A): a day
+  // whose tab says "Where: TBD" has its own (unknown) venue and must not
+  // inherit the umbrella's, and likewise a "Hares: TBA" day.
   return {
-    location: dayVenue ?? (hasDayLocation ? undefined : parsed.location),
-    locationStreet: dayStreet,
+    location: hasDayLocation ? cleanHashRegoLocation(dayVenue) : parsed.location,
+    locationStreet: cleanHashRegoLocation(dayStreet),
     locationUrl: dayMapsUrl ?? (hasDayLocation ? undefined : (parsed.locationAddress || parsed.locationUrl)),
-    hares: parsed.perDayHares?.[i] ?? parsed.hares,
+    hares: dayHares === undefined ? parsed.hares : cleanHashRegoHares(dayHares),
   };
 }
 

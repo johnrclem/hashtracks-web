@@ -1218,18 +1218,18 @@ function deduplicateAddressPrefix(location: string): string {
   return location;
 }
 
-/**
- * Sanitize location names: filter placeholders (TBA/TBD) and bare URLs.
- * Returns null for locations that are not meaningful display text. Accepts
- * `null` as an explicit-clear signal from adapters (#1516 — annotation rows
- * route through here so the merge UPDATE path overwrites stale `locationName`).
- */
 const LOCATION_PLACEHOLDER_RE = /^(?:start\s+)?location\s+(?:tbd|tba|tbc)\.?$/i;
 
 function isLocationPlaceholder(value: string): boolean {
   return LOCATION_PLACEHOLDER_RE.test(value);
 }
 
+/**
+ * Sanitize location names: filter placeholders (TBA/TBD) and bare URLs.
+ * Returns null for locations that are not meaningful display text. Accepts
+ * `null` as an explicit-clear signal from adapters (#1516 — annotation rows
+ * route through here so the merge UPDATE path overwrites stale `locationName`).
+ */
 export function sanitizeLocation(location: string | null | undefined): string | null {
   if (!location) return null;
   let t = location.trim();

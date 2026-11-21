@@ -3055,3 +3055,31 @@ Hare(s): TBA" />
     expect(raw.title).toBe("EWH3 #1521: The British are Cumming Trail");
   });
 });
+
+describe("splitToRawEvents — per-day placeholders don't inherit the umbrella (PR A review)", () => {
+  const parsed: ParsedEvent = {
+    title: "WH4 Campout",
+    dates: ["2027-06-25", "2027-06-26"],
+    startTimes: [],
+    location: "Camp Koinonia",
+    locationUrl: "https://maps.google.com/maps?q=Camp+Koinonia",
+    hares: "Nail",
+    kennelSlug: "WH4",
+    isMultiDay: true,
+    perDayLocations: [undefined, "TBD"],
+    perDayHares: [undefined, "TBA"],
+  };
+
+  it("a day whose tab says TBD gets no venue, map or hares", () => {
+    const [, day2] = splitToRawEvents(parsed, "wh4-campout", "wh4");
+    expect(day2.location).toBeUndefined();
+    expect(day2.locationUrl).toBeUndefined();
+    expect(day2.hares).toBeUndefined();
+  });
+
+  it("a day with no tab values still inherits the umbrella's", () => {
+    const [day1] = splitToRawEvents(parsed, "wh4-campout", "wh4");
+    expect(day1.location).toBe("Camp Koinonia");
+    expect(day1.hares).toBe("Nail");
+  });
+});
