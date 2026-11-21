@@ -25,6 +25,7 @@ import { AucklandHashAdapter } from "./html-scraper/auckland-hash";
 import { OCH3Adapter } from "./html-scraper/och3";
 import { SlashHashAdapter } from "./html-scraper/slash-hash";
 import { TamarValleyH3Adapter } from "./html-scraper/tamar-valley-h3";
+import { BarbadosBikeHashAdapter } from "./html-scraper/barbados-bike-hash";
 import { EnfieldHashAdapter } from "./html-scraper/enfield-hash";
 import { WCFHCalendarAdapter } from "./html-scraper/wcfh-calendar";
 import { AtlantaHashBoardAdapter } from "./html-scraper/atlanta-hash-board";
@@ -231,6 +232,7 @@ const htmlScraperEntries: HtmlScraperEntry[] = [
   { pattern: onHost("chicagohash.org"), name: "ChicagoHashAdapter", factory: () => new ChicagoHashAdapter() },
   { pattern: onHost("chicagoth3.com"), name: "ChicagoTH3Adapter", factory: () => new ChicagoTH3Adapter() },
   { pattern: onHost("tvh3.co.uk"), name: "TamarValleyH3Adapter", factory: () => new TamarValleyH3Adapter() },
+  { pattern: onHost("hashcruise2020.simplesite.com", { path: "/313623591" }), name: "BarbadosBikeHashAdapter", factory: () => new BarbadosBikeHashAdapter() },
   { pattern: onHost("sfh3.com"), name: "SFH3Adapter", factory: () => new SFH3Adapter() },
   { pattern: onHost("ewh3.com"), name: "EWH3Adapter", factory: () => new EWH3Adapter() },
   { pattern: onHost("dch4.org"), name: "DCH4Adapter", factory: () => new DCH4Adapter() },

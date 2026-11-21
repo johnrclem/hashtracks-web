@@ -224,6 +224,7 @@ const EXPECTED_SOURCES_BY_ADAPTER: Readonly<Record<string, readonly string[]>> =
   SurreyHashAdapter: ["Surrey H3 Website Hareline"],
   SydneyThirstyH3Adapter: ["Sydney Thirsty H3 Upcoming Runs"],
   TaipeiHashAdapter: ["Taipei Hash Run List"],
+  BarbadosBikeHashAdapter: ["Barbados Bike H3 Hareline (website)"],
   TamarValleyH3Adapter: ["Tamar Valley H3 Website"],
   TeignValleyH3Adapter: ["Teign Valley H3 Blogger Feed"],
   TidewaterH3Adapter: ["Tidewater H3 Website Calendar"],
