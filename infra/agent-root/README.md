@@ -29,6 +29,7 @@ macOS's `path_helper`, which `~/.zshrc` often runs, rebuilds `PATH` with the sys
 folders first. That would put the real `gh` ahead of the shim, so `install.sh` appends a guard to
 `~/.zshrc`: when `GH_CONFIG_DIR` is the root's empty config, it puts `<root>/bin` back in front.
 Your own shells never set that variable and are unaffected. `check-root.sh` flags a missing guard.
+This assumes zsh, the macOS default and what the tasks' Bash calls load on the owner's Mac.
 
 `settings.extra.json` adds the allow rules the tasks need and, as a speed bump rather than a control,
 denies commands that set `GH_CONFIG_DIR`, `GITHUB_TOKEN` or `GH_TOKEN`, call `gh` by absolute path,

@@ -137,11 +137,11 @@ done
 
 # 6. macOS's path_helper (often in ~/.zshrc) rebuilds PATH with the system and Homebrew dirs first,
 #    which would put the real gh ahead of the shim. This guard, at the end of ~/.zshrc, puts the shim
-#    back in front, and only in sessions whose GH_CONFIG_DIR is this root's empty config.
+#    back in front, in any session whose GH_CONFIG_DIR is an agent root's empty config (any --root).
 ZSHRC="$HOME/.zshrc"
-if ! grep -qF '/.agent/gh-empty) export PATH=' "$ZSHRC" 2>/dev/null; then
+if ! grep -qF '*/.agent/gh-empty) export PATH=' "$ZSHRC" 2>/dev/null; then
   # shellcheck disable=SC2016 # written literally; zsh expands it later
-  printf '\n# HashTracks agent root: put its gh shim first, after path_helper (infra/agent-root/README.md).\ncase "$GH_CONFIG_DIR" in */hashtracks-agents/.agent/gh-empty) export PATH="${GH_CONFIG_DIR%%/.agent/gh-empty}/bin:$PATH" ;; esac\n' >>"$ZSHRC"
+  printf '\n# HashTracks agent root: put its gh shim first, after path_helper (infra/agent-root/README.md).\ncase "$GH_CONFIG_DIR" in */.agent/gh-empty) export PATH="${GH_CONFIG_DIR%%/.agent/gh-empty}/bin:$PATH" ;; esac\n' >>"$ZSHRC"
   echo "Added the gh-shim PATH guard to the end of $ZSHRC"
 fi
 

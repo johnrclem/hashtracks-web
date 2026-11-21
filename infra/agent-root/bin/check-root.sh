@@ -53,7 +53,9 @@ if [[ -s "$ROOT/.agent/gh-empty/hosts.yml" ]]; then
 fi
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 && problems+=("the root is inside a git repository")
 # Without this guard in ~/.zshrc, path_helper puts the real gh ahead of the shim (install.sh adds it).
-grep -qF '/.agent/gh-empty) export PATH=' "$HOME/.zshrc" 2>/dev/null || problems+=("$HOME/.zshrc lacks the gh-shim PATH guard")
+if [[ "$(uname -s)" == Darwin ]]; then
+  grep -qF '*/.agent/gh-empty) export PATH=' "$HOME/.zshrc" 2>/dev/null || problems+=("$HOME/.zshrc lacks the gh-shim PATH guard")
+fi
 
 # Each task clone still pushes only through the shim, over HTTPS.
 clones="$(sed -n 's/^CLONES=//p' "$ROOT/.agent/config" 2>/dev/null | head -1)"
