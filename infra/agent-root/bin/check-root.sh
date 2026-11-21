@@ -52,9 +52,15 @@ if [[ -s "$ROOT/.agent/gh-empty/hosts.yml" ]]; then
   problems+=("gh has a stored login in .agent/gh-empty")
 fi
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 && problems+=("the root is inside a git repository")
-# Without this guard in ~/.zshrc, path_helper puts the real gh ahead of the shim (install.sh adds it).
-if [[ "$(uname -s)" == Darwin ]]; then
-  grep -qF '*/.agent/gh-empty) export PATH=' "$HOME/.zshrc" 2>/dev/null || problems+=("$HOME/.zshrc lacks the gh-shim PATH guard")
+# A task's shell is Claude Code's latest snapshot of the user's shell plus the settings' env, and the
+# snapshot sets PATH. Rebuild one that way and check plain `gh` reaches this root's shim.
+# shellcheck disable=SC2012 # snapshot names are Claude Code's own, no odd characters
+snapshot="$(ls -t "$HOME"/.claude/shell-snapshots/snapshot-*.sh 2>/dev/null | head -1)"
+if [[ -n "$snapshot" ]]; then
+  login="$(env -i HOME="$HOME" GH_CONFIG_DIR="$ROOT/.agent/gh-empty" GITHUB_TOKEN= GH_TOKEN= PATH=/usr/bin:/bin \
+    zsh -c "source '$snapshot' 2>/dev/null; gh api user --jq .login" 2>/dev/null)"
+  bot="$(sed -n 's/^BOT_LOGIN=//p' "$ROOT/.agent/config" 2>/dev/null | head -1)"
+  [[ -n "$bot" && "$login" == "$bot" ]] || problems+=("a task's shell runs gh as '${login:-unknown}', not the bot (is ~/.local/bin/gh the dispatcher, ahead of Homebrew?)")
 fi
 
 # Each task clone still pushes only through the shim, over HTTPS.
