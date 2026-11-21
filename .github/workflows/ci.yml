@@ -51,3 +51,45 @@ jobs:
 
       - name: Tests
         run: npm test
+
+  # Backfill manifests (docs/onboarding-backfill-automation-design.md 6.2): recompute each
+  # manifest from its committed archive, check the Phase 2 scope against the seed data, and
+  # write the numbers the owner approves into this job's summary. Passes when the PR has no
+  # manifest, so it can be a required check.
+  backfill-manifest:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          # The PR merge commit plus its first parent (the base tip).
+          fetch-depth: 2
+
+      # Most PRs carry no archive: skip the install and pass at once.
+      - name: Find backfill archives
+        id: scope
+        run: |
+          if git diff --name-only HEAD^1 HEAD | grep -qE '^scripts/data/[a-z0-9-]+-history'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No backfill manifest in this PR." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: steps.scope.outputs.run == 'true'
+        with:
+          node-version: 20
+          cache: npm
+
+      # No install scripts: the check needs no generated Prisma client, and tsx runs without
+      # esbuild's postinstall.
+      - if: steps.scope.outputs.run == 'true'
+        run: npm ci --ignore-scripts
+
+      - name: Check backfill manifests
+        if: steps.scope.outputs.run == 'true'
+        run: |
+          set -o pipefail
+          git diff --name-status --no-renames HEAD^1 HEAD \
+            | ./node_modules/.bin/tsx scripts/ci/check-backfill-manifest.ts --stdin

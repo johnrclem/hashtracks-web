@@ -24,7 +24,8 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           { "context": "test", "integration_id": 15368 },
-          { "context": "write-gate", "integration_id": 15368 }
+          { "context": "write-gate", "integration_id": 15368 },
+          { "context": "backfill-manifest", "integration_id": 15368 }
         ]
       }
     }

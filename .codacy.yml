@@ -16,8 +16,16 @@
 # fs.writeFileSync/mkdirSync calls, but the path is a fixed repo-relative dir
 # (docs/audits) + a basename built from our own clock — never user input. Same
 # inline-suppression limitation as above, so we exclude the single helper file.
+#
+# scripts/ci/check-backfill-manifest.ts is the backfill-manifest CI job. Its fs
+# calls (detect-non-literal-fs-filename) read paths from git's own changed-file
+# list in CI's checkout, each matched first against ARCHIVE_PATH_RE or
+# MIGRATION_FILE_RE, and append to the runner's GITHUB_STEP_SUMMARY; its one
+# object-injection hit indexes the manifest by a fixed list of field names.
+# Same inline-suppression limitation as above, so the single file is excluded.
 exclude_paths:
   - "prisma/migrations/**"
   - "**/*.test.ts"
   - "**/*.test.tsx"
   - "scripts/lib/audit-shared.ts"
+  - "scripts/ci/check-backfill-manifest.ts"
