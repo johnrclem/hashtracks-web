@@ -3,6 +3,12 @@ import isSafeRegex from "safe-regex2";
 import type { RawEventData } from "../types";
 import { normalizeCostSigil, parse12HourTime, stripHtmlTags } from "../utils";
 import { detectVenueWeekendEndDate } from "@/pipeline/venue-weekend";
+import {
+  cleanHashRegoCost,
+  cleanHashRegoHares,
+  cleanHashRegoLocation,
+  cleanHashRegoTitle,
+} from "./cleanup";
 
 const BASE_URL = "https://hashrego.com";
 
@@ -259,14 +265,19 @@ export function parseEventDetail(
   // Fallback: extract hares from DOM when og:description doesn't carry them
   // (#806). Detail page renders `<p><strong>Hare(s):</strong></p>` followed
   // by a sibling `<p>` with the comma/&-joined hare names.
-  const hares = haresFromDescription || extractHaresFromDom($);
+  // Clean each candidate first, so a "TBA" in the description doesn't hide
+  // real names in the DOM.
+  const hares = cleanHashRegoHares(haresFromDescription) || cleanHashRegoHares(extractHaresFromDom($));
   // #1670 — strip leading markdown-bullet / repeated `$` from extracted cost.
   // Some hashrego description blocks render the cost as `* **Cost:** $10` (or
   // `- **Cost:** $10`) where `extractField`'s plain-pattern path can capture
   // residual bullet artifacts. The normalization is idempotent on clean
   // values ("$10" → "$10") and the existing index-table fallback shape.
-  const rawCost = extractField(rawDescription, "Cost") || indexEntry?.cost;
-  const cost = rawCost ? normalizeCostSigil(rawCost) : undefined;
+  // Clean each candidate first, so a "$6969" in the description falls back
+  // to a real index-table price.
+  const cleanCost = (raw: string | undefined) =>
+    cleanHashRegoCost(raw ? normalizeCostSigil(raw) : undefined);
+  const cost = cleanCost(extractField(rawDescription, "Cost")) || cleanCost(indexEntry?.cost);
 
   // og:description-based location extraction (legacy path — only fires for
   // events whose host kennel writes labeled fields into the description).
@@ -282,8 +293,10 @@ export function parseEventDetail(
   // labeled fields in og:description — that path used to drop venue + address
   // entirely.
   const domLocation = extractLocationFromDom($);
-  const location = descLocation || domLocation.venue;
-  const locationAddress = descAddress || domLocation.address;
+  // Placeholders ("Start Location TBA") drop out so a real value, or another
+  // source's, wins (plan section 5.6, PR A).
+  const location = cleanHashRegoLocation(descLocation) || cleanHashRegoLocation(domLocation.venue);
+  const locationAddress = cleanHashRegoLocation(descAddress) || cleanHashRegoLocation(domLocation.address);
   const locationUrl = descLocationUrl || domLocation.mapsUrl;
 
   // Per-day `Schedule of Events` tabs from the page body (#875). Empty for the
@@ -297,12 +310,17 @@ export function parseEventDetail(
     isMultiDay,
     endDate,
     perDayKennelCodes,
-    perDayTitles,
+    perDayTitles: rawPerDayTitles,
     perDayLocations,
     perDayAddresses,
     perDayMapsUrls,
     perDayHares,
   } = extractDates(rawDescription, indexEntry, title, kennelPatterns, scheduleTabs);
+  // Drop "[UPDATED]", a dated tail ("…Trail, June 4, 2026, Dupont Circle (Red
+  // Line)") and a doubled year (plan section 5.6, PR A). After extractDates,
+  // which reads the original title for venue-weekend words.
+  title = cleanHashRegoTitle(title);
+  const perDayTitles = rawPerDayTitles?.map((t) => (t ? cleanHashRegoTitle(t) : t));
 
   // Clean description: remove structured fields we already extracted
   const description = cleanDescription(rawDescription);
@@ -469,11 +487,15 @@ function perDayLocationFields(
   // the day's own maps URL (or none, letting the street geocode). Only days with
   // no per-day location at all fall back to the whole-event values.
   const hasDayLocation = dayVenue !== undefined || dayStreet !== undefined;
+  const dayHares = parsed.perDayHares?.[i];
+  // Placeholders are dropped only after the fallback choice (PR A): a day
+  // whose tab says "Where: TBD" has its own (unknown) venue and must not
+  // inherit the umbrella's, and likewise a "Hares: TBA" day.
   return {
-    location: dayVenue ?? (hasDayLocation ? undefined : parsed.location),
-    locationStreet: dayStreet,
+    location: hasDayLocation ? cleanHashRegoLocation(dayVenue) : parsed.location,
+    locationStreet: cleanHashRegoLocation(dayStreet),
     locationUrl: dayMapsUrl ?? (hasDayLocation ? undefined : (parsed.locationAddress || parsed.locationUrl)),
-    hares: parsed.perDayHares?.[i] ?? parsed.hares,
+    hares: dayHares === undefined ? parsed.hares : cleanHashRegoHares(dayHares),
   };
 }
 

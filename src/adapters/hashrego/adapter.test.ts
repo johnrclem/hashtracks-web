@@ -12,6 +12,7 @@ import {
   detectVenueWeekendEndDate,
   stripDoubledKennelPrefix,
   type ParsedEvent,
+  type IndexEntry,
 } from "./parser";
 import { HashRegoAdapter, apiToIndexEntry, normalizeHashRegoPrice } from "./adapter";
 import { HashRegoApiError, type HashRegoKennelEvent } from "./api";
@@ -3008,5 +3009,100 @@ Brunch.' />
     expect(mapped).toHaveLength(2);
     expect(mapped[0].seriesParent).toBe(true);
     expect(mapped.every((e) => e.kennelTags[0] === "ggfm")).toBe(true);
+  });
+});
+
+// ── PR A: Hash Rego placeholders are omitted, titles lose their dated tail ──
+
+describe("parseEventDetail + splitToRawEvents — placeholder cleanup (plan 5.6, PR A)", () => {
+  const entry: IndexEntry = {
+    slug: "ewh3-1521",
+    kennelSlug: "EWH3",
+    title: "EWH3 #1521: The British are Cumming Trail, June 4, 2026, Dupont Circle (Red Line)",
+    startDate: "06/04/26",
+    startTime: "6:45 PM",
+    type: "Trail",
+    cost: "$6969",
+  };
+
+  const html = `<html><head>
+    <meta property="og:title" content="06/04 EWH3 #1521: The British are Cumming Trail, June 4, 2026, Dupont Circle (Red Line)" />
+    <meta property="og:description" content="Trail blurb.
+
+Hare(s): TBA" />
+  </head><body>
+    <div class="col-sm-6 location">
+      <h4 class="text-center"><strong>Start Location Details</strong></h4>
+      <div class="tab-content"><div class="tab-pane active" id="location">
+        <p>Start Location TBA</p>
+      </div></div>
+    </div>
+  </body></html>`;
+
+  it("omits placeholder hares, location and joke price, and cuts the dated title tail", () => {
+    const parsed = parseEventDetail(html, "ewh3-1521", entry);
+    expect(parsed.title).toBe("EWH3 #1521: The British are Cumming Trail");
+    expect(parsed.hares).toBeUndefined();
+    expect(parsed.location).toBeUndefined();
+    expect(parsed.cost).toBeUndefined();
+
+    const [raw] = splitToRawEvents(parsed, "ewh3-1521", "ewh3");
+    // Omitted, not "" or null: merge keeps another source's value.
+    expect(raw).not.toHaveProperty("hares", "");
+    expect(raw.hares).toBeUndefined();
+    expect(raw.location).toBeUndefined();
+    expect(raw.cost).toBeUndefined();
+    expect(raw.title).toBe("EWH3 #1521: The British are Cumming Trail");
+  });
+});
+
+describe("splitToRawEvents — per-day placeholders don't inherit the umbrella (PR A review)", () => {
+  const parsed: ParsedEvent = {
+    title: "WH4 Campout",
+    dates: ["2027-06-25", "2027-06-26"],
+    startTimes: [],
+    location: "Camp Koinonia",
+    locationUrl: "https://maps.google.com/maps?q=Camp+Koinonia",
+    hares: "Nail",
+    kennelSlug: "WH4",
+    isMultiDay: true,
+    perDayLocations: [undefined, "TBD"],
+    perDayHares: [undefined, "TBA"],
+  };
+
+  it("a day whose tab says TBD gets no venue, map or hares", () => {
+    const [, day2] = splitToRawEvents(parsed, "wh4-campout", "wh4");
+    expect(day2.location).toBeUndefined();
+    expect(day2.locationUrl).toBeUndefined();
+    expect(day2.hares).toBeUndefined();
+  });
+
+  it("a day with no tab values still inherits the umbrella's", () => {
+    const [day1] = splitToRawEvents(parsed, "wh4-campout", "wh4");
+    expect(day1.location).toBe("Camp Koinonia");
+    expect(day1.hares).toBe("Nail");
+  });
+});
+
+describe("parseEventDetail — a placeholder candidate falls back to the next one (PR A review)", () => {
+  it("description 'Hare(s): TBA' falls back to DOM hares, '$6969' to the index cost", () => {
+    const html = `<html><head>
+      <meta property="og:title" content="06/26 WH4 Campout" />
+      <meta property="og:description" content="Blurb.
+
+Hare(s): TBA
+
+Cost: $6969" />
+    </head><body>
+      <p><strong>Hare(s):</strong></p>
+      <p>Nail &amp; Hammer</p>
+    </body></html>`;
+    const entry: IndexEntry = {
+      slug: "wh4-campout", kennelSlug: "WH4", title: "WH4 Campout",
+      startDate: "06/26/27", startTime: "", type: "Campout", cost: "$45",
+    };
+    const parsed = parseEventDetail(html, "wh4-campout", entry);
+    expect(parsed.hares).toBe("Nail & Hammer");
+    expect(parsed.cost).toBe("$45");
   });
 });

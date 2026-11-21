@@ -32,6 +32,7 @@ import {
   HASHREGO_ISO_DATETIME_RE,
   type HashRegoKennelEvent,
 } from "./api";
+import { cleanHashRegoCost, cleanHashRegoTitle } from "./cleanup";
 
 const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 500;
@@ -626,11 +627,13 @@ function createFromIndex(entry: IndexEntry, mappedCode?: string): RawEventData[]
     {
       date,
       kennelTags: [mappedCode ?? entry.kennelSlug],
-      title: entry.title,
+      // Same title and cost cleanup as the detail-page path, so a failed
+      // detail fetch doesn't flip the event back to the raw title.
+      title: cleanHashRegoTitle(entry.title),
       // #1126 — preserve the index-table cost ("$10") even when the detail
       // fetch fails and we fall back to the index row. Normalize for parity
       // with the detail-page path (parser.ts strips markdown bullets / `$$`).
-      cost: entry.cost ? normalizeCostSigil(entry.cost) : undefined,
+      cost: cleanHashRegoCost(entry.cost ? normalizeCostSigil(entry.cost) : undefined),
       startTime: time || undefined,
       sourceUrl: hashRegoUrl,
       externalLinks: [{ url: hashRegoUrl, label: "Hash Rego" }],
