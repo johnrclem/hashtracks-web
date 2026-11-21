@@ -1272,7 +1272,7 @@ export function sanitizeLocation(location: string | null | undefined): string | 
     .replace(/^,+|,+$/g, "")
     .trim()
     .replace(/,\s*([a-z]{2})$/i, (_, st: string) => `, ${st.toUpperCase()}`);
-  if (!cleaned || isPlaceholder(cleaned)) return null;
+  if (!cleaned || isPlaceholder(cleaned) || isLocationPlaceholder(cleaned)) return null;
   cleaned = deduplicateAddressPrefix(cleaned);
   // Deduplicate comma-separated segments (case-insensitive, keep first occurrence)
   const segments = cleaned.split(", ");
@@ -1877,17 +1877,21 @@ async function findCanonicalMatch(
     // runNumber or a genuine title. A stub never stands as its own card beside
     // the real run.
     if (!existingEvent) {
+      // A "(Day N)" fallback names a day of a multi-day event: replaceable as a
+      // title, but never a content-free stub for identity matching.
+      const isContentFreeTitle = (title: string | null): boolean =>
+        isReplaceableDefaultTitle(title, kennelData) && !isDayNumberFallbackTitle(title ?? "");
       // A series child ("Campout (Day 2)") is a real day of an event, never a
       // content-free stub, even without hares.
       const rowIsPlaceholder = (e: (typeof sameDayEvents)[number]): boolean =>
         e.runNumber == null
         && !e.haresText
         && e.parentEventId == null
-        && isReplaceableDefaultTitle(e.title, kennelData);
+        && isContentFreeTitle(e.title);
       const incomingIsPlaceholder =
         event.runNumber == null
         && !sanitizeHares(event.hares)
-        && isReplaceableDefaultTitle(sanitizeTitle(event.title), kennelData);
+        && isContentFreeTitle(sanitizeTitle(event.title));
       if (incomingIsPlaceholder) {
         // Incoming stub → merge into the unique real sibling (prefer the
         // run-numbered one; fall back to a sole real row).

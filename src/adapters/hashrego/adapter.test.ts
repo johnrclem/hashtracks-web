@@ -3083,3 +3083,26 @@ describe("splitToRawEvents — per-day placeholders don't inherit the umbrella (
     expect(day1.hares).toBe("Nail");
   });
 });
+
+describe("parseEventDetail — a placeholder candidate falls back to the next one (PR A review)", () => {
+  it("description 'Hare(s): TBA' falls back to DOM hares, '$6969' to the index cost", () => {
+    const html = `<html><head>
+      <meta property="og:title" content="06/26 WH4 Campout" />
+      <meta property="og:description" content="Blurb.
+
+Hare(s): TBA
+
+Cost: $6969" />
+    </head><body>
+      <p><strong>Hare(s):</strong></p>
+      <p>Nail &amp; Hammer</p>
+    </body></html>`;
+    const entry: IndexEntry = {
+      slug: "wh4-campout", kennelSlug: "WH4", title: "WH4 Campout",
+      startDate: "06/26/27", startTime: "", type: "Campout", cost: "$45",
+    };
+    const parsed = parseEventDetail(html, "wh4-campout", entry);
+    expect(parsed.hares).toBe("Nail & Hammer");
+    expect(parsed.cost).toBe("$45");
+  });
+});

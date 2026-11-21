@@ -265,14 +265,19 @@ export function parseEventDetail(
   // Fallback: extract hares from DOM when og:description doesn't carry them
   // (#806). Detail page renders `<p><strong>Hare(s):</strong></p>` followed
   // by a sibling `<p>` with the comma/&-joined hare names.
-  const hares = cleanHashRegoHares(haresFromDescription || extractHaresFromDom($));
+  // Clean each candidate first, so a "TBA" in the description doesn't hide
+  // real names in the DOM.
+  const hares = cleanHashRegoHares(haresFromDescription) || cleanHashRegoHares(extractHaresFromDom($));
   // #1670 — strip leading markdown-bullet / repeated `$` from extracted cost.
   // Some hashrego description blocks render the cost as `* **Cost:** $10` (or
   // `- **Cost:** $10`) where `extractField`'s plain-pattern path can capture
   // residual bullet artifacts. The normalization is idempotent on clean
   // values ("$10" → "$10") and the existing index-table fallback shape.
-  const rawCost = extractField(rawDescription, "Cost") || indexEntry?.cost;
-  const cost = cleanHashRegoCost(rawCost ? normalizeCostSigil(rawCost) : undefined);
+  // Clean each candidate first, so a "$6969" in the description falls back
+  // to a real index-table price.
+  const cleanCost = (raw: string | undefined) =>
+    cleanHashRegoCost(raw ? normalizeCostSigil(raw) : undefined);
+  const cost = cleanCost(extractField(rawDescription, "Cost")) || cleanCost(indexEntry?.cost);
 
   // og:description-based location extraction (legacy path — only fires for
   // events whose host kennel writes labeled fields into the description).

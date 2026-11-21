@@ -3664,6 +3664,8 @@ describe("sanitizeLocation", () => {
     expect(sanitizeLocation("Start Location TBA")).toBeNull();
     expect(sanitizeLocation("Location TBD")).toBeNull();
     expect(sanitizeLocation("location tba.")).toBeNull();
+    expect(sanitizeLocation("Maps, Location TBD")).toBeNull();
+    expect(sanitizeLocation("Maps, The Pub")).toBe("The Pub");
     expect(sanitizeLocation("Location of start TBA")).toBe("Location of start TBA");
   });
 
@@ -6249,6 +6251,25 @@ describe("Hash Rego (Day N) fallback titles", () => {
     );
     expect(call).toBeDefined();
     expect((call![0] as { data: Record<string, unknown> }).data.title).toBe("Saturday Shiggy Trail");
+  });
+
+  it("a hare-less (Day N) row is not a content-free stub for Tier B matching", async () => {
+    // Two unrelated same-day rows from another source, one numbered. Before the
+    // review fix the incoming "(Day 2)" counted as a stub and was absorbed into
+    // the numbered row; it must create its own event instead.
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_run", trustLevel: 5, title: "WH4 #2240: Shiggy Trail", runNumber: 2240, haresText: "Nail", sourceUrl: "https://example.com/a" },
+      { id: "evt_other", trustLevel: 5, title: "Hash Happy Hour", runNumber: null, haresText: "Bolt", sourceUrl: "https://example.com/b" },
+    ] as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_new"));
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ title: "WH4 Campout (Day 2)", hares: undefined, runNumber: undefined, sourceUrl: "https://hashrego.com/events/wh4-campout" }),
+    ]);
+
+    const updatedIds = mockEventUpdate.mock.calls.map((c: unknown[]) => (c[0] as { where: { id: string } }).where.id);
+    expect(updatedIds).not.toContain("evt_run");
   });
 
   it("a higher-trust raw that omits hares, location and cost keeps the stored values", async () => {
