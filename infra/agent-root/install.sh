@@ -83,7 +83,8 @@ chmod 700 "$ROOT/.agent"
 install -m 755 "$SRC/bin/agent-gh.sh" "$SRC/bin/mint-token.sh" "$SRC/bin/check-root.sh" "$ROOT/bin/"
 ln -sf agent-gh.sh "$ROOT/bin/gh"
 KEY_FILE="$ROOT/.agent/app.pem"
-install -m 600 "$KEY" "$KEY_FILE"
+# A re-install may pass the root's own copy of the key; install(1) refuses to copy a file onto itself.
+if [[ "$KEY" -ef "$KEY_FILE" ]]; then chmod 600 "$KEY_FILE"; else install -m 600 "$KEY" "$KEY_FILE"; fi
 umask 077
 write_config() {
   printf 'APP_ID=%s\nINSTALLATION_ID=%s\nKEY_FILE=%s\nREAL_GH=%s\nBOT_LOGIN=%s\nCLONES=%s\n' \
