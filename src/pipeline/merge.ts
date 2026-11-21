@@ -1049,14 +1049,42 @@ export function resolveUpdatedTitle(
   if (incoming && !isReplaceableDefaultTitle(incoming, kennelData)) {
     return rewriteStaleDefaultTitle(incoming, kennelData.kennelCode, kennelData.shortName, kennelData.fullName, kennelData.aliases);
   }
+  // A "(Day N)" fallback loses only to a real title. Over an empty, default or
+  // older fallback title it wins, so an umbrella rename reaches every day.
+  if (
+    incoming
+    && isDayNumberFallbackTitle(incoming)
+    && (!existingTitle || isReplaceableDefaultTitle(existingTitle, kennelData))
+  ) {
+    return incoming;
+  }
   // A synthesized default carries the run number it was built with, so a run-number
   // correction must rebuild it ("Trail #2543" on run 2544, #2811). Real titles stay.
-  const existingIsStaleDefault = !!runNumber && isReplaceableDefaultTitle(existingTitle, kennelData);
+  // A "(Day N)" fallback is a name, not a synthesized default: keep it.
+  const existingIsStaleDefault =
+    !!runNumber
+    && isReplaceableDefaultTitle(existingTitle, kennelData)
+    && !isDayNumberFallbackTitle(existingTitle ?? "");
   if (existingTitle && !isThemelessPlaceholderTitle(existingTitle) && !existingIsStaleDefault) {
     return rewriteStaleDefaultTitle(existingTitle, kennelData.kennelCode, kennelData.shortName, kennelData.fullName, kennelData.aliases);
   }
   const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || fallbackTag;
   return runNumber ? `${displayName} Trail #${runNumber}` : `${displayName} Trail`;
+}
+
+/**
+ * Whether a title is the "<umbrella> (Day N)" fallback the Hash Rego adapter
+ * gives later days of a multi-day event that have no name of their own
+ * (plan section 5.6, PR A). It is the only name such a day has, so a new event
+ * keeps it, but it must never replace another source's real per-day title, and
+ * a real title arriving later should replace it.
+ */
+export function isDayNumberFallbackTitle(title: string): boolean {
+  const trimmed = title.trim();
+  if (!trimmed.endsWith(")")) return false;
+  const open = trimmed.lastIndexOf(" (Day ");
+  if (open <= 0) return false;
+  return /^\d{1,2}$/.test(trimmed.slice(open + 6, -1));
 }
 
 /**
@@ -1078,6 +1106,7 @@ export function isReplaceableDefaultTitle(
 ): boolean {
   if (!title?.trim()) return true;
   if (isThemelessPlaceholderTitle(title)) return true;
+  if (isDayNumberFallbackTitle(title)) return true;
   const displayName = friendlyKennelName(kennelData.shortName, kennelData.fullName) || kennelData.kennelCode;
   if (!displayName) return false;
   const normalized = rewriteStaleDefaultTitle(
@@ -1195,11 +1224,21 @@ function deduplicateAddressPrefix(location: string): string {
  * `null` as an explicit-clear signal from adapters (#1516 — annotation rows
  * route through here so the merge UPDATE path overwrites stale `locationName`).
  */
+const LOCATION_PLACEHOLDER_RE = /^(?:start\s+)?location\s+(?:tbd|tba|tbc)\.?$/i;
+
+function isLocationPlaceholder(value: string): boolean {
+  return LOCATION_PLACEHOLDER_RE.test(value);
+}
+
 export function sanitizeLocation(location: string | null | undefined): string | null {
   if (!location) return null;
   let t = location.trim();
   if (!t) return null;
   if (isPlaceholder(t)) return null;
+  // "Start Location TBA" / "Location TBD" (Hash Rego and some calendars): a
+  // location-only placeholder, so it lives here rather than in isPlaceholder,
+  // which titles and hares share.
+  if (isLocationPlaceholder(t)) return null;
   // Strip embedded DMS coordinates (e.g., "Fort Misery, 34°08'52.8"N 112°22'05.6"W") — coords stored separately
   t = stripDMSFromLocation(t);
   // Filter "Online event" (Meetup/Calendar default for virtual events — not valid for hash runs)
@@ -1838,8 +1877,13 @@ async function findCanonicalMatch(
     // runNumber or a genuine title. A stub never stands as its own card beside
     // the real run.
     if (!existingEvent) {
+      // A series child ("Campout (Day 2)") is a real day of an event, never a
+      // content-free stub, even without hares.
       const rowIsPlaceholder = (e: (typeof sameDayEvents)[number]): boolean =>
-        e.runNumber == null && !e.haresText && isReplaceableDefaultTitle(e.title, kennelData);
+        e.runNumber == null
+        && !e.haresText
+        && e.parentEventId == null
+        && isReplaceableDefaultTitle(e.title, kennelData);
       const incomingIsPlaceholder =
         event.runNumber == null
         && !sanitizeHares(event.hares)

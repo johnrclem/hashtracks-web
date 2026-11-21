@@ -12,6 +12,7 @@ import {
   detectVenueWeekendEndDate,
   stripDoubledKennelPrefix,
   type ParsedEvent,
+  type IndexEntry,
 } from "./parser";
 import { HashRegoAdapter, apiToIndexEntry, normalizeHashRegoPrice } from "./adapter";
 import { HashRegoApiError, type HashRegoKennelEvent } from "./api";
@@ -3008,5 +3009,49 @@ Brunch.' />
     expect(mapped).toHaveLength(2);
     expect(mapped[0].seriesParent).toBe(true);
     expect(mapped.every((e) => e.kennelTags[0] === "ggfm")).toBe(true);
+  });
+});
+
+// ── PR A: Hash Rego placeholders are omitted, titles lose their dated tail ──
+
+describe("parseEventDetail + splitToRawEvents — placeholder cleanup (plan 5.6, PR A)", () => {
+  const entry: IndexEntry = {
+    slug: "ewh3-1521",
+    kennelSlug: "EWH3",
+    title: "EWH3 #1521: The British are Cumming Trail, June 4, 2026, Dupont Circle (Red Line)",
+    startDate: "06/04/26",
+    startTime: "6:45 PM",
+    type: "Trail",
+    cost: "$6969",
+  };
+
+  const html = `<html><head>
+    <meta property="og:title" content="06/04 EWH3 #1521: The British are Cumming Trail, June 4, 2026, Dupont Circle (Red Line)" />
+    <meta property="og:description" content="Trail blurb.
+
+Hare(s): TBA" />
+  </head><body>
+    <div class="col-sm-6 location">
+      <h4 class="text-center"><strong>Start Location Details</strong></h4>
+      <div class="tab-content"><div class="tab-pane active" id="location">
+        <p>Start Location TBA</p>
+      </div></div>
+    </div>
+  </body></html>`;
+
+  it("omits placeholder hares, location and joke price, and cuts the dated title tail", () => {
+    const parsed = parseEventDetail(html, "ewh3-1521", entry);
+    expect(parsed.title).toBe("EWH3 #1521: The British are Cumming Trail");
+    expect(parsed.hares).toBeUndefined();
+    expect(parsed.location).toBeUndefined();
+    expect(parsed.cost).toBeUndefined();
+
+    const [raw] = splitToRawEvents(parsed, "ewh3-1521", "ewh3");
+    // Omitted, not "" or null: merge keeps another source's value.
+    expect(raw).not.toHaveProperty("hares", "");
+    expect(raw.hares).toBeUndefined();
+    expect(raw.location).toBeUndefined();
+    expect(raw.cost).toBeUndefined();
+    expect(raw.title).toBe("EWH3 #1521: The British are Cumming Trail");
   });
 });

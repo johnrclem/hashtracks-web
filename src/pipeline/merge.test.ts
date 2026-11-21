@@ -52,7 +52,7 @@ import { prisma } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag } from "./kennel-resolver";
-import { processRawEvents, simulateBackfillMerge, prepareRowForMerge, CreateOnlyViolation, BackfillRowRejected, type MatchPath, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, isReplaceableDefaultTitle, normalizeThemeTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked, isImplausibleEndTime, hasConflictingRunNumber, venueTextChanged } from "./merge";
+import { processRawEvents, simulateBackfillMerge, prepareRowForMerge, CreateOnlyViolation, BackfillRowRejected, type MatchPath, sanitizeTitle, sanitizeLocation, sanitizeHares, friendlyKennelName, rewriteStaleDefaultTitle, resolveUpdatedTitle, isReplaceableDefaultTitle, isDayNumberFallbackTitle, normalizeThemeTitle, suppressRedundantCity, NON_ENGLISH_GEO_RE, completenessScore, pickCanonicalEventId, pickCanonicalEventIds, isAdminLocked, isImplausibleEndTime, hasConflictingRunNumber, venueTextChanged } from "./merge";
 
 const mockSourceFind = vi.mocked(prisma.source.findUnique);
 const _mockSourceUpdate = vi.mocked(prisma.source.update);
@@ -3660,6 +3660,13 @@ describe("resolveUpdatedTitle", () => {
 // ── sanitizeLocation ──
 
 describe("sanitizeLocation", () => {
+  it("drops 'Start Location TBA' / 'Location TBD' placeholders (plan 5.6, PR A)", () => {
+    expect(sanitizeLocation("Start Location TBA")).toBeNull();
+    expect(sanitizeLocation("Location TBD")).toBeNull();
+    expect(sanitizeLocation("location tba.")).toBeNull();
+    expect(sanitizeLocation("Location of start TBA")).toBe("Location of start TBA");
+  });
+
   it("passes through normal locations", () => {
     expect(sanitizeLocation("The Pub")).toBe("The Pub");
   });
@@ -6164,6 +6171,101 @@ describe("lower-trust enrichment title/runNumber backfill (#2130 / #2145)", () =
     expect(data).not.toHaveProperty("title");
     // runNumber already present on the canonical → not backfilled.
     expect(data).not.toHaveProperty("runNumber");
+  });
+});
+
+// ── PR A (plan 5.6) — Hash Rego's "(Day N)" fallback title for later days of a
+// multi-day event. It is the day's only name until a real one arrives: a new
+// event keeps it, it never replaces a real title, and a real title replaces it.
+describe("Hash Rego (Day N) fallback titles", () => {
+  const wh4 = { kennelCode: "wh4", shortName: "WH4", fullName: "White House Hash House Harriers", aliases: [] };
+
+  it("recognizes only the ' (Day N)' suffix", () => {
+    expect(isDayNumberFallbackTitle("WH4 Campout (Day 2)")).toBe(true);
+    expect(isDayNumberFallbackTitle("Party Gras! 2027 (Day 12)")).toBe(true);
+    expect(isDayNumberFallbackTitle("(Day 2)")).toBe(false);
+    expect(isDayNumberFallbackTitle("Campout (Day Two)")).toBe(false);
+    expect(isDayNumberFallbackTitle("Campout (Day 2) Recap")).toBe(false);
+    expect(isReplaceableDefaultTitle("WH4 Campout (Day 2)", wh4)).toBe(true);
+  });
+
+  it("a fallback never replaces a real stored title", () => {
+    expect(resolveUpdatedTitle("WH4 Campout (Day 2)", "Saturday Shiggy Trail", wh4, null, "wh4"))
+      .toBe("Saturday Shiggy Trail");
+  });
+
+  it("a newer fallback replaces an older one, and fills an empty or default title", () => {
+    expect(resolveUpdatedTitle("WH4 Big Campout (Day 2)", "WH4 Campout (Day 2)", wh4, null, "wh4"))
+      .toBe("WH4 Big Campout (Day 2)");
+    expect(resolveUpdatedTitle("WH4 Campout (Day 2)", null, wh4, null, "wh4")).toBe("WH4 Campout (Day 2)");
+    expect(resolveUpdatedTitle("WH4 Campout (Day 2)", "WH4 Trail", wh4, null, "wh4")).toBe("WH4 Campout (Day 2)");
+  });
+
+  it("a stored fallback with a run number is kept, not rebuilt as '<Kennel> Trail #N'", () => {
+    expect(resolveUpdatedTitle("WH4 Campout (Day 2)", "WH4 Campout (Day 2)", wh4, 2101, "wh4"))
+      .toBe("WH4 Campout (Day 2)");
+  });
+
+  it("a new event keeps the fallback as its title", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([] as never);
+    mockEventCreate.mockResolvedValueOnce(eventRow("evt_new"));
+
+    await processRawEvents("src_1", [buildRawEvent({ title: "WH4 Campout (Day 2)", hares: "Nail" })]);
+
+    const data = (mockEventCreate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data.title).toBe("WH4 Campout (Day 2)");
+  });
+
+  it("a higher-trust fallback keeps the real title another source stored", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, title: "Saturday Shiggy Trail", hares: "Nail" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ title: "WH4 Campout (Day 2)", hares: "Nail" })]);
+
+    const data = (mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data.title).toBe("Saturday Shiggy Trail");
+  });
+
+  it("a lower-trust real title replaces a stored fallback during enrichment", async () => {
+    mockSourceFind.mockResolvedValue(sourceRow({
+      trustLevel: 5,
+      type: "GOOGLE_CALENDAR",
+      kennels: [{ kennelId: "kennel_1" }],
+    }));
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_day2", trustLevel: 8, title: "WH4 Campout (Day 2)", runNumber: null, haresText: "Nail", locationName: null },
+    ] as never);
+    mockEventUpdate.mockResolvedValue(eventRow("evt_day2"));
+
+    await processRawEvents("src_cal", [buildRawEvent({ title: "Saturday Shiggy Trail", hares: "Nail" })]);
+
+    const call = mockEventUpdate.mock.calls.find(
+      (c: unknown[]) => (c[0] as { where: { id: string } }).where.id === "evt_day2",
+    );
+    expect(call).toBeDefined();
+    expect((call![0] as { data: Record<string, unknown> }).data.title).toBe("Saturday Shiggy Trail");
+  });
+
+  it("a higher-trust raw that omits hares, location and cost keeps the stored values", async () => {
+    mockRawEventFind.mockResolvedValueOnce(null);
+    mockEventFindMany.mockResolvedValueOnce([
+      { id: "evt_1", trustLevel: 5, title: "Pride Party", haresText: "Nail", locationName: "Stonewall Inn", cost: "$10" },
+    ] as never);
+    mockEventUpdate.mockResolvedValueOnce({} as never);
+
+    await processRawEvents("src_1", [
+      buildRawEvent({ title: "Pride Party", hares: undefined, location: undefined, cost: undefined }),
+    ]);
+
+    const data = (mockEventUpdate.mock.calls[0][0] as { data: Record<string, unknown> }).data;
+    expect(data).not.toHaveProperty("haresText");
+    expect(data).not.toHaveProperty("locationName");
+    expect(data).not.toHaveProperty("cost");
   });
 });
 

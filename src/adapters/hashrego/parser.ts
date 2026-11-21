@@ -3,6 +3,12 @@ import isSafeRegex from "safe-regex2";
 import type { RawEventData } from "../types";
 import { normalizeCostSigil, parse12HourTime, stripHtmlTags } from "../utils";
 import { detectVenueWeekendEndDate } from "@/pipeline/venue-weekend";
+import {
+  cleanHashRegoCost,
+  cleanHashRegoHares,
+  cleanHashRegoLocation,
+  cleanHashRegoTitle,
+} from "./cleanup";
 
 const BASE_URL = "https://hashrego.com";
 
@@ -259,14 +265,14 @@ export function parseEventDetail(
   // Fallback: extract hares from DOM when og:description doesn't carry them
   // (#806). Detail page renders `<p><strong>Hare(s):</strong></p>` followed
   // by a sibling `<p>` with the comma/&-joined hare names.
-  const hares = haresFromDescription || extractHaresFromDom($);
+  const hares = cleanHashRegoHares(haresFromDescription || extractHaresFromDom($));
   // #1670 — strip leading markdown-bullet / repeated `$` from extracted cost.
   // Some hashrego description blocks render the cost as `* **Cost:** $10` (or
   // `- **Cost:** $10`) where `extractField`'s plain-pattern path can capture
   // residual bullet artifacts. The normalization is idempotent on clean
   // values ("$10" → "$10") and the existing index-table fallback shape.
   const rawCost = extractField(rawDescription, "Cost") || indexEntry?.cost;
-  const cost = rawCost ? normalizeCostSigil(rawCost) : undefined;
+  const cost = cleanHashRegoCost(rawCost ? normalizeCostSigil(rawCost) : undefined);
 
   // og:description-based location extraction (legacy path — only fires for
   // events whose host kennel writes labeled fields into the description).
@@ -282,8 +288,10 @@ export function parseEventDetail(
   // labeled fields in og:description — that path used to drop venue + address
   // entirely.
   const domLocation = extractLocationFromDom($);
-  const location = descLocation || domLocation.venue;
-  const locationAddress = descAddress || domLocation.address;
+  // Placeholders ("Start Location TBA") drop out so a real value, or another
+  // source's, wins (plan section 5.6, PR A).
+  const location = cleanHashRegoLocation(descLocation) || cleanHashRegoLocation(domLocation.venue);
+  const locationAddress = cleanHashRegoLocation(descAddress) || cleanHashRegoLocation(domLocation.address);
   const locationUrl = descLocationUrl || domLocation.mapsUrl;
 
   // Per-day `Schedule of Events` tabs from the page body (#875). Empty for the
@@ -297,12 +305,19 @@ export function parseEventDetail(
     isMultiDay,
     endDate,
     perDayKennelCodes,
-    perDayTitles,
-    perDayLocations,
+    perDayTitles: rawPerDayTitles,
+    perDayLocations: rawPerDayLocations,
     perDayAddresses,
     perDayMapsUrls,
-    perDayHares,
+    perDayHares: rawPerDayHares,
   } = extractDates(rawDescription, indexEntry, title, kennelPatterns, scheduleTabs);
+  // Drop "[UPDATED]", a dated tail ("…Trail, June 4, 2026, Dupont Circle (Red
+  // Line)") and a doubled year (plan section 5.6, PR A). After extractDates,
+  // which reads the original title for venue-weekend words.
+  title = cleanHashRegoTitle(title);
+  const perDayLocations = rawPerDayLocations?.map(cleanHashRegoLocation);
+  const perDayTitles = rawPerDayTitles?.map((t) => (t ? cleanHashRegoTitle(t) : t));
+  const perDayHares = rawPerDayHares?.map(cleanHashRegoHares);
 
   // Clean description: remove structured fields we already extracted
   const description = cleanDescription(rawDescription);
