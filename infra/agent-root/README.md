@@ -49,7 +49,8 @@ rules are speed bumps against mistakes, not a boundary.
    bash infra/agent-root/install.sh --app-id <app id> --installation-id <installation id> --key ~/hashtracks-agent-app.pem
    ```
 
-   It copies the key into the root (then delete `~/hashtracks-agent-app.pem`), proves it can mint a token, writes
+   It copies the key into the root (then delete `~/hashtracks-agent-app.pem`; to re-install later, pass
+   `--key <root>/.agent/app.pem`), proves it can mint a token, writes
    the settings, and points each task clone (`hashtracks-audit-fixer`, `hashtracks-implementer`,
    `hashtracks-research` under `~/Developer`) at the bot: an HTTPS remote, the shim as git's only
    credential helper, and the bot as commit author. It ends with `root-settings: OK`.
