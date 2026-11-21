@@ -55,7 +55,9 @@ NODE_DIR=""
 NODE_BIN="$(command -v node || true)"
 if [[ "$NODE_BIN" == *fnm_multishells* ]]; then NODE_DIR="$(readlink -f "$(dirname "$NODE_BIN")")"; fi
 # Any directory whose gh is an agent-root shim goes too (this root's, or an older install's).
-BASE_PATH="$(printf '%s' "$PATH" | tr ':' '\n' | while IFS= read -r dir; do
+# The trailing newline matters: `read` drops a last line without one, which lost the last PATH
+# entry (Homebrew's, on the owner's Mac, so node and gh went missing).
+BASE_PATH="$(printf '%s\n' "$PATH" | tr ':' '\n' | while IFS= read -r dir; do
   [[ -z "$dir" || "$dir" == *fnm_multishells* ]] && continue
   [[ "$(basename "$(readlink -f "$dir/gh" 2>/dev/null)")" == agent-gh.sh ]] && continue
   printf '%s\n' "$dir"
@@ -132,6 +134,16 @@ for clone in "${CLONES[@]}"; do
   git -C "$clone" config --local user.email "${BOT_ID}+${BOT}@users.noreply.github.com"
   echo "clone: $clone now pushes and commits as $BOT"
 done
+
+# 6. macOS's path_helper (often in ~/.zshrc) rebuilds PATH with the system and Homebrew dirs first,
+#    which would put the real gh ahead of the shim. This guard, at the end of ~/.zshrc, puts the shim
+#    back in front, in any session whose GH_CONFIG_DIR is an agent root's empty config (any --root).
+ZSHRC="$HOME/.zshrc"
+if ! grep -qF '*/.agent/gh-empty) export PATH=' "$ZSHRC" 2>/dev/null; then
+  # shellcheck disable=SC2016 # written literally; zsh expands it later
+  printf '\n# HashTracks agent root: put its gh shim first, after path_helper (infra/agent-root/README.md).\ncase "$GH_CONFIG_DIR" in */.agent/gh-empty) export PATH="${GH_CONFIG_DIR%%/.agent/gh-empty}/bin:$PATH" ;; esac\n' >>"$ZSHRC"
+  echo "Added the gh-shim PATH guard to the end of $ZSHRC"
+fi
 
 "$ROOT/bin/check-root.sh" "$REPO/.claude/settings.json" || true
 cat <<EOF

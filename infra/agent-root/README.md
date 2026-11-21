@@ -25,6 +25,12 @@ The env block every Bash call of a session started in the root gets:
 | `GH_REPO` | `johnrclem/hashtracks-web` | `gh` can't infer the repository outside a clone |
 | `PATH` | `<root>/bin:` then the install-time `PATH` | The shim wins over the real `gh` |
 
+macOS's `path_helper`, which `~/.zshrc` often runs, rebuilds `PATH` with the system and Homebrew
+folders first. That would put the real `gh` ahead of the shim, so `install.sh` appends a guard to
+`~/.zshrc`: when `GH_CONFIG_DIR` is the root's empty config, it puts `<root>/bin` back in front.
+Your own shells never set that variable and are unaffected. `check-root.sh` flags a missing guard.
+This assumes zsh, the macOS default and what the tasks' Bash calls load on the owner's Mac.
+
 `settings.extra.json` adds the allow rules the tasks need and, as a speed bump rather than a control,
 denies commands that set `GH_CONFIG_DIR`, `GITHUB_TOKEN` or `GH_TOKEN`, call `gh` by absolute path,
 log `gh` in or print its token, or touch `.agent/`; `install.sh` also denies the file tools reading or
