@@ -23,8 +23,8 @@ What is left is real but small:
    The order:
    1. fix that bug (PR 0);
    2. clean Hash Rego's placeholders in the parser (PR A);
-   3. rank Hash Rego above kennels' own sources at trust 10 (PR B);
-   4. add the 17 accounts (PR C).
+   3. rank Hash Rego above kennels' own sources at trust 10 (PR B; skipped 2026-11-23, see section 5.7);
+   4. add the special-event accounts (PR C: 21 shipped, see section 5.7).
 
    PRs B and C each get a per-field dry merge on a prod copy first.
 3. **A deploy gap found on the way:** GATR's seed already disables its static schedule and adds a WordPress source, but prod has neither (section 6). It has nothing to do with Hash Rego and needs its own data migration.
@@ -209,7 +209,7 @@ Build it when any of these happens:
      - Use procedural tokenizing, not one big regex, to stay inside the Sonar S5852/S5843 limits (`.claude/rules/adapter-patterns.md`).
    - **This PR does change data:** fingerprints change, so in-window events re-merge at trust 8 on the first scrape after deploy.
    - **Clean up placeholders already stored:** a one-shot dry-run cleanup of canonical events that already store a Hash Rego placeholder, e.g. "Start Location TBA" on bfh3 10-30 and 12-12 and bfm 10-01 to 10-04. Consider teaching merge's `isPlaceholder` "Start Location TBA" and "TBA" for every source.
-2. **PR B: the trust change** (8 → 10 in the seed plus a migration), after PR 0 and PR A.
+2. **PR B: the trust change** (8 → 10 in the seed plus a migration), after PR 0 and PR A. **Skipped (2026-11-23):** the dry merge (section 5.7) showed it changes only EWH3.
    - Before merging, run a dry merge on a fresh local copy of prod for the 37 scraped kennels.
    - **Report per field:** title, description, location text, pin set or cleared, hares, cost, `dateUtc`, and date moves. Also report events that would need a re-merge.
    - If the report shows bad overwrites, stop and adjust, or decide open question 2 first.
@@ -222,6 +222,50 @@ Build it when any of these happens:
    - check there's no `FIELD_FILL_DROP` alert on Hash Rego after PR A (the 30-point threshold is unlikely to fire, but check);
    - count events with a start time whose `dateUtc` disagrees with it: expect **0 new noon resets** after PR 0, and track the other causes against the 158 baseline until their follow-up lands. Count pins cleared since the deploy too;
    - watch `kennelPagesStopReason` for a week after PR C.
+
+### 5.7 PR B dry-merge results (2026-11-23)
+
+**Method:**
+- `scripts/dry-merge-hashrego-trust.ts`, run on a fresh local copy of prod (dumped 2026-11-23, after PRs 0 and A).
+- Each run deletes Hash Rego's raw events locally, sets its trust, and feeds the latest raw of every Hash Rego-backed event back through the real merge.
+- It ran twice from the same dump, at trust 8 (control) and trust 10. The difference between the two runs is the trust effect alone.
+- The 23 not-yet-scraped accounts with events in the window were fetched live and merged into the same copy, also at both trusts. These are the 17 from section 5, plus accounts that have posted since.
+
+**Result: trust 10 changes one kennel, EWH3.**
+- Scraped kennels: of 75 events, 52 are shared with another source. 21 change between trust 8 and 10, all EWH3. EWH3's website is trust 9, the only source that beats Hash Rego today.
+- Everything else already gets Hash Rego's values at trust 8, since merge's full update runs when trust ≥ the event's.
+- The 23 new accounts: 33 events (26 new, 7 matched to existing events). The two runs are identical. Hash Rego ties or beats every other source for these kennels at 8, including the six the plan expected to change (eph3, sdh3, clh3-sd, ih3, fth3, pch3).
+
+**What trust 10 would do to EWH3's 21 events** (website → Hash Rego):
+
+| Field | Events | Better | Worse |
+|---|---|---|---|
+| Location | 20 | The actual start ("Virginia Highlands Park, follow marks from Pentagon City Metro") instead of the Metro station | Hash Rego's typo "George Avenue/Petwork" |
+| Pin | 10 moved, 2 cleared | Most move a few hundred metres to the real start | "Petwork" geocodes about 30 miles away, near Glen Burnie, MD. "East Falls Church" and "Virginia-GMU Square Metro" lose their pins |
+| Title | 21 | Run number added ("EWH3 #1521: …"). The website's stray ", Thursday" suffix is gone | Kennel prefix repeated on a kennel page |
+| Description | 21 | Hash Rego's full write-up | Loses the website's "End Metro / On After" summary line |
+| Hares | 2 | One real hare in place of "Mystery Hares" | One hare-name spelling differs |
+| Cost | 1 | | $11 vs $10 |
+
+No date, `dateUtc` or start-time changes, and no new events or date moves.
+
+**Found at both trusts, so a PR C issue:**
+- **mh3-mn No Wimps:** Hash Rego has 2027-01-16, the calendar 2027-01-15. The merge creates a second card, not a date move: fuzzy dedup (`MERGE_FUZZY_DEDUP`) is off in this run.
+- **soh4 2027-01-16:** the Hash Rego "Holiday Party" (19:00, $70) matches the regular "SOH4 Trail #879" (14:09) on the same day and replaces its title, time and cost. If the party is a separate event, it hides the trail.
+- **Good outcomes:**
+  - gsh3's static "Biweekly Run" placeholder becomes the Barbie Crawl.
+  - A cancelled pfh3 New Year campout is restored.
+  - sdh3, ih3, lbh3 and jhav-h3 get venues, addresses, hares and costs.
+- **Titles:** some new accounts' titles carry the kennel slug and year ("jHavH3 Hash De Tucson 2026"). This is cosmetic.
+
+**Owner decision (2026-11-23): skip PR B.**
+- Hash Rego stays at trust 8.
+- It already wins everywhere it was meant to. Trust 10 would only swap EWH3's website for Hash Rego, with the mixed result above.
+- If the section 7.1 check finds a reason, revisit it.
+
+**PR C as shipped:**
+- **21 accounts.** These are the 23 with events in the window, minus mh3-mn and soh4, which are held until their problems are handled.
+- **Reconcile check (2026-11-23):** all 21 kennels have 0 upcoming confirmed events without a raw event.
 
 ## 6. Separate fix: seed changes that never reached prod
 
