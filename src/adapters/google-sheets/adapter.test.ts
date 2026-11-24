@@ -759,7 +759,11 @@ describe("buildEventFromSheetRow", () => {
   it.each([
     ["Bring a dry bag", undefined, "rejects instruction verb 'bring'"],
     ["Check the website for details", undefined, "rejects instruction verb 'check'"],
+    ["Formerly Alice; flying home the night before", undefined, "rejects hare-swap note 'formerly'"],
+    ["Covering for Bob", undefined, "rejects hare-swap note 'covering for'"],
+    ["Formerly Fun Run", undefined, "rejects 'formerly' prefix"],
     ["Halloween Hash", "Halloween Hash", "keeps legitimate title"],
+    ["Coverings Party", "Coverings Party", "keeps title that only starts with 'covering'"],
   ])("instruction-title guard: %s → %s (%s)", (titleInput, expected, _desc) => {
     const row = ["100", "3/11/26", "Alice", "Park", titleInput];
     const event = buildEventFromSheetRow(row, baseConfig, "https://example.com", "2026-03-11");

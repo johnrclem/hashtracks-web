@@ -4,8 +4,12 @@ import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, validateSourceConfig, stripPlaceholder, parse12HourTime, buildRunHareTitle } from "../utils";
 import { safeFetch } from "../safe-fetch";
 
-/** Titles starting with these verbs are instructions/notes, not event names. */
-const INSTRUCTION_TITLE_RE = /^(?:bring|check|don['\u2019]t|remember|note|pack|wear)\b/i;
+/**
+ * Titles starting with these verbs are instructions/notes, not event names.
+ * Also hare-swap notes ("Formerly <hare>…", "Covering for <hare>") that
+ * organizers type into the theme column. (#2857)
+ */
+const INSTRUCTION_TITLE_RE = /^(?:(?:bring|check|don['\u2019]t|remember|note|pack|wear|formerly)\b|covering\s+for\b)/i;
 
 /**
  * Detects all-lowercase single-token values that look like city/area
