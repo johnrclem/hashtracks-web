@@ -64,7 +64,8 @@ if [[ "${1:-}" == "auth" && "${2:-}" == "git-credential" ]]; then
   exit 0
 fi
 
-if [[ ! -x "$REAL_GH" || "$REAL_GH" -ef "${BASH_SOURCE[0]}" ]]; then
+# The dispatcher sends agent sessions straight back here, so it can never be the real gh.
+if [[ ! -x "$REAL_GH" || "$REAL_GH" -ef "${BASH_SOURCE[0]}" ]] || grep -q 'HashTracks gh dispatcher' "$REAL_GH" 2>/dev/null; then
   echo "agent-gh: REAL_GH in $ROOT/.agent/config isn't the real gh (run install.sh)" >&2
   exit 97
 fi

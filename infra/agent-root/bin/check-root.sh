@@ -47,6 +47,10 @@ fi
 
 [[ -x "$ROOT/bin/gh" && -x "$ROOT/bin/mint-token.sh" ]] || problems+=("the gh shim or minter is missing")
 [[ -r "$ROOT/.agent/config" ]] || problems+=("no .agent/config")
+real_gh="$(sed -n 's/^REAL_GH=//p' "$ROOT/.agent/config" 2>/dev/null | head -1)"
+if [[ ! -x "$real_gh" ]] || grep -q 'HashTracks gh dispatcher' "$real_gh" 2>/dev/null; then
+  problems+=("REAL_GH ($real_gh) isn't the real gh, so the shim would loop (re-run install.sh)")
+fi
 # gh keeps logins in hosts.yml; the empty config dir must never get one.
 if [[ -s "$ROOT/.agent/gh-empty/hosts.yml" ]]; then
   problems+=("gh has a stored login in .agent/gh-empty")

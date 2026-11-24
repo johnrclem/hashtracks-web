@@ -52,14 +52,17 @@ if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then die "$ROOT is inside
 # directories, which vanish when that shell exits. When Node comes from one of those, keep the
 # directory it links to (fnm's installed version) instead.
 NODE_DIR=""
+is_dispatcher() { grep -q 'HashTracks gh dispatcher' "$1" 2>/dev/null; }
 NODE_BIN="$(command -v node || true)"
 if [[ "$NODE_BIN" == *fnm_multishells* ]]; then NODE_DIR="$(readlink -f "$(dirname "$NODE_BIN")")"; fi
-# Any directory whose gh is an agent-root shim goes too (this root's, or an older install's).
+# Any directory whose gh is an agent-root shim or the dispatcher (step 6) goes too: the shim must
+# record the real gh, or shim -> dispatcher -> shim loops forever, minting a token each time.
 # The trailing newline matters: `read` drops a last line without one, which lost the last PATH
 # entry (Homebrew's, on the owner's Mac, so node and gh went missing).
 BASE_PATH="$(printf '%s\n' "$PATH" | tr ':' '\n' | while IFS= read -r dir; do
   [[ -z "$dir" || "$dir" == *fnm_multishells* ]] && continue
   [[ "$(basename "$(readlink -f "$dir/gh" 2>/dev/null)")" == agent-gh.sh ]] && continue
+  is_dispatcher "$dir/gh" && continue
   printf '%s\n' "$dir"
 done | paste -sd: -)"
 if [[ -n "$NODE_DIR" && ":$BASE_PATH:" != *":$NODE_DIR:"* ]]; then
@@ -75,8 +78,9 @@ on_base_path() {
 
 # 2. Scripts, the key and the config.
 REAL_GH="$(on_base_path gh || true)"
-[[ -n "$REAL_GH" && "$(basename "$(readlink -f "$REAL_GH")")" != agent-gh.sh ]] \
-  || die "couldn't find the real gh on PATH (brew install gh)"
+if [[ -z "$REAL_GH" || "$(basename "$(readlink -f "$REAL_GH")")" == agent-gh.sh ]] || is_dispatcher "$REAL_GH"; then
+  die "couldn't find the real gh on PATH (brew install gh)"
+fi
 [[ -x "$REAL_GH" ]] || die "gh isn't installed (brew install gh)"
 mkdir -p "$ROOT/bin" "$ROOT/.agent/gh-empty" "$ROOT/.claude"
 chmod 700 "$ROOT/.agent"
@@ -141,7 +145,7 @@ done
 #    does. So a dispatcher goes where the snapshot's PATH finds it before Homebrew: ~/.local/bin/gh.
 #    It runs this root's shim when GH_CONFIG_DIR is an agent root's empty config, else the real gh.
 DISPATCHER="$HOME/.local/bin/gh"
-if [[ -e "$DISPATCHER" ]] && ! grep -q 'HashTracks gh dispatcher' "$DISPATCHER" 2>/dev/null; then
+if [[ -e "$DISPATCHER" ]] && ! is_dispatcher "$DISPATCHER"; then
   die "$DISPATCHER exists and isn't the HashTracks dispatcher; move it aside and re-run"
 fi
 mkdir -p "$HOME/.local/bin"
