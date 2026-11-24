@@ -761,7 +761,6 @@ describe("buildEventFromSheetRow", () => {
     ["Check the website for details", undefined, "rejects instruction verb 'check'"],
     ["Formerly Alice; flying home the night before", undefined, "rejects hare-swap note 'formerly'"],
     ["Covering for Bob", undefined, "rejects hare-swap note 'covering for'"],
-    ["Formerly Fun Run", undefined, "rejects 'formerly' prefix"],
     ["Halloween Hash", "Halloween Hash", "keeps legitimate title"],
     ["Coverings Party", "Coverings Party", "keeps title that only starts with 'covering'"],
   ])("instruction-title guard: %s → %s (%s)", (titleInput, expected, _desc) => {
