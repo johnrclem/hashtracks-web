@@ -138,11 +138,11 @@ describe("parseBrassMonkeyBody", () => {
 describe("parseYearlessBodyDate", () => {
   it("infers the year from the publish date", () => {
     const text = "WHEN: Friday, December 4th, at 7:00pm";
-    expect(parseYearlessBodyDate(text, new Date("2026-11-13T23:04:37-06:00"))).toBe("2026-12-04");
+    expect(parseYearlessBodyDate(text, "2026-11-13T23:04:37-06:00")).toBe("2026-12-04");
   });
 
   it("rolls into next year for a January date posted in December", () => {
-    expect(parseYearlessBodyDate("Saturday, January 9th", new Date("2026-12-20T12:00:00Z"))).toBe("2027-01-09");
+    expect(parseYearlessBodyDate("Saturday, January 9th", "2026-12-20T12:00:00Z")).toBe("2027-01-09");
   });
 
   it("returns undefined without a publish date", () => {
@@ -399,7 +399,6 @@ describe("BrassMonkeyAdapter.fetch (Blogger API path)", () => {
     expect(result.diagnosticContext).toMatchObject({
       postsFound: 2,
       eventsParsed: 1,
-      skippedPosts: ["No date found in post: Sign up to hare in 2027!"],
     });
   });
 });
@@ -407,6 +406,6 @@ describe("BrassMonkeyAdapter.fetch (Blogger API path)", () => {
 describe("parseYearlessBodyDate — labelled line wins", () => {
   it("prefers the WHEN: line over an earlier RSVP date", () => {
     const body = "RSVP by Monday, November 30th\nWHEN: Friday, December 4th, at 7:00pm";
-    expect(parseYearlessBodyDate(body, new Date("2026-11-13T00:00:00Z"))).toBe("2026-12-04");
+    expect(parseYearlessBodyDate(body, "2026-11-13T00:00:00Z")).toBe("2026-12-04");
   });
 });

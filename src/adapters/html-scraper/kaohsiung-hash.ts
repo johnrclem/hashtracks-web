@@ -210,13 +210,15 @@ const LINK_TEXT_SUFFIX = " here";
  * "Meeting point:" and the "HERE" link text dropped.
  */
 function parseWhereLine(lines: string[]): string | undefined {
-  let label: string | undefined;
-  const line = lines.find((l) => {
-    label = VENUE_LABELS.find((v) => l.toLowerCase().startsWith(v));
-    return label !== undefined;
-  });
-  if (!line || !label) return undefined;
-  let value = line.slice(label.length).trim();
+  for (const line of lines) {
+    const label = VENUE_LABELS.find((v) => line.toLowerCase().startsWith(v));
+    if (label) return venueFromLine(line.slice(label.length));
+  }
+  return undefined;
+}
+
+function venueFromLine(rest: string): string | undefined {
+  let value = rest.trim();
   if (value.toLowerCase().startsWith(MEETING_POINT_LABEL)) value = value.slice(MEETING_POINT_LABEL.length).trim();
   if (value.toLowerCase().endsWith(LINK_TEXT_SUFFIX)) value = value.slice(0, -LINK_TEXT_SUFFIX.length);
   // The line is the venue alone, so only a trailing '.' goes ("St. Paul's" stays whole).
@@ -528,31 +530,28 @@ function buildRun(
   start: number,
   end: number,
   now: Date,
-): { run?: ParsedRun; error?: ParseError; undated?: number } {
+): { run?: ParsedRun; error?: ParseError; undatedRun?: number } {
   const heading = blocks[start].text;
   const rm = RUN_RE.exec(heading);
   if (!rm) return {};
   const runNumber = Number.parseInt(rm[1], 10);
 
   const dated = parseRunDate(blocks, start, end, now);
-  // Announced with no date anywhere yet: nothing to publish, and nothing that
-  // drifted. Reported in diagnostics, not as an error.
-  if (!dated && !hasDateCue(blocks, start, end)) return { undated: runNumber };
   if (!dated) {
     // A numbered run whose date no longer parses is markup drift, NOT a
     // legitimately-absent run. Record a parse error so fetch() suppresses
     // reconcile.ts — silently dropping it would let the reconciler false-CANCEL
     // this run's sole-source canonical even though the page still lists it (the
-    // windowed-empty guard alone misses partial drift).
-    return {
-      error: {
-        row: start,
-        section: "run_information",
-        field: "date",
-        error: `Kaohsiung H3: could not parse date for run #${runNumber}`,
-        rawText: heading.slice(0, 200),
-      },
+    // windowed-empty guard alone misses partial drift). A run with no date cue
+    // at all is flagged `undatedRun`: the page pass may treat it as an announcement.
+    const error: ParseError = {
+      row: start,
+      section: "run_information",
+      field: "date",
+      error: `Kaohsiung H3: could not parse date for run #${runNumber}`,
+      rawText: heading.slice(0, 200),
     };
+    return hasDateCue(blocks, start, end) ? { error } : { error, undatedRun: runNumber };
   }
 
   const body = parseRunBody(blocks, start, end, dated.leadLines);
@@ -603,14 +602,14 @@ export function parseKaohsiungHashPage(
 
   const runs: ParsedRun[] = [];
   const parseErrors: ParseError[] = [];
-  const undatedRuns: { runNumber: number; row: number; heading: string }[] = [];
+  const undated: { runNumber: number; error: ParseError }[] = [];
   for (let s = 0; s < runStarts.length; s++) {
     const start = runStarts[s];
     const end = s + 1 < runStarts.length ? runStarts[s + 1] : blocks.length;
-    const { run, error, undated } = buildRun(blocks, start, end, now);
+    const { run, error, undatedRun } = buildRun(blocks, start, end, now);
     if (run) runs.push(run);
+    else if (error && undatedRun !== undefined) undated.push({ runNumber: undatedRun, error });
     else if (error) parseErrors.push(error);
-    else if (undated !== undefined) undatedRuns.push({ runNumber: undated, row: start, heading: blocks[start].text });
   }
 
   // Only an announcement AFTER every dated run is legitimately undated (#2746
@@ -619,18 +618,9 @@ export function parseKaohsiungHashPage(
   // silent skip would let reconcile cancel its event.
   const lastDated = Math.max(0, ...runs.map((r) => r.runNumber));
   const announced: number[] = [];
-  for (const u of undatedRuns) {
-    if (u.runNumber > lastDated) {
-      announced.push(u.runNumber);
-      continue;
-    }
-    parseErrors.push({
-      row: u.row,
-      section: "run_information",
-      field: "date",
-      error: `Kaohsiung H3: could not parse date for run #${u.runNumber}`,
-      rawText: u.heading.slice(0, 200),
-    });
+  for (const u of undated) {
+    if (u.runNumber > lastDated) announced.push(u.runNumber);
+    else parseErrors.push(u.error);
   }
 
   return { runs, blockCount: blocks.length, parseErrors, undatedRuns: announced };

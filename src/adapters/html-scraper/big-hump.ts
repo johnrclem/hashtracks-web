@@ -30,6 +30,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "..
 import { hasAnyErrors } from "../types";
 import { safeFetch } from "../safe-fetch";
 import { buildDateWindow, isPlaceholder, stripHtmlTags } from "../utils";
+import { formatTimeInZone, formatYmdInTimezone } from "@/lib/timezone";
 
 const KENNEL_TAG = "bh4";
 const CLUB_TZ = "America/Chicago";
@@ -201,27 +202,9 @@ export function buildRunQuery(from: Date, to: Date): unknown {
 
 // ─── Mapping ────────────────────────────────────────────────────────────────
 
-const CHICAGO_PARTS = new Intl.DateTimeFormat("en-US", {
-  timeZone: CLUB_TZ,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
-});
-
-/**
- * Club-local date and start time for a `startsAt` instant.
- *
- * Legacy rows with no known time were imported at local midnight; those get
- * no `startTime` rather than a fake "00:00".
- */
 export function toClubDateTime(d: Date): { date: string; startTime?: string } {
-  const parts: Record<string, string> = {};
-  for (const p of CHICAGO_PARTS.formatToParts(d)) parts[p.type] = p.value;
-  const date = `${parts.year}-${parts.month}-${parts.day}`;
-  const time = `${parts.hour}:${parts.minute}`;
+  const date = formatYmdInTimezone(d, CLUB_TZ);
+  const time = formatTimeInZone(d, CLUB_TZ, "HH:mm");
   return time === "00:00" ? { date } : { date, startTime: time };
 }
 

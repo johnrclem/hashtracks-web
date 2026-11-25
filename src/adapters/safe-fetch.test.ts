@@ -229,6 +229,13 @@ describe("safeFetch transient network retry", () => {
     expect(spy).toHaveBeenCalledTimes(2);
   });
 
+  it("does not retry when the caller opts out (it retries itself)", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockRejectedValue(fetchFailed());
+    await expect(safeFetch("https://example.com/", { retryTransient: false })).rejects.toThrow("fetch failed");
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][1]).not.toHaveProperty("retryTransient");
+  });
+
   it("does not retry a POST", async () => {
     const spy = vi.spyOn(globalThis, "fetch").mockRejectedValue(fetchFailed());
     await expect(

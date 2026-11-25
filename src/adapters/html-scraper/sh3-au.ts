@@ -6,9 +6,9 @@ import {
   cleanLocationName,
   fetchHTMLPage,
   formatAmPmTime,
-  isoDate,
   stripClickHereForMap,
 } from "../utils";
+import { inferYearClosestToPublish } from "../year-inference";
 
 /**
  * Sydney H3 ("Posh Hash") — sh3.link
@@ -56,19 +56,8 @@ const DAY_MS = 86_400_000;
 function parseSh3Date(dateField: string, referenceDate: Date): string | null {
   const parsed = chronoParseDate(dateField, "en-GB", referenceDate, { requireCertainDate: true });
   if (!parsed || /\b\d{4}\b/.test(dateField)) return parsed;
-  const [y, m, d] = parsed.split("-").map((n) => Number.parseInt(n, 10));
-  let best: string | null = null;
-  let bestDistance = Infinity;
-  for (const year of [y - 1, y, y + 1]) {
-    const candidate = isoDate(year, m, d);
-    if (!candidate) continue;
-    const distance = Math.abs(Date.parse(`${candidate}T12:00:00Z`) - referenceDate.getTime());
-    if (distance < bestDistance) {
-      best = candidate;
-      bestDistance = distance;
-    }
-  }
-  return best;
+  const [, m, d] = parsed.split("-").map((n) => Number.parseInt(n, 10));
+  return inferYearClosestToPublish(d, m, referenceDate.toISOString());
 }
 
 /**

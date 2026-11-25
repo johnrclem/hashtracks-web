@@ -3,6 +3,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseErro
 import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, compilePatterns, stripHtmlIfTagged, appendDescriptionSuffix, isPlaceholder, extractHashRunNumber, hasPlaceholderRunNumber, cleanLocationName, eqTrimLc, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE } from "../utils";
 import { safeFetch } from "../safe-fetch";
+import { isValidTimezone } from "@/lib/timezone";
 import { enrichSFH3Events, markSFH3SeriesMembership } from "../html-scraper/sfh3-detail-enrichment";
 import { enrichBerlinH3Events } from "../html-scraper/berlin-h3-detail-enrichment";
 import { sync as icalSync } from "node-ical";
@@ -553,8 +554,6 @@ export function extractMapsUrlFromDescription(description: string): string | und
   return undefined;
 }
 
-/** UTC spellings node-ical leaves on a `…Z` value. */
-const UTC_ZONES = new Set(["UTC", "Etc/UTC", "Z", "GMT", "Etc/GMT"]);
 
 /**
  * Zone to read a timed value in: its own TZID; for a UTC value ("…Z", which
@@ -563,7 +562,8 @@ const UTC_ZONES = new Set(["UTC", "Etc/UTC", "Z", "GMT", "Etc/GMT"]);
  */
 function displayZone(dt: DateWithTimeZone, fallbackTz?: string): string {
   if (!dt.tz) return "UTC";
-  if (UTC_ZONES.has(dt.tz) && fallbackTz) return fallbackTz;
+  // node-ical tags a "…Z" value Etc/UTC; an explicit TZID=UTC keeps its own zone.
+  if (dt.tz === "Etc/UTC" && fallbackTz && isValidTimezone(fallbackTz)) return fallbackTz;
   return dt.tz;
 }
 

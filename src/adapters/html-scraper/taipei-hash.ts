@@ -9,7 +9,7 @@ import type {
   ParseError,
 } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, filterEventsByWindow, normalizeHaresField } from "../utils";
+import { fetchHTMLPage, filterEventsByWindow, isoDate, normalizeHaresField } from "../utils";
 
 // Taipei Hash House Harriers (台北捷兔) — Taiwan's oldest hash (founded 1973).
 // Static Cheerio scrape of the server-rendered hareline at
@@ -28,7 +28,6 @@ const KENNEL_TAG = "taipei-h3";
 const DEFAULT_URL = "https://www.taipeihash.com.tw/runs";
 const LEGACY_PATH = "/run_site.php";
 const DEFAULT_START_TIME = "14:30"; // "每星期六下午 2:30 起跑"
-const NOON_HOUR = 12;
 
 const DATE_RE = /(\d{4})\/(\d{1,2})\/(\d{1,2})/; // YYYY/MM/DD — ignores weekday tail
 const RUN_RE = /(\d+)/;
@@ -67,23 +66,14 @@ function squash(text: string): string {
 /** Run number from a "#2803" span. */
 function parseRunNumber($el: Cheerio<Element>): number | null {
   const match = RUN_RE.exec($el.text());
-  if (!match) return null;
-  const n = Number.parseInt(match[1], 10);
-  return Number.isNaN(n) ? null : n;
+  return match ? Number(match[1]) : null;
 }
 
 /** "2026/11/28（六） Sat" → "2026-11-28" (round-trip validated), else null. */
 export function parseTaipeiDate(text: string): string | null {
   const match = DATE_RE.exec(text);
   if (!match) return null;
-  const year = Number.parseInt(match[1], 10);
-  const month = Number.parseInt(match[2], 10);
-  const day = Number.parseInt(match[3], 10);
-  const d = new Date(Date.UTC(year, month - 1, day, NOON_HOUR, 0, 0));
-  if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) {
-    return null;
-  }
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return isoDate(Number(match[1]), Number(match[2]), Number(match[3]));
 }
 
 /** "<span>中文</span><span class="hm-en">English</span>" → "中文 English". */
@@ -144,7 +134,7 @@ function buildLocation(district: string | undefined, meeting: string | undefined
 }
 
 /** Map run number → "HH:MM" from the JSON-LD Event startDates. */
-export function parseLdStartTimes($: CheerioAPI): Map<number, string> {
+function parseLdStartTimes($: CheerioAPI): Map<number, string> {
   const times = new Map<number, string>();
   $("script[type='application/ld+json']").each((_, el) => {
     let data: unknown;

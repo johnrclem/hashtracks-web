@@ -657,7 +657,7 @@ git add . && git commit && git push
 - Iframe URLs return "unauthorized" when rendered standalone — must use `frameUrl` parameter to extract content from within the parent page context
 - `frameUrl` matches iframe by URL substring — use Table Master `compId` (e.g., `comp-ksnfhbg7`) to disambiguate when multiple iframes exist on one page
 - Wix pages never reach `networkidle` (continuous background requests) — server uses `domcontentloaded` for `page.goto`, then `waitForSelector` for content readiness
-- NAS browser render handles one render at a time — `Promise.all` for multiple pages will get 429 on the second request, client 3-retry logic with 2s backoff handles this gracefully
+- NAS browser render handles one render at a time and answers a busy request with an immediate 429. `browserRender` retries a 429 twice (after 10s, then 15s), but render an adapter's pages one after the other rather than with `Promise.all` (Bangkok FM, Nov 2026)
 - Two event series from one kennel (Bull Moon monthly Sat 12pm + T3 weekly Thu 6:45pm) — classify by Event column text, apply per-series default start times
 - 2-digit year dates ("Thu, 2 Apr 26") confuse chrono-node — use manual parsing with century inference (< 70 → 20xx, ≥ 70 → 19xx)
 - Key lesson: Always spike-test browser rendering against the actual site before writing the adapter — iframe discovery and rendering strategy cannot be assumed from documentation

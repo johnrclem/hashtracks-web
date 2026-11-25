@@ -4859,9 +4859,9 @@ export const SOURCES = [
       trustLevel: 6,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      // run_site.php is a rolling ~6-month window (current + 3 future + ~23
-      // history rows). upcomingOnly keeps reconcile.ts from false-CANCELLing the
-      // history rows as they age off the page (they still ingest on first scrape).
+      // /runs (Nov 2026 rebuild; run_site.php 301s here) shows this week, the
+      // next few runs and this year's past runs, so January drops last year's.
+      // upcomingOnly keeps reconcile.ts from false-CANCELLing runs as they age off.
       config: { upcomingOnly: true },
       kennelCodes: ["taipei-h3"],
     },

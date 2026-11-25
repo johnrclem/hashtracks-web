@@ -1,5 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { formatRenderErrorBody } from "./browser-render";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { browserRender, formatRenderErrorBody } from "./browser-render";
+
+vi.mock("@/adapters/ssrf-dns", () => ({ validateSourceUrlWithDns: vi.fn().mockResolvedValue(undefined) }));
 
 describe("formatRenderErrorBody", () => {
   it("formats {error, detail} as 'error: detail' (server 502 branch)", () => {
@@ -39,5 +41,39 @@ describe("formatRenderErrorBody", () => {
   it("handles empty JSON object by returning the raw text", () => {
     const body = "{}";
     expect(formatRenderErrorBody(body)).toBe(body);
+  });
+});
+
+describe("browserRender busy retries", () => {
+  beforeEach(() => {
+    vi.stubEnv("BROWSER_RENDER_URL", "https://render.example");
+    vi.stubEnv("BROWSER_RENDER_KEY", "k");
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it("waits and retries twice on a busy 429, then returns the render", async () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("busy", { status: 429 }))
+      .mockResolvedValueOnce(new Response("busy", { status: 429 }))
+      .mockResolvedValueOnce(new Response("<html/>", { status: 200 }));
+    const p = browserRender({ url: "https://example.com/" });
+    await vi.runAllTimersAsync();
+    await expect(p).resolves.toBe("<html/>");
+    expect(spy).toHaveBeenCalledTimes(3);
+  });
+
+  it("gives up after the last busy retry", async () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response("busy", { status: 429 }));
+    const p = browserRender({ url: "https://example.com/" });
+    const assertion = expect(p).rejects.toThrow("Browser render error (429)");
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(spy).toHaveBeenCalledTimes(3);
   });
 });

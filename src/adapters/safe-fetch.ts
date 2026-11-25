@@ -31,9 +31,9 @@ function isTransientNetworkError(err: unknown): boolean {
  * SCRAPE_FAILURE alerts in Nov 2026 were a lone `fetch failed` that the next
  * day's scrape didn't repeat (Sydney Larrikins, Nov 2026).
  */
-async function fetchHop(url: string, init: RequestInit): Promise<Response> {
+async function fetchHop(url: string, init: RequestInit, retryTransient: boolean): Promise<Response> {
   const method = (init.method ?? "GET").toUpperCase();
-  const retryable = (method === "GET" || method === "HEAD") && init.body == null;
+  const retryable = retryTransient && (method === "GET" || method === "HEAD") && init.body == null;
   try {
     return await fetch(url, init); // NOSONAR nosemgrep — URL validated by caller (SSRF guard)
   } catch (err) {
@@ -71,6 +71,12 @@ export interface SafeFetchOptions extends RequestInit {
    * origin blocks direct datacenter traffic).
    */
   egress?: ProxyEgress;
+  /**
+   * Retry an idempotent direct GET once after a transient network failure
+   * (default true). Pass false where the caller already retries, so the two
+   * layers don't multiply attempts and waits.
+   */
+  retryTransient?: boolean;
 }
 
 /**
@@ -214,13 +220,14 @@ export async function safeFetch(
   // across every redirect hop, so it bounds the *total* request time rather
   // than resetting per hop; a caller-supplied signal takes precedence.
   const signal = init?.signal ?? AbortSignal.timeout(45_000);
+  const { retryTransient = true, ...fetchInit } = init ?? {};
 
   while (redirectCount < MAX_REDIRECTS) {
     // This IS the SSRF guard: currentUrl is validated by validateSourceUrlWithDns()
     // before the first fetch and again after every redirect target is computed
     // (the call above the loop + line 105). The variable-URL fetch is intentional.
     // nosemgrep
-    const response = await fetchHop(currentUrl, { ...init, redirect: "manual", signal });
+    const response = await fetchHop(currentUrl, { ...fetchInit, redirect: "manual", signal }, retryTransient);
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       if (!location) return response;

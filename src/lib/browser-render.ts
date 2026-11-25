@@ -59,6 +59,9 @@ export interface RenderOptions {
  *
  * Requires BROWSER_RENDER_URL and BROWSER_RENDER_KEY env vars.
  */
+/** Waits before each retry of a busy (429) render; one entry per extra try. */
+const BUSY_RETRY_DELAYS_MS = [10_000, 15_000];
+
 export async function browserRender(options: RenderOptions): Promise<string> {
   // Defense-in-depth: validate the target URL before forwarding to the NAS
   // render service. The NAS service has its own SSRF check but we want to
@@ -78,15 +81,15 @@ export async function browserRender(options: RenderOptions): Promise<string> {
     );
   }
 
-  // Retry budget: the cron scrape route has maxDuration=120s. Each fetch below
-  // can take up to 45s. We allow at most one retry on 429 and bound the backoff
-  // so the worst-case wall time is ~100s (45 + 10 + 45), leaving ~20s for the
-  // rest of the scrape pipeline to run and record its result.
-  const maxAttempts = 2;
-  const backoffMs = 10_000;
+  // Retry budget: the cron scrape route has maxDuration=120s. The render
+  // service runs one render at a time and answers "busy" with an immediate 429,
+  // so a busy reply costs only the wait before the next try: worst case is
+  // 10s + 15s of waiting plus one 45s render (~70s), leaving room for the rest
+  // of the scrape. Another source holding the slot past the first wait was
+  // failing Bangkok Full Moon (Nov 2026).
   const fetchTimeoutMs = 45_000;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  for (let attempt = 0; ; attempt++) {
     const response = await fetch(`${renderUrl}/render`, {
       method: "POST",
       headers: {
@@ -104,8 +107,9 @@ export async function browserRender(options: RenderOptions): Promise<string> {
       signal: AbortSignal.timeout(fetchTimeoutMs), // 30s render timeout + 15s tunnel buffer
     });
 
-    if (response.status === 429 && attempt < maxAttempts) {
-      await new Promise((r) => setTimeout(r, backoffMs));
+    const busyDelay = BUSY_RETRY_DELAYS_MS[attempt];
+    if (response.status === 429 && busyDelay !== undefined) {
+      await new Promise((r) => setTimeout(r, busyDelay));
       continue;
     }
 
@@ -118,8 +122,4 @@ export async function browserRender(options: RenderOptions): Promise<string> {
 
     return response.text();
   }
-
-  // Unreachable: the loop's final iteration always exits via the !response.ok
-  // throw above. Kept as a defensive assertion for TypeScript control flow.
-  throw new Error("Browser render: unexpected exit from retry loop");
 }

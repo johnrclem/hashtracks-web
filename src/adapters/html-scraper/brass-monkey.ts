@@ -2,7 +2,8 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { fetchBloggerPosts } from "../blogger-api";
-import { applyDateWindow, chronoParseDate, decodeEntities, fetchHTMLPage, googleMapsSearchUrl, isoDate, isPlaceholder, MONTHS, parse12HourTime, parsePublishDate, stripHtmlTags } from "../utils";
+import { applyDateWindow, chronoParseDate, decodeEntities, fetchHTMLPage, googleMapsSearchUrl, isPlaceholder, MONTHS, parse12HourTime, stripHtmlTags } from "../utils";
+import { inferYearClosestToPublish } from "../year-inference";
 
 const ORDINALS: Record<string, number> = {
   first: 1, second: 2, third: 3, fourth: 4, fifth: 5,
@@ -38,11 +39,10 @@ const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "frida
 
 /**
  * Parse a year-less "Weekday, Month Dth" date from a post body, picking the
- * year (publish year −1/0/+1) closest to the publish date. A candidate whose
- * weekday matches the stated weekday wins over one that doesn't.
+ * year closest to the publish date (a year on the stated weekday wins).
  */
-export function parseYearlessBodyDate(text: string, publishDate: Date | undefined): string | undefined {
-  if (!publishDate) return undefined;
+export function parseYearlessBodyDate(text: string, publishedIso: string | undefined): string | undefined {
+  if (!publishedIso) return undefined;
   // Prefer the event's own "WHEN:"/"Date:" line over an earlier mention
   // ("RSVP by Monday, November 30th … WHEN: Friday, December 4th").
   const labelled = LABELLED_DATE_LINE_RE.exec(text)?.[0];
@@ -50,18 +50,7 @@ export function parseYearlessBodyDate(text: string, publishDate: Date | undefine
   if (!m) return undefined;
   const weekday = WEEKDAYS.indexOf(m[1].toLowerCase());
   const month = MONTHS[m[2].toLowerCase().slice(0, 3)];
-  const day = parseInt(m[3], 10);
-  const pubY = publishDate.getUTCFullYear();
-  let best: { iso: string; score: number } | undefined;
-  for (const year of [pubY - 1, pubY, pubY + 1]) {
-    const iso = isoDate(year, month, day);
-    if (!iso) continue;
-    const d = new Date(`${iso}T12:00:00Z`);
-    const distance = Math.abs(d.getTime() - publishDate.getTime());
-    const score = distance + (d.getUTCDay() === weekday ? 0 : 1e13);
-    if (!best || score < best.score) best = { iso, score };
-  }
-  return best?.iso;
+  return inferYearClosestToPublish(Number.parseInt(m[3], 10), month, publishedIso, weekday) ?? undefined;
 }
 
 /** Convert ordinal word to number: "fourteenth" → 14, "third" → 3 */
@@ -178,7 +167,7 @@ function processPost(
 
   const eventDate = bodyFields.date
     ?? titleFields.date
-    ?? parseYearlessBodyDate(bodyText, parsePublishDate(publishedIso));
+    ?? parseYearlessBodyDate(bodyText, publishedIso);
   if (!eventDate) {
     // A post without a date (hare sign-up plea, announcement) is skipped and
     // recorded as a parse diagnostic; it only fails the scrape when no post
@@ -233,19 +222,18 @@ function finalizeResult(
   events: RawEventData[],
   errorDetails: ErrorDetails,
   postsFound: number,
-): Pick<ScrapeResult, "events" | "errors" | "errorDetails"> & { skippedPosts: string[] } {
-  const skippedPosts = (errorDetails.parse ?? []).map((e) => e.error);
+  diagnostics: Record<string, unknown>,
+): ScrapeResult {
   let errors: string[] = [];
   if (postsFound > 0 && events.length === 0) {
-    errors = skippedPosts.length > 0
-      ? skippedPosts
-      : [`${postsFound} post(s) found but none produced an event`];
+    const skipped = (errorDetails.parse ?? []).map((e) => e.error);
+    errors = skipped.length > 0 ? skipped : [`${postsFound} post(s) found but none produced an event`];
   }
   return {
     events,
     errors,
     errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
-    skippedPosts,
+    diagnosticContext: { ...diagnostics, postsFound, eventsParsed: events.length },
   };
 }
 
@@ -300,19 +288,11 @@ export class BrassMonkeyAdapter implements SourceAdapter {
       if (event) events.push(event);
     }
 
-    const { skippedPosts, ...result } = finalizeResult(events, errorDetails, bloggerResult.posts.length);
-
-    return {
-      ...result,
-      diagnosticContext: {
-        fetchMethod: "blogger-api",
-        blogId: bloggerResult.blogId,
-        postsFound: bloggerResult.posts.length,
-        eventsParsed: events.length,
-        skippedPosts,
-        fetchDurationMs: bloggerResult.fetchDurationMs,
-      },
-    };
+    return finalizeResult(events, errorDetails, bloggerResult.posts.length, {
+      fetchMethod: "blogger-api",
+      blogId: bloggerResult.blogId,
+      fetchDurationMs: bloggerResult.fetchDurationMs,
+    });
   }
 
   private async fetchViaHtmlScrape(baseUrl: string): Promise<ScrapeResult> {
@@ -341,18 +321,9 @@ export class BrassMonkeyAdapter implements SourceAdapter {
       if (event) events.push(event);
     }
 
-    const { skippedPosts, ...result } = finalizeResult(events, errorDetails, posts.length);
-
     return {
-      ...result,
+      ...finalizeResult(events, errorDetails, posts.length, { fetchMethod: "html-scrape", fetchDurationMs }),
       structureHash,
-      diagnosticContext: {
-        fetchMethod: "html-scrape",
-        postsFound: posts.length,
-        eventsParsed: events.length,
-        skippedPosts,
-        fetchDurationMs,
-      },
     };
   }
 }
