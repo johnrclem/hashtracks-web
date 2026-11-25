@@ -427,6 +427,28 @@ export function parseNextRunDirections(
 }
 
 /**
+ * The NAS render service runs ONE render at a time and answers any request
+ * that arrives while it is busy with an immediate 429 ("Server busy").
+ * `browserRender` retries a 429 once after 10s; when another source's render
+ * (or a long render of ours) holds the slot past that, the hareline fails. The
+ * hareline is the required page, so give it one more, longer wait (BFMH3 429s,
+ * Nov 2026). Worst case: 10s + 15s + 10s + one 45s render = 80s, inside the
+ * 120s cron budget.
+ */
+const RENDER_BUSY_RETRY_DELAYS_MS = [15_000];
+
+/**
+ * Start the best-effort next-run render only while this much of the scrape
+ * budget is left unused: its own worst case (429, 10s, one 45s render) is ~55s.
+ */
+const NEXT_RUN_START_BUDGET_MS = 45_000;
+
+/** True when `browserRender` gave up on the render service's busy 429. */
+function isRenderBusyError(err: unknown): boolean {
+  return String(err).includes("Browser render error (429)");
+}
+
+/**
  * Render a HashWebApp page in the NAS headless browser and return its HTML.
  *
  * Since the Nov 2026 rebuild, bangkokhash.com drops direct requests from both
@@ -435,12 +457,25 @@ export function parseNextRunDirections(
  * ViewHL_Server.php from inside the page, so rendering it yields the hareline
  * markup (`div.hl-row`) that `parseHarelineRows` already parses. `waitFor`
  * makes the render wait for the script's rows / the next-run table.
+ *
+ * `busyRetryDelaysMs` adds waits on top of `browserRender`'s own single 429
+ * retry; each entry is one more attempt after a busy 429.
  */
-async function renderHashWebApp(url: string, waitFor: string): Promise<string | { error: string }> {
-  try {
-    return await browserRender({ url, waitFor, timeout: 45_000 });
-  } catch (err) {
-    return { error: `Browser render failed for ${url}: ${err}` };
+async function renderHashWebApp(
+  url: string,
+  waitFor: string,
+  busyRetryDelaysMs: readonly number[] = [],
+): Promise<string | { error: string }> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await browserRender({ url, waitFor, timeout: 45_000 });
+    } catch (err) {
+      const delay = busyRetryDelaysMs[attempt];
+      if (delay === undefined || !isRenderBusyError(err)) {
+        return { error: `Browser render failed for ${url}: ${err}` };
+      }
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
   }
 }
 
@@ -484,12 +519,20 @@ export class BangkokHashAdapter implements SourceAdapter {
     const days = options?.days ?? source.scrapeDays ?? 365;
 
     // Both HashWebApp pages are rendered in the NAS headless browser (see
-    // renderHashWebApp). The two renders are independent → run together.
+    // renderHashWebApp). The render service takes one render at a time and
+    // 429s the rest, so rendering the two pages in parallel made them collide
+    // with each other: whichever lost the race got a 429. Render them one
+    // after the other, hareline (required) first.
+    const harelineResult = await renderHashWebApp(
+      `${HASHWEBAPP_BASE}/ViewHL.php?a=false&b=${hashClub}`,
+      ".hl-row",
+      RENDER_BUSY_RETRY_DELAYS_MS,
+    );
     const nextRunUrl = `${HASHWEBAPP_BASE}/ViewNextRunDirections.php?b=${hashClub}`;
-    const [harelineResult, nextRunResult] = await Promise.all([
-      renderHashWebApp(`${HASHWEBAPP_BASE}/ViewHL.php?a=false&b=${hashClub}`, ".hl-row"),
-      renderHashWebApp(nextRunUrl, "table.run"),
-    ]);
+    const nextRunSkipped = Date.now() - fetchStart > NEXT_RUN_START_BUDGET_MS;
+    const nextRunResult = nextRunSkipped
+      ? { error: "skipped: hareline render used the time budget" }
+      : await renderHashWebApp(nextRunUrl, "table.run");
 
     // 1. Hareline (the event list) — required.
     let events: RawEventData[] = [];
@@ -529,6 +572,7 @@ export class BangkokHashAdapter implements SourceAdapter {
           subSite,
           hashClub,
           nextRunFound,
+          nextRunSkipped,
           fetchDurationMs: Date.now() - fetchStart,
         },
       },

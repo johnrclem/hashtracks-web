@@ -6,13 +6,15 @@ import {
   cleanLocationName,
   fetchHTMLPage,
   formatAmPmTime,
+  isoDate,
   stripClickHereForMap,
 } from "../utils";
 
 /**
  * Sydney H3 ("Posh Hash") — sh3.link
  *
- * Founded 1967. The hareline lives at /?page_id=9470 inside `.entry.clr`,
+ * Founded 1967. The hareline lives at /upcoming-runs/ (the old /?page_id=9470
+ * URL 301-redirects there) inside `.entry.clr`,
  * with one `<p>` per upcoming run. Each `<p>` looks like:
  *
  *   Run #3069
@@ -32,15 +34,42 @@ import {
  * "Next Few Weeks" divider `<p>` between the immediate run and the
  * upcoming runs — both are skipped because they have no `Run #` token.
  *
- * The page omits years from the "Date:" line. We resolve to the current
- * year via chrono with `forwardDate: true` so dates always project into
- * the future, then re-anchor against the prior parsed date when chrono
- * spits out a year that has clearly already rolled over (e.g. an "13th
- * April" parsed in late December).
+ * The page omits years from the "Date:" line. Each date takes the year
+ * (reference year −1/0/+1) that lands closest to the scrape date, so a
+ * "13th January" read in late December resolves to next January while a
+ * just-run "9th November" read on 25 Nov stays this year. The editors don't
+ * always refresh the page after a run: under the old `forwardDate: true`
+ * rule those stale rows became phantom runs a year out (Nov 2026: runs
+ * #3100–#3102 filed in Nov 2027 and dropped by the window, so the scrape
+ * returned 0 events as a SUCCESS).
  */
 
 const KENNEL_TAG = "sh3-au";
-const SOURCE_URL_DEFAULT = "https://www.sh3.link/?page_id=9470";
+const SOURCE_URL_DEFAULT = "https://www.sh3.link/upcoming-runs/";
+const DAY_MS = 86_400_000;
+
+/**
+ * Parse the Date cell. An explicit 4-digit year is trusted as written;
+ * otherwise the year closest to `referenceDate` wins (see the header note).
+ * Returns null for a day that doesn't exist ("31st November", #2848).
+ */
+function parseSh3Date(dateField: string, referenceDate: Date): string | null {
+  const parsed = chronoParseDate(dateField, "en-GB", referenceDate, { requireCertainDate: true });
+  if (!parsed || /\b\d{4}\b/.test(dateField)) return parsed;
+  const [y, m, d] = parsed.split("-").map((n) => Number.parseInt(n, 10));
+  let best: string | null = null;
+  let bestDistance = Infinity;
+  for (const year of [y - 1, y, y + 1]) {
+    const candidate = isoDate(year, m, d);
+    if (!candidate) continue;
+    const distance = Math.abs(Date.parse(`${candidate}T12:00:00Z`) - referenceDate.getTime());
+    if (distance < bestDistance) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
 
 /**
  * Label extraction regexes. Each uses a non-greedy capture that stops at
@@ -218,12 +247,8 @@ export function parseSh3Paragraph(
 
   // The Date: cell often contains extra context after the date itself
   // (e.g. "7th April – Tuesday Joint Run"). chrono parses the leading
-  // date and ignores the rest. forwardDate ensures bare "13th April"
-  // resolves to the *next* April, not the past one. requireCertainDate
-  // rejects a day that doesn't exist ("31st November", #2848): chrono would
-  // otherwise fall back to the scrape day and file the run there.
-  const date =
-    dateOverride ?? chronoParseDate(dateField, "en-GB", referenceDate, { forwardDate: true, requireCertainDate: true });
+  // date and ignores the rest; parseSh3Date picks the year.
+  const date = dateOverride ?? parseSh3Date(dateField, referenceDate);
   if (!date) return null;
 
   const startTime = parseStartTimeFromDate(dateField);
@@ -256,7 +281,7 @@ export function parseSh3Paragraph(
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 // "31st November" → day 31, month "Nov". Bounded; no nested quantifiers.
 const DAY_MONTH_RE = /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]{0,6}\b/i;
-const WEEK_MS = 7 * 86_400_000;
+const WEEK_MS = 7 * DAY_MS;
 
 interface PendingRow { text: string; runNumber: number; day: number; month: number; stated: string }
 
@@ -315,9 +340,8 @@ export function parseSh3Paragraphs(
 
   const dateInferences: string[] = [];
   const skippedInvalidDates: string[] = [];
-  // Anchors must be near the scrape date: forwardDate rolls a just-past run
-  // ("9th November" read on 10 Nov) into next year, which would skew the sequence.
-  const anchors = events.filter((e) => Math.abs(Date.parse(`${e.date}T12:00:00Z`) - referenceDate.getTime()) < 120 * 86_400_000);
+  // Anchors must be near the scrape date, so a mis-yeared row can't skew the sequence.
+  const anchors = events.filter((e) => Math.abs(Date.parse(`${e.date}T12:00:00Z`) - referenceDate.getTime()) < 120 * DAY_MS);
   for (const row of pending) {
     const anchor = nearestRun(anchors, row.runNumber);
     const inferred = anchor ? inferFromSequence(anchor, row) : undefined;
@@ -365,6 +389,12 @@ export class Sh3AuAdapter implements SourceAdapter {
       errorDetails.parse = [{ row: 0, error: message }];
     }
 
+    // A page the editors haven't refreshed lists only runs that already
+    // happened. That's the site, not the parser, so it stays a SUCCESS, but
+    // the count makes it visible in the scrape log.
+    const today = new Date().toISOString().slice(0, 10);
+    const upcomingRunsParsed = events.filter((e) => e.date >= today).length;
+
     const days = options?.days ?? source.scrapeDays ?? 180;
     return applyDateWindow(
       {
@@ -376,6 +406,7 @@ export class Sh3AuAdapter implements SourceAdapter {
           fetchMethod: "html-scrape",
           paragraphsFound: paragraphs.length,
           eventsParsed: events.length,
+          upcomingRunsParsed,
           dateInferences,
           skippedInvalidDates,
           fetchDurationMs: page.fetchDurationMs,

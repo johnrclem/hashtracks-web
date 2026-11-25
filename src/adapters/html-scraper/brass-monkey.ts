@@ -2,7 +2,7 @@ import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
 import { fetchBloggerPosts } from "../blogger-api";
-import { applyDateWindow, chronoParseDate, decodeEntities, fetchHTMLPage, googleMapsSearchUrl, isPlaceholder, MONTHS, parse12HourTime, stripHtmlTags } from "../utils";
+import { applyDateWindow, chronoParseDate, decodeEntities, fetchHTMLPage, googleMapsSearchUrl, isoDate, isPlaceholder, MONTHS, parse12HourTime, parsePublishDate, stripHtmlTags } from "../utils";
 
 const ORDINALS: Record<string, number> = {
   first: 1, second: 2, third: 3, fourth: 4, fifth: 5,
@@ -27,6 +27,37 @@ const NUMERIC_DATE_RE = /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Su
 
 // "Saturday, March Fourteenth, TwentyTwentySix" — month constrained to real month names
 const WORD_DATE_RE = /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\w[\w-]*),?\s+([\w-]+)/i;
+
+// Year-less "Friday, December 4th" (holiday-party / special-event posts). Only
+// used as a last resort, with the year inferred from the post's publish date.
+const YEARLESS_DATE_RE = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?\b/i;
+
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+/**
+ * Parse a year-less "Weekday, Month Dth" date from a post body, picking the
+ * year (publish year −1/0/+1) closest to the publish date. A candidate whose
+ * weekday matches the stated weekday wins over one that doesn't.
+ */
+export function parseYearlessBodyDate(text: string, publishDate: Date | undefined): string | undefined {
+  if (!publishDate) return undefined;
+  const m = YEARLESS_DATE_RE.exec(text);
+  if (!m) return undefined;
+  const weekday = WEEKDAYS.indexOf(m[1].toLowerCase());
+  const month = MONTHS[m[2].toLowerCase().slice(0, 3)];
+  const day = parseInt(m[3], 10);
+  const pubY = publishDate.getUTCFullYear();
+  let best: { iso: string; score: number } | undefined;
+  for (const year of [pubY - 1, pubY, pubY + 1]) {
+    const iso = isoDate(year, month, day);
+    if (!iso) continue;
+    const d = new Date(`${iso}T12:00:00Z`);
+    const distance = Math.abs(d.getTime() - publishDate.getTime());
+    const score = distance + (d.getUTCDay() === weekday ? 0 : 1e13);
+    if (!best || score < best.score) best = { iso, score };
+  }
+  return best?.iso;
+}
 
 /** Convert ordinal word to number: "fourteenth" → 14, "third" → 3 */
 function parseOrdinalWord(word: string): number | undefined {
@@ -113,7 +144,10 @@ export function parseBrassMonkeyBody(text: string): {
   const startTime = parse12HourTime(text);
 
   // Label-based extraction
-  const locationMatch = text.match(/Location:\s*(.+?)(?=\n|Hare|$)/i);
+  // "Location: X" anywhere, or a same-line "WHERE: X" (special-event posts;
+  // run posts put the venue on the lines after a bare "Where:").
+  const locationMatch = text.match(/Location:\s*(.+?)(?=\n|Hare|$)/i)
+    ?? text.match(/^\W*Where:[ \t]*(\S.*)$/im);
   const haresMatch = text.match(/Hares?(?:\(s\))?\s*:\s*(.+)$/im);
 
   return {
@@ -131,17 +165,21 @@ function processPost(
   postUrl: string,
   baseUrl: string,
   index: number,
-  errors: string[],
   errorDetails: ErrorDetails,
+  publishedIso?: string,
 ): RawEventData | null {
   const titleFields = parseBrassMonkeyTitle(titleText);
   const bodyFields = parseBrassMonkeyBody(bodyText);
 
-  const eventDate = bodyFields.date ?? titleFields.date;
+  const eventDate = bodyFields.date
+    ?? titleFields.date
+    ?? parseYearlessBodyDate(bodyText, parsePublishDate(publishedIso));
   if (!eventDate) {
+    // A post without a date (hare sign-up plea, announcement) is skipped and
+    // recorded as a parse diagnostic; it only fails the scrape when no post
+    // in the batch parsed (see finalizeResult).
     if (bodyText.trim().length > 0) {
       const dateError = `No date found in post: ${titleText || "(untitled)"}`;
-      errors.push(dateError);
       errorDetails.parse = [...(errorDetails.parse ?? []), {
         row: index, section: "post", field: "date",
         error: dateError,
@@ -177,6 +215,32 @@ function processPost(
     locationUrl,
     startTime: bodyFields.startTime,
     sourceUrl,
+  };
+}
+
+/**
+ * Build the ScrapeResult for a batch of posts. Undated posts stay in
+ * `errorDetails.parse` (diagnostics + AI recovery) without failing the scrape,
+ * unless posts were found and none produced an event, which points at a
+ * format change rather than one stray post.
+ */
+function finalizeResult(
+  events: RawEventData[],
+  errorDetails: ErrorDetails,
+  postsFound: number,
+): Pick<ScrapeResult, "events" | "errors" | "errorDetails"> & { skippedPosts: string[] } {
+  const skippedPosts = (errorDetails.parse ?? []).map((e) => e.error);
+  let errors: string[] = [];
+  if (postsFound > 0 && events.length === 0) {
+    errors = skippedPosts.length > 0
+      ? skippedPosts
+      : [`${postsFound} post(s) found but none produced an event`];
+  }
+  return {
+    events,
+    errors,
+    errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
+    skippedPosts,
   };
 }
 
@@ -219,7 +283,6 @@ export class BrassMonkeyAdapter implements SourceAdapter {
     }
 
     const events: RawEventData[] = [];
-    const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
     for (let i = 0; i < bloggerResult.posts.length; i++) {
@@ -228,21 +291,20 @@ export class BrassMonkeyAdapter implements SourceAdapter {
       const titleText = decodeEntities(post.title);
       const postUrl = post.url;
 
-      const event = processPost(titleText, bodyText, postUrl, baseUrl, i, errors, errorDetails);
+      const event = processPost(titleText, bodyText, postUrl, baseUrl, i, errorDetails, post.published);
       if (event) events.push(event);
     }
 
-    const hasErrorDetails = hasAnyErrors(errorDetails);
+    const { skippedPosts, ...result } = finalizeResult(events, errorDetails, bloggerResult.posts.length);
 
     return {
-      events,
-      errors,
-      errorDetails: hasErrorDetails ? errorDetails : undefined,
+      ...result,
       diagnosticContext: {
         fetchMethod: "blogger-api",
         blogId: bloggerResult.blogId,
         postsFound: bloggerResult.posts.length,
         eventsParsed: events.length,
+        skippedPosts,
         fetchDurationMs: bloggerResult.fetchDurationMs,
       },
     };
@@ -254,7 +316,6 @@ export class BrassMonkeyAdapter implements SourceAdapter {
 
     const { $, structureHash, fetchDurationMs } = page;
     const events: RawEventData[] = [];
-    const errors: string[] = [];
     const errorDetails: ErrorDetails = {};
 
     const posts = $(".post-outer, .post, .blog-post").toArray();
@@ -269,19 +330,22 @@ export class BrassMonkeyAdapter implements SourceAdapter {
       const bodyEl = post.find(".post-body, .entry-content").first();
       const bodyText = bodyEl.text() || "";
 
-      const event = processPost(titleText, bodyText, postUrl, baseUrl, i, errors, errorDetails);
+      const published = post.find("abbr.published, time.published, .published").first().attr("title")
+        ?? post.find("time[datetime]").first().attr("datetime");
+      const event = processPost(titleText, bodyText, postUrl, baseUrl, i, errorDetails, published);
       if (event) events.push(event);
     }
 
+    const { skippedPosts, ...result } = finalizeResult(events, errorDetails, posts.length);
+
     return {
-      events,
-      errors,
+      ...result,
       structureHash,
-      errorDetails: hasAnyErrors(errorDetails) ? errorDetails : undefined,
       diagnosticContext: {
         fetchMethod: "html-scrape",
         postsFound: posts.length,
         eventsParsed: events.length,
+        skippedPosts,
         fetchDurationMs,
       },
     };

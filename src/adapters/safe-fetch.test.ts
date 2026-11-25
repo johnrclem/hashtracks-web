@@ -197,3 +197,53 @@ describe("safeFetch egress selection (residential vs vpn)", () => {
     expect(warn).toHaveBeenCalled();
   });
 });
+
+describe("safeFetch transient network retry", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  const fetchFailed = () => new TypeError("fetch failed");
+
+  it("retries a GET once after a network-level failure", async () => {
+    vi.useFakeTimers();
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(fetchFailed())
+      .mockResolvedValueOnce(new Response("ok", { status: 200 }));
+    const p = safeFetch("https://example.com/");
+    await vi.runAllTimersAsync();
+    const res = await p;
+    expect(res.status).toBe(200);
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up after the single retry", async () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(globalThis, "fetch").mockRejectedValue(fetchFailed());
+    const p = safeFetch("https://example.com/");
+    const assertion = expect(p).rejects.toThrow("fetch failed");
+    await vi.runAllTimersAsync();
+    await assertion;
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a POST", async () => {
+    const spy = vi.spyOn(globalThis, "fetch").mockRejectedValue(fetchFailed());
+    await expect(
+      safeFetch("https://example.com/", { method: "POST", body: "{}" }),
+    ).rejects.toThrow("fetch failed");
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry an HTTP error status or a non-network error", async () => {
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("", { status: 500 }));
+    expect((await safeFetch("https://example.com/")).status).toBe(500);
+    spy.mockRejectedValueOnce(new DOMException("aborted", "TimeoutError"));
+    await expect(safeFetch("https://example.com/")).rejects.toThrow("aborted");
+    expect(spy).toHaveBeenCalledTimes(2);
+  });
+});

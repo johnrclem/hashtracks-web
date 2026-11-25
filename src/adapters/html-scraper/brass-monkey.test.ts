@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { parseBrassMonkeyTitle, parseBrassMonkeyBody, BrassMonkeyAdapter } from "./brass-monkey";
+import { parseBrassMonkeyTitle, parseBrassMonkeyBody, parseYearlessBodyDate, BrassMonkeyAdapter } from "./brass-monkey";
 import * as bloggerApi from "../blogger-api";
 
 vi.mock("../blogger-api");
@@ -134,6 +134,33 @@ describe("parseBrassMonkeyBody", () => {
     expect(result.location).toBe("Test Park");
   });
 });
+
+describe("parseYearlessBodyDate", () => {
+  it("infers the year from the publish date", () => {
+    const text = "WHEN: Friday, December 4th, at 7:00pm";
+    expect(parseYearlessBodyDate(text, new Date("2026-11-13T23:04:37-06:00"))).toBe("2026-12-04");
+  });
+
+  it("rolls into next year for a January date posted in December", () => {
+    expect(parseYearlessBodyDate("Saturday, January 9th", new Date("2026-12-20T12:00:00Z"))).toBe("2027-01-09");
+  });
+
+  it("returns undefined without a publish date", () => {
+    expect(parseYearlessBodyDate("Friday, December 4th", undefined)).toBeUndefined();
+  });
+});
+
+// Live shape of the 2026-11-13 holiday-party post that failed the scrape
+// ("No date found in post: The AИAL Brass Monkey Holiday Party...").
+const HOLIDAY_PARTY_POST = {
+  title: "The AИAL Brass Monkey Holiday Party Presents... THE POLAR EXPESS: DERAILED!",
+  content:
+    "<p>The AИAL Brass Monkey Holiday Party Presents... THE POLAR EXPESS: DERAILED!</p>"
+    + "<p>WHEN: Friday, December 4th, at 7:00pm<br>WHERE: 86 Sunlit Grove, The Woodlands, TX 77382<br>RSVP: Bitch, you better!</p>"
+    + "<p>It’s that time! The Brass Monkey Hash House Harriers proudly present… OUR AИAL BRASS MONKEY HOLIDAY PARTY!!</p>",
+  url: "https://teambrassmonkey.blogspot.com/2026/11/the-aal-brass-monkey-holiday-party.html",
+  published: "2026-11-13T23:04:37-06:00",
+};
 
 describe("BrassMonkeyAdapter.fetch (Blogger API path)", () => {
   let adapter: BrassMonkeyAdapter;
@@ -314,5 +341,65 @@ describe("BrassMonkeyAdapter.fetch (Blogger API path)", () => {
     expect(result.events).toHaveLength(0);
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toContain("No date found");
+  });
+
+  it("parses the year-less holiday-party post (regression: scrape FAILED from 2026-11-14)", async () => {
+    vi.setSystemTime(new Date("2026-11-25T12:00:00Z"));
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValueOnce({
+      posts: [HOLIDAY_PARTY_POST],
+      blogId: "12345",
+      fetchDurationMs: 100,
+    });
+
+    const result = await adapter.fetch({
+      id: "test-bmh3",
+      url: "https://teambrassmonkey.blogspot.com",
+    } as never);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({
+      date: "2026-12-04",
+      kennelTags: ["bmh3-tx"],
+      startTime: "19:00",
+      location: "86 Sunlit Grove, The Woodlands, TX 77382",
+      title: "The AИAL Brass Monkey Holiday Party Presents... THE POLAR EXPESS: DERAILED!",
+    });
+  });
+
+  it("skips an undated post without failing the scrape when other posts parse", async () => {
+    vi.mocked(bloggerApi.fetchBloggerPosts).mockResolvedValueOnce({
+      posts: [
+        {
+          title: "Brass Monkey #421 Just Short of A Brass Monkey Mile?",
+          content: "<p>Saturday, March 14, 2026 (3:30 PM start)</p><p>Location: Spring Park</p>",
+          url: "https://teambrassmonkey.blogspot.com/2026/03/brass-monkey-421.html",
+          published: "2026-03-01T12:00:00Z",
+        },
+        {
+          title: "Sign up to hare in 2027!",
+          content: "<p>We need hares! Sign up here: https://tinyurl.com/BMHHH3</p>",
+          url: "https://teambrassmonkey.blogspot.com/2026/03/sign-up.html",
+          published: "2026-03-02T12:00:00Z",
+        },
+      ],
+      blogId: "12345",
+      fetchDurationMs: 100,
+    });
+
+    const result = await adapter.fetch({
+      id: "test-bmh3",
+      url: "https://teambrassmonkey.blogspot.com",
+    } as never);
+
+    expect(result.errors).toEqual([]);
+    expect(result.events).toHaveLength(1);
+    expect(result.errorDetails?.parse).toHaveLength(1);
+    expect(result.errorDetails?.parse?.[0].error).toContain("Sign up to hare in 2027!");
+    expect(result.diagnosticContext).toMatchObject({
+      postsFound: 2,
+      eventsParsed: 1,
+      skippedPosts: ["No date found in post: Sign up to hare in 2027!"],
+    });
   });
 });

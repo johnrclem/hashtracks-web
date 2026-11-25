@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { parseSh3Paragraph, parseSh3Paragraphs } from "./sh3-au";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { parseSh3Paragraph, parseSh3Paragraphs, Sh3AuAdapter } from "./sh3-au";
+import * as safeFetchModule from "../safe-fetch";
 
 const REF = new Date("2026-04-01T12:00:00Z");
 const URL = "https://www.sh3.link/?page_id=9470";
@@ -229,5 +230,92 @@ describe("sh3-au parseSh3Paragraphs — impossible dates", () => {
     const { events, skippedInvalidDates } = parseSh3Paragraphs([LIVE[0], LIVE[3].replace("#3103", "#3109")], URL, NOV_8);
     expect(events.map((e) => e.runNumber)).toEqual([3100]);
     expect(skippedInvalidDates).toHaveLength(1);
+  });
+});
+
+// Nov 2026: the editors stopped refreshing the page after run #3102, and the
+// old forwardDate rule filed the already-run #3100–#3102 a year out (Nov 2027).
+// The scrape window dropped them, so the source returned 0 events as a SUCCESS.
+describe("sh3-au year inference on a stale page", () => {
+  const STALE = [
+    "Run #3100 – A celebrationDate: 9th November @ 6:30pm Hares: Plunger & HandshakeStart: Thornleigh OvalCLICK HERE FOR MAPOn On : On Site",
+    "Run #3101Date: 16th November @ 6:30pm Hares: Beep and AlbotrossStart: Acron Oval, St IvesCLICK HERE FOR MAPOn On : On Site",
+    "Run #3102Date: 23rd November @ 6:30pm Hares: Music Man & KrusherStart: Little Manly reserve, Stuart St ManlyCLICK HERE FOR MAPOn On : Manly 16 Skiff Club",
+    "Run #3103Date: 31st November @ 6:30pm Hares: Khyber & Little ShitStart: Ingleside ScoutsCLICK HERE FOR MAPOn On : On Site",
+  ];
+  const NOV_25 = new Date("2026-11-25T12:00:00Z");
+
+  it("keeps just-run dates in the current year instead of rolling them into next year", () => {
+    const { events, skippedInvalidDates } = parseSh3Paragraphs(STALE, URL, NOV_25);
+    expect(events.map((e) => [e.runNumber, e.date])).toEqual([
+      [3100, "2026-11-09"],
+      [3101, "2026-11-16"],
+      [3102, "2026-11-23"],
+      [3103, "2026-11-30"],
+    ]);
+    expect(skippedInvalidDates).toEqual([]);
+  });
+
+  it("still rolls a January run into next year when read in late December", () => {
+    const text = "Run #3110Date: 11th January @ 6:30pm Hares: SomeoneStart: Somewhere";
+    expect(parseSh3Paragraph(text, URL, new Date("2026-12-28T12:00:00Z"))?.date).toBe("2027-01-11");
+  });
+
+  it("trusts an explicit year in the Date cell", () => {
+    const text = "Run #3100Date: 9th November 2026 @ 6:30pm Hares: SomeoneStart: Somewhere";
+    expect(parseSh3Paragraph(text, URL, new Date("2027-06-01T12:00:00Z"))?.date).toBe("2026-11-09");
+  });
+});
+
+describe("Sh3AuAdapter.fetch (live /upcoming-runs/ shape)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  const LIVE_HTML = `<html><body><div class="entry clr" itemprop="text">
+<p><strong>Next run on 9th November 2026 @ 6:30pm</strong></p>
+<p><strong>3100th CELEBRATION</strong><br><strong>Run #3100 – A celebration</strong><br><strong>Date:</strong> 9th November @ 6:30pm<br><strong>Hares:</strong> Plunger &amp; Handshake<br><strong>Start:</strong> Thornleigh Oval<a href="https://maps.app.goo.gl/x">CLICK HERE FOR MAP</a><br><strong>On On :</strong> On Site</p>
+<p><strong>Next Few Weeks</strong></p>
+<p><strong>Run #3101</strong><br><strong>Date:</strong> 16th November @ 6:30pm<br><strong>Hares:</strong> Beep and Albotross<br><strong>Start:</strong> Acron Oval, St Ives<a href="https://maps.app.goo.gl/y">CLICK HERE FOR MAP</a><br><strong>On On :</strong> On Site</p>
+<p><strong>Run #3102</strong><br><strong>Date:</strong> 23rd November @ 6:30pm<br><strong>Hares:</strong> Music Man &amp; Krusher<br><strong>Start:</strong> Little Manly reserve, Stuart St Manly<a href="https://maps.app.goo.gl/z">CLICK HERE FOR MAP</a><br><strong>On On :</strong> Manly 16 Skiff Club</p>
+<p><strong>Run #3103</strong><br><strong>Date:</strong> 31st November @ 6:30pm<br><strong>Hares:</strong> Khyber &amp; Little Shit<br><strong>Start:</strong> Ingleside Scouts<a href="https://maps.app.goo.gl/w">CLICK HERE FOR MAP</a><br><strong>On On :</strong> On Site</p>
+</div></body></html>`;
+
+  it("returns the stale page's runs in the right year, with the inferred upcoming run", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-25T12:00:00Z"));
+    vi.spyOn(safeFetchModule, "safeFetch").mockResolvedValueOnce(new Response(LIVE_HTML, { status: 200 }) as never);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await new Sh3AuAdapter().fetch(
+      { id: "sh3", url: "https://www.sh3.link/upcoming-runs/", scrapeDays: 180 } as never,
+      { days: 180 },
+    );
+
+    expect(result.errors).toEqual([]);
+    expect(result.events.map((e) => [e.runNumber, e.date])).toEqual([
+      [3100, "2026-11-09"],
+      [3101, "2026-11-16"],
+      [3102, "2026-11-23"],
+      [3103, "2026-11-30"],
+    ]);
+    expect(result.events[3]).toMatchObject({
+      kennelTags: ["sh3-au"],
+      startTime: "18:30",
+      hares: "Khyber & Little Shit",
+      location: "Ingleside Scouts",
+      description: "On Site",
+    });
+    expect(result.diagnosticContext).toMatchObject({ eventsParsed: 4, upcomingRunsParsed: 1 });
+  });
+
+  it("fails loudly when the page lists no parseable runs", async () => {
+    vi.spyOn(safeFetchModule, "safeFetch").mockResolvedValueOnce(
+      new Response('<div class="entry clr"><p>Next Few Weeks</p></div>', { status: 200 }) as never,
+    );
+    const result = await new Sh3AuAdapter().fetch({ id: "sh3", url: "https://www.sh3.link/upcoming-runs/" } as never, { days: 180 });
+    expect(result.events).toEqual([]);
+    expect(result.errors[0]).toContain("parsed 0 runs");
   });
 });

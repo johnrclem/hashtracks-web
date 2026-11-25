@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as cheerio from "cheerio";
 import type { Source } from "@/generated/prisma/client";
-import { parseTaipeiHash, TaipeiHashAdapter } from "./taipei-hash";
+import { parseTaipeiHash, parseTaipeiDate, resolveRunsUrl, TaipeiHashAdapter } from "./taipei-hash";
 
 vi.mock("@/adapters/safe-fetch", () => ({ safeFetch: vi.fn() }));
 vi.mock("@/pipeline/structure-hash", () => ({
@@ -10,201 +10,156 @@ vi.mock("@/pipeline/structure-hash", () => ({
 
 import { safeFetch } from "@/adapters/safe-fetch";
 
-// Verbatim markup captured from https://www.taipeihash.com.tw/run_site.php
-// (2026-06-12): a current table (1 row), a future table (3 rows), and a
-// history table (3 representative rows incl. a tagged 生日 row and the deep
-// January row). A single mobile-event-card duplicate is included to prove the
-// adapter does NOT double-count it.
-const FIXTURE = `<!DOCTYPE html><html lang="zh-TW"><body>
-<section class="events-section">
-  <table class="events-table">
-    <thead><tr><th>跑次<br>(Run No.)</th><th>日期<br>(Date)</th><th>兔子<br>(Hare)</th><th>地點<br>(Run Site)</th><th>記號起點<br>(Marks Start)</th></tr></thead>
-    <tbody>
-      <tr class="current-event">
-        <td class="run-number"><strong>2779</strong><span class="new-badge">NEW</span></td>
-        <td class="event-date"><strong>06/13</strong></td>
-        <td class="hare-info"><strong>Engels Adolf Medina Ruiz<br>2nd Man In</strong><br><span class="phone">0983963115</span></td>
-        <td class="location-info"><strong>猴硐<br>Houtong</strong></td>
-        <td class="marks-info"><strong>麵粉：猴硐車站<br><span class="english">Flour：Houtong Station</span><br>集合地點：<a href="https://maps.app.goo.gl/VtWk5MTYusyPA2P48" target="_blank">📍猴硐里活動中心</a><br><span class="english">Place：Houtong Village Activity Center</span></strong></td>
-      </tr>
-    </tbody>
-  </table>
-  <div class="mobile-events-container">
-    <div class="mobile-event-card">
-      <div class="mobile-run-info"><strong>2779</strong></div>
-      <div class="mobile-event-date"><strong>06/13</strong></div>
-      <div class="mobile-info-value">2nd Man In</div>
-      <div class="mobile-phone">0983963115</div>
-    </div>
+// Markup captured from https://www.taipeihash.com.tw/runs (2026-11-25), after
+// the Nov 2026 rebuild that 301s run_site.php → /runs. Trimmed to: the JSON-LD
+// @graph (2 Events), the 本週活動 card (#2803), two 未來預告 cards (#2804, and
+// #2805 with a 年會 badge), and three 歷史足跡 rows (#2802, #2801 with a badge,
+// #2756). Phone numbers replaced with dummies.
+const FIXTURE = `<!DOCTYPE html><html lang="zh-Hant-TW"><head>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"SportsOrganization","name":"台北捷兔 Taipei Hash House Harriers"},{"@type":"Event","name":"台北捷兔第 2803 次跑山 Taipei Hash Run #2803","startDate":"2026-11-28T14:30:00+08:00"},{"@type":"Event","name":"台北捷兔第 2805 次跑山 Taipei Hash Run #2805（年會）","startDate":"2026-12-12T13:00:00+08:00"}]}</script>
+</head><body class="site site-runs"><main class="site-main">
+<section class="hm-block">
+  <h2 class="hm-title">本週活動 <small>This Week</small></h2>
+<article class="hm-run hm-run-big"><header class="hm-run-head"><span class="hm-run-no">#2803</span><span class="hm-run-date">2026/11/28（六） Sat</span></header><dl class="hm-run-body hm-ph hm-h2"><div class="hm-site-row"><dt>地點 <small>Run Site</small></dt><dd class="hm-site"><span>龜山</span><span class="hm-en">Guishan</span></dd><div class="hm-hares"><div class="cm-photo hm-hare-photo" data-initial="林" title="兔子：林益全 Agon"><img src="photos/m_3750.jpg" alt="兔子：林益全 Agon"></div></div></div><dt>兔子 <small>Hare</small></dt><dd><span class="hm-person"><b>林益全</b> <span class="hm-en">Agon</span> <a class="hm-tel" href="tel:0900000001">0900-000-001</a></span><span class="hm-person"><b>劉進鎊</b> <span class="hm-en">Black Donut</span> <a class="hm-tel" href="tel:0900000002">0900-000-002</a></span></dd><dt>麵粉起點 <small>Flour</small></dt><dd><span>龜山區忠義路二段311巷口</span><span class="hm-en">Intersection of Lane 311, Section 2, Zhongyi Road, Guishan District</span></dd><dt>集合地點 <small>Meeting Place</small></dt><dd><span>龜山區頂湖福德宮</span><span class="hm-en">Dinghu Fude Temple</span><a class="hm-map" href="https://maps.app.goo.gl/p1MsHx7y3wUQotR37" target="_blank" rel="noopener">📍 地圖 Map</a></dd></dl></article></section>
+<section class="hm-block">
+  <h2 class="hm-title">未來預告 <small>Upcoming Runs</small></h2>
+  <div class="hm-grid">
+<article class="hm-run"><header class="hm-run-head"><span class="hm-run-no">#2804</span><span class="hm-run-date">2026/12/05（六） Sat</span></header><dl class="hm-run-body hm-ph hm-h2"><div class="hm-site-row"><dt>地點 <small>Run Site</small></dt><dd class="hm-site"><span>石門</span><span class="hm-en">Shimen</span></dd></div><dt>兔子 <small>Hare</small></dt><dd><span class="hm-person"><b>王立君</b> <span class="hm-en">School Sucker</span> <a class="hm-tel" href="tel:0900000003">0900-000-003</a></span></dd><dt>集合地點 <small>Meeting Place</small></dt><dd><span>北17&amp;北19約6K處</span><span class="hm-en">Approximately 6 kilometers from North 17 &amp; North 19</span><a class="hm-map" href="https://maps.app.goo.gl/qwPcTDR4DFejtBSt6" target="_blank" rel="noopener">📍 地圖 Map</a></dd></dl></article><article class="hm-run"><header class="hm-run-head"><span class="hm-run-no">#2805</span><span class="hm-run-date">2026/12/12（六） Sat</span><span class="hm-badge">年會</span></header><dl class="hm-run-body hm-ph hm-h2"><div class="hm-site-row"><dt>地點 <small>Run Site</small></dt><dd class="hm-site"><span>土城</span><span class="hm-en">Tucheng</span></dd></div><dt>兔子 <small>Hare</small></dt><dd><span class="hm-person"><b>薛進成</b> <span class="hm-en">e-Life</span> <a class="hm-tel" href="tel:0900000004">0900-000-004</a></span></dd><dt>集合地點 <small>Meeting Place</small></dt><dd><span>土城龍山ㄧ街/學士路口</span><span class="hm-en">Intersection of Longshan 1st Street and Xueshi Road, Tucheng</span><a class="hm-map" href="https://evil.example.com/?u=maps.app.goo.gl/x" target="_blank" rel="noopener">📍 地圖 Map</a></dd></dl></article>  </div>
+</section>
+<section class="hm-block">
+  <h2 class="hm-title">本年度歷史足跡 <small>Past Runs</small></h2>
+  <div class="hm-recent">
+    <div class="hm-recent-row"><span class="hm-run-no">#2802</span>
+      <span class="hm-recent-date">2026/11/21</span>
+      <span class="hm-recent-site"><span>新店</span><span class="hm-en">Xindian</span></span>
+            <a class="hm-map" href="https://maps.app.goo.gl/EpCKRFGh8BVp6Fa1A" target="_blank" rel="noopener">📍 地圖 Map</a></div>
+    <div class="hm-recent-row"><span class="hm-run-no">#2801</span>
+      <span class="hm-recent-date">2026/11/14</span>
+      <span class="hm-recent-site"><span>萬里</span><span class="hm-en">Wanli</span></span>
+      <span class="hm-badge">迷你馬拉松</span>      <a class="hm-map" href="https://maps.app.goo.gl/X2WMAXjVZRK69ujq9" target="_blank" rel="noopener">📍 地圖 Map</a></div>
+    <div class="hm-recent-row"><span class="hm-run-no">#2756</span>
+      <span class="hm-recent-date">2026/01/03</span>
+      <span class="hm-recent-site"><span>內湖</span><span class="hm-en">Neihu</span></span>
+            <a class="hm-map" href="https://maps.app.goo.gl/HtadnAFTj4tbhG35A" target="_blank" rel="noopener">📍 地圖 Map</a></div>
   </div>
 </section>
-<section class="events-section">
-  <table class="events-table">
-    <thead><tr><th>跑次</th><th>日期</th><th>兔子</th><th>地點</th><th>記號起點</th></tr></thead>
-    <tbody>
-      <tr class="upcoming-event">
-        <td class="run-number"><strong>2780</strong><span class="confirmed-badge">預告</span></td>
-        <td class="event-date"><strong>06/20</strong></td>
-        <td class="hare-info"><strong>王崑穗<br>Rhino</strong><br><span class="phone">0932-045374</span></td>
-        <td class="location-info"><strong>平溪<br>Pingxi</strong></td>
-        <td class="marks-info"><strong>集合地點：<a href="https://maps.app.goo.gl/4KaAHzHATAE4sQVK9" target="_blank">📍大華農路六分福德宮</a></strong></td>
-      </tr>
-      <tr class="upcoming-event">
-        <td class="run-number"><strong>2781</strong><span class="confirmed-badge">預告</span></td>
-        <td class="event-date"><strong>06/27</strong></td>
-        <td class="hare-info"><strong>陳註復<br>Pig Blood Cake</strong></td>
-        <td class="location-info"><strong>木柵<br>Muzha</strong></td>
-        <td class="marks-info"><strong>集合地點：<a href="https://maps.app.goo.gl/uSSVbVz2vmskbfVp7" target="_blank">📍木柵</a></strong></td>
-      </tr>
-      <tr class="upcoming-event">
-        <td class="run-number"><strong>2782</strong><span class="confirmed-badge">預告</span></td>
-        <td class="event-date"><strong>07/04</strong></td>
-        <td class="hare-info"><strong>蕭世璞<br>Dog Leather</strong></td>
-        <td class="location-info"><strong>坪林<br>Pinglin</strong></td>
-        <td class="marks-info"><strong>集合地點：<a href="https://maps.app.goo.gl/jgiLnLgRZjBohLEu5" target="_blank">📍坪林</a></strong></td>
-      </tr>
-    </tbody>
-  </table>
-</section>
-<section class="events-section">
-  <table class="events-table">
-    <thead><tr><th>跑次</th><th>日期</th><th>兔子</th><th>地點</th><th>記號起點</th></tr></thead>
-    <tbody>
-      <tr class="past-event">
-        <td class="run-number"><strong>2778</strong></td>
-        <td class="event-date"><strong>06/06</strong></td>
-        <td class="hare-info"><strong>Holy Piss</strong><br><span class="phone">0912-345678</span></td>
-        <td class="location-info"><strong>五股<br>Wugu</strong></td>
-        <td class="marks-info"><strong>集合地點：<a href="https://maps.app.goo.gl/FsRqbhq3qPe1JppF6" target="_blank">📍五股</a></strong></td>
-      </tr>
-      <tr class="past-event">
-        <td class="run-number"><strong>2762</strong></td>
-        <td class="event-date"><strong>02/14</strong><span class="new-badge">生日</span></td>
-        <td class="hare-info"><strong>林天財<br>White Horse</strong><br><span class="phone">0932-232896</span></td>
-        <td class="location-info"><strong>新店<br>Xindian</strong></td>
-        <td class="marks-info"><strong>集合地點：<a href="https://maps.app.goo.gl/boogMCoHe1Pgf5439" target="_blank">📍新店陽光運動園區第一停車場</a></strong></td>
-      </tr>
-      <tr class="past-event">
-        <td class="run-number"><strong>2756</strong></td>
-        <td class="event-date"><strong>01/03</strong></td>
-        <td class="hare-info"><strong>李志勇<br>R.P.M</strong><br><span class="phone">0933-060373</span></td>
-        <td class="location-info"><strong>內湖<br>Neihu</strong></td>
-        <td class="marks-info"><strong>集合地點：<a href="https://maps.app.goo.gl/HtadnAFTj4tbhG35A" target="_blank">📍內溝山后福德宮</a></strong></td>
-      </tr>
-    </tbody>
-  </table>
-</section>
-</body></html>`;
+</main></body></html>`;
 
-const REF = new Date("2026-06-12T00:00:00Z");
+const URL_RUNS = "https://www.taipeihash.com.tw/runs";
 
-describe("parseTaipeiHash", () => {
-  it("parses all table rows once (mobile card duplicate ignored)", () => {
-    const $ = cheerio.load(FIXTURE);
-    const { events } = parseTaipeiHash($, "https://www.taipeihash.com.tw/run_site.php", REF);
-    // 1 current + 3 future + 3 history = 7 (the mobile card #2779 is NOT counted)
-    expect(events).toHaveLength(7);
-    expect(events.filter((e) => e.runNumber === 2779)).toHaveLength(1);
+describe("parseTaipeiHash (/runs, Nov 2026 rebuild)", () => {
+  it("parses cards and history rows once each, sorted by date", () => {
+    const { events, errors } = parseTaipeiHash(cheerio.load(FIXTURE), URL_RUNS);
+    expect(errors).toHaveLength(0);
+    expect(events.map((e) => e.runNumber)).toEqual([2756, 2801, 2802, 2803, 2804, 2805]);
+    expect(events.map((e) => e.date)).toEqual([
+      "2026-01-03", "2026-11-14", "2026-11-21", "2026-11-28", "2026-12-05", "2026-12-12",
+    ]);
   });
 
-  it("anchors year on run number and dates the deep history correctly", () => {
-    const $ = cheerio.load(FIXTURE);
-    const { events } = parseTaipeiHash($, "https://www.taipeihash.com.tw/run_site.php", REF);
-    const byRun = new Map(events.map((e) => [e.runNumber, e]));
-    expect(byRun.get(2779)?.date).toBe("2026-06-13"); // current
-    expect(byRun.get(2782)?.date).toBe("2026-07-04"); // future
-    // The key assertion: a naive today-anchored rollover would push these
-    // ~5-month-old rows to 2027. Run-number anchoring keeps them in 2026.
-    expect(byRun.get(2762)?.date).toBe("2026-02-14"); // tagged 生日 row
-    expect(byRun.get(2756)?.date).toBe("2026-01-03"); // deepest history
-  });
-
-  it("emits constant fields and strips the PII phone from hares", () => {
-    const $ = cheerio.load(FIXTURE);
-    const { events } = parseTaipeiHash($, "https://www.taipeihash.com.tw/run_site.php", REF);
-    const current = events.find((e) => e.runNumber === 2779)!;
-    expect(current.startTime).toBe("15:00");
+  it("maps a card's fields: hares without phones, meeting point + district, maps link", () => {
+    const { events } = parseTaipeiHash(cheerio.load(FIXTURE), URL_RUNS);
+    const current = events.find((e) => e.runNumber === 2803)!;
     expect(current.kennelTags).toEqual(["taipei-h3"]);
     expect(current.title).toBeUndefined(); // merge.ts synthesizes "Taipei H3 Trail #N"
-    expect(current.hares).toBe("Engels Adolf Medina Ruiz 2nd Man In");
-    // Precise 集合地點 (meeting point) + English place, with the district in
-    // parens (#2399).
-    expect(current.location).toBe(
-      "猴硐里活動中心 Houtong Village Activity Center (猴硐 Houtong)",
-    );
-    expect(current.locationUrl).toBe("https://maps.app.goo.gl/VtWk5MTYusyPA2P48");
-    // No phone digits leak into any hare field.
-    for (const e of events) {
-      expect(e.hares ?? "").not.toMatch(/\d{6,}/);
-    }
+    expect(current.startTime).toBe("14:30"); // from JSON-LD startDate
+    expect(current.hares).toBe("劉進鎊 Black Donut, 林益全 Agon"); // normalizeHaresField sorts
+    expect(current.location).toBe("龜山區頂湖福德宮 Dinghu Fude Temple (龜山 Guishan)");
+    expect(current.locationUrl).toBe("https://maps.app.goo.gl/p1MsHx7y3wUQotR37");
+    expect(current.sourceUrl).toBe(URL_RUNS);
+    for (const e of events) expect(e.hares ?? "").not.toMatch(/\d{3}/);
   });
 
-  it("captures the 集合地點 meeting point even without an English Place span (#2399)", () => {
-    const $ = cheerio.load(FIXTURE);
-    const { events } = parseTaipeiHash($, "https://www.taipeihash.com.tw/run_site.php", REF);
+  it("reads per-run start time from JSON-LD, defaults cards to 14:30, leaves history unset", () => {
+    const { events } = parseTaipeiHash(cheerio.load(FIXTURE), URL_RUNS);
     const byRun = new Map(events.map((e) => [e.runNumber, e]));
-    // #2780: marks cell is just "集合地點：<a>📍大華農路六分福德宮</a>" (no Place span).
-    expect(byRun.get(2780)?.location).toBe("大華農路六分福德宮 (平溪 Pingxi)");
+    expect(byRun.get(2805)?.startTime).toBe("13:00");
+    expect(byRun.get(2804)?.startTime).toBe("14:30");
+    // History rows carry no time; leave it unset so older 15:00 runs aren't rewritten.
+    expect(byRun.get(2802)?.startTime).toBeUndefined();
   });
 
-  it("rejects a non-Maps / non-https locationUrl", () => {
-    const hostile = `<table class="events-table"><tbody>
-      <tr><td class="run-number"><strong>2779</strong></td><td class="event-date"><strong>06/13</strong></td><td class="hare-info"><strong>A</strong></td><td class="location-info"><strong>X</strong></td><td class="marks-info"><a href="https://evil.example.com/?ref=maps.app.goo.gl/x">📍</a></td></tr>
-      <tr><td class="run-number"><strong>2778</strong></td><td class="event-date"><strong>06/06</strong></td><td class="hare-info"><strong>B</strong></td><td class="location-info"><strong>Y</strong></td><td class="marks-info"><a href="https://maps.app.goo.gl/Good123">📍</a></td></tr>
-    </tbody></table>`;
-    const $ = cheerio.load(hostile);
-    const { events } = parseTaipeiHash($, "url", REF);
+  it("keeps badges as description and rejects a non-Maps href", () => {
+    const { events } = parseTaipeiHash(cheerio.load(FIXTURE), URL_RUNS);
     const byRun = new Map(events.map((e) => [e.runNumber, e]));
-    expect(byRun.get(2779)?.locationUrl).toBeUndefined(); // evil.example.com rejected
-    expect(byRun.get(2778)?.locationUrl).toBe("https://maps.app.goo.gl/Good123");
+    expect(byRun.get(2805)?.description).toBe("年會");
+    expect(byRun.get(2805)?.locationUrl).toBeUndefined(); // evil.example.com
+    expect(byRun.get(2801)?.description).toBe("迷你馬拉松");
+    expect(byRun.get(2804)?.description).toBeUndefined();
   });
 
-  it("resolves the Dec→Jan boundary by run number, not by today's year", () => {
-    // Current run on 01/03; the prior week's run on 12/27 belongs to the
-    // PREVIOUS calendar year. refDate early January.
-    const boundary = `<table class="events-table"><tbody>
-      <tr><td class="run-number"><strong>2756</strong></td><td class="event-date"><strong>01/03</strong></td><td class="hare-info"><strong>A</strong></td><td class="location-info"><strong>X</strong></td><td class="marks-info"></td></tr>
-      <tr><td class="run-number"><strong>2755</strong></td><td class="event-date"><strong>12/27</strong></td><td class="hare-info"><strong>B</strong></td><td class="location-info"><strong>Y</strong></td><td class="marks-info"></td></tr>
-    </tbody></table>`;
-    const $ = cheerio.load(boundary);
-    const { events } = parseTaipeiHash($, "url", new Date("2025-01-05T00:00:00Z"));
-    const byRun = new Map(events.map((e) => [e.runNumber, e]));
-    expect(byRun.get(2756)?.date).toBe("2025-01-03");
-    expect(byRun.get(2755)?.date).toBe("2024-12-27");
+  it("history rows carry site + maps link but no hares", () => {
+    const { events } = parseTaipeiHash(cheerio.load(FIXTURE), URL_RUNS);
+    const past = events.find((e) => e.runNumber === 2802)!;
+    expect(past.location).toBe("新店 Xindian");
+    expect(past.locationUrl).toBe("https://maps.app.goo.gl/EpCKRFGh8BVp6Fa1A");
+    expect(past.hares).toBeUndefined();
+  });
+
+  it("surfaces a card whose date can't be parsed instead of dropping it silently", () => {
+    const bad = `<article class="hm-run"><header><span class="hm-run-no">#2810</span><span class="hm-run-date">TBD</span></header></article>`;
+    const { events, errors, parseErrors } = parseTaipeiHash(cheerio.load(bad), URL_RUNS);
+    expect(events).toHaveLength(0);
+    expect(errors[0]).toMatch(/Unparseable runs-card row 0/);
+    expect(parseErrors).toHaveLength(1);
   });
 });
 
-function buildSource(): Source {
-  return {
-    id: "src-taipei",
-    url: "https://www.taipeihash.com.tw/run_site.php",
-  } as Source;
+describe("parseTaipeiDate", () => {
+  it("parses YYYY/MM/DD with a weekday tail and rejects impossible dates", () => {
+    expect(parseTaipeiDate("2026/11/28（六） Sat")).toBe("2026-11-28");
+    expect(parseTaipeiDate("2026/1/3")).toBe("2026-01-03");
+    expect(parseTaipeiDate("2026/02/30")).toBeNull();
+    expect(parseTaipeiDate("11/28")).toBeNull();
+  });
+});
+
+describe("resolveRunsUrl", () => {
+  it("rewrites the legacy run_site.php to /runs and keeps other URLs", () => {
+    expect(resolveRunsUrl("https://www.taipeihash.com.tw/run_site.php")).toBe(URL_RUNS);
+    expect(resolveRunsUrl(URL_RUNS)).toBe(URL_RUNS);
+    expect(resolveRunsUrl(null)).toBe(URL_RUNS);
+  });
+});
+
+function buildSource(url = "https://www.taipeihash.com.tw/run_site.php"): Source {
+  return { id: "src-taipei", url } as Source;
 }
 
 function mockFetchHtml(html: string): void {
-  // A real Response (ok/status/text() all satisfied) — avoids a partial-shape
-  // type assertion that tsc requires but Sonar flags as redundant (S4325).
   vi.mocked(safeFetch).mockResolvedValue(new Response(html, { status: 200 }));
 }
 
 describe("TaipeiHashAdapter.fetch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-25T00:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it("returns events from the live-shaped page", async () => {
+  it("regression: the legacy run_site.php source fetches /runs and parses the rebuilt page", async () => {
     mockFetchHtml(FIXTURE);
-
     const result = await new TaipeiHashAdapter().fetch(buildSource(), { days: 365 });
+    expect(vi.mocked(safeFetch).mock.calls[0][0]).toBe(URL_RUNS);
     expect(result.errors).toHaveLength(0);
-    expect(result.events.length).toBeGreaterThanOrEqual(4);
+    expect(result.events).toHaveLength(6);
     expect(result.events.every((e) => e.kennelTags[0] === "taipei-h3")).toBe(true);
     expect(result.structureHash).toBe("mock-hash");
   });
 
-  it("fails loud when a clean fetch yields zero events (markup drift)", async () => {
-    mockFetchHtml("<html><body><p>redesigned, no tables</p></body></html>");
+  it("honors options.days", async () => {
+    mockFetchHtml(FIXTURE);
+    const result = await new TaipeiHashAdapter().fetch(buildSource(URL_RUNS), { days: 30 });
+    // 2026-01-03 falls outside a ±30-day window around 2026-11-25.
+    expect(result.events.map((e) => e.runNumber)).not.toContain(2756);
+    expect(result.events.map((e) => e.runNumber)).toContain(2805);
+  });
 
+  it("fails loud when a clean fetch yields zero events (markup drift)", async () => {
+    mockFetchHtml("<html><body><p>redesigned again</p></body></html>");
     const result = await new TaipeiHashAdapter().fetch(buildSource());
     expect(result.events).toHaveLength(0);
     expect(result.errors.some((e) => e.includes("parsed 0 events"))).toBe(true);

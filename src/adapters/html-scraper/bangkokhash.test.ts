@@ -439,4 +439,53 @@ describe("BangkokHashAdapter.fetch (browser-rendered HashWebApp)", () => {
     expect(result.events).toEqual([]);
     expect(result.errors[0]).toMatch(/Browser render failed/);
   });
+
+  it("renders the two pages one after the other, never in parallel", async () => {
+    vi.mocked(browserRender).mockReset();
+    let inFlight = 0;
+    let maxInFlight = 0;
+    vi.mocked(browserRender).mockImplementation(async (opts: { url: string }) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await Promise.resolve();
+      inFlight--;
+      return opts.url.includes("ViewHL.php") ? BTH3_HARELINE_HTML : "<table class='run'></table>";
+    });
+    const result = await new BangkokHashAdapter().fetch(source, { days: 3650 });
+    expect(result.errors).toEqual([]);
+    expect(maxInFlight).toBe(1);
+  });
+
+  it("waits and retries the hareline when the render service is busy (429)", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(browserRender).mockReset();
+      vi.mocked(browserRender)
+        .mockRejectedValueOnce(new Error("Browser render error (429): Server busy, try again later"))
+        .mockImplementation(async (opts: { url: string }) =>
+          opts.url.includes("ViewHL.php") ? BTH3_HARELINE_HTML : "<table class='run'></table>",
+        );
+      const pending = new BangkokHashAdapter().fetch(source, { days: 3650 });
+      await vi.advanceTimersByTimeAsync(15_000);
+      const result = await pending;
+      expect(result.errors).toEqual([]);
+      expect(result.events.map((e) => e.runNumber)).toContain(542);
+      const urls = vi.mocked(browserRender).mock.calls.map(([o]) => (o as { url: string }).url);
+      expect(urls.filter((u) => u.includes("ViewHL.php"))).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not retry a non-busy render failure", async () => {
+    vi.mocked(browserRender).mockReset();
+    vi.mocked(browserRender).mockRejectedValue(new Error("Browser render error (502): Render failed"));
+    const result = await new BangkokHashAdapter().fetch(source, { days: 3650 });
+    expect(result.events).toEqual([]);
+    expect(result.errors[0]).toMatch(/\(502\)/);
+    const harelineCalls = vi.mocked(browserRender).mock.calls.filter(([o]) =>
+      (o as { url: string }).url.includes("ViewHL.php"),
+    );
+    expect(harelineCalls).toHaveLength(1);
+  });
 });
