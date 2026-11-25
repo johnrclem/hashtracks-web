@@ -136,7 +136,7 @@ export function createGsc(key: ServiceAccountKey, fetchImpl: typeof fetch = fetc
       const body = await call(`${WEBMASTERS}/sites/${site}/sitemaps`);
       const rows = Array.isArray(body.sitemap) ? (body.sitemap as Array<Record<string, unknown>>) : [];
       return rows.map((r) => ({
-        path: String(r.path ?? ""),
+        path: typeof r.path === "string" ? r.path : "",
         lastSubmitted: dateOrNull(r.lastSubmitted),
         lastDownloaded: dateOrNull(r.lastDownloaded),
         isPending: r.isPending === true,
@@ -168,8 +168,8 @@ export function createGsc(key: ServiceAccountKey, fetchImpl: typeof fetch = fetc
       >;
       return {
         url,
-        verdict: String(status.verdict ?? "VERDICT_UNSPECIFIED"),
-        coverageState: String(status.coverageState ?? ""),
+        verdict: typeof status.verdict === "string" ? status.verdict : "VERDICT_UNSPECIFIED",
+        coverageState: typeof status.coverageState === "string" ? status.coverageState : "",
       };
     },
   };

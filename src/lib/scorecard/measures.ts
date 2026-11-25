@@ -5,7 +5,7 @@
  * with the reason, and never fails the run.
  */
 import { prisma } from "@/lib/db";
-import { inspectHubCoverage } from "@/lib/gsc/coverage";
+import { inspectHubCoverage, type HubCoverage } from "@/lib/gsc/coverage";
 import { GSC_KEY_ENV, type Gsc } from "@/lib/gsc/client";
 import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
 import { LANE_LABELS } from "@/lib/audit-labels";
@@ -255,15 +255,16 @@ export async function gscMeasures({ client: gsc, error }: GscSetup, now: Date, f
   const [sitemap, impressions, coverage] = await Promise.all([
     guarded(["o1_sitemap_read"], async () => {
       const sitemaps = await gsc.listSitemaps();
-      const main = sitemaps.find((s) => /\/sitemap\.xml$/.test(s.path)) ?? sitemaps[0];
+      const main = sitemaps.find((s) => s.path.endsWith("/sitemap.xml")) ?? sitemaps[0];
       if (!main) return { o1_sitemap_read: { value: 0, display: "no sitemap submitted" } };
       const fresh = main.lastDownloaded !== null && now.getTime() - main.lastDownloaded.getTime() <= SITEMAP_FRESH_DAYS * DAY_MS;
       const ok = fresh && main.errors === 0;
       const read = main.lastDownloaded ? `read ${ymd(main.lastDownloaded)}` : "never read";
+      const pending = main.isPending ? ", pending" : "";
       return {
         o1_sitemap_read: {
           value: ok ? 1 : 0,
-          display: `${ok ? "yes" : "no"}: ${read}, ${main.errors} errors, ${main.warnings} warnings${main.isPending ? ", pending" : ""}`,
+          display: `${ok ? "yes" : "no"}: ${read}, ${main.errors} errors, ${main.warnings} warnings${pending}`,
           note: `${main.path}; ${main.submitted} URLs submitted`,
         },
       };
@@ -283,7 +284,7 @@ export async function gscMeasures({ client: gsc, error }: GscSetup, now: Date, f
         o1_hubs_indexed: {
           value: c.indexed,
           display: `${c.indexed} of ${c.hubUrls}`,
-          note: `${c.inspected} inspected${c.slice ? ` (slice ${c.slice.start}–${c.slice.end})` : ""}${c.failed ? `, ${c.failed} failed` : ""}${c.skipped ? `, ${c.skipped} not reached (time budget)` : ""}; ${states}`,
+          note: coverageNote(c, states),
         },
       };
     }),
@@ -292,6 +293,14 @@ export async function gscMeasures({ client: gsc, error }: GscSetup, now: Date, f
 }
 
 // ── Sentry ──────────────────────────────────────────────────────────────────
+
+function coverageNote(c: HubCoverage, states: string): string {
+  const parts = [`${c.inspected} inspected`];
+  if (c.slice) parts.push(`slice ${c.slice.start}–${c.slice.end}`);
+  if (c.failed) parts.push(`${c.failed} failed`);
+  if (c.skipped) parts.push(`${c.skipped} not reached (time budget)`);
+  return `${parts.join(", ")}; ${states}`;
+}
 
 export const SENTRY_TOKEN_ENV = "SENTRY_READ_TOKEN";
 const SENTRY_IDS = ["o10_sentry_n1_week", "o10_sentry_other_week"];

@@ -60,8 +60,13 @@ export function targetFor(measure: Measure, cp: CheckpointId): { target: Target;
   return null;
 }
 
+function unitSuffix(unit: Measure["unit"]): string {
+  if (!unit) return "";
+  return unit === "%" ? "%" : ` ${unit}`;
+}
+
 function describeTarget(t: Target, unit: Measure["unit"]): string {
-  const u = unit === "%" ? "%" : unit ? ` ${unit}` : "";
+  const u = unitSuffix(unit);
   switch (t.kind) {
     case "atLeast":
       return `≥${t.value}${u}`;
@@ -88,10 +93,10 @@ function judge(t: Target, value: number, values: Values, previous: Values | null
 }
 
 function shownValue(m: Measure, v: Values[string] | undefined): string {
-  if (!v || v.value === null) return "not available";
+  if (v?.value == null) return "not available";
   if (v.display) return v.display;
   const n = Number.isInteger(v.value) ? String(v.value) : v.value.toFixed(1);
-  return m.unit === "%" ? `${n}%` : m.unit ? `${n} ${m.unit}` : n;
+  return n + unitSuffix(m.unit);
 }
 
 export function evaluate(values: Values, cp: CheckpointId | null, previous: Values | null): ScoreRow[] {
@@ -105,17 +110,18 @@ export function evaluate(values: Values, cp: CheckpointId | null, previous: Valu
       baseline: m.baseline,
       value: v?.value ?? null,
       shown: shownValue(m, v),
-      target: resolved ? `${describeTarget(resolved.target, m.unit)}${resolved.from !== cp ? ` (${resolved.from})` : ""}` : "—",
+      target: resolved ? describeTarget(resolved.target, m.unit) + (resolved.from === cp ? "" : ` (${resolved.from})`) : "—",
       targetFrom: resolved?.from ?? null,
       guardrail: m.guardrail === true,
       ...(v?.note ? { note: v.note } : {}),
     };
-    if (!v || v.value === null) return { ...base, status: "n/a" as const };
+    if (v?.value == null) return { ...base, status: "n/a" as const };
     if (!resolved || resolved.target.kind === "tracked") return { ...base, status: "tracked" as const };
     const ok = judge(resolved.target, v.value, values, previous);
     if (ok === null) return { ...base, status: "unjudged" as const };
     if (ok) return { ...base, status: "met" as const };
-    return { ...base, status: resolved.from === cp ? ("missed" as const) : ("not yet" as const) };
+    const status: RowStatus = resolved.from === cp ? "missed" : "not yet";
+    return { ...base, status };
   });
 }
 
@@ -128,7 +134,20 @@ const STATUS_MARK: Record<RowStatus, string> = {
   unjudged: "? unjudged",
 };
 
-const cell = (s: string) => s.replace(/\|/g, "\\|").replace(/\n/g, " ");
+const cell = (s: string) => s.replaceAll("|", String.raw`\|`).replaceAll("\n", " ");
+
+function checkMark(ok: boolean | null, marks: [string, string, string]): string {
+  if (ok === null) return marks[0];
+  return ok ? marks[1] : marks[2];
+}
+
+function tableRow(r: ScoreRow): string {
+  const guard = r.guardrail ? " *(guardrail)*" : "";
+  const note = r.note ? " " + cell(r.note) : "";
+  return `| ${r.objective} | ${cell(r.label)}${guard} | ${cell(r.baseline)} | **${cell(r.shown)}** | ${cell(r.target)} | ${STATUS_MARK[r.status]} |${note}`;
+}
+
+const missLine = (r: ScoreRow) => `- ${r.objective} ${r.label}: ${r.shown} vs ${r.target}`;
 
 export function scorecardTitle(card: Pick<Scorecard, "checkpoint" | "preview" | "generatedAt">): string {
   const date = card.generatedAt.slice(0, 10);
@@ -142,21 +161,18 @@ export function misses(card: Scorecard): ScoreRow[] {
 }
 
 export function renderMarkdown(card: Scorecard): string {
-  const rows = card.rows.map(
-    (r) =>
-      `| ${r.objective} | ${cell(r.label)}${r.guardrail ? " *(guardrail)*" : ""} | ${cell(r.baseline)} | **${cell(r.shown)}** | ${cell(r.target)} | ${STATUS_MARK[r.status]} |${r.note ? ` ${cell(r.note)}` : ""}`,
-  );
+  const rows = card.rows.map(tableRow);
   const missed = misses(card);
   const unavailable = card.rows.filter((r) => r.status === "n/a");
   const checks = card.datedChecks.map(
-    (c) => `- ${c.ok === null ? "📝 manual" : c.ok ? "✅" : "❌"} **${c.title}**: ${c.detail}`,
+    (c) => `- ${checkMark(c.ok, ["📝 manual", "✅", "❌"])} **${c.title}**: ${c.detail}`,
   );
   return [
     `Computed by \`/api/cron/weekly-scorecard\` at ${card.generatedAt}. Targets: \`src/lib/scorecard/config.ts\`.`,
     card.preview ? `\nThis is a **preview**: ${card.checkpoint} itself runs on its Monday.` : "",
     "",
     `## Misses (${missed.length})`,
-    missed.length ? missed.map((r) => `- **${r.objective} ${r.label}**: ${r.shown} vs ${r.target}`).join("\n") : "None.",
+    missed.length ? missed.map(missLine).join("\n") : "None.",
     "",
     "## Scorecard",
     "",
@@ -180,11 +196,11 @@ export function renderText(card: Scorecard, issueUrl: string | null): string {
   return [
     scorecardTitle(card),
     "",
-    missed.length ? `Misses (${missed.length}):\n${missed.map((r) => `- ${r.objective} ${r.label}: ${r.shown} vs ${r.target}`).join("\n")}` : "No misses.",
+    missed.length ? `Misses (${missed.length}):\n` + missed.map(missLine).join("\n") : "No misses.",
     "",
     ...lines,
     "",
-    ...card.datedChecks.map((c) => `[${c.ok === null ? "manual" : c.ok ? "ok" : "FAIL"}] ${c.title}: ${c.detail}`),
+    ...card.datedChecks.map((c) => `[${checkMark(c.ok, ["manual", "ok", "FAIL"])}] ${c.title}: ${c.detail}`),
     "",
     issueUrl ? `Checkpoint issue: ${issueUrl}` : "The checkpoint issue could not be filed; see the run's summary.",
     "Review: open a session with docs/ops/checkpoint-review-prompt.md.",

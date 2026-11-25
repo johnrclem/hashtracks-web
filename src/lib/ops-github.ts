@@ -230,14 +230,14 @@ export function opsGithubFromEnv(): OpsGithub | null {
 
 /** Branches the agents and interactive workstream sessions push from (write-gate's list plus `claude/`). */
 const AGENT_BRANCH_PREFIXES = ["claude/", "audit-fix/", "onboarding/", "onboard/", "deep-dive/", "hareline-audit/", "ops-digest/"];
-const AGENT_LABELS = ["audit-fix", "onboarding-impl"];
+const AGENT_LABELS = new Set(["audit-fix", "onboarding-impl"]);
 
 /** An agent's or workstream session's PR, as opposed to one the owner wrote by hand (scorecard O4). */
 export function isAgentOrWorkstreamPr(pr: GhPull): boolean {
   return (
     pr.authorIsBot ||
     AGENT_BRANCH_PREFIXES.some((p) => pr.headRef.startsWith(p)) ||
-    pr.labels.some((l) => AGENT_LABELS.includes(l))
+    pr.labels.some((l) => AGENT_LABELS.has(l))
   );
 }
 
@@ -248,7 +248,9 @@ export function mergedSince(rows: GhIssue[], since: Date): GhIssue[] {
 
 /** "N (#a, #b)" for a list of issues or pull requests, "0" when empty. */
 export function numberList(rows: Array<{ number: number }>): string {
-  return rows.length ? `${rows.length} (${rows.map((r) => `#${r.number}`).join(", ")})` : "0";
+  if (rows.length === 0) return "0";
+  const numbers = rows.map((r) => "#" + r.number).join(", ");
+  return `${rows.length} (${numbers})`;
 }
 
 /** The owner's approval on an agent PR (`audit-fix`, `onboarding-impl`); the agent then merges it. */

@@ -87,7 +87,7 @@ export async function inspectHubCoverage(
   const clock = deps.clock ?? Date.now;
   const deadline = clock() + (deps.budgetMs ?? SWEEP_BUDGET_MS);
   const sleep = deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
-  const hubs = [...new Set((await readSitemapUrls(SITEMAP_URL, deps.fetchImpl)).filter(isHubUrl))].sort();
+  const hubs = [...new Set((await readSitemapUrls(SITEMAP_URL, deps.fetchImpl)).filter(isHubUrl))].sort((a, b) => a.localeCompare(b));
   const weekIndex = Math.floor(now.getTime() / (7 * 86_400_000));
   const slice = weeklySlice(hubs.length, weekIndex);
   const targets = slice ? hubs.slice(slice.start, slice.end) : hubs;
@@ -96,20 +96,18 @@ export async function inspectHubCoverage(
   let next = 0;
   let lastStart = 0;
   let failStreak = 0;
-  async function worker() {
-    while (next < targets.length && clock() < deadline && failStreak < MAX_CONSECUTIVE_FAILURES) {
-      const url = targets[next++];
-      const wait = lastStart + MIN_SPACING_MS - clock();
-      lastStart = clock() + Math.max(0, wait);
-      if (wait > 0) await sleep(wait);
-      try {
-        results.push(await gsc.inspect(url));
-        failStreak = 0;
-      } catch {
-        results.push(null);
-        failStreak++;
-      }
-    }
+  const canContinue = () => next < targets.length && clock() < deadline && failStreak < MAX_CONSECUTIVE_FAILURES;
+  /** One paced inspection, then the worker's next; each worker runs its calls one after another. */
+  async function worker(): Promise<void> {
+    if (!canContinue()) return;
+    const url = targets[next++];
+    const wait = lastStart + MIN_SPACING_MS - clock();
+    lastStart = clock() + Math.max(0, wait);
+    if (wait > 0) await sleep(wait);
+    const result = await gsc.inspect(url).catch(() => null);
+    results.push(result);
+    failStreak = result ? 0 : failStreak + 1;
+    return worker();
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
