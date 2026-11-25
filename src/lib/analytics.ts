@@ -1,5 +1,6 @@
 import posthog from "posthog-js";
 import { getVisitRecency } from "@/lib/visit-recency";
+import { isInternalBrowser } from "@/lib/internal-traffic";
 
 /**
  * Custom analytics events tracked in PostHog.
@@ -260,11 +261,18 @@ export function capture<E extends keyof AnalyticsEventMap>(
 // calls (effects re-running) don't send duplicate identify events.
 let identifiedKey: string | null = null;
 
-/** Tag every event on this page load with new-vs-returning (see visit-recency.ts). */
+/**
+ * Tag every event on this page load with new-vs-returning (see visit-recency.ts)
+ * and, for a browser the owner opted out with `?internal=1`, with
+ * `internal_user: true` (see internal-traffic.ts).
+ */
 export function registerVisitRecency() {
   if (typeof window === "undefined") return;
   if (!posthog.__loaded) return;
-  posthog.register({ visit_recency: getVisitRecency() });
+  posthog.register({
+    visit_recency: getVisitRecency(),
+    ...(isInternalBrowser() ? { internal_user: true } : {}),
+  });
 }
 
 /**
@@ -297,6 +305,6 @@ export function resetIdentity() {
   if (identifiedKey === null) return;
   posthog.reset();
   identifiedKey = null;
-  // reset() clears super properties; keep new-vs-returning on later events.
+  // reset() clears super properties; keep new-vs-returning and the internal flag on later events.
   registerVisitRecency();
 }
