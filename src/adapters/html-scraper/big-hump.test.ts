@@ -271,6 +271,13 @@ describe("BigHumpAdapter.fetch", () => {
     expect(Math.abs(noHistory - (now - 86_400_000))).toBeLessThan(60_000);
   });
 
+  it("fails loudly when the window holds no runs (collection or field drift)", async () => {
+    mockSafeFetch.mockResolvedValue(jsonResponse([{ readTime: "x" }]));
+    const result = await adapter.fetch(source({ includeHistory: true }), { days: 365 });
+    expect(result.events).toEqual([]);
+    expect(result.errors[0]).toMatch(/no runs between/);
+  });
+
   it("fails loudly on an HTTP error", async () => {
     mockSafeFetch.mockResolvedValue(jsonResponse({ error: { message: "nope" } }, 403));
     const result = await adapter.fetch(source({ includeHistory: true }), { days: 30 });

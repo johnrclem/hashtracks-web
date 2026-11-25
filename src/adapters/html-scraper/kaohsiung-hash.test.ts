@@ -342,6 +342,20 @@ describe("parseKaohsiungHashPage — late 2026-11 layout (Time: line, undated ne
     expect(undatedRuns).toEqual([2746]);
   });
 
+  it("keeps an undated run numbered BELOW a dated one as a parse error (reconcile guard)", () => {
+    // #2745 rewritten without a date while #2746 is dated: skipping #2745
+    // silently would let reconcile cancel its stored event.
+    const swapped = LATE_NOV_2026_FIXTURE
+      .replace("#2745 Saturday Afternoon Run", "#2747 Saturday Afternoon Run")
+      .replace("Run #2745", "Run #2747");
+    const res = parseKaohsiungHashPage(swapped.replace("#2746 Saturday", "#2744 Saturday"), now);
+    expect(res.runs.map((r) => r.runNumber)).toEqual([2747]);
+    expect(res.undatedRuns).toEqual([]);
+    expect(res.parseErrors.map((e) => e.error)).toEqual([
+      "Kaohsiung H3: could not parse date for run #2744",
+    ]);
+  });
+
   it("skips a 'Time:' line that holds only a clock and keeps looking", () => {
     const html = [
       "<h2>#2760 Saturday Run</h2>",

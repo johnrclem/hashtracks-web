@@ -403,3 +403,10 @@ describe("BrassMonkeyAdapter.fetch (Blogger API path)", () => {
     });
   });
 });
+
+describe("parseYearlessBodyDate — labelled line wins", () => {
+  it("prefers the WHEN: line over an earlier RSVP date", () => {
+    const body = "RSVP by Monday, November 30th\nWHEN: Friday, December 4th, at 7:00pm";
+    expect(parseYearlessBodyDate(body, new Date("2026-11-13T00:00:00Z"))).toBe("2026-12-04");
+  });
+});

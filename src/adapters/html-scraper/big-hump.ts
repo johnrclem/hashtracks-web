@@ -353,6 +353,15 @@ export class BigHumpAdapter implements SourceAdapter {
     // output is stable even when two docs share an instant.
     events.sort((a, b) => a.date.localeCompare(b.date) || (a.runNumber ?? 0) - (b.runNumber ?? 0));
 
+    // Big Hump runs weekly, so a window with no runs means the collection or its
+    // `startsAt` field moved, not that the kennel stopped. Fail loud rather than
+    // log a SUCCESS with 0 events.
+    if (events.length === 0 && errors.length === 0) {
+      const msg = `Big Hump: Firestore returned ${docs.length} document(s) and no runs between ${from.toISOString().slice(0, 10)} and ${maxDate.toISOString().slice(0, 10)} (collection or field drift?)`;
+      errors.push(msg);
+      (errorDetails.parse ??= []).push({ row: -1, error: msg });
+    }
+
     return {
       events,
       errors,

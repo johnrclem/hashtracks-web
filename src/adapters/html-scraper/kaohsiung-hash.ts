@@ -603,17 +603,37 @@ export function parseKaohsiungHashPage(
 
   const runs: ParsedRun[] = [];
   const parseErrors: ParseError[] = [];
-  const undatedRuns: number[] = [];
+  const undatedRuns: { runNumber: number; row: number; heading: string }[] = [];
   for (let s = 0; s < runStarts.length; s++) {
     const start = runStarts[s];
     const end = s + 1 < runStarts.length ? runStarts[s + 1] : blocks.length;
     const { run, error, undated } = buildRun(blocks, start, end, now);
     if (run) runs.push(run);
     else if (error) parseErrors.push(error);
-    else if (undated !== undefined) undatedRuns.push(undated);
+    else if (undated !== undefined) undatedRuns.push({ runNumber: undated, row: start, heading: blocks[start].text });
   }
 
-  return { runs, blockCount: blocks.length, parseErrors, undatedRuns };
+  // Only an announcement AFTER every dated run is legitimately undated (#2746
+  // behind #2745). An undated run numbered below a dated one already ran or is
+  // the next run whose date text was rewritten, so it stays a parse error: a
+  // silent skip would let reconcile cancel its event.
+  const lastDated = Math.max(0, ...runs.map((r) => r.runNumber));
+  const announced: number[] = [];
+  for (const u of undatedRuns) {
+    if (u.runNumber > lastDated) {
+      announced.push(u.runNumber);
+      continue;
+    }
+    parseErrors.push({
+      row: u.row,
+      section: "run_information",
+      field: "date",
+      error: `Kaohsiung H3: could not parse date for run #${u.runNumber}`,
+      rawText: u.heading.slice(0, 200),
+    });
+  }
+
+  return { runs, blockCount: blocks.length, parseErrors, undatedRuns: announced };
 }
 
 function toRawEvent(run: ParsedRun, sourceUrl: string): RawEventData {

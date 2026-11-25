@@ -32,6 +32,8 @@ const WORD_DATE_RE = /(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunda
 // used as a last resort, with the year inferred from the post's publish date.
 const YEARLESS_DATE_RE = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2})(?:st|nd|rd|th)?\b/i;
 
+const LABELLED_DATE_LINE_RE = /^[^\S\n]*(?:when|date)[^\S\n]*:.*$/im;
+
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 /**
@@ -41,7 +43,10 @@ const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "frida
  */
 export function parseYearlessBodyDate(text: string, publishDate: Date | undefined): string | undefined {
   if (!publishDate) return undefined;
-  const m = YEARLESS_DATE_RE.exec(text);
+  // Prefer the event's own "WHEN:"/"Date:" line over an earlier mention
+  // ("RSVP by Monday, November 30th … WHEN: Friday, December 4th").
+  const labelled = LABELLED_DATE_LINE_RE.exec(text)?.[0];
+  const m = (labelled && YEARLESS_DATE_RE.exec(labelled)) || YEARLESS_DATE_RE.exec(text);
   if (!m) return undefined;
   const weekday = WEEKDAYS.indexOf(m[1].toLowerCase());
   const month = MONTHS[m[2].toLowerCase().slice(0, 3)];

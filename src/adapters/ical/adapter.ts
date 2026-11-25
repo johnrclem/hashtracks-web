@@ -35,7 +35,7 @@ export interface ICalSourceConfig {
   descriptionStripPatterns?: string[]; // #2890 Cheltenham & Cotswold H3: regexes (case-insensitive) for DESCRIPTION lines that repeat other fields ("Hare(s): …", "Map: <url>", the event's own URL). Matching lines are dropped from the stored description; when nothing is left the description is explicitly cleared (`null`). Hares/location/cost are still read from the full DESCRIPTION.
   ignoreEndTime?: boolean;             // #2891 Cheltenham & Cotswold H3: the feed's DTEND is a generator default (always DTSTART + 2h), not a finish time. Emits an explicit `null` endTime so stored values are cleared too.
   sourceUrlOverride?: string;          // #2892 Cheltenham & Cotswold H3: the per-event URL redirects logged-out visitors to a login page; link every event to this public page instead.
-  timezone?: string;                   // IANA zone for DTSTART/DTEND values written in UTC ("…Z") or without a TZID. hashstats.org's calendar.ics (Dayton H3) sends UTC times and no X-WR-TIMEZONE, so without this a 2 pm EST run reads 19:00. A TZID on the value still wins.
+  timezone?: string;                   // IANA zone for DTSTART/DTEND values written in UTC ("…Z"). Not for floating values (no Z, no TZID): node-ical already reads those in the server's zone. hashstats.org's calendar.ics (Dayton H3) sends UTC times and no X-WR-TIMEZONE, so without this a 2 pm EST run reads 19:00. A TZID on the value still wins.
   locationOmitIfMatches?: string[];    // Cheltenham & Cotswold H3: regexes (case-insensitive) for a LOCATION that is a placeholder, not a venue ("TORCHLIT"). A match drops the location AND the VEVENT's GEO, because the publisher geocoded the placeholder text into a bogus pin. Same semantics as the GenericHtml/GCal knob of the same name.
 }
 
@@ -557,12 +557,14 @@ export function extractMapsUrlFromDescription(description: string): string | und
 const UTC_ZONES = new Set(["UTC", "Etc/UTC", "Z", "GMT", "Etc/GMT"]);
 
 /**
- * Zone to read a timed value in: its own TZID, else the source's configured
- * `timezone` (for feeds that write UTC with no TZID), else UTC.
+ * Zone to read a timed value in: its own TZID; for a UTC value ("…Z", which
+ * node-ical tags Etc/UTC), the source's configured `timezone`; else UTC.
+ * A floating value (no Z, no TZID) has no tz and keeps the old UTC reading.
  */
 function displayZone(dt: DateWithTimeZone, fallbackTz?: string): string {
-  if (dt.tz && !UTC_ZONES.has(dt.tz)) return dt.tz;
-  return fallbackTz || dt.tz || "UTC";
+  if (!dt.tz) return "UTC";
+  if (UTC_ZONES.has(dt.tz) && fallbackTz) return fallbackTz;
+  return dt.tz;
 }
 
 /**
