@@ -52,7 +52,10 @@ if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then die "$ROOT is inside
 # directories, which vanish when that shell exits. When Node comes from one of those, keep the
 # directory it links to (fnm's installed version) instead.
 NODE_DIR=""
-is_dispatcher() { grep -q 'HashTracks gh dispatcher' "$1" 2>/dev/null; }
+is_dispatcher() {
+  local file="$1"
+  grep -q 'HashTracks gh dispatcher' "$file" 2>/dev/null
+}
 NODE_BIN="$(command -v node || true)"
 if [[ "$NODE_BIN" == *fnm_multishells* ]]; then NODE_DIR="$(readlink -f "$(dirname "$NODE_BIN")")"; fi
 # Any directory whose gh is an agent-root shim or the dispatcher (step 6) goes too: the shim must
