@@ -2,10 +2,12 @@
 
 The audits find problems faster than anyone fixes them. Five deep dives a day plus the daily
 hareline audit file about 15 findings a day, and open `audit` issues went from about 19 to 66 in the
-week to 2026-11-12. This task fixes them a kennel at a time: each run takes the kennel whose oldest
-open defect has waited longest, fixes up to **6** of that kennel's defects in **one** PR, and stops
-at a PR that waits for the owner. One PR per kennel gives the owner one review per batch instead of
-one per finding. It's the audit-findings queue that
+week to 2026-11-12. This task fixes them a shared cause at a time: each run takes the adapter whose
+oldest open defect has waited longest, finds the root cause behind its defects, fixes up to **6**
+defects that share it in **one** PR, and stops at a PR that waits for the owner. Most open defects
+cluster on a few shared adapters (Harrier Central, Google Calendar/Sheets/iCal, Hash Rego), so one
+PR per root cause closes several kennels' defects for one owner review, where a PR per kennel
+closed one or two. It's the audit-findings queue that
 [`self-healing-v2-plan.md`](../self-healing-v2-plan.md) (Phase 4) plans for the scraper doctor, started
 early as its own task. It copies the onboarding implementer's shape
 ([`implement-handoff-prompt.md`](../kennel-onboarding/implement-handoff-prompt.md)). The lanes,
@@ -28,7 +30,7 @@ Auto mode refuses to create scheduled tasks, so the owner does this once.
      and the ops digest (07:15).
    - mode: Auto
    - folder: `~/Developer/hashtracks-agents`, the agent root ([`system.md#identity`](system.md#identity); it must be the folder the task *starts* in)
-   - description: `Merge owner-approved audit-fix PRs, verify and close fixed defects, then fix up to 6 of one kennel's defects in one audit-fix PR (manual: docs/ops/audit-fixer-task.md).`
+   - description: `Merge owner-approved audit-fix PRs, verify and close fixed defects, then fix up to 6 defects that share one root cause in one audit-fix PR (manual: docs/ops/audit-fixer-task.md).`
    - prompt: the pointer in
      [`scheduled-tasks/pointers/hashtracks-audit-fixer.txt`](scheduled-tasks/pointers/hashtracks-audit-fixer.txt),
      verbatim. It resets the task's clone and reads the task's prompt,
@@ -54,14 +56,17 @@ Auto mode refuses to create scheduled tasks, so the owner does this once.
    pages only.
 3. **The owner approves every merge.** The `owner-approved` label is the owner's OK. **Never add
    that label yourself, and never merge an `audit-fix` PR without it**, migrations included.
-4. **One PR per run, for one kennel.** A run fixes up to **6** of one kennel's defects, in one PR.
-   If **4 or more** open `audit-fix` PRs lack `owner-approved`, build nothing new: the owner is the
-   bottleneck. Skip any kennel with an open `lane:incident` issue: its source is failing, and a
+4. **One PR per run, for one root cause.** A run fixes up to **6** defects that share one root cause
+   (one adapter, or one configuration mistake repeated across kennels), in one PR, across as many
+   kennels as share it. If **2 or more** open `audit-fix` PRs lack `owner-approved`, build nothing
+   new: the owner is the bottleneck (the watchdog reports this task blocked at 2, too). Skip any kennel with an open `lane:incident` issue: its source is failing, and a
    supervised session works it first.
 5. **Small, contained fixes only.** A PR may change:
    - source or kennel **configuration** (`prisma/seed-data/*.ts`) plus the data-only migration that
      carries it to prod, and
-   - **one existing adapter file** under `src/adapters/` plus its tests and fixtures.
+   - **one existing adapter file** under `src/adapters/` plus its tests and fixtures. A shared
+     adapter (Harrier Central, Google Calendar, Sheets, iCal, Hash Rego, Meetup) feeds many sources:
+     live-verify **every** enabled source the change can affect, not only the batch's kennels.
 
    Never change `prisma/schema.prisma`, `src/pipeline/**`, `src/app/**`, `src/components/**`,
    `src/adapters/registry.ts`, or more than one adapter file, and never add a new adapter file. A fix
@@ -76,7 +81,8 @@ Auto mode refuses to create scheduled tasks, so the owner does this once.
    [Posting](#posting)).
 8. **Never force-push.** If a branch needs rewriting, push a new branch named `<branch>-r2`, open a
    new PR and close the old one with a link.
-9. **Branches start with `audit-fix/`,** and no other prefix: `audit-fix/<kennelCode>-<YYYYMMDD>`.
+9. **Branches start with `audit-fix/`,** and no other prefix: `audit-fix/<batch>-<YYYYMMDD>`, where `<batch>` is the adapter or root cause in kebab case
+   (`harrier-central-hares`, `gcal-all-day`).
    The write gate treats that prefix as this task's ([`system.md#branch-prefixes`](system.md#branch-prefixes)).
 
 ## Step 1 — identity preflight (every run, first)
@@ -201,11 +207,11 @@ whose fix merged at least 26 hours ago (one daily scrape at 06:00 UTC has run si
 4. **Not fixed yet:** check again on later runs. Once `mergedAt` is more than four days old,
    comment what you saw, add `needs-human` and remove `in-progress`.
 
-## Phase C — fix one kennel
+## Phase C — fix one root cause
 
 ### Preflight (stop at the first that applies)
 
-1. Four or more open `audit-fix` PRs without `owner-approved` → skip to Phase D: "waiting on owner
+1. Two or more open `audit-fix` PRs without `owner-approved` → skip to Phase D: "waiting on owner
    review (N PRs)".
 2. Build the list of `#N` numbers that open PRs mention, so you never take an issue someone else is
    on. It also catches PR numbers and unrelated references; excluding a few extra issues is fine:
@@ -217,26 +223,30 @@ whose fix merged at least 26 hours ago (one daily scrape at 06:00 UTC has run si
    gh issue list --state open --label lane:incident --limit 200 --json labels --jq '[.[].labels[].name | select(startswith("kennel:"))] | unique | .[]'
    ```
 
-### Pick the kennel
+### Pick the root cause
 
-List the open defects grouped by kennel, the kennel whose oldest defect has waited longest first.
-Each line is a kennel label, the date of its oldest defect, and its issue numbers, oldest first. An
-issue without a `kennel:` label stands alone, as `none:<N>`:
+List the open defects grouped by the adapter behind each issue's kennel, the group whose oldest
+defect has waited longest first. Each line is an adapter (a source type such as `HARRIER_CENTRAL`
+for a shared adapter, or an HTML scraper's registry name), the date of its oldest defect, and its
+issue numbers, oldest first. A kennel with several sources lists its issues under each adapter;
+`no-source` collects kennels without an enabled scraped source, and an issue without a `kennel:`
+label stands alone as `none:<N>`. The script reads seed data only:
 
 ```bash
 gh issue list --state open --label <lane> --limit 300 \
   --search 'sort:created-asc -label:in-progress -label:"audit-fixer:skip" -label:onboarding-candidate -label:"audit:needs-decision" -label:needs-human' \
-  --json number,createdAt,labels \
-  --jq 'map({n: .number, at: .createdAt, k: ([.labels[].name | select(startswith("kennel:"))][0] // "none:\(.number)")}) | group_by(.k) | map({k: .[0].k, at: (map(.at) | min), ns: (sort_by(.at) | map(.n))}) | sort_by(.at) | .[] | "\(.k) \(.at[0:10]) \(.ns | map(tostring) | join(" "))"'
+  --json number,createdAt,labels | npx tsx scripts/audit-fixer-groups.ts
 ```
 
 `onboarding-candidate` issues belong to the onboarding automation. Work down the list:
 
-- Skip a kennel from preflight 3.
-- Drop from each kennel's issues any number in the preflight 2 list. Skip a kennel left with none;
-  a kennel whose oldest issues were dropped takes the place of its oldest remaining one.
-- Triage the first remaining kennel's issues, oldest first, as below. If none qualifies, move to the
-  next kennel. Triage **at most 12 issues per run** in all.
+- Drop the issues of kennels from preflight 3, and any number in the preflight 2 list. Skip a group
+  left with none; a group whose oldest issues were dropped takes the place of its oldest remaining
+  one. Skip `no-source` (those need a new source, not a fix).
+- Triage the first remaining group's issues, oldest first, as below, looking for the **root cause**
+  they share: the same wrong field from the same adapter code path, or the same config knob missing
+  on several kennels. The batch is the issues with that one cause. If none qualifies, move to the
+  next group. Triage **at most 12 issues per run** in all.
 
 ### Triage each issue
 
@@ -259,17 +269,18 @@ Read the issue (`gh issue view <N> --json title,body,comments`), then:
 - **Can't reproduce today** (source down, sample row gone): comment what you tried and move on. On
   the third such comment from this task, add `audit-fixer:skip` too.
 
-Stop adding to the batch at **6** issues. One qualifying issue is enough to build.
+Stop adding to the batch at **6** issues. Every issue in it must share the root cause: an issue with
+a different cause in the same adapter waits for a later run. One qualifying issue is enough to build.
 
 ### Claim
 
 Before writing code, add `in-progress` to every issue in the batch and comment on each:
-"Audit fixer: working on this in `audit-fix/<kennelCode>-<YYYYMMDD>`, with #<the others>." For a
-`none:<N>` issue, the branch is `audit-fix/<N>-<YYYYMMDD>`.
+"Audit fixer: working on this in `audit-fix/<batch>-<YYYYMMDD>` (root cause: <one line>), with
+#<the others>." For a lone `none:<N>` issue, the branch is `audit-fix/<N>-<YYYYMMDD>`.
 
 ### Build
 
-1. Branch `audit-fix/<kennelCode>-<YYYYMMDD>` from `origin/main`.
+1. Branch `audit-fix/<batch>-<YYYYMMDD>` from `origin/main`.
 2. **Test first.** Turn each issue's sample into a failing test next to the code, with a fixture cut
    from the live response (scrubbed of personal data).
 3. **Fix** within golden rule 5. Follow `.claude/rules/adapter-patterns.md`: reuse the shared helpers,
@@ -279,7 +290,7 @@ Before writing code, add `in-progress` to every issue in the batch and comment o
    remove `in-progress`, and carry on with the rest.
 5. **Configuration reaches prod only through a data migration.** Vercel runs `migrate deploy`, never
    `db seed`. Change `prisma/seed-data/` **and** add one migration for the batch,
-   `prisma/migrations/<timestamp>_audit_fix_<kennel_code>/migration.sql` (the kennel code with `-`
+   `prisma/migrations/<timestamp>_audit_fix_<batch>/migration.sql` (the batch name with `-`
    turned into `_`), with idempotent UPDATEs guarded so a re-run is a no-op. Follow the template in
    [`docs/ops/system.md#migrations`](system.md#migrations): `BEGIN;`, then
    `SET LOCAL lock_timeout = '5s';`, then the UPDATEs, then `COMMIT;`. CI fails the PR otherwise.
@@ -287,12 +298,23 @@ Before writing code, add `in-progress` to every issue in the batch and comment o
    `DATABASE_URL=postgresql://$(whoami)@localhost:5432/hashtracks_dev npm run migration:dry-run --
    prisma/migrations/<dir>` and record the row counts. Never run it against prod; the PR asks the
    owner to.
+
+   **Migration rule (plan v3.2 §3.4).** Audit-fix migrations change existing rows, so they are `updates` and wait one at a time; if one is already open, build an adapter-only batch this run or stop at Phase D. A migration is **insert-only** when every
+   statement other than the template's `BEGIN`, `SET LOCAL` and `COMMIT` is an `INSERT` (with
+   `ON CONFLICT DO NOTHING`, or an `ON CONFLICT … DO UPDATE` that only fills NULL fields) **and**
+   its prod dry run reports 0 rows updated or deleted. Independent insert-only migrations may wait
+   for the owner in parallel; the owner's daily-slot session dry-runs each again against current
+   prod before it merges. A migration that updates or deletes rows, or whose rows overlap another
+   open migration's, waits **one at a time**: before opening one, check
+   `gh pr list --state open --label write:migration --json number,body` and don't open it while
+   another open PR's body says `Migration kind: updates`. Put one line in the PR body:
+   `Migration kind: insert-only` or `Migration kind: updates`, next to the dry-run counts.
 6. **Stored events.** If a fix changes how a display field is extracted, existing events keep the
-   old value. Say so in the PR body with the affected kennel, field and approximate count, and give
+   old value. Say so in the PR body with the affected kennels, field and approximate count, and give
    the owner the cleanup approach. Don't write or run a cleanup yourself.
 7. Checks: `npx tsc --noEmit`, `npm run lint`, `npm test`.
 8. Commit, push, and open the PR, with the body scrubbed as in [Posting](#posting):
-   `gh pr create --base main --label audit-fix --title "fix(<kennelCode>): <what> (#<N>, #<M>)" --body-file "$TMPDIR/body.clean.md"`.
+   `gh pr create --base main --label audit-fix --title "fix(<adapter or batch>): <what> (#<N>, #<M>)" --body-file "$TMPDIR/body.clean.md"`.
    The body has:
    - for each issue, its sample before and after, and the live-verify numbers;
    - the files changed and why the batch stays within this manual's scope;
@@ -318,4 +340,4 @@ PR you opened.
 
 Leave `$WORK` in place; the next run resets it. Report **one line**:
 
-`login: <login> | merged: <PRs or none> | verified+closed: <issues> | closed as already fixed: <issues> | built: <kennelCode> #<N> #<M> → <PR link> | skipped: <issues + why> | owner to-do: <PRs to review / dry runs / cleanups / redeploys>`
+`login: <login> | merged: <PRs or none> | verified+closed: <issues> | closed as already fixed: <issues> | built: <batch> #<N> #<M> → <PR link> | skipped: <issues + why> | owner to-do: <PRs to review / dry runs / cleanups / redeploys>`

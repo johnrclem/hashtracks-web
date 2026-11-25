@@ -47,7 +47,11 @@ Carry on and put "identity preflight failed: <login>" first under "Needs you tod
    `stalePending`), `failedMigrations`, `backfills` (onboarding backfill runs: `recentRuns`,
    `needsYou`, `piiLeaks`, `archiveDrops24h`, `statusLineChanges`, `watch`; null if it failed to
    load) and `ownerSecondFactors` (null until `OWNER_CLERK_USER_ID` is set). Once the watchdog lands (S2), it also carries each
-   automation's state; use those states when present. If the call fails, say so at the top of the
+   automation's state; use those states when present. It also carries `approvalsWaiting.prs` (the
+   approval packet: each PR waiting on the owner with its `writeClass`, `ageHours`, `gate` (the
+   `write-gate` status), `migration` flag and `agent` flag) and `scorecard` (the latest weekly
+   scorecard run: `ranAt`, `status`, and `scorecard.values` per measure with `shown`, `target` and
+   `status`; null before the first Monday run). If the call fails, say so at the top of the
    digest and carry on with the rest. Do NOT fall back to psql.
 2. **Scheduled automations:** use the scheduled-tasks tools to list the last runs of
    `hashtracks-kennel-deep-dive`, `hashtracks-hareline-audit`, `hashtracks-kennel-onboarding`,
@@ -60,8 +64,10 @@ Carry on and put "identity preflight failed: <login>" first under "Needs you tod
      ```bash
      gh pr list --state open --search 'label:audit-fix,onboarding-impl -label:owner-approved' --json number,title,createdAt,labels,statusCheckRollup,body
      ```
-     For each: number, title, age, whether its checks pass, and the migration dry-run counts if its
-     body gives them.
+     For each: number, title, age, whether its checks pass, and the migration dry-run counts and
+     `Migration kind:` line if its body gives them. Join it with Gather 1's `approvalsWaiting.prs` for
+     the write class, gate status and migration flag, which also covers waiting PRs without those
+     labels (workstream PRs).
    - **Decision questions:** open issues waiting on an owner decision. Until S1's relabel, they
      carry `audit:needs-decision`; afterwards, `lane:decision`. One query reads both:
      ```bash
@@ -117,9 +123,13 @@ Carry on and put "identity preflight failed: <login>" first under "Needs you tod
    reported "preflight failed"; `auditQueue.stalePending` above 0 (the hourly filing run is stuck or
    failing); and any automation the watchdog marks `OVERDUE`. An automation the watchdog marks
    `BLOCKED_ON_OWNER` is waiting on approvals (below), not down.
-3. **Approvals waiting:** each PR from Gather 3, oldest first, with its age and checks, plus any PR
-   an agent reported as "re-approval needed". The oldest age is the owner review latency (target:
-   under 24 hours).
+3. **Approvals waiting (the approval packet):** each PR from Gather 3, oldest first, as one line:
+   number, write class, age, gate status, checks, and for a migration its dry-run counts and kind
+   (an `updates` migration waits one at a time; the daily-slot session re-runs the dry run before
+   merging any migration), plus a three-line summary of the diff from the PR body and the producing
+   session's `/code-review` result if the body gives it, then your recommendation (approve, ask, or
+   close). Add any PR an agent reported as "re-approval needed". The oldest age is the owner review
+   latency (target: under 24 hours).
 4. **Decision questions:** each issue from Gather 3, with its one-line question and age.
 5. **Backfills:** every `backfills.needsYou` row (a blocked, halted or verify-failed run, a run
    waiting over 24 hours, a lease expired over an hour) and every `backfills.piiLeaks` row. A PII
@@ -129,7 +139,11 @@ Carry on and put "identity preflight failed: <login>" first under "Needs you tod
    (TOTP or backup codes off, or a phone second factor).
 6. **Task prompt drift:** each `DRIFT` task from Gather 5, with "paste
    `docs/ops/scheduled-tasks/pointers/<task>.txt` into the task".
-7. **Identity and enforcement:** "ruleset off" (once it has been applied: every day it stays off,
+7. **Checkpoint:** when `scorecard.ranAt` is from the last 24 hours, its checkpoint issue (a
+   `lane:decision` issue titled "Checkpoint CPn — <date>") goes here with its miss count; the owner
+   reviews it with `docs/ops/checkpoint-review-prompt.md`. A `scorecard.status` of `FAILED` means the
+   issue or the email didn't go out: say which, from `scorecard.summary`.
+8. **Identity and enforcement:** "ruleset off" (once it has been applied: every day it stays off,
    per the break-glass rules in `system.md#break-glass`); `root-settings: DRIFT`, with "re-run
    `infra/agent-root/install.sh`"; and any owner-path merge from an agent-prefixed branch.
 
@@ -152,7 +166,9 @@ needed) with these sections, each a few lines or a short table:
    ruleset checks, and the owner-path merges from Gather 6).
 4. **PRs and issues.**
 5. **Sentry.**
-6. **Trends vs yesterday.**
+6. **Scorecard:** the latest stored values (from `scorecard`), one line per objective O1–O10 with
+   any measure whose `status` is `missed` or `not yet`, and the date it ran.
+7. **Trends vs yesterday.**
 
 Plain language, no jargon, numbers over adjectives.
 

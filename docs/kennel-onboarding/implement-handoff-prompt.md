@@ -197,6 +197,17 @@ adapter.
    `(set -a; . /Users/johnclem/Developer/hashtracks-web/.env; set +a; BACKFILL_ALLOW_SELF_SIGNED_CERT=1 npm run migration:dry-run -- prisma/migrations/<dir>)`.
    The tool always rolls back. Never pipe the file into `psql` between `BEGIN` and `ROLLBACK`:
    psql commits at the file's own `COMMIT;`.
+
+   **Migration rule (plan v3.2 §3.4).** Onboarding migrations are usually insert-only (new `Kennel`, `Source` and alias rows) and so may wait in parallel; one that also updates an existing kennel or source is `updates`. A migration is **insert-only** when every
+   statement other than the template's `BEGIN`, `SET LOCAL` and `COMMIT` is an `INSERT` (with
+   `ON CONFLICT DO NOTHING`, or an `ON CONFLICT … DO UPDATE` that only fills NULL fields) **and**
+   its prod dry run reports 0 rows updated or deleted. Independent insert-only migrations may wait
+   for the owner in parallel; the owner's daily-slot session dry-runs each again against current
+   prod before it merges. A migration that updates or deletes rows, or whose rows overlap another
+   open migration's, waits **one at a time**: before opening one, check
+   `gh pr list --state open --label write:migration --json number,body` and don't open it while
+   another open PR's body says `Migration kind: updates`. Put one line in the PR body:
+   `Migration kind: insert-only` or `Migration kind: updates`, next to the dry-run counts.
 6. **History backfill** (only if the handoff has one): follow the recent precedent (frozen JSON under
    `scripts/data/` + a loader routed through the merge pipeline). Run it in **dry-run mode only** and
    record per-kennel counts and the exact apply command for the owner.
@@ -208,7 +219,8 @@ adapter.
 7. Checks: `npx tsc --noEmit`, `npm run lint`, `npm test`.
 8. Commit, push, and open the PR, with the body scrubbed as in [Posting](#posting):
    `gh pr create --base main --label onboarding-impl --title "feat(onboard): <shortName> (<region>)" --body-file "$TMPDIR/body.clean.md"`.
-   The body has: what was added, the live-verify sample, the migration dry-run counts, any backfill
+   The body has: what was added, the live-verify sample, the migration dry-run counts and its
+   `Migration kind:` line, any backfill
    dry-run counts plus its apply command, and this line: **"Owner: review, then add the
    `owner-approved` label. The implementer merges it on its next run."**
    If the handoff names an `onboarding-candidate` issue, add a bare `Closes #N` line for it.

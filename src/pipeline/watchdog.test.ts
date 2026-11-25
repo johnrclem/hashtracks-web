@@ -133,10 +133,16 @@ class FakeGithub implements OpsGithub {
     this.check();
     return this.issues
       .filter((i) => i.labels.includes(labels) && (state === "all" || (state === "open") === i.open))
-      .map((i) => ({ ...i, createdAt: T0, closedAt: null, pull: null }));
+      .map((i) => ({ ...i, createdAt: T0, closedAt: null, stateReason: null, pull: null }));
   }
   async listOpenPulls() {
     return [];
+  }
+  async commitStatus() {
+    return null;
+  }
+  async branchRuleCount() {
+    return 0;
   }
   async listIssueComments() {
     return [];

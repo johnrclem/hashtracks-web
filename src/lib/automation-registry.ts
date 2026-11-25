@@ -12,7 +12,7 @@
  */
 import { prisma } from "@/lib/db";
 import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
-import { isWaitingOnOwner, type GhPull, type OpsGithub } from "@/lib/ops-github";
+import { isWaitingOnOwner, type GhIssue, type GhPull, type OpsGithub } from "@/lib/ops-github";
 import { RECUR_COMMENT_PREFIX } from "@/pipeline/audit-filer";
 
 export type AutomationHost = "vercel" | "mac-mini";
@@ -119,6 +119,35 @@ async function waitingPulls(ctx: CheckContext, label: string): Promise<GhPull[]>
   return (await ctx.openPulls()).filter((pr) => pr.labels.includes(label) && isWaitingOnOwner(pr));
 }
 
+/**
+ * The research task merges its own handoff PRs within the run that opens them. One still open
+ * after {@link HANDOFF_MAX_OPEN_HOURS} is stuck (write-gate pending, failing checks), which the old
+ * "PR opened" check never saw (#3067, #3087).
+ */
+export function stuckHandoffs(open: GhIssue[], ctx: CheckContext): Expectation {
+  const stuck = open.filter(
+    (i) => i.pull && ctx.now.getTime() - i.createdAt.getTime() > HANDOFF_MAX_OPEN_HOURS * HOUR_MS,
+  );
+  return {
+    what: `no onboarding-handoff PR open and unmerged for more than ${HANDOFF_MAX_OPEN_HOURS} h`,
+    ok: stuck.length === 0,
+    seen: stuck.length
+      ? stuck.map((i) => `#${i.number} open ${hoursAgo(i.createdAt, ctx.now).replace(" ago", "")}`).join(", ")
+      : `${open.filter((i) => i.pull).length} open, none stuck`,
+  };
+}
+
+/**
+ * A report line, not a check: how many of the automation's PRs merged in the last 7 days. Always
+ * OK, so it shows in the watchdog's detail without ever raising an alarm.
+ */
+function mergedThisWeek(prs: GhIssue[], ctx: CheckContext): Expectation {
+  const since = ctx.now.getTime() - WEEK_MS;
+  const merged = prs.filter((i) => i.pull?.mergedAt && i.pull.mergedAt.getTime() >= since);
+  const list = merged.map((i) => `#${i.number}`).join(", ");
+  return { what: "PRs merged in 7 days (reported)", ok: true, seen: merged.length ? `${merged.length} (${list})` : "0" };
+}
+
 function blockedWhen(waiting: GhPull[], limit: number, label: string): string | undefined {
   if (waiting.length < limit) return undefined;
   const numbers = waiting.map((pr) => `#${pr.number}`).join(", ");
@@ -148,6 +177,7 @@ export const CRON_JOBS = [
   { id: "cron:strava-cache-purge", cadence: "daily 03:45 UTC", everyHours: 24, graceHours: 2 },
   { id: "cron:prediction-ledger", cadence: "weekly, Monday 08:00 UTC", everyHours: 168, graceHours: 6 },
   { id: "cron:rule-drift", cadence: "weekly, Monday 09:00 UTC", everyHours: 168, graceHours: 6 },
+  { id: "cron:weekly-scorecard", cadence: "weekly, Monday 06:00 UTC", everyHours: 168, graceHours: 6 },
   { id: "cron:half-mind-sync", cadence: "weekly, Monday 10:00 UTC (no-op unless HALF_MIND_SYNC_ENABLED)", everyHours: 168, graceHours: 6 },
   // 26 h staleness (onboarding backfill design 11.3).
   { id: "cron:backfill-watch", cadence: "daily 07:15 UTC", everyHours: 24, graceHours: 2 },
@@ -171,8 +201,11 @@ const cronSpecs: AutomationSpec[] = CRON_JOBS.map((job) => ({
 const DAILY_MAX_AGE = 28;
 /** Daily tasks that legitimately skip days (the research backlog stop, the implementer's queue). */
 const SKIPPY_MAX_AGE = 78;
+/** The research task merges its own handoff PRs; one still open after this is stuck (gate, checks). */
+const HANDOFF_MAX_OPEN_HOURS = 24;
+const WEEK_MS = 7 * 24 * HOUR_MS;
 /** The fixer and implementer are blocked, not down, once this many of their PRs wait on the owner. */
-const FIXER_BLOCKED_AT = 4;
+const FIXER_BLOCKED_AT = 2;
 const IMPLEMENTER_BLOCKED_AT = 2;
 /** Comments the server posts itself (the filer's recurrence note, the watchdog's own); not the fixer's work. */
 const SERVER_COMMENT_PREFIXES = [RECUR_COMMENT_PREFIX, OPS_MARKER_PREFIX];
@@ -239,12 +272,13 @@ const desktopSpecs: AutomationSpec[] = [
     check: async (ctx) => {
       const github = requireGithub(ctx);
       const since = new Date(ctx.now.getTime() - 7 * 24 * HOUR_MS);
-      const [prs, closed, touched, comments, waiting] = await Promise.all([
+      const [prs, closed, touched, comments, waiting, recentPrs] = await Promise.all([
         github.listIssues({ labels: "audit-fix", state: "all", sort: "created", limit: 5 }),
         github.listIssues({ labels: "audit", state: "closed", sort: "updated", since, limit: 20 }),
         github.listIssues({ labels: "audit", state: "all", sort: "updated", since, limit: 100 }),
         github.listIssueComments(since),
         waitingPulls(ctx, "audit-fix"),
+        github.listIssues({ labels: "audit-fix", state: "closed", sort: "updated", since, limit: 50 }),
       ]);
       const auditIssues = new Set(touched.map((i) => i.number));
       const fixerComments = comments.filter(
@@ -259,7 +293,10 @@ const desktopSpecs: AutomationSpec[] = [
         ...fixerComments.map((c) => c.createdAt),
       );
       return {
-        expectations: [fresh("an audit-fix PR, an audit-issue comment or a close", output, DAILY_MAX_AGE, ctx)],
+        expectations: [
+          fresh("an audit-fix PR, an audit-issue comment or a close", output, DAILY_MAX_AGE, ctx),
+          mergedThisWeek(recentPrs, ctx),
+        ],
         blockedOnOwner: blockedWhen(waiting, FIXER_BLOCKED_AT, "audit-fix"),
       };
     },
@@ -271,14 +308,16 @@ const desktopSpecs: AutomationSpec[] = [
     cadence: "daily 03:00 (Mac mini, local time)",
     check: async (ctx) => {
       const github = requireGithub(ctx);
-      const [handoffs, holds] = await Promise.all([
-        github.listIssues({ labels: "onboarding-handoff", state: "all", sort: "created", limit: 5 }),
+      const [merged, open, holds] = await Promise.all([
+        github.listIssues({ labels: "onboarding-handoff", state: "closed", sort: "updated", limit: 20 }),
+        github.listIssues({ labels: "onboarding-handoff", state: "open", limit: 20 }),
         github.listIssues({ labels: "onboarding-blocked", state: "open", limit: 5 }),
       ]);
       const hold = holds.find((i) => !i.pull);
       return {
         expectations: [
-          fresh("an onboarding-handoff PR", latest(...handoffs.filter((i) => i.pull).map((i) => i.createdAt)), SKIPPY_MAX_AGE, ctx),
+          fresh("a merged onboarding-handoff PR", latest(...merged.map((i) => i.pull?.mergedAt)), SKIPPY_MAX_AGE, ctx),
+          stuckHandoffs(open, ctx),
         ],
         blockedOnOwner: hold ? `held by onboarding-blocked issue #${hold.number}` : undefined,
       };
@@ -297,7 +336,7 @@ const desktopSpecs: AutomationSpec[] = [
       ]);
       const output = latest(...prs.filter((i) => i.pull).flatMap((i) => [i.createdAt, i.pull?.mergedAt]));
       return {
-        expectations: [fresh("an onboarding-impl PR opened or merged", output, SKIPPY_MAX_AGE, ctx)],
+        expectations: [fresh("an onboarding-impl PR opened or merged", output, SKIPPY_MAX_AGE, ctx), mergedThisWeek(prs, ctx)],
         blockedOnOwner: blockedWhen(waiting, IMPLEMENTER_BLOCKED_AT, "onboarding-impl"),
       };
     },
