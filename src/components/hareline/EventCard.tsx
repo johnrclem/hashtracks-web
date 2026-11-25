@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { MapPin, Clock, Footprints, Tent, ChevronDown, Banknote } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -335,6 +334,14 @@ const LG_BREAKPOINT = 1024;
 const RSVP_INTENDING_COLOR = "#3b82f6"; // blue-500
 const RSVP_CONFIRMED_COLOR = "#16a34a"; // green-600
 
+/**
+ * The card's title link stretches over the whole card. Other links, buttons
+ * and tooltip triggers inside it are lifted above that overlay so they stay
+ * clickable and hoverable.
+ */
+const RAISE_CARD_CONTROLS =
+  "[&_a:not([data-card-link])]:relative [&_a:not([data-card-link])]:z-10 [&_button]:relative [&_button]:z-10 [&_[data-slot=tooltip-trigger]]:relative [&_[data-slot=tooltip-trigger]]:z-10";
+
 interface EventCardProps {
   readonly event: HarelineEvent;
   readonly density: "medium" | "compact";
@@ -346,7 +353,6 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, density, onSelect, isSelected, attendance, hideDate, weather }: EventCardProps) {
-  const router = useRouter();
   const { preference } = useTimePreference();
   const { tempUnit } = useUnitsPreference();
 
@@ -380,22 +386,14 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
   const { displayTimeStr, endTimeStr, tzAbbrev } = computeDisplayTime(event, displayTz);
 
-  // On desktop (lg+) a card opens the detail panel; below that it navigates.
-  const opensPanel = () => !!onSelect && window.innerWidth >= LG_BREAKPOINT;
-
-  function handleClick() {
-    if (opensPanel()) onSelect?.(event);
-    else router.push(`/hareline/${event.id}`);
-  }
-
-  // The title is the card's real link: crawlers follow it and keyboard users
-  // tab to it. When the panel opens instead, the default navigation is
-  // cancelled. Stops propagation so the card's own handler doesn't run too.
+  // The title is the card's real link, stretched over the whole card (its
+  // ::after covers it), so a click anywhere follows it, crawlers see a plain
+  // href and keyboard users tab to it. On desktop (lg+) it opens the detail
+  // panel instead of navigating.
   function handleEventLinkClick(e: React.MouseEvent<HTMLAnchorElement>) {
-    e.stopPropagation();
-    if (opensPanel()) {
+    if (onSelect && window.innerWidth >= LG_BREAKPOINT) {
       e.preventDefault();
-      onSelect?.(event);
+      onSelect(event);
     }
   }
 
@@ -404,7 +402,8 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
       href={`/hareline/${event.id}`}
       onClick={handleEventLinkClick}
       aria-label={buildAriaLabel(event, attendance)}
-      className={`rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}
+      data-card-link=""
+      className={`rounded-sm hover:underline after:absolute after:inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}
     >
       {children}
     </Link>
@@ -425,9 +424,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   if (density === "compact") {
     return (
       <>
-        {/* Clicking anywhere on the card is a mouse shortcut; the title
-            below is the real, focusable link (see handleEventLinkClick). */}
-        <div className="cursor-pointer rounded-lg" onClick={handleClick}>
+        <div className={`rounded-lg ${RAISE_CARD_CONTROLS}`}>
         <div
           className={`group relative flex items-center gap-3 rounded-lg border px-3 py-2 text-sm transition-all duration-200 hover:shadow-md active:scale-[0.995] ${
             isSelected
@@ -504,7 +501,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
           {/* Flexible text — absorbs remaining space */}
           {titleLink(
-            `relative truncate text-muted-foreground ${isCancelled ? "line-through" : ""}`,
+            `truncate text-muted-foreground ${isCancelled ? "line-through" : ""}`,
             (() => {
               const { title, isFallback } = getDisplayTitle({ ...event, kennel: event.kennel ?? { shortName: "", fullName: "" } });
               return isFallback ? (event.haresText || title) : title;
@@ -571,8 +568,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
   return (
     <>
-      {/* Card click is a mouse shortcut; the title is the real link. */}
-      <div className="cursor-pointer rounded-xl" onClick={handleClick}>
+      <div className={`rounded-xl ${RAISE_CARD_CONTROLS}`}>
       <div
         className={`group relative overflow-hidden rounded-xl border transition-all duration-250 ease-out ${
           isSelected

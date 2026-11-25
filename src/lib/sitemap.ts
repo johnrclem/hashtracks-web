@@ -83,7 +83,7 @@ export function buildSitemapIndexXml(baseUrl: string): string {
   return xmlDocument(
     "sitemapindex",
     SITEMAP_SECTIONS.map(
-      (section) => `<sitemap><loc>${escapeXml(`${baseUrl}${sitemapSectionPath(section)}`)}</loc></sitemap>`,
+      (section) => `<sitemap><loc>${escapeXml(baseUrl + sitemapSectionPath(section))}</loc></sitemap>`,
     ),
   );
 }
@@ -93,7 +93,7 @@ export function buildUrlsetXml(baseUrl: string, entries: SitemapEntry[]): string
     "urlset",
     entries.map((entry) => {
       const lastmod = entry.lastModified ? `<lastmod>${toIsoDateString(entry.lastModified)}</lastmod>` : "";
-      return `<url><loc>${escapeXml(`${baseUrl}${entry.path}`)}</loc>${lastmod}</url>`;
+      return `<url><loc>${escapeXml(baseUrl + entry.path)}</loc>${lastmod}</url>`;
     }),
   );
 }
