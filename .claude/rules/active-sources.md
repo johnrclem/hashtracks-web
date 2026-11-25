@@ -315,7 +315,7 @@ Last synced from `prisma/seed-data/sources.ts` via the `/update-sources-rule` sk
 - **BFM Website** -> HTML_SCRAPER -> bfm
 - **BFM Special Events** -> HTML_SCRAPER -> bfm
 - **Philly H3 Website** -> HTML_SCRAPER -> philly-h3
-- **Hash Rego** -> HASHREGO -> bfm, ewh3, wh4, ch3, dch4, dcfmh3, flour-city, oh3, wsh3, mrh3, bfh3, moa2h3, nych3, ggfm, mosh3, tkdh3, ph3-atl, t3h3-va, noh3, sch3-atl, mh3-wv, chh3, philly-h3, gh3-gd, hch3, hellgate-h3, hoboh3, hoth3, mobh3, oxford-h3, sembach-h3, sgh3, ssh3-wa, sbh3-ph, blhhh, dsmh3, vbfmh3
+- **Hash Rego** -> HASHREGO -> bfm, ewh3, wh4, ch3, dch4, dcfmh3, flour-city, oh3, wsh3, mrh3, bfh3, moa2h3, nych3, ggfm, mosh3, tkdh3, ph3-atl, t3h3-va, noh3, sch3-atl, mh3-wv, chh3, philly-h3, gh3-gd, hch3, hellgate-h3, hoboh3, hoth3, mobh3, oxford-h3, sembach-h3, sgh3, ssh3-wa, sbh3-ph, blhhh, dsmh3, vbfmh3, bh4, clh3-sd, ctrh3, eph3, fth3, gatr-h3, gsh3, ih3, jhav-h3, lbh3, mh3-tn, pch3, pfh3, rch3, rumson, rvah3, savh3, sdh3, summit, tbh3-fl, twh3
 
 ### Phoenix, AZ (2)
 - **Phoenix H3 Events** -> ICAL_FEED -> lbh-phx, hump-d, wrong-way, fdtdd

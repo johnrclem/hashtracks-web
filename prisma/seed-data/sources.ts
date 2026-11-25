@@ -1363,6 +1363,7 @@ export const SOURCES = [
       kennelCodes: [
         "bfm", "ewh3", "wh4", "ch3", "dch4", "dcfmh3", "flour-city", "oh3", "wsh3", "mrh3", "bfh3", "moa2h3", "nych3", "ggfm", "mosh3", "tkdh3", "ph3-atl", "t3h3-va",
         "noh3", "sch3-atl", "mh3-wv", "chh3", "philly-h3", "gh3-gd", "hch3", "hellgate-h3", "hoboh3", "hoth3", "mobh3", "oxford-h3", "sembach-h3", "sgh3", "ssh3-wa", "sbh3-ph", "blhhh", "dsmh3", "vbfmh3",
+        "bh4", "clh3-sd", "ctrh3", "eph3", "fth3", "gatr-h3", "gsh3", "ih3", "jhav-h3", "lbh3", "mh3-tn", "pch3", "pfh3", "rch3", "rumson", "rvah3", "savh3", "sdh3", "summit", "tbh3-fl", "twh3",
       ],
       kennelSlugMap: {
         bfm: "BFMH3", ewh3: "EWH3", wh4: "WH4",
@@ -1374,6 +1375,17 @@ export const SOURCES = [
         "gh3-gd": "GndH3", hch3: "HCH3", "hellgate-h3": "HellgateH3", hoboh3: "HOBO", hoth3: "HOTH3",
         mobh3: "MOBH3", "oxford-h3": "OxfordH3", "sembach-h3": "SembachH3", sgh3: "SHH3", "ssh3-wa": "SouthH3",
         "sbh3-ph": "SubicH3", blhhh: "TBLH3", dsmh3: "DSMH3", vbfmh3: "VBFMH3",
+        // Special events (docs/kennel-external-ids-plan.md section 5, PR C):
+        // accounts that post weekends, campouts and dress runs we didn't
+        // scrape. Each was confirmed against its kennel; lbh3 is "LBH3" and
+        // rvah3 is "RH3", the accounts that post. twh3's "TH3" is Tidewater.
+        // Held back: mh3-mn (No Wimps is 01-15 on the calendar, 01-16 on Hash
+        // Rego) and soh4 (its Holiday Party would overwrite the same-day trail).
+        bh4: "BigHumpH3", "clh3-sd": "CLH3", ctrh3: "CTrH3", eph3: "EPH3", fth3: "Foothill",
+        "gatr-h3": "GATRH3", gsh3: "GStrH3", ih3: "IH3", "jhav-h3": "jHavH3", lbh3: "LBH3",
+        "mh3-tn": "MemphisH3", pch3: "PCH3", pfh3: "PFH3", rch3: "RCH3-OH", rumson: "Rumson",
+        rvah3: "RH3", savh3: "SavH3", sdh3: "SDH3", summit: "SummitH3", "tbh3-fl": "TBH3",
+        twh3: "TH3",
       },
       // Per-day kennel attribution config (PR D.5). Patterns matched
       // against each day's section text in a multi-day event's
