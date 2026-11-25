@@ -7,12 +7,13 @@ import { RegionBadge } from "@/components/hareline/RegionBadge";
 import { ScheduleOnlyTag } from "@/components/hareline/ScheduleOnlyTag";
 import { formatDateShort, formatTimeCompact } from "@/lib/format";
 import { getDisplayTitle, getLocationDisplay } from "@/lib/event-display";
-import { getRegionColor } from "@/lib/region";
-import { getCanonicalSiteUrl } from "@/lib/site-url";
-import { runningKennelWhere } from "@/lib/kennel-status";
+import { getRegionColor, regionPath } from "@/lib/region";
+import { canonicalAlternates, getCanonicalSiteUrl } from "@/lib/site-url";
+import { DAY_MS, runningKennelWhere } from "@/lib/kennel-status";
 import { getTodayUtcNoon } from "@/lib/date";
 import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
 import { getHomeComingUp } from "@/lib/home-coming-up";
+import { listIndexedRegions, SITEMAP_KENNEL_WHERE } from "@/lib/sitemap";
 import { parseVisitorArea } from "@/lib/visitor-area";
 import { FadeInSection, RegionTicker } from "@/components/home/HeroAnimations";
 import { HomeSearch } from "@/components/home/HomeSearch";
@@ -34,7 +35,13 @@ export const metadata: Metadata = {
     description: HOME_DESCRIPTION,
     url: getCanonicalSiteUrl(),
   },
+  // Hubs set their own canonical; the root layout must not (it would make
+  // every child page claim the homepage as canonical).
+  alternates: canonicalAlternates("/"),
 };
+
+/** How many kennels the homepage "running this week" grid links to. */
+const HOME_KENNEL_GRID_SIZE = 48;
 
 export default async function HomePage() {
   const [clerkUser, requestHeaders] = await Promise.all([currentUser(), headers()]);
@@ -43,7 +50,7 @@ export default async function HomePage() {
   const visitorArea = parseVisitorArea(requestHeaders);
   const todayUtcNoon = new Date(getTodayUtcNoon());
 
-  const [upcomingCount, kennelCount, regionCount, sourceCount, comingUp, regionNames] =
+  const [upcomingCount, kennelCount, regionCount, sourceCount, comingUp, regionNames, indexedRegions, kennelsThisWeek] =
     await Promise.all([
       prisma.event.count({
         where: { ...DISPLAY_EVENT_WHERE, date: { gte: todayUtcNoon } },
@@ -62,7 +69,19 @@ export default async function HomePage() {
           orderBy: { name: "asc" },
         })
         .then((rows) => rows.map((r) => r.name)),
+      listIndexedRegions(),
+      // Kennels with a posted (not projected) run in the next week.
+      prisma.kennel.findMany({
+        where: {
+          ...SITEMAP_KENNEL_WHERE,
+          nextRunPostedAt: { gte: todayUtcNoon, lt: new Date(todayUtcNoon.getTime() + 7 * DAY_MS) },
+        },
+        select: { slug: true, shortName: true, fullName: true },
+        orderBy: { nextRunPostedAt: "asc" },
+        take: HOME_KENNEL_GRID_SIZE,
+      }),
     ]);
+  kennelsThisWeek.sort((a, b) => a.shortName.localeCompare(b.shortName));
 
   return (
     <div className="-mx-4 -mt-8 overflow-x-hidden">
@@ -280,6 +299,53 @@ export default async function HomePage() {
               View all events <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════
+          BROWSE — plain server-rendered links to the kennel and region hubs
+       ═══════════════════════════════════════════════ */}
+      <section className="border-t border-foreground/5 px-4 py-10 sm:py-14">
+        <div className="mx-auto max-w-5xl space-y-8">
+          {kennelsThisWeek.length > 0 && (
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Kennels running this week</h2>
+              <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3 md:grid-cols-4">
+                {kennelsThisWeek.map((k) => (
+                  <li key={k.slug} className="truncate">
+                    <Link href={`/kennels/${k.slug}`} className="font-medium hover:underline" title={k.fullName}>
+                      {k.shortName}
+                    </Link>{" "}
+                    <span className="text-muted-foreground">{k.fullName}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/kennels"
+                className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+              >
+                All kennels <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          )}
+
+          {indexedRegions.length > 0 && (
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Browse by region</h2>
+              <ul className="mt-4 flex flex-wrap gap-2">
+                {indexedRegions.map((r) => (
+                  <li key={r.slug}>
+                    <Link
+                      href={regionPath(r.slug)}
+                      className="inline-block rounded-md border px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+                    >
+                      {r.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </section>
 

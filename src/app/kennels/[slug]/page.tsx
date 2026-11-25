@@ -23,7 +23,7 @@ import { KennelLogo } from "@/components/kennels/KennelLogo";
 import { TrailLocationMapClient } from "@/components/kennels/TrailLocationMapClient";
 import { EventTabs } from "@/components/kennels/EventTabs";
 import { RegionBadge } from "@/components/hareline/RegionBadge";
-import { getRegionColor, regionNameToSlug } from "@/lib/region";
+import { getRegionColor, regionNameToSlug, regionPath } from "@/lib/region";
 import { FadeInSection } from "@/components/home/HeroAnimations";
 import { buildKennelJsonLd, buildBreadcrumbJsonLd, safeJsonLd, kennelRobots } from "@/lib/seo";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
@@ -136,7 +136,7 @@ export default async function KennelDetailPage({
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "Kennels", url: `${baseUrl}/kennels` },
     ...(regionSlug
-      ? [{ name: kennel.region, url: `${baseUrl}/kennels/region/${regionSlug}` }]
+      ? [{ name: kennel.region, url: `${baseUrl}${regionPath(regionSlug)}` }]
       : []),
     { name: kennel.shortName, url: `${baseUrl}/kennels/${kennel.slug}` },
   ]);

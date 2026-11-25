@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { canonicalAlternates } from "@/lib/site-url";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { getWeatherForEvents } from "@/lib/weather";
@@ -17,17 +18,20 @@ export async function generateMetadata({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }): Promise<Metadata> {
   const params = await searchParams;
+  // Filtered views (?regions=…) are facets of the hub: all canonicalize to it.
   const regions = typeof params.regions === "string" ? params.regions.split("|") : [];
   if (regions.length === 1) {
     const abbrev = regionAbbrev(regions[0]);
     return {
       title: `${abbrev} Runs | HashTracks`,
       description: `Upcoming hash house harrier runs in the ${abbrev} area.`,
+      alternates: canonicalAlternates("/hareline"),
     };
   }
   return {
     title: "Hareline | HashTracks",
     description: "Browse upcoming hash house harrier runs across all regions on HashTracks.",
+    alternates: canonicalAlternates("/hareline"),
   };
 }
 
