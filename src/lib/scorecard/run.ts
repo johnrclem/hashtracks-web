@@ -8,16 +8,18 @@
  */
 import { LANE_LABELS } from "@/lib/audit-labels";
 import { prisma } from "@/lib/db";
-import { getValidatedRepo } from "@/lib/github-repo";
-import { gscFromEnv, type Gsc } from "@/lib/gsc/client";
+import { getValidatedRepo, HASHTRACKS_REPO } from "@/lib/github-repo";
+import { gscFromEnv } from "@/lib/gsc/client";
 import { emailOwner, type NotifyResult } from "@/lib/notify";
 import { opsGithubFromEnv, type OpsGithub } from "@/lib/ops-github";
 
-import { DATED_CHECKS, type Values } from "./config";
+import { DATED_CHECKS, type AutomatedCheckId, type Values } from "./config";
 import { checkpointFor, evaluate, misses, renderMarkdown, renderText, scorecardTitle, type DatedCheckResult, type Scorecard } from "./evaluate";
 import {
+  errText,
   githubMeasures,
   gscMeasures,
+  type GscSetup,
   horizon180Check,
   MANUAL_MEASURES,
   postGateCohortCheck,
@@ -63,33 +65,61 @@ export function toStored(card: Scorecard, issueNumber: number | null, emailed: b
   };
 }
 
-/** Last week's values from the newest successful run at least five days old. */
-async function loadPrevious(now: Date): Promise<Values | null> {
-  const row = await prisma.automationRun.findFirst({
-    where: { automation: SCORECARD_AUTOMATION, status: "SUCCESS", startedAt: { lte: new Date(now.getTime() - PREVIOUS_MIN_AGE_MS) } },
+/** The newest finished scorecard run, any status: a FAILED run (issue or email not delivered) still stored its table. */
+export async function latestScorecardRun(): Promise<{
+  ranAt: string;
+  status: string;
+  summary: string | null;
+  scorecard: StoredScorecard | null;
+} | null> {
+  const run = await prisma.automationRun.findFirst({
+    where: { automation: SCORECARD_AUTOMATION, status: { not: "RUNNING" } },
     orderBy: { startedAt: "desc" },
-    select: { metrics: true },
+    select: { startedAt: true, status: true, summary: true, metrics: true },
   });
-  const stored = (row?.metrics as unknown as Partial<StoredScorecard> | null)?.values;
-  if (!stored) return null;
-  return Object.fromEntries(Object.entries(stored).map(([id, s]) => [id, { value: s.v }]));
+  if (!run) return null;
+  return { ranAt: run.startedAt.toISOString(), status: run.status, summary: run.summary, scorecard: asStored(run.metrics) };
 }
 
-async function runDatedChecks(checkpoint: string | null, values: Values): Promise<DatedCheckResult[]> {
-  const due = DATED_CHECKS.filter((c) => c.checkpoint === checkpoint);
+function asStored(metrics: unknown): StoredScorecard | null {
+  return metrics && typeof metrics === "object" && "values" in metrics ? (metrics as StoredScorecard) : null;
+}
+
+/** Last week's values from the newest successful run at least five days old; null if none or unreadable. */
+async function loadPrevious(now: Date): Promise<Values | null> {
+  try {
+    const row = await prisma.automationRun.findFirst({
+      where: { automation: SCORECARD_AUTOMATION, status: "SUCCESS", startedAt: { lte: new Date(now.getTime() - PREVIOUS_MIN_AGE_MS) } },
+      orderBy: { startedAt: "desc" },
+      select: { metrics: true },
+    });
+    const stored = asStored(row?.metrics)?.values;
+    return stored ? Object.fromEntries(Object.entries(stored).map(([id, s]) => [id, { value: s.v }])) : null;
+  } catch (err) {
+    // Last week's values only feed the relative targets; without them those show "unjudged".
+    console.error("[weekly-scorecard] couldn't read last week's run:", err);
+    return null;
+  }
+}
+
+/** The automated dated checks; a `DATED_CHECKS` id without an entry here fails to compile. */
+const DATED_CHECK_RUNNERS: Record<AutomatedCheckId, (values: Values) => Promise<{ ok: boolean | null; detail: string }>> = {
+  cp1_sitemap_read: async (values) => {
+    const v = values.o1_sitemap_read;
+    return { ok: v?.value == null ? null : v.value === 1, detail: v?.display ?? v?.note ?? "not available" };
+  },
+  cp2_horizon_180: horizon180Check,
+  cp3_cohorts: postGateCohortCheck,
+};
+
+async function runDatedChecks(checkpoint: string | null, values: Promise<Values>): Promise<DatedCheckResult[]> {
   return Promise.all(
-    due.map(async (c): Promise<DatedCheckResult> => {
-      if (c.manual) return { id: c.id, title: c.title, ok: null, detail: `Manual: ${c.manual}` };
+    DATED_CHECKS.filter((c) => c.checkpoint === checkpoint).map(async (c): Promise<DatedCheckResult> => {
+      if ("manual" in c) return { id: c.id, title: c.title, ok: null, detail: `Manual: ${c.manual}` };
       try {
-        if (c.id === "cp1_sitemap_read") {
-          const v = values.o1_sitemap_read;
-          return { id: c.id, title: c.title, ok: v?.value == null ? null : v.value === 1, detail: v?.display ?? v?.note ?? "not available" };
-        }
-        if (c.id === "cp2_horizon_180") return { id: c.id, title: c.title, ...(await horizon180Check()) };
-        if (c.id === "cp3_cohorts") return { id: c.id, title: c.title, ...(await postGateCohortCheck()) };
-        return { id: c.id, title: c.title, ok: null, detail: "no implementation; the review checks it" };
+        return { id: c.id, title: c.title, ...(await DATED_CHECK_RUNNERS[c.id](await values)) };
       } catch (err) {
-        return { id: c.id, title: c.title, ok: null, detail: `check failed: ${err instanceof Error ? err.message : String(err)}` };
+        return { id: c.id, title: c.title, ok: null, detail: `check failed: ${errText(err)}` };
       }
     }),
   );
@@ -97,26 +127,20 @@ async function runDatedChecks(checkpoint: string | null, values: Values): Promis
 
 export async function buildScorecard(
   now: Date,
-  deps: { github: OpsGithub | null; gsc: Gsc | null; gscError?: string; fetchImpl?: typeof fetch },
+  deps: { github: OpsGithub | null; gsc: GscSetup; fetchImpl?: typeof fetch },
 ): Promise<Scorecard> {
   const { checkpoint, preview } = checkpointFor(now);
-  const parts = await Promise.all([
+  const cp = checkpoint?.id ?? null;
+  const values = Promise.all([
     sqlMeasures(process.env.OWNER_EMAIL),
     githubMeasures(deps.github, now),
     soft404Measure(deps.fetchImpl),
-    gscMeasures(deps.gsc, now, deps.fetchImpl, deps.gscError),
+    gscMeasures(deps.gsc, now, deps.fetchImpl),
     sentryMeasures(deps.fetchImpl),
-  ]);
-  const values: Values = Object.assign({}, MANUAL_MEASURES, ...parts);
-  const previous = await loadPrevious(now);
-  const card: Scorecard = {
-    generatedAt: now.toISOString(),
-    checkpoint: checkpoint?.id ?? null,
-    preview,
-    rows: evaluate(values, checkpoint?.id ?? null, previous),
-    datedChecks: await runDatedChecks(checkpoint?.id ?? null, values),
-  };
-  return card;
+  ]).then((parts): Values => Object.assign({}, MANUAL_MEASURES, ...parts));
+  // Last week's values and the SQL-only dated checks don't wait for the (slow) measures.
+  const [measured, previous, datedChecks] = await Promise.all([values, loadPrevious(now), runDatedChecks(cp, values)]);
+  return { generatedAt: now.toISOString(), checkpoint: cp, preview, rows: evaluate(measured, cp, previous), datedChecks };
 }
 
 /**
@@ -130,7 +154,9 @@ export async function fileCheckpointIssue(
   if (!github) return { number: null, reason: "no GitHub credential" };
   try {
     const marker = scorecardMarker(card);
-    const recent = await github.listIssues({ labels: LANE_LABELS.decision, state: "all", sort: "created", limit: 50 });
+    // The marker is date-scoped, so only issues touched since that UTC day can carry it.
+    const since = new Date(`${card.generatedAt.slice(0, 10)}T00:00:00Z`);
+    const recent = await github.listIssues({ labels: LANE_LABELS.decision, state: "all", sort: "created", since, limit: 50 });
     const existing = recent.find((i) => !i.pull && i.body.includes(marker));
     if (existing) return { number: existing.number, reason: "already filed" };
     const number = await github.createIssue({
@@ -140,7 +166,7 @@ export async function fileCheckpointIssue(
     });
     return { number, reason: "filed" };
   } catch (err) {
-    return { number: null, reason: `github: ${err instanceof Error ? err.message : String(err)}` };
+    return { number: null, reason: `github: ${errText(err)}` };
   }
 }
 
@@ -153,13 +179,13 @@ export interface ScorecardRunResult {
 
 export async function runWeeklyScorecard(
   now: Date = new Date(),
-  deps: { github?: OpsGithub | null; gsc?: Gsc | null; fetchImpl?: typeof fetch; email?: typeof emailOwner } = {},
+  deps: { github?: OpsGithub | null; gsc?: GscSetup; fetchImpl?: typeof fetch; email?: typeof emailOwner } = {},
 ): Promise<ScorecardRunResult> {
   const github = deps.github === undefined ? safe(opsGithubFromEnv).client : deps.github;
-  const gscSetup = deps.gsc === undefined ? safe(() => gscFromEnv(deps.fetchImpl)) : { client: deps.gsc };
-  const card = await buildScorecard(now, { github, gsc: gscSetup.client, gscError: gscSetup.error, fetchImpl: deps.fetchImpl });
+  const gsc = deps.gsc ?? safe(() => gscFromEnv(deps.fetchImpl));
+  const card = await buildScorecard(now, { github, gsc, fetchImpl: deps.fetchImpl });
   const issue = await fileCheckpointIssue(github, card);
-  const issueUrl = issue.number ? `https://github.com/${safeRepo()}/issues/${issue.number}` : null;
+  const issueUrl = issue.number ? `https://github.com/${repoName()}/issues/${issue.number}` : null;
   const email = await (deps.email ?? emailOwner)({
     subject: scorecardTitle(card),
     text: renderText(card, issueUrl),
@@ -174,14 +200,14 @@ function safe<T>(build: () => T | null): { client: T | null; error?: string } {
     return { client: build() };
   } catch (err) {
     console.error("[weekly-scorecard] client setup failed:", err);
-    return { client: null, error: err instanceof Error ? err.message : String(err) };
+    return { client: null, error: errText(err) };
   }
 }
 
-function safeRepo(): string {
+function repoName(): string {
   try {
     return getValidatedRepo();
   } catch {
-    return "johnrclem/hashtracks-web";
+    return HASHTRACKS_REPO;
   }
 }

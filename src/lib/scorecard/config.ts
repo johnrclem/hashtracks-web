@@ -15,7 +15,6 @@ export interface Checkpoint {
   date: string;
 }
 
-export const ROUND_NAME = "Next round, 24 Nov – 21 Dec 2026";
 export const CHECKPOINTS: readonly Checkpoint[] = [
   { id: "CP1", date: "2026-11-30" },
   { id: "CP2", date: "2026-12-07" },
@@ -37,7 +36,7 @@ export type Values = Record<string, MeasureValue>;
 export type Target =
   | { kind: "atLeast"; value: number }
   | { kind: "atMost"; value: number }
-  | { kind: "tracked"; note?: string }
+  | { kind: "tracked" }
   /** Judged against other measures or last week's value (e.g. "falling week over week"). */
   | { kind: "relative"; describe: string; judge(value: number, values: Values, previous: Values | null): boolean | null };
 
@@ -92,7 +91,9 @@ export const MEASURES: readonly Measure[] = [
   // O7 Listings alive and honest
   { id: "o7_dark_dispositions", objective: "O7", label: "Dark kennels (95) with a recorded disposition", baseline: "0", targets: { CP2: atLeast(30), CP4: atLeast(95) } },
   { id: "o7_dark_to_live", objective: "O7", label: "Dark kennels moved to live", baseline: "0", targets: { CP2: atLeast(3), CP4: atLeast(10) } },
-  { id: "o7_projections_beyond_horizon", objective: "O7", label: "Schedule-only events >90 days out (visible kennels)", baseline: "n/a", targets: { CP2: atMost(0), CP4: atMost(0) } },
+  // Counts rows, not what the surfaces show: WS11 hides these on the listed surfaces but keeps them
+  // for Travel, so a 0 target can't apply until this counts through WS11's display fragment.
+  { id: "o7_projections_beyond_horizon", objective: "O7", label: "Schedule-only events >90 days out, in the DB (surfaces: see WS11's PR)", baseline: "n/a", targets: { CP2: { kind: "tracked" }, CP4: { kind: "tracked" } } },
   { id: "o7_far_future_rows", objective: "O7", label: "Far-future rows >365 days (bobbh3, pormeh3, bullmoon)", baseline: "351", targets: { CP2: atMost(0), CP4: atMost(0) } },
   { id: "o7_kennels_real_run_60d", objective: "O7", label: "Kennels with a real run in the next 60 days", baseline: "309", targets: { CP2: tracked, CP4: tracked } },
   // O8 Audit pipeline fast
@@ -113,17 +114,15 @@ export const SENTRY_N1_ISSUE = "JAVASCRIPT-NEXTJS-3";
 export const PREDICTION_GATE_MERGED_AT = "2026-11-07T14:20:10Z";
 
 /**
- * One-off checks tied to a checkpoint (plan section 9). Each either computes from a server source
- * (the route's `datedCheck` implementations, keyed by id) or is a manual item the checkpoint
- * review session does (`manual` set).
+ * One-off checks tied to a checkpoint (plan section 9). An automated check runs from
+ * `DATED_CHECK_RUNNERS` in `run.ts`, keyed by its id; a manual one is done by the checkpoint
+ * review session.
  */
-export interface DatedCheck {
-  id: string;
-  checkpoint: CheckpointId;
-  title: string;
-  /** Set when the server has no source: what the review session does instead. */
-  manual?: string;
-}
+export type AutomatedCheckId = "cp1_sitemap_read" | "cp2_horizon_180" | "cp3_cohorts";
+
+export type DatedCheck =
+  | { id: AutomatedCheckId; checkpoint: CheckpointId; title: string }
+  | { id: string; checkpoint: CheckpointId; title: string; manual: string };
 
 export const DATED_CHECKS: readonly DatedCheck[] = [
   { id: "cp1_sitemap_read", checkpoint: "CP1", title: "Google reads the sitemap (GSC sitemap status)" },

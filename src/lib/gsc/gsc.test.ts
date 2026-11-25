@@ -87,7 +87,27 @@ describe("hub coverage", () => {
       ),
     } as unknown as Gsc;
     const coverage = await inspectHubCoverage(gsc, new Date(), { fetchImpl, sleep: async () => {} });
-    expect(coverage).toMatchObject({ hubUrls: 2, inspected: 2, indexed: 1, failed: 0, slice: null });
+    expect(coverage).toMatchObject({ hubUrls: 2, inspected: 2, indexed: 1, failed: 0, skipped: 0, slice: null });
     expect(coverage.byState).toEqual({ "Submitted and indexed": 1, "Crawled - currently not indexed": 1 });
+  });
+
+  const hubSitemap = (n: number) =>
+    vi.fn(async () =>
+      new Response(`<urlset>${Array.from({ length: n }, (_, i) => `<url><loc>https://www.hashtracks.xyz/kennels/k${i}</loc></url>`).join("")}</urlset>`),
+    ) as unknown as typeof fetch;
+
+  it("stops at the time budget and reports what it didn't reach", async () => {
+    let t = 0;
+    const gsc = { inspect: vi.fn(async (url: string) => ((t += 1000), { url, verdict: "PASS", coverageState: "Submitted and indexed" })) } as unknown as Gsc;
+    const coverage = await inspectHubCoverage(gsc, new Date(), { fetchImpl: hubSitemap(20), sleep: async () => {}, budgetMs: 5_000, clock: () => t });
+    expect(coverage.inspected + coverage.skipped).toBe(20);
+    expect(coverage.skipped).toBeGreaterThan(0);
+  });
+
+  it("throws, so the measure reads 'not available', when every inspection fails", async () => {
+    const gsc = { inspect: vi.fn(async () => { throw new Error("HTTP 403"); }) } as unknown as Gsc;
+    await expect(inspectHubCoverage(gsc, new Date(), { fetchImpl: hubSitemap(3), sleep: async () => {} })).rejects.toThrow(
+      "all 3 URL inspections failed",
+    );
   });
 });

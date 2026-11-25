@@ -9,14 +9,23 @@
  * under the per-minute limit. When the sitemap lists more, consecutive weeks inspect consecutive
  * slices, so every URL is covered over a few weeks.
  */
+import { DEFAULT_SITE_URL } from "@/lib/site-url";
+
 import type { Gsc, InspectionResult } from "./client";
 
-export const SITEMAP_URL = "https://www.hashtracks.xyz/sitemap.xml";
+export const SITEMAP_URL = `${DEFAULT_SITE_URL}/sitemap.xml`;
 export const MAX_INSPECTIONS_PER_RUN = 900;
-const CONCURRENCY = 4;
+const CONCURRENCY = 8;
+/**
+ * The sweep stops starting calls after this long, so the whole cron (route limit 300 s) still has
+ * time to file its issue and email. Uninspected URLs are reported, and later weeks catch up.
+ */
+export const SWEEP_BUDGET_MS = 150_000;
 /** ~8 calls a second at most, under the 600-a-minute quota. */
 const MIN_SPACING_MS = 125;
 const MAX_CHILD_SITEMAPS = 20;
+/** This many failures in a row (no access, quota) end the sweep: the rest would fail the same way. */
+const MAX_CONSECUTIVE_FAILURES = 5;
 const FETCH_TIMEOUT_MS = 20_000;
 
 /** `/kennels/<slug>` and `/kennels/region/<slug>`; not the `/kennels` index itself. */
@@ -57,6 +66,8 @@ export interface HubCoverage {
   failed: number;
   /** Count per Google coverage state among the inspected URLs. */
   byState: Record<string, number>;
+  /** URLs not reached: the time budget ran out, or the sweep stopped after repeated failures. */
+  skipped: number;
   /** Which slice of the hub list this run covered, when it holds more than one run's quota. */
   slice: { start: number; end: number } | null;
 }
@@ -71,8 +82,10 @@ export function weeklySlice(total: number, weekIndex: number, cap = MAX_INSPECTI
 export async function inspectHubCoverage(
   gsc: Gsc,
   now: Date,
-  deps: { fetchImpl?: typeof fetch; sleep?: (ms: number) => Promise<void> } = {},
+  deps: { fetchImpl?: typeof fetch; sleep?: (ms: number) => Promise<void>; budgetMs?: number; clock?: () => number } = {},
 ): Promise<HubCoverage> {
+  const clock = deps.clock ?? Date.now;
+  const deadline = clock() + (deps.budgetMs ?? SWEEP_BUDGET_MS);
   const sleep = deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
   const hubs = [...new Set((await readSitemapUrls(SITEMAP_URL, deps.fetchImpl)).filter(isHubUrl))].sort();
   const weekIndex = Math.floor(now.getTime() / (7 * 86_400_000));
@@ -82,29 +95,40 @@ export async function inspectHubCoverage(
   const results: Array<InspectionResult | null> = [];
   let next = 0;
   let lastStart = 0;
+  let failStreak = 0;
   async function worker() {
-    while (next < targets.length) {
+    while (next < targets.length && clock() < deadline && failStreak < MAX_CONSECUTIVE_FAILURES) {
       const url = targets[next++];
-      const wait = lastStart + MIN_SPACING_MS - Date.now();
-      lastStart = Date.now() + Math.max(0, wait);
+      const wait = lastStart + MIN_SPACING_MS - clock();
+      lastStart = clock() + Math.max(0, wait);
       if (wait > 0) await sleep(wait);
       try {
         results.push(await gsc.inspect(url));
+        failStreak = 0;
       } catch {
         results.push(null);
+        failStreak++;
       }
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
   const ok = results.filter((r): r is InspectionResult => r !== null);
+  if (ok.length === 0 && results.length > 0) {
+    // Every call failed (no access to the property yet, quota): unknown, not "0 indexed".
+    throw new Error(`all ${results.length} URL inspections failed`);
+  }
   const byState: Record<string, number> = {};
-  for (const r of ok) byState[r.coverageState || r.verdict] = (byState[r.coverageState || r.verdict] ?? 0) + 1;
+  for (const r of ok) {
+    const state = r.coverageState || r.verdict;
+    byState[state] = (byState[state] ?? 0) + 1;
+  }
   return {
     hubUrls: hubs.length,
     inspected: ok.length,
     indexed: ok.filter((r) => r.verdict === "PASS").length,
     failed: results.length - ok.length,
+    skipped: targets.length - results.length,
     byState,
     slice,
   };

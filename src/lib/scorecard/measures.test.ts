@@ -4,7 +4,9 @@ vi.mock("@/lib/db", () => ({ prisma: {} }));
 
 import type { GhIssue, GhPull, OpsGithub } from "@/lib/ops-github";
 
-import { githubMeasures, isAgentOrWorkstreamPr, soft404Measure } from "./measures";
+import { isAgentOrWorkstreamPr } from "@/lib/ops-github";
+
+import { githubMeasures, soft404Measure } from "./measures";
 
 const NOW = new Date("2026-11-30T06:00:00Z");
 const ago = (h: number) => new Date(NOW.getTime() - h * 3_600_000);
@@ -30,14 +32,16 @@ describe("githubMeasures", () => {
   it("computes defect flow, the owner queue, handoff merging and agent merges", async () => {
     const github = {
       listIssues: vi.fn(async (q: { labels: string; state: string }) => {
-        if (q.labels === "lane:defect" && q.state === "closed")
+        // One read of every defect updated this week: this week's closes and opens, plus older ones.
+        if (q.labels === "lane:defect" && q.state === "all")
           return [
             issue(1, { closedAt: ago(10), stateReason: "completed" }),
             issue(2, { closedAt: ago(20), stateReason: "completed" }),
             issue(3, { closedAt: ago(30), stateReason: "not_planned" }),
             issue(4, { closedAt: ago(300), stateReason: "completed" }),
+            issue(5, { createdAt: ago(5) }),
+            issue(6, { createdAt: ago(400) }),
           ];
-        if (q.labels === "lane:defect" && q.state === "all") return [issue(5, { createdAt: ago(5) }), issue(6, { createdAt: ago(400) })];
         if (q.labels === "lane:defect") return [issue(7), issue(8), issue(9, { pull: { mergedAt: null, draft: false } })];
         if (q.labels === "onboarding-handoff")
           return [

@@ -12,7 +12,7 @@
  */
 import { prisma } from "@/lib/db";
 import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
-import { isWaitingOnOwner, type GhIssue, type GhPull, type OpsGithub } from "@/lib/ops-github";
+import { isWaitingOnOwner, mergedSince, numberList, type GhIssue, type GhPull, type OpsGithub } from "@/lib/ops-github";
 import { RECUR_COMMENT_PREFIX } from "@/pipeline/audit-filer";
 
 export type AutomationHost = "vercel" | "mac-mini";
@@ -142,10 +142,8 @@ export function stuckHandoffs(open: GhIssue[], ctx: CheckContext): Expectation {
  * OK, so it shows in the watchdog's detail without ever raising an alarm.
  */
 function mergedThisWeek(prs: GhIssue[], ctx: CheckContext): Expectation {
-  const since = ctx.now.getTime() - WEEK_MS;
-  const merged = prs.filter((i) => i.pull?.mergedAt && i.pull.mergedAt.getTime() >= since);
-  const list = merged.map((i) => `#${i.number}`).join(", ");
-  return { what: "PRs merged in 7 days (reported)", ok: true, seen: merged.length ? `${merged.length} (${list})` : "0" };
+  const merged = mergedSince(prs, new Date(ctx.now.getTime() - WEEK_MS));
+  return { what: "PRs merged in 7 days (reported)", ok: true, seen: numberList(merged) };
 }
 
 function blockedWhen(waiting: GhPull[], limit: number, label: string): string | undefined {

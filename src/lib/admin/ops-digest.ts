@@ -12,9 +12,8 @@ import { automationLabel, loadFailedMigrations, PROMOTER_MAX_PENDING_HOURS } fro
 import { prisma } from "@/lib/db";
 import { buildBackfillDigest, ownerSecondFactors, type BackfillDigest, type SecondFactorStatus } from "@/lib/backfill/digest";
 import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
-import { isWaitingOnOwner, opsGithubFromEnv, type OpsGithub } from "@/lib/ops-github";
-import { isAgentOrWorkstreamPr } from "@/lib/scorecard/measures";
-import { SCORECARD_AUTOMATION, type StoredScorecard } from "@/lib/scorecard/run";
+import { isAgentOrWorkstreamPr, isWaitingOnOwner, opsGithubFromEnv, type OpsGithub } from "@/lib/ops-github";
+import { latestScorecardRun, type StoredScorecard } from "@/lib/scorecard/run";
 
 /** The commit status the write gate sets on each PR head (`.github/workflows/write-gate.yml`). */
 const GATE_STATUS_CONTEXT = "write-gate";
@@ -184,23 +183,6 @@ async function loadApprovalsWaiting(
   }
 }
 
-async function loadScorecard(): Promise<ScorecardBlock | null> {
-  // Any status: a run whose issue or email failed is FAILED but still stored its table.
-  const run = await prisma.automationRun.findFirst({
-    where: { automation: SCORECARD_AUTOMATION, status: { not: "RUNNING" } },
-    orderBy: { startedAt: "desc" },
-    select: { startedAt: true, status: true, summary: true, metrics: true },
-  });
-  if (!run) return null;
-  const metrics = run.metrics as unknown as StoredScorecard | null;
-  return {
-    ranAt: run.startedAt.toISOString(),
-    status: run.status,
-    summary: run.summary,
-    scorecard: metrics && typeof metrics === "object" && "values" in metrics ? metrics : null,
-  };
-}
-
 /** Postgres COUNT/SUM come back as bigint; the JSON response needs plain numbers. */
 const num = (v: unknown): number => (v == null ? 0 : Number(v));
 const iso = (v: unknown): string | null => (v instanceof Date ? v.toISOString() : null);
@@ -294,7 +276,7 @@ export async function buildOpsDigest(
       console.error("[ops-digest] second-factor check failed:", err);
       return null;
     }),
-    loadScorecard().catch((err) => {
+    latestScorecardRun().catch((err) => {
       console.error("[ops-digest] scorecard block failed:", err);
       return null;
     }),

@@ -8,13 +8,22 @@ import { prisma } from "@/lib/db";
 import { inspectHubCoverage } from "@/lib/gsc/coverage";
 import { GSC_KEY_ENV, type Gsc } from "@/lib/gsc/client";
 import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
-import { isWaitingOnOwner, type GhIssue, type GhPull, type OpsGithub } from "@/lib/ops-github";
+import { LANE_LABELS } from "@/lib/audit-labels";
+import {
+  isAgentOrWorkstreamPr,
+  isWaitingOnOwner,
+  mergedSince,
+  numberList,
+  type GhIssue,
+  type GhPull,
+  type OpsGithub,
+} from "@/lib/ops-github";
+import { DEFAULT_SITE_URL } from "@/lib/site-url";
 
 import { PREDICTION_GATE_MERGED_AT, SENTRY_N1_ISSUE, type MeasureValue, type Values } from "./config";
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
-const SITE = "https://www.hashtracks.xyz";
 const GOOGLEBOT_UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
 
 const num = (v: unknown): number => (v == null ? 0 : Number(v));
@@ -142,32 +151,23 @@ const GITHUB_IDS = [
   "o10_ruleset_on",
 ];
 
-/** Branches the agents and interactive workstream sessions push from (write-gate's list plus `claude/`). */
-const AGENT_BRANCH_PREFIXES = ["claude/", "audit-fix/", "onboarding/", "onboard/", "deep-dive/", "hareline-audit/", "ops-digest/"];
-const AGENT_LABELS = ["audit-fix", "onboarding-impl"];
-
-/** An agent's or workstream session's PR, as opposed to one the owner wrote by hand (O4). */
-export function isAgentOrWorkstreamPr(pr: GhPull): boolean {
-  return (
-    pr.authorIsBot ||
-    AGENT_BRANCH_PREFIXES.some((p) => pr.headRef.startsWith(p)) ||
-    pr.labels.some((l) => AGENT_LABELS.includes(l))
-  );
-}
-
 const issuesOnly = (rows: GhIssue[]) => rows.filter((i) => !i.pull);
-const mergedSince = (rows: GhIssue[], since: number) =>
-  rows.filter((i) => i.pull?.mergedAt && i.pull.mergedAt.getTime() >= since);
+
+/** A percentage measure shown with its fraction, or "not available" with `empty` when there's no denominator. */
+function share(n: number, of: number, empty: string): MeasureValue {
+  if (!of) return na(empty);
+  const pct = Math.round((n / of) * 100);
+  return { value: pct, display: `${pct}% (${n}/${of})` };
+}
 
 export async function githubMeasures(github: OpsGithub | null, now: Date): Promise<Values> {
   if (!github) return unavailable(GITHUB_IDS, NO_GITHUB_CREDENTIAL);
   return guarded(GITHUB_IDS, async () => {
-    const weekAgo = now.getTime() - 7 * DAY_MS;
-    const since = new Date(weekAgo);
-    const [closed, touched, open, pulls, handoffs, fixerClosed, implClosed, rules] = await Promise.all([
-      github.listIssues({ labels: "lane:defect", state: "closed", sort: "updated", since, limit: 500 }),
-      github.listIssues({ labels: "lane:defect", state: "all", sort: "created", since, limit: 500 }),
-      github.listIssues({ labels: "lane:defect", state: "open", limit: 1000 }),
+    const since = new Date(now.getTime() - 7 * DAY_MS);
+    const [defectsTouched, open, pulls, handoffs, fixerClosed, implClosed, rules] = await Promise.all([
+      // Every lane:defect issue updated this week: it holds both this week's opens and its closes.
+      github.listIssues({ labels: LANE_LABELS.defect, state: "all", sort: "updated", since, limit: 500 }),
+      github.listIssues({ labels: LANE_LABELS.defect, state: "open", limit: 1000 }),
       github.listOpenPulls(),
       github.listIssues({ labels: "onboarding-handoff", state: "all", sort: "created", limit: 50 }),
       github.listIssues({ labels: "audit-fix", state: "closed", sort: "updated", since, limit: 100 }),
@@ -175,41 +175,32 @@ export async function githubMeasures(github: OpsGithub | null, now: Date): Promi
       github.branchRuleCount("main").catch(() => null),
     ]);
 
-    const closedThisWeek = issuesOnly(closed).filter((i) => i.closedAt && i.closedAt.getTime() >= weekAgo);
+    const defects = issuesOnly(defectsTouched);
+    const closedThisWeek = defects.filter((i) => i.closedAt && i.closedAt >= since);
     const completed = closedThisWeek.filter((i) => i.stateReason === "completed").length;
     const notPlanned = closedThisWeek.filter((i) => i.stateReason === "not_planned").length;
-    const opened = issuesOnly(touched).filter((i) => i.createdAt.getTime() >= weekAgo).length;
 
     const waiting = pulls.filter((pr) => isWaitingOnOwner(pr) && isAgentOrWorkstreamPr(pr));
     const oldest = waiting.reduce<GhPull | null>((o, pr) => (!o || pr.createdAt < o.createdAt ? pr : o), null);
+    const oldestHours = oldest ? Math.floor((now.getTime() - oldest.createdAt.getTime()) / HOUR_MS) : 0;
 
     // Handoffs old enough that the research task should have merged them (2–14 days).
     const window = handoffs.filter((i) => {
       const age = now.getTime() - i.createdAt.getTime();
       return i.pull && age >= 2 * DAY_MS && age <= 14 * DAY_MS;
     });
-    const windowMerged = window.filter((i) => i.pull?.mergedAt).length;
 
-    const agentMerged = [...mergedSince(fixerClosed, weekAgo), ...mergedSince(implClosed, weekAgo)];
+    const agentMerged = [...mergedSince(fixerClosed, since), ...mergedSince(implClosed, since)];
 
     return {
       o3_defects_closed_week: { value: completed, note: `${closedThisWeek.length} closed in all` },
-      o3_defects_opened_week: { value: opened },
+      o3_defects_opened_week: { value: defects.filter((i) => i.createdAt >= since).length },
       o3_open_defects: { value: issuesOnly(open).length },
-      o3_not_planned_share: closedThisWeek.length
-        ? { value: Math.round((notPlanned / closedThisWeek.length) * 100), display: `${Math.round((notPlanned / closedThisWeek.length) * 100)}% (${notPlanned}/${closedThisWeek.length})` }
-        : na("no lane:defect closes in 7 days"),
-      o4_oldest_waiting_h: oldest
-        ? { value: Math.floor((now.getTime() - oldest.createdAt.getTime()) / HOUR_MS), display: `${Math.floor((now.getTime() - oldest.createdAt.getTime()) / HOUR_MS)} h (#${oldest.number})` }
-        : { value: 0, display: "none waiting" },
-      o4_waiting_prs: { value: waiting.length, display: waiting.length ? `${waiting.length} (${waiting.map((p) => `#${p.number}`).join(", ")})` : "0" },
-      o4_handoffs_self_merged: window.length
-        ? { value: Math.round((windowMerged / window.length) * 100), display: `${Math.round((windowMerged / window.length) * 100)}% (${windowMerged}/${window.length})` }
-        : na("no handoff PRs opened 2–14 days ago"),
-      o5_agent_prs_merged_week: {
-        value: agentMerged.length,
-        display: agentMerged.length ? `${agentMerged.length} (${agentMerged.map((i) => `#${i.number}`).join(", ")})` : "0",
-      },
+      o3_not_planned_share: share(notPlanned, closedThisWeek.length, "no lane:defect closes in 7 days"),
+      o4_oldest_waiting_h: { value: oldestHours, display: oldest ? `${oldestHours} h (#${oldest.number})` : "none waiting" },
+      o4_waiting_prs: { value: waiting.length, display: numberList(waiting) },
+      o4_handoffs_self_merged: share(window.filter((i) => i.pull?.mergedAt).length, window.length, "no handoff PRs opened 2–14 days ago"),
+      o5_agent_prs_merged_week: { value: agentMerged.length, display: numberList(agentMerged) },
       o10_ruleset_on: rules === null ? na("couldn't read main's rules") : { value: rules, display: rules > 0 ? `on (${rules} rules)` : "off" },
     };
   });
@@ -228,7 +219,7 @@ export async function soft404Measure(fetchImpl: typeof fetch = fetch): Promise<V
   return guarded(["o1_soft404_families"], async () => {
     const statuses = await Promise.all(
       SOFT_404_PROBES.map(async (path) => {
-        const res = await fetchImpl(`${SITE}${path}`, {
+        const res = await fetchImpl(`${DEFAULT_SITE_URL}${path}`, {
           headers: { "User-Agent": GOOGLEBOT_UA },
           redirect: "manual",
           signal: AbortSignal.timeout(20_000),
@@ -252,8 +243,14 @@ export async function soft404Measure(fetchImpl: typeof fetch = fetch): Promise<V
 const GSC_IDS = ["o1_sitemap_read", "o1_hubs_indexed", "o1_impressions_28d"];
 const SITEMAP_FRESH_DAYS = 7;
 
-export async function gscMeasures(gsc: Gsc | null, now: Date, fetchImpl?: typeof fetch, setupError?: string): Promise<Values> {
-  if (!gsc) return unavailable(GSC_IDS, setupError ? `GSC key unusable: ${setupError}` : `no ${GSC_KEY_ENV} (owner action A7)`);
+/** The GSC client, or why there is none (no key yet, or a key that can't be used). */
+export interface GscSetup {
+  client: Gsc | null;
+  error?: string;
+}
+
+export async function gscMeasures({ client: gsc, error }: GscSetup, now: Date, fetchImpl?: typeof fetch): Promise<Values> {
+  if (!gsc) return unavailable(GSC_IDS, error ? `GSC key unusable: ${error}` : `no ${GSC_KEY_ENV} (owner action A7)`);
   const ymd = (d: Date) => d.toISOString().slice(0, 10);
   const [sitemap, impressions, coverage] = await Promise.all([
     guarded(["o1_sitemap_read"], async () => {
@@ -286,7 +283,7 @@ export async function gscMeasures(gsc: Gsc | null, now: Date, fetchImpl?: typeof
         o1_hubs_indexed: {
           value: c.indexed,
           display: `${c.indexed} of ${c.hubUrls}`,
-          note: `${c.inspected} inspected${c.slice ? ` (slice ${c.slice.start}–${c.slice.end})` : ""}${c.failed ? `, ${c.failed} failed` : ""}; ${states}`,
+          note: `${c.inspected} inspected${c.slice ? ` (slice ${c.slice.start}–${c.slice.end})` : ""}${c.failed ? `, ${c.failed} failed` : ""}${c.skipped ? `, ${c.skipped} not reached (time budget)` : ""}; ${states}`,
         },
       };
     }),
@@ -327,6 +324,8 @@ export async function sentryMeasures(fetchImpl: typeof fetch = fetch): Promise<V
 }
 
 // ── Not yet measurable on the server ────────────────────────────────────────
+
+export { errText };
 
 export const MANUAL_MEASURES: Values = {
   o2_human_visitors_week: na("needs WS8's bot filter and a PostHog personal API key (A8)"),

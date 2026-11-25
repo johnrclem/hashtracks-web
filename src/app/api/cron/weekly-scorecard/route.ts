@@ -18,20 +18,13 @@ export const maxDuration = 300;
 export const POST = withCronRun("cron:weekly-scorecard", async () => {
   const { stored, issue, email } = await runWeeklyScorecard();
   const delivered = issue.number !== null && email.sent;
+  const emailStatus = email.sent ? "sent" : email.reason;
   console.log(
-    `[weekly-scorecard] ${stored.checkpoint ?? "weekly"}${stored.preview ? " (preview)" : ""}: ${stored.missed} missed; issue ${issue.reason}; email ${email.sent ? "sent" : email.reason}`,
+    `[weekly-scorecard] ${stored.checkpoint ?? "weekly"}${stored.preview ? " (preview)" : ""}: ${stored.missed} missed; issue ${issue.reason}; email ${emailStatus}`,
   );
   return NextResponse.json({
-    data: {
-      success: delivered,
-      checkpoint: stored.checkpoint,
-      missed: stored.missed,
-      issueNumber: issue.number,
-      issue: issue.reason,
-      email: email.sent ? "sent" : email.reason,
-      runMetrics: stored,
-    },
-    ...(delivered ? {} : { error: `not delivered: issue ${issue.reason}; email ${email.sent ? "sent" : email.reason}` }),
+    data: { success: delivered, issue: issue.reason, email: emailStatus, runMetrics: stored },
+    ...(delivered ? {} : { error: `not delivered: issue ${issue.reason}; email ${emailStatus}` }),
   });
 });
 

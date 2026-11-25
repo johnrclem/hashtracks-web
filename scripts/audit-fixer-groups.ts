@@ -17,6 +17,7 @@ import { readFileSync } from "node:fs";
 
 import { SOURCES } from "../prisma/seed-data/sources";
 import { findHtmlAdapter } from "../src/adapters/registry";
+import { parseKennelLabel } from "../src/lib/audit-labels";
 
 interface Issue {
   number: number;
@@ -38,7 +39,7 @@ for (const s of SOURCES as ReadonlyArray<{ type: string; url: string; enabled?: 
 const issues = JSON.parse(readFileSync(0, "utf8")) as Issue[];
 const groups = new Map<string, Issue[]>();
 for (const issue of issues) {
-  const kennel = issue.labels.map((l) => l.name).find((n) => n.startsWith("kennel:"))?.slice("kennel:".length);
+  const kennel = issue.labels.map((l) => parseKennelLabel(l.name)).find((code) => code !== null);
   const keys = kennel ? [...(adaptersByKennel.get(kennel) ?? ["no-source"])] : [`none:${issue.number}`];
   for (const key of keys) groups.set(key, [...(groups.get(key) ?? []), issue]);
 }

@@ -34,7 +34,7 @@ describe("runWeeklyScorecard", () => {
     const { github, createIssue } = fakeGithub();
     const email = vi.fn(async () => ({ sent: true as const, id: "em_1" }));
 
-    const { issue, stored } = await runWeeklyScorecard(NOW, { github, gsc: null, fetchImpl: fetch404, email });
+    const { issue, stored } = await runWeeklyScorecard(NOW, { github, gsc: { client: null }, fetchImpl: fetch404, email });
 
     expect(issue).toEqual({ number: 3200, reason: "filed" });
     const created = (createIssue.mock.calls[0] as unknown as [{ title: string; body: string; labels: string[] }])[0];
@@ -62,7 +62,7 @@ describe("runWeeklyScorecard", () => {
     };
     const { github, createIssue } = fakeGithub([prior]);
     const { issue } = await runWeeklyScorecard(new Date("2026-11-30T06:20:00Z"), {
-      github, gsc: null, fetchImpl: fetch404, email: vi.fn(async () => ({ sent: true as const, id: "x" })),
+      github, gsc: { client: null }, fetchImpl: fetch404, email: vi.fn(async () => ({ sent: true as const, id: "x" })),
     });
     expect(issue).toEqual({ number: 3199, reason: "already filed" });
     expect(createIssue).not.toHaveBeenCalled();
@@ -70,8 +70,9 @@ describe("runWeeklyScorecard", () => {
 
   it("reports measures as not available, not a failed run, when sources are missing or down", async () => {
     vi.mocked(prisma.$queryRaw).mockRejectedValue(new Error("connection terminated"));
+    vi.mocked(prisma.automationRun.findFirst).mockRejectedValue(new Error("connection terminated"));
     const email = vi.fn(async () => ({ sent: false as const, reason: "email not configured" }));
-    const { issue, stored } = await runWeeklyScorecard(NOW, { github: null, gsc: null, fetchImpl: fetch404, email });
+    const { issue, stored } = await runWeeklyScorecard(NOW, { github: null, gsc: { client: null }, fetchImpl: fetch404, email });
     expect(issue).toEqual({ number: null, reason: "no GitHub credential" });
     expect(stored.values.o6_failing_sources).toMatchObject({ v: null, status: "n/a" });
     expect(stored.values.o3_open_defects).toMatchObject({ v: null, status: "n/a" });
