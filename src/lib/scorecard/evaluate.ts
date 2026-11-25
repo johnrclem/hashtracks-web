@@ -99,6 +99,12 @@ function shownValue(m: Measure, v: Values[string] | undefined): string {
   return n + unitSuffix(m.unit);
 }
 
+function targetText(resolved: ReturnType<typeof targetFor>, cp: CheckpointId | null, unit: Measure["unit"]): string {
+  if (!resolved) return "—";
+  const from = resolved.from === cp ? "" : ` (${resolved.from})`;
+  return describeTarget(resolved.target, unit) + from;
+}
+
 export function evaluate(values: Values, cp: CheckpointId | null, previous: Values | null): ScoreRow[] {
   return MEASURES.map((m) => {
     const v = values[m.id];
@@ -110,7 +116,7 @@ export function evaluate(values: Values, cp: CheckpointId | null, previous: Valu
       baseline: m.baseline,
       value: v?.value ?? null,
       shown: shownValue(m, v),
-      target: resolved ? describeTarget(resolved.target, m.unit) + (resolved.from === cp ? "" : ` (${resolved.from})`) : "—",
+      target: targetText(resolved, cp, m.unit),
       targetFrom: resolved?.from ?? null,
       guardrail: m.guardrail === true,
       ...(v?.note ? { note: v.note } : {}),
