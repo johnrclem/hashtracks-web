@@ -61,7 +61,10 @@ const REPORT_TITLE_RE = /\b(?:(?:Memories|Memory) of|Photos? (?:of|from)|Report 
  * label-anchored regexes (in parseCrh3Body's grab()) and the line filter
  * in extractDescription so the two can't drift. Uses String.raw to
  * keep `\s` as a regex escape, not a string escape. */
-const LABEL_PATTERN = String.raw`Hares?|GM|Grand\s*Master|Starting\s*Location|Location|Run\s*Site|Meeting|EARLY\s*TIME|Start(?:\s*Time)?|Time|Date|Price|Cost|Hash\s*Cash|Parking|TIPS|On\s*After|Circle|ON\s*ON\s*ON`;
+const LABEL_PATTERN = String.raw`Hares?|GM|Grand\s*Master|Starting\s*(?:Location|Point)|Location|Run\s*Site|Meeting|EARLY\s*TIME|Start(?:\s*Time)?|Time|Date|Price|Cost|Hash\s*Cash|Parking|TIPS|On\s*After|Circle|ON\s*ON\s*ON`;
+
+/** Delimiter after a label: ":", "=", "-" or an en/em dash ("PRICE – 100 Baht"). */
+const LABEL_DELIM = String.raw`[:=\-\u2013\u2014]`;
 
 /**
  * Parse a CRH3 post title for run number and optional date.
@@ -103,10 +106,12 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   // a delimiter (`:`, `=`, `-`) after the label so prose words inside a
   // value (e.g. "at your own cost", "Circle and ON ON ON") don't truncate
   // the capture mid-sentence.
-  const stop = String.raw`(?=\n|(?:${LABEL_PATTERN})\s*[:=\-]|$)`;
+  const stop = String.raw`(?=\n|(?:${LABEL_PATTERN})\s*${LABEL_DELIM}|$)`;
 
   const grab = (label: string): string | undefined => {
-    const re = new RegExp(String.raw`(?:${label})\s*[:=\-]\s*(.+?)${stop}`, "i");
+    // The lookbehind keeps a label word inside a URL query string
+    // ("…&isShowMobileAppPrice=false") from being read as a labelled line (#2906).
+    const re = new RegExp(String.raw`(?<![\w&?/.])(?:${label})\s*${LABEL_DELIM}\s*(.+?)${stop}`, "i");
     const m = re.exec(text);
     if (!m) return undefined;
     const value = m[1].trim().replaceAll(/\s+/g, " ");
@@ -114,7 +119,8 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   };
 
   const hares = grab(String.raw`Hares?|GM|Grand\s*Master`);
-  const rawLocation = grab(String.raw`Starting\s*Location|Location|Run\s*Site|Meeting`);
+  const locationLabels = String.raw`Starting\s*(?:Location|Point)|Location|Run\s*Site|Meeting`;
+  const rawLocation = firstSentence(grab(locationLabels));
   const cost = grab(String.raw`Price|Cost|Hash\s*Cash`);
 
   // Route bare URLs to `locationUrl` so the merge pipeline's
@@ -122,7 +128,9 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   // and resolveCoords() can pick up Maps short-link coordinates.
   const isUrlOnly = rawLocation && /^https?:\/\/\S+$/.test(rawLocation);
   const location = isUrlOnly ? undefined : rawLocation;
-  const locationUrl = isUrlOnly ? rawLocation : undefined;
+  // A map link on the line right after the label ("STARTING POINT: …" then the
+  // link on its own line) is the start site; later links (ON AFTER) are not (#2907).
+  const locationUrl = isUrlOnly ? rawLocation : urlAfterLabelLine(text, locationLabels);
 
   // EARLY TIME line: "3 for 3:30 pm start" — pull the LATER (run-start)
   // time when both are present, since hashers stagger arrival vs start.
@@ -159,6 +167,22 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   return { date, hares, location, locationUrl, startTime, cost, description };
 }
 
+/** Keep a long free-text location to its first sentence ("Wat Huay Pla Kang. We will…"). */
+function firstSentence(value: string | undefined): string | undefined {
+  if (!value || value.length <= 80) return value;
+  const m = /^(.{10,}?[a-z)])\.(?=\s+[A-Z])/.exec(value);
+  return m ? `${m[1]}.` : value;
+}
+
+/** The bare URL on the line immediately after a labelled location line, if any. */
+function urlAfterLabelLine(text: string, labels: string): string | undefined {
+  const labelRe = new RegExp(String.raw`^(?:${labels})\s*${LABEL_DELIM}`, "i");
+  const lines = text.split("\n").map((l) => l.trim());
+  const i = lines.findIndex((l) => labelRe.test(l));
+  const next = i >= 0 ? lines[i + 1] : undefined;
+  return next && /^https?:\/\/\S+$/.test(next) ? next : undefined;
+}
+
 /** Parse "3 for 3:30 pm start" → "15:30". Picks the run-start time
  * (last clock pattern) and the meridiem nearest to it.
  *
@@ -168,6 +192,9 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
  * "3 for 4 pm start" with a missing meridiem. */
 export function parseStartTime(value: string | undefined): string | undefined {
   if (!value) return undefined;
+  // 4-digit 24h times ("1430 for 1500 start"): take the run-start (last) one.
+  const military = [...value.matchAll(/\b([01]\d|2[0-3])([0-5]\d)\b/g)].at(-1);
+  if (military) return `${military[1]}:${military[2]}`;
   const re = /(\d{1,2})(?:[:.](\d{2}))?/g;
   const matches = [...value.matchAll(re)];
   if (matches.length === 0) return undefined;
@@ -202,7 +229,7 @@ export function parseStartTime(value: string | undefined): string | undefined {
  * misclassified as labelled fields and dropped from the description. */
 function extractDescription(text: string): string | undefined {
   const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
-  const labelStart = new RegExp(String.raw`^(?:${LABEL_PATTERN})\s*[:=\-]`, "i");
+  const labelStart = new RegExp(String.raw`^(?:${LABEL_PATTERN})\s*${LABEL_DELIM}`, "i");
   const headerLike = /^Next\s*Run|^Saturday\b|^(?:https?:|www\.)/i;
   const desc: string[] = [];
   for (const line of lines) {
