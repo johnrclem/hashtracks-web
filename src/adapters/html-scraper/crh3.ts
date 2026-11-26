@@ -63,6 +63,9 @@ const REPORT_TITLE_RE = /\b(?:(?:Memories|Memory) of|Photos? (?:of|from)|Report 
  * keep `\s` as a regex escape, not a string escape. */
 const LABEL_PATTERN = String.raw`Hares?|GM|Grand\s*Master|Starting\s*(?:Location|Point)|Location|Run\s*Site|Meeting|EARLY\s*TIME|Start(?:\s*Time)?|Time|Date|Price|Cost|Hash\s*Cash|Parking|TIPS|On\s*After|Circle|ON\s*ON\s*ON`;
 
+/** A line that is just one URL. */
+const BARE_URL_RE = /^https?:\/\/\S+$/;
+
 /** Delimiter after a label: ":", "=", "-" or an en/em dash ("PRICE – 100 Baht"). */
 const LABEL_DELIM = String.raw`[:=\-\u2013\u2014]`;
 
@@ -106,7 +109,7 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   // a delimiter (`:`, `=`, `-`) after the label so prose words inside a
   // value (e.g. "at your own cost", "Circle and ON ON ON") don't truncate
   // the capture mid-sentence.
-  const stop = String.raw`(?=\n|(?:${LABEL_PATTERN})\s*${LABEL_DELIM}|$)`;
+  const stop = String.raw`(?=\n|(?<![\w&?/.])(?:${LABEL_PATTERN})\s*${LABEL_DELIM}|$)`;
 
   const grab = (label: string): string | undefined => {
     // The lookbehind keeps a label word inside a URL query string
@@ -126,7 +129,7 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
   // Route bare URLs to `locationUrl` so the merge pipeline's
   // sanitizeLocation() doesn't drop the value (it filters bare URLs)
   // and resolveCoords() can pick up Maps short-link coordinates.
-  const isUrlOnly = rawLocation && /^https?:\/\/\S+$/.test(rawLocation);
+  const isUrlOnly = rawLocation && BARE_URL_RE.test(rawLocation);
   const location = isUrlOnly ? undefined : rawLocation;
   // A map link on the line right after the label ("STARTING POINT: …" then the
   // link on its own line) is the start site; later links (ON AFTER) are not (#2907).
@@ -170,7 +173,8 @@ export function parseCrh3Body(bodyHtml: string, publishDateIso: string): {
 /** Keep a long free-text location to its first sentence ("Wat Huay Pla Kang. We will…"). */
 function firstSentence(value: string | undefined): string | undefined {
   if (!value || value.length <= 80) return value;
-  const m = /^(.{10,}?[a-z)])\.(?=\s+[A-Z])/.exec(value);
+  // Not after a common address abbreviation ("Nang Lae Rd. Mueang…").
+  const m = /^(.{10,}?[a-z)])(?<!\b(?:Rd|St|Ave|Soi|Moo|Mt|Dr|No))\.(?=\s+[A-Z])/.exec(value);
   return m ? `${m[1]}.` : value;
 }
 
@@ -180,7 +184,7 @@ function urlAfterLabelLine(text: string, labels: string): string | undefined {
   const lines = text.split("\n").map((l) => l.trim());
   const i = lines.findIndex((l) => labelRe.test(l));
   const next = i >= 0 ? lines[i + 1] : undefined;
-  return next && /^https?:\/\/\S+$/.test(next) ? next : undefined;
+  return next && BARE_URL_RE.test(next) ? next : undefined;
 }
 
 /** Parse "3 for 3:30 pm start" → "15:30". Picks the run-start time
@@ -193,7 +197,12 @@ function urlAfterLabelLine(text: string, labels: string): string | undefined {
 export function parseStartTime(value: string | undefined): string | undefined {
   if (!value) return undefined;
   // 4-digit 24h times ("1430 for 1500 start"): take the run-start (last) one.
-  const military = [...value.matchAll(/\b([01]\d|2[0-3])([0-5]\d)\b/g)].at(-1);
+  // Only when the value has no colon/dot clock time or am/pm marker, and not for
+  // distances ("1000m", "1500 km"), so "3 for 3:30 pm start. 1000m trail" is unaffected.
+  const hasClockOrMeridiem = /\d[:.]\d{2}\b|\b[ap]\.?m\b/i.test(value);
+  const military = hasClockOrMeridiem
+    ? undefined
+    : [...value.matchAll(/\b([01]\d|2[0-3])([0-5]\d)\b(?!\s*(?:km|m|k)\b)/gi)].at(-1);
   if (military) return `${military[1]}:${military[2]}`;
   const re = /(\d{1,2})(?:[:.](\d{2}))?/g;
   const matches = [...value.matchAll(re)];

@@ -191,6 +191,17 @@ https://www.agoda.com/accom/property?propertyId=63120374&countryId=106&finalPric
     expect(result.locationUrl).toBe("https://maps.app.goo.gl/dBNoBYaEzpy77ppE6");
   });
 
+  it("does not read a distance as a 4-digit time when a clock time is present", () => {
+    const r = parseCrh3Body("Hare: T\nEARLY TIME - 1000m warm-up walk, 3 for 3:30 pm start", "2026-11-05T12:00:00+07:00");
+    expect(r.startTime).toBe("15:30");
+    expect(parseStartTime("start 1500m up the hill")).toBeUndefined();
+  });
+
+  it("keeps an address whole when the first period follows an abbreviation", () => {
+    const loc = "Soi 5 Moo 3, Nang Lae Rd. Mueang district, behind the big temple, Chiang Rai province, Thailand";
+    expect(parseCrh3Body(`Hare: T\nLocation: ${loc}`, "2026-11-05T12:00:00+07:00").location).toBe(loc);
+  });
+
   it("parses a 4-digit 24h 'EARLY TIME – 1430 for 1500 start' as 15:00", () => {
     expect(parseCrh3Body(body226, "2026-11-05T12:00:00+07:00").startTime).toBe("15:00");
   });
