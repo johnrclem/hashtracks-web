@@ -90,7 +90,7 @@ const LATIN1_RUN_RE = /[\u0080-ÿ]+/g;
  */
 export function repairMojibake(text: string): string {
   return text.replace(LATIN1_RUN_RE, (run) => {
-    const decoded = UTF8.decode(Uint8Array.from(run, (c) => c.charCodeAt(0)));
+    const decoded = UTF8.decode(Uint8Array.from(run, (c) => c.codePointAt(0) ?? 0));
     return decoded.includes("�") ? run : decoded;
   });
 }
@@ -152,7 +152,7 @@ export function indexGlobalRuns(rows: readonly HCGlobalRun[]): Map<string, HCGlo
 export function formatHcPrice(run: HCGlobalRun): string | undefined {
   const amount = run.EventPriceForMembers;
   const template = run.CurrencySymbol?.trim();
-  if (typeof amount !== "number" || !(amount > 0) || !template?.includes("^")) return undefined;
+  if (typeof amount !== "number" || amount <= 0 || !template?.includes("^")) return undefined;
   // A fractional amount keeps at least two decimals even when the row says 0 (7.5 → "7.50").
   const digits = Number.isInteger(amount) ? 0 : Math.min(Math.max(run.DigitsAfterDecimal ?? 2, 2), 3);
   const number = amount.toLocaleString("en-US", {
@@ -175,9 +175,10 @@ export function hcRunCost(run: HCGlobalRun): string | undefined {
   return NO_FEE_RE.test(run.EventDescription ?? "") ? undefined : formatHcPrice(run);
 }
 
-function stripTrailingCommas(value: string): string {
+/** `value` without any trailing run of the given characters. */
+function trimTrailingChars(value: string, chars: string): string {
   let end = value.length;
-  while (end > 0 && (value[end - 1] === "," || value[end - 1] === " ")) end--;
+  while (end > 0 && chars.includes(value[end - 1])) end--;
   return value.slice(0, end);
 }
 
@@ -208,7 +209,7 @@ export function globalRunToHcEvent(r: HCGlobalRun): HCEvent {
     syncLong: r.Longitude as number,
     // hashruns.org place names sometimes end in a comma ("The Bodega,"), which
     // would compose as "The Bodega,, Westgate Road".
-    locationOneLineDesc: stripTrailingCommas(r.LocationOneLineDesc ?? ""),
+    locationOneLineDesc: trimTrailingChars(r.LocationOneLineDesc ?? "", ", "),
     resolvableLocation: globalRunAddress(r),
     hares: r.Hares ?? "",
     eventCityAndCountry: joinLocationParts([r.LocationCity, r.LocationCountry]) ?? "",
@@ -738,7 +739,7 @@ const ARCHIVE_NOTICE_RE = /^<?event descriptions are not available/i;
 export function hcDescription(text: string | undefined): string | null | undefined {
   const trimmed = text?.trim();
   if (trimmed && ARCHIVE_NOTICE_RE.test(trimmed)) return undefined;
-  if (!trimmed || PLACEHOLDER_DESCRIPTIONS.has(trimmed.toLowerCase().replace(/[.!]+$/, ""))) return null;
+  if (!trimmed || PLACEHOLDER_DESCRIPTIONS.has(trimTrailingChars(trimmed.toLowerCase(), ".!"))) return null;
   return scrubDescriptionPii(trimmed).trim().substring(0, DESCRIPTION_MAX_LENGTH) || null;
 }
 
@@ -935,7 +936,7 @@ export function buildHashrunsPermalink(
   config: HarrierCentralConfig,
 ): string | undefined {
   const n = countedEventNumber(event);
-  if (config.suppressRunNumber || !event.kennelUniqueShortName || !(n > 0)) return undefined;
+  if (config.suppressRunNumber || !event.kennelUniqueShortName || !Number.isFinite(n) || n <= 0) return undefined;
   return `https://www.hashruns.org/${encodeURIComponent(event.kennelUniqueShortName)}/${n}`;
 }
 
