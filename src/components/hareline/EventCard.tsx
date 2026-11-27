@@ -335,9 +335,10 @@ const RSVP_INTENDING_COLOR = "#3b82f6"; // blue-500
 const RSVP_CONFIRMED_COLOR = "#16a34a"; // green-600
 
 /**
- * The card's title link stretches over the whole card. Other links, buttons
- * and tooltip triggers inside it are lifted above that overlay so they stay
- * clickable and hoverable.
+ * The card's title link stretches over the whole card: its ::after sits at
+ * z-index 1, above plain content such as the date, time and badges, so a
+ * click there opens the event. Other links, buttons and tooltip triggers are
+ * lifted to z-10, above that overlay, so they stay clickable and hoverable.
  */
 const RAISE_CARD_CONTROLS =
   "[&_a:not([data-card-link])]:relative [&_a:not([data-card-link])]:z-10 [&_button]:relative [&_button]:z-10 [&_[data-slot=tooltip-trigger]]:relative [&_[data-slot=tooltip-trigger]]:z-10";
@@ -403,7 +404,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
       onClick={handleEventLinkClick}
       aria-label={buildAriaLabel(event, attendance)}
       data-card-link=""
-      className={`rounded-sm hover:underline after:absolute after:inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}
+      className={`rounded-sm hover:underline after:absolute after:inset-0 after:z-[1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}
     >
       {children}
     </Link>
