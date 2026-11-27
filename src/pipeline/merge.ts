@@ -571,6 +571,15 @@ function precomputeFingerprints(
   return fingerprintByEvent;
 }
 
+/** Split ids into `IN (...)` lists of at most DEDUP_PREFETCH_CHUNK_SIZE. */
+function chunkIds(ids: string[]): string[][] {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += DEDUP_PREFETCH_CHUNK_SIZE) {
+    chunks.push(ids.slice(i, i + DEDUP_PREFETCH_CHUNK_SIZE));
+  }
+  return chunks;
+}
+
 /** Read, in one query per chunk, every canonical Event a processed duplicate
  *  in this batch points at. */
 async function prefetchDuplicateEvents(
@@ -583,12 +592,8 @@ async function prefetchDuplicateEvents(
         .map((r) => r.eventId as string),
     ),
   ];
-  const chunks: string[][] = [];
-  for (let i = 0; i < ids.length; i += DEDUP_PREFETCH_CHUNK_SIZE) {
-    chunks.push(ids.slice(i, i + DEDUP_PREFETCH_CHUNK_SIZE));
-  }
   const rows = await Promise.all(
-    chunks.map((chunk) =>
+    chunkIds(ids).map((chunk) =>
       prisma.event.findMany({ where: { id: { in: chunk } }, select: DUPLICATE_EVENT_SELECT }),
     ),
   );
@@ -618,12 +623,8 @@ async function prefetchExistingByFingerprint(
       select: RAW_EVENT_DEDUP_SELECT,
     });
   }
-  const chunks: string[][] = [];
-  for (let i = 0; i < fingerprints.length; i += DEDUP_PREFETCH_CHUNK_SIZE) {
-    chunks.push(fingerprints.slice(i, i + DEDUP_PREFETCH_CHUNK_SIZE));
-  }
   const results = await Promise.all(
-    chunks.map((chunk) =>
+    chunkIds(fingerprints).map((chunk) =>
       prisma.rawEvent.findMany({
         where: { sourceId, fingerprint: { in: chunk } },
         select: RAW_EVENT_DEDUP_SELECT,
