@@ -4004,7 +4004,8 @@ export const KENNELS: KennelSeed[] = [
       region: "Brussels", country: "Belgium",
       website: "https://divahhh.webnode.page/",
       logoUrl: "/kennel-logos/divahhh.avif",
-      scheduleDayOfWeek: "Saturday", scheduleTime: "3:00 PM", scheduleFrequency: "Monthly",
+      // No scheduleDayOfWeek/scheduleTime: day and time vary (#2959), and a NULL would be refilled by the seed.
+      scheduleFrequency: "Monthly",
       scheduleNotes: "Brussels women's hash — 'Hash House Harriers who prefer the finer things in life.' Roughly monthly trails (day and time vary), often around the Forêt de Soignes, plus an annual 'bubbly weekend' away trip (2026: Carcassonne; past: Bairrada, Penina, Sekt, Cava, Prosecco, Champagne).",
       hashCash: "€10 members / €20 non-members", // HC prices on home runs; away/ski events were free
       walkersWelcome: true, // evidenced by run #39 "…- Walkers" split
