@@ -64,6 +64,25 @@ export class ForeignRawSourceError extends Error {
   }
 }
 
+type LockedTx = Pick<PrismaClient, "event">;
+
+/** Under the row lock: refuse when the event left `expectSlot` or has series children. */
+async function assertSlotAndChildren(
+  tx: LockedTx,
+  eventId: string,
+  options?: { forbidChildren?: boolean; expectSlot?: { kennelId: string; date: Date } },
+): Promise<void> {
+  if (options?.expectSlot) {
+    const { kennelId, date } = options.expectSlot;
+    const moved = await tx.event.count({ where: { id: eventId, NOT: { kennelId, date } } });
+    if (moved > 0) throw new Error(`Refusing to delete Event ${eventId}: it moved out of slot ${kennelId} ${date.toISOString()}`);
+  }
+  if (options?.forbidChildren) {
+    const children = await tx.event.count({ where: { parentEventId: eventId } });
+    if (children > 0) throw new Error(`Refusing to delete Event ${eventId}: ${children} series child event(s) link to it`);
+  }
+}
+
 export async function deleteLeakedEvent(
   prisma: PrismaClient,
   eventId: string,
@@ -143,16 +162,7 @@ export async function deleteLeakedEvent(
       }
     }
 
-    if (options?.expectSlot) {
-      const { kennelId, date } = options.expectSlot;
-      const moved = await tx.event.count({ where: { id: eventId, NOT: { kennelId, date } } });
-      if (moved > 0) throw new Error(`Refusing to delete Event ${eventId}: it moved out of slot ${kennelId} ${date.toISOString()}`);
-    }
-
-    if (options?.forbidChildren) {
-      const children = await tx.event.count({ where: { parentEventId: eventId } });
-      if (children > 0) throw new Error(`Refusing to delete Event ${eventId}: ${children} series child event(s) link to it`);
-    }
+    await assertSlotAndChildren(tx, eventId, options);
 
     if (options?.forbidUserHares) {
       const userHares = await tx.eventHare.count({

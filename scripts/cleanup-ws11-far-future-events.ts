@@ -65,6 +65,27 @@ async function bullmoonSourceId(): Promise<string> {
   return source.id;
 }
 
+/** Bull Moon rows count only when that source alone backs them; orphans only with no RawEvent. */
+function groupFor(kennelCode: string, rawEvents: Array<{ sourceId: string }>, sourceId: string): Group | null {
+  if (kennelCode === BULLMOON_KENNEL) {
+    return rawEvents.length > 0 && rawEvents.every((r) => r.sourceId === sourceId) ? "bullmoon" : null;
+  }
+  return rawEvents.length === 0 ? "orphan" : null;
+}
+
+/** Why a row must be held back for the owner, or null to delete it. */
+function holdBackReason(
+  count: { attendances: number; kennelAttendances: number; childEvents: number },
+  userHares: number,
+): string | null {
+  const reasons: string[] = [];
+  if (count.attendances > 0) reasons.push(`${count.attendances} check-in/RSVP`);
+  if (count.kennelAttendances > 0) reasons.push(`${count.kennelAttendances} misman attendance`);
+  if (userHares > 0) reasons.push(`${userHares} user-entered hare`);
+  if (count.childEvents > 0) reasons.push(`series parent with ${count.childEvents} children`);
+  return reasons.length ? reasons.join(", ") : null;
+}
+
 /** Candidate rows, each with the reason to hold it back (null = delete). */
 async function candidates(horizon: Date, sourceId: string) {
   const rows = await prisma.event.findMany({
@@ -89,32 +110,19 @@ async function candidates(horizon: Date, sourceId: string) {
 
   const out: Array<{ row: PlanRow; reason: string | null }> = [];
   for (const e of rows) {
-    const code = e.kennel.kennelCode;
-    let group: Group;
-    if (code === BULLMOON_KENNEL) {
-      // Only rows the Bull Moon source alone backs.
-      if (e.rawEvents.length === 0 || e.rawEvents.some((r) => r.sourceId !== sourceId)) continue;
-      group = "bullmoon";
-    } else {
-      if (e.rawEvents.length > 0) continue;
-      group = "orphan";
-    }
-    const reasons: string[] = [];
-    if (e._count.attendances > 0) reasons.push(`${e._count.attendances} check-in/RSVP`);
-    if (e._count.kennelAttendances > 0) reasons.push(`${e._count.kennelAttendances} misman attendance`);
-    if (e.hares.length > 0) reasons.push(`${e.hares.length} user-entered hare`);
-    if (e._count.childEvents > 0) reasons.push(`series parent with ${e._count.childEvents} children`);
+    const group = groupFor(e.kennel.kennelCode, e.rawEvents, sourceId);
+    if (!group) continue;
     out.push({
       row: {
         id: e.id,
-        kennelCode: code,
+        kennelCode: e.kennel.kennelCode,
         kennelId: e.kennelId,
         date: e.date.toISOString().slice(0, 10),
         title: e.title,
         status: e.status,
         group,
       },
-      reason: reasons.length ? reasons.join(", ") : null,
+      reason: holdBackReason(e._count, e.hares.length),
     });
   }
   return out;
@@ -168,7 +176,7 @@ async function apply(planPath: string) {
   const result = { deleted: 0, missing: 0, skipped: [] as string[], refused: [] as string[] };
   for (const row of plan.delete) {
     const now = current.get(row.id);
-    if (!now || now.reason !== null) {
+    if (now?.reason !== null) {
       result.skipped.push(`${row.id} (${now?.reason ?? "no longer qualifies"})`);
       continue;
     }
