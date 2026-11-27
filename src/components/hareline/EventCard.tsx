@@ -424,7 +424,6 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   // ── Compact density ──
   if (density === "compact") {
     return (
-      <>
         <div className={`rounded-lg ${RAISE_CARD_CONTROLS}`}>
         <div
           className={`group relative flex items-center gap-3 rounded-lg border px-3 py-2 text-sm transition-all duration-200 hover:shadow-md active:scale-[0.995] ${
@@ -558,7 +557,6 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
           </div>
         </div>
         </div>
-      </>
     );
   }
 
@@ -568,7 +566,6 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   const { title: displayTitle } = getDisplayTitle({ ...event, kennel: event.kennel ?? { shortName: "", fullName: "" } });
 
   return (
-    <>
       <div className={`rounded-xl ${RAISE_CARD_CONTROLS}`}>
       <div
         className={`group relative overflow-hidden rounded-xl border transition-all duration-250 ease-out ${
@@ -915,7 +912,6 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
         </div>
       </div>
       </div>
-    </>
   );
 }
 
