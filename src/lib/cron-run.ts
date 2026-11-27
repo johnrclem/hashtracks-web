@@ -12,7 +12,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 
-import type { AutomationRunKind, AutomationRunStatus } from "@/generated/prisma/client";
+import type { AutomationRunKind, AutomationRunStatus, Prisma } from "@/generated/prisma/client";
 import type { CronJobId } from "@/lib/automation-registry";
 import { verifyCronAuth, type CronAuthResult } from "@/lib/cron-auth";
 import { prisma } from "@/lib/db";
@@ -36,6 +36,16 @@ export function scalarMetrics(body: unknown): Record<string, Metric> | null {
     else if (typeof value === "string") out[key] = value.slice(0, METRIC_STRING_MAX);
   }
   return Object.keys(out).length > 0 ? out : null;
+}
+
+/**
+ * The metrics a run row stores: the route's own `data.runMetrics` object when it returns one (the
+ * weekly scorecard's full table), else the scalar fields of `data`.
+ */
+export function runMetrics(body: unknown): Record<string, unknown> | null {
+  const explicit = (body as { data?: { runMetrics?: unknown } | null } | null)?.data?.runMetrics;
+  if (explicit && typeof explicit === "object" && !Array.isArray(explicit)) return explicit as Record<string, unknown>;
+  return scalarMetrics(body);
 }
 
 async function readBody(res: Response): Promise<unknown> {
@@ -69,7 +79,7 @@ async function finishAutomationRun(
   id: string | null,
   status: AutomationRunStatus,
   summary: string | null,
-  metrics: Record<string, Metric> | null,
+  metrics: Record<string, unknown> | null,
 ): Promise<void> {
   if (!id) return;
   try {
@@ -79,7 +89,7 @@ async function finishAutomationRun(
         status,
         finishedAt: new Date(),
         summary: summary?.slice(0, SUMMARY_MAX) ?? null,
-        ...(metrics ? { metrics } : {}),
+        ...(metrics ? { metrics: metrics as Prisma.InputJsonObject } : {}),
       },
     });
   } catch (err) {
@@ -121,7 +131,7 @@ export function withCronRun(
       if (typeof error === "string") summary = error;
       else if (res.status !== 200) summary = `HTTP ${res.status}`;
       else if (reportedFailure) summary = "the route reported success: false";
-      await finishAutomationRun(runId, failed ? "FAILED" : "SUCCESS", summary, scalarMetrics(body));
+      await finishAutomationRun(runId, failed ? "FAILED" : "SUCCESS", summary, runMetrics(body));
       return res;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";

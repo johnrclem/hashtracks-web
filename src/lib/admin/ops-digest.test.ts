@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/db", () => ({ prisma: { $queryRaw: vi.fn(), automationState: { findMany: vi.fn() } } }));
+vi.mock("@/lib/db", () => ({
+  prisma: { $queryRaw: vi.fn(), automationState: { findMany: vi.fn() }, automationRun: { findFirst: vi.fn() } },
+}));
 vi.mock("@/lib/backfill/digest", () => ({ buildBackfillDigest: vi.fn().mockResolvedValue(null), ownerSecondFactors: vi.fn().mockResolvedValue(null) }));
 
 import { prisma } from "@/lib/db";
@@ -10,6 +12,7 @@ import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
 
 const queryRaw = vi.mocked(prisma.$queryRaw);
 const findStates = vi.mocked(prisma.automationState.findMany);
+const findRun = vi.mocked(prisma.automationRun.findFirst);
 
 function githubWith(pulls: GhPull[] | Error): OpsGithub {
   return {
@@ -17,6 +20,7 @@ function githubWith(pulls: GhPull[] | Error): OpsGithub {
       if (pulls instanceof Error) throw pulls;
       return pulls;
     }),
+    commitStatus: vi.fn(async (sha: string) => (sha === "sha2940" ? "pending" : sha === "sha2974" ? "success" : null)),
   } as unknown as OpsGithub;
 }
 
@@ -28,12 +32,16 @@ const pull = (n: number, labels: string[], createdAt: string, draft = false): Gh
   labels,
   createdAt: new Date(createdAt),
   headSha: `sha${n}`,
+  headRef: `claude/pr-${n}`,
+  author: "johnrclem",
+  authorIsBot: false,
 });
 
 describe("buildOpsDigest", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     findStates.mockResolvedValue([] as never);
+    findRun.mockResolvedValue(null as never);
   });
 
   it("converts bigint counts and dates into a plain JSON shape", async () => {
@@ -116,8 +124,8 @@ describe("buildOpsDigest", () => {
   it("lists PRs waiting on the owner with age and head commit, skipping drafts, approved and handoffs", async () => {
     queryRaw.mockResolvedValue([] as never);
     const github = githubWith([
-      pull(2940, ["onboarding-impl"], "2026-11-13T10:10:12Z"),
-      pull(2974, ["audit-fix"], "2026-11-13T17:18:43Z"),
+      pull(2940, ["onboarding-impl", "write:migration"], "2026-11-13T10:10:12Z"),
+      pull(2974, ["audit-fix", "write:code"], "2026-11-13T17:18:43Z"),
       pull(2980, ["audit-fix", "owner-approved"], "2026-11-14T09:00:00Z"),
       pull(2981, ["onboarding-handoff"], "2026-11-15T08:00:00Z"),
       pull(2982, [], "2026-11-16T08:00:00Z", true),
@@ -132,6 +140,25 @@ describe("buildOpsDigest", () => {
       [2974, 90, "sha2974"],
       [3046, 3, "sha3046"],
     ]);
+    expect(digest.approvalsWaiting.prs?.map((p) => [p.writeClass, p.migration, p.gate, p.agent])).toEqual([
+      ["write:migration", true, "pending", true],
+      ["write:code", false, "success", true],
+      [null, false, null, true],
+    ]);
+  });
+
+  it("carries the latest stored weekly scorecard, or null before the first run", async () => {
+    queryRaw.mockResolvedValue([] as never);
+    expect((await buildOpsDigest(new Date(), null)).scorecard).toBeNull();
+
+    const stored = { checkpoint: "CP1", preview: false, generatedAt: "2026-11-30T06:00:00Z", issueNumber: 3200, emailed: true, missed: 2, values: {}, datedChecks: [] };
+    findRun.mockResolvedValue({ startedAt: new Date("2026-11-30T06:00:00Z"), status: "SUCCESS", summary: null, metrics: stored } as never);
+    expect((await buildOpsDigest(new Date(), null)).scorecard).toEqual({
+      ranAt: "2026-11-30T06:00:00.000Z",
+      status: "SUCCESS",
+      summary: null,
+      scorecard: stored,
+    });
   });
 
   it("keeps the rest of the digest when GitHub can't be read", async () => {

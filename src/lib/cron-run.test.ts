@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 
 import { verifyCronAuth } from "@/lib/cron-auth";
 import { prisma } from "@/lib/db";
-import { scalarMetrics, withCronRun } from "./cron-run";
+import { runMetrics, scalarMetrics, withCronRun } from "./cron-run";
 
 const create = vi.mocked(prisma.automationRun.create);
 const update = vi.mocked(prisma.automationRun.update);
@@ -114,6 +114,15 @@ describe("withCronRun", () => {
     expect(job).toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
     expect(Sentry.captureException).toHaveBeenCalled();
+  });
+});
+
+describe("runMetrics", () => {
+  it("stores a route's own runMetrics object whole, else the scalar fields", () => {
+    const table = { checkpoint: "CP1", values: { o6_failing_sources: { v: 17 } } };
+    expect(runMetrics({ data: { missed: 2, runMetrics: table } })).toEqual(table);
+    expect(runMetrics({ data: { missed: 2, runMetrics: [1] } })).toEqual({ missed: 2 });
+    expect(runMetrics({ data: { missed: 2 } })).toEqual({ missed: 2 });
   });
 });
 

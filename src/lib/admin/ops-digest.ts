@@ -12,7 +12,11 @@ import { automationLabel, loadFailedMigrations, PROMOTER_MAX_PENDING_HOURS } fro
 import { prisma } from "@/lib/db";
 import { buildBackfillDigest, ownerSecondFactors, type BackfillDigest, type SecondFactorStatus } from "@/lib/backfill/digest";
 import { NO_GITHUB_CREDENTIAL } from "@/lib/github-app";
-import { isWaitingOnOwner, opsGithubFromEnv, type OpsGithub } from "@/lib/ops-github";
+import { isAgentOrWorkstreamPr, isWaitingOnOwner, opsGithubFromEnv, type OpsGithub } from "@/lib/ops-github";
+import { latestScorecardRun, type StoredScorecard } from "@/lib/scorecard/run";
+
+/** The commit status the write gate sets on each PR head (`.github/workflows/write-gate.yml`). */
+const GATE_STATUS_CONTEXT = "write-gate";
 
 export interface FailingSource {
   name: string;
@@ -65,6 +69,22 @@ export interface WaitingPr {
   openedAt: string;
   ageHours: number;
   headSha: string;
+  /** The write gate's class label (`write:docs`, `write:code`, `write:migration`, …), or null before it ran. */
+  writeClass: string | null;
+  /** The PR carries a migration (`write:migration` or `write:insert-auto`): re-dry-run before merging. */
+  migration: boolean;
+  /** The `write-gate` commit status on the head ("success", "pending", "failure"), or null if unset or unread. */
+  gate: string | null;
+  /** Opened by an agent or a workstream session, not written by the owner by hand (scorecard O4). */
+  agent: boolean;
+}
+
+/** The latest weekly scorecard run (`/api/cron/weekly-scorecard`), as stored in its run row. */
+export interface ScorecardBlock {
+  ranAt: string;
+  status: string;
+  summary: string | null;
+  scorecard: StoredScorecard | null;
 }
 
 export interface OpsDigest {
@@ -103,6 +123,8 @@ export interface OpsDigest {
    * research task's self-merged handoffs), oldest first. `prs` is null when GitHub couldn't be read.
    */
   approvalsWaiting: { prs: WaitingPr[] | null; error: string | null };
+  /** Null until the weekly scorecard cron has run once. */
+  scorecard: ScorecardBlock | null;
 }
 
 const VERDICT_ORDER: Record<AutomationVerdict, number> = { OVERDUE: 0, BLOCKED_ON_OWNER: 1, UNKNOWN: 2, OK: 3 };
@@ -133,24 +155,33 @@ async function loadApprovalsWaiting(
   try {
     const client = github === undefined ? opsGithubFromEnv() : github;
     if (!client) return { prs: null, error: NO_GITHUB_CREDENTIAL };
-    const pulls = await client.listOpenPulls();
+    const pulls = (await client.listOpenPulls()).filter(isWaitingOnOwner);
+    const gates = await Promise.all(
+      pulls.map((pr) => client.commitStatus(pr.headSha, GATE_STATUS_CONTEXT).catch(() => null)),
+    );
     return {
-      prs: pulls.filter(isWaitingOnOwner).map((pr) => ({
-        number: pr.number,
-        title: pr.title,
-        url: pr.url,
-        labels: pr.labels,
-        openedAt: pr.createdAt.toISOString(),
-        ageHours: Math.floor((now.getTime() - pr.createdAt.getTime()) / HOUR_MS),
-        headSha: pr.headSha,
-      })),
+      prs: pulls.map((pr, i) => {
+        const writeClass = pr.labels.find((l) => l.startsWith("write:")) ?? null;
+        return {
+          number: pr.number,
+          title: pr.title,
+          url: pr.url,
+          labels: pr.labels,
+          openedAt: pr.createdAt.toISOString(),
+          ageHours: Math.floor((now.getTime() - pr.createdAt.getTime()) / HOUR_MS),
+          headSha: pr.headSha,
+          writeClass,
+          migration: writeClass === "write:migration" || writeClass === "write:insert-auto",
+          gate: gates[i],
+          agent: isAgentOrWorkstreamPr(pr),
+        };
+      }),
       error: null,
     };
   } catch (err) {
     return { prs: null, error: err instanceof Error ? err.message : String(err) };
   }
 }
-
 
 /** Postgres COUNT/SUM come back as bigint; the JSON response needs plain numbers. */
 const num = (v: unknown): number => (v == null ? 0 : Number(v));
@@ -236,13 +267,17 @@ export async function buildOpsDigest(
 
   const s = scrapeRows[0] ?? {};
   const q = queueRows[0] ?? {};
-  const [backfills, secondFactors] = await Promise.all([
+  const [backfills, secondFactors, scorecard] = await Promise.all([
     buildBackfillDigest(now).catch((err) => {
       console.error("[ops-digest] backfills block failed:", err);
       return null;
     }),
     ownerSecondFactors().catch((err) => {
       console.error("[ops-digest] second-factor check failed:", err);
+      return null;
+    }),
+    latestScorecardRun().catch((err) => {
+      console.error("[ops-digest] scorecard block failed:", err);
       return null;
     }),
   ]);
@@ -287,5 +322,6 @@ export async function buildOpsDigest(
     failedMigrations: migrationRows.map((m) => ({ name: m.name, startedAt: m.startedAt.toISOString() })),
     watchdog,
     approvalsWaiting,
+    scorecard,
   };
 }

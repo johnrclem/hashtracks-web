@@ -34,6 +34,7 @@ const issue = (n: number, o: Partial<GhIssue> = {}): GhIssue => ({
   labels: [],
   createdAt: ago(100),
   closedAt: null,
+  stateReason: null,
   pull: null,
   ...o,
 });
@@ -47,6 +48,9 @@ const pull = (n: number, labels: string[], draft = false): GhPull => ({
   labels,
   createdAt: ago(50),
   headSha: "abc",
+  headRef: "audit-fix/x",
+  author: "hashtracks-agent[bot]",
+  authorIsBot: true,
 });
 
 function github(o: {
@@ -194,20 +198,27 @@ describe("registry", () => {
       expect(blockedOnOwner).toBeUndefined();
     });
 
-    it("is blocked on the owner once 4 audit-fix PRs wait for approval", async () => {
+    it("is blocked on the owner once 2 audit-fix PRs wait for approval", async () => {
       const gh = github({});
-      const pulls = [
-        pull(1, ["audit-fix"]),
-        pull(2, ["audit-fix"]),
-        pull(3, ["audit-fix"]),
-        pull(4, ["audit-fix", "owner-approved"]),
-        pull(5, ["audit-fix"], true),
-      ];
+      const pulls = [pull(1, ["audit-fix"]), pull(4, ["audit-fix", "owner-approved"]), pull(5, ["audit-fix"], true)];
       expect((await spec("audit-fixer").check(ctx({ github: gh, pulls }))).blockedOnOwner).toBeUndefined();
       pulls.push(pull(6, ["audit-fix"]));
       expect((await spec("audit-fixer").check(ctx({ github: gh, pulls }))).blockedOnOwner).toBe(
-        "4 `audit-fix` PRs wait on the owner (#1, #2, #3, #6)",
+        "2 `audit-fix` PRs wait on the owner (#1, #6)",
       );
+    });
+
+    it("reports its PRs merged in the last 7 days without ever failing on it", async () => {
+      const gh = github({
+        issues: (q) =>
+          q.labels === "audit-fix" && q.state === "closed"
+            ? [pr(2974, ago(300), ago(30)), pr(2950, ago(400), ago(200))]
+            : q.labels === "audit-fix"
+              ? [pr(2974, ago(10))]
+              : [],
+      });
+      const { expectations } = await spec("audit-fixer").check(ctx({ github: gh }));
+      expect(expectations[1]).toEqual({ what: "PRs merged in 7 days (reported)", ok: true, seen: "1 (#2974)" });
     });
   });
 
@@ -220,12 +231,50 @@ describe("registry", () => {
     expect(result.blockedOnOwner).toBe("2 `onboarding-impl` PRs wait on the owner (#2940, #2979)");
   });
 
-  it("research counts handoff PRs and is held by an open onboarding-blocked issue", async () => {
-    const gh = github({
-      issues: (q) => (q.labels === "onboarding-handoff" ? [pr(3020, ago(80))] : [issue(3050)]),
+  describe("kennel research", () => {
+    const research = (issues: (q: { labels: string; state: string }) => GhIssue[], now = NOW) =>
+      spec("kennel-research").check(ctx({ now, github: github({ issues }) }));
+
+    it("is OK when a handoff merged within 78 h and none sits open", async () => {
+      const { expectations } = await research((q) =>
+        q.labels === "onboarding-handoff" && q.state === "closed" ? [pr(3020, ago(40), ago(39))] : [],
+      );
+      expect(expectations.map((e) => e.ok)).toEqual([true, true]);
     });
-    const result = await spec("kennel-research").check(ctx({ github: gh }));
-    expect(result.expectations[0].ok).toBe(false);
-    expect(result.blockedOnOwner).toBe("held by onboarding-blocked issue #3050");
+
+    it("would have flagged #3067: opened on time, never merged", async () => {
+      // #3067 opened 2026-11-19 08:08 UTC and stuck at write-gate PENDING; the last merged handoff
+      // was older. The old check counted it as fresh output because it had been opened.
+      const opened = new Date("2026-11-19T08:08:15Z");
+      const now = new Date("2026-11-20T12:00:00Z");
+      const { expectations } = await research(
+        (q) =>
+          q.labels === "onboarding-handoff" && q.state === "open"
+            ? [issue(3067, { createdAt: opened, pull: { mergedAt: null, draft: false } })]
+            : q.labels === "onboarding-handoff"
+              ? [pr(3030, new Date("2026-11-15T08:00:00Z"), new Date("2026-11-15T09:00:00Z"))]
+              : [],
+        now,
+      );
+      expect(expectations[0]).toMatchObject({ ok: false, what: "a merged onboarding-handoff PR at least every 78 h" });
+      expect(expectations[1]).toMatchObject({ ok: false, seen: "#3067 open 28 h" });
+    });
+
+    it("lets a handoff opened under 24 h ago wait", async () => {
+      const { expectations } = await research((q) =>
+        q.labels === "onboarding-handoff" && q.state === "open"
+          ? [issue(3100, { createdAt: ago(5), pull: { mergedAt: null, draft: false } })]
+          : q.labels === "onboarding-handoff"
+            ? [pr(3090, ago(30), ago(29))]
+            : [],
+      );
+      expect(expectations[1]).toMatchObject({ ok: true, seen: "1 open, none stuck" });
+    });
+
+    it("is held by an open onboarding-blocked issue", async () => {
+      const result = await research((q) => (q.labels === "onboarding-blocked" ? [issue(3050)] : []));
+      expect(result.expectations[0].ok).toBe(false);
+      expect(result.blockedOnOwner).toBe("held by onboarding-blocked issue #3050");
+    });
   });
 });
