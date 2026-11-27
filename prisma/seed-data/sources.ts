@@ -1173,13 +1173,15 @@ export const SOURCES = [
         // #2159: hares + venue live in the DESCRIPTION body, not structured
         // fields. The ai1ec WordPress export labels hares "Hares:" / "Hares~"
         // / "Hare:" and the venue "Where:" / "Start:" / "Location:" (inline) or
-        // a "Location\n<value>" heading (the #340 form).
-        harePatterns: ["(?:^|\\n)\\s*Hares?\\s*[:~]\\s*([^\\n]+)"],
+        // a "Location\n<value>" heading (the #340 form). #2941: newer posts put an
+        // emoji before the label ("🐇 HARES:", "📍 WHERE:"), so allow a short
+        // non-word prefix.
+        harePatterns: [String.raw`(?:^|\n)[^\n\w]{0,8}Hares?\s*[:~]\s*([^\n]+)`],
         locationPatterns: [
-          "(?:^|\\n)\\s*Where:\\s*([^\\n]+)",
-          "(?:^|\\n)\\s*Start:\\s*([^\\n]+)",
-          "(?:^|\\n)\\s*Location:\\s*([^\\n]+)",
-          "(?:^|\\n)\\s*Location\\s*\\n\\s*([^\\n]+)",
+          String.raw`(?:^|\n)[^\n\w]{0,8}Where:\s*([^\n]+)`,
+          String.raw`(?:^|\n)[^\n\w]{0,8}Start:\s*([^\n]+)`,
+          String.raw`(?:^|\n)[^\n\w]{0,8}Location:\s*([^\n]+)`,
+          String.raw`(?:^|\n)\s*Location\s*\n\s*([^\n]+)`,
         ],
         cleanDescriptionLocation: true,
         // #2175: a `#TBD` placeholder run with a junk 03:02 DTSTART trips the
@@ -3805,9 +3807,17 @@ export const SOURCES = [
         // #2218: Kimchi's active recurring master is the bare placeholder
         // "Kimchi #" (no run number / hares / location until the kennel fills in
         // a per-week override). Substitute a readable trail name for the bare
-        // kennel-code/placeholder forms. Per-kennel keys leave pph4/dim-h3 alone.
-        defaultTitles: { "kimchi-h3": "Kimchi H3 Trail" },
+        // kennel-code/placeholder forms. Per-kennel keys leave dim-h3 alone.
+        defaultTitles: { "kimchi-h3": "Kimchi H3 Trail", pph4: "PPH4 Trail" },
         staleTitleAliases: { "kimchi-h3": ["Kimchi #", "Kimchi"] },
+        // #3059: a bare "PPH4" SUMMARY took the description's first sentence as
+        // its title ("Our great hare Vibrator will take you down…"); use the
+        // default title instead, and read the hare from that sentence.
+        preferDefaultTitleOverDescription: true,
+        harePatterns: [
+          String.raw`(?:^|\n)[^\n\w]{0,8}Hares?\s*:\s*(.+)`,
+          String.raw`\bour\s+(?:great\s+|fearless\s+)?hares?\s+([A-Z][\w'’-]*(?:\s+(?:&|and)\s+[A-Z][\w'’-]*)?)\s+will\b`,
+        ],
       },
       kennelCodes: ["pph4", "kimchi-h3", "dim-h3"],
     },
@@ -3896,7 +3906,12 @@ export const SOURCES = [
       scrapeDays: 365,
       config: {
         defaultKennelTag: "demon-h3",
-        harePatterns: [String.raw`(?:^|\n)\s*WHO\s*\(?(?:hares?)?\)?\s*:?\s*(.+)`],
+        // #3120: besides "WHO (hares):", posts use "HARES:" / "🐰 Hares:" and,
+        // on moon hashes, "Wolves - <names>".
+        harePatterns: [
+          String.raw`(?:^|\n)\s*WHO\s*\(?(?:hares?)?\)?\s*:?\s*(.+)`,
+          String.raw`(?:^|\n)[^\n\w]{0,8}(?:Hares?|Wolves)\s*[-–:]\s*(.+)`,
+        ],
       },
       kennelCodes: ["demon-h3"],
     },
@@ -6378,7 +6393,9 @@ export const SOURCES = [
         // optional "#". rejectTitleHareThemeSuffix drops theme captures like
         // "West Coast 4 seasons run".
         runNumberPatterns: [String.raw`^Run\s*(?:#\s*)?(\d+)\b`],
-        titleHarePattern: String.raw`^Run\s*(?:#\s*)?\d+\s*-\s*([^@]+?)\s*(?:@.*)?$`,
+        // #3028: "Run 2950 - Horse and Pitt : 4 seasons summer run with WCH3"
+        // puts the theme after " : " (and a venue after "@"); stop the hares there.
+        titleHarePattern: String.raw`^Run\s*(?:#\s*)?\d+\s*[-–]\s*([^@:]+?)\s*(?:[@:].*)?$`,
         rejectTitleHareThemeSuffix: true,
         // Alert fixes 2026-11-10: holiday gaps are posted as Monday rows titled
         // "NO RUN TODAY- see you on 24th for the Breakfast run!". (The 8

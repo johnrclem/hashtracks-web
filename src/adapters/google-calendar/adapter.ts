@@ -456,6 +456,31 @@ function parseCoordOnlyLocation(value: string): { lat: number; lng: number } | n
   return null;
 }
 
+const URL_PREFIX_RE = /^https?:\/\//i;
+// Leading only: a trailing colon marks a sibling label ("Cost:") that must stay rejectable.
+const LEADING_COLON_RE = /^[:\s]+/;
+const GET_THEE_TO_RE = /^Get\s+(?:thee|yourself)\s+to\s+/i;
+const PARK_AND_HASH_RE = /,\s*park\s+and\s+hash\.?$/i;
+const TRAILING_ADVERB_RE = /,\s*(?:specifically|approximately|roughly|exactly)$/i;
+// "Bottom of the Rising Main Stairs at 2 pm, 2:30 one-out." (Pittsburgh): the time is not part of the place.
+const TIME_CLAUSE_RE = / at \d{1,2}(?::\d{2})? ?[ap]\.?m\b/i;
+function stripTimeClause(location: string): string {
+  const match = TIME_CLAUSE_RE.exec(location);
+  return match ? location.slice(0, match.index) : location;
+}
+
+/**
+ * #3124 ABQ: LOCATION "Montgomery Park (https://maps.app.goo.gl/…)" is a venue
+ * name followed by its maps link. Split it so the link becomes the pin.
+ */
+function splitVenueMapsLink(location: string): { venue: string; url: string } | null {
+  if (!location.endsWith(")")) return null;
+  const open = location.lastIndexOf("(");
+  const url = location.slice(open + 1, -1).trim();
+  const venue = location.slice(0, Math.max(open, 0)).trim();
+  return open > 0 && venue && MAPS_URL_RE.test(url) && !/\s/.test(url) ? { venue, url } : null;
+}
+
 // Pre-compiled regexes for extractLocationFromDescription.
 // #742: hash-vernacular labels (De'erections, Direcshits, Where to gather) are synonyms for "Location".
 // Assembled from a list to keep the alternation readable and below SonarCloud's regex-complexity limit.
@@ -466,7 +491,7 @@ const LOCATION_LABEL_TOKENS = [
   String.raw`Start\s+Address`,
   String.raw`Address`,
   String.raw`Meet(?:ing)?\s*(?:spot|point|at)?`,
-  String.raw`De'?erections`,
+  "De['’]?erections", // #3157 BAH3 types a curly apostrophe
   String.raw`Direcshits`,
   String.raw`Where\s+to\s+gather`,
 ];
@@ -816,6 +841,16 @@ export function extractLocationFromDescription(description: string): string | un
   location = firstLine.replace(LOCATION_URL_RE, "").trim();
   // Strip a trailing "(lat, lng)" coordinate parenthetical (#1999 BAH3).
   location = location.replace(TRAILING_COORD_PAREN_RE, "").trim();
+  // #3157 BAH3 wraps the venue in directions: "Get thee to <venue>, park and hash",
+  // or ": Get thee to Hawkins Rd in Crownsville MD, specifically" (doubled colon,
+  // sentence carried on the next line).
+  location = stripTimeClause(
+    location
+      .replace(LEADING_COLON_RE, "")
+      .replace(GET_THEE_TO_RE, "")
+      .replace(PARK_AND_HASH_RE, "")
+      .replace(TRAILING_ADVERB_RE, ""),
+  ).trim();
 
   if (location.length < 3) return undefined;
   if (location.length > LOCATION_MAX_LENGTH) return undefined;
@@ -1656,7 +1691,7 @@ export function buildRawEventFromGCalItem(
   // Only clip when the trailing run actually looks like prose (≥3 consecutive
   // letters) so a hand-pasted coordinate URL with a raw space ("?q=30.2, -97.7")
   // keeps its longitude rather than being truncated at the comma-space.
-  if (location && /^https?:\/\//i.test(location)) {
+  if (location && URL_PREFIX_RE.test(location)) {
     const wsIdx = location.search(/\s/);
     if (wsIdx !== -1 && /[A-Za-z]{3,}/.test(location.slice(wsIdx))) {
       location = location.slice(0, wsIdx).trim() || undefined;
@@ -1682,7 +1717,7 @@ export function buildRawEventFromGCalItem(
   }
   // Skip phone/CTA strip when the field is a bare URL — Maps place IDs end in digit runs
   // that PHONE_TRAILING_RE would mangle.
-  if (location && !/^https?:\/\//i.test(location)) {
+  if (location && !URL_PREFIX_RE.test(location)) {
     location = location
       .replace(LOCATION_TRAILING_CTA_RE, "")
       .replace(PHONE_TRAILING_RE, "")
@@ -1696,11 +1731,31 @@ export function buildRawEventFromGCalItem(
   // #1827 — strip description text glued onto the venue without a separator
   // (e.g. "…by IHGUnder I35 by Holiday Inn Townlake"). URLs are exempt — the
   // #1843 clip above already handles the Maps-URL leak shape.
-  if (location && !/^https?:\/\//i.test(location)) {
+  if (location && !URL_PREFIX_RE.test(location)) {
     location = stripGluedDescriptionEcho(location, rawDescription) || undefined;
   }
-  if (!location && rawDescription) {
-    location = extractLocationFromDescription(rawDescription);
+  // Read the description's venue once, and only when LOCATION is empty or just a
+  // link (the #3157 block below reuses it).
+  const descriptionLocation = rawDescription && (!location || URL_PREFIX_RE.test(location))
+    ? extractLocationFromDescription(rawDescription)
+    : undefined;
+  location ||= descriptionLocation;
+  let locationUrlFromField: string | undefined;
+  const venueWithLink = location ? splitVenueMapsLink(location) : null;
+  if (venueWithLink) {
+    location = venueWithLink.venue;
+    locationUrlFromField = venueWithLink.url;
+  }
+  // #3157 BAH3: a LOCATION that is only a maps link names no place. Take the
+  // venue from the description's location line and keep the link as the pin.
+  // A titleLocationFillOnly source (#2910 Isca) names the venue in its title
+  // instead, below.
+  if (
+    location && URL_PREFIX_RE.test(location) && sourceConfig?.titleLocationFillOnly !== true
+    && descriptionLocation && !URL_PREFIX_RE.test(descriptionLocation)
+  ) {
+    locationUrlFromField = location;
+    location = descriptionLocation;
   }
   // Restore the verbatim coord string when description didn't provide a
   // better address. The source explicitly chose "no street name" so we'd
@@ -1752,26 +1807,20 @@ export function buildRawEventFromGCalItem(
   // SUMMARY ("C2H3") with boilerplate marketing prose in DESCRIPTION; both
   // fallbacks below would otherwise surface that prose as the title.
   const trustSummaryTitle = sourceConfig?.summaryIsCanonicalTitle === true;
-  if (!trustSummaryTitle && titleMatchesKennelTag(title, kennelTag) && rawDescription) {
-    // Strict-boolean check on `preferDefaultTitleOverDescription`: the
-    // config is hydrated from persisted JSON, where any truthy value
-    // would otherwise opt in unintentionally (same convention as the
-    // Meetup `extractRunNumber === true` check, CodeRabbit PR #1612).
-    const hasConfiguredFallback =
-      sourceConfig?.defaultTitles?.[kennelTag] != null
-      || sourceConfig?.defaultTitle != null;
-    const skipDescriptionFallback =
-      sourceConfig?.preferDefaultTitleOverDescription === true
-      && hasConfiguredFallback;
-    if (!skipDescriptionFallback) {
-      title = titleFromDescription(rawDescription) ?? title;
-    }
-  }
-  // If title looks like a bare kennel code (2-10 alphanumeric chars, no spaces),
-  // try extracting a better title from the description
-  if (!trustSummaryTitle && /^[A-Za-z0-9]{2,10}$/.test(title) && rawDescription) {
-    const descTitle = titleFromDescription(rawDescription);
-    if (descTitle) title = descTitle;
+  // Strict-boolean check on `preferDefaultTitleOverDescription`: the
+  // config is hydrated from persisted JSON, where any truthy value
+  // would otherwise opt in unintentionally (same convention as the
+  // Meetup `extractRunNumber === true` check, CodeRabbit PR #1612).
+  // #3059 PPH4: it gates both description fallbacks below; the bare-code one
+  // used to promote "Our great hare Vibrator will take you…" regardless.
+  const skipDescriptionFallback =
+    sourceConfig?.preferDefaultTitleOverDescription === true
+    && (sourceConfig.defaultTitles?.[kennelTag] != null || sourceConfig.defaultTitle != null);
+  if (!trustSummaryTitle && !skipDescriptionFallback && rawDescription) {
+    if (titleMatchesKennelTag(title, kennelTag)) title = titleFromDescription(rawDescription) ?? title;
+    // If title looks like a bare kennel code (2-10 alphanumeric chars, no spaces),
+    // try extracting a better title from the description
+    if (/^[A-Za-z0-9]{2,10}$/.test(title)) title = titleFromDescription(rawDescription) ?? title;
   }
   // #1761 — placeholder run-number summary ("NBH3 #? (Tea Party)") whose real
   // header lives in the description ("NBH3 #448: Time to Spill the Tea
@@ -1873,9 +1922,8 @@ export function buildRawEventFromGCalItem(
   // labels a LOCATION that is just a maps link (the link stays as the
   // locationUrl, so it still drives the pin), and the title is left as it is.
   const titleIsVenue = sourceConfig?.titleLocationFillOnly === true;
-  let locationUrlFromField: string | undefined;
   if (compiledTitleLocationPatterns?.length && titleIsVenue) {
-    if (location && /^https?:\/\//i.test(location)) {
+    if (location && URL_PREFIX_RE.test(location)) {
       for (const re of compiledTitleLocationPatterns) {
         const candidate = titleLocationCandidate(re.exec(title));
         if (!candidate) continue;
@@ -2098,7 +2146,7 @@ export function buildRawEventFromGCalItem(
 
   // Any URL as location (Maps or otherwise) gets routed to locationUrl for geocoding,
   // not stored as display location. resolveCoords handles URL → address resolution.
-  const locationIsUrl = location && /^https?:\/\//i.test(location);
+  const locationIsUrl = location && URL_PREFIX_RE.test(location);
   const cost = rawDescription ? extractCostFromDescription(rawDescription) : undefined;
   // #1761 — a run number promoted from a placeholder summary's description
   // header overrides the cleared placeholder (extractRunNumber returns null

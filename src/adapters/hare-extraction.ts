@@ -84,6 +84,18 @@ const PROSE_PREFIX_RE = /^(?:away|at|from|drop|is|was|has|had|can|will|would|sho
 // char (Gemini PR #1612 review). Case-insensitive via `/i` to reject the
 // all-caps "Hares are NEEDED for July" form (Codex P2 review).
 const HARES_ARE_PROSE_FIRST_WORD_RE = /^(?:Needed|Needs?|Wanted|Required|Welcome|Available|Looking|Volunteers?|Still|Always|Currently|Hiding|Setting|Going|Coming|Ready|Now|Out|Off)\b/i; // NOSONAR — anchored literal alternation
+// #2995 HCH3 "Hares: Looking for Ass": a hash name can start with "Looking".
+// It is a call for hares only when the next word asks for one.
+const LOOKING_FOR_WORD_RE = /^Looking\s+for\s+([A-Z][\w'’-]*)/;
+const LOOKING_FOR_CTA_WORDS = new Set([
+  "a", "an", "the", "our", "some", "more", "new", "any", "you", "someone", "somebody", "anyone", "help",
+]);
+const ASKS_FOR_HARES_RE = /\b(?:co-?)?hares?\b|\bvolunteers?\b/i;
+function isLookingForName(hares: string): boolean {
+  const word = LOOKING_FOR_WORD_RE.exec(hares)?.[1];
+  // "Looking for Two hares" still asks for hares.
+  return !!word && !LOOKING_FOR_CTA_WORDS.has(word.toLowerCase()) && !ASKS_FOR_HARES_RE.test(hares);
+}
 const URL_PREFIX_RE = /^https?:\/\//i;
 const SENTENCE_PUNCT_RE = /[:.!?]\s/;
 const SENTENCE_END_RE = /[.!?]$/;
@@ -326,7 +338,7 @@ export function cleanAndFilterHares(raw: string): string | null | undefined {
   // by another field/source on a same-trust rescrape (Codex PR #2038 review).
   if (GENERIC_WHO_ANSWER_RE.test(hares)) return undefined;
   if (PROSE_PREFIX_RE.test(hares)) return undefined;
-  if (HARES_ARE_PROSE_FIRST_WORD_RE.test(hares)) return undefined;
+  if (HARES_ARE_PROSE_FIRST_WORD_RE.test(hares) && !isLookingForName(hares)) return undefined;
   // Bare kennel-code reject (#2008 PGH H3 "Who: PGHH3") returns `null` — an
   // EXPLICIT clear. This is the one high-confidence non-hare: the hare field
   // literally holds the kennel's own code, never a hash name. Emitting null

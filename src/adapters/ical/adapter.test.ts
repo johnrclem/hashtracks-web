@@ -5,6 +5,7 @@ import type { RawEventData } from "../types";
 import type { Source } from "@/generated/prisma/client";
 import type { ParameterValue } from "node-ical";
 import { SOURCES } from "../../../prisma/seed-data/sources";
+import { compilePatterns } from "../utils";
 
 // Minimal ICS content for testing
 const SAMPLE_ICS = `BEGIN:VCALENDAR
@@ -2870,5 +2871,32 @@ describe("parseDashedTrailSummary (Bicester, #2802, #2803)", () => {
   });
   it("ignores other shapes", () => {
     expect(parseDashedTrailSummary('Trail # 2707 & Trail # 2708 - "AWAY WEEKEND DEVON CLIFFS"')).toBeNull();
+  });
+});
+
+// ── Seed hare patterns for #2941 (Charm City) and #3028 (Perth) ──
+
+describe("seed hare patterns: Charm City emoji labels (#2941) and Perth title themes (#3028)", () => {
+  const seedConfig = (name: string) => {
+    const source = SOURCES.find((s) => s.name === name && s.type === "ICAL_FEED");
+    if (!source?.config) throw new Error(`${name} seed config missing`);
+    return source.config as { harePatterns: string[]; locationPatterns: string[]; titleHarePattern: string };
+  };
+
+  it("reads Charm City's hares and venue after an emoji label", () => {
+    const { harePatterns, locationPatterns } = seedConfig("Charm City H3 iCal Feed");
+    const description = "📍 WHERE: Druid Hill Park\n⏰ WHEN: Friday 7pm\n🐇 HARES: I Kock A Lot, Adidas, and Screaming Pussy\n🏃 RUNNERS: 4ish";
+    expect(extractHaresFromDescription(description, harePatterns)).toBe("I Kock A Lot, Adidas, and Screaming Pussy");
+    expect(extractLocationFromDescription(description, compilePatterns(locationPatterns))).toBe("Druid Hill Park");
+  });
+
+  it.each([
+    ["Run 2950 - Horse and Pitt : 4 seasons summer run with WCH3", "Horse and Pitt"],
+    ["Run 2950 – Horse and Pitt : 4 seasons summer run with WCH3", "Horse and Pitt"],
+    ["Run 2954 - Ringburner", "Ringburner"],
+    ["Run 2957- Chunda @ The Pub", "Chunda"],
+  ])("Perth's title pattern reads the hares from %j", (title, hares) => {
+    const re = new RegExp(seedConfig("Perth H3 Hareline").titleHarePattern, "i");
+    expect(re.exec(title)?.[1]).toBe(hares);
   });
 });

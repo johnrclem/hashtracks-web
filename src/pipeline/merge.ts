@@ -143,6 +143,9 @@ function sanitizeRawFields(event: RawEventData): void {
   }
 }
 
+// "Pick-Up Hash!", or with a comment: "Pick Up Hash - it's you!", "Pick-up Hash (unless …)".
+const PICK_UP_HASH_RE = /^pick[\s-]?up\s+hash(?:[!.]*$|\s*[-–—(])/i;
+
 /**
  * Sanitize hares text: strip placeholders, truncate at boilerplate markers,
  * and cap length at 200 chars with smart truncation at last delimiter.
@@ -166,6 +169,10 @@ export function sanitizeHares(hares: string | undefined | null): string | null {
 
   // Reject single-character values (no real hash name is 1 char — likely a scraping artifact)
   if (h.length === 1) return null;
+
+  // #3158 BARH3 "Hare: Pick-Up Hash!": a pick-up hash has no set hare, the
+  // pack picks one on the day. A statement that there is no hare, not a name.
+  if (PICK_UP_HASH_RE.test(h)) return null;
 
   // #2392 Tacoma H3 — a bare 4-digit year leaked from an "… Analversary (1987)"
   // title parenthetical is never a hare name. Reject as an explicit clear.
@@ -1280,6 +1287,28 @@ function isLocationPlaceholder(value: string): boolean {
   return LOCATION_PLACEHOLDER_RE.test(value);
 }
 
+// "[800 Race St](https://…)" → "800 Race St"; "Montgomery Park (https://…)" →
+// "Montgomery Park". The URL strip below would otherwise leave "](" or "(".
+const MARKDOWN_LINK_RE = /\[([^\]\n]{1,200})\]\(https?:\/\/[^\s)]*\)/g;
+const PAREN_URL_RE = / ?\(https?:\/\/[^\s()]*\)/g;
+// Rows stored before the two rules above end in a half link "[text](" or a bare
+// " (", which the coordinate strip in sanitizeLocation can also leave behind.
+const STORED_LINK_TAIL_RE = /\[([^\]\n]{1,200})\]\($/;
+const DANGLING_PAREN_RE = / ?\($/;
+
+/** #3124: drop links wrapped in parentheses or markdown, keeping their text. */
+function unwrapLocationLinks(location: string): string {
+  if (!location.includes("(")) return location;
+  return location
+    .replace(MARKDOWN_LINK_RE, "$1")
+    .replace(PAREN_URL_RE, "")
+    .replace(STORED_LINK_TAIL_RE, "$1")
+    // Also needed before the coordinate strip: "Renton (47.54, -122.09 (" only
+    // loses its coords once the trailing " (" is gone, and then leaves another.
+    .replace(DANGLING_PAREN_RE, "")
+    .trim();
+}
+
 /**
  * Sanitize location names: filter placeholders (TBA/TBD) and bare URLs.
  * Returns null for locations that are not meaningful display text. Accepts
@@ -1303,6 +1332,8 @@ export function sanitizeLocation(location: string | null | undefined): string | 
   if (/^registration\s*:/i.test(t)) return null;
   // Strip bare URLs (not useful as location names)
   if (/^https?:\/\/\S+$/.test(t)) return null;
+  t = unwrapLocationLinks(t);
+  if (!t) return null;
   // Strip trailing "(text/call/… for address)" CTA so geocoding stays clean (#831).
   t = stripTrailingContactCtaParen(t);
   if (!t) return null;
@@ -1315,6 +1346,7 @@ export function sanitizeLocation(location: string | null | undefined): string | 
     .replace(/^-?\d+\.\d{3,},\s*-?\d+\.\d{3,}[,\s]*/, "")
     // Strip trailing decimal coordinate pairs (e.g., ". 35.898606, -78.579631" or bare "35.898, -78.579")
     .replace(/[.,]?\s*-?\d+\.\d{3,},\s*-?\d+\.\d{3,}\s*$/, "")
+    .replace(DANGLING_PAREN_RE, "") // "Montgomery Park (", or "Renton (47.54, -122.09" after the coords go
     .replace(/\.\s*$/, "")  // clean up trailing period left behind
     // Strip instruction suffixes after em-dash or period ("— check Facebook for details")
 .replace(/(\s*[—–]|\.)\s*(?:check|see|visit|call|contact|email|for)\b.*/i, "")
