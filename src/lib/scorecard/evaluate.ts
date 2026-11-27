@@ -124,7 +124,7 @@ export function evaluate(values: Values, cp: CheckpointId | null, previous: Valu
     if (v?.value == null) return { ...base, status: "n/a" as const };
     if (!resolved || resolved.target.kind === "tracked") return { ...base, status: "tracked" as const };
     const ok = judge(resolved.target, v.value, values, previous);
-    if (ok === null) return { ...base, status: "unjudged" as const };
+    if (ok === null || (ok === false && v.partial && resolved.target.kind === "atLeast")) return { ...base, status: "unjudged" as const };
     if (ok) return { ...base, status: "met" as const };
     const status: RowStatus = resolved.from === cp ? "missed" : "not yet";
     return { ...base, status };

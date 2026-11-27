@@ -52,6 +52,13 @@ describe("evaluate", () => {
     expect(row(evaluate(values, "CP1", null), "o6_scrape_success_7d")).toMatchObject({ status: "missed", shown: "97.9%" });
   });
 
+  it("leaves a partial count below an 'at least' target unjudged, but lets it meet one", () => {
+    const partial = (value: number): Values => ({ o1_hubs_indexed: { value, partial: true } });
+    expect(row(evaluate(partial(100), "CP4", null), "o1_hubs_indexed")).toMatchObject({ status: "unjudged" });
+    expect(row(evaluate(partial(160), "CP4", null), "o1_hubs_indexed")).toMatchObject({ status: "met" });
+    expect(row(evaluate({ o1_hubs_indexed: { value: 100 } }, "CP4", null), "o1_hubs_indexed")).toMatchObject({ status: "missed" });
+  });
+
   it("reports unavailable and tracked measures without judging them", () => {
     const rows = evaluate(values, "CP2", null);
     expect(row(rows, "o2_human_visitors_week")).toMatchObject({ status: "n/a", shown: "not available", note: "needs PostHog" });

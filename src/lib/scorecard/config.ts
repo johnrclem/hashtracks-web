@@ -29,6 +29,11 @@ export interface MeasureValue {
   display?: string;
   /** Why it's not available, or a caveat on how it was read. */
   note?: string;
+  /**
+   * Only part of the population was read (a weekly slice, a sweep cut short), so the value is a
+   * lower bound: it can meet an "at least" target but never miss one.
+   */
+  partial?: boolean;
 }
 
 export type Values = Record<string, MeasureValue>;

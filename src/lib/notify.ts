@@ -20,7 +20,11 @@ export interface OwnerEmail {
   idempotencyKey: string;
 }
 
-export type NotifyResult = { sent: true; id: string } | { sent: false; reason: string };
+/**
+ * `duplicate`: Resend had already accepted an email under this idempotency key with a different
+ * body (a retry that rebuilt the text), so the owner has the earlier copy.
+ */
+export type NotifyResult = { sent: true; id: string; duplicate?: true } | { sent: false; reason: string };
 
 const DEFAULT_FROM = "HashTracks <onboarding@resend.dev>";
 const DOMAIN_LABEL = /^[a-z0-9-]{1,63}$/;
@@ -66,6 +70,9 @@ export async function emailOwner({ subject, text, idempotencyKey }: OwnerEmail):
       { from, to, subject: `${SUBJECT_PREFIX}${subject}`, text },
       { idempotencyKey },
     );
+    // A retry whose text changed reuses the key with a new payload: Resend answers 409 and keeps
+    // the first email, which was delivered.
+    if (error?.name === "invalid_idempotent_request") return { sent: true, id: "", duplicate: true };
     if (error) return { sent: false, reason: `Resend: ${error.message}` };
     return { sent: true, id: data.id };
   } catch (err) {

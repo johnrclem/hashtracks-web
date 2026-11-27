@@ -285,6 +285,7 @@ export async function gscMeasures({ client: gsc, error }: GscSetup, now: Date, f
           value: c.indexed,
           display: `${c.indexed} of ${c.hubUrls}`,
           note: coverageNote(c, states),
+          ...(c.inspected < c.hubUrls ? { partial: true } : {}),
         },
       };
     }),

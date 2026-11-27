@@ -53,6 +53,16 @@ describe("emailOwner", () => {
     send.mockRejectedValueOnce(new Error("socket hang up"));
     expect(await emailOwner(email)).toEqual({ sent: false, reason: "Resend: socket hang up" });
   });
+
+  it("counts a 409 for a reused key with a new body as already sent", async () => {
+    vi.stubEnv("RESEND_API_KEY", "re_test");
+    vi.stubEnv("OWNER_EMAIL", "owner@example.com");
+    send.mockResolvedValueOnce({
+      data: null,
+      error: { message: "same key, different payload", statusCode: 409, name: "invalid_idempotent_request" },
+    });
+    expect(await emailOwner(email)).toEqual({ sent: true, id: "", duplicate: true });
+  });
 });
 
 describe("senderAddress", () => {
