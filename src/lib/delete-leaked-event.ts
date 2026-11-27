@@ -82,6 +82,8 @@ export async function deleteLeakedEvent(
      * with the event. Checked under the lock (backfill undo, design 10.3).
      */
     forbidUserHares?: boolean;
+    /** Refuse when a series child links to the event at delete time (checked under the lock). */
+    forbidChildren?: boolean;
   },
 ): Promise<"deleted" | "missing"> {
   const existing = await prisma.event.findUnique({
@@ -133,6 +135,11 @@ export async function deleteLeakedEvent(
       if (foreign) {
         throw new ForeignRawSourceError(eventId, foreign.sourceId);
       }
+    }
+
+    if (options?.forbidChildren) {
+      const children = await tx.event.count({ where: { parentEventId: eventId } });
+      if (children > 0) throw new Error(`Refusing to delete Event ${eventId}: ${children} series child event(s) link to it`);
     }
 
     if (options?.forbidUserHares) {

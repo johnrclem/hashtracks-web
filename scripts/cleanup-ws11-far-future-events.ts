@@ -156,17 +156,19 @@ async function dryRun(outPath: string) {
 
 async function apply(planPath: string) {
   const plan = JSON.parse(readFileSync(planPath, "utf8")) as Plan;
-  // Re-check against the plan's own horizon: a row must still qualify, and not
-  // have gained attendance, RSVPs or user hares, since the dry run.
-  const current = new Map(
-    (await candidates(new Date(plan.horizon), plan.bullmoonSourceId)).map((c) => [c.row.id, c.reason]),
-  );
-  const slots: Array<{ kennelId: string; date: Date }> = [];
+  // Re-check each planned row: it must still qualify (beyond the later of the
+  // plan's horizon and today's, so a row the capped adapter now keeps is never
+  // deleted) and not have gained attendance, RSVPs or user hares.
+  const horizon = new Date(Math.max(Date.parse(plan.horizon), getTodayUtcNoon() + HORIZON_DAYS * DAY_MS));
+  const current = new Map((await candidates(horizon, plan.bullmoonSourceId)).map((c) => [c.row.id, c]));
+  // Every planned slot is recomputed, deleted this run or on an earlier one, so
+  // a retry after a failed recompute still repairs them (recompute is idempotent).
+  const slots = plan.delete.map((row) => ({ kennelId: row.kennelId, date: parseUtcNoonDate(row.date) }));
   const result = { deleted: 0, missing: 0, skipped: [] as string[], refused: [] as string[] };
   for (const row of plan.delete) {
-    const reason = current.get(row.id);
-    if (reason !== null) {
-      result.skipped.push(`${row.id} (${reason ?? "no longer qualifies"})`);
+    const now = current.get(row.id);
+    if (!now || now.reason !== null) {
+      result.skipped.push(`${row.id} (${now?.reason ?? "no longer qualifies"})`);
       continue;
     }
     try {
@@ -177,11 +179,12 @@ async function apply(planPath: string) {
           ? ["attendances", "kennelAttendances", "rawEvents"]
           : ["attendances", "kennelAttendances"],
         row.group === "bullmoon" ? plan.bullmoonSourceId : undefined,
-        { forbidUserHares: true },
+        { forbidUserHares: true, forbidChildren: true },
       );
       if (outcome === "deleted") {
         result.deleted++;
-        slots.push({ kennelId: row.kennelId, date: parseUtcNoonDate(row.date) });
+        // The row's current slot, in case its kennel or date moved since the dry run.
+        slots.push({ kennelId: now.row.kennelId, date: parseUtcNoonDate(now.row.date) });
       } else {
         result.missing++;
       }
