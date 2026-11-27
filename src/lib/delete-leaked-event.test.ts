@@ -28,6 +28,8 @@ type RelationCounts = {
   userHares?: number;
   /** Series children linking to the event (the forbidChildren probe). */
   children?: number;
+  /** 1 when the event left the expected slot (the expectSlot probe). */
+  moved?: number;
 };
 
 function buildPrisma(
@@ -53,7 +55,12 @@ function buildPrisma(
       findFirst: vi.fn().mockResolvedValue(foreignRaw),
     },
     eventKennel: { deleteMany: vi.fn().mockResolvedValue({ count: counts.eventKennels ?? 0 }) },
-    event: { delete: eventDelete, count: vi.fn().mockResolvedValue(counts.children ?? 0) },
+    event: {
+      delete: eventDelete,
+      count: vi.fn().mockImplementation(({ where }: { where: { NOT?: unknown } }) =>
+        Promise.resolve(where.NOT ? (counts.moved ?? 0) : (counts.children ?? 0)),
+      ),
+    },
   };
   const prisma = {
     event: {
@@ -180,6 +187,19 @@ describe("forbidChildren", () => {
     expect(blocked.eventDelete).not.toHaveBeenCalled();
     const free = buildPrisma({ children: 0 });
     expect(await deleteLeakedEvent(free.prisma, "evt_1", [], undefined, { forbidChildren: true })).toBe("deleted");
+  });
+});
+
+describe("expectSlot", () => {
+  beforeEach(() => vi.spyOn(console, "log").mockImplementation(() => {}));
+
+  it("refuses under the lock when the event moved out of the expected slot", async () => {
+    const slot = { kennelId: "k1", date: new Date("2030-01-05T12:00:00Z") };
+    const moved = buildPrisma({ moved: 1 });
+    await expect(deleteLeakedEvent(moved.prisma, "evt_1", [], undefined, { expectSlot: slot })).rejects.toThrow(/moved out of slot/);
+    expect(moved.eventDelete).not.toHaveBeenCalled();
+    const stayed = buildPrisma({ moved: 0 });
+    expect(await deleteLeakedEvent(stayed.prisma, "evt_1", [], undefined, { expectSlot: slot })).toBe("deleted");
   });
 });
 

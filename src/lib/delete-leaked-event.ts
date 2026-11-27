@@ -84,6 +84,12 @@ export async function deleteLeakedEvent(
     forbidUserHares?: boolean;
     /** Refuse when a series child links to the event at delete time (checked under the lock). */
     forbidChildren?: boolean;
+    /**
+     * Refuse unless the event is still in this (kennel, date) slot at delete
+     * time (checked under the lock), so a caller repairing the slot afterwards
+     * repairs the right one.
+     */
+    expectSlot?: { kennelId: string; date: Date };
   },
 ): Promise<"deleted" | "missing"> {
   const existing = await prisma.event.findUnique({
@@ -135,6 +141,12 @@ export async function deleteLeakedEvent(
       if (foreign) {
         throw new ForeignRawSourceError(eventId, foreign.sourceId);
       }
+    }
+
+    if (options?.expectSlot) {
+      const { kennelId, date } = options.expectSlot;
+      const moved = await tx.event.count({ where: { id: eventId, NOT: { kennelId, date } } });
+      if (moved > 0) throw new Error(`Refusing to delete Event ${eventId}: it moved out of slot ${kennelId} ${date.toISOString()}`);
     }
 
     if (options?.forbidChildren) {

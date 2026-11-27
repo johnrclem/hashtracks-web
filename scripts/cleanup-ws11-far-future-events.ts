@@ -161,14 +161,19 @@ async function apply(planPath: string) {
   // deleted) and not have gained attendance, RSVPs or user hares.
   const horizon = new Date(Math.max(Date.parse(plan.horizon), getTodayUtcNoon() + HORIZON_DAYS * DAY_MS));
   const current = new Map((await candidates(horizon, plan.bullmoonSourceId)).map((c) => [c.row.id, c]));
-  // Every planned slot is recomputed, deleted this run or on an earlier one, so
-  // a retry after a failed recompute still repairs them (recompute is idempotent).
+  // Only rows still in their planned slot are deleted (checked under the lock),
+  // and every planned slot is recomputed, deleted this run or on an earlier one,
+  // so a retry after a failed recompute still repairs them (recompute is idempotent).
   const slots = plan.delete.map((row) => ({ kennelId: row.kennelId, date: parseUtcNoonDate(row.date) }));
   const result = { deleted: 0, missing: 0, skipped: [] as string[], refused: [] as string[] };
   for (const row of plan.delete) {
     const now = current.get(row.id);
     if (!now || now.reason !== null) {
       result.skipped.push(`${row.id} (${now?.reason ?? "no longer qualifies"})`);
+      continue;
+    }
+    if (now.row.kennelId !== row.kennelId || now.row.date !== row.date) {
+      result.skipped.push(`${row.id} (moved since the dry run; make a new plan)`);
       continue;
     }
     try {
@@ -179,12 +184,14 @@ async function apply(planPath: string) {
           ? ["attendances", "kennelAttendances", "rawEvents"]
           : ["attendances", "kennelAttendances"],
         row.group === "bullmoon" ? plan.bullmoonSourceId : undefined,
-        { forbidUserHares: true, forbidChildren: true },
+        {
+          forbidUserHares: true,
+          forbidChildren: true,
+          expectSlot: { kennelId: row.kennelId, date: parseUtcNoonDate(row.date) },
+        },
       );
       if (outcome === "deleted") {
         result.deleted++;
-        // The row's current slot, in case its kennel or date moved since the dry run.
-        slots.push({ kennelId: now.row.kennelId, date: parseUtcNoonDate(now.row.date) });
       } else {
         result.missing++;
       }
