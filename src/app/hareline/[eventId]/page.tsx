@@ -766,7 +766,7 @@ function DetailItem({ label, value }: { label: string; value: string }) {
 }
 
 /** The forecast row; streams in after the rest of the page. */
-async function EventWeather({ lat, lng, date }: { lat: number; lng: number; date: Date }) {
+async function EventWeather({ lat, lng, date }: Readonly<{ lat: number; lng: number; date: Date }>) {
   const weather = await getEventDayWeather(lat, lng, date).catch(() => null);
   if (!weather) return null;
   return (
