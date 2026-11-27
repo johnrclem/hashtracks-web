@@ -6834,3 +6834,97 @@ describe("WS4 calendar-feed leaks", () => {
     expect(fullMoon?.kennelTags).toEqual(["hoth3"]);
   });
 });
+
+// ── Hares and venues read from GCal descriptions (#2995, #3059, #3120, #3124, #3157) ──
+
+describe("hares and venues from GCal descriptions", () => {
+  const seedConfig = (name: string) => {
+    const source = SOURCES.find((s) => s.name === name);
+    if (!source?.config) throw new Error(`${name} seed config missing`);
+    return source.config as Parameters<typeof buildRawEventFromGCalItem>[1];
+  };
+  // The fetch loop compiles a source's harePatterns once; do the same here.
+  const event = (name: string, item: Partial<Parameters<typeof buildRawEventFromGCalItem>[0]>) => {
+    const config = seedConfig(name);
+    const harePatterns = (config as { harePatterns?: string[] } | null)?.harePatterns;
+    return buildRawEventFromGCalItem(
+      { start: { dateTime: "2026-11-21T14:00:00-05:00" }, status: "confirmed", summary: "", ...item },
+      config,
+      harePatterns ? { compiledHarePatterns: compilePatterns(harePatterns) } : {},
+    );
+  };
+
+  it("#3157 BAH3: reads the venue from a curly-apostrophe De’erections line", () => {
+    const result = event("Baltimore Annapolis GCal", {
+      summary: "BAH3 #2058 - NEC",
+      description:
+        "BAH3 Trail 2058\nDe’erections: Get thee to Two Rivers Elementary School, 2754 Conway Road, Odenton MD 21113, park and hash\nHares: NEC",
+    });
+    expect(result?.location).toBe("Two Rivers Elementary School, 2754 Conway Road, Odenton MD 21113");
+  });
+
+  it("#3157: takes the description venue when LOCATION is only a maps link, keeping the link as the pin", () => {
+    const result = event("Baltimore Annapolis GCal", {
+      summary: "BAH3 #2027 - Dog Mom's Day",
+      location: "https://maps.app.goo.gl/Wjo2fHouJUZgixXU6",
+      description: "When: 10 May\nWhere: 301 Watkins Park Dr, Upper Marlboro, MD 20774\nHares: Ernest Whoringway",
+    });
+    expect(result?.location).toBe("301 Watkins Park Dr, Upper Marlboro, MD 20774");
+    expect(result?.locationUrl).toBe("https://maps.app.goo.gl/Wjo2fHouJUZgixXU6");
+  });
+
+  it("#3157: trims a doubled colon and a sentence carried onto the next line", () => {
+    const result = event("Baltimore Annapolis GCal", {
+      summary: "BAH3 #2020",
+      location: "https://maps.app.goo.gl/abc123",
+      description: "De'erections: : Get thee to Hawkins Rd in Crownsville MD, specifically\n\nParking area for Bacon Ridge",
+    });
+    expect(result?.location).toBe("Hawkins Rd in Crownsville MD");
+  });
+
+  it("drops a start-time clause from a description venue", () => {
+    expect(extractLocationFromDescription("Where: Bottom of the Rising Main Stairs at 2 pm, 2:30 one-out."))
+      .toBe("Bottom of the Rising Main Stairs");
+  });
+
+  it("#3124 ABQ: splits a 'Venue (maps link)' LOCATION into the venue and its pin", () => {
+    const result = event("ABQ H3 Google Calendar", {
+      summary: "Doggy Style Trail!",
+      location: "Montgomery Park (https://maps.app.goo.gl/KT3Ku8dFiBg54tuc8)",
+      description: "Hares: MotherTrucker & Just Shawn",
+    });
+    expect(result?.location).toBe("Montgomery Park");
+    expect(result?.locationUrl).toBe("https://maps.app.goo.gl/KT3Ku8dFiBg54tuc8");
+  });
+
+  it("#2995 HCH3: keeps the hash name 'Looking for Ass'", () => {
+    const result = event("Hill Country H3 Google Calendar", {
+      summary: "Hill Country H3 Trail #753 WARNO",
+      description: "Hares: Looking for Ass\n\nStart Point: the parking lot closest to the park",
+    });
+    expect(result?.hares).toBe("Looking for Ass");
+  });
+
+  it("#3120 DeMon: reads 'Wolves - <names>' and a 'HARES:' line", () => {
+    const wolves = event("DeMon H3 Google Calendar", {
+      summary: "The Luteal Moon Hash",
+      description: "TRAIL\n\nRunners 4 miles · Walkers 3 miles\n\nWolves - Harry Squatter & The Jugglenut\n\n$10 HC",
+    });
+    expect(wolves?.hares).toBe("Harry Squatter & The Jugglenut");
+    const hares = event("DeMon H3 Google Calendar", {
+      summary: "DeMon H3 Trail #11",
+      description: "HARES: Phil Connors aka Ring Around the Russell",
+    });
+    expect(hares?.hares).toBe("Phil Connors aka Ring Around the Russell");
+  });
+
+  it("#3059 PPH4: a bare 'PPH4' summary keeps the default title, and the hare comes from the sentence", () => {
+    const result = event("Colorado Springs H3 Calendar", {
+      summary: "PPH4",
+      description: "Our great hare Vibrator will take you down a great trail!\nSaturday 2 PM\nLocation: Solution Tavern",
+    });
+    expect(result?.kennelTags[0]).toBe("pph4");
+    expect(result?.title).toBe("PPH4 Trail");
+    expect(result?.hares).toBe("Vibrator");
+  });
+});

@@ -528,3 +528,16 @@ describe("extractHares — phone-link residue and semicolon label (#2790, #2799)
     expect(extractHares(description)).toBe("George Moonie, Chunder Woman");
   });
 });
+
+describe("extractHares — 'Looking for' (#2995 HCH3)", () => {
+  it("keeps a hash name that starts with 'Looking for'", () => {
+    expect(extractHares("Hares: Looking for Ass")).toBe("Looking for Ass");
+  });
+
+  it.each(["Looking for a hare", "Looking for YOU!", "Looking for volunteers", "Looking for hares", "Looking", "Looking for Two hares"])(
+    "still treats '%s' as a call for hares",
+    (text) => {
+      expect(extractHares(`Hares: ${text}`)).toBeUndefined();
+    },
+  );
+});

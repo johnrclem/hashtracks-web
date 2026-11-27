@@ -3259,6 +3259,14 @@ describe("sanitizeTitle", () => {
 // ── sanitizeHares ──
 
 describe("sanitizeHares", () => {
+  it("#3158: clears a pick-up hash, which has no set hare", () => {
+    expect(sanitizeHares("Pick-Up Hash!")).toBeNull();
+    expect(sanitizeHares("pickup hash")).toBeNull();
+    expect(sanitizeHares("Pick Up Hash - it's you!")).toBeNull();
+    expect(sanitizeHares("Pick-up Hash (unless someone volunteers before next Wednesday)")).toBeNull();
+    expect(sanitizeHares("Pick-Up Hash Hounds")).toBe("Pick-Up Hash Hounds");
+  });
+
   it("passes through normal hare names", () => {
     expect(sanitizeHares("Mudflap & Trail Blazer")).toBe("Mudflap & Trail Blazer");
   });
@@ -3769,6 +3777,18 @@ describe("resolveUpdatedTitle", () => {
 // ── sanitizeLocation ──
 
 describe("sanitizeLocation", () => {
+  it("#3124: drops a link in parentheses or markdown, keeping the place", () => {
+    expect(sanitizeLocation("Montgomery Park (https://maps.app.goo.gl/KT3Ku8dFiBg54tuc8)")).toBe("Montgomery Park");
+    expect(sanitizeLocation("Vessel NOLA, [3835 Iberville St New Orleans, LA](https://maps.google.com/x)"))
+      .toBe("Vessel NOLA, 3835 Iberville St New Orleans, LA");
+    // Rows stored before the fix still end in " (" or a half link.
+    expect(sanitizeLocation("Montgomery Park (")).toBe("Montgomery Park");
+    expect(sanitizeLocation("Annunciation Rec Center, [800 Race St, New Orleans, LA 70130]("))
+      .toBe("Annunciation Rec Center, 800 Race St, New Orleans, LA 70130");
+    expect(sanitizeLocation("Trailhead, Renton (47.541007, -122.096222 (")).toBe("Trailhead, Renton");
+    expect(sanitizeLocation("Café (Bar) Mitte")).toBe("Café (Bar) Mitte");
+  });
+
   it("drops 'Start Location TBA' / 'Location TBD' placeholders (plan 5.6, PR A)", () => {
     expect(sanitizeLocation("Start Location TBA")).toBeNull();
     expect(sanitizeLocation("Location TBD")).toBeNull();
