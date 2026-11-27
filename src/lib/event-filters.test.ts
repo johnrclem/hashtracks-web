@@ -7,7 +7,11 @@ import {
   endsOnOrAfter,
   eventEndMs,
   HIDE_STOPPED_SCHEDULE_RUNS,
+  SCHEDULE_ONLY_DISPLAY_HORIZON_DAYS,
+  withinScheduleOnlyDisplayHorizon,
 } from "@/lib/event-filters";
+import { readFileSync } from "node:fs";
+import { kennelPageEventWhere } from "@/lib/kennel-page-events";
 
 describe("DISPLAY_EVENT_WHERE", () => {
   it("excludes cancelled / manual / non-canonical / hidden-kennel / child rows", () => {
@@ -80,5 +84,28 @@ describe("eventEndMs / endsOnOrAfter / endsBefore (#2452)", () => {
     const d = new Date("2026-06-27T00:00:00Z");
     expect(endsOnOrAfter(d)).toEqual({ OR: [{ date: { gte: d } }, { endDate: { gte: d } }] });
     expect(endsBefore(d)).toEqual({ date: { lt: d }, OR: [{ endDate: null }, { endDate: { lt: d } }] });
+  });
+});
+
+describe("withinScheduleOnlyDisplayHorizon (D5)", () => {
+  it("hides only schedule-only runs more than 90 days after today", () => {
+    const today = new Date("2026-11-27T12:00:00Z");
+    expect(SCHEDULE_ONLY_DISPLAY_HORIZON_DAYS).toBe(90);
+    expect(withinScheduleOnlyDisplayHorizon(today)).toEqual({
+      NOT: { isScheduleOnly: true, date: { gt: new Date("2027-02-25T12:00:00Z") } },
+    });
+  });
+
+  it.each([
+    "src/lib/travel/search.ts",
+    "src/lib/travel/projections.ts",
+    "src/pipeline/prediction-ledger.ts",
+    "src/pipeline/rule-drift.ts",
+  ])("is not used by Travel or the prediction system (%s)", (file) => {
+    expect(readFileSync(file, "utf8")).not.toContain("withinScheduleOnlyDisplayHorizon");
+  });
+
+  it("is not in kennelPageEventWhere, which the backfill plan and verify share", () => {
+    expect(JSON.stringify(kennelPageEventWhere("k1"))).not.toContain('"date"');
   });
 });

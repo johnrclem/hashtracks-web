@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { DAY_MS } from "@/lib/kennel-status";
 
 /**
  * Shared where-clause fragment for "rows that should be displayed to users."
@@ -45,6 +46,24 @@ const { parentEventId: _omitParentFilter, ...DISPLAYABLE_EVENT_NO_PARENT } =
   DISPLAY_EVENT_WHERE;
 export const DISPLAYABLE_EVENT_NO_PARENT_WHERE =
   DISPLAYABLE_EVENT_NO_PARENT satisfies Prisma.EventWhereInput;
+
+/**
+ * How far ahead the public listings show runs generated only from a kennel's
+ * schedule (decision D5). Posted runs show at any date.
+ */
+export const SCHEDULE_ONLY_DISPLAY_HORIZON_DAYS = 90;
+
+/**
+ * Where-clause: hide schedule-only runs dated more than
+ * SCHEDULE_ONLY_DISPLAY_HORIZON_DAYS after `today`. Used only by the hareline,
+ * kennel, region, directory and home listings; Travel and the prediction
+ * ledger keep their own windows and must not use it. Combine via `AND`, since
+ * other fragments already use `NOT`.
+ */
+export function withinScheduleOnlyDisplayHorizon(today: Date): Prisma.EventWhereInput {
+  const horizon = new Date(today.getTime() + SCHEDULE_ONLY_DISPLAY_HORIZON_DAYS * DAY_MS);
+  return { NOT: { isScheduleOnly: true, date: { gt: horizon } } };
+}
 
 /**
  * Narrower filter for server flows that already constrain `kennelId` (or

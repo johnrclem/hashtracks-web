@@ -286,6 +286,28 @@ describe("BullMoonAdapter", () => {
       expect(social!.kennelTags[0]).toBe("bullmoon");
     });
 
+    it("keeps the full past window but drops runs more than 365 days ahead", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-11-27T12:00:00Z"));
+      try {
+        const row = (date: string, run: number) =>
+          `<tr><td>${date}</td><td>6:45 pm</td><td>T3 Run ${run}</td><td>Wriggle</td><td>Seven Stars, B1 1BD</td><td>n/a</td></tr>`;
+        const mockHtml = `<html><body><table>
+          <thead><tr><th>Date</th><th>Time</th><th>Event</th><th>Hares</th><th>Venue</th><th>Nearest Station</th></tr></thead>
+          <tbody>${row("Sat, 15 Nov 25", 1)}${row("Sat, 20 Nov 27", 2)}${row("Sat, 25 Dec 27", 3)}${row("Sat, 25 Dec 32", 4)}</tbody>
+        </table></body></html>`;
+        const { browserRender } = await import("@/lib/browser-render");
+        vi.mocked(browserRender).mockResolvedValue(mockHtml);
+
+        const source = { id: "test", url: "https://www.bullmoonh3.co.uk/upcoming-runs", config: {} } as unknown as Source;
+        const result = await new BullMoonAdapter().fetch(source, { days: 3650 });
+
+        expect(result.events.map((e) => e.runNumber).sort()).toEqual([1, 2]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("verifies browserRender is called with frameUrl option", async () => {
       const { browserRender } = await import("@/lib/browser-render");
       vi.mocked(browserRender).mockResolvedValue("<html><body></body></html>");

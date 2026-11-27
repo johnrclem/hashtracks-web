@@ -33,6 +33,7 @@ import {
   parse12HourTime,
   stripPlaceholder,
   buildDateWindow,
+  MS_PER_DAY,
   fetchBrowserRenderedPage,
 } from "../utils";
 
@@ -361,6 +362,9 @@ function fetchTableMasterPage(pageUrl: string, compId: string) {
 // Adapter
 // ---------------------------------------------------------------------------
 
+/** Furthest ahead a run is kept; later rows on the site are projections. */
+const FUTURE_CAP_DAYS = 365;
+
 export class BullMoonAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
@@ -377,7 +381,11 @@ export class BullMoonAdapter implements SourceAdapter {
     const allEvents: RawEventData[] = [];
     const allErrors: string[] = [];
     const allErrorDetails: ErrorDetails = {};
-    const { minDate, maxDate } = buildDateWindow(options?.days ?? 3650);
+    const { minDate, maxDate: windowMax } = buildDateWindow(options?.days ?? 3650);
+    // The wide window keeps the receding hareline back to 2016 refreshing, but
+    // the upcoming table lists projected runs years ahead (WS11): cap only the
+    // future side.
+    const maxDate = new Date(Math.min(windowMax.getTime(), Date.now() + FUTURE_CAP_DAYS * MS_PER_DAY));
 
     let fetchDurationMs = 0;
     // Only captures upcoming page hash — receding is a separate page with its own structure

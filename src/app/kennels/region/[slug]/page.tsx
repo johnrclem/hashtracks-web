@@ -4,9 +4,8 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { regionFromParam, regionPath } from "@/lib/region";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
-import { buildNextEventMap, KENNEL_DIRECTORY_SELECT, serializeKennelWithNext } from "@/lib/kennel-directory";
+import { buildNextEventMap, KENNEL_DIRECTORY_SELECT, serializeKennelWithNext, upcomingConfirmedEventWhere } from "@/lib/kennel-directory";
 import { runningKennelWhere } from "@/lib/kennel-status";
-import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import { generateRegionIntro, buildRegionItemListJsonLd, buildBreadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
 import { collectKennelWeekdays } from "@/lib/schedule-season";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
@@ -89,11 +88,7 @@ export default async function RegionPage({
     // return the kennel-link rows the directory actually attributes to.
     prisma.event.findMany({
       where: {
-        date: { gte: todayUtc },
-        status: "CONFIRMED",
-        isCanonical: true,
-        // A stopped kennel's generated runs don't count as its next run.
-        ...HIDE_STOPPED_SCHEDULE_RUNS,
+        ...upcomingConfirmedEventWhere(todayUtc),
         eventKennels: { some: { kennel: { region: region.name, isHidden: false } } },
       },
       orderBy: { date: "asc" },

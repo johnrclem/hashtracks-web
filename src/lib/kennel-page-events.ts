@@ -1,6 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
+import { getTodayUtcNoon } from "@/lib/date";
+import { HIDE_STOPPED_SCHEDULE_RUNS, withinScheduleOnlyDisplayHorizon } from "@/lib/event-filters";
 
 /**
  * The events a kennel's public page shows, and how it counts them. Shared by
@@ -42,7 +43,9 @@ export async function getKennelPageEvents(kennelId: string) {
     // #1023 step 2. The umbrella itself only appears on its host kennel's
     // page (its `kennelId` is the host's), so dropping the filter doesn't
     // pollute other kennel pages with parents they don't host.
-    where: kennelPageEventWhere(kennelId),
+    // The page (not kennelPageEventWhere, which the backfill checks share)
+    // hides schedule-only runs past the display horizon (D5).
+    where: { AND: [kennelPageEventWhere(kennelId), withinScheduleOnlyDisplayHorizon(new Date(getTodayUtcNoon()))] },
     include: {
       kennel: {
         select: { id: true, shortName: true, fullName: true, slug: true, region: true, country: true },
