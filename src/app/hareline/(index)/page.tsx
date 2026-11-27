@@ -10,7 +10,7 @@ import { HarelineView } from "@/components/hareline/HarelineView";
 import HarelineLoading from "./loading";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FadeInSection } from "@/components/home/HeroAnimations";
-import { loadEventsForTimeMode, type TimeMode } from "./actions";
+import { loadEventsForTimeMode, type TimeMode } from "../actions";
 
 export async function generateMetadata({
   searchParams,
