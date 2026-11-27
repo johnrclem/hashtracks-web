@@ -96,9 +96,8 @@ export const MEASURES: readonly Measure[] = [
   // O7 Listings alive and honest
   { id: "o7_dark_dispositions", objective: "O7", label: "Dark kennels (95) with a recorded disposition", baseline: "0", targets: { CP2: atLeast(30), CP4: atLeast(95) } },
   { id: "o7_dark_to_live", objective: "O7", label: "Dark kennels moved to live", baseline: "0", targets: { CP2: atLeast(3), CP4: atLeast(10) } },
-  // Counts rows, not what the surfaces show: WS11 hides these on the listed surfaces but keeps them
-  // for Travel, so a 0 target can't apply until this counts through WS11's display fragment.
-  { id: "o7_projections_beyond_horizon", objective: "O7", label: "Schedule-only events >90 days out, in the DB (surfaces: see WS11's PR)", baseline: "n/a", targets: { CP2: { kind: "tracked" }, CP4: { kind: "tracked" } } },
+  // Counts what the listings show, through WS11's display fragment; the rows stay stored for Travel.
+  { id: "o7_projections_beyond_horizon", objective: "O7", label: "Unposted runs >90 days out shown on listings (schedule-only or no source data)", baseline: "2048 (before WS11)", targets: { CP2: atMost(0), CP4: atMost(0) } },
   { id: "o7_far_future_rows", objective: "O7", label: "Far-future rows >365 days (bobbh3, pormeh3, bullmoon)", baseline: "351", targets: { CP2: atMost(0), CP4: atMost(0) } },
   { id: "o7_kennels_real_run_60d", objective: "O7", label: "Kennels with a real run in the next 60 days", baseline: "309", targets: { CP2: tracked, CP4: tracked } },
   // O8 Audit pipeline fast
