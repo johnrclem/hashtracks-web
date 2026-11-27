@@ -5,6 +5,11 @@
  * then on every page load tags its PostHog events with `internal_user: true`,
  * signed in or not, so the owner's own (and agent-driven) browsing can be
  * filtered out. `?internal=0` clears the flag. The flag holds no identifier.
+ *
+ * The parameter is read once per full page load, so type or open the URL
+ * directly; an in-app (client-side) navigation to `?internal=1` takes effect
+ * only on the next full load. Keep the parameter out of shared links: anyone
+ * who opens one is dropped from visitor counts in that browser.
  */
 
 export const INTERNAL_TRAFFIC_STORAGE_KEY = "ht_internal";
