@@ -51,3 +51,8 @@ export function isUniqueConstraintViolation(
   }
   return false;
 }
+
+/** Type guard for Prisma `P2025`: the row an `update` targeted did not match its `where`. */
+export function isRecordNotFound(err: unknown): err is Prisma.PrismaClientKnownRequestError {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2025";
+}

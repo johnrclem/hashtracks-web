@@ -5,6 +5,7 @@ import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
 import { regionTimezone, getLabelForUrl, stripUrlsFromText, timeToMinutes } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
+import { isRecordNotFound } from "@/lib/prisma-errors";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, resolveKennelTags, clearResolverCache, describeUnmatched } from "./kennel-resolver";
 import { createGeocodeCache, extractCoordsFromMapsUrl, geocodeVenue, resolveShortMapsUrl, reverseGeocode, parseDMSFromLocation, stripDMSFromLocation, type GeocodeCache } from "@/lib/geo";
@@ -454,6 +455,13 @@ interface MergeContext {
    *  once before the loop; updated in-place when `processNewRawEvent` creates a
    *  new RawEvent so duplicate fingerprints later in the same batch still resolve. */
   existingByFingerprint: Map<string, ExistingRawEventEntry>;
+  /** Snapshots of the canonical Events behind processed duplicates, read in one
+   *  query the first time `refreshExistingEvent` runs (Sentry JAVASCRIPT-NEXTJS-3:
+   *  was one `event.findUnique` per unchanged event, ~150 queries per scrape). */
+  duplicateEventSnapshots?: Map<string, DuplicateEventSnapshot>;
+  /** Events this batch has written through the non-duplicate path. Their
+   *  snapshots may be stale, so `refreshExistingEvent` re-reads them. */
+  eventsWrittenInBatch: Set<string>;
   /** Per-kennel event-cache + write buffers driving the #1287 batching
    *  (one `event.findMany` per kennel touched, one `kennel.updateMany` per
    *  kennel after the loop). Lazily populated by `ensureKennelEventCache`;
@@ -524,6 +532,19 @@ const RAW_EVENT_DEDUP_SELECT = {
 } as const satisfies Prisma.RawEventSelect;
 type ExistingRawEventEntry = Prisma.RawEventGetPayload<{ select: typeof RAW_EVENT_DEDUP_SELECT }>;
 
+/** Event fields `refreshExistingEvent` reads for a processed duplicate. */
+const DUPLICATE_EVENT_SELECT = {
+  id: true,
+  trustLevel: true,
+  date: true,
+  dateUtc: true,
+  timezone: true,
+  startTime: true,
+  status: true,
+  adminCancelledAt: true,
+} as const satisfies Prisma.EventSelect;
+type DuplicateEventSnapshot = Prisma.EventGetPayload<{ select: typeof DUPLICATE_EVENT_SELECT }>;
+
 /** Cap on `WHERE fingerprint IN (...)` size per query — keeps Postgres planner
  *  cost linear and stays well below the 65535 bind-parameter limit. Historical
  *  re-scrapes (e.g. SDH3 ~7649 events) chunk transparently. */
@@ -551,6 +572,47 @@ function precomputeFingerprints(
   return fingerprintByEvent;
 }
 
+/** Split ids into `IN (...)` lists of at most DEDUP_PREFETCH_CHUNK_SIZE. */
+function chunkIds(ids: string[]): string[][] {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += DEDUP_PREFETCH_CHUNK_SIZE) {
+    chunks.push(ids.slice(i, i + DEDUP_PREFETCH_CHUNK_SIZE));
+  }
+  return chunks;
+}
+
+/** Read, in one query per chunk, every canonical Event a processed duplicate
+ *  in this batch points at. */
+async function prefetchDuplicateEvents(
+  ctx: MergeContext,
+): Promise<Map<string, DuplicateEventSnapshot>> {
+  const ids = [
+    ...new Set(
+      [...ctx.existingByFingerprint.values()]
+        .filter((r) => r.processed && r.eventId)
+        .map((r) => r.eventId as string),
+    ),
+  ];
+  const rows = await Promise.all(
+    chunkIds(ids).map((chunk) =>
+      prisma.event.findMany({ where: { id: { in: chunk } }, select: DUPLICATE_EVENT_SELECT }),
+    ),
+  );
+  return new Map(rows.flat().map((row) => [row.id, row]));
+}
+
+/** The duplicate's canonical Event: from the batch prefetch, or a fresh read
+ *  when this batch already wrote it (or it was created after the prefetch). */
+async function loadDuplicateEvent(
+  eventId: string,
+  ctx: MergeContext,
+): Promise<DuplicateEventSnapshot | null> {
+  ctx.duplicateEventSnapshots ??= await prefetchDuplicateEvents(ctx);
+  const snapshot = ctx.duplicateEventSnapshots.get(eventId);
+  if (snapshot && !ctx.eventsWrittenInBatch.has(eventId)) return snapshot;
+  return prisma.event.findUnique({ where: { id: eventId }, select: DUPLICATE_EVENT_SELECT });
+}
+
 async function prefetchExistingByFingerprint(
   sourceId: string,
   fingerprints: string[],
@@ -562,12 +624,8 @@ async function prefetchExistingByFingerprint(
       select: RAW_EVENT_DEDUP_SELECT,
     });
   }
-  const chunks: string[][] = [];
-  for (let i = 0; i < fingerprints.length; i += DEDUP_PREFETCH_CHUNK_SIZE) {
-    chunks.push(fingerprints.slice(i, i + DEDUP_PREFETCH_CHUNK_SIZE));
-  }
   const results = await Promise.all(
-    chunks.map((chunk) =>
+    chunkIds(fingerprints).map((chunk) =>
       prisma.rawEvent.findMany({
         where: { sourceId, fingerprint: { in: chunk } },
         select: RAW_EVENT_DEDUP_SELECT,
@@ -763,18 +821,7 @@ async function refreshExistingEvent(
   const timezone = regionTimezone(region);
   const eventDate = parseUtcNoonDate(event.date);
 
-  const existingEvent = await prisma.event.findUnique({
-    where: { id: existingEventId },
-    select: {
-      trustLevel: true,
-      date: true,
-      dateUtc: true,
-      timezone: true,
-      startTime: true,
-      status: true,
-      adminCancelledAt: true,
-    },
-  });
+  const existingEvent = await loadDuplicateEvent(existingEventId, ctx);
   // Compose from the start time the event stores, not this raw's: the stored
   // time may come from another source, and dateUtc must agree with what
   // startTime shows (h5-hi showed 17:30 with a dateUtc of 03:15Z). Compose on
@@ -802,13 +849,22 @@ async function refreshExistingEvent(
   const shouldRefreshDateUtc = !!composedUtc && isHigherOrEqualTrust && !isAlreadyCurrent;
   if (!shouldRestore && !shouldRefreshDateUtc) return;
 
-  await prisma.event.update({
-    where: { id: existingEventId },
-    data: {
-      ...(shouldRefreshDateUtc ? { dateUtc: composedUtc, timezone } : {}),
-      ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
-    },
-  });
+  try {
+    await prisma.event.update({
+      // existingEvent may be a snapshot read at the start of the batch, so an
+      // admin may have cancelled the event since. The where re-checks the lock.
+      where: { id: existingEventId, ...(shouldRestore ? { adminCancelledAt: null } : {}) },
+      data: {
+        ...(shouldRefreshDateUtc ? { dateUtc: composedUtc, timezone } : {}),
+        ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
+      },
+    });
+  } catch (err) {
+    if (shouldRestore && isRecordNotFound(err)) return;
+    throw err;
+  }
+  // A second raw for the same Event later in the batch must see this write.
+  ctx.eventsWrittenInBatch.add(existingEventId);
   if (shouldRestore) ctx.result.restored++;
 }
 
@@ -3784,6 +3840,7 @@ function createMergeContext(args: {
     geocodeCache: createGeocodeCache(),
     batchMatchedEvents: new Map(),
     existingByFingerprint: new Map(args.prefetched.map((r) => [r.fingerprint, r])),
+    eventsWrittenInBatch: new Set(),
     eventBatch: {
       dates: args.batchDates,
       sameDayByKennel: new Map(),
@@ -3930,6 +3987,7 @@ export async function processRawEvents(
       }
 
       const targetEventId = await processNewRawEvent(event, fingerprint, sourceId, ctx);
+      if (targetEventId) ctx.eventsWrittenInBatch.add(targetEventId);
 
       if (targetEventId && event.seriesId) {
         const group = seriesGroups.get(event.seriesId) ?? [];
