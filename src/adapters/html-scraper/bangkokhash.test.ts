@@ -439,4 +439,20 @@ describe("BangkokHashAdapter.fetch (browser-rendered HashWebApp)", () => {
     expect(result.events).toEqual([]);
     expect(result.errors[0]).toMatch(/Browser render failed/);
   });
+
+  it("renders the two pages one after the other, never in parallel", async () => {
+    vi.mocked(browserRender).mockReset();
+    let inFlight = 0;
+    let maxInFlight = 0;
+    vi.mocked(browserRender).mockImplementation(async (opts: { url: string }) => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await Promise.resolve();
+      inFlight--;
+      return opts.url.includes("ViewHL.php") ? BTH3_HARELINE_HTML : "<table class='run'></table>";
+    });
+    const result = await new BangkokHashAdapter().fetch(source, { days: 3650 });
+    expect(result.errors).toEqual([]);
+    expect(maxInFlight).toBe(1);
+  });
 });

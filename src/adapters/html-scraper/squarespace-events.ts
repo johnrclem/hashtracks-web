@@ -395,11 +395,11 @@ type PageFetchResult =
  * `fetchSquarespaceEvents` body stays under Sonar's cognitive complexity
  * budget.
  */
-async function fetchSquarespacePage(url: string): Promise<PageFetchResult> {
+async function fetchSquarespacePage(url: string, retryTransient = true): Promise<PageFetchResult> {
   const t0 = Date.now();
   let response: Response;
   try {
-    response = await safeFetch(url, { headers: { Accept: "application/json" } });
+    response = await safeFetch(url, { headers: { Accept: "application/json" }, retryTransient });
   } catch (err) {
     const message = `Fetch failed: ${err instanceof Error ? err.message : String(err)}`;
     return {
@@ -586,11 +586,12 @@ function isTransientFailure(details: ErrorDetails): boolean {
 async function fetchMonth(collectionUrl: string, ym: YearMonth): Promise<MonthOutcome> {
   const label = formatMonthParam(ym);
   const url = withMonth(collectionUrl, label);
-  let page = await fetchSquarespacePage(url);
+  // fetchMonth retries here (429/5xx too), so safeFetch's own retry is off.
+  let page = await fetchSquarespacePage(url, false);
   // A walk makes up to ~120 requests per scrape; one blip shouldn't fail it.
   if (!page.ok && isTransientFailure(page.errorDetails)) {
     await new Promise((resolve) => setTimeout(resolve, MONTH_RETRY_DELAY_MS));
-    page = await fetchSquarespacePage(url);
+    page = await fetchSquarespacePage(url, false);
   }
   if (!page.ok) return { label, errors: page.errors, errorDetails: page.errorDetails };
   const message = monthShapeError(page.payload, url);

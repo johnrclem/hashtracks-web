@@ -615,6 +615,41 @@ describe("ICalAdapter", () => {
     expect(adapter.type).toBe("ICAL_FEED");
   });
 
+  it("reads UTC times in config.timezone when the feed has no TZID (hashstats.org, Dayton H3)", async () => {
+    const ics = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//hashstats//events//EN
+BEGIN:VEVENT
+UID:hashstats-1@hashstats.org
+DTSTAMP:20261125T174227Z
+DTSTART:20261205T190000Z
+DTEND:20261205T220000Z
+SUMMARY:Dayton H3 #1687 - Winter Trail
+DESCRIPTION:Hare: Test Hare
+END:VEVENT
+BEGIN:VEVENT
+UID:hashstats-2@hashstats.org
+DTSTAMP:20261125T174227Z
+DTSTART:20261231T030000Z
+SUMMARY:Dayton H3 #1690 - Late Trail
+END:VEVENT
+END:VCALENDAR`;
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(ics, { status: 200 }));
+    const source = buildMockSource({
+      config: { defaultKennelTag: "dh3-oh", timezone: "America/New_York" },
+    } as Partial<Source>);
+    const result = await adapter.fetch(source, { days: 9999 });
+    expect(result.errors).toHaveLength(0);
+    const day = result.events.find((e) => e.runNumber === 1687)!;
+    expect(day.date).toBe("2026-12-05");
+    expect(day.startTime).toBe("14:00");
+    expect(day.endTime).toBe("17:00");
+    // 03:00Z on the 31st is 22:00 on the 30th in Dayton.
+    const late = result.events.find((e) => e.runNumber === 1690)!;
+    expect(late.date).toBe("2026-12-30");
+    expect(late.startTime).toBe("22:00");
+  });
+
   it("parses ICS content and extracts events", async () => {
     // Mock fetch to return our sample ICS
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(

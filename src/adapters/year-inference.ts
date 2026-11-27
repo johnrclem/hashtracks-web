@@ -15,12 +15,15 @@
  * @param day 1-31
  * @param month 1-12
  * @param publishedIso ISO 8601 publish timestamp of the post
+ * @param preferWeekday 0 (Sunday) – 6: when the source states the weekday, a
+ *   year whose date falls on it wins over a closer one that doesn't
  * @returns "YYYY-MM-DD", or null when no candidate year yields a real date
  */
 export function inferYearClosestToPublish(
   day: number,
   month: number,
   publishedIso: string,
+  preferWeekday?: number,
 ): string | null {
   const published = new Date(publishedIso);
   if (Number.isNaN(published.getTime())) return null;
@@ -30,12 +33,17 @@ export function inferYearClosestToPublish(
 
   let bestUtc: number | null = null;
   let bestDiff = Number.POSITIVE_INFINITY;
+  let bestWeekdayMatches = false;
   for (const year of [pubYear - 1, pubYear, pubYear + 1]) {
     const candidate = Date.UTC(year, month - 1, day, 12, 0, 0);
     const resolved = new Date(candidate);
     if (resolved.getUTCDate() !== day || resolved.getUTCMonth() !== month - 1) continue;
     const diff = Math.abs(candidate - pubMs);
-    if (diff < bestDiff) {
+    // With a stated weekday, a year whose date falls on it beats any that don't.
+    const weekdayMatches = preferWeekday !== undefined && resolved.getUTCDay() === preferWeekday;
+    if (bestWeekdayMatches && !weekdayMatches) continue;
+    if ((weekdayMatches && !bestWeekdayMatches) || diff < bestDiff) {
+      bestWeekdayMatches = weekdayMatches;
       bestDiff = diff;
       bestUtc = candidate;
     }

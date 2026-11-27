@@ -199,18 +199,26 @@ function parseLocation(prose: string): string | undefined {
   return realVenue((dot >= 0 ? rest.slice(0, dot) : rest).trim());
 }
 
-const WHERE_LABEL = "where:";
+// "Where: …" (2026-11) or "Place: Yuen Sheng Park HERE" (late 2026-11).
+const VENUE_LABELS = ["where:", "place:"];
 const MEETING_POINT_LABEL = "meeting point:";
 const LINK_TEXT_SUFFIX = " here";
 
 /**
- * Venue from a "Where: Meeting point: Guanyinshan Triangle Park HERE" line
- * (2026-11 layout), with the label, "Meeting point:" and the "HERE" link text dropped.
+ * Venue from a "Where: Meeting point: Guanyinshan Triangle Park HERE" or
+ * "Place: Yuen Sheng Park HERE" line (2026-11 layouts), with the label,
+ * "Meeting point:" and the "HERE" link text dropped.
  */
 function parseWhereLine(lines: string[]): string | undefined {
-  const line = lines.find((l) => l.toLowerCase().startsWith(WHERE_LABEL));
-  if (!line) return undefined;
-  let value = line.slice(WHERE_LABEL.length).trim();
+  for (const line of lines) {
+    const label = VENUE_LABELS.find((v) => line.toLowerCase().startsWith(v));
+    if (label) return venueFromLine(line.slice(label.length));
+  }
+  return undefined;
+}
+
+function venueFromLine(rest: string): string | undefined {
+  let value = rest.trim();
   if (value.toLowerCase().startsWith(MEETING_POINT_LABEL)) value = value.slice(MEETING_POINT_LABEL.length).trim();
   if (value.toLowerCase().endsWith(LINK_TEXT_SUFFIX)) value = value.slice(0, -LINK_TEXT_SUFFIX.length);
   // The line is the venue alone, so only a trailing '.' goes ("St. Paul's" stays whole).
@@ -360,6 +368,11 @@ export function parseInlineHares(prose: string): string | undefined {
 }
 
 const WHEN_LABEL_RE = /\bWhen:\s*/i;
+// "Time: Saturday, November 28 at 13:00" (#2745, late 2026-11): a line that
+// starts with "Time:" and holds the date. Unlike "When:", a "Time:" line often
+// carries only a clock ("Time: Meet: 1:00 PM"), so one without a date is
+// skipped rather than treated as "date TBD".
+const TIME_LABEL = "time:";
 const ORDINAL_SUFFIX_RE = /\b(\d{1,2})(?:st|nd|rd|th)\b/gi;
 // "#2743 and 2744 WEEKEND AWAY …" — a multi-run heading; drop the extra run number.
 const EXTRA_RUN_PREFIX_RE = /^(?:and|&|\/|-)\s*#?\d{3,5}\s*/i;
@@ -393,7 +406,49 @@ function parseWhenLineDate(
     const daySchedule = monthHits.length > 1 ? whenText.slice(0, monthHits[1].index) : whenText;
     return { date: parsed.date, daySchedule };
   }
+  return parseTimeLineDate(blocks, start, end, now);
+}
+
+/** First "Time: <date> at <clock>" line in the run body; its own text is the day's schedule. */
+function parseTimeLineDate(
+  blocks: Block[],
+  start: number,
+  end: number,
+  now: Date,
+): { date: string; daySchedule: string } | null {
+  for (let i = start + 1; i < end; i++) {
+    for (const line of blocks[i].lines) {
+      if (!line.toLowerCase().startsWith(TIME_LABEL)) continue;
+      const value = line.slice(TIME_LABEL.length).replace(ORDINAL_SUFFIX_RE, "$1");
+      const parsed = parseHeadingDate(value, now);
+      if (parsed) return { date: parsed.date, daySchedule: value };
+    }
+  }
   return null;
+}
+
+const DATE_LABELS = ["when:", "date:"];
+
+/**
+ * True when the run's text carries any date cue: a month word next to a day
+ * number ("November 28", "14 November") or a "When:"/"Date:" label. A numbered
+ * run with no cue at all is an announcement whose date isn't published yet
+ * (#2746 "Saturday Afternoon Run … Be ready to start around 13:00", 2026-11),
+ * not markup drift.
+ */
+function hasDateCue(blocks: Block[], start: number, end: number): boolean {
+  for (let i = start; i < end; i++) {
+    for (const raw of blocks[i].lines) {
+      const line = raw.replace(ORDINAL_SUFFIX_RE, "$1");
+      const lower = line.toLowerCase();
+      if (DATE_LABELS.some((l) => lower.startsWith(l))) return true;
+      for (const m of line.matchAll(MONTH_WORD_RE)) {
+        if (!MONTH_INDEX.has(m[0].toLowerCase())) continue;
+        if (dayAroundMonth(line.slice(0, m.index), line.slice(m.index + m[0].length))) return true;
+      }
+    }
+  }
+  return false;
 }
 
 /** Start time from one day's "When:" clause; "Noon" → 12:00. Never falls back to other prose. */
@@ -448,7 +503,8 @@ interface RunDate {
  * - "#2745 Saturday Afternoon Run <br> … Election Day: <br> November 28, 2026"
  *   (2026-11): title first, date in the heading's later lines.
  * - "#2744 Saturday Afternoon Run" / "#2743 and 2744 WEEKEND AWAY …": no date in
- *   the heading at all; it comes from a body "When:" line.
+ *   the heading at all; it comes from a body "When:" line, else (late 2026-11,
+ *   #2745) a "Time: Saturday, November 28 at 13:00" line.
  */
 function parseRunDate(blocks: Block[], start: number, end: number, now: Date): RunDate | null {
   const { afterRun, extraLines } = splitHeading(blocks[start]);
@@ -474,7 +530,7 @@ function buildRun(
   start: number,
   end: number,
   now: Date,
-): { run?: ParsedRun; error?: ParseError } {
+): { run?: ParsedRun; error?: ParseError; undatedRun?: number } {
   const heading = blocks[start].text;
   const rm = RUN_RE.exec(heading);
   if (!rm) return {};
@@ -486,16 +542,16 @@ function buildRun(
     // legitimately-absent run. Record a parse error so fetch() suppresses
     // reconcile.ts — silently dropping it would let the reconciler false-CANCEL
     // this run's sole-source canonical even though the page still lists it (the
-    // windowed-empty guard alone misses partial drift).
-    return {
-      error: {
-        row: start,
-        section: "run_information",
-        field: "date",
-        error: `Kaohsiung H3: could not parse date for run #${runNumber}`,
-        rawText: heading.slice(0, 200),
-      },
+    // windowed-empty guard alone misses partial drift). A run with no date cue
+    // at all is flagged `undatedRun`: the page pass may treat it as an announcement.
+    const error: ParseError = {
+      row: start,
+      section: "run_information",
+      field: "date",
+      error: `Kaohsiung H3: could not parse date for run #${runNumber}`,
+      rawText: heading.slice(0, 200),
     };
+    return hasDateCue(blocks, start, end) ? { error } : { error, undatedRun: runNumber };
   }
 
   const body = parseRunBody(blocks, start, end, dated.leadLines);
@@ -531,7 +587,7 @@ function buildRun(
 export function parseKaohsiungHashPage(
   html: string,
   now: Date,
-): { runs: ParsedRun[]; blockCount: number; parseErrors: ParseError[] } {
+): { runs: ParsedRun[]; blockCount: number; parseErrors: ParseError[]; undatedRuns: number[] } {
   const blocks = collectBlocks(html);
   // A block that repeats the current run's number ("KHHH Run #2744: …" under the
   // "#2744 …" heading, 2026-11) is that run's body, not a new run.
@@ -546,15 +602,28 @@ export function parseKaohsiungHashPage(
 
   const runs: ParsedRun[] = [];
   const parseErrors: ParseError[] = [];
+  const undated: { runNumber: number; error: ParseError }[] = [];
   for (let s = 0; s < runStarts.length; s++) {
     const start = runStarts[s];
     const end = s + 1 < runStarts.length ? runStarts[s + 1] : blocks.length;
-    const { run, error } = buildRun(blocks, start, end, now);
+    const { run, error, undatedRun } = buildRun(blocks, start, end, now);
     if (run) runs.push(run);
+    else if (error && undatedRun !== undefined) undated.push({ runNumber: undatedRun, error });
     else if (error) parseErrors.push(error);
   }
 
-  return { runs, blockCount: blocks.length, parseErrors };
+  // Only an announcement AFTER every dated run is legitimately undated (#2746
+  // behind #2745). An undated run numbered below a dated one already ran or is
+  // the next run whose date text was rewritten, so it stays a parse error: a
+  // silent skip would let reconcile cancel its event.
+  const lastDated = Math.max(0, ...runs.map((r) => r.runNumber));
+  const announced: number[] = [];
+  for (const u of undated) {
+    if (u.runNumber > lastDated) announced.push(u.runNumber);
+    else parseErrors.push(u.error);
+  }
+
+  return { runs, blockCount: blocks.length, parseErrors, undatedRuns: announced };
 }
 
 function toRawEvent(run: ParsedRun, sourceUrl: string): RawEventData {
@@ -591,7 +660,7 @@ export class KaohsiungHashAdapter implements SourceAdapter {
     if (!page.ok) return page.result;
 
     const { html, structureHash, fetchDurationMs } = page;
-    const { runs, blockCount, parseErrors } = parseKaohsiungHashPage(html, new Date());
+    const { runs, blockCount, parseErrors, undatedRuns } = parseKaohsiungHashPage(html, new Date());
 
     const events = runs.map((run) => toRawEvent(run, url));
     const windowed = filterEventsByWindow(events, options?.days ?? 90);
@@ -625,6 +694,7 @@ export class KaohsiungHashAdapter implements SourceAdapter {
         totalBeforeFilter: events.length,
         blockCount,
         skippedNumbered: parseErrors.length,
+        undatedRuns,
         fetchDurationMs,
       },
     };

@@ -13,6 +13,36 @@ import { validateSourceUrlWithDns } from "./ssrf-dns";
 export { validateSourceUrl } from "./utils";
 
 const MAX_REDIRECTS = 5;
+/** Delay before the single retry of a transient network failure (see {@link fetchHop}). */
+const TRANSIENT_RETRY_DELAY_MS = 2_000;
+
+/**
+ * True for undici's network-level failure (`TypeError: fetch failed`: reset,
+ * refused, TLS or DNS hiccup). An abort/timeout throws a DOMException instead,
+ * and an HTTP error status never throws, so neither is retried.
+ */
+function isTransientNetworkError(err: unknown): boolean {
+  return err instanceof TypeError && err.message === "fetch failed";
+}
+
+/**
+ * One direct-fetch hop. Idempotent requests (GET/HEAD with no body) get one
+ * retry after a short pause when the connection itself fails: about 60% of
+ * SCRAPE_FAILURE alerts in Nov 2026 were a lone `fetch failed` that the next
+ * day's scrape didn't repeat (Sydney Larrikins, Nov 2026).
+ */
+async function fetchHop(url: string, init: RequestInit, retryTransient: boolean): Promise<Response> {
+  const method = (init.method ?? "GET").toUpperCase();
+  const retryable = retryTransient && (method === "GET" || method === "HEAD") && init.body == null;
+  try {
+    return await fetch(url, init); // NOSONAR nosemgrep — URL validated by caller (SSRF guard)
+  } catch (err) {
+    if (!retryable || !isTransientNetworkError(err) || init.signal?.aborted) throw err;
+    await new Promise((resolve) => setTimeout(resolve, TRANSIENT_RETRY_DELAY_MS));
+    if (init.signal?.aborted) throw err;
+    return fetch(url, init); // NOSONAR nosemgrep — same validated URL
+  }
+}
 
 /**
  * Which NAS proxy-relay egress to route a request through instead of fetching
@@ -41,6 +71,12 @@ export interface SafeFetchOptions extends RequestInit {
    * origin blocks direct datacenter traffic).
    */
   egress?: ProxyEgress;
+  /**
+   * Retry an idempotent direct GET once after a transient network failure
+   * (default true). Pass false where the caller already retries, so the two
+   * layers don't multiply attempts and waits.
+   */
+  retryTransient?: boolean;
 }
 
 /**
@@ -184,13 +220,14 @@ export async function safeFetch(
   // across every redirect hop, so it bounds the *total* request time rather
   // than resetting per hop; a caller-supplied signal takes precedence.
   const signal = init?.signal ?? AbortSignal.timeout(45_000);
+  const { retryTransient = true, ...fetchInit } = init ?? {};
 
   while (redirectCount < MAX_REDIRECTS) {
     // This IS the SSRF guard: currentUrl is validated by validateSourceUrlWithDns()
     // before the first fetch and again after every redirect target is computed
     // (the call above the loop + line 105). The variable-URL fetch is intentional.
     // nosemgrep
-    const response = await fetch(currentUrl, { ...init, redirect: "manual", signal }); // NOSONAR nosemgrep
+    const response = await fetchHop(currentUrl, { ...fetchInit, redirect: "manual", signal }, retryTransient);
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get("location");
       if (!location) return response;

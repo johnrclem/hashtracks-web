@@ -3,6 +3,7 @@ import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseErro
 import { hasAnyErrors } from "../types";
 import { googleMapsSearchUrl, compilePatterns, stripHtmlIfTagged, appendDescriptionSuffix, isPlaceholder, extractHashRunNumber, hasPlaceholderRunNumber, cleanLocationName, eqTrimLc, EVENT_FIELD_LABEL_RE, EVENT_FIELD_LABEL_UPPERCASE_RE } from "../utils";
 import { safeFetch } from "../safe-fetch";
+import { isValidTimezone } from "@/lib/timezone";
 import { enrichSFH3Events, markSFH3SeriesMembership } from "../html-scraper/sfh3-detail-enrichment";
 import { enrichBerlinH3Events } from "../html-scraper/berlin-h3-detail-enrichment";
 import { sync as icalSync } from "node-ical";
@@ -35,6 +36,7 @@ export interface ICalSourceConfig {
   descriptionStripPatterns?: string[]; // #2890 Cheltenham & Cotswold H3: regexes (case-insensitive) for DESCRIPTION lines that repeat other fields ("Hare(s): …", "Map: <url>", the event's own URL). Matching lines are dropped from the stored description; when nothing is left the description is explicitly cleared (`null`). Hares/location/cost are still read from the full DESCRIPTION.
   ignoreEndTime?: boolean;             // #2891 Cheltenham & Cotswold H3: the feed's DTEND is a generator default (always DTSTART + 2h), not a finish time. Emits an explicit `null` endTime so stored values are cleared too.
   sourceUrlOverride?: string;          // #2892 Cheltenham & Cotswold H3: the per-event URL redirects logged-out visitors to a login page; link every event to this public page instead.
+  timezone?: string;                   // IANA zone for DTSTART/DTEND values written in UTC ("…Z"). Not for floating values (no Z, no TZID): node-ical already reads those in the server's zone. hashstats.org's calendar.ics (Dayton H3) sends UTC times and no X-WR-TIMEZONE, so without this a 2 pm EST run reads 19:00. A TZID on the value still wins.
   locationOmitIfMatches?: string[];    // Cheltenham & Cotswold H3: regexes (case-insensitive) for a LOCATION that is a placeholder, not a venue ("TORCHLIT"). A match drops the location AND the VEVENT's GEO, because the publisher geocoded the placeholder text into a bogus pin. Same semantics as the GenericHtml/GCal knob of the same name.
 }
 
@@ -552,17 +554,30 @@ export function extractMapsUrlFromDescription(description: string): string | und
   return undefined;
 }
 
+
+/**
+ * Zone to read a timed value in: its own TZID; for a UTC value ("…Z", which
+ * node-ical tags Etc/UTC), the source's configured `timezone`; else UTC.
+ * A floating value (no Z, no TZID) has no tz and keeps the old UTC reading.
+ */
+function displayZone(dt: DateWithTimeZone, fallbackTz?: string): string {
+  if (!dt.tz) return "UTC";
+  // node-ical tags a "…Z" value Etc/UTC; an explicit TZID=UTC keeps its own zone.
+  if (dt.tz === "Etc/UTC" && fallbackTz && isValidTimezone(fallbackTz)) return fallbackTz;
+  return dt.tz;
+}
+
 /**
  * Format a DateWithTimeZone as YYYY-MM-DD date string in the event's original timezone.
  * node-ical stores dates as UTC JS Dates — we use Intl.DateTimeFormat to convert back
  * to the original TZID timezone for correct local date/time extraction.
  */
-function formatDate(dt: DateWithTimeZone): string {
+function formatDate(dt: DateWithTimeZone, fallbackTz?: string): string {
   if (dt.dateOnly) {
     return dt.toISOString().split("T")[0];
   }
-  // Use the event's original timezone (or UTC fallback) to get the correct local date
-  const tz = dt.tz || "UTC";
+  // Use the event's original timezone (or the source/UTC fallback) to get the correct local date
+  const tz = displayZone(dt, fallbackTz);
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: tz,
     year: "numeric",
@@ -579,9 +594,9 @@ function formatDate(dt: DateWithTimeZone): string {
  * Format a DateWithTimeZone as HH:MM time string in the event's original timezone.
  * Returns undefined for date-only events.
  */
-function formatTime(dt: DateWithTimeZone): string | undefined {
+function formatTime(dt: DateWithTimeZone, fallbackTz?: string): string | undefined {
   if (dt.dateOnly) return undefined;
-  const tz = dt.tz || "UTC";
+  const tz = displayZone(dt, fallbackTz);
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: tz,
     hour: "2-digit",
@@ -753,13 +768,15 @@ function buildRawEventFromVEvent(
   // branches below (the summary doesn't change within this event).
   const hasPlaceholderRun = hasPlaceholderRunNumber(summary);
 
-  const dateStr = formatDate(vevent.start);
+  const feedTz = config?.timezone;
+  const dateStr = formatDate(vevent.start, feedTz);
   // Tri-state: `undefined` = preserve, `null` = explicit clear (merge.ts only
   // writes startTime/endTime when the field is not `undefined`).
-  let startTime: string | null | undefined = formatTime(vevent.start);
+  let startTime: string | null | undefined = formatTime(vevent.start, feedTz);
   // endTime is HH:MM only, so cross-date DTEND values (overnight runs) are dropped.
   const endDt = vevent.end as DateWithTimeZone | undefined;
-  let endTime: string | null | undefined = endDt && formatDate(endDt) === dateStr ? formatTime(endDt) : undefined;
+  let endTime: string | null | undefined =
+    endDt && formatDate(endDt, feedTz) === dateStr ? formatTime(endDt, feedTz) : undefined;
   if (config?.ignoreEndTime) endTime = null;
   // endDate (#1560) — populated only for multi-day ALL-DAY VEVENTs (DTSTART
   // and DTEND both VALUE=DATE, spanning >1 day). RFC 5545 makes all-day DTEND

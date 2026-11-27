@@ -1,671 +1,361 @@
 /**
  * Big Hump Hash House Harriers (BH4) Scraper — St. Louis, MO
  *
- * Scrapes big-hump.com for hash events from two pages:
+ * In Nov 2026 big-hump.com was rebuilt as a static single-page site backed by
+ * Firebase. The old PHP pages (`hareline.php`, `hashresults.php?year=YYYY`)
+ * now 404. Every trail — the legacy archive back to run #1 (March 1999) plus
+ * the upcoming hareline — lives in one Firestore collection, `hashes`, in the
+ * `bighump` project, and the collection is publicly readable (the site's own
+ * hareline page reads it with the web SDK, no sign-in).
  *
- * 1. **Hareline** (`hareline.php`) — future events with W3.CSS cards:
- *    - Header: `<header class="w3-container w3-green"><h3>Wednesday 04/01/2026
- *      <span class="w3-text-amber">#1991</span></h3></header>`
- *    - Body h4: "Locknut Monster's April Fools' Trail @ Lemay"
- *    - Body span.w3-small: description text with circle-up time, address, hare info
+ * We read it through the public Firestore REST API with a `runQuery`
+ * structured query: a `startsAt` range filter honors `options.days` at the
+ * source, and a field `select` keeps the payload to the fields we map — the
+ * documents also carry admin bookkeeping (`createdBy`/`updatedBy` e-mails,
+ * `attendeeNames`) that must never reach logs or RawEvents.
  *
- * 2. **Past Hashes** (`hashresults.php?year=YYYY`) — historical events with
- *    attendance lists, hare tagging, and detail page links. Enabled via
- *    `source.config.includeHistory`.
- *
- * Date is MM/DD/YYYY in the header h3.
- * Run number is #NNNN in span.w3-text-amber or span.w3-text-red.
- * Title h4 text is split on last " @ " for hare(s)/location.
+ * Document shape (see `normalizeHash` in big-hump.com/assets/hareline.js):
+ *   number         integer run number (null for socials / other kennels' events)
+ *   startsAt       timestamp (UTC instant; the club is in America/Chicago)
+ *   title, hares, location, locationUrl, onAfter   plain strings
+ *   kennel         "" or "Big-Hump" for BH4; "Bell-Scott", "STL", … when
+ *                  another kennel hosted (legacy rows only, all unnumbered)
+ *   status         "scheduled" | "done" | "cancelled"
+ *   hashCashCents  integer | null
+ *   directions     trail write-up, real HTML (up to 80 KB)
  */
 
-import * as cheerio from "cheerio";
-import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
-import type {
-  SourceAdapter,
-  RawEventData,
-  ScrapeResult,
-  ErrorDetails,
-} from "../types";
+import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails } from "../types";
 import { hasAnyErrors } from "../types";
-import { fetchHTMLPage, buildDateWindow, stripHtmlTags, isPlaceholder } from "../utils";
+import { safeFetch } from "../safe-fetch";
+import { buildDateWindow, isPlaceholder, stripHtmlTags } from "../utils";
+import { formatTimeInZone, formatYmdInTimezone } from "@/lib/timezone";
+
+const KENNEL_TAG = "bh4";
+const CLUB_TZ = "America/Chicago";
+const SITE_ORIGIN = "https://big-hump.com";
+const FIRESTORE_PROJECT = "bighump";
+const FIRESTORE_COLLECTION = "hashes";
+export const BIG_HUMP_RUN_QUERY_URL =
+  `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT}/databases/(default)/documents:runQuery`;
+
+/** Fields requested from Firestore. Anything else on the document stays server-side. */
+const SELECT_FIELDS = [
+  "number",
+  "startsAt",
+  "title",
+  "hares",
+  "location",
+  "locationUrl",
+  "onAfter",
+  "kennel",
+  "status",
+  "hashCashCents",
+  "directions",
+] as const;
+
+/** Long write-ups (some run to 70,000 chars) are capped for the description. */
+const MAX_DESCRIPTION_CHARS = 4000;
+
+/** `kennel` values that mean "Big Hump hosted it", after normalisation. */
+const OWN_KENNEL_KEYS = new Set(["", "bighump", "bighumph3", "bh4"]);
 
 /** Config stored in source.config JSON */
 interface BigHumpConfig {
+  /** When false, only runs from today on are read (the old hareline-only mode). */
   includeHistory?: boolean;
-  /** Override year range for full backfill; default: computed from date window */
-  historyYearRange?: [number, number];
 }
 
-/**
- * Parse date and run number from a header h3 text.
- *
- * Input: "Wednesday 04/01/2026 #1991" or just the h3 inner text.
- * Returns date as "YYYY-MM-DD" and optional run number.
- */
-export function parseEventHeader(headerText: string): {
-  date: string | null;
-  runNumber?: number;
-} {
-  // Date: MM/DD/YYYY
-  const dateMatch = /(\d{2})\/(\d{2})\/(\d{4})/.exec(headerText);
-  const date = dateMatch
-    ? `${dateMatch[3]}-${dateMatch[1]}-${dateMatch[2]}`
-    : null;
-
-  // Run number: #NNNN
-  const runMatch = /#(\d+)/.exec(headerText);
-  const runNumber = runMatch
-    ? Number.parseInt(runMatch[1], 10)
-    : undefined;
-
-  return { date, runNumber };
+function parseBigHumpConfig(raw: unknown): BigHumpConfig {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return { includeHistory: (raw as Record<string, unknown>).includeHistory === true };
 }
 
-/**
- * Narrow allowlist of 3rd-person action verbs BH4 uses to compose
- * subtitled titles ("<Hare> Asks For Help To Move").
- */
-const BH4_ACTION_VERBS = new Set([
-  "asks", "says", "wants", "needs", "hosts", "brings", "throws", "calls",
-  "welcomes", "loves", "hates", "returns", "visits", "moves", "goes",
-  "takes", "gives", "pays", "buys", "sells", "runs",
-]);
+// ─── Firestore REST value decoding ──────────────────────────────────────────
 
-/**
- * Token-based "<hare> <action-verb> ..." matcher (#1550). Returns the
- * leading hare prefix when a verb token appears after at least one prior
- * token, else undefined. Set lookup avoids the SonarCloud S5843
- * complexity hit a 20-branch alternation regex incurs.
- */
-function matchActionVerbHare(harePart: string): string | undefined {
-  const tokens = harePart.split(/\s+/).filter(Boolean);
-  for (let i = 1; i < tokens.length - 1; i++) {
-    if (BH4_ACTION_VERBS.has(tokens[i].toLowerCase())) {
-      return tokens.slice(0, i).join(" ");
-    }
-  }
-  return undefined;
-}
+type FirestoreValue = Record<string, unknown>;
+type FirestoreFields = Record<string, FirestoreValue | undefined>;
 
-/**
- * Extract hare name(s) from a "Hare @ Location" title prefix.
- *
- * BH4 titles frequently embed theme text between the hare and the `@`:
- *   - "Hare's Theme Trail"            (possessive)
- *   - "Theme starring Hare"           (starring)
- *   - "Theme with Hare"               (with)
- *   - "Hare: Theme"                   (colon/dash prefix)
- *   - "Hare Hashyversary"             (anniversary/birthday suffix)
- *
- * Falls through to `undefined` rather than leaking theme text when no rule
- * applies — per #844, an empty hares field is safer than a wrong one.
- */
-function extractHaresFromTitlePart(harePart: string): string | undefined {
-  if (!harePart) return undefined;
-  // Length cap to bound regex backtracking (SonarCloud S5852). Real BH4
-  // titles sit well under 200 chars; anything longer is not a hare line.
-  if (harePart.length > 300) return undefined;
-
-  // Rule 1: "<theme> starring <hare>"
-  const starringMatch = /\s+starring\s+(.+)$/i.exec(harePart);
-  if (starringMatch) return starringMatch[1].trim();
-
-  // Rule 2: "<theme> with <hare>"
-  const withMatch = /\s+with\s+(.+)$/i.exec(harePart);
-  if (withMatch) return withMatch[1].trim();
-
-  // Rule 3: "<hare>'s <theme>" (straight + curly + reversed-9 apostrophes).
-  // Reject ordinal-prefixed candidates ("3rd An'al It" from lazy matching on
-  // "3rd An'al It's Gonna Be May" — the #844 symptom) and candidates that
-  // still contain an apostrophe (indicates lazy match stopped mid-theme).
-  // Digit-bearing names without an ordinal prefix (e.g. "2FC") are allowed.
-  const possessiveMatch = /^(.+?)['\u2018\u2019\u201B]s?\s+.+$/i.exec(harePart);
-  if (possessiveMatch) {
-    const candidate = possessiveMatch[1].trim();
-    const isOrdinalPrefix = /^\d+(?:st|nd|rd|th)\b/i.test(candidate);
-    const hasEmbeddedApostrophe = /['\u2018\u2019\u201B]/.test(candidate);
-    if (!isOrdinalPrefix && !hasEmbeddedApostrophe) return candidate;
-  }
-
-  // Rule 4: "<hare>: <theme>" or "<hare> - <theme>" / en-dash / em-dash
-  const colonMatch = /^(.+?)\s*[:–—]\s*.+$/.exec(harePart);
-  if (colonMatch) return colonMatch[1].trim();
-  const dashMatch = /^(.+?)\s+-\s+.+$/.exec(harePart);
-  if (dashMatch) return dashMatch[1].trim();
-
-  // Rule 5: "<hare> Hashyversary / Birthday / Bday / turns NN"
-  const anniversaryMatch = /^(.+?)\s+(?:Hashy?versary|B[iy]rthday|Bday|turns\s+\d+)\b/i.exec(
-    harePart,
-  );
-  if (anniversaryMatch) return anniversaryMatch[1].trim();
-
-  // Rule 5b: "<hare> <action-verb> ..." (#1550 — "Perpencockular Asks For
-  // Help To Move"). Narrow allowlist of 3rd-person action verbs the kennel
-  // uses to compose trail subtitles. Multi-word hare names are preserved
-  // ("Captain Hook Says Goodbye" → "Captain Hook"). Set lookup over a
-  // tokenized split avoids a 20-branch alternation regex (Sonar S5843).
-  const verbHare = matchActionVerbHare(harePart);
-  if (verbHare) return verbHare;
-
-  // Rule 6: clean short name — no colons, no emoji.
-  // Accept 1–2 word names, or a pair-joined form ("X & Y", "X and Y") where
-  // each side is 1–2 words. Bounded sides prevent long theme phrases like
-  // "Beer and Loathing in South County" from leaking per #844.
-  const hasTroublesomeChar = /[:\p{Extended_Pictographic}]/u.test(harePart);
-  if (!hasTroublesomeChar) {
-    const wordCount = harePart.split(/\s+/).length;
-    if (wordCount <= 2) return harePart;
-    const shortSide = String.raw`\S+(?:\s+\S+)?`;
-    const pairRegex = new RegExp(`^${shortSide}\\s+(?:&|and)\\s+${shortSide}$`, "i");
-    if (pairRegex.test(harePart)) return harePart;
-  }
-
-  // Rule 7: give up — do not guess.
-  return undefined;
-}
-
-/**
- * Parse h4 title text into hare(s) and location.
- *
- * Format: "Hare Name @ Location" — split on last " @ ".
- * If no " @ " separator, the whole string is the title (hares extracted from description).
- *
- * Returns title, hares, and location.
- */
-export function parseEventTitle(h4Text: string): {
+/** The plain fields we read off one `hashes` document. */
+export interface BigHumpHash {
+  id: string;
+  number: number | null;
+  startsAt: Date | null;
   title: string;
-  hares?: string;
-  location?: string;
-} {
-  const atIdx = h4Text.lastIndexOf(" @ ");
-  if (atIdx === -1) {
-    return { title: h4Text.trim() };
+  hares: string;
+  location: string;
+  locationUrl: string;
+  onAfter: string;
+  kennel: string;
+  status: string;
+  hashCashCents: number | null;
+  directions: string;
+}
+
+function stringField(fields: FirestoreFields, key: string): string {
+  const v = fields[key]?.stringValue;
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function integerField(fields: FirestoreFields, key: string): number | null {
+  const f = fields[key];
+  if (!f) return null;
+  const raw = f.integerValue ?? f.doubleValue;
+  if (raw === undefined || raw === null) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
+function timestampField(fields: FirestoreFields, key: string): Date | null {
+  const v = fields[key]?.timestampValue;
+  if (typeof v !== "string") return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Decode one Firestore REST document into a {@link BigHumpHash}. */
+export function decodeHashDocument(doc: { name?: unknown; fields?: unknown }): BigHumpHash {
+  const fields = (doc.fields && typeof doc.fields === "object" ? doc.fields : {}) as FirestoreFields;
+  const name = typeof doc.name === "string" ? doc.name : "";
+  return {
+    id: name.slice(name.lastIndexOf("/") + 1),
+    number: integerField(fields, "number"),
+    startsAt: timestampField(fields, "startsAt"),
+    title: stringField(fields, "title"),
+    hares: stringField(fields, "hares"),
+    location: stringField(fields, "location"),
+    locationUrl: stringField(fields, "locationUrl"),
+    onAfter: stringField(fields, "onAfter"),
+    kennel: stringField(fields, "kennel"),
+    status: stringField(fields, "status") || "scheduled",
+    hashCashCents: integerField(fields, "hashCashCents"),
+    directions: typeof fields.directions?.stringValue === "string" ? fields.directions.stringValue : "",
+  };
+}
+
+/**
+ * Validate a `runQuery` response body and pull out its documents.
+ *
+ * The REST stream is a JSON array of `{ document?, readTime?, error? }`.
+ * An empty result is `[{ readTime }]`. Anything else — an object, an HTML
+ * error page parsed as text, an element carrying `error` — throws so the
+ * scrape fails loudly instead of reconciling against a silent empty list.
+ */
+export function extractRunQueryDocuments(
+  body: unknown,
+): Array<{ name?: unknown; fields?: unknown }> {
+  if (!Array.isArray(body)) {
+    throw new TypeError(`Firestore runQuery returned ${body === null ? "null" : typeof body}, expected an array`);
   }
-
-  const harePart = h4Text.slice(0, atIdx).trim();
-  const locationPart = h4Text.slice(atIdx + 3).trim();
-  const locationIsTbd = !locationPart || isPlaceholder(locationPart);
-
-  const hares = extractHaresFromTitlePart(harePart);
-
-  // #754: drop " @ ???" from the title when location is TBD — a trailing TBD
-  // placeholder is noise, not a meaningful subtitle. When location IS set,
-  // the full "Hare @ Venue" string stays as the title.
-  const title = locationIsTbd ? harePart : h4Text.trim();
-  const location = locationIsTbd ? undefined : locationPart;
-
-  return { title, hares, location };
-}
-
-/**
- * Build the title for a numbered BH4 event. Preserves the rich h4 text when
- * its hare-side has descriptive content beyond the extracted hare name
- * (#1550 "Perpencockular Asks For Help To Move @ Brentwood"). Rebuilds to
- * "BH4 #N @ Venue" only when `hares` was extracted AND equals the harePart
- * (CodeRabbit + Claude bot review on #1577): hares=undefined means the
- * extractor could not parse the h4 — preserve the original to avoid
- * silently dropping subtitle text.
- */
-function buildBh4Title(
-  h4Text: string,
-  titleFromH4: string,
-  hares: string | undefined,
-  runNumber: number,
-  location: string | undefined,
-): string {
-  const atIdx = h4Text.lastIndexOf(" @ ");
-  const h4HarePart = (atIdx >= 0 ? h4Text.slice(0, atIdx) : h4Text).trim();
-  const isBareHareTitle =
-    !!hares && h4HarePart.toLowerCase() === hares.toLowerCase();
-  if (!isBareHareTitle) return titleFromH4;
-  return location ? `BH4 #${runNumber} @ ${location}` : `BH4 #${runNumber}`;
-}
-
-/**
- * Parse a start time from the description text.
- * Looks for "Circle up: 6:45 p.m." or "Meet to hash: 3pm" patterns.
- * Returns "HH:MM" or undefined.
- */
-function parseTimeFromDescription(text: string): string | undefined {
-  const match =
-    /(?:Circle\s*up|Meet\s*(?:to\s*hash)?|Hash\s*(?:at)?)\s*:?\s*(\d{1,2})(?::(\d{2}))?\s*([ap]\.?\s*m\.?)/i.exec(
-      text,
-    );
-  if (!match) return undefined;
-
-  let hours = Number.parseInt(match[1], 10);
-  const minutes = match[2] || "00";
-  const ampm = match[3].replace(/[\s.]/g, "").toLowerCase();
-
-  if (ampm === "pm" && hours !== 12) hours += 12;
-  if (ampm === "am" && hours === 12) hours = 0;
-
-  return `${hours.toString().padStart(2, "0")}:${minutes}`;
-}
-
-/**
- * Parse a location/address from description text.
- * Looks for street address patterns (e.g., "3661 Reavis Barracks Rd, St Louis, MO 63125").
- */
-function parseLocationFromDescription(text: string): string | undefined {
-  const match = /\d+\s+[\w\s]+(?:St|Ave|Rd|Dr|Blvd|Ln|Way|Ct|Pl|Pkwy|Ter|Terr),?\s*[\w\s]+,?\s*(?:MO|IL)\s*\d{5}/i.exec(text);
-  return match ? match[0].trim() : undefined;
-}
-
-/**
- * Parse hare name(s) from description text.
- *
- * Requires the hare label to be at start of a line with a mandatory colon.
- * Without the anchor + required colon, the loose `Hares?` prefix used to
- * match the word "hares" mid-sentence (e.g., "the shiggyfest hares had us
- * in Fenton…"), pulling in half a paragraph as the hare name. See #519.
- * The caller must preserve paragraph newlines — cheerio's `.text()` strips
- * them, which defeats the `\n` anchor here; use `stripHtmlTags(.., "\n")`.
- */
-/**
- * Pick the better of description-side and title-side hares. Default
- * preference is description (it's the more structured field), but a
- * description value of literal "Open" (placeholder for unfilled hare
- * slot) yields to a non-Open title-side value when both are present.
- * Codex P1 review on #1577.
- */
-function pickHaresPreferringRealName(
-  descHares: string | undefined,
-  titleHares: string | undefined,
-): string | undefined {
-  const descIsOpen = !!descHares && /^open$/i.test(descHares);
-  const titleIsReal = !!titleHares && !/^open$/i.test(titleHares);
-  if (descIsOpen && titleIsReal) return titleHares;
-  return descHares ?? titleHares;
-}
-
-function parseHaresFromDescription(text: string): string | undefined {
-  const match = /^\s*Hares?\s*(?:\([^)]*\))?\s*:\s*(.+?)$/im.exec(text);
-  if (!match) return undefined;
-  const name = match[1].trim();
-  // "away: …" is departure time, not a hare name
-  if (/^away/i.test(name)) return undefined;
-  // #1550: "Open" placeholder is filtered at the convergence point in
-  // `fetch()` where venue context is known — a real hasher literally named
-  // "Open" at a known venue must survive even when title-side extraction
-  // returned undefined (Codex P1 review on #1577).
-  return name || undefined;
-}
-
-// ─── History page parsing ───────────────────────────────────────────────────
-
-/**
- * Extract hare names from a history card's attendance `<ul>`.
- *
- * Hares are marked with `<strong> (<i class='fa fa-carrot'> hare</i>)</strong>`
- * after their `<a>` name link.
- */
-export function parseAttendanceHares(
-  $card: cheerio.Cheerio<AnyNode>,
-  $: cheerio.CheerioAPI,
-): { hares: string[]; attendeeCount: number } {
-  const hares: string[] = [];
-  let attendeeCount = 0;
-
-  const $ul = $card.find("ul");
-  if (!$ul.length) return { hares, attendeeCount };
-
-  $ul.find("li").each((_, li) => {
-    attendeeCount++;
-    const $li = $(li);
-    // Check for hare marker: <strong> containing "hare" text or <i class="fa-carrot">
-    const hasHareMarker =
-      $li.find("i.fa-carrot").length > 0 ||
-      /\bhare\b/i.test($li.find("strong").text());
-    if (hasHareMarker) {
-      const name = $li.find("a").first().text().trim();
-      if (name) hares.push(name);
+  const docs: Array<{ name?: unknown; fields?: unknown }> = [];
+  for (const item of body) {
+    if (!item || typeof item !== "object") {
+      throw new TypeError("Firestore runQuery returned a non-object element");
     }
-  });
+    const rec = item as Record<string, unknown>;
+    if (rec.error) {
+      const msg = (rec.error as { message?: unknown }).message;
+      throw new Error(`Firestore runQuery error: ${typeof msg === "string" ? msg : "unknown"}`);
+    }
+    if (rec.document === undefined) continue;
+    const doc = rec.document;
+    if (!doc || typeof doc !== "object" || typeof (doc as { name?: unknown }).name !== "string") {
+      throw new TypeError("Firestore runQuery returned a document without a name");
+    }
+    docs.push(doc as { name?: unknown; fields?: unknown });
+  }
+  return docs;
+}
 
-  return { hares, attendeeCount };
+/** Structured query: `hashes` whose `startsAt` falls in [from, to], oldest first. */
+export function buildRunQuery(from: Date, to: Date): unknown {
+  return {
+    structuredQuery: {
+      from: [{ collectionId: FIRESTORE_COLLECTION }],
+      select: { fields: SELECT_FIELDS.map((fieldPath) => ({ fieldPath })) },
+      where: {
+        compositeFilter: {
+          op: "AND",
+          filters: [
+            {
+              fieldFilter: {
+                field: { fieldPath: "startsAt" },
+                op: "GREATER_THAN_OR_EQUAL",
+                value: { timestampValue: from.toISOString() },
+              },
+            },
+            {
+              fieldFilter: {
+                field: { fieldPath: "startsAt" },
+                op: "LESS_THAN_OR_EQUAL",
+                value: { timestampValue: to.toISOString() },
+              },
+            },
+          ],
+        },
+      },
+      orderBy: [{ field: { fieldPath: "startsAt" }, direction: "ASCENDING" }],
+    },
+  };
+}
+
+// ─── Mapping ────────────────────────────────────────────────────────────────
+
+export function toClubDateTime(d: Date): { date: string; startTime?: string } {
+  const date = formatYmdInTimezone(d, CLUB_TZ);
+  const time = formatTimeInZone(d, CLUB_TZ, "HH:mm");
+  return time === "00:00" ? { date } : { date, startTime: time };
+}
+
+function isOpenPlaceholder(value: string): boolean {
+  return value === "" || value.toLowerCase() === "open" || isPlaceholder(value);
+}
+
+function isOwnKennel(kennel: string): boolean {
+  return OWN_KENNEL_KEYS.has(kennel.toLowerCase().replaceAll(/[^a-z0-9]/g, ""));
+}
+
+function buildDescription(h: BigHumpHash): string | undefined {
+  const parts: string[] = [];
+  if (h.directions) {
+    const text = stripHtmlTags(h.directions, "\n").replaceAll(/\n{3,}/g, "\n\n").trim();
+    if (text) {
+      parts.push(
+        text.length > MAX_DESCRIPTION_CHARS ? `${text.slice(0, MAX_DESCRIPTION_CHARS).trimEnd()}…` : text,
+      );
+    }
+  }
+  if (h.onAfter && !isPlaceholder(h.onAfter)) parts.push(`On-after: ${h.onAfter}`);
+  return parts.length ? parts.join("\n\n") : undefined;
 }
 
 /**
- * Parse a single history card (div.w3-card) from hashresults.php.
- *
- * Reuses parseEventHeader and parseEventTitle, plus extracts hares from
- * the attendance list and builds a sourceUrl from the detail page link.
+ * Map one decoded hash to a RawEvent, or null when it should be skipped:
+ *  - no date, or cancelled
+ *  - another kennel's event listed on the BH4 calendar (unnumbered, kennel set)
+ *  - a pre-generated future slot with nothing filled in (no title, hares or
+ *    start) — the new site's equivalent of the old "Open @ ???" cards (#828)
  */
-export function parseHistoryCard(
-  $card: cheerio.Cheerio<AnyNode>,
-  $: cheerio.CheerioAPI,
-  baseUrl: string,
-): RawEventData | null {
-  const header = $card.find("header h3");
-  if (!header.length) return null;
+export function hashToRawEvent(h: BigHumpHash): RawEventData | null {
+  if (!h.startsAt || h.status === "cancelled") return null;
+  if (h.number === null && !isOwnKennel(h.kennel)) return null;
 
-  const { date, runNumber } = parseEventHeader(header.text().trim());
-  if (!date) return null;
+  const title = isOpenPlaceholder(h.title) ? "" : h.title;
+  const hares = isOpenPlaceholder(h.hares) ? "" : h.hares;
+  const location = h.location && !isPlaceholder(h.location) ? h.location : "";
+  if (h.status === "scheduled" && !title && !hares && !location) return null;
 
-  // Find the title h4 in the content column (skip "Attendance:" h4 in sidebar)
-  const contentH4 = $card.find("div.w3-col.m7 h4, div.w3-col.l7 h4").first();
-  const titleText = contentH4.length
-    ? contentH4.text().trim()
-    : $card.find("h4").first().text().trim();
-  if (!titleText || titleText === "Attendance:") return null;
-
-  const { title, hares: titleHares, location } = parseEventTitle(titleText);
-
-  // Extract hares from attendance list (more authoritative than title)
-  const { hares: attendanceHares, attendeeCount } = parseAttendanceHares($card, $);
-
-  // Build sourceUrl from detail page link (use URL constructor for safe resolution)
-  const detailLink = $card.find("a[href*='runinfo.php']").attr("href");
-  const sourceUrl = detailLink
-    ? new URL(detailLink, baseUrl).toString()
-    : `${baseUrl}/hashresults.php`;
-
-  // Attendance hares override title hares when available
-  const hares = attendanceHares.length > 0
-    ? attendanceHares.join(", ")
-    : titleHares;
-
+  const { date, startTime } = toClubDateTime(h.startsAt);
   const event: RawEventData = {
     date,
-    kennelTags: ["bh4"],
-    runNumber,
-    title,
-    hares,
-    location,
-    sourceUrl,
+    kennelTags: [KENNEL_TAG],
+    sourceUrl: `${SITE_ORIGIN}/hareline.html?h=${encodeURIComponent(h.id)}`,
   };
-
-  if (attendeeCount > 0) {
-    event.description = `Attendance: ${attendeeCount} hashers`;
+  if (h.number !== null && h.number > 0) event.runNumber = h.number;
+  // A title that is only the hare name is not a title (it would show the
+  // hares twice); let merge synthesize "<Kennel> Trail #N" instead.
+  if (title && title.toLowerCase() !== hares.toLowerCase()) event.title = title;
+  if (hares) event.hares = hares;
+  if (location) event.location = location;
+  if (/^https?:\/\//i.test(h.locationUrl)) event.locationUrl = h.locationUrl;
+  if (startTime) event.startTime = startTime;
+  if (h.hashCashCents !== null && h.hashCashCents > 0) {
+    const dollars = h.hashCashCents / 100;
+    event.cost = `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
   }
-
+  const description = buildDescription(h);
+  if (description) event.description = description;
   return event;
 }
 
-/**
- * Parse all event cards from a history page HTML string.
- */
-export function parseHistoryPage(
-  html: string,
-  baseUrl: string,
-): RawEventData[] {
-  const $ = cheerio.load(html);
-  const events: RawEventData[] = [];
-
-  $("div.w3-card").each((_, el) => {
-    const event = parseHistoryCard($(el), $, baseUrl);
-    if (event) events.push(event);
-  });
-
-  return events;
-}
+// ─── Adapter ────────────────────────────────────────────────────────────────
 
 /**
- * Fetch multiple year pages sequentially with rate limiting.
- * Returns aggregated events and errors.
- */
-async function fetchHistoryYears(
-  baseUrl: string,
-  years: number[],
-): Promise<{
-  events: RawEventData[];
-  errors: string[];
-  fetchErrors: NonNullable<ErrorDetails["fetch"]>;
-}> {
-  const events: RawEventData[] = [];
-  const errors: string[] = [];
-  const fetchErrors: NonNullable<ErrorDetails["fetch"]> = [];
-
-  for (let i = 0; i < years.length; i++) {
-    const year = years[i];
-    const url = new URL(`/hashresults.php?year=${year}`, baseUrl).toString();
-
-    // Rate limit: 500ms delay between requests to be polite to small PHP site
-    if (i > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-
-    const page = await fetchHTMLPage(url);
-    if (page.ok) {
-      const yearEvents = parseHistoryPage(page.html, baseUrl);
-      events.push(...yearEvents);
-    } else {
-      errors.push(`Failed to fetch year ${year}: ${page.result.errors.join(", ")}`);
-      if (page.result.errorDetails?.fetch) {
-        fetchErrors.push(...page.result.errorDetails.fetch);
-      }
-    }
-  }
-
-  return { events, errors, fetchErrors };
-}
-
-/**
- * Compute which years overlap with the date window.
- * Returns array of years to fetch, e.g. [2025, 2026].
- */
-function computeYearsInWindow(
-  minDate: Date,
-  maxDate: Date,
-  config: BigHumpConfig,
-): number[] {
-  if (config.historyYearRange) {
-    const [startYear, endYear] = config.historyYearRange;
-    const years: number[] = [];
-    for (let y = startYear; y <= endYear; y++) years.push(y);
-    return years;
-  }
-
-  const startYear = Math.max(1999, minDate.getFullYear());
-  const endYear = Math.min(new Date().getFullYear(), maxDate.getFullYear());
-  const years: number[] = [];
-  for (let y = startYear; y <= endYear; y++) years.push(y);
-  return years;
-}
-
-/**
- * Safely parse and validate BigHumpConfig from source.config JSON.
- * Returns safe defaults for missing or malformed values.
- */
-function parseBigHumpConfig(raw: unknown): BigHumpConfig {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
-  const obj = raw as Record<string, unknown>;
-
-  const includeHistory = obj.includeHistory === true;
-
-  let historyYearRange: [number, number] | undefined;
-  if (
-    Array.isArray(obj.historyYearRange) &&
-    obj.historyYearRange.length === 2 &&
-    typeof obj.historyYearRange[0] === "number" &&
-    typeof obj.historyYearRange[1] === "number"
-  ) {
-    historyYearRange = [obj.historyYearRange[0], obj.historyYearRange[1]];
-  }
-
-  return { includeHistory, historyYearRange };
-}
-
-/**
- * Big Hump H3 Scraper
- *
- * Scrapes big-hump.com/hareline.php for upcoming events, and optionally
- * big-hump.com/hashresults.php?year=YYYY for historical events when
- * source.config.includeHistory is true.
+ * Big Hump H3 Scraper — reads the `hashes` Firestore collection behind
+ * big-hump.com. Works for any `source.url` on big-hump.com; the data location
+ * is fixed by the site's Firebase project, not by the page URL.
  */
 export class BigHumpAdapter implements SourceAdapter {
   type = "HTML_SCRAPER" as const;
 
-  async fetch(
-    source: Source,
-    options?: { days?: number },
-  ): Promise<ScrapeResult> {
+  async fetch(source: Source, options?: { days?: number }): Promise<ScrapeResult> {
     const config = parseBigHumpConfig(source.config);
-    const harelineUrl =
-      source.url || "http://www.big-hump.com/hareline.php";
-    const baseUrl = new URL(harelineUrl).origin;
-
     const { minDate, maxDate } = buildDateWindow(options?.days);
-    const isInWindow = (e: RawEventData) => {
-      const eventDate = new Date(e.date + "T12:00:00Z");
-      return eventDate >= minDate && eventDate <= maxDate;
+    // Without history, read from a day back (the old hareline-only mode), so
+    // tonight's run is still in the window after it starts.
+    const from = config.includeHistory
+      ? minDate
+      : new Date(Math.max(minDate.getTime(), Date.now() - 24 * 60 * 60 * 1000));
+
+    const errorDetails: ErrorDetails = {};
+    const url = BIG_HUMP_RUN_QUERY_URL;
+    const fail = (message: string, status?: number): ScrapeResult => {
+      errorDetails.fetch = [{ url, status, message }];
+      return { events: [], errors: [message], errorDetails };
     };
 
-    const allErrors: string[] = [];
-    const errorDetails: ErrorDetails = {};
-
-    // ── Step 1: Fetch hareline (always) ──
-    const page = await fetchHTMLPage(harelineUrl);
-
-    const harelineEvents: RawEventData[] = [];
-    let structureHash: string | undefined;
-    let fetchDurationMs: number | undefined;
-
-    if (page.ok) {
-      structureHash = page.structureHash;
-      fetchDurationMs = page.fetchDurationMs;
-      const { $ } = page;
-
-      $("div.w3-card").each((i, el) => {
-        try {
-          const $card = $(el);
-          const header = $card.find("header h3");
-          if (!header.length) return;
-
-          const headerText = header.text().trim();
-          const { date, runNumber } = parseEventHeader(headerText);
-          if (!date) return;
-
-          const h4 = $card.find("h4").first();
-          const h4Text = h4.text().trim();
-          if (!h4Text) return;
-
-          const { title: titleFromH4, hares: titleHares, location: titleLocation } =
-            parseEventTitle(h4Text);
-
-          // Preserve paragraph breaks so the labeled-field regexes below can
-          // anchor against `\n`; cheerio's `.text()` strips them (#519).
-          const descSpan = $card.find("span.w3-small");
-          const descText = stripHtmlTags(descSpan.html() ?? "", "\n");
-
-          const descTime = parseTimeFromDescription(descText);
-          const descLocation = parseLocationFromDescription(descText);
-          const descHares = parseHaresFromDescription(descText);
-
-          const location = descLocation || titleLocation;
-          // #1550: "Open" is a "hare slot available" placeholder used both
-          // in h4 ("Open - Skanksgiving @ ???") and in description
-          // ("Hare: Open"). Resolution:
-          //   - prefer description hare normally, BUT skip a descHares of
-          //     "Open" when titleHares has a non-Open value (Codex P1 review)
-          //   - final clear only when venue is also unknown — a real hasher
-          //     literally named "Open" at a known venue survives.
-          const rawHares = pickHaresPreferringRealName(descHares, titleHares);
-          const venueUnknown = !location || isPlaceholder(location);
-          const hares =
-            rawHares && venueUnknown && /^open$/i.test(rawHares) ? undefined : rawHares;
-
-          // #828: "Open @ ???" placeholder rows — skip. Key off raw h4Text so
-          // a real hasher literally named "Open" still gets ingested if their
-          // venue is known. String split avoids a ReDoS-flagged regex with
-          // multiple \s* quantifiers + alternation (SonarCloud S5852).
-          const [h4Hare, ...h4Rest] = h4Text.trim().split("@");
-          const h4Venue = h4Rest.join("@").trim().toLowerCase();
-          const placeholderVenues = new Set(["", "tbd", "tba", "n/a"]);
-          const allQuestionMarks = h4Venue.length > 0 && [...h4Venue].every((c) => c === "?");
-          const isUnknownVenue = placeholderVenues.has(h4Venue) || allQuestionMarks;
-          if (h4Hare.trim().toLowerCase() === "open" && isUnknownVenue) return;
-
-          // #828: h4 is "Hare @ Venue" — rebuild as "BH4 #N @ Venue" so hares
-          // don't double as title. #1550: when the h4 has descriptive content
-          // beyond the bare hare name ("Perpencockular Asks For Help To Move
-          // @ Brentwood"), the trail subtitle is meaningful and we preserve
-          // titleFromH4. The harePart-before-` @ ` is the title's hare-side;
-          // only rewrite when `hares` was extracted AND equals that prefix
-          // (case-insensitive). Hare-extraction returning undefined means the
-          // h4 contains something we couldn't parse — preserve it as title
-          // rather than overwriting (CodeRabbit + Claude bot review).
-          const title = runNumber
-            ? buildBh4Title(h4Text, titleFromH4, hares, runNumber, location)
-            : titleFromH4;
-
-          harelineEvents.push({
-            date,
-            kennelTags: ["bh4"],
-            runNumber,
-            title,
-            hares,
-            location,
-            startTime: descTime,
-            sourceUrl: harelineUrl,
-            description: descText || undefined,
-          });
-        } catch (err) {
-          allErrors.push(`Error parsing hareline card ${i}: ${err}`);
-          (errorDetails.parse ??= []).push({
-            row: i,
-            error: String(err),
-          });
-        }
+    const started = Date.now();
+    let body: unknown;
+    try {
+      const res = await safeFetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(buildRunQuery(from, maxDate)),
       });
-    } else {
-      allErrors.push(...page.result.errors);
-      if (page.result.errorDetails?.fetch) {
-        errorDetails.fetch = [...(errorDetails.fetch ?? []), ...page.result.errorDetails.fetch];
-      }
+      if (!res.ok) return fail(`Firestore runQuery HTTP ${res.status}`, res.status);
+      body = await res.json();
+    } catch (err) {
+      return fail(`Firestore runQuery failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    const fetchDurationMs = Date.now() - started;
+
+    let docs: Array<{ name?: unknown; fields?: unknown }>;
+    try {
+      docs = extractRunQueryDocuments(body);
+    } catch (err) {
+      return fail(err instanceof Error ? err.message : String(err));
     }
 
-    // ── Step 2: Fetch history (when enabled) ──
-    let historyEvents: RawEventData[] = [];
-    let historyYearsFetched = 0;
-
-    if (config.includeHistory) {
-      const years = computeYearsInWindow(minDate, maxDate, config);
-      historyYearsFetched = years.length;
-
-      if (years.length > 0) {
-        const historyResult = await fetchHistoryYears(baseUrl, years);
-        historyEvents = historyResult.events;
-
-        if (historyResult.errors.length > 0) {
-          allErrors.push(...historyResult.errors);
-        }
-        if (historyResult.fetchErrors.length > 0) {
-          errorDetails.fetch = [...(errorDetails.fetch ?? []), ...historyResult.fetchErrors];
-        }
+    const events: RawEventData[] = [];
+    const errors: string[] = [];
+    let skipped = 0;
+    docs.forEach((doc, i) => {
+      try {
+        const event = hashToRawEvent(decodeHashDocument(doc));
+        if (event) events.push(event);
+        else skipped++;
+      } catch (err) {
+        const msg = `Error mapping hash ${i}: ${err instanceof Error ? err.message : String(err)}`;
+        errors.push(msg);
+        (errorDetails.parse ??= []).push({ row: i, error: msg });
       }
+    });
+
+    // Firestore already orders by startsAt; re-sort on (date, run#) so the
+    // output is stable even when two docs share an instant.
+    events.sort((a, b) => a.date.localeCompare(b.date) || (a.runNumber ?? 0) - (b.runNumber ?? 0));
+
+    // Big Hump runs weekly, so a window with no runs means the collection or its
+    // `startsAt` field moved, not that the kennel stopped. Fail loud rather than
+    // log a SUCCESS with 0 events.
+    if (events.length === 0 && errors.length === 0) {
+      const msg = `Big Hump: Firestore returned ${docs.length} document(s) and no runs between ${from.toISOString().slice(0, 10)} and ${maxDate.toISOString().slice(0, 10)} (collection or field drift?)`;
+      errors.push(msg);
+      (errorDetails.parse ??= []).push({ row: -1, error: msg });
     }
-
-    // ── Step 3: Combine and dedup (hareline wins) ──
-    const harelineKeys = new Set(
-      harelineEvents.map((e) => `${e.date}|${e.runNumber ?? ""}`),
-    );
-    const dedupedHistory = historyEvents.filter(
-      (e) => !harelineKeys.has(`${e.date}|${e.runNumber ?? ""}`),
-    );
-    const historyDeduped = historyEvents.length - dedupedHistory.length;
-
-    const allEvents = [...harelineEvents, ...dedupedHistory];
-
-    // ── Step 4: Filter by date window ──
-    const filteredEvents = allEvents.filter(isInWindow);
-
-    const hasErrors = hasAnyErrors(errorDetails);
 
     return {
-      events: filteredEvents,
-      errors: allErrors,
-      structureHash,
-      errorDetails: hasErrors ? errorDetails : undefined,
+      events,
+      errors,
+      ...(hasAnyErrors(errorDetails) ? { errorDetails } : {}),
       diagnosticContext: {
-        harelineEventsParsed: harelineEvents.length,
-        historyEventsParsed: historyEvents.length,
-        historyYearsFetched,
-        historyDeduped,
-        eventsAfterWindow: filteredEvents.length,
+        documentsRead: docs.length,
+        eventsEmitted: events.length,
+        documentsSkipped: skipped,
         includeHistory: !!config.includeHistory,
+        windowFrom: from.toISOString(),
+        windowTo: maxDate.toISOString(),
         fetchDurationMs,
       },
     };

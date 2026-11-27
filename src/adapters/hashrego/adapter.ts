@@ -109,6 +109,7 @@ export class HashRegoAdapter implements SourceAdapter {
           headers: { "User-Agent": USER_AGENT },
           useResidentialProxy: true,
           signal: AbortSignal.timeout(30_000),
+          retryTransient: false, // this loop is the retry
         });
         if (res.ok) {
           indexHtml = await res.text();

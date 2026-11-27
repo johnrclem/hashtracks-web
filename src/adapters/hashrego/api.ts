@@ -117,6 +117,8 @@ export async function fetchKennelEvents(
         Accept: "application/json",
       },
       signal: AbortSignal.timeout(timeoutMs),
+      // fetchKennelPagesWithRetry re-fetches slugs that failed on the network.
+      retryTransient: false,
     });
   } catch (err) {
     throw new HashRegoApiError(kennelSlug, 0, "network", String(err), { cause: err });

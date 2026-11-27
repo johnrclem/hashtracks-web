@@ -427,6 +427,13 @@ export function parseNextRunDirections(
 }
 
 /**
+ * Start the best-effort next-run render only this early in the scrape: its own
+ * worst case (browserRender's busy waits plus one 45s render) is ~70s, and the
+ * cron route allows 120s.
+ */
+const NEXT_RUN_START_BUDGET_MS = 30_000;
+
+/**
  * Render a HashWebApp page in the NAS headless browser and return its HTML.
  *
  * Since the Nov 2026 rebuild, bangkokhash.com drops direct requests from both
@@ -484,12 +491,19 @@ export class BangkokHashAdapter implements SourceAdapter {
     const days = options?.days ?? source.scrapeDays ?? 365;
 
     // Both HashWebApp pages are rendered in the NAS headless browser (see
-    // renderHashWebApp). The two renders are independent → run together.
+    // renderHashWebApp). The render service takes one render at a time and
+    // 429s the rest, so rendering the two pages in parallel made them collide
+    // with each other: whichever lost the race got a 429. Render them one
+    // after the other, hareline (required) first.
+    const harelineResult = await renderHashWebApp(
+      `${HASHWEBAPP_BASE}/ViewHL.php?a=false&b=${hashClub}`,
+      ".hl-row",
+    );
     const nextRunUrl = `${HASHWEBAPP_BASE}/ViewNextRunDirections.php?b=${hashClub}`;
-    const [harelineResult, nextRunResult] = await Promise.all([
-      renderHashWebApp(`${HASHWEBAPP_BASE}/ViewHL.php?a=false&b=${hashClub}`, ".hl-row"),
-      renderHashWebApp(nextRunUrl, "table.run"),
-    ]);
+    const nextRunSkipped = Date.now() - fetchStart > NEXT_RUN_START_BUDGET_MS;
+    const nextRunResult = nextRunSkipped
+      ? { error: "skipped: hareline render used the time budget" }
+      : await renderHashWebApp(nextRunUrl, "table.run");
 
     // 1. Hareline (the event list) — required.
     let events: RawEventData[] = [];
@@ -529,6 +543,7 @@ export class BangkokHashAdapter implements SourceAdapter {
           subSite,
           hashClub,
           nextRunFound,
+          nextRunSkipped,
           fetchDurationMs: Date.now() - fetchStart,
         },
       },

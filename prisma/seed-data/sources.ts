@@ -4350,6 +4350,9 @@ export const SOURCES = [
       name: "Dayton H3 Events Calendar",
       url: "https://daytonhhh.org",
       type: "HTML_SCRAPER" as const,
+      // Retired (WS4, migration 20261125200000): the site dropped The Events Calendar;
+      // replaced by "Dayton H3 HashStats iCal" (replacedById set in the migration).
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 180,
@@ -4359,6 +4362,26 @@ export const SOURCES = [
         upcomingOnly: true,
         haresFromOrganizers: true,
         runNumberFromTitle: true,
+      },
+      kennelCodes: ["dh3-oh"],
+    },
+    {
+      // Dayton H3 publishes its runs through hashstats.org since the 2026 site rebuild
+      // (daytonhhh.org /calendar/ links this feed). The feed writes UTC DTSTARTs with no
+      // TZID, so `timezone` reads them in Dayton's zone. Rolling window (#1681 → next
+      // few runs): the reconcile coverage guard protects runs that age off it.
+      name: "Dayton H3 HashStats iCal",
+      url: "https://hashstats.org/calendar.ics?k=dh3",
+      type: "ICAL_FEED" as const,
+      trustLevel: 8,
+      scrapeFreq: "daily",
+      scrapeDays: 180,
+      config: {
+        defaultKennelTag: "dh3-oh",
+        timezone: "America/New_York",
+        titleStripPrefixAliases: ["Dayton H3"],
+        harePatterns: ["^Hares?:\\s*(.+)$"],
+        costPatterns: ["^Cost:\\s*(.+)$"],
       },
       kennelCodes: ["dh3-oh"],
     },
@@ -4437,10 +4460,14 @@ export const SOURCES = [
       name: "SCH4 HashStats",
       url: "https://hashingstats.com/SCH4",
       type: "HTML_SCRAPER" as const,
+      // Paused (WS4, migration 20261125200000): host down, D2 pause
+      enabled: false,
       trustLevel: 6,
       scrapeFreq: "weekly",
       scrapeDays: 20000,
       config: {
+        pausedReason: "hashingstats.com unreachable since 2026-11-04; hashstats.org has no listhashes2 API (D2). Recheck weekly.",
+        pausedAt: "2026-11-25",
         kennelSlugMap: { sch4: "SCH4" },
       },
       kennelCodes: ["sch4"],
@@ -4455,10 +4482,14 @@ export const SOURCES = [
       name: "QCH4 HashStats",
       url: "https://hashingstats.com/QCH4",
       type: "HTML_SCRAPER" as const,
+      // Paused (WS4, migration 20261125200000): host down, D2 pause
+      enabled: false,
       trustLevel: 6,
       scrapeFreq: "weekly",
       scrapeDays: 20000,
       config: {
+        pausedReason: "hashingstats.com unreachable since 2026-11-04; hashstats.org has no listhashes2 API (D2). Recheck weekly.",
+        pausedAt: "2026-11-25",
         kennelSlugMap: { qch4: "QCH4" },
       },
       kennelCodes: ["qch4"],
@@ -4467,10 +4498,14 @@ export const SOURCES = [
       name: "SWOT HashStats",
       url: "https://hashingstats.com/SWOT",
       type: "HTML_SCRAPER" as const,
+      // Paused (WS4, migration 20261125200000): host down, D2 pause
+      enabled: false,
       trustLevel: 6,
       scrapeFreq: "weekly",
       scrapeDays: 20000,
       config: {
+        pausedReason: "hashingstats.com unreachable since 2026-11-04; hashstats.org has no listhashes2 API (D2). Recheck weekly.",
+        pausedAt: "2026-11-25",
         kennelSlugMap: { "swot-h3": "SWOT" },
       },
       kennelCodes: ["swot-h3"],
@@ -4479,10 +4514,14 @@ export const SOURCES = [
       name: "LVH3 HashStats",
       url: "https://hashingstats.com/LVH3",
       type: "HTML_SCRAPER" as const,
+      // Paused (WS4, migration 20261125200000): host down, D2 pause
+      enabled: false,
       trustLevel: 6,
       scrapeFreq: "weekly",
       scrapeDays: 20000,
       config: {
+        pausedReason: "hashingstats.com unreachable since 2026-11-04; hashstats.org has no listhashes2 API (D2). Recheck weekly.",
+        pausedAt: "2026-11-25",
         kennelSlugMap: { "lvh3-cin": "LVH3" },
       },
       kennelCodes: ["lvh3-cin"],
@@ -4498,10 +4537,14 @@ export const SOURCES = [
       name: "SCH4BASH HashStats",
       url: "https://hashingstats.com/SCH4BASH",
       type: "HTML_SCRAPER" as const,
+      // Paused (WS4, migration 20261125200000): host down, D2 pause
+      enabled: false,
       trustLevel: 6,
       scrapeFreq: "weekly",
       scrapeDays: 20000,
       config: {
+        pausedReason: "hashingstats.com unreachable since 2026-11-04; hashstats.org has no listhashes2 API (D2). Recheck weekly.",
+        pausedAt: "2026-11-25",
         kennelSlugMap: { sch4bash: "SCH4BASH" },
       },
       kennelCodes: ["sch4bash"],
@@ -4811,14 +4854,14 @@ export const SOURCES = [
     },
     {
       name: "Taipei Hash Run List",
-      url: "https://www.taipeihash.com.tw/run_site.php",
+      url: "https://www.taipeihash.com.tw/runs",
       type: "HTML_SCRAPER" as const,
       trustLevel: 6,
       scrapeFreq: "daily",
       scrapeDays: 365,
-      // run_site.php is a rolling ~6-month window (current + 3 future + ~23
-      // history rows). upcomingOnly keeps reconcile.ts from false-CANCELLing the
-      // history rows as they age off the page (they still ingest on first scrape).
+      // /runs (Nov 2026 rebuild; run_site.php 301s here) shows this week, the
+      // next few runs and this year's past runs, so January drops last year's.
+      // upcomingOnly keeps reconcile.ts from false-CANCELLing runs as they age off.
       config: { upcomingOnly: true },
       kennelCodes: ["taipei-h3"],
     },
@@ -5608,11 +5651,13 @@ export const SOURCES = [
       name: "Kampong H3 Website",
       url: "https://kampong.hash.org.sg",
       type: "HTML_SCRAPER" as const,
+      // Paused (WS4, migration 20261125200000): hash.org.sg DNS outage
+      enabled: false,
       trustLevel: 7,
       scrapeFreq: "daily",
       scrapeDays: 90,
       // Fetch drops past runs; reconcile must not cancel them (Nov 2026 sweep).
-      config: { upcomingOnly: true },
+      config: { upcomingOnly: true, pausedReason: "hash.org.sg nameservers (ns*.temasek.net) do not resolve since 2026-11-19. Re-enable when DNS returns; recheck weekly.", pausedAt: "2026-11-25" },
       kennelCodes: ["kampong-h3"],
     },
 
@@ -5855,10 +5900,14 @@ export const SOURCES = [
       name: "Seletar H3 PWA",
       url: "https://sh3app.hash.org.sg/php/util/HashController.php",
       type: "HTML_SCRAPER" as const,
+      // Paused (WS4, migration 20261125200000): hash.org.sg DNS outage
+      enabled: false,
       trustLevel: 8,
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
+        pausedReason: "hash.org.sg nameservers (ns*.temasek.net) do not resolve since 2026-11-19. Re-enable when DNS returns; recheck weekly.",
+        pausedAt: "2026-11-25",
         // The adapter fetches UPCOMING_SQL (hl_datetime >= CURDATE()), so it is
         // future-only. Without upcomingOnly the reconciler would cancel
         // sole-source CONFIRMED past events inside the now±90d window that the
@@ -5939,7 +5988,7 @@ export const SOURCES = [
     // --- St. Louis ---
     {
       name: "Big Hump H3 Hareline",
-      url: "http://www.big-hump.com/hareline.php",
+      url: "https://big-hump.com/hareline.html",
       type: "HTML_SCRAPER" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
@@ -6404,7 +6453,7 @@ export const SOURCES = [
     // ─── Australia Phase 1b: Sydney + Adelaide + Gold Coast ───
     {
       name: "Sydney H3 Hareline",
-      url: "https://www.sh3.link/?page_id=9470",
+      url: "https://www.sh3.link/upcoming-runs/",
       type: "HTML_SCRAPER" as const,
       trustLevel: 7,
       scrapeFreq: "daily",
