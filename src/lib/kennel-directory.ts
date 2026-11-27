@@ -10,11 +10,38 @@ import type { Prisma } from "@/generated/prisma/client";
 import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import { SCHEDULE_ONLY_LABEL } from "@/lib/event-display";
 import {
+  KENNEL_EVIDENCE_SELECT,
   serializeKennelEvidence,
   type KennelEvidence,
   type SerializedKennelEvidence,
 } from "@/lib/kennel-status";
 import { getStateGroup } from "@/lib/region";
+import { SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
+
+/** The kennel fields both directory pages load for their cards. */
+export const KENNEL_DIRECTORY_SELECT = {
+  id: true,
+  slug: true,
+  shortName: true,
+  fullName: true,
+  region: true,
+  country: true,
+  latitude: true,
+  longitude: true,
+  logoUrl: true,
+  description: true,
+  foundedYear: true,
+  scheduleDayOfWeek: true,
+  scheduleTime: true,
+  scheduleFrequency: true,
+  scheduleRules: SCHEDULE_RULES_SELECT,
+  website: true,
+  facebookUrl: true,
+  halfMindListingId: true,
+  listingOnly: true,
+  scheduleNotes: true,
+  ...KENNEL_EVIDENCE_SELECT,
+} satisfies Prisma.KennelSelect;
 
 export interface NextEvent {
   date: Date;
