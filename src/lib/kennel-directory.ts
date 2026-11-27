@@ -7,7 +7,7 @@
  * consumes.
  */
 import type { Prisma } from "@/generated/prisma/client";
-import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
+import { HIDE_STOPPED_SCHEDULE_RUNS, withinScheduleOnlyDisplayHorizon } from "@/lib/event-filters";
 import { SCHEDULE_ONLY_LABEL } from "@/lib/event-display";
 import {
   KENNEL_EVIDENCE_SELECT,
@@ -52,8 +52,9 @@ export interface NextEvent {
 
 /**
  * Events that make a kennel "have an upcoming run": confirmed, canonical, on
- * or after today. Shared by the Kennel Directory's next-run query. A stopped
- * kennel's generated runs are excluded.
+ * or after today. Shared by the Kennel Directory and region pages' next-run
+ * queries. A stopped kennel's generated runs, and schedule-only runs past the
+ * display horizon, are excluded.
  */
 export function upcomingConfirmedEventWhere(todayUtcNoon: Date) {
   return {
@@ -61,6 +62,8 @@ export function upcomingConfirmedEventWhere(todayUtcNoon: Date) {
     status: "CONFIRMED",
     isCanonical: true,
     ...HIDE_STOPPED_SCHEDULE_RUNS,
+    // Schedule-only runs past the display horizon don't count as a next run (D5).
+    AND: [withinScheduleOnlyDisplayHorizon(todayUtcNoon)],
   } as const satisfies Prisma.EventWhereInput;
 }
 

@@ -386,6 +386,17 @@ describe("upcoming/past bucket on the day an event ends (#2452)", () => {
     expect(dateClause.OR.map((c) => Object.keys(c)[0])).toEqual(["date", "endDate"]);
   });
 
+  it("upcoming hides schedule-only runs past the 90-day display horizon (D5); past does not", async () => {
+    await loadEventsForTimeMode("upcoming", NOW_MS, []);
+    const upcoming = mockFindMany.mock.calls[0][0]?.where as { AND: unknown[] };
+    expect(upcoming.AND).toContainEqual({ NOT: { isScheduleOnly: true, date: { gt: expect.any(Date) } } });
+
+    mockFindMany.mockClear();
+    await loadMorePastEvents("cursor-id");
+    const past = mockFindMany.mock.calls[0][0]?.where as { AND: unknown[] };
+    expect(JSON.stringify(past.AND)).not.toContain("isScheduleOnly");
+  });
+
   it("past excludes an event whose endDate is still ahead", async () => {
     await loadMorePastEvents("cursor-id");
     const where = mockFindMany.mock.calls[0][0]?.where as Record<string, unknown>;

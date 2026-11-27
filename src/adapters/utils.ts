@@ -45,7 +45,7 @@ export const WEEKDAY_NAMES: Record<string, number> = {
   SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6,
 };
 
-const MS_PER_DAY = 86_400_000;
+export const MS_PER_DAY = 86_400_000;
 
 export interface WeekdayShiftConfig {
   /** Source weekday \u2014 full name ("Friday") or RFC 5545 abbr ("FR"). */

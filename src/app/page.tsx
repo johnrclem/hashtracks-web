@@ -11,7 +11,7 @@ import { getRegionColor, regionPath } from "@/lib/region";
 import { canonicalAlternates, getCanonicalSiteUrl } from "@/lib/site-url";
 import { DAY_MS, runningKennelWhere } from "@/lib/kennel-status";
 import { getTodayUtcNoon } from "@/lib/date";
-import { DISPLAY_EVENT_WHERE } from "@/lib/event-filters";
+import { DISPLAY_EVENT_WHERE, withinScheduleOnlyDisplayHorizon } from "@/lib/event-filters";
 import { getHomeComingUp } from "@/lib/home-coming-up";
 import { listIndexedRegions, SITEMAP_KENNEL_WHERE } from "@/lib/sitemap";
 import { parseVisitorArea } from "@/lib/visitor-area";
@@ -53,7 +53,7 @@ export default async function HomePage() {
   const [upcomingCount, kennelCount, regionCount, sourceCount, comingUp, regionNames, indexedRegions, kennelsThisWeek] =
     await Promise.all([
       prisma.event.count({
-        where: { ...DISPLAY_EVENT_WHERE, date: { gte: todayUtcNoon } },
+        where: { ...DISPLAY_EVENT_WHERE, date: { gte: todayUtcNoon }, AND: [withinScheduleOnlyDisplayHorizon(todayUtcNoon)] },
       }),
       // Kennels with recent evidence of running (see kennel-status.ts).
       prisma.kennel.count({ where: runningKennelWhere() }),

@@ -26,6 +26,10 @@ type RelationCounts = {
   eventKennels?: number;
   /** Hares entered by a user or misman (the forbidUserHares probe). */
   userHares?: number;
+  /** Series children linking to the event (the forbidChildren probe). */
+  children?: number;
+  /** 1 when the event left the expected slot (the expectSlot probe). */
+  moved?: number;
 };
 
 function buildPrisma(
@@ -51,7 +55,12 @@ function buildPrisma(
       findFirst: vi.fn().mockResolvedValue(foreignRaw),
     },
     eventKennel: { deleteMany: vi.fn().mockResolvedValue({ count: counts.eventKennels ?? 0 }) },
-    event: { delete: eventDelete },
+    event: {
+      delete: eventDelete,
+      count: vi.fn().mockImplementation(({ where }: { where: { NOT?: unknown } }) =>
+        Promise.resolve(where.NOT ? (counts.moved ?? 0) : (counts.children ?? 0)),
+      ),
+    },
   };
   const prisma = {
     event: {
@@ -166,6 +175,31 @@ describe("forbidUserHares (backfill undo)", () => {
     expect(blocked.eventDelete).not.toHaveBeenCalled();
     const scraped = buildPrisma({ hares: 2, userHares: 0 });
     expect(await deleteLeakedEvent(scraped.prisma, "evt_1", [], "src_a", { forbidUserHares: true })).toBe("deleted");
+  });
+});
+
+describe("forbidChildren", () => {
+  beforeEach(() => vi.spyOn(console, "log").mockImplementation(() => {}));
+
+  it("refuses under the lock when a series child links to the event", async () => {
+    const blocked = buildPrisma({ children: 1 });
+    await expect(deleteLeakedEvent(blocked.prisma, "evt_1", [], undefined, { forbidChildren: true })).rejects.toThrow(/series child/);
+    expect(blocked.eventDelete).not.toHaveBeenCalled();
+    const free = buildPrisma({ children: 0 });
+    expect(await deleteLeakedEvent(free.prisma, "evt_1", [], undefined, { forbidChildren: true })).toBe("deleted");
+  });
+});
+
+describe("expectSlot", () => {
+  beforeEach(() => vi.spyOn(console, "log").mockImplementation(() => {}));
+
+  it("refuses under the lock when the event moved out of the expected slot", async () => {
+    const slot = { kennelId: "k1", date: new Date("2030-01-05T12:00:00Z") };
+    const moved = buildPrisma({ moved: 1 });
+    await expect(deleteLeakedEvent(moved.prisma, "evt_1", [], undefined, { expectSlot: slot })).rejects.toThrow(/moved out of slot/);
+    expect(moved.eventDelete).not.toHaveBeenCalled();
+    const stayed = buildPrisma({ moved: 0 });
+    expect(await deleteLeakedEvent(stayed.prisma, "evt_1", [], undefined, { expectSlot: slot })).toBe("deleted");
   });
 });
 

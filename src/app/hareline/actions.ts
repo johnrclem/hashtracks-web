@@ -19,7 +19,15 @@
 import { unstable_cache } from "next/cache";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
-import { HIDE_STOPPED_SCHEDULE_RUNS, DISPLAY_EVENT_WHERE, DISPLAYABLE_EVENT_NO_PARENT_WHERE, endsBefore, endsOnOrAfter } from "@/lib/event-filters";
+import { getTodayUtcNoon } from "@/lib/date";
+import {
+  HIDE_STOPPED_SCHEDULE_RUNS,
+  DISPLAY_EVENT_WHERE,
+  DISPLAYABLE_EVENT_NO_PARENT_WHERE,
+  endsBefore,
+  endsOnOrAfter,
+  withinScheduleOnlyDisplayHorizon,
+} from "@/lib/event-filters";
 // Tag constant lives in a plain module — a `"use server"` file can only
 // export async functions, so any non-function export (even a string)
 // makes Next strip all exports and fail the build at import sites.
@@ -271,9 +279,10 @@ function normalizeKennelIds(kennelIds?: ReadonlyArray<string>): string[] {
 function buildHarelineWhere(
   dateWhere: Prisma.EventWhereInput,
   kennelIds: string[],
+  extra: Prisma.EventWhereInput[] = [],
 ): Prisma.EventWhereInput {
   if (kennelIds.length === 0) {
-    return { ...DISPLAY_EVENT_WHERE, AND: [dateWhere] };
+    return { ...DISPLAY_EVENT_WHERE, AND: [dateWhere, ...extra] };
   }
   return {
     ...DISPLAYABLE_EVENT_NO_PARENT_WHERE,
@@ -285,6 +294,7 @@ function buildHarelineWhere(
           { eventKennels: { some: { kennelId: { in: kennelIds } } } },
         ],
       },
+      ...extra,
     ],
   };
 }
@@ -427,8 +437,10 @@ const fetchSlimEventsCached = unstable_cache(
     const kennelIds = kennelIdsKey ? kennelIdsKey.split(",") : [];
     // Bucket on the day an event ends (#2452): an in-progress multi-day weekend
     // stays in the upcoming payload until its last day.
-    const dateWhere = isPast ? endsBefore(tomorrowUtc) : endsOnOrAfter(yesterdayUtc);
-    const where = buildHarelineWhere(dateWhere, kennelIds);
+    // Upcoming also drops schedule-only runs past the display horizon (D5).
+    const where = isPast
+      ? buildHarelineWhere(endsBefore(tomorrowUtc), kennelIds)
+      : buildHarelineWhere(endsOnOrAfter(yesterdayUtc), kennelIds, [withinScheduleOnlyDisplayHorizon(new Date(getTodayUtcNoon(startOfTodayUtc)))]);
 
     let queryLimit: number;
     if (isPast) {
@@ -462,7 +474,7 @@ const fetchSlimEventsCached = unstable_cache(
   // limit change (incl. the past page size) OR a return-shape change
   // (array → { events, hasMore }) auto-busts stale cache entries rather than
   // serving an incompatible/old-sized payload (CodeRabbit review).
-  [`hareline:events:v2:g${UPCOMING_GLOBAL_LIMIT}k${UPCOMING_KENNEL_LIMIT}p${PAST_EVENTS_LIMIT}`],
+  [`hareline:events:v3:g${UPCOMING_GLOBAL_LIMIT}k${UPCOMING_KENNEL_LIMIT}p${PAST_EVENTS_LIMIT}`],
   { tags: [HARELINE_EVENTS_TAG], revalidate: 3600 },
 );
 
