@@ -463,7 +463,11 @@ const GET_THEE_TO_RE = /^Get\s+(?:thee|yourself)\s+to\s+/i;
 const PARK_AND_HASH_RE = /,\s*park\s+and\s+hash\.?$/i;
 const TRAILING_ADVERB_RE = /,\s*(?:specifically|approximately|roughly|exactly)$/i;
 // "Bottom of the Rising Main Stairs at 2 pm, 2:30 one-out." (Pittsburgh): the time is not part of the place.
-const TRAILING_TIME_CLAUSE_RE = /\s+at\s+\d{1,2}(?::\d{2})?\s*[ap]\.?m\b.*$/i;
+const TIME_CLAUSE_RE = / at \d{1,2}(?::\d{2})? ?[ap]\.?m\b/i;
+function stripTimeClause(location: string): string {
+  const match = TIME_CLAUSE_RE.exec(location);
+  return match ? location.slice(0, match.index) : location;
+}
 
 /**
  * #3124 ABQ: LOCATION "Montgomery Park (https://maps.app.goo.gl/…)" is a venue
@@ -487,7 +491,7 @@ const LOCATION_LABEL_TOKENS = [
   String.raw`Start\s+Address`,
   String.raw`Address`,
   String.raw`Meet(?:ing)?\s*(?:spot|point|at)?`,
-  String.raw`De['’]?erections`, // #3157 BAH3 types a curly apostrophe
+  "De['’]?erections", // #3157 BAH3 types a curly apostrophe
   String.raw`Direcshits`,
   String.raw`Where\s+to\s+gather`,
 ];
@@ -840,13 +844,13 @@ export function extractLocationFromDescription(description: string): string | un
   // #3157 BAH3 wraps the venue in directions: "Get thee to <venue>, park and hash",
   // or ": Get thee to Hawkins Rd in Crownsville MD, specifically" (doubled colon,
   // sentence carried on the next line).
-  location = location
-    .replace(LEADING_COLON_RE, "")
-    .replace(GET_THEE_TO_RE, "")
-    .replace(PARK_AND_HASH_RE, "")
-    .replace(TRAILING_ADVERB_RE, "")
-    .replace(TRAILING_TIME_CLAUSE_RE, "")
-    .trim();
+  location = stripTimeClause(
+    location
+      .replace(LEADING_COLON_RE, "")
+      .replace(GET_THEE_TO_RE, "")
+      .replace(PARK_AND_HASH_RE, "")
+      .replace(TRAILING_ADVERB_RE, ""),
+  ).trim();
 
   if (location.length < 3) return undefined;
   if (location.length > LOCATION_MAX_LENGTH) return undefined;

@@ -1176,12 +1176,12 @@ export const SOURCES = [
         // a "Location\n<value>" heading (the #340 form). #2941: newer posts put an
         // emoji before the label ("🐇 HARES:", "📍 WHERE:"), so allow a short
         // non-word prefix.
-        harePatterns: ["(?:^|\\n)[^\\n\\w]{0,8}Hares?\\s*[:~]\\s*([^\\n]+)"],
+        harePatterns: [String.raw`(?:^|\n)[^\n\w]{0,8}Hares?\s*[:~]\s*([^\n]+)`],
         locationPatterns: [
-          "(?:^|\\n)[^\\n\\w]{0,8}Where:\\s*([^\\n]+)",
-          "(?:^|\\n)[^\\n\\w]{0,8}Start:\\s*([^\\n]+)",
-          "(?:^|\\n)[^\\n\\w]{0,8}Location:\\s*([^\\n]+)",
-          "(?:^|\\n)\\s*Location\\s*\\n\\s*([^\\n]+)",
+          String.raw`(?:^|\n)[^\n\w]{0,8}Where:\s*([^\n]+)`,
+          String.raw`(?:^|\n)[^\n\w]{0,8}Start:\s*([^\n]+)`,
+          String.raw`(?:^|\n)[^\n\w]{0,8}Location:\s*([^\n]+)`,
+          String.raw`(?:^|\n)\s*Location\s*\n\s*([^\n]+)`,
         ],
         cleanDescriptionLocation: true,
         // #2175: a `#TBD` placeholder run with a junk 03:02 DTSTART trips the
