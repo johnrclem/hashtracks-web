@@ -20,7 +20,8 @@
 --    - startTime 00:00 -> NULL (2; HC's "no time set"), dateUtc back to the date.
 -- 2. Hand corrections, each guarded by the value it replaces: DA2B fields entered in the
 --    wrong HC slot (#2945), Manchester's 22 Aug title and 10 -> 11 Oct date (#3012, the
---    kennel's own Past R*ns page), Barbados anniversary titles (#3021).
+--    kennel's own Past R*ns page), Barbados anniversary titles (#3021), and the per-run
+--    hashruns.org link on the three uncounted runs that carry one (#3116).
 -- 3. Divahhh's schedule header (#2959): day and time vary, so clear the Saturday 3 PM.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
@@ -3380,6 +3381,23 @@ WHERE id = 'cmwe9txg4005h07jx2gy2te5y' AND "title" = '2358';
 
 UPDATE "Event" SET "title" = 'BH3 41st Anniversary Beach Lime', "updatedAt" = NOW() AT TIME ZONE 'UTC'
 WHERE id = 'cmwe9txex005e07jx9a74d8p4' AND "title" = '2360';
+
+-- #3116: an uncounted run's per-run link opens the counted run that owns its number
+-- (hashruns.org/YH3/2195 is August's #2195). Merge keeps the first source's link, so the
+-- adapter fix never clears a stored one. These are every HC-fed event with such a link:
+-- Poznan's 20 Nov party and the two uncounted runs still in HC's future feed. Keyed by
+-- link and date, so a copy created since the 2026-11-24 snapshot is caught too; the
+-- upcoming two lose the borrowed number now instead of at their next scrape.
+UPDATE "Event" e SET
+  "sourceUrl" = NULL,
+  "runNumber" = CASE WHEN e."runNumber" = v.run THEN NULL ELSE e."runNumber" END,
+  "updatedAt" = NOW() AT TIME ZONE 'UTC'
+FROM (VALUES
+  ('https://www.hashruns.org/PH3-PL/16', TIMESTAMP '2026-11-20 12:00:00', 16),
+  ('https://www.hashruns.org/PH3-PL/18', TIMESTAMP '2026-12-18 12:00:00', 18),
+  ('https://www.hashruns.org/YH3/2195', TIMESTAMP '2027-01-29 12:00:00', 2195)
+) AS v(url, day, run)
+WHERE e."sourceUrl" = v.url AND e."date" = v.day;
 
 -- #2959 Divahhh: Saturday 3 PM came from a single run; the kennel's own notes say day and time vary.
 UPDATE "Kennel" SET "scheduleDayOfWeek" = NULL, "scheduleTime" = NULL, "updatedAt" = NOW() AT TIME ZONE 'UTC'

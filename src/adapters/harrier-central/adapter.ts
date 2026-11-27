@@ -818,7 +818,7 @@ export function buildHashrunsPermalink(
 ): string | undefined {
   const n = countedEventNumber(event);
   if (config.suppressRunNumber || !event.kennelUniqueShortName || !(n > 0)) return undefined;
-  return `https://www.hashruns.org/${encodeURIComponent(event.kennelUniqueShortName)}/${event.eventNumber}`;
+  return `https://www.hashruns.org/${encodeURIComponent(event.kennelUniqueShortName)}/${n}`;
 }
 
 /**
