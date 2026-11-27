@@ -39,6 +39,9 @@ review page, the issue comment and closing the issue, which the owner approves i
 Rows marked **n/a** in the issue have no server source yet. Fill them in where you can and say how:
 
 - **O2 human visitors per week:** PostHog, with WS8's bot filter (`docs/growth/2026-11-diagnostic.md`).
+  Also drop internal traffic: `AND coalesce(properties.internal_user, false) != true` in SQL, or the
+  event filter `internal_user` *is not set* in an insight. Admins and any browser opened once with
+  `?internal=1` carry that property (PR #3144); the count is only clean for weeks after it shipped.
 - **O3 reopened within 30 days:** `gh issue list --label lane:defect --state all --search "reopened"`
   is not reliable; read the timeline of last month's closes (`gh api repos/johnrclem/hashtracks-web/issues/<n>/timeline`).
 - **O7 dark-kennel dispositions and moves to live:** WS5's `docs/ops/dark-kennels-2026-11.md`.

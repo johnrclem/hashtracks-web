@@ -337,7 +337,7 @@ export async function sentryMeasures(fetchImpl: typeof fetch = fetch): Promise<V
 export { errText };
 
 export const MANUAL_MEASURES: Values = {
-  o2_human_visitors_week: na("needs WS8's bot filter and a PostHog personal API key (A8)"),
+  o2_human_visitors_week: na("needs WS8's bot filter, the internal_user filter and a PostHog personal API key (A8)"),
   o3_reopened_share: na("needs per-issue timeline reads; the review counts reopened closes"),
   o7_dark_dispositions: na("counted from WS5's docs/ops/dark-kennels-2026-11.md once it exists"),
   o7_dark_to_live: na("counted from WS5's dark-kennel list once it exists"),
