@@ -33,6 +33,7 @@ import {
   globalRunToHcEvent,
   hcEventToRawEvent,
   indexGlobalRuns,
+  normalizeGlobalRun,
   type HCGlobalRun,
   type HarrierCentralConfig,
 } from "@/adapters/harrier-central/adapter";
@@ -58,7 +59,7 @@ async function fetchYear(year: number): Promise<HCGlobalRun[]> {
   if (json.totalMatchingEvents != null && json.totalMatchingEvents > json.runs.length) {
     throw new Error(`global-runs ${year}: page truncated (${json.runs.length}/${json.totalMatchingEvents})`);
   }
-  return json.runs;
+  return json.runs.map(normalizeGlobalRun);
 }
 
 /** Same 06:00–21:59 sanity gate the frozen per-kennel archives applied. */

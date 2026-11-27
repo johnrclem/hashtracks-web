@@ -77,7 +77,50 @@ async function fetchGlobalFutureRuns(): Promise<HCGlobalRun[]> {
   if (!Array.isArray(rows)) {
     throw new Error("Unexpected hashruns.org global-runs response shape");
   }
-  return rows;
+  return rows.map(normalizeGlobalRun);
+}
+
+const UTF8 = new TextDecoder();
+const LATIN1_RUN_RE = /[\u0080-ÿ]+/g;
+
+/**
+ * hashruns.org serves some text UTF-8-encoded twice: "Mannheimer StraÃe" for
+ * "Straße", "ä¸­å±±è·¯" for 中山路. Re-decode each run of Latin-1-range
+ * characters as UTF-8; a run that isn't valid UTF-8 (a real "é" or "£") is kept.
+ */
+export function repairMojibake(text: string): string {
+  return text.replace(LATIN1_RUN_RE, (run) => {
+    const decoded = UTF8.decode(Uint8Array.from(run, (c) => c.charCodeAt(0)));
+    return decoded.includes("�") ? run : decoded;
+  });
+}
+
+const GLOBAL_RUN_TEXT_FIELDS = [
+  "EventName",
+  "EventDescription",
+  "Hares",
+  "LocationOneLineDesc",
+  "LocationStreet",
+  "LocationCity",
+  "LocationPostCode",
+  "LocationCountry",
+] as const;
+
+/**
+ * A global-runs row with its text repaired, and without a street that is really
+ * a contact note ("Contact …@gmail.com for exact address", "Call to join +971…").
+ */
+export function normalizeGlobalRun(r: HCGlobalRun): HCGlobalRun {
+  const out: HCGlobalRun = { ...r };
+  for (const field of GLOBAL_RUN_TEXT_FIELDS) {
+    const value = out[field];
+    if (typeof value === "string") out[field] = repairMojibake(value);
+  }
+  const street = out.LocationStreet;
+  if (street && (/\b(?:contact|call)\b/i.test(street) || scrubDescriptionPii(street) !== street)) {
+    out.LocationStreet = undefined;
+  }
+  return out;
 }
 
 /**
@@ -122,6 +165,14 @@ export function formatHcPrice(run: HCGlobalRun): string | undefined {
   const glueBefore = /[a-z]$/i.test(before) ? " " : "";
   const glueAfter = /^[a-z]/i.test(after) ? " " : "";
   return `${before}${glueBefore}${number}${glueAfter}${after}`.trim();
+}
+
+// "No fees." in a run's own note beats the kennel's standing price.
+const NO_FEE_RE = /\bno (?:fees?|hash ?cash)\b/i;
+
+/** The run's cost: its formatted member price, unless its note says there is no fee. */
+export function hcRunCost(run: HCGlobalRun): string | undefined {
+  return NO_FEE_RE.test(run.EventDescription ?? "") ? undefined : formatHcPrice(run);
 }
 
 function stripTrailingCommas(value: string): string {
@@ -198,13 +249,75 @@ export function globalRunMatchesSource(r: HCGlobalRun, config: HarrierCentralCon
  * international (E.164, e.g. "+44 7700 900123"), Korean domestic mobile
  * (e.g. "010-2354-1741"), and email — where the earlier NA-only pattern here
  * would have missed the international and Korean shapes.
+ *
+ * HC notes also carry numbers those shapes miss: national numbers with a
+ * trunk 0 ("0630 686 059", "0919-991-406", "07484 150815"), numbers written
+ * after a contact or payment word ("What's app 966 654 936", "Bangkok Bank,
+ * 003-7102-100") and IBANs. Those are redacted here too.
  */
 export function scrubDescriptionPii(text: string): string {
   let result = text;
   for (const re of HARE_PII_RES) {
     result = result.replace(re, "[redacted]");
   }
-  return result;
+  return outsideUrls(result, (text) =>
+    redactContactNumbers(
+      text
+        .replace(IBAN_RE, "[redacted]")
+        .replace(TRUNK_PHONE_RE, (m) => (m.startsWith("0.") || digitCount(m) < 9 ? m : "[redacted]")),
+    ),
+  );
+}
+
+// Links keep their digits (map place ids, event ids).
+const URL_RE = /https?:\/\/\S+/g;
+// "BE67 3631 4948 1787"
+const IBAN_RE = /\b[A-Z]{2}\d{2}(?: ?[A-Z\d]{4}){2,7}(?: ?[A-Z\d]{1,3})?\b/g;
+// A national number with a trunk 0; 9+ digits, so a date like "01.05.2026" is kept.
+const TRUNK_PHONE_RE = /(?<![\w.])0\d{1,4}(?:[ .-]?\d{2,4}){2,4}(?!\d)/g;
+
+/** Apply `fn` to the text between links, leaving the links as they are. */
+function outsideUrls(text: string, fn: (part: string) => string): string {
+  let out = "";
+  let last = 0;
+  for (const url of text.matchAll(URL_RE)) {
+    out += fn(text.slice(last, url.index)) + url[0];
+    last = url.index + url[0].length;
+  }
+  return out + fn(text.slice(last));
+}
+// Words that introduce a contact or payment number; "What's app" splits into "app".
+const CONTACT_WORDS = new Set([
+  "whatsapp", "app", "phone", "tel", "mobile", "cell", "call", "text", "sms", "ring",
+  "contact", "bank", "account", "acct",
+]);
+const WORD_RE = /[a-z]+/gi;
+const CONTACT_NUMBER_RE = /\+?\d[\d ().-]{5,}\d/;
+// How far after the word the number may start.
+const CONTACT_WINDOW = 40;
+
+function digitCount(value: string): number {
+  return value.replace(/\D/g, "").length;
+}
+
+/** 7+ digits, and not a decimal coordinate ("47.4912883") or an ISO date. */
+function isContactNumber(value: string): boolean {
+  return digitCount(value) >= 7 && !/\d\.\d{4}/.test(value) && !/^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function redactContactNumbers(text: string): string {
+  let out = "";
+  let last = 0;
+  for (const word of text.matchAll(WORD_RE)) {
+    const from = word.index + word[0].length;
+    if (from < last || !CONTACT_WORDS.has(word[0].toLowerCase())) continue;
+    const number = CONTACT_NUMBER_RE.exec(text.slice(from, from + CONTACT_WINDOW + 30));
+    if (!number || number.index > CONTACT_WINDOW || !isContactNumber(number[0])) continue;
+    const start = from + number.index;
+    out += `${text.slice(last, start)}[redacted]`;
+    last = start + number[0].length;
+  }
+  return out + text.slice(last);
 }
 
 /** Length cap mirrors the GCal adapter's normalizeGCalDescription convention. */
@@ -545,7 +658,7 @@ export function hcEventToRawEvent(
   // a blank or placeholder note → null (clear); else the scrubbed note.
   const description = globalRun ? hcDescription(globalRun.EventDescription) : undefined;
 
-  let title = applyTitleFallback(hcEvent.eventName, runNumberSource, config);
+  let title = applyTitleFallback(hcEvent.eventName, runNumberSource, config, hcEvent.eventNumber);
   // #2409 Tokyo #2583: the source stored the hare's hash name ("Back Door
   // Hoe") as BOTH the title and the hares field; #2591 stored the
   // neighborhood ("Azabujuban") as both title and venue. A title that
@@ -568,7 +681,7 @@ export function hcEventToRawEvent(
     title,
     description,
     // #2944/#3060: the per-run member price (undefined = preserve).
-    cost: globalRun ? formatHcPrice(globalRun) : undefined,
+    cost: globalRun ? hcRunCost(globalRun) : undefined,
     sourceUrl,
     // Socials / "drinking practices" come back as eventNumber=0 (and uncounted
     // runs are mapped to 0 above). Map that sentinel to null (explicit clear)
@@ -613,13 +726,18 @@ export function parseHcStartTime(
 
 // Notes that only say a note is missing ("TBC", "??", BLHHH's literal "Description").
 const PLACEHOLDER_DESCRIPTIONS = new Set(["tbc", "tbd", "tba", "?", "??", "???", "n/a", "description"]);
+// hashruns.org's past archive swaps older notes for this notice.
+const ARCHIVE_NOTICE_RE = /^<?event descriptions are not available/i;
 
 /**
  * Scrubbed, capped description; null when the source row's note is blank or a
- * placeholder (an explicit clear, see the tri-state in `hcEventToRawEvent`).
+ * placeholder (an explicit clear, see the tri-state in `hcEventToRawEvent`);
+ * undefined (preserve) for the archive's "not available" notice, which says
+ * nothing about the run.
  */
-export function hcDescription(text: string | undefined): string | null {
+export function hcDescription(text: string | undefined): string | null | undefined {
   const trimmed = text?.trim();
+  if (trimmed && ARCHIVE_NOTICE_RE.test(trimmed)) return undefined;
   if (!trimmed || PLACEHOLDER_DESCRIPTIONS.has(trimmed.toLowerCase().replace(/[.!]+$/, ""))) return null;
   return scrubDescriptionPii(trimmed).trim().substring(0, DESCRIPTION_MAX_LENGTH) || null;
 }
@@ -899,10 +1017,16 @@ function staleTitleFallback(
   return undefined;
 }
 
+/**
+ * `eventNumber` builds the "<defaultTitle> #N" fallback (0 for an uncounted run,
+ * so no number); `listedNumber` is the number HC shows on the run, even an
+ * uncounted one, so a title that only repeats it ("#2195") still counts as stale.
+ */
 export function applyTitleFallback(
   eventName: string | undefined,
   eventNumber: number | undefined | null,
   config: HarrierCentralConfig,
+  listedNumber: number | undefined | null = eventNumber,
 ): string | undefined {
   // #2946: HC names can hold line breaks and doubled spaces ("Another Mystery
   // Tour from\nDevon A2BH3"); a title is one line.
@@ -928,7 +1052,7 @@ export function applyTitleFallback(
   const bareNumber =
     !!trimmed &&
     BARE_RUN_NUMBER_RE.test(trimmed) &&
-    (!!config.titleStripPatterns?.length || Number(trimmed.replace("#", "")) === eventNumber);
+    (!!config.titleStripPatterns?.length || Number(trimmed.replace("#", "")) === listedNumber);
   const isStale =
     !trimmed ||
     bareNumber ||

@@ -9,7 +9,10 @@ import {
   splitUrlOnlyLocation,
   formatHcPrice,
   hcDescription,
+  hcRunCost,
+  normalizeGlobalRun,
   parseHcStartTime,
+  repairMojibake,
 } from "./adapter";
 import type { HCEvent, HCGlobalRun, HarrierCentralConfig } from "./adapter";
 import { SOURCES } from "../../../prisma/seed-data/sources";
@@ -614,6 +617,75 @@ describe("hcDescription", () => {
     expect(hcDescription("  Meet at Exeter Park and Change.  ")).toBe("Meet at Exeter Park and Change.");
     expect(hcDescription("Hare-line 808-225-5465")).toBe("Hare-line [redacted]");
     expect(hcDescription("Wednesday Hash")).toBe("Wednesday Hash");
+  });
+
+  it("returns undefined (preserve) for the past archive's 'not available' notice", () => {
+    expect(
+      hcDescription(
+        "<Event descriptions are not available for runs older than 30 days. Please check www.hashruns.org for event descriptions on past runs.>",
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe("scrubDescriptionPii: numbers HARE_PII_RES misses (#3164 review)", () => {
+  it.each([
+    ["Hares: Playtex  0630 686 059 and Rubber Rocky", "Hares: Playtex  [redacted] and Rubber Rocky"],
+    ["HARE電話：0937-821-178", "HARE電話：[redacted]"],
+    ["text 07591894104, or by private message", "text [redacted], or by private message"],
+    ["If lost call Do Me Moore: 06 15 08 77 10.", "If lost call Do Me Moore: [redacted]."],
+    ["What’s app 966654936", "What’s app [redacted]"],
+    ["Contact Standing Hash-Beer at 078677112", "Contact Standing Hash-Beer at [redacted]"],
+    ["payments to Peter clarke, Bangkok Bank , 003-7102-100", "payments to Peter clarke, Bangkok Bank , [redacted]"],
+    ["Sort code: 80-11-05  Account No.: 00163120", "Sort code: 80-11-05  Account No.: [redacted]"],
+    ["BMPH3 Account: BE67 3631 4948 1787", "BMPH3 Account: [redacted]"],
+  ])("redacts %j", (input, expected) => {
+    expect(scrubDescriptionPii(input)).toBe(expected);
+  });
+
+  it.each([
+    "Google Coordinates:  37.12732629325406, -7.925873114086344",
+    "phone (GPS: 47.49128833497653, -121.77663016209426)",
+    "Map: https://www.google.com/maps/place/x/data=!4m5!3m4!1s0x80dc072904265981:0xcf7b2a3",
+    "call 2026-01-25 for the AGM",
+    "Run #2195 on 01.05.2026, 51.5, -0.12765432",
+  ])("keeps %j", (input) => {
+    expect(scrubDescriptionPii(input)).toBe(input);
+  });
+});
+
+describe("repairMojibake / normalizeGlobalRun (#3164 review)", () => {
+  it("re-decodes doubly encoded UTF-8", () => {
+    expect(repairMojibake("Mannheimer StraÃ\u009fe 16A")).toBe("Mannheimer Straße 16A");
+    expect(repairMojibake("ä¸\u00adå±±è·¯ 28-3è\u0099\u009f")).toBe("中山路 28-3號");
+    expect(repairMojibake("16/165, à¸\u008bà¸­à¸¢ 1")).toBe("16/165, ซอย 1");
+  });
+
+  it("keeps real Latin-1 text and text that is already right", () => {
+    for (const text of ["Café £5", "Straße", "中山路 🍺", "Praça"]) expect(repairMojibake(text)).toBe(text);
+  });
+
+  it("repairs a row's text and drops a street that is a contact note", () => {
+    const row = normalizeGlobalRun({
+      PublicEventId: "x",
+      LocationStreet: "WaldstraÃ\u009fe 2A",
+      EventDescription: "Treffpunkt WaldstraÃ\u009fe",
+    });
+    expect(row).toMatchObject({ LocationStreet: "Waldstraße 2A", EventDescription: "Treffpunkt Waldstraße" });
+    for (const street of ["Contact Richardw31000@gmail.com for exact address", "Call to join +971585197447"]) {
+      expect(normalizeGlobalRun({ PublicEventId: "x", LocationStreet: street }).LocationStreet).toBeUndefined();
+    }
+    expect(normalizeGlobalRun({ PublicEventId: "x", LocationStreet: "5152 Fredericksburg Rd @ Callaghan" }).LocationStreet)
+      .toBe("5152 Fredericksburg Rd @ Callaghan");
+  });
+});
+
+describe("hcRunCost", () => {
+  it("skips the price when the run's own note says there is no fee", () => {
+    const run = { PublicEventId: "x", EventPriceForMembers: 1.5, CurrencySymbol: "£^", DigitsAfterDecimal: 2 };
+    expect(hcRunCost(run)).toBe("£1.50");
+    expect(hcRunCost({ ...run, EventDescription: "Blow the cobwebs out. No fees. On down at The Stannary Spoons." }))
+      .toBeUndefined();
   });
 });
 
@@ -1448,6 +1520,15 @@ describe("HarrierCentralAdapter", () => {
         expect(result.events[0].location).toBe("Isolation Road Saint Andrew");
       });
 
+      it("repairs a doubly encoded street from the feed", async () => {
+        mockApiResponse([
+          buildHCEvent({ publicEventId: "evt-1", locationOneLineDesc: "Sportplatz", resolvableLocation: "49.4, 7.6" }),
+        ]);
+        mockGlobalRow({ LocationStreet: "TalstraÃ\u009fe 17", LocationCity: "Kaiserslautern" });
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "krashh3" }));
+        expect(result.events[0].location).toBe("Sportplatz, Talstraße 17, Kaiserslautern");
+      });
+
       it("keeps getEvents' own address when it has one", async () => {
         mockApiResponse([
           buildHCEvent({
@@ -1480,6 +1561,12 @@ describe("HarrierCentralAdapter", () => {
         expect(result.events[0]).toMatchObject({ runNumber: null, title: "Yorkshire H3 AGPU weekend", sourceUrl: undefined });
         // No "Yorkshire H3 #2196": merge synthesizes an unnumbered default instead.
         expect(result.events[1]).toMatchObject({ runNumber: null, title: undefined });
+      });
+
+      it("treats a title that only repeats an uncounted run's number as stale", async () => {
+        mockApiResponse([buildHCEvent({ eventNumber: 2195, isCountedRun: 0, eventName: "#2195" })]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "yh3", defaultTitle: "Yorkshire H3" }));
+        expect(result.events[0]).toMatchObject({ runNumber: null, title: undefined });
       });
 
       it("keeps the number of a counted run", async () => {
