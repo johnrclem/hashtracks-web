@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { canonicalAlternates } from "@/lib/site-url";
 import { Suspense } from "react";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import Link from "next/link";
-import { regionAbbrev, regionNameToSlug } from "@/lib/region";
+import { regionAbbrev, regionNameToSlug, regionPath } from "@/lib/region";
 import { buildNextEventMap, serializeKennelWithNext, upcomingConfirmedEventWhere } from "@/lib/kennel-directory";
 import { KENNEL_EVIDENCE_SELECT } from "@/lib/kennel-status";
 import { SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
@@ -20,17 +21,20 @@ export async function generateMetadata({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }): Promise<Metadata> {
   const params = await searchParams;
+  // Filtered views (?regions=…) are facets of the hub: all canonicalize to it.
   const regions = typeof params.regions === "string" ? params.regions.split("|") : [];
   if (regions.length === 1) {
     const abbrev = regionAbbrev(regions[0]);
     return {
       title: `${abbrev} Kennels | HashTracks`,
       description: `Hash house harrier kennels in the ${abbrev} area.`,
+      alternates: canonicalAlternates("/kennels"),
     };
   }
   return {
     title: "Kennel Directory | HashTracks",
     description: "Browse hash house harrier kennels across all regions on HashTracks. Find runs near you.",
+    alternates: canonicalAlternates("/kennels"),
   };
 }
 
@@ -148,7 +152,7 @@ export default async function KennelsPage() {
               return (
                 <Link
                   key={region}
-                  href={`/kennels/region/${slug}`}
+                  href={regionPath(slug)}
                   className="rounded-md border px-3 py-1 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors"
                 >
                   {region}

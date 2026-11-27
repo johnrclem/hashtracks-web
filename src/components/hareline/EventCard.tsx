@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { MapPin, Clock, Footprints, Tent, ChevronDown, Banknote } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -335,6 +334,15 @@ const LG_BREAKPOINT = 1024;
 const RSVP_INTENDING_COLOR = "#3b82f6"; // blue-500
 const RSVP_CONFIRMED_COLOR = "#16a34a"; // green-600
 
+/**
+ * The card's title link stretches over the whole card: its ::after sits at
+ * z-index 1, above plain content such as the date, time and badges, so a
+ * click there opens the event. Other links, buttons and tooltip triggers are
+ * lifted to z-10, above that overlay, so they stay clickable and hoverable.
+ */
+const RAISE_CARD_CONTROLS =
+  "[&_a:not([data-card-link])]:relative [&_a:not([data-card-link])]:z-10 [&_button]:relative [&_button]:z-10 [&_[data-slot=tooltip-trigger]]:relative [&_[data-slot=tooltip-trigger]]:z-10";
+
 interface EventCardProps {
   readonly event: HarelineEvent;
   readonly density: "medium" | "compact";
@@ -346,7 +354,6 @@ interface EventCardProps {
 }
 
 export function EventCard({ event, density, onSelect, isSelected, attendance, hideDate, weather }: EventCardProps) {
-  const router = useRouter();
   const { preference } = useTimePreference();
   const { tempUnit } = useUnitsPreference();
 
@@ -380,23 +387,28 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
 
   const { displayTimeStr, endTimeStr, tzAbbrev } = computeDisplayTime(event, displayTz);
 
-  function handleClick() {
-    // On desktop (lg+), select the event for the detail panel
-    if (onSelect && typeof window !== "undefined" && window.innerWidth >= LG_BREAKPOINT) {
+  // The title is the card's real link, stretched over the whole card (its
+  // ::after covers it), so a click anywhere follows it, crawlers see a plain
+  // href and keyboard users tab to it. On desktop (lg+) it opens the detail
+  // panel instead of navigating.
+  function handleEventLinkClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (onSelect && window.innerWidth >= LG_BREAKPOINT) {
+      e.preventDefault();
       onSelect(event);
-      return;
     }
-    // On mobile (<lg), navigate to the detail page
-    router.push(`/hareline/${event.id}`);
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.target !== e.currentTarget) return;
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      handleClick();
-    }
-  }
+  const titleLink = (className: string, children: React.ReactNode) => (
+    <Link
+      href={`/hareline/${event.id}`}
+      onClick={handleEventLinkClick}
+      aria-label={buildAriaLabel(event, attendance)}
+      data-card-link=""
+      className={`rounded-sm hover:underline after:absolute after:inset-0 after:z-[1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}
+    >
+      {children}
+    </Link>
+  );
 
   const regionColor = event.kennel?.region ? getRegionColor(event.kennel.region) : "#6b7280";
 
@@ -412,27 +424,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   // ── Compact density ──
   if (density === "compact") {
     return (
-      <>
-        {/* Crawlable link to the event's own detail page, rendered as a
-            display:none sibling of the interactive card (NOT a child of the
-            role="button" wrapper — nesting an <a> in a button is invalid HTML,
-            and it must not bubble into handleClick). The card itself is a
-            synthetic button (click opens the desktop panel or navigates on
-            mobile — see handleClick above); this real anchor is purely how
-            Googlebot discovers /hareline/{id} without executing JS. `hidden`
-            (display:none) keeps it out of the tab order and a11y tree while
-            the href stays in the SSR HTML for crawlers to follow. */}
-        <Link href={`/hareline/${event.id}`} className="hidden">
-          {buildAriaLabel(event, attendance)}
-        </Link>
-        <div
-          role="button"
-          tabIndex={0}
-          className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
-          onClick={handleClick}
-          onKeyDown={handleKeyDown}
-          aria-label={buildAriaLabel(event, attendance)}
-        >
+        <div className={`rounded-lg ${RAISE_CARD_CONTROLS}`}>
         <div
           className={`group relative flex items-center gap-3 rounded-lg border px-3 py-2 text-sm transition-all duration-200 hover:shadow-md active:scale-[0.995] ${
             isSelected
@@ -508,12 +500,13 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
           </span>
 
           {/* Flexible text — absorbs remaining space */}
-          <span className={`relative truncate text-muted-foreground ${isCancelled ? "line-through" : ""}`}>
-            {(() => {
+          {titleLink(
+            `truncate text-muted-foreground ${isCancelled ? "line-through" : ""}`,
+            (() => {
               const { title, isFallback } = getDisplayTitle({ ...event, kennel: event.kennel ?? { shortName: "", fullName: "" } });
               return isFallback ? (event.haresText || title) : title;
-            })()}
-          </span>
+            })(),
+          )}
 
           {/* Right cluster */}
           <div className="relative ml-auto flex items-center gap-2 shrink-0">
@@ -564,7 +557,6 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
           </div>
         </div>
         </div>
-      </>
     );
   }
 
@@ -574,22 +566,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
   const { title: displayTitle } = getDisplayTitle({ ...event, kennel: event.kennel ?? { shortName: "", fullName: "" } });
 
   return (
-    <>
-      {/* Crawlable link — see the identical comment in the compact-density
-          branch above. Sibling of the card, `hidden` (display:none), so it's
-          valid HTML (no <a> nested in a role="button"), stays out of the tab
-          order + a11y tree, and can't bubble into handleClick. */}
-      <Link href={`/hareline/${event.id}`} className="hidden">
-        {buildAriaLabel(event, attendance)}
-      </Link>
-      <div
-        role="button"
-        tabIndex={0}
-        className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl"
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
-        aria-label={buildAriaLabel(event, attendance)}
-      >
+      <div className={`rounded-xl ${RAISE_CARD_CONTROLS}`}>
       <div
         className={`group relative overflow-hidden rounded-xl border transition-all duration-250 ease-out ${
           isSelected
@@ -764,7 +741,7 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
             }`}
             title={displayTitle}
           >
-            {displayTitle}
+            {titleLink("", displayTitle)}
           </p>
 
           {/* Row 3: Metadata strip — location, hares, weather */}
@@ -935,7 +912,6 @@ export function EventCard({ event, density, onSelect, isSelected, attendance, hi
         </div>
       </div>
       </div>
-    </>
   );
 }
 

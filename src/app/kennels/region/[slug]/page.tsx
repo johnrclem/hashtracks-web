@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/db";
-import { regionBySlug } from "@/lib/region";
+import { regionFromParam, regionPath } from "@/lib/region";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
 import { buildNextEventMap, serializeKennelWithNext } from "@/lib/kennel-directory";
 import { runningKennelWhere, KENNEL_EVIDENCE_SELECT } from "@/lib/kennel-status";
@@ -22,7 +22,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const region = regionBySlug(slug);
+  const region = regionFromParam(slug);
   if (!region) return { title: "Region · HashTracks" };
 
   const baseUrl = getCanonicalSiteUrl();
@@ -48,7 +48,7 @@ export async function generateMetadata({
   const intro = generateRegionIntro(region.name, activeCount, days);
 
   const title = `Hash House Harriers in ${region.name} | HashTracks`;
-  const canonicalUrl = `${baseUrl}/kennels/region/${slug}`;
+  const canonicalUrl = `${baseUrl}${regionPath(region.slug)}`;
 
   return {
     title,
@@ -70,7 +70,7 @@ export default async function RegionPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const region = regionBySlug(slug);
+  const region = regionFromParam(slug);
   if (!region) notFound();
 
   const baseUrl = getCanonicalSiteUrl();
@@ -150,7 +150,7 @@ export default async function RegionPage({
   );
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "Kennels", url: `${baseUrl}/kennels` },
-    { name: region.name, url: `${baseUrl}/kennels/region/${slug}` },
+    { name: region.name, url: `${baseUrl}${regionPath(region.slug)}` },
   ]);
 
   return (

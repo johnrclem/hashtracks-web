@@ -84,6 +84,9 @@ export async function generateMetadata({
     description,
     alternates: { canonical: `${baseUrl}/hareline/${eventId}` },
     openGraph: { title, description, url: `${baseUrl}/hareline/${eventId}` },
+    // A schedule-only run is a projection, not evidence a run is posted:
+    // keep it out of the index (it is also left out of the sitemap).
+    ...(event.isScheduleOnly && { robots: { index: false, follow: true } }),
   };
 }
 
@@ -458,6 +461,9 @@ export default async function EventDetailPage({
               aria-hidden="true"
             />
           )}
+          {/* Spaces as text nodes so the heading reads "NYCH3 · date", not "NYCH3·date". */}
+          <span>{event.kennel.shortName}</span>{" "}
+          <span aria-hidden="true">·</span>{" "}
           <span suppressHydrationWarning>{headerDateStr}</span>
         </h1>
 

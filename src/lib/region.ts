@@ -4566,6 +4566,26 @@ export function regionBySlug(slug: string): RegionLookup | null {
   return REGION_SLUG_MAP.get(slug) ?? null;
 }
 
+/**
+ * Look up a region from a route param. Some slugs are non-ASCII ("zürich"),
+ * and the param can arrive still percent-encoded ("z%C3%BCrich"), so try the
+ * decoded form when the raw one misses.
+ */
+export function regionFromParam(param: string): RegionLookup | null {
+  const direct = regionBySlug(param);
+  if (direct) return direct;
+  try {
+    return regionBySlug(decodeURIComponent(param));
+  } catch {
+    return null; // malformed escape sequence
+  }
+}
+
+/** Site-relative region page path, percent-encoding non-ASCII slugs. */
+export function regionPath(slug: string): string {
+  return `/kennels/region/${encodeURIComponent(slug)}`;
+}
+
 /** Convert a region name (or alias) to its canonical slug. Returns null for unknown names. */
 export function regionNameToSlug(name: string): string | null {
   return REGION_NAME_TO_SLUG.get(name) ?? null;

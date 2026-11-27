@@ -15,3 +15,8 @@ export function getCanonicalSiteUrl(): string {
     return DEFAULT_SITE_URL;
   }
 }
+
+/** Metadata `alternates` pointing at a hub's canonical URL (filtered views share it). */
+export function canonicalAlternates(path: string): { canonical: string } {
+  return { canonical: `${getCanonicalSiteUrl()}${path}` };
+}
