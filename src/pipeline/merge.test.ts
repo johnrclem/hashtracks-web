@@ -1744,7 +1744,7 @@ describe("double-header support", () => {
 
     expect(result.restored).toBe(1);
     expect(mockEventUpdate).toHaveBeenCalledWith({
-      where: { id: "evt_cancelled" },
+      where: { id: "evt_cancelled", adminCancelledAt: null },
       data: { status: "CONFIRMED" },
     });
   });
@@ -2603,6 +2603,51 @@ describe("dateUtc follows the start time the event keeps (noon-reset bug, 2026-1
     expect(result.restored).toBe(1);
     expect(mockEventUpdate).toHaveBeenCalledTimes(1);
     expect(prisma.event.findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads a duplicate's Event fresh when the batch snapshot has no row for it", async () => {
+    mockFingerprint.mockReturnValueOnce("fp_a");
+    vi.mocked(prisma.rawEvent.findMany).mockResolvedValueOnce([
+      { id: "raw_a", fingerprint: "fp_a", processed: true, eventId: "evt_missing" },
+    ] as never);
+    mockEventFindMany.mockResolvedValue([] as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValueOnce({
+      id: "evt_missing", trustLevel: 5, date: noon("2026-04-01"), dateUtc: null, timezone: null,
+      startTime: null, status: "CONFIRMED", adminCancelledAt: null,
+    } as never);
+
+    await processRawEvents("src_1", [buildRawEvent({ date: "2026-04-01" })]);
+
+    expect(prisma.event.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "evt_missing" } }),
+    );
+  });
+
+  it("skips the restore when an admin cancelled the event after the batch snapshot", async () => {
+    // The snapshot says CANCELLED with no lock; by the time of the write an
+    // admin has locked it, so the guarded update matches nothing (P2025).
+    mockFingerprint.mockReturnValueOnce("fp_a");
+    vi.mocked(prisma.rawEvent.findMany).mockResolvedValueOnce([
+      { id: "raw_a", fingerprint: "fp_a", processed: true, eventId: "evt_1" },
+    ] as never);
+    mockEventFindMany.mockImplementation((async (args: { where?: { id?: { in?: string[] } } }) =>
+      args?.where?.id?.in
+        ? [{
+            id: "evt_1", trustLevel: 5, date: noon("2026-04-01"), dateUtc: null, timezone: null,
+            startTime: null, status: "CANCELLED", adminCancelledAt: null,
+          }]
+        : []) as never);
+    mockEventUpdate.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("No record found", { code: "P2025", clientVersion: "test" }),
+    );
+
+    const result = await processRawEvents("src_1", [buildRawEvent({ date: "2026-04-01" })]);
+
+    expect(mockEventUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "evt_1", adminCancelledAt: null } }),
+    );
+    expect(result.restored).toBe(0);
+    expect(result.eventErrors).toBe(0);
   });
 
   it("refreshExistingEvent composes from the stored startTime, not the duplicate raw's", async () => {

@@ -5,6 +5,7 @@ import type { RawEventData, MergeResult } from "@/adapters/types";
 import { parseUtcNoonDate } from "@/lib/date";
 import { regionTimezone, getLabelForUrl, stripUrlsFromText, timeToMinutes } from "@/lib/format";
 import { composeUtcStart } from "@/lib/timezone";
+import { isRecordNotFound } from "@/lib/prisma-errors";
 import { generateFingerprint } from "./fingerprint";
 import { resolveKennelTag, resolveKennelTags, clearResolverCache, describeUnmatched } from "./kennel-resolver";
 import { createGeocodeCache, extractCoordsFromMapsUrl, geocodeVenue, resolveShortMapsUrl, reverseGeocode, parseDMSFromLocation, stripDMSFromLocation, type GeocodeCache } from "@/lib/geo";
@@ -848,13 +849,20 @@ async function refreshExistingEvent(
   const shouldRefreshDateUtc = !!composedUtc && isHigherOrEqualTrust && !isAlreadyCurrent;
   if (!shouldRestore && !shouldRefreshDateUtc) return;
 
-  await prisma.event.update({
-    where: { id: existingEventId },
-    data: {
-      ...(shouldRefreshDateUtc ? { dateUtc: composedUtc, timezone } : {}),
-      ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
-    },
-  });
+  try {
+    await prisma.event.update({
+      // existingEvent may be a snapshot read at the start of the batch, so an
+      // admin may have cancelled the event since. The where re-checks the lock.
+      where: { id: existingEventId, ...(shouldRestore ? { adminCancelledAt: null } : {}) },
+      data: {
+        ...(shouldRefreshDateUtc ? { dateUtc: composedUtc, timezone } : {}),
+        ...(shouldRestore ? { status: "CONFIRMED" as const } : {}),
+      },
+    });
+  } catch (err) {
+    if (shouldRestore && isRecordNotFound(err)) return;
+    throw err;
+  }
   // A second raw for the same Event later in the batch must see this write.
   ctx.eventsWrittenInBatch.add(existingEventId);
   if (shouldRestore) ctx.result.restored++;
