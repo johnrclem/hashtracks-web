@@ -36,6 +36,7 @@ export interface ICalSourceConfig {
   descriptionStripPatterns?: string[]; // #2890 Cheltenham & Cotswold H3: regexes (case-insensitive) for DESCRIPTION lines that repeat other fields ("Hare(s): …", "Map: <url>", the event's own URL). Matching lines are dropped from the stored description; when nothing is left the description is explicitly cleared (`null`). Hares/location/cost are still read from the full DESCRIPTION.
   ignoreEndTime?: boolean;             // #2891 Cheltenham & Cotswold H3: the feed's DTEND is a generator default (always DTSTART + 2h), not a finish time. Emits an explicit `null` endTime so stored values are cleared too.
   sourceUrlOverride?: string;          // #2892 Cheltenham & Cotswold H3: the per-event URL redirects logged-out visitors to a login page; link every event to this public page instead.
+  useResidentialProxy?: boolean;       // fetch through the NAS residential proxy. hashstats.org (Dayton H3) serves Cloudflare's "Just a moment…" 403 to Vercel's datacenter IPs but the feed itself to a residential IP.
   timezone?: string;                   // IANA zone for DTSTART/DTEND values written in UTC ("…Z"). Not for floating values (no Z, no TZID): node-ical already reads those in the server's zone. hashstats.org's calendar.ics (Dayton H3) sends UTC times and no X-WR-TIMEZONE, so without this a 2 pm EST run reads 19:00. A TZID on the value still wins.
   locationOmitIfMatches?: string[];    // Cheltenham & Cotswold H3: regexes (case-insensitive) for a LOCATION that is a placeholder, not a venue ("TORCHLIT"). A match drops the location AND the VEVENT's GEO, because the publisher geocoded the placeholder text into a bogus pin. Same semantics as the GenericHtml/GCal knob of the same name.
 }
@@ -627,11 +628,13 @@ async function fetchAndValidateIcsContent(
   url: string,
   fetchStart: number,
   allowEmptyBody: boolean,
+  useResidentialProxy: boolean,
 ): Promise<{ icsText: string; contentType: string | undefined } | { error: ScrapeResult }> {
   let contentType: string | undefined;
   try {
     const resp = await safeFetch(url, {
       headers: { "User-Agent": "HashTracks-Scraper" },
+      useResidentialProxy,
     });
 
     contentType = resp.headers.get("content-type") ?? undefined;
@@ -1086,7 +1089,12 @@ export class ICalAdapter implements SourceAdapter {
       : null;
 
     // Step 1: Fetch the ICS content
-    const fetchResult = await fetchAndValidateIcsContent(source.url, fetchStart, config?.allowEmptyBody ?? false);
+    const fetchResult = await fetchAndValidateIcsContent(
+      source.url,
+      fetchStart,
+      config?.allowEmptyBody ?? false,
+      config?.useResidentialProxy ?? false,
+    );
     if ("error" in fetchResult) return fetchResult.error;
 
     const { icsText, contentType } = fetchResult;

@@ -4378,6 +4378,9 @@ export const SOURCES = [
       scrapeDays: 180,
       config: {
         defaultKennelTag: "dh3-oh",
+        // hashstats.org answers Vercel's datacenter IPs with Cloudflare's
+        // "Just a moment…" 403; a residential IP gets the feed.
+        useResidentialProxy: true,
         timezone: "America/New_York",
         titleStripPrefixAliases: ["Dayton H3"],
         harePatterns: ["^Hares?:\\s*(.+)$"],

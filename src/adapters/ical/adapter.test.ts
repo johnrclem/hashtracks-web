@@ -1010,6 +1010,28 @@ END:VCALENDAR`;
     expect(result.diagnosticContext!.totalVEvents).toBe(0);
   });
 
+  it("fetches through the residential proxy when useResidentialProxy is set (Dayton H3 hashstats.org)", async () => {
+    vi.stubEnv("RESIDENTIAL_PROXY_URL", "https://proxy.test");
+    vi.stubEnv("RESIDENTIAL_PROXY_KEY", "k");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(SAMPLE_ICS, { status: 200, headers: { "Content-Type": "text/calendar" } }),
+    );
+    try {
+      const source = buildMockSource({
+        config: { defaultKennelTag: "sfh3", useResidentialProxy: true },
+      });
+      const result = await adapter.fetch(source, { days: 3650 });
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.events.length).toBeGreaterThan(0);
+      const [calledUrl, init] = fetchSpy.mock.calls[0];
+      expect(calledUrl).toBe("https://proxy.test/proxy");
+      expect(JSON.parse(String(init?.body)).url).toBe(source.url);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("still rejects an empty body when allowEmptyBody is not set", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
       new Response("", { status: 200, headers: { "Content-Type": "text/calendar" } }),
