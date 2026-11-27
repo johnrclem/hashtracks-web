@@ -1780,3 +1780,12 @@ _(latest handoff: Taoyuan Metro H3 2026-06-23 — 🇹🇼 Taiwan's 5th kennel, 
 - **Issue premise updated:** #396 has already run (2026-11-15). The next run #397 (2026-12-13, 15:00) exists only as an RSS item and detail-page placeholder (`TBD` place, hare "Who knows... maybe you?"), not in the hareline list. Handoff tells the adapter to probe RSS and drop both placeholder strings.
 - History: #1–#376 (1996-01 → 2025-03) missing from HashTracks. Handoff carries a PII checklist (32 pages with phone numbers, 30 with `@`).
 - Follow-ups: refill still owed (`queued` rows 4 ≤ 5; not done this run). Other `*.harrier.eu.org` kennel sites are an unprobed lead.
+
+## 2026-11-19 — City of Exeter H3 Hash Diary calendar, source-add (Exeter, England 🇬🇧) — ✅ handed off
+- Desktop runner (persistent `hashtracks-research` clone). Preflight: login `johnrclem`, no `onboarding-blocked` issue, no open handoff PRs, backlog 3 (< 10), no no-op streak. Target: oldest untriaged `onboarding-candidate` issue with no handoff, **#2911** (#1526/#2048/#2315/#2400 carry deferral comments; #2861 Cambridge, #2947 DA2B and #2952 Devonport already have handoffs for those kennels).
+- Source: `GOOGLE_CALENDAR`, id `cityofexeterh3@gmail.com` (from the base64 `src=` of the iframe on `cityofexeterhhh.blogspot.com/p/hash-diary.html`). **Config-only**; adapter exists. Trust 7 beside the existing blog row (6).
+- Events verified: real `GoogleCalendarAdapter.fetch` run (days 3000, no DB): 329 events, 2019-09-08 → 2026-12-27, `errors: []`; 6 upcoming (Nov 22 → Dec 27), `timezone: Europe/London` required (feed is UTC). iCal HEAD `text/calendar`, 336 VEVENT, 0 RRULE.
+- History: 196 of 325 distinct calendar dates match the frozen blog JSON; 123 past calendar-only dates (21 pre-2020-10-04, 102 after, incl. Nov 1/8/15 the blog has not posted). One-shot `backfillGCalSource` at `days: 3000`; recurring `scrapeDays` stays 365 (no permanent wide window).
+- Premise note: the summaries are hand-typed in 4+ shapes; hares are parsed for shape A only (comma-split for older rows mis-parsed in a test), and ~half the rows (shape D) glue hare onto venue.
+- Follow-ups: `#2916` (pre-2020 blog archive, 720 posts, no run numbers) stays a separate task. Refill still owed (`queued` ≤ 5; not done this run).
+
