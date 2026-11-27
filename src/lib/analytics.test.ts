@@ -7,6 +7,8 @@ const posthogMock = vi.hoisted(() => ({
 }));
 vi.mock("posthog-js", () => ({ default: posthogMock }));
 vi.mock("@/lib/visit-recency", () => ({ getVisitRecency: () => "returning_1_7d" }));
+const internalMock = vi.hoisted(() => ({ isInternalBrowser: vi.fn(() => false) }));
+vi.mock("@/lib/internal-traffic", () => internalMock);
 
 // Identity state lives in module scope (one page load); load a fresh copy per test.
 let analytics: typeof import("./analytics");
@@ -15,6 +17,7 @@ beforeEach(async () => {
   // The helpers no-op on the server; give them a browser global.
   vi.stubGlobal("window", {});
   vi.clearAllMocks();
+  internalMock.isInternalBrowser.mockReturnValue(false);
   vi.resetModules();
   analytics = await import("./analytics");
 });
@@ -68,5 +71,31 @@ describe("resetIdentity", () => {
     analytics.resetIdentity();
     analytics.identifyUser("user_1", { isAdmin: false });
     expect(posthogMock.identify).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("registerVisitRecency", () => {
+  it("registers only visit_recency for an ordinary browser", () => {
+    analytics.registerVisitRecency();
+    expect(posthogMock.register).toHaveBeenCalledWith({ visit_recency: "returning_1_7d" });
+  });
+
+  it("also tags events internal for a browser opted out with ?internal=1", () => {
+    internalMock.isInternalBrowser.mockReturnValue(true);
+    analytics.registerVisitRecency();
+    expect(posthogMock.register).toHaveBeenCalledWith({
+      visit_recency: "returning_1_7d",
+      internal_user: true,
+    });
+  });
+
+  it("keeps the internal tag after a sign-out reset", () => {
+    internalMock.isInternalBrowser.mockReturnValue(true);
+    analytics.identifyUser("user_1", { isAdmin: false });
+    analytics.resetIdentity();
+    expect(posthogMock.register).toHaveBeenLastCalledWith({
+      visit_recency: "returning_1_7d",
+      internal_user: true,
+    });
   });
 });
