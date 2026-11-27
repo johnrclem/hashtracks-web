@@ -6,7 +6,9 @@ import type { GhIssue, GhPull, OpsGithub } from "@/lib/ops-github";
 
 import { isAgentOrWorkstreamPr } from "@/lib/ops-github";
 
-import { githubMeasures, soft404Measure } from "./measures";
+import { DISPLAY_EVENT_WHERE, withinScheduleOnlyDisplayHorizon } from "@/lib/event-filters";
+
+import { githubMeasures, soft404Measure, unpostedShownBeyondHorizonWhere } from "./measures";
 
 const NOW = new Date("2026-11-30T06:00:00Z");
 const ago = (h: number) => new Date(NOW.getTime() - h * 3_600_000);
@@ -86,5 +88,18 @@ describe("soft404Measure", () => {
     ) as unknown as typeof fetch;
     const v = await soft404Measure(fetchImpl);
     expect(v.o1_soft404_families).toEqual({ value: 2, note: "/kennels 200, /kennels/region 200, /hareline 404" });
+  });
+});
+
+describe("unpostedShownBeyondHorizonWhere (O7)", () => {
+  it("counts unposted runs past the 90-day horizon through the listings' own filters", () => {
+    const today = new Date("2026-11-27T12:00:00Z");
+    const where = unpostedShownBeyondHorizonWhere(today);
+    expect(where).toMatchObject(DISPLAY_EVENT_WHERE);
+    expect(where.date).toEqual({ gt: new Date("2027-02-25T12:00:00Z") });
+    expect(where.AND).toEqual([
+      withinScheduleOnlyDisplayHorizon(today),
+      { OR: [{ isScheduleOnly: true }, { rawEvents: { none: {} } }] },
+    ]);
   });
 });

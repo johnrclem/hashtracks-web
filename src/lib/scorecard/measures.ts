@@ -19,6 +19,13 @@ import {
   type OpsGithub,
 } from "@/lib/ops-github";
 import { DEFAULT_SITE_URL } from "@/lib/site-url";
+import type { Prisma } from "@/generated/prisma/client";
+import { getTodayUtcNoon } from "@/lib/date";
+import {
+  DISPLAY_EVENT_WHERE,
+  SCHEDULE_ONLY_DISPLAY_HORIZON_DAYS,
+  withinScheduleOnlyDisplayHorizon,
+} from "@/lib/event-filters";
 
 import { PREDICTION_GATE_MERGED_AT, SENTRY_N1_ISSUE, type MeasureValue, type Values } from "./config";
 
@@ -60,6 +67,20 @@ const SQL_IDS = [
   "o9_new_kennels_week",
 ];
 
+/**
+ * O7: runs nobody posted (schedule-only, or no RawEvent at all) that the hareline
+ * and home listings would show more than the display horizon (D5) ahead. Counts
+ * through the same fragments the listings use, so it measures what is shown,
+ * not what is stored for Travel.
+ */
+export function unpostedShownBeyondHorizonWhere(today: Date): Prisma.EventWhereInput {
+  return {
+    ...DISPLAY_EVENT_WHERE,
+    date: { gt: new Date(today.getTime() + SCHEDULE_ONLY_DISPLAY_HORIZON_DAYS * DAY_MS) },
+    AND: [withinScheduleOnlyDisplayHorizon(today), { OR: [{ isScheduleOnly: true }, { rawEvents: { none: {} } }] }],
+  };
+}
+
 /** Kennels whose far-future rows WS11 removes (plan section 1). */
 const FAR_FUTURE_KENNELS = ["bobbh3", "pormeh3", "bullmoon"];
 
@@ -83,11 +104,7 @@ export async function sqlMeasures(ownerEmail: string | undefined): Promise<Value
       prisma.$queryRaw<Array<{ ok: bigint; total: bigint }>>`
         SELECT count(*) FILTER (WHERE status = 'SUCCESS') AS ok, count(*) AS total
         FROM "ScrapeLog" WHERE "startedAt" > now() - interval '7 days' AND status IN ('SUCCESS', 'FAILED')`,
-      prisma.$queryRaw<Array<{ n: bigint }>>`
-        SELECT count(*) AS n FROM "Event" e JOIN "Kennel" k ON k.id = e."kennelId"
-        WHERE e."isCanonical" AND e.status = 'CONFIRMED' AND e."isScheduleOnly" AND e."parentEventId" IS NULL
-          AND NOT e."isManualEntry" AND NOT k."isHidden" AND k."stoppedAt" IS NULL
-          AND e.date > now() + interval '90 days'`,
+      prisma.event.count({ where: unpostedShownBeyondHorizonWhere(new Date(getTodayUtcNoon())) }),
       prisma.$queryRaw<Array<{ n: bigint }>>`
         SELECT count(*) AS n FROM "Event" e JOIN "Kennel" k ON k.id = e."kennelId"
         WHERE e."isCanonical" AND e.status = 'CONFIRMED' AND e.date > now() + interval '365 days'
@@ -127,7 +144,7 @@ export async function sqlMeasures(ownerEmail: string | undefined): Promise<Value
       o6_scrape_success_7d: scrapeTotal
         ? { value: Math.round((num(s?.ok) / scrapeTotal) * 1000) / 10 }
         : na("no finished scrapes in 7 days"),
-      o7_projections_beyond_horizon: { value: num(beyond[0]?.n) },
+      o7_projections_beyond_horizon: { value: beyond },
       o7_far_future_rows: { value: num(farFuture[0]?.n) },
       o7_kennels_real_run_60d: { value: num(live60[0]?.n) },
       o8_finding_filed_median_min:
