@@ -4,11 +4,11 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/db";
 import { regionFromParam, regionPath } from "@/lib/region";
 import { getCanonicalSiteUrl } from "@/lib/site-url";
-import { buildNextEventMap, serializeKennelWithNext } from "@/lib/kennel-directory";
-import { runningKennelWhere, KENNEL_EVIDENCE_SELECT } from "@/lib/kennel-status";
+import { buildNextEventMap, KENNEL_DIRECTORY_SELECT, serializeKennelWithNext } from "@/lib/kennel-directory";
+import { runningKennelWhere } from "@/lib/kennel-status";
 import { HIDE_STOPPED_SCHEDULE_RUNS } from "@/lib/event-filters";
 import { generateRegionIntro, buildRegionItemListJsonLd, buildBreadcrumbJsonLd, safeJsonLd } from "@/lib/seo";
-import { collectKennelWeekdays, SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
+import { collectKennelWeekdays } from "@/lib/schedule-season";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FadeInSection } from "@/components/home/HeroAnimations";
@@ -82,29 +82,7 @@ export default async function RegionPage({
     prisma.kennel.findMany({
       where: { region: region.name, isHidden: false },
       orderBy: [{ fullName: "asc" }],
-      select: {
-        id: true,
-        slug: true,
-        shortName: true,
-        fullName: true,
-        region: true,
-        country: true,
-        latitude: true,
-        longitude: true,
-        logoUrl: true,
-        description: true,
-        foundedYear: true,
-        scheduleDayOfWeek: true,
-        scheduleTime: true,
-        scheduleFrequency: true,
-        scheduleRules: SCHEDULE_RULES_SELECT,
-        website: true,
-        facebookUrl: true,
-        halfMindListingId: true,
-        listingOnly: true,
-        scheduleNotes: true,
-        ...KENNEL_EVIDENCE_SELECT,
-      },
+      select: KENNEL_DIRECTORY_SELECT,
     }),
     // #1023 spec D8: include co-hosted events. The nested `eventKennels`
     // selector pushes the visible-in-region filter into SQL so we only

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowUpLeft, Tent } from "lucide-react";
@@ -306,9 +307,11 @@ export default async function EventDetailPage({
   const daysUntil = Math.round((eventDay.getTime() - today.getTime()) / MS_PER_DAY);
   const weatherLat = event.latitude ?? REGION_CENTROIDS[event.kennel.region]?.lat ?? null;
   const weatherLng = event.longitude ?? REGION_CENTROIDS[event.kennel.region]?.lng ?? null;
-  const weather =
+  // Fetched in <EventWeather> under Suspense: it calls an outside API, and the
+  // rest of the page (and its 404 check) must not wait on it.
+  const weatherQuery =
     daysUntil >= 0 && daysUntil <= 10 && weatherLat != null && weatherLng != null
-      ? await getEventDayWeather(weatherLat, weatherLng, event.date).catch(() => null)
+      ? { lat: weatherLat, lng: weatherLng, date: event.date }
       : null;
 
   const dateFormatted = event.date.toLocaleDateString("en-US", {
@@ -687,10 +690,10 @@ export default async function EventDetailPage({
                     </dd>
                   </div>
                 )}
-                {weather && (
-                  <div className="sm:col-span-2">
-                    <EventWeatherCard weather={weather} />
-                  </div>
+                {weatherQuery && (
+                  <Suspense fallback={null}>
+                    <EventWeather {...weatherQuery} />
+                  </Suspense>
                 )}
               </dl>
               )}
@@ -758,6 +761,17 @@ function DetailItem({ label, value }: { label: string; value: string }) {
     <div>
       <dt className="text-sm font-medium text-muted-foreground">{label}</dt>
       <dd className="mt-0.5">{value}</dd>
+    </div>
+  );
+}
+
+/** The forecast row; streams in after the rest of the page. */
+async function EventWeather({ lat, lng, date }: Readonly<{ lat: number; lng: number; date: Date }>) {
+  const weather = await getEventDayWeather(lat, lng, date).catch(() => null);
+  if (!weather) return null;
+  return (
+    <div className="sm:col-span-2">
+      <EventWeatherCard weather={weather} />
     </div>
   );
 }

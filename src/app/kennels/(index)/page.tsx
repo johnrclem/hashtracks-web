@@ -6,9 +6,12 @@ import { prisma } from "@/lib/db";
 import { KennelDirectory } from "@/components/kennels/KennelDirectory";
 import Link from "next/link";
 import { regionAbbrev, regionNameToSlug, regionPath } from "@/lib/region";
-import { buildNextEventMap, serializeKennelWithNext, upcomingConfirmedEventWhere } from "@/lib/kennel-directory";
-import { KENNEL_EVIDENCE_SELECT } from "@/lib/kennel-status";
-import { SCHEDULE_RULES_SELECT } from "@/lib/schedule-season";
+import {
+  buildNextEventMap,
+  KENNEL_DIRECTORY_SELECT,
+  serializeKennelWithNext,
+  upcomingConfirmedEventWhere,
+} from "@/lib/kennel-directory";
 import { buildRegionItemListJsonLd, safeJsonLd } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -46,29 +49,7 @@ export default async function KennelsPage() {
     prisma.kennel.findMany({
       where: { isHidden: false },
       orderBy: [{ region: "asc" }, { fullName: "asc" }],
-      select: {
-        id: true,
-        slug: true,
-        shortName: true,
-        fullName: true,
-        region: true,
-        country: true,
-        latitude: true,
-        longitude: true,
-        logoUrl: true,
-        description: true,
-        foundedYear: true,
-        scheduleDayOfWeek: true,
-        scheduleTime: true,
-        scheduleFrequency: true,
-        scheduleRules: SCHEDULE_RULES_SELECT,
-        website: true,
-        facebookUrl: true,
-        halfMindListingId: true,
-        listingOnly: true,
-        scheduleNotes: true,
-        ...KENNEL_EVIDENCE_SELECT,
-      },
+      select: KENNEL_DIRECTORY_SELECT,
     }),
     // #1023 spec D8: include co-hosted events. The nested `eventKennels`
     // selector pushes the not-hidden filter into SQL so we only return the
