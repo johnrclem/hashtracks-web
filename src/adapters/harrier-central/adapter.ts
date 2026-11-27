@@ -47,6 +47,10 @@ export interface HCGlobalRun {
   LocationCountry?: string;
   Latitude?: number;
   Longitude?: number;
+  EventPriceForMembers?: number;
+  /** HC's display template for the price: "£^", "NGN ^", "NT$ ^" ("^" is the amount). */
+  CurrencySymbol?: string;
+  DigitsAfterDecimal?: number;
 }
 
 /**
@@ -55,8 +59,8 @@ export interface HCGlobalRun {
  * not fail the whole scrape — callers record the miss in diagnosticContext
  * (never in `errors`), mirroring the FACEBOOK_HOSTED_EVENTS past-tab
  * best-effort convention. Used for two things:
- *   1. descriptions (getEvents has none), indexed by PublicEventId — see
- *      `indexDescriptions`;
+ *   1. fields getEvents lacks (description, price, street), joined by
+ *      PublicEventId — see `indexGlobalRuns`;
  *   2. upcoming runs getEvents omits for some kennels (#2590/#2591: Newcastle
  *      H3's getEvents returns [] while hashruns.org lists 34 upcoming runs).
  */
@@ -77,22 +81,47 @@ async function fetchGlobalFutureRuns(): Promise<HCGlobalRun[]> {
 }
 
 /**
- * Index descriptions by PublicEventId. Every row with a `PublicEventId` is
- * indexed, INCLUDING rows whose `EventDescription` is empty/blank (mapped to
- * `""`) — the caller uses `Map.has()` to distinguish "row found, description
- * explicitly blank" (→ `null`, an explicit clear) from "row not found at all,
- * or this whole fetch failed" (→ `undefined`, preserve). Silently dropping
- * blank-description rows here would collapse that distinction and leave a
- * description that was removed at the source stuck on the canonical event
- * forever, since `undefined` never overwrites an existing value.
+ * Index global-runs rows by PublicEventId. Every row with a `PublicEventId` is
+ * indexed, INCLUDING rows whose `EventDescription` is empty/blank — the caller
+ * uses `Map.has()` to distinguish "row found, description explicitly blank"
+ * (→ `null`, an explicit clear) from "row not found at all, or this whole
+ * fetch failed" (→ `undefined`, preserve). Silently dropping blank-description
+ * rows here would collapse that distinction and leave a description that was
+ * removed at the source stuck on the canonical event forever, since
+ * `undefined` never overwrites an existing value.
  */
-export function indexDescriptions(rows: readonly HCGlobalRun[]): Map<string, string> {
-  const byId = new Map<string, string>();
+export function indexGlobalRuns(rows: readonly HCGlobalRun[]): Map<string, HCGlobalRun> {
+  const byId = new Map<string, HCGlobalRun>();
   for (const row of rows) {
-    if (!row.PublicEventId) continue;
-    byId.set(row.PublicEventId, row.EventDescription?.trim() ?? "");
+    if (row.PublicEventId) byId.set(row.PublicEventId, row);
   }
   return byId;
+}
+
+/**
+ * #2944/#3060: the member price from a global-runs row, in HC's own display
+ * template ("£^" → "£5", "NGN ^" → "NGN 3,000", "£^" + 1.5 → "£1.50").
+ * getEvents carries no price at all. A price of 0 means "not set" as often as
+ * "free" (DA2B leaves it 0 on paid runs), so it returns undefined (preserve),
+ * as does a missing template. The non-member price is left out: it is often
+ * a data-entry slip (Sierra H4 30/230, OBH3 5/7000).
+ */
+export function formatHcPrice(run: HCGlobalRun): string | undefined {
+  const amount = run.EventPriceForMembers;
+  const template = run.CurrencySymbol?.trim();
+  if (typeof amount !== "number" || !(amount > 0) || !template?.includes("^")) return undefined;
+  // A fractional amount keeps at least two decimals even when the row says 0 (7.5 → "7.50").
+  const digits = Number.isInteger(amount) ? 0 : Math.min(Math.max(run.DigitsAfterDecimal ?? 2, 2), 3);
+  const number = amount.toLocaleString("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+  // Keep the template's own spacing ("NT$ ^"), but a letter code glued to the
+  // amount ("TL^", "Kc^") reads better with a space.
+  const [before, after = ""] = template.split("^");
+  const glueBefore = /[a-z]$/i.test(before) ? " " : "";
+  const glueAfter = /^[a-z]/i.test(after) ? " " : "";
+  return `${before}${glueBefore}${number}${glueAfter}${after}`.trim();
 }
 
 function stripTrailingCommas(value: string): string {
@@ -104,6 +133,13 @@ function stripTrailingCommas(value: string): string {
 function joinLocationParts(parts: (string | undefined)[]): string | undefined {
   const kept = parts.map((p) => p?.trim()).filter((p): p is string => !!p);
   return kept.length ? kept.join(", ") : undefined;
+}
+
+/** "Street, City, PostCode, Country" from a global-runs row, or "" when it has no street. */
+function globalRunAddress(r: HCGlobalRun): string {
+  return r.LocationStreet
+    ? (joinLocationParts([r.LocationStreet, r.LocationCity, r.LocationPostCode, r.LocationCountry]) ?? "")
+    : "";
 }
 
 /** Adapt a global-runs row to the getEvents shape `hcEventToRawEvent` consumes. */
@@ -122,9 +158,7 @@ export function globalRunToHcEvent(r: HCGlobalRun): HCEvent {
     // hashruns.org place names sometimes end in a comma ("The Bodega,"), which
     // would compose as "The Bodega,, Westgate Road".
     locationOneLineDesc: stripTrailingCommas(r.LocationOneLineDesc ?? ""),
-    resolvableLocation: r.LocationStreet
-      ? (joinLocationParts([r.LocationStreet, r.LocationCity, r.LocationPostCode, r.LocationCountry]) ?? "")
-      : "",
+    resolvableLocation: globalRunAddress(r),
     hares: r.Hares ?? "",
     eventCityAndCountry: joinLocationParts([r.LocationCity, r.LocationCountry]) ?? "",
     isVisible: 1,
@@ -248,10 +282,10 @@ export interface HarrierCentralConfig {
    * drifting shapes like bare run numbers (every future number is a new
    * literal). Opt-in — off by default, no effect on kennels that don't set
    * it. After stripping, a remainder that is empty OR a bare run number
-   * (optionally "#"-prefixed) is treated as stale and falls through to
-   * `${defaultTitle} #${eventNumber}` synthesis; a real theme survives
-   * unchanged. See #2657 (Douliu H3: bare "194"/"#159" drift, "DH3 #N -"
-   * prefixes).
+   * (optionally "#"-prefixed; stale for every kennel since #3021) falls
+   * through to `${defaultTitle} #${eventNumber}` synthesis; a real theme
+   * survives unchanged. See #2657 (Douliu H3: bare "194"/"#159" drift,
+   * "DH3 #N -" prefixes).
    */
   titleStripPatterns?: string[];
 }
@@ -360,11 +394,11 @@ export class HarrierCentralAdapter implements SourceAdapter {
     }).filter((p): p is [RegExp, string] => p !== null);
 
     // #2626/#2569/#2553/#2550/#2539: getEvents (above) carries no description
-    // field at all, so the only way to surface HC's "About this run" note is a
-    // second, best-effort fetch of the separate hashruns.org front-end feed.
-    // A failure here must not fail the primary scrape — record it in
-    // diagnosticContext (not `errors`) and proceed with undefined descriptions,
-    // same convention as the FACEBOOK_HOSTED_EVENTS past-tab fetch.
+    // (or price) field at all, so the only way to surface HC's "About this run"
+    // note is a second, best-effort fetch of the separate hashruns.org
+    // front-end feed. A failure here must not fail the primary scrape — record
+    // it in diagnosticContext (not `errors`) and proceed with undefined
+    // descriptions, same convention as the FACEBOOK_HOSTED_EVENTS past-tab fetch.
     let globalRuns: HCGlobalRun[] = [];
     let descriptionFetchError: string | undefined;
     try {
@@ -372,10 +406,10 @@ export class HarrierCentralAdapter implements SourceAdapter {
     } catch (err) {
       descriptionFetchError = String(err);
     }
-    const descriptionsById = indexDescriptions(globalRuns);
+    const globalRunsById = indexGlobalRuns(globalRuns);
 
     // Convert HC events to RawEventData
-    const ctx = { maxDate, compiledPatterns, descriptionsById };
+    const ctx = { maxDate, compiledPatterns, globalRunsById };
     const seenIds = new Set<string>();
     for (const hcEvent of hcEvents) {
       seenIds.add(hcEvent.publicEventId);
@@ -407,7 +441,7 @@ export class HarrierCentralAdapter implements SourceAdapter {
         fetchDurationMs: Date.now() - fetchStart,
         apiEventsReturned: hcEvents.length,
         eventsEmitted: events.length,
-        descriptionsIndexed: descriptionsById.size,
+        descriptionsIndexed: globalRunsById.size,
         globalRunsAdded,
         ...(descriptionFetchError ? { descriptionFetchError } : {}),
       },
@@ -427,10 +461,10 @@ export function hcEventToRawEvent(
   ctx: {
     maxDate?: Date;
     compiledPatterns?: readonly [RegExp, string][];
-    descriptionsById: Map<string, string>;
+    globalRunsById: ReadonlyMap<string, HCGlobalRun>;
   },
 ): RawEventData | null {
-  const { maxDate, compiledPatterns, descriptionsById } = ctx;
+  const { maxDate, compiledPatterns, globalRunsById } = ctx;
   if (!hcEvent.eventStartDatetime) return null;
   if (!hcEvent.isVisible) return null;
 
@@ -442,8 +476,9 @@ export function hcEventToRawEvent(
   if (!kennelTag) return null;
 
   const dateStr = hcEvent.eventStartDatetime.slice(0, 10); // "YYYY-MM-DD"
-  const timeMatch = hcEvent.eventStartDatetime.match(/T(\d{2}:\d{2})/);
-  const startTime = timeMatch ? timeMatch[1] : undefined;
+  const startTime = parseHcStartTime(hcEvent.eventStartDatetime, hcEvent.eventName);
+  const globalRun = globalRunsById.get(hcEvent.publicEventId);
+  const runNumberSource = countedEventNumber(hcEvent);
 
   let hares = stripPlaceholderHares(hcEvent.hares);
   // #2572: a kennel that gives only a what3words / maps link (DAFT H3) has
@@ -451,7 +486,7 @@ export function hcEventToRawEvent(
   // drops URL-shaped text, so route it to locationUrl instead of losing it.
   const { location, locationUrl } = composeHcLocationWithUrl(
     hcEvent.locationOneLineDesc,
-    hcEvent.resolvableLocation,
+    resolvableWithGlobalAddress(hcEvent.locationOneLineDesc, hcEvent.resolvableLocation, globalRun),
     hcEvent.eventCityAndCountry,
   );
 
@@ -506,41 +541,25 @@ export function hcEventToRawEvent(
   // on every getEvents row, so build the link with no extra request.
   const sourceUrl = buildHashrunsPermalink(hcEvent, config);
 
-  // #2626/#2569/#2553/#2550/#2539: join the best-effort description lookup
-  // (built once above) by PublicEventId, scrub PII, and cap length.
-  // Three-way tri-state, not a plain truthy check:
-  //   - row not indexed at all (enrichment fetch failed, OR hashruns.org
-  //     simply doesn't have this PublicEventId yet) → `undefined`, the
-  //     merge UPDATE path preserves any existing description. We have no
-  //     signal either way, so we must not clear a good existing value.
-  //   - row found, but EventDescription is empty/blank → `null`, an
-  //     explicit clear. The source positively told us there's no note
-  //     (any more) for this event; without this branch a description
-  //     removed at the source would stay stuck on the canonical event
-  //     forever, since `undefined` never overwrites.
-  //   - row found with real text → the scrubbed, capped description.
-  const descriptionRowFound = descriptionsById.has(hcEvent.publicEventId);
-  const rawDescription = descriptionsById.get(hcEvent.publicEventId);
-  const description = !descriptionRowFound
-    ? undefined
-    : rawDescription
-      ? scrubDescriptionPii(rawDescription).trim().substring(0, DESCRIPTION_MAX_LENGTH) || null
-      : null;
+  // #2626/#2569/#2553/#2550/#2539: no global-runs row → undefined (preserve);
+  // a blank or placeholder note → null (clear); else the scrubbed note.
+  const description = globalRun ? hcDescription(globalRun.EventDescription) : undefined;
 
-  let title = applyTitleFallback(hcEvent.eventName, hcEvent.eventNumber, config);
+  let title = applyTitleFallback(hcEvent.eventName, runNumberSource, config);
   // #2409 Tokyo #2583: the source stored the hare's hash name ("Back Door
   // Hoe") as BOTH the title and the hares field; #2591 stored the
   // neighborhood ("Azabujuban") as both title and venue. A title that
   // byte-equals the hares or the raw venue is never a real run title —
   // re-route through the stale-title fallback ("<defaultTitle> #N", or
   // undefined → merge synthesizes "<Kennel> Trail #N"). hares is kept.
+  // The title's whitespace is collapsed, so compare the raw slots the same way.
   if (
     title &&
-    (eqTrimLc(title, hares) ||
-      eqTrimLc(title, hcEvent.locationOneLineDesc) ||
-      eqTrimLc(title, hcEvent.resolvableLocation))
+    (eqTrimLc(title, collapseWhitespace(hares)) ||
+      eqTrimLc(title, collapseWhitespace(hcEvent.locationOneLineDesc)) ||
+      eqTrimLc(title, collapseWhitespace(hcEvent.resolvableLocation)))
   ) {
-    title = staleTitleFallback(hcEvent.eventNumber, config);
+    title = staleTitleFallback(runNumberSource, config);
   }
 
   return {
@@ -548,16 +567,19 @@ export function hcEventToRawEvent(
     kennelTags: [kennelTag],
     title,
     description,
+    // #2944/#3060: the per-run member price (undefined = preserve).
+    cost: globalRun ? formatHcPrice(globalRun) : undefined,
     sourceUrl,
-    // Socials / "drinking practices" come back as eventNumber=0. Map that
-    // sentinel to null (explicit clear) and positive values to the number;
-    // anything else stays undefined so the merge UPDATE path preserves an
-    // existing runNumber on partial HC payloads (#892). `suppressRunNumber`
-    // opts a kennel out entirely when HC returns a stale current-number on
-    // every row (Manchester, #2654) → undefined = preserve, never assert.
+    // Socials / "drinking practices" come back as eventNumber=0 (and uncounted
+    // runs are mapped to 0 above). Map that sentinel to null (explicit clear)
+    // and positive values to the number; anything else stays undefined so the
+    // merge UPDATE path preserves an existing runNumber on partial HC payloads
+    // (#892). `suppressRunNumber` opts a kennel out entirely when HC returns a
+    // stale current-number on every row (Manchester, #2654) → undefined =
+    // preserve, never assert.
     runNumber: config.suppressRunNumber
       ? undefined
-      : normalizeHcEventNumber(hcEvent.eventNumber),
+      : normalizeHcEventNumber(runNumberSource),
     startTime,
     hares,
     location,
@@ -573,6 +595,56 @@ export function hcEventToRawEvent(
     ...(dropApiCoords ? { dropCachedCoords: true } : {}),
   };
 
+}
+
+/**
+ * "HH:MM" from HC's naive local timestamp. #3071: HC stores 00:00 when a kennel
+ * never set a time (away weekends, festivals, Lyon H3 #29), so that is null
+ * (no time) unless the run's name says it really starts at midnight.
+ */
+export function parseHcStartTime(
+  datetime: string,
+  eventName: string | undefined,
+): string | null | undefined {
+  const time = /T(\d{2}:\d{2})/.exec(datetime)?.[1];
+  if (time === "00:00" && !/midnight/i.test(eventName ?? "")) return null;
+  return time;
+}
+
+// Notes that only say a note is missing ("TBC", "??", BLHHH's literal "Description").
+const PLACEHOLDER_DESCRIPTIONS = new Set(["tbc", "tbd", "tba", "?", "??", "???", "n/a", "description"]);
+
+/**
+ * Scrubbed, capped description; null when the source row's note is blank or a
+ * placeholder (an explicit clear, see the tri-state in `hcEventToRawEvent`).
+ */
+export function hcDescription(text: string | undefined): string | null {
+  const trimmed = text?.trim();
+  if (!trimmed || PLACEHOLDER_DESCRIPTIONS.has(trimmed.toLowerCase().replace(/[.!]+$/, ""))) return null;
+  return scrubDescriptionPii(trimmed).trim().substring(0, DESCRIPTION_MAX_LENGTH) || null;
+}
+
+// resolvableLocation is a bare coordinate pair for venues Harrier Central
+// couldn't geocode — not useful as user-facing text.
+const COORDS_ONLY_RE = /^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/;
+
+/**
+ * #2981 Abuja #817: getEvents sometimes gives only a pin (bare coordinates) or
+ * nothing as `resolvableLocation`, while hashruns.org holds the street and
+ * city ("Independence Avenue, Abuja"). Use that address only when getEvents
+ * has no text of its own and the place doesn't already name the street
+ * (Barbados: place "Isolation Road Saint Andrew"); a real or geocode-failed
+ * resolvable is kept as is.
+ */
+function resolvableWithGlobalAddress(
+  place: string | undefined,
+  resolvable: string | undefined,
+  globalRun: HCGlobalRun | undefined,
+): string | undefined {
+  const own = stripPlaceholderLocation(resolvable);
+  const street = globalRun?.LocationStreet?.trim().toLowerCase();
+  if (!globalRun || !street || (own && !COORDS_ONLY_RE.test(own))) return resolvable;
+  return place?.toLowerCase().includes(street) ? resolvable : globalRunAddress(globalRun);
 }
 
 /**
@@ -721,6 +793,15 @@ function normalizeHcEventNumber(n: number | undefined | null): number | null | u
 }
 
 /**
+ * #3116: an uncounted run (IsCountedRun 0: a drinking practice, an away weekend)
+ * carries a number that belongs to another run or to none, so it counts as 0:
+ * no run number, no numbered title and no per-run permalink.
+ */
+function countedEventNumber(event: HCEvent): number {
+  return event.isCountedRun === 0 ? 0 : event.eventNumber;
+}
+
+/**
  * Build the hashruns.org per-run permalink (#2601), or undefined when there's
  * no reliable per-event number to key it on:
  *   - `suppressRunNumber` kennels (Manchester H3, #2654) return the kennel's
@@ -728,13 +809,15 @@ function normalizeHcEventNumber(n: number | undefined | null): number | null | u
  *     built from it would point several distinct events at the same page.
  *   - `eventNumber <= 0` (missing, or the 0 "social" sentinel) has no
  *     corresponding run page.
+ *   - an uncounted run (#3116) reuses another run's number: hashruns.org/YH3/2195
+ *     opens the real August #2195, not the AGPU weekend that carries it.
  */
 export function buildHashrunsPermalink(
   event: HCEvent,
   config: HarrierCentralConfig,
 ): string | undefined {
-  if (config.suppressRunNumber) return undefined;
-  if (!event.kennelUniqueShortName || !(event.eventNumber > 0)) return undefined;
+  const n = countedEventNumber(event);
+  if (config.suppressRunNumber || !event.kennelUniqueShortName || !(n > 0)) return undefined;
   return `https://www.hashruns.org/${encodeURIComponent(event.kennelUniqueShortName)}/${event.eventNumber}`;
 }
 
@@ -800,6 +883,10 @@ function haresEqualsRawPlace(
   return eqTrimLc(hares, placeName) || eqTrimLc(hares, resolvable);
 }
 
+function collapseWhitespace(value: string | undefined): string | undefined {
+  return value?.replace(/\s+/g, " ");
+}
+
 /** Stale-title fallback — "<defaultTitle> #N" when configured, else undefined.
  *  Shared by applyTitleFallback and the #2409 title-equals-hares/place guard. */
 function staleTitleFallback(
@@ -817,7 +904,9 @@ export function applyTitleFallback(
   eventNumber: number | undefined | null,
   config: HarrierCentralConfig,
 ): string | undefined {
-  let trimmed = stripTrailingTitleSeparators(eventName);
+  // #2946: HC names can hold line breaks and doubled spaces ("Another Mystery
+  // Tour from\nDevon A2BH3"); a title is one line.
+  let trimmed = stripTrailingTitleSeparators(collapseWhitespace(eventName));
 
   // #2657: opt-in regex strip (e.g. Douliu's "DH3 #N -" prefix). Applied only
   // when explicitly configured — no effect on the ~35 other HC kennels.
@@ -832,15 +921,17 @@ export function applyTitleFallback(
   if (trimmed) trimmed = rewriteNeedHarePlaceholder(trimmed);
 
   const aliases = config.staleTitleAliases;
-  // Bare-number staleness only applies when titleStripPatterns is configured
-  // (opt-in per #2657's acceptance criteria) — a kennel that never set the
-  // knob keeps its pre-existing behavior of storing a bare-number title
-  // verbatim, unchanged by this feature.
-  const bareNumberAfterStrip =
-    !!config.titleStripPatterns?.length && !!trimmed && BARE_RUN_NUMBER_RE.test(trimmed);
+  // A title that is only the run's own number never names a trail (#3021
+  // Barbados: "2360", "2361"). With titleStripPatterns set (#2657 Douliu) any
+  // bare number left after stripping is stale; otherwise a different number
+  // ("2027" for a New Year run) may be a real name and is kept.
+  const bareNumber =
+    !!trimmed &&
+    BARE_RUN_NUMBER_RE.test(trimmed) &&
+    (!!config.titleStripPatterns?.length || Number(trimmed.replace("#", "")) === eventNumber);
   const isStale =
     !trimmed ||
-    bareNumberAfterStrip ||
+    bareNumber ||
     (aliases?.some((a) => a.trim().toLowerCase() === trimmed!.toLowerCase()) ?? false);
 
   if (!isStale) return trimmed || undefined;
@@ -895,10 +986,7 @@ export function composeHcLocation(
   const place = stripRunTitleLocationPrefix(stripPlaceholderLocation(placeName));
   const full = stripPlaceholderLocation(resolvable);
 
-  // resolvableLocation is a bare coordinate pair for venues Harrier Central
-  // couldn't geocode — not useful as user-facing text.
-  const coordsOnly = /^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/;
-  const addressShaped = full && !coordsOnly.test(full) ? full : undefined;
+  const addressShaped = full && !COORDS_ONLY_RE.test(full) ? full : undefined;
 
   if (!place && !addressShaped) return undefined;
   if (!addressShaped) return place;

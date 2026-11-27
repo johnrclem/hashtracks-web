@@ -32,6 +32,7 @@ import {
   globalRunMatchesSource,
   globalRunToHcEvent,
   hcEventToRawEvent,
+  indexGlobalRuns,
   type HCGlobalRun,
   type HarrierCentralConfig,
 } from "@/adapters/harrier-central/adapter";
@@ -119,7 +120,7 @@ async function main(): Promise<void> {
     const existingDates = new Set(existing.map((e) => e.date.toISOString().slice(0, 10)));
     const existingRuns = new Set(existing.map((e) => e.runNumber).filter((n): n is number => n != null));
 
-    const descriptionsById = new Map(mine.map((r) => [r.PublicEventId, r.EventDescription?.trim() ?? ""]));
+    const globalRunsById = indexGlobalRuns(mine);
     const tz = mine[0].KennelIANATimezone ?? "UTC";
     const today = new Date().toISOString().slice(0, 10);
     const seen = new Set<string>();
@@ -131,7 +132,7 @@ async function main(): Promise<void> {
         uncountedSkips++;
         continue;
       }
-      const raw = hcEventToRawEvent(globalRunToHcEvent(r), source.config, { descriptionsById });
+      const raw = hcEventToRawEvent(globalRunToHcEvent(r), source.config, { globalRunsById });
       if (!raw || raw.date >= today || existingDates.has(raw.date) || seen.has(raw.date)) continue;
       if (raw.runNumber != null && existingRuns.has(raw.runNumber)) {
         runNumberSkips++;

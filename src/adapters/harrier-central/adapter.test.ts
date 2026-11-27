@@ -7,8 +7,11 @@ import {
   scrubDescriptionPii,
   buildHashrunsPermalink,
   splitUrlOnlyLocation,
+  formatHcPrice,
+  hcDescription,
+  parseHcStartTime,
 } from "./adapter";
-import type { HCEvent, HarrierCentralConfig } from "./adapter";
+import type { HCEvent, HCGlobalRun, HarrierCentralConfig } from "./adapter";
 import { SOURCES } from "../../../prisma/seed-data/sources";
 import { generateAccessToken, PUBLIC_HASHER_ID } from "./token";
 import type { Source } from "@/generated/prisma/client";
@@ -71,9 +74,7 @@ function mockApiResponse(events: HCEvent[]) {
  * the description fetch turns that into a no-op (empty description map),
  * matching production's non-fatal-failure behavior.
  */
-function mockDescriptionsResponse(
-  runs: { PublicEventId: string; EventDescription?: string }[],
-) {
+function mockDescriptionsResponse(runs: (Partial<HCGlobalRun> & { PublicEventId: string })[]) {
   mockSafeFetch.mockResolvedValueOnce({
     ok: true,
     status: 200,
@@ -350,11 +351,28 @@ describe("applyTitleFallback (#1166)", () => {
       );
     });
 
-    it("does not treat a bare number as stale when titleStripPatterns is unset (opt-in only)", () => {
-      // Same input, no titleStripPatterns configured — pre-#2657 behavior:
-      // a bare number passes through verbatim, unchanged by this feature.
-      expect(applyTitleFallback("206", 206, { defaultTitle: "Douliu H3" })).toBe("206");
+    it("treats a bare number as stale even without titleStripPatterns (#3021 Barbados)", () => {
+      expect(applyTitleFallback("2360", 2360, { defaultTitle: "Barbados H3" })).toBe("Barbados H3 #2360");
+      expect(applyTitleFallback(" #2361 ", 2361, { defaultTitle: "Barbados H3" })).toBe("Barbados H3 #2361");
+      // No defaultTitle → undefined, so merge synthesizes "<Kennel> Trail #N".
+      expect(applyTitleFallback("2362", 2362, {})).toBeUndefined();
+      // A number inside a real name is not a bare number.
+      expect(applyTitleFallback("Run 2362 at the beach", 2362, {})).toBe("Run 2362 at the beach");
+      // A different bare number may be a real name ("2027" New Year run).
+      expect(applyTitleFallback("2027", 412, { defaultTitle: "Barbados H3" })).toBe("2027");
     });
+  });
+
+  it("collapses line breaks and doubled spaces to one space (#2946 DA2B)", () => {
+    expect(applyTitleFallback("Another Mystery Tour from\nDevon A2BH3", 202, {})).toBe(
+      "Another Mystery Tour from Devon A2BH3",
+    );
+    expect(applyTitleFallback("AH3 Run 2267 - TBA  - Hares: X", 2267, {})).toBe(
+      "AH3 Run 2267 - TBA - Hares: X",
+    );
+    expect(applyTitleFallback("TwH³ #2534 - The Death of 2023 Run\r\n2023末日亂", 2534, {})).toBe(
+      "TwH³ #2534 - The Death of 2023 Run 2023末日亂",
+    );
   });
 
   // #2549 — Algarve H3's HC-native "hare not yet assigned" placeholder.
@@ -549,6 +567,62 @@ describe("buildHashrunsPermalink (#2601)", () => {
         { suppressRunNumber: true },
       ),
     ).toBeUndefined();
+  });
+});
+
+describe("formatHcPrice (#2944)", () => {
+  const price = (amount: number, CurrencySymbol: string, DigitsAfterDecimal = 2) =>
+    formatHcPrice({ PublicEventId: "x", EventPriceForMembers: amount, CurrencySymbol, DigitsAfterDecimal });
+
+  it.each([
+    [5, "£^", "£5"],
+    [1.5, "£^", "£1.50"],
+    [3000, "NGN ^", "NGN 3,000"],
+    [300, "NT$ ^", "NT$ 300"],
+    [5, "TL^", "TL 5"],
+    [100, "Kc^", "Kc 100"],
+    [10, "€^", "€10"],
+  ])("%s with %s → %s", (amount, template, expected) => {
+    expect(price(amount, template)).toBe(expected);
+  });
+
+  it("keeps two decimals on a fractional amount even when the row says 0", () => {
+    expect(price(7.5, "€^", 0)).toBe("€7.50");
+  });
+
+  it("puts the amount first when the template does", () => {
+    expect(price(50, "^ kr")).toBe("50 kr");
+  });
+
+  it("returns undefined for zero, negative or missing amounts and bad templates", () => {
+    expect(price(0, "£^")).toBeUndefined();
+    expect(price(-1, "£^")).toBeUndefined();
+    expect(formatHcPrice({ PublicEventId: "x", CurrencySymbol: "£^" })).toBeUndefined();
+    expect(price(5, "")).toBeUndefined();
+    expect(price(5, "£")).toBeUndefined();
+  });
+});
+
+describe("hcDescription", () => {
+  it("returns null for blank and placeholder notes", () => {
+    for (const note of [undefined, "  ", "TBC", "tbd.", "??", "Description"]) {
+      expect(hcDescription(note)).toBeNull();
+    }
+  });
+
+  it("trims, scrubs PII and keeps real notes", () => {
+    expect(hcDescription("  Meet at Exeter Park and Change.  ")).toBe("Meet at Exeter Park and Change.");
+    expect(hcDescription("Hare-line 808-225-5465")).toBe("Hare-line [redacted]");
+    expect(hcDescription("Wednesday Hash")).toBe("Wednesday Hash");
+  });
+});
+
+describe("parseHcStartTime (#3071)", () => {
+  it("returns HH:MM, null for an unset 00:00, and undefined without a time", () => {
+    expect(parseHcStartTime("2026-11-29T11:00:00", "YH3 #2214")).toBe("11:00");
+    expect(parseHcStartTime("2026-11-22T00:00:00", "Beaujolais Hangover run")).toBeNull();
+    expect(parseHcStartTime("2026-07-10T00:00:00", "Midnight run")).toBe("00:00");
+    expect(parseHcStartTime("2026-11-22", "x")).toBeUndefined();
   });
 });
 
@@ -1321,6 +1395,115 @@ describe("HarrierCentralAdapter", () => {
         mockDescriptionsResponse([{ PublicEventId: "evt-1", EventDescription: "   " }]);
         const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3" }));
         expect(result.events[0].description).toBeNull();
+      });
+    });
+
+    // Nov 2026 HC defect sweep: fields joined from the global-runs row.
+    describe("global-runs enrichment: price and address (#2944, #3060, #2981)", () => {
+      const mockGlobalRow = (row: Partial<HCGlobalRun>) =>
+        mockDescriptionsResponse([{ PublicEventId: "evt-1", ...row }]);
+
+      it("sets cost from the member price in HC's currency template", async () => {
+        mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
+        mockGlobalRow({ EventPriceForMembers: 5, CurrencySymbol: "£^", DigitsAfterDecimal: 2 });
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "da2b" }));
+        expect(result.events[0].cost).toBe("£5");
+      });
+
+      it("leaves cost undefined for a zero price (unset as often as free)", async () => {
+        mockApiResponse([buildHCEvent({ publicEventId: "evt-1" })]);
+        mockGlobalRow({ EventPriceForMembers: 0, CurrencySymbol: "£^" });
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "da2b" }));
+        expect(result.events[0].cost).toBeUndefined();
+      });
+
+      it("uses the hashruns.org street and city when getEvents gives only a pin (#2981 Abuja #817)", async () => {
+        mockApiResponse([
+          buildHCEvent({
+            publicEventId: "evt-1",
+            locationOneLineDesc: "Fruity colours",
+            resolvableLocation: "9.031489704359897, 7.450161807738895",
+            eventCityAndCountry: "Abuja, Nigeria",
+            syncLat: 9.031489704359897,
+            syncLong: 7.450161807738895,
+          }),
+        ]);
+        mockGlobalRow({ LocationStreet: "Independence Avenue", LocationCity: "Abuja", LocationCountry: "Nigeria" });
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "abujah3" }));
+        expect(result.events[0].location).toBe("Fruity colours, Independence Avenue, Abuja, Nigeria");
+        // HC's pin is a real geocode here, so it stays.
+        expect(result.events[0].latitude).toBeCloseTo(9.0315, 3);
+      });
+
+      it("adds no address when the place text already names the street (Barbados)", async () => {
+        mockApiResponse([
+          buildHCEvent({
+            publicEventId: "evt-1",
+            locationOneLineDesc: "Isolation Road Saint Andrew",
+            resolvableLocation: "13.2, -59.5",
+          }),
+        ]);
+        mockGlobalRow({ LocationStreet: "Isolation Road", LocationCity: "Saint Andrew", LocationCountry: "Barbados" });
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "barbados-h3" }));
+        expect(result.events[0].location).toBe("Isolation Road Saint Andrew");
+      });
+
+      it("keeps getEvents' own address when it has one", async () => {
+        mockApiResponse([
+          buildHCEvent({
+            publicEventId: "evt-1",
+            locationOneLineDesc: "Iron Horse Tavern",
+            resolvableLocation: "140 High Street, Morgantown, WV, United States",
+          }),
+        ]);
+        mockGlobalRow({ LocationStreet: "Other Street", LocationCity: "Elsewhere" });
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "mh3-wv" }));
+        expect(result.events[0].location).toBe("Iron Horse Tavern, 140 High Street, Morgantown, WV, United States");
+      });
+    });
+
+    it("re-synthesizes a title equal to the venue even when both carry a line break", async () => {
+      mockApiResponse([
+        buildHCEvent({ eventName: "Azabu\njuban", locationOneLineDesc: "Azabu\njuban", eventNumber: 2591 }),
+      ]);
+      const result = await adapter.fetch(makeSource({ defaultKennelTag: "tokyo-h3", defaultTitle: "Tokyo H3" }));
+      expect(result.events[0].title).toBe("Tokyo H3 #2591");
+    });
+
+    describe("uncounted runs (#3116 YH3 AGPU weekend)", () => {
+      it("drops the run number, numbered fallback title and permalink of an uncounted run", async () => {
+        mockApiResponse([
+          buildHCEvent({ kennelUniqueShortName: "YH3", eventNumber: 2195, isCountedRun: 0, eventName: "Yorkshire H3 AGPU weekend" }),
+          buildHCEvent({ publicEventId: "e2", kennelUniqueShortName: "YH3", eventNumber: 2196, isCountedRun: 0, eventName: "" }),
+        ]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "yh3", defaultTitle: "Yorkshire H3" }));
+        expect(result.events[0]).toMatchObject({ runNumber: null, title: "Yorkshire H3 AGPU weekend", sourceUrl: undefined });
+        // No "Yorkshire H3 #2196": merge synthesizes an unnumbered default instead.
+        expect(result.events[1]).toMatchObject({ runNumber: null, title: undefined });
+      });
+
+      it("keeps the number of a counted run", async () => {
+        mockApiResponse([buildHCEvent({ eventNumber: 2214, isCountedRun: 1 })]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "yh3" }));
+        expect(result.events[0].runNumber).toBe(2214);
+      });
+    });
+
+    describe("start time (#3071 Lyon H3 #29)", () => {
+      it("treats HC's 00:00 as no time set (explicit clear)", async () => {
+        mockApiResponse([buildHCEvent({ eventStartDatetime: "2026-11-22T00:00:00", eventName: "Beaujolais Hangover run" })]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "lh3-fr" }));
+        expect(result.events[0].startTime).toBeNull();
+        expect(result.events[0].date).toBe("2026-11-22");
+      });
+
+      it("keeps 00:00 for a run named as a midnight run, and any other time", async () => {
+        mockApiResponse([
+          buildHCEvent({ eventStartDatetime: "2026-07-10T00:00:00", eventName: "Official Midnight Nekkid R*n" }),
+          buildHCEvent({ publicEventId: "e2", eventStartDatetime: "2026-11-11T23:11:00", eventName: "Reverse 7-11" }),
+        ]);
+        const result = await adapter.fetch(makeSource({ defaultKennelTag: "lh3-fr" }));
+        expect(result.events.map((e) => e.startTime)).toEqual(["00:00", "23:11"]);
       });
     });
 
