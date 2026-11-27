@@ -2637,6 +2637,8 @@ export class GoogleCalendarAdapter implements SourceAdapter {
       { now },
     );
 
+    const templateRunNumbersCleared = clearTemplateRunNumbers(events);
+
     const hasErrorDetails = hasAnyErrors(errorDetails);
 
     const { events: compositeDeduped, compositeDedupedCount, allDayCollapsedCount, runDescriptorMergedCount } =
@@ -2651,6 +2653,7 @@ export class GoogleCalendarAdapter implements SourceAdapter {
         pagesProcessed,
         itemsReturned: totalItemsReturned,
         ...(backfillCount > 0 && { inlineHarelineBackfilled: backfillCount }),
+        ...(templateRunNumbersCleared > 0 && { templateRunNumbersCleared }),
         ...(exceptionsRecovered > 0 && { exceptionsRecovered }),
         ...(compositeDedupedCount > 0 && { compositeDeduped: compositeDedupedCount }),
         ...(allDayCollapsedCount > 0 && { allDayCollapsed: allDayCollapsedCount }),
@@ -2746,6 +2749,53 @@ function mergeRawEventInPlace(target: RawEventData, donor: RawEventData): void {
       (target as unknown as Record<string, unknown>)[k] = dv;
     }
   }
+}
+
+const RUN_NUMBER_TOKEN_RE = /\s*#\s*(\d+)\b/g;
+
+/** The title without its "#<run>" token; other "#N" tokens stay. */
+function stripRunToken(title: string | undefined, run: number): string | undefined {
+  return title?.replace(RUN_NUMBER_TOKEN_RE, (token, digits: string) => (Number(digits) === run ? "" : token)).trim() || undefined;
+}
+
+/**
+ * The source says there is no hare yet: "???", "TBD", "Hare TBD". A missing hare
+ * is not enough: many real runs just don't list one.
+ */
+function isPlaceholderHare(hares: string | null | undefined): boolean {
+  if (!hares) return false;
+  const value = hares.replace(/^hares?\s*:?\s*/i, "");
+  return /^[?\s]+$/.test(value) || isPlaceholder(value);
+}
+
+/**
+ * #2994 HCH3 "Trail #760 WARNO", Minneapolis "Trail #1972": a recurring placeholder
+ * series repeats one run number on every occurrence, so the same number lands on
+ * many dates. On the placeholder occurrences ("???" / "Hare TBD") of a series whose run
+ * number repeats across dates, that number is the template's, not the run's: clear
+ * it (explicit null) and take "#N" out of the title. Occurrences with a real hare,
+ * and one-off events outside the series, keep theirs. Returns how many were cleared.
+ */
+export function clearTemplateRunNumbers(events: RawEventData[]): number {
+  const inSeries = events.flatMap((e) =>
+    e.recurringSeriesId && typeof e.runNumber === "number"
+      ? [{ e, run: e.runNumber, key: `${e.recurringSeriesId}|${e.runNumber}` }]
+      : [],
+  );
+  const datesByKey = new Map<string, Set<string>>();
+  for (const { e, key } of inSeries) {
+    let dates = datesByKey.get(key);
+    if (!dates) datesByKey.set(key, (dates = new Set()));
+    dates.add(e.date);
+  }
+  let cleared = 0;
+  for (const { e, run, key } of inSeries) {
+    if (datesByKey.get(key)!.size < 2 || !isPlaceholderHare(e.hares)) continue;
+    e.runNumber = null;
+    e.title = stripRunToken(e.title, run);
+    cleared++;
+  }
+  return cleared;
 }
 
 /**
