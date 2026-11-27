@@ -47,10 +47,10 @@ A session counts as a **human visitor** when all of these hold:
 4. **Not stale or headless:** Chrome, Chrome iOS or Edge major version ≥ 130; Firefox ≥ 128; Safari ≥ 16; browser known; screen width not 800 or 1600. Raise the thresholds each quarter (Chrome ships about every 4 weeks; 130 is a year old in Nov 2026).
 5. **Not a data-centre city:** `$geoip_city_name` not in the list in the query below (hyperscaler regions plus Hetzner).
 6. **Not the owner's own browser:** sessions matching the owner's desktop fingerprint (metro, desktop Chrome ≥ 150, width ≥ 1280) are excluded. The exact values are kept in the checkpoint session's notes, not in this repo. Replace this rule with the opt-out flag in §6.
-7. **Not a known crawler fingerprint:** Chrome iOS 144 at width 390.
+7. **Not a known crawler fingerprint:** Chrome iOS 144 at width 390 in the US. Every session with this fingerprint since 10 Nov was in the US (mostly New York or no city), none lasted over 8 s, and most landed on an event page. The query also reports `crawler_fingerprint_sessions`, so a real visitor caught by the rule shows up in the review.
 8. **Not zero-duration:** not (1 pageview, no `$autocapture`, no custom interaction event, under 2 s).
 
-A human visitor is **engaged** when it has ≥ 2 pageviews, a click (`$autocapture`), a custom interaction event, or an external referrer and ≥ 3 s. Auto-fired events (`location_prompt_shown`, `empty_state_shown`, `$web_vitals`, `$identify`) don't count as interaction.
+A human visitor is **engaged** when it has ≥ 2 pageviews, a click (`$autocapture`), a custom interaction event, or an external referrer and ≥ 3 s. A custom interaction event is any event not starting with `$` and not ending in `_view`, `_viewed` or `_shown`. Those view events fire on their own when a page renders (`location_prompt_shown`, `travel_search_results_viewed`, `kennel_profile_view`, …), so they don't count as interaction. A new view event must follow that naming or the query must list it.
 
 ### 2.3 Query
 
@@ -73,10 +73,11 @@ s AS (
     any(properties.$screen_width) AS sw,
     any(properties.$geoip_city_name) AS city,
     argMinIf(properties.$referring_domain, timestamp, event = '$pageview') AS ref,
+    argMinIf(properties.utm_campaign, timestamp, event = '$pageview') AS campaign,
+    any(properties.$geoip_country_code) AS country,
     countIf(event = '$pageview') AS pv,
     countIf(event = '$autocapture') AS ac,
-    countIf(event NOT IN ('$pageview', '$pageleave', '$autocapture', '$web_vitals', '$identify',
-                          'location_prompt_shown', 'empty_state_shown')) AS interact,
+    countIf(NOT startsWith(event, '$') AND NOT match(event, '_(view|viewed|shown)$')) AS interact,
     dateDiff('second', min(timestamp), max(timestamp)) AS dur_s,
     max(person_id IN (SELECT person_id FROM admins)) AS admin
   FROM events
@@ -87,6 +88,7 @@ s AS (
 ),
 c AS (
   SELECT *,
+    (browser = 'Chrome iOS' AND major = 144 AND sw = 390 AND country = 'US') AS crawler_fp,
     (host = 'www.hashtracks.xyz'                                        -- rule 1
      AND NOT admin                                                      -- rule 2
      AND NOT isLikelyBot(ua)                                            -- rule 3
@@ -100,7 +102,7 @@ c AS (
                                     'Forest City', 'Altoona', 'Papillion', 'Covington', 'Des Moines',
                                     'San Antonio', 'Cheyenne', 'Hillsboro', 'Falkenstein', 'Nuremberg',
                                     'Helsinki')                                 -- rule 5
-     AND NOT (browser = 'Chrome iOS' AND major = 144 AND sw = 390)      -- rule 7
+     AND NOT crawler_fp                                                 -- rule 7
      -- rule 6 (owner fingerprint) goes here
      AND NOT (pv = 1 AND ac = 0 AND interact = 0 AND dur_s < 2)         -- rule 8
     ) AS human,
@@ -113,13 +115,15 @@ SELECT
   count() AS all_sessions,
   countIf(human) AS human_visitors,
   countIf(human AND engaged) AS engaged_human_visitors,
-  countIf(human AND ref NOT IN ('$direct', 'www.hashtracks.xyz', 'hashtracks.xyz')) AS referred_human_visitors
+  countIf(human AND ref NOT IN ('$direct', 'www.hashtracks.xyz', 'hashtracks.xyz')) AS referred_human_visitors,
+  countIf(human AND campaign = 'outreach-2026-12') AS outreach_human_visitors,
+  countIf(crawler_fp) AS crawler_fingerprint_sessions
 FROM c
 GROUP BY week
 ORDER BY week
 ```
 
-This filter is a heuristic. It will need new crawler fingerprints as they appear; check the residual list (`human` sessions with 1 pageview and `$direct`) at each checkpoint. Rule 8 and the engaged flag will miss some real one-page visitors, so treat `human_visitors` as an upper bound and `engaged_human_visitors` as a lower bound.
+This filter is a heuristic. It will need new crawler fingerprints as they appear; check the residual list (`human` sessions with 1 pageview and `$direct`) at each checkpoint. The counts are heuristic estimates, not bounds: bots that pass the rules inflate them, and rules 7 and 8 and the engaged flag can drop real visitors (rule 8 drops anyone who opens one page and leaves within 2 s). Check `crawler_fingerprint_sessions` and the residual list to judge which way a week leans.
 
 ### 2.4 What each rule removed
 
@@ -205,7 +209,7 @@ O2's target is ≥ 3 active non-admin users per 28 days by CP4 (21 Dec). Week 4 
 - **What:** the owner contacts the organisers of 20 kennels (start with kennels the owner knows, then the most active kennels with complete, live data). The message offers their kennel's HashTracks page link, a small "Upcoming runs on HashTracks" badge for their site, and asks them to share the page in their group. Code: a badge (SVG plus copy-paste snippet) on the kennel page or `/for-misman`, and share links with UTM tags (`utm_source=kennel`, `utm_campaign=outreach-2026-12`, `utm_content=<kennel>`).
 - **Expected effect:** if 5 of 20 organisers share the link once in a channel of 50–200 hashers, expect roughly 50–150 human visitors in the following week and 2–6 sign-ups. That would reach O2's ≥ 3 if even a few of them check in or follow a kennel. Badges on kennel sites add a small steady trickle and backlinks that help WS1/WS2 indexing. Uncertainty is high: reply rates for cold organiser outreach could be well under 25%; warm contacts do better.
 - **Cost:** 1 session (badge, snippet, UTM links, a check that the 20 kennel pages show live runs; about 1 PR). Owner about 150–240 minutes: 20 messages at 5–10 minutes each plus replies. Can be halved to 10 kennels.
-- **Scorecard:** human visitors with a `utm_campaign=outreach-2026-12` landing or an external referrer (`referred_human_visitors` in §2.3); sign-ups per week (prod `User.createdAt`); active non-admin users per 28 days; organisers contacted / replied / shared (owner logs counts in the checkpoint issue).
+- **Scorecard:** human visitors with a `utm_campaign=outreach-2026-12` landing (`outreach_human_visitors` in §2.3) and with an external referrer (`referred_human_visitors`), reported side by side and never added together, since one session can count in both; sign-ups per week (prod `User.createdAt`); active non-admin users per 28 days; organisers contacted / replied / shared (owner logs counts in the checkpoint issue).
 - **Risks:** owner time; holiday timing. Mitigation: start in week 3 (8–14 Dec), not week 4.
 
 ### Bet 2: misman pilot with one or two kennels the owner knows
@@ -219,7 +223,7 @@ O2's target is ≥ 3 active non-admin users per 28 days by CP4 (21 Dec). Week 4 
 ### Bet 3 (the D6 default): ICS subscription feeds per kennel and region with a "Subscribe" button
 
 - **What:** `webcal://` and `https://…ics` feeds per kennel and per region, a "Subscribe" button on kennel and region pages, validated in Google Calendar and Apple Calendar.
-- **Expected effect on O2 by CP4: about zero on its own.** A Subscribe button reaches only people already on the page: about 5 humans a week, none of whom opened a kennel page in the sample. A feed subscriber also isn't an active user under O2 unless they sign in. Its value is retention and distribution later: once organisers link a kennel calendar from their own site, calendar apps fetch it every few hours, and every subscriber sees HashTracks-hosted runs. That makes it a good thing for bet 1 to offer, not a channel by itself.
+- **Expected effect on O2 by CP4: about zero on its own.** A Subscribe button reaches only people already on the page: about 5 humans a week. 4 of the 22 sample sessions landed on a kennel page, and those 4 look like crawlers (§4.1). A feed subscriber also isn't an active user under O2 unless they sign in. Its value is retention and distribution later: once organisers link a kennel calendar from their own site, calendar apps fetch it every few hours, and every subscriber sees HashTracks-hosted runs. That makes it a good thing for bet 1 to offer, not a channel by itself.
 - **Cost:** 1–2 sessions (feed route with caching, region feeds, button, tests, validation in two calendar apps, a fetch counter for the scorecard). Owner about 15 minutes (subscribe in a personal calendar to test).
 - **Scorecard:** feed fetches per week and distinct subscribed feeds (server count by feed and user agent, e.g. Google's calendar fetcher); Subscribe button clicks (a new analytics event).
 
