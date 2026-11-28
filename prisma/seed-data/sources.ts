@@ -78,6 +78,30 @@ const sfh3KennelCodes = [
   "barh3", "marinh3", "fch3", "sffmh3", "vmh3", "mwh3", "262h3",
 ];
 
+// ── SHARED PHOENIX CONFIG ──
+// Phoenix H3 (phoenixhhh.org): one calendar, served as an iCal feed and as the
+// Big Ass Calendar, lists every hash in the valley. First match wins (#3103):
+// Wrong Way before Hump, so a "Wrong Way #N: Hump …" theme stays Wrong Way, and
+// Hump before Throw Down, so "Hump D'Throwdown" stays Hump D. \bHump\b catches
+// "Hump Hash – Saltfire" / "One Last Hump for ’25"; FDTDD is the Friday-the-13th
+// hash; BASH titles are "<Month> Bash …". Everything else is a Phoenix H3 special.
+const phoenixKennelPatterns: Array<[string, string]> = [
+  ["^LBH\\b|Lost Boobs", "lbh-phx"],
+  ["Wrong Way", "wrong-way"],
+  ["Hump D|\\bHump\\b", "hump-d"],
+  ["Dusk.*Down|FDTDD|Friday the 13th", "fdtdd"],
+  ["\\bFull\\b.*\\bMoon\\b", "fmh3-phx"],
+  ["\\bJHOT\\b", "jhot-phx"],
+  ["Throw ?down", "tdt-phx"],
+  ["\\bPBR\\b", "pbr-phx"],
+  ["\\bRising H3\\b", "rising-phx"],
+  ["(?:January|February|March|April|May|June|July|August|September|October|November|December)\\b[^#]*\\bBash\\b|Free Beer Bash|Crank ?wank", "bash-phx"],
+];
+const phoenixKennelCodes = [
+  "lbh-phx", "hump-d", "wrong-way", "fdtdd",
+  "ph3-phx", "fmh3-phx", "jhot-phx", "tdt-phx", "pbr-phx", "rising-phx", "bash-phx",
+];
+
 // ── SHARED BRISTOL CONFIG (bristolhash.org.uk hosts three kennels) ──
 //
 // Same UK locale, same postcode-truncated location parsing across all three;
@@ -3948,22 +3972,10 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
-        // Wrong Way before Hump, so a "Wrong Way #N: Hump …" theme stays Wrong Way.
-        // \bHump\b catches Hump D runs titled "Hump Hash – Saltfire" or
-        // "One Last Hump for ’25" (#3103), which "Hump D" missed.
-        kennelPatterns: [
-          ["^LBH\\b|Lost Boobs", "lbh-phx"],
-          ["Wrong Way", "wrong-way"],
-          ["Hump D|\\bHump\\b", "hump-d"],
-          ["Dusk.*Down|FDTDD", "fdtdd"],
-        ],
-        defaultKennelTag: "wrong-way",
-        // #3103: the feed lists every Phoenix hash (PBR, JHOT, Full Moon, Rising,
-        // Thursday Throwdown, …); only these four are kennels here. Unmatched titles
-        // are skipped instead of falling through to Wrong Way.
-        strictKennelRouting: true,
+        kennelPatterns: phoenixKennelPatterns,
+        defaultKennelTag: "ph3-phx",
       },
-      kennelCodes: ["lbh-phx", "hump-d", "wrong-way", "fdtdd"],
+      kennelCodes: phoenixKennelCodes,
     },
     // --- Phoenix (HTML Scraper — Big Ass Calendar) ---
     {
@@ -3986,26 +3998,16 @@ export const SOURCES = [
         // source" and was cancelled (89 in one scrape on 2026-11-05).
         // upcomingOnly clamps reconcile to future dates (reconcile.ts).
         upcomingOnly: true,
-        // Wrong Way before Hump, so a "Wrong Way #N: Hump …" theme stays Wrong Way.
-        // \bHump\b catches Hump D runs titled "Hump Hash – Saltfire" or
-        // "One Last Hump for ’25" (#3103), which "Hump D" missed.
-        kennelPatterns: [
-          ["^LBH\\b|Lost Boobs", "lbh-phx"],
-          ["Wrong Way", "wrong-way"],
-          ["Hump D|\\bHump\\b", "hump-d"],
-          ["Dusk.*Down|FDTDD", "fdtdd"],
-        ],
-        defaultKennelTag: "wrong-way",
-        // #3103: same as the iCal feed above, skip hashes that aren't kennels here.
-        strictKennelRouting: true,
+        kennelPatterns: phoenixKennelPatterns,
+        defaultKennelTag: "ph3-phx",
         // Two-Tier Hash Cash (#1349): detail pages carry a `Hash Cash:` line on
         // every event; promote it to Event.cost ONLY when it differs from these
-        // kennel standards. Hump D ($1) and LBH ($5) match their profile hashCash,
-        // so their per-event cost stays null. wrong-way/fdtdd have no seeded
-        // standard, so any cost on their pages surfaces verbatim.
-        kennelHashCash: { "hump-d": "$1", "lbh-phx": "$5" },
+        // kennel standards, which match each kennel's profile hashCash, so their
+        // per-event cost stays null. Kennels without a seeded standard surface
+        // any cost on their pages verbatim.
+        kennelHashCash: { "hump-d": "$1", "lbh-phx": "$5", "fmh3-phx": "$8", "jhot-phx": "$2", "pbr-phx": "$5" },
       },
-      kennelCodes: ["lbh-phx", "hump-d", "wrong-way", "fdtdd"],
+      kennelCodes: phoenixKennelCodes,
     },
     // --- Tucson (Google Calendar — per-kennel) ---
     {

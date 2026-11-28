@@ -1059,7 +1059,7 @@ describe("fetchEventDetail — Events Manager template (#3136)", () => {
   });
 });
 
-describe("PhoenixHHHAdapter.fetch — strict routing and previews (#3103)", () => {
+describe("PhoenixHHHAdapter.fetch — previews and untitled events (#3103)", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(Date.UTC(2026, 10, 15, 12, 0, 0)));
@@ -1069,14 +1069,14 @@ describe("PhoenixHHHAdapter.fetch — strict routing and previews (#3103)", () =
     vi.restoreAllMocks();
   });
 
-  const run = async (monthHtml: string, config: Record<string, unknown>) => {
+  const run = async (monthHtml: string) => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : (input as Request).url;
       // Detail pages carry no template-free content here; list-view values stand.
       if (url.includes("?event=")) return new Response("<html><body></body></html>", { status: 200 });
       return new Response(url.includes("page_id") ? monthHtml : "", { status: 200 });
     });
-    const source = { id: "phx", url: "https://www.phoenixhhh.org/?page_id=21", config: { ...DEFAULT_CONFIG, maxForwardMonths: 1, ...config } } as unknown as Source;
+    const source = { id: "phx", url: "https://www.phoenixhhh.org/?page_id=21", config: { ...DEFAULT_CONFIG, maxForwardMonths: 1 } } as unknown as Source;
     return new PhoenixHHHAdapter().fetch(source, { days: 30 });
   };
 
@@ -1087,34 +1087,27 @@ describe("PhoenixHHHAdapter.fetch — strict routing and previews (#3103)", () =
     preview("jhot-666-69-pucker-down-low", "JHOT #666.69: Pucker Down Low", "24 Nov 26"),
   ].join("");
 
-  it("folds each preview into its entry and skips hashes that match no kennel", async () => {
-    const result = await run(month, { strictKennelRouting: true });
+  it("folds each preview into its entry, and files a hash with no pattern under the default kennel", async () => {
+    const result = await run(month);
     expect(result.events.map((e) => [e.date, e.kennelTags[0], e.title])).toEqual([
       ["2026-11-21", "Wrong Way", "Wrong Way #1172: Mostus Thankful"],
+      ["2026-11-24", "Wrong Way", "JHOT #666.69: Pucker Down Low"],
     ]);
     expect(result.errors).toEqual([]);
-    expect(result.diagnosticContext).toMatchObject({ skippedUnmatched: 1 });
+    expect(result.diagnosticContext).toMatchObject({ untitledSkipped: 0 });
   });
 
   it("keeps the full entry when its preview comes first", async () => {
     const html = preview("wrong-way-1172-mostus-thankful", "Wrong Way #1172: Mostus Thankful", "21 Nov 26")
       + fullEntry("wrong-way-1172-mostus-thankful", "Wrong Way #1172: Mostus Thankful", "11/21/2026");
-    const result = await run(html, { strictKennelRouting: true });
+    const result = await run(html);
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({ startTime: "14:00", location: "Glendale Heroes Regional Park", hares: "Mostus Tittius" });
   });
 
-  it("still files unmatched hashes under the default kennel without strict routing", async () => {
-    const result = await run(month, {});
-    expect(result.events.map((e) => [e.kennelTags[0], e.title])).toEqual([
-      ["Wrong Way", "Wrong Way #1172: Mostus Thankful"],
-      ["Wrong Way", "JHOT #666.69: Pucker Down Low"],
-    ]);
-  });
-
   it("reports an event it can't title, so reconcile skips the scrape", async () => {
     const untitled = `<div class="em-item"><div class="em-item-meta-line em-event-date">Monday - 11/23/2026</div></div>`;
-    const result = await run(untitled, { strictKennelRouting: true });
+    const result = await run(untitled);
     expect(result.events).toEqual([]);
     expect(result.errors).toEqual([expect.stringContaining("2026-11-23: event has no title")]);
   });
@@ -1125,10 +1118,10 @@ describe("seeded Phoenix kennel patterns (#3103)", () => {
   const routeOf = (config: unknown, title: string) =>
     (config as { kennelPatterns: [string, string][] }).kennelPatterns.find(([p]) => new RegExp(p, "im").test(title))?.[1];
 
-  it("covers both sources, with strict routing", () => {
-    expect(phoenix.map((s) => [s.name, (s.config as { strictKennelRouting?: boolean }).strictKennelRouting])).toEqual([
-      ["Phoenix H3 Events", true],
-      ["Phoenix H3 Big Ass Calendar", true],
+  it("covers both sources, with Phoenix H3 as the default kennel", () => {
+    expect(phoenix.map((s) => [s.name, (s.config as { defaultKennelTag?: string }).defaultKennelTag])).toEqual([
+      ["Phoenix H3 Events", "ph3-phx"],
+      ["Phoenix H3 Big Ass Calendar", "ph3-phx"],
     ]);
   });
 
@@ -1140,10 +1133,22 @@ describe("seeded Phoenix kennel patterns (#3103)", () => {
     ["Hump Hash – Saltfire", "hump-d"],
     ["One Last Hump for ’25: Cornish Tempe", "hump-d"],
     ["FDTDD March Night Run", "fdtdd"],
-    ["JHOT #666.69: Pucker Down Low", undefined],
-    ["Phoenix PBR Hash #98AT", undefined],
-    ["Full Bieber Moon Hash", undefined],
-  ])("routes %j to %s", (title, kennel) => {
+    ["Friday the 13th-Hash Camp Crystal Lake", "fdtdd"],
+    ["Full Bieber Moon Hash", "fmh3-phx"],
+    ["Joint Zonies / Full Pink Moon Hash", "fmh3-phx"],
+    ["JHOT #666.69: Pucker Down Low", "jhot-phx"],
+    ["Episode 6.9: Return of the JHOT", "jhot-phx"],
+    ["Thursday Throwdown #202", "tdt-phx"],
+    ["The ReserErection of The Throwdown!!! #199", "tdt-phx"],
+    ["Phoenix PBR Hash #98AT", "pbr-phx"],
+    ["Rising H3 #28: Seats for Thailor!", "rising-phx"],
+    ["November Bash: Bringing Back Brunch", "bash-phx"],
+    ["February “Superb Owl” Bash", "bash-phx"],
+    ["FREE BEER BASH", "bash-phx"],
+    ["11th Anal Gay Bash", undefined],
+    ["P.D.E.'s Rogue 69th Birthday Bash", undefined],
+    ["Phoenix Red Dress Run", undefined],
+  ])("routes %j to %s (undefined: the Phoenix H3 default)", (title, kennel) => {
     for (const s of phoenix) expect(routeOf(s.config, title)).toBe(kennel);
   });
 });

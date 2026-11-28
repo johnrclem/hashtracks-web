@@ -23,12 +23,6 @@ import { compileKennelPatterns, matchCompiledKennelPatterns, type CompiledKennel
 interface PhoenixHHHConfig {
   kennelPatterns: [string, string][];
   defaultKennelTag: string;
-  /**
-   * #3103: skip an event whose title matches no kennel pattern instead of filing
-   * it under `defaultKennelTag`. The calendar lists every Phoenix hash (PBR, JHOT,
-   * Full Moon, …), and only some are kennels here. Mirrors the iCal/GCal flag.
-   */
-  strictKennelRouting?: boolean;
   pageId?: number; // defaults to 21
   /**
    * Max number of forward calendar months to fetch per scrape (default 4 —
@@ -655,17 +649,14 @@ export class PhoenixHHHAdapter implements SourceAdapter {
       });
     }
 
-    // #3103: with strict routing, keep only events a kennel pattern claims (on the
-    // final, detail-page title). An event with no title can't be routed at all; it
-    // is reported as an error so reconcile skips this scrape instead of cancelling
-    // a real run it couldn't see.
-    const events = config.strictKennelRouting
-      ? allEvents.filter((e) => {
-          if (matchKennel(e.title, compiledPatterns)) return true;
-          if (!e.title) allErrors.push(`${e.date}: event has no title, so its kennel is unknown (${e.sourceUrl ?? "no link"})`);
-          return false;
-        })
-      : allEvents;
+    // #3103: an event with no title can't be routed; on the default kennel it would
+    // be an untitled phantom. It is reported as an error so reconcile skips this
+    // scrape instead of cancelling a real run it couldn't see.
+    const events = allEvents.filter((e) => {
+      if (e.title) return true;
+      allErrors.push(`${e.date}: event has no title, so its kennel is unknown (${e.sourceUrl ?? "no link"})`);
+      return false;
+    });
 
     if (allParseErrors.length > 0) {
       errorDetails.parse = allParseErrors;
@@ -681,7 +672,7 @@ export class PhoenixHHHAdapter implements SourceAdapter {
         monthsFetched,
         totalItems,
         eventsParsed: allEvents.length,
-        skippedUnmatched: allEvents.length - events.length,
+        untitledSkipped: allEvents.length - events.length,
         detailsFetched,
         detailFetchFailures,
         eventsWithoutDetail: needsDetail.length - detailsFetched,
