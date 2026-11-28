@@ -155,6 +155,58 @@ A to A flat trail - no hazards.
   });
 });
 
+describe("parseCrh3Body — #226 out-station post (#2906, #2907)", () => {
+  // Trimmed from live CRH3 #226 (2026-11-26): "STARTING POINT:" label, en-dash
+  // delimiters, 4-digit EARLY TIME, and an Agoda link whose query string
+  // contains "isShowMobileAppPrice=false".
+  const body226 = `PHAYAO OUT STATION CRH3 #226
+DATE Saturday 14 November
+LEAD HARE: Love Canal
+STARTING POINT: 300m farther past Phayao Freshwater Fisheries Research. You may avoid the line of Phayao traffic lights by following the overhead sign for 'Phayao Downtown'.
+https://maps.app.goo.gl/dBNoBYaEzpy77ppE6
+PARKING – On the right.
+EARLY TIME – 1430 for 1500 start. 6.5km trail, 90% rural.
+PRICE – 100 Baht for down down beer. We will have circle at the end of the run.
+ON AFTER – The restaurant will be Saengchan Restaurant on the lakefront.
+https://maps.app.goo.gl/iP9itiXTxi4XCz687
+HOTELS – There are several near the restaurant site.
+Phayao Northern Lake Hotel
+https://www.agoda.com/accom/property?propertyId=63120374&countryId=106&finalPriceView=1&isShowMobileAppPrice=false&cid=1919571&numberOfBedrooms=&familyMode=false&adults=2`;
+
+  it("does not take cost from a URL query parameter (#2906)", () => {
+    const result = parseCrh3Body(body226, "2026-11-05T12:00:00+07:00");
+    expect(result.cost).toBe("100 Baht for down down beer. We will have circle at the end of the run.");
+    expect(result.cost).not.toContain("cid=");
+  });
+
+  it("leaves cost undefined when only a URL parameter contains 'Price' (#2906)", () => {
+    const body = "Hare: Test\nhttps://www.agoda.com/accom?isShowMobileAppPrice=false&cid=1";
+    expect(parseCrh3Body(body, "2026-11-05T12:00:00+07:00").cost).toBeUndefined();
+  });
+
+  it("reads the STARTING POINT label as location and keeps the following start-site map link (#2907)", () => {
+    const result = parseCrh3Body(body226, "2026-11-05T12:00:00+07:00");
+    expect(result.location).toBe("300m farther past Phayao Freshwater Fisheries Research.");
+    // The first map link after the label is the start site, not the ON AFTER restaurant link.
+    expect(result.locationUrl).toBe("https://maps.app.goo.gl/dBNoBYaEzpy77ppE6");
+  });
+
+  it("does not read a distance as a 4-digit time when a clock time is present", () => {
+    const r = parseCrh3Body("Hare: T\nEARLY TIME - 1000m warm-up walk, 3 for 3:30 pm start", "2026-11-05T12:00:00+07:00");
+    expect(r.startTime).toBe("15:30");
+    expect(parseStartTime("start 1500m up the hill")).toBeUndefined();
+  });
+
+  it("keeps an address whole when the first period follows an abbreviation", () => {
+    const loc = "Soi 5 Moo 3, Nang Lae Rd. Mueang district, behind the big temple, Chiang Rai province, Thailand";
+    expect(parseCrh3Body(`Hare: T\nLocation: ${loc}`, "2026-11-05T12:00:00+07:00").location).toBe(loc);
+  });
+
+  it("parses a 4-digit 24h 'EARLY TIME – 1430 for 1500 start' as 15:00", () => {
+    expect(parseCrh3Body(body226, "2026-11-05T12:00:00+07:00").startTime).toBe("15:00");
+  });
+});
+
 describe("parseCrh3Post", () => {
   it("uses the post title verbatim as Event.title (#1119)", () => {
     const result = parseCrh3Post({
