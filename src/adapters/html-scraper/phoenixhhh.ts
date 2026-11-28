@@ -14,8 +14,9 @@ import type { AnyNode } from "domhandler";
 import type { Source } from "@/generated/prisma/client";
 import type { SourceAdapter, RawEventData, ScrapeResult, ErrorDetails, ParseError } from "../types";
 import { safeFetch } from "../safe-fetch";
-import { parse12HourTime, validateSourceConfig, compilePatterns, buildDateWindow, stripHtmlTags, decodeEntities, extractHashRunNumber, chronoParseDate } from "../utils";
+import { parse12HourTime, validateSourceConfig, buildDateWindow, stripHtmlTags, decodeEntities, extractHashRunNumber, chronoParseDate } from "../utils";
 import { extractHares } from "../hare-extraction";
+import { compileKennelPatterns, matchCompiledKennelPatterns, type CompiledKennelPattern } from "../kennel-patterns";
 
 // ── Config shape ──
 
@@ -223,6 +224,25 @@ export function cleanPhoenixDescription(
   return out || undefined;
 }
 
+/**
+ * #3136: Events Manager's single-event template puts a map box, then Date/Time,
+ * Location and Categories paragraphs and a clearing `<br>`, before the event's own
+ * notes ("Map Unavailable / Date/Time / Date(s) - … / Categories / No Categories").
+ * Removes that block so the description is the notes alone. Leaves the page as it
+ * is when the layout differs (no `<br>`, or no Date/Time paragraph before it).
+ */
+export function removeEventsManagerTemplate($: cheerio.CheerioAPI, content: cheerio.Cheerio<AnyNode>): void {
+  const parts = content.find(".em-item-single").first().children().toArray();
+  const end = parts.findIndex((el) => $(el).is("br"));
+  if (end < 0 || !parts.slice(0, end).some((el) => $(el).text().trim().startsWith("Date/Time"))) return;
+  for (const el of parts.slice(0, end + 1)) $(el).remove();
+}
+
+/** The kennel whose pattern matches `title`, if any. */
+function matchKennel(title: string | undefined, patterns: readonly CompiledKennelPattern[]): string | undefined {
+  return title ? matchCompiledKennelPatterns(title, patterns)[0] : undefined;
+}
+
 /** Detail-page extraction result. Null fields mean "missing on the page"
  *  (adapter falls back to list-view values). */
 export interface PhoenixEventDetail {
@@ -259,6 +279,7 @@ export async function fetchEventDetail(eventUrl: string): Promise<PhoenixEventDe
   let description: string | null = null;
   let hares: string | null = null;
   if (contentEl.length > 0) {
+    removeEventsManagerTemplate($, contentEl);
     const text = stripHtmlTags(contentEl.html() ?? "", "\n").trim();
     description = text || null;
     if (text) {
@@ -301,16 +322,20 @@ export function parseEventFromItem(
   $item: cheerio.Cheerio<AnyNode>,
   $: cheerio.CheerioAPI,
   config: PhoenixHHHConfig,
-  compiledPatterns: [RegExp, string][],
+  compiledPatterns: readonly CompiledKennelPattern[],
 ): RawEventData | null {
-  // Title extraction: try img alt text (present when event has an uploaded image)
-  let title: string | undefined;
-  const imgEl = $item.find(".em-item-image img");
-  if (imgEl.length > 0) {
-    const alt = imgEl.attr("alt")?.trim();
-    if (alt) title = decodeEntities(alt);
-  }
-  // If no title from img alt, it will be fetched from the detail page later
+  // Title and link. An uploaded image's alt text wins. A full calendar entry sits
+  // alone in a modal whose header links the event; the grid's compact preview of
+  // the same event carries the link in `.em-item-name` (#3103/#3104: read neither
+  // and each preview became an untitled "Wrong Way Trail" on its event's date).
+  // The detail page's title still overrides this later.
+  const nameLink = $item.find(".em-item-name a").first();
+  const modal = $item.closest(".em-modal");
+  const titleLink = nameLink.length > 0 || modal.find(".em-item").length !== 1
+    ? nameLink
+    : modal.find(".em-modal-title a").first();
+  const listTitle = $item.find(".em-item-image img").attr("alt")?.trim() || titleLink.text().trim();
+  const title = listTitle ? decodeEntities(listTitle) : undefined;
 
   // Date extraction. Events Manager emits two shapes:
   //   - Long: "Monday - 03/02/2026" (single-day events with weekday prefix,
@@ -362,8 +387,8 @@ export function parseEventFromItem(
     ? extractHares(description, PHOENIX_HARE_PATTERNS as RegExp[])
     : undefined;
 
-  // Source URL from read-more link
-  const readMoreHref = $item.find("a.em-item-read-more").attr("href");
+  // Source URL from the read-more link, else the title link
+  const readMoreHref = $item.find("a.em-item-read-more").attr("href") ?? titleLink.attr("href");
   let sourceUrl: string | undefined;
   if (readMoreHref) {
     try {
@@ -373,19 +398,9 @@ export function parseEventFromItem(
     }
   }
 
-  // Kennel tag resolution via config patterns
-  let kennelTag = config.defaultKennelTag;
-  const matchText = title ?? "";
-  for (const [pattern, tag] of compiledPatterns) {
-    if (pattern.test(matchText)) {
-      kennelTag = tag;
-      break;
-    }
-  }
-
   return {
     date,
-    kennelTags: [kennelTag],
+    kennelTags: [matchKennel(title, compiledPatterns) ?? config.defaultKennelTag],
     title,
     runNumber: extractHashRunNumber(title),
     description,
@@ -415,13 +430,8 @@ export class PhoenixHHHAdapter implements SourceAdapter {
     const pageId = config.pageId ?? 21;
     const { minDate, maxDate } = buildDateWindow(options?.days);
 
-    // Compile kennel patterns once
-    const patternStrings = config.kennelPatterns.map(([p]) => p);
-    const compiledRegexes = compilePatterns(patternStrings);
-    const compiledPatterns: [RegExp, string][] = compiledRegexes.map((re, i) => [
-      re,
-      config.kennelPatterns[i][1],
-    ]);
+    // Compile kennel patterns once (each regex stays paired with its kennel)
+    const compiledPatterns = compileKennelPatterns(config.kennelPatterns);
 
     // Calculate the FETCH month range. Forward-only: past calendar months never
     // change, and re-fetching ~12 of them every day (each a slow AJAX POST) blew
@@ -450,8 +460,8 @@ export class PhoenixHHHAdapter implements SourceAdapter {
     const endYear = Math.floor(endIndex / 12);
     const endMonth = (endIndex % 12) + 1;
 
-    const allEvents: RawEventData[] = [];
-    const seenKeys = new Set<string>(); // dedup month boundary spillover
+    // Dedup key → the kept copy, and whether it came from a full entry.
+    const seen = new Map<string, { event: RawEventData; full: boolean }>();
     const allErrors: string[] = [];
     const errorDetails: ErrorDetails = {};
     const allParseErrors: ParseError[] = [];
@@ -504,13 +514,17 @@ export class PhoenixHHHAdapter implements SourceAdapter {
                 return;
               }
 
-              // Filter by date window + dedup (month views include spillover days from adjacent months)
+              // Filter by date window + dedup. Month views repeat events: spillover
+              // days from adjacent months, and the grid's compact preview of every
+              // full entry (on each day of a multi-day event), so the event link is
+              // the key when there is one. A preview has no time or venue, so a
+              // full entry replaces a preview kept first.
               const eventDate = new Date(event.date + "T12:00:00Z");
-              const dedupKey = `${event.date}|${event.sourceUrl ?? event.title ?? ""}`;
-              if (eventDate >= minDate && eventDate <= maxDate && !seenKeys.has(dedupKey)) {
-                seenKeys.add(dedupKey);
-                allEvents.push(event);
-              }
+              if (eventDate < minDate || eventDate > maxDate) return;
+              const dedupKey = event.sourceUrl ?? `${event.date}|${event.title ?? ""}`;
+              const full = $(el).find("a.em-item-read-more").length > 0;
+              const kept = seen.get(dedupKey);
+              if (!kept || (full && !kept.full)) seen.set(dedupKey, { event, full });
             } catch (err) {
               allParseErrors.push({
                 row: i,
@@ -542,6 +556,8 @@ export class PhoenixHHHAdapter implements SourceAdapter {
         await new Promise((r) => setTimeout(r, 300));
       }
     }
+
+    const allEvents = [...seen.values()].map((kept) => kept.event);
 
     // Detail-page enrichment for every event with a sourceUrl. See
     // `fetchEventDetail` docblock for the #1192/#1193/#1472 rationale.
@@ -583,13 +599,10 @@ export class PhoenixHHHAdapter implements SourceAdapter {
 
         if (detail.title) {
           batch[j].title = detail.title;
-          // Re-resolve kennel tag now that we have the real title
-          for (const [pattern, tag] of compiledPatterns) {
-            if (pattern.test(detail.title)) {
-              batch[j].kennelTags[0] = tag;
-              break;
-            }
-          }
+          // Re-resolve kennel tag from the authoritative title: a list title can be a
+          // stale placeholder ("Wrong Way #1155 need hares"), so a detail title no
+          // pattern claims goes to the default kennel, not the list title's.
+          batch[j].kennelTags[0] = matchKennel(detail.title, compiledPatterns) ?? config.defaultKennelTag;
           // #1211: detail-page title is the authoritative run number source.
           // Always overwrite when the fetched title yields a number — the
           // list-page img.alt may carry a stale placeholder (e.g. "Wrong Way
@@ -637,6 +650,15 @@ export class PhoenixHHHAdapter implements SourceAdapter {
       });
     }
 
+    // #3103: an event with no title can't be routed; on the default kennel it would
+    // be an untitled phantom. It is reported as an error so reconcile skips this
+    // scrape instead of cancelling a real run it couldn't see.
+    const events = allEvents.filter((e) => {
+      if (e.title) return true;
+      allErrors.push(`${e.date}: event has no title, so its kennel is unknown (${e.sourceUrl ?? "no link"})`);
+      return false;
+    });
+
     if (allParseErrors.length > 0) {
       errorDetails.parse = allParseErrors;
     }
@@ -644,13 +666,14 @@ export class PhoenixHHHAdapter implements SourceAdapter {
     const hasErrors = Object.keys(errorDetails).length > 0;
 
     return {
-      events: allEvents,
+      events,
       errors: allErrors,
       errorDetails: hasErrors ? errorDetails : undefined,
       diagnosticContext: {
         monthsFetched,
         totalItems,
         eventsParsed: allEvents.length,
+        untitledSkipped: allEvents.length - events.length,
         detailsFetched,
         detailFetchFailures,
         eventsWithoutDetail: needsDetail.length - detailsFetched,

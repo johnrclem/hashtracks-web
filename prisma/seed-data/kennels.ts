@@ -3299,6 +3299,7 @@ export const KENNELS: KennelSeed[] = [
     // Phoenix
     {
       kennelCode: "lbh-phx", shortName: "LBH", fullName: "Lost Boobs Hash House Harriers", region: "Phoenix, AZ",
+      parentKennelCode: "ph3-phx",
       website: "https://www.phoenixhhh.org",
       logoUrl: "/kennel-logos/lbh-phx.png",
       scheduleDayOfWeek: "Monday", scheduleTime: "6:30 PM", scheduleFrequency: "Weekly",
@@ -3309,6 +3310,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "hump-d", shortName: "Hump D", fullName: "Hump D Hash House Harriers", region: "Phoenix, AZ",
+      parentKennelCode: "ph3-phx",
       website: "https://www.phoenixhhh.org",
       logoUrl: "https://www.phoenixhhh.org/wp-content/uploads/2013/10/Hump_Logo_150x150.jpg",
       hashCash: "$1",
@@ -3326,6 +3328,7 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "wrong-way", shortName: "Wrong Way", fullName: "Phoenix Wrong Way Hash House Harriers", region: "Phoenix, AZ",
+      parentKennelCode: "ph3-phx",
       website: "https://www.phoenixhhh.org",
       scheduleDayOfWeek: "Saturday", scheduleTime: "2:00 PM", scheduleFrequency: "Biweekly",
       scheduleNotes: "1st, 3rd, and 5th Saturday. 2 PM most of the year; 5 PM in summer (Jun–Sep).",
@@ -3344,10 +3347,101 @@ export const KENNELS: KennelSeed[] = [
     },
     {
       kennelCode: "fdtdd", shortName: "FDTDD", fullName: "From Dusk Till Down-Downs Hash", region: "Phoenix, AZ",
+      parentKennelCode: "ph3-phx",
       website: "https://www.phoenixhhh.org",
       scheduleDayOfWeek: "Friday", scheduleTime: "6:30 PM", scheduleFrequency: "Irregular",
       scheduleNotes: "Friday the 13th only — convenes ~2-3 times per year whenever the calendar permits.",
       description: "Phoenix's Friday-the-13th-only hash. Convenes when the calendar permits — typically two to three times a year. \"The most evil hash in all of Phoenix\" with horror-movie-themed runs.",
+      latitude: 33.45, longitude: -112.07,
+    },
+    // Phoenix H3 (phoenixhhh.org) runs the valley's hashes; the four above and the ones
+    // below share its calendar. Its specials (Red Dress Run, campouts, …) sit on the
+    // umbrella kennel, which is also both Phoenix sources' default (#3103).
+    {
+      kennelCode: "ph3-phx", shortName: "Phoenix H3", slug: "phoenix-h3", fullName: "Phoenix Hash House Harriers", region: "Phoenix, AZ",
+      website: "https://www.phoenixhhh.org",
+      foundedYear: 1988,
+      founder: "Wrong Way and Lazarus Arnold",
+      description: "The Phoenix Hash House Harriers, founded in October 1988 at North Mountain Park. It is the umbrella for the valley's hashes (Wrong Way, Hump D, LBH, Full Moon, JHOT and others); its specials, such as the Red Dress Run, campouts and anniversary hashes, are listed here.",
+      latitude: 33.45, longitude: -112.07,
+    },
+    {
+      kennelCode: "fmh3-phx", shortName: "Phoenix Full Moon", slug: "phoenix-full-moon", fullName: "Phoenix Full Moon Hash", region: "Phoenix, AZ",
+      parentKennelCode: "ph3-phx",
+      website: "https://www.phoenixhhh.org/?page_id=31",
+      scheduleFrequency: "Full Moon",
+      scheduleNotes: "On the night of the full moon, usually from a park. Hares away about 7 PM Sunday–Thursday. 21+.",
+      hashCash: "$8",
+      description: "Phoenix's full moon hash: a trail on the night of every full moon, usually starting at a park with hash beer before trail. $8 hash cash; first-time hashers are free.",
+      latitude: 33.45, longitude: -112.07,
+    },
+    {
+      kennelCode: "jhot-phx", shortName: "JHOT", slug: "jhot", fullName: "Just a Hash on Tuesday", region: "Phoenix, AZ",
+      parentKennelCode: "ph3-phx",
+      website: "https://www.phoenixhhh.org/?page_id=1240",
+      scheduleDayOfWeek: "Tuesday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "2nd & 4th Tuesdays. A to A, 2–4 miles with one beer near. 21+.",
+      // The calendar lists fewer runs than the schedule (7 in 14 months), so LOW.
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=2TU", startTime: "18:30", confidence: "LOW", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=4TU", startTime: "18:30", confidence: "LOW", displayOrder: 1 },
+      ],
+      foundedYear: 2013,
+      hashCash: "$2",
+      walkersWelcome: true,
+      description: "Phoenix's Tuesday evening hash, started in September 2013: 2nd and 4th Tuesdays, an A-to-A trail of 2–4 miles with one beer near. $2 goes to the hares.",
+      latitude: 33.45, longitude: -112.07,
+    },
+    {
+      kennelCode: "tdt-phx", shortName: "Throw Down Thursday", slug: "throw-down-thursday", fullName: "Throw Down Thursday Hash", region: "Phoenix, AZ",
+      parentKennelCode: "ph3-phx",
+      website: "https://www.phoenixhhh.org/?page_id=1572",
+      scheduleDayOfWeek: "Thursday", scheduleTime: "6:30 PM", scheduleFrequency: "Biweekly",
+      scheduleNotes: "2nd & 4th Thursdays, except when there is a full moon hash. 21+.",
+      // The calendar lists fewer runs than the schedule (6 in 15 months), so LOW.
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=2TH", startTime: "18:30", confidence: "LOW", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=4TH", startTime: "18:30", confidence: "LOW", displayOrder: 1 },
+      ],
+      foundedYear: 2013,
+      founder: "Sidewalk Slap",
+      description: "Phoenix's Thursday hash, started in 2013 by Sidewalk Slap: a non-stop trail with one hare, who carries the beer and flour, built to match the mileage of the Hump.",
+      latitude: 33.45, longitude: -112.07,
+    },
+    {
+      kennelCode: "pbr-phx", shortName: "Phoenix PBR", slug: "phoenix-pbr", fullName: "Phoenix PBR Hash", region: "Phoenix, AZ",
+      parentKennelCode: "ph3-phx",
+      website: "https://www.phoenixhhh.org",
+      scheduleDayOfWeek: "Friday", scheduleTime: "6:30 PM", scheduleFrequency: "Monthly",
+      scheduleNotes: "2nd Friday of the month. Meet 6:30 PM, hares off 6:45, pack away 7:00.",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=2FR", startTime: "18:30", confidence: "MEDIUM", displayOrder: 0 },
+      ],
+      hashCash: "$5",
+      description: "Phoenix's monthly Friday evening hash on the 2nd Friday, with Pabst Blue Ribbon as the beer. $5 hash cash, the same for virgins.",
+      latitude: 33.45, longitude: -112.07,
+    },
+    {
+      kennelCode: "rising-phx", shortName: "Rising H3", slug: "rising-h3", fullName: "Rising Hash House Harriers", region: "Phoenix, AZ",
+      parentKennelCode: "ph3-phx",
+      website: "https://www.phoenixhhh.org",
+      scheduleFrequency: "Irregular",
+      scheduleNotes: "Phoenix Rising FC home matches, often after a Wrong Way trail.",
+      description: "Phoenix hashers' social at Phoenix Rising FC home matches: they take over the south end of the stadium, often after a Wrong Way trail.",
+      latitude: 33.45, longitude: -112.07,
+    },
+    {
+      kennelCode: "bash-phx", shortName: "Crankwankers BASH", slug: "crankwankers-bash", fullName: "Phoenix Crank Wankers Bikes, Beer & Brunch Bike Hash", region: "Phoenix, AZ",
+      parentKennelCode: "ph3-phx",
+      website: "https://www.phoenixhhh.org/?page_id=131",
+      scheduleFrequency: "Monthly",
+      scheduleNotes: "2nd Sunday morning (Oct–May); 2nd Saturday evening (Jun–Sep). Bike hash of up to 15 miles. 21+.",
+      scheduleRules: [
+        { rrule: "FREQ=MONTHLY;BYDAY=2SA;BYMONTH=6,7,8,9", startTime: "17:00", label: "Summer (Jun–Sep)", validFrom: "06-01", validUntil: "09-30", confidence: "MEDIUM", displayOrder: 0 },
+        { rrule: "FREQ=MONTHLY;BYDAY=2SU;BYMONTH=1,2,3,4,5,10,11,12", startTime: "10:00", label: "Oct–May", validFrom: "10-01", validUntil: "05-31", confidence: "MEDIUM", displayOrder: 1 },
+      ],
+      hashCash: "Free (BYOB)",
+      description: "Phoenix's monthly bike hash: Bikes, Beer & Brunch on a flat route of up to 15 miles, finishing at a local spot for brunch. 2nd Sunday morning in winter, 2nd Saturday evening in summer.",
       latitude: 33.45, longitude: -112.07,
     },
     // Tucson
