@@ -15,8 +15,10 @@
 --    untitled "Wrong Way Trail" on its event's date (141 rows, 107 already cancelled).
 --    They are deleted with their raw rows; none has attendance, hares or child events.
 -- 4. Runs of other Phoenix hashes filed under Wrong Way move to their kennel (Phoenix H3
---    for specials). Where two copies of one run share a kennel, date and title (a raw-less
---    backfill copy, or one copy per source), the raw rows move to one and the other goes.
+--    for specials). Where copies of one run share a kennel, date and title (a raw-less
+--    backfill copy, or one copy per source), or the kennel already has that day's run, the
+--    raw rows move to one surviving event and the other copies go. A copy with attendance
+--    or hares is never emptied or deleted: it moves to the kennel as it is.
 -- 5. Wrong Way #1168.5 is a half run: it loses the 1168 its real #1168 holds.
 -- 6. Every Phoenix detail-page description started with the Events Manager template
 --    ("Map Unavailable / Date/Time / Date(s) - … / Categories / No Categories"); it is
@@ -162,7 +164,7 @@ DELETE FROM "Event" WHERE id IN (SELECT id FROM phoenix_preview);
 --    same rules as the sources' kennelPatterns, in the same order. An event whose title
 --    was replaced by the default "Wrong Way Trail" is classified by its latest raw title.
 CREATE TEMP TABLE phoenix_move ON COMMIT DROP AS
-SELECT b.id, b.date, b.status, b.raws, b.default_title,
+SELECT b.id, b.date, b.status, b.raws, b.default_title, b.protected,
   lower(regexp_replace(b.t, '[–—]', '-', 'g')) AS norm,
   CASE
     WHEN b.t ~* '^LBH\M|lost boobs' THEN 'lbh-phx'
@@ -179,6 +181,9 @@ SELECT b.id, b.date, b.status, b.raws, b.default_title,
 FROM (
   SELECT e.id, e.date, e.status, e.title = 'Wrong Way Trail' AS default_title,
     (SELECT count(*) FROM "RawEvent" r WHERE r."eventId" = e.id) AS raws,
+    EXISTS (SELECT 1 FROM "Attendance" a WHERE a."eventId" = e.id)
+      OR EXISTS (SELECT 1 FROM "KennelAttendance" a WHERE a."eventId" = e.id)
+      OR EXISTS (SELECT 1 FROM "EventHare" h WHERE h."eventId" = e.id) AS protected,
     CASE WHEN e.title = 'Wrong Way Trail'
       THEN (SELECT r."rawData"->>'title' FROM "RawEvent" r
             WHERE r."eventId" = e.id AND r."rawData"->>'title' IS NOT NULL ORDER BY r."scrapedAt" DESC LIMIT 1)
@@ -190,39 +195,42 @@ FROM (
 ) b
 WHERE b.t IS NOT NULL;
 
--- One copy per (kennel, date, title): the confirmed one with the most raw rows.
+-- One surviving event per run: an event the target kennel already has that day, else the
+-- copy with attendance or hares, then the confirmed copy with the most raw rows.
 CREATE TEMP TABLE phoenix_keep ON COMMIT DROP AS
-SELECT DISTINCT ON (target, date, norm) id AS keeper, target, date, norm
-FROM phoenix_move
-ORDER BY target, date, norm, (status = 'CONFIRMED') DESC, raws DESC, id;
+SELECT DISTINCT ON (m.target, m.date, m.norm) m.target, m.date, m.norm, COALESCE(d.id, m.id) AS keeper
+FROM phoenix_move m
+LEFT JOIN LATERAL (
+  SELECT o.id FROM "Event" o JOIN "Kennel" t ON t.id = o."kennelId"
+  WHERE t."kennelCode" = m.target AND o.date = m.date
+  ORDER BY (o.status = 'CONFIRMED') DESC, o.id
+  LIMIT 1
+) d ON true
+ORDER BY m.target, m.date, m.norm, m.protected DESC, (m.status = 'CONFIRMED') DESC, m.raws DESC, m.id;
 
 UPDATE "RawEvent" r
 SET "eventId" = kp.keeper
 FROM phoenix_move m JOIN phoenix_keep kp ON (kp.target, kp.date, kp.norm) = (m.target, m.date, m.norm)
-WHERE r."eventId" = m.id AND m.id <> kp.keeper;
+WHERE r."eventId" = m.id AND m.id <> kp.keeper AND NOT m.protected;
 
 DELETE FROM "Event" e
 USING phoenix_move m JOIN phoenix_keep kp ON (kp.target, kp.date, kp.norm) = (m.target, m.date, m.norm)
-WHERE e.id = m.id AND m.id <> kp.keeper
-  AND NOT EXISTS (SELECT 1 FROM "RawEvent" r WHERE r."eventId" = e.id)
-  AND NOT EXISTS (SELECT 1 FROM "Attendance" a WHERE a."eventId" = e.id)
-  AND NOT EXISTS (SELECT 1 FROM "KennelAttendance" a WHERE a."eventId" = e.id)
-  AND NOT EXISTS (SELECT 1 FROM "EventHare" h WHERE h."eventId" = e.id);
+WHERE e.id = m.id AND m.id <> kp.keeper AND NOT m.protected;
 
+-- The survivors that are Wrong Way events, and any copy with attendance or hares, move.
 UPDATE "Event" e
 SET "kennelId" = t.id,
     title = CASE WHEN m.default_title THEN t."shortName" || ' Trail' ELSE e.title END,
     "updatedAt" = NOW() AT TIME ZONE 'UTC'
-FROM phoenix_keep kp
-JOIN phoenix_move m ON m.id = kp.keeper
-JOIN "Kennel" t ON t."kennelCode" = kp.target
-WHERE e.id = kp.keeper
-  AND NOT EXISTS (SELECT 1 FROM "Event" o WHERE o."kennelId" = t.id AND o.date = e.date);
+FROM phoenix_move m
+JOIN phoenix_keep kp ON (kp.target, kp.date, kp.norm) = (m.target, m.date, m.norm)
+JOIN "Kennel" t ON t."kennelCode" = m.target
+WHERE e.id = m.id AND (m.id = kp.keeper OR m.protected);
 
 UPDATE "EventKennel" ek
 SET "kennelId" = e."kennelId"
-FROM "Event" e, "Kennel" ww, phoenix_keep kp
-WHERE e.id = kp.keeper AND ek."eventId" = e.id
+FROM "Event" e, "Kennel" ww, phoenix_move m
+WHERE e.id = m.id AND ek."eventId" = e.id
   AND ww."kennelCode" = 'wrong-way' AND ek."kennelId" = ww.id AND e."kennelId" <> ww.id
   AND NOT EXISTS (SELECT 1 FROM "EventKennel" x WHERE x."eventId" = e.id AND x."kennelId" = e."kennelId");
 

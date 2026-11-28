@@ -1069,14 +1069,14 @@ describe("PhoenixHHHAdapter.fetch — previews and untitled events (#3103)", () 
     vi.restoreAllMocks();
   });
 
-  const run = async (monthHtml: string) => {
+  const run = async (monthHtml: string, detailHtml = "<html><body></body></html>", config: Record<string, unknown> = {}) => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = typeof input === "string" ? input : (input as Request).url;
-      // Detail pages carry no template-free content here; list-view values stand.
-      if (url.includes("?event=")) return new Response("<html><body></body></html>", { status: 200 });
+      // By default detail pages are empty, so list-view values stand.
+      if (url.includes("?event=")) return new Response(detailHtml, { status: 200 });
       return new Response(url.includes("page_id") ? monthHtml : "", { status: 200 });
     });
-    const source = { id: "phx", url: "https://www.phoenixhhh.org/?page_id=21", config: { ...DEFAULT_CONFIG, maxForwardMonths: 1 } } as unknown as Source;
+    const source = { id: "phx", url: "https://www.phoenixhhh.org/?page_id=21", config: { ...DEFAULT_CONFIG, maxForwardMonths: 1, ...config } } as unknown as Source;
     return new PhoenixHHHAdapter().fetch(source, { days: 30 });
   };
 
@@ -1103,6 +1103,13 @@ describe("PhoenixHHHAdapter.fetch — previews and untitled events (#3103)", () 
     const result = await run(html);
     expect(result.events).toHaveLength(1);
     expect(result.events[0]).toMatchObject({ startTime: "14:00", location: "Glendale Heroes Regional Park", hares: "Mostus Tittius" });
+  });
+
+  it("routes by the detail title, falling back to the default kennel", async () => {
+    const html = fullEntry("wrong-way-1180-hares-needed", "Wrong Way #1180: Hares needed", "11/21/2026");
+    const detail = `<html><body><article><h1 class="entry-title">Full Bieber Moon Hash</h1></article></body></html>`;
+    const result = await run(html, detail, { defaultKennelTag: "Phoenix H3" });
+    expect(result.events.map((e) => [e.kennelTags[0], e.title])).toEqual([["Phoenix H3", "Full Bieber Moon Hash"]]);
   });
 
   it("reports an event it can't title, so reconcile skips the scrape", async () => {

@@ -86,16 +86,16 @@ const sfh3KennelCodes = [
 // "Hump Hash – Saltfire" / "One Last Hump for ’25"; FDTDD is the Friday-the-13th
 // hash; BASH titles are "<Month> Bash …". Everything else is a Phoenix H3 special.
 const phoenixKennelPatterns: Array<[string, string]> = [
-  ["^LBH\\b|Lost Boobs", "lbh-phx"],
+  [String.raw`^LBH\b|Lost Boobs`, "lbh-phx"],
   ["Wrong Way", "wrong-way"],
-  ["Hump D|\\bHump\\b", "hump-d"],
+  [String.raw`Hump D|\bHump\b`, "hump-d"],
   ["Dusk.*Down|FDTDD|Friday the 13th", "fdtdd"],
-  ["\\bFull\\b.*\\bMoon\\b", "fmh3-phx"],
-  ["\\bJHOT\\b", "jhot-phx"],
+  [String.raw`\bFull\b.*\bMoon\b`, "fmh3-phx"],
+  [String.raw`\bJHOT\b`, "jhot-phx"],
   ["Throw ?down", "tdt-phx"],
-  ["\\bPBR\\b", "pbr-phx"],
-  ["\\bRising H3\\b", "rising-phx"],
-  ["(?:January|February|March|April|May|June|July|August|September|October|November|December)\\b[^#]*\\bBash\\b|Free Beer Bash|Crank ?wank", "bash-phx"],
+  [String.raw`\bPBR\b`, "pbr-phx"],
+  [String.raw`\bRising H3\b`, "rising-phx"],
+  [String.raw`(?:January|February|March|April|May|June|July|August|September|October|November|December)\b[^#]*\bBash\b|Free Beer Bash|Crank ?wank`, "bash-phx"],
 ];
 const phoenixKennelCodes = [
   "lbh-phx", "hump-d", "wrong-way", "fdtdd",

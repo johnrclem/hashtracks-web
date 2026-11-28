@@ -599,9 +599,10 @@ export class PhoenixHHHAdapter implements SourceAdapter {
 
         if (detail.title) {
           batch[j].title = detail.title;
-          // Re-resolve kennel tag now that we have the real title
-          const tag = matchKennel(detail.title, compiledPatterns);
-          if (tag) batch[j].kennelTags[0] = tag;
+          // Re-resolve kennel tag from the authoritative title: a list title can be a
+          // stale placeholder ("Wrong Way #1155 need hares"), so a detail title no
+          // pattern claims goes to the default kennel, not the list title's.
+          batch[j].kennelTags[0] = matchKennel(detail.title, compiledPatterns) ?? config.defaultKennelTag;
           // #1211: detail-page title is the authoritative run number source.
           // Always overwrite when the fetched title yields a number — the
           // list-page img.alt may carry a stale placeholder (e.g. "Wrong Way
