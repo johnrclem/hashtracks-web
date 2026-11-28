@@ -1796,3 +1796,10 @@ _(latest handoff: Taoyuan Metro H3 2026-06-23 — 🇹🇼 Taiwan's 5th kennel, 
 - Events verified: 1 future row (Fri 2026-12-11 "Girton College - Dinner Dance", Event col "Run 2500" — collides with real trail #2500 on 2026-11-22, so no runNumber).
 - Bonus: `/runlist` is a full archive "Sep 2006 to the present" (runs ~1458→2504+; ~1,326 rows); only the newest season block was expanded/sampled, older blocks collapsed. `/past` is a 404 (seed comment stale). Backfill plan in handoff; prod overlap not checked.
 - Follow-ups: refill still owed (`queued` rows ≤ 5). Not done this run.
+
+## 2026-11-28 — City of Exeter H3 pre-Oct-2020 history backfill (Exeter, England 🇬🇧) — ✅ handed off
+- Desktop runner (persistent `hashtracks-research` clone). Preflight: login `hashtracks-agent[bot]`, no `onboarding-blocked` issue, backlog 3 (< 10), no no-op streak. Open handoff PR #3087 (Cambridge) was CONFLICTING; the force-push was denied by the runner's classifier, so it was rebuilt on `-r2` as #3173 (merged) and #3087 closed. Target: oldest untriaged `onboarding-candidate` with no handoff, **#2916** (history gap on live `coeh3`; no prior `coeh3-history*` handoff or PR).
+- Source: Blogger JSON feed `cityofexeterhhh.blogspot.com/feeds/posts/default` (curl 200). Script-only: frozen JSON + loader, no adapter change. Reachable 987 of the reported 1,089 posts (windowed per-year queries agree), 720 published before 2020-10-04.
+- Events verified: 466 dated titles → 450 distinct dates (438 Sundays), 2008-08-31 → 2020-09; expect about 380–430 loadable runs. 2013 has only 4 posts (source gap).
+- Key finding: no run numbers in pre-2020 titles. Anchors (400th 2009-05-10, 500th 2011-03-20, 600th 2013-01-06, #949/#957/#973 in 2019-20) allow numbers only from 2019-08-25 onward; handoff says leave earlier rows unnumbered. Two source year typos (2017 posts published 2016) and 17 out-of-window dates documented.
+- Follow-ups: prod overlap at the 2020-09 seam not checked (no DB). Refill still owed (`queued` ≤ 5; not done this run).
