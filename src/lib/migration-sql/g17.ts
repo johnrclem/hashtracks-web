@@ -252,3 +252,43 @@ export async function checkMigrationForBackfill(sql: string): Promise<string[]> 
   }
   return problems;
 }
+
+/**
+ * The literal rows a migration inserts into `table`, as column → value nodes:
+ * `VALUES (…)` rows, or the one row of `INSERT … SELECT <values> [WHERE …]`
+ * without a FROM (the template's idempotent form).
+ */
+async function insertedRows(sql: string, table: string): Promise<Array<Map<string, unknown>>> {
+  const parsed = await parseMigrationSql(sql);
+  if (!parsed.ok) return [];
+  const out: Array<Map<string, unknown>> = [];
+  for (const s of parsed.statements) {
+    if (s.type !== "InsertStmt" || obj(s.node.relation)?.relname !== table) continue;
+    const cols = insertColumns(s.node);
+    const select = obj(obj(s.node.selectStmt)?.SelectStmt);
+    const rows = valuesRows(s.node) ?? (select && !select.fromClause ? [((select.targetList as unknown[]) ?? []).map((t) => obj(obj(t)?.ResTarget)?.val)] : []);
+    for (const row of rows) out.push(new Map(cols.map((c, i) => [c, row[i]])));
+  }
+  return out;
+}
+
+export interface SourceInsert {
+  id: string | undefined;
+  archiveOnly: boolean | undefined;
+  enabled: boolean | undefined;
+}
+
+/**
+ * The `INSERT INTO "Source"` rows of a migration whose `name` is `sourceName`,
+ * with their literal `id`, `archiveOnly` and `enabled` values (CI, design 6.2).
+ */
+export async function findSourceInserts(sql: string, sourceName: string): Promise<SourceInsert[]> {
+  return (await insertedRows(sql, "Source"))
+    .filter((row) => stringLiteral(row.get("name")) === sourceName)
+    .map((row) => ({ id: stringLiteral(row.get("id")), archiveOnly: boolLiteral(row.get("archiveOnly")), enabled: boolLiteral(row.get("enabled")) }));
+}
+
+/** The literal `sourceId`s a migration links to a kennel with `INSERT INTO "SourceKennel"` (CI, design 6.2). */
+export async function findSourceKennelSourceIds(sql: string): Promise<string[]> {
+  return (await insertedRows(sql, "SourceKennel")).flatMap((row) => stringLiteral(row.get("sourceId")) ?? []);
+}

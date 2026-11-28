@@ -196,3 +196,19 @@ describe("pure guards", () => {
     expect(checkLiveCoverage(tooFew, new Set(), all).problems.join()).toMatch(/can be counted/);
   });
 });
+
+describe("shared date and eid helpers", () => {
+  it("isRealYmd accepts only real calendar dates", async () => {
+    const { isRealYmd } = await import("./canonical");
+    expect(["2026-02-28", "2024-02-29"].every(isRealYmd)).toBe(true);
+    expect(["2026-02-30", "2026-13-01", "2026-1-01", 20260101, null].some(isRealYmd)).toBe(false);
+  });
+
+  it("isRecurringInstanceEid reads only whole 4-character groups, like kennel-evidence", async () => {
+    const { isRecurringInstanceEid } = await import("./provenance");
+    const link = (s: string) => `https://www.google.com/calendar/event?eid=${Buffer.from(s).toString("base64url")}`;
+    expect(isRecurringInstanceEid(link("abc123_20261107T180000Z cal@g"))).toBe(true);
+    expect(isRecurringInstanceEid(link("abc123 cal@g"))).toBe(false);
+    expect(isRecurringInstanceEid(undefined)).toBe(false);
+  });
+});
