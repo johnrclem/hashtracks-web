@@ -18,7 +18,9 @@
 --    for specials). Where copies of one run share a kennel, date and title (a raw-less
 --    backfill copy, or one copy per source), or the kennel already has that day's run, the
 --    raw rows move to one surviving event and the other copies go. A copy with attendance
---    or hares is never emptied or deleted: it moves to the kennel as it is.
+--    or hares is never emptied or deleted: it is the survivor, and if it can't be (the
+--    kennel already has that day's run, or a second such copy exists) the migration stops
+--    so the attendance can be merged by hand. Neither case exists in the data today.
 -- 5. Wrong Way #1168.5 is a half run: it loses the 1168 its real #1168 holds.
 -- 6. Every Phoenix detail-page description started with the Events Manager template
 --    ("Map Unavailable / Date/Time / Date(s) - … / Categories / No Categories"); it is
@@ -208,16 +210,26 @@ LEFT JOIN LATERAL (
 ) d ON true
 ORDER BY m.target, m.date, m.norm, m.protected DESC, (m.status = 'CONFIRMED') DESC, m.raws DESC, m.id;
 
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM phoenix_move m JOIN phoenix_keep kp ON (kp.target, kp.date, kp.norm) = (m.target, m.date, m.norm)
+    WHERE m.protected AND m.id <> kp.keeper
+  ) THEN
+    RAISE EXCEPTION 'A Wrong Way run with attendance or hares duplicates another copy of the run; merge it by hand';
+  END IF;
+END $$;
+
 UPDATE "RawEvent" r
 SET "eventId" = kp.keeper
 FROM phoenix_move m JOIN phoenix_keep kp ON (kp.target, kp.date, kp.norm) = (m.target, m.date, m.norm)
-WHERE r."eventId" = m.id AND m.id <> kp.keeper AND NOT m.protected;
+WHERE r."eventId" = m.id AND m.id <> kp.keeper;
 
 DELETE FROM "Event" e
 USING phoenix_move m JOIN phoenix_keep kp ON (kp.target, kp.date, kp.norm) = (m.target, m.date, m.norm)
-WHERE e.id = m.id AND m.id <> kp.keeper AND NOT m.protected;
+WHERE e.id = m.id AND m.id <> kp.keeper;
 
--- The survivors that are Wrong Way events, and any copy with attendance or hares, move.
+-- The survivors that are Wrong Way events move.
 UPDATE "Event" e
 SET "kennelId" = t.id,
     title = CASE WHEN m.default_title THEN t."shortName" || ' Trail' ELSE e.title END,
@@ -225,7 +237,7 @@ SET "kennelId" = t.id,
 FROM phoenix_move m
 JOIN phoenix_keep kp ON (kp.target, kp.date, kp.norm) = (m.target, m.date, m.norm)
 JOIN "Kennel" t ON t."kennelCode" = m.target
-WHERE e.id = m.id AND (m.id = kp.keeper OR m.protected);
+WHERE e.id = m.id AND m.id = kp.keeper;
 
 UPDATE "EventKennel" ek
 SET "kennelId" = e."kennelId"
