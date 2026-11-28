@@ -3273,3 +3273,7 @@ Verified by `curl` of `https://lagosh3.com/wp-json/wp/v2/posts?per_page=100` (69
 - Compare calendar dates with any frozen backfill JSON (`scripts/data/<code>-history.json`) to size the real gap before promising a backfill count.
 
 
+
+## Blogger public feed — `totalResults` overstates what is served (added 2026-11-28, City of Exeter H3)
+- `openSearch$totalResults` was 1089, but paging `start-index` 1…1051 at `max-results=150` returned 987 entries, and per-year `published-min/max` windows (2008–2020) matched those counts exactly. Treat the served count as the real archive and do not loop until `totalResults`.
+- Hand-typed recap titles drift: `Date - Venue - Hares` (2008–12), `Venue: Date` (2014), `Venue - Hares - Date` (2015–20). Explicit title years can be wrong (two "July 2017" posts were published July 2016); weekday and publish-window checks catch it.
