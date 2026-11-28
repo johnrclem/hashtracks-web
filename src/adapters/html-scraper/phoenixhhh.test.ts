@@ -1096,6 +1096,14 @@ describe("PhoenixHHHAdapter.fetch — strict routing and previews (#3103)", () =
     expect(result.diagnosticContext).toMatchObject({ skippedUnmatched: 1 });
   });
 
+  it("keeps the full entry when its preview comes first", async () => {
+    const html = preview("wrong-way-1172-mostus-thankful", "Wrong Way #1172: Mostus Thankful", "21 Nov 26")
+      + fullEntry("wrong-way-1172-mostus-thankful", "Wrong Way #1172: Mostus Thankful", "11/21/2026");
+    const result = await run(html, { strictKennelRouting: true });
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]).toMatchObject({ startTime: "14:00", location: "Glendale Heroes Regional Park", hares: "Mostus Tittius" });
+  });
+
   it("still files unmatched hashes under the default kennel without strict routing", async () => {
     const result = await run(month, {});
     expect(result.events.map((e) => [e.kennelTags[0], e.title])).toEqual([

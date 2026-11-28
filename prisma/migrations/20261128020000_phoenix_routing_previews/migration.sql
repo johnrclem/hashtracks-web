@@ -13,7 +13,7 @@
 -- 4. Every Phoenix detail-page description started with the Events Manager template
 --    ("Map Unavailable / Date/Time / Date(s) - … / Categories / No Categories"); it is
 --    removed, and a description that was only the template becomes NULL.
--- 5. Wrong Way's and Hump D's lastEventDate are recomputed (deleted future previews).
+-- Kennel.lastEventDate is recomputed by the daily audit cron (backfillLastEventDates).
 --
 -- Left alone on purpose: 88 runs of Phoenix hashes HashTracks has no kennel for (Full Moon,
 -- PBR, JHOT, Rising, Thursday Throwdown, …) stay under Wrong Way until those kennels are added.
@@ -75,29 +75,15 @@ WHERE e.id = ek."eventId" AND ww."kennelCode" = 'wrong-way' AND ek."kennelId" = 
   AND NOT EXISTS (SELECT 1 FROM "EventKennel" x WHERE x."eventId" = e.id AND x."kennelId" = e."kennelId");
 
 -- 4. Events Manager template at the top of Phoenix descriptions.
+WITH stripped AS (
+  SELECT e.id, e.description AS old,
+    NULLIF(regexp_replace(e.description, '^(Map Unavailable\s+)?Date/Time\s+Date\(s\) - [^\n]*\n[^\n]*\n\s*(Location\s+[^\n]+\s+)?Categories\n[^\n]*\s*', ''), '') AS new
+  FROM "Event" e JOIN "Kennel" k ON k.id = e."kennelId"
+  WHERE k."kennelCode" IN ('lbh-phx', 'hump-d', 'fdtdd', 'wrong-way') AND e.description IS NOT NULL
+)
 UPDATE "Event" e
-SET description = NULLIF(regexp_replace(e.description, '^(Map Unavailable\s+)?Date/Time\s+Date\(s\) - [^\n]*\n[^\n]*\n\s*(Location\s+[^\n]+\s+)?Categories\n[^\n]*\s*', ''), ''),
-    "updatedAt" = NOW() AT TIME ZONE 'UTC'
-FROM "Kennel" k
-WHERE k.id = e."kennelId" AND k."kennelCode" IN ('lbh-phx', 'hump-d', 'fdtdd', 'wrong-way')
-  AND e.description ~ '^(Map Unavailable\s+)?Date/Time\s+Date\(s\) - [^\n]*\n[^\n]*\n\s*(Location\s+[^\n]+\s+)?Categories\n';
-
--- 5. lastEventDate, as backfillLastEventDates() computes it, for the two kennels touched.
-UPDATE "Kennel" k
-SET "lastEventDate" = sub."maxDate", "updatedAt" = NOW() AT TIME ZONE 'UTC'
-FROM (
-  SELECT k2.id, (
-    SELECT MAX(x.date) FROM (
-      SELECT e.date FROM "Event" e
-      WHERE e."kennelId" = k2.id AND e.status <> 'CANCELLED' AND e."isManualEntry" <> true AND e."isCanonical" = true
-      UNION ALL
-      SELECT e.date FROM "EventKennel" ek JOIN "Event" e ON e.id = ek."eventId"
-      WHERE ek."kennelId" = k2.id AND e.status <> 'CANCELLED' AND e."isManualEntry" <> true AND e."isCanonical" = true
-    ) x
-  ) AS "maxDate"
-  FROM "Kennel" k2
-  WHERE k2."kennelCode" IN ('wrong-way', 'hump-d')
-) sub
-WHERE k.id = sub.id AND k."lastEventDate" IS DISTINCT FROM sub."maxDate";
+SET description = s.new, "updatedAt" = NOW() AT TIME ZONE 'UTC'
+FROM stripped s
+WHERE e.id = s.id AND s.new IS DISTINCT FROM s.old;
 
 COMMIT;
