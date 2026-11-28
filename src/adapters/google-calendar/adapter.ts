@@ -2751,11 +2751,19 @@ function mergeRawEventInPlace(target: RawEventData, donor: RawEventData): void {
   }
 }
 
-const RUN_NUMBER_TOKEN_RE = /\s*#\s*(\d+)\b/g;
+const RUN_NUMBER_TOKEN_RE = /#\s*(\d+)\b/g;
 
-/** The title without its "#<run>" token; other "#N" tokens stay. */
+/** The title without its "#<run>" token and the space before it; other "#N" tokens stay. */
 function stripRunToken(title: string | undefined, run: number): string | undefined {
-  return title?.replace(RUN_NUMBER_TOKEN_RE, (token, digits: string) => (Number(digits) === run ? "" : token)).trim() || undefined;
+  if (!title) return undefined;
+  let kept = "";
+  let rest = 0;
+  for (const match of title.matchAll(RUN_NUMBER_TOKEN_RE)) {
+    if (Number(match[1]) !== run) continue;
+    kept += title.slice(rest, match.index).trimEnd();
+    rest = match.index + match[0].length;
+  }
+  return (kept + title.slice(rest)).trim() || undefined;
 }
 
 /**
@@ -2775,6 +2783,8 @@ function isPlaceholderHare(hares: string | null | undefined): boolean {
  * number repeats across dates, that number is the template's, not the run's: clear
  * it (explicit null) and take "#N" out of the title. Occurrences with a real hare,
  * and one-off events outside the series, keep theirs. Returns how many were cleared.
+ * Known trade-off: a real run that still shows "???" loses its number too until a
+ * hare is posted, since nothing else tells it apart from the template's copies.
  */
 export function clearTemplateRunNumbers(events: RawEventData[]): number {
   const inSeries = events.flatMap((e) =>
@@ -2784,9 +2794,9 @@ export function clearTemplateRunNumbers(events: RawEventData[]): number {
   );
   const datesByKey = new Map<string, Set<string>>();
   for (const { e, key } of inSeries) {
-    let dates = datesByKey.get(key);
-    if (!dates) datesByKey.set(key, (dates = new Set()));
+    const dates = datesByKey.get(key) ?? new Set<string>();
     dates.add(e.date);
+    datesByKey.set(key, dates);
   }
   let cleared = 0;
   for (const { e, run, key } of inSeries) {

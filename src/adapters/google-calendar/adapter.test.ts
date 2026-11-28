@@ -6939,9 +6939,21 @@ describe("clearTemplateRunNumbers (#2994)", () => {
   });
 
   it("clears a run number a placeholder series repeats, and takes it out of the title", () => {
-    const events = [ev("2027-02-20", {}), ev("2027-03-06", { hares: "Hare TBD" }), ev("2027-03-20", { hares: "TBD" })];
-    expect(clearTemplateRunNumbers(events)).toBe(3);
+    const events = [
+      ev("2027-02-20", {}), ev("2027-03-06", { hares: "Hare TBD" }), ev("2027-03-20", { hares: "TBD" }),
+      ev("2027-04-03", { hares: "Hares: TBD" }),
+    ];
+    expect(clearTemplateRunNumbers(events)).toBe(4);
     for (const e of events) expect(e).toMatchObject({ runNumber: null, title: "Hill Country H3 Trail WARNO" });
+  });
+
+  it("takes only the cleared number out of the title", () => {
+    const events = [
+      ev("2027-02-20", { title: "Trail #760: WARNO #2 of 3" }),
+      ev("2027-03-06", { title: "#760" }),
+    ];
+    expect(clearTemplateRunNumbers(events)).toBe(2);
+    expect(events.map((e) => e.title)).toEqual(["Trail: WARNO #2 of 3", undefined]);
   });
 
   it("keeps the number on a one-off event, a real or unlisted hare, a single instance or a same-date duplicate", () => {
