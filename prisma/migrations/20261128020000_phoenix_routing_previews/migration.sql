@@ -16,11 +16,11 @@
 --    They are deleted with their raw rows; none has attendance, hares or child events.
 -- 4. Runs of other Phoenix hashes filed under Wrong Way move to their kennel (Phoenix H3
 --    for specials). Where copies of one run share a kennel, date and title (a raw-less
---    backfill copy, or one copy per source), or the kennel already has that day's run, the
---    raw rows move to one surviving event and the other copies go. A copy with attendance
---    or hares is never emptied or deleted: it is the survivor, and if it can't be (the
---    kennel already has that day's run, or a second such copy exists) the migration stops
---    so the attendance can be merged by hand. Neither case exists in the data today.
+--    backfill copy, or one copy per source), or the kennel already has that run, the raw
+--    rows move to one surviving event and the other copies go. The migration stops, for a
+--    hand merge, wherever it can't tell runs apart: the kennel already has a differently
+--    titled event that day, or a copy with attendance or hares (never emptied or deleted)
+--    can't be the only survivor on its day. None of these cases exists in the data today.
 -- 5. Wrong Way #1168.5 is a half run: it loses the 1168 its real #1168 holds.
 -- 6. Every Phoenix detail-page description started with the Events Manager template
 --    ("Map Unavailable / Date/Time / Date(s) - … / Categories / No Categories"); it is
@@ -197,14 +197,15 @@ FROM (
 ) b
 WHERE b.t IS NOT NULL;
 
--- One surviving event per run: an event the target kennel already has that day, else the
--- copy with attendance or hares, then the confirmed copy with the most raw rows.
+-- One surviving event per run: the target kennel's own event with the same title that day,
+-- else the copy with attendance or hares, then the confirmed copy with the most raw rows.
 CREATE TEMP TABLE phoenix_keep ON COMMIT DROP AS
 SELECT DISTINCT ON (m.target, m.date, m.norm) m.target, m.date, m.norm, COALESCE(d.id, m.id) AS keeper
 FROM phoenix_move m
 LEFT JOIN LATERAL (
   SELECT o.id FROM "Event" o JOIN "Kennel" t ON t.id = o."kennelId"
   WHERE t."kennelCode" = m.target AND o.date = m.date
+    AND lower(regexp_replace(o.title, '[–—]', '-', 'g')) = m.norm
   ORDER BY (o.status = 'CONFIRMED') DESC, o.id
   LIMIT 1
 ) d ON true
@@ -212,11 +213,29 @@ ORDER BY m.target, m.date, m.norm, m.protected DESC, (m.status = 'CONFIRMED') DE
 
 DO $$
 BEGIN
+  -- The target kennel already has a differently titled event that day: a second run,
+  -- or the same run under another title. Only a person can tell.
   IF EXISTS (
-    SELECT 1 FROM phoenix_move m JOIN phoenix_keep kp ON (kp.target, kp.date, kp.norm) = (m.target, m.date, m.norm)
-    WHERE m.protected AND m.id <> kp.keeper
+    SELECT 1 FROM phoenix_move m
+    JOIN "Kennel" t ON t."kennelCode" = m.target
+    JOIN "Event" o ON o."kennelId" = t.id AND o.date = m.date
+    WHERE lower(regexp_replace(o.title, '[–—]', '-', 'g')) <> m.norm
   ) THEN
-    RAISE EXCEPTION 'A Wrong Way run with attendance or hares duplicates another copy of the run; merge it by hand';
+    RAISE EXCEPTION 'A Wrong Way run lands on a day its kennel already has a differently titled event; merge it by hand';
+  END IF;
+  -- A copy with attendance or hares must be the only survivor on its kennel and day:
+  -- not displaced by the kennel's own event, and not beside another protected copy or
+  -- a differently titled one.
+  IF EXISTS (
+    SELECT 1 FROM phoenix_move m
+    JOIN phoenix_keep kp ON (kp.target, kp.date, kp.norm) = (m.target, m.date, m.norm)
+    WHERE m.protected AND (m.id <> kp.keeper OR EXISTS (
+      SELECT 1 FROM phoenix_move o
+      WHERE o.target = m.target AND o.date = m.date AND o.id <> m.id
+        AND (o.norm <> m.norm OR o.protected)
+    ))
+  ) THEN
+    RAISE EXCEPTION 'A Wrong Way run with attendance or hares shares its day with another copy; merge it by hand';
   END IF;
 END $$;
 
