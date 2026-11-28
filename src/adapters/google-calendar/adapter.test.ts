@@ -15,6 +15,7 @@ import {
   normalizeGCalDescription,
   GoogleCalendarAdapter,
   dedupGCalEvents,
+  clearTemplateRunNumbers,
   extractRunDescriptorTheme,
   splitTimedSummaryHareLocation,
   stripGluedDescriptionEcho,
@@ -6926,5 +6927,77 @@ describe("hares and venues from GCal descriptions", () => {
     expect(result?.kennelTags[0]).toBe("pph4");
     expect(result?.title).toBe("PPH4 Trail");
     expect(result?.hares).toBe("Vibrator");
+  });
+});
+
+// ── Run numbers and titles (#2993, #2994, #3155) ──
+
+describe("clearTemplateRunNumbers (#2994)", () => {
+  const ev = (date: string, over: Partial<RawEventData>): RawEventData => ({
+    date, kennelTags: ["hch3"], title: "Hill Country H3 Trail #760 WARNO", runNumber: 760, hares: "???",
+    recurringSeriesId: "series-760", ...over,
+  });
+
+  it("clears a run number a placeholder series repeats, and takes it out of the title", () => {
+    const events = [
+      ev("2027-02-20", {}), ev("2027-03-06", { hares: "Hare TBD" }), ev("2027-03-20", { hares: "TBD" }),
+      ev("2027-04-03", { hares: "Hares: TBD" }),
+    ];
+    expect(clearTemplateRunNumbers(events)).toBe(4);
+    for (const e of events) expect(e).toMatchObject({ runNumber: null, title: "Hill Country H3 Trail WARNO" });
+  });
+
+  it("takes only the cleared number out of the title, with or without '#'", () => {
+    const events = [
+      ev("2027-02-20", { title: "Trail #760: WARNO #2 of 3" }),
+      ev("2027-03-06", { title: "#760" }),
+      ev("2027-03-20", { title: "Hill Country H3 Trail 760 WARNO (760.5 km, 7600 ft, Run760)" }),
+    ];
+    expect(clearTemplateRunNumbers(events)).toBe(3);
+    expect(events.map((e) => e.title)).toEqual([
+      "Trail: WARNO #2 of 3",
+      undefined,
+      "Hill Country H3 Trail WARNO (760.5 km, 7600 ft, Run760)",
+    ]);
+  });
+
+  it("keeps the number on a one-off event, a real or unlisted hare, a single instance or a same-date duplicate", () => {
+    const oneOff = ev("2027-02-06", { recurringSeriesId: undefined, hares: "Miss Management" });
+    const realHare = ev("2027-02-20", { hares: "Shaft" });
+    const noHareListed = ev("2027-03-20", { hares: undefined, title: "Trail #760 - Onesie Trail" });
+    const placeholder = ev("2027-03-06", {});
+    const single = ev("2027-04-03", { runNumber: 761, recurringSeriesId: "other" });
+    const sameDayA = ev("2027-05-01", { runNumber: 770, recurringSeriesId: "dup" });
+    const sameDayB = ev("2027-05-01", { runNumber: 770, recurringSeriesId: "dup" });
+    const events = [oneOff, realHare, noHareListed, placeholder, single, sameDayA, sameDayB];
+    expect(clearTemplateRunNumbers(events)).toBe(1);
+    expect(placeholder.runNumber).toBeNull();
+    for (const e of [oneOff, realHare, noHareListed, single, sameDayA, sameDayB]) expect(typeof e.runNumber).toBe("number");
+  });
+});
+
+describe("seed title and run-number patterns: HCH3 (#2993) and B3H4 (#3155)", () => {
+  const configOf = (name: string) => SOURCES.find((s) => s.name === name)?.config as Record<string, string[]>;
+
+  it.each([
+    ["Hill Country H3 Trail 650 WARNO", 650],
+    ["Hill Country H3 Trail 649 WARNO 'The Formal' or Black Dress", 649],
+    ["Hill Country H3 Trail 399.1", undefined],
+  ])("reads HCH3's run number from %j", (summary, run) => {
+    expect(extractRunNumber(summary, undefined, undefined, compilePatterns(configOf("Hill Country H3 Google Calendar").summaryRunNumberPatterns, "i")))
+      .toBe(run);
+  });
+
+  it.each([
+    ["Ballbuster H4 : no snow trail", "no snow trail"],
+    ["Ballbuster H4: QMQ's Hash to Splash", "QMQ's Hash to Splash"],
+    ["Ballbuster H4 - House and bar crawl trail!", "House and bar crawl trail!"],
+    ["The Taco BellBuster (Ballbuster H4)", "The Taco BellBuster"],
+    ["Ballbuster H4 Trail", "Ballbuster H4 Trail"],
+    ["BH3: Full Moon run", "Full Moon run"],
+  ])("strips the kennel name from the Boston title %j", (summary, title) => {
+    const stripped = compilePatterns(configOf("Boston Hash Calendar").titleStripPatterns, "i")
+      .reduce((t, re) => t.replace(re, "").trim(), summary);
+    expect(stripped).toBe(title);
   });
 });

@@ -269,7 +269,13 @@ export const SOURCES = [
         // #1891: BH3 events carry a "BH3:" title prefix and stash the run
         // number in the description ("BH #2805"). Strip the prefix; pull the
         // run number from the description. (Same precedent as Morgantown #1726.)
-        titleStripPatterns: [String.raw`^BH3:\s*`],
+        // #3155: Ballbuster H4 (B3H4) titles carry the kennel name ("Ballbuster H4 : no snow trail",
+        // "The Taco BellBuster (Ballbuster H4)"); the kennel is already shown.
+        titleStripPatterns: [
+          String.raw`^BH3:\s*`,
+          String.raw`^Ball\s*Buster\s+H4(?!\s*Trail\b)\s*[-:]?\s*`, // "Ballbuster H4 Trail[ #N]" stays whole
+          String.raw`\s*\(Ball\s*Buster\s+H4\)$`,
+        ],
         runNumberPatterns: [String.raw`BH\s*#\s*(\d+)`],
       },
       kennelCodes: ["boh3", "bobbh3", "beantown", "bos-moon", "pink-taco", "zigzag", "e4b"],
@@ -1698,7 +1704,9 @@ export const SOURCES = [
       // (includeAllDayEvents off).
       // futureHorizonDays: the kennel edits instances of a biweekly template
       // series in place; un-edited instances past ~3 months carry a stale
-      // "#760" run number. Real curated instances reach ~91 days ahead.
+      // "#760" run number. Real curated instances reach ~91 days ahead. Inside
+      // that window the adapter clears the template's number from un-edited
+      // ("Hares: ???") instances (#2994, clearTemplateRunNumbers).
       name: "Hill Country H3 Google Calendar",
       url: "i98lot5sfibirmdp9kjp8jn604@group.calendar.google.com",
       type: "GOOGLE_CALENDAR" as const,
@@ -1715,6 +1723,9 @@ export const SOURCES = [
         strictKennelRouting: true,
         skipPatterns: ["Miss Management", "Pub Call"],
         futureHorizonDays: 100,
+        // #2993: most titles omit the "#" ("Hill Country H3 Trail 650 WARNO").
+        // A sub-run ("Trail 399.1") is not run 399.
+        summaryRunNumberPatterns: [String.raw`^Hill Country H3 Trail\s+(\d{3,4})\b(?!\.\d)`],
       },
       kennelCodes: ["hch3", "hoth3", "hoth3-humpin"],
     },
