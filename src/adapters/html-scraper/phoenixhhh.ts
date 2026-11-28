@@ -22,6 +22,12 @@ import { extractHares } from "../hare-extraction";
 interface PhoenixHHHConfig {
   kennelPatterns: [string, string][];
   defaultKennelTag: string;
+  /**
+   * #3103: skip an event whose title matches no kennel pattern instead of filing
+   * it under `defaultKennelTag`. The calendar lists every Phoenix hash (PBR, JHOT,
+   * Full Moon, …), and only some are kennels here. Mirrors the iCal/GCal flag.
+   */
+  strictKennelRouting?: boolean;
   pageId?: number; // defaults to 21
   /**
    * Max number of forward calendar months to fetch per scrape (default 4 —
@@ -223,6 +229,25 @@ export function cleanPhoenixDescription(
   return out || undefined;
 }
 
+/**
+ * #3136: Events Manager's single-event template puts a map box, then Date/Time,
+ * Location and Categories paragraphs and a clearing `<br>`, before the event's own
+ * notes ("Map Unavailable / Date/Time / Date(s) - … / Categories / No Categories").
+ * Removes that block so the description is the notes alone. Leaves the page as it
+ * is when the layout differs (no `<br>`, or no Date/Time paragraph before it).
+ */
+export function removeEventsManagerTemplate($: cheerio.CheerioAPI, content: cheerio.Cheerio<AnyNode>): void {
+  const parts = content.find(".em-item-single").first().children().toArray();
+  const end = parts.findIndex((el) => $(el).is("br"));
+  if (end < 0 || !parts.slice(0, end).some((el) => $(el).text().trim().startsWith("Date/Time"))) return;
+  for (const el of parts.slice(0, end + 1)) $(el).remove();
+}
+
+/** The kennel whose pattern matches `title`, if any. */
+function matchKennel(title: string | undefined, patterns: [RegExp, string][]): string | undefined {
+  return title ? patterns.find(([pattern]) => pattern.test(title))?.[1] : undefined;
+}
+
 /** Detail-page extraction result. Null fields mean "missing on the page"
  *  (adapter falls back to list-view values). */
 export interface PhoenixEventDetail {
@@ -259,6 +284,7 @@ export async function fetchEventDetail(eventUrl: string): Promise<PhoenixEventDe
   let description: string | null = null;
   let hares: string | null = null;
   if (contentEl.length > 0) {
+    removeEventsManagerTemplate($, contentEl);
     const text = stripHtmlTags(contentEl.html() ?? "", "\n").trim();
     description = text || null;
     if (text) {
@@ -303,14 +329,18 @@ export function parseEventFromItem(
   config: PhoenixHHHConfig,
   compiledPatterns: [RegExp, string][],
 ): RawEventData | null {
-  // Title extraction: try img alt text (present when event has an uploaded image)
-  let title: string | undefined;
-  const imgEl = $item.find(".em-item-image img");
-  if (imgEl.length > 0) {
-    const alt = imgEl.attr("alt")?.trim();
-    if (alt) title = decodeEntities(alt);
-  }
-  // If no title from img alt, it will be fetched from the detail page later
+  // Title and link. An uploaded image's alt text wins. A full calendar entry sits
+  // alone in a modal whose header links the event; the grid's compact preview of
+  // the same event carries the link in `.em-item-name` (#3103/#3104: read neither
+  // and each preview became an untitled "Wrong Way Trail" on its event's date).
+  // The detail page's title still overrides this later.
+  const nameLink = $item.find(".em-item-name a").first();
+  const modal = $item.closest(".em-modal");
+  const modalLink = modal.find(".em-item").length === 1 ? modal.find(".em-modal-title a").first() : undefined;
+  const listTitle = $item.find(".em-item-image img").attr("alt")?.trim()
+    || nameLink.text().trim()
+    || modalLink?.text().trim();
+  const title = listTitle ? decodeEntities(listTitle) : undefined;
 
   // Date extraction. Events Manager emits two shapes:
   //   - Long: "Monday - 03/02/2026" (single-day events with weekday prefix,
@@ -362,8 +392,8 @@ export function parseEventFromItem(
     ? extractHares(description, PHOENIX_HARE_PATTERNS as RegExp[])
     : undefined;
 
-  // Source URL from read-more link
-  const readMoreHref = $item.find("a.em-item-read-more").attr("href");
+  // Source URL from the read-more link, else the title link
+  const readMoreHref = $item.find("a.em-item-read-more").attr("href") ?? nameLink.attr("href") ?? modalLink?.attr("href");
   let sourceUrl: string | undefined;
   if (readMoreHref) {
     try {
@@ -373,19 +403,9 @@ export function parseEventFromItem(
     }
   }
 
-  // Kennel tag resolution via config patterns
-  let kennelTag = config.defaultKennelTag;
-  const matchText = title ?? "";
-  for (const [pattern, tag] of compiledPatterns) {
-    if (pattern.test(matchText)) {
-      kennelTag = tag;
-      break;
-    }
-  }
-
   return {
     date,
-    kennelTags: [kennelTag],
+    kennelTags: [matchKennel(title, compiledPatterns) ?? config.defaultKennelTag],
     title,
     runNumber: extractHashRunNumber(title),
     description,
@@ -504,9 +524,12 @@ export class PhoenixHHHAdapter implements SourceAdapter {
                 return;
               }
 
-              // Filter by date window + dedup (month views include spillover days from adjacent months)
+              // Filter by date window + dedup. Month views repeat events: spillover
+              // days from adjacent months, and the grid's compact preview of every
+              // full entry (on each day of a multi-day event), so the event link is
+              // the key when there is one.
               const eventDate = new Date(event.date + "T12:00:00Z");
-              const dedupKey = `${event.date}|${event.sourceUrl ?? event.title ?? ""}`;
+              const dedupKey = event.sourceUrl ?? `${event.date}|${event.title ?? ""}`;
               if (eventDate >= minDate && eventDate <= maxDate && !seenKeys.has(dedupKey)) {
                 seenKeys.add(dedupKey);
                 allEvents.push(event);
@@ -584,12 +607,8 @@ export class PhoenixHHHAdapter implements SourceAdapter {
         if (detail.title) {
           batch[j].title = detail.title;
           // Re-resolve kennel tag now that we have the real title
-          for (const [pattern, tag] of compiledPatterns) {
-            if (pattern.test(detail.title)) {
-              batch[j].kennelTags[0] = tag;
-              break;
-            }
-          }
+          const tag = matchKennel(detail.title, compiledPatterns);
+          if (tag) batch[j].kennelTags[0] = tag;
           // #1211: detail-page title is the authoritative run number source.
           // Always overwrite when the fetched title yields a number — the
           // list-page img.alt may carry a stale placeholder (e.g. "Wrong Way
@@ -637,6 +656,20 @@ export class PhoenixHHHAdapter implements SourceAdapter {
       });
     }
 
+    // #3103: with strict routing, keep only events a kennel pattern claims (on the
+    // final, detail-page title). An event with no title can't be routed at all; it
+    // is reported as an error so reconcile skips this scrape instead of cancelling
+    // a real run it couldn't see.
+    let skippedUnmatched = 0;
+    const events = config.strictKennelRouting
+      ? allEvents.filter((e) => {
+          if (matchKennel(e.title, compiledPatterns)) return true;
+          if (!e.title) allErrors.push(`${e.date}: event has no title, so its kennel is unknown (${e.sourceUrl ?? "no link"})`);
+          skippedUnmatched++;
+          return false;
+        })
+      : allEvents;
+
     if (allParseErrors.length > 0) {
       errorDetails.parse = allParseErrors;
     }
@@ -644,13 +677,14 @@ export class PhoenixHHHAdapter implements SourceAdapter {
     const hasErrors = Object.keys(errorDetails).length > 0;
 
     return {
-      events: allEvents,
+      events,
       errors: allErrors,
       errorDetails: hasErrors ? errorDetails : undefined,
       diagnosticContext: {
         monthsFetched,
         totalItems,
         eventsParsed: allEvents.length,
+        skippedUnmatched,
         detailsFetched,
         detailFetchFailures,
         eventsWithoutDetail: needsDetail.length - detailsFetched,

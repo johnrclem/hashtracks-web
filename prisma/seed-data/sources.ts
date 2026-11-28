@@ -3948,13 +3948,20 @@ export const SOURCES = [
       scrapeFreq: "daily",
       scrapeDays: 90,
       config: {
+        // Wrong Way before Hump, so a "Wrong Way #N: Hump …" theme stays Wrong Way.
+        // \bHump\b catches Hump D runs titled "Hump Hash – Saltfire" or
+        // "One Last Hump for ’25" (#3103), which "Hump D" missed.
         kennelPatterns: [
           ["^LBH\\b|Lost Boobs", "lbh-phx"],
-          ["Hump D", "hump-d"],
           ["Wrong Way", "wrong-way"],
+          ["Hump D|\\bHump\\b", "hump-d"],
           ["Dusk.*Down|FDTDD", "fdtdd"],
         ],
         defaultKennelTag: "wrong-way",
+        // #3103: the feed lists every Phoenix hash (PBR, JHOT, Full Moon, Rising,
+        // Thursday Throwdown, …); only these four are kennels here. Unmatched titles
+        // are skipped instead of falling through to Wrong Way.
+        strictKennelRouting: true,
       },
       kennelCodes: ["lbh-phx", "hump-d", "wrong-way", "fdtdd"],
     },
@@ -3979,13 +3986,18 @@ export const SOURCES = [
         // source" and was cancelled (89 in one scrape on 2026-11-05).
         // upcomingOnly clamps reconcile to future dates (reconcile.ts).
         upcomingOnly: true,
+        // Wrong Way before Hump, so a "Wrong Way #N: Hump …" theme stays Wrong Way.
+        // \bHump\b catches Hump D runs titled "Hump Hash – Saltfire" or
+        // "One Last Hump for ’25" (#3103), which "Hump D" missed.
         kennelPatterns: [
           ["^LBH\\b|Lost Boobs", "lbh-phx"],
-          ["Hump D", "hump-d"],
           ["Wrong Way", "wrong-way"],
+          ["Hump D|\\bHump\\b", "hump-d"],
           ["Dusk.*Down|FDTDD", "fdtdd"],
         ],
         defaultKennelTag: "wrong-way",
+        // #3103: same as the iCal feed above, skip hashes that aren't kennels here.
+        strictKennelRouting: true,
         // Two-Tier Hash Cash (#1349): detail pages carry a `Hash Cash:` line on
         // every event; promote it to Event.cost ONLY when it differs from these
         // kennel standards. Hump D ($1) and LBH ($5) match their profile hashCash,

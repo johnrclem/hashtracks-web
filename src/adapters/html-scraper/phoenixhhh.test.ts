@@ -15,6 +15,7 @@ import {
 } from "./phoenixhhh";
 import { extractHashRunNumber } from "../utils";
 import { extractHares } from "../hare-extraction";
+import { SOURCES } from "../../../prisma/seed-data/sources";
 
 // ── Sample HTML fixtures ──
 
@@ -959,5 +960,182 @@ describe("cleanPhoenixDescription (#1350)", () => {
     expect(
       cleanPhoenixDescription("Hash Cash: $1", { stripHashCash: true, stripDogFriendly: false }),
     ).toBeUndefined();
+  });
+});
+
+// ── #3103 / #3104 / #3136: grid previews, strict routing, Events Manager template ──
+
+// The live month view (Nov 2026): each event appears once as a full entry, alone in
+// a modal whose header links it, and once as the grid's compact preview.
+const fullEntry = (slug: string, title: string, date: string) => `
+  <div class="em-modal">
+    <header><div class="em-modal-title"><a href="https://www.phoenixhhh.org/?event=${slug}">${title}</a></div></header>
+    <div class="em-modal-content"><div class="em-events-list em-list">
+      <div class="em-event em-item">
+        <div class="em-item-image has-placeholder"></div>
+        <div class="em-item-info">
+          <div class="em-item-meta-line em-event-date">Saturday - ${date}</div>
+          <div class="em-item-meta-line em-event-time">2:00 pm - 5:00 pm</div>
+          <div class="em-item-meta-line em-event-location"><a href="/?location=x">Glendale Heroes Regional Park</a></div>
+          <div class="em-item-desc">Hares: Mostus Tittius</div>
+          <a class="em-item-read-more" href="https://www.phoenixhhh.org/?event=${slug}">Read More</a>
+        </div>
+      </div>
+    </div></div>
+  </div>`;
+const preview = (slug: string, title: string, compactDate: string) => `
+  <div class="em-modal"><div class="em-modal-content em pixelbones em-calendar-preview">
+    <div class="em-item em-event">
+      <div class="em-item-info">
+        <div class="em-item-name"><a href="https://www.phoenixhhh.org/?event=${slug}">${title}</a></div>
+        <div class="em-item-meta">
+          <div class="em-item-meta-line em-event-date"><span>${compactDate}</span></div>
+          <div class="em-item-meta-line em-event-location"><span>Glendale</span></div>
+        </div>
+      </div>
+    </div>
+  </div></div>`;
+
+describe("parseEventFromItem — list titles and links (#3103, #3104)", () => {
+  const parseFirst = (html: string) => {
+    const $ = cheerio.load(html);
+    return parseEventFromItem($(".em-item").first(), $, DEFAULT_CONFIG, makeCompiledPatterns(DEFAULT_CONFIG));
+  };
+
+  it("reads a full entry's title and link from its modal header", () => {
+    const event = parseFirst(fullEntry("wrong-way-1172-mostus-thankful", "Wrong Way #1172: Mostus Thankful", "11/21/2026"));
+    expect(event).toMatchObject({
+      date: "2026-11-21", title: "Wrong Way #1172: Mostus Thankful", runNumber: 1172, kennelTags: ["Wrong Way"],
+      sourceUrl: "https://www.phoenixhhh.org/?event=wrong-way-1172-mostus-thankful",
+    });
+  });
+
+  it("reads a grid preview's title and link from .em-item-name, so it isn't an untitled default-kennel run", () => {
+    const event = parseFirst(preview("lbh-772", "LBH #772", "30 Nov 26"));
+    expect(event).toMatchObject({
+      date: "2026-11-30", title: "LBH #772", kennelTags: ["LBH"], sourceUrl: "https://www.phoenixhhh.org/?event=lbh-772",
+    });
+  });
+
+  it("ignores the modal header when the modal holds more than one event", () => {
+    const html = `<div class="em-modal"><header><div class="em-modal-title"><a href="/?event=a">LBH #1</a></div></header>
+      <div class="em-item"><div class="em-item-meta-line em-event-date">Monday - 11/02/2026</div></div>
+      <div class="em-item"><div class="em-item-meta-line em-event-date">Monday - 11/02/2026</div></div></div>`;
+    expect(parseFirst(html)).toMatchObject({ title: undefined, sourceUrl: undefined });
+  });
+});
+
+const EM_DETAIL_PAGE = `<html><body><article>
+  <h1 class="entry-title">Hump D’Throwdown</h1>
+  <div class="entry-content"><div class="em em-view-container">
+    <div class="em pixelbones em-item em-item-single em-event em-event-single">
+      <div style="float:right">Map Unavailable</div>
+      <p><strong>Date/Time</strong><br>Date(s) - Wednesday - 11/25/2026 - Thursday - 11/26/2026<br><i>6:30 pm - 1:30 am</i></p>
+      <p><strong>Location</strong><br><a href="/?location=x">Bowlero</a></p>
+      <p><strong>Categories</strong></p><p>No Categories</p>
+      <br style="clear:both">
+      <p>Casey Moores</p>
+      <p>2 hashes, 1 night… long night</p>
+      <p>Hares: Just Sean</p>
+    </div>
+  </div></div>
+</article></body></html>`;
+
+describe("fetchEventDetail — Events Manager template (#3136)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("keeps only the event's notes, without the map box, Date/Time, Location or Categories", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(EM_DETAIL_PAGE, { status: 200 }));
+    const detail = await fetchEventDetail("https://www.phoenixhhh.org/?event=hump-dthrowdown");
+    expect(detail.description).toBe("Casey Moores\n\n2 hashes, 1 night… long night\n\nHares: Just Sean");
+    expect(detail.hares).toBe("Just Sean");
+  });
+
+  it("leaves a page without the template unchanged", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(SAMPLE_DETAIL_PAGE_HTML, { status: 200 }));
+    const detail = await fetchEventDetail("https://www.phoenixhhh.org/?event=lbh-744");
+    expect(detail.description).toContain("Hare(s):");
+    expect(detail.description).toContain("Where:");
+  });
+});
+
+describe("PhoenixHHHAdapter.fetch — strict routing and previews (#3103)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(Date.UTC(2026, 10, 15, 12, 0, 0)));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  const run = async (monthHtml: string, config: Record<string, unknown>) => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = typeof input === "string" ? input : (input as Request).url;
+      // Detail pages carry no template-free content here; list-view values stand.
+      if (url.includes("?event=")) return new Response("<html><body></body></html>", { status: 200 });
+      return new Response(url.includes("page_id") ? monthHtml : "", { status: 200 });
+    });
+    const source = { id: "phx", url: "https://www.phoenixhhh.org/?page_id=21", config: { ...DEFAULT_CONFIG, maxForwardMonths: 1, ...config } } as unknown as Source;
+    return new PhoenixHHHAdapter().fetch(source, { days: 30 });
+  };
+
+  const month = [
+    fullEntry("wrong-way-1172-mostus-thankful", "Wrong Way #1172: Mostus Thankful", "11/21/2026"),
+    fullEntry("jhot-666-69-pucker-down-low", "JHOT #666.69: Pucker Down Low", "11/24/2026"),
+    preview("wrong-way-1172-mostus-thankful", "Wrong Way #1172: Mostus Thankful", "21 Nov 26"),
+    preview("jhot-666-69-pucker-down-low", "JHOT #666.69: Pucker Down Low", "24 Nov 26"),
+  ].join("");
+
+  it("folds each preview into its entry and skips hashes that match no kennel", async () => {
+    const result = await run(month, { strictKennelRouting: true });
+    expect(result.events.map((e) => [e.date, e.kennelTags[0], e.title])).toEqual([
+      ["2026-11-21", "Wrong Way", "Wrong Way #1172: Mostus Thankful"],
+    ]);
+    expect(result.errors).toEqual([]);
+    expect(result.diagnosticContext).toMatchObject({ skippedUnmatched: 1 });
+  });
+
+  it("still files unmatched hashes under the default kennel without strict routing", async () => {
+    const result = await run(month, {});
+    expect(result.events.map((e) => [e.kennelTags[0], e.title])).toEqual([
+      ["Wrong Way", "Wrong Way #1172: Mostus Thankful"],
+      ["Wrong Way", "JHOT #666.69: Pucker Down Low"],
+    ]);
+  });
+
+  it("reports an event it can't title, so reconcile skips the scrape", async () => {
+    const untitled = `<div class="em-item"><div class="em-item-meta-line em-event-date">Monday - 11/23/2026</div></div>`;
+    const result = await run(untitled, { strictKennelRouting: true });
+    expect(result.events).toEqual([]);
+    expect(result.errors).toEqual([expect.stringContaining("2026-11-23: event has no title")]);
+  });
+});
+
+describe("seeded Phoenix kennel patterns (#3103)", () => {
+  const phoenix = SOURCES.filter((s) => s.name.startsWith("Phoenix H3"));
+  const routeOf = (config: unknown, title: string) =>
+    (config as { kennelPatterns: [string, string][] }).kennelPatterns.find(([p]) => new RegExp(p, "im").test(title))?.[1];
+
+  it("covers both sources, with strict routing", () => {
+    expect(phoenix.map((s) => [s.name, (s.config as { strictKennelRouting?: boolean }).strictKennelRouting])).toEqual([
+      ["Phoenix H3 Events", true],
+      ["Phoenix H3 Big Ass Calendar", true],
+    ]);
+  });
+
+  it.each([
+    ["LBH #772", "lbh-phx"],
+    ["Wrong Way #1172: Mostus Thankful", "wrong-way"],
+    ["Wrong Way #1170: Hump Day Hangover", "wrong-way"],
+    ["Hump D’Throwdown", "hump-d"],
+    ["Hump Hash – Saltfire", "hump-d"],
+    ["One Last Hump for ’25: Cornish Tempe", "hump-d"],
+    ["FDTDD March Night Run", "fdtdd"],
+    ["JHOT #666.69: Pucker Down Low", undefined],
+    ["Phoenix PBR Hash #98AT", undefined],
+    ["Full Bieber Moon Hash", undefined],
+  ])("routes %j to %s", (title, kennel) => {
+    for (const s of phoenix) expect(routeOf(s.config, title)).toBe(kennel);
   });
 });
