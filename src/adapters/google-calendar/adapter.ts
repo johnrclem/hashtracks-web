@@ -2751,17 +2751,25 @@ function mergeRawEventInPlace(target: RawEventData, donor: RawEventData): void {
   }
 }
 
-const RUN_NUMBER_TOKEN_RE = /#\s*(\d+)\b/g;
+/** "#760" or a bare "760" (HCH3 writes "Trail 650"); "399.1" is a sub-run, not run 399. */
+const RUN_NUMBER_TOKEN_RE = /(?:#\s*)?\d+(?:\.\d+)?/g;
+const WORD_CHAR_RE = /\w/;
 
-/** The title without its "#<run>" token and the space before it; other "#N" tokens stay. */
+/** The title without its run number and the space before it; other numbers stay. */
 function stripRunToken(title: string | undefined, run: number): string | undefined {
   if (!title) return undefined;
   let kept = "";
   let rest = 0;
   for (const match of title.matchAll(RUN_NUMBER_TOKEN_RE)) {
-    if (Number(match[1]) !== run) continue;
-    kept += title.slice(rest, match.index).trimEnd();
-    rest = match.index + match[0].length;
+    const token = match[0];
+    const start = match.index;
+    const end = start + token.length;
+    const digits = token.replace("#", "").trim();
+    const standalone = (token.startsWith("#") || !WORD_CHAR_RE.test(title[start - 1] ?? ""))
+      && !WORD_CHAR_RE.test(title[end] ?? "");
+    if (!standalone || digits.includes(".") || Number(digits) !== run) continue;
+    kept += title.slice(rest, start).trimEnd();
+    rest = end;
   }
   return (kept + title.slice(rest)).trim() || undefined;
 }
@@ -2781,7 +2789,7 @@ function isPlaceholderHare(hares: string | null | undefined): boolean {
  * series repeats one run number on every occurrence, so the same number lands on
  * many dates. On the placeholder occurrences ("???" / "Hare TBD") of a series whose run
  * number repeats across dates, that number is the template's, not the run's: clear
- * it (explicit null) and take "#N" out of the title. Occurrences with a real hare,
+ * it (explicit null) and take the number out of the title. Occurrences with a real hare,
  * and one-off events outside the series, keep theirs. Returns how many were cleared.
  * Known trade-off: a real run that still shows "???" loses its number too until a
  * hare is posted, since nothing else tells it apart from the template's copies.

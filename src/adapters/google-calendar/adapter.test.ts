@@ -6947,13 +6947,18 @@ describe("clearTemplateRunNumbers (#2994)", () => {
     for (const e of events) expect(e).toMatchObject({ runNumber: null, title: "Hill Country H3 Trail WARNO" });
   });
 
-  it("takes only the cleared number out of the title", () => {
+  it("takes only the cleared number out of the title, with or without '#'", () => {
     const events = [
       ev("2027-02-20", { title: "Trail #760: WARNO #2 of 3" }),
       ev("2027-03-06", { title: "#760" }),
+      ev("2027-03-20", { title: "Hill Country H3 Trail 760 WARNO (760.5 km, 7600 ft, Run760)" }),
     ];
-    expect(clearTemplateRunNumbers(events)).toBe(2);
-    expect(events.map((e) => e.title)).toEqual(["Trail: WARNO #2 of 3", undefined]);
+    expect(clearTemplateRunNumbers(events)).toBe(3);
+    expect(events.map((e) => e.title)).toEqual([
+      "Trail: WARNO #2 of 3",
+      undefined,
+      "Hill Country H3 Trail WARNO (760.5 km, 7600 ft, Run760)",
+    ]);
   });
 
   it("keeps the number on a one-off event, a real or unlisted hare, a single instance or a same-date duplicate", () => {
